@@ -693,7 +693,7 @@ function renderTraceState() {
     const back = document.createElement("button");
     back.type = "button";
     back.className = "ghost small";
-    setLabel(back, "ph:arrow-u-up-left Undo");
+    setLabel(back, "ph:arrow-counter-clockwise Undo");
     back.title = "Unpick the last note";
     back.addEventListener("click", () => {
       // One step back, not a reset. Mis-clicking the second note should not

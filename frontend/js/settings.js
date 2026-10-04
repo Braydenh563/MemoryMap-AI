@@ -1948,7 +1948,7 @@ function savedThemeCard(theme) {
   name.className = "saved-look-name";
   name.textContent = theme.name;
   name.title = theme.name;
-  const remove = smallButton("ph:x", `Delete “${theme.name}”`, () => {
+  const remove = smallButton("ph:trash", `Delete “${theme.name}”`, () => {
     deleteSavedTheme(theme.name).catch((e) => toast(e.message, true));
   });
   remove.classList.add("ghost", "icon-button", "saved-look-delete");

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Icons: one icon per action: deleting a backup or a saved look is the trash can (it was a cross), Rename is the plain pencil in the file menu, and the graph's Undo is the counter-clockwise arrow the rest of the app uses (INBOX 506).
 - Icons: the scroll-to-top and jump-to-newest buttons, the Models connection note, the live-log pill, the duplicate finder's Merge button, the callout fold chevron and one help line are Phosphor icons now, not typed arrows, dots and symbols (INBOX 506).
 - Icons: the marks drawn by CSS (plan-step ticks and crosses, retry, replan and paging marks, the chat title's pencil, the timeline's sort arrows, the active-item check in menus, the two disclosure carets) are Phosphor icons now, not typed characters, so they share the icon font's size, weight and alignment (INBOX 506).
 - Notes: a card's text sits further in from its edge and its metadata steps back: the category reads muted at the body weight and link chips are muted until pointed at, so the note's words lead.

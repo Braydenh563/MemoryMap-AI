@@ -1362,7 +1362,7 @@ function attachmentCard(spec) {
   const editable = !!(spec.textarea || spec.staged || (spec.attachment && spec.onChange));
   if (canOpen) add("open", `ph:${playable ? "play" : "arrow-square-out"} ${playable ? "Play" : "Open"}`, open.title, "open");
   if (stored) add("download", "ph:download-simple Download", `Save “${label}” to this computer`, "open");
-  if (spec.textarea || (spec.attachment && spec.onChange)) add("rename", "ph:pencil-simple-line Rename…", "Change the name this file is shown under", "edit");
+  if (spec.textarea || (spec.attachment && spec.onChange)) add("rename", "ph:pencil-simple Rename…", "Change the name this file is shown under", "edit");
   if (stored && !playable) {
     const off = aiIsOff();
     add("describe", "ph:sparkle Describe with AI", off ? `Describing a file needs the local AI. ${AI_OFFLINE_HINT}.` : "Write a short description of this file with the local AI", "edit", { disabled: off });

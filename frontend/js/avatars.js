@@ -6347,11 +6347,26 @@ function nameMarkBuddyEnter(buddy, spot) {
   nmb.cameFrom = 0;
   const fromLeft = side ? side < 0 : x < innerWidth / 2;
   const reach = fromLeft ? x : innerWidth - x - NMB_W;
-  let how = "materialise";
-  if (spot.kind === "hang" || spot.pose === "hang") how = "down";
-  else if (spot.kind === "bar" || y + NMB_H > innerHeight - 110) how = "up";
-  else if (reach < edge) how = "walk";
-  else if (side && reach < innerWidth * 0.5) how = "glide";
+  //: **Not the same way twice** (INBOX 501, the owner: "it just kinda
+  //: appears and there is no smooth or creative animation for it to
+  //: happen, or even differences on how it gets there"). The same perch
+  //: chose the same entrance every time: on the dashboard, hanging from
+  //: the top bar, the climb down five times in five (companionarrive.js).
+  //: Each place now has the ways that suit it, and the one it used last is
+  //: left out when there is another: hanging, down from the bar or
+  //: gathering out of starlight; on the bottom bar, up over it or
+  //: gathering; near a side, walking on, gliding in or gathering; further
+  //: in, gliding in from the side it came from or gathering.
+  let ways;
+  if (spot.kind === "hang" || spot.pose === "hang") ways = ["down", "materialise"];
+  else if (spot.kind === "bar" || y + NMB_H > innerHeight - 110) ways = ["up", "materialise"];
+  else if (reach < edge) ways = ["walk", "glide", "materialise"];
+  else if (reach < innerWidth * 0.5) ways = ["glide", "materialise"];
+  else ways = ["materialise"];
+  const fresh = ways.filter((w) => w !== nmb.lastEnter);
+  const pick = fresh.length ? fresh : ways;
+  const how = pick[Math.floor(Math.random() * pick.length)];
+  nmb.lastEnter = how;
   buddy.dataset.route = `enter-${how}`;
   if (how === "glide") {
     const dx = fromLeft ? -(x + NMB_W + 12) : innerWidth - x + 12;
@@ -6413,7 +6428,9 @@ function nameMarkBuddyEnter(buddy, spot) {
     const at = (t, frame) => ({ translate: `0px ${t}px`, clipPath: clip(t), ...frame });
     nmb.anim = buddy.animate([
       at(from, { opacity: 0 }),
-      at(Math.round(from * 0.45), { opacity: 1, offset: 0.3 }),
+      //: Faded up over its first half (INBOX 501): over a third, 216ms,
+      //: it read as appearing rather than climbing out.
+      at(Math.round(from * 0.35), { opacity: 1, offset: 0.5 }),
       at(how === "down" ? 4 : -5, { offset: 0.78 }),
       at(0, {}),
     ], { duration, easing: "ease-in-out" });

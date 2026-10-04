@@ -562,7 +562,9 @@ def test_it_follows_a_tab_change_only_once_you_stay_and_comes_in_smoothly():
     assert "NMB_DWELL_MS + Math.random() * NMB_DWELL_JITTER_MS" in changed
     assert "if (!nmb.tab || tab === nmb.tab)" in changed
     enter = _fn("nameMarkBuddyEnter")
-    for how in ('how = "down"', 'how = "up"', 'how = "walk"', 'let how = "materialise"'):
+    # The ways it can come (INBOX 501 made the choice varied; see the test
+    # of not the same way twice).
+    for how in ('"down"', '"up"', '"walk"', '"materialise"', 'how === "down"', 'how === "walk"'):
         assert how in enter, how
     for guard in ("nameMarkBuddyBeat", "nameMarkBuddyCheck"):
         assert "nmb.away" in _fn(guard), guard
@@ -1349,7 +1351,10 @@ def test_the_way_there_is_chosen_by_the_shape_of_the_move() -> None:
     # Into a tab from the side of the tab it left.
     assert "nmb.cameFrom = nameMarkBuddyTabSide(nmb.tab, tab);" in _fn("nameMarkBuddyTabChanged")
     enter = _fn("nameMarkBuddyEnter")
-    assert 'else if (side && reach < innerWidth * 0.5) how = "glide";' in enter
+    # The side it glides in from is the tab's it left (INBOX 501 lets it
+    # glide in from the nearer edge at a start too).
+    assert "const fromLeft = side ? side < 0 : x < innerWidth / 2;" in enter
+    assert 'else if (reach < innerWidth * 0.5) ways = ["glide", "materialise"];' in enter
 
 
 def test_its_limbs_move_with_it() -> None:
@@ -1446,3 +1451,21 @@ def test_an_act_or_a_walk_is_let_go_not_dropped():
     assert 'a.id !== "nmb-blend"' in _fn("nameMarkBuddyTempo")
     css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
     assert "transition: transform calc(var(--motion-slow) * 3) var(--ease-in-out);" in css
+
+
+def test_it_comes_on_screen_a_way_that_suits_the_place_and_not_the_same_twice():
+    """INBOX 501, the owner: "when atlas or the companion appears on the
+    screen it just kinda appears and there is no smooth or creative
+    animation for it to happen, or even differences on how it gets there".
+    The same perch chose the same entrance every time (the climb down from
+    the top bar five times in five on the dashboard, faded up in 136 to
+    200ms; companionarrive.js). Each place has the ways that suit it, the
+    last one is left out when there is another, and the climb fades up over
+    its first half."""
+    enter = _fn("nameMarkBuddyEnter")
+    assert 'ways = ["down", "materialise"]' in enter and 'ways = ["up", "materialise"]' in enter
+    assert 'ways = ["walk", "glide", "materialise"]' in enter
+    assert "const fresh = ways.filter((w) => w !== nmb.lastEnter);" in enter and "nmb.lastEnter = how;" in enter
+    assert "opacity: 1, offset: 0.5 }" in enter
+    # Reduced motion still fades in where it is.
+    assert "if (nameMarkBuddyNoTravel()) {" in enter

@@ -254,6 +254,8 @@ with its owner named in the entry.
 
 ## Placed (last 20, newest first)
 
+- 2026-10-04: 528 (the knowledge graph, better than Obsidian and Notion)
+  placed in GRAPH_PLAN.md, "The knowledge graph, 2026-10-04".
 - 2026-09-13: 128 placed in DOCUMENTS_PLAN.md.
 - 2026-09-13: 162, 159 placed in WORLD_CLASS_PLAN.md.
 - 2026-09-13: 165, 164 placed in UI_MODERNISATION_PLAN.md.

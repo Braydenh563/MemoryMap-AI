@@ -34,11 +34,6 @@ with its owner named in the entry.
 
 ## Open items
 
-469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it
-     possible to have the arms and legs be used a bit for various position,
-     action etc changes and transitions??" Placed: with 455 (2) and 462, the
-     companion agent.
-
 466. **The owner, 2026-10-03 night, verbatim, with screenshots (Manage
      categories: a count pill on every row; the expanded companion with its
      resize ring at the top right).** "I think there should also be a clear
@@ -72,10 +67,6 @@ with its owner named in the entry.
      Appearance choice "Assistant avatar: Atlas or the app's emblem", read
      by every bubble (Chat, popup agent, Ask, Atlas help): with the bubble
      agent's follow-up.
-
-462. **The owner, 2026-10-03 night, verbatim.** "also the companion perches
-     dont handle collapsed sidebars at least in the chat tab". Placed: with
-     455 (2), the companion agent.
 
 460. **The owner, 2026-10-03 night, verbatim.** "I keep experiencing scroll
      jump when scrolling with two fingers on my trackpad?? idk". Placed: the
@@ -126,20 +117,6 @@ with its owner named in the entry.
      thinking box appears above the atlas message bubble title and avatar in
      the popup agent. also make sure all the thinking boxes are the same
      style and consistent". Placed: the orchestrator.
-
-455. **The owner, 2026-10-03 night, verbatim, with screenshots (a note's
-     details line: category, 85%, eight hashtags, the date alone on a line
-     under them; four notes whose dates sit at different heights).** "note
-     metadata wraps now and needs a better redesign and structure. also I
-     think the note date should be consistent in where it is on the notes.
-     also I want more and better transitions between positions and moving
-     across different and the same tab(s) for the companion". Placed: (1)
-     the details line redesigned (a fixed structure that never wraps into a
-     ragged second line, tags that collapse to "+N", the date in one place
-     on every card): an Opus agent when a slot frees; (2) companion
-     transitions between perches and across tabs: an Opus agent after (1).
-     (1) built 2026-10-03 (DESIGN.md's note details line recipe, the
-     decision in UI_MODERNISATION_PLAN); (2) open.
 
 453. **The owner, 2026-10-03 night, verbatim.** "Also I think there should
      be a way to open and close the documents editor sidebar when in full

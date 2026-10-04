@@ -36842,4 +36842,29 @@ width, 47% of the column at 1440.
      second line, "In use for background jobs" on a third).** "fix the wrap
      in the suggested model cards in settings". Placed: the badges agent
      (461 (1)).
+## INBOX resolved, 2026-10-04
+
+469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it
+     possible to have the arms and legs be used a bit for various position,
+     action etc changes and transitions??" Placed: with 455 (2) and 462, the
+     companion agent. Built 2026-10-04 (avatars.js `NMB_LIMB_MOVES`, the
+     CSS's "Limbs in motion"; companionroutes.js).
+462. **The owner, 2026-10-03 night, verbatim.** "also the companion perches
+     dont handle collapsed sidebars at least in the chat tab". Placed: with
+     455 (2), the companion agent. Built 2026-10-04
+     (`nameMarkBuddyPerchShown`; companioncollapse.js).
+455. **The owner, 2026-10-03 night, verbatim, with screenshots (a note's
+     details line: category, 85%, eight hashtags, the date alone on a line
+     under them; four notes whose dates sit at different heights).** "note
+     metadata wraps now and needs a better redesign and structure. also I
+     think the note date should be consistent in where it is on the notes.
+     also I want more and better transitions between positions and moving
+     across different and the same tab(s) for the companion". Placed: (1)
+     the details line redesigned (a fixed structure that never wraps into a
+     ragged second line, tags that collapse to "+N", the date in one place
+     on every card): an Opus agent when a slot frees; (2) companion
+     transitions between perches and across tabs: an Opus agent after (1).
+     (1) built 2026-10-03 (DESIGN.md's note details line recipe, the
+     decision in UI_MODERNISATION_PLAN); (2) built 2026-10-04
+     (`nameMarkBuddyRoute`; companionroutes.js).
 

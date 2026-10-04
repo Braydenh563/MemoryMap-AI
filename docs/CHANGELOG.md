@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Notes: the empty state's Ask Atlas offer is one line at 390 ("Ask Atlas where notes go", 192x44; the two-line label was 332x46); the question it sends is unchanged.
 - Chat: the suggestion chips (and Ask's suggested and recent questions) take the touch floor: 44px tall under a coarse pointer or below 820, 28px with a mouse as before (were 28px at 390).
 - Mind maps: a task count on a coloured or filled topic takes the label's ink; the muted grey there measured 4.39:1 on the blue tint.
 - Settings, Logs: the server's line for every request is hidden unless "Show request lines" is on in the log's menu; on a fresh start they were 505 of 510 rows.

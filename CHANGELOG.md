@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The Atlas companion no longer restyles the page every frame at rest: the body's sway, the tail's and the nebula's flow ran as `rotate` and `translate` loops on `<svg>` roots, which Chromium never puts on the compositor, so each cost a style recalc per frame (108ms of every 2.6s idle, now 7ms). They run on a plain box around each root, and the figure looks the same, frame for frame.
 - Appearance, Assistant avatar now reaches Ask's answer, the writing room's draft and the guide's chat rows: each opens with the same reply head as Chat (the Atlas or app emblem face, then the name), repainted live when the setting changes.
 - Toasts raised while a dialog is open (Quick note, any dialog's Undo) now show inside it and can be pressed; they were drawn behind the dialog.
 - Settings, Appearance, Atlas and faces (INBOX 463 (2)): Assistant avatar picks the face on the assistant's chat replies, the popup agent and the Atlas guide: Atlas (the default) or the app's animated emblem, still under Reduce motion. Open replies change as you choose; other personas keep their own faces.

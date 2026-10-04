@@ -2114,6 +2114,7 @@ function atlasTuneStyle(svg) {
 //: pose and mood transforms inside stay static, which costs nothing.
 //: Every layer carries the mood and look attributes, so the CSS variables
 //: agree across them, and the lids layer mirrors the head's tilt.
+const ATLAS_LOOP_BOXES = ["body", "tail", "neb", "neb-front"];
 function atlasDrawFigure(mood) {
   const look = atlasLook();
   const frag = document.createDocumentFragment();
@@ -2147,7 +2148,19 @@ function atlasDrawFigure(mood) {
     const pose = atlasGroup(svg, "atl-pose", ATLAS_GEO.feet);
     const rig = atlasGroup(atlasGroup(pose, "atl-mood", ATLAS_GEO.feet), "atl-rig", ATLAS_GEO.feet);
     layers[name] = { svg, pose, rig };
-    frag.appendChild(svg);
+    //: **A second idle loop goes on a box of its own.** The body's slow
+    //: sway, the tail's and the nebula's flow are `rotate` and `translate`
+    //: loops beside the root's `transform` one, and Chromium never runs
+    //: those two properties on the compositor for an `<svg>` root: each
+    //: restyled the page every frame (140 to 500ms of every 2.6s). On a
+    //: plain HTML box they do, so the root sits in one (`.atl-lw`).
+    if (ATLAS_LOOP_BOXES.includes(name)) {
+      const box = document.createElement("span");
+      box.className = `atl-lw atl-lw-${name}`;
+      box.dataset.atlasLook = look;
+      box.appendChild(svg);
+      frag.appendChild(box);
+    } else frag.appendChild(svg);
   }
   const id = `atl-${look}`;
   atlasMake("title", {}, layers.body.svg);
@@ -2359,7 +2372,7 @@ function atlasApply(svg, mood) {
   //: (08-consistency.css, `.atl-figure-box[data-atlas-mood]`) runs on the
   //: box, one element on the compositor moving every layer together, not
   //: on the `.atl-mood` group inside each layer's svg.
-  const box = svg.classList.contains("atl-layer") ? svg.parentElement : null;
+  const box = svg.classList.contains("atl-layer") ? svg.closest(".atl-figure-box") : null;
   if (box && box.classList.contains("atl-figure-box")) box.dataset.atlasMood = next;
   const name = typeof aiNameNow === "function" ? aiNameNow() : "Atlas";
   const words = ATLAS_MOODS[next].words;

@@ -6151,8 +6151,8 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #nm-buddy[data-pose="lie-2"] .nm-figure { --nmb-lean-pose: calc(-58deg + 116deg * var(--atl-v1)); --nmb-lie-shift: calc(28px - 56px * var(--atl-v1)) -4px; }
 #nm-buddy[data-pose="lie"] .nm-figure { --nmb-lean-pose: calc(-84deg + 168deg * var(--atl-v1)); --nmb-lie-shift: calc(58px - 116px * var(--atl-v1)) -9px; }
 #nm-buddy[data-pose="lie-1"] :is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(20deg - 40deg * var(--atl-v1)); scale: 0.95 0.8; }
-#nm-buddy[data-pose="lie-2"] :is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(52deg - 104deg * var(--atl-v1)); scale: 1.1 0.6; translate: -4px 0; }
-#nm-buddy[data-pose="lie"] :is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(84deg - 168deg * var(--atl-v1)); scale: 1.12 0.6; translate: calc(-9px + 18px * var(--atl-v1)) 0; }
+#nm-buddy[data-pose="lie-2"] :is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(52deg - 104deg * var(--atl-v1)); scale: 1.1 0.6; }
+#nm-buddy[data-pose="lie"] :is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(84deg - 168deg * var(--atl-v1)); scale: 1.12 0.6; }
 #nm-buddy[data-pose="lie"] :is(.atl-layer-fx-1, .atl-layer-fx-2) { rotate: calc(84deg - 168deg * var(--atl-v1)); }
 /* The rings stay level about the head as it lies, a halo rather than a
    hoop stood on end; the stream's haze thins so its bed reads. */
@@ -6223,7 +6223,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #nm-buddy[data-pose="curl"] .atl-figure .nmb-arm-r { transform: rotate(58deg); }
 #nm-buddy[data-pose="curl"] .atl-layer-lower { rotate: -24deg; }
 #nm-buddy[data-pose="curl-1"] :is(.atl-layer-neb, .atl-layer-neb-front) { scale: 0.9; }
-#nm-buddy[data-pose="curl"] :is(.atl-layer-neb, .atl-layer-neb-front) { scale: 0.78 0.7; translate: 0 8px; }
+#nm-buddy[data-pose="curl"] :is(.atl-layer-neb, .atl-layer-neb-front) { scale: 0.78 0.7; }
 
 /* A three-quarter turn (`data-turn`, while it walks, glances or turns):
    the face slides towards that side and the body narrows a touch, which
@@ -7104,7 +7104,9 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    compositor, with its pivot in the box: the body breathes from the feet,
    the tail sways from its root, the lids blink and follow the head's tilt
    and the companion's head turn, the front shimmers. */
-.atl-figure-box > svg {
+/* `.atl-lw` (atlas.js) is the box a root's second idle loop runs on. */
+.atl-figure-box > svg,
+.atl-lw > svg {
   position: absolute;
   left: 0;
   top: 0;
@@ -7143,6 +7145,11 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .nm-atlas.atl-layer-fx-2 { transform-origin: 40px 14px; will-change: transform; }
 .nm-atlas.atl-layer-body { transform-origin: 31px 90px; will-change: transform; }
 .nm-atlas.atl-layer-tail { transform-origin: 34px 60px; will-change: transform; }
+/* The second idle loops' boxes: the same 64 by 92 and the same pivots. */
+.atl-figure-box > .atl-lw { position: absolute; left: 0; top: 0; width: 64px; height: 92px; }
+.atl-lw-body { transform-origin: 31px 90px; will-change: rotate; }
+.atl-lw-tail { transform-origin: 34px 60px; will-change: rotate; }
+.atl-lw-neb, .atl-lw-neb-front { transform-origin: 31px 52px; will-change: translate; }
 .nm-atlas.atl-layer-front { will-change: opacity; }
 .nm-atlas.atl-layer-lids { transform-origin: 31px 37px; opacity: 0; will-change: opacity; transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(var(--atl-tune-head)); scale: var(--atl-open); transition: rotate var(--motion-slow) var(--ease-out); }
 .nm-atlas.atl-layer-lids .atl-head { transform: none; }
@@ -7173,7 +7180,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate: calc(var(--nmb-ex) * 1.6px) calc(var(--nmb-ey) * 1.2px); transition: translate var(--motion-fast) var(--ease-out); }
 #nm-buddy .nm-atlas .atl-iris { transition-duration: calc(var(--motion-slow) * 3); }
 /* Off screen or on a hidden tab, every loop stops. */
-.atl-figure-box.atl-off :is(.nm-atlas, .nm-atlas *), .atl-figure-box.atl-off, :root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *), :root[data-atlas-hidden] .atl-figure-box { animation-play-state: paused !important; }
+.atl-figure-box.atl-off :is(.nm-atlas, .nm-atlas *, .atl-lw), .atl-figure-box.atl-off, :root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *, .atl-lw), :root[data-atlas-hidden] .atl-figure-box { animation-play-state: paused !important; }
 /* Round 7: the planets on the rings go round (atlas.js, `atlasOrbits`):
    each one is a small disc outside the drawing's svg, on three nested
    boxes at the figure's top left, so its turn is the compositor's. The
@@ -8168,17 +8175,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     /* The layered figure: the same loops on the layer roots, and none of
        them inside (each would lay the drawing out every frame). */
     &.atl-layer-body { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite; }
-    /* Round 9: the masculine body also sways a degree on a slower clock
-       (the `rotate` property, beside the breath's transform), so he never
-       stands rigid; the wisps under him drift on their own. */
-    &.atl-layer-body[data-atlas-look="masculine"] { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite, atl-idle-sway 7.2s ease-in-out infinite alternate; }
-    /* Idle per look: she sways too, softer and slower than he does, on her
-       own clock, so the two looks never move in step. */
-    &.atl-layer-body[data-atlas-look="feminine"] { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite, atl-idle-sway-soft 9.4s ease-in-out infinite alternate; }
-    /* Round 9: a second, slower sway on the tail's root on a period that
-       never lines up with the swish, so its flow does not repeat; the
-       `rotate` property adds to the swish's transform, both compositor. */
-    &.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite, atl-tail-flow 8.3s ease-in-out infinite alternate; }
+    &.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite; }
     &.atl-layer-lids { animation: atl-blink-lids 9s linear var(--nm-delay) infinite; }
     &.atl-layer-front { animation: atl-shimmer 5.6s ease-in-out infinite; }
     /* Round 6: the feminine skirt's slow drift and the nebula's, wherever
@@ -8186,9 +8183,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
        companion's walk, carry and kick out-rank the skirt's with their own
        rules (they name #nm-buddy). */
     &.atl-layer-lower { animation: atl-skirt-idle 5.6s ease-in-out infinite alternate; }
-    /* Round 9: the orbit's drift and a slower lift and settle (the
-       `translate` property) out of step with it, on both halves alike. */
-    &:is(.atl-layer-neb, .atl-layer-neb-front) { animation: atl-neb-drift 13s ease-in-out infinite alternate, atl-neb-flow 7.7s ease-in-out infinite alternate; }
+    &:is(.atl-layer-neb, .atl-layer-neb-front) { animation: atl-neb-drift 13s ease-in-out infinite alternate; }
     &[data-atlas-mood="happy"].atl-layer-tail, &[data-atlas-mood="delighted"].atl-layer-tail, &[data-atlas-mood="love"].atl-layer-tail, &[data-atlas-mood="laughing"].atl-layer-tail { animation: atl-wag 0.8s ease-in-out infinite alternate; }
     &.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-mane, .atl-tail-swish, .atl-ring-drift, .atl-ring-glint, .atl-aura, .atl-core-glow, .atl-mood, .atl-float) { animation: none; }
     &[data-atlas-mood="love"].atl-layer-fx-1 { animation: atl-rise 2.6s ease-out infinite; }
@@ -8263,6 +8258,26 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   }
 }
 
+/* Round 9's second idle loops, on the `.atl-lw` boxes (atlas.js): he sways a
+   degree on a slower clock than his breath so he never stands rigid, she
+   softer and slower on her own, the tail flows out of step with its swish,
+   the nebula lifts and settles. They are `rotate` and `translate`, which
+   Chromium runs on the compositor for a box and never for an `<svg>` root,
+   where each restyled the page every frame (companioncost.js). The same
+   gates as the figure's other loops; the happy tail's wag has none. */
+@media all {
+  :is(
+    :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-live,
+    :root[data-buddy-motion="full"]:not([data-avatar-motion="off"]) #nm-buddy .nm-live
+  ) {
+    & .atl-lw-body[data-atlas-look="masculine"] { animation: atl-idle-sway 7.2s ease-in-out infinite alternate; }
+    & .atl-lw-body[data-atlas-look="feminine"] { animation: atl-idle-sway-soft 9.4s ease-in-out infinite alternate; }
+    & .atl-lw-tail { animation: atl-tail-flow 8.3s ease-in-out infinite alternate; }
+    & .atl-lw-neb, & .atl-lw-neb-front { animation: atl-neb-flow 7.7s ease-in-out infinite alternate; }
+    &:is([data-atlas-mood="happy"], [data-atlas-mood="delighted"], [data-atlas-mood="love"], [data-atlas-mood="laughing"]) .atl-lw-tail { animation: none; }
+  }
+}
+
 /* The system's reduced-motion hint: every loop slows right down and keeps
    what it says.
    `!important` because the loops are declared under the motion gates
@@ -8288,10 +8303,12 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     animation-duration: 9s !important;
   }
   /* The layered figure's loops (atlas.js, `atlasDrawFigure`) slow the same way. */
+  .atl-lw-body[data-atlas-look="masculine"] { animation-duration: 14s !important; }
+  .atl-lw-body[data-atlas-look="feminine"] { animation-duration: 16s !important; }
+  .atl-lw-tail { animation-duration: 9s !important; }
+  .atl-lw-neb, .atl-lw-neb-front { animation: none !important; }
   .nm-atlas {
     &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
-    &.atl-layer-body[data-atlas-look="masculine"] { animation-duration: 9s, 14s !important; }
-    &.atl-layer-body[data-atlas-look="feminine"] { animation-duration: 9s, 16s !important; }
     /* Round 6: the skirt drifts slower still; the nebula holds still. */
     &.atl-layer-lower { animation-duration: 12s !important; }
     /* Round 9: the hair's flow holds still with it; the tail's second

@@ -46,9 +46,15 @@ with its owner named in the entry.
      of improve and redesign the ui/ux for the application." (with the eight
      design skills named). **The icon fixed**: a pressed or active
      quiet button's leading icon takes its label's colour (white on the
-     accent in light, near-black in dark; it stayed accent on accent). Then a contrast sweep that
-     also reads icons and SVG strokes (contrast.js reads text), and another
-     skills-guided UI round by surface: agents.
+     accent in light, near-black in dark; it stayed accent on accent). **The
+     non-text contrast sweep is built and its findings fixed**:
+     `scratchpad/ui-sweeps/contrastui.js` (icons, SVG icons, focus rings,
+     fields, selected states, chips, text outside `.tab-page`; every tab,
+     sub-tab, Settings section and overlay; 1440 and 390, both themes,
+     `CONTRAST=on`, `LOOK=`). Default look: 79 findings at 1440 light, 74 dark,
+     51 and 49 at 390, now 0 but the 4 to 6 borderless writing surfaces, kept
+     as a decision (DESIGN.md recipe index, `--control-edge`). Still open here:
+     another skills-guided UI round by surface: agents.
 
 463. **The owner, 2026-10-03 night, verbatim, with a screenshot (the
      whiteboard's Library panel: note rows "The Complete Social Skills Guide

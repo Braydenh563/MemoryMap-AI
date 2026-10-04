@@ -3059,6 +3059,7 @@ kbd {
   --muted: var(--ink);
   --border: currentColor;
   --glass-border: var(--ink);
+  --control-edge: var(--ink);
 }
 
 :root[data-contrast="on"] .card,

@@ -354,6 +354,16 @@ select optgroup {
      ground it stands on: 3.2:1 on a light card, 3.0:1 on the grey well of a
      settings group or the reminder form (btnshots.js). */
   --ghost-btn-border: rgba(31, 36, 48, 0.52);
+  /* **The edge of anything you aim at, at 3:1** (WCAG 1.4.11; INBOX 464, "there
+     is still some colour contrast issues"; scratchpad/ui-sweeps/contrastui.js).
+     One name for the quiet button's measured hairline, so a text field, a
+     selected segment and an interactive chip draw the same edge instead of
+     three near-misses: fields used `--border` mixed 25% with ink and measured
+     1.4 to 2.3:1 on a card, a selected segment drew an 8% ring at 1.25:1.
+     Light is 0.58, a step darker than the quiet button's 0.52: a field sits
+     on a settings group's grey well as often as on a card, and 0.52 measured
+     2.91:1 there in the Paper look. Dark restates the button's own 0.40. */
+  --control-edge: rgba(31, 36, 48, 0.58);
   /* Where a quiet button rests: near-white with a breath of the accent.
      Plain white (0.72) was the field's own face, and the owner's screenshot
      of the reminder form showed why that fails: "Add" beside the magic-add
@@ -926,6 +936,7 @@ select,
   --chip-bg: rgba(255, 255, 255, 0.08);
   --ghost-btn-bg: rgba(255, 255, 255, 0.16);
   --ghost-btn-border: rgba(255, 255, 255, 0.4);
+  --control-edge: rgba(255, 255, 255, 0.4);
   --btn-quiet-bg: color-mix(in srgb, var(--accent) 6%, rgba(255, 255, 255, 0.045));
   --ghost-btn-bg-hover: rgba(255, 255, 255, 0.24);
   --row-hover-bg: rgba(255, 255, 255, 0.08);
@@ -1005,6 +1016,7 @@ select,
     --chip-bg: rgba(255, 255, 255, 0.08);
     --ghost-btn-bg: rgba(255, 255, 255, 0.16);
     --ghost-btn-border: rgba(255, 255, 255, 0.4);
+    --control-edge: rgba(255, 255, 255, 0.4);
     --btn-quiet-bg: color-mix(in srgb, var(--accent) 6%, rgba(255, 255, 255, 0.045));
     --ghost-btn-bg-hover: rgba(255, 255, 255, 0.24);
     --row-hover-bg: rgba(255, 255, 255, 0.08);

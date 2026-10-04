@@ -1046,6 +1046,13 @@ button.map-chip:focus-visible {
   background: var(--accent-soft);
 }
 
+/* Muted words on the lit row's tint fell to 3.5 to 4.4:1 in most looks (the
+   keycap and the one-line description, contrastui.js, INBOX 464): on the
+   row that is being chosen they take the ink. */
+.rich-picker-row.active :is(.rich-picker-about, .rich-picker-keys) {
+  color: var(--ink);
+}
+
 /* A row that is a button (a dialog of choices walked by Tab): the browser's
    own button paint taken off so it is the same row, and the fill follows the
    pointer and the keyboard's focus, since there is no `.active` to move. */

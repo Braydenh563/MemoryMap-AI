@@ -1043,6 +1043,24 @@ HELP_TOPICS.extend(
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
+        #: INBOX 486, the owner on a callout: "I have no clue how to use these
+        #: things". Its own entry: the documents entry is at the reply cap.
+        {
+            "id": "callouts",
+            "keywords": (
+                "callout", "callouts", "change the kind", "note box", "warning box",
+                "tip box", "admonition", "collapsible callout",
+            ),
+            "body": (
+                "Callouts: type / in a document or a note and pick Note, Tip, Warning "
+                "or another kind. The box is tinted by its kind and its icon names "
+                "it; click the icon to change the kind or to make the box fold. The "
+                "first line, after the icon, is the title, written like any text, "
+                "and the lines under it are the body (an empty body says what goes "
+                "there). Source view shows the markdown: > [!tip] Title."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
         {
             "id": "graph-controls",
             "keywords": (

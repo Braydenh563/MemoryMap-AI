@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Callouts in the Live view show their kind once: the icon (with a caret, the kind picker) and the title as the line's own text, no ">" or "[!note]" even with the caret on the line, and an empty body says what goes there ("Write the note"). The "/" menu no longer writes a stock question into the body, and the Guide has a Callouts entry.
 - The "m" guide is a command panel: Go to and Do as rows with an icon, the name and the key in one column of key chips, the tab you are on marked, the Close in its head and a hint line at its foot. Every key does what it did.
 - Chat: the Attach panel is redesigned: one height for every source, a count on each source's tab, rows with an icon or the file's own glyph, the name over one line of facts and a check that fills when the row is on, pictures as a grid, loading and empty states, and keys (arrows, Space, Enter is Done, Escape). The search no longer draws a second box over itself when it is not focused, Clear also takes off pictures, a note's picture is sent as the file it is, and a new document shows the next time the panel opens.
 - Notifications: one notification can be removed with the cross beside its read circle; a removed overdue reminder stays removed.

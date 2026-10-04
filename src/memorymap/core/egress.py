@@ -98,7 +98,9 @@ _io_lock = threading.Lock()
 # True from the moment `_record` queues a flush job until that job has
 # taken what is pending: a bare flag, so the hook asks the pool for at most
 # one job per burst and takes no lock to find out.
-_flush_queued = False
+# (A one-key dict rather than a module global: the flag is set and read
+# across functions and threads, and a container needs no `global`.)
+_flush = {"queued": False}
 _ledger_path: Path | None = None
 _recent: deque = deque(maxlen=MAX_RECENT)
 # The last name each thread looked up, so a connect to an address can say
@@ -258,9 +260,9 @@ def installed() -> bool:
 
 def reset() -> None:
     """Forget this launch's record (tests; the hook stays installed)."""
-    global _since, _flush_queued
+    global _since
     with _lock:
-        _flush_queued = False
+        _flush["queued"] = False
         _destinations.clear()
         _flush_state.clear()
         _recent.clear()
@@ -337,11 +339,11 @@ def configure(path: Path | None) -> None:
     From here on a connection that leaves this computer queues one flush job
     (`_schedule_flush`). `None` stops that (tests).
     """
-    global _ledger_path, _flush_queued
+    global _ledger_path
     with _lock:
         _ledger_path = path
         # A previous app's pool may have dropped its queued job at shutdown.
-        _flush_queued = False
+        _flush["queued"] = False
 
 
 def _schedule_flush() -> None:
@@ -353,23 +355,21 @@ def _schedule_flush() -> None:
     the flag *before* flushing, so one that lands during the write queues the
     next job rather than waiting for shutdown.
     """
-    global _flush_queued
-    if _ledger_path is None or _flush_queued:
+    if _ledger_path is None or _flush["queued"]:
         return
-    _flush_queued = True
+    _flush["queued"] = True
     try:
         from memorymap.core import jobs
 
         if not jobs.enqueue("ledger", _flush_job, name="privacy ledger", dedupe_key="egress-ledger"):
-            _flush_queued = False  # the pool is shutting down; the quit flushes
+            _flush["queued"] = False  # the pool is shutting down; the quit flushes
     except Exception:  # noqa: BLE001 - the hook must never raise (module docstring)
-        _flush_queued = False
+        _flush["queued"] = False
 
 
 def _flush_job() -> None:
-    global _flush_queued
     time.sleep(FLUSH_DELAY)
-    _flush_queued = False
+    _flush["queued"] = False
     path = _ledger_path
     if path is not None:
         flush(path, create=False)

@@ -68,3 +68,37 @@ def test_documents_refresh_folds_on_a_phone_so_the_help_does_not_cost_a_row():
     # as it does on Boards and maps.
     tag = re.search(r'<button[^>]*id="library-docs-refresh"[^>]*>', HTML).group(0)
     assert "data-fold-narrow" in tag
+
+
+def test_graph_view_menu_is_folded_into_the_gears_panel():
+    assert 'id="graph-view-menu"' not in HTML, "one way in: the gear"
+    dock_start = HTML.index('data-dock-name="graph"')
+    dock = HTML[dock_start : HTML.index('id="graph-selection-dock"', dock_start)]
+    assert not re.search(r"class=\"[^\"]*dock-arrange", dock), "the Graph dock has no arrange zone left"
+    panel = HTML[HTML.index('id="graph-options"') : HTML.index('id="graph-trace"')]
+    section = panel.index('id="graph-view-section"')
+    # The view section is the panel's first, ahead of physics.
+    assert section < panel.index('id="graph-physics"')
+    # Every option the menu offered is still reachable, by the same ids.
+    for ident in ("graph-layout", "graph-colour", "graph-size", "graph-trace-toggle", "graph-legend-toggle"):
+        assert f'id="{ident}"' in panel, ident
+    for value in ("force", "tree", "radial", "arc"):
+        assert f'name="graph-layout" value="{value}"' in panel, value
+    colour = panel[panel.index('id="graph-colour"') : panel.index('id="graph-size"')]
+    for value in ("category", "cluster", "kind", "age", "space", "tag", "file"):
+        assert f'<option value="{value}">' in colour, value
+    # Labelled for keyboard and screen reader users: a label bound to each select.
+    assert 'for="graph-colour"' in panel and 'for="graph-size"' in panel
+    assert 'aria-labelledby="graph-layout-label"' in panel
+
+
+def test_the_options_panel_stays_open_when_a_button_in_it_rewrites_its_own_label():
+    # Legend and Trace sit in the gear's panel and rewrite their own icon and
+    # word (`setLabel`) when pressed, so the clicked `<i>` is detached by the
+    # time the document's outside-click listener runs. Without the
+    # `isConnected` guard that read as a click outside and closed the panel
+    # (found by driving it, graph507.js). The comment is here, not in
+    # wiring.js, because that file sits within bytes of its gzip ratchet.
+    wiring = (INDEX.parent / "js" / "wiring.js").read_text(encoding="utf-8")
+    start = wiring.index('document.addEventListener("click", (event) => {\n  const panel = $("graph-options");')
+    assert "event.target.isConnected" in wiring[start : start + 500]

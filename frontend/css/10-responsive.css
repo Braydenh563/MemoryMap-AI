@@ -2361,11 +2361,11 @@ header#top-bar,
     min-height: var(--target-min);
   }
 
-  /* One way in, and it is the gear. The two `<details>` keep their markup
-     (what is in them moves into the sheet and comes back), so they are
-     hidden rather than emptied: an opener whose menu is somewhere else
-     opens nothing. */
-  #graph-view-menu,
+  /* One way in, and it is the gear. The ⋯ menu keeps its markup (what is in
+     it moves into the sheet and comes back), so it is hidden rather than
+     emptied: an opener whose menu is somewhere else opens nothing. The View
+     menu that used to be hidden here is gone: its rows are the first section
+     of the gear's panel at every width (WORLD_CLASS_PLAN 507). */
   #graph-more-menu {
     display: none;
   }

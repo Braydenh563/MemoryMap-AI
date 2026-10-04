@@ -3122,8 +3122,8 @@ Link to another note with [[its first few words]]."></textarea>
              identity: the title, and the link to the map's own counterpart
              find: search, Trace, and the two "leave this state" buttons
                           that only appear while a state is on
-             arrange: one View menu (layout, colour, legend, the options
-                          panel) and the saved-views select
+             arrange: none now: layout, colour, size, legend and Trace are the
+                          gear panel's first section (WORLD_CLASS_PLAN 507)
              actions: the one filled control, then refresh · help · more
            Layout and Colour are *views* of the same map and change a few times
            a session, so they live behind one menu; Save/Delete view and Export
@@ -3166,64 +3166,11 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="graph-highlight-clear" class="ghost small hidden" title="Clear the similar-notes highlight"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear highlight</button>
             <button id="graph-focus-clear" class="ghost small hidden" title="Exit focus mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit focus</button>
           </div>
-          <div class="dock-group dock-arrange">
-            <details class="doc-dock-menu dock-menu" id="graph-view-menu">
-              <summary class="ghost small doc-dock-menu-btn" title="Layout, colour, legend and Trace"><i class="ph ph-eye ph-lead" aria-hidden="true"></i> View <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
-              <div class="doc-dock-menu-list dock-menu-list">
-                <div class="dock-menu-section">
-                  <span class="muted dock-menu-label" id="graph-layout-label">Layout</span>
-                  <div id="graph-layout" class="segmented-control" role="group" aria-labelledby="graph-layout-label">
-                    <label><input type="radio" name="graph-layout" value="force" checked> Force</label>
-                    <label><input type="radio" name="graph-layout" value="tree"> Tree</label>
-                    <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
-                    <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
-                  </div>
-                </div>
-                <div class="dock-menu-section">
-                  <span class="muted dock-menu-label" id="graph-colour-label">Colour</span>
-                  <!-- GRAPH_PLAN Phase 3: "Colour by" is a rule, not a pair of radios.
-                       The legend follows the rule and every legend entry toggles
-                       the notes it names; groups (below, in display options) paint
-                       over whichever rule is on. -->
-                  <select id="graph-colour" class="ghost small" aria-labelledby="graph-colour-label"
-                    title="What the colours mean">
-                    <option value="category">Category</option>
-                    <option value="cluster">Cluster</option>
-                    <option value="kind">Kind</option>
-                    <option value="age">Age</option>
-                    <option value="space">Space</option>
-                    <option value="tag">First tag</option>
-                    <option value="file">Has a file</option>
-                  </select>
-                </div>
-                <div class="dock-menu-section">
-                  <span class="muted dock-menu-label" id="graph-size-label">Size</span>
-                  <!-- INBOX 430: what a dot's size means. Connections is the
-                       default (a node's lines, the one thing a map shows by
-                       itself); length is the note's words, recency how lately
-                       it was edited, none one size for every note. -->
-                  <select id="graph-size" class="ghost small" aria-labelledby="graph-size-label"
-                    title="What a note's size means">
-                    <option value="connections">Connections</option>
-                    <option value="length">Length</option>
-                    <option value="recency">Recency</option>
-                    <option value="none">None</option>
-                  </select>
-                </div>
-              <!-- **Moved out of the find zone for the seven-control
-                   ceiling** (docks.md section 2, which names this move and the
-                   decision behind it). Trace is a mode, and this menu already
-                   holds the modes: layout, colour, legend, display options.
-                   Nothing about the handlers changes: app.js and graph.js both
-                   reach it as `$("graph-trace-toggle")`, and the `.is-on`
-                   state it sets is drawn by 08-consistency.css. -->
-              <button id="graph-trace-toggle" class="doc-dock-menu-item" type="button" aria-expanded="false"
-                title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
-                <button id="graph-legend-toggle" class="doc-dock-menu-item" type="button"
-                  title="Hide the legend" aria-label="Hide the legend" aria-expanded="true"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> Legend</button>
-              </div>
-            </details>
-          </div>
+          <!-- No arrange zone: the View menu is the first section of the gear's
+               panel now (WORLD_CLASS_PLAN 507, the dock audit: two doors to
+               one set of view settings on the desktop, and the phone had
+               already folded them into the gear's sheet). A zone a surface
+               does not have simply is not there. -->
           <div class="dock-actions">
             <button id="graph-add-node" class="small" title="Add a new note straight onto the map"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</button>
             <button id="graph-refresh" class="ghost small icon-only" type="button" title="Reload the map from your notes" aria-label="Reload the map from your notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
@@ -3345,6 +3292,66 @@ Link to another note with [[its first few words]]."></textarea>
              graph.js, graph-canvas.js and app.js need no wiring. -->
         <div class="graph-options hidden" id="graph-options" role="group"
           aria-label="Map display options">
+          <!-- **The View, first** (WORLD_CLASS_PLAN 507). The menu that held
+               these was a second door to the same settings the gear opens
+               (layout, the colour rule, the size rule, the legend and Trace
+               are all "how the map reads"), and the dock sat at eight controls
+               against the grammar's seven. They are the panel's first section,
+               in the order the phone's sheet already gave them: what the map
+               is, then what it shows, then what is saved. Every id is
+               unchanged, so graph.js, wiring.js and navigation.js reach them
+               as before. Trace is a mode: pressing it closes the panel so the
+               strip it opens is not under it. -->
+          <div class="dock-menu-section graph-view-section" id="graph-view-section"
+            role="group" aria-labelledby="graph-view-label">
+            <span class="muted dock-menu-label" id="graph-view-label">View</span>
+            <div class="graph-option-row">
+              <span id="graph-layout-label">Layout</span>
+              <div id="graph-layout" class="segmented-control" role="group" aria-labelledby="graph-layout-label">
+                <label><input type="radio" name="graph-layout" value="force" checked> Force</label>
+                <label><input type="radio" name="graph-layout" value="tree"> Tree</label>
+                <label><input type="radio" name="graph-layout" value="radial"> Radial</label>
+                <label><input type="radio" name="graph-layout" value="arc"> Arc</label>
+              </div>
+            </div>
+            <!-- GRAPH_PLAN Phase 3: "Colour by" is a rule, not a pair of radios.
+                 The legend follows the rule and every legend entry toggles
+                 the notes it names; groups (below) paint over whichever rule
+                 is on. -->
+            <div class="graph-option-row">
+              <label for="graph-colour" id="graph-colour-label">Colour</label>
+              <select id="graph-colour" class="ghost small" aria-labelledby="graph-colour-label"
+                title="What the colours mean">
+                <option value="category">Category</option>
+                <option value="cluster">Cluster</option>
+                <option value="kind">Kind</option>
+                <option value="age">Age</option>
+                <option value="space">Space</option>
+                <option value="tag">First tag</option>
+                <option value="file">Has a file</option>
+              </select>
+            </div>
+            <!-- INBOX 430: what a dot's size means. Connections is the
+                 default (a node's lines, the one thing a map shows by
+                 itself); length is the note's words, recency how lately
+                 it was edited, none one size for every note. -->
+            <div class="graph-option-row">
+              <label for="graph-size" id="graph-size-label">Size</label>
+              <select id="graph-size" class="ghost small" aria-labelledby="graph-size-label"
+                title="What a note's size means">
+                <option value="connections">Connections</option>
+                <option value="length">Length</option>
+                <option value="recency">Recency</option>
+                <option value="none">None</option>
+              </select>
+            </div>
+            <div class="graph-view-tools">
+              <button id="graph-trace-toggle" class="ghost small" type="button" aria-expanded="false"
+                title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
+              <button id="graph-legend-toggle" class="ghost small" type="button"
+                title="Hide the legend" aria-label="Hide the legend" aria-expanded="true"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> Legend</button>
+            </div>
+          </div>
           <!-- Both sliders feed the force simulation and nothing else, so they
                have no effect under Tree or Radial tree, where positions come
                from the hierarchy. setGraphPhysicsEnabled() disables the whole

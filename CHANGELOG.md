@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Graph: the View menu is gone; layout, colour, size, Trace and the legend are the first section of the gear's panel (Display options), so there is one way in. Pressing Legend no longer closes the panel it is in.
 - Library, Documents on a phone: Reload moves into the dock's more menu, so the new ? does not wrap the dock to a second row (114px, as before).
 - Library, Boards and maps: one New button in the top bar with Whiteboard and Mind map inside it, in place of the two create buttons (the sentence-case rows keep the same keyboard keys, the tour and the Guide say where they went).
 - Reminders: the add card has one worded Add. The sentence box's button is now the wand alone, named Add from this sentence.

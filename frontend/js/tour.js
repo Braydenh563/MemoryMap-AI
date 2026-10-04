@@ -224,20 +224,11 @@ const TOUR_SECTIONS = [
         text: "Type a word and the notes that match it light up on the map.",
       },
       {
-        target: "#graph-view-menu",
-        side: "bottom",
-        tab: "graph",
-        // Below 600 the gear is the one way in (10-responsive.css, Phase 11).
-        media: "(min-width: 600px)",
-        title: "The View menu",
-        text: "View changes the layout, what the colours mean and which notes are drawn.",
-      },
-      {
         target: "#graph-options-toggle",
         side: "bottom",
         tab: "graph",
         title: "Display options",
-        text: "Options set how tightly notes pull together and what the map shows.",
+        text: "Options set the layout, colours, how notes pull together and what the map shows. Trace is here too.",
       },
     ],
   },

@@ -490,177 +490,27 @@ resolved, 2026-10-04"). Arrows default off.
      than both obsidian and notion". Placed here: the phases below (KG1 to
      KG9) are the brief; KG1 and KG2 are built first.
 
-### (a) What exists (read in the code, 2026-10-04)
+Every phase, KG1 to KG9, is built (2026-10-04). The spec as it was written
+((a) what existed, (b) research, (c) the gap table, (d) the target design,
+(e) the build order) moved whole to HISTORY.md, "Moved from the plans,
+2026-10-04 (the knowledge graph, INBOX 528)", beside each phase's Built
+block. What stays here is the standing decisions and what is still open.
 
-| Layer | Where | What it is | Gap |
-| --- | --- | --- | --- |
-| Links | `core/database.py` `EntryLink` | source, target, `reason` (free text), `reason_confidence` (deduced only), `link_type` (closed set of six, `LINK_TYPES`), `origin` ("wiki" or null); `link_strength` weights paths | no properties on a link; no inverse names; a type is undirected in the UI |
-| Wiki links | `entry/manager.py` `sync_wiki_links`, `find_by_wiki_name`, `resolve_links_to`, `rewrite_wiki_name` | `[[name]]` resolves by vault stem then opening line; stale wiki links removed; rename rewrites holders | no aliases; ghosts only on the graph (`routes_graph._add_unresolved_nodes`) |
-| Backlinks | `routes_entries._reference_rows_batch`, `/entries/{id}/connections`, `/references` | incoming notes, "links to it" vs "mentions it" | **no context sentence, no one-click link** for a note (documents have both: `routes_documents._backlinks`, `documents.js` `docLinkMention`) |
-| Threads | `Entry.parent_id` | reply chains, a graph edge kind | fine |
-| Entities | `ai/entities.py` `extract_entities_pass`, `Entity`, `EntityMention`, `routes_graph._add_entity_nodes` | free-text names from the utility model, membership only | no kind, no aliases, no merge, no entity page, no co-mention edge |
-| Dates | `EntryDate` | resolved relative phrases | not a node or a relation |
-| Facts | `DerivedFact` (claim, question) | spans with provenance and lifecycle | not linked to relations |
-| Documents, maps, tags, attachments | `routes_graph._add_document_nodes`, `_add_map_edges`, `_add_tag_nodes`, `_add_attachment_nodes` | opt-in node kinds | fine |
-| Categories, spaces | `Category`, `Space` | one category per note; spaces scope | no per-type fields |
-| Similarity | `routes_graph._similarity_edges` (k=2 per note), `search_engine.cached_similar_pairs` | cosine over stored vectors, cached per matrix version | one signal, one reason string |
-| Suggestions | `routes_entries.link_suggestions` (12 pairs, similarity only), `/tensions` (contradiction via local model), `learning` `dismiss_link` | accept or dismiss | **one signal**, and none at all with embeddings off; no co-mention, co-citation or time; no accept learning |
-| Structure | `paths.clusters` (connected components, a decision), `hubs`, `orphans`, `pagerank`, `/graph/structure` cached | exact islands | no topics inside an island, no names, no summaries |
-| Paths | `/graph/path`, `paths.find_many` | weighted Dijkstra with a per-hop phrase | the phrase is the link reason only |
-| Properties | `core/docmeta.py` (documents' frontmatter, read-only) | none for notes | no fields, no types, no queries |
-| Saved searches | `routes_settings` `saved_searches`, graph groups | text queries, colour groups | no property or relation operators |
+### Still open after KG1 to KG9
 
-### (b) Research (what each does that matters here)
-
-- **Obsidian**: a backlinks pane with linked and unlinked mentions, each
-  with its sentence, and a one-click Link
-  ([Backlinks](https://help.obsidian.md/plugins/backlinks)); properties as
-  typed YAML frontmatter ([Properties](https://help.obsidian.md/properties));
-  Bases, table, cards and list views over properties with filters and
-  formulas ([Bases syntax](https://help.obsidian.md/bases/syntax)); Dataview
-  (community); Canvas; graph groups by query
-  ([Graph view](https://help.obsidian.md/plugins/graph)). Edges are untyped;
-  nothing is inferred.
-- **Notion**: relation properties between database rows, two-way with a
-  named inverse; rollups compute over related rows
-  ([Relations and rollups](https://www.notion.com/help/relations-and-rollups)).
-  No graph, no inference, no unlinked mentions.
-- **Logseq**: block references and embeds, linked and unlinked references
-  per page, queries over properties and tags ([docs](https://docs.logseq.com/)).
-- **Tana**: supertags make a node a typed object with fields; search nodes
-  are live queries over tags and field values
-  ([Supertags](https://tana.inc/docs/supertags), [Fields](https://www.tana.inc/docs/fields),
-  [Search nodes](https://tana.inc/search-nodes)).
-- **Heptabase, Capacities**: object types (Person, Book, Meeting) with their
-  own properties and pages; Heptabase draws only explicit relations and
-  lists inferred ones beside the card.
-- **Knowledge-graph tooling (GraphRAG)**: model-extracted entities and typed
-  relations with descriptions, Leiden communities, a precomputed summary per
-  community ([overview](https://www.mintlify.com/microsoft/graphrag/concepts/overview)).
-  On a small local model the extraction is the expensive, unreliable half
-  and the community pass the cheap, reliable one, which sets the order here.
-
-### (c) Gap table
-
-| Capability | Obsidian | Notion | Here before | Target |
-| --- | --- | --- | --- | --- |
-| Backlinks with the sentence | yes | no | documents only | notes too (KG1) |
-| Unlinked mentions, one-click link | yes | no | documents only | notes too (KG1) |
-| Inferred relations with reasons | no | no | similarity only | five signals, each with reason and confidence (KG2) |
-| Typed directional relations | no | two-way relations | six types, no inverse, no properties | custom types, inverse names, properties (KG3) |
-| Note types with fields | properties | databases | none | types with field templates over frontmatter (KG4) |
-| Entities | no | no | names only | kinds, aliases, merge, entity page, co-mention (KG5) |
-| Communities and summaries | no | no | components only | named topics inside islands, model summary (KG6) |
-| Live queries | Dataview, Bases | filters, rollups | text saved searches | property and relation queries, as list, table and graph (KG7) |
-| Graph by relation type, hulls, path why | partial | no | partial | all three (KG8) |
-| A suggestions inbox that learns | no | no | dismiss only | one inbox; accept and reject reweight signals (KG9) |
-
-### (d) Target design (storage, recognition and cost, API, UI recipe, done-when)
-
-**KG1. Backlinks with context; unlinked mentions to one-click links.**
-Storage: none (read from text). Recognition: the documents scanner moves to
-`entry/mentions.py` (`sentence_around`, `backlink_spans`) and is searched for
-the note's name (opening line, heading marker off); one LIKE narrows, the
-regex decides. Cost: one LIKE over notes and documents, 400 sources at most.
-API: `GET /entries/{id}/backlinks` (`links`, `mentions`, each with `context`,
-`hit_start`, `hit_end`, `start`, `end`); `POST /entries/{id}/mentions/link`
-(`kind`, `id`, `start`, `end`) re-checks the span on the server, rewrites it
-to `[[name]]` and saves through the manager (revision, wiki sync, event). UI:
-two connection groups in the Notes rail, rows on the `.doc-backlink` recipe
-with a `smallButton` Link. Done when: one click turns a mention into a
-stored wiki link and it leaves the mentions list; a moved span answers 409
-and writes nothing.
-
-**KG2. Relationship recognition with explanations.** Storage: none new;
-reads `EntryLink`, `EntityMention`, tags, `created_at`, vectors. Signals,
-each a reason sentence and a 0..1 confidence: similarity (the cached pairs);
-co-mention (shared entities, IDF weighted); co-citation (shared link
-neighbours, Adamic-Adar); shared rare tags (IDF weighted, hub tags out);
-written close in time (support only, never alone). Combined as a noisy-or,
-ranked, one note anchoring two at most. Cost: linear in links and mentions,
-except co-citation, the sum of degree squared. API: `/entries/link-suggestions`
-rows gain `signals: [{signal, reason, confidence}]` and `confidence`, and the
-list is no longer empty with embeddings off. UI: the suggestions panel lists
-the reasons. Done when: a pair joined by two shared entities and a shared
-neighbour is suggested, with both reasons, with the embedding backend off;
-2k notes well under a second, measured.
-
-**KG3. Typed directional relations with properties.** Storage:
-`relation_types` (name, inverse, directed, colour, built_in); `EntryLink`
-gains `props` (JSON text, ADD COLUMN). The six built-ins stay; a person adds
-"part of / has part", "cites / cited by". Recognition: on accept, the
-utility model may propose a type (one call, optional). API:
-`/relation-types` CRUD; link create and patch take `link_type` and `props`.
-UI: the link menu's type picker (`kebabMenu`), the inverse name on the
-incoming row. Done when a custom type survives a backup round trip and shows
-its inverse name.
-
-**KG4. Note types with fields.** Storage: the note's text is the source of
-truth (a `---` frontmatter block, Obsidian-compatible, so an imported vault
-keeps its properties); `entry_properties` (entry_id, key, value, number,
-date) is an index rebuilt on save; `note_types` (name, icon, colour, fields
-JSON: text, number, date, note, list, checkbox); a `type:` property assigns
-one. Cost: a parse per save. API: `/note-types` CRUD,
-`/entries/{id}/properties`. UI: a property table under the note title
-(`.settings-row`), relation fields as note pickers. Done when a vault's
-frontmatter imports as properties and a type adds its fields to a new note.
-
-**KG5. Entity layer.** Storage: `Entity` gains `kind` (person, place,
-project, organisation, thing), `aliases` (JSON), `merged_into`.
-Recognition: the extraction prompt asks for `name|kind`; exact and alias
-matches merge on their own, near matches (token-sort ratio 0.9 or more) go
-to KG9 as merge suggestions. An entity page: mentions with context (KG1's
-scanner), co-mentioned entities, its dates. Done when "Sam" and "Sam Lee"
-merge and every mention follows.
-
-**KG6. Topics and summaries.** Cached per fingerprint like
-`/graph/structure`. Label propagation inside each component (seeded, in id
-order), named by the top IDF tags, entities and title words; a local-model
-summary per topic on demand, cached by its members. Components stay the
-clusters (the 2026-09 decision stands); topics are a labelled second layer.
-Cost: O(edges x iterations). API: `/graph/structure?topics=1`. UI: hulls on
-the canvas, legend chips. Done when a two-topic fixture splits into two
-named topics.
-
-**KG7. Saved live queries.** A grammar in the search box: `type:meeting`,
-`prop:status=open`, `links:[[X]]`, `rel:contradicts`, `entity:"Sam"`,
-`tag:x`, `-` negates. Stored with saved searches; results as a list, a table
-(properties as columns) and a graph filter. Done when one query gives the
-list, the table and the graph the same ids.
-
-**KG8. Graph filters and path explanations.** Filter chips by relation type
-and property; topic hulls; every `/graph/path` hop says each KG2 signal that
-joins the pair, not only the link reason.
-
-**KG9. A suggestions inbox that learns.** One sheet: link suggestions,
-tensions, entity merges, type suggestions. Accept writes the link with
-`reason` and `reason_confidence` from the signals and records `accept_link`;
-reject records `dismiss_link`; each signal's weight moves with its
-acceptance rate (Laplace smoothed, bounded 0.5x to 1.5x).
-
-### (e) Phases, build order
-
-1. KG1, backlinks with context and one-click mentions: built 2026-10-04,
-   moved to HISTORY.md ("Moved from the plans, 2026-10-04 (the knowledge
-   graph, INBOX 528)").
-2. KG2, multi-signal recognition with explanations: built 2026-10-04, moved
-   to HISTORY.md (the same section as KG1).
-3. KG9, the inbox and accept learning: built 2026-10-04, both parts moved
-   to HISTORY.md (the same section as KG1).
-4. KG5, entity kinds, aliases, merge, entity page: built 2026-10-04, moved
-   to HISTORY.md (the same section as KG1).
-5. KG6, topics, names, hulls, summaries: built 2026-10-04, both parts
-   moved to HISTORY.md (the same section as KG1).
-6. KG3, relation types with inverses and properties: built 2026-10-04,
-   moved to HISTORY.md (the same section as KG1).
-7. KG4, properties and note types: built 2026-10-04, moved to HISTORY.md
-   (the same section as KG1).
-8. KG7, live queries: built 2026-10-04, moved to HISTORY.md (the same
-   section as KG1).
-9. KG8, graph filters and path explanations: built 2026-10-04, both parts
-   moved to HISTORY.md (the same section as KG1).
-
-One Opus session each, tests first, measured on a 2k fixture.
+- A real local model's `name|kind` entity extraction and a topic's sentence
+  were never run here (no model in the sandbox); both fall back cleanly.
+- The agent's own link tool still offers the six built-in kinds, not a
+  person's own (KG3).
+- The document editor's frontmatter panel does not read note types; a note
+  type's "note" field is a `[[link]]` written into the block, not a picker
+  that searches (KG4).
+- A few surfaces may still quote a note's raw opening (search snippets,
+  document previews of an embedded note); the ones found printing `---`
+  were fixed (KG7's note in HISTORY).
+- Toasts fired from a phone's bottom sheet land behind it (every sheet).
+- Rollups over a live query's table (count, sum, min, max, earliest,
+  latest) are not built.
 
 **Decisions made (recommendations taken):** a suggestion never links by
 itself; every inferred relation carries a reason and a confidence, and the

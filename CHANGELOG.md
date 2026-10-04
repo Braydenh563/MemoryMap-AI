@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Library, Bookmarks: the empty state no longer repeats the line under the bar; it is its title and Add a bookmark.
 - Settings, Data: importing markdown files, a folder or a document is one step: the button opens the picker and choosing starts the import, with Undo in the toast that moves exactly the imported notes to the recycle bin (it was choose, then a second Import button).
 - Reminders: Quick set takes the steppers' rounded shape, so the When row draws one corner instead of two.
 - Chat: the Ask Atlas offer in an empty chat is one line on a phone ("Ask Atlas what it can change"), and on a phone every Ask Atlas offer takes a button's corner rather than a pill, so a longer question no longer wraps into a capsule.

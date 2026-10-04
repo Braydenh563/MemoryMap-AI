@@ -37017,6 +37017,19 @@ width, 47% of the column at 1440.
      purged container holds an id, and `paintTimeline` returns when the feed is
      not built.
 
+495. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the Skill
+     logs sidebar expanded from collapsed: Clear and the pin button touching
+     in the head).** "when the skill logs sidebar is collapsed and
+     temporarily expanded, the clear button and pin button clash".
+     Orchestrator.
+     **Fixed.** Reproduced: Clear to pin gap 6.4px pinned, -5.6px peeked
+     (`scratchpad/ui-sweeps/skillslogshead.js`). Two causes: the peek moved
+     the toggle to `right: 1.25rem` (the pinned spot is 1rem, where the
+     head's lane is measured), and an id rule folding Skill logs' children
+     out-ranked the peek's `transform: none`, leaving the head 8px under the
+     pin. Now 6.4px pinned, peeked (1440 and 1100) and at 390 (was 2.4px).
+     `tests/test_sidebar_peek_head.py` holds the two rules.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

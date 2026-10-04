@@ -34,12 +34,6 @@ with its owner named in the entry.
 
 ## Open items
 
-495. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the Skill
-     logs sidebar expanded from collapsed: Clear and the pin button touching
-     in the head).** "when the skill logs sidebar is collapsed and
-     temporarily expanded, the clear button and pin button clash".
-     Orchestrator.
-
 494. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the
      status bar: "Ctrl K Commands", "Ask", "Guide", "Find").** "the text and
      icons in the bottom bar elements arent aligned vertically". With the

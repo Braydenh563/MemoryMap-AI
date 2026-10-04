@@ -521,8 +521,12 @@
   /* keep it within the layout */
 }
 
+/* `right: 1rem`, the pinned-open position, not the 1.25rem it had: the head's
+   reserve (--sidebar-toggle-lane) is measured from the pinned spot, and the
+   4px further in left the head's last button 2px from the toggle (INBOX 495,
+   Skill logs' Clear measured at -5.6px with the shift in 08-consistency.css). */
 .layout-sidebar-collapsed>.sidebar-collapsed:hover .sidebar-collapse-toggle {
-  right: 1.25rem;
+  right: 1rem;
   left: auto;
 }
 
@@ -540,7 +544,7 @@
   transition: opacity var(--motion-slow) var(--ease-out) var(--motion-fast);
 }
 
-/* The toggle moves back to `right: 1.25rem` on hover-peek (above): the same
+/* The toggle moves back to the right edge on hover-peek (above): the same
    spot §88.0's `--sidebar-toggle-lane` reserve already exists to clear, but
    `.sidebar-collapsed .sidebar-head` (05-sidebars-themes.css) still zeroes
    that reserve, because the element carries the `.sidebar-collapsed` class
@@ -12472,6 +12476,13 @@ header#top-bar {
   #skills-sidebar > .sidebar-collapse-toggle {
     right: var(--sidebar-toggle-inset);
     visibility: visible;
+  }
+
+  /* Skill logs' Clear sat 2.4px from the opener at 390 (INBOX 495): the
+     opener is inset 8px here, not 16px, so the lane that clears it on a
+     desktop is 8px short. One space-1 more gives the desktop's 6.4px gap. */
+  #skills-sidebar .sidebar-head {
+    padding-right: calc(var(--sidebar-toggle-lane) + var(--space-1));
   }
 
   /* A drag handle is a pointer affordance for a column that no longer exists:

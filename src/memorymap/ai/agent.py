@@ -1640,6 +1640,64 @@ class _TurnState:
         return self.tool_failures[tool_name]
 
 
+#: Below this much room a shortened result is too thin to answer from.
+MIN_FITTED_CHARS = 400
+
+#: Said inside a result that was shortened to fit (see `_fit_result`).
+SHORTENED_NOTE = (
+    "Shortened to fit what is left of this conversation: {what}. Answer from "
+    "this; get_note reads one note in full if you need it."
+)
+
+
+def _clip_strings(value, limit: int):
+    """`value` with every string over `limit` characters cut to it."""
+    if isinstance(value, str):
+        return value if len(value) <= limit else value[:limit] + "…"
+    if isinstance(value, dict):
+        return {k: _clip_strings(v, limit) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_clip_strings(v, limit) for v in value]
+    return value
+
+
+def _fit_result(result: dict, name: str, room: int) -> str | None:
+    """The result as the model will read it, shortened to `room` characters
+    if it must be, or None when no honest shortening fits (INBOX 527).
+
+    Before, a result over the turn's budget was dropped whole and the tools
+    withdrawn: on a 4k-window model one `search_notes` page of long notes
+    could end the turn's reading with nothing read. Now its long text is
+    clipped (400, then 160, then 60 characters) and then its lists kept from
+    the front (10, 5, 3, 1 items), whole objects every time, with a note
+    saying what was cut; only when one item does not fit is it refused.
+    """
+    payload = json.dumps(fence.fence_result(result, name))
+    if len(payload) <= room:
+        return payload
+    if room < MIN_FITTED_CHARS or not isinstance(result, dict):
+        return None
+    lists = [k for k, v in result.items() if isinstance(v, list) and len(v) > 1]
+    for limit in (400, 160, 60):
+        for keep in (None, 10, 5, 3, 1):
+            if keep is not None and not lists:
+                break
+            shorter = _clip_strings(result, limit)
+            dropped = 0
+            if keep is not None:
+                for key in lists:
+                    dropped += max(0, len(shorter[key]) - keep)
+                    shorter[key] = shorter[key][:keep]
+            what = f"long text clipped to {limit} characters"
+            if dropped:
+                what += f", {dropped} item{'s' if dropped != 1 else ''} left out"
+            shorter["shortened"] = SHORTENED_NOTE.format(what=what)
+            payload = json.dumps(fence.fence_result(shorter, name))
+            if len(payload) <= room:
+                return payload
+    return None
+
+
 def _dispatch_call(
     session: Session,
     plan: _TurnPlan,
@@ -2056,18 +2114,17 @@ def _dispatch_call(
     #: Someone else's words in the result (a note's body, a page's text, a
     #: snippet) go to the model fenced as quoted data (`fence`, INBOX 430);
     #: the app's own fields (`what_to_do`, labels, ids) do not.
-    payload = json.dumps(fence.fence_result(result, name))
-    # The window's share, but never more than the absolute ceiling, 
+    # The window's share, but never more than the absolute ceiling,
     # a 128k model would otherwise be allowed tens of thousands of
     # tokens of tool output, which is prefill time on every subsequent
     # round for material the model has usually finished with.
     result_cap = min(plan.budget.tool_result_chars, TOOL_RESULT_BUDGET_CHARS)
-    if state.spent + len(payload) > result_cap:
-        # Over budget. Hand back the notice instead of the result and
-        # withdraw the tools, so the next round has to be an answer.
-        # Dropping the result rather than truncating it is deliberate:
-        # half a JSON object is worse than none, the model reads it
-        # as data and answers from a note that got cut mid-sentence.
+    payload = _fit_result(result, name, result_cap - state.spent)
+    if payload is None:
+        # Not even a shortened copy fits. Hand back the notice instead and
+        # withdraw the tools, so the next round has to be an answer. Never
+        # a cut string: half a JSON object is worse than none, the model
+        # reads it as data and answers from a note cut mid-sentence.
         payload = json.dumps(BUDGET_EXHAUSTED)
         state.offered = []
     state.spent += len(payload)

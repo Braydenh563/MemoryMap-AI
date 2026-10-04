@@ -125,6 +125,7 @@ def test_tool_choice_and_argument_validity(notebook):
             "answered": bool(_answer(events).strip()),
             "s": round(time.monotonic() - started, 1),
         })
+        print(" ", rows[-1], flush=True)
         assert _answer(events).strip(), f"{question!r} ended with no words"
         assert len(repeated) == len(failed) or not failed, f"{question!r} repeated a failed call"
     total = len(rows)
@@ -133,8 +134,6 @@ def test_tool_choice_and_argument_validity(notebook):
     calls = sum(r["calls"] for r in rows)
     failed = sum(r["failed"] for r in rows)
     print("\nHARNESS EVAL", EVALS_MODEL.rsplit("/", 1)[-1])
-    for r in rows:
-        print(" ", r)
     print(
         f"  tool choice {chose}/{total}; finished {finished}/{total}; "
         f"argument validity {calls - failed}/{calls} calls"

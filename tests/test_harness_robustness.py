@@ -188,3 +188,34 @@ def test_a_second_5xx_is_still_an_error(openai_client, capture_post):
     capture_post.queue.extend([FakeResponse(status=500), FakeResponse(status=500)])
     with pytest.raises(ProviderError):
         list(openai_client.chat_tools_stream("m", [], []))
+
+
+# --- a result too big for what is left is shortened, not dropped ---------------
+
+
+def _page(n=20, chars=500):
+    return {
+        "results": [{"id": i, "content": f"note {i} " + "x" * chars} for i in range(n)],
+        "label": "searched",
+    }
+
+
+def test_a_result_that_fits_is_untouched():
+    result = {"count": 3}
+    assert json.loads(agent._fit_result(result, "count_notes", 1000)) == {"count": 3}
+
+
+def test_a_big_page_is_shortened_from_the_back_with_a_note():
+    """Measured: a 20-note page of 500-character notes is 11,166 characters
+    fenced; the turn had 3,000 left. Before: dropped whole, tools withdrawn."""
+    full = json.dumps(agent.fence.fence_result(_page(), "search_notes"))
+    payload = agent._fit_result(_page(), "search_notes", 3000)
+    assert payload is not None and len(payload) <= 3000 < len(full)
+    data = json.loads(payload)
+    assert [row["id"] for row in data["results"]] == list(range(len(data["results"])))
+    assert len(data["results"]) >= 3
+    assert "Shortened to fit" in data["shortened"] and "left out" in data["shortened"]
+
+
+def test_no_room_at_all_is_still_refused():
+    assert agent._fit_result(_page(), "search_notes", 200) is None

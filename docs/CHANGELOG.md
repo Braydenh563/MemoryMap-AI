@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Copy: the start-up failure notice lost two escaped em-dashes, two toasts lost their exclamation marks, and the SearXNG settings line no longer says "JSON API" (INBOX 472)
 - Error messages read as sentences: a failed request no longer toasts a raw JSON list, "Internal error", "Not Found", "Failed to fetch" or "Upload failed (500)"; the plain wording comes from one function, and the raw text still goes to Settings > Logs (INBOX 472)
 - Faster starts and every request: each stylesheet and script is compressed once per version and kept on disk (the 448 KB stylesheet went from 22 to 46 ms per fetch to 4 to 6 ms, the first fetch after a restart included), and the two remaining `BaseHTTPMiddleware` layers are pure ASGI, 0.3 to 0.8 ms less on every request.
 - The Atlas companion's skirt gestures in a float or glide (the `rotate` limb loops on its `<svg>` root, never on the compositor) run on the same kind of box, so a float costs about half the style recalcs and a third fewer layouts (122ms to 69ms of recalc in the 2.6s window, 62 to 39 recalcs, 35 to 24 layouts).

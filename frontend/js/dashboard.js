@@ -3305,8 +3305,8 @@ function focusTimerTick() {
     paintFocusTimer();
     if (focusTimer.remaining === 0) {
       stopFocusTimer();
-      toast("Focus session complete: nice work!");
-      notify("MemoryMap", "Focus session complete: nice work!");
+      toast("Focus session complete. Nice work.");
+      notify("MemoryMap", "Focus session complete. Nice work.");
     }
   }
 }

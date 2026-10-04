@@ -40,3 +40,14 @@ def test_api_keeps_the_raw_text_for_the_log_and_gives_the_toast_a_sentence():
     assert "${rawMsg}" in app
     # a dropped connection is a sentence, not the browser's "Failed to fetch"
     assert "networkErr instanceof TypeError" in app
+
+
+def test_copy_a_person_reads_has_no_escaped_em_dash_or_exclamation():
+    """`test_no_em_dashes.py` reads the character, so a `\\u2014` inside a
+    string slipped past it (the boot splash's failure message carried two).
+    The exclamation toasts were the same kind of miss: CLAUDE.md section 6
+    says no exclamation marks."""
+    boot = (JS / "boot-guard.js").read_text(encoding="utf-8")
+    assert "\\u2014" not in boot
+    assert 'toast("Linked!")' not in (JS / "notes-list.js").read_text(encoding="utf-8")
+    assert "nice work!" not in (JS / "dashboard.js").read_text(encoding="utf-8")

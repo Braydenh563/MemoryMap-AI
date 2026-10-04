@@ -10484,6 +10484,21 @@ input[type="file"] {
   pointer-events: none;
 }
 
+/* **Where the buttons are 44px the row hangs wholly below the node** (below 820
+   or on a touch screen: the same band as `--target-min`'s floor). Anchored
+   `bottom: -space-5`, a 44px button reaches 24px back up into the node: measured at 390x844 with the pointer on
+   a topic, the two buttons covered 998px2 of its label row from the left edge
+   to 59px in, so pressing the left of a selected topic's text added a child
+   instead (`mindmapcurve.js` timed out on exactly that click, and the probe
+   was right: `mapaddcover.js` measures it). The row starts a hairline under
+   the node instead, so nothing of the label is under a button. */
+@media (max-width: 819.98px), (pointer: coarse) {
+  .wb-map-actions {
+    bottom: auto;
+    top: calc(100% + var(--space-1));
+  }
+}
+
 .wb-map-node:hover .wb-map-actions,
 .wb-map-node.wb-selected .wb-map-actions,
 .wb-map-actions:focus-within {

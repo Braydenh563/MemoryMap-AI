@@ -24,6 +24,12 @@
 //   palette     open, find a note, run a command, open a note, Escape
 //   tabs        every tab by its button (the phone bar and its More sheet)
 //   dashboard   every widget draws, no properties block printed as words
+//   picker      the [[ picker in Capture lists the note being named first
+//   select      Select mode: tick two notes (a tap does not open a page), batch Tags
+//   views       every Library view, the Create sheet, Timeline and Reminders modes
+//   find        Find anything (the status bar, or the top bar's More on a phone)
+// A phone has no way to open the command palette (Find is the search), so the
+// palette flow opens it by its function at 390: reported, not fixed.
 //
 // What fails a flow, besides the flow's own assertions:
 //   - a `pageerror` or a `console.error` while it ran;

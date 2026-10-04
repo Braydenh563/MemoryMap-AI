@@ -39505,3 +39505,38 @@ job resumes; the panel shows it.
   lease, the next launch ran it (done, attempts 2) and the queued caption.
 - **Not verified:** the panel showing a resumed job (the readings here
   finish in milliseconds without Tesseract or a vision model); Windows.
+
+
+## Moved from the plans, 2026-10-04 (D2 connections rail)
+
+### From WORLD_CLASS_PLAN.md D2: the spec and its state line, moved whole
+
+Exists: the list with card/list views, filters, select mode, capture with
+templates, the edit form, connections. Wrong: a note shows no backlinks
+inline; `[[` has no autocomplete; the capture footer is two wrapped rows
+with a FAB over the Save button; the edit form's gutter drifts. Target:
+capture is one field with a slash menu and `[[` autocomplete, a one-row
+footer; a note's page has a connections rail (backlinks, links, related by
+similarity, in the same map) that is always visible on desktop and a sheet
+on phone. Brief: `[[` autocomplete over `/entries?q=` with keyboard
+selection; a `.connections-rail` component rendered from `/entries/{id}/links`
+(exists) and `/entries/{id}/related`; the footer on the bar recipe. Gate:
+typing `[[te` shows matches within 150ms on a 2,000-note fixture; the rail
+renders for every note; the FAB never overlaps a primary (Playwright
+intersection check).
+
+**State 2026-09-24:** (b) `[[` autocomplete is built (`#wiki-suggest`, app.js, and the editor's own). The connections exist as a sheet opened from a card's menu (`openConnections`, app.js); the rail is **built 2026-09-27**: `#notes-rail`, the Notes layout's third column at 1280px and wider for the note open or selected, drawn from `/entries/{id}/connections` through the sheet's own `buildConnectionGroups` plus the forgotten notes near it (`GET /resurface/near`), hidden with the choice remembered, the sheet below 1280. Measured with `scratchpad/ui-sweeps/notesrail.js`, 24/24: the reading column 747px at 1440 and 620px at 1280, no overlap, no sideways scroll, and no rail at 1024 or 390, where the sheet opens. Nothing of D2 is open here.
+
+### Re-measured 2026-10-04 (WORLD_CLASS_PLAN row 4)
+
+`scratchpad/ui-sweeps/notesrail.js` against the showcase notebook
+(`seed-showcase.py`, 71 notes) on the branch head: 30/30 checks light and
+30/30 dark, at 1440, 1280, 1024 and 390. At 1440 and 1280 the rail comes
+with an opened note, beside the list without overlap, the reading column
+at least 600px, nothing sideways, arrows and Escape, a row opens its note,
+hiding is remembered; at 1024 and 390 no rail and the Connections sheet
+opens. The rail at 1280 and wider (not at 1024) is the recorded decision:
+at 1024 a third column leaves the reading column under 600px. A notebook
+seeded by `seed.js` alone has one link and fails "selecting a linked note
+brings the rail" for want of a note with two connections, which is the
+fixture, not the rail.

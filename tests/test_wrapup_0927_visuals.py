@@ -37,7 +37,10 @@ def test_a_chip_leading_icon_is_dropped_onto_its_words():
     """10c(2): icon ink centre minus the words' ink centre, Ask again chips:
     -1.84, -2.00, -0.84px before; -0.50, -0.66, +0.50 after (dark within 0.67)."""
     css = _read("css/08-consistency.css")
-    assert ".chip > .ph-lead {\n  translate: 0 0.1em;\n}" in css
+    # INBOX 503 replaced the drop with the chip recipe (words trimmed to the
+    # x-height band); the 0.1em drop stays only where `text-box` is missing.
+    fallback = css[css.index("@supports not (text-box: trim-both ex alphabetic)") :]
+    assert "translate: 0 0.1em;" in fallback[: fallback.index("\n}\n")]
 
 
 def test_the_web_panel_draws_its_menu_before_the_status_call():

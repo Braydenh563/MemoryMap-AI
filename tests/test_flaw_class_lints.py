@@ -33,7 +33,7 @@ THREAD_SITES = {
     "ai/janitor.py": 1,  # the filing deadline: runs *on* the model lane, so it cannot queue there
     "ai/model_manager.py": 2,
     "api/app.py": 1,
-    "api/routes_models.py": 1,
+    "api/routes_models.py": 2,  # the runner's model list off the request thread, one per runner (a status poll never waits on it)
     "api/routes_update.py": 2,
     "core/embedmodels.py": 1,
     "core/extras.py": 2,

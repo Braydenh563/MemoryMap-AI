@@ -70,18 +70,32 @@ const EDGE_PROBE = () => {
     const parent = objs.get(Number(el.dataset.parent));
     const child = objs.get(Number(el.dataset.child));
     if (!parent || !child) continue;
+    // A branch is a closed ribbon now (wbMapRibbonD: out along one side,
+    // back along the other), so its last point is its first. The ends are
+    // therefore the *nearest* sample to each node, not point 0 and point
+    // `len`; the hit twin stays the open centreline, whose ends are real.
     const len = el.getTotalLength();
-    const a = el.getPointAtLength(0);
-    const b = el.getPointAtLength(len);
+    const samples = [];
+    const steps = Math.min(600, Math.ceil(len)); // about a pixel apart, so a sample lands on each end
+    for (let i = 0; i <= steps; i += 1) samples.push(el.getPointAtLength((len * i) / steps));
     const twin = document.querySelector(
       `.wb-map-edges .wb-map-edge-hit[data-parent="${parent.id}"][data-child="${child.id}"]`
     );
+    let twinOk = true;
+    if (twin) {
+      const tl = twin.getTotalLength();
+      const t0 = twin.getPointAtLength(0);
+      const t1 = twin.getPointAtLength(tl);
+      const tm = twin.getPointAtLength(tl / 2);
+      const nearRibbon = Math.min(...samples.map((p) => Math.hypot(p.x - tm.x, p.y - tm.y)));
+      twinOk = gap(parent, t0) <= 1.5 && gap(child, t1) <= 1.5 && nearRibbon <= 8;
+    }
     out.push({
       parent: parent.id,
       child: child.id,
-      parentGap: gap(parent, a),
-      childGap: gap(child, b),
-      twinMatches: !twin || twin.getAttribute("d") === el.getAttribute("d"),
+      parentGap: Math.min(...samples.map((p) => gap(parent, p))),
+      childGap: Math.min(...samples.map((p) => gap(child, p))),
+      twinMatches: twinOk,
     });
   }
   return out;

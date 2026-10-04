@@ -1596,7 +1596,7 @@ Small, concrete, each seen in the running app:
   `link_notes`, `unlink_notes` — all four route through the note's own id,
   which is the right target for "View" either way; `create_document`;
   `set_reminder`/`complete_reminder`; `create_category`/`rename_category`/
-  `merge_categories`). `changeRow` (`frontend/app.js`) renders the View
+  `merge_categories`). `changeRow` (`frontend/js/app.js`) renders the View
   button from whichever id is present, and is called from both the live
   per-turn tool-call rendering *and* a skill run's final "what changed"
   list — the "two things to decide" below were both resolved. Only the
@@ -1609,7 +1609,7 @@ Small, concrete, each seen in the running app:
   result reused `flashEntry`, which only ever looks in the ordinary browse
   list — a note just moved to the bin is never there, so it silently found
   nothing. `delete_note` now gets its own "View in bin" button
-  (`flashLibraryItem`, `frontend/app.js`), which opens the Library's Bin
+  (`flashLibraryItem`, `frontend/js/app.js`), which opens the Library's Bin
   filter and highlights the note there — the one place it actually lives.
   Verified live (Playwright): create → delete via the API → call the new
   function → lands on Library, Bin filter active, correct card found and
@@ -1659,7 +1659,7 @@ Small, concrete, each seen in the running app:
   ever worth it before anyone "fixes" this again.
 - ~~**Chat metadata disappears on a reload or app restart.**~~ **Done — this
   entry was stale.** Checked against the running app (`openConversation` in
-  `frontend/app.js`), not assumed: `message.stats` is persisted and the
+  `frontend/js/app.js`), not assumed: `message.stats` is persisted and the
   function's own comment already says why — "Rebuild the metadata line...
   it was only ever built from the live stream... Turns saved before this
   stored no stats and correctly get no line, rather than a row of '?'s."
@@ -4034,7 +4034,7 @@ Ranked by the gap between what it costs to build and what it would be worth.
   50,000, and invisible until someone has the second one. **This is the largest
   scalability item in the app** and the server-side pagination it needs already
   exists.
-- **`frontend/app.js` is past 30,000 lines.** The four splits (`library.js`,
+- **`frontend/js/app.js` is past 30,000 lines.** The four splits (`library.js`,
   `dashboard.js`, `settings.js`, `documents.js`) worked and stopped. The next
   natural seams are chat (~6k lines), the lightbox (~1.2k) and the notifications
   centre. Each is a session's work and each makes the next bug cheaper to find.
@@ -4194,3 +4194,208 @@ a session or less and names its gate.
 
 Rows 1, 2, 7 and 10 are the ones people ask about before they trust a
 notebook with work; do those first.
+
+## Placed from INBOX, 2026-10-03 (INBOX 303, music)
+
+Moved whole from INBOX when INBOX 436 arrived (the tray holds under
+twenty). A recommendation awaiting the owner, not open work.
+
+303. **The owner, 2026-09-21, verbatim, with the session's reading beneath
+    it:** "it'd be cool if the user can upload songs or connect an in-app
+    player to a player or maybe even spotify or youtube music but idk if
+    that's offline only anymore...". The local half is a recommendation, not
+    a decision, and is in the ANALYSIS.md section named above. The streaming
+    half is his: today `routes_settings.py:220` calls web search "The ONE
+    feature that goes online, off unless the user opts in",
+    `routes_websearch.py:31` says the same in its 403, and
+    `dashboard.js:1277` says it to the person, so a Spotify or YouTube Music
+    connection would make that sentence false in three places, on top of an
+    OAuth flow, a cloud account and a stored token. Recommendation: leave the
+    promise absolute and build the local folder player instead; if it is ever
+    reopened, it is a second clearly labelled opt-in extra, off by default,
+    and the copy in all three places changes in the same commit.
+
+## Placed from INBOX, 2026-10-03 (INBOX 213)
+
+Moved whole from INBOX when INBOX 437 arrived (the tray holds under
+twenty); open, by impact with the rest of this file.
+
+213. **Mid-work drop, 2026-09-14 morning, verbatim (the owner), the last
+    scan.** "finish all the agents, scan for bugs and high complexity one
+    last time, and let me know when the pr is ready to merge / make sure to
+    merge all of the agent branches into this one as the agents finish."
+    And: "once absolutely everything is done and the roadmap documents are
+    cleaned etc, all the agent branches are merged into this one etc, merge
+    this pr for me." And (228, the same order, folded in): "after you have
+    finished all these, done the final bug sweep, make sure everything is
+    finished for the pr, and finish the pr, merging it into main." Owner:
+    orchestrator; the merge is the last act.
+    **The last scan, run 2026-09-20.** Four passes, each a number rather
+    than a reading:
+    - **Routes with no caller** (`scratchpad/probe_dead_routes.py`): 320
+      served, 9 unnamed by the frontend, every one triaged in 261. Two were
+      real and are fixed: `/resurface/near/{entry_id}` was unreachable *and*
+      crashed on its first call, and `GET /events` is a built feed with no
+      strip to read it (WORLD_CLASS_PLAN B1, still open).
+    - **Calls with no route** (`scratchpad/probe_missing_routes.py`, new,
+      the mirror and the worse failure): 297 distinct paths called, **0 with
+      no route**, both undecidable paths resolved by hand.
+    - **Frontend declarations nothing references**: 3,222 top-level names,
+      **0** referenced only by their own declaration. No dead weight left in
+      `frontend/js/*.js`.
+    - **Complexity, backend**, by branch count over 1,827 functions. The top
+      five, for whoever takes this on: `_run_one_step` (skill_runner.py:784,
+      50 branches / 419 lines), `analyse_attachment` (routes_files.py:381,
+      43 / 167), `search` (search/engine.py:645, 41 / 139),
+      `_optimization_pass` (autonomous.py:268, 40 / 250), `_run_skill`
+      (skill_runner.py:1206, 36 / 300). Not refactored here on purpose: this
+      PR is about to merge and restructuring a 419-line agent step is not a
+      thing to do on the way out of one.
+    A fifth pass, silent exception handlers, was run and is not reported as
+    a finding: 251 handlers return a fallback without logging, and in an app
+    whose whole design is "degrade to offline" that is the intended shape,
+    not a smell. The heuristic could not separate the two, so it is written
+    down here rather than left as a number somebody later mistakes for a
+    defect count.
+
+## Placed from INBOX, 2026-10-03 (INBOX 266)
+
+Moved whole from INBOX when INBOX 438 arrived (the tray holds under
+twenty); open, by impact with the rest of this file.
+
+266. **Mid-work drop, 2026-09-20, verbatim (the owner).** "What usability and
+    information architecture things are missing and can be added?? It's often
+    the small things that act up, are broken, unreliable, or missing with the
+    user needs to work which break the user's trust of the application and
+    make it feel less professional, unpolished, like a demo, and not
+    trustworthy to be actually used for legitimate work
+    Tar file for linus
+    Windows msi file
+    Version platform architecture for both windows and linux installers
+    Lightweight as possible
+    what happens if the user runs out of storage??
+    needs full backend professional design that accounts for everything
+    needs more optimisation
+    We need to do a full architecture analysis and make sure that we are
+    actually using the right architecture and backend functions. we need to
+    make sure that our choices are the best they can be. like why is storing
+    in an sqlite database the best way to store notes etc. are things running
+    when they arent necessary and taking up extra compute?? things like
+    containers are spun up as needed like serverless cloud architecture"
+    Open. Seven asks, and most are analysis rather than a fix: (1) the
+    usability and IA gaps that cost trust, (2) a `.tar.gz` for Linux, (3) an
+    `.msi` for Windows, (4) version, platform and architecture in every
+    installer's name, (5) lightweight, (6) what the app does when the disk
+    fills, (7) an architecture review with SQLite and idle compute named
+    specifically.
+    **(6) done 2026-09-21**, measured on a real full filesystem: an 80 MB
+    tmpfs mounted as the data dir and filled to 100%, the app driven against
+    it. Already right: saving answered 507 with a sentence about disk space,
+    and reading, searching and exporting kept working throughout. Three
+    things were not. **Unlocking answered 507**, so a full disk locked the
+    person out of their own notebook entirely, over the audit row written
+    beside it. **A failed backup left a zero-byte file named like a backup**,
+    which listed as one, passed `PRAGMA integrity_check` (an empty file is a
+    valid empty database) and would have replaced the whole notebook with
+    nothing if restored: a full disk turning into total loss through the
+    app's own restore button. **A failed upload or export left its
+    half-written file behind**, orphaned, holding the space the person was
+    short of. All three fixed, plus one ASGI `SpaceGuard` that refuses a
+    write bigger than the room left before a byte of it is read, so the app
+    can no longer fill the last megabyte and lock itself out. After, on the
+    same full tmpfs: unlock 200, reads 200, save 507 naming the folder and
+    `0 bytes free`, a 1 MB upload refused up front asking for 3.0 MB, backup
+    507 with nothing left behind, every write working again the moment space
+    was freed. The 507's sentence now reaches every toast in the app and
+    Settings, Data carries a `.notice notice-warn` line when space is low
+    (`scratchpad/ui-sweeps/diskspace.js`, PASS in both themes).
+    **(7) done 2026-09-21**, both halves. *Idle compute*: with no browser
+    attached the server is asleep, 0.04s of CPU across 23 threads in 30
+    seconds (0.13% of one core), because every background piece blocks
+    rather than polls. The cost is the open tab: two HH:MM clocks ticking
+    once a second and a model-status poll asking twice a minute for ever.
+    The clocks are scheduled on the wall-clock minute now and the poll
+    doubles to a two-minute ceiling while the answer does not change,
+    dropping back to 30s on any change, on returning to the tab, on opening
+    Settings or on starting a job. Measured with `idle.js` (which now counts
+    timer *fires*, not only live intervals) and the new `idlecpu.js`: **timer
+    wakes in an idle visible minute 124 to 5, requests 4 to 2, idle CPU
+    6.01%/6.11% of one core to 5.50%/5.59%.** Found, not fixed, and a
+    decision for the owner rather than an agent: nearly all of what is left
+    is the Dashboard's emblem animating at 24fps because it was asked to,
+    which the same probe prices at 5.55% on the Dashboard against 2.09%
+    parked on Notes. *SQLite*: the answer is written down as a decision in
+    `docs/ARCHITECTURE.md` ("Why SQLite holds the notes"), with its reasons,
+    its numbers and where it would stop being right, so it does not have to
+    be argued a fourth time. No migration started, and the serverless
+    question is answered in a paragraph there rather than left hanging.
+    **(1) done 2026-09-23**, the usability and IA read against the owner's
+    "3 clicks to anything" (INBOX 270): 22 primary tasks driven from a fresh
+    dashboard by `scratchpad/ui-sweeps/clicks.js`, 21 within three clicks and
+    restoring from the bin at four on purpose (the table is in
+    `agent-remaining/guideia.md`). Four trust breakers it found, all fixed:
+    both dashboard "Ask" doors opened a disabled Chat box when no model was
+    running (now Notes, Ask, which answers without one); the Chat tab never
+    said why its box was grey (now the same Connect-a-model line as Ask, the
+    agent and the writing desk); a new notebook's Library said "Nothing of
+    this kind yet" because the activity log counted as things made (now a
+    sentence and a Create button); Create offered no board and no upload
+    (now seven rows).
+    Checked, not built here (packaging is another agent's): (2) the
+    `.tar.gz` ships (`release.yml`, `MemoryMap-AI-<v>-linux-x86_64.tar.gz`);
+    (3) the `.msi` steps exist but are `if: false`, so no MSI ships; (4)
+    every installer name carries version, platform and arch
+    (`installer.iss`: `MemoryMap-AI-Setup-<v>-windows-x86_64`). Still open on
+    this entry: (3) and (5).
+    **Checked 2026-09-23.** (2) built: `release.yml` ships
+    `MemoryMap-AI-<version>-linux-x86_64.tar.gz` beside the zip. (3) built and
+    then switched off (`b7b15c7`, WiX v7's fee terms; see 271, resolved). (4)
+    built: every artifact name carries version, platform and architecture
+    (`MemoryMap-AI-Setup-<version>-windows-x86_64` in `installer.iss`, the
+    MSI and both Linux archives in `release.yml`). Left: (1), the usability
+    and information-architecture read, and (5), lightweight, whose decided
+    shape is lazy imports (268).
+    **(5) measured 2026-09-23**, and the lazy-import work is already done
+    where it pays. `python -X importtime` over `create_app()`
+    (`scratchpad/oi_importtime.py` reads the output): the process imports
+    fastapi (402ms), SQLAlchemy (172ms), alembic (129ms) and requests (49ms)
+    and nothing heavier; numpy, torch, Pillow, pypdf and python-docx are not
+    in `sys.modules` after `create_app`, and peak RSS is 104MB. What makes a
+    running server large is the built-in embedding model: 774MB resident on
+    a notebook with notes, once `start_warmup` has loaded
+    sentence-transformers, and it already waits for the first page, for an
+    idle moment and for the notebook to have a note at all. The one lever
+    left is which backend embeds, a Settings choice that exists: Ollama's
+    `nomic-embed-text` keeps the model out of this process, and the search
+    engine's '?' on Settings, Models now says so with the number. So (5) is
+    answered; (1) is the one part of this entry left.
+
+## Placed from INBOX, 2026-10-03 (INBOX 397)
+
+397. **The owner, 2026-09-23 night, verbatim, from the desktop window with a
+    screenshot.** "I pressed next on the first panel of the guided tour, and
+    it dissappeared while keeping the page dimmed and pushed the top bar down
+    by a couple pixels. I begun the tour from the settings help page." and
+    "you previously said to me multiple times that you werent able to
+    reproduce it, but the bug is real so it has to be something". Read from
+    the screenshot: the dim stays on step 1's hole, so step 2 never drew.
+    Headless runs from Settings, help at 1333x740, 1440x900, 1600x890 and
+    2000x1100 reach "2 of 15" every time, so the cause is in something the
+    desktop window has and this sandbox does not. **Guarded 2026-09-23**
+    (tour.js): an exception in a step becomes the centred card, a card
+    that is off the window or behind something is re-centred, the page's own
+    scroll is pinned at 0 before each step (the top bar moving is the
+    document scrolling), and each of the three writes a `Tour:` line to
+    Settings, Logs. Open until the owner's next run: if it recurs, those
+    lines name the cause.
+    **Then two more screenshots**, from the welcome's last slide and from
+    Settings, help, The basics: the ring the right size and about 620px to
+    the right, then 620px to the left, and no card. A shift that flips sign
+    is a correction computed from a box read mid-move: `tourPlaceFixed` wrote
+    a position, read the element straight back and added the difference, so
+    anything that makes the box lag its style doubles the move. Replaced: the
+    frame's origin is read from `#tour-origin`, a 0x0 fixed probe nothing
+    moves, and the element is read back once a frame later and nudged only if
+    it is still elsewhere (with a `Tour:` log line when it is). Headless
+    walks of all 15 steps at 1.25x scale, with and without real scrollbars,
+    were correct before and after, so the owner's run is the test.

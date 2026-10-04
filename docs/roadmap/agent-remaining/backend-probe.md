@@ -66,7 +66,7 @@ written down so it costs nobody else any.
    returns `{items, total}` with `X-Total-Count`, every row carries `span` as
    `[start, end]` into `entries.content`, so "open the note scrolled to the
    sentence" needs no further backend work.
-2. **D6's frontend.** `startTodaysNote` in `frontend/app.js` still posts a new
+2. **D6's frontend.** `startTodaysNote` in `frontend/js/app.js` still posts a new
    note to `/entries`; pointing it at `POST /entries/daily/${key}` fixes the
    duplicate it makes today and is the whole of the next step. Then Ctrl+D,
    then the strip, then yesterday/tomorrow.
@@ -358,7 +358,7 @@ untrimmable prose is still inside `PROSE_BUDGET_CHARS` (it went down, 52
 characters to 41, because the clause is shorter than the sentence it
 replaced).
 
-**Found, not fixed, and not this agent's files:** `frontend/app.js` line
+**Found, not fixed, and not this agent's files:** `frontend/js/app.js` line
 21492 mirrors the backend's built-in personas and still carries the old
 Librarian text, so Settings, Personas shows the pre-Atlas sentence for that
 built-in until the frontend half of 225 is done. One line.

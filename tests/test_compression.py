@@ -32,7 +32,7 @@ def test_a_large_json_response_is_compressed(client):
 def test_the_frontend_is_compressed(client):
     """The reason this middleware exists: `app.js` is over a megabyte of
     unminified source and there is no bundler to shrink it."""
-    response = client.get("/app.js", headers={"Accept-Encoding": "gzip"})
+    response = client.get("/js/app.js", headers={"Accept-Encoding": "gzip"})
     assert response.status_code == 200
     assert response.headers.get("content-encoding") == "gzip"
 

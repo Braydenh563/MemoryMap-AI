@@ -38,7 +38,11 @@ const { boot } = require('./lib.js');
   check('the fold is closed at rest', closed.open === false, `open=${closed.open}`);
 
   await page.evaluate(() => {
-    document.getElementById('skill-verify-tool').closest('details').open = true;
+    //: Every enclosing fold: the row sits inside its own fold and inside the
+    //: Add a skill fold (`skill-add-fold`), both closed at rest.
+    for (let n = document.getElementById('skill-verify-tool'); n; n = n.parentElement) {
+      if (n.tagName === 'DETAILS') n.open = true;
+    }
     // The number is hidden at rest (the default predicate is "unchanged"), so
     // the shape below is measured with a predicate that has a number.
     const expect = document.getElementById('skill-verify-expect');

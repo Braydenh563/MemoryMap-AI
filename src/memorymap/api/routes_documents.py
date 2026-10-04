@@ -399,6 +399,68 @@ def list_documents(
     return [_summary(d) for d in rows]
 
 
+#: How many documents and how many headings per document the Library's
+#: Contents index reads. An index of a notebook is for finding your place; a
+#: document with four hundred headings is a book, and its outline is in the
+#: editor.
+OUTLINE_DOCUMENTS = 500
+OUTLINE_HEADINGS = 40
+_HEADING_LINE = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t#]*$")
+
+
+def _document_headings(content: str) -> list[dict]:
+    """`{line, level, text}` for each markdown heading, `line` zero-based (the
+    editor's `jumpToDocLine` takes that), fenced code skipped so a `# comment`
+    in a code block is not a section."""
+    found: list[dict] = []
+    fenced = False
+    for index, line in enumerate((content or "").split("\n")):
+        stripped = line.strip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        match = _HEADING_LINE.match(line)
+        if match and match.group(2).strip():
+            found.append({"line": index, "level": len(match.group(1)), "text": match.group(2).strip()[:200]})
+            if len(found) >= OUTLINE_HEADINGS:
+                break
+    return found
+
+
+@router.get("/outline")
+def documents_outline(session: Session = Depends(get_session)) -> list[dict]:
+    """Every live document with its headings, for the Library's Contents index
+    (INBOX 445 (1)): categories hold notes, and documents hold sections.
+
+    One request rather than one `GET /documents/{id}` per document, because the
+    list deliberately never carries content (`_summary`); the headings are the
+    only part of it this index needs, so only they are sent. Markdown only: a
+    code file's "headings" are comments.
+    """
+    rows = session.scalars(
+        select(Document)
+        .where(Document.archived_at.is_(None))
+        .order_by(Document.updated_at.desc(), Document.id.desc())
+        .limit(OUTLINE_DOCUMENTS)
+    )
+    out = []
+    for document in rows:
+        kind = filetypes.get(document.file_type)
+        out.append(
+            {
+                "id": document.id,
+                "title": document.title,
+                "created_at": document.created_at.isoformat(),
+                "updated_at": document.updated_at.isoformat(),
+                "file_type": kind.ext,
+                "headings": _document_headings(document.content) if kind.previewable else [],
+            }
+        )
+    return out
+
+
 @router.post("", status_code=201)
 def create_document(
     body: DocumentBody, session: Session = Depends(get_session)

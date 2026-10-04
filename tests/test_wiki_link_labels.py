@@ -31,7 +31,7 @@ from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 APP_JS = app_js_text()
-DOCUMENTS_JS = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+DOCUMENTS_JS = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
 
 
 def test_the_helper_exists_and_falls_back():

@@ -97,9 +97,14 @@
    ~0.5rem padding strip to grab. Same glyph and cursor as `.wb-panel-grip`,
    always visible (not hover-gated) since the whole point is not having to
    go hunting for it. */
+/* Centred on the box's top edge, a tab on the border rather than a chip in
+   the text: at `top: -4px` its opaque ground covered the top 3px of the
+   first line (measured: 28 to 36 square px of the first glyph's box, the
+   ascender of "h" cut off; INBOX 445). */
 .wb-object-grip {
   position: absolute;
-  top: -4px;
+  top: 0;
+  transform: translateY(-50%);
   left: 6px;
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);
@@ -743,6 +748,28 @@
   margin-bottom: var(--row-gap);
 }
 
+/* A Library card names itself at its foot, under the preview: so do its
+   placeholder's lines. */
+.library-grid > .skeleton::before {
+  top: auto;
+  bottom: 1.7rem;
+}
+
+.library-grid > .skeleton::after {
+  top: auto;
+  bottom: 0.9rem;
+}
+
+/* One line fits a timeline row: the title bar, centred. */
+.timeline-feed > .skeleton::before {
+  top: 50%;
+  translate: 0 -50%;
+}
+
+.timeline-feed > .skeleton::after {
+  display: none;
+}
+
 @media (hover: hover) {
   .card.interactive:hover,
   .wb-card:hover:not(.dragging) {
@@ -760,22 +787,30 @@
    already given up the lift for the reason their own comment gives. */
 
 /* ======================= SKILLS TAB ======================= */
+/* Columns dealt by script in reading order (library.js `renderSkillCards`,
+   INBOX 450), each a stack on the grid's own gap, so a card is as tall as
+   its own content and no taller: a grid row stretched a short card's row to
+   its tallest neighbour and left the gap under it. */
 .skills-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  display: flex;
   gap: var(--space-5);
   margin-top: var(--space-6);
-  /* A grid row's cells stretch to match its tallest cell by default, 
-     reported (spacing/padding around the steps/tools dropdowns): opening
-     one card's "N steps" or "N tools" disclosure grew that card, which
-     then stretched every *other* card sharing its row into a mismatched
-     shape with a large dead gap between their own (unopened) content and
-     the Run button pinned to the bottom. Each card should size to its own
-     content, not its row-mates'. */
-  align-items: start;
+  /* Each column sizes to its own cards: opening one card's steps grows that
+     card and its column, never a neighbour (the reason the grid once had
+     `align-items: start`, which still left the row's height behind). */
+  align-items: flex-start;
+}
+
+.skills-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
 }
 
 .skill-card {
+  --skill-fact-h: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -810,35 +845,18 @@
   flex: 0 0 auto;
 }
 
-.skill-badge-custom {
-  border-color: var(--accent);
-  color: var(--accent-text);
-}
-
 /* **What running this will actually do**, steps, tools, inputs. The card
    used to carry a name and a description and nothing else, which is not
    enough to decide whether to let something edit your notebook. */
 .skill-card-facts {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
 }
 
 .skill-fact {
   font-size: var(--text-xs);
-}
-
-/* `<details>` rather than a hand-rolled popup, same choice and same reasons
-   as .library-image-menu (00-tokens-shell.css): opens on click and on
-   Enter/Space, closes on Escape, exposed to a screen reader as a
-   disclosure, none of it hand-wired. */
-.skill-fact-expand > summary {
-  list-style: none; /* Firefox draws a marker triangle otherwise */
-  cursor: pointer;
-}
-
-.skill-fact-expand > summary::-webkit-details-marker {
-  display: none;
 }
 
 /* Reported directly: expanded, this read as plain unstyled paragraphs sat
@@ -995,6 +1013,36 @@
   flex: 1;
 }
 
+/* Does it write? The same warn ink Settings gives "Changes notes"
+   (`.item-writes`, 08-consistency.css); a read-only skill stays muted. */
+.skill-fact-writes {
+  color: var(--warn);
+}
+
+/* The outcome of the last run, by glyph and by ink: a finished run in the
+   accent, one that stopped at a step in the warn ink. Never colour alone: the
+   glyph and the words both say it. */
+.skill-card-when[data-state="ok"] {
+  color: var(--accent-text);
+}
+
+.skill-card-when[data-state="stopped"] {
+  color: var(--warn);
+}
+
+/* The card's ⋯ sits at the footer's far end, after Run and Edit. */
+.skill-card-more {
+  margin-inline-start: auto;
+}
+
+.skills-workers-state {
+  margin-inline-start: auto;
+}
+
+#skills-empty {
+  margin-top: var(--space-6);
+}
+
 .skill-card-footer {
   display: flex;
   /* Run first and on the left. It is the reason the card exists, and a
@@ -1002,7 +1050,9 @@
      is the layout that made "Schedule" look like the main button. */
   justify-content: flex-start;
   gap: var(--space-3);
-  margin-top: var(--space-3);
+  /* The card's own gap above the hairline, nothing added (INBOX 450:
+     "Never run" stood 16px over the line and 24px over Run). */
+  margin-top: 0;
   padding-top: var(--space-3);
   border-top: 1px solid var(--border-light);
 }
@@ -1095,7 +1145,7 @@ textarea.drag-over {
     left: 0;
     width: 100vw;
     max-width: 100vw;
-    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    border-radius: var(--radius) var(--radius) 0 0;
     border-bottom: none;
     border-left: none;
     border-right: none;
@@ -1131,7 +1181,7 @@ textarea.drag-over {
    `.tab-page` is the scroll container for most tabs, but not all of them:
    Notes and Chat (`04-chat-dock-appearance.css`) make `.tab-page` a plain
    flex column and move the actual `overflow-y: auto` onto their own nested
-   `.layout > main` instead: padding the outer element there does nothing
+   `.layout > .tab-main` instead: padding the outer element there does nothing
    for the inner one that's really scrolling, confirmed live (padding-bottom
    on #tab-notes stayed unchanged after adding the class until this second
    selector was added). Graph has no document-flow scroll container at all
@@ -1187,14 +1237,14 @@ body.has-agent-monitor #tab-reminders {
    board measured unchanged (its canvas is absolutely placed), but a canvas
    has nothing to scroll clear of the panel either, so the view is excluded
    whole, like the Graph. */
-body.has-agent-monitor #tab-notes .layout > main,
+body.has-agent-monitor #tab-notes .layout > .tab-main,
 body.has-agent-monitor .doc-sidebar .doc-list,
 body.has-agent-monitor #tab-library .library-view-section:not(#library-view-whiteboard),
 body.has-agent-monitor #timeline-scroll {
   padding-bottom: calc(var(--space-9) * 9);
 }
 
-/* Chat used to be listed alongside Notes above (`#tab-chat .layout > main`)
+/* Chat used to be listed alongside Notes above (`#tab-chat .layout > .tab-main`)
    and that was a real, user-reported bug, reproduced live: opening the
    Agent Activity monitor visibly shoved the whole chat card up the page, 
    the Send button's own Y position moved by ~113px. `#tab-notes .layout >
@@ -1209,7 +1259,7 @@ body.has-agent-monitor #timeline-scroll {
    Removed for Chat entirely instead of chasing a third selector blind, the
    monitor is `left: 20px; width: 350px` (07-whiteboard-misc.css above): 
    measured live, that footprint lands on the "Chats" sidebar column
-   (`.layout > aside`), not `.layout > main` at all (`main`'s own `x` starts
+   (`.layout > aside`), not `.layout > .tab-main` at all (`main`'s own `x` starts
    at 348px in a 1024px-wide test window, past the monitor's right edge).
    Nothing in the conversation column needs protecting from an overlay that
    never covers it; the only thing actually behind the monitor is the
@@ -1280,7 +1330,8 @@ body.has-agent-monitor #timeline-scroll {
 
 /* The command palette: a dialog pinned near the top rather than centred, so a
    growing result list doesn't shift the input under the cursor. */
-.command-palette-overlay {
+.command-palette-overlay,
+.finder-overlay {
   z-index: 2000;
   align-items: flex-start;
   padding-top: 15vh;
@@ -2056,7 +2107,9 @@ body.has-agent-monitor #timeline-scroll {
   backdrop-filter: blur(16px);
   border-radius: var(--radius-strip);
   padding: var(--space-1);
-  box-shadow: var(--shadow-sm);
+  /* No resting shadow (INBOX 446 (5)): the strip sits in the page, not over
+     it, and its border is the edge; a shadow here was depth with no meaning. */
+  box-shadow: none;
   border: 1px solid var(--border);
 }
 
@@ -2067,11 +2120,18 @@ body.has-agent-monitor #timeline-scroll {
    without touching `.seg` generally, which other, already-similar-length
    segmented controls (Open/All/Done, List/Calendar) don't need. */
 .library-subtabs button {
-  min-width: 6.5rem;
+  /* **Content-sized, like the Notes strip.** This had a 6.5rem width floor, made
+     for the three-letter "All", and it made the gaps between labels
+     uneven: "All", "Files" and "Images" sat in 104px boxes with 30 to 40px of
+     air either side of the word, while "Boards & maps" had 20px. The tab-strip
+     recipe is one padding either side of the word (`.notes-subtabs button`),
+     so the space between any two neighbouring labels is the same 2 x padding. */
+  flex: 0 0 auto;
   text-align: center;
   /* Same height as the Notes strip's buttons: see `.notes-subtabs button`. */
-  height: var(--control-h-lg);
-  padding: 0 1.25rem;
+  height: var(--target-min);
+  padding: 0 var(--space-6);
+  font-size: var(--text-md);
   /* Without this, "user-tunable corner rounding"'s own `.seg button` rule
      (04-chat-dock-appearance.css) is the only other rule of equal
      specificity (class + element) that sets border-radius, and it loads
@@ -2087,7 +2147,7 @@ body.has-agent-monitor #timeline-scroll {
   flex: 1;
   overflow-y: auto;
   /* See `--scroll-top-clearance`'s own comment (00-tokens-shell.css): the
-     same shape as `#tab-notes .layout > main` (04-chat-dock-appearance.css),
+     same shape as `#tab-notes .layout > .tab-main` (04-chat-dock-appearance.css),
      a card's own kebab scrolled flush to the bottom edge sits directly
      under the fixed back-to-top button here too. INBOX 33: the padding
      itself now lives on `body.scroll-top-visible .library-view-section`
@@ -2110,12 +2170,12 @@ body.scroll-top-visible .library-view-section {
    its rounded bottom corner while the visible scroll area stayed 711.4px
    -- exactly `--scroll-top-clearance`. The clearance is for the *list*, not
    the sidebar, so it moves to the scrolling column alone, the same split
-   `#tab-notes .layout > main` already uses (04-chat-dock-appearance.css). */
+   `#tab-notes .layout > .tab-main` already uses (04-chat-dock-appearance.css). */
 body.scroll-top-visible #library-view-skills {
   padding-bottom: 0;
 }
 
-body.scroll-top-visible .skills-split > main {
+body.scroll-top-visible .skills-split > .tab-main {
   padding-bottom: var(--scroll-top-clearance);
 }
 
@@ -2146,8 +2206,12 @@ body.scroll-top-visible .skills-split > main {
   accent-color: var(--accent);
 }
 
+/* No margin of its own: the grid is the last thing in its card, so its
+   32px stood on top of the card's padding as a 48px band under the last
+   row of boards, where every other Library list ends on the padding alone
+   (INBOX 437 (4)). The pagination under the All grid brings its own. */
 .library-grid {
-  margin-bottom: var(--space-9);
+  margin-bottom: 0;
 }
 
 .skills-split {
@@ -2774,17 +2838,12 @@ body.scroll-top-visible .skills-split > main {
 
 /* The mirror of `.ph-lead`, for an icon that closes a label rather than opens
    one: a chip's own "remove" cross, drawn by the trailing `ph:` marker in the
-   label grammar (`setLabel`). Same gap on the other side, and a touch quieter
-   than the words, because it is an action on the thing the words name rather
-   than part of the name. */
+   label grammar (`setLabel`). Same gap on the other side. It was dimmed to
+   0.7 opacity as "an action on the thing the words name"; a muted caret on a
+   grey chip then measured 2.8:1 (INBOX 464, contrastui.js), and DESIGN.md's
+   rule is to dim by colour, never by opacity, so it keeps the label's own. */
 .ph-trail {
   margin-inline-start: 0.35em;
-  opacity: 0.7;
-}
-
-.chip-interactive:hover .ph-trail,
-.chip-interactive:focus-visible .ph-trail {
-  opacity: 1;
 }
 
 .ph {
@@ -2980,12 +3039,22 @@ body.scroll-top-visible .skills-split > main {
    every native dialog in the app that same dimmed backdrop and near-opaque
    panel instead of reinventing it per-dialog. */
 dialog::backdrop {
-  background: rgba(10, 12, 18, 0.45);
+  background: var(--scrim);
   backdrop-filter: blur(4px);
 }
 
 .space-dialog {
-  min-width: min(26rem, calc(100vw - var(--space-8)));
+  /* **The same inset from the window as a `.modal-overlay` dialog** (INBOX
+     456): the overlay's own padding keeps a modal-card `--space-8` off every
+     edge, and a native dialog sat `--space-4` off (366px against 342px at
+     390). A small dialog is also one width unless it names its own, rather
+     than as wide as its longest line: the "Where are my documents kept?"
+     dialog measured 1332px at 1440 because its path is one unbroken line.
+     `:where` so a dialog that names its width (the widgets picker, the
+     template picker, the quick note) keeps it. `min-width` wins over
+     `max-width` in CSS, so both carry the inset. */
+  min-width: min(26rem, calc(100vw - var(--space-8) * 2));
+  max-width: calc(100vw - var(--space-8) * 2);
   background: var(--modal-bg);
   /* **Every `<dialog class="card space-dialog">` in the app was landing at
      the left edge of the window, not centred.** The base `.card` rule
@@ -3216,7 +3285,7 @@ dialog::backdrop {
      right edge instead of dropping to a second line. Reported live as
      "overflowing text at the bottom in the capture tab". */
   flex-wrap: wrap;
-  --control-h: 2.5rem;
+  --control-h: var(--control-h-body);
   /* The two rows had gap *within* themselves (label→control→button) but
      nothing *between* them: neither row carries its own margin, so "Add to
      document" sat flush against "File under" below it. Reported live. */
@@ -3274,10 +3343,10 @@ dialog::backdrop {
    exactly this failure at a quarter of the scale.
 
    The two heights are the tokens the app already has, used for what each is
-   for. `--control-h-lg` (2.25rem) is the *secondary strip*: the card head
+   for. `--control-h-lg` (2rem) is the *secondary strip*: the card head
    row, whose height DESIGN.md already fixes, and the formatting toolbar,
    which is chrome for the box below it and must not out-weigh it.
-   `--control-h` at 2.5rem is the *body*: every field, picker and button you
+   `--control-h-body` (2.25rem) is the *body*: every field, picker and button you
    act on, which is what `.capture-field-row`, `.draft-controls` and
    `.ask-query-row` above already declare. The writing surfaces are the
    deliberate exception: a textarea is sized by what you are writing, not by
@@ -3306,11 +3375,11 @@ dialog::backdrop {
    strip *outside* it, with its own card background, and the box it formats
    was 89px tall on a 498px card. */
 .note-composer {
-  --control-h: 2.5rem;
+  --control-h: var(--control-h-body);
   display: flex;
   flex-direction: column;
   margin-bottom: var(--space-4);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
+  border: 1px solid var(--control-edge);
   border-radius: var(--radius-lg);
   background: var(--input-bg);
   box-shadow: inset 0 1px 2px var(--field-inset);
@@ -3422,12 +3491,24 @@ dialog::backdrop {
   padding: var(--space-4);
 }
 
-/* The counter sits inside the surface, so it takes the surface's padding
+/* The foot: Clear and the counter sit inside the surface, so they take its padding
    instead of the negative margin it used to pull itself up against a box it
    no longer touches. */
-.note-composer > .char-count {
-  margin: 0;
-  padding: 0 var(--space-4) var(--space-3);
+.note-composer-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-2) var(--space-3) var(--space-4);
+}
+
+.note-composer-foot .char-count {
+  margin: 0 0 0 auto;
+  padding: 0;
+}
+
+/* Clear in the foot takes no height of its own: the row is the counter's. */
+.note-composer-foot .field-clear {
+  margin-block: -1.1rem;
 }
 
 /* Notes tab → Ask: the question input, the answer-length select and the Ask
@@ -3447,14 +3528,14 @@ dialog::backdrop {
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
+  border: 1px solid var(--control-edge);
   border-radius: var(--radius-lg);
   background: var(--input-bg);
   box-shadow: inset 0 1px 2px var(--field-inset);
 }
 
 .ask-composer:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-color: var(--accent-text);
 }
 
 .ask-composer-icon {
@@ -3550,7 +3631,7 @@ dialog::backdrop {
 }
 
 .ask-query-row {
-  --control-h: 2.5rem;
+  --control-h: var(--control-h-body);
 }
 
 /* **One step between the blocks of this card, the step the other two sub-tabs
@@ -4121,7 +4202,7 @@ input[type="number"]:hover:not(:focus),
 input[type="password"]:hover:not(:focus),
 input[type="email"]:hover:not(:focus),
 input[type="url"]:hover:not(:focus) {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-color: color-mix(in srgb, var(--accent-text) 60%, var(--control-edge));
 }
 
 /* --- reminders: "when" is one decision, so it is one group ----------------
@@ -4224,7 +4305,6 @@ input[type="url"]:hover:not(:focus) {
 .extract-card,
 .extract-note-card,
 .wb-card,
-.file-card-text,
 .copy-fallback-card,
 .modal-card {
   align-items: stretch;
@@ -4299,7 +4379,7 @@ input[type="url"]:hover:not(:focus) {
   min-width: 0;
   min-height: var(--target-min);
   padding: var(--space-2) var(--space-4);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
+  border: 1px solid var(--control-edge);
   /* The field's corner, which is now the button's (`--radius-md`). */
   border-radius: var(--radius-md);
   background: var(--input-bg);
@@ -4311,7 +4391,7 @@ input[type="url"]:hover:not(:focus) {
 }
 
 .select-opener:hover:not([disabled]) {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-color: color-mix(in srgb, var(--accent-text) 60%, var(--control-edge));
 }
 
 .select-opener[disabled] {
@@ -6089,7 +6169,15 @@ button.connection-row > .ph-text {
 .connection-row-cue {
   margin-left: auto;
   padding-left: var(--space-2);
-  flex: none;
+  /* Gives way with an ellipsis rather than running past the row: a long
+     cue ("Ideas, Oct 3, 8:35 AM, note 22") spilled out of the 1280px rail
+     (notesrail.js, 2026-10-03). Never more than half the row. */
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--text-xs);
   color: var(--muted);
 }
@@ -6199,42 +6287,6 @@ button.connection-row {
 .cmd-note-link-name::before {
   content: " \00b7 ";
   color: var(--muted);
-}
-
-/* --- what the turn cost and how it got there ------------------------------
-   `cmdPaletteMetaRow` (app.js). Reported: "the popup agent is still missing
-   many things like the semantic search, token count, thinking boxes,
-   metadata, persona used, model used".
-
-   A row of chips rather than the Chat tab's side panel: the palette is an
-   overlay you open on top of whatever you were doing, and reproducing a panel
-   inside it would crowd the answer instead of evidencing it. Chips wrap, so
-   the row is one line tall when there is little to say and grows only when
-   there is more. `.chip.tag` is the app's existing "a small stated fact"
-   object: a different-looking badge here would be a second sign for the same
-   meaning. */
-.cmd-palette-meta {
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--border);
-}
-
-/* These state something; they are not pressable. Read-only chips sit beside
-   the openable note chips of `.cmd-palette-found` directly above, so the
-   difference has to be visible: no pointer, no hover lift, and the muted
-   colour the app already uses for text that reports rather than acts. */
-.cmd-palette-fact {
-  cursor: default;
-  color: var(--muted);
-}
-
-/* Full width, because a `<details>` in a flex column would otherwise shrink to
-   its summary and leave the disclosure hanging in the middle of the bubble. */
-.cmd-palette-thinking {
-  display: block;
-  margin-bottom: var(--space-3);
 }
 
 /* --- one control height per Library header row ------------------------------
@@ -6384,7 +6436,7 @@ button.connection-row {
      `.library-head`, for the same reason its comment gives: one card, one
      control height. 2.25rem = 36px, a whole multiple at 125% and 150% display
      scaling, which is what keeps a 1px border off a half pixel. */
-  --control-h: 2.25rem;
+  --control-h: var(--control-h-lg);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -7032,6 +7084,105 @@ button.connection-row {
   margin: 0;
 }
 
+/* **The engine line** (INBOX 443 (3)), drawn by ocr-engine.js under the
+   toolbar and again, smaller, in the Packages row for Tesseract. A state chip
+   (`chip item-label`, `is-ok` for ready and `is-warn` for not), one muted sentence, and the one control that fits the state:
+   the language when it can read, Install when it cannot. It wraps rather than
+   scrolls: unlike the toolbar above it, this line is words. */
+.ocr-engine:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.ocr-engine-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.ocr-engine-detail {
+  flex: 1 1 14rem;
+  min-width: 0;
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.ocr-engine-lang-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ocr-engine-lang-label {
+  font-size: var(--text-sm);
+}
+
+.ocr-engine-progress {
+  width: 10rem;
+  margin: 0;
+}
+
+.ocr-engine-note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.ocr-engine-note.is-error {
+  color: var(--error);
+}
+
+/* **On a phone the reading's actions are icons, and keep their words for a
+   screen reader** (the `.toolbar-word` recipe, DESIGN.md: hidden, not
+   dropped). Measured at 390 with the ⋯ menu added: seven controls in the
+   thumb bar, "Describe" overlapped by "Copy all" and "Save as note" broken
+   over three lines, because three worded buttons shared the room four icons
+   had left. Each button's `title` still names it for a pointer. */
+.ocr-phone-bar .toolbar-word {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ocr-phone-bar button:has(> .toolbar-word) {
+  width: var(--target-min);
+  padding-inline: 0;
+}
+
+.ocr-phone-bar button:has(> .toolbar-word) > .ph-lead {
+  margin-inline-end: 0;
+}
+
+/* The reading as editable text, in place of the sections while it is open. */
+.ocr-edit-panel:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ocr-edit-box {
+  width: 100%;
+  min-height: 12rem;
+  resize: vertical;
+}
+
+.ocr-edit-actions {
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 /* **The picture's other stored reading** (INBOX 421 e), under the message:
    the region row's own card (border, radius, padding) without its pointer,
    because it is not a section of the page and does not select a box. Its
@@ -7542,11 +7693,16 @@ button.connection-row {
    under the panel), so this mode had fallen back to a fixed 20rem. */
 #tab-documents.doc-focus {
   --doc-focus-prose-w: min(var(--doc-prose-w), 50vw);
+  /* Where the side panels start: the floating dock's top inset, its height
+     (a control and its own padding) and a gutter. It was a control and two
+     gutters, which left the panel touching the dock on a desktop and 12px
+     under it on a phone, where the dock's buttons are taller (INBOX 453). */
+  --doc-focus-panel-top: calc(max(var(--control-h-lg), var(--target-min)) + var(--space-1) * 2 + var(--space-4) * 2);
 }
 
 #tab-documents.doc-focus #doc-prose-panel:not(.hidden) {
   position: fixed;
-  top: calc(var(--control-h-lg) + var(--space-4) * 2);
+  top: var(--doc-focus-panel-top);
   right: var(--space-4);
   bottom: var(--space-4);
   z-index: 2;
@@ -7581,10 +7737,90 @@ button.connection-row {
   }
 }
 
+/* **The sidebar, as a side panel** (INBOX 453 (1), the owner: "there should
+   be a way to open and close the documents editor sidebar when in full screen
+   mode"). The mirror of the suggestions panel above: the list and the outline
+   come back as a column fixed to the window's left edge under the floating
+   dock's band, on the solid modal ground (no blur on a panel this size), and
+   the page gives up the room it takes. The width is its own token-sized
+   column, held to 40vw so the page keeps the larger share; the sidebar's own
+   grip and fold toggle mean nothing in a panel that opens and closes from the
+   dock, so neither is offered, and a sidebar folded to its rail on the page
+   still opens whole here (the `!important` is the one the rail's own rule
+   carries). On a phone it is the window's width less its gutters, over the
+   page. */
+#tab-documents.doc-focus {
+  --doc-focus-sidebar-w: min(20rem, 40vw);
+}
+
+#tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar {
+  display: flex;
+  position: fixed;
+  top: var(--doc-focus-panel-top);
+  left: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 2;
+  width: var(--doc-focus-sidebar-w) !important;
+  height: auto;
+  max-height: none;
+  margin: 0;
+  background: var(--modal-bg-opaque);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  overflow: hidden;
+  /* Below 820 the sidebar is an edge sheet (translated off screen, its rows
+     `visibility: hidden`, a rail left showing); here it is the panel, so the
+     sheet's own state is put back. */
+  transform: none;
+  transition: none;
+  border-radius: var(--radius);
+}
+
+#tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar > * {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+#tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar > .sidebar-resize,
+#tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar > .sidebar-collapse-toggle,
+#tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar > .sidebar-rail-name {
+  display: none;
+}
+
+/* The phone's floating formatting bar (fixed, above the keyboard) is drawn
+   over a panel that reaches the bottom of the window, cutting its last row;
+   the panel is for finding a document, not for writing, so the bar waits. */
+#tab-documents.doc-focus.doc-focus-sidebar .doc-phone-bar {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  #tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar {
+    right: var(--space-4);
+    width: auto !important;
+  }
+}
+
+@media (min-width: 721px) {
+  #tab-documents.doc-focus.doc-focus-sidebar .doc-main {
+    padding-left: calc(var(--doc-focus-sidebar-w) + var(--space-4) * 2);
+  }
+}
+
 /* On a phone the floating dock is one line with no room for words: the
    toggles keep their icon, and their name is the `aria-label` and title
    they carry at every width. */
 @media (max-width: 600px) {
+  /* Four toggles and the way out beside the facts is 29px more than a 390
+     window holds at the desktop gap (INBOX 453 (1) added the fifth), so the
+     pill tightens its gaps and its leading pad here. */
+  #tab-documents.doc-focus > .doc-focus-bar {
+    gap: var(--space-1);
+    padding-left: var(--space-3);
+  }
+
   #tab-documents.doc-focus > .doc-focus-bar .doc-focus-word {
     display: none;
   }
@@ -7596,6 +7832,27 @@ button.connection-row {
 
   #tab-documents.doc-focus > .doc-focus-bar button:has(.doc-focus-word) .ph-lead {
     margin: 0;
+  }
+}
+
+/* At 360 the five buttons leave no room for the word count as well as the
+   save state, so the count goes first: whether the page is safe matters
+   more than how long it is, and the count is one tap away in the status bar
+   on leaving the mode. */
+@media (max-width: 400px) {
+  #tab-documents.doc-focus > .doc-focus-bar #doc-focus-words {
+    display: none;
+  }
+
+  #tab-documents.doc-focus > .doc-focus-bar .doc-focus-facts > span + span:not(:empty)::before {
+    content: none;
+  }
+}
+
+/* And at 320 the save state goes too: the five controls are the pill. */
+@media (max-width: 340px) {
+  #tab-documents.doc-focus > .doc-focus-bar .doc-focus-facts {
+    display: none;
   }
 }
 
@@ -7647,6 +7904,11 @@ button.connection-row {
   background: var(--inner);
   cursor: crosshair;
   touch-action: none; /* so a touch drag pans the board, not the page */
+}
+
+/* Held: the rectangle is in the hand (`wbNavigatorDragStart`). */
+.wb-navigator-map.is-dragging {
+  cursor: grabbing;
 }
 
 .wb-navigator-empty,
@@ -11587,11 +11849,6 @@ input[type="file"] {
   pointer-events: none;
 }
 
-.dock-context {
-  font-size: var(--text-sm);
-  white-space: nowrap;
-}
-
 .dock-menu-section .timeline-custom-range {
   margin: var(--space-2) 0 0;
 }
@@ -12073,6 +12330,18 @@ header#top-bar {
     visibility: visible;
   }
 
+  /* And the closed sheet does not scroll. Its rows are hidden, but a box
+     that scrolls is a Tab stop of its own in Chromium (keyboard-focusable
+     scrollers), so Tab landed on an invisible, off-screen sidebar at 320
+     and 390 (zoom.js, WCAG 2.4.3 and 2.4.11, INBOX 433). `hidden` keeps its
+     scroll position for when it opens. */
+  #sidebar:not(.sidebar-sheet-open),
+  #chat-sidebar:not(.sidebar-sheet-open),
+  #doc-sidebar:not(.sidebar-sheet-open),
+  #skills-sidebar:not(.sidebar-sheet-open) {
+    overflow-y: hidden;
+  }
+
   /* The toggle rides on the rail: pinned to the sheet's right edge at the
      inset the rail was measured from, so it lands centred on the strip that
      stays visible. */
@@ -12108,7 +12377,7 @@ header#top-bar {
      which side it sat on at desktop width (the shared fixed-sheet rule
      above pins every one of them to `left: 0`), so `main` still needs the
      same clearance, just stated in the other direction for this one. */
-  .skills-split > main:has(+ #skills-sidebar) {
+  .skills-split > .tab-main:has(+ #skills-sidebar) {
     padding-left: calc(var(--sidebar-toggle-size) + 2 * var(--sidebar-toggle-inset));
   }
 }
@@ -12446,6 +12715,16 @@ header#top-bar {
     border-radius: var(--radius-pill);
     box-shadow: var(--shadow-lg);
     padding-inline: var(--space-6);
+  }
+
+  /* **The button never hides what the keyboard is on** (WCAG 2.4.11, INBOX
+     433: zoom.js at 320, Tab reached a filter and a row's button sitting
+     under it). Scrolling a focused control into view stops this far above
+     the page's foot, which is the button's own height and its offset; on
+     Notes the scroller is the layout's `.tab-main`, not the page. */
+  .tab-page:has(> .dock-fab),
+  .tab-page:has(> .dock-fab) .tab-main {
+    scroll-padding-bottom: calc(var(--target-min) + var(--space-5) + var(--space-3));
   }
 
   /* --- one column of full-width cards ------------------------------------
@@ -13128,14 +13407,14 @@ header#top-bar {
   gap: var(--space-2);
   margin: var(--space-4) var(--card-pad-x);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
+  border: 1px solid var(--control-edge);
   border-radius: var(--radius-lg);
   background: var(--input-bg);
   box-shadow: inset 0 1px 2px var(--field-inset);
 }
 
 .finder-bar:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-color: var(--accent-text);
 }
 
 /* The band's own floor, kept at the component because that is where this
@@ -13498,17 +13777,6 @@ button.finder-row:hover,
   display: none;
 }
 
-#tab-dashboard[data-density="compact"] .dash-stats {
-  gap: var(--space-2);
-}
-
-#tab-dashboard[data-density="compact"] .stat-tile {
-  flex-direction: row;
-  align-items: baseline;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-}
-
 /* Measured: with only the tiles and the stats folded, Compact saved 50px of
    the 610px above the widget grid, which is not a decluttering anybody would
    notice. The rest of that height is the hero's own banner and the two pill
@@ -13551,11 +13819,6 @@ button.finder-row:hover,
 
 #tab-dashboard[data-density="compact"] .dash-clock-time {
   font-size: var(--text-h2);
-}
-
-#tab-dashboard[data-density="compact"] .quick-pill {
-  padding: var(--space-1) var(--space-3);
-  font-size: var(--text-sm);
 }
 
 #tab-dashboard[data-density="compact"] .launch-row {
@@ -13619,7 +13882,6 @@ button.finder-row:hover,
    away, from the search field itself (which finds actions as well as content)
    or from the tabs, which is the test a hidden thing has to pass. */
 #tab-dashboard[data-density="focused"] .dash-quicklinks,
-#tab-dashboard[data-density="focused"] .dash-stats,
 #tab-dashboard[data-density="focused"] .dash-hero-emblem,
 #tab-dashboard[data-density="focused"] .dash-wordmark {
   display: none;
@@ -13739,25 +14001,6 @@ button.finder-row:hover,
   }
 }
 
-/* The picker sits in the toolbar with Widgets and Edit layout, so it lines up
-   on their baseline and takes their scale rather than a height of its own.
-   Reported with a screenshot: as a `.seg` it sat taller than both of them and
-   showed no chosen state at all. */
-.dash-density {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-@media (max-width: 600px) {
-  /* Three words plus two other controls do not fit a phone toolbar. The
-     density is still settable by rotating or on a wider screen, and the
-     phone's own layout is already the compact one. */
-  .dash-density {
-    display: none;
-  }
-}
-
 /* A kind's heading inside the results list. An eyebrow, not a title: it names
    a band of rows rather than introducing a section, so it takes the smallest
    step and the muted ink, and it is sticky so the band you are scrolling
@@ -13777,4 +14020,14 @@ button.finder-row:hover,
 
 .finder-group:first-child {
   margin-top: 0;
+}
+
+/* The edit form's title (INBOX 432): the capture title's shape, a control
+   height and the weight of a heading, full width above the strip. */
+.entry-list input.note-edit-title {
+  width: 100%;
+  height: var(--control-h);
+  padding-inline: var(--space-4);
+  margin-bottom: var(--space-3);
+  font-weight: 600;
 }

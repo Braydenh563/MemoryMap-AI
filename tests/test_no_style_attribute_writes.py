@@ -22,7 +22,7 @@ PATTERN = re.compile(r"""(?:setAttribute|\.attr)\(\s*["']style["']""")
 
 def test_no_script_writes_a_style_attribute():
     offenders = []
-    for path in sorted(FRONTEND_DIR.glob("*.js")):
+    for path in sorted((FRONTEND_DIR / "js").glob("*.js")):
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             stripped = line.strip()
             if stripped.startswith("//"):

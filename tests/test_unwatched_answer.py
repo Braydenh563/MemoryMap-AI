@@ -18,9 +18,9 @@ ROOT = Path(__file__).resolve().parents[1]
 #: app.js plus palette.js: the popup agent (Ctrl+K) was split out of app.js
 #: on 2026-09-24, and these tests read it wherever it lives.
 APP = app_js_text() + "\n" + (
-    ROOT / "frontend" / "palette.js"
+    ROOT / "frontend" / "js" / "palette.js"
 ).read_text(encoding="utf-8")
-SETTINGS = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+SETTINGS = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
 
 
 def _body(source: str, head: str) -> str:

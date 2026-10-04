@@ -86,7 +86,7 @@ def main() -> int:
     app = create_app()
     served = [(path, _route_pattern(path)) for path, _ in routes(app)]
     calls: dict[str, list[str]] = {}
-    for file in sorted((ROOT / "frontend").glob("*.js")):
+    for file in sorted((ROOT / "frontend" / "js").glob("*.js")):
         for match in CALL.finditer(file.read_text(encoding="utf-8")):
             path = match.group(2).split("?")[0].rstrip("/") or "/"
             calls.setdefault(path, []).append(file.name)

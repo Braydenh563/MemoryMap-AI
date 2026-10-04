@@ -20,6 +20,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.core import deps
+from memorymap.core.config import days_from_today, user_now
 from memorymap.core.database import EmbeddingRecord, Entry
 from memorymap.entry import manager
 
@@ -245,8 +246,13 @@ def _note_summary(
     if dates is None:
         dates = manager.entry_dates(session, entry)
     if dates:
+        #: With its distance from today (INBOX 441, "make sure the other
+        #: agents like the popup and chat are aware of time relativity"): an
+        #: ISO date alone left a small model to do the weekday arithmetic.
+        today = user_now(deps.get_config()).date()
         summary["dates"] = [
-            {"phrase": d.phrase, "meant": d.at.date().isoformat()} for d in dates
+            {"phrase": d.phrase, "meant": d.at.date().isoformat(), "when": days_from_today(d.at.date(), today)}
+            for d in dates
         ]
     return summary
 

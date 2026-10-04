@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 
 import logging
+import os
 import threading
 import time
 from typing import TYPE_CHECKING
@@ -24,6 +25,7 @@ from sqlalchemy.orm import Session
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.core.database import Attachment, Category, EmbeddingRecord, Entry
+from memorymap.core.logbuffer import safe_value
 
 if TYPE_CHECKING:
     # Only for the annotations below, which `from __future__ import
@@ -43,6 +45,11 @@ if TYPE_CHECKING:
 # from Hugging Face in the log. Anything that shows the name asks
 # `EmbeddingService.active_model()`.
 DEFAULT_ST_MODEL = "BAAI/bge-small-en-v1.5"
+
+
+class EmbeddingCacheBroken(RuntimeError):
+    """The model is on disk but will not load; the app stays offline rather
+    than fetching it again unasked (`_load_st_model`)."""
 
 logger = logging.getLogger("memorymap.embeddings")
 
@@ -220,6 +227,45 @@ BACKFILL_LIMIT = 200
 # Enough to cover the repeated embeds within a single save, with headroom.
 _EMBED_CACHE_MAX = 32
 
+#: **One torch thread for a note-sized encode** (INBOX 434: background filing
+#: took 1.2 to 4 seconds, nearly all of it this one call). `encode()` of one
+#: short note is a few tiny matrix products, and torch's default intra-op pool
+#: (one thread per core) pays barrier waits that dwarf the arithmetic the
+#: moment any other process wants a core. Measured here, 70-character note,
+#: median per encode: 4 threads idle 39 ms; 4 threads on a busy machine
+#: 2,192 ms; 1 thread busy 79 ms; 2 threads busy 119 ms. A desktop app always
+#: shares its machine (the window, the browser, an indexer), so the pool's
+#: best case saves tens of milliseconds and its worst costs seconds.
+#: `MEMORYMAP_EMBED_THREADS` raises it for a machine that is known to be idle.
+EMBED_THREADS = 1
+
+
+def embed_threads() -> int:
+    """The thread count one encode runs at: `EMBED_THREADS`, or the
+    environment's whole number when it names one."""
+    raw = os.environ.get("MEMORYMAP_EMBED_THREADS", "").strip()
+    try:
+        return max(1, int(raw)) if raw else EMBED_THREADS
+    except ValueError:
+        return EMBED_THREADS
+
+
+def _limit_torch_threads() -> None:
+    """Put the calling thread's torch pool at `embed_threads()` before an
+    encode. Set in the encoding thread itself, because an OpenMP build keeps
+    the count per thread and a new pool thread starts at the default; a call
+    that finds the count already right does nothing, so this costs one
+    getter per note. Never an error: no torch, or one without the setter,
+    only means the default pool."""
+    try:
+        import torch
+
+        wanted = embed_threads()
+        if torch.get_num_threads() != wanted:
+            torch.set_num_threads(wanted)
+    except Exception:  # noqa: BLE001  # a thread limit is an optimisation
+        logger.debug("couldn't limit torch's threads for an encode", exc_info=True)
+
 
 def backfill_missing(
     service: "EmbeddingService",
@@ -236,16 +282,25 @@ def backfill_missing(
     Private notes are skipped, deliberately: store_for_entry refuses them, and
     a vector would leak what the note is about.
     """
+    if not service.is_ready():
+        return 0
+    from memorymap.core import jobruns
+
+    with jobruns.job_run("embeddings-backfill") as run:
+        fixed = _backfill_missing(service, session_factory, limit, run)
+    return fixed
+
+
+def _backfill_missing(service, session_factory, limit: int, run) -> int:  # noqa: ANN001
     from sqlalchemy import select
 
     from memorymap.core.database import EmbeddingRecord, Entry
 
-    if not service.is_ready():
-        return 0
     fixed = 0
     try:
         session = session_factory()
     except Exception:  # noqa: BLE001  # startup helper, never fatal
+        run.fail("Could not open the database.")
         return 0
     try:
         missing = session.scalars(
@@ -266,8 +321,14 @@ def backfill_missing(
             logging.getLogger("memorymap.embeddings").info(
                 "backfilled %d note(s) that had no embedding", fixed
             )
-    except Exception:  # noqa: BLE001  # a failed backfill must not stop startup
+        run.result = (
+            f"embedded {fixed} note{'' if fixed == 1 else 's'} that had no vector"
+            if fixed
+            else "every note already had a vector"
+        )
+    except Exception as exc:  # noqa: BLE001  # a failed backfill must not stop startup
         session.rollback()
+        run.fail(exc)
     finally:
         session.close()
     return fixed
@@ -591,16 +652,38 @@ class EmbeddingService:
         problem entirely for the common case (already downloaded once);
         the online attempt below is now purely for the genuine first-ever
         download."""
+        #: **Online only for a first download** (INBOX 439, the owner's
+        #: privacy panel: "huggingface.co, Embedding model, connected 1 time"
+        #: with the model already on the machine). A cache lookup that failed
+        #: used to fall straight through to an online load, logged at debug,
+        #: so a model on disk whose files would not load (a newer library
+        #: wanting a file the old download lacks, an interrupted download)
+        #: went to the internet on every launch with nothing saying why. Now:
+        #: never downloaded, it downloads, said in the log; on disk and not
+        #: loading, it stays offline, says why, and Settings' Reinstall is the
+        #: one way back online, a choice the person makes.
+        os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
         from sentence_transformers import SentenceTransformer
 
         try:
             model = SentenceTransformer(DEFAULT_ST_MODEL, local_files_only=True)
             logger.info("embedding model loaded from local cache")
             return model
-        except Exception:  # noqa: BLE001  # not cached, stale or corrupt; fetch it
-            logger.debug(
-                "%s is not in the local cache, fetching it", DEFAULT_ST_MODEL, exc_info=True
-            )
+        except Exception as exc:  # noqa: BLE001  # not cached, stale or corrupt
+            from memorymap.core import embedmodels
+
+            if embedmodels.is_downloaded(DEFAULT_ST_MODEL):
+                logger.warning(
+                    "%s is on this computer but would not load (%s); staying offline. "
+                    "Reinstall it from Settings, Models to fetch it again.",
+                    DEFAULT_ST_MODEL,
+                    safe_value(str(exc), 200),
+                )
+                raise EmbeddingCacheBroken(
+                    "The search-by-meaning model's files on this computer would not load. "
+                    "Reinstall it from Settings, Models."
+                ) from exc
+        logger.info("%s is not on this computer yet: downloading it once", DEFAULT_ST_MODEL)
         return SentenceTransformer(DEFAULT_ST_MODEL)
 
     def _embed_with_sentence_transformers(self, text: str) -> np.ndarray | None:
@@ -615,7 +698,10 @@ class EmbeddingService:
                 self._load_failed_at = None
             import numpy as np
 
-            result = np.asarray(self._st_model.encode(text), dtype="float32")
+            _limit_torch_threads()
+            # No progress bar: a tqdm "Batches" bar on stderr for every one
+            # note is log noise in a packaged app and a little work besides.
+            result = np.asarray(self._st_model.encode(text, show_progress_bar=False), dtype="float32")
             self.last_error = None
             return result
         except Exception as exc:
@@ -671,6 +757,12 @@ class EmbeddingService:
         just a source checkout.
         """
         if self._auto_install_attempted:
+            return
+        # A developer's checkout and every UI sweep run with this set
+        # (scratchpad/ui-sweeps/serve.sh): CLAUDE.md section 7 forbids torch
+        # in the sandbox, and the first note a sweep saved used to start a
+        # multi-gigabyte pip install behind it.
+        if os.environ.get("MEMORYMAP_NO_AUTO_INSTALL"):
             return
         if not isinstance(exc, ModuleNotFoundError) or "sentence_transformers" not in str(exc):
             return

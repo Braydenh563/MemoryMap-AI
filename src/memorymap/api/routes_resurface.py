@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from memorymap.ai import resurface
+from memorymap.core import jobruns
 from memorymap.core.database import NoteScore
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
@@ -85,8 +86,10 @@ def _reason(row) -> str:  # noqa: ANN001
 def compute(session: Session = Depends(get_session)) -> dict:
     """Refresh every note's fading score. Cheap enough to run on demand,
     meant to run nightly."""
-    written = resurface.compute_scores(session)
-    session.commit()
+    with jobruns.job_run("resurface") as run:
+        written = resurface.compute_scores(session)
+        session.commit()
+        run.result = f"scored {written} note{'' if written == 1 else 's'}"
     return {"scored": written}
 
 

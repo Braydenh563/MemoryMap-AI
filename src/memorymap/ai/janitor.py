@@ -30,7 +30,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import librarian
+from memorymap.ai import lexical_filing, librarian
 from memorymap.ai.embeddings import EmbeddingService, bytes_to_vector, cosine_similarity
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
@@ -50,7 +50,7 @@ from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.core import deps
 from memorymap.core.database import Category, EmbeddingRecord, Entry
 from memorymap.core.logbuffer import safe_value
-from memorymap.entry.manager import UNCATEGORISED
+from memorymap.entry.manager import AUTO_FILED, UNCATEGORISED, WORDS_FILED
 
 # Above this cosine similarity we trust the embedding match and skip
 # the LLM entirely. Below it, the call is worth its cost.
@@ -102,6 +102,16 @@ AI_METHODS = ("semantic-match", "semantic-neighbours", "llm")
 
 def is_ai_method(method: str) -> bool:
     return str(method or "") in AI_METHODS
+
+
+def settled_state(method: str) -> str:
+    """`filing_state` once a filing decision lands: `auto` when the AI chose,
+    `words` when the notebook's own words did, `done` when nothing decided."""
+    if is_ai_method(method):
+        return AUTO_FILED
+    if method == "words":
+        return WORDS_FILED
+    return "done"
 
 
 def categorise(
@@ -193,6 +203,18 @@ def categorise(
     )
     if semantic is not None:
         return semantic
+
+    #: **No model and nothing by meaning: the notebook's own words**
+    #: (INBOX 434). Learned from the notes already filed, the moves made by
+    #: hand and the categories' names, and abstaining when it is not sure.
+    words = lexical_filing.lexical_category(session, content, exclude_entry_id=exclude_entry_id)
+    if words is not None:
+        logger.info(
+            "janitor: filed by your notebook's words -> '%s' (%d%%)",
+            safe_value(words.name, 60),
+            words.confidence,
+        )
+        return words.name, words.confidence, "words"
 
     # Still "filed by <method>", even when the method is 'none'. Reversing the
     # order above briefly replaced this with a differently-worded line, which
@@ -492,7 +514,9 @@ def filed_by_label(method: str, confidence: int, model_manager=None, embeddings=
             return f"meaning ({embeddings.active_model()}), {confidence}% sure"
     except Exception:  # noqa: BLE001 - a label never fails a filing
         logger.debug("janitor: couldn't name the filer", exc_info=True)
-    return {"none": "the keyword fallback", "user": "you"}.get(method, method)
+    if method == "words":
+        return f"your notebook's own words, {confidence}% sure"
+    return {"none": "nothing (no model)", "user": "you"}.get(method, method)
 
 
 def filing_deadline() -> float:

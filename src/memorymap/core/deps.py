@@ -24,6 +24,7 @@ from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
 from memorymap.ai.openai_client import OpenAICompatClient
 from memorymap.ai.provider import Provider
+from memorymap.core import jobruns
 from memorymap.core.config import ConfigManager
 from memorymap.core.database import DatabaseManager, Entry
 
@@ -294,6 +295,21 @@ def get_db() -> DatabaseManager:
     init_app_state()
     assert _db is not None
     return _db
+
+
+def peek_db() -> DatabaseManager | None:
+    """The database if the app has one, without creating it.
+
+    `get_db` initialises the app state on first use, which is right for a
+    request and wrong for bookkeeping: a job record written from a helper
+    that a test (or a script) runs without an app must not conjure a data
+    directory to put its note in.
+    """
+    return _db
+
+
+#: The job records (`core/jobruns.py`) find the database through this.
+jobruns.set_database_source(peek_db)
 
 
 def get_ollama() -> Provider:

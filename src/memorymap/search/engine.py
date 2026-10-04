@@ -1090,6 +1090,10 @@ def search(
     cosines: dict[int, float] = {}
     if hybrid:
         cosines = _cosine_scores(session, subject or q, rows)
+    # Settings' "last search" line reads one record for both search paths.
+    from memorymap.search import search_manager
+
+    search_manager.note_search_mode("hybrid" if cosines else "keyword")
     hops: dict[int, int] = {}
     open_entry = context.get("entry_id")
     if open_entry:

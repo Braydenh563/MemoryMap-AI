@@ -6,6 +6,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from memorymap.entry.tagnames import normalise_tags
+
 
 
 class SpaceCreate(BaseModel):
@@ -46,11 +48,9 @@ class SpaceResponse(BaseModel):
 #: long a note may be: 500,000 characters is a hundred times the longest note
 #: anyone writes and a tenth of what hurt.
 #:
-#: A tag is a label. 50,000 characters was accepted as one, which is a chip
-#: 50,000 characters wide in every list the note appears in. 60 is twice what
-#: `librarian.py` already allows itself when it suggests one.
+#: The tag length cap is `entry/tagnames.MAX_TAG_LENGTH`,
+#: beside the rest of the rule for what a tag may be.
 MAX_NOTE_CONTENT = 500_000
-MAX_TAG_LENGTH = 60
 
 
 class EntryCreate(BaseModel):
@@ -60,13 +60,13 @@ class EntryCreate(BaseModel):
     @field_validator("tags")
     @classmethod
     def _tags_are_labels(cls, tags: list[str]) -> list[str]:
-        """A tag is a label, so it has a label's length.
+        """A tag is a label: clipped, blank-free, each once whatever its case.
 
-        Clipped rather than refused: a save that fails because one tag was
-        long throws away the note, which is a worse answer than a shortened
-        tag. Blank ones drop out, which is what a trailing comma produces.
+        The whole rule is `entry/tagnames.normalise_tags`, shared with the
+        manager so a tag written by the AI or a rename obeys the same one.
+        Blank ones drop out, which is what a trailing comma produces.
         """
-        return [tag.strip()[:MAX_TAG_LENGTH] for tag in tags if tag and tag.strip()]
+        return normalise_tags(tags)
     # Guided mode: the user picks the category up front and
     # the AI janitor is skipped entirely.
     category: str | None = None
@@ -100,6 +100,17 @@ class EntryCreate(BaseModel):
     #: Ignored when `category` or `parent_id` decides the category anyway, 
     #: there is nothing to defer in either case.
     defer_filing: bool = False
+    #: Read `#word` in the text as tags as well (INBOX 434). Opt-in, sent by
+    #: the boxes a person writes a note in (Capture, Quick note, the graph's
+    #: new note), never by an import or the AI, whose text is not a person
+    #: labelling their own thought.
+    inline_tags: bool = False
+    #: The same note sent twice is saved once. The offline queue
+    #: (quick-note.js) gives every note it holds a key and resends it until
+    #: an answer arrives, so a save whose answer was lost on the way back
+    #: (the server stopped after the commit) is answered with the note it
+    #: already made rather than a second copy.
+    client_key: str | None = Field(default=None, max_length=80)
 
 
 class EntryUpdate(BaseModel):
@@ -119,7 +130,7 @@ class EntryUpdate(BaseModel):
     def _tags_are_labels(cls, tags: list[str] | None) -> list[str] | None:
         if tags is None:
             return None
-        return [tag.strip()[:MAX_TAG_LENGTH] for tag in tags if tag and tag.strip()]
+        return normalise_tags(tags)
     pinned: bool | None = None
     is_draft: bool | None = None
     #: The `content_hash` of the text this edit started from, so a save made
@@ -127,6 +138,10 @@ class EntryUpdate(BaseModel):
     #: than silently overwriting it (api/edit_conflicts.py). Optional: a
     #: writer that sends none is not checked.
     base_hash: str | None = Field(default=None, max_length=64)
+    #: The text includes an Atlas suggestion the person applied before saving
+    #: (Improve writing in the form): the edit is recorded as theirs and
+    #: Atlas's together, so the history can say so (INBOX 446).
+    ai_assisted: bool = False
 
 
 class ContextBody(BaseModel):
@@ -160,6 +175,10 @@ class AttachmentOut(BaseModel):
     filename: str
     size: int
     is_image: bool
+    #: When it was attached, ISO-8601. The attachment card's facts line is
+    #: kind, size and the day it came (INBOX 440 (2)); the row has always had
+    #: the date, the note's payload never carried it. "" for a row without one.
+    created_at: str = ""
 
 
 class SimilarOut(BaseModel):
@@ -204,8 +223,14 @@ class EntryOut(BaseModel):
     category: str
     tags: list[str]
     ai_confidence: int
+    #: Offered at filing, not yet taken or discarded (INBOX 440).
+    suggested_tags: list[str] = []
     access_count: int = 0
     last_opened_at: datetime | None = None
+    #: When a person last changed the text, title, tags or category; null if
+    #: never since it was written. Sort "recently edited" by this falling back
+    #: to `created_at`. See `Entry.edited_at` for why not `updated_at`.
+    edited_at: datetime | None = None
     parent_id: int | None = None
     pinned: bool = False
     user_filed: bool = False

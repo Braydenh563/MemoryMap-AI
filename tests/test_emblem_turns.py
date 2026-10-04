@@ -33,7 +33,7 @@ from tests._app_js import app_js_text
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
 CSS = sorted((FRONTEND / "css").glob("*.css"))
-JS = sorted(FRONTEND.glob("*.js"))
+JS = sorted((FRONTEND / "js").glob("*.js"))
 
 
 def _strip_where(selector: str) -> str:

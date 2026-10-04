@@ -7,6 +7,357 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-03
+
+### From MINDMAP_PLAN.md: the second audit's open items (INBOX 445 (2))
+
+Six items found and left by the 445 (2) audit, fixed in one pass and driven
+with real keys by `scratchpad/ui-sweeps/wbmapundo.js` (18 checks; the same
+sweep on the code before: item 1 fails, item 2 fails, items 3 to 5 fail 7 of
+11, measured 2026-10-03), with `wbmapaudit.js` (25/25) and `wbkeywalk.js`
+(10/10) green after.
+
+- **A deleted branch restored by Ctrl+Z came back without its cross-links.**
+  `DELETE /whiteboard/objects/{id}` returned the topic rows and dropped the
+  link sketches silently; it now returns them as `links` (sketch rows,
+  collected by `_forget_links_to(..., into=)`), the undo entry keeps them, and
+  `wbMapRestoreRows` writes them again with each end inside the branch
+  translated to its new id (an end outside keeps its own). Redo carries them
+  too. Before: 1 link, Delete, Ctrl+Z, 0 links. After: 1, restored between the
+  new topic and the old one.
+- **Undo after a restore went stale.** Restored topics have new ids; the
+  create, rename and reparent entries under them named the old ones, so the
+  next Ctrl+Z hit a row that was gone (measured: "Couldn't undo that" toast,
+  topic left behind). `wbRemapUndoIds` rewrites both stacks (batches, reparent
+  targets, restored row ids and parents, a link's two ends). Restoring with
+  the original ids was refused: the create route assigns ids.
+- **Shift+Tab added no undo step.** `wbMapOutdent` pushes the reparent plus
+  the places the tidy moved, as one batch (0 steps before, 1 after; Ctrl+Z
+  puts it back under its parent, Ctrl+Shift+Z outdents again).
+- **After undoing a create nothing was selected.** `wbUndo` selects the first
+  parent of the removed topics that is still on the board (before: a stale
+  selection of the removed topic; after: the parent).
+- **Tab on the canvas added a topic from anywhere.** See MINDMAP_PLAN decision
+  14. Before: Tab from the top bar with a topic selected added one (5 to 6);
+  sixty Tabs from the top bar added fifteen. After: 5 to 5, focus moves on.
+- **Sweeps `wbphase4.js` (7/19) and `whiteboard.js` (rail children)** were the
+  sweeps, not the app. A branch is a closed ribbon (`wbMapRibbonD`), so the
+  probe that read the path's last point as the child's end measured the
+  parent twice (477px "gap"), and the hit twin is the open centreline by
+  design; it now samples the ribbon about a pixel apart and checks the twin's
+  ends against the nodes (19/19). The rail's second painted child was the
+  tool that had just lost `active`, still fading its fill out at alpha 0.011,
+  80ms after the key walk; the sweep waits the transition out.
+- **Found on the way:** focus mode (`wbMapFocusHidden`) read the tree's
+  cross-links as `source_id`/`target_id` while the server sends `from_id` and
+  `to_id`, so a cross-link never kept its far topic in view. Fixed, with a
+  test.
+
+### From WORLD_CLASS_PLAN.md D1: the dashboard's first screen (INBOX 436)
+
+**The first screen, INBOX 436 (2026-10-03).** User feedback, through the
+owner: "quite a lot going on visually on the dashboard when the user opens
+the application"; the hero and the widget grid stay as they are, everything
+between and around them is redesigned. Measured with
+`scratchpad/ui-sweeps/dash436.js` (33 notes in five categories, three
+reminders, two documents, a board, two skills run; and a fresh notebook),
+light, 1440x900 unless named:
+
+- **The band between hero and grid is half the window.** The hero ends at
+  y=211 and the first widget starts at y=673: 462px of chrome (1280x720: 47px
+  of widget on screen; 390x844: the first widget at y=749, under the 60px tab
+  bar, so none). 73 visible elements and 20 controls in the band, 176 and 50
+  on the whole first screen; 7 font sizes in the band alone.
+- **What competes.** Six bands (search, Start something, Jump to, Run a skill,
+  four stat tiles and a sparkline, a "Your dashboard" bar) and four kinds of
+  chip, each asking to be pressed: five large tiles with a hint each, four
+  pills, three skill pills, four stat buttons, three toolbar controls. In
+  dark, three of them draw as primaries at once (the tinted New note, a
+  stat tile, a filled toolbar button).
+- **What repeats.** The note count three times (the hero's line, a stat tile,
+  the status bar); the due reminder five times (hero line, stat tile in an
+  amber edge, status bar, the Reminders tab badge, the bell); search three
+  times (the field, a "Search notes" pill, the status bar's Find); Commands
+  and Ask twice each (a pill or tile, and the status bar). On an empty
+  notebook the welcome card repeats New note and Ask under the tiles that
+  already say them, and turns a second emblem under the hero's.
+- **What is noise.** Three eyebrows naming rows that already say what they
+  are; the "Your dashboard" bar, a full card for three settings-level
+  controls (View, Widgets, Edit layout) that are used once a month.
+
+**Target** (the principles: one primary action, hierarchy from size and
+weight with colour kept for meaning, progressive disclosure, the spacing
+tokens, calm motion, DESIGN.md's recipes; and a comparison of Notion Home,
+Obsidian homepages, Apple Notes, Reflect, Mem, Capacities, Linear's inbox,
+Arc and Raycast, Things 3 Today and Craft, whose common shape is one way in,
+one primary, customisation behind a single ⋯): hero, then **one dock row**,
+then the **Start something** tiles (kept whole, the owner's instruction:
+New note, Ask AI, Sketch, Remind me, Meeting notes, five icon cards with a
+line each, New note the one primary), then the widgets. The row is the tab's
+control bar (`.dock`, the grammar every other tab uses): the search doorway
+(`#dash-find`) and one grouped `kebabMenu` holding what Jump to, Run a skill
+and the layout bar held: Continue (the last note touched), the two recent
+skills and All skills, Tools & features, Commands, View (Full, Compact,
+Focused), Widgets and Edit layout. The four stat tiles and the sparkline
+leave the first screen: the figures are the hero's own line and the status
+bar, and the Stats, Streak and Writing pace widgets hold the rest. Edit
+layout shows a one-line bar above the grid with its Done. The empty
+notebook's welcome card loses its second emblem. Gate: the band at most half
+of what it was at every width, the first widget above the fold at 390x844,
+no new findings from errors, contrast, axe (dashboard) and a11yname.
+
+**Built (2026-10-03).** Hero, then one dock row (`data-dock-name="dashboard"`:
+`#dash-find` and one grouped `kebabMenu`, `dashMoreItems` in dashboard.js),
+then the Start something tiles (kept whole), then the widgets. Edit layout is
+`#dash-editbar` above the grid with its Done (`#dash-edit`). The streak cheer
+moved to `renderDashSubmessage`. About 1,000 lines of CSS and the strip's JS
+went (dashboard.js 4.9 KB smaller gzipped). Pinned by
+`tests/test_inbox_436_dashboard.py`; measured with
+`scratchpad/ui-sweeps/dash436.js` (the first screen) and `dash436menu.js` (the
+menu, Edit layout and Done, View, New note, at 1440 and 390), before against
+a server on the base commit with a copy of the same data. Seeded notebook,
+light and dark the same unless named:
+
+| Width | Band hero to grid | First widget y | Elements on screen | Controls on screen | Elements / controls in the band | Font sizes in the band |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1440x900 | 462 to 205px | 673 to 417 | 176 to 145 | 50 to 39 | 73/20 to 27/7 | 7 to 4 |
+| 1280x720 | 462 to 205px | 673 to 416 | 155 to 128 | 47 to 36 | 73/20 to 27/7 | 7 to 4 |
+| 390x844 | 552 to 205px | 749 to 401 (dark 789 to 401) | 84 to 65 | 26 to 17 | 44/13 to 14/4 | 4 to 2 |
+
+A fresh notebook: band 410 to 205px at 1440 and 458 to 205 at 390, turning
+emblems on screen 3 to 2 (the welcome card's second mark is gone; the hero's
+and the status bar's remain, the owner's choice), first content at 390 from
+y=715 to 463. Distinct accent colours and font weights unchanged (2 to 4, 4
+to 5 across both); the page area's filled primary is still the one New note
+tile. Sweeps against the after server, light and dark where they take a theme: errors.js (1440, 390) 0 errors and 0 layout findings, contrast.js every surface ok (the dashboard 51 text elements, was 70), axe.js ONLY=dashboard 0 findings (incomplete nodes 13 to 6), a11yname.js 0 findings; the same four on the base commit were also clean, so nothing is new. Not verified: the desktop window, a real screen reader, and a human eye on the menu at 1024 and 820.
+
+## Moved from the plans, 2026-10-03 (the documents pass)
+
+### From DOCUMENTS_PLAN.md section 18: the slash menus as one system
+
+The owner, INBOX 295: "I want you to MAJORLY rework and improve the slash
+commands in the notes and documents, I want them to be properly structured
+elements ... proper objects, they need to make the user's live really easy
+and also they need to be discoverable by the user as well."
+
+**Read the code before believing the brief.** "Not properly structured" is
+not what is there. `EDITOR_SURFACES` in `frontend/js/editor.js` is an
+id-to-context table, and each context has its own command list whose rows
+carry an id, a group, a label, a hint, search keywords, a `primary` flag and
+a `run`. That is a reasonable object already, and the documents side has a
+second one, `DOC_COMMANDS` in `frontend/js/documents.js`, 34 rows of id, icon,
+label, chord and `run`, bracketed by markers so `tests/test_doc_commands.py`
+can read its shape without a browser. So this section is not a rewrite of a
+mess. It is the work of making two good tables into one system, and of
+telling anybody that the feature exists.
+
+**Measured on the branch head, 2026-09-21:**
+
+| What | Reading |
+| --- | --- |
+| Contexts with their own commands | note, document, chat, skill |
+| Command groups declared in editor.js | 45 |
+| Labels written as emoji | 38 |
+| Labels written as the app's icon tokens | 10 |
+| Separate command tables | 2, editor.js's per-context lists and documents.js's `DOC_COMMANDS` |
+| Discoverability affordance | none found: the menu exists only once "/" is typed |
+
+The emoji count is the finding. This app ships a vendored icon set and names
+icons as `ph:` tokens everywhere else, and `tests/test_no_glyph_icons.py`
+exists precisely to keep typed characters out of the interface. The slash
+menus are where that rule was never applied: 38 rows against 10. A menu that
+draws its own icons in a different alphabet from every other menu is exactly
+the "not proper objects" the owner is reacting to, even though the data
+behind it is fine.
+
+**Decisions made.**
+
+1. One table shape for every context, and the row is the object: id, icon as
+   a `ph:` token, label, hint, keywords, group, `primary`, chord, `run`. The
+   document table and the editor tables meet at that shape rather than one
+   absorbing the other, because they are reached differently and always will
+   be.
+2. Icons come from the vendored set. No emoji in a command row, held by
+   extending `tests/test_no_glyph_icons.py` to cover the command tables, so
+   the next row added cannot reintroduce them.
+3. A command is discoverable three ways or it is not discoverable: the hint
+   on the surface, the menu itself, and search by keyword rather than by the
+   app's internal vocabulary. The keywords field already exists and is
+   already used for the second of those.
+4. The affordance is shown, not documented. Whatever says "/" is available
+   appears on an empty surface and gets out of the way once there is text,
+   rather than being a line in a help panel nobody opens.
+5. Nothing is added to the chrome, per section 17's rule, and any new recipe
+   arrives with its lint in the same commit (standing order 11).
+
+**Phases, each with its gate.**
+
+- ~~**18a. One row shape.**~~ **Built 2026-09-21**, and the difference
+  between the two shapes turned out not to be cosmetic. `DOC_COMMANDS` kept
+  its icon in an `icon` field; editor.js's four lists packed theirs into the
+  front of `label`, as a string the row builder printed whole. Two
+  consequences, both fixed by the split:
+
+  * it is *why* the eight callout commands reached for emoji. The row builder
+    used `textContent`, so a `ph:` token in a label would have printed as the
+    literal text "ph:note Note box"; an emoji was the only mark that could go
+    there at all.
+  * it quietly broke the menu's own ranking. `editorRankCommands` scores
+    `label.startsWith(query)` first, and no label started with a letter, so
+    that branch could never fire: typing the first word of a command ranked
+    it no better than a keyword hit.
+
+  39 rows split (38 plain, one template literal), the icon joined to the
+  label at render rather than stored joined, so a row can be read for its
+  icon without parsing its label. `tests/test_command_row_shape.py` reads
+  both tables from source with no browser and asserts every row carries an
+  `icon`, that no `label` opens with a token, and that no `label` opens with
+  a character outside ASCII (the shape check that backs
+  `test_no_glyph_icons.py`'s named-character one). Two of its three fail
+  against the code before the split.
+- ~~**18b. The icons.**~~ **Built 2026-09-21, and it found the menu did not
+  open at all.** The 38 are `ph:` tokens; the menu row builds its label
+  through `setLabel` like every other menu in the app, which it did not
+  before and which is why a token could not be written in one; the rendered
+  callout heads with an `<i class="ph">`, since `CALLOUT_KINDS` is read by
+  the renderer as well as by the menu. The Library's create table, the chat
+  attachment close, a note embed's marker and two graph arrows went with
+  them. `tests/test_no_glyph_icons.py` now decodes `\uXXXX` and `\u{...}`
+  before looking, which is the hole the 38 sat in: they were escapes, so a
+  lint reading the source text of the literal saw backslashes.
+  `scratchpad/ui-sweeps/slashicons.js` is the probe, in the gate: 14 rows, 0
+  printing a literal token, 14 of 14 carrying an icon element (4 of 14
+  before), 0 opening with a character outside ASCII.
+
+  **The finding that matters more than the icons.** Opening the menu to
+  count its rows is how this was found: 0 rows. `editorSurfaceFor` needs
+  `asSurface`, which documents.js defines, and documents.js is in the
+  Library's lazy bundle, so on every fresh load the "/" menu did nothing in
+  the note capture box, the note edit box, the chat composer and the skill
+  steps box until the person happened to open Library or Documents. Four of
+  the five surfaces. The guard that hid it said the case "cannot happen in
+  the browser (the script order is fixed)"; the script order had stopped
+  being fixed under it. Fixed by warming the bundle when an editing surface
+  takes focus and replaying the keystroke that arrived first, and held by
+  `tests/test_lazy_bundle_calls.py`, which accounts for every call a
+  boot-loaded file makes into a lazy bundle.
+
+  **The rule this leaves behind, which is the point of writing it down:** a
+  `typeof x === "function"` guard around a feature is not a safety net, it is
+  a silent off switch. A bare call would have thrown on the first press and
+  been fixed that day.
+- ~~**18c. Discoverability.**~~ **Built 2026-09-21.** Three ways, which is
+  what decision 3 asks for and what the surface had one of:
+
+  1. **The placeholder**, on every surface in `EDITOR_SURFACES`: "Press / for
+     blocks and commands." Applied from editor.js rather than written into
+     the markup, because one of the four (`entry-edit-content`) is built in
+     JS every time a note is opened, and three boxes that say it beside one
+     that does not teaches that the feature is per-box. Measured: 4 of 4
+     hinted, and the engine carries it through to `aria-placeholder` when it
+     is mounted over the composer.
+  2. **Ctrl+/**, through `DEFAULT_SHORTCUTS` and `runShortcut` (app.js), not
+     through a listener of editor.js's own. That makes it rebindable like
+     every other chord and, more to the point, puts it in the shortcuts cheat
+     sheet, which is where somebody looks for what an app can do. A second
+     listener would also have fired alongside app.js's chorded dispatcher and
+     inserted two slashes.
+  3. The menu itself, which is what 18a and 18b were about.
+
+  **Decision taken, recorded rather than remade** (standing order 3): 18c's
+  gate asked for a "visible route", and decision 5 forbids adding to the
+  chrome. The note toolbar already carries twelve controls; a thirteenth
+  teaches nothing and costs the one thing section 17 is protecting. So the
+  visible thing is the placeholder, which is copy rather than chrome and is
+  on screen at exactly the moment it is useful and gone the moment it is not,
+  and the route it names is a chord that the cheat sheet also lists.
+
+  The chord writes a real "/" into the text rather than faking the menu open:
+  the menu filters on what follows the slash and closes when it is deleted,
+  so both routes have to leave the surface in the same state or Escape and
+  Backspace would behave differently depending on how it was opened.
+
+  `scratchpad/ui-sweeps/slashicons.js` covers all of it: 4 of 4 surfaces
+  hinted, the menu open with 14 rows from the chord alone, and
+  `shortcuts.editorMenu` present so the cheat sheet lists it.
+- **18d. The menu itself.** Grouping, ordering, the `primary` flag's meaning,
+  what happens on no match, and keyboard behaviour end to end. Gate: arrow
+  keys move through the rows, Escape closes and returns focus to the surface,
+  a no-match state says so rather than showing an empty box, and every
+  context is measured at 1440 and 390.
+
+### From DOCUMENTS_PLAN.md section 19: a board or a map as an object in a note, and a note's reminders
+
+The owner, INBOX 309, verbatim: "there is also no way to attach a whiteboard
+or mindmap to a note as like an object in the notes. or to link reminders to
+notes". Two halves of one idea: this note and that thing are the same piece
+of work.
+
+**What the read found before anything was built.** Half of it existed and
+was not drawn, and one sentence of the brief was simply wrong, which is why
+section 1 of CLAUDE.md says to grep first.
+
+| Claim | What is actually there |
+| --- | --- |
+| A note cannot hold a board | A note's typed objects are markdown constructs, and `mdEmbedElement` (app.js) is the single renderer for `![[name]]` behind both `renderNoteText` (note cards) and `renderMarkdown` (documents and chat). `resolveWikiTarget` has resolved a board since the map chips were built, and `renderNoteInline` already drew an inline `mapChip` for `[[My map]]`. What `mdEmbedElement` did with a board was fall through to "Nothing called House jobs yet", measured on 8793 before the change: the embed of a live board claimed it did not exist |
+| There is no preview to reuse | `mapPreview(board, {size})` is the one miniature renderer (MINDMAP_PLAN §5 item 12), fed by `preview_items` from `/whiteboard/boards` through `loadMapBoardIndex` |
+| "A reminder row has no column naming the note it came from" | It has had one since reminders existed: `Reminder.entry_id`, with `entry_preview` on every reminder read, a chip on the reminder row that opens the note, `entry_id` on `POST /reminders`, `note_id` on the `set_reminder` tool, and the note card's own "Remind me" passing `entry.id`. **No migration was needed and none was written.** What was missing was the other direction: no way to ask for one note's reminders, and nothing on the note |
+
+**Built.**
+
+- `![[board:12|House jobs]]` (and `map:`) renders a preview card: the kind,
+  the board's own miniature from `mapPreview`, its title and `mapCountLabel`,
+  the whole card a `<button>` that opens the board. A plain `![[House jobs]]`
+  that happens to name a board renders the same card, which is the bug above
+  fixed in the same place.
+- Both doorways the brief asked for: the "/" menu's "Board or mind map" in
+  Links and references, and "Add to a note" on the board itself (the Board
+  menu's `#wb-add-to-note`, and the Library card's kebab). Both write through
+  `boardEmbedMarkdown`, and the board side appends through
+  `appendSelectionToNote`, so there is one spelling and one undo.
+- `GET /reminders?entry_id=` and `GET /reminders/counts?ids=`, then a
+  `2 reminders` chip on the note card that opens a panel listing them, each
+  pressing through to `flashReminder`.
+
+**Decisions made** (standing order 3: each was missing, each got a one-line
+recommendation, each was taken).
+
+1. **A board object is addressed by id, with its title carried beside it**
+   (`![[board:12|House jobs]]`), not by title alone like every other wiki
+   link. A title-addressed object breaks silently on a rename, and worse, a
+   renamed board and a deleted one look identical to the resolver. The title
+   travels anyway because it is what the tombstone says, and because
+   `_reference_rows` in routes_entries.py finds a board's references with a
+   LIKE over note content for its label, so the card's "on 1 board" chip
+   keeps working with no backend change.
+2. **A deleted board leaves a tombstone**, `.board-embed-gone` naming what
+   was there, rather than the object vanishing. Content that disappears
+   silently teaches the reader the note was always like that.
+   **And a miss is not a tombstone until the index has been refreshed once**:
+   `loadMapBoardIndex(true)`, because a board made a minute ago is missing
+   from an index built before it existed, and "this board is no longer in
+   your notebook" over a board somebody just made is the worst thing this
+   card could say.
+3. **The slash command is "Board or mind map"**, in Links and references,
+   `primary` so it is in the shortlist with nothing typed. Named for the two
+   things it inserts, in the app's own words for them.
+4. **A note's reminders are a chip on the facts line, not a section.** The
+   card is a title, a body and one line of facts; a block under every note
+   with a reminder would push the next note off the screen for a fact that is
+   usually four words long. The chip opens the same `.entry-links` panel
+   "Referenced by" and "Similar notes" use, which is also what keeps one
+   panel open per card.
+5. **The board picker is `pickLibraryItemDialog`'s fifth source, opt in.**
+   A fifth chooser for a fifth kind is the failure this app already has a
+   rule against. It is opt in because that dialog's first caller feeds a map
+   reference node, and `MAP_REFERENCE_KINDS` has no board in it: a board
+   offered there would be a row that cannot be saved.
+
+**Not done, and deliberately.** No backfill of `Reminder.entry_id` for
+reminders made before the link was drawn: there is nothing to backfill from.
+A reminder written by hand in the Reminders tab never named a note, and
+guessing one from the text would invent a link the person did not make.
+
 ## Moved from the plans, 2026-09-27
 
 ### From WORLD_CLASS_PLAN.md 22.1 item 5: two windows, one note
@@ -35982,3 +36333,663 @@ its text (`chatmarks.js`). The 70% became the shared cap every bubble has,
 `min(82%, var(--measure))` (02-chat-graph.css, a reading measure on a wide
 window rather than a share of it); a one-line question takes its text's
 width, 47% of the column at 1440.
+## INBOX resolved, 2026-10-03
+
+432. **The owner, 2026-10-03, verbatim.** "So there are a bunch of issues,
+     bugs, not working main features and messy stuff and stuff left untouched
+     it poorly fixed from the last session. I need you to refine, redesign and
+     rebuild now notes are created logged, sorted and managed. Fix all the
+     bugs, look at the notes from last session, follow Claude.md, design.md
+     and more. Miss no bugs. Identify and fix UX issues and missing or poorly
+     implemented features that everyone expects to be there or act a specific
+     way but aren't there or don't work that way. Continue with all the open
+     stuff autonomously as I am at work."
+     Placed: this is 431's item (2), the note flow as one brief, taken now
+     with (1) the real-model pass beside it: every step of creating, filing,
+     re-filing, sorting, tagging, editing and managing a note driven in
+     Chromium against the running app, each defect fixed with a test, then
+     431's remaining order.
+     **Done 2026-10-03, PR 162** (branch `claude/notes-flow-rebuild`): two
+     audits in Chromium (the list and its management; categories, tags and
+     the keyboard) found 30+ defects, and the real-model pass ran against
+     Qwen2.5-1.5B on llama.cpp (`pytest -m evals`: 4 passed, 3 skipped). Fixed,
+     each with a test in `tests/test_note_flow_0432.py` unless named:
+     Ctrl+Enter saves from capture and the edit form (the editor view
+     swallowed it); the caret returns after a save; an unfiled note says so
+     once with Choose category ("Uncategorised (0% sure)" twice before;
+     `filed_by` on `/entries/{id}/filing`); one note moves from its category
+     chip or menu; an open edit keeps its text through redraws, Escape and
+     Cancel ask, an emptied note is refused; the edit form has a title;
+     selection only of what is on screen; batch Tag splits and undoes; A to
+     Z by title, Recently edited (`edited_at`, new column), sort remembered;
+     the sidebar lights one row, lists empty categories, sorts by name,
+     takes the keyboard, scrolls its list under a fixed head, remembers its
+     fold; tag chips filter, the box takes #tag, title:, before:, after:,
+     in:, is:draft; the rail opens on an open only; rename and merge undo;
+     Archive undo; Duplicate titles the copy; Copy [[link]]; Home, End,
+     Delete, F2 on a row; rows view 74 to 47px; the space chip only when
+     notes span spaces; housekeeping jobs stop opening Agent activity.
+     Backend (agent): categories never cross spaces from "All spaces"
+     (`tests/test_category_space_integrity.py`), counts match the list,
+     tags normalised (`tests/test_tag_normalisation.py`), wiki links are
+     outgoing connections, "close to this" never lists drafts or unrelated
+     notes, the webclip import cycle. Agent: a reply that only announces an
+     action is nudged once to take it, fence markers are scrubbed from
+     answers (`tests/test_fence_scrub.py`), both measured on the real model.
+     Also: Settings' Import .md files works again (the click event was the
+     input id; `tests/test_listener_arguments.py`). Placed, still open: the
+     phone list and drawer and palette commands (an agent, this PR); the
+     minimap drag (431 (4), an agent); the model's own filing accuracy on a
+     1.5B model (13/16 on a fixed set, names only; examples made it worse,
+     11/16), a property of the model, not the prompt.
+
+439. **The owner, 2026-10-03, verbatim, with a screenshot (Privacy:
+     "huggingface.co, Embedding model, connected 1 time").** "Also I thought
+     the embedding model was already installed on my computer since I was
+     using it previously. we needs to make sure that outside connections are
+     made only when necessary and not when unneeded". Fixed: the loader
+     tries the files on disk only, and goes online only when the model has
+     never been downloaded; files on disk that will not load stay offline
+     and say "Reinstall it from Settings, Models"; hub telemetry is off.
+     `tests/test_embedding_offline.py`.
+
+442. **The owner, 2026-10-03, verbatim, with a screenshot (the graph's note
+     popup for "Gary The Moss Monster :D": its body shows the raw markdown
+     `![Gary The Moss Monster :D](/media/3607...c51d.png)` as a link).**
+     "the image/sketch in the graph popup didnt render". Placed: the graph
+     popup's body renders a note's images as the note view does: the
+     orchestrator. Fixed: the popup's Edit put the caret on the picture's
+     line, which revealed as markdown; a revealed image now keeps its
+     picture under the source (documents.js, verified in Chromium).
+
+436. **The owner, 2026-10-03, verbatim (user feedback).** "I also got a bit
+     of user feedback that there is quite a lot going on visually on the
+     dashboard when the user opens the application. I think the dashboard ui
+     needs a more modern and professional redesign with top tier and
+     maximised ux design principles and techniques. I like the top hero
+     section though and I think the widgets section is fine..."
+     Placed: a measured audit of what the dashboard shows on first open
+     (counts of elements, colours, motion, competing calls to action above
+     the fold at 1440, 1280 and 390), then a redesign of everything between
+     the hero and the widgets (kept as they are): one primary action, a
+     clear hierarchy, calmer motion, progressive disclosure: an Opus agent.
+
+440. **The owner, 2026-10-03, verbatim, with a screenshot (a note's image
+     attachment card: a drawing, a truncated title "Gary The Moss Mons...",
+     three bare icon buttons).** "also I feel like on notes there should be
+     a way to see the ai confidence score as well as pre suggested tags that
+     are made and kept when filing for the user to easily choose or discard.
+     also all of the attachment cards ui and ux and utility need a massive
+     redesign and upgrade." Placed: (1) filing keeps its confidence and its
+     suggested tags on the note; the note shows them, each tag one tap to
+     keep or discard: the orchestrator; (2) the attachment card redesigned
+     (layout, naming, actions with labels, open, download, rename, replace,
+     preview): an Opus agent. **Fixed, both**: (1) kept suggestions and the
+     confidence fact on the card; (2) one `.att-card` recipe, its actions in
+     one menu (attachment-actions.js, lazy).
+
+444. **The owner, 2026-10-03, verbatim.** "I also think there needs to be
+     a major expansion, improvement and modern/professional ui/ux modern
+     redesign of the models settings page suggested downloads section. also
+     just how the settings operate. the settings needs better designing,
+     rearrangement, better internal navigation and cleaning up." Placed: a
+     measured audit of Settings (sections, groups, controls per section,
+     scroll depth, duplicated controls), then a rearranged information
+     architecture, internal navigation (search, a section index, deep links)
+     and the Models suggested downloads redesigned as model cards: a Sonnet
+     agent. **Fixed**: six nav groups, a Search and index section, setting
+     search and section index (settings-find.js), model cards with fit,
+     memory and one action, and "Download another model" (settings-models.js);
+     UI_MODERNISATION_PLAN, Settings information architecture.
+
+447. **The owner, 2026-10-03, verbatim, with screenshots (the graph popup
+     showing `**Current Commitments**` and `![Gary...](/media/...)` raw; a
+     note card's meta line run together: "Courses & Study 73% Add tags Tag
+     with Atlas Atlas is reading...").** "the popup in the graph still doesnt
+     render images or sketches" / "md isnt rendered either?? i dont think the
+     md is rendered at all in the graph popups" / "the companion doesnt
+     change action for related actions when things are hallening like for
+     the tag and file with atlas note function running with atlas reading
+     the note" / "there's no spacing between note metadata and it still
+     needfs to be improved ui/ux wise" / "There also needs to be a way to
+     more easily manage tags in, between, and across indivisual and multiple
+     notes. like a tag manager. also when clicking on the categories in note
+     metadata, there should also be the option to view that category as
+     well, not just manage it." Placed: (1) the graph popup renders markdown
+     and pictures: the orchestrator, reproduced first; (2) companion reacts to
+     AI work: sent to the companion agent; (3) the note meta line redesigned
+     (groups, spacing, hierarchy): the orchestrator; (4) a tag manager
+     (rename, merge, delete, bulk add or remove across selected notes) and
+     (5) "Show this category" on the category chip's menu: an agent.
+     **Done**: (1) the popup renders (Source limited to toggled boxes);
+     (3) the line grouped and spaced, the time always shown; (4) and (5)
+     the tag manager, bulk tags and the category chip's menu (tag-manager.js,
+     chip-menus.js); (2) the companion reacts to AI work (`NMB_WORK`, one
+     fetch hook). **Fixed, all five.**
+
+443. **The owner, 2026-10-03, verbatim, with screenshots (the graph; the
+     Library's Boards and maps placeholders; the feminine Atlas's lower
+     body).** "the graph shape could look nicer as well. also the skeleton
+     loaders are really boarinf and have no loading animation to them, they
+     are just blank shapes. also using tesseract and how it operates in the
+     ocr workspace is still annoying to use and manage." Then: "can the
+     feminine atlas lower body also be improved a little as well to not
+     look so tentacle-y?? I still want that really nice look to it. make it
+     really attractive and and alluring". Placed: (1) the graph's layout
+     and look: **fixed** (60-note sweep `graphlook.js`: category purity 0.56 to 0.84,
+     unlinked notes' gap to the cluster 3.0 to 1.8, size scale 5 to 15, tinted
+     curved links, word-cut labels); (2) skeletons: **fixed** (shaped bars, a
+     visible sweep, a reduced-motion breathe); (3) Tesseract in the OCR
+     workspace: **fixed** (one engine line with status, language and Install
+     with progress; a read that falls to the other engine and names it; Read
+     again that really reads again; an editable reading; add to a note; one
+     language setting; the Packages row means "can read"; driven by
+     `scratchpad/ui-sweeps/ocrflow.js`, measured with a stand-in program, not
+     the real one); (4) the feminine Atlas's lower body, flowing
+     like a gown's hem rather than tentacles, kept elegant: the orchestrator,
+     after the masculine tail's agent work is merged. **(4) Fixed**: a gown (A-line, waved hem, four
+     folds), measured extent 9.4..49.8 x 49..97 (was to y 102 with 24 paths).
+     Then: "also if the companion is doing a specific action and i double
+     click it to view it in the enlarged window, I want it to keep doing
+     that action unless poked or something else happens". Placed: (5) the
+     enlarged view carries the companion's current action over and keeps
+     it until a poke or a new event. Then: "also the companion perches and
+     action surfaces and stuff needs to be properly done for the chat tab.
+     and the regular companion expanded popup window needs more life and not
+     just a statue" (screenshot: the enlarged dialog, a still figure).
+     Placed: (5) and (6), Chat perches and an enlarged view that lives: an
+     Opus agent. **(5) and (6) fixed**: Chat perches, the enlarged view is
+     the companion itself and keeps its action, eyes follow the pointer,
+     reduced motion crossfades (`companionviewer.js`, `companionfade.js`).
+     (1) graph look and (3) OCR engine line: **fixed** (merged). All parts done.
+
+446. **The owner, 2026-10-03, verbatim.** "make sure the other agents like
+     the popup and chat are aware of time relativity as well" / "maybe for
+     the suggested models as well there can be a way to enter custom model
+     names for downloading as well??" / "continue regular bug scans to make
+     sure you havent missed anything and make sure all the main features
+     actually work. make the note filing and how the user can make notes the
+     fastest, most reliable and easiest thing to use the user has ever seen.
+     the user needs to choose to use this app. the app needs to be worthy."
+     / "Im wondering if we should tighten and shrink some of the ui down a
+     little as I still think it takes up excessive space and something about
+     the whole ui design still feels very demo, vibe coded and not like an
+     official app...". Placed: (1) time relativity: Ask, the chat agent's
+     notes, its note tools and the digest all carry each time word's date and
+     its distance from today: **fixed** (`days_from_today`, config.py);
+     (2) custom model names: sent to the Settings agent (INBOX 444); (3) a
+     feature smoke sweep (every main flow driven end to end) run at each
+     merge: the orchestrator; (4) note making and filing: continues INBOX
+     434; (5) a density pass (type scale, control heights, paddings, gaps
+     measured app-wide against native apps, then tightened through the
+     tokens) plus a de-vibe audit: **built** 2026-10-03, measured with
+     `scratchpad/ui-sweeps/density.js` (controls 36 to 32px, top bar 56 to
+     48px, body text at --text-lg, Notes chrome 203 to 178px and five cards
+     above the fold at 1440x900, not four; DESIGN.md's token tables say the
+     same); left open: the Library sub-tabs' 6.5rem min-width spacing, axe's
+     nested-interactive on suggested-tag chips (an x inside a chip that is
+     itself a button), and "Browse all in Library" wrapping in a 240px
+     sidebar.
+     Then, of the selected-text menu's "Save as a note": "it did do smth but
+     i had to hard reset the app to see it and there was no indication of
+     it or updating ro anythinf. there is no timestamps. note edit history
+     doens allow me to go back on manual edits and I cant distinguish between
+     personal or ai edits or mixed edits." and "make sure the other highlight
+     text popup meatball menu items work properly with proper learnability
+     and indicators as well". Placed: (6) Save as a note says "Saving…" at
+     once, then where it went with Open, and refreshes the list: **fixed**;
+     every other item in that menu swept for a visible answer
+     (`selmenu-items.js`): the orchestrator; (7) note edit history: a version
+     on every manual save too, each marked as yours, Atlas's or both, with
+     its time, restorable: an agent. **All fixed**: (2) model cards and
+     "Download another model"; (3) `smoke.js` and `selmenu-items.js`, green;
+     (5) the density pass (top bar 56 to 48px, controls 36 to 32px, 5 note
+     cards above the fold, was 4); (7) You, Atlas, You and Atlas on every
+     history row. (4) continues as INBOX 434.
+
+441. **The owner, 2026-10-03, verbatim, with screenshots (the tags list
+     under Capture's tags field; "Atlas is reading..." with its spinner; an
+     Ask answer to "What have I saved recently?" that cites a note saying
+     the IT assignment is due "this Friday"; that note, "Mentions 21 Sept,
+     25 Sept, 2 weeks ago").** "no changing hover states for this dropdown
+     menu and no way to navigate with keyboard. also make sure all these
+     loading spinners are consistent across the app. also the ask tab ai
+     didnt recognise timeword meaning as in I had a note I made two weeks
+     ago that mentioned "this friday" but the ai didnt recognise that
+     timeword meaning in relation to two weeks ago and now even though the
+     app recognises and logs it in the metadata. also there is no way to
+     customise the colour of categories. and I still feel like note metadata
+     needs a better design and more expansion. also are there any more ways
+     to optimise the application?? continue everything I have asked
+     autonomously . feel free to use more agents at a time but only if they
+     are sonnet5.5 as it is supposedly a lot better at coding now and still
+     cheaper. I will be sleeping so impress me with all the improvements and
+     fixes and expansions and enhancements. improve and redesign the ui/ux
+     for the application." (with the eight design skills named again).
+     Placed: (1) the tags list: hover lights a row, keys verified in the
+     browser: the orchestrator; (2) one loading spinner recipe app-wide,
+     with a lint: a Sonnet agent; (3) Ask gives the model each note's saved
+     date and its resolved dates ("this Friday" written 22 Sept is 26 Sept,
+     past), and "what have I saved recently" lists recent notes: the
+     orchestrator; (4) category colours chosen by the person: a Sonnet
+     agent; (5) note metadata redesigned and expanded, with INBOX 440 (1):
+     the orchestrator; (6) a measured optimisation pass (boot, payload,
+     queries, indexes): a Sonnet agent. Agent cap raised by the owner for
+     Sonnet agents. **Done so far**: (1) hover and Enter; (2) one `.spinner`
+     ring and `setBusy` (merged bca3962); (3) time words with their distance
+     from today on every AI path; (5) in part: kept suggestions and the
+     visible confidence; (4) category colours (merged 1ee38de); (6) measured
+     optimisation pass (reference counts 242 to 6 statements, six indexes;
+     WORLD_CLASS_PLAN H7); (5) the rest: the details line grouped and spaced,
+     the time always shown, edit authorship in the history. **All fixed.**
+
+445. **The owner, 2026-10-03, verbatim.** "I was also wondering if the
+     bookmarks and contents library pages as well as maybe others like the
+     ai skills page and stuff might be better designed, and expanded in
+     utility, capability, features, ui/ux and more. same with the
+     whiteboard and mindmap, are they up to scratch?? can the controls and
+     tools and functions and features be better designed?? is anything from
+     them missing or not working as they should. are there large excessive
+     volumes of calculations slowing things down?? is all the ui and ux
+     correct?? can there be more utility, accessibility, features and
+     more?? everything needs to be refined and polished". Then: agents may
+     be Opus or Sonnet, a few at a time, each committing per step; concise
+     style, recorded in CLAUDE.md order 4. Placed: (1) Library Bookmarks,
+     Contents and AI skills audited and redesigned: an agent; (2) whiteboard
+     and mind map audited (controls, missing or broken features, render cost
+     per frame), then fixed: an agent; both after the running agents land.
+438. **The owner, 2026-10-03, verbatim.** "I also think there should be
+     timestamps and success status for when various things were last ran
+     like the search reindexing etc." Placed: every maintenance action that
+     runs on demand or in the background (search reindex, embeddings
+     backfill, backups, filing re-evaluation, duplicate scan, OCR, imports)
+     shows "Last run: <when>, <succeeded / failed: why>" beside its control,
+     from one record the backend keeps per job kind: the orchestrator.
+     Fixed: `core/jobruns.py` (one `job_runs` row per kind, `job_run`), `GET /jobs/last-runs`,
+     a last-run line beside each control, the Background jobs list in Settings, Background tasks;
+     measured with scratchpad/ui-sweeps/joblines.js (a re-index and a backup updated their lines, a
+     forced backup failure showed its reason in red). Not verified: a job running long enough to
+     watch the ring and the 2 s poll live (the ring was painted from a simulated running row).
+
+435. **The owner, 2026-10-03, verbatim, with screenshots (the Capture tags
+     row with its open list; CodeQL alerts 439 to 441; Atlas; a drawing).**
+     "the dropdown arrow on the tags row in the capture subtab is not aligned
+     vertically and the popup is awkwardly sized. there was a couple codeql
+     stuff that got flagged and im not sure if they are fixed or not. also on
+     the masculine atlas lower body looks like a tripod and very straight
+     pencil-y, I was thinking like a thicker main whispy tail in the mddle
+     like a snake and then the smaller ones on the side like the shoddy
+     drawing I attached. continue what you are doing."
+     Placed: (1) the tags field's native `<datalist>` arrow and list
+     (Chromium draws both; neither takes the app's styles) become the app's
+     own suggestion menu, aligned and sized to the field: the orchestrator;
+     (2) CodeQL 439 to 441, "Cyclic import" notes in core/webclip.py and
+     search/websearch.py (main, five days old): broken, the orchestrator;
+     CodeQL 442 and 443 (this PR) were fixed and resolved; (3) the masculine
+     lower body (wrapup-0927 item 7, now with the drawing): one thick
+     S-curved central wisp tapering like a snake's tail, two or three thinner
+     curved strands peeling off each side, a slow sway, no hard points: an
+     Opus agent on atlas.js.
+     **Added the same hour, verbatim, with a screenshot (the companion on
+     the status bar, drawn over the AI status popup "Checking..."):** "the
+     companion also clashes with some popups and the ai status icon isnt
+     centred". Placed: (4) popups stand above the companion (or it steps
+     aside) and (5) the AI status dot's glyph centred, measured: the
+     orchestrator.
+
+     **Added (6), verbatim:** "also there is no clear skeleton loaders for
+     many features that are lazily loaded like the boards and maps in the
+     library and other places". Placed: every surface that fetches before it
+     draws gets DESIGN.md's `showSkeletons` recipe, found by a sweep that
+     opens each lazily loaded view on a cold load: the orchestrator.
+     **Added (7), verbatim, with a screenshot (Settings, Models: "Can't reach
+     the MemoryMap server."):** "the models settings notice just appeared
+     with no indication that it was working on something and said that the
+     server cant be reached even though the app is running so incorrect or
+     misleading message". **Done 2026-10-03** (`tests/test_inbox_435.py`).
+     **Added (8), verbatim:** "also why does telemetry and do not track needs
+     to be disabled for needle?? isnt it offline??" Answered (it is offline;
+     needle's own tools default telemetry on, this app uses only its engine,
+     which has no network code) and the caveat reworded. **Done.**
+
+433. **The owner, 2026-10-03, verbatim.** "Also go through and make sure
+     the whole app follows the Australia WCAG 2.2 accessibility standards.
+     Use zoom testing, screen reader testing, and accessibility scans like
+     with axe dev tools. Continue what you are doing and make sure nothing
+     is left half finished or not properly implemented. Can you also put
+     all the js files in the frontend folder into a js folder later when you
+     can?"
+     Placed: (1) WCAG 2.2 AA (the level the Australian Government's Digital
+     Service Standard and the DDA guidance point to): axe-core scan of every
+     tab, Settings section, sheet and dialog in both themes; zoom at 200%
+     and 400% (1.4.4, 1.4.10 reflow at 320 CSS px), text spacing (1.4.12);
+     the accessibility tree read as a screen reader would (Playwright's ARIA
+     snapshot; no real screen reader runs in the sandbox, so say so);
+     keyboard-only paths and 2.4.11 focus not obscured, 2.5.8 target size;
+     fixes per finding, a sweep kept in scratchpad/ui-sweeps; (2) "nothing
+     half finished": the open carry-over (wrapup-0927) ticked only when
+     measured; (3) the frontend/js/ move (wrapup-0927 1), done when no agent
+     is editing frontend files.
+     **Progress 2026-10-03 (PR 162):** (1) axe-core over every tab, Library
+     sub-tab, Settings section and overlay, both themes: 0 violations after
+     the fixes (main landmark, separator values, editor names, two contrast
+     pairs, button rows, Find anything's listbox, nested controls in Library
+     cards, Settings fold heads and Manage categories); `srtree.js` 0
+     (landmarks, headings, live regions, skip link, dialog focus);
+     `a11yname.js` 0; `contrast.js` 0 both themes; `notekeys.js` the notes
+     flow by keyboard clean (F2, Escape, chooser sheets fixed); `zoom.js` 0
+     on Notes and Library at 200% and 400% after the reflow fixes, the rest
+     of the tabs measured at the end. Not verified: a real screen reader
+     (none runs in the sandbox), the desktop window. (3) with an agent.
+     **Zoom, all tabs, 2026-10-03 evening** (`ONLY=<tab> node zoom.js`, one
+     tab per run: all tabs in one browser closes the page mid-run): a lasting
+     toast hid the Tab stop on six tabs, fixed (e86bd02); the consistency
+     agent took Chat, Timeline, Graph, Documents and Reminders from 14
+     findings to 0; zoom.js reads a clip per axis. **Every tab 0 at 200% and
+     400%.**
+
+449. **The owner, 2026-10-03 night, verbatim, with a screenshot of the top
+     bar's tabs.** "I feel like the tabs in the topbar are too small and
+     should probably be back to their original size..." **Fixed**: the
+     density pass's (446 (5)) tab sizes reverted: 36px tabs (were 32),
+     16px labels (were 13.6), a 4px well (was 2.4), the bar 54px (was 48);
+     measured at 1440, 1280 and 1100, no overflow, no wrap.
+
+451. **The owner, 2026-10-03 night, verbatim, with screenshots (the
+     Library, Notes, Timeline and Reminders view toggles; the Timeline tab;
+     the notifications panel).** "these toggle options are touching the
+     bottom of the pill, some of the highlights are cut off. also in the
+     notifications panel, the unread blue dot and the radio button on the
+     right arent properly padded from the edges". **(1) fixed**: a dock
+     segment fills its well's inside (24px in a 32px well, 4px all round,
+     was 28px flush on the bottom); by touch the well grows to its 44px
+     buttons (was 32px with 16px spilling out). **(2) fixed**: every
+     notification row is inset 8px on both sides; the unread dot sat at 0px
+     from the left and the read toggle at 0px from the right.
+450. **The owner, 2026-10-03 night, verbatim, with four screenshots of
+     Library, AI skills.** "these chips arent aligned and could you improve
+     that section of buttons and dropdowns in the skill cards on the ai
+     skills subtab??" (the "Reads only", "3 steps", "4 tools" row: the
+     first a plain chip, the other two disclosure buttons of another
+     height; opening one pushes the next onto its own line). "big vertical
+     gap between cards" (a short card stretched to its taller neighbour's
+     row). "the top bar in the ai skills page overflows and needs a better
+     modern and professional consistent ui redesign" (title, search, the
+     All/Yours/Built-in segment and the sort fill one line; New skill and
+     '?' wrap to a second). Placed: the UI consistency pass 2 agent (Opus),
+     which owns Library's AI skills page now.
+     **Fixed 2026-10-03** (`scratchpad/ui-sweeps/skills450.js`, 1440, 1100
+     and 390, light and dark): the facts are one row of 24px boxes on one
+     baseline, the steps and tools toggles open their lists under the row
+     (the row is 24px open or shut), tools are code chips at the same
+     height, inputs moved to the run line; cards are dealt into columns
+     (no row stretch), "Never run" 8px over the footer line (was 16); the
+     dock is one 50px row at 1440 with a Windows scrollbar (was 90px, two
+     rows) and a deliberate two-row wrap under 58rem (1100 beside the logs
+     sidebar). DESIGN.md recipe row and `test_a_facts_row_opens_its_lists_below_itself`.
+
+448. **The owner, 2026-10-03 night, verbatim.** "I feel like the help
+     settings as well as the help info available to the agents needs more
+     expansion for all the new features both large and small so people can
+     easily find out about all the features. also make sure the docs are all
+     up to date. continue with all the open items and the rest of my
+     requests". Placed: (1) Settings, Help and the agents' help topics
+     (`ai/help_chat.py` HELP_TOPICS, read by Chat and the popup agent)
+     cover every feature in CHANGELOG's Unreleased and 0.3.x, large and
+     small, each findable by the words a person would search: an Opus
+     agent; (2) README, ARCHITECTURE, DESIGN and the plans checked against
+     the code and brought current: a Sonnet agent.
+     **Progress 2026-10-03 ((1) done):** 95 help entries (17 new, 14
+     widened or corrected); `tests/test_help_coverage.py` holds 52
+     features from the CHANGELOG, each found by a person's question (4
+     before, 52 now; inventory in `scratchpad/help-inventory.md`).
+     Settings, Help is drawn from the table (`GET /help/topics`, twelve
+     groups) and its search finds a topic by its words, measured by
+     `scratchpad/ui-sweeps/help448.js`. Left: (2).
+
+437. **The owner, 2026-10-03, verbatim, with screenshots (Settings,
+     Templates: a Journal row, its "Built-in" badge and "Edit" button; Models,
+     Top-k slider, a "you set this" badge, the value 124 twice).** "the
+     templates settings page edit buttons and built-in badges are not nicely
+     aligned and/or positioned. continue with everything. find and fix more
+     bugs. then use your ui/ux skills and devibecoding skills to further fix,
+     improve and redesign the ui/ux for the application. /anthropic-skills:
+     unslop-ui , /ui-styling , /ui-ux-pro-max /anthropic-skills:web-design-
+     guidelines , /design-system /design , /anthropic-skills:frontend-design ,
+     /anthropic-skills:apple-design". Then: "double clicking the model
+     advanced settings sliders resets the value but not the badge. and make
+     sure the badges are thje same style across the app. make sure all the ui
+     is consistent and use the skills listed in my last request".
+     Placed: (1) Templates rows: badge and Edit aligned to the row recipe;
+     (2) a slider's double-click reset updates its "you set this" badge (and
+     the readout beside the number field shows the value twice); (3) one
+     badge recipe across the app, with a lint; (4) a UI/UX pass guided by
+     the named skills, surface by surface, each change measured: the
+     orchestrator, with agents per surface.
+     **Progress 2026-10-03 (consistency agent, (4)):** Chat (with its
+     sidebar and More panel), Dashboard, Timeline, Reminders, Graph's dock,
+     zoom and options, Settings' Background tasks and Import & export
+     passed, measured by `scratchpad/ui-sweeps/consist437probe.js` at 1440
+     and 390 (before and after in the CHANGELOG line). Second round, the
+     same day (`scratchpad/ui-sweeps/consist437b.js`): the Settings shell
+     (search 42 to 32px, nav rows 35 to 32, one filled button per page with
+     a lint), Reminders on a phone (119 to 82px a row), the Library lists
+     (Bookmarks, Contents, AI skills, Images, Files, Boards), the Notes
+     sidebar and heads, the Documents Read view and hint. Left for (4): a
+     phone note card's menu takes a line of its own (the meta line's 16px
+     gaps, INBOX 447's decision, put it 9px past a 337px column: an owner
+     call or a DOM move), Library Documents rows still draw an edge round
+     every row (the row recipe draws it on hover), Write with Atlas has two
+     filled buttons (Draft, Save as note).
+
+465. **The owner, 2026-10-03 night, verbatim, with a screenshot of the top
+     bar.** "actually just make all the elements in the top bar consistent in
+     size and height". Also: "still note metadata wrap" (with 455 (1)).
+     **Fixed**: one height, the tab strip's 44px, for the logo, the space
+     picker, the strip and the five icon buttons (were 34, 32, 44, 32),
+     every centre on one line; the icon buttons are 44px squares. To keep
+     one row from 1100 to 1439 the wordmark gives way (the logo stays) and
+     the tabs' sides close by a step (16 to 12.8px; 36px tall, 16px labels):
+     one row at 1200, 1280, 1366, 1440, 1920.
+
+454. **The owner, 2026-10-03 night, verbatim.** "when flicking across the
+     open, all, and done button sections in reminders, the skeleton loaders
+     keep flickering in and out". Placed: the orchestrator.
+456. **The owner, 2026-10-03 night, verbatim.** "make sure all the popup
+     windows and panels are the same design and style." Placed: every
+     dialog, sheet, popover and side panel inventoried and measured against
+     DESIGN.md's dialog and panel recipes (radius, padding, head, close
+     control, shadow, scrim, width steps), then brought onto them: an agent.
+     Fixed 2026-10-03: 42 surfaces measured at 1440 and 390, light and dark
+     (`scratchpad/popup-inventory.md`, `scratchpad/ui-sweeps/popupinv.js`).
+     Three tiers (dialog and sheet, panel, popover) in DESIGN.md's recipe
+     index, each with one shell, and one head for the first two. Distinct
+     values at 1440 light, before to after: dialog close widths 3 to 1, title
+     sizes 2 to 1, head heights 3 to 2; panel radii 2 to 1, paddings 5 to 1,
+     close widths 3 to 1, title sizes 4 to 2; the dim behind a dialog 4 values
+     to the one token, and Find anything dims the app instead of replacing
+     it. Small dialogs are one width (the storage dialog was 1332px). INBOX
+     467 (the Attach picker) brought onto the same recipe in the same pass.
+
+467. **The owner, 2026-10-03 night, verbatim, with a screenshot (the Attach
+     picker: tabs, search, rows with a checkbox and a filled category
+     badge, Clear and Done).** "panels like this need a redesign to be
+     consistent with the others and have a modern and professional look.
+     also I cant navigate on the settings navigation side bar with
+     arrows??" **(1) fixed** by the popups and panels agent: rows 54px with a muted
+     second line, the category a dot and text (was a filled badge), Clear
+     ghost and Done accent at the control height; **(2) fixed**:
+     a pointer click keeps the focus in the Settings list, so Up, Down, Home
+     and End walk the sections; Page Up and Down scroll the open pane from
+     there; Enter or Space moves to the section's heading (measured:
+     Appearance, Down, Down, Up, PageDown 0 to 642px, Enter).
+## INBOX resolved, 2026-10-04
+
+466. **The owner, 2026-10-03 night, verbatim, with screenshots (Manage
+     categories: a count pill on every row; the expanded companion with its
+     resize ring at the top right).** "I think there should also be a clear
+     button on the note capture tab and in other main text areas where the
+     user might want to quick clear their work... also it is wierd with all
+     these numbers floating int he manage categories popup. also the
+     companion resize circle appears still on the expanded companion popup
+     panel". Placed: (1) Clear on Capture, Quick note, Ask, Chat's composer
+     and the popup agent's box, with Undo; (2) the counts as quiet text
+     beside the name, not pills; (3) the resize ring hidden in the enlarged
+     viewer: the orchestrator. **Fixed**: (1) `field-clear.js` (lazy), an
+     eraser Clear on the five boxes, Undo through the toast (the status line
+     under a modal dialog and the agent overlay); Chat clears the words only,
+     its attachments have their own chips; (2) `.manage-cat-count` is muted
+     text after the name; (3) `.nmb-size-grip` is `display: none` in
+     `.nm-viewer-figure`.
+
+461. **The owner, 2026-10-03 night, verbatim, with screenshots (Settings:
+     a "Stopped" badge beside a heading, an "Installed" badge with a check;
+     the dashboard's "Start something" row of five actions).** "make sure all
+     the badges across the app are the same style, and properly aligned,
+     fitted, and ui/ux styled. also Im wondering if it might be a good idea
+     to make this start something section on the dashboard customisable
+     like a quick access section?? what is there can be default".
+     Recommendation taken (order 3): yes, "Quick access", the five as the
+     default set, chosen from the command catalogue, reordered and reset
+     from its own menu. **Both built 2026-10-03**: (1) badges on DESIGN.md's
+     label recipe with INBOX 468 (the model cards); (2) Quick access
+     (`dashboard_quick_access`, lazy `quick-access.js`).
+
+468. **The owner, 2026-10-03 night, verbatim, with a screenshot (a suggested
+     model card: "Use for chat" and ⋯, then "Fits" and "Installed" on a
+     second line, "In use for background jobs" on a third).** "fix the wrap
+     in the suggested model cards in settings". Placed: the badges agent
+     (461 (1)).
+
+471. **Left by INBOX 463 (2), 2026-10-04.** The assistant avatar setting
+     reaches Chat, the popup agent and the Atlas guide's heads, but Ask's
+     answer (`#ai-answer`) and the writing room's draft have no head at all,
+     and the guide's chat rows (`.help-chat-msg.is-assistant`) none either;
+     the owner asked for "all chat interfaces". Recommendation (order 3,
+     taken): give each the reply head recipe (avatar from
+     `assistantAvatar(size)`, the name), so the setting reaches them; persona
+     faces keep their own unless the owner asks. Placed: the next agent free.
+     **Fixed**: Ask's answer (`.answer-title`, replacing the sparkle and "AI
+     answer"), the draft (`.draft-head-label`) and every guide row (pending,
+     streamed, revealed, final) open with the head, painted through
+     `paintAssistantAvatar`; the draft's thinking fold now sits between the
+     head and the box, as in Chat. Heights at 1440 light, before and after:
+     Ask's answer block 306.7 and 306.7, the draft's head 22.1 and 22.1, the
+     draft box 285.2 and 285.2; a guide row 183.2 and 209.6 (the head row, 20
+     plus the `--space-2` gap, Chat's own). `assistantavatar.js` covers all
+     three (`NEW_ONLY=1` skips the older surfaces).
+
+453. **The owner, 2026-10-03 night, verbatim.** "Also I think there should
+     be a way to open and close the documents editor sidebar when in full
+     screen mode". Then: "keep bug fixing and finishing all open requests and
+     items". And: "can you improve, extend, expand, optimise, and add to the
+     mindmap, whiteboard, or documents editor at all?? what is most lacking
+     in the app rn?? what is left and still open??" Placed: the sidebar
+     toggle in focus mode, the orchestrator; the question answered from the
+     plans' open phases, with agents on the top items.
+
+## INBOX resolved, 2026-10-04
+
+469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it
+     possible to have the arms and legs be used a bit for various position,
+     action etc changes and transitions??" Placed: with 455 (2) and 462, the
+     companion agent. Built 2026-10-04 (avatars.js `NMB_LIMB_MOVES`, the
+     CSS's "Limbs in motion"; companionroutes.js).
+462. **The owner, 2026-10-03 night, verbatim.** "also the companion perches
+     dont handle collapsed sidebars at least in the chat tab". Placed: with
+     455 (2), the companion agent. Built 2026-10-04
+     (`nameMarkBuddyPerchShown`; companioncollapse.js).
+455. **The owner, 2026-10-03 night, verbatim, with screenshots (a note's
+     details line: category, 85%, eight hashtags, the date alone on a line
+     under them; four notes whose dates sit at different heights).** "note
+     metadata wraps now and needs a better redesign and structure. also I
+     think the note date should be consistent in where it is on the notes.
+     also I want more and better transitions between positions and moving
+     across different and the same tab(s) for the companion". Placed: (1)
+     the details line redesigned (a fixed structure that never wraps into a
+     ragged second line, tags that collapse to "+N", the date in one place
+     on every card): an Opus agent when a slot frees; (2) companion
+     transitions between perches and across tabs: an Opus agent after (1).
+     (1) built 2026-10-03 (DESIGN.md's note details line recipe, the
+     decision in UI_MODERNISATION_PLAN); (2) built 2026-10-04
+     (`nameMarkBuddyRoute`; companionroutes.js).
+
+457. **Fixed 2026-10-03 (81e7d63): one `thinkingFold`, under the head, ratchet in test_ui_recipes.py.** **The owner, 2026-10-03 night, verbatim, with a screenshot (the popup
+     agent: a Thinking fold and its open text drawn above Atlas's name and
+     avatar, the bubble's "Stargazing / Thinking..." line below).** "the
+     thinking box appears above the atlas message bubble title and avatar in
+     the popup agent. also make sure all the thinking boxes are the same
+     style and consistent". Placed: the orchestrator.
+
+470. **Found 2026-10-04 by the Clear agent, measured by the orchestrator.**
+     A toast raised while a modal `<dialog>` is open is drawn behind it and,
+     even when lifted into the top layer (`popover="manual"`, tried and
+     reverted), is inert: a modal dialog makes everything outside it inert,
+     so a toast's Undo cannot be pressed. Quick note and the agent overlay
+     put their Undo on their own status line instead. Recommendation
+     (order 3, taken): `toast()` and `toastAction()` host the note inside
+     the open modal dialog (a `.toast-host` placed by the dialog head
+     recipe) while one is open, otherwise the page's box. **Fixed**:
+     `toastHost()` (status.js) for `toast`, `toastProgress` and
+     `toastAction`; a toast over an open dialog is drawn in it and its Undo
+     is pressed (measured at 1440 and 390; it could not be before).
+463. **The owner, 2026-10-03 night, verbatim, with a screenshot (the
+     whiteboard's Library panel: note rows "The Complete Social Skills Guide
+     This g...").** "there is no hover state for the library whiteboard panel
+     items, also I think the user should be able to customise the
+     assistant/ai chat message bubbles across all chat interfaces to be
+     either atlas or the animated app logo". **(1) fixed**: rows lift under the
+     pointer (both themes), two lines cut at a word by the stylesheet (were
+     40 characters cut mid-word), never squeezed by the list. **(2)
+     fixed**: Settings, Appearance, Atlas and faces, "Assistant avatar: Atlas
+     or App emblem" (default Atlas), read through `assistantAvatar`
+     (chat-agent.js) by Chat's and the popup agent's reply heads and the
+     Guide and agent head marks; open heads repaint on change; the emblem
+     is the logo's p5 sketch drawn once and copied (assistant-avatar.js,
+     lazy), still under Reduce motion. Ask's answer and the writing room
+     have no avatar head, so there was nothing to switch.
+459. **The owner, 2026-10-03 night, verbatim, with a screenshot (Settings,
+     Personas: the jump strip "Answer style, Dashboard greeting, Add your
+     own, Share").** "some of the horizontal navigation bars at the top of
+     the settings pages skip multiple sections as they are too close, like
+     in the personas, it only goes on the first or last one. also can you
+     add some cheap css animations to things like the horizontal pill
+     selectors and sidebars etc like using anchor for smooth tab
+     transitions etc?? stuff like that to make it feel truly professional
+     and smooth but dont over do it in a vibecoded way. did you use all the
+     ui/ux and devibecoding skills??" Placed: (1) the jump strip marks the
+     section clicked and, scrolling, the last one whose head passed the
+     line (or the one at the end when the page can scroll no further): **fixed**,
+     the clicked head stays marked until a wheel, touch or key scroll
+     (Personas at 1280x560: each of the four marks itself; it was the first
+     or last); (2) a restrained motion pass (the selected pill and tab
+     indicator slide between options, sidebars ease, reduced motion
+     honoured, every duration and curve a token, no new decoration):
+     **fixed**, one CSS-anchored indicator per strip glides 200ms between
+     options (every `.seg`, the top tabs, the Notes and Library sub-tabs,
+     the Settings nav), a sidebar's contents leave toward and arrive from
+     its rail, focus mode's side panels enter from their edge, a page fades
+     in on a tab switch; all instant under reduced motion (DESIGN.md
+     "Motion" row; `glide.js`, `sidemotion.js`).
+
+## INBOX resolved, 2026-10-04
+
+458. **The owner, 2026-10-03 night, verbatim, with screenshots (the popup
+     agent's copy and retry buttons over "Found in 5 notes"; the sources
+     fold, "Opened 6 items" and the run facts; a Thinking fold above Atlas's
+     name and a "Finished 1 step" fold under it; two note cards whose
+     preview is "..." alone under the title, and the same note open in
+     full).** "I cant scroll up while the popup agent is responding, the
+     bottom popup buttons on the agent bubble clash with the text. the
+     source metadata needs improving ui/ux wise, there needs to be better
+     spacing and positioning around and for the thinking and skills
+     dropdowns in the assistant bubbles with the title and avatar. also note
+     characters preview counts are severely shortened again." **Preview
+     fixed**: every blank line after a title goes, and a clamped card runs
+     its paragraphs together, so its two lines are text (was one line and a
+     lone "...", or "..." alone). The bubble parts with 457 (thinking
+     under the name, one thinking fold style, skills/steps fold spacing,
+     scroll-up while streaming, action row clash, sources redesign): an
+     Opus agent. Bubble parts built 2026-10-03 (81e7d63, measured in the
+     commit; `scratchpad/ui-sweeps/bubbleparts.js`); the preview half stays
+     with the orchestrator.

@@ -18,7 +18,7 @@
 
 | Sweep | Was | Now | Verified |
 | --- | --- | --- | --- |
-| `maptwokinds.js` | Expected a cross-link stroked in `--muted`, dashed | Expected what `wbMapCrossLinkLook` (frontend/whiteboard.js) now draws: filled like a branch, in the source topic's own branch colour, no stroke (a ribbon fills), no dash | 17/17 |
+| `maptwokinds.js` | Expected a cross-link stroked in `--muted`, dashed | Expected what `wbMapCrossLinkLook` (frontend/js/whiteboard.js) now draws: filled like a branch, in the source topic's own branch colour, no stroke (a ribbon fills), no dash | 17/17 |
 | `phonemore.js` | Expected 4 rows in the phone More sheet | Expected 6 (`PHONE_MORE_TABS`: Dashboard, Timeline, Reminders, plus Ask the agent, Guide, Settings — INBOX 190) | PASS: 0 findings at 390/360/320 |
 | `wbgroupguides.js` | Read the default board; a leftover card under the pointer showed its own grip and misread as a group-guide failure | Creates and opens its own board before the setup runs | PASS: 0 findings |
 | `mindmap.js` | Reports A/B section used `rows.find(r => r.type === "map")`, whichever map board the API listed first; on a data dir with history that was not this sweep's own board, and its root/text selectors landed on a leftover layout | Creates and opens its own map board (with an explicit root — this route does not seed one the way the New-board dialog does) | 75/76 (the one failure is H1, below, an app bug, not this fix) |
@@ -37,7 +37,7 @@ not guessed:
   150, 400ms held with no further input: stays exactly 8.3px). It resolves
   to 0px the instant the mouse is released and a full render runs.
 - Root cause, read from the drag handler (not fixed, not this file's owner
-  today): `objDragMove` (frontend/whiteboard.js ~17121) collects
+  today): `objDragMove` (frontend/js/whiteboard.js ~17121) collects
   `d._mapEdges = wbMapEdgesFor(d.id)` — only the edges touching the dragged
   node itself. A map node's drag also moves its whole branch
   (`wbMapBranchDragOrigin` / `wbApplyBulkMove`, MINDMAP_PLAN §12.1 item 8),
@@ -67,7 +67,7 @@ count 68 -> 0 -> 68" (looks like a real failure) and "113 -> 1 -> 113"
 With the crash gone, four checks fail for real at 390, and they are real:
 reproduced in isolation (`sw-timelineresize2.js`) that switching to Timeline
 while it is *already* the active tab, after the viewport has crossed the
-599.98px feed/table breakpoint (`timelineViewMode()`, frontend/app.js
+599.98px feed/table breakpoint (`timelineViewMode()`, frontend/js/app.js
 ~31468) since the last time it rendered, leaves the old mode's rows in the
 DOM instead of clearing them: a fresh load straight at 390 is clean (113
 table rows, real heights); going 1440 -> 1024 -> 390 without a reload is not
@@ -115,7 +115,7 @@ editing state, at 390 width. Reproducible on a clean board with no other
 content, so not the "Default board" pollution I first suspected (that board
 does carry leftover content from earlier sweep runs in this same session —
 `canvasconventions.js` and others share it — but the overflow reproduces
-without any of that). Not fixed here (frontend/whiteboard.js or its CSS, not
+without any of that). Not fixed here (frontend/js/whiteboard.js or its CSS, not
 this task's file); a small, measured app-level finding for the orchestrator.
 
 **Not run at every width the brief listed:** `contrast.js` and `touch.js`

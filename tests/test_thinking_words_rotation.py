@@ -14,9 +14,9 @@ from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = app_js_text()
-SHEETS = (ROOT / "frontend" / "sheets-selects.js").read_text(encoding="utf-8")
+SHEETS = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
 CSS = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
-SETTINGS_JS = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+SETTINGS_JS = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
 INDEX_HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
 
 
@@ -175,17 +175,17 @@ def test_the_crossfade_reuses_the_progress_musings_own_technique() -> None:
 
 
 def test_chat_passes_the_persona_that_was_actually_sent() -> None:
-    text = (ROOT / "frontend" / "chat-attach.js").read_text(encoding="utf-8")
+    text = (ROOT / "frontend" / "js" / "chat-attach.js").read_text(encoding="utf-8")
     assert 'progressLine("Thinking…", { persona: sentPersona, words: true })' in text
 
 
 def test_capture_ask_opts_in_with_no_persona_picker_of_its_own() -> None:
-    text = (ROOT / "frontend" / "capture-ask.js").read_text(encoding="utf-8")
+    text = (ROOT / "frontend" / "js" / "capture-ask.js").read_text(encoding="utf-8")
     assert "progressLine(text, { words: true })" in text
 
 
 def test_the_popup_agent_passes_the_persona_it_asked_with() -> None:
-    text = (ROOT / "frontend" / "palette.js").read_text(encoding="utf-8")
+    text = (ROOT / "frontend" / "js" / "palette.js").read_text(encoding="utf-8")
     assert 'progressLine("Thinking…", { persona: askedPersona, words: true })' in text
 
 

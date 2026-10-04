@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-DASH = ROOT / "frontend" / "dashboard.js"
+DASH = ROOT / "frontend" / "js" / "dashboard.js"
 
 
 def _function_source(text: str, name: str) -> str:
@@ -77,4 +77,6 @@ def test_no_call_site_counts_its_own_streak() -> None:
         "a streak counted by hand again; read dashStreak(perDay) so the three "
         "figures and the journal agree"
     )
-    assert body.count("dashStreak(") >= 3, "the greeting, the strip and the widget all read dashStreak"
+    # Two since INBOX 436 took the stat strip off the page: the greeting's
+    # line (which now also carries the strip's cheer) and the widget.
+    assert body.count("dashStreak(") >= 2, "the greeting and the widget both read dashStreak"

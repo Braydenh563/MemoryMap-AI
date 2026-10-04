@@ -63,7 +63,7 @@ def test_documents_js_no_longer_has_its_own_docdirty_only_guard() -> None:
     documents.js, not just duplicated alongside the new one."""
     from tests._app_js import FRONTEND_DIR
 
-    documents_js = (FRONTEND_DIR / "documents.js").read_text(encoding="utf-8")
+    documents_js = (FRONTEND_DIR / "js" / "documents.js").read_text(encoding="utf-8")
     assert 'addEventListener("beforeunload"' not in documents_js
 
 
@@ -101,7 +101,9 @@ def test_note_edit_form_flag_is_reset_on_open_save_and_cancel() -> None:
     previous note can never leak into the next one."""
     app = app_js_text()
     form = _function(app, "renderEditForm")
-    assert form.split("\n")[1].strip() == "noteFormDirty = false;"
+    # Clean, unless it is the same note's form rebuilt over unsaved changes
+    # (INBOX 432: `noteFormDraft` carries them across a list redraw).
+    assert form.split("\n")[2].strip() == "noteFormDirty = Boolean(draft);"
     # Set by real edits to any of the three fields...
     assert 'textarea.addEventListener("input", () => { noteFormDirty = true; });' in form
     assert 'tagsInput.addEventListener("input", () => { noteFormDirty = true; });' in form
@@ -110,4 +112,5 @@ def test_note_edit_form_flag_is_reset_on_open_save_and_cancel() -> None:
     save_index = form.index('"Save changes"')
     cancel_index = form.index('"Cancel"')
     assert "noteFormDirty = false;" in form[save_index:cancel_index]
-    assert "noteFormDirty = false;" in form[cancel_index:]
+    assert "closeNoteForm()" in form[cancel_index:]
+    assert "noteFormDirty = false;" in _function(app, "closeNoteForm")

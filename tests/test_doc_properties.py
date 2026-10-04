@@ -7,7 +7,7 @@ filter". The parse lives on the server for the same reason the plan's section
 read of the frontmatter would have found nothing at all in the list view.
 
 The frontmatter model itself, the one the properties panel edits, is in
-`frontend/documents.js` and is tested by `tests/test_doc_frontmatter.py`. This
+`frontend/js/documents.js` and is tested by `tests/test_doc_frontmatter.py`. This
 one is narrower on purpose: it answers "which properties does this document
 have, and with what values", never how to write one back, so it can be a
 read-only parse that cannot damage anybody's text.

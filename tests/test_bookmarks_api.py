@@ -64,6 +64,26 @@ def test_pinned_bookmarks_sort_first(client):
     assert listed[1]["id"] == b["id"]
 
 
+def test_paging_keeps_pinned_first_across_pages(client):
+    """The order is applied before the page is cut, so pinned links are first
+    globally and the pages tile that one order: a pinned link saved long ago
+    is on page one, not on the page its age would put it on, and no link is
+    repeated or dropped between pages."""
+    made = [client.post("/bookmarks", json={"url": f"site{i}.com"}).json() for i in range(7)]
+    for old in (made[0], made[1]):
+        client.put(f"/bookmarks/{old['id']}", json={"pinned": True})
+
+    whole = [b["id"] for b in client.get("/bookmarks?limit=50").json()]
+    paged = []
+    for offset in range(0, 7, 2):
+        paged += [b["id"] for b in client.get(f"/bookmarks?limit=2&offset={offset}").json()]
+    assert paged == whole
+    assert len(set(paged)) == 7
+    assert set(paged[:2]) == {made[0]["id"], made[1]["id"]}
+    # Then the unpinned ones, newest first.
+    assert paged[2:] == [m["id"] for m in reversed(made[2:])]
+
+
 def test_update_bookmark_fields(client):
     created = client.post("/bookmarks", json={"url": "a.com", "title": "Old"}).json()
     updated = client.put(

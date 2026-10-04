@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from memorymap.core import backup, deps, diskspace
+from memorymap.core import backup, deps, diskspace, jobruns
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 
@@ -91,7 +91,20 @@ def list_backups() -> list[dict]:
 @router.post("/backups", status_code=201)
 def backup_now(session: Session = Depends(get_session)) -> dict:
     config = deps.get_config()
-    path = backup.backup_now(config.db_path, config.data_dir, _retention(config))
+    #: A disk that is full, read-only or has a file where the backups folder
+    #: should be is the person's to fix, so it is said in words (a 507 the
+    #: toast shows as written) rather than the bare "Internal error" a raised
+    #: OSError became. `job_run` has already recorded the failure by the time
+    #: this catches it, so the last-run line says the same thing.
+    try:
+        with jobruns.job_run("backup") as run:
+            path = backup.backup_now(config.db_path, config.data_dir, _retention(config))
+            run.result = f"saved {path.name}"
+    except OSError as exc:
+        raise HTTPException(
+            status_code=507,
+            detail=f"Couldn't save the backup: {exc.strerror or 'the disk refused the write'}.",
+        ) from exc
     manager.log_action(session, "backed_up", "data", detail=path.name)
     session.commit()
     return {"name": path.name}

@@ -1,6 +1,6 @@
 """The text-selection kebab, and the DOM-weight fix beside it.
 
-These are lints over `frontend/app.js`, not behaviour tests: the same kind
+These are lints over `frontend/js/app.js`, not behaviour tests: the same kind
 `test_frontend_handlers.py` and `test_frontend_ids.py` already are, and for the
 same reason: this Python suite cannot see a DOM, so the only thing it can
 usefully guard is that the source still has the shape the live verification

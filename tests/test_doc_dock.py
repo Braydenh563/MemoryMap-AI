@@ -72,7 +72,7 @@ def test_the_least_used_controls_are_behind_one_kebab():
 def test_the_ids_did_not_move():
     """documents.js binds by id. A redesign that renames one is a redesign
     that silently unwires it, the "features that never ran" shape."""
-    js = Path("frontend/documents.js").read_text(encoding="utf-8")
+    js = Path("frontend/js/documents.js").read_text(encoding="utf-8")
     for element_id in re.findall(r'\$\("(doc-[a-z-]+)"\)', js):
         assert f'id="{element_id}"' in HTML, element_id
 
@@ -80,7 +80,7 @@ def test_the_ids_did_not_move():
 def test_the_export_label_is_set_with_setlabel_not_textcontent():
     """The button carries an icon element now. `textContent = …` would wipe
     it, which is the kind of thing that looks fine until you open the menu."""
-    js = Path("frontend/documents.js").read_text(encoding="utf-8")
+    js = Path("frontend/js/documents.js").read_text(encoding="utf-8")
     assert 'setLabel($("doc-export-md")' in js
     assert '$("doc-export-md").textContent' not in js
 
@@ -88,7 +88,7 @@ def test_the_export_label_is_set_with_setlabel_not_textcontent():
 def test_the_kebab_closes_on_a_pick_and_on_a_click_away():
     """`<details>` gives open/close, Enter/Space and Escape. It gives neither
     of these."""
-    js = Path("frontend/documents.js").read_text(encoding="utf-8")
+    js = Path("frontend/js/documents.js").read_text(encoding="utf-8")
     assert "doc-dock-menu-item" in js
     assert "menu.contains(event.target)" in js
 
@@ -127,8 +127,8 @@ def test_every_kebab_uses_the_same_icon():
         p.name: p.read_text(encoding="utf-8")
         for p in (
             Path("frontend/index.html"),
-            Path("frontend/library.js"),
-            Path("frontend/documents.js"),
+            Path("frontend/js/library.js"),
+            Path("frontend/js/documents.js"),
         )
     }
     for name, text in sources.items():

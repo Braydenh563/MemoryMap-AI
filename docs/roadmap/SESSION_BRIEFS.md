@@ -87,7 +87,7 @@ owner's complaint is the app's own copy).
 1. `git merge` any open agent branches first if told to; otherwise start.
 2. `python3 scratchpad/emdash.py frontend src tests` and read the printed
    per-file counts.
-3. `node --check` every `frontend/*.js`; `.venv/bin/ruff check .`.
+3. `node --check` every `frontend/js/*.js`; `.venv/bin/ruff check .`.
 4. Run `python -m pytest -q tests/` (7 to 8 minutes). Tests that asserted a
    string with an em-dash now fail; fix the expected strings in the tests,
    never the code, unless the code's new string is wrong.
@@ -131,7 +131,7 @@ files), not Playwright, so CI runs them. A lint that needs the DOM goes in
   `.chip`, `.meta`, `.badge` or `.tag`, assert no `border:` other than
   `none`/`0`, and that no `:hover` rule targets them (the interactive
   variant `.chip-interactive` is the one exemption).
-- `tests/test_keymap.py`: find `const KEYMAP = {` in `frontend/app.js`
+- `tests/test_keymap.py`: find `const KEYMAP = {` in `frontend/js/app.js`
   (create it in this session by moving the existing `keydown` bindings'
   key strings into one table with a `surface` field; the handlers stay
   where they are and read the table); assert no key is bound twice on the
@@ -158,7 +158,7 @@ for the shape). The CSS files are eight numbered files plus
 lints.
 
 **Done when.** No `localStorage.getItem` outside `frontend/prefs.js`; no
-bare `fetch(` outside `frontend/app.js`'s `api` block; no `innerHTML =`
+bare `fetch(` outside `frontend/js/app.js`'s `api` block; no `innerHTML =`
 with `${`; three lints pass; `errors.js` 0.
 
 **Decisions made.** `prefs.js` is a new file loaded before `app.js` (add
@@ -172,7 +172,7 @@ value and writes the default back). Keys keep their current string names
 so nothing a user has stored is lost.
 
 **Steps.**
-1. `grep -o 'localStorage.getItem("[^"]*")' frontend/*.js | sort -u` gives
+1. `grep -o 'localStorage.getItem("[^"]*")' frontend/js/*.js | sort -u` gives
    the key list (57). Write the schema from it; where a key is read with
    `JSON.parse`, its `parse` is `JSON.parse` wrapped in try; where a key
    is numeric, `Number` with an `isFinite` check. Commit the file and the
@@ -189,7 +189,7 @@ so nothing a user has stored is lost.
 4. In `app.js` beside `async function api(path, options)` (line ~292) add
    `api.stream(path, body, onEvent, signal)` (SSE with the same auth
    header and error contract as `api`) and `api.upload(path, formData)`.
-   Move the 13 raw `fetch` sites (`grep -n 'fetch(\`\|fetch("' frontend/*.js`)
+   Move the 13 raw `fetch` sites (`grep -n 'fetch(\`\|fetch("' frontend/js/*.js`)
    onto them, one commit per site group. `/chat/stream` last, and drive a
    full chat turn against `scratchpad/fake_openai_server.py` afterwards
    (the recipe is in `CLAUDE.md`'s standing caveat).
@@ -333,7 +333,7 @@ conversations) page on scroll with an `IntersectionObserver` sentinel.
 5. The scheduler: `frontend/scheduler.js` (loaded before `app.js`) with
    `schedule.every(ms, fn, {whileHidden: false})` on one `setInterval` of
    1s that fans out; pauses on `visibilitychange`; the 9 `setInterval`
-   sites (`grep -n "setInterval(" frontend/*.js`) move onto it. The
+   sites (`grep -n "setInterval(" frontend/js/*.js`) move onto it. The
    reminder poll and the model-status poll get `whileHidden: false`.
 6. `scratchpad/audit/idle.js`: count network requests over 60s idle,
    visible and hidden; numbers in the report and in HANDOVER.
@@ -1363,13 +1363,13 @@ persona faces per chat message, Atlas moods on chat events. Built in agent
 worktrees, not yet merged: the character interface (`characterFor`,
 `registerCharacter`, 4741aa8), one-silhouette generated characters (d1e74fd),
 perches, surfaces and edges, the behaviour picker, drag and drop onto the UI
-(4b4f1d4, 39bdb09), Atlas in `frontend/atlas.js` (in progress).
+(4b4f1d4, 39bdb09), Atlas in `frontend/js/atlas.js` (in progress).
 
 ### 1. Decisions made (do not remake)
 
 1. One character interface (`characterFor(seed)`, `registerCharacter`, in
    avatars.js above `nameMark`). Every surface draws through it. Atlas is a
-   registered character in `frontend/atlas.js`.
+   registered character in `frontend/js/atlas.js`.
 2. One silhouette per character: head flows into body, chibi proportions
    (head 55 to 60% of height), one outline rule for all parts, features
    placed on the shape, animals with their own ear, snout and tail cues.
@@ -1424,10 +1424,10 @@ perches, surfaces and edges, the behaviour picker, drag and drop onto the UI
 
 ### 3. Files
 
-`frontend/avatars.js` (the interface, generated characters, companion,
-picker, perches), `frontend/atlas.js` (Atlas), `frontend/css/08-consistency.css`
+`frontend/js/avatars.js` (the interface, generated characters, companion,
+picker, perches), `frontend/js/atlas.js` (Atlas), `frontend/css/08-consistency.css`
 (the `nm-`, `nmb-` and Atlas rules), `frontend/index.html` (script tags with
-`?v=`, Appearance rows), `frontend/settings.js` (Appearance defaults),
+`?v=`, Appearance rows), `frontend/js/settings.js` (Appearance defaults),
 `tests/test_name_mood.py`, plus the SCRIPTS lists in tests that name
 avatars.js.
 

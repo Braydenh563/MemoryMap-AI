@@ -46,7 +46,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, text
 
 from memorymap.ai import agent
-from memorymap.core import deps, events
+from memorymap.core import deps, events, jobruns
 from memorymap.core.database import Conversation
 
 logger = logging.getLogger("memorymap.autonomous")
@@ -261,16 +261,21 @@ def _run_optimization() -> None:
     # by the thread that is finishing, right up until it finishes.
     _cancel.clear()
     started = time.monotonic()
-    with events.acting_as("system:librarian"):
-        _optimization_pass(started)
+    with events.acting_as("system:librarian"), jobruns.job_run("autonomous") as run:
+        _optimization_pass(started, run)
 
 
-def _optimization_pass(started: float) -> None:
-    """The body of one pass, split out so the actor above wraps all of it."""
+def _optimization_pass(started: float, run: "jobruns.Run") -> None:
+    """The body of one pass, split out so the actor above wraps all of it.
+
+    `run` is the "last run" record (INBOX 438); a pass that returns early for
+    a reason says so on it, because "Last run: just now, succeeded" over a
+    pass that did nothing because the battery mode is on would be a lie."""
     try:
         config = deps.get_config()
         if config.get_preference("battery_efficient_mode"):
             logger.info("skipped: battery efficient mode is on")
+            run.result = "Skipped: battery efficient mode is on."
             return
 
         # ROADMAP.md item 34, run separately from the agent pass below, 
@@ -301,6 +306,7 @@ def _optimization_pass(started: float) -> None:
         # here: opt-out, not opt-in.
         if _cancel.is_set():
             logger.info("stopped before link reason audit, someone quit this pass")
+            run.cancel("Stopped before it finished.")
             return
 
         if config.get_preference("auto_link_reason_audit", True):
@@ -337,6 +343,7 @@ def _optimization_pass(started: float) -> None:
         # notes, and the agent's job list is written in terms of notes.
         if _cancel.is_set():
             logger.info("stopped before passive capture, someone quit this pass")
+            run.cancel("Stopped before it finished.")
             return
 
         if config.get_preference("auto_capture_enabled", False):
@@ -358,6 +365,7 @@ def _optimization_pass(started: float) -> None:
 
         if _cancel.is_set():
             logger.info("stopped before stale/orphaned review, someone quit this pass")
+            run.cancel("Stopped before it finished.")
             return
 
         if config.get_preference("auto_stale_review_enabled", False):
@@ -393,7 +401,7 @@ def _optimization_pass(started: float) -> None:
             from memorymap.ai import facts
 
             db = deps.get_db()
-            with db.session() as session:
+            with db.session() as session, jobruns.job_run("night-shift") as night:
                 outcome = facts.run(
                     session,
                     budget=int(config.get_preference("night_shift_budget_tokens", 20_000) or 20_000),
@@ -403,6 +411,7 @@ def _optimization_pass(started: float) -> None:
                     trigger="scheduled",
                 )
                 session.commit()
+                jobruns.describe_night_pass(night, outcome)
             if outcome.get("derived"):
                 logger.info(
                     "night shift: %d fact(s) from %d note(s), stopped: %s",
@@ -415,11 +424,13 @@ def _optimization_pass(started: float) -> None:
 
         if _cancel.is_set():
             logger.info("stopped before the agent pass, someone quit this pass")
+            run.cancel("Stopped before it finished.")
             return
 
         tasks = _enabled_tasks(config)
         if not tasks:
             logger.info("skipped: every autonomous task is switched off in Settings")
+            run.result = "Skipped: every autonomous task is switched off."
             return
 
         task_str = ", ".join(tasks)
@@ -506,6 +517,12 @@ def _optimization_pass(started: float) -> None:
         if changes:
             detail = f"{detail} Changed {len(changes)} thing(s)."
         _remember_pass(outcome, changes)
+        if outcome == "failed":
+            run.fail(detail)
+        elif outcome == "cancelled":
+            run.cancel(detail)
+        else:
+            run.result = detail
         taskhistory.record(
             "autonomous",
             "Autonomous knowledge base optimisation",

@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 from memorymap import __version__
 from memorymap.ai import budget as run_budget
 from memorymap.ai import librarian, presets, skills
-from memorymap.core import deps, embedmodels, events, extras, logbuffer
+from memorymap.core import deps, embedmodels, events, extras, jobruns, logbuffer
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import importer, manager
@@ -142,7 +142,7 @@ class PersonaItem(BaseModel):
     #: answering (the owner: rotating "thinking words" like Claude Code's,
     #: "customisable per persona"). Empty (the default for every persona that
     #: has never set one) means "use the app's default list, or the built-in
-    #: persona's own list"; frontend/sheets-selects.js resolves which. Stored
+    #: persona's own list"; frontend/js/sheets-selects.js resolves which. Stored
     #: here rather than in localStorage for the same reason the writing
     #: dictionary is: a list built by hand should survive a cleared browser
     #: and travel with the daily backup.
@@ -199,6 +199,27 @@ def suggest_persona_thinking_words(body: SuggestThinkingWordsBody) -> dict:
         )
         words = []
     return {"thinking_words": words}
+
+
+class DraftTemplateBody(BaseModel):
+    name: str = Field(min_length=1, max_length=40)
+    description: str = Field(default="", max_length=200)
+    current: str = Field(default="", max_length=2000)
+
+
+@router.post("/templates/draft")
+def draft_template(body: DraftTemplateBody) -> dict:
+    """"Draft with Atlas" in Settings, Templates: a body from the name and
+    the one line, or another take on the one in the box. A model that is
+    down answers with an empty body and a reason, never an error page."""
+    try:
+        text = librarian.draft_template(
+            body.name, body.description, body.current, deps.get_model_manager(), deps.get_ollama()
+        )
+    except Exception as exc:  # noqa: BLE001 - said in the panel, logged here
+        logging.getLogger("memorymap.templates").warning("template draft failed", exc_info=True)
+        return {"content": "", "reason": librarian.model_error_message(deps.get_model_manager().utility_model(), exc)}
+    return {"content": text, "reason": "" if text else "The model wrote nothing. Try again."}
 
 
 class CustomThemeItem(BaseModel):
@@ -334,6 +355,13 @@ class PreferencesBody(BaseModel):
     custom_themes: list[CustomThemeItem] | None = Field(default=None, max_length=20)
     # Dashboard layout: widget order + hidden widgets.
     dashboard_layout: "DashboardLayout | None" = None
+    #: The dashboard's Quick access tiles, in order: stable ids (the five
+    #: defaults' names, or `tab:x` / `reveal:x` for a command from the
+    #: catalogue), at most `QUICK_ACCESS_MAX`. `[]` is "never arranged", the
+    #: same convention `dashboard_layout` uses, so Reset writes `[]` and the
+    #: frontend falls back to its default five. Declared here because a field
+    #: Pydantic does not know about is silently dropped.
+    dashboard_quick_access: list[str] | None = Field(default=None, max_length=32)
     # User-defined skills, and whether the chat AI may use tools.
     skills: list[SkillItem] | None = Field(default=None, max_length=30)
     tools_enabled: bool | None = None
@@ -595,6 +623,30 @@ class DashboardLayout(BaseModel):
     sizes: dict[str, str] = Field(default_factory=dict)
 
 
+#: Quick access holds eight tiles at most (the row is five across at the
+#: desktop width; more would wrap). The request model's own cap is looser so a
+#: stale client sending nine is cleaned here rather than failing the whole
+#: save, which is the same reason `_validated_context_windows` cleans.
+QUICK_ACCESS_MAX = 8
+
+
+def _validated_quick_access(value: object) -> list[str]:
+    """Strings only, trimmed, no repeats, short, and at most `QUICK_ACCESS_MAX`.
+
+    Whether an id still names anything is the frontend's question (a command
+    can be renamed away by a later version, and the tile then simply is not
+    drawn); the server only keeps the stored list from becoming a blob.
+    """
+    if not isinstance(value, list):
+        return []
+    cleaned: list[str] = []
+    for item in value:
+        key = item.strip() if isinstance(item, str) else ""
+        if key and len(key) <= 80 and key not in cleaned:
+            cleaned.append(key)
+    return cleaned[:QUICK_ACCESS_MAX]
+
+
 @router.get("/preferences")
 def get_preferences() -> dict:
     config = deps.get_config()
@@ -632,6 +684,7 @@ def get_preferences() -> dict:
         "dashboard_layout": config.get_preference(
             "dashboard_layout", {"order": [], "hidden": []}
         ),
+        "dashboard_quick_access": config.get_preference("dashboard_quick_access", []),
         "skills": config.get_preference("skills", []),
         "tools_enabled": config.get_preference("tools_enabled", True),
         "local_only_ai": config.get_preference("local_only_ai", True),
@@ -819,6 +872,8 @@ def update_preferences(
             value = _validated_templates(value)
         if key == "export_save_dir":
             value = _validated_export_dir(value)
+        if key == "dashboard_quick_access":
+            value = _validated_quick_access(value)
         if key == "model_context_windows":
             value = _validated_context_windows(value)
         config.set_preference(key, value)
@@ -2142,9 +2197,17 @@ def _inside(root: Path, f: Path) -> bool:
 
 
 def _run_directory_import(directory_path: str):
+    """The background task: the import, recorded as the last "import" run
+    (INBOX 438), because a 202 Accepted answers nobody about how it went."""
+    with jobruns.job_run("import") as run:
+        _import_directory_files(directory_path, run)
+
+
+def _import_directory_files(directory_path: str, run: "jobruns.Run"):
     try:
         p = _validated_import_directory(directory_path)
     except ValueError:
+        run.fail("That folder is not inside your home folder or the data folder.")
         return
     with deps.get_db().session() as session:
         imported = 0
@@ -2225,10 +2288,15 @@ def _run_directory_import(directory_path: str):
                     detail += f" ({skipped_oversize} over {limit_mb} MB)"
             manager.log_action(session, "imported", "data", detail=detail)
             session.commit()
+            run.result = f"imported {imported} note{'' if imported == 1 else 's'} from a folder" + (
+                f", skipped {skipped}" if skipped else ""
+            )
             #: A whole vault arriving at once is exactly the "large change"
             #: the rebuild suggestion exists for, see `mark_index_stale`.
             if imported > 0:
                 deps.mark_index_stale(imported)
+        else:
+            run.result = "no markdown files found in that folder"
 
 @router.post("/import/directory", status_code=202)
 def import_directory(req: ImportDirectoryRequest, background_tasks: BackgroundTasks):
@@ -2258,6 +2326,15 @@ def import_markdown(
             detail=f"{len(files)} files at once is more than one import handles "
             f"({MAX_IMPORT_FILES} max): split it into smaller batches.",
         )
+    with jobruns.job_run("import") as run:
+        result = _import_markdown_files(files, session)
+        run.result = f"imported {result['imported']} note{'' if result['imported'] == 1 else 's'}" + (
+            f", skipped {len(result['skipped'])}" if result["skipped"] else ""
+        )
+    return result
+
+
+def _import_markdown_files(files: list[UploadFile], session: Session) -> dict:
     imported = 0
     skipped: list[str] = []
     for file in files:
@@ -2336,17 +2413,38 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
         try:
             text = importer.convert_to_markdown(Path(saved.name))
         except Exception as exc:  # a file markitdown can't parse must not 500
+            jobruns.note_finished(
+                "import", "failed", f"Couldn't read {file.filename or 'that file'}: {exc}"
+            )
             raise HTTPException(
                 status_code=422, detail=f"Couldn't read that file: {exc}"
             ) from exc
 
     all_sections = importer.split_into_sections(text)
     if not all_sections:
+        jobruns.note_finished(
+            "import", "failed", f"{file.filename or 'That file'} had no readable text in it"
+        )
         raise HTTPException(
             status_code=422, detail="That file had no readable text in it"
         )
     sections = all_sections[:MAX_DOCUMENT_IMPORT_NOTES]
 
+    with jobruns.job_run("import") as run:
+        imported = _create_document_notes(session, sections)
+        run.result = f"imported {imported} note{'' if imported == 1 else 's'} from {file.filename or 'a document'}"
+    manager.log_action(
+        session, "imported", "data", detail=f"document x{imported} ({file.filename})"
+    )
+    session.commit()
+    return {
+        "imported": imported,
+        "truncated": len(all_sections) > len(sections),
+        "filename": file.filename,
+    }
+
+
+def _create_document_notes(session: Session, sections: list[str]) -> int:
     imported = 0
     for section in sections:
         entry = manager.create_entry(
@@ -2360,15 +2458,7 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
         session.commit()
         deps.store_quietly(session, entry)
         imported += 1
-    manager.log_action(
-        session, "imported", "data", detail=f"document x{imported} ({file.filename})"
-    )
-    session.commit()
-    return {
-        "imported": imported,
-        "truncated": len(all_sections) > len(sections),
-        "filename": file.filename,
-    }
+    return imported
 
 
 

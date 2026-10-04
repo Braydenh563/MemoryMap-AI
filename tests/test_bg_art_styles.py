@@ -30,8 +30,8 @@ from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
-BG_ART = FRONTEND / "bg-art.js"
-SETTINGS = FRONTEND / "settings.js"
+BG_ART = FRONTEND / "js" / "bg-art.js"
+SETTINGS = FRONTEND / "js" / "settings.js"
 INDEX = FRONTEND / "index.html"
 CSS = FRONTEND / "css" / "03-dashboard-widgets.css"
 
@@ -161,7 +161,7 @@ def test_the_art_pauses_when_hidden_unfocused_or_covered():
 
 def test_bg_art_loads_before_settings():
     html = INDEX.read_text(encoding="utf-8")
-    assert html.index('src="/bg-art.js?v=') < html.index('src="/settings.js?v=')
+    assert html.index('src="/js/bg-art.js?v=') < html.index('src="/js/settings.js?v=')
 
 
 def test_helixlabs_is_credited():

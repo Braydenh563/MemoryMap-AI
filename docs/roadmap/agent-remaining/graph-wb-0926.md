@@ -160,7 +160,7 @@ Found and left, with the reason:
 
 ## The rich picker, 2026-09-27
 
-The "/" menu's rows as a recipe (`frontend/rich-picker.js`, DESIGN.md's
+The "/" menu's rows as a recipe (`frontend/js/rich-picker.js`, DESIGN.md's
 recipe index, `test_ui_recipes.py`), drawn by the "/" and "[[" menu, the
 command palette and the Library's Create picker; the note box's `[[` is the editor menu now, at the caret.
 Sweep `richpicker.js` (1440 and 390, light and dark); shots in
@@ -199,7 +199,7 @@ caret (`richpicker.js`).
 
 ## WORLD_CLASS_PLAN 22.1 items 1 and 2, 2026-09-27
 
-- **Built:** the hash router (`frontend/router.js`, `tests/test_router.py`,
+- **Built:** the hash router (`frontend/js/router.js`, `tests/test_router.py`,
   `routersweep.js`) and height-aware density (`tests/test_density_height.py`,
   `laptopfold.js`). navigation.js's stack is kept, mirrored rather than
   replaced: it is what names a step in the history menu and how each kind of

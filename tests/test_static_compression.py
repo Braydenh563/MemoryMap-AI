@@ -31,7 +31,7 @@ from tests._app_js import APP_JS, app_js_files
 def test_a_stamped_asset_is_immutable_and_gzipped(client):
     """`/app.js?v=<version>` is the real request the browser makes."""
     with client.stream(
-        "GET", f"/app.js?v={__version__}", headers={"Accept-Encoding": "gzip"}
+        "GET", f"/js/app.js?v={__version__}", headers={"Accept-Encoding": "gzip"}
     ) as response:
         assert response.status_code == 200
         assert response.headers.get("content-encoding") == "gzip"
@@ -63,7 +63,7 @@ TOTAL_CAP = 794_000
 
 def _served_gzip_size(client, name: str) -> int:
     with client.stream(
-        "GET", f"/{name}?v={__version__}", headers={"Accept-Encoding": "gzip"}
+        "GET", f"/js/{name}?v={__version__}", headers={"Accept-Encoding": "gzip"}
     ) as response:
         assert response.status_code == 200, name
         assert response.headers.get("content-encoding") == "gzip", name
@@ -123,7 +123,7 @@ def test_the_app_scripts_stay_under_the_ratchet(client):
 def test_an_unstamped_asset_is_not_immutable(client):
     """No `?v=` means the URL can be reused across a release, so it keeps
     asking the browser to revalidate rather than promising it never will."""
-    response = client.get("/app.js", headers={"Accept-Encoding": "gzip"})
+    response = client.get("/js/app.js", headers={"Accept-Encoding": "gzip"})
     assert response.status_code == 200
     cache_control = response.headers.get("cache-control", "")
     assert "immutable" not in cache_control
@@ -141,7 +141,7 @@ def test_vendored_assets_stay_revalidated_too(client):
 
 def test_a_query_string_that_only_contains_v_as_a_substring_is_not_stamped(client):
     """`?vv=1` or `?rev=1` must not be mistaken for the app's own `?v=` stamp."""
-    response = client.get("/app.js?vv=1", headers={"Accept-Encoding": "gzip"})
+    response = client.get("/js/app.js?vv=1", headers={"Accept-Encoding": "gzip"})
     assert response.headers.get("cache-control") == "no-cache"
 
 

@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ATLAS = (ROOT / "frontend" / "atlas.js").read_text(encoding="utf-8")
+ATLAS = (ROOT / "frontend" / "js" / "atlas.js").read_text(encoding="utf-8")
 CSS = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
 
 
@@ -24,13 +24,15 @@ def test_the_feminine_look_has_no_legs_and_a_skirt_of_ribbons():
     feminine = _look("feminine")
     assert "legs: false," in feminine
     assert "skirt: \"M" in feminine
-    assert feminine.count("{ seg: [[") >= 5 + 7  # five ribbons, and the hair's locks
+    assert feminine.count("{ seg: [[") >= 4 + 7  # four folds of the gown (INBOX 443), and the hair's locks
     # No leg layers are built for a look without legs, and none is drawn.
     assert 'const legs = spec.legs !== false;' in ATLAS
     assert '...(legs ? ["leg-l", "leg-r"] : [])' in ATLAS
     assert "if (spec.legs === false) spec.legPaths = [];" in ATLAS
     # The ribbons end in soft points, not round caps.
-    assert "fill: atlasStem(seg, ribbon(w), { samples: 14, cap: false })" in ATLAS
+    assert "fill: atlasStem(seg, w, { samples: 14, cap: false })" in ATLAS
+    #: The folds end soft (INBOX 443: hair-fine tips read as tentacles).
+    assert "const ribbon = (w, tip = 0.18) => (t) => tip + (w - tip)" in ATLAS
 
 
 def test_the_skirt_sways_on_its_layer_root_only():
@@ -115,8 +117,9 @@ def test_round_8_hands_feet_hair_waist_and_nebula():
     assert 'if (!tiny && spec.cap) atlasHairCap(sway, spec);' in ATLAS
     assert 'if (spec.lowers) torso.setAttribute("mask", `url(#${id}-waist)`);' in ATLAS
     feminine = _look("feminine")
-    widths = [float(w) for w in re.findall(r"\]\], w: ([0-9.]+), specks", feminine)[:5]]
-    assert widths[0] == widths[4] == 6.4 and min(widths[1:4]) >= 7.2, widths
+    widths = [float(w) for w in re.findall(r"\]\], w: ([0-9.]+), (?:tip: [0-9.]+, )?specks", feminine)[:4]]
+    #: INBOX 443: four folds of a gown, the outer two lit, wider in the middle.
+    assert widths[0] == widths[3] == 7.4 and min(widths[1:3]) >= 8.4, widths
     # Round 8's wider ribbon (8.8 across), kept by round 9's orbit.
     assert "const base = 0.5 + 8.4 * Math.sin(" in ATLAS
 
@@ -352,7 +355,7 @@ def test_the_masculine_look_is_a_star_being_not_an_animatronic():
     # legs, a torso tapering into nebula wisps, slim bent arms with small
     # mittens, softer eyes and a gentle idle sway.
     masculine = _look("masculine")
-    assert "legs: false," in masculine and "lowers: [" in masculine and "skirt:" in masculine
+    assert "legs: false," in masculine and "lowers: [" in masculine
     assert "armWidth: [4.4, 1.8]," in masculine and "handScale: 0.9," in masculine
     arms = re.search(r"    arm: \[(\[[^\]]+\]), (\[[^\]]+\])\],", masculine)
     assert arms, "the arm bends: two segments"
@@ -399,7 +402,7 @@ def test_the_feminine_crown_is_astral_not_a_fringe():
     for key in ("hairline: \"M", "rootDust: [", "circlet: ["):
         assert key in feminine, key
     locks = feminine[feminine.index("frontLocks: ["):]
-    locks = locks[: locks.index("],\n    lowers")]
+    locks = locks[: locks.index("lowers: [")]
     for w in re.findall(r"w: ([0-9.]+)", locks):
         assert float(w) <= 1.5, "a front strand wider than 1.5 is a lock, the curtains again"
     for seg in re.findall(r"seg: \[\[([^\]]+)\]\]", locks):
@@ -410,23 +413,174 @@ def test_the_feminine_crown_is_astral_not_a_fringe():
     assert 'class: "atl-thread atl-circlet"' in ATLAS and '"atl-strand-light"' in ATLAS
 
 
-def test_the_masculine_wisps_fall_and_the_waist_has_no_seam():
-    # The owner: his lower-body wisps "more masculine: fewer, broader,
-    # straighter-falling streams with a firmer taper", and "smoothen and
-    # blend the line between the main body and the lower body whisps".
-    masculine, feminine = _look("masculine"), _look("feminine")
-    def widths(look):
-        return [float(w) for w in re.findall(r"\], w: ([0-9.]+), specks", look)]
-
-    assert len(widths(masculine)) < len(widths(feminine))
-    assert min(widths(masculine)) > max(w for w in widths(feminine) if w < 7), "his streams are broader than her outer ribbons"
-    assert 'lowerTaper: "firm"' in masculine and "lowerTaper" not in feminine
-    assert "atl-lower-sway-heavy" in CSS
-    # The seam: the wisps fade in under the torso's fade, and every wisp
-    # is rooted inside the torso rather than starting at the waist.
+def test_the_masculine_waist_has_no_seam():
+    # The owner: "smoothen and blend the line between the main body and the
+    # lower body whisps". The wisps fade in under the torso's fade, and every
+    # wisp leaving the hips is rooted inside the torso rather than starting
+    # at the waist.
     assert 'fade("lowerin", 60, 52);' in ATLAS and 'fade("waist", 54, 63);' in ATLAS
     assert 'lower.setAttribute("mask", `url(#${id}-lowerin)`);' in ATLAS
     assert "return [[x, y - 6, x, y - 4, x, y - 2, x, y], ...seg];" in ATLAS
+
+
+def test_the_masculine_lower_body_is_one_snake_wisp_with_sub_wisps():
+    # INBOX 435 (3), wrapup-0927 item 7. The owner: "on the masculine atlas
+    # lower body looks like a tripod and very straight pencil-y, I was
+    # thinking like a thicker main whispy tail in the middle like a snake and
+    # then the smaller ones on the side"; at release: "too straight and
+    # pointy and not flowy"; then "the side whisps should be thicker and more
+    # like proper sub whisps", "properly and cleanly integrated with the body
+    # and not obviously separate shapes", "the subwhisps look like spider or
+    # centipede legs" and "the middle isnt now really bigger than the
+    # subwhisps". Round 9's three near-straight streams over a veil cut into
+    # two points read as five spikes. Now: one main wisp and a few sub-wisps
+    # branching off it, drawn as one silhouette.
+    masculine, feminine = _look("masculine"), _look("feminine")
+    lowers = masculine[masculine.index("lowers: [") :]
+    lowers = lowers[: lowers.index("\n    ],\n")]
+    assert lowers.count("main: true") == 1
+    assert 2 <= lowers.count("side: ") <= 4
+    # No hand-drawn veil with points.
+    assert "skirt:" not in masculine and 'lowerTaper: "wisp"' in masculine
+    assert '"firm"' not in ATLAS
+    # Her skirt is untouched.
+    assert "lowerTaper" not in feminine and "main: true" not in feminine and "side:" not in feminine
+    # Every paint of the trail is one path holding all the wisps (nonzero
+    # fill paints an overlap once, so no brighter band where a sub-wisp
+    # leaves the trunk), with no veil round it (a wider haze showed its own
+    # edge, a second outline), and the trail stays in the one `lower` layer:
+    # two layers drifting apart would stack their translucency where they
+    # overlap.
+    assert 'spec.trail = { fill: join("fill"), stream: join("stream"), specks: parts.flatMap((p) => p.specks) };' in ATLAS
+    assert "for (const part of spec.trail ? [spec.trail] : spec.lowerPaths) ribbon(lower, part);" in ATLAS
+    assert '...(spec.lowers ? ["lower"] : [])' in ATLAS and "lower-side" not in ATLAS
+
+
+_WISPS_JS = r"""
+const vm = require("vm");
+const fs = require("fs");
+const noop = () => {};
+const el = () => ({ setAttribute: noop, appendChild: noop, style: { setProperty: noop }, classList: { add: noop } });
+const ctx = { console, setInterval: noop, setTimeout: noop, clearInterval: noop, clearTimeout: noop, document: { addEventListener: noop, createElementNS: el, createElement: el, querySelectorAll: () => [] }, window: {} };
+vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(process.argv[2], "utf8") + "\n;globalThis.__L = ATLAS_LOOKS; globalThis.__at = atlasSegsAt;", ctx);
+const out = {};
+for (const look of ["masculine", "feminine"]) {
+  const spec = ctx.__L[look];
+  out[look] = spec.lowers.map((l, i) => {
+    const part = spec.lowerPaths[i];
+    const pts = [];
+    for (let k = 0; k <= 60; k += 1) pts.push(ctx.__at(l.seg, k / 60));
+    //: The stem as built (with its root inside the torso, if it has one),
+    //: and its width there.
+    const built = [];
+    for (let k = 0; k <= 80; k += 1) built.push([...ctx.__at(part.seg || l.seg, k / 80), part.width ? part.width(k / 80) : 0]);
+    return { main: !!l.main, side: l.side || 0, pts, built, fill: part.fill };
+  });
+  out[`${look}Torso`] = spec.torsoNow;
+}
+console.log(JSON.stringify(out));
+"""
+
+
+def test_the_masculine_wisps_measure_as_drawn(tmp_path):
+    # The generated paths, measured: the main wisp leaves the torso as wide
+    # as the hips and narrows as it falls, in an S, to a rounded tip; each
+    # sub-wisp branches off it at its own height, half the main wisp's width
+    # there, flows mostly down in one continuous curve (no knee), and is
+    # shorter than the main wisp, no two alike; every path is smooth (cubic
+    # curves and the tip's arc, no straight `L` spike) and inside the box
+    # margins the feminine skirt already uses (x 9 to 53, y to 102).
+    import json
+    import math
+    import shutil
+    import subprocess
+
+    import pytest
+
+    node = shutil.which("node")
+    if not node:  # pragma: no cover - node is in the sandbox and in CI
+        pytest.skip("node is not available")
+    script = tmp_path / "wisps.js"
+    script.write_text(_WISPS_JS, encoding="utf-8")
+    run = subprocess.run([node, str(script), str(ROOT / "frontend" / "js" / "atlas.js")], capture_output=True, text=True, timeout=60, check=False)
+    assert run.returncode == 0, run.stderr
+    got = json.loads(run.stdout)
+
+    def length(pts):
+        return sum(math.dist(a, b) for a, b in zip(pts, pts[1:]))
+
+    def points(d):
+        # Every coordinate pair but the arc's radii and flags.
+        d = re.sub(r"A[0-9.]+ [0-9.]+ 0 0 1 ", "M", d)
+        nums = [float(n) for n in re.findall(r"-?[0-9.]+", d)]
+        return nums[0::2], nums[1::2]
+
+    def area(d):
+        xs, ys = points(d)
+        return sum(xs[i] * ys[i + 1] - xs[i + 1] * ys[i] for i in range(len(xs) - 1))
+
+    parts = got["masculine"]
+    main = next(p for p in parts if p["main"])
+    subs = [p for p in parts if not p["main"]]
+
+    # Flush with the body: the torso's width at the hips' fade (y 55) against
+    # the main wisp's width where it leaves the torso (y 56).
+    xs, ys = points(got["masculineTorso"])
+    flank = [(x, y) for x, y in zip(xs, ys) if 50 <= y <= 60]
+    left = min(flank, key=lambda q: abs(q[1] - 55) + (q[0] > 31) * 99)
+    right = min(flank, key=lambda q: abs(q[1] - 55) + (q[0] < 31) * 99)
+    hips = right[0] - left[0]
+    top = min(main["built"], key=lambda q: abs(q[1] - 56))[2]
+    assert abs(top - hips) <= 1.5, (top, hips)
+    # Then it narrows: never wider below the waist than at it.
+    assert max(q[2] for q in main["built"] if q[1] > 62) < top
+
+    # An S: the centreline's sideways heading turns at least twice.
+    dx = [b[0] - a[0] for a, b in zip(main["pts"], main["pts"][1:])]
+    assert sum(1 for a, b in zip(dx, dx[1:]) if a * b < 0) >= 2
+
+    main_len = length(main["pts"])
+    for p in parts:
+        assert "L" not in p["fill"] and p["fill"].count("C") >= 20, "smooth, no straight spike"
+        assert "A" in p["fill"], "a rounded tip, not a point"
+        xs, ys = points(p["fill"])
+        assert min(xs) >= 9 and max(xs) <= 53 and max(ys) <= 102, (min(xs), max(xs), max(ys))
+    # Every stem is walked the same way round, so the joined path's nonzero
+    # fill unites them; one walked the other way would cut a hole where it
+    # crosses the trunk.
+    assert len({area(p["fill"]) > 0 for p in parts}) == 1, "a wisp wound the other way"
+
+    roots, lengths = [], []
+    for p in subs:
+        x0, y0 = p["pts"][0]
+        x1, y1 = p["pts"][-1]
+        # Branching from the trunk, which is about twice as wide there and
+        # stays the widest shape down to the sub-wisp's own tip.
+        at = min(main["built"], key=lambda q: math.dist(q[:2], (x0, y0)))
+        assert math.dist(at[:2], (x0, y0)) < at[2] / 2, "a sub-wisp's root is inside the main wisp"
+        wide = max(q[2] for q in p["built"])
+        assert at[2] >= 1.9 * wide, (at[2], wide)
+        # Flowing down and out, not splayed sideways like a leg.
+        assert y1 - y0 > abs(x1 - x0), (x0, y0, x1, y1)
+        assert (x1 - 31) * p["side"] > (x0 - 31) * p["side"], "outward"
+        # One continuous curve: the heading turns one way only (a knee is
+        # a turn one way and then back).
+        heads = [math.atan2(b[1] - a[1], b[0] - a[0]) for a, b in zip(p["pts"], p["pts"][1:])]
+        turns = [b - a for a, b in zip(heads, heads[1:]) if abs(b - a) > 0.004]
+        assert all(t > 0 for t in turns) or all(t < 0 for t in turns), "a knee"
+        ratio = length(p["pts"]) / main_len
+        assert 0.3 <= ratio <= 0.75, ratio
+        roots.append(y0)
+        lengths.append(length(p["pts"]))
+    # Not a row of legs: each branches at its own height, each its own length.
+    roots.sort()
+    assert all(b - a >= 6 for a, b in zip(roots, roots[1:])), roots
+    lengths.sort()
+    assert all(b - a >= 2 for a, b in zip(lengths, lengths[1:])), lengths
+
+    # Her ribbons are what they were: five, ending in soft points.
+    assert len(got["feminine"]) == 4 and not any(p["main"] for p in got["feminine"])  # the gown's folds (INBOX 443)
 
 
 def test_a_sleeping_atlas_keeps_its_arms_off_the_rings():

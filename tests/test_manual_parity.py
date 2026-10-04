@@ -38,8 +38,8 @@ MANUAL = {
     "restore_note": ("note-cards.js", '/restore`, { method: "POST"', "the recycle bin, Restore"),
     "set_reminder": ("shell-reminders.js", 'const created = await apiJson("/reminders", {', "Reminders, New reminder"),
     "complete_reminder": ("shell-reminders.js", "body: JSON.stringify({ done: checkbox.checked }),", "Reminders, the tick box"),
-    "rename_tag": ("library.js", 'apiJson("/tags/rename", {', "Library, Tags, Rename"),
-    "delete_tag": ("library.js", 'apiJson("/tags/delete", {', "Library, Tags, Delete"),
+    "rename_tag": ("tag-manager.js", '"/tags/rename",', "Manage tags, Rename"),
+    "delete_tag": ("tag-manager.js", '"/tags/delete", { names }', "Manage tags, Remove from all notes"),
     "save_skill": ("skills.js", "async function saveSkillList(skills) {", "Settings, Skills, Save"),
     "delete_skill": ("skills.js", "async function saveSkillList(skills) {", "Settings, Skills, Delete"),
     "create_document": ("documents.js", 'apiJson("/documents", {', "Library, Documents, New"),
@@ -51,7 +51,7 @@ MANUAL = {
     "add_map_node": ("whiteboard-map.js", "const created = await apiJson(`/whiteboard/boards/${boardId}/nodes`, {", "a mind map, Add child"),
     "link_map_nodes": ("whiteboard.js", 'apiJson("/whiteboard/objects", { method: "POST"', "a mind map, draw a cross-link"),
     "create_category": ("categories-panel.js", "async function createCategoryFromPanel()", "Manage categories, New category"),
-    "rename_category": ("notes-list.js", "async function renameCategory(meta, currentName)", "a category's menu, Rename"),
+    "rename_category": ("categories-panel.js", "async function renameCategory(meta, currentName)", "a category's menu, Rename"),
     "merge_categories": ("categories-panel.js", "async function mergeCategoryFromPanel(meta)", "a category's menu, Merge into"),
     "delete_category": ("categories-panel.js", "async function deleteCategoryFromPanel(meta)", "a category's menu, Delete"),
 }
@@ -68,7 +68,7 @@ def test_every_write_tool_names_its_manual_path():
 def test_every_named_manual_path_still_exists():
     gone = []
     for tool, (name, proof, where) in MANUAL.items():
-        text = (FRONTEND / name).read_text(encoding="utf-8")
+        text = (FRONTEND / "js" / name).read_text(encoding="utf-8")
         if proof not in text:
             gone.append(f"{tool}: {where} ({name} no longer has {proof!r})")
     assert not gone, "Manual paths that went missing:\n  " + "\n  ".join(gone)
@@ -76,9 +76,9 @@ def test_every_named_manual_path_still_exists():
 
 def test_the_categories_panel_is_reachable_from_the_sidebar_the_menu_and_settings():
     html = (FRONTEND / "index.html").read_text(encoding="utf-8")
-    wiring = (FRONTEND / "wiring.js").read_text(encoding="utf-8")
+    wiring = (FRONTEND / "js" / "wiring.js").read_text(encoding="utf-8")
     # The panel moved to its own lazy piece (categories-panel.js).
-    notes = "\n".join((FRONTEND / name).read_text(encoding="utf-8") for name in ("notes-list.js", "categories-panel.js"))
+    notes = "\n".join((FRONTEND / "js" / name).read_text(encoding="utf-8") for name in ("notes-list.js", "categories-panel.js"))
     assert 'id="manage-categories-btn"' in html and 'id="settings-manage-categories"' in html
     assert '$("manage-categories-btn").addEventListener("click", () => openManageCategories());' in wiring
     assert '$("settings-manage-categories").addEventListener("click", () => openManageCategories());' in wiring
@@ -95,9 +95,10 @@ def test_the_category_tools_count_as_writes():
 def test_the_categories_panel_is_a_managed_list_with_the_reference_head():
     # The owner: "needs some ui redesign ... like the ai assistant panel".
     # The panel moved to its own lazy piece (categories-panel.js).
-    notes = "\n".join((FRONTEND / name).read_text(encoding="utf-8") for name in ("notes-list.js", "categories-panel.js"))
+    notes = "\n".join((FRONTEND / "js" / name).read_text(encoding="utf-8") for name in ("notes-list.js", "categories-panel.js"))
     assert 'head.classList.add("dialog-head");' in notes
-    assert 'list.setAttribute("role", "listbox");' in notes and 'list.setAttribute("aria-multiselectable", "true");' in notes
+    # A grid since INBOX 433 (an option may not hold its ⋯; a grid cell may).
+    assert 'list.setAttribute("role", "grid");' in notes and 'list.setAttribute("aria-multiselectable", "true");' in notes
     assert "function wireManageCategoryKeys(list, state, redraw)" in notes
     assert "function drawManageCategoryFooter(footer, state, redraw)" in notes
     assert 'filter.placeholder = "Filter categories";' in notes

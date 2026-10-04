@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-DASHBOARD = Path(__file__).resolve().parent.parent / "frontend" / "dashboard.js"
+DASHBOARD = Path(__file__).resolve().parent.parent / "frontend" / "js" / "dashboard.js"
 
 
 def _description(key: str) -> str:

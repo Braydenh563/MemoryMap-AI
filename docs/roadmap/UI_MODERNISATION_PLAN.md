@@ -72,6 +72,15 @@ one of them and is judged by a count, not by looking at a screenshot.
 Standing order 3: a decision recorded here is not re-opened. A missing one
 becomes an INBOX entry with a one-line recommendation, which is then taken.
 
+- **A note's time ends its details line, and the line never wraps** (INBOX
+  455 (1), 2026-10-03). Chosen over the head row beside the actions: Linear
+  and Notion draw a row's date as its last property on the one line of
+  facts, and Apple Notes puts it on the details line under the title; the
+  head row's corner belongs to the card's actions, and a time that faded
+  there on hover is exactly what INBOX 446 reported. What does not fit folds
+  into "+N", then to icons, then ellipsis (DESIGN.md, the recipe index), so
+  the time is at one x and one distance from the card's bottom on every card.
+
 - **The default look is Quiet utilitarian; the old default is a palette**
   (the owner, 2026-09-23, asked against the unslop audit, which found the
   identity itself to be the tell: indigo accent, purple-blue emblem, lavender
@@ -127,7 +136,7 @@ survive its archiving; the numbering is that file's.
    inline, decided now.** It is a different shape from every other item
    on this list, and was left open deliberately in an earlier pass rather
    than converted blind: the caveat text is built by `renderExtras()` in
-   `frontend/app.js`, one row at a time from server data (`caveat=` on the
+   `frontend/js/app.js`, one row at a time from server data (`caveat=` on the
    extra's own definition), not static markup in `index.html`, so
    `count.py` structurally cannot see it either way. Decision: leave it
    inline. It reads as a field-level warning attached to one specific
@@ -189,9 +198,9 @@ survive its archiving; the numbering is that file's.
 6. **The two JS strings (`countjs.py`) checked this pass, both decided
    inline, for the same reason as decision 2 (Tesseract):** the
    dashboard's Tensions widget explain line
-   (`frontend/dashboard.js:3156`, "Similar-notes search finds what
+   (`frontend/js/dashboard.js:3156`, "Similar-notes search finds what
    belongs together...") and the Library skills panel's Background
-   workers hint (`frontend/library.js:1649`, "Lets the AI work through
+   workers hint (`frontend/js/library.js:1649`, "Lets the AI work through
    your notebook on its own..."). Both are one or two sentences built
    with `document.createElement`, the same JS-generated shape as the
    Tesseract caveat, and both are short enough that they are not the
@@ -1425,3 +1434,112 @@ glass. What is left is below.
 ## Placed from INBOX, 2026-09-21 (the dashboard's focused hero)
 
 296 is built. Moved whole to [`HISTORY.md`](HISTORY.md) ("INBOX resolved, 2026-09-21"), with what it measured before and after.
+
+## Placed from INBOX, 2026-10-03 (INBOX 393)
+
+Moved whole from INBOX when INBOX 434 arrived (the tray holds under
+twenty); open, owned by this plan.
+
+393. **The owner, 2026-09-23, verbatim:** "research more ui and ux
+    improvements, remove any trace of vibe coded stuff in elements, designs,
+    aesthetics styles, form, function, layout, structure. vendor and use skills
+    to help with ui and ux design. find bugs in usability. improve and expand
+    learnability and information architecture. further modernise and
+    professionalise the app. I lose trust in and refuse to use applications
+    with poor ui design and ui/ux issues as they make me feel like the app is
+    unreliable ... there needs to be more integration between all the main
+    features. and there needs to be more optimisiation." Placed: the identity
+    half is a decision in UI_MODERNISATION_PLAN ("The default look is Quiet
+    utilitarian"), built by a theme agent with the vendored design skills and
+    unslop-ui. Recommendation for the integration half, taken: one "act on
+    this" vocabulary for every object (note, document, board, map, file,
+    reminder): Open, Ask about it, Add to a map, Show in graph, Remind me,
+    Link to, reached the same way from its card menu, the command palette and
+    a right-click, audited surface by surface against a table in
+    WORLD_CLASS_PLAN's consistency contract, with a lint that every object
+    menu carries the shared rows.
+
+## Settings information architecture (INBOX 444)
+
+The owner, 2026-10-03: "a major expansion, improvement and modern/professional
+ui/ux redesign of the models settings page suggested downloads section ... the
+settings needs better designing, rearrangement, better internal navigation and
+cleaning up." Measured first with `scratchpad/ui-sweeps/settingsia.js`
+(1440x900 and 390x844, a fake Ollama so Models is whole: `scratchpad/
+fake_ollama_server.py`).
+
+**Before:** 20 sections; 30,557px of settings at desktop width and 51,331px at
+390; 65 groups, 1,097 controls (253 of them Logs rows), 44 help popovers; 47
+one-line descriptions that wrap at 1440, 170 at 390. Models 4,737px at 1440
+and 10,275px at 390, with the search engine, the search index and (two
+sections away, in General) the search relevance floor that tunes them. Nine
+concerns set from two or three sections (a background job's model: Models and
+Tasks; web search: Tools and Web search; search relevance and the index:
+Models and General; clearing old data: General and Import & export; how Atlas
+answers: Models, Tools and General). Suggested downloads: 31 rows, 29
+identical filled Download buttons, a 2,237px box (6,313px at 390), no
+mention of memory or of whether a model fits this computer. The nav had four
+groups, a search that only hid nav buttons, arrow-key walking, and no index
+inside a 4,000px section.
+
+### Decisions made
+
+1. **Six nav groups, by what the person is doing:** AI (Models, Search and
+   index, Personas, Skills, Tools it can use, What it remembers, What it
+   learned, Web search); Notebook (Profile, General, Templates, Import &
+   export); Look and feel (Appearance, Keyboard shortcuts); Privacy and
+   security (Account & security, Privacy); System (Packages, Background
+   tasks, Logs); Help and About. Profile sits with the notebook, not the AI:
+   it is the person's own record. `tests/test_settings_ia.py` pins the order.
+2. **One new section, `searchindex` ("Search and index"):** the search
+   engine, the search index and the search relevance floor, which were in
+   Models (two) and General (one). Measured reason: Models was the second
+   longest pane and the three are one concern.
+3. **Answer style moves from General to Personas:** it is Atlas's voice, and
+   the Personas pane already says so. General is left with the recycle bin,
+   chat history, notifications and writing.
+4. **Settings that guard something stay beside it.** "Keep Atlas on this
+   machine" stays with the backend address it guards; the Privacy pane
+   reports, it does not duplicate.
+5. **Every existing id and `data-section` is kept.** A deep link that names a
+   control is resolved to the section that holds the control now
+   (`openSettingsModal` reads `closest(".settings-section")`), so a later move
+   cannot strand a link; callers were also updated, and a lint
+   (`test_a_link_names_the_section_that_holds_its_target`) keeps them honest.
+6. **No section is merged away this round.** Templates, Skills and Personas
+   list rows and the sampling sliders were fixed and are guarded by
+   `tests/test_badge_recipe.py`; they are not touched.
+7. **Internal navigation is one lazy file, `settings-find.js`** (loaded with
+   the first open of Settings, so outside the boot gzip budget, which sits
+   842 bytes under its cap). The nav search existed (it hid the sections whose
+   text lacked the word); it now also lists the matching settings (a group
+   head or a control's label, with the section and group), capped at eight,
+   and a press opens the section and rings the setting. A long section (four
+   group heads or more, at least 1.5 windows tall) gets a sticky index of its
+   heads with the current one in `aria-current="location"`. The hash route
+   `#/settings/<section>` already existed (router.js) and is kept as the only
+   deep link; no per-setting hash. Enter on a nav entry (or a click) puts the
+   focus on the section heading; the arrow keys still walk the list and keep
+   the focus in it. Recipes: two rows in DESIGN.md, linted.
+8. **Suggested downloads are model cards**, grouped by purpose (chat and
+   filing, bigger machines, search, images, reading text), `settings-models.js`.
+   One starting pick per group, in the catalogue's own words, labelled "our
+   starting pick" and not a benchmark; it is the one filled button in its
+   group. The server owns the numbers: the memory a model asks for
+   (`ram_gb`: stated where the catalogue says "Needs ~16 GB", else the
+   download size x 1.15 + 0.7 GB rounded up to a half), what it is good at,
+   and the fit verdict against this computer's memory (`GET /models/hardware`,
+   standard library only): Fits under 60% of memory, Tight to 85%, Too big
+   above. System memory only; a GPU's own memory is not measured, and the page
+   says so behind its '?'. A too-big download asks first. "Hide models too big
+   for this computer" is a per-viewer switch.
+9. **Download another model** takes an Ollama name or a Hugging Face link or
+   `hf.co/` name, says what it is before anything downloads
+   (`POST /models/inspect`, no network, no claim of a size), and then it is a
+   card like the others, with the same progress and Cancel. `/models/pull`
+   refuses what the check refuses. Only ollama.com and Hugging Face names are
+   accepted; a name carrying another registry's address is refused.
+10. **Not done, left open:** the Tools and Appearance panes are still long
+    (4,247px and 1,296px at desktop width) and are indexed rather than
+    split; a background-job model is still chosen in Models and in Background
+    tasks; the Installed models list is the old row list.

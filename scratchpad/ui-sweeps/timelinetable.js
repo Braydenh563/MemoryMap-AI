@@ -136,17 +136,15 @@ const check = (label, ok, detail) => {
   const tagged = await page.evaluate(async (ids) => {
     document.getElementById('timeline-batch-tag').click();
     await new Promise((r) => setTimeout(r, 400));
-    // `promptDialog` builds its own overlay per call (app.js): find the one
-    // that is actually open rather than the first `.modal-card` in the page,
-    // which is a settings dialog that has never been shown.
-    const card = [...document.querySelectorAll('.prompt-card')].pop();
-    if (!card) return { ok: false, why: 'no prompt dialog' };
+    // INBOX 447: Tags opens the bulk dialog (tag-manager.js, a sheet).
+    const card = document.querySelector('.sheet-overlay[data-sheet="bulk-tags"]');
+    if (!card) return { ok: false, why: 'no bulk tag dialog' };
     const input = card.querySelector('input[type="text"]');
-    if (!input) return { ok: false, why: 'no field in the prompt dialog' };
+    if (!input) return { ok: false, why: 'no field in the dialog' };
     input.value = 'sweepmark';
     input.dispatchEvent(new Event('input', { bubbles: true }));
-    const confirm = [...card.querySelectorAll('button')].find((b) => /add tag/i.test(b.textContent));
-    if (!confirm) return { ok: false, why: 'no confirm button' };
+    const confirm = card.querySelector('button[type="submit"]');
+    if (!confirm) return { ok: false, why: 'no apply button' };
     confirm.click();
     await new Promise((r) => setTimeout(r, 1500));
     const out = [];

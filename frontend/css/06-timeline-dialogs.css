@@ -644,12 +644,15 @@
    size setting instead of being pinned to a pixel height.
 
    Lowered from 8, then 4, then 2, with `LONG_NOTE_LINES` (note-cards.js) so
-   the two agree: a card that decided it is long shows the same one line
-   its own threshold promised, not more than that. */
+   the two agree: a card that decided it is long shows the lines its own
+   threshold promised, not more than that. It had drifted back to 3, and
+   the third line of a titled note was most often the blank line before its
+   second paragraph, drawn as a lone "..." (INBOX 446 (5): 146px cards, four
+   above the fold at 1440x900); 2 again. */
 .entry-content.entry-clamped {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   overflow: hidden;
 }
 
@@ -1577,27 +1580,10 @@
     display: none;
   }
 
-
   .chat-tool-group-end {
     margin-left: 0;
   }
 }
-
-/* A recently-run skill promoted onto the dashboard (§36D). Marked, because a
-   button that runs a job on your notebook should not look identical to one
-   that just switches tab, the two rows either side of it do nothing on their
-   own, and this one might tag forty notes. Its lightning icon is the mark
-   (03-dashboard-widgets.css, INBOX 394 h: no dashed edge). */
-.quick-link-skill {
-  max-width: 14rem;
-}
-
-.quick-link-skill span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 
 /* --- the note card's metadata, ordered (§36B) -------------------------------
    Screenshotted: a note with six chips in a row, category, four tags, an AI
@@ -2497,6 +2483,18 @@
   touch-action: none;
 }
 
+/* The canvas is a Tab stop (INBOX 445), so arriving on it by keyboard has to
+   show. Inset, because the container clips anything drawn outside it; and
+   `:focus-visible`, so a click on the board draws no ring. */
+.whiteboard-container {
+  outline: none;
+}
+
+.whiteboard-container:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 /* No `:active { cursor: grabbing }` here: the cursor is inherited by every
    topic on the board, so that rule restyled all of them on each press and
    release. The grabbing cursor is the pan shield's (07-whiteboard-misc.css,
@@ -3031,7 +3029,6 @@
 
 .wb-shape-caret {
   pointer-events: none;
-  opacity: 0.6;
   margin-left: -2px;
 }
 
@@ -3276,12 +3273,32 @@
 }
 
 .wb-library-item {
-  padding: var(--space-5);
+  padding: var(--space-3) var(--space-4);
   background: var(--inner);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   cursor: grab;
   font-size: var(--text-md);
   user-select: none;
+  /* Two lines, cut at a word with an ellipsis (INBOX 463); never squeezed
+     by the list's column. */
+  flex: none;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+}
+
+/* A row you can pick up says so under the pointer (INBOX 463: "no hover
+   state"), the same lift every other list row in the app gives. */
+.wb-library-item:hover {
+  background: var(--ghost-btn-bg-hover);
+  border-color: var(--border);
+}
+
+.wb-library-item:active {
+  cursor: grabbing;
 }
 
 .wb-card {
@@ -3698,12 +3715,6 @@ aside[data-resizable="1"] {
   margin-inline-end: auto;
 }
 
-.tensions-status.is-busy {
-  /* The app's own generating pulse, so a slow local model reads as working
-     rather than as stuck, the same signal the chat dock uses. */
-  animation: pulse-fade 1.6s ease-in-out infinite;
-}
-
 .tensions-results {
   display: flex;
   flex-direction: column;
@@ -3783,18 +3794,6 @@ aside[data-resizable="1"] {
 .dash-tension-explain {
   font-size: var(--text-xs);
   margin: var(--space-2) 0 var(--space-3);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  /* DESIGN.md's rule for this branch: stop the motion, keep the information.
-     The pulse says "still working" during a pass that can run for a minute,
-     so it is replaced by a static emphasis rather than removed, someone who
-     has asked for less motion still needs to know the review is running. */
-  .tensions-status.is-busy {
-    animation: none;
-    font-weight: 600;
-    color: var(--ink);
-  }
 }
 
 /* The per-row read/unread toggle. Asked for directly: "also allow marking

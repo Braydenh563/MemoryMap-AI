@@ -30,8 +30,8 @@ from pathlib import Path
 
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
-DOCUMENTS_JS = FRONTEND / "documents.js"
-EDITOR_JS = FRONTEND / "editor.js"
+DOCUMENTS_JS = FRONTEND / "js" / "documents.js"
+EDITOR_JS = FRONTEND / "js" / "editor.js"
 INDEX = FRONTEND / "index.html"
 CSS_DIR = FRONTEND / "css"
 

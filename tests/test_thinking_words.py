@@ -5,7 +5,7 @@ customisable per persona).
 Storage: `PersonaItem.thinking_words` (routes_settings.py), alongside the
 persona's `prompt`, in the same `personas` preference list custom overrides
 already use; empty means "use the app's default list, or the built-in
-persona's own list" (frontend/sheets-selects.js resolves which). The
+persona's own list" (frontend/js/sheets-selects.js resolves which). The
 feature's own on/off switch is `progress-motion`'s own kind of setting, a
 per-browser `localStorage` appearance preference never sent to the server
 (frontend/tests/test_thinking_words_rotation.py covers it), not a field

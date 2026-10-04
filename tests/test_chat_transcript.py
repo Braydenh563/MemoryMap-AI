@@ -28,11 +28,11 @@ def test_a_reply_head_is_drawn_once_per_face_and_copied() -> None:
     later one is a deep copy, and no reply head starts a p5 sketch
     (chatheads.js: 0 canvases in 150 replies)."""
     app = app_js_text()
-    paint = _function(app, "paintPersonaAvatar")
+    paint = _function(app, "paintPersonaAvatar") + _function(app, "assistantAvatar")
     assert "renderEmblem" not in paint, "a reply head builds a p5 sketch again"
     assert "chatHeadSources.get(key)" in paint
-    assert "source.cloneNode(true)" in paint
-    assert paint.count("chatHeadSources.set(") == 1
+    assert "source.cloneNode(true)" in paint or "face.cloneNode(true)" in paint
+    assert paint.count("chatHeadSources.set(") == 2, "one per kind of face: a persona's, Atlas's"
     key = _function(app, "chatHeadKey")
     for part in ("size", "atlasLook()", "atlasStyle()", "name"):
         assert part in key, f"the copy is not keyed on {part}: a stale face would be copied"

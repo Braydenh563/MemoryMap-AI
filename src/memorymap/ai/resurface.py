@@ -198,7 +198,17 @@ def ranked(session: Session, limit: int = DAILY) -> list[Entry]:
     rows = session.execute(
         select(NoteScore, Entry)
         .join(Entry, Entry.id == NoteScore.entry_id)
-        .where(Entry.is_deleted.is_(False))
+        # Only notes the Notes list shows. A draft is not yet a note anyone
+        # filed, and an archived one was put out of the way on purpose:
+        # "forgotten" is the wrong word for either, and the near panel was
+        # measured listing drafts (2026-10-03). The stored scores can lag a
+        # draft being kept or a note being archived by up to a day
+        # (`ensure_fresh`), so this is decided here, at read time.
+        .where(
+            Entry.is_deleted.is_(False),
+            Entry.is_draft.is_(False),
+            Entry.archived_at.is_(None),
+        )
         .order_by(NoteScore.score.desc(), NoteScore.entry_id.desc())
         .limit(limit + len(dismissed))
     ).all()
@@ -250,6 +260,55 @@ def for_day(session: Session, day: date | None = None, limit: int = DAILY) -> li
     return doubled[start : start + limit]
 
 
+#: How many of the most faded notes `for_context` considers. Measured as a
+#: LIMIT on one indexed query, so the depth costs rows read, not queries.
+CONTEXT_POOL = 200
+
+#: What each kind of joining is worth when there is no vector. A link is a
+#: decision someone made about these two notes; a shared tag is a label put on
+#: both; a category is the broadest bucket. Uncategorised is no relation at
+#: all: it is where notes go when nothing has been decided about them.
+REL_LINK, REL_TAG, REL_CATEGORY = 4, 2, 1
+
+
+def _relatedness(session: Session, context_entry_id: int, pool: list[Entry]) -> dict[int, int]:
+    """How joined each pool note is to the context note: 0 means not at all.
+
+    Facts a person can check, like the fading score: a link either way, each
+    shared tag (case folded, as tags are stored once whatever their case),
+    and the same category unless that category is Uncategorised.
+    """
+    from memorymap.core.database import Category
+    from memorymap.entry.manager import UNCATEGORISED, entry_tags
+
+    context = session.get(Entry, context_entry_id)
+    if context is None:
+        return {}
+    ids = [entry.id for entry in pool]
+    linked: set[int] = set()
+    for source, target in session.execute(
+        select(EntryLink.source_entry_id, EntryLink.target_entry_id).where(
+            ((EntryLink.source_entry_id == context_entry_id) & EntryLink.target_entry_id.in_(ids))
+            | ((EntryLink.target_entry_id == context_entry_id) & EntryLink.source_entry_id.in_(ids))
+        )
+    ).all():
+        linked.add(target if source == context_entry_id else source)
+
+    own_tags = {tag.casefold() for tag in entry_tags(context)}
+    category = session.get(Category, context.category_id) if context.category_id else None
+    own_category = (
+        context.category_id if category is not None and category.name != UNCATEGORISED else None
+    )
+    out: dict[int, int] = {}
+    for entry in pool:
+        score = REL_LINK if entry.id in linked else 0
+        score += REL_TAG * len(own_tags & {tag.casefold() for tag in entry_tags(entry)})
+        if own_category is not None and entry.category_id == own_category:
+            score += REL_CATEGORY
+        out[entry.id] = score
+    return out
+
+
 def for_context(
     session: Session, context_entry_id: int, limit: int = DAILY
 ) -> list[Entry]:
@@ -257,18 +316,34 @@ def for_context(
 
     The fading score says a note is slipping away; the cosine says it is
     slipping away from something you are thinking about today, which is the
-    difference between a reminder and an interruption. Without an embedding
-    backend this degrades to the plain ranking rather than returning nothing:
-    a faded note is still worth surfacing without a vector to rank it by.
+    difference between a reminder and an interruption. 
+
+    **Without a vector to measure by, close means joined** (`_relatedness`):
+    a link either way, shared tags, the same category. A note with none of
+    those is not close to this one however faded it is, so it is left out
+    and an unrelated notebook gets nothing. This used to degrade to the
+    plain ranking, which put a group headed "close to this" over the newest
+    notes in the notebook, related to nothing (measured 2026-10-03 with no
+    embedding backend); the daily panel (`for_day`) is where the plain
+    ranking belongs. With an anchor vector, a candidate with no vector of
+    its own is kept only when it is joined the same way.
 
     Never the context note itself, whatever it scores.
     """
     from memorymap.ai.embeddings import bytes_to_vector, cosine_similarity
     from memorymap.core.database import EmbeddingRecord
 
-    pool = [entry for entry in ranked(session, limit=max(limit * 8, 24)) if entry.id != context_entry_id]
+    #: Deeper than the vector path once needed, because relatedness now
+    #: filters: the most faded 24 of a notebook may hold nothing joined to
+    #: this note while the 25th is its oldest link. Still one LIMITed query.
+    pool = [
+        entry
+        for entry in ranked(session, limit=max(limit * 8, CONTEXT_POOL))
+        if entry.id != context_entry_id
+    ]
     if not pool:
         return []
+    related = _relatedness(session, context_entry_id, pool)
     #: `embedding`, which is what the column is called. It was `row.vector`
     #: until the first request ever made to `GET /resurface/near/{entry_id}`
     #: answered 500: the route had no caller in the frontend (INBOX 261) and
@@ -286,11 +361,17 @@ def for_context(
     }
     anchor = vectors.get(context_entry_id)
     if anchor is None:
-        return pool[:limit]
+        # `pool` is already most-faded first and `sorted` is stable, so among
+        # equally related notes the more faded one comes first.
+        joined = [entry for entry in pool if related.get(entry.id, 0) > 0]
+        joined = sorted(joined, key=lambda entry: -related[entry.id])
+        return joined[:limit]
     anchor_vector = bytes_to_vector(anchor)
     scored: list[tuple[float, Entry]] = []
     for entry in pool:
         blob = vectors.get(entry.id)
+        if not blob and related.get(entry.id, 0) <= 0:
+            continue  # nothing to measure it by and nothing joining it
         nearness = cosine_similarity(anchor_vector, bytes_to_vector(blob)) if blob else 0.0
         scored.append((nearness, entry))
     scored.sort(key=lambda pair: (-pair[0], -pair[1].id))

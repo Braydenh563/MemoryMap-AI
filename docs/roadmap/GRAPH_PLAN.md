@@ -13,7 +13,7 @@ the plans already listed (row 13).** The instruction, verbatim:
 
 ## 1. What exists (checked in the code, not assumed)
 
-`frontend/graph.js` (3,800 lines) draws an **SVG** d3 force graph: one
+`frontend/js/graph.js` (3,800 lines) draws an **SVG** d3 force graph: one
 `<g>` per node with a circle, a label and a halo; edges as `<line>`s;
 `forceManyBody(-340)`, `forceLink`, `alphaDecay(0.05)`; four layouts
 (force, tree, radial, arc); colour by category or by cluster; a legend row;
@@ -351,8 +351,8 @@ notebook content) is a different, permanent hold and is never touched by
 this: it is set and released by the code that already owns it.
 
 Read this where the code carries it out: `graphCaptureView`/`graphApplyView`
-(`frontend/graph.js`) and `renderGraphCanvas`/`gcStartWorker`
-(`frontend/graph-canvas.js`, the default renderer).
+(`frontend/js/graph.js`) and `renderGraphCanvas`/`gcStartWorker`
+(`frontend/js/graph-canvas.js`, the default renderer).
 
 
 ## Decision made, 2026-09-24: similarity is each note's two closest matches
@@ -404,3 +404,31 @@ another dot). Decided, and measured with `scratchpad/ui-sweeps/graphlabels.js`:
   every other label keeps the dot rule (0 on a dot), and a covered dot still
   takes the pointer, because a canvas label is paint and hit testing is on
   the notes. Hubs named: 0 to 10 of 10 at the fit, 0 to 9 of 10 at 2x.
+
+## Decision made, 2026-10-03: the shape follows the links, and the unlinked sit on a ring
+
+INBOX 443 (1) (the owner: "the graph shape could look nicer"), measured with
+`scratchpad/ui-sweeps/graphlook.js` on 60 notes in 5 categories, 10 unlinked,
+1440x900, and on a 300-note fixture whose links ignore categories:
+
+- **The category gather scales with how category-shaped the links are**
+  (`groupCohesion`, graph-worker.js): the share of non-similarity links joining
+  two notes of one category. At 0.6 or more the pull is 0.05 and the ring 28
+  per root of the count (the nearest-four colour purity rose 0.56 to 0.84); at
+  0.2 or less it is the old 0.025 and 22. A flat 0.05 doubled the 300-note
+  fixture's crossings, so it is not flat.
+- **Unlinked notes have seats** on a ring that follows the cluster's outline
+  (36 angle bins, smoothed by the widest neighbour), each category's on the arc
+  facing its own place, evenly spaced, a second ring when an arc is full. Gap to
+  the nearest linked note, in the cluster's own median spacings: 3.0 to 1.8.
+- **Links wear a category.** Same colour at both ends takes that colour;
+  a bridge stays neutral; a reasoned link is 1.9px at 0.62; curved by default
+  (a note that never touched the switch is on). Tapered strokes were not built:
+  a taper is one polygon per link, and the batched stroke per colour is what
+  keeps a 2,000-link map inside a frame.
+- **One size scale, 5 to 15**, and a glow at roughly two thirds of its old
+  strength.
+- **Not changed, on purpose:** the fit (`fitGraphToView` pads each dot by its
+  radius plus 34 for its label, a decision from the "gap at the bottom" report);
+  the server's 40-character preview, so the whole name on hover is as long as
+  the server sends.

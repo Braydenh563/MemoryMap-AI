@@ -348,3 +348,29 @@ def test_the_resurfacing_read_is_a_walk_along_its_index(db):
     )
     assert "ix_note_scores_rank" in plan, plan
     assert "TEMP B-TREE" not in plan, plan
+
+
+@pytest.mark.parametrize(
+    ("index", "sql"),
+    [
+        # A note's replies: `Entry.parent_id` is read for every thread, and
+        # SQLite's own foreign-key check reads it for every note it deletes.
+        ("ix_entries_parent", "SELECT id FROM entries WHERE parent_id=7"),
+        # The boards a note is on, and a board's cards.
+        ("ix_whiteboard_nodes_entry", "SELECT board_id FROM whiteboard_nodes WHERE entry_id=7"),
+        ("ix_whiteboard_nodes_board", "SELECT id FROM whiteboard_nodes WHERE board_id=7"),
+        ("ix_whiteboard_sketches_board", "SELECT id FROM whiteboard_sketches WHERE board_id=7"),
+        # A note's reminders (the counts on every card, the delete check).
+        ("ix_reminders_entry", "SELECT id FROM reminders WHERE entry_id=7"),
+        ("ix_entry_bookmarks_entry", "SELECT bookmark_id FROM entry_bookmarks WHERE entry_id=7"),
+    ],
+)
+def test_the_foreign_keys_a_note_is_looked_up_by_are_indexed(db, index, sql):
+    """Performance pass, 2026-10-03 (INBOX 441, item 6). These are plain
+    ForeignKey columns, which SQLAlchemy does not index, and each is read by
+    "this note's ..." and by SQLite's foreign-key enforcement on every delete.
+    Measured on 5,000 notes with 4,000 board cards and 1,500 reminders: 900
+    lookups by these columns took 604 ms unindexed and 2.9 ms indexed."""
+    plan = " ".join(_plan(db, sql))
+    assert index in plan, plan
+    assert "SCAN" not in plan, plan

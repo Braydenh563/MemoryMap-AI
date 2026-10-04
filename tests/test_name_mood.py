@@ -27,7 +27,7 @@ import pytest
 from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = (ROOT / "frontend" / "avatars.js").read_text(encoding="utf-8")
+APP = (ROOT / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
 
 
 def _mood_source() -> str:
@@ -387,7 +387,7 @@ def test_atlas_has_a_face_of_its_own() -> None:
     body = APP[APP.index("function nameMark(seed") :][:600]
     assert "return atlasMark(size);" in body
     assert "return atlasDraw(size, mood);" in APP
-    atlas = (ROOT / "frontend" / "atlas.js").read_text(encoding="utf-8")
+    atlas = (ROOT / "frontend" / "js" / "atlas.js").read_text(encoding="utf-8")
     assert "registerCharacter({" in atlas
     # And its moods follow the app: thinking while a turn runs, happy or
     # surprised when it ends, and the rest of the fifteen from events.
@@ -458,11 +458,11 @@ def test_atlas_style_is_a_choice_that_every_atlas_follows() -> None:
     # the character (default) or the classic globe; the draw path, the
     # companion's figure and a mood change all branch on it, and a change of
     # style redraws what is on the page.
-    atlas = (ROOT / "frontend" / "atlas.js").read_text(encoding="utf-8")
-    settings = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+    atlas = (ROOT / "frontend" / "js" / "atlas.js").read_text(encoding="utf-8")
+    settings = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert '"atlas-style": "character"' in settings
-    assert "\"avatar-buddy\", \"avatar-buddy-size\", \"avatar-buddy-actions\", \"atlas-style\", \"atlas-look\", \"face-look\", \"dash-mark\"" in settings, "Reset forgets the choice"
+    assert "\"avatar-buddy\", \"avatar-buddy-size\", \"avatar-buddy-actions\", \"atlas-style\", \"assistant-avatar\", \"atlas-look\", \"face-look\", \"dash-mark\"" in settings, "Reset forgets the choice"
     assert 'id="atlas-style"' in index and '<option value="classic">Classic globe</option>' in index
     assert 'atlasStyle() === "classic") return atlasClassicMark(size, mood);' in atlas
     assert 'if (atlasStyle() === "classic") return atlasClassicFigure();' in atlas
@@ -477,8 +477,8 @@ def test_atlas_look_says_when_it_follows_face_looks() -> None:
     # default (renamed 2026-09-27, INBOX 429 (d): Auto follows your own face
     # too, not only Face looks, and the owner asked what it meant); picking it, or changing Face looks while it is picked, redraws
     # every Atlas on the page.
-    atlas = (ROOT / "frontend" / "atlas.js").read_text(encoding="utf-8")
-    settings = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
+    atlas = (ROOT / "frontend" / "js" / "atlas.js").read_text(encoding="utf-8")
+    settings = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     select = index[index.index('<select id="atlas-look"') :]
     select = select[: select.index("</select>")]
@@ -509,8 +509,8 @@ def test_atlas_hears_a_saved_note_and_a_streak() -> None:
     # dashboard's streak count reaches Atlas, which celebrates it at most
     # once a day.
     app = app_js_text()
-    dashboard = (ROOT / "frontend" / "dashboard.js").read_text(encoding="utf-8")
-    atlas = (ROOT / "frontend" / "atlas.js").read_text(encoding="utf-8")
+    dashboard = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    atlas = (ROOT / "frontend" / "js" / "atlas.js").read_text(encoding="utf-8")
     saved = app[app.index('if (path === "/entries" && options.method === "POST") {') :][:260]
     assert 'nameMarkBuddyCue("carry")' in saved and 'atlasOn("saved")' in saved
     assert "atlasStreak(streak)" in dashboard

@@ -15,7 +15,7 @@ import importlib
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 
 from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
@@ -829,7 +829,32 @@ def retrieve(
     return _retrieve(session, query, embeddings, limit, expand_graph, {})
 
 
+#: How the most recent search found its notes, for Settings' one-line answer
+#: to "is search by meaning working" (INBOX 431 (3), the owner: "half the time
+#: I can't tell if it is working or how well"). Process-wide and overwritten,
+#: never a log: the question is only ever about the last one.
+_last_search: dict = {}
+
+
+def last_search() -> dict:
+    """`{"mode": "hybrid"|"semantic"|"keyword", "at": ISO time}`, or {}."""
+    return dict(_last_search)
+
+
 def _rank(
+    semantic: list[tuple[Entry, float]] | None, keyword: list[Entry], limit: int
+) -> tuple[list[Entry], str]:
+    ranked, mode = _rank_inner(semantic, keyword, limit)
+    note_search_mode(mode)
+    return ranked, mode
+
+
+def note_search_mode(mode: str) -> None:
+    """Record how a search found its notes (the box's engine calls this too)."""
+    _last_search.update(mode=mode, at=datetime.now(timezone.utc).isoformat())
+
+
+def _rank_inner(
     semantic: list[tuple[Entry, float]] | None, keyword: list[Entry], limit: int
 ) -> tuple[list[Entry], str]:
     """Combine a semantic and a keyword result list into one ranked answer,
@@ -858,6 +883,30 @@ def _rank(
     return keyword[:limit], "keyword"
 
 
+_RECENCY_ASK = re.compile(
+    r"\b(?:last|latest|newest|most recent|recent)\s+(?:\w+\s+){0,2}?(?:note|notes|entry|entries|thing i (?:wrote|saved|added))\b"
+    r"|\b(?:write|wrote|written|saved|added|captured)\b[^.?!]{0,20}\b(?:last|most recently)$"
+    #: "What have I saved recently?" (INBOX 441): the whole question is the
+    #: verb and the time word, nothing between them to search for. A topic
+    #: in between ("written about golf recently") stays a search.
+    r"|^what\s+(?:have|did|had)\s+i\s+(?:been\s+)?(?:write|wrote|written|writing|save|saved|saving|add|added|adding|capture|captured|capturing|note|noted)\s+(?:down\s+)?(?:recently|lately)$",
+    re.IGNORECASE,
+)
+
+
+def is_recency_ask(query: str) -> bool:
+    r"""Whether a question asks for the newest notes rather than a subject.
+
+    The trailing whitespace and closing marks are stripped here, in code,
+    so the pattern ends on a word and `$` with no quantifier before it:
+    any `\s*` (or `[\s?.!]*`) ahead of `$` backtracks over a run of tabs
+    on every start position `search` tries (CodeQL 443 and 445, the second
+    after a 300-character slice the analysis cannot see). Read on the first
+    300 characters: a recency question is short.
+    """
+    return bool(_RECENCY_ASK.search(query[:300].strip().rstrip("?.! \t\r\n")))
+
+
 def _retrieve(
     session: Session,
     query: str,
@@ -876,6 +925,14 @@ def _retrieve(
     found["until"] = asked.until
     found["when_phrase"] = asked.when_phrase
     found["connected"] = set()
+    #: **"My last note" is an order, not a subject** (the owner at release,
+    #: wrapup-0927 10 n: "Show me my last entry" answered with an older
+    #: note). Searched by meaning, "last entry" matches whatever note talks
+    #: about entries; the question is about when. The newest notes, newest
+    #: first, and the prompt now carries each note's dates, so the answer
+    #: can say which is newest written and which was last edited.
+    if is_recency_ask(query):
+        return _without_private(recent_entries(session, limit=min(limit, RECENT_FALLBACK_LIMIT))), "recent"
     if asked.time_only:
         # Nothing but a date range: list it. Ranking by similarity here would
         # be ranking noise, and the honest answer to "what did I write last

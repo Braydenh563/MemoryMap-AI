@@ -155,10 +155,13 @@ def _sweep_partials(data_dir: Path) -> None:
             continue
 
 
-def backup_if_due(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Path | None:
-    """Startup hook: back up unless a recent backup already exists."""
+def backup_is_due(db_path: Path, data_dir: Path) -> bool:
+    """Whether the startup backup should run: there is a database, and no
+    backup newer than `BACKUP_EVERY_HOURS`. Split out so the caller can open
+    the "last run" record only for a backup that is actually taken (INBOX
+    438): a start that skips it is not a run."""
     if not db_path.exists():
-        return None
+        return False
     newest = next(iter(backup_files(data_dir)), None)
     if newest is not None:
         age_hours = (
@@ -166,7 +169,14 @@ def backup_if_due(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Pa
             - datetime.fromtimestamp(newest.stat().st_mtime, tz=timezone.utc)
         ).total_seconds() / 3600
         if age_hours < BACKUP_EVERY_HOURS:
-            return None
+            return False
+    return True
+
+
+def backup_if_due(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Path | None:
+    """Startup hook: back up unless a recent backup already exists."""
+    if not backup_is_due(db_path, data_dir):
+        return None
     return backup_now(db_path, data_dir, keep)
 
 

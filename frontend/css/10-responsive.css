@@ -351,98 +351,6 @@ header#top-bar,
   }
 }
 
-/* --- INBOX 60: the dashboard's start band uses its own width --------------
-
-   The owner: the band is "all left-aligned in a band with most of its width
-   empty". Measured at 1440x900 with `scratchpad/ui-sweeps/dashstart.js`
-   before this: the "Start something" row filled its 1408px, the "Jump to"
-   row used 476px of it and left 932px empty, and the four stat tiles used
-   573px and left 835px. Two thirds of two rows was nothing.
-
-   The answer is not more pills naming tabs. That was tried and undone with
-   its reason recorded in dashboard.js: the dashboard ended up showing its
-   own navigation three times. It is to let the rows own the width they are
-   already given, and to spend the space the stats had on the one thing four
-   numbers cannot say, which is the shape of the fortnight. */
-/* Everything that stretches is behind `min-width: 600px`, and that is not
-   caution: the phone band gives `.launch-row > *` a `flex: 0 0 auto` so the
-   rows scroll sideways instead of squeezing, and this file loads after the
-   file that says so. A stretched pill there would undo the phone's own
-   design, which belongs to Phase 11 rather than to this change. */
-@media (min-width: 600px) {
-
-  .dash-stats > .stat-tile {
-    /* Equal columns, and `0` basis so a longer label does not buy its tile a
-       wider share of the row than the tile beside it. */
-    flex: 1 1 0;
-  }
-
-  .dash-stats > .stat-spark {
-    /* Twice a tile: it is a chart, and fourteen bars in a tile's width is a
-       texture rather than a reading. */
-    flex: 2 1 0;
-  }
-
-  /* The navigation row: three constants and, when there is one, a Continue
-     pill in front of them. They share the row rather than huddling at its
-     left edge, and they keep their reading order. */
-  .launch-row-go > .quick-link {
-    flex: 1 1 0;
-    min-width: 0;
-  }
-
-  /* Continue is the one pill whose text is a note's own first line, so it is
-     the one that needs room; the three beside it are two words each. */
-  .launch-row-go > .quick-link-continue {
-    flex: 2 1 0;
-  }
-}
-
-/* Not written as `.dash-stats > .stat-spark`: `test_style_scale.py` reads
-   any rule whose selector *starts* with a page container's name as that
-   container setting its own outer inset, and `.dash-stats` is one of them.
-   The class is unique to this chart, so the descendant part buys nothing. */
-.stat-spark {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-6);
-  background: var(--card);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  min-width: 0;
-}
-
-.stat-spark-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-1);
-  flex: 1 1 auto;
-  /* The row's own height decides the chart's, so the strip does not grow:
-     INBOX 60 asks for the band's height to be unchanged. */
-  align-self: stretch;
-  min-width: 0;
-}
-
-.stat-spark-bars > span {
-  flex: 1 1 0;
-  min-width: 0;
-  border-radius: var(--radius-sm);
-  background: var(--accent);
-  opacity: 0.75;
-}
-
-.stat-spark-bars > span.empty {
-  background: var(--divider);
-  opacity: 1;
-}
-
-.stat-spark-label {
-  color: var(--muted);
-  font-size: var(--text-xs);
-  white-space: nowrap;
-}
-
 /* --- dark glass reads flatter, and here is which half of it does ----------
 
    The owner: "glass looks better on light mode and not dark but idk if thats
@@ -731,14 +639,7 @@ header#top-bar,
   gap: 1px;
 }
 
-/* The chart is the first thing to go when there is no width to spend on it:
-   at phone widths the strip is already a sideways scroller of four numbers,
-   and a fifth item that is only a shape would be scrolled past. */
 @media (max-width: 599.98px) {
-
-  .stat-spark {
-    display: none;
-  }
 
   /* The rule that hid the agent's wand and the Guide's '?' here is gone with
      the buttons: measured at 390 with them in the header, the bar's
@@ -1335,16 +1236,16 @@ header#top-bar,
     min-width: 0;
   }
 
-  .dock .dock-identity > :is(h1, h2, h3, .dock-context) {
+  .dock .dock-identity > :is(h1, h2, h3, .dock-chip) {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  /* The context line gives way before the name does ("17 notes · by date"
+  /* The count gives way before the name does ("17 notes · by date"
      beside "Timeline" ran 68px into the Options menu at 390). */
-  .dock .dock-identity > .dock-context {
+  .dock .dock-identity > .dock-chip {
     flex: 0 1000 auto;
   }
 }
@@ -1681,7 +1582,7 @@ header#top-bar,
      07-whiteboard-misc.css's 819.98px band for the full reason. Below 600
      there is no rail at all (`.dock-nav` is the only way in), so this
      clearance goes back to zero exactly like the rule above. */
-  .skills-split > main:has(+ #skills-sidebar) {
+  .skills-split > .tab-main:has(+ #skills-sidebar) {
     padding-left: 0;
   }
 
@@ -1714,6 +1615,57 @@ header#top-bar,
     flex: 1 1 0;
     min-width: 0;
     width: auto;
+  }
+
+  /* The categories drawer is a list of rows, not the chip cloud the 720 and
+     820 bands drew for a stacked sidebar. Measured at 390 before: rows
+     wrapped as pills in two columns, the long name's pill 727px wide in a
+     320px sheet (list scrollWidth 743 against 318), All, Drafts and
+     Favourites 30px tall, and every row's ⋯ 17px above its row: the hover
+     overlay's `translateY(-50%)` outlived its `position: absolute` under
+     `(hover: none)`. One column, names ellipsised (the base `#sidebar li`
+     rule), the ⋯ in the row's flow and pressable, every row a touch target. */
+  #sidebar ul#category-list {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 0;
+  }
+
+  #sidebar ul#category-list > li {
+    flex: 0 0 auto;
+    align-items: center;
+    min-height: var(--target-min);
+    padding-block: 0;
+    background: transparent;
+    border-radius: var(--radius-md);
+  }
+
+  #sidebar ul#category-list > li.active {
+    background: var(--accent-soft);
+  }
+
+  /* A row with no ⋯ (All, Drafts, Favourites) keeps its count in the same
+     column as the rest: the row's end padding, the gap and the ⋯'s width. */
+  #sidebar ul#category-list > li:not(:has(.category-actions)) {
+    padding-inline-end: calc(0.5rem + 0.6rem + var(--target-min));
+  }
+
+  @media (hover: hover) {
+    #sidebar ul#category-list > li:hover {
+      background: var(--accent-soft);
+    }
+  }
+
+  #category-list li .category-actions {
+    flex: 0 0 auto;
+    position: static;
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  #category-list li:has(.category-actions) .count {
+    opacity: 1;
   }
 }
 
@@ -1828,9 +1780,11 @@ header#top-bar,
     padding-top: var(--space-4);
   }
 
+  /* No auto margin: the time before it has one (08-consistency.css), and
+     two in one row split the room, which moved the time on every card. */
   #entry-list > li .entry-actions {
     position: static;
-    margin-left: auto;
+    margin-left: 0;
     background: none;
     opacity: 1;
   }
@@ -1863,7 +1817,7 @@ header#top-bar,
     padding-block: 0;
   }
 
-  #tab-notes .layout > main {
+  #tab-notes .layout > .tab-main {
     padding-right: 0;
   }
 }
@@ -1977,6 +1931,14 @@ header#top-bar,
 
   #toast-box > .toast {
     max-width: none;
+  }
+
+  /* Above the floating + too, not over it: measured at 390 on Notes, the
+     toast box stood on the tab bar (bottom 64px) and the New note button's
+     centre (y 752) answered the toast. The page's own fab sets the line:
+     its offset (07-whiteboard-misc.css's `.dock-fab`), its height, a step. */
+  body:not(:has(#tab-chat:not(.hidden))):has(.tab-page:not(.hidden) > .dock-fab) #toast-box {
+    bottom: calc(var(--status-bar-h) + var(--bottom-tabs-h) + var(--space-5) + env(safe-area-inset-bottom, 0px) + var(--target-min) + var(--space-2));
   }
 
   .agent-monitor {
@@ -2106,6 +2068,15 @@ header#top-bar,
 @media (max-width: 1099.98px) {
 
   #tab-reminders > #reminder-compose {
+    display: none;
+  }
+}
+
+/* ...and from 1100 up, where the form is on the page, "New reminder" only
+   put the caret in it: a second filled "add" 200px under the form's own Add,
+   two primaries for one action on one screen (INBOX 437 (4)). */
+@media (min-width: 1100px) {
+  #reminders-new {
     display: none;
   }
 }
@@ -2713,6 +2684,128 @@ header#top-bar,
 
 @media (min-width: 600px) and (max-height: 720px) {
   #tab-documents .doc-hint {
+    display: none;
+  }
+}
+
+/* **A very short window scrolls its strips away** (WCAG 1.4.10, INBOX 433:
+   zoom.js at 400%, 320 by 256). A sticky sub-tab strip kept 52px of a
+   170px list for itself, and a control the keyboard reached could only sit
+   under it. Below 420px tall the strips scroll with the page like
+   everything else; the floating New note stays in its dock at this height
+   too (phone-shell.js `PHONE_FAB`). */
+@media (max-height: 420px) {
+  .notes-subtabs,
+  .library-subtabs {
+    position: static;
+  }
+
+  /* **And Chat stops being a fixed-height pane** (INBOX 433, zoom.js at 200%,
+     640 by 400). The card is the page's height and the dock alone is taller
+     than what is left, so the message list was squeezed to its 6rem floor
+     with its welcome scrolled under the sticky head and the dock: the "Try
+     asking" chips and Ask Atlas took the keyboard's focus out of sight.
+     Below 420px tall the card flows like any page, the list at its own
+     height and the head scrolling away with it, and the tab scrolls. */
+  #tab-chat,
+  #tab-chat > .layout {
+    display: block;
+  }
+
+  #chat-main {
+    height: auto;
+  }
+
+  #tab-chat #chat-messages {
+    flex: none;
+    min-height: 0;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  #tab-chat .chat-toolbar {
+    position: static;
+  }
+
+  /* The Timeline's feed keeps its own scroll (it loads more from it), but
+     not at the dock's leftovers: at 400% (320 by 256) the dock took 158px of
+     a 144px page and the feed got 0px, every row unreachable but by Tab. With
+     a floor of its own the card grows past the page, the page scrolls the
+     dock away, and the feed has most of the window. */
+  #tab-timeline .timeline-scroll {
+    min-height: min(16rem, 70dvh);
+  }
+
+  /* The map is a surface you look at, so it keeps a usable height and the
+     page scrolls to it, rather than shrinking to what the chrome leaves: at
+     200% (640 by 400) the card was 218px, the zoom strip (178px of touch
+     buttons) rose under the wrapped dock, and the minimap sat on the legend.
+     26rem holds the dock, the strip and the legend apart; the minimap, an
+     overview of a map that is itself smaller than a phone's, goes. */
+  #graph-card {
+    min-height: 26rem;
+  }
+
+  #graph-minimap {
+    display: none;
+  }
+}
+
+/* --- the Dashboard's dock on a phone (INBOX 436) ----------------------------
+   No identity zone, so the row is the search doorway and the ⋯. One line,
+   the search first and the menu at its end: the docks with a title put their
+   actions beside it and the search on the row under, which here left a lone
+   ⋯ on a 44px row of its own above the field (measured at 390: the dock
+   114px tall). */
+@media (max-width: 599.98px) {
+  .dock[data-dock-name="dashboard"] {
+    flex-wrap: nowrap;
+  }
+
+  .dock[data-dock-name="dashboard"] > .dock-find {
+    order: 0;
+    flex: 1 1 0;
+  }
+
+  .dock[data-dock-name="dashboard"] > .dock-actions {
+    flex: 0 0 auto;
+  }
+}
+
+/* **The skill library's kind segment on a phone** (INBOX 437 (4), touch.js).
+   Its dock has no ... menu, so the arrange fold above never takes the zone,
+   and at 390 the three segments (All, Yours, Built-in, each with a count)
+   wrapped inside a one-row well: Built-in fell out of it and lay over the
+   search field (`elementFromPoint` at its centre was #skills-search). The
+   zone's box steps aside so the segment can take a row of its own and the
+   sort shares the next with New skill and help; the segment's cells share
+   their row, on the touch floor like a `.seg-multi`; the glyphs go, the
+   words and counts stay. */
+@media (max-width: 599.98px) {
+  .dock[data-dock-name="library-skills"] > .dock-arrange {
+    display: contents;
+  }
+
+  .dock[data-dock-name="library-skills"] .select-shell:has(> #skills-sort) {
+    flex: 1 1 6rem;
+    min-width: 0;
+  }
+
+  .dock #skills-kind {
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    height: var(--target-min);
+    padding: 0;
+  }
+
+  .dock #skills-kind > button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: var(--space-2);
+    border-radius: var(--radius-md);
+  }
+
+  .dock #skills-kind > button > .ph-lead {
     display: none;
   }
 }

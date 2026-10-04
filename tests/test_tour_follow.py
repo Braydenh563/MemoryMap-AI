@@ -16,7 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TOUR = (ROOT / "frontend" / "tour.js").read_text(encoding="utf-8")
+TOUR = (ROOT / "frontend" / "js" / "tour.js").read_text(encoding="utf-8")
 
 
 def _body(name: str) -> str:

@@ -11,7 +11,7 @@ Back to [../ROADMAP.md](../ROADMAP.md).
 
 ## 1. What exists (checked in the code)
 
-`frontend/whiteboard.js` (9,767 lines) draws an infinite dotted canvas with
+`frontend/js/whiteboard.js` (9,767 lines) draws an infinite dotted canvas with
 object kinds `note`, `document`, `file`, `image`, `sketch`, `text`, `square`,
 `circle`, `arrow`, `topic`/`node`/`radial` (mind maps) and `object`. Chrome:
 a top bar on the Phase 8 grammar (Boards, board picker, rename, add, Map
@@ -151,6 +151,16 @@ kind. Every tool has a key and every key is in the tooltip and the help.
    below the top bar's inset; edges are re-drawn from the node model on
    every drag frame (the marquee fix must not have detached them; add the
    sweep check that a dragged node's edge endpoint moves with it).
+10. **The canvas is a Tab stop, and Tab on it walks the items** (taken
+   2026-10-03, INBOX 445). It was kept out of the tab order while Tab on it
+   did nothing; with nothing else reaching a shape without a pointer, Tab and
+   Shift+Tab select the next item in reading order and `#wb-announcer` names
+   it. Past the last item Tab leaves the canvas, so it is never a trap. A
+   map keeps its own Tab (add a topic).
+11. **The tool bar shows only what the held tool reads** (taken 2026-10-03,
+   INBOX 445): `WB_TOOL_SETTINGS` maps a tool to its settings; a tool with
+   none (a link, the eraser, the sticky, the text box, the bucket) shows no
+   bar, and nothing that acts on a selection shows with nothing selected.
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 

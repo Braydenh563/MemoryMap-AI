@@ -68,7 +68,7 @@ rebuilt existing work here.
   (task #103). **Read what it does before designing a second one** — the
   likeliest right answer is that "mindmap" and "concept map" become one feature,
   not two.
-- **The graph already renders note-to-note structure** (`frontend/graph.js`),
+- **The graph already renders note-to-note structure** (`frontend/js/graph.js`),
   and the Library already has a Boards & maps sub-tab (the user's own preferred
   home for this).
 
@@ -180,7 +180,7 @@ Recorded because Coggle is the reference the user actually meant:
    Copy Obsidian Canvas Mindmap's set; it is the de-facto standard.
 6. **Auto-layout** via Reingold–Tilford with variable node sizes (d3-flextree's
    algorithm, implemented locally — **no CDN, the app is offline-first**;
-   `frontend/graph.js` already hand-rolls layout, so this is a sibling of
+   `frontend/js/graph.js` already hand-rolls layout, so this is a sibling of
    existing code, not a new dependency).
 7. **Collapse/expand a branch**, with a count badge on the collapsed node.
 8. **Styling that carries meaning, not decoration**: per-node colour, shape and
@@ -244,10 +244,10 @@ Recorded because Coggle is the reference the user actually meant:
 - `src/memorymap/api/routes_whiteboard.py` — map CRUD, layout endpoint, node
   tree endpoints, export; extend `_board_preview` for map structure.
 - `src/memorymap/ai/tools*.py` — the four map tools, contract-shaped.
-- `frontend/whiteboard.js` (and `frontend/graph.js` for layout precedent) — the
+- `frontend/js/whiteboard.js` (and `frontend/js/graph.js` for layout precedent) — the
   map mode, keyboard editing, auto-layout, collapse.
-- `frontend/library.js` — the Maps filter and the upgraded preview.
-- `frontend/app.js` — `mapChip()`/`mapPreview()`, the `@` picker source, chat
+- `frontend/js/library.js` — the Maps filter and the upgraded preview.
+- `frontend/js/app.js` — `mapChip()`/`mapPreview()`, the `@` picker source, chat
   attachment, dashboard widget, timeline row.
 - `docs/DESIGN.md` — the node/edge visual language, once, so it is not
   reinvented per surface.
@@ -449,6 +449,17 @@ extended with the numbers named.
   its parent it lands exactly on the middle of the line into it
   (`elementFromPoint` at the handle's centre returned the strip). Hover needs
   nothing selected, so it needs no strip.
+- **A topic's place among its siblings is a key, `data.order`, defaulting to
+  its id** (taken 2026-10-03, INBOX 445, building the Ctrl+Shift+arrows this
+  section names). A key rather than a rank, so a move writes two rows and an
+  insert one; the id default keeps every existing map in creation order; the
+  server sorts by the same key (`_sibling_key`), so the tree, the exports and
+  the agent's outline agree with the canvas, and the order round-trips as
+  outline order. Branch colours stay with the branch (the palette walks by
+  id), so moving a branch up does not repaint the map.
+- **Delete on a topic is one entry on the board's undo stack** (taken
+  2026-10-03): the toast's Undo and Ctrl+Z are the same entry, and the
+  restore writes the whole row back, not only the text and colour.
 
 ### 12.1 Phase 6a, the controls (1 session)
 
@@ -1047,6 +1058,20 @@ topic: a control that wide has nowhere to go.
    `_parse_markdown_outline`, which reads indentation and nothing else, so
    one map's two links would return as two topics. Two of three formats is
    the honest answer, and `maptwokinds.js` asserts both halves.
+13. **Delete removes the whole branch** (taken 2026-10-03, order 3). The code
+   and the server already did, and now that it is one undo step (the
+   topics and their cross-links, `wbMapRestoreRows`) there is nothing to
+   soften; §12.0's "re-parents children" line is superseded.
+14. **Tab adds a topic only when the map was engaged** (taken 2026-10-03).
+   Tab on a selected topic added a child from anywhere, so a keyboard user
+   could not Tab past the map without Escape first, and the Tab that carried
+   focus in added a topic nobody asked for. `wbMapKeysArmed` (whiteboard.js)
+   is set by a pointer press on the canvas, by selecting a topic and by any
+   map key, and cleared when focus lands on a control outside the canvas.
+   Not armed, or focus on another control: Tab is Tab (and so is Shift+Tab).
+   The alternative, Tab always walking the topics like a board's items, was
+   refused because it takes away the one key every mind map builds with.
+   Escape then Tab still leaves from an armed map.
 
 ### Phases, each with the gate it is finished against
 
@@ -1282,3 +1307,7 @@ the phase.
     one claim that must be measured before anything is designed.
     **Placed 2026-09-21 into MINDMAP_PLAN section 13**, which carries the
     measured read, the decisions and the gated phases.
+
+## Placed from INBOX, 2026-10-03 (445 (2) audit, found not fixed)
+
+Built; moved whole to HISTORY.md ("Moved from the plans, 2026-10-03", "From MINDMAP_PLAN.md: the second audit's open items"). Its two decisions are 13 and 14 above.

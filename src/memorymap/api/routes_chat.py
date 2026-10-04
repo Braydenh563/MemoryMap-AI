@@ -18,6 +18,7 @@ import mimetypes
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import timezone
 from itertools import chain
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -31,6 +32,7 @@ from memorymap.ai import (
     agent,
     captioning,
     context,
+    fence,
     followups,
     intent,
     librarian,
@@ -65,6 +67,7 @@ from memorymap.core.database import (
     Reminder,
     like_escape,
 )
+from memorymap.core.config import days_from_today, user_now
 from memorymap.core.deps import get_session
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry import manager
@@ -852,6 +855,40 @@ MEDIA_READINGS_PER_NOTE = 4
 MEDIA_READING_CHARS = 240
 
 
+def _note_dates(entry, zone) -> str:  # noqa: ANN001
+    """"Wednesday 23 September 2026, 09:40", and ", edited ..." when it has been
+    since: spelled out, the form `_long_date` explains (a small model reasons
+    about weekdays better than ISO dates)."""
+
+    def day(when):  # noqa: ANN001, ANN202
+        if when is None:
+            return ""
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        when = when.astimezone(zone)
+        #: With the time: notes written the same day are told apart only by
+        #: it (measured: the model picked the wrong one of two on one day).
+        return f"{when:%A} {when.day} {when:%B %Y}, {when:%H:%M}"
+
+    written = day(getattr(entry, "created_at", None))
+    edited = day(getattr(entry, "edited_at", None))
+    return f"{written}, edited {edited}" if edited and edited != written else written
+
+
+def _time_words(dates, today) -> list[str]:  # noqa: ANN001
+    """Each resolved time phrase in a note, worded for the model with how far
+    it is from today: '"this Friday" meant Friday 25 September 2026, 8 days
+    ago' (INBOX 441). The app resolves the phrase against the day the note was
+    written; without this the model read "this Friday" as this week's."""
+    out = []
+    for item in dates:
+        when = item.at
+        day = f"{when:%A} {when.day} {when:%B %Y}"
+        span = day if item.precision == "day" else f"the {item.precision} of {day}"
+        out.append(f'"{item.phrase}" meant {span}, {days_from_today(when.date(), today)}')
+    return out
+
+
 def _media_readings(session: Session, content: str) -> str:
     """What the app already knows about the pictures inside a note.
 
@@ -1070,9 +1107,21 @@ def _prepare(
             # tracing back to the specific Link row, a bigger change not made
             # here.
             "match_info": match_info.get(entry.id),
+            #: The day it was written, and edited if since (wrapup-0927 10 n):
+            #: with no dates a model guessed "your last entry" from the order
+            #: the notes were listed in.
+            "written": _note_dates(entry, zone),
+            "dates": _time_words(time_words.get(entry.id, []), today),
         }
 
+    now = user_now(deps.get_config())
+    zone, today = now.tzinfo, now.date()
+    time_words = manager.entry_dates_bulk(session, [entry.id for entry in entries])
     notes = [as_note(entry) for entry in entries]
+    #: Listed newest first for "my last note": said on the first, which a
+    #: small model otherwise ignores the order of (measured on a 1.5B model).
+    if mode == "recent" and notes:
+        notes[0]["newest"] = True
     # Same shape `as_note` builds, by hand rather than through it, a
     # Document has no category/tags and its id lives in a different table
     # than Entry's, so folding it through the Entry-shaped helper above
@@ -1521,7 +1570,12 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         #: passage highlight are drawn by the code that already exists. An
         #: extractive answer cannot be wrong about where a claim came from,
         #: because the claim is the passage.
-        offline = extractive.answer(req.question, prepared["notes"])
+        #: A recency question is answered by the list itself (INBOX 446).
+        offline = (
+            extractive.recent(prepared["notes"])
+            if str(prepared.get("search_mode") or "").endswith("recent")
+            else extractive.answer(req.question, prepared["notes"])
+        )
         yield {"type": "answer", "delta": offline["text"]}
         if offline["grounding"]:
             #: An extractive answer is every sentence lifted from a note, so
@@ -1832,10 +1886,22 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         if not agentic and not conversational and prepared["notes"]
         else None
     )
+    #: The fence markers a small model echoes back are taken out of the
+    #: answer before anything reads or saves it (`fence.AnswerScrubber`).
+    scrubber = fence.AnswerScrubber()
     try:
         for payload in events:
             kind = payload.get("type")
             live_rows: list[dict] = []
+            if kind == "answer":
+                payload = {**payload, "delta": scrubber.feed(payload.get("delta") or "")}
+                if not payload["delta"]:
+                    continue
+            else:
+                held = scrubber.flush()
+                if held:
+                    answer_text += held
+                    yield event({"type": "answer", "delta": held})
             if kind == "answer":
                 if answer_text and not in_prose:
                     answer_text += "\n\n"
@@ -1855,6 +1921,10 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             yield event(payload)
             if live_rows:
                 yield event({"type": "grounding_live", "sentences": list(live_grounder.rows)})
+        held = scrubber.flush()
+        if held:
+            answer_text += held
+            yield event({"type": "answer", "delta": held})
     except Exception as exc:  # noqa: BLE001  # same outer boundary as above,
         # for a failure that shows up partway through rather than before
         # the first event (a later skill step, say). Same fix: say what

@@ -36,6 +36,6 @@ def test_a_bookmark_row_goes_through_the_same_allow_list():
     database. `library.js` sets `link.href` straight from the saved URL;
     it must run it through the same `safeHref()` the markdown renderer
     uses, not a second, possibly-different check."""
-    src = (FRONTEND / "library.js").read_text(encoding="utf-8")
+    src = (FRONTEND / "js" / "library.js").read_text(encoding="utf-8")
     assert "link.href = safeHref(bookmark.url)" in src
     assert "link.href = bookmark.url" not in src

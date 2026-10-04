@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from memorymap.ai import drafter
-from memorymap.core import deps
+from memorymap.core import deps, jobruns
 from memorymap.core.database import Entry
 from memorymap.core.deps import get_session
 from memorymap.entry import duplicates, manager
@@ -87,7 +87,19 @@ def list_duplicates(
     thing this feature says is wrong.
     """
     threshold = min(max(threshold, 0.4), 1.0)
-    groups = duplicates.find_duplicates(session, threshold)
+    # Only the first page is "a scan": the pages after it re-run the same
+    # computation to slice it, and recording each would make "last scan" mean
+    # "last time someone clicked next".
+    if offset == 0:
+        with jobruns.job_run("duplicate-scan") as run:
+            groups = duplicates.find_duplicates(session, threshold)
+            run.result = (
+                f"{len(groups)} possible duplicate group{'' if len(groups) == 1 else 's'}"
+                if groups
+                else "no duplicates found"
+            )
+    else:
+        groups = duplicates.find_duplicates(session, threshold)
     return {
         "threshold": threshold,
         "groups": groups[offset : offset + limit],
@@ -136,6 +148,7 @@ def merge_notes(body: MergeBody, session: Session = Depends(get_session)) -> dic
 
     keeper.content = preview["merged"]
     keeper.tags = json.dumps(tags)
+    manager.mark_edited(keeper)
     manager.log_action(
         session, "edited", "entry", keeper.id, f"merged {len(entries)} notes"
     )

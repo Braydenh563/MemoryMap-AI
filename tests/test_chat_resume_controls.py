@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parent.parent
 #: app.js plus palette.js: the popup agent (Ctrl+K) was split out of app.js
 #: on 2026-09-24, and these tests read it wherever it lives.
 APP = app_js_text() + "\n" + (
-    ROOT / "frontend" / "palette.js"
+    ROOT / "frontend" / "js" / "palette.js"
 ).read_text(encoding="utf-8")
 
 
@@ -55,8 +55,12 @@ def test_the_popup_agent_writes_its_thinking_as_it_arrives() -> None:
     shows up after the response is finished". It was accumulated and prepended
     at the end because the box is closed, which is true of the box and beside
     the point for the wait, where the reasoning is the only thing to show."""
-    assert "thinkingBox = cmdPaletteThinkingBox(\"\");" in APP
-    assert "thinkingBox.open = true;" in APP
+    #: The app's one Thinking fold (INBOX 457), open as it is built, and put
+    #: under the bubble's head, inside the step column, never `prepend`ed onto
+    #: the bubble above the name and avatar.
+    assert "thinkingBox = thinkingFold();" in APP
+    assert "stepsHolder.prepend(thinkingBox);" in APP
+    assert "agentMsg.prepend(" not in APP
     #: Closed when the answer lands, so a finished turn still reads answer
     #: first, and never drawn twice.
     assert "thinkingBox.open = false;" in APP
@@ -65,7 +69,7 @@ def test_the_popup_agent_writes_its_thinking_as_it_arrives() -> None:
 def test_the_guide_reads_a_stream_and_can_fall_back() -> None:
     settings = (
         __import__("pathlib").Path(__file__).resolve().parent.parent
-        / "frontend" / "settings.js"
+        / "frontend" / "js" / "settings.js"
     ).read_text(encoding="utf-8")
     assert "async function helpChatStreamTurn({ pending, signal, body })" in settings
     assert 'fetch("/help/ask/stream"' in settings
@@ -79,9 +83,10 @@ def test_the_guide_reads_a_stream_and_can_fall_back() -> None:
     #: text, unlabelled, with no way to open it. The shape is pinned here
     #: rather than the class name so the next change has to keep the summary
     #: and the body, which are what make it readable.
-    assert 'think.className = "help-chat-think agent-step step-thinking"' in settings
-    assert 'thinkSummary.textContent = "Thinking"' in settings
-    assert 'thinkBody.className = "thinking"' in settings
+    #: Now the app's one Thinking fold (`thinkingFold`, INBOX 457), which
+    #: carries the summary and the scrolling body by construction.
+    assert "const think = thinkingFold();" in settings
+    assert 'const thinkBody = think.querySelector(".thinking");' in settings
     #: Folded when the answer starts, the same move the chat's own
     #: `foldEarlierThinking` makes, so the answer is not read underneath it.
     assert "if (think.open && !text) think.open = false;" in settings

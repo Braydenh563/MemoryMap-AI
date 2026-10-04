@@ -17,8 +17,8 @@ from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = app_js_text()
-SETTINGS = (ROOT / "frontend" / "settings.js").read_text(encoding="utf-8")
-BOARD = (ROOT / "frontend" / "whiteboard.js").read_text(encoding="utf-8")
+SETTINGS = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+BOARD = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
 
 
 def _function(text: str, signature: str) -> str:

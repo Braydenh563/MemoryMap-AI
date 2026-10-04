@@ -39,7 +39,7 @@ def test_no_stylesheet_paints_words_with_the_raw_accent() -> None:
 
 def test_no_script_paints_words_with_the_raw_accent() -> None:
     bad = []
-    for path in sorted(FRONTEND.glob("*.js")):
+    for path in sorted((FRONTEND / "js").glob("*.js")):
         text = path.read_text(encoding="utf-8")
         for match in _JS_TEXT_COLOUR.finditer(text):
             if _RAW.search(match.group(1)):

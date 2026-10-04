@@ -265,6 +265,13 @@ class Category(Base, WorkspaceMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str | None] = mapped_column(Text, default=None)
+    #: The colour the person chose for this category (INBOX 441 (4)): a palette
+    #: key the swatch picker offers ("teal") or a `#rrggbb` hex, validated in
+    #: `routes_categories.py`. NULL is "automatic": every surface then draws
+    #: the colour it always did. Kept on the row, not in preferences, so a
+    #: rename keeps it, a merge keeps the target's and a delete drops it with
+    #: no clean-up pass. `_rebuild_categories_unique_constraint` copies it.
+    colour: Mapped[str | None] = mapped_column(String(16), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
@@ -280,6 +287,11 @@ class Entry(Base, WorkspaceMixin):
     tags: Mapped[str] = mapped_column(Text, default="[]")
     # 0–100. How sure the AI was when it filed this (0 = no AI involved).
     ai_confidence: Mapped[int] = mapped_column(Integer, default=0)
+    #: Tags offered when the note was filed, kept for the person to take or
+    #: discard (INBOX 440), and the ones they discarded, never offered again.
+    #: JSON string arrays like `tags`; additive, so old rows backfill to [].
+    suggested_tags: Mapped[str] = mapped_column(Text, default="[]")
+    discarded_tags: Mapped[str] = mapped_column(Text, default="[]")
     #: Where this note is in the filing queue: `done` (the only state a note
     #: filed synchronously is ever in), `pending` (saved, category not
     #: decided yet), or `failed` (the background pass raised and gave up, 
@@ -325,6 +337,19 @@ class Entry(Base, WorkspaceMixin):
     #: opened *since the app learned to remember* has no opening to report,
     #: and every reader below falls back to `updated_at` for it.
     last_opened_at: Mapped[datetime | None] = mapped_column(SaDateTime, default=None)
+    #: **When a person last changed what the note says**: its text (and so
+    #: its title), its tags or its category. Not `updated_at`, which has
+    #: `onupdate=utcnow` and so moves when the note is merely opened (the
+    #: open bumps `access_count`) or filed by the AI: a list sorted by that
+    #: reorders itself on every click. Set by `manager.mark_edited` at each
+    #: per-note edit path and nowhere else; never on view, filing, pinning,
+    #: a privacy toggle or a notebook-wide tag or category rename. Null on
+    #: a note never edited since it was written (and on every row older than
+    #: the column), so a reader sorts by `edited_at` falling back to
+    #: `created_at`. This module's UTC `DateTime`, not the plain one: the
+    #: plain type reads back naive, so the PUT response and a later GET
+    #: disagreed by the "Z" (measured while writing its test).
+    edited_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
     # Train-of-thought threads: a child continues its parent.
     # (Added by the auto-migrator as a plain column on old DBs, the FK
     # constraint only exists on freshly created databases.)
@@ -738,6 +763,11 @@ class Bookmark(Base, WorkspaceMixin):
     # hierarchy: without a second data model. Scalar default so the
     # additive auto-migrator backfills existing rows to "" (ungrouped).
     group_name: Mapped[str] = mapped_column(String(120), default="")
+    #: A link you have been through. Set when it is opened from the list or
+    #: ticked by hand; an "Unread" filter is the reading list a saved link is
+    #: usually for. Scalar default so the additive auto-migrator backfills
+    #: existing rows to unread.
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
@@ -1366,6 +1396,33 @@ class MediaUpload(Base, WorkspaceMixin):
     size_bytes: Mapped[int | None] = mapped_column(Integer, default=None)
 
 
+class JobRun(Base):
+    """The last run of each kind of background or on-demand job (INBOX 438).
+
+    **One row per `kind`, not one per run.** The question this answers is
+    "when did the search index last rebuild, and did it work?", which is a
+    lookup by kind; a history of every run is `core/taskhistory.py`'s ring
+    and the audit log's job, and a table that grows by one row per upload
+    would need a cleanup job this one does not. Written only through
+    `core/jobruns.py`'s `job_run`, so every job reports the same shape.
+
+    `status` is "running", "ok", "failed" or "cancelled". A person stopping a
+    job is not a failure, and reporting it in red teaches people to ignore
+    red. `result` is the one-line success summary ("indexed 412 notes") and
+    `error` the one-line reason a run failed; at most one of them is set.
+    """
+
+    __tablename__ = "job_runs"
+
+    kind: Mapped[str] = mapped_column(String(40), primary_key=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    status: Mapped[str] = mapped_column(String(12), default="running")
+    result: Mapped[str] = mapped_column(String(400), default="")
+    error: Mapped[str] = mapped_column(String(400), default="")
+    duration_ms: Mapped[float | None] = mapped_column(Float, default=None)
+
+
 class UserPreference(Base):
     """Agent Memory Streams: Learned preferences and instructions appended by the AI."""
 
@@ -1880,6 +1937,21 @@ class DatabaseManager:
         # then throws it away. The index is the half that makes the LIMIT
         # mean something.
         ("ix_note_scores_rank", "note_scores (score DESC, entry_id DESC)"),
+        # The foreign keys a note is looked up by that still carried no index
+        # (the performance pass, 2026-10-03, INBOX 441). Each is "this note's
+        # ...": its replies (`entries.parent_id`), the boards it is on and a
+        # board's cards (`whiteboard_nodes`), a board's sketches, its
+        # reminders and its bookmarks. SQLite also reads the child column of
+        # every foreign key on every delete of the parent, so with
+        # `foreign_keys=ON` an unindexed one is a table scan per deleted note.
+        # Measured on 5,000 notes with 4,000 board cards and 1,500 reminders:
+        # 900 lookups by these columns, 604 ms unindexed, 2.9 ms indexed.
+        ("ix_entries_parent", "entries (parent_id)"),
+        ("ix_whiteboard_nodes_entry", "whiteboard_nodes (entry_id)"),
+        ("ix_whiteboard_nodes_board", "whiteboard_nodes (board_id)"),
+        ("ix_whiteboard_sketches_board", "whiteboard_sketches (board_id)"),
+        ("ix_reminders_entry", "reminders (entry_id)"),
+        ("ix_entry_bookmarks_entry", "entry_bookmarks (entry_id)"),
     )
 
     def _ensure_indexes(self) -> None:
@@ -1973,6 +2045,7 @@ class DatabaseManager:
                     " id INTEGER NOT NULL PRIMARY KEY,"
                     " name VARCHAR(100) NOT NULL,"
                     " description TEXT,"
+                    " colour VARCHAR(16),"
                     " created_at DATETIME,"
                     " workspace_id VARCHAR DEFAULT 'default' NOT NULL,"
                     " CONSTRAINT uq_categories_workspace_name UNIQUE (workspace_id, name)"
@@ -1980,8 +2053,8 @@ class DatabaseManager:
                 )
                 connection.exec_driver_sql(
                     'INSERT INTO "categories_rebuilt" '
-                    " (id, name, description, created_at, workspace_id)"
-                    " SELECT id, name, description, created_at,"
+                    " (id, name, description, colour, created_at, workspace_id)"
+                    " SELECT id, name, description, colour, created_at,"
                     "        COALESCE(workspace_id, 'default') FROM categories"
                 )
                 connection.exec_driver_sql('DROP TABLE "categories"')

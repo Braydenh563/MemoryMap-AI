@@ -345,6 +345,12 @@ class WhiteboardObjectData(BaseModel):
     #: file somebody was sent is exactly the door an off-origin url would come
     #: through.
     image: str | None = Field(default=None, max_length=300)
+    #: A topic's place among its siblings (INBOX 445). Absent means the
+    #: topic's own id, so creation order is still the order of every map made
+    #: before this field existed; moving a topic up or down gives it a value
+    #: between its neighbours' keys. A key, not a rank, so one move writes one
+    #: or two rows rather than renumbering the whole branch.
+    order: float | None = Field(default=None, ge=-1e12, le=1e12)
 
     @field_validator("image")
     @classmethod
@@ -532,14 +538,25 @@ def _board_filter(model, board_id: int | None):
     return model.board_id.is_(None) if board_id is None else model.board_id == board_id
 
 
-def _forget_links_to(db: Session, board_id: int | None, kind: str, item_id: int) -> int:
+def _forget_links_to(
+    db: Session,
+    board_id: int | None,
+    kind: str,
+    item_id: int,
+    into: list[dict] | None = None,
+) -> int:
     """Delete the link sketches on a board whose either end was the item just
     deleted. Links live as sketch rows whose JSON `data` names their ends
     (`sourceId`/`targetId` plus a `sourceKind`/`targetKind` of "node",
     "object" or "sketch", "node" when absent); the frontend already skips a
     link whose end is gone, so without this a deleted card left an invisible
     orphan row behind forever. One linear pass over the board's sketches: 
-    boards are hundreds of rows, not millions. Returns how many went."""
+    boards are hundreds of rows, not millions. Returns how many went.
+
+    `into`, when given, collects each removed link as a sketch row
+    (`WhiteboardSketchOut`) first. A branch deleted from a map hands those
+    back with its topics, because a link to a topic is half of what a restore
+    has to put back (INBOX 445, found by the second audit)."""
     rows = db.scalars(select(WhiteboardSketch).where(_board_filter(WhiteboardSketch, board_id))).all()
     gone = 0
     for row in rows:
@@ -559,6 +576,8 @@ def _forget_links_to(db: Session, board_id: int | None, kind: str, item_id: int)
             (data.get("targetId"), data.get("targetKind") or "node"),
         )
         if any(end_id == item_id and end_kind == kind for end_id, end_kind in ends):
+            if into is not None and all(link["id"] != row.id for link in into):
+                into.append(WhiteboardSketchOut.model_validate(row).model_dump())
             db.delete(row)
             gone += 1
     return gone
@@ -958,7 +977,7 @@ PREVIEW_LABEL_CHARS = 28
 #: What a thing is drawn at on the canvas when it has no size of its own,
 #: so a thumbnail draws the same picture the board does. These mirror
 #: `WB_CARD_DEFAULT_SIZE`, `WB_MAP_NODE_W/H` and the sketch's own box in
-#: frontend/whiteboard.js; a card's width and height are nullable columns and
+#: frontend/js/whiteboard.js; a card's width and height are nullable columns and
 #: a sketch has none at all, so without a figure here every one of them would
 #: have to be drawn as a point.
 PREVIEW_DEFAULT_SIZES = {
@@ -1743,7 +1762,7 @@ def list_images(
 
     **Superseded in the Library by `/media`**, which lists every uploaded
     file rather than only the ones that happen to be on a board, so nothing
-    in `frontend/*.js` names this any more (INBOX 261, found by
+    in `frontend/js/*.js` names this any more (INBOX 261, found by
     `scratchpad/probe_dead_routes.py`). Kept as the board-scoped view, which
     `/media` does not offer; this paragraph is here so the next scan does not
     re-open the question.
@@ -2331,10 +2350,14 @@ def delete_object(object_id: int, db: Session = Depends(get_session)) -> dict:
             "subtree": [_object_state(row) for row in doomed],
         },
     )
+    #: The cross-links that went with them, as sketch rows, so Undo can draw
+    #: them again between the restored topics (a link to a topic outside the
+    #: branch keeps its far end, which still exists). Empty for a text box.
+    links: list[dict] = []
     for row in doomed:
-        _delete_one_object(db, row)
+        _delete_one_object(db, row, links)
     db.commit()
-    return {"status": "ok", "deleted": deleted}
+    return {"status": "ok", "deleted": deleted, "links": links}
 
 
 def _subtree(db: Session, root: WhiteboardObject) -> list[WhiteboardObject]:
@@ -2368,11 +2391,13 @@ def _subtree(db: Session, root: WhiteboardObject) -> list[WhiteboardObject]:
     return found
 
 
-def _delete_one_object(db: Session, obj: WhiteboardObject) -> None:
+def _delete_one_object(
+    db: Session, obj: WhiteboardObject, links: list[dict] | None = None
+) -> None:
     """The per-row half of `delete_object`: forget its links, unlink its file
     if it owned one, remove the row. Does not commit: a subtree is one
     delete, so it is one transaction."""
-    _forget_links_to(db, obj.board_id, "object", obj.id)
+    _forget_links_to(db, obj.board_id, "object", obj.id, links)
     if obj.kind == "image":
         # The only thing that ever pointed at this file, best-effort, the
         # same rule `_hard_delete` already follows for an attachment's own
@@ -2678,14 +2703,31 @@ def _map_objects(db: Session, board_id: int | None) -> list[WhiteboardObject]:
     """Every object on a board, oldest first, creation order, which is the
     order a person built the map in and the only one an outline can be read
     in without surprises. Position decides where a node is *drawn*; it does
-    not decide what the map says."""
-    return list(
+    not decide what the map says.
+
+    **Unless a topic was moved among its siblings** (INBOX 445): then its
+    `data.order` is its key instead of its id, which is what `wbMapIndex`
+    sorts by on the canvas, so the tree, every export and the agent's outline
+    read the siblings in the order the person put them. Only siblings are
+    ever compared, because `_build_tree` appends children in this list's
+    order."""
+    objects = list(
         db.scalars(
             select(WhiteboardObject)
             .where(_board_filter(WhiteboardObject, board_id))
             .order_by(WhiteboardObject.id)
         )
     )
+    return sorted(objects, key=_sibling_key)
+
+
+def _sibling_key(obj: WhiteboardObject) -> tuple[float, int]:
+    try:
+        order = json.loads(obj.data or "{}").get("order")
+    except (TypeError, ValueError, AttributeError):
+        order = None
+    is_number = isinstance(order, (int, float)) and not isinstance(order, bool)
+    return (float(order) if is_number else float(obj.id), obj.id)
 
 
 def _cross_links(db: Session, board_id: int | None, node_ids: set[int]) -> list[dict]:

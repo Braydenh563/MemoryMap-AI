@@ -112,7 +112,7 @@ def test_the_scale_did_not_quietly_grow():
 # --- type ---------------------------------------------------------------------
 
 #: The type scale, in rem. Mirrors the --text-* custom properties.
-TYPE_SCALE = {0.7, 0.75, 0.8, 0.85, 0.92, 1.0, 1.15, 1.3, 1.7, 2.2}
+TYPE_SCALE = {0.7, 0.75, 0.8, 0.85, 0.92, 1.0, 1.15, 1.3, 1.5, 2.2}
 
 #: Single hero elements, each the only thing at its size. A display size is a
 #: deliberate one-off, not a step other components should reach for.
@@ -249,8 +249,8 @@ PAGE_CONTAINERS = (
     ".reminders-card",
     "#graph-card",
     ".dash-quicklinks",
-    ".dash-stats",
-    ".dash-toolbar",
+    ".dash-dock",
+    ".dash-editbar",
     "#dash-grid",
 )
 
@@ -266,7 +266,9 @@ PAGE_CONTAINERS = (
 #: distinction a container that paints owns its padding. The membership test is
 #: "does it have a background", not "is it on the Dashboard": moving it is the
 #: rule being applied, not widened.
-PURE_WRAPPERS = frozenset({".layout", ".doc-layout", ".dash-quicklinks", ".dash-stats", "#dash-grid"})
+#: The stat strip, a pure wrapper, left the page with INBOX 436; the edit
+#: line that replaced the toolbar is one too.
+PURE_WRAPPERS = frozenset({".layout", ".doc-layout", ".dash-quicklinks", ".dash-editbar", "#dash-grid"})
 
 
 def test_no_page_draws_its_own_outer_gutter():

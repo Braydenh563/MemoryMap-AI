@@ -59,7 +59,7 @@ function ok(label, pass, detail) {
   );
   ok(
     "and the manual route is still there in that case",
-    withoutModel.some((t) => /no tags yet/i.test(t)),
+    withoutModel.some((t) => /no tags yet|add tags/i.test(t)),
     JSON.stringify(withoutModel),
   );
 
@@ -90,7 +90,7 @@ function ok(label, pass, detail) {
   ok("the note renders", !row.error, row.error || "on screen");
   const chips = row.chips || [];
   const offer = chips.find((c) => /tag with atlas/i.test(c.text));
-  const flag = chips.find((c) => /no tags yet/i.test(c.text));
+  const flag = chips.find((c) => /no tags yet|add tags/i.test(c.text));
 
   ok("the empty tag row still flags itself", !!flag, JSON.stringify(flag && flag.text));
   ok("and it offers Atlas beside the flag", !!offer, JSON.stringify(offer && offer.text));

@@ -2,7 +2,7 @@
 
 A 100% offline, local-first notebook where a local AI files your notes and
 answers questions about them. Python and FastAPI backend, vanilla JS
-frontend, SQLite. No build step: `frontend/*.js` and `frontend/css/*.css`
+frontend, SQLite. No build step: `frontend/js/*.js` and `frontend/css/*.css`
 are served as-is.
 
 This file is the operating manual for any session, human or model. It is
@@ -52,7 +52,9 @@ full text, with the reasons, is the block at the top of
 3. **Decisions are not remade.** Every plan has a "Decisions made"
    section. A missing decision becomes an INBOX entry with a one-line
    recommendation, which is then taken.
-4. **Agents, by specialty, at most two at once.** Sonnet: the mechanical
+4. **Agents: two Opus at once, plus one or two Sonnet when usage allows**
+   (the owner, 2026-10-03). Every brief requires a commit per step, so a
+   usage limit never loses work. Sonnet: the mechanical
    and verifiable (lints, copy moves, fixture edits, sweeps, bugs whose fix
    is named). Opus: anything with a design judgement in it (frontend layout
    and visual work, plan phases, backend moves against their spec tests).
@@ -74,6 +76,11 @@ full text, with the reasons, is the block at the top of
      session before the PR closes (HANDOVER done-when item 7), or when a
      change touches something the targeted tests cannot see (migrations,
      the event bus, conftest). Never per step, never per merge.
+   - **Agents never run the full suite** (the owner, 2026-10-03: "some of
+     the agents are struggling with the full suite"; four cores, load over
+     100 with six agents testing). Agents run targeted tests serially plus
+     `gate.sh --staged`; CI runs the suite on every push, and the
+     orchestrator runs it at most once, alone, at the end of a session.
    - A brief names the files, selectors and line areas, the plan's
      measured numbers, and the sweep script to run, so the agent starts
      at the change, not at orientation. Most agent tokens otherwise go to
@@ -117,6 +124,11 @@ full text, with the reasons, is the block at the top of
 9. **Commit trailers** on every commit: the `Co-Authored-By` and
    `Claude-Session` lines the recent commits carry. No model identifiers in
    commits, PR bodies or code.
+
+12. **Concise response style, to save tokens** (the owner, 2026-10-03),
+   for the orchestrator and every agent: no preamble, recap or narration;
+   terse status lines; bullets over prose; five-line reports; briefs that
+   name files and numbers rather than explain.
 
 ## 3. Where things are written down
 
@@ -243,7 +255,7 @@ new" is a fact rather than a guess.
 
 - **Do not install torch or `sentence-transformers`.** Install by hand:
   `python3 -m venv .venv && .venv/bin/pip install fastapi "uvicorn[standard]" SQLAlchemy alembic python-dotenv requests numpy "fsspec[http]" bcrypt cryptography python-multipart pytest httpx ruff defusedxml`
-- `python -m pytest -n auto tests/`: 2,800+ tests, all green; about 25
+- `python -m pytest -n auto tests/`: 5,700+ tests, all green; about 25
   minutes serial, under 9 across four cores (pytest-xdist, in
   requirements.txt; `gate.sh --full` and CI use it). Keep it that way, but run it locally only when absolutely
   needed (`scripts/gate.sh --full`: the end of a large agent task, the
@@ -262,12 +274,14 @@ new" is a fact rather than a guess.
   `BASE=... --sweeps` adds errors,
   docks, contrast and touch against a running app. Run it before every
   push and paste its five lines into the report.
-- `node --check frontend/<file>.js` after any JS edit; there is no bundler.
-- **`app.js` is 23 files** (2026-09-26): `app.js` through `spaces-find.js`
+- `node --check frontend/js/<file>.js` after any JS edit; there is no bundler.
+  The scripts live in `frontend/js/`; only `frontend/sw.js` stays at the root,
+  because a service worker only controls pages under its own path.
+- **`app.js` is 25 files** (2026-09-26): `app.js` through `agent-activity.js`
   in index.html's order, one global scope, a file calling only upwards at
   load. A test that means "the app's code" reads `app_js_text()` from
-  `tests/_app_js.py`, never `frontend/app.js`, which is now only the head
-  (api, auth, the lazy loader). `grep -n "^function name" frontend/*.js`
+  `tests/_app_js.py`, never `frontend/js/app.js`, which is now only the head
+  (api, auth, the lazy loader). `grep -n "^function name" frontend/js/*.js`
   finds a function's file.
 - The lints that exist because the suite cannot see the DOM:
   `test_style_scale.py`, `test_ui_signatures.py`, `test_css_braces.py`,

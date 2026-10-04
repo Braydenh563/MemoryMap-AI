@@ -91,7 +91,7 @@ tests-e2e/    1 spec, 3 Playwright tests
 docs/roadmap/ 12 planning documents (this one included)
 ```
 
-**The shape to notice:** `frontend/app.js` at 26,113 lines is **55% of all the
+**The shape to notice:** `frontend/js/app.js` at 26,113 lines is **55% of all the
 frontend JavaScript**, and larger than the twenty largest Python modules in this
 project put together (23,575 lines). Everything in §2C follows from that.
 
@@ -99,7 +99,7 @@ project put together (23,575 lines). Everything in §2C follows from that.
 
 Two journeys, traced through the code:
 
-**Capture a note.** `frontend/app.js` `api()` (`app.js:292`) attaches
+**Capture a note.** `frontend/js/app.js` `api()` (`app.js:292`) attaches
 `X-Auth-Token` and `X-Workspace-ID` → `POST /entries`
 (`routes_entries.py:485`) → `entry/manager.create_entry` writes the row and an
 `AuditLog` line → **the model call is not in the request**: filing is handed to
@@ -467,14 +467,14 @@ from AUDIT rather than re-evidenced. **Owner:** UI_MODERNISATION_PLAN Phase 6.
 
 | File | Lines | Longest function |
 | --- | ---: | --- |
-| `frontend/app.js` | **26,113** | `openLightbox` **1,321** |
-| `frontend/whiteboard.js` | 5,916 | `initWhiteboard` **1,978** |
-| `frontend/library.js` | 3,422 | `filterLibraryImagesGallery` **1,021** |
-| `frontend/graph.js` | 3,404 | `renderGraph` **1,120** |
-| `frontend/settings.js` | 2,820 | `renderSamplingRows` 160 |
-| `frontend/dashboard.js` | 2,387 | `renderDashboard` 158 |
-| `frontend/documents.js` | 2,176 | `openDocSuggest` 143 |
-| `frontend/editor.js` | 890 | `editorCommands` 294 |
+| `frontend/js/app.js` | **26,113** | `openLightbox` **1,321** |
+| `frontend/js/whiteboard.js` | 5,916 | `initWhiteboard` **1,978** |
+| `frontend/js/library.js` | 3,422 | `filterLibraryImagesGallery` **1,021** |
+| `frontend/js/graph.js` | 3,404 | `renderGraph` **1,120** |
+| `frontend/js/settings.js` | 2,820 | `renderSamplingRows` 160 |
+| `frontend/js/dashboard.js` | 2,387 | `renderDashboard` 158 |
+| `frontend/js/documents.js` | 2,176 | `openDocSuggest` 143 |
+| `frontend/js/editor.js` | 890 | `editorCommands` 294 |
 
 `app.js` holds 765 top-level functions, 320 top-level bindings and 635
 `addEventListener` calls. `sendChatMessage` is 995 lines; `entryItem` — the
@@ -945,7 +945,7 @@ on boot < 3 MB (today 4.29 MB, §C3).
 | # | Initiative | Problem | Approach | Files | Deps | Effort | Risk |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | W3-1 | One visibility-aware scheduler | §F2: three timers, 14 requests a minute, none backing off | Owned by **PLAN P1**. This audit supplies the baseline P1 asked for and did not have: **14**, being `/models/status` ×6, `/tasks` ×6, `/reminders` ×2 | `app.js` (8 `setInterval` sites), `dashboard.js` (2), `library.js` (1) | — | M | Low |
-| W3-2 | ES modules | §C1: 765 globals; a cross-file global in a parse-time listener throws | `<script type="module">`; move one builder at a time into `frontend/ui/` and import it back. `test_frontend_handlers.py` guards the half that can go wrong silently | `index.html`, all `frontend/*.js` | W1-1, W8-1 | L | **High** |
+| W3-2 | ES modules | §C1: 765 globals; a cross-file global in a parse-time listener throws | `<script type="module">`; move one builder at a time into `frontend/ui/` and import it back. `test_frontend_handlers.py` guards the half that can go wrong silently | `index.html`, all `frontend/js/*.js` | W1-1, W8-1 | L | **High** |
 | W3-3 | Split the four giants | `initWhiteboard` 1,978 · `openLightbox` 1,321 · `renderGraph` 1,120 · `filterLibraryImagesGallery` 1,021 | Pure extraction, no behaviour change, one function per commit, with a Playwright assertion taken before and repeated after | `whiteboard.js`, `app.js`, `graph.js`, `library.js` | W3-2 | L | High |
 | W3-4 | Lazy-load p5 and d3 | §C3: 1.31 MB of vendor JS parsed before the lock screen paints | `import()` p5 when the sketch pad opens, d3 when the Graph tab opens | `index.html`, `graph.js`, `app.js` | W3-2 | S | Low |
 | W3-5 | A typed client settings schema | §C2: the `undefined`/`NaN` custom-property class of bug is not fixed, only that instance | One declaration per key (type, default, validator) plus a lint that fails on an undeclared read; mirrors AUDIT B14 on the server | new `frontend/core/store.js`, `settings.js` | W3-2 | M | Med |
@@ -1113,11 +1113,11 @@ of which backs off when the tab is hidden. PLAN P1's acceptance gate is ≤ 4 an
 asks for exactly this baseline first. Goal: one scheduler, ≤ 4 requests in 60s
 idle, nothing polling behind the lock screen.
 
-**Files.** `frontend/app.js` (8 `setInterval` call sites — `:11341`, `:15698`,
+**Files.** `frontend/js/app.js` (8 `setInterval` call sites — `:11341`, `:15698`,
 `:18512`, `:24218`, `:24258`, `:24953` `checkDueReminders`, `:32484`, `:32537`;
 the ninth `grep` hit at `:19562` is a comment recording a previous
-duplicate-timer bug), `frontend/dashboard.js` (`:342`, `:2542`),
-`frontend/library.js` (`:2135`).
+duplicate-timer bug), `frontend/js/dashboard.js` (`:342`, `:2542`),
+`frontend/js/library.js` (`:2135`).
 
 **Steps.**
 1. Add `frontend/core/schedule.js` (or a section of `app.js` until W3-2 lands)
@@ -1161,7 +1161,7 @@ work; it is still 5. Goal: ≤ 25% chrome at all three widths and ≥ 12 notes
 visible at 1440.
 
 **Files.** `frontend/index.html` (the Notes tab's control rows),
-`frontend/app.js` `renderEntries` (`:7372`) and `entryItem` (`:` — 651 lines),
+`frontend/js/app.js` `renderEntries` (`:7372`) and `entryItem` (`:` — 651 lines),
 `frontend/css/05-sidebars-themes.css`, `frontend/css/02-chat-graph.css`.
 
 **Steps.**
@@ -1201,7 +1201,7 @@ default `{"detail": "..."}`. Goal: every failure carries `{code, detail, hint,
 ref}` and the UI renders `hint` where the action failed.
 
 **Files.** new `src/memorymap/core/errors.py`, `src/memorymap/api/app.py`
-(register the handlers), every `routes_*.py` (incrementally), `frontend/app.js`
+(register the handlers), every `routes_*.py` (incrementally), `frontend/js/app.js`
 `api()` (`:292`), new `tests/test_error_contract.py`.
 
 **Steps.**
@@ -1212,7 +1212,7 @@ ref}` and the UI renders `hint` where the action failed.
    the existing detail into the shape with `code` derived from the status), and
    `Exception` (500 `{"code": "internal", "ref": …}` with the traceback logged
    under that ref and **never** in the body).
-3. `frontend/app.js` `api()`: parse the shape, throw an error object carrying
+3. `frontend/js/app.js` `api()`: parse the shape, throw an error object carrying
    `code`/`hint`/`ref`, and give the toast/inline renderer a `hint` slot.
 4. Convert raise sites opportunistically — the handlers make every existing
    `HTTPException` conform without touching it, so this is not a 209-site edit.
@@ -1248,7 +1248,7 @@ count that does not change with row count.
 
 **Files.** `frontend/css/00-tokens-shell.css`,
 `frontend/css/03-dashboard-widgets.css`, `frontend/css/07-whiteboard-misc.css`,
-`frontend/library.js` (the card renderers), `docs/DESIGN.md` § Glass.
+`frontend/js/library.js` (the card renderers), `docs/DESIGN.md` § Glass.
 
 **Steps.**
 1. Run `measure2.js` against a 10-note fixture and a 200-note fixture and diff
@@ -1285,7 +1285,7 @@ overlap is **zero**. This is a new finding, in no existing plan, and invisible
 to a desktop screenshot.
 
 **Files.** `frontend/css/02-chat-graph.css` (the `.entry-item` action cluster),
-`frontend/app.js` `entryItem`.
+`frontend/js/app.js` `entryItem`.
 
 **Steps.**
 1. Find the rule that reveals the action cluster under `@media (hover: none)` /

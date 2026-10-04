@@ -331,6 +331,12 @@ class AttachmentAnalyseBody(BaseModel):
     #: analysis needs to be… modifyable by the user". `""` clears it back to
     #: "nothing here", the same as the `/media` endpoints this mirrors.
     text: str | None = Field(default=None, max_length=200_000)
+    #: True only from the workspace's editor: the text is a correction the
+    #: person made to the sections on screen, so those sections must stay what
+    #: is shown (`_set_edited_reading`). Any other text-setting call (a
+    #: fixture, a clear, an import) just replaces the stored text and lets the
+    #: sections be derived again.
+    edited: bool = False
     #: Re-run even when there is already a value (a caption is written once
     #: and left alone otherwise, so nothing an AI wrote and a person read can
     #: silently change under them).
@@ -429,6 +435,14 @@ def analyse_attachment(
             if not stripped:
                 attachment.vision_ocr_model = None
         session.commit()
+        if body.edited and body.kind in {"ocr", "vision"}:
+            _set_edited_reading(
+                _page_read_key(attachment.id, None),
+                stripped,
+                "tesseract" if body.kind == "ocr" else "vision",
+            )
+        else:
+            _forget_regions(_page_read_key(attachment.id, None))
         return _attachment_out(session, attachment)
 
     if not path.is_file():
@@ -442,6 +456,8 @@ def analyse_attachment(
         # scan is one of the slowest things this app does, and "is it working
         # or is it stuck" is the same question whether the work is a model or
         # a binary.
+        if is_image and (reason := ocr.unavailable_reason()):
+            raise HTTPException(status_code=409, detail=reason)
         with filejobs.reading("ocr", attachment.id, attachment.filename):
             if is_image:
                 text = ocr.extract_text(path)
@@ -454,6 +470,7 @@ def analyse_attachment(
                 text = docview.extract(path).text
         attachment.ocr_text = (text or "").strip() or None
         session.commit()
+        _forget_regions(_page_read_key(attachment.id, None))
         return _attachment_out(session, attachment)
 
     #: **Describing a document needs no vision model, only its own text.**
@@ -558,6 +575,7 @@ def analyse_attachment(
             )
         attachment.vision_ocr_text = (text or "").strip() or None
         attachment.vision_ocr_model = model if attachment.vision_ocr_text else None
+        _forget_regions(_page_read_key(attachment.id, None), only_source="edited-")
     session.commit()
     return _attachment_out(session, attachment)
 
@@ -1264,6 +1282,11 @@ class MediaUploadOut(BaseModel):
     #: is already here, and a byte count would cost one `stat` per row on
     #: every gallery load for a number nobody asked for.
     created_at: str = ""
+    #: Bytes on disk, filled by `media_meta` only (one `stat` for the one file
+    #: asked about, which the listing above declines to pay per row). The
+    #: attachment card states it beside the kind (INBOX 440 (2)); 0 means
+    #: unknown or gone, and the card then says nothing rather than "0 B".
+    size: int = 0
     #: **Where this file is actually used**, one entry per note, document or
     #: board that references it, as `{kind, id, label}`. The gallery showed a
     #: thumbnail, a filename and two empty prompts and could not answer the
@@ -1484,7 +1507,16 @@ def media_meta(filename: str, session: Session = Depends(get_session)) -> MediaU
         vision_ocr_text=upload.vision_ocr_text or "",
         vision_ocr_model=upload.vision_ocr_model or "",
         created_at=upload.created_at.isoformat() if upload.created_at else "",
+        size=_media_size(upload.filename),
     )
+
+
+def _media_size(filename: str) -> int:
+    """Bytes on disk for one upload, or 0 when it is gone or unreadable."""
+    try:
+        return _within_dir(deps.get_config().data_dir / "media", filename).stat().st_size
+    except (OSError, HTTPException):
+        return 0
 
 
 @router.get("/media/text/{filename}", response_model=AttachedFileTextOut)
@@ -1855,6 +1887,12 @@ class OcrBody(BaseModel):
     #: `CaptionBody.text`. `""` clears it back to "nothing extracted",
     #: matching `ocr_text`'s own null/"not run or found nothing" meaning.
     text: str | None = Field(default=None, max_length=10_000)
+    #: True only from the workspace's editor: the text is a correction the
+    #: person made to the sections on screen, so those sections must stay what
+    #: is shown (`_set_edited_reading`). Any other text-setting call (a
+    #: fixture, a clear, an import) just replaces the stored text and lets the
+    #: sections be derived again.
+    edited: bool = False
 
 
 @router.post("/media/{upload_id}/ocr", response_model=MediaUploadOut)
@@ -1881,9 +1919,27 @@ def ocr_media(
     if body.text is not None:
         upload.ocr_text = body.text.strip() or None
         session.commit()
+        if body.edited:
+            _set_edited_reading(_page_read_key(None, upload.id), upload.ocr_text, "tesseract")
+        else:
+            _forget_regions(_page_read_key(None, upload.id))
     else:
+        #: A missing engine used to come back as a 200 with no text, which the
+        #: workspace painted as "Read <file>." over an empty panel. Say so.
+        reason = ocr.unavailable_reason()
+        if reason:
+            raise HTTPException(status_code=409, detail=reason)
         media_dir = deps.get_config().data_dir / "media"
-        ocr.extract_and_store(upload.id, media_dir / upload.filename)
+        #: **A person pressing Read again is the one case that must read.**
+        #: This called `extract_and_store`, whose guards ("once per picture",
+        #: "stand down when a vision model exists") are right for the
+        #: background pass after an upload and wrong here: with a reading on
+        #: the row, or a model running, "Read again" did nothing at all.
+        text = ocr.extract_text(media_dir / upload.filename)
+        if text:
+            upload.ocr_text = text
+            session.commit()
+            _forget_regions(_page_read_key(None, upload.id))
         session.refresh(upload)
     return MediaUploadOut(
         id=upload.id,
@@ -1948,7 +2004,7 @@ def _stored_readings(
                 source="vision",
                 label=f"Read by {vision_model or 'a vision model'}",
                 text=vision,
-                in_regions=regions_source == "reading",
+                in_regions=regions_source in {"reading", "edited-vision"},
             )
         )
     if tesseract:
@@ -1960,7 +2016,8 @@ def _stored_readings(
                 #: The sections are split from the vision reading when there
                 #: is one (`stored` prefers it), and are Tesseract's own boxes
                 #: when the source says so.
-                in_regions=regions_source == "tesseract" or (regions_source == "reading" and not vision),
+                in_regions=regions_source in {"tesseract", "edited-tesseract"}
+                or (regions_source == "reading" and not vision),
             )
         )
     return out
@@ -2030,7 +2087,7 @@ def _pdf_regions_for(
             pages=0,
             message=(
                 "Reading a PDF page needs the small PDF rasteriser: install "
-                "the “PDF pages” extra in Settings → Optional extras."
+                "the “PDF pages” package in Settings, Packages."
             ),
         )
     count = pdfpages.page_count(path)
@@ -2149,7 +2206,7 @@ def _remember_regions(key: tuple[str, int] | None, page: int, out: OcrRegionsOut
     rather than of the regions, and `_pdf_regions_for` sets both on the way
     out. Storing them would be a page count going stale in a cache.
     """
-    if not key or out.source != "tesseract":
+    if not key or out.source not in {"tesseract", "edited-tesseract", "edited-vision"}:
         return
     kind, source_id = key
     try:
@@ -2174,6 +2231,71 @@ def _remember_regions(key: tuple[str, int] | None, page: int, out: OcrRegionsOut
             session.commit()
     except Exception:  # noqa: BLE001 - a cache write must never fail a read
         logger.debug("could not store the regions for a page", exc_info=True)
+
+
+def _forget_regions(
+    key: tuple[str, int] | None, page: int = 0, only_source: str | None = None
+) -> None:
+    """Throw away the stored rectangles for a page whose text just changed.
+
+    The cache describes the page as it was read. A re-read, or a correction
+    typed by hand, makes it describe something that no longer exists, and the
+    workspace would go on drawing the old reading's boxes over the new one's
+    words (found driving "Read again": the second read came back as the first).
+    """
+    if not key:
+        return
+    kind, source_id = key
+    try:
+        with deps.get_db().session() as session:
+            row = (
+                session.query(PageRead)
+                .filter(
+                    PageRead.kind == kind,
+                    PageRead.source_id == source_id,
+                    PageRead.page == int(page),
+                )
+                .one_or_none()
+            )
+            if row is not None and row.regions:
+                if only_source and f'"source": "{only_source}' not in row.regions:
+                    return
+                row.regions = ""
+                session.commit()
+    except Exception:  # noqa: BLE001 - a cache clear must never fail a read
+        logger.debug("could not clear the stored regions for a page", exc_info=True)
+
+
+def _set_edited_reading(key: tuple[str, int] | None, text: str | None, field: str) -> None:
+    """A reading corrected by hand becomes what the workspace shows.
+
+    The sections are normally *derived*: Tesseract re-reads the picture, or
+    the stored text is split. A hand edit has to win over a re-derivation, or
+    the person saves a correction and sees the old words come back on the next
+    look (found driving the editor). So the corrected text is stored as the
+    page's sections, under the source "edited", and `_regions_for` serves it
+    first like any stored look. `field` ("tesseract" or "vision") says which
+    stored reading was edited, so Delete and the next edit write the same one.
+    Empty text is a delete, not an edit: the page goes back to unread.
+    """
+    if not key:
+        return
+    stripped = (text or "").strip()
+    if not stripped:
+        _forget_regions(key)
+        return
+    blocks = ocr.regions_from_reading(stripped)
+    _remember_regions(
+        key,
+        0,
+        OcrRegionsOut(
+            width=0,
+            height=0,
+            regions=[OcrRegionOut(**block) for block in blocks],
+            source=f"edited-{field}",
+            message="Edited by you. Read again to replace it with a fresh reading.",
+        ),
+    )
 
 
 def _regions_for(
@@ -2259,6 +2381,10 @@ def _regions_for(
     positions_offer = (
         "Install Tesseract to also see where each one sits on the page."
         if not ocr.tesseract_available()
+        #: Tesseract was the reader and still placed nothing: telling the
+        #: person to switch to what they already chose sent them in a circle.
+        else "Tesseract could not mark where each one sits on this page."
+        if auto
         else "Switch to Tesseract as the reader to also see where each one sits on the page."
     )
     return OcrRegionsOut(
@@ -2403,7 +2529,7 @@ def _vision_read_page(path: Path, index: int, reader: str = "vision") -> OcrPage
             page=index,
             message=(
                 "Reading a PDF page needs the small PDF rasteriser: install "
-                "the “PDF pages” extra in Settings → Optional extras."
+                "the “PDF pages” package in Settings, Packages."
             ),
         )
     if not deps.get_ollama().is_running():
@@ -2786,7 +2912,7 @@ def _describe_page(
             page=index,
             message=(
                 "Describing a PDF page needs the small PDF rasteriser: install "
-                "the “PDF pages” extra in Settings → Optional extras."
+                "the “PDF pages” package in Settings, Packages."
             ),
         )
     if not deps.get_ollama().is_running():
@@ -2843,15 +2969,12 @@ def _tesseract_read_page(path: Path, index: int) -> OcrPageReadOut:
             page=index,
             message=(
                 "Reading a PDF page needs the small PDF rasteriser: install "
-                "the “PDF pages” extra in Settings → Optional extras."
+                "the “PDF pages” package in Settings, Packages."
             ),
         )
-    if not ocr.tesseract_available():
-        raise HTTPException(
-            status_code=409,
-            detail="Tesseract isn't installed. Install the “OCR” extra in "
-            "Settings → Optional extras, or read this page with the AI instead.",
-        )
+    reason = ocr.unavailable_reason()
+    if reason:
+        raise HTTPException(status_code=409, detail=reason)
     count = pdfpages.page_count(path)
     if count <= 0:
         return OcrPageReadOut(page=index, message="That PDF could not be opened.")
@@ -2898,7 +3021,12 @@ class OcrReadersOut(BaseModel):
     #: that named the other. Empty when there is no second choice to make.
     ocr: bool = False
     ocr_model: str = ""
-    ocr_reason: str = ''
+    ocr_reason: str = ""
+    #: The Tesseract engine in full (`ocr.engine_status`): both halves, the
+    #: version, the language packs and the one in use, and the one fix. The
+    #: workspace's status line and Settings' Packages row read the same
+    #: object, so they cannot disagree about what is installed.
+    engine: dict = {}
 
 
 @router.get("/ocr-readers", response_model=OcrReadersOut)
@@ -2929,15 +3057,37 @@ def ocr_readers() -> OcrReadersOut:
     #: with one vision model both resolvers return it, and offering the same
     #: model twice under two names is a worse picker than offering it once.
     second = other if (other and other != model) else ""
+    engine = ocr.engine_status()
     return OcrReadersOut(
-        tesseract=ocr.tesseract_available(),
+        #: Ready, not merely "the program exists": a program with no Python
+        #: wrapper offered as a reader fails on the first page.
+        tesseract=engine["ready"],
         vision=bool(model),
         vision_model=model or "",
         vision_reason=reason,
         ocr=bool(second),
         ocr_model=second,
         ocr_reason="" if second else reason,
+        engine=engine,
     )
+
+
+class OcrLanguageBody(BaseModel):
+    #: A Tesseract language code (`eng`, `deu`, `eng+deu`), or "" for the
+    #: engine's default.
+    language: str = Field(default="", max_length=80)
+
+
+@router.post("/ocr/language")
+def set_ocr_language(body: OcrLanguageBody) -> dict:
+    """Remember which language Tesseract reads in. One setting for every read
+    (see `ocr.LANGUAGE_PREFERENCE`); the answer is the engine status, so the
+    caller repaints from the truth rather than from what it sent."""
+    try:
+        ocr.set_language(body.language)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return ocr.engine_status()
 
 
 class OcrRangeReadOut(BaseModel):
@@ -3013,7 +3163,7 @@ def _read_range(
         return OcrRangeReadOut(
             message=(
                 "Reading a PDF needs the small PDF rasteriser: install the "
-                "“PDF pages” extra in Settings → Optional extras."
+                "“PDF pages” package in Settings, Packages."
             )
         )
     count = pdfpages.page_count(path)
@@ -3219,12 +3369,9 @@ def _read_region(crop: UploadFile, page: int, mode: str, reader: str) -> OcrRegi
     if mode == "read":
         reader = _checked_reader(reader)
     if mode == "read" and reader == "tesseract":
-        if not ocr.tesseract_available():
-            raise HTTPException(
-                status_code=409,
-                detail="Tesseract isn't installed. Install the “OCR” extra in "
-                "Settings → Optional extras, or read this region with the AI instead.",
-            )
+        reason = ocr.unavailable_reason()
+        if reason:
+            raise HTTPException(status_code=409, detail=reason)
     else:
         if not deps.get_ollama().is_running():
             raise HTTPException(status_code=409, detail="The AI model isn't running.")
@@ -3516,6 +3663,12 @@ class VisionOcrBody(BaseModel):
     #: `CaptionBody.force`, a manual re-read the user pressed the button
     #: for, not a background pass overwriting a reading they already saw.
     force: bool = False
+    #: True only from the workspace's editor: the text is a correction the
+    #: person made to the sections on screen, so those sections must stay what
+    #: is shown (`_set_edited_reading`). Any other text-setting call (a
+    #: fixture, a clear, an import) just replaces the stored text and lets the
+    #: sections be derived again.
+    edited: bool = False
     #: A correction typed by hand, exactly as `OcrBody.text` already allows for
     #: the Tesseract reading: `None` means "read it", any string sets it, and
     #: `""` clears it.
@@ -3558,6 +3711,12 @@ def vision_ocr_media(
             # under nothing is a claim about a reading that no longer exists.
             upload.vision_ocr_model = None
         session.commit()
+        if body.edited:
+            _set_edited_reading(_page_read_key(None, upload.id), upload.vision_ocr_text, "vision")
+        else:
+            #: A stored edit describes the text it was made on; any other
+            #: replacement (a clear, a fixture) makes it stale.
+            _forget_regions(_page_read_key(None, upload.id), only_source="edited-")
         return MediaUploadOut(
             id=upload.id,
             url=f"/media/{upload.filename}",
@@ -3581,6 +3740,8 @@ def vision_ocr_media(
     media_dir = deps.get_config().data_dir / "media"
     vision_ocr.vision_ocr_and_store(upload.id, media_dir / upload.filename, force=body.force)
     session.refresh(upload)
+    #: A fresh reading replaces a hand edit of the sections, same as Tesseract's.
+    _forget_regions(_page_read_key(None, upload.id), only_source="edited-")
     return MediaUploadOut(
         id=upload.id,
         url=f"/media/{upload.filename}",

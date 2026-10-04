@@ -26,22 +26,22 @@ from collections import Counter
 from pathlib import Path
 from tests._app_js import app_js_text
 
-APP = Path(__file__).resolve().parents[1] / "frontend" / "app.js"
-WHITEBOARD = Path(__file__).resolve().parents[1] / "frontend" / "whiteboard.js"
-GRAPH = Path(__file__).resolve().parents[1] / "frontend" / "graph.js"
-GRAPH_CANVAS = Path(__file__).resolve().parents[1] / "frontend" / "graph-canvas.js"
-EDITOR = Path(__file__).resolve().parents[1] / "frontend" / "editor.js"
-DOCUMENTS = Path(__file__).resolve().parents[1] / "frontend" / "documents.js"
-LIBRARY = Path(__file__).resolve().parents[1] / "frontend" / "library.js"
-DASHBOARD = Path(__file__).resolve().parents[1] / "frontend" / "dashboard.js"
-SETTINGS = Path(__file__).resolve().parents[1] / "frontend" / "settings.js"
-TIMELINE = Path(__file__).resolve().parents[1] / "frontend" / "timeline.js"
-PALETTE = Path(__file__).resolve().parents[1] / "frontend" / "palette.js"
-AVATARS = Path(__file__).resolve().parents[1] / "frontend" / "avatars.js"
-ATLAS = Path(__file__).resolve().parents[1] / "frontend" / "atlas.js"
-DOCUMENTS_CODE = Path(__file__).resolve().parents[1] / "frontend" / "documents-code.js"
-DOCUMENTS_PROSE = Path(__file__).resolve().parents[1] / "frontend" / "documents-prose.js"
-WHITEBOARD_MAP = Path(__file__).resolve().parents[1] / "frontend" / "whiteboard-map.js"
+APP = Path(__file__).resolve().parents[1] / "frontend" / "js" / "app.js"
+WHITEBOARD = Path(__file__).resolve().parents[1] / "frontend" / "js" / "whiteboard.js"
+GRAPH = Path(__file__).resolve().parents[1] / "frontend" / "js" / "graph.js"
+GRAPH_CANVAS = Path(__file__).resolve().parents[1] / "frontend" / "js" / "graph-canvas.js"
+EDITOR = Path(__file__).resolve().parents[1] / "frontend" / "js" / "editor.js"
+DOCUMENTS = Path(__file__).resolve().parents[1] / "frontend" / "js" / "documents.js"
+LIBRARY = Path(__file__).resolve().parents[1] / "frontend" / "js" / "library.js"
+DASHBOARD = Path(__file__).resolve().parents[1] / "frontend" / "js" / "dashboard.js"
+SETTINGS = Path(__file__).resolve().parents[1] / "frontend" / "js" / "settings.js"
+TIMELINE = Path(__file__).resolve().parents[1] / "frontend" / "js" / "timeline.js"
+PALETTE = Path(__file__).resolve().parents[1] / "frontend" / "js" / "palette.js"
+AVATARS = Path(__file__).resolve().parents[1] / "frontend" / "js" / "avatars.js"
+ATLAS = Path(__file__).resolve().parents[1] / "frontend" / "js" / "atlas.js"
+DOCUMENTS_CODE = Path(__file__).resolve().parents[1] / "frontend" / "js" / "documents-code.js"
+DOCUMENTS_PROSE = Path(__file__).resolve().parents[1] / "frontend" / "js" / "documents-prose.js"
+WHITEBOARD_MAP = Path(__file__).resolve().parents[1] / "frontend" / "js" / "whiteboard-map.js"
 
 #: Two listeners on one element for one event is fine when they do different
 #: jobs: the settings overlay has a backdrop-click-to-close and a delegated
@@ -172,7 +172,7 @@ def test_quit_is_reachable_without_opening_settings():
     four clicks into a settings panel is the one place nobody looks, most of
     all in the desktop window, where closing the window is not the same thing
     as stopping the server behind it."""
-    markup = (APP.parent / "index.html").read_text(encoding="utf-8")
+    markup = (APP.parent.parent / "index.html").read_text(encoding="utf-8")
     header = re.search(r"<header id=\"top-bar\">.*?</header>", markup, re.S).group(0)
     assert 'id="quit-btn"' in header
 

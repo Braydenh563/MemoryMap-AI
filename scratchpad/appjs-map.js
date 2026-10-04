@@ -1,4 +1,4 @@
-// The app.js split plan's instrument (INBOX 426 cc). Parses frontend/app.js
+// The app.js split plan's instrument (INBOX 426 cc). Parses frontend/js/app.js
 // as a classic script (espree + eslint-scope, from the sandbox's eslint) and
 // reports, per section (every header comment, plus the cut points in
 // appjs-cuts.json for the long stretch with no headers):
@@ -26,7 +26,7 @@ const NM = '/opt/node22/lib/node_modules/eslint/node_modules/';
 const espree = require(NM + 'espree');
 const scope = require(NM + 'eslint-scope');
 
-const FILE = path.join(__dirname, '..', 'frontend', 'app.js');
+const FILE = path.join(__dirname, '..', 'frontend', 'js', 'app.js');
 const src = fs.readFileSync(FILE, 'utf8');
 const lines = src.split('\n');
 const ast = espree.parse(src, { ecmaVersion: 'latest', sourceType: 'script', loc: true, range: true });

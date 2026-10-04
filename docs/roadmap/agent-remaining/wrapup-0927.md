@@ -16,11 +16,11 @@ left to be tackled and finished top priority at the start of the next pr".
 Every item below is finished, measured and ticked before any other plan
 work starts.
 
-1. **frontend/js/ move.** Done as a WIP at `50a41d0` on the local branch
-   `worktree-agent-a3d063b0e2b8673ac` (paths, lazy modules, tests updated;
-   boots with 0 console errors, both lazy bundles load), but its final
-   `gate.sh --changed` never finished. The branch is local to the old
-   container only; if it is gone, redo it from the checklist below.
+1. [x] **frontend/js/ move.** Done 2026-10-03, redone from the checklist (the
+   old WIP branch was gone): 50 scripts in `frontend/js/`, `sw.js` stays at the
+   root (a service worker only controls pages under its own path). Paths,
+   lazy modules, workers, tests, gate, CI and docs updated;
+   `tests/test_script_paths.py` checks every script path resolves.
 2. **Full local suite** (`scripts/gate.sh --full`) was not run at release;
    CI ran the suite on every push and was green on 8c5afd6.
 3. **Not reproduced, need the owner's case:** the Atlas guide panel's '?'
@@ -34,7 +34,9 @@ work starts.
    the easing between lie and curl frames; the desktop window (webview) and
    the tour; error states, long lists and every notice kind (the seeded
    notebook never reaches them); the Documents dock with a document open.
-6. **Found, not fixed:** the "Show more" link on one-line note cards; the
+6. **Found, not fixed:** the "Show more" link on one-line note cards
+   (not reproduced 2026-10-03: no visible Show more on any short card at
+   1440, PR 162); the
    round capsule on note link chips (a deliberate design, review it).
 7. **Masculine Atlas lower body** (the owner, at release, with a close-up):
    "too straight and pointy and not flowy, it should be a main thick whisp in
@@ -42,12 +44,38 @@ work starts.
    sides". Today it is several parallel straight spikes. Target: one thick
    central wisp that tapers softly, with thinner curved strands peeling off
    both sides, all with gentle S-curves and a slow sway; no hard points.
-8. **The owner at release, with screenshots:** (a) the notes dock's Select
+   **Done 2026-10-03 (INBOX 435 (3), with the owner's four follow-ups:
+   thicker sub-wisps, clean joins, "not spider legs", full hip width and a
+   dominant middle).** One S-curved main wisp leaving the torso at the
+   hips' width (18.3px against the hips' 18.6px at Large) and two
+   sub-wisps branching from it at y 71 and 82, each half the trunk's width
+   there (ratio 2.03 both), one arc each, different lengths; every wisp one
+   silhouette (one path per paint, nonzero), so no join shows; Bezier
+   stems with round tips, no `L`. Sway: the lower layer's existing
+   compositor drift, all wisps together (a second layer for the sub-wisps
+   would stack translucency at the joins). `test_atlas_shape.py` (two
+   tests, one measuring the built paths in node); proofs
+   `scratchpad/shots/atlas-tail/` (`atlaswisp.js`), before and after,
+   light and dark, Medium and Large, twelve poses, the large view and
+   join close-ups.
+8. **The owner at release, with screenshots:** (a) verified 2026-10-03
+   (PR 162: active Select reads 7.69:1 light, 8.01:1 dark); was: the notes dock's Select
    toggle when active has poor contrast (a filled accent square with a
-   faint check); check every toggled icon button; (b) "Start today's note"
+   faint check); check every toggled icon button; (b) done (right: 08-consistency.css
+   orders today's count after the button, so it ends in the column every
+   other day's count draws at the end; the count had floated 729px short of
+   the end at 1440 because both it and the button carried an auto margin;
+   after, 0px at 1440 and 900, the button 8px before it; a phone draws the
+   table, no heads) "Start today's note"
    sits beside "Today": decide left or right against the Timeline's
-   other heads, and measure; (c) the reminder steppers float mid-row with a
-   gap: align them to the row's grid next to the time readout; (d) mind
+   other heads, and measure; (c) done (index.html: Quick set,
+   steppers, Reset, readout, in that order; the readout's 15rem reserve and
+   the pair's auto margin gone. At 1440 the pair sat at the row's end, 725px
+   past the readout text, and moved 101.5px left when Reset appeared; after,
+   it follows Quick set by 8px at x 139.9 in every state, centres level
+   (cy 16), the readout 8px after; at 1093 (the sheet) and 390 it wraps
+   left-aligned, nothing overflowing) the reminder steppers float mid-row
+   with a gap: align them to the row's grid next to the time readout; (d) mind
    map node background fill: nodes are outline-only; add a fill option
    (done: mind map topics have a Fill, alone or with the branch) (the node colour recipe, a tinted fill) if it does not exist; (e) the
    owner says the README shots were not retaken: they were in c947ebe on
@@ -64,11 +92,25 @@ work starts.
     blocks below; make sections collapsible (or cap the reading and scroll);
     (c) Atlas floats in empty space when the Find anything dialog is open;
     it should hide, or perch on the dialog's edge, while a modal is up;
-    (d) a small gap between a note card's text and its metadata row;
-    (e) the note edit form's "fit toolbar on one row" toggle does nothing;
-    (f) related-note badges and their Link buttons are different heights;
-    (g) help answers, "From the help": the entry title ("Skills") is tiny
-    against the body; give it heading size;
+    (d) done (08-consistency.css: the card view's meta row takes
+    `--space-3` above it whatever sits there; box gap 6.4px under the text,
+    8 under Show more, 6.4 under a file row before, 8 under each after;
+    decided as "too tight" because the owner's same-release ask was room
+    around Show more): a small gap between a note card's text and its
+    metadata row;
+    (e) verified working 2026-10-03 (PR 162: the edit form's strip 88 to
+    46px and back): the note edit form's "fit toolbar on one row" toggle does nothing;
+    (f) done, already (0.3.32, `.entry-related-row` stretches the chip;
+    measured 2026-10-03, no code change: chip and Link 32/32px at 1440, 44/44
+    at 390 touch, centres 0px apart, in the edit form's Related panel and
+    the card's Similar panel, both themes): related-note badges and their
+    Link buttons are different heights;
+    (g) done, already (04-chat-dock-appearance.css `.help-chat-prose`
+    headings take `--text-h3`; measured 2026-10-03, no code change: the
+    "Skills" title, an h5 from renderMarkdown, 18.4px/600 against a 14.72px
+    body, 1.25x, in the toggled "From the help" view and the no-model
+    answer): help answers, "From the help": the entry title ("Skills") is
+    tiny against the body; give it heading size;
     (h) checked in CSS, not in a browser: no button has a plain `:focus` rule, so the ring is `:focus-visible` only (keyboard); the documents formatting toolbar: it overflows to a "..." menu by
     design (DESIGN.md), not a scroll; confirm the focus ring on "..." only
     shows on keyboard focus;
@@ -82,7 +124,8 @@ work starts.
     add hysteresis (a dead zone past the midpoint and a short dwell);
     (l) the companion's perch in the chat sidebar looked unsupported
     (floating beside a conversation row); check the perch edges there.
-    (n) "Show me my last entry" answered with an older note (the owner at
+    (n) **done 2026-10-03, PR 162** (`tests/test_recency_questions.py`;
+    the prompt is right, a 1.5B model still misreads it): "Show me my last entry" answered with an older note (the owner at
     release): chat and Ask give the model no dates for their notes (only
     the weekly digest passes `written`, librarian.py `_written_hint`), so it
     guesses from the source numbering. Pass created and edited dates for
@@ -107,11 +150,21 @@ work starts.
     content: draw every widget's empty state and fit the page to its
     content; (4) on an empty dashboard, offer a recommended layout in a popup.
 10c. **Last requests at release, not done (0.3.4, top of the list):**
-    (1) custom select menus narrower than their trigger (Library "Items per
+    (1) done (menus.js `wireEscapedActionMenu` floors an escaped
+    `.select-menu` at the trigger's width; measured on 13 selects across
+    Library, Timeline, Notes, Chat: ten narrower before, Items per page
+    131.5px under 215.6px, every one at least its trigger after, 216/215.6):
+    custom select menus narrower than their trigger (Library "Items per
     page"): every `enhanceSelect` menu at least the trigger's width;
-    (2) chat "Ask again:" chips: history icon and text not vertically
-    centred;
-    (3) the Web search sidebar's "..." button appears seconds after the
+    (2) done (08-consistency.css `.chip > .ph-lead { translate: 0 0.1em }`:
+    a flex child ignores `.ph`'s vertical-align; icon ink centre minus the
+    words' ink centre -1.84/-2.00/-0.84px before, -0.50/-0.66/+0.50 after,
+    dark within 0.67): chat "Ask again:" chips: history icon and text not
+    vertically centred;
+    (3) done (chat.js `toggleWebPanel` draws the menu from the last known
+    engine before the status call; built in the opening task, visible 5ms
+    after open, from 44 to 108ms here and seconds on a Docker machine):
+    the Web search sidebar's "..." button appears seconds after the
     sidebar opens (built after an async status fetch; build it with the head);
     (4) dragging the companion to hang from the top bar drops it onto the
     elements below (`nameMarkBuddyDrop`: a drop under the header's bottom
@@ -126,7 +179,8 @@ work starts.
     prefer the status bar's own `legs`/stand spot there, which never scrolls;
     (6) graph labels: with Labels on the map is busy; consider labelling
     only notes with 2+ links unless zoomed in;
-    (7) Notes, Capture: Preview crushes the line-number gutter to a sliver
+    (7) gone 2026-10-03: Preview is replaced by the Live/Source switch
+    (PR 162). Was: Notes, Capture: Preview crushes the line-number gutter to a sliver
     (the gutter keeps its column in preview, or hides with it).
     Done at release: thinking words rotate 1.5x slower; "Writing the answer"
     sits beside the dots, tips under them; Name with Atlas toasts its start
@@ -496,7 +550,7 @@ not merged). Finish, verify and merge it first thing next session.
 
 ## Was: last, once no agent is editing JS
 
-- [ ] Move `frontend/*.js` into `frontend/js/`, one mechanical commit:
+- [x] Move `frontend/*.js` into `frontend/js/`, one mechanical commit:
   index.html script tags and `?v=` stamps, `LAZY_MODULES` paths, the static
   route, `tests/_app_js.py` and every test reading a frontend file by path,
   the tools pages, packaging; a test that every script path resolves; the

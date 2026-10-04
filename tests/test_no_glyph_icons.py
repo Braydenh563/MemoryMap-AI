@@ -229,7 +229,7 @@ def _scan(name: str, pairs: list[tuple[int, str]], source_lines: list[str]) -> l
 
 def test_no_typed_glyph_stands_in_for_an_icon():
     offenders: list[str] = []
-    for path in sorted((ROOT / "frontend").glob("*.js")):
+    for path in sorted((ROOT / "frontend" / "js").glob("*.js")):
         source = path.read_text(encoding="utf-8")
         #: The pieces of the old app.js answer to app.js's allowances.
         name = "app.js" if app_js_family(path) else path.name

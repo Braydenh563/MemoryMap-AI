@@ -1590,7 +1590,12 @@ def _complete_reminder(session: Session, args: dict) -> dict:
 
 
 def _rename_tag(session: Session, args: dict) -> dict:
-    changed = manager.rename_tag(session, str(args["old"]), str(args["new"]))
+    try:
+        changed = manager.rename_tag(session, str(args["old"]), str(args["new"]))
+    except ValueError as exc:
+        # A blank new name: told to the model as a tool error it can fix,
+        # not raised as a crash of the whole turn.
+        raise ToolError(str(exc)) from exc
     return {
         "entries_changed": changed,
         "label": f"ph:tag Renamed tag “{args['old']}” → “{args['new']}” ({changed} notes)",

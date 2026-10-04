@@ -26,7 +26,7 @@ Sweeps under `scratchpad/ui-sweeps/`.
   the group's block in the markup. Next step: `grep -n "Advanced response"
   frontend/index.html`, move the whole `<div class="settings-group">`, gate
   `--staged`, measure the gap with a sweep at 1440.
-- **237, the built-in Librarian persona is Atlas.** `frontend/app.js` near line
+- **237, the built-in Librarian persona is Atlas.** `frontend/js/app.js` near line
   21492 mirrors the backend's built-in personas; rename the built-in card to
   Atlas with the description "Atlas, this notebook's librarian: files, links
   and answers from your notes." on both sides (the backend's built-ins live

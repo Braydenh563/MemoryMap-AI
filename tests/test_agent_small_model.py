@@ -308,3 +308,53 @@ def test_an_empty_round_is_asked_once_more(ai_client, fake_ollama):
     assert any(
         m.get("content") == agent.EMPTY_ROUND_NUDGE for m in fake_ollama.tool_rounds[-1]
     )
+
+
+def test_an_announced_but_untaken_action_is_asked_once_more(ai_client, fake_ollama):
+    """Qwen2.5-1.5B through llama.cpp, the popup agent, 2026-10-03 (INBOX 432):
+    asked "How many notes are in Work?", the model replied "To count notes in
+    the Work category, I will use the count_notes function" and called
+    nothing; the turn ended there, so every prompt read as answered and none
+    was. A reply that only announces an action is nudged once to take it."""
+    replies = iter(["I'll count the notes in the Work category for you.", "There are 3 notes in Work."])
+    original = fake_ollama.chat_tools
+
+    def scripted(model, messages, tools, mode=None):
+        fake_ollama.librarian_reply = next(replies)
+        return original(model, messages, tools, mode)
+
+    fake_ollama.chat_tools = scripted
+    body = ai_client.post(
+        "/chat/stream", json={"question": "how many notes are in Work?", "use_tools": True}
+    ).text
+    answer = "".join(
+        json.loads(line)["delta"]
+        for line in body.splitlines()
+        if line and json.loads(line).get("type") == "answer"
+    )
+    assert answer.endswith("There are 3 notes in Work.")
+    assert any(
+        m.get("content") == agent.UNACTED_INTENT_NUDGE for m in fake_ollama.tool_rounds[-1]
+    )
+
+
+def test_what_counts_as_an_announced_action():
+    offered = [{"function": {"name": "count_notes"}}, {"function": {"name": "create_note"}}]
+    for text in (
+        "I'll count the notes in the 'Work' category for you.",
+        "To count notes in the Work category, I will use the count_notes function.",
+        "Let me search your notes for that.",
+        "I am going to create a note for this.",
+    ):
+        assert agent.announces_unacted_tool(text, offered), text
+    for text in (
+        "You have 3 notes in Work.",
+        "Let me know if you want me to file it anywhere else.",
+        "I'll keep that in mind.",
+        "",
+        # A long answer is an answer, even if it promises more at the end.
+        "Sourdough needs a starter fed daily. " * 20 + "I'll search for more if you like.",
+    ):
+        assert not agent.announces_unacted_tool(text, offered), text
+    # Nothing to call, nothing to nudge toward.
+    assert not agent.announces_unacted_tool("I'll count them.", [])

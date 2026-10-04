@@ -83,6 +83,48 @@ EMPTY_ROUND_NUDGE = (
     "or call the one tool that does what I asked."
 )
 
+#: Sent after a round whose words only announce an action ("I'll count the
+#: notes in Work", "I will use the count_notes function") and that called no
+#: tool (see `announces_unacted_tool`). Measured with Qwen2.5-1.5B through
+#: llama.cpp in the popup agent (INBOX 432): every one of four prompts ended
+#: on such a sentence, so each read as answered and none was.
+UNACTED_INTENT_NUDGE = (
+    "You said what you would do but did not do it. Do it now: call the tool "
+    "instead of describing it. If no tool fits, answer my question in plain words."
+)
+
+#: "I'll", "I will", "I am going to", "let me", followed by a verb a tool
+#: does. Verbs, not every verb: "let me know", "I'll keep that in mind" are
+#: answers.
+_INTENT_PATTERN = re.compile(
+    r"\b(?:I(?:'ll|\u2019ll| will| am going to|'m going to| shall)|let me)\s+"
+    r"(?:now\s+|first\s+|just\s+|go ahead and\s+)?"
+    r"(?:use|call|run|count|search|look|find|check|create|make|add|tag|move|file|"
+    r"list|fetch|read|open|update|edit|delete|remove|save|write|rename|link|get)\b",
+    re.IGNORECASE,
+)
+
+#: Past this length a reply is an answer that happens to offer more, not an
+#: announcement standing in for one.
+_INTENT_MAX_CHARS = 400
+
+
+def announces_unacted_tool(answer: str, offered: list[dict]) -> bool:
+    """Whether a reply with no tool call only says it is about to act.
+
+    True for a short reply that names one of the tools on offer, or that says
+    "I'll" / "let me" and a verb a tool does. False with nothing on offer,
+    since then there is nothing to nudge the model toward.
+    """
+    text = (answer or "").strip()
+    if not text or len(text) > _INTENT_MAX_CHARS or not offered:
+        return False
+    names = {t.get("function", {}).get("name", "") for t in offered}
+    if any(name and re.search(rf"\b{re.escape(name)}\b", text) for name in names):
+        return True
+    return bool(_INTENT_PATTERN.search(text))
+
+
 # How much tool output one turn may add to the conversation, in characters.
 # Local models run in small windows, and tool results accumulate: six rounds
 # of paging through a large notebook will push the question itself out of
@@ -1110,6 +1152,9 @@ def build_agent_messages(
         # `prepared["notes"]` already carries this from routes_chat.py; the
         # agent path just never read it before.
         f"{i}. (note id {note.get('id', '?')}) [{note['category']}]"
+        #: When it was written and what its time words meant (INBOX 441: the
+        #: chat read a two-week-old "this Friday" as this week's).
+        f"{librarian._written_hint(note)}{librarian._dates_hint(note)}"
         f"{' (attached by me)' if note.get('attached') else ''}"
         f"{' (not a match: linked to one of the above)' if note.get('connected') else ''}"
         f"{librarian._match_info_hint(note.get('match_info'))} "
@@ -2035,6 +2080,8 @@ def run_agent(
     spend = run_budget.current()
     #: One nudge per turn for a round that came back with nothing at all.
     nudged_empty = False
+    #: And one for a round that only said what it would do.
+    nudged_intent = False
     #: Only a turn that has done nothing at all is nudged: a skill step that
     #: read its page and then stops is finished, and the runner reads that
     #: silence (`skill_runner`'s paging and postconditions depend on it).
@@ -2153,6 +2200,16 @@ def run_agent(
                 continue
             if not reply.get("streamed") and answer:
                 yield {"type": "answer", "delta": answer}
+            #: **Said it would act, and did not.** Asked once to do it; the
+            #: sentence already shown stays as the turn's opening line, and
+            #: what the tool finds follows it. A second such round ends the
+            #: turn as before, with the claim checks below.
+            if not nudged_intent and announces_unacted_tool(answer, state.offered):
+                nudged_intent = True
+                state.messages.append({"role": "assistant", "content": answer})
+                state.messages.append({"role": "user", "content": UNACTED_INTENT_NUDGE})
+                yield {"type": "answer", "delta": "\n\n"}
+                continue
             # Safety net: if the model claims it saved/created something but no
             # write tool actually ran, it hallucinated, say so instead of
             # letting the user believe a note exists that doesn't.

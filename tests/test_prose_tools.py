@@ -27,9 +27,9 @@ HARPER = FRONTEND / "vendor" / "harper"
 #: documents-prose.js verbatim on 2026-09-24, and the panel and dock wiring
 #: that reaches them stayed in documents.js.
 DOCUMENTS = "\n".join(
-    (FRONTEND / name).read_text(encoding="utf-8") for name in ("documents.js", "documents-prose.js")
+    (FRONTEND / "js" / name).read_text(encoding="utf-8") for name in ("documents.js", "documents-prose.js")
 )
-WORKER = (FRONTEND / "harper-worker.js").read_text(encoding="utf-8")
+WORKER = (FRONTEND / "js" / "harper-worker.js").read_text(encoding="utf-8")
 
 
 def _body(name: str) -> str:
@@ -82,7 +82,7 @@ def test_the_worker_is_same_origin_and_started_only_on_demand() -> None:
     would fetch 15.9 MB on every launch whether or not anything is written."""
     code = "\n".join(line for line in WORKER.splitlines() if not line.lstrip().startswith("//"))
     assert "createObjectURL" not in code and "WorkerLinter" not in code
-    assert 'import { slimBinary } from "./vendor/harper/slimBinary.js"' in WORKER
+    assert 'import { slimBinary } from "../vendor/harper/slimBinary.js"' in WORKER
     starts = [m.start() for m in re.finditer(r"new Worker\(`\$\{DOC_GRAMMAR_WORKER_URL\}", DOCUMENTS)]
     assert len(starts) == 1
     assert starts[0] > DOCUMENTS.index("function docGrammarAsk(")
@@ -147,7 +147,7 @@ def test_a_sentence_case_heading_is_not_a_finding(tmp_path) -> None:
     script.write_text(HARPER_DRIVER, encoding="utf-8")
     text = "# Why we moved the notebook offline\n\n## What changed\n\nThe the search index moved.\n"
     out = subprocess.run(
-        [node, str(script), (FRONTEND / "harper-worker.js").as_uri(), text],
+        [node, str(script), (FRONTEND / "js" / "harper-worker.js").as_uri(), text],
         capture_output=True, text=True, timeout=120, check=False,
     )
     assert out.returncode == 0, out.stderr

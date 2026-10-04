@@ -18,7 +18,7 @@ from memorymap.ai import librarian
 from memorymap.ai.answer_trim import trim_assistant_padding
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.core import deps
-from memorymap.core.config import user_now
+from memorymap.core.config import days_from_today, user_now
 from memorymap.core.database import Category, Entry, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import manager, paths
@@ -48,8 +48,11 @@ def stats(session: Session = Depends(get_session)) -> dict:
 
     # Entries per day for the activity strip, oldest day first.
     start = utcnow() - timedelta(days=ACTIVITY_DAYS - 1)
+    #: The day is all this reads, so it asks for the day: loading each note
+    #: whole (its text and every other column, as an object) was 204 ms on
+    #: 5,000 recent notes and is nothing as a bare column.
     recent = session.scalars(
-        select(Entry).where(
+        select(Entry.created_at).where(
             Entry.is_deleted == False,  # noqa: E712
             Entry.is_draft == False,  # noqa: E712
             Entry.is_board == False,  # noqa: E712
@@ -58,8 +61,8 @@ def stats(session: Session = Depends(get_session)) -> dict:
     )
     per_day = [0] * ACTIVITY_DAYS
     today = utcnow().date()
-    for entry in recent:
-        offset = (today - entry.created_at.date()).days
+    for created_at in recent:
+        offset = (today - created_at.date()).days
         if 0 <= offset < ACTIVITY_DAYS:
             per_day[ACTIVITY_DAYS - 1 - offset] += 1
 
@@ -338,8 +341,10 @@ def heatmap(session: Session = Depends(get_session)) -> dict:
     today = utcnow().date()
     start = today - timedelta(days=HEATMAP_DAYS - 1)
     counts = [0] * HEATMAP_DAYS
+    #: Only the day, as a column (see `stats`): 208 ms became a few on 5,000
+    #: notes created within the year.
     rows = session.scalars(
-        select(Entry).where(
+        select(Entry.created_at).where(
             Entry.is_deleted == False,  # noqa: E712
             # Notes only, the one count the rest of the app shows (boards
             # and drafts are Entry rows too: the heatmap said 77 beside 40).
@@ -348,8 +353,8 @@ def heatmap(session: Session = Depends(get_session)) -> dict:
             Entry.created_at >= utcnow() - timedelta(days=HEATMAP_DAYS),
         )
     )
-    for entry in rows:
-        offset = (entry.created_at.date() - start).days
+    for created_at in rows:
+        offset = (created_at.date() - start).days
         if 0 <= offset < HEATMAP_DAYS:
             counts[offset] += 1
     return {
@@ -379,7 +384,7 @@ def on_this_day(session: Session = Depends(get_session)) -> list[dict]:
 
     **Not called by this app's own frontend, and that is a decision, not an
     oversight** (INBOX 261, found by `scratchpad/probe_dead_routes.py`, which
-    lists every route no `frontend/*.js` names). The dashboard's widget
+    lists every route no `frontend/js/*.js` names). The dashboard's widget
     filters `allEntries` in the browser: one fewer request, and correct once
     the notebook has finished paging in. This stays for anything that talks
     to the app over HTTP rather than through the bundled page, and this
@@ -492,12 +497,18 @@ def _digest_notes(session: Session) -> list[dict]:
         )
     )
     category_names = manager.bulk_category_names(session, entries)
-    zone = user_now(deps.get_config()).tzinfo
+    now = user_now(deps.get_config())
+    zone = now.tzinfo
+    time_words = manager.entry_dates_bulk(session, [e.id for e in entries])
     return [
         {
             "content": e.content,
             "category": category_names.get(e.category_id, manager.UNCATEGORISED),
             "written": _written_label(e.created_at, zone),
+            "dates": [
+                f'"{d.phrase}" meant {d.at:%A} {d.at.day} {d.at:%B %Y}, {days_from_today(d.at.date(), now.date())}'
+                for d in time_words.get(e.id, [])
+            ],
         }
         for e in entries
     ]

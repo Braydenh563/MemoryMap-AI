@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from memorymap.ai import facts
-from memorymap.core import deps
+from memorymap.core import deps, jobruns
 from memorymap.core.deps import get_session
 
 logger = logging.getLogger("memorymap.api.night")
@@ -63,10 +63,12 @@ def run_now(body: RunBody, session: Session = Depends(get_session)) -> dict:
         # be every row saying `local` and nobody knowing why.
         logger.info("night pass: no model to narrow with (%s)", exc)
         provider = None
-    result = facts.run(
-        session, budget=body.budget, force=body.force, provider=provider, model=model, config=config
-    )
-    session.commit()
+    with jobruns.job_run("night-shift") as run:
+        result = facts.run(
+            session, budget=body.budget, force=body.force, provider=provider, model=model, config=config
+        )
+        session.commit()
+        jobruns.describe_night_pass(run, result)
     return result
 
 

@@ -82,6 +82,9 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   tests/test_docs_layout.py tests/test_asset_cache_busting.py tests/test_no_em_dashes.py
   tests/test_no_innerhtml_interpolation.py tests/test_markdown_link_schemes.py
   tests/test_frontend_load_order.py tests/test_ui_recipes.py tests/test_perf_mode.py
+  # The gzip boot budget: a few hundred bytes from the cap, and a merge that
+  # passed every other lint here went over it on CI (2026-10-03).
+  tests/test_static_compression.py
   # Which boot-loaded file may call into a lazy bundle, and on what terms.
   # Here rather than left to the changed-test heuristic because it reads
   # index.html, app.js's two loader tables and every frontend file at once,
@@ -106,12 +109,12 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   tests/test_offline_promise.py
   tests/test_cheap_animations.py tests/test_motion_tokens.py tests/test_icon_label_gap.py tests/test_like_escaping.py
   # The copy lint, here for the same reason `test_docs_site.py` is below: it
-  # reads every string in `frontend/*.js` and every piece of markup outside a
+  # reads every string in `frontend/js/*.js` and every piece of markup outside a
   # comment, so the changed-test heuristic (a test naming a changed source
   # file) never selects it, and the first new string written after it landed
   # broke it. Caught by a full local run rather than by any gate that day.
   tests/test_ai_name.py tests/test_frontend_symbols.py
-  # Same reason again: it reads every string in `frontend/*.js`, so no changed
+  # Same reason again: it reads every string in `frontend/js/*.js`, so no changed
   # source file selects it.
   tests/test_no_glyph_icons.py
   tests/test_plan_hygiene.py tests/test_readme_freshness.py tests/test_vendor_licences.py
@@ -168,7 +171,7 @@ if [ "$STAGED" = 1 ]; then
 else
   skipped+=("staged-lints (--staged)")
 fi
-node_check() { local bad=0; for f in frontend/*.js; do node --check "$f" || bad=1; done; return $bad; }
+node_check() { local bad=0; for f in frontend/js/*.js frontend/sw.js; do node --check "$f" || bad=1; done; return $bad; }
 step node-check node_check
 step ruff "$RUFF" check .
 # --changed: every changed test file, plus tests/test_<stem>*.py for each
@@ -223,7 +226,7 @@ changed_tests() {
   while read -r f; do
     case "$f" in
       tests/test_*.py) [ -f "$f" ] && echo "$f" ;;
-      src/memorymap/*.py|src/memorymap/*/*.py|frontend/*.js|frontend/css/*.css)
+      src/memorymap/*.py|src/memorymap/*/*.py|frontend/js/*.js|frontend/sw.js|frontend/css/*.css)
         stem="$(basename "$f")"; stem="${stem%.*}"
         ls tests/test_"${stem}"*.py 2>/dev/null
         case "$stem" in routes_*) ls tests/test_"${stem#routes_}"*.py 2>/dev/null ;; esac
@@ -273,7 +276,7 @@ if [ "$SWEEPS" = 1 ]; then
   # previewclash: the board and map thumbnails, whose faults (a caption over a
   # block, over another caption, or past the paper) are pure geometry and so
   # are a number, but a number no lint can reach without a browser.
-  for s in errors docks contrast touch leaks keyboard requests diskspace previewclash sketchhighlighter vibecheck vibefail graphminimap wbgroupguides finder wbfitanchor skillverify refchips helpstream phonehead phonesidebar phonecapture phoneswipe phonenotepage phonechat phoneshare phonedocs phonereminders graphphone wbphone writingroom dashdensity timelinetablewidth libreadingfoot tourtile libreader hoveronly wbtopbar820 docdaily doccodecopy dockeyboard skillsteps doctoolbarstate findinghover mindmapimage mindmapcurve wbtopbar dochighlight spinnershape tagoffer imagefold imagecardfoot featuremodels asktab mapperf maptwokinds mapbranchdrag mapmidpan tourdim toursteps btnrows slashicons answersupport uitrio animcost noteobject mapdoors maplayouts maptheme canvasconventions mapviewmenu touchticks companionscroll companionbeats companionperf companionsmooth companionmenu companionlife profilelook companionpin iconfloor listenerrounds companionreact companioninteract libtlscroll; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
+  for s in errors docks contrast touch leaks keyboard requests diskspace previewclash sketchhighlighter vibecheck vibefail graphminimap wbgroupguides finder wbfitanchor skillverify refchips helpstream phonehead phonesidebar phonecapture phoneswipe phonenotepage phonechat phoneshare phonedocs phonereminders graphphone wbphone writingroom dashdensity timelinetablewidth libreadingfoot tourtile libreader hoveronly wbtopbar820 docdaily doccodecopy dockeyboard skillsteps doctoolbarstate findinghover mindmapimage mindmapcurve wbtopbar dochighlight spinnershape spinners tagoffer imagefold imagecardfoot featuremodels asktab mapperf maptwokinds mapbranchdrag mapmidpan tourdim toursteps btnrows slashicons answersupport uitrio animcost noteobject mapdoors maplayouts maptheme canvasconventions mapviewmenu touchticks companionscroll companionbeats companionperf companionsmooth companionmenu companionlife profilelook companionpin iconfloor listenerrounds companionreact companioninteract libtlscroll; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
 else
   skipped+=("sweeps (--sweeps, needs BASE)")
 fi

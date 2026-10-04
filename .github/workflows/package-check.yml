@@ -101,10 +101,10 @@ jobs:
           done
           # The lazy bundles (whiteboard, documents, graph...) are fetched
           # on demand, not referenced by index.html; ask for each by name.
-          for f in frontend/*.js; do
+          for f in frontend/js/*.js; do
             count=$((count + 1))
-            if ! curl -sf -o /dev/null "http://127.0.0.1:8765/$(basename "$f")"; then
-              echo "missing from the bundle: /$(basename "$f")"
+            if ! curl -sf -o /dev/null "http://127.0.0.1:8765/js/$(basename "$f")"; then
+              echo "missing from the bundle: /js/$(basename "$f")"
               failed=1
             fi
           done
@@ -116,7 +116,7 @@ jobs:
           done
           # The types the window insists on (api/app.py STATIC_MIME_TYPES):
           # a script served as text/plain is refused under nosniff.
-          js_type=$(curl -sI http://127.0.0.1:8765/app.js | tr -d '\r' | grep -i '^content-type:' || true)
+          js_type=$(curl -sI http://127.0.0.1:8765/js/app.js | tr -d '\r' | grep -i '^content-type:' || true)
           echo "app.js: ${js_type}"
           echo "$js_type" | grep -qi 'text/javascript' || { echo "app.js is not served as JavaScript"; failed=1; }
           wasm_type=$(curl -sI http://127.0.0.1:8765/vendor/harper/harper_wasm_slim_bg.wasm | tr -d '\r' | grep -i '^content-type:' || true)

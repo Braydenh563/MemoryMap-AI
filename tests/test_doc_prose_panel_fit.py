@@ -47,7 +47,7 @@ def test_focus_mode_opens_the_suggestions_as_a_side_panel() -> None:
     )
     side = [body for _, sel, body in _rules() if ".doc-focus" in sel and "#doc-prose-panel" in sel]
     assert any("position: fixed" in b for b in side), "the suggestions are not a side panel in focus mode"
-    docs = (FRONTEND / "documents.js").read_text(encoding="utf-8")
+    docs = (FRONTEND / "js" / "documents.js").read_text(encoding="utf-8")
     assert docs.count("docFocusSyncProse();") >= 3, "the floating dock's Suggestions does not follow the panel"
 
 
@@ -65,7 +65,7 @@ def test_the_suggestions_panel_fits_its_own_width() -> None:
             assert props.get("flex") != "none", f"{sel} may not refuse to shrink: its buttons ran off the panel"
     heads = [body for _, sel, body in rules if sel == ".doc-prose-head"]
     assert any("flex-wrap: wrap" in b for b in heads), "the suggestions head does not wrap"
-    docs = (FRONTEND / "documents.js").read_text(encoding="utf-8")
+    docs = (FRONTEND / "js" / "documents.js").read_text(encoding="utf-8")
     line = docs.split("function docFindingLine(", 1)[1].split("\n}\n", 1)[0]
     assert "words.title" in line and "why.title" in line, (
         "an ellipsised finding row does not carry its whole text in a title"
@@ -76,7 +76,7 @@ def test_the_grip_width_lives_on_the_tab_page() -> None:
     """Focus mode's side panel and the page's padding beside it read the width
     the grip set; only a property on their common ancestor gives both one
     number (on the panel, the padding's `var()` computed to 0)."""
-    docs = (ROOT / "frontend" / "documents.js").read_text(encoding="utf-8")
+    docs = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
     assert '($("tab-documents") || panel).style.setProperty("--doc-prose-w"' in docs
     css = "".join(
         re.sub(r"/\*.*?\*/", "", p.read_text(encoding="utf-8"), flags=re.S)

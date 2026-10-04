@@ -54,6 +54,7 @@ MORE_TOPICS: list[dict] = [
             "atlas look", "atlas style", "classic globe", "globe", "atlas character",
             "atlas's face", "atlas mood", "atlas moods", "masculine", "feminine",
             "what does atlas look like", "change atlas", "atlas avatar",
+            "assistant avatar", "app emblem", "reply avatar", "chat avatar", "app logo",
         ),
         "body": (
             "Atlas is drawn as a small character of starlight with rings "
@@ -62,7 +63,11 @@ MORE_TOPICS: list[dict] = [
             "picks Masculine or Feminine, or Auto, which follows Face looks "
             "when that is set to one look and your own face's look otherwise; "
             "it is used everywhere Atlas appears, the dashboard mark and the "
-            "chat's replies included. Atlas's face follows the app's mood: "
+            "chat's replies included. Assistant avatar, in the same place, swaps "
+            "the face on the assistant's chat replies, the popup agent and the "
+            "guide between Atlas and the app's animated emblem (it stays still "
+            "under Reduce motion); other personas keep their own faces. "
+            "Atlas's face follows the app's mood: "
             "thinking while an answer runs, happy when it lands, worried at an "
             "error, sleepy late at night. Enlarge, in the companion's menu or "
             "on any face, shows the full drawing."
@@ -149,22 +154,53 @@ MORE_TOPICS: list[dict] = [
     {
         "id": "general-settings",
         "keywords": (
-            "answer style", "concise", "detailed", "shorter answers", "longer answers",
-            "search relevance", "minimum similarity", "smart quotes", "auto clear",
+            "smart quotes", "auto clear",
             "empty the bin", "delete old chats", "chat history", "mute notifications",
             "general settings",
         ),
         "body": (
             "Settings, General. Recycle bin: auto-clear binned notes after a "
             "number of days. Chat history: delete saved chats after a number "
-            "of days (0 keeps every chat; pinned chats are never deleted). AI "
-            "answer style: Friendly (the default), Concise or Detailed. Search "
-            "relevance: Minimum similarity and Above-average margin; raise them "
-            "for fewer, surer results, lower them if search feels too strict, "
-            "and Reset to default undoes both. Notifications: mute everything "
-            "except reminders. Writing: smart quotes and dashes in documents."
+            "of days (0 keeps every chat; pinned chats are never deleted). "
+            "Notifications: mute everything except reminders. Writing: smart "
+            "quotes and dashes in documents. Answer style moved to Settings, "
+            "Personas, and Search relevance to Settings, Search and index."
         ),
         "badge": {"label": "General", "section": "general"},
+    },
+    {
+        "id": "search-index",
+        "keywords": (
+            "search relevance", "minimum similarity", "above-average margin",
+            "search engine", "semantic search", "embedding model", "re-index",
+            "rebuild search index", "search index", "search is wrong",
+            "too many results", "too few results", "search feels too strict",
+        ),
+        "body": (
+            "Settings, Search and index. Search engine: the built-in one "
+            "(recommended, about 650 MB of memory while the app is open) or an "
+            "Ollama embedding model such as nomic-embed-text; changing it "
+            "re-reads every note in the background and search uses keywords "
+            "until it finishes. Search index: Rebuild search index after an "
+            "update or a restore, or if search stops finding notes you know "
+            "are there. Search relevance: Minimum similarity and Above-average "
+            "margin; raise them for fewer, surer results, lower them if search "
+            "feels too strict, and Reset to default undoes both."
+        ),
+        "badge": {"label": "Search and index", "section": "searchindex"},
+    },
+    {
+        "id": "answer-style",
+        "keywords": (
+            "answer style", "concise", "detailed", "shorter answers",
+            "longer answers", "friendly",
+        ),
+        "body": (
+            "Settings, Personas, Answer style: how Atlas words its answers, "
+            "Friendly (the default), Concise or Detailed, whichever persona is "
+            "active."
+        ),
+        "badge": {"label": "Answer style", "section": "personas", "target": "pref-style"},
     },
     {
         "id": "background-tasks",
@@ -172,12 +208,19 @@ MORE_TOPICS: list[dict] = [
             "background tasks", "running now", "what is it doing", "job", "jobs",
             "battery", "battery-efficient", "save power", "quit the app",
             "quit memorymap", "stop the server", "close the app properly",
+            "last run", "last ran", "background jobs", "job history", "did it run",
         ),
         "body": (
             "Settings, Background tasks shows what the app is doing right now "
             "(re-indexing, downloading a model, setting up search) with Quit on "
             "the jobs that can stop safely, and what has finished since it "
-            "started. Autonomous background AI is here too. Battery-efficient "
+            "started. Background jobs lists every kind of job, the never-run "
+            "ones too, with when it last ran and how it went, and beside each "
+            "control (Back up now, Rebuild search index, Find duplicates, the "
+            "importers) a line reads, for example, \"Last run 2h ago, "
+            "succeeded, 412 notes indexed\", with the exact time on hover; a "
+            "failure says why in a few words. Autonomous background AI is here "
+            "too. Battery-efficient "
             "mode pauses background AI, heavy graph work and the moving "
             "artwork. Quit MemoryMap stops the app and its server properly, so "
             "the next start finds its port free."
@@ -312,12 +355,15 @@ MORE_TOPICS: list[dict] = [
         ),
         "body": (
             "Settings opens from the gear in the top bar or Ctrl+,. Its sections "
-            "are grouped: Atlas (Models, Profile, Personas, Skills, Tools it can "
-            "use, What it remembers, What it learned, Web search), Your notebook "
-            "(General, Appearance, Templates, Keyboard shortcuts, Import & "
-            "export), System (Account & security, Privacy, Packages, Background "
-            "tasks, Logs) and Getting help (Help, About). The search box at the "
-            "top of the list finds a setting by any word in it."
+            "are grouped: AI (Models, Search and index, Personas, Skills, Tools "
+            "it can use, What it remembers, What it learned, Web search), "
+            "Notebook (Profile, General, Templates, Import & export), Look and "
+            "feel (Appearance, Keyboard shortcuts), Privacy and security "
+            "(Account & security, Privacy), System (Packages, Background tasks, "
+            "Logs) and Help and About. The search box at the top of the list "
+            "finds a setting by any word in it and lists the matching settings "
+            "under it, each opening where it sits, and a long section has an "
+            "index of its groups along its top."
         ),
         "badge": {"label": "Settings", "section": "general"},
     },
@@ -342,6 +388,363 @@ MORE_TOPICS: list[dict] = [
         "badge": {"label": "Account & security", "section": "account"},
     },
 ]
+
+#: **Every feature since 0.3.0, large and small** (INBOX 448 (1), the owner:
+#: "the help settings as well as the help info available to the agents needs
+#: more expansion for all the new features both large and small so people can
+#: easily find out about all the features"). The inventory is
+#: `tests/test_help_coverage.py`'s `FEATURES`, read from CHANGELOG's
+#: Unreleased and 0.3.x sections: before these entries 8 of its 52 rows had an
+#: entry that said so, and 4 reached it from the question a person would ask.
+#: Each entry was written from the controls' own labels (index.html and the
+#: module that draws them) and is keyed by the words a person searches with,
+#: not the feature's name ("what does the percentage mean", "where are my
+#: bookmarks").
+MORE_TOPICS.extend(
+    [
+        {
+            "id": "quick-note",
+            "keywords": (
+                "quick note", "alt+n", "jot down", "note from anywhere",
+                "without leaving the page", "quick capture", "web clipper",
+                "save a web page", "web page as a note", "clip a page", "paste a link",
+                "clear the box", "clear what i typed", "clear button", "eraser", "undo clear", "start over on a note",
+            ),
+            "body": (
+                "Quick note (Alt+N, or Quick note in the command palette) opens a "
+                "small box over whatever tab you are on: type, press Ctrl+Enter, "
+                "and the note is saved and filed in the background while you stay "
+                "where you were. Escape closes it and keeps the words for next "
+                "time; Open in Capture moves them to the full composer. The "
+                "dashboard's Quick capture saves the same way. A bare link pasted "
+                "into Capture or Quick note offers its page as a note through the "
+                "web clipper, only while web search is allowed. **Clear** (the eraser "
+                "icon) is in every box you type into: Capture, with its title, tags "
+                "and files, Quick note, Ask, Chat and the popup agent. It shows only "
+                "while the box holds something, empties it, and Undo (in the toast, "
+                "or beside the box in a popup) puts it all back."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
+            "id": "note-outbox",
+            "keywords": (
+                "server is down", "server down", "server away", "failed to fetch",
+                "waiting to save", "not saved", "lost my note", "kept on this device",
+                "save while offline", "saved offline", "connection lost", "try now",
+            ),
+            "body": (
+                "A note saved while the MemoryMap server is not answering (from "
+                "Capture, Save as draft, Quick note or the dashboard's Quick "
+                "capture) is kept on this device rather than lost, and is sent by "
+                "itself when the server is back. It sits at the top of the notes "
+                "list as a card marked Waiting to save, and a notice above Capture "
+                "counts what is waiting, with Try now to send it at once. A note "
+                "sent twice is still saved once."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
+            "id": "attachments",
+            "keywords": (
+                "paste a picture", "paste an image", "paste image", "paste a screenshot",
+                "drag and drop", "drop a file", "attach a file", "attached file",
+                "attachment card", "file card", "rename a file", "annotate", "describe with ai",
+            ),
+            "body": (
+                "Paste a picture into Capture or a note being edited, or drop a "
+                "file on it, and it is kept with the note. An attached file is one "
+                "card everywhere (the note, Capture, a document, the graph and the "
+                "Timeline): the picture or a kind icon, its name, kind, size and "
+                "date. Click the card to open it; its ... menu has Open, Download, "
+                "Rename, Describe with AI, Edit description, Annotate a copy, Copy "
+                "as a link and Remove. Removing a file can be undone, and the "
+                "upload is only deleted once nothing else uses it."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
+            "id": "filing",
+            "keywords": (
+                "percentage", "percent", "how sure", "confidence", "filed", "filed without ai",
+                "stuck on filing", "still filing", "file by meaning", "file it myself",
+                "wrong category", "uncategorised", "uncategorized", "choose category",
+            ),
+            "body": (
+                "Each new note is filed into a category in the background. Its "
+                "card shows how sure the filing was, for example 83% beside the "
+                "category, and whether Atlas or your notebook's words filed it; "
+                "the note's History names the model. With no AI model running, a "
+                "note is filed from your notebook's own words (the notes already "
+                "in each category, their tags and the moves you made by hand) and "
+                "stays in Uncategorised when that is not sure, with its likely "
+                "categories as one-tap buttons beside Choose category. While a "
+                "note shows Filing, its chip offers File by meaning now, Leave it "
+                "where it is and File it myself, and Stop in Settings, Background "
+                "tasks files every waiting note by meaning. A note you file "
+                "yourself is never moved by a late answer, and moving notes by "
+                "hand teaches the filing where things go."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
+            "id": "suggested-tags",
+            "keywords": (
+                "suggested tag", "suggested tags", "plus tag", "plus tags", "+ tag",
+                "tag suggestion", "stop suggesting", "dismiss a tag", "tag with atlas",
+            ),
+            "body": (
+                "The tags Atlas suggested when it filed a note stay on the note's "
+                "card as \"+ tag\": one press adds the tag, and its x stops "
+                "suggesting it. With no AI running they come from your own tags "
+                "on the notes most like this one. An untagged note's Tag with "
+                "Atlas asks again."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
+            "id": "tag-manager",
+            "keywords": (
+                "manage tags", "tag manager", "rename a tag", "rename tag", "merge tags",
+                "merge a tag", "remove a tag", "delete a tag", "every tag", "tag counts",
+                "tags row", "tag chip", "right click a tag", "right-click a tag",
+                "tags everywhere",
+            ),
+            "body": (
+                "The tag manager lists every tag with how many notes use it. Open "
+                "it from the Notes ... menu (Manage tags), the Tags row in the "
+                "notes sidebar, Settings or the command palette. Rename a tag, "
+                "merge it into another, or remove it from all notes, one or "
+                "several at a time; each change shows in the notes' history and "
+                "has one Undo. Right-click a tag chip (or press the menu key on "
+                "it) for Show notes, Rename in all notes, Remove from this note "
+                "and Manage tags. The selection bar's Tags adds or removes tags on "
+                "every selected note at once."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
+            "id": "manage-categories",
+            "keywords": (
+                "manage categories", "merge categories", "merge two categories",
+                "split a category", "delete a category", "category colour",
+                "category color", "colour of a category", "color of a category",
+                "rename a category", "notes in a category", "view category",
+                "category chip",
+            ),
+            "body": (
+                "Manage categories (the Categories head in the notes sidebar, a "
+                "category's ... menu, Settings or the command palette) renames, "
+                "merges, splits and deletes categories, asking where the notes "
+                "go; every change can be undone, and deleting one can always keep "
+                "its notes in Uncategorised. A split can be suggested from the "
+                "notes' tags or by Atlas, which reads the notes and proposes "
+                "named groups to review. Colour gives a category one of twelve "
+                "swatches (or Automatic), shown on its dots, chips, graph nodes, "
+                "the Timeline and the Dashboard. A category chip on a note opens "
+                "Show notes in the category, Move to another category and Manage "
+                "categories; dragging a note's category label onto another "
+                "category moves it too."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
+            "id": "note-history",
+            "keywords": (
+                "note history", "who changed", "who edited", "changed my note",
+                "edited by atlas", "you and atlas", "two windows", "two tabs",
+                "edited twice", "conflict", "keep your version",
+            ),
+            "body": (
+                "A note's History (in its menu) lists every change and whose it "
+                "was: You, Atlas, or You and Atlas (a save that took an Improve "
+                "writing suggestion), with the exact time on hover, and any "
+                "earlier version can be put back. It also says who filed the note "
+                "and how sure, and a change made by an AI tool names the model "
+                "that made it. When the same note or document is edited in two "
+                "windows, a save over text changed elsewhere is refused and you "
+                "choose: keep your version, take the other one, or compare the "
+                "two first."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
+            "id": "notes-list",
+            "keywords": (
+                "sort notes", "recently edited", "a to z", "copy link", "copy [[link]]",
+                "connections column", "beside the list", "forgotten", "close to this",
+                "most used", "note order", "f2",
+            ),
+            "body": (
+                "Sort notes: Newest first, Oldest first, Recently edited, A to Z "
+                "(\"note 2\" before \"note 10\"), Most used or Forgotten first; "
+                "the choice is remembered. A note's menu has Copy [[link]] to "
+                "paste a link to it anywhere, and editing a note has a title "
+                "field. On a focused note, F2 edits it, Delete deletes it, and "
+                "Home and End jump to the ends of the list. In a window 1280 wide "
+                "or more, the note you open has a Connections column beside the "
+                "list: the notes it links to, the notes that link to it, and "
+                "\"Forgotten, and close to this\"."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
+            "id": "addresses",
+            "keywords": (
+                "address", "url", "address bar", "web address", "browser back",
+                "back button", "deep link", "link to this view", "own address",
+            ),
+            "body": (
+                "Every view has its own address, such as #/notes/12, #/chat/45, "
+                "#/docs/7, #/library/images or #/settings/appearance. A reload "
+                "keeps the view, a bookmark or a pasted link opens it, the "
+                "browser's Back and Forward walk the app's own history, and the "
+                "window title names the view and what is open in it."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        {
+            "id": "bookmarks",
+            "keywords": (
+                "bookmark", "bookmarks", "reading list", "saved links", "saved link",
+                "read later", "by site", "web links", "my links", "mark read",
+                "bookmark link",
+            ),
+            "body": (
+                "Library, Bookmarks is a reading list of web links; Add bookmark "
+                "saves one. Unread and Pinned narrow the list (with counts), and "
+                "opening a link marks it read. Sort by newest, oldest, title or By "
+                "site, which groups links under their site in folds you can close. "
+                "Each link shows its kind, Details opens in place with a note "
+                "field, and selecting several offers Move to group, Mark read and "
+                "Pin; pinned links lead every order but By site, and every delete "
+                "has Undo. In a note or document, the / menu's Bookmark link "
+                "inserts a saved bookmark as a link."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "contents",
+            "keywords": (
+                "contents", "table of contents", "outline of my notebook",
+                "whole notebook", "notebook outline", "tree of notes", "index of notes",
+                "expand all", "collapse all",
+            ),
+            "body": (
+                "Library, Contents is the whole notebook as a tree, By category, "
+                "By tag or By month, with each document's headings under it, so "
+                "a press jumps straight to a heading. Expand all and Collapse all "
+                "open or fold every section. From the keyboard the Up and Down "
+                "arrows move, Right opens a row, Left folds it, Home and End jump "
+                "to the ends, and Enter opens. By month puts each document under "
+                "the month it was made, with that month's notes."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "library-skills",
+            "keywords": (
+                "ai skills", "built-in skill", "built in skill", "copy a skill",
+                "duplicate a skill", "my skills", "skill list", "reads only",
+                "changes notes", "last run of a skill",
+            ),
+            "body": (
+                "Library, AI skills lists every skill: Yours and Built-in switch "
+                "between your own and the ones that ship with the app (each with "
+                "a count), and the sort is Yours first, Name A to Z or Recently "
+                "run. Each card says whether the skill Reads only or Changes "
+                "notes, and how its last run went. Duplicate makes a copy of any "
+                "skill, a built-in one included, to edit as your own; Delete has "
+                "Undo. Settings, Skills is where a skill is written and edited."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "ocr-engine",
+            "keywords": (
+                "ocr language", "reading language", "tesseract language", "install tesseract",
+                "tesseract not working", "tesseract missing", "read again", "which engine",
+                "language of the scan",
+            ),
+            "body": (
+                "In the OCR workspace, one line under the toolbar says whether "
+                "Tesseract can read, its version and the language it reads in; "
+                "pick the language there, and every read follows it, the "
+                "background pass included. When Tesseract cannot read, the line "
+                "names the cause and offers Install, with its progress; a read it "
+                "cannot do falls to the vision model, and each reading names the "
+                "engine that read it. Read again reads afresh, and a reading can "
+                "be edited by hand or added to an existing note. Settings, "
+                "Packages shows the same status and language."
+            ),
+            "badge": {"label": "Packages", "section": "extras"},
+        },
+        {
+            "id": "time-and-recency",
+            "keywords": (
+                "dates in my notes", "time words", "this friday", "next friday",
+                "saved recently", "recently saved", "lately", "last note", "latest note",
+                "newest note", "newest notes", "what did i write", "what did i save",
+                "recent notes",
+            ),
+            "body": (
+                "Ask and Chat read a note's time words as the note meant them: "
+                "\"this Friday\" in a note written two weeks ago is that Friday, "
+                "with its date, not this week's, and the weekly digest reads them "
+                "the same way. Questions about recency are answered from the "
+                "notebook rather than by searching for the words: \"What have I "
+                "saved recently?\", \"what did I write lately\" or \"my last "
+                "note\" lists your newest notes newest first, each cited with when "
+                "it was written, and works with no AI model running."
+            ),
+            "badge": {"label": "Chat", "tab": "chat"},
+        },
+        {
+            "id": "model-downloads",
+            "keywords": (
+                "download a model", "suggested downloads", "suggested models",
+                "which model fits", "fits my computer", "fit my computer", "too big",
+                "hugging face", "huggingface", "pull a model", "install a model",
+                "gguf", "custom model", "model name", "get a model",
+            ),
+            "body": (
+                "Settings, Models, Suggested downloads: cards grouped by purpose "
+                "(chat and filing, bigger machines, search, images, reading "
+                "text), each with its size on disk, the memory it asks for, what "
+                "it is good at and whether it fits this computer, and one "
+                "starting pick per group. One button downloads it or puts it to "
+                "use, with progress and Cancel on the card; Remove and Copy name "
+                "are in its menu. Hide models too big for this computer leaves "
+                "out the ones that will not fit. Download another model takes any "
+                "Ollama model name or a Hugging Face link and says what it is "
+                "before it downloads."
+            ),
+            "badge": {"label": "Models", "section": "models"},
+        },
+        {
+            "id": "accessibility",
+            "keywords": (
+                "accessibility", "accessible", "screen reader", "zoom the app",
+                "browser zoom", "200%", "400%", "keyboard only", "single key",
+                "single-key", "speech input", "voice control", "toast", "toasts",
+                "covering the button", "message covering", "larger text", "bigger text",
+            ),
+            "body": (
+                "Accessibility. The app works at 200% and 400% browser zoom: on a "
+                "short window Chat flows as a page, and sub-tab strips scroll with "
+                "the page so a focused control stays in view. Settings, Keyboard "
+                "shortcuts has Single-key shortcuts: turn it off so speech input "
+                "or a stray key cannot set off m, / or ? and the other keys with "
+                "no Ctrl or Alt. A toast steps aside, fading and letting clicks "
+                "through, while the focused control is under it. For a screen "
+                "reader every tab has one main landmark, editors and panels have "
+                "names, and resize grips say how wide a panel is. Settings, "
+                "Appearance has High contrast, Reduce motion, Text size and Zoom."
+            ),
+            "badge": {"label": "Appearance", "section": "appearance"},
+        },
+    ]
+)
 
 #: How each entry is laid out as a system answer. `title` heads it, `path`
 #: says where it lives, `steps` are there when there is something to do in
@@ -388,6 +791,8 @@ TOPIC_META: dict[str, dict] = {
     "tools-setting": {"title": "Tools it can use", "path": "Settings, Tools it can use"},
     "learned": {"title": "What it learned", "path": "Settings, What it learned"},
     "general-settings": {"title": "General settings", "path": "Settings, General"},
+    "search-index": {"title": "Search and index", "path": "Settings, Search and index"},
+    "answer-style": {"title": "Answer style", "path": "Settings, Personas, Answer style"},
     "background-tasks": {"title": "Background tasks", "path": "Settings, Background tasks"},
     "packages": {"title": "Packages", "path": "Settings, Packages"},
     "import-export": {"title": "Import and export", "path": "Settings, Import & export"},
@@ -399,4 +804,106 @@ TOPIC_META: dict[str, dict] = {
     "tabs-overview": {"title": "The app at a glance", "path": "The tabs along the top"},
     "settings-overview": {"title": "Finding your way round Settings", "path": "The gear in the top bar, or Ctrl+,"},
     "lock": {"title": "Passwords and locking", "path": "Settings, Account & security"},
+    #: Titles for the entries that had none (INBOX 448): Settings, Help lists
+    #: every entry by its title, and an id read aloud ("Files images") is not one.
+    "files-images": {"title": "Pictures, scans and PDFs", "path": "Library tab, Images and Files"},
+    "archive": {"title": "Archiving", "path": "Each item's own menu, and the Library's Archived filter"},
+    "voice": {"title": "Dictation, meetings and read aloud", "path": "Notes tab, the microphone"},
+    "extract-notes": {"title": "Extract notes and the Writing Room", "path": "Notes tab"},
+    "favourites": {"title": "Favourites", "path": "A note's star"},
+    "ocr-workspace": {"title": "The OCR workspace", "path": "Read text, on any image or PDF"},
+    "document-history": {"title": "A document's history", "path": "A document's ... menu, History"},
+    "writing-checks": {"title": "Spelling, grammar and wording", "path": "The document editor"},
+    "notebook-questions": {"title": "Questions about your notebook", "path": "Chat tab, or Ask on the Notes tab"},
+    "contradictions": {"title": "Notes that disagree", "path": "Dashboard tab"},
+    "write-with-atlas": {"title": "Write with Atlas", "path": "Notes tab, Write with Atlas"},
+    "search": {"title": "Searching everything", "path": "Ctrl+P, or the dashboard's search box"},
+    "links": {"title": "Linking notes", "path": "Type [[ in a note"},
+    "performance": {"title": "When the app feels slow", "path": "Settings, Appearance"},
+    "translate": {"title": "Translating", "path": "Notes tab, Write with Atlas"},
+    "tags-categories": {"title": "Tags and categories", "path": "A note's own row, or Capture's Filing menu"},
+    "code-files": {"title": "Code documents", "path": "Library tab, Documents"},
+    "mind-maps": {"title": "Mind maps", "path": "Library tab, Boards and maps"},
+    "whiteboard-controls": {"title": "Whiteboard keys and controls", "path": "Library tab, Boards and maps"},
+    "mind-map-controls": {"title": "Mind map keys and controls", "path": "Library tab, Boards and maps"},
+    "documents-controls": {"title": "Document editor keys and controls", "path": "Library tab, Documents"},
+    "graph-controls": {"title": "Graph keys and controls", "path": "Graph tab"},
+    "chat-controls": {"title": "Chat keys and controls", "path": "Chat tab"},
+    "notes-controls": {"title": "Notes keys, filters and selection", "path": "Notes tab"},
+    "library-controls": {"title": "Library controls", "path": "Library tab"},
+    "timeline-controls": {"title": "Timeline controls", "path": "Timeline tab"},
+    "reminders-controls": {"title": "Reminders controls", "path": "Reminders tab"},
+    "dashboard-controls": {"title": "Dashboard controls", "path": "Dashboard tab"},
+    "hidden-features": {"title": "Hidden features and power keys", "path": "Everywhere"},
+    "quick-note": {"title": "Quick note", "path": "Alt+N, from any tab"},
+    "note-outbox": {"title": "Saving while the server is away", "path": "Notes tab, above Capture"},
+    "attachments": {"title": "Pictures and files in a note", "path": "Capture, or a note being edited"},
+    "filing": {"title": "How a note is filed", "path": "A note's card, beside its category"},
+    "suggested-tags": {"title": "Suggested tags", "path": "A note's card"},
+    "tag-manager": {"title": "Managing tags", "path": "Notes tab, the ... menu, Manage tags"},
+    "manage-categories": {"title": "Managing categories", "path": "Notes tab, the Categories head in the sidebar"},
+    "note-history": {"title": "A note's history", "path": "A note's menu, History"},
+    "notes-list": {"title": "Sorting and browsing notes", "path": "Notes tab, Your notes"},
+    "addresses": {"title": "Every view has an address", "path": "The browser's address bar"},
+    "bookmarks": {"title": "Bookmarks", "path": "Library tab, Bookmarks"},
+    "contents": {"title": "Contents, the notebook's outline", "path": "Library tab, Contents"},
+    "library-skills": {"title": "AI skills in the Library", "path": "Library tab, AI skills"},
+    "ocr-engine": {"title": "Tesseract and the reading language", "path": "The OCR workspace, under the toolbar"},
+    "time-and-recency": {"title": "Dates and recent notes in answers", "path": "Chat tab, or Ask on the Notes tab"},
+    "model-downloads": {"title": "Downloading a model", "path": "Settings, Models, Suggested downloads"},
+    "accessibility": {"title": "Accessibility and zoom", "path": "Settings, Keyboard shortcuts and Appearance"},
 }
+
+#: **How Settings, Help lists the entries** (INBOX 448 (1)). The page used to
+#: hold thirteen hand-written topics beside this table's sixty, kept in step by
+#: hand, and they had drifted (it still taught "g then a letter" for the tab
+#: chord). It is drawn from this table now (`GET /help/topics`, settings-find.js
+#: `renderHelpTopics`), in these groups and this order, so a new entry shows
+#: on the page the moment it exists; `tests/test_help_coverage.py` fails when an
+#: entry is in no group, or in two.
+HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
+    ("Getting started", (
+        "tabs-overview", "tour", "guide", "hidden-features", "shortcuts",
+        "command-palette", "find-anything", "search", "addresses", "settings-overview",
+    )),
+    ("Writing notes", (
+        "capture", "quick-note", "note-outbox", "attachments", "notes-controls",
+        "notes-list", "note-history", "links", "favourites", "templates",
+        "write-with-atlas", "translate", "extract-notes", "voice",
+    )),
+    ("Filing, tags and categories", (
+        "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories",
+    )),
+    ("Asking Atlas", (
+        "ask-chat", "chat-controls", "time-and-recency", "notebook-questions",
+        "contradictions", "skills", "personas", "answer-style", "memory", "learned",
+    )),
+    ("Documents and code", (
+        "documents", "documents-controls", "document-history", "writing-checks", "code-files",
+    )),
+    ("Boards and maps", (
+        "whiteboard", "whiteboard-controls", "mind-maps", "mind-map-controls",
+    )),
+    ("Library and files", (
+        "library", "library-controls", "bookmarks", "contents", "library-skills",
+        "files-images", "ocr-workspace", "ocr-engine", "archive", "undo-bin",
+    )),
+    ("Graph, Timeline, Reminders and Dashboard", (
+        "graph", "graph-controls", "timeline", "timeline-controls", "reminders",
+        "reminders-controls", "dashboard", "dashboard-controls", "notifications", "spaces",
+    )),
+    ("Look and feel", (
+        "appearance", "themes", "accessibility", "performance", "background-art",
+        "statusbar", "companion", "atlas-look", "faces",
+    )),
+    ("Models and the AI", (
+        "models", "model-downloads", "tools-setting", "autonomous", "websearch",
+        "search-index", "packages",
+    )),
+    ("Privacy and your data", (
+        "privacy", "security", "lock", "storage", "import-export", "background-tasks",
+    )),
+    ("Settings and support", (
+        "profile", "general-settings", "updates", "logs", "troubleshooting",
+    )),
+]

@@ -2,8 +2,9 @@
 //
 // At 1440 and 1280 (the rail's widths, NOTES_RAIL_MIN_WIDTH in notes-list.js):
 //   1. with no note open there is no rail;
-//   2. focusing a note in the list (what a click on its body does) brings the
-//      rail, about that note, with its connection groups;
+//   2. opening a note (here: `flashEntry`, every route to a note) brings the
+//      rail, about that note, with its connection groups; a bare focus no
+//      longer opens it (INBOX 432), it only moves a rail already open;
 //   3. the rail does not overlap the list or the sidebar, and the reading
 //      column (`#entry-list`) keeps at least 600px;
 //   4. nothing scrolls sideways;
@@ -44,7 +45,7 @@ async function state(page) {
       shown,
       rail: rect(rail),
       list: rect(document.getElementById('entry-list')),
-      main: rect(document.querySelector('#tab-notes .layout > main')),
+      main: rect(document.querySelector('#tab-notes .layout > .tab-main')),
       sidebar: rect(document.getElementById('sidebar')),
       subject: document.getElementById('notes-rail-subject')?.textContent || '',
       groups: [...document.querySelectorAll('#notes-rail .connection-heading')].map((h) => h.textContent.trim()),
@@ -109,6 +110,7 @@ async function focusLinkedNote(page) {
       const id = Number(li.dataset.id);
       const c = await apiJson(`/entries/${id}/connections`, { silent: true }).catch(() => null);
       if (c && (c.outgoing.length + c.incoming.length) >= 2) {
+        flashEntry(id);
         li.focus();
         return id;
       }
@@ -242,7 +244,7 @@ async function focusLinkedNote(page) {
       await page.click('#notes-rail-toggle');
       await page.waitForTimeout(1200);
       const back = await state(page);
-      check(`${width}: the More menu brings it back`, /Show connections/.test(label) && back.shown, `menu said "${label}", shown ${back.shown}`);
+      check(`${width}: the More menu brings it back`, /Connections beside an open note/.test(label) && back.shown, `menu said "${label}", shown ${back.shown}`);
     } finally {
       await browser.close();
     }

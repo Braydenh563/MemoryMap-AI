@@ -431,6 +431,8 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "edge_bend": None,
         "edge_slide": None,
         "image": None,
+        # And with a topic's place among its siblings (INBOX 445).
+        "order": None,
     }
 
     moved = board_client.put(
@@ -587,7 +589,7 @@ def test_the_frontend_sends_the_board_when_it_moves_a_card():
     # The whiteboard subsystem moved out of app.js into its own file, loaded
     # by a second <script> tag, see index.html, so this comment now lives
     # in whiteboard.js, not app.js.
-    whiteboard_js = (FRONTEND_DIR / "whiteboard.js").read_text(encoding="utf-8")
+    whiteboard_js = (FRONTEND_DIR / "js" / "whiteboard.js").read_text(encoding="utf-8")
     save = whiteboard_js[whiteboard_js.index("// Sync back to API.") :][:900]
     assert "board_id" in save, "the coordinate save must carry the card's board"
 

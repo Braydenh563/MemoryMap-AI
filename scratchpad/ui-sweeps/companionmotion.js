@@ -26,7 +26,8 @@ const { boot } = require("./lib.js");
     nameMarkBuddyMoveTo(buddy, { kind: "card", pose: "stand", legs: "", x: 500, y: 300 }, true);
     await new Promise((res) => setTimeout(res, 700));
     const char = buddy.querySelector(".nm-buddy-char");
-    const leg = buddy.querySelector(".atl-layer-leg-l");
+    // Atlas has had no legs since round 6: its arm eases into the pose instead.
+    const leg = buddy.querySelector(".atl-layer-leg-l") || buddy.querySelector(".atl-figure .nmb-arm-l");
     const angle = () => {
       const m = new DOMMatrix(getComputedStyle(leg).transform);
       return Math.round((Math.atan2(m.b, m.a) * 180) / Math.PI * 10) / 10;

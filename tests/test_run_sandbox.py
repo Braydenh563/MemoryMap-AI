@@ -156,7 +156,7 @@ def test_the_python_line_cap_matches_the_apps_and_is_kept_at_the_source():
     the worker too, at the same number the Output panel stops at."""
     from pathlib import Path
 
-    source = (Path(__file__).resolve().parents[1] / "frontend" / "documents-code.js").read_text(
+    source = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "documents-code.js").read_text(
         encoding="utf-8"
     )
     assert f"const DOC_RUN_MAX_ROWS = {run_sandbox.MAX_LINES};" in source

@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from memorymap.ai import embeddings as embeddings_module
-from memorymap.ai import sampling
+from memorymap.ai import model_cards, sampling
 from memorymap.ai import model_manager as jobs
 from memorymap.ai.model_manager import (
     FOLLOW_CHAT_MODEL,
@@ -24,9 +24,10 @@ from memorymap.ai.model_manager import (
     SUGGESTED_MODELS,
 )
 from memorymap.ai.ollama_client import OllamaError
-from memorymap.core import deps, ocr, security
+from memorymap.core import deps, hardware, ocr, security
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import log_action
+from memorymap.search import search_manager
 
 router = APIRouter(prefix="/models", tags=["models"])
 
@@ -203,8 +204,24 @@ def warm_filing() -> dict:
     jobs.enqueue("file-entry", routes_entries.retry_stand_ins, dedupe_key="retry-stand-ins")
     return {"status": "ok"}
 
+def _embedding_coverage(session: Session) -> dict:
+    """How many live notes search by meaning can find, out of how many there
+    are: the "how well" half of INBOX 431 (3). Two counts on the poll that
+    already runs; the space filter applies as it does to every query."""
+    from sqlalchemy import func, select
+
+    from memorymap.core.database import EmbeddingRecord, Entry
+
+    live = (Entry.is_deleted == False) & (Entry.is_draft == False)  # noqa: E712
+    total = session.scalar(select(func.count(Entry.id)).where(live)) or 0
+    indexed = session.scalar(
+        select(func.count(EmbeddingRecord.id)).join(Entry, Entry.id == EmbeddingRecord.entry_id).where(live)
+    ) or 0
+    return {"indexed": int(indexed), "total": int(total)}
+
+
 @router.get("/status")
-def status() -> dict:
+def status(session: Session = Depends(get_session)) -> dict:
     """One call that tells the UI everything: is Ollama up, what's
     installed, what's active, and whether any job is running."""
     ollama = _CachedCapabilities(deps.get_ollama())
@@ -346,6 +363,9 @@ def status() -> dict:
         "embedding_warming_failed": embeddings_module.warmup_failed(),
         "embedding_error": embeddings.last_error,
         "reindex": jobs.reindex_status(),
+        "embedding_coverage": _embedding_coverage(session),
+        #: How the last search found its notes (`search_manager.last_search`).
+        "last_search": search_manager.last_search(),
         #: How many notes have arrived or gone in bulk since the index was
         #: last rebuilt: asked for as "suggest rebuilding the search index
         #: upon large changes". The status poll already runs; a second
@@ -489,13 +509,56 @@ def suggested() -> dict:
     except Exception:  # noqa: BLE001  # the backend being off is not an error here
         installed = {}
 
-    def described(entry: dict) -> dict:
+    #: The card's numbers (INBOX 444): the memory a model asks for, what it is
+    #: good at, the group's starting pick, and whether it fits this computer.
+    total_gb = hardware.total_memory_gb()
+
+    def described(kind: str, entry: dict) -> dict:
+        entry = model_cards.decorate(kind, entry, total_gb)
         real = installed.get(entry["name"])
         if real:
             return {**entry, "size": _human_bytes(real), "size_source": "measured"}
         return {**entry, "size_source": "approximate"}
 
-    return {kind: [described(m) for m in models] for kind, models in SUGGESTED_MODELS.items()}
+    return {kind: [described(kind, m) for m in models] for kind, models in SUGGESTED_MODELS.items()}
+
+
+@router.get("/hardware")
+def hardware_memory() -> dict:
+    """This computer's memory, for the cards' fit badges. None when unknown."""
+    return {"ram_gb": hardware.total_memory_gb()}
+
+
+class InspectBody(BaseModel):
+    name: str = Field(max_length=2000)
+
+
+def _installed_names() -> set[str]:
+    try:
+        return {str(m.get("name", "")) for m in deps.get_ollama().list_models()}
+    except Exception:  # noqa: BLE001  # the backend being off is not an error here
+        return set()
+
+
+@router.post("/inspect")
+def inspect_model(body: InspectBody) -> dict:
+    """Say what a typed model name is before anything is downloaded.
+
+    "Download another model" (Settings, Models): the person types a tag or
+    pastes a Hugging Face link and is told what it is, where it comes from and
+    whether it is already here. Pure validation, no registry lookup: the app
+    draws its settings offline, and a well-formed name that does not exist is
+    answered by Ollama itself when the download starts.
+    """
+    info = model_cards.inspect_model_name(body.name)
+    if not info["valid"]:
+        return info
+    name = info["name"]
+    names = _installed_names()
+    info["installed"] = name in names or (":" not in name and f"{name}:latest" in names)
+    known = next((m for models in SUGGESTED_MODELS.values() for m in models if m["name"] == name), None)
+    info["suggested"] = {"size": known["size"], "purpose": known["purpose"]} if known else None
+    return info
 
 
 def _human_bytes(count: int) -> str:
@@ -833,6 +896,13 @@ def delete_model(body: PullBody, session: Session = Depends(get_session)) -> dic
 
 @router.post("/pull")
 def pull_model(body: PullBody, session: Session = Depends(get_session)) -> dict:
+    #: A pasted Hugging Face link becomes ``hf.co/owner/repo:QUANT``, and a name
+    #: Ollama could not pull is refused here with the reason, not by a failed
+    #: download (`model_cards.inspect_model_name`).
+    info = model_cards.inspect_model_name(body.name)
+    if not info["valid"]:
+        raise HTTPException(status_code=422, detail=info["error"])
+    body.name = info["name"]
     if not deps.get_ollama().is_running():
         raise HTTPException(
             status_code=409, detail=f"{_backend_label()} isn't running"
@@ -841,4 +911,4 @@ def pull_model(body: PullBody, session: Session = Depends(get_session)) -> dict:
         raise HTTPException(status_code=409, detail=f"Already downloading {body.name}")
     log_action(session, "downloaded", "model", detail=body.name)
     session.commit()
-    return {"pull_started": True, "name": body.name}
+    return {"pull_started": True, "name": body.name, "source": info["source"]}

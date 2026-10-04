@@ -171,7 +171,7 @@ _HOST_RE = re.compile(r"(?:[A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\])(?::\d{1,5})?")
 PYODIDE_PATH = "/documents/pyodide/"
 
 #: The app's cap on a run's output (`DOC_RUN_MAX_ROWS` in
-#: `frontend/documents-code.js`), kept at the source as well; see the worker.
+#: `frontend/js/documents-code.js`), kept at the source as well; see the worker.
 MAX_LINES = 500
 
 

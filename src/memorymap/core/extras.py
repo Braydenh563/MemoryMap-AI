@@ -415,7 +415,8 @@ EXTRAS: tuple[Extra, ...] = (
         label="Search inside images (Tesseract OCR)",
         enables="Text found in an uploaded image (a whiteboard photo, a "
         "scanned page) becomes searchable in the Library's images, so a search "
-        "for a word on that whiteboard finds the photo.",
+        "for a word on that whiteboard finds the photo. The OCR workspace can "
+        "also read a page with it, in the language you choose here.",
         packages=("pytesseract", "Pillow"),
         module="pytesseract",
         size="~10 MB",
@@ -509,8 +510,9 @@ EXTRAS: tuple[Extra, ...] = (
         packages=("needle 3.0.1",),
         module="",
         size="~36 MB",
-        caveat="Telemetry is switched off: MemoryMap sets NEEDLE_TELEMETRY=0 "
-        "and DO_NOT_TRACK=1 before the engine loads.",
+        caveat="Runs offline, inside the app. needle's own tools send usage "
+        "data by default; MemoryMap uses only its engine, which has no network "
+        "code, and switches that setting off anyway. Nothing for you to do.",
         kind="download",
         version="3.0.1",
         licence="Apache-2.0",
@@ -638,11 +640,19 @@ def is_installed(extra: Extra) -> bool:
     if extra.kind == "download":
         return extra_downloads.is_installed(extra)
     try:
-        return importlib.util.find_spec(extra.module) is not None
+        found = importlib.util.find_spec(extra.module) is not None
     except (ImportError, ValueError):
         # A half-installed package can raise here rather than returning None.
         # "Not usable" is the honest answer either way.
         return False
+    #: **OCR is two halves, and the row said "Installed" for one** (INBOX 443
+    #: (3)). `pytesseract` importing proves the Python wrapper, not the
+    #: `tesseract` program, so the Packages row showed a green tick on a
+    #: machine whose Library reads nothing. Installed means it can read, which
+    #: is also what lets the Install button run again to fetch the program.
+    if extra.id == "ocr":
+        return found and ocr.tesseract_available()
+    return found
 
 
 def status() -> list[dict]:
@@ -653,7 +663,9 @@ def status() -> list[dict]:
             "label": extra.label,
             "enables": extra.enables,
             "size": extra.size,
-            "caveat": extra.caveat,
+            #: The OCR caveat explains how the program gets installed; once it
+            #: can read, it is noise under a green "Installed".
+            "caveat": "" if extra.id == "ocr" and is_installed(extra) else extra.caveat,
             "unavailable": unavailable_reason(extra),
             "packages": list(extra.packages),
             "kind": extra.kind,
@@ -969,9 +981,22 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
             # binary), so the honest outcome is still "completed", just
             # with the binary attempt's own result folded into the message.
             _state.step = "Installing the Tesseract program…"
-            _, binary_message = ocr.attempt_binary_install()
+            #: The wrapper was installed by a child process a moment ago; the
+            #: import system caches directory listings, so without this the
+            #: next `find_spec` can still say it is missing.
+            importlib.invalidate_caches()
+            installed, binary_message = ocr.attempt_binary_install()
+            ocr.clear_language_cache()
             _state.log.append(binary_message)
-            _state.step = f"{extra.label} installed: restart MemoryMap to use it. {binary_message}"
+            #: Said as it is (INBOX 443 (3)): this used to say "installed:
+            #: restart MemoryMap to use it" even when the program was missing
+            #: and a restart would change nothing. The reader imports lazily,
+            #: so a ready engine needs no restart.
+            _state.step = (
+                f"{extra.label} is ready. {binary_message}"
+                if installed
+                else f"The Python part is installed, but the Tesseract program is not. {binary_message}"
+            )
         else:
             _state.step = f"{extra.label} installed: restart MemoryMap to use it."
         if code == 0:

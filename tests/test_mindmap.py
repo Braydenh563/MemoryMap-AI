@@ -1788,3 +1788,75 @@ def test_a_map_with_no_cross_links_exports_exactly_as_it_did(client):
     for fmt, marker in (("freemind", "arrowlink"), ("opml", "_links")):
         text = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
         assert marker not in text
+
+
+def test_a_topics_order_among_its_siblings_is_stored_and_read_back(client):
+    """Sibling order (INBOX 445; MINDMAP_PLAN §12.0's Ctrl+Shift+arrows): a
+    topic moved up among its siblings carries `data.order`, and the tree and
+    the exports read the siblings in that order, so it round-trips. Without
+    it the order was creation order and nothing could change it."""
+    board = _map(client, name="Order map")
+    root = _node(client, board["id"], text="Trunk")
+    first = _node(client, board["id"], parent_id=root["id"], text="First")
+    _node(client, board["id"], parent_id=root["id"], text="Second")
+    third = _node(client, board["id"], parent_id=root["id"], text="Third")
+
+    def kids(board_id):
+        tree = client.get(f"/whiteboard/boards/{board_id}/tree").json()
+        return [n["text"] for n in tree["roots"][0]["children"]]
+
+    assert kids(board["id"]) == ["First", "Second", "Third"]
+    # Third to the top: its key goes below First's, which is First's id.
+    moved = {**third, "data": {**third["data"], "order": first["id"] - 0.5}}
+    put = client.put(f"/whiteboard/objects/{third['id']}", json=moved)
+    assert put.status_code == 200, put.text
+    assert put.json()["data"]["order"] == first["id"] - 0.5
+    assert kids(board["id"]) == ["Third", "First", "Second"]
+
+    outline = client.get(f"/whiteboard/boards/{board['id']}/export?format=markdown").text
+    assert outline.index("Third") < outline.index("First") < outline.index("Second")
+    opml = client.get(f"/whiteboard/boards/{board['id']}/export?format=opml").text
+    again = client.post("/whiteboard/boards/import", json={"format": "opml", "content": opml})
+    assert again.status_code == 201, again.text
+    assert kids(again.json()["id"]) == ["Third", "First", "Second"]
+
+
+def test_deleting_a_branch_hands_back_the_cross_links_that_went_with_it(client):
+    """INBOX 445 (2): a branch deleted and restored with Ctrl+Z came back
+    without its cross-links, because the response named the topics and not
+    the link sketches the server dropped with them. They ride along now, as
+    sketch rows, so the client can draw them again between the restored
+    topics. A link from inside the branch to a topic outside it is among
+    them (its far end still exists); a link elsewhere on the board is not."""
+    board = _map(client, name="Links go too")
+    root = _node(client, board["id"], text="Trunk")
+    branch = _node(client, board["id"], parent_id=root["id"], text="Branch")
+    inside = _node(client, board["id"], parent_id=branch["id"], text="Inside")
+    outside = _node(client, board["id"], parent_id=root["id"], text="Outside")
+    other = _node(client, board["id"], parent_id=root["id"], text="Other")
+    across = _cross_link(client, board["id"], inside["id"], outside["id"], label="across")
+    within = _cross_link(client, board["id"], branch["id"], inside["id"])
+    elsewhere = _cross_link(client, board["id"], outside["id"], other["id"])
+
+    res = client.delete(f"/whiteboard/objects/{branch['id']}")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    got = {row["id"]: json.loads(row["data"]) for row in body["links"]}
+    assert set(got) == {across["id"], within["id"]}
+    assert got[across["id"]]["label"] == "across"
+    assert got[across["id"]]["sourceId"] == inside["id"]
+    assert got[across["id"]]["targetId"] == outside["id"]
+    # The server really dropped them, and left the unrelated one.
+    left = client.get(f"/whiteboard/boards/{board['id']}/tree").json()["cross_links"]
+    assert [(link["from_id"], link["to_id"]) for link in left] == [(outside["id"], other["id"])]
+    assert elsewhere["id"] not in got
+
+
+def test_deleting_a_topic_with_no_links_returns_an_empty_list(client):
+    """The new field is empty rather than absent, so a client can read it
+    without a guard."""
+    board = _map(client, name="No links")
+    root = _node(client, board["id"], text="Trunk")
+    leaf = _node(client, board["id"], parent_id=root["id"], text="Leaf")
+    body = client.delete(f"/whiteboard/objects/{leaf['id']}").json()
+    assert body["links"] == []

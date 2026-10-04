@@ -23,7 +23,7 @@ from __future__ import annotations
 from pathlib import Path
 from tests._app_js import app_js_text
 
-APP_JS = Path(__file__).resolve().parent.parent / "frontend" / "app.js"
+APP_JS = Path(__file__).resolve().parent.parent / "frontend" / "js" / "app.js"
 
 #: Containers that hold the user's own words rather than the app's chrome.
 USER_CONTENT_IDS = [
@@ -132,7 +132,7 @@ def test_no_second_password_form():
     """DESIGN.md's recipe for asking the password for one action is the lock
     card in prompt mode. A password field built anywhere else is a second
     form to keep in step with the throttle, the error line and the purge."""
-    html = (APP_JS.parent / "index.html").read_text(encoding="utf-8")
+    html = (APP_JS.parent.parent / "index.html").read_text(encoding="utf-8")
     assert html.count('type="password"') == 4, "lock card plus Change password's three"
     for path in sorted(APP_JS.parent.glob("*.js")):
         source = path.read_text(encoding="utf-8")

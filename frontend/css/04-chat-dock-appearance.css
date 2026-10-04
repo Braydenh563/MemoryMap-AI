@@ -20,7 +20,9 @@
   box-shadow: var(--glass-shadow);
   backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  --control-h: 1.875rem;
+  /* The app's control height (INBOX 437 (4)): this said 1.875rem (30px)
+     beside a graph dock whose controls are all 32. */
+  --control-h: var(--control-h-lg);
 }
 
 :root[data-glass="off"] .graph-trace {
@@ -305,7 +307,7 @@
      "weird shadow": their own shadow, against an edge that has no business
      being hard. A little padding and a rounded clip give the column an edge
      that matches every other surface. */
-#tab-notes .layout>main {
+#tab-notes .layout>.tab-main {
   overflow-y: auto;
   min-height: 0;
   /* Reserve the scrollbar's width whether or not it is showing, so the
@@ -316,7 +318,7 @@
      last note's row of controls, including its ⋯ kebab, sat directly under
      `.scroll-top` once the list was scrolled all the way down, and a real
      click there landed on the button, not the row. INBOX 33: this is now
-     `body.scroll-top-visible #tab-notes .layout > main` below, so a short
+     `body.scroll-top-visible #tab-notes .layout > .tab-main` below, so a short
      page (nothing to scroll, button never shown) does not carry padding
      for a button that was never going to cover anything on it. */
   border-radius: var(--radius-lg);
@@ -327,7 +329,7 @@
    toggles this class in the same `update()` that shows the button, so the
    two can never drift out of sync with each other the way a fixed
    always-on padding and a sometimes-visible button did. */
-body.scroll-top-visible #tab-notes .layout > main {
+body.scroll-top-visible #tab-notes .layout > .tab-main {
   padding-bottom: var(--scroll-top-clearance);
 }
 
@@ -578,11 +580,11 @@ body.scroll-top-visible #tab-notes .layout > main {
    beside it: the mismatched heights that were reported. Neither column
    needs the margin here; the grid's own padding does that job. */
 #tab-chat .layout>aside.card,
-#tab-chat .layout>main>.card {
+#tab-chat .layout>.tab-main>.card {
   margin-bottom: 0;
 }
 
-#tab-chat .layout>main {
+#tab-chat .layout>.tab-main {
   display: flex;
   min-height: 0;
   gap: var(--space-6);
@@ -622,7 +624,7 @@ body.scroll-top-visible #tab-notes .layout > main {
    the whole of <main> and the conversation waits behind it. The ✕ is right
    there, which is what makes that acceptable, it is one click back. */
 @media (max-width: 1100px) {
-  #tab-chat .layout>main:has(#web-panel:not(.hidden))>#chat-main {
+  #tab-chat .layout>.tab-main:has(#web-panel:not(.hidden))>#chat-main {
     display: none;
   }
 
@@ -930,7 +932,12 @@ body.scroll-top-visible #tab-notes .layout > main {
      copied from a screenshot. A custom property set on `.chat-composer`
      itself would not reach `.chat-dock-controls`, its next sibling, since
      inheritance runs down the tree and they are not one another's ancestor. */
-  --composer-h: 2.75rem;
+  /* `--control-h-body` (36px), the composers' row height that Capture, Ask
+     and Write with AI already use (INBOX 437 (4)): a literal 2.75rem made
+     Chat's message row 44px, the tallest composer in the app, at a desk
+     where nothing needs a thumb-sized target. A touch screen or a narrow
+     window still gets `--target-min` (44px there). */
+  --composer-h: max(var(--control-h-body), var(--target-min));
   /* **No background.** Reported as "a weird box shadow behind the bottom dock",
      and that is what it looked like, but the cause was a repaint rather than a
      shadow: this said `background: var(--card)` while sitting *inside* a card
@@ -967,8 +974,13 @@ body.scroll-top-visible #tab-notes .layout > main {
   /* One height for everything in the strip. Not a spacing token: this is a
      control's size, the same role --radius plays for corners, and snapping it
      to a gap step would make it drift with density in a way a hit target
-     should not. */
-  --control-h: 1.875rem;
+     should not.
+     `--control-h-lg` (32px), the height every other bar in the app uses
+     (INBOX 437 (4)): a literal 1.875rem kept this strip at 30px, the one
+     row of controls left two pixels short after the density pass. The
+     `max` is the touch band's floor (44px below 820): at 200% zoom the mode
+     segment's 44px buttons sat in a 32px well and were cut off (INBOX 433). */
+  --control-h: max(var(--control-h-lg), var(--target-min));
 }
 
 /* **The free space between the left groups and the right pair, and all of
@@ -1318,6 +1330,17 @@ body.scroll-top-visible #tab-notes .layout > main {
 
 .chat-dock-more-row select {
   width: auto;
+}
+
+/* The selects in the chat's sidebar and in the More panel are dressed as
+   `.select-opener`, whose own padding made them 37px beside 32px buttons in
+   the same card (INBOX 437 (4)). The opener takes the row's height, as the
+   strip's model picker already does. */
+#chat-sidebar .select-shell > .select-opener,
+.chat-dock-more-row .select-shell > .select-opener {
+  height: max(var(--control-h-lg), var(--target-min));
+  min-height: max(var(--control-h-lg), var(--target-min));
+  padding-block: 0;
 }
 
 #chat-dock-more-btn[aria-expanded="true"],
@@ -1700,7 +1723,7 @@ body.scroll-top-visible #tab-notes .layout > main {
   /* The strip declares its height and every control in it is that tall
      (DESIGN.md, "Control height"). 36px, above the app's 28px floor,
      because these carry no label to widen them. */
-  --control-h: 2.25rem;
+  --control-h: var(--control-h-lg);
 }
 
 .graph-popup-tool-group {
@@ -1828,7 +1851,7 @@ body.scroll-top-visible #tab-notes .layout > main {
   max-width: calc(100% - 1rem);
   /* Named so the actions footer below can reach the panel's own edges
      without a second copy of this number going stale against it. */
-  --graph-popup-pad: 0.8rem;
+  --graph-popup-pad: var(--panel-pad);
   padding: var(--graph-popup-pad);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
@@ -2710,6 +2733,20 @@ span > .chip {
   text-overflow: ellipsis;
 }
 
+/* A category's mark in the sidebar: its colour dot, the one a note's chip
+   and the Manage categories panel already draw, in a box the width of the
+   glyph Drafts and Favourites lead with, so every name in the list starts on
+   one edge (INBOX 437 (4): All and the categories began 23px left of Drafts,
+   Favourites and Tags). */
+.category-row-dot {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--category-dot) 0 30%, transparent calc(30% + 0.5px));
+}
+
 /* Absolutely positioned, so it overlays the row on hover instead of sitting
    in the flow. `opacity: 0` hides it but keeps its width, so every category
    row reserved space for buttons nobody could see, and "All", which has no
@@ -2806,8 +2843,8 @@ span > .chip {
   max-height: 24rem;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  padding: 0.8rem;
+  gap: var(--space-3);
+  padding: var(--panel-pad);
   border-radius: var(--radius);
   border: 1px solid var(--glass-border);
   background: var(--modal-bg);
@@ -2839,13 +2876,15 @@ span > .chip {
   }
 }
 
+/* A row is the rich-picker row's anatomy (DESIGN.md): the box, then the name
+   over one muted line of what it is, at the list-row inset. INBOX 467. */
 .note-picker-list label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.4rem;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
 }
 
 .note-picker-list input[type="checkbox"] {
@@ -2862,15 +2901,33 @@ span > .chip {
   white-space: nowrap;
 }
 
-/* The row's one-word fact never shrinks or wraps: `.note-picker-text` above
-   is the only column that gives up width, the same "chip is the one zone
-   that never shrinks" rule `.panel-head` uses. Without this a long file
-   name could squeeze the chip's own flex-basis down to where its text
-   wrapped onto a second line, the one thing a chip (a single fact, DESIGN.md)
-   is never supposed to do. */
-.note-picker-list .chip {
-  flex: none;
+/* The second line: what the row is, as quiet text and never a filled badge.
+   A note's is its category (a dot in the category's own colour, the Library
+   card's shape); a document's, file's or map's is its kind; a picture's is its
+   caption. One line, ellipsised, so every row is one height. */
+.note-picker-meta {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.note-picker-category {
+  --category-dot: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.note-picker-category::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+  background: var(--category-dot);
 }
 
 /* **A search field with a leading glyph.** Generalised from the Web panel's
@@ -2892,7 +2949,7 @@ span > .chip {
   flex: none;
   height: var(--control-h-lg);
   padding: 0 var(--space-2) 0 var(--space-3);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--ink) 25%);
+  border: 1px solid var(--control-edge);
   border-radius: var(--radius-md);
   background: var(--input-bg);
   box-shadow: inset 0 1px 2px var(--field-inset);
@@ -2938,9 +2995,15 @@ span > .chip {
   font-size: 0.85rem;
 }
 
+/* The dialog footer recipe (`.space-dialog-actions`) with what is held on the
+   left. The recipe's own top margin is the column's gap here. */
 .note-picker-foot {
-  gap: 0.5rem;
-  font-size: 0.8rem;
+  margin-top: var(--space-2);
+}
+
+.note-picker-foot > #note-picker-count {
+  margin-right: auto;
+  font-size: var(--text-sm);
 }
 
 .chat-attachments {
@@ -3041,21 +3104,6 @@ span > .chip {
   white-space: nowrap;
 }
 
-.entry-attachment-chip-actions {
-  justify-content: center;
-}
-
-.attachment-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: 0 0 var(--space-3);
-}
-
-.attachment-chips.hidden {
-  display: none;
-}
-
 .attachment-remove {
   border: 0;
   background: none;
@@ -3103,7 +3151,7 @@ span > .chip {
      without repeating the number. `.draft-controls` declares the same value
      for its own controls; this is the one that reaches everything else in the
      column. */
-  --control-h: 2.5rem;
+  --control-h: var(--control-h-body);
 }
 
 /* **The box is what grows; everything else keeps its own height.** The two
@@ -3192,7 +3240,7 @@ span > .chip {
 .draft-controls {
   gap: 0.4rem;
   flex-wrap: wrap;
-  --control-h: 2.5rem;
+  --control-h: var(--control-h-body);
 }
 
 .draft-controls input,
@@ -3233,7 +3281,7 @@ span > .chip {
      against the Library's own 36px, from the root fallback. The `max()` keeps
      both bands honest at once, 36px where the Library's are and the touch
      floor below 820, without writing either number twice. */
-  --control-h: max(2.25rem, var(--target-min));
+  --control-h: max(var(--control-h-lg), var(--target-min));
 }
 
 /* The three selects and the adder are one family on one line, so they take
@@ -3304,21 +3352,6 @@ span > .chip {
   flex: 0 0 auto;
 }
 
-/* **Bounded on purpose, and measured.** The thinking was an unstyled `<pre>`
-   (it had no rule anywhere in the app), so the moment it opened it grew the
-   column from 539px to 1576px: a 1031px panel thrown under the draft it is
-   about, while that draft is still being written. Capped and scrolled, the
-   disclosure costs the same 8rem wherever it opens, and app.js keeps the
-   newest line in view while the model is writing it. */
-.thinking-text {
-  max-height: 8rem;
-  overflow: auto;
-  margin: 0;
-  white-space: pre-wrap;
-  font-size: var(--text-xs);
-  color: var(--muted);
-}
-
 .draft-versions {
   display: flex;
   flex-wrap: wrap;
@@ -3336,7 +3369,7 @@ span > .chip {
    this is where the attention belongs right now. */
 #writing-room.draft-writing #draft-text,
 #writing-room.draft-writing .note-surface {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-color: var(--accent-text);
 }
 
 /* **A desk has a working height of its own.** With both boxes on `rows="7"`
@@ -3685,7 +3718,7 @@ span > .chip {
 
 .doc-list-title {
   font-weight: 600;
-  font-size: var(--text-body);
+  font-size: var(--text-lg);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4434,7 +4467,7 @@ span > .chip {
      `0.5rem` of padding is what stops a wrapped label touching its own border
      in a narrow dialog. `--control-h-lg` was measured first and left the
      buttons 4px over the rest, which is the failure this is fixing. */
-  --control-h: 2.5rem;
+  --control-h: var(--control-h-body);
 }
 
 /* The field is single-line by nature and is pinned to the strip height; the
@@ -4854,7 +4887,7 @@ span > .chip {
    affordance that says "these controls belong to this box" without drawing a
    second border round them. */
 .chat-dock:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-color: var(--accent-text);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
@@ -5175,10 +5208,10 @@ input.doc-title-input::placeholder {
      which with the tab's 12.8px and the card's 16px left the transcript 278px
      of a 390px window.
 
-     `.sidebar-panel ~ main`, because `main` is the sidebar's *sibling*: the
+     `.sidebar-panel ~ .tab-main`, because `main` is the sidebar's *sibling*: the
      rule that pays for the toggle is written for the elements after the panel,
      and `main` is the one that matters here. */
-  #tab-chat .sidebar-panel ~ main {
+  #tab-chat .sidebar-panel ~ .tab-main {
     padding-left: 0;
   }
 
@@ -5637,7 +5670,23 @@ input.doc-title-input::placeholder {
   background: var(--ghost-btn-bg);
 }
 
-.manage-cat-row:focus-visible {
+/* The keyboard's stop is the row's first cell (a grid, INBOX 433): the dot,
+   the name and the count, laid out as the row laid them out, and the ring
+   stays the row's. */
+.manage-cat-main {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  align-self: stretch;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.manage-cat-main:focus-visible {
+  outline: none;
+}
+
+.manage-cat-row:has(> .manage-cat-main:focus-visible) {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
@@ -5650,6 +5699,32 @@ input.doc-title-input::placeholder {
   color: var(--accent-text);
 }
 
+/* The tag manager's row carries a hash where a category carries its dot. */
+.manage-tag-glyph {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+/* The bulk tag dialog (tag-manager.js): the add field over the tick list. */
+.bulk-tags-field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.bulk-tags-remove {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.bulk-tags-remove > legend {
+  padding: 0;
+  margin-bottom: var(--space-1);
+}
+
 .manage-cat-dot {
   width: 0.625rem;
   height: 0.625rem;
@@ -5658,25 +5733,107 @@ input.doc-title-input::placeholder {
   background: var(--category-dot);
 }
 
+/* The swatch picker (DESIGN.md, "A choice among colours"): a radiogroup of
+   round swatches, six to a row, and one worded Automatic below them. The hue
+   is `--swatch`, set through the CSSOM by swatchPicker (categories-panel.js).
+   The checked swatch wears a ring in the body ink outside a gap in the card's
+   own ground, so the choice is a shape and not only a colour; the focus ring
+   sits outside that ring so a checked, focused swatch shows both. */
+.swatch-card .swatch-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  font-weight: 500;
+}
+
+.swatch-card .swatch-preview::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background: var(--category-dot);
+}
+
+.swatch-picker {
+  display: grid;
+  grid-template-columns: repeat(6, max-content);
+  justify-content: start;
+  gap: var(--space-4);
+  padding: var(--space-2);
+}
+
+.swatch-option {
+  --swatch: transparent;
+  width: max(2rem, var(--target-min));
+  height: max(2rem, var(--target-min));
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.swatch-option:hover:not([aria-checked="true"]) {
+  box-shadow: 0 0 0 var(--space-1) var(--modal-bg-opaque), 0 0 0 calc(var(--space-1) + 2px) var(--muted);
+}
+
+.swatch-option[aria-checked="true"] {
+  box-shadow: 0 0 0 var(--space-1) var(--modal-bg-opaque), 0 0 0 calc(var(--space-1) + 2px) var(--ink);
+}
+
+.swatch-option:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: calc(var(--space-1) + 4px);
+}
+
+.swatch-option.swatch-auto {
+  grid-column: 1 / -1;
+  justify-self: start;
+  width: auto;
+  height: auto;
+  min-height: var(--target-min);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.swatch-option.swatch-auto[aria-checked="true"] {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+
+.swatch-option.swatch-auto:focus-visible {
+  outline-offset: 2px;
+}
+
 .manage-cat-name {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* The note count is quiet text after the name ("Hobbies · 10"), on the
+   name's own baseline: not a pill (INBOX 466, the owner: "all these numbers
+   floating"). */
 .manage-cat-count {
   flex: 0 0 auto;
-  min-width: 2.25em;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--chip-bg);
+  margin-inline-end: auto;
   color: var(--muted);
-  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
-  text-align: center;
-  line-height: 1.6;
+}
+
+.manage-cat-count::before {
+  content: "\00b7";
+  margin-inline-end: var(--space-1);
 }
 
 /* The ⋯ is a ghost icon, the head's own button shape, shown on hover or

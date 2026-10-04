@@ -30,6 +30,8 @@ person pressing a button.
 
 from __future__ import annotations
 
+import re
+
 OPEN = "<<<data"
 CLOSE = "<<<end data>>>"
 
@@ -78,3 +80,52 @@ def fence_result(value, kind: str = "tool result"):
     if isinstance(value, list):
         return [fence_result(item, kind) for item in value]
     return value
+
+
+#: A marker as a model echoes it back: either fence line, with the spaces and
+#: the one line break around it, so taking it out leaves no blank line.
+_ECHOED_MARKER = re.compile(r"[ \t]*<<<(?:end data|data[^<>\n]{0,40})>>>[ \t]*\n?")
+
+
+def _could_become_marker(tail: str) -> bool:
+    """Whether the end of a streamed answer may be the start of a marker."""
+    lead = len(tail) - len(tail.lstrip("<"))
+    rest = tail[lead:]
+    if lead < 3:
+        return rest == ""
+    return (
+        "end data>>>".startswith(rest)
+        or "data".startswith(rest)
+        or re.fullmatch(r"data[^<>\n]{0,40}>{0,2}", rest) is not None
+    )
+
+
+class AnswerScrubber:
+    """Takes the fence markers back out of a streamed answer.
+
+    A small model echoes what it read, markers and all: Qwen2.5-1.5B quoted
+    "<<<data note>>> ... <<<end data>>>" straight into a popup agent answer
+    (INBOX 432, measured through llama.cpp). The markers are for the model;
+    the person should never see them. Streamed text arrives a token at a
+    time, so a marker can be split across deltas: whatever could still turn
+    into one is held back until the next delta settles it, and `flush` hands
+    back anything held at the end of the answer.
+    """
+
+    def __init__(self) -> None:
+        self._held = ""
+
+    def feed(self, delta: str) -> str:
+        text = _ECHOED_MARKER.sub("", self._held + (delta or ""))
+        self._held = ""
+        cut = text.rfind("<<<")
+        if cut == -1 or not _could_become_marker(text[cut:]):
+            cut = len(text.rstrip("<"))
+            if cut == len(text):
+                return text
+        self._held = text[cut:]
+        return text[:cut]
+
+    def flush(self) -> str:
+        held, self._held = self._held, ""
+        return held

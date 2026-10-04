@@ -7,17 +7,19 @@ calls run (plan §4).
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import threading
 import re
 from datetime import date, timedelta
+from collections import OrderedDict
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import extractor, janitor, learning, librarian, links
@@ -34,7 +36,8 @@ from memorymap.api.schemas import (
     LinkOut,
     SimilarOut,
 )
-from memorymap.core import deps, events, jobs, vault
+from memorymap.core import deps, events, jobruns, jobs, vault
+from memorymap.core.events import ACTOR_USER_AND_AI
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
     AuditLog,
     Bookmark,
@@ -54,6 +57,7 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
 from memorymap.core.database import LIKE_ESCAPE
 from memorymap.core.deps import get_session
 from memorymap.entry import duplicates, manager
+from memorymap.entry.tagnames import inline_tags, normalise_tags
 from memorymap.search import engine as search_engine
 from memorymap.search import search_manager
 
@@ -113,8 +117,10 @@ def _to_out(
         ),
         tags=manager.entry_tags(entry),
         ai_confidence=entry.ai_confidence,
+        suggested_tags=_open_suggestions(entry),
         access_count=entry.access_count,
         last_opened_at=getattr(entry, "last_opened_at", None),
+        edited_at=getattr(entry, "edited_at", None),
         parent_id=entry.parent_id,
         pinned=entry.pinned,
         user_filed=entry.user_filed,
@@ -154,6 +160,7 @@ def _to_out(
                 filename=a.filename,
                 size=a.size,
                 is_image=a.mime.startswith("image/"),
+                created_at=a.created_at.isoformat() if a.created_at else "",
             )
             for a in resolved_attachments
         ],
@@ -161,6 +168,51 @@ def _to_out(
         filing_state=getattr(entry, "filing_state", "done") or "done",
         similar=similar,
     )
+
+
+def _json_tags(raw: str | None) -> list[str]:
+    try:
+        value = json.loads(raw or "[]")
+    except (TypeError, ValueError):
+        return []
+    return [str(tag) for tag in value if tag] if isinstance(value, list) else []
+
+
+def _open_suggestions(entry) -> list[str]:  # noqa: ANN001
+    """The kept suggestions still worth showing: not on the note already and
+    not discarded (a tag added by hand since filing drops out by itself)."""
+    have = {tag.casefold() for tag in manager.entry_tags(entry)}
+    gone = {tag.casefold() for tag in _json_tags(getattr(entry, "discarded_tags", "[]"))}
+    return [
+        tag for tag in _json_tags(getattr(entry, "suggested_tags", "[]"))
+        if tag.casefold() not in have and tag.casefold() not in gone
+    ]
+
+
+def _keep_suggestions(session: Session, entry, filed_by: str | None) -> None:  # noqa: ANN001
+    """Make the note's tag suggestions at filing and keep them on it (INBOX
+    440). The model's when it is the one that filed (it is up and answering);
+    otherwise the notebook's own: the tags its nearest notes carry, and the
+    vocabulary tags the note names. Best effort, never fails the filing."""
+    have = manager.entry_tags(entry)
+    discarded = {tag.casefold() for tag in _json_tags(getattr(entry, "discarded_tags", "[]"))}
+    suggested: list[str] = []
+    if filed_by == "llm":
+        try:
+            suggested = librarian.suggest_tags(
+                entry.content, have, deps.get_model_manager(), deps.get_ollama(),
+                vocabulary=_tag_vocabulary(session),
+            )
+        except Exception:
+            logger.info("tag suggestions from the model failed; using the notebook's own", exc_info=True)
+    if not suggested:
+        from memorymap.ai import lexical_filing
+
+        suggested = lexical_filing.suggest_tags(
+            session, manager.readable_content(entry), have=have, exclude_entry_id=entry.id
+        )
+    keep = [tag for tag in suggested if tag.casefold() not in discarded][:5]
+    entry.suggested_tags = json.dumps(keep)
 
 
 def _to_out_bulk(session: Session, entries: list) -> list[EntryOut]:
@@ -395,9 +447,7 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 # hand legible as a correction, and it is terminal for every
                 # reader, the composer's poller stops on anything but
                 # `pending`.
-                entry.filing_state = (
-                    manager.AUTO_FILED if janitor.is_ai_method(filed_by) else "done"
-                )
+                entry.filing_state = janitor.settled_state(filed_by)
                 # A model answer is still coming: the note is a stand-in
                 # until it lands, and is retried next launch if it never does.
                 if late.is_waiting and filed_by != "llm":
@@ -416,6 +466,12 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                 if duplicate is not None:
                     entry.filing_similar_id = duplicate.id
                 session.commit()
+                try:
+                    _keep_suggestions(session, entry, filed_by)
+                    session.commit()
+                except Exception:
+                    logger.warning("couldn't keep tag suggestions for entry %s", entry_id, exc_info=True)
+                    session.rollback()
     except Exception:
         logger.warning("background filing failed for entry %s", entry_id, exc_info=True)
         try:
@@ -474,8 +530,38 @@ def _queue_filing(entry) -> None:
     )
 
 
+#: client_key -> (workspace, entry id) for the notes the offline queue has
+#: delivered, newest last. In memory and bounded: the window it covers is one
+#: resend of a save whose answer was lost, seconds to minutes, and a
+#: process that restarted in between is the one case it cannot see (said in
+#: INBOX 434's report, not hidden).
+_DELIVERED: OrderedDict[str, tuple[str, int]] = OrderedDict()
+_DELIVERED_MAX = 512
+
+
+def _already_delivered(session: Session, key: str | None):
+    if not key or key not in _DELIVERED:
+        return None
+    workspace, entry_id = _DELIVERED[key]
+    entry = session.get(Entry, entry_id)
+    if entry is None or (getattr(entry, "workspace_id", "default") or "default") != workspace:
+        return None
+    return entry
+
+
+def _remember_delivery(key: str | None, entry) -> None:
+    if not key:
+        return
+    _DELIVERED[key] = (getattr(entry, "workspace_id", "default") or "default", entry.id)
+    while len(_DELIVERED) > _DELIVERED_MAX:
+        _DELIVERED.popitem(last=False)
+
+
 @router.post("", response_model=EntryOut, status_code=201)
 def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> EntryOut:
+    earlier = _already_delivered(session, body.client_key)
+    if earlier is not None:
+        return _to_out(session, earlier, filed_by=None, similar=None)
     parent = None
     if body.parent_id is not None:
         parent = _existing_entry(session, body.parent_id)
@@ -502,11 +588,12 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     else:
         category, confidence, filed_by = _file_entry_now(session, body.content)
 
+    tags = normalise_tags([*body.tags, *inline_tags(body.content)]) if body.inline_tags else body.tags
     entry = manager.create_entry(
         session,
         content=body.content,
         category_name=category,
-        tags=body.tags,
+        tags=tags,
         ai_confidence=confidence,
     )
     if parent is not None:
@@ -520,9 +607,19 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         entry.source_title = body.source_title
     if defer:
         entry.filing_state = "pending"
-    elif janitor.is_ai_method(filed_by):
-        entry.filing_state = manager.AUTO_FILED
+    elif janitor.settled_state(filed_by) != "done":
+        entry.filing_state = janitor.settled_state(filed_by)
     session.commit()
+    if not defer:
+        #: Filed already: keep its tag suggestions now, from the notebook's
+        #: own tags (no second model call on the request; a deferred note
+        #: gets the model's in the background pass).
+        try:
+            _keep_suggestions(session, entry, None)
+            session.commit()
+        except Exception:
+            logger.warning("couldn't keep tag suggestions for a new note", exc_info=True)
+            session.rollback()
 
     # Best effort: a failed embedding only means this entry is invisible
     # to semantic search until re-indexed, never a failed save. It is logged
@@ -570,6 +667,7 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     # visible to its own session.
     if defer:
         _queue_filing(entry)
+    _remember_delivery(body.client_key, entry)
 
     return out
 
@@ -862,13 +960,52 @@ def filing_status(entry_id: int, session: Session = Depends(get_session)) -> dic
                 "id": other.id,
                 "preview": _preview(manager.readable_content(other)),
             }
+    state = getattr(entry, "filing_state", "done") or "done"
+    category = manager.category_name_for(session, entry)
+    filed_by = _filed_by(entry, state)
+    #: Nothing was sure enough to file it: up to three categories to offer as
+    #: one-tap choices (INBOX 434), the ones its words lean to first.
+    suggestions: list[str] = []
+    if filed_by == "none" and category == manager.UNCATEGORISED:
+        from memorymap.ai import lexical_filing
+
+        try:
+            suggestions = lexical_filing.suggest_categories(
+                session, manager.readable_content(entry) or "", exclude_entry_id=entry.id
+            )
+        except Exception:  # noqa: BLE001 - a hint never fails the status
+            logger.debug("no category suggestions for entry %s", entry.id, exc_info=True)
     return {
         "id": entry.id,
-        "filing_state": getattr(entry, "filing_state", "done") or "done",
-        "category": manager.category_name_for(session, entry),
+        "filing_state": state,
+        "category": category,
         "ai_confidence": entry.ai_confidence,
         "similar": similar,
+        "filed_by": filed_by,
+        "suggestions": suggestions,
     }
+
+
+def _filed_by(entry, state: str) -> str:  # noqa: ANN001
+    """Who decided, in the composer's three words (INBOX 432).
+
+    `ai` when the model or a match by meaning chose; `user` when the person
+    did; `none` when nothing could, which is a note left in Uncategorised
+    with no AI behind it. The composer said "Filed under Uncategorised (0%
+    sure)" for that last one, which reads as a decision when it is the
+    absence of one, and offered no way to pick a category instead.
+    """
+    if getattr(entry, "user_filed", False):
+        return "user"
+    if state == manager.WORDS_FILED:
+        return "words"
+    if state in (manager.AUTO_FILED, manager.STAND_IN):
+        return "ai"
+    if state == "pending":
+        return "pending"
+    if state == "failed" or not (entry.ai_confidence or 0):
+        return "none"
+    return "ai"
 
 
 def _tag_vocabulary(session: Session) -> list[str]:
@@ -919,6 +1056,37 @@ def suggest_tags_for_draft(
     return {"suggested_tags": suggested}
 
 
+class SuggestedTagsBody(BaseModel):
+    take: list[str] = Field(default_factory=list, max_length=20)
+    discard: list[str] = Field(default_factory=list, max_length=20)
+
+
+@router.post("/{entry_id}/suggested-tags", response_model=EntryOut)
+def answer_suggested_tags(
+    entry_id: int, body: SuggestedTagsBody, session: Session = Depends(get_session)
+) -> EntryOut:
+    """Take or discard the tags filing suggested (INBOX 440). A taken tag is
+    added like one typed by hand; a discarded one is remembered so no later
+    filing pass offers it on this note again."""
+    entry = _existing_entry(session, entry_id)
+    offered = {tag.casefold(): tag for tag in _json_tags(entry.suggested_tags)}
+    take = [offered.get(tag.casefold(), tag.strip()) for tag in body.take if tag.strip()]
+    if take:
+        have = manager.entry_tags(entry)
+        folded = {tag.casefold() for tag in have}
+        manager.update_entry(session, entry, tags=have + [tag for tag in take if tag.casefold() not in folded])
+    gone = _json_tags(entry.discarded_tags)
+    gone_folded = {tag.casefold() for tag in gone}
+    gone += [tag.strip() for tag in body.discard if tag.strip() and tag.strip().casefold() not in gone_folded]
+    entry.discarded_tags = json.dumps(gone[-200:])
+    answered = {tag.casefold() for tag in [*take, *body.discard]}
+    entry.suggested_tags = json.dumps(
+        [tag for tag in _json_tags(entry.suggested_tags) if tag.casefold() not in answered]
+    )
+    session.commit()
+    return _to_out(session, entry)
+
+
 @router.post("/{entry_id}/context", response_model=EntryOut)
 def add_context(
     entry_id: int, body: ContextBody, session: Session = Depends(get_session)
@@ -928,6 +1096,7 @@ def add_context(
     entry themselves, the category is left alone, their call stands."""
     entry = _existing_entry(session, entry_id)
     entry.content = f"{entry.content}\n\n--- added context ---\n{body.text.strip()}"
+    manager.mark_edited(entry)
     manager.log_action(session, "edited", "entry", entry.id, "context added")
     session.commit()
 
@@ -967,8 +1136,8 @@ def add_context(
                 # The same two lines as the create paths: a category the AI
                 # chose here is one a later move by hand corrects, and without
                 # the flag that correction went unrecorded (Brief 13).
-                if janitor.is_ai_method(filed_by):
-                    entry.filing_state = manager.AUTO_FILED
+                if janitor.settled_state(filed_by) != "done":
+                    entry.filing_state = janitor.settled_state(filed_by)
                 session.commit()
         except Exception:
             logger.warning("re-filing after new context failed", exc_info=True)
@@ -1005,6 +1174,10 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
     # 1. Re-file: refresh confidence, and the category if the AI owns it.
     filed_by = None
     recategorised_to = None
+    # The last "filing" run (INBOX 438). This step swallows its own errors so a
+    # down model never fails the re-evaluation, which is exactly why the record
+    # has to be told about them: `refiling` is how the screen hears.
+    refiling = jobruns.begin("filing")
     try:
         category, confidence, filed_by = janitor.categorise(
             session,
@@ -1026,12 +1199,21 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
                     recategorised_to = category
                 # As on adding context: the AI owns this category now, so a
                 # move by hand is a correction the filing loop should read.
-                if janitor.is_ai_method(filed_by):
-                    entry.filing_state = manager.AUTO_FILED
+                if janitor.settled_state(filed_by) != "done":
+                    entry.filing_state = janitor.settled_state(filed_by)
             session.commit()
-    except Exception:
+            refiling.result = (
+                f"note {entry.id} moved to {recategorised_to}"
+                if recategorised_to
+                else f"note {entry.id} re-read, category kept"
+            )
+        else:
+            refiling.fail("No filing model or embeddings were available.")
+    except Exception as exc:
         logger.warning("re-evaluation's filing step failed", exc_info=True)
         filed_by = None  # AI down, keep the note exactly as it was
+        refiling.fail(exc)
+    refiling.finish()
 
     # 2. Suggest tags (best effort: never blocks the re-evaluation).
     suggested_tags: list[str] = []
@@ -1470,6 +1652,19 @@ def backfill_link_reasons(
     why a failure here is reported in the result rather than raised.
     """
     options = body or BackfillReasonsBody()
+    with jobruns.job_run("link-reasons") as run:
+        result = _backfill_reasons(session, options)
+        run.result = (
+            f"checked {result.get('checked', 0)} links, "
+            f"added {result.get('updated', 0)} reasons, "
+            f"reworded {result['rewritten']}"
+        )
+        if result.get("ai_unavailable"):
+            run.result += " (the model was not available)"
+    return result
+
+
+def _backfill_reasons(session: Session, options: "BackfillReasonsBody") -> dict:
     result = manager.backfill_link_reasons(session)
 
     result["rewritten"] = 0
@@ -1752,9 +1947,12 @@ def entry_reference_counts(
         select(Entry).where(Entry.id.in_(wanted), Entry.is_deleted.is_(False))
     ).all()
     counts: dict[str, dict[str, int]] = {}
+    #: The whole page in one go (`_reference_rows_batch`): the per-note reader
+    #: this called was four statements a card, and sixty cards at every unlock.
+    page = _reference_rows_batch(session, list(entries))
     for entry in entries:
         by_kind: dict[str, int] = {}
-        for row in _reference_rows(session, entry):
+        for row in page[entry.id]:
             by_kind[row["kind"]] = by_kind.get(row["kind"], 0) + 1
         by_kind["total"] = sum(by_kind.values())
         counts[str(entry.id)] = by_kind
@@ -1876,17 +2074,19 @@ def update_entry(
         )
     content_changed = body.content is not None and body.content != entry.content
     tags_changed = body.tags is not None and body.tags != manager.entry_tags(entry)
-    # Snapshot BEFORE the change, so the newest revision is always the version
-    # being replaced rather than the one replacing it.
-    if content_changed or tags_changed:
-        manager.record_revision(session, entry)
-    manager.update_entry(
-        session,
-        entry,
-        content=body.content,
-        category_name=body.category,
-        tags=body.tags,
-    )
+    #: A save that carries an applied Atlas suggestion is both of theirs.
+    with events.acting_as(ACTOR_USER_AND_AI) if body.ai_assisted else contextlib.nullcontext():
+        # Snapshot BEFORE the change, so the newest revision is always the
+        # version being replaced rather than the one replacing it.
+        if content_changed or tags_changed:
+            manager.record_revision(session, entry)
+        manager.update_entry(
+            session,
+            entry,
+            content=body.content,
+            category_name=body.category,
+            tags=body.tags,
+        )
     if body.pinned is not None and body.pinned != entry.pinned:
         entry.pinned = body.pinned
         manager.log_action(
@@ -2032,9 +2232,9 @@ REFERENCE_SOURCES_MAX = 400
 REFERENCE_ROWS_MAX = 60
 
 
-def _board_reference_rows(session: Session, entry: Entry) -> list[dict]:
-    """The boards and maps a note is on, one row per board, boards and maps
-    told apart.
+def _board_reference_rows_batch(session: Session, entry_ids: list[int]) -> dict[int, list[dict]]:
+    """The boards and maps each of these notes is on, one row per board,
+    boards and maps told apart. Two statements for the whole page.
 
     Two tables hold "this note is on that board", and a reader that knows
     one of them is wrong half the time (INBOX 246's first gap). A whiteboard
@@ -2050,65 +2250,80 @@ def _board_reference_rows(session: Session, entry: Entry) -> list[dict]:
     schema was tightened can hold anything. Shared by the Referenced-by row,
     the Connections dialog and the card's counts, so the three cannot
     disagree about what a board reference is.
+
+    **A page at a time** (the performance pass, 2026-10-03). This was a pair
+    of statements per note, so sixty cards were a hundred and twenty trips,
+    each scanning `whiteboard_nodes` (no index on `entry_id`) and every
+    `note` object of every map. `IN (...)` over the page is the same two
+    scans once. Rows are read in id order, which is the order the per-note
+    reads happened to return them in, and which makes the order a fact
+    rather than the planner's choice.
     """
     from memorymap.entry.manager import plain_label
 
-    seen_boards: set[int] = set()
-    found: list[tuple[int, Entry]] = []
-    for board_id, board in session.execute(
-        select(WhiteboardNode.board_id, Entry)
+    wanted = set(entry_ids)
+    seen_boards: dict[int, set[int]] = {i: set() for i in wanted}
+    found: dict[int, list[tuple[int, Entry]]] = {i: [] for i in wanted}
+    if not wanted:
+        return {}
+    for entry_id, board_id, board in session.execute(
+        select(WhiteboardNode.entry_id, WhiteboardNode.board_id, Entry)
         .join(Entry, Entry.id == WhiteboardNode.board_id)
         .where(
-            WhiteboardNode.entry_id == entry.id,
+            WhiteboardNode.entry_id.in_(wanted),
             Entry.is_deleted.is_(False),
         )
-        .limit(REFERENCE_ROWS_MAX)
+        .order_by(WhiteboardNode.id)
     ).all():
-        if board_id is None or board_id in seen_boards:
+        if board_id is None or board_id in seen_boards[entry_id]:
             continue
-        seen_boards.add(board_id)
-        found.append((board_id, board))
+        seen_boards[entry_id].add(board_id)
+        found[entry_id].append((board_id, board))
     for board_id, board, raw in session.execute(
         select(WhiteboardObject.board_id, Entry, WhiteboardObject.data)
         .join(Entry, Entry.id == WhiteboardObject.board_id)
         .where(
             WhiteboardObject.kind == "note",
-            func.json_extract(WhiteboardObject.data, "$.ref_id") == entry.id,
+            func.json_extract(WhiteboardObject.data, "$.ref_id").in_(wanted),
             Entry.is_deleted.is_(False),
         )
-        .limit(REFERENCE_ROWS_MAX)
+        .order_by(WhiteboardObject.id)
     ).all():
-        if board_id is None or board_id in seen_boards:
-            continue
         try:
             ref_id = (json.loads(raw or "{}") or {}).get("ref_id")
         except (ValueError, AttributeError):
             continue
-        if ref_id != entry.id:
+        if board_id is None or not isinstance(ref_id, int) or ref_id not in wanted:
             continue
-        seen_boards.add(board_id)
-        found.append((board_id, board))
+        if board_id in seen_boards[ref_id]:
+            continue
+        seen_boards[ref_id].add(board_id)
+        found[ref_id].append((board_id, board))
 
-    rows: list[dict] = []
-    for board_id, board in found:
-        #: `board_settings` says whether this is a whiteboard or a mind map,
-        #: and the owner asked for both by name, so the row says which.
-        #: Through `manager.board_type_of` rather than parsed here: this app
-        #: already reads that column in four places and CodeQL caught the
-        #: fifth arriving with a bare `except: pass`, which is fair. One
-        #: reader, one decision about what a malformed value means.
-        kind = manager.board_type_of(board)
-        rows.append({
-            "kind": kind,
-            "id": board_id,
-            "label": plain_label(board.content, 60) or ("Untitled map" if kind == "map" else "Untitled board"),
-            "how": "on it",
-        })
-    return rows[:REFERENCE_ROWS_MAX]
+    out: dict[int, list[dict]] = {}
+    for entry_id, boards in found.items():
+        rows: list[dict] = []
+        for board_id, board in boards:
+            #: `board_settings` says whether this is a whiteboard or a mind map,
+            #: and the owner asked for both by name, so the row says which.
+            #: Through `manager.board_type_of` rather than parsed here: this app
+            #: already reads that column in four places and CodeQL caught the
+            #: fifth arriving with a bare `except: pass`, which is fair. One
+            #: reader, one decision about what a malformed value means.
+            kind = manager.board_type_of(board)
+            rows.append({
+                "kind": kind,
+                "id": board_id,
+                "label": plain_label(board.content, 60) or ("Untitled map" if kind == "map" else "Untitled board"),
+                "how": "on it",
+            })
+        out[entry_id] = rows[:REFERENCE_ROWS_MAX]
+    return out
 
 
-def _reference_rows(session: Session, entry: Entry) -> list[dict]:
-    """Everything that points at this note: documents, notes, boards, maps.
+def _reference_rows_batch(session: Session, entries: list[Entry]) -> dict[int, list[dict]]:
+    """Everything that points at each of these notes: documents, notes,
+    boards, maps. Four statements for the whole page, whatever its size.
 
     INBOX 246, the owner's second sentence: "I want it to show in notes if
     they are attached to or referenced in/by a document, note, whiteboard, or
@@ -2125,64 +2340,105 @@ def _reference_rows(session: Session, entry: Entry) -> list[dict]:
     A note with no label to be named by (an image-only note, a note that
     starts with a heading marker and nothing else) still gets its board rows:
     a card on a board is a reference whether or not the note has a name.
+
+    **One scan for the page, not one per note** (the performance pass,
+    2026-10-03, INBOX 441). The text half used to be two LIKE scans per note,
+    each reading every note's and document's text: sixty cards at boot were
+    two hundred and forty statements and 172 ms on 500 notes, growing with
+    the notebook. Now each table is read once, with one `LIKE` flag column per
+    distinct label, so SQLite still decides what matches (same ASCII case
+    folding, same escaped wildcards, nothing re-implemented in Python) and
+    only rows that match some label come back. The per-label caps and the
+    order are the old ones: documents newest-updated first, notes newest
+    first, `REFERENCE_SOURCES_MAX` each, the note itself never its own source.
     """
     from memorymap.entry.manager import plain_label
 
-    rows: list[dict] = []
+    result = _board_reference_rows_batch(session, [entry.id for entry in entries])
+    label_of: dict[int, str] = {}
+    for entry in entries:
+        label = plain_label(entry.content, 60).strip()
+        if label:
+            label_of[entry.id] = label
+    distinct = sorted(set(label_of.values()))
 
-    #: **The boards first**, because they are exact and because a note that
-    #: is on a board is on it whatever it says.
-    rows.extend(_board_reference_rows(session, entry))
+    document_hits: dict[str, list[tuple[int, str, str]]] = {label: [] for label in distinct}
+    note_hits: dict[str, list[tuple[int, str]]] = {label: [] for label in distinct}
+    if distinct:
+        #: `like`, not `ilike`: on SQLite a plain LIKE already folds ASCII case
+        #: (the pragma that turns that off is never set here), and `ilike`
+        #: compiles to `lower(x) LIKE lower(?)`, which copies every row's text
+        #: once per label. Measured over 60 labels on 500 notes, same answers:
+        #: 74 ms per call with `ilike`, 35 ms with `like`
+        #: (`test_a_mention_matches_whatever_the_case...` pins the folding).
+        flags = [Document.content.like(f"%{like_escape(label)}%", escape=LIKE_ESCAPE) for label in distinct]
+        for row in session.execute(
+            select(Document.id, Document.title, Document.content, *[f.label(f"m{i}") for i, f in enumerate(flags)])
+            .where(Document.archived_at.is_(None), or_(*flags))
+            .order_by(Document.updated_at.desc(), Document.id.desc())
+        ):
+            for i, label in enumerate(distinct):
+                if row[3 + i] and len(document_hits[label]) < REFERENCE_SOURCES_MAX:
+                    document_hits[label].append((row[0], row[1] or "Untitled", row[2] or ""))
+        flags = [Entry.content.like(f"%{like_escape(label)}%", escape=LIKE_ESCAPE) for label in distinct]
+        for row in session.execute(
+            select(Entry.id, Entry.content, *[f.label(f"m{i}") for i, f in enumerate(flags)])
+            .where(
+                Entry.is_deleted.is_(False),
+                #: A private note is encrypted at rest, so its content could not
+                #: match the LIKE anyway; the filter is here so that stays true
+                #: by decision rather than by side effect. The same sentence
+                #: `routes_documents._backlinks` carries, for the same reason.
+                Entry.is_private.is_(False),
+                or_(*flags),
+            )
+            .order_by(Entry.id.desc())
+        ):
+            for i, label in enumerate(distinct):
+                #: One over the cap, because the note itself can be among its
+                #: own label's matches and is dropped per note below: the cap
+                #: is on sources other than the note, as it always was.
+                if row[2 + i] and len(note_hits[label]) <= REFERENCE_SOURCES_MAX:
+                    note_hits[label].append((row[0], row[1] or ""))
 
-    label = plain_label(entry.content, 60).strip()
-    if not label:
-        return rows[:REFERENCE_ROWS_MAX]
+    for entry in entries:
+        rows = list(result.get(entry.id, []))
+        label = label_of.get(entry.id)
+        if label is None:
+            result[entry.id] = rows[:REFERENCE_ROWS_MAX]
+            continue
+        wiki = f"[[{label}]]".casefold()
+        candidates: list[tuple[str, int, str, str]] = []
+        for document_id, title, content in document_hits[label]:
+            candidates.append(("document", document_id, title, content))
+        others = [(nid, content) for nid, content in note_hits[label] if nid != entry.id]
+        for note_id, content in others[:REFERENCE_SOURCES_MAX]:
+            candidates.append(("note", note_id, plain_label(content, 60) or "Untitled note", content))
+        for kind, source_id, source_label, content in candidates:
+            rows.append({
+                "kind": kind,
+                "id": source_id,
+                "label": source_label,
+                #: A link is a decision someone made; a mention is a coincidence
+                #: until they make it. Saying which is what stops this row being
+                #: a list of every note that happens to share a word.
+                "how": "links to it" if wiki in (content or "").casefold() else "mentions it",
+            })
+        #: Links before mentions, so the rows someone chose come first, and the
+        #: boards before both because they are exact.
+        rows.sort(key=lambda row: {"on it": 0, "links to it": 1, "mentions it": 2}[row["how"]])
+        result[entry.id] = rows[:REFERENCE_ROWS_MAX]
+    return result
 
-    like = f"%{like_escape(label)}%"
-    wiki = f"[[{label}]]".casefold()
-    candidates: list[tuple[str, int, str, str]] = []
-    for document in session.scalars(
-        select(Document)
-        .where(
-            Document.archived_at.is_(None),
-            Document.content.ilike(like, escape=LIKE_ESCAPE),
-        )
-        .order_by(Document.updated_at.desc(), Document.id.desc())
-        .limit(REFERENCE_SOURCES_MAX)
-    ):
-        candidates.append(("document", document.id, document.title or "Untitled", document.content or ""))
-    for other in session.scalars(
-        select(Entry)
-        .where(
-            Entry.id != entry.id,
-            Entry.is_deleted.is_(False),
-            #: A private note is encrypted at rest, so its content could not
-            #: match the LIKE anyway; the filter is here so that stays true
-            #: by decision rather than by side effect. The same sentence
-            #: `routes_documents._backlinks` carries, for the same reason.
-            Entry.is_private.is_(False),
-            Entry.content.ilike(like, escape=LIKE_ESCAPE),
-        )
-        .order_by(Entry.id.desc())
-        .limit(REFERENCE_SOURCES_MAX)
-    ):
-        candidates.append(("note", other.id, plain_label(other.content, 60) or "Untitled note", other.content or ""))
 
-    for kind, source_id, source_label, content in candidates:
-        rows.append({
-            "kind": kind,
-            "id": source_id,
-            "label": source_label,
-            #: A link is a decision someone made; a mention is a coincidence
-            #: until they make it. Saying which is what stops this row being
-            #: a list of every note that happens to share a word.
-            "how": "links to it" if wiki in (content or "").casefold() else "mentions it",
-        })
+def _reference_rows(session: Session, entry: Entry) -> list[dict]:
+    """Everything that points at this note: documents, notes, boards, maps.
 
-    #: Links before mentions, so the rows someone chose come first, and the
-    #: boards before both because they are exact.
-    rows.sort(key=lambda row: {"on it": 0, "links to it": 1, "mentions it": 2}[row["how"]])
-    return rows[:REFERENCE_ROWS_MAX]
+    The page reader (`_reference_rows_batch`) asked about one note, so the
+    Referenced-by row, the Connections dialog and the card's chip are the
+    same code and cannot disagree.
+    """
+    return _reference_rows_batch(session, [entry])[entry.id]
 
 
 @router.get("/{entry_id}/references")
@@ -2317,6 +2573,7 @@ def restore_event(
         entry.content = state["content"]
     if "tags" in state:
         entry.tags = json.dumps(state["tags"])
+    manager.mark_edited(entry)
     manager.log_action(
         session,
         "restored",
@@ -2353,6 +2610,7 @@ def restore_revision(
     manager.record_revision(session, entry)
     entry.content = revision.content
     entry.tags = revision.tags
+    manager.mark_edited(entry)
     manager.log_action(session, "edited", "entry", entry.id, "restored an earlier version")
     session.commit()
     session.refresh(entry)
@@ -2418,6 +2676,7 @@ def generate_entry_title(
 
     manager.record_revision(session, entry)
     entry.content = manager.apply_title(content, title)
+    manager.mark_edited(entry)
     manager.log_action(session, "edited", "entry", entry.id, f"generated title: {title}")
     session.commit()
     session.refresh(entry)
@@ -2442,6 +2701,7 @@ def remove_entry_title(entry_id: int, session: Session = Depends(get_session)) -
     if stripped != content:
         manager.record_revision(session, entry)
         entry.content = stripped
+        manager.mark_edited(entry)
         manager.log_action(session, "edited", "entry", entry.id, "removed the title")
         session.commit()
         session.refresh(entry)
@@ -2541,6 +2801,30 @@ def entry_connections(entry_id: int, session: Session = Depends(get_session)) ->
                 "reason_confidence": None,
             })
 
+    #: **And this note's own `[[wiki links]]`, outgoing.** The block above
+    #: gives the *target* of a link its incoming row by reading the text of
+    #: the note that wrote it; nothing gave the writer the matching outgoing
+    #: row unless a stored `EntryLink` happened to exist, and one does not
+    #: when the link was typed before its target was made, or names a note
+    #: by its `# Heading` (the stored-link resolver matches the raw start of
+    #: the text). Measured 2026-10-03: "[[Sourdough starter]]" showed
+    #: `outgoing: []` and "Nothing is joined to this note yet" while the
+    #: target listed the note as incoming. Read the same way both ends now.
+    known_out = {row["id"] for row in outgoing}
+    for other in _wiki_link_targets_of(session, entry):
+        if other.id in known_out:
+            continue
+        known_out.add(other.id)
+        outgoing.append({
+            "link_id": None,
+            "id": other.id,
+            "preview": "Private note" if other.is_private else _connection_label(other),
+            "is_private": bool(other.is_private),
+            **_connection_cue(session, other),
+            "reason": "Links to it",
+            "reason_confidence": None,
+        })
+
     #: Boards and maps: `kind` is "board" or "map" so the dialog can say
     #: which (a map's own note node counts too). The unnamed scratch board
     #: (`board_id IS NULL`) is not an entry and so has no row there; it is a
@@ -2569,6 +2853,43 @@ def entry_connections(entry_id: int, session: Session = Depends(get_session)) ->
         "files": files,
         "total": len(outgoing) + len(incoming) + len(documents) + len(boards) + len(files),
     }
+
+
+def _wiki_link_targets_of(session: Session, entry: Entry) -> list[Entry]:
+    """The notes this note's `[[names]]` point at, in the order written.
+
+    `manager.find_by_wiki_name` first, the resolver a save uses to make
+    stored links, so a name means here what it means on the graph. Where it
+    finds nothing, the note whose plain label is exactly the name, which is
+    the rule `_reference_rows` applies from the other end ("links to it"
+    when the text holds `[[label]]`): without that second reading a note
+    named by its heading was incoming on the target and absent here.
+    """
+    from memorymap.entry.manager import plain_label
+
+    found: list[Entry] = []
+    for name in manager.wiki_link_targets(manager.readable_content(entry)):
+        target = manager.find_by_wiki_name(session, name)
+        if target is None:
+            wanted = name.strip().casefold()
+            pattern = "%" + like_escape(name.strip()) + "%"
+            for other in session.scalars(
+                select(Entry)
+                .where(
+                    Entry.id != entry.id,
+                    Entry.is_deleted.is_(False),
+                    Entry.is_private.is_(False),
+                    Entry.content.ilike(pattern, escape=LIKE_ESCAPE),
+                )
+                .order_by(Entry.id)
+                .limit(REFERENCE_SOURCES_MAX)
+            ):
+                if plain_label(other.content, 60).strip().casefold() == wanted:
+                    target = other
+                    break
+        if target is not None and target.id != entry.id and not target.is_deleted:
+            found.append(target)
+    return found
 
 
 def _connection_label(entry) -> str:  # noqa: ANN001

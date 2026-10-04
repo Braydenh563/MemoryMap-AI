@@ -44,11 +44,11 @@ def test_floating_surfaces_keep_the_blur() -> None:
 
 
 def test_performance_mode_is_wired_end_to_end() -> None:
-    settings = (FRONTEND / "settings.js").read_text(encoding="utf-8")
-    boot = (FRONTEND / "theme-boot.js").read_text(encoding="utf-8")
+    settings = (FRONTEND / "js" / "settings.js").read_text(encoding="utf-8")
+    boot = (FRONTEND / "js" / "theme-boot.js").read_text(encoding="utf-8")
     html = (FRONTEND / "index.html").read_text(encoding="utf-8")
-    canvas = (FRONTEND / "graph-canvas.js").read_text(encoding="utf-8")
-    worker = (FRONTEND / "graph-worker.js").read_text(encoding="utf-8")
+    canvas = (FRONTEND / "js" / "graph-canvas.js").read_text(encoding="utf-8")
+    worker = (FRONTEND / "js" / "graph-worker.js").read_text(encoding="utf-8")
     # The preference, its default, and its place on the reset list.
     assert 'perf: "auto"' in settings
     assert '"perf", "motion"' in settings

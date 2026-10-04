@@ -7,7 +7,7 @@ way to run it on a reading that is *already* stored, one saved before the cut
 existed, or one a since-changed model still managed to loop: nothing re-reads
 an already-stored reading on its own, so a loop sitting in the database stayed
 there forever. These two small POST routes clean a reading in place, and
-`frontend/library.js` wires a "Clean up repeated lines" item into the OCR
+`frontend/js/library.js` wires a "Clean up repeated lines" item into the OCR
 workspace and lightbox menus for both.
 """
 

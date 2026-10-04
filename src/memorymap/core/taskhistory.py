@@ -48,6 +48,21 @@ MAX_ENTRIES = 40
 #: red teaches people to ignore red.
 OUTCOMES = ("completed", "failed", "cancelled")
 
+#: Which of the kinds recorded here are also "last run" kinds, and under what
+#: name (`core/jobruns.py`). Only the ones that end here and nowhere else: a
+#: re-index and the autonomous pass open their own run, so they are not
+#: listed, and a caption is one of hundreds a day, so it is not either.
+LAST_RUN_KINDS = {
+    "pull": "model-download",
+    "embedding-model": "embedding-model",
+    "extra": "extra",
+    "searxng": "searxng",
+    # One per picture, so the record is "the last one", which is still the
+    # answer to "is reading text from my images working".
+    "vision_ocr": "ocr",
+    "caption": "caption",
+}
+
 _lock = threading.Lock()
 _finished: deque[dict] = deque(maxlen=MAX_ENTRIES)
 
@@ -92,6 +107,22 @@ def record(
             )
     except Exception:  # noqa: BLE001  # bookkeeping must never break the job
         logger.debug("could not record the %r task", name, exc_info=True)
+    # The same ending, kept across restarts as "last run" (INBOX 438) for the
+    # jobs that have no start of their own to wrap. Outside the lock and the
+    # try above: it takes the database's lock, and it can fail on its own.
+    last_run_kind = LAST_RUN_KINDS.get(kind)
+    if last_run_kind:
+        try:
+            from memorymap.core import jobruns
+
+            # What the person reads: the job's own detail when it gave one, else
+            # its label ("Reading text from sketch.png"); a failure with no
+            # reason says which job did not finish rather than echoing its name.
+            clean = (detail or "").strip()
+            text = clean or (f"{label} did not finish." if outcome == "failed" else label)
+            jobruns.note_finished(last_run_kind, outcome, text, duration_ms)
+        except Exception:  # noqa: BLE001
+            logger.debug("could not note the last run of %r", kind, exc_info=True)
 
 
 def recent(limit: int = MAX_ENTRIES) -> list[dict]:

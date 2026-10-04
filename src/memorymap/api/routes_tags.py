@@ -1,8 +1,14 @@
-"""Tag manager endpoints: see, rename/merge, delete tags."""
+"""Tag manager endpoints: see, rename, merge and delete tags across notes, and
+add or remove tags on a chosen set of notes.
+
+Every write here is one transaction, records a revision and an `edited` event
+per note it touched (the way `PUT /entries/{id}` does, so each note's history
+shows it), and answers with `before`: the tags each changed note had, which is
+what `POST /tags/restore` takes to undo it in one transaction too."""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -18,7 +24,9 @@ class RenameBody(BaseModel):
 
 
 class DeleteBody(BaseModel):
-    name: str = Field(min_length=1)
+    #: One tag (`name`) or several (`names`), taken off in one transaction.
+    name: str = ""
+    names: list[str] = Field(default_factory=list, max_length=200)
 
 
 #: How many tags one response carries. Higher than the other page sizes on
@@ -45,12 +53,61 @@ def list_tags(
     return dict(list(counts.items())[:limit])
 
 
+class MergeBody(BaseModel):
+    names: list[str] = Field(min_length=1, max_length=200)
+    into: str = Field(min_length=1, max_length=60)
+
+
+class BulkBody(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=5000)
+    add: list[str] = Field(default_factory=list, max_length=100)
+    remove: list[str] = Field(default_factory=list, max_length=100)
+
+
+class RestoreBody(BaseModel):
+    #: JSON object keys are strings; they are note ids.
+    notes: dict[int, list[str]] = Field(max_length=5000)
+
+
+def _answer(before: dict[int, list[str]]) -> dict:
+    return {"changed": len(before), "before": {str(i): tags for i, tags in before.items()}}
+
+
 @router.post("/rename")
 def rename_tag(body: RenameBody, session: Session = Depends(get_session)) -> dict:
     """Rename a tag everywhere; renaming onto an existing tag merges them."""
-    return {"changed": manager.rename_tag(session, body.old, body.new.strip())}
+    try:
+        return _answer(manager.rename_tags(session, [body.old], body.new))
+    except ValueError as exc:
+        # A blank new name: a plain 400, not a tag of "" on every note.
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/merge")
+def merge_tags(body: MergeBody, session: Session = Depends(get_session)) -> dict:
+    """Fold several tags into one name (which may be new or already exist)."""
+    try:
+        return _answer(manager.rename_tags(session, body.names, body.into))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/delete")
 def delete_tag(body: DeleteBody, session: Session = Depends(get_session)) -> dict:
-    return {"changed": manager.delete_tag(session, body.name)}
+    """Take a tag off every note that has it. The notes stay."""
+    wanted = [t for t in [body.name, *body.names] if t.strip()]
+    if not wanted:
+        raise HTTPException(status_code=400, detail="Say which tag to remove")
+    return _answer(manager.remove_tags(session, wanted))
+
+
+@router.post("/bulk")
+def bulk_edit_tags(body: BulkBody, session: Session = Depends(get_session)) -> dict:
+    """Add tags to, and remove tags from, the chosen notes in one go."""
+    return _answer(manager.edit_tags_on_notes(session, body.ids, body.add, body.remove))
+
+
+@router.post("/restore")
+def restore_tags(body: RestoreBody, session: Session = Depends(get_session)) -> dict:
+    """Put notes' tags back to the given lists: the undo of the writes above."""
+    return _answer(manager.undo_tag_edit(session, body.notes))

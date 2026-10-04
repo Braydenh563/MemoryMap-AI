@@ -7,7 +7,7 @@ port 8793, data dir `/tmp/mm-noteobj`.
 
 - **A note's typed objects are markdown constructs**, not rows: callouts
   (`> [!kind]`), transclusions (`![[name]]`), tables, math, code, checklists.
-  The "/" menu (`frontend/editor.js`, `editorCommands`) inserts text; the
+  The "/" menu (`frontend/js/editor.js`, `editorCommands`) inserts text; the
   renderers are `renderNoteText` (note cards) and `renderMarkdown` (documents
   and chat), and **both** route a `![[name]]` line through one function,
   `mdEmbedElement` (app.js ~26828). One change covers all three surfaces.

@@ -151,32 +151,15 @@ $("draft-discard").addEventListener("click", async () => {
   updateDraftCount();
   saveDraftLocally();
 });
-// Same pattern as #graph-help-toggle (asked for directly, then extended to
-// every other tab that used to carry a permanently-visible explanation
-// paragraph: Timeline, and the Skills/Whiteboard/Image-Gallery Library
-// sub-tabs): the button's own `title` is a real, zero-JS hover tooltip, and
-// a click opens a floating panel for reading the same text end to end.
-// Closes on a second click, Escape, or a click outside it, the same three
-// ways every other popover in this app closes. One shared wiring function
-// rather than five copies of the same three listeners.
-function initHelpToggle(buttonId, panelId) {
-  wireHelpPopover($(buttonId), $(panelId));
-}
-initHelpToggle("search-relevance-help", "search-relevance-intro");
-initHelpToggle("timeline-help", "timeline-intro");
-initHelpToggle("skills-help", "skills-intro");
-initHelpToggle("wb-boards-help", "wb-boards-intro");
-initHelpToggle("library-images-help", "library-images-intro");
-initHelpToggle("contents-help", "contents-intro");
-
 // --- one wiring for every "?" added from here on --------------------------
 // Asked for directly: *"there are also still areas with excessive paragraph
 // text and I want to replace them with the circle tooltip '?' buttons so they
 // dont take up unnecessary space"*, with the rule that they all share the same
 // markup and behaviour, and that a new one needs no JS.
 //
-// So the seven `initHelpToggle` lines above are the last hand-wired pair. A
-// new help button is markup only:
+// Every "?" in the app is this one wiring (the nine hand-wired id pairs that
+// used to sit above it were moved onto it, and `tests/test_ui_recipes.py`
+// fails if one comes back). A new help button is markup only:
 //
 //   <button type="button" class="icon-only ghost small graph-help-toggle"
 //           data-help-for="thing-help" aria-controls="thing-help"
@@ -1233,34 +1216,6 @@ $("graph-trace-toggle").addEventListener("click", () => {
   setTracePanelOpen(open);
   if (open && !graphSheetClose) setGraphOptionsOpen(false);
 });
-// Replaced the permanently-visible "How to use this map" dropdown with this
-// icon: the button's own `title` already covers hover/focus (a real,
-// zero-JS tooltip), and this click handler adds the panel for reading it
-// end to end. Closes on a second click, Escape, or a click outside it, 
-// the same three ways every other popover in this app closes.
-$("graph-help-toggle").addEventListener("click", (event) => {
-  event.stopPropagation();
-  const panel = $("graph-help-panel");
-  const open = panel.classList.toggle("hidden") === false;
-  $("graph-help-toggle").setAttribute("aria-expanded", String(open));
-});
-document.addEventListener("click", (event) => {
-  const panel = $("graph-help-panel");
-  if (!panel || panel.classList.contains("hidden")) return;
-  if (panel.contains(event.target) || event.target === $("graph-help-toggle")) return;
-  panel.classList.add("hidden");
-  $("graph-help-toggle").setAttribute("aria-expanded", "false");
-});
-document.addEventListener("keydown", (event) => {
-  if (event.key !== "Escape") return;
-  const panel = $("graph-help-panel");
-  if (!panel || panel.classList.contains("hidden")) return;
-  // Same as the options panel above: closing this is what this Escape did,
-  // so the full-screen handler does not get to act on the same press.
-  event.stopImmediatePropagation();
-  panel.classList.add("hidden");
-  $("graph-help-toggle").setAttribute("aria-expanded", "false");
-});
 $("graph-focus-clear").addEventListener("click", () => {
   graphFocusModeId = null;
   recordTabVisit("graph", null);
@@ -1474,7 +1429,7 @@ $("graph-fullscreen")?.addEventListener("click", toggleGraphFullscreen);
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   if (!$("graph-card")?.classList.contains("graph-fullscreen")) return;
-  if (activeOverlay()) return;
+  if (activeOverlay() || event.helpPopoverSpent) return;
   toggleGraphFullscreen();
 });
 

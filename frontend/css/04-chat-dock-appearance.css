@@ -441,8 +441,8 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
      big gap at the bottom". The same reasoning zeroes it on the chat tab's two
      columns; the page's padding is what spaces a full-height card. */
   margin: 0;
-  /* The positioning root for .graph-help-panel (below): an absolutely
-     positioned popup anchors to the nearest positioned ancestor, and
+  /* The positioning root for the card's absolutely placed panels (options,
+     trace, popup): they anchor to the nearest positioned ancestor, and
      without this it would fall back to the page. */
   position: relative;
 }

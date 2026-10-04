@@ -6092,8 +6092,7 @@ button.ghost.danger:hover {
 .graph-overlay .graph-options,
 .graph-overlay .graph-trace,
 .graph-overlay .graph-trace-result,
-.graph-overlay .graph-topic,
-.graph-overlay .graph-help-panel {
+.graph-overlay .graph-topic {
   margin: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -6183,15 +6182,6 @@ button.ghost.danger:hover {
   overflow-wrap: anywhere;
 }
 
-/* The help panel was absolutely positioned against the card (a popover under
-   a toolbar that used to sit in the flow). In the column it is a row like the
-   others, right-aligned under the "?" it opens from. */
-.graph-overlay .graph-help-panel {
-  position: static;
-  align-self: flex-end;
-  width: min(26rem, 100%);
-}
-
 /* The display options, on the same footing (INBOX 21 and 41). They opened as
    a full-width strip under the dock, which is what a settings panel looks
    like when it is part of the page and not what one looks like when it is a
@@ -6206,15 +6196,6 @@ button.ghost.danger:hover {
      so the right column's switches were cut off at the panel's edge by 11px
      and the panel scrolled sideways. */
   width: min(25rem, 100%);
-}
-
-/* A panel over the map is capped and scrolls inside itself. Reported once in
-   full screen ("the suggested-links list runs off the bottom without
-   scrolling"), and floating panels make that the general case rather than one
-   window's bug: the column has no height of its own to push against. */
-.graph-overlay .graph-help-panel {
-  max-height: min(60vh, 26rem);
-  overflow-y: auto;
 }
 
 /* The options panel is capped against the card, not the viewport, and the

@@ -4018,3 +4018,86 @@ aside[data-resizable="1"] {
   gap: var(--space-2);
   margin: 0 0 var(--space-3);
 }
+
+/* The strip's month label is a button now: the way past the seven days. */
+.timeline-daystrip-label.ghost.small {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+/* The month popover (timeline.js `renderTimelineMonthPop`). The shell, caret,
+   tier and placement are the help popover's; only the width is its own, wide
+   enough that a day is 44px under a touch screen at 390 (the popover's own
+   padding and a gap of --space-1 between seven columns). */
+.timeline-monthpop.help-popover {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(22rem, calc(100vw - var(--space-6)));
+}
+
+.timeline-monthpop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.timeline-monthpop-title {
+  font-weight: 600;
+  font-size: var(--text-md);
+}
+
+.timeline-monthpop-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.timeline-monthpop-dow {
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.timeline-monthpop-grid .timeline-monthday.ghost.small {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  /* Room for the dot under the number: 2.5rem on a mouse, the touch floor
+     (44px) where there is a finger. */
+  min-height: max(var(--target-min), 2.5rem);
+  padding: 0 0 var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A dot under the number for a day with a page, as the strip's days have. */
+.timeline-monthday.is-written::after {
+  content: "";
+  position: absolute;
+  bottom: var(--space-1);
+  left: 50%;
+  width: var(--space-2);
+  height: var(--space-2);
+  margin-left: calc(var(--space-2) / -2);
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.timeline-monthday.is-today {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+/* The seven days the strip is showing now. */
+.timeline-monthday.is-in-strip {
+  background: var(--accent-soft);
+}
+
+.timeline-monthday:disabled {
+  opacity: 0.35;
+}

@@ -280,7 +280,8 @@ MORE_TOPICS: list[dict] = [
         "body": (
             "Settings, Logs shows what happened, for when something did not "
             "work: filter by source and level, follow new lines, copy or clear "
-            "them. The support bundle collects the logs and the app's state; "
+            "them. The ? beside the three dots in its bar says what each control "
+            "does. The support bundle collects the logs and the app's state; "
             "Email it opens a message to support with the bundle to attach."
         ),
         "badge": {"label": "Logs", "section": "logs"},

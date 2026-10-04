@@ -3956,24 +3956,6 @@ button.setting-hint-toggle {
   height: 2rem;
 }
 
-/* **A help popup belongs beside the thing it explains.** Reported with a
-   screenshot: the "minimum similarity" explanation "appears in the top right
-   of the settings page". `.graph-help-panel` is `position: absolute; top:
-   3.5rem; right: …`, which is right in a graph toolbar, the nearest
-   positioned ancestor there is the panel's own corner of the map. Inside the
-   Settings modal the nearest positioned ancestor is the modal itself, so the
-   text flew to the modal's top-right corner, over unrelated settings and
-   nowhere near the "?" that opened it. In a settings form the explanation
-   should simply open in flow underneath its own row, which is what every
-   other hint in this modal already does. */
-#settings-modal .graph-help-panel,
-/* Was: `position: static`, which turned this panel from a popover into a
-   bordered paragraph that pushed the whole form down, the single biggest
-   reason Settings' "?" felt like a different control from every other "?"
-   in the app. It is a real popover here too now (`.help-popover`,
-   03-dashboard-widgets.css), lifted to <body> and anchored to its own
-   trigger, so there is nothing left for this override to correct. */
-
 /* --- a file tile shows what it has, not what it lacks ---------------------
    Every card in Files & Images rendered four lines of chrome before it
    rendered anything about the file: an uppercase "DESCRIPTION" over "Add a
@@ -9735,8 +9717,6 @@ header#top-bar > #tab-bar {
 .nav-history-menu,
 .chat-model-panel,
 .help-popover,
-.graph-help-panel,
-.graph-help-panel.search-help,
 .notif-panel,
 .ai-status-popup,
 .chord-guide-panel {

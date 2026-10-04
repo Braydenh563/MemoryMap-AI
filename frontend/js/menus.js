@@ -250,7 +250,12 @@ document.addEventListener("click", (event) => {
   }
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") closeHelpPopovers();
+  if (event.key !== "Escape") return;
+  //: Marked so a handler further down this same press can tell it was spent
+  //: closing a popover (the Graph's full-screen exit: one Escape closes the
+  //: '?' and the map stays full screen, as the hand-wired Graph help did).
+  if (openHelpPopovers.size) event.helpPopoverSpent = true;
+  closeHelpPopovers();
 });
 window.addEventListener("resize", () => {
   for (const entry of openHelpPopovers) placeHelpPopover(entry.panel, entry.trigger);

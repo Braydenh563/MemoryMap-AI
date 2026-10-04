@@ -108,9 +108,41 @@ pair did (`grep` for `entries/daily` in `frontend/` found only a comment).
   change, a written day opens the Notes tab on its card, the pair opens the
   neighbour, the earlier arrow moves a week and Today returns, no console
   error. 19 of 19.
-- Left: the month popover for jumping past the strip (the arrows walk a week
-  at a time); the strip shows notes and documents only, not boards or
-  reminders titled with a date, as the timeline's own daily convention does.
+- **The month popover** (the overflow the brief named): the strip's month label
+  is a button (`#timeline-month-btn`, `aria-haspopup`) opening a calendar of
+  one month (`#timeline-month-pop`, `renderTimelineMonthPop`) on the popover
+  shell (`wireHelpPopover`: lifted to the body, caret, Escape, press outside).
+  The grid is a group of buttons with one Tab stop; arrows walk a day or a
+  week, Home and End the week's ends, Page Up and Page Down a month (the page
+  turns, the focus stays in it), Escape returns the focus to the month button.
+  Days after today are disabled (the strip never passes today), the days the
+  strip shows are tinted, a dot marks a day with a page (the same two
+  endpoints, one helper `timelineDayPages` shared with the strip). Picking a
+  day moves the strip to it (three days in from the right edge, never past
+  today) and focuses it, so the one way to open a page stays the strip's
+  button; nothing is written. Measured (`daystrip.js` extended, 1440 and 390,
+  light and dark, 38 of 38 on the last run): opens inside the window, focus on
+  today, 44px or more per day at 390, the dots, ArrowLeft and the stop at
+  today, Page Up, Escape and focus, a pick in another month, no note written,
+  a press outside closes it.
+- Left: the strip shows notes and documents only, not boards or reminders
+  titled with a date, as the timeline's own daily convention does.
+
+### From WORLD_CLASS_PLAN.md A8 (help on the recipe)
+
+The nine '?' buttons that still ran on an `initHelpToggle(buttonId, panelId)`
+pair or their own listeners (Graph, Timeline, Notes' filter and capture,
+Skills, Boards, Media, Contents, Settings' search relevance) are button +
+`.help-body` + `data-help-for` now, and the Settings Logs dock has its '?'
+(`HELPLESS_DOCKS` is empty). The wiring, the `.graph-help-panel` and
+`.search-help` CSS and a dangling selector in 07 are deleted;
+`test_no_help_panel_is_hand_wired` keeps them gone. One behaviour was kept on
+purpose: Escape on a popover marks the press (`helpPopoverSpent`) so the
+Graph's full-screen exit ignores the press that closed the '?'. Measured
+(`scratchpad/ui-sweeps/helprecipe.js`, 10 surfaces, 1440 and 390, light and
+dark, 40 of 40): inside the window, 32px toggles (44px at 390), Escape and a
+second press close, dock rows unchanged. Found: Escape in Settings closes the
+whole modal as well as the popover (the modal's own handler; it did before).
 
 ## Moved from the plans, 2026-10-04 (the map's palette, font and the app's own default)
 

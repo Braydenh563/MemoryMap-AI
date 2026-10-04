@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Settings on a phone: the head is one row again with Close in its corner (it wrapped onto a second line at 390 and 360); the profile face and, below 380px, Back and Forward give way to the section picker.
 - Settings: switches line up with the heads, labels and hints of their group; every switch row sat 9px inside that edge.
 - Settings: every section head after a pane's title now heads a group like the rest (Personas' Answer style, Dashboard greeting, Add your own and Share; Templates' and Skills' last; Web search's three), instead of sitting loose on the pane in a smaller voice.
 - Toasts raised while a dialog is open (Quick note, any dialog's Undo) now show inside it and can be pressed; they were drawn behind the dialog.

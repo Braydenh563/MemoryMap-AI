@@ -1158,6 +1158,25 @@ header#top-bar,
   #settings-modal > .modal-card > .row.space-between {
     flex: 0 0 auto;
   }
+
+  /* INBOX 464: the head wrapped at 390 as well once the profile button
+     joined it (title y=31, Close y=64, a 78px head; the Close was no longer
+     in the corner, where every dialog keeps it). On a phone the section
+     picker is a select whose first entry is Profile, so the face in the
+     head is a second door to the same room; it goes, and the head is one
+     row again at 390 (the title, ?, Back, Forward, Close). */
+  #settings-profile-btn {
+    display: none;
+  }
+}
+
+/* And on the narrowest phones (360 measured: the head still wrapped, Close
+   62px in from the corner), Back and Forward go too: 105px of history in a
+   278px head, beside a select that reaches every section in one step. */
+@media (max-width: 379.98px) {
+  #settings-modal-nav {
+    display: none;
+  }
 }
 
 /* --- Phase 11 item 9: 44px targets, the ones the docks sweep cannot see ----

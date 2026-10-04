@@ -91,12 +91,18 @@
 }
 
 /* Density: the whole spacing scale, tightened or loosened at once. */
+:root {
+  --note-preview-lines: 4;
+}
+
 :root[data-density="compact"] {
   --density: 0.75;
+  --note-preview-lines: 3;
 }
 
 :root[data-density="spacious"] {
   --density: 1.35;
+  --note-preview-lines: 5;
 }
 
 /* --- sidebar ------------------------------------------------------------ */

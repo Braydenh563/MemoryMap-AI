@@ -641,18 +641,17 @@
 
 /* A long note is clamped rather than cut: the fade says there is more, and
    the button is the way to it. Sized in lines so it scales with the reading
-   size setting instead of being pinned to a pixel height.
-
-   Lowered from 8, then 4, then 2, with `LONG_NOTE_LINES` (note-cards.js) so
-   the two agree: a card that decided it is long shows the lines its own
-   threshold promised, not more than that. It had drifted back to 3, and
-   the third line of a titled note was most often the blank line before its
-   second paragraph, drawn as a lone "..." (INBOX 446 (5): 146px cards, four
-   above the fold at 1440x900); 2 again. */
+   size setting, and by density through `--note-preview-lines` (4 default, 3
+   compact, 5 spacious; 01-forms-settings.css). Raised from 2 on a phone's 1
+   (INBOX 473: "increase the amount of lines or characters ... before it gets
+   cut off"); the blank lines between paragraphs are folded while clamped
+   (note-cards.js fillContent, INBOX 458), so every counted line is text.
+   `LONG_NOTE_LINES` (note-cards.js) is the same idea in the JS. */
 .entry-content.entry-clamped {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: var(--note-preview-lines);
+  line-clamp: var(--note-preview-lines);
   overflow: hidden;
 }
 

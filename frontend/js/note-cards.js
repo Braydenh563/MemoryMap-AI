@@ -1062,21 +1062,14 @@ function libraryListsBoard(board) {
 //: at worst, never an overflow.
 const LINK_CHIP_CHARS = 48;
 
-// How much of a note the list shows before clamping it. Lowered from 500/10,
-// then again from 220/4 (the owner, 1093x614: "at least 4 note cards must
-// be above the fold" with realistic 3-5 line notes carrying tags and links;
-// measured, scratchpad/ui-sweeps/notesdensity.js: six such notes at 500/10
-// rendered unclamped, 184-283px each, 1 fully above the fold; at 220/4,
-// clamped to four lines, 214px each, still only 1). A note list is an index
-// you scan to find one, not the place you read it in full, so the preview
-// only needs enough to recognise which note it is; opening the note is one
-// click away. One line plus "Show more" keeps that recognisable while
-// giving the list room for more of them.
+// How much of a note the list shows before clamping it: a note list is an
+// index you scan, so the preview only needs enough to recognise the note.
+// Raised again (INBOX 473, "increase the amount of lines or characters"): the
+// clamp is `--note-preview-lines` (4, 3 compact, 5 spacious; the CSS holds
+// it), and a note of more than three text lines is a candidate for it. The
+// settle pass below takes "Show more" back off any note that fits.
 const LONG_NOTE_CHARS = 280;
-//: Two lines, matching `.entry-content.entry-clamped`'s clamp (INBOX 446
-//: (5)): the pair had drifted to 3, past the "one line plus Show more"
-//: above, and a third line was usually a blank one drawn as "...".
-const LONG_NOTE_LINES = 2;
+const LONG_NOTE_LINES = 3;
 // Which notes the user has opened out, for this session. Not persisted: it is
 // a reading position, not a preference.
 const expandedNotes = new Set();
@@ -2054,18 +2047,20 @@ function entryItem(entry, options = {}) {
       //: The preview is clipped by the server, so an image can arrive cut
       //: in half (`![WallpaperEngineOverride_rand`, owner's screenshot) and
       //: a heading with its `#`: both go, whole or truncated.
-      const label = (link.preview || "")
-        .replace(/!\[[^\]]*(?:\](?:\([^)]*\)?)?)?/g, "")
-        .replace(/^\s*#{1,6}\s+/, "")
-        .replace(/\s{2,}/g, " ")
+      //: **Plain words** (INBOX 474: a chip showed "[something](https://..."):
+      //: the server clips at 60 characters, so a token arrives half open and
+      //: the inline renderer printed it as typed. The last rule takes a `[`
+      //: whose `]` was cut off.
+      const label = plainText(
+        (link.preview || "").replace(/!\[[^\]]*(?:\](?:\([^)]*\)?)?)?/g, "")
+      )
+        .replace(/\[([^\]]*)$/, "$1")
         .trim();
       const short = label.length > LINK_CHIP_CHARS
         ? `${label.slice(0, LINK_CHIP_CHARS - 1).trimEnd()}…`
         : label;
-      // chip() sets plain textContent, right for a tag or category name but
-      // not here: `link.preview` is a clip of the *other* note's own text,
-      // which can carry the same **bold**/`code` a reader would expect to
-      // see rendered, the way the note's own body already does.
+      // The label is plain text (a chip is navigation, not content; see
+      // above), so it needs no rendering and cannot show half a token.
       //
       // The click handler is built first and passed into chip()'s own
       // onClick param: every sibling chip() call site in this file does
@@ -2096,7 +2091,7 @@ function entryItem(entry, options = {}) {
       );
     linkChip.appendChild(document.createTextNode(" "));
       const linkPreview = document.createElement("span");
-      renderInlineMarkdown(linkPreview, short, [], true);
+      linkPreview.textContent = short;
       linkChip.appendChild(linkPreview);
       const reasonNote = link.reason
         ? link.reason_confidence != null
@@ -2185,12 +2180,17 @@ function entryItem(entry, options = {}) {
       more.type = "button";
       more.className = "ghost small entry-links-more";
       const hidden = connections.length - LINKS_SHOWN;
-      more.textContent = `+${hidden} more link${hidden === 1 ? "" : "s"}`;
+      //: A toggle (INBOX 474): it stays and reads "Show less" while open.
+      const label = () => linkRow.classList.contains("show-all")
+        ? "Show less"
+        : `+${hidden} more link${hidden === 1 ? "" : "s"}`;
+      more.textContent = label();
       more.setAttribute("aria-expanded", "false");
       more.addEventListener("click", (event) => {
         event.stopPropagation();
-        linkRow.classList.add("show-all");
-        more.remove();
+        const open = linkRow.classList.toggle("show-all");
+        more.textContent = label();
+        more.setAttribute("aria-expanded", String(open));
       });
       linkRow.appendChild(more);
     }

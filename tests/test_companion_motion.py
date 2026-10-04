@@ -1430,7 +1430,7 @@ def test_atlas_pupils_stay_inside_its_eyes():
     room = {0: 1.7, 22.5: 1.68, 45: 1.44, 67.5: 1.38, 90: 1.44, 270: 1.26, 292.5: 1.12, 315: 1.14, 337.5: 1.28}
     for deg, r in room.items():
         a = math.radians(deg)
-        reach = 1 / math.sqrt((math.cos(a) / gx) ** 2 + (math.sin(a) / gy) ** 2)
+        reach = 1 / math.hypot(math.cos(a) / gx, math.sin(a) / gy)
         assert reach <= r, (deg, reach, r)
     assert "--atl-lean-dir: 0; }" in css
 

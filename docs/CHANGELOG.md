@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Appearance, Assistant avatar now reaches Ask's answer, the writing room's draft and the guide's chat rows: each opens with the same reply head as Chat (the Atlas or app emblem face, then the name), repainted live when the setting changes.
 - Toasts raised while a dialog is open (Quick note, any dialog's Undo) now show inside it and can be pressed; they were drawn behind the dialog.
 - Settings, Appearance, Atlas and faces (INBOX 463 (2)): Assistant avatar picks the face on the assistant's chat replies, the popup agent and the Atlas guide: Atlas (the default) or the app's animated emblem, still under Reduce motion. Open replies change as you choose; other personas keep their own faces.
 - Colour contrast (INBOX 464): a new sweep, `contrastui.js`, measures what `contrast.js` could not (icons, SVG icons, focus rings, field and select edges, selected states, chip edges; WCAG 1.4.11, 3:1). On the default look it found 79 failures at 1440 in light and 74 in dark; all are fixed through one token, `--control-edge`: text fields, select openers, date inputs and suggestion chips draw it, a selected segment and a chosen radio option are outlined as well as tinted, a field's hover edge is no weaker than its resting edge, the caret icons are no longer dimmed by opacity, a focused composer's edge is the accent text colour, and the palette's lit row shows its keycap and description in ink. High contrast makes the edge ink.

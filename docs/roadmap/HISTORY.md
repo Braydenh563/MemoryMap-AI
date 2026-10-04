@@ -36860,6 +36860,25 @@ width, 47% of the column at 1440.
      second line, "In use for background jobs" on a third).** "fix the wrap
      in the suggested model cards in settings". Placed: the badges agent
      (461 (1)).
+
+471. **Left by INBOX 463 (2), 2026-10-04.** The assistant avatar setting
+     reaches Chat, the popup agent and the Atlas guide's heads, but Ask's
+     answer (`#ai-answer`) and the writing room's draft have no head at all,
+     and the guide's chat rows (`.help-chat-msg.is-assistant`) none either;
+     the owner asked for "all chat interfaces". Recommendation (order 3,
+     taken): give each the reply head recipe (avatar from
+     `assistantAvatar(size)`, the name), so the setting reaches them; persona
+     faces keep their own unless the owner asks. Placed: the next agent free.
+     **Fixed**: Ask's answer (`.answer-title`, replacing the sparkle and "AI
+     answer"), the draft (`.draft-head-label`) and every guide row (pending,
+     streamed, revealed, final) open with the head, painted through
+     `paintAssistantAvatar`; the draft's thinking fold now sits between the
+     head and the box, as in Chat. Heights at 1440 light, before and after:
+     Ask's answer block 306.7 and 306.7, the draft's head 22.1 and 22.1, the
+     draft box 285.2 and 285.2; a guide row 183.2 and 209.6 (the head row, 20
+     plus the `--space-2` gap, Chat's own). `assistantavatar.js` covers all
+     three (`NEW_ONLY=1` skips the older surfaces).
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

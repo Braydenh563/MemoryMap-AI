@@ -3696,6 +3696,18 @@ def test_an_assistant_head_asks_one_function_for_its_face() -> None:
         assert call in js[name], f"{name}'s reply head no longer asks paintPersonaAvatar"
     assert "paintAssistantAvatar(host, size)" in js["atlas.js"], "the guide and agent heads skip the setting"
     assert "paintAssistantAvatar(mark," in js["settings.js"], "the guide sheet's head skips the setting"
+    #: INBOX 471: Ask's answer, the writing room's draft and the guide's chat
+    #: rows wear the same reply head (the face, then the name), painted through
+    #: the same function, so the setting and its live repaint reach them.
+    index_html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert index_html.count("data-assistant-head") == 2, "Ask's answer and the draft each carry one static head holder"
+    assert re.search(r'class="answer-title msg-role msg-role-assistant">\s*<span class="msg-avatar" data-assistant-head', index_html)
+    assert re.search(r'<label for="draft-text"[^>]*>.{0,80}msg-avatar" data-assistant-head', index_html)
+    assert "paintAssistantAvatar(holder, 20)" in chat[chat.index("function paintAssistantHeads") :][:200]
+    assert "paintAssistantAvatar(avatar, 20)" in chat[chat.index("function assistantHeadRow") :][:600]
+    assert "paintAssistantHeads()" in js["navigation.js"], "a section change fills the static heads"
+    guide = js["settings.js"]
+    assert guide.count("assistantHeadRow(GUIDE_NAME)") == 4, "a guide row, its pending row, the streamed one and the revealed one each open with the head"
     #: The setting: a default, a control, a live repaint and a reset.
     settings = js["settings.js"]
     assert '"assistant-avatar": "atlas"' in settings

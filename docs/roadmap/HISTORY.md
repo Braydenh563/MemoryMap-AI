@@ -37483,6 +37483,12 @@ width, 47% of the column at 1440.
      only when the question asks about a picture (the "mostly pictures"
      fallback is gone). Guide updated.
 
+533. **The owner, 2026-10-04, verbatim, with a screenshot ("test notes"
+     answered with a large screenshot of a to-do note).** "it just puts
+     images for the sake of images". Fixed: the model is told a note has
+     pictures only when the question is about one (`librarian.PICTURE_ASK`),
+     and a `[picture N]` token is drawn only then; otherwise it is stripped.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

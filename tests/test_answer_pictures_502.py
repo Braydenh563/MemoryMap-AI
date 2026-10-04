@@ -155,7 +155,7 @@ def test_the_client_places_figures_from_tokens():
     start = ask.index("function placeAnswerFigures(")
     body = ask[start : ask.index("\n}\n", start)]
     # The token is always removed; a figure needs a note with pictures; three at most.
-    for needle in ("PICTURE_TOKEN", "FIGURES_MAX", "notePictures(", "PICTURE_ASK", "if (!PICTURE_ASK.test(question || \"\")) return;"):
+    for needle in ("PICTURE_TOKEN", "FIGURES_MAX", "notePictures(", "PICTURE_ASK", "if (wrote || !asked) return;", "if (asked) for (const m of found)"):
         assert needle in body
     assert "FIGURES_MAX = 3" in ask
     assert 'querySelector(".answer-figure")' in body
@@ -185,3 +185,15 @@ console.log(JSON.stringify(cases.map(holdPictureTokens)));"""
     assert json.loads(out) == [
         "See  now", "See  and ", "See ", "See ", "See ", "A [link", "A [link](x) and ", "Done.",
     ]
+
+
+def test_the_model_hears_of_pictures_only_when_asked_about_one():
+    """INBOX 533: "it just puts images for the sake of images". A 2B model told
+    a note had pictures wrote `[picture N]` into "test notes"."""
+    from memorymap.ai import librarian
+
+    note = {"category": "X", "content": "a to-do list", "pictures": 1, "id": 1}
+    plain = librarian.build_messages("test notes", [note])
+    asked = librarian.build_messages("show me the sketch of my to-do list", [note])
+    assert "[picture 1]" not in str(plain)
+    assert "[picture 1]" in str(asked)

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Chat: Atlas only shows a picture when your question is about one; it no longer adds pictures to unrelated answers.
 - Chat: pictures appear in an answer only when they answer or illustrate the point, or when you ask for one.
 - Chat: the Attach panel draws over the chat's header instead of under it.
 - Sub-tab bars stay readable over a scrolled page; Quick access rows no longer keep an empty strip for their hidden move buttons.

@@ -416,12 +416,22 @@ def _written_hint(note: dict) -> str:
     return f" (written {written})" if written else ""
 
 
-def _pictures_hint(note: dict, number: int) -> str:
+#: A question about a picture (INBOX 533). Only then is the model told a
+#: note has pictures: a small model told about `[picture N]` wrote it into
+#: answers that had nothing to do with any picture ("test notes" drew a
+#: screenshot of a to-do list). Mirrors `PICTURE_ASK` in capture-ask.js.
+PICTURE_ASK = re.compile(
+    r"\b(picture|photo|image|screenshot|sketch|drawing|diagram|whiteboard|scan|show me|look(s|ed)? like)",
+    re.IGNORECASE,
+)
+
+
+def _pictures_hint(note: dict, number: int, asked: bool = True) -> str:
     """' (has 2 pictures: write [picture 3] or [picture 3.2] to show one)', or
     "" for a note without any. INBOX 526: the token is replaced by the picture
     in the answer's bubble; one per note is drawn beside its citation anyway."""
     count = note.get("pictures") or 0
-    if not count:
+    if not count or not asked:
         return ""
     plural = "s" if count != 1 else ""
     more = f" or [picture {number}.2]" if count > 1 else ""
@@ -616,7 +626,7 @@ def build_messages(
         f"{_written_hint(note)}"
         f"{_dates_hint(note)}"
         f"{' (my newest note)' if note.get('newest') else ''}"
-        f"{_pictures_hint(note, i)}"
+        f"{_pictures_hint(note, i, bool(PICTURE_ASK.search(question or '')))}"
         f"{' (attached by me)' if note.get('attached') else ''}"
         f"{' (not a match: linked to one of the above)' if note.get('connected') else ''}"
         f"{_match_info_hint(note.get('match_info'))} "

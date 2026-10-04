@@ -1837,7 +1837,7 @@ function renderAnswerGrounding(
 //: citations, on every surface that shows an answer.
 const PICTURE_TOKEN = /\[picture (\d{1,3})(?:\.(\d{1,2}))?\]/gi;
 const FIGURES_MAX = 3;
-const PICTURE_ASK = /\b(picture|photo|image|screenshot|sketch|drawing|diagram|whiteboard|scan)/i;
+const PICTURE_ASK = /\b(picture|photo|image|screenshot|sketch|drawing|diagram|whiteboard|scan|show me|look(s|ed)? like)/i;
 
 //: A live paint holds back a half-written token.
 function holdPictureTokens(text) {
@@ -1901,6 +1901,9 @@ function placeAnswerFigures(answerEl, meta, question) {
     last.set(block, figure);
   };
   let wrote = false;
+  //: A token is drawn only for a question about a picture (INBOX 533): a
+  //: small model wrote them unasked. It is always stripped from the text.
+  const asked = PICTURE_ASK.test(question || "");
   for (const target of targets) {
     const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
     const nodes = [];
@@ -1910,15 +1913,14 @@ function placeAnswerFigures(answerEl, meta, question) {
       if (!found.length) continue;
       wrote = true;
       node.data = node.data.replace(PICTURE_TOKEN, "");
-      for (const m of found) put(target, node.parentElement, Number(m[1]), m[2] ? Number(m[2]) - 1 : 0);
+      if (asked) for (const m of found) put(target, node.parentElement, Number(m[1]), m[2] ? Number(m[2]) - 1 : 0);
     }
   }
-  if (wrote) return;
+  if (wrote || !asked) return;
   //: Without a token, a picture is drawn only when the question is about
   //: one (INBOX 532, the owner: "make sure that images are used ...
   //: intentionally and not just to have it there"). A cited note that is
   //: mostly pictures no longer earns one on its own.
-  if (!PICTURE_ASK.test(question || "")) return;
   for (const target of targets) {
     for (const mark of target.querySelectorAll(".answer-citation")) {
       const n = notes.findIndex((e) => e.id === Number(mark.dataset.noteId)) + 1;

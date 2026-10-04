@@ -42,7 +42,7 @@ def test_status_names_which_half_is_missing(monkeypatch):
     assert "program" in ocr.engine_status()["reason"]
 
     _engine(monkeypatch, binary=True, package=False)
-    assert "pytesseract" in ocr.engine_status()["reason"]
+    assert "connects Tesseract" in ocr.engine_status()["reason"]
 
 
 def test_status_when_ready_lists_languages_and_version(monkeypatch):

@@ -214,7 +214,7 @@ def test_venv_creation_fails_clearly_when_frozen_with_no_python_found(
 
     _install_and_wait(app_state.data_dir)
 
-    assert "No Python interpreter found" in searxng_manager._install_state["error"]
+    assert "can't find Python" in searxng_manager._install_state["error"]
 
 
 def test_a_leftover_source_folder_is_replaced_rather_than_installed(
@@ -261,7 +261,7 @@ def test_a_download_that_produces_no_project_is_named_before_pip_sees_it(
 
     _install_and_wait(data_dir)
 
-    assert "no setup.py or pyproject.toml" in searxng_manager._install_state["error"]
+    assert "laid out the way MemoryMap expects" in searxng_manager._install_state["error"]
     assert commands.pip_target == [], "pip should never be asked to install that"
 
 
@@ -272,18 +272,24 @@ def test_a_download_that_fails_says_so(app_state, monkeypatch):
     monkeypatch.setattr(searxng_manager, "_run", commands)
     monkeypatch.setattr(searxng_manager, "_run_streaming", commands)
 
-    def boom(url, dest, on_progress=None):
-        raise searxng_manager.SearxngError("Couldn't download SearXNG: no route to host")
+    import requests
 
-    monkeypatch.setattr(searxng_manager, "_download", boom)
+    def boom(*_args, **_kwargs):
+        raise requests.ConnectionError("no route to host")
+
+    monkeypatch.setattr(requests, "get", boom)
 
     _install_and_wait(data_dir)
 
-    assert "no route to host" in searxng_manager._install_state["error"]
+    # The person reads a sentence about their connection; the transport's own
+    # words are in the log.
+    error = searxng_manager._install_state["error"]
+    assert "internet connection" in error
+    assert "no route to host" not in error
 
 
 def test_pip_succeeding_is_not_taken_as_searxng_being_importable(
-    app_state, tmp_path, monkeypatch
+    app_state, tmp_path, monkeypatch, caplog
 ):
     """A venv that installs cleanly and still can't import `searx` used to
     read as installed, and then died at start with no explanation."""
@@ -312,7 +318,12 @@ def test_pip_succeeding_is_not_taken_as_searxng_being_importable(
 
     _install_and_wait(data_dir)
 
-    assert "No module named 'searx'" in searxng_manager._install_state["error"]
+    # The person is told it can't start and where to look; the module name is
+    # developer detail, so it is in the log.
+    error = searxng_manager._install_state["error"]
+    assert "can't be started" in error and "Settings, Logs" in error
+    assert "No module named 'searx'" not in error
+    assert "No module named 'searx'" in " ".join(r.getMessage() for r in caplog.records)
 
 
 def test_the_requirements_go_in_before_the_package(app_state, tmp_path, monkeypatch):

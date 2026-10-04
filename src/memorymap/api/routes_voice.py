@@ -70,8 +70,10 @@ def _transcribe_upload(
         except RuntimeError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         except Exception as exc:  # a bad clip must not 500 mysteriously
+            logging.getLogger("memorymap.voice").warning("transcription failed", exc_info=True)
             raise HTTPException(
-                status_code=422, detail=f"Couldn't transcribe that recording: {str(exc).rstrip('.')}."
+                status_code=422,
+                detail="Couldn't transcribe that recording. Try recording it again.",
             ) from exc
     finally:
         Path(clip.name).unlink(missing_ok=True)

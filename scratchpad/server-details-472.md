@@ -361,13 +361,76 @@ also tidied by hand because the rules cannot see them (comma splices that
 should be two sentences, the Word exporter's package name, the update
 route's hints).
 
-## Not touched: computed at run time
+## Computed detail sources (the "not touched" list, worked)
 
-These detail strings are built elsewhere (`str(exc)` of a core error, a
-constant in `core/` or `ai/`), so they are outside `src/memorymap/api/` and
-outside what an `ast` check of literals can see. Worth a separate pass:
-`core/ocr.py` `unavailable_reason`, `core/docview.py` `editability`,
-`ai/voice.py` and `entry/importer.py` `INSTALL_HINT` (a bare `pip install`
-line), `core/model_cards.py` `inspect_model_name` errors,
-`core/security.py` `check_backend_url` reasons, and every `str(exc)` row
-above (they pass a Python exception message through).
+45 routes in `src/memorymap/api/` pass a message they did not write to the
+toast (`detail=str(exc)`, `reason`, `info['error']`, a constant). Rows are
+file:line at 910a9ad. "Source" is where the sentence is written; "Done" is
+what changed. `tests/test_core_message_wording.py` now reads every source
+listed here with `ast`, applies the wording rules from
+`tests/test_server_detail_wording.py` plus two of its own (no raw exception,
+no `pip` line), and holds the route list below as `REVIEWED_COMPUTED`.
+
+| Route (file:line) | Status | Expression | Source | Done |
+| --- | --- | --- | --- | --- |
+| app.py:561 | any | `detail` | the handler re-serialises an `HTTPException` | passthrough, every raise site is checked |
+| routes_backups.py:141 | 404 | `str(exc)` | core/backup.py `restore_backup` | "No backup named {name}" is now "That backup could not be found."; the route also catches `ValueError` (damaged or empty backup, was a bare 500) as 422 |
+| routes_categories.py:162, 184 | 400 | `str(exc)` | ai/tools/categories.py `ToolError` | stops added; the miss message reads "The ones that exist are ..." |
+| routes_categories.py:337, 358, 363 | 400 | `str(exc)` | entry/manager.py `rename_category`, `delete_category` | final stops |
+| routes_chat.py:616 | 422 | `str(exc)` | ai/tools `validate_make_plan` | "make_plan needs a goal" is now "A plan needs a goal" |
+| routes_chat.py:2150 | 503 | `str(exc)` | `OllamaError` (provider text names the model and carries the transport's error) | fixed sentence, exception logged |
+| routes_chat.py:2154 | 502 | `str(exc)` | ai/tools `summarise_turns` | "The AI returned an empty summary. Try again." |
+| routes_chat.py:2175 | 400 | `result['error']` | `execute_tool`, written for the model ("delete_category: ...") | fixed sentence, model text logged |
+| routes_documents.py:313 | 400 | `str(error)` | core/syntaxcheck.py `check` | "no checker for 'x'" is now a sentence; documents-code.js read that text, it now reads the 400 status |
+| routes_documents.py:555 | 422 | `viewed.message` | core/docview.py `ViewedFile.message` | comma splices and "text layer" reworded, "Settings, Extras" is "Settings, Packages" (the real label) |
+| routes_entries.py:1296, 2673 | 502 | `str(exc)` | `OllamaError` | `librarian.AI_FAILED_MESSAGE`, exception logged |
+| routes_entries.py:3057 | 400 | `str(exc)` | ai/extractor.py `build_extraction` | already sentences (the parse errors are caught inside, not shown) |
+| routes_files.py:460, 1931, 2977, 3374 | 409 | `reason` | core/ocr.py `unavailable_reason`, `engine_status` | "The Python part of Tesseract OCR (pytesseract and Pillow) is missing" is now "The part that connects Tesseract to MemoryMap isn't installed." |
+| routes_files.py:679 | 409 | `edit_message` | core/docview.py `editability` | comma splice fixed |
+| routes_files.py:906, 908, 1758 | 422, 409 | `str(exc)` | entry/manager.py `validate_attachment_filename`, `rename_attachment` | already sentences |
+| routes_files.py:3089 | 422 | `str(exc)` | core/ocr.py `set_language` | already a sentence |
+| routes_learned.py:64 | 422 | `str(exc)` | ai/learning.py `record` | "unknown correction kind 'x'; known: [...]" is now a sentence, names in the log |
+| routes_learned.py:193 | 422 | `str(exc)` | ai/facts.py `set_switches` | "unknown switch(es) [...]; known: [...]" is now a sentence, names in the log |
+| routes_models.py:407, 891 | 502 | `str(exc)` | `OllamaError` | fixed sentences, exception logged |
+| routes_models.py:677 | 400 | `str(exc)` | ai/model_manager.py `known_feature` | "'x' is not a feature that has its own model" is now a sentence, key in the log |
+| routes_models.py:741 | 400 | `reason` | core/security.py `check_backend_url`, `_refuses`, `_LOCKED_REASON` | "link-local", "instance-metadata service", "model backend", "hosted API" replaced; the safe-direction logic is untouched |
+| routes_models.py:904 | 422 | `info['error']` | ai/model_cards.py `inspect_model_name` | already sentences; now held by the ratchet |
+| routes_settings.py:2406 | 503 | `importer.INSTALL_HINT` | entry/importer.py | no `pip install` line; names "Import documents" in Settings, Packages |
+| routes_tags.py:83, 92 | 400 | `str(exc)` | entry/manager.py `rename_tags` | "A tag needs a name." |
+| routes_voice.py:44 | 503 | `voice.INSTALL_HINT` | ai/voice.py | the odd "pip install faster-whisper: then restart" line is gone; names "Voice notes" in Settings, Packages |
+| routes_voice.py:48 | 413 | `over_limit_detail` | the two callers' literals | already checked by `collect()` |
+| routes_voice.py:71 | 503 | `str(exc)` | ai/voice.py `transcribe` | the Whisper load error is logged; "Couldn't load the speech model. ..." |
+| routes_webclip.py:43 | 403 | `WEB_OFF` | a constant in the route | held by a test |
+| routes_webclip.py:47 | 400, 502 | `str(exc)` | core/webclip.py `ClipRefused` | `f"{exc}."` over `UnsafeUrl` is gone (security.py's three messages got their stops) |
+| routes_websearch.py:76, 242 | 502 | `str(exc)` | search/websearch.py `WebSearchError` | `Web search failed: {exc}`, `SearXNG search failed: {exc}`, `Couldn't open that page: {exc}` are sentences, transport text logged |
+| routes_websearch.py:158, 189, 207 | 503, 409 | `str(exc)` | search/searxng_*.py `SearxngError`, `_reason` | every `{exc}` and the command's own output is logged; no `virtualenv`, `setup.py`, `docker logs`, env var name |
+
+### Raw exceptions in an f-string `detail` (not in the 45, found while reading)
+
+| Where | Was | Now |
+| --- | --- | --- |
+| routes_voice.py:74 | `Couldn't transcribe that recording: {str(exc)}` | fixed sentence, logged |
+| routes_settings.py:2425 | `Couldn't read that file: {str(exc)}` | fixed sentence, logged |
+| routes_whiteboard.py:3988 | `That isn't valid {label}: {str(exc)}` (carried line and column) | fixed sentence, logged |
+| routes_files.py:1160 | `Couldn't open the exports folder at {path}: {exc}` | path kept, exception logged |
+| routes_settings.py:1024 | skill save: `"name": {str(exc)}` | `SkillError` text then "was not saved." (ai/skills.py checked) |
+| routes_whiteboard.py:3788 | `pip install defusedxml` | names the XML reader package, no `pip` line |
+
+### Left as is, on purpose
+
+- routes_backups.py:106 keeps `exc.strerror` ("No space left on device"): the
+  OS's own one-line reason, which the person can act on, and a test pins it
+  as the deliberate design (no path, no errno).
+- The chat stream's `librarian.model_error_message` and `describe_http_error`
+  (ai/ollama_client.py) still quote the provider's words: they are answer
+  text in the bubble, not a `detail`, and their docstrings record the
+  decision to quote the server. Found, not fixed.
+- `jobruns.note_finished("import", "failed", f"... {exc}")` records the
+  converter's own error on the Settings last-run line.
+- `ProviderError` messages in ai/ollama_client.py and ai/openai_client.py
+  (`Chat with 'x' failed: {exc}`) are the model-facing text the agent loop
+  and the chat stream use; no route shows them as a `detail` any more.
+- About 90 `ToolError` messages in ai/tools/ are written for the model (they
+  name tools and arguments). Only the ones a UI route can show are held to
+  the rules (categories, `validate_make_plan`, `summarise_turns`); the
+  confirm route no longer forwards the rest.

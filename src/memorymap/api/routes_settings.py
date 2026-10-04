@@ -1021,7 +1021,9 @@ def _validated_skills(raw: list[dict]) -> list[dict]:
         except skills.SkillError as exc:
             raise HTTPException(
                 status_code=422,
-                detail=f"“{item.get('name', '?')}”: {str(exc).rstrip('.')}.",
+                # A `SkillError` is a sentence written for whoever wrote the
+                # skill (ai/skills.py, held by tests/test_core_message_wording.py).
+                detail=f"{exc} “{item.get('name', '?')}” was not saved.",
             ) from exc
         if skill["name"] in shipped:
             raise HTTPException(
@@ -2421,8 +2423,12 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
             jobruns.note_finished(
                 "import", "failed", f"Couldn't read {file.filename or 'that file'}: {exc}"
             )
+            logging.getLogger("memorymap.import").warning(
+                "couldn't convert %s", logbuffer.safe_value(file.filename, 80), exc_info=True
+            )
             raise HTTPException(
-                status_code=422, detail=f"Couldn't read that file: {str(exc).rstrip('.')}."
+                status_code=422,
+                detail="Couldn't read that file. It may be damaged or in a format that can't be converted.",
             ) from exc
 
     all_sections = importer.split_into_sections(text)

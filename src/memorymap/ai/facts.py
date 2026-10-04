@@ -60,6 +60,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import DerivedFact, Entry, utcnow
+from memorymap.core.logbuffer import safe_value
 
 logger = logging.getLogger("memorymap.ai.facts")
 
@@ -187,7 +188,12 @@ def set_switches(config, values: dict[str, Any]) -> dict[str, bool]:  # noqa: AN
     """Set any subset of the switches. Unknown names are refused."""
     unknown = set(values) - set(SWITCHES) - {MASTER}
     if unknown:
-        raise ValueError(f"unknown switch(es) {sorted(unknown)}; known: {sorted({*SWITCHES, MASTER})}")
+        # The names are for the developer who sent them; the person gets a
+        # sentence they can read, and the log keeps the names.
+        logging.getLogger("memorymap.facts").warning(
+            "unknown switch names %s; known: %s", safe_value(sorted(unknown)), sorted({*SWITCHES, MASTER})
+        )
+        raise ValueError("Some of those switches don't exist, so none of them were changed.")
     for name, value in values.items():
         config.set_preference(_pref_key(name), bool(value))
     return switches(config)

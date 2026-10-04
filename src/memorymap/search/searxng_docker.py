@@ -210,7 +210,7 @@ def _start_docker(data_dir: Path) -> dict:
     elif state == "stopped":
         result = searxng_manager._run(["docker", "start", CONTAINER_NAME])
         if result.returncode != 0:
-            raise SearxngError(_reason(result, "Couldn't start the existing container"))
+            raise SearxngError(_reason(result, "Couldn't start the existing container."))
     else:
         result = searxng_manager._run(
             [
@@ -225,11 +225,11 @@ def _start_docker(data_dir: Path) -> dict:
             timeout=START_TIMEOUT,
         )
         if result.returncode != 0:
-            raise SearxngError(_reason(result, "Couldn't create the container"))
+            raise SearxngError(_reason(result, "Couldn't create the container."))
 
     if not searxng_manager._wait_until_ready():
         raise SearxngError(
             "SearXNG started but isn't answering yet. Give it a moment and press "
-            "Auto-detect, or check `docker logs memorymap-searxng`."
+            "Auto-detect."
         )
     return {"url": base_url(), "started": True}

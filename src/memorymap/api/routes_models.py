@@ -26,6 +26,7 @@ from memorymap.ai.model_manager import (
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.core import deps, hardware, ocr, security
 from memorymap.core.deps import get_session
+from memorymap.core.logbuffer import safe_value
 from memorymap.entry.manager import log_action
 from memorymap.search import search_manager
 
@@ -404,7 +405,11 @@ def model_spec(name: str = "") -> dict:
     try:
         return client.model_spec(model)
     except OllamaError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        logging.getLogger(__name__).warning("model details for %s failed", safe_value(model, 80), exc_info=True)
+        raise HTTPException(
+            status_code=502,
+            detail="Couldn't read that model's details. Check that the AI is running and the model is installed.",
+        ) from exc
 
 
 class SamplingBody(BaseModel):
@@ -888,7 +893,10 @@ def delete_model(body: PullBody, session: Session = Depends(get_session)) -> dic
     try:
         ollama.delete(body.name)
     except OllamaError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        logging.getLogger(__name__).warning("removing model %s failed", safe_value(body.name, 80), exc_info=True)
+        raise HTTPException(
+            status_code=502, detail="Couldn't remove that model. Check that the AI is running, then try again."
+        ) from exc
     log_action(session, "deleted", "model", detail=body.name)
     session.commit()
     return {"deleted": True, "name": body.name}

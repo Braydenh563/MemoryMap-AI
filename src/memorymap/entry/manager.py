@@ -1506,7 +1506,7 @@ def rename_tags(session: Session, olds: list[str], new: str) -> dict[int, list[s
     """
     cleaned = normalise_tags([new])
     if not cleaned:
-        raise ValueError("A tag needs a name")
+        raise ValueError("A tag needs a name.")
     new = cleaned[0]
     wanted = set(olds)
     if not wanted:
@@ -2034,10 +2034,10 @@ def rename_category(session: Session, category_id: int, new_name: str) -> dict:
     """
     category = session.get(Category, category_id)
     if category is None:
-        raise ValueError("That category no longer exists")
+        raise ValueError("That category no longer exists.")
     new_name = new_name.strip()
     if not new_name:
-        raise ValueError("A category needs a name")
+        raise ValueError("A category needs a name.")
     if new_name == category.name:
         return {"renamed": False, "merged": False, "moved": 0}
 
@@ -2077,9 +2077,9 @@ def delete_category(session: Session, category_id: int) -> dict:
     """
     category = session.get(Category, category_id)
     if category is None:
-        raise ValueError("That category no longer exists")
+        raise ValueError("That category no longer exists.")
     if category.name == UNCATEGORISED:
-        raise ValueError("Uncategorised is where notes go; it can't be removed")
+        raise ValueError("Uncategorised is where notes go, so it can't be removed.")
 
     # The deleted category's own Uncategorised, not the view's: a note must
     # stay filed in a category its own space can list.

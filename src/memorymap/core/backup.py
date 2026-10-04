@@ -8,10 +8,13 @@ ones are pruned so the folder can't grow forever.
 
 from __future__ import annotations
 
+import logging
 import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+
+from memorymap.core.logbuffer import safe_value
 
 KEEP_BACKUPS = 10
 # "Scheduled": a fresh backup is taken at startup when the newest one is
@@ -180,6 +183,17 @@ def backup_if_due(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Pa
     return backup_now(db_path, data_dir, keep)
 
 
+logger = logging.getLogger(__name__)
+
+#: What the person reads when a backup fails its integrity check; the check's
+#: own output goes to the log, where it can be of use to somebody who can act
+#: on it.
+_DAMAGED_BACKUP = (
+    "That backup is damaged, so it was not restored. Your current notes "
+    "have not been touched."
+)
+
+
 def restore_backup(name: str, db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> None:
     """Replace the live database with a backup.
 
@@ -188,7 +202,7 @@ def restore_backup(name: str, db_path: Path, data_dir: Path, keep: int = KEEP_BA
     taken before overwriting, so even a restore is undoable."""
     source_path = backups_dir(data_dir) / Path(name).name  # no traversal
     if not source_path.is_file():
-        raise FileNotFoundError(f"No backup named {name}")
+        raise FileNotFoundError("That backup could not be found.")
     if db_path.exists():
         backup_now(db_path, data_dir, keep)  # the pre-restore safety copy
 
@@ -220,11 +234,13 @@ def restore_backup(name: str, db_path: Path, data_dir: Path, keep: int = KEEP_BA
             except sqlite3.DatabaseError as exc:
                 # Some corruption fails inside the check itself rather than
                 # coming back as a non-"ok" row; both mean the same thing.
-                raise ValueError(f"Backup {name} failed integrity check: {exc}") from exc
+                logger.warning("Backup %s failed its integrity check: %s", safe_value(name, 120), exc)
+                raise ValueError(_DAMAGED_BACKUP) from exc
         finally:
             checker.close()
         if row is None or row[0] != "ok":
-            raise ValueError(f"Backup {name} failed integrity check: {row}")
+            logger.warning("Backup %s failed its integrity check: %s", safe_value(name, 120), row)
+            raise ValueError(_DAMAGED_BACKUP)
         #: **"ok" is not the same as "has anything in it."** An empty file is
         #: a valid SQLite database with no tables, and passes the check
         #: above; restoring one replaces the notebook with nothing and the
@@ -240,7 +256,7 @@ def restore_backup(name: str, db_path: Path, data_dir: Path, keep: int = KEEP_BA
             checker.close()
         if not tables:
             raise ValueError(
-                f"Backup {name} is empty, so restoring it would replace your "
+                "That backup is empty, so restoring it would replace your "
                 "notebook with nothing. It was most likely written when this "
                 "computer was out of disk space."
             )

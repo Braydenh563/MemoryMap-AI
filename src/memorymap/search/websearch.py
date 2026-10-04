@@ -33,6 +33,7 @@ from urllib.parse import (
 
 import requests
 
+from memorymap.core.logbuffer import safe_value
 from memorymap.core.security import UnsafeUrl, is_internal_address, public_addresses
 from memorymap.core import webclip
 from memorymap.core.privacy_http import (  # noqa: F401 - the old names stay importable from here
@@ -429,8 +430,8 @@ def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
     target = _searxng_target(base_url)
     if not target:
         raise WebSearchError(
-            "The SearXNG address must be a plain http(s) URL on this machine "
-            "or your own network"
+            "The SearXNG address must be a plain web address (starting with "
+            "http or https) on this computer or your own network."
         )
     url, headers = target
     session = _private_session()
@@ -449,13 +450,17 @@ def _search_searxng(query: str, limit: int, base_url: str) -> list[dict]:
         response.raise_for_status()
         payload = response.json()
     except (requests.RequestException, ValueError) as exc:
-        raise WebSearchError(f"SearXNG search failed: {exc}") from exc
+        # The transport's own text is for the log; the query is not in it.
+        logger.warning("SearXNG search failed (%s): %s", type(exc).__name__, safe_value(str(exc), 300))
+        raise WebSearchError(
+            "The SearXNG search failed. Check that SearXNG is running, then try again."
+        ) from exc
     finally:
         session.close()  # the cookie jar goes with it
 
     rows = payload.get("results") if isinstance(payload, dict) else None
     if not isinstance(rows, list):
-        raise WebSearchError("SearXNG returned an unexpected response")
+        raise WebSearchError("SearXNG sent back something MemoryMap couldn't read.")
 
     results = []
     for row in rows[:limit]:
@@ -550,7 +555,9 @@ def _search_duckduckgo(query: str, limit: int) -> list[dict]:
         # The query itself is deliberately not logged: this is the one feature
         # that leaves the machine, and the log is a file on disk.
         logger.warning("Web search request failed (%s): %s", type(exc).__name__, exc)
-        raise WebSearchError(f"Web search failed: {exc}") from exc
+        raise WebSearchError(
+            "Web search failed. Check your internet connection and try again."
+        ) from exc
     finally:
         session.close()  # no cookies carried into the next search
 
@@ -694,6 +701,7 @@ def _assert_external(url: str) -> list:
     try:
         return public_addresses(url)
     except UnsafeUrl as exc:
+        # `UnsafeUrl` is a sentence written for a person (core/security.py).
         raise WebSearchError(str(exc)) from exc
 
 
@@ -730,7 +738,7 @@ def _get_external(url: str) -> requests.Response:
                 location = response.headers.get("location", "")
                 response.close()
                 if not location:
-                    raise WebSearchError("That page redirected to nowhere")
+                    raise WebSearchError("That page redirected to nowhere.")
                 # A relative Location is resolved against the hop it came from, 
                 # the original URL, not the pinned one, so the next check sees
                 # the real hostname.
@@ -751,7 +759,7 @@ def _get_external(url: str) -> requests.Response:
         session.close()
         raise
     session.close()
-    raise WebSearchError("That page redirected too many times")
+    raise WebSearchError("That page redirected too many times.")
 
 
 def _split_url(url: str) -> tuple[str, str]:
@@ -784,7 +792,7 @@ def fetch_readable(url: str) -> dict:
         response = _get_external(url)
         content_type = response.headers.get("content-type", "")
         if "html" not in content_type and "text" not in content_type:
-            raise WebSearchError("That link isn't a readable page")
+            raise WebSearchError("That link isn't a readable page.")
         raw = response.raw.read(_READER_MAX_BYTES, decode_content=True) or b""
     except requests.HTTPError as exc:
         # Name the site, not the pinned IP-literal the request was aimed at, 
@@ -800,10 +808,13 @@ def fetch_readable(url: str) -> dict:
                 "protection wants a real browser. Open the link there instead."
             ) from exc
         raise WebSearchError(
-            f"Couldn't open that page: {domain_of(url)} answered {status}"
+            f"Couldn't open that page: {domain_of(url)} answered with an error ({status})."
         ) from exc
     except requests.RequestException as exc:
-        raise WebSearchError(f"Couldn't open that page: {exc}") from exc
+        logger.warning("Couldn't open a page for the reader (%s): %s", type(exc).__name__, safe_value(str(exc), 300))
+        raise WebSearchError(
+            "Couldn't open that page. Check the address and your internet connection."
+        ) from exc
 
     # Relative links resolve against where the page actually came from
     # (redirects included): never against response.url, which is the

@@ -280,7 +280,9 @@ async function docRemoteDiagnostics(ext, doc) {
     });
     found = await response.json();
   } catch (error) {
-    if (/no checker/.test(String(error.message))) DOC_CHECK_REMOTE.delete(ext);
+    //: The route answers 400 only for a language it has no checker for, so the
+    //: status says it; the sentence is for a person, not for this code to read.
+    if (error && error.status === 400) DOC_CHECK_REMOTE.delete(ext);
     return [];
   }
   return (Array.isArray(found) ? found : []).map((d) => ({

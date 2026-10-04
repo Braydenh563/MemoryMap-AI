@@ -22,6 +22,7 @@ import time
 from pathlib import Path
 
 from memorymap.core.extras import find_system_python
+from memorymap.core.logbuffer import safe_value
 from memorymap.search import searxng_manager
 from memorymap.search.searxng_manager import (
     COMMAND_TIMEOUT,
@@ -235,7 +236,12 @@ def _download(url: str, destination: Path, on_progress=None) -> None:
                     if on_progress:
                         on_progress(done, total)
     except requests.RequestException as exc:
-        raise SearxngError(f"Couldn't download SearXNG: {exc}") from exc
+        logging.getLogger("memorymap.searxng").warning(
+            "Couldn't download SearXNG: %s", safe_value(str(exc), 300)
+        )
+        raise SearxngError(
+            "Couldn't download SearXNG. Check your internet connection and try again."
+        ) from exc
 
 
 def _unpack(archive: Path, into: Path) -> list[str]:
@@ -268,7 +274,12 @@ def _unpack(archive: Path, into: Path) -> list[str]:
             else:  # pragma: no cover - 3.11 only
                 tar.extractall(into, members=members)  # noqa: S202  # members vetted above
     except (tarfile.TarError, OSError) as exc:
-        raise SearxngError(f"Couldn't unpack SearXNG: {exc}") from exc
+        logging.getLogger("memorymap.searxng").warning(
+            "Couldn't unpack SearXNG: %s", safe_value(str(exc), 300)
+        )
+        raise SearxngError(
+            "Couldn't unpack SearXNG. The download may be damaged, so try again."
+        ) from exc
     return skipped
 
 
@@ -276,7 +287,13 @@ def _fetch_source(src: Path, state: dict) -> None:
     """Download and unpack SearXNG into `src`, replacing whatever was there."""
     problem = searxng_manager._remove_tree(src)
     if problem:
-        raise SearxngError(f"Couldn't clear the old copy of SearXNG: {problem}")
+        logging.getLogger("memorymap.searxng").warning(
+            "Couldn't clear the old copy of SearXNG: %s", safe_value(problem, 300)
+        )
+        raise SearxngError(
+            "Couldn't clear the old copy of SearXNG. Close anything using its "
+            "folder (a file explorer counts) and try again."
+        )
     archive = src.parent / "searxng-source.tar.gz"
     try:
         _install_stage(2, "Downloading SearXNG…")
@@ -303,9 +320,12 @@ def _fetch_source(src: Path, state: dict) -> None:
     finally:
         archive.unlink(missing_ok=True)
     if not is_checkout(src):
+        logging.getLogger("memorymap.searxng").warning(
+            "SearXNG downloaded, but no setup.py or pyproject.toml turned up in %s", src
+        )
         raise SearxngError(
-            "SearXNG downloaded, but no setup.py or pyproject.toml turned up "
-            f"in {src}. Try again, or reinstall."
+            "SearXNG downloaded, but its files weren't laid out the way MemoryMap "
+            "expects. Try again, or reinstall."
         )
 
 
@@ -387,19 +407,22 @@ def install_source(data_dir: Path, on_ready=None) -> None:
                 python = find_system_python()
                 if python is None:
                     raise SearxngError(
-                        "No Python interpreter found on this system, and a "
-                        "packaged app can't create a virtualenv without one. "
-                        "Install Python from python.org (any recent version, "
-                        'tick "Add python.exe to PATH" during setup), then '
-                        "try again: or use the Docker-based install instead."
+                        "MemoryMap can't find Python on this computer, and it "
+                        "needs Python to set SearXNG up. Install Python from "
+                        "python.org (any recent version, and tick “Add python.exe "
+                        "to PATH” during setup), then try again, or use the "
+                        "Docker install instead."
                     )
                 searxng_manager._run([python, "-m", "venv", str(venv)], timeout=180)
                 _install_log(f"Virtualenv created at {venv}")
                 if not searxng_manager._venv_python(data_dir).exists():
+                    logging.getLogger("memorymap.searxng").warning(
+                        "Couldn't create a virtualenv at %s", venv
+                    )
                     raise SearxngError(
-                        "Couldn't create a virtualenv for SearXNG at "
-                        f"{venv}: check there is space and that the folder "
-                        "is writable."
+                        "Couldn't set up a private Python environment for "
+                        "SearXNG. Check there is free space and that the "
+                        "folder can be written to."
                     )
             # One path for everyone, git or no git: fetch the archive and
             # unpack it ourselves. Both of the old paths, `git clone` and
@@ -413,7 +436,7 @@ def install_source(data_dir: Path, on_ready=None) -> None:
                 # and those lines are the only evidence the install is alive.
                 result = searxng_manager._run_streaming(args, INSTALL_TIMEOUT, _install_log)
                 if result.returncode != 0:
-                    raise SearxngError(_reason(result, "Couldn't install SearXNG"))
+                    raise SearxngError(_reason(result, "Couldn't install SearXNG."))
             # pip exiting 0 is not the same as SearXNG being runnable, a
             # half-installed venv otherwise reads as installed and dies at
             # start, which is the state the reinstall button exists to escape.
@@ -431,7 +454,7 @@ def install_source(data_dir: Path, on_ready=None) -> None:
             )
             if check.returncode != 0:
                 raise SearxngError(
-                    _reason(check, "SearXNG installed but can't be started")
+                    _reason(check, "SearXNG installed but can't be started.")
                 )
             _import_ok.add(str(Path(data_dir)))
             _install_log("SearXNG installed and importable.")
@@ -572,11 +595,12 @@ def uninstall_source(data_dir: Path) -> dict:
     if failed:
         # Reporting a wipe that didn't happen is what let the next install
         # walk into the same broken folder and blame pip for it.
+        logging.getLogger("memorymap.searxng").warning(
+            "Couldn't clear the old SearXNG install: %s", safe_value("; ".join(failed), 400)
+        )
         raise SearxngError(
-            "Couldn't clear the old SearXNG install: "
-            + "; ".join(failed)
-            + ". Close anything using those folders (a file explorer counts) "
-            "and try again."
+            "Couldn't clear the old SearXNG install. Close anything using its "
+            "folders (a file explorer counts) and try again."
         )
     return {"removed": removed}
 
@@ -589,7 +613,7 @@ def reinstall_source(data_dir: Path, on_ready=None) -> dict:
     than reinstall-wait-Start.
     """
     if _install_state["running"]:
-        raise SearxngError("An install is already running, let it finish first.")
+        raise SearxngError("An install is already running. Let it finish first.")
     result = uninstall_source(data_dir)
     searxng_manager.install_source(data_dir, on_ready=on_ready)
     return {**result, "installing": True}

@@ -528,15 +528,15 @@ def _refuses(address) -> str | None:
     # leftovers.
     if address.is_link_local:
         return (
-            f"{address} is a link-local address. On a cloud machine that is "
-            "the instance-metadata service, not a model server."
+            f"{address} is an address a cloud computer keeps for its own "
+            "settings, so it can't be where an AI runs."
         )
     if address.is_multicast or address.is_unspecified:
-        return f"{address} isn't an address something can listen on."
+        return f"{address} can't be used as the address of an AI server."
     if address.is_loopback or address.is_private:
         return None
     if address.is_reserved:
-        return f"{address} isn't an address something can listen on."
+        return f"{address} can't be used as the address of an AI server."
     return None
 
 
@@ -563,13 +563,13 @@ def check_backend_url(url: str, local_only: bool = False) -> tuple[bool, str, bo
     if parts.scheme not in _ALLOWED_BACKEND_SCHEMES:
         return (
             False,
-            f"A model backend has to be an http:// or https:// address"
-            f"{f', “{parts.scheme}:” is not' if parts.scheme else ''}.",
+            "The address has to start with http:// or https://"
+            f"{f' (“{parts.scheme}:” is not allowed)' if parts.scheme else ''}.",
             False,
         )
     host = (parts.hostname or "").strip()
     if not host:
-        return False, "That address has no host in it.", False
+        return False, "That address has no computer name in it, for example http://localhost:11434.", False
 
     addresses = _backend_addresses(host)
     for address in addresses:
@@ -596,17 +596,17 @@ def check_backend_url(url: str, local_only: bool = False) -> tuple[bool, str, bo
         return False, _LOCKED_REASON.format(host=host), False
     return (
         True,
-        "This backend is not on your machine or your local network. Your "
+        "This AI server is not on your computer or your own network. Your "
         "notes and questions will be sent to it over the internet.",
         False,
     )
 
 
 _LOCKED_REASON = (
-    "“{host}” is not on this machine or your local network, and MemoryMap is "
-    "set to keep the AI local, so your notes are never sent anywhere. If you "
-    "really do want to use a hosted API, turn off “Keep the AI on this "
-    "machine” in Settings → Models first."
+    "“{host}” is not on this computer or your own network, and MemoryMap is "
+    "set to keep the AI local, so your notes are never sent anywhere. To use "
+    "an online AI service anyway, turn off “Keep the AI on this machine” in "
+    "Settings, Models first."
 )
 
 
@@ -627,6 +627,9 @@ _LOCKED_REASON = (
 # pinning the connection to the address that passed, so a second DNS answer
 # cannot walk past the check (see `_pin_url` there, which is the half this
 # move deliberately did not touch).
+
+
+_ONLY_WEB_LINKS = "Only web addresses that start with http or https can be opened."
 
 
 class UnsafeUrl(ValueError):
@@ -667,9 +670,9 @@ def public_addresses(url: str) -> list:
     """
     parsed = urlparse(url)
     if parsed.scheme not in _ALLOWED_BACKEND_SCHEMES or not parsed.hostname:
-        raise UnsafeUrl("Only http(s) links can be opened")
+        raise UnsafeUrl(_ONLY_WEB_LINKS)
     if parsed.username or parsed.password:
-        raise UnsafeUrl("Only http(s) links can be opened")
+        raise UnsafeUrl(_ONLY_WEB_LINKS)
     found = []
     for raw in _resolve(parsed.hostname):
         try:
@@ -679,9 +682,9 @@ def public_addresses(url: str) -> list:
     if not found:
         # A lookup that fails is a failed check, never a pass: the one rule
         # that keeps a resolver outage from opening the hole this closes.
-        raise UnsafeUrl("Couldn't look up that address")
+        raise UnsafeUrl("Couldn't look up that web address.")
     if any(is_internal_address(address) for address in found):
-        raise UnsafeUrl("That link points at a local address, so it wasn't opened")
+        raise UnsafeUrl("That link points at a local address, so it wasn't opened.")
     return found
 
 

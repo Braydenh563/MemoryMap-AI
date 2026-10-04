@@ -37,6 +37,7 @@ this package needs to change what it imports.
 
 from __future__ import annotations
 
+import logging
 import os
 import queue
 import shutil
@@ -47,6 +48,7 @@ import threading
 import time
 from pathlib import Path
 
+from memorymap.core.logbuffer import safe_value
 from memorymap.core.subproc import NO_WINDOW
 from memorymap.search import websearch
 
@@ -200,7 +202,8 @@ def _run_streaming(
             creationflags=NO_WINDOW,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        raise SearxngError(f"Couldn't run {args[0]}: {exc}") from exc
+        _log_command_failure(args, exc)
+        raise SearxngError(_couldnt_run(args)) from exc
 
     lines: queue.Queue[str | None] = queue.Queue()
 
@@ -223,12 +226,12 @@ def _run_streaming(
                 # stop, and the loop already polls at 1s so this is felt
                 # within a second of the button being pressed.
                 process.kill()
-                raise SearxngError(f"{args[0]} was stopped.")
+                raise SearxngError(f"{_program(args)} was stopped.")
             remaining = deadline - time.time()
             if remaining <= 0:
                 process.kill()
                 raise SearxngError(
-                    f"{args[0]} took longer than {timeout}s and was stopped."
+                    f"{_program(args)} took longer than {timeout} seconds and was stopped."
                 )
             try:
                 line = lines.get(timeout=min(remaining, 1.0))
@@ -241,7 +244,7 @@ def _run_streaming(
         process.wait(timeout=max(1, int(deadline - time.time())))
     except subprocess.TimeoutExpired as exc:
         process.kill()
-        raise SearxngError(f"{args[0]} timed out after {timeout}s.") from exc
+        raise SearxngError(f"{_program(args)} timed out after {timeout} seconds.") from exc
     finally:
         if process.stdout:
             process.stdout.close()
@@ -266,7 +269,8 @@ def _run(
             creationflags=NO_WINDOW,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        raise SearxngError(f"Couldn't run {args[0]}: {exc}") from exc
+        _log_command_failure(args, exc)
+        raise SearxngError(_couldnt_run(args)) from exc
 
 
 def _wait_until_ready(timeout: int = START_TIMEOUT, still_starting=None) -> bool:
@@ -320,11 +324,35 @@ _NOT_A_REASON = (
 )
 
 
-def _reason(result: subprocess.CompletedProcess, prefix: str) -> str:
-    """`prefix`, plus the most useful line the command actually printed.
+def _program(args: list[str]) -> str:
+    """The name of the program a command runs ("docker"), not its full path."""
+    return Path(str(args[0])).stem or "The command"
 
-    Prefers a line that names an error, falls back to the last line that isn't
-    boilerplate, and says nothing rather than something misleading.
+
+def _couldnt_run(args: list[str]) -> str:
+    return f"Couldn't run {_program(args)}. Check that it is installed, then try again."
+
+
+def _log_command_failure(args: list[str], exc: BaseException) -> None:
+    """The operating system's own reason, for the log rather than the toast."""
+    logging.getLogger("memorymap.searxng").warning(
+        "Couldn't run %s: %s", safe_value(str(args[0]), 200), safe_value(str(exc), 300)
+    )
+
+
+#: Where a person finds what the app wrote down; named in a message when the
+#: command's own output is only in the log.
+_DETAILS_IN_LOGS = "The details are in Settings, Logs."
+
+
+def _reason(result: subprocess.CompletedProcess, sentence: str) -> str:
+    """`sentence` (which says what failed), pointing at the log when the
+    command printed something worth reading.
+
+    The line itself is developer detail (pip's error, a docker daemon's
+    reply), so it goes to the log, not into the message. Prefers a line that
+    names an error, falls back to the last line that isn't boilerplate, and
+    says nothing rather than something misleading.
     """
     lines = [
         line.strip()
@@ -337,7 +365,7 @@ def _reason(result: subprocess.CompletedProcess, prefix: str) -> str:
         if not any(marker in line.lower() for marker in _NOT_A_REASON)
     ]
     if not useful:
-        return prefix
+        return sentence
 
     # A line that names the failure beats the last line, pip prints the real
     # cause and then several lines of hint after it.
@@ -347,7 +375,10 @@ def _reason(result: subprocess.CompletedProcess, prefix: str) -> str:
         if line.lower().startswith(("error", "fatal", "exception"))
         or "error:" in line.lower()
     ]
-    return f"{prefix}: {(named or useful)[-1]}"
+    logging.getLogger("memorymap.searxng").warning(
+        "%s %s", sentence, safe_value((named or useful)[-1], 400)
+    )
+    return f"{sentence} {_DETAILS_IN_LOGS}"
 
 
 # --- the four concerns, resolved lazily so `searxng_manager.<name>` keeps
@@ -678,5 +709,5 @@ def stop(data_dir: Path | None = None) -> dict:
         return {"stopped": False}
     result = _run(["docker", "stop", _self.CONTAINER_NAME], timeout=40)
     if result.returncode != 0:
-        raise SearxngError(_reason(result, "Couldn't stop the container"))
+        raise SearxngError(_reason(result, "Couldn't stop the container."))
     return {"stopped": True}

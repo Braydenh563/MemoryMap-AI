@@ -89,7 +89,8 @@ def fetch_page(url: str) -> dict:
             try:
                 addresses = public_addresses(url)
             except UnsafeUrl as exc:
-                raise ClipRefused(f"{exc}.") from exc
+                # `UnsafeUrl` is a sentence written for a person (core/security.py).
+                raise ClipRefused(str(exc)) from exc
             pinned, host_header = pin_url(url, addresses[0])
             parsed = urlparse(pinned)
             if parsed.scheme == "https":

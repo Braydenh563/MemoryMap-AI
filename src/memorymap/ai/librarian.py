@@ -18,6 +18,12 @@ OFFLINE_MESSAGE = (
     "The AI answer isn't available right now (Ollama doesn't seem to be "
     "running), but here are the notes that match your question."
 )
+#: What a route says when the model call failed and the provider's own error
+#: (which names the model and carries the transport's text) went to the log.
+AI_FAILED_MESSAGE = (
+    "The AI couldn't finish that. Check that it is running and the model is "
+    "installed in Settings, Models, then try again."
+)
 NO_RESULTS_MESSAGE = "I couldn't find any saved notes matching that question."
 
 

@@ -2017,7 +2017,7 @@ def summarise_turns(turns: list[tuple[str, str]]) -> dict:
     if not summary:
         # Better to say nothing happened than to hand back an empty summary
         # the caller would send in place of real turns.
-        raise ToolError("The model returned an empty summary, try again.")
+        raise ToolError("The AI returned an empty summary. Try again.")
     return {
         "summary": summary,
         "turns": len(turns),
@@ -2082,7 +2082,7 @@ def validate_make_plan(arguments: dict) -> dict:
     """
     goal = " ".join(str(arguments.get("goal") or "").split())
     if not goal:
-        raise ToolError("make_plan needs a goal: the whole job in one sentence.")
+        raise ToolError("A plan needs a goal: the whole job in one sentence.")
     steps = _plan_steps(arguments.get("steps"))
     if len(steps) < MIN_PLAN_STEPS:
         raise ToolError(

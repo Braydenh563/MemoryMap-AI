@@ -311,7 +311,7 @@ def test_searxng_probe_rejects_a_public_address(monkeypatch):
 
 
 def test_searxng_search_rejects_a_public_address():
-    with pytest.raises(websearch.WebSearchError, match="this machine or your own network"):
+    with pytest.raises(websearch.WebSearchError, match="this computer or your own network"):
         websearch._search_searxng("anything", 5, "https://searx.example.com")
 
 

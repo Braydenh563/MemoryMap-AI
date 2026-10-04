@@ -160,7 +160,7 @@ class SkillError(ValueError):
 def _text(value, limit: int, what: str) -> str:
     text = str(value or "").strip()
     if len(text) > limit:
-        raise SkillError(f"{what} is limited to {limit} characters")
+        raise SkillError(f"{what} is limited to {limit} characters.")
     return text
 
 
@@ -198,7 +198,7 @@ def _step_specs(
             continue  # a blank line in the textarea is not a step
         specs.append(_one_step_spec(text, step, known_tools, declared))
     if len(specs) > MAX_STEPS:
-        raise SkillError(f"A skill can have at most {MAX_STEPS} steps")
+        raise SkillError(f"A skill can have at most {MAX_STEPS} steps.")
     return specs
 
 
@@ -208,9 +208,7 @@ def _one_step_spec(
     expects = str(step.get("expects") or "").strip() or None
     if expects is not None and expects not in STEP_EXPECTS:
         raise SkillError(
-            f"“{expects}” is not something a step can expect, use one of "
-            + ", ".join(STEP_EXPECTS)
-            + "."
+            f"“{expects}” is not something a step can expect. Use one of {', '.join(STEP_EXPECTS)}."
         )
     tools: list[str] = []
     for tool in step.get("tools") or []:
@@ -232,7 +230,7 @@ def _one_step_spec(
             )
         tools.append(tool)
     if len(tools) > MAX_STEP_TOOLS:
-        raise SkillError(f"A step can name at most {MAX_STEP_TOOLS} tools")
+        raise SkillError(f"A step can name at most {MAX_STEP_TOOLS} tools.")
     retries = step.get("retries", DEFAULT_STEP_RETRIES)
     try:
         retries = int(retries)
@@ -267,7 +265,7 @@ def verify_spec(raw: dict, known_tools: set[str] | None, declared: list[str]) ->
         return None
     tool = str(block.get("tool") or "").strip()
     if not tool:
-        raise SkillError("A verify block needs a tool to read the answer from")
+        raise SkillError("A verify block needs a tool to read the answer from.")
     if known_tools is not None and tool not in known_tools:
         raise SkillError(f"There is no tool called “{tool}” to verify with.")
     if declared and tool not in declared:
@@ -279,15 +277,12 @@ def verify_spec(raw: dict, known_tools: set[str] | None, declared: list[str]) ->
         )
     expect = block.get("expect")
     if not isinstance(expect, dict) or not expect:
-        raise SkillError("A verify block needs an expect, for example {\"min\": 1}")
+        raise SkillError("A verify block needs an expect, for example {\"min\": 1}.")
     unknown = sorted(set(expect) - set(VERIFY_PREDICATES))
     if unknown:
+        listed = ", ".join(f"“{name}”" for name in unknown)
         raise SkillError(
-            "A verify block can't expect "
-            + ", ".join(f"“{name}”" for name in unknown)
-            + ", use one of "
-            + ", ".join(VERIFY_PREDICATES)
-            + "."
+            f"A verify block can't expect {listed}. Use one of {', '.join(VERIFY_PREDICATES)}."
         )
     checks: dict = {}
     for name, value in expect.items():
@@ -483,7 +478,7 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
     name = _text(raw.get("name"), MAX_NAME, "A skill name")
     prompt = _text(raw.get("prompt"), MAX_PROMPT, "A skill prompt")
     if not name:
-        raise SkillError("A skill needs a name")
+        raise SkillError("A skill needs a name.")
     #: **Steps count as the prompt** (Brief 13's decision, recorded in
     #: CHAT_PLAN "Decisions made"). A numbered list of steps already says what
     #: the job is, and making the author write it twice is how the two drift
@@ -491,7 +486,7 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
     #: reads both. A skill with neither is still refused, because that is a
     #: skill that says nothing at all.
     if not prompt and not (raw.get("steps") or raw.get("step_specs")):
-        raise SkillError("A skill needs a prompt saying what it should do, or steps")
+        raise SkillError("A skill needs a prompt saying what it should do, or steps.")
 
     tools: list[str] = []
     for tool in raw.get("tools") or []:
@@ -509,12 +504,12 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
             )
         if known_tools is not None and tool not in known_tools:
             raise SkillError(
-                f"There is no tool called “{tool}”. Call list_tools, or pick "
-                "from the tools shown in Settings → Tools."
+                f"There is no tool called “{tool}”. Pick from the tools shown "
+                "in Settings → Tools."
             )
         tools.append(tool)
     if len(tools) > MAX_TOOLS:
-        raise SkillError(f"A skill can name at most {MAX_TOOLS} tools")
+        raise SkillError(f"A skill can name at most {MAX_TOOLS} tools.")
 
     specs = _step_specs(raw, known_tools, tools)
     steps = [spec["text"] for spec in specs]
@@ -526,8 +521,8 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
         input_name = str((item or {}).get("name") or "").strip()
         if not INPUT_NAME.match(input_name):
             raise SkillError(
-                f"“{input_name or item}” is not a usable input name, use "
-                "letters, digits and underscores, starting with a letter."
+                f"“{input_name or item}” is not a usable input name. Use letters, "
+                "digits and underscores, and start with a letter."
             )
         inputs.append(
             {
@@ -539,7 +534,7 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
             }
         )
     if len(inputs) > MAX_INPUTS:
-        raise SkillError(f"A skill can declare at most {MAX_INPUTS} inputs")
+        raise SkillError(f"A skill can declare at most {MAX_INPUTS} inputs.")
 
     skill = {
         "name": name,
@@ -574,13 +569,9 @@ def normalise(raw: dict, known_tools: set[str] | None = None) -> dict:
         used.update(PLACEHOLDER.findall(text))
     missing = sorted(used - declared)
     if missing:
-        raise SkillError(
-            "This skill uses "
-            + ", ".join(f"{{{{{name}}}}}" for name in missing)
-            + " but doesn't declare "
-            + ("them" if len(missing) > 1 else "it")
-            + " as an input."
-        )
+        listed = ", ".join(f"{{{{{name}}}}}" for name in missing)
+        pronoun = "them" if len(missing) > 1 else "it"
+        raise SkillError(f"This skill uses {listed} but doesn't declare {pronoun} as an input.")
     # An action skill is one that names tools or steps; kept as `useTools` so
     # skills saved before this rebuild keep the flag the UI already reads.
     if raw.get("useTools") or steps or tools:

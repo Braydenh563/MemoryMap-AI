@@ -139,6 +139,11 @@ def restore_backup(body: RestoreBody) -> dict:
         backup.restore_backup(body.name, config.db_path, config.data_dir, _retention(config))
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        # A backup that is damaged or empty: the live database was not touched
+        # (restore_backup checks a temp copy first), and the sentence is the
+        # one that function wrote for the person.
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     finally:
         deps.reload_db()
     session = deps.get_db().session()

@@ -41,7 +41,7 @@ def _find_category(session: Session, name: str) -> Category:
     """
     wanted = (name or "").strip()
     if not wanted:
-        raise ToolError("No category name was given")
+        raise ToolError("No category name was given.")
     found = session.scalar(select(Category).where(Category.name == wanted))
     if found is None:
         found = session.scalar(
@@ -49,17 +49,20 @@ def _find_category(session: Session, name: str) -> Category:
         )
     if found is None:
         existing = [c["name"] for c in manager.all_categories(session)]
-        known = ", ".join(f"“{n}”" for n in existing[:12]) or "none yet"
-        raise ToolError(f"There is no category called “{wanted}”. There is: {known}")
+        known = ", ".join(f"“{n}”" for n in existing[:12])
+        raise ToolError(
+            f"There is no category called “{wanted}”. "
+            + (f"The ones that exist are {known}." if known else "There are none yet.")
+        )
     return found
 
 
 def _create_category(session: Session, args: dict) -> dict:
     name = str(args.get("name") or "").strip()
     if not name:
-        raise ToolError("A category needs a name")
+        raise ToolError("A category needs a name.")
     if len(name) > 100:
-        raise ToolError("That category name is too long (100 characters max)")
+        raise ToolError("That category name is too long. Keep it to 100 characters.")
     # Asked in the one space the new row would land in: from the "All
     # spaces" view a bare name lookup answered "already exists" for another
     # space's category, and the new one was never made where it was wanted.
@@ -97,7 +100,7 @@ def _rename_category(session: Session, args: dict) -> dict:
     category = _find_category(session, str(args.get("old") or ""))
     new_name = str(args.get("new") or "").strip()
     if not new_name:
-        raise ToolError("A category needs a name")
+        raise ToolError("A category needs a name.")
     old_name = category.name
     try:
         result = manager.rename_category(session, category.id, new_name)
@@ -141,13 +144,13 @@ def _merge_categories(session: Session, args: dict) -> dict:
     source = _find_category(session, str(args.get("from") or ""))
     target = _find_category(session, str(args.get("into") or ""))
     if source.id == target.id:
-        raise ToolError(f"“{source.name}” and “{target.name}” are the same category")
+        raise ToolError(f"“{source.name}” and “{target.name}” are the same category.")
     if (source.workspace_id or "default") != (target.workspace_id or "default"):
         # The merge is a rename onto the target's name, which only merges
         # inside the source's own space; across spaces it would quietly
         # become a rename instead of what was asked. Say so instead.
         raise ToolError(
-            f"“{source.name}” and “{target.name}” are in different spaces, so they can't be merged"
+            f"“{source.name}” and “{target.name}” are in different spaces, so they can't be merged."
         )
     source_name, target_name = source.name, target.name
     try:

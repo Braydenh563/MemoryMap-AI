@@ -22,6 +22,7 @@ from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.core.config import ConfigManager
 from memorymap.core import jobruns, taskhistory
 from memorymap.core.database import DatabaseManager, EmbeddingRecord, Entry
+from memorymap.core.logbuffer import safe_value
 from memorymap.entry.manager import log_action
 
 
@@ -412,7 +413,8 @@ def known_feature(feature: str) -> Feature:
     """
     row = FEATURES_BY_KEY.get(feature)
     if row is None:
-        raise ValueError(f"'{feature}' is not a feature that has its own model")
+        logging.getLogger("memorymap.models").warning("no per-feature model for %s", safe_value(feature, 60))
+        raise ValueError("That part of the app doesn't have a model of its own to pick.")
     return row
 
 

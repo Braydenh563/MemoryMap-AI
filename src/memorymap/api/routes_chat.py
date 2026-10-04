@@ -2147,7 +2147,13 @@ def compress_history(body: CompressBody) -> dict:
     except OllamaError as exc:
         # Offline, or the call itself failed, either way there is no summary
         # to show, distinct from the model answering with nothing (below).
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        # The provider's text names the model and the transport's error: log
+        # it, and say the one thing the person can act on.
+        logging.getLogger("memorymap.chat").warning("chat summary failed", exc_info=True)
+        raise HTTPException(
+            status_code=503,
+            detail="The AI isn't available to summarise this chat right now. Check that it is running, then try again.",
+        ) from exc
     except tools.ToolError as exc:
         # An empty reply. Better to say nothing happened than to hand back an
         # empty summary the client would send in place of ten real turns.
@@ -2172,5 +2178,14 @@ def execute_confirmed_tool(
         raise HTTPException(status_code=404, detail=f"There is no tool called '{body.name}'.")
     result = tools.execute_tool(session, body.name, body.arguments)
     if "error" in result:
-        raise HTTPException(status_code=400, detail=result["error"])
+        # `result["error"]` is written for the model (it names the tool and
+        # its arguments), so it goes to the log and the person reads a
+        # sentence about what happened to their click.
+        logging.getLogger("memorymap.chat").warning(
+            "confirmed tool %r failed: %s", safe_value(body.name, 40), safe_value(result["error"], 300)
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="That couldn't be done. The note or item may have changed since you asked, so check it and try again.",
+        )
     return result

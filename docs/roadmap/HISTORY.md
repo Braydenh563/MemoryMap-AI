@@ -11,7 +11,7 @@ that answers "has this been done?" before anyone starts.
 
 ### From AGENT_SKILLS_REFORM.md, "Harness robustness, 2026-10-04 (INBOX 527)"
 
-The audit's fourteen defects, each a commit with its test. Real model:
+The audit's sixteen defects, each a commit with its test. Real model:
 Qwen2.5-1.5B-Instruct Q4_K_M, llama-server `--jinja`, contended cores.
 
 | Step | Before | After | Gate |
@@ -30,6 +30,8 @@ Qwen2.5-1.5B-Instruct Q4_K_M, llama-server `--jinja`, contended cores.
 | No match is not "notebook looks empty" | 1.5B: "no notes" with four saved | says count_notes knows | same |
 | Claimed act retried once (`CLAIM_RETRY_NUDGE`) | heads-up only | asked once, heads-up on a second miss | same |
 | Schema words (`pinned`, `add`, aliases) | 1.5B unpinned; "can't tag" | clearer words; `tags` reaches `add` | same |
+| "Add X to my Y note" offers `edit_note` (`_ADD_TO_NOTE`) | no edit tool offered | offered | same |
+| Small model's imperative: first round `tool_choice: "required"` (OpenAI dialect) | prose on most imperatives | curl: `create_note` called; eval below | same |
 
 ## Moved from the plans, 2026-10-04 (the documents tails)
 

@@ -40,9 +40,9 @@ with its owner named in the entry.
      and refine the agentic harness to make sure it is the best the world
      has ever seen" / "does the ai know that it can have images in its
      response??" Placed: AGENT_SKILLS_REFORM.md, "Harness robustness,
-     2026-10-04 (INBOX 527)": fourteen defects audited and fixed against a
+     2026-10-04 (INBOX 527)": sixteen defects audited and fixed against a
      real 1.5B (the agent prompt now offers `[picture N]` too); phases H1 to
-     H5 open there.
+     H4 open there.
 
 525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
      dark background behind the graph labels togglable??" Next Opus: the

@@ -266,7 +266,7 @@ answer), `scratchpad/harness_argmeasure.py` (no model: argument errors,
 coercion, malformed JSON). The built record, with every before and after, is
 in HISTORY.md, "Moved from the plans, 2026-10-04 (the harness)".
 
-**Ranked defects, highest impact first.** All fourteen are fixed; the rows
+**Ranked defects, highest impact first.** All sixteen are fixed; the rows
 stay here only as the audit's index, one line each.
 
 | # | Defect | Where | Evidence |
@@ -285,6 +285,8 @@ stay here only as the audit's index, one line each.
 | 12 | A tool result over the turn's budget was dropped whole | `agent._dispatch_call` | a 20-note page with 3,000 characters left: nothing read, tools withdrawn |
 | 13 | Calls in one reply parked each other; web reads ran in series | `agent._dispatch_call` (the 430 guard) | the second search of "search X and Y" parked; three pages 1.2 s |
 | 14 | Schema words a 1.5B misreads | `pin_note`, `tag_note` | unpinned when asked to pin; "I can't tag" with `tag_note` offered |
+| 15 | A small model answered most imperatives in prose | first round of `run_agent` | "Make a note", "Remind me", "Tag": no call; with `tool_choice: "required"` llama-server answered `create_note` |
+| 16 | "Add X to my Y note" cued no edit tool | `tools.focus_detail` | 1.5B rewrote the note in prose, saved nothing |
 
 **Audited and sound, no change.** Streamed calls by index, an indexless
 fragment included (`openai_client._accumulate_tool_calls`); six text dialects
@@ -319,13 +321,7 @@ retry were not looked at in a browser (no UI changed: they are answer text).
   toolbox, rounds, schema length and nudges in one table read by
   `_prepare_turn` (today one boolean). Done when: the table is the only
   place a size decision lives, and the evals below run per tier.
-- **H4. Required first call for an imperative on a small model.** On
-  Qwen2.5-1.5B most imperatives ("Make a note", "Remind me", "Tag") got
-  prose, not a call. llama.cpp honours `tool_choice: "required"`; send it on
-  the first round only when the request is an imperative whose cue groups
-  hold a write tool, and only on the OpenAI dialect. Done when: the harness
-  eval's finishing rate on the 1.5B rises by at least three of ten with no
-  question forced into a call (a question set of ten, all answered in words).
-- **H5. Evals breadth.** The same ten cases at 3B and 4B; Ollama's native
+- **H4. Evals breadth.** The same ten cases at 3B and 4B, and the
+  required first call measured over twenty imperatives and ten questions; Ollama's native
   dialect; two calls in one reply on a real model; picture placement over
   ten tries. Done when: each has a number in this section.

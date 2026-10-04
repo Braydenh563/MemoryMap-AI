@@ -104,6 +104,38 @@ means the entry was stale, found by reading the call site, not assumed.
   `help_topics_more.py` and the Guide.
 - **MCP, the expose half (29).** Built: `src/memorymap/mcp_server.py`.
 
+### From section 29b
+
+- **A dry-run for the background librarian (item 2).** Answered by review-after
+  rather than a true dry-run: the pass keeps what it did and every write carries
+  its undo (`autonomous.py`, ROADMAP section 40 item 2; a stubbed pass stops
+  resembling the real one, so a preview would lie).
+
+### From sections 4 and 7
+
+- **Archive (4, item 3).** Built for notes, chats and documents: each model carries
+  `archived_at` (`core/database.py`).
+- **Single instance (7).** Built in `__main__.py`: one server per data directory.
+
+### From sections 9, 10, 13 and 14
+
+- **Performance (11).** Warm model: `OllamaClient` sets `keep_alive` to 30 minutes
+  and `embeddings.start_warmup` loads the embedder; the frontend split is done
+  (`app.js` is 25 files, CLAUDE.md section 7).
+
+- **Graph utility (9).** Built: paths between two notes (`path_between`, the trace
+  in `graph.js`), orphans and hubs, drag-to-link, the timeline scrub, PNG export,
+  filters and `related_notes`.
+- **Reminders as points on the timeline (10).** Built: the `reminder` kind in
+  `timeline.js`.
+
+- **No favicon fetched per search result (13).** Held: `chat.js` draws the
+  site's first letter on a tile, because a real favicon is a request to the
+  site from inside the app for every result.
+- **Tools (14).** Built: `create_document`, `related_notes`,
+  `find_similar_notes`, `notebook_overview` and `count_notes`,
+  `save_user_preference`, `unlink_notes` and the four category tools.
+
 ### From section 98
 
 - **The lightbox's actions that need an id (3b).** Built: `buildMoreMenu` in

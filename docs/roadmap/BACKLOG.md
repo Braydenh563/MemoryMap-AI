@@ -195,9 +195,9 @@ navigate anywhere. **This ties §3 to §7.**
 > now absorbed the Notes tab's Bin/Activity/Tags panels too, well past this
 > section's original scope. Item 1 (drag-drop any file type onto the capture
 > box, OCR on uploaded images) is now also fully done, OCR being the last
-> genuinely open piece (ROADMAP.md item 30d). Item 3 (`archived_at` — notes'
-> own archive shipped; chats/documents still don't have one, see ROADMAP.md
-> item 30b) is still genuinely open.** This section read as entirely unbuilt
+> genuinely open piece (ROADMAP.md item 30d). Item 3 (`archived_at`) is
+> also done: `Entry`, `Conversation` and `Document` each carry the column
+> (`core/database.py`, checked 2026-10-04).** This section read as entirely unbuilt
 > before an earlier audit, which is exactly the kind of staleness that costs
 > a session; check `routes_library.py` and the `Entry`/`Document`/
 > `Conversation` models before assuming otherwise.
@@ -251,9 +251,7 @@ store:**
 2. **A bigger sketch board — asked for again: "improve sketches board, maybe
    a whiteboard tab??"** See below; promoted out of this list into its own
    full write-up given how much is actually being asked for.
-3. **Archive.** A state between "active" and "binned", for things you want out
-   of the way but not deleted. Applies to notes, chats and documents: one
-   `archived_at` column per table, an additive migration.
+3. ~~**Archive.**~~ **Built** for notes, chats and documents (`archived_at`).
 4. **Library tab.** One place showing stored images, documents, chats and
    archived items, with previews, sorting and search.
 
@@ -490,9 +488,11 @@ tiny binaries, but neither solves shipping Python), Neutralino (immature), plain
 PWA (already supported via `manifest.webmanifest` + `sw.js`).
 
 **Plan, updated — some of this is now built, not still planned.** Hardening
-the pywebview mode: **tray — built**, see §25. Single instance, native menus,
-graceful port fallback when 8000 is taken, and a first-run flow specific to
-the packaged build are still open. The "PyInstaller one-file" half of this
+the pywebview mode: **tray — built**, see §25. **Single instance is built**
+(`__main__.py`, the owner's decision: one server per data directory). Native
+menus, graceful port fallback when 8000 is taken, and a first-run flow
+specific to the packaged build are still open. **(needs owner)**: they need
+the packaged build on a real machine. The "PyInstaller one-file" half of this
 paragraph is superseded by the actual decision recorded above — **onedir**,
 not onefile, because onefile re-extracts itself on every launch. pywebview's
 webview is also where the genuine embedded browser from §3 becomes possible.
@@ -674,17 +674,13 @@ whichever layout is picked, not layouts of their own:
 **Fit and framing.** It should size to its panel and re-fit on resize, with
 zoom-to-fit, zoom controls, and a minimap for large notebooks.
 
-**Utility it still lacks:**
-
-- Filter by category, tag or date range; double-click to focus a neighbourhood
-- **Paths between two notes** — the question a graph is uniquely good at
-- Cluster detection, with "name this cluster" handed to the AI
-- Orphans and hubs surfaced explicitly
-- Create a link by dragging one node onto another
-- Timeline scrub — play the notebook's growth
-- PNG/SVG export of the current view
-- A `related_notes(id, depth)` tool so the model can walk links, not just
-  similarity
+**Utility: checked against the code 2026-10-04.** Built: paths between two
+notes (`path_between`, the trace in `graph.js`), orphans and hubs, a link by
+dragging one node onto another, the timeline scrub, PNG export of the view,
+filters, and `related_notes(id, depth)`. Not found by grep: **the AI naming a
+cluster** (cluster detection exists, a name from the model does not).
+**(needs Opus)**: a real model call and a place to show the name; GRAPH_PLAN.md
+owns the rest of this section.
 
 ---
 
@@ -707,7 +703,8 @@ up inside the text. See HISTORY.md for the full list of handled phrasings.
 **Still open from A:** tagging notes that contain relative time so they are
 findable as a class, and nudging on stale ones ("this said 'tomorrow' three
 weeks ago — did it happen?"). Both are queries over `entry_dates` now that
-the data exists.
+the data exists. **(needs Opus)**: the nudge is a surface to design; TIMELINE_PLAN.md
+owns the rest of this section.
 
 ~~**B. A Timeline tab.**~~ **built, first version — and it is a grid, on
 purpose, for what it's for.** A time axis across, one band per category or
@@ -735,7 +732,6 @@ view preference.
 - **Events as bands.** The shape this slots into: one more `group` value, once
   there is an `events` table. Places and themes can be derived from what is
   already stored; events cannot.
-- **Reminders and their completion** as points on the axis.
 - **Zoom from days to years as a gesture**, rather than a bucket picker.
 
 **Data shape:** a new `events` table (`title`, `at`, `precision`, `kind`,
@@ -893,8 +889,9 @@ accurate, usable, capable, and faster".
 **Measure first** — there is no profiling in the repo, so where a chat turn
 spends its time is currently a guess.
 
-- **Prompt reuse.** Every agent round resends the whole message list; Ollama's
-  `keep_alive` and prompt-prefix reuse are never set.
+- **Prompt reuse.** Every agent round resends the whole message list;
+  `keep_alive` is set now (`OllamaClient`, 30 minutes, checked 2026-10-04);
+  prompt-prefix reuse is not verified. **(needs Opus)**: it needs a real model.
 - **Cap tool output.** Return previews by default, full text only on request.
 - ~~**Hybrid retrieval** (semantic + keyword, reciprocal-rank fusion)~~ **done**
   — HISTORY.md's "Retrieval reads the question before searching it": both
@@ -902,11 +899,6 @@ spends its time is currently a guess.
   this session's backlog audit; was still marked open here.
 - **Re-ranking** with a small cross-encoder over the top-20, behind a setting.
 - **Batch embeddings** — the backfill embeds one note at a time.
-- **Warm the model** so the first chat doesn't pay the load cost.
-- **Frontend**: `app.js` is now ~20k lines (was ~12k when this line was
-  written — it has not shrunk) parsed on every load, and `renderEntries`
-  rebuilds the entire list on any change. See §31's module-split
-  recommendation in ANALYSIS.md, still unaddressed.
 - **Context warning** as the window fills — the per-turn cost is already shown.
 ~~- **A per-chat token/context meter the user can actually see.**~~ **Built**
   (ROADMAP §88.4 item 4). Asked twice, once directly ("a better way to track
@@ -1069,7 +1061,9 @@ as possible." Split into the two things actually asked for.
 - **Result cards worth reading, not just clicking.** A title and a link today;
   a domain/favicon and a snippet with the matched terms highlighted would let
   someone judge relevance before opening the reader view, the same reasoning
-  search engines converged on decades ago
+  search engines converged on decades ago. **(needs Opus)**: a design pass;
+  note that `chat.js` already draws a letter tile instead of fetching a real
+  favicon (a fetch would tell the site someone searched), so any card keeps that
 - **Open a result straight into the reader** without a second round trip —
   ties to §3's Browse sub-tab, which is the natural home for this
 - **Distinguish *why* zero results came back** in the UI itself, not just the
@@ -1083,7 +1077,7 @@ as possible." Split into the two things actually asked for.
   X") versus when it should trust the notebook or say it doesn't know. That's
   a prompting and evaluation question more than a code one — a good
   candidate for the eval harness in §11 to actually track, rather than
-  something to "fix" once.
+  something to "fix" once. **(needs Opus)**: it needs a real model.
 
 **Privacy and security, specific to search** — extending §8b's general
 security pass with what's particular to this feature. What's already true:
@@ -1102,12 +1096,6 @@ now that SearXNG is a real running thing rather than a plan:
   found to break startup entirely (§8b, bug 5) and disabled; worth a pass
   over the *rest* of the generated `settings.yml` for anything else
   defaulting to "on" that shouldn't be, not just the one that crashed.
-- **No client-side favicon/thumbnail fetching per result.** A common leak in
-  search UIs: fetching each result's favicon from the result's own domain, at
-  render time, tells that domain someone searched and got them as a result —
-  before the person has chosen to visit anything. Worth confirming the result
-  card ideas above don't introduce this by loading icons live rather than
-  bundling a small generic set.
 - ~~**SearXNG bound to localhost, not the LAN.**~~ **confirmed for the
   source path, and it was wrong for docker** — `_start_docker` published on
   every interface (docker's own default), which is worse than an open port
@@ -1117,21 +1105,24 @@ now that SearXNG is a real running thing rather than a plan:
   clearly; worth linking it from Settings → Web search directly, next to the
   engine picker, so the privacy properties are legible exactly where someone
   is deciding whether to turn search on — rather than something you have to
-  already know to go and read.
+  already know to go and read. **(needs Opus)**: copy and a '?' in Settings, Web search.
 
 ---
 
 ## 14. More tools worth adding
 
-`create_document` / `edit_document` (the AI can read documents but not write
-them) · `related_notes(id, depth)` (§9) · `move_notes` (bulk re-file) ·
-`merge_notes` · `export_notes` · `find_similar(note_id)` · `stats` ·
-`add_event` / `list_events` (§10) · `set_preference` over a small allowlist so
-"make your answers shorter" works · `unlink_notes` / `delete_reminder` (§21,
-gives skill runs a real undo for those two change types) ·
-~~`create_category` / `merge_categories` / `delete_category`~~ **done, plus
-`rename_category`** (name-based, not id-based, since the model has never
-seen an id — see HISTORY.md for the three decisions behind the shape).
+**Checked against the registry 2026-10-04.** Built since this list was
+written: `create_document`, `related_notes`, `find_similar_notes`,
+`notebook_overview` and `count_notes` (the stats), `save_user_preference`
+(the allowlisted setting), `unlink_notes`, and `create_category`,
+`rename_category`, `merge_categories` and `delete_category` (name-based, not
+id-based, since the model has never seen an id; see HISTORY.md for the three
+decisions behind the shape). **Still absent: `edit_document`, `move_notes`
+(bulk re-file), `merge_notes`, `export_notes`, `add_event` / `list_events`
+(§10) and `delete_reminder` (§21, the undo for a reminder change).
+(needs Opus)**: each new tool moves the README's tool count, the help topics
+and the schema budget together, and `merge_notes` and `edit_document` are
+destructive, so each wants its own confirm design.
 
 > ~~**⚠ The prompt budget is now the binding constraint on this section.**~~
 > **Lifted — the constraint was an assumption, not a fact.** `tools.
@@ -2099,15 +2090,14 @@ changes the app's behaviour without showing the user what it did:
    active` column exists precisely for that and nothing sets it. Small piece of
    work, and it is the difference between a helpful feature and an
    unexplainable one.
-2. **A dry-run for the background librarian.** Turning it on lets an agent edit
-   the notebook unattended. There is no preview. `taskhistory` records each run
-   and the agent already emits `change` events with undo payloads, so "here is
-   what the last pass did, undo any of it" is mostly assembly.
 3. ~~**Whiteboard cards outlive their notes.**~~ **Done** —
    `autonomous.clean_orphaned_board_cards`, beside the vector sweep.
 4. **`graph_local` costs a full notebook scan** to draw a local neighbourhood:
    every entry loaded, a full similarity sweep, and a PageRank over every node.
-   Correct, and the opposite of what "focus mode" should cost.
+   Correct, and the opposite of what "focus mode" should cost. **(needs Opus)**:
+   checked 2026-10-04, `graph_local` still calls `paths.build` over the whole
+   notebook; a bounded build needs a measurement first, and the index is shared
+   with `/graph`.
 5. ~~**PageRank runs on every `/graph` call, uncached.**~~ **Done** — see
    ROADMAP.md §0/§9 item 2: `routes_graph.py:60-105` caches pagerank/
    similarity by a notebook fingerprint, invalidated on write or embedding-
@@ -2119,7 +2109,7 @@ changes the app's behaviour without showing the user what it did:
    No traversal — the name goes through `safe_filename` — but an uploaded
    `.svg` or `.html` is served from the app's own origin, and the AI can write
    here too. A `Content-Disposition: attachment` and an extension allowlist.
-7. **Decide on `edit_note` being destructive.** See ANALYSIS §34b.
+7. **Decide on `edit_note` being destructive.** See ANALYSIS §34b. **(needs owner)**
 
 ---
 

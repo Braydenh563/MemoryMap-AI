@@ -20,8 +20,10 @@ ROWS = [
 ]
 out = []
 for w, theme in CONFIGS:
-    b = json.load(open(f"/tmp/pop18/picker-{w}-{theme}-before.json"))
-    a = json.load(open(f"/tmp/pop18/picker-{w}-{theme}-after.json"))
+    with open(f"/tmp/pop18/picker-{w}-{theme}-before.json") as fh:
+        b = json.load(fh)
+    with open(f"/tmp/pop18/picker-{w}-{theme}-after.json") as fh:
+        a = json.load(fh)
     out.append(f"\n### {w}px, {theme}\n")
     out.append("| property | before | after |\n| --- | --- | --- |")
     for name, path in ROWS:

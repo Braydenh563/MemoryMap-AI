@@ -26,7 +26,8 @@ TIERS = {
 
 
 def load(tag):
-    return json.load(open(f"/tmp/pop18/{w}-{theme}-{tag}.json"))
+    with open(f"/tmp/pop18/{w}-{theme}-{tag}.json") as fh:
+        return json.load(fh)
 
 
 def distinct(d, tier, prop):

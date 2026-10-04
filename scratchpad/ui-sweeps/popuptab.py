@@ -5,7 +5,8 @@
 import json
 import sys
 
-d = json.load(open(sys.argv[1]))
+with open(sys.argv[1]) as fh:
+    d = json.load(fh)
 cols = sys.argv[2].split(",")
 print("name".ljust(28), *[c[:16].ljust(17) for c in cols])
 for k, v in d.items():

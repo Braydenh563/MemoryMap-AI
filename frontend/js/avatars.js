@@ -5634,7 +5634,7 @@ function nameMarkBuddyLimbs(buddy, kind, ms = 0, delay = 0, way = 1) {
   };
   part(".nmb-arm", move.arm, (el) => (el.classList.contains("nmb-arm-r") ? -1 : 1));
   part(".nmb-leg", move.leg, (el) => (el.classList.contains("nmb-leg-r") ? -1 : 1));
-  part(".atl-layer-lower", move.lower, () => way);
+  part(".atl-lw-lower", move.lower, () => way);
   //: Atlas's arms are inside its body layer's drawing, where a moving part
   //: lays out and repaints the layer each frame (companionroutes.js: 80
   //: layouts over a float), so they are paced as the walk's steps are

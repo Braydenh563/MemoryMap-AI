@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The Atlas companion's skirt gestures in a float or glide (the `rotate` limb loops on its `<svg>` root, never on the compositor) run on the same kind of box, so a float costs about half the style recalcs and a third fewer layouts (122ms to 69ms of recalc in the 2.6s window, 62 to 39 recalcs, 35 to 24 layouts).
 - The Atlas companion no longer restyles the page every frame at rest: the body's sway, the tail's and the nebula's flow ran as `rotate` and `translate` loops on `<svg>` roots, which Chromium never puts on the compositor, so each cost a style recalc per frame (108ms of every 2.6s idle, now 7ms). They run on a plain box around each root, and the figure looks the same, frame for frame.
 - Appearance, Assistant avatar now reaches Ask's answer, the writing room's draft and the guide's chat rows: each opens with the same reply head as Chat (the Atlas or app emblem face, then the name), repainted live when the setting changes.
 - Toasts raised while a dialog is open (Quick note, any dialog's Undo) now show inside it and can be pressed; they were drawn behind the dialog.

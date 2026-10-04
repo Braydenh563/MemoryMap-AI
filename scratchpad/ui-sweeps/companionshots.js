@@ -62,8 +62,13 @@ async function shoot() {
     clearTimeout(nmb.timer);
     window.nameMarkBuddySchedule = () => {}; window.nameMarkBuddyTick = () => {};
     window.nameMarkBuddyQueuePlace = () => {}; window.nameMarkBuddyCheck = () => {};
+    // The pacer steps the animations inside a drawing on its own clock, which would undo the freeze.
+    window.nameMarkBuddyTempo = () => {}; clearTimeout(nmbTempo.timer); nmbTempo.anims = [];
+    // The arm and lie variants are picked at random on each new place; hold one.
+    window.nameMarkBuddyPickVariant = () => 0;
   });
-  for (const [name, look, mood, pose] of SHOTS) {
+  const only = process.env.ONLY ? process.env.ONLY.split(',') : null;
+  for (const [name, look, mood, pose] of SHOTS.filter(([n]) => !only || only.includes(n))) {
     await page.evaluate(([look]) => {
       localStorage.setItem('atlas-look', look);
       const b = document.getElementById('avatar-buddy'); b.value = 'me'; b.dispatchEvent(new Event('change', { bubbles: true }));
@@ -91,6 +96,37 @@ async function shoot() {
     const pad = 50;
     await page.screenshot({ path: `${OUT}/${name}.png`, clip: { x: Math.max(0, box.x - pad), y: Math.max(0, box.y - pad), width: box.w + 2 * pad, height: box.h + 2 * pad } });
     console.log('shot', name);
+  }
+  // Mid-float: the move's own animations (host, limbs, arms) held at fixed times.
+  for (const [look, at] of process.env.NOFLOAT ? [] : [['masculine', 250], ['masculine', 500], ['feminine', 250], ['feminine', 500]]) {
+    await page.evaluate(([look]) => {
+      localStorage.setItem('atlas-look', look);
+      const b = document.getElementById('avatar-buddy'); b.value = 'me'; b.dispatchEvent(new Event('change', { bubbles: true }));
+    }, [look]);
+    await page.waitForTimeout(400);
+    await page.evaluate(() => { const b = document.getElementById('avatar-buddy'); b.value = 'atlas'; b.dispatchEvent(new Event('change', { bubbles: true })); });
+    await page.waitForTimeout(2500);
+    await page.evaluate(() => {
+      clearTimeout(nmb.timer);
+      window.nameMarkBuddySchedule = () => {}; window.nameMarkBuddyTick = () => {};
+      window.nameMarkBuddyQueuePlace = () => {}; window.nameMarkBuddyCheck = () => {};
+    // The pacer steps the animations inside a drawing on its own clock, which would undo the freeze.
+    window.nameMarkBuddyTempo = () => {}; clearTimeout(nmbTempo.timer); nmbTempo.anims = [];
+    // The arm and lie variants are picked at random on each new place; hold one.
+    window.nameMarkBuddyPickVariant = () => 0;
+      const buddy = document.getElementById('nm-buddy');
+      nameMarkBuddyRide(null, 400, 420);
+      nameMarkBuddyMoveTo(buddy, { kind: 'card', pose: 'stand', legs: '', x: 400, y: 420 }, true);
+    });
+    await page.waitForTimeout(1500);
+    await page.evaluate(([at]) => {
+      const buddy = document.getElementById('nm-buddy');
+      nameMarkBuddyMoveTo(buddy, { kind: 'card', pose: 'stand', legs: '', x: 560, y: 380 });
+      for (const a of buddy.getAnimations({ subtree: true })) { a.pause(); a.currentTime = at; }
+    }, [at]);
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: `${OUT}/float-${look.slice(0, 4)}-${at}.png`, clip: { x: 330, y: 330, width: 330, height: 220 } });
+    console.log('shot float', look, at);
   }
   await browser.close();
 }

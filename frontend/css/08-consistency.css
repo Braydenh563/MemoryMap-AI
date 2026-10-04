@@ -7149,6 +7149,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .atl-figure-box > .atl-lw { position: absolute; left: 0; top: 0; width: 64px; height: 92px; }
 .atl-lw-body { transform-origin: 31px 90px; will-change: rotate; }
 .atl-lw-tail { transform-origin: 34px 60px; will-change: rotate; }
+.atl-lw-lower { transform-origin: 31px 57px; }
 .atl-lw-neb, .atl-lw-neb-front { transform-origin: 31px 52px; will-change: translate; }
 .nm-atlas.atl-layer-front { will-change: opacity; }
 .nm-atlas.atl-layer-lids { transform-origin: 31px 37px; opacity: 0; will-change: opacity; transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(var(--atl-tune-head)); scale: var(--atl-open); transition: rotate var(--motion-slow) var(--ease-out); }

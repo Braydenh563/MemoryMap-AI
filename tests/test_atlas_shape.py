@@ -205,7 +205,7 @@ def test_secondary_motion_is_compositor_only_and_still_under_reduced_motion():
     assert "& .atl-lw-tail { animation: atl-tail-flow 8.3s" in CSS
     assert "atl-idle-sway" in CSS.split("atl-lw-body[data-atlas-look=\"masculine\"]", 1)[1][:80]
     assert "&.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite; }" in CSS
-    assert 'ATLAS_LOOP_BOXES = ["body", "tail", "neb", "neb-front"]' in ATLAS
+    assert 'ATLAS_ROOT_BOXES = ["body", "tail", "lower", "neb", "neb-front"]' in ATLAS
     for name in ("atl-idle-sway", "atl-idle-sway-soft", "atl-tail-flow", "atl-neb-flow"):
         assert not re.search(rf"&[^{{\n]*\.atl-layer[^{{\n]*\{{[^}}\n]*{name}", CSS), name
     assert "&.atl-full .atl-mane { animation: atl-hair-flow" in CSS

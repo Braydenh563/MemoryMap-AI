@@ -326,6 +326,7 @@ def _static_gzip(path: str, mtime_ns: int, size: int) -> bytes:
         try:
             return (folder / f"{stem}-{mtime_ns}-{size}.gz").read_bytes()
         except OSError:
+            # Not cached yet (or unreadable): it is compressed below instead.
             pass
     body = gzip.compress(Path(path).read_bytes(), 9, mtime=0)
     if folder is not None:
@@ -337,6 +338,7 @@ def _static_gzip(path: str, mtime_ns: int, size: int) -> bytes:
             partial.write_bytes(body)
             os.replace(partial, folder / f"{stem}-{mtime_ns}-{size}.gz")
         except OSError:
+            # A read-only or full data dir only costs the next launch a compression.
             pass
     return body
 

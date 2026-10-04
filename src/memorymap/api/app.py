@@ -531,7 +531,7 @@ def _register_error_handlers(app: FastAPI) -> None:
       this codebase does yet, but nothing has to change here the day one
       does.
     - Anything else, a bug, not a deliberately raised HTTP error, becomes
-      `500 {"detail": "Internal error", "code": "internal", "ref": <uuid>}`.
+      `500 {"detail": <a plain sentence>, "code": "internal", "ref": <uuid>}`.
       The traceback goes to the log keyed by that same `ref` (`logger.exception`,
       so it's a full traceback, not just the one-line summary `.warning` would
       give) and never reaches the response body: a stack trace in an HTTP
@@ -614,7 +614,14 @@ def _register_error_handlers(app: FastAPI) -> None:
         error_logger.exception("Unhandled exception (ref=%s)", ref, exc_info=exc)
         return JSONResponse(
             status_code=500,
-            content={"detail": "Internal error", "code": "internal", "ref": ref},
+            content={
+                "detail": (
+                    "Something went wrong inside MemoryMap. Try again, and if it "
+                    "keeps happening, check Settings > Logs."
+                ),
+                "code": "internal",
+                "ref": ref,
+            },
         )
 
 

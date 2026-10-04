@@ -279,7 +279,7 @@ def test_unlock_throttles_a_run_of_wrong_passwords(client, monkeypatch):
     # names the wait so the owner knows it is a throttle, not a lockout.
     refused = client.post("/auth/unlock", json={"password": "first-pass"})
     assert refused.status_code == 429
-    assert "try again" in refused.json()["detail"]
+    assert "try again" in refused.json()["detail"].lower()
 
 
 def test_unlock_forgives_once_the_wait_has_passed(client, monkeypatch):

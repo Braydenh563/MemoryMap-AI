@@ -67,7 +67,7 @@ def _normalise_url(raw: str) -> str:
     """
     url = raw.strip()
     if not url:
-        raise HTTPException(status_code=422, detail="A bookmark needs a URL")
+        raise HTTPException(status_code=422, detail="A bookmark needs a web address.")
     match = _SCHEME_RE.match(url)
     if not match:
         return f"https://{url}"
@@ -76,7 +76,7 @@ def _normalise_url(raw: str) -> str:
         allowed = ", ".join(f"{s}:" for s in ALLOWED_URL_SCHEMES)
         raise HTTPException(
             status_code=422,
-            detail=f"URL scheme '{scheme}:' is not allowed. Allowed schemes: {allowed}.",
+            detail=f"Addresses starting with '{scheme}:' are not allowed. Pick one that starts with: {allowed}.",
         )
     return url
 

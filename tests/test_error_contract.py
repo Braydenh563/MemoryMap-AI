@@ -76,7 +76,7 @@ def test_an_unhandled_exception_becomes_json_500_with_a_ref(app_state, tmp_path,
 
     assert response.status_code == 500
     body = response.json()
-    assert body["detail"] == "Internal error"
+    assert body["detail"].startswith("Something went wrong inside MemoryMap.")
     assert body["code"] == "internal"
     # A real, unique reference, not echoed traceback text, and nothing of
     # the actual exception (message, file paths, line numbers) anywhere in

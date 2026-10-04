@@ -77,6 +77,15 @@ const CONTENT = [
         const gapY = Math.max(0, ref.top - out.menu.bottom, out.menu.top - ref.bottom);
         out.gapX = gapX; out.gapY = gapY;
         if (gapX > 0 || gapY > 6) flag += `  <<< DETACHED gapX=${gapX} gapY=${gapY}`;
+        // A placement must never cover the rect it is anchored to (OPEN.md,
+        // "A finding below the editor's visible box"): a 0px gap read as
+        // attached while the menu sat over its own word. Touching is allowed,
+        // overlapping by more than a pixel on both axes is not.
+        const refRight = ref.right === undefined ? ref.left + 1 : ref.right;
+        const overlapX = Math.min(refRight, out.menu.right) - Math.max(ref.left, out.menu.left);
+        const overlapY = Math.min(ref.bottom, out.menu.bottom) - Math.max(ref.top, out.menu.top);
+        out.overlap = [Math.max(0, overlapX), Math.max(0, overlapY)];
+        if (overlapX > 1 && overlapY > 1) flag += `  <<< COVERS ITS OWN WORD overlap=${overlapX}x${overlapY}`;
       }
     } else flag += "  <<< did not open";
     console.log(`${label}: ${JSON.stringify(out)}${flag}`);

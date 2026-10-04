@@ -132,7 +132,29 @@ async function room(page) {
   check('a reload in the session keeps it', on, id);
 
   // Escape leaves; F11 comes back and leaves again.
+  //
+  // Found 2026-10-04: these three checks used to fail here, and the app was
+  // right. The click below lands in the middle of a paragraph that repeats
+  // itself, which is a writing finding, and a click on a finding opens the
+  // suggestion menu (`#doc-suggest-menu`, role=menu). The Escape handler
+  // returns while a menu is open, by design, and the menu's own handler
+  // closes it, so the first Escape closed the menu and the mode stayed on;
+  // every later check then read the state one press behind. The sweep now
+  // says which of the two it is and asserts both halves, the order being the
+  // contract: the menu goes first, the mode on the next.
   await page.click('#doc-editor .cm-content');
+  const menuUp = () => page.evaluate(() => {
+    const m = document.getElementById('doc-suggest-menu');
+    return !!m && m.getClientRects().length > 0;
+  });
+  const withMenu = await menuUp();
+  if (withMenu) {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    on = await page.evaluate(() => document.getElementById('tab-documents').classList.contains('doc-focus'));
+    check('a suggestion menu takes the first Escape, the mode stays', on && !(await menuUp()), { on });
+  }
+  console.log('suggestion menu was open after the click:', withMenu);
   await page.keyboard.press('Escape');
   await page.waitForTimeout(300);
   on = await page.evaluate(() => document.getElementById('tab-documents').classList.contains('doc-focus'));

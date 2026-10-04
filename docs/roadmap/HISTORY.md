@@ -7,6 +7,36 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-04 (the documents tails)
+
+### From DOCUMENTS_PLAN.md sections 17d and 17e, and the Documents tails in OPEN.md
+
+Worked from `scratchpad/docs-tails.md` (the ranked list, each item checked
+against the running app first), on a 20,919-word and a 52,294-word document.
+Opens in 893 ms and 980 ms; typing latency was already measured
+(`doctype.js`, p50 32 ms before and after this session's change).
+
+| Step | Before | After | Gate |
+| --- | --- | --- | --- |
+| Live view after a jump into a long document | a jump to 30% drew its heading as raw `### Section`, 0 drawn, still so 2.5 s later: the decoration plugin rebuilt on doc, viewport, selection and focus, not when the parser's tree arrived | rebuilds when the tree it read is replaced; 6 of 6 | `doclonglive.js` (5 of 6 before), `tests/test_doc_long.py` |
+| 17d, the breadcrumb | at 35, 60 and 90% with the caret on line 1 the trail read `Top > Annual report` while the outline marked Section 5.1, 8.1 and 11.4 | the trail ends in the section in view, equal to the outline mark at all three, and is the caret's again once the caret is on screen | `doccrumbview.js`, 9 of 9 |
+| Reopen where you left it | caret 0 and first offset 0 after leaving and returning, and after a reload | caret 67,194 and top offset 66,552 both exact; per document in `localStorage`, 60 most recent, by offset (a pixel scrollTop differs by 1,300 px in a fresh view) | `docreturn.js`, 9 of 9 (6 before) |
+| 17e, contrast over the editor | `contrast.js` never opened a document (TABS reaches the tab with nothing open) | `ONLY=document` opens a fixture with every construct and reads live, source, split, read and the outline: 0 findings at 1440 light and dark, 820 light, 390 dark (59 to 140 text elements per view); `dochighlight.js` ALL PASS | `contrast.js` |
+| Aliases lint (OPEN.md) | `autoGrow(surface)` and its three siblings read as correct and threw at runtime | fails the build; proved against a simulated drift | `tests/test_doc_long.py` |
+| "A placement must never cover the rect it is anchored to" | a 0 px gap read as attached | `spellwide2.js` asserts the menu's rect does not overlap the word's; 5 of 5 cases clear (the table-cell case OPEN.md recorded did not reproduce on this head: the word sits at 551..568 inside the editor's box ending at 584) | `spellwide2.js` |
+
+Decided here: a "how far through" figure beside `Ln, Col` is not built. The
+scrollbar, the outline's current mark and the trail now all answer it, and
+17's own rule is that nothing is added to the chrome. The outline's 28 px row
+is already density-aware (compact 24 to 25.2 px, comfortable and spacious 28
+px, measured), so that OPEN.md row was stale.
+
+`docfocus.js` failed three checks after its reload step (20 of 23). The app
+was right and the sweep was wrong: its click landed on a repeated phrase (a
+writing finding), a click on a finding opens the suggestion menu, and the
+focus-mode Escape handler returns while a menu is open, so the first Escape
+closed the menu. The sweep now asserts both halves in order: 24 of 24.
+
 ## Moved from the plans, 2026-10-03
 
 ### From MINDMAP_PLAN.md: the second audit's open items (INBOX 445 (2))

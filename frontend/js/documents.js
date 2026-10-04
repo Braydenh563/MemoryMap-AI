@@ -890,6 +890,9 @@ function showNoDocument() {
 }
 
 async function openDocument(id) {
+  //: The place being left is written down first, while the surface still
+  //: holds that document (see `docRememberPositionNow`).
+  docRememberPositionNow();
   // Never lose unsaved work by switching away from it.
   if (docDirty) await saveDocument({ silent: true });
   //: **The engine is loaded here, and this is the only place it is.** Awaited
@@ -933,6 +936,102 @@ async function openDocument(id) {
   renderDocBookmarks();
   renderDocComments();
   renderDocList();
+  docRestorePosition(doc.id);
+}
+
+//: **A document reopens where you left it.** Measured before this existed
+//: (`docreturn.js`): a 21k-word document left at 20,000px with the caret there
+//: reopened at scrollTop 0 and caret 0, and a reload did the same, so every
+//: return to a long document began with finding the place again.
+//:
+//: What is kept is the caret and the *position at the top of the view* (a
+//: character offset, not a pixel count): CodeMirror estimates the height of
+//: lines it has not drawn, so a pixel scrollTop restored into a fresh view
+//: lands somewhere else once the lines are measured, while an offset is
+//: scrolled to by the engine's own scroll target, which it keeps re-applying
+//: until the heights settle. Per document, in this browser (`localStorage`,
+//: one map, the sixty most recent): it is how a person reads, not a property
+//: of the file, so it must not travel in the document or reach a backup. A
+//: document nobody has left, a position at the very top, and the textarea
+//: fallback (no line-to-pixel map to take either number from) store and
+//: restore nothing.
+const DOC_POSITIONS_KEY = "doc-positions";
+const DOC_POSITIONS_MAX = 60;
+let docPositionTimer = 0;
+
+function docPositionsRead() {
+  try {
+    const value = JSON.parse(localStorage.getItem(DOC_POSITIONS_KEY) || "{}");
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+function docPositionsWrite(map) {
+  const keys = Object.keys(map);
+  if (keys.length > DOC_POSITIONS_MAX) {
+    keys.sort((a, b) => (map[b].at || 0) - (map[a].at || 0));
+    for (const stale of keys.slice(DOC_POSITIONS_MAX)) delete map[stale];
+  }
+  try {
+    localStorage.setItem(DOC_POSITIONS_KEY, JSON.stringify(map));
+  } catch {
+    // Storage blocked or full: the document just opens at the top, as before.
+  }
+}
+
+//: The offset of the first character in view. `posAtCoords` with `precise`
+//: false never returns null, so a short document answers 0.
+function docTopOffset(view) {
+  const rect = view.scrollDOM.getBoundingClientRect();
+  if (rect.height < 1) return null;
+  const pos = view.posAtCoords({ x: rect.left + 4, y: rect.top + 4 }, false);
+  return Number.isFinite(pos) ? pos : null;
+}
+
+function docRememberPositionNow() {
+  clearTimeout(docPositionTimer);
+  docPositionTimer = 0;
+  if (typeof currentDoc === "undefined" || !currentDoc?.id) return;
+  const box = docSurface();
+  //: Not while the editor is hidden (Read view): it measures 0x0 and would
+  //: overwrite the real place with the top.
+  if (!box || box.kind !== "codemirror" || box.view.scrollDOM.getBoundingClientRect().height < 1) return;
+  const head = box.selection().from;
+  const top = docTopOffset(box.view);
+  if (top === null) return;
+  const map = docPositionsRead();
+  if (!head && !top) delete map[currentDoc.id];
+  else map[currentDoc.id] = { head, top, at: Date.now() };
+  docPositionsWrite(map);
+}
+
+//: Trailing, so a scroll or a held arrow key is one write when it stops, not
+//: sixty a second.
+function docRememberPosition() {
+  if (docPositionTimer) return;
+  docPositionTimer = setTimeout(docRememberPositionNow, 600);
+}
+
+//: A reload or a closed tab inside the 600ms is one more write, not a lost one.
+window.addEventListener("pagehide", docRememberPositionNow);
+
+function docRestorePosition(id) {
+  const box = docSurface();
+  const CM = window.CM6;
+  if (!box || box.kind !== "codemirror" || !CM) return;
+  const saved = docPositionsRead()[id];
+  if (!saved) return;
+  const view = box.view;
+  const max = view.state.doc.length;
+  const head = Math.max(0, Math.min(Number(saved.head) || 0, max));
+  const top = Math.max(0, Math.min(Number(saved.top) || 0, max));
+  if (!head && !top) return;
+  view.dispatch({
+    selection: { anchor: head },
+    effects: CM.view.EditorView.scrollIntoView(top, { y: "start", yMargin: 0 }),
+  });
 }
 
 // =============================================================================
@@ -2595,7 +2694,7 @@ function renderDocOutline() {
   ]);
   if (outlineKey === docOutlineKey && docOutlineRows.length === headings.length && list.isConnected) {
     docOutlineHeadingList = headings;
-    renderDocCrumbs(docCaretLine());
+    renderDocCrumbs(docWhereLine());
     return;
   }
   docOutlineKey = outlineKey;
@@ -2755,7 +2854,7 @@ function renderDocOutline() {
   //: here and the trail is redrawn on the same beat the outline is.
   docOutlineHeadingList = headings;
   docCrumbsKey = "";
-  renderDocCrumbs(docCaretLine());
+  renderDocCrumbs(docWhereLine());
 }
 
 //: **Where you are in the document, marked in its outline.** The owner, of
@@ -2876,6 +2975,21 @@ function docCaretVisibleLine() {
   return view.state.doc.lineAt(view.state.selection.main.head).number - 1;
 }
 
+//: **The line the breadcrumb is about**: the caret's while it is on screen,
+//: the top of the view otherwise, which is the rule the outline's mark has
+//: always used (`markDocOutline`) and now the trail follows it too. Measured
+//: (`doccrumbview.js`) in a 21k-word document scrolled to 60% with the caret
+//: left on line 1: the outline marked the section in view and the trail above
+//: the writing still said `Top > Annual report`, two rows that both answer
+//: "where am I" giving two answers. The textarea fallback keeps the caret, its
+//: only honest answer (it has no line-to-pixel map).
+function docWhereLine() {
+  const box = docSurface();
+  if (!box || box.kind !== "codemirror") return docCaretLine();
+  const caret = docCaretVisibleLine();
+  return caret === null ? docVisibleTopLine() : caret;
+}
+
 //: The marked row, kept inside whichever box in the sidebar actually scrolls.
 //: Bounded by `#doc-sidebar` on purpose: `scrollIntoView` walks every
 //: scrolling ancestor, and the page is one of them, so the tidy one-liner
@@ -2900,6 +3014,9 @@ function markDocOutline() {
   //: otherwise: see `docCaretVisibleLine` for why that is the order.
   const caret = docCaretVisibleLine();
   const top = caret === null ? docVisibleTopLine() : caret;
+  //: The trail follows the same line (see `docWhereLine`); the textarea
+  //: fallback keeps the caret for it.
+  renderDocCrumbs(docSurface()?.kind === "codemirror" ? top : docCaretLine());
   //: The last heading at or above the top of the view: the section whose text
   //: you are reading, not the next one down.
   let index = 0;
@@ -7802,9 +7919,21 @@ function docLivePlugin(CM) {
         //: value rather than sniffed out of `update.transactions`: the
         //: preference is what the decoration actually depends on, and a
         //: reconfigure that does not change it should not cost a rebuild.
+        //:
+        //: And the parse. The markdown parser works in slices, so a viewport
+        //: that moves into a long document (a jump, a dragged scrollbar, a
+        //: search hit) can arrive somewhere the tree has not reached yet; the
+        //: build then reads the partial tree, finds no headings, and draws
+        //: plain text. The parser catching up sets none of the flags above,
+        //: so the lines stayed raw until the next keystroke or scroll. Measured
+        //: (`doclonglive.js`): in a 21k-word document a jump to 30% drew its
+        //: heading as `### Section`, still so 2.5s later. Compared as the
+        //: tree object, a pointer check, so a keystroke inside a stable tree
+        //: costs nothing extra.
         const gutterOn = docFenceGutterOn();
         if (update.docChanged || update.viewportChanged || update.selectionSet
-            || update.focusChanged || gutterOn !== this.gutterOn) {
+            || update.focusChanged || gutterOn !== this.gutterOn
+            || syntaxTree(update.startState) !== syntaxTree(update.state)) {
           this.gutterOn = gutterOn;
           this.decorations = build(update.view);
         }
@@ -8522,6 +8651,7 @@ function wireDocSurfaceScroll(surface) {
     //: editor whichever pane started the scroll, and when the preview is
     //: driving, this listener's own surface is the one being moved.
     scheduleDocOutlineSpy();
+    docRememberPosition();
     if (docScrollDriver && docScrollDriver !== surface) return;
     syncDocScroll(surface);
   });
@@ -13009,6 +13139,7 @@ function renderDocCaret() {
   //: rather than from a listener of its own: two things that answer "where am
   //: I" and update on different events are two things that disagree.
   renderDocCrumbs(stats.line - 1);
+  docRememberPosition();
   renderDocToolbarState();
 }
 

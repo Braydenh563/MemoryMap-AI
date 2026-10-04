@@ -231,7 +231,8 @@ being written by running agents stay beside this one.
   before the row is clicked, so this cannot rot silently again. Measured
   against a live app on the branch head: 7 of 7 pass, 0 console errors.
   [documents-phases.md]
-- **The document surface's aliases have no lint.** A call site that hands the
+- ~~**The document surface's aliases have no lint.**~~ **Built 2026-10-04**
+  (`tests/test_doc_long.py`, proved against a simulated drift). Was: a call site that hands the
   surface to something expecting a DOM element reads as correct and fails at
   runtime (`autoGrow` wrote `style.height` on it and every "/" command in the
   capture box threw). Next step: fail on `autoGrow(`, `mountGutterFor(`,
@@ -266,7 +267,10 @@ being written by running agents stay beside this one.
   atomic ranges.** **`Mod+click`: the note is out of date**; a chip carries
   `cursor: pointer` and `title="Ctrl+click to open <url>"`, which names the
   chord and the destination. Left unbuilt on purpose. [documents-engine.md]
-- **Outline rows are 24 to 25.2px, under the app's own 28px floor.**
+- ~~**Outline rows are 24 to 25.2px, under the app's own 28px floor.**~~
+  **Already density-aware, measured 2026-10-04**: compact 24 to 25.2px
+  (WCAG 2.2 AA's own floor, kept on purpose), comfortable and spacious 28px.
+  The text below is the old report. Was:
   `frontend/css/05-sidebars-themes.css`, `.outline-link`
   (`padding: 0.15rem 0.25rem` plus a 0.85rem line) against DESIGN.md's
   `--target-min: 1.75rem`. Left deliberately: 24px is WCAG 2.2 AA's own floor
@@ -311,7 +315,11 @@ being written by running agents stay beside this one.
   case measured sat at the 15rem minimum). Next step if a report arrives:
   measure at `left: 8px` first, then place. [editor-intelligence.md]
 - **A finding below the editor's visible box gets a menu drawn over its own
-  word.** Measured in `spellwide2.js`'s table-cell case: the word sits at
+  word.** **2026-10-04: the assertion exists** (`spellwide2.js` fails when the
+  menu overlaps the word) **and the case did not reproduce** (table-cell word
+  at 551..568 inside a box ending at 584, menu below it, overlap 0 on the
+  vertical axis in all five cases); the half that is still open is why
+  `docRevealForSuggest` would not bring a word below the box in. Was: Measured in `spellwide2.js`'s table-cell case: the word sits at
   `655..707` in an editor whose visible box ends at `572`, and the menu is
   placed at `440..717`. The sweep reads that as a 0px gap and passes. Two
   things to decide: why `docRevealForSuggest` did not bring that word in (a
@@ -1273,7 +1281,11 @@ being written by running agents stay beside this one.
   `#doc-editor .cm-content`, drop the four retired checks, and report how many
   of the 89 survive. [documents-engine.md, documents-batch.md,
   documents-phase4.md, prose-intelligence.md]
-- **`contrast.js` never visits the Documents tab.** Its `TABS` constant holds
+- **`contrast.js` never visits the Documents tab.** **2026-10-04: `documents`
+  is in `TABS` now and `ONLY=document` opens a fixture document and reads
+  every view and the outline (0 findings at 1440 both themes, 820 light, 390
+  dark); the whiteboard and the mind map are still not covered.** Was: its
+  `TABS` constant holds
   seven tabs and documents, whiteboard and mindmap are not among them, so the
   merge gate's contrast step has never measured any of those surfaces. Adding
   the three is a two-line change that will almost certainly find pre-existing

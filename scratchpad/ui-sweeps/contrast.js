@@ -91,6 +91,25 @@ const run=async(label)=>{const r=await page.evaluate(()=>{
   console.log(`== ${label}: ${r.out.length?r.out.length+' low-contrast':'ok'} (${r.checked} text elements)`);r.out.forEach(l=>console.log('  '+l));
   if(!r.checked){console.log('  nothing was measured here, which is a finding about the sweep, not the surface');empty.push(label);}};
 const go=async(t)=>{await page.evaluate((name)=>{try{switchTab(name);}catch(e){}},t);await page.waitForTimeout(700);};
+// ONLY=document measures the documents editor with a document open (DOCUMENTS_PLAN
+// 17e). The `documents` entry in TABS reaches the tab with nothing open, so
+// the editor, its dock, the formatting strip, the outline and every `.cm-md-*`
+// decoration had never been read for contrast. One document holding each
+// construct and a few writing findings, in every view.
+if(process.env.ONLY==='document'){
+  const body=['# Contrast fixture','','A paragraph with **bold**, *italic*, ==highlight==, `inline code`, a [link](https://example.com) and a [[Wiki link]] and teh misspelled wrnog words.','','## A section','','> A quotation that carries on for a while.','','> [!note] A callout','> Its body text.','','- [ ] an open task','- [x] a done task','- a bullet','','| Name | Value |','| --- | --- |','| one | 1 |','','```js','const a = 1; // comment','```','','A footnote.[^1]','','[^1]: The note.',''].join('\n');
+  await page.evaluate(async(content)=>{const r=await api('/documents',{method:'POST',body:JSON.stringify({title:'Contrast fixture',content})});const d=await r.json();switchTab('documents');await openDocument(d.id);},body);
+  await page.waitForSelector('#doc-editor .cm-content',{state:'visible',timeout:15000}).catch(()=>{});
+  await page.waitForTimeout(2500);
+  for(const view of ['live','source','split','rendered']){
+    await page.evaluate((v)=>setDocView(v),view);await page.waitForTimeout(900);await run('documents/'+view);
+  }
+  await page.evaluate(()=>setDocView('live'));await page.waitForTimeout(600);
+  const tab=await page.evaluate(()=>{const b=[...document.querySelectorAll('#doc-sidebar [role="tab"], #doc-sidebar button')].find((x)=>/^Outline/.test(x.textContent.trim()));if(b){b.click();return true;}return false;});
+  if(tab){await page.waitForTimeout(500);await run('documents/outline');}
+  console.log(`== done at ${WIDTH}x${HEIGHT}, theme ${process.env.THEME||'light'}`);
+  await browser.close();process.exit(empty.length?1:0);
+}
 for(const t of (process.env.ONLY==='settings'?[]:TABS)){
   await go(t);
   // A tab that would not open is worth saying so about, rather than being

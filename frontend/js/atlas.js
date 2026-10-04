@@ -579,16 +579,34 @@ const ATLAS_LOOKS = {
     lowerPivot: [31, 60],
     lowerTaper: "sower",
     auraAt: [33.5, 46],
-    //: The tail's centreline, from the hips' widest (y 59, under the torso,
-    //: which is as wide there, so no root edge shows beside the waist) down, out to the left and curling up; `w` its
-    //: width where it leaves the hips (17.2, the hips' own; 16.5 at y 62,
-    //: where the torso starts to fade into it), tapering to `tip` (2, never a hairline);
-    //: `sparkles` ride its inner side at [t, r].
+    //: **Astral wisps** (INBOX 535, the owner: "add some ribbon like astral
+    //: celestial angelic wisps"): three thin ribbons of light curling round
+    //: her, one about the waist, one along the tail, a small one by the
+    //: held-out shoulder, each a soft glow under a brighter core and a
+    //: trail of sparkles. Fills only. In the companion they are a layer of
+    //: their own (`wisps`), whose box drifts on its own slow clock.
+    wisps: [
+      { seg: [[13.6, 47, 19.6, 53.4, 37.6, 50.6, 45.6, 56.4], [45.6, 56.4, 51.6, 60.6, 49.6, 68.2, 43.6, 70]], sparkles: [0.2, 0.45, 0.7, 0.9] },
+      { seg: [[41.6, 73, 33, 80.6, 22, 74.6, 15.6, 80.2], [15.6, 80.2, 10.6, 84.8, 12.6, 92, 20.6, 93.6]], sparkles: [0.15, 0.4, 0.65, 0.88] },
+      { seg: [[43.4, 31.6, 49.4, 26.4, 56, 29.6, 54.6, 36.4]], sparkles: [0.3, 0.75] },
+    ],
+    //: The tail's centreline, from the waist (y 51) down, out to the left
+    //: and lifting at its end. **The tail is the hips** (INBOX 535, the
+    //: owner: "make sure it actually looks joined to the body and that the
+    //: corners and hard edges dont show"): the torso's lighter rounded
+    //: bottom over a darker tail drew a seam and a corner at each hip, so
+    //: the torso now fades out below the waist (52 to 58) and the tail,
+    //: from the waist down, is as wide as the torso's own flank is at each
+    //: height (`atlasTune` reads it off the torso's outline), swelling to
+    //: the hips and tapering from there to `tip` (4 across, a round end of
+    //: radius 2, never a point):
+    //: one outline and one fill. Its end feathers out into light (the
+    //: `tailtip` mask) rather than ending in a point ("less sharp tooth
+    //: looking"). `sparkles` ride its inner side at [t, r].
     lowers: [
       {
-        seg: [[31, 59, 31, 65, 31.6, 71, 28.8, 77.4], [28.8, 77.4, 25.6, 85.4, 16, 90.6, 7, 89.8], [7, 89.8, 0.6, 89.2, -3.4, 85.2, -2.6, 80]],
-        w: 17.2,
-        tip: 2.2,
+        seg: [[31, 51, 31, 60, 31.6, 69, 28.8, 77.4], [28.8, 77.4, 25.6, 85.4, 16, 90.6, 7, 89.8], [7, 89.8, 2.4, 89.4, -0.8, 87.6, -2.4, 84.6]],
+        tip: 4,
         sparkles: [[0.3, 0.32], [0.42, 0.26], [0.52, 0.34], [0.6, 0.24], [0.68, 0.3], [0.76, 0.22], [0.84, 0.26], [0.9, 0.2]],
       },
     ],
@@ -946,8 +964,38 @@ function atlasBuild() {
         //: toward the curl (a stem's positive shift is the side it bends
         //: to), the light a narrower one shifted the other way; both are
         //: fills, no stroke, and the sparkles ride the inner side.
-        const [{ seg, w, tip, sparkles }] = spec.lowers;
-        const width = (t) => tip + (w - tip) * (1 - t) ** 1.15;
+        const [{ seg, tip, sparkles }] = spec.lowers;
+        //: The torso's left flank below the waist (its second curve), as
+        //: the half-width at each height, down to the hips' widest.
+        const torso = spec.torsoNow.match(/-?[0-9.]+/g).map(Number);
+        const flank = [torso.slice(6, 8), torso.slice(8, 10), torso.slice(10, 12), torso.slice(12, 14)];
+        const half = [];
+        for (let i = 0; i <= 120; i += 1) {
+          const u = i / 120;
+          const v = 1 - u;
+          const k = [v * v * v, 3 * v * v * u, 3 * v * u * u, u * u * u];
+          half.push([k.reduce((a, c, j) => a + c * flank[j][1], 0), 31 - k.reduce((a, c, j) => a + c * flank[j][0], 0)]);
+        }
+        const widest = half.reduce((a, b) => (b[1] > a[1] ? b : a));
+        const hipAt = (y) => {
+          for (let i = 1; i < half.length; i += 1) {
+            if (half[i][0] >= y) {
+              const [y0, h0] = half[i - 1];
+              const [y1, h1] = half[i];
+              return 2 * (h0 + ((h1 - h0) * (y - y0)) / Math.max(1e-6, y1 - y0));
+            }
+          }
+          return 2 * widest[1];
+        };
+        let tHip = 0;
+        for (let i = 0; i <= 400; i += 1) {
+          if (atlasSegsAt(seg, i / 400)[1] >= widest[0]) {
+            tHip = i / 400;
+            break;
+          }
+        }
+        const w = 2 * widest[1];
+        const width = (t) => (t <= tHip ? hipAt(atlasSegsAt(seg, t)[1]) : tip + (w - tip) * ((1 - t) / (1 - tHip)) ** 1.15);
         const inner = (t) => width(t) * 0.5;
         const sideAt = (k) => (t) => width(t) * k;
         const pts = atlasStemSides(seg, () => 0, 18, sideAt(0.24)).left;
@@ -963,6 +1011,7 @@ function atlasBuild() {
           }),
           width,
           seg,
+          tipAt: seg[seg.length - 1].slice(6, 8),
         };
       }
     }
@@ -980,6 +1029,16 @@ function atlasBuild() {
       spec.armPaths = [["l", atlasStem(spec.armL, atlasLimbTo(w0, w1), { samples: 14, tip: atlasHand(thumbL, k) })], ["r", atlasStem(spec.arm, atlasLimbTo(w0, w1), { samples: 14, tip: atlasHand(thumbR, k) })]];
     }
     if (spec.legs === false) spec.legPaths = [];
+    //: The astral wisps: thin at both ends, 2.2 across at the middle, a
+    //: glow three times as wide under each, sparkles along the centre.
+    if (spec.wisps) {
+      const ribbon = (t) => 0.5 + 1.7 * Math.sin(Math.PI * t) ** 0.8;
+      spec.wispPaths = spec.wisps.map(({ seg, sparkles }) => ({
+        core: atlasStem(seg, ribbon, { samples: 16, cap: true }),
+        glow: atlasStem(seg, (t) => ribbon(t) * 3, { samples: 16, cap: true }),
+        sparkles: sparkles.map((t, i) => [...atlasSegsAt(seg, t).map(atlasFix), i % 2 ? 0.26 : 0.36]),
+      }));
+    }
   }
   return tune;
 }
@@ -1775,6 +1834,7 @@ function atlasBody(parent, id, props, look, route = null) {
       //: galaxy sparkles. Fills only, so nothing along it is a hairline.
       if (spec.sower) {
         const tail = atlasGroup(lower, "atl-sower");
+        tail.setAttribute("mask", `url(#${id}-tailtip)`);
         atlasMake("path", { class: "atl-sower-fill", d: spec.sower.fill }, tail);
         atlasMake("path", { class: "atl-sower-inner", d: spec.sower.inner }, tail);
         atlasMake("path", { class: "atl-sower-light", d: spec.sower.light }, tail);
@@ -1881,6 +1941,16 @@ function atlasBody(parent, id, props, look, route = null) {
       const light = atlasGroup(layer, "atl-torso-light");
       if (spec.lowers) light.setAttribute("mask", `url(#${id}-waist)`);
       for (const el of [...torso.querySelectorAll(":scope > :is(.atl-core, .atl-sheen-body, .atl-chest-glow, .atl-chest-shade)")]) light.appendChild(el);
+    }
+  }
+  //: The astral wisps (INBOX 535), over the figure, in their own layer in
+  //: the companion so they drift on their own clock.
+  if (spec.wispPaths) {
+    const wisps = atlasGroup(route && route.wisps ? route.wisps : layers.fill, "atl-astral");
+    for (const w of spec.wispPaths) {
+      atlasMake("path", { class: "atl-astral-glow", d: w.glow }, wisps);
+      atlasMake("path", { class: "atl-astral-core", d: w.core }, wisps);
+      atlasSpecks(wisps, w.sparkles, "atl-speck atl-astral-sparkle");
     }
   }
   if (props) {
@@ -2030,13 +2100,21 @@ function atlasBuildDefs(svg, id) {
     const mask = atlasMake("mask", { id: `${id}-${name}`, maskUnits: "userSpaceOnUse", x: -30, y: -30, width: 124, height: 150 }, defs);
     atlasMake("rect", { x: -30, y: -30, width: 124, height: 150, fill: `url(#${id}-${name}g)` }, mask);
   };
-  //: The feminine figure keeps its hips (INBOX 535): its torso fades into
-  //: the tail below them, over 62 to 69, and the tail shows from the hips'
-  //: widest (59 to 61), where the torso still covers its root: shown higher,
-  //: its square root stood out beside the narrow waist as a box.
+  //: The feminine tail is her hips (INBOX 535): her torso fades into it
+  //: below the waist, over 52 to 58, along one shared outline, and the tail
+  //: shows from the waist (50 to 53), where the torso still covers its root.
   const sower = id.endsWith("feminine");
-  fade("waist", sower ? 62 : 54, sower ? 69 : 63);
-  fade("lowerin", sower ? 61 : 60, sower ? 59 : 52);
+  fade("waist", sower ? 52 : 54, sower ? 58 : 63);
+  fade("lowerin", sower ? 53 : 60, sower ? 50 : 52);
+  //: The feminine tail's end feathers into light (INBOX 535): a soft
+  //: round fade about its point, in the drawing's space.
+  if (sower) {
+    const [tx, ty] = ATLAS_LOOKS.feminine.lowers[0].seg.at(-1).slice(6, 8);
+    const grad = atlasMake("radialGradient", { id: `${id}-tailtipg`, gradientUnits: "userSpaceOnUse", cx: tx, cy: ty, r: 11 }, defs);
+    stops(grad, [[0, "atl-st-white-0"], [1, "atl-st-white"]]);
+    const mask = atlasMake("mask", { id: `${id}-tailtip`, maskUnits: "userSpaceOnUse", x: -30, y: -30, width: 124, height: 150 }, defs);
+    atlasMake("rect", { x: -30, y: -30, width: 124, height: 150, fill: `url(#${id}-tailtipg)` }, mask);
+  }
   const tip = atlasMake("radialGradient", { id: `${id}-tip` }, defs);
   stops(tip, [[0, "atl-st-white"], [0.4, "atl-st-white-mid"], [1, "atl-st-white-0"]]);
   //: The shoulder joins (round 9, `atl-shoulders` in `atlasBody`): the
@@ -2122,7 +2200,7 @@ function atlasAuraAt(spec) {
 //: pose and mood transforms inside stay static, which costs nothing.
 //: Every layer carries the mood and look attributes, so the CSS variables
 //: agree across them, and the lids layer mirrors the head's tilt.
-const ATLAS_ROOT_BOXES = ["body", "tail", "lower", "leg-l", "leg-r", "neb", "neb-front"];
+const ATLAS_ROOT_BOXES = ["body", "tail", "lower", "leg-l", "leg-r", "neb", "neb-front", "wisps"];
 function atlasDrawFigure(mood) {
   const look = atlasLook();
   const frag = document.createDocumentFragment();
@@ -2144,7 +2222,7 @@ function atlasDrawFigure(mood) {
   //: compositor, no layout and no paint (`.atl-layer-neb`, the CSS).
   //: `neb-front` (round 9) is the orbit's near half, over the rings, on
   //: the same drift so the two halves move as one ribbon.
-  const names = ["neb", "back", "tail", ...(spec.lowers ? ["lower"] : []), ...(legs ? ["leg-l", "leg-r"] : []), "body", "lids", "front", "neb-front", "fx-1", "fx-2"];
+  const names = ["neb", "back", "tail", ...(spec.lowers ? ["lower"] : []), ...(legs ? ["leg-l", "leg-r"] : []), "body", "lids", "front", "neb-front", ...(spec.wisps ? ["wisps"] : []), "fx-1", "fx-2"];
   for (const name of names) {
     const legSide = name.startsWith("leg-") ? name.slice(4) : "";
     const svg = atlasMake("svg", { viewBox: "0 0 64 92", width: 64, height: 92, class: `nm-atlas atl atl-figure atl-layer atl-layer-${name}${legSide ? ` nmb-leg nmb-leg-${legSide}` : ""}`, "aria-hidden": "true", focusable: "false" });
@@ -2176,7 +2254,7 @@ function atlasDrawFigure(mood) {
   atlasMake("title", {}, layers.body.svg);
   atlasMake("ellipse", { class: "atl-aura", ...atlasAuraAt(spec) }, layers.back.pose);
   ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.back.rig, id, ring, k, false, true));
-  atlasBody(layers.body.rig, id, true, look, { neb: layers.neb.rig, back: layers.back.rig, tail: layers.tail.rig, lower: layers.lower?.rig, legs: legs ? { l: layers["leg-l"].rig, r: layers["leg-r"].rig } : null, front: layers.front.rig });
+  atlasBody(layers.body.rig, id, true, look, { neb: layers.neb.rig, back: layers.back.rig, tail: layers.tail.rig, lower: layers.lower?.rig, wisps: layers.wisps?.rig, legs: legs ? { l: layers["leg-l"].rig, r: layers["leg-r"].rig } : null, front: layers.front.rig });
   const host = atlasGroup(atlasGroup(layers.body.rig, "nm-buddy-head", ATLAS_GEO.neck), "name-mark atl-face");
   atlasHead(host, id, "figure", look);
   atlasLids(layers.lids.rig, look);

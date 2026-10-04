@@ -229,6 +229,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+/tmp/claude-0/-home-user-MemoryMap-AI/eac0a178-6a5f-55a9-b7c8-87cedc9b90ca/scratchpad/cl-wisps.txt
 /tmp/claude-0/-home-user-MemoryMap-AI/eac0a178-6a5f-55a9-b7c8-87cedc9b90ca/scratchpad/cl-aura.txt
 - Ask: Tab off either end of a pinned source preview closes it and puts the focus back on its mark, instead of leaving it open at the end of the page until Escape.
 - Chips: the Contents jump chips, the dashboard's On this day dates, the chat sources' +N, document property and embed chips and the Library's reading badges put their words in the same trimmed span as every other chip, so they sit level with their neighbours.

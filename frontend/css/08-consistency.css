@@ -7480,6 +7480,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .atl-lw-leg-l { transform-origin: 27.4px 60px; }
 .atl-lw-leg-r { transform-origin: 34.6px 60px; }
 .atl-lw-neb, .atl-lw-neb-front { transform-origin: 31px 52px; will-change: translate; }
+.atl-lw-wisps { transform-origin: 31px 60px; will-change: rotate; }
 .nm-atlas.atl-layer-front { will-change: opacity; }
 .nm-atlas.atl-layer-lids { transform-origin: 31px 37px; opacity: 0; will-change: opacity; transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(var(--atl-tune-head)); scale: var(--atl-open); transition: rotate var(--motion-slow) var(--ease-out); }
 .nm-atlas.atl-layer-lids .atl-head { transform: none; }
@@ -8117,6 +8118,12 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-sower-inner { fill: var(--atl-neb2-c); opacity: 0.5; }
 .nm-atlas .atl-sower-light { fill: white; opacity: 0.22; }
 .nm-atlas .atl-sower-sparkle { fill: white; opacity: 0.9; }
+/* Her astral wisps (atlas.js, `wisps`; INBOX 535): a soft glow of the
+   nebula's light under a brighter, near-white core, with a sparkle trail.
+   Fills only. */
+.nm-atlas .atl-astral-glow { fill: var(--atl-neb-c); opacity: 0.2; }
+.nm-atlas .atl-astral-core { fill: white; opacity: 0.5; }
+.nm-atlas .atl-astral-sparkle { fill: white; opacity: 0.95; }
 /* Each pose shapes the skirt from the group inside the layer, about the
    waist (a static transform, which costs nothing): seated it pools and
    spreads over the ledge; floating it trails behind the tilted body;
@@ -8232,6 +8239,11 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   #nm-buddy .nm-live .nm-atlas.atl-layer-lower[data-atlas-look="masculine"] { animation-duration: 6s !important; }
   #nm-buddy:has(.atl-figure) .nm-buddy-char,
   #nm-buddy:has(.atl-figure[data-atlas-look="masculine"]) .nm-buddy-char { animation-duration: 6s !important; }
+}
+/* A slow turn and lift about her middle, the compositor's (a box). */
+@keyframes atl-wisp-drift {
+  from { rotate: -2.2deg; translate: 0 0.6px; }
+  to { rotate: 2deg; translate: 0 -1.2px; }
 }
 @keyframes atl-skirt-idle {
   from { transform: rotate(-1.4deg) skewX(1.6deg); }
@@ -8683,6 +8695,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     & .atl-lw-body[data-atlas-look="feminine"] { animation: atl-idle-sway-soft 9.4s ease-in-out infinite alternate; }
     & .atl-lw-tail { animation: atl-tail-flow 8.3s ease-in-out infinite alternate; }
     & .atl-lw-neb, & .atl-lw-neb-front { animation: atl-neb-flow 7.7s ease-in-out infinite alternate; }
+    /* Her astral wisps drift on their own slow clock (INBOX 535). */
+    & .atl-lw-wisps { animation: atl-wisp-drift 6.8s ease-in-out -1.7s infinite alternate; }
     &:is([data-atlas-mood="happy"], [data-atlas-mood="delighted"], [data-atlas-mood="love"], [data-atlas-mood="laughing"]) .atl-lw-tail { animation: none; }
   }
 }
@@ -8715,7 +8729,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   .atl-lw-body[data-atlas-look="masculine"] { animation-duration: 14s !important; }
   .atl-lw-body[data-atlas-look="feminine"] { animation-duration: 16s !important; }
   .atl-lw-tail { animation-duration: 9s !important; }
-  .atl-lw-neb, .atl-lw-neb-front { animation: none !important; }
+  .atl-lw-neb, .atl-lw-neb-front, .atl-lw-wisps { animation: none !important; }
   .nm-atlas {
     &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
     /* Round 6: the skirt drifts slower still; the nebula holds still. */

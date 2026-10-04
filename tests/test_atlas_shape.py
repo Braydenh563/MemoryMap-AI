@@ -26,13 +26,13 @@ def test_the_feminine_look_has_no_legs_and_one_spectral_tail():
     assert "legs: false," in feminine
     # INBOX 535 (the Galaxy Seed Sower): no gown, no ribbons, one tail.
     assert 'lowerTaper: "sower",' in feminine and "skirt" not in feminine
-    assert feminine.count("seg: [[") == 1 + 7 + 6  # the tail, the mane's locks, the head's locks
+    assert feminine.count("seg: [[") == 1 + 7 + 6 + 3  # the tail, the mane's locks, the head's locks, the astral wisps
     # No leg layers are built for a look without legs, and none is drawn.
     assert 'const legs = spec.legs !== false;' in ATLAS
     assert '...(legs ? ["leg-l", "leg-r"] : [])' in ATLAS
     assert "if (spec.legs === false) spec.legPaths = [];" in ATLAS
-    # The tail eases from the hips' width to a round point, no pinch.
-    assert "const width = (t) => tip + (w - tip) * (1 - t) ** 1.15;" in ATLAS
+    # The tail is the hips down to their widest, then eases to a round end.
+    assert "tip + (w - tip) * ((1 - t) / (1 - tHip)) ** 1.15" in ATLAS
     assert "fill: atlasStem(seg, width, { samples: 18, cap: true })," in ATLAS
 
 
@@ -78,7 +78,7 @@ def test_the_nebula_is_one_orbit_split_into_a_far_and_a_near_half_that_drift_tog
     assert "ATLAS_BAND_FRONT" not in ATLAS
     assert "const ATLAS_BAND = atlasBandPaths();" in ATLAS
     assert 'const names = ["neb", "back",' in ATLAS
-    assert '"front", "neb-front", "fx-1"' in ATLAS
+    assert '"front", "neb-front", ...(spec.wisps ? ["wisps"] : []), "fx-1"' in ATLAS
     assert 'atlasBand(layers["neb-front"].rig, id, "front");' in ATLAS
     # The single drawing puts the near half after the rings' near halves.
     single = ATLAS[ATLAS.index("function atlasDraw(size") :]
@@ -117,10 +117,9 @@ def test_round_8_hands_feet_hair_waist_and_nebula():
     # Round 9: the scalp became the hair's cap, drawn for both looks.
     assert 'if (!tiny && spec.cap) atlasHairCap(sway, spec);' in ATLAS
     assert 'if (spec.lowers) torso.setAttribute("mask", `url(#${id}-waist)`);' in ATLAS
-    feminine = _look("feminine")
-    # INBOX 535: the tail is the hips' width where it leaves them.
-    w = float(re.search(r"\n        w: ([0-9.]+),", feminine).group(1))
-    assert w >= 17, w
+    # INBOX 535: the tail is the hips (its width read off the torso's flank).
+    assert 'lowerTaper: "sower",' in _look("feminine")
+    assert "const torso = spec.torsoNow.match(" in ATLAS and "hipAt(atlasSegsAt(seg, t)[1])" in ATLAS
     # Round 8's wider ribbon (8.8 across), kept by round 9's orbit.
     assert "const base = 0.5 + 8.4 * Math.sin(" in ATLAS
 
@@ -206,7 +205,7 @@ def test_secondary_motion_is_compositor_only_and_still_under_reduced_motion():
     assert "& .atl-lw-tail { animation: atl-tail-flow 8.3s" in CSS
     assert "atl-idle-sway" in CSS.split("atl-lw-body[data-atlas-look=\"masculine\"]", 1)[1][:80]
     assert "&.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite; }" in CSS
-    assert 'ATLAS_ROOT_BOXES = ["body", "tail", "lower", "leg-l", "leg-r", "neb", "neb-front"]' in ATLAS
+    assert 'ATLAS_ROOT_BOXES = ["body", "tail", "lower", "leg-l", "leg-r", "neb", "neb-front", "wisps"]' in ATLAS
     for name in ("atl-idle-sway", "atl-idle-sway-soft", "atl-tail-flow", "atl-neb-flow"):
         assert not re.search(rf"&[^{{\n]*\.atl-layer[^{{\n]*\{{[^}}\n]*{name}", CSS), name
     assert "&.atl-full .atl-mane { animation: atl-hair-flow" in CSS
@@ -521,7 +520,7 @@ def test_the_masculine_waist_has_no_seam():
     # wisp leaving the hips is rooted inside the torso rather than starting
     # at the waist.
     # (The feminine figure keeps its hips, INBOX 535: its fades are lower.)
-    assert 'fade("lowerin", sower ? 61 : 60, sower ? 59 : 52);' in ATLAS and 'fade("waist", sower ? 62 : 54, sower ? 69 : 63);' in ATLAS
+    assert 'fade("lowerin", sower ? 53 : 60, sower ? 50 : 52);' in ATLAS and 'fade("waist", sower ? 52 : 54, sower ? 58 : 63);' in ATLAS
     assert 'lower.setAttribute("mask", `url(#${id}-lowerin)`);' in ATLAS
     assert "return [[x, y - 6, x, y - 4, x, y - 2, x, y], ...seg];" in ATLAS
 
@@ -582,6 +581,7 @@ for (const look of ["masculine", "feminine"]) {
   });
   out[`${look}Torso`] = spec.torsoNow;
   out[`${look}TailW`] = spec.tailWidth ? Array.from({ length: 51 }, (_, k) => spec.tailWidth(k / 50)) : [];
+  out[`${look}Sower`] = spec.sower ? spec.sower.fill : "";
 }
 console.log(JSON.stringify(out));
 """
@@ -818,10 +818,35 @@ def test_the_feminine_body_is_an_hourglass_that_flows_into_one_wide_tail(tmp_pat
     at_join = next(w for x, y, w in built if y >= 62)
     assert at_join >= 0.8 * hips, (at_join, hips)
     assert min(w for _, _, w in built) >= 2.0
-    # It curves to one side and curls up at its point.
+    # It sweeps to one side and lifts at its end, which feathers into light
+    # (a radial mask about the end), and its end is round, radius 2 or more
+    # at the companion's 1x ("less sharp tooth looking").
     xs = [x for x, _, _ in built]
     ys = [y for _, y, _ in built]
-    assert min(xs) < 5 and ys[-1] < max(ys) - 6, "a big sweep to one side that curls up"
+    assert min(xs) < 5 and ys[-1] < max(ys) - 4, "a big sweep to one side that lifts at its end"
+    assert built[-1][2] >= 4.0, "the tail's end is round, radius 2 or more"
+    assert 'tail.setAttribute("mask", `url(#${id}-tailtip)`);' in ATLAS
+    # One outline from the waist: the tail is as wide as the torso's own
+    # flank at each height down to the hips (no corner where they meet, no
+    # box beside the waist), within 0.15 of a unit (this test's own sampling
+    # of the torso's outline is that coarse).
+    for x, y, w in built:
+        if 51.5 <= y <= 59:
+            assert abs(w - width(y)) < 0.15, (y, w, width(y))
+    # No straight run on the tail's outline longer than 6% of the figure's
+    # height (92): every piece is a curve, and none is a near-line that long.
+    fill = got["feminineSower"]
+    assert not re.search(r"[LHVlhv]", fill)
+    nums = [float(v) for v in re.findall(r"-?[0-9.]+", fill)]
+    p0 = nums[:2]
+    for k in range(2, len(nums) - 5, 6):
+        c1, c2, p1 = nums[k : k + 2], nums[k + 2 : k + 4], nums[k + 4 : k + 6]
+        length = ((p1[0] - p0[0]) ** 2 + (p1[1] - p0[1]) ** 2) ** 0.5
+        if length > 0.06 * 92:
+            dx, dy = (p1[0] - p0[0]) / length, (p1[1] - p0[1]) / length
+            bend = max(abs((c[0] - p0[0]) * dy - (c[1] - p0[1]) * dx) for c in (c1, c2))
+            assert bend > 0.15, ("a straight run", p0, p1)
+        p0 = p1
     # The second ribbon tail (the comet tail, from the other hip) is never
     # under 2 across, and is rooted at the hip, not the middle.
     assert min(got["feminineTailW"]) >= 2.0
@@ -831,7 +856,24 @@ def test_the_feminine_body_is_an_hourglass_that_flows_into_one_wide_tail(tmp_pat
         rule = re.search(r"\.nm-atlas \." + cls + r" \{([^}]*)\}", CSS)
         assert rule and "stroke" not in rule.group(1), cls
     # The masculine look keeps its own torso and trail.
-    assert "sower" not in _look("masculine")
+    assert "sower" not in _look("masculine") and "wisps:" not in _look("masculine")
+
+
+def test_the_feminine_look_has_astral_wisps_that_drift_on_a_box():
+    # INBOX 535, the owner: "add some ribbon like astral celestial angelic
+    # wisps". Three thin ribbons of light round her, each a glow under a
+    # core with a sparkle trail, fills only; in the companion a layer of
+    # their own whose box drifts (`rotate` and `translate`, the compositor's
+    # on a box, never on an svg root), still under reduced motion.
+    feminine = _look("feminine")
+    assert feminine.count("sparkles: [0.") == 3
+    for cls in ("atl-astral-glow", "atl-astral-core", "atl-astral-sparkle"):
+        rule = re.search(r"\.nm-atlas \." + cls + r" \{([^}]*)\}", CSS)
+        assert rule and "stroke" not in rule.group(1), cls
+    assert "& .atl-lw-wisps { animation: atl-wisp-drift" in CSS
+    body = _keyframes("atl-wisp-drift").split("{", 1)[1]
+    assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"rotate", "translate"}
+    assert ".atl-lw-neb, .atl-lw-neb-front, .atl-lw-wisps { animation: none !important; }" in CSS
 
 
 def test_one_aura_centred_on_the_figure_and_no_stray_glows():

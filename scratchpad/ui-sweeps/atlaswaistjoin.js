@@ -23,6 +23,45 @@ fs.mkdirSync(OUT, { recursive: true });
   await page.waitForTimeout(800);
   await page.evaluate(() => { for (const a of document.getElementById('waist-big').getAnimations({ subtree: true })) { a.pause(); a.currentTime = 1500; } });
   await page.screenshot({ path: `${OUT}/waist-full.png`, clip: { x: 300, y: 0, width: 900, height: 700 } });
+  //: **The join, measured** (INBOX 535: "make sure it actually looks joined
+  //: to the body and that the corners and hard edges dont show"): with the
+  //: constellation, the wisps and the nebula hidden (they cross the waist
+  //: on purpose), each of five vertical lines through the waist and hips,
+  //: figure y 46 to 72, inside the waist's width (27.5 to 34.5, so no line
+  //: crosses the figure's own outline, which is an edge on purpose), is
+  //: read pixel by pixel; the largest change between
+  //: two neighbouring pixels, as a share of full scale, is the step. A seam
+  //: or a box edge is a step of most of the line's range in a pixel or two;
+  //: a fade is a level or two. Fails over 10%.
+  const profile = await page.evaluate(async () => {
+    const svg = document.querySelector('#waist-big svg');
+    for (const el of svg.querySelectorAll('.atl-core, .atl-astral, .atl-band, .atl-orbits, .atl-ring, .atl-tail, .nmb-arm, .atl-seeds, .atl-sparkle, .atl-mane, .atl-sower-sparkle')) el.style.display = 'none';
+    const box = svg.getBoundingClientRect();
+    const k = box.height / 110;
+    const at = (x, y) => [box.left + (x + 12) * k, box.top + (y + 10) * k];
+    return { k, lines: [27.5, 29, 31, 33, 34.5].map((x) => [x, at(x, 46), at(x, 72)]) };
+  });
+  await page.waitForTimeout(200);
+  const shot = await page.screenshot({ clip: { x: 0, y: 0, width: 1400, height: 1000 } });
+  const steps = await page.evaluate(async ([src, lines]) => {
+    const img = await new Promise((res) => { const i = new Image(); i.onload = () => res(i); i.src = src; });
+    const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+    const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+    return lines.map(([x, [px, y0], [, y1]]) => {
+      const lum = [];
+      for (let y = Math.max(0, Math.round(y0)); y < Math.min(img.height, Math.round(y1)); y += 1) {
+        const [r, gg, b] = g.getImageData(Math.round(px), y, 1, 1).data;
+        lum.push(0.2126 * r + 0.7152 * gg + 0.0722 * b);
+      }
+      const range = Math.max(...lum) - Math.min(...lum);
+      let step = 0;
+      for (let i = 1; i < lum.length; i += 1) step = Math.max(step, Math.abs(lum[i] - lum[i - 1]));
+      return [x, +(step / 255).toFixed(3), Math.round(range)];
+    });
+  }, [`data:image/png;base64,${shot.toString('base64')}`, profile.lines]);
+  const worst = Math.max(...steps.map((s) => s[1]));
+  console.log(worst <= 0.1 ? 'ok ' : 'BAD', 'waist join steps [x, step, range]', JSON.stringify(steps));
+  if (worst > 0.1) process.exitCode = 1;
   await page.evaluate(() => document.getElementById('waist-big').remove());
   await browser.close();
   const second = await boot({ viewport: { width: 1000, height: 800 }, deviceScaleFactor: 4 });

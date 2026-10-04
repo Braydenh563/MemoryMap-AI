@@ -795,3 +795,21 @@ def test_the_feminine_ribbon_tails_sway_out_of_step_on_their_boxes():
         assert ".atl-lw-lower-" in rule and "svg" not in rule, rule
     # The masculine look keeps its one lower layer.
     assert '"lower-back"' not in _look("masculine")
+
+
+def test_the_feminine_waist_is_a_soft_sash_with_no_strings():
+    # INBOX 480, the owner: "there is two wierd thin string like appendages
+    # coming from the feminine atlas lower body up top, smoothen and make
+    # more appealing where the lower body meets the main body". The strings
+    # were the ribbon tails' lit edges and pale streams, white lines up from
+    # their roots; the tails are fills alone, and the waist is a filled sash
+    # with a sheen, outside the torso's fade mask, with no stroke.
+    feminine = _look("feminine")
+    assert 'sash: "M' in feminine and 'sashSheen: "M' in feminine
+    assert '"atl-tail-ribbon-stream"' not in ATLAS and '"atl-tail-ribbon-edge"' not in ATLAS
+    assert "atl-tail-ribbon-stream" not in CSS and "atl-tail-ribbon-edge" not in CSS
+    for cls in ("atl-sash-fill", "atl-sash-sheen"):
+        rule = re.search(r"\.nm-atlas \." + cls + r" \{([^}]*)\}", CSS).group(1)
+        assert "stroke" not in rule, cls
+    assert 'const sash = atlasGroup(layer, "atl-sash");' in ATLAS
+    assert "sash" not in _look("masculine")

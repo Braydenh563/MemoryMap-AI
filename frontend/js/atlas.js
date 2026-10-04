@@ -595,6 +595,18 @@ const ATLAS_LOOKS = {
     skirtDrape: "M25.6 52C24.6 56 23.8 61 24 65C24.2 69 24.6 71.6 24 75C23.2 79 21 82 18.6 84.2C22.6 86.2 26.8 86 31 85.4C36 84.8 41.4 86.8 46.2 88.2C42.4 84 40.4 80 39.4 75.6C38.6 72 38.2 69 38.4 65C38.6 61 37.8 56 37 52C33.4 50.6 29.2 50.6 25.6 52Z",
     skirtDrapeEdge: "M18.6 84.2C22.6 86.2 26.8 86 31 85.4C36 84.8 41.4 86.8 46.2 88.2",
     skirtHem: "M11.4 90.6C15.8 93 20.4 93.8 24.8 93.2C29 92.6 32 95 36.4 95.6C41.6 96.2 47.2 94.4 52.4 92.4M13.4 88.6C20 95.4 30 98.4 40 98.8C48.6 99.2 56 97.8 61.2 95C64.6 93 65.6 89.8 63.8 87.8",
+    //: **The waist is a sash, not a seam** (INBOX 480, the owner: "there is
+    //: two wierd thin string like appendages coming from the feminine atlas
+    //: lower body up top, smoothen and make more appealing where the lower
+    //: body meets the main body"). A soft band of the nebula's lilac across
+    //: the waist, its ends on the body's flanks and its lower edge dipping a
+    //: little at the front, filled, with a sheen and no outline: the gathered
+    //: waist the gown hangs from, over the place where the torso fades into
+    //: it. The strings were the ribbon tails' lit edges and pale streams,
+    //: fine white lines running up from their roots; the tails are now fills
+    //: alone.
+    sash: "M23.4 54.4C27.2 56 34.8 56 38.6 54.4C38.6 56.4 38 58.2 37 59.4C33.8 61.2 28.2 61.2 25 59.4C24 58.2 23.4 56.4 23.4 54.4Z",
+    sashSheen: "M25 55.4C28.6 56.7 33.4 56.7 37 55.4C33.6 57.3 28.4 57.3 25 55.4Z",
     skirtStars: [[17.6, 87.4, 0.28], [23.4, 90.6, 0.22], [28.8, 88.4, 0.3], [35.2, 92, 0.26], [41.2, 89.8, 0.32], [46.4, 91.6, 0.22], [44, 85, 0.2], [26.2, 84.4, 0.18], [52.6, 95.6, 0.3], [57.8, 93.8, 0.24], [61.4, 90.4, 0.28], [36.4, 80.2, 0.18]],
     //: Round 8 (the owner: "make the middle strands thicker and longer
     //: (reaching lower), keeping the outer ones as they are, so it reads
@@ -977,16 +989,15 @@ function atlasBuild() {
         //: A ribbon tail (INBOX 480): full at its root, tapering to a wisp
         //: 0.22 across, and pinched to 58% twice along its run where it
         //: turns edge-on, which is what makes a band read as a ribbon and
-        //: not as a limb. A pale stream weaves down its middle and its
-        //: edge is lit.
+        //: not as a limb. A fill alone: a lit edge and a pale stream down
+        //: the middle were fine white lines, which from the waist read as
+        //: strings (INBOX 480).
         const tail = (w) => (t) => (0.22 + (w - 0.22) * (1 - t) ** 0.85) * (0.58 + 0.42 * Math.abs(Math.cos(Math.PI * (t * 1.6 + 0.15))));
         spec.lowerPaths = spec.lowers.map(({ seg, w, specks, op, back }) => {
           const width = tail(w);
           return {
             side: 0,
             fill: atlasStem(seg, width, { samples: 18, cap: true }),
-            stream: atlasStem(seg, (t) => width(t) * 0.24, { samples: 18, cap: true, shift: (t) => width(t) * 0.22 * Math.sin(Math.PI * 2.2 * t + 0.4) }),
-            edge: atlasStemEdge(seg, width, 18),
             specks,
             op,
             back: !!back,
@@ -1811,8 +1822,6 @@ function atlasBody(parent, id, props, look, route = null) {
         for (const part of parts) {
           const r = atlasMake("g", { class: `atl-tail-ribbon${back ? " atl-tail-ribbon-back" : ""}`, opacity: part.op }, g);
           atlasMake("path", { class: "atl-tail-ribbon-fill", d: part.fill }, r);
-          atlasMake("path", { class: "atl-tail-ribbon-stream", d: part.stream }, r);
-          atlasMake("path", { class: "atl-tail-ribbon-edge", d: part.edge }, r);
           if (part.specks.length) atlasSpecks(r, part.specks);
         }
       };
@@ -1909,6 +1918,14 @@ function atlasBody(parent, id, props, look, route = null) {
       atlasMake("circle", { class: "atl-const-dot atl-const-heart", cx: hx, cy: hy, r: stars[0][2] }, star);
       //: The gloss on the gel: one specular on the upper left of the body.
       atlasMake("ellipse", { class: "atl-sheen atl-sheen-body", cx: 25.6, cy: 42.6, rx: 1.1, ry: 2.8, transform: "rotate(14 25.6 42.6)" }, torso);
+    }
+    //: The sash at the waist (INBOX 480), over the torso's fade, outside
+    //: its mask; as wide as the body is (the lab's body width).
+    if (spec.sash && !edge) {
+      const k = atlasTune().bodyWidth;
+      const sash = atlasGroup(layer, "atl-sash");
+      atlasMake("path", { class: "atl-sash-fill", d: atlasScalePathX(spec.sash, k, 31) }, sash);
+      atlasMake("path", { class: "atl-sash-sheen", d: atlasScalePathX(spec.sashSheen, k, 31) }, sash);
     }
     for (const [side, d] of spec.armPaths || ATLAS_LIMBS.arms) {
       const arm = atlasGroup(layer, `nmb-arm nmb-arm-${side}`);

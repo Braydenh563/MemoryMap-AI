@@ -4738,7 +4738,7 @@ async function wbMapTidyBranch(parentId) {
 const WB_BOARD_ONLY_TOOLS = new Set([
   "draw", "highlighter", "eraser", "bucket",
   "line", "arrow", "rect", "circle", "triangle", "diamond",
-  "sticky", "text",
+  "sticky", "text", "frame",
 ]);
 
 //: Which dock sections a map shows (MINDMAP_PLAN.md §12.0).

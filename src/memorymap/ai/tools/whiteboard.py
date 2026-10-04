@@ -147,6 +147,14 @@ def _new_board(session: Session, entry: Entry, name: str, board_type: str, layou
     return entry
 
 
+def _inside(item, frame) -> bool:
+    """Whether a card's corner lies in a frame's region (decision 14): the
+    board moves what lies wholly inside, and a card's stored corner is the
+    part of it the server knows."""
+    x, y = item.x or 0, item.y or 0
+    return frame.x <= x <= frame.x + (frame.width or 0) and frame.y <= y <= frame.y + (frame.height or 0)
+
+
 def _read_whiteboard(session: Session, args: dict) -> dict:
     """The read half of ROADMAP item 11's AI+whiteboard integration: lets the
     agent answer "what's on my project-planning board?" without a human
@@ -201,6 +209,7 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
             links.append({"from_card_id": parsed.get("sourceId"), "to_card_id": parsed.get("targetId")})
 
     text_boxes = []
+    frames = []
     image_count = 0
     for obj in objects:
         try:
@@ -211,6 +220,14 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
             text_boxes.append({"object_id": obj.id, "text": _clip(str(data.get("content") or ""), PREVIEW_CHARS)})
         elif obj.kind == "image":
             image_count += 1
+        elif obj.kind == "frame":
+            #: A frame's title is how a board is divided up ("Ideas", "Done"),
+            #: and the region it covers says which cards sit under it.
+            frames.append({
+                "object_id": obj.id,
+                "title": _clip(str(data.get("content") or ""), PREVIEW_CHARS),
+                "card_ids": [n.id for n in nodes if _inside(n, obj)],
+            })
 
     board_title = "Default board"
     if board_id is not None:
@@ -225,6 +242,7 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
         "board_title": board_title,
         "cards": cards,
         "text_boxes": text_boxes,
+        "frames": frames,
         "image_count": image_count,
         "links": links,
         "label": f"ph:folders Read whiteboard board “{board_title}”",

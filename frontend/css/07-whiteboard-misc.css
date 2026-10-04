@@ -38,6 +38,50 @@
   text-align: center;
 }
 
+/* A frame (WHITEBOARD_PLAN decision 14): an edge and a title with nothing in
+   between, so the shapes on the drawing layer below the card layer show
+   through it. Its inside lets the pointer through to the board, so a press
+   inside a frame selects or draws as it would on bare board; the title and
+   a selected frame's handles take the pointer. */
+.wb-object-frame {
+  /* `--border` is a 10% hairline, drawn for a box that has a fill to stand
+     on; a frame is nothing but its edge, so the edge takes the muted ink. */
+  border: 1.5px solid color-mix(in srgb, var(--muted) 80%, transparent);
+  background: transparent;
+  pointer-events: none;
+}
+
+.wb-object-frame .wb-frame-title,
+.wb-object-frame .wb-resize-handle {
+  pointer-events: auto;
+}
+
+.wb-object-frame .wb-frame-title {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  max-width: 100%;
+  padding-bottom: var(--space-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.wb-object-frame.wb-text-editing .wb-frame-title {
+  color: var(--text);
+  cursor: text;
+  user-select: text;
+  text-overflow: clip;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .wb-object-text {
   /* Reported directly: a text box was hard to tell apart from the board
      behind it. Two real gaps, not one, a 1px *dashed* `--glass-border`

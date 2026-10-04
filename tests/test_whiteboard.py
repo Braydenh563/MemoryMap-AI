@@ -964,3 +964,17 @@ def test_one_node_twice_in_a_batch_is_refused(board_client):
         json={"moves": [{"id": root["id"], "x": 1.0}, {"id": root["id"], "x": 2.0}]},
     )
     assert refused.status_code == 422, refused.text
+
+
+def test_a_frame_round_trips_behind_everything(board_client):
+    """WHITEBOARD_PLAN decision 14: a frame is an object of its own kind, its
+    title in `content`, stacked below the items it holds."""
+    made = board_client.post(
+        "/whiteboard/objects",
+        json={"kind": "frame", "data": {"content": "Ideas"}, "x": 0, "y": 0, "z": -3, "width": 480, "height": 320},
+    )
+    assert made.status_code == 201, made.text
+    frame = board_client.get("/whiteboard/").json()["objects"][0]
+    assert frame["kind"] == "frame" and frame["data"]["content"] == "Ideas" and frame["z"] == -3
+    refused = board_client.post("/whiteboard/objects", json={"kind": "frame", "data": {}, "width": 480, "height": 320})
+    assert refused.status_code == 422

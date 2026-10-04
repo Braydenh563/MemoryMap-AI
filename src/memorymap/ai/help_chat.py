@@ -957,12 +957,13 @@ HELP_TOPICS.extend(
                 "align", "distribute", "snap", "grid", "bring forward", "send backward", "group",
                 "ungroup", "copy style", "paste style", "pan", "zoom", "zoom to fit",
                 "board overview", "find a card", "tool", "text in a shape", "label a shape",
+                "frame", "frames", "section", "region",
             ),
             "body": (
                 "Whiteboard keys (Library, Boards and maps; Ctrl+Shift+B opens it). "
                 "Tools: V or S select, H hand, K lasso, P pen, M highlighter, E "
                 "eraser, B fill, L line, A arrow, R rectangle, O circle, G "
-                "triangle, D diamond, T text, N sticky note, C connector (Shift+C "
+                "triangle, D diamond, T text, N sticky note, F frame, C connector (Shift+C "
                 "curved), I image, X delete. Moving around: the wheel or two "
                 "fingers pan, Shift+wheel pans sideways, Ctrl+wheel or a pinch "
                 "zooms, Space and drag pans with any tool, Ctrl+= and Ctrl+- zoom, "
@@ -980,7 +981,10 @@ HELP_TOPICS.extend(
                 "rectangle, ellipse, diamond or triangle (or select it and press Enter) to "
                 "write in it, right-click (or "
                 "press and hold on touch) for the menu, double-click a line to bend "
-                "it, and select a connector and press Enter to label it. The top bar's menus: Insert, Edit, Arrange (align, distribute "
+                "it, and select a connector and press Enter to label it. A frame is a "
+                "titled region: drag its title and what lies inside comes with it (Ctrl "
+                "and drag moves the frame alone), double-click the title to rename it, "
+                "and deleting it leaves what it held. The top bar's menus: Insert, Edit, Arrange (align, distribute "
                 "evenly, order), View (background colour or image, grid of lines, "
                 "dots or isometric, snap to grid, fit, 100%, full screen) and "
                 "Board (rename, new, export as PNG, SVG, PDF, the image library or "

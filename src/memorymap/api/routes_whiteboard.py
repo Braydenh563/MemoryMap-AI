@@ -172,7 +172,12 @@ MAP_REFERENCE_KINDS = {"note", "document", "file", "link"}
 #: nothing behind it, which is why deleting the map deletes it.
 MAP_TOPIC_KIND = "topic"
 
-VALID_OBJECT_KINDS = {"image", "text", MAP_TOPIC_KIND} | MAP_REFERENCE_KINDS
+#: A frame (WHITEBOARD_PLAN decision 14): a titled region of a board that
+#: carries what lies inside it when it moves. Its title is `content`; it owns
+#: nothing, so deleting it leaves what it held where it is.
+FRAME_KIND = "frame"
+
+VALID_OBJECT_KINDS = {"image", "text", FRAME_KIND, MAP_TOPIC_KIND} | MAP_REFERENCE_KINDS
 
 
 #: A card/sketch/object's own persisted group, asked for directly (Ctrl+G).
@@ -553,7 +558,7 @@ def _require_object_data(body: WhiteboardObjectBase) -> None:
                 status_code=422,
                 detail="An image has to be one that was uploaded to MemoryMap first.",
             )
-    elif body.kind in ("text", MAP_TOPIC_KIND) and body.data.content is None:
+    elif body.kind in ("text", FRAME_KIND, MAP_TOPIC_KIND) and body.data.content is None:
         raise HTTPException(
             status_code=422, detail=f"A {body.kind} item needs some content."
         )

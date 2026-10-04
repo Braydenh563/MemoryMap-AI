@@ -187,6 +187,20 @@ kind. Every tool has a key and every key is in the tooltip and the help.
    Enter on the selected connector and "Add a label" on its right-click menu.
    A cross-link on a map is the map's and keeps its ring; this is the
    board's links. Shares decision 12's one editor (`wbOpenSketchLabelEditor`).
+14. **A frame is a titled region that carries what is in it** (taken
+   2026-10-04: no decision existed for the open "board frames" row, and the
+   recommendation was taken under standing order 3). tldraw's and
+   Excalidraw's shape: an edge and a title, no fill, so shapes on the
+   drawing layer show through; F, the rail's Add section and the Insert
+   menu; click drops one (480x320, fitted to the screen), a drag draws it.
+   An object of kind `frame`, its title in `content`, stacked below
+   everything. Its inside lets the pointer through (a press inside selects
+   or draws as on bare board); the title takes the pointer. Dragging the
+   title carries whatever lies wholly inside, decided when the drag starts;
+   Ctrl moves the frame alone (the map topic's rule). Double-click the title
+   to rename. Delete leaves what it held. No rotation, no style or order
+   controls. Not on maps. Nesting, clipping and a frame as an export or
+   presentation unit are not in this decision.
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 

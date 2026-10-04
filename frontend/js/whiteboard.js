@@ -1242,7 +1242,7 @@ function wbCursorForTool(tool, strokeColor, strokeWidth) {
   // cursors that already mean exactly this ("this click makes a new thing"
   // and "text goes here"), and a system cursor is the one that stays legible
   // over any board colour on any platform.
-  if (tool === "sticky") return "copy";
+  if (tool === "sticky" || tool === "frame") return "copy";
   if (tool === "text") return "text";
   // Reported directly: "the cursor on the selection tool is wrong, it should
   // be a mouse pointer." Select had no case here, so it fell through to the
@@ -3193,6 +3193,9 @@ function wbContextKindOf(sel, item) {
     return WB_FILLABLE_SHAPES.has(parsed.shape) ? "shape" : "line";
   }
   if (sel.kind === "node") return "note";
+  //: A frame has no style to set and no order to change: it stays below
+  //: what it holds (decision 14), so the bar has nothing to offer it.
+  if (sel.kind === "object" && item.kind === "frame") return null;
   if (sel.kind === "object") return item.kind === "text" ? "text" : "image";
   return null;
 }
@@ -3830,7 +3833,7 @@ function wbSelectAllItems() {
 //: picture on the board (INBOX 445).
 function wbSelectableItems() {
   const out = wbLinkCandidates();
-  for (const o of wbState.objects || []) if (o.kind === "image") out.push(["object", o]);
+  for (const o of wbState.objects || []) if (o.kind === "image" || o.kind === "frame") out.push(["object", o]);
   return out;
 }
 
@@ -3859,6 +3862,7 @@ function wbItemSpokenName(kind, item) {
     return title ? `Note card: ${title}` : "Note card";
   }
   if (item.kind === "image") return "Picture";
+  if (item.kind === "frame") return `Frame: ${wbFrameTitle(item)}`;
   const isTopic = WB_MAP_KINDS.has(item.kind);
   const raw = isTopic ? wbMapLabel(item) : item.data?.content;
   const text = String(raw || "").trim().split("\n")[0].slice(0, 60);
@@ -6201,8 +6205,8 @@ async function wbRedo() {
 // rendered by `renderWbObjects`. One shared creator (a POST plus the usual
 // create-undo-entry dance every other whiteboard item already does) rather
 // than a copy per kind, since only the `kind`/`data` differ.
-async function wbCreateObject(kind, data, x, y, width, height) {
-  const body = { kind, data, board_id: window.currentBoardId, x, y, z: 1, width, height };
+async function wbCreateObject(kind, data, x, y, width, height, z = 1) {
+  const body = { kind, data, board_id: window.currentBoardId, x, y, z, width, height };
   try {
     const created = await apiJson("/whiteboard/objects", { method: "POST", body: JSON.stringify(body) });
     wbState.objects = wbState.objects || [];
@@ -6260,13 +6264,128 @@ async function wbCreateTextBox(x, y, box = null) {
   });
 }
 
+//: --- Frames (WHITEBOARD_PLAN decision 14) ----------------------------------
+//:
+//: A titled region of the board, the way tldraw, Excalidraw, Miro and FigJam
+//: divide one up ("Ideas", "Doing", "Done"). An object of its own kind, its
+//: title in `content`, drawn as an edge and a title with nothing in between,
+//: so the shapes under the card layer still show through it, and stacked
+//: below everything already on the board. Its inside lets the pointer
+//: through: a press inside a frame selects and draws as it would on bare
+//: board, and the frame is taken by its title or its edge handles. Moving it
+//: carries whatever lies wholly inside it (`wbFrameDragOrigin`), Ctrl held
+//: moves it alone, as Ctrl does a map topic; deleting it leaves what it held.
+
+//: The default size: a third of a 1440 board, room for a handful of cards.
+const WB_FRAME_SIZE = { w: 480, h: 320 };
+
+function wbFrameTitle(frame) {
+  return String(frame?.data?.content || "").trim() || "Frame";
+}
+
+//: Below the lowest item on the board, so a new frame never covers what was
+//: there before it, whatever order things were made in.
+function wbFrameZ() {
+  let low = 1;
+  for (const o of wbState.objects || []) if (Number.isFinite(o.z)) low = Math.min(low, o.z);
+  for (const n of wbState.nodes || []) if (Number.isFinite(n.z)) low = Math.min(low, n.z);
+  return low - 1;
+}
+
+async function wbCreateFrame(x, y, box = null) {
+  //: Never wider than most of what is on screen: on a phone the default is a
+  //: frame whose edges are off both sides, which reads as no frame at all.
+  const container = document.getElementById("whiteboard-container");
+  const k = container ? d3.zoomTransform(container).k : 1;
+  const fit = container
+    ? Math.min(1, (0.8 * container.clientWidth) / k / WB_FRAME_SIZE.w, (0.6 * container.clientHeight) / k / WB_FRAME_SIZE.h)
+    : 1;
+  const w = Math.round(WB_FRAME_SIZE.w * fit), h = Math.round(WB_FRAME_SIZE.h * fit);
+  const at = box || { x: x - w / 2, y: y - h / 2, w, h };
+  const count = (wbState.objects || []).filter((o) => o.kind === "frame").length;
+  const created = await wbCreateObject("frame", { content: `Frame ${count + 1}` }, at.x, at.y, at.w, at.h, wbFrameZ());
+  if (!created) return;
+  wbSelectToolRef?.("select");
+  selectWbItem("object", created.id);
+}
+
+//: Everything lying wholly inside a frame, as selection keys: what a drag of
+//: the frame carries. Read at the start of the drag, from where things are,
+//: so an item dragged out of a frame stops belonging to it with no bookkeeping.
+function wbFrameContents(frame) {
+  const fx = frame.x, fy = frame.y, fr = frame.x + frame.width, fb = frame.y + frame.height;
+  const keys = [];
+  for (const kind of ["node", "object", "sketch"]) {
+    for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) {
+      if (kind === "object" && item.id === frame.id) continue;
+      const box = wbItemBBox(kind, item);
+      if (box && box.minX >= fx && box.minY >= fy && box.maxX <= fr && box.maxY <= fb) keys.push(wbMultiKey(kind, item.id));
+    }
+  }
+  return keys;
+}
+
+function wbFrameDragOrigin(d, alone) {
+  if (alone || d.kind !== "frame") return null;
+  const keys = wbFrameContents(d);
+  return keys.length ? wbCaptureBulkMoveOrigin(null, keys) : null;
+}
+
+//: The title, renamed in place: double-click it, Enter or a click away keeps
+//: the new name, Escape puts the old one back.
+function wbEditFrameTitle(titleEl, frame) {
+  if (titleEl.isContentEditable) return;
+  const before = wbFrameTitle(frame);
+  //: The board's one way into an edit (DESIGN.md: `wbBeginTextEdit`).
+  wbBeginTextEdit(titleEl);
+  const range = document.createRange();
+  range.selectNodeContents(titleEl);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  let cancelled = false;
+  const onKey = (event) => {
+    event.stopPropagation();
+    if (event.key === "Enter") { event.preventDefault(); titleEl.blur(); }
+    if (event.key === "Escape") { event.preventDefault(); cancelled = true; titleEl.blur(); }
+  };
+  titleEl.addEventListener("keydown", onKey);
+  titleEl.addEventListener("blur", () => {
+    titleEl.removeEventListener("keydown", onKey);
+    wbEndTextEdit(titleEl);
+    const name = wbEditedText(titleEl).replace(/\s+/g, " ").trim().slice(0, 80);
+    if (cancelled || !name || name === before) {
+      titleEl.textContent = before;
+      return;
+    }
+    wbPushUndo({ action: "move", kind: "object", id: frame.id, before: WB_KIND_INFO.object.payload(frame) });
+    frame.data = { ...frame.data, content: name };
+    titleEl.textContent = name;
+    wbSaveObject(frame);
+  }, { once: true });
+}
+
+function wbBuildFrame(el, d) {
+  el.append("div")
+    .attr("class", "wb-frame-title")
+    .attr("title", "Drag to move the frame and what is in it; double-click to rename")
+    .text(wbFrameTitle(d))
+    .on("dblclick", function (event) {
+      event.stopPropagation();
+      wbEditFrameTitle(this, d);
+    })
+    .on("pointerdown", function (event) {
+      if (this.isContentEditable) event.stopPropagation();
+    });
+}
+
 //: **The box a text or sticky drag draws** (the owner, 2026-09-24: a drag
 //: with either tool should make a box that size). From the press to the
 //: pointer, in board units, never smaller than `WB_PLACE_MIN` for its kind:
 //: a box smaller than one line of its own text is a box nobody can type into,
 //: so a short drag grows the box away from the press, in the direction the
 //: drag went, rather than refusing it.
-const WB_PLACE_MIN = { text: { w: 60, h: 32 }, sticky: { w: 80, h: 60 } };
+const WB_PLACE_MIN = { text: { w: 60, h: 32 }, sticky: { w: 80, h: 60 }, frame: { w: 120, h: 80 } };
 
 function wbPlaceBox(start, x, y) {
   const min = WB_PLACE_MIN[start.place] || WB_PLACE_MIN.text;
@@ -6601,6 +6720,23 @@ function wbBuildExportSvg(scope) {
     `<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="${bgColor}" />`,
   ];
 
+  //: Frames first (decision 14): they sit under everything they hold, in the
+  //: file as on the board. The edge and title ink are read off the frame as
+  //: drawn, since the stylesheet does not travel into a standalone SVG.
+  for (const frame of wbState.objects || []) {
+    if (frame.kind !== "frame") continue;
+    if (onlyKeys && !onlyKeys.has(wbMultiKey("object", frame.id))) continue;
+    const frameEl = document.querySelector(`#wb-html-layer .wb-object[data-id="${frame.id}"]`);
+    const edge = frameEl ? wbExportColour(getComputedStyle(frameEl).borderTopColor) : null;
+    const titleEl = frameEl?.querySelector(".wb-frame-title");
+    const ink = titleEl ? wbExportColour(getComputedStyle(titleEl).color) : null;
+    parts.push(
+      `<rect x="${frame.x}" y="${frame.y}" width="${frame.width}" height="${frame.height}" rx="6" fill="none" ` +
+        `stroke="${wbSvgEscape(edge || "#8a90a0")}" stroke-width="1.5" />`
+    );
+    parts.push(wbSvgText([wbFrameTitle(frame)], frame.x, frame.y - 6, { fontSize: 12, fill: ink || "#8a90a0" }));
+  }
+
   // A map's branch colours, and its tree edges, both computed once for the
   // whole export. The edges are cloned out of the live DOM rather than
   // recomputed: they are already real SVG paths in board coordinates (that is
@@ -6715,6 +6851,8 @@ function wbBuildExportSvg(scope) {
   // look, since those are the whole point of a text box.
   for (const obj of wbState.objects || []) {
     if (onlyKeys && !onlyKeys.has(wbMultiKey("object", obj.id))) continue;
+    //: Drawn before the sketches, above.
+    if (obj.kind === "frame") continue;
     parts.push(`<g transform="translate(${obj.x}, ${obj.y})">`);
     if (obj.kind === "image" && obj.data.url) {
       // `mediaSrc`, not the bare url: rasterizing this SVG loads it through
@@ -9413,6 +9551,9 @@ async function initWhiteboard() {
     // than decided here; see `WB_TOOL_SHIFT_KEYS` below).
     n: "sticky",
     c: "link-straight",
+    // tldraw's key for the same tool (decision 14). A selected map topic
+    // keeps F for its focus: that handler runs first and returns.
+    f: "frame",
   };
   // Shift + the same letter, for the second tool of a pair. One table rather
   // than an `if` beside the dispatch, so a third pair cannot be added in a
@@ -10018,6 +10159,10 @@ async function initWhiteboard() {
       const [x, y] = getLogicalMouse(e);
       wbCreateSticky(x, y);
     }
+    if (window.currentTool === "frame") {
+      const [x, y] = getLogicalMouse(e);
+      wbCreateFrame(x, y);
+    }
   });
 
   // Rectangle marquee select: reported directly ("area select... missing").
@@ -10090,7 +10235,8 @@ async function initWhiteboard() {
     //: marquee's own dashed rectangle and the same 4-unit threshold, so the
     //: two gestures cannot disagree about where a click ends and a drag
     //: begins.
-    const place = window.currentTool === "text" || window.currentTool === "sticky" ? window.currentTool : null;
+    //: And the frame tool (decision 14), the same two gestures.
+    const place = ["text", "sticky", "frame"].includes(window.currentTool) ? window.currentTool : null;
     if ((window.currentTool !== "select" && !place) || !wbIsEmptyCanvasTarget(e.target)) return;
     //: A finger on bare canvas with Select pans (`wbZoomFilter`), so it is
     //: not also the start of an area select.
@@ -10391,6 +10537,7 @@ async function initWhiteboard() {
       wbPlaceJustDrawn = true;
       const box = wbPlaceBox(start, x, y);
       if (start.place === "sticky") wbCreateSticky(x, y, box);
+      else if (start.place === "frame") wbCreateFrame(x, y, box);
       else wbCreateTextBox(x, y, box);
       return;
     }
@@ -14014,7 +14161,7 @@ function renderWbObjects(canvas) {
       d._dragAlone = Boolean(event.sourceEvent?.ctrlKey || event.sourceEvent?.metaKey);
       d._bulkOrigin = wbDragIsBulkMove("object", d.id)
         ? wbCaptureBulkMoveOrigin(wbMultiKey("object", d.id))
-        : wbMapBranchDragOrigin(d, d._dragAlone);
+        : wbMapBranchDragOrigin(d, d._dragAlone) || wbFrameDragOrigin(d, d._dragAlone);
     }
     //: Once per gesture, not once per move: the card drag beside this one
     //: took the same fix (INBOX 114, and see its own comment). `raise()`
@@ -14405,6 +14552,8 @@ function renderWbObjects(canvas) {
               .on("click", (event) => { event.stopPropagation(); deleteObject(d); });
           }
         });
+    } else if (d.kind === "frame") {
+      wbBuildFrame(el, d);
     } else if (WB_MAP_KINDS.has(d.kind)) {
       // A map node, not a text box. Checked before the `else` below because
       // that branch is "everything that isn't an image", which is what drew a
@@ -14509,6 +14658,9 @@ function renderWbObjects(canvas) {
         .attr("title", "Drag to resize: Shift keeps the proportions, double-click fits the text")
         .call(resizeDrag(handle));
     }
+    //: A frame is a region of the board, and a turned region holds nothing
+    //: square (decision 14).
+    if (d.kind === "frame") return;
     el.append("div")
       .attr("class", "wb-rotate-handle")
       .attr("title", "Drag to rotate: Shift snaps to 15°, double-click stands it upright")
@@ -14571,6 +14723,9 @@ function renderWbObjects(canvas) {
       el.select("img").attr("src", mediaSrc(d.data.url) || "");
     } else if (WB_MAP_KINDS.has(d.kind)) {
       wbPaintMapNode(el, d, mapIndex, mapColors, mapFills);
+    } else if (d.kind === "frame") {
+      const title = this.querySelector(".wb-frame-title");
+      if (title && !title.isContentEditable) title.textContent = wbFrameTitle(d);
     } else {
       el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
       const textEl = el.select(".wb-text-content");

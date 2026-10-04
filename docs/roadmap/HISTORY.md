@@ -7,6 +7,19 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-04 (board frames)
+
+### From WHITEBOARD_PLAN.md, the open "board frames" row (decision 14)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A frame: an object of kind `frame` (`routes_whiteboard.FRAME_KIND`), title in `content`, drawn as `.wb-object-frame` (an edge in the muted ink, a `.wb-frame-title` above, no fill, inside `pointer-events: none`), stacked below everything (`wbFrameZ`) | no way to divide a board into titled regions; ROADMAP listed it open | F, the rail's Add section, Insert, Frame; click drops 480x320 fitted to the screen (291x194 at 390), a drag draws it; title drag carries what lies wholly inside (`wbFrameContents`, `wbFrameDragOrigin` into `wbCaptureBulkMoveOrigin`), one undo for all, Ctrl moves it alone; rename in place through `wbBeginTextEdit`; Delete leaves the contents; no rotate grip, no style or order controls; export draws it first; `read_whiteboard` lists `frames` with the cards under each; not on maps | `scratchpad/ui-sweeps/wbframes.js` 24/24 at 1440x900 light and dark, 4/4 at 390x844 light and dark; edge 5.57:1 dark (3:1 needed), title 5.91 light and 7.96 dark (4.5 needed); `test_ui_recipes.py::test_a_frame_is_one_kind_reached_three_ways`, `test_whiteboard.py::test_a_frame_round_trips_behind_everything`, `test_ai_whiteboard_tools.py::test_read_whiteboard_names_its_frames_and_the_cards_under_them` |
+
+Not in decision 14 and not built: nesting rules, clipping what overhangs a
+frame, a frame as an export scope or a presentation step (presentation is its
+own open row). Help moved with it: the Guide's whiteboard-keys topic, the
+board's help sheet (Frame, F), the rail tooltip and DESIGN.md's recipe row.
+
 ## Moved from the plans, 2026-10-04 (the map's palette, font and the app's own default)
 
 ### From MINDMAP_PLAN.md section 13e: the branch palette, the font, and decision 9's narrow case

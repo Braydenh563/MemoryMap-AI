@@ -1298,3 +1298,17 @@ def test_its_last_resort_is_never_the_corner_over_a_control() -> None:
     choose = _fn("nameMarkBuddyChoose")
     assert "return soiled || corner;" not in choose
     assert "nameMarkBuddyHits(corner.x, corner.y, corner.pose, obstacles, corner.legs) ? tucked : corner" in choose
+
+
+def test_a_folded_sidebar_is_no_perch_and_its_rider_moves_on() -> None:
+    # INBOX 462: "the companion perches dont handle collapsed sidebars at
+    # least in the chat tab". Measured by companioncollapse.js: before, it
+    # sat on in the air over Chat's folded "New chat" (227,726, the rail
+    # 48px); after, it walks to a perch it can be seen on.
+    shown = _fn("nameMarkBuddyPerchShown")
+    assert 'el.closest(".sidebar-collapsed")' in shown and "opacityProperty: true" in shown
+    assert 'child.classList.contains("sidebar-collapsed")' in _fn("nameMarkBuddySurfaceWalk")
+    assert "nameMarkBuddyPerchShown(el)" in _fn("nameMarkBuddyRestore")
+    follow = _fn("nameMarkBuddyFollow")
+    assert 'g.el.closest(".sidebar-collapsed")' in follow
+    assert follow.index("const folded =") < follow.index("if (!box || (!box.width && !box.height)) {")

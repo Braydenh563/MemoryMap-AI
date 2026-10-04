@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Companion (INBOX 462): a folded sidebar is no longer a perch. On Chat and Documents it used to sit on in the air over a row of the folded rail; folding the sidebar now sends it to the nearest perch it can be seen on, by the way it moves.
 - Reminders: switching Open, All and Done no longer flashes loading placeholders; they show on the first load only.
 - Settings: after clicking a section, the arrow keys walk the list of sections, and Page Up and Page Down scroll the open section.
 - Badges (INBOX 461 (1), 468): every status word is the one label recipe, an 11px word in a hairline box with its tone on the edge and icon: Packages' "Installed" and "Not ready yet", SearXNG's "Stopped" or "Running", Tesseract's state, a tool's "confirms first" and "online", the installed model's "in use", and a model card's "Fits", "Tight fit", "Installed" and "In use for chat" (they were four fills at 21 to 23px beside 19px labels). A suggested model card's labels are a row of their own above its actions, one line at 1440, 1100 and 390 (the foot had wrapped into up to three).

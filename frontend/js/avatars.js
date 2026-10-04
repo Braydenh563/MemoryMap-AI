@@ -3933,6 +3933,20 @@ function nameMarkBuddyShown(el) {
   return box.width > 0 && box.height > 0 && box.bottom > 0 && box.top < innerHeight && box.right > 0 && box.left < innerWidth ? box : null;
 }
 
+//: **A perch that can still be seen** (INBOX 462, the owner: "the
+//: companion perches dont handle collapsed sidebars at least in the chat
+//: tab"). A folded sidebar keeps its rows laid out, faded to nothing and
+//: clipped to a 48px rail, so their boxes stayed and it sat on in the air
+//: over a row nobody could see (companioncollapse.js: still on Chat's
+//: "New chat" at 227,726 with the rail 48px wide). Inside a folded sidebar
+//: (even peeked open on hover: it closes again on its own) or faded out,
+//: a perch is gone.
+function nameMarkBuddyPerchShown(el) {
+  const box = nameMarkBuddyShown(el);
+  if (!box || el.closest(".sidebar-collapsed")) return null;
+  return typeof el.checkVisibility !== "function" || el.checkVisibility({ opacityProperty: true, visibilityProperty: true }) ? box : null;
+}
+
 //: The two ledges every page has: the top bar's lower edge and the bottom
 //: bar's upper one (the phone's tab dock where it has one).
 function nameMarkBuddyLedges() {
@@ -4253,7 +4267,8 @@ function nameMarkBuddySurfaceWalk(page) {
     for (const child of el.children) {
       if (looked >= 600 || found.length >= NMB_SURFACE_CAP) return;
       looked += 1;
-      if (child.id === "nm-buddy") continue;
+      //: Nor anything in a folded sidebar (`nameMarkBuddyPerchShown`).
+      if (child.id === "nm-buddy" || child.classList.contains("sidebar-collapsed")) continue;
       const box = child.getBoundingClientRect();
       //: As wide as the companion is enough to stand on (a toolbar button,
       //: a chip row, a tile): it was 96px, which left most buttons out.
@@ -4628,7 +4643,7 @@ function nameMarkBuddyRestore(spot) {
     } catch (e) {
       el = null;
     }
-    const box = nameMarkBuddyShown(el);
+    const box = el && nameMarkBuddyPerchShown(el);
     if (!box) return null;
     const edge = { el, type: spot.type, left: box.left, right: box.right, top: box.top, bottom: box.bottom, y: spot.type === "under" ? box.bottom : box.top };
     let x = spot.fromRight ? box.right - Number(spot.along) : box.left + Number(spot.along);
@@ -5073,7 +5088,9 @@ function nameMarkBuddyFollow(eased = false) {
       // A selector the page no longer parses: the panel is simply gone.
     }
   }
-  const box = g.el.isConnected ? g.el.getBoundingClientRect() : null;
+  //: Folded away or faded out counts as gone (`nameMarkBuddyPerchShown`).
+  const folded = g.el.isConnected && (g.el.closest(".sidebar-collapsed") || (g.el.checkVisibility && !g.el.checkVisibility({ opacityProperty: true, visibilityProperty: true })));
+  const box = g.el.isConnected && !folded ? g.el.getBoundingClientRect() : null;
   if (!box || (!box.width && !box.height)) {
     //: Its area gone with its panel (another tab): it lets go of the
     //: scroll where it is in the window, so it does not vanish with the tab.

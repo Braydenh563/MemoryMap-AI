@@ -31,9 +31,34 @@ def test_preview_strips_markdown_structure():
     syntax, and a heading is usually a restatement of the title already on the
     card."""
     text = _preview("# Chapter 3\n\n- draft\n\nThe measurement problem is real.")
-    assert text.startswith("Chapter 3 draft The measurement")
+    assert text.startswith("Chapter 3 · draft · The measurement")
     assert "#" not in text
     assert "- " not in text
+
+
+def test_preview_keeps_its_blocks_apart():
+    """INBOX 464: flattened, a heading and the list under it read as one
+    run-on sentence ("Goals Ship the notebook redesign Cut travel spend by
+    15% Risks The hiring freeze..."). A block that ends without a stop gets
+    the app's dot separator; one that ends a sentence needs none; a
+    paragraph hard-wrapped over lines stays one sentence."""
+    doc = (
+        "# Quarterly plan\n\n## Goals\n\n- Ship the notebook redesign\n"
+        "- Cut travel spend by 15%\n\n## Risks\n\nThe hiring freeze may slow\n"
+        "the second half. It may not.\n\nNext steps follow."
+    )
+    assert _preview(doc) == (
+        "Quarterly plan · Goals · Ship the notebook redesign · Cut travel spend by 15% · "
+        "Risks · The hiring freeze may slow the second half. It may not. Next steps follow."
+    )
+
+
+def test_a_note_preview_keeps_its_list_apart_too():
+    from memorymap.api.routes_library import _clip
+
+    assert _clip("Groceries:\n- oat milk\n- eggs\n- spinach") == "Groceries: oat milk · eggs · spinach"
+    assert _clip("One line, as most notes are.") == "One line, as most notes are."
+    assert _clip("A **bold** start\n\nand a second paragraph") == "A bold start · and a second paragraph"
 
 
 def test_preview_cuts_at_a_word_boundary():

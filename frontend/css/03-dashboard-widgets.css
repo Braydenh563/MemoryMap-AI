@@ -247,6 +247,41 @@
   font-size: var(--text-sm);
 }
 
+/* An entity's page (GRAPH_PLAN KG5, entity-page.js): the inbox's sheet and
+   rows, in three sections, each under a quiet heading. */
+.entity-section + .entity-section {
+  margin-top: var(--space-5);
+}
+
+.entity-section-title {
+  margin: 0 0 var(--space-2);
+}
+
+.entity-section .inbox-row-title {
+  align-self: flex-start;
+  text-align: start;
+}
+
+.entity-related {
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.entity-date {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.entity-count {
+  margin-inline-start: auto;
+  font-size: var(--text-sm);
+}
+
+.entity-filter {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
 /* --- Wave O: brand logo + a more present background ------------------------------ */
 #brand-logo {
   width: 34px;

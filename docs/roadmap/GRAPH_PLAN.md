@@ -639,7 +639,8 @@ acceptance rate (Laplace smoothed, bounded 0.5x to 1.5x).
    to HISTORY.md (the same section as KG1).
 3. KG9, the inbox and accept learning: built 2026-10-04, both parts moved
    to HISTORY.md (the same section as KG1).
-4. KG5, entity kinds, aliases, merge, entity page.
+4. KG5, entity kinds, aliases, merge, entity page: built 2026-10-04, moved
+   to HISTORY.md (the same section as KG1).
 5. KG6, topics, names, hulls, summaries. Topics, names and hulls built
    2026-10-04 (HISTORY.md, same section as KG1); open: the local-model
    summary per topic on demand, and the label pass knowing the plates.

@@ -312,6 +312,8 @@ const GC_EDGE_STYLES = {
   map: { width: 1.3, alpha: 0.7, dash: [1, 4], colour: "accent" },
   filing: { width: 1.6, alpha: 0.25, dash: [3, 3], colour: "muted" },
   entity: { width: 1.6, alpha: 0.55, dash: null, colour: "muted" },
+  //: KG5: two entities named together in two notes or more.
+  comention: { width: 1.2, alpha: 0.45, dash: [1, 3], colour: "accent" },
   document: { width: 1.6, alpha: 0.55, dash: null, colour: "muted" },
   tagged: { width: 1.1, alpha: 0.4, dash: [2, 3], colour: "muted" },
   attachment: { width: 1.2, alpha: 0.45, dash: null, colour: "muted" },
@@ -3001,7 +3003,7 @@ function gcShowNodeMenu(node, clientX, clientY, s = gcTab) {
 const GC_ENTITY_CATEGORY = "Entity";
 const GC_ENTITY_HELP =
   "An entity is a person, place or thing Atlas found named across your notes, " +
-  "joined to every note that mentions it";
+  "joined to every note that mentions it. Click it for its page";
 
 function gcTooltip(node, s = gcTab) {
   const links = (s.adj && s.adj.get(node.id) ? s.adj.get(node.id).size : 0) || 0;
@@ -3061,6 +3063,11 @@ function gcClickNode(event, node, s = gcTab) {
   }
   if (node.type === "unresolved") {
     gcWriteUnresolved(node);
+    return;
+  }
+  //: KG5: an entity opens its page (entity-page.js).
+  if (node.type === "entity") {
+    openEntityPage(String(node.id).slice("entity:".length));
     return;
   }
   if (!gcIsNote(node)) return;

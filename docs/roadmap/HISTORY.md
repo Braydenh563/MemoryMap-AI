@@ -38798,3 +38798,25 @@ fresh data dir (the four kinds on one row, a merge moving three mentions, the
 cue marked, the type on the link, arrows walking the tabs). Not verified: the
 tension pass against a real model inside the sheet (no model here); toasts
 fired from a phone's bottom sheet land behind it (every sheet, not this one).
+
+### From GRAPH_PLAN.md: KG5, the entity layer
+
+`suggest_entities_with_kinds` asks for `name|kind` and reads a small model's
+words onto `ENTITY_KINDS` (org, company, location and the like; anything else
+is no kind); the pass fills a kind an entity lacks, and an alias or a merged
+name lands on the survivor (KG9's `_find_or_create_entity`). `routes_entities`:
+the list (visible mentions only, merged and private-only left out), a page
+(each note's sentence with the name or an alias marked, longest name first;
+the entities named in the same notes; `EntryDate` rows of its notes; first and
+last seen), PATCH (name, kind, other names; a bad kind 422) and a merge by
+hand. The graph's entity nodes carry `entity_kind`, and two entities named
+together in two notes or more (notes naming twelve or fewer) get a dotted
+`comention` edge weighted by the count. `entity-page.js` (lazy, the inbox's
+bundle): the page as a sheet (a `kebabMenu` of Kind, Rename, Other names, Merge
+into), and People and things, a filtered list; a graph entity opens its page.
+`openSheet`'s Escape now leaves an open ⋯ menu to close itself (it closed the
+whole sheet). Measured: `tests/test_entities_kg5.py` 6 tests;
+`scratchpad/ui-sweeps/kg5entity.js` 10/10 at 1440 and 390, light and dark
+(both mentions marked, Priya · 2, the Thursday date, the menu's four rows,
+nothing sideways). Not verified: a real model writing `name|kind` (the parser
+is tested on the shapes a small model is known to write).

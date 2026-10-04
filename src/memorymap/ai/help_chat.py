@@ -1149,6 +1149,27 @@ HELP_TOPICS.extend(
             ),
             "badge": {"label": "Graph", "tab": "graph"},
         },
+        #: GRAPH_PLAN KG5: the entity layer, its page and its list.
+        {
+            "id": "entities",
+            "keywords": (
+                "entity", "entities", "people", "person", "people and things",
+                "place", "places", "organisation", "who is", "other names",
+                "alias", "aliases", "merge names", "named together",
+            ),
+            "body": (
+                "Atlas notes the people, places, projects, organisations and things "
+                "your notes name, with a kind for each. Show, Entities on the Graph "
+                "draws them; two named together in two notes or more are joined. "
+                "Click one, or open People and things from the command palette, for "
+                "its page: every note that names it with the sentence, what it is "
+                "named with, and the dates its notes mention. Its ⋯ sets the Kind, "
+                "Renames it, edits Other names (the names it also goes by) and "
+                "Merges it into another, moving every mention. Suggestions, Names "
+                "offers the merges that look right (\"Sam\" and \"Sam Lee\")."
+            ),
+            "badge": {"label": "Graph", "tab": "graph"},
+        },
         {
             "id": "chat-controls",
             "keywords": (

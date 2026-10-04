@@ -3542,6 +3542,7 @@ function graphLinkKind(edge) {
   if (edge.kind === "similar") return `Similar in meaning${typeof edge.score === "number" ? `, ${Math.round(edge.score * 100)}%` : ""}`;
   if (edge.kind === "thread") return "Thread: one note continues the other";
   if (edge.kind === "map") return "Joined on a concept map";
+  if (edge.kind === "comention") return `Named together in ${edge.weight} notes`;
   return edge.link_type && edge.link_type !== "related" ? `Link: ${edge.link_type}` : "Link";
 }
 

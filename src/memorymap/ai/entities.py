@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
 from memorymap.core.database import (
+    ENTITY_KINDS,
     LIKE_ESCAPE,
     Entity,
     EntityMention,
@@ -42,24 +43,40 @@ MIN_CONTENT_LENGTH = 20
 MAX_ENTITIES_PER_NOTE = 5
 
 
-def suggest_entities(
+#: The model's words for a kind, read onto `ENTITY_KINDS` (GRAPH_PLAN KG5). A
+#: small model writes "org", "company", "location" as often as the word asked
+#: for; anything else is no kind rather than a guess.
+KIND_WORDS = {
+    "person": "person", "people": "person", "name": "person",
+    "place": "place", "location": "place", "city": "place", "country": "place",
+    "project": "project",
+    "organisation": "organisation", "organization": "organisation", "org": "organisation",
+    "company": "organisation", "team": "organisation",
+    "thing": "thing", "object": "thing", "product": "thing", "tool": "thing",
+}
+
+
+def suggest_entities_with_kinds(
     text: str,
     model_manager: ModelManager,
     ollama: OllamaClient,
     limit: int = MAX_ENTITIES_PER_NOTE,
-) -> list[str]:
-    """Named people/projects/things this note actually mentions, model's
-    own words. Raises OllamaError if the model is unavailable, the caller
-    decides what to do, same contract as `suggest_tags`.
+) -> list[tuple[str, str | None]]:
+    """Named people, places, projects, organisations and things this note
+    mentions, each with its kind when the model said one (`name|kind`).
+    Raises OllamaError if the model is unavailable, the caller decides what
+    to do, same contract as `suggest_tags`.
     """
     system = (
         "You extract named entities from a note, real people, projects, "
-        "places or things it names, not generic topics (a topic is a tag, "
-        "not an entity: 'baking' is a topic, 'the sourdough starter' is a "
-        "thing). Reply with ONLY a comma-separated list of "
-        f"{limit} or fewer entity names, each as short as it's naturally "
-        "called (a first name is fine), no explanation. If the note names "
-        "nothing worth tracking as its own thing, reply with NONE."
+        "places, organisations or things it names, not generic topics (a "
+        "topic is a tag, not an entity: 'baking' is a topic, 'the sourdough "
+        "starter' is a thing). Reply with ONLY a comma-separated list of "
+        f"{limit} or fewer, each written name|kind where kind is one of "
+        f"{', '.join(ENTITY_KINDS)}, the name as short as it's naturally "
+        "called (a first name is fine), no explanation. Example: "
+        "Sam|person, Leeds|place. If the note names nothing worth tracking "
+        "as its own thing, reply with NONE."
     )
     reply = ollama.chat(
         model_manager.utility_model(),
@@ -72,14 +89,25 @@ def suggest_entities(
     if not raw or raw.upper().startswith("NONE"):
         return []
     seen: set[str] = set()
-    names: list[str] = []
+    found: list[tuple[str, str | None]] = []
     for piece in raw.replace("\n", ",").split(","):
-        name = piece.strip().strip("\"'").lstrip("-•").strip()
+        name, _, kind = piece.partition("|")
+        name = name.strip().strip("\"'").lstrip("-•").strip()
         key = name.lower()
         if name and key not in seen and len(name) <= 200:
             seen.add(key)
-            names.append(name)
-    return names[:limit]
+            found.append((name, KIND_WORDS.get(kind.strip().strip("\"'.").lower())))
+    return found[:limit]
+
+
+def suggest_entities(
+    text: str,
+    model_manager: ModelManager,
+    ollama: OllamaClient,
+    limit: int = MAX_ENTITIES_PER_NOTE,
+) -> list[str]:
+    """The names alone, for a caller that has no use for the kinds."""
+    return [name for name, _ in suggest_entities_with_kinds(text, model_manager, ollama, limit)]
 
 
 def _find_or_create_entity(session: Session, name: str, cache: dict[str, Entity]) -> Entity:
@@ -198,9 +226,10 @@ def extract_entities_pass(
         content = (entry.content or "").strip()
         try:
             if len(content) >= MIN_CONTENT_LENGTH:
-                names = suggest_entities(content, model_manager, ollama)
-                for name in names:
+                for name, kind in suggest_entities_with_kinds(content, model_manager, ollama):
                     entity = _find_or_create_entity(session, name, cache)
+                    if kind and not entity.kind:
+                        entity.kind = kind
                     already = session.scalars(
                         select(EntityMention).where(
                             EntityMention.entity_id == entity.id,

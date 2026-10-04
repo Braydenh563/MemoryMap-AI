@@ -279,6 +279,12 @@ def graph_match(q: str = Query(default="", max_length=200), session: Session = D
     hits = search_manager.keyword_search(session, words, limit=5000)
     return {"ids": [entry.id for entry in hits]}
 
+#: Co-mention edges between entities (KG5): named together this often, in
+#: notes naming no more than the cap.
+COMENTION_MIN = 2
+COMENTION_NOTE_CAP = 12
+
+
 def _add_entity_nodes(
     session: Session, nodes: list[dict], edges: list[dict], node_ids: set[int]
 ) -> None:
@@ -312,16 +318,36 @@ def _add_entity_nodes(
                     "preview": entity.name,
                     "category": "Entity",
                     "created_at": entity.created_at.isoformat(),
+                    "entity_kind": entity.kind,
                 }
             )
+        by_note: dict[int, list[int]] = {}
         for mention in mentions:
             if mention.entity_id in entities:
+                by_note.setdefault(mention.entry_id, []).append(mention.entity_id)
                 edges.append(
                     {
                         "source": f"entity:{mention.entity_id}",
                         "target": mention.entry_id,
                         "kind": "entity",
                     }
+                )
+        # GRAPH_PLAN KG5: two entities named together in two notes or more
+        # are joined, weighted by how many. Once is coincidence ("thanks Sam,
+        # Priya and Jo"); a note naming more than twelve says nothing about
+        # any one pair and costs the most, so it is left out.
+        together: dict[tuple[int, int], int] = {}
+        for named in by_note.values():
+            named = sorted(set(named))
+            if len(named) > COMENTION_NOTE_CAP:
+                continue
+            for i, a in enumerate(named):
+                for b in named[i + 1:]:
+                    together[(a, b)] = together.get((a, b), 0) + 1
+        for (a, b), count in together.items():
+            if count >= COMENTION_MIN:
+                edges.append(
+                    {"source": f"entity:{a}", "target": f"entity:{b}", "kind": "comention", "weight": count}
                 )
 
 

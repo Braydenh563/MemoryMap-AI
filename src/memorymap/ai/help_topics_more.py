@@ -904,6 +904,7 @@ TOPIC_META: dict[str, dict] = {
     "callouts": {"title": "Callouts", "path": "Library tab, Documents"},
     "graph-controls": {"title": "Graph keys and controls", "path": "Graph tab"},
     "graph-display": {"title": "More graph controls", "path": "Graph tab, the gear"},
+    "entities": {"title": "People and things", "path": "Graph tab, an entity; or the command palette, People and things"},
     "chat-controls": {"title": "Chat keys and controls", "path": "Chat tab"},
     "notes-controls": {"title": "Notes keys, filters and selection", "path": "Notes tab"},
     "library-controls": {"title": "Library controls", "path": "Library tab"},
@@ -967,7 +968,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "files-images", "ocr-workspace", "ocr-engine", "archive", "undo-bin",
     )),
     ("Graph, Timeline, Reminders and Dashboard", (
-        "graph", "graph-controls", "graph-display", "timeline", "timeline-controls", "reminders",
+        "graph", "graph-controls", "graph-display", "entities", "timeline", "timeline-controls", "reminders",
         "reminders-controls", "dashboard", "dashboard-controls", "notifications", "spaces",
     )),
     ("Look and feel", (

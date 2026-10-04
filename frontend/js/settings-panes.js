@@ -2001,6 +2001,8 @@ const REVEAL_TARGETS = {
     fallback: "graph-add-node",
   },
   "graph-physics": { tab: "graph", open: revealGraphOptions, el: "graph-physics" },
+  //: KG5: every person, place and thing named in the notes.
+  entities: { open: () => openEntitiesSheet(), sel: '[data-sheet="entities"] .sheet-card', built: "openEntitiesSheet", flash: false },
   //: The suggestions inbox (KG9): one sheet, opened at the kind asked for.
   suggestions: { open: () => openSuggestionsInbox("links"), sel: '[data-sheet="suggestions"] .sheet-card', built: "openSuggestionsInbox", flash: false },
   "graph-suggest": { open: () => openSuggestionsInbox("links"), sel: "#inbox-tab-links", built: "openSuggestionsInbox", flash: false, fallback: "link-suggest-btn" },
@@ -2181,6 +2183,7 @@ function paletteCommands() {
     // The inbox is a sheet; the board's overview and find bar live on a
     // board you have to be on already.
     { label: "ph:tray Suggestions: links, disagreements, names and link types", reveal: "suggestions" },
+    { label: "ph:users People and things in my notes", reveal: "entities" },
     { label: "ph:scales Tensions: find where I disagreed with myself", reveal: "tensions" },
     //: Atlas is a surface with no tab of its own, which is exactly what a
     //: command palette is for (INBOX 224).

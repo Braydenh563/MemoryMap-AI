@@ -4819,3 +4819,34 @@ p.graph-help-panel {
 #settings-tools .tool-filter-row {
   border-bottom-color: transparent;
 }
+
+/* The move buttons take no width of their own (the owner: "there's an
+   awkward gap on the right side where the hidden up/down arrows are").
+   Hidden, they held a 2 x 44px column beside every row. They now float
+   over the row's right end, left of its check, on a small raised plate,
+   while the row is pointed at or focused; on touch, where nothing is
+   pointed at, they keep their column. */
+.quick-manage-item {
+  position: relative;
+}
+
+@media (hover: hover) {
+  .quick-manage-moves {
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-end: calc(var(--space-6) + 1.75rem);
+    translate: 0 -50%;
+    min-width: 0;
+    gap: var(--space-1);
+    padding: var(--space-1);
+    border-radius: var(--radius-sm);
+    background: var(--card);
+    box-shadow: var(--shadow-sm);
+    pointer-events: none;
+  }
+
+  .quick-manage-item:hover .quick-manage-moves,
+  .quick-manage-item:focus-within .quick-manage-moves {
+    pointer-events: auto;
+  }
+}

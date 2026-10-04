@@ -437,6 +437,13 @@ function markScrollEdge(region, force = false) {
   }
   if (best && scrolled) best.setAttribute("data-scrolled", "1");
   else if (best) best.removeAttribute("data-scrolled");
+  //: A sub-tab strip is sticky *inside* the region it lids (INBOX 529: "hard
+  //: to see when scrolled down"), so the loop above skips it and it stayed
+  //: see-through over the notes. It takes its surface the same way.
+  for (const strip of region.querySelectorAll(".notes-subtabs, .library-subtabs")) {
+    if (scrolled) strip.setAttribute("data-scrolled", "1");
+    else strip.removeAttribute("data-scrolled");
+  }
 }
 
 // --- the phone's tab bar recedes on the way down (INBOX 104) ----------------

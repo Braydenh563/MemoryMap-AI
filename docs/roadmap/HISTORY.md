@@ -37457,6 +37457,18 @@ width, 47% of the column at 1440.
      and sub-tab asserting the figure's feet sit within 4px of a surface.
      Fixed: perch targets per Library sub-tab and on boards and maps; feet within 4 px of a painted edge on every surface in `perchall.js` (8e5b04a, e43f0fe). Left: two phone moments wrong for up to 0.9 s before the next beat.
 
+529. **The owner, 2026-10-04, verbatim, with a screenshot (Your notes, Capture,
+     Write with Atlas, Ask over a note's chips).** "the subtab menubars are
+     kinda hard to see when scrolled down on the page". Fixed: the strips are
+     sticky inside the region they lid, which the scroll-edge marker skipped;
+     they now take the blurred card surface once scrolled (Notes and Library
+     measured: `data-scrolled="1"`, card fill, blur 16 px).
+530. **The owner, 2026-10-04, verbatim, with two screenshots (Quick access).**
+     "there's an awkward gap on the right side where the hidden up/down
+     arrows are". Fixed: the move buttons float on a raised plate over the
+     row's right end while it is pointed at or focused; on touch they keep a
+     column. `quickgap.js`: 0 px between row and list edge at rest.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

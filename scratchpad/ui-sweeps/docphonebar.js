@@ -100,13 +100,41 @@ const CONTENT = [
   });
   await page.waitForTimeout(500);
   const bubble = await page.evaluate(() => {
-    const cands = [...document.querySelectorAll(".doc-selection-toolbar, .selection-toolbar, .cm-selection-toolbar, .doc-format-bubble, [data-selection-toolbar]")]
-      .filter((el) => el.getClientRects().length && !el.classList.contains("hidden"));
-    return cands.map((el) => { const r = el.getBoundingClientRect(); return { cls: el.className, l: r.left, r: r.right, t: r.top, b: r.bottom }; });
+    const el = document.getElementById("selection-bar");
+    if (!el || el.classList.contains("hidden")) return null;
+    const r = el.getBoundingClientRect();
+    const shown = [...el.querySelectorAll("button")].filter((b) => !b.hidden);
+    const foot = new Set([...document.querySelectorAll("#doc-phone-bar [data-md]")].map((b) => b.dataset.md));
+    return {
+      l: r.left, r: r.right, t: r.top, b: r.bottom,
+      buttons: shown.map((b) => b.dataset.md || b.getAttribute("aria-label")),
+      twice: shown.filter((b) => b.dataset.md && foot.has(b.dataset.md)).map((b) => b.dataset.md),
+      offscreen: shown.filter((b) => { const q = b.getBoundingClientRect(); return q.left < 0 || q.right > innerWidth; }).length,
+    };
   });
   console.log("bubble", JSON.stringify(bubble));
-  for (const b of bubble) check(`selection bubble inside the window (${b.cls})`, b.l >= 0 && b.r <= W && b.t >= 0 && b.b <= rest.bar.t, b);
+  check("the selection bar appears", !!bubble);
+  if (bubble) {
+    check("the selection bar is inside the window", bubble.l >= 0 && bubble.r <= W && bubble.t >= 0 && bubble.b <= rest.bar.t, bubble);
+    check("no selection-bar button is off screen", bubble.offscreen === 0, bubble.offscreen);
+    check("the selection bar repeats nothing the phone bar has", bubble.twice.length === 0, bubble.twice);
+    check("ask and rewrite are on the selection bar", bubble.buttons.some((b) => /Ask/.test(b)) && bubble.buttons.some((b) => /Rewrite/.test(b)), bubble.buttons);
+  }
   await page.screenshot({ path: `${SHOTS}/docphonebar-${THEME}-select.png` });
+  // The CSS net for a surface with no foot bar (a note on a phone): all ten
+  // shown, the bar must wrap rather than run past the window.
+  const all = await page.evaluate(() => {
+    const el = document.getElementById("selection-bar");
+    if (!el) return null;
+    const was = [...el.querySelectorAll("button")].map((b) => b.hidden);
+    el.querySelectorAll("button").forEach((b) => { b.hidden = false; });
+    const r = el.getBoundingClientRect();
+    const off = [...el.querySelectorAll("button")].filter((b) => { const q = b.getBoundingClientRect(); return q.left < 0 || q.right > innerWidth; }).length;
+    el.querySelectorAll("button").forEach((b, i) => { b.hidden = was[i]; });
+    return { w: r.width, h: r.height, r: r.right, off };
+  });
+  console.log("all ten", JSON.stringify(all));
+  check("with all ten shown the bar wraps inside the window", all && all.r <= W && all.off === 0, all);
 
   // The "/" menu from the bar.
   await page.evaluate(() => {

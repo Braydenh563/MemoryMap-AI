@@ -1814,11 +1814,28 @@ function selectionBarShow(textarea) {
   const code = editorSurfaceKind(textarea) === "document"
     && typeof docFileType === "function" && docFileType().previewable === false;
   for (const button of bar.querySelectorAll("[data-md], .selection-bar-rule")) button.hidden = code;
+  //: **Never a second copy of the phone's formatting bar.** Below 600 the
+  //: document has its own bar at the foot (`#doc-phone-bar`, a `.thumb-bar`),
+  //: and this one drew the same Bold, Italic, Heading and Link again over the
+  //: text, ten 44px targets in a 499px pill that ran 117px past a 390px
+  //: window with Ask and Rewrite off its edge (measured, docphonebar.js).
+  //: What the foot already carries is read off the foot itself, so the two
+  //: cannot drift; what is left (strike, highlight, code, quote, ask,
+  //: rewrite) fits the window.
+  const foot = editorSurfaceKind(textarea) === "document" ? $("doc-phone-bar") : null;
+  if (!code && foot && getComputedStyle(foot).display !== "none") {
+    const onFoot = new Set([...foot.querySelectorAll("[data-md]")].map((b) => b.dataset.md));
+    for (const button of bar.querySelectorAll("[data-md]")) button.hidden = onFoot.has(button.dataset.md);
+  }
   bar.classList.remove("hidden");
   //: Anchored to the *start* of the selection, which is where the eye is when
   //: a selection is made left-to-right, and measured after the bar is visible
   //: so its size is real rather than zero.
   const { top, left, lineHeight } = editorCaretPoint(textarea);
+  //: A bar that wrapped (CSS caps it at the window's width) is two rows, and
+  //: a pill's round ends do not fit two rows of round buttons.
+  const shown = [...bar.querySelectorAll("button")].filter((b) => !b.hidden);
+  bar.classList.toggle("is-wrapped", shown.length > 1 && shown.at(-1).offsetTop > shown[0].offsetTop);
   const size = bar.getBoundingClientRect();
   const margin = 8;
   //: **The boundary is the editing pane, and now that is the surface itself.**

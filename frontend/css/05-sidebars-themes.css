@@ -1642,8 +1642,15 @@ button.rich-picker-row:is(:hover, :focus-visible) .rich-picker-tile {
   margin: 0;
 }
 
+/* The slider's own box is the target (a tap on its label does not move it), so
+   it takes the touch floor, and it asks for 8rem as its *basis*: `.row input`
+   is `flex: 1`, a basis of 0, so in a 268px Settings row at 390 it was left
+   what the button, the label and the figure did not take, 6.8x16px, which is
+   not a slider. Now it wraps to a line of its own and fills it. */
 #duplicate-threshold {
-  width: 8rem;
+  flex: 1 1 8rem;
+  min-width: 8rem;
+  min-height: var(--target-min);
 }
 
 /* --- note history ------------------------------------------------------------- */

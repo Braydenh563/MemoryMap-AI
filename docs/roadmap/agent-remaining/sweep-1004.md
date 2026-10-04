@@ -33,7 +33,7 @@ S608 hits are constant placeholders.
    thousand nested braces raises RecursionError there. They run in background
    passes with their own outer guards (not checked each); the tool path, which
    had none, is fixed.
-4. **`_coerce` accepts `nan` and `inf` for a `number` parameter**
+4. **FIXED (tests/test_coerce_number_finite.py): `_coerce` accepts `nan` and `inf` for a `number` parameter**
    (`float("nan")`). No current tool has a `number` parameter whose handler
    would misbehave; noted for the next one.
 5. **A dismissed reminder notification never returns** (`status.js`

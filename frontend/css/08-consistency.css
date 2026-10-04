@@ -6213,7 +6213,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    was doing, placed in the figure's box rather than on its perch and drawn
    at the same 2.2 times, about the line it stands or sits on
    (`--nmb-edge`), so its feet or seat land where the plain figure's feet
-   do, 224px down. Hanging, its hands hold a bar near the top; floating,
+   do, 224px down. Hanging, its hands hold nothing drawn; floating,
    its middle is the box's. `!important` because its perch's place and its
    own size are written on the element by avatars.js, and are kept there
    for when it goes home. */
@@ -6230,8 +6230,11 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 /* No resize ring in the large view (INBOX 466): the card sizes it. */
 .nm-viewer-figure > #nm-buddy .nmb-size-grip { display: none; }
 
-/* What it sits on or hangs from in there: a quiet bar, only for those
-   poses (standing, the card is its floor). */
+/* What it sits on in there: a quiet bar, only for that pose (standing, the
+   card is its floor). Hanging draws none: the bar was fixed at 24px, behind the
+   head, while the hands' height changes with each character and act, so it
+   read as a stray line (the owner, 2026-10-04: "a random highlight at the top
+   of the companion expanded popup"). */
 .nm-viewer-ledge {
   position: absolute;
   left: -24px;
@@ -6248,7 +6251,6 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    that :has() made every change of the companion's `data-pose`, with the
    view closed, restyle 968 elements (companioncost.js, 2026-10-04). */
 .nm-viewer-figure[data-pose="sit"] .nm-viewer-ledge { opacity: 1; }
-.nm-viewer-figure[data-pose="hang"] .nm-viewer-ledge { opacity: 1; top: 24px; }
 
 /* Its lines, said from its head's upper corner (its box is the size of
    its perch, its drawing 2.2 times that). */

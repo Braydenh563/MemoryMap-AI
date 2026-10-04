@@ -2770,7 +2770,7 @@ function openNameMarkViewer(seed, { visit = false } = {}) {
   const figure = document.createElement("span");
   figure.className = "nm-viewer-figure";
   if (visiting) {
-    //: What it sits on or hangs from, drawn only for those poses (the CSS).
+    //: What it sits on, drawn only for that pose (the CSS).
     const ledge = document.createElement("span");
     ledge.className = "nm-viewer-ledge";
     ledge.setAttribute("aria-hidden", "true");
@@ -2878,7 +2878,7 @@ function nameMarkBuddyVisit(host) {
   for (const anim of [nmb.anim, nmb.glideAnim]) if (anim && anim.playState === "running") anim.finish();
   clearTimeout(nmb.placeTimer);
   nmb.placeTimer = 0;
-  //: The ledge under it shows for a sit and a hang; the CSS reads the host's
+  //: The ledge under it shows for a sit; the CSS reads the host's
   //: own `data-pose`, a copy kept here (a `:has()` on the companion's made
   //: every pose change restyle 968 elements of the page).
   const mirror = () => { host.dataset.pose = buddy.dataset.pose || ""; };

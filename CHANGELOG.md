@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Companion: the enlarged view draws no bar behind a hanging companion's head (a stray grey line at a fixed height); the seat bar under a sitting one stays.
 - Atlas: the feminine look's waist band is gone; the body fades into the gown.
 - Dashboard: a widget whose data never arrives offers Retry instead of saying "Loading…" for good; the constellation waits for its drawing library.
 - Graph: the View menu is gone; layout, colour, size, Trace and the legend are the first section of the gear's panel (Display options), so there is one way in. Pressing Legend no longer closes the panel it is in.

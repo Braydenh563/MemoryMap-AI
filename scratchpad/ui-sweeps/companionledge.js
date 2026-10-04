@@ -1,7 +1,7 @@
-// The large view's ledge (the bar a sitting or hanging companion rests on or
-// hangs from): for each pose the companion has when its view opens, the
+// The large view's ledge (the bar a sitting companion rests on; hanging draws
+// none): for each pose the companion has when its view opens, the
 // view's figure carries the same `data-pose`, the ledge's computed opacity is
-// 1 for sit and hang and 0 otherwise, and a pose change while it is open
+// 1 for sit and 0 otherwise, and a pose change while it is open
 // follows. Env: BASE, KIND (atlas).
 const { boot } = require('./lib.js');
 (async () => {

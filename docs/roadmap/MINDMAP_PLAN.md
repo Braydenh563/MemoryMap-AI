@@ -1022,6 +1022,7 @@ topic: a control that wide has nowhere to go.
    three-state against the theme, which is the rule `edge_arrow` had been
    following alone. The remaining gap is recorded below rather than solved,
    because it needs a stored name for each app default and the case is narrow.
+   (Built 2026-10-04 with exactly that stored name per field; see 13e.)
 10. **The theme lives in one row of the View menu's Map section, and nothing
    is added to the canvas** (taken 2026-09-21, building 13e). Decision 5
    above, and §13b had just taken the topic strip from fourteen controls to
@@ -1246,11 +1247,12 @@ topic: a control that wide has nowhere to go.
   `maptheme.js`, new, 24/24 in light at 1440, in dark at 1440 and at 390,
   against a base branch on which it stops at its second check
   (`wbMapTheme is not defined`). One request themes 25 topics; one request
-  clears them. **What is left of 13e**: the branch palette and the font
-  choice §13.4 also names, both of which are drawn in two places rather
-  than one (decision 8), and the narrow case decision 9 records, a topic
-  that cannot be pulled back to the app's own default for a field the map
-  themes.
+  clears them. ~~**What is left of 13e**: the branch palette, the font and
+  decision 9's narrow case~~ **built 2026-10-04**, recorded in HISTORY.md
+  ("Moved from the plans, 2026-10-04 (the map's palette, font and the app's
+  own default)"): one palette list on the server read by canvas and
+  thumbnail, a map font, and a pin per themed select; `mappalette.js` 13/13
+  in light, dark and 390. 13e is closed.
 - ~~**13f. The doors that are built and shut.**~~ **Withdrawn 2026-09-21, and
   a different thing built in its place**, recorded in HISTORY.md ("Moved from
   the plans, 2026-09-21", "the two gestures a blank map did not answer").

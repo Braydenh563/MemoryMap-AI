@@ -6382,12 +6382,12 @@ function wbSvgWrapLines(text, maxWidth, maxLines = 6, charWidth = 7) {
   return lines;
 }
 
-function wbSvgText(lines, x, y, { fontSize = 13, fill = "#1f2430", lineHeight } = {}) {
+function wbSvgText(lines, x, y, { fontSize = 13, fill = "#1f2430", lineHeight, fontFamily = "sans-serif" } = {}) {
   const dy = lineHeight || fontSize + 3;
   const tspans = lines
     .map((l, i) => `<tspan x="${x}" dy="${i === 0 ? 0 : dy}">${wbSvgEscape(l)}</tspan>`)
     .join("");
-  return `<text x="${x}" y="${y}" font-family="sans-serif" font-size="${fontSize}" fill="${fill}">${tspans}</text>`;
+  return `<text x="${x}" y="${y}" font-family="${wbSvgEscape(fontFamily)}" font-size="${fontSize}" fill="${fill}">${tspans}</text>`;
 }
 
 
@@ -6734,7 +6734,13 @@ function wbBuildExportSvg(scope) {
       //: draws it: after the box, before the label.
       const place = wbMapNumberOf(exportMapIndex, obj.id);
       const lines = wbSvgWrapLines(box + (place ? `${place} ` : "") + wbMapLabel(obj), size.w - 28, 4, 7.5);
-      parts.push(wbSvgText(lines, 14, labelTop, { fontSize: 14, fill: topicPaint?.ink || "#1f2430", lineHeight: 17 }));
+      //: In the map's own face when it has one (§13e's remainder): the file is
+      //: the second place a map's text is drawn, and a serif map exported in
+      //: sans-serif is two pictures of one map.
+      parts.push(wbSvgText(lines, 14, labelTop, {
+        fontSize: 14, fill: topicPaint?.ink || "#1f2430", lineHeight: 17,
+        fontFamily: wbMapFontStack() || "sans-serif",
+      }));
     } else if (obj.kind === "text") {
       const fontSize = obj.data.font_size || 16;
       const lines = wbSvgWrapLines(obj.data.content || "", obj.width - 20, 20, fontSize * 0.55);
@@ -7925,7 +7931,10 @@ async function initWhiteboard() {
   $("wb-map-text-size")?.addEventListener("change", (e) => {
     if (wbMapStripSyncing) return;
     const node = wbSelectedMapNode();
-    if (node) wbMapSetNodeStyle(node, { font_size: Number(e.target.value) || null });
+    //: "0" is the pin to the app's own size (decision 9), offered only while
+    //: the map themes the size; any other empty or zero is no size at all.
+    const raw = e.target.value;
+    if (node) wbMapSetNodeStyle(node, { font_size: raw === "0" ? 0 : (Number(raw) || null) });
   });
   $("wb-map-align")?.addEventListener("change", (e) => {
     if (wbMapStripSyncing) return;

@@ -142,6 +142,56 @@ function wbMapThemeDefault(field) {
   return wbMapTheme()[field];
 }
 
+//: **A stored name for the app's own default** (MINDMAP_PLAN.md decision 9's
+//: narrow case, built). The strip's selects store the app's default as no
+//: value, which on a map that themes the field means "follow the map", so a
+//: topic could not be pulled back to the app's own look there. Each name
+//: below is a value a topic can carry that draws exactly what no value draws,
+//: and being a value it beats the theme. The server's `MAP_APP_DEFAULT_PINS`
+//: is the same table, and validates every one of them.
+const WB_MAP_APP_DEFAULT_PINS = Object.freeze({
+  font_size: 0,
+  align: "auto",
+  shape: "rounded",
+  spine: "solid",
+  edge_width: "normal",
+  edge_style: "curve",
+});
+
+//: What one field draws, with a pin read as the default it names: nothing.
+//: The stylesheet keys the looks off attributes (`:not([data-shape])` is how a
+//: core idea gets its own shape), so a pin painted as `data-shape="rounded"`
+//: would be a value that quietly changes what the default does.
+function wbMapDrawn(data, field) {
+  const value = data?.[field];
+  return value === WB_MAP_APP_DEFAULT_PINS[field] ? undefined : value;
+}
+
+//: **The map's font** (§13e's remainder). One face for every topic and line
+//: label on the map, set as `--wb-map-font` on the Library's whiteboard view
+//: and read by `.wb-map-node` and `.wb-map-edge-label`; the image export reads
+//: the same stack (`wbMapFontStack`), which is the second place a map's text
+//: is drawn. The three are stacks of faces that ship with the systems this
+//: app runs on, since nothing here is fetched: a font that is not installed
+//: would be a choice that visibly does nothing.
+const WB_MAP_FONTS = Object.freeze({
+  serif: 'Georgia, "Iowan Old Style", "Times New Roman", serif',
+  mono: 'ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace',
+  wide: 'Verdana, "DejaVu Sans", Geneva, sans-serif',
+});
+
+function wbMapFontStack() {
+  return (wbIsMap() && WB_MAP_FONTS[wbMapTheme().font]) || null;
+}
+
+function wbApplyMapFont() {
+  const view = document.getElementById("library-view-whiteboard");
+  if (!view) return;
+  const stack = wbMapFontStack();
+  if (stack) view.style.setProperty("--wb-map-font", stack);
+  else view.style.removeProperty("--wb-map-font");
+}
+
 //: What a strip toggle writes when it is pressed: `true`, `false` or `null`.
 //:
 //: `null` is "say nothing and follow the map", which is the right answer only
@@ -210,6 +260,9 @@ async function wbRefreshMapState() {
       type: tree.type,
       layout: tree.layout,
       theme: tree.theme && typeof tree.theme === "object" ? tree.theme : {},
+      //: The branch colours, resolved by the server from the theme's palette
+      //: (decision 8): the one list the Library thumbnail is drawn from too.
+      palette: Array.isArray(tree.palette) ? tree.palette : [],
       //: Whether the map numbers its branches (MINDMAP_PLAN.md decision 17).
       numbered: tree.numbered === true,
       labels,
@@ -304,6 +357,11 @@ function wbMapAgeBucket(iso) {
 //: what branch colour already uses and what `graph.js` colours clusters with.
 //: One scale for the whole app rather than a second list of hex per view.
 function wbMapPalette() {
+  //: The map's own, from `/tree`: the server's `MAP_BRANCH_PALETTES` is the
+  //: only copy of every palette (decision 8). d3's Tableau 10, which is that
+  //: list's `classic`, only for the moment before the tree has answered.
+  const own = window.wbMapState?.palette;
+  if (Array.isArray(own) && own.length) return own;
   return (window.d3?.schemeTableau10 || []).slice(0, 10);
 }
 
@@ -611,6 +669,20 @@ function wbMapStats(index) {
 //: are the first kind, and a map-wide default for any of them would be a bug
 //: rather than a theme. The ten below are the second.
 const WB_MAP_THEME_GROUPS = [
+  //: The map's own two, which are not a topic's look at all (§13e's
+  //: remainder): the palette its branches claim colours from, and the face
+  //: its text is set in. Both are names; the server holds the colours.
+  {
+    label: "The whole map",
+    fields: [
+      { key: "palette", label: "Branch colours", kind: "select", options: [
+        ["", "Classic"], ["deep", "Deep"], ["soft", "Soft"], ["vivid", "Vivid"],
+      ] },
+      { key: "font", label: "Font", kind: "select", options: [
+        ["", "The app's own"], ["serif", "Serif"], ["mono", "Monospace"], ["wide", "Wide sans"],
+      ] },
+    ],
+  },
   {
     label: "Text",
     fields: [
@@ -673,6 +745,10 @@ async function wbMapSetTheme(patch) {
       else theme[key] = value;
     }
     window.wbMapState = { ...window.wbMapState, theme };
+    //: A palette is a name here and its colours are the server's, so a new
+    //: one is read back with the tree rather than looked up in a second copy.
+    if ("palette" in patch) await wbRefreshMapState();
+    wbApplyMapFont();
     renderWhiteboardNow();
     const selected = wbSelectedMapNode();
     if (selected) wbSyncMapStrip(selected);
@@ -759,7 +835,7 @@ function wbMapThemeDialog() {
   );
   foot.appendChild(reset);
   body.appendChild(foot);
-  const close = wbInfoDialog("How this map draws topics", body);
+  const close = wbInfoDialog("How this map looks", body);
 }
 
 function wbMapThemeSelect(field) {
@@ -1239,7 +1315,7 @@ function wbMapSubtree(index, id) {
 //: colour depends on its ancestors, so a per-node lookup would walk the tree
 //: once per node to learn what a single walk already knew.
 function wbMapColors(index) {
-  const palette = (window.d3?.schemeTableau10 || []).slice(0, 10);
+  const palette = wbMapPalette();
   const colors = new Map();
   const seen = new Set();
   let branch = 0;
@@ -2019,14 +2095,17 @@ function wbPaintMapNodeStyle(node, d) {
   //: reason `align` is: they are exclusive, and a class per value is a class
   //: somebody forgets to remove. The stylesheet holds the four looks; an
   //: unset shape is the rounded card this map has always drawn.
-  if (data.shape) node.dataset.shape = data.shape;
+  const shape = wbMapDrawn(data, "shape");
+  if (shape) node.dataset.shape = shape;
   else delete node.dataset.shape;
   //: The bar down the node's leading edge (MINDMAP_PLAN.md item 177), an
   //: attribute for the same reason the shape is: three exclusive values, and
   //: an unset one is the solid bar every map has always drawn.
-  if (data.spine) node.dataset.spine = data.spine;
+  const spine = wbMapDrawn(data, "spine");
+  if (spine) node.dataset.spine = spine;
   else delete node.dataset.spine;
-  if (data.align) node.dataset.align = data.align;
+  const align = wbMapDrawn(data, "align");
+  if (align) node.dataset.align = align;
   else delete node.dataset.align;
   //: A task (decision 15): its box, and a done task's label struck through.
   //: Read off the node's own data, never the theme's: a task is content.
@@ -3233,7 +3312,8 @@ function wbMapEdgeGeometry(parent, child, layout, colors) {
   else {
     const themedEdge = wbMapThemedData(child);
     if (themedEdge.edge_dashed) classes.push("wb-map-edge-dashed");
-    if (themedEdge.edge_width) classes.push(`wb-map-edge-${themedEdge.edge_width}`);
+    const width = wbMapDrawn(themedEdge, "edge_width");
+    if (width) classes.push(`wb-map-edge-${width}`);
     if (!wbMapEdgeHasArrow(child)) classes.push("wb-map-edge-headless");
   }
   //: The centreline, which is both the plain line's own path and, for a
@@ -4935,9 +5015,24 @@ function wbSyncMapStrip(node) {
       if (!blank) return;
       if (blank.dataset.appDefault === undefined) blank.dataset.appDefault = blank.textContent;
       const value = wbMapThemeDefault(field);
+      //: **And a row for the app's own, while the map says otherwise**
+      //: (decision 9). It stores the field's pin (`WB_MAP_APP_DEFAULT_PINS`),
+      //: a value, so it beats the theme; it is named exactly what the blank
+      //: row says on an unthemed map. Added and removed rather than hidden,
+      //: for `wbSyncMapFill`'s reason: `enhanceSelect` rebuilds its menu on a
+      //: child-list change, not on an attribute one.
+      let pin = el.querySelector("option[data-app-pin]");
       if (value == null) {
+        pin?.remove();
         if (blank.textContent !== blank.dataset.appDefault) blank.textContent = blank.dataset.appDefault;
         return;
+      }
+      if (!pin) {
+        pin = document.createElement("option");
+        pin.dataset.appPin = "";
+        pin.value = String(WB_MAP_APP_DEFAULT_PINS[field]);
+        pin.textContent = blank.dataset.appDefault;
+        blank.after(pin);
       }
       const named = [...el.options].find((o) => o.value === String(value));
       const said = `As the map draws (${(named ? named.textContent : String(value)).toLowerCase()})`;
@@ -4960,11 +5055,21 @@ function wbSyncMapStrip(node) {
     //: type scale would move every map in the app except the nodes somebody
     //: had once set to "medium". The empty option is M for exactly that
     //: reason, and it is also what makes "back to normal" reachable.
-    setSelect("wb-map-text-size", data.font_size ? String(data.font_size) : "");
-    setSelect("wb-map-align", data.align || "");
+    //: What a select shows for a field: its value, with a pin shown as the
+    //: pin's own row only while the map themes the field (that row exists
+    //: only then) and as the blank row, which draws the same, otherwise.
+    const shown = (field) => {
+      const value = data[field];
+      if (value === WB_MAP_APP_DEFAULT_PINS[field]) {
+        return wbMapThemeDefault(field) == null ? "" : String(value);
+      }
+      return value == null || value === "" ? "" : String(value);
+    };
+    setSelect("wb-map-text-size", shown("font_size"));
+    setSelect("wb-map-align", shown("align"));
     setSelect("wb-map-strip-icon", data.icon || "");
-    setSelect("wb-map-shape", data.shape || "");
-    setSelect("wb-map-spine", data.spine || "");
+    setSelect("wb-map-shape", shown("shape"));
+    setSelect("wb-map-spine", shown("spine"));
     wbSyncMapFill(node);
     //: The line into this topic (item 177). A trunk has none, so the group is
     //: put away rather than shown as three controls that write a field
@@ -4980,12 +5085,12 @@ function wbSyncMapStrip(node) {
       (el.closest(".select-shell") || el).classList.toggle("hidden", !parented);
     }
     if (parented) {
-      setSelect("wb-map-edge-width", data.edge_width || "");
+      setSelect("wb-map-edge-width", shown("edge_width"));
       //: The line's shape (§12.5, from the link ring). "Curved" is stored as
       //: no value at all, the same rule "M" and the solid spine follow: the
       //: default has to stay the default so a later change to how a map draws
       //: its lines reaches every map that never chose.
-      setSelect("wb-map-edge-shape", data.edge_style || "");
+      setSelect("wb-map-edge-shape", shown("edge_style"));
       const dash = document.getElementById("wb-map-edge-dashed");
       if (dash) {
         const on = Boolean(data.edge_dashed);
@@ -6341,6 +6446,7 @@ async function wbMapReverseEdge(childId) {
 }
 
 function wbSyncMapChrome() {
+  wbApplyMapFont();
   //: A note open on the board being left goes with it (decision 18).
   if (wbMapNoteState && !document.querySelector(`.wb-object[data-id="${wbMapNoteState.id}"]`)) wbMapCloseNote();
   //: The map's line style can change here, and the cross-link tool draws it.

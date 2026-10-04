@@ -13,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 ATLAS = (ROOT / "frontend" / "js" / "atlas.js").read_text(encoding="utf-8")
 CSS = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+AVATARS = (ROOT / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
 
 
 def _look(name: str) -> str:
@@ -305,15 +306,25 @@ def test_the_lean_hook_turns_the_body_and_the_head_follows_with_lag():
     # pupils slide, and the tail and the nebula lag and settle. Its own
     # variable, `--atl-lean-dir`, because `--atl-lean` is the pose's lean
     # in degrees and a shared name silently zeroed every part but the box.
-    assert ':is(#nm-buddy, .atl-figure-box, .nm-atlas)[data-lean="l"] { --atl-lean-dir: -1; }' in CSS
-    assert ':is(#nm-buddy, .atl-figure-box, .nm-atlas)[data-lean="r"] { --atl-lean-dir: 1; }' in CSS
+    assert ':where(#nm-buddy)[data-lean="l"] :where(' in CSS and "{ --atl-lean-dir: -1; }" in CSS
+    assert ':where(#nm-buddy)[data-lean="r"] :where(' in CSS and "{ --atl-lean-dir: 1; }" in CSS
+    assert '.atl-figure-box[data-lean="l"], .atl-figure-box[data-lean="l"] :where(' in CSS
+    assert '.nm-atlas[data-lean="l"], .nm-atlas[data-lean="l"] :where(' in CSS
     assert "rotate: calc(var(--nmb-lean-pose) + var(--atl-lean-dir) * 3.5deg);" in CSS
     assert "rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg))" in CSS
     assert "translate(calc(var(--atl-px) + var(--atl-lean-dir) * 0.8px), var(--atl-py))" in CSS
     assert ".nm-atlas.atl-layer-tail { translate: calc(var(--atl-lean-dir) * -1.4px) 0; transition: translate calc(var(--motion-slow) * 4.5)" in CSS
-    # Its default is the root's alone: declared on a drawing, an ancestor's
-    # value would never reach the layers.
-    assert len(re.findall(r"--atl-lean-dir:\s*0", CSS)) == 1
+    # None of the lean's, the variant's or the pose's custom properties
+    # inherits (companioncost.js, 2026-10-04): an inherited one restyled all
+    # 528 descendants of #nm-buddy for each change of an attribute on it
+    # (15 to 25ms each). The value is written on the elements that read it.
+    for name in ("--atl-lean-dir", "--nmb-lean-pose", "--nmb-lie-shift", "--atl-v1", "--atl-v2", "--atl-chin",
+                 "--atl-lean", "--atl-sx", "--atl-sy", "--atl-tail"):
+        assert re.search(rf"@property {name} \{{[^}}]*inherits: false;", CSS), name
+        assert f":root {{\n  {name}:" not in CSS, name
+    # The readers of the lean: the head and pupils, which are deep in a
+    # drawing, are written to directly.
+    assert re.search(r'\[data-lean="l"\] :where\([^)]*\.atl-head, \.atl-pupil', CSS)
 
 
 
@@ -328,12 +339,59 @@ def test_every_mood_places_the_arms_per_look_in_three_variants():
             assert rule, (look, mood)
             for k in range(3):
                 assert f"--atl-ar{k}:" in rule.group(1) and f"--atl-al{k}:" in rule.group(1), (look, mood, k)
-    # The variant hook inherits from any host, defaulting at the root only.
-    assert '[data-atlas-variant="1"] { --atl-v1: 1; --atl-v2: 0; }' in CSS
-    assert '[data-atlas-variant="2"] { --atl-v1: 0; --atl-v2: 1; }' in CSS
+    # The variant hook is on #nm-buddy, a figure box or a drawing; its two
+    # weights do not inherit, so they are written on the arms and the chin
+    # hand always, and in a lying pose on what the lie rules turn.
+    assert ':where(#nm-buddy)[data-atlas-variant="1"] :where(.nmb-arm-l, .nmb-arm-r, .atl-chin-hand)' in CSS
+    assert ':where(#nm-buddy)[data-pose^="lie"][data-atlas-variant="1"] :where(.nm-figure, .atl-orbits,' in CSS
+    assert "{ --atl-v1: 1; --atl-v2: 0; }" in CSS and "{ --atl-v1: 0; --atl-v2: 1; }" in CSS
     assert ".nm-atlas .nmb-arm-r { transform: rotate(calc(var(--atl-ar0) * (1 - var(--atl-v1) - var(--atl-v2))" in CSS
     # The chin hand is a variant's choice, not thinking's alone.
     assert "#nm-buddy:not([data-pose=\"hang\"], [data-pose=\"sit\"]) .nm-atlas .atl-chin-hand { opacity: var(--atl-chin); }" in CSS
+    # `--atl-chin` is computed where it is read (the right arm and the hand).
+    assert ".nm-atlas :where(.nmb-arm-r, .atl-chin-hand) {\n  --atl-chin: calc(" in CSS
+
+
+def test_the_poses_four_numbers_pass_down_by_inherit_along_the_readers_path():
+    # `--atl-lean`, `--atl-sx`, `--atl-sy` (read by `.atl-pose`, the root's
+    # first child) and `--atl-tail` (read by `.atl-tail`, five levels down in
+    # the tail's layer and in a whole drawing) do not inherit, so a pose, a
+    # mood or an act writing them on a root restyles the groups on that
+    # path and not 492 elements. A tail built into another layer would need
+    # its own link here: `atlasBody` routes it to `layers.tail.rig`.
+    assert ".nm-atlas .atl-pose { --atl-lean: inherit; --atl-sx: inherit; --atl-sy: inherit; }" in CSS
+    assert ".nm-atlas:is(.atl-layer-tail, :not(.atl-layer)) :is(.atl-pose, .atl-mood, .atl-rig, .atl-edges, .atl-fills, .atl-tail) { --atl-tail: inherit; }" in CSS
+    assert "tail: layers.tail.rig" in ATLAS
+    # The viewer's ledge reads a `data-pose` the visit copies onto its figure:
+    # a `:has(> #nm-buddy[data-pose])` made every pose change restyle 968
+    # elements with the view closed.
+    assert ":has(> #nm-buddy[data-pose" not in CSS.replace("`.nm-viewer-figure:has(> #nm-buddy[data-pose])`", "")
+    assert '.nm-viewer-figure[data-pose="sit"] .nm-viewer-ledge { opacity: 1; }' in CSS
+    visit = AVATARS[AVATARS.index("function nameMarkBuddyVisit"):]
+    visit = visit[:visit.index("function nameMarkBuddyHome")]
+    assert 'host.dataset.pose = buddy.dataset.pose || ""' in visit and 'attributeFilter: ["data-pose"]' in visit
+    home = AVATARS[AVATARS.index("function nameMarkBuddyHome"):][:400]
+    assert "visit.watch?.disconnect();" in home
+
+
+def test_the_walks_tilt_and_way_do_not_inherit_either():
+    # `--nmb-tilt` and `--nmb-lean` are written inline on #nm-buddy when a
+    # walk starts; inherited, each write restyled all 528 descendants (28ms,
+    # companionrecalcorder.js). Not inherited, they pass by `inherit` to the
+    # one element that reads each, and the skirt's root is written to
+    # directly: an `inherit` on the `.atl-lw-lower` box above it made an idle
+    # companion restyle every frame (6 recalcs in 2s became 105), since that
+    # box is the limb loops' target.
+    for name in ("--nmb-tilt", "--nmb-lean"):
+        assert re.search(rf"@property {name} \{{[^}}]*inherits: false;", CSS), name
+    assert "#nm-buddy :is(.nm-buddy-face, .nm-buddy-char) { --nmb-tilt: inherit; --nmb-lean: inherit; }" in CSS
+    assert "atl-lw-lower, .atl-layer-lower) { --nmb-lean: inherit" not in CSS
+    way = AVATARS[AVATARS.index("function nameMarkBuddyWay"):][:420]
+    assert 'buddy.style.setProperty("--nmb-lean", way);' in way
+    assert 'querySelectorAll(".atl-layer-lower")' in way and 'el.style.setProperty("--nmb-lean", way)' in way
+    # Nothing else writes the way straight onto the buddy.
+    assert AVATARS.count('.setProperty("--nmb-lean"') == 2
+    assert AVATARS.count("nameMarkBuddyWay(buddy,") == 4  # its definition and the three walks that set it
 
 
 ATLAS_MOOD_NAMES = re.findall(r"^  (\w+): \{ words:", ATLAS[ATLAS.index("const ATLAS_MOODS = {"):], re.M)

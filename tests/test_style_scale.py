@@ -352,7 +352,10 @@ FALLBACK_ALLOWED = {
 }
 
 VAR_WITH_FALLBACK = re.compile(r"var\(\s*(--[\w-]+)\s*,")
-DECLARED = re.compile(r"(?m)^\s*(--[\w-]+)\s*:")
+#: A registered property (`@property --x { initial-value: ... }`) is declared
+#: on every element, so it counts: the Atlas companion's pose and lean
+#: properties are registered not to inherit (08-consistency.css says why).
+DECLARED = re.compile(r"(?m)^\s*(?:@property\s+)?(--[\w-]+)\s*[:{]")
 
 
 def test_no_token_is_used_with_a_dead_fallback():

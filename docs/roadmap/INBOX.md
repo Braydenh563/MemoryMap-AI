@@ -34,6 +34,12 @@ with its owner named in the entry.
 
 ## Open items
 
+481. **The owner, 2026-10-04 evening, verbatim, with a screenshot (the
+     companion's speech line "I'm not talking to you." spilling right over
+     the art, its dark bubble collapsed to a small rectangle behind the first
+     letter).** "also these messages on the companion dont render properly".
+     Agent (with 480).
+
 480. **The owner, 2026-10-04 evening, verbatim, with two crops (the feminine
      Atlas's lower body: a pale flared skirt of thin strands over the nebula
      ring; and a band of light with sparkles across the forehead between the

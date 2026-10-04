@@ -36955,6 +36955,14 @@ width, 47% of the column at 1440.
      chain and lost to it on specificity. `caretopen.js`: 0/109 folds turned
      down when open, now 109/109; `test_disclosure_marker.py` holds it.
 
+482. **The owner, 2026-10-04 evening, verbatim, with a screenshot (two
+     suggested tags, "+ work" and "+ birthday", each ending in a grey disc
+     with an off-centre x).** "the x buttons on these suggested tags are ugly
+     and not even centred". **Fixed**: the x is two 1.2px bars crossed at the
+     target's exact centre, muted at rest with no disc; the disc and the
+     error ink come on hover and focus. Every chip that ends in an x shares
+     it (`chipx.js`).
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

@@ -5220,11 +5220,46 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   background: color-mix(in srgb, var(--error) 14%, transparent);
 }
 
-/* Centred by its ink, not its box: Phosphor's x sits 0.14em high in its
-   own em square, measured as a 1.6px lift in the 16px circle at 8x scale
-   (the boxes were centred to 0.01px, the glyph was not; the owner saw it). */
+/* **The x is drawn, not typed** (INBOX 482: "the x buttons on these
+   suggested tags are ugly and not even centred"). The glyph was Phosphor's
+   x nudged 0.14em to centre its ink, a number tuned to one font's metrics
+   that landed off centre on the owner's window, inside a grey disc that sat
+   on every suggested tag at rest. Now two 1.2px bars crossed at the box's
+   exact centre (centred by construction, in any font, at any zoom), in the
+   muted ink at rest with no disc; the disc and the error ink come on hover
+   and focus, as the action's warning. The glyph stays for its accessible
+   name and is hidden from sight. */
 .chip > .unlink:last-child > .ph-x {
-  translate: 0 0.14em;
+  visibility: hidden;
+}
+
+.chip > .unlink:last-child:has(> .ph-x)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 0.55rem;
+  height: 0.55rem;
+  background:
+    linear-gradient(currentColor, currentColor) center / 100% 1.2px no-repeat,
+    linear-gradient(currentColor, currentColor) center / 1.2px 100% no-repeat;
+  rotate: 45deg;
+}
+
+.chip > .unlink:last-child:has(> .ph-x) {
+  color: var(--muted);
+}
+
+.chip > .unlink:last-child:has(> .ph-x)::before {
+  background: transparent;
+}
+
+.chip > .unlink:last-child:has(> .ph-x):is(:hover, :focus-visible) {
+  color: var(--error);
+}
+
+.chip > .unlink:last-child:has(> .ph-x):is(:hover, :focus-visible)::before {
+  background: color-mix(in srgb, var(--error) 14%, transparent);
 }
 
 /* --- Find anything: group heads read as heads --- */

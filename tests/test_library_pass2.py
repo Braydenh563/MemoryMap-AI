@@ -1,6 +1,6 @@
 """The Library's second pass and the list conventions it brought, held.
 
-docs/roadmap/agent-remaining/pass2.md. Two kinds of check:
+docs/roadmap/archive/agent-remaining/pass2.md. Two kinds of check:
 
 - `libraryTitleAndPreview` is pure string work, so it runs in node against
   the cases that were measured wrong on a seeded notebook: an untitled note

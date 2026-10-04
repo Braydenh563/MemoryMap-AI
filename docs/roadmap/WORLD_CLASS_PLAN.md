@@ -2547,7 +2547,7 @@ not too fast; the rule is simply one number per published release.
     (`tests/test_motion_tokens.py`), a hover is a colour never a filter
     (with INBOX 405), toasts and '?' popovers fade in with 4px of travel,
     toasts fade out, skeletons in the Library and Timeline. Menus' exit left
-    to the menu agent (agent-remaining/perfpolish.md).
+    to the menu agent (archive/agent-remaining/perfpolish.md).
 
 ## Placed from INBOX, 2026-10-03 (INBOX 403, the standing bar)
 

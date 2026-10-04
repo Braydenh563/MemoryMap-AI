@@ -39005,6 +39005,92 @@ stateful in the capture strip is cloned with its state. The Preview button
 was fixed; the collapse and expand state and the highlight colour pickers
 have not been checked for the same shape. [notes-subtabs.md]
 
+### The whiteboard's align and distribute actions were not driven
+
+Verified on the head, 2026-10-04: `scratchpad/ui-sweeps/whiteboard.js` section 6 drives them through the UI buttons and passes (24 of 24 at 1440x900): align centres puts three centres on 600, distribute leaves gaps of 250 and 250 for boxes of different widths, same size gives 300 by 120 to all three.
+
+- **The whiteboard's align and distribute actions**: their markup changed
+  (labels to icons), their handlers were not touched and were not driven.
+  [visual-c.md]
+
+### The companion's walk lays out and recalculates style 59 times a second
+
+Stale, measured 2026-10-04: `atlaswalk.js` (frames counted from the trace, not by a rAF loop; the 59 a second was that loop's own restyle) reads masculine 5.5 style recalcs/s, 0.2 layouts/s, 1.7 paints/s and feminine 5.7, 0, 0.5 over 4s with `nmb-walking` held.
+
+- **The companion's walk itself lays out and recalculates style 59 times a
+  second, in either look** (`atlaswalk.js`, 2026-09-26: layouts 59/s, style
+  recalcs 59/s, about 120 paints/s, with `nmb-walking` held and nothing else
+  happening). The idle figure is 0 layouts (companionperf.js), so this is the
+  walk's own per-frame work in avatars.js (the position written each frame,
+  or a read of the page beside it), not Atlas's drawing. Not opened in the
+  review because avatars.js was the companion agent's file that night; the
+  first look is whether the walk writes `style.transform` from a
+  requestAnimationFrame loop that also reads a rect.
+
+### Review of the companion's round 5 (3ecadd4 to 69ac76b), 2026-09-26
+
+All three items it left are done on the head, checked 2026-10-04: (a) `nameMarkBuddyTick` now works the mood out before the night yawn's early return (avatars.js); (b) the walk's style-recalc cost was the sweep's own rAF counter, 5.5/s and 0.2 layouts/s with `atlaswalk.js` counting frames from the trace; (c) the layout picker's change handler awaits `ensureModule("graph")` before writing `graphAutoFitDone` (navigation.js).
+
+- **Review of the companion's round 5 (3ecadd4 to 69ac76b), 2026-09-26.**
+  Read diff by diff for CLAUDE.md section 6's four shapes, races, listeners
+  and the CSP. Fixed in files nobody was in: the layout picker's
+  `setGraphPhysicsEnabled` (navigation.js:1754) is in the graph bundle's
+  stand-in table now (app.js `LAZY_ENTRY_POINTS`), so a change made on the
+  Graph tab before the bundle has arrived loads it rather than throwing
+  (the companion agent's remaining item 1); Atlas's eyes in the new `hide`
+  act (below). Read and found sound: the toss (the drag class is removed
+  before the toss returns, the flight and the spin are Web Animations on
+  translate/rotate, no CSS transform to fight), the pet timer (cleared on
+  leave and pointerdown, mouse only), the six reactions' cooldowns and the
+  6s gap, the note-opened capture listener (one, at boot), the menu-flake
+  fix (`window._menuOpenedAt`, a 200ms window), the walk pacing. Left for
+  the companion's file (avatars.js): (a) `nameMarkBuddyTick` returns as
+  soon as a night yawn fires, so that tick's drift and the rest of its
+  night handling are skipped once in thirty minutes (avatars.js, the
+  `late` block); (b) with the legs and sash on compositor roots the walk
+  still recalculates style 60 times a second (16 to 22 ms/s, 0 paints, 0
+  layouts, atlaswalk.js): a per-frame write of a custom property or class
+  on `#nm-buddy` during a walk, the pacer's own tick, or the host's
+  `--nmb-*` sway; (c) `graphAutoFitDone = false` in navigation.js:1758
+  runs before graph.js has declared that `let` when the bundle is cold: a
+  sloppy-mode global write that the later declaration shadows, lost but
+  harmless (graph.js starts it false).
+
+### Thirty-three agent files archived, 2026-10-04
+
+The files in `agent-remaining/` whose agents had finished moved to
+`archive/agent-remaining/`; what each still held that is open is a row in OPEN.md,
+"Carried from the agent files archived 2026-10-04". Checked against the head while
+reading them, 2026-10-04:
+
+- **Built since the file was written, so not carried:** the Ask tab's four reports
+  (asktab.md: 297 `facts: true` on the Ask rows and the adjacency margin, 298
+  `.is-generating`, 299 the record numbers, 300 the sources banner gone); the boot
+  agent's two duplicate fetches (`/chat/recent`, `/entries/most-accessed`, now one
+  request through `cacheMs`); the chat starters naming a category as prose (routes_chat.py
+  `_about`); the graph minimap rebuilding its dots (`graphMinimapChildren` reuses
+  them); chrome2's two Settings edits (235, 237, struck in OPEN.md).
+- **Stale, measured:** the Guide transcript not scrolling itself
+  (`scratchpad/ui-sweeps/guidescroll.js`, 3 of 3: the list is the scroller, scrollTop
+  3404 at its end, the card around it does not scroll); the whiteboard's align and
+  distribute actions never driven (`whiteboard.js` section 6 drives them, 24 of 24);
+  `mindmapimage.js` at 390x844 (12 of 12).
+- **Found and fixed from them, each with a test and a sweep:** the Write with AI draft
+  box could be typed into while a pass streamed into it, because `readOnly` only reached
+  the hidden textarea behind the mounted editor (`draftreadonly.js`,
+  `tests/test_note_surface_readonly.py`; typing during the pass changed the draft
+  before, not after); a board's pictures were missing from its PNG, PDF and library
+  copy, and the saved .svg named an address only the app understands (an SVG drawn
+  through `<img>` loads nothing outside itself; `wbexportimage.js` read the board's
+  white at the middle of a red picture before and red after,
+  `tests/test_wb_export_inline_images.py`); a Ctrl+mouse-wheel notch zoomed the board
+  and the graph by 5.3x (d3-zoom's pinch multiplier on a mouse's 120 pixels), now about
+  1.4x with a pinch unchanged (`ctrlwheelzoom.js`, `tests/test_zoom_wheel_delta.py`);
+  `contrast.js` printed a low-contrast finding and exited 0, now fails on one that is
+  not a translucent estimate (0 findings at 1440 light and dark, 820 light, 390 dark,
+  exit 0 each); `wbarrange.js`, stale since Phase 2 removed the drawer it asked for and
+  superseded by `wbinbox12.js`, deleted.
+
 ## Moved from the plans, 2026-10-04 (the knowledge graph, INBOX 528)
 
 ### From GRAPH_PLAN.md: the knowledge graph's spec, moved whole once KG1 to KG9 were built

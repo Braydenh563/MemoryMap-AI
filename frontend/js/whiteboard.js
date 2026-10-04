@@ -132,6 +132,7 @@ function wbIsBareCanvas(target) {
 let wbZoom = d3
   .zoom()
   .scaleExtent([0.1, 4])
+  .wheelDelta(zoomWheelDelta)
   .filter(wbZoomFilter)
   .on("zoom", handleWbZoom)
   .on("end.shield", wbEndPanShield);
@@ -6810,7 +6811,42 @@ function wbBuildExportSvg(scope) {
   return { svg: parts.join(""), width, height };
 }
 
-function wbRasterizeSvg(svgString, width, height, mime) {
+//: **A picture on a board has to travel inside the file that shows it.** The
+//: export SVG names each picture by its `/media/...` url, and an SVG loaded
+//: through `<img>` (how `wbRasterizeSvg` draws it) never fetches anything
+//: outside itself, so every PNG, PDF and library copy of a board came out
+//: with an empty space where its pictures were (OPEN.md; reproduced with
+//: `scratchpad/ui-sweeps/wbexportimage.js`: the pixel in the middle of a red
+//: picture read the board's white). The same file saved as .svg pointed at an
+//: address that only means something inside this app. Each distinct url is
+//: fetched once, with the cookie the page already holds, and written back as
+//: a data URL; one that cannot be fetched keeps its address, so a missing
+//: picture costs that picture and never the export.
+async function wbInlineSvgImages(svg) {
+  const unescapeAttr = (s) => s.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  const urls = [...new Set([...svg.matchAll(/<image href="([^"]+)"/g)].map((m) => m[1]))].filter((u) => !u.startsWith("data:"));
+  let out = svg;
+  for (const escaped of urls) {
+    try {
+      const res = await fetch(unescapeAttr(escaped), { credentials: "same-origin" });
+      if (!res.ok) continue;
+      const blob = await res.blob();
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+      out = out.split(`<image href="${escaped}"`).join(`<image href="${dataUrl}"`);
+    } catch {
+      // Keep the address: this picture is missing from the export, the rest is not.
+    }
+  }
+  return out;
+}
+
+async function wbRasterizeSvg(svgInput, width, height, mime) {
+  const svgString = await wbInlineSvgImages(svgInput);
   return new Promise((resolve, reject) => {
     const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -7106,7 +7142,7 @@ async function wbImportOutlineFile(event) {
 
 async function wbExportSvg(scope) {
   const { svg } = wbBuildExportSvg(scope);
-  await saveFile(`whiteboard-${scope}.svg`, new Blob([svg], { type: "image/svg+xml" }));
+  await saveFile(`whiteboard-${scope}.svg`, new Blob([await wbInlineSvgImages(svg)], { type: "image/svg+xml" }));
   toast("Board exported as SVG.");
 }
 

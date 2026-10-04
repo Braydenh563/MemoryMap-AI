@@ -4333,7 +4333,7 @@ twenty); open, by impact with the rest of this file.
     "3 clicks to anything" (INBOX 270): 22 primary tasks driven from a fresh
     dashboard by `scratchpad/ui-sweeps/clicks.js`, 21 within three clicks and
     restoring from the bin at four on purpose (the table is in
-    `agent-remaining/guideia.md`). Four trust breakers it found, all fixed:
+    `archive/agent-remaining/guideia.md`). Four trust breakers it found, all fixed:
     both dashboard "Ask" doors opened a disabled Chat box when no model was
     running (now Notes, Ask, which answers without one); the Chat tab never
     said why its box was grey (now the same Connect-a-model line as Ask, the

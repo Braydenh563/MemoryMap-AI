@@ -5660,7 +5660,16 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   border: 1px solid var(--border);
   font-size: var(--text-sm);
   line-height: 1.35;
-  white-space: nowrap;
+  /* Its width is its line's, never what its insets leave (INBOX 481): an
+     absolute box with `left` and `right` both set is the gap between them,
+     and in the large view that gap was 8px, so the background sat behind
+     the first letter and the rest of a `nowrap` line ran out over the art.
+     `max-content` sizes the box from the text whatever the insets say; the
+     cap wraps a long line inside the window rather than past it. */
+  width: max-content;
+  max-width: min(16rem, calc(100vw - 2 * var(--space-4)));
+  white-space: normal;
+  text-wrap: balance;
   pointer-events: none;
   box-shadow: var(--shadow-md);
 }
@@ -6129,6 +6138,9 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   top: calc(var(--nmb-edge) * -1.2);
   bottom: auto;
   left: 100%;
+  /* The stage's rule above sets `right` for a face's line; this one is
+     placed from the left, so that inset is undone, not inherited. */
+  right: auto;
   translate: -30% 0;
   z-index: 3;
 }
@@ -7089,6 +7101,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   --atl-aura: none;
   --atl-core: none;
   --atl-skirt: var(--atl-md);
+  --atl-gown: var(--atl-md);
   /* A chest star's brightness (atlas.js sets it per star). */
   --atl-b: 0.5;
   --atl-iris: var(--atl-ink);
@@ -7722,16 +7735,16 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-front-lock { opacity: 0.9; }
 .nm-atlas .atl-wisps .atl-front-lock + .atl-hair-neb { opacity: 0.3; }
 .nm-atlas .atl-hair-cap .atl-hair-neb { opacity: 0.4; }
-/* The feminine astral crown (atlas.js, `hairline`, `rootDust`, `circlet`):
-   the hairline lit as a soft band under a fine bright line, star dust at the
-   roots, and a circlet of tiny stars on a hair-fine thread. It replaces the
-   parting (`.atl-cap-part`), the owner's "school girl vibes". */
-.nm-atlas .atl-hairline-glow { fill: none; stroke: var(--atl-hi); stroke-width: 1.8; stroke-linecap: round; opacity: 0.28; }
-.nm-atlas .atl-hairline { fill: none; stroke: white; stroke-width: 0.45; stroke-linecap: round; opacity: 0.7; }
-.nm-atlas .atl-root-dust { opacity: 0.85; }
-.nm-atlas .atl-strand-light { fill: none; stroke: white; stroke-width: 0.3; stroke-linecap: round; opacity: 0.5; }
-.nm-atlas .atl-circlet { stroke-width: 0.3; opacity: 0.55; }
-.nm-atlas .atl-circlet-dot { opacity: 0.95; }
+/* The feminine brow (atlas.js, `hairline`, `browStar`; INBOX 480): the hair
+   meets the brow in a soft shade, the way hair lies on skin, and one small
+   star sits in the swept hair at its peak, in a faint halo of the hair's
+   light. It replaces a lit hairline, dust and a circlet on a thread, four
+   arcs of light from wing to wing that read as a stray headband. Static:
+   it adds nothing to the motion budget. */
+.nm-atlas .atl-hairline-shade { fill: none; stroke: var(--atl-dp); stroke-width: 1.3; stroke-linecap: round; opacity: 0.14; }
+.nm-atlas .atl-strand-light { fill: none; stroke: white; stroke-width: 0.3; stroke-linecap: round; opacity: 0.4; }
+.nm-atlas .atl-brow-halo { fill: var(--atl-tip); opacity: 0.7; }
+.nm-atlas .atl-brow-star { opacity: 0.95; }
 .nm-atlas .atl-st-chest-clear { stop-color: white; stop-opacity: 0; }
 .nm-atlas .atl-st-chest-shade { stop-color: var(--atl-rim); stop-opacity: 0.4; }
 .nm-atlas .atl-chest-glow { fill: var(--atl-chestglow); opacity: 0.48; }
@@ -7846,20 +7859,43 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-core { opacity: clamp(0.3, var(--atl-star), 1); }
 .nm-atlas .atl-star { transform: scale(calc(clamp(0.85, var(--atl-star), 1.2) * var(--atl-tune-star))); }
 .nm-atlas .atl-tail { transform: rotate(var(--atl-tail)); }
-/* **The feminine look's skirt of ribbons** (atlas.js `atl-lower`, round 6;
-   the owner: "it still has feet and legs. it shouldnt and its lower body
-   should be the feminie flowing whispy ribbons"). A veil flaring from the
-   waist to a pointed hem and five ribbons over it running on into wisps,
-   all in the skirt's light fading to nothing by the hem (`--atl-skirt`),
-   over a haze of the tail's galaxy, a pale stream, a lit edge on two. */
-.nm-atlas :is(.atl-skirt-veil, .atl-ribbon-veil) { fill: var(--atl-skirt); }
-.nm-atlas .atl-skirt { opacity: 0.72; }
+/* The lower body's paint (atlas.js `atl-lower`): the masculine trail's
+   wisps in the skirt's light fading by their tips (`--atl-skirt`) over a
+   haze of the tail's galaxy, a pale stream along each. */
+.nm-atlas .atl-ribbon-veil { fill: var(--atl-skirt); }
 .nm-atlas .atl-ribbon-galaxy { fill: var(--atl-galaxy); opacity: 0.3; }
 .nm-atlas .atl-st-skirt0 { stop-color: var(--atl-lt); stop-opacity: 0.95; }
 .nm-atlas .atl-st-skirt1 { stop-color: var(--atl-md); stop-opacity: 0.62; }
 .nm-atlas .atl-st-skirt2 { stop-color: var(--atl-dp); stop-opacity: 0.05; }
 .nm-atlas .atl-ribbon-stream { fill: white; opacity: 0.2; }
 .nm-atlas .atl-ribbon-edge { fill: none; stroke: white; stroke-width: 0.45; stroke-linecap: round; opacity: 0.42; }
+/* **The feminine gown** (atlas.js, `skirt`, `skirtTrain`, `skirtDrape`,
+   `skirtHem`; INBOX 480, the owner: "a better and more majestic and
+   attractive female atlas lower body"). The train behind in the gown's
+   deepest colours under the galaxy's haze; the gown deepening from her
+   skin's light to the nebula's violet (`--atl-gown`); fine folds of light;
+   a sheer overskirt with a lit hem; the gown's own lit hem; stars. Every part is static
+   paint in the lower layer, so its sway is the layer root's, as before. */
+.nm-atlas .atl-skirt { opacity: 0.94; }
+.nm-atlas .atl-skirt-veil { fill: var(--atl-gown); }
+.nm-atlas .atl-st-gown0 { stop-color: var(--atl-lt); stop-opacity: 0.95; }
+.nm-atlas .atl-st-gown1 { stop-color: var(--atl-md); stop-opacity: 0.8; }
+.nm-atlas .atl-st-gown2 { stop-color: var(--atl-neb-c); stop-opacity: 0.78; }
+.nm-atlas .atl-st-gown3 { stop-color: var(--atl-neb2-c); stop-opacity: 0.82; }
+.nm-atlas .atl-gown-train { fill: var(--atl-gown); opacity: 0.62; }
+.nm-atlas .atl-gown-train-haze { opacity: 0.42; }
+/* Her ribbon tails (atlas.js, `lowers`; INBOX 480), over the gown: the
+   back tier in the nebula's lilac, the front tier in her light, each
+   ribbon's own opacity its group's `opacity` attribute. A pale stream down
+   the middle, a lit edge. */
+.nm-atlas .atl-tail-ribbon-fill { fill: var(--atl-hi); }
+.nm-atlas .atl-tail-ribbon-back .atl-tail-ribbon-fill { fill: var(--atl-neb-c); }
+.nm-atlas .atl-tail-ribbon-stream { fill: white; opacity: 0.3; }
+.nm-atlas .atl-tail-ribbon-edge { fill: none; stroke: white; stroke-width: 0.35; stroke-linecap: round; opacity: 0.5; }
+.nm-atlas .atl-gown-drape { fill: var(--atl-hi); opacity: 0.34; }
+.nm-atlas .atl-gown-drape-edge { fill: none; stroke: white; stroke-width: 0.4; stroke-linecap: round; opacity: 0.42; }
+.nm-atlas .atl-gown-hem-glow { fill: none; stroke: var(--atl-hi); stroke-width: 1.6; stroke-linecap: round; opacity: 0.26; }
+.nm-atlas .atl-gown-hem { fill: none; stroke: white; stroke-width: 0.4; stroke-linecap: round; opacity: 0.6; }
 /* Each pose shapes the skirt from the group inside the layer, about the
    waist (a static transform, which costs nothing): seated it pools and
    spreads over the ledge; floating it trails behind the tilted body;
@@ -7975,6 +8011,15 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   #nm-buddy .nm-live .nm-atlas.atl-layer-lower[data-atlas-look="masculine"] { animation-duration: 6s !important; }
   #nm-buddy:has(.atl-figure) .nm-buddy-char,
   #nm-buddy:has(.atl-figure[data-atlas-look="masculine"]) .nm-buddy-char { animation-duration: 6s !important; }
+}
+/* `transform`, not `rotate`: the box's gesture (avatars.js,
+   `nameMarkBuddyLimbs`) animates `rotate` and `scale` about the waist, and
+   the two compose. The drift turns about the dress's hem (25px under the
+   box's waist origin), where the tails are rooted, so a tail's root stays
+   on the dress and only its length sways. */
+@keyframes atl-ribbon-drift {
+  from { transform: translateY(25px) rotate(-2deg) skewX(3deg) translateY(-25px); }
+  to { transform: translateY(25px) rotate(1.8deg) skewX(-3deg) translateY(-25px); }
 }
 @keyframes atl-skirt-idle {
   from { transform: rotate(-1.4deg) skewX(1.6deg); }
@@ -8415,6 +8460,11 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     & .atl-lw-body[data-atlas-look="feminine"] { animation: atl-idle-sway-soft 9.4s ease-in-out infinite alternate; }
     & .atl-lw-tail { animation: atl-tail-flow 8.3s ease-in-out infinite alternate; }
     & .atl-lw-neb, & .atl-lw-neb-front { animation: atl-neb-flow 7.7s ease-in-out infinite alternate; }
+    /* Her ribbon tails' two tiers (INBOX 480), each drifting on its own
+       clock about the waist, out of step with the gown's sway (which they
+       also take, on their roots) and with each other. */
+    & .atl-lw-lower-front { animation: atl-ribbon-drift 6.3s ease-in-out -2.1s infinite alternate; }
+    & .atl-lw-lower-back { animation: atl-ribbon-drift 8.1s ease-in-out -5.4s infinite alternate-reverse; }
     &:is([data-atlas-mood="happy"], [data-atlas-mood="delighted"], [data-atlas-mood="love"], [data-atlas-mood="laughing"]) .atl-lw-tail { animation: none; }
   }
 }
@@ -8448,6 +8498,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   .atl-lw-body[data-atlas-look="feminine"] { animation-duration: 16s !important; }
   .atl-lw-tail { animation-duration: 9s !important; }
   .atl-lw-neb, .atl-lw-neb-front { animation: none !important; }
+  .atl-lw-lower-front { animation-duration: 14s !important; }
+  .atl-lw-lower-back { animation-duration: 18s !important; }
   .nm-atlas {
     &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
     /* Round 6: the skirt drifts slower still; the nebula holds still. */

@@ -709,7 +709,8 @@ HELP_TOPICS.extend(
                 "While it is locked, an open dialog or popover is put away, and "
                 "it comes back as it was after you unlock. "
                 "Private notes are encrypted with that password and are never sent "
-                "to the AI. There is no reset without the password, so keep it safe."
+                "to the AI, so a private note's menu has no AI actions. There is "
+                "no reset without the password, so keep it safe."
             ),
             "badge": {"label": "Account & security", "section": "account"},
         },

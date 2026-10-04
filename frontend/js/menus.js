@@ -2014,7 +2014,10 @@ function entryOverflowMenu(entry) {
     };
     for (const item of topLevel) menu.appendChild(buildMenuItemButton(item));
     menu.appendChild(rule());
-    menu.appendChild(buildMenuGroupButton("ph:magic-wand AI actions", aiItems));
+    //: A private note never goes to a model: the server refuses retitling
+    //: and re-filing one, so the menu does not offer what would only toast
+    //: a refusal (sweep 1004).
+    if (!entry.is_private) menu.appendChild(buildMenuGroupButton("ph:magic-wand AI actions", aiItems));
     menu.appendChild(buildMenuGroupButton("ph:link Connect", connectItems));
     menu.appendChild(buildMenuGroupButton("ph:plus Add", addItems));
     menu.appendChild(rule());

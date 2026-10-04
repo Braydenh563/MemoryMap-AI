@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import re
 import threading
+from urllib.parse import unquote_plus
 from collections import deque
 from datetime import datetime, timezone
 
@@ -176,6 +177,72 @@ class TokenScrubFilter(logging.Filter):
         return True
 
 
+#: Query keys whose values are safe to log: paging, switches, ids and kinds,
+#: nothing a person typed. Everything else is redacted, so a new route's
+#: `?q=` (or `?title=`, `?name=`) is covered the day it is added without
+#: anyone remembering to list it; the cost is that an unlisted benign key
+#: shows `[redacted]` in the log, which is the safe way round.
+SAFE_QUERY_KEYS = frozenset(
+    {
+        "limit", "offset", "page", "per_page", "tail", "since", "before", "after", "as_of",
+        "days", "depth", "kind", "type", "entity_type", "entity_id", "entry_id", "id", "ids",
+        "space", "workspace", "boards", "hybrid", "semantic", "ai", "include_quiet",
+        "include_archived", "include_deleted", "sort", "order", "format", "v", "into", "mode",
+        "level", "seq", "stream", "category_id", "reader",
+    }
+)
+
+#: A path and its query string inside a log line: `/search?q=sourdough&limit=5`.
+_PATH_QUERY = re.compile(r"(/[^\s\"?#]*)\?([^\s\"#]*)")
+
+
+def _scrub_query_string(query: str) -> str:
+    parts = []
+    for pair in query.split("&"):
+        key, sep, value = pair.partition("=")
+        if sep and value and unquote_plus(key).strip().lower() not in SAFE_QUERY_KEYS:
+            value = "[redacted]"
+        parts.append(f"{key}{sep}{value}")
+    return "&".join(parts)
+
+
+def scrub_query_strings(text: str) -> str:
+    """Redact the value of every query parameter not in `SAFE_QUERY_KEYS`.
+
+    A search is what a person is thinking about, and `GET /search?q=...` was
+    written into uvicorn's access line, the Settings log viewer and the
+    support bundle in full: "q=my diagnosis". The keys stay, so the line still
+    says which route and which parameters were used.
+    """
+    return _PATH_QUERY.sub(lambda m: f"{m.group(1)}?{_scrub_query_string(m.group(2))}", text)
+
+
+class QueryScrubFilter(logging.Filter):
+    """Keep what people search for out of the access log and the log viewer.
+
+    Rewrites the record's args (uvicorn formats the path from args, not from
+    msg) and a pre-formatted msg, and never drops the record. On the access
+    logger so the terminal line is clean too, and on the buffer's handler as
+    the catch-all for any other logger that prints a URL (httpx logs the
+    outbound `?q=` to a local SearXNG at INFO).
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(
+                scrub_query_strings(a) if isinstance(a, str) and "?" in a else a
+                for a in record.args
+            )
+        elif isinstance(record.args, dict):
+            record.args = {
+                k: scrub_query_strings(v) if isinstance(v, str) and "?" in v else v
+                for k, v in record.args.items()
+            }
+        if isinstance(record.msg, str) and "?" in record.msg:
+            record.msg = scrub_query_strings(record.msg)
+        return True
+
+
 def install() -> None:
     """Attach the buffer to the root logger and uvicorn's loggers.
 
@@ -184,6 +251,7 @@ def install() -> None:
     alone would miss request logs; we attach to them directly."""
     handler = BufferHandler()
     handler.addFilter(NoiseFilter())
+    handler.addFilter(QueryScrubFilter())
     targets = ["", "uvicorn", "uvicorn.access", "uvicorn.error"]
     for name in targets:
         logger = logging.getLogger(name)
@@ -193,6 +261,8 @@ def install() -> None:
     access = logging.getLogger("uvicorn.access")
     if not any(isinstance(f, TokenScrubFilter) for f in access.filters):
         access.addFilter(TokenScrubFilter())
+    if not any(isinstance(f, QueryScrubFilter) for f in access.filters):
+        access.addFilter(QueryScrubFilter())
     # asyncio logs the Proactor noise on its own logger; filter it at source so
     # it doesn't reach the terminal either.
     asyncio_logger = logging.getLogger("asyncio")

@@ -704,6 +704,23 @@ SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
   text, tags or category (`updated_at` also moves on every open, so it
   cannot sort by "recently edited").
 - **entry_links**: user- or AI-made connections between two entries (the graph).
+  **Privacy of a link:** `reason` is free text about the two notes, so on a link
+  with a private end it is stored encrypted (`mmenc1:`, the note's own key) and
+  left out of the activity log's text; the column type (`database.LinkReason`)
+  decrypts on load while the vault is open and reads `None` while it is locked,
+  so no reader learns about ciphertext. `set_private` seals the reasons already
+  on a note's links and redacts the old "linked" rows, un-private restores them
+  unless the other end is still private, and `/rotate-vault-key` moves them with
+  the notes (`manager.rekey_private_extras`, which also moves the version
+  snapshots and event payloads, left under the old key before).
+  **Decision, 2026-10-04: a private note's tags stay in the clear**, in
+  `entries.tags` and in `entry_revisions.tags` (a copy of the same list). The
+  note list, the filter chips and the tag cloud show a private note's tags by
+  design, so hiding them in the database would hide nothing a reader of the
+  app cannot already see and would break tag filtering; what the privacy
+  promises cover is the *text*, the embedding and the dates. Anyone who wants a
+  tag kept out should not put it on a private note. `tests/test_private_link_reason.py`
+  pins this.
 - **derived_facts**: what the app worked out about a note rather than what
   anybody wrote (`ai/facts.py`, WORLD_CLASS_PLAN 15 I1 and I9): a claim the
   note makes or a question it leaves open, with the span it came from, the

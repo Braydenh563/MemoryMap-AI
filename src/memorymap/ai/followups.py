@@ -76,7 +76,14 @@ _PREAMBLE = re.compile(
 #: visible debris, and the reason a turn could come back with one nonsense
 #: suggestion instead of three good ones. Split after a question mark when real
 #: text follows, and at an inline list marker.
-_INLINE_SPLIT = re.compile(r"(?<=\?)\s+(?=\S)|\s+(?:\d+[.)]|[-*•])\s+")
+#:
+#: **Linear in a run of whitespace, on purpose.** The plain form
+#: (`\s+(?:...)` tried at every position) re-scanned the rest of a run from each
+#: of its characters: 20,000 spaces took 6 s. Model output is untrusted text.
+#: A match can only begin at the start of a run (`(?<!\s)`), and the run and
+#: the digits are possessive, so each is read once and never given back; the
+#: split points are the same ones the plain pattern found.
+_INLINE_SPLIT = re.compile(r"(?<=\?)\s++(?=\S)|(?<!\s)\s++(?:\d++[.)]|[-*•])\s++")
 
 #: Small models answer this prompt with imperatives about as often as with
 #: questions: "Show my notes on the deadline", "Summarise the budget thread".

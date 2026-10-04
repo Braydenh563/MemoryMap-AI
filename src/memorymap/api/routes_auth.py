@@ -27,6 +27,7 @@ from memorymap.core import crypto, diskspace, netbind, vault
 from memorymap.core.config import ConfigManager
 from memorymap.core.deps import get_config, get_session, register_cache_reset
 from memorymap.core.database import Entry, User, Vault
+from memorymap.entry import manager
 from memorymap.entry.manager import log_action
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -941,6 +942,7 @@ def rotate_vault_key(
 
     for entry, _plaintext, new_ciphertext in rewritten:
         entry.content = new_ciphertext
+    manager.rekey_private_extras(session, old_key, new_key)
 
     vault_row = session.scalar(select(Vault))
     new_salt = crypto.new_salt()

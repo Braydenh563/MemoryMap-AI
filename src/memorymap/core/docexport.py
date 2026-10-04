@@ -256,7 +256,14 @@ _NUMBERED = re.compile(r"^(\s*)\d+[.)]\s+(.*)$")
 _TASK = re.compile(r"^\[([ xX])\]\s+(.*)$")
 _QUOTE = re.compile(r"^>\s?(.*)$")
 _FENCE = re.compile(r"^\s*(```|~~~)")
-_TABLE_RULE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$")
+#: Possessive throughout (Python 3.11+): the plain form's adjacent `\s*` `\|?`
+#: `\s*` let the engine try every split of a whitespace run when the line was
+#: not a rule after all (20,000 spaces then a letter: 5.7 s). Each token here
+#: is followed by one that cannot be whitespace or a dash, so nothing is ever
+#: given back and the lines it accepts are the same.
+_TABLE_RULE = re.compile(
+    r"^\s*+\|?+\s*+:?+-{3,}+:?+\s*+(?:\|\s*+:?+-{3,}+:?+\s*+)*+\|?+\s*+$"
+)
 _INLINE = re.compile(
     r"(\{\+\+.+?\+\+\}|\{--.+?--\}|\[[^\]\n]+\]\([^)\s]+\)|\*\*\*[^*\n]+\*\*\*|\*\*[^*\n]+\*\*"
     r"|\*[^*\n]+\*|~~[^~\n]+~~|`[^`\n]+`)"

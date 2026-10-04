@@ -35,9 +35,18 @@ const { boot } = require('./lib.js');
     await box.click();
     await page.keyboard.type(`Grocery list ${stamp}: milk, eggs and bread for Friday`);
     await page.click('#save-btn');
-    await wait(2500);
-    const found = await js(async (s) => (await apiJson(`/entries?limit=5`)).find?.((e) => e.content.includes(s))
-      || ((await apiJson(`/entries?limit=5`)).entries || []).find((e) => e.content.includes(s)), stamp);
+    // Polled, not a fixed 2.5 s: ten solo runs all passed, and the one
+    // recorded timeout came while errors.js was loading the same server, so
+    // the save simply had not landed yet. Up to 20 s for the note to appear.
+    let found = null;
+    for (let tries = 0; tries < 40 && !found; tries++) {
+      await wait(500);
+      found = await js(async (s) => {
+        const body = await apiJson(`/entries?limit=5`);
+        const list = Array.isArray(body) ? body : body.entries || [];
+        return list.find((e) => e.content.includes(s)) || null;
+      }, stamp);
+    }
     if (!found) throw new Error('note not in /entries');
     return `id ${found.id}, category ${found.category || found.category_name || '?'}`;
   });

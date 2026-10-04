@@ -521,6 +521,40 @@ class EntityMention(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class LinkReason(TypeDecorator):
+    """`entry_links.reason`: plain text, or ciphertext on a link touching a
+    private note, read back as plain text while the vault is open.
+
+    A reason a person types ("because it names my doctor") is a sentence
+    about the notes it joins, so on a link with a private end it is stored
+    encrypted, like the note's content (`manager.create_link`,
+    `set_link_reason`, `set_private` do the writing). Decrypting here, on
+    load, means every reader of `link.reason` (the graph, the tools, the
+    connections list) gets the text while unlocked and `None` while locked,
+    without each one learning about ciphertext. Nothing is encrypted on the
+    way in: whether a link is private is a fact about two other rows, which
+    a column type cannot see.
+    """
+
+    impl = Text
+    cache_ok = True
+
+    def process_result_value(self, value, dialect):
+        if not value:
+            return value
+        from memorymap.core import crypto, vault
+
+        if not crypto.is_encrypted(value):
+            return value
+        key = vault.key()
+        if key is None:
+            return None
+        try:
+            return crypto.decrypt(key, value)
+        except crypto.DecryptionError:
+            return None
+
+
 class EntryLink(Base, WorkspaceMixin):
     """A user- or AI-made connection between two entries."""
 
@@ -536,7 +570,7 @@ class EntryLink(Base, WorkspaceMixin):
     # both about scheduling", user-reported). Nullable rather than an empty
     # string default so "no reason given" and "reason is blank" aren't the
     # same row on old links backfilled by the auto-migrator.
-    reason: Mapped[str | None] = mapped_column(Text, default=None)
+    reason: Mapped[str | None] = mapped_column(LinkReason, default=None)
     # How sure `create_link` was of a reason it deduced itself, 0..1, set
     # only when the reason above came from embedding similarity rather than
     # from a person or the AI saying it in words. A human- or model-given

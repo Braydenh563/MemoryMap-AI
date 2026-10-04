@@ -71,7 +71,9 @@ the tab draws a colour, a font or a card that the rest of the app does not.
 4. **Density follows the bucket.** Day: full row (title, snippet, tags,
    time). Week: title, time, tags. Month and year: title and date only,
    two columns above 1024. The scale select stays; "auto" is added and is
-   the default (day under 60 notes in range, week under 400, else month).
+   the default: the finest of day, week and month with at most 120 headers
+   and, past one screen of them, a median of two items per header and at most
+   60% of its calendar span empty (measured; HISTORY, "the auto scale").
 5. **Bands become a filter, not lanes.** Grouping by category, tag or
    thread produced lanes that were mostly empty; the same choice now
    colours the row's kind marker and offers itself as a chip filter in the
@@ -147,13 +149,9 @@ in one line each:
   as well below 820; the title measures 375px at 1024, 176px at 820 and 242px
   at 700, with no horizontal scroll at any width.
 
-Still open from this section: **the "auto" scale thresholds** (day under 60
-notes in range, week under 400, decision 4) are still the first guess. They
-were not tuned here because the seed is a shape rather than a notebook: what
-decides whether a day bucket reads well is how much a person writes in a day,
-and inventing that is how a measurement becomes a preference wearing a
-number. Next step: the owner's own notebook, or the same probe pointed at a
-restored backup.
+The "auto" scale thresholds: tuned 2026-10-04 on a copy of a 2,077-note
+notebook plus four synthetic shapes; the account is in
+[HISTORY.md](HISTORY.md), "Moved from the plans, 2026-10-04 (the auto scale)".
 
 ## 8. Research: what the reference products do, and what it changes here
 

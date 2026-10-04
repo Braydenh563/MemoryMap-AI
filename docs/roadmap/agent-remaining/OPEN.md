@@ -167,7 +167,7 @@ then the plan tails by surface, then the horizon.
 | WHITEBOARD_PLAN | Decision 7's other half; the phone context bar comparison; sketch handles at zoom; the arrange panel items. |
 | MINDMAP_PLAN | The mapux agent's leftover list (this file's Mind map section). |
 | CHAT_PLAN | ~~Phase 1's other half, which note grounds a sentence~~ built 2026-09-20 (the fixtures exist, 18 of 18 attributed, was 17 of 18); ~~Phase 1's fourth gate line~~ built 2026-09-21 and its replay tail 2026-09-23, so Phase 1 is closed; Phase 4's harness items were closed 2026-09-20, and what is left is its `evals` breadth (WORLD_CLASS_PLAN 9). |
-| TIMELINE_PLAN | ~~Section 7's two measurements~~ taken 2026-09-20, and both found a bug: the density strip hid on a note count (it hid a profile of 150 notes and showed a comb of 200) and the table drew no title column at all between 600 and 1024. Both fixed and re-measured. Section 7's third line, the "auto" scale thresholds, wants a real notebook and is left. |
+| TIMELINE_PLAN | ~~Section 7's two measurements~~ taken 2026-09-20, and both found a bug: the density strip hid on a note count (it hid a profile of 150 notes and showed a comb of 200) and the table drew no title column at all between 600 and 1024. Both fixed and re-measured. The third line, the "auto" scale thresholds, was tuned 2026-10-04 (HISTORY, "the auto scale"). |
 | AGENT_SKILLS_REFORM | ~~Phase D verified against a real model, which needs WORLD_CLASS_PLAN section 9's dev-only runner first.~~ **Done 2026-09-20.** The runner is `scratchpad/llama-dev.sh` and the gate is `tests/test_skills_evals.py`, four `evals` tests that skip at collection without a model: 3 passed and 1 skipped against Qwen2.5-1.5B-Instruct Q4_K_M through llama.cpp, with the skip itself the finding (the run stalled on step 1's `list_tags` contract and said so, rather than ticking it). Record in HISTORY's "Moved from the plans, 2026-09-20". What is left is breadth, and it sits in WORLD_CLASS_PLAN 9: the same gate at 3B and 4B, and an eval each for the rest of CLAUDE.md section 4's unproven list. |
 | WORLD_CLASS_PLAN | **Row check done 2026-09-24 (INBOX 399).** Every row read against the code; the built ones moved to HISTORY's "Moved from the plans, 2026-09-24", each open row carries a "State 2026-09-24" line, and the ranked list of 38 is at the top of the plan's section 8. The top ten, by impact: F3 `semantic_search` reading every vector per request; Brief 15's LAN hardening (S1 to S3, S5, S6); B2 durable jobs; D2's connections rail (and 261's `/resurface/near`); I1's night runs and morning card; chunk vectors then I6's evidence cards; I3's questions view; `similar_pairs` cached for link suggestions and tensions; D5 typed properties on notes; the S-sized section 1 lints. Fixed during the check: 283, 285, the Most used widget's picker line, Download .md on a locked notebook, and `/files/gallery`'s paging (F2's frontend half). Built 2026-09-24 after it: row 1 (F3, `semantic_search` on the matrix), row 9 (`similar_pairs` cached) and row 2 (S1, S2, S3, the rest of S5, S6's redirect half, `/debug/health` paths; left `tests/test_lan_mode.py` and the LAN offer). |
 
@@ -366,13 +366,7 @@ being written by running agents stay beside this one.
   *Opus: the calendar strip and the yesterday/tomorrow pair are new UI on the notes surface.*
 - ~~The timeline strip's threshold~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~The timeline table at 820~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- **The "auto" scale thresholds are still a first guess** (TIMELINE_PLAN
-  section 7's third line; day under 60 notes in range, week under 400). Left
-  deliberately on 2026-09-20 with the other two: what decides whether a day
-  bucket reads well is how much a person writes in a day, and a seed is a
-  shape rather than a notebook. Next step: the same probe against a restored
-  backup or the owner's own notebook. [timeline-phases.md]
-  *Blocked here: needs a restored backup or the owner's notebook.*
+- ~~The "auto" scale thresholds~~ Closed. The account is in HISTORY.md, "Moved from the plans, 2026-10-04 (the auto scale)".
 - ~~The band label sits over the cards scrolled under it~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~Timeline Phases 1 to 4~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 

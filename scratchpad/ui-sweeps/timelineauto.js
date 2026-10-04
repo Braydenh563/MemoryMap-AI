@@ -90,7 +90,7 @@ const check = (label, ok, detail) => {
   // against the bulk-seeded dir instead of this one:
   //   BASE=http://127.0.0.1:8946 SPREAD=1 node scratchpad/ui-sweeps/timelineauto.js
   if (SPREAD) {
-    for (const [days, want] of [['0', 'month'], ['365', 'week'], ['90', 'week']]) {
+    for (const [days, want] of [['0', 'month'], ['365', 'week'], ['90', 'day']]) {
       await page.evaluate((d) => {
         const box = document.getElementById('timeline-days');
         box.value = d;

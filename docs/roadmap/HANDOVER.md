@@ -304,7 +304,7 @@ state now. The line-by-line ledger of what is left is
 | AGENT_SKILLS_REFORM | Phases A to D, D verified against a real model (2026-09-20) | The same gate at 3B and 4B, an eval each for CLAUDE.md section 4's unproven list |
 | WHITEBOARD_PLAN | Phases 1 to 4 (the rail and keys, the context bar, export dialog and handles, mind map regressions and Tidy) | Decision 7's other half, the phone context bar comparison, sketch handles at zoom, the arrange panel items |
 | CHAT_PLAN | Phases 1 to 4 (grounding closed 2026-09-23, one composer, Ask unified and the popup agent, skills that finish) | The `evals` breadth (WORLD_CLASS_PLAN 9), the chat stutter notes (413) |
-| TIMELINE_PLAN | Phases 1 to 4, section 7's two measurements | The "auto" scale thresholds, which want a real notebook |
+| TIMELINE_PLAN | Phases 1 to 4, section 7's two measurements | Nothing (the "auto" scale thresholds were tuned 2026-10-04) |
 | WORLD_CLASS_PLAN / SESSION_BRIEFS | Briefs 1 to 34 written; the row check of 2026-09-24, F3, `similar_pairs`, S1 to S3 and S5, the llama.cpp runner | The ranked list of 38 (plan section 8): Brief 15's LAN tail, B2 durable jobs, D2, I1, chunk vectors then I6, I3 |
 
 ### State of the branch (`claude/epic-ramanujan-8xocc0`, PR #144)

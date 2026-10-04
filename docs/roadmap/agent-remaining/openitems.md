@@ -89,7 +89,6 @@ Mine, not built:
   for operators it does not know: both are the Notes list, another agent's.
 - `#settings-tools`'s intro help item and "toggle rows onto one recipe":
   both Settings copy/visual questions with no measured fault; left.
-- The Timeline's "auto" scale thresholds: need a real notebook.
 - I1's later passes, `night_runs` and the morning card (H1): a migration and
   a surface each, the next horizon item in its own PR.
 

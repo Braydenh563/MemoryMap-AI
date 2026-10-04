@@ -1226,7 +1226,9 @@ HELP_TOPICS.extend(
             "body": (
                 "Timeline controls. Feed shows the newest first, grouped by date; "
                 "Table shows every column, sortable. Pick the time bucket (Auto, "
-                "Day, Week, Month or Year), what rows are grouped by (Category, "
+                "Day, Week, Month or Year; Auto takes the finest one that keeps "
+                "the headers few and filled: days for a few weeks of notes, weeks "
+                "for a year, months for several years), what rows are grouped by (Category, "
                 "Tag, Thread, None or Everything) and show only one group, how far "
                 "back (the last 3 months, the last year, everything or a custom "
                 "range), and which kinds of thing it shows; Jump to today returns. "

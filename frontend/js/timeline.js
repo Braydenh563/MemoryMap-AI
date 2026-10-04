@@ -241,15 +241,6 @@ function timelineBucketLabel(key, scale) {
   });
 }
 
-//: **Auto is the default scale** (TIMELINE_PLAN decision 4). Day buckets over
-//: a year of writing are a header every second row; month buckets over a week
-//: are one header and no structure at all. The thresholds (day under 60 notes
-//: in range, week under 400, else month) are the plan's first guess and are
-//: written down there as something to tune against a real notebook, not as a
-//: measurement.
-//:
-//: It counts what the *range* holds rather than what the search left, so
-//: typing in the search box never re-cuts the headers under the reader.
 //: **The four kinds a row can be** (TIMELINE_PLAN Phase 4, decision 9), the
 //: label on their filter chip, and the glyph the row's marker wears. One table,
 //: because the chips, the marker and the `kind=` the endpoint is asked for have
@@ -427,33 +418,60 @@ function timelineScaleChoice() {
   return saved === "auto" || TIMELINE_SCALES.includes(saved) ? saved : "auto";
 }
 
-function timelineResolvedScale(loaded) {
+//: **Auto takes the finest scale whose headers earn their place**, counted on
+//: the density strip (the whole range, not the loaded page, so a second page
+//: never re-cuts the headers). A scale is taken at <= MAX_HEADERS headers and
+//: either <= SMALL (one screen of them) or <= MAX_GAP of its calendar span
+//: empty with a median of MIN_MEDIAN items per header. Measured, not guessed:
+//: TIMELINE_PLAN "auto scale", `scratchpad/ui-sweeps/timelinetune.js`.
+const TIMELINE_AUTO_MAX_HEADERS = 120;
+const TIMELINE_AUTO_SMALL = 12;
+const TIMELINE_AUTO_MAX_GAP = 0.6;
+const TIMELINE_AUTO_MIN_MEDIAN = 2;
+
+function timelineAutoScale(perDay) {
+  const days = Object.keys(perDay).filter((d) => perDay[d] > 0).sort();
+  if (!days.length) return "day";
+  const at = (d) => new Date(`${d}T12:00:00`);
+  for (const scale of ["day", "week", "month"]) {
+    const per = new Map();
+    for (const d of days) {
+      const key = timelineBucketKey(at(d), scale);
+      per.set(key, (per.get(key) || 0) + perDay[d]);
+    }
+    if (per.size > TIMELINE_AUTO_MAX_HEADERS) continue;
+    if (scale === "month" || per.size <= TIMELINE_AUTO_SMALL) return scale;
+    const keys = [...per.keys()].sort();
+    const apart = Math.round((at(keys[keys.length - 1]) - at(keys[0])) / 864e5);
+    const span = (scale === "day" ? apart : Math.round(apart / 7)) + 1;
+    const counts = [...per.values()].sort((x, y) => x - y);
+    if (1 - per.size / span <= TIMELINE_AUTO_MAX_GAP && counts[counts.length >> 1] >= TIMELINE_AUTO_MIN_MEDIAN) {
+      return scale;
+    }
+  }
+  // Only reached when the months alone are over the cap: a decade of them.
+  return "year";
+}
+
+// Cached on the strip itself: search repaints on every keystroke.
+let timelineAutoCache = { density: null, scale: "day" };
+
+function timelineResolvedScale() {
   const chosen = $("timeline-scale").value || timelineScaleChoice();
   if (TIMELINE_SCALES.includes(chosen)) return chosen;
-  //: **Days with something in them, not rows.** The number auto is really
-  //: choosing is how many headers the feed will draw, and with day buckets
-  //: that is the number of days that have anything on them: counting rows
-  //: instead only agrees with it while every day holds about one thing. It
-  //: stopped agreeing when the feed gained documents, boards and reminders
-  //: (TIMELINE_PLAN Phase 4): a week of writing with two hundred reminders
-  //: due in it is seven headers by this rule and "hundreds of rows, use
-  //: month buckets" by the old one, which buried the week in one column.
-  //:
-  //: The thresholds are the old ones, re-based: under 60 days keeps the feed
-  //: under 60 headers, and 400 days in week buckets is about 57 of them, so
-  //: both mean the same thing they always meant, "keep the headers readable".
-  //:
-  //: Counted from the density strip rather than from the loaded rows, for the
-  //: reason the old comment gives and which still holds: the view is paged,
-  //: and deciding from the first page would pick day buckets for a three-year
-  //: notebook and re-cut every header when the second page arrived. The rows
-  //: are the fallback for a range the endpoint sent no density for.
-  const activeDays = Object.entries(timelineDensity).filter(([, n]) => n > 0).length
-    || new Set(timelineRows.map((row) => timelineBucketKey(row.when, "day"))).size
-    || loaded;
-  if (activeDays < 60) return "day";
-  if (activeDays < 400) return "week";
-  return "month";
+  if (Object.keys(timelineDensity).length) {
+    if (timelineAutoCache.density !== timelineDensity) {
+      timelineAutoCache = { density: timelineDensity, scale: timelineAutoScale(timelineDensity) };
+    }
+    return timelineAutoCache.scale;
+  }
+  // A range the endpoint sent no density for: the loaded rows stand in.
+  const perDay = {};
+  for (const row of timelineRows) {
+    const key = timelineBucketKey(row.when, "day");
+    perDay[key] = (perDay[key] || 0) + 1;
+  }
+  return timelineAutoScale(perDay);
 }
 
 //: The loaded range, as rows, plus the one row opened in place and the one
@@ -773,7 +791,7 @@ function paintTimeline() {
 
 function paintTimelineFeed(rows) {
   const feed = $("timeline-feed");
-  const scale = timelineResolvedScale(timelineRows.length);
+  const scale = timelineResolvedScale();
   const density = TIMELINE_DENSITY[scale];
   feed.dataset.scale = scale;
   feed.dataset.density = density;

@@ -25,20 +25,20 @@ const H = +(process.env.H || 900);
 
   await page.evaluate(() => {
     localStorage.removeItem('timeline-kinds');
-    localStorage.setItem('timeline-view', 'line');
+    localStorage.setItem('timeline-view', 'feed');
   });
   const t0 = Date.now();
-  await page.click('[data-tab="timeline"]');
+  await page.evaluate(() => switchTab('timeline'));
   await page.waitForSelector('#timeline-feed .timeline-row', { timeout: 20000 });
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   const first = Date.now() - t0;
   await page.waitForTimeout(1500);
   const warm = [];
   for (let i = 0; i < 3; i += 1) {
-    await page.click('[data-tab="notes"]');
+    await page.evaluate(() => switchTab('notes'));
     await page.waitForTimeout(600);
     const t1 = Date.now();
-    await page.click('[data-tab="timeline"]');
+    await page.evaluate(() => switchTab('timeline'));
     await page.waitForSelector('#timeline-feed .timeline-row', { timeout: 20000 });
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     warm.push(Date.now() - t1);
@@ -57,7 +57,7 @@ const H = +(process.env.H || 900);
 
   for (const days of ['90', '365', '0']) {
     await setRange(days);
-    for (const scale of ['day', 'week', 'month', 'year']) {
+    for (const scale of (process.env.SCALES || 'day,week,month,year').split(',')) {
       const ms = [];
       for (let i = 0; i < 3; i += 1) {
         // Flip away and back so every sample is a real repaint of this scale.
@@ -76,8 +76,9 @@ const H = +(process.env.H || 900);
       }
       ms.sort((a, b) => a - b);
       await page.evaluate(() => window.scrollTo(0, 0));
-      const m = await page.evaluate((sc) => {
+      const m = await page.evaluate((want) => {
         const feed = document.getElementById('timeline-feed');
+        const sc = want === 'auto' ? feed.dataset.scale : want;
         feed.scrollTop = 0;
         const fr = feed.getBoundingClientRect();
         const top = Math.max(fr.top, 0);

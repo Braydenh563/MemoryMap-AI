@@ -7,6 +7,61 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-04 (the auto scale)
+
+### From TIMELINE_PLAN section 7 and decision 4: the "auto" scale thresholds
+
+The first guess (day under 60 active days, week under 400, else month) was
+tuned against a copy of a 2,077-note, three-year notebook (822 active days,
+the last month 226 notes) and four synthetic shapes (`seed-timeline-shapes.py`:
+30 notes in a week; 200 over a year with 140 in one month; 2,000 over two years;
+5,000 over five), at 1440 and 390, over the three ranges (3 months, a year,
+everything). Probes: `timelinetune.js` (first screen per scale: rows, headers,
+chrome share, one-item buckets, empty calendar share, horizontal scroll, title
+width, repaint ms), `timelinetune-shape.py` (whole-feed bucket statistics, no
+browser), `timelinefirst.js` (where first paint goes).
+
+**Done-when stated** (the plan had none): no screen more than 60% empty, the
+densest day readable without a horizontal scroll, first paint under 300ms at 2k.
+
+**What the old rule got wrong**, by measurement:
+
+- It counted *active days*, so it chose by a number that is not the header
+  count at week and month: a note a week for five years is 260 active days and
+  260 week headers of one note each. It now counts the headers of each scale.
+- 3 months of the real notebook (90 days, 613 notes) chose week: 13 headers
+  holding 46 notes each, the densest 166. Day gives 90 headers, 6.7 notes each
+  (densest 77), which is a journal; auto now picks day (the cap is 120).
+- The sparse burst shape (15 notes over 90 days) chose day: 93% of its headers
+  held one note and 83% of the calendar between them was empty (first screen
+  55% chrome at 1440, 50% at 390). Week is 50% one-note headers, 23% empty
+  (51%, 45% on screen); the one-screen rule below takes it.
+- Two years of steady writing (686 active days, 105 weeks) chose month; week
+  keeps 19 notes a header where month's 80 is a wall.
+
+**The rule** (`timelineAutoScale`, `TIMELINE_AUTO_*` in timeline.js): the
+finest of day, week, month with at most 120 headers and either at most 12 of
+them (one screen) or at most 60% of its calendar span empty and a median of two
+items per header; year only when even months pass 120 (a decade). Pure, on the
+density strip, cached on it. Results, 1440 and 390 alike: the week shape stays
+day (7 headers); burst chose week; steady 90 days day, a year and two years
+week; the real notebook day, week, month (90 days, a year, everything); 5,000
+over five years day, week, month. Worst first screen anywhere: 51% empty
+(burst, week). No width scrolled sideways at any scale; the narrowest title is
+297px at 390 and 573px at 1440 (month, two columns).
+
+**First paint** is not decided by the scale: a repaint of the first 300 rows
+measured 52 to 85ms for every scale on the real notebook (request 50ms, model
+2ms), and tab press to first row was 263ms warm on 2,091 notes in the sandbox
+under a load of three to four on four cores (cold, with the lazy bundle,
+165 to 672ms across shapes and widths). Not verified: an unloaded machine, the
+desktop window, and the owner's own notebook; the 120-header cap is a judgement
+(about 1.4 screens of rows a header at week), not a measurement.
+
+Tests: `tests/test_timeline_auto_scale.py` (fifteen shapes through the real
+function in node, plus the done-when recomputed in Python). Guide text updated
+(`timeline-controls`).
+
 ## Moved from the plans, 2026-10-04 (the top bar mode and the glass recipe)
 
 ### From UI_MODERNISATION_PLAN Phase 10, item 102

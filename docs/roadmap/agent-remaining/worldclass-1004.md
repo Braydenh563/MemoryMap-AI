@@ -43,3 +43,7 @@ Worked WORLD_CLASS_PLAN section 8's rows 3, 4 and 2 in the brief's order.
   evidence view in the next commit. Record: HISTORY.md, "row 6: paragraph
   vectors and evidence cards". Left: "wrong" on a card as a correction (I7).
 - Next: row 5, the tension and answered-question passes (`ai/facts.py`).
+- **Row 5 (I1 passes 4 and 5): built.** `facts._pair_passes`, `derived_facts.payload`,
+  the card's pair rows. Record: HISTORY.md, "row 5: tensions and answered
+  questions". Left: pass 2's kinds (dates, duplicates, entities) as facts.
+- Next: row 7, the questions view (`GET /questions`, the Ask scope, the answered-by link).

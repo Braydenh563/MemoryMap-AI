@@ -39771,3 +39771,50 @@ Opus.
 - **Not verified:** a real embedding model (the gain on bge-small is not
   measured); the H2 gate "95% of sentences cited" needs a real model.
 
+
+## Moved from the plans, 2026-10-04 (row 5: tensions and answered questions)
+
+### From WORLD_CLASS_PLAN.md I1, the algorithm's passes 4 and 5
+
+"(4) tensions: for each new claim, top-k similar claims by cosine, then one
+model call per pair above the threshold asking 'compatible / incompatible /
+unrelated' with a one-line reason; (5) answered questions: for each open
+question, top-k similar claims written *later*; one model call asks 'does
+this answer it'. Stop when the budget is spent; record where; resume from the
+cursor next night." Tests: a second run with no new revisions produces zero
+facts and spends zero tokens; dismissing a fact hides it; nothing in
+`entries` changes. Gate: 2,000 notes, a first run under the fake model in
+under 5 minutes, the card under 100 ms.
+
+### Built 2026-10-04
+
+- **`facts._pair_passes`**, run after pass 3 inside the same budget and the
+  same `NightRun`. Only pairs with a side new this run are compared, so a run
+  with nothing new spends nothing here. Kinds `tension` and `answered`, stored
+  on the later side (its note, span and words) with the other side in a new
+  `derived_facts.payload` JSON column (fact, note, words, span, the pair key,
+  the model's reason); `as_json` gives it as `pair`.
+- **Neighbours:** an inverted index over the claims' meaningful terms, then,
+  with an embedding backend, the best eight re-scored by cosine (floor 0.6);
+  without one, words (floor 0.34). Three per sentence. The same wording again
+  is never a neighbour: identical claims at cosine 1.0 had filled every
+  place and hidden the one that disagreed (found by `nightpairs.js`, pinned by
+  `test_identical_claims_do_not_crowd_out_the_one_that_disagrees`).
+- **Judging:** with a model, one call per pair (`incompatible`, `yes`); with
+  none, two local rules only: near-identical claims that differ in a number
+  or a "not", and a later claim holding 60% of what a question asks.
+  Pairs are deduplicated by key, tombstones included, so a dismissed tension
+  is never found again.
+- **The card:** two new lines ("claims that disagree with others",
+  "questions answered later"); a pair row quotes its other side, opens the
+  other note, and a tension can be linked as disagreeing through
+  `POST /entries/tensions/accept`. Guide topic `learned` updated.
+- **Measured:** `scratchpad/night_pairs_bench.py`, 2,000 notes of four
+  sentences: no model 39.3 s, a fake judge 130.4 s and 21,322 calls (gate 5
+  minutes), the card 38.6 and 72.8 ms (gate 100); after the wording dedupe,
+  on a machine at load 7, 56.8 s, 215.4 s and 21,474 calls, the card 74.7
+  and 83.5 ms. Inside both gates, the second with less room than it looks. `nightpairs.js` 9/9 at
+  1440 and 390, light and dark.
+- **Not verified:** a real model's verdicts (the judge prompts run against a
+  fake that answers by rule).
+

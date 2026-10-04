@@ -3590,7 +3590,12 @@ function dashBoardThumb(board) {
 const NIGHT_KIND_WORDS = {
   claim: ["claim", "claims"],
   question: ["open question", "open questions"],
+  //: Passes 4 and 5 (row 5): pairs, each shown with its other side.
+  tension: ["claim that disagrees with another", "claims that disagree with others"],
+  answered: ["question answered later", "questions answered later"],
 };
+//: What the second line of a pair says before the other side's words.
+const NIGHT_PAIR_LEAD = { tension: "Disagrees with", answered: "Answers" };
 const NIGHT_PAGE = 5;
 
 function nightKindWords(kind, n) {
@@ -3618,9 +3623,56 @@ function nightFactRow(fact, onGone) {
   meta.textContent = [fact.model === "local" ? "Found without a model" : fact.model, `${Math.round((fact.confidence || 0) * 100)}% sure`]
     .filter(Boolean)
     .join(" · ");
-  text.append(title, meta);
+  text.append(title);
+  //: A tension or an answer is two sentences: the other one, quoted, under
+  //: this one, and the model's reason with the facts below it.
+  if (fact.pair && NIGHT_PAIR_LEAD[fact.kind]) {
+    const other = document.createElement("span");
+    other.className = "dash-list-preview night-fact-pair";
+    other.textContent = `${NIGHT_PAIR_LEAD[fact.kind]}: “${fact.pair.text || ""}”`;
+    text.append(other);
+    if (fact.pair.reason) meta.textContent = [fact.pair.reason, meta.textContent].join(" · ");
+  }
+  text.append(meta);
   const actions = document.createElement("span");
   actions.className = "night-fact-actions";
+  if (fact.pair && fact.pair.entry_id) {
+    const openOther = document.createElement("button");
+    openOther.type = "button";
+    openOther.className = "ghost small icon-only";
+    const otherLabel = fact.kind === "answered" ? "Open the note with the question" : "Open the other note";
+    openOther.title = otherLabel;
+    openOther.setAttribute("aria-label", otherLabel);
+    setLabel(openOther, "ph:arrows-left-right");
+    openOther.addEventListener("click", () => flashEntry(fact.pair.entry_id));
+    actions.append(openOther);
+  }
+  //: Accepting a tension is the one finding with something to keep: the two
+  //: notes get the `contradicts` link the Graph and the note's links show,
+  //: through the same route the Tensions finder uses (I1's "accept of a
+  //: tension calls the existing accept path").
+  if (fact.kind === "tension" && fact.pair && fact.pair.entry_id) {
+    const keep = document.createElement("button");
+    keep.type = "button";
+    keep.className = "ghost small icon-only";
+    keep.title = "Link the two notes as disagreeing";
+    keep.setAttribute("aria-label", "Link the two notes as disagreeing");
+    setLabel(keep, "ph:link");
+    keep.addEventListener("click", async () => {
+      keep.disabled = true;
+      try {
+        await apiJson("/entries/tensions/accept", {
+          method: "POST",
+          body: JSON.stringify({ earlier_id: fact.pair.entry_id, later_id: fact.entry_id }),
+        });
+        toast("Linked as disagreeing");
+      } catch (error) {
+        keep.disabled = false;
+        toast(error.message || "Couldn't link those notes.", true);
+      }
+    });
+    actions.append(keep);
+  }
   const open = document.createElement("button");
   open.type = "button";
   open.className = "ghost small icon-only";
@@ -3746,7 +3798,7 @@ async function renderNightWidget(body) {
   let counts = card.counts || {};
   if (!Object.keys(counts).length) {
     if (!card.previous) {
-      dashEmpty(body, "Nothing new since it last read. Claims and open questions show up here.", null);
+      dashEmpty(body, "Nothing new since it last read. Claims, open questions and notes that disagree show up here.", null);
       return;
     }
     shown = card.previous;

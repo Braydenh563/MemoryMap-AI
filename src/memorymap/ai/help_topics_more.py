@@ -143,11 +143,17 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "what it learned", "learned", "worked out", "derived", "forget everything learned",
             "read my notes now", "export what it learned",
+            "while you were away", "disagree", "contradict", "answered later",
         ),
         "body": (
             "Settings, What it learned is what Atlas worked out by itself while "
             "reading your notes (a claim a note makes, a question it leaves "
-            "open), where What it remembers is what you told it. Every row "
+            "open, two claims in different notes that disagree, a question a "
+            "later note answers), where What it remembers is what you told it. "
+            "The Dashboard's While you were away card counts each kind from the "
+            "last read; a pair shows the other sentence under it, a button to "
+            "open the other note and, for a disagreement, one to link the two "
+            "notes as disagreeing. Every row "
             "says which note it came from, which model decided it and how sure "
             "it was. Edit a row and no later run overwrites it; delete one and "
             "it is never worked out again. What may run switches each kind off; "

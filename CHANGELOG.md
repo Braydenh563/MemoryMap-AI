@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Dashboard, While you were away: reading your notes on its own now also finds two claims in different notes that disagree (the rent is 900 in one and 950 in a later one) and a question a later note answers. Each row quotes the other sentence, opens the other note, and a disagreement can be linked as one; a dismissed pair is never found again. With no model it finds only a changed number or a 'not', and a later sentence that holds most of what the question asks.
 - Search by meaning reads long notes paragraph by paragraph: a note of two or more paragraphs stores a vector per paragraph and scores on the better of its own and its best paragraph's, so a question about one paragraph of a long note finds it (seeded 1,000 notes: recall@5 0.01 to 0.42). Old long notes get paragraphs at the next launch; editing one paragraph re-embeds only that one.
 - Chat and Ask: a source mark's preview says whether the passage supports the sentence or only partly, with three short bars for why it was chosen (Words, Meaning, Links). The end of Grounded in says how many sentences came from your notes and opens the evidence: each sentence beside the passage it came from, and No note says this beside the rest.
 - Dashboard: Recent activity's "Undo what Atlas did" row goes once the undo has put everything back, instead of staying to say "Already undone"; a later change by Atlas brings it back (`GET /events` names the events a restore reversed).

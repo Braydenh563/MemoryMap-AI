@@ -781,7 +781,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24; ~~`tests/test_lan_mode.py`, the switch and its Settings toggle~~ built 2026-09-26; left: LAN mode over IPv6 (sized M 2026-10-04, §12 has the shape) | M | HISTORY; §12 |
 | 3 | ~~B2~~ | ~~durable jobs: a table, leases, resume after a kill, `/jobs/stream`~~ built 2026-10-04 for the pool's six kinds (`core/jobstore.py`, `tests/test_jobstore.py`); left: the other kinds onto it, the panel on the stream | M | HISTORY; B2 |
 | 4 | ~~D2, 261~~ | ~~the connections rail always visible on desktop, which is also where `GET /resurface/near` would show~~ built 2026-09-27 (`#notes-rail` at 1280 and wider, the sheet below, by decision); re-measured 2026-10-04 with `notesrail.js` on the showcase notebook, 30/30 light and 30/30 dark at 1440, 1280, 1024 and 390 | done | HISTORY; D2 |
-| 5 | I1, H1 | the tension and answered-question passes (the runs, `GET /night/latest` and the morning card built 2026-09-26) | M + M | `ai/facts.py` |
+| 5 | ~~I1, H1~~ | ~~the tension and answered-question passes~~ built 2026-10-04 (`facts._pair_passes`, `tests/test_night_pairs.py`); 2,000 notes, a first run 39 to 57 s with no model, 130 to 215 s with a fake judge (gate 5 min), card 39 to 84 ms; left: pass 2's kinds (dates, duplicates, entities) as derived facts | done | HISTORY |
 | 6 | ~~§14.3, I6, H2~~ | ~~chunk vectors, then paragraph anchors, three signal bars per sentence and the side-by-side view~~ built 2026-10-04 (`chunk_vectors`, `search/chunks.py`, `tests/test_chunk_vectors.py`, `tests/test_evidence_spec.py`); seeded 1,000 notes, recall@5 0.01 to 0.42; left: "wrong" on a card as a correction (I7) | done | HISTORY |
 | 7 | I3, H2 | the questions view, `GET /questions`, the Ask scope, the answered-by link | M | `derived_facts` (kind `question`) |
 | 8 | ~~Placed 2026-09-13~~ | ~~`/files/gallery`'s five callers onto `apiPagedList`, then its default to 200~~ built 2026-09-24 (`tests/test_gallery_paging.py`) | done | HISTORY |
@@ -1108,7 +1108,7 @@ from `/night/latest`. **Size** L (two sessions). **Model** Opus for the
 runner and prompts, Sonnet for the review UI on the modal and list
 recipes.
 
-**State 2026-09-24:** (b) the first pass is built (`ai/facts.py`, `POST /night/run` with a budget and a cursor, claims and questions in `derived_facts`); `night_runs`, `GET /night/latest`, the morning card and passes 4 and 5 (tensions, answered questions) are not. H1 below is the same row. L, Opus.
+**State 2026-10-04:** passes 1, 3, 4 and 5, `night_runs`, `GET /night/latest` and the morning card are built (HISTORY, "row 5: tensions and answered questions"). Left: pass 2's cheap kinds (dates, duplicates, entities) as `derived_facts` rows, with the accept of a date (a reminder) and of a duplicate (the merge). H1 below is the same row.
 
 ### I2 The margin reader: a second reader in the editor, from your own notes
 
@@ -1717,7 +1717,7 @@ runs a night in under ten minutes on a 4B model against the fake
 transport, every change is undoable, and the report card's count equals
 the event log's count for that run. Test first: `tests/test_night_runs.py`.
 
-**State 2026-09-24:** (b), the same as I1 above.
+**State 2026-10-04:** the same as I1 above.
 
 ### H2 Evidence cards and open questions (I6 then I3; L, Opus)
 

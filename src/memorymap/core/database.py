@@ -1107,8 +1107,8 @@ class DerivedFact(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
-    #: `claim` or `question` today; `tension`, `duplicate`, `entity` and
-    #: `date` are the kinds I1's later passes add to the same table.
+    #: `claim`, `question`, `tension` or `answered` (`facts.KINDS`);
+    #: `duplicate`, `entity` and `date` are the kinds still to come.
     kind: Mapped[str] = mapped_column(String(20), index=True)
     text: Mapped[str] = mapped_column(Text)
     span_start: Mapped[int] = mapped_column(Integer, default=0)
@@ -1126,6 +1126,11 @@ class DerivedFact(Base):
     #: card and its review list can speak about one pass. Null on rows from
     #: before runs were recorded; they still list under /learned.
     run_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
+    #: JSON, for the pair kinds (`tension`, `answered`): the other side's
+    #: fact, note, words and span, the pair key that stops a dismissed pair
+    #: being found again, and the model's one-line reason. Null for a claim
+    #: or a question, which are one sentence of one note.
+    payload: Mapped[str | None] = mapped_column(Text, default=None)
 
 
 class NightRun(Base):

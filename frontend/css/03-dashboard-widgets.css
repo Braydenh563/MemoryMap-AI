@@ -301,6 +301,47 @@
   min-width: 0;
 }
 
+/* GRAPH_PLAN KG4: a note's properties under its title, two quiet columns. */
+.note-props {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-1) 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.note-props dt {
+  color: var(--muted);
+}
+
+.note-props dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The properties sheet: a name and a value per row, at one height. */
+.prop-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.prop-row > .prop-key {
+  flex: 0 0 9rem;
+  min-width: 0;
+}
+
+.prop-row > .prop-value {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.prop-row > input,
+.prop-row > select {
+  margin: 0;
+}
+
 /* The kind's name from the other end, quiet, giving way before the name. */
 .relation-type-hint {
   flex: 0 1 auto;

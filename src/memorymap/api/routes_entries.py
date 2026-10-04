@@ -59,6 +59,7 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
 from memorymap.core.database import LIKE_ESCAPE
 from memorymap.core.deps import get_session
 from memorymap.entry import duplicates, manager
+from memorymap.entry import properties as note_properties
 from memorymap.entry.tagnames import inline_tags, normalise_tags
 from memorymap.search import engine as search_engine
 from memorymap.search import search_manager
@@ -75,7 +76,9 @@ def _preview(text: str, length: int = 60) -> str:
     the words without the brackets, seeing "[[bread proving]]" on a link chip
     that already means "linked to bread proving" is just noise.
     """
-    plain = manager.WIKI_LINK.sub(r"\1", text or "")
+    from memorymap.entry.properties import strip as strip_properties
+
+    plain = manager.WIKI_LINK.sub(r"\1", strip_properties(text or "").lstrip())
     return plain if len(plain) <= length else plain[: length - 1] + "…"
 
 
@@ -114,6 +117,9 @@ def _to_out(
         content=content,
         content_hash=content_hash(content),
         title=manager.extract_title(content),
+        #: KG4: what the note's `---` block says, and its type.
+        properties=(props := note_properties.split(content)[0]),
+        note_type=note_properties.note_type(props),
         category=(
             manager.category_name_for(session, entry) if category_name is None else category_name
         ),
@@ -596,9 +602,15 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         category, confidence, filed_by = _file_entry_now(session, body.content)
 
     tags = normalise_tags([*body.tags, *inline_tags(body.content)]) if body.inline_tags else body.tags
+    content = body.content
+    if body.note_type:
+        #: KG4: a new note of a type starts with the type's fields.
+        from memorymap.api.routes_properties import with_type_fields
+
+        content = with_type_fields(session, content, body.note_type)
     entry = manager.create_entry(
         session,
-        content=body.content,
+        content=content,
         category_name=category,
         tags=tags,
         ai_confidence=confidence,
@@ -2723,6 +2735,8 @@ def set_entry_privacy(
             status_code=409,
             detail="Unlock the app first: the encryption key isn't loaded.",
         )
+    #: KG4: a private note has no property index; a public one gets it back.
+    manager.reindex_properties(session, entry)
     session.commit()
     session.refresh(entry)
     return _to_out(session, entry)

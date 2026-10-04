@@ -32,6 +32,7 @@ from memorymap.core.database import (
     EntryBookmark,
     EntryDate,
     EntryLink,
+    EntryProperty,
     EntryRevision,
     LINK_TYPE_INVERSES,
     LINK_TYPES,
@@ -239,6 +240,7 @@ def create_entry(
     session.add(entry)
     session.flush()
     record_dates(session, entry)
+    reindex_properties(session, entry)
     log_action(
         session,
         "created",
@@ -578,6 +580,7 @@ def _update_entry_fields(
         # Resolved against *now*, not the original capture: the user is
         # writing "tomorrow" today.
         record_dates(session, entry)
+        reindex_properties(session, entry)
     if changed:
         log_action(
             session,
@@ -620,6 +623,44 @@ def entry_dates_bulk(session: Session, entry_ids: list[int]) -> dict[int, list[E
     ):
         out.setdefault(date.entry_id, []).append(date)
     return out
+
+
+#: How each indexed value is read as a number or a date (KG4).
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?)?$")
+
+
+def reindex_properties(session: Session, entry: Entry) -> None:
+    """Rebuild this note's rows in `EntryProperty` from its text (KG4).
+
+    The text is the truth; this is an index for queries. A private note has
+    no rows (its text is encrypted at rest, and a plain table of its values
+    would leak them), and a note with no block has none. Best effort, like
+    `record_dates`: a note saves whatever happens here.
+    """
+    from memorymap.entry import properties as note_properties
+
+    try:
+        session.execute(delete(EntryProperty).where(EntryProperty.entry_id == entry.id))
+        if entry.is_private or entry.is_deleted:
+            return
+        found, _ = note_properties.split(entry.content or "")
+        for key, values in found.items():
+            for value in values or [""]:
+                number = None
+                when = None
+                text = str(value)[:300]
+                try:
+                    number = float(text) if re.fullmatch(r"-?\d+(?:\.\d+)?", text.strip()) else None
+                except ValueError:
+                    number = None
+                if _ISO_DATE.match(text.strip()):
+                    try:
+                        when = datetime.fromisoformat(text.strip().replace(" ", "T"))
+                    except ValueError:
+                        when = None
+                session.add(EntryProperty(entry_id=entry.id, key=key[:60], value=text, number=number, date=when))
+    except Exception:  # noqa: BLE001  # an index must never cost a save
+        logging.getLogger("memorymap.properties").warning("couldn't index properties for %s", entry.id, exc_info=True)
 
 
 @events.writes("entry", "dated")
@@ -1000,6 +1041,8 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
     session.execute(delete(EntryBookmark).where(EntryBookmark.entry_id.in_(ids)))
     session.execute(delete(EntityMention).where(EntityMention.entry_id.in_(ids)))
     session.execute(delete(NoteScore).where(NoteScore.entry_id.in_(ids)))
+    # KG4: a note's property index is about the note.
+    session.execute(delete(EntryProperty).where(EntryProperty.entry_id.in_(ids)))
     # An eighth, added with the derived facts table (I9): what the app
     # worked out about a note is about the note, so it goes when the note
     # does. Keeping it would also leave the "what the notebook learned"
@@ -2261,7 +2304,10 @@ def plain_label(content: str, limit: int = 80) -> str:
     Images lose their alt text entirely (an image is not what the note *says*),
     links keep their text, and the usual inline emphasis/code markers go.
     """
-    text = (content or "").strip()
+    from memorymap.entry.properties import strip as strip_properties
+
+    #: KG4: a note opening with properties is named by what follows them.
+    text = strip_properties(content or "").strip()
     if not text:
         return ""
     first = ""
@@ -2297,7 +2343,9 @@ def extract_title(content: str) -> str | None:
     second input box fighting the single-box capture flow this app is built
     around).
     """
-    for line in (content or "").splitlines():
+    from memorymap.entry.properties import strip as strip_properties
+
+    for line in strip_properties(content or "").splitlines():
         stripped = line.strip()
         if not stripped:
             continue
@@ -2549,6 +2597,8 @@ def find_by_wiki_name(session: Session, name: str) -> Entry | None:
             or_(
                 Entry.content.ilike(f"{escaped}%", escape=LIKE_ESCAPE),
                 Entry.content.ilike(f"#% {escaped}%", escape=LIKE_ESCAPE),
+                # KG4: a note opening with properties; the name is after them.
+                Entry.content.ilike(f"---%{escaped}%", escape=LIKE_ESCAPE),
             ),
         )
         .order_by(Entry.id)
@@ -2566,8 +2616,11 @@ _HEADING_MARK = re.compile(r"^\s{0,3}#{1,6}\s+")
 
 
 def wiki_opening(content: str | None) -> str:
-    """A note's name for [[links]]: its first line, heading marker stripped."""
-    first = (content or "").strip().split("\n", 1)[0]
+    """A note's name for [[links]]: its first line, heading marker stripped
+    (after its properties block, KG4)."""
+    from memorymap.entry.properties import strip as strip_properties
+
+    first = strip_properties(content or "").strip().split("\n", 1)[0]
     return _HEADING_MARK.sub("", first).strip().lower()
 
 

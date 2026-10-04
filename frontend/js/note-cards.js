@@ -1468,6 +1468,21 @@ function entryItem(entry, options = {}) {
     titleEl.textContent = entry.title;
     li.appendChild(titleEl);
   }
+  //: GRAPH_PLAN KG4: the note's properties, a quiet table under its title
+  //: (the `---` block in its text, which the body below leaves out).
+  const props = Object.entries(entry.properties || {});
+  if (props.length) {
+    const table = document.createElement("dl");
+    table.className = "note-props";
+    for (const [key, values] of props.slice(0, 8)) {
+      const dt = document.createElement("dt");
+      dt.textContent = key;
+      const dd = document.createElement("dd");
+      dd.textContent = (values || []).join(", ").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1") || "–";
+      table.append(dt, dd);
+    }
+    li.appendChild(table);
+  }
 
   const content = document.createElement("p");
   content.className = "entry-content";
@@ -1480,7 +1495,7 @@ function entryItem(entry, options = {}) {
   //: Pictures, sketches and attachment links are shown whole (a thumbnail,
   //: a file chip), so they never count toward "long": a note that is only a
   //: sketch, or a title and a PDF, has nothing hidden to show more of.
-  const textOnly = entry.content
+  const textOnly = stripFrontmatter(entry.content)
     .split("\n")
     .filter((line) => line.trim() && !/^\s*!?\[[^\]]*\]\([^)]*\)\s*$/.test(line))
     .join("\n");
@@ -1494,7 +1509,7 @@ function entryItem(entry, options = {}) {
   //: A clamped card's two lines are text, not the blank line between its
   //: paragraphs (INBOX 458: "Tonight, I have work." then a lone "..."):
   //: folded, the paragraphs run on one line each; opened, the note as written.
-  const body = entry.title ? bodyWithoutTitleLine(entry.content) : entry.content;
+  const body = entry.title ? bodyWithoutTitleLine(entry.content) : stripFrontmatter(entry.content);
   const fillContent = () => renderNoteText(
     content,
     content.classList.contains("entry-clamped") ? body.replace(/\n[ \t\r]*(?:\n[ \t\r]*)+/g, "\n") : body,

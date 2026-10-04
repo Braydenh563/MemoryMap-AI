@@ -1865,7 +1865,7 @@ function appendInline(parent, text) {
 // only when the backend has already said this note has a title, so this
 // never has to decide on its own whether a line "looks like" a heading.
 function bodyWithoutTitleLine(content) {
-  const lines = content.split("\n");
+  const lines = stripFrontmatter(content).split("\n");
   let i = 0;
   while (i < lines.length && lines[i].trim() === "") i++;
   if (i >= lines.length) return content;

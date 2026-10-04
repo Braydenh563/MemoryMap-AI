@@ -2095,8 +2095,15 @@ def build_markdown_export(session: Session) -> bytes:
                 front.append(f"tags: [{', '.join(tags)}]")
             if entry.pinned:
                 front.append("pinned: true")
-            front.append("---")
             readable = manager.readable_content(entry)
+            #: KG4: the note's own properties join the app's in one block.
+            from memorymap.entry import properties as note_properties
+
+            end = note_properties.block_end(readable)
+            if end:
+                front.extend(line for line in readable[:end].rstrip("\n").split("\n")[1:-1] if line.strip())
+                readable = readable[end:].lstrip("\n")
+            front.append("---")
             body = "\n".join(front) + f"\n\n{readable}\n"
             archive.writestr(f"{folder}/{entry.id}-{_slug(readable)}.md", body)
     manager.log_action(session, "exported", "data", detail="markdown")
@@ -2126,26 +2133,40 @@ MAX_IMPORT_BYTES = 1024 * 1024  # a single markdown note, not a novel
 MAX_IMPORT_FILES = 500
 
 
+#: The keys the app reads into its own fields (and writes on export); every
+#: other key stays in the note's text as a property (GRAPH_PLAN KG4).
+_APP_KEYS = {"category", "tags", "created", "updated", "pinned"}
+
+
 def _parse_frontmatter(text: str) -> tuple[dict, str]:
-    """(metadata, body). Understands the small subset this app writes:
-    `category: X` and `tags: [a, b]`. Anything else is left in the body
-    untouched: imports must never eat someone's text."""
-    if not text.startswith("---\n"):
+    """(metadata, content). `category` and `tags` become the note's own
+    fields; `created` and `updated` are the export's and are dropped; every
+    other key stays at the top of the note as its properties (KG4), lines
+    as written, so an imported vault keeps them. Imports must never eat
+    someone's text."""
+    from memorymap.entry import properties as note_properties
+
+    end = note_properties.block_end(text)
+    if not end:
         return {}, text
-    end = text.find("\n---\n", 4)
-    if end == -1:
-        return {}, text
+    found, body = note_properties.split(text)
     meta: dict = {}
-    for line in text[4:end].splitlines():
-        if ":" not in line:
-            continue
-        key, _, value = line.partition(":")
-        key, value = key.strip().lower(), value.strip()
-        if key == "category" and value:
-            meta["category"] = value
-        elif key == "tags":
-            meta["tags"] = [t.strip() for t in value.strip("[]").split(",") if t.strip()]
-    return meta, text[end + 5 :].lstrip("\n")
+    if found.get("category"):
+        meta["category"] = found["category"][0]
+    if "tags" in found:
+        meta["tags"] = [t for t in found["tags"] if t]
+    kept: list[str] = []
+    skipping = False
+    for line in text[:end].rstrip("\n").split("\n")[1:-1]:
+        head = line.partition(":")[0].strip().lower()
+        if line[:1] not in (" ", "\t", "-") and ":" in line:
+            skipping = head in _APP_KEYS
+        if not skipping:
+            kept.append(line)
+    body = body.lstrip("\n")
+    if any(line.strip() for line in kept):
+        return meta, "---\n" + "\n".join(kept) + "\n---\n" + body
+    return meta, body
 
 
 

@@ -586,6 +586,44 @@ class RelationType(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class EntryProperty(Base):
+    """One value of one property of one note (GRAPH_PLAN KG4): an index of
+    the `---` block at the top of the note's text, which is the truth, rebuilt
+    on every save (`manager.reindex_properties`). A list property is a row per
+    value. `number` and `date` are the value read as one, when it reads, so a
+    query can compare them; a private note has no rows at all."""
+
+    __tablename__ = "entry_properties"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
+    key: Mapped[str] = mapped_column(String(60), index=True)
+    value: Mapped[str] = mapped_column(String(300), default="")
+    number: Mapped[float | None] = mapped_column(Float, default=None)
+    date: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+
+
+#: What a note type's field can hold (KG4): the shape a value is read as and
+#: the control the property table draws for it.
+NOTE_FIELD_KINDS = ("text", "number", "date", "note", "list", "checkbox")
+
+
+class NoteType(Base):
+    """A kind of note with its own fields (KG4): "Meeting" with attendees and
+    a date. A note is of a type when its properties say `type: Meeting`; a
+    new note of a type starts with the type's fields in its block."""
+
+    __tablename__ = "note_types"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(60), unique=True)
+    icon: Mapped[str | None] = mapped_column(String(30), default=None)
+    colour: Mapped[str | None] = mapped_column(String(16), default=None)
+    #: `[{"name": ..., "kind": one of NOTE_FIELD_KINDS}]`, in order.
+    fields: Mapped[list | None] = mapped_column(JSON(none_as_null=True), default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
 #: The kinds of connection a link can carry, and what each one means.
 #:
 #: `contradicts` is the one worth having built this for: a notebook that can

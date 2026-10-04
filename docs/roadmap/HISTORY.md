@@ -38867,3 +38867,32 @@ Kinds of link in the palette (`openRelationTypesSheet`). Done-when measured:
 backup with "Has part" on the whole; `scratchpad/ui-sweeps/kg3types.js` 8/8 at
 1440 light and 390 dark. Not verified: the agent's own link tool still offers
 the six built-ins only.
+
+### From GRAPH_PLAN.md: KG4, note properties and note types
+
+`entry/properties.py`: `block_end` (the documents' fence rule: line one,
+closed within 200 lines), `split` (read with `core/docmeta.properties`),
+`strip`, `write` (rewrites the block, copies every character after it,
+quotes a value that would not read back) and `note_type`. The block is never a
+name: `plain_label`, `extract_title`, `wiki_opening` (and
+`find_by_wiki_name`'s narrowing), `note_names`, `_preview`, and in the page
+`stripFrontmatter` under `notePreviewText` and `bodyWithoutTitleLine`.
+`EntryProperty` (a row per value, `number` and `date` when it reads as one)
+is rebuilt by `manager.reindex_properties` on create, on a content edit and on
+a privacy change; a private note has none; the hard delete and a space's
+purge remove them. `NoteType` (name, icon, colour, fields of text, number,
+date, note, list, checkbox). `routes_properties`: GET and PUT
+`/entries/{id}/properties` (the PUT saves through `update_entry`, conflict
+guard included) and `/note-types` CRUD; `EntryCreate.note_type` writes
+`type:` and the fields first. Import keeps a vault's other keys at the top of
+the note (category and tags become fields, created, updated and pinned are
+the export's); the Markdown export writes one block. `EntryOut` carries
+`properties` and `note_type`. The page: a `.note-props` table under a card's
+title, Properties in the note's ⋯ and Note types in the palette
+(`note-properties.js`, the inbox's lazy bundle). Migration d9b2e6f4a1c7.
+Measured: `tests/test_note_properties_kg4.py` 10 tests (a vault's file imports
+with status and owner as properties; a Meeting note starts with its fields);
+`scratchpad/ui-sweeps/kg4props.js` 9/9 at 1440 light and 390 dark. Not
+verified: the document editor's own frontmatter panel is unchanged and does
+not read note types; a note field is a `[[link]]` written into the block,
+resolved by the wiki sync, not a picker that searches.

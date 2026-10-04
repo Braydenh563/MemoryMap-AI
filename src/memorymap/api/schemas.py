@@ -56,6 +56,8 @@ MAX_NOTE_CONTENT = 500_000
 class EntryCreate(BaseModel):
     content: str = Field(min_length=1, max_length=MAX_NOTE_CONTENT, description="The thought to store")
     tags: list[str] = Field(default_factory=list, max_length=200)
+    #: GRAPH_PLAN KG4: a note type's name; its fields are written at the top.
+    note_type: str | None = Field(default=None, max_length=60)
 
     @field_validator("tags")
     @classmethod
@@ -220,6 +222,10 @@ class EntryOut(BaseModel):
     #: The hash of `content` (api/edit_conflicts.py): an editor sends it back
     #: as `base_hash` so a save over a newer text is refused, not lost.
     content_hash: str = ""
+    #: GRAPH_PLAN KG4: the `---` block at the top of the note, read, and the
+    #: type it names (`type:`), if any.
+    properties: dict[str, list[str]] = Field(default_factory=dict)
+    note_type: str | None = None
     # A note's own leading `# Heading`, if it wrote one, not a stored,
     # separately-edited field. Editing the title is editing that line, the
     # same as editing any other line of the note; there's no second field to

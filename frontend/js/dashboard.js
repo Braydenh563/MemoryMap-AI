@@ -1311,6 +1311,7 @@ function featureCatalog() {
       { name: "Suggested links", desc: "Atlas proposes connections between related notes.", reveal: "graph-suggest" },
       { name: "People and things", desc: "Everyone and everything your notes name, each with its own page.", reveal: "entities" },
       { name: "Kinds of link", desc: "Say what a link is (Part of, Cites, your own), with its name from the other end.", reveal: "relation-types" },
+      { name: "Note types", desc: "Meeting, Book, your own: a kind of note with its fields, kept at the top of each note.", reveal: "note-types" },
       { name: "Timeline", desc: "Everything you have made, in order, as a grid or a branching line.", tab: "timeline" },
       { name: "Zoom the timeline", desc: "By day, week, month or year, with a jump back to today.", reveal: "timeline-zoom" },
       { name: "Timeline bands", desc: "Group the timeline by category, tag or kind of thing.", reveal: "timeline-bands" },

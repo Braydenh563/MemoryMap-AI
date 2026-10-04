@@ -1155,6 +1155,26 @@ HELP_TOPICS.extend(
             ),
             "badge": {"label": "Graph", "tab": "graph"},
         },
+        #: GRAPH_PLAN KG4: note properties and note types.
+        {
+            "id": "properties",
+            "keywords": (
+                "property", "properties", "frontmatter", "yaml", "note type",
+                "note types", "fields", "field", "status", "metadata",
+            ),
+            "body": (
+                "A note can carry properties (status: open, owner: Priya), kept "
+                "at the top of its own text between two --- lines, the way "
+                "Obsidian writes them, so an imported vault keeps them and an "
+                "export carries them. They show as a small table under the "
+                "note's title. A note's ⋯ has Properties: add, change or remove "
+                "one, or pick a Type, and Save rewrites only those lines. Note "
+                "types in the command palette makes a kind of note (Meeting: "
+                "attendees, date) with fields that are text, a number, a date, a "
+                "list, yes/no or another note; its New note starts with them."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
         #: GRAPH_PLAN KG5: the entity layer, its page and its list.
         {
             "id": "entities",

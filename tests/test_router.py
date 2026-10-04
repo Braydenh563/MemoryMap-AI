@@ -114,3 +114,44 @@ def test_opening_a_note_gives_it_an_address():
     flash = body[body.index("function flashEntry(") :]
     flash = flash[: flash.index("\n}\n")]
     assert 'recordTabVisit("notes", `note:${id}`' in flash
+
+
+# "Copy app link" (INBOX 483): one address table for entry-to-hash and
+# kind-and-id-to-hash, one helper that copies the full address.
+OBJECT_CASES = [
+    ("note", 12, "#/notes/12"),
+    ("chat", 45, "#/chat/45"),
+    ("document", 7, "#/docs/7"),
+    ("board", 3, "#/library/board/3"),
+    ("map", 3, "#/library/board/3"),
+    ("graph", 9, "#/graph/focus/9"),
+]
+
+
+def _run_for(expr: str):
+    script = _functions("routeHash", "routeEntry", "routeHashFor") + f"\nprocess.stdout.write(JSON.stringify({expr}));"
+    out = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout
+    return json.loads(out)
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+@pytest.mark.parametrize(("kind", "ident", "hash_"), OBJECT_CASES)
+def test_an_object_has_an_address_the_router_opens(kind, ident, hash_):
+    assert _run_for(f"routeHashFor({json.dumps(kind)}, {ident})") == hash_
+    # The address a menu copies must be one a pasted link opens.
+    assert _run_for(f"routeEntry(routeHashFor({json.dumps(kind)}, {ident}))") is not None
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+@pytest.mark.parametrize(("kind", "ident"), [("nowhere", 1), ("note", "abc"), ("note", ""), ("chat", "1/2"), ("note", None)])
+def test_a_kind_or_id_with_no_address_gives_none(kind, ident):
+    assert _run_for(f"routeHashFor({json.dumps(kind)}, {json.dumps(ident)})") == ""
+
+
+def test_the_copy_helper_writes_the_full_address_through_the_shared_clipboard_helper():
+    router = ROUTER.read_text(encoding="utf-8")
+    helper = router[router.index("async function copyObjectAddress(") :]
+    helper = helper[: helper.index("\n}\n")]
+    assert "location.origin + location.pathname + hash" in helper
+    assert "copyToClipboard(" in helper and "toast(" in helper
+

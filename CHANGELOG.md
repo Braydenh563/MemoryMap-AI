@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The router has one table of addressable objects (`ROUTE_OBJECTS`) behind `routeHash` and the new `routeHashFor(kind, id)`, and `copyObjectAddress(kind, id)` copies an object's full address (origin, path and hash) through the shared clipboard helper and toasts "Link copied" (INBOX 483, the helper the Copy app link rows use).
 - Notes: the x on a suggested tag, a link or any chip that ends in one is drawn as a cross centred on its target, quiet at rest, red with its disc on hover; it was a font glyph nudged by hand inside a grey disc.
 - Settings and Help: an open section's arrow points down again; since this morning's one-marker change every one of 109 folds kept it pointing right.
 - The messages the server computes for a toast now read as plain sentences (INBOX 472, the 45 computed `detail` routes): install hints name what to install in Settings, Packages instead of a `pip` line, an AI failure in Improve, Title, chat summary and Models is one sentence with the provider's text in the log, a damaged backup restore answers 422 with a sentence instead of a bare 500, and `tests/test_core_message_wording.py` checks the sources of those messages (and that no route shows a raw exception)

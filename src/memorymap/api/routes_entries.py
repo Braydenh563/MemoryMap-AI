@@ -17,7 +17,7 @@ from collections import OrderedDict
 from types import SimpleNamespace
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -59,6 +59,7 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
 from memorymap.core.database import LIKE_ESCAPE
 from memorymap.core.deps import get_session
 from memorymap.entry import duplicates, manager
+from memorymap.entry import properties as note_properties
 from memorymap.entry.tagnames import inline_tags, normalise_tags
 from memorymap.search import engine as search_engine
 from memorymap.search import search_manager
@@ -75,7 +76,9 @@ def _preview(text: str, length: int = 60) -> str:
     the words without the brackets, seeing "[[bread proving]]" on a link chip
     that already means "linked to bread proving" is just noise.
     """
-    plain = manager.WIKI_LINK.sub(r"\1", text or "")
+    from memorymap.entry.properties import strip as strip_properties
+
+    plain = manager.WIKI_LINK.sub(r"\1", strip_properties(text or "").lstrip())
     return plain if len(plain) <= length else plain[: length - 1] + "…"
 
 
@@ -114,6 +117,9 @@ def _to_out(
         content=content,
         content_hash=content_hash(content),
         title=manager.extract_title(content),
+        #: KG4: what the note's `---` block says, and its type.
+        properties=(props := note_properties.split(content)[0]),
+        note_type=note_properties.note_type(props),
         category=(
             manager.category_name_for(session, entry) if category_name is None else category_name
         ),
@@ -153,6 +159,11 @@ def _to_out(
                 # The one fact the merged list could never carry. See
                 # `LinkOut.direction`.
                 direction="out" if link.source_entry_id == entry.id else "in",
+                link_type=link.link_type,
+                link_label=manager.link_label(
+                    manager.relation_types(session), link.link_type, link.source_entry_id == entry.id
+                ),
+                props=link.props,
             )
             for link, other in resolved_links
         ],
@@ -591,9 +602,15 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         category, confidence, filed_by = _file_entry_now(session, body.content)
 
     tags = normalise_tags([*body.tags, *inline_tags(body.content)]) if body.inline_tags else body.tags
+    content = body.content
+    if body.note_type:
+        #: KG4: a new note of a type starts with the type's fields.
+        from memorymap.api.routes_properties import with_type_fields
+
+        content = with_type_fields(session, content, body.note_type)
     entry = manager.create_entry(
         session,
-        content=body.content,
+        content=content,
         category_name=category,
         tags=tags,
         ai_confidence=confidence,
@@ -1323,6 +1340,42 @@ MAX_SUGGESTIONS_PER_NOTE = 2
 SEMANTIC_LIST_LIMIT = 25
 
 
+#: KG7: the table view's columns, and its rows, at most.
+QUERY_COLUMNS_MAX = 8
+QUERY_ROWS_MAX = 500
+
+
+@router.get("/query")
+def query_entries(q: str = "", session: Session = Depends(get_session)) -> dict:
+    """The notes a live query matches (GRAPH_PLAN KG7, `entry/query.py`),
+    newest first, with the table view's columns (the properties they carry,
+    most common first, `type` leading) and rows. The Notes list, the table
+    and the graph all take these ids, so one query is one answer."""
+    from memorymap.entry import query as live_query
+
+    terms = live_query.parse(q)
+    if not terms:
+        return {"ids": [], "columns": [], "rows": [], "structural": False}
+    ids = live_query.run(session, q)
+    rows = []
+    counts: dict[str, int] = {}
+    shown = ids[:QUERY_ROWS_MAX]
+    entries = {e.id: e for e in session.scalars(select(Entry).where(Entry.id.in_(shown)))} if shown else {}
+    for entry_id in shown:
+        entry = entries[entry_id]
+        content = manager.readable_content(entry)
+        found = {} if entry.is_private else note_properties.split(content)[0]
+        for key in found:
+            counts[key] = counts.get(key, 0) + 1
+        rows.append({
+            "id": entry_id,
+            "title": manager.extract_title(content) or manager.plain_label(content, 60) or "Untitled note",
+            "properties": found,
+        })
+    columns = sorted(counts, key=lambda k: (k != "type", -counts[k], k))[:QUERY_COLUMNS_MAX]
+    return {"ids": ids, "columns": columns, "rows": rows, "structural": live_query.is_structural(terms)}
+
+
 @router.get("/link-suggestions")
 def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     """Pairs of notes that mean similar things but aren't linked yet: 
@@ -1564,11 +1617,14 @@ def accept_tension(body: TensionPair, session: Session = Depends(get_session)) -
         reason="these disagree with each other",
         link_type="contradicts",
     )
+    #: KG9: the inbox's decisions are corrections like every other kind.
+    learning.record(session, kind="accept_tension", subject={"a": earlier.id, "b": later.id})
+    session.commit()
     return {"created": link is not None}
 
 
 @router.post("/tensions/dismiss")
-def dismiss_tension(body: TensionPair) -> dict:
+def dismiss_tension(body: TensionPair, session: Session = Depends(get_session)) -> dict:
     """Stop offering this pair. Remembered across restarts.
 
     Capped, and oldest-first: without a cap this preference would grow
@@ -1582,6 +1638,8 @@ def dismiss_tension(body: TensionPair) -> dict:
         stored.append(key)
     del stored[:-500]
     config.set_preference(TENSION_DISMISSED_KEY, stored)
+    learning.record(session, kind="dismiss_tension", subject={"a": body.earlier_id, "b": body.later_id})
+    session.commit()
     return {"dismissed": key}
 
 
@@ -2251,6 +2309,49 @@ class LinkBody(BaseModel):
     # unrecognised value is stored as null rather than rejected, see
     # manager.create_link on why a typo should not cost you the link.
     link_type: str | None = Field(default=None, max_length=24)
+    #: How sure the suggestion was, kept with a `reason` its signals wrote
+    #: (GRAPH_PLAN KG9). Ignored without a reason.
+    reason_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    #: GRAPH_PLAN KG3: the link's own properties.
+    props: dict | None = None
+
+    @field_validator("props")
+    @classmethod
+    def _props_shape(cls, value: dict | None) -> dict | None:
+        return check_link_props(value)
+
+
+#: A link's properties: a few short scalar values, never a document.
+LINK_PROPS_MAX = 20
+
+
+def check_link_props(value: dict | None) -> dict | None:
+    if value is None:
+        return None
+    if len(value) > LINK_PROPS_MAX:
+        raise ValueError(f"A link holds {LINK_PROPS_MAX} properties at most.")
+    out = {}
+    for key, item in value.items():
+        key = " ".join(str(key).split())[:40]
+        if not key:
+            raise ValueError("A property needs a name.")
+        if item is not None and not isinstance(item, (str, int, float, bool)):
+            raise ValueError("A property is a word, a number or yes/no, not a list or a group.")
+        out[key] = item[:200] if isinstance(item, str) else item
+    return out
+
+
+class LinkPatchBody(BaseModel):
+    #: A kind (built-in or custom), or null for none. Unlike creation, a bad
+    #: name here is refused: changing a link's type is the whole request.
+    #: Only the fields sent change.
+    link_type: str | None = Field(default=None, max_length=24)
+    props: dict | None = None
+
+    @field_validator("props")
+    @classmethod
+    def _props_shape(cls, value: dict | None) -> dict | None:
+        return check_link_props(value)
 
 
 class LinkReasonBody(BaseModel):
@@ -2698,6 +2799,8 @@ def set_entry_privacy(
             status_code=409,
             detail="Unlock the app first: the encryption key isn't loaded.",
         )
+    #: KG4: a private note has no property index; a public one gets it back.
+    manager.reindex_properties(session, entry)
     session.commit()
     session.refresh(entry)
     return _to_out(session, entry)
@@ -2824,6 +2927,12 @@ def entry_connections(entry_id: int, session: Session = Depends(get_session)) ->
             **_connection_cue(session, other),
             "reason": link.reason,
             "reason_confidence": link.reason_confidence,
+            #: KG3: the kind, named from this end, and the link's properties.
+            "link_type": link.link_type,
+            "link_label": manager.link_label(
+                manager.relation_types(session), link.link_type, link.source_entry_id == entry.id
+            ),
+            "props": link.props,
         }
         (outgoing if link.source_entry_id == entry.id else incoming).append(row)
 
@@ -3007,7 +3116,8 @@ def create_link(
     source = _existing_entry(session, entry_id)
     target = _existing_entry(session, body.target_id)
     link = manager.create_link(
-        session, source, target, reason=body.reason, link_type=body.link_type
+        session, source, target, reason=body.reason, link_type=body.link_type,
+        reason_confidence=body.reason_confidence, props=body.props,
     )
     if link is None:
         # Three refusals share one return value, so the message names the one
@@ -3033,6 +3143,25 @@ def delete_link(
     if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
         raise HTTPException(status_code=404, detail="That link could not be found.")
     manager.delete_link(session, link)
+    return _to_out(session, entry)
+
+
+@router.patch("/{entry_id}/links/{link_id}", response_model=EntryOut)
+def patch_link(
+    entry_id: int, link_id: int, body: LinkPatchBody, session: Session = Depends(get_session)
+) -> EntryOut:
+    """Change a link's type (GRAPH_PLAN KG9) or its properties (KG3)."""
+    entry = _existing_entry(session, entry_id)
+    link = session.get(EntryLink, link_id)
+    if link is None or entry.id not in (link.source_entry_id, link.target_entry_id):
+        raise HTTPException(status_code=404, detail="That link could not be found.")
+    sent = body.model_fields_set
+    if "link_type" in sent:
+        if body.link_type is not None and not manager.is_link_type(session, body.link_type):
+            raise HTTPException(status_code=422, detail="That isn't a kind of link this notebook knows.")
+        manager.set_link_type(session, link, body.link_type)
+    if "props" in sent:
+        manager.set_link_props(session, link, body.props)
     return _to_out(session, entry)
 
 

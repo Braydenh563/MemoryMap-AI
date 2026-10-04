@@ -611,10 +611,6 @@ function initSpaceSwitcher() {
     });
   }
 
-  // Tensions: the review's own start button. `data-close-dialog` above
-  // already wires its Close.
-  $("tensions-run")?.addEventListener("click", runTensionReview);
-
   $("space-create-submit")?.addEventListener("click", async () => {
     const name = $("space-create-name").value.trim();
     const error = $("space-create-error");

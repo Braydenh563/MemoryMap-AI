@@ -732,8 +732,22 @@ function clipText(text, limit) {
   return `${(soft.length >= limit / 2 ? soft : hard).replace(/[\s,.;:!?-]+$/, "")}…`;
 }
 
+//: GRAPH_PLAN KG4: a note's `---` properties block is never its words (the
+//: server's `entry/properties.block_end`: line one, closed within 200 lines).
+function stripFrontmatter(text) {
+  const source = String(text || "");
+  if (!/^---[ \t]*(\n|$)/.test(source)) return source;
+  const lines = source.split("\n");
+  let at = lines[0].length + 1;
+  for (let i = 1; i < Math.min(lines.length, 201); i++) {
+    if (/^---[ \t]*$/.test(lines[i])) return source.slice(at + lines[i].length + 1);
+    at += lines[i].length + 1;
+  }
+  return source;
+}
+
 function notePreviewText(content) {
-  return (content || "")
+  return stripFrontmatter(content || "")
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/\[\[([^[\]]{1,120})\]\]/g, "$1")
     .replace(

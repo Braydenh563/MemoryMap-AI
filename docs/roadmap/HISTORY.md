@@ -38781,6 +38781,185 @@ loaded by four agents; 168 to 270 ms/s for the same masculine walk).
 
 ## Moved from the plans, 2026-10-04 (the knowledge graph, INBOX 528)
 
+### From GRAPH_PLAN.md: the knowledge graph's spec, moved whole once KG1 to KG9 were built
+
+The section's research and design as written before the build; each phase's
+Built block follows. Kept for the reasons and the done-whens, which the
+blocks below were measured against.
+
+#### (a) What exists (read in the code, 2026-10-04)
+
+| Layer | Where | What it is | Gap |
+| --- | --- | --- | --- |
+| Links | `core/database.py` `EntryLink` | source, target, `reason` (free text), `reason_confidence` (deduced only), `link_type` (closed set of six, `LINK_TYPES`), `origin` ("wiki" or null); `link_strength` weights paths | no properties on a link; no inverse names; a type is undirected in the UI |
+| Wiki links | `entry/manager.py` `sync_wiki_links`, `find_by_wiki_name`, `resolve_links_to`, `rewrite_wiki_name` | `[[name]]` resolves by vault stem then opening line; stale wiki links removed; rename rewrites holders | no aliases; ghosts only on the graph (`routes_graph._add_unresolved_nodes`) |
+| Backlinks | `routes_entries._reference_rows_batch`, `/entries/{id}/connections`, `/references` | incoming notes, "links to it" vs "mentions it" | **no context sentence, no one-click link** for a note (documents have both: `routes_documents._backlinks`, `documents.js` `docLinkMention`) |
+| Threads | `Entry.parent_id` | reply chains, a graph edge kind | fine |
+| Entities | `ai/entities.py` `extract_entities_pass`, `Entity`, `EntityMention`, `routes_graph._add_entity_nodes` | free-text names from the utility model, membership only | no kind, no aliases, no merge, no entity page, no co-mention edge |
+| Dates | `EntryDate` | resolved relative phrases | not a node or a relation |
+| Facts | `DerivedFact` (claim, question) | spans with provenance and lifecycle | not linked to relations |
+| Documents, maps, tags, attachments | `routes_graph._add_document_nodes`, `_add_map_edges`, `_add_tag_nodes`, `_add_attachment_nodes` | opt-in node kinds | fine |
+| Categories, spaces | `Category`, `Space` | one category per note; spaces scope | no per-type fields |
+| Similarity | `routes_graph._similarity_edges` (k=2 per note), `search_engine.cached_similar_pairs` | cosine over stored vectors, cached per matrix version | one signal, one reason string |
+| Suggestions | `routes_entries.link_suggestions` (12 pairs, similarity only), `/tensions` (contradiction via local model), `learning` `dismiss_link` | accept or dismiss | **one signal**, and none at all with embeddings off; no co-mention, co-citation or time; no accept learning |
+| Structure | `paths.clusters` (connected components, a decision), `hubs`, `orphans`, `pagerank`, `/graph/structure` cached | exact islands | no topics inside an island, no names, no summaries |
+| Paths | `/graph/path`, `paths.find_many` | weighted Dijkstra with a per-hop phrase | the phrase is the link reason only |
+| Properties | `core/docmeta.py` (documents' frontmatter, read-only) | none for notes | no fields, no types, no queries |
+| Saved searches | `routes_settings` `saved_searches`, graph groups | text queries, colour groups | no property or relation operators |
+
+#### (b) Research (what each does that matters here)
+
+- **Obsidian**: a backlinks pane with linked and unlinked mentions, each
+  with its sentence, and a one-click Link
+  ([Backlinks](https://help.obsidian.md/plugins/backlinks)); properties as
+  typed YAML frontmatter ([Properties](https://help.obsidian.md/properties));
+  Bases, table, cards and list views over properties with filters and
+  formulas ([Bases syntax](https://help.obsidian.md/bases/syntax)); Dataview
+  (community); Canvas; graph groups by query
+  ([Graph view](https://help.obsidian.md/plugins/graph)). Edges are untyped;
+  nothing is inferred.
+- **Notion**: relation properties between database rows, two-way with a
+  named inverse; rollups compute over related rows
+  ([Relations and rollups](https://www.notion.com/help/relations-and-rollups)).
+  No graph, no inference, no unlinked mentions.
+- **Logseq**: block references and embeds, linked and unlinked references
+  per page, queries over properties and tags ([docs](https://docs.logseq.com/)).
+- **Tana**: supertags make a node a typed object with fields; search nodes
+  are live queries over tags and field values
+  ([Supertags](https://tana.inc/docs/supertags), [Fields](https://www.tana.inc/docs/fields),
+  [Search nodes](https://tana.inc/search-nodes)).
+- **Heptabase, Capacities**: object types (Person, Book, Meeting) with their
+  own properties and pages; Heptabase draws only explicit relations and
+  lists inferred ones beside the card.
+- **Knowledge-graph tooling (GraphRAG)**: model-extracted entities and typed
+  relations with descriptions, Leiden communities, a precomputed summary per
+  community ([overview](https://www.mintlify.com/microsoft/graphrag/concepts/overview)).
+  On a small local model the extraction is the expensive, unreliable half
+  and the community pass the cheap, reliable one, which sets the order here.
+
+#### (c) Gap table
+
+| Capability | Obsidian | Notion | Here before | Target |
+| --- | --- | --- | --- | --- |
+| Backlinks with the sentence | yes | no | documents only | notes too (KG1) |
+| Unlinked mentions, one-click link | yes | no | documents only | notes too (KG1) |
+| Inferred relations with reasons | no | no | similarity only | five signals, each with reason and confidence (KG2) |
+| Typed directional relations | no | two-way relations | six types, no inverse, no properties | custom types, inverse names, properties (KG3) |
+| Note types with fields | properties | databases | none | types with field templates over frontmatter (KG4) |
+| Entities | no | no | names only | kinds, aliases, merge, entity page, co-mention (KG5) |
+| Communities and summaries | no | no | components only | named topics inside islands, model summary (KG6) |
+| Live queries | Dataview, Bases | filters, rollups | text saved searches | property and relation queries, as list, table and graph (KG7) |
+| Graph by relation type, hulls, path why | partial | no | partial | all three (KG8) |
+| A suggestions inbox that learns | no | no | dismiss only | one inbox; accept and reject reweight signals (KG9) |
+
+#### (d) Target design (storage, recognition and cost, API, UI recipe, done-when)
+
+**KG1. Backlinks with context; unlinked mentions to one-click links.**
+Storage: none (read from text). Recognition: the documents scanner moves to
+`entry/mentions.py` (`sentence_around`, `backlink_spans`) and is searched for
+the note's name (opening line, heading marker off); one LIKE narrows, the
+regex decides. Cost: one LIKE over notes and documents, 400 sources at most.
+API: `GET /entries/{id}/backlinks` (`links`, `mentions`, each with `context`,
+`hit_start`, `hit_end`, `start`, `end`); `POST /entries/{id}/mentions/link`
+(`kind`, `id`, `start`, `end`) re-checks the span on the server, rewrites it
+to `[[name]]` and saves through the manager (revision, wiki sync, event). UI:
+two connection groups in the Notes rail, rows on the `.doc-backlink` recipe
+with a `smallButton` Link. Done when: one click turns a mention into a
+stored wiki link and it leaves the mentions list; a moved span answers 409
+and writes nothing.
+
+**KG2. Relationship recognition with explanations.** Storage: none new;
+reads `EntryLink`, `EntityMention`, tags, `created_at`, vectors. Signals,
+each a reason sentence and a 0..1 confidence: similarity (the cached pairs);
+co-mention (shared entities, IDF weighted); co-citation (shared link
+neighbours, Adamic-Adar); shared rare tags (IDF weighted, hub tags out);
+written close in time (support only, never alone). Combined as a noisy-or,
+ranked, one note anchoring two at most. Cost: linear in links and mentions,
+except co-citation, the sum of degree squared. API: `/entries/link-suggestions`
+rows gain `signals: [{signal, reason, confidence}]` and `confidence`, and the
+list is no longer empty with embeddings off. UI: the suggestions panel lists
+the reasons. Done when: a pair joined by two shared entities and a shared
+neighbour is suggested, with both reasons, with the embedding backend off;
+2k notes well under a second, measured.
+
+**KG3. Typed directional relations with properties.** Storage:
+`relation_types` (name, inverse, directed, colour, built_in); `EntryLink`
+gains `props` (JSON text, ADD COLUMN). The six built-ins stay; a person adds
+"part of / has part", "cites / cited by". Recognition: on accept, the
+utility model may propose a type (one call, optional). API:
+`/relation-types` CRUD; link create and patch take `link_type` and `props`.
+UI: the link menu's type picker (`kebabMenu`), the inverse name on the
+incoming row. Done when a custom type survives a backup round trip and shows
+its inverse name.
+
+**KG4. Note types with fields.** Storage: the note's text is the source of
+truth (a `---` frontmatter block, Obsidian-compatible, so an imported vault
+keeps its properties); `entry_properties` (entry_id, key, value, number,
+date) is an index rebuilt on save; `note_types` (name, icon, colour, fields
+JSON: text, number, date, note, list, checkbox); a `type:` property assigns
+one. Cost: a parse per save. API: `/note-types` CRUD,
+`/entries/{id}/properties`. UI: a property table under the note title
+(`.settings-row`), relation fields as note pickers. Done when a vault's
+frontmatter imports as properties and a type adds its fields to a new note.
+
+**KG5. Entity layer.** Storage: `Entity` gains `kind` (person, place,
+project, organisation, thing), `aliases` (JSON), `merged_into`.
+Recognition: the extraction prompt asks for `name|kind`; exact and alias
+matches merge on their own, near matches (token-sort ratio 0.9 or more) go
+to KG9 as merge suggestions. An entity page: mentions with context (KG1's
+scanner), co-mentioned entities, its dates. Done when "Sam" and "Sam Lee"
+merge and every mention follows.
+
+**KG6. Topics and summaries.** Cached per fingerprint like
+`/graph/structure`. Label propagation inside each component (seeded, in id
+order), named by the top IDF tags, entities and title words; a local-model
+summary per topic on demand, cached by its members. Components stay the
+clusters (the 2026-09 decision stands); topics are a labelled second layer.
+Cost: O(edges x iterations). API: `/graph/structure?topics=1`. UI: hulls on
+the canvas, legend chips. Done when a two-topic fixture splits into two
+named topics.
+
+**KG7. Saved live queries.** A grammar in the search box: `type:meeting`,
+`prop:status=open`, `links:[[X]]`, `rel:contradicts`, `entity:"Sam"`,
+`tag:x`, `-` negates. Stored with saved searches; results as a list, a table
+(properties as columns) and a graph filter. Done when one query gives the
+list, the table and the graph the same ids.
+
+**KG8. Graph filters and path explanations.** Filter chips by relation type
+and property; topic hulls; every `/graph/path` hop says each KG2 signal that
+joins the pair, not only the link reason.
+
+**KG9. A suggestions inbox that learns.** One sheet: link suggestions,
+tensions, entity merges, type suggestions. Accept writes the link with
+`reason` and `reason_confidence` from the signals and records `accept_link`;
+reject records `dismiss_link`; each signal's weight moves with its
+acceptance rate (Laplace smoothed, bounded 0.5x to 1.5x).
+
+#### (e) Phases, build order
+
+1. KG1, backlinks with context and one-click mentions: built 2026-10-04,
+   moved to HISTORY.md ("Moved from the plans, 2026-10-04 (the knowledge
+   graph, INBOX 528)").
+2. KG2, multi-signal recognition with explanations: built 2026-10-04, moved
+   to HISTORY.md (the same section as KG1).
+3. KG9, the inbox and accept learning: built 2026-10-04, both parts moved
+   to HISTORY.md (the same section as KG1).
+4. KG5, entity kinds, aliases, merge, entity page: built 2026-10-04, moved
+   to HISTORY.md (the same section as KG1).
+5. KG6, topics, names, hulls, summaries: built 2026-10-04, both parts
+   moved to HISTORY.md (the same section as KG1).
+6. KG3, relation types with inverses and properties: built 2026-10-04,
+   moved to HISTORY.md (the same section as KG1).
+7. KG4, properties and note types: built 2026-10-04, moved to HISTORY.md
+   (the same section as KG1).
+8. KG7, live queries: built 2026-10-04, moved to HISTORY.md (the same
+   section as KG1).
+9. KG8, graph filters and path explanations: built 2026-10-04, both parts
+   moved to HISTORY.md (the same section as KG1).
+
+One Opus session each, tests first, measured on a 2k fixture.
+
+
 ### From GRAPH_PLAN.md: KG1, backlinks with context and one-click mentions
 
 The scanner `routes_documents` used for a document's backlinks moved whole to
@@ -38876,3 +39055,172 @@ Trace's connector shows `+N` and its title lists them. Measured:
 `tests/test_path_explain_kg8.py` 4 tests; `scratchpad/ui-sweeps/kg8trace.js`
 4/4 (one hop, "+2", both reasons on hover, nothing sideways). Left in
 GRAPH_PLAN: filter chips by relation type and property (needs KG3 and KG4).
+
+### From GRAPH_PLAN.md: KG9 part two, one suggestions sheet
+
+`openSuggestionsInbox(kind)` (suggestions-inbox.js, a lazy bundle) is one
+`openSheet` with a `.seg` of four kinds and their counts: Links (the
+`/entries/link-suggestions` rows, moved whole from the graph's panel, which is
+gone), Tensions (the review moved whole from its dialog, which is gone; still
+started by hand), Names and Link types (`GET /suggestions`, `ai/inbox.py`,
+`api/routes_inbox.py`). Names: the same words in another case (0.95), a first
+name inside a full name ("Sam" in "Sam Lee", 0.6, times 0.7 when the short
+name sits in several), a near spelling (token-sort ratio 0.9 or more, never
+across differing digits), plus named together in a note (0.5); blocks, not
+every pair (5,000 names well under a second). Merge moves every mention, keeps
+the other name as an alias and marks it `merged_into`, and extraction follows
+both (`_find_or_create_entity`). Link types: a cue word in the link's own
+sentence (the source's `[[name]]` or name) or a reason a person wrote, one
+type only. Each decision is a correction (`accept_merge`, `dismiss_merge`,
+`accept_link_type`, `dismiss_link_type`, and now `accept_tension` and
+`dismiss_tension` from the tension routes); `signal_weights` takes the kinds
+and a `prior` (3 for the inbox, so one dismissal does not silence a cue). A
+link accepted from its structural reasons keeps their confidence
+(`reason_confidence` on create). `PATCH /entries/{id}/links/{link_id}` sets a
+type. Entities gain `kind`, `aliases` and `merged_into` (migration
+b8e4f2a6c9d1). Measured: `tests/test_suggestions_inbox_kg9.py` 16 tests;
+`scratchpad/ui-sweeps/kg9inbox.js` 15/15 at 1440 and 390, light and dark, on a
+fresh data dir (the four kinds on one row, a merge moving three mentions, the
+cue marked, the type on the link, arrows walking the tabs). Not verified: the
+tension pass against a real model inside the sheet (no model here); toasts
+fired from a phone's bottom sheet land behind it (every sheet, not this one).
+
+### From GRAPH_PLAN.md: KG5, the entity layer
+
+`suggest_entities_with_kinds` asks for `name|kind` and reads a small model's
+words onto `ENTITY_KINDS` (org, company, location and the like; anything else
+is no kind); the pass fills a kind an entity lacks, and an alias or a merged
+name lands on the survivor (KG9's `_find_or_create_entity`). `routes_entities`:
+the list (visible mentions only, merged and private-only left out), a page
+(each note's sentence with the name or an alias marked, longest name first;
+the entities named in the same notes; `EntryDate` rows of its notes; first and
+last seen), PATCH (name, kind, other names; a bad kind 422) and a merge by
+hand. The graph's entity nodes carry `entity_kind`, and two entities named
+together in two notes or more (notes naming twelve or fewer) get a dotted
+`comention` edge weighted by the count. `entity-page.js` (lazy, the inbox's
+bundle): the page as a sheet (a `kebabMenu` of Kind, Rename, Other names, Merge
+into), and People and things, a filtered list; a graph entity opens its page.
+`openSheet`'s Escape now leaves an open ⋯ menu to close itself (it closed the
+whole sheet). Measured: `tests/test_entities_kg5.py` 6 tests;
+`scratchpad/ui-sweeps/kg5entity.js` 10/10 at 1440 and 390, light and dark
+(both mentions marked, Priya · 2, the Thursday date, the menu's four rows,
+nothing sideways). Not verified: a real model writing `name|kind` (the parser
+is tested on the shapes a small model is known to write).
+
+### From GRAPH_PLAN.md: KG6 part two, a topic's summary and labels off the plates
+
+`POST /graph/topics/summary` (`ids`, `name`, `terms`): the utility model reads
+the titles and opening lines of twelve readable members (a private note is
+never read), one sentence under 30 words; cached by the members and their
+`updated_at`, two hundred at most, cleared with the graph cache; no model, a
+failing one or an empty answer gives `topics.terms_sentence` ("5 notes about
+#glaze, kiln and Priya.") and is not cached, so the model is asked next time.
+The canvas: a topic's legend entry opens `#graph-topic`, a card in the graph
+overlay's panel shell (name, size, the shared terms, Summarise with Stop,
+an AbortController; a model answer is kept per members in the page), and
+leaving the Topic rule closes it. `gcDrawTopicHulls` records each plate in
+world units and `gcPlaceLabels` takes them as `blocked` boxes, so no note's
+name is placed on a plate. Measured: `tests/test_topic_summary_kg6.py` 5
+tests; `scratchpad/ui-sweeps/kg6summary.js` 7/7 at 1440 light and 390 dark
+(no label box on any of 3 and 5 plates, the card 384px and 350px wide, the
+terms answer with no model). Not verified: a real model's sentence (the
+sandbox has none); the SVG renderer draws neither hulls nor the card.
+
+### From GRAPH_PLAN.md: KG3, kinds of link with inverse names and properties
+
+The six built-ins stay in code (`LINK_TYPES`, with `LINK_TYPE_INVERSES`:
+Continued by, Explained by, Supported by, Has example; Related and
+Contradicts read the same both ways), so the spec's `built_in` column is the
+API's flag, not a row: a notebook with no custom kinds is unchanged. A person's
+own are `RelationType` rows (key from the name, name, inverse, directed,
+colour); `EntryLink.props` is a JSON object of at most twenty short scalars
+(a list or a group is refused, 422). `manager.relation_types` (kept on the
+session for a request), `is_link_type`, `link_label` (the inverse from the
+target's end); `create_link` and `PATCH /entries/{id}/links/{link_id}` take a
+custom kind and `props`; `LinkOut` and the Connections rows carry `link_type`,
+`link_label` and `props`; graph edges with a kind carry `type_name` and
+`type_inverse`; the JSON export carries each link's kind, reason and
+properties and the kinds. `/relation-types` GET, POST (409 on a name taken,
+built-ins included), PATCH and DELETE (custom only, 400 for a built-in; links
+of a deleted kind lose the kind). Migration c3f7a9e2d5b8 (the table and the
+column, guarded against the auto-migrator). The UI: a link chip names its
+kind from that note's end (`.link-kind`), the Connections rows too
+(`connection-row-cue`), the link's ⋯ gains Kind and properties
+(`openLinkTypeSheet`, link-types.js, the inbox's lazy bundle: every kind
+with its other name, No kind, New kind, Properties as `name: value`), and
+Kinds of link in the palette (`openRelationTypesSheet`). Done-when measured:
+`tests/test_relation_types_kg3.py` 8 tests, a custom kind restored from a
+backup with "Has part" on the whole; `scratchpad/ui-sweeps/kg3types.js` 8/8 at
+1440 light and 390 dark. Not verified: the agent's own link tool still offers
+the six built-ins only.
+
+### From GRAPH_PLAN.md: KG4, note properties and note types
+
+`entry/properties.py`: `block_end` (the documents' fence rule: line one,
+closed within 200 lines), `split` (read with `core/docmeta.properties`),
+`strip`, `write` (rewrites the block, copies every character after it,
+quotes a value that would not read back) and `note_type`. The block is never a
+name: `plain_label`, `extract_title`, `wiki_opening` (and
+`find_by_wiki_name`'s narrowing), `note_names`, `_preview`, and in the page
+`stripFrontmatter` under `notePreviewText` and `bodyWithoutTitleLine`.
+`EntryProperty` (a row per value, `number` and `date` when it reads as one)
+is rebuilt by `manager.reindex_properties` on create, on a content edit and on
+a privacy change; a private note has none; the hard delete and a space's
+purge remove them. `NoteType` (name, icon, colour, fields of text, number,
+date, note, list, checkbox). `routes_properties`: GET and PUT
+`/entries/{id}/properties` (the PUT saves through `update_entry`, conflict
+guard included) and `/note-types` CRUD; `EntryCreate.note_type` writes
+`type:` and the fields first. Import keeps a vault's other keys at the top of
+the note (category and tags become fields, created, updated and pinned are
+the export's); the Markdown export writes one block. `EntryOut` carries
+`properties` and `note_type`. The page: a `.note-props` table under a card's
+title, Properties in the note's ⋯ and Note types in the palette
+(`note-properties.js`, the inbox's lazy bundle). Migration d9b2e6f4a1c7.
+Measured: `tests/test_note_properties_kg4.py` 10 tests (a vault's file imports
+with status and owner as properties; a Meeting note starts with its fields);
+`scratchpad/ui-sweeps/kg4props.js` 9/9 at 1440 light and 390 dark. Not
+verified: the document editor's own frontmatter panel is unchanged and does
+not read note types; a note field is a `[[link]]` written into the block,
+resolved by the wiki sync, not a picker that searches.
+
+### From GRAPH_PLAN.md: KG7, live queries
+
+`entry/query.py`: `parse` (type, prop with `= != > >= < <=` or bare for
+any value, links, rel, entity, tag, words and phrases, `-` before any; other
+app operators are the browser's) and `run` (every term ANDed over live,
+non-draft, non-board notes; prop reads `EntryProperty`, numbers and ISO dates
+compared as such; links resolves the name with `find_by_wiki_name`, either
+direction; rel matches a kind's key, name or inverse; entity a name or an
+alias; words never match a private note). `GET /entries/query` returns
+`ids` newest first, the table's `columns` (type first, then most common, 8)
+and `rows`. In the page `parseNoteQuery` lifts the structural terms out
+(`LIVE_QUERY_RE`), `matchesSearch` keeps a note only when the server's ids
+for them hold it (`liveQueryIds`, asked once per query and re-rendered on
+the answer), the browser's own operators apply as before, and
+`liveQueryBar` over the list offers Table (`openQueryTable`, the same ids
+with the properties as columns) and Show on graph (`showQueryOnGraph`, the
+same ids lit). A saved filter saves the query. Measured:
+`tests/test_live_queries_kg7.py` 6 tests; `scratchpad/ui-sweeps/kg7query.js`
+7/7 at 1440 light and 390 dark (list, server, table and graph: the same two
+ids). Found and fixed on the way: the sidebar's Most used, a note's Ask Atlas
+name, the graph popup's name and a board's note card read a note's first
+line raw, so a note opening with properties was named "---" there.
+
+### From GRAPH_PLAN.md: KG8 part two, filter chips by kind of link and by property
+
+A Filter fold in the graph's options (`#graph-filter-section`, after
+Display): `gcRenderFilterChips` builds, on every render, a `.library-chip`
+toggle per kind of link among the map's links (its `type_name`, "No kind"
+for none, with the count; `aria-pressed` while drawn) and one per property
+value the map's notes carry (twelve, most common first). A kind chip adds or
+removes the kind from `graphHiddenLinkKinds` (kept in `localStorage`), which
+the edge filter in both renderers reads (`gcLinkKindHidden`), so the springs,
+the sizes and the drawing all lose those links together; a property chip
+lights its notes through `graphHighlightIds`, the topic legend's and the
+live query's highlight. Measured: `scratchpad/ui-sweeps/kg8filter.js` 6/6 at
+1440 light and 390 dark (Supports off takes its one link off the map and on
+brings it back; status: checked lights exactly its note); the chips wrap
+inside the 390 sheet (measured 44px each, none past the edge, after a first
+run found the property row running off it). The closed panel is 676px of
+list in its 492px box at 1440x900, 39px more than before the fold (it
+already scrolled, 637 in 492).

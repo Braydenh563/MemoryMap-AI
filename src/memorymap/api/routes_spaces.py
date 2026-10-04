@@ -215,7 +215,7 @@ def delete_space(
     from memorymap.core.database import (
         AskTurn, Attachment, Bookmark, Conversation, Document, DocumentAiEdit,
         DocumentBookmark, DocumentLink, DocumentRevision, EmbeddingRecord,
-        EntityMention, EntryBookmark, EntryDate, EntryLink, EntryRevision, MediaUpload,
+        EntityMention, EntryBookmark, EntryDate, EntryLink, EntryProperty, EntryRevision, MediaUpload,
         PageRead, Reminder, WhiteboardNode, WhiteboardObject, WhiteboardSketch,
     )
 
@@ -259,6 +259,7 @@ def delete_space(
             (EmbeddingRecord, EmbeddingRecord.entry_id),
             (EntryRevision, EntryRevision.entry_id),
             (EntryDate, EntryDate.entry_id),
+            (EntryProperty, EntryProperty.entry_id),
             (EntryBookmark, EntryBookmark.entry_id),
             (DocumentLink, DocumentLink.entry_id),
         ):

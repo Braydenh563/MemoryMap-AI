@@ -492,6 +492,22 @@ class Entity(Base):
     # within one pass so the same note doesn't create the same entity twice.
     name: Mapped[str] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    #: GRAPH_PLAN KG5: person, place, project, organisation or thing
+    #: (`ENTITY_KINDS`); null where nothing said, which every entity found
+    #: before this column existed is.
+    kind: Mapped[str | None] = mapped_column(String(16), default=None)
+    #: Other names for the same thing, a JSON list of strings: a merged
+    #: entity's name lands here, so extraction finding it again lands on the
+    #: survivor rather than making the duplicate a second time.
+    aliases: Mapped[list | None] = mapped_column(JSON(none_as_null=True), default=None)
+    #: Set on the entity a merge emptied: its mentions moved to this id. The
+    #: row stays so an old name resolves; nothing lists it (it has no mentions).
+    merged_into: Mapped[int | None] = mapped_column(Integer, default=None)
+
+
+#: The kinds an entity can be (GRAPH_PLAN KG5). Closed, like LINK_TYPES: the
+#: graph colours by it and the extraction prompt has to choose one.
+ENTITY_KINDS = ("person", "place", "project", "organisation", "thing")
 
 
 class EntityMention(Base):
@@ -547,6 +563,65 @@ class EntryLink(Base, WorkspaceMixin):
     #: null for a link a person or Atlas made, which only they remove.
     #: `link_type` is the meaning and must not carry this.
     origin: Mapped[str | None] = mapped_column(String(8), default=None)
+    #: GRAPH_PLAN KG3: properties on the link itself (a JSON object of short
+    #: scalar values: "count": 4, "since": "2026"), null for none.
+    props: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), default=None)
+
+
+class RelationType(Base):
+    """A kind of link a person added (GRAPH_PLAN KG3): "Part of" with its
+    inverse "Has part". The six built-ins (`LINK_TYPES`) stay in code, so a
+    notebook with none of these rows behaves exactly as before; `key` is what
+    `EntryLink.link_type` stores."""
+
+    __tablename__ = "relation_types"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(24), unique=True)
+    name: Mapped[str] = mapped_column(String(60))
+    #: What the link is called from its other end; null means the same name.
+    inverse: Mapped[str | None] = mapped_column(String(60), default=None)
+    directed: Mapped[bool] = mapped_column(Boolean, default=True)
+    colour: Mapped[str | None] = mapped_column(String(16), default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class EntryProperty(Base):
+    """One value of one property of one note (GRAPH_PLAN KG4): an index of
+    the `---` block at the top of the note's text, which is the truth, rebuilt
+    on every save (`manager.reindex_properties`). A list property is a row per
+    value. `number` and `date` are the value read as one, when it reads, so a
+    query can compare them; a private note has no rows at all."""
+
+    __tablename__ = "entry_properties"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
+    key: Mapped[str] = mapped_column(String(60), index=True)
+    value: Mapped[str] = mapped_column(String(300), default="")
+    number: Mapped[float | None] = mapped_column(Float, default=None)
+    date: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+
+
+#: What a note type's field can hold (KG4): the shape a value is read as and
+#: the control the property table draws for it.
+NOTE_FIELD_KINDS = ("text", "number", "date", "note", "list", "checkbox")
+
+
+class NoteType(Base):
+    """A kind of note with its own fields (KG4): "Meeting" with attendees and
+    a date. A note is of a type when its properties say `type: Meeting`; a
+    new note of a type starts with the type's fields in its block."""
+
+    __tablename__ = "note_types"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(60), unique=True)
+    icon: Mapped[str | None] = mapped_column(String(30), default=None)
+    colour: Mapped[str | None] = mapped_column(String(16), default=None)
+    #: `[{"name": ..., "kind": one of NOTE_FIELD_KINDS}]`, in order.
+    fields: Mapped[list | None] = mapped_column(JSON(none_as_null=True), default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 #: The kinds of connection a link can carry, and what each one means.
@@ -561,6 +636,17 @@ LINK_TYPES: dict[str, str] = {
     "supports": "Supports: this is evidence for that",
     "contradicts": "Contradicts: these disagree",
     "example_of": "Example of: this is an instance of that",
+}
+
+#: Each built-in's name from its other end (GRAPH_PLAN KG3), and whether it
+#: has a direction at all: "related" and "contradicts" read the same both ways.
+LINK_TYPE_INVERSES: dict[str, str | None] = {
+    "related": None,
+    "continues": "Continued by",
+    "context": "Explained by",
+    "supports": "Supported by",
+    "contradicts": None,
+    "example_of": "Has example",
 }
 
 # ROADMAP §87.5's first slice, using only what a link already stores, no new

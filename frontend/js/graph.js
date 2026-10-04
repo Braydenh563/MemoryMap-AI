@@ -1897,7 +1897,7 @@ async function renderGraphSvg() {
   );
   const keptIds = new Set(visibleNodes.map((n) => n.id));
   const visibleEdges = data.edges.filter(
-    (e) => keptIds.has(e.source) && keptIds.has(e.target)
+    (e) => keptIds.has(e.source) && keptIds.has(e.target) && !(typeof gcLinkKindHidden === "function" && gcLinkKindHidden(e))
   );
   // "Hide unlinked" (declutter): keep only notes that appear in an edge.
   if ($("graph-hide-orphans") && $("graph-hide-orphans").checked) {
@@ -3370,7 +3370,7 @@ function renderGraphPopupHeader(entry, node) {
   const firstLine =
     typeof notePreviewText === "function"
       ? notePreviewText(entry.content || "").split("\n")[0]
-      : (entry.content || "").split("\n")[0];
+      : stripFrontmatter(entry.content).split("\n")[0];
   titleEl.textContent =
     entry.title || firstLine.slice(0, 80).trim() || node.category || "Note";
   //: The title is ellipsised to one line now, so the whole of it has to be
@@ -3542,7 +3542,8 @@ function graphLinkKind(edge) {
   if (edge.kind === "similar") return `Similar in meaning${typeof edge.score === "number" ? `, ${Math.round(edge.score * 100)}%` : ""}`;
   if (edge.kind === "thread") return "Thread: one note continues the other";
   if (edge.kind === "map") return "Joined on a concept map";
-  return edge.link_type && edge.link_type !== "related" ? `Link: ${edge.link_type}` : "Link";
+  if (edge.kind === "comention") return `Named together in ${edge.weight} notes`;
+  return edge.link_type && edge.link_type !== "related" ? `Link: ${edge.type_name || edge.link_type}${edge.type_inverse ? ` (${edge.type_inverse} the other way)` : ""}` : "Link";
 }
 
 function openGraphLinkPeek(edge, event, nodes) {

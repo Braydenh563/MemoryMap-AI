@@ -16,7 +16,7 @@ import threading
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -85,6 +85,9 @@ SIMILAR_PER_NODE = 4
 # a deleted top id to the next row, so remove-then-add kept it (measured).
 _cache_lock = threading.Lock()
 _cache: dict[str, tuple] = {}
+#: KG6: topic summaries by their members and versions, newest last, capped.
+_summaries: dict[tuple, str] = {}
+SUMMARY_CACHE_MAX = 200
 
 
 def _graph_fingerprint(session: Session) -> tuple:
@@ -125,6 +128,7 @@ def reset_graph_cache() -> None:
     with _cache_lock:
         _cache.clear()
         _text_memo.clear()
+        _summaries.clear()
 
 
 #: GRAPH_PLAN 518 (2): each note's label and word count, per version of the
@@ -195,7 +199,10 @@ def _preview(text: str, length: int = 40) -> str:
     to clip before the body and read correctly. A line that strips to
     nothing (a picture, a bare rule) is passed over for the next one.
     """
-    for line in text.splitlines():
+    from memorymap.entry.properties import strip as strip_properties
+
+    #: KG4: a note's properties block is never its label.
+    for line in strip_properties(text).splitlines():
         words = _preview_line(line)
         if words:
             return words if len(words) <= length else words[: length - 1] + "…"
@@ -279,6 +286,12 @@ def graph_match(q: str = Query(default="", max_length=200), session: Session = D
     hits = search_manager.keyword_search(session, words, limit=5000)
     return {"ids": [entry.id for entry in hits]}
 
+#: Co-mention edges between entities (KG5): named together this often, in
+#: notes naming no more than the cap.
+COMENTION_MIN = 2
+COMENTION_NOTE_CAP = 12
+
+
 def _add_entity_nodes(
     session: Session, nodes: list[dict], edges: list[dict], node_ids: set[int]
 ) -> None:
@@ -312,16 +325,36 @@ def _add_entity_nodes(
                     "preview": entity.name,
                     "category": "Entity",
                     "created_at": entity.created_at.isoformat(),
+                    "entity_kind": entity.kind,
                 }
             )
+        by_note: dict[int, list[int]] = {}
         for mention in mentions:
             if mention.entity_id in entities:
+                by_note.setdefault(mention.entry_id, []).append(mention.entity_id)
                 edges.append(
                     {
                         "source": f"entity:{mention.entity_id}",
                         "target": mention.entry_id,
                         "kind": "entity",
                     }
+                )
+        # GRAPH_PLAN KG5: two entities named together in two notes or more
+        # are joined, weighted by how many. Once is coincidence ("thanks Sam,
+        # Priya and Jo"); a note naming more than twelve says nothing about
+        # any one pair and costs the most, so it is left out.
+        together: dict[tuple[int, int], int] = {}
+        for named in by_note.values():
+            named = sorted(set(named))
+            if len(named) > COMENTION_NOTE_CAP:
+                continue
+            for i, a in enumerate(named):
+                for b in named[i + 1:]:
+                    together[(a, b)] = together.get((a, b), 0) + 1
+        for (a, b), count in together.items():
+            if count >= COMENTION_MIN:
+                edges.append(
+                    {"source": f"entity:{a}", "target": f"entity:{b}", "kind": "comention", "weight": count}
                 )
 
 
@@ -681,6 +714,7 @@ def graph(
     edges: list[dict] = []
     taken: set[frozenset[int]] = set()  # pairs already connected
 
+    types = manager.relation_types(session)
     for link in session.scalars(select(EntryLink)):
         if link.source_entry_id in node_ids and link.target_entry_id in node_ids:
             pair = frozenset((link.source_entry_id, link.target_entry_id))
@@ -712,6 +746,12 @@ def graph(
                         "link_type": link.link_type,
                     }
                 )
+                #: KG3: a typed link carries its name and inverse, for the
+                #: map's words; an untyped one carries nothing more.
+                kind = types.get(link.link_type or "")
+                if kind:
+                    edges[-1]["type_name"] = kind["name"]
+                    edges[-1]["type_inverse"] = kind["inverse"]
 
     for e in entries:
         if e.parent_id is not None and e.parent_id in node_ids:
@@ -963,6 +1003,65 @@ def graph_structure(
     #: GRAPH_PLAN KG6: named topics inside the islands, asked for separately
     #: so the colour rule "cluster" pays nothing for them.
     return {**structure, **_cached("topics", fingerprint, lambda: _build_topics(session))}
+
+
+class TopicSummaryBody(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=5000)
+    name: str = Field(default="", max_length=200)
+    terms: list[str] = Field(default_factory=list, max_length=10)
+
+
+@router.post("/graph/topics/summary")
+def topic_summary(body: TopicSummaryBody, session: Session = Depends(get_session)) -> dict:
+    """One sentence about a topic's notes, on demand (GRAPH_PLAN KG6).
+
+    The local model reads the titles and opening lines of a dozen of its
+    readable notes; the answer is cached by the members and their versions,
+    so an edit to one asks again and nothing else does. With no model, or a
+    model that fails, the answer is the terms the notes share
+    (`topics.terms_sentence`), never an error, and that answer is not cached,
+    so the model is asked again next time. Cancelling is the browser's: an
+    abandoned request still caches what it got, for the next ask.
+    """
+    rows = list(
+        session.scalars(select(Entry).where(Entry.id.in_(body.ids), Entry.is_deleted.is_(False)))
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Those notes could not be found.")
+    readable = sorted((e for e in rows if not e.is_private), key=lambda e: e.id)
+    key = tuple((e.id, str(e.updated_at or e.created_at)) for e in readable)
+    fallback = topic_finder.terms_sentence(len(rows), body.terms)
+    with _cache_lock:
+        hit = _summaries.get(key)
+    if hit:
+        return {"summary": hit, "source": "model", "cached": True}
+    ollama = deps.get_ollama()
+    if not readable or not ollama.is_running():
+        return {"summary": fallback, "source": "terms", "cached": False}
+    lines = []
+    for entry in readable[: topic_finder.SUMMARY_NOTES]:
+        text = " ".join(manager.readable_content(entry).split())
+        lines.append(f"- {text[: topic_finder.SUMMARY_CHARS]}")
+    hint = f"They share: {', '.join(body.terms[:5])}.\n" if body.terms else ""
+    try:
+        reply = ollama.chat(
+            deps.get_model_manager().utility_model(),
+            [
+                {"role": "system", "content": topic_finder.SUMMARY_SYSTEM},
+                {"role": "user", "content": f"{hint}The notes:\n" + "\n".join(lines)},
+            ],
+        )
+        summary = " ".join(str(reply.get("content") or "").split()).strip("\"' ")
+    except Exception:  # noqa: BLE001  # any model failure reads as "no model"
+        summary = ""
+    if not summary:
+        return {"summary": fallback, "source": "terms", "cached": False}
+    summary = summary[:300]
+    with _cache_lock:
+        _summaries[key] = summary
+        while len(_summaries) > SUMMARY_CACHE_MAX:
+            _summaries.pop(next(iter(_summaries)))
+    return {"summary": summary, "source": "model", "cached": False}
 
 
 _TITLE_WORD = re.compile(r"[^\W\d_][\w'-]{3,}")

@@ -137,40 +137,265 @@
   height: 1.75rem;
 }
 
-/* A heading and its actions are two groups, not three peers sharing a
-   space-between: which is what put the backfill button in the middle of the
-   row and read as broken spacing. */
-.link-suggest-head {
+/* The suggestions inbox (GRAPH_PLAN KG9, suggestions-inbox.js): one sheet,
+   a `.seg` of four kinds with their counts, and one scroller under it. A
+   reading width wider than a sheet of choices: a link row holds a name pair,
+   a reason field, a score and two buttons, and a disagreement two columns. */
+.sheet-card.inbox-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   gap: var(--space-3);
-  margin-bottom: var(--space-3);
-  align-items: center;
 }
 
-.link-suggest-title {
+@media (min-width: 720px) {
+  .sheet-card.inbox-card:not(.sheet-card-corner) {
+    max-width: 48rem;
+  }
+}
+
+.inbox-card .dialog-head {
+  gap: var(--space-1);
+}
+
+/* One row at every width, as the Attach picker's sources (the `.seg` recipe
+   wraps, which put Link types alone on a second line at 390). */
+.seg.inbox-seg {
+  flex: 0 0 auto;
+  align-self: stretch;
+  flex-wrap: nowrap;
+  margin-bottom: 0;
+}
+
+.seg.inbox-seg > button {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 599.98px) {
+  .seg.inbox-seg > button {
+    padding-inline: var(--space-1);
+    font-size: var(--text-sm);
+  }
+}
+
+/* The count after a kind is quiet text, never a pill (INBOX 466). */
+.inbox-count:not(:empty) {
+  margin-inline-start: var(--space-1);
+  color: var(--muted);
+}
+
+.inbox-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.inbox-desc {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.inbox-tools {
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.inbox-status {
+  flex: 1 1 12rem;
+  font-size: var(--text-sm);
+}
+
+.inbox-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+}
+
+.inbox-row-title {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.inbox-row .doc-backlink-context,
+.inbox-row .link-suggestion-why {
+  margin: 0;
+}
+
+.inbox-row-actions {
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.inbox-row-actions > .chip {
+  margin-inline-end: auto;
+}
+
+.inbox-empty {
+  margin: var(--space-2) 0;
+  font-size: var(--text-sm);
+}
+
+/* An entity's page (GRAPH_PLAN KG5, entity-page.js): the inbox's sheet and
+   rows, in three sections, each under a quiet heading. */
+.entity-section + .entity-section {
+  margin-top: var(--space-5);
+}
+
+.entity-section-title {
+  margin: 0 0 var(--space-2);
+}
+
+.entity-section .inbox-row-title {
+  align-self: flex-start;
+  text-align: start;
+}
+
+.entity-related {
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.entity-date {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.entity-count {
+  margin-inline-start: auto;
+  font-size: var(--text-sm);
+}
+
+.entity-filter {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+/* GRAPH_PLAN KG3: a link's kind on its chip, quiet, before the note's name. */
+.link-kind {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  margin-inline-end: var(--space-1);
+}
+
+.relation-type-row {
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  padding-inline: var(--space-4);
+}
+
+.relation-type-name {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-.link-suggest-actions {
-  flex: 0 0 auto;
+/* GRAPH_PLAN KG4: a note's properties under its title, two quiet columns. */
+.note-props {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-1) 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.note-props dt {
+  color: var(--muted);
+}
+
+.note-props dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The properties sheet: a name and a value per row, at one height. */
+.prop-row {
+  display: flex;
+  align-items: center;
   gap: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 
-/* `--space-3`, not `0.5rem`: the same complaint the rule above this one
-   answers for the rows ("0.5/0.6/0.4rem are none of those"), one rule
-   further up and missed at the time. It computes to the same 8px today and
-   moves with the spacing scale from now on. */
-#link-suggestions {
-  margin: var(--space-3) 0;
+.prop-row > .prop-key {
+  flex: 0 0 9rem;
+  min-width: 0;
 }
 
-/* Unbounded before: a notebook with enough related-but-unlinked notes grew
-   this list past the bottom of its container with nothing to scroll it, so
-   everything past the fold was simply unreachable. Only the rows scroll, 
-   the heading (with the two buttons in it) stays put above them. */
-.link-suggest-rows {
-  max-height: 55vh;
-  overflow-y: auto;
+.prop-row > .prop-value {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.prop-row > input,
+.prop-row > select {
+  margin: 0;
+}
+
+/* GRAPH_PLAN KG7: a structural query's bar over the notes list. */
+.note-query-bar {
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.note-query-bar > .muted {
+  margin-inline-end: auto;
+}
+
+@media (max-width: 599.98px) {
+  .note-query-bar > .muted {
+    flex-basis: 100%;
+  }
+}
+
+/* The query's table: the note, then its properties, one scroller. */
+.query-table-wrap {
+  overflow: auto;
+}
+
+.query-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.query-table th,
+.query-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.query-table th {
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* The kind's name from the other end, quiet, giving way before the name. */
+.relation-type-hint {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 45%;
+  margin-inline-start: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
 }
 
 /* --- Wave O: brand logo + a more present background ------------------------------ */

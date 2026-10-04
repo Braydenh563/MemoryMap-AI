@@ -312,6 +312,8 @@ const GC_EDGE_STYLES = {
   map: { width: 1.3, alpha: 0.7, dash: [1, 4], colour: "accent" },
   filing: { width: 1.6, alpha: 0.25, dash: [3, 3], colour: "muted" },
   entity: { width: 1.6, alpha: 0.55, dash: null, colour: "muted" },
+  //: KG5: two entities named together in two notes or more.
+  comention: { width: 1.2, alpha: 0.45, dash: [1, 3], colour: "accent" },
   document: { width: 1.6, alpha: 0.55, dash: null, colour: "muted" },
   tagged: { width: 1.1, alpha: 0.4, dash: [2, 3], colour: "muted" },
   attachment: { width: 1.2, alpha: 0.45, dash: null, colour: "muted" },
@@ -419,8 +421,9 @@ function gcSimilarityBand(score, lo, hi) {
 //: covers another note's dot hides the dot, which is the one thing on the
 //: map that is clickable. Measured before: 13 of 18 placed labels sat on a
 //: dot. The dots go into a grid so a big map costs a few cell reads per
-//: label rather than a scan of every note.
-function gcPlaceLabels(items, discs, lineCount = null) {
+//: label rather than a scan of every note. `blocked` are boxes no label may
+//: take at all (the topic plates, KG6), forced ones included where they can.
+function gcPlaceLabels(items, discs, lineCount = null, blocked = []) {
   let cell = 0;
   for (const item of items) cell = Math.max(cell, item.bottom - item.top, 1);
   cell = Math.max(cell * 4, 1);
@@ -456,7 +459,7 @@ function gcPlaceLabels(items, discs, lineCount = null) {
     return false;
   };
   const clashes = (box) => {
-    for (const other of placed) {
+    for (const list of [placed, blocked]) for (const other of list) {
       if (
         box.left < other.right &&
         box.right > other.left &&
@@ -940,6 +943,8 @@ function gcDrawNebulae(ctx, s, inView) {
 //: drawn notes gets its outline (a convex hull padded past its dots) and its
 //: name on a plate above it, in the topic's colour. Full tab only.
 function gcDrawTopicHulls(ctx, s, k) {
+  //: The plates, in world units, for the label pass to keep names off (KG6).
+  s.topicPlates = [];
   if (s.size !== "full" || graphColourMode() !== "topic" || !graphStructure?.topics) return;
   const byTopic = new Map();
   const topicOf = graphStructure.topic_of || {};
@@ -979,6 +984,7 @@ function gcDrawTopicHulls(ctx, s, k) {
     ctx.fillStyle = gcTokens.card;
     ctx.globalAlpha = 0.88;
     ctx.fillRect(x - w / 2 - 5 / k, top[1] - 27 / k, w + 10 / k, 17 / k);
+    s.topicPlates.push({ left: x - w / 2 - 5 / k, right: x + w / 2 + 5 / k, top: top[1] - 27 / k, bottom: top[1] - 10 / k });
     //: The name in ink (a light topic colour is under 3:1 on the plate); the
     //: plate's edge carries the colour.
     ctx.globalAlpha = 1;
@@ -990,6 +996,158 @@ function gcDrawTopicHulls(ctx, s, k) {
     ctx.fillText(text, x, top[1] - 18.5 / k);
   }
   ctx.restore();
+}
+
+//: GRAPH_PLAN KG8: the kinds of link taken off the map (a link's
+//: `link_type`, "untyped" for none), kept between visits, and the property
+//: chip that lights its notes.
+const graphHiddenLinkKinds = new Set((() => {
+  try {
+    return JSON.parse(localStorage.getItem("graph-hidden-link-kinds") || "[]");
+  } catch {
+    return [];
+  }
+})());
+let gcPropLit = "";
+
+function gcLinkKindHidden(edge) {
+  return edge.kind === "link" && graphHiddenLinkKinds.has(edge.link_type || "untyped");
+}
+
+function gcFilterChip(label, count, pressed, title, onClick) {
+  const chip = document.createElement("button");
+  chip.type = "button";
+  chip.className = `library-chip${pressed ? " active" : ""}`;
+  chip.setAttribute("aria-pressed", String(pressed));
+  chip.title = title;
+  const name = document.createElement("span");
+  name.textContent = label;
+  const n = document.createElement("span");
+  n.className = "library-chip-count";
+  n.textContent = String(count);
+  chip.append(name, n);
+  chip.addEventListener("click", onClick);
+  return chip;
+}
+
+function gcRenderFilterChips(data) {
+  const kinds = document.getElementById("graph-link-kinds");
+  const props = document.getElementById("graph-prop-chips");
+  if (!kinds || !props) return;
+  const byKind = new Map();
+  for (const e of data.edges) {
+    if (e.kind !== "link") continue;
+    const key = e.link_type || "untyped";
+    const row = byKind.get(key) || { label: key === "untyped" ? "No kind" : e.type_name || key, n: 0 };
+    row.n++;
+    byKind.set(key, row);
+  }
+  kinds.replaceChildren(...[...byKind].sort((a, b) => b[1].n - a[1].n).map(([key, row]) => {
+    const shown = !graphHiddenLinkKinds.has(key);
+    return gcFilterChip(row.label, row.n, shown, shown ? `Hide the ${row.label} links` : `Draw the ${row.label} links again`, () => {
+      if (graphHiddenLinkKinds.has(key)) graphHiddenLinkKinds.delete(key);
+      else graphHiddenLinkKinds.add(key);
+      try {
+        localStorage.setItem("graph-hidden-link-kinds", JSON.stringify([...graphHiddenLinkKinds]));
+      } catch {
+        /* storage blocked: the choice holds for this visit */
+      }
+      renderGraph();
+    });
+  }));
+  if (!byKind.size) kinds.textContent = "No links on the map.";
+  const onMap = new Set(data.nodes.map((n) => n.id));
+  const pairs = new Map();
+  for (const e of typeof allEntries !== "undefined" ? allEntries : []) {
+    if (!onMap.has(e.id)) continue;
+    for (const [key, values] of Object.entries(e.properties || {})) {
+      for (const value of values || []) {
+        if (!value) continue;
+        const pair = `${key}: ${String(value).replace(/^\[\[|\]\]$/g, "")}`;
+        if (!pairs.has(pair)) pairs.set(pair, []);
+        pairs.get(pair).push(e.id);
+      }
+    }
+  }
+  const top = [...pairs].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0])).slice(0, 12);
+  props.replaceChildren(...top.map(([pair, ids]) => gcFilterChip(pair, ids.length, gcPropLit === pair, `Light the notes with ${pair}`, () => {
+    gcPropLit = gcPropLit === pair ? "" : pair;
+    graphHighlightIds = gcPropLit ? new Set(ids) : null;
+    applyGraphHighlight();
+    gcRenderFilterChips(data);
+  })));
+  if (!top.length) props.textContent = "No note on the map has properties.";
+}
+
+//: GRAPH_PLAN KG6: a topic's card. A summary is asked for, never fetched on
+//: its own (a model pass); cached here and on the server by its notes; Stop
+//: abandons the ask. With no model the server answers from the shared terms.
+const gcTopicSummaries = new Map();
+let gcTopicAsk = null;
+
+function gcHideTopic() {
+  gcTopicAsk?.abort();
+  gcTopicAsk = null;
+  document.getElementById("graph-topic")?.classList.add("hidden");
+}
+
+function gcShowTopic(topic, colour) {
+  const box = document.getElementById("graph-topic");
+  if (!box) return;
+  gcTopicAsk?.abort();
+  const key = [...topic.ids].sort((a, b) => a - b).join(",");
+  const head = document.createElement("div");
+  head.className = "graph-topic-head";
+  const dot = document.createElement("span");
+  dot.className = "graph-topic-dot";
+  dot.style.setProperty("--topic-colour", colour);
+  const name = document.createElement("strong");
+  name.textContent = topic.name;
+  const size = document.createElement("span");
+  size.className = "muted";
+  size.textContent = `${topic.size} notes`;
+  head.append(dot, name, size, smallButton("ph:x", "Close the topic", gcHideTopic));
+  head.lastChild.classList.add("icon-only");
+  const terms = document.createElement("p");
+  terms.className = "muted graph-topic-terms";
+  terms.textContent = topic.terms.length ? `Shared: ${topic.terms.map((t) => `${t.term} (${t.notes})`).join(", ")}` : "Nothing its notes share stands out.";
+  const summary = document.createElement("p");
+  summary.className = "graph-topic-summary";
+  summary.setAttribute("aria-live", "polite");
+  const actions = document.createElement("div");
+  actions.className = "row graph-topic-actions";
+  const say = (row) => {
+    summary.textContent = row.summary + (row.source === "terms" ? " (No local model answered, so this is what the notes share.)" : "");
+  };
+  const ask = smallButton("ph:sparkle Summarise", "Ask your local model for one sentence about these notes", async () => {
+    const controller = new AbortController();
+    gcTopicAsk = controller;
+    setBusy(ask, true, "Summarising…");
+    const stop = smallButton("ph:stop Stop", "Stop asking", () => controller.abort());
+    actions.appendChild(stop);
+    const row = await apiJson("/graph/topics/summary", {
+      method: "POST",
+      readOnly: true,
+      silent: true,
+      signal: controller.signal,
+      body: JSON.stringify({ ids: topic.ids, name: topic.name, terms: topic.terms.map((t) => t.term) }),
+    }).catch(() => null);
+    stop.remove();
+    setBusy(ask, false);
+    if (gcTopicAsk === controller) gcTopicAsk = null;
+    if (!row) {
+      if (controller.signal.aborted) summary.textContent = "Stopped.";
+      else summary.textContent = "The summary could not be made.";
+      return;
+    }
+    if (row.source === "model") gcTopicSummaries.set(key, row);
+    say(row);
+  });
+  actions.appendChild(ask);
+  const known = gcTopicSummaries.get(key);
+  if (known) say(known);
+  box.replaceChildren(head, terms, summary, actions);
+  box.classList.remove("hidden");
 }
 
 const GC_HOVER_GROW = 3;         // half the gap from a core to its own halo
@@ -1792,7 +1950,7 @@ function gcDraw(s = gcTab) {
     //: 1,100 links, for names that are moving anyway. The names step to
     //: their clear places when it settles, cross-fading (`gcDrawLabels`).
     const lines = s.tree || s.dragNode || s.alpha > 0.03 ? null : gcLineGrid(s, curvedLinks);
-    const placed = gcPlaceLabels(items, discs, lines ? (box, limit) => gcBoxLineCount(lines, box, limit) : null);
+    const placed = gcPlaceLabels(items, discs, lines ? (box, limit) => gcBoxLineCount(lines, box, limit) : null, s.topicPlates || []);
     placedLabels = placed;
     s.labelBoxes = placed;
     s.labelsDrawn = placed.length;
@@ -3001,7 +3159,7 @@ function gcShowNodeMenu(node, clientX, clientY, s = gcTab) {
 const GC_ENTITY_CATEGORY = "Entity";
 const GC_ENTITY_HELP =
   "An entity is a person, place or thing Atlas found named across your notes, " +
-  "joined to every note that mentions it";
+  "joined to every note that mentions it. Click it for its page";
 
 function gcTooltip(node, s = gcTab) {
   const links = (s.adj && s.adj.get(node.id) ? s.adj.get(node.id).size : 0) || 0;
@@ -3061,6 +3219,11 @@ function gcClickNode(event, node, s = gcTab) {
   }
   if (node.type === "unresolved") {
     gcWriteUnresolved(node);
+    return;
+  }
+  //: KG5: an entity opens its page (entity-page.js).
+  if (node.type === "entity") {
+    openEntityPage(String(node.id).slice("entity:".length));
     return;
   }
   if (!gcIsNote(node)) return;
@@ -3488,8 +3651,9 @@ async function renderGraphCanvas(s = gcTab) {
   //: same backbone (INBOX 412; see `gcPruneSimilarity`). After the hidden
   //: notes are taken out, so a note hidden from the map does not use up
   //: one of its neighbour's two lines.
+  gcRenderFilterChips(data);
   const visibleEdges = gcPruneSimilarity(
-    data.edges.filter((e) => kept.has(e.source) && kept.has(e.target)),
+    data.edges.filter((e) => kept.has(e.source) && kept.has(e.target) && !gcLinkKindHidden(e)),
     { threshold: gcSimilarityCutoff() }
   );
   {
@@ -3794,11 +3958,13 @@ function graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour =
         () => {
           graphHighlightIds = new Set(topic.ids);
           applyGraphHighlight();
+          gcShowTopic(topic, clusterColour(String(topic.id)));
         }
       );
     }
     return;
   }
+  gcHideTopic();
   if (colourMode === "cluster" && graphStructure) {
     graphStructure.clusters.forEach((cluster, position) => {
       entry(

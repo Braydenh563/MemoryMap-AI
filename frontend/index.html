@@ -933,36 +933,6 @@
     </div>
   </dialog>
 
-  <!-- Tensions: where the notebook disagrees with itself.
-       `core/database.py`'s LINK_TYPES comment says `contradicts` is "the one
-       worth having built this for" and nothing ever produced one, see
-       `ai/tensions.py`. A dialog rather than a tab because it is a review you
-       sit down to do, not a place you live; opened from the Tensions widget
-       and from the command palette. -->
-  <dialog id="tensions-dialog" class="card space-dialog tensions-dialog"
-          aria-labelledby="tensions-title">
-    <div class="dialog-head">
-      <h2 id="tensions-title" class="dialog-head-title">Where you disagreed with yourself</h2>
-      <span class="dialog-head-actions">
-        <button type="button" class="icon-only ghost small dialog-head-btn" data-close-dialog="tensions-dialog" title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
-      </span>
-    </div>
-    <p class="muted tensions-intro">
-      Your notes are read here, on this machine, looking for pairs that
-      can't both be right, a decision you reversed, a date that moved, a
-      view you changed. Nothing is linked until you say so.
-    </p>
-    <div id="tensions-results" class="tensions-results"></div>
-    <!-- One action row (the owner at release: "put the start the review
-         button on the same row"): the status, then Close, then the one
-         filled action, instead of a lone button above an empty gap. -->
-    <div class="row right space-dialog-actions tensions-controls">
-      <span class="muted tensions-status" id="tensions-status" role="status" aria-live="polite"></span>
-      <button type="button" class="ghost" data-close-dialog="tensions-dialog">Close</button>
-      <button type="button" class="accent" id="tensions-run">Start the review</button>
-    </div>
-  </dialog>
-
   <!-- Widget picker (roadmap §26): a dedicated surface for the same
        dashboard_layout preference the inline "Edit layout" mode writes.
        Rows are built by renderDashWidgetsList() in app.js. -->
@@ -2046,6 +2016,7 @@ Link to another note with [[its first few words]]."></textarea>
               <li><code>is:favourite</code>, your starred notes (<code>is:pinned</code> still works); also <code>is:private</code>, <code>is:linked</code>, <code>is:untagged</code>, <code>is:draft</code></li>
               <li><code>tags:&lt;2</code>, fewer than 2 tags (also <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code>, or a bare number for exactly that many)</li>
               <li><code>-picnic</code>, notes that do <em>not</em> mention it</li>
+              <li><code>type:meeting</code>, <code>prop:status=open</code>, <code>prop:effort&gt;2</code>, a note's properties; <code>links:[[Kiln plan]]</code>, <code>rel:supports</code>, <code>entity:"Sam Lee"</code>, its links and the people and things it names (a <code>-</code> before any leaves those out). A bar then offers the same notes as a Table or on the graph</li>
             </ul>
           </div>
           <ul id="entry-list" class="entry-list"></ul>
@@ -3618,6 +3589,16 @@ Link to another note with [[its first few words]]."></textarea>
                 title="How thick the lines are drawn">
             </div>
           </details>
+          <!-- GRAPH_PLAN KG8: which kinds of link are drawn, and the notes a
+               property names, lit. Chips built from what is on the map
+               (`gcRenderFilterChips`, graph-canvas.js). -->
+          <details class="dock-menu-section settings-fold graph-options-fold" id="graph-filter-section">
+            <summary><span class="muted dock-menu-label" id="graph-filter-label">Filter</span></summary>
+            <p class="muted graph-filter-head">Kinds of link</p>
+            <div id="graph-link-kinds" class="library-filters graph-filter-chips" role="group" aria-label="Kinds of link drawn on the map"></div>
+            <p class="muted graph-filter-head">Properties</p>
+            <div id="graph-prop-chips" class="library-filters graph-filter-chips" role="group" aria-label="Light the notes with a property"></div>
+          </details>
           <div class="dock-menu-section graph-temporal" id="graph-temporal"
             role="group" aria-labelledby="graph-time-heading">
             <span class="muted dock-menu-label" id="graph-time-heading">Time</span>
@@ -3732,7 +3713,9 @@ Link to another note with [[its first few words]]."></textarea>
             title="Leave trace mode (Esc)" aria-label="Leave trace mode"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
         <div id="graph-trace-result" class="graph-trace-result hidden" role="status"></div>
-        <div id="link-suggestions" class="hidden"></div>
+        <!-- GRAPH_PLAN KG6: a topic's card, from its legend entry: its name,
+             what its notes share, and a summary on demand. -->
+        <div id="graph-topic" class="graph-topic hidden" role="region" aria-label="Topic"></div>
       </div>
       <!-- The legend is a fixed-cost row (a single non-wrapping scroller,
            already fixed once from a three-row growth problem, see

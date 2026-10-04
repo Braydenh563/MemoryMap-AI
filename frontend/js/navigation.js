@@ -1636,9 +1636,7 @@ document.addEventListener("click", async (event) => {
   } else if (action === "untagged") {
     showNotesFilter("is:untagged");
   } else if (action === "suggest-links") {
-    // The Graph tab draws the panel the suggestions fill (dashboard.js's
-    // Loose ends widget runs the same pair).
-    setTimeout(() => loadLinkSuggestions(), 120);
+    openSuggestionsInbox("links");
   } else if (action === "capture") {
     startNewNote();
   } else if (action === "reminder") {

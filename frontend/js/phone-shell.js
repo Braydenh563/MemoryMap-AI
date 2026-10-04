@@ -1360,6 +1360,8 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
     //: on the document, so one Escape closed both. Only the topmost answers.
     const sheets = document.querySelectorAll(".sheet-overlay");
     if (sheets.length && sheets[sheets.length - 1] !== overlay) return;
+    //: A ⋯ menu open over the sheet takes its own Escape (an entity page's).
+    if (document.querySelector(".action-menu:not(.hidden)")) return;
     event.stopPropagation();
     close();
   };

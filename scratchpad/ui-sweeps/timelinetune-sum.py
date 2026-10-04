@@ -5,7 +5,9 @@ import sys
 
 for f in sys.argv[1:]:
     print("==", f)
-    for line in open(f):
+    with open(f, encoding="utf-8") as fh:
+        lines = fh.readlines()
+    for line in lines:
         try:
             d = json.loads(line)
         except ValueError:

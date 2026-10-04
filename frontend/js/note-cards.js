@@ -1468,6 +1468,21 @@ function entryItem(entry, options = {}) {
     titleEl.textContent = entry.title;
     li.appendChild(titleEl);
   }
+  //: GRAPH_PLAN KG4: the note's properties, a quiet table under its title
+  //: (the `---` block in its text, which the body below leaves out).
+  const props = Object.entries(entry.properties || {});
+  if (props.length) {
+    const table = document.createElement("dl");
+    table.className = "note-props";
+    for (const [key, values] of props.slice(0, 8)) {
+      const dt = document.createElement("dt");
+      dt.textContent = key;
+      const dd = document.createElement("dd");
+      dd.textContent = (values || []).join(", ").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1") || "–";
+      table.append(dt, dd);
+    }
+    li.appendChild(table);
+  }
 
   const content = document.createElement("p");
   content.className = "entry-content";
@@ -1480,7 +1495,7 @@ function entryItem(entry, options = {}) {
   //: Pictures, sketches and attachment links are shown whole (a thumbnail,
   //: a file chip), so they never count toward "long": a note that is only a
   //: sketch, or a title and a PDF, has nothing hidden to show more of.
-  const textOnly = entry.content
+  const textOnly = stripFrontmatter(entry.content)
     .split("\n")
     .filter((line) => line.trim() && !/^\s*!?\[[^\]]*\]\([^)]*\)\s*$/.test(line))
     .join("\n");
@@ -1494,7 +1509,7 @@ function entryItem(entry, options = {}) {
   //: A clamped card's two lines are text, not the blank line between its
   //: paragraphs (INBOX 458: "Tonight, I have work." then a lone "..."):
   //: folded, the paragraphs run on one line each; opened, the note as written.
-  const body = entry.title ? bodyWithoutTitleLine(entry.content) : entry.content;
+  const body = entry.title ? bodyWithoutTitleLine(entry.content) : stripFrontmatter(entry.content);
   const fillContent = () => renderNoteText(
     content,
     content.classList.contains("entry-clamped") ? body.replace(/\n[ \t\r]*(?:\n[ \t\r]*)+/g, "\n") : body,
@@ -2101,9 +2116,18 @@ function entryItem(entry, options = {}) {
           : link.reason
         : null;
       const wayRound = outgoing ? "This note links to" : "Links to this note";
-      linkChip.title = reasonNote
+      //: KG3: a kind of link is named on the chip from this end ("Has part"
+      //: on the whole, "Part of" on the piece); "Related" says nothing.
+      const kindName = link.link_label && link.link_type !== "related" ? link.link_label : "";
+      if (kindName) {
+        const kind = document.createElement("span");
+        kind.className = "link-kind";
+        kind.textContent = kindName;
+        linkChip.insertBefore(kind, linkPreview);
+      }
+      linkChip.title = (reasonNote
         ? `${wayRound}: ${label}\nReason: ${reasonNote}`
-        : `${wayRound}: ${label}`;
+        : `${wayRound}: ${label}`) + (kindName ? `\nKind: ${kindName}` : "");
       //: **One chip and one menu per connection** (INBOX 319, the owner: "the
       //: buttons in these connections in notes need a redesign and look").
       //: Edit reason, clear reason and unlink were three round buttons of one
@@ -2164,6 +2188,7 @@ function entryItem(entry, options = {}) {
         if (link.reason) {
           items.push({ label: "ph:eraser Clear the reason", title: "Keep the link, drop its reason", run: clearReason, group: "reason" });
         }
+        items.push({ label: "ph:tag Kind and properties…", title: "What kind of link this is (Part of, Supports…) and its properties", run: () => openLinkTypeSheet(entry.id, link), group: "kind" });
         items.push({ label: "ph:link-break Remove the link", title: "Remove this link (undoable)", run: unlink, group: "remove" });
         connection.appendChild(kebabMenu(items, `Actions for the link to ${label}`));
       }
@@ -2227,7 +2252,7 @@ async function showNoteInGraph(id) {
 //: would use, so the agent's own search tools find it, rather than pasting the
 //: whole note into the box.
 function askAtlasAboutNote(entry) {
-  const name = (entry.title || String(entry.content || "").split("\n")[0] || "this note").trim();
+  const name = (entry.title || stripFrontmatter(entry.content).trim().split("\n")[0] || "this note").trim();
   askAtlasAboutThing("note", name);
 }
 

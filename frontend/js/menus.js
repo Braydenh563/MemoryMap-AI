@@ -1171,7 +1171,16 @@ function buildConnectionGroups(list, kind, data, beforeOpen = () => {}) {
     const label = link.is_private ? "ph:lock Private note" : `ph:note ${link.preview}`;
     const why = link.reason ? `\nWhy: ${link.reason}` : "";
     const cue = cues.get(link.id);
-    const item = row(label, `Open this note${cue ? ` (${cue})` : ""}${why}`, () => flashEntry(link.id));
+    //: KG3: the link's kind, named from this end (an incoming row reads the
+    //: inverse: "Has part").
+    const kindName = link.link_label && link.link_type !== "related" ? link.link_label : "";
+    const item = row(label, `Open this note${cue ? ` (${cue})` : ""}${kindName ? `\nKind: ${kindName}` : ""}${why}`, () => flashEntry(link.id));
+    if (kindName) {
+      const kind = document.createElement("span");
+      kind.className = "connection-row-cue";
+      kind.textContent = kindName;
+      item.appendChild(kind);
+    }
     if (cue) {
       //: The title is `setLabel`'s `.ph-text`, which the stylesheet lets give
       //: way with an ellipsis in a connection row, so on a narrow rail the
@@ -1832,6 +1841,12 @@ function entryOverflowMenu(entry) {
         run: () => expandNoteIntoDocument(entry),
       },
       { label: "ph:link Link to another", run: () => beginOrCompleteLink(entry) },
+      //: KG4: the note's properties and type, as a table.
+      {
+        label: "ph:list-bullets Properties",
+        title: "Fields at the top of this note (status, due, a type's fields), kept in its text",
+        run: () => openNotePropertiesSheet(entry),
+      },
       //: The way to point at this note from another one, ready to paste
       //: (INBOX 432: there was no copy link at all). Its name as `[[` finds
       //: it, the title or the first words.

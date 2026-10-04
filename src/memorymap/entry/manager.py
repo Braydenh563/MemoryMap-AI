@@ -32,8 +32,11 @@ from memorymap.core.database import (
     EntryBookmark,
     EntryDate,
     EntryLink,
+    EntryProperty,
     EntryRevision,
+    LINK_TYPE_INVERSES,
     LINK_TYPES,
+    RelationType,
     NoteScore,
     Reminder,
     WhiteboardNode,
@@ -237,6 +240,7 @@ def create_entry(
     session.add(entry)
     session.flush()
     record_dates(session, entry)
+    reindex_properties(session, entry)
     log_action(
         session,
         "created",
@@ -582,6 +586,7 @@ def _update_entry_fields(
         # Resolved against *now*, not the original capture: the user is
         # writing "tomorrow" today.
         record_dates(session, entry)
+        reindex_properties(session, entry)
     if changed:
         log_action(
             session,
@@ -624,6 +629,44 @@ def entry_dates_bulk(session: Session, entry_ids: list[int]) -> dict[int, list[E
     ):
         out.setdefault(date.entry_id, []).append(date)
     return out
+
+
+#: How each indexed value is read as a number or a date (KG4).
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?)?$")
+
+
+def reindex_properties(session: Session, entry: Entry) -> None:
+    """Rebuild this note's rows in `EntryProperty` from its text (KG4).
+
+    The text is the truth; this is an index for queries. A private note has
+    no rows (its text is encrypted at rest, and a plain table of its values
+    would leak them), and a note with no block has none. Best effort, like
+    `record_dates`: a note saves whatever happens here.
+    """
+    from memorymap.entry import properties as note_properties
+
+    try:
+        session.execute(delete(EntryProperty).where(EntryProperty.entry_id == entry.id))
+        if entry.is_private or entry.is_deleted:
+            return
+        found, _ = note_properties.split(entry.content or "")
+        for key, values in found.items():
+            for value in values or [""]:
+                number = None
+                when = None
+                text = str(value)[:300]
+                try:
+                    number = float(text) if re.fullmatch(r"-?\d+(?:\.\d+)?", text.strip()) else None
+                except ValueError:
+                    number = None
+                if _ISO_DATE.match(text.strip()):
+                    try:
+                        when = datetime.fromisoformat(text.strip().replace(" ", "T"))
+                    except ValueError:
+                        when = None
+                session.add(EntryProperty(entry_id=entry.id, key=key[:60], value=text, number=number, date=when))
+    except Exception:  # noqa: BLE001  # an index must never cost a save
+        logging.getLogger("memorymap.properties").warning("couldn't index properties for %s", entry.id, exc_info=True)
 
 
 @events.writes("entry", "dated")
@@ -1004,6 +1047,8 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
     session.execute(delete(EntryBookmark).where(EntryBookmark.entry_id.in_(ids)))
     session.execute(delete(EntityMention).where(EntityMention.entry_id.in_(ids)))
     session.execute(delete(NoteScore).where(NoteScore.entry_id.in_(ids)))
+    # KG4: a note's property index is about the note.
+    session.execute(delete(EntryProperty).where(EntryProperty.entry_id.in_(ids)))
     # An eighth, added with the derived facts table (I9): what the app
     # worked out about a note is about the note, so it goes when the note
     # does. Keeping it would also leave the "what the notebook learned"
@@ -1684,6 +1729,8 @@ def create_link(
     reason: str | None = None,
     link_type: str | None = None,
     origin: str | None = None,
+    reason_confidence: float | None = None,
+    props: dict | None = None,
 ) -> EntryLink | None:
     """Manually connect two entries. Returns None if the link already
     exists (either direction) or the user tried to link an entry to
@@ -1737,14 +1784,16 @@ def create_link(
     if existing is not None:
         return None
     reason = (reason or "").strip() or None
-    confidence = None
+    #: A reason the suggestions' signals wrote keeps their confidence (KG9);
+    #: a person's own words have none, as before.
+    confidence = None if reason is None or reason_confidence is None else max(0.0, min(1.0, reason_confidence))
     if reason is None:
         reason, confidence = _deduce_reason(session, source.id, target.id)
     # An unrecognised kind is stored as null rather than rejected: the column
     # is advisory (it styles an edge and weights a traversal), and refusing an
     # otherwise-valid link because a caller sent a typo would trade a working
     # connection for a validation error nobody asked for.
-    kind = link_type if link_type in LINK_TYPES else None
+    kind = link_type if is_link_type(session, link_type) else None
     link = EntryLink(
         source_entry_id=source.id,
         target_entry_id=target.id,
@@ -1752,6 +1801,7 @@ def create_link(
         reason_confidence=confidence,
         link_type=kind,
         origin=origin,
+        props=dict(props) if props else None,
         # **The link belongs to the space its notes are in, whoever made it.**
         # A new row usually takes its space from `session.info["workspace_id"]`
         # (the before-flush hook in core/database.py), which is set from the
@@ -1865,6 +1915,92 @@ def set_link_reason(session: Session, link: EntryLink, reason: str | None) -> En
     link.reason_confidence = None
     detail = f"-> entry {link.target_entry_id}" + (f" ({link.reason})" if link.reason else "")
     log_action(session, "relinked", "entry", link.source_entry_id, detail)
+    session.commit()
+    return link
+
+
+def relation_types(session: Session) -> dict[str, dict]:
+    """Every kind of link this notebook knows, by key: the six built-ins
+    (`LINK_TYPES`, with `LINK_TYPE_INVERSES`) then the ones a person added
+    (`RelationType`, GRAPH_PLAN KG3). Kept on the session for the request
+    (a notes list reads it once per note); the routes that change a type
+    drop it (`forget_relation_types`)."""
+    cached = session.info.get("relation_types")
+    if cached is not None:
+        return cached
+    out: dict[str, dict] = {}
+    for key, text in LINK_TYPES.items():
+        inverse = LINK_TYPE_INVERSES.get(key)
+        out[key] = {
+            "key": key,
+            "name": text.split(":", 1)[0],
+            "description": text.split(":", 1)[-1].strip(),
+            "inverse": inverse,
+            "directed": inverse is not None,
+            "colour": None,
+            "built_in": True,
+        }
+    for row in session.scalars(select(RelationType).order_by(RelationType.name)):
+        out[row.key] = {
+            "key": row.key,
+            "name": row.name,
+            "description": "",
+            "inverse": row.inverse,
+            "directed": bool(row.directed),
+            "colour": row.colour,
+            "built_in": False,
+        }
+    session.info["relation_types"] = out
+    return out
+
+
+def forget_relation_types(session: Session) -> None:
+    session.info.pop("relation_types", None)
+
+
+def is_link_type(session: Session, key: str | None) -> bool:
+    """A built-in or a custom type's key (KG3)."""
+    if not key:
+        return False
+    return key in relation_types(session)
+
+
+def link_label(types: dict[str, dict], link_type: str | None, outgoing: bool) -> str | None:
+    """What a link of this type is called from one end: its name from the
+    source, its inverse from the target (when it has one). None for an
+    untyped link or a type no longer known."""
+    kind = types.get(link_type or "")
+    if kind is None:
+        return None
+    if not outgoing and kind["directed"] and kind["inverse"]:
+        return kind["inverse"]
+    return kind["name"]
+
+
+def set_link_props(session: Session, link: EntryLink, props: dict | None) -> EntryLink:
+    """Replace a link's properties (KG3); an empty object clears them."""
+    link.props = dict(props) if props else None
+    log_action(session, "relinked", "entry", link.source_entry_id, f"-> entry {link.target_entry_id} (properties)")
+    session.commit()
+    return link
+
+
+def set_link_type(session: Session, link: EntryLink, link_type: str | None) -> EntryLink:
+    """Give a link a kind, built-in or custom (KG3), or none (GRAPH_PLAN KG9:
+    the inbox's type suggestions, and the link menu's Type). The caller has
+    checked the key; an unknown one here is a bug, so it raises."""
+    if link_type is not None and not is_link_type(session, link_type):
+        raise ValueError(f"unknown link type {link_type!r}")
+    before = link.link_type
+    link.link_type = link_type
+    log_action(
+        session,
+        "relinked",
+        "entry",
+        link.source_entry_id,
+        f"-> entry {link.target_entry_id} ({link_type or 'untyped'})",
+        payload={"before": {"link_type": before}, "after": {"link_id": link.id, "link_type": link_type}},
+    )
     session.commit()
     return link
 
@@ -2174,7 +2310,10 @@ def plain_label(content: str, limit: int = 80) -> str:
     Images lose their alt text entirely (an image is not what the note *says*),
     links keep their text, and the usual inline emphasis/code markers go.
     """
-    text = (content or "").strip()
+    from memorymap.entry.properties import strip as strip_properties
+
+    #: KG4: a note opening with properties is named by what follows them.
+    text = strip_properties(content or "").strip()
     if not text:
         return ""
     first = ""
@@ -2210,7 +2349,9 @@ def extract_title(content: str) -> str | None:
     second input box fighting the single-box capture flow this app is built
     around).
     """
-    for line in (content or "").splitlines():
+    from memorymap.entry.properties import strip as strip_properties
+
+    for line in strip_properties(content or "").splitlines():
         stripped = line.strip()
         if not stripped:
             continue
@@ -2510,6 +2651,8 @@ def find_by_wiki_name(session: Session, name: str) -> Entry | None:
             or_(
                 Entry.content.ilike(f"{escaped}%", escape=LIKE_ESCAPE),
                 Entry.content.ilike(f"#% {escaped}%", escape=LIKE_ESCAPE),
+                # KG4: a note opening with properties; the name is after them.
+                Entry.content.ilike(f"---%{escaped}%", escape=LIKE_ESCAPE),
             ),
         )
         .order_by(Entry.id)
@@ -2527,8 +2670,11 @@ _HEADING_MARK = re.compile(r"^\s{0,3}#{1,6}\s+")
 
 
 def wiki_opening(content: str | None) -> str:
-    """A note's name for [[links]]: its first line, heading marker stripped."""
-    first = (content or "").strip().split("\n", 1)[0]
+    """A note's name for [[links]]: its first line, heading marker stripped
+    (after its properties block, KG4)."""
+    from memorymap.entry.properties import strip as strip_properties
+
+    first = strip_properties(content or "").strip().split("\n", 1)[0]
     return _HEADING_MARK.sub("", first).strip().lower()
 
 

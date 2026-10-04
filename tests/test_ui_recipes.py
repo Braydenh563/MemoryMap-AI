@@ -2297,9 +2297,10 @@ def test_a_folded_group_of_settings_is_the_shared_disclosure_recipe() -> None:
         "group of settings is `details.settings-fold` (DESIGN.md, the recipe "
         "index), and this count may only fall"
     )
-    assert graph_folds == 4, (
-        "the graph options panel's four tuned-once sections (Physics, Display, "
-        "Groups, Minimap) are folds; see GRAPH_PLAN.md, 'Decision made, 2026-09-20' "
+    assert graph_folds == 5, (
+        "the graph options panel's five tuned-once sections (Physics, Display, "
+        "Filter, Groups, Minimap) are folds; see GRAPH_PLAN.md, 'Decision made, 2026-09-20', "
+        "'Decision made, 2026-10-04: a Filter fold' "
         "and 'Decision made, 2026-10-04: a Display fold'"
     )
 
@@ -3308,7 +3309,8 @@ def test_every_small_dialog_opens_with_the_dialog_head() -> None:
     dialog."""
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     dialogs = re.findall(r"<dialog\b[^>]*space-dialog[^>]*>(.*?)</dialog>", html, re.S)
-    assert len(dialogs) >= 13, "the small dialogs moved: this lint is looking at the wrong markup"
+    #: 12 since the Tensions dialog became the suggestions sheet (KG9).
+    assert len(dialogs) >= 12, "the small dialogs moved: this lint is looking at the wrong markup"
     for body in dialogs:
         first = body.lstrip()[:400]
         assert 'class="dialog-head' in first, f"a small dialog opens without .dialog-head: {first[:120]!r}"

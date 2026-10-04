@@ -619,7 +619,9 @@ HELP_TOPICS: list[dict] = [
             "side by side with the dates, so you can see which is current. It "
             "runs on demand rather than constantly, because it is a real pass "
             "over the notebook with the local model. It never edits anything: "
-            "the point is to show you the pair and let you decide."
+            "the point is to show you the pair and let you decide. Open "
+            "Suggestions (the Tensions widget's Review disagreements, or the "
+            "command palette), choose Tensions and press Start the review."
         ),
         "badge": {"label": "Dashboard", "tab": "dashboard"},
     },
@@ -726,7 +728,7 @@ HELP_TOPICS.extend(
         },
         {
             "id": "links",
-            "keywords": ("link", "linked", "linking", "connect", "connection", "backlink", "wiki link", "link two notes", "related notes", "find links", "suggested links", "why suggested"),
+            "keywords": ("link", "linked", "linking", "connect", "connection", "backlink", "wiki link", "link two notes", "related notes", "find links", "suggested links", "why suggested", "suggestions", "merge names", "same person", "link type", "kind of link", "part of", "link properties"),
             "body": (
                 "Link one note to another by typing [[ and the start of its title, "
                 "then picking it from the list. The link shows on both notes as a "
@@ -738,11 +740,20 @@ HELP_TOPICS.extend(
                 "goes with it; rename a note and a toast offers to rename the "
                 "[[links]] other notes have to it. A note's Connections show the "
                 "sentence each linking note says it in, and \"Mentioned, not "
-                "linked\" with a Link button. Find links to add (Dashboard, Loose "
-                "ends, or the Graph) lists pairs worth connecting with every reason: "
-                "similar wording, people or things both name, a note both link "
-                "with, a rare tag both carry, and how sure it is. Linking or "
-                "dismissing one teaches it which reasons to trust in your notebook."
+                "linked\" with a Link button. Suggestions (Find links to add on the "
+                "Dashboard's Loose ends, Suggest links in the Graph's options, or "
+                "the command palette) is one sheet of four kinds: Links lists pairs "
+                "worth connecting with every reason (similar wording, people or "
+                "things both name, a note both link with, a rare tag both carry) "
+                "and how sure it is; Tensions, notes that may disagree; Names, one "
+                "person or thing named two ways, with Merge; and Link types, a link whose own "
+                "sentence says \"for example\" or \"continues\". Accepting or "
+                "dismissing any of them teaches it which reasons to trust in your "
+                "notebook, and a dismissed one does not come back. A link's ⋯ has "
+                "Kind and properties: a kind says what the link is (Supports, Part "
+                "of, your own) and reads from the other note by its other name "
+                "(Supported by, Has part); Kinds of link in the command palette "
+                "adds, renames and deletes your own."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1123,6 +1134,7 @@ HELP_TOPICS.extend(
                 "ghost node", "attachments on the graph", "arrows", "text fade",
                 "link thickness", "link force", "label background",
                 "topic", "topics", "subjects", "outline", "colour by topic",
+                "filter links", "kind of link", "hide links", "property chips",
             ),
             "body": (
                 "More graph controls, in the gear. Show adds Tags (a node per tag), "
@@ -1140,8 +1152,60 @@ HELP_TOPICS.extend(
                 "the Local map beside a note has the same four under Options. "
                 "Colour: Topic outlines each subject inside a cluster, names it by "
                 "the tag, person or word its notes share most, and its legend entry "
-                "finds those notes. In Trace, a step marked +2 has two more reasons "
+                "finds those notes and opens its card, where Summarise asks your "
+                "local model for one sentence (with no model, what they share); "
+                "no note's name is drawn over a topic's name. Filter holds a chip per "
+                "kind of link on the map (press one to take those links off, again "
+                "to bring them back) and per property value (press to light those "
+                "notes). In Trace, a step marked +2 has two more reasons "
                 "its notes relate; point at it to read them."
+            ),
+            "badge": {"label": "Graph", "tab": "graph"},
+        },
+        #: GRAPH_PLAN KG4: note properties and note types.
+        {
+            "id": "properties",
+            "keywords": (
+                "property", "properties", "frontmatter", "yaml", "note type",
+                "note types", "fields", "field", "status", "metadata",
+                "query", "live query", "type:", "prop:", "table view",
+            ),
+            "body": (
+                "A note can carry properties (status: open, owner: Priya), kept "
+                "at the top of its own text between two --- lines, the way "
+                "Obsidian writes them, so an imported vault keeps them and an "
+                "export carries them. They show as a small table under the "
+                "note's title. A note's ⋯ has Properties: add, change or remove "
+                "one, or pick a Type, and Save rewrites only those lines. Note "
+                "types in the command palette makes a kind of note (Meeting: "
+                "attendees, date) with fields that are text, a number, a date, a "
+                "list, yes/no or another note; its New note starts with them. "
+                "The notes filter asks about them: type:meeting, prop:status=open "
+                "(or prop:effort>2), links:[[Kiln plan]], rel:supports, "
+                "entity:\"Sam Lee\", with - before any of them to leave those out; "
+                "a bar over the list then shows the same notes as a Table, with "
+                "their properties as columns, or lit on the graph."
+            ),
+            "badge": {"label": "Notes", "tab": "notes"},
+        },
+        #: GRAPH_PLAN KG5: the entity layer, its page and its list.
+        {
+            "id": "entities",
+            "keywords": (
+                "entity", "entities", "people", "person", "people and things",
+                "place", "places", "organisation", "who is", "other names",
+                "alias", "aliases", "merge names", "named together",
+            ),
+            "body": (
+                "Atlas notes the people, places, projects, organisations and things "
+                "your notes name, with a kind for each. Show, Entities on the Graph "
+                "draws them; two named together in two notes or more are joined. "
+                "Click one, or open People and things from the command palette, for "
+                "its page: every note that names it with the sentence, what it is "
+                "named with, and the dates its notes mention. Its ⋯ sets the Kind, "
+                "Renames it, edits Other names (the names it also goes by) and "
+                "Merges it into another, moving every mention. Suggestions, Names "
+                "offers the merges that look right (\"Sam\" and \"Sam Lee\")."
             ),
             "badge": {"label": "Graph", "tab": "graph"},
         },

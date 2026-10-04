@@ -1307,7 +1307,11 @@ function featureCatalog() {
       { name: "Graph view", desc: "Your notes as a network of links, threads and similarity.", tab: "graph" },
       { name: "Edit on the map", desc: "Click any node to edit its content and tags in place.", reveal: "graph-edit" },
       { name: "Physics controls", desc: "Gravity, Spread and Link force sliders reshape the layout.", reveal: "graph-physics" },
+      { name: "Suggestions", desc: "Links to add, disagreements, names to merge and link types, decided one by one.", reveal: "suggestions" },
       { name: "Suggested links", desc: "Atlas proposes connections between related notes.", reveal: "graph-suggest" },
+      { name: "People and things", desc: "Everyone and everything your notes name, each with its own page.", reveal: "entities" },
+      { name: "Kinds of link", desc: "Say what a link is (Part of, Cites, your own), with its name from the other end.", reveal: "relation-types" },
+      { name: "Note types", desc: "Meeting, Book, your own: a kind of note with its fields, kept at the top of each note.", reveal: "note-types" },
       { name: "Timeline", desc: "Everything you have made, in order, as a grid or a branching line.", tab: "timeline" },
       { name: "Zoom the timeline", desc: "By day, week, month or year, with a jump back to today.", reveal: "timeline-zoom" },
       { name: "Timeline bands", desc: "Group the timeline by category, tag or kind of thing.", reveal: "timeline-bands" },
@@ -2593,7 +2597,7 @@ async function renderMostLinkedWidget(body) {
     .map(([id]) => byId.get(id))
     .filter(Boolean)
     .slice(0, 6);
-  miniEntryList(body, ranked, "Link notes to each other and the most-connected ones show up here.", { label: "ph:link Find links to add", run: "suggest-links", tab: "graph" });
+  miniEntryList(body, ranked, "Link notes to each other and the most-connected ones show up here.", { label: "ph:link Find links to add", run: "suggest-links" });
 }
 
 async function renderRecentNotesWidget(body) {
@@ -4139,9 +4143,8 @@ async function renderOrphanNotesWidget(body) {
   // The auto-linker lives as "Suggest links" in the Graph tab's toolbar,
   // among the graph's own display options, so the one screen that tells you
   // most of your notebook is unconnected had no way to act on it, and the
-  // feature that would has to be found first. `loadLinkSuggestions` renders
-  // into the Graph tab's own panel, so this switches there and runs it rather
-  // than duplicating the list here.
+  // feature that would has to be found first. It opens the suggestions inbox
+  // (suggestions-inbox.js, KG9) where it stands.
   const connect = document.createElement("button");
   connect.type = "button";
   connect.className = "ghost small dash-loose-action";
@@ -4150,12 +4153,7 @@ async function renderOrphanNotesWidget(body) {
   connectIcon.setAttribute("aria-hidden", "true");
   connect.append(connectIcon, "Find links to add");
   connect.title = "Look for notes worth connecting, and approve them one by one";
-  connect.addEventListener("click", () => {
-    switchTab("graph");
-    // The tab switch renders asynchronously; the suggestions panel it draws
-    // into has to exist before it is filled.
-    setTimeout(() => loadLinkSuggestions(), 120);
-  });
+  connect.addEventListener("click", () => openSuggestionsInbox("links"));
   //: And the other half of "no link and no tag" (INBOX 162): the filtered
   //: Notes list, where every card carries its own "No tags yet" chip.
   const tagIt = document.createElement("button");
@@ -4216,7 +4214,7 @@ async function renderTensionsWidget(body) {
   icon.setAttribute("aria-hidden", "true");
   open.append(icon, entries.length < 2 ? "Nothing to compare yet" : "Review disagreements");
   open.disabled = entries.length < 2;
-  open.addEventListener("click", () => openTensions());
+  open.addEventListener("click", () => openSuggestionsInbox("tensions"));
   body.appendChild(open);
 }
 

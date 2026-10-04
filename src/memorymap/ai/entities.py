@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
 from memorymap.core.database import (
+    ENTITY_KINDS,
     LIKE_ESCAPE,
     Entity,
     EntityMention,
@@ -42,24 +43,40 @@ MIN_CONTENT_LENGTH = 20
 MAX_ENTITIES_PER_NOTE = 5
 
 
-def suggest_entities(
+#: The model's words for a kind, read onto `ENTITY_KINDS` (GRAPH_PLAN KG5). A
+#: small model writes "org", "company", "location" as often as the word asked
+#: for; anything else is no kind rather than a guess.
+KIND_WORDS = {
+    "person": "person", "people": "person", "name": "person",
+    "place": "place", "location": "place", "city": "place", "country": "place",
+    "project": "project",
+    "organisation": "organisation", "organization": "organisation", "org": "organisation",
+    "company": "organisation", "team": "organisation",
+    "thing": "thing", "object": "thing", "product": "thing", "tool": "thing",
+}
+
+
+def suggest_entities_with_kinds(
     text: str,
     model_manager: ModelManager,
     ollama: OllamaClient,
     limit: int = MAX_ENTITIES_PER_NOTE,
-) -> list[str]:
-    """Named people/projects/things this note actually mentions, model's
-    own words. Raises OllamaError if the model is unavailable, the caller
-    decides what to do, same contract as `suggest_tags`.
+) -> list[tuple[str, str | None]]:
+    """Named people, places, projects, organisations and things this note
+    mentions, each with its kind when the model said one (`name|kind`).
+    Raises OllamaError if the model is unavailable, the caller decides what
+    to do, same contract as `suggest_tags`.
     """
     system = (
         "You extract named entities from a note, real people, projects, "
-        "places or things it names, not generic topics (a topic is a tag, "
-        "not an entity: 'baking' is a topic, 'the sourdough starter' is a "
-        "thing). Reply with ONLY a comma-separated list of "
-        f"{limit} or fewer entity names, each as short as it's naturally "
-        "called (a first name is fine), no explanation. If the note names "
-        "nothing worth tracking as its own thing, reply with NONE."
+        "places, organisations or things it names, not generic topics (a "
+        "topic is a tag, not an entity: 'baking' is a topic, 'the sourdough "
+        "starter' is a thing). Reply with ONLY a comma-separated list of "
+        f"{limit} or fewer, each written name|kind where kind is one of "
+        f"{', '.join(ENTITY_KINDS)}, the name as short as it's naturally "
+        "called (a first name is fine), no explanation. Example: "
+        "Sam|person, Leeds|place. If the note names nothing worth tracking "
+        "as its own thing, reply with NONE."
     )
     reply = ollama.chat(
         model_manager.utility_model(),
@@ -72,23 +89,35 @@ def suggest_entities(
     if not raw or raw.upper().startswith("NONE"):
         return []
     seen: set[str] = set()
-    names: list[str] = []
+    found: list[tuple[str, str | None]] = []
     for piece in raw.replace("\n", ",").split(","):
-        name = piece.strip().strip("\"'").lstrip("-•").strip()
+        name, _, kind = piece.partition("|")
+        name = name.strip().strip("\"'").lstrip("-•").strip()
         key = name.lower()
         if name and key not in seen and len(name) <= 200:
             seen.add(key)
-            names.append(name)
-    return names[:limit]
+            found.append((name, KIND_WORDS.get(kind.strip().strip("\"'.").lower())))
+    return found[:limit]
+
+
+def suggest_entities(
+    text: str,
+    model_manager: ModelManager,
+    ollama: OllamaClient,
+    limit: int = MAX_ENTITIES_PER_NOTE,
+) -> list[str]:
+    """The names alone, for a caller that has no use for the kinds."""
+    return [name for name, _ in suggest_entities_with_kinds(text, model_manager, ollama, limit)]
 
 
 def _find_or_create_entity(session: Session, name: str, cache: dict[str, Entity]) -> Entity:
     """Case-folded exact match within this pass's own cache first (so the
     same note's five names don't each hit the database), then the table
-    itself, then a new row. Two different real-world Sarahs proposed as
-    "Sarah" across two notes are merged into one entity, a real ambiguity
-    this MVP accepts rather than solves (ROADMAP.md item 34's own scope
-    cut); a later pass can add disambiguation without changing this shape.
+    itself, then a name an entity carries as an alias, then a new row. A
+    match on an entity a merge emptied follows `merged_into` to the survivor
+    (GRAPH_PLAN KG5), so a merge is never undone by the next extraction.
+    Two different real-world Sarahs proposed as "Sarah" across two notes are
+    still one entity, a real ambiguity accepted rather than solved.
     """
     key = name.lower()
     if key in cache:
@@ -96,12 +125,69 @@ def _find_or_create_entity(session: Session, name: str, cache: dict[str, Entity]
     existing = session.scalars(
         select(Entity).where(Entity.name.ilike(like_escape(name), escape=LIKE_ESCAPE))
     ).first()
+    if existing is None:
+        #: The alias map, built once per pass and kept in the same cache under
+        #: a key no name can be (names are stripped, never a NUL).
+        aliases = cache.get("\0aliases")
+        if aliases is None:
+            aliases = {}
+            for row in session.scalars(select(Entity).where(Entity.aliases.is_not(None))):
+                for alias in row.aliases or []:
+                    aliases.setdefault(str(alias).casefold(), row)
+            cache["\0aliases"] = aliases  # type: ignore[assignment]
+        existing = aliases.get(name.casefold())  # type: ignore[union-attr]
+    existing = _survivor(session, existing)
     entity = existing or Entity(name=name)
     if not existing:
         session.add(entity)
         session.flush()  # need entity.id for the EntityMention below
     cache[key] = entity
     return entity
+
+
+def _survivor(session: Session, entity: Entity | None) -> Entity | None:
+    """The entity a chain of merges ends at (ten hops at most: a cycle is a
+    bug elsewhere and must not hang a background pass)."""
+    for _ in range(10):
+        if entity is None or entity.merged_into is None:
+            return entity
+        entity = session.get(Entity, entity.merged_into)
+    return entity
+
+
+def merge_entities(session: Session, keep: Entity, gone: Entity) -> int:
+    """Fold `gone` into `keep`: every mention moves (one per note), `gone`'s
+    names become `keep`'s aliases, and `gone` points at `keep` so a later
+    extraction of its name lands on the survivor. Returns the mentions moved.
+    Flushes; the caller commits.
+    """
+    if keep.id == gone.id:
+        return 0
+    have = set(session.scalars(select(EntityMention.entry_id).where(EntityMention.entity_id == keep.id)))
+    moved = 0
+    for mention in session.scalars(select(EntityMention).where(EntityMention.entity_id == gone.id)).all():
+        if mention.entry_id in have:
+            session.delete(mention)
+        else:
+            mention.entity_id = keep.id
+            have.add(mention.entry_id)
+            moved += 1
+    names = [*(keep.aliases or []), gone.name, *(gone.aliases or [])]
+    seen = {keep.name.casefold()}
+    aliases = []
+    for alias in names:
+        folded = str(alias).casefold()
+        if folded not in seen:
+            seen.add(folded)
+            aliases.append(str(alias))
+    keep.aliases = aliases or None
+    keep.kind = keep.kind or gone.kind
+    gone.aliases = None
+    gone.merged_into = keep.id
+    for earlier in session.scalars(select(Entity).where(Entity.merged_into == gone.id)).all():
+        earlier.merged_into = keep.id
+    session.flush()
+    return moved
 
 
 def extract_entities_pass(
@@ -140,9 +226,10 @@ def extract_entities_pass(
         content = (entry.content or "").strip()
         try:
             if len(content) >= MIN_CONTENT_LENGTH:
-                names = suggest_entities(content, model_manager, ollama)
-                for name in names:
+                for name, kind in suggest_entities_with_kinds(content, model_manager, ollama):
                     entity = _find_or_create_entity(session, name, cache)
+                    if kind and not entity.kind:
+                        entity.kind = kind
                     already = session.scalars(
                         select(EntityMention).where(
                             EntityMention.entity_id == entity.id,

@@ -53,7 +53,9 @@ def note_names(entry: Entry) -> list[str]:
     """
     if entry.is_private:
         return []
-    first = (entry.content or "").strip().split("\n", 1)[0]
+    from memorymap.entry.properties import strip as strip_properties
+
+    first = strip_properties(entry.content or "").strip().split("\n", 1)[0]
     names: list[str] = []
     opening = _HEADING_MARK.sub("", first).strip()
     if 0 < len(opening) <= 120 and "[[" not in opening:

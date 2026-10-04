@@ -962,8 +962,33 @@ function beginOrCompleteLink(entry) {
 //   tags:<2             fewer than 2 tags, also <=, >, >=, = (or bare N)
 //   -picnic             notes that do NOT mention "picnic"
 //   "exact phrase"      that phrase, verbatim
+//   type: prop: links: rel: entity:   the structure (GRAPH_PLAN KG7), asked
+//                       of the server (`/entries/query`), which the table and
+//                       the graph ask too, so all three show the same notes
 //
 // Anything else is a plain word: all of them must appear, in any order.
+
+//: KG7: the structural terms, `-` included, quoted or [[bracketed]] values whole.
+const LIVE_QUERY_RE = /(^|\s)(-?(?:type|prop|links|rel|entity):(?:\[\[[^\]]{1,120}\]\]|"[^"]{1,200}"|\S+))/gi;
+let liveQuery = { q: "", ids: null, pending: "" };
+
+//: The ids the server gives for these terms, or null while it is asked.
+function liveQueryIds(q) {
+  if (liveQuery.q === q && liveQuery.ids) return liveQuery.ids;
+  if (liveQuery.pending !== q) {
+    liveQuery.pending = q;
+    apiJson(`/entries/query?q=${encodeURIComponent(q)}`, { silent: true })
+      .then((body) => {
+        if (liveQuery.pending !== q) return;
+        liveQuery = { q, ids: new Set(body.ids || []), pending: "" };
+        renderEntries();
+      })
+      .catch(() => {
+        if (liveQuery.pending === q) liveQuery = { q, ids: new Set(), pending: "" };
+      });
+  }
+  return null;
+}
 
 // `tags:<2`, `tags:<=1`, `tags:0` and so on: "how many tags", not "which
 // ones" (that's plain `tag:`). Asked for directly: a way to find the notes
@@ -996,7 +1021,12 @@ function parseNoteQuery(raw) {
     titles: [],
     before: null,
     after: null,
+    structural: [],
   };
+  raw = (raw || "").replace(LIVE_QUERY_RE, (_, lead, term) => {
+    query.structural.push(term);
+    return lead || " ";
+  });
   //: `tag:"two words"` and `cat:"Home office"` first, then bare quoted
   //: phrases, so neither's spaces become word breaks.
   const named = (raw || "").replace(/\b(tag|cat|category|in|title):"([^"]+)"/gi, (_, key, value) => {
@@ -1039,6 +1069,32 @@ function parseNoteQuery(raw) {
   return query;
 }
 
+//: KG7: a structural query's bar over the list: how many, and the same notes
+//: as a table and on the graph.
+function liveQueryBar(visible) {
+  const list = $("entry-list");
+  let bar = list.parentElement?.querySelector(":scope > .note-query-bar");
+  const live = Boolean(noteSearch) && parseNoteQuery(noteSearch).structural.length > 0;
+  if (!live) {
+    bar?.remove();
+    return;
+  }
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.className = "row note-query-bar";
+    list.before(bar);
+  }
+  const ids = visible.map((e) => e.id);
+  const count = document.createElement("span");
+  count.className = "muted";
+  count.textContent = `${ids.length} note${ids.length === 1 ? "" : "s"} match this query`;
+  bar.replaceChildren(
+    count,
+    smallButton("ph:table Table", "These notes as a table, their properties as columns", () => openQueryTable(ids)),
+    smallButton("ph:graph Show on graph", "Light these notes on the graph", () => showQueryOnGraph(ids)),
+  );
+}
+
 function noteQueryIsEmpty(query) {
   return (
     !query.words.length &&
@@ -1050,7 +1106,8 @@ function noteQueryIsEmpty(query) {
     !query.tagCount &&
     !query.titles.length &&
     !query.before &&
-    !query.after
+    !query.after &&
+    !query.structural.length
   );
 }
 
@@ -1074,6 +1131,10 @@ function matchesSearch(entry) {
   const query = parseNoteQuery(noteSearch);
   if (noteQueryIsEmpty(query)) return true;
 
+  if (query.structural.length) {
+    const ids = liveQueryIds(query.structural.join(" "));
+    if (!ids || !ids.has(entry.id)) return false;
+  }
   const content = (entry.content || "").toLowerCase();
   const tags = (entry.tags || []).map((t) => t.toLowerCase());
   const category = (entry.category || "").toLowerCase();
@@ -1865,7 +1926,7 @@ function appendInline(parent, text) {
 // only when the backend has already said this note has a title, so this
 // never has to decide on its own whether a line "looks like" a heading.
 function bodyWithoutTitleLine(content) {
-  const lines = content.split("\n");
+  const lines = stripFrontmatter(content).split("\n");
   let i = 0;
   while (i < lines.length && lines[i].trim() === "") i++;
   if (i >= lines.length) return content;
@@ -2825,6 +2886,7 @@ function renderEntries() {
     noteSearch && visible.length !== total
       ? `${scope}: ${visible.length} of ${total}`
       : scope;
+  liveQueryBar(visible);
   // Distinguish "empty notebook" from "filter matched nothing".
   const notebookEmpty = allEntries.length === 0;
   empty.classList.toggle("hidden", !notebookEmpty);

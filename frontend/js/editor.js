@@ -2036,7 +2036,9 @@ function editorChoiceDialog(message, choices) {
 // is deliberately conservative about, and a notebook that grows notes you did
 // not ask for is worse than one that makes you click twice.
 async function offerToCreateWikiTarget(name) {
-  const wanted = String(name || "").trim();
+  //: A board reference keeps its bar (it is read just below); any other link
+  //: offers to create the note its target names, not `Target|Shown`.
+  const wanted = String((typeof wikiLinkTarget === "function" ? wikiLinkTarget(name) : name) || "").trim();
   if (!wanted) return;
 
   //: **A board reference is not a name that can be created** (INBOX 309).

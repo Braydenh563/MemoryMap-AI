@@ -715,8 +715,32 @@ function wikiLinkLabel(name) {
   //: same mistake as a url where a link's text should be.
   const ref = boardEmbedRef(name);
   if (ref) return ref.title || (ref.map ? "Mind map" : "Board");
-  const clean = notePreviewText(name).replace(/\s+/g, " ").trim();
+  const clean = notePreviewText(wikiLinkShown(name)).replace(/\s+/g, " ").trim();
   return clean || name;
+}
+
+//: **`[[Target|Shown]]`: the part before the first bar names the note, the
+//: part after it is what is drawn.** The server reads it this way everywhere
+//: (`manager.wiki_link_targets`, tests/test_wiki_links_alias.py); the page drew
+//: the whole `Target|Shown` as the chip's words and looked for a note that
+//: opens with the whole string (found by the deepflows sweep). A board
+//: reference (`board:12|House jobs`) uses the bar for the board's title and is
+//: read by `boardEmbedRef`, so it comes back whole from both.
+function wikiLinkTarget(name) {
+  const text = String(name ?? "");
+  if (boardEmbedRef(text)) return text;
+  const bar = text.indexOf("|");
+  return bar === -1 ? text : text.slice(0, bar).trim();
+}
+
+//: The words to draw: after the first bar, or the target when there is no
+//: alias (or an empty one, `[[bread|]]`).
+function wikiLinkShown(name) {
+  const text = String(name ?? "");
+  if (boardEmbedRef(text)) return text;
+  const bar = text.indexOf("|");
+  if (bar === -1) return text;
+  return text.slice(bar + 1).trim() || text.slice(0, bar).trim();
 }
 
 //: Text shortened for display: cut at the last whole word inside `limit`

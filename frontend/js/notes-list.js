@@ -2063,7 +2063,8 @@ function resolveWikiTarget(name) {
     const board = boardEmbedTarget(ref);
     return board ? { kind: "board", entry: board } : null;
   }
-  const needle = String(name || "").trim().toLowerCase();
+  //: `[[Target|Shown]]` finds the note by its target (`wikiLinkTarget`).
+  const needle = String(wikiLinkTarget(name) || "").trim().toLowerCase();
   if (!needle) return null;
   const entries = typeof allEntries !== "undefined" ? allEntries : [];
   //: **A vault's links name the file.** An imported note carries the path it

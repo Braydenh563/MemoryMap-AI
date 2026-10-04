@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Notes and documents: `[[Target|Shown]]` draws the shown words (it drew `Target|Shown`), opens the note or document named before the bar (it looked for one starting with the whole text and offered to create it), and a document's live view hides the target and bar like the brackets. Board references (`board:12|Title`) are unchanged. `tests/test_wiki_alias_frontend.py`.
 - Phone: Edit on an open note now opens the edit form. The note page (a full-screen sheet) stayed over the form, which was drawn in the list behind it, so Edit seemed to do nothing until Back was pressed; starting an edit now puts the page away first. `tests/test_phone_note_page_edit.py`.
 - Notes: in a note's edit form, Home, End and the up and down arrows now work in the title, tags and body fields. The notes list took those keys for moving between rows even from inside a field, so the caret never moved and the focus jumped to another note, and what was typed next was lost. `tests/test_entry_list_keys_in_fields.py`.
 - Mind maps: the topic strip no longer opens over the handle that bends the line into the selected topic (it did for 4 of 48 topics at 1440, on a radial map's inner rings and a tree's last branch); it slides clear to one side or opens under the topic instead, 0 of 192 at 1440, 1024, 820 and 390 (MINDMAP_PLAN 13b; `scratchpad/ui-sweeps/mapstripcover.js`).

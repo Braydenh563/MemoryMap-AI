@@ -46,6 +46,7 @@ def _run(body: str) -> dict:
             _fn("gcFadeToward"),
             _fn("gcFadeStep"),
             _fn("gcDrawLabels"),
+            "const gcLabelPlates = () => true;",
             "let gcTokens = { font: 'x', card: '#fff', ink: '#000' };",
             "const drawn = [];",
             "const ctx = { set globalAlpha(v) { this.a = v; }, get globalAlpha() { return this.a; },",

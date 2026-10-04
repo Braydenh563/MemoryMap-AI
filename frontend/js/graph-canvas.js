@@ -313,7 +313,16 @@ const GC_EDGE_STYLES = {
   filing: { width: 1.6, alpha: 0.25, dash: [3, 3], colour: "muted" },
   entity: { width: 1.6, alpha: 0.55, dash: null, colour: "muted" },
   document: { width: 1.6, alpha: 0.55, dash: null, colour: "muted" },
+  tagged: { width: 1.1, alpha: 0.4, dash: [2, 3], colour: "muted" },
+  attachment: { width: 1.2, alpha: 0.45, dash: null, colour: "muted" },
+  unresolved: { width: 1, alpha: 0.3, dash: [3, 4], colour: "muted" },
 };
+//: Nodes that are not notes (GRAPH_PLAN 514 adds tags, files and unwritten
+//: [[names]]): never opened in the popup, ringed in their own dash.
+const GC_KIND_DASH = { entity: [3, 2], document: [1, 3], tag: [4, 2], attachment: [1, 3], unresolved: [2, 2] };
+function gcIsNote(node) {
+  return !node.isGroup && !GC_KIND_DASH[node.type];
+}
 //: **A link between two notes of one colour takes that colour** (INBOX 443
 //: (1), the owner: "the graph shape could look nicer"; the edges were all one
 //: blue-grey). The line inside a category now says which category it is in, so
@@ -691,6 +700,25 @@ function gcCurvedLinks(s = gcTab) {
 function gcLabelPlates(s = gcTab) {
   const box = s.size === "full" ? gcEl("graph-label-plates") : null;
   return box ? box.checked : localStorage.getItem("graph-label-plates") !== "0";
+}
+
+//: Text fade (GRAPH_PLAN 514 (5)): the zoom past which a big map names every
+//: note, 2.6 at the left to 0.2 at the right, GC_LABEL_ZOOM at 50.
+function gcLabelZoom() {
+  const v = Number(gcEl("graph-label-fade")?.value ?? localStorage.getItem("graph-label-fade") ?? 50);
+  return 2.6 - 0.024 * (Number.isFinite(v) ? v : 50);
+}
+
+//: Link thickness: 0.4x at the left, 1x at 50, 2.2x at the right.
+function gcLinkWidth() {
+  const v = Number(gcEl("graph-link-width")?.value ?? localStorage.getItem("graph-link-width") ?? 50);
+  const at = Number.isFinite(v) ? v : 50;
+  return at <= 50 ? 0.4 + (0.6 * at) / 50 : 1 + (1.2 * (at - 50)) / 50;
+}
+
+function gcArrows(s = gcTab) {
+  const box = s.size === "full" ? gcEl("graph-arrows") : null;
+  return box ? box.checked : localStorage.getItem("graph-arrows") === "1";
 }
 
 function gcBowPoint(a, b) {
@@ -1215,6 +1243,8 @@ function gcDraw(s = gcTab) {
           ? graphPopupId
           : null;
   s.simScoreLabels = [];
+  const arrows = !s.tree && gcArrows(s);
+  const widthScale = gcLinkWidth();
   const simLo = s.simRange ? s.simRange[0] : GC_SIM_FLOOR;
   const simHi = s.simRange ? s.simRange[1] : 1;
   for (const edge of s.edges) {
@@ -1274,9 +1304,11 @@ function gcDraw(s = gcTab) {
       const bow = gcBowPoint(a, b);
       bucket.path.moveTo(a.x, a.y);
       bucket.path.quadraticCurveTo(bow.x, bow.y, b.x, b.y);
+      if (arrows && edge.kind === "link") gcArrowHead(bucket, bow, b, k, widthScale);
     } else {
       bucket.path.moveTo(a.x, a.y);
       bucket.path.lineTo(b.x, b.y);
+      if (arrows && edge.kind === "link") gcArrowHead(bucket, a, b, k, widthScale);
     }
   }
   const strokeBucket = (bucket) => {
@@ -1285,9 +1317,13 @@ function gcDraw(s = gcTab) {
     // `.graph-edge.graph-dim` is opacity 0.06 in the stylesheet; kept, because
     // a dimmed edge that is still readable defeats the spotlight.
     ctx.globalAlpha = 0.06 + (style.alpha - 0.06) * (bucket.level / 10);
-    ctx.lineWidth = style.width / k;
+    ctx.lineWidth = (style.width * widthScale) / k;
     ctx.setLineDash(style.dash ? style.dash.map((v) => v / k) : []);
     ctx.stroke(bucket.path);
+    if (bucket.heads) {
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.fill(bucket.heads);
+    }
   };
   for (const bucket of simBuckets.values()) strokeBucket(bucket);
   for (const bucket of buckets.values()) strokeBucket(bucket);
@@ -1304,6 +1340,7 @@ function gcDraw(s = gcTab) {
   // the ordinary ring. Only the handful of nodes that are hovered, matched,
   // pinned, held, hub or on a path get their own stroke.
   const haloByColour = new Map();
+  const labelZoom = s.size === "full" ? gcLabelZoom() : GC_LABEL_ZOOM;
   const ringed = [];
   const hubs = { path: new Path2D(), any: false };
   const labelled = [];
@@ -1358,8 +1395,7 @@ function gcDraw(s = gcTab) {
       onPath ||
       node.pinned ||
       node.fx != null ||
-      node.type === "entity" ||
-      node.type === "document" ||
+      !gcIsNote(node) ||
       node === s.dropTarget;
     if (special) {
       ringed.push({ node, focused: focused || leaving, ringFade, matched, onPath, dim });
@@ -1383,8 +1419,8 @@ function gcDraw(s = gcTab) {
     // GC_LABEL_ALL_MAX nodes the tickbox shows them all at any zoom; above
     // it the zoom gate stays, since 2,000 labels at the fitted zoom are
     // paint the eye cannot read and the frame budget cannot afford.
-    const labelsForAll = labelsOn && s.nodes.length <= GC_LABEL_ALL_SMALL;
-    if (!dim && ((labelsOn && (labelsForAll || k > GC_LABEL_ZOOM || matched)) || focused)) {
+    const labelsForAll = labelsOn && s.nodes.length <= GC_LABEL_ALL_SMALL && k > labelZoom - GC_LABEL_ZOOM;
+    if (!dim && ((labelsOn && (labelsForAll || k > labelZoom || matched)) || focused)) {
       labelled.push(node);
     }
   }
@@ -1393,7 +1429,7 @@ function gcDraw(s = gcTab) {
   //: neighbourhood (degree 2 or more), so a map of islands does not name
   //: twelve arbitrary dots. They join the queue below as ordinary labels:
   //: the collision pass decides whether each has room.
-  if (labelsOn && labelled.length < drawn.length && k <= GC_LABEL_ZOOM && s.nodes.length > GC_LABEL_ALL_SMALL) {
+  if (labelsOn && labelled.length < drawn.length && k <= labelZoom && s.nodes.length > GC_LABEL_ALL_SMALL) {
     const already = new Set(labelled.map((node) => node.id));
     const degree = (node) => (s.adj.get(node.id) || { size: 0 }).size;
     // A big map keeps its dozen hubs of degree 2+; a mid-sized one names
@@ -1415,6 +1451,7 @@ function gcDraw(s = gcTab) {
   for (const halo of haloByColour.values()) {
     for (const node of halo.nodes) {
       ctx.globalAlpha = gcLitAlpha(node._lit);
+      if (node.type === "unresolved") ctx.globalAlpha *= 0.4;
       const rWorld = node.r + node._grow;
       const hub = (s.adj.get(node.id) || { size: 0 }).size >= 3;
       const sprite = gcNodeSprite(halo.colour, rWorld * pixelScale, hub);
@@ -1487,10 +1524,11 @@ function gcDraw(s = gcTab) {
     } else if (node.pinned) {
       ctx.strokeStyle = gcTokens.warn;
       ctx.lineWidth = 2 / k;
-    } else if (node.type === "entity" || node.type === "document") {
+    } else if (GC_KIND_DASH[node.type]) {
       ctx.strokeStyle = gcTokens.ink;
       ctx.lineWidth = 2 / k;
-      ctx.setLineDash(node.type === "entity" ? [3 / k, 2 / k] : [1 / k, 3 / k]);
+      if (node.type === "unresolved") ctx.globalAlpha *= 0.5;
+      ctx.setLineDash(GC_KIND_DASH[node.type].map((v) => v / k));
     } else {
       // Unreachable while `ringed` only takes the nodes the branches above
       // name; kept so a future ring condition added to that test cannot draw
@@ -1760,6 +1798,25 @@ function gcDraw(s = gcTab) {
 //: The line under the pointer, drawn again over the rest, wider and in its
 //: own colour, at its own lit-ness (GC_FADE_MS), so pointing at a line lights
 //: it the way pointing at a note lights the note; the one just left fades out.
+//: Arrows (GRAPH_PLAN 514 (4)): a head at the target's rim, along the line's
+//: last direction (from the bow on a curve), sized on screen like the line.
+function gcArrowHead(bucket, from, to, k, widthScale) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  const tipX = to.x - ux * ((to.r || 6) + 1.5 / k);
+  const tipY = to.y - uy * ((to.r || 6) + 1.5 / k);
+  const long = (6 + 2 * widthScale) / k;
+  const half = (2.6 + widthScale) / k;
+  if (!bucket.heads) bucket.heads = new Path2D();
+  bucket.heads.moveTo(tipX, tipY);
+  bucket.heads.lineTo(tipX - ux * long - uy * half, tipY - uy * long + ux * half);
+  bucket.heads.lineTo(tipX - ux * long + uy * half, tipY - uy * long - ux * half);
+  bucket.heads.closePath();
+}
+
 function gcDrawEdgeHover(ctx, s, k, fadeStep, curved) {
   const hot = (s.edgeHot || []).filter((item) => item.edge !== s.hoverEdge);
   const current = (s.edgeHot || []).find((item) => item.edge === s.hoverEdge);
@@ -2733,7 +2790,7 @@ function gcWireNodeMenu(s = gcTab) {
 //: it carries the 13rem minimum width that keeps "Remove from selection" on
 //: one line, and `scratchpad/ui-sweeps/graph4.js` reads the menu by it.
 function gcShowNodeMenu(node, clientX, clientY, s = gcTab) {
-  const isNote = node.type !== "entity" && node.type !== "document";
+  const isNote = gcIsNote(node);
   const selected = s.selected.has(node.id);
   const items = [];
   if (isNote) {
@@ -2799,6 +2856,9 @@ function gcTooltip(node, s = gcTab) {
   if (node.type === "entity") return `${node.preview}\n${GC_ENTITY_HELP}`;
   if (node.type === "document") return `${node.preview}\nA document your notes are attached to`;
   if (node.type === "map") return `${node.preview}\nA mind map, joined to the notes on it`;
+  if (node.type === "tag") return `${node.preview}\nA tag, joined to the notes that carry it`;
+  if (node.type === "attachment") return `${node.preview}\nA file on the note it is joined to`;
+  if (node.type === "unresolved") return `${node.preview}\nNo note has this name yet. Click to write it`;
   if (node.type === "board" || node.type === "whiteboard") {
     return `${node.preview}\nA whiteboard, joined to the notes on it`;
   }
@@ -2843,7 +2903,11 @@ function gcClickNode(event, node, s = gcTab) {
     gcRequestDraw(s);
     return;
   }
-  if (node.isGroup || node.type === "entity" || node.type === "document") return;
+  if (node.type === "unresolved") {
+    gcWriteUnresolved(node);
+    return;
+  }
+  if (!gcIsNote(node)) return;
   if (traceModeActive) {
     pickTraceEnd(node);
     return;
@@ -2853,6 +2917,22 @@ function gcClickNode(event, node, s = gcTab) {
     return;
   }
   openGraphPopup(event || { clientX: 0, clientY: 0, stopPropagation() {} }, node);
+}
+
+//: GRAPH_PLAN 514 (3): a click on an unwritten [[name]] writes the note, with
+//: the name as its heading; the server links every note that named it.
+async function gcWriteUnresolved(node) {
+  try {
+    const created = await apiJson("/entries", {
+      method: "POST",
+      body: JSON.stringify({ content: `# ${node.preview}`, defer_filing: true }),
+    });
+    if (created.filing_state === "pending" && typeof watchFiling === "function") watchFiling(created);
+    toastAction(`Wrote “${node.preview}”.`, "Open", () => flashEntry(created.id));
+    await renderGraph();
+  } catch (error) {
+    toast(error.message || "Couldn't write that note.", true);
+  }
 }
 
 // --- the worker ------------------------------------------------------------------
@@ -3010,6 +3090,7 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
     params: {
       gravity: Number(localStorage.getItem("graph-gravity") || 50),
       spread: Number(localStorage.getItem("graph-spread") || 50),
+      linkForce: Number(localStorage.getItem("graph-link-force") || 50),
       lengthByScore: localStorage.getItem("graph-length-score") !== "0",
       //: The tab's map only: a local map of one note's neighbours is
       //: arranged by its links, and a ring of category places would pull
@@ -3175,11 +3256,8 @@ async function renderGraphCanvas(s = gcTab) {
     ? document.getElementById("graph-maps").checked
     : false;
   if (typeof graphSyncFocusChip === "function") graphSyncFocusChip();
-  const endpoint = graphFocusModeId
-    ? `/graph/local/${graphFocusModeId}?depth=2&similarity=${wantSimilarity}`
-    : `/graph?${wantSimilarity ? "similarity=true&" : ""}${wantEntities ? "include_entities=true&" : ""}${
-        wantDocuments ? "include_documents=true&" : ""
-      }${wantMaps ? "include_maps=true" : ""}`;
+  void wantEntities, wantDocuments, wantMaps;
+  const endpoint = graphEndpoint();
   //: A failed read is not an empty graph. Reported class of bug: the map
   //: drew "Nothing to map yet" over a notebook full of linked notes because
   //: the only thing distinguishing the two was a null this returned silently.
@@ -3222,6 +3300,7 @@ async function renderGraphCanvas(s = gcTab) {
   if (sequence !== s.renderSeq) return;
   const ruleColour = gcRuleScale(colourMode, data);
   s.colourOf = (node) => {
+    if (node.type === "unresolved") return gcTokens.muted;
     const groupIndex = graphGroupOf.get(node.id);
     if (groupIndex !== undefined && !node.isGroup) return graphGroupColour(groupIndex);
     if (node.isGroup) return colour(node.category);
@@ -3915,7 +3994,7 @@ async function renderGraphPane(entryId) {
     gcRequestDraw(s);
     return;
   }
-  const data = await apiJson(`/graph/local/${entryId}?depth=1`).catch(() => null);
+  const data = await apiJson(`/graph/local/${entryId}?${graphLocalQuery("pane", 1)}`).catch(() => null);
   if (!data || sequence !== s.renderSeq) return;
   graphPaneShownId = entryId;
   gcReadTokens(s);

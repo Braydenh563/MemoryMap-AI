@@ -428,6 +428,82 @@ def _add_map_edges(
                 edges.append({"source": board_id, "target": ref_id, "kind": "map"})
 
 
+def _add_tag_nodes(nodes: list[dict], edges: list[dict]) -> None:
+    """GRAPH_PLAN 514 (2): each tag a node (`tag:<name>`), joined to its notes."""
+    seen: dict[str, dict] = {}
+    for node in [n for n in nodes if n.get("kind") == "note"]:
+        for tag in dict.fromkeys(t.strip() for t in node["tags"] if t.strip()):
+            key = f"tag:{tag.lower()}"
+            if key not in seen:
+                seen[key] = {"id": key, "type": "tag", "preview": f"#{tag}", "category": "Tag", "created_at": node["created_at"]}
+            elif node["created_at"] < seen[key]["created_at"]:
+                seen[key]["created_at"] = node["created_at"]
+            edges.append({"source": key, "target": node["id"], "kind": "tagged"})
+    nodes.extend(seen.values())
+
+
+def _add_unresolved_nodes(
+    session: Session, entries: list, texts: dict[int, str], nodes: list[dict], edges: list[dict]
+) -> None:
+    """GRAPH_PLAN 514 (3): a `[[name]]` no note answers to, as a faint node.
+
+    Resolved the way `manager.find_by_wiki_name` resolves (a vault file's
+    stem, or a note's opening line starting with the name; private notes are
+    never targets), against one in-memory index rather than two queries per
+    link: the name's place in the sorted openings says whether one starts
+    with it.
+    """
+    from bisect import bisect_left
+
+    live = session.execute(
+        select(Entry.content, Entry.source_path).where(
+            Entry.is_deleted == False, Entry.is_private == False  # noqa: E712
+        )
+    ).all()
+    openings = sorted(manager.wiki_opening(content) for content, _ in live)
+    stems = {
+        (path or "").rsplit("/", 1)[-1].lower().removesuffix(".md").removesuffix(".markdown")
+        for _, path in live
+        if path
+    }
+    ghosts: dict[str, dict] = {}
+    for entry in entries:
+        for name in manager.wiki_link_targets(texts.get(entry.id, "")):
+            wanted = name.strip().lower()
+            at = bisect_left(openings, wanted)
+            if wanted in stems or (at < len(openings) and openings[at].startswith(wanted)):
+                continue
+            key = f"unresolved:{wanted}"
+            if key not in ghosts:
+                ghosts[key] = {
+                    "id": key, "type": "unresolved", "preview": name.strip(),
+                    "category": "Unresolved", "created_at": entry.created_at.isoformat(),
+                }
+            edges.append({"source": entry.id, "target": key, "kind": "unresolved"})
+    nodes.extend(ghosts.values())
+
+
+def _add_attachment_nodes(
+    session: Session, nodes: list[dict], edges: list[dict], node_ids: set[int]
+) -> None:
+    """GRAPH_PLAN 514 (6): each file or picture on a note, as its own node."""
+    rows = session.scalars(
+        select(Attachment)
+        .where(Attachment.entry_id.in_(node_ids))
+        .order_by(Attachment.created_at.desc())
+        .limit(GRAPH_DOCUMENT_CAP)
+    )
+    for row in rows:
+        key = f"attachment:{row.id}"
+        nodes.append(
+            {
+                "id": key, "type": "attachment", "preview": row.filename, "mime": row.mime,
+                "category": "Attachment", "created_at": row.created_at.isoformat(),
+            }
+        )
+        edges.append({"source": key, "target": row.entry_id, "kind": "attachment"})
+
+
 def _word_count(text: str | None) -> int:
     """Words in a note's text, for the map's size-by-length rule."""
     return len((text or "").split())
@@ -439,6 +515,9 @@ def graph(
     include_entities: bool = False,
     include_documents: bool = False,
     include_maps: bool = False,
+    include_tags: bool = False,
+    include_unresolved: bool = False,
+    include_attachments: bool = False,
     session: Session = Depends(get_session),
 ) -> dict:
     # A draft is unfinished by definition, and the Notes tab already keeps
@@ -669,6 +748,13 @@ def graph(
     #: to change.
     if include_maps:
         _add_map_edges(session, entries, nodes, edges, node_ids, taken)
+    # GRAPH_PLAN 514: opt-in, prefixed ids, outside centrality, as above.
+    if include_tags:
+        _add_tag_nodes(nodes, edges)
+    if include_unresolved:
+        _add_unresolved_nodes(session, entries, texts, nodes, edges)
+    if include_attachments:
+        _add_attachment_nodes(session, nodes, edges, node_ids)
 
     return {"nodes": nodes, "edges": edges, "categories": categories}
 
@@ -684,6 +770,11 @@ def graph_local(
     # asks for more than 2-3 today.
     depth: int = Query(default=2, ge=1, le=6),
     similarity: bool = False,
+    # GRAPH_PLAN 514 (1), Obsidian's local graph switches: follow links into
+    # the note, out of it, and draw the lines between notes at one distance.
+    incoming: bool = True,
+    outgoing: bool = True,
+    neighbours: bool = True,
     session: Session = Depends(get_session)
 ) -> dict:
     """Focus Mode API: Gets the local neighborhood up to N degrees."""
@@ -702,31 +793,65 @@ def graph_local(
 
     if entry_id not in index.entries:
         return {"nodes": [], "edges": [], "categories": []}
-        
-    # BFS up to `depth`
-    visited = {entry_id}
+
+    #: Which way each link and thread runs. The index keeps one step per
+    #: direction, so the stored row says which end wrote it (a thread runs
+    #: from the note to its reply, as on `/graph`); tags and similarity have
+    #: no direction and pass either switch.
+    directed: dict[frozenset, tuple[int, int]] = {}
+    for source, target in session.execute(select(EntryLink.source_entry_id, EntryLink.target_entry_id)):
+        directed.setdefault(frozenset((source, target)), (source, target))
+    for entry in index.entries.values():
+        if entry.parent_id in index.entries and entry.parent_id != entry.id:
+            directed.setdefault(frozenset((entry.parent_id, entry.id)), (entry.parent_id, entry.id))
+
+    def oriented(a: int, b: int, kind: str) -> tuple[int, int]:
+        if kind not in ("link", "thread"):
+            return (a, b)
+        return directed.get(frozenset((a, b)), (a, b))
+
+    def allowed(a: int, ends: tuple[int, int], kind: str) -> bool:
+        if kind not in ("link", "thread"):
+            return incoming or outgoing
+        return outgoing if ends[0] == a else incoming
+
+    # BFS up to `depth`, keeping each note's distance from the centre.
+    distance = {entry_id: 0}
     queue = [entry_id]
     edges = []
     taken = set()
-    
-    for _ in range(depth):
+
+    for level in range(depth):
         next_queue = []
         for n in queue:
             for neighbor, step in index.neighbours(n).items():
+                ends = oriented(n, neighbor, step.kind)
+                if not allowed(n, ends, step.kind):
+                    continue
                 pair = frozenset((n, neighbor))
                 if pair not in taken:
                     taken.add(pair)
-                    edges.append({
-                        "source": n,
-                        "target": neighbor,
-                        "kind": step.kind
-                    })
-                if neighbor not in visited:
-                    visited.add(neighbor)
+                    edges.append({"source": ends[0], "target": ends[1], "kind": step.kind})
+                if neighbor not in distance:
+                    distance[neighbor] = level + 1
                     next_queue.append(neighbor)
         queue = next_queue
         if not queue:
             break  # nothing left to expand, further iterations would be no-ops
+
+    visited = set(distance)
+    if neighbours:
+        # The lines between notes at one distance that the walk never crossed
+        # (two notes on the outer ring), whichever way they run.
+        for n in visited:
+            for neighbor, step in index.neighbours(n).items():
+                pair = frozenset((n, neighbor))
+                if neighbor in visited and pair not in taken and distance[n] == distance[neighbor]:
+                    taken.add(pair)
+                    ends = oriented(n, neighbor, step.kind)
+                    edges.append({"source": ends[0], "target": ends[1], "kind": step.kind})
+    else:
+        edges = [e for e in edges if distance[e["source"]] != distance[e["target"]]]
 
     category_names = manager.bulk_category_names(session, [index.entries[n] for n in visited])
     nodes = [

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Graph (514, parity with Obsidian's graph): Show adds Tags, Attachments and Unwritten links (a faint node per unanswered wiki name; a click writes that note); Display adds Arrows, Text fade and Link thickness; Physics adds Link force and takes Length by similarity and Group by category; focus mode gets a Focus section and the local map an Options fold, each with Depth 1 to 5 and Incoming, Outgoing and Neighbour links.
 - Graph: a Display fold in the gear panel holds Labels, Label backgrounds (new: off draws each name on a thin outline instead of a plate, still placed clear of lines), Curved links and Cluster glow; those switches now come back as they were left after a reload.
 - Notifications: no empty strip on the right of each row; the read circle and remove cross replace the time while a row is pointed at.
 - Settings, Help: hotkeys are drawn as keys, places such as Settings, Models and Library tab, Contents in bold, and control names and quoted phrases as small code chips (190, 139 and 47 across 96 topics), added when the page draws so the Guide's own text stays plain (INBOX 520).

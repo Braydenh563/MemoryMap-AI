@@ -1107,7 +1107,7 @@
              open, which is also what keeps its canvas out of a 0x0 box. -->
         <section class="graph-pane" id="graph-pane" data-collapsed="false" hidden>
           <h3 class="panel-head graph-pane-head">
-            <span class="graph-pane-title" title="The open note and the notes linked to it, up to two links away">Local map</span>
+            <span class="graph-pane-title" title="The open note and the notes linked to it; Options sets how far and which way">Local map</span>
             <span class="chip" id="graph-pane-count">No note open</span>
             <span class="row graph-pane-actions">
               <button type="button" class="ghost small icon-only" id="graph-pane-focus"
@@ -1128,6 +1128,28 @@
             <p class="muted graph-pane-empty" id="graph-pane-empty" hidden>
               This note is not linked to anything yet.
             </p>
+            <details class="settings-fold graph-pane-fold" id="graph-pane-options">
+              <summary><span class="muted dock-menu-label">Options</span></summary>
+              <div class="graph-option-row">
+                <label for="graph-pane-depth">Depth</label>
+                <input id="graph-pane-depth" type="range" min="1" max="5" value="1"
+                  title="How many links away from the open note to draw (1 to 5)">
+              </div>
+              <div class="graph-toggle-grid">
+                <label class="graph-option-row tools-toggle" title="Follow links other notes make to it">
+                  <span>Incoming</span>
+                  <input type="checkbox" id="graph-pane-in" checked>
+                </label>
+                <label class="graph-option-row tools-toggle" title="Follow links it makes to other notes">
+                  <span>Outgoing</span>
+                  <input type="checkbox" id="graph-pane-out" checked>
+                </label>
+                <label class="graph-option-row tools-toggle" title="Draw the lines between notes the same number of links away">
+                  <span>Neighbour links</span>
+                  <input type="checkbox" id="graph-pane-neighbours" checked>
+                </label>
+              </div>
+            </details>
           </div>
         </section>
       </aside>
@@ -3373,6 +3395,31 @@ Link to another note with [[its first few words]]."></textarea>
                section there rather than leaving controls that silently do
                nothing; `#graph-physics` is the element it dims, which is why
                the id is on the section and not on a wrapper inside it. -->
+          <!-- GRAPH_PLAN 514 (1): focus mode's local graph, shown only while
+               it is on. -->
+          <div class="dock-menu-section hidden" id="graph-focus-section"
+            role="group" aria-labelledby="graph-focus-label">
+            <span class="muted dock-menu-label" id="graph-focus-label">Focus</span>
+            <div class="graph-option-row">
+              <label for="graph-focus-depth">Depth</label>
+              <input id="graph-focus-depth" type="range" min="1" max="5" value="2"
+                title="How many links away from the note in focus to draw (1 to 5)">
+            </div>
+            <div class="graph-toggle-grid">
+              <label class="graph-option-row tools-toggle" title="Follow links other notes make to it">
+                <span>Incoming</span>
+                <input type="checkbox" id="graph-focus-in" checked>
+              </label>
+              <label class="graph-option-row tools-toggle" title="Follow links it makes to other notes">
+                <span>Outgoing</span>
+                <input type="checkbox" id="graph-focus-out" checked>
+              </label>
+              <label class="graph-option-row tools-toggle" title="Draw the lines between notes the same number of links away">
+                <span>Neighbour links</span>
+                <input type="checkbox" id="graph-focus-neighbours" checked>
+              </label>
+            </div>
+          </div>
           <details class="dock-menu-section settings-fold graph-options-fold graph-physics"
             id="graph-physics">
             <!-- Unpin all rides the section's own header row now (graph.md
@@ -3410,6 +3457,23 @@ Link to another note with [[its first few words]]."></textarea>
               <input id="graph-spread" type="range" min="0" max="100" value="50"
                 title="How far apart linked notes sit">
             </div>
+            <div class="graph-option-row">
+              <label for="graph-link-force">Link force</label>
+              <input id="graph-link-force" type="range" min="0" max="100" value="50"
+                title="How hard each link pulls its two notes together">
+            </div>
+            <div class="graph-toggle-grid">
+              <label class="graph-option-row tools-toggle" title="Strongly related notes sit closer together: a similarity line's score and a deduced link's confidence set its length">
+                <span>Length by similarity</span>
+                <input type="checkbox" id="graph-length-score" checked>
+              </label>
+              <!-- INBOX 431 (6): a category's notes gather, loose notes with
+                   them rather than in a ring round the map. -->
+              <label class="graph-option-row tools-toggle" title="Each category's notes gather in a place of their own; a note with no links sits with its category instead of on the edge of the map">
+                <span>Group by category</span>
+                <input type="checkbox" id="graph-group" checked>
+              </label>
+            </div>
           </details>
           <div class="dock-menu-section" id="graph-toggle-group"
             role="group" aria-labelledby="graph-show-label">
@@ -3441,6 +3505,12 @@ Link to another note with [[its first few words]]."></textarea>
                 Documents adds a node for each document your notes are attached
                 to, and Boards adds one for each mind map or whiteboard, joined
                 to the notes on it.
+              </p>
+              <p>
+                Tags and Attachments add a node for each tag and each file or
+                picture, joined to its notes. Unwritten links draws each
+                [[name]] no note answers to as a faint node; click it to write
+                that note.
               </p>
               <p>
                 Similarity joins each note to its two closest matches in
@@ -3481,19 +3551,21 @@ Link to another note with [[its first few words]]."></textarea>
                 <span>Boards</span>
                 <input type="checkbox" id="graph-maps">
               </label>
+              <label class="graph-option-row tools-toggle" title="Show each tag as its own node, joined to the notes that carry it">
+                <span>Tags</span>
+                <input type="checkbox" id="graph-tags">
+              </label>
+              <label class="graph-option-row tools-toggle" title="Show the files and pictures on your notes as their own nodes">
+                <span>Attachments</span>
+                <input type="checkbox" id="graph-attachments">
+              </label>
+              <label class="graph-option-row tools-toggle" title="Show each [[name]] that no note answers to as a faint node; click one to write that note">
+                <span>Unwritten links</span>
+                <input type="checkbox" id="graph-unresolved">
+              </label>
               <label class="graph-option-row tools-toggle" title="Hide notes that are not linked to anything, to declutter the map">
                 <span>Hide unlinked</span>
                 <input type="checkbox" id="graph-hide-orphans">
-              </label>
-              <label class="graph-option-row tools-toggle" title="Strongly related notes sit closer together: a similarity line's score and a deduced link's confidence set its length">
-                <span>Length by similarity</span>
-                <input type="checkbox" id="graph-length-score" checked>
-              </label>
-              <!-- INBOX 431 (6): a category's notes gather, loose notes with
-                   them rather than in a ring round the map. -->
-              <label class="graph-option-row tools-toggle" title="Each category's notes gather in a place of their own; a note with no links sits with its category instead of on the edge of the map">
-                <span>Group by category</span>
-                <input type="checkbox" id="graph-group" checked>
               </label>
               <!-- INBOX 407: the cutoff for similarity lines, in the grid's
                    free cell beside Length by similarity, and shown only while
@@ -3530,6 +3602,20 @@ Link to another note with [[its first few words]]."></textarea>
                 <span>Label backgrounds</span>
                 <input type="checkbox" id="graph-label-plates" checked>
               </label>
+              <label class="graph-option-row tools-toggle" title="An arrowhead on each link, pointing from the note that made it">
+                <span>Arrows</span>
+                <input type="checkbox" id="graph-arrows">
+              </label>
+            </div>
+            <div class="graph-option-row">
+              <label for="graph-label-fade">Text fade</label>
+              <input id="graph-label-fade" type="range" min="0" max="100" value="50"
+                title="How far out names stay on a big map: to the right, names show from further away">
+            </div>
+            <div class="graph-option-row">
+              <label for="graph-link-width">Link thickness</label>
+              <input id="graph-link-width" type="range" min="0" max="100" value="50"
+                title="How thick the lines are drawn">
             </div>
           </details>
           <div class="dock-menu-section graph-temporal" id="graph-temporal"

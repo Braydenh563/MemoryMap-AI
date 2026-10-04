@@ -1637,11 +1637,18 @@ function settingsModalOpen() {
   return Boolean(modal) && !modal.classList.contains("hidden");
 }
 
+//: A chip's words are always a `.ph-text` span (DESIGN.md, "A chip"): bare
+//: text cannot be trimmed to the x-height band and sits a pixel off its row.
+function chipWords(el, text) {
+  el.replaceChildren(Object.assign(document.createElement("span"), { className: "ph-text", textContent: text }));
+  return el;
+}
+
 function chip(text, extraClass = "", onClick = null) {
   const span = document.createElement("span");
   span.className = `chip ${extraClass}`.trim();
   setLabel(span, text);
-  if (text && !span.firstElementChild) span.replaceChildren(Object.assign(document.createElement("span"), { className: "ph-text", textContent: text }));
+  if (text && !span.firstElementChild) chipWords(span, text);
   // An interactive chip must be reachable and operable by keyboard, not just
   // the mouse. Passing onClick makes it a real button in the a11y tree.
   if (onClick) {

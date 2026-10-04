@@ -4329,7 +4329,7 @@ function renderOnThisDayWidget(body) {
     li.tabIndex = 0;
     const stamp = document.createElement("span");
     stamp.className = "chip dash-onthisday-when";
-    stamp.textContent = when;
+    chipWords(stamp, when);
     const text = document.createElement("span");
     text.className = "dash-list-text";
     renderInlineMarkdown(text, noteLabel(entry, 90), null, true);

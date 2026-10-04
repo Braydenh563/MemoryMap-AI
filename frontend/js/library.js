@@ -2092,7 +2092,7 @@ function skillCard(skill, lastRun) {
   //: The Settings lists' label (`.item-label`, DESIGN.md "a label"), so
   //: "Built-in" is drawn one way wherever it is said.
   badge.className = `chip item-label skill-badge${skill.builtin ? "" : " is-yours"}`;
-  badge.textContent = skill.builtin ? "Built-in" : "Yours";
+  chipWords(badge, skill.builtin ? "Built-in" : "Yours");
   header.append(title, badge);
 
   const desc = document.createElement("p");
@@ -4037,10 +4037,7 @@ function ocrRenderRegions(body) {
     //: off the block's own shape. An unknown kind falls back to "Text" rather
     //: than rendering `undefined`, which is the shape this repo keeps paying
     //: for elsewhere.
-    kind.textContent =
-      { heading: "Heading", list: "List", table: "Table", code: "Code", text: "Text" }[
-        region.kind
-      ] || "Text";
+    chipWords(kind, { heading: "Heading", list: "List", table: "Table", code: "Code", text: "Text" }[region.kind] || "Text");
     head.appendChild(kind);
     if (region.confidence) {
       //: Confidence is the one number that tells you whether to trust a row,
@@ -4179,7 +4176,7 @@ function ocrRenderRegions(body) {
       const label = document.createElement("span");
       label.className = "chip ocr-region-caption-label";
       const who = shortModelName(region.caption_model || "");
-      label.textContent = who ? `Figures · ${who}` : "Figures";
+      chipWords(label, who ? `Figures · ${who}` : "Figures");
       label.title = region.caption_model
         ? `Described by ${region.caption_model}`
         : "What this page's figures, charts and diagrams show";
@@ -4381,13 +4378,13 @@ function ocrShowRegionResult({ mode, page, rect, text, model, message }) {
   head.className = "row ocr-region-head";
   const where = document.createElement("span");
   where.className = "chip ocr-region-where";
-  where.textContent = `Page ${page + 1} · region`;
+  chipWords(where, `Page ${page + 1} · region`);
   where.title = `A ${Math.round(rect.w * 100)}% × ${Math.round(
     rect.h * 100
   )}% rectangle you outlined on page ${page + 1}`;
   const kind = document.createElement("span");
   kind.className = "chip ocr-region-kind";
-  kind.textContent = mode === "describe" ? "Description" : "Text";
+  chipWords(kind, mode === "describe" ? "Description" : "Text");
   head.append(where, kind);
   if (model) {
     const who = document.createElement("span");
@@ -6597,13 +6594,13 @@ function mediaReadingBadge(row) {
   const reading = mediaReading(row);
   if (!reading) {
     badge.className = "chip library-read-badge is-unread";
-    badge.textContent = "Not read";
+    chipWords(badge, "Not read");
     badge.title = "Nothing has been transcribed from this yet";
     return badge;
   }
   const words = reading.split(/\s+/).length;
   badge.className = "chip library-read-badge is-read";
-  badge.textContent = `Read · ${words.toLocaleString()} words`;
+  chipWords(badge, `Read · ${words.toLocaleString()} words`);
   badge.title = "Open the reader to see it beside the page";
   return badge;
 }
@@ -10522,7 +10519,7 @@ function contentsBuildSection(outline, jump, { key, label, total, fill }) {
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "chip contents-jump-chip";
-    chip.textContent = `${label} ${total}`;
+    chipWords(chip, `${label} ${total}`);
     chip.title = `Jump to ${label}`;
     chip.addEventListener("click", () => {
       //: Unfold before scrolling: jumping to a section that is folded lands

@@ -477,7 +477,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
       chip.className = "chip chip-interactive lightbox-page-chip";
       chip.classList.toggle("is-read", docPagesRead.has(i));
       chip.dataset.page = String(i);
-      chip.textContent = String(i + 1);
+      chipWords(chip, String(i + 1));
       //: The number alone is not a label, "3" tells a screen reader nothing
       //: about what it is or what pressing it does.
       chip.setAttribute(

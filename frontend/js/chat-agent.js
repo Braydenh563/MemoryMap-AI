@@ -2140,7 +2140,7 @@ function chatSourcesPanel(input) {
       if (files.length > 3) {
         const more = document.createElement("span");
         more.className = "chip chat-source-file muted";
-        more.textContent = `+${files.length - 3}`;
+        chipWords(more, `+${files.length - 3}`);
         strip.appendChild(more);
       }
       card.appendChild(strip);

@@ -3310,7 +3310,7 @@ function docPropsReadNode(fm) {
       for (const item of entry.items) {
         const chipEl = document.createElement("span");
         chipEl.className = "chip doc-prop-chip";
-        chipEl.textContent = item.text;
+        chipWords(chipEl, item.text);
         value.appendChild(chipEl);
       }
     } else {
@@ -8354,7 +8354,7 @@ function docLayerImageOptions(root) {
 function docEmbedChip(name, target) {
   const chip = document.createElement("span");
   chip.className = "chip doc-embed-chip";
-  chip.textContent = name;
+  chipWords(chip, name);
   chip.title = target
     ? `\u201c${name}\u201d opens in Documents; there is no inline preview for a document yet`
     : `Nothing called \u201c${name}\u201d yet`;

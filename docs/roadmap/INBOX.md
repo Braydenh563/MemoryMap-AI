@@ -34,6 +34,16 @@ with its owner named in the entry.
 
 ## Open items
 
+503. **The owner, 2026-10-04 evening, verbatim, with three crops (an
+     "Installed" pill with a check, a "Tag with Atlas" chip with a sparkle,
+     and the Timeline's rail icons in their circles).** "make sure that in
+     all badges, the text and icons are properly aligned and spaced etc. also
+     the timeline icons on the left arent centred in the circles". And, of
+     the feminine Atlas: "there is two wierd thin string like appendages
+     coming from the feminine atlas lower body up top, smoothen and make more
+     appealing where the lower body meets the main body" (with the Atlas
+     agent). Badges and the Timeline rail: agent.
+
 501. **The owner, 2026-10-04 evening, verbatim.** "also when atlas or the
      companion appears on the screen it just kinda appears and there is no
      smooth or creative animation for it to happen, or even differences on

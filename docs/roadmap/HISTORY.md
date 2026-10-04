@@ -37141,6 +37141,16 @@ width, 47% of the column at 1440.
      sends and reads with the backend; `prefpersist.js`: five switches off,
      reload, all five still off. Guide's filing topic updated.
 
+513. **The owner, 2026-10-04 evening, verbatim, two screenshots.** "the
+     notebook constellation isnt showing" / "the stats and streak are also
+     stuck loading". Not reproduced at f37110f (all three draw, 0 errors,
+     `dashwidgets.js`); all three wait on one `/insights/stats`, so a request
+     that never answered left them on the empty-body "Loading…" for good.
+     Fixed by construction: a 15 s deadline on that request, every widget
+     mounts through a guard that shows Retry on failure or after 20 s, and
+     the constellation waits for p5 (`ensureP5`) rather than reporting it
+     missing. `dashhang.js`: a held request ends on Retry; Retry draws.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

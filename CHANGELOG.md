@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Dashboard: a widget whose data never arrives offers Retry instead of saying "Loading…" for good; the constellation waits for its drawing library.
 - Settings: "Load the search model when the app starts" chooses a faster first note or a lighter start; four filing and image switches that never saved now do.
 - Notifications: one notification can be removed with the cross beside its read circle; a removed overdue reminder stays removed.
 - Tests: a ratchet (`tests/test_no_ui_emoji.py`) fails the build on any emoji, dingbat or pictograph in the UI's scripts, markup or stylesheets, with the documented data cases (Markdown shortcodes, math tables, emoji matchers, the colour-blind status marks) allowed by name; the inventory it came from is `scratchpad/emoji-icons-506.md` (INBOX 506).

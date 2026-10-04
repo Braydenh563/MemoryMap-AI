@@ -435,8 +435,16 @@ function fetchDashStats() {
   const now = Date.now();
   if (dashStatsInflight && now - dashStatsAt < 2000) return dashStatsInflight;
   dashStatsAt = now;
-  dashStatsInflight = apiJson("/insights/stats");
-  return dashStatsInflight;
+  //: A deadline (INBOX 513, the owner: Stats, Streak and the constellation
+  //: "stuck loading"): three widgets wait on this one request, so a request
+  //: that never answered left all three on "Loading…" for good. It fails
+  //: instead, each card offers Retry, and the next call asks again.
+  const pending = apiJson("/insights/stats", { timeoutMs: 15000 });
+  dashStatsInflight = pending;
+  pending.catch(() => {
+    if (dashStatsInflight === pending) dashStatsInflight = null;
+  });
+  return pending;
 }
 
 //: **One `/graph` per moment, not one per widget**, the same shape and the
@@ -1603,6 +1611,34 @@ function gettingStartedCard() {
   return card;
 }
 
+//: A widget that throws, or never draws, says so and offers Retry (INBOX
+//: 513): an empty body reads "Loading…" (01-forms-settings.css) and a render
+//: that never settled left it saying that for good. Promise.resolve() so a
+//: synchronous renderer cannot break the dashboard loop.
+const WIDGET_STALL_MS = 20000;
+
+function mountWidgetBody(widget, body) {
+  const failed = (message) => {
+    if (!body.isConnected) return;
+    const note = document.createElement("p");
+    note.className = "muted";
+    note.textContent = message;
+    const retry = smallButton("ph:arrow-clockwise Retry", "Load this widget again", () => {
+      body.replaceChildren();
+      mountWidgetBody(widget, body);
+    });
+    body.replaceChildren(note, retry);
+  };
+  let settled = false;
+  Promise.resolve()
+    .then(() => widget.render(body))
+    .then(() => { settled = true; })
+    .catch(() => { settled = true; failed("Couldn't load this widget."); });
+  setTimeout(() => {
+    if (!settled && !body.childNodes.length) failed("This is taking longer than it should.");
+  }, WIDGET_STALL_MS);
+}
+
 async function renderDashboard() {
   // The saved layout lives in preferences, after a page reload this can run
   // before startApp has fetched them. `loadPreferences` (settings-panes.js) is the shared
@@ -1725,11 +1761,7 @@ async function renderDashboard() {
     if (!hidden) {
       // Promise.resolve() so a synchronous renderer can't break the whole
       // dashboard loop, and a throwing one only spoils its own card.
-      Promise.resolve()
-        .then(() => widget.render(body))
-        .catch(() => {
-          body.textContent = "Couldn't load this widget.";
-        });
+      mountWidgetBody(widget, body);
     }
 
     // Drag to reorder (edit mode only).
@@ -2189,10 +2221,13 @@ async function startArt(holder) {
   const run = ++artRun;
   stopArt();
   artHolder = holder;
-  if (typeof p5 === "undefined") {
+  //: p5 loads after the page (`ensureP5`, phone-shell.js), so a dashboard
+  //: drawn first waits for it rather than reporting it missing.
+  if (typeof p5 === "undefined" && !(await ensureP5())) {
     holder.textContent = "The art library didn't load.";
     return;
   }
+  if (run !== artRun) return;
   const stats = await fetchDashStats().catch(() => ({
     categories: [],
     total_entries: 0,

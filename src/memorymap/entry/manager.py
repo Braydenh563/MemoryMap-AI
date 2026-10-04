@@ -1748,6 +1748,26 @@ def _set_stored_reason(session: Session, link: EntryLink, stored: str | None) ->
     session.expire(link, ["reason"])
 
 
+def _seal_props(props: dict | None) -> str | None:
+    """`_seal_reason` for link properties: the encrypted JSON of the object,
+    or `None` (dropped) when there is nothing to seal or the vault is closed.
+    """
+    from memorymap.core import crypto, vault
+
+    key = vault.key()
+    if not props or key is None:
+        return None
+    return crypto.encrypt(key, json.dumps(props))
+
+
+def _set_stored_props(session: Session, link: EntryLink, stored: str | dict | None) -> None:
+    """`_set_stored_reason` for `entry_links.props`: a Core update writes the
+    stored form as given (ciphertext string, plain object or null) and the
+    expire sends the next read back through the decrypting load."""
+    session.execute(update(EntryLink).where(EntryLink.id == link.id).values(props=stored))
+    session.expire(link, ["props"])
+
+
 def _touches_private(session: Session, link: EntryLink) -> bool:
     ends = session.scalars(
         select(Entry.is_private).where(
@@ -1866,6 +1886,9 @@ def create_link(
     shown_reason = None if private_link else reason
     if private_link:
         reason = _seal_reason(reason)
+        stored_props = _seal_props(props)
+    else:
+        stored_props = dict(props) if props else None
     # An unrecognised kind is stored as null rather than rejected: the column
     # is advisory (it styles an edge and weights a traversal), and refusing an
     # otherwise-valid link because a caller sent a typo would trade a working
@@ -1878,7 +1901,7 @@ def create_link(
         reason_confidence=confidence,
         link_type=kind,
         origin=origin,
-        props=dict(props) if props else None,
+        props=stored_props,
         # **The link belongs to the space its notes are in, whoever made it.**
         # A new row usually takes its space from `session.info["workspace_id"]`
         # (the before-flush hook in core/database.py), which is set from the
@@ -1900,7 +1923,7 @@ def create_link(
     if private_link:
         # The attribute holds the ciphertext just stored; make the next read
         # go back through the decrypting load (`expire_on_commit` is off).
-        session.expire(link, ["reason"])
+        session.expire(link, ["reason", "props"])
     detail = f"-> entry {target.id}" + (f" ({shown_reason})" if shown_reason else "")
     log_action(
         session,
@@ -2066,7 +2089,10 @@ def relation_label(types: dict[str, dict], link_type: str | None, outgoing: bool
 
 def set_link_props(session: Session, link: EntryLink, props: dict | None) -> EntryLink:
     """Replace a link's properties (KG3); an empty object clears them."""
-    link.props = dict(props) if props else None
+    if _touches_private(session, link):
+        _set_stored_props(session, link, _seal_props(props))
+    else:
+        _set_stored_props(session, link, dict(props) if props else None)
     log_action(session, "relinked", "entry", link.source_entry_id, f"-> entry {link.target_entry_id} (properties)")
     session.commit()
     return link
@@ -2630,6 +2656,8 @@ def _seal_link_reasons(session: Session, entry: Entry, key: bytes) -> None:
         text = link.reason  # plaintext: the column decrypts on load
         if text:
             _set_stored_reason(session, link, crypto.encrypt(key, text))
+        if link.props:
+            _set_stored_props(session, link, crypto.encrypt(key, json.dumps(link.props)))
     _redact_link_audit(session, entry, key)
 
 
@@ -2642,6 +2670,8 @@ def _unseal_link_reasons(session: Session, entry: Entry) -> None:
             continue
         if link.reason:
             _set_stored_reason(session, link, link.reason)
+        if link.props:
+            _set_stored_props(session, link, dict(link.props))
 
 
 def rekey_private_extras(session: Session, old_key: bytes, new_key: bytes) -> None:
@@ -2690,6 +2720,18 @@ def rekey_private_extras(session: Session, old_key: bytes, new_key: bytes) -> No
             text("UPDATE entry_links SET reason = :r WHERE id = :i"),
             {"r": swap(stored), "i": link_id},
         )
+    # Props are a JSON string of ciphertext in a JSON column: the stored text
+    # is the quoted form, so read it as JSON and write it back as JSON.
+    for link_id, stored in session.execute(
+        text("SELECT id, props FROM entry_links WHERE props LIKE :p"),
+        {"p": '"' + crypto.PREFIX + "%"},
+    ).all():
+        sealed = json.loads(stored)
+        if isinstance(sealed, str) and crypto.is_encrypted(sealed):
+            session.execute(
+                text("UPDATE entry_links SET props = :r WHERE id = :i"),
+                {"r": json.dumps(swap(sealed)), "i": link_id},
+            )
 
 
 @events.writes("entry", "edited")

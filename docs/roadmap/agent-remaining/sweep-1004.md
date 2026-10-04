@@ -16,7 +16,7 @@ S608 hits are constant placeholders.
 
 ## Not fixed
 
-1. **Link properties are not sealed on a link with a private end.** A link's
+1. **FIXED (`LinkProps`, tests/test_private_link_props.py): link properties are not sealed on a link with a private end.** A link's
    `reason` is encrypted (`manager._seal_reason`) but `entry_links.props`
    (up to 20 values of 200 characters) is stored in the clear. Props are
    short and free text a person wrote about the two notes, so the same rule

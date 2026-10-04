@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Documents: in a long document, jumping to the middle (the scrollbar, a search hit) no longer leaves headings drawn as raw `###` text in the Live view; the view repaints when the parser catches up, which it used to do only on the next key or scroll.
 - Appearance, Assistant avatar now reaches Ask's answer, the writing room's draft and the guide's chat rows: each opens with the same reply head as Chat (the Atlas or app emblem face, then the name), repainted live when the setting changes.
 - Notes filed in the background settle in tens of milliseconds, not 1 to 4 seconds: the embedding of a note-sized text now runs on one torch thread (`MEMORYMAP_EMBED_THREADS` to change it), which was 2.2 s against 79 ms whenever the machine was busy.
 - Toasts raised while a dialog is open (Quick note, any dialog's Undo) now show inside it and can be pressed; they were drawn behind the dialog.

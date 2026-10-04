@@ -7802,9 +7802,21 @@ function docLivePlugin(CM) {
         //: value rather than sniffed out of `update.transactions`: the
         //: preference is what the decoration actually depends on, and a
         //: reconfigure that does not change it should not cost a rebuild.
+        //:
+        //: And the parse. The markdown parser works in slices, so a viewport
+        //: that moves into a long document (a jump, a dragged scrollbar, a
+        //: search hit) can arrive somewhere the tree has not reached yet; the
+        //: build then reads the partial tree, finds no headings, and draws
+        //: plain text. The parser catching up sets none of the flags above,
+        //: so the lines stayed raw until the next keystroke or scroll. Measured
+        //: (`doclonglive.js`): in a 21k-word document a jump to 30% drew its
+        //: heading as `### Section`, still so 2.5s later. Compared as the
+        //: tree object, a pointer check, so a keystroke inside a stable tree
+        //: costs nothing extra.
         const gutterOn = docFenceGutterOn();
         if (update.docChanged || update.viewportChanged || update.selectionSet
-            || update.focusChanged || gutterOn !== this.gutterOn) {
+            || update.focusChanged || gutterOn !== this.gutterOn
+            || syntaxTree(update.startState) !== syntaxTree(update.state)) {
           this.gutterOn = gutterOn;
           this.decorations = build(update.view);
         }

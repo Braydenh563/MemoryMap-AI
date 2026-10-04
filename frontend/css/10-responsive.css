@@ -1164,18 +1164,28 @@ header#top-bar,
      in the corner, where every dialog keeps it). On a phone the section
      picker is a select whose first entry is Profile, so the face in the
      head is a second door to the same room; it goes, and the head is one
-     row again at 390 (the title, ?, Back, Forward, Close). */
-  #settings-profile-btn {
+     row again. Back and Forward go too: 105px of history in a 308px head
+     (278 at 360), beside a select that reaches every section in one step;
+     with them the head still wrapped at 360 everywhere and at 390 on
+     Appearance, where Peek joins it (measured: Close at y=64 both times). */
+  #settings-profile-btn,
+  #settings-modal-nav {
     display: none;
   }
 }
 
-/* And on the narrowest phones (360 measured: the head still wrapped, Close
-   62px in from the corner), Back and Forward go too: 105px of history in a
-   278px head, beside a select that reaches every section in one step. */
+/* Below 380, Peek keeps its eye and gives up its word (the word stays the
+   button's name), so Appearance's head is one row at 360 and 320 too. */
 @media (max-width: 379.98px) {
-  #settings-modal-nav {
-    display: none;
+  #settings-peek {
+    width: var(--target-min);
+    padding: 0;
+    font-size: 0;
+  }
+
+  #settings-peek > .ph {
+    margin: 0;
+    font-size: var(--text-body);
   }
 }
 

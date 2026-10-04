@@ -8384,10 +8384,7 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- Personas: who the AI is when it answers -->
           <section class="settings-section hidden" id="settings-personas">
-            <p class="muted">
-              A persona changes Atlas's voice: answers always stay grounded
-              in your notes. Pick the active one in the Chat tab.
-            </p>
+            <p class="muted">A persona is Atlas's voice; pick the active one in the Chat tab.</p>
             <ul id="persona-list" class="entry-list"></ul>
             <div class="settings-group">
             <h3>Answer style</h3>
@@ -8778,12 +8775,9 @@ Link to another note with [[its first few words]]."></textarea>
           </section>
 
           <section class="settings-section hidden" id="settings-tools">
-            <p class="muted">
-              When <strong>Agent mode</strong> is on in the Chat tab, these are
-              the actions Atlas may take. Turn any of them off and it won't be
-              offered that tool at all. Destructive actions always ask you to
-              confirm first.
-            </p>
+            <!-- One line (standing order 6, INBOX 464: it was three); turning
+                 one off is said where the switches are. -->
+            <p class="muted">What Atlas may do in <strong>Agent mode</strong>; anything destructive asks first.</p>
             <div class="settings-group">
               <div class="row help-head">
                 <h3>How many are offered at once</h3>
@@ -8912,6 +8906,7 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <div class="settings-group">
               <h3>Which ones it may use</h3>
+              <p class="muted">Turn one off and Atlas is never offered it.</p>
               <!-- **A filter, because there are fifty-one of these.** Measured
                    in the first audit of Settings: this section is 5,708px
                    tall, by some way the longest scroll in the app, and every
@@ -10981,7 +10976,7 @@ Link to another note with [[its first few words]]."></textarea>
                  same `data-goto-*` button the Guide's answer chips are. The
                  group heads give the pane its sticky index, and the Settings
                  search finds a topic by its title or its keywords. -->
-            <p class="muted">Every feature, grouped. Open a topic for what it does and where it is, or search Settings for any word.</p>
+            <p class="muted">Every feature, grouped: what it does and where it is.</p>
             <div id="help-topics" class="help-topics" aria-busy="true"></div>
 
             <!-- **One Atlas, not two** (INBOX 224, the owner: "there is

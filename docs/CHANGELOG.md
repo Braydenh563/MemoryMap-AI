@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Settings: the Tools, Personas and Help panes open on one line of description (Tools had three); "turn one off and Atlas is never offered it" now sits over the tool switches it is about.
 - Library Images and Files: the empty state's button is Upload, the verb its bar already uses (it was Capture a note); Settings → Models no longer says "Ollama isn't running" twice in two lines.
 - File pickers (Import markdown, Import a document and the rest) look like the Import button beside them: the same face, edge and weight, where they wore that button's hover colour and a near-invisible edge.
 - Library previews keep a document's or note's blocks apart: a heading, a list item or a table row is followed by a dot ("Goals · Ship the notebook redesign · Cut travel spend by 15%"), where they used to run on as one sentence.

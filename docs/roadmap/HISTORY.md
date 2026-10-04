@@ -37263,6 +37263,17 @@ width, 47% of the column at 1440.
      a calmer palette.
      Built: label plates placed clear of lines (crossings 43 to 28), calmer palette, hover fades over ~170 ms, lines hover and click to a reason popover (4af88c6, 5a3d6eb, a506e0f).
 
+503. **The owner, 2026-10-04 evening, verbatim, with three crops (an
+     "Installed" pill with a check, a "Tag with Atlas" chip with a sparkle,
+     and the Timeline's rail icons in their circles).** "make sure that in
+     all badges, the text and icons are properly aligned and spaced etc. also
+     the timeline icons on the left arent centred in the circles". And, of
+     the feminine Atlas: "there is two wierd thin string like appendages
+     coming from the feminine atlas lower body up top, smoothen and make more
+     appealing where the lower body meets the main body" (with the Atlas
+     agent). Badges and the Timeline rail: agent.
+     Fixed: one chip recipe (words trimmed to the x-height band, icon centred, one gap), timeline marks on even pixels; status labels 1.11 to 0.44 px off centre, rail -1.0 to -0.5 at 1x (1f2b007, 580abb6). Left: bare-text chips (contents jump, on this day, chat) not yet on the recipe; the check-circle glyph sits 1.35 px high.
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

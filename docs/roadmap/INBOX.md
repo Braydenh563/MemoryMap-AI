@@ -52,16 +52,6 @@ with its owner named in the entry.
      a board or map the canvas dock, never mid-air; a sweep over every tab
      and sub-tab asserting the figure's feet sit within 4px of a surface.
 
-503. **The owner, 2026-10-04 evening, verbatim, with three crops (an
-     "Installed" pill with a check, a "Tag with Atlas" chip with a sparkle,
-     and the Timeline's rail icons in their circles).** "make sure that in
-     all badges, the text and icons are properly aligned and spaced etc. also
-     the timeline icons on the left arent centred in the circles". And, of
-     the feminine Atlas: "there is two wierd thin string like appendages
-     coming from the feminine atlas lower body up top, smoothen and make more
-     appealing where the lower body meets the main body" (with the Atlas
-     agent). Badges and the Timeline rail: agent.
-
 460. **The owner, 2026-10-03 night, verbatim.** "I keep experiencing scroll
      jump when scrolling with two fingers on my trackpad?? idk". Placed: the
      orchestrator (reproduce with synthetic wheel streams; suspects: a

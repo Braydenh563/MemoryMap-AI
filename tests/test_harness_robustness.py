@@ -268,3 +268,12 @@ def test_three_pages_in_one_reply_are_fetched_side_by_side(monkeypatch, app_stat
     assert len(oks) == 3
     assert sorted(fetched) == urls, "each page fetched once, not again by the call"
     assert elapsed < 1.0, f"three 0.4s pages took {elapsed:.2f}s: fetched in series"
+
+
+def test_no_match_is_not_said_to_be_an_empty_notebook():
+    """Qwen2.5-1.5B, four notes saved: "How many notes do I have?" matched
+    none by its words, the prompt said "My notebook looks empty", and the
+    answer was "There are no notes in your notebook"."""
+    prompt = agent.build_agent_messages("How many notes do I have?", [])[-1]["content"]
+    assert "looks empty" not in prompt
+    assert "No notes matched" in prompt and "count_notes" in prompt

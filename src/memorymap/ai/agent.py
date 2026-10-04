@@ -1203,7 +1203,16 @@ def build_agent_messages(
         f"{librarian.note_for_prompt(note)}"
         for i, note in enumerate(notes, start=1)
     )
-    body = f"My notes:\n{numbered}\n\n" if notes else "My notebook looks empty.\n\n"
+    #: **No match is not an empty notebook** (INBOX 527, Qwen2.5-1.5B): with
+    #: four notes saved, "How many notes do I have?" matched none of them by
+    #: its words, the prompt said "My notebook looks empty", and the model
+    #: answered "There are no notes in your notebook". Retrieval cannot see the
+    #: notebook's size; count_notes can.
+    body = (
+        f"My notes:\n{numbered}\n\n"
+        if notes
+        else "(No notes matched these words. That says nothing about how many I have: count_notes and search_notes do.)\n\n"
+    )
     if dropped_notes:
         # Said rather than silently done. A model that knows its notes were
         # cut short can search for the rest; one that doesn't will answer as

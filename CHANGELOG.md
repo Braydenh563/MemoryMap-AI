@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Library, Documents on a phone: Reload moves into the dock's more menu, so the new ? does not wrap the dock to a second row (114px, as before).
 - Library, Boards and maps: one New button in the top bar with Whiteboard and Mind map inside it, in place of the two create buttons (the sentence-case rows keep the same keyboard keys, the tour and the Guide say where they went).
 - Reminders: the add card has one worded Add. The sentence box's button is now the wand alone, named Add from this sentence.
 - Library: the All, Documents and Bookmarks sub-tabs end their top bar with a ? saying what the sub-tab holds, like Boards and maps, Images and Files already do.

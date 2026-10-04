@@ -59,3 +59,12 @@ def test_boards_and_maps_dock_has_one_new_menu_holding_both_kinds():
     assert 'id="wb-boards-new"' not in outside and 'id="wb-boards-new-map"' not in outside, (
         "no second create button beside the menu"
     )
+
+
+def test_documents_refresh_folds_on_a_phone_so_the_help_does_not_cost_a_row():
+    # Measured at 390 with the new '?': New document, refresh, '?' and the more
+    # menu did not fit one row and the dock went from 114px to 198px. Refresh
+    # is the control that folds into the more menu there (`foldDockActions`),
+    # as it does on Boards and maps.
+    tag = re.search(r'<button[^>]*id="library-docs-refresh"[^>]*>', HTML).group(0)
+    assert "data-fold-narrow" in tag

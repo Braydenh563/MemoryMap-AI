@@ -2595,6 +2595,14 @@ button.answer-figure-open {
   max-height: 20rem;
   height: auto;
   object-fit: contain;
+  /* A box before the file loads when its size was not known (INBOX 534). */
+  aspect-ratio: auto 4 / 3;
+}
+
+/* The bubble being written is rebuilt every frame; the browser's scroll
+   anchor must not sit in it (INBOX 534). */
+.bubble-answer.is-streaming {
+  overflow-anchor: none;
 }
 
 .answer-figure-caption {

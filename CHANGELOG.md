@@ -228,6 +228,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Chat: the transcript keeps following a long answer as it is written. A heading, list or code block landing between two frames made it stop following, so the end ran away from you and only "Jump to latest" caught up; a picture arriving late or a fold collapsing now keeps you at the bottom too.
 - Chat: with a local server that speaks the OpenAI dialect (LM Studio, llama.cpp), an answer now writes itself live; it used to arrive all at once at the end of the turn.
 - Ask: Tab off either end of a pinned source preview closes it and puts the focus back on its mark, instead of leaving it open at the end of the page until Escape.
 - Chips: the Contents jump chips, the dashboard's On this day dates, the chat sources' +N, document property and embed chips and the Library's reading badges put their words in the same trimmed span as every other chip, so they sit level with their neighbours.

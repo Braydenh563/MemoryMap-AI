@@ -18,6 +18,10 @@ const NOTE = 'The sprint board sketch shows three columns: backlog, doing and re
 
 (async () => {
   const { page, browser } = await boot({ viewport: { width: W, height: H } });
+  // NOSIZE=1: the figure's size is unknown (an older picture), and SLOW_IMG=1
+  // makes the file land 1.5s late, the case the pane's load listener is for.
+  if (process.env.NOSIZE) await page.evaluate(() => { for (const k of ['width', 'height']) Object.defineProperty(HTMLImageElement.prototype, k, { set() {}, get() { return 0; } }); });
+  if (process.env.SLOW_IMG) await page.context().route('**/media/**', async (route) => { await new Promise((r) => setTimeout(r, 1500)); route.continue(); });
   await page.evaluate(async ({ png, base, note }) => {
     const bytes = Uint8Array.from(atob(png), (c) => c.charCodeAt(0));
     const form = new FormData();
@@ -34,6 +38,32 @@ const NOTE = 'The sprint board sketch shows three columns: backlog, doing and re
   await page.waitForTimeout(1200);
   await page.evaluate(() => newChatConversation());
   await page.waitForTimeout(400);
+  // DIAG=1: log any jump of the pane up by 200px+ with the scripts and
+  // mutations just before it (an intermittent jump to the top was seen once).
+  if (process.env.DIAG) {
+  await page.evaluate(() => {
+      window.__log = []; window.__ring = [];
+      const pane = document.getElementById('chat-messages');
+      const st = (n = 3) => new Error().stack.split('\n').slice(2, 2 + n).map((l) => l.trim().replace(/https?:\/\/[^/]+/, '')).join(' < ');
+      const d = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop');
+      Object.defineProperty(Element.prototype, 'scrollTop', { get() { return d.get.call(this); }, set(v) { if (this === pane && v < d.get.call(this) - 150) window.__log.push({ kind: 'set', v, was: d.get.call(this), stack: st(5) }); d.set.call(this, v); }, configurable: true });
+      for (const fn of ['scrollTo', 'scrollBy', 'scrollIntoView', 'focus']) {
+        const o = Element.prototype[fn];
+        Element.prototype[fn] = function (...a) { window.__ring.push({ t: Math.round(performance.now()), kind: fn, on: this.id || this.className?.toString().slice(0, 30) || this.tagName, stack: st(4) }); return o.apply(this, a); };
+      }
+      new MutationObserver((recs) => {
+        for (const r of recs) window.__ring.push({ t: Math.round(performance.now()), kind: 'mut', type: r.type, target: (r.target.id || r.target.className?.toString().slice(0, 30) || r.target.nodeName), add: r.addedNodes.length, rem: r.removedNodes.length });
+        if (window.__ring.length > 60) window.__ring.splice(0, window.__ring.length - 60);
+      }).observe(pane, { childList: true, subtree: true });
+      let prev = pane.scrollTop, prevSh = pane.scrollHeight;
+      pane.addEventListener('scroll', () => {
+        const top = pane.scrollTop, sh = pane.scrollHeight;
+        if (top < prev - 200) window.__log.push({ kind: 'scroll-jump', prev, top, prevSh, sh, t: Math.round(performance.now()), ring: window.__ring.slice(-14) });
+        prev = top; prevSh = sh;
+      }, { passive: true });
+      pane.addEventListener('wheel', (e) => window.__ring.push({ t: Math.round(performance.now()), kind: 'wheel', dy: e.deltaY, target: e.target.className?.toString().slice(0, 30) || e.target.nodeName }), { passive: true, capture: true });
+    });
+  }
   // The sampler lives in the page so it sees every 100ms, not every await.
   await page.evaluate(() => {
     window.__s = [];
@@ -54,6 +84,7 @@ const NOTE = 'The sprint board sketch shows three columns: backlog, doing and re
   const bb = await pane.boundingBox();
   await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
   const wheelLog = [];
+  let drift = null; // release mode: scrollTop change over 3s of streaming with no input
   const wheelDown = async (label) => {
     const before = await page.evaluate(() => document.getElementById('chat-messages').scrollTop);
     await page.mouse.wheel(0, 120);
@@ -67,11 +98,29 @@ const NOTE = 'The sprint board sketch shows three columns: backlog, doing and re
   while (await page.evaluate(() => Boolean(chatController)) && Date.now() - started < 90000) {
     await page.waitForTimeout(250);
     i += 1;
-    if (MODE === 'release' && i === 110) { await page.mouse.wheel(0, -700); }
+    if (MODE === 'release' && i === 110) {
+      await page.mouse.wheel(0, -700); await page.waitForTimeout(400);
+      const t0 = await page.evaluate(() => Math.round(document.getElementById('chat-messages').scrollTop));
+      await page.waitForTimeout(3000);
+      const t1 = await page.evaluate(() => Math.round(document.getElementById('chat-messages').scrollTop));
+      drift = t1 - t0;
+    }
     if (MODE === 'release' ? i > 114 && i % 4 === 0 : i % 6 === 0) await wheelDown('during');
   }
   await page.waitForTimeout(1500);
   const settled = await page.evaluate(() => { const p = document.getElementById('chat-messages'); return { top: Math.round(p.scrollTop), d: Math.round(p.scrollHeight - p.scrollTop - p.clientHeight), stuck: p.dataset.stuck }; });
+  // Growth probe, deterministic: a block taller than the 40px slack lands under a
+  // pane that is following, a scroll event is delivered after it (as the one for
+  // the pin always is), then the next pin runs. The pane must still be following.
+  const grew = MODE === 'follow' ? await page.evaluate(async () => {
+    const p = document.getElementById('chat-messages');
+    const block = document.createElement('div'); block.style.height = '160px'; block.style.flex = 'none'; block.className = 'probe-block';
+    p.append(block); const before = Math.round(p.scrollHeight - p.scrollTop - p.clientHeight); p.dispatchEvent(new Event('scroll'));
+    const stuck = p.dataset.stuck;
+    chatScrollToEnd(); await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    const d = Math.round(p.scrollHeight - p.scrollTop - p.clientHeight);
+    block.remove(); return { stuck, d, before };
+  }) : { stuck: '1', d: 0 };
   for (let k = 0; k < 30; k += 1) await wheelDown('after');
   await page.waitForTimeout(600);
   const end = await page.evaluate(() => {
@@ -105,9 +154,12 @@ const NOTE = 'The sprint board sketch shows three columns: backlog, doing and re
   fs.writeFileSync(`${SCRATCH}/trace-${W}x${H}-${MODE}.json`, JSON.stringify(trace));
   const worstDuring = Math.max(...samples.filter((s) => s.live && s.stuck === '1').map((s) => s.d), 0);
   const lastLive = [...samples].reverse().find((s) => s.live);
-  console.log(JSON.stringify({ W, H, MODE, samples: samples.length, worstDistWhileStuckAndLive: worstDuring, endOfStream: lastLive, settled, end, wheelAfter: wheelLog.filter((w) => w.label === 'after').slice(0, 6), wheelDuring: wheelLog.filter((w) => w.label === 'during').slice(0, 8) }));
+  console.log('growth probe', JSON.stringify(grew));
+  console.log(JSON.stringify({ W, H, MODE, samples: samples.length, worstDistWhileStuckAndLive: worstDuring, endOfStream: lastLive, settled, end, wheelAfter: wheelLog.filter((w) => w.label === 'after').slice(0, 6), wheelDuring: wheelLog.filter((w) => w.label === 'during') }));
   await page.screenshot({ path: `${SCRATCH}/shots/c534-${W}x${H}-${MODE}.png` });
-  const ok = end.dist <= 1 && end.tailBottom <= end.paneBottom + 1;
+  if (process.env.DIAG) console.log('DIAG', JSON.stringify(await page.evaluate(() => window.__log)).slice(0, 4000));
+  const ok = grew.stuck === '1' && grew.d <= 1 && (MODE !== 'follow' || settled.d <= 1) && end.dist <= 1 && end.tailBottom <= end.paneBottom + 1 && (drift === null || Math.abs(drift) <= 1);
+  console.log('drift', drift);
   console.log(ok ? 'PASS' : 'FAIL', 'dist', end.dist, 'tailBottom', end.tailBottom, 'dockTop', end.dockTop);
   await browser.close();
   process.exit(ok ? 0 : 1);

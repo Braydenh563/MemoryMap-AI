@@ -37489,6 +37489,27 @@ width, 47% of the column at 1440.
      pictures only when the question is about one (`librarian.PICTURE_ASK`),
      and a `[picture N]` token is drawn only then; otherwise it is stripped.
 
+534. **The owner, 2026-10-04, verbatim, same screenshots.** "I cant scroll
+     down all the way to the bottom on the chat, it cuts the scrollbar short
+     and the only way to reach it with the jump to bottom button".
+     **Fixed 2026-10-04.** Static geometry was never the cause
+     (`chatbottom.js`, `chatgrid534.js`: 17 window sizes). A real streamed
+     turn (`chatscroll534.js` against `fake_answer_server.py` with thinking,
+     code, table, figure; samples every 100ms) found three causes: (1) a
+     scroll event lands a frame after the pin that made it, and a block
+     that grew the pane past the 40px slack in between read as the reader
+     leaving, so `data-stuck` went "0" at the next heading or code block and
+     the pane fell behind (the jump button re-sticks, so it was the only way
+     back): only a scroll UP releases now, in `followBottom` and
+     `syncChatJumpLatest`; (2) a figure of unknown size or a fold toggling
+     changed the height with no scroll event, stranding a following pane
+     320px short with no pill: a capture `load`/`toggle` listener re-pins,
+     and unloaded pictures hold an `aspect-ratio` box; (3) separate and
+     bigger: `chat_tools_stream` read the whole body of a streamed OpenAI
+     reply before yielding, so LM Studio / llama.cpp turns never streamed.
+     Tests: `tests/test_chat_scroll_534.py`, `test_streaming_laziness.py`.
+     Not verified: the owner's desktop window (WebView2, trackpad inertia).
+
 ## INBOX resolved, 2026-10-04
 
 469. **The owner, 2026-10-03 night, verbatim.** "for the companion is it

@@ -34,16 +34,6 @@ with its owner named in the entry.
 
 ## Open items
 
-534. **The owner, 2026-10-04, verbatim, same screenshots.** "I cant scroll
-     down all the way to the bottom on the chat, it cuts the scrollbar short
-     and the only way to reach it with the jump to bottom button". Not
-     reproduced: `chatbottom.js` at 1280x720, 1440x900, 1920x1080 and 390,
-     wheel to the end reaches scrollTop = max and the last message ends above
-     the composer. Suspects for the owner's case: an answer still streaming
-     (follow mode), figures loading after the scroll. Needs the window size
-     and whether the answer was still writing.
-
-
 525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
      dark background behind the graph labels togglable??" Next Opus: the
      label plate switch in the graph's gear (Obsidian-parity brief).

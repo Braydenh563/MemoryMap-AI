@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The dashboard greeting ends in a full stop or a question mark, never an exclamation mark, like the rest of the app's copy; an older cached greeting corrects itself on the next render.
 - The unlock check no longer queries the database on every request: once a password is known to exist it is remembered for ten seconds (only the yes, so the gate can only ever be stricter), 0.4 ms off each of the forty-odd requests a start makes.
 - Settings > About names the licence (GNU AGPL v3) under the version, and a version that cannot be read says so instead of "Version ?" (INBOX 472)
 - Copy: the start-up failure notice lost two escaped em-dashes, two toasts lost their exclamation marks, and the SearXNG settings line no longer says "JSON API" (INBOX 472)

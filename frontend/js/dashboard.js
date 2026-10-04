@@ -291,10 +291,11 @@ function fallbackGreetingPhrase(now = new Date()) {
 // The name always comes from preferences, never from the model, so it can't
 // be mangled or hallucinated, and editing it takes effect immediately. The
 // terminal mark goes on last so the result reads as a proper sentence:
-// "Rise and shine" + ", Sam" + "!" → "Rise and shine, Sam!"
+// "Rise and shine" + ", Sam" + "." → "Rise and shine, Sam." A cached "!" from
+// before the server stopped sending one reads as a full stop (INBOX 472).
 function withDisplayName(phrase, punctuation = ".", appendName = true) {
   const name = ((prefsCache && prefsCache.display_name) || "").trim();
-  const mark = ".!?".includes(punctuation) ? punctuation : ".";
+  const mark = punctuation === "?" ? "?" : ".";
   // Also sentence-cased here, so an older cached greeting written by the model
   // in lowercase corrects itself on the next render.
   const opener = phrase ? phrase.charAt(0).toUpperCase() + phrase.slice(1) : phrase;

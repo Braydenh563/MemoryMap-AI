@@ -100,12 +100,12 @@ GREETING_PROMPT = (
     "Write ONE short greeting for someone opening their personal notebook app. "
     "It is currently {block}. Make it {flavour}. Rules: 2 to 7 words, no name, "
     "no quotation marks, no emoji, and do not mention the app by name. It may "
-    "be a question. End it with a full stop, question mark or exclamation "
-    "mark. Reply with the greeting only."
+    "be a question. End it with a full stop or a question mark. Reply with "
+    "the greeting only."
 )
 
 # When the user has set a display name we usually ask the model to weave it in,
-# so the greeting reads naturally ("Morning, Sam!") instead of always being a
+# so the greeting reads naturally ("Morning, Sam.") instead of always being a
 # phrase with a name bolted on. The name comes from preferences, never
 # hardcoded. Not every greeting uses it, so it doesn't get repetitive.
 GREETING_PROMPT_NAMED = (
@@ -113,16 +113,18 @@ GREETING_PROMPT_NAMED = (
     "notebook app. It is currently {block}. Make it {flavour}. Rules: 2 to 8 "
     "words, use the name {name} exactly once and spell it exactly as given, no "
     "quotation marks, no emoji, and do not mention the app by name. It may be a "
-    "question. End it with a full stop, question mark or exclamation mark. "
-    "Reply with the greeting only."
+    "question. End it with a full stop or a question mark. Reply with the "
+    "greeting only."
 )
 
 # How often a greeting addresses the user by name when one is set.
 NAME_USE_CHANCE = 0.75
 
 # The greeting is stored without its final mark so the display name can be
-# appended cleanly ("Good morning" + ", Sam" + "!"). The mark travels
-# separately in `punctuation`.
+# appended cleanly ("Good morning" + ", Sam" + "."). The mark travels
+# separately in `punctuation`. An exclamation mark comes back as a full stop:
+# the app's copy carries none (CLAUDE.md, standing order 6), and a small model
+# reaches for one whether or not it is asked to (INBOX 472).
 _TERMINAL_MARKS = ".!?"
 
 
@@ -131,11 +133,11 @@ def _clean_greeting(raw: str) -> tuple[str, str] | None:
     text = (raw or "").strip().splitlines()[0] if (raw or "").strip() else ""
     text = text.strip().strip("\"'`*").strip()
     mark = "."
-    # Remember an exclamation/question so the greeting keeps its tone, then
-    # strip trailing punctuation so a name can be appended after it.
+    # Remember a question so the greeting keeps its tone, then strip trailing
+    # punctuation so a name can be appended after it.
     while text and text[-1] in _TERMINAL_MARKS + ",;:":
-        if text[-1] in _TERMINAL_MARKS:
-            mark = text[-1]
+        if text[-1] == "?":
+            mark = "?"
         text = text[:-1].rstrip()
     # A little headroom over the prompt's word limit, since a woven-in name
     # costs a word or two.

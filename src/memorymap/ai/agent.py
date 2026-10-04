@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget, cards, context, fence, librarian, memory, tools
+from memorymap.ai import budget as run_budget, cards, context, fence, librarian, memory, source_check, tools
 from memorymap.ai.model_manager import ModelManager, is_small_model
 from memorymap.ai.ollama_client import (
     OllamaClient,
@@ -165,6 +165,18 @@ class _TurnCard:
         names = [_ROW_ICON.sub("", label).strip() for label in labels if label]
         row = ", ".join(dict.fromkeys(n for n in names if n)) or "Used a tool"
         return row[:1].upper() + row[1:]
+
+
+def _check_sources(answer: str, messages: list[dict], wanted: bool):
+    """H2: flag a number or a name the answer states that nothing this turn
+    read contains (`source_check`). Only after a tool ran, so the answer is
+    meant to be from the notebook, and only on an ordinary chat turn: a
+    skill step's prose is checked by the run's own verify block."""
+    if not wanted or not answer.strip():
+        return
+    claims = source_check.unbacked_claims(answer, source_check.sources_from_messages(messages))
+    if claims:
+        yield {"type": "answer", "delta": source_check.heads_up(claims)}
 
 
 def _labelled(gen, labels: list[str]):
@@ -2585,6 +2597,7 @@ def run_agent(
                         "a new note yourself."
                     ),
                 }
+            yield from _check_sources(f"{said_before}{answer}", state.messages, called_any and show_plan)
             yield from card.end_round(TURN_ROW_ANSWER)
             return
 
@@ -2687,6 +2700,7 @@ def run_agent(
             logging.getLogger("memorymap.agent").info("wrap-up round failed: %s", exc)
         if card.drawn:
             yield from card.end_round(TURN_ROW_WRAP_UP)
+        yield from _check_sources(wrapped, state.messages, show_plan)
         unsupported = unsupported_claims(wrapped, state.ran_writes)
         if unsupported:
             yield {

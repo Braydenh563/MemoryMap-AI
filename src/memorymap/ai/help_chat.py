@@ -1148,7 +1148,7 @@ HELP_TOPICS.extend(
         {
             "id": "chat-controls",
             "keywords": (
-                "fork", "compress", "regenerate", "plan first", "attach a note", "checklist",
+                "fork", "compress", "regenerate", "plan first", "attach a note", "checklist", "heads up",
                 "attach panel", "attach a picture",
                 "context window", "export the chat", "stop the answer", "stop an answer",
                 "source mark", "numbers in an answer", "numbered", "citation number",
@@ -1174,7 +1174,9 @@ HELP_TOPICS.extend(
                 "focus (the title and the passage the sentence came from, marked), "
                 "a press keeps it open, and Open note goes there. When an agent "
                 "answer takes more than one step, a checklist above it ticks off "
-                "each round, what it searched or read, then the answer."
+                "each round, what it searched or read, then the answer. A number "
+                "or a name in an answer that nothing it read contains gets a "
+                "heads-up under the answer, so check it before relying on it."
             ),
             "badge": {"label": "Chat", "tab": "chat"},
         },

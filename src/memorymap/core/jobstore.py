@@ -409,16 +409,19 @@ def set_forget(callback) -> None:  # noqa: ANN001
 
 _held: dict[int, object] = {}
 _held_lock = threading.Lock()
-_beater: threading.Thread | None = None
+_beater = None
+#: Starts `_beat` on a thread and returns it. `core/jobs.py` sets it when it
+#: loads, so the one module that starts threads for jobs is the pool's own
+#: (tests/test_flaw_class_lints.py, THREAD_SITES); until then, nothing beats.
+start_beater = None
 
 
 def _hold(job_id: int, db) -> None:  # noqa: ANN001
     global _beater
     with _held_lock:
         _held[job_id] = db
-        if _beater is None or not _beater.is_alive():
-            _beater = threading.Thread(target=_beat, name="mm-job-heartbeat", daemon=True)
-            _beater.start()
+        if start_beater is not None and (_beater is None or not _beater.is_alive()):
+            _beater = start_beater(_beat)
 
 
 def _release(job_id: int) -> None:

@@ -37,7 +37,7 @@ THREAD_SITES = {
     "api/routes_update.py": 2,
     "core/embedmodels.py": 1,
     "core/extras.py": 2,
-    "core/jobs.py": 1,  # the pool itself: the one place this is the design
+    "core/jobs.py": 2,  # the pool itself and the durable leases' heartbeat: the one place this is the design
     "core/security.py": 1,
     "search/searxng_install.py": 1,
     "search/searxng_manager.py": 1,

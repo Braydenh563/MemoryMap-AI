@@ -95,6 +95,17 @@ DEFAULT_LANE = "cpu"
 #: activity panel for it would be noise that says nothing they can act on.
 QUIET_KINDS = frozenset({"ledger"})
 
+
+def _start_heartbeat(target):  # noqa: ANN001, ANN202
+    """The durable store's lease heartbeat (`jobstore._beat`), started here so
+    job threads have one home. It ends itself once no lease is held."""
+    beater = threading.Thread(target=target, name="mm-job-heartbeat", daemon=True)
+    beater.start()
+    return beater
+
+
+jobstore.start_beater = _start_heartbeat
+
 #: What the activity panel calls each kind. Sentence case, no exclamation:
 #: standing order 6.
 LABELS: dict[str, str] = {

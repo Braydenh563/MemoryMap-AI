@@ -578,6 +578,7 @@ const ATLAS_LOOKS = {
     //: CSS), which turns about the hips (`lowerPivot`).
     lowerPivot: [31, 60],
     lowerTaper: "sower",
+    auraAt: [33.5, 46],
     //: The tail's centreline, from the hips' widest (y 59, under the torso,
     //: which is as wide there, so no root edge shows beside the waist) down, out to the left and curling up; `w` its
     //: width where it leaves the hips (17.2, the hips' own; 16.5 at y 62,
@@ -1112,10 +1113,11 @@ const ATLAS_BAND = atlasBandPaths();
 //: their angle is in. The seams get a speck each.
 const ATLAS_BAND_STARS = [[50, 0.3], [72, 0.42], [110, 0.34], [150, 0.4], [196, 0.5], [214, 0.34], [240, 0.3], [300, 0.36], [334, 0.5], [352, 0.4], [378, 0.34], [404, 0.42], [428, 0.3], [452, 0.36], [476, 0.3], [496, 0.24]];
 const ATLAS_BAND_CLOUDS = [[68, 12, 5, "pink"], [132, 11, 7, "blue"], [210, 8, 10, "pink"], [300, 10, 7, "blue"], [372, 9, 9, "pink"], [420, 11, 6, "blue"], [470, 9, 5, "pink"]];
-//: The haze round it, unclipped and faint: larger clouds that the ribbon
-//: runs through, so its edges dissolve into light. Round 8 widened the
-//: ribbon to 8.8 and the haze a third; the near half keeps both.
-const ATLAS_BAND_HAZE = [[80, 18, 5, "blue"], [160, 6, 14, "pink"], [220, 10, 16, "blue"], [300, 14, 11, "pink"], [376, 7, 13, "blue"], [436, 16, 6, "pink"]];
+//: No haze round it (INBOX 536, the owner: "the companion background glow
+//: needs a lot of fixing"): six unclipped clouds along the ribbon, the
+//: largest 16 units across, read in the large view as stray stains, one
+//: beside the chest and one over the head. The ribbon's own clouds stay
+//: clipped to it, and the figure has one glow, its aura.
 function atlasBandSplit(list, part) {
   const [n0, n1] = ATLAS_HELIX.near;
   return list.filter(([deg]) => (deg >= n0 && deg <= n1) === (part === "back")).map(([deg, ...rest]) => [...atlasHelixAt(deg), ...rest]);
@@ -1448,15 +1450,13 @@ function atlasTail(layer, edge, look) {
 }
 
 //: **The nebula** (the reference's galaxy band; light and secondary): the
-//: haze first, then the ribbon through it, with its nebula, the clouds
+//: ribbon, with its nebula, the clouds
 //: clipped to it, a pale stream, a faint lit edge and a few star dots.
 //: `part` is the orbit's half (`ATLAS_BAND`): "back" under the whole
 //: figure, "front" over the hair and the rings' near halves.
 function atlasBand(layer, id, part = "back") {
   const band = ATLAS_BAND[part];
   const g = atlasGroup(layer, `atl-band atl-band-${part}`, [31, 52]);
-  const haze = atlasGroup(g, "atl-band-haze");
-  for (const [cx, cy, rx, ry, colour] of atlasBandSplit(ATLAS_BAND_HAZE, part)) atlasMake("ellipse", { class: `atl-band-cloud atl-band-cloud-${colour}`, cx, cy, rx, ry }, haze);
   atlasMake("path", { class: "atl-band-fill", d: band.fill }, g);
   atlasMake("path", { class: "atl-overlay atl-band-neb", d: band.fill }, g);
   const clouds = atlasMake("g", { "clip-path": `url(#${id}-band${part === "front" ? "f" : ""})` }, g);
@@ -2093,6 +2093,18 @@ function atlasTuneStyle(svg) {
   for (const [key, value] of Object.entries(tune.colours)) svg.style.setProperty(`--atl-${key}`, value);
 }
 
+//: **One aura, on the figure** (INBOX 536): the glow behind the whole
+//: figure, centred on its drawn bounds (hair to tail) rather than on the
+//: body's axis: 2 units below the body's middle for both looks (the
+//: tail and the nebula reach further down than the hair rises), and her
+//: hair streams further to her left than his, so her centre is 2.5 units
+//: over (atlasaura.js measures it within 4% of the figure's box, stand,
+//: sit and hang). Its gradient falls to nothing at its rim.
+function atlasAuraAt(spec) {
+  const [cx, cy] = spec.auraAt || [31, 46];
+  return { cx, cy, rx: 40, ry: 52 };
+}
+
 //: **The companion's figure as five layers** (round 4; the companion agent
 //: measured Atlas repainting its 455-node drawing twenty times a second
 //: at rest). A transform or opacity animated on an element inside an SVG
@@ -2162,7 +2174,7 @@ function atlasDrawFigure(mood) {
   }
   const id = `atl-${look}`;
   atlasMake("title", {}, layers.body.svg);
-  atlasMake("ellipse", { class: "atl-aura", cx: 31, cy: 44, rx: 40, ry: 52 }, layers.back.pose);
+  atlasMake("ellipse", { class: "atl-aura", ...atlasAuraAt(spec) }, layers.back.pose);
   ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.back.rig, id, ring, k, false, true));
   atlasBody(layers.body.rig, id, true, look, { neb: layers.neb.rig, back: layers.back.rig, tail: layers.tail.rig, lower: layers.lower?.rig, legs: legs ? { l: layers["leg-l"].rig, r: layers["leg-r"].rig } : null, front: layers.front.rig });
   const host = atlasGroup(atlasGroup(layers.body.rig, "nm-buddy-head", ATLAS_GEO.neck), "name-mark atl-face");
@@ -2287,7 +2299,7 @@ function atlasDraw(size = 20, mood = atlasMoodNow, level = atlasLevelFor(size)) 
   const anchor = spec.body ? ATLAS_GEO.feet : ATLAS_GEO.chin;
   const pose = atlasGroup(svg, "atl-pose", anchor);
   if (level !== "tiny") {
-    const aura = spec.body ? { cx: 31, cy: 44, rx: 40, ry: 52 } : { cx: 31, cy: 20, rx: 26, ry: 26 };
+    const aura = spec.body ? atlasAuraAt(ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine) : { cx: 31, cy: 20, rx: 26, ry: 26 };
     atlasMake("ellipse", { class: "atl-aura", ...aura }, pose);
   }
   const moodLoop = atlasGroup(pose, "atl-mood", anchor);

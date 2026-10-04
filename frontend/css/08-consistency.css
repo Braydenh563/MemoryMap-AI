@@ -6205,6 +6205,13 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   top: 7px;
 }
 
+/* Not behind Atlas (INBOX 536, the owner: "the companion background glow
+   needs a lot of fixing"): Atlas draws its own aura, centred on the whole
+   figure, and this light, placed for a plain face's head and shoulders,
+   was a second blob over its head; enlarged and hanging it rose past the
+   top of the card. */
+:root[data-theme="dark"] #nm-buddy[data-seed="Atlas"]::after { content: none; }
+
 :root[data-theme="dark"] #nm-buddy::before {
   background: radial-gradient(closest-side, rgb(0 0 0 / 0.55), transparent);
 }
@@ -6478,7 +6485,6 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    92px), so the bed sits under that, not behind the chest. */
 #nm-buddy:has(.atl-figure)[data-pose="lie"]::before { top: calc(var(--nmb-edge) + 6px); }
 :root[data-theme="dark"] #nm-buddy[data-pose="lie"]::after { top: 26px; height: 56px; left: calc(-8px + 52px * var(--atl-v1)); right: calc(-48px + 52px * var(--atl-v1)); }
-#nm-buddy:is([data-pose="lie-2"], [data-pose="lie"]) .atl-band-haze { opacity: 0.35; }
 /* The near half of the stream lies under the body as its bed, not over it. */
 #nm-buddy[data-pose="lie"] .atl-layer-neb-front { opacity: 0.35; }
 /* Settling: sitting back with the legs out. */
@@ -7805,9 +7811,14 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-st-white { stop-color: white; stop-opacity: 1; }
 .nm-atlas .atl-st-white-mid { stop-color: white; stop-opacity: 0.55; }
 .nm-atlas .atl-st-white-0 { stop-color: white; stop-opacity: 0; }
-.nm-atlas .atl-st-aura0 { stop-color: var(--atl-glow-c); stop-opacity: var(--atl-aura-a); }
-.nm-atlas .atl-st-aura1 { stop-color: var(--atl-glow-c); stop-opacity: calc(var(--atl-aura-a) * 0.4); }
-.nm-atlas .atl-st-aura2 { stop-color: var(--atl-glow-c); stop-opacity: 0; }
+/* The aura in the nebula's own colours (INBOX 536: "tinted from the
+   nebula"), its lilac half into the accent-tinted glow. */
+.nm-atlas {
+  --atl-aura-c: color-mix(in oklab, var(--atl-neb-c) 55%, var(--atl-glow-c));
+}
+.nm-atlas .atl-st-aura0 { stop-color: var(--atl-aura-c); stop-opacity: var(--atl-aura-a); }
+.nm-atlas .atl-st-aura1 { stop-color: var(--atl-aura-c); stop-opacity: calc(var(--atl-aura-a) * 0.4); }
+.nm-atlas .atl-st-aura2 { stop-color: var(--atl-aura-c); stop-opacity: 0; }
 .nm-atlas .atl-st-core0 { stop-color: white; stop-opacity: 0.55; }
 .nm-atlas .atl-st-core1 { stop-color: white; stop-opacity: 0; }
 .nm-atlas .atl-st-iris0 { stop-color: var(--atl-ink); }
@@ -7999,7 +8010,6 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    itself a little quieter than it was so the haze carries the colour. */
 .nm-atlas .atl-band-edge-soft { stroke-width: 0.5; opacity: 0.2; }
 .nm-atlas .atl-band > .atl-band-fill { opacity: 0.58; }
-.nm-atlas .atl-band-haze .atl-band-cloud { opacity: 0.42; }
 /* Round 9: the orbit's depth. The far half (under the figure) is quieter,
    the near half (over the mane and the rings) a little brighter, its lit
    edge and its stream stronger; they meet where the ribbon turns edge-on,

@@ -832,3 +832,21 @@ def test_the_feminine_body_is_an_hourglass_that_flows_into_one_wide_tail(tmp_pat
         assert rule and "stroke" not in rule.group(1), cls
     # The masculine look keeps its own torso and trail.
     assert "sower" not in _look("masculine")
+
+
+def test_one_aura_centred_on_the_figure_and_no_stray_glows():
+    # INBOX 536, the owner: "the companion background glow needs a lot of
+    # fixing". Three glows read as stains: the nebula's six unclipped haze
+    # clouds (one beside the chest, one over the head), and in the dark
+    # theme a plain face's head-and-shoulders light under Atlas, which rose
+    # past the top of the large view's card when it hung. One aura stays,
+    # centred on the figure's drawn bounds and tinted from the nebula;
+    # atlasaura.js measures it within 4% of the figure's box and no glow at
+    # the card's edges, stand, sit and hang, light and dark.
+    assert "ATLAS_BAND_HAZE" not in ATLAS and "atl-band-haze" not in ATLAS and "atl-band-haze" not in CSS
+    assert ':root[data-theme="dark"] #nm-buddy[data-seed="Atlas"]::after { content: none; }' in CSS
+    assert 'atlasMake("ellipse", { class: "atl-aura", ...atlasAuraAt(spec) }, layers.back.pose);' in ATLAS
+    assert "const [cx, cy] = spec.auraAt || [31, 46];" in ATLAS and "auraAt: [33.5, 46]," in _look("feminine")
+    for k in "012":
+        assert f".atl-st-aura{k} {{ stop-color: var(--atl-aura-c);" in CSS
+    assert "--atl-aura-c: color-mix(in oklab, var(--atl-neb-c) 55%" in CSS

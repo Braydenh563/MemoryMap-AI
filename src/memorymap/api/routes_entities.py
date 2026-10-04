@@ -110,6 +110,11 @@ def entity_page(entity_id: int, session: Session = Depends(get_session)) -> dict
         i for i in session.scalars(select(EntityMention.entry_id).where(EntityMention.entity_id == entity.id))
         if i in visible
     ]
+    if not note_ids:
+        # The list hides an entity no visible note names; so does its page. The
+        # name was lifted from a note while it was readable, and by id it would
+        # otherwise outlive that note going private (sweep 1004).
+        raise HTTPException(status_code=404, detail="That name could not be found.")
     notes = {
         e.id: e for e in session.scalars(select(Entry).where(Entry.id.in_(note_ids)))
     } if note_ids else {}

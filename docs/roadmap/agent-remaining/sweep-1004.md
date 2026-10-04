@@ -23,7 +23,7 @@ S608 hits are constant placeholders.
    applies; sealing needs an encrypted JSON column or a string envelope plus a
    reader. Decision for the owner: seal (a `LinkProps` type like `LinkReason`)
    or state that props are metadata, like the link and its kind.
-2. **An entity that only private notes ever named is still fetchable by id.**
+2. **FIXED (`entity_page` 404s, tests/test_entity_page_private.py): an entity that only private notes ever named is still fetchable by id.**
    `GET /entities/{id}` returns its name and aliases with zero notes (the list
    hides it). The name was lifted from a note when it was readable. Cheapest
    fix: 404 an entity with no visible mention, as the list does.

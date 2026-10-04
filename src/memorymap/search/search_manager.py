@@ -895,7 +895,7 @@ _RECENCY_ASK = re.compile(
 
 
 def is_recency_ask(query: str) -> bool:
-    """Whether a question asks for the newest notes rather than a subject.
+    r"""Whether a question asks for the newest notes rather than a subject.
 
     The trailing whitespace and closing marks are stripped here, in code,
     so the pattern ends on a word and `$` with no quantifier before it:

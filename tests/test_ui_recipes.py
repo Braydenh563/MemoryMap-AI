@@ -2297,9 +2297,10 @@ def test_a_folded_group_of_settings_is_the_shared_disclosure_recipe() -> None:
         "group of settings is `details.settings-fold` (DESIGN.md, the recipe "
         "index), and this count may only fall"
     )
-    assert graph_folds == 3, (
-        "the graph options panel's three tuned-once sections (Physics, Groups, "
-        "Minimap) are folds; see GRAPH_PLAN.md, 'Decision made, 2026-09-20'"
+    assert graph_folds == 4, (
+        "the graph options panel's four tuned-once sections (Physics, Display, "
+        "Groups, Minimap) are folds; see GRAPH_PLAN.md, 'Decision made, 2026-09-20' "
+        "and 'Decision made, 2026-10-04: a Display fold'"
     )
 
 

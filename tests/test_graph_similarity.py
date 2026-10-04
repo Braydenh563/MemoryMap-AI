@@ -312,6 +312,7 @@ def test_the_reset_covers_every_persisted_graph_setting() -> None:
         "graph-hide-orphans",
         "graph-labels",
         "graph-curved",
+        "graph-label-plates",
         "graph-nebula",
         "graph-length-score",
         "graph-time-slider",

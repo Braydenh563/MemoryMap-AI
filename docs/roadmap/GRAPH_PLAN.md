@@ -454,6 +454,17 @@ nicer??", a screenshot with labels in white over the lines). Measured with
 - **Not changed:** the reasoned link's accent stroke (1.9px at 0.62, the
   decision above), the loudest thing left on the map.
 
+## Decision made, 2026-10-04: a Display fold
+
+The owner asked for Label backgrounds as a switch, and 514 adds Arrows and two
+display sliders; the Show grid could not take them (the panel already scrolled
+closed, 632px in 492 at 1440x900). Decided: **how the map is drawn is a fourth
+fold, Display**, on the 2026-09-20 rule (set once, then left): Labels, Label
+backgrounds, Curved links, Cluster glow. Off, Label backgrounds draws each name
+on the old 3px card-coloured outline; the placement keeps it clear of lines
+either way (`scratchpad/ui-sweeps/graphplates.js`: 19 plates on, 19 outlines
+off, off kept after a reload).
+
 ## Placed from INBOX, 2026-10-04: parity with Obsidian's graph
 
 514. **The owner, 2026-10-04, verbatim.** "is the graph missing any core

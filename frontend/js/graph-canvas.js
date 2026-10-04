@@ -686,6 +686,13 @@ function gcCurvedLinks(s = gcTab) {
 //: same way whichever end the simulation lists first, and a link that is
 //: drawn twice (both directions) lands on itself. Shared by the paint and the
 //: pointer's hit test, which has to find the line where it is drawn.
+//: Label backgrounds (the owner: "can we make the dark background behind the
+//: graph labels togglable??"): on by default, read like Curved links.
+function gcLabelPlates(s = gcTab) {
+  const box = s.size === "full" ? gcEl("graph-label-plates") : null;
+  return box ? box.checked : localStorage.getItem("graph-label-plates") !== "0";
+}
+
 function gcBowPoint(a, b) {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
@@ -1870,13 +1877,25 @@ function gcDrawLabels(ctx, s, placed, fadeStep, k) {
   //: plate's edge and the word reads on a clean ground. On the map's own
   //: ground the plate is the ground, so it is invisible except where it is
   //: doing that job. The ones leaving go down first, under the ones arriving.
+  //: Off (Label backgrounds), the name is drawn on the old 3px card-coloured
+  //: halo instead; the placement still keeps it clear of lines.
   const radius = 4 / k;
+  const plates = gcLabelPlates(s);
+  if (!plates) {
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 3 / k;
+    ctx.strokeStyle = gcTokens.card;
+  }
   for (const draw of leaving.concat(draws)) {
     const x = draw.x ?? draw.node.x + draw.spot.dx;
     const y = draw.y ?? draw.node.y + draw.spot.dy;
     const box = draw.spot.box;
     const a = gcSmooth(draw.a);
-    if (box) {
+    if (!plates) {
+      ctx.globalAlpha = a;
+      ctx.textAlign = draw.spot.align;
+      ctx.strokeText(draw.spot.text, x, y);
+    } else if (box) {
       ctx.globalAlpha = 0.88 * a;
       ctx.fillStyle = gcTokens.card;
       ctx.beginPath();

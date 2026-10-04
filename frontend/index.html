@@ -3485,18 +3485,6 @@ Link to another note with [[its first few words]]."></textarea>
                 <span>Hide unlinked</span>
                 <input type="checkbox" id="graph-hide-orphans">
               </label>
-              <label class="graph-option-row tools-toggle" title="Show a short label under every note (off = labels only when you hover)">
-                <span>Labels</span>
-                <input type="checkbox" id="graph-labels" checked>
-              </label>
-              <label class="graph-option-row tools-toggle" title="Draw links as gentle curves rather than straight lines">
-                <span>Curved links</span>
-                <input type="checkbox" id="graph-curved" checked>
-              </label>
-              <label class="graph-option-row tools-toggle" title="A faint wash of each cluster's colour behind it, so the shape of the notebook reads before the labels do">
-                <span>Cluster glow</span>
-                <input type="checkbox" id="graph-nebula" checked>
-              </label>
               <label class="graph-option-row tools-toggle" title="Strongly related notes sit closer together: a similarity line's score and a deduced link's confidence set its length">
                 <span>Length by similarity</span>
                 <input type="checkbox" id="graph-length-score" checked>
@@ -3521,6 +3509,29 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
             </div>
           </div>
+          <!-- How the map is drawn, folded like Physics: set once, then left
+               (GRAPH_PLAN, "Decision made, 2026-10-04: a Display fold"). -->
+          <details class="dock-menu-section settings-fold graph-options-fold" id="graph-display">
+            <summary><span class="muted dock-menu-label" id="graph-display-label">Display</span></summary>
+            <div class="graph-toggle-grid">
+              <label class="graph-option-row tools-toggle" title="Show a short label under every note (off = labels only when you hover)">
+                <span>Labels</span>
+                <input type="checkbox" id="graph-labels" checked>
+              </label>
+              <label class="graph-option-row tools-toggle" title="Draw links as gentle curves rather than straight lines">
+                <span>Curved links</span>
+                <input type="checkbox" id="graph-curved" checked>
+              </label>
+              <label class="graph-option-row tools-toggle" title="A faint wash of each cluster's colour behind it, so the shape of the notebook reads before the labels do">
+                <span>Cluster glow</span>
+                <input type="checkbox" id="graph-nebula" checked>
+              </label>
+              <label class="graph-option-row tools-toggle" title="A plate in the map's own colour behind each name, so a line under it stops at its edge (off = the name with a thin outline)">
+                <span>Label backgrounds</span>
+                <input type="checkbox" id="graph-label-plates" checked>
+              </label>
+            </div>
+          </details>
           <div class="dock-menu-section graph-temporal" id="graph-temporal"
             role="group" aria-labelledby="graph-time-heading">
             <span class="muted dock-menu-label" id="graph-time-heading">Time</span>

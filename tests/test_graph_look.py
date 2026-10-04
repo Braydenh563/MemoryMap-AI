@@ -128,7 +128,13 @@ def test_links_wear_their_category_and_curve_by_default():
     assert 'localStorage.getItem("graph-curved") !== "0"' in canvas
     graph = (JS / "graph.js").read_text(encoding="utf-8")
     assert '"graph-curved": true,' in graph
-    assert 'localStorage.getItem("graph-curved") !== "0"' in graph
+    # Restored when graph.js loads, not only by the SVG render the canvas
+    # path never runs (a stored "off" came back on after a reload).
+    stored = graph[graph.index("const GRAPH_STORED_SWITCHES") :].split("\n", 1)[0]
+    for box in ("graph-curved", "graph-label-plates", "graph-nebula", "graph-length-score", "graph-group"):
+        assert f'"{box}"' in stored, box
+    assert "if (box) box.checked = localStorage.getItem(id) !== \"0\";" in graph
+    assert "\ngraphRestoreSwitches();\n" in graph
     assert 'id="graph-curved" checked' in (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     # The pointer finds a link where it is drawn: the hit test samples the
     # same bow the paint strokes.
@@ -172,7 +178,7 @@ def test_names_stand_on_a_plate_and_the_palette_is_calmer():
     # A plate in the card's colour under each name, not a stroked halo
     # around each glyph (which left the lines showing between the letters).
     assert "ctx.roundRect(" in draw and "ctx.fillStyle = gcTokens.card;" in draw
-    assert "strokeText" not in draw
+    assert draw.count("strokeText") == 1  # only the Label backgrounds off branch
     # The placement is told where the lines are, except while the layout moves.
     assert "gcPlaceLabels(items, discs, lines ?" in canvas
     assert "s.alpha > 0.03 ? null : gcLineGrid(s, curvedLinks)" in canvas
@@ -182,3 +188,23 @@ def test_names_stand_on_a_plate_and_the_palette_is_calmer():
     assert "d3.schemeTableau10.concat(d3.schemeSet3)" not in canvas
     assert graph.count("d3.schemeTableau10.concat(d3.schemeSet3)") == 1  # inside graphCalmScheme
     assert "return (name) => categoryColour(name, scale(name));" in graph
+
+
+def test_label_backgrounds_are_a_switch_and_off_is_the_old_halo():
+    """The owner: "can we make the dark background behind the graph labels
+    togglable??". On: the plate. Off: the 3px card-coloured halo; the
+    placement (clear of lines) is the same either way."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    fold = html[html.index('id="graph-display"') : html.index("</details>", html.index('id="graph-display"'))]
+    assert 'id="graph-label-plates" checked' in fold
+    for moved in ("graph-labels", "graph-curved", "graph-nebula"):
+        assert f'id="{moved}"' in fold, moved
+    canvas = (JS / "graph-canvas.js").read_text(encoding="utf-8")
+    assert 'localStorage.getItem("graph-label-plates") !== "0"' in canvas
+    draw = canvas[canvas.index("function gcDrawLabels") :]
+    draw = draw[: draw.index("\n}\n")]
+    assert "const plates = gcLabelPlates(s);" in draw
+    assert "ctx.strokeText(draw.spot.text, x, y);" in draw and "ctx.lineWidth = 3 / k;" in draw
+    graph = (JS / "graph.js").read_text(encoding="utf-8")
+    assert '"graph-label-plates": true,' in graph
+    assert 'localStorage.setItem("graph-label-plates"' in graph

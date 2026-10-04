@@ -2650,18 +2650,7 @@ async function renderGraphSvg() {
   // Labels toggle: when off, labels only appear on hover (declutters a big
   // map). Driven by a class so toggling never rebuilds the simulation.
   $("graph-box").classList.toggle("graph-labels-hidden", !$("graph-labels").checked);
-  //: Curved links (the owner: "should we add the option to make connection
-  //: lines bezier instead?? ... togglable??"): a View option, remembered
-  //: like the others, read by the canvas renderer on every frame, so the
-  //: toggle is a redraw and never a rebuild of the simulation.
-  const curvedBox = $("graph-curved");
-  if (curvedBox) curvedBox.checked = localStorage.getItem("graph-curved") !== "0";
-  const nebulaBox = $("graph-nebula");
-  if (nebulaBox) nebulaBox.checked = localStorage.getItem("graph-nebula") !== "0";
-  const lengthBox = $("graph-length-score");
-  if (lengthBox) lengthBox.checked = localStorage.getItem("graph-length-score") !== "0";
-  const groupBox = $("graph-group");
-  if (groupBox) groupBox.checked = localStorage.getItem("graph-group") !== "0";
+  graphRestoreSwitches();
   graphCatchUpLabels();
 
   // A plain-language readout of what's on screen, so the map isn't a
@@ -5174,6 +5163,24 @@ function initGraphViews() {
 // arrives with a real height as soon as the card stops being display:none.
 initGraphDockHeightToken();
 
+//: The remembered on-by-default switches, restored when graph.js loads: the
+//: canvas renderer (the default) never ran the SVG render that used to do it,
+//: so Curved links, Cluster glow and Label backgrounds came back on after a
+//: reload while drawn from the box.
+const GRAPH_STORED_SWITCHES = ["graph-curved", "graph-label-plates", "graph-nebula", "graph-length-score", "graph-group"];
+function graphRestoreSwitches() {
+  for (const id of GRAPH_STORED_SWITCHES) {
+    const box = $(id);
+    if (box) box.checked = localStorage.getItem(id) !== "0";
+  }
+}
+graphRestoreSwitches();
+
+$("graph-label-plates")?.addEventListener("change", (event) => {
+  localStorage.setItem("graph-label-plates", event.target.checked ? "1" : "0");
+  if (typeof gcRequestDraw === "function") gcRequestDraw();
+});
+
 $("graph-curved")?.addEventListener("change", (event) => {
   localStorage.setItem("graph-curved", event.target.checked ? "1" : "0");
   if (typeof gcRequestDraw === "function") gcRequestDraw();
@@ -5275,6 +5282,7 @@ const GRAPH_DEFAULTS = {
   "graph-hide-orphans": false,
   "graph-labels": true,
   "graph-curved": true,
+  "graph-label-plates": true,
   "graph-nebula": true,
   "graph-length-score": true,
   "graph-group": true,

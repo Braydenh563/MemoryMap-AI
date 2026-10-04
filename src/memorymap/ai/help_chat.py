@@ -1069,7 +1069,7 @@ HELP_TOPICS.extend(
             "keywords": (
                 "similarity", "strength slider", "gravity", "spread", "saved view",
                 "save a view", "graph view", "graph options",
-                "display options", "trace", "unpin", "pin a note", "cluster glow",
+                "display options", "trace", "unpin", "pin a note", "cluster glow", "label background",
                 "entities", "hide unlinked", "minimap", "export as png", "lasso",
                 "zoom", "pan", "link reason", "why linked", "connection",
             ),
@@ -1089,8 +1089,9 @@ HELP_TOPICS.extend(
                 "map of them. Display options, the gear, opens with View: Layout "
                 "(Force, Tree, Radial or Arc), Colour, Size, Trace, which finds how "
                 "two notes connect, and Legend, which hides the key. Then Unpin all, Gravity and Spread, the Show switches (Similarity, "
-                "Entities, Documents, Boards, Hide unlinked, Labels, Curved links, "
-                "Cluster glow, Length by similarity), the similarity Strength "
+                "Entities, Documents, Boards, Hide unlinked, Length by similarity, "
+                "Group by category), Display (Labels, Label backgrounds, Curved "
+                "links, Cluster glow), the similarity Strength "
                 "slider (raise it to keep only the closest matches), a Time filter "
                 "you can play, Groups that paint notes matching some words one "
                 "colour, the minimap's position and size, and Reset, which puts the "

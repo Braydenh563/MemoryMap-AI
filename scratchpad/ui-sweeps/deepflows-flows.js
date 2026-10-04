@@ -818,4 +818,47 @@ flows.picker = async (env) => {
   }
 };
 
+//: Select mode: a press on a note ticks it (and on a phone does not also open its
+//: page), the bar counts them, and Tags adds a tag to every one.
+flows.select = async (env) => {
+  const tag = `swept${env.STAMP.slice(2)}${env.width}${env.theme}`;
+  const a = await fixtureNote(env, `Select flow A ${env.STAMP}${env.width}${env.theme}`);
+  const b = await fixtureNote(env, `Select flow B ${env.STAMP}${env.width}${env.theme}`);
+  try {
+    await showNotesList(env);
+    env.at('Select');
+    await env.page.locator('#select-btn').click();
+    await env.wait(500);
+    for (const n of [a, b]) {
+      env.at(`tick note ${n.id}`);
+      const row = env.page.locator(`${rowSel(n.id)} .entry-content`).first();
+      await row.scrollIntoViewIfNeeded();
+      if (env.phone) await row.tap({ position: { x: 30, y: 6 } });
+      else await row.click({ position: { x: 30, y: 6 } });
+      await env.wait(350);
+      if (await env.page.$('.sheet-overlay[data-sheet="note"]')) throw new Error('a tap in Select mode opened the note page');
+    }
+    const count = await env.js(() => document.getElementById('batch-count').textContent);
+    if (!/^2 selected/.test(count)) throw new Error(`the bar says "${count}" after ticking two notes`);
+    await env.overflow('select bar');
+    env.at('Tags for all');
+    await env.page.locator('#batch-tag').click();
+    const input = env.page.locator('input[placeholder^="Tags, separated"]').first();
+    await input.waitFor({ state: 'visible', timeout: 4000 });
+    await input.fill(tag);
+    await env.overflow('batch tags sheet');
+    await env.page.locator('button:has-text("Apply"):visible').first().click();
+    await env.wait(1500);
+    for (const n of [a, b]) {
+      const tags = await env.js(async (id) => (await apiJson(`/entries/${id}`)).tags, n.id);
+      if (!tags.includes(tag)) throw new Error(`note ${n.id} has tags ${JSON.stringify(tags)}, wanted ${tag}`);
+    }
+    //: Applying leaves Select mode by itself; Done is only there while it is on.
+    if (await env.page.isVisible('#batch-cancel')) await env.page.locator('#batch-cancel').click();
+    await env.wait(400);
+  } finally {
+    for (const n of [a, b]) await env.js(async (id) => { await api(`/entries/${id}`, { method: 'DELETE' }); await api(`/entries/${id}/purge`, { method: 'DELETE' }); }, n.id).catch(() => {});
+  }
+};
+
 module.exports = flows;

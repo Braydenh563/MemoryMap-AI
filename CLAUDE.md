@@ -58,8 +58,8 @@ full text, with the reasons, is the block at the top of
    and verifiable (lints, copy moves, fixture edits, sweeps, bugs whose fix
    is named). Opus: anything with a design judgement in it (frontend layout
    and visual work, plan phases, backend moves against their spec tests).
-   Fable, when available: plans, specs, line-by-line review of merges, the
-   invisible bugs. Each agent: own worktree cut from the branch, own port
+   **Never Fable agents** (the owner, 2026-10-04: "NO FABLE AGENTS!! IT
+   KILLS MY USAGE"): plans and specs go to Opus. Each agent: own worktree cut from the branch, own port
    and data dir, commit per step, remaining list before stopping. The
    orchestrator merges, gates, pushes.
 5. **Quality does not drop with the model.** Tests first, measure before

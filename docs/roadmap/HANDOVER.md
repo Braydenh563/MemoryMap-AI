@@ -274,7 +274,7 @@ after a usage reset. Either way, without asking anything:
    backend moves (Briefs 6 to 13), each against its spec tests
    (`tests/test_events.py`, `test_search_engine_spec.py`,
    `test_harness_verifier_spec.py`: strict-xfail, remove the marker as
-   each passes); **Fable**, when available, writes plans and specs,
+   each passes); **never Fable** (the owner, 2026-10-04: it kills usage); Opus writes plans and specs,
    reviews merges line by line and root-causes the invisible bugs. Each
    agent works in its own worktree cut from the branch with its own port
    and data dir, commits per step, and writes its remaining list before

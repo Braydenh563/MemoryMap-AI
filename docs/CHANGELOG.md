@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The app emblem no longer throws "ACCENTS is not defined" when it is drawn before Settings has loaded (the assistant avatar on the lock screen); it reads the page's accent colour instead.
 - Dialogs: a head keeps its height when the card fills, so Find anything's hairline no longer crosses its title and buttons, and its search field has room under the head.
 - The Guide: Atlas's reply bubble is full width from the first frame instead of a narrow box that widened as the answer came in.
 - Chat and Ask read the text in a note's pictures when the note is mostly a picture, not only when it is attached by hand: a screenshot of typed ideas reached the model as a link, and each picture's reading may now run to 1,200 characters (was 240).

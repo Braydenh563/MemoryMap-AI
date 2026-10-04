@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Duplicates: the scan is much faster and reads more of a large notebook. 60 notes went from about 196 ms to 8 to 15 ms; the scan used to give up after 500 notes (more than 25 s at that size) and now reads 5,000, so a notebook past 500 notes has its newer notes checked too (2,000 notes: about 0.7 s). Same groups and scores as before.
 - Connections: in Mentioned, not linked, the Link button is greyed out (with the reason on hover) for a note whose opening line has a square bracket in it, such as "Plan [v2]". It used to say "Linked", rewrite the sentence and store no link, because a [[link]] cannot hold a bracket. Names with # or | ("C# basics") link as before.
 - Privacy: what you search for no longer appears in the log. The access log, Settings log viewer and support bundle used to carry `GET /search?q=your words` in full; now the value of any query parameter that is not paging or a switch shows as `[redacted]` (the route and parameter names stay).
 - Privacy: the reason on a link that touches a private note is now encrypted like the note and kept out of the activity log's text (you still read it while unlocked; it was stored in plain text before). Making a note private seals the reasons on its links, making it public again restores them, and rotating the encryption key now also moves a private note's history and link reasons onto the new key (they would have stopped opening). Tags stay visible on a private note by design.

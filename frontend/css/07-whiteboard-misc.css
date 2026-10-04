@@ -1899,7 +1899,12 @@ body.has-agent-monitor #timeline-scroll {
 }
 
 .plan-step-retrying::after {
-  content: " ↻";
+  content: "\e094"; /* ph-arrows-clockwise */
+  margin-left: 0.35em;
+  font-family: Phosphor, sans-serif;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
 }
 
 /* **A step the run rewrote** (PLAN.md §4 A2). One level above a retry: a
@@ -1913,7 +1918,12 @@ body.has-agent-monitor #timeline-scroll {
 }
 
 .plan-step-replanned::after {
-  content: " ✎";
+  content: "\e3b4"; /* ph-pencil-simple */
+  margin-left: 0.35em;
+  font-family: Phosphor, sans-serif;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
 }
 
 /* **A step working through a paged read** (CHAT_PLAN decision 10). Not warn:
@@ -1925,7 +1935,12 @@ body.has-agent-monitor #timeline-scroll {
 }
 
 .plan-step-paging::after {
-  content: " ⇣";
+  content: "\e05c"; /* ph-arrow-line-down */
+  margin-left: 0.35em;
+  font-family: Phosphor, sans-serif;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
 }
 
 /* A run row's own state word borrows the same colours (`plan-step-*` is set on

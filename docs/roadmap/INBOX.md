@@ -83,6 +83,12 @@ with its owner named in the entry.
      Then (verbatim): "the arms for both the male and female atlas".
      Partly done (2026-10-05): his V-taper torso and both looks' hanging arms (upper arm 13.4 degrees off vertical, elbow 166 and 165, wrist 0.54 and 0.52 of shoulder width). Open: joint-angle blends and IK in avatars.js, counter-phase swing, head lag, his cloak, the travelling hair and tail motion. The follow-up Atlas agent.
 
+575. **The owner, 2026-10-05, verbatim.** "can you have the lower body of
+     both atlas avatars change around in position and and how it is sitting
+     ect with different variations and changes based off the current action
+     or behaviour??" Placed: the Atlas motion agent, with 564 (a lower-body
+     pose per state, small random variants, blended with follow-through).
+
 566. **The owner, 2026-10-05, verbatim.** "the whiteboard help popup is still
      cooked and needs a redesign" (screenshot: the empty board's help card,
      the Move around column's key pills clipped at the right, long labels

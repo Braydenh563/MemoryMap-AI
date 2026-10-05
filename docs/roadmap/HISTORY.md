@@ -40966,6 +40966,18 @@ The two cheap additions the plan's research section named (decisions 11 to
      21 to 110 apart (axis-normalised, of 100), no errors, canvas and SVG,
      light and dark, 1440 and 390. `tests/test_graph_layout_order.py`.
 
+578. **The owner, 2026-10-05, verbatim.** "this section in the chat sidebar
+     looks awkward" (screenshot: the Chats head, a large filled New button,
+     a lone wide Recent select below).
+     **Fixed 2026-10-05**: one head row in the Notes sidebar's shape: "Chats",
+     the sort as the icon-and-caret picker (`data-select-icon`), New chat a
+     ghost icon button, the collapse toggle. Before: New filled (81px), the
+     sort a 144px field on its own row. `gl1005-chathead.js`: one row, 0px
+     between centres, every control 32px, nothing filled, no overflow or
+     overlap, title whole, at sidebar widths 170, 200, 216, 230, 300 and 346
+     (the 520 cap at 1440); at 13rem and under the sort leaves the head (it
+     cut "Chats" to 9px at 170). `tests/test_ui_recipes.py` holds the shape.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

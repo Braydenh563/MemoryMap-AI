@@ -2159,24 +2159,30 @@ Link to another note with [[its first few words]]."></textarea>
            sidebars are misaligned". The class does the same thing and is not
            silently dropped. -->
       <aside class="card sidebar-panel" id="chat-sidebar">
+        <!-- INBOX 578 ("this section in the chat sidebar looks awkward"): one
+             head row, the shape the Notes sidebar's already has. The title,
+             then quiet icon controls: the sort as an icon-and-caret picker
+             (`data-select-icon`, DESIGN.md's recipe index) and New chat as a
+             ghost icon button, so the row's one filled action stays Send in
+             the composer. It was a filled 81px "New" and a 144px "Recent"
+             field alone on a row of its own under the head.
+             The sort is the live list item 11 control: a quick in-place
+             choice, the full sort and search being the Library's
+             (`#conv-browse-all`, below). -->
         <div class="row space-between sidebar-head">
           <h2>Chats</h2>
-          <button id="chat-new" class="small" type="button" title="Start a fresh conversation"
-            aria-label="Start a fresh conversation"><i class="ph ph-plus ph-lead" aria-hidden="true"></i>New</button>
+          <span class="row sidebar-head-actions">
+            <select id="chat-sidebar-sort" class="ghost small chat-sidebar-sort" data-select-icon="ph-sort-descending"
+              aria-label="Sort your saved chats" title="Sort your saved chats">
+              <option value="recent">Recent</option>
+              <option value="turns">Most turns</option>
+              <option value="tokens">Most tokens</option>
+              <option value="alpha">A–Z</option>
+            </select>
+            <button id="chat-new" class="ghost small icon-only" type="button" title="New chat: start a fresh conversation"
+              aria-label="New chat"><i class="ph ph-plus" aria-hidden="true"></i></button>
+          </span>
         </div>
-        <!-- Live list item 11: "conversations sort by recency and nothing
-             else... this is a list-rendering job", the full sort/search
-             Library already has (title="Search and sort everything you
-             have ever asked", below) is one click further than this
-             sidebar, so a quick in-place choice here is worth its own small
-             control rather than sending every sort change through there. -->
-        <select id="chat-sidebar-sort" class="ghost small chat-sidebar-sort"
-          aria-label="Sort your saved chats" title="Sort your saved chats">
-          <option value="recent">Recent</option>
-          <option value="turns">Most turns</option>
-          <option value="tokens">Most tokens</option>
-          <option value="alpha">A–Z</option>
-        </select>
         <ul id="conversation-list"></ul>
         <p id="conv-empty" class="muted">No saved chats yet, ask your notebook something.</p>
         <button id="conv-browse-all" class="ghost small conv-browse-all" type="button"

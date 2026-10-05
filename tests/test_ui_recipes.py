@@ -4128,16 +4128,26 @@ def test_no_third_glass_variant_and_the_literals_only_shrink() -> None:
     )
 
 
-def test_the_chat_sidebar_sort_is_as_wide_as_its_words_not_the_column():
-    """The chat list's sort select drew 266px wide for a 55px value and an
-    18px caret (menus.js sweep, 1440x900): `#chat-sidebar` is a flex column
-    whose items stretch, and the select's shell is a flex item. The shell
-    sizes to its content (`align-self: flex-start`, capped at the column), so
-    a sort control reads as a control and not as a full-width bar."""
+def test_the_chat_sidebar_head_is_one_quiet_row():
+    """INBOX 578, the owner: "this section in the chat sidebar looks awkward"
+    (a filled 81px "+ New" in the head and a 144px "Recent" sort field alone
+    on a row under it). The Notes sidebar's shape: the title, then quiet icon
+    controls in the one head row. The sort is the icon-and-caret picker
+    (`data-select-icon`), New chat a ghost icon button, so the tab's one
+    filled action stays Send; and the row under the head is the list.
+    `scratchpad/ui-sweeps/gl1005-chathead.js` measures it."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    start = html.index('<aside class="card sidebar-panel" id="chat-sidebar">')
+    aside = html[start : html.index("</aside>", start)]
+    head = aside[aside.index('class="row space-between sidebar-head"') : aside.index('<ul id="conversation-list">')]
+    assert 'id="chat-sidebar-sort"' in head and 'data-select-icon="ph-sort-descending"' in head
+    new = re.search(r'<button id="chat-new"[^>]*>', head).group(0)
+    assert 'class="ghost small icon-only"' in new and 'aria-label="New chat"' in new
+    assert head.rstrip().endswith("</div>")
     text = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    # The old field-under-the-head rule (a 9rem floor) is gone, not overridden.
     bodies = [body for sel, body in _rules(text) if "#chat-sidebar .select-shell" in sel.split(",")]
-    assert any("align-self: flex-start" in body for body in bodies)
-    assert any("max-width: 100%" in body for body in bodies)
+    assert not any("min-width: 9rem" in body for body in bodies)
 
 
 def test_no_help_panel_is_hand_wired():

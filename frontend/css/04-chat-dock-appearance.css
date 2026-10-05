@@ -669,26 +669,37 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   overflow: hidden;
 }
 
-/* Task #47: reported directly: no gap between the sort combobox and the
-   chat list below it. Measured before this fix: 0px, the shell flush against
-   `#conversation-list`. The base `select { margin-bottom: var(--space-4) }`
-   rule (01-forms-settings.css) would have supplied one, but `enhanceSelect()`
-   (sheets-selects.js) hides `#chat-sidebar-sort` itself: `position: absolute`, out of
-   flow: and inserts `.select-shell` as the visible stand-in, which carries
-   none of the original element's margin. Scoped to this sidebar rather than
-   `.select-shell` generally: other call sites (a `.row`'s own `gap`, a modal
-   field list) already have their own spacing and don't need this restated on
-   top of it. */
-#chat-sidebar .select-shell {
-  margin-bottom: var(--space-4);
-  /* The sidebar is a flex column, so an item stretches to its width: the
-     sort select drew 266px for a 55px value and a caret (menus.js sweep,
-     1440x900). It sizes to its words instead, held to the column and never
-     narrower than its longest option ("Most tokens") so the control does not
-     change width as the choice changes. */
-  align-self: flex-start;
-  min-width: 9rem;
-  max-width: 100%;
+/* **The sort is a head control, not a field under the head** (INBOX 578,
+   "this section in the chat sidebar looks awkward"). It was a 144px "Recent"
+   field alone on a row under the title (Task #47 gave it its gap, the menus
+   sweep its 9rem floor); it is now the icon-and-caret picker in the head
+   row beside New chat (`data-select-icon`, DESIGN.md's recipe index), the
+   same height as the ghost icon buttons round it. The head keeps its gap to
+   the list below. */
+#chat-sidebar .sidebar-head-actions {
+  gap: var(--space-1);
+  flex: 0 0 auto;
+}
+
+#chat-sidebar .sidebar-head .select-shell {
+  margin: 0;
+}
+
+#chat-sidebar .sidebar-head .select-opener-icon {
+  height: var(--sidebar-toggle-size);
+  min-height: 0;
+  gap: var(--space-1);
+  padding-inline: var(--space-2) var(--space-1);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--muted);
+}
+
+#chat-sidebar .sidebar-head .select-opener-icon:hover,
+#chat-sidebar .sidebar-head .select-opener-icon[aria-expanded="true"] {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
 }
 
 #conversation-list {

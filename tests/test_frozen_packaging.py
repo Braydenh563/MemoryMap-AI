@@ -93,3 +93,19 @@ def test_the_bootloader_splash_is_asked_for_only_when_the_bootloader_made_one(mo
     with_ipc = launcher._bootloader_splash()
     assert with_ipc is fake
 
+
+
+def test_a_packaged_build_writes_no_bytecode_beside_itself():
+    """Alembic runs `migrations/` from the files beside the exe, and the
+    frozen interpreter cached them in `_internal\\migrations\\__pycache__`,
+    which no uninstall removed (measured on a build of the Windows spec)."""
+    import os
+    import subprocess
+    import sys
+
+    code = "import sys; sys.frozen = True; import memorymap.__main__; print(sys.dont_write_bytecode)"
+    env = {**os.environ, "PYTHONPATH": str(ROOT / "src"), "PYTHONDONTWRITEBYTECODE": ""}
+    env.pop("PYTHONDONTWRITEBYTECODE")
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env, timeout=120)  # noqa: S603
+    lines = done.stdout.strip().splitlines()
+    assert lines and lines[-1] == "True", (done.stdout, done.stderr[-2000:])

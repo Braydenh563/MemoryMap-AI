@@ -17,6 +17,16 @@ from pathlib import Path
 
 from memorymap.core import launch_status, startup_status
 
+# **A packaged build writes no bytecode into its own folder.** The bundle's
+# modules are precompiled, but Alembic runs `migrations/env.py` and every
+# revision from the files beside the exe, and the frozen interpreter cached
+# each one in `_internal\migrations\__pycache__` (measured on a build of the
+# Windows spec, on the first start with a working alembic.ini). The
+# uninstaller removes only what it installed, so the install folder outlived
+# every uninstall; and a per-machine install folder is not writable anyway.
+if getattr(sys, "frozen", False):
+    sys.dont_write_bytecode = True
+
 logger = logging.getLogger("memorymap.launcher")
 
 HOST = "127.0.0.1"  # local only: this is a private app

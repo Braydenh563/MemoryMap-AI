@@ -82,6 +82,14 @@ def _referenced_filenames(session: Session) -> tuple[set[str], bool]:
     for obj in session.scalars(select(WhiteboardObject).where(_could_name_a_file(WhiteboardObject.data))):
         referenced.update(referenced_names(obj.data))
 
+    #: A board's background image lives in its settings (WHITEBOARD_PLAN
+    #: decision 24, FEAT-06): before this, setting one made the upload an
+    #: orphan, and "clean up orphaned media" deleted it.
+    for entry in session.scalars(
+        select(Entry).where(Entry.is_deleted == False, _could_name_a_file(Entry.board_settings))  # noqa: E712
+    ):
+        referenced.update(referenced_names(entry.board_settings or ""))
+
     for doc in session.scalars(select(Document).where(_could_name_a_file(Document.content))):
         referenced.update(referenced_names(doc.content))
 
@@ -159,6 +167,12 @@ def usage_map(session: Session) -> tuple[dict[str, list[dict]], bool]:
     for obj in session.scalars(select(WhiteboardObject).where(_could_name_a_file(WhiteboardObject.data))):
         for name in referenced_names(obj.data):
             note(name, "board", obj.board_id, "Whiteboard")
+
+    for entry in session.scalars(
+        select(Entry).where(Entry.is_deleted == False, _could_name_a_file(Entry.board_settings))  # noqa: E712
+    ):
+        for name in referenced_names(entry.board_settings or ""):
+            note(name, "board", entry.id, "Board background")
 
     for doc in session.scalars(select(Document).where(_could_name_a_file(Document.content))):
         for name in referenced_names(doc.content):

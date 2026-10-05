@@ -224,7 +224,7 @@ let wbLinkDragActive = false;
 //:
 //: In `localStorage`, which is where every other thing this board remembers
 //: about how it is being *looked at* already lives: the grid and snap
-//: settings, the alignment guide colours, the background colour and image,
+//: settings, the alignment guide colours (the background is the board's now),
 //: the navigator's open state, the map's perspective. Which cards are open
 //: is that kind of fact, not part of the board's content, and keeping it
 //: here needs no migration and no round trip on a click.
@@ -957,22 +957,100 @@ function wbApplyGrid() {
   wbSyncGridToTransform();
 }
 
-//: A board's own background image, kept per board in localStorage the same
-//: way its background colour already is, it is a property of how you like
-//: to look at that board, not notebook data, and storing it server-side
-//: would mean a schema column for something the server never reads.
-function wbBgImageKey() {
-  return `wb-bg-image-${window.currentBoardId ?? "default"}`;
+//: **A board's look lives on the board** (WHITEBOARD_PLAN decision 24,
+//: FEAT-06). It used to be one localStorage colour shared by every board and
+//: a per-board localStorage image, so neither synced, neither was in a
+//: backup, the desktop window and a browser tab drew different boards, and
+//: media cleanup deleted the image as an orphan. Now `background {color,
+//: image}` is in the board's settings and arrives with its state
+//: (`wbState.background`); grid and snap stay per device.
+function wbBoardBackground() {
+  return (wbState && wbState.background) || {};
 }
 
-function wbApplyBgImage() {
+//: The theme's own board colour as a hex string, read with no colour of the
+//: board's on the container, so "reset" still means the current theme.
+function wbThemeBoardHex() {
+  const el = document.getElementById("whiteboard-container");
+  if (!el) return null;
+  const rgb = getComputedStyle(el).backgroundColor;
+  const m = rgb.match(/(\d+),\s*(\d+),\s*(\d+)/);
+  return m ? "#" + m.slice(1, 4).map((n) => Number(n).toString(16).padStart(2, "0")).join("") : null;
+}
+
+function wbApplyBackground() {
   const el = document.getElementById("whiteboard-container");
   if (!el) return;
-  const url = localStorage.getItem(wbBgImageKey());
+  const bg = wbBoardBackground();
+  el.style.removeProperty("--wb-board-bg");
+  const themeHex = bg.color ? null : wbThemeBoardHex();
+  if (bg.color) el.style.setProperty("--wb-board-bg", bg.color);
   // `mediaSrc`, not the bare url, a CSS `background-image: url(...)` is a
   // plain resource load, same as `<img src>`, so it never attaches
   // X-Auth-Token either.
-  el.style.setProperty("--wb-bg-image", url ? `url("${mediaSrc(url)}")` : "none");
+  el.style.setProperty("--wb-bg-image", bg.image ? `url("${mediaSrc(bg.image)}")` : "none");
+  const picker = document.getElementById("wb-bg-color-picker");
+  if (picker && (bg.color || themeHex)) picker.value = bg.color || themeHex;
+  const imageButton = document.getElementById("wb-bg-image");
+  if (imageButton) {
+    const words = bg.image ? "Remove the background image" : "Set a background image";
+    imageButton.title = words;
+    imageButton.setAttribute("aria-label", words);
+  }
+}
+
+//: Writes a patch of the board's look and pushes one undo step for it. The
+//: default scratch board has no note to keep settings on, so it says so.
+async function wbSetBackground(patch, { undo = true } = {}) {
+  const id = window.currentBoardId;
+  if (!id) {
+    toast("The default board keeps the theme's look. Make a board of your own to give it one.", true);
+    wbApplyBackground();
+    return false;
+  }
+  const before = { ...wbBoardBackground() };
+  try {
+    const out = await apiJson(`/whiteboard/boards/${id}`, { method: "PUT", body: JSON.stringify({ background: patch }) });
+    if (String(window.currentBoardId ?? "") !== String(id)) return false;
+    wbState.background = out.background || {};
+  } catch (err) {
+    toast(err.message || "Couldn't change the background.", true);
+    wbApplyBackground();
+    return false;
+  }
+  wbApplyBackground();
+  if (undo) wbPushUndo({ action: "background", before });
+  return true;
+}
+
+//: **Once per board on this device, the old per-browser look moves onto the
+//: board.** A board that already has a look of its own is never overwritten.
+//: The per-board image key is removed once moved; the old colour was one key
+//: for every board, so it stays until each board this device opens has taken
+//: it, and a flag per board says which have.
+async function wbMigrateBackground() {
+  const id = window.currentBoardId;
+  if (!id || wbIsMap()) return;
+  let image = null, color = null, done = false;
+  try {
+    image = localStorage.getItem(`wb-bg-image-${id}`);
+    color = localStorage.getItem("wb-bg-color");
+    done = localStorage.getItem(`wb-bg-moved-${id}`) === "1";
+  } catch {
+    return;
+  }
+  if (done || (!image && !color)) return;
+  const have = wbBoardBackground();
+  const patch = {};
+  if (image && !have.image && /^\/media\/[A-Za-z0-9]/.test(image)) patch.image = image;
+  if (color && !have.color && /^#[0-9a-f]{6}$/i.test(color)) patch.color = color;
+  if (Object.keys(patch).length && !(await wbSetBackground(patch, { undo: false }))) return;
+  try {
+    localStorage.removeItem(`wb-bg-image-${id}`);
+    localStorage.setItem(`wb-bg-moved-${id}`, "1");
+  } catch {
+    // Private mode: it is on the board now either way.
+  }
 }
 
 // A tiny inline SVG baked into a `cursor:` value, so the OS/GPU renders and
@@ -6442,6 +6520,15 @@ async function wbApplyHistoryEntry(from, to) {
   }
   //: The map's layout, numbering and theme as they were (`wbHistoryFromRows`):
   //: a theme is a patch, so a field the old theme lacked is sent as null.
+  //: A board's look (decision 24): put back whole, every field the step
+  //: did not have sent as null.
+  if (entry.action === "background") {
+    const current = { ...wbBoardBackground() };
+    const was = entry.before || {};
+    await wbSetBackground({ color: was.color ?? null, image: was.image ?? null }, { undo: false });
+    to.push({ action: "background", before: current });
+    return true;
+  }
   if (entry.action === "board") {
     const current = wbBoardSettings();
     if (current && entry.before) {
@@ -8671,9 +8758,9 @@ async function initWhiteboard() {
       window.currentBoardId = e.target.value || null;
       await fetchWhiteboardState();
       wbScheduleRender();
-      // The background image is stored per board, so switching boards has
-      // to re-read it: otherwise the previous board's image stays up.
-      wbApplyBgImage();
+      // The look is the board's, so switching boards redraws it.
+      await wbMigrateBackground();
+      wbApplyBackground();
     });
   }
   //: Not `createNewBoard` itself: passed as the listener it received the click
@@ -9072,46 +9159,23 @@ async function initWhiteboard() {
   // `input` previews live while dragging the swatch; `change` (fires once,
   // on release/close) is what actually persists, so dragging across ten
   // hues doesn't write ten times.
+  //: The colour is the board's (decision 24): `input` previews while the
+  //: swatch is dragged, `change` (once, on release) writes it to the board.
   const bgColorPicker = document.getElementById("wb-bg-color-picker");
   const bgColorReset = document.getElementById("wb-bg-color-reset");
-  // The real default (the theme's --modal-bg) as a hex string, read fresh
-  // each time rather than cached, the whole point of "reset to theme
-  // default" is that it still means the *current* theme after a switch.
-  const themeDefaultBoardHex = () => {
-    const rgb = getComputedStyle(container.node()).backgroundColor;
-    const m = rgb.match(/(\d+),\s*(\d+),\s*(\d+)/);
-    return m ? "#" + m.slice(1, 4).map((n) => Number(n).toString(16).padStart(2, "0")).join("") : null;
-  };
   if (bgColorPicker) {
-    const savedBg = localStorage.getItem("wb-bg-color");
-    if (savedBg) {
-      container.node().style.setProperty("--wb-board-bg", savedBg);
-      bgColorPicker.value = savedBg;
-    } else {
-      // Reflect the real default in the swatch, not an arbitrary placeholder
-      // that doesn't match what's on screen.
-      const hex = themeDefaultBoardHex();
-      if (hex) bgColorPicker.value = hex;
-    }
     bgColorPicker.addEventListener("input", (e) => {
       container.node().style.setProperty("--wb-board-bg", e.target.value);
     });
     bgColorPicker.addEventListener("change", (e) => {
-      localStorage.setItem("wb-bg-color", e.target.value);
+      wbSetBackground({ color: e.target.value });
     });
   }
-  // Asked for directly: once you've picked a colour there was no way back to
-  // the theme's own board colour short of guessing its hex. Clearing the
-  // saved override and re-reading the CSS the board falls back to (rather
-  // than a hardcoded hex) means this still means "the theme's colour" after
-  // a light/dark switch, not just "whatever it happened to be once".
+  // Back to the theme's own board colour, still the current theme's after a
+  // light/dark switch, not a hex remembered once.
   if (bgColorReset && bgColorPicker) {
-    bgColorReset.addEventListener("click", () => {
-      localStorage.removeItem("wb-bg-color");
-      container.node().style.removeProperty("--wb-board-bg");
-      const hex = themeDefaultBoardHex();
-      if (hex) bgColorPicker.value = hex;
-      toast("Board background reset to the theme default.");
+    bgColorReset.addEventListener("click", async () => {
+      if (await wbSetBackground({ color: null })) toast("Board background reset to the theme default.");
     });
   }
 
@@ -9313,12 +9377,9 @@ async function initWhiteboard() {
     // A background already set means the button's job is to offer removing
     // it: a second "clear it" control for something most boards never use
     // would be permanent clutter on a panel that is already busy.
-    if (localStorage.getItem(wbBgImageKey())) {
+    if (wbBoardBackground().image) {
       if (await confirmDialog("Remove this board's background image?")) {
-        localStorage.removeItem(wbBgImageKey());
-        wbApplyBgImage();
-        toast("Background image removed.");
-        return;
+        if (await wbSetBackground({ image: null })) toast("Background image removed. Ctrl+Z puts it back.");
       }
       return;
     }
@@ -9336,15 +9397,13 @@ async function initWhiteboard() {
         headers: { "X-Auth-Token": authToken() },
         body: formData,
       });
-      localStorage.setItem(wbBgImageKey(), uploaded.url);
-      wbApplyBgImage();
-      toast("Background image set.");
+      if (await wbSetBackground({ image: uploaded.url })) toast("Background image set.");
     } catch (err) {
       toast(err.message || "Couldn't set that background image.", true);
     }
   });
   wbApplyGrid();
-  wbApplyBgImage();
+  wbApplyBackground();
 
   $("wb-clear-board")?.addEventListener("click", wbClearBoard);
   $("wb-delete-board")?.addEventListener("click", wbDeleteCurrentBoard);
@@ -16554,7 +16613,8 @@ async function openWhiteboardBoard(boardId) {
   wbClearSelectionOverlays();
   await fetchWhiteboardState();
   wbScheduleRender();
-  wbApplyBgImage();
+  await wbMigrateBackground();
+  wbApplyBackground();
   renderWbGestureHints();
   //: Rendered now rather than on the next frame, because the framing below
   //: measures the nodes it is about to fit (a map node is `height: auto`, so

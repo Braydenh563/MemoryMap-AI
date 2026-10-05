@@ -609,6 +609,8 @@ class WhiteboardStateOut(BaseModel):
     nodes: list[WhiteboardNodeOut]
     sketches: list[WhiteboardSketchOut]
     objects: list[WhiteboardObjectOut] = []
+    #: The board's look (decision 24), so opening a board draws it at once.
+    background: dict = {}
 
 
 def _board_filter(model, board_id: int | None):
@@ -721,6 +723,7 @@ def get_whiteboard_state(
         nodes=list(nodes),
         sketches=list(sketches),
         objects=[_object_to_out(o) for o in objects],
+        background=_board_background(db.get(Entry, board_id)) if board_id else {},
     )
 
 
@@ -974,6 +977,85 @@ def _store_board_numbered(entry: Entry, numbered: bool) -> None:
     entry.board_settings = json.dumps(existing)
 
 
+#: A colour the board is drawn on: `#rrggbb` only, because it is written into
+#: a CSS custom property, and anything wider would be a way to inject a rule.
+BOARD_BG_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+class BoardBackground(BaseModel):
+    """A board's look (WHITEBOARD_PLAN decision 24, FEAT-06): a colour, an
+    image from this notebook's uploads, or both. A patch: a field sent as
+    `null` is removed, a field not sent is kept."""
+
+    color: str | None = Field(default=None, max_length=7)
+    image: str | None = Field(default=None, max_length=300)
+
+    @field_validator("color")
+    @classmethod
+    def _hex_colour(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not BOARD_BG_COLOR_RE.match(value):
+            raise ValueError("A background colour is #rrggbb")
+        return value.lower()
+
+    @field_validator("image")
+    @classmethod
+    def _own_upload(cls, value: str | None) -> str | None:
+        """An upload of this notebook's or nothing, the topic picture's rule:
+        an outside address would make a board call out of an offline app."""
+        if value is None:
+            return None
+        text = value.strip()
+        if not MEDIA_URL_RE.match(text):
+            raise ValueError("A background image has to be a /media/... upload from this notebook")
+        return text
+
+
+def _board_background(entry: Entry | None) -> dict:
+    """The board's stored background, only the fields that hold a value."""
+    if entry is None:
+        return {}
+    try:
+        parsed = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        return {}
+    stored = parsed.get("background") if isinstance(parsed, dict) else None
+    if not isinstance(stored, dict):
+        return {}
+    out = {}
+    color, image = stored.get("color"), stored.get("image")
+    if isinstance(color, str) and BOARD_BG_COLOR_RE.match(color):
+        out["color"] = color
+    if isinstance(image, str) and MEDIA_URL_RE.match(image):
+        out["image"] = image
+    return out
+
+
+def _store_board_background(entry: Entry, patch: BoardBackground) -> dict:
+    """Merge the fields sent into the stored background, the read-modify-write
+    of the whole settings family (`_store_board_theme`'s reason)."""
+    merged = _board_background(entry)
+    for field in patch.model_fields_set:
+        value = getattr(patch, field)
+        if value is None:
+            merged.pop(field, None)
+        else:
+            merged[field] = value
+    try:
+        existing = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        existing = {}
+    if not isinstance(existing, dict):
+        existing = {}
+    if merged:
+        existing["background"] = merged
+    else:
+        existing.pop("background", None)
+    entry.board_settings = json.dumps(existing)
+    return merged
+
+
 class BoardOut(BaseModel):
     #: None is the one unnamed scratch board every notebook starts with.
     id: int | None
@@ -990,6 +1072,8 @@ class BoardOut(BaseModel):
     #: "board" (a free canvas) or "map" (tree semantics). See BOARD_TYPES.
     type: str = DEFAULT_BOARD_TYPE
     layout: str = DEFAULT_BOARD_LAYOUT
+    #: The board's look, `{color, image}` (decision 24); `{}` is the theme's.
+    background: dict = {}
     #: A miniature of where things actually sit on this board: up to
     #: Up to `PREVIEW_POINTS` items, `{x, y, kind, label}`, each position
     #: normalised into 0..1 against the board's own bounding box. The
@@ -1899,6 +1983,7 @@ def list_boards(
                 ),
                 type=board_type,
                 layout=layout,
+                background=_board_background(entry),
                 **_preview_fields(db, entry.id),
             )
         )
@@ -2150,6 +2235,8 @@ class BoardRename(BoardTypeMixin):
     #: Number the map's branches by their place in the outline, 1, 1.1, 1.2
     #: (MINDMAP_PLAN.md decision 17). `None` leaves it as it is.
     numbered: bool | None = None
+    #: A patch on the board's look (decision 24). `None` leaves it as it is.
+    background: BoardBackground | None = None
     #: Optional since maps: `PUT` used to be rename-only and required a
     #: title, so a client changing the *layout* had to resend the name it was
     #: not touching: which is how a rename made in another tab gets silently
@@ -2218,6 +2305,18 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
                 "branches numbered" if body.numbered else "branches not numbered",
                 payload={"after": {"numbered": body.numbered}, "before": {"numbered": before_numbered}},
             )
+    if body.background is not None:
+        before_background = _board_background(entry)
+        stored_background = _store_board_background(entry, body.background)
+        if stored_background != before_background:
+            events.record(
+                db,
+                "edited",
+                "board",
+                entry.id,
+                "background",
+                payload={"after": stored_background, "before": before_background},
+            )
     if body.title is not None:
         title = body.title.strip()
         update_entry(db, entry, content=apply_title(entry.content, title))
@@ -2244,6 +2343,7 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
         object_count=object_count,
         type=board_type,
         layout=layout,
+        background=_board_background(entry),
         **_preview_fields(db, board_id),
     )
 

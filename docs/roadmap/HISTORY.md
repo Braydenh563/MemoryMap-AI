@@ -33526,7 +33526,7 @@ Each is already paid for; a small amount of work turns a frustrating surface
 into a good one.
 
 11. **The whiteboard, properly.** ~~Images, text boxes, resize (8-handle
-    corner+edge), grid (lines/dots/isometric)+snap, per-board background
+    corner+edge), grid (lines/dots/isometric)+snap, per-board background (corrected 2026-10-05, FEAT-06: it was a per-browser colour and a per-browser image; it is on the board since WHITEBOARD_PLAN decision 24)
     image, export (PNG/SVG/PDF), clear-board, a redesigned board picker,
     redo, single-item select, undo/redo, per-tool cursors, an eraser,
     keyboard shortcuts, draggable toolbar panels, highlighter+arrow tools,

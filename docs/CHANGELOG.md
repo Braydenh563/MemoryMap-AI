@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Settings, Import & export: a download says so in a toast, the Recent exports list says where browser downloads go and refreshes after a desktop save, and the export and backup groups each say in one line what they are for; Dashboard, Weekly digest: with no model, a line under the button says why it is off, with the Settings link, where only a tooltip did (audit 2026-10-05, UX-11, UX-12).
 - Notes: the Connections column follows the note you are reading: the card you click, or else the one in view as you scroll, which wears a thin accent line at its left; the More menu's switch reads "Connections beside the note you're reading" (INBOX 571).
 - Notes list: Tab walks the controls of one card, the one the arrow keys are on, and then leaves the list; 27 notes were 281 Tab stops, now the card's own five to seven (audit 2026-10-05, UX-10).
 - Notes, Ask and the Guide: a selected question no longer brings up the writing popup (Highlight, Bold) over the tab bar after it is asked (audit 2026-10-05, UX-09).

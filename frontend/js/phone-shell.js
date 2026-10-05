@@ -2253,7 +2253,7 @@ async function renderExportsList() {
   list.replaceChildren();
   empty.classList.toggle("hidden", files.length > 0);
   empty.textContent = body
-    ? `Nothing exported yet. Files land in ${body.path}.`
+    ? `Nothing saved here yet. Downloads go to your browser's downloads; files the app saves land in ${body.path}.`
     : "The exports folder could not be read.";
   for (const file of files) {
     const row = document.createElement("li");

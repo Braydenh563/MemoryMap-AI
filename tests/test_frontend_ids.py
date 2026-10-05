@@ -368,3 +368,28 @@ def test_every_model_gated_control_gives_a_reason_and_is_in_the_inventory():
         assert block.group(1) in {"button", "input", "textarea", "select"}, (
             f"{ident} is a <{block.group(1)}>, which has no disabled state to set"
         )
+
+
+def test_the_digest_says_why_it_is_off_on_the_page():
+    """UX-12 (audit 2026-10-05): a disabled button's `title` is the only
+    reason a keyboard or a phone could not reach. The widget carries a line
+    the status poll fills (`[data-offline-line]`), with the Settings link."""
+    js = Path(__file__).resolve().parents[1] / "frontend" / "js"
+    dashboard = (js / "dashboard.js").read_text(encoding="utf-8")
+    widget = dashboard[dashboard.index("async function renderDigestWidget(") :]
+    widget = widget[: widget.index("\n}\n")]
+    assert "dataset.offlineLine" in widget
+    status = (js / "status.js").read_text(encoding="utf-8")
+    sync = status[status.index("function syncModelGatedControls(") :]
+    sync = sync[: sync.index("\n}\n")]
+    assert '"[data-offline-line]"' in sync and "renderAiOfflineNotice(line" in sync
+
+
+def test_a_browser_download_says_so():
+    """UX-11: Export Markdown downloaded with no word on screen."""
+    skills = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "skills.js").read_text(encoding="utf-8")
+    save = skills[skills.index("async function saveFile(") :]
+    save = save[: save.index("\n}\n")]
+    browser_half = save[save.index("URL.createObjectURL") :]
+    assert "toast(`Downloaded ${filename}" in browser_half
+

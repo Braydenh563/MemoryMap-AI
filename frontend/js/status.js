@@ -1751,6 +1751,8 @@ function syncModelGatedControls(status = modelStatus) {
     $("draft-offline"),
     "No model is connected, so nothing can be drafted here yet. Everything else on this tab still works."
   );
+  //: UX-12: any other AI-only widget names its own line.
+  for (const line of document.querySelectorAll("[data-offline-line]")) renderAiOfflineNotice(line, line.dataset.offlineLine);
   syncAgentPaletteAvailability();
 }
 

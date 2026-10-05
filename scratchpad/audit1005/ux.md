@@ -190,7 +190,7 @@ Counts: High 4, Medium 9, Low 10.
   a sent query, any `[data-no-selection-popup]`) as `type=search` already is.
   Effort S.
 
-**UX-10. The notes list is 281 Tab stops for 27 notes.** NEW
+**UX-10. The notes list is 281 Tab stops for 27 notes.** NEW FIXED f5b77d0
 - Evidence: each card exposes 9 to 11 tabbable controls (category chip, tag
   chips, tag suggestions, favourite, copy, edit, more); `li` elements use a
   roving tabindex (ArrowDown moves card to card) but their children do not,

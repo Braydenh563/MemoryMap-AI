@@ -2797,7 +2797,13 @@ async function renderDigestWidget(body) {
     //: Ollama" to somebody running llama.cpp; `syncModelGatedControls` owns
     //: that wording for every AI control in the app, this one included.
     generate.dataset.needsModel = "The weekly digest is written by the local AI";
-    body.appendChild(generate);
+    //: UX-12 (audit 2026-10-05): the reason was only a `title` on a disabled
+    //: button, which a keyboard cannot focus and a phone cannot hover. The
+    //: same line and Settings link as Ask and Chat, kept by the status poll.
+    const offline = document.createElement("div");
+    offline.className = "ai-offline-note hidden";
+    offline.dataset.offlineLine = "No model is connected, so the digest cannot be written yet.";
+    body.append(generate, offline);
     if (typeof syncModelGatedControls === "function") syncModelGatedControls();
   }
 }

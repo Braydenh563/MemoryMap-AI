@@ -638,3 +638,86 @@ def test_the_hidden_attribute_is_enforced_over_the_apps_own_display_rules():
     block = _rule_block(_stylesheet(), "[hidden]")
     assert block is not None, "no `[hidden]` rule: see this test's docstring"
     assert "display" in block and "none" in block and "!important" in block
+
+
+#: The three elevation tokens, wherever a theme or palette declares them.
+ELEVATION = re.compile(r"--(?:shadow-sm|shadow-lg|glass-shadow)\s*:\s*([^;{}]+);")
+ALPHA = re.compile(r"rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*((?:[^()]|\([^()]*\)|\((?:[^()]|\([^()]*\))*\))+)\)")
+LOW_T = re.compile(
+    r"calc\(\s*([0-9.]+)\s*\*\s*var\(--shadow-low\)\s*\+\s*([0-9.]+)\s*\*\s*var\(--shadow-t\)\s*\)"
+)
+
+
+def test_the_shadow_slider_reaches_every_layer_and_none_clamps():
+    """DESIGN.md, "Elevation": the slider is strength from none (0%) through
+    the shipped look (5%) to the strongest a theme usefully draws (50%), every
+    step moving every layer, none opaque before the top (op4-1005).
+
+    Before: dark's layers were 7 to 11 times the slider and went opaque at 9
+    to 14%, light's `--shadow-lg` at 35%, and all twenty palettes' (the
+    default one included) `--glass-shadow` were literals the slider never
+    reached. So every elevation alpha follows the slider, either as the
+    slider itself (0 to 0.5) or as `base * low + rise * t` with base + rise
+    at most 1 (`scratchpad` probe: each layer rises at every 5% step, light
+    and dark)."""
+    css = _stylesheet()
+    for name in ("--shadow-low", "--shadow-t"):
+        assert re.search(rf"{name}:\s*calc\(", css), f"{name} is not declared"
+    bad = []
+    for decl in ELEVATION.findall(css):
+        for alpha in ALPHA.findall(decl):
+            alpha = alpha.strip()
+            if alpha == "var(--shadow-intensity)":
+                continue
+            m = LOW_T.fullmatch(alpha)
+            if not m:
+                bad.append(f"{alpha!r} does not follow the slider")
+            elif float(m.group(1)) + float(m.group(2)) > 1.0001:
+                bad.append(f"{alpha!r} goes opaque before the top of the slider")
+    assert not bad, "\n".join(bad)
+
+
+def test_a_field_is_deeper_than_a_track_in_both_themes():
+    """DESIGN.md, "A field and a track" (OPEN.md, "`--field-inset` and the
+    segmented track are one tone in light and two in dark"). A text field
+    (`--field-inset`) is a recess; a `.seg` track (`--chip-bg`) is a tint.
+    Dark draws them as two (black against white); light had both at
+    `rgba(31, 36, 48, 0.07)`. Light's field is now the deeper of the two, by
+    alpha over the same ink, and deeper than every light palette's chip."""
+    css = _stylesheet()
+    alpha = lambda v: float(re.search(r",\s*([0-9.]+)\)\s*$", v).group(1))  # noqa: E731
+    # The first declaration of each is the light `:root` one (00-tokens-shell.css).
+    light_field = re.search(r"--field-inset:\s*([^;]+);", css).group(1).strip()
+    light_chip = re.search(r"--chip-bg:\s*([^;]+);", css).group(1).strip()
+    assert alpha(light_field) > alpha(light_chip), (light_field, light_chip)
+    palettes = re.findall(
+        r':root\[data-palette="[a-z]+"\]\s*\{[^}]*--chip-bg:\s*rgba\([^)]*,\s*([0-9.]+)\)', css
+    )
+    assert palettes and all(alpha(light_field) > float(a) for a in palettes if float(a) < 0.2)
+    # Dark: the field recessed in black, the track raised in white.
+    assert re.search(r"--field-inset:\s*rgba\(0, 0, 0,", css)
+    assert re.search(r"--chip-bg:\s*rgba\(255, 255, 255,", css)
+
+
+#: Surfaces measured nested inside a rounded container closer than its radius
+#: (DESIGN.md rule 3's rollout, op4-1005), and the stylesheet that draws each.
+NESTED_SURFACES = {
+    ".theme-swatch": "01-forms-settings.css",
+    ".theme-preview": "05-sidebars-themes.css",
+    ".setup-snippet": "04-chat-dock-appearance.css",
+}
+
+
+def test_the_nested_surfaces_are_concentric():
+    """DESIGN.md, "Concentric corners", the rollout decided 2026-10-05: a
+    painted surface nested inside a rounded container, nearer its edge than
+    the container's radius, takes `--radius-inner`; controls keep their tier.
+    A probe over the six tabs and every Settings section at the 16px corner
+    setting found none out of concentric inside a `.card`, and these three
+    outside one (8.8 to 9.6px inside a 12.8px corner 9px away)."""
+    root = FRONTEND_DIR / "css"
+    for selector, name in NESTED_SURFACES.items():
+        text = re.sub(r"/\*.*?\*/", "", (root / name).read_text(encoding="utf-8"), flags=re.S)
+        block = re.search(re.escape(selector) + r"\s*\{([^}]*)\}", text)
+        assert block, f"{selector} is not in {name}"
+        assert "border-radius: var(--radius-inner)" in block.group(1), f"{selector} is not concentric"

@@ -7,6 +7,519 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (444 decision 10: the autonomous override's default)
+
+Decision 10 counted "a background-job model is still chosen in Models and in
+Background tasks" as one setting in two places. Read from the code
+(op4-1005): they are two. Models sets the utility model
+(`#utility-model-select`); Background tasks sets the autonomous pass's own
+override (`#pref-autonomous-model`, `autonomous_tasks_model`), which stays
+beside the job it overrides (decision 4). What made them read as one was the
+override's default, "Same as utility model", naming no model. It now says
+which one, in the per-feature pickers' own words (INBOX 430): measured with
+the fake Ollama, "Same as utility model (currently llama3.2) | llama3.2:latest
+| nomic-embed-text:latest". `tests/test_ui_recipes.py`
+(`test_the_autonomous_override_names_what_it_falls_back_to`).
+
+## Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN 393, both halves found built)
+
+Found built in UI_MODERNISATION_PLAN.md and still standing there whole; moved
+verbatim (op4-1005): a plan holds open work only.
+
+393. **The owner, 2026-09-23, verbatim:** "research more ui and ux
+    improvements, remove any trace of vibe coded stuff in elements, designs,
+    aesthetics styles, form, function, layout, structure. vendor and use skills
+    to help with ui and ux design. find bugs in usability. improve and expand
+    learnability and information architecture. further modernise and
+    professionalise the app. I lose trust in and refuse to use applications
+    with poor ui design and ui/ux issues as they make me feel like the app is
+    unreliable ... there needs to be more integration between all the main
+    features. and there needs to be more optimisiation." Placed: the identity
+    half is a decision in UI_MODERNISATION_PLAN ("The default look is Quiet
+    utilitarian"), built by a theme agent with the vendored design skills and
+    unslop-ui. Recommendation for the integration half, taken: one "act on
+    this" vocabulary for every object (note, document, board, map, file,
+    reminder): Open, Ask about it, Add to a map, Show in graph, Remind me,
+    Link to, reached the same way from its card menu, the command palette and
+    a right-click, audited surface by surface against a table in
+    WORLD_CLASS_PLAN's consistency contract, with a lint that every object
+    menu carries the shared rows.
+
+**Found built, checked 2026-10-05 (op4-1005).** The identity half: the
+decision "The default look is Quiet utilitarian" (this plan's Decisions
+made) is the shipped default, `DEFAULT_THEME_PRESET = "utilitarian"`
+(settings.js) and the boot preset (theme-boot.js: the utilitarian palette,
+glass off, radius 8). The integration half: WORLD_CLASS_PLAN 1.3's "act on
+this" table, with `tests/test_object_actions.py` holding every "yes" in it
+and the one wording; its open cells were built 2026-10-05 (HISTORY.md,
+"Moved from the plans, 2026-10-05 (nbf1005)"), and the "no" cells left are
+recorded there as not planned.
+
+## OPEN.md rows closed, 2026-10-05 (op4-1005: the meeting head and holepoke's seven)
+
+Decided or found built by op4-1005. The meeting dialog's head: both controls are the dialog-head recipe's .dialog-head-btn now, measured 32x32 and 32x32 at 1440 and 43x43 and 43x43 at 390 (a meeting-head probe), so the two-recipes question is answered by the recipe. holepoke's seven, each decided with its reason: the carets' ink drawn high (1.0px and 0.63px) is the glyph's shape, and a per-glyph offset table is deliberately not taken (DESIGN.md, Icons); the phone toast over the Notes sub-tabs is INBOX 392's recorded decision (toasts at the top below 1100), kept; the board View menu's caret edge is the whiteboard owner's (WHITEBOARD_PLAN), left to them; the reminder row's mixed weights are gone (+1h, tmrw and Edit are smallButton's ghost default, shell-reminders.js, and Delete is in the row's menu); radio groups in a menu change the choice on ArrowDown by native radio semantics, kept; the one unexplained 404 did not reproduce in a request-logging run and is not a finding. The rows, verbatim:
+
+- **The meeting dialog's head row holds two heights**, a 28px `.ghost.small`
+  Close beside the 32px `.graph-help-toggle`. Both are app-wide recipes, so
+  this is a question about the two recipes rather than about the dialog.
+  [popup-redesigns.md]
+  *Needs: a question about two app-wide recipes.*
+- **holepoke.md**: seven findings, each with its "why not" in the file's table
+  (per-glyph ink offsets for carets, the toast over the phone Notes tabs, a
+  ghost select's caret ink, mixed button weights in the reminder row cluster,
+  arrow keys in radio groups, one unexplained 404 in the contrast sweep).
+  [holepoke]
+  *Needs: design decisions, each recorded with its reason.*
+
+## Moved from the plans, 2026-10-05 (444 decision 10: the installed models as model cards)
+
+UI_MODERNISATION_PLAN, Settings information architecture, decision 10 left
+"the Installed models list is the old row list" open. Built by op4-1005.
+
+- **Before**: a `ul` of rows (name, size, then "in use" or Remove), on its
+  own fixed-column CSS in 01-forms-settings.css, drawn by a boot function in
+  ai-tools.js. "In use" did not say for what, and Remove was the only verb.
+- **Now**: each installed model is the suggested downloads' own card
+  (`buildModelCard` as a custom model) in a `.model-grid`: the name, its
+  size measured on this computer ("2.0 GB on disk"), "In use for chat" where
+  it is, and its menu: use it for chat, images or reading text, copy its
+  name, Remove (disabled with the reason while in use). No "Installed" badge
+  in a list where every card is installed (`model.listed`). The function moved
+  to the lazy settings-models.js (out of the boot bundle), the status poll
+  calls it behind a `typeof` guard as it does the suggested list, and it
+  redraws only when what it shows changes, so a poll never closes an open
+  menu. The row CSS (88 lines) is gone.
+- **Measured** with the fake Ollama (`scratchpad/fake_ollama_server.py`,
+  two models installed, llama3.2 the chat model) and an installed-models
+  probe: at 1440, two cards 342x137 in two columns, llama3.2 "In use for
+  chat" with Remove disabled in its menu, nomic-embed-text with Remove
+  enabled, section overflow 0, 0 page errors; at 390 one column of 268px
+  cards, overflow 0; dark the same. `modelcards.js` (the suggested list):
+  12 ok, 0 failed. `tests/test_ui_recipes.py`
+  (`test_the_installed_models_are_model_cards`).
+- **Not verified**: a real Ollama; the custom card offers every use (an
+  embedding model is offered "Use for chat"), the same trade the Download
+  another model card already makes.
+
+## Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN 94 and 282, found built)
+
+Found built in UI_MODERNISATION_PLAN.md and still standing there whole; moved
+verbatim (op4-1005): a plan holds open work only.
+
+94. **Background animations: fix, refine and improve.** Owner: UI Phase 3
+    follow-up (Opus): each style gets a measured frame cost, a still frame
+    under Performance mode, no seams at the edges, the intensity slider
+    changes something visible at every step.
+
+    Three of the four are done and are in HISTORY.md ("Moved from the plans,
+    2026-09-09"): the frame cost per style is measured and printed by
+    `scratchpad/ui-sweeps/bgart.js` (aurora +21ms, constellation +20ms,
+    waves +17ms, bubbles +17ms, mesh +28ms with a 167ms worst frame, over a
+    16.6ms idle baseline, headless and therefore software-rasterised);
+    Performance mode now stops the art dead, which it did not before because
+    `bg-motion: moving` bypassed the only test it reached the art through;
+    and there are no seams (the canvas is resized with the window and covers
+    it exactly at 1440x900, 900x1200 and 1600x800). Two of the five styles
+    also ignored the intensity slider's density and now scale with it.
+
+    **What is left is the fourth**: does the slider change something a
+    person notices at *every* step? Two ways of measuring it failed and both
+    are written into the sweep so they are not repeated: ink on the canvas
+    varies more between two boots of the same settings than it does across
+    the slider (every style places its marks with `p.random`), and the frame
+    cost at the two ends moves by less than the environment's noise. The
+    honest next step is a human looking at five screenshots, or a change of
+    design so the slider drives something with a large signature (the wash's
+    own alpha, say) rather than the population alone.
+
+282. **Found by errors.js while sweeping the writing desk, 2026-09-20.**
+    `[settings/extras] section scrolls sideways 496>492` at 820px, and only
+    at 820: 1440, 1024 and 390 are clean. Four pixels, so it is one control
+    or one row with a fixed width rather than the layout. Recommendation:
+    find the child whose `scrollWidth` is 496 at that width and let it
+    shrink, the same `min-width: 0` answer the dock heads take. Owner:
+    settings.
+
+**Found built, re-measured 2026-10-05 (op4-1005).** 94's fourth item: the
+slider already drives the wash's own alpha, the design change the entry
+asked for: `--bg-art-opacity` is the slider over 100 (settings.js,
+theme-boot.js) and `.bg-art-canvas` takes it as its opacity
+(03-dashboard-widgets.css), beside the density it already scaled. Measured
+with the art on (aurora, moving), the slider at 20 to 100 in steps of 10:
+the canvas's computed opacity 0.2, 0.3 ... 1.0, one tenth at every step.
+282: Settings, Packages at 780, 800, 820, 840 and 1024 wide: the section's
+`scrollWidth` equals its `clientWidth` at every one (476/476 at 820) and no
+child scrolls sideways; it no longer reproduces.
+
+**Found by the same pass and fixed**: `contrast.js` at 1440 and 390, light,
+reported one low-contrast text in Settings, the same before and after the
+`--field-inset` change: "Built-in" on a Skills row, `--muted` on
+rgb(219, 219, 221), 4.27:1, the fold's, the row's and the label's own tints
+stacked. A label on a Settings list row (`.skill-row`, `.persona-row`) takes
+`--ink` now, as the ok label already did (08-consistency.css). After:
+`ONLY=settings contrast.js` 0 findings in light and in dark at 1440.
+
+## OPEN.md rows closed, 2026-10-05 (op4-1005: the concentric rollout)
+
+Decided, recorded in DESIGN.md rule 3 ("The rollout, decided 2026-10-05"), built and linted by op4-1005: a painted surface nested inside a rounded container nearer its edge than the container's radius takes --radius-inner; controls and interactive rows (buttons, fields, chips, segments, summaries, check rows) keep their tier; a surface inset by the radius or more is its own shape. A probe at the 16px corner setting over six tabs and every Settings section: none inside a .card out of concentric; .theme-preview, .theme-swatch and .setup-snippet were, and are on the token (tests/test_style_scale.py, test_the_nested_surfaces_are_concentric). The row, verbatim:
+
+- **`--radius-inner` has four users.** DESIGN.md rule 3 and INBOX 101 declared
+  the token and the sketch pad's toolbar, canvas and foot plus the meeting
+  stage are the first to reach for it; every other surface inside a `.card`
+  still draws `--radius-lg`, which is the concentric rule half applied.
+  [popup-redesigns.md]
+  *Needs: the concentric rule's rollout is design. Count re-measured 2026-10-05: 13 `var(--radius-inner)` declarations in six stylesheets (02 six, 05 three, 03, 06, 07 and 08 one each) plus `documents.js`'s colour swatch; the row's "four" and the earlier "about seventeen" were both stale.*
+
+## OPEN.md rows closed, 2026-10-05 (op4-1005: four design rows)
+
+Each decided, recorded in DESIGN.md, built and linted by op4-1005: the field and the track (DESIGN.md Colour, "A field and a track"; light --field-inset 0.07 to 0.10), the empty line (the recipe index's "An empty line in a small panel", nine lines on it, nine named for their owners), the shadow slider (Elevation, "What the shadow slider means"; every layer and all twenty palettes' --glass-shadow follow it, none opaque before 50%), and the Ask grid ("Two columns of reading"; one column below 1100). The rows, verbatim:
+
+- **`--field-inset` and the segmented track are one tone in light and two in
+  dark.** Light has both at `rgba(31, 36, 48, 0.07)`; dark has
+  `rgba(0, 0, 0, 0.28)` and `rgba(255, 255, 255, 0.08)`. Light flattens a
+  distinction dark makes. Belongs to whoever owns the token file.
+  [consistency.md, docks.md]
+  *Needs: belongs to the token owner.*
+- **An empty line in a small panel has no recipe.** The agent panel uses
+  `<p class="muted">` where the index names `.empty-state`, whose 2rem padding
+  and centred block would be wrong in a 384px glance panel. Worth a recipe row
+  rather than a conversion. [visual-c.md]
+  *Needs: a recipe row to design.*
+- **The dark shadow sliders saturate earlier than the light ones.** The dark
+  alphas are 7 to 11 times the light ones at the same setting, so the ambient
+  layer reaches opaque around 14% of a 0 to 50% slider; light's
+  `--shadow-lg` clamps at 33%, so both clamp and the structure matches.
+  Spreading either across its full range is a separate decision about what the
+  slider means. [visual-c.md]
+  *Needs: what the slider means is a decision.*
+- **The Ask results grid is two columns down to 900px.** At 1024 each half is
+  356px, which is why the badge has to ellipsise a long model id at all. The
+  breakpoint (`@media (max-width: 900px)` on `.chat-grid`,
+  01-forms-settings.css) is arguably too low for a panel that holds an answer,
+  but moving it is a layout decision the owner has not asked for.
+  [ask-head-ocr.md]
+  *Needs: a layout decision the owner has not asked for.*
+
+## Moved from the plans, 2026-10-05 (AGENT_SKILLS_REFORM: a skill run's own Undo)
+
+The placed row (brief7-event-log; Brief 13): "the run's stop line in Chat
+gets an Undo that calls `POST /events/undo` with the run's actor and first
+event id; board items stay 'not undoable', said in the row". Built by
+op4-1005, with one correction to the brief: a run has no one actor. Each
+tool call files its writes under `ai:<tool>@<model>`, so a run is several
+actors over one span.
+
+- **Backend**: `skill_runner.run_skill` takes the newest event id before the
+  run (`_event_mark`) and puts `undo_span` (`since`, `until`, `actors`: the
+  AI's writes between, `_undo_span`) on the run's `result` event; None when
+  the run wrote nothing. `events.undo` takes a list of actors and `until_id`;
+  the list's members count as one for "changed since", so a run's second
+  tool touching a note its first tool wrote is the run's own change. The
+  route's `UndoBody` gains `actors` and `until`, refuses the person in a
+  list as it did alone (400) and an empty ask (422). The wrapper closes the
+  run's generator in a `finally`, as `yield from` did, so Stop still ends it
+  at once.
+- **Chat**: "What changed (N)" carries "Undo the run" when the run changed
+  more than one thing (one change has its row's own Undo). It calls
+  `undoSkillRun` (note-history.js, lazy through `noteHistory`'s stand-in):
+  the dry run, its plan in the confirm (`activityUndoPlanText`, the Recent
+  activity widget's sentence, which names a board item as "can't be
+  undone"), then the plan applied, the button gone and the notes reloaded.
+  `undo_span` is saved with the turn, so a reopened conversation keeps it.
+- **Found and fixed on the way**: the shared plan sentence read "1 note go
+  back"; it reads "1 note goes back" now (dashboard.js).
+- **Measured**: `tests/test_skill_run_undo.py`, 5 tests (the span, the
+  actors as one, the bound, the route, the Chat wiring);
+  `tests/test_events_undo.py` 13 unchanged. In the browser (port 8807,
+  1440): a note changed through the API by an outside actor inside a span,
+  `undoSkillRun` loaded lazily, the confirm read "Undo this run? 1 note go
+  back to how it was before this run changed it" (before the grammar fix),
+  Undo put the note's text and tags back and removed the button, 0 page
+  errors.
+- **Not verified**: a real skill run's span with a model (none in this
+  sandbox), so the button inside a live run's "What changed" was not seen
+  drawn; a chat turn writing in another window during the run would fall
+  inside the span (the confirm names every note it would touch).
+
+## Moved from the plans, 2026-10-05 (row 31 item 97, RapidOCR as an optional extra)
+
+WORLD_CLASS_PLAN row 31 item 97, the owner asking for an OCR alternative to
+pytesseract. Built by op4-1005 at the orchestrator's brief as an optional
+extra through `core/extras.py`, never a required dependency.
+
+- **`core/ocr.py`**: `rapidocr_available()` (a `find_spec` look at
+  `rapidocr_onnxruntime` or the 2.x `rapidocr`), `engine()` ("tesseract"
+  when both its halves are ready, the default whenever it is present;
+  "rapidocr" when Tesseract is not ready and RapidOCR is installed; "" for
+  neither), `engine_name()`, `local_available()`. `extract_text` and
+  `extract_regions` dispatch on it. RapidOCR's lines are joined into blocks
+  (a line starting within 0.6 of a line's height under the last and
+  overlapping it sideways), headings by the same 1.45 height ratio as
+  Tesseract's, boxes normalised to 0..1. The reader is built once per
+  process (`lru_cache`). Both result shapes are read (1.x `(result,
+  elapse)`, 2.x `boxes/txts/scores`). `engine_status()` adds `engine`,
+  `engine_name` and `rapidocr`; `ready` means some engine reads.
+- **The stable id**: "tesseract" stays the local reader's id in stored
+  readings, page reads, `source` and the reader picker's value, whichever
+  engine read; `extract_regions` adds `engine: "rapidocr"`. Renaming a stored
+  id would split one reader in two for every row written before.
+- **The callers**: `/capabilities` `features.ocr.tesseract` is
+  `local_available()` (plus `engine`); `/models/status`
+  `tesseract_available` is `local_available()` (plus `ocr_engine`, the name);
+  `routes_files.py`'s "either reader works", "switch to" and "could not mark"
+  sentences, the page-read job's model name and the empty-page message name
+  the engine that reads. Two tests that stubbed only the program
+  (`test_ocr_regions.py`, `test_ocr_pdf_regions.py`) now stub the wrapper
+  too: a reader is named only when it can read, which the program alone
+  cannot. `extras._installed("ocr")` stays Tesseract's own two halves.
+- **The extra**: "Read images without Tesseract (RapidOCR)",
+  `rapidocr_onnxruntime`, about 60 MB, caveat that its models read English
+  and Chinese and the Tesseract language does not apply. In the Vision
+  bundle beside Tesseract (`tests/test_extras_bundles.py` wants every extra
+  in a bundle; the reason it belongs there is that Tesseract's system program
+  is the half an install most often fails to fetch). README's Packages table
+  and its OCR sentence name it.
+- **The UI**: the OCR workspace's reader option, its engine line ("RapidOCR
+  is ready", no language picker, since the language is Tesseract's), the
+  reading's source badge and title, the positions hint and the Library's
+  "Read text (... OCR)" rows name the engine. Settings mounts the engine line
+  under Tesseract's own Packages row, so there it stays hidden unless
+  Tesseract is the engine. The Guide's two OCR topics say so.
+- **Measured**: `tests/test_ocr_rapidocr.py`, 9 tests with a fake module in
+  `sys.modules` (no RapidOCR in this sandbox); the OCR, extras, help and
+  manual suites (about 400 tests) pass. In the browser (port 8807, 1440,
+  light), with `/ocr-readers` answered as a ready RapidOCR: the reader option
+  "RapidOCR (fast, on-page positions)", the engine line "RapidOCR is ready
+  Manage", no language select, 0 page errors; unfaked, the line is the old
+  "Tesseract can't read yet ... Install Tesseract".
+- **Not verified**: a real RapidOCR install and read (not installed into the
+  shared sandbox venv: onnxruntime and OpenCV are about 100 MB); its accuracy
+  against Tesseract's on a real page; the bulk Vision install with both.
+
+## Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN: the attach picker's tiles)
+
+The placed row: "The picker's other four sources have no thumbnail
+(documents, files, maps)". Built in one commit rather than one per source:
+the change is one optional `face` per source in `notePickerShape`
+(chat-attach.js) and one line in `notePickerRow`, and the three share the
+fallback. A map's row draws `mapPreview(row, { size: "row" })` (the Library's
+row-sized preview; an empty map draws the shared ghost); a file's row draws
+its PDF's first page where the server can (`has_pages`,
+`/files/{id}/pdf-page/0`, the Library Files row's own test and URL) and puts
+its type glyph back when the page fails to load; a document has no rendered
+page anywhere in the app, so its tile says its kind instead (prose
+`ph:file-text`, a table `ph:table`, code `ph:file-code`, on `file_type`).
+Every face fills the one 2rem tile (`.rich-picker-tile-face > :is(img, svg)`,
+05-sidebars-themes.css). Measured at 1440 (a picker probe): notes, documents
+and maps rows 53 to 54px with a 32x32 tile, the map's preview 30x30 inside
+it; a Files row seeded with `has_pages` and a missing file drew an `img`,
+then `ph-file-pdf` in a 32px tile once the request failed; 0 page errors.
+`tests/test_ui_recipes.py::test_the_attach_picker_rows_show_what_they_hold`.
+The faces cost 182 bytes of boot gzip against 7 of headroom, so the panel's
+list renderer moved to the lazy `attachTo` file (`renderNotePickerList` and
+its fetch `notePickerRows`, now in attach-to.js behind a stand-in; every
+caller fires it and forgets): chat-attach.js 19,031 to 18,403 bytes served
+gzip. `notePickerRow` and the shapes stay at boot, since the whiteboard's
+pickers draw the same row synchronously. The probes above were re-run after
+the move with the same numbers.
+Not verified: a real PDF's first page in the tile (this sandbox has no PDF
+render extra, so `has_pages` is false for every file).
+
+## Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN: the Files rows' two rhythms, a measuring error)
+
+The placed row ("a described row leaves 50.3px of slack under its last block,
+an undescribed one 24.8px") was the sweep's. `imagecardfoot.js` took a card's
+last block from inside `.library-image-fields` only, and a described file
+draws one more line after the fields, `.library-image-provenance` (a sibling
+of the fields, 180..205 in a 214px row); a Files row's thumbnail (144px) is
+ink too and sets the height of a row whose text is shorter than it. The probe
+now takes the lowest visible block in the card. Re-measured at 1440, light:
+Files rows 160px and 214px, the slack under the lowest ink 7px and 9px, which
+is the row's own 8px padding on both. Nothing in the CSS changed. The Images
+cards read 52.2 / 10.6 / 95.7px under their last line, which is INBOX 174's
+recorded decision (the picture is one size, 9rem; a taller neighbour's room
+goes under the card's own text), not this row's.
+
+## Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)
+
+Marked built in UI_MODERNISATION_PLAN.md and still standing there whole; moved
+verbatim (op4-1005): a plan holds open work only.
+
+102. **Clear glass, and text on glass.** Built (2026-10-04) as the
+    recorded decision below it said; the block is in HISTORY.md ("Moved
+    from the plans, 2026-10-04 (the top bar mode and the glass recipe)").
+
+104. **The phone tab bar recedes on scroll** (icons only on scroll down,
+    full on scroll up), never hidden. Built (2026-09-13); the block is in
+    HISTORY.md ("Moved from the plans, 2026-09-13").
+
+60. **Dashboard "Jump to / Run a skill / stat tiles" section**: built, moved
+    to HISTORY.md ("Moved from the plans, 2026-09-09"). The band fills its own
+    width, carries a Continue pill and a fortnight sparkline, and every skill
+    pill says when it last ran.
+
+279. **The owner's four reports, 2026-09-20.** All four built (2026-09-20);
+    the block, with the before and after numbers at 1440, 1930, 1600 and 390,
+    is in HISTORY.md ("Moved from the plans, 2026-09-20"). The dashboard's
+    three densities keep the greeting and the one number and shrink the art
+    instead (heroes 157.2 / 99.6 / 47.2px, were 157.2 / 76.3 / 133.2); the
+    Timeline table's Title column stops halving when a row opens; the Files
+    sub-tab's reading block is two ranks and one control rather than four and
+    two, with the reading itself on screen; and a picture card's reading is one
+    `.library-chip` that opens the lightbox, so asking for the text no longer
+    grows the card from 240.7px to 416.3px and takes its five neighbours'
+    heights with it.
+
+186. **The timeline dock's kind buttons.** Built (2026-09-13); the block, with
+    its numbers, is in HISTORY.md ("Moved from the plans, 2026-09-13"). One
+    decision made here and not to be remade: a fixed filter set is a `.seg`
+    well and not a row of chips, because a chip is a filter you can take off
+    and these four are always all four. The variant is `.seg-multi` in
+    DESIGN.md's recipe index, with `tests/test_ui_recipes.py` holding it.
+
+165. **Mid-work drop, 2026-09-13, verbatim (the owner), the Library's selection
+    bar, one screenshot ("1 selected" with Open, Delete, Done).** "I want the
+    selected bars to be sticky to the top of the screen when scrolling".
+
+    **Built** (2026-09-13). One recipe for all seven bars, `.library-contextbar`
+    plus the new `.selectbar`, in DESIGN.md's recipe index with
+    `tests/test_ui_recipes.py` holding it: sticky at `--selectbar-top`, the
+    accent tint stacked over `--modal-bg-opaque` so the list cannot show
+    through it, and the Notes and timeline bars moved off their own hand-built
+    paint onto the shared strip. `--selectbar-top` is zero for every bar whose
+    scroller starts below its sub-tab strip, and `var(--notes-sticky-top)` on
+    `#tab-notes`, which is the trap commit 27167e3 records. The Library's own
+    "All" bar moved out of the controls card to be a child of the scrolling
+    section: sticky only travels as far as its own parent, and that card ends
+    above the grid. Measured with `scratchpad/ui-sweeps/selstick.js` in both
+    themes: before, the Notes bar at y=-465 with 677px of list scrolled; after,
+    four bars parked at their scroller's top edge (offset 0, and 56 under the
+    Notes strip) through 7,136px, 1,552px, 5,025px and 2,701px of scroll, and
+    the timeline's bar sticky over a table that pages rather than scrolls. 0
+    console errors, contrast.js 31 surfaces ok.
+
+    Found, not fixed: `selectMode` in app.js is one flag shared by the Notes
+    list and the timeline table, so leaving Notes in select mode turns the
+    timeline's own Select off on the first press. The sweep works round it and
+    records why.
+
+164. **Mid-work drop, 2026-09-13, verbatim (the owner), three surfaces, one
+    screenshot of a board card's preview (a wash of rounded blobs and one
+    squiggle over "3 cards, 8 sketches, 1 item").** "board previews need
+    upgrading and fixing, the graph minimap needs an upgrade, and the image
+    cards in the library images subtab need a massive improvement in ui and
+    ux." The fourth report on the picture cards; the third (145) was fixed the
+    same day, so this one is about what is left after it.
+
+    **Board previews: built** (2026-09-13). Three faults, each measured with
+    `scratchpad/ui-sweeps/boardpreview.js`, which seeds the owner's own board (3
+    cards, 8 sketches, 1 item) and exits non-zero on any of them.
+
+    - *The one squiggle.* A sketch is stored with `x = 0, y = 0` and its path in
+      absolute board coordinates, so the preview drew all eight at the board's
+      origin at one default size: 8 marks at 1 position, 1 size. The server
+      reads the stroke's own box now (`_sketch_preview`, the server's copy of
+      the canvas's `wbPathBBox`, and the reason it is a copy is written there)
+      and also sends the tool and the ink, so `mapPreviewSketch` draws a
+      rectangle as a rectangle, a circle as a circle, a line corner to corner
+      and a pen stroke as a scribble filling its box. After: 8 marks, 8
+      positions, 7 sizes, and 3 inks on the card where there was 1.
+    - *The blobs.* A block's corner was 0.35 of its own short side, measured at
+      8.66px on a 24.7px block, which is 35%: not a rounded rectangle and
+      nothing like the canvas's own 7%. Capped in the preview's nominal units as
+      well as by the fraction, so it is one corner at both sizes the preview
+      draws at. After: 2.35px, 8%.
+    - *The titles.* Three cards titled "Retry budget", "Ingest pipeline" and
+      "Open questions" drew "Retr…", "Inge…" and "Open…", because a label went
+      *inside* its block whenever five characters fitted. Inside is now for a
+      label that nearly all fits, which is the map topic it was built for; a
+      note's title goes beside its block, where the budget is 16 and it arrives
+      whole.
+
+    Also: a picture on the board takes the picture glyph and `--muted` rather
+    than a third shade of the same accent (it is the one item with no words of
+    its own, and the server deliberately sends no label for it). Regression
+    checks: `preview.js` on four cards (a map keeps its 6 labels, 2 inside, and
+    its 5 edges; contrast 4.77:1), `boardsthumb.js` unchanged at 72x40 with a
+    fill ratio of 0.852, `errors.js` 0 errors and 0 layout findings.
+
+    **The graph minimap: built** (2026-09-13), measured with
+    `scratchpad/ui-sweeps/graphminimap.js`, which seeds a hub-and-spokes notebook
+    and asks five questions of the panel.
+
+    Before, on a 192-note map with 39 links: 192 dots, **0 edges**, 0 marks for
+    the note in hand. The viewport rectangle and drag-to-pan were already right
+    (the frame moved 8.8px on a 260px pan; a drag across the panel moved the
+    canvas centre 23.6px) and are untouched. What was missing is the half that
+    makes an overview an overview: a scatter of points says where the notes are
+    and nothing about what is joined to what. The links are drawn under the dots
+    now, deduped (the adjacency map holds both directions) and built once per
+    render rather than once per paint, because a cooling layout paints every
+    eighth tick; the list is strided to a cap of 600 lines, evenly, for the same
+    reason the dots already are. And the note that is selected, or the one the
+    keyboard is on, takes a ring in `--ink`: the two pieces of state that already
+    mean "the one in hand", read rather than duplicated. After: 39 edges, 1 ring,
+    in both themes, 0 console errors.
+
+    Not verified: the drag-fps gate in `graph.js` reports 43.9 fps against its
+    own 55, with the renderer drawing in 5.30ms of a 16ms budget. That is the
+    sandbox limit HISTORY.md records under "What the gate does not meet, and why"
+    (7.9 fps with the layout hot, 59.2 with the worker stopped and nothing else
+    changed), not a cost of this change, but it was not measured against the base
+    branch this session.
+
+    **The picture cards, fourth report: the part that was broken is built**
+    (2026-09-13), measured with `scratchpad/ui-sweeps/imagecard4.js`, which asks
+    about use rather than paint (`imagecard3.js` still owns the geometry).
+
+    The fault: **the card's own action was pointer-only.** Opening the picture is
+    the whole point of a gallery, and it was a click handler on an `<img>` and
+    another on the filename. Measured on a resting card, the controls a keyboard
+    could reach were the selection tick and the Rename button: so a keyboard
+    could select a picture and rename it but could not open one, and a screen
+    reader was read the file's `alt` with nothing to say it did anything. The
+    thumbnail is now the control it already behaved like (`role="button"`,
+    `tabindex="0"`, "Open <name>", Enter and Space), with the ring drawn *inside*
+    the frame because the frame clips and an outside ring is clipped away
+    entirely. After: Tab reaches it, Enter opens the lightbox, the ring is 2px
+    solid accent at -4px, 0 console errors. The cursor was already `zoom-in`, so
+    the card was telling a pointer the truth and a keyboard nothing.
+
+    **Measured and deliberately not changed: the hole a row-mate's open fold
+    leaves.** At rest the row is right: seven cards all 240.7px tall with 1px
+    under the last line, and the picture taking the slack (229.1px on a card with
+    no caption against 144px on one with a caption and a reading). Open one card's
+    fold and the row goes to 411.1px: every picture grows to its 16rem ceiling and
+    the leftover becomes a hole of 59 to 145px under the other six cards' last
+    lines. That ceiling is the recorded decision (a 583px picture in a 176px
+    column was the alternative, and a two-row subgrid was built, measured and
+    taken back out because it put the same hole back at *rest*), so this is the
+    trade-off working as written rather than an oversight. The three ways out, for
+    whoever takes it next: a shorter fold body (11rem keeps about six lines and
+    was chosen for that), a taller picture ceiling (the poster), or a caption
+    clamp that grows into the slack (not expressible in CSS today).
+
+    Also fixed here: `imagecard3.js`'s open-to-shut ratio was taken across the
+    whole gallery, so on 182 cards it compared two different rows and reported
+    2.63 against its own limit of 2. The report it gates is about cards "side by
+    side", which is one grid row: row-scoped it reads 1.71, the figure commit
+    e5a0a19 recorded.
+
+## Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN Phase 9, the status bar and quick access widths)
+
+The last two non-whiteboard rules of the 720 group (`agent-remaining/uimod-89.md`
+items 1 and 2) moved to 599.98: `00-tokens-shell.css`'s status bar trim
+(tighter padding and gap; its hiding of `#status-notes` and `#status-command`
+was already done from 600 to 819 by `10-responsive.css`'s tablet band) and
+`03-dashboard-widgets.css`'s quick access (`.dash-quicklinks`, `.launch-row`,
+`.quick-action`). The 900 group was already empty and its row is gone from
+`tests/test_breakpoints.py`; 719.98 is allowed 3, all the whiteboard's.
+Measured (a status bar probe at 390, 600, 620, 660, 700, 719, 760, 1440):
+the bar's `scrollWidth` equals its width at every one, page overflow 0, the
+only clipped item `#ai-status-label` (ellipsised by design) before and after;
+a quick action is 79px at 14.72px type from 600 to 760 (it was 78 or 60 at
+13.6px from 600 to 719, a step inside the band), 60px at 390 unchanged.
+
 ## Moved from the plans, 2026-10-05 (the add path, second pass)
 
 Audit FEAT-02's 100ms gate, MINDMAP_PLAN decision 24. Traced with

@@ -362,7 +362,8 @@ function buildModelCard(model, state) {
     mark.title = modelFitTitle(model);
     badges.appendChild(mark);
   }
-  if (state.installed) badges.appendChild(chip("ph:check Installed", "item-label"));
+  //: Not in the Installed models list, where every card is installed.
+  if (state.installed && !model.listed) badges.appendChild(chip("ph:check Installed", "item-label"));
   if (state.roles.length) {
     const using = chip(`ph:lightning In use for ${state.roles.join(" and ")}`, "item-label is-yours");
     using.title = using.textContent;
@@ -469,6 +470,33 @@ function modelGroupOpen(kind, shown, status) {
     const state = modelState(m, status);
     return state.kind === "downloading" || state.roles.length > 0;
   });
+}
+
+//: **The installed models, as model cards** (UI_MODERNISATION_PLAN, Settings
+//: information architecture, decision 10: "the Installed models list is the
+//: old row list"; op4-1005). The row list said "in use" without saying for
+//: what, and offered Remove or nothing. Each installed model is now the
+//: suggested downloads' own card (`buildModelCard`) as a custom model: its
+//: size measured on this computer, "In use for chat and images" where it is
+//: one, and its menu (`modelMenuItems`): use it for chat, images or reading
+//: text, copy its name, Remove (disabled, with the reason, while in use).
+//: Built fresh rather than through `modelCardFor`, whose cache is keyed by name
+//: and owns the suggested list's element for the same model; redrawn only when
+//: what it shows changes, so a poll never takes the focus out of an open menu.
+function renderInstalledModels(status) {
+  const box = $("installed-box");
+  const list = $("installed-list");
+  if (!box || !list) return;
+  const models = status.installed_models || [];
+  box.classList.toggle("hidden", models.length === 0);
+  const cards = models.map((m) => {
+    const model = { name: m.name, size: m.size ? modelBytes(m.size) : "", size_source: "measured", custom: true, listed: "installed" };
+    return [model, modelState(model, status)];
+  });
+  const sig = JSON.stringify(cards.map(([model, state]) => modelSignature(model, state)));
+  if (list.dataset.sig === sig) return;
+  list.dataset.sig = sig;
+  list.replaceChildren(...cards.map(([model, state]) => buildModelCard(model, state)));
 }
 
 function renderSuggested(status) {

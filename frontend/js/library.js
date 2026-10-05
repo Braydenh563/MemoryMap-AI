@@ -4019,7 +4019,7 @@ function ocrRenderRegions(body) {
   //: stored text is a *fallback*, and letting it look like something the
   //: reader found there would be a lie about where the text is.
   const labels = {
-    tesseract: "ph:scan Read by Tesseract",
+    tesseract: `ph:scan Read by ${ocrLocalName()}`,
     //: A reading corrected by hand wins over a fresh derivation (the server
     //: stores the sections under these sources, see `_set_edited_reading`).
     "edited-tesseract": "ph:pencil-simple Edited by you",
@@ -4052,15 +4052,18 @@ function ocrRenderRegions(body) {
     const shown = ocrWorkspaceReadings.find((r) => r.in_regions);
     const by = shown
       ? shown.source === "tesseract"
-        ? "Tesseract"
+        ? ocrLocalName()
         : shortModelName(String(shown.label || "").replace(/^Read by /, "")) || ocrReaderName()
       : ocrReaderName();
     source.appendChild(document.createTextNode(` · ${by}`));
     source.title = `Read by ${by}. Change the reader above, or the model in Settings.`;
   } else if (body.source === "tesseract") {
     const name = ocrReaderNameFor("tesseract");
-    source.appendChild(document.createTextNode(` · ${name.replace(/^Tesseract ?/, "") || "default language"}`));
-    source.title = `Read by ${name}. Change the language in the line below the toolbar.`;
+    const local = ocrLocalName();
+    source.appendChild(document.createTextNode(` · ${local === "Tesseract" ? name.replace(/^Tesseract ?/, "") || "default language" : local}`));
+    source.title = local === "Tesseract"
+      ? `Read by ${name}. Change the language in the line below the toolbar.`
+      : `Read by ${local}.`;
   }
   source.hidden = false;
   source.classList.toggle("ocr-source-weak", body.source !== "tesseract");
@@ -4088,7 +4091,7 @@ function ocrRenderRegions(body) {
       boxLabel.classList.toggle("is-disabled", !positioned);
       boxLabel.title = positioned
         ? "Draw a box around each block the reader found"
-        : "This reading has no page positions. Only Tesseract returns where each "
+        : `This reading has no page positions. Only ${ocrLocalName()} returns where each `
           + "block sits: a vision model gives back the words and not the places.";
     }
     //: The layer follows the checkbox even after a re-read, or a page read
@@ -5888,10 +5891,10 @@ async function ocrLoadReadersNow() {
   if (tess) {
     tess.disabled = ocrReaders.tesseract === false;
     tess.textContent = ocrReaders.tesseract
-      ? "Tesseract (fast, on-page positions)"
+      ? `${ocrLocalName()} (fast, on-page positions)`
       : "Tesseract (not installed)";
     tess.title = ocrReaders.tesseract
-      ? "No model needed: about a tenth of a second a page, and it says where each block sits."
+      ? "No model needed, on this computer, and it says where each block sits."
       : "Not ready yet. Use Install Tesseract in the line below the toolbar.";
   }
   //: The engine's own line (ocr-engine.js, lazy): ready or not, which
@@ -5919,7 +5922,14 @@ function ocrReader() {
   return value === "tesseract" || value === "ocr" ? value : "vision";
 }
 
+//: The local reader's name: Tesseract, or RapidOCR where Tesseract is not
+//: ready (`ocr.engine`, op4-1005). "tesseract" stays the reader's id.
+function ocrLocalName() {
+  return ocrReaders.engine?.engine_name || "Tesseract";
+}
+
 function ocrReaderNameFor(reader) {
+  if (reader === "tesseract" && ocrLocalName() !== "Tesseract") return ocrLocalName();
   if (reader === "tesseract") {
     const code = ocrReaders.engine?.language;
     const named = (ocrReaders.engine?.languages || []).find((l) => l.code === code);
@@ -6184,7 +6194,7 @@ onDomReady(() => {
     if (!message) return;
     message.textContent =
       ocrReader() === "tesseract"
-        ? "Tesseract will read the page, no model needed, and it marks where each block sits."
+        ? `${ocrLocalName()} will read the page, no model needed, and it marks where each block sits.`
         : "The vision model will read the page.";
     message.classList.remove("hidden");
   });
@@ -7948,7 +7958,7 @@ function filterLibraryImagesGallery() {
     // plain `shutil.which` check) is what makes that distinguishable.
     if (modelStatus && modelStatus.tesseract_available === false) {
       ocrBtn.disabled = true;
-      ocrBtn.title = "Unavailable: the Tesseract OCR program isn't installed. See INSTALL.md.";
+      ocrBtn.title = "Unavailable: no OCR reader is installed. Install Tesseract or RapidOCR in Settings, Packages.";
       ocrBtn.setAttribute("aria-label", ocrBtn.title);
     }
     ocrBtn.addEventListener("click", async (event) => {
@@ -8312,7 +8322,7 @@ function filterLibraryImagesGallery() {
       //: instruction), so a disabled row here can never become enabled.
       ...(modelStatus && modelStatus.tesseract_available === false
         ? []
-        : [{ button: ocrBtn, label: "ph:scan Read text (Tesseract OCR)" }]),
+        : [{ button: ocrBtn, label: `ph:scan Read text (${modelStatus?.ocr_engine || "Tesseract"} OCR)` }]),
       //: Images and PDFs. Tesseract cannot open a PDF, but the workspace no
       //: longer needs it to: `_pdf_regions_for` (routes_files.py) rasterises
       //: the page first and the workspace reads it with the vision model,
@@ -8469,7 +8479,7 @@ function filterLibraryImagesGallery() {
     //: one: it is the same question ("what does this say"), answered by the
     //: other reader, and a second top-level box asking it again is what made
     //: the card read as a form.
-    const ocrField = field("Also read with Tesseract OCR", ocrText, ocrToggle);
+    const ocrField = field(`Also read with ${modelStatus?.ocr_engine || "Tesseract"} OCR`, ocrText, ocrToggle);
     const syncOcrFieldVisibility = () =>
       ocrField.classList.toggle("hidden", !(image.ocr_text || "").trim());
     syncOcrFieldVisibility();

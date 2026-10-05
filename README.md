@@ -54,7 +54,7 @@ capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with t
   deck, Notion, Obsidian, Evernote or Apple Notes, or clip a web page with a
   bookmarklet. Importing the same thing twice adds only what is new.
 - Attach any file. Images are captioned, read by a vision model and run
-  through Tesseract OCR where each is available; scanned PDFs are read page
+  through Tesseract OCR (or RapidOCR) where each is available; scanned PDFs are read page
   by page, and the OCR workspace lets you correct each region before it
   becomes a note.
 - A note saved while the server is away waits on this device and is sent once
@@ -298,6 +298,7 @@ in Ollama and pick it in the same place.
 | Export to Word (python-docx) | A document's Word export |
 | Read scanned PDFs (pypdfium2) | Scanned pages become images a vision or OCR model can read |
 | Search inside images (Tesseract OCR) | Text in images becomes searchable; also needs the Tesseract program |
+| Read images without Tesseract (RapidOCR) | A second local reader, nothing else to install; used when Tesseract isn't ready |
 | Run Python files (Pyodide) | Runs a `.py` document in a sandbox; a pinned download that works offline |
 | Tool calling without Ollama (needle) | A small built-in model that picks tools when no model server is running; a pinned download that works offline |
 

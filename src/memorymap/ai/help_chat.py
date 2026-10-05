@@ -258,7 +258,7 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "Every image is read automatically, up to three ways: an AI caption "
             "of what it shows, a vision-model transcription of any text in it, "
-            "and Tesseract OCR if that's installed: all editable and searchable. "
+            "and Tesseract OCR (or RapidOCR) if that's installed: all editable and searchable. "
             "A scanned PDF is rasterised page-by-page and read by an OCR model "
             "(no Tesseract needed); you can pick the model or leave it automatic."
         ),
@@ -592,7 +592,8 @@ HELP_TOPICS: list[dict] = [
             "OCR workspace: open any image or PDF from the Library or a note and "
             "choose \"Read text\". Pick the reader at the top, the AI document "
             "reader (a model built to transcribe a page), the general vision "
-            "model where you have a different one installed, or Tesseract, which "
+            "model where you have a different one installed, or Tesseract (RapidOCR "
+            "where Tesseract isn't installed and RapidOCR is), which "
             "needs no model, is about ten times faster and is the only reader "
             "that tells you where on the page each block sits. Read one page, a "
             "range like 1-5, or the whole document. A read keeps running if you "

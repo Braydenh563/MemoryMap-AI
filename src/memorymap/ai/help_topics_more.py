@@ -948,7 +948,7 @@ MORE_TOPICS.extend(
             "keywords": (
                 "ai skills", "built-in skill", "built in skill", "copy a skill",
                 "duplicate a skill", "my skills", "skill list", "reads only",
-                "changes notes", "last run of a skill",
+                "changes notes", "last run of a skill", "undo a skill run", "undo the run",
             ),
             "body": (
                 "Library, AI skills lists every skill: Yours and Built-in switch "
@@ -958,7 +958,11 @@ MORE_TOPICS.extend(
                 "Name A to Z or Recently run. Each card says whether the skill Reads only or Changes "
                 "notes, and how its last run went. Duplicate makes a copy of any "
                 "skill, a built-in one included, to edit as your own; Delete has "
-                "Undo. Settings, Skills is where a skill is written and edited."
+                "Undo. Settings, Skills is where a skill is written and edited. "
+                "In Chat, a run's What changed list has an Undo on each change, "
+                "and Undo the run puts back every note it changed at once, after "
+                "showing what will go back (a board item cannot be undone, and "
+                "the list says so)."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -967,7 +971,7 @@ MORE_TOPICS.extend(
             "keywords": (
                 "ocr language", "reading language", "tesseract language", "install tesseract",
                 "tesseract not working", "tesseract missing", "read again", "which engine",
-                "language of the scan",
+                "language of the scan", "rapidocr", "ocr without tesseract",
             ),
             "body": (
                 "In the OCR workspace, one line under the toolbar says whether "
@@ -978,7 +982,10 @@ MORE_TOPICS.extend(
                 "cannot do falls to the vision model, and each reading names the "
                 "engine that read it. Read again reads afresh, and a reading can "
                 "be edited by hand or added to an existing note. Settings, "
-                "Packages shows the same status and language."
+                "Packages shows the same status and language. RapidOCR, a second "
+                "reader with nothing else to install (Settings, Packages, Read "
+                "images without Tesseract), reads when Tesseract isn't ready; its "
+                "models read English and Chinese, so the language does not apply."
             ),
             "badge": {"label": "Packages", "section": "extras"},
         },
@@ -1009,6 +1016,7 @@ MORE_TOPICS.extend(
                 "which model fits", "fits my computer", "fit my computer", "too big",
                 "hugging face", "huggingface", "pull a model", "install a model",
                 "gguf", "custom model", "model name", "get a model",
+                "installed models", "remove a model", "uninstall a model", "free disk space",
             ),
             "body": (
                 "Settings, Models, Suggested downloads: cards grouped by purpose "
@@ -1020,7 +1028,10 @@ MORE_TOPICS.extend(
                 "are in its menu. Hide models too big for this computer leaves "
                 "out the ones that will not fit. Download another model takes any "
                 "Ollama model name or a Hugging Face link and says what it is "
-                "before it downloads."
+                "before it downloads. Installed models shows the models you have "
+                "as the same cards, with their size on this computer and what "
+                "each is in use for; a card's menu puts it to use, copies its "
+                "name or removes it (not while it is in use)."
             ),
             "badge": {"label": "Models", "section": "models"},
         },

@@ -2549,7 +2549,8 @@ label.setting-check,
 .setup-snippet {
   background: var(--chip-bg);
   padding: 0.6rem 0.8rem;
-  border-radius: calc(var(--radius) * 0.5);
+  /* Concentric: a well inside its accordion (DESIGN.md rule 3, op4-1005). */
+  border-radius: var(--radius-inner);
   font-size: 0.8rem;
   /* A pasted command or a stack trace is wider than the dialog. It wraps
      rather than scrolling sideways (INBOX 622: nothing in Settings scrolls

@@ -85,7 +85,11 @@ function ocrEnginePaint(host) {
   }
   //: The Packages row already says "Not installed" and offers Install; this
   //: adds only what it could not say, so a missing engine paints nothing there.
-  if (opts.settings && !engine.ready) {
+  //: Settings mounts this under Tesseract's own row, so a ready RapidOCR
+  //: (`engine.engine`, op4-1005) is that row's news only to the workspace.
+  const local = engine.engine_name || "Tesseract";
+  const isTesseract = !engine.engine || engine.engine === "tesseract";
+  if (opts.settings && (!engine.ready || !isTesseract)) {
     host.hidden = true;
     return;
   }
@@ -108,13 +112,14 @@ function ocrEnginePaint(host) {
   if (engine.ready) {
     if (!opts.settings) {
       line.appendChild(
-        chip(`ph:check-circle Tesseract${engine.version ? ` ${engine.version}` : ""} is ready`, "item-label is-ok ocr-engine-chip")
+        chip(`ph:check-circle ${local}${isTesseract && engine.version ? ` ${engine.version}` : ""} is ready`, "item-label is-ok ocr-engine-chip")
       );
     }
-    line.appendChild(ocrEngineLanguagePicker(engine, opts));
+    //: The language is Tesseract's; RapidOCR's models read what they read.
+    if (isTesseract) line.appendChild(ocrEngineLanguagePicker(engine, opts));
     if (!opts.settings) {
       line.appendChild(
-        smallButton("ph:gear Manage", "Manage Tesseract in Settings, Packages", () => ocrEngineOpenSettings())
+        smallButton("ph:gear Manage", `Manage ${local} in Settings, Packages`, () => ocrEngineOpenSettings())
       );
     }
     host.appendChild(line);

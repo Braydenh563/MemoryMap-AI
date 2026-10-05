@@ -757,9 +757,10 @@ def _readable_now(content: Any) -> bool:
 
 def undo(
     session: Session,
-    actor: str,
+    actor: str | list[str],
     since_id: int,
     *,
+    until_id: int | None = None,
     apply: bool = False,
     force: bool = False,
 ) -> dict[str, Any]:
@@ -781,14 +782,19 @@ def undo(
     `apply=False` is the dry run: the same plan, nothing written. With
     `apply=True` each entity gets one `restored` event, by the person, naming
     the events it reversed in `undid`. The caller commits.
+
+    **A skill run is several actors over one span** (AGENT_SKILLS_REFORM,
+    "a skill run's own Undo"): each tool call files its writes under
+    `ai:<tool>@<model>`, so a run's Undo passes the list of actors its span
+    holds and `until_id`, the last event of the run. The list's members are
+    one actor for "changed since": a later write by another tool of the same
+    run is the run's own, not somebody else's.
     """
-    rows = list(
-        session.scalars(
-            select(AuditLog)
-            .where(AuditLog.id > since_id, AuditLog.actor == actor, AuditLog.entity_id.is_not(None))
-            .order_by(AuditLog.id.asc())
-        )
-    )
+    actors = [actor] if isinstance(actor, str) else [a for a in actor if a]
+    where = [AuditLog.id > since_id, AuditLog.actor.in_(actors), AuditLog.entity_id.is_not(None)]
+    if until_id is not None:
+        where.append(AuditLog.id <= until_id)
+    rows = list(session.scalars(select(AuditLog).where(*where).order_by(AuditLog.id.asc())))
     already = _undone_ids(session, since_id)
     touched: dict[tuple[str, int], list[AuditLog]] = {}
     for row in rows:
@@ -829,7 +835,7 @@ def undo(
                 AuditLog.entity_type == entity_type,
                 AuditLog.entity_id == entity_id,
                 AuditLog.id > first,
-                AuditLog.actor != actor,
+                AuditLog.actor.notin_(actors),
                 AuditLog.action.notin_(sorted(QUIET_ACTIONS)),
             )
         )
@@ -881,10 +887,17 @@ def undo(
                 "restored",
                 "entry",
                 entry.id,
-                detail=f"undid {len(live)} change(s) by {actor}",
+                detail=f"undid {len(live)} change(s) by {', '.join(actors)}"[:200],
                 payload={**changed(was, entry_state(entry)), "undid": [row.id for row in live]},
             )
         undone += 1
     if apply:
         session.flush()
-    return {"actor": actor, "since": since_id, "dry_run": not apply, "undone": undone, "items": items}
+    return {
+        "actor": actor if isinstance(actor, str) else ",".join(actors),
+        "since": since_id,
+        "until": until_id,
+        "dry_run": not apply,
+        "undone": undone,
+        "items": items,
+    }

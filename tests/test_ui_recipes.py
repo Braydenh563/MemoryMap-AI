@@ -3534,7 +3534,10 @@ def test_the_attach_panel_rows_are_one_renderer_with_keys() -> None:
     checkbox visually hidden), pictures are a grid, and the keys walk it:
     arrows, Home and End, Enter is Done, the tabs' arrows switch source."""
     js = (ROOT / "frontend" / "js" / "chat-attach.js").read_text(encoding="utf-8")
-    render = _function_body(js, "renderNotePickerList")
+    # The list renderer is lazy (attach-to.js, op4-1005); the row stays at boot.
+    lazy = (ROOT / "frontend" / "js" / "attach-to.js").read_text(encoding="utf-8") + "\nfunction "
+    render = _function_body(lazy, "renderNotePickerList")
+    assert "async function renderNotePickerList" not in js
     assert "notePickerRow(shape, row)" in render and "renderNotePickerOtherSource" not in js
     row = _function_body(js, "notePickerRow")
     assert '"visually-hidden note-picker-box"' in row and "richPickerTile(" in row and "note-picker-check" in row
@@ -3550,6 +3553,25 @@ def test_the_attach_panel_rows_are_one_renderer_with_keys() -> None:
     assert 'row.store === "file") return attachLibraryFile(' in shape
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert 'data-help-for="note-picker-help"' in html and 'id="note-picker-help"' in html
+
+
+def test_the_attach_picker_rows_show_what_they_hold() -> None:
+    """UI_MODERNISATION_PLAN, "the picker's other four sources have no
+    thumbnail" (op4-1005): a map's row draws the map (`mapPreview` at its row
+    size), a PDF's row its first page where the server can draw one, a
+    document's row its kind (prose, table, code); all inside the one 2rem
+    tile, so a row's height is unchanged, and a page that fails to load
+    puts the glyph back."""
+    js = app_js_text()
+    shape = _function_body(js, "notePickerShape")
+    assert 'face: (row) => mapPreview(row, { size: "row" })' in shape
+    assert "row.has_pages ? notePickerPage(" in shape
+    assert '"ph:file-code"' in shape and '"ph:table"' in shape
+    row = _function_body(js, "notePickerRow")
+    assert "face: shape.face?.(row)" in row
+    assert 'tile.addEventListener("error"' in row and "tile.replaceWith(richPickerTile(" in row
+    css = (ROOT / "frontend" / "css" / "05-sidebars-themes.css").read_text(encoding="utf-8")
+    assert ".rich-picker-tile-face > :is(img, svg)" in css
 
 
 def test_every_dialog_dims_the_page_with_the_one_scrim_token() -> None:
@@ -4412,3 +4434,90 @@ def test_a_dialog_foot_is_one_height_with_its_filled_action_last() -> None:
     for name in ("note-properties.js", "quick-access.js"):
         code = (ROOT / "frontend" / "js" / name).read_text(encoding="utf-8")
         assert '.className = "ghost small";' in code and '.className = "accent small";' in code, name
+
+
+#: `p.muted` empty lines not yet on the recipe, each in a surface another plan
+#: owns (Documents, Chat and Ask, the graph, the whiteboard). Only shrinks.
+EMPTY_LINES_NOT_YET = {
+    "doc-history-empty",
+    "doc-ai-history-empty",
+    "doc-empty",
+    "doc-outline-empty",
+    "conv-empty",
+    "ask-history-empty",
+    "graph-pane-empty",
+    "wb-navigator-empty",
+    "wb-format-empty",
+}
+
+
+def test_an_empty_line_in_a_small_panel_is_the_recipe():
+    """DESIGN.md's recipe index, "An empty line in a small panel" (OPEN.md,
+    visual-c; op4-1005). `.empty-state` is a centred block with 2rem of
+    padding for a surface whose content area is empty; a short list in a
+    glance panel or a Settings section says so in one `.empty-line` instead.
+    Measured before: fourteen such lines in four type sizes and five
+    margins. Every `<p id="...-empty">` is one of the two recipes, or a
+    named one still waiting for its owner."""
+    html = re.sub(r"<!--.*?-->", "", (ROOT / "frontend" / "index.html").read_text(encoding="utf-8"), flags=re.S)
+    off = set()
+    for tag in re.findall(r"<p\b[^>]*>", html):
+        ident = re.search(r'\bid="([a-z0-9-]+-empty)"', tag)
+        if not ident:
+            continue
+        found = re.search(r'\bclass="([^"]*)"', tag)
+        classes = found.group(1).split() if found else []
+        if "empty-line" not in classes and "empty-state" not in classes:
+            off.add(ident.group(1))
+    assert off <= EMPTY_LINES_NOT_YET, f"an empty line off the recipe: {sorted(off - EMPTY_LINES_NOT_YET)}"
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    rule = next(body for sel, body in _rules(css) if sel.strip() == ".empty-line")
+    for part in ("var(--muted)", "var(--text-md)", "text-align: start", "margin: var(--space-3) 0"):
+        assert part in rule, f".empty-line lost {part}"
+
+
+def test_a_label_on_a_settings_list_row_takes_the_ink():
+    """`contrast.js` (op4-1005): "Built-in" on a Settings, Skills row read
+    4.27:1 in light, `--muted` on three stacked tints (the fold, the row, the
+    label). A label there takes `--ink`, as the ok label already does."""
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    rule = next(
+        body for sel, body in _rules(css)
+        if ".entry-list > li > :is(.skill-row, .persona-row) .chip.item-label" in sel
+    )
+    assert "color: var(--ink)" in rule
+
+
+def test_the_installed_models_are_model_cards():
+    """UI_MODERNISATION_PLAN 444, decision 10 (op4-1005): "the Installed models
+    list is the old row list". It is the suggested downloads' own card now
+    (`buildModelCard` as a custom model, in the lazy settings-models.js), in
+    a `.model-grid`, with no "Installed" badge in a list where every card is
+    installed; the boot copy and its fixed-column CSS are gone, and the
+    status poll calls it behind a `typeof` guard, as it does the suggested
+    list."""
+    lazy = (ROOT / "frontend" / "js" / "settings-models.js").read_text(encoding="utf-8")
+    body = _function_body(lazy, "renderInstalledModels")
+    assert "buildModelCard(model, state)" in body and 'listed: "installed"' in body
+    assert "list.dataset.sig === sig" in body, "a poll must not redraw the cards under an open menu"
+    assert 'state.installed && !model.listed' in lazy
+    boot = (ROOT / "frontend" / "js" / "ai-tools.js").read_text(encoding="utf-8")
+    assert "function renderInstalledModels" not in boot
+    status = (ROOT / "frontend" / "js" / "status.js").read_text(encoding="utf-8")
+    assert 'if (typeof renderInstalledModels === "function") renderInstalledModels(status);' in status
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert '<div id="installed-list" class="model-grid"></div>' in html
+    css = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
+    assert "#installed-list li" not in css
+
+
+def test_the_autonomous_override_names_what_it_falls_back_to():
+    """444 decision 10 counted "a background-job model chosen in Models and in
+    Background tasks" as one setting in two places. They are two (the utility
+    model, and the autonomous pass's own override), and the override's
+    default now says which model it means, in the per-feature pickers' words
+    (INBOX 430): "Same as utility model (currently llama3.2)" (op4-1005)."""
+    js = (ROOT / "frontend" / "js" / "ai-tools.js").read_text(encoding="utf-8")
+    body = _function_body(js, "renderAutonomousModelPicker")
+    assert "Same as utility model (currently ${fallback})" in body
+    assert "status.utility_model || status.chat_model" in body

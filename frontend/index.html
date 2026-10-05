@@ -661,7 +661,7 @@
       </span>
     </h3>
     <div id="agent-monitor-runs" class="monitor-runs"></div>
-    <p id="agent-monitor-empty" class="muted monitor-empty">Nothing has run yet this session.</p>
+    <p id="agent-monitor-empty" class="muted empty-line">Nothing has run yet this session.</p>
     <div id="agent-monitor-logs" class="monitor-logs hidden"></div>
   </aside>
 
@@ -8739,8 +8739,8 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <div id="installed-box" class="hidden settings-group">
               <h3>Installed models</h3>
-              <p class="muted">Remove a model you no longer use to free up disk. The models in use can't be removed.</p>
-              <ul id="installed-list"></ul>
+              <p class="muted">Each model's menu puts it to use or removes it to free up disk; one in use says for what.</p>
+              <div id="installed-list" class="model-grid"></div>
             </div>
             <!-- The model bench (WORLD_CLASS_PLAN I8, H3): ai/bench.py runs the
                  installed models on the person's own notes, model-bench.js
@@ -9337,7 +9337,7 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <p class="status hidden" id="memory-status" role="status"></p>
             <div id="memory-list" class="memory-list"></div>
-            <p class="muted hidden" id="memory-empty">
+            <p class="muted empty-line hidden" id="memory-empty">
               Nothing saved yet. Tell Atlas a preference in chat and ask it to
               remember, and it will appear here.
             </p>
@@ -9434,7 +9434,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </span>
               </div>
               <ul id="learned-list" class="entry-list"></ul>
-              <p id="learned-empty" class="muted hidden">
+              <p id="learned-empty" class="muted empty-line hidden">
                 Nothing worked out yet. This fills in as Atlas reads your notes in the background.
               </p>
               <div class="row align-center" id="learned-pager">
@@ -9601,7 +9601,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <span id="tool-count" class="muted text-sm" role="status"></span>
               </div>
               <ul id="tool-list" class="entry-list"></ul>
-              <p id="tool-filter-empty" class="muted hidden">No tool matches that.</p>
+              <p id="tool-filter-empty" class="muted empty-line hidden">No tool matches that.</p>
             </div>
           </section>
 
@@ -9860,6 +9860,7 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="setting-row">
                 <div class="setting-label">
                   <span>Shadow intensity</span>
+                  <small class="muted">From none to the strongest, in every theme; 5% is the default.</small>
                 </div>
                 <div class="row setting-control">
                   <input id="shadow-intensity" type="range" min="0" max="50" step="5" value="5"
@@ -10945,7 +10946,7 @@ Link to another note with [[its first few words]]."></textarea>
                 </p>
               </div>
               <ul id="task-list" class="entry-list"></ul>
-              <p id="tasks-empty" class="muted">Nothing running right now.</p>
+              <p id="tasks-empty" class="muted empty-line">Nothing running right now.</p>
 
               <!-- What stopped. The half that was missing: a job that FAILS used
                    to vanish at the moment it became interesting, leaving the
@@ -11275,7 +11276,7 @@ Link to another note with [[its first few words]]."></textarea>
                   <i class="ph ph-arrows-clockwise" aria-hidden="true"></i>
                 </button>
               </div>
-              <p class="muted" id="exports-empty">Nothing exported yet.</p>
+              <p class="muted empty-line" id="exports-empty">Nothing exported yet.</p>
               <ul id="exports-list" class="exports-list"></ul>
             </div>
 
@@ -11824,7 +11825,7 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
               <p class="muted" id="privacy-range-note"></p>
               <ul id="privacy-destinations" class="entry-list privacy-list"></ul>
-              <p id="privacy-empty" class="muted hidden">Nothing has left this computer.</p>
+              <p id="privacy-empty" class="muted empty-line hidden">Nothing has left this computer.</p>
             </div>
 
             <div class="settings-group">
@@ -11986,7 +11987,7 @@ Link to another note with [[its first few words]]."></textarea>
             <ul id="log-list" class="log-list"></ul>
             <pre id="log-terminal" class="log-terminal hidden" tabindex="0"
               aria-label="Server and browser logs, terminal style"></pre>
-            <p id="logs-empty" class="muted hidden">No log records yet.</p>
+            <p id="logs-empty" class="muted empty-line hidden">No log records yet.</p>
             <p id="logs-filtered-out" class="muted hidden"></p>
           </section>
 
@@ -12035,7 +12036,7 @@ Link to another note with [[its first few words]]."></textarea>
                  search finds a topic by its title or its keywords. -->
             <p class="muted">Every feature, grouped: what it does and where it is.</p>
             <div id="help-topics" class="help-topics" aria-busy="true"></div>
-            <p id="help-empty" class="muted hidden">Nothing in Help matches</p>
+            <p id="help-empty" class="muted empty-line hidden">Nothing in Help matches</p>
 
             <!-- **One Atlas, not two** (INBOX 224, the owner: "there is
                  still the second atlas interface in the settings help page").

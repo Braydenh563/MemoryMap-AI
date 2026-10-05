@@ -2269,7 +2269,7 @@ document.addEventListener("keydown", (event) => {
 const LAZY_ENTRY_POINTS = {
   lightbox: ["openLightbox"],
   editConflict: ["editConflictPrompt"],
-  noteHistory: ["openEntryHistory"],
+  noteHistory: ["openEntryHistory", "undoSkillRun"],
   modelBench: ["renderModelBench"],
   usageLedger: ["renderUsage", "renderCaptureCommand"],
   packages: ["renderExtras"],
@@ -2299,7 +2299,7 @@ const LAZY_ENTRY_POINTS = {
   updates: ["checkForUpdate", "applyUpdateNow", "showSourceUpdatedDialog", "askUpdateChoiceOnce"],
   appPalette: ["openPalette"],
   notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing", "renderEditForm"],
-  attachTo: ["renderAttachToBoard", "renderAttachToDocument"],
+  attachTo: ["renderAttachToBoard", "renderAttachToDocument", "renderNotePickerList"],
   noteTemplates: ["openNoteTemplateDialog", "useNoteTemplate"],
   askHistory: [
     "toggleAskHistoryPanel",

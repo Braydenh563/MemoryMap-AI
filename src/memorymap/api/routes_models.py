@@ -462,7 +462,10 @@ def status(session: Session = Depends(get_session)) -> dict:
         # core/ocr.py's own module docstring) just silently produced nothing,
         # with no way to tell "it ran and found no text" from "it never ran
         # at all". A `shutil.which` check, cheap enough for every poll.
-        "tesseract_available": ocr.tesseract_available(),
+        #: Any local engine (RapidOCR reads where Tesseract is not ready,
+        #: `ocr.engine`); the key keeps the name the frontend reads.
+        "tesseract_available": ocr.local_available(),
+        "ocr_engine": ocr.engine_name(),
     }
 
 

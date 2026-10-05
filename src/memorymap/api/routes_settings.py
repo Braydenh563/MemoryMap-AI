@@ -1591,9 +1591,13 @@ def _feed_item(row: AuditLog) -> dict:
 
 class UndoBody(BaseModel):
     #: Whose changes: `system:librarian`, `ai:<tool>`, `system:<job>`.
-    actor: str = Field(min_length=1, max_length=80)
+    actor: str = Field(default="", max_length=80)
+    #: Or several, as one: a skill run's tools (its result's `undo_span`).
+    actors: list[str] = Field(default_factory=list, max_length=40)
     #: Undo what they did after this event id (the feed's cursor).
     since: int = Field(default=0, ge=0)
+    #: And up to this one, inclusive (a run's last event); 0 for no bound.
+    until: int = Field(default=0, ge=0)
     #: On by default: the first answer is always the plan, never the change.
     dry_run: bool = True
     #: Put back the actor's fields even on a note changed since by someone else.
@@ -1611,9 +1615,19 @@ def undo_actor(body: UndoBody, session: Session = Depends(get_session)) -> dict:
     undoes: their own history is the per-note History sheet, one change at a
     time, where they can see what they are putting back.
     """
-    if body.actor == events.ACTOR_USER:
+    names = [a for a in body.actors if a] or ([body.actor] if body.actor else [])
+    if not names or any(len(a) > 80 for a in names):
+        raise HTTPException(status_code=422, detail="Say whose changes to undo.")
+    if events.ACTOR_USER in names:
         raise HTTPException(status_code=400, detail="Undo works on the AI's changes, not yours.")
-    result = events.undo(session, body.actor, body.since, apply=not body.dry_run, force=body.force)
+    result = events.undo(
+        session,
+        body.actor if not body.actors else names,
+        body.since,
+        until_id=body.until or None,
+        apply=not body.dry_run,
+        force=body.force,
+    )
     if not body.dry_run:
         session.commit()
     return result

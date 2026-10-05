@@ -267,35 +267,9 @@ being written by running agents stay beside this one.
   a drawing change for the owner's call (atlas-r6-hide-mid.png).
   *Needs: a drawing change for the owner's call.*
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": A filled button is 2px shorter than every tonal button beside it, app wide.
-- **`--field-inset` and the segmented track are one tone in light and two in
-  dark.** Light has both at `rgba(31, 36, 48, 0.07)`; dark has
-  `rgba(0, 0, 0, 0.28)` and `rgba(255, 255, 255, 0.08)`. Light flattens a
-  distinction dark makes. Belongs to whoever owns the token file.
-  [consistency.md, docks.md]
-  *Needs: belongs to the token owner.*
-- **`--radius-inner` has four users.** DESIGN.md rule 3 and INBOX 101 declared
-  the token and the sketch pad's toolbar, canvas and foot plus the meeting
-  stage are the first to reach for it; every other surface inside a `.card`
-  still draws `--radius-lg`, which is the concentric rule half applied.
-  [popup-redesigns.md]
-  *Needs: the concentric rule's rollout is design. Count re-measured 2026-10-05: 13 `var(--radius-inner)` declarations in six stylesheets (02 six, 05 three, 03, 06, 07 and 08 one each) plus `documents.js`'s colour swatch; the row's "four" and the earlier "about seventeen" were both stale.*
-- **The meeting dialog's head row holds two heights**, a 28px `.ghost.small`
-  Close beside the 32px `.graph-help-toggle`. Both are app-wide recipes, so
-  this is a question about the two recipes rather than about the dialog.
-  [popup-redesigns.md]
-  *Needs: a question about two app-wide recipes.*
-- **An empty line in a small panel has no recipe.** The agent panel uses
-  `<p class="muted">` where the index names `.empty-state`, whose 2rem padding
-  and centred block would be wrong in a 384px glance panel. Worth a recipe row
-  rather than a conversion. [visual-c.md]
-  *Needs: a recipe row to design.*
-- **The dark shadow sliders saturate earlier than the light ones.** The dark
-  alphas are 7 to 11 times the light ones at the same setting, so the ambient
-  layer reaches opaque around 14% of a 0 to 50% slider; light's
-  `--shadow-lg` clamps at 33%, so both clamp and the structure matches.
-  Spreading either across its full range is a separate decision about what the
-  slider means. [visual-c.md]
-  *Needs: what the slider means is a decision.*
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05 (op4-1005: four design rows)": the field and the segmented track; an empty line in a small panel; the dark shadow sliders; the Ask results grid's breakpoint.
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05 (op4-1005: the concentric rollout)": `--radius-inner` has four users.
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05 (op4-1005: the meeting head and holepoke's seven)": The meeting dialog's head row holds two heights; holepoke.md.
 - **`.sidebar-head` is off the dock grammar, deliberately.** It carries
   `min-height: var(--sidebar-toggle-size)`, a negative `margin-top` that meets
   the absolutely positioned collapse toggle, and `padding-right` reserving
@@ -331,13 +305,6 @@ being written by running agents stay beside this one.
   `justify-content: center`). Revisit only if the owner reads them as
   inconsistent. [consistency.md]
   *Left: judged deliberate.*
-- **The Ask results grid is two columns down to 900px.** At 1024 each half is
-  356px, which is why the badge has to ellipsise a long model id at all. The
-  breakpoint (`@media (max-width: 900px)` on `.chat-grid`,
-  01-forms-settings.css) is arguably too low for a panel that holds an answer,
-  but moving it is a layout decision the owner has not asked for.
-  [ask-head-ocr.md]
-  *Needs: a layout decision the owner has not asked for.*
 - **`#chat-results`'s second half is the only `.panel-head` with no actions.**
   The next head that wants a control beside its title should take family 8
   rather than inventing a fourth arrangement, which is what the lint is there
@@ -474,12 +441,6 @@ the head, so they carry no row of their own.
   WORLD_CLASS_PLAN 1.3 marks open (Remind me beyond notes, the Library note
   card's Remind me and Link to). [guideia]
   *Needs: a non-modal Guide changes `openSheet`'s focus and backdrop contract; Remind me beyond notes needs the reminder to point at other kinds first (a backend step).*
-- **holepoke.md**: seven findings, each with its "why not" in the file's table
-  (per-glyph ink offsets for carets, the toast over the phone Notes tabs, a
-  ghost select's caret ink, mixed button weights in the reminder row cluster,
-  arrow keys in radio groups, one unexplained 404 in the contrast sweep).
-  [holepoke]
-  *Needs: design decisions, each recorded with its reason.*
 - **libtl-0926.md**: the Timeline feed lays out about 39 times a second while
   scrolling (the rows' `content-visibility: auto`, INBOX 400's trade); the
   Library search keystroke was 17 to 191ms under load, not re-measured idle;

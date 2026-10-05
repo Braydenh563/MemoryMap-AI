@@ -44,8 +44,10 @@ def test_nothing_typed_can_ride_in_a_name(client):
 
 def test_clear_forgets_every_count(client):
     client.post("/usage", json={"features": ["tab:notes"]})
-    assert client.delete("/usage").json() == {"cleared": True}
-    assert client.post("/usage/summary", json={"known": []}).json()["features"] == []
+    cleared = client.delete("/usage").json()
+    assert cleared == {"cleared": True}
+    summary = client.post("/usage/summary", json={"known": []}).json()
+    assert summary["features"] == []
 
 
 def test_the_ledger_is_never_sent_anywhere():

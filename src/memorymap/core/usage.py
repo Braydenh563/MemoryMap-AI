@@ -85,7 +85,5 @@ def summary(data_dir: Path, known: list[str] | None = None, today: date | None =
 
 def clear(data_dir: Path) -> None:
     with _lock:
-        try:
-            _path(data_dir).unlink()
-        except FileNotFoundError:
-            pass
+        #: Nothing counted yet is already clear.
+        _path(data_dir).unlink(missing_ok=True)

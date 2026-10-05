@@ -43,14 +43,17 @@ def test_a_warmed_question_is_not_embedded_again(ai_client, session, fake_embedd
 
 
 def test_the_route_warms_and_never_fails(ai_client, monkeypatch):
-    assert ai_client.post("/search/warm", json={"q": "groceries for the week ahead"}).json() == {"warmed": True}
-    assert ai_client.post("/search/warm", json={"q": "hi"}).json() == {"warmed": False}
+    warm_1 = ai_client.post("/search/warm", json={"q": "groceries for the week ahead"}).json()
+    assert warm_1 == {"warmed": True}
+    warm_2 = ai_client.post("/search/warm", json={"q": "hi"}).json()
+    assert warm_2 == {"warmed": False}
 
     def broken():
         raise RuntimeError("no embeddings")
 
     monkeypatch.setattr(deps, "get_embeddings", broken)
-    assert ai_client.post("/search/warm", json={"q": "groceries for the week ahead"}).json() == {"warmed": False}
+    warm_3 = ai_client.post("/search/warm", json={"q": "groceries for the week ahead"}).json()
+    assert warm_3 == {"warmed": False}
 
 
 def test_the_boxes_send_their_words_on_a_pause():

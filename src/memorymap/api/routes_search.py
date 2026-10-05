@@ -62,15 +62,19 @@ def search(
     #: did not, so the same notebook answered a typo differently depending on
     #: where it was typed. Only when the query found nothing, and only to a
     #: word the notes actually hold, so a word that exists is never "fixed".
+    #: The engine corrects a typo itself now (ARCH-07), so the hits can already
+    #: be the corrected query's; the line still says so. `_corrected_query`
+    #: only changes a word the notes do not hold, so a real word never shows
+    #: as "corrected".
     corrected = ""
-    if not hits:
-        retry = _corrected_query(session, q)
-        if retry and retry != q:
+    retry = _corrected_query(session, q) if q.strip() else ""
+    if retry and retry != q:
+        if not hits:
             hits = engine.search(
                 session, retry, ctx=ctx or None, limit=limit, hybrid=hybrid, kinds=kinds or None
             )
-            if hits:
-                corrected = retry
+        if hits:
+            corrected = retry
     return {
         "query": q,
         #: The query the hits are for when it is not `query`: the view says

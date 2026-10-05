@@ -1046,45 +1046,59 @@ HELP_TOPICS.extend(
                 "tick a topic", "number the branches", "numbered topics", "outline numbers", "note on a topic", "note behind a topic", "comment on a topic", "boundary", "summary topic", "summarise topics",
             ),
             "body": (
-                "Mind map keys (a map lives in the Library under Boards and maps). "
-                "With a topic selected: Tab adds a child, Enter adds a topic right "
-                "after it and Shift+Enter right before it (what you type next is "
-                "the new topic's words), Ctrl+D copies it as the next sibling, "
-                "Ctrl+Shift and the arrows move it among its siblings, "
-                "Shift+Tab outdents it, the arrow keys walk the tree, F2 or "
-                "double-click renames, Delete removes the topic and everything "
-                "under it, C folds or unfolds its branch (or click the chevron), "
-                "Shift+C draws a cross-link to another topic, F shows only this "
-                "branch and its neighbours (F again: all), Shift+F10 "
+                "Mind map keys (a map lives in the Library under Boards and "
+                "maps). With a topic selected: Tab adds a child, Enter adds a "
+                "topic right after it and Shift+Enter right before it (what you "
+                "type next is the new topic's words), Ctrl+D copies it as the "
+                "next sibling, Ctrl+Shift and the arrows move it among its "
+                "siblings, Shift+Tab outdents it, the arrow keys walk the tree, "
+                "F2 or double-click renames, Delete removes the topic and "
+                "everything under it, C folds or unfolds its branch (or click the "
+                "chevron), Shift+C draws a cross-link to another topic, F shows "
+                "only this branch and its neighbours (F again: all), Shift+F10 "
                 "opens every action. Ctrl+Z undoes (100 steps, kept across a "
                 "reload; a deleted branch comes back whole), Ctrl+Shift+Z redoes. "
-                "Right-click a topic for "
-                "the ring: Add child, Add beside, Fold, Delete, Cross-link and "
-                "More; hold Alt on the ring to remove instead of add. Dragging a "
-                "topic onto another moves its whole branch; double-click a line to "
-                "label it. The layout picker lays the map out as a tree, "
-                "radial or free, and Tidy lays "
-                "every unpinned topic out again. The View menu sets Colour by "
-                "(branch, category, age, or whether a note is behind it) and opens "
-                "every folded branch; View, Present branches shows it branch by branch. A topic's menu makes it a task: press its box to "
-                "tick it, and every topic above counts the done ones (1/2); Markdown "
-                "exports write tasks as - [ ] and - [x]. View, Number the branches numbers "
-                "every topic by its place (1, 1.1, 1.2), and the Markdown and OPML exports keep "
-                "the numbers. A topic's menu adds a note behind it: its mark on the topic "
-                "opens it, and Markdown keeps it. "
-                "Comment… starts a thread, counted on its corner; its Branch group draws a "
-                "boundary round the branch or summarises topics side by side. "
-                "Start from a template, "
-                "import an OPML, FreeMind or Markdown "
-                "outline (an import opens laid out as a tree to the right), paste an "
-                "indented list onto a topic to add it as that topic's branch, let the "
-                "local AI propose a map from notes you pick, and "
-                "export it as OPML, FreeMind or Markdown as well as a picture, "
-                "or write it as a document (the board menu's Write as a document: "
-                "branches become headings, deeper topics lists, notes paragraphs). "
-                "With a map open, the command palette (Ctrl+K) lists the map's "
-                "commands: add, rename, fold, focus, tidy, layout, look, numbering, "
-                "present and export."
+                "Right-click a topic for the ring: Add child, Add beside, Fold, "
+                "Delete, Cross-link and More; hold Alt on the ring to remove "
+                "instead of add. Dragging a topic onto another moves its whole "
+                "branch; double-click a line to label it."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "mind-map-features",
+            "keywords": (
+                "radial", "colour by", "color by", "tidy", "layout of the map",
+                "checkbox on a topic", "topic a task", "tick a topic", "number the branches",
+                "numbered topics", "outline numbers", "note on a topic", "note behind a topic",
+                "comment on a topic", "boundary", "summary topic", "summarise topics",
+                "opml", "freemind", "import a map", "export a map", "present branches",
+                "map template", "map as a document",
+            ),
+            "body": (
+                "Mind map features. The layout picker lays the map out as a tree, "
+                "radial or free, and Tidy lays every unpinned topic out again. "
+                "The View menu sets Colour by (branch, category, age, or whether "
+                "a note is behind it) and opens every folded branch; View, "
+                "Present branches shows it branch by branch. A topic's menu makes "
+                "it a task: press its box to tick it, and every topic above "
+                "counts the done ones (1/2); Markdown exports write tasks as - [ "
+                "] and - [x]. View, Number the branches numbers every topic by "
+                "its place (1, 1.1, 1.2), and the Markdown and OPML exports keep "
+                "the numbers. A topic's menu adds a note behind it: its mark on "
+                "the topic opens it, and Markdown keeps it. "
+                "Comment… starts a thread, counted on its corner; its Branch group draws a boundary "
+                "round the branch or summarises topics side by side. Start from a "
+                "template, import an OPML, FreeMind or Markdown outline (an "
+                "import opens laid out as a tree to the right), paste an indented "
+                "list onto a topic to add it as that topic's branch, let the "
+                "local AI propose a map from notes you pick, and export it as "
+                "OPML, FreeMind or Markdown as well as a picture, or write it as "
+                "a document (the board menu's Write as a document: branches "
+                "become headings, deeper topics lists, notes paragraphs). With a "
+                "map open, the command palette (Ctrl+K) lists the map's commands: "
+                "add, rename, fold, focus, tidy, layout, look, numbering, present "
+                "and export."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1100,45 +1114,57 @@ HELP_TOPICS.extend(
             "body": (
                 "Document editor keys (Library, Documents; Ctrl+Shift+D starts "
                 "one). While a document is open, Ctrl+K lists every document "
-                "command and ? shows the ones with keys. Ctrl+S saves, Ctrl+B bold, "
-                "Ctrl+I italic, Ctrl+E inline code, Ctrl+Shift+S strike through, "
-                "Ctrl+1, Ctrl+2 and Ctrl+3 headings, Tab and Shift+Tab indent and "
-                "outdent, Ctrl+/ comments the selection, Alt+Up / Alt+Down moves a "
-                "section from the outline, and typing / opens the blocks menu. "
-                "Ctrl+F finds and replaces (Enter next, Shift+Enter previous, Esc "
-                "closes), Ctrl+Shift+F finds in every document. Views: Edit, where "
-                "Live renders as you write, Source is the markdown and Split puts a "
-                "preview beside it, or Read. The sidebar's Outline lists the "
-                "headings (with a filter when there are many), and headings fold. "
-                "The document's menus hold History (every version, and a way back "
-                "to any), Connections, Extract notes, AI edit, a word goal, "
-                "typewriter scrolling, dim all but this paragraph, serif for "
-                "reading and full width. Focus mode (the corners button on the "
-                "dock, or F11) hides everything but the page, with a small bar "
-                "for the title, save state, a Sidebar button and Exit (Esc closes "
-                "the sidebar, then Esc or F11 leaves). "
-                "The formatting toolbar hides and comes back: while it is hidden, "
-                "the Formatting button in the document's bar, Ctrl+Shift+X or "
-                "the bar's More menu, Show formatting toolbar, brings it back. In a "
-                "Live table the arrows keep the column, Enter goes to the cell "
-                "below, and rows pasted from a spreadsheet fill the cells. "
-                "Pasting from a web page, Word or Google Docs keeps headings, "
-                "bold, italics, lists and links; Ctrl+Shift+V pastes plain text. "
-                "Footnotes show as numbered notes at the foot in Read view, in "
-                "print and in the HTML download. A page break (the / menu's Page "
-                "break, written \\newpage on its own line) starts what follows on "
-                "a new page when the document is printed or saved as a PDF. "
-                "Writing checks: spelling against your own "
-                "dictionary, grammar checked on this machine, an "
-                "accessibility check (a skipped heading level, an image with no "
-                "description, link text like \"click here\"), Suggest changes "
-                "(tracked changes to accept or reject one at a time or all at "
-                "once), Read aloud (Esc stops), autocorrect, and word suggestions "
-                "(Tab accepts). Word: Download as .docx (with the optional Word "
-                "exporter) keeps tables, links, lists, code and suggested "
-                "changes as Word's tracked changes, and importing that .docx brings "
-                "them back; other downloads are .md, .html, a .zip with images, "
-                "and print or save as PDF."
+                "command and ? shows the ones with keys. Ctrl+S saves, Ctrl+B "
+                "bold, Ctrl+I italic, Ctrl+E inline code, Ctrl+Shift+S strike "
+                "through, Ctrl+1, Ctrl+2 and Ctrl+3 headings, Tab and Shift+Tab "
+                "indent and outdent, Ctrl+/ comments the selection, Alt+Up / "
+                "Alt+Down moves a section from the outline, and typing / opens "
+                "the blocks menu. Ctrl+F finds and replaces (Enter next, "
+                "Shift+Enter previous, Esc closes), Ctrl+Shift+F finds in every "
+                "document. Views: Edit, where Live renders as you write, Source "
+                "is the markdown and Split puts a preview beside it, or Read. The "
+                "sidebar's Outline lists the headings (with a filter when there "
+                "are many), and headings fold. Focus mode (the corners button on "
+                "the dock, or F11) hides everything but the page, with a small "
+                "bar for the title, save state, a Sidebar button and Exit (Esc "
+                "closes the sidebar, then Esc or F11 leaves). The formatting "
+                "toolbar hides and comes back: while it is hidden, the Formatting "
+                "button in the document's bar, Ctrl+Shift+X or the bar's More "
+                "menu, Show formatting toolbar, brings it back. In a Live table "
+                "the arrows keep the column, Enter goes to the cell below, and "
+                "rows pasted from a spreadsheet fill the cells. Pasting from a "
+                "web page, Word or Google Docs keeps headings, bold, italics, "
+                "lists and links; Ctrl+Shift+V pastes plain text."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "documents-features",
+            "keywords": (
+                "history of a document", "word goal", "typewriter", "footnote", "footnotes",
+                "page break", "newpage", "docx", "word document", "microsoft word",
+                "extract notes", "ai edit",
+                "serif", "full width",
+            ),
+            "body": (
+                "Document editor features. The document's menus hold History "
+                "(every version, and a way back to any), Connections, Extract "
+                "notes, AI edit, a word goal, typewriter scrolling, dim all but "
+                "this paragraph, serif for reading and full width. Footnotes show "
+                "as numbered notes at the foot in Read view, in print and in the "
+                "HTML download. A page break (the / menu's Page break, written "
+                "\\newpage on its own line) starts what follows on a new page when "
+                "the document is printed or saved as a PDF. Writing checks: "
+                "spelling against your own dictionary, grammar checked on this "
+                "machine, an accessibility check (a skipped heading level, an "
+                "image with no description, link text like \"click here\"), Suggest "
+                "changes (tracked changes to accept or reject one at a time or "
+                "all at once), Read aloud (Esc stops), autocorrect, and word "
+                "suggestions (Tab accepts). Word: Download as .docx (with the "
+                "optional Word exporter) keeps tables, links, lists, code and "
+                "suggested changes as Word's tracked changes, and importing that "
+                ".docx brings them back; other downloads are .md, .html, a .zip "
+                "with images, and print or save as PDF."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

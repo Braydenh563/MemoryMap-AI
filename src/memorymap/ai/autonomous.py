@@ -71,6 +71,11 @@ AUDIT_BATCH_SIZE = 20
 #: little at a time, one interval per batch, not all in one tick.
 STALE_REVIEW_BATCH_SIZE = 20
 
+#: How many notes filed by the notebook's own words get a model's second
+#: opinion in one tick (BACKLOG 76). Each is a model call, so the same small
+#: bound as the audits above.
+WORDS_REVIEW_BATCH_SIZE = 20
+
 _lock = threading.Lock()
 _stop_event: threading.Event | None = None
 #: Interrupts the interval sleep without stopping the loop, set by `wake()`
@@ -387,6 +392,32 @@ def _optimization_pass(started: float, run: "jobruns.Run") -> None:
                     logger.info("stale/orphaned review: tagged %d note(s)", tagged)
             except Exception as exc:
                 logger.error("stale/orphaned review failed: %s", exc, exc_info=True)
+
+        # A second opinion on the notes filed by the notebook's own words
+        # while no model was available (BACKLOG 76). Not its own switch: the
+        # pass already runs only when the person turned the background
+        # librarian on, and these notes are exactly what it is for. A fixed
+        # batch per tick, like the audits above; `review_words_filed` never
+        # touches a note the person filed, a private note or a binned one.
+        try:
+            from memorymap.ai import janitor
+
+            db = deps.get_db()
+            with db.session() as session:
+                reviewed = janitor.review_words_filed(
+                    session,
+                    deps.get_embeddings(),
+                    deps.get_model_manager(),
+                    deps.get_ollama(),
+                    limit=WORDS_REVIEW_BATCH_SIZE,
+                )
+            if reviewed["looked"]:
+                logger.info(
+                    "words-filed review: %d looked at, %d moved, %d confirmed",
+                    reviewed["looked"], reviewed["moved"], reviewed["confirmed"],
+                )
+        except Exception as exc:  # noqa: BLE001  # top of a worker thread
+            logger.error("words-filed review failed: %s", exc, exc_info=True)
 
         # The night shift's derived facts (WORLD_CLASS_PLAN 15, I1 and I9).
         # A fourth task here rather than a second scheduler: this module

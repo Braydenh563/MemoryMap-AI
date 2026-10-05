@@ -156,6 +156,10 @@ const LIBRARY_KINDS = [
   // and its count below is computed the same way rather than read from the
   // server's per-kind counts, which only exist for real kinds.
   { key: "meeting", icon: "ph:video-camera", label: "Meetings" },
+  //: The passages you marked with ==highlight==, each with its note
+  //: (BACKLOG 109.4). Not a kind of thing you made: like Activity it is out
+  //: of "Everything" (a passage is a part of a note that is already listed).
+  { key: "highlight", icon: "ph:highlighter", label: "Highlights" },
   // "archived" is the bin's own internal kind (see routes_library.py's
   // _archive()), this app's real archive uses "shelved" specifically so
   // the two are never confused at the code level, even though the words
@@ -289,7 +293,7 @@ function renderLibraryFilters() {
     const count =
       kind.key === "all"
         ? Object.entries(libraryCounts).reduce(
-            (sum, [key, n]) => sum + (key === "activity" || key === "draft" ? 0 : n),
+            (sum, [key, n]) => sum + (key === "activity" || key === "draft" || key === "highlight" ? 0 : n),
             0,
           )
         : kind.key === "meeting"
@@ -502,7 +506,7 @@ function renderLibrary(options) {
     // unfinished by definition, and a draft appearing as a first-class card
     // here was reported and fixed once already (see _notes() in
     // routes_library.py). The Drafts chip is how you ask for them.
-    items = items.filter((i) => i.kind !== "activity" && i.kind !== "draft");
+    items = items.filter((i) => i.kind !== "activity" && i.kind !== "draft" && i.kind !== "highlight");
     if (!$("library-show-binned")?.checked) {
       items = items.filter((i) => i.kind !== "archived");
     }
@@ -622,13 +626,13 @@ function renderLibrary(options) {
     //: state now carries the create action beside it, the same one the dock's
     //: Create button runs for this kind, so the next step is one press from
     //: the sentence that suggests it rather than a hunt for the dock.
-    const madeAnything = libraryItems.some((i) => i.kind !== "activity");
+    const madeAnything = libraryItems.some((i) => i.kind !== "activity" && i.kind !== "highlight");
     const createBtn = $("library-empty-create");
     const dockCreate = $("library-new-doc");
     //: Not on the archive either (libtl-0926): nothing is made archived, a
     //: thing is archived from its own menu, and a Create beside "Nothing
     //: archived" offered to make something that would not appear here.
-    const offerCreate = !query && !items.length && !["activity", "archived", "shelved"].includes(libraryKind);
+    const offerCreate = !query && !items.length && !["activity", "archived", "shelved", "highlight"].includes(libraryKind);
     if (createBtn) {
       createBtn.classList.toggle("hidden", !offerCreate || !dockCreate);
       if (offerCreate && dockCreate) {
@@ -701,7 +705,7 @@ function renderLibrary(options) {
 // which is not a name a link can be trusted to find.
 function libraryCopyActions(kind, title, id) {
   const name = String(title || "").replace(/^#{1,6}\s+/, "").trim();
-  if (!name || kind === "activity" || kind === "tag") return [];
+  if (!name || kind === "activity" || kind === "tag" || kind === "highlight") return [];
   const out = [
     makeMenuItem("ph:copy Copy title", "Copy the name to the clipboard", () => copyToClipboard(name)),
   ];
@@ -967,6 +971,8 @@ function libraryActions(item) {
   // An activity row is a record of something that already happened. There is
   // nothing to do to it, so it gets no menu at all rather than an empty one.
   if (item.kind === "activity") return [];
+  // A passage is part of its note: opening the card is the one thing to do.
+  if (item.kind === "highlight") return [];
   if (item.kind === "file") {
     return [
       // `window.open` never attaches the `X-Auth-Token` header a plain
@@ -1054,6 +1060,8 @@ function renderLibraryContextBars() {
         "(change that in Preferences) before they clear.";
     $("library-bin-empty").disabled = !count;
   }
+  // The audit trail's one action, on its own screen (BACKLOG 115 row 11).
+  $("library-activitybar").classList.toggle("hidden", libraryKind !== "activity");
 
   const bar = $("library-selectbar");
   const chosen = [...librarySelection];
@@ -1294,7 +1302,7 @@ function libraryCard(item) {
   // Tick to select. Only for the kinds a bulk action can actually do something
   // to: an activity row is a record of the past and a tag is not a file, so
   // offering either a checkbox would be offering a Delete that does nothing.
-  if (item.kind !== "activity" && item.kind !== "tag") {
+  if (item.kind !== "activity" && item.kind !== "tag" && item.kind !== "highlight") {
     const tick = document.createElement("input");
     tick.type = "checkbox";
     tick.className = "library-card-tick";
@@ -1504,6 +1512,9 @@ function openLibraryItem(item) {
       box.value = `tag:${item.title}`;
       box.dispatchEvent(new Event("input", { bubbles: true }));
     }
+  } else if (item.kind === "highlight") {
+    // The note the passage is in; the passage is read in place there.
+    flashEntry(item.entry_id);
   } else if (item.kind === "activity" && item.entry_id) {
     // The note the entry in the log is about, when it still exists.
     flashEntry(item.entry_id);
@@ -1775,6 +1786,17 @@ $("library-bin-empty").addEventListener("click", async () => {
   toast("The bin is empty.");
   loadLibrary();
   loadEntries();
+});
+
+// The activity log as a file. A download needs the auth header, so the bytes
+// are fetched and handed to saveFile, the way every other export is.
+$("library-activity-export").addEventListener("click", async () => {
+  try {
+    const response = await api("/audit/export.csv");
+    await saveFile("memorymap-activity.csv", await response.blob());
+  } catch (e) {
+    toast(e.message, true);
+  }
 });
 
 // --- bulk actions -------------------------------------------------------------

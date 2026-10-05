@@ -40,6 +40,7 @@ from memorymap.core.database import (
 )
 from memorymap.core import events
 from memorymap.core.deps import get_session
+from memorymap.entry import highlights as note_highlights
 from memorymap.entry.manager import extract_title, join_blocks, remove_title, strip_inline_markdown
 from memorymap.entry.properties import strip as strip_properties
 
@@ -702,6 +703,64 @@ def _notes(session: Session, q: str = "") -> list[dict]:
     return items
 
 
+#: How many notes are read for their highlights in one request. The marks are
+#: text (`entry/highlights.py`), so this is a scan of note bodies, bounded the
+#: way every other kind here is; newest first, so the passages a person marked
+#: lately are the ones that are always there.
+HIGHLIGHT_NOTES_SCANNED = 400
+#: How long a passage may be on its card. A highlight is one line by
+#: definition; this only guards against a mark wrapped round a paragraph.
+HIGHLIGHT_CLIP = 220
+
+
+def _highlights(session: Session, q: str = "") -> list[dict]:
+    """The passages you marked, each with the note it came from (BACKLOG 109.4).
+
+    No table: a highlight is `==words==` in a note's text, so this reads the
+    text of the notes whose text has one. A private note's text is ciphertext
+    and is never read; a draft or a binned note is not part of the notebook
+    here. One item per passage, `entry_id` pointing at its note, which is what
+    pressing the card opens.
+    """
+    rows = session.execute(
+        select(Entry)
+        .where(
+            *_LIVE_NOTE,
+            Entry.is_board == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+            Entry.content.contains("=="),
+        )
+        .order_by(Entry.created_at.desc())
+        .limit(HIGHLIGHT_NOTES_SCANNED)
+    ).scalars()
+    wanted = q.lower()
+    items: list[dict] = []
+    for entry in rows:
+        text = entry.content or ""
+        own_title = extract_title(text)
+        source = own_title or (_clip(text)[:60] or "Untitled note")
+        for passage in note_highlights.passages(text):
+            if wanted and wanted not in passage.lower() and wanted not in (own_title or "").lower():
+                continue
+            items.append(
+                {
+                    "kind": "highlight",
+                    "id": len(items) + 1,
+                    "title": passage if len(passage) <= HIGHLIGHT_CLIP else passage[: HIGHLIGHT_CLIP - 1] + "…",
+                    "preview": "",
+                    "updated_at": entry.created_at.isoformat(),
+                    "detail": f"in {source}",
+                    "size": len(passage),
+                    "entry_id": entry.id,
+                    "mime": None,
+                    "pinned": False,
+                }
+            )
+            if len(items) >= PER_KIND_LIMIT:
+                return items
+    return items
+
+
 #: What the audit log's verbs mean to a person. The raw values are the app's
 #: own vocabulary ("queried", "purged") and reading them back is how a log
 #: becomes something only its author can use.
@@ -992,6 +1051,7 @@ def library(
     q = q.strip()
     items = (
         _notes(session, q)
+        + _highlights(session, q)
         + _documents(session, q)
         + _chats(session, q)
         + _images(session)

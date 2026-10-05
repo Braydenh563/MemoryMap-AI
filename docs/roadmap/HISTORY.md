@@ -216,6 +216,87 @@ remaining whiteboard rows; the open rest is in
   board's item, so each event is now placed by the board its payload names
   (`_board_events`; `test_a_reused_id_brings_no_other_boards_history`).
 
+## Moved from the plans, 2026-10-05 (backlog-1005: BACKLOG, section by section)
+
+One agent's pass over BACKLOG and the plans' open lines; each bullet says how it
+was verified. Items found already built are listed with the file that proves it.
+
+- **A synthesised export, as a skill** (BACKLOG section 26, 102 item 10, 109.3
+  item 5): the built-in "Write a document from a tag" (`ai/skills.py`; input
+  `tag`; list_notes, get_note, an ordering judgement, then create_document as the
+  one write, last, so a run that stalls earlier has changed nothing; it carries no
+  note-editing tool). README says 21 built-in skills.
+  `tests/test_tag_document_skill.py` 3/3, `test_skills.py`, `test_run_skill.py`,
+  `test_readme_freshness.py` green. Not run against a model: the steps' contracts
+  are checked, how a small model writes the document is not. The Graph/list
+  selection button is still open.
+- **Encrypted export and import of the whole notebook** (BACKLOG section 115 row
+  10): `GET /export/backup` has long written the zip and nothing read it back.
+  `core/backup_bundle.py` builds it (a cleaned snapshot plus `media/` and
+  `uploads/`), seals it as `.mmenc` (scrypt key from `core/crypto.py`, AES-GCM in
+  1 MiB chunks with a last-chunk flag in the associated data, so a file cut at a
+  chunk boundary fails), and restores either kind (`backup.restore_file`: safety
+  snapshot, integrity check on a temp copy, atomic swap; files merged over the
+  folders, members outside `media/` and `uploads/` or climbing out of them are
+  skipped; every session ends). Routes `POST /backups/bundle` (the password in
+  the body) and `POST /backups/bundle/restore`; Settings, Import & export has a
+  password field by Export full backup and a Restore a full backup group with its
+  '?'. `tests/test_backup_bundle.py` 8/8 (round trip over chunk boundaries, wrong
+  password, truncation, export-wipe-import equals the original, plain zip, an
+  archive that tries to write outside the data folder);
+  `scratchpad/ui-sweeps/backupbundle.js` PASS at 1440 and 390, light and dark
+  (layout inside the window, a sealed file with none of the note text, a wrong
+  password refused with nothing changed, the right one brings back all three
+  notes after the reload and unlock). Left: no progress bar for a multi-gigabyte
+  file; a whole-notebook merge instead of replace is not offered.
+- **The Chat tab numbers a grounded answer while it streams** (CHAT_PLAN placed
+  row "ignores `grounding_live`", INBOX 320): `sendChatMessage` reads the event,
+  `agentTimeline` takes an `afterAnswerPaint` hook (late-bound through the
+  bubble's `paintHooks`, since the bubble is built before the stream has rows)
+  and every live paint of a prose step puts the markers back, the numbering the
+  final pass's own (`chatSourcesFrom`). `tests/test_chat_live_citations.py` 2/2;
+  `scratchpad/ui-sweeps/chatlivecite.js` PASS at 1440 and 390 (first number
+  3.8 s into a 5.7 s answer; the base placed it at the last token, 6.0 s of 6.0 s
+  at 1440). Not run against a real model, and not in dark: the markers are the
+  Ask tab's existing `.answer-citation`.
+- **What the data folder weighs** (BACKLOG section 26, the first step): `GET
+  /storage` adds `uploads_bytes`, `media_bytes`, `backups_bytes` from a cached
+  walk (`diskspace.dir_bytes`: 60 s, links not followed, 200,000-entry bound);
+  Settings, About, Health has a Files on disk row. `tests/test_storage_footprint.py`
+  3/3; `scratchpad/ui-sweeps/healthfiles.js` PASS at 1440 and 390, light and
+  dark. The per-extra footprint is still open.
+- **Highlights as a queryable collection** (BACKLOG 109.4, 102 item 7, 111.2
+  item 3): `has:highlight` in the search operators and a Library Highlights chip,
+  one card per `==passage==` with its note, no table (`entry/highlights.py` is the
+  one reader; `routes_library._highlights`; the colour words are pinned against
+  the toolbar's `MD_COLOURS`). `tests/test_highlights_collection.py` 7/7;
+  `scratchpad/ui-sweeps/libhighlights.js` PASS at 1440 and 390, light and dark
+  (the chip counts, Everything holds none, no ticks or menus, a card opens its
+  note, no sideways scroll).
+- **A short note and the meaning-based filer** (BACKLOG section 8, "ai is cool"):
+  measured, not guessed, with the shipped embedding model (BAAI/bge-small-en-v1.5,
+  cached locally) over `filing_eval.py`'s hundred-note, ten-category notebook
+  (`scratchpad/filing_short_eval.py`). Today every one of 20 short notes that
+  belong nowhere was filed by meaning (the baseline cosine of two short texts
+  clears both the 0.60 centroid bar and the 0.42 neighbour bar); the nearest
+  filed note separates them (median 0.83 for notes with a home, 0.64 without).
+  A note under four words now needs a nearest note at 0.72: 59 of 60 short notes
+  with a home still file, 3 of 20 without one do. `tests/test_janitor_short.py`
+  5/5 (2 of them fail on the base). One embedding model measured; another
+  backend's scale differs and a short note there falls to the notebook's words.
+- **Words-filed notes get a second opinion** (BACKLOG 76, second half):
+  `janitor.review_words_filed`, called from `autonomous._optimization_pass`
+  (20 notes a tick, never a private, binned or hand-filed note, a note the
+  model cannot decide is not asked again this run); a move is a `filed` event
+  by `system:filing` and the note becomes `auto`, so a move by hand is a
+  correction. `tests/test_words_review.py` 7/7 on the fake transport. Not
+  run against a real model.
+- **Audit trail export** (BACKLOG section 115 row 11): `GET /audit/export.csv`
+  (`routes_settings.py`, every field, oldest first, field names only, formula
+  cells defanged, the export itself logged) and an Export as CSV strip on the
+  Library's Activity chip. `tests/test_audit_export.py` 4/4;
+  `scratchpad/ui-sweeps/activityexport.js` PASS at 1440 and 390, light and dark.
+
 ## OPEN.md rows closed, 2026-10-05 (the open-rows agent)
 
 The well-defined rows of `agent-remaining/OPEN.md` taken by one agent; each line says how it was verified.

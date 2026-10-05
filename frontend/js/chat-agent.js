@@ -497,7 +497,11 @@ function thinkingFoldIn(host) {
 // So steps are appended as the events arrive. Consecutive deltas of the same
 // kind extend the current step; a different kind starts a new one, which is
 // what produces the thinking → tool → tool → answer chain the user follows.
-function agentTimeline(holder) {
+//: `options.afterAnswerPaint` runs after every live paint of a prose step: a
+//: paint rebuilds the step from raw markdown, so the citation numbers placed
+//: while the answer streams (`grounding_live`, INBOX 320) have to be written
+//: again each time, as the Ask tab's own renderer does.
+function agentTimeline(holder, options = {}) {
   let current = null; // the step still being written into
   const answerSteps = []; // every prose step, in order
   const thinkingSteps = [];
@@ -602,7 +606,7 @@ function agentTimeline(holder) {
       el,
       body: el,
       raw: "",
-      render: liveMarkdownRenderer(el),
+      render: liveMarkdownRenderer(el, options.afterAnswerPaint || null),
     };
     answerSteps.push(current);
     return current;
@@ -1161,8 +1165,11 @@ function addAssistantBubble(persona = null) {
   $("chat-messages").appendChild(bubble);
   paintPersonaAvatar(avatar, writer, 20); // now attached, so p5 can measure and draw
   chatScrollToEnd();
-  const timeline = agentTimeline(stepsHolder);
-  return { bubble, stepsHolder, recordsHolder, groundingHolder, timeline };
+  //: Late-bound: the stream that owns this bubble sets `afterAnswerPaint`
+  //: once it has the turn's grounding rows to place (`sendChatMessage`).
+  const paintHooks = { afterAnswerPaint: null };
+  const timeline = agentTimeline(stepsHolder, { afterAnswerPaint: () => paintHooks.afterAnswerPaint?.() });
+  return { bubble, stepsHolder, recordsHolder, groundingHolder, timeline, paintHooks };
 }
 
 // One "the AI did something" chip in a bubble (Wave G).

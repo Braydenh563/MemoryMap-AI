@@ -209,7 +209,10 @@ HELP_TOPICS: list[dict] = [
             "hyperlinked outline of the whole notebook) and AI Skills. "
             "Sub-tabs also hold Documents, Whiteboards, and the Files & "
             "Images gallery. Each sub-tab's top bar ends with a ? that says "
-            "what it holds."
+            "what it holds. The Highlights chip lists every passage you marked "
+            "in a note, each with its note. The Activity chip lists everything you and Atlas "
+            "did, and its Export as CSV button saves that log as a "
+            "spreadsheet (who, what, when) to hand over."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
@@ -395,7 +398,8 @@ HELP_TOPICS: list[dict] = [
             "Everything lives in a data folder you control: the notebook "
             "database, uploads, and daily local backups. Settings, Import & export shows "
             "exactly where it is on disk, and lets you export as JSON, CSV or "
-            "Markdown, and manage or restore backups."
+            "Markdown, save a full backup (sealed with a password if you like) and "
+            "restore one from a file, and manage or restore backups."
         ),
         "badge": {"label": "Import & export", "section": "data"},
     },
@@ -485,7 +489,9 @@ HELP_TOPICS: list[dict] = [
             "tags, links and flags duplicate notes on an interval you choose "
             ", off by default, since it writes to your notebook without "
             "being asked each time. It never deletes anything and skips "
-            "itself on battery power."
+            "itself on battery power. It also gives a second opinion on notes "
+            "that were filed by your notebook's own words while no model was "
+            "available, moving the ones the model files elsewhere."
         ),
         "badge": {"label": "Profile", "section": "preferences"},
     },
@@ -774,7 +780,7 @@ HELP_TOPICS.extend(
                 "through notes, documents, boards, files, links and reminders at "
                 "once, by your words and by meaning, and the chips narrow it to one "
                 "kind. You can type operators: tag:work, kind:document, before:2026-01, "
-                "has:image, and -word to leave something out. A small typo that "
+                "has:image, has:highlight, and -word to leave something out. A small typo that "
                 "finds nothing is searched as the nearest word your notes use, "
                 "and the line says \"showing results for\" it. To narrow only the "
                 "notes list, use Filter notes on the Your notes tab."

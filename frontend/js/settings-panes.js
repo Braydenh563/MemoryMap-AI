@@ -1143,6 +1143,55 @@ async function downloadExport(kind) {
   await saveFile(name, await response.blob());
 }
 
+//: The full backup is a POST, not `/export/backup`'s GET, so a password goes
+//: in the body and not in an address that lands in a log. With one the file is
+//: a sealed .mmenc (`core/backup_bundle.py`); without, the same zip as before.
+async function exportFullBackup() {
+  const field = $("export-backup-password");
+  const password = field ? field.value : "";
+  const response = await api("/backups/bundle", {
+    method: "POST",
+    body: JSON.stringify({ password: password || null }),
+  });
+  await saveFile(password ? "memorymap-backup.mmenc" : "memorymap-backup.zip", await response.blob());
+  if (field) field.value = "";
+}
+
+//: Restoring replaces the notebook and ends every session, so the page is
+//: reloaded afterwards: the lock screen is the honest next thing to see.
+async function restoreFullBackup() {
+  const input = $("restore-bundle-file");
+  const status = $("restore-bundle-status");
+  const file = input.files[0];
+  if (!file) return;
+  input.value = "";
+  const sealed = /\.mmenc$/i.test(file.name);
+  const password = $("restore-bundle-password").value;
+  if (sealed && !password) {
+    status.textContent = "That file is sealed. Enter its password, then choose it again.";
+    return;
+  }
+  if (
+    !(await confirmDialog(
+      "Restore this backup? Your current notebook is snapshotted first, then replaced by the one in the file."
+    ))
+  )
+    return;
+  const form = new FormData();
+  form.append("file", file, file.name);
+  form.append("password", password);
+  setLabel(status, "ph:spin Restoring…");
+  try {
+    const response = await api.upload("/backups/bundle/restore", form);
+    const result = await response.json();
+    $("restore-bundle-password").value = "";
+    status.textContent = `Restored, with ${result.files} attached file${result.files === 1 ? "" : "s"}. Reloading to unlock it.`;
+    setTimeout(() => location.reload(), 1200);
+  } catch (error) {
+    status.textContent = error.message || "The restore did not work. Nothing was changed.";
+  }
+}
+
 // --- Wave F: backups UI -------------------------------------------------------------
 
 // --- Wave F: command palette (Ctrl/Cmd-K) -------------------------------------------

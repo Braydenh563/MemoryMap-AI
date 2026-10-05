@@ -596,7 +596,7 @@
         </p>
         <p>
           Operators work: <code>tag:recipes</code>, <code>kind:document</code>,
-          <code>before:2026-01</code>, <code>has:image</code>, a
+          <code>before:2026-01</code>, <code>has:image</code>, <code>has:highlight</code>, a
           <code>"quoted phrase"</code>, and <code>-word</code> to leave
           something out.
         </p>
@@ -5235,7 +5235,7 @@ Link to another note with [[its first few words]]."></textarea>
                 data-help-for="library-help" aria-controls="library-help" aria-expanded="false"
                 title="About the library" aria-label="About the library"><i class="ph ph-question" aria-hidden="true"></i></button>
               <div class="help-body hidden" id="library-help" role="dialog" aria-label="About the library">
-                <p>Everything you have made, in one list: notes, documents, chats, images and files. The chips below narrow it to one kind, Filter can match by meaning or include the bin, and ticking a card lets you act on several at once.</p>
+                <p>Everything you have made, in one list: notes, documents, chats, images and files. The chips below narrow it to one kind, Filter can match by meaning or include the bin, and ticking a card lets you act on several at once. The Highlights chip lists every passage you marked in a note, with the note it is in. The Activity chip is the log of what you and Atlas did, and it can be exported as a spreadsheet.</p>
               </div>
               <details class="doc-dock-menu dock-menu dock-more" id="library-more-menu">
                 <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
@@ -5266,6 +5266,13 @@ Link to another note with [[its first few words]]."></textarea>
             <span class="library-contextbar-end">
               <button id="library-bin-empty" class="ghost small" type="button"
                 title="Permanently delete everything in the bin"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Empty the bin</button>
+            </span>
+          </div>
+          <div id="library-activitybar" class="library-contextbar hidden">
+            <span class="muted">Everything you and Atlas did, oldest first. Export it to hand over.</span>
+            <span class="library-contextbar-end">
+              <button id="library-activity-export" class="ghost small" type="button"
+                title="Save the activity log as a spreadsheet: who, what, when"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export as CSV</button>
             </span>
           </div>
         </section>
@@ -11132,7 +11139,7 @@ Link to another note with [[its first few words]]."></textarea>
                    the help keeps only what the line does not say (INBOX 437
                    (4): the help repeated the line word for word). The four
                    exports are one row, wrapping on a phone. -->
-              <p class="muted">Copies to take away, binned notes included. Full backup is the one to move to another computer.</p>
+              <p class="muted">Copies to take away, binned notes included. Full backup is the one to move to another computer, and the one Restore a full backup reads.</p>
               <div class="help-body hidden" id="export-help" role="dialog" aria-label="About exports">
                 <p>
                   Full backup is a portable zip of the raw database and media
@@ -11143,7 +11150,12 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="export-json" class="ghost small">Export JSON</button>
                 <button id="export-csv" class="ghost small">Export CSV</button>
                 <button id="export-md" class="ghost small" title="A zip of .md files you can drop into Obsidian">Export Markdown</button>
-                <button id="export-backup-zip" class="small" title="A portable zip of your database and media folder">Export full backup (.zip)</button>
+                <button id="export-backup-zip" class="small" title="A portable zip of your database, media and attached files">Export full backup</button>
+              </div>
+              <div class="row settings-row-spaced">
+                <label for="export-backup-password" class="muted">Seal the full backup with a password</label>
+                <input id="export-backup-password" type="password" autocomplete="new-password" maxlength="200"
+                  placeholder="Optional, 8 or more characters" aria-label="Password to seal the full backup with">
               </div>
               <!-- Desktop only (shown/hidden by desktopShell() in JS): a graph
                    PNG, a chat export, and the like all land in data_dir/exports
@@ -11216,6 +11228,37 @@ Link to another note with [[its first few words]]."></textarea>
               <p id="duplicate-status" class="status" role="status"></p>
               <p class="status job-line" role="status" data-job-line="duplicate-scan"></p>
               <div id="duplicate-groups"></div>
+            </div>
+
+            <div class="settings-group">
+              <div class="row help-head">
+                <h3>Restore a full backup</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="restore-bundle-help" aria-controls="restore-bundle-help" aria-expanded="false"
+                  title="About restoring a full backup" aria-label="About restoring a full backup">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Replaces this notebook with the one in a full backup file, a .zip or a sealed .mmenc.</p>
+              <div class="help-body hidden" id="restore-bundle-help" role="dialog" aria-label="About restoring a full backup">
+                <p>
+                  Choose a file made by Export full backup. A sealed file asks
+                  for the password it was saved with; a wrong one changes
+                  nothing. Your current notebook is snapshotted first (it is in
+                  the backups list), then replaced, and attached files are put
+                  back over the ones here without deleting any. You are signed
+                  out afterwards: unlock with the password of the restored
+                  notebook.
+                </p>
+              </div>
+              <div class="row">
+                <input id="restore-bundle-file" aria-label="Choose a full backup to restore" title="Choose a full backup to restore" type="file" accept=".zip,.mmenc" class="hidden">
+                <button id="restore-bundle" class="ghost small" type="button"><i class="ph ph-file-arrow-up ph-lead" aria-hidden="true"></i> Restore from a file</button>
+                <label for="restore-bundle-password" class="muted">Password, if sealed</label>
+                <input id="restore-bundle-password" type="password" autocomplete="off" maxlength="200"
+                  aria-label="Password the backup was sealed with">
+              </div>
+              <p id="restore-bundle-status" class="status" role="status"></p>
             </div>
 
             <div class="settings-group">
@@ -11995,6 +12038,13 @@ Link to another note with [[its first few words]]."></textarea>
                   <small class="muted">Size on disk, and where this notebook's data lives.</small>
                 </div>
                 <span class="setting-control muted" id="health-db-size">, </span>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Files on disk</span>
+                  <small class="muted">What attached files, pictures and backups weigh beside the database.</small>
+                </div>
+                <span class="setting-control muted" id="health-files-size">, </span>
               </div>
               <div class="setting-row">
                 <div class="setting-label">

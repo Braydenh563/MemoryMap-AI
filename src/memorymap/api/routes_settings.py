@@ -34,7 +34,7 @@ from memorymap import __version__
 from memorymap.ai import budget as run_budget
 from memorymap.ai import librarian, presets, skills
 from memorymap.api.routes_categories import CATEGORY_PALETTE_KEYS
-from memorymap.core import backup, deps, embedmodels, events, extras, jobruns, logbuffer, security
+from memorymap.core import backup_bundle, deps, embedmodels, events, extras, jobruns, logbuffer, security
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import importer, manager
@@ -1458,6 +1458,73 @@ def audit_log(
     ]
 
 
+#: A spreadsheet runs a cell that opens with one of these as a formula, and an
+#: audit trail carries free text a person (or a web page the agent read) wrote.
+_CSV_FORMULA_LEAD = ("=", "+", "-", "@", "\t", "\r")
+
+#: The ceiling on one export. A notebook's trail is bounded by its retention
+#: rule, but "bounded" has been wrong before; a hand-over file of a million
+#: rows is a file nobody opens.
+AUDIT_EXPORT_MAX_ROWS = 100_000
+
+
+def _csv_safe(value: object) -> object:
+    """A cell that cannot be read as a formula (the OWASP CSV-injection rule)."""
+    if isinstance(value, str) and value.startswith(_CSV_FORMULA_LEAD):
+        return "'" + value
+    return value
+
+
+@router.get("/audit/export.csv")
+def audit_export_csv(
+    entity_type: str = Query(default="", max_length=40),
+    session: Session = Depends(get_session),
+) -> Response:
+    """The activity log as a file a professional can hand over: who, what, when.
+
+    Every field the log keeps, oldest first (a trail reads forward), and the
+    *names* of the fields an event changed but never their values: a payload
+    holds whole note texts, a private note's among them, and this file leaves
+    the app. The export is itself logged, so the trail records who took it.
+    """
+    query = select(AuditLog)
+    if entity_type:
+        query = query.where(AuditLog.entity_type == entity_type)
+    rows = list(
+        session.scalars(query.order_by(AuditLog.id.desc()).limit(AUDIT_EXPORT_MAX_ROWS))
+    )[::-1]
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(
+        ["id", "created_at", "actor", "action", "entity_type", "entity_id", "detail", "changed_fields"]
+    )
+    for row in rows:
+        after = (row.payload or {}).get("after") if isinstance(row.payload, dict) else None
+        changed = sorted(after) if isinstance(after, dict) else []
+        writer.writerow(
+            [
+                _csv_safe(value)
+                for value in (
+                    row.id,
+                    row.created_at.isoformat(),
+                    row.actor or events.ACTOR_USER,
+                    row.action,
+                    row.entity_type,
+                    row.entity_id if row.entity_id is not None else "",
+                    row.detail or "",
+                    "|".join(changed),
+                )
+            ]
+        )
+    manager.log_action(session, "exported", "data", detail="audit csv")
+    session.commit()
+    return Response(
+        content=buffer.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=memorymap-activity.csv"},
+    )
+
+
 def _feed_item(row: AuditLog) -> dict:
     """One event as the feed reports it: what happened, not what it stored."""
     span = events.snapshot_span(row)
@@ -2083,53 +2150,24 @@ def _export_rows(session: Session) -> tuple[list[Category], list[Entry], list[En
 def export_backup(background_tasks: BackgroundTasks):
     import os
     config = deps.get_config()
-    db_path = config.data_dir / "memorymap.db"
-    media_dir = config.data_dir / "media"
-    
     fd, tmp_path = tempfile.mkstemp(suffix=".zip", prefix="memorymap_backup_")
     os.close(fd)
-    
+
     def cleanup():
         try:
             os.remove(tmp_path)
         except OSError:
             pass  # already gone, or never got written, nothing left to clean up
-            
-    background_tasks.add_task(cleanup)
-    
-    # **A snapshot, not the live file** (audit 2026-10-05, ARCH-18). The
-    # database runs in WAL mode, so what was saved last sits in
-    # `memorymap.db-wal` until a checkpoint, and zipping the main file alone
-    # lost it: measured, three notes saved and none of them in the zip, with
-    # `integrity_check` passing, so nothing said so. SQLite's backup API
-    # copies a consistent whole, log included, the way `core/backup.py`'s
-    # daily copies already do. `uploads/` (every attachment) joins `media/`.
-    snapshot_fd, snapshot_path = tempfile.mkstemp(suffix=".db", prefix="memorymap_snapshot_")
-    os.close(snapshot_fd)
-    try:
-        if db_path.exists():
-            # A cleaned snapshot, never the live file: the file alone misses
-            # whatever is still in the WAL (ARCH-18), and can carry a private
-            # note's old words in its search segments (SEC-03).
-            backup.snapshot(db_path, Path(snapshot_path))
-        with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            if db_path.exists():
-                zf.write(snapshot_path, "memorymap.db")
-            for folder in (media_dir, config.data_dir / "uploads"):
-                if not folder.is_dir():
-                    continue
-                for root, _, files in os.walk(folder):
-                    for f in files:
-                        file_path = Path(root) / f
-                        arcname = file_path.relative_to(config.data_dir)
-                        zf.write(file_path, str(arcname))
-    finally:
-        for stray in (snapshot_path, f"{snapshot_path}-wal", f"{snapshot_path}-shm"):
-            try:
-                os.remove(stray)
-            except OSError:
-                pass  # never written, or already gone
 
+    background_tasks.add_task(cleanup)
+    #: **A snapshot, not the live file** (audit 2026-10-05, ARCH-18): the
+    #: database runs in WAL mode, so zipping the main file alone lost what
+    #: was saved last (measured, three notes and none of them in the zip,
+    #: with `integrity_check` passing). `backup_bundle.build_zip` copies a
+    #: consistent whole through SQLite's backup API, and adds `uploads/` to
+    #: `media/`. The same zip is what `POST /backups/bundle` seals with a
+    #: password and `POST /backups/bundle/restore` reads back.
+    backup_bundle.build_zip(config.data_dir, config.data_dir / "memorymap.db", Path(tmp_path))
     return FileResponse(tmp_path, media_type="application/zip", filename="memorymap_backup.zip", background=background_tasks)
 
 @router.get("/export/json")

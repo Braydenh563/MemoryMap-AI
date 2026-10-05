@@ -227,7 +227,7 @@ logger = logging.getLogger(__name__)
 #: What the person reads when a backup fails its integrity check; the check's
 #: own output goes to the log, where it can be of use to somebody who can act
 #: on it.
-_DAMAGED_BACKUP = (
+DAMAGED_BACKUP = (
     "That backup is damaged, so it was not restored. Your current notes "
     "have not been touched."
 )
@@ -242,6 +242,16 @@ def restore_backup(name: str, db_path: Path, data_dir: Path, keep: int = KEEP_BA
     source_path = backups_dir(data_dir) / Path(name).name  # no traversal
     if not source_path.is_file():
         raise FileNotFoundError("That backup could not be found.")
+    restore_file(source_path, db_path, data_dir, keep, label=name)
+
+
+def restore_file(
+    source_path: Path, db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS, label: str | None = None
+) -> None:
+    """`restore_backup` for a database file wherever it is (a backup's own,
+    or one unpacked from an imported zip): the same safety snapshot, the same
+    check on a temp copy before the atomic swap."""
+    name = label or source_path.name
     if db_path.exists():
         backup_now(db_path, data_dir, keep)  # the pre-restore safety copy
 
@@ -274,12 +284,12 @@ def restore_backup(name: str, db_path: Path, data_dir: Path, keep: int = KEEP_BA
                 # Some corruption fails inside the check itself rather than
                 # coming back as a non-"ok" row; both mean the same thing.
                 logger.warning("Backup %s failed its integrity check: %s", safe_value(name, 120), exc)
-                raise ValueError(_DAMAGED_BACKUP) from exc
+                raise ValueError(DAMAGED_BACKUP) from exc
         finally:
             checker.close()
         if row is None or row[0] != "ok":
             logger.warning("Backup %s failed its integrity check: %s", safe_value(name, 120), row)
-            raise ValueError(_DAMAGED_BACKUP)
+            raise ValueError(DAMAGED_BACKUP)
         #: **"ok" is not the same as "has anything in it."** An empty file is
         #: a valid SQLite database with no tables, and passes the check
         #: above; restoring one replaces the notebook with nothing and the

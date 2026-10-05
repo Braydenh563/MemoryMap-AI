@@ -1309,12 +1309,15 @@ Moved to HISTORY.md ("Moved from the plans, 2026-10-03 (the documents pass)", DO
 
 ## Placed from INBOX, 2026-10-05 (OPEN.md triage)
 
-- **Why `docRevealForSuggest` will not bring a table-cell word into view**
-  (OPEN.md, editor-intelligence). The overlap half did not reproduce
-  (`spellwide2.js`, 0 overlap in five cases); left: a table cell's mark may
-  measure outside the scroller the reveal scrolls. Brief: in `spellwide2.js`'s
-  table case, log the mark rect against `#doc-editor .cm-scroller` before and
-  after the reveal, then scroll the cell's own row in. Opus, S.
+- ~~Why `docRevealForSuggest` will not bring a table-cell word into view~~
+  Not reproduced, 2026-10-05 (`scratchpad/ui-sweeps/revealcell.js`, a
+  14-column table in the middle of a 60-paragraph document, at 1440): asked for
+  from a scroll of 0 and from the bottom, the mark is virtualised away before
+  (no element), and after `docOpenSuggestFor` its rect is inside
+  `.cm-scroller` on both axes (left 1082, right 1103, top 431, bottom 519 in a
+  526 to 1190 by 137 to 743 box) with the menu open beside it. Left: the same at
+  390, where the probe's document opens on the reader, not the editor (every
+  rect 0); a phone run needs the editor opened first.
 - **`scratchpad/ui-sweeps/editor.js` describes the retired editor** (1,058
   lines, 89 checks; reads `docUndoStack`, `#doc-live .lp-src`, so it throws).
   Brief: re-point its reads at `docSurface()` and its Live view at

@@ -259,7 +259,7 @@ becomes a note.
 **Remember.** Reminders with priority, repeats and snooze, or type "call
 Sam tomorrow evening" and let the AI schedule it.
 
-**Automate.** 20 built-in skills (and your own) run multi-step jobs over
+**Automate.** 21 built-in skills (and your own) run multi-step jobs over
 the notebook as a visible checklist, one step at a time, with each tool
 call shown. An optional background librarian tags, links and flags
 duplicates on a schedule you set. It never deletes anything. Every

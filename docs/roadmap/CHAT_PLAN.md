@@ -487,10 +487,7 @@ twenty). Open until the owner's next run reports it gone or not.
 
 ## Placed from INBOX, 2026-10-05 (OPEN.md triage)
 
-- **The Chat tab's Ask mode ignores `grounding_live`** (askcite): its inline
-  numbers arrive with the finished answer. Brief: route the event into the
-  same mark renderer the Ask sub-tab uses, measured with
-  `scratchpad/fake_openai_server.py` streaming a grounded answer. Opus, S.
+- ~~The Chat tab's Ask mode ignores `grounding_live`~~ Built 2026-10-05 (HISTORY.md, "Moved from the plans, 2026-10-05 (backlog-1005)").
 - **This plan's own "Placed from INBOX" lists want one triage pass**
   (chat-0926: 72 the popup agent panel, 63 Ask/Write/Capture, 71's Tools table
   look open), with the question hover row that overlaps the answer under it by

@@ -51,7 +51,7 @@ from memorymap.ai.ollama_client import OllamaClient, OllamaError
 from memorymap.core import deps
 from memorymap.core.database import Category, Entry
 from memorymap.core.logbuffer import safe_value
-from memorymap.entry.manager import AUTO_FILED, UNCATEGORISED, WORDS_FILED
+from memorymap.entry.manager import AUTO_FILED, UNCATEGORISED, WORDS_FILED, record_filing
 
 # Above this cosine similarity we trust the embedding match and skip
 # the LLM entirely. Below it, the call is worth its cost.
@@ -68,6 +68,21 @@ KNN_MIN_SIMILARITY = 0.42
 # The winner needs a clear majority of the weighted vote. A split is exactly
 # the case where asking the model earns its cost.
 KNN_MIN_SHARE = 0.55
+# **A short note needs a close relative before meaning may file it** (BACKLOG
+# section 8, "ai is cool" filed under Sketches). A one-to-three word note's
+# vector is mostly the model's baseline, and the baseline sits above both bars
+# above: measured with BAAI/bge-small-en-v1.5 over a hundred-note, ten-category
+# notebook (`scratchpad/filing_short_eval.py`), all 20 short notes that belong
+# nowhere ("ai is cool", "hello", "remember this") were filed by meaning, and a
+# centroid at 0.60 or a neighbour at 0.42 is cleared by anything. What does
+# separate them is the nearest filed note: 0.68 to 0.93 (median 0.83) for short
+# notes that have a home, 0.55 to 0.75 (median 0.64) for those that do not. At
+# 0.72, 59 of the 60 short notes with a home are still filed and 3 of the 20
+# without one are. Measured on one embedding model; another backend's scale
+# differs, and there a short note falls through to the notebook's own words
+# (`lexical_filing`), which is the safe side.
+SHORT_NOTE_WORDS = 4
+SHORT_NOTE_MIN_NEIGHBOUR = 0.72
 
 SYSTEM_PROMPT = (
     "You are the filing assistant of a personal notebook. Given a note, "
@@ -233,6 +248,82 @@ def categorise(
     return category, confidence, method
 
 
+#: Notes this process has already given a second opinion and that the model
+#: still could not decide, so the pass moves on to the next ones instead of
+#: asking about the same twenty every tick. In memory on purpose: a restart is
+#: a fresh chance, and a stuck note costs one prompt, not a loop.
+_review_tried: set[int] = set()
+
+
+def review_words_filed(
+    session: Session,
+    embeddings: EmbeddingService,
+    model_manager: ModelManager,
+    ollama: OllamaClient,
+    limit: int = 20,
+) -> dict[str, int]:
+    """The second half of filing by the notebook's own words (BACKLOG 76).
+
+    A note filed while no model was available carries `filing_state ==
+    "words"` and is a best guess. Once a model is back, the background pass
+    gives each such note a real second opinion: the same `categorise` a new
+    note gets, which asks the model first. Where the model files it
+    somewhere else the note moves (a `filed` event by `system:filing`, which
+    "undo auto-filing" can put back); where it agrees, the note is marked as
+    the AI's (`auto`), so a later move by hand reads as a correction, exactly
+    as for any other AI filing. Where the model could not decide, the note
+    stays `words` and is not asked again this run.
+
+    A note the person filed themselves, a private note (no model reads one)
+    and a binned note are never touched. Returns what happened, counted:
+    `looked`, `moved`, `confirmed`.
+    """
+    result = {"looked": 0, "moved": 0, "confirmed": 0}
+    if not ollama.is_running():
+        return result
+    query = (
+        select(Entry)
+        .where(
+            Entry.filing_state == WORDS_FILED,
+            Entry.is_deleted == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+            Entry.user_filed == False,  # noqa: E712
+        )
+        .order_by(Entry.id)
+    )
+    for entry in session.scalars(query):
+        if result["looked"] >= limit:
+            break
+        if entry.id in _review_tried:
+            continue
+        result["looked"] += 1
+        try:
+            category, confidence, method = categorise(
+                session,
+                entry.content,
+                embeddings,
+                model_manager,
+                ollama,
+                exclude_entry_id=entry.id,
+            )
+        except Exception:  # noqa: BLE001 - one note's failure never stops the pass
+            logger.warning("janitor: second opinion failed for a words-filed note", exc_info=True)
+            _review_tried.add(entry.id)
+            continue
+        if not is_ai_method(method):
+            _review_tried.add(entry.id)
+            continue
+        moved = record_filing(
+            session, entry, category,
+            by=filed_by_label(method, confidence, model_manager, embeddings),
+        )
+        entry.ai_confidence = confidence
+        entry.filing_state = settled_state(method)
+        result["moved" if moved else "confirmed"] += 1
+    session.commit()
+    return result
+
+
 def _semantic_category(
     session: Session,
     content: str,
@@ -250,6 +341,9 @@ def _semantic_category(
     # the person has corrected notes like this one out of (I7's consumer:
     # `learning.centroid_excluded` was claimed built with no caller, ARCH-08).
     labelled = _labelled_vectors(session, embeddings, exclude_entry_id)
+    if _too_short_to_trust(content, embeddings, labelled):
+        logger.info("janitor: too short and too far from any filed note to file by meaning")
+        return None
     excluded = learning.excluded_categories(session, content)
     match = _best_centroid_match(
         session, content, embeddings, exclude_entry_id=exclude_entry_id,
@@ -281,6 +375,24 @@ def _semantic_category(
         )
         return neighbours.name, neighbours.confidence, "semantic-neighbours"
     return None
+
+
+def _too_short_to_trust(content: str, embeddings: EmbeddingService, labelled: "_Labelled | None") -> bool:
+    """True for a note under `SHORT_NOTE_WORDS` words whose nearest filed note
+    (a private one never counts, as in `_knn_match`) is under
+    `SHORT_NOTE_MIN_NEIGHBOUR` close. False when there is nothing to judge."""
+    if labelled is None or not labelled.names or len((content or "").split()) >= SHORT_NOTE_WORDS:
+        return False
+    vector = embeddings.embed_text(content)
+    if vector is None:
+        return False
+    import numpy as np
+
+    rows = labelled.rows[~labelled.private]
+    norm = float(np.linalg.norm(vector))
+    if rows.shape[0] == 0 or norm == 0.0 or rows.shape[1] != vector.shape[0]:
+        return False
+    return float((rows @ (vector.astype("float32") / norm)).max()) < SHORT_NOTE_MIN_NEIGHBOUR
 
 
 @dataclass

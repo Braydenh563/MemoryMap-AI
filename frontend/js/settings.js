@@ -461,10 +461,26 @@ async function renderHealthBlock() {
     // build, a locked notebook mid-request), a dash across the board reads
     // as "couldn't check", not "empty", so nothing here claims a zero it
     // never actually measured.
-    for (const el of [dbSize, counts, jobs, lastError, latency]) if (el) el.textContent = ", ";
+    for (const el of [dbSize, counts, jobs, lastError, latency, $("health-files-size")]) if (el) el.textContent = ", ";
     return;
   }
   dbSize.textContent = `${formatFileSize(health.db?.size_bytes) || "0 B"} · ${health.data_dir}`;
+  //: What the folders beside the database weigh, from `GET /storage` (a
+  //: cached walk on the server). A second request, kept apart from health so
+  //: a slow walk never delays the numbers above; a dash when it cannot say.
+  const files = $("health-files-size");
+  if (files) {
+    apiJson("/storage", { silent: true })
+      .then((storage) => {
+        const size = (n) => formatFileSize(n) || "0 B";
+        files.textContent =
+          `Attached files ${size(storage.uploads_bytes)} · pictures ${size(storage.media_bytes)}` +
+          ` · backups ${size(storage.backups_bytes)}`;
+      })
+      .catch(() => {
+        files.textContent = ", ";
+      });
+  }
   const c = health.counts || {};
   //: Each kind counted as the rest of the app counts it: notes are the
   //: dashboard's notes (no boards, no drafts), and boards and drafts are

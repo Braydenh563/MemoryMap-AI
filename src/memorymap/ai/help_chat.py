@@ -1108,7 +1108,7 @@ HELP_TOPICS.extend(
                 "Comment… starts a thread, counted on its corner; its Branch group draws a "
                 "boundary round the branch or summarises topics side by side. "
                 "Start from a template, "
-                "import an OPML, FreeMind or Markdown "
+                "import an OPML, FreeMind, XMind or Markdown "
                 "outline, let the local AI propose a map from notes you pick, and "
                 "export it as OPML or Markdown as well as a picture."
             ),

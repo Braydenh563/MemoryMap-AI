@@ -932,7 +932,7 @@ Every brief:
   - `mapplaces.js` still finds one place per action.
 - Risks: the render-pass rework touches `renderWhiteboard` shared with boards (run `boardundo.js`, `mapperf.js` and `mapedgelag.js`).
 
-### Phase E, interchange and history (M, Opus)
+### Phase E, interchange and history (M, Opus): W5 BUILT 2026-10-05 (Mermaid in and out, the free-board outline, the board in its SVG, XMind import); W2, the board time machine, and D3, Mermaid in documents, open
 
 - Goal: W2 (board time machine), W5 (Mermaid in and out, free-board outline export, embedded data), D3 (Mermaid in documents), XMind `.xmind` import (content.json, read-only).
 

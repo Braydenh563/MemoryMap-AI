@@ -4175,7 +4175,7 @@ class MapImport(BaseModel):
 #: the exports above; FreeMind `.mm` is the format Coggle, Freeplane, XMind and
 #: MindMeister all write, which is what section 4's list meant by "an existing
 #: map can come in".
-IMPORT_FORMATS = ("markdown", "opml", "freemind")
+IMPORT_FORMATS = ("markdown", "opml", "freemind", "xmind")
 
 
 def _parse_xml_document(content: str, label: str):
@@ -4435,6 +4435,95 @@ def _parse_opml(content: str) -> tuple[str, list[dict]]:
         return out
 
     return title, walk(body, 0)
+
+
+#: An XMind file's map, uncompressed, at most: a map of MAX_IMPORT_NODES
+#: topics is well under this, and a zip that says it unpacks to more is a
+#: zip bomb, not a mind map.
+MAX_XMIND_JSON_BYTES = 8_000_000
+
+
+def _parse_xmind(content: str) -> tuple[str, list[dict]]:
+    """An XMind (Zen and later) `.xmind` in, `(title, [the central topic])` out.
+
+    The file is a zip; the client sends it base64 encoded. Its map is
+    `content.json`: a list of sheets, each with a `rootTopic` whose children
+    are `children.attached`. The first sheet comes in, its central topic as
+    the map's root (and its name), the rest under it as they were in XMind.
+    A topic's plain notes come in as
+    its note. XMind 8's older `content.xml` is refused with a sentence saying
+    how to get the newer file, rather than guessed at.
+    """
+    import base64
+    import binascii
+    import io
+    import zipfile
+
+    try:
+        raw = base64.b64decode(content, validate=True)
+        archive = zipfile.ZipFile(io.BytesIO(raw))
+    except (binascii.Error, ValueError, zipfile.BadZipFile) as err:
+        raise HTTPException(status_code=422, detail="That is not an XMind file (it should be a .xmind archive).") from err
+    names = set(archive.namelist())
+    if "content.json" not in names:
+        detail = (
+            "That XMind file is in the older XMind 8 format. Open it in XMind and save it again, then import it."
+            if "content.xml" in names
+            else "That XMind file has no map in it."
+        )
+        raise HTTPException(status_code=422, detail=detail)
+    info = archive.getinfo("content.json")
+    if info.file_size > MAX_XMIND_JSON_BYTES:
+        raise HTTPException(status_code=422, detail="That XMind map is too large to import: split it up first.")
+    try:
+        sheets = json.loads(archive.read("content.json").decode("utf-8"))
+    except (ValueError, UnicodeDecodeError) as err:
+        raise HTTPException(status_code=422, detail="That XMind file's map could not be read.") from err
+    sheet = sheets[0] if isinstance(sheets, list) and sheets else {}
+    root = sheet.get("rootTopic") if isinstance(sheet, dict) else None
+    if not isinstance(root, dict):
+        raise HTTPException(status_code=422, detail="That XMind file has no map in it.")
+    counted = [0]
+
+    def walk(topic: dict, depth: int) -> list[dict]:
+        out: list[dict] = []
+        if depth >= MAX_IMPORT_DEPTH:
+            return out
+        children = (topic.get("children") or {}).get("attached") or []
+        for child in children:
+            if not isinstance(child, dict):
+                continue
+            counted[0] += 1
+            if counted[0] > MAX_IMPORT_NODES:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"That outline has more than {MAX_IMPORT_NODES} nodes: split it up first.",
+                )
+            note = ((child.get("notes") or {}).get("plain") or {}).get("content")
+            out.append(
+                {
+                    "text": str(child.get("title") or "").strip()[:MAX_OBJECT_TEXT_CHARS],
+                    "style": _clean_import_style({"note": note}),
+                    "ref": str(child.get("id") or ""),
+                    "links": [],
+                    "children": walk(child, depth + 1),
+                }
+            )
+        return out
+
+    #: **The central topic stays a topic** (the features audit, FEAT-01: a
+    #: FreeMind file lost its centre this way, and an XMind map without its
+    #: central idea is N loose trunks). It also names the map.
+    title = str(root.get("title") or sheet.get("title") or "").strip()
+    note = ((root.get("notes") or {}).get("plain") or {}).get("content")
+    centre = {
+        "text": title[:MAX_OBJECT_TEXT_CHARS],
+        "style": _clean_import_style({"note": note}),
+        "ref": str(root.get("id") or ""),
+        "links": [],
+        "children": walk(root, 1),
+    }
+    return title, [centre]
 
 
 def _parse_markdown_outline(content: str) -> tuple[str, list[dict]]:
@@ -4960,6 +5049,7 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
         "opml": _parse_opml,
         "freemind": _parse_freemind,
         "markdown": _parse_markdown_outline,
+        "xmind": _parse_xmind,
     }
     title, parsed = parsers[body.format](body.content)
     name = (body.name or title or "Imported map").strip()[:100] or "Imported map"

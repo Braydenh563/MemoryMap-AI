@@ -8909,6 +8909,13 @@ const WB_MAX_IMPORT_CHARS = 400000;
 //: document itself (an OPML `<head><title>`, a Markdown `#` heading) and falls
 //: back to "Imported map". A filename is a worse name than the one the author
 //: wrote inside the file.
+function wbBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let text = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(text);
+}
+
 async function wbImportOutlineFile(event) {
   const input = event.target;
   const file = input.files && input.files[0];
@@ -8921,14 +8928,18 @@ async function wbImportOutlineFile(event) {
   // "is it XML?" first would send every FreeMind map to the OPML parser and
   // import it as an empty map, since OPML's nodes are `<outline>` and
   // FreeMind's are `<node>`, and neither parser finds the other's.
-  const format = /\.mm$/i.test(file.name)
-    ? "freemind"
-    : /\.(opml|xml)$/i.test(file.name)
-      ? "opml"
-      : "markdown";
+  const format = /\.xmind$/i.test(file.name)
+    ? "xmind"
+    : /\.mm$/i.test(file.name)
+      ? "freemind"
+      : /\.(opml|xml)$/i.test(file.name)
+        ? "opml"
+        : "markdown";
   let content = "";
   try {
-    content = await file.text();
+    //: An XMind file is a zip: it travels as base64 and the server unpacks
+    //: it (W5). Everything else is text.
+    content = format === "xmind" ? wbBase64(await file.arrayBuffer()) : await file.text();
   } catch {
     toast("Couldn't read that file.", true);
     return;

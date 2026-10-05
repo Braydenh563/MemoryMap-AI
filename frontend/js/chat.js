@@ -1283,6 +1283,29 @@ function webResultMark(domain) {
   return mark;
 }
 
+//: **The words the search was for, marked inside each snippet** (BACKLOG
+//: section 13, "result cards worth reading": a snippet with the matched terms
+//: highlighted lets someone judge relevance before opening the reader). The
+//: terms are the query's own words, lower-cased, without the little words that
+//: would mark half of every sentence ("the", "and", "what") and without
+//: one- and two-letter fragments. `highlightInto` (notes-list.js) draws the
+//: marks as DOM nodes, the same helper a note card's search uses, so a snippet
+//: from the web is never parsed as markup.
+const WEB_TERM_STOP_WORDS = new Set(
+  ("the and for with that this what when where which who how are was were from " +
+    "into your you have has not but can will about").split(" ")
+);
+function webQueryTerms(query) {
+  const terms = [];
+  for (const word of String(query || "").toLowerCase().split(/[^\p{L}\p{N}]+/u)) {
+    if (word.length > 2 && !WEB_TERM_STOP_WORDS.has(word) && !terms.includes(word)) terms.push(word);
+  }
+  return terms;
+}
+//: Set by `runWebSearch` before any row is built, so "Show more" rows revealed
+//: later mark the same words as the first eight.
+let webResultTerms = [];
+
 // One search result row, split out so the initial batch and the "Show
 // more" reveal (below) build identical rows from one code path.
 function buildWebResultRow(result) {
@@ -1331,7 +1354,7 @@ function buildWebResultRow(result) {
   if (result.snippet) {
     const snippet = document.createElement("div");
     snippet.className = "web-result-snippet";
-    snippet.textContent = result.snippet;
+    highlightInto(snippet, result.snippet, webResultTerms);
     row.appendChild(snippet);
   }
 
@@ -1527,6 +1550,7 @@ async function runWebSearch() {
   if (!webRequestEnd(controller)) return;
   pushWebSearchHistory(query);
   renderWebPanelMenu(webEngineInfo);
+  webResultTerms = webQueryTerms(query);
   const results = body.results || [];
   // Name the engine that ANSWERED, which under "Automatic" is not
   // necessarily the one configured, and say what that means for privacy.

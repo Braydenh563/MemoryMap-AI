@@ -1546,6 +1546,16 @@ header#top-bar select,
   overflow: hidden;
 }
 
+/* The words the search was for, marked in the snippet: the same quiet accent
+   wash a note card's search match and a chat source's passage use. */
+.web-result-snippet mark {
+  background: var(--accent-soft);
+  color: inherit;
+  border-radius: var(--radius-sm);
+  padding: 0 2px;
+  font-weight: 600;
+}
+
 .web-result-actions {
   grid-area: actions;
   align-self: start;

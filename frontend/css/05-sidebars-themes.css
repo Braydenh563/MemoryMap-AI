@@ -6172,63 +6172,50 @@ button.ghost.doc-template-choice[aria-checked="true"] {
   }
 }
 
-/* The note edit form's meta row: tags take the slack, the category sits
-   beside them, Save/Cancel at the right; wraps on a narrow card. */
-.note-edit-meta {
+/* **The note edit form, one composition** (INBOX 606, the owner: "something
+   about the design, ui/ux of the note edit form still feels off"). Measured
+   before (`noteeditform.js`, 1440): a title box, a strip and a body box as
+   three frames; a 36px comma field, a select and Save between them with
+   Cancel after it; two boxed "Link" buttons; a lone boxed "Attach a link"
+   under everything. Now: title, strip and body are the capture box's one
+   `.note-composer` surface; tags are chips in one field beside the category
+   chip; the foot holds Attach a link (a quiet icon) at its left and Cancel,
+   then the one filled Save, at its right. */
+.note-edit-meta,
+.note-edit-foot {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-2);
+  margin-top: var(--space-3);
 }
 
-.note-edit-meta > input {
+.note-edit-actions {
+  margin: 0 0 0 auto;
+}
+
+.entry-list .note-composer > input.note-edit-title {
+  margin: 0;
+}
+
+/* The strip says what it is by its aria-label; the word went (INBOX 606).
+   Hidden, not gone: it still holds the tools at the right, by Source. */
+.note-edit-surface .doc-toolbar-collapsed-name {
+  visibility: hidden;
+}
+
+/* The tag field is the search field's well (`.search-field`: edge, ground,
+   ring, the input's own box off) holding the chips before its input, so it
+   wraps and grows where a search field is one line. */
+.tag-field input {
+  width: 6rem;
+}
+
+.tag-field {
   flex: 1 1 14rem;
-  min-width: 0;
-}
-
-.note-edit-meta > select {
-  flex: 0 1 auto;
-  max-width: 14rem;
-}
-
-.note-edit-meta > .note-edit-actions {
-  margin-left: auto;
-}
-
-/* One height for everything on the meta row, reported: "the ui elements
-   aren't the same height and are out of alignment". */
-.note-edit-meta > input,
-.note-edit-meta select,
-.note-edit-meta .select-opener,
-.note-edit-meta .note-edit-actions button {
-  height: 2.25rem;
-  min-height: 0;
-  padding-block: 0;
-  box-sizing: border-box;
-}
-
-.note-edit-meta .note-edit-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0;
-}
-
-/* Measured: the tags input sat 5px above its neighbours, same 36px
-   height, different top, because a stretched flex item ignores the row's
-   `align-items: center`. Centred explicitly, margins zeroed. */
-/* Measured: the tags input sat 5px above its neighbours, same 36px
-   height, different top, because the app's form rule gives an `input` a
-   9.6px bottom margin and a centred flex item then splits the difference.
-   The element selectors are needed to beat that rule's own specificity. */
-.note-edit-meta > *,
-.note-edit-meta > input,
-.note-edit-meta > select,
-.note-edit-meta > textarea,
-.note-edit-meta .note-edit-actions > * {
-  margin: 0;
-  align-self: center;
+  flex-wrap: wrap;
+  height: auto;
+  min-height: var(--control-h);
 }
 
 /* The edit form's strip wraps instead of scrolling: a horizontal scrollbar

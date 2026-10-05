@@ -4292,4 +4292,53 @@ def test_every_settings_pane_opens_on_its_dock() -> None:
     find = (ROOT / "frontend" / "js" / "settings-find.js").read_text(encoding="utf-8")
     assert 'anchor?.matches(".dock")' in _function_body(find, "settingsIndexBuild")
     title = _css_block("#settings-modal .settings-section > .dock h3")
-    assert "var(--text-body)" in title and "600" in title
+    # 600 is `.card h3`'s own weight; the size and the ink are this rule's.
+    assert "var(--text-body)" in title and "var(--ink)" in title
+
+
+def test_the_note_edit_form_is_one_composition() -> None:
+    """INBOX 606, the owner: "something about the design, ui/ux of the note
+    edit form still feels off...". Measured with `noteeditform.js` at 1440,
+    before: title, strip and body as three frames; a 36px comma field and a
+    select; Save then Cancel mid-row; two boxed "Link" buttons; a lone boxed
+    "Attach a link" (28px, 1px edge) under everything. After: one
+    `.note-composer` surface; tags as chips in the search field's well; the
+    category as its chip; a foot of Attach a link (an icon, no edge) at the
+    left and Cancel then the one filled Save at the right; a quiet + per
+    related note (0 boxed buttons)."""
+    form = _function_body(app_js_text(), "renderEditForm")
+    assert 'surface.className = "note-composer note-edit-surface"' in form
+    assert 'tagField.className = "search-field tag-field note-edit-tags"' in form
+    assert 'chip("", "category note-edit-category"' in form
+    assert "meta.append(tagField, categoryChip)" in form
+    assert form.index('smallButton("Cancel"') < form.index("    saveButton\n  );")
+    assert "li.append(surface, chipsHost, meta, foot)" in form
+    panels = (ROOT / "frontend" / "js" / "note-edit-panels.js").read_text(encoding="utf-8")
+    assert panels.count('li.insertBefore(panel, li.querySelector(":scope > .note-edit-foot"))') == 2
+    assert "foot.prepend(attachButton)" in panels
+    rows = (ROOT / "frontend" / "js" / "note-panels.js").read_text(encoding="utf-8")
+    assert 'smallButton("ph:plus", `Link this note to' in rows
+
+
+def test_a_dialog_foot_is_one_height_with_its_filled_action_last() -> None:
+    """DESIGN.md, "A popup window or panel": the foot (INBOX 599, the owner:
+    "make sure all the design styles across all pages and popups are
+    consistent"). The popup census (`popupinv.js`, foot fields) found, at 1440:
+    eight `.space-dialog-actions` feet with two button heights (40 and 38, the
+    base button size) beside the confirm alert's and the pickers' 32, and the
+    Extract and Improve writing feet with the filled action first, at the left.
+    Now every dialog foot is `row right space-dialog-actions`: `small` buttons,
+    ghosts first, the one filled action last."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    html = re.sub(r"<!--.*?-->", "", html, flags=re.S)
+    feet = re.findall(r'<div class="row right space-dialog-actions">(.*?)</div>', html, re.S)
+    assert len(feet) >= 12
+    for foot in feet:
+        buttons = re.findall(r"<button[^>]*>", foot)
+        for button in buttons:
+            assert re.search(r'class="[^"]*\bsmall\b', button), f"a dialog foot button is not small: {button}"
+        kinds = ["ghost" if re.search(r'class="[^"]*\bghost\b', b) else "filled" for b in buttons]
+        assert kinds.count("filled") <= 1 and (not kinds.count("filled") or kinds[-1] == "filled"), kinds
+    for name in ("note-properties.js", "quick-access.js"):
+        code = (ROOT / "frontend" / "js" / name).read_text(encoding="utf-8")
+        assert '.className = "ghost small";' in code and '.className = "accent small";' in code, name

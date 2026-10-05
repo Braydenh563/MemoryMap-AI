@@ -278,7 +278,8 @@ async function toggleReferences(entry) {
 // AUTO_REASON_THRESHOLD) and stays editable wherever links are shown, so
 // nothing is asked for at this point.
 function similarNoteRow(entry, other, onLinked) {
-  const shown = stripFrontmatter(other.content).trim();
+  //: The note's words without its "# " (INBOX 606: "≈ # Edit form probe 2").
+  const shown = stripFrontmatter(other.content).trim().replace(/^#+[ \t]+/, "");
   const preview = shown.length > 50 ? shown.slice(0, 49) + "…" : shown;
   const wrap = document.createElement("span");
   wrap.className = "entry-related-row";
@@ -296,7 +297,8 @@ function similarNoteRow(entry, other, onLinked) {
   relChip.appendChild(previewSpan);
   wrap.appendChild(relChip);
 
-  const linkBtn = smallButton("ph:link Link", `Link this note to “${preview}”`, async () => {
+  //: A quiet + beside the note, not a boxed "Link" (INBOX 606).
+  const linkBtn = smallButton("ph:plus", `Link this note to “${preview}”`, async () => {
     linkBtn.disabled = true;
     try {
       await apiJson(`/entries/${entry.id}/links`, {

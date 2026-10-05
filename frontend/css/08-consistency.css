@@ -3780,9 +3780,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    own title drew 12px (the `.card h3` eyebrow). Every pane now opens on the
    bar, its title the dock's 16px 600 and its '?' in the actions zone. */
 #settings-modal .settings-section > .dock h3 {
-  padding: 0;
   font-size: var(--text-body);
-  font-weight: 600;
   color: var(--ink);
   text-transform: none;
   letter-spacing: 0;

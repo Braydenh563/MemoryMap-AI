@@ -74,6 +74,16 @@ ON_THE_GRAMMAR = {
     # settings modal, which is why `scratchpad/ui-sweeps/docks.js` (which walks
     # the seven tabs) does not see it and `logsdock.js` measures it instead.
     "settings-logs",
+    # Every Settings pane's head (INBOX 599): the panes written in the markup
+    # with a '?'; the rest get the same dock from `ensureSettingsPaneTitle`,
+    # and the section index goes inside it (`settingsIndexBuild`).
+    "settings-account",
+    "settings-learned",
+    "settings-memory",
+    "settings-privacy",
+    "settings-skills",
+    "settings-templates",
+    "settings-websearch",
     # The Dashboard's one row between the hero and the widgets (INBOX 436):
     # the search doorway, New note and the menu that holds everything else.
     "dashboard",

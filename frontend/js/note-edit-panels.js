@@ -25,7 +25,8 @@ async function renderRelatedWhileEditing(li, entry) {
   const panel = document.createElement("div");
   panel.className = "entry-related-live muted text-sm";
   setLabel(panel, "ph:spin Finding related notes…");
-  li.appendChild(panel);
+  //: Above the form's foot (INBOX 606), which stays the last row.
+  li.insertBefore(panel, li.querySelector(":scope > .note-edit-foot"));
   let related;
   try {
     related = await apiJson(`/entries/${entry.id}/related`);
@@ -42,7 +43,9 @@ async function renderRelatedWhileEditing(li, entry) {
     return;
   }
   const label = document.createElement("span");
-  label.textContent = "Related: ";
+  label.textContent = "Related";
+  //: The label on a line of its own, so the notes under it start on one edge.
+  label.style.flexBasis = "100%";
   panel.appendChild(label);
   for (const other of related) {
     panel.appendChild(similarNoteRow(entry, other, () => {
@@ -63,12 +66,16 @@ async function renderRelatedWhileEditing(li, entry) {
 async function renderNoteBookmarksWhileEditing(li, entry) {
   const panel = document.createElement("div");
   panel.className = "entry-related-live muted text-sm";
-  li.appendChild(panel);
+  li.insertBefore(panel, li.querySelector(":scope > .note-edit-foot"));
 
+  //: In the form's foot, a quiet icon at its left (INBOX 606: a lone boxed
+  //: button under everything else).
   const attachButton = document.createElement("button");
   attachButton.type = "button";
-  attachButton.className = "ghost small";
-  setLabel(attachButton, "ph:link Attach a link");
+  attachButton.className = "ghost small icon-only";
+  setLabel(attachButton, "ph:link-simple-horizontal");
+  attachButton.title = "Attach a link";
+  attachButton.setAttribute("aria-label", "Attach a link");
   attachButton.addEventListener("click", () => openBookmarkAttachPicker(entry, panel));
 
   async function refresh() {
@@ -128,7 +135,14 @@ async function renderNoteBookmarksWhileEditing(li, entry) {
         panel.appendChild(bmChip);
       }
     }
-    panel.appendChild(attachButton);
+    panel.hidden = !attached.length;
+    const foot = li.querySelector(":scope > .note-edit-foot");
+    if (foot) {
+      if (!attachButton.isConnected) foot.prepend(attachButton);
+    } else {
+      panel.hidden = false;
+      panel.appendChild(attachButton);
+    }
   }
   await refresh();
 }

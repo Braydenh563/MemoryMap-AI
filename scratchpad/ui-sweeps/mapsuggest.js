@@ -14,16 +14,22 @@ const { check, summary } = checker();
   const { browser, page, errors, board } = await openBoard({ type: "map", viewport: { width: W, height: H } });
   //: A word of its own each run (letters: the finder forgives a near number).
   const stamp = Array.from({ length: 9 }, () => "bcdfghjklmnpqrstvwxz"[Math.floor(Math.random() * 20)]).join("");
-  const root = await page.evaluate(async ([bid, stamp]) => {
+  //: The notes go to the bin at the end: the finder forgives a near word, so
+  //: a later run's made-up word can find an earlier run's notes.
+  const noteIds = [];
+  const root = await page.evaluate(async ([bid, stamp, noteIds]) => {
     for (const text of [`# Tomato pruning ${stamp}\n\n${stamp}: pinch the side shoots`, `# Compost heap ${stamp}\n\n${stamp}: turn it weekly`, `# Tax return\n\nfile by January`]) {
-      await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: text }) });
+      noteIds.push((await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: text }) })).id);
     }
     const made = await apiJson(`/whiteboard/boards/${bid}/nodes`, { method: "POST", body: JSON.stringify({ kind: "topic", text: `${stamp}` }) });
     await fetchWhiteboardState();
     renderWhiteboardNow();
     selectWbItem("object", made.id);
-    return made.id;
-  }, [board.id, stamp]);
+    return { id: made.id, noteIds };
+  }, [board.id, stamp, noteIds]).then((out) => {
+    noteIds.push(...out.noteIds);
+    return out.id;
+  });
   await page.waitForTimeout(800);
 
   await page.evaluate(() => wbRunCommand("suggest-branches"));
@@ -69,6 +75,9 @@ const { check, summary } = checker();
   const undone = await page.evaluate((root) => (wbState.objects || []).filter((o) => o.parent_id === root).length, root);
   check("one Undo takes it away", undone === 0, undone);
 
+  await page.evaluate(async (ids) => {
+    for (const id of ids) await apiJson(`/entries/${id}`, { method: "DELETE" });
+  }, noteIds);
   check("no console errors", errors.length === 0, errors.slice(0, 5));
   const ok = summary();
   await browser.close();

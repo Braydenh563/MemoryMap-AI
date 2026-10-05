@@ -131,6 +131,33 @@ def _board_events(db: Session, board_id: int | None, current: dict[str, object])
             )
             for row in rows:
                 out.setdefault(f"{kind}:{row.entity_id}", []).append(row)
+    #: **Only this board's part of each log.** SQLite gives a deleted row's id
+    #: to the next row made (no AUTOINCREMENT), so one id's log can hold an
+    #: item from another board before this one: each event is placed by the
+    #: board its payload names, or by the one before it when it names none
+    #: (a compacted row names nothing: before any board is named, it waits for
+    #: the first one that is).
+    for key, rows in list(out.items()):
+        kept, where, waiting = [], None, []
+        for row in rows:
+            payload = row.payload or {}
+            named = False
+            for side in ("after", "before"):
+                value = payload.get(side)
+                if isinstance(value, dict) and "board_id" in value:
+                    where, named = value["board_id"], True
+                    break
+            if not named and where is None and not kept:
+                waiting.append(row)
+                continue
+            if where == board_id:
+                kept.extend(waiting)
+                kept.append(row)
+            waiting = []
+        if kept:
+            out[key] = kept
+        else:
+            del out[key]
     return out
 
 

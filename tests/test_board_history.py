@@ -240,3 +240,18 @@ def test_history_is_the_presenting_mode_with_its_own_bar() -> None:
     assert '}, true);' in js and "stopImmediatePropagation" in js
     assert "function wbHistGuard(on)" in js and "/^\\/whiteboard\\//" in js
     assert '"/js/whiteboard-history.js"' in (root / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
+
+
+def test_a_reused_id_brings_no_other_boards_history(client):
+    """SQLite gives a deleted row's id to the next row made, so one id's log
+    can hold an item from another board first (measured in a sweep: a new
+    board's first moment counted "4 added, 2 removed" for 2 shapes)."""
+    other = _board(client, "Elsewhere")["id"]
+    gone = _sketch(client, other, {"d": _rect(0, 0), "label": "old"})
+    client.delete(f"/whiteboard/sketches/{gone['id']}")
+    bid = _board(client)["id"]
+    fresh = _sketch(client, bid, {"d": _rect(0, 0), "label": "new"})
+    [moment] = _history(client, bid)["moments"]
+    assert (moment["added"], moment["removed"], moment["count"]) == (1, 0, 1)
+    assert _labels(_at(client, bid, moment["id"])) == ["new"]
+    assert fresh["id"] > 0

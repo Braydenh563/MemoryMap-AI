@@ -81,6 +81,18 @@ remaining whiteboard rows; the open rest is in
   notebook fallback). Open: ghosts on the canvas, Expand from my notes,
   Summarise this branch, the affinity sort, the claim check.
 
+- **Found by the regression sweeps after steps 5 and 6.** A press on a
+  port with Select released a click on the container, which cleared the
+  selection it had just made (`wblock.js` 6/17 on step 5, 17/17 after the
+  release's click is swallowed for that task); and the search engine joins
+  the nearest notes by meaning to every keyword search, so a topic was
+  offered notes that shared nothing with it: a note found by meaning alone
+  now needs a cosine of 0.5 (`MIN_MEANING`).
+  And on a data dir other sweeps had used, a new board's first moment
+  counted "4 added, 2 removed" for two shapes: a reused id's log held another
+  board's item, so each event is now placed by the board its payload names
+  (`_board_events`; `test_a_reused_id_brings_no_other_boards_history`).
+
 ## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
 
 From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN

@@ -12903,6 +12903,15 @@ async function initWhiteboard() {
     if (!drag) return;
     const [x, y] = getLogicalMouse(e);
     portEnd();
+    //: The click the release makes lands on the container (the pointer was
+    //: captured there), which reads it as a click on empty board and clears
+    //: the selection this is about to make: swallowed, for this task only.
+    const swallow = (ev) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+    };
+    window.addEventListener("click", swallow, true);
+    setTimeout(() => window.removeEventListener("click", swallow, true), 0);
     if (!drag.moved) {
       //: A press that did not travel is a click on the item it is on.
       selectWbItem(drag.kind, drag.item.id);

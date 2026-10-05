@@ -44,6 +44,11 @@ SUGGESTIONS = 5
 CANDIDATES = 8
 #: Characters of each note the model sees: enough to name a topic from.
 NOTE_CHARS = 280
+#: A note found by meaning alone has to be this near to count. The engine
+#: joins the nearest notes by meaning to every keyword search, so on a small
+#: notebook every note comes back for every topic (measured: a topic of a
+#: made-up word was offered a note that shared nothing with it).
+MIN_MEANING = 0.5
 TOPIC_KINDS = ("topic", "note", "document", "board", "file")
 
 
@@ -91,6 +96,8 @@ def _candidates(db: Session, board_id: int, query: str, skip_titles: set[str]) -
     out: list[tuple[Entry, str, str]] = []
     for hit in hits:
         if hit.kind != "note" or hit.ref_id in on_map or hit.ref_id == board_id:
+            continue
+        if hit.scores.get("bm25", 0) <= 0 and hit.scores.get("cosine", 0) < MIN_MEANING:
             continue
         entry = db.get(Entry, hit.ref_id)
         if entry is None or entry.is_deleted or entry.is_private or entry.is_board:

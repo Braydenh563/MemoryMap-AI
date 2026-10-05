@@ -234,7 +234,7 @@ def _owner_only(folder: Path) -> None:
     2026-10-05): the database, its WAL, backups and uploads were 0644 in a
     0755 folder, so any account on a shared Unix machine could copy them.
     0700 on the folder closes everything under it, whatever each file's own
-    mode. Only for a folder that is a notebook (new, or holding the
+    mode. Only for a folder that is a notebook (new, empty, or holding the
     database), never one somebody pointed the app at that is something else.
     Best effort: a filesystem without Unix modes just keeps its own rules."""
     if os.name != "posix":
@@ -255,7 +255,11 @@ class ConfigManager:
         self.data_dir = Path(
             data_dir or os.getenv("MEMORYMAP_DATA_DIR") or _default_data_dir()
         ).resolve()
-        notebook = not self.data_dir.exists() or (self.data_dir / "memorymap.db").exists()
+        notebook = (
+            not self.data_dir.exists()
+            or (self.data_dir / "memorymap.db").exists()
+            or not any(self.data_dir.iterdir())  # made empty for the app to fill
+        )
         self.data_dir.mkdir(parents=True, exist_ok=True)
         if notebook:
             _owner_only(self.data_dir)

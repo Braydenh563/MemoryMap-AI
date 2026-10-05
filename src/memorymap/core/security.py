@@ -204,8 +204,17 @@ class BodyCapMiddleware:
             await self.app(scope, receive, send)
             return
         headers = Headers(scope=scope)
-        limit = _body_limit(scope.get("path") or "", headers)
         declared = headers.get("content-length")
+        if (
+            declared is None
+            and "transfer-encoding" not in headers
+            and scope.get("method", "GET").upper() in ("GET", "HEAD", "OPTIONS")
+        ):
+            # No body at all: every page, script and stylesheet load, which
+            # need not pay for the session lookup below.
+            await self.app(scope, receive, send)
+            return
+        limit = _body_limit(scope.get("path") or "", headers)
         if declared is not None:
             try:
                 too_big = int(declared) > limit

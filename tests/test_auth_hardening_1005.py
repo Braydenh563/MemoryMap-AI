@@ -305,6 +305,11 @@ def test_the_notebook_folder_is_private_to_its_owner(tmp_path):
     existing.chmod(0o755)
     ConfigManager(existing)
     assert stat.S_IMODE(existing.stat().st_mode) == 0o700
+    empty = tmp_path / "made-for-it"
+    empty.mkdir()
+    empty.chmod(0o755)
+    ConfigManager(empty)
+    assert stat.S_IMODE(empty.stat().st_mode) == 0o700
     # A folder that is something else (a home directory someone pointed the
     # app at) is not the app's to change.
     other = tmp_path / "somebody-else"

@@ -45,6 +45,8 @@ ALLOWED = {
     ("library.js", "https://example.com"),
     # A typed address with no scheme, normalised before `new URL`.
     ("library.js", "https://${raw}"),
+    # The same normalisation in `bookmarkKind`, moved to selection.js (572).
+    ("selection.js", "https://${raw}"),
 }
 
 #: Requests built into a vendored library, and why each never fires.

@@ -278,7 +278,12 @@ def _note_summary(
         #: ISO date alone left a small model to do the weekday arithmetic.
         today = user_now(deps.get_config()).date()
         summary["dates"] = [
-            {"phrase": d.phrase, "meant": d.at.date().isoformat(), "when": days_from_today(d.at.date(), today)}
+            {
+                "phrase": d.phrase,
+                # "2026-10-09 15:00" when the note said a time with the day.
+                "meant": d.at.strftime("%Y-%m-%d %H:%M") if d.precision == "minute" else d.at.date().isoformat(),
+                "when": days_from_today(d.at.date(), today),
+            }
             for d in dates
         ]
     return summary

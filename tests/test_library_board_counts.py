@@ -24,6 +24,7 @@ JS = Path(__file__).resolve().parents[1] / "frontend" / "js"
 NOTE_CARDS = (JS / "note-cards.js").read_text(encoding="utf-8")
 WHITEBOARD = (JS / "whiteboard.js").read_text(encoding="utf-8")
 DASHBOARD = (JS / "dashboard.js").read_text(encoding="utf-8")
+DASH_BOARDS = (JS / "dash-boards.js").read_text(encoding="utf-8")
 
 
 def _lists(board: dict) -> bool:
@@ -51,5 +52,6 @@ def test_every_library_view_of_boards_goes_through_it():
     assert "libraryListsBoard" in gallery, "the gallery counts must use the predicate"
     visible = WHITEBOARD[WHITEBOARD.index("window.wbVisibleBoards = function"):][:600]
     assert "libraryListsBoard" in visible, "the tick sync must see the same list"
-    widget = DASHBOARD[DASHBOARD.index("async function renderBoardsWidget"):][:1500]
+    #: The widget moved to dash-boards.js (INBOX 553(d), the boot budget).
+    widget = DASH_BOARDS[DASH_BOARDS.index("async function dashRenderBoards"):][:1500]
     assert "libraryListsBoard" in widget

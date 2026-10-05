@@ -277,10 +277,9 @@ _BORDER_DRAWN = re.compile(
 #: The two chip recipes that keep an edge, by DESIGN.md's own decision. Not a
 #: ratchet: a third needs its row in DESIGN.md first.
 META_EDGED = {
-    # "A word saying where an item came from, or what state it is in" (INBOX
-    # 461, 2026-10-03): 11px in a hairline box, its tone (yours, ok, warn) on
-    # the edge, because the label has no fill to carry it.
-    ".chip.item-label",
+    # The status label (`.chip.item-label`) kept an edge here until INBOX 553
+    # (c), 2026-10-05: it is a tinted pill without one now, so the lint holds
+    # it like every other fact.
     # A suggested tag (INBOX 440) is two buttons in one box, take and
     # discard: the box is the group's edge, as `.link-connection` is a link's.
     ".chip.suggested-tag",

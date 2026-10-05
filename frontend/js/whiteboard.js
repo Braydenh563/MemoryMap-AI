@@ -197,6 +197,7 @@ let wbCancelSelectionDragRef = null;
 function wbClearSelectionOverlays() {
   const inFlight = Boolean(wbCancelSelectionDragRef?.());
   for (const stray of document.querySelectorAll(".wb-marquee, .wb-lasso")) stray.remove();
+  if (!wbLinkDragActive) wbClearAnchorHints();
   return inFlight;
 }
 // Same shape, for refreshing the "Line ends" control's displayed value when
@@ -3830,6 +3831,8 @@ function wbWalkItems(dir) {
 }
 
 function clearWbSelection() {
+  //: Deselecting clears every overlay, the link tool's dots included (INBOX 573).
+  if (!wbLinkDragActive) wbClearAnchorHints();
   if (!wbSelectedItem && wbMultiSelection.size === 0) return;
   wbSelectedItem = null;
   wbMultiSelection.clear();
@@ -5280,10 +5283,15 @@ function wbBuildContextMenu(kind) {
   if (!wbIsMap()) {
     item("Lock", "Ctrl+Shift+L. Right-click the board to unlock", () => wbLockSelection());
   }
-  subItem("Order", (sub) => {
-    sub("Bring to front", "Move above everything else in this layer", () => wbSendSelectionZOrder(true));
-    sub("Send to back", "Move below everything else in this layer", () => wbSendSelectionZOrder(false));
-  });
+  //: Not on a laid-out map (audit FEAT-17): a tidied tree never overlaps,
+  //: so front and back mean nothing there. A Free map can overlap, so it
+  //: keeps them.
+  if (!wbIsMap() || wbMapLayout() === "free") {
+    subItem("Order", (sub) => {
+      sub("Bring to front", "Move above everything else in this layer", () => wbSendSelectionZOrder(true));
+      sub("Send to back", "Move below everything else in this layer", () => wbSendSelectionZOrder(false));
+    });
+  }
   item("Delete", "Delete", () => {
     wbCloseMapRadial();
     deleteWbSelection();
@@ -5701,14 +5709,39 @@ function wbHistoryFor() {
   const key = String(window.currentBoardId ?? "default");
   if (key === wbHistoryBoard) return;
   if (wbHistoryBoard !== null) wbHistoryByBoard.set(wbHistoryBoard, { undo: wbUndoStack, redo: wbRedoStack });
-  const kept = wbHistoryByBoard.get(key) || { undo: [], redo: [] };
-  wbUndoStack = kept.undo;
-  wbRedoStack = kept.redo;
+  const kept = wbHistoryByBoard.get(key);
+  wbUndoStack = kept ? kept.undo : [];
+  wbRedoStack = kept ? kept.redo : [];
   wbHistoryBoard = key;
+  if (!kept) wbHistoryRestore(key);
+}
+
+//: **And across a reload** (INBOX 553(b), decision 17 as amended): a board
+//: met for the first time this session takes back what was stored for it
+//: (undo-store.js), unless a step has been taken on it in the meantime.
+//: Nothing is written for a board until its stored history has been read,
+//: so an open that is quicker than the read cannot overwrite it with nothing.
+const wbHistoryRead = new Set();
+
+function wbHistoryRestore(key) {
+  if (key === "default" || typeof undoStoreGet !== "function") {
+    wbHistoryRead.add(key);
+    return;
+  }
+  undoStoreGet(`board:${key}`).then((stored) => {
+    wbHistoryRead.add(key);
+    if (wbHistoryBoard !== key || !stored || wbUndoStack.length || wbRedoStack.length) return;
+    wbUndoStack = Array.isArray(stored.undo) ? stored.undo : [];
+    wbRedoStack = Array.isArray(stored.redo) ? stored.redo : [];
+    wbUpdateUndoRedoButtons();
+  });
 }
 
 function wbUpdateUndoRedoButtons() {
   wbHistoryFor();
+  if (typeof undoStorePut === "function" && wbHistoryRead.has(wbHistoryBoard) && wbHistoryBoard !== "default") {
+    undoStorePut(`board:${wbHistoryBoard}`, undoStoreBoardValue(wbUndoStack, wbRedoStack));
+  }
   const undoBtn = document.getElementById("wb-undo");
   const redoBtn = document.getElementById("wb-redo");
   if (undoBtn) undoBtn.disabled = wbUndoStack.length === 0;
@@ -7093,7 +7126,7 @@ async function wbDeleteBoard(id, title) {
     return false;
   }
   const action = pushUndo(`Deleted "${title}"`, () => wbBinBoard(id, false), () => wbBinBoard(id, true));
-  toastAction(`Moved "${title}" to the recycle bin.`, "Undo", async () => {
+  toastAction(`Moved "${title}" to the bin.`, "Undo", async () => {
     await wbBinBoard(id, false);
     settleUndoFromToast(action);
   });
@@ -7753,6 +7786,7 @@ async function wbGenerateMapFromNotes() {
     // imported: landing back on an unchanged-looking list is how a thing that
     // worked reads as a thing that did not.
     await openWhiteboardBoard(board.id);
+    if (typeof wbMapTidyFresh === "function") await wbMapTidyFresh();
   } catch (error) {
     toast(error.message || "Couldn't create that map.", true);
   }
@@ -7910,7 +7944,8 @@ async function wbImportOutlineFile(event) {
     toast(
       `Imported “${board.title}”: ${board.object_count} node${board.object_count === 1 ? "" : "s"}.`
     );
-    openWhiteboardBoard(board.id);
+    await openWhiteboardBoard(board.id);
+    if (typeof wbMapTidyFresh === "function") await wbMapTidyFresh();
   } catch (error) {
     // The server's own message, not a generic one: it names the actual
     // refusal ("Unknown import format", a DOCTYPE in the OPML, a parse
@@ -9204,6 +9239,7 @@ async function initWhiteboard() {
   $("wb-clear-board")?.addEventListener("click", wbClearBoard);
   $("wb-delete-board")?.addEventListener("click", wbDeleteCurrentBoard);
   $("wb-add-to-note")?.addEventListener("click", wbAddBoardToNote);
+  $("wb-map-to-doc")?.addEventListener("click", () => wbMapWriteDocument());
   $("wb-copy-link")?.addEventListener("click", () => {
     const id = window.currentBoardId ?? null;
     if (id === null) return toast("The default board has no address. Make a board first.");
@@ -9625,6 +9661,8 @@ async function initWhiteboard() {
   // keyboard shortcuts below can never drift out of sync with each other.
   function selectWbTool(tool) {
     window.currentTool = tool;
+    //: A link tool's anchor dots belong to that tool (INBOX 573).
+    if (!String(tool).startsWith("link-") && !wbLinkDragActive) wbClearAnchorHints();
     if (toolGroup) {
       toolGroup.querySelectorAll("button[data-tool]").forEach((b) => {
         b.classList.toggle("active", b.dataset.tool === tool);
@@ -10554,6 +10592,10 @@ async function initWhiteboard() {
       return;
     }
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "v") {
+      //: On a map with nothing copied here, the browser's own paste goes
+      //: ahead, so text from another app can come in as a branch
+      //: (`wbMapPasteText`, audit FEAT-09).
+      if (!wbClipboard && wbIsMap()) return;
       e.preventDefault();
       wbPasteClipboard();
       return;
@@ -11202,8 +11244,14 @@ async function initWhiteboard() {
   containerEl.addEventListener("pointerleave", () => { wbPointerClient = null; });
 
   containerEl.addEventListener("pointermove", (e) => {
-    if (!window.currentTool || !window.currentTool.startsWith("link-")) return;
     if (wbLinkDragActive) return;
+    //: Off a link tool there are no dots to show, and any left over go (INBOX
+    //: 573: the cross-link tool's dots stayed on a topic after switching back
+    //: to Select, through Escape, a press on the canvas, Undo and a tab switch).
+    if (!window.currentTool || !window.currentTool.startsWith("link-")) {
+      wbClearAnchorHints();
+      return;
+    }
     const [x, y] = getLogicalMouse(e);
     // Every linkable thing, in its rotated frame, this was cards only, on
     // their unrotated box (reported: stickies "light up" wrong).
@@ -14741,6 +14789,9 @@ async function wbSaveNode(node) {
 }
 
 async function wbSaveObject(d) {
+  //: A topic still on its way to the server (`wbMapAddChild`'s optimistic
+  //: add) is saved once it has its real id.
+  if (d._creating) return d._creating.then((ok) => (ok ? wbSaveObject(d) : undefined));
   const body = {
     kind: d.kind, data: d.data, board_id: d.board_id,
     x: d.x, y: d.y, z: d.z, width: d.width, height: d.height,
@@ -14752,7 +14803,14 @@ async function wbSaveObject(d) {
       method: "PUT",
       body: JSON.stringify(body),
     });
+    //: **What changed here while the save was out stays** (audit FEAT-02):
+    //: with the map's add no longer waiting for its saves, a tidy or a
+    //: rename can land between this request and its answer, and taking the
+    //: answer whole put the topic back where it was when the request left.
+    const now = { x: d.x, y: d.y, data: d.data };
     Object.assign(d, saved);
+    if (now.x !== body.x || now.y !== body.y) Object.assign(d, { x: now.x, y: now.y });
+    if (now.data !== body.data) d.data = now.data;
   } catch {
     // Same recoverable-stale-client shape every other whiteboard write here
     // already follows: a 404 means this object (or its board) is gone.
@@ -15429,7 +15487,15 @@ function renderWbObjects(canvas) {
   // (another item moving, say) can't overwrite what's being typed.
   objectUpdate.each(function (d) {
     const key = wbObjectPaintKey(d, paintCtx);
-    if (this._wbPaintKey === key) return;
+    //: **A move is a transform, not a repaint** (audit FEAT-02): the key left
+    //: out x and y so a tidy that shifts two hundred topics down for one new
+    //: one writes two hundred transforms, not two hundred full repaints
+    //: (measured: 409ms of `setAttribute` in one Tab at 301 topics).
+    if (this._wbPaintKey === key) {
+      const place = wbItemTransform(d);
+      if (this.style.transform !== place) this.style.transform = place;
+      return;
+    }
     this._wbPaintKey = key;
     //: Drawn live for this pass, so the measure below reads what the new
     //: content really needs rather than the size it was culled at. The next
@@ -15533,7 +15599,10 @@ function renderWbObjects(canvas) {
 //: exception is a topic somebody has resized by hand (`sized`), whose stored
 //: height is written back as a `min-height` and therefore is an input.
 function wbObjectPaintKey(d, ctx) {
-  const base = `${d.kind}|${d.x}|${d.y}|${d.z}|${d.width}|${d.rotation ?? ""}|${JSON.stringify(d.data ?? null)}`;
+  //: No x or y: a position is applied as a transform without a repaint (the
+  //: update pass above). The one paint that reads a topic's own x is the
+  //: both-sides spine, added below with its parent's.
+  const base = `${d.kind}|${d.z}|${d.width}|${d.rotation ?? ""}|${JSON.stringify(d.data ?? null)}`;
   if (!WB_MAP_KINDS.has(d.kind)) return `${base}|${d.height}`;
   const index = ctx.index;
   const children = index?.childrenOf.get(d.id)?.length || 0;
@@ -15544,7 +15613,7 @@ function wbObjectPaintKey(d, ctx) {
   let parentBox = "";
   if (ctx.layout === "tree-both" && index) {
     const parent = index.byId.get(d.parent_id);
-    if (parent) parentBox = `${parent.x}:${parent.width ?? ""}`;
+    if (parent) parentBox = `${parent.x}:${parent.width ?? ""}:${d.x}`;
   }
   return `${base}|${d.data?.sized ? d.height : ""}|${wbMapLabel(d)}|${ctx.colors?.get(d.id) || ""}` +
     `|${children}|${buried}|${d.parent_id ?? ""}|${parentBox}|${ctx.layout}|${ctx.theme}` +

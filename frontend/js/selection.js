@@ -337,6 +337,25 @@ function pickEntryDialog(message) {
   });
 }
 
+//: **A note field's picker** (GRAPH_PLAN KG4): a note-kind property was a text
+//: box with the first 300 titles as suggestions, so a note past the 300th
+//: could only be typed from memory. This puts the notebook's own search beside
+//: the box: the button opens `pickEntryDialog`, and the chosen note's name goes
+//: into the box (the caller writes it as `[[name]]`), then `after` runs, so a
+//: field that saves on change saves.
+function noteFieldPickButton(input, after) {
+  const button = smallButton("ph:magnifying-glass", "Choose a note", async () => {
+    const entry = await pickEntryDialog("Choose a note");
+    if (!entry) return;
+    input.value = noteSortName(entry).split("\n")[0].slice(0, 80);
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    if (after) after(entry);
+  });
+  button.classList.add("icon-only", "prop-note-pick");
+  button.setAttribute("aria-label", "Choose a note");
+  return button;
+}
+
 //: **Choose any one thing the library holds**, a note, a document, a file or
 //: a saved link, as `{kind, id, label, row}`. Not `pickEntryDialog` (notes
 //: only), `pickMediaDialog` (an upload) or the chat's Attach picker (a
@@ -810,7 +829,8 @@ function fieldSelection() {
   //: palette open with their query selected so typing replaces it), and a
   //: field inside an overlay belongs to that overlay: the popup drew its
   //: menu over the Finder's own results. Writing fields only.
-  if (el.type === "search" || el.closest(".lock-overlay, .modal-overlay, .command-palette, [role='combobox']")) {
+  //: UX-09: `data-no-selection-popup` marks a query box that is not type=search.
+  if (el.type === "search" || el.closest("[data-no-selection-popup], .lock-overlay, .modal-overlay, .command-palette, [role='combobox']")) {
     return null;
   }
   const text = el.value.slice(el.selectionStart, el.selectionEnd);
@@ -842,16 +862,13 @@ function selectionMenuItems() {
       makeMenuItem("ph:highlighter Highlight", "Mark this passage (yellow)", () =>
         wrapFieldSelection(field, "==", "==")
       ),
-      makeMenuItem("ph:palette Highlight in a colour…", "Green, blue, pink, purple or orange", async () => {
-        const colour = (await promptDialog(
-          "Colour: green, blue, pink, purple or orange:", "green"
-        )).trim().toLowerCase();
-        if (!colour) return;
-        if (!["yellow", "green", "blue", "pink", "purple", "orange"].includes(colour)) {
-          toast("Pick one of: yellow, green, blue, pink, purple, orange.", true);
-          return;
-        }
-        wrapFieldSelection(field, colour === "yellow" ? "==" : `==${colour}|`, "==");
+      //: UX-19: the colours are a menu to pick from, not a name to type.
+      makeMenuItem("ph:palette Highlight in a colour…", "Green, blue, pink, purple or orange", () => {
+        const at = document.querySelector(".selection-popup")?.getBoundingClientRect() || { left: 80, bottom: 80 };
+        openMenuAtPoint(["green", "blue", "pink", "purple", "orange"].map((c) => ({
+          label: `ph:highlighter ${c[0].toUpperCase()}${c.slice(1)}`,
+          run: () => wrapFieldSelection(field, `==${c}|`, "=="),
+        })), "Highlight colour", at.left, at.bottom);
       }),
       makeMenuItem("ph:text-b Bold", "Wrap this in **bold**", () =>
         wrapFieldSelection(field, "**", "**")

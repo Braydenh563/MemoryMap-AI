@@ -1201,7 +1201,7 @@ async function binNoteWithUndo(entry) {
     await refreshEntries([entry.id]);
   };
   const action = pushUndo("Moved a note to the bin", restoreIt, binIt);
-  toastAction("Moved to the recycle bin.", "Undo", async () => {
+  toastAction("Moved to the bin.", "Undo", async () => {
     settleUndoFromToast(action);
     await restoreIt();
     toast("Note restored.");
@@ -1884,10 +1884,16 @@ function entryItem(entry, options = {}) {
   const mentioned = [];
   for (const when of entry.dates || []) {
     const day = new Date(`${when.at}T00:00:00`);
-    const label =
-      when.precision === "day"
-        ? day.toLocaleDateString(undefined, { day: "numeric", month: "short" })
-        : `${when.precision} of ${day.toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
+    const dayLabel = day.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+    //: UX-02: a clock said with the day, shown as written.
+    const clock = when.precision === "minute" && /^\d{2}:\d{2}$/.test(when.time || "")
+      ? new Date(`${when.at}T${when.time}:00`).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+      : "";
+    const label = clock
+      ? `${dayLabel}, ${clock}`
+      : when.precision === "day" || when.precision === "minute"
+        ? dayLabel
+        : `${when.precision} of ${dayLabel}`;
     //: The date alone, the phrase on hover (owner, with a screenshot of
     //: "Tonight → 21 Sept on Friday → 25 Sept" in one meta line: "clean up
     //: the notes metadata and badges a bit more"). What a reader scans for is
@@ -1955,7 +1961,8 @@ function entryItem(entry, options = {}) {
   //: corner faded it whenever the card was pointed at; INBOX 455 (1): a line
   //: that wrapped put it on a line of its own). The line never wraps now
   //: (`fitNoteMetas`), so this is the line's last fact at its right edge.
-  if (edited && !byEdit) date.textContent += " · edited";
+  //: The suffix its own span: a phone drops it before the category (UX-13).
+  if (edited && !byEdit) date.append(Object.assign(document.createElement("span"), { className: "entry-edited", textContent: " · edited" }));
   meta.appendChild(date);
   meta.appendChild(metaEnd);
 
@@ -2277,4 +2284,32 @@ function askAtlasAboutThing(kind, name) {
   input.value = `Tell me about my ${kind} "${label}" and what it connects to.`;
   input.dispatchEvent(new Event("input", { bubbles: true }));
   input.focus();
+}
+
+//: UX-10: only the Notes list's stop card lends its controls to Tab (27
+//: notes were 281 stops); tests/test_entry_list_keys_in_fields.py.
+const ENTRY_CARD_CONTROLS = 'button, a[href], summary, input[type="checkbox"], [tabindex="0"]';
+function entryCardControls(li, on) {
+  if (li.querySelector("textarea, .cm-editor")) on = true;
+  for (const el of li.querySelectorAll(ENTRY_CARD_CONTROLS)) {
+    if (on && el.dataset.rovingOff !== undefined) {
+      if (el.dataset.rovingOff) el.setAttribute("tabindex", el.dataset.rovingOff);
+      else el.removeAttribute("tabindex");
+      delete el.dataset.rovingOff;
+    } else if (!on && el.dataset.rovingOff === undefined && el.tabIndex >= 0) {
+      el.dataset.rovingOff = el.getAttribute("tabindex") || "";
+      el.tabIndex = -1;
+    }
+  }
+}
+function entryListFocusStop(event) {
+  const li = event.target.closest("li");
+  const items = entryListItems(event.currentTarget);
+  if (li && li.tabIndex !== 0 && items.includes(li)) entryListSetStop(items, li);
+}
+function entryListSetStop(items, stop) {
+  for (const li of items) {
+    li.tabIndex = li === stop ? 0 : -1;
+    entryCardControls(li, li === stop);
+  }
 }

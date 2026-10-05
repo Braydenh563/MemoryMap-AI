@@ -151,6 +151,9 @@ let noteSearch = ""; // Notes-tab text filter (Wave J)
 // signals (meaning, and distance over the links) only exist on the server.
 // Cleared whenever the box is, so a stale reason can never outlive its query.
 const noteSearchWhy = new Map();
+//: UX-04: /search's typo correction for the Notes box.
+let noteSearchCorrection = null;
+let noteSearchCorrectionShown = false;
 let noteSort = "newest"; // newest | oldest | az | most-used (Wave J)
 // BACKLOG §77 item 1. "all" (the default) keeps the existing continuous
 // scroll (§86's renderIncrementally) untouched; a numeric size switches
@@ -843,7 +846,7 @@ function showLockScreen(setupMode) {
   const note = $("lock-setup-note");
   if (note) {
     note.textContent =
-      "Choose a password or PIN, at least four characters. The app asks for it " +
+      "Choose a password, at least eight characters; a few unrelated words are best. The app asks for it " +
       "when it opens, unless you turn that off in Settings. Ordinary notes are not encrypted and survive a reset, " +
       "but anything you later mark private is locked with this password and cannot " +
       "be recovered without it.";
@@ -864,11 +867,13 @@ async function submitLockForm() {
   const password = $("lock-password").value;
   const errorLine = $("lock-error");
   errorLine.textContent = "";
-  if (password.length < 4) {
-    errorLine.textContent = "Use at least 4 characters.";
+  const mode = $("lock-overlay").dataset.mode;
+  //: A new password needs 8 (SEC-17); one set before that still unlocks.
+  const floor = mode === "setup" ? 8 : 4;
+  if (password.length < floor) {
+    errorLine.textContent = `Use at least ${floor} characters.`;
     return;
   }
-  const mode = $("lock-overlay").dataset.mode;
   if (mode === "prompt") {
     const prompt = lockPrompt;
     if (!prompt) return;
@@ -887,6 +892,7 @@ async function submitLockForm() {
       body: JSON.stringify({ password }),
     });
     localStorage.setItem("token", body.token);
+    if (body.warning) toast(body.warning, true);
     vaultOpen = mode === "setup" ? true : Boolean(body.vault_open);
     lockedByHand = false;
     $("lock-password").value = "";
@@ -1180,7 +1186,8 @@ function startApp() {
   step("load ask history badge", loadAskHistoryBadge);
   step("load suggestions", loadSuggestions);
   step("load your most-used items", loadMostUsed);
-  step("load templates", loadTemplates).then(() =>
+  const templatesReady = step("load templates", loadTemplates);
+  templatesReady.then(() =>
     step("set up chat options", () => {
       personaOptions();
       // Wave G: skills chips + the agent-mode toggle read the
@@ -1205,9 +1212,12 @@ function startApp() {
   // Fires only if the user opted in (Settings -> About); the endpoint itself
   // also checks the preference server-side, but skipping the call here means
   // an opted-out install makes zero network attempts, not a wasted one.
-  step("check for an update", () => {
+  // After the templates, which is what fills `prefsCache`: run beside them it
+  // read null and neither asked nor checked (found 2026-10-05, measured).
+  templatesReady.then(() => step("check for an update", () => {
+    if (prefsCache && prefsCache.update_choice_made === false) return askUpdateChoiceOnce();
     if (prefsCache && prefsCache.update_check_enabled) return checkForUpdate(true);
-  });
+  }));
   // Independent of update_check_enabled above, this isn't a network
   // check, it's reporting a fact: start.sh/start.bat already git-pulled a
   // real update before this process even started (their own step 0, no
@@ -2195,6 +2205,9 @@ const LAZY_MODULES = {
   assistantAvatar: ["/js/assistant-avatar.js"],
   //: Arranging the dashboard's Quick access row (INBOX 461): quick-access.js.
   quickAccess: ["/js/quick-access.js"],
+  notesRail: ["/js/notes-rail-spy.js"],
+  //: The dashboard's Boards & maps widget (INBOX 553(d)): see dash-boards.js.
+  dashBoards: ["/js/dash-boards.js"],
   //: The suggestions inbox (GRAPH_PLAN KG9): see suggestions-inbox.js.
   inbox: ["/js/suggestions-inbox.js", "/js/entity-page.js", "/js/link-types.js", "/js/note-properties.js"],
   //: 2026-10-05 (gzip budget), the next seven: each file's header says why.
@@ -2217,6 +2230,8 @@ const LAZY_MODULES = {
   //: whiteboard-map.js (the mind map layer, split out of whiteboard.js the
   //: same day) goes before whiteboard.js on the same terms.
   library: [
+    //: First: the stored undo histories both editors read (undo-store.js).
+    "/js/undo-store.js",
     "/js/documents-code.js",
     "/js/documents-prose.js",
     "/js/documents.js",
@@ -2441,7 +2456,7 @@ const LAZY_ENTRY_POINTS = {
   //: 2026-10-05, the next six: async or unread, reached by a gesture.
   reveal: ["revealFeature"],
   onboarding: ["openOnboarding"],
-  updates: ["checkForUpdate", "applyUpdateNow", "showSourceUpdatedDialog"],
+  updates: ["checkForUpdate", "applyUpdateNow", "showSourceUpdatedDialog", "askUpdateChoiceOnce"],
   appPalette: ["openPalette"],
   notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing"],
   attachTo: ["renderAttachToBoard", "renderAttachToDocument"],

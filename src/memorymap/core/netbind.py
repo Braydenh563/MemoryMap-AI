@@ -25,6 +25,7 @@ receipt all need the same answer:
 from __future__ import annotations
 
 import ipaddress
+import os
 import socket
 import struct
 import sys
@@ -43,6 +44,30 @@ LAN_PREF = "allow_lan"
 _LOOPBACK_NAMES = frozenset({"localhost", "127.0.0.1", "::1"})
 
 _current: str | None = None
+_current_lan_port: int | None = None
+
+#: **LAN mode is HTTPS on a port of its own** (the owner, 2026-10-05, "Yes,
+#: self-signed HTTPS"; core/lancert.py). Loopback stays plain http on the
+#: app's port, which the launcher, the desktop window and every saved tab
+#: use; the network gets TLS on this one. Two ports, because one socket
+#: cannot speak both, and a wildcard bind and a loopback bind on one port
+#: conflict on Linux. `MEMORYMAP_LAN_PORT` overrides it.
+LAN_PORT_OFFSET = 443
+
+
+def lan_port(port: int | None) -> int:
+    """The HTTPS port other devices use: 8443 beside the default 8000."""
+    raw = os.environ.get("MEMORYMAP_LAN_PORT", "").strip()
+    if raw.isdigit() and 0 < int(raw) < 65536:
+        return int(raw)
+    base = int(port or 8000)
+    return base + LAN_PORT_OFFSET if base + LAN_PORT_OFFSET < 65536 else base - LAN_PORT_OFFSET
+
+
+def set_lan_port(port: int | None) -> None:
+    """Called by the launcher with the port the HTTPS listener took."""
+    global _current_lan_port
+    _current_lan_port = port
 
 
 def lan_enabled(config: ConfigManager) -> bool:
@@ -271,14 +296,21 @@ def lan_addresses(include_v6: bool | None = None) -> list[str]:
 
 
 def describe(config: ConfigManager, port: int | None = None) -> dict:
-    """What the receipt and Settings say about who can reach the app."""
+    """What the receipt and Settings say about who can reach the app.
+
+    `port` is the port the request came in on. The addresses are the HTTPS
+    ones other devices type: the LAN listener's port once it is running,
+    else the one it will take (`lan_port`) beside this loopback port."""
     host = current()
     other_devices = not is_loopback_bind(host)
     addresses = lan_addresses() if other_devices or lan_enabled(config) else []
+    https_port = _current_lan_port or (lan_port(port) if port else None)
     return {
         "host": host,
         "other_devices": other_devices,
         "lan_on_next_launch": lan_enabled(config),
         "restart_required": lan_enabled(config) == is_loopback_bind(host),
-        "addresses": [f"http://{url_host(a)}:{port}" if port else url_host(a) for a in addresses],
+        "addresses": [
+            f"https://{url_host(a)}:{https_port}" if https_port else url_host(a) for a in addresses
+        ],
     }

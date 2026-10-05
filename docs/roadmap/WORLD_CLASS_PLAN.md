@@ -301,6 +301,10 @@ Dashboard ≤ 8 (audit script), all 24 widgets in the frame, 390px chrome ratio
 
 **Built** (`[[` autocomplete, and the connections rail 2026-09-27). Moved to HISTORY.md, "Moved from the plans, 2026-10-04 (D2 connections rail)", with the 2026-10-04 re-measure. Nothing of D2 is open here.
 
+**Decision (INBOX 571, 2026-10-05):** the rail follows the note being read,
+not a note "opened": the card chosen by hand, else the card in view as the
+list scrolls; the subject card is marked with a left accent hairline.
+
 ### D3 Chat (M, Opus)
 
 Exists: streaming answers, sources list, scope chips (backend), personas,
@@ -583,7 +587,23 @@ per-claim citations and "what changed about X" possible. Gate: rebuild from
 scratch on the fixture is deterministic; every derived row cites its
 source event.
 
-**State 2026-09-24:** (b) `entities`, `entity_mentions` and `derived_facts` (kinds `claim` and `question`) exist, and tensions are computed per request (`routes_entries.py`); typed links, a derived tensions table, the rebuild-from-events determinism and the Tensions widget are not built. M to L, Opus.
+**State 2026-10-05:** typed links (KG3: `LINK_TYPES` plus a person's own relation types, with inverses), the derived tensions table, its rebuild determinism and the Tensions widget are built (HISTORY, "row 18: the derived tensions table"). Left: derived person and project pages beyond KG5's entity page, per-claim citations, and "what changed about X".
+
+**Decisions made, 2026-10-05 (recommendations taken):** (1) B4's link
+vocabulary is the one KG3 built, not a second one: refers-to is a wiki-origin
+link (`origin="wiki"`), follows is `continues`, part-of is a person's own
+relation type; adding five more built-ins would split one meaning across two
+names. (2) The derived tensions table is a view: the source of a scan's
+finding and of every decision is an event (`AuditLog`, `entity_type=
+"tension"`), the night shift's findings stay in `derived_facts`, and the
+accepted state is the `contradicts` link; the table is rebuilt when any of the
+three moves, never written directly. (3) One pair, one row: the earliest
+finding names it, and a link is "accepted" whoever made it; accepted and then
+unlinked is a dismissal, so the pair is not offered again. (4) "Cites its
+source event": the scan's own event, the link's `linked` event, or for a night
+finding the later note's newest event when it was read. (5) Forgetting what
+was derived (Settings, Learned) takes the findings and decisions with the
+facts; a person's `contradicts` link stays.
 
 ### B5 The AI harness: plan, act, verify, budget, learn
 
@@ -804,7 +824,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 15 | §1.3 | Remind me on documents and boards (the reminder must point at other kinds first), Show in graph for a document, the Library note card's Remind me and Link to | S to M | app.js, library.js, `routes_reminders.py` |
 | 16 | B7 | cursor pagination, ETags and `If-Match` on entries, `/capabilities` | M | `api/` |
 | 17 | B8, H4 | a user skills folder picked up without a restart; `/api/v1`; the agent named on an external write | M | `ai/skills.py`, `mcp_server.py` |
-| 18 | B4 | typed links, a derived tensions table, rebuild determinism, the Tensions widget | M to L | `ai/tensions.py`, `ai/entities.py` |
+| 18 | ~~B4~~ | ~~typed links, a derived tensions table, rebuild determinism, the Tensions widget~~ built 2026-10-05 (`tensions` table rebuilt from events, night facts and links, `tests/test_tensions_table_b4.py`; typed links were KG3); left: derived person and project pages, per-claim citations, "what changed about X" | done | HISTORY |
 | 19 | B5, §9 | per-tool pre and post conditions, grammar-forced JSON, evals at 3B and 4B, concurrent tool calls, Ollama's native dialect | M | `ai/tools/`, `tests/test_skills_evals.py` |
 | 20 | I7 | the "Learned from you" line with a filing accuracy number | S | `settings.js` |
 | 21 | I8, H3 | the model bench | M | a new `ai/bench.py` |
@@ -920,15 +940,32 @@ and the switch in Settings, Account and security. IPv6 built 2026-10-04
 (HISTORY.md, "row 2: LAN mode over IPv6"). Nothing is left of Brief 15.
 
 **Security audit, 2026-10-05:** SEC-01 to SEC-09, SEC-11 to SEC-13, SEC-15
-and SEC-16 fixed (HISTORY.md, "Security audit fixes, 2026-10-05"). Open:
-SEC-08's real fix (a self-signed certificate at first LAN start, with a
-fingerprint for the phone to compare); SEC-10 (a folder import killed
-mid-way duplicates on re-run: dedupe on source path and content hash,
-rollback per failed file, a task-history row at start); SEC-14 (ask-history
-answers and chat messages that quoted a note before it went private stay
-plain; `/export/json` now says `is_private`); SEC-17's floor (warn or raise
-the minimum when a notebook has private notes); SEC-02's last step
-(`read_url` parks for a URL not in the question or this turn's results).
+and SEC-16 fixed (HISTORY.md, "Security audit fixes, 2026-10-05"); SEC-08's
+real fix, LAN mode over HTTPS with a certificate made on this computer, the
+same day, and SEC-10, a folder import safe to run again, and SEC-14, answers that quoted a note
+redacted when it goes private (HISTORY.md, "Security audit, second pass").
+SEC-17, a floor of 8 for new passwords and a warning above it, the same
+day, and SEC-02's last step (a tainted turn opens without a card only a
+page its search returned or a site the person named). Nothing from the
+audit is open.
+
+**Decisions made** (the owner, 2026-10-05; do not remake):
+
+1. **Auto-update: "Ask once".** The first launch asks once, in the terminal
+   (start.sh, when there is a terminal to answer in) or in the app, whether
+   to check for updates automatically, and remembers the answer
+   (`update_choice_made`). Until it is answered nothing about updating
+   touches the network: the launchers neither pull nor reach the remote, the
+   doctor included. Settings, About keeps the switches and a "Check for
+   updates" button, which checks once whatever the switch says. The packaged
+   app asks in the app; there, yes means "tell me", and installing stays
+   behind its own switch.
+2. **LAN HTTPS: "Yes, self-signed HTTPS".** On the first LAN start the app
+   makes a self-signed certificate with `cryptography` (no network), kept in
+   the data folder at 0600, and serves HTTPS on the network; loopback stays
+   HTTP. Settings, LAN shows the certificate's fingerprint, so a phone user
+   can check the one-time warning, with "Regenerate certificate". The help
+   says the traffic is encrypted and explains the warning.
 
 ## 13. Open bugs and gaps from the merged agent reports (with owners)
 

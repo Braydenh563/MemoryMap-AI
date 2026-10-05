@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import csv
 import io
+import hashlib
 import json
 import logging
 import importlib
@@ -719,6 +720,7 @@ def get_preferences() -> dict:
         "web_search_enabled": config.get_preference("web_search_enabled", False),
         "update_check_enabled": config.get_preference("update_check_enabled", False),
         "auto_update_enabled": config.get_preference("auto_update_enabled", False),
+        "update_choice_made": config.get_preference("update_choice_made", False) is True,
         "update_channel": config.get_preference("update_channel", "stable"),
         "searxng_url": config.get_preference("searxng_url", ""),
         "searxng_autostart": config.get_preference("searxng_autostart", False),
@@ -920,6 +922,9 @@ def update_preferences(
             value = _validated_context_windows(value)
         config.set_preference(key, value)
         changed_keys.add(key)
+        if key in ("update_check_enabled", "auto_update_enabled"):
+            # Either switch is an answer to the ask-once question (routes_update).
+            config.set_preference("update_choice_made", True)
         if key == "warm_search_model_at_launch" and value:
             # Switched on mid-session: load it now rather than at the next
             # launch. Idempotent, so a model already warm costs nothing.
@@ -2317,6 +2322,35 @@ def _run_directory_import(directory_path: str):
         _import_directory_files(directory_path, run)
 
 
+#: Stands for "this path is a private note": matched without its text.
+_PRIVATE = object()
+
+
+def _text_hash(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _already_imported(session) -> dict:  # noqa: ANN001
+    """Every live note that came from a vault file: its path in the vault ->
+    the hashes of its text, or `_PRIVATE` when its text is encrypted."""
+    from sqlalchemy import select
+
+    from memorymap.core.database import Entry
+
+    known: dict = {}
+    rows = session.execute(
+        select(Entry.source_path, Entry.content, Entry.is_private).where(
+            Entry.source_path != "", Entry.is_deleted.is_(False)
+        )
+    )
+    for path, content, private in rows:
+        if private:
+            known[path] = _PRIVATE
+        elif known.get(path) is not _PRIVATE:
+            known.setdefault(path, set()).add(_text_hash((content or "").strip()))
+    return known
+
+
 def _import_directory_files(directory_path: str, run: "jobruns.Run"):
     try:
         p = _validated_import_directory(directory_path)
@@ -2327,6 +2361,8 @@ def _import_directory_files(directory_path: str, run: "jobruns.Run"):
         imported = 0
         skipped = 0
         skipped_oversize = 0
+        already = 0
+        known = _already_imported(session)
         for f in p.rglob("*.md"):
             if not _inside(p, f):
                 skipped += 1
@@ -2349,6 +2385,21 @@ def _import_directory_files(directory_path: str, run: "jobruns.Run"):
                 if not body.strip():
                     skipped += 1
                     continue
+                try:
+                    relative = f.relative_to(p).as_posix()[:500]
+                except ValueError:
+                    relative = f.name[:500]
+                #: **Running it again is safe** (SEC-10, audit 2026-10-05): a
+                #: file whose path in the vault and whose text are already a
+                #: note is passed over, so "import again" finishes an import
+                #: that was cut off instead of doubling what got in. A note
+                #: made private since is matched on its path alone: its text
+                #: is encrypted, and a second, readable copy is the one thing
+                #: an import must never make of it.
+                seen = known.get(relative)
+                if seen is not None and (seen is _PRIVATE or _text_hash(body.strip()) in seen):
+                    already += 1
+                    continue
                 #: **The file's own text, unchanged.** An earlier attempt at
                 #: this prepended `# <filename>` so the note would carry its
                 #: vault name: and three existing tests caught it, rightly:
@@ -2368,14 +2419,12 @@ def _import_directory_files(directory_path: str, run: "jobruns.Run"):
                 #: Relative to the vault root, never absolute, see
                 #: `Entry.source_path`. `as_posix` so a vault imported on
                 #: Windows and one imported on Linux group identically.
-                try:
-                    entry.source_path = f.relative_to(p).as_posix()[:500]
-                except ValueError:
-                    entry.source_path = f.name[:500]
+                entry.source_path = relative
                 if meta.get("category"):
                     entry.user_filed = True
                 deps.store_quietly(session, entry)
                 imported += 1
+                known.setdefault(relative, set()).add(_text_hash(body.strip()))
                 if imported % 50 == 0:
                     session.commit()
             except Exception:
@@ -2385,6 +2434,11 @@ def _import_directory_files(directory_path: str, run: "jobruns.Run"):
                     "skipped %s while importing a folder", f.name, exc_info=True
                 )
                 skipped += 1
+                #: A failed flush leaves the session refusing every later
+                #: statement until it is rolled back, so one bad file used to
+                #: end the import for every file after it (SEC-10). Each note
+                #: before it is already committed by `create_entry`.
+                session.rollback()
         #: The importer runs as a background task (202 Accepted, no
         #: synchronous response), so a skipped file has nowhere to be
         #: reported except this activity-log line: unlike `import_markdown`,
@@ -2393,8 +2447,10 @@ def _import_directory_files(directory_path: str, run: "jobruns.Run"):
         #: Firing on `skipped` too, not just `imported`, matters here: a
         #: directory whose files were all oversize used to leave no trace
         #: at all, imported stayed 0 and the whole run vanished silently.
-        if imported > 0 or skipped > 0:
+        if imported > 0 or skipped > 0 or already > 0:
             detail = f"markdown dir x{imported}"
+            if already:
+                detail += f", {already} already in"
             if skipped:
                 detail += f", skipped {skipped}"
                 if skipped_oversize:
@@ -2402,8 +2458,10 @@ def _import_directory_files(directory_path: str, run: "jobruns.Run"):
                     detail += f" ({skipped_oversize} over {limit_mb} MB)"
             manager.log_action(session, "imported", "data", detail=detail)
             session.commit()
-            run.result = f"imported {imported} note{'' if imported == 1 else 's'} from a folder" + (
-                f", skipped {skipped}" if skipped else ""
+            run.result = (
+                f"imported {imported} note{'' if imported == 1 else 's'} from a folder"
+                + (f", {already} already in" if already else "")
+                + (f", skipped {skipped}" if skipped else "")
             )
             #: A whole vault arriving at once is exactly the "large change"
             #: the rebuild suggestion exists for, see `mark_index_stale`.

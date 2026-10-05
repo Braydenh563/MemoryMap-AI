@@ -62,6 +62,9 @@ def _plan(data_dir: Path) -> str:
 
 
 def _prefs(tmp_path: Path, **values) -> Path:
+    """A preferences file; the ask-once question counts as answered unless
+    the test says otherwise (`update_choice_made=False`)."""
+    values.setdefault("update_choice_made", True)
     data_dir = tmp_path / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / "preferences.json").write_text(json.dumps(values, indent=2))
@@ -71,11 +74,21 @@ def _prefs(tmp_path: Path, **values) -> Path:
 class TestStartShReadsTheSettings:
     """Run for real: the plan is whatever the live script says it is."""
 
-    def test_no_preferences_file_yet_keeps_todays_behaviour(self, tmp_path):
-        """A fresh clone has no `preferences.json`, and has always pulled."""
+    def test_no_preferences_file_yet_means_ask(self, tmp_path):
+        """A fresh clone has no `preferences.json`: nothing is pulled until
+        the person answers (the owner, 2026-10-05, "Ask once")."""
         data_dir = tmp_path / "data"
         data_dir.mkdir()
-        assert _plan(data_dir) == "main"
+        assert _plan(data_dir) == "ask"
+
+    def test_unanswered_means_ask_whatever_the_switch_says(self, tmp_path):
+        """Older versions wrote `auto_update_enabled: true` into every source
+        checkout's file as a default; that is not an answer."""
+        data_dir = _prefs(tmp_path, update_choice_made=False, auto_update_enabled=True)
+        assert _plan(data_dir) == "ask"
+
+    def test_answered_with_the_switch_unset_means_off(self, tmp_path):
+        assert _plan(_prefs(tmp_path)) == "off"
 
     def test_the_switch_off_means_off(self, tmp_path):
         assert _plan(_prefs(tmp_path, auto_update_enabled=False)) == "off"
@@ -100,7 +113,7 @@ class TestStartShReadsTheSettings:
         data_dir = tmp_path / "data"
         data_dir.mkdir()
         (data_dir / "preferences.json").write_text("{not json at all")
-        assert _plan(data_dir) == "main"
+        assert _plan(data_dir) == "ask"
 
     def test_the_setting_survives_the_app_writing_the_file(self, tmp_path):
         """Written by `ConfigManager`, read by the launcher: the one shape
@@ -109,6 +122,8 @@ class TestStartShReadsTheSettings:
 
         data_dir = tmp_path / "written"
         config = ConfigManager(data_dir)
+        assert _plan(data_dir) == "ask"
+        config.set_preference("update_choice_made", True)
         config.set_preference("auto_update_enabled", False)
         assert _plan(data_dir) == "off"
         config.set_preference("auto_update_enabled", True)
@@ -130,6 +145,9 @@ class TestStartShHonoursThePlan:
         # `rindex`, because the header comment above it quotes the old command
         # while explaining what changed.
         assert text.index(guard) < text.rindex("pull --ff-only")
+        ask = '[ "$MM_UPDATE_PLAN" != "ask" ]'
+        assert ask in text, "the self-update block is not gated on the question"
+        assert text.index(ask) < text.rindex("pull --ff-only")
 
     def test_the_stable_channel_moves_to_a_tag_and_not_to_the_branch(self):
         text = self._text()
@@ -151,6 +169,7 @@ class TestStartShHonoursThePlan:
         step 3 of 5" report; every other skipped update here ticks with a
         reason, so this one does too."""
         assert '"Update" "Off in Settings" "done"' in self._text()
+        assert '"Update" "Not chosen yet, nothing checked" "done"' in self._text()
 
 
 class TestTheDoctorSaysWhatWillHappen:
@@ -195,13 +214,22 @@ class TestStartBatMatchesStartSh:
     def test_it_reads_both_settings_out_of_preferences_json(self):
         text = self._text()
         assert 'set "MM_PREFS_FILE=!MM_DATA_DIR!\\preferences.json"' in text
-        assert "auto_update_enabled.*false" in text
+        assert "update_choice_made.*true" in text
+        assert "auto_update_enabled.*true" in text
         assert "update_channel.*stable" in text
 
     def test_the_block_is_gated_on_the_setting(self):
         text = self._text()
         assert 'if "!MM_UPDATE_PLAN!"=="off" goto :updates_off' in text
         assert text.index("goto :updates_off") < text.rindex("pull --ff-only")
+        assert 'if "!MM_UPDATE_PLAN!"=="ask" goto :updates_ask' in text
+        assert text.index("goto :updates_ask") < text.rindex("pull --ff-only")
+
+    def test_the_doctor_reads_the_same_plan_before_reaching_the_remote(self):
+        text = self._text().replace("\r\n", "\n")
+        doctor = text[text.index("\n:doctor_updates\n") :]
+        assert doctor.index("call :read_update_plan") < doctor.index("ls-remote")
+        assert 'if "!MM_UPDATE_PLAN!"=="ask" goto :doctor_updates_ask' in doctor
 
     def test_each_channel_has_its_own_path(self):
         text = self._text()
@@ -213,16 +241,18 @@ class TestStartBatMatchesStartSh:
 
     def test_off_is_a_ticked_step_rather_than_silence(self):
         assert '"Update" "Off in Settings" "done"' in self._text()
+        assert '"Update" "Not chosen yet, nothing checked" "done"' in self._text()
 
     @pytest.mark.parametrize(
         "fragment",
         [
+            'set "MM_UPDATE_PLAN=ask"',
             'set "MM_UPDATE_PLAN=main"',
             'set "MM_UPDATE_PLAN=off"',
             'set "MM_UPDATE_PLAN=stable"',
         ],
     )
-    def test_the_three_plans_are_the_same_three_words_as_the_sh(self, fragment):
+    def test_the_four_plans_are_the_same_four_words_as_the_sh(self, fragment):
         """One vocabulary across the two launchers: a reader comparing them
         should not have to translate."""
         assert fragment in self._text()
@@ -248,11 +278,12 @@ class TestTheAppAgreesWithTheLaunchers:
     """The default the launchers assume is the default the app reports, or
     Settings would show a switch in the opposite position to the behaviour."""
 
-    def test_a_source_checkout_defaults_to_updating_on_main(self, tmp_path):
+    def test_a_source_checkout_asks_first_then_follows_main(self, tmp_path):
         from memorymap.core.config import ConfigManager
 
         config = ConfigManager(tmp_path / "fresh")
-        assert config.get_preference("auto_update_enabled") is True
+        assert config.get_preference("update_choice_made") is False
+        assert config.get_preference("auto_update_enabled") is False
         assert config.get_preference("update_channel") == "main"
 
 

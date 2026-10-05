@@ -392,7 +392,7 @@
            second action and a labelled button for it is what made the old head
            row two buttons wide. -->
       <form id="help-chat-form" class="row help-chat-form atlas-composer">
-        <input type="text" id="help-chat-input" placeholder="Ask about the app…" maxlength="1000" autocomplete="off" aria-label="Ask Atlas a question">
+        <input type="text" id="help-chat-input" data-no-selection-popup placeholder="Ask about the app…" maxlength="1000" autocomplete="off" aria-label="Ask Atlas a question">
         <button type="submit" id="help-chat-send" class="icon-only icon-primary" title="Ask Atlas" aria-label="Ask Atlas"><i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>
         <button type="button" class="icon-only ghost small graph-help-toggle"
           data-help-for="help-chat-help" aria-controls="help-chat-help" aria-expanded="false"
@@ -1705,7 +1705,7 @@ Link to another note with [[its first few words]]."></textarea>
           </p>
           <div class="row ask-query-row ask-composer">
             <i class="ph ph-sparkle ask-composer-icon" aria-hidden="true"></i>
-            <input id="question" type="text"
+            <input id="question" type="text" data-no-selection-popup
               placeholder="e.g. What jokes have I saved?"
               aria-label="Ask your notebook a question">
             <button type="button" id="ask-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>
@@ -2028,7 +2028,7 @@ Link to another note with [[its first few words]]."></textarea>
                        narrow for the rail, where the note's own Connections
                        sheet is the way in instead. -->
                   <button type="button" id="notes-rail-toggle" class="doc-dock-menu-item"
-                    title="Show or hide the column of the open note's connections"><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i> Hide connections</button>
+                    title="Show or hide the column of connections for the note you are reading"><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i> Connections beside the note you're reading</button>
                   <div class="dock-menu-section">
                     <label class="muted dock-menu-label" for="notes-page-size">Notes per page</label>
                     <select id="notes-page-size" aria-label="Notes per page" title="Notes per page">
@@ -2122,7 +2122,9 @@ Link to another note with [[its first few words]]."></textarea>
         </h3>
         <div class="help-body hidden" id="notes-rail-help" role="dialog" aria-label="What this column shows">
           <p>
-            Everything joined to the note you have open: the notes it links
+            Everything joined to the note you are reading (the one you
+            clicked, or the one in view as you scroll, marked with a line at
+            its left edge): the notes it links
             to, the notes that link to it, the documents, boards and maps it
             is used in, and the files it shows. Under them, notes you have not
             opened in a while that are close to this one.
@@ -3058,6 +3060,12 @@ Link to another note with [[its first few words]]."></textarea>
                   <option value="90">Last 3 months</option>
                   <option value="365" selected>Last year</option>
                   <option value="0">Everything</option>
+                  <!-- TIMELINE_PLAN section 8 (Day One's "On this day"): today's
+                       date in earlier months and years, the Dashboard widget's
+                       rule, asked of the server (`on=`) so last year is not
+                       one page-load away. A range, not a dock control: the
+                       dock is at its ceiling. -->
+                  <option value="onthisday">On this day</option>
                   <option value="custom">Custom range</option>
                 </select>
                 <span id="timeline-custom-range" class="hidden row align-center timeline-custom-range">
@@ -3087,6 +3095,9 @@ Link to another note with [[its first few words]]."></textarea>
         The strip below shows the last seven days: a dot marks a day with a page,
         and pressing a day opens its page or starts it. The arrows beside the
         month walk a week, and the month opens a calendar to jump to any earlier day.
+        In the feed, Ctrl and the mouse wheel, or a pinch, makes the date
+        groups finer or coarser, as do + and - on a row. Options, Time range, On this day shows
+        what you wrote on today's date in earlier months and years.
   </p>
 </div>
       <!-- The calendar strip (WORLD_CLASS_PLAN D6; INBOX 543 redesign): one
@@ -4260,6 +4271,12 @@ Link to another note with [[its first few words]]."></textarea>
                  its own ("Formatting ▾" and three icons) under this row, 
                  measured, 139px of chrome above the first line at 1440. One
                  button here, one strip that appears below only while on. -->
+            <!-- **The way back to a hidden formatting strip, where it was**
+                 (INBOX 574, the owner: "an easier way to open the formatting
+                 toolbar ... in case the user accidentally closes it"). Shown
+                 only while the strip is hidden (`applyDocToolbarCollapsed`). -->
+            <button id="doc-format-show" class="ghost small doc-format-show hidden" type="button"
+              title="Show the formatting toolbar (Ctrl+Shift+X)" aria-label="Show the formatting toolbar (Ctrl+Shift+X)"><i class="ph ph-text-aa ph-lead" aria-hidden="true"></i> <span>Formatting</span></button>
             <button id="doc-ai" data-needs-model="AI editing needs the local AI" class="ghost small" type="button"
               title="Ask Atlas to rewrite this document, or the text you've selected" aria-label="AI edit"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> <span class="doc-ai-label">AI edit</span></button>
             <!-- A code document's Format (the owner, 2026-09-23: "a button
@@ -4304,7 +4321,7 @@ Link to another note with [[its first few words]]."></textarea>
                     aria-labelledby="doc-file-type-label" title="What kind of file this document is"></select>
                 </div>
                 <button id="doc-format-toggle" class="menu-item doc-dock-menu-item" type="button" aria-pressed="false"
-                  title="Show the formatting strip above the editor"><i class="ph ph-text-aa ph-lead" aria-hidden="true"></i> Always show formatting</button>
+                  title="Show the formatting toolbar above the editor (Ctrl+Shift+X)"><i class="ph ph-text-aa ph-lead" aria-hidden="true"></i> <span id="doc-format-toggle-label">Show formatting toolbar</span></button>
 
                 <!-- The same Connections dialog a note's own ⋯ menu opens
                      (REDESIGN.md §R7.3). A document's joins were split three
@@ -4829,7 +4846,7 @@ Link to another note with [[its first few words]]."></textarea>
           <span class="clock-date muted"></span>
         </div>
       </div>
-      <!-- Magic Add: type natural language, the AI turns it into a reminder -->
+      <!-- Magic Add: type natural language; rules read the time (ai/when), the AI only what they cannot -->
       <div class="row" id="reminder-magic-row">
         <!-- A textarea, not an input: "remind me about the three things from
              today's meeting…" is a perfectly ordinary thing to type here, and
@@ -4841,7 +4858,7 @@ Link to another note with [[its first few words]]."></textarea>
         <!-- The wand alone (WORLD_CLASS_PLAN 507): the form below has the
              card's one worded "Add", so this reads as "add from the sentence"
              by its name and tooltip, not as a second "Add". -->
-        <button id="reminder-magic-add" data-needs-model="Reading a reminder from a sentence needs the local AI" class="ghost icon-only" type="button" title="Add from this sentence" aria-label="Add from this sentence"><i class="ph ph-magic-wand" aria-hidden="true"></i></button>
+        <button id="reminder-magic-add" class="ghost icon-only" type="button" title="Add from this sentence" aria-label="Add from this sentence"><i class="ph ph-magic-wand" aria-hidden="true"></i></button>
       </div>
       <p id="reminder-magic-status" class="status" role="status"></p>
       <div class="reminder-form">
@@ -6068,6 +6085,13 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="wb-menu-row">
                 <span>A note</span>
                 <button id="wb-add-to-note" class="ghost small" type="button" title="Put this board in a note as an object"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Add to a note…</button>
+              </div>
+              <!-- A map's outline as a document (audit brief M5): headings by
+                   depth, then lists, notes as paragraphs, the map's card at
+                   the head. Maps only. -->
+              <div class="wb-menu-row" data-wb-surface="map">
+                <span>A document</span>
+                <button id="wb-map-to-doc" class="ghost small" type="button" title="Write this map as a new document: its branches as headings, the rest as lists"><i class="ph ph-file-text ph-lead" aria-hidden="true"></i> Write as a document</button>
               </div>
               <div class="wb-menu-row">
                 <span>Its address</span>
@@ -10190,7 +10214,7 @@ Link to another note with [[its first few words]]."></textarea>
                linked to Web search is gone, since Web search is in the nav. -->
           <section class="settings-section hidden" id="settings-general">
             <div class="settings-group">
-              <h3>Recycle bin</h3>
+              <h3>Bin</h3>
               <div class="row">
                 <label for="pref-bin-days" class="muted">Auto-clear binned notes after</label>
                 <input id="pref-bin-days" type="number" min="1" max="365">
@@ -10687,7 +10711,7 @@ Link to another note with [[its first few words]]."></textarea>
                    the help keeps only what the line does not say (INBOX 437
                    (4): the help repeated the line word for word). The four
                    exports are one row, wrapping on a phone. -->
-              <p class="muted">JSON/CSV/Markdown exports include everything, even binned notes.</p>
+              <p class="muted">Copies to take away, binned notes included. Full backup is the one to move to another computer.</p>
               <div class="help-body hidden" id="export-help" role="dialog" aria-label="About exports">
                 <p>
                   Full backup is a portable zip of the raw database and media
@@ -10757,7 +10781,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <p>
                   Finds notes that say much the same thing, by comparing
                   their words: no AI needed. Merging keeps every tag, and
-                  the notes it replaces go to the recycle bin, so nothing is
+                  the notes it replaces go to the bin, so nothing is
                   destroyed.
                 </p>
               </div>
@@ -10862,7 +10886,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <input id="backup-retention" type="number" class="small-select backup-retention-input">
                 <span id="backup-retention-status" class="status" role="status"></span>
               </div>
-              <p class="muted">Backups live in your data folder, they never leave this computer.</p>
+              <p class="muted">Snapshots kept on this computer, to restore this notebook here. Backups live in your data folder.</p>
               <div class="help-body hidden" id="backups-help" role="dialog" aria-label="About backups">
                 <p>
                   A backup is also taken automatically once a day when the
@@ -10977,9 +11001,21 @@ Link to another note with [[its first few words]]."></textarea>
                   computer is set to. Private notes still ask for it too.
                 </p>
                 <p>
-                  Traffic on your network is not encrypted: the app talks
-                  plain http, so use this only on a network you trust, never
-                  on public Wi-Fi.
+                  Traffic on your network is encrypted (https, on its own
+                  port, 8443 beside the usual 8000). The certificate is made
+                  on this computer rather than bought from a company browsers
+                  already trust, so the first time a device opens the address
+                  it warns that the connection is not private.
+                </p>
+                <p>
+                  Before you continue past that warning, open the
+                  certificate's details on the other device and compare its
+                  SHA-256 fingerprint with the one shown here. If they match,
+                  continue, and that device will not ask again. If they do
+                  not, stop: something else is answering at that address.
+                  Regenerate certificate makes a new one, for example after
+                  this computer's address changes; every device then warns
+                  once more.
                 </p>
                 <p>
                   The change takes effect the next time the app starts.
@@ -10991,10 +11027,21 @@ Link to another note with [[its first few words]]."></textarea>
                 <input type="checkbox" id="account-allow-lan">
                 <span>
                   Allow other devices on this network
-                  <small class="muted">They always need your password. Traffic is not encrypted; use networks you trust.</small>
+                  <small class="muted">They always need your password, over an encrypted connection.</small>
                 </span>
               </label>
               <p id="account-lan-state" class="notice hidden" role="status"></p>
+              <!-- The certificate LAN mode serves (core/lancert.py; SEC-08, the
+                   owner's "Yes, self-signed HTTPS"): its fingerprint, to
+                   compare with a phone's one-time warning, and a way to make
+                   a new one. Shown once a certificate exists. -->
+              <div id="account-lan-cert" class="hidden">
+                <p class="muted text-sm flush">Certificate fingerprint (SHA-256), to compare with the warning on the other device:</p>
+                <p class="lan-fingerprint flush" id="account-lan-fingerprint"></p>
+                <div class="row button-row">
+                  <button id="account-lan-regenerate" class="ghost small" type="button">Regenerate certificate</button>
+                </div>
+              </div>
             </div>
 
             <div class="settings-group">
@@ -11020,7 +11067,7 @@ Link to another note with [[its first few words]]."></textarea>
                 placeholder="Your current password or PIN">
               <label class="stacked-label" for="account-new">New password</label>
               <input id="account-new" type="password" autocomplete="new-password"
-                placeholder="At least 4 characters">
+                placeholder="At least 8 characters">
               <label class="stacked-label" for="account-confirm">Confirm new password</label>
               <input id="account-confirm" type="password" autocomplete="new-password"
                 placeholder="Type it again">
@@ -11479,7 +11526,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <span>Check GitHub for a newer version</span>
               </label>
               <div class="row button-row setting-dependent" id="update-check-row">
-                <button id="update-check-now" class="ghost small" type="button">Check now</button>
+                <button id="update-check-now" class="ghost small" type="button">Check for updates</button>
                 <!-- Shown only once a check finds a newer version this app can
                      actually apply itself (the post-login dialog's own
                      "Update automatically", same underlying flow, same
@@ -11554,7 +11601,8 @@ Link to another note with [[its first few words]]."></textarea>
                   Which one you can actually use depends on how this copy was
                   installed. A copy started by start.bat or start.sh can
                   follow the newest changes, because it pulls them from GitHub
-                  itself on every launch (the main branch). The packaged app
+                  itself at launch (the main branch) once you have said yes to
+                  checking automatically; the first start asks that once. The packaged app
                   has no way to do that, so it always installs releases, and
                   this switch changes nothing for it.
                 </p>

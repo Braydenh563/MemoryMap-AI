@@ -444,7 +444,7 @@ function markScrollEdge(region, force = false) {
   //: A sub-tab strip is sticky *inside* the region it lids (INBOX 529: "hard
   //: to see when scrolled down"), so the loop above skips it and it stayed
   //: see-through over the notes. It takes its surface the same way.
-  for (const strip of region.querySelectorAll(".notes-subtabs, .library-subtabs")) {
+  for (const strip of region.querySelectorAll(".notes-subtabs, .library-subtabs, [data-dock-name=notes]")) {
     if (scrolled) strip.setAttribute("data-scrolled", "1");
     else strip.removeAttribute("data-scrolled");
   }

@@ -1304,7 +1304,7 @@ function webQueryTerms(query) {
 }
 //: Set by `runWebSearch` before any row is built, so "Show more" rows revealed
 //: later mark the same words as the first eight.
-let webResultTerms = [];
+const webResultTerms = [];
 
 // One search result row, split out so the initial batch and the "Show
 // more" reveal (below) build identical rows from one code path.
@@ -1550,7 +1550,7 @@ async function runWebSearch() {
   if (!webRequestEnd(controller)) return;
   pushWebSearchHistory(query);
   renderWebPanelMenu(webEngineInfo);
-  webResultTerms = webQueryTerms(query);
+  webResultTerms.splice(0, webResultTerms.length, ...webQueryTerms(query));
   const results = body.results || [];
   // Name the engine that ANSWERED, which under "Automatic" is not
   // necessarily the one configured, and say what that means for privacy.

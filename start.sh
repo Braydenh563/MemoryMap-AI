@@ -546,17 +546,40 @@ mm_pref_bool() {  # $1 key, $2 default (0 or 1)
 # itself can never disagree about what is about to happen, which is the
 # whole of what INBOX 221 asked to be able to see.
 #
-# The default is on, and it is on for a source checkout only: that is what
-# `git pull` on every launch has always done here, so someone who has never
-# opened Settings sees no change. A packaged Windows install keeps the
-# default off (core/config.py: downloading and running an installer unasked
-# is a different size of consequence), and has no `.git` to pull anyway.
+# **"ask" until the person has answered** (the owner, 2026-10-05, "Ask
+# once", WORLD_CLASS_PLAN 12): this used to default to pulling on every
+# launch of a clone nobody had asked. Now nothing touches the network until
+# `update_choice_made` is true, which the terminal question below or the
+# app's own one-time question writes; after that the switch decides.
 mm_update_plan() {
-  if [ "$(mm_pref_bool auto_update_enabled 1)" = "0" ]; then
+  if [ "$(mm_pref_bool update_choice_made 0)" = "0" ]; then
+    printf 'ask'
+  elif [ "$(mm_pref_bool auto_update_enabled 0)" = "0" ]; then
     printf 'off'
   else
     printf '%s' "$(mm_pref_str update_channel main)"
   fi
+}
+
+# The one-time question, in the terminal, when there is a person at one to
+# answer it: prints "yes", "no", or nothing. Nothing when stdin is not a
+# terminal (a desktop shortcut, a pipe, a service) or when 60 seconds pass
+# with no answer; the app then asks instead, and this launch stays offline.
+# Enter alone is "no", the answer that touches nothing. The answer reaches
+# the app as `MM_UPDATE_CHOICE` (routes_update.apply_launcher_choice), since
+# there may be no Python yet to write `preferences.json` with.
+mm_ask_update_choice() {
+  [ -t 0 ] || return 0
+  local answer=""
+  printf ' Check for updates automatically each time MemoryMap starts? It asks once; Settings can change it later. [y/N] ' >&2
+  if ! read -r -t 60 answer; then
+    printf '\n' >&2
+    return 0
+  fi
+  case "$answer" in
+    [Yy]|[Yy][Ee][Ss]) printf 'yes' ;;
+    *) printf 'no' ;;
+  esac
 }
 
 # --- Is something already on the port? --------------------------------
@@ -703,6 +726,9 @@ mm_doctor() {
   # itself uses, so this row cannot be slower than the thing it describes.
   if [ "$(mm_update_plan)" = "off" ]; then
     mm_row ok "Updates" "off in Settings, so a launch will not change this checkout"
+  elif [ "$(mm_update_plan)" = "ask" ]; then
+    # Not answered yet: the doctor does not reach the remote either.
+    mm_row ok "Updates" "not chosen yet, so nothing is checked until you answer the one-time question"
   elif [ ! -e ".git" ]; then
     mm_row warn "Updates" "not a git checkout, so ./start.sh cannot self-update"
   elif ! command -v git >/dev/null 2>&1; then
@@ -897,7 +923,19 @@ fi
 # two channels for a source install. Read outside the guard so the message
 # after the block can say which of the two reasons it was.
 MM_UPDATE_PLAN="$(mm_update_plan)"
+if [ "$MM_UPDATE_PLAN" = "ask" ] && [ -z "${MM_CHILD:-}" ] && [ "$MM_NO_UPDATE" = "0" ] \
+     && [ -z "${MM_UPDATE_CHOICE:-}" ]; then
+  MM_UPDATE_CHOICE="$(mm_ask_update_choice)"
+  if [ "$MM_UPDATE_CHOICE" = "yes" ]; then
+    MM_UPDATE_PLAN="$(mm_pref_str update_channel main)"
+  elif [ "$MM_UPDATE_CHOICE" = "no" ]; then
+    MM_UPDATE_PLAN="off"
+  fi
+  # Exported so the relaunch below and the app both see the answer.
+  [ -n "$MM_UPDATE_CHOICE" ] && export MM_UPDATE_CHOICE
+fi
 if [ -z "${MM_CHILD:-}" ] && [ "$MM_NO_UPDATE" = "0" ] && [ "$MM_UPDATE_PLAN" != "off" ] \
+     && [ "$MM_UPDATE_PLAN" != "ask" ] \
      && command -v git >/dev/null 2>&1 && [ -e .git ]; then
   mm_status "$MM_STEP_UPDATE" "Update" "Checking for updates on GitHub" "active"
   echo " Checking for updates..."
@@ -988,6 +1026,9 @@ elif [ "$MM_UPDATE_PLAN" = "off" ] && [ -z "${MM_CHILD:-}" ]; then
   # exits produced.
   echo "        Automatic updates are off in Settings, staying on this version."
   mm_status "$MM_STEP_UPDATE" "Update" "Off in Settings" "done"
+elif [ "$MM_UPDATE_PLAN" = "ask" ] && [ -z "${MM_CHILD:-}" ]; then
+  echo "        Nothing checked for updates: the app asks once whether to."
+  mm_status "$MM_STEP_UPDATE" "Update" "Not chosen yet, nothing checked" "done"
 fi
 
 echo

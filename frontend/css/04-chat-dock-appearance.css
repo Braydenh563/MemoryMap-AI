@@ -403,6 +403,33 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   transition: opacity var(--motion-fast) var(--ease-out);
 }
 
+/* INBOX 571: the column follows the note being read (notes-rail-spy.js), so
+   a change of subject cross-fades rather than snapping, and the card it is
+   about wears a left accent hairline, inset from the card's rounded corners. */
+.notes-rail-body {
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.notes-rail-body.is-switching {
+  opacity: 0.4;
+}
+
+#entry-list > li.rail-subject {
+  position: relative;
+}
+
+#entry-list > li.rail-subject::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: var(--space-3);
+  bottom: var(--space-3);
+  width: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  pointer-events: none;
+}
+
 .notes-rail-body .connection-group + .connection-group {
   margin-top: var(--space-5);
 }
@@ -3640,9 +3667,13 @@ span > .chip {
   min-width: 0;
 }
 
-.doc-layout:has(> #doc-sidebar.hidden) > :not(#doc-sidebar),
-.doc-layout:has(> #doc-sidebar[hidden]) > :not(#doc-sidebar),
-.doc-layout:not(:has(> #doc-sidebar)) > :not(#doc-sidebar) {
+/* `.doc-main`, the one other child, rather than `:not(#doc-sidebar)`: a
+   `:has()` followed by a compound with no class in it restyled the whole page
+   on every DOM insertion anywhere (audit FEAT-02; the belt above keeps the
+   general case). */
+.doc-layout:has(> #doc-sidebar.hidden) > .doc-main,
+.doc-layout:has(> #doc-sidebar[hidden]) > .doc-main,
+.doc-layout:not(:has(> #doc-sidebar)) > .doc-main {
   grid-column: 1;
 }
 

@@ -1438,6 +1438,52 @@ button.rich-picker-row:is(:hover, :focus-visible) .rich-picker-tile {
   color: var(--muted);
 }
 
+/* A page break (DOCUMENTS_PLAN D4): a labelled dashed line on screen; the
+   print rule in 09-editor.css turns it into the break itself. */
+.md-page-break {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-5) 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.md-page-break::before,
+.md-page-break::after {
+  content: "";
+  flex: 1;
+  border-top: 1px dashed var(--border);
+}
+
+/* Footnotes (audit FEAT-03): a raised number in the prose, the notes in a
+   quiet list at the foot, each with a way back to where it was cited. */
+.md-fn-ref {
+  line-height: 0;
+}
+
+.md-fn-ref a {
+  padding: 0 0.1em;
+  text-decoration: none;
+}
+
+.md-footnotes {
+  margin-top: var(--space-5);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.md-footnotes ol {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.md-fn-back {
+  font-size: var(--text-xs);
+}
+
 /* Display maths, centred on its own line; the source, when the renderer is
    not loaded, set in the code face so it reads as notation. */
 .md-math-block {
@@ -4324,6 +4370,26 @@ button.is-on {
 .library-subtabs[data-scrolled="1"] {
   background: var(--card);
   backdrop-filter: blur(16px);
+}
+
+/* UX-18 (audit 2026-10-05): the notes list's dock (filter, sort, Select, New
+   note) scrolled away with the list, 1,244px up after one long scroll, so
+   every one of them needed "Back to top" first. It sticks under the sub-tab
+   strip (`--notes-sticky-top`, the strip's measured height), a layer below
+   it, bare at rest and on the opaque ground once notes pass under it, the
+   sticky-bar rule (DESIGN.md: never a tint alone). Not on a phone: there the
+   dock wraps to 114px and, with the strip, would hold 234 of 844px. */
+@media (min-width: 600px) {
+  #tab-notes .dock[data-dock-name="notes"] {
+    position: sticky;
+    top: var(--notes-sticky-top);
+    z-index: 19;
+  }
+
+  #tab-notes .dock[data-dock-name="notes"][data-scrolled="1"] {
+    background: var(--modal-bg-opaque);
+    box-shadow: inset 0 -1px 0 var(--border);
+  }
 }
 
 /* **Nothing the keyboard reaches scrolls in under the strip** (WCAG 2.4.11,

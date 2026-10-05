@@ -987,6 +987,9 @@ def create_app() -> FastAPI:
     # a thread, once the server is answering; each is safe beside requests
     # (a backup is SQLite's online backup, the purge and the compaction are
     # ordinary transactions).
+    # The terminal's answer to "check for updates automatically?" (start.sh
+    # asks before there is a Python to write it down; routes_update).
+    routes_update.apply_launcher_choice(deps.get_config())
     startup_status.set_phase("Starting local services…")
     _start_searxng_if_asked()
     _start_autonomous_loop()

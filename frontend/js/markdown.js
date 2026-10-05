@@ -298,6 +298,20 @@ function mdColumnsElement(columns, renderInto) {
   return box;
 }
 
+//: `\newpage`, a page break (DOCUMENTS_PLAN decision 20.5).
+const MD_PAGE_BREAK = /^[ \t]*\\newpage[ \t]*$/;
+
+function mdPageBreakElement() {
+  const el = document.createElement("div");
+  el.className = "md-page-break";
+  el.setAttribute("role", "separator");
+  el.setAttribute("aria-label", "Page break");
+  const label = document.createElement("span");
+  label.textContent = "Page break";
+  el.appendChild(label);
+  return el;
+}
+
 //: A rule of the kind `mdDividerKind` read.
 function mdRuleElement(kind) {
   const hr = document.createElement("hr");
@@ -426,6 +440,119 @@ function mdFillTocs(container) {
       list.appendChild(empty);
     }
   }
+}
+
+// MD-FOOTNOTE-BEGIN
+//: Footnotes (audit FEAT-03, DOCUMENTS_PLAN decision 20.1): definitions
+//: blanked out, cited references made placeholders; tests/test_md_footnotes.py.
+const MD_FN_DEF = /^\[\^([^\]\s]{1,40})\]:[ \t]?(.*)$/;
+const MD_FN_REF = /\[\^([^\]\s]{1,40})\]/g;
+const MD_FN_FENCE = /^\s*(?:```|~~~)/;
+
+function mdFootnotePrepare(lines) {
+  const defs = new Map();
+  const out = lines.slice();
+  const each = (fn) => {
+    let fenced = false;
+    for (let i = 0; i < out.length; i++) {
+      if (MD_FN_FENCE.test(out[i])) fenced = !fenced;
+      else if (!fenced) i = fn(i) ?? i;
+    }
+  };
+  each((i) => {
+    const def = MD_FN_DEF.exec(out[i]);
+    if (!def || defs.has(def[1])) return;
+    const body = [def[2]];
+    out[i] = "";
+    while (/^(?: {2,}|\t)\S/.test(out[i + 1] || "")) {
+      body.push(out[++i].trim());
+      out[i] = "";
+    }
+    defs.set(def[1], body.join(" ").trim());
+    return i;
+  });
+  if (!defs.size) return { lines, notes: [] };
+  const order = [];
+  each((i) => {
+    out[i] = out[i].replace(MD_FN_REF, (whole, id) => {
+      if (!defs.has(id)) return whole;
+      if (!order.includes(id)) order.push(id);
+      return `${id}`;
+    });
+  });
+  for (const id of defs.keys()) if (!order.includes(id)) order.push(id);
+  return { lines: out, notes: order.map((id, k) => ({ id, n: k + 1, text: defs.get(id) })) };
+}
+// MD-FOOTNOTE-END
+
+//: A prefix per render, so two documents on one page share no id.
+let mdFootnoteRuns = 0;
+
+function mdFootnotesFinish(container, notes) {
+  if (!notes.length) return;
+  const run = ++mdFootnoteRuns;
+  const byId = new Map(notes.map((note) => [note.id, note]));
+  const anchor = (kind, id) => `fn${kind}-${run}-${id.replace(/[^\w-]/g, "_")}`;
+  const marker = /([^]+)/g;
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  const hits = [];
+  while (walker.nextNode()) if (walker.currentNode.nodeValue.includes("")) hits.push(walker.currentNode);
+  const cited = new Set();
+  for (const node of hits) {
+    const value = node.nodeValue;
+    if (node.parentElement?.closest("code, pre")) {
+      node.nodeValue = value.replace(marker, "[^$1]");
+      continue;
+    }
+    const frag = document.createDocumentFragment();
+    let last = 0;
+    for (const m of value.matchAll(marker)) {
+      const n = byId.get(m[1])?.n ?? m[1];
+      const sup = document.createElement("sup");
+      sup.className = "md-fn-ref";
+      const link = document.createElement("a");
+      link.href = `#${anchor("", m[1])}`;
+      link.textContent = n;
+      link.setAttribute("aria-label", `Footnote ${n}`);
+      if (!cited.has(m[1])) link.id = anchor("ref", m[1]);
+      cited.add(m[1]);
+      sup.appendChild(link);
+      frag.append(value.slice(last, m.index), sup);
+      last = m.index + m[0].length;
+    }
+    frag.append(value.slice(last));
+    node.replaceWith(frag);
+  }
+  const section = document.createElement("section");
+  section.className = "md-footnotes";
+  section.setAttribute("aria-label", "Footnotes");
+  const list = document.createElement("ol");
+  for (const note of notes) {
+    const item = document.createElement("li");
+    item.id = anchor("", note.id);
+    appendInline(item, note.text);
+    if (cited.has(note.id)) {
+      const back = document.createElement("a");
+      back.className = "md-fn-back";
+      back.href = `#${anchor("ref", note.id)}`;
+      back.textContent = "Back";
+      back.setAttribute("aria-label", `Back to reference ${note.n}`);
+      item.append(" ", back);
+    }
+    list.appendChild(item);
+  }
+  section.appendChild(list);
+  container.appendChild(section);
+  //: Jump in place (`mdFillTocs`'s rule); an exported file uses the `#id`.
+  if (container.mdFnJump) return;
+  container.mdFnJump = true;
+  container.addEventListener("click", (event) => {
+    const link = event.target.closest?.("a[href^='#fn']");
+    const target = link && container.querySelector(`#${CSS.escape(link.getAttribute("href").slice(1))}`);
+    if (!target) return;
+    event.preventDefault();
+    target.scrollIntoView({ block: "center", behavior: reducedMotionWanted() ? "auto" : "smooth" });
+  });
 }
 
 //: **An embedded document is a card, not a link** (INBOX 421 b: "embed of a

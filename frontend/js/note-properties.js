@@ -105,7 +105,10 @@ async function openNotePropertiesSheet(entry) {
         remove.classList.add("icon-only");
         const entryRow = { keyValue: () => keyInput.value.trim(), read: () => propRead(kind, input) };
         rows.push(entryRow);
-        row.append(keyInput, input, remove);
+        //: KG4: a note field searches the notebook, not only the datalist's
+        //: first 300 titles.
+        if (kind === "note") row.append(keyInput, input, noteFieldPickButton(input), remove);
+        else row.append(keyInput, input, remove);
         list.appendChild(row);
       };
       const fieldsOf = (name) => (types.find((t) => t.name === name)?.fields || []);
@@ -304,10 +307,90 @@ function openQueryTable(ids) {
         tbody.appendChild(tr);
       }
       table.append(thead, tbody);
+      if (columns.length) table.appendChild(queryTableRollupFoot(columns));
       wrap.appendChild(table);
       card.appendChild(wrap);
     },
   });
+}
+
+//: **Rollups** (GRAPH_PLAN, after KG9): the footer says one thing per column
+//: about every note the query matched, not only the rows drawn: count, and
+//: sum, min and max when the values read as numbers, earliest and latest when
+//: they read as dates. The server computes them from the property index
+//: (`entry/query.rollups`), the same `noteSearch` the list ran; the choice per
+//: column is remembered on this device, a column's own default is the first
+//: of sum, latest and count it has.
+const QUERY_ROLLUP_NAMES = { count: "Count", sum: "Sum", min: "Min", max: "Max", earliest: "Earliest", latest: "Latest" };
+
+function queryTableRollupFoot(columns) {
+  const foot = document.createElement("tfoot");
+  const row = document.createElement("tr");
+  const lead = document.createElement("th");
+  lead.scope = "row";
+  lead.textContent = "Roll up";
+  row.appendChild(lead);
+  const cells = new Map();
+  for (const key of columns) {
+    const td = document.createElement("td");
+    td.className = "query-rollup";
+    td.dataset.key = key;
+    cells.set(key, td);
+    row.appendChild(td);
+  }
+  foot.appendChild(row);
+  apiJson(`/entries/query?q=${encodeURIComponent(noteSearch || "")}`)
+    .then((body) => fillQueryRollups(cells, (body && body.rollups) || {}))
+    .catch(() => {
+      for (const td of cells.values()) td.textContent = "";
+    });
+  return foot;
+}
+
+function fillQueryRollups(cells, rollups) {
+  for (const [key, td] of cells) {
+    td.replaceChildren();
+    const block = rollups[key];
+    if (!block) continue;
+    const kinds = Object.keys(QUERY_ROLLUP_NAMES).filter((k) => block[k] !== undefined);
+    const storeKey = `query-rollup:${key}`;
+    let chosen = "";
+    try {
+      chosen = localStorage.getItem(storeKey) || "";
+    } catch {
+      chosen = "";
+    }
+    if (!kinds.includes(chosen)) chosen = ["sum", "latest", "count"].find((k) => kinds.includes(k));
+    const value = document.createElement("span");
+    value.className = "query-rollup-value";
+    //: Words only: a count and nothing to choose, so no dead one-item select.
+    if (kinds.length === 1) {
+      const name = document.createElement("span");
+      name.className = "muted";
+      name.textContent = QUERY_ROLLUP_NAMES[chosen];
+      value.textContent = String(block[chosen]);
+      td.append(name, value);
+      continue;
+    }
+    const select = document.createElement("select");
+    select.className = "query-rollup-kind";
+    select.setAttribute("aria-label", `Roll up ${key}`);
+    for (const k of kinds) select.add(new Option(QUERY_ROLLUP_NAMES[k], k, false, k === chosen));
+    const show = () => {
+      const v = block[select.value];
+      value.textContent = typeof v === "number" ? v.toLocaleString(undefined, { maximumFractionDigits: 2 }) : v;
+    };
+    select.addEventListener("change", () => {
+      try {
+        localStorage.setItem(storeKey, select.value);
+      } catch {
+        /* this device only; nothing lost */
+      }
+      show();
+    });
+    show();
+    td.append(select, value);
+  }
 }
 
 /** The same notes, lit on the graph (the topic legend's highlight). */

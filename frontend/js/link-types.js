@@ -32,15 +32,19 @@ function linkPropsParse(text) {
 //: the row and the links it left untyped, and `restore` makes it again under
 //: its own key (a rename kept the key) with those links typed again, unless
 //: one was given another kind since. The notes repaint for the link chips.
+//: Every note's link chips can carry the kind, so both directions repaint
+//: the whole list: one full read, named once.
+const relationTypesRepaint = () => loadEntries().catch(() => {});
+
 function relationTypeDeleteUndo(gone) {
   const n = gone.links_untyped || 0;
   const remake = async () => {
     await apiJson("/relation-types", { method: "POST", body: JSON.stringify({ ...gone.restore, restore: true }) });
-    loadEntries().catch(() => {});
+    relationTypesRepaint();
   };
   const action = pushUndo(`Deleted the kind of link “${gone.restore.name}”`, remake, async () => {
     await apiJson(`/relation-types/${gone.deleted}`, { method: "DELETE" });
-    loadEntries().catch(() => {});
+    relationTypesRepaint();
   });
   toastAction(n ? `Deleted. ${n} link${n === 1 ? "" : "s"} kept, with no kind.` : "Deleted.", "Undo", async () => {
     settleUndoFromToast(action);

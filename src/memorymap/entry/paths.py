@@ -164,7 +164,12 @@ def build(
     return _connect(session, entries, extra_edges)
 
 
-def build_light(session: Session, extra_edges: list[dict] | None = None) -> Connections:
+def build_light(
+    session: Session,
+    extra_edges: list[dict] | None = None,
+    drafts: bool = True,
+    boards: bool = True,
+) -> Connections:
     """`build` over three columns instead of whole notes.
 
     Focus mode and PageRank need who is joined to whom, not what anyone wrote:
@@ -174,12 +179,18 @@ def build_light(session: Session, extra_edges: list[dict] | None = None) -> Conn
     column rows here, so a caller that wants a note's content loads that note
     itself, for the dozen it draws and not the thousands it indexed. Private
     notes are in, as in `build`'s default.
+
+    `drafts` and `boards` False leave those notes out, for the map's own
+    picture (`routes_graph._centrality`: the whole map draws no draft, and a
+    board only with Maps on), so a rank is never lent through a note the map
+    does not show.
     """
-    rows = list(
-        session.execute(
-            select(Entry.id, Entry.parent_id, Entry.tags).where(Entry.is_deleted == False)  # noqa: E712
-        )
-    )
+    query = select(Entry.id, Entry.parent_id, Entry.tags).where(Entry.is_deleted == False)  # noqa: E712
+    if not drafts:
+        query = query.where(Entry.is_draft == False)  # noqa: E712
+    if not boards:
+        query = query.where(Entry.is_board == False)  # noqa: E712
+    rows = list(session.execute(query))
     return _connect(session, rows, extra_edges)
 
 

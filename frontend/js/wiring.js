@@ -1676,10 +1676,8 @@ let reminderComposeSheetClose = null;
 function openReminderCompose() {
   const form = $("reminder-compose");
   if (!form) return;
-  // The sentence box when the AI that reads it is there, the plain one when
-  // it is not (`data-needs-model` disables the sentence box's Add).
-  const field = () =>
-    ($("reminder-magic-add")?.disabled ? $("reminder-text") : $("reminder-magic")) || $("reminder-text");
+  // The sentence box: its times need no model (UX-01).
+  const field = () => $("reminder-magic") || $("reminder-text");
   if (!window.matchMedia(REMINDER_SHEET).matches || typeof openSheet !== "function") {
     field()?.focus();
     return;
@@ -1920,7 +1918,7 @@ async function mergeDuplicateGroup(ids, card) {
     `Merge ${ids.length} notes into one?\n\n` +
       `The merged note will read:\n\n${preview.merged.slice(0, 400)}` +
       `${preview.merged.length > 400 ? "…" : ""}\n\n` +
-      `The other ${ids.length - 1} go to the recycle bin, so this is undoable.`
+      `The other ${ids.length - 1} go to the bin, so this is undoable.`
   ));
   if (!ok) return;
 

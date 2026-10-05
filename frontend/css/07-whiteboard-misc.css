@@ -3604,9 +3604,11 @@ dialog::backdrop {
    heads that is a circle rather than a control-height button, and this rule
    set its height alone, which drew it as an oval (INBOX 179, reported
    twice). Its own size lives with the recipe in 08-consistency.css. */
-#capture > .row:has(> h2) button:not(.graph-help-toggle),
-#writing-room > .row:has(> h2) button:not(.graph-help-toggle),
-#ask > .row:has(> h2) button:not(.graph-help-toggle) {
+/* After the heading by sibling rather than `.row:has(> h2) button`: that
+   `:has()` with a classless rightmost compound restyled the whole page on
+   every DOM insertion anywhere (audit FEAT-02). */
+:is(#capture, #writing-room, #ask) > .row > h2 ~ button:not(.graph-help-toggle),
+:is(#capture, #writing-room, #ask) > .row > h2 ~ * button:not(.graph-help-toggle) {
   height: var(--control-h-lg);
   padding-block: 0;
   margin: 0;
@@ -8475,17 +8477,11 @@ button.connection-row {
   white-space: normal;
 }
 
-/* Read and unread are a *state*, so they are coloured like every other state
-   in this app rather than getting their own pair: `--ok` for done, muted for
-   not-yet. Deliberately not red for unread, an unread file is not a problem. */
-.library-read-badge.is-read {
-  color: var(--ok);
-  border-color: color-mix(in srgb, var(--ok) 35%, transparent);
-}
-
-.library-read-badge.is-unread {
-  color: var(--muted);
-}
+/* Read and unread are a *state*, so they are the status label (`chip
+   item-label`, `is-ok` for read) like every other state in this app rather
+   than a pair of their own (INBOX 553 (c)): the ok tint for done, the quiet
+   one for not yet. Deliberately not red for unread, an unread file is not a
+   problem. */
 
 .library-read-open {
   flex: none;
@@ -11556,6 +11552,23 @@ input[type="file"] {
    move everything except this one" is otherwise unanswerable from the screen. */
 .wb-map-pinned {
   border-style: dashed;
+}
+
+/* **The pin dashes the box, never the bar** (INBOX 569, the owner: "it says
+   the edge bar is solid even though it is dashed"). The rule above, one class
+   and later in the file, beat the bar's own `border-left: 4px solid`, so a
+   dragged topic's Solid bar was drawn dashed while the Shape menu said Solid
+   (measured: 44% of the bar's pixels were gaps). The bar's side keeps what
+   the Edge bar chooses; the hairline sides carry the pin's dash, including
+   the left edge on a downward map and on a mirrored topic, which the bar's
+   own rules set solid. `mmdoc1005-spinebar.js` checks every combination. */
+.wb-map-node.wb-map-pinned:not([data-spine]):not(.wb-map-node-mirrored) {
+  border-left-style: solid;
+}
+
+.wb-map-down .wb-map-node.wb-map-pinned:not([data-shape="none"]),
+.wb-map-node.wb-map-pinned.wb-map-node-mirrored:not([data-shape="none"]) {
+  border-left-style: dashed;
 }
 
 /* Tree edges. Drawn under everything (the group is the zoom group's first

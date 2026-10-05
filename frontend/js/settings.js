@@ -232,7 +232,7 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   //: budget, settings-controls.js). Only the first open waits, and only for
   //: that file: once its marker constant exists this stays synchronous, so a
   //: caller that reads the window straight after the call still finds it open.
-  if (typeof SETTINGS_CONTROLS_READY === "undefined" && typeof ensureModule === "function") {
+  if (typeof SETTINGS_CONTROLS_READY === "undefined") {
     await ensureModule("settingsControls");
   }
   $("settings-modal").classList.remove("hidden");

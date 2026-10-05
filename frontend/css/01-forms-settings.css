@@ -1548,8 +1548,15 @@ progress {
    16px horizontal jump between this row's collapsed (grid) and expanded
    (`display: block`) layouts, the exact "keeps its position" bug this
    button exists to not have. Leaving it with no grid placement at all
-   keeps its containing block the plain padding box in both layouts. */
-.entry-list.is-rows li:not(:has(textarea)) > *:not(.entry-title):not(.entry-content):not(.entry-meta):not(.row-expand) {
+   keeps its containing block the plain padding box in both layouts.
+
+   No `:not(:has(textarea))` here (audit FEAT-02, 2026-10-05): a `:has()`
+   followed by a rightmost compound with no class in it made every DOM
+   insertion anywhere in the app restyle every element on the page (3,731
+   elements, about 60ms, traced on a 301-topic map). It was not needed: a row
+   being edited is not a grid (the rule above), so `grid-column` does nothing
+   there. */
+.entry-list.is-rows li > *:not(.entry-title):not(.entry-content):not(.entry-meta):not(.row-expand) {
   grid-column: 1 / -1;
   min-width: 0;
 }
@@ -4141,6 +4148,10 @@ html.modal-open body {
    "Show more", so it is as tall as the person has opened it: a card that
    scrolled inside itself hid the Dismiss on rows below the fold, and the
    grid re-measures the card's span when it grows (`watchDashWidgets`). */
+/* Boards & maps too (INBOX 553(d)): its height is the large map's, which
+   `dashMapFeature` already bounds (320px at most), plus four rows; scrolling
+   inside a 320px body hid every row under a tall map. */
+.dash-widget[data-widget="boards"] .dash-body,
 .dash-widget[data-widget="art"] .dash-body,
 .dash-widget[data-widget="capture"] .dash-body,
 .dash-widget[data-widget="stats"] .dash-body,
@@ -4789,6 +4800,17 @@ html.modal-open body {
 .sampling-controls input[type="range"] {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* The LAN certificate's fingerprint (Settings, Other devices; SEC-08): 95
+   characters and no spaces, read pair by pair against a phone's warning, so
+   monospaced, selectable in one go, and free to wrap anywhere rather than
+   push the column wide on a phone. */
+.lan-fingerprint {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+  user-select: all;
 }
 
 /* Tabular figures so the number does not jitter the reset button sideways as

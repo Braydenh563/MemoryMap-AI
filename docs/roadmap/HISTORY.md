@@ -7,6 +7,78 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
+
+From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN
+section 20 and MINDMAP_PLAN decisions 22 to 31.
+
+- **FEAT-01 and FEAT-05** (`cc89dcb`): a FreeMind file's single root is the
+  central topic; OPML, FreeMind and Markdown each round-trip a 101-topic map
+  made here; imports and generated maps open in tree-right, tidied once.
+- **FEAT-03** (`7b5547e`): footnotes in Read, print/PDF and the HTML export
+  (`mdFootnotePrepare`, node-tested; `mdFootnotesFinish`).
+  `mmdoc1005-footnotes.js` PASS at 1440 light and 390 dark.
+- **FEAT-04 and FEAT-08** (`ad14b76`): rich paste as Markdown through an
+  allowlist; Mermaid fences stay code, BACKLOG 29c corrected.
+  `mmdoc1005-richpaste.js` 5/5.
+- **FEAT-09, the map half** (`595db03`): a pasted list is a branch,
+  `POST /boards/{id}/nodes/outline`, one Undo step.
+- **INBOX 553(b)** (`b36cc19`): undo histories survive a reload
+  (`undo-store.js`, IndexedDB). `mmdoc1005-undoreload.js` 4/4.
+- **INBOX 553(d)** (`d873a3f`): the dashboard draws its busiest map at its
+  own shape (`dash-boards.js`). `mmdoc1005-dashmap.js` 5/5.
+- **INBOX 569, 573, 574** (`e94190c`, `23009a4`, `ba6d28d`): a pinned
+  topic's Edge bar, the cross-link tool's dots, the formatting toolbar's way
+  back; each moved to "INBOX resolved" with its numbers.
+- **D4, first part** (`0ae2e18`): `\newpage` page breaks.
+  `mmdoc1005-pagebreak.js` 4/4.
+- **M5, first half** (`5fb59d3`): Write this map as a document.
+  `mmdoc1005-maptodoc.js` 5/5 light and dark.
+
+## Moved from the plans, 2026-10-05 (the map's add path)
+
+Audit FEAT-02, MINDMAP_PLAN decisions 24 to 28. Tab and Enter used to wait
+for the POST, tidy and render the whole map, wait for the tidy's save and
+render the whole map again. Now one render, the editor open before the
+server answers, and the id adopted in the background (`wbMapAddChild`,
+`wbMapAdoptProvisional`, `wbMapTidyOrigin`, `wbMapTidyBranchPlan`).
+
+Measured with `scratchpad/ui-sweeps/mmdoc1005-mapaddlatency.js` (key to an
+editable topic, six adds per size, headless Chromium on a shared 4-core box
+under a load average of 9 to 14, so the shape is the finding, not the
+milliseconds):
+
+| Topics | Before | After |
+| --- | --- | --- |
+| 6 | 249 to 803 (audit) | median 57 to 62 |
+| 101 | 521 to 1,642 (audit) | median 126 to 138 |
+| 301 | 827 to 1,371 (this session) | median 224 to 533 |
+| 301, back to back, load 12.6 | median **1,279** (the old scripts, `OVERRIDE_JS`) | median **320** |
+
+One render per add instead of two; renders at 301 topics 127 to 411ms
+against 262 to 644ms plus a second of 67 to 156ms.
+
+Profiled (`mmdoc1005-mapaddprofile.js`, `mmdoc1005-maplayoutprobe.js`): one
+DOM insertion inside the board restyled all 3,731 elements on the page,
+55 to 80ms, because three rules put a `:has()` before a compound with no
+class in it (`.entry-list.is-rows li:not(:has(textarea)) > *:not(...)`,
+`.doc-layout:has(...) > :not(#doc-sidebar)`, `#capture > .row:has(> h2)
+button`). Rewritten without changing what they style
+(`mmdoc1005-hasrewrite.js`); an insertion now costs about 20ms there, and
+`tests/test_has_invalidation.py` is the ratchet. Also: the render's paint
+key dropped x and y, so a tidy that shifts most of the map writes
+transforms rather than repainting every topic (409ms of `setAttribute`
+before). **Not met:** the 100ms gate at 300 topics; what is left is the
+one render's edge pass and the selection bar's layout read, and a few
+weaker `:has()` rules the ratchet lists.
+
+Same pass: FEAT-15 (a typed topic is one Undo step), FEAT-16 (focus back to
+the canvas and the name announced), FEAT-17 (no Order group on a laid-out
+map), FEAT-11 (the map's commands in the palette, `mapPaletteCommands`).
+Gates: `mmdoc1005-mapchecks.js` 13/13 at 1440 light and 390 dark;
+`boardundo.js` 43/43, `wbmapundo.js` 18/18, `mapstrip.js` 39/39,
+`maptheme.js` 24/24, `mapline.js` 13/13, `maprejoin.js` ok.
+
 ## Moved from the plans, 2026-10-05 (a frame as an export scope)
 
 ### From WHITEBOARD_PLAN.md, decision 14's open edges (decision 18)
@@ -27043,7 +27115,8 @@ Footnotes: `[^1]` and its `[^1]: text` definition render as the identifier
 alone, raised, with the brackets hidden like every other marker in Live, and
 a click on the reference goes to the text. Drawn by a scan rather than from
 the tree because the lezer grammar here has no footnote extension, which is
-also why nothing was drawing them before.
+also why nothing was drawing them before. (Live only: Read, print and the
+HTML export drew them raw until audit FEAT-03, 2026-10-05.)
 
 **Math, with no KaTeX, as the plan asks.** A TeX subset to MathML in about
 200 lines of documents.js (`DOC-MATH-BEGIN` to `DOC-MATH-END`): fractions,
@@ -40436,6 +40509,90 @@ written first and seen failing.
 - **Not verified:** real-model compliance (scripted model only); a real
   rebinding page in a browser; the pywebview window; Windows file modes.
 
+## Security audit, second pass, 2026-10-05 (the owner's two decisions, SEC-08 to SEC-17)
+
+The owner's two decisions of 2026-10-05 (WORLD_CLASS_PLAN 12, "Decisions
+made") and the audit's leftovers, each with its test written first.
+
+- **Auto-update asks once.** `update_choice_made` (core/config.py) is
+  false until the person answers; `auto_update_enabled` is off by default
+  for every install. start.sh's `mm_update_plan` says `ask` until then and
+  neither pulls nor reaches the remote (the doctor too); `mm_ask_update_choice`
+  asks in a terminal (60 s, Enter is no) and exports `MM_UPDATE_CHOICE`,
+  which `routes_update.apply_launcher_choice` keeps at startup. start.bat
+  reads the same four plans in `:read_update_plan` and leaves the question
+  to the app (its console may sit behind the splash). The app asks through
+  `askUpdateChoiceOnce` (update-dialogs.js, `POST /update/choice`); in the
+  packaged app yes means "tell me", installing keeps its own switch. The
+  Settings button is "Check for updates" and checks once with the switch
+  off (`/update/check?manual=1`). Tests: `tests/test_update_ask_once.py`,
+  `TestUpdatesAskOnce` in `tests/test_launcher_scripts.py` (a scratch copy,
+  a recording `git`, a pty), `tests/test_launcher_update_settings.py`.
+- **SEC-08, LAN over HTTPS.** `core/lancert.py` makes an EC P-256,
+  825-day, serverAuth certificate with `cryptography`, its SAN the host
+  name, `.local`, localhost and every LAN address, in `<data>/lan-tls/`
+  (folder 0700, files 0600), once, reused, renewed 30 days before expiry or
+  when unreadable. `__main__._serve_with_lan` serves the network over TLS on
+  `netbind.lan_port` (8443 beside 8000, `MEMORYMAP_LAN_PORT`) beside plain
+  http on 127.0.0.1, one app, one loop, the second listener leaving signals
+  to the first; the fingerprint is printed at start. Settings, Other devices
+  shows the fingerprint (`GET /auth/lan-access` `certificate`) and
+  Regenerate certificate (`POST /auth/lan-certificate`), which reloads the
+  live TLS context, no restart. Tests: `tests/test_lan_tls.py`, and
+  `tests/test_lan_mode.py`'s end-to-end test now verifies the handshake
+  against the notebook's own certificate by IP (the SAN), a Secure cookie,
+  and plain http refused from the network.
+
+- **SEC-10, a folder import is safe to run again.**
+  `routes_settings._already_imported` maps every live note's `source_path`
+  to the SHA-256 of its text (or to "private", matched on the path alone, so
+  an import never makes a readable copy of a private note); a file already
+  in is counted as "already in" on the activity line and the job's result.
+  A failed file rolls the session back, so one bad flush no longer refuses
+  every later file (`create_entry` commits each note, so nothing before it
+  is lost). The task-history row at start and "The app closed before this
+  finished." after a kill were already there (`jobruns.job_run`,
+  `mark_interrupted`). `tests/test_import_idempotent.py`: twice adds
+  nothing, an interrupted import finishes, a changed file comes in, a
+  private note is not duplicated, one failure does not stop the rest.
+
+- **SEC-14, answers that quoted a note before it went private.**
+  `manager._redact_answers_quoting`, called by `set_private(True)` before the
+  text is sealed: an `AskTurn` whose results, connections or grounding name
+  the note, or whose answer repeats a run of six of its words, gets
+  `PRIVATE_ANSWER_REDACTED` and loses its grounding and match details; a
+  saved chat reply that cited it (its raw results, connections, sentence
+  marks, or a note attached to the question before it) or repeats a run of
+  its words anywhere in the message (steps, tools, thinking) is replaced
+  by `{content: PRIVATE_ANSWER_REDACTED, redacted: true}`. The question
+  stays. With SEC-03's scrub after the commit, none of the words stay in the
+  file. `tests/test_private_answer_scrub.py`.
+
+- **SEC-17, a floor for new passwords.** `routes_auth.NEW_PASSWORD_MIN_CHARS`
+  (8) at setup and change password, said in a 400 sentence;
+  `password_warning` flags a common choice, one or two characters repeated, a
+  run along the alphabet, the digits or a keyboard row, and a short password
+  of one kind of character, and setup and change return it as `warning`
+  (the lock screen toasts it, Settings says it on the status line). Unlock
+  keeps its old floor, so a password set before this still opens the
+  notebook. The lock screen's own check is 8 for setup and 4 for unlock;
+  the setup note and the placeholder say 8. Also: the boot's update step
+  now runs after the templates load `prefsCache`, which it read as null
+  beside them, so neither the ask-once question nor the opted-in startup
+  check ever ran (measured in Chromium before and after;
+  `scratchpad/ui-sweeps/sec2-1005-sweep.js`). `tests/test_password_floor.py`.
+
+- **SEC-02's last step, which pages a tainted turn may open.** In a turn
+  that has read outside text, `read_url` still parks unless
+  `agent._cleared_page` clears it: its page key (host lowercased, no scheme,
+  fragment or trailing slash, the query kept) is one a `web_search` returned
+  this turn (`_TurnState.result_pages`, from every `url`/`link`/`href` in
+  the result), or its host, `www.` aside, is one the person named in the
+  question (`_hosts_named`, `named_hosts`). A query string or a longer path
+  added to a result, and a host that only ends like the named one, still
+  park. Untainted turns are unchanged. `tests/test_injection_fence.py`, four
+  new.
+
 ## Moved from the plans, 2026-10-04 (design-1004)
 
 ### From WORLD_CLASS_PLAN.md 1.2: one primary per modal, meta without border or hover
@@ -40517,6 +40674,93 @@ reading pane pads `--space-6`. First line 255 to 199, light and dark; Live
 stays at 192. At 1440 the Read view's title heading is still drawn (block,
 33px). The dock's two rows stay: the Edit/Read row is the view switch the
 plan's item 6 decided on, and it fits the budget as it is.
+## Moved from the plans, 2026-10-05 (GRAPH_PLAN, the last KG rows)
+
+- **Rollups on a live query's table** (the six the plan allows: count, sum,
+  min, max, earliest, latest). `entry/query.rollups` reads the property index
+  (`EntryProperty.number` and `.date`) over every note the query matched, not
+  the 500 rows drawn; `GET /entries/query` returns `rollups` per column. The
+  table's footer (`queryTableRollupFoot`, note-properties.js) is sticky, a
+  `<select>` per column offering only what the values read as (a column of
+  words says Count with no select), its choice kept on this device; default
+  sum, else latest, else count. `tests/test_query_rollups_kg7.py` (4);
+  `scratchpad/ui-sweeps/kg1005-rollups.js` 8/8 at 1440 light and 390 dark
+  (Sum 200.5 over 120, 80.5 and "soon"; Latest 2026-03-02; Max 120 after a
+  change).
+- **A note field searches** (KG4): `noteFieldPickButton` (selection.js) puts
+  the notebook picker (`pickEntryDialog`, the INBOX 548 recipe) beside a
+  note-kind field in the note's Properties sheet and the document's
+  properties panel; the chosen note's name fills the box and fires its
+  change, so the document panel writes the `[[link]]` at once. Before, the
+  only help was a datalist of the first 300 titles. Same sweep: the button is
+  square in its row (28px desktop, 44px touch), and choosing "Lisbon" fills
+  the field.
+
+## Moved from the plans, 2026-10-05 (row 18: the derived tensions table)
+
+WORLD_CLASS_PLAN B4, row 18. Typed links were already KG3 (`LINK_TYPES` plus
+`relation_types`). Built here:
+
+- **The table** (`tensions`, `DerivedTension` in `core/database.py`): one row
+  per pair of notes, with its status (open, accepted, dismissed), the reason,
+  who decided it (a model, `local`, or `person`), when, its source (scan,
+  night, link) and the event it cites. A new table, so `create_all` builds it;
+  no migration.
+- **The sources** (`ai/tensions.py`, `derive`): tension events written by the
+  scan (`tension_found`, with reason, model and confidence) and by Accept and
+  Dismiss (`tension_accepted`, `tension_dismissed`), all `entity_type=
+  "tension"` so the entity index serves them; the night shift's `tension`
+  facts (a tombstone is a dismissal); the `contradicts` links. `refresh`
+  rebuilds when `sources_version` (seven indexed aggregates) moved;
+  `rebuild` runs with the space filter lifted, so a request in one space never
+  drops another space's links.
+- **The scan never asks twice**: `GET /entries/tensions` skips every pair in
+  the table and records each new finding as an event.
+  `GET /entries/tensions/known?status=` lists the table in the scan's shape
+  plus status, model, computed_at, source and event_id; a pair whose note is
+  private, binned or in another space is hidden by the join.
+- **The widget** (`renderTensionsWidget`, `dashTensionRow` in dashboard.js):
+  the open pairs by both names, the reason, "Found by <model> · <when>" (B4's
+  stamp), and the night card's four icon actions (open either note, link as
+  contradicting, dismiss); the review sheet lists what was found earlier
+  before Start the review is pressed. Actions go under the words where the
+  card is narrow.
+- Tests: `tests/test_tensions_table_b4.py` (7: each source and state, a
+  rebuild from nothing equal to the first, every row's event exists and
+  matches, accept and un-link, privacy, the scan records and never asks
+  twice, forgetting). Sweep: `scratchpad/ui-sweeps/kg1005-tensions.js` 9/9 at
+  1440 light and 390 dark (four 28px, or 44px touch, square buttons inside the
+  card; linking takes the row away and the table has it accepted).
+- Not verified: a real local model's verdicts (the scan's judge is faked, the
+  night pass ran on its no-model rule).
+
+## Moved from the plans, 2026-10-05 (TIMELINE_PLAN, zoom and On this day)
+
+The two cheap additions the plan's research section named (decisions 11 to
+13 stay in the plan).
+
+- **Zoom the dates** (`timelineStepScale`, timeline.js): Ctrl and the wheel
+  on the list, or a trackpad pinch (a wheel with `ctrlKey`), steps the bucket
+  one scale per gesture (deltas summed to 50, a 350 ms pause ends a gesture),
+  `preventDefault` so the page itself does not zoom; + and - on a focused row
+  do the same. The focused row, else the topmost, keeps its place; the step
+  is written into Bucket by and announced.
+- **On this day** (Options, Time range): `GET /timeline?on=MM-DD&tz=` keeps
+  rows whose date, shifted into the reader's day, is today's month and day,
+  today itself left out; applied to notes, documents and reminders and to
+  the density strip through the one `in_range`.
+  `tests/test_timeline_on_this_day.py` (4: earlier years, an earlier month,
+  the reader's day not UTC's, a bad day refused).
+- The feed only: in the table (a phone's default view) there are no date
+  groups, so the gesture stays the browser's and + and - do nothing.
+- Sweep: `scratchpad/ui-sweeps/kg1005-timelinezoom.js` 10/10 at 1440 light
+  and 390 dark with the feed chosen (one notch day to week, a twelve-delta
+  pinch one step, in again, page zoom unchanged, - and + on a focused row
+  with focus kept, the table left alone, the request carrying `on=` and
+  `tz=`, today's notes absent).
+- Help: the '?' popover and the Guide's timeline topic (which still described
+  the grid and line views of 2026-09) say both.
+
 ## INBOX resolved, 2026-10-05
 
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs
@@ -41060,4 +41304,74 @@ loading page.
      3), a thin arrowless scrollbar, one card height while filtering.
      `scratchpad/ui-sweeps/pickers.js` 88 checks green at 1440 and 390,
      light and dark (18 fail on the old code).
+
+571. **The owner, 2026-10-05, verbatim (a follow-up to 546).** "again, what
+     constitutes opening a note if I can see a whole note in the notes
+     section, Id just scroll to it and see it yk??" Decision taken: the
+     Connections rail follows the note being read. A card clicked, focused or
+     keyed on is the subject and holds until the list scrolls more than one
+     viewport; otherwise the card whose top is nearest the upper third of
+     the list's visible part (an IntersectionObserver, settled 150ms;
+     `frontend/js/notes-rail-spy.js`, a lazy piece). The subject card wears a
+     left accent hairline; the column cross-fades. The toggle reads
+     "Connections beside the note you're reading"; 546's toast is gone.
+     Phones keep the Connections sheet. Fixed (2026-10-05):
+     `ux1005-railspy.js` at 1440 and 1280: subject 29, then 23 and 16 as the
+     list scrolled 1,200px twice; a clicked card (14) held through a 300px
+     scroll and gave way after 1,500px; one card marked at every step; the
+     list 755px wide at 1440 and 628 at 1280 with the rail beside it.
+
+569. **Fixed 2026-10-05.** The owner, verbatim: "it says the edge bar is solid
+     even though it is dashed" (dark screenshots: a topic's Shape menu reads
+     Box Rounded, Edge bar Solid bar, Fill No fill, and on the canvas the
+     topic has a dashed border and a dashed left bar). The menu was right:
+     the topic was pinned (dragged), and `.wb-map-pinned { border-style:
+     dashed }`, later in 07-whiteboard-misc.css and of equal weight, beat the
+     bar's own `border-left: 4px solid`. 44% of the bar's pixels were gaps
+     (tree-right, pinned, Solid bar). Now the pin dashes the hairline sides
+     only and the bar's side keeps what the Edge bar says; the left hairline
+     of a downward or mirrored pinned topic takes the dash too.
+     `scratchpad/ui-sweeps/mmdoc1005-spinebar.js`: every Box (solid, pinned)
+     by Edge bar (solid, dashed, none) in tree-right, tree-down and both
+     sides, menu text, computed style and the bar's pixels sampled for gaps:
+     31/36 before, 36/36 after, light and dark; a solid bar has 0 gaps, a
+     dashed one 39% to 67%.
+
+573. **Fixed 2026-10-05.** The owner, verbatim: "these anchor points appeared
+     and wont go away" (dark screenshot: a map's "New topic" ringed by eight
+     round accent dots that stayed after deselecting). They were the
+     cross-link tool's anchor hints, not resize handles (a map topic has
+     none: its size is its text's and its own grips', MINDMAP_PLAN). The
+     hover listener drew them under a link tool and returned early under
+     every other one, so after Select (V or Escape) nothing took them away.
+     Now a tool switch, a deselect, the overlay clear and any pointer move
+     off a link tool clear them. `scratchpad/ui-sweeps/mmdoc1005-handlesleft.js`
+     deselects five ways (Escape, a press on empty canvas, Undo and Redo, a
+     tab switch and back, the Shape menu opened and closed) and counts dots,
+     handles and selection marks left: 8 dots left every time before (0/5),
+     0 after (5/5), light and dark.
+
+574. **Fixed 2026-10-05.** The owner, verbatim: "I think there needs to be an
+     easier way to open the formatting toolbar in the documents editor if it
+     is closed in case the user accidentally closes it and cant figure out
+     how to open it back up again". The only way back was the ⋯ menu's
+     "Always show formatting". Now, while the strip is hidden, the dock
+     carries a labelled Formatting button where the strip's toggle sat
+     (desktop; a phone formats from the bar at the thumb); Ctrl+Shift+X
+     toggles it in and out of the text (Ctrl+Shift+F was taken by Find in
+     every document); the ⋯ row reads "Show formatting toolbar" or "Hide
+     formatting toolbar"; the palette row and the shortcut sheet carry the
+     key; the first hide says "Formatting hidden. Bring it back from the
+     Formatting button or Ctrl+Shift+X." once; the help says so.
+     `scratchpad/ui-sweeps/mmdoc1005-formatback.js` 13/13 at 1440 light and
+     dark, 2/2 at 390.
+
+525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
+     dark background behind the graph labels togglable??" Next Opus: the
+     label plate switch in the graph's gear (Obsidian-parity brief).
+     **Fixed** (verified 2026-10-05): Graph, gear, Display, Label
+     backgrounds; `scratchpad/ui-sweeps/graphplates.js` counts 72 plates on,
+     0 off, and still 0 after a reload (kept on this device). With it the
+     spec's last open KG rows: rollups on the query table and a searching
+     picker for a note field (GRAPH_PLAN, "Still open after KG1 to KG9").
 

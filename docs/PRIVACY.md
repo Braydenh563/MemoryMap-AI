@@ -87,7 +87,14 @@ taken off the machine is slow to guess at. Slow is not impossible: the
 wait between wrong passwords only guards the running app, and a copy of
 the file (or a backup) can be guessed offline as fast as a computer can
 run scrypt. A four-digit PIN falls to that in minutes; a long passphrase
-does not. If you keep private notes, use a passphrase.
+does not. So a new password needs at least eight characters, and one that
+is still easy to guess (a common word, a run like 12345678) is accepted
+with a warning; a password set before this keeps working. If you keep
+private notes, use a passphrase.
+
+A note made private also stops being quoted: any saved Ask answer or chat
+reply that cited it, or repeats a run of its words, is replaced with a line
+saying its words were removed. The question you asked stays.
 
 Making a note private also merges the search index and clears its old
 entries from the database file and its write-ahead log, and every backup

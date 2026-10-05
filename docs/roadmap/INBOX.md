@@ -52,14 +52,25 @@ with its owner named in the entry.
      Built 2026-10-05 (38debe1, `tests/test_entity_merge_undo.py`).
      (b) The undo histories of each board, map and document survive a
      reload (the last ~100 steps, stored; WHITEBOARD_PLAN decision 17 is
-     amended).
+     amended). Built 2026-10-05: IndexedDB, `undo-store.js`; decision 17
+     as amended; `mmdoc1005-undoreload.js` 4/4.
      (c) Status labels app-wide are a tinted pill without an edge, matching
      the meta chips.
      (d) The dashboard's map widget is "dynamic depending on map size and
      scale": the card's height and the map's scale follow the map's shape,
      a small map at a readable size, a tall one in a taller card up to a
-     limit, then fitted whole.
+     limit, then fitted whole. Built 2026-10-05: the Boards & maps widget
+     draws its busiest board large (`dashMapFeature`, dash-boards.js, lazy),
+     96px to 168px for six topics or fewer, up to 320px otherwise, fitted
+     whole past that; `mmdoc1005-dashmap.js` 5/5 at 1440 and 390.
      Placed: the next free Opus, after the boot-JS split lands (budget).
+     (c) built 2026-10-05 (the UX fix agent): `chip item-label` is the
+     `--chip-bg` tint at `--radius-pill` with `border: 0`, its tones tints
+     (accent, ok, warn); the Files tiles' "Read · N words" and a chat
+     attachment's reading badge joined it; DESIGN.md's row says so and
+     `tests/test_badge_recipe.py::test_a_status_label_is_a_tinted_pill_without_an_edge`
+     holds it. `badges.js`: 53 labels, one signature (11.2px/500, 19px tall,
+     8px padding, 999px radius, no border, a fill). (a), (b) and (d) are open.
 
 554. **The owner, 2026-10-05, verbatim.** "the feminine atlas whisps should
      wrap the body a bit more instead of all of it sitting in front. also the
@@ -124,6 +135,11 @@ with its owner named in the entry.
      closed in case the user accidentally closes it and cant figure out how
      to open it back up again" Placed: the documents agent.
 
+576. **The owner, 2026-10-05, verbatim.** "this menu's elements arent aligned
+     vertically" (screenshot: a shape's context bar, its Width input, Solid
+     select, swatches and Filled toggle at different heights and centres).
+     Placed: the whiteboard agent.
+
 561. **The owner, 2026-10-05, verbatim.** "I dont like this section in th
      timeline, it needs redesigning, restructuring, moving ro smth"
      (screenshot: the "Sep to Oct 2026" month button over a row of seven
@@ -133,10 +149,6 @@ with its owner named in the entry.
      Merged 2026-10-05 (543): the month sits between its arrows and the days
      are one well to the dock's edge, one Tab stop, arrows walk them
      (daystrip.js 44/44). Waits on the owner's look before closing.
-
-525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
-     dark background behind the graph labels togglable??" Next Opus: the
-     label plate switch in the graph's gear (Obsidian-parity brief).
 
 460. **The owner, 2026-10-03 night, verbatim.** "I keep experiencing scroll
      jump when scrolling with two fingers on my trackpad?? idk". Placed: the

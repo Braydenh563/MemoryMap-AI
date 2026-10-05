@@ -1139,6 +1139,49 @@ class DerivedFact(Base):
     payload: Mapped[str | None] = mapped_column(Text, default=None)
 
 
+class DerivedTension(Base):
+    """One pair of notes that disagree, as the notebook knows it now
+    (WORLD_CLASS_PLAN B4: the derived tensions table).
+
+    **A view, never a source.** Every row is rebuilt by `ai/tensions.rebuild`
+    from three things that are each kept elsewhere: the tension events
+    (`AuditLog`, `entity_type="tension"`: found by a scan, accepted,
+    dismissed), the night shift's tension facts (`DerivedFact`), and the
+    `contradicts` links. Dropping the table loses nothing, and rebuilding it
+    from scratch gives the same rows (the B4 gate). It exists so the
+    Tensions widget can list what was found without asking a model again:
+    before it, a scan's findings lived only in the response that carried them.
+
+    `event_id` is the event the row cites (B4: "every derived row cites its
+    source event"): the scan's own event, the link's creation, or for a night
+    finding the later note's newest event at the time it was read. `pair` is
+    `"low:high"` by note id, so one pair is one row whichever side found it.
+
+    Not workspace-scoped and not filtered here: the listing joins both notes,
+    so a note made private, binned or in another space hides its pairs the
+    moment that happens, with nothing here to keep in step.
+    """
+
+    __tablename__ = "tensions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pair: Mapped[str] = mapped_column(String(40), unique=True)
+    earlier_id: Mapped[int] = mapped_column(Integer, index=True)
+    later_id: Mapped[int] = mapped_column(Integer, index=True)
+    #: `open`, `accepted` (a `contradicts` link joins them) or `dismissed`.
+    status: Mapped[str] = mapped_column(String(12), default="open", index=True)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    #: Who decided it: a model's name, `local` (the night shift's rule), or
+    #: `person` for a link someone made by hand.
+    model: Mapped[str] = mapped_column(String(80), default="local")
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    computed_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    #: `scan`, `night` or `link`: which source the row's finding came from.
+    source: Mapped[str] = mapped_column(String(12), default="scan")
+    source_id: Mapped[int | None] = mapped_column(Integer, default=None)
+    event_id: Mapped[int | None] = mapped_column(Integer, default=None)
+
+
 class NightRun(Base):
     """One pass of the night shift (WORLD_CLASS_PLAN 15, I1: `night_runs`).
 

@@ -352,6 +352,8 @@ extended with the numbers named.
   constant, so a hand-placed node stays put until asked.
 - Everything the map shows is in the tree endpoint and the FreeMind and
   OPML exports round-trip; a feature that cannot round-trip is not built.
+  (Audit 2026-10-05 found FreeMind dropped a one-root map's centre; fixed
+  the same day, decision 22.)
 - **The last topic cannot be deleted; clearing the map is offered
   instead** (the owner asked directly: "should the user even be able to
   delete the primary core node??"). A map with no nodes is a dead end by
@@ -1177,6 +1179,69 @@ topic: a control that wide has nowhere to go.
    one. One level deep: a branch's own branches are not steps, which keeps a
    two-hundred-topic map a talk of a dozen steps. No key edits the map while
    it runs.
+22. **A FreeMind file's single root node is the central topic** (taken
+   2026-10-05, audit FEAT-01, features.md 9.5: the owner's newer words win).
+   This reverses the older code decision pinned by
+   `test_freemind_imports_with_its_root_as_the_maps_name`, which read the
+   root as the map's name and dropped it, so every `.mm` from Freeplane or
+   XMind arrived as loose trunks and a map made here lost its centre on the
+   way back. The map is named after the root unless `<map _title>` names it;
+   the trunk the export invents over a multi-root map carries `_wrapper` and
+   is taken off again. OPML, FreeMind and Markdown each round-trip a
+   101-topic map made here, every topic, edge, the centre and the name
+   (`test_a_101_topic_map_made_here_round_trips_losslessly`).
+23. **A map made from text starts in tree-right and is tidied once as it
+   opens** (taken 2026-10-05, audit FEAT-05). The import and the accepted AI
+   proposal took the board default, Free, while every other map door starts
+   in tree-right (`DEFAULT_MAP_LAYOUT`); `wbMapTidyFresh` lays it out once,
+   with no undo entry, when the import or proposal opens.
+24. **A new topic is drawn and open for typing before the server answers**
+   (taken 2026-10-05, audit FEAT-02). Tab and Enter make a provisional row
+   (negative id), lay the branch out by the tidy's positions applied as
+   transforms, render once, open the editor, and adopt the server's id in
+   the background (`wbMapAdoptProvisional`): the row, its element, the
+   selection and both Undo stacks take the real id; a save that reaches the
+   row first waits for it (`wbSaveObject`); a save's answer no longer takes
+   back a position or a text changed while it was out. A render repaints
+   what changed and moves what only moved (the paint key has no x or y).
+   Three stylesheet rules whose `:has()` sat before a classless compound
+   made every DOM insertion restyle the whole page; they are rewritten and
+   `tests/test_has_invalidation.py` holds the line. The 100ms gate at 300
+   topics is not yet met on this sandbox (see HISTORY, "Moved from the
+   plans, 2026-10-05 (the map's add path)").
+25. **The open map's commands are palette rows** (taken 2026-10-05, audit
+   FEAT-11): add, rename, fold, focus, delete, tidy, open every branch,
+   look, numbering, statistics, present, zoom to fit, the six layouts and
+   the three text exports, in groups "This topic", "This map", "Map
+   layout" and "Export the map", only while a map is on screen. The
+   board's own commands are the board's (WHITEBOARD_PLAN, section 8's one
+   command table).
+26. **A new topic and its first name are one Undo step** (taken 2026-10-05,
+   audit FEAT-15), as in XMind: the rename is folded while the add is still
+   the last step.
+27. **A committed name hands the keys back to the canvas and is said aloud**
+   (taken 2026-10-05, audit FEAT-16), unless the press that ended it went to
+   another field.
+28. **No front-and-back Order on a laid-out map** (taken 2026-10-05, audit
+   FEAT-17): a tidied tree never overlaps; a Free map keeps the group.
+29. **Text pasted onto a map is a branch** (taken 2026-10-05, audit FEAT-09):
+   one topic per line, nested by indentation, a numbered or heading line
+   read as a topic, under the selected topic (or as trunks), made by
+   `POST /boards/{id}/nodes/outline` in one transaction and recorded as one
+   Undo step. Ctrl+V on a map with nothing copied on the board lets the
+   browser's paste through to it; an in-app copy still pastes as before.
+30. **The dashboard draws a map at its own shape** (taken 2026-10-05, INBOX
+   553(d), the owner's decision): the Boards & maps widget's busiest board
+   at the widget's width and its natural height, at least 96px, at most
+   168px for six topics or fewer and 320px otherwise, then fitted whole;
+   the rest as rows. DESIGN.md's recipe row names the numbers.
+31. **A map writes itself as a document, one way first** (taken 2026-10-05,
+   the audit's brief M5, first half): the board menu's Write as a document
+   and the palette row make a new document titled after the central topic
+   (or the map, with several trunks), branches as `##`, theirs as `###`,
+   deeper topics as nested lists, notes as paragraphs, and the map's card
+   (`boardEmbedMarkdown`) at its head as the way back. "Map this document's
+   headings" (the other direction) and a back-link on the map are open.
 
 ### Phases, each with the gate it is finished against
 
@@ -1197,6 +1262,8 @@ topic: a control that wide has nowhere to go.
   not be met by caching: `renderWhiteboard` is still a full d3 data-join over
   every node on the board, and making it proportional to what changed is a
   separate piece of work.
+- (Audit 2026-10-05: 13a-open's figures hold for a move; the add path was
+  never gated and cost two whole renders, see decision 24.)
 - ~~**13a-open. The render pass proper.**~~ **Built 2026-09-21**, and the
   record is in HISTORY.md ("Moved from the plans, 2026-09-21", "From
   MINDMAP_PLAN.md section 13a-open: the render pass"). Both gate figures are

@@ -207,7 +207,8 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("document", "editor", "markdown", "code file", "live view", "source view"),
         "body": (
             "The document editor (opened from Library -> Documents) has four "
-            "views: Live (renders as you write), Source, Split and Read. Code "
+            "views: Live (renders as you write), Source, Split and Read. Enter "
+            "in the title moves to the body. Code "
             "files get line numbers, Tab/Shift+Tab indenting and Ctrl+/ "
             "commenting. \"Check with AI\" reviews a document for wording issues "
             "a spellchecker can't catch."
@@ -240,9 +241,16 @@ HELP_TOPICS: list[dict] = [
         "id": "timeline",
         "keywords": ("timeline",),
         "body": (
-            "The Timeline tab lays notes out chronologically in day/week/month "
-            "buckets, grid or line view, with an optional band (category, tag "
-            "or space) to see how things cluster over time."
+            "The Timeline tab lists what you wrote newest first, grouped by day, "
+            "week, month or year (Auto picks the finest that reads well), as a "
+            "feed or as a sortable table. Kinds chooses notes, boards, documents "
+            "and reminders; Options sets the grouping, Group by (category, tag "
+            "or thread) and Show group, and the Time range, where On this day "
+            "shows today's date in earlier months and years. In the feed, Ctrl and "
+            "the mouse wheel, or a pinch, makes the date groups finer or coarser, "
+            "as do + and - on a row. The strip under the bar walks your daily pages. A note that names a "
+            "day (\"on Friday\") sits on that day and says All day; one that "
+            "names a time too (\"on Friday at 3pm\") shows that time."
         ),
         "badge": {"label": "Timeline", "tab": "timeline"},
     },
@@ -268,7 +276,7 @@ HELP_TOPICS: list[dict] = [
             "happens to its contents: delete everything in it, or move "
             "everything to another space (a category both have is merged)."
         ),
-        "badge": {"label": "Spaces", "section": "account"},
+        "badge": {"label": "Account & security", "section": "account"},
     },
     {
         "id": "appearance",
@@ -304,7 +312,7 @@ HELP_TOPICS: list[dict] = [
             "The status bar is the strip along the bottom of every screen. It "
             "shows what the local model is doing, your note count, open and due "
             "reminders, back and forward, undo and redo, the Ctrl/Cmd+K hint, "
-            "Ask the agent, Atlas the guide, and Find anything. The offline "
+            "Agent (the popup agent), Atlas the guide, and Find anything. The offline "
             "badge, the power-saver badge and the running-job slot appear only "
             "when there is something to say. Settings -> Appearance -> Status "
             "bar chooses which of the rest to show."
@@ -342,7 +350,7 @@ HELP_TOPICS: list[dict] = [
             "Go to and Do with each letter beside its name, marks the tab you are "
             "on, and takes a click as well."
         ),
-        "badge": {"label": "Shortcuts", "section": "shortcuts"},
+        "badge": {"label": "Keyboard shortcuts", "section": "shortcuts"},
     },
     {
         "id": "models",
@@ -362,11 +370,11 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("backup", "storage", "data dir", "where is my", "export", "data folder", "import", "obsidian", "vault", "migrate", "restore"),
         "body": (
             "Everything lives in a data folder you control: the notebook "
-            "database, uploads, and daily local backups. Settings -> Data shows "
+            "database, uploads, and daily local backups. Settings, Import & export shows "
             "exactly where it is on disk, and lets you export as JSON, CSV or "
             "Markdown, and manage or restore backups."
         ),
-        "badge": {"label": "Data", "section": "data"},
+        "badge": {"label": "Import & export", "section": "data"},
     },
     {
         "id": "websearch",
@@ -409,8 +417,9 @@ HELP_TOPICS: list[dict] = [
         "id": "undo-bin",
         "keywords": ("undo", "redo", "recycle bin", "restore", "deleted", "trash"),
         "body": (
-            "Deleting a note or a board goes to the recycle bin, not gone for "
-            "good: restore it from the Library's Bin filter, or use the Undo "
+            "Deleting a note or a board goes to the bin, not gone for "
+            "good: restore it from the Library (Filter, Include the bin, or "
+            "Open the bin from Ctrl+K), or use the Undo "
             "toast that appears right after deleting. Ctrl/Cmd+Z undoes and "
             "Ctrl+Shift+Z or Ctrl+Y redoes; the status bar's Undo and Redo "
             "buttons do the same by click. Which history they walk depends on "
@@ -455,7 +464,7 @@ HELP_TOPICS: list[dict] = [
             "being asked each time. It never deletes anything and skips "
             "itself on battery power."
         ),
-        "badge": {"label": "Preferences", "section": "preferences"},
+        "badge": {"label": "Profile", "section": "preferences"},
     },
     {
         #: **The guide's entry about itself** (INBOX 204: "improve its
@@ -503,7 +512,7 @@ HELP_TOPICS: list[dict] = [
             "(Ctrl/Cmd+Shift+A): this one runs fixed commands, that one "
             "answers and acts on an open-ended request."
         ),
-        "badge": {"label": "Shortcuts", "section": "shortcuts"},
+        "badge": {"label": "Keyboard shortcuts", "section": "shortcuts"},
     },
     {
         "id": "extract-notes",
@@ -636,7 +645,12 @@ HELP_TOPICS: list[dict] = [
             "over the notebook with the local model. It never edits anything: "
             "the point is to show you the pair and let you decide. Open "
             "Suggestions (the Tensions widget's Review disagreements, or the "
-            "command palette), choose Tensions and press Start the review."
+            "command palette), choose Tensions and press Start the review. "
+            "What a review or the overnight pass already found stays found: "
+            "the Tensions widget lists the pairs still to decide, each with "
+            "what it is about and which model found it when, and its buttons "
+            "open either note, link the two as contradicting, or dismiss the "
+            "pair for good. A review only reads pairs it has not read before."
         ),
         "badge": {"label": "Dashboard", "tab": "dashboard"},
     },
@@ -737,7 +751,9 @@ HELP_TOPICS.extend(
                 "through notes, documents, boards, files, links and reminders at "
                 "once, by your words and by meaning, and the chips narrow it to one "
                 "kind. You can type operators: tag:work, kind:document, before:2026-01, "
-                "has:image, and -word to leave something out. To narrow only the "
+                "has:image, and -word to leave something out. A small typo that "
+                "finds nothing is searched as the nearest word your notes use, "
+                "and the line says \"showing results for\" it. To narrow only the "
                 "notes list, use Filter notes on the Your notes tab."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
@@ -875,9 +891,12 @@ HELP_TOPICS.extend(
             "body": (
                 "Settings, About says which version you have and checks for a newer "
                 "one; the Windows app can download and install it for you. Choose "
-                "Stable (releases only) or Main. A copy started with start.sh or "
-                "start.bat updates itself when it starts, following the same "
-                "setting, and turning automatic updates off stops it."
+                "Stable (releases only) or Main. The first start asks once whether "
+                "to check for updates automatically, and nothing is checked until "
+                "you answer. A copy started with start.sh or start.bat then "
+                "updates itself when it starts, following the same setting, and "
+                "turning automatic updates off stops it. The Check for updates "
+                "button checks once, whatever the switch says."
             ),
             "badge": {"label": "About", "section": "about"},
         },
@@ -1037,8 +1056,9 @@ HELP_TOPICS.extend(
                 "under it, C folds or unfolds its branch (or click the chevron), "
                 "Shift+C draws a cross-link to another topic, F shows only this "
                 "branch and its neighbours (F again: all), Shift+F10 "
-                "opens every action. Ctrl+Z undoes (100 steps; a deleted "
-                "branch comes back whole), Ctrl+Shift+Z redoes. Right-click a topic for "
+                "opens every action. Ctrl+Z undoes (100 steps, kept across a "
+                "reload; a deleted branch comes back whole), Ctrl+Shift+Z redoes. "
+                "Right-click a topic for "
                 "the ring: Add child, Add beside, Fold, Delete, Cross-link and "
                 "More; hold Alt on the ring to remove instead of add. Dragging a "
                 "topic onto another moves its whole branch; double-click a line to "
@@ -1056,8 +1076,15 @@ HELP_TOPICS.extend(
                 "boundary round the branch or summarises topics side by side. "
                 "Start from a template, "
                 "import an OPML, FreeMind or Markdown "
-                "outline, let the local AI propose a map from notes you pick, and "
-                "export it as OPML or Markdown as well as a picture."
+                "outline (an import opens laid out as a tree to the right), paste an "
+                "indented list onto a topic to add it as that topic's branch, let the "
+                "local AI propose a map from notes you pick, and "
+                "export it as OPML, FreeMind or Markdown as well as a picture, "
+                "or write it as a document (the board menu's Write as a document: "
+                "branches become headings, deeper topics lists, notes paragraphs). "
+                "With a map open, the command palette (Ctrl+K) lists the map's "
+                "commands: add, rename, fold, focus, tidy, layout, look, numbering, "
+                "present and export."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1089,9 +1116,18 @@ HELP_TOPICS.extend(
                 "reading and full width. Focus mode (the corners button on the "
                 "dock, or F11) hides everything but the page, with a small bar "
                 "for the title, save state, a Sidebar button and Exit (Esc closes "
-                "the sidebar, then Esc or F11 leaves). In a "
+                "the sidebar, then Esc or F11 leaves). "
+                "The formatting toolbar hides and comes back: while it is hidden, "
+                "the Formatting button in the document's bar, Ctrl+Shift+X or "
+                "the bar's More menu, Show formatting toolbar, brings it back. In a "
                 "Live table the arrows keep the column, Enter goes to the cell "
                 "below, and rows pasted from a spreadsheet fill the cells. "
+                "Pasting from a web page, Word or Google Docs keeps headings, "
+                "bold, italics, lists and links; Ctrl+Shift+V pastes plain text. "
+                "Footnotes show as numbered notes at the foot in Read view, in "
+                "print and in the HTML download. A page break (the / menu's Page "
+                "break, written \\newpage on its own line) starts what follows on "
+                "a new page when the document is printed or saved as a PDF. "
                 "Writing checks: spelling against your own "
                 "dictionary, grammar checked on this machine, an "
                 "accessibility check (a skipped heading level, an image with no "
@@ -1208,6 +1244,7 @@ HELP_TOPICS.extend(
                 "property", "properties", "frontmatter", "yaml", "note type",
                 "note types", "fields", "field", "status", "metadata",
                 "query", "live query", "type:", "prop:", "table view",
+                "rollup", "rollups", "roll up",
             ),
             "body": (
                 "A note can carry properties (status: open, owner: Priya), kept "
@@ -1218,7 +1255,8 @@ HELP_TOPICS.extend(
                 "one, or pick a Type, and Save rewrites only those lines. Note "
                 "types in the command palette makes a kind of note (Meeting: "
                 "attendees, date) with fields that are text, a number, a date, a "
-                "list, yes/no or another note; its New note starts with them. A "
+                "list, yes/no or another note (the magnifier beside a note field "
+                "searches your notes for it); its New note starts with them. A "
                 "document's properties panel does the same: with type: Meeting "
                 "in its properties, the type's fields it has not written yet "
                 "show as empty rows, and a value you enter is written as one "
@@ -1226,7 +1264,9 @@ HELP_TOPICS.extend(
                 "(or prop:effort>2), links:[[Kiln plan]], rel:supports, "
                 "entity:\"Sam Lee\", with - before any of them to leave those out; "
                 "a bar over the list then shows the same notes as a Table, with "
-                "their properties as columns, or lit on the graph."
+                "their properties as columns, or lit on the graph. The table's "
+                "last row rolls each column up over every match: Count, and Sum, "
+                "Min and Max for numbers, Earliest and Latest for dates."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1310,7 +1350,8 @@ HELP_TOPICS.extend(
                 "Atlas to write at the cursor, and selecting text shows an actions "
                 "menu (Ctrl+Shift+E from the keyboard). From anywhere, Ctrl+Shift+N "
                 "starts a note, Ctrl+D opens today's note and Ctrl+Shift+R records a "
-                "meeting. The filter box understands, with no AI: two words (both, "
+                "meeting. In the list, Up and Down move note to note and Tab walks "
+                "that note's buttons. The filter box understands, with no AI: two words (both, "
                 "in any order), \"a quoted phrase\", tag:work, cat:recipes, "
                 "#tag, title:, in:, before: and after: (a date such as 2026-09), "
                 "is:favourite, is:pinned, is:private, is:linked, is:untagged, "
@@ -1373,7 +1414,9 @@ HELP_TOPICS.extend(
                 "Reminders controls. Magic add takes a sentence (\"Call mum "
                 "tomorrow evening, high priority\"), then Enter or the wand button "
                 "(Add from this sentence) works out the time and the "
-                "priority. Or type the reminder, pick a priority (normal, low or "
+                "priority. Times like \"tomorrow at 5pm\", \"next Friday\", "
+                "\"tonight\" or \"in 20 minutes\" are read with no AI; the AI is "
+                "asked only for a phrasing those rules miss. Or type the reminder, pick a priority (normal, low or "
                 "high) and a repeat (once, daily, weekly or monthly), and use Quick "
                 "set: in 30 min, in 1 hour, in 3 hours, tonight 7pm, tomorrow 9am, "
                 "tomorrow 2pm, this weekend or next week. A due reminder can be "
@@ -1437,7 +1480,7 @@ HELP_TOPICS.extend(
                 "operators, the dashboard's ... menu has Tools & features, which lists everything the "
                 "app can do, and each section's ? explains itself."
             ),
-            "badge": {"label": "Shortcuts", "section": "shortcuts"},
+            "badge": {"label": "Keyboard shortcuts", "section": "shortcuts"},
         },
     ]
 )

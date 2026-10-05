@@ -144,7 +144,8 @@ def test_an_empty_space_comes_back_and_a_full_one_says_it_cannot(client):
 
     full = client.post("/spaces", json={"name": "Full"}).json()["id"]
     client.post("/entries", json={"content": "gone for good"}, headers={"X-Workspace-ID": full})
-    assert client.delete(f"/spaces/{full}").json()["restore"] is None
+    deleted = client.delete(f"/spaces/{full}")
+    assert deleted.json()["restore"] is None
 
 
 def test_a_space_restore_refuses_a_taken_id(client):

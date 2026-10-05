@@ -114,6 +114,21 @@ $("account-allow-lan")?.addEventListener("change", async (event) => {
   }
 });
 
+$("account-lan-regenerate")?.addEventListener("click", async () => {
+  const ok = await confirmDialog(
+    "Regenerate the certificate?\n\nEvery device that opened the app before warns once more, " +
+      "with the new fingerprint to compare.",
+    { confirmLabel: "Regenerate", danger: false }
+  );
+  if (!ok) return;
+  try {
+    renderLanState(await apiJson("/auth/lan-certificate", { method: "POST" }));
+    toast("New certificate made. Compare its fingerprint on the other device.");
+  } catch (error) {
+    toast(error.message || "Couldn't make a new certificate.", true);
+  }
+});
+
 $("privacy-refresh")?.addEventListener("click", () => renderPrivacyReceipt().catch(() => {}));
 
 $("backup-retention")?.addEventListener("change", async (e) => {

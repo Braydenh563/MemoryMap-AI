@@ -164,3 +164,31 @@ def test_no_hand_built_chip_takes_bare_text():
                     found.append(f"{path.name}:{i + 1}")
                     break
     assert not found, found
+
+
+def test_a_status_label_is_a_tinted_pill_without_an_edge():
+    """INBOX 553 (c), the owner's decision of 2026-10-05: status labels app-wide
+    are a tinted pill with no edge, matching the meta chips. The ratchet: the
+    label's own rule is the `--chip-bg` tint at the pill radius with `border:
+    0`; its tones are tints, never an edge; and no other rule anywhere gives a
+    `.chip.item-label`, or a status badge drawn as one, a border colour back."""
+    css = "\n".join(p.read_text(encoding="utf-8") for p in sorted((JS_DIR.parent / "css").glob("*.css")))
+    base = css[css.index(":is(.entry-meta, .skill-card-header, .sampling-row, body) .chip.item-label {") :]
+    base = base[: base.index("}")]
+    assert "background: var(--chip-bg)" in base and "border: 0" in base, base
+    pill = css[css.index("body .chip.item-label,\n.entry-meta .chip.item-label {") :]
+    assert "border-radius: var(--radius-pill)" in pill[: pill.index("}")]
+    for tone in ("is-yours", "is-ok", "is-warn"):
+        rule = css[css.index(".chip.item-label." + tone + " {") :]
+        rule = rule[: rule.index("}")]
+        assert "background:" in rule and "border" not in rule, (tone, rule)
+    bare = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    for selector, body in re.findall(r"([^{}]*item-label[^{}]*)\{([^}]*)\}", bare):
+        assert not re.search(r"border(?:-color)?\s*:(?!\s*(?:0|none|transparent)\b)", body), selector.strip()
+    # The status badges that were drawn on their own now are the label, or its tint.
+    js = _js()
+    assert '"chip item-label library-read-badge is-read is-ok"' in js
+    read = css[css.index(".msg-attachment-read-badge {") :]
+    read = read[: read.index("}")]
+    assert "border: 0" in read and "radius-pill" in read
+

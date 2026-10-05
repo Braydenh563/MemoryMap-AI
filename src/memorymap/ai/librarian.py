@@ -459,7 +459,10 @@ def _dates_hint(note: dict) -> str:
             continue
         precision = item.get("precision") or "day"
         day = f"{when:%A} {when.day} {when:%B %Y}"
-        span = day if precision == "day" else f"the {precision} of {day}"
+        if precision == "minute" and hasattr(when, "hour"):
+            span = f"{day} at {when:%H:%M}"
+        else:
+            span = day if precision in ("day", "minute") else f"the {precision} of {day}"
         worded.append(f'"{item.get("phrase", "")}" meant {span}')
     return f" (its time words: {'; '.join(worded[:4])})" if worded else ""
 

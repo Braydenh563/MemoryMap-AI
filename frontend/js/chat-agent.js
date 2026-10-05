@@ -1140,7 +1140,7 @@ function changeRow(change, options = {}) {
     // reachable only through the Library's own Bin filter until it is
     // cleared or restored. See flashLibraryItem's own comment.
     row.appendChild(
-      smallButton("View in bin", "Show this note in the recycle bin", () =>
+      smallButton("View in bin", "Show this note in the bin", () =>
         flashLibraryItem("archived", change.note_id)
       )
     );

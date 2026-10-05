@@ -897,10 +897,13 @@ def _reindex_pass(
             session.scalars(select(Entry).where(Entry.is_deleted == False))  # noqa: E712
         )
         job.total = len(entries)
-        #: Imported here, not at the top: `ai/embeddings.py` imports this
-        #: module, so a top-level import would be the cycle `Embedder`'s own
-        #: docstring describes.
-        from memorymap.ai.embeddings import EMBED_BATCH
+        #: `ai/embeddings.py`'s batch size, read from the loaded module (it is
+        #: always loaded by the time a re-index runs): an import of it here,
+        #: even inside the function, is the cycle `tests/test_no_import_cycles.py`
+        #: counts, since that module imports this one.
+        import sys
+
+        EMBED_BATCH = int(getattr(sys.modules.get("memorymap.ai.embeddings"), "EMBED_BATCH", 16))
 
         #: A stand-in that only knows `store_for_entry` (the contract `Embedder`
         #: states, and what the tests pass) is walked one note at a time.

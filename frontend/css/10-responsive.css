@@ -577,10 +577,11 @@ header#top-bar,
    a 44px floor for a finger, and `.doc-dock .seg` kept its desktop
    `height: var(--control-h)` (32px), so Edit and Read stood 44px tall in a
    32px well and hung 16px out of its foot, centred 10px below the chevron,
-   AI and focus buttons beside them. The well is now the finger's 44px and
+   AI and focus buttons beside them. From the 819.98px band down the well is
+   the finger's 44px and
    its buttons that less its 0.25rem padding each side, so the pill sits in
    it and shares the row's centre line. */
-@media (max-width: 720px) {
+@media (max-width: 819.98px) {
   #tab-documents #doc-view-seg {
     height: 2.75rem;
   }

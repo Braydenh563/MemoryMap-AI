@@ -662,7 +662,9 @@ function initSpaceSwitcher() {
       const query = moveTo ? `?move_to=${encodeURIComponent(moveTo)}` : "";
       const wasOpen = activeSpaceId() === id;
       const gone = await apiJson(`/spaces/${encodeURIComponent(id)}${query}`, { method: "DELETE" });
-      if (moveTo) await loadEntries();
+      //: The moved notes by id (`refreshEntries` reads the notebook whole
+      //: if it cannot patch them in safely).
+      if (moveTo) await refreshEntries(gone?.restore?.moved?.entries || []);
       $("space-delete-dialog").close();
       // Standing in the space you just deleted has to move you somewhere real,
       // and reload() alone would leave the header naming a space that is gone.
@@ -678,12 +680,12 @@ function initSpaceSwitcher() {
         const remake = async () => {
           await apiJson("/spaces/restore", { method: "POST", body: JSON.stringify(restore) });
           await loadSpaces();
-          if (moveTo) await loadEntries();
+          if (moveTo) await refreshEntries(restore.moved?.entries || []);
         };
         const action = pushUndo(`Deleted the space “${gone.name}”`, remake, async () => {
           restore = (await apiJson(`/spaces/${encodeURIComponent(id)}${query}`, { method: "DELETE" })).restore || restore;
           await loadSpaces();
-          if (moveTo) await loadEntries();
+          if (moveTo) await refreshEntries(restore.moved?.entries || []);
         });
         toastAction(`Deleted “${gone.name}”.`, "Undo", async () => {
           settleUndoFromToast(action);

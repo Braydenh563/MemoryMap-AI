@@ -124,6 +124,11 @@ with its owner named in the entry.
      closed in case the user accidentally closes it and cant figure out how
      to open it back up again" Placed: the documents agent.
 
+576. **The owner, 2026-10-05, verbatim.** "this menu's elements arent aligned
+     vertically" (screenshot: a shape's context bar, its Width input, Solid
+     select, swatches and Filled toggle at different heights and centres).
+     Placed: the whiteboard agent.
+
 561. **The owner, 2026-10-05, verbatim.** "I dont like this section in th
      timeline, it needs redesigning, restructuring, moving ro smth"
      (screenshot: the "Sep to Oct 2026" month button over a row of seven

@@ -121,7 +121,7 @@ no new plan documents; every claim carries a number from a sweep.
 
 ## How to work on this repo
 
-- `pytest tests/`: 5,700+ tests in 502 files, fully offline, no Ollama needed
+- `pytest tests/`: 6,700+ tests, fully offline, no Ollama needed
   (`pytest.ini` sets `pythonpath = src`); ten to fifteen minutes, so the
   routine local gate is `bash scripts/gate.sh --changed` and CI runs the rest.
 - `ruff check .` — matches CI.

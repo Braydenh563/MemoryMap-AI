@@ -1984,15 +1984,23 @@ const LIBRARY_CREATE_BY_KIND = {
   //: mind map, pressed, so it is made the way one made there is.
   mindmap: {
     label: "ph:tree-structure New mind map",
-    run: () => {
+    //: The sub-tab fetches the boards' code on a first visit; the button
+    //: has no listener until it has run, so it is pressed after
+    //: (tests/test_new_document_opens_new.py).
+    run: async () => {
       document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
+      await ensureModule("library");
       $("wb-boards-new-map")?.click();
     },
   },
   board: {
     label: "ph:plus New board",
-    run: () => {
+    //: The sub-tab fetches the boards' code on a first visit; the button
+    //: has no listener until it has run, so it is pressed after
+    //: (tests/test_new_document_opens_new.py).
+    run: async () => {
       document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
+      await ensureModule("library");
       $("wb-boards-new")?.click();
     },
   },

@@ -125,3 +125,19 @@ await Promise.all([loading, routed]);
 """
     )
     assert out["open"] == 2, f"the loader opened the last document instead: {out}"
+
+
+@pytest.mark.parametrize("kind, button", [("board", "wb-boards-new"), ("mindmap", "wb-boards-new-map")])
+def test_new_board_and_new_mind_map_wait_for_the_boards_code(kind, button):
+    """The same shape for boards (found by tests-e2e/specs/boards.spec.js):
+    Create, New board pressed `#wb-boards-new` straight after opening the
+    Boards sub-tab, whose code (whiteboard.js) is fetched on that first
+    visit, so the button had no listener yet and nothing happened: no
+    gallery, no board. Measured: the click reached the button, and
+    `createNewBoard` was never called."""
+    source = (JS / "library.js").read_text(encoding="utf-8")
+    start = source.index(f"  {kind}: {{\n")
+    row = source[start : source.index("\n  },", start)]
+    wait = row.find('await ensureModule("library")')
+    press = row.find(f'$("{button}")')
+    assert 0 <= wait < press, row

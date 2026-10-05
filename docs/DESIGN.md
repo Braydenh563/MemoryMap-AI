@@ -990,7 +990,13 @@ FE-15: these segments measure 36px, not `--target-min`.)
 
 **The heights each role takes, measured** (audit 2026-10-05, FE-15,
 `census.js` at 1440 over every tab and Settings pane). This is the contract
-a new control is held to; a role gaining a height is a finding.
+a new control is held to; a role gaining a height is a finding, and
+`scratchpad/ui-sweeps/perf2-1005-census.js` finds it: it gives every visible
+button on the eight tabs, the shell and every Settings pane its role and
+height, and exits 1 when a role takes a height its baseline
+(`perf2-1005-census-baseline-1440.json`) does not hold, naming the control.
+The baseline is today's measure (icon-only buttons still take ten heights);
+it is rewritten with `UPDATE=1` only after deciding a new height is right.
 
 | Role | Height | Where |
 | --- | --- | --- |
@@ -999,7 +1005,7 @@ a new control is held to; a role gaining a height is a finding.
 | A dock's segment | 28, inset to the bar's 32 (FE-14) | view toggles, Edit and Read |
 | Ghost or filled button | 32 | dialogs, cards, panes |
 | Tab and sub-tab strip | 36 | the top bar, Notes and Library |
-| Chip | 24 | categories, tags; under the floor, open (FE-14) |
+| Chip | 24 painted, a 28 target (`::after` overhang, FE-14) | categories, tags |
 
 One more thing has to match for a row of controls to read as a strip rather
 than as a pile: **their height.** The chat dock declares `--control-h` and

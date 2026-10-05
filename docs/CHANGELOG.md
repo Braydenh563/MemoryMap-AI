@@ -25,6 +25,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Design checks: the button census is now a sweep that fails when a kind of button (icon-only, ghost, filled, segment, tab, chip) shows up at a height it has not had before, naming the control.
 - Code health: a lint finds every GET that returns a list (or a dict holding one) by what it returns, not by its name, and makes it take a page or say why its size does not grow; On this day reads the five notes it shows instead of every match.
 - Code health: the agent's tool dispatch, the app's start-up, the chat stream and the agent's wrap-up round are split into named steps with no change in behaviour (the longest went from 455, 354 and 334 lines to 302, about 80 and under 270).
 - Code health: the event spec's per-write drivers, the skill harness's folded run and the filing prompt seam moved from the app's modules into tests/ (about 290 lines the app shipped and never called), and an unused timeline cursor encoder is gone.

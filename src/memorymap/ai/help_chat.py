@@ -514,7 +514,9 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("command palette", "jump anywhere", "quick actions", "jump to"),
         "body": (
             "Ctrl/Cmd+K opens the command palette: jump to any tab or "
-            "setting, search notes, or run a quick action (new note, new "
+            "setting, search notes and documents (the same search as Find "
+            "anything: it reads the words inside them, and forgives a typo), "
+            "or run a quick action (new note, new "
             "chat, back up now, toggle the theme, and more) without leaving "
             "the keyboard. It's a different box from the popup agent "
             "(Ctrl/Cmd+Shift+A): this one runs fixed commands, that one "

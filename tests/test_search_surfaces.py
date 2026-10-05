@@ -127,6 +127,18 @@ def test_the_library_semantic_toggle_asks_the_engine():
     assert "kind=note" in body
 
 
+def test_the_palette_asks_the_engine_for_notes_and_documents():
+    text = _read("app-palette.js")
+    ask = _function(text, "paletteAskEngine")
+    assert "/search?q=" in ask and "kind=note,document" in ask
+    # Drawn from the engine's answer first, topped up by the in-memory match.
+    matches = _function(text, "paletteMatches")
+    assert "paletteEngine.notes" in matches and "paletteEngine.docs" in matches
+    # The ask is made when the person types, and dropped when the window closes.
+    assert "paletteAskEngine($(" in text
+    assert "paletteEngine.run += 1" in _function(text, "closePalette")
+
+
 def test_no_surface_still_reads_the_second_ranking_path():
     """`/entries?...&semantic=true` is the second ranking path the engine
     replaced; nothing in the frontend asks for it any more."""

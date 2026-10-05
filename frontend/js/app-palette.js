@@ -85,6 +85,9 @@ async function openPalette() {
 }
 
 function closePalette() {
+  //: Whatever is still in the air is dropped with the window.
+  window.clearTimeout(paletteEngine.timer);
+  paletteEngine.run += 1;
   $("palette-overlay").classList.add("hidden");
   overlayReturnFocus?.focus?.();
   overlayReturnFocus = null;
@@ -106,6 +109,34 @@ function closePalette() {
 //: group, not all of them.
 function paletteText(value) {
   return typeof value === "string" ? value.toLowerCase() : "";
+}
+
+//: The engine's last answer for the palette's text (`q` is that text, lower
+//: case, trimmed), the notes and documents it found in its order, and the
+//: pending ask. One object, not four `let`s (the global-scope ratchet).
+const paletteEngine = { q: "", notes: [], docs: [], timer: null, run: 0 };
+
+//: Ask `GET /search` for what is typed, on a pause, and redraw when it
+//: answers. A reply for text that has since changed is dropped; a failed or
+//: closed-over ask leaves the in-memory rows as they were.
+function paletteAskEngine(query) {
+  window.clearTimeout(paletteEngine.timer);
+  const asked = query.trim();
+  paletteEngine.run += 1;
+  if (!asked) {
+    Object.assign(paletteEngine, { q: "", notes: [], docs: [] });
+    return;
+  }
+  const run = paletteEngine.run;
+  paletteEngine.timer = window.setTimeout(async () => {
+    const body = await apiJson(`/search?q=${encodeURIComponent(asked)}&kind=note,document&limit=20`, { silent: true }).catch(() => null);
+    if (!body || run !== paletteEngine.run || $("palette-overlay").classList.contains("hidden")) return;
+    const hits = body.hits || [];
+    paletteEngine.q = asked.toLowerCase();
+    paletteEngine.notes = hits.filter((hit) => hit.kind === "note");
+    paletteEngine.docs = hits.filter((hit) => hit.kind === "document");
+    renderPalette($("palette-input").value);
+  }, 120);
 }
 
 function paletteMatches(query) {
@@ -144,11 +175,22 @@ function paletteMatches(query) {
   }
 
   // Notes: match body or title.
-  const notes = allEntries
+  //: **The engine's answer comes first** (`paletteAskEngine`): `GET /search`
+  //: ranks the whole notebook, the notes past the page the browser holds
+  //: included, by words, meaning and typo; the in-memory match below is what
+  //: shows before the answer lands and tops the group up with a title that
+  //: only part-matches (the engine reads words, a jump list reads letters).
+  const engineReady = paletteEngine.q === lowered;
+  const heldNotes = engineReady && paletteEngine.notes.length ? new Map(allEntries.map((e) => [e.id, e])) : null;
+  const engineNotes = engineReady
+    ? paletteEngine.notes.map((hit) => heldNotes?.get(hit.id) || { id: hit.id, title: hit.title, content: hit.snippet, category: "" })
+    : [];
+  const localNotes = allEntries
     .filter((e) =>
       paletteText(e.content).includes(lowered) ||
       paletteText(e.title).includes(lowered)
-    )
+    );
+  const notes = [...new Map([...engineNotes, ...localNotes].map((e) => [e.id, e])).values()]
     .slice(0, 5)
     .map((e) => ({
       group: "Notes",
@@ -168,8 +210,11 @@ function paletteMatches(query) {
   //: no answers for anything typed into it until the Library had been visited
   //: once. Found while measuring INBOX 224's own palette line, in a page that
   //: had never opened the Library.
-  const docMatches = (typeof docs === "undefined" ? [] : docs)
-    .filter((d) => paletteText(d.title).includes(lowered))
+  const localDocs = (typeof docs === "undefined" ? [] : docs).filter((d) => paletteText(d.title).includes(lowered));
+  //: The engine reads a document's words too, and finds one before the
+  //: Library's list has been opened at all.
+  const engineDocs = engineReady ? paletteEngine.docs.map((hit) => ({ id: hit.id, title: hit.title || "Untitled document" })) : [];
+  const docMatches = [...new Map([...engineDocs, ...localDocs].map((d) => [d.id, d])).values()]
     .slice(0, 3)
     .map((d) => ({
       group: "Documents",
@@ -352,6 +397,7 @@ function scrollPaletteToActive() {
 $("palette-input").addEventListener("input", () => {
   paletteIndex = 0;
   renderPalette($("palette-input").value);
+  paletteAskEngine($("palette-input").value);
 });
 $("palette-input").addEventListener("keydown", paletteKeydown);
 wireBackdropClose($("palette-overlay"), () => closePalette());

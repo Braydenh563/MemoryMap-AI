@@ -3700,20 +3700,25 @@ dialog::backdrop {
 /* The title line: a control height like every other field, with the strip's
    own hairline under it rather than a border of its own. */
 .note-composer > #entry-title {
-  height: var(--control-h);
-  padding-inline: var(--space-4);
+  height: auto;
+  padding: var(--space-4) var(--space-4) var(--space-2);
+  font-size: var(--text-h3);
   font-weight: 600;
 }
 
 /* The strip belongs to the box below it now, so it drops the card ground and
-   the rounded edge it carried as a free-standing bar and keeps one hairline
-   on each side of itself. Still `--control-h-lg` tall, from `.doc-toolbar`. */
+   the rounded edge it carried as a free-standing bar, and keeps one hairline,
+   under itself, over the text (INBOX 616: the title and the properties line
+   above it are the same surface). Still `--control-h-lg` tall, from
+   `.doc-toolbar`. Sticky over the text it formats, so its ground is the
+   surface's tint on an opaque base: text scrolling under it never shows
+   through, and at rest it reads as the surface (`stripground.js`). */
 .note-composer > .note-toolbar {
   margin-bottom: 0;
-  border-inline: none;
-  border-block: 1px solid var(--border);
+  border: 0;
+  border-bottom: 1px solid var(--border);
   border-radius: 0;
-  background: none;
+  background: linear-gradient(var(--input-bg), var(--input-bg)), var(--modal-bg-opaque);
 }
 
 /* **A note box you can see the note in.** 89px measured, on a card with
@@ -14375,13 +14380,14 @@ button.finder-row:hover,
   margin-top: 0;
 }
 
-/* The edit form's title (INBOX 432): the capture title's shape, a control
-   height and the weight of a heading, full width above the strip. */
+/* The edit form's title (INBOX 432): the capture title's shape, large
+   borderless text on the surface (INBOX 616), full width over the
+   properties line. */
 .entry-list input.note-edit-title {
   width: 100%;
-  height: var(--control-h);
-  padding-inline: var(--space-4);
-  margin-bottom: var(--space-3);
+  height: auto;
+  padding: var(--space-4) var(--space-4) var(--space-2);
+  font-size: var(--text-h3);
   font-weight: 600;
 }
 

@@ -12989,7 +12989,12 @@ function applyDocToolbarCollapsed(collapsed, only = null) {
     docSyncFormatShow();
   }
   for (const bar of only ? [only] : document.querySelectorAll(".doc-toolbar")) {
-    bar.classList.toggle("is-collapsed", collapsed);
+    //: **A note's strip never folds** (INBOX 616, the owner: "the formatting
+    //: toolbar looks really awkward when collapsed", an empty band with three
+    //: icons and a caret). It is one slim row of icons with the rest behind
+    //: More, in Capture and the edit form alike; the folded state and its
+    //: button are the document editor's, which has a dock to bring it back.
+    bar.classList.toggle("is-collapsed", collapsed && !bar.classList.contains("note-toolbar"));
     const button = bar.querySelector(".doc-toolbar-collapse");
     if (!button) continue;
     button.setAttribute("aria-pressed", collapsed ? "true" : "false");
@@ -13207,7 +13212,8 @@ function fitDocToolbarRow(bar) {
       //: tools, and comes back on the open strip's last row. Only when
       //: something is folded anyway: a strip whose tools all fit keeps it,
       //: so it is never out of reach.
-      if (box.width < 600) bar.classList.add("is-layout-folded");
+      //: A note strip has no layout toggle to fold (INBOX 616).
+      if (box.width < 600 && !bar.classList.contains("note-toolbar")) bar.classList.add("is-layout-folded");
       for (let i = items.length - 1; i >= 0 && !fits(); i--) {
         items[i].classList.add("doc-toolbar-over");
         //: A menu folded while open would stay open with nothing to anchor

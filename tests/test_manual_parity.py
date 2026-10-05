@@ -29,7 +29,7 @@ CATEGORY_TOOLS = {"create_category", "rename_category", "merge_categories", "del
 MANUAL = {
     "create_note": ("capture-ask.js", 'apiJson("/entries", {', "Notes, Capture box"),
     "edit_note": ("notes-list.js", "base_hash: base", "a note's Edit form"),
-    "tag_note": ("notes-list.js", 'tagField.className = "search-field tag-field note-edit-tags";', "a note's Edit form, Tags"),
+    "tag_note": ("notes-list.js", 'tagField.className = "tag-field note-edit-tags";', "a note's Edit form, Tags"),
     "pin_note": ("note-cards.js", 'button.classList.add("favourite-btn");', "a note's star"),
     "link_notes": ("graph-canvas.js", 'method: "POST", body: JSON.stringify({ target', "Graph, drag one note to another"),
     "unlink_notes": ("graph.js", '/links/${edge.id}`, { method: "DELETE" })', "Graph, click a link, Remove"),

@@ -1297,10 +1297,13 @@
                  editor rather than crowding a three-row box. -->
             <div class="doc-toolbar note-toolbar" id="note-toolbar" role="toolbar"
               aria-label="Formatting" data-md-target="entry-content">
-              <button type="button" data-md="bold" title="Bold (Ctrl+B)"><strong>B</strong></button>
-              <button type="button" data-md="italic" title="Italic (Ctrl+I)"><em>I</em></button>
-              <button type="button" data-md="strike" title="Strikethrough"><s>S</s></button>
-              <button type="button" data-md="code" title="Inline code">&lt;/&gt;</button>
+              <!-- Icons, not typed letters (INBOX 616: "one quiet icon-only
+                   toolbar"): B, I, S and </> were glyphs in the page font
+                   beside Phosphor icons, four weights in one strip. -->
+              <button type="button" class="icon-only" data-md="bold" title="Bold (Ctrl+B)" aria-label="Bold"><i class="ph ph-text-b" aria-hidden="true"></i></button>
+              <button type="button" class="icon-only" data-md="italic" title="Italic (Ctrl+I)" aria-label="Italic"><i class="ph ph-text-italic" aria-hidden="true"></i></button>
+              <button type="button" class="icon-only" data-md="strike" title="Strikethrough" aria-label="Strikethrough"><i class="ph ph-text-strikethrough" aria-hidden="true"></i></button>
+              <button type="button" class="icon-only" data-md="code" title="Inline code" aria-label="Inline code"><i class="ph ph-code-simple" aria-hidden="true"></i></button>
               <span class="doc-toolbar-sep" aria-hidden="true"></span>
               <button type="button" class="icon-only" data-md="highlight" title="Highlight (yellow)"
                 aria-label="Highlight"><i class="ph ph-highlighter" aria-hidden="true"></i></button>

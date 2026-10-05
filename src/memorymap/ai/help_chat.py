@@ -114,8 +114,9 @@ HELP_TOPICS: list[dict] = [
             "Notes tab: type into \"Capture a thought\" and Save. A local AI files "
             "it into a category and suggests tags; you can re-file or edit anytime. "
             "Use a template, dictate with the microphone icon, sketch with the "
-            "palette icon, or run \"Improve\" to proofread first. \"Extract notes\" "
-            "turns a block of pasted text into several AI-drafted, auto-linked notes."
+            "palette icon, or run \"Improve\" to proofread first. Write with Atlas has "
+            "\"Split into notes\", which turns a block of pasted text into several "
+            "AI-drafted, auto-linked notes."
         ),
         "badge": {"label": "Notes", "tab": "notes"},
     },
@@ -143,9 +144,9 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "Skills are one-click requests shown above the chat box (e.g. "
             "\"Summarise my week\"). Built-in skills ship with the app; add your "
-            "own in Settings -> Skills (New skill in the pane's bar opens the form). A skill can use the AI's tools, so it "
+            "own in Settings, Skills (New skill in the pane's bar opens the form). A skill can use the AI's tools, so it "
             "does the work rather than just describing it. A skill can also be "
-            "a Markdown file saved in the skills folder that Settings -> Skills "
+            "a Markdown file saved in the skills folder that Settings, Skills "
             "names; it is listed without a restart."
         ),
         "badge": {"label": "Skills", "section": "skills"},
@@ -199,10 +200,10 @@ HELP_TOPICS: list[dict] = [
             "The Library is everything already made, in one searchable, "
             "filterable place: notes, documents, chats, files and tags, plus "
             "Bookmarks (a shelf for websites you visit often), Contents (a "
-            "hyperlinked outline of the whole notebook) and AI Skills. "
-            "Sub-tabs also hold Documents, Whiteboards, and the Files & "
-            "Images gallery. Each sub-tab's top bar ends with a ? that says "
-            "what it holds."
+            "hyperlinked outline of the whole notebook) and AI skills. "
+            "The other sub-tabs are Documents, Boards & maps (whiteboards "
+            "and mind maps), Images and Files. Each sub-tab's top bar ends "
+            "with a ? that says what it holds."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
@@ -223,7 +224,7 @@ HELP_TOPICS: list[dict] = [
         "id": "whiteboard",
         "keywords": ("whiteboard", "sketch pad", "canvas", "freehand"),
         "body": (
-            "The whiteboard (Library -> Whiteboards) is a pannable canvas for "
+            "The whiteboard (Library, Boards & maps) is a pannable canvas for "
             "freehand sketches and note cards together. Freehand sketches also "
             "appear in the Library's Images sub-tab. A board's background colour "
             "and image are kept with the board. Board, Export saves a PNG (1x, 2x "
@@ -269,7 +270,7 @@ HELP_TOPICS: list[dict] = [
             "MemoryMap can pick up small facts and preferences as you write and "
             "chat, always asking first, never assumed. Accept or decline each "
             "suggestion right in the chat, and review or forget anything it has "
-            "learned in Settings -> What it remembers."
+            "learned in Settings, What it remembers."
         ),
         "badge": {"label": "What it remembers", "section": "memory"},
     },
@@ -294,7 +295,7 @@ HELP_TOPICS: list[dict] = [
             "slow", "laggy", "blur",
         ),
         "body": (
-            "Settings -> Appearance controls theme (light/dark/system), accent "
+            "Settings, Appearance controls theme (light/dark/system), accent "
             "colour, fonts, density, glass effects and the animated background. "
             "High-contrast and reduce-motion options are there for comfort and "
             "accessibility. Density's Auto, the default, is Compact on a window "
@@ -324,7 +325,7 @@ HELP_TOPICS: list[dict] = [
             "compass for Atlas the guide, and the magnifying glass for Find "
             "anything (hover one for its name and keys). The offline "
             "badge, the power-saver badge and the running-job slot appear only "
-            "when there is something to say. Settings -> Appearance -> Status "
+            "when there is something to say. Settings, Appearance, Status "
             "bar chooses which of the rest to show."
         ),
         "badge": {"label": "Appearance", "section": "appearance"},
@@ -338,7 +339,7 @@ HELP_TOPICS: list[dict] = [
         #: said "g then a letter" until INBOX 410: the chord had been "m" for
         #: months, and the guide was the one place still teaching the old key.
         "body": (
-            "Press ? for the full list; Settings -> Shortcuts rebinds any of "
+            "Press ? for the full list; Settings, Keyboard shortcuts rebinds any of "
             "them, and on a Mac Cmd works in place of Ctrl. Everywhere: Ctrl+K "
             "the command palette, Ctrl+P find anything, Ctrl+F find on this "
             "page, / jump to search (the chat box on Chat), Ctrl+Z undo, "
@@ -366,7 +367,7 @@ HELP_TOPICS: list[dict] = [
         "id": "models",
         "keywords": ("model", "ollama", "lm studio", "vllm", "llama.cpp", "utility model", "chat model", "sampling", "temperature"),
         "body": (
-            "Settings -> Models picks the chat model and an optional smaller "
+            "Settings, Models picks the chat model and an optional smaller "
             "utility model for background jobs. Any OpenAI-compatible server "
             "works, not just Ollama, LM Studio, llama-server, Jan, vLLM. "
             "Sampling parameters (temperature, top-p, top-k, min-p, repeat "
@@ -390,9 +391,9 @@ HELP_TOPICS: list[dict] = [
         "id": "websearch",
         "keywords": ("web search", "websearch", "internet search", "searxng", "search the web", "search online", "look it up online"),
         "body": (
-            "Web search is opt-in and off by default. When turned on in "
-            "Settings -> Web search, only your search words are sent out, "
-            "never your notes: so the assistant can look something up online "
+            "Web search is opt-in and off by default. Turn it on in Settings, Web "
+            "search: only your search words are sent out, "
+            "never your notes, so the assistant can look something up online "
             "when asked."
         ),
         "badge": {"label": "Web search", "section": "websearch"},
@@ -468,13 +469,13 @@ HELP_TOPICS: list[dict] = [
             "on its own", "by itself", "without me",
         ),
         "body": (
-            "Turned on in Settings -> Background tasks, the background librarian "
-            "tags, links and flags duplicate notes on an interval you choose "
-            ", off by default, since it writes to your notebook without "
-            "being asked each time. It never deletes anything and skips "
-            "itself on battery power."
+            "Autonomous background AI is turned on in Settings, Background "
+            "tasks. The background librarian then tags, links and flags "
+            "duplicate notes on an interval you choose. It is off by default, "
+            "since it writes to your notebook without being asked each time. "
+            "It never deletes anything and skips itself on battery power."
         ),
-        "badge": {"label": "Profile", "section": "preferences"},
+        "badge": {"label": "Background tasks", "section": "tasks"},
     },
     {
         #: **The guide's entry about itself** (INBOX 204: "improve its
@@ -500,14 +501,14 @@ HELP_TOPICS: list[dict] = [
             "Atlas is this app's in-app guide, named for a book of maps. It "
             "answers how-to questions about MemoryMap itself from the app's "
             "own help: where a feature lives, what a setting does, which tab "
-            "to be on. It answers on the utility model in Settings -> Models "
+            "to be on. It answers on the utility model in Settings, Models "
             "while smart model routing is on, on the chat model while that is "
-            "off, and Settings -> Models can give the guide a model of its "
+            "off, and Settings, Models can give the guide a model of its "
             "own. It cannot read your notes or documents (ask the "
             "Chat or Ask tab for those), and nothing said to it is saved: the "
             "conversation is gone on reload, and \"New chat\" clears it now. "
             "It is reachable from the status bar on every tab, from the head "
-            "of every Settings pane, and from Settings -> Help."
+            "of every Settings pane, and from Settings, Help."
         ),
         "badge": {"label": "Help", "section": "help"},
     },
@@ -528,10 +529,13 @@ HELP_TOPICS: list[dict] = [
         "id": "extract-notes",
         "keywords": ("extract notes", "rough thoughts", "writing room", "draft"),
         "body": (
-            "\"Extract notes\" (Notes tab) turns a block of pasted free text "
-            "into several AI-drafted, auto-linked notes instead of one long "
-            "one. The Writing Room sub-tab is for turning rough, unstructured "
-            "thoughts into a proper note before it's saved."
+            "Split into notes, in the More menu of Write with Atlas (Notes "
+            "tab), turns a block of pasted free text into several AI-drafted, "
+            "auto-linked notes instead of one long one. Write with Atlas is "
+            "for turning rough, unstructured thoughts into a proper note "
+            "before it's saved. A document's menu and a selection of cards on "
+            "a board have Extract notes, which does the same for a document "
+            "or for those cards."
         ),
         "badge": {"label": "Notes", "tab": "notes"},
     },
@@ -567,7 +571,7 @@ HELP_TOPICS: list[dict] = [
             "needs no model, is about ten times faster and is the only reader "
             "that tells you where on the page each block sits. Read one page, a "
             "range like 1-5, or the whole document. A read keeps running if you "
-            "close the window: it shows in Settings -> Background tasks and can "
+            "close the window: it shows in Settings, Background tasks and can "
             "be stopped from there or from the workspace, and every page that "
             "has been read is remembered, so reopening the document shows the "
             "text again rather than starting over."
@@ -742,7 +746,7 @@ HELP_TOPICS.extend(
             "id": "security",
             "keywords": ("password", "lock", "locked", "lock screen", "security", "sign in", "log in", "private note", "encrypt", "forgot password", "idle"),
             "body": (
-                "Settings, Account and security: set a password and the notebook "
+                "Settings, Account & security: set a password and the notebook "
                 "asks for it when it opens. The lock button in the top bar locks it "
                 "now, and it locks itself after the idle time you choose there. "
                 "While it is locked, an open dialog or popover is put away, and "
@@ -967,7 +971,7 @@ HELP_TOPICS.extend(
                 "from the library", "point a topic at a note", "link a note to a topic", "reference node",
             ),
             "body": (
-                "Mind maps live in the Library, under Boards and maps; New, then Mind "
+                "Mind maps live in the Library, under Boards & maps; New, then Mind "
                 "map, starts one. Tab adds a child, Enter a sibling, and dragging a topic "
                 "onto another moves its whole branch. Right-click a topic for the "
                 "ring of actions, where Cross-link joins any two topics. View, How this "
@@ -1016,7 +1020,7 @@ HELP_TOPICS.extend(
                 "present", "presentation", "slides", "slideshow",
             ),
             "body": (
-                "Whiteboard keys (Library, Boards and maps; Ctrl+Shift+B opens it). "
+                "Whiteboard keys (Library, Boards & maps; Ctrl+Shift+B opens it). "
                 "Tools: V or S select, H hand, K lasso, P pen, M highlighter, E "
                 "eraser, B fill, L line, A arrow, R rectangle, O circle, G "
                 "triangle, D diamond, T text, N sticky note, F frame, C connector (Shift+C "
@@ -1472,13 +1476,13 @@ HELP_TOPICS.extend(
             "keywords": ("sub-tab", "subtab", "sort the library", "select all", "boards and maps"),
             "body": (
                 "Library controls. The sub-tabs are plain words with a line under the one you are on (Notes and the document sidebar draw theirs the same way): All (everything you have made), "
-                "Documents, Boards and maps, Images, Files, AI skills, Bookmarks and "
+                "Documents, Boards & maps, Images, Files, AI skills, Bookmarks and "
                 "Contents. Search, then sort newest first, oldest first, A to Z or "
                 "biggest first, and set how many show per page. Tick a card's box "
                 "to select it: the bar that appears has Select all, Open, Restore "
                 "(for binned items), Delete and Done, and Documents and the gallery "
                 "have bars of their own. New (a whiteboard or a mind map), Map from "
-                "notes and Import outline sit on Boards and maps; Images takes "
+                "notes and Import outline sit on Boards & maps; Images takes "
                 "uploads of pictures and PDFs."
             ),
             "badge": {"label": "Library", "tab": "library"},
@@ -1573,8 +1577,8 @@ HELP_TOPICS.extend(
             "body": (
                 "Hidden features and power keys. Ctrl+K is the command palette "
                 "(jump anywhere, run an action), Ctrl+P is Find anything (notes, "
-                "files and actions), and ? lists every shortcut, which Settings -> "
-                "Shortcuts rebinds. Press m then a letter to jump: d (Dashboard), n "
+                "files and actions), and ? lists every shortcut, which Settings, "
+                "Keyboard shortcuts rebinds. Press m then a letter to jump: d (Dashboard), n "
                 "(Notes), c (Chat), g (Graph), l (Library), t (Timeline), r "
                 "(Reminders); or to act: s (Settings), q (Quick sketch), v (Meeting "
                 "notes), a (Guide), p (Popup agent). A second m or Esc closes the panel. "

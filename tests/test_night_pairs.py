@@ -188,3 +188,32 @@ def test_identical_claims_do_not_crowd_out_the_one_that_disagrees(session):
         _note(session, "The rent for the flat is 950 pounds a month.", days_ago=days)
     facts.run(session, budget=50_000, embeddings=_Words())
     assert len(_kind(session, "tension")) >= 1
+
+
+class _Prefs:
+    """The two methods the switches read, over a dict."""
+
+    def __init__(self, **stored):
+        self.stored = {facts._pref_key(name): value for name, value in stored.items()}
+
+    def get_preference(self, key, default=None):
+        return self.stored.get(key, default)
+
+
+def test_the_open_questions_switch_stops_collecting_and_answering(session):
+    _note(session, "Who is coming to the garden party on Saturday?", days_ago=30)
+    _note(session, "The caterer is coming to the garden party on Saturday.")
+    off = _Prefs(open_questions=False)
+    facts.run(session, budget=5000, config=off)
+    session.commit()
+    assert _kind(session, "question") == []
+    assert _kind(session, "answered") == []
+    assert _kind(session, "claim"), "the claims are still read with questions off"
+
+
+def test_the_open_questions_switch_on_still_collects_and_answers(session):
+    _note(session, "Who is coming to the garden party on Saturday?", days_ago=30)
+    _note(session, "The caterer is coming to the garden party on Saturday.")
+    facts.run(session, budget=5000, config=_Prefs())
+    session.commit()
+    assert len(_kind(session, "question")) == 1

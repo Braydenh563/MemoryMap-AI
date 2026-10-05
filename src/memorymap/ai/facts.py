@@ -407,6 +407,13 @@ def run(
     """
     if config is not None and not enabled(config, "night_shift"):
         return {"paused": True}
+    # The "open questions" switch (Settings, What the notebook learned) stops
+    # the pass collecting questions and pairing them with answers; the ones
+    # already collected stay listed and can still be answered or dropped by
+    # hand. A note read while it is off keeps its claims but not its questions
+    # until it is edited or the pass is forced, the same cursor rule as any
+    # note the pass has already read.
+    questions_on = config is None or enabled(config, "open_questions")
     from memorymap.core.database import NightRun
 
     night = NightRun(trigger=trigger, budget=budget, started_at=utcnow())
@@ -443,7 +450,7 @@ def run(
             content = entry.content or ""
             spent += TOKENS_PER_NOTE
             scanned += 1
-            proposed = candidates(content)
+            proposed = [item for item in candidates(content) if questions_on or item.kind != "question"]
             if not proposed:
                 continue
 
@@ -505,6 +512,7 @@ def run(
                 embeddings=embeddings,
                 counts=counts,
                 models_used=models_used,
+                questions_on=questions_on,
             )
             derived += paired
     except BaseException:
@@ -810,6 +818,7 @@ def _pair_passes(
     embeddings,  # noqa: ANN001
     counts: dict[str, int],
     models_used: set[str],
+    questions_on: bool = True,
 ) -> tuple[int, int, str]:
     """Passes 4 and 5 over what pass 3 just found. Returns `(spent, derived,
     stopped)`; never raises past a single pair.
@@ -820,7 +829,7 @@ def _pair_passes(
     """
     claims, questions = _open_claims_and_questions(session)
     new_claims = [row for row in claims if row.run_id == night.id]
-    new_questions = [row for row in questions if row.run_id == night.id]
+    new_questions = [row for row in questions if row.run_id == night.id] if questions_on else []
     if not (new_claims or new_questions):
         return spent, 0, "done"
     similar = _Similar(embeddings, claims)
@@ -874,7 +883,7 @@ def _pair_passes(
             select(DerivedFact).where(DerivedFact.kind == "answered", DerivedFact.deleted_at.is_(None))
         ).all()
     }
-    for question in questions:
+    for question in questions if questions_on else []:
         if question.id in answered:
             continue
         asked_at = written.get(question.entry_id)

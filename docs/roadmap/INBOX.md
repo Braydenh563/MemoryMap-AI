@@ -46,20 +46,11 @@ with its owner named in the entry.
      cleaner??" Placed: a smoothness agent (boot choreography, the
      companion's mount) and the Atlas motion agent (the drawing at rest).
 
-578. **The owner, 2026-10-05, verbatim.** "this section in the chat sidebar
-     looks awkward" (screenshot: the Chats head, a large filled New button,
-     a lone wide Recent select below). Placed: the graph and sidebar agent.
-
 580. **The owner, 2026-10-05, verbatim.** "the atlas companion and app in
      general is ever so slightly laggy. I think opening pages and between ui
      views like tabs, pages, popups, features like the graph etc need to be
      more smooth in transitions and cheap to hide the ugly loading glitches."
      Placed: the smoothness agent, with 577.
-
-581. **The owner, 2026-10-05, verbatim.** "on the mindmap, the solid and
-     dashed bar are exactly the same on mind map nodes" (seen on a build
-     before 569's fix was pushed; to verify on the new head). Placed: the
-     graph and sidebar agent.
 
 582. **The owner, 2026-10-05, verbatim.** "bro's just perched on nothing in
      the mindmap. the companion keeps being left floating in places on
@@ -77,12 +68,6 @@ with its owner named in the entry.
      notifications. all notifiactions that contain links or buttons need to
      show and be accessible in the notifications panel" Placed: the
      notifications agent.
-
-586. **The owner, 2026-10-05, verbatim.** "the graph is a little jittery when
-     nodes move around or adjust position" Placed: the graph agent.
-
-587. **The owner, 2026-10-05, verbatim.** "when I click nodes on the graph, it
-     moves the graph slightly??" Placed: the graph agent.
 
 561. **The owner, 2026-10-05, verbatim.** "I dont like this section in th
      timeline, it needs redesigning, restructuring, moving ro smth"

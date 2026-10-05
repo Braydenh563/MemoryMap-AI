@@ -3654,12 +3654,10 @@ dialog::backdrop {
    ground and its own inset shadow, a box drawn inside a box, and stood 89px
    tall on `textarea.autogrow`'s 44px floor instead of the 11rem this file
    already asked for. The wrap is named in each selector rather than the rules
-   being loosened to descendants, which would reach into the preview and the
-   `[[` list as well. */
+   being loosened to descendants, which would reach into the `[[` list as well. */
 .note-composer > input,
 .note-composer > textarea,
-.note-composer > .gutter-wrap > textarea,
-.note-composer > .entry-preview {
+.note-composer > .gutter-wrap > textarea {
   /* **`0`, not `none`, and the difference is three visible pixels.** Reported:
      "the title and main note textbox have a large border on them", measured as
      `3px solid` on `#entry-title` and `#entry-content` while this rule said
@@ -3697,8 +3695,7 @@ dialog::backdrop {
    press on a toolbar button inside keeps that button's own ring. */
 .note-composer > input:focus-visible,
 .note-composer > textarea:focus-visible,
-.note-composer > .gutter-wrap > textarea:focus-visible,
-.note-composer > .entry-preview:focus-visible {
+.note-composer > .gutter-wrap > textarea:focus-visible {
   outline: none;
 }
 
@@ -3715,7 +3712,7 @@ dialog::backdrop {
 }
 
 .note-composer:has(.note-surface:focus-within),
-.note-composer:has(> input:focus-visible, > textarea:focus-visible, > .gutter-wrap > textarea:focus-visible, > .entry-preview:focus-visible) {
+.note-composer:has(> input:focus-visible, > textarea:focus-visible, > .gutter-wrap > textarea:focus-visible) {
   border-color: var(--accent-text);
   box-shadow: inset 0 0 0 1px var(--accent-text);
 }
@@ -3758,11 +3755,6 @@ dialog::backdrop {
    the composer, above the counter) nor any width of its own. */
 .note-composer > .gutter-wrap {
   margin-bottom: 0;
-}
-
-.note-composer > .entry-preview {
-  min-height: 11rem;
-  padding: var(--space-4);
 }
 
 /* The foot: Clear and the counter sit inside the surface, so they take its padding
@@ -10603,6 +10595,20 @@ input[type="file"] {
    width would move its label by the 2.5px that rule keeps still. */
 .wb-map-node[data-spine="dashed"]:not([data-shape="none"]) {
   border-left-style: dashed;
+}
+
+/* **A dash's gaps show what is behind the topic, not the topic's ground**
+   (INBOX 581, the owner: "the solid and dashed bar are exactly the same on
+   mind map nodes"). A border's gaps show the element's own background, which
+   runs under the border by default; a core topic's ground is its branch
+   colour (`.wb-map-core`), the bar's colour, so its dashed bar was a solid
+   one: measured, 0% of the lines across the bar were gaps on a core ellipse
+   or pill, Dashed or Solid. Clipped to the padding box, the gaps show the
+   board. A filled topic's tint is the same colour weaker, and is covered by
+   the same rule. Every side of the box, since the bar moves to the top on a
+   downward map and to the right on a mirrored topic. */
+.wb-map-node[data-spine="dashed"]:not([data-shape="none"]) {
+  background-clip: padding-box;
 }
 
 .wb-map-node[data-spine="none"]:not([data-shape="none"]) {

@@ -307,7 +307,7 @@ function layoutHierarchy(nodes, kind, width, height) {
   //: the graph layout does nothing").
   for (const node of nodes) children.set(node.id, []);
   for (const node of nodes) {
-    // A reply hangs off the note it answers, wherever that note is filed, 
+    // A reply hangs off the note it answers, wherever that note is filed,
     // splitting a thread across categories would lose the thing it is.
     const parent =
       node.parent_id != null && byId.has(node.parent_id) && !replyLoops(node, byId)
@@ -408,7 +408,9 @@ function layoutHierarchy(nodes, kind, width, height) {
       links.push({
         source: point.parent.data,
         target: node,
-        kind: node.parent_id != null ? "thread" : "filing",
+        // By what it hangs from, not by `parent_id`: a reply whose thread
+        // loops, or whose parent is filtered off the map, is filed.
+        kind: point.parent.data.isGroup ? "filing" : "thread",
       });
     }
   });

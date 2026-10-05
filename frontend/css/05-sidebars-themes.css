@@ -96,26 +96,24 @@
    toggle's lane is reserved). "Categories" plus a 36px button, or "Chats"
    plus "+ New", does not fit: the row wrapped the action under the title,
    32px off its centre line, and held on one row the title was cut to
-   "Ch...". So at that width the chat's New is its icon alone, and Manage
-   categories leaves the head for a labelled row under the list. */
+   "Ch...". So at that width Manage categories leaves the head for a
+   labelled row under the list. The chat's New is its icon at every width
+   now (INBOX 578), and its sort picker, the head's third control, leaves
+   the head at this width too, where "Chats", the picker, New and the
+   toggle's lane are wider than the row (measured: the title was cut to 9px
+   at a 170px sidebar): sorting is then the Library's, one press away under
+   the list. */
 .sidebar-foot-action {
   display: none;
 }
 
 @container sidebar (max-width: 13rem) {
+  #chat-sidebar .sidebar-head .select-shell {
+    display: none;
+  }
+
   .sidebar-head {
     gap: var(--space-2);
-  }
-
-  #chat-new {
-    width: var(--sidebar-toggle-size);
-    padding: 0;
-    font-size: 0;
-  }
-
-  #chat-new > .ph {
-    margin: 0;
-    font-size: var(--text-md);
   }
 
   #manage-categories-btn {

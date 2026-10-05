@@ -41195,15 +41195,6 @@ The two cheap additions the plan's research section named (decisions 11 to
      derive from one `--rail-x` (02-chat-graph.css), railalign.js 4/4,
      worst 0.01px.
 
-579. **The owner, 2026-10-05, verbatim.** "switching the graph layout does
-     nothing" (the gear's Layout: Force, Tree, Radial, Arc). Placed: the
-     graph and sidebar agent, first.
-     Fixed 2026-10-05 from the owner's log: `undefined.push` at
-     layoutHierarchy on every tree, radial and arc switch, when a reply is
-     listed ahead of the note it answers. Child lists are seeded first and a
-     reply loop hangs off its category (graph.js); graphlayoutorder.js 3/3,
-     0/3 on the old code; tests/test_graph_layout_order.py.
-
 593. **The owner, 2026-10-05, verbatim.** "the warning message appeared
      before the ai had even finished thinking" and "it disappeared after the
      response finished tho" (screenshot: Ask, "Only 2 of 6 sentences here
@@ -41237,6 +41228,78 @@ The two cheap additions the plan's research section named (decisions 11 to
      select, swatches and Filled toggle at different heights and centres).
      Placed: the whiteboard agent.
      Fixed 2026-10-05 by the whiteboard agent: every control on the bar's centre line (017ac3d), barline 19/19 at 1440 and 390, light and dark.
+
+579. **The owner, 2026-10-05, verbatim.** "switching the graph layout does
+     nothing" (the gear's Layout: Force, Tree, Radial, Arc).
+     **Fixed 2026-10-05**: `layoutHierarchy` (graph.js) built a note's
+     child list only on reaching it, so it assumed a reply came after the
+     note it answers; `/graph` now reads newest first (the ARCH-05 index the
+     query is planned on), so on any notebook with a thread Tree, Radial and
+     Arc threw before drawing. Every list is made first; a looping reply
+     chain is filed under its category. `gl1005-graphlayout.js` on 142 notes:
+     before, every pair of layouts 0 apart and three TypeErrors; after,
+     21 to 110 apart (axis-normalised, of 100), no errors, canvas and SVG,
+     light and dark, 1440 and 390. `tests/test_graph_layout_order.py`, which
+     also runs the head's own fix (seeded lists, `replyLoops`), kept as the one
+     implementation; graphlayoutorder.js 3/3, 0/3 on the old code.
+
+578. **The owner, 2026-10-05, verbatim.** "this section in the chat sidebar
+     looks awkward" (screenshot: the Chats head, a large filled New button,
+     a lone wide Recent select below).
+     **Fixed 2026-10-05**: one head row in the Notes sidebar's shape: "Chats",
+     the sort as the icon-and-caret picker (`data-select-icon`), New chat a
+     ghost icon button, the collapse toggle. Before: New filled (81px), the
+     sort a 144px field on its own row. `gl1005-chathead.js`: one row, 0px
+     between centres, every control 32px, nothing filled, no overflow or
+     overlap, title whole, at sidebar widths 170, 200, 216, 230, 300 and 346
+     (the 520 cap at 1440); at 13rem and under the sort leaves the head (it
+     cut "Chats" to 9px at 170). `tests/test_ui_recipes.py` holds the shape.
+
+581. **The owner, 2026-10-05, verbatim.** "on the mindmap, the solid and
+     dashed bar are exactly the same on mind map nodes" (seen before 569's
+     fix was pushed).
+     **Fixed 2026-10-05**: verified 569 on the head (mmdoc1005-spinebar.js
+     36/36), then swept wider: `gl1005-mmbar.js` photographs the bar edge of
+     every Box (Rounded, Pill, Box, Ellipse) x free, pinned (the dashed box),
+     core and filled x tree-right, tree-down and both sides, Solid against
+     Dashed. Free, pinned and filled were already right; **core was not**:
+     a border's gaps show the element's own ground, a core topic's ground is
+     `--wb-branch`, the bar's colour, so Dashed drew solid (0% gap lines on
+     a core ellipse, pill or box, 2 of 16 core cases told apart). A dashed
+     bar now clips the ground to the padding box. After: 64/64 light and
+     dark, Solid 0% gap lines, Dashed 21% to 58%, the two photographs 3% to
+     21% different.
+
+587. **The owner, 2026-10-05, verbatim.** "when I click nodes on the
+     graph, it moves the graph slightly??"
+     **Fixed 2026-10-05**: d3-drag's `start` fires on the press, and the
+     canvas renderer pinned the note, froze the map but its neighbours and
+     posted `drag start` there, which raises the worker's alphaTarget: a
+     click reheated the layout. The press now only remembers itself
+     (`GC_DRAG_THRESHOLD_PX`, 3); past it the drag begins as before, and a
+     press that never travels is a click that tells the worker nothing.
+     `gl1005-graphclick.js`, ten clicks on a settled map: other notes moved
+     15 to 65px before, 0 after; the view 0 both times; every click still
+     opens the note's card; an 8-step drag still carries the note.
+     `tests/test_graph_click_threshold.py`.
+
+586. **The owner, 2026-10-05, verbatim.** "the graph is a little jittery
+     when nodes move around or adjust position"
+     **Fixed 2026-10-05**: the worker ticks on its own timer (16 ms, or the
+     tick's own cost on a big map) and the canvas paints on the display's,
+     so a note moving evenly in the simulation moved 2, 0, 1 steps across
+     frames. Each tick is now kept with the one before it and a frame draws
+     the point between them its time says (`gcGlideStep`), over the smoothed
+     tick interval: one interval late, at an even speed. Checked and not the
+     cause: no direction flips (2 to 5% of steps, the settle's own), no
+     camera moves mid-settle (the fits are the 500 ms eased ones), FE-04's
+     batching draws at exact positions. `tests/test_graph_glide.py` runs the
+     two functions under node, frames at 60 Hz: ticks every 16 ms (4 ms
+     jitter) gave a per-frame step variation (cv) of 0.34 and 8 still frames
+     of 179, now 0.13 and 0; every 70 ms (a big map), 1.78 and 136 still,
+     now 0.19 and 0. Not measured in a browser: headless frames here run at
+     12 to 27 fps under load 19, which hides the beat (`gl1005-graphjitter.js`
+     reads the motion when the box is quieter).
 
 ## OPEN.md rows closed, 2026-10-05
 

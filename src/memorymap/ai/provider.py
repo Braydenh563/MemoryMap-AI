@@ -1380,6 +1380,8 @@ def offered_tool_names(tools: list[dict]) -> set[str]:
 __all__ = [
     "ProviderError",
     "ToolsUnsupportedError",
+    "NO_TOOLS_PHRASE",
+    "UNREADABLE_CALL_PHRASE",
     "Provider",
     "DEFAULT_CONTEXT_TOKENS",
     "MAX_REQUESTED_CONTEXT",

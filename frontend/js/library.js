@@ -10149,7 +10149,11 @@ function bookmarkRow(bookmark) {
 //: The Group by select's value, kept for the next visit (a per-viewer
 //: convenience, so `localStorage`, and a blocked one only forgets it).
 const CONTENTS_GROUP_KEY = "contents-group";
-const CONTENTS_GROUPS = ["category", "tag", "date", "folder"];
+const CONTENTS_GROUPS = ["category", "tag", "topic", "date", "folder"];
+//: INBOX 547: By topic reads the graph's topics (`/graph/structure?topics=1`),
+//: fetched only in that mode; null when the fetch failed.
+let contentsTopics = null;
+const CONTENTS_NO_TOPIC = "In no topic";
 let contentsMode = (() => {
   try {
     const stored = localStorage.getItem(CONTENTS_GROUP_KEY);
@@ -10164,6 +10168,7 @@ let contentsMode = (() => {
 const contentsCollapsed = {
   category: new Set(),
   tag: new Set(),
+  topic: new Set(),
   date: new Set(),
   folder: new Set(),
 };
@@ -10231,6 +10236,10 @@ function contentsGroups(entries) {
       //: MemoryMap has no path at all. The heading now says that.
       addTo(path ? folder || CONTENTS_VAULT_ROOT : CONTENTS_NO_FOLDER, entry);
     }
+  } else if (contentsMode === "topic") {
+    const topicOf = contentsTopics?.topic_of || {};
+    const names = contentsTopicNames();
+    for (const entry of entries) addTo(names.get(topicOf[String(entry.id)]) || CONTENTS_NO_TOPIC, entry);
   } else if (contentsMode === "date") {
     for (const entry of entries) {
       addTo(contentsMonthKey(entry.created_at || entry.updated_at || Date.now()), entry);
@@ -10254,8 +10263,26 @@ function contentsSectionLabel(key) {
   return when.toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }
 
+//: Topic id to its heading. Two topics can be found under one name (two
+//: subjects tagged alike), so a repeat gets its number.
+function contentsTopicNames() {
+  const names = new Map();
+  const seen = new Set();
+  for (const topic of contentsTopics?.topics || []) {
+    const name = seen.has(topic.name) ? `${topic.name} (${topic.id + 1})` : topic.name;
+    seen.add(topic.name);
+    names.set(topic.id, name);
+  }
+  return names;
+}
+
 function contentsOrderedKeys(groups) {
   const keys = [...groups.keys()];
+  //: Largest topic first, the server's order, and the notes in none last.
+  if (contentsMode === "topic") {
+    const order = [...contentsTopicNames().values(), CONTENTS_NO_TOPIC];
+    return keys.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  }
   //: Newest month first: an index by time is read from now backwards.
   if (contentsMode === "date") return keys.sort((a, b) => b.localeCompare(a));
   //: Folders in path order, with the two synthetic groups last: they are
@@ -10546,10 +10573,12 @@ async function renderContents() {
   // added, would be a wrong answer, not just a stale one. The documents'
   // headings come in the same breath (`GET /documents/outline`); if that one
   // fails the notes still show.
-  const [, docs] = await Promise.all([
+  const [, docs, topics] = await Promise.all([
     loadEntries(),
     apiJson("/documents/outline", { silent: true }).catch(() => []),
+    contentsMode === "topic" ? apiJson("/graph/structure?topics=1", { silent: true }).catch(() => null) : null,
   ]);
+  contentsTopics = topics;
   clearSkeletons(outline);
 
   const active = allEntries.filter((e) => !e.deleted_at && !e.archived_at);
@@ -10607,6 +10636,12 @@ async function renderContents() {
       "Folders come from an imported Obsidian vault, they are not created in "
       + "MemoryMap. Nothing has been imported yet, so every note is grouped "
       + "here. Import a vault from Settings → Import to see its folder tree.";
+    hint.classList.remove("hidden");
+  }
+  if (hint && contentsMode === "topic") {
+    hint.textContent = contentsTopics
+      ? "Topics are found from how your notes link, and named by what they share. Rename one from its card in the graph (Colour: Topic)."
+      : "The topics could not be found just now.";
     hint.classList.remove("hidden");
   }
 

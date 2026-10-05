@@ -144,3 +144,50 @@ SUMMARY_SYSTEM = (
     "of under 30 words, from their titles and opening lines. No preamble, no "
     "quotes, no list, and nothing the notes do not say."
 )
+
+
+#: A stored name follows its topic while at least half of the two sets'
+#: union is shared (INBOX 547). Topics are recomputed from the links on every
+#: change, so a topic has no lasting id; its notes are the only identity it
+#: has, and a topic that gained or lost a note or two is still the one that
+#: was named.
+NAME_MATCH = 0.5
+#: How many renamed topics are remembered; the oldest go first.
+NAMES_KEPT = 200
+
+
+def overlap(a: set[int], b: set[int]) -> float:
+    return len(a & b) / len(a | b) if a and b else 0.0
+
+
+def apply_names(found: list[dict], stored: list[dict]) -> list[dict]:
+    """`found` with the names the person gave, best match first, each stored
+    name used once. Copies: `found` is a cached value shared by requests."""
+    out = [dict(topic) for topic in found]
+    pairs = []
+    for s_index, saved in enumerate(stored or []):
+        ids = set(saved.get("ids") or [])
+        for t_index, topic in enumerate(out):
+            score = overlap(ids, set(topic["ids"]))
+            if score >= NAME_MATCH:
+                pairs.append((-score, s_index, t_index))
+    used_saved: set[int] = set()
+    for _, s_index, t_index in sorted(pairs):
+        topic = out[t_index]
+        if s_index in used_saved or topic.get("named"):
+            continue
+        used_saved.add(s_index)
+        topic["found_name"] = topic["name"]
+        topic["name"] = stored[s_index]["name"]
+        topic["named"] = True
+    return out
+
+
+def store_name(stored: list[dict], ids: list[int], name: str) -> list[dict]:
+    """The stored names with this topic's set to `name`, or forgotten when
+    `name` is empty (the found name comes back)."""
+    wanted = set(ids)
+    kept = [s for s in stored or [] if overlap(set(s.get("ids") or []), wanted) < NAME_MATCH]
+    if name:
+        kept.append({"ids": sorted(wanted), "name": name})
+    return kept[-NAMES_KEPT:]

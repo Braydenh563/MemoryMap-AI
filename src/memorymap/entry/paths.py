@@ -161,6 +161,31 @@ def build(
         if not include_private:
             query = query.where(Entry.is_private == False)  # noqa: E712
         entries = list(session.scalars(query))
+    return _connect(session, entries, extra_edges)
+
+
+def build_light(session: Session, extra_edges: list[dict] | None = None) -> Connections:
+    """`build` over three columns instead of whole notes.
+
+    Focus mode and PageRank need who is joined to whom, not what anyone wrote:
+    `id`, `parent_id` and `tags` are all `_connect` reads of a note, so this
+    asks the database for those and never materialises an `Entry` (its text,
+    its attributes, its identity-map slot). `Connections.entries` holds the
+    column rows here, so a caller that wants a note's content loads that note
+    itself, for the dozen it draws and not the thousands it indexed. Private
+    notes are in, as in `build`'s default.
+    """
+    rows = list(
+        session.execute(
+            select(Entry.id, Entry.parent_id, Entry.tags).where(Entry.is_deleted == False)  # noqa: E712
+        )
+    )
+    return _connect(session, rows, extra_edges)
+
+
+def _connect(session: Session, entries: list, extra_edges: list[dict] | None) -> Connections:
+    """The indexing both builders share. `entries` need only carry `id`,
+    `parent_id` and `tags`, which an `Entry` and a column row both do."""
     index = Connections(entries)
     known = index.entries
 

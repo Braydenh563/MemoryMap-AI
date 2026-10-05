@@ -29,7 +29,7 @@ async function boot(opts={}) {
   const browser = await chromium.launch(
     process.env.SCROLLBARS ? { ignoreDefaultArgs: ["--hide-scrollbars"] } : {}
   );
-  const ctxOpts = {viewport: opts.viewport||{width:1440,height:900}, deviceScaleFactor:1};
+  const ctxOpts = {viewport: opts.viewport||{width:1440,height:900}, deviceScaleFactor: opts.scale || 1};
   for (const k of CTX_OPTS) if (opts[k] !== undefined) ctxOpts[k] = opts[k];
   const ctx = await browser.newContext(ctxOpts);
   // Deterministic theme: the app remembers the last theme server-side, so a

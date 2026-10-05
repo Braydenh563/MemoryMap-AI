@@ -7,6 +7,19 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (the first round, second pass)
+
+### From AGENT_SKILLS_REFORM.md, H4's two misses left after the first pass
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A compound question ("What tags and what categories am I using?": two wh-clauses, one sentence, one question mark) is a question about the notebook (`toolwords._COMPOUND_QUESTION`) | `looks_like_a_question_about` only knew "what is/are/does", so the tag and category groups handed the turn `tag_note` and `create_category` | no write tool from either group; a question followed by a job ("Which note is about my dentist? Pin it") and a question with a request in it are still jobs | `tests/test_toolwords.py` |
+| A forced "File the note under Health" is not offered `create_category` when the notebook already has "Health" (`agent._names_an_existing_category`) | 3B opened once with `create_category` | `edit_note` and the finders only; a category that does not exist keeps the write; the round after has the whole toolbox | `tests/test_harness_tiers.py` |
+| A forced first round that comes back as prose is asked once more with the call required again (`agent.FORCED_PROSE_NUDGE`) | the prose was the turn's answer unless it claimed or announced an act | one re-prompt per turn (it replaces the intent and claim nudges, so a miss costs one extra round, not three); never on a large model, never on a question | `tests/test_harness_robustness.py` |
+
+Fake transport only: the 3B was not run again, so the numbers in the first
+pass's table are from before these three.
+
 ## Moved from the plans, 2026-10-04 (the first round)
 
 ### From AGENT_SKILLS_REFORM.md, H4's found-not-fixed: what a small model's first round is offered
@@ -167,6 +180,21 @@ means the entry was stale, found by reading the call site, not assumed.
 - **MCP, the expose half (29).** Built: `src/memorymap/mcp_server.py`.
 
 ### From section 29b
+
+- **`graph_local` costs a full notebook scan (item 4).** Built:
+  `routes_graph._local_topology` keeps the index and the direction map once per
+  notebook fingerprint (and per similarity setting and embedding model), built
+  by `paths.build_light` from the `id`, `parent_id` and `tags` columns instead of
+  every note as an ORM object; a call reads only the notes it draws
+  (`_load_entries`). A cold call (after any write) still builds the whole
+  topology, because PageRank is global; a warm call no longer touches it.
+  Measured 2026-10-04 (synthetic notebooks of 2,000 and 10,000 notes, two links
+  and two tags a note, depth 2, `tests/test_graph_local_scaling.py`): a warm call
+  129 ms and 1,032 ms before, 13 ms and 23 ms after; cold 0.8 s and 1.6 s (the
+  old cold call was the old warm call plus the sweep). The test pins the shape:
+  five times the notes may cost a warm call at most three times the time, a warm
+  call builds the topology zero times, a write is seen by the next call, and
+  `build_light` agrees with `build` on every note's neighbours.
 
 - **A dry-run for the background librarian (item 2).** Answered by review-after
   rather than a true dry-run: the pass keeps what it did and every write carries
@@ -40329,6 +40357,52 @@ border or answering hover). Both are strict now.
   every chip on a seeded note's line has a 0px edge; the facts (`when`) do
   not change under the pointer; the category, the "+N", the references and
   a hashtag tone; link chips change ink; heights 24px, unchanged.
+### From OPEN.md (Documents): the viewport popups with the background art on
+
+Measured, not changed: nothing failed. `scratchpad/ui-sweeps/popupsart.js`
+opens each popup through its own opener with `bgArt` on and `GLASS=on` (the
+default look has glass off, and then no `.card` carries a backdrop-filter at
+all, so a run without it measures nothing), and reports the parent, the first
+trapping ancestor, whether it is in the window, how many of 9 points inside
+it something else covers (`elementFromPoint`), its ground's alpha and its
+first enabled row's contrast. At 1440 light and dark and 390 light and dark:
+
+- 0 failures in all four runs; the lowest first-row contrast is 5.91:1 (the
+  How it answers panel, 1440 light), every ground alpha is 1, and 0 of 9
+  points are covered anywhere.
+- The chat dock's How it answers panel: absolute inside `.chat-dock`, which
+  blurs, so it sits in that stacking context (an absolute box is not moved
+  by it as a fixed one would be); at 390 it is a sheet. The dock's select
+  menu: a child of body, fixed, 6.66:1 light, 6.59:1 dark (at 390 the selects
+  are in that sheet, not measured from it). The model panel needs a
+  configured chat model to open (`openChatModelPanel` returns without one);
+  it is a child of body, so no card can trap it.
+- The selection popup over rendered Notes text: its button and its menu are
+  children of body, fixed, untrapped, 13.44:1 light, 8.42:1 dark; at 390 the
+  menu is the action sheet.
+- The board's context menu: a child of body, fixed, z 200. The five
+  `.wb-board-menu`s: absolute inside `#wb-topbar` (which blurs) at 1440; at
+  390 four are escaped to body and the Board menu stays in the bar; all in
+  the window, 17.07:1 light, 14.01:1 dark.
+- The sweep's first drafts read 1.22:1 and 2.01:1: `color-mix()` computes to
+  `color(srgb r g b)` in 0..1 and the accent ramp to `oklch()`, and both were
+  parsed as rgb numbers. Colours are now read back through a canvas, and a
+  row's own tint is composited under its words. A sweep fault, not the app's.
+
+### From documents-1004 item 3 (UI_MODERNISATION_PLAN Phase 11 item 12's budget): the first line on a phone
+
+At 390x844 in Read, the phone's default view, the first line was at y=255
+(`scratchpad/ui-sweeps/docphonetop.js` names every band above it): the top
+bar 0 to 58, the dock's two rows 80 to 174, the pane's 24px pad, and the
+document's name again as a heading (207 to 248) under a head row that already
+shows it. Phase 11's gate is chrome at most 25% of the height (211px). Now,
+below 600 only: the prepended name heading is marked `.doc-preview-title`
+(`renderDocPreview`, only when the title was added, never a heading the
+author wrote) and is not drawn, the next block loses its top margin, and the
+reading pane pads `--space-6`. First line 255 to 199, light and dark; Live
+stays at 192. At 1440 the Read view's title heading is still drawn (block,
+33px). The dock's two rows stay: the Edit/Read row is the view switch the
+plan's item 6 decided on, and it fits the budget as it is.
 ## INBOX resolved, 2026-10-05
 
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs
@@ -40347,4 +40421,40 @@ border or answering hover). Both are strict now.
      line, combobox keys; `pickers.js` 22 of 22 at 1440 and 390, light and
      dark) and `dialogHead` for six script-built dialogs (`dialogheads.js`
      20 of 20); `CONFIRM_HEAD_DIALOGS` ratchet in test_ui_recipes.py.
+
+538. **The owner, 2026-10-05, verbatim.** "Im using a thinking model that can
+     use toolcalling but it fails??" (screenshots: gemma-4-E2B, spec sheet
+     "Can use tools: yes", the answer card says it "can't call tools, so this
+     answered as a plain question instead of using Agent mode").
+     Fixed (2026-10-05): Ollama's "error parsing tool call" 5xx is retried once, and a model that declares tools but fails twice says so instead of "can't call tools" (tests/test_ollama_tools_reliability.py; fake transport only).
+539. **The owner, 2026-10-05, verbatim.** "when I switch between tabs in the
+     top bar, the pill element for the tabs shifts position slightly
+     horizontally."
+     Fixed (2026-10-05): `tabContentWidth` skips the glide pill; 0px shift at five widths (tabpillshift.js, was 29px at 1024).
+541. **The owner, 2026-10-05, verbatim.** "some of the settings section
+     navigation rows are at the bottom and some dont have any at all??"
+     (screenshot: Quit MemoryMap with its sub-tab row under the title).
+     Fixed (2026-10-05): every pane with three or more heads gets its index under the title (settingsindex.js, 21/21).
+544. **The owner, 2026-10-05, verbatim.** "the graph arc view starts a little
+     too close and too high up on the screen."
+     Fixed (2026-10-05): the arc view frames its arcs and labels with a wider margin (graph.js `frameTree`).
+545. **The owner, 2026-10-05, verbatim.** "the clear button in the note
+     capture tab clashes with the text box."
+     Fixed (2026-10-05): Clear sits 2px below the box at 1440 and 390 (captureclear.js).
+546. **The owner, 2026-10-05, verbatim.** "idk if the "connections beside an
+     open note" in the notes tab does anything."
+     Checked: it works at 1280px and wider, beside a note you have opened
+     (`notesRailWanted`); with no note open nothing changes, so pressing it
+     looked like nothing. It now says so in a toast when that is the case.
+     Fixed (2026-10-05): the toast described above.
+547. **The owner, 2026-10-05, verbatim.** "also what are topics in the graph??
+     can i change or modify or see topics in the graph or elsewhere??"
+     Answer: a topic is a subject the app finds inside a cluster (GRAPH_PLAN
+     KG6): notes linked closely together, named by the tag, person or word
+     they share most. Seen via the graph's gear, Colour: Topic (an outline
+     per topic, a legend entry per topic, a card with Summarise). They are
+     computed, not editable. Recommendation (taken): rename a topic from its
+     card (a stored name that wins over the computed one), and list topics
+     in Library, Contents, so they are visible outside the graph. Next Opus.
+     Fixed (2026-10-05): the topic card's pencil renames a topic (PUT /graph/topics/name, stored by its notes, following it through small changes; the arrow brings the found name back), and Library, Contents has By topic (tests/test_topic_names.py, topicnames.js 9/9).
 

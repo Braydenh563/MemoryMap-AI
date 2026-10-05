@@ -7,6 +7,12 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## OPEN.md rows closed, 2026-10-05 (the open-ledger pass)
+
+The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section: each open row checked against the head and the running app; a row found built, or built here, is deleted from the ledger and named below with how it was verified. The pass's own account is `agent-remaining/open-ledger-pass.md`.
+
+- **The word menu measures its own width before it is placed** (Documents). Built: reproduced at 390x844 (a short menu at the right edge, then a long candidate: 256 of 316px, right edge on the window's), fixed by parking the menu with `docPlaceFixed` at the edge before `placeDocSuggest` reads `offsetWidth`; `tests/test_ui_recipes.py` holds the order, `scratchpad/ui-sweeps/wordmenuwidth.js` 5 of 5 at 1440 and 390, light and dark.
+
 ## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
 
 From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN

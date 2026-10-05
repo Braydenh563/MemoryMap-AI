@@ -1399,6 +1399,20 @@ def test_a_viewport_popup_leaves_the_surfaces_that_can_blur() -> None:
         "checks the menu landed where it was put (DESIGN.md, the recipe index)"
     )
 
+    # The size is read with the menu parked at the band's left edge, never
+    # where the last open left it. A `position: fixed` box with `left` set and
+    # no `right` is shrink-to-fit against the room to its right, so a menu
+    # still standing near the window's right edge measures narrower than it
+    # will draw once moved, and the placement is computed from the wrong
+    # width (OPEN.md, "The word menu measures its own width before it is
+    # placed").
+    parked = place.index("docPlaceFixed(")
+    assert parked < place.index("offsetWidth"), (
+        "placeDocSuggest must park the menu (docPlaceFixed at the edge) "
+        "before it reads its width, or a long candidate near the right edge "
+        "measures shrunk"
+    )
+
     # Both of the app's viewport popups measure after placing. Compared by
     # position rather than by name: what matters is that the rect is read
     # *after* the first write, which is the whole of the correction.

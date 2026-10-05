@@ -131,6 +131,48 @@ def decorate(kind: str, entry: dict, total_gb: float | None) -> dict:
     }
 
 
+#: What an installed model may be set to, by its kind. A vision model reads
+#: pictures, reads the text in them and still chats; an OCR model only reads
+#: text; an embedding model only turns text into numbers for search.
+USES_OF_KIND = {
+    "embedding": ["embeddings"],
+    "vision": ["vision", "ocr", "chat"],
+    "ocr": ["ocr"],
+    "text": ["chat"],
+}
+_EMBED_NAME = re.compile(r"embed|minilm|\bbge-|\be5-|\bgte-", re.I)
+_OCR_NAME = re.compile(r"ocr", re.I)
+_VISION_NAME = re.compile(r"vision|llava|moondream|minicpm-v|[-.]vl\b|\dvl\b|-vl[-:]", re.I)
+_VISION_FAMILIES = {"clip", "mllama", "siglip", "qwen2vl", "qwen25vl", "qwen3vl"}
+
+
+def installed_uses(entry: dict) -> list[str]:
+    """What the installed model card offers to use a model for (op4-1005's
+    found-not-fixed: every installed model was offered chat, images and
+    reading text, so an embedding model said "Use for chat" and never "Use
+    for search"). The catalogue's own kind first, by name with or without
+    `:latest`; then Ollama's `details` (a `bert` family embeds, a `clip`
+    projector sees); then the name, which is all an OpenAI-dialect server
+    gives; a model nothing marks is a chat model."""
+    from memorymap.ai.model_manager import SUGGESTED_MODELS
+
+    name = str(entry.get("name") or "")
+    bare = name.removesuffix(":latest")
+    for kind, models in SUGGESTED_MODELS.items():
+        if any(m["name"] in (name, bare) for m in models):
+            return list(USES_OF_KIND.get(kind, ["chat"]))
+    details = entry.get("details") or {}
+    families = {str(f).lower() for f in (details.get("families") or [])}
+    families.add(str(details.get("family") or "").lower())
+    if any("bert" in f for f in families) or _EMBED_NAME.search(name):
+        return list(USES_OF_KIND["embedding"])
+    if _OCR_NAME.search(name):
+        return list(USES_OF_KIND["ocr"])
+    if families & _VISION_FAMILIES or _VISION_NAME.search(name):
+        return list(USES_OF_KIND["vision"])
+    return list(USES_OF_KIND["text"])
+
+
 # --- "Download another model" -----------------------------------------------------
 
 _PART = r"[a-z0-9][a-z0-9._-]*"

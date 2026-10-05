@@ -227,10 +227,11 @@ async function modelRemove(installedName) {
 function modelMenuItems(model, state) {
   const items = [];
   if (state.installed) {
-    //: A custom name has no group, so every purpose is offered; a catalogue
-    //: model offers its own purpose first as the primary button and the other
-    //: sensible one here.
-    const offered = model.custom ? ["chat", "vision", "ocr"] : model.purpose_key === "chat" ? ["utility"] : [];
+    //: An installed model is offered the uses its kind has (`uses`, from the
+    //: poll: `model_cards.installed_uses`), so an embedding model says "Use
+    //: for search" and never "Use for chat"; a catalogue model offers its own
+    //: purpose first as the primary button and the other sensible one here.
+    const offered = model.custom ? model.uses || ["chat"] : model.purpose_key === "chat" ? ["utility"] : [];
     for (const purpose of offered) {
       if (purpose === "utility") {
         items.push({
@@ -478,8 +479,8 @@ function modelGroupOpen(kind, shown, status) {
 //: what, and offered Remove or nothing. Each installed model is now the
 //: suggested downloads' own card (`buildModelCard`) as a custom model: its
 //: size measured on this computer, "In use for chat and images" where it is
-//: one, and its menu (`modelMenuItems`): use it for chat, images or reading
-//: text, copy its name, Remove (disabled, with the reason, while in use).
+//: one, and its menu (`modelMenuItems`): the uses its kind has (`uses`),
+//: copy its name, Remove (disabled, with the reason, while in use).
 //: Built fresh rather than through `modelCardFor`, whose cache is keyed by name
 //: and owns the suggested list's element for the same model; redrawn only when
 //: what it shows changes, so a poll never takes the focus out of an open menu.
@@ -490,7 +491,7 @@ function renderInstalledModels(status) {
   const models = status.installed_models || [];
   box.classList.toggle("hidden", models.length === 0);
   const cards = models.map((m) => {
-    const model = { name: m.name, size: m.size ? modelBytes(m.size) : "", size_source: "measured", custom: true, listed: "installed" };
+    const model = { name: m.name, size: m.size ? modelBytes(m.size) : "", size_source: "measured", custom: true, listed: "installed", uses: m.uses };
     return [model, modelState(model, status)];
   });
   const sig = JSON.stringify(cards.map(([model, state]) => modelSignature(model, state)));

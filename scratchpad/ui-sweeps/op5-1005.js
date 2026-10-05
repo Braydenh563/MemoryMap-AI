@@ -173,13 +173,42 @@ async function sidedock(page) {
   }
 }
 
+//: The installed models' menus offer only what each model's kind can do.
+//: Needs a server started with OLLAMA_URL at scratchpad/fake_ollama_server.py
+//: (llama3.2 and nomic-embed-text installed).
+async function models(page) {
+  await page.evaluate(() => openSettingsModal("models"));
+  await page.waitForTimeout(2500);
+  const cards = await page.evaluate(() => [...document.querySelectorAll("#installed-list .model-card")].map((c) => ({
+    name: c.querySelector(".model-card-name")?.textContent.trim(),
+    kebab: Boolean(c.querySelector(".kebab-menu, [aria-haspopup]")),
+  })));
+  check("the installed list shows the two models", cards.length === 2, cards);
+  for (const card of cards) {
+    const items = await page.evaluate(async (name) => {
+      const el = [...document.querySelectorAll("#installed-list .model-card")].find((c) => c.querySelector(".model-card-name")?.textContent.trim() === name);
+      el.querySelector("[aria-haspopup]").click();
+      await new Promise((r) => setTimeout(r, 300));
+      const menu = [...document.querySelectorAll("[role=menu]")].find((m) => m.getBoundingClientRect().width);
+      const out = menu ? [...menu.querySelectorAll("[role=menuitem]")].map((b) => b.textContent.trim()) : [];
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      await new Promise((r) => setTimeout(r, 200));
+      return out;
+    }, card.name);
+    const uses = items.filter((t) => /^Use for/.test(t));
+    if (/embed/.test(card.name)) check(`${card.name}: offered search only`, uses.length === 0 || (uses.length === 1 && uses[0] === "Use for search"), items);
+    else check(`${card.name}: never offered search, images or reading text`, !uses.some((t) => /search|images|reading/.test(t)), items);
+  }
+}
+
 (async () => {
   const { browser, page } = await boot({ viewport: { width: W, height: H } });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await openBoards(page);
+  if (MODE !== "models") await openBoards(page);
   if (MODE === "mapio") await mapio(page);
   if (MODE === "sidedock") await sidedock(page);
+  if (MODE === "models") await models(page);
   check("no page errors", errors.length === 0, errors.slice(0, 3));
   console.log(`\n${results.filter(Boolean).length}/${results.length} passed (${MODE}, ${W}, ${process.env.THEME || "light"})`);
   await browser.close();

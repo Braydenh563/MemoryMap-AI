@@ -2909,6 +2909,35 @@ body.scroll-top-visible .skills-split > .tab-main {
   gap: var(--space-1);
 }
 
+/* **A narrow sidebar puts the strip under the toggle, not beside it**
+   (audit 2026-10-05, FE-19; DOCUMENTS_PLAN, decisions). "Documents" and
+   "Outline" need 182px and the toggle's lane 46px more; the sidebar is 192px
+   at 1024 (and whatever a person drags it to), so "Outline" ran 7px under the
+   toggle. Below a 14rem content box (a 256px sidebar: at 1440 it is 260 and
+   "Outline" ends 12px short of the toggle) the strip gives up the pull-up
+   and the lane and starts one toggle-height down, full width: a row of
+   height spent only where the width is not there, rather than a wider
+   sidebar taking the editor's room or shortened labels. The sidebar's width
+   is set by its grid track (`applySidebarWidth`), so naming it a container
+   changes no layout. The query is a component's width, not the window's, so
+   it is not one of the breakpoints `tests/test_breakpoints.py` holds. */
+#doc-sidebar {
+  container: doc-sidebar / inline-size;
+}
+
+@container doc-sidebar (width < 14rem) {
+  .doc-sidebar-tabs {
+    margin-top: calc(var(--sidebar-toggle-inset) + var(--sidebar-toggle-size) + var(--space-2) - var(--space-6));
+    padding-right: 0;
+  }
+
+  /* At 192px even the whole width is 160px against the two tabs' 182: the
+     tabs-line's --space-5 of side room drops to --space-2 here only. */
+  .doc-sidebar-tabs > [role="tab"] {
+    padding-inline: var(--space-2);
+  }
+}
+
 /* **The strip is square, the paint on it is not.** Reported as "square tab
    corners", with a screenshot nobody kept. Measured (`tabhover.js`, 1440x900):
    the main tab strip is rounded (`#tab-btn-*` 8.4px, `#tab-bar` 11.2px,

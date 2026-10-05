@@ -1166,6 +1166,16 @@ D5 (image handles in Live, pictures in the Word export).
    "/" menu's Page break in a document (not in a note, which is not
    printed as pages). Page size, margins and page numbers (the rest of D4)
    are open.
+6. **A narrow sidebar puts its tab strip under the collapse toggle**
+   (2026-10-05, audit FE-19). "Documents" and "Outline" need 182px and the
+   toggle's lane 46px; at 1024 the sidebar is 192px, and "Outline" ran 7px
+   under the toggle. Below a 14rem content box (a 256px sidebar) the strip
+   starts one toggle-height down, full width, with `--space-2` of side room
+   per tab instead of `--space-5` (a container query on `#doc-sidebar`).
+   Not chosen: a wider sidebar at 1024 (the editor's width is the page),
+   shorter labels (the strip's words are its only labels). Measured by
+   `scratchpad/ui-sweeps/perf2-1005-docside.js`: fits, nothing under the
+   toggle, at 1024, 1440 and 390, light and dark.
 
 ## 18. The slash menus as one system: built 2026-09-21
 

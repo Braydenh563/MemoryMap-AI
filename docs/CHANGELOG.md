@@ -493,6 +493,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 
 ### Added
 
+- Documents: a ```mermaid flowchart (flowchart or graph, in any direction, with boxes, rounds, diamonds and circles, labelled and dotted or thick links) draws as a diagram in Read, in Live while the caret is elsewhere, in a print and in the HTML export, by the app's own parser with nothing downloaded; press it in Live to edit its text; any other Mermaid diagram stays as code (DOCUMENTS_PLAN decision 20.6, the audit's D3).
 - Documents: the menu's Map the headings (and the palette) makes a new mind map of the document's headings, laid out as a tree, with a topic that opens the document again; a heading inside a code block is left out (MINDMAP_PLAN decision 35, the audit's M5).
 - Mind maps: markers on a topic, a priority from 1 to 5, how far along it is, a flag and up to six icons (from the app's own icon set, never emoji), drawn before its name and set from the topic's menu (Content, Markers) or the palette; View, Filter by marker dims every topic without the one you pick; OPML and FreeMind exports carry them (MINDMAP_PLAN decision 34, the audit's M4).
 - Mind maps: View, Outline shows the map as an indented list beside it, edited in place: type to rename (the canvas follows as you type), Enter adds a topic, Tab and Shift+Tab move it in and out a level, Backspace on an empty topic removes it, Escape goes back to the map; the palette has the same row (MINDMAP_PLAN decision 33, the audit's M3).

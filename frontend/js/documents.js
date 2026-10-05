@@ -3165,6 +3165,7 @@ function renderDocPreview() {
   }
   layerDocWikiLinks(preview);
   docLayerImageOptions(preview);
+  docRenderMermaidIn(preview);
 }
 
 //: **The document, rendered, with its columns side by side.** `renderMarkdown`
@@ -8434,7 +8435,7 @@ function docColumnsField(CM) {
 //: widget and the arrow keys that step into it belong to Live exactly as the
 //: markdown decorations do.
 function docLiveExtensions(CM) {
-  return [docLivePlugin(CM), docColumnsField(CM), docColumnsArrowKeymap(CM)];
+  return [docLivePlugin(CM), docColumnsField(CM), docColumnsArrowKeymap(CM), docMermaidField(CM)];
 }
 
 //: Arrow into a rendered block rather than over it. CodeMirror moves the caret
@@ -8465,6 +8466,452 @@ function docColumnsArrowKeymap(CM) {
   ]);
 }
 
+
+// -----------------------------------------------------------------------------
+// Mermaid flowcharts, drawn by this file (DOCUMENTS_PLAN decision 20.3, 20.6)
+// -----------------------------------------------------------------------------
+//
+//: **A ```mermaid fence that is a flowchart draws as one**, in Read, in Live
+//: (while the caret is outside it), in a print and in the HTML export, with
+//: no library: the fully-local rule keeps Mermaid's 2.6 MB bundle out of
+//: `frontend/vendor/`, and a flowchart is the one Mermaid diagram most notes
+//: carry. The subset (decision 20.6): `flowchart` or `graph` with TD, TB, BT,
+//: LR or RL; nodes as `id`, `id[text]`, `id(text)`, `id([text])`,
+//: `id((text))`, `id{text}` and `id{{text}}`, text optionally in quotes; links
+//: `-->`, `---`, `-.->`, `-.-`, `==>` and `===`, labelled `-->|text|` or
+//: `-- text -->`, chained (`a --> b --> c`) and fanned (`a & b --> c`);
+//: `%%` comments; `style`, `classDef`, `class`, `linkStyle` and `click` lines
+//: are read and ignored. Anything else (a subgraph, another diagram type, a
+//: line it cannot read) leaves the fence as the code it is, so nothing is
+//: ever drawn half right.
+//:
+//: The region is pure (no DOM): `mermaidFlowParse` reads the text,
+//: `mermaidFlowLayout` places it in layers (ranks by longest path with the
+//: cycles' back links reversed, a few barycentre sweeps to order each layer,
+//: each layer centred), and `mermaidFlowSvgTree` describes the SVG as plain
+//: objects, which `docMermaidSvg` turns into elements. Node runs the region
+//: (`tests/test_doc_mermaid.py`).
+// DOC-MERMAID-BEGIN
+const MERMAID_SHAPES = [
+  ["([", "])", "stadium"], ["((", "))", "circle"], ["{{", "}}", "hexagon"],
+  ["[", "]", "rect"], ["(", ")", "round"], ["{", "}", "diamond"],
+];
+const MERMAID_IGNORED = /^(style|classDef|class|linkStyle|click)\b/;
+//: Longest first, so `-.->` is not read as `-.-` and a stray `>`.
+const MERMAID_LINKS = [
+  ["-.->", "dotted", true], ["==>", "thick", true], ["-->", "solid", true],
+  ["-.-", "dotted", false], ["===", "thick", false], ["---", "solid", false],
+];
+const MERMAID_MAX_NODES = 120;
+
+function mermaidFlowUnquote(text) {
+  const t = text.trim();
+  return t.length >= 2 && t[0] === '"' && t[t.length - 1] === '"' ? t.slice(1, -1) : t;
+}
+
+//: One node reference: an id and, optionally, its shape and text. Returns the
+//: node and how many characters it took, or null.
+function mermaidFlowNode(src, at) {
+  //: A hyphen only between word characters: `a-->b` is a, a link and b.
+  const id = /^[A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*/.exec(src.slice(at));
+  if (!id) return null;
+  let i = at + id[0].length;
+  for (const [open, close, shape] of MERMAID_SHAPES) {
+    if (src.startsWith(open, i)) {
+      const end = src.indexOf(close, i + open.length);
+      if (end === -1) return null;
+      const text = mermaidFlowUnquote(src.slice(i + open.length, end));
+      return { id: id[0], shape, text, end: end + close.length };
+    }
+  }
+  return { id: id[0], shape: null, text: null, end: i };
+}
+
+function mermaidFlowLink(src, at) {
+  const rest = src.slice(at);
+  //: `-- text -->`, `-. text .->`, `== text ==>`.
+  const worded = /^(--|-\.|==)\s*([^-.=|>][^|>]*?)\s*(-->|\.->|==>|---|-\.-|===)/.exec(rest);
+  if (worded) {
+    const head = MERMAID_LINKS.find(([s]) => s === worded[3] || (worded[3] === ".->" && s === "-.->"));
+    const style = worded[1] === "-." ? "dotted" : worded[1] === "==" ? "thick" : "solid";
+    return { style, arrow: head ? head[2] : true, label: mermaidFlowUnquote(worded[2]), end: at + worded[0].length };
+  }
+  for (const [token, style, arrow] of MERMAID_LINKS) {
+    if (!rest.startsWith(token)) continue;
+    let end = at + token.length;
+    let label = "";
+    const piped = /^\s*\|([^|]*)\|/.exec(src.slice(end));
+    if (piped) {
+      label = mermaidFlowUnquote(piped[1]);
+      end += piped[0].length;
+    }
+    return { style, arrow, label, end };
+  }
+  return null;
+}
+
+//: The text of a fence as nodes and edges, or null when it is not a flowchart
+//: this reads whole.
+function mermaidFlowParse(source) {
+  const lines = String(source || "").replace(/\r/g, "").split(/\n|;/).map((l) => l.replace(/%%.*$/, "").trim()).filter(Boolean);
+  if (!lines.length) return null;
+  const head = /^(flowchart|graph)(?:\s+(TD|TB|BT|LR|RL))?\s*$/i.exec(lines[0]);
+  if (!head) return null;
+  const dir = (head[2] || "TD").toUpperCase().replace("TB", "TD");
+  const nodes = new Map();
+  const edges = [];
+  const touch = (n) => {
+    const had = nodes.get(n.id);
+    if (!had) nodes.set(n.id, { id: n.id, shape: n.shape || "rect", text: n.text ?? n.id, order: nodes.size });
+    else if (n.shape) Object.assign(had, { shape: n.shape, text: n.text ?? had.text });
+  };
+  for (const line of lines.slice(1)) {
+    if (MERMAID_IGNORED.test(line)) continue;
+    let at = 0;
+    let group = [];
+    let pending = null;
+    const skip = () => {
+      while (at < line.length && /\s/.test(line[at])) at++;
+    };
+    for (;;) {
+      skip();
+      const node = mermaidFlowNode(line, at);
+      if (!node) return null;
+      touch(node);
+      group.push(node.id);
+      at = node.end;
+      skip();
+      if (line[at] === "&") {
+        at++;
+        continue;
+      }
+      if (pending) {
+        for (const from of pending.from) for (const to of group) edges.push({ from, to, style: pending.style, arrow: pending.arrow, label: pending.label });
+      }
+      if (at >= line.length) break;
+      const link = mermaidFlowLink(line, at);
+      if (!link) return null;
+      pending = { from: group, ...link };
+      group = [];
+      at = link.end;
+    }
+    if (nodes.size > MERMAID_MAX_NODES) return null;
+  }
+  if (!nodes.size) return null;
+  return { dir, nodes: [...nodes.values()], edges };
+}
+
+//: Layers, then places. `measure(text)` is a width in px; the default is an
+//: estimate so node can run this.
+function mermaidFlowLayout(graph, measure = (t) => t.length * 7.4) {
+  const across = graph.dir === "LR" || graph.dir === "RL";
+  const ids = graph.nodes.map((n) => n.id);
+  const out = new Map(ids.map((id) => [id, []]));
+  const into = new Map(ids.map((id) => [id, []]));
+  //: The back links of every cycle, found by a walk in the order the nodes
+  //: were written, are ranked as if reversed: a loop still draws, upward.
+  const state = new Map();
+  const back = new Set();
+  const visit = (id) => {
+    state.set(id, 1);
+    graph.edges.forEach((e, k) => {
+      if (e.from !== id || e.from === e.to) return;
+      if (state.get(e.to) === 1) back.add(k);
+      else if (!state.get(e.to)) visit(e.to);
+    });
+    state.set(id, 2);
+  };
+  for (const id of ids) if (!state.get(id)) visit(id);
+  graph.edges.forEach((e, k) => {
+    if (e.from === e.to) return;
+    const [a, b] = back.has(k) ? [e.to, e.from] : [e.from, e.to];
+    out.get(a).push(b);
+    into.get(b).push(a);
+  });
+  const rank = new Map();
+  const rankOf = (id, seen = new Set()) => {
+    if (rank.has(id)) return rank.get(id);
+    if (seen.has(id)) return 0;
+    seen.add(id);
+    const r = into.get(id).length ? Math.max(...into.get(id).map((p) => rankOf(p, seen) + 1)) : 0;
+    rank.set(id, r);
+    return r;
+  };
+  ids.forEach((id) => rankOf(id));
+  const layers = [];
+  for (const id of ids) (layers[rank.get(id)] ||= []).push(id);
+  const pos = new Map();
+  const reindex = () => layers.forEach((layer) => layer.forEach((id, i) => pos.set(id, i)));
+  reindex();
+  const bary = (id, side) => {
+    const near = side.get(id);
+    return near.length ? near.reduce((s, n) => s + pos.get(n), 0) / near.length : pos.get(id);
+  };
+  for (let sweep = 0; sweep < 4; sweep++) {
+    const down = sweep % 2 === 0;
+    const order = down ? layers.slice(1) : layers.slice(0, -1).reverse();
+    for (const layer of order) {
+      layer.sort((a, b) => bary(a, down ? into : out) - bary(b, down ? into : out) || pos.get(a) - pos.get(b));
+      layer.forEach((id, i) => pos.set(id, i));
+    }
+  }
+  const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+  const size = new Map();
+  for (const n of graph.nodes) {
+    const w = Math.max(48, Math.ceil(measure(n.text)) + 28);
+    const h = 38;
+    if (n.shape === "diamond") size.set(n.id, { w: w + 28, h: h + 22 });
+    else if (n.shape === "circle") size.set(n.id, { w: Math.max(w, 60), h: Math.max(w, 60) });
+    else size.set(n.id, { w, h });
+  }
+  //: Main axis (down the ranks) and cross axis (along a rank), turned for LR.
+  const main = (s) => (across ? s.w : s.h);
+  const cross = (s) => (across ? s.h : s.w);
+  const gapMain = 56;
+  const gapCross = 28;
+  const pad = 12;
+  const rankSpan = layers.map((layer) => Math.max(...layer.map((id) => main(size.get(id)))));
+  const rankWidth = layers.map((layer) => layer.reduce((s, id) => s + cross(size.get(id)), 0) + gapCross * (layer.length - 1));
+  const widest = Math.max(...rankWidth);
+  const place = new Map();
+  let along = pad;
+  layers.forEach((layer, r) => {
+    let c = pad + (widest - rankWidth[r]) / 2;
+    for (const id of layer) {
+      const s = size.get(id);
+      const mid = along + rankSpan[r] / 2;
+      const cmid = c + cross(s) / 2;
+      place.set(id, across ? { x: mid, y: cmid } : { x: cmid, y: mid });
+      c += cross(s) + gapCross;
+    }
+    along += rankSpan[r] + gapMain;
+  });
+  const total = { main: along - gapMain + pad, cross: widest + pad * 2 };
+  let width = across ? total.main : total.cross;
+  let height = across ? total.cross : total.main;
+  //: BT and RL are TD and LR mirrored.
+  if (graph.dir === "BT") for (const p of place.values()) p.y = height - p.y;
+  if (graph.dir === "RL") for (const p of place.values()) p.x = width - p.x;
+  const boxes = graph.nodes.map((n) => ({ ...byId.get(n.id), ...place.get(n.id), ...size.get(n.id) }));
+  const at = new Map(boxes.map((b) => [b.id, b]));
+  //: Where a line meets a box: its outline on the line toward the other
+  //: point (a diamond's and a circle's own, a rectangle's for the rest).
+  const edgePoint = (b, toward) => {
+    const dx = toward.x - b.x;
+    const dy = toward.y - b.y;
+    if (!dx && !dy) return { x: b.x, y: b.y };
+    let s;
+    if (b.shape === "diamond") s = 1 / (Math.abs(dx) / (b.w / 2) + Math.abs(dy) / (b.h / 2));
+    else if (b.shape === "circle") s = (b.w / 2) / Math.hypot(dx, dy);
+    else s = Math.min(dx ? (b.w / 2) / Math.abs(dx) : Infinity, dy ? (b.h / 2) / Math.abs(dy) : Infinity);
+    return { x: b.x + dx * s, y: b.y + dy * s };
+  };
+  const lines = graph.edges.map((e) => {
+    const a = at.get(e.from);
+    const b = at.get(e.to);
+    if (e.from === e.to) {
+      const top = { x: a.x + a.w / 2, y: a.y - a.h / 4 };
+      return { ...e, d: `M${top.x} ${top.y} c 30 -20 30 ${a.h / 2 + 20} 0 ${a.h / 2}`, mid: { x: top.x + 26, y: a.y } };
+    }
+    //: **A line that would lie on another bows aside**: a link back up the
+    //: flow (a loop's return), the second of two links between one pair, and
+    //: one that skips a rank (it would cross the box between) are curves
+    //: whose middle is pushed off the straight line, to the right of the flow
+    //: for a return and to alternate sides for the rest.
+    const k = graph.edges.indexOf(e);
+    const twin = graph.edges.findIndex((o, j) => j < k && ((o.from === e.from && o.to === e.to) || (o.from === e.to && o.to === e.from)));
+    const backward = rank.get(e.to) <= rank.get(e.from);
+    const skips = Math.abs(rank.get(e.to) - rank.get(e.from)) > 1;
+    const bend = backward ? 46 : twin !== -1 ? -46 : skips ? 40 * (k % 2 ? -1 : 1) : 0;
+    if (!bend) {
+      const p = edgePoint(a, b);
+      const q = edgePoint(b, a);
+      const mid = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 };
+      return { ...e, d: `M${p.x.toFixed(1)} ${p.y.toFixed(1)} L${q.x.toFixed(1)} ${q.y.toFixed(1)}`, mid };
+    }
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const c = { x: (a.x + b.x) / 2 - (dy / len) * bend * 2, y: (a.y + b.y) / 2 + (dx / len) * bend * 2 };
+    const p = edgePoint(a, c);
+    const q = edgePoint(b, c);
+    const mid = { x: 0.25 * p.x + 0.5 * c.x + 0.25 * q.x, y: 0.25 * p.y + 0.5 * c.y + 0.25 * q.y };
+    const f = (n) => n.toFixed(1);
+    return { ...e, d: `M${f(p.x)} ${f(p.y)} Q${f(c.x)} ${f(c.y)} ${f(q.x)} ${f(q.y)}`, mid };
+  });
+  //: A curve may bow past an edge: the box grows to hold it, on any side.
+  let x0 = 0;
+  let y0 = 0;
+  for (const line of lines) {
+    if (line.from === line.to) continue;
+    const nums = line.d.match(/-?[\d.]+/g).map(Number);
+    for (let i = 0; i + 1 < nums.length; i += 2) {
+      x0 = Math.min(x0, nums[i] - 12);
+      y0 = Math.min(y0, nums[i + 1] - 12);
+      width = Math.max(width, nums[i] + 12);
+      height = Math.max(height, nums[i + 1] + 12);
+    }
+  }
+  return { x0: Math.floor(x0), y0: Math.floor(y0), width: Math.ceil(width - x0), height: Math.ceil(height - y0), boxes, lines };
+}
+
+//: The SVG as plain objects: `{ tag, attrs, kids, text }`.
+function mermaidFlowSvgTree(graph, layout, label = "Flowchart") {
+  const el = (tag, attrs = {}, kids = [], text = null) => ({ tag, attrs, kids, text });
+  const kids = [el("title", {}, [], label)];
+  const marker = el("marker", { id: "md-mermaid-arrow", viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" },
+    [el("path", { d: "M0 0 L10 5 L0 10 z", fill: "currentColor" })]);
+  kids.push(el("defs", {}, [marker]));
+  for (const line of layout.lines) {
+    const attrs = { d: line.d, class: `md-mermaid-edge md-mermaid-${line.style}`, fill: "none", stroke: "currentColor", "stroke-width": line.style === "thick" ? "2.5" : "1.4" };
+    if (line.style === "dotted") attrs["stroke-dasharray"] = "4 4";
+    if (line.arrow) attrs["marker-end"] = "url(#md-mermaid-arrow)";
+    kids.push(el("path", attrs));
+  }
+  for (const b of layout.boxes) {
+    const x = b.x - b.w / 2;
+    const y = b.y - b.h / 2;
+    const common = { class: `md-mermaid-node md-mermaid-${b.shape}`, fill: "Canvas", stroke: "currentColor", "stroke-width": "1.4" };
+    let shape;
+    if (b.shape === "diamond") shape = el("path", { ...common, d: `M${b.x} ${y} L${x + b.w} ${b.y} L${b.x} ${y + b.h} L${x} ${b.y} z` });
+    else if (b.shape === "circle") shape = el("circle", { ...common, cx: b.x, cy: b.y, r: b.w / 2 });
+    else if (b.shape === "hexagon") {
+      const k = Math.min(14, b.w / 4);
+      shape = el("path", { ...common, d: `M${x + k} ${y} L${x + b.w - k} ${y} L${x + b.w} ${b.y} L${x + b.w - k} ${y + b.h} L${x + k} ${y + b.h} L${x} ${b.y} z` });
+    } else {
+      const r = b.shape === "stadium" ? b.h / 2 : b.shape === "round" ? 10 : 3;
+      shape = el("rect", { ...common, x, y, width: b.w, height: b.h, rx: r, ry: r });
+    }
+    kids.push(shape);
+    kids.push(el("text", { x: b.x, y: b.y, "text-anchor": "middle", "dominant-baseline": "central", fill: "currentColor", class: "md-mermaid-text" }, [], b.text));
+  }
+  for (const line of layout.lines) {
+    if (!line.label) continue;
+    const w = line.label.length * 6.6 + 10;
+    kids.push(el("rect", { x: line.mid.x - w / 2, y: line.mid.y - 9, width: w, height: 18, rx: 3, fill: "Canvas", class: "md-mermaid-label-bg" }));
+    kids.push(el("text", { x: line.mid.x, y: line.mid.y, "text-anchor": "middle", "dominant-baseline": "central", fill: "currentColor", class: "md-mermaid-label" }, [], line.label));
+  }
+  return el("svg", {
+    xmlns: "http://www.w3.org/2000/svg", viewBox: `${layout.x0 || 0} ${layout.y0 || 0} ${layout.width} ${layout.height}`,
+    width: layout.width, height: layout.height, role: "img", "aria-label": label, class: "md-mermaid-svg",
+  }, kids);
+}
+
+//: The words a screen reader hears for a flowchart: its links, in order.
+function mermaidFlowSummary(graph) {
+  const name = new Map(graph.nodes.map((n) => [n.id, n.text]));
+  const said = graph.edges.slice(0, 12).map((e) => `${name.get(e.from)} to ${name.get(e.to)}${e.label ? ` (${e.label})` : ""}`);
+  const more = graph.edges.length > 12 ? `, and ${graph.edges.length - 12} more` : "";
+  return `Flowchart of ${graph.nodes.length} step${graph.nodes.length === 1 ? "" : "s"}${said.length ? `: ${said.join("; ")}${more}` : ""}`;
+}
+// DOC-MERMAID-END
+
+//: The tree as elements: `createElementNS` and `textContent`, never markup,
+//: so a node's text can hold anything and stays text.
+function docMermaidSvg(source) {
+  const graph = mermaidFlowParse(source);
+  if (!graph) return null;
+  let measure;
+  try {
+    const ctx = document.createElement("canvas").getContext("2d");
+    ctx.font = "13px system-ui, sans-serif";
+    measure = (t) => ctx.measureText(t).width;
+  } catch {
+    measure = undefined;
+  }
+  const layout = mermaidFlowLayout(graph, measure);
+  const tree = mermaidFlowSvgTree(graph, layout, mermaidFlowSummary(graph));
+  const NS = "http://www.w3.org/2000/svg";
+  const build = (node) => {
+    const made = document.createElementNS(NS, node.tag);
+    for (const [k, v] of Object.entries(node.attrs)) if (k !== "xmlns") made.setAttribute(k, String(v));
+    if (node.text != null) made.textContent = node.text;
+    for (const kid of node.kids) made.appendChild(build(kid));
+    return made;
+  };
+  return build(tree);
+}
+
+//: Read (and so the print and the HTML export, which are drawn from it):
+//: each mermaid fence that reads whole becomes its figure; the rest stay code.
+function docRenderMermaidIn(container) {
+  for (const code of container.querySelectorAll('.code-block code[data-lang="mermaid"]')) {
+    const svg = docMermaidSvg(code.textContent);
+    if (!svg) continue;
+    const block = code.closest(".code-block");
+    const figure = document.createElement("figure");
+    figure.className = "md-mermaid";
+    if (block.dataset.srcLine) figure.dataset.srcLine = block.dataset.srcLine;
+    figure.appendChild(svg);
+    block.replaceWith(figure);
+  }
+}
+
+//: Live: a mermaid fence the caret is outside of is its figure, through a
+//: state field for the reason the columns block gives (a replace that spans
+//: line breaks may not come from a plugin). Pressing the figure puts the
+//: caret on the fence's first line, which shows the text to edit.
+let docMermaidFieldCache = null;
+
+function docMermaidBlocks(text) {
+  const blocks = [];
+  const re = /^```[ \t]*mermaid[^\n]*\n([\s\S]*?)\n```[ \t]*$/gm;
+  for (let m = re.exec(text); m; m = re.exec(text)) {
+    blocks.push({ from: m.index, to: m.index + m[0].length, source: m[1] });
+  }
+  return blocks;
+}
+
+function docMermaidField(CM) {
+  if (docMermaidFieldCache) return docMermaidFieldCache;
+  const { StateField } = CM.state;
+  const { Decoration, EditorView, WidgetType } = CM.view;
+  class DocMermaidWidget extends WidgetType {
+    constructor(source, from) {
+      super();
+      this.source = source;
+      this.from = from;
+    }
+    eq(other) {
+      return other.source === this.source && other.from === this.from;
+    }
+    ignoreEvent(event) {
+      return event.type !== "mousedown";
+    }
+    toDOM(view) {
+      const figure = document.createElement("figure");
+      figure.className = "md-mermaid cm-md-mermaid";
+      const svg = docMermaidSvg(this.source);
+      if (svg) figure.appendChild(svg);
+      figure.title = "Press to edit the diagram's text";
+      figure.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        const at = Math.min(this.from + 4, view.state.doc.length);
+        view.dispatch({ selection: { anchor: at } });
+        view.focus();
+      });
+      return figure;
+    }
+  }
+  const build = (state) => {
+    const text = state.doc.toString();
+    if (!text.includes("```mermaid") && !/```[ \t]+mermaid/.test(text)) return Decoration.none;
+    const sel = state.selection.main;
+    const ranges = [];
+    for (const block of docMermaidBlocks(text)) {
+      if (sel.from <= block.to && sel.to >= block.from) continue;
+      if (!mermaidFlowParse(block.source)) continue;
+      ranges.push(Decoration.replace({ widget: new DocMermaidWidget(block.source, block.from), block: true }).range(block.from, block.to));
+    }
+    return Decoration.set(ranges, true);
+  };
+  docMermaidFieldCache = StateField.define({
+    create: (state) => build(state),
+    update: (value, tr) => (tr.docChanged || tr.selection ? build(tr.state) : value),
+    provide: (field) => EditorView.decorations.from(field),
+  });
+  return docMermaidFieldCache;
+}
 
 // -----------------------------------------------------------------------------
 // Embeds: `![[…]]` draws the thing, not a link to it
@@ -9581,6 +10028,10 @@ details.callout[open] > .callout-head::before { content: "\\25BE\\2002"; }
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 0.85rem;
 }
+.md-mermaid { margin: 1.2em 0; overflow-x: auto; color: var(--ink); }
+.md-mermaid svg { display: block; max-width: 100%; height: auto; margin: 0 auto; font: 13px system-ui, sans-serif; }
+.md-mermaid .md-mermaid-node, .md-mermaid .md-mermaid-label-bg { fill: var(--ground); }
+.md-mermaid .md-mermaid-label { font-size: 12px; }
 `;
 
 function docExportEscape(text) {

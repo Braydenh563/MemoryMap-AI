@@ -7,6 +7,19 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (Mermaid flowcharts in documents)
+
+### From DOCUMENTS_PLAN.md section 20, the audit's D3 (decision 6)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A ```mermaid flowchart fence drawn as an SVG figure by an in-repo parser and layered layout (`mermaidFlowParse`, `mermaidFlowLayout`, `mermaidFlowSvgTree`, `docRenderMermaidIn`, `docMermaidField`) | every Mermaid fence rendered as code with a language label (decision 3) | the three-step chart drawn in Read inside the page, its return link bowed aside, named "Flowchart of 3 steps: Write to Ready?; …"; in Live while the caret is elsewhere, its text on a press; a sequenceDiagram fence left as code; the HTML export carries the SVG; its ink the page's in light and dark | `scratchpad/ui-sweeps/mmd2-1005-mermaid.js` 6/6 at 1440x900 light and 390x844 dark; `tests/test_doc_mermaid.py` 5/5 |
+
+Help moved with it: the Guide's documents topic. Not built: subgraphs, other
+diagram types, notes (which render at boot), "Open as a board" (W5). Not
+verified: a printed page (the print stylesheet's rule is reasoned), the
+desktop window.
+
 ## Moved from the plans, 2026-10-05 (a document's headings as a map)
 
 ### From MINDMAP_PLAN.md decision 31's open half (decision 35), the audit's M5

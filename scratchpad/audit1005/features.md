@@ -791,7 +791,7 @@ Map (from §12.5 and `map1.js`):
    - Several markers per topic.
    - A View "Filter by marker" that dims the rest.
    - Round-trips as `_priority` and the like in OPML and FreeMind; not in Markdown, by decision 12's rule (Markdown carries only what readers draw).
-5. **M5, map and document twins.**
+5. **M5, map and document twins.** FIXED 5fb59d3 (map to document) and 885dd3b (headings to map)
    - "Write this map as a document" builds headings by depth to level 3, then lists, with topic notes as paragraphs.
    - "Map this document's headings" goes the other way.
    - Both are one-shot conversions first, with a back-link in each.

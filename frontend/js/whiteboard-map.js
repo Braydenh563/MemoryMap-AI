@@ -6943,6 +6943,12 @@ function wbWireMapEdgeHandle(handle, parentId, childId) {
         edge_slide: next.edge_slide || null,
       };
       if (patch.edge_bend === before.edge_bend && patch.edge_slide === before.edge_slide) return;
+      //: Back to the line as it was before the save: the drag wrote each
+      //: frame's bend into `child.data`, so `wbMapSetNodeStyle`'s undo
+      //: snapshot read the new curve as the old one, and Ctrl+Z put back the
+      //: same curve (INBOX 658, the owner: "I modified dragged the curve of a
+      //: mindmap link and I couldnt ctrl z undo it").
+      child.data = { ...child.data, ...before };
       await wbMapSetNodeStyle(child, patch);
       renderWhiteboardNow();
     };

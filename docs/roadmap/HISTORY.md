@@ -43867,6 +43867,23 @@ record.)
      Measured: computed background-image now has the opaque base layer, dark
      and light.
 
+657. **The owner, 2026-10-05, verbatim, with a screenshot of the map's left
+     rail.** "I cant select on any of the other left sidebar subtabs on the
+     mindmap other than the library" Fixed: a map reached from the board
+     picker or made by New board kept the board's rail (Notes, Layers, Pages),
+     which a map sends back to Library; the rail's kind is now set in
+     `fetchWhiteboardState`. `maprail657.js` 4 FAIL before, PASS after;
+     `tests/test_wb_rail_kind.py`.
+658. **The owner, 2026-10-05, verbatim.** "I modified dragged the curve of a
+     mindmap link and I couldnt ctrl z undo it" Fixed: the drag wrote each
+     frame's bend into the topic, so the undo snapshot held the new curve;
+     the line is put back before the save. `mapbendundo658.js` FAIL before,
+     PASS after (bend null, 0.072, null after Ctrl+Z).
+659. **The owner, 2026-10-05, verbatim.** "I feel like I should be able to
+     double click the main tabs in the top bar and it goes back to that tab's
+     first subtab" Fixed: a double-click on Notes or Library (the two with
+     sub-tabs) selects the first one; the Guide's shortcuts answer says so.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

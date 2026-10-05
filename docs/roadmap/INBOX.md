@@ -167,10 +167,6 @@ with its owner named in the entry.
      slot, with 650 (the avatars): a glyph that says "AI off, notebook fine",
      not an empty ring.
 
-657. **The owner, 2026-10-05, verbatim, with a screenshot of the map's left
-     rail.** "I cant select on any of the other left sidebar subtabs on the
-     mindmap other than the library" A bug: next.
-
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

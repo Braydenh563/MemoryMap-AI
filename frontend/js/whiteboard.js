@@ -13832,6 +13832,11 @@ async function fetchWhiteboardState() {
     // thing on every single board open.
     await wbRefreshMapState();
     wbSyncMapChrome();
+    //: Here, the one fetch every way onto a board goes through, not only in
+    //: `openWhiteboardBoard`: a map reached from the board picker or made by
+    //: New board kept the board's rail (Notes, Layers, Pages), whose tabs a
+    //: map sends back to Library, so only Library answered (INBOX 657).
+    wbSyncSidebarKind();
     await refreshBoardList();
   } catch (err) {
     console.error("Whiteboard fetch error:", err);
@@ -18827,7 +18832,6 @@ async function openWhiteboardBoard(boardId) {
   wbScheduleRender();
   await wbMigrateBackground();
   wbApplyBackground();
-  wbSyncSidebarKind();
   renderWbGestureHints();
   //: Rendered now rather than on the next frame, because the framing below
   //: measures the nodes it is about to fit (a map node is `height: auto`, so

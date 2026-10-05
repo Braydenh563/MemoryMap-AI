@@ -420,9 +420,6 @@ being written by running agents stay beside this one.
 - ~~INBOX 237, the built-in Librarian persona is Atlas~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~"Advanced response settings" sits 20.8px right of its siblings~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~`#settings-tools`'s intro~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- **Toggle rows onto one recipe (no lavender-filled bars): not started.**
-  [help-popovers.md]
-  *Opus: a recipe to design.*
 - ~~scratchpad/ui-sweeps/help-popovers.js is not built~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~"Not one of the seven tabs carries a `data-help-for` popover"~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~The learning loop's Settings section (I9's frontend) is not built~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".

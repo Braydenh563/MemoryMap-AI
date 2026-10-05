@@ -931,6 +931,15 @@ details[open] > .about-whats-new::before,
   background: var(--row-hover-bg);
 }
 
+/* And one gap from the switch to its label. The fill above was unified, the
+   gap was not: 15 checkbox `.check-row` rows in Settings at 6.4px against 8
+   `.setting-check` rows at 9.6px (`togglerows.js`, 1440), two shapes of the
+   one on/off row a scroll apart. Both take `--space-4` now. A radio
+   `.check-row` hides its circle, so its gap is not between two things. */
+.check-row:has(input[type="checkbox"]) {
+  column-gap: var(--space-4);
+}
+
 /* One stack, one line between its rows. The negative margin that used to
    collapse the gap between consecutive rows goes with it: it existed to make
    separate-looking rows read as a set, which is now the hairline's job.

@@ -4204,3 +4204,34 @@ def test_no_help_panel_is_hand_wired():
     for button in re.finditer(r"<button[^>]*\bgraph-help-toggle\b[^>]*>", html):
         tag = button.group(0)
         assert "data-help-for=" in tag, f"a '?' with no data-help-for: {tag[:120]}"
+
+
+def test_an_on_off_row_is_one_recipe_whichever_class_it_carries() -> None:
+    """DESIGN.md's recipe index, "An on/off setting": a checkbox `.check-row`
+    and a `.setting-check` draw the same row (OPEN.md, Settings and help,
+    "Toggle rows onto one recipe (no lavender-filled bars)").
+
+    The fill was unified by the consistency pass (08-consistency.css: a checked
+    checkbox row has no fill, only a hairline between rows), but the gap from
+    the switch to its label was not: measured in Settings at 1440,
+    `togglerows.js`, 15 `.check-row` switch rows at 6.4px against 8
+    `.setting-check` rows at 9.6px, two shapes of one control a scroll apart.
+    Both now take `--space-4`, and the switch comes first in the markup as it
+    does on screen, so a screen reader meets it in the order the eye does.
+    """
+    text = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    assert re.search(
+        r'\.check-row:has\(input\[type="checkbox"\]\)\s*\{[^}]*column-gap:\s*var\(--space-4\)', text
+    ), "a checkbox .check-row must take the same --space-4 gap as .setting-check"
+    block = text[text.index("label.setting-check,\n.setting-check {"):]
+    block = block[: block.index("}")]
+    assert "column-gap: var(--space-4)" in block, "the .setting-check gap is --space-4"
+
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    for match in re.finditer(r'<label class="setting-check[^"]*"[^>]*>(.*?)</label>', html, re.S):
+        inner = match.group(1)
+        if 'type="checkbox"' not in inner:
+            continue
+        assert inner.strip().startswith("<input"), (
+            "a .setting-check row leads with its switch: " + inner.strip()[:80]
+        )

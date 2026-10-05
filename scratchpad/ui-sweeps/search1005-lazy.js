@@ -99,6 +99,44 @@ async function firstUse() {
       },
       result: () => { const el = document.getElementById('chord-guide'); return { ok: Boolean(el) && !el.classList.contains('hidden') && el.querySelectorAll('.chord-guide-row').length === 12 }; },
     },
+    // Four more doors a person reaches in the first seconds: Ctrl+K, the
+    // status bar's Guide, a note card's category chip, and Manage categories.
+    palette: {
+      bundle: 'appPalette',
+      files: ['app-palette.js'],
+      async gesture(page) {
+        await page.evaluate(() => document.activeElement?.blur?.());
+        await page.keyboard.press('Control+k');
+      },
+      result: () => { const o = document.getElementById('palette-overlay'); return { ok: Boolean(o && !o.classList.contains('hidden') && document.querySelectorAll('#palette-list > *').length > 0) }; },
+    },
+    guide: {
+      bundle: 'helpChat',
+      files: ['help-chat.js'],
+      async gesture(page) {
+        if (phone) await page.evaluate(() => openHelpChat());
+        else await page.click('#status-guide');
+      },
+      result: () => { const i = document.getElementById('help-chat-input'); return { ok: Boolean(i && i.getBoundingClientRect().height > 0) }; },
+    },
+    categoryChip: {
+      bundle: 'chipMenus',
+      files: ['chip-menus.js'],
+      async gesture(page) {
+        await page.click('[data-tab="notes"]');
+        await page.locator('#entry-list > li .chip-interactive[aria-haspopup="menu"]').first().click({ timeout: 4000 });
+      },
+      result: () => ({ ok: [...document.querySelectorAll('[role="menu"]')].some((m) => !m.closest('.hidden') && m.getBoundingClientRect().height > 20) }),
+    },
+    categories: {
+      bundle: 'categories',
+      files: ['categories-panel.js'],
+      async gesture(page) {
+        if (phone) await page.evaluate(() => openManageCategories());
+        else { await page.click('[data-tab="notes"]'); await page.click('#manage-categories-btn', { timeout: 4000 }); }
+      },
+      result: () => ({ ok: [...document.querySelectorAll('.modal-overlay:not(.hidden), .sheet-overlay:not(.hidden), dialog[open]')].some((d) => /categor/i.test(d.textContent) && d.getBoundingClientRect().height > 50) }),
+    },
     // The Settings window's handlers (settings-controls.js): the gear, the
     // Data pane, then Find duplicates, whose handler that file binds.
     settings: {
@@ -144,12 +182,15 @@ async function firstUse() {
     await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#lock-password', { state: 'visible', timeout: 20000 }).catch(() => {});
     if (await page.isVisible('#lock-password')) { await page.fill('#lock-password', PW); await page.click('#lock-submit'); }
-    await page.waitForFunction(() => {
+    //: Whether the bundle was already asked for is read in the same poll
+    //: that sees the shell, so no extra round trip (over a second each on a
+    //: loaded machine) sits between the shell and the gesture.
+    const before = await (await page.waitForFunction((b) => {
       const overlay = document.getElementById('lock-overlay');
-      return !document.documentElement.classList.contains('shell-curtain') && (!overlay || overlay.classList.contains('hidden')) && typeof ensureModule === 'function';
-    }, null, { timeout: 20000, polling: 20 });
+      const up = !document.documentElement.classList.contains('shell-curtain') && (!overlay || overlay.classList.contains('hidden')) && typeof ensureModule === 'function';
+      return up ? { asked: lazyModuleLoads.has(b) } : false;
+    }, f.bundle, { timeout: 20000, polling: 20 })).jsonValue().then((v) => v.asked);
     const t0 = Date.now();
-    const before = await page.evaluate((b) => lazyModuleLoads.has(b), f.bundle);
     let gestureError = '';
     const gestureStart = Date.now() - t0;
     try { await f.gesture(page); } catch (e) {

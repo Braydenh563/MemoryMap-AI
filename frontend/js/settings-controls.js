@@ -855,7 +855,13 @@ $("import-md-folder").addEventListener("change", () => importMarkdown("import-md
 
 $("import-dir")?.addEventListener("click", importDirectory);
 
-$("export-backup-zip")?.addEventListener("click", () => downloadExport("backup"));
+$("export-backup-zip")?.addEventListener("click", () =>
+  exportFullBackup().catch((error) => toast(error.message || "Couldn't save the backup.", true))
+);
+
+$("restore-bundle")?.addEventListener("click", () => $("restore-bundle-file").click());
+
+$("restore-bundle-file")?.addEventListener("change", () => restoreFullBackup());
 
 $("import-document").addEventListener("click", () => $("import-document-file").click());
 

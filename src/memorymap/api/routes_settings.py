@@ -34,7 +34,7 @@ from memorymap import __version__
 from memorymap.ai import budget as run_budget
 from memorymap.ai import librarian, presets, skills
 from memorymap.api.routes_categories import CATEGORY_PALETTE_KEYS
-from memorymap.core import backup, deps, embedmodels, events, extras, jobruns, logbuffer, security
+from memorymap.core import backup_bundle, deps, embedmodels, events, extras, jobruns, logbuffer, security
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import importer, manager
@@ -2120,53 +2120,24 @@ def _export_rows(session: Session) -> tuple[list[Category], list[Entry], list[En
 def export_backup(background_tasks: BackgroundTasks):
     import os
     config = deps.get_config()
-    db_path = config.data_dir / "memorymap.db"
-    media_dir = config.data_dir / "media"
-    
     fd, tmp_path = tempfile.mkstemp(suffix=".zip", prefix="memorymap_backup_")
     os.close(fd)
-    
+
     def cleanup():
         try:
             os.remove(tmp_path)
         except OSError:
             pass  # already gone, or never got written, nothing left to clean up
-            
-    background_tasks.add_task(cleanup)
-    
-    # **A snapshot, not the live file** (audit 2026-10-05, ARCH-18). The
-    # database runs in WAL mode, so what was saved last sits in
-    # `memorymap.db-wal` until a checkpoint, and zipping the main file alone
-    # lost it: measured, three notes saved and none of them in the zip, with
-    # `integrity_check` passing, so nothing said so. SQLite's backup API
-    # copies a consistent whole, log included, the way `core/backup.py`'s
-    # daily copies already do. `uploads/` (every attachment) joins `media/`.
-    snapshot_fd, snapshot_path = tempfile.mkstemp(suffix=".db", prefix="memorymap_snapshot_")
-    os.close(snapshot_fd)
-    try:
-        if db_path.exists():
-            # A cleaned snapshot, never the live file: the file alone misses
-            # whatever is still in the WAL (ARCH-18), and can carry a private
-            # note's old words in its search segments (SEC-03).
-            backup.snapshot(db_path, Path(snapshot_path))
-        with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            if db_path.exists():
-                zf.write(snapshot_path, "memorymap.db")
-            for folder in (media_dir, config.data_dir / "uploads"):
-                if not folder.is_dir():
-                    continue
-                for root, _, files in os.walk(folder):
-                    for f in files:
-                        file_path = Path(root) / f
-                        arcname = file_path.relative_to(config.data_dir)
-                        zf.write(file_path, str(arcname))
-    finally:
-        for stray in (snapshot_path, f"{snapshot_path}-wal", f"{snapshot_path}-shm"):
-            try:
-                os.remove(stray)
-            except OSError:
-                pass  # never written, or already gone
 
+    background_tasks.add_task(cleanup)
+    #: **A snapshot, not the live file** (audit 2026-10-05, ARCH-18): the
+    #: database runs in WAL mode, so zipping the main file alone lost what
+    #: was saved last (measured, three notes and none of them in the zip,
+    #: with `integrity_check` passing). `backup_bundle.build_zip` copies a
+    #: consistent whole through SQLite's backup API, and adds `uploads/` to
+    #: `media/`. The same zip is what `POST /backups/bundle` seals with a
+    #: password and `POST /backups/bundle/restore` reads back.
+    backup_bundle.build_zip(config.data_dir, config.data_dir / "memorymap.db", Path(tmp_path))
     return FileResponse(tmp_path, media_type="application/zip", filename="memorymap_backup.zip", background=background_tasks)
 
 @router.get("/export/json")

@@ -12,6 +12,25 @@ that answers "has this been done?" before anyone starts.
 One agent's pass over BACKLOG and the plans' open lines; each bullet says how it
 was verified. Items found already built are listed with the file that proves it.
 
+- **Encrypted export and import of the whole notebook** (BACKLOG section 115 row
+  10): `GET /export/backup` has long written the zip and nothing read it back.
+  `core/backup_bundle.py` builds it (a cleaned snapshot plus `media/` and
+  `uploads/`), seals it as `.mmenc` (scrypt key from `core/crypto.py`, AES-GCM in
+  1 MiB chunks with a last-chunk flag in the associated data, so a file cut at a
+  chunk boundary fails), and restores either kind (`backup.restore_file`: safety
+  snapshot, integrity check on a temp copy, atomic swap; files merged over the
+  folders, members outside `media/` and `uploads/` or climbing out of them are
+  skipped; every session ends). Routes `POST /backups/bundle` (the password in
+  the body) and `POST /backups/bundle/restore`; Settings, Import & export has a
+  password field by Export full backup and a Restore a full backup group with its
+  '?'. `tests/test_backup_bundle.py` 8/8 (round trip over chunk boundaries, wrong
+  password, truncation, export-wipe-import equals the original, plain zip, an
+  archive that tries to write outside the data folder);
+  `scratchpad/ui-sweeps/backupbundle.js` PASS at 1440 and 390, light and dark
+  (layout inside the window, a sealed file with none of the note text, a wrong
+  password refused with nothing changed, the right one brings back all three
+  notes after the reload and unlock). Left: no progress bar for a multi-gigabyte
+  file; a whole-notebook merge instead of replace is not offered.
 - **The Chat tab numbers a grounded answer while it streams** (CHAT_PLAN placed
   row "ignores `grounding_live`", INBOX 320): `sendChatMessage` reads the event,
   `agentTimeline` takes an `afterAnswerPaint` hook (late-bound through the

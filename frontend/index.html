@@ -11061,7 +11061,7 @@ Link to another note with [[its first few words]]."></textarea>
                    the help keeps only what the line does not say (INBOX 437
                    (4): the help repeated the line word for word). The four
                    exports are one row, wrapping on a phone. -->
-              <p class="muted">Copies to take away, binned notes included. Full backup is the one to move to another computer.</p>
+              <p class="muted">Copies to take away, binned notes included. Full backup is the one to move to another computer, and the one Restore a full backup reads.</p>
               <div class="help-body hidden" id="export-help" role="dialog" aria-label="About exports">
                 <p>
                   Full backup is a portable zip of the raw database and media
@@ -11072,7 +11072,12 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="export-json" class="ghost small">Export JSON</button>
                 <button id="export-csv" class="ghost small">Export CSV</button>
                 <button id="export-md" class="ghost small" title="A zip of .md files you can drop into Obsidian">Export Markdown</button>
-                <button id="export-backup-zip" class="small" title="A portable zip of your database and media folder">Export full backup (.zip)</button>
+                <button id="export-backup-zip" class="small" title="A portable zip of your database, media and attached files">Export full backup</button>
+              </div>
+              <div class="row settings-row-spaced">
+                <label for="export-backup-password" class="muted">Seal the full backup with a password</label>
+                <input id="export-backup-password" type="password" autocomplete="new-password" maxlength="200"
+                  placeholder="Optional, 8 or more characters" aria-label="Password to seal the full backup with">
               </div>
               <!-- Desktop only (shown/hidden by desktopShell() in JS): a graph
                    PNG, a chat export, and the like all land in data_dir/exports
@@ -11145,6 +11150,37 @@ Link to another note with [[its first few words]]."></textarea>
               <p id="duplicate-status" class="status" role="status"></p>
               <p class="status job-line" role="status" data-job-line="duplicate-scan"></p>
               <div id="duplicate-groups"></div>
+            </div>
+
+            <div class="settings-group">
+              <div class="row help-head">
+                <h3>Restore a full backup</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="restore-bundle-help" aria-controls="restore-bundle-help" aria-expanded="false"
+                  title="About restoring a full backup" aria-label="About restoring a full backup">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Replaces this notebook with the one in a full backup file, a .zip or a sealed .mmenc.</p>
+              <div class="help-body hidden" id="restore-bundle-help" role="dialog" aria-label="About restoring a full backup">
+                <p>
+                  Choose a file made by Export full backup. A sealed file asks
+                  for the password it was saved with; a wrong one changes
+                  nothing. Your current notebook is snapshotted first (it is in
+                  the backups list), then replaced, and attached files are put
+                  back over the ones here without deleting any. You are signed
+                  out afterwards: unlock with the password of the restored
+                  notebook.
+                </p>
+              </div>
+              <div class="row">
+                <input id="restore-bundle-file" aria-label="Choose a full backup to restore" title="Choose a full backup to restore" type="file" accept=".zip,.mmenc" class="hidden">
+                <button id="restore-bundle" class="ghost small" type="button"><i class="ph ph-file-arrow-up ph-lead" aria-hidden="true"></i> Restore from a file</button>
+                <label for="restore-bundle-password" class="muted">Password, if sealed</label>
+                <input id="restore-bundle-password" type="password" autocomplete="off" maxlength="200"
+                  aria-label="Password the backup was sealed with">
+              </div>
+              <p id="restore-bundle-status" class="status" role="status"></p>
             </div>
 
             <div class="settings-group">

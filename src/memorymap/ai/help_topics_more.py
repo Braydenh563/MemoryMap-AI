@@ -290,12 +290,15 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "import markdown", "import a folder", "import a pdf", "import word",
             "import as a document", "slide deck", "merge duplicates",
-            "tidy up duplicates", "full backup",
+            "tidy up duplicates", "full backup", "restore a full backup", "mmenc", "seal a backup",
             "export csv", "export json", "exports folder", "zip",
         ),
         "body": (
             "Settings, Import & export. Export your data as JSON, CSV, Markdown "
-            "or a full backup (.zip of the database and media); Open exports "
+            "or a full backup (the database, media and attached files as one "
+            "file, sealed with a password if you type one: a .mmenc, else a "
+            ".zip); Restore a full backup, just below, reads either back and "
+            "replaces the notebook after a safety snapshot; Open exports "
             "folder and Save exports to set where files land. Tidy up "
             "duplicates finds notes that say much the same thing, no AI "
             "needed, and merging keeps every tag and bins the rest. Import "

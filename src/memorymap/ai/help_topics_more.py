@@ -472,9 +472,9 @@ MORE_TOPICS: list[dict] = [
             "reminder) and Related. Each card has Open and Not this; nothing is "
             "ever written into your text. It is off until you turn it on, "
             "remembered on this device, and can be switched off everywhere in "
-            "Settings, What the notebook learned, Margin reader."
+            "Settings, What it learned, Margin reader."
         ),
-        "badge": {"label": "What the notebook learned", "section": "learned"},
+        "badge": {"label": "What it learned", "section": "learned"},
     },
     {
         "id": "web-clipper-bookmark",

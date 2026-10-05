@@ -1,6 +1,6 @@
 # HANDOVER
 
-> **Models and count, the owner 2026-10-05:** Sonnet for the mechanical and verifiable, Opus for design judgement and plan phases ("use them more consciously and for what they are best at"). Once the current four finish, at most three agents at once ("just a little tight on usage").
+> **Models and count, the owner 2026-10-05:** mainly Opus; Sonnet for well defined, labour tasks ("actually mainly use opus but just remember that sonnet is there for well defined and labour tasks"). Once the current four finish, at most three agents at once.
 >
 > **Agent count, the owner 2026-10-05:** "after these agents are done drop down one or two agents so the usage isnt as close". Running agents are not replaced as they finish; at most four at once from here.
 

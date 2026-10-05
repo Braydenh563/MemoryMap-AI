@@ -40,12 +40,11 @@ $("web-clip-bookmarklet")?.addEventListener("click", (event) => {
 });
 
 $("web-clip-copy")?.addEventListener("click", async () => {
-  try {
-    await navigator.clipboard.writeText(webClipBookmarklet(location.origin));
-    $("web-clip-status").textContent = "Copied. Make a new bookmark and paste this as its address.";
-  } catch {
-    $("web-clip-status").textContent = "Couldn't copy here. Drag the bookmark to your bookmarks bar instead.";
-  }
+  //: Through the shared helper, which falls back where the clipboard API
+  //: is not allowed (tests/test_log_console.py).
+  $("web-clip-status").textContent = (await copyToClipboard(webClipBookmarklet(location.origin)))
+    ? "Copied. Make a new bookmark and paste this as its address."
+    : "Couldn't copy here. Drag the bookmark to your bookmarks bar instead.";
 });
 
 renderWebClip();

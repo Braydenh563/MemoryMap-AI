@@ -39,7 +39,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -378,12 +378,14 @@ def _library_out(row: BoardLibrary) -> dict:
 
 @router.get("/board-library")
 def list_library(
+    response: Response,
     kind: str | None = None,
     q: str | None = None,
     library_id: int | None = None,
     favourites: bool = False,
     recent: bool = False,
     deleted: bool = False,
+    limit: int = Query(default=1000, ge=1, le=5000),
     db: Session = Depends(get_session),
 ) -> dict:
     """The library: the person's libraries and items, the built-in sets'
@@ -409,6 +411,10 @@ def list_library(
         return all(w in text for w in words)
 
     items = [_item_out(r) for r in rows if matches(r.name, r.tags or [])]
+    #: A library grows with what the person saves: the newest `limit`, and
+    #: the whole count in a header so a caller can tell it was cut.
+    response.headers["X-Total-Count"] = str(len(items))
+    items = items[:limit]
     marks = {m.key: {"favourite": bool(m.favourite), "use_count": m.use_count or 0,
                      "last_used_at": m.last_used_at.isoformat() if m.last_used_at else None}
              for m in db.scalars(select(BoardLibraryMark)).all()}

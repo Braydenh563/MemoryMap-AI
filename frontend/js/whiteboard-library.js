@@ -154,7 +154,7 @@ async function wbLoadLibrary({ force = false } = {}) {
   const sets = (wbLibState.lib.sets || []).filter((s) => s.key !== "icons");
   await Promise.all(sets.filter((s) => !wbLibSets.has(s.key)).map(async (s) => {
     try {
-      const res = await fetch(`/board-library/${s.key}.json${lazyAssetStamp()}`);
+      const res = await fetch(`/board-library/${s.key}.json${lazyAssetStamp()}`, { headers: { "X-Auth-Token": authToken() } });
       if (res.ok) wbLibSets.set(s.key, await res.json());
     } catch {
       // A set that does not load is left out; the rest still show.
@@ -166,7 +166,7 @@ async function wbLoadLibrary({ force = false } = {}) {
 async function wbLoadIcons() {
   if (wbLibState.libIcons) return wbLibState.libIcons;
   try {
-    const res = await fetch(`/board-library/icons.json${lazyAssetStamp()}`);
+    const res = await fetch(`/board-library/icons.json${lazyAssetStamp()}`, { headers: { "X-Auth-Token": authToken() } });
     wbLibState.libIcons = res.ok ? (await res.json()).icons || {} : {};
   } catch {
     wbLibState.libIcons = {};

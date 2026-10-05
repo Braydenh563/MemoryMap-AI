@@ -60,6 +60,13 @@ SCRIPTS = (
     "palette.js",
     "avatars.js",
     "atlas.js",
+    #: The rest of the whiteboard bundle (app.js LAZY_MODULES): its palette
+    #: rows live in whiteboard-commands.js.
+    "whiteboard-map.js",
+    "whiteboard-commands.js",
+    "whiteboard-library.js",
+    "whiteboard-format.js",
+    "whiteboard-interchange.js",
 )
 
 #: Names a row may call that are the platform rather than the app. Kept short

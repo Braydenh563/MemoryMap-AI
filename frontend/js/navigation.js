@@ -1742,6 +1742,13 @@ async function confirmLeavingUnsavedWork(name) {
 //: or a palette command run is counted here and sent in one request at most
 //: every 30 s, and when the page hides. Feature names only, to this app's own
 //: server only; Settings, General, What you use reads it back.
+//: A write nobody pressed anything for (the usage count, warming the search
+//: model): a failure costs the person nothing they asked for, so it goes to
+//: the console rather than a toast (tests/test_silent_mutations.py counts the
+//: writes that drop a failure with no trace at all).
+function backgroundWriteFailed(error) {
+  console.debug("A background write failed:", error);
+}
 const usageQueue = [];
 const usageState = { timer: null };
 //: A palette command's name in the ledger: its words, without an icon marker.
@@ -1758,7 +1765,7 @@ function usageFlush() {
   usageState.timer = null;
   if (!usageQueue.length || !authToken()) return;
   const features = usageQueue.splice(0, 200);
-  fetch("/usage", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() }, body: JSON.stringify({ features }) }).catch(() => {});
+  fetch("/usage", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() }, body: JSON.stringify({ features }) }).catch(backgroundWriteFailed);
 }
 document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && usageFlush());
 
@@ -1773,7 +1780,7 @@ document.addEventListener("focusin", (event) => {
   const id = event.target?.id;
   if (warmState.focused || !["question", "chat-input", "entry-content"].includes(id) || !authToken()) return;
   warmState.focused = true;
-  apiJson("/search/warm", { method: "POST", body: JSON.stringify({ q: "" }), silent: true }).catch(() => {});
+  apiJson("/search/warm", { method: "POST", body: JSON.stringify({ q: "" }), silent: true }).catch(backgroundWriteFailed);
 });
 document.addEventListener("input", (event) => {
   const box = event.target;
@@ -1783,7 +1790,7 @@ document.addEventListener("input", (event) => {
     const q = box.value.trim();
     if (q.split(/\s+/).length < 3 || q === warmState.last || !authToken()) return;
     warmState.last = q;
-    apiJson("/search/warm", { method: "POST", body: JSON.stringify({ q }), silent: true }).catch(() => {});
+    apiJson("/search/warm", { method: "POST", body: JSON.stringify({ q }), silent: true }).catch(backgroundWriteFailed);
   }, 600);
 });
 

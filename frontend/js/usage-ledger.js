@@ -77,12 +77,10 @@ async function renderCaptureCommand() {
 }
 
 $("capture-command-copy")?.addEventListener("click", async () => {
-  try {
-    await navigator.clipboard.writeText($("capture-command").textContent);
-    toast("Copied. Paste it as the command your shortcut runs.");
-  } catch {
-    toast("Couldn't copy here. Select the command and copy it.", true);
-  }
+  //: Through the shared helper, which falls back where the clipboard API
+  //: is not allowed (tests/test_log_console.py).
+  if (await copyToClipboard($("capture-command").textContent)) toast("Copied. Paste it as the command your shortcut runs.");
+  else toast("Couldn't copy here. Select the command and copy it.", true);
 });
 
 $("pref-simple-mode")?.addEventListener("change", (event) => applySimpleMode(event.target.checked));

@@ -912,9 +912,8 @@ and the switch in Settings, Account and security. IPv6 built 2026-10-04
 **Security audit, 2026-10-05:** SEC-01 to SEC-09, SEC-11 to SEC-13, SEC-15
 and SEC-16 fixed (HISTORY.md, "Security audit fixes, 2026-10-05"); SEC-08's
 real fix, LAN mode over HTTPS with a certificate made on this computer, the
-same day (HISTORY.md, "Security audit, second pass"). Open: SEC-10 (a folder import killed
-mid-way duplicates on re-run: dedupe on source path and content hash,
-rollback per failed file, a task-history row at start); SEC-14 (ask-history
+same day, and SEC-10, a folder import safe to run again (HISTORY.md,
+"Security audit, second pass"). Open: SEC-14 (ask-history
 answers and chat messages that quoted a note before it went private stay
 plain; `/export/json` now says `is_private`); SEC-17's floor (warn or raise
 the minimum when a notebook has private notes); SEC-02's last step

@@ -40466,6 +40466,19 @@ made") and the audit's leftovers, each with its test written first.
   against the notebook's own certificate by IP (the SAN), a Secure cookie,
   and plain http refused from the network.
 
+- **SEC-10, a folder import is safe to run again.**
+  `routes_settings._already_imported` maps every live note's `source_path`
+  to the SHA-256 of its text (or to "private", matched on the path alone, so
+  an import never makes a readable copy of a private note); a file already
+  in is counted as "already in" on the activity line and the job's result.
+  A failed file rolls the session back, so one bad flush no longer refuses
+  every later file (`create_entry` commits each note, so nothing before it
+  is lost). The task-history row at start and "The app closed before this
+  finished." after a kill were already there (`jobruns.job_run`,
+  `mark_interrupted`). `tests/test_import_idempotent.py`: twice adds
+  nothing, an interrupted import finishes, a changed file comes in, a
+  private note is not duplicated, one failure does not stop the rest.
+
 ## Moved from the plans, 2026-10-04 (design-1004)
 
 ### From WORLD_CLASS_PLAN.md 1.2: one primary per modal, meta without border or hover

@@ -4170,11 +4170,8 @@ html.modal-open body {
   overflow: visible;
 }
 
-.dash-body:empty::after {
-  content: "Loading…";
-  color: var(--muted);
-  font-size: 0.85rem;
-}
+/* No "Loading…" in an empty body: a widget holds skeleton rows until it
+   draws (`mountWidgetBody`, INBOX 596). */
 
 .dash-big {
   font-size: var(--text-h1);
@@ -6225,25 +6222,34 @@ select {
   font-size: var(--text-xs);
 }
 
-/* `.settings-index`: a long section's own heads as a strip, sticky at the top
-   of the pane. The ground is the dialog's opaque ground, never a tint alone: a
-   translucent strip reads right at rest and turns into a window once the pane
+/* `.settings-index`: a long section's own heads as a strip in the pane's
+   dock (INBOX 599: one bar, title, where-in-this-pane and '?', where it was a
+   title row over a strip of its own), and the dock is sticky at the top of
+   the pane. The ground is the dialog's opaque ground, never a tint alone: a
+   translucent bar reads right at rest and turns into a window once the pane
    scrolls under it (the `.selectbar` rule, 00-tokens-shell.css). Links are the
    Quiet tier; the one you are in is painted from `aria-current`, accent-soft
    plus a weight step, never colour alone. */
-.settings-index {
+#settings-modal .settings-section > .dock {
   position: sticky;
   top: 0;
   z-index: 3;
+  background: var(--modal-bg-opaque);
+}
+
+/* The title keeps its width and the strip starts beside it, wrapping under it
+   when the pane is narrow (it was "Pe…" at 390). */
+#settings-modal .settings-section > .dock > .dock-identity {
+  flex: none;
+}
+
+.settings-index {
   display: flex;
-  flex-wrap: nowrap;
+  flex: 1 1 12rem;
+  min-width: 0;
   gap: var(--space-1);
-  margin: 0 0 var(--space-5);
-  padding: var(--space-2) 0;
   overflow-x: auto;
   scrollbar-width: thin;
-  background: var(--modal-bg-opaque);
-  border-bottom: 1px solid var(--divider);
 }
 
 .settings-index-link {

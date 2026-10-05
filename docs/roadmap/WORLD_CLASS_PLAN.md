@@ -145,15 +145,14 @@ column and the one wording.
 | --- | --- | --- | --- | --- | --- |
 | Note, Notes card ⋯ | the card | yes | yes | yes | yes |
 | Note, Library card ⋯ | Open in Notes | yes | yes | no | no |
-| Document, Library card ⋯ | the card | yes | no | no | no |
+| Document, Library card ⋯ | the card | yes | yes (2026-10-05) | no | no |
 | Board or map, Boards card ⋯ | the card | yes | no | no | no |
 | Reminder, row ⋯ | Open its note (when it has one) | yes | no | n/a | no |
 | File, Library card ⋯ | the card | yes (2026-09-23) | no | no | no |
 
 Open next, in impact order: Remind me on a document and a board (a
 reminder carries an `entry_id` only, so this needs the reminder to point at
-other kinds first, a backend step); Show in graph for a document, now the
-graph has a Documents switch; the Library note card's Remind me and Link to,
+other kinds first, a backend step); the Library note card's Remind me and Link to,
 which the Notes card already has, so the Library one is two rows short of
 its twin.
 
@@ -346,7 +345,7 @@ that drive the Library's grouping and the graph's colour rules. Brief:
 migration + `/entries/{id}/properties` + editor. Gate: a property
 round-trips through the API, FTS finds it, the graph colours by it.
 
-**State 2026-09-24:** (b) documents have typed properties (`tests/test_doc_properties.py`, the Library's property filter); notes do not: no `properties` column on `entries`, no editor in the note head, no kinds. M, Opus.
+Built (KG4, then row 10): HISTORY.md, "Moved from the plans, 2026-10-05 (D5)". Left: the Library grouping notes by type.
 
 ### D6 Daily notes and the journal (S, Sonnet)
 
@@ -809,12 +808,12 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 7 | ~~I3, H2~~ | ~~the questions view, `GET /questions`, the Ask scope, the answered-by link~~ built 2026-10-04 (`ai/questions.py`, `routes_questions.py`, Notes, Questions; `tests/test_questions_spec.py`, 500 questions listed under 100 ms) | done | HISTORY |
 | 8 | ~~Placed 2026-09-13~~ | ~~`/files/gallery`'s five callers onto `apiPagedList`, then its default to 200~~ built 2026-09-24 (`tests/test_gallery_paging.py`) | done | HISTORY |
 | 9 | ~~§16~~ | ~~cache `similar_pairs` for link suggestions and tensions~~ built 2026-09-24: keyed by the matrix's version; 5,000 notes 322 to 104 ms a repeat request (`tests/test_similar_pairs_cache.py`) | done | HISTORY |
-| 10 | D5 | typed properties on notes (documents have them) | M | `core/database.py`, the note head |
-| 11 | §17 | review queue, filing style, explain this note, most opened this month (S each); tidy proposals, charts from questions (M each); `.ics` export built 2026-09-26 | S to M | §17 |
+| 10 | ~~D5~~ | ~~typed properties on notes~~ built: KG4 (2026-10-04) for the properties, the types and the note head; 2026-10-05 the gate's rest, the graph colouring by note type and a type's own colour (`tests/test_note_types_graph_d5.py`); left: the Library grouping notes by type | done | HISTORY |
+| 11 | §17 | ~~review queue~~ built 2026-10-05 (`is:review`, `tests/test_review_queue_17.py`); filing style, explain this note, most opened this month (S each); tidy proposals, charts from questions (M each); `.ics` export built 2026-09-26 | S to M | §17 |
 | 12 | ~~D6~~ | ~~the calendar strip, the yesterday/tomorrow pair and the month popover~~ built 2026-10-04 (`timeline.js`, `note-cards.js`; HISTORY, "the consistency contract's missing lints") | done | HISTORY |
 | 13 | ~~§1, D14~~ | ~~the lints not written: surface budget, one primary per modal, meta without border or hover, a menu item's rest background, every `data-action` in the palette~~ built 2026-10-04 (`tests/test_consistency_contract.py`); left: the two ratchets (5 modals with 2 to 3 filled buttons, 13 chip rules) | done | HISTORY |
 | 14 | ~~A8~~ | ~~the '?' help on every tab's dock (Chat and Graph have it)~~ built 2026-10-04: Dashboard and Reminders were the two docks without one (`tests/test_dock_help_507.py` fails on a dock with none) | done | HISTORY |
-| 15 | §1.3 | Remind me on documents and boards (the reminder must point at other kinds first), Show in graph for a document, the Library note card's Remind me and Link to | S to M | app.js, library.js, `routes_reminders.py` |
+| 15 | §1.3 | Remind me on documents and boards (the reminder must point at other kinds first) (Show in graph for a document built 2026-10-05), the Library note card's Remind me and Link to | S to M | app.js, library.js, `routes_reminders.py` |
 | 16 | B7 | cursor pagination, ETags and `If-Match` on entries, `/capabilities` | M | `api/` |
 | 17 | B8, H4 | a user skills folder picked up without a restart; `/api/v1`; the agent named on an external write | M | `ai/skills.py`, `mcp_server.py` |
 | 18 | ~~B4~~ | ~~typed links, a derived tensions table, rebuild determinism, the Tensions widget~~ built 2026-10-05 (`tensions` table rebuilt from events, night facts and links, `tests/test_tensions_table_b4.py`; typed links were KG3); left: derived person and project pages, per-claim citations, "what changed about X" | done | HISTORY |
@@ -1613,8 +1612,15 @@ The principle the first notes state and the app keeps: the AI is a
 servant, not a gatekeeper; everything it does can be seen, edited and
 undone.
 
-**State 2026-09-24:** the seven rows: 1 review queue (c),
-S. 2 tidy categories (b): the agent has `merge_categories`
+**Decisions made, 2026-10-05 (recommended, not confirmed):** (1) the
+review queue's line is the card's `REVIEW_THRESHOLD`, 50, not row 1's
+"under 60%": a note in the queue then always wears the "check this" chip
+that says why, and one number cannot drift from the other
+(`manager.REVIEW_CONFIDENCE`). Its count sits in the Categories widget,
+not a widget of its own. Split is Extract notes over the whole note.
+
+**State 2026-09-24:** the seven rows: 1 review queue: built 2026-10-05
+(HISTORY.md, "Moved from the plans, 2026-10-05 (section 17)"). 2 tidy categories (b): the agent has `merge_categories`
 (`ai/tools/categories.py`); the proposal list is not built, M. 3 filing style
 (c), S. 4 charts from questions (c), M. 5 most opened (b): the Most used
 widget lists the notes opened or matched most, all time

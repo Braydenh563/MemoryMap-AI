@@ -797,7 +797,18 @@ function gcEnsureCanvas(s = gcTab) {
   // thing that sees all of them (§5 Phase 1 asks for one by name).
   if (!s.observer && typeof ResizeObserver !== "undefined") {
     s.observer = new ResizeObserver(() => {
-      if (gcResize(s)) gcRequestDraw(s);
+      const before = { ...s.dims };
+      if (!gcResize(s)) return;
+      //: **The map stays framed when its card changes size** (INBOX 613, the
+      //: owner: "the graph doesn properly fit to the area and showing or not
+      //: showing panels"). A camera nobody has moved is framed again; one the
+      //: person moved keeps its middle in the middle, so a panel opening or
+      //: closing beside it never leaves the map off to one side.
+      if (s.zoom && s.svg && before.w && before.h && s.nodes?.length) {
+        if (!s.userZoomed) fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h);
+        else s.svg.call(s.zoom.translateBy, (s.dims.w - before.w) / 2 / s.transform.k, (s.dims.h - before.h) / 2 / s.transform.k);
+      }
+      gcRequestDraw(s);
     });
     const box = document.getElementById(s.boxId);
     if (box) s.observer.observe(box);
@@ -3745,7 +3756,7 @@ async function renderGraphCanvas(s = gcTab) {
   const wantMaps = document.getElementById("graph-maps")
     ? document.getElementById("graph-maps").checked
     : false;
-  if (typeof graphSyncFocusChip === "function") graphSyncFocusChip();
+  graphSyncFocusChip();
   void wantEntities, wantDocuments, wantMaps;
   const endpoint = graphEndpoint();
   //: A failed read is not an empty graph. Reported class of bug: the map
@@ -4018,8 +4029,11 @@ async function renderGraphCanvas(s = gcTab) {
 //: than no legend, so which of the two it shows follows the colour mode.
 //: The key a rule reads off a node, and the order its legend lists them in.
 const GC_AGE_BUCKETS = ["Today", "This week", "This month", "This quarter", "Older"];
+//: A note with no `type:` property, under the "Note type" rule.
+const GC_NO_TYPE = "No type";
 function gcRuleKey(rule, node) {
   if (rule === "kind") return node.kind || "note";
+  if (rule === "type") return node.note_type || GC_NO_TYPE;
   if (rule === "space") return node.space_id || "default";
   if (rule === "tag") return (node.tags && node.tags[0]) || "No tag";
   if (rule === "file") return node.has_file ? "Has a file" : "No file";
@@ -4042,6 +4056,17 @@ function gcRuleDomain(rule, data) {
 function gcRuleScale(rule, data) {
   if (rule === "age") return d3.scaleOrdinal(GC_AGE_BUCKETS, ["#2f80ed", "#56a3f5", "#8ec2f7", "#c3dcf7", "#9aa1ad"]);
   if (rule === "file") return d3.scaleOrdinal(["Has a file", "No file"], ["#17bebb", "#9aa1ad"]);
+  if (rule === "type") {
+    //: A type's own colour (Note types, `type_colours` on the payload) wins,
+    //: matched without case because a note's block may spell the name its
+    //: own way; an untyped note is grey, like "No file"; any other type takes
+    //: the colour its name hashes to (`categoryAutoDot`), the one the Colour
+    //: sheet's preview shows as Automatic, so the two never disagree.
+    //: Stored as a category palette key (the swatch picker's) or a hex.
+    const hex = (c) => (Object.hasOwn(CATEGORY_PALETTE, c) ? CATEGORY_PALETTE[c] : c);
+    const own = new Map(Object.entries(data.type_colours || {}).map(([name, c]) => [name.toLowerCase(), hex(c)]));
+    return (key) => (key === GC_NO_TYPE ? "#9aa1ad" : own.get(String(key).toLowerCase()) || categoryAutoDot(key));
+  }
   return d3.scaleOrdinal(gcRuleDomain(rule, data), graphCalmScheme());
 }
 
@@ -4382,7 +4407,7 @@ Object.defineProperty(window, "__graphDebug", {
       nodes: gcTab.nodes.length,
       edges: gcTab.edges.length,
       layout: gcTab.layoutKind,
-      colourMode: typeof graphColourMode === "function" ? graphColourMode() : "category",
+      colourMode: graphColourMode(),
       transform: Object.freeze({ x: t.x, y: t.y, k: t.k }),
       hovered: graphHoveredId,
       focusModeId: graphFocusModeId,

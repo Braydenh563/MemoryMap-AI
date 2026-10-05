@@ -957,6 +957,34 @@ def stop_filing_one(
     return {"id": entry.id, "stopped": True, "category": category}
 
 
+class FilingDecisionBody(BaseModel):
+    #: True: the person keeps the janitor's category, so the note leaves the
+    #: review queue and re-evaluate leaves it alone. False is Accept's Undo.
+    accepted: bool = True
+
+
+@router.post("/{entry_id}/filing", response_model=EntryOut)
+def decide_filing(
+    entry_id: int, body: FilingDecisionBody, session: Session = Depends(get_session)
+) -> EntryOut:
+    """The review queue's Accept (WORLD_CLASS_PLAN section 17, row 1): the
+    category stays and becomes the person's (`user_filed`), which is what a
+    move to another category already does. Logged, so the activity log says
+    who decided."""
+    entry = _existing_entry(session, entry_id)
+    if bool(entry.user_filed) != body.accepted:
+        entry.user_filed = body.accepted
+        manager.log_action(
+            session,
+            "filing_accepted" if body.accepted else "filing_unaccepted",
+            "entry",
+            entry.id,
+            detail=manager.category_name_for(session, entry),
+        )
+        session.commit()
+    return _to_out(session, entry)
+
+
 def stop_all_filing(action: str = "fallback") -> int:
     """Every note still filing, in every space: the Stop on the filing rows
     of Settings, Background tasks and the activity popup. Each note is

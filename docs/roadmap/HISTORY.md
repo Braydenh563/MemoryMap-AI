@@ -7,6 +7,35 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## OPEN.md rows closed, 2026-10-05 (the open-ledger pass)
+
+The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section: each open row checked against the head and the running app; a row found built, or built here, is deleted from the ledger and named below with how it was verified. The pass's own account is `agent-remaining/open-ledger-pass.md`.
+
+- **The word menu measures its own width before it is placed** (Documents). Built: reproduced at 390x844 (a short menu at the right edge, then a long candidate: 256 of 316px, right edge on the window's), fixed by parking the menu with `docPlaceFixed` at the edge before `placeDocSuggest` reads `offsetWidth`; `tests/test_ui_recipes.py` holds the order, `scratchpad/ui-sweeps/wordmenuwidth.js` 5 of 5 at 1440 and 390, light and dark.
+- **A Files row asks for a PDF first page that this sandbox cannot render** (Library). Built: `GET /media` rows carry `has_pages` (a PDF and `pdfpages.available()`), the attachment gallery's `has_pages` now needs the extra too, and `renderLibraryImagesGallery` asks for a page on `has_pages` alone (the `.pdf$` name guess removed). `tests/test_pdf_first_page_only_when_renderable.py` (3); `scratchpad/ui-sweeps/pdfpagereq.js` at 1440 and 390, light and dark, against a server with `pypdfium2` hidden (0 requests, glyph on both rows) and one with it (2 requests, 0 404s).
+- **The fold chip is 128.8px of a 156.3px content column at 1440** (Library). Already built: INBOX 279 replaced the card's fold with a one-word `.library-image-text-chip` ("Text") that opens the lightbox at the reading. Measured with the new `scratchpad/ui-sweeps/foldchip.js`: 60px of a 179.4px column at 1440 (33%) and of 328.4px at 390 (18%), light and dark.
+- **The six descriptions start at six different heights** and **Two pictures in a gallery row are still different sizes when one card has nothing to say** (Library). Decided, not open: UI_MODERNISATION_PLAN's Phase 7 amendments record the trade (the picture takes the slack; a two-row subgrid was built, measured and taken out because it puts a 75px hole under the shortest card), so neither is work until the owner reports the row as ragged.
+- **Toggle rows onto one recipe (no lavender-filled bars)** (Settings and help). Mostly already built: the consistency pass (08-consistency.css) took the fill off every checked checkbox row of both classes and gave both the `--divider` hairline. Measured with the new `scratchpad/ui-sweeps/togglerows.js` (every Settings section's visible switches, grouped by shape): the one difference left was the gap, 15 checkbox `.check-row` rows at 6.4px against 8 `.setting-check` rows at 9.6px; both take `--space-4` now, and `#searxng-autostart` leads its row in the markup. After: one shape (32x18 switch at +9, 9.6px gap, no fill at rest) at 1440 and 390, light and dark. `tests/test_ui_recipes.py` holds it; DESIGN.md's on/off row names it.
+
+## INBOX resolved, 2026-10-05 (ledger-1005: OPEN.md rows)
+
+The third pass over `agent-remaining/OPEN.md` (Whiteboard and mind map and Atlas left to their agents). Each line says how the row was verified; every remaining open row now ends in a "Needs:" line.
+
+- **Open questions switch** (Learning loop). Built: `facts.run` and `_pair_passes` read `open_questions` (`questions_on`), so off stops collecting questions and matching them to answers; `tests/test_night_pairs.py` `test_the_open_questions_switch_stops_collecting_and_answering` and its on twin. The row's other three switches: `margin_reader` is read by `api/routes_editor.py`, `model_bench` by `api/routes_bench.py`; `evidence_checks` stays open (what it gates is undecided).
+- **`#doc-ai-verb` and `#graph-layout` differ in segment radius.** Decided and built: DESIGN.md's segmented-track table puts both in "a choice control" (`--radius-choice`); `scratchpad/ui-sweeps/segradius.js` reads 8.8px for both at 1440 and PASSes (its square-strip expectation now follows `.tabs-line`, 0 findings after 4).
+- **Phase 11 item 9's other half** (hover-only and long-press). Built: `hoveronly.js` (UI_MODERNISATION_PLAN Phase 11, item 9) and `tests/test_ui_recipes.py` `test_every_right_click_menu_has_a_long_press_twin` (`wireLongPress`, 23 call sites).
+- **Phase 11 items 2 to 8** (per-surface phone shapes). Built or decided, each with its gate named in UI_MODERNISATION_PLAN Phase 11 (Capture is the sub-tab behind the +, Documents open Rendered below 600, the whiteboard's tools are a sheet, Settings keeps its phone shape).
+- **uitrio.md: the focused head's `flex: 1 1 20rem` breakpoint, and the density picker hidden below 600.** The row's premise is gone: Focused is now a banner over a full-width search (07-whiteboard-misc.css, "Do not remake the one-row head"); `scratchpad/ui-sweeps/focusedhead.js` measures it at 1440, 1024, 820, 599 and 390, no sideways scroll at any width. The phone is decided in `dashCustomiseItems` ("Below 600 the view is not offered: a phone's Full is already compact").
+- **Settings Packages rows leave a 16px gap** (uipolish-0924). Measured, not so: 12.8px at 1440, 1024, 820 and 390 (`scratchpad/ui-sweeps/packagesgap.js`).
+- **The About pane's "Take tour again" greyed out with the tour off.** Closed: `TOUR_ENABLED` is pinned `true` by `tests/test_ui_recipes.py` (so the disabled branch cannot be reached), and the guard's load order that was the real fault is held by `tests/test_frontend_load_order.py`.
+- **arch.md: `entry_revisions` and `audit_log` never pruned.** Built: `EntryRevision` keeps the last `MAX_REVISIONS` (`entry/manager.py`) and `events.compact` (`COMPACT_AFTER_DAYS`, `COMPACT_KEEP_LAST`) runs at startup as `_compact_event_log` (`api/app.py`); `tests/test_events.py`.
+- **backend-0926: LAN mode binds `0.0.0.0` only (no IPv6).** Built: one dual-stack socket (`netbind.listening_socket`); `tests/test_lan_mode.py` `test_lan_mode_answers_on_ipv6_and_ipv4_from_one_server`.
+- **backend-0926: night passes for tensions and answered questions as fact kinds.** Built: passes 4 and 5 (`ai/facts.py` `_pair_passes`; `tests/test_night_pairs.py`).
+- **world-class-rows-1-2-9: `tests/test_lan_mode.py`, the "Allow other devices" toggle, S6's model address on the receipt.** Built: the test file runs the launcher in a subprocess (`test_lan_mode_end_to_end`), the toggle is `settings-panes.js` ("Allow other devices on this network"), and `tests/test_privacy_receipt.py` `test_the_model_server_address_is_on_the_receipt`.
+- **guideia.md: Show in graph for a document.** Built: the Library document card's menu row (`library.js`) goes through `showNoteInGraph(id, { document: true })` (`note-cards.js`: turns the Documents switch on, finds `document:<id>`, focuses it); `scratchpad/ui-sweeps/docingraph.js` PASS 10 of 10 at 1440 and 390 (row present before Ask Atlas, switch on, the node drawn and focused, a note leaves the switch alone), `tests/test_object_actions.py` `test_a_library_document_reaches_the_graph`. WORLD_CLASS_PLAN 1.3's table updated.
+- **guideia.md: the Chat empty state's "Try asking" chips stay pressable with no model.** Already built (UX-07): with the model off the label reads "Try in Notes, Ask:" and a chip opens Notes, Ask (`sheets-selects.js`, the chip handler on `aiIsOff()`).
+- **The Notes filter knows only `tag:`, `category:`, `is:` and phrases.** Stale text corrected, not closed: `parseNoteQuery` now also reads `in:`, `title:`, `before:` and `after:` and sends `type:`, `prop:`, `links:`, `rel:` and `entity:` to the server (`liveQuery`); `kind:`, `has:` and `space:` and the other surfaces stay open.
+
 ## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
 
 From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN
@@ -41341,6 +41370,114 @@ The two cheap additions the plan's research section named (decisions 11 to
   saved during a long load is not listed twice.
 - Not verified in a browser beyond the sweeps named in the commit.
 
+## Moved from the plans, 2026-10-05 (D5)
+
+### From WORLD_CLASS_PLAN.md D5: the state line it replaced
+
+**State 2026-09-24:** (b) documents have typed properties (`tests/test_doc_properties.py`, the Library's property filter); notes do not: no `properties` column on `entries`, no editor in the note head, no kinds. M, Opus.
+
+### Built 2026-10-05 (row 10)
+
+- **Most of D5 was already built** as GRAPH_PLAN KG4 (2026-10-04, recorded
+  above under "KG4, note properties and note types"): the properties live in
+  the note's `---` block, indexed in `entry_properties`, edited from the
+  note's ⋯, with note types and their fields. The state line was stale.
+- **The gate's rest.** FTS finds a property value (it is in the note's
+  text); the graph colours by it: View, Colour, **Note type**
+  (`GRAPH_COLOUR_RULES`, `gcRuleKey`/`gcRuleScale`). Each note node carries
+  `note_type` from the index (one query on `entry_properties`, the type's
+  own name when Note types has it, so "book" and "Book" are one colour and
+  one legend row) and the payload carries `type_colours`. A type's colour
+  is chosen in Note types, its ⋯, **Colour…**: DESIGN.md's swatch picker in
+  a sheet (`noteTypePickColour`, note-properties.js), with Undo; Automatic
+  is `categoryAutoDot(name)`, the colour the sheet's preview shows, so the
+  two never disagree. An untyped note is grey, "No type".
+- **Found and fixed on the way:** `PUT /entries/{id}/properties` and the
+  note half of `POST /entries/{id}/mentions/link` were 500s on the branch.
+  B7 added `response` and `If-Match` to `routes_entries.update_entry`, and
+  both callers passed `session` positionally, which landed in `response`
+  and left `session` the bare `Depends` marker. Both now call by keyword;
+  the properties PUT passes its own response through, so it answers with
+  the ETag too. `tests/test_note_properties_kg4.py` had been failing since.
+- Measured: `tests/test_note_types_graph_d5.py` 8 tests;
+  `scratchpad/ui-sweeps/d5types.js` 11/11 at 1440 and 390, light and dark
+  (legend, own colour, automatic colour equal to the preview's, the type's
+  own name, the Note types dot centred, the Colour sheet fitting, a swatch
+  saved, no page errors).
+- Left: the Library grouping notes by type (D5's target names it; the
+  Library lists documents and files, and groups none by a note's type).
+
+## Moved from the plans, 2026-10-05 (section 17)
+
+### From WORLD_CLASS_PLAN.md section 17, row 1: the review queue
+
+**State 2026-09-24:** 1 review queue (c), S.
+
+- **Built 2026-10-05 (row 11).** The Notes filter `is:review`
+  (`entryNeedsReview`, notes-list.js): a note the janitor filed under
+  `REVIEW_THRESHOLD` (the card's "check this" chip) or left in
+  Uncategorised, that nobody has decided on since (`user_filed`). In that
+  list each card has a line of its own, like "why this result": **Accept**
+  (`POST /entries/{id}/filing`, `{accepted}`, logged as `filing_accepted`;
+  the note leaves the list, with Undo), **Refile…** (the Move to category
+  sheet; a move is a decision already) and **Split…** (Extract notes over
+  the whole note; disabled with the reason while the model is off). The
+  Categories widget says "N notes to check where they were filed" with
+  Review filings (`manager.review_queue_count` on `/insights/stats`,
+  `to_review`); the palette has Show filings to check; the filter's help
+  and the Guide name it.
+- Decided (recommended, not confirmed): the line is the card's 50, not the
+  row's 60, so a queued note always shows the chip that says why.
+- Measured: `tests/test_review_queue_17.py` 6 tests;
+  `scratchpad/ui-sweeps/reviewq.js` 9/9 at 1440 and 390, light and dark
+  (the count, the list holding the unsure and the Uncategorised notes and
+  not the sure one, the three buttons one height inside the card, nothing
+  sideways, Accept out with its toast, the server's `user_filed`, Undo back).
+- Not verified: with no model every note lands in Uncategorised, so on a
+  model-less notebook the queue is every note the person has not filed by
+  hand; that is the row as written ("anything filed Uncategorised").
+
+## Built 2026-10-05: INBOX 598, 602 and 596's skeleton part (loading states)
+
+(The INBOX entries themselves are moved by the orchestrator; this is the
+record.)
+
+- **598, the "horizontal line in the middle", found.** The first-visit
+  placeholder of Graph, Library and Documents (`tabPlaceholder`,
+  navigation.js) was one `.skeleton` meant to fill the page, absolutely
+  placed with both insets. The page is a flex column that centres its
+  children, and an absolutely placed flex child takes `align-self` from it:
+  it shrank to its content, 49px (the skeleton's two bars), centred 439px
+  down a 799px page and wider than it (measured at 1440). Stretched now.
+- **598, the page's shape and its name.** `TAB_SKELETONS`: a dock (name bar
+  and actions), then the graph's canvas with a scatter of dots, the
+  library's chips and twelve tiles, the documents list beside the open page
+  (the list alone on a phone); all `.skeleton` pieces through the CSSOM, the
+  boot CSS being at its cap. Past 400ms a `role="status"` line with the ring
+  in the dock's middle: "Opening the graph…", "Opening the library…",
+  "Opening documents…".
+- **596, the dashboard.** A widget mounts with two skeleton rows
+  (`showSkeletons`), gone the moment it draws its own; the
+  `.dash-body:empty::after { content: "Loading…" }` rule is deleted. While
+  a full draw fills the grid unseen (`.dash-filling`), `dashFillingSkeleton`
+  lays skeleton cards in the grid's own columns over its box. Found on the
+  way: a brand-new notebook's getting-started card was added after
+  `.dash-filling` and returned early, so it stayed hidden for good.
+- **602, back to the dashboard.** `switchTab` asks `renderDashboard({
+  refresh: true })`; when the layout is the one drawn (`dashGridShape`),
+  `refreshDashWidgets` draws each widget again into a body laid out beside
+  the old one at its width, unseen, and swaps it in when done.
+- Measured (`scratchpad/ui-sweeps/loading598.js`, CPU 4x by CDP, lazy
+  bundles held 1.5s): before, the placeholder was one piece for 2.4 to
+  3.3s with no name, the dashboard's return had 10 frames with no
+  dashboard (491 to 998ms), and widgets said "Loading…". After: 11 to 26
+  pieces per surface, the name at the first frame past 400ms, 0 blank
+  frames, 0 empty frames on the return with every card swapped, 0 "Loading…",
+  the grid's outline 0px off its box; at 1440 and 390, light and dark.
+  `tests/test_lazy_skeletons_598.py` (5), with DESIGN.md's new recipe row.
+- Not verified: the desktop window (pywebview) itself; a real slow disk
+  rather than a held route.
+
 ## INBOX resolved, 2026-10-05
 
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs
@@ -41894,6 +42031,73 @@ The two cheap additions the plan's research section named (decisions 11 to
      the lock. `refreshMediaSession` now says whether the token is live and
      `initAuth` goes to the lock screen first. stalelock.js: base saw failed
      widgets and no lock in 6s; now straight to the lock.
+
+603. **The owner, 2026-10-05, verbatim.** "also I want to be able to reset
+     the highlights on the quick access back to default or at least the
+     first one being auto highlighted". Fixed 2026-10-05: Customise has
+     Reset highlights once any colour is chosen (clears the colours, keeps the
+     tiles; the first is highlighted again); help names it.
+604. **The owner, 2026-10-05, verbatim.** "it didnt intext number reference
+     the referenced notes??" (Ask, the three sketches: only note 3 carried a
+     marker; notes 1 and 2 read "No note says this"). Fixed 2026-10-05: the
+     grounding read each note's text only, and those two are a word and a
+     picture; `_grounding_candidates` now reads the files and captions the
+     prompt carries (tests/test_ask_sees_tags_and_files.py). Not verified
+     against a real model's answer.
+605. **The owner, 2026-10-05, verbatim.** "the ask subtab is very thin in
+     width". Fixed 2026-10-05: a sub-tab is at least 4.5rem; Ask measured
+     50px beside 80 to 133px, now 72px (1440).
+
+598. **The owner, 2026-10-05, verbatim.** "the loading screen on features
+     like the graph tab and library is a blank screen with a horizontal line
+     in the middle which if it lasts as long as it did for me right after the
+     update (its faster now), then it might have people thinking it is
+     broken so needs a better loading screen and to be cleaner." With 596's
+     "some skeleton loaders are missing like on the dashboard". Placed: the
+     next agent slot (page skeletons for Graph, Library, Documents, the
+     dashboard's widgets; a named, moving loading state).
+     Fixed 2026-10-05: the loading placeholder sat 49px wide in a centring page; each lazy page now draws its own outline skeleton, named after 400ms (loading598.js 92/92; tests/test_lazy_skeletons_598.py).
+602. **The owner, 2026-10-05, verbatim.** "every time I go off the dashboard
+     and go back on it, it is empty for a second then loads :(" Placed: with
+     598 (loading states), next agent slot.
+     Fixed 2026-10-05: returning to the dashboard keeps the old widgets and swaps each in when redrawn: 10 empty frames to 0.
+
+611. **The owner, 2026-10-05, verbatim.** "I started the tour from the
+     settings and it turned my generative bg art on except the setting is
+     off?? i think it was the tour that did it??" (screenshots: Settings,
+     Animated background off; the dashboard showing the generative
+     background anyway.)
+     Fixed 2026-10-05: `startBgArt` drew whatever its caller asked (the power
+     saver, a theme, a resize restart the pictures); it now stops when the
+     art is off. bgartoff.js: base 1 canvas with the setting off, now 0.
+
+613. **The owner, 2026-10-05, verbatim.** "the graph doesn properly fit to
+     the area and showing or not showing panels" (screenshot: the map off to
+     one side of its card). Fixed 2026-10-05: the card's ResizeObserver only
+     redrew; it now frames an untouched camera again and keeps a moved one's
+     middle in the middle. graphfit.js: base 200px off-centre after a panel
+     closed, now 0.
+
+599. **The owner, 2026-10-05, verbatim.** "can you clean up and redesign
+     this top docks?? I love some of the stuff youve done to further
+     modernise the ui of the app. can you keep doing it for the settings
+     pages adn popups and in more places?? make sure all the design styles
+     across all pages and popups are consistent." (screenshot: Settings, AI
+     skills head: title, a long search box, divider, a filled New skill and
+     a '?' on one row; the All/Yours/Built-in segment with counts and a
+     "Yours first" select on a second row, the select a different height.)
+     Placed: next agent slot (Opus, design): Settings docks and popups onto
+     the modern dock recipe, one consistent style everywhere.
+     Fixed 2026-10-05: every Settings pane head is one 50px sticky bar (title, section links, '?'), the AI skills dock one row at 1100+, every dialog's button row 32px with ghosts first and the filled action last at the right (settingsheads.js, popupinv.js).
+606. **The owner, 2026-10-05, verbatim.** "something about the design,
+     ui/ux of the note edit form still feels off..." (screenshot: the edit
+     form: a full-width Title field; a "Formatting" label row with three
+     icons and a boxed Source toggle; the body with a line number; one row
+     of a long tags field, a "Core Concepts" select, a filled Save changes
+     and Cancel; a Related row of "≈ title" texts each with a boxed Link
+     button; a separate boxed "Attach a link" button.) Placed: the Settings
+     and popups design agent's queue (599), as the same recipe pass.
+     Fixed 2026-10-05: the note edit form is one composition: one writing surface, tag chips, a category chip, a foot of Attach a link, Cancel and Save; boxed buttons 3 to 0, 554 to 507px tall at 390 (noteeditflow.js 6/6).
 
 ## OPEN.md rows closed, 2026-10-05
 

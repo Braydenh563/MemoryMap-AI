@@ -354,7 +354,7 @@ def list_attachment_gallery(
             #: `_page_read_text_map` for why the two were not joined before.
             vision_ocr_text=attachment.vision_ocr_text or page_text.get(attachment.id, ""),
             vision_ocr_model=attachment.vision_ocr_model or "",
-            has_pages=Path(attachment.filename).suffix.lower() == ".pdf",
+            has_pages=Path(attachment.filename).suffix.lower() == ".pdf" and pdfpages.available(),
             size_bytes=_attachment_size(session, attachment),
         )
         for attachment, entry in rows
@@ -434,7 +434,7 @@ def _attachment_out(session: Session, attachment: Attachment) -> AttachmentGalle
         ocr_text=attachment.ocr_text or "",
         vision_ocr_text=attachment.vision_ocr_text or "",
         vision_ocr_model=attachment.vision_ocr_model or "",
-        has_pages=Path(attachment.filename).suffix.lower() == ".pdf",
+        has_pages=Path(attachment.filename).suffix.lower() == ".pdf" and pdfpages.available(),
         size_bytes=_attachment_size(session, attachment),
     )
 
@@ -1331,6 +1331,10 @@ class MediaUploadOut(BaseModel):
     #: is already here, and a byte count would cost one `stat` per row on
     #: every gallery load for a number nobody asked for.
     created_at: str = ""
+    #: True when this upload has pages the server can draw (a PDF, with the
+    #: render extra installed), the same field and meaning as the attachment
+    #: gallery's: the tile asks for a first page only then.
+    has_pages: bool = False
     #: Bytes on disk, filled by `media_meta` only (one `stat` for the one file
     #: asked about, which the listing above declines to pay per row). The
     #: attachment card states it beside the kind (INBOX 440 (2)); 0 means
@@ -1430,6 +1434,10 @@ def list_media(
         session.commit()
 
     media_page_text = _page_read_text_map("upload", [u.id for u in uploads])
+    #: Asked once per page of the gallery: an import check, the same answer for
+    #: every row (OPEN.md, "A Files row asks for a PDF first page that this
+    #: sandbox cannot render": the tile used to guess from the name and 404).
+    can_draw_pages = pdfpages.available()
     media_pages_read = _page_read_count_map("upload", [u.id for u in uploads])
     return [
         MediaUploadOut(
@@ -1447,6 +1455,7 @@ def list_media(
             vision_ocr_text=u.vision_ocr_text or media_page_text.get(u.id, ""),
             vision_ocr_model=u.vision_ocr_model or "",
             created_at=u.created_at.isoformat() if u.created_at else "",
+            has_pages=can_draw_pages and Path(u.filename).suffix.lower() == ".pdf",
         )
         for u in uploads
     ]

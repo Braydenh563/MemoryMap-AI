@@ -274,12 +274,12 @@ function quickAccessManage(ids) {
   count.className = "muted quick-manage-count";
   const cancel = document.createElement("button");
   cancel.type = "button";
-  cancel.className = "ghost";
+  cancel.className = "ghost small";
   cancel.textContent = "Cancel";
   cancel.addEventListener("click", close);
   const done = document.createElement("button");
   done.type = "button";
-  done.className = "accent";
+  done.className = "accent small";
   done.textContent = "Done";
   done.addEventListener("click", () => {
     close();

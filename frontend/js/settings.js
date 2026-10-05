@@ -33,7 +33,7 @@ let currentSettingsSection = "models";
 //: seven panes began with a title and eleven began mid-thought, with a
 //: description, a status line or a group's small label). The ones without a
 //: head get the nav's own label as the same heading the others use
-//: (`.help-head > h3`, styled as the pane title in 08-consistency.css), made
+//: (a `.dock.settings-pane-title`, styled in 08-consistency.css), made
 //: once and kept, so the word in the list and the word over the pane can
 //: never disagree.
 //: **Arrow keys walk the pane list**, the way a sidebar of sections moves
@@ -72,18 +72,25 @@ document.getElementById("settings-nav")?.addEventListener("keydown", (event) => 
 let settingsNavWalking = false;
 
 function ensureSettingsPaneTitle(box, name) {
-  if (!box || box.querySelector(":scope > .help-head > h3, :scope > .settings-pane-title")) return;
+  //: Not "any `.help-head` child": Background tasks ends on one (Quit
+  //: MemoryMap), which used to count as its title and left the pane with none.
+  if (!box || box.querySelector(":scope > .settings-pane-title, :scope > .dock")) return;
   const label = document.querySelector(`#settings-nav [data-section="${name}"]`)?.textContent.trim();
   if (!label) return;
   //: A pane whose first group is already named the same (Packages) would
   //: say it twice, one heading straight over the other.
   const firstHeading = box.querySelector("h3")?.textContent.trim().toLowerCase();
   if (firstHeading === label.toLowerCase()) return;
+  //: The pane's dock (INBOX 599): the bar every tab and Library view opens
+  //: with, here holding only the title, as the panes written in the markup do.
   const head = document.createElement("div");
-  head.className = "row help-head settings-pane-title";
+  head.className = "dock settings-pane-title";
+  const identity = document.createElement("div");
+  identity.className = "dock-identity";
   const title = document.createElement("h3");
   title.textContent = label;
-  head.appendChild(title);
+  identity.appendChild(title);
+  head.appendChild(identity);
   box.prepend(head);
 }
 
@@ -2739,6 +2746,15 @@ function bgArtStyle() {
 }
 
 function startBgArt() {
+  //: Off means off, whoever asks (INBOX 611, the owner: "I started the tour
+  //: from the settings and it turned my generative bg art on except the
+  //: setting is off"). Several callers restart the pictures after a change
+  //: (the power saver, a theme, a resize) without asking whether the art is
+  //: wanted, and this drew it over a notebook that had it switched off.
+  if (!bgArtOn()) {
+    stopBgArt();
+    return;
+  }
   // Wanting a calm background isn't the same as wanting a calm interface, so
   // the art has its own setting. "Moving" is an explicit request and wins over
   // the reduced-motion hint: the hint exists to protect people from motion

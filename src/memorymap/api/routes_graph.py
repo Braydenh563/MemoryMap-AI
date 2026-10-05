@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai.embeddings import bytes_to_vector, similar_pairs
 from memorymap.core import deps
-from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink
+from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink, EntryProperty, NoteType
 from memorymap.core.deps import get_session
 from memorymap.entry import manager, paths
 from memorymap.entry import topics as topic_finder
@@ -738,10 +738,32 @@ def graph(
     now = datetime.now(timezone.utc)
     #: Each note's label and word count, read once per version (`_note_texts`).
     labels = _note_texts(entries)
+    #: WORLD_CLASS_PLAN row 10 (D5): a note's type, for the "Note type" colour
+    #: rule, read from the properties index KG4 keeps (one query, the `type`
+    #: key's first value per note), never by parsing every note's block. A
+    #: private note has no index rows, so it carries none.
+    #: A note may spell its type in its own case ("type: book"); the node
+    #: carries the type's own name when Note types has it, so "book" and
+    #: "Book" are one colour and one legend row, not two.
+    type_colours: dict[str, str] = {}
+    canonical: dict[str, str] = {}
+    for name, colour in session.execute(select(NoteType.name, NoteType.colour)):
+        canonical[name.casefold()] = name
+        if colour:
+            type_colours[name] = colour
+    type_of: dict[int, str] = {}
+    for entry_id, value in session.execute(
+        select(EntryProperty.entry_id, EntryProperty.value)
+        .where(EntryProperty.key == "type")
+        .order_by(EntryProperty.id)
+    ):
+        if entry_id in node_ids and value:
+            type_of.setdefault(entry_id, canonical.get(value.casefold(), value))
     nodes = [
         {
             "id": e.id,
             "kind": "note",
+            "note_type": type_of.get(e.id),
             "tags": _tags_of(e),
             "space_id": e.workspace_id,
             "has_file": e.id in with_files,
@@ -938,7 +960,14 @@ def graph(
     # every other request while it was turned into JSON. A response built
     # in the route is encoded where the route runs; `jsonable_encoder` is
     # what FastAPI would have applied, so the body is byte for byte the same.
-    return JSONResponse(jsonable_encoder({"nodes": nodes, "edges": edges, "categories": categories}))
+    #: `type_colours`, read with the types above: a type's own colour (Note
+    #: types), so the "Note type" rule paints a Meeting the colour the person
+    #: gave it; a type without one falls to the calm scheme in the page.
+    return JSONResponse(
+        jsonable_encoder(
+            {"nodes": nodes, "edges": edges, "categories": categories, "type_colours": type_colours}
+        )
+    )
 
 def _load_entries(session: Session, ids) -> dict[int, Entry]:  # noqa: ANN001
     """The live notes with these ids, read in chunks (SQLite's variable cap)."""

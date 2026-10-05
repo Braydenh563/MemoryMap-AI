@@ -31,7 +31,7 @@ JS = ROOT / "frontend" / "js"
 ALLOWED = {
     # The door itself, and the two sign-in calls before a session exists
     # whose refusal is an answer rather than a lockout.
-    "app.js": 3,
+    "app.js": 2,
     # Loaded before app.js to report a page that failed to start; `api()` may
     # not exist when it runs.
     "boot-guard.js": 1,

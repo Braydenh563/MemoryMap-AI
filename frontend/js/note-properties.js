@@ -127,12 +127,12 @@ async function openNotePropertiesSheet(entry) {
       actions.className = "row right space-dialog-actions";
       const cancel = document.createElement("button");
       cancel.type = "button";
-      cancel.className = "ghost";
+      cancel.className = "ghost small";
       cancel.textContent = "Cancel";
       cancel.addEventListener("click", close);
       const save = document.createElement("button");
       save.type = "button";
-      save.className = "accent";
+      save.className = "accent small";
       save.textContent = "Save";
       save.addEventListener("click", async () => {
         const properties = {};
@@ -177,6 +177,15 @@ async function openNoteTypesSheet() {
         const name = document.createElement("span");
         name.className = "relation-type-name";
         name.textContent = t.name;
+        //: The type's colour (D5), the Manage categories dot, only when one
+        //: was chosen: an automatic type has no colour of its own to show.
+        if (t.colour) {
+          const dot = document.createElement("span");
+          dot.className = "manage-cat-dot";
+          dot.setAttribute("aria-hidden", "true");
+          dot.style.setProperty("--category-dot", noteTypeColourHex(t.colour));
+          row.appendChild(dot);
+        }
         const fields = document.createElement("span");
         fields.className = "muted relation-type-hint";
         fields.textContent = t.fields.map((f) => `${f.name} (${f.kind})`).join(", ") || "No fields";
@@ -202,6 +211,10 @@ async function openNoteTypesSheet() {
             if (!ok) return;
             close();
             openNoteTypesSheet();
+          } },
+          { label: "ph:palette Colour…", title: `The colour ${t.name} notes take on the graph`, run: () => {
+            close();
+            noteTypePickColour(t);
           } },
           { label: "ph:trash Delete", title: "Delete this type; its notes keep their properties", group: "delete", run: async () => {
             if (!(await confirmDialog(`Delete the note type “${t.name}”?\n\nIts notes keep every property, type included.`))) return;
@@ -229,6 +242,63 @@ async function openNoteTypesSheet() {
         if (made) openNoteTypesSheet();
       }));
       card.appendChild(list);
+    },
+  });
+}
+
+//: A type's colour as stored: one of the category palette's keys (what the
+//: swatch picker chooses), or a hex an import or the API wrote.
+function noteTypeColourHex(colour) {
+  return typeof CATEGORY_PALETTE !== "undefined" && Object.hasOwn(CATEGORY_PALETTE, colour) ? CATEGORY_PALETTE[colour] : colour;
+}
+
+//: **A note type's colour** (WORLD_CLASS_PLAN row 10, D5): DESIGN.md's swatch
+//: picker in a sheet, the category picker's own, under a preview that is the
+//: type's name with its dot. Stored on the type (`PATCH /note-types/{id}`),
+//: read by the graph's "Note type" colour rule; Automatic clears it. Undo puts
+//: the previous colour back.
+async function noteTypePickColour(t) {
+  //: The picker lives with the Manage categories panel (lazy).
+  if (typeof swatchPicker !== "function" && !(await ensureModule("categories"))) return;
+  const before = t.colour || null;
+  const save = async (key) => {
+    await apiJson(`/note-types/${t.id}`, { method: "PATCH", body: JSON.stringify({ colour: key }) });
+    t.colour = key;
+    if (typeof renderGraph === "function" && graphColourMode() === "type") renderGraph();
+  };
+  openSheet({
+    label: `Colour for ${t.name}`,
+    sub: "Shown on the graph when its colours follow the note type. Automatic picks one from the name.",
+    name: "note-type-colour",
+    build: (card, close) => {
+      card.classList.add("swatch-card");
+      const preview = document.createElement("p");
+      preview.className = "swatch-preview";
+      preview.textContent = t.name;
+      const show = (key) => preview.style.setProperty("--category-dot", key ? noteTypeColourHex(key) : categoryAutoDot(t.name));
+      const picker = swatchPicker({
+        label: `Colour for ${t.name}`,
+        value: before,
+        onChange: show,
+        onChoose: async (key) => {
+          close();
+          if (key === before) return;
+          try {
+            await save(key);
+          } catch (error) {
+            toast(error.message, true);
+            return;
+          }
+          const message = `${t.name} is now ${categoryColourName(key).toLowerCase()}.`;
+          const action = pushUndo(message, () => save(before), () => save(key));
+          toastAction(message, "Undo", async () => {
+            settleUndoFromToast(action);
+            await save(before).catch((error) => toast(error.message, true));
+          });
+        },
+      });
+      card.append(preview, picker);
+      requestAnimationFrame(() => picker.querySelector('[tabindex="0"]')?.focus());
     },
   });
 }

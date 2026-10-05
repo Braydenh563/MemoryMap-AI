@@ -264,7 +264,7 @@ async function toggleThenAndNow(entry, thenText, row, button) {
     item.className = `then-now-row then-now-${change.kind}`;
     const kind = document.createElement("span");
     kind.className = "chip";
-    kind.textContent = THEN_NOW_WORDS[change.kind] || change.kind;
+    chipWords(kind, THEN_NOW_WORDS[change.kind] || change.kind);
     item.append(kind);
     if (change.then !== null && change.then !== undefined) {
       const then = document.createElement("p");

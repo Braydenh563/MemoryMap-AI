@@ -31,7 +31,8 @@ def test_a_note_cards_task_line_is_a_box_not_brackets():
     #: The break after the task stays in the text the next flush renders.
     assert 'buffer.push("");' in body
     css = (CSS / "01-forms-settings.css").read_text(encoding="utf-8")
-    assert "min-height: 0" in _rule(css, ".entry-task > input:disabled")
+    box = _rule(css, '#entry-list .entry-content .entry-task > input[type="checkbox"]:disabled')
+    assert "min-height: 0" in box and "width: 1.1em" in box
     assert "line-through" in _rule(css, ".entry-task:has(> input:checked)")
 
 

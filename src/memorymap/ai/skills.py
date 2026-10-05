@@ -1418,15 +1418,13 @@ BUILTIN_SKILLS: list[dict] = [
                 "than a thought I wrote down.",
                 "answer_only",
             ),
-            _step(
-                "Check the current time with get_current_time, so any reminder "
-                "lands on the right date.",
-                "tool_called",
-                "get_current_time",
-            ),
+            #: No clock step (AGENT_SKILLS_REFORM, "The harness does the work
+            #: the model is worst at", consequence 3): `set_reminder` reads the
+            #: time in the user's own words against their clock, so fetching
+            #: the time first was arithmetic the app does, and a round spent.
             _step(
                 "Set a reminder with set_reminder for each action that has a "
-                "time in it.",
+                "time in it, putting the time in `when` in my own words.",
                 "tool_optional",
                 "set_reminder",
             ),
@@ -1435,7 +1433,7 @@ BUILTIN_SKILLS: list[dict] = [
                 "answer_only",
             ),
         ],
-        "tools": [*_READING_TOOLS, "get_current_time", "set_reminder"],
+        "tools": [*_READING_TOOLS, "set_reminder"],
     },
     {
         "name": "Draft an email",

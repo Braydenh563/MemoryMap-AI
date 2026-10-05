@@ -1200,6 +1200,20 @@ _CLAIM_PATTERN = re.compile(
 )
 
 
+#: **"Added" says which act by what it was added to** (Qwen2.5-3B,
+#: 2026-10-05, `scratchpad/harness_probe.py`): "Pin my dentist note" ran
+#: `pin_note` and answered "has been added to Favourites"; "added" read as a
+#: saved note, the heads-up and a retry followed, and the turn ended
+#: contradicting itself. Rewritten to the verb of the act before matching,
+#: so the claim is still checked, against the tool that does it.
+_ADDED_TO = (
+    (re.compile(r"\b(?:added|moved)\b(?=[^.!?\n]{0,40}\bto\s+(?:your\s+|the\s+)?favou?rites\b)", re.I), "pinned"),
+    (re.compile(r"\bremoved\b(?=[^.!?\n]{0,40}\bfrom\s+(?:your\s+|the\s+)?favou?rites\b)", re.I), "unpinned"),
+    (re.compile(r"\b(?:added|removed|applied)\b(?=[^.!?\n]{0,30}\btags?\b)", re.I), "tagged"),
+    (re.compile(r"\b(?:added|appended)\b(?=[^.!?\n]{0,60}\bto\s+(?:your|the|that)\s+[^.!?\n]{0,40}\bnote\b)", re.I), "updated"),
+)
+
+
 def unsupported_claims(answer: str, ran: set[str]) -> list[str]:
     """Actions the answer says happened that no tool call performed.
 
@@ -1208,6 +1222,8 @@ def unsupported_claims(answer: str, ran: set[str]) -> list[str]:
     tool is in there is taken at face value, this is a net for fabrication,
     not an auditor of whether the right note was edited.
     """
+    for pattern, verb in _ADDED_TO:
+        answer = pattern.sub(verb, answer)
     # Whether this answer speaks in the claiming voice at all. A carried-on
     # verb is only a claim inside a sentence that already made one, so this is
     # checked first and gates the looser half of every matcher below.
@@ -2033,6 +2049,9 @@ _INFORMATION_QUESTION = re.compile(
 )
 
 
+#: The writes that change the category tree rather than a note.
+_CATEGORY_TREE_TOOLS = frozenset({"create_category", "rename_category", "merge_categories", "delete_category"})
+
 #: "File the dentist note under Health", "move the plumber note to Home".
 _FILING_REQUEST = re.compile(r"\b(?:file|filed|move|moved|recategori[sz]e|categori[sz]e)\b", re.IGNORECASE)
 
@@ -2090,9 +2109,11 @@ def _first_round_tools(
         if tools.adds_to_a_named_note(question):
             keep = keep - {"create_note"}
         #: Filing under a category that exists is an edit of the note: leave
-        #: out the creation of the category the model would otherwise pick.
+        #: out every tool that reshapes the category tree. The 3B picked
+        #: `create_category` once, and on 2026-10-05 `rename_category {"old":
+        #: "note 2", "new": "Health"}` (scratchpad/harness_probe.py).
         if session is not None and _names_an_existing_category(session, question):
-            keep = keep - {"create_category"}
+            keep = keep - _CATEGORY_TREE_TOOLS
         narrowed = [t for t in offered if t["function"]["name"] in keep]
     elif _INFORMATION_QUESTION.match(question or ""):
         narrowed = [t for t in offered if t["function"]["name"] not in _WRITE_TOOLS]

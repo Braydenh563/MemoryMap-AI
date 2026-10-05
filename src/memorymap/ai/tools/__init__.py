@@ -1263,6 +1263,8 @@ def _edit_note(session: Session, args: dict) -> dict:
     undo = _undo_edit(session, entry)  # before the write, or it undoes nothing
     content = args.get("content")
     content_changed = content is not None and str(content) != entry.content
+    before_category = manager.category_name_for(session, entry)
+    before_tags = manager.entry_tags(entry)
     manager.update_entry(
         session,
         entry,
@@ -1273,7 +1275,31 @@ def _edit_note(session: Session, args: dict) -> dict:
     if content_changed:
         _refresh_embedding(session, entry)
     result = _note_summary(session, entry)
-    result["label"] = f"ph:note-pencil Updated note #{entry.id}"
+    #: What changed, and the category it is still in when that did not
+    #: (Qwen2.5-3B, 2026-10-05: "Move the plumber note to Home" sent the
+    #: name as a tag and then answered "moved from Work to Home" off a label
+    #: that said only "Updated note #1"). The truth goes back with the call.
+    after_category = result["category"]
+    changed = [
+        name
+        for name, moved in (
+            ("content", content_changed),
+            ("category", after_category != before_category),
+            ("tags", result["tags"] != before_tags),
+        )
+        if moved
+    ]
+    result["changed"] = changed
+    parts = []
+    if "category" in changed:
+        parts.append(f"moved from {before_category} to {after_category}")
+    if "tags" in changed:
+        parts.append(f"tags now {', '.join(result['tags']) or 'none'}")
+    if "content" in changed:
+        parts.append("text rewritten")
+    if "category" not in changed:
+        parts.append(f"still in {after_category}")
+    result["label"] = f"ph:note-pencil Updated note #{entry.id}: {'; '.join(parts)}"
     result["undo"] = undo
     return result
 
@@ -2628,8 +2654,9 @@ TOOLS: dict[str, ToolSpec] = {
                     },
                     "since": {
                         "type": "string",
-                        "description": "Only notes from the last N days, or since "
-                        "an ISO date like 2026-07-01 (optional)",
+                        "description": "Only notes from a window in the user's "
+                        "words: 'this week', 'since Friday', 'last month', or "
+                        "a number of days (optional)",
                     },
                     "limit": {
                         "type": "integer",
@@ -2669,8 +2696,9 @@ TOOLS: dict[str, ToolSpec] = {
                     },
                     "since": {
                         "type": "string",
-                        "description": "Only count notes from the last N days, "
-                        "or since an ISO date like 2026-07-01 (optional)",
+                        "description": "Only count notes from a window in the "
+                        "user's words: 'this week', 'since Friday', 'last "
+                        "month', or a number of days (optional)",
                     },
                 },
             },

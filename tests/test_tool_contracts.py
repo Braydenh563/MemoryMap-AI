@@ -113,6 +113,20 @@ def test_every_postcondition_passes_on_the_real_handlers(ai_client, session):
     assert done["done"] is True
 
 
+def test_an_edit_says_what_changed_and_what_did_not(ai_client, session):
+    """Qwen2.5-3B, 2026-10-05 (`harness_probe.py`): "Move the plumber note to
+    Home" called `edit_note {"tags": ["Home"]}` and answered "moved from Work
+    to Home". The result said only "Updated note #1"; it now names what
+    changed and the category it is still in, so the truth is in front of the
+    model when it writes the answer."""
+    a = _note(session, "chase up the plumber's invoice", category="Work")
+    out = tools.execute_tool(session, "edit_note", {"note_id": a["id"], "tags": ["Home"]})
+    assert out["changed"] == ["tags"]
+    assert "still in Work" in out["label"] and "tags" in out["label"]
+    moved = tools.execute_tool(session, "edit_note", {"note_id": a["id"], "category": "Home"})
+    assert moved["changed"] == ["category"] and "Work to Home" in moved["label"]
+
+
 def test_the_contract_table_names_only_real_tools():
     assert set(contracts.CONTRACTS) <= set(tools.TOOLS)
     assert set(contracts.CONTRACTS) <= tools.WRITE_TOOLS

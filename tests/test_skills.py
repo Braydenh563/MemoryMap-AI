@@ -1201,3 +1201,17 @@ def test_a_check_the_skill_cannot_run_is_refused_by_the_settings_path_too(client
     )
     assert response.status_code == 422
     assert "count_notes" in response.json()["detail"]
+
+
+def test_no_built_in_step_asks_the_model_for_the_time_to_set_a_reminder():
+    """AGENT_SKILLS_REFORM, "The harness does the work the model is worst
+    at", consequence 3: a skill's steps get the same audit as the tools.
+    `set_reminder` reads the user's own words (`ai/when.py`), so a step that
+    fetched the clock "so any reminder lands on the right date" asked the
+    model to do arithmetic the app does, and spent a round on it."""
+    daily = next(s for s in skills.BUILTIN_SKILLS if s["name"] == "Daily review")
+    texts = [step["text"] if isinstance(step, dict) else str(step) for step in daily["steps"]]
+    assert not any("get_current_time" in text for text in texts), texts
+    assert "get_current_time" not in daily["tools"]
+    remind = next(text for text in texts if "set_reminder" in text)
+    assert "own words" in remind

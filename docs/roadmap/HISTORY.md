@@ -7,6 +7,106 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (H4, the 3B pass)
+
+### From AGENT_SKILLS_REFORM.md, H4: the first real 3B pass after the first-round fixes
+
+Qwen2.5-3B-Instruct Q4_K_M, llama-server `--jinja -t 2`, whole turns through
+`/chat/stream` (`scratchpad/harness_probe.py`, four notes in Work, Health
+and Travel), four cores at load 14 to 22, 2 to 12 minutes a round.
+
+| Request | First call | Turn ended |
+| --- | --- | --- |
+| File the dentist note under Health (1) | `rename_category {"old": "note 2", "new": "Health"}`, refused | truthfully: "already categorised under Health" |
+| File the dentist note under Health (2) | `edit_note {"note_id": 2, "category": "Health"}` | "filed under Health" |
+| Move the plumber note to Home | `edit_note {"note_id": 1, "tags": ["Home"]}` | **falsely**: "moved from Work to Home" |
+| Pin my dentist note | `pin_note {"note_id": 2, "pinned": true}` | **contradicting itself**: the claim net read "added to Favourites" as a saved note, nudged, a duplicate pin was intercepted, and a heads-up went on the end |
+| Tag my plumber note with urgent | `tag_note {"note_id": 1, "add": ["urgent"]}` | right |
+| Add 'bring a rain jacket' to my Snowdon trip note | `edit_note` with the old text kept and the line added | right |
+| Make a note: buy oat milk and eggs | `create_note` | right (filed by the app under Work) |
+
+A right first tool 6 of 7; a turn that ended telling the truth 5 of 7. The
+three faults, fixed with a test each (fake transport; the 3B not re-run):
+
+| What | Gate |
+| --- | --- |
+| A forced filing round under a category that exists is offered no tool that reshapes the category tree (`agent._CATEGORY_TREE_TOOLS`), only `create_category` before | `tests/test_harness_tiers.py::test_filing_under_a_category_that_exists_is_offered_no_category_tool` |
+| `edit_note` says what changed and the category the note is still in: "Updated note #1: tags now Home; still in Work" (`result["changed"]`), "Updated note #1" before | `tests/test_tool_contracts.py::test_an_edit_says_what_changed_and_what_did_not` |
+| "Added" is read by what it was added to (`agent._ADDED_TO`): to Favourites is a pin, a tag is a tag, to a note is an edit; the same words with nothing run are still claims | `tests/test_claimed_work.py` (6 cases) |
+
+## Moved from the plans, 2026-10-05 (the harness does the arithmetic)
+
+### From AGENT_SKILLS_REFORM.md, "The harness does the work the model is worst at" (decided 2026-09-21)
+
+| Consequence | State | Gate |
+| --- | --- | --- |
+| 1. `set_reminder` takes a phrase, resolved by the app (`ai/when.py`), the ISO field kept as an escape hatch | built (INBOX 527, defect 3) | `tests/test_when.py` with no model reachable |
+| 1. Every other tool taking a computed value: the audit | **done 2026-10-05**: one ISO date-time is left (`set_reminder.due_at`, the escape hatch); `since` on `list_notes` and `count_notes` took "the last N days or an ISO date", so "this week" was the model's arithmetic. It now takes the user's words (`when.days_since`: today, yesterday, this week, last week, since Friday, this month, last month, this year, the last 30 days, 3 days ago, 1 September, an ISO date, a number), counted on the user's calendar. `summarize_notes.days` is a number the user says, intent | `tests/test_when.py` (22 cases) |
+| 2. The prompt stops teaching arithmetic | built: the "still today" sentence went with 1 (INBOX 527); the week ahead stays by a later reasoned decision (`agent.py`): placing a note's "due Friday" is reading, not a tool argument | `tests/test_prompt_prefix_stability.py` |
+| 3. The skills' steps get the same audit | **done 2026-10-05**: "Daily review" fetched the clock "so any reminder lands on the right date" before setting reminders; the step is gone and the reminder step says to put the time in `when` in the user's own words. "Plan with reminders" keeps its clock step: laying a plan out between now and a deadline is the model's plan, not a tool argument | `tests/test_skills.py::test_no_built_in_step_asks_the_model_for_the_time_to_set_a_reminder` |
+
+The section's text as it stood, for the record:
+
+#### The decision, 2026-09-21
+
+The owner, after being shown a prompt patched to teach a model what day it
+is: "that's bad harness design. the harness and skills need to be flawless.
+for all ai features, they need to be lightweight and insanely good, fast,
+good quality, not too context heavy and more."
+
+He is right, and the codebase convicts itself. **This app already owns a
+deterministic time resolver and does not use it where it matters most.**
+`entry/timewords.py` turns "tonight", "next Friday" and "in three days" into
+real instants with regular expressions and arithmetic against the user's own
+clock, and its own docstring explains why it is deterministic: it runs on
+every note saved, including with no model running. `ai/reminder_parser.py`
+does the same job for a typed reminder. And yet `set_reminder`, the tool the
+model calls, takes a raw `due_at` and does `datetime.fromisoformat` on it, so
+the single place where a small model is weakest, date arithmetic, is the one
+place the harness insists the model do it alone.
+
+The result is in the owner's transcript: asked for a reminder two hours
+before midnight, the model reasoned "midnight for today, September 21st, is
+2026-09-22T00:00, two hours before midnight is 2026-09-22T22:00", keeping the
+midnight's date and changing only the time, and set the reminder for the
+wrong night.
+
+**The rule, which is what this section exists to state.** A tool argument is
+either something only the model can supply, which is intent, or something the
+app can compute, which is a fact. Intent belongs in the schema. A fact the
+app can compute does not, and asking for it converts a deterministic answer
+into a probabilistic one. "Remind me two hours before midnight" is intent;
+`2026-09-22T22:00` is a computation, and the app is better at it than any
+model it will ever run, for free, offline, every time.
+
+Three consequences, each of which also makes the prompt lighter, which is the
+owner's other point:
+
+1. `set_reminder` takes a phrase and resolves it with `timewords`, keeping
+   the ISO field as an escape hatch for a model that genuinely has one. Every
+   other tool taking a computed value is found and given the same treatment;
+   two take an ISO date-time today.
+2. The prompt stops teaching arithmetic. The weekday and week-ahead lines
+   added on 2026-09-21 are **interim**, worth their 245 characters only until
+   the tool stops needing them, and they come out in the same commit that
+   lands 1. A prompt that grows every time a model gets something wrong is a
+   prompt that will keep growing.
+3. A skill's steps get the same audit. A step that asks the model to compute
+   something the app knows is the same fault at a larger scale, and skills
+   run unattended, where a wrong answer is not caught by the person reading
+   it.
+
+**Gate.** A test that asks for a reminder in the shapes people actually use,
+"two hours before midnight", "Friday night", "tomorrow morning", with a fake
+model that returns only the phrase, and asserts the resolved instant. It must
+pass with no model reachable at all, which is the proof that the arithmetic
+left the model.
+
+**Not verified.** How many other tool arguments are computations rather than
+intent: two take an ISO date-time, and the rest of the surface has not been
+read with this question in mind. That audit is the first step.
+
+
 ## Moved from the plans, 2026-10-05 (INBOX 63 and 45)
 
 ### From CHAT_PLAN.md, the Ask sub-tab, Write with the AI and Capture

@@ -155,6 +155,22 @@ with its owner named in the entry.
      taken: VS Code's rule, copy or cut with an empty selection takes the
      whole line. Placed: Sonnet agent, with 651.
 
+654. **The owner, 2026-10-05, verbatim, with a screenshot of the history list
+     (the status bar's back/forward popup).** "the nav history popup doesnt
+     have md or image etc rendering" Placed: next Sonnet slot (a note row's
+     title through the same plain-title and thumbnail helpers the note cards
+     use; markdown stripped, an image note shows its thumbnail).
+
+656. **The owner, 2026-10-05, verbatim, with a screenshot of the status bar's
+     hollow-circle AI dot and its "Notebook ready · chat AI off" card.** "can
+     the no ai available ai status icon be better??" Placed: the next Opus
+     slot, with 650 (the avatars): a glyph that says "AI off, notebook fine",
+     not an empty ring.
+
+657. **The owner, 2026-10-05, verbatim, with a screenshot of the map's left
+     rail.** "I cant select on any of the other left sidebar subtabs on the
+     mindmap other than the library" A bug: next.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

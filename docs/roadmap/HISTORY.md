@@ -43859,6 +43859,14 @@ record.)
      the status bar's activity item, not opened over the page or toasted on
      finish; a failure still says so. `tests/test_note_flow_0432.py`.
 
+655. **The owner, 2026-10-05, verbatim, with a screenshot.** "the timeline see
+     through table top row is a little hard to read when scrolled down, maybe
+     make it opaque??" Fixed: `background-color: var(--bg)` was invalid
+     (`--bg` is a gradient), so the sticky head and the feed's bucket headers
+     had no base; one `background` shorthand with `--bg` as its last layer.
+     Measured: computed background-image now has the opaque base layer, dark
+     and light.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

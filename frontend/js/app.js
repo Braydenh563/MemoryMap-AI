@@ -2202,6 +2202,9 @@ const LAZY_MODULES = {
   reveal: ["/js/reveal-targets.js"],
   //: The first-run welcome card (2026-10-05, the gzip budget): onboarding.js.
   onboarding: ["/js/onboarding.js"],
+  //: The update check and its dialogs (2026-10-05, the gzip budget): see
+  //: update-dialogs.js.
+  updates: ["/js/update-dialogs.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2431,6 +2434,11 @@ const LAZY_ENTRY_POINTS = {
   //: functions are only reached from its buttons, which this file's module
   //: wires when it loads.
   onboarding: ["openOnboarding"],
+  //: `checkForUpdate` is Settings' "Check now" and, only when the person
+  //: turned the check on, the startup step (which returns its promise);
+  //: `applyUpdateNow` is awaited by both of its callers; the source-checkout
+  //: dialog opens only when the server says an update just happened.
+  updates: ["checkForUpdate", "applyUpdateNow", "showSourceUpdatedDialog"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",

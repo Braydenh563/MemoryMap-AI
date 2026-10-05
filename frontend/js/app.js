@@ -2208,6 +2208,8 @@ const LAZY_MODULES = {
   attachTo: ["/js/attach-to.js"],
   //: The model bench in Settings, Models (WORLD_CLASS_PLAN I8): model-bench.js.
   modelBench: ["/js/model-bench.js"],
+  //: The web clipper's bookmark in Settings, Import & export (row 24): web-clip.js.
+  webClip: ["/js/web-clip.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.

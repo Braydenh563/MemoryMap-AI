@@ -386,14 +386,7 @@ through and fade, a "today" band at the top. Gate: row recipe shared
 
 ### D9 Links and the web clipper (M, Opus)
 
-Exists: bookmarks with groups. Target: a "Save page" bookmarklet and a
-share-target (PWA) that POSTs a URL; the backend fetches (SearXNG-safe,
-offline-tolerant) and stores a readable extract as a document with the
-source URL, so links become searchable notes. Brief: `/links/clip` +
-readability extraction (vendored, MIT) + a bookmarklet generator in
-Settings. Gate: a clipped page is found by search within 2s.
-
-**State 2026-09-24:** (c) not built: no `/links/clip`, no readability extraction, no bookmarklet. The PWA share target exists; S5's guard in `core/security.py` is ready for the first fetch. M, Opus.
+Built 2026-10-05: the brief and its record moved to HISTORY.md, "Moved from the plans, 2026-10-05 (the web clipper, from the browser)".
 
 ### D10 Documents and PDFs (L, see DOCUMENTS_PLAN.md; add PDF annotation as
 Phase 8: highlight → note with page anchor, rendered by pdf.js vendored)
@@ -800,7 +793,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 21 | ~~I8, H3~~ | ~~the model bench~~ built 2026-10-05: `ai/bench.py`, `/models/bench`, Settings, Models, Test my models (`tests/test_bench_spec.py`); left: a run against a real model for the 30-minute and rerun gates | done | HISTORY |
 | 22 | ~~I2, H8~~ | ~~the margin reader~~ built 2026-10-05 for documents: `ai/margin.py`, `POST /editor/read`, `margin-reader.js` (`tests/test_margin_reader_spec.py`); left: the note editor, typing latency in Chromium | S | HISTORY; I2 |
 | 23 | I5, H8 | time travel: `as_of` on chat, then-and-now | M | `routes_chat.py` |
-| 24 | D9 | the web clipper | M | `routes_bookmarks.py`, `core/security.py` |
+| 24 | ~~D9~~ | ~~the web clipper~~ built 2026-10-05: `POST /links/clip-page` from the browser, the Clip to MemoryMap bookmark and `clip.html` (`tests/test_webclip_page.py`) | done | HISTORY |
 | 25 | H6, §5.7 | Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete; a WCAG audit; multi-window; a first-run path timed to a first answer | M to L each | H6 |
 | 26 | H7 | boot JS under 1 MB (1,072 KB now), first paint under 300 ms, every list over 200 rows virtualised | S each | `boottime.js` |
 | 27 | H9 | usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval | S to M each | H9 |

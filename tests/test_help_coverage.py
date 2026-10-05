@@ -77,6 +77,7 @@ FEATURES: list[tuple[str, tuple[str, ...], str]] = [
     ("model-fit", ("too big",), "which model fits my computer"),
     ("model-bench", ("Test my models", "Use this one"), "which model is best on my notes"),
     ("margin-reader", ("Margin reader", "Not this"), "show related notes in the margin while I write"),
+    ("web-clipper-bookmark", ("Clip to MemoryMap", "bookmarks bar"), "clip a web page from my browser"),
     ("settings-search", ("search box",), "find a setting"),
     ("view-address", ("#/notes",), "does each view have its own address"),
     ("delete-space", ("move everything to another space",), "delete a space"),

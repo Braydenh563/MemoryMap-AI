@@ -470,6 +470,28 @@ MORE_TOPICS: list[dict] = [
         ),
         "badge": {"label": "What the notebook learned", "section": "learned"},
     },
+    {
+        "id": "web-clipper-bookmark",
+        "keywords": (
+            "bookmarklet", "clip to memorymap", "clip a page from my browser", "browser extension",
+            "save this page", "clipper bookmark", "keep a web page", "clip a web page",
+            "from my browser", "clip from the browser",
+        ),
+        "body": (
+            "Settings, Import & export, Web clipper has a bookmark called Clip to "
+            "MemoryMap. Drag it to your browser's bookmarks bar (or press Copy the "
+            "bookmark and make a bookmark with it as the address). On any page, "
+            "press it: a small MemoryMap window opens beside the page with its "
+            "title and address, and Save as a note keeps the page's main text, or "
+            "only the text you had selected. Your own browser sends the page, so "
+            "nothing is fetched from the web: it works with web search off and on "
+            "pages you signed in to see. No browser extension is needed. A clipped "
+            "note keeps its address, Atlas treats its text as someone else's words "
+            "and never follows instructions in it, and clipping the same page again "
+            "points you to the note it made the first time."
+        ),
+        "badge": {"label": "Web clipper", "section": "data", "target": "web-clip-box"},
+    },
 ]
 
 #: **Every feature since 0.3.0, large and small** (INBOX 448 (1), the owner:
@@ -928,6 +950,7 @@ TOPIC_META: dict[str, dict] = {
     "models": {"title": "Models", "path": "Settings, Models"},
     "model-bench": {"title": "Test my models", "path": "Settings, Models, Test my models", "target": "bench-box"},
     "margin-reader": {"title": "The margin reader", "path": "A document's menu, While you write, Margin reader"},
+    "web-clipper-bookmark": {"title": "Clip a page from your browser", "path": "Settings, Import & export, Web clipper", "target": "web-clip-box"},
     "storage": {"title": "Where your data lives", "path": "Settings, Import & export"},
     "websearch": {"title": "Web search", "path": "Settings, Web search"},
     "privacy": {"title": "Privacy", "path": "Settings, Privacy"},
@@ -1053,7 +1076,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "whiteboard", "whiteboard-controls", "mind-maps", "mind-map-controls",
     )),
     ("Library and files", (
-        "library", "library-controls", "bookmarks", "contents", "library-skills",
+        "library", "library-controls", "bookmarks", "web-clipper-bookmark", "contents", "library-skills",
         "files-images", "ocr-workspace", "ocr-engine", "archive", "undo-bin",
     )),
     ("Graph, Timeline, Reminders and Dashboard", (

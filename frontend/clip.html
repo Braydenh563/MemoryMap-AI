@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clip to MemoryMap</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <!-- The web clipper's window (WORLD_CLASS_PLAN D9, row 24). The bookmarklet
+       Settings, Import & export makes opens this page beside the page being
+       read and hands that page to it (clip.js). Same origin as the app, so it
+       signs in with the app's own token; no inline script, the CSP allows
+       none. The stamps follow __version__ (tests/test_webclip_page.py). -->
+  <script src="/js/theme-boot.js?v=0.3.32"></script>
+  <link rel="stylesheet" href="/vendor/phosphor/style.css">
+  <link rel="stylesheet" href="/css/00-tokens-shell.css?v=0.3.32">
+  <link rel="stylesheet" href="/css/01-forms-settings.css?v=0.3.32">
+  <link rel="stylesheet" href="/css/08-consistency.css?v=0.3.32">
+</head>
+<body class="clip-page">
+  <main class="clip-card" aria-labelledby="clip-heading">
+    <h1 id="clip-heading" class="clip-heading">Clip to MemoryMap</h1>
+    <p id="clip-status" class="status" role="status" aria-live="polite">Waiting for the page…</p>
+    <div id="clip-preview" class="clip-preview hidden">
+      <label class="clip-field" for="clip-title">Title</label>
+      <input id="clip-title" type="text" maxlength="300" autocomplete="off">
+      <p id="clip-source" class="muted text-sm clip-source"></p>
+      <p id="clip-what" class="muted text-sm"></p>
+    </div>
+    <div class="row gap clip-actions">
+      <button id="clip-save" type="button" disabled>Save as a note</button>
+      <button id="clip-close" type="button" class="ghost">Close</button>
+      <a id="clip-open" class="ghost hidden" href="/" target="_blank" rel="noopener">Open MemoryMap</a>
+    </div>
+  </main>
+  <script src="/js/clip.js?v=0.3.32"></script>
+</body>
+</html>

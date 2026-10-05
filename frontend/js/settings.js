@@ -172,6 +172,7 @@ function showSettingsSection(name) {
   if (name === "account") renderAccount().catch(() => {});
   if (name === "privacy") renderPrivacyReceipt().catch(() => {});
   if (name === "data") {
+    ensureModule("webClip");
     renderBackups();
     renderBackupRetention();
   }

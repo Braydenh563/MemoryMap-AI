@@ -6494,3 +6494,58 @@ select {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* The web clipper's bookmark (row 24): a link you drag, not a button you
+   press, so it reads as an object with a dashed edge rather than as one more
+   ghost button; the accent ink says it is a link. On the control height. */
+.web-clip-bookmarklet {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--accent-text);
+  text-decoration: none;
+  cursor: grab;
+}
+
+.web-clip-bookmarklet:hover {
+  background: var(--row-hover-bg);
+}
+
+/* The clip window (clip.html): one card, centred, on the app's tokens. */
+.clip-page {
+  min-height: 100vh;
+  margin: 0;
+  display: grid;
+  place-items: start center;
+  padding: var(--space-6) var(--space-4);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.clip-card {
+  width: min(32rem, 100%);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.clip-heading {
+  margin: 0;
+  font-size: var(--text-h2);
+}
+
+.clip-preview {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.clip-preview.hidden {
+  display: none;
+}
+
+.clip-source {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

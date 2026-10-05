@@ -13,6 +13,10 @@ that looks like it. Two endpoints, the preview-before-commit convention
   the person ticked, under the topic, in one transaction, each with its own
   `created` event and its source written into the topic's note, so the client
   records the lot as one Undo step.
+- `POST /whiteboard/boards/{board_id}/nodes/{node_id}/summary` writes nothing:
+  a few sentences that say what the branch holds (the features audit, Phase
+  G, "Summarise this branch"), which the map puts into the topic's note for
+  the person to read and keep.
 
 **Grounded by construction.** The notes come from the search engine first
 (the topic's words, with its parent's for context); the model is only asked to
@@ -226,3 +230,98 @@ def add_branches(board_id: int, node_id: int, body: BranchesBody, db: Session = 
     for obj in made:
         db.refresh(obj)
     return [_object_to_out(obj).model_dump(mode="json") for obj in made]
+
+
+#: **Summarise this branch** (the features audit, Phase G). How much of a
+#: branch the model reads: enough for a branch someone would summarise, not a
+#: whole map's worth of prompt on a small local model.
+SUMMARY_TOPICS = 120
+SUMMARY_CHARS = 6000
+SUMMARY_REPLY_CHARS = 1200
+
+
+def _branch_outline(db: Session, node: WhiteboardObject) -> list[tuple[int, str]]:
+    """(depth, words) for the topic and everything under it, depth first in
+    sibling order, at most `SUMMARY_TOPICS`; a topic with no words is skipped
+    but its branch is not."""
+    rows = db.scalars(
+        select(WhiteboardObject).where(WhiteboardObject.board_id == node.board_id, WhiteboardObject.kind.in_(TOPIC_KINDS))
+    ).all()
+    children: dict[int, list[WhiteboardObject]] = {}
+    for row in rows:
+        if row.parent_id is not None:
+            children.setdefault(row.parent_id, []).append(row)
+    for kids in children.values():
+        kids.sort(key=lambda o: (getattr(o, "z", 0) or 0, o.y, o.id))
+    out: list[tuple[int, str]] = []
+    seen: set[int] = set()
+    stack = [(node, 0)]
+    while stack and len(out) < SUMMARY_TOPICS:
+        obj, depth = stack.pop()
+        if obj.id in seen:
+            continue
+        seen.add(obj.id)
+        words = _topic_text(db, obj)
+        if words:
+            out.append((depth, " ".join(words.split())))
+        stack.extend((kid, depth + 1) for kid in reversed(children.get(obj.id, [])))
+    return out
+
+
+def _said_plainly(outline: list[tuple[int, str]]) -> str:
+    """The branch from its own topics: the topic, its children, and how many
+    topics there are in all. Never wrong, and plainly not a model's."""
+    head = outline[0][1]
+    kids = [words for depth, words in outline if depth == 1]
+    if not kids:
+        return f"{head} has nothing under it yet."
+    names = kids[0] if len(kids) == 1 else ", ".join(kids[:-1]) + " and " + kids[-1]
+    return f"{head}: {names} ({len(outline)} topics in all)."
+
+
+def _ask_for_summary(outline: list[tuple[int, str]]) -> str:
+    """The model's sentences about this outline, or "" when what came back is
+    not prose (a list, a heading and nothing else). Raises when the model does."""
+    text = "\n".join(f"{'    ' * depth}- {words}" for depth, words in outline)[:SUMMARY_CHARS]
+    system = (
+        "You summarise one branch of the person's mind map. Reply with two to "
+        "four plain sentences that say what the branch covers and how its parts "
+        "relate, using only the topics given. No preamble, no list, no heading, "
+        "no facts that are not in the topics."
+    )
+    reply = deps.get_ollama().chat(
+        deps.get_model_manager().utility_model(),
+        [{"role": "system", "content": system}, {"role": "user", "content": f"The branch:\n{text}"}],
+    )
+    lines = [line.strip() for line in str(reply.get("content") or "").splitlines() if line.strip()]
+    #: A first line that only announces ("Summary:", "Here is a summary:") goes.
+    if lines and lines[0].endswith(":") and len(lines[0]) < 60:
+        lines = lines[1:]
+    if not lines or any(re.match(r"^([-*+]|\d+[.)]|#)\s", line) for line in lines):
+        return ""
+    prose = " ".join(lines)
+    if not re.search(r"[.!?]", prose):
+        return ""
+    return prose[:SUMMARY_REPLY_CHARS].strip()
+
+
+@router.post("/boards/{board_id}/nodes/{node_id}/summary")
+def summarise_branch(board_id: int, node_id: int, db: Session = Depends(get_session)) -> dict:
+    """A few sentences about this topic's branch, and nothing written."""
+    node = _node_or_404(db, board_id, node_id)
+    outline = _branch_outline(db, node)
+    if not outline:
+        raise HTTPException(status_code=422, detail="Give the topic some words first: they are what the summary is made of.")
+    summary, source, reason = "", "outline", "offline"
+    if len(outline) > 1 and deps.get_ollama().is_running():
+        try:
+            summary = _ask_for_summary(outline)
+            reason = "unusable"
+        except Exception:
+            logging.getLogger("memorymap.whiteboard").warning("Branch summary: the model failed", exc_info=True)
+            summary, reason = "", "failed"
+        if summary:
+            source, reason = "model", "model"
+    if not summary:
+        summary = _said_plainly(outline)
+    return {"topic": outline[0][1], "summary": summary, "source": source, "reason": reason, "topics": len(outline)}

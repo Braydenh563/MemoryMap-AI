@@ -642,7 +642,10 @@ def test_the_hidden_attribute_is_enforced_over_the_apps_own_display_rules():
 
 #: The three elevation tokens, wherever a theme or palette declares them.
 ELEVATION = re.compile(r"--(?:shadow-sm|shadow-lg|glass-shadow)\s*:\s*([^;{}]+);")
-ALPHA = re.compile(r"rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*((?:[^()]|\([^()]*\)|\((?:[^()]|\([^()]*\))*\))+)\)")
+#: One alternative per first character (a plain one, or a bracket holding at
+#: most one level more), so no string can be split two ways (CodeQL,
+#: inefficient regular expression).
+ALPHA = re.compile(r"rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*((?:[^()]|\((?:[^()]|\([^()]*\))*\))+)\)")
 LOW_T = re.compile(
     r"calc\(\s*([0-9.]+)\s*\*\s*var\(--shadow-low\)\s*\+\s*([0-9.]+)\s*\*\s*var\(--shadow-t\)\s*\)"
 )

@@ -12253,6 +12253,12 @@ async function initWhiteboard() {
       wbZoomToFit();
       return;
     }
+    //: Alt+1 to 9 on a map: show that many levels (`wbMapFoldToLevel`).
+    if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && /^Digit[1-9]$/.test(e.code) && wbIsMap()) {
+      e.preventDefault();
+      wbMapFoldToLevel(Number(e.code.slice(5)));
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "g") {
       e.preventDefault();
       wbUngroupSelection();
@@ -13750,6 +13756,16 @@ async function initWhiteboard() {
 
 function renderWbLibrary() {
   const list = document.getElementById("wb-library-list");
+  //: Before the notebook's first page has come (a board opened straight
+  //: from a link at start), skeletons, then the list once it lands (INBOX
+  //: 596); never an empty panel that reads as "no notes".
+  if (!entriesEverLoaded) {
+    list.replaceChildren();
+    showSkeletons(list, 5, "li");
+    loadEntries().catch(() => {}).then(() => entriesEverLoaded && renderWbLibrary());
+    return;
+  }
+  clearSkeletons(list);
   list.innerHTML = "";
   for (const entry of allEntries) {
     const li = document.createElement("li");
@@ -19193,7 +19209,7 @@ document.addEventListener("click", (event) => {
 //: `wbMapTransplant` keeps its own entry (it knows where a drag began), so
 //: what it calls is not recorded twice.
 const WB_RECORDED = [
-  "wbMapSetTheme", "wbMapClearEveryTopic", "wbMapSetNumbered", "wbMapExpandAll", "wbMapAddChild",
+  "wbMapSetTheme", "wbMapClearEveryTopic", "wbMapSetNumbered", "wbMapExpandAll", "wbMapFoldToLevel", "wbMapAddChild",
   "wbMapAddRootAt", "wbMapAddReference", "wbMapDuplicateTopic", "wbMapClearToOneTopic",
   "wbMapToggleCollapse", "wbMapCopyBranch", "wbMapRemoveKeepingBranch", "wbMapSever",
   "wbMapReverseCrossLink", "wbMapCrossLinkToBranch", "wbMapCutCrossLink", "wbMapReverseEdge",

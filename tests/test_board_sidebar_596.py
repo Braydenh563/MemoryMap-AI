@@ -77,3 +77,37 @@ def test_templates_of_each_kind_are_built_in_sets():
     assert "tile.dataset.libTemplate = entry.template" in tile
     place = _body("whiteboard-library.js", "wbLibPlace")
     assert "onto" in place and 'entry.template === "map"' in place
+
+
+def test_the_side_column_is_one_width_and_one_grid_and_a_phone_has_no_side():
+    """596, the rest: the side column measured 173px on a board and 225px on
+    a map (the layout select set it), each row centred on its own count, so
+    no icon lined up; at 390 the open sidebar's sheet covered the collapsed
+    picker (7,554px²). Now the column is `--wb-w-tools` on both, every row
+    four cells, and below 600 a side dock is the bottom strip."""
+    css = (FRONTEND / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    col = css[css.index('.whiteboard-floating-panel.bottom-center[data-dock="side"] {\n  width: var(--wb-w-tools);') :]
+    grid = col[col.index('[data-dock="side"] .wb-tool-section-row {') :]
+    grid = grid[: grid.index("}")]
+    assert "display: grid" in grid and "repeat(4, 2.25rem)" in grid and "width: 100%" in grid
+    assert "grid-column: 1 / -1" in col[: col.index("}", col.index("> .select-shell"))]
+    phone = (FRONTEND / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    band = phone[phone.index("@media (max-width: 599.98px) {\n\n  #wb-tools-panel > #wb-tool-group") :]
+    band = band[: band.index("#wb-tools-opener {")]
+    assert '.whiteboard-floating-panel.bottom-center[data-dock="side"] {\n    inset: auto 0 0;' in band
+    assert "#wb-dock-toggle {\n    display: none;" in band
+
+
+def test_the_library_and_notes_tabs_wait_on_skeletons():
+    """596, the rest: "some skeleton loaders are missing like on the
+    dashboard". The Library's first open drew nothing until its index and
+    sets came (bm1005-sidebar.js, the index held 1.5s: 0 skeletons before,
+    6 after); the Notes tab drew an empty list before the notebook's first
+    page. Both draw `showSkeletons` and clear them when the list lands."""
+    load = _body("whiteboard-library.js", "wbLoadLibrary")
+    assert load.index("showSkeletons(") < load.index('apiJson("/board-library")')
+    render = _body("whiteboard-library.js", "wbRenderLibrary")
+    assert render.index("clearSkeletons(list)") < render.index("list.replaceChildren()")
+    notes = _body("whiteboard.js", "renderWbLibrary")
+    assert "if (!entriesEverLoaded)" in notes and 'showSkeletons(list, 5, "li")' in notes
+    assert "entriesEverLoaded && renderWbLibrary()" in notes

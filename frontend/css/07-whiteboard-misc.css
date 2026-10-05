@@ -14369,6 +14369,41 @@ button.finder-row:hover,
   }
 }
 
+/* **The side column, one width and one grid** (INBOX 596, the rest: "the
+   side dock ... is ugly, poorly structured"). Measured with `col` in
+   `bm1005-sidebar.js` (DOCK=side): 173px wide on a board and 225px on a map,
+   where the layout select set the width; each section's row centred on its
+   own count of one to four controls, so no icon lined up with the one
+   above it; and every section after the first pushed 4px right of the
+   column (the bottom dock's divider inset, which this column's divider
+   reset loses to on specificity), its last icon 4px past the panel's
+   padding. Now the column is `--wb-w-tools` on both surfaces, and every
+   row is the same four 36px cells spread across it, start-aligned, so the
+   tools stand in four columns like a palette; the select takes a whole row
+   and the tidy button the first cell under it. */
+.whiteboard-floating-panel.bottom-center[data-dock="side"] {
+  width: var(--wb-w-tools);
+}
+
+.whiteboard-floating-panel.bottom-center[data-dock="side"] .wb-tool-section {
+  align-items: stretch;
+  margin-left: 0;
+  padding-left: 0;
+}
+
+.whiteboard-floating-panel[data-dock="side"] .wb-tool-section-row {
+  display: grid;
+  grid-template-columns: repeat(4, 2.25rem);
+  justify-content: space-between;
+  gap: var(--space-1) 0;
+  width: 100%;
+}
+
+.whiteboard-floating-panel[data-dock="side"] .wb-tool-section-row > .select-shell {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
 .wb-sidebar-rail {
   display: flex;
   flex-direction: column;

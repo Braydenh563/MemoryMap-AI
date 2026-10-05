@@ -1763,7 +1763,39 @@ function graphEndpoint() {
     ["graph-unresolved", "include_unresolved"],
     ["graph-attachments", "include_attachments"],
   ];
-  return `/graph?${flags.filter(([id]) => on(id)).map(([, flag]) => `${flag}=true`).join("&")}`;
+  //: `slim=1`: the payload without the defaults (`graphFill`, below).
+  return `/graph?${["slim=1", ...flags.filter(([id]) => on(id)).map(([, flag]) => `${flag}=true`)].join("&")}`;
+}
+
+//: **The slim payload, filled back** (GRAPH_PLAN, a slimmer node). The map
+//: asks `/graph` with `slim=1`, and a note node comes without each key at its
+//: default (routes_graph.py, `_NOTE_DEFAULTS`) and a link without its three
+//: nulls: 3,145 KB at 5,000 notes before. Put back here, on arrival, so
+//: every reader after the fetch (the colour rules, the panel, the local
+//: pane's hand-over, the saved views) sees the shape it always read. A
+//: node that carries its keys (`/graph/local`, an entity, a tag) is left as
+//: it came.
+function graphFill(data) {
+  for (const n of data?.nodes || []) {
+    if (n.kind && n.kind !== "note") continue;
+    n.kind ??= "note";
+    n.note_type ??= null;
+    n.graph_pin_x ??= null;
+    n.graph_pin_y ??= null;
+    n.parent_id ??= null;
+    n.has_file ??= false;
+    n.pinned ??= false;
+    n.map_ids ??= [];
+    n.tags ??= [];
+    n.access_count ??= 0;
+  }
+  for (const e of data?.edges || []) {
+    if (e.kind !== "link") continue;
+    e.reason ??= null;
+    e.reason_confidence ??= null;
+    e.link_type ??= null;
+  }
+  return data;
 }
 
 async function renderGraphSvg() {
@@ -1788,7 +1820,7 @@ async function renderGraphSvg() {
   //: drew "Nothing to map yet" over a notebook full of linked notes because
   //: the only thing distinguishing the two was a null this returned silently.
   //: See `surfaceFailed` in navigation.js.
-  const data = await apiJson(endpoint).catch(() => null);
+  const data = await apiJson(endpoint).then(graphFill).catch(() => null);
   if (!data) {
     surfaceFailed(document.getElementById("graph-empty"), "map", renderGraph);
     //: And the overview goes with the map it summarises, exactly as it does

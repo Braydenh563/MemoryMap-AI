@@ -30,6 +30,12 @@ const touch = vw < 600;
     const have = await (await api("/bookmarks")).json().catch(() => []);
     if (!have.length) await api("/bookmarks", { method: "POST", body: JSON.stringify({ url: "https://example.org/spaced", title: "Spaced repetition primer" }) });
   });
+  // A fresh data dir has no "Edit form probe 1" (noteeditform.js seeds it): seed it here.
+  await page.evaluate(async () => {
+    if (allEntries.some((x) => (x.content || "").includes("Edit form probe 1"))) return;
+    await api("/entries", { method: "POST", body: JSON.stringify({ content: "# Edit form probe 1\n\nSpaced repetition helps memory: review cards at growing intervals, recall before re-reading, and keep sessions short.", tags: ["memory", "study"], category: "Core Concepts" }) });
+    await loadEntries();
+  });
   await page.evaluate(() => switchTab("notes"));
   await page.waitForTimeout(1200);
   // RELATED=1: no model runs here, so `/related` is empty; stand three other

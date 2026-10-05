@@ -92,22 +92,35 @@ const ATLAS_TAIL_BY_STATE = {
 //: tip), in radians, for its state `p` at phase `ph` (`ph2` the second
 //: wave's) and the slow drift `drift`. Zero at the root, so the root and
 //: its direction never move; the wave's envelope grows along the length.
-function atlasTailBend(s, p, ph, ph2, drift) {
+//: A third, small ripple (`ph3`, on a 1.73s clock no other one shares)
+//: swings it nearly as one, rising fast from the root (square root) with
+//: a short wave down it (0.8 radians root to tip): the main waves alone
+//: can reach their turning points together with their pulls opposed, and
+//: atlas601-tail.js read the tip held within 0.75px for 850ms on a quiet
+//: machine that way. Weighted to the tip (s squared) the ripple did next
+//: to nothing, since the tail curls back on itself and its tip turns about
+//: a point close by; with as many bends as the main waves it cancelled
+//: itself along the length. With it, and the stretch on the same clock
+//: (`atlasTailFrame`), no behaviour holds its tip still over about 0.6s.
+function atlasTailBend(s, p, ph, ph2, drift, ph3 = 0) {
   const e = s ** 1.5;
-  return (p.curl + drift) * s * s + p.amp * e * Math.sin(ph - p.k * s) + Math.max(0.13, 0.35 * p.amp) * e * Math.sin(ph2 - 1.7 * p.k * s + 0.7);
+  return (p.curl + drift) * s * s + p.amp * e * Math.sin(ph - p.k * s) + Math.max(0.13, 0.35 * p.amp) * e * Math.sin(ph2 - 1.7 * p.k * s + 0.7) + 0.07 * Math.sqrt(s) * Math.sin(ph3 - 0.8 * s);
 }
 //: The tail's centreline bent as `bend(s)` says, as a run of cubics
 //: through the bent points (Catmull-Rom), each an equal share of the
 //: length as `atlasStemSides` samples them; and each sample's turn, for
 //: what rides on the tail.
-function atlasTailShape(rest, bend) {
+//: `stretch(s)`, when given, scales each step's length: the tail's tip
+//: draws out and back a little as it breathes (`atlasTailFrame`).
+function atlasTailShape(rest, bend, stretch) {
   const n = rest.length - 1;
   const pts = [rest[0].slice()];
   const turn = [0];
   for (let i = 0; i < n; i += 1) {
     const a = bend((i + 0.5) / n);
-    const dx = rest[i + 1][0] - rest[i][0];
-    const dy = rest[i + 1][1] - rest[i][1];
+    const g = stretch ? stretch((i + 0.5) / n) : 1;
+    const dx = (rest[i + 1][0] - rest[i][0]) * g;
+    const dy = (rest[i + 1][1] - rest[i][1]) * g;
     const [x, y] = pts[i];
     pts.push([x + dx * Math.cos(a) - dy * Math.sin(a), y + dx * Math.sin(a) + dy * Math.cos(a)]);
     turn.push(bend((i + 1) / n));
@@ -196,6 +209,8 @@ function atlasTailAttach(box) {
     until: 0,
     ph: Math.random() * 6.28,
     ph2: Math.random() * 6.28,
+    ph3: Math.random() * 6.28,
+    goal: null,
     t0: performance.now() - Math.random() * 20000,
     at: 0,
     raf: 0,
@@ -218,9 +233,16 @@ function atlasTailPick(tail, state, now) {
       break;
     }
   }
+  //: Each time a behaviour is taken up it is its own: its swing, its speed
+  //: and how far it curls vary a little about the table's (INBOX 601, the
+  //: owner: "more movement and variation"), so two sways in a row of the
+  //: same state never look alike.
+  const base = ATLAS_TAIL_ACTS[act];
+  const jit = (lo, hi) => lo + Math.random() * (hi - lo);
+  tail.goal = { curl: base.curl + jit(-0.18, 0.18), amp: base.amp * jit(0.8, 1.25), period: base.period * jit(0.85, 1.2), k: base.k * jit(0.85, 1.15) };
   tail.act = act;
   tail.state = state;
-  tail.until = now + (ATLAS_TAIL_ACTS[act].ms || 4000 + Math.random() * 5000);
+  tail.until = now + (base.ms || 4000 + Math.random() * 5000);
 }
 function atlasTailFrame(tail, now) {
   tail.raf = 0;
@@ -237,35 +259,50 @@ function atlasTailFrame(tail, now) {
     tail.raf = requestAnimationFrame((t) => atlasTailFrame(tail, t));
     return;
   }
-  const dt = tail.at ? Math.min(0.1, (now - tail.at) / 1000) : 1 / 30;
+  //: The clock runs at the wall's speed up to half a second a frame, so a
+  //: slow frame does not slow the tail (atlas601-tail.js, under load: at
+  //: four frames a second a 0.1s cap ran it at 40% and read the tip still
+  //: for over a second); the springs step in thirtieths, where they are
+  //: stable, however long the frame.
+  const dt = tail.at ? Math.min(0.5, (now - tail.at) / 1000) : 1 / 30;
   tail.at = now;
   if (live) {
     const buddy = box.closest("#nm-buddy");
     const state = atlasLowerState(buddy, box);
     if (state !== tail.state || now >= tail.until) atlasTailPick(tail, state, now);
-    const goal = ATLAS_TAIL_ACTS[tail.act];
+    const goal = tail.goal || ATLAS_TAIL_ACTS[tail.act];
     //: Critically damped springs: a flick comes in fast, the rest ease.
     const w = tail.act === "flick" || tail.act === "stiff" ? 7 : 2.6;
+    const steps = Math.ceil(dt * 30);
     for (const [k, j] of Object.entries(tail.p)) {
-      if (!(k in goal) || k === "ms") continue;
-      j.v += (w * w * (goal[k] - j.x) - 2 * w * j.v) * dt;
-      j.x += j.v * dt;
+      if (!(k in goal)) continue;
+      for (let i = 0; i < steps; i += 1) {
+        j.v += (w * w * (goal[k] - j.x) - 2 * w * j.v) * (dt / steps);
+        j.x += j.v * (dt / steps);
+      }
     }
     tail.ph += (2 * Math.PI * dt) / tail.p.period.x;
     //: The second wave keeps its own steady clock (2.9s), whatever the first
     //: does, so the tip is never still at both waves' turning points.
     tail.ph2 += (2 * Math.PI * dt) / 2.9;
+    tail.ph3 += (2 * Math.PI * dt) / 1.73;
   }
   const secs = (now - tail.t0) / 1000;
   const p = Object.fromEntries(Object.entries(tail.p).map(([k, j]) => [k, live ? j.x : k === "curl" || k === "amp" ? 0 : j.x]));
   const drift = live ? 0.13 * Math.sin((2 * Math.PI * secs) / 11.3) + 0.08 * Math.sin((2 * Math.PI * secs) / 17.9 + 1.3) : 0;
-  atlasTailDraw(tail, (s) => atlasTailBend(s, p, live ? tail.ph : 0, live ? tail.ph2 : 0, drift));
+  //: The ripple's clock also draws the tail out and back along its length
+  //: (3%, a quarter turn behind the ripple), so its tip goes round a small
+  //: ellipse that the waves can never all cancel: bending alone moves the
+  //: tip one way only, across the tail, and dwells at each turning point
+  //: (a stepped 60s of `stiff` read 1.4s still at the tip with bends only).
+  const stretch = live ? () => 1 + 0.03 * Math.cos(tail.ph3) : null;
+  atlasTailDraw(tail, (s) => atlasTailBend(s, p, live ? tail.ph : 0, live ? tail.ph2 : 0, drift, live ? tail.ph3 : 0), stretch);
   tail.drawn = true;
   if (live) tail.raf = requestAnimationFrame((t) => atlasTailFrame(tail, t));
   else tail.at = 0;
 }
-function atlasTailDraw(tail, bend) {
-  const { pts, turn, segs } = atlasTailShape(tail.rest, bend);
+function atlasTailDraw(tail, bend, stretch) {
+  const { pts, turn, segs } = atlasTailShape(tail.rest, bend, stretch);
   const d = atlasTailPaths(tail.spec, segs);
   const { paths } = tail;
   paths.edge?.setAttribute("d", d.body);

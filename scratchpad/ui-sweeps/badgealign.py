@@ -1,6 +1,6 @@
 """Ink measures for badgealign.js (argv: png, json of items; PNG at 3x, boxes in CSS px).
 
-Per badge: the icon's ink centre against its words' x-height-band centre (dy,
+Per badge: the icon's ink centre against its words' cap-height centre (dy,
 positive = icon low), the ink gap between icon and words, and the ink gap at
 each end (padL, padR) so padding symmetry is read from what is painted, not
 from the box. The background is the most common colour inside the badge.
@@ -59,15 +59,16 @@ def vcentre(rows, band):
     return (ys[0] + ys[-1] + 1) / 2 / S
 
 
-def xcentre(rows, xh):
-    """Centre of the x-height: the dense band's bottom is the baseline (a
-    descender or a cap changes the band's top, never its bottom), and the
-    font's own x-height says how far up the lowercase reaches."""
+def capcentre(rows, cap):
+    """Centre of the capitals, the label recipe's target (DESIGN.md, INBOX
+    592): the dense band's bottom is the baseline (a descender or a cap
+    changes the band's top, never its bottom), and the font's own cap height
+    (`H`'s ascent) says how far up the capitals reach."""
     if not rows:
         return None
     peak = max(rows.values())
     ys = [y for y in sorted(rows) if rows[y] >= peak * 0.5]
-    return (ys[-1] + 1) / S - xh / 2
+    return (ys[-1] + 1) / S - cap / 2
 
 
 out = []
@@ -114,10 +115,10 @@ for it in items:
     if ir:
         r["ic"] = round(vcentre(ir, False) - bc, 2)
     if tr:
-        r["tc"] = round(xcentre(tr, it["xh"]) - bc, 2)
+        r["tc"] = round(capcentre(tr, it["cap"]) - bc, 2)
         r["tb"] = round(vcentre(tr, False) - bc, 2)
     if ir and tr:
-        r["dy"] = round(vcentre(ir, False) - xcentre(tr, it["xh"]), 2)
+        r["dy"] = round(vcentre(ir, False) - capcentre(tr, it["cap"]), 2)
     allc = {}
     for c in (ic, tc):
         if c:

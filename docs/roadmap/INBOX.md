@@ -44,17 +44,6 @@ with its owner named in the entry.
      are one well to the dock's edge, one Tab stop, arrows walk them
      (daystrip.js 44/44). Waits on the owner's look before closing.
 
-
-601. **The owner, 2026-10-05, verbatim.** "on atlas can you make the tail
-     seem more integrated with the body instead of just coming out from the
-     butt?? make it smooth and biological. also add more movement and
-     variation to the tail position, behaviour, movement, same with the
-     celestial rings and planets on it which dont move or look different,
-     and the astral swirl around each could have a bit of movement or subtle
-     animation as well. also I want to be able to double tab the drag to
-     resize circle on the companion to reset it to default size." Placed:
-     the Atlas agent slot, with 600.
-
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

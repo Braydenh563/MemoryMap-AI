@@ -3155,6 +3155,9 @@
 .whiteboard-floating-panel[data-dock="side"] .wb-tool-group {
   flex-direction: column;
   align-items: stretch;
+  /* The column's full width, not its widest row's: the rows are a grid
+     spread across it (07-whiteboard-misc.css, INBOX 596). */
+  align-self: stretch;
 }
 
 /* Sections stack top-to-bottom in the sidebar instead of sitting side by

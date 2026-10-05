@@ -875,8 +875,8 @@ remaining whiteboard rows; the open rest is in
   table (`suggest-branches`). `tests/test_map_suggest.py` 6 (fake transport:
   the prompt's parse, both fallbacks, no invented note); `mapsuggest.js` 8/8
   at 1440 and 390, light and dark (no model on the sweep's server, so the
-  notebook fallback). Open: ghosts on the canvas, Expand from my notes,
-  Summarise this branch, the affinity sort, the claim check.
+  notebook fallback). Open: placed in MINDMAP_PLAN, "The features audit's
+  Phase G, what is left" (Summarise this branch is built, op3-1005).
 
 - **Found by the regression sweeps after steps 5 and 6.** A press on a
   port with Select released a click on the container, which cleared the
@@ -981,11 +981,11 @@ was verified. Items found already built are listed with the file that proves it.
 
 The well-defined rows of `agent-remaining/OPEN.md` taken by one agent; each line says how it was verified.
 
-- **The note card's "Tag with Atlas" chip was drawn on a private note** (sweep 1004 item 7, found-not-fixed in `agent-remaining/sweep-1004.md`). Built: the chip's gate in `note-cards.js` carries `!entry.is_private`, as the note menu's AI actions group already did (`menus.js`); `POST /entries/{id}/reevaluate` refuses a private note, so the chip's only answer was a toast. Measured at 1440 with `scratchpad/ui-sweeps/open-privatechip.js` (a plain and a private untagged note, a model reported running): base plain 1, private 1; fixed plain 1, private 0. `tests/test_private_note_no_ai_offer.py`.
+- **The note card's "Tag with Atlas" chip was drawn on a private note** (sweep 1004 item 7, found-not-fixed in `archive/agent-remaining/sweep-1004.md`). Built: the chip's gate in `note-cards.js` carries `!entry.is_private`, as the note menu's AI actions group already did (`menus.js`); `POST /entries/{id}/reevaluate` refuses a private note, so the chip's only answer was a toast. Measured at 1440 with `scratchpad/ui-sweeps/open-privatechip.js` (a plain and a private untagged note, a model reported running): base plain 1, private 1; fixed plain 1, private 0. `tests/test_private_note_no_ai_offer.py`.
 
 ## OPEN.md rows closed, 2026-10-05 (the open-ledger pass)
 
-The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section: each open row checked against the head and the running app; a row found built, or built here, is deleted from the ledger and named below with how it was verified. The pass's own account is `agent-remaining/open-ledger-pass.md`.
+The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section: each open row checked against the head and the running app; a row found built, or built here, is deleted from the ledger and named below with how it was verified. The pass's own account is `archive/agent-remaining/open-ledger-pass.md`.
 
 - **The other search surfaces still do their own thing** (Backend). Built, one surface per commit, each with a sweep at 1440 and 390: the Notes filter asks `GET /search` for `has:`, `space:`, `kind:` and the Semantic switch (`search1005-notes.js`; the client parser still owns `tag:`, `in:`, `title:`, `is:`, dates and phrases), the Library's Semantic filter (`search1005-library.js`), and the command palette's Notes and Documents groups, which lead with the engine's answer after a 120 ms pause and are topped up by the in-memory match so typing never waits (`search1005-palette.js`: a typo and a word inside a document body now find the note and the document, the base found neither). Not verified: ranking quality against a real embedding model (every test runs on the fake one).
 - **The word menu measures its own width before it is placed** (Documents). Built: reproduced at 390x844 (a short menu at the right edge, then a long candidate: 256 of 316px, right edge on the window's), fixed by parking the menu with `docPlaceFixed` at the edge before `placeDocSuggest` reads `offsetWidth`; `tests/test_ui_recipes.py` holds the order, `scratchpad/ui-sweeps/wordmenuwidth.js` 5 of 5 at 1440 and 390, light and dark.
@@ -993,6 +993,93 @@ The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section
 - **The fold chip is 128.8px of a 156.3px content column at 1440** (Library). Already built: INBOX 279 replaced the card's fold with a one-word `.library-image-text-chip` ("Text") that opens the lightbox at the reading. Measured with the new `scratchpad/ui-sweeps/foldchip.js`: 60px of a 179.4px column at 1440 (33%) and of 328.4px at 390 (18%), light and dark.
 - **The six descriptions start at six different heights** and **Two pictures in a gallery row are still different sizes when one card has nothing to say** (Library). Decided, not open: UI_MODERNISATION_PLAN's Phase 7 amendments record the trade (the picture takes the slack; a two-row subgrid was built, measured and taken out because it puts a 75px hole under the shortest card), so neither is work until the owner reports the row as ragged.
 - **Toggle rows onto one recipe (no lavender-filled bars)** (Settings and help). Mostly already built: the consistency pass (08-consistency.css) took the fill off every checked checkbox row of both classes and gave both the `--divider` hairline. Measured with the new `scratchpad/ui-sweeps/togglerows.js` (every Settings section's visible switches, grouped by shape): the one difference left was the gap, 15 checkbox `.check-row` rows at 6.4px against 8 `.setting-check` rows at 9.6px; both take `--space-4` now, and `#searxng-autostart` leads its row in the markup. After: one shape (32x18 switch at +9, 9.6px gap, no fill at rest) at 1440 and 390, light and dark. `tests/test_ui_recipes.py` holds it; DESIGN.md's on/off row names it.
+
+## Moved from the plans, 2026-10-05 (op3-1005)
+
+- GRAPH_PLAN, the first build after a change. `jsonable_encoder` walked
+  the whole payload (213,459 calls, 0.96 s of a 1.95 s cold build at 5,000
+  notes, cProfile) to return the plain values it was given; `_build_graph`
+  hands the payload to `JSONResponse` as it is and falls back to the encoder
+  only on a value JSON cannot take. Same bytes (a test compares them).
+  Measured on the bench notebook, alternating which shape goes first, load
+  about 7: the first cold build 1,519 to 1,541 ms before, 1,197 to 1,212 ms
+  after; the second 696 to 1,470 ms before, 466 to 532 ms after.
+  `tests/test_graph_encoded_off_loop.py`. Then `paths._connect` (the map's PageRank
+  and every path search) reads a link's five columns instead of building
+  10,000 `EntryLink` objects: `_connect` 0.48 to 0.14 s under cProfile, the
+  first cold build 1,197 to 1,212 ms before, 670 to 712 ms after (one run at
+  1,048 ms in a load spike). `tests/test_graph_paths.py`.
+
+- The features audit's Phase G, Summarise this branch. Built:
+  `POST /whiteboard/boards/{b}/nodes/{n}/summary` (routes_map_suggest.py)
+  reads the branch as an indented outline (120 topics, 6,000 characters at
+  most) and writes nothing; the model's two to four sentences when it
+  answers in prose, else the branch said plainly ("Centre: One, Two, Three
+  and Four (6 topics in all).", `source: "outline"`, with why). The map's
+  `wbMapSummariseBranch` puts it into the topic's own note, open and
+  focused, kept on close as one Undo step; the topic menu, the palette and
+  the Guide's mind map keys name it. `tests/test_map_summary.py` 5 (fake
+  transport: the outline sent, a list reply refused, the fallback);
+  `bm1005-mapmulti.js` check 6 at 1440 light and 390 dark (no model on the
+  sweep's server: the plain form, the note inside the window, kept).
+
+- The features audit's Phase D, fold-to-level (Alt+1 to 9). Built:
+  `wbMapFoldToLevel` (whiteboard-map.js) folds every topic at the level
+  that has a branch under it and opens the shallower ones, saving only the
+  changed folds, one Undo step (`WB_RECORDED`); Alt and a digit on a map,
+  palette rows for levels 1 to 3, a "Show two levels" row in the topic menu,
+  the keys sheet and the Guide's mind map keys. Measured with
+  `bm1005-mapmulti.js` check 5 (Centre, four children, one grandchild):
+  Alt+1 shows 1 topic, Alt+2 5, Alt+3 all 6, and one Ctrl+Z after Alt+1
+  leaves 0 folded, at 1440 light and 390 dark. `tests/test_wb_commands.py`.
+  Still open from Phase D: editing in the Outline tab, M1's latency gate and
+  the strip's doors (the mind map agent's).
+
+- WHITEBOARD_PLAN, INBOX 608's list half: read at head here as nothing to
+  build (no list selected by dragging) and closed; superseded the same day
+  by the list drag-select built on `claude/notes-flow-rebuild` (`DRAG_EDGE`,
+  selection.js), which WHITEBOARD_PLAN now names.
+
+- WHITEBOARD_PLAN, INBOX 596's skeletons. Built: `wbLoadLibrary` draws
+  six `showSkeletons` into an empty list before the index and its sets
+  arrive, `wbRenderLibrary` clears them; the Notes tab (`renderWbLibrary`)
+  draws five before the notebook's first page and renders once it lands.
+  Measured with `bm1005-sidebar.js` (check 7, the index held 1.5s): 0
+  skeletons before, 6 (51px, `aria-busy`) after, then 51 tiles and none
+  left, at 1440 light and 390 dark. The Notes half is read, not measured
+  (the boot loads the notebook before a board can open).
+  `tests/test_board_sidebar_596.py`.
+
+- CHAT_PLAN, OPEN.md triage. The placed lists (72, 63, 71, 45) were already
+  struck and moved by earlier passes; checked, nothing left. The question
+  hover row: hung `calc(100% + 2px)` under its bubble, a 25px row in a 13px
+  gap; it overlapped the answer below by 13px in height everywhere and in
+  width only from 640 to 820 (7, 3 and 13px at 820, 700 and 640; -28 and
+  -53px, clear, at 1024 and 1280, where the answer's width cap leaves room).
+  Now `top: calc(100% - 0.75rem)`: 2px under the bubble's last line, 1px
+  clear of the next message at 640 and 1280 (a probe through `addBubble`).
+  `tests/test_chat_transcript.py`.
+
+- GRAPH_PLAN, a slimmer node. Built: `/graph?slim=1` leaves out a note
+  node's keys at their default (`_NOTE_DEFAULTS`, routes_graph.py) and a
+  link's three nulls, times to the second, centrality to six figures; the
+  map asks for it (`graphEndpoint`) and `graphFill` (graph.js) restores the
+  shape on arrival in both renderers. Measured on the 5,000-note bench
+  notebook (`kg1005_graph_bench.py` seeding): 3,145 to 1,767 KB; the second
+  cold build after a write 992 to 1,470 ms full against 696 to 736 ms slim;
+  the first cold build 1.4 to 1.6 s either way. `graph514.js` passes on the
+  slim payload. The dashboard's widgets read the slim payload too (only each
+  link's two ends), so one cached build after a change serves both; boot JS
+  paid for it with two optional chains. `tests/test_graph_slim.py`.
+
+- WHITEBOARD_PLAN, INBOX 596's side column. Built: the column is
+  `--wb-w-tools` (176px) on a board and a map (173 and 225 before), each
+  row a four-cell grid across it, the layout select a whole row; below 600
+  a side dock is the bottom strip and the dock switch is hidden. Measured
+  with `bm1005-sidebar.js` (DOCK=side): cell columns [7,49,91,133] on a
+  board and [7,49,91] on a map, 0 past the padding; at 390 light and dark
+  the picker answers its own centre with the sidebar open (covered,
+  7,554px², before). `tests/test_board_sidebar_596.py`.
 
 ## INBOX resolved, 2026-10-05 (ledger-1005: OPEN.md rows)
 
@@ -4801,7 +4888,7 @@ Two things measured on the way and left alone: `mapline.js` (13/13),
 `mapcore.js` (16/16) and `mapspine.js` (9/9) drive these controls by id and
 pass untouched, which is what says the listeners did not move; and
 `mapstyle.js`'s "radial slot" check fails on the base branch as well as on
-this one, so it is not this work's (recorded in `agent-remaining/mapux2.md`).
+this one, so it is not this work's (recorded in `archive/agent-remaining/mapux2.md`).
 
 ### From MINDMAP_PLAN.md section 13a: the drag pick-up
 
@@ -13750,7 +13837,7 @@ Each was found by measuring, not by reading, which is the point of the rule.
 ### 11. Built: the previews, Phase 4 and Phase 5
 
 The fourth run. §5 item 12's preview redesign (the report in
-[agent-remaining/mindmap.md](agent-remaining/mindmap.md) section F), then
+[archive/agent-remaining/mindmap.md](archive/agent-remaining/mindmap.md) section F), then
 Phase 4 and Phase 5 in the plan's order. Everything below was driven in a real
 Chromium against the running app (`scratchpad/ui-sweeps/mindmap.js`, 76
 checks, and `mindmap3.js`, 57) rather than reasoned about; §11.3 says what
@@ -14232,7 +14319,7 @@ named beside it in HANDOVER's completion table.
 42. **(fixed, e985f57; H closed in 047e385)** **Mind map still broken**
     (screenshot: a dangling curve not attached to either node after a drag;
     the root and "New topic" far apart).
-    Owner: `agent-remaining/mindmap.md` item H, edge-follow on single-node
+    Owner: `archive/agent-remaining/mindmap.md` item H, edge-follow on single-node
     drag; reproduce with mindmap.js first.
     **Done:** a map's tree edges are derived from `parent_id` on render, not
     link sketches, so nothing followed a one-node drag (the bulk case was
@@ -28287,7 +28374,7 @@ before the next starts:
    with the Outline panel open and a long title.
 3. UI_MODERNISATION Phase 9 remainder (`archive/agent-remaining/responsive.md`).
 4. AGENT_SKILLS_REFORM Phase D, recovery.
-5. MINDMAP_PLAN Phases 4 to 5 and `agent-remaining/mindmap.md`.
+5. MINDMAP_PLAN Phases 4 to 5 and `archive/agent-remaining/mindmap.md`.
 6. `archive/agent-remaining/help-popovers.md` and `timeline.md` bug items (Sonnet),
    then WORLD_CLASS 12 S7 (LIKE escaping, one helper, 18 sites, Sonnet).
 
@@ -37877,7 +37964,7 @@ measured, so nobody rebuilds them.
     sections should chain (the last card of one offers the next), and every
     main feature should have a section that walks into it rather than
     pointing at its tab button. Owner: the tourdepth agent
-    (`agent-remaining/tourdepth.md`).
+    (`archive/agent-remaining/tourdepth.md`).
     **Fixed 2026-09-23** (`dad2ff6`): eleven sections, each walking into its
     feature on three to five of its own controls; a run chains from the
     section it starts at to the end, the count is per section, and a
@@ -38191,7 +38278,7 @@ with an unselected note moving 1.7 and no pins written.
     Harper (INBOX 401), suggestion mode (tracked changes), read aloud with
     the system's own voices, an accessibility check (heading order, alt
     text, link text), and a .docx round trip if export is missing.
-    **Prose side built 2026-09-24** (`agent-remaining/proseeditor.md`):
+    **Prose side built 2026-09-24** (`archive/agent-remaining/proseeditor.md`):
     Harper db64249, suggestion mode 1706972, read aloud c3af0d3,
     accessibility be76070, Word round trip 2a9f407. Open here: the code side
     only, the completions agent's.
@@ -42380,7 +42467,7 @@ four bands. 35 of their 49 width queries moved; the counts in
   width in it (it was 110 below 720 and 124 above).
 - **Not moved, owned elsewhere:** the status bar (00's trimmed items, 03's
   AI mark), the dashboard's quick access (03), the whiteboard (06's
-  floating panel, all of 07's). Listed in `agent-remaining/uimod-89.md`.
+  floating panel, all of 07's). Listed in `archive/agent-remaining/uimod-89.md`.
 - **One finger target fixed on the way:** `.settings-index-link` takes
   `min-width: var(--target-min)`; "AI" was 43x44 (`touch.js` at 700).
 - Sweep: `scratchpad/ui-sweeps/bands.js`, a before and after snapshot of
@@ -43138,7 +43225,9 @@ record.)
      more links" in another shape). Placed: the icon alignment agent.
      Fixed 2026-10-05: an icon beside words sits on the words' cap-height
      centre in the drawing font; on Windows icons were up to 1.7px off
-     (5afe089, 4111aa2).
+     (5afe089, 4111aa2). The sweeps agree since 4a2dfaf: badgealign.js
+     measures the cap-height centre too (it read -1.5px against INBOX 503's
+     x-height band, -0.5px against the capitals); inkalign.js retired.
 595. **The owner, 2026-10-05, verbatim.** "why are new libraries off the
      table?? should we bundle multiple packages together for bulk download if
      various features need multiple libraries or dependencies in the packages
@@ -43197,7 +43286,7 @@ record.)
      enlarged preview atlas is still hanging, it should be slightly separate
      from the companion but still have the same life". Placed: the Atlas
      agent (with 600, 601, 612, 614, 615).
-     Fixed 2026-10-05: her seam (0c7b64b, atlas615-join.js worst step 6.29 to 0.57px at 2.2x); the sleep chain (cc2f11e, lying step 3.35 to 0.22px); the eyes (f8d82a4, atlas619-eyes.js blank 464ms to 0); the large view (f7d77c7, floats free, still at most 935ms at 1440); an act eased into (f7d77c7). Left: laughing's end, a 3px move over three frames under the stepped clock, in agent-remaining/atlas-1005.md.
+     Fixed 2026-10-05: her seam (0c7b64b, atlas615-join.js worst step 6.29 to 0.57px at 2.2x); the sleep chain (cc2f11e, lying step 3.35 to 0.22px); the eyes (f8d82a4, atlas619-eyes.js blank 464ms to 0); the large view (f7d77c7, floats free, still at most 935ms at 1440); an act eased into (f7d77c7). Left: laughing's end, a 3px move over three frames under the stepped clock, in archive/agent-remaining/atlas-1005.md.
 
 623. **The owner, 2026-10-05, verbatim.** "can the atlas agent also animate
      the props and icons as well for various actions and behaviours??"
@@ -43253,6 +43342,21 @@ record.)
      modernise the quick sketch a little more as well?? it is already mostly
      fine, maybe a bit more of a gap below the top row title and close
      button". Placed: the design-rows agent, after 618.
+
+601. **The owner, 2026-10-05, verbatim.** "on atlas can you make the tail
+     seem more integrated with the body instead of just coming out from the
+     butt?? make it smooth and biological. also add more movement and
+     variation to the tail position, behaviour, movement, same with the
+     celestial rings and planets on it which dont move or look different,
+     and the astral swirl around each could have a bit of movement or subtle
+     animation as well. also I want to be able to double tab the drag to
+     resize circle on the companion to reset it to default size." Placed:
+     the Atlas agent slot, with 600.
+     **Fixed (op3-1005).** Body, rings, swirls and the resize reset landed
+     with 600 and 612; the last of it, the tail held still: atlas601-tail.js,
+     stepped at 60fps over 60s, longest tip spell within 0.75px 1,100 to
+     400ms (masculine), 650 to 150ms (feminine); real time 588 and 474ms at
+     8 to 11fps (850 and 501ms before on a quiet run).
 
 ## OPEN.md rows closed, 2026-10-05
 
@@ -43909,7 +44013,7 @@ The text as it stood in the plan:
    Branch sections carry add topic, add child, add sibling, collapse,
    branch colour and focus; the layout picker and Tidy are still in the
    top bar, and the Style, Insert, Arrange, Present and Export menus are
-   not written. See `agent-remaining/mindmap.md` for the measured numbers
+   not written. See `archive/agent-remaining/mindmap.md` for the measured numbers
    and the rest of the list.
 2 to 9. **Built, 2026-09-12**: the node edit strip, the node radial, the
    link radial, the mid-line add, the text-size grip, uncollapse, drag to

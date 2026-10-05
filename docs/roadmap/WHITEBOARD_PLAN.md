@@ -864,7 +864,7 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
   without asking; a convention the app breaks on purpose keeps its reason
   written next to it.
   **The whiteboard and map half is built**: the checklist, with before and
-  after for each convention, is `agent-remaining/mapux2.md` (agent M,
+  after for each convention, is `archive/agent-remaining/mapux2.md` (agent M,
   `canvasconventions.js` 54/54). Its one row left, Escape during a marquee or
   lasso, was measured 2026-09-23 and was wrong: it took the rectangle away
   and then cleared the selection as well, and the release's click cleared
@@ -979,13 +979,9 @@ catalogue, the library spec and the phased briefs these become.
 Held by the boardmap-1005 agent; the built halves are in HISTORY.md
 ("Moved from the plans, 2026-10-05 (boardmap-1005)"). Open:
 
-- INBOX 596, the rest: "some skeleton loaders are missing like on the
-  dashboard" (not placed against a surface yet: the board's Library and
-  Notes tabs draw nothing while they load), and the side-docked tool column's
-  own layout (rows of one to four controls, centred; 173px wide on a board
-  and 225px on a map, where the layout select sets the width). At phone
-  width the open sidebar is a sheet over the board and covers the side
-  dock's collapsed picker (7,554px², the same on the base).
+- INBOX 596, the rest: built (the side column, the phone overlap and the
+  sidebar's skeletons; HISTORY.md, "Moved from the plans, 2026-10-05
+  (op3-1005)").
 - INBOX 608, the lists: built (`DRAG_EDGE` in `frontend/js/selection.js`; the
   browser's own autoscroll covers the last 20px, this the next 36;
   `ui-sweeps/s2-1005.js` MODE=listedge).

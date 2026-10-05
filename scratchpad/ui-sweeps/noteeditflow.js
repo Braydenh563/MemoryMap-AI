@@ -14,6 +14,11 @@ const { boot } = require("./lib.js");
   const check = (ok, label, extra = "") => { if (!ok) fails++; console.log(`${ok ? "PASS" : "FAIL"} ${label} ${extra}`); };
   const errs = [];
   page.on("pageerror", (e) => errs.push(String(e).slice(0, 160)));
+  // The picker needs a bookmark to pick: seed one through the API (fresh dir).
+  await page.evaluate(async () => {
+    const have = await (await api("/bookmarks")).json().catch(() => []);
+    if (!have.length) await api("/bookmarks", { method: "POST", body: JSON.stringify({ url: "https://example.org/spaced", title: "Spaced repetition primer" }) });
+  });
   await page.evaluate(async () => {
     if (allEntries.some((x) => (x.content || "").includes("Edit form probe 2"))) return;
     await api("/entries", { method: "POST", body: JSON.stringify({ content: "# Edit form probe 2\n\nSpaced repetition helps memory.", tags: ["memory", "study"], category: "Core Concepts" }) });

@@ -748,6 +748,7 @@ def graph(
     include_tags: bool = False,
     include_unresolved: bool = False,
     include_attachments: bool = False,
+    slim: bool = False,
     session: Session = Depends(get_session),
 ) -> Response:
     """The notebook as nodes and edges, served from a cache of the encoded
@@ -765,12 +766,13 @@ def graph(
         include_tags=include_tags,
         include_unresolved=include_unresolved,
         include_attachments=include_attachments,
+        slim=slim,
         session=session,
     ).body
     if include_entities or include_documents or include_unresolved or include_attachments:
         return Response(content=build(), media_type="application/json")
     key = _payload_key(session, similarity, include_maps, include_tags)
-    body = _cached(f"payload:{bool(similarity)}:{include_maps}:{include_tags}", key, build)
+    body = _cached(f"payload:{bool(similarity)}:{include_maps}:{include_tags}:{slim}", key, build)
     return Response(content=body, media_type="application/json")
 
 
@@ -783,6 +785,7 @@ def _build_graph(
     include_unresolved: bool = False,
     include_attachments: bool = False,
     session: Session | None = None,
+    slim: bool = False,
 ) -> JSONResponse:
     # A draft is unfinished by definition, and the Notes tab already keeps
     # every draft out of the notebook it draws from, the graph is a map of
@@ -1076,11 +1079,64 @@ def _build_graph(
     #: `type_colours`, read with the types above: a type's own colour (Note
     #: types), so the "Note type" rule paints a Meeting the colour the person
     #: gave it; a type without one falls to the calm scheme in the page.
-    return JSONResponse(
-        jsonable_encoder(
-            {"nodes": nodes, "edges": edges, "categories": categories, "type_colours": type_colours}
-        )
-    )
+    if slim:
+        _slim(nodes, edges)
+    payload = {"nodes": nodes, "edges": edges, "categories": categories, "type_colours": type_colours}
+    #: **As it is first** (GRAPH_PLAN, the first build after a change). The
+    #: payload is plain dicts, lists, strings and numbers, which
+    #: `jsonable_encoder` walked value by value only to hand back unchanged:
+    #: 213,459 calls, 0.96 s of a 1.95 s cold build at 5,000 notes (cProfile).
+    #: `JSONResponse` encodes it as it stands, the same bytes; a value JSON
+    #: cannot take (a date an optional layer left as an object) falls back to
+    #: the encoder, as before.
+    try:
+        return JSONResponse(payload)
+    except (TypeError, ValueError):
+        return JSONResponse(jsonable_encoder(payload))
+
+
+#: **The slim payload** (`/graph?slim=1`, the map's own read; GRAPH_PLAN
+#: "Still open after KG1 to KG9", a slimmer node). Measured at 5,000 notes
+#: (`scratchpad/kg1005_graph_bench.py`): 3.1 MB, of which about a third was
+#: a value every note carries at its default and an unreasoned link's three
+#: nulls, plus timestamps to the microsecond. A note node leaves out each key
+#: at its default (the map's `graphFill`, graph.js, puts them back on
+#: arrival, so nothing after the fetch reads a different shape), its times
+#: are to the second and its centrality to six figures. Only note nodes and
+#: link edges: an entity's, a document's or a tag's node keeps its own keys.
+_NOTE_DEFAULTS = {
+    "kind": "note",
+    "note_type": None,
+    "graph_pin_x": None,
+    "graph_pin_y": None,
+    "parent_id": None,
+    "has_file": False,
+    "pinned": False,
+    "map_ids": [],
+    "tags": [],
+    "access_count": 0,
+}
+_LINK_DEFAULTS = ("reason", "reason_confidence", "link_type")
+
+
+def _slim(nodes: list[dict], edges: list[dict]) -> None:
+    for node in nodes:
+        if node.get("kind") != "note":
+            continue
+        for key, default in _NOTE_DEFAULTS.items():
+            if key in node and node[key] == default and type(node[key]) is type(default):
+                del node[key]
+        for key in ("created_at", "updated_at"):
+            if isinstance(node.get(key), str) and "." in node[key]:
+                head, _, tail = node[key].partition(".")
+                node[key] = head + tail.lstrip("0123456789")
+        if isinstance(node.get("centrality"), float):
+            node["centrality"] = float(f"{node['centrality']:.6g}")
+    for edge in edges:
+        if edge.get("kind") == "link":
+            for key in _LINK_DEFAULTS:
+                if key in edge and edge[key] is None:
+                    del edge[key]
 
 def _load_entries(session: Session, ids) -> dict[int, Entry]:  # noqa: ANN001
     """The live notes with these ids, read in chunks (SQLite's variable cap)."""

@@ -2197,20 +2197,15 @@ const LAZY_MODULES = {
   quickAccess: ["/js/quick-access.js"],
   //: The suggestions inbox (GRAPH_PLAN KG9): see suggestions-inbox.js.
   inbox: ["/js/suggestions-inbox.js", "/js/entity-page.js", "/js/link-types.js", "/js/note-properties.js"],
-  //: Catalogue deep links (2026-10-05, gzip budget): reveal-targets.js.
+  //: 2026-10-05 (gzip budget), the next seven: each file's header says why.
   reveal: ["/js/reveal-targets.js"],
-  //: The welcome card: onboarding.js.
   onboarding: ["/js/onboarding.js"],
-  //: The update check and its dialogs: update-dialogs.js.
   updates: ["/js/update-dialogs.js"],
-  //: The Ctrl/Cmd-K palette's window: app-palette.js.
   appPalette: ["/js/app-palette.js"],
-  //: A note card's menu panels: note-panels.js.
-  notePanels: ["/js/note-panels.js"],
+  notePanels: ["/js/note-panels.js", "/js/note-edit-panels.js"],
   //: Every listener inside the Settings window, awaited on first open: settings-controls.js.
   settingsControls: ["/js/settings-controls.js"],
-  //: An open edit form's Similar and links panels: note-edit-panels.js.
-  noteEditPanels: ["/js/note-edit-panels.js"],
+  attachTo: ["/js/attach-to.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2431,18 +2426,13 @@ const LAZY_ENTRY_POINTS = {
     "importDocument",
   ],
   tagSuggest: ["openTagSuggest"],
-  //: Clicks only; `async` already.
+  //: 2026-10-05, the next six: async or unread, reached by a gesture.
   reveal: ["revealFeature"],
-  //: Nobody reads it; the card's buttons are wired by the module.
   onboarding: ["openOnboarding"],
-  //: All async or unread (update-dialogs.js header).
   updates: ["checkForUpdate", "applyUpdateNow", "showSourceUpdatedDialog"],
-  //: Gesture-opened, nothing read back (app-palette.js header).
   appPalette: ["openPalette"],
-  //: Menu items and a chip, all async, nothing read back.
-  notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders"],
-  //: Called by renderEditForm, async, nothing read back.
-  noteEditPanels: ["renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing"],
+  notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing"],
+  attachTo: ["renderAttachToBoard", "renderAttachToDocument"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",

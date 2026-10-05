@@ -2,8 +2,9 @@
 // text, "Similar" notes and the note's saved links, and the picker that attaches
 // a saved link. Moved out of notes-list.js on 2026-10-05 (the boot-script gzip
 // budget, ratchet in tests/test_static_compression.py): they draw only after a
-// person presses Edit. Loaded on first use by `LAZY_MODULES.noteEditPanels`
-// (app.js), whose stand-ins for `renderRelatedWhileEditing` and
+// person presses Edit. Loaded on first use, in the same bundle as
+// note-panels.js (`LAZY_MODULES.notePanels`, app.js; `similarNoteRow` is
+// there), whose stand-ins for `renderRelatedWhileEditing` and
 // `renderNoteBookmarksWhileEditing` fetch this file and then call the real
 // one. `renderEditForm` calls both and reads neither's result (they are
 // `async` and fill a panel they append themselves), so a stand-in's promise is

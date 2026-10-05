@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- The app opens with 34 KB less script to download (gzipped, 792,754 to 758,418 bytes): the Settings window's own listeners, the catalogue's deep links, the welcome card, the update dialogs, the command palette's window, a note card's menu panels, the edit form's Similar and links panels and the put-on-a-board pickers now load the first time you use them. Nothing looks different; the first Settings open waits a few milliseconds for its file.
 - Notes, Questions: Read notes now finds the questions your notes ask at once (the night pass, which otherwise runs only with background tasks on); the empty line says so (INBOX 551).
 - Whiteboard: right-click a frame's title, Export this frame…, to export the frame and everything inside it (locked items too) as a picture, PDF or SVG. A frame inside another moves with it.
 - Mind maps: View, Present branches shows a map full screen one branch at a time: the whole map first, then each branch fitted to the screen, with the same bar and keys as a board's Present frames (arrows, Space, Home, End; Escape puts everything back).

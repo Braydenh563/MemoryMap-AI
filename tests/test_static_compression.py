@@ -58,7 +58,7 @@ def test_a_stamped_asset_is_immutable_and_gzipped(client):
 #:   step, and after the split only ever downward.
 APP_JS_CAP = 43_000
 PIECE_CAP = 64_000
-TOTAL_CAP = 794_000
+TOTAL_CAP = 774_000
 
 
 def _served_gzip_size(client, name: str) -> int:
@@ -108,6 +108,16 @@ def test_the_app_scripts_stay_under_the_ratchet(client):
     # notes-list.js at 50,207, and 777,805 together, 26,672 bytes (3.6%) more
     # than the one file, which is what 23 gzip streams that each start with
     # an empty window cost. APP_JS_CAP now only ever goes down.
+    #
+    # **2026-10-05, the first cut of that total.** 792,754 bytes (cap 794,000,
+    # notes-list.js 63,548 of the 64,000 piece bound) came down to 758,418 with
+    # notes-list.js at 57,929, by moving code only a gesture reaches into lazy
+    # files: the catalogue's deep links, the welcome card, the update dialogs,
+    # the palette's window, a note card's menu panels, the edit form's two
+    # panels, the inline "put on a board" pickers, and the 110 listeners inside
+    # the Settings window (settings-controls.js, awaited by the first
+    # `openSettingsModal`). The cap is that total plus 2%, 774,000. It is a cap:
+    # it goes down after a split and is never raised.
     sizes = {path.name: _served_gzip_size(client, path.name) for path in app_js_files()}
     assert sizes[APP_JS.name] < APP_JS_CAP, (
         f"gzipped app.js is {sizes[APP_JS.name]} bytes, expected under {APP_JS_CAP}"

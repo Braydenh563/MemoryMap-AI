@@ -6,60 +6,6 @@
 // earlier file calls into it while the page loads (scratchpad/appjs-map.js
 // --check).
 
-
-// One similar note, with the button that turns it into a real link.
-//
-// Shared by both places this app shows "≈ Similar", the panel that stays
-// open while a note is being edited, and the "≈ Similar notes" menu item on
-// a note card. They were already two near-identical loops; adding an action
-// to only one of them is exactly how the two would have drifted, and the
-// ask named the card one specifically ("like in the similar notes shown in
-// the notes tab").
-//
-// A button, not something either view does on its own: `≈` is a resemblance
-// the embedding noticed, while a link is a claim the user makes. The reason
-// is deduced server-side for a pair this similar (create_link's
-// AUTO_REASON_THRESHOLD) and stays editable wherever links are shown, so
-// nothing is asked for at this point.
-function similarNoteRow(entry, other, onLinked) {
-  const shown = stripFrontmatter(other.content).trim();
-  const preview = shown.length > 50 ? shown.slice(0, 49) + "…" : shown;
-  const wrap = document.createElement("span");
-  wrap.className = "entry-related-row";
-  const relChip = chip("", "link", () => flashEntry(other.id));
-  //: The same mark the menu item that opens this row wears, drawn the same
-  //: way: an `<i class="ph">` rather than the character U+2248, which came
-  //: out in the page font at the text's own weight beside Phosphor icons in
-  //: every neighbouring chip (INBOX 263).
-  const relMark = document.createElement("i");
-  relMark.className = "ph ph-approximate-equals ph-lead";
-  relMark.setAttribute("aria-hidden", "true");
-  relChip.appendChild(relMark);
-  const previewSpan = document.createElement("span");
-  renderInlineMarkdown(previewSpan, preview, [], true);
-  relChip.appendChild(previewSpan);
-  wrap.appendChild(relChip);
-
-  const linkBtn = smallButton("ph:link Link", `Link this note to “${preview}”`, async () => {
-    linkBtn.disabled = true;
-    try {
-      await apiJson(`/entries/${entry.id}/links`, {
-        method: "POST",
-        body: JSON.stringify({ target_id: other.id }),
-      });
-      toast("Linked.");
-      wrap.remove();
-      onLinked?.();
-    } catch (error) {
-      linkBtn.disabled = false;
-      toast(error.message || "Couldn't link those notes.", true);
-    }
-  });
-  linkBtn.classList.add("entry-related-link-btn");
-  wrap.appendChild(linkBtn);
-  return wrap;
-}
-
 //: **The formatting row the note edit form never had.**
 //:
 //: Editing an existing note is the most common editing action in a notebook,

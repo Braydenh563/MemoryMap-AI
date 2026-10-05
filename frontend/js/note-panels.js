@@ -8,10 +8,13 @@
 // `toggleNoteReminders` fetch this file and then call the real one; all four
 // are `async` and nobody reads what they return.
 //
-// `similarNoteRow` stayed in notes-list.js: the edit form's own "Similar" panel
-// builds rows with it and reads the element it returns, which a stand-in
-// could not give. `renderEntries` never reads `notePanel`, so the open-panel
-// state living here costs the list nothing while this file is absent.
+// `similarNoteRow` is here too, at the bottom: its only callers are
+// `toggleRelated` and the edit form's own "Similar" panel
+// (note-edit-panels.js), and it returns an element, which a stand-in could not
+// give a caller at boot. The two files load together as one bundle
+// (`LAZY_MODULES.notePanels`) so neither can run without it.
+// `renderEntries` never reads `notePanel`, so the open-panel state living here
+// costs the list nothing while this file is absent.
 
 //: **One open panel, named by which one it is.** Three menu items open a row
 //: under a note card: "Similar notes", "Referenced by" and "Forgotten notes
@@ -258,4 +261,57 @@ async function toggleReferences(entry) {
     row.appendChild(wrap);
   }
   card.appendChild(row);
+}
+
+// One similar note, with the button that turns it into a real link.
+//
+// Shared by both places this app shows "≈ Similar", the panel that stays
+// open while a note is being edited, and the "≈ Similar notes" menu item on
+// a note card. They were already two near-identical loops; adding an action
+// to only one of them is exactly how the two would have drifted, and the
+// ask named the card one specifically ("like in the similar notes shown in
+// the notes tab").
+//
+// A button, not something either view does on its own: `≈` is a resemblance
+// the embedding noticed, while a link is a claim the user makes. The reason
+// is deduced server-side for a pair this similar (create_link's
+// AUTO_REASON_THRESHOLD) and stays editable wherever links are shown, so
+// nothing is asked for at this point.
+function similarNoteRow(entry, other, onLinked) {
+  const shown = stripFrontmatter(other.content).trim();
+  const preview = shown.length > 50 ? shown.slice(0, 49) + "…" : shown;
+  const wrap = document.createElement("span");
+  wrap.className = "entry-related-row";
+  const relChip = chip("", "link", () => flashEntry(other.id));
+  //: The same mark the menu item that opens this row wears, drawn the same
+  //: way: an `<i class="ph">` rather than the character U+2248, which came
+  //: out in the page font at the text's own weight beside Phosphor icons in
+  //: every neighbouring chip (INBOX 263).
+  const relMark = document.createElement("i");
+  relMark.className = "ph ph-approximate-equals ph-lead";
+  relMark.setAttribute("aria-hidden", "true");
+  relChip.appendChild(relMark);
+  const previewSpan = document.createElement("span");
+  renderInlineMarkdown(previewSpan, preview, [], true);
+  relChip.appendChild(previewSpan);
+  wrap.appendChild(relChip);
+
+  const linkBtn = smallButton("ph:link Link", `Link this note to “${preview}”`, async () => {
+    linkBtn.disabled = true;
+    try {
+      await apiJson(`/entries/${entry.id}/links`, {
+        method: "POST",
+        body: JSON.stringify({ target_id: other.id }),
+      });
+      toast("Linked.");
+      wrap.remove();
+      onLinked?.();
+    } catch (error) {
+      linkBtn.disabled = false;
+      toast(error.message || "Couldn't link those notes.", true);
+    }
+  });
+  linkBtn.classList.add("entry-related-link-btn");
+  wrap.appendChild(linkBtn);
+  return wrap;
 }

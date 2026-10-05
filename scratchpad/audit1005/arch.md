@@ -262,8 +262,9 @@ CLOSED)**
   minutes in-process (stuck in `relations.recognise`): `cached_similar_pairs`
   has no cap, and on this synthetic text 90% of pairs pass the 0.55 threshold
   (median bge cosine 0.885). A real notebook is more varied; nothing bounds
-  the output. `/duplicates` also ran over a minute (PPJoin degenerates on a
-  small vocabulary). Both with that caveat.
+  the output. `/duplicates` took **86.7 s and returned 8.2 MB** (one call, live server;
+  PPJoin's prefix filter degenerates on a small vocabulary, and the response
+  is uncapped). Both with that caveat.
 - Fix (S each): ids-only `_visible`; top-k per note in `similar_pairs`.
 
 **ARCH-12. 422 has its own error shape and echoes input (NEW)**
@@ -433,6 +434,8 @@ regressed)**
 | `POST /entries`, `defer_filing` | 87 | 96 | 25 | |
 | `PUT /entries/{id}` | 744 | 1,117 | 49 | |
 | `/entries/link-suggestions` (embeddings ready) | did not finish in minutes | | | |
+| `/entries/link-suggestions` (embeddings not ready, live) | 828 (one call) | | | 2.6 |
+| `/duplicates` (live, one call) | 86,654 | | | 8,166 |
 
 Fast and fine (p50 under 25 ms): `/entries/most-accessed`, `/entries/daily`,
 `/questions/summary`, `/night/latest`, `/reminders`, `/documents`, `/media`,
@@ -463,7 +466,8 @@ the embedding back-fill thread where it was running.
   `session.add/flush` and the next `commit` in `ai/` (AST walk; allowlist
   with reasons).
 - Acceptance: the new test; `tests/test_learned_spec.py`,
-  `tests/test_night*.py`, `tests/test_entities*.py` green.
+  `tests/test_night_runs.py`, `tests/test_night_pairs.py`,
+  `tests/test_entities.py` green.
 - Risks: a run killed mid-way now leaves part of its facts (fine: facts are
   keyed by fingerprint and the next run skips them); `NightRun.finished_at`
   must be set in a `finally`.
@@ -485,8 +489,8 @@ the embedding back-fill thread where it was running.
   term->tag table only with no embedder; filter `is_private`. 4) embed once
   per save: `categorise` returns the vector, `store_for_entry` accepts it.
   5) `PUT` embeds through the deferred job unless the text is unchanged.
-- Acceptance: the timing test; `tests/test_janitor*.py`,
-  `tests/test_learned_spec.py`, `tests/test_tag_suggest*.py`; a route test that
+- Acceptance: the timing test; `tests/test_janitor_knn.py`,
+  `tests/test_learned_spec.py`, `tests/test_lexical_filing.py`; a route test that
   two refiles away from X keep a no-model save out of X.
 - Risks: tag suggestion quality changes; keep the old function for the
   no-embedder path and compare on the fixture.
@@ -507,7 +511,7 @@ the embedding back-fill thread where it was running.
   `audit_log (created_at DESC, id DESC)`; an EXPLAIN test per list under
   both headers asserting no `TEMP B-TREE FOR ORDER BY`. 4) `_activity` selects
   four columns and honours `q`.
-- Acceptance: the two new tests; `tests/test_spaces*.py`,
+- Acceptance: the two new tests; `tests/test_spaces.py`,
   `tests/test_search_engine_spec.py`.
 - Risks: write cost of 8 more indexes (measure a 1,000-note import before and
   after).
@@ -526,7 +530,7 @@ the embedding back-fill thread where it was running.
   fetches pages on scroll. 4) `scratchpad/ui-sweeps/boottime.js` before and
   after on a 5,000-note dir.
 - Acceptance: boot sweep numbers in CHANGELOG; `tests/test_list_limits.py`,
-  `tests/test_entries_paging*.py`; a new test that the boot path makes at most
+  `tests/test_list_paging_f2.py`; a new test that the boot path makes at most
   3 `/entries` calls (sweep).
 - Risks: many features assume the whole notebook client-side; do it reader by
   reader, one commit each (Opus, design judgement).
@@ -545,8 +549,8 @@ the embedding back-fill thread where it was running.
   3) `file-entry` to its own lane. 4) `timeout=(5, read)` and a
   `requests.Session` per client. 5) follow-ups behind a preference, off when
   the hardware probe says CPU-only.
-- Acceptance: a gate test with two fake slow calls; `tests/test_provider*.py`,
-  `tests/test_jobs*.py`, `tests/test_openai_client*.py`.
+- Acceptance: a gate test with two fake slow calls; `tests/test_providers.py`,
+  `tests/test_jobs_pool.py`, `tests/test_jobstore.py`.
 - Risks: a gate that deadlocks a tool call which itself calls the model
   (agent inside a skill): make it re-entrant per thread.
 

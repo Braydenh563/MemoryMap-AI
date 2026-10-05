@@ -98,8 +98,10 @@ def test_the_route_takes_a_list_and_a_bound(client, session):
 
 
 def test_the_person_is_never_an_actor_in_a_list(client):
-    assert client.post("/events/undo", json={"actors": [TAG, "user"]}).status_code == 400
-    assert client.post("/events/undo", json={}).status_code == 422
+    response = client.post("/events/undo", json={"actors": [TAG, "user"]})
+    assert response.status_code == 400
+    response = client.post("/events/undo", json={})
+    assert response.status_code == 422
 
 
 def test_chat_offers_the_runs_undo_and_keeps_it_on_reopen():

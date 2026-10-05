@@ -9785,6 +9785,7 @@ function showDocAiResult(text) {
   //: answer, and `acceptDocAiEdit` already treats that case as valid, so the
   //: block is shown for an empty string and hidden only for nothing at all.
   block.classList.toggle("hidden", text === null || text === undefined);
+  stagePrimary("doc-ai-run", "doc-ai-accept", !block.classList.contains("hidden"));
   setDocAiProposal(text === null || text === undefined ? null : result.value);
 }
 

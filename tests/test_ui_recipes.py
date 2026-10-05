@@ -3626,14 +3626,10 @@ def test_a_settings_section_has_at_most_one_filled_button() -> None:
     duplicates, both Imports, Back up now), Appearance four, Personas and
     What it learned two each (INBOX 437 (4)); every other action on a
     Settings page is the tonal `ghost`."""
-    # Shown only while the embedding model is broken, when the fix is the one
-    # thing the page is for; the row is hidden otherwise.
-    only_on_error = {"embedding-error-fix"}
     parser = _SettingsFilledButtons()
     parser.feed((ROOT / "frontend" / "index.html").read_text(encoding="utf-8"))
     assert parser.filled, "the parser found no Settings sections"
-    over = {s: ids for s, ids in parser.filled.items()
-            if len([i for i in ids if i not in only_on_error]) > 1}
+    over = {s: ids for s, ids in parser.filled.items() if len(ids) > 1}
     assert not over, f"more than one filled button on a Settings page: {over}"
 
 

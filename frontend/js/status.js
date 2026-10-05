@@ -2440,6 +2440,7 @@ function renderSettings() {
       || embeddingFallbackRunning
       || alreadyOnOllama
   );
+  stagePrimary("embedding-apply", "embedding-error-fix", !fixRow.classList.contains("hidden"));
   renderSearchEngineHealth(status);
   // The "install Ollama" advice only helps someone who chose Ollama.
   $("ollama-help").classList.toggle(

@@ -128,6 +128,10 @@ a = Analysis(
         # every install stays on the pre-Alembic additive-only path.
         (str(MIGRATIONS_DIR), "migrations"),
         (str(ALEMBIC_INI), "."),
+        # The constraints an optional package is installed against
+        # (core/extras._requirements_path), so an extra cannot drag a shared
+        # library to a version the bundle was not built with.
+        (str(REPO_ROOT / "requirements.txt"), "."),
         # The About panel's release notes, read from the bundle root when
         # frozen (api/app.py `/changelog`); the Windows spec says more.
         (str(REPO_ROOT / "CHANGELOG.md"), "."),

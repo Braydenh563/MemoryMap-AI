@@ -1556,17 +1556,26 @@ function wbBuildMapNode(el, d) {
     text.on("blur", function () {
       wbEndTextEdit(this);
       const edited = wbEditedText(this);
+      //: **The topic as it is now, by the id the element wears** (INBOX 537):
+      //: this closure's `d` is the row from when the node was built, and a
+      //: state fetch or an Undo since replaced it; a rename saved through it
+      //: wrote stale data, and one left open across an Undo renamed a topic
+      //: that was not being edited (measured, `boardundo.js`).
+      const live = this.isConnected
+        ? (wbState.objects || []).find((o) => String(o.id) === this.closest(".wb-object")?.dataset.id)
+        : null;
+      if (!live) return;
       //: A rename is undoable like every other change to a topic, and only a
       //: real change is saved or recorded.
-      if (d.data.content !== edited) {
-        wbPushUndo({ action: "move", kind: "object", id: d.id, before: WB_KIND_INFO.object.payload(d) });
-        d.data = { ...d.data, content: edited };
-        wbSaveObject(d);
+      if (live.data.content !== edited) {
+        wbPushUndo({ action: "move", kind: "object", id: live.id, before: WB_KIND_INFO.object.payload(live) });
+        live.data = { ...live.data, content: edited };
+        wbSaveObject(live);
       }
       // Back to the formatted view: `wbBeginTextEdit` put the raw source in
       // for editing, and without this the markers stay on screen as literal
       // asterisks until something else triggers a render.
-      wbMapInlineText(this, d.data.content);
+      wbMapInlineText(this, live.data.content);
     });
     text.on("keydown", function (event) {
       if (!this.isContentEditable) return;
@@ -2480,6 +2489,14 @@ async function wbMapTransplant(d, targetId, alone, { via = "drag", before = null
     d.data = { ...d.data, pinned: false };
     await wbSaveObject(d);
   }
+  //: **A branch dropped on a folded topic opens it** (INBOX 537, the owner: "I
+  //: moved the separated branch and it straight up disappeared"). Measured
+  //: (`boardundo.js`): a loose branch dropped on a folded topic went under it
+  //: and was hidden by the fold, which reads as the branch being lost.
+  if (target.data?.collapsed) {
+    target.data = { ...target.data, collapsed: false };
+    await wbSaveObject(target);
+  }
   const branch = wbMapSubtree(wbMapIndex(), d.id);
   const landed = new Map(branch.map((node) => [node.id, { x: node.x, y: node.y }]));
   if (wbMapLayout() === "free") {
@@ -2513,7 +2530,7 @@ async function wbMapTransplant(d, targetId, alone, { via = "drag", before = null
   for (const node of wbMapIndex().nodes) {
     const row = rows.get(node.id);
     if (!row) continue;
-    const pinChanged = node === d && row.data !== node.data;
+    const pinChanged = (node === d || node === target) && row.data !== node.data;
     if (row.x !== node.x || row.y !== node.y || pinChanged) {
       history.push({ action: "move", kind: "object", id: node.id, before: row });
     }

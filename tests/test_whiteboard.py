@@ -494,8 +494,8 @@ def test_an_image_url_cannot_point_outside_the_media_folder(board_client, tmp_pa
 def test_a_legacy_traversing_url_still_cannot_delete_an_outside_file(board_client, session):
     """Defence in depth: a row written before the pattern check existed (or
     by anything that skips it) must still not be able to unlink whatever it
-    names. `_media_path` resolves and confirms containment rather than
-    trusting the stored string."""
+    names. Deleting an object unlinks nothing now (the test below), so this
+    holds by construction; kept so a later change cannot bring it back."""
     from memorymap.core.database import WhiteboardObject
 
     outsider = deps.get_config().data_dir / "SURVIVOR.txt"
@@ -512,9 +512,11 @@ def test_a_legacy_traversing_url_still_cannot_delete_an_outside_file(board_clien
     assert outsider.exists(), "the row went, but it must not take an outside file with it"
 
 
-def test_deleting_an_image_object_removes_its_file_from_disk(board_client):
-    """The only row that ever pointed at this file, unlike a note's inline
-    `![]()` image, which nothing in the app tracks or cleans up yet."""
+def test_deleting_an_image_object_keeps_its_file_so_undo_can_bring_it_back(board_client):
+    """INBOX 537: Undo re-makes a deleted picture from its row, and a row
+    whose file went with it came back as a broken image. The file stays; the
+    orphaned-media cleanup (`media_gc`, which reads every board object) is
+    what reclaims it once nothing points at it."""
     media_dir = deps.get_config().data_dir / "media"
     media_dir.mkdir(parents=True, exist_ok=True)
     (media_dir / "keepme.png").write_bytes(b"fake png bytes")
@@ -526,8 +528,10 @@ def test_deleting_an_image_object_removes_its_file_from_disk(board_client):
 
     deleted = board_client.delete(f"/whiteboard/objects/{made['id']}")
     assert deleted.status_code == 200
-    assert not (media_dir / "keepme.png").exists()
+    assert (media_dir / "keepme.png").exists()
     assert board_client.get("/whiteboard/").json()["objects"] == []
+    again = board_client.post("/whiteboard/objects", json=deleted.json()["deleted"][0] | {"data": {"url": "/media/keepme.png"}})
+    assert again.status_code == 201, again.text
 
 
 def test_objects_count_toward_a_board_appearing_in_the_list(board_client, session):

@@ -39,15 +39,11 @@ router = APIRouter(prefix="/whiteboard", tags=["whiteboard"])
 
 #: An image object's `data.url`, as an allowlist rather than a prefix check.
 #:
-#: **A `startswith("/media/")` test is not enough, and the difference is a
-#: file-deletion vulnerability.** `delete_object` removes the backing file
-#: when an image object goes, and `/media/../../../etc/passwd` passes a
-#: prefix check while resolving well outside the media folder, so the
-#: delete would unlink an arbitrary path. Matching the exact shape
-#: `upload_media` actually produces (a uuid4 hex plus a short suffix) closes
-#: it at the door, and `_media_path` below refuses to resolve outside the
-#: folder as well, because one check standing between a stored string and
-#: `unlink()` is one check too few.
+#: **A `startswith("/media/")` test is not enough.** A purge removes an image
+#: object's file, and `/media/../../../etc/passwd` passes a prefix check while
+#: resolving well outside the media folder. Matching the exact shape
+#: `upload_media` produces (a uuid4 hex plus a short suffix) closes it at the
+#: door; the purge (`manager`) checks containment again.
 MEDIA_URL_RE = re.compile(r"^/media/[A-Za-z0-9][A-Za-z0-9._-]{0,119}$")
 
 #: A sketch is a path list, not an image. Big enough for a page of scribble,
@@ -576,23 +572,6 @@ def _require_object_data(body: WhiteboardObjectBase) -> None:
             status_code=422,
             detail=f"A {body.kind} node needs to point at an existing {body.kind}.",
         )
-
-
-def _media_path(url: str):
-    """The file behind a `/media/...` url, or None if it isn't safely inside
-    the media folder.
-
-    Second of the two checks (`MEDIA_URL_RE` is the first, on the way in).
-    This one is what makes the delete safe even for a row written before
-    that pattern existed, or by some future writer that forgets it: resolve
-    the path and confirm the media folder is genuinely a parent, rather than
-    trusting the string it came from.
-    """
-    if not MEDIA_URL_RE.match(url):
-        return None
-    media_dir = (deps.get_config().data_dir / "media").resolve()
-    candidate = (media_dir / url.removeprefix("/media/")).resolve()
-    return candidate if candidate.is_relative_to(media_dir) else None
 
 
 class WhiteboardStateOut(BaseModel):
@@ -2566,35 +2545,14 @@ def _subtree(db: Session, root: WhiteboardObject) -> list[WhiteboardObject]:
 def _delete_one_object(
     db: Session, obj: WhiteboardObject, links: list[dict] | None = None
 ) -> None:
-    """The per-row half of `delete_object`: forget its links, unlink its file
-    if it owned one, remove the row. Does not commit: a subtree is one
-    delete, so it is one transaction."""
+    """The per-row half of `delete_object`: forget its links, remove the row.
+    Does not commit: a subtree is one delete, so it is one transaction.
+
+    **An image's file is kept** (INBOX 537): Undo re-makes the object from its
+    row, and with the file unlinked it came back as a broken picture. The
+    orphaned-media cleanup (`core.media_gc`, which reads every board object's
+    data) reclaims it once nothing points at it; a purge still removes it."""
     _forget_links_to(db, obj.board_id, "object", obj.id, links)
-    if obj.kind == "image":
-        # The only thing that ever pointed at this file, best-effort, the
-        # same rule `_hard_delete` already follows for an attachment's own
-        # file: the row goes either way, a stubborn file must not block it.
-        # `_media_path` returns None for anything that isn't provably inside
-        # the media folder, so a hand-edited or legacy row cannot turn this
-        # into "delete any file on disk".
-        try:
-            path = _media_path(json.loads(obj.data).get("url", "") or "")
-            if path is not None:
-                path.unlink(missing_ok=True)
-        except (OSError, ValueError) as exc:
-            # `int(obj.id)` rather than anything that came off the request.
-            # FastAPI already rejects a non-integer path parameter with a 422
-            # before any of this runs, so it cannot carry the newline a forged
-            # log line would need, but a path parameter reaching a log record
-            # is a flow CodeQL flags on principle (py/log-injection), and the
-            # explicit conversion keeps that guarantee true even if the
-            # signature is ever loosened to a str.
-            logging.getLogger("memorymap.whiteboard").warning(
-                "couldn't delete the file for whiteboard image %s (%s); "
-                "removing the record anyway",
-                int(obj.id),
-                type(exc).__name__,
-            )
     db.delete(obj)
 
 

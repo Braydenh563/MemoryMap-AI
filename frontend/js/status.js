@@ -520,30 +520,13 @@ function askNotificationPermission() {
   }
 }
 
-// A reminder firing had only a toast (5.5s, gone if you looked away) and an
-// OS notification that never arrives without permission having been granted
-// earlier. Reported directly: "half the time when reminders go off I don't
-// actually notice". A short chime is a third, independent channel, audible
-// with the tab backgrounded, and unlike the OS notification needs no
-// permission at all.
-//
-// Created lazily on the first real user gesture rather than eagerly on load:
-// browsers refuse to start an AudioContext with sound before one, and
-// `checkDueReminders` runs off a timer with no gesture of its own. The
-// context, once unlocked this way, keeps working for timer-driven calls for
-// the rest of the session, the unlock is per-context, not per-call.
-//
-//: **Built just after the gesture, not inside it** (the performance pass,
-//: 2026-10-03). `new AudioContext()` opens the audio device synchronously, and
-//: as the first pointerdown of a session it was the longest single piece of
-//: script in the whole unlock: 44 to 56 ms of that click's handlers (the
-//: unlock button's own click, in practice), measured with an event-timing
-//: observer on the lock screen. Chromium lets a context start once the page
-//: has had any user activation, not only inside the gesture, so it is made
-//: when the browser is idle a moment later. A browser that insists on the
-//: gesture itself (WebKit) is covered by the listeners staying on: every
-//: gesture asks a suspended context to resume, which is the unlock it needs,
-//: and they take themselves off once it is running.
+// A reminder's chime: a third channel beside the toast and the OS
+// notification ("half the time when reminders go off I don't actually
+// notice"), audible in a background tab, needing no permission. Made just
+// after the first gesture, when the browser is idle (the performance pass,
+// 2026-10-03: `new AudioContext()` cost 44 to 56 ms inside the unlock click);
+// every gesture resumes a suspended context, which is WebKit's unlock, and
+// the listeners leave once it runs.
 let reminderAudioCtx = null;
 let reminderAudioBuilding = false;
 function primeReminderAudio() {
@@ -1254,14 +1237,35 @@ function pushEntryPutUndo(entryId, label, beforeBody, afterBody) {
 //: application". Deciding it here rather than at each door is what stops the
 //: three drifting: the buttons used to drive the app's stack while the chord
 //: drove both.
+//: **An open board, not the boards list**: the list's own actions (rename,
+//: delete a board) are the app's, and went to an empty board history.
 function boardHistoryActive() {
   const board = document.getElementById("library-view-whiteboard");
-  return Boolean(board && !board.classList.contains("hidden") && window.wbUndo);
+  const canvas = document.getElementById("wb-canvas-view");
+  return Boolean(board && !board.classList.contains("hidden") && canvas && !canvas.classList.contains("hidden") && window.wbUndo);
+}
+
+//: **Which history a press walks** (the owner, 2026-10-05: "local undos and
+//: redos ... for specific documents, whiteboards, mindmaps"). An open board or
+//: map: its own (kept per board for the session). An open document: its own
+//: editor history (kept per document for the session, `docResetDocument`).
+//: Anywhere else: the app's stack below, for notes, tags, categories, links,
+//: reminders and the rest. Inside a text field Ctrl+Z is always the field's.
+function surfaceHistory() {
+  if (boardHistoryActive()) {
+    return { where: "board", undo: () => window.wbUndo(), redo: () => window.wbRedo?.(), canUndo: window.wbCanUndo, canRedo: window.wbCanRedo };
+  }
+  const docs = document.getElementById("tab-documents");
+  if (docs && !docs.classList.contains("hidden") && typeof currentDoc !== "undefined" && currentDoc && window.docCanUndo) {
+    return { where: "document", undo: () => window.docUndo(), redo: () => window.docRedo(), canUndo: window.docCanUndo, canRedo: window.docCanRedo };
+  }
+  return null;
 }
 
 async function performUndo() {
-  if (boardHistoryActive()) {
-    await window.wbUndo();
+  const surface = surfaceHistory();
+  if (surface) {
+    await surface.undo();
     renderUndoBar();
     return;
   }
@@ -1281,8 +1285,9 @@ async function performUndo() {
 }
 
 async function performRedo() {
-  if (boardHistoryActive()) {
-    await window.wbRedo?.();
+  const surface = surfaceHistory();
+  if (surface) {
+    await surface.redo();
     renderUndoBar();
     return;
   }
@@ -1299,6 +1304,17 @@ async function performRedo() {
   renderUndoBar();
 }
 
+//: The pair says which history it walks, so it is repainted when that
+//: changes (a tab, a board, a document, a keystroke): once a frame at most.
+let undoBarFrame = 0;
+function scheduleUndoBar() {
+  if (undoBarFrame) return;
+  undoBarFrame = requestAnimationFrame(() => {
+    undoBarFrame = 0;
+    renderUndoBar();
+  });
+}
+
 function renderUndoBar() {
   const undoBtn = $("status-undo");
   const redoBtn = $("status-redo");
@@ -1308,23 +1324,20 @@ function renderUndoBar() {
   //: the plain verbs while one is open, and takes its enabled state from the
   //: board's counts: a button that is lit when there is nothing behind it is
   //: the thing that makes people stop trusting it.
-  const onBoard = boardHistoryActive();
-  const last = onBoard ? null : undoStack[undoStack.length - 1];
-  const next = onBoard ? null : redoStack[redoStack.length - 1];
-  undoBtn.disabled = onBoard ? !window.wbCanUndo?.() : !last;
-  redoBtn.disabled = onBoard ? !window.wbCanRedo?.() : !next;
-  if (onBoard) {
+  const surface = surfaceHistory();
+  const last = surface ? null : undoStack[undoStack.length - 1];
+  const next = surface ? null : redoStack[redoStack.length - 1];
+  undoBtn.disabled = surface ? !surface.canUndo?.() : !last;
+  redoBtn.disabled = surface ? !surface.canRedo?.() : !next;
+  if (surface) {
+    const where = surface.where === "board" ? "on this board" : "in this document";
     paintStatusItem("status-undo", {
       icon: "ph:arrow-u-up-left",
-      title: window.wbCanUndo?.()
-        ? `Undo the last change on this board (${shortcuts.undo.keys})`
-        : "Nothing to undo",
+      title: surface.canUndo?.() ? `Undo the last change ${where} (${shortcuts.undo.keys})` : `Nothing to undo ${where}`,
     });
     paintStatusItem("status-redo", {
       icon: "ph:arrow-u-up-right",
-      title: window.wbCanRedo?.()
-        ? `Redo the last change on this board (${shortcuts.redo.keys})`
-        : "Nothing to redo",
+      title: surface.canRedo?.() ? `Redo the last change ${where} (${shortcuts.redo.keys})` : `Nothing to redo ${where}`,
     });
     return;
   }
@@ -1396,12 +1409,12 @@ function openUndoHistoryMenu(anchorEl) {
 }
 
 $("status-undo").addEventListener("contextmenu", (event) => {
-  if (!undoStack.length) return;
+  if (!undoStack.length || surfaceHistory()) return;
   event.preventDefault();
   openUndoHistoryMenu($("status-undo"));
 });
 wireLongPress($("status-undo"), () => {
-  if (undoStack.length) openUndoHistoryMenu($("status-undo"));
+  if (undoStack.length && !surfaceHistory()) openUndoHistoryMenu($("status-undo"));
 });
 
 document.addEventListener("mousedown", (event) => {
@@ -1611,26 +1624,12 @@ async function refreshModelStatus() {
   if (settingsOpen()) renderSettings();
 
   clearTimeout(statusTimer);
-  // Back right off when the tab is hidden, no point polling a page nobody's
-  // looking at (visibilitychange below refreshes the moment it's shown again).
-  // Idle is 30s, not 10: the status this reports (is the model runner up,
-  // which model) changes on the order of minutes, and every tick wakes the
-  // process that is also running the model. Measured before: 14 requests in
-  // an idle minute; the gate was 4 (status ×2, tasks ×1, reminders ×1).
-  //
-  //: **And then it backs off again while the answer keeps being the same**
-  //: (INBOX 266, item 7, whose gate is ≤ 2 requests an idle minute). A
-  //: notebook left open on a desk asked this endpoint twice a minute for as
-  //: long as it stayed open, and every one of those asks reaches Ollama:
-  //: `/models/status` lists the runner's models, so an idle tab was waking
-  //: the model runner 2,880 times a day to be told the same thing. The
-  //: doubling only applies while the payload is byte-identical to the last
-  //: one, and any change at all drops it straight back to 30s, as does
-  //: coming back to the tab, opening Settings, or a job starting. What it
-  //: costs: on a laptop that has been idle for three minutes, Ollama
-  //: starting is noticed in up to two minutes rather than up to thirty
-  //: seconds, on a pill that reports a background fact. What it buys is the
-  //: other 1,400 wake-ups.
+    // Off while the tab is hidden; 30s when idle (the status changes in
+    // minutes, and every tick wakes the model runner). **Doubling while the
+    // answer is byte-identical** (INBOX 266 item 7, gate: at most 2 requests an
+    // idle minute); any change, a return to the tab, Settings or a job drops it
+    // back to 30s. Cost: Ollama starting is seen in up to two minutes on an idle
+    // laptop.
   const fingerprint = JSON.stringify(modelStatus);
   if (fingerprint !== statusFingerprint) {
     statusFingerprint = fingerprint;
@@ -1657,36 +1656,14 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-// Controls that can only do their job with a chat model running. Left
-// enabled, they look available and only fail once you've committed to them,
-// you type a note, press AI Improve, wait, and get an apology. Disabling them
-// with a reason attached says the same thing before you spend the effort.
-//
-//: **The list lives in the markup, not here** (INBOX 203, the owner: "many ai
-//: exclusive features are still enabled even when an ai isnt available or
-//: running"). It was seven ids in an array in this file, and the array was the
-//: thing that fell behind: a control added to a surface months later has no
-//: reason to know this file exists, so four that arrived since
-//: (`improve-retry`, `extract-commit`, `doc-ai-run`, `wb-boards-generate`)
-//: stayed live with no model, as did Chat's own field and Send and the
-//: guide's.
-//:
-//: So the reason is an attribute on the control, `data-needs-model="<why>"`,
-//: and this function asks the document rather than carrying a copy of it.
-//: `tests/test_frontend_ids.py` holds the inventory: every control whose
-//: handler reaches an AI route is listed there and must carry the attribute,
-//: which is the half a grep cannot enforce on its own.
-//:
-//: Deliberately NOT marked: Save, Ask, search, tags, categories, the graph,
-//: reminders, documents, and the meeting note's Save. Those work fully
-//: without any AI and must never look diminished by its absence, the notebook
-//: is the point and the AI is a helper; Ask in particular falls back to the
-//: search results beside it and says so, and the meeting save summarises when
-//: it can and files the note either way (`saveMeetingNote`), so disabling
-//: either would take away the working half. The Library's "Map from notes"
-//: (`wb-boards-generate`) was gated by the pass above and is not any more:
-//: its route proposes an outline from the notebook's own filing with no model
-//: running, and says so (`WORKS_WITHOUT_A_MODEL` in test_frontend_ids.py).
+// Controls that only work with a chat model running are disabled with the
+// reason, before the effort, not failed after it. **The list lives in the
+// markup** (INBOX 203): `data-needs-model="<why>"` on the control, so a
+// control added later cannot be forgotten here; `tests/test_frontend_ids.py`
+// holds the inventory. Never marked: Save, Ask, search, tags, categories, the
+// graph, reminders, documents, the meeting Save and "Map from notes"
+// (`WORKS_WITHOUT_A_MODEL`): they work without a model and must not look
+// diminished by its absence.
 
 //: **The one sentence a disabled AI control says** (CHAT_PLAN.md decision 11:
 //: "every AI control is visible, disabled, with a tooltip 'Connect a model in

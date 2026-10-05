@@ -1219,11 +1219,11 @@ function pushEntryPutUndo(entryId, label, beforeBody, afterBody) {
     label,
     async () => {
       await api(`/entries/${entryId}`, { method: "PUT", body: JSON.stringify(beforeBody) });
-      await loadEntries();
+      await refreshEntries([entryId]);
     },
     async () => {
       await api(`/entries/${entryId}`, { method: "PUT", body: JSON.stringify(afterBody) });
-      await loadEntries();
+      await refreshEntries([entryId]);
     }
   );
 }

@@ -299,6 +299,7 @@ def list_entries(
     limit: int | None = None,
     offset: int = 0,
     boards: str = BOARDS_INCLUDE,
+    ids: list[int] | None = None,
 ) -> list[Entry]:
     """Pinned first, then newest first. Deleted and archived entries stay
     hidden until the recycle bin / archive UI asks for them explicitly, 
@@ -316,6 +317,10 @@ def list_entries(
         Entry.pinned.desc(), Entry.created_at.desc(), Entry.id.desc()
     )
     query = _list_entries_filter(query, include_deleted, include_archived, boards)
+    if ids is not None:
+        # Just these rows of the same list, in its order (audit 2026-10-05,
+        # FE-05: the client re-reads what a save touched, not the notebook).
+        query = query.where(Entry.id.in_(ids))
     if offset:
         query = query.offset(offset)
     if limit is not None:

@@ -1314,7 +1314,7 @@ async function toggleEntryPrivacy(entry) {
       body: JSON.stringify({ private: makingPrivate }),
     });
     toast(makingPrivate ? "Note encrypted." : "Note is readable again.");
-    await loadEntries();
+    await refreshEntries([entry.id]);
   } catch (error) {
     toast(error.message, true);
   }
@@ -1339,7 +1339,7 @@ async function generateEntryTitle(entry) {
     });
     const updated = await apiJson(`/entries/${entry.id}/generate-title`, { method: "POST" });
     if (updated?.content) pushEntryPutUndo(entry.id, "Titled a note", { content: entry.content }, { content: updated.content });
-    await loadEntries();
+    await refreshEntries([entry.id]);
     flashEntry(entry.id);
     const title = updated && updated.title;
     toast(title ? `Titled “${title}”.` : "Titled.", false, { exempt: true });
@@ -1359,7 +1359,7 @@ async function removeEntryTitle(entry) {
   try {
     const updated = await apiJson(`/entries/${entry.id}/remove-title`, { method: "POST" });
     if (updated?.content) pushEntryPutUndo(entry.id, "Removed a title", { content: entry.content }, { content: updated.content });
-    await loadEntries();
+    await refreshEntries([entry.id]);
     flashEntry(entry.id);
     // Said out loud: it was silent.
     toast("Title removed.", false, { exempt: true });
@@ -1951,7 +1951,7 @@ function entryOverflowMenu(entry) {
           title: "Bring this note back into your notebook",
           run: async () => {
             await apiJson(`/entries/${entry.id}/unarchive`, { method: "POST" });
-            await loadEntries();
+            await refreshEntries([entry.id]);
             toast("Unarchived.");
           },
         }
@@ -1963,11 +1963,11 @@ function entryOverflowMenu(entry) {
           run: async () => {
             const archive = async () => {
               await apiJson(`/entries/${entry.id}/archive`, { method: "POST" });
-              await loadEntries();
+              await refreshEntries([entry.id]);
             };
             const unarchive = async () => {
               await apiJson(`/entries/${entry.id}/unarchive`, { method: "POST" });
-              await loadEntries();
+              await refreshEntries([entry.id]);
             };
             await archive();
             const action = pushUndo("Archived a note", unarchive, archive);

@@ -51,7 +51,7 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
       draft ? "Saved a selection as a draft" : "Saved a selection as a note",
       async () => {
         await api(`/entries/${created.id}`, { method: "DELETE" });
-        await loadEntries();
+        await refreshEntries([created.id]);
       },
       async () => {
         await apiJson("/entries", {
@@ -63,7 +63,7 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
     );
     // Unconditional, as in saveChatAnswerAsNote(): the popup may not be on the
     // Notes tab, and `entries` must not go stale.
-    await loadEntries();
+    await refreshEntries([created.id]);
     progress.done(
       draft ? "Saved as a draft." : "Saved as a note, filing it now.",
       { actionLabel: "Open", onAction: () => flashEntry(created.id) }
@@ -88,7 +88,7 @@ async function appendSelectionToNote(text, { jump = true, message = null, what =
       body: JSON.stringify({ content: after }),
     });
     pushEntryPutUndo(entry.id, "Added text to a note", { content: before }, { content: after });
-    await loadEntries();
+    await refreshEntries([entry.id]);
     if (jump) {
       toast("Added to the note.");
       flashEntry(entry.id);

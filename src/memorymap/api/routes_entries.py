@@ -1867,6 +1867,9 @@ def detach_bookmark(
 #: max just stops a client from asking for one absurdly large page.
 ENTRIES_PAGE_SIZE = 1000
 ENTRIES_PAGE_SIZE_MAX = 5000
+#: How many notes one `?ids=` read may name: more than any one change touches
+#: (a bulk action over more falls back to the paged list on the client).
+ENTRIES_BY_IDS_MAX = 200
 
 
 @router.get("", response_model=list[EntryOut])
@@ -1893,6 +1896,15 @@ def list_entries(
     # (the `[[wiki]]` resolver and the editor's `@` picker) ask for them, and
     # `boards=include` restores the old response for anything wanting both.
     boards: str = Query(default=manager.BOARDS_EXCLUDE),
+    # **Just these notes, of the same list** (audit 2026-10-05, FE-05). Every
+    # save used to re-read the whole notebook (27 requests and 5.3 MB at
+    # 5,010 notes); the client now asks for the notes a change touched and
+    # patches them in. An id outside the view (binned, archived, a board) is
+    # simply absent, which is how the client learns to drop it, and
+    # `X-Total-Count` stays the whole list's size so it can check its patched
+    # list against this one. No side effect: unlike `GET /entries/{id}`,
+    # this is not opening the note.
+    ids: str = Query(default="", description="Comma-separated note ids"),
     session: Session = Depends(get_session),
 ) -> list[EntryOut]:
     """Normal list, the recycle bin when ?deleted=true, the archive when
@@ -1950,6 +1962,22 @@ def list_entries(
         matched = [e for e, _score in results if e.id in scope_ids]
         response.headers["X-Total-Count"] = str(len(matched))
         return _to_out_bulk(session, matched)
+
+    if ids:
+        parts = [part.strip() for part in ids.split(",") if part.strip()]
+        if not all(part.isdigit() for part in parts) or len(parts) > ENTRIES_BY_IDS_MAX:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Ask for up to {ENTRIES_BY_IDS_MAX} note ids, as numbers.",
+            )
+        if deleted or archived:
+            raise HTTPException(
+                status_code=422, detail="Note ids are read from the notes list only."
+            )
+        wanted = [int(part) for part in parts]
+        entries = manager.list_entries(session, boards=boards, ids=wanted)
+        response.headers["X-Total-Count"] = str(manager.count_entries(session, boards=boards))
+        return _to_out_bulk(session, entries)
 
     if deleted:
         entries = manager.list_deleted_entries(session, limit=limit, offset=offset)

@@ -96,14 +96,14 @@ function renderReevaluateResult(entry, wrap) {
             });
             row.remove();
             toast("Notes linked.");
-            loadEntries();
+            refreshEntries([entry.id, link.id]);
             let liveLinkId = updated.links.find((l) => l.entry_id === link.id)?.link_id;
             pushUndo(
               "Linked two notes",
               async () => {
                 if (liveLinkId == null) return;
                 await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
-                await loadEntries();
+                await refreshEntries([entry.id, link.id]);
               },
               async () => {
                 const redone = await apiJson(`/entries/${entry.id}/links`, {
@@ -111,7 +111,7 @@ function renderReevaluateResult(entry, wrap) {
                   body: JSON.stringify({ target_id: link.id }),
                 });
                 liveLinkId = redone.links.find((l) => l.entry_id === link.id)?.link_id ?? liveLinkId;
-                await loadEntries();
+                await refreshEntries([entry.id, link.id]);
               }
             );
           } catch (error) {

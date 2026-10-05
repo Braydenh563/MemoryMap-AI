@@ -19,6 +19,19 @@ Each row was checked against the head before anything was built.
   New note (`#tab-graph:has(.dock-fab) .graph-zoom`) closed it. `graphphone.js`
   now asserts it every run: the four buttons are hit at their centres and clear
   of `.dock-fab`.
+- **Spacious density takes two rows (INBOX 276, the 820px setting)**: decided
+  at 820 only, and the sweep said "820 to 1023". `sketchbar.js` now measures 1440,
+  1100, 1024, 1000, 900, 820, 819, 700, 640 and 390, four settings each: the one
+  allowance is 820 with Large text and Spacious (two rows; 900 and 1000 are one
+  row at that setting, 764 and 818 of 764 and 818px). Something else did remain:
+  the tablet band's "dots drop their gap" rule started at 600, not 820, so below
+  820 (where the dots are 2rem with a target a gap wider than the disc) the gap
+  was 0 and 6 pairs of ink-dot targets overlapped at 700 on Large text with
+  Spacious (a press meant for one dot lands on its neighbour). The rule now
+  starts at 820: 0 overlaps at 600, 640, 700, 760, 819 on all four settings, and
+  820 is unchanged. Between 600 and 819 the bar wraps to two or three rows (the
+  dots grew for a finger, recorded with that change); the sweep caps it at three.
+  `tests/test_ui_recipes.py` pins the 820 start.
 - **The sticky's grip and the other small contrast rows**: measured, nothing
   failed. `contrast.js` now reads a board and a map the way a person opens them
   (Library, Boards & maps, a card), each open and with every item selected (11

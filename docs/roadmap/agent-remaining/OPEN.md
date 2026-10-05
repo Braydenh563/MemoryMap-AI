@@ -500,9 +500,9 @@ the head, so they carry no row of their own.
   belongs). INBOX 47's counting question no longer decides anything: the
   Notes and Library docks measure 6 controls each (`docks.js`). [wbtopbar]
   *Needs: the whiteboard agent (a sweep for `#wb-context-menu`).*
-- **whiteboard-tail.md**: INBOX 276, the sketch pad's toolbar wraps to two rows
-  at 820 on Large text; the AI half of the map needs a model. [whiteboard-tail]
-  *Needs: the entry's recommendation is the group labels, not the controls.*
+- **whiteboard-tail.md**: the AI half of the map needs a model. INBOX 276 (the
+  sketch pad's toolbar at 820) is closed, HISTORY.md, "OPEN.md rows closed,
+  2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)". [whiteboard-tail]
 - **world-class-rows-1-2-9.md**: two decisions taken differently from Brief 15
   (S1 is a cookie, S3 confines to home and the data folder) that the owner may
   want to confirm; the export-folder preference accepts any writable absolute

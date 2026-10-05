@@ -47,7 +47,7 @@ const { boot } = require('./lib.js');
 const fs = require('fs');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
-const PARTS = (process.env.PART || 'blink,rig,wave,lower,fringe,wisps,dress,tail,hair,arms,body,gap,masc,motion,cost').split(',');
+const PARTS = (process.env.PART || 'mount,blink,rig,wave,lower,fringe,wisps,dress,tail,hair,arms,body,gap,masc,motion,cost').split(',');
 const RUNS = Number(process.env.RUNS || 3);
 const REF_DIR = process.env.REF_DIR || '';
 const SCRATCH = process.env.SCRATCH || '/tmp';
@@ -962,8 +962,68 @@ async function lowerPart() {
   return res;
 }
 
+//: INBOX 577 (the owner: "when loading into the app, the companion or
+//: atlas's head goes large then small then large again then settles"): the
+//: head's size through the first 2s after the figure is put on the page,
+//: both looks, motion on, every frame: its scale over the figure box's
+//: (so the companion's own entrance, which moves or scales the whole
+//: figure, does not count), as the largest change over the smallest, in
+//: percent (under 1), and the whole figure's scale (smallest, largest,
+//: last). Once in the harness and once as the app's own companion.
+async function mountPart() {
+  const out = {};
+  for (const look of ['feminine', 'masculine']) {
+    for (const where of ['harness', 'companion']) {
+      const { browser, page } = await boot({ viewport: { width: 1280, height: 800 } });
+      await page.evaluate((look) => { document.documentElement.dataset.avatarMotion = 'always'; localStorage.setItem('atlas-look', look); }, look);
+      const got = await page.evaluate(async (where) => {
+        let fig;
+        if (where === 'harness') {
+          document.getElementById('nm-buddy')?.remove();
+          const holder = document.createElement('div'); holder.id = 'nm-buddy';
+          Object.assign(holder.style, { position: 'fixed', left: '200px', top: '200px', width: '64px', height: '92px', zIndex: '9999' });
+          fig = atlasFigure(); Object.assign(fig.style, { position: 'relative', display: 'block', width: '64px', height: '92px' });
+          holder.append(fig); document.body.append(holder);
+        } else {
+          document.getElementById('nm-buddy')?.remove();
+          localStorage.setItem('avatar-buddy', 'persona');
+          syncNameMarkBuddy();
+        }
+        const rows = [];
+        const t0 = performance.now();
+        while (performance.now() - t0 < 2000) {
+          await new Promise((r) => requestAnimationFrame(r));
+          const box = document.querySelector('#nm-buddy .atl-figure-box');
+          const head = box && [...box.querySelectorAll('.atl-layer-body .atl-head .atl-skin')].find((p) => p.getAttribute('d') === ATLAS_HEAD_PATH);
+          if (!head) continue;
+          //: The head's own scale (the square root of its screen matrix's
+          //: determinant: a turn does not change it, as it would a box's
+          //: height) over its layer root's, so whatever scales the whole
+          //: figure (the companion's entrance) is taken out.
+          const det = (el) => { const m = el.getScreenCTM(); return Math.sqrt(Math.abs(m.a * m.d - m.b * m.c)); };
+          const root = box.querySelector('.atl-layer-body');
+          rows.push(det(head) / det(root));
+          //: And the whole figure's scale, for the report.
+          (window.__figScale ||= []).push(det(root));
+        }
+        const scales = window.__figScale || [];
+        window.__figScale = [];
+        return { rows, fig: scales.length ? [Math.min(...scales), Math.max(...scales), scales[scales.length - 1]].map((v) => +v.toFixed(3)) : [] };
+      }, where);
+      await browser.close();
+      const figure = got.fig;
+      const rows = got.rows;
+      const max = Math.max(...rows);
+      const min = Math.min(...rows);
+      out[`${look}-${where}`] = { frames: rows.length, changePct: rows.length ? +((100 * (max - min)) / min).toFixed(2) : null, figureScaleMinMaxLast: figure, ...(process.env.SERIES ? { series: rows.filter((_, i) => i % 3 === 0).map((v) => +v.toFixed(4)) } : {}) };
+    }
+  }
+  return out;
+}
+
 (async () => {
   const out = {};
+  if (PARTS.includes('mount')) out.mount = await mountPart();
   if (PARTS.includes('lower')) out.lower = await lowerPart();
   if (PARTS.includes('wave')) out.wave = await wavePart();
   if (PARTS.includes('rig')) out.rig = await rigPart();

@@ -1135,7 +1135,8 @@ def test_the_hair_and_her_tail_move_on_the_compositor():
     # wave runs tipward); none of it under reduced motion.
     assert '"hair", "body", "lidf-1", "lidf-2", "lids",' in ATLAS and 'hairBox.className = "atl-lw atl-lw-hair";' in ATLAS
     assert 'tip.className = "atl-lw atl-lw-tip";' in ATLAS and "tailWave: { t: 0.5, zone: [0.42, 0.58] }," in _look("feminine")
-    assert "& .atl-lw-tip { animation: atl-tail-wave 8.3s ease-in-out 2.1s infinite alternate; }" in CSS
+    assert "& .atl-lw-tip { animation: atl-tail-wave 8.3s ease-in-out -2.05s infinite alternate; }" in CSS
+    assert "& .atl-lw-tail { animation-delay: -4.15s; }" in CSS
     assert "& .atl-lw-tail { animation: atl-tail-flow 8.3s ease-in-out infinite alternate; }" in CSS
     assert '.atl-lw-hair[data-atlas-look="masculine"], .atl-lw-hair[data-atlas-look="feminine"], .atl-lw-tip { animation: none !important; }' in CSS
     for name in ("atl-tail-wave", "atl-hair-trail"):
@@ -1178,3 +1179,23 @@ def test_the_lower_body_takes_a_pose_for_what_it_is_doing():
     for state in ("idle", "walk", "sit", "lie", "gesture", "think", "happy", "sad", "startle"):
         assert f"{state}: [" in ATLAS[ATLAS.index("const ATLAS_HAIR_STATES"):ATLAS.index("function atlasLowerState(")], state
     assert ".atl-lw > .atl-lw-pose { position: absolute;" in CSS
+
+
+
+def test_the_figure_head_never_pulses_and_its_loops_start_at_rest():
+    # INBOX 577 (the owner: "the companion or atlas's head goes large then
+    # small then large again then settles"): the figure's breath lifts the
+    # body and never stretches it tall (the old breath scaled the head 1.8%
+    # every 4.4s); each alternating idle loop starts half a swing in, at its
+    # middle, and none starts after a positive delay (a jump from rest to
+    # one end of the swing); every loop of the figure pauses in a hidden tab.
+    body = _keyframes("atl-breathe-rise").split("{", 1)[1]
+    scale = re.search(r"scale\(([0-9.]+), ([0-9.]+)\)", body)
+    assert scale and float(scale.group(2)) == 1, body
+    assert "& .atl-lw-breathe { animation: atl-breathe-rise 4.4s" in CSS
+    for rule in ('& .atl-lw-body[data-atlas-look="masculine"] { animation-delay: -3.6s; }', '& .atl-lw-tail { animation-delay: -4.15s; }', "& .atl-lw-neb-front { animation-delay: -2.95s; }"):
+        assert rule in CSS, rule
+    for name in ("atl-hair-trail", "atl-tail-wave", "atl-hem-wind", "atl-wisp-drift", "atl-float"):
+        for delay in re.findall(rf"animation: {name} [0-9.]+s ease-in-out (-?[0-9.]+)s", CSS):
+            assert float(delay) < 0, (name, delay)
+    assert ":root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *, .atl-lw, .atl-lw-breathe)" in CSS

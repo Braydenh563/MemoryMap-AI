@@ -3245,7 +3245,14 @@ function atlasRigLower(rig, now, live, buddy) {
     low.at = now + 8000 + Math.random() * 6000;
   }
   clearTimeout(low.timer);
-  if (live && state === "idle") low.timer = setTimeout(() => rig.box.isConnected && atlasRigLower(rig, performance.now(), atlasMotionOK(rig.box) && !rig.box.classList.contains("atl-off"), buddy), low.at - now + 10);
+  //: The next idle variant, unless the tab is hidden or the figure gone or
+  //: off screen then (it waits, and does nothing meanwhile).
+  const next = () => {
+    if (!rig.box.isConnected) return;
+    if (document.hidden || rig.box.classList.contains("atl-off")) low.timer = setTimeout(next, 4000);
+    else atlasRigLower(rig, performance.now(), atlasMotionOK(rig.box), buddy);
+  };
+  if (live && state === "idle") low.timer = setTimeout(next, low.at - now + 10);
   const way = state === "walk" ? (parseFloat(buddy?.style.getPropertyValue("--nmb-lean")) < 0 ? -1 : 1) : 1;
   const [rot, sx, sy, skew, tail] = spec.v[low.variant] || spec.v[0];
   const hairs = ATLAS_HAIR_STATES[state];

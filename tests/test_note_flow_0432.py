@@ -125,7 +125,6 @@ def test_the_batch_move_lists_empty_categories():
 
 
 def test_an_open_edit_keeps_its_text_through_a_redraw():
-    notes = _read("notes-list.js")
     form = _function(_read("note-edit-panels.js"), "renderEditForm")
     assert "noteFormDraft.id === entry.id" in form
     assert "draft ? draft.content :" in form and "draft ? draft.title :" in form

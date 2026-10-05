@@ -92,6 +92,11 @@ with its owner named in the entry.
      ahve dynamic and organic movement. think of it like an azur lane
      character" Placed: with 550, the Atlas agent.
 
+555. **The owner, 2026-10-05, verbatim.** "also there's a wierd gap on the
+     fringe in the top right corner" (screenshot,
+     scratchpad/inbox555-fringe-gap.png: a jagged notch between two fringe
+     locks at the top right of the hair). Placed: with 550, the Atlas agent.
+
 525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
      dark background behind the graph labels togglable??" Next Opus: the
      label plate switch in the graph's gear (Obsidian-parity brief).

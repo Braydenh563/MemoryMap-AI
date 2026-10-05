@@ -696,6 +696,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - The Manage categories list no longer puts each row's menu button inside the row a screen reader selects: the rows are a grid, the menu is its own cell (Right reaches it, Left comes back), and every key and click works as before.
 ### Changed
 
+- Sweeps: phonechrome.js asserts, at any WIDTH and HEIGHT, that every tab's page ends where the status bar (or the phone tab dock) begins; measured at nine widths from 600 to 1093, nothing overlaps.
 - Timeline on a phone: the calendar strip's spacing steps down a token so the list begins at 336px of 844, inside the first-screen rule; phonechrome.js probes the status bar with the three things the phone bar shows (a job, offline, power saver) and asserts the agent's activity leaves it folded away.
 - Graph: the map's sizes (how central each note is) are worked out from the links' plain columns rather than by loading every link in full, so the first open of the map after a change at 5,000 notes went from about 1.2 s to about 0.7 s (GRAPH_PLAN).
 - Graph: the first open of the map after a change is faster at notebook scale; the map's data was being passed through a generic converter that walked every value only to hand it back unchanged. At 5,000 notes the first build after a write went from about 1.5 s to about 1.2 s, and the next one from about 0.7 to 0.5 s (GRAPH_PLAN).

@@ -19,6 +19,20 @@ Each row was checked against the head before anything was built.
   New note (`#tab-graph:has(.dock-fab) .graph-zoom`) closed it. `graphphone.js`
   now asserts it every run: the four buttons are hit at their centres and clear
   of `.dock-fab`.
+- **The status bar folds into the top bar under 680 (WORLD_CLASS_PLAN, "the laptop
+  screen is mostly chrome")**: measured, no overlap, nothing built. The fold would be
+  a design change to the shell (the bar is its own band above 600 and folds away
+  below it already, to 0px with its transient items in the header), so it is a
+  design call; what the plan's overlap worry asks is whether the bar sits over the
+  page, and it does not. At 1093x614, 1024x600, 820x600, 700x700, 681x800, 679x800,
+  640x700, 600x700 and 599x800, on dashboard, notes, chat, library, timeline and
+  reminders, the page's bottom edge is the bar's top edge to the pixel (562/562 at
+  1093x614 with touch, 648/648 at 700x700 and 640x700, 786/786 at 390x844 where the
+  tab dock stands on a 0px bar), the chrome at 1093x614 being the 59px top bar plus
+  the 37px status bar (96px, 16%). `phonechrome.js` now prints and asserts that line
+  for every tab at the width it is given (`WIDTH`/`HEIGHT`), so a fold, or a bar that
+  starts to cover the page, shows as a number. (The scroller boxes that read past the
+  bar in a first probe were `.dash-body` rows clipped by their own page.)
 - **`phonechrome.js` at 390: Timeline content at y=340 against a 338 limit, and the
   transient status bar 0px tall**: two different faults, both reproduced
   (`phonechrome.js` at 390x844: "content starts at y=340, below 338" and "the bar came

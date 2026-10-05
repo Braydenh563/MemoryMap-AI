@@ -280,6 +280,29 @@ const TABS = [
     console.log(`  ${tab.padEnd(10)} chrome ${String(r.chrome ?? '-').padStart(3)}px (${r.chrome ? Math.round(r.chrome / H * 100) : '-'}%)  content at y=${r.contentTop ?? '-'}  [${(r.bands || []).join(', ')}]`);
     for (const line of bad) console.log('      ' + line);
   }
+  // Where the page stops and the status bar begins, on every tab at the width
+  // asked for (OPEN.md: "the status bar folds into the top bar under 680";
+  // measured, it is not folded at any width and does not overlap: 1093x614,
+  // 1024x600, 820x600, 700x700, 681x800, 640x700, 600x700 all end the page
+  // exactly where the bar begins, 37 to 52px of it). The bar's own height is
+  // printed, so a fold that someday happens is a change in a number.
+  {
+    const stops = [];
+    for (const tab of ['dashboard', 'notes', 'chat', 'library', 'timeline', 'reminders']) {
+      await page.evaluate((t) => switchTab(t), tab);
+      await page.waitForTimeout(700);
+      const g = await page.evaluate(() => {
+        const sb = document.getElementById('status-bar').getBoundingClientRect();
+        const dock = document.getElementById('phone-tab-dock');
+        const pg = document.querySelector('.tab-page:not(.hidden)').getBoundingClientRect();
+        const foot = dock && dock.checkVisibility() ? dock.getBoundingClientRect().top : sb.top;
+        return { sbH: Math.round(sb.height), pageBottom: Math.round(pg.bottom), foot: Math.round(Math.min(foot, sb.height ? sb.top : foot)) };
+      });
+      if (g.pageBottom > g.foot + 1) { console.log(`      ${tab}: the page runs to ${g.pageBottom}, under the bar or dock at ${g.foot}`); failures += 1; }
+      stops.push(`${tab} ${g.pageBottom}/${g.foot}`);
+    }
+    console.log(`  page end / bar top: ${stops.join(', ')}  (status bar ${W < 600 ? 'folded away below 600' : 'its own band'})`);
+  }
   // The status bar's transient state below 600: it comes back for the three
   // things a person has to see without asking (a running job, offline, power
   // saver: `10-responsive.css`, "one bar at the foot of a phone"), and when it

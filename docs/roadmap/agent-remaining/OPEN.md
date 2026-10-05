@@ -658,8 +658,10 @@ pane's name, the errors sweep's aside clipping at 390.
   framed whole is a line of dots until zoomed; the Notes sub-tabs do not fit the
   list dock's row at 1093 (on a window 700px tall or less the strip could take
   the identity slot as a compact seg, which changes the dock grammar: the
-  owner's or the plan's decision); the status bar folding into the top bar
-  under 680px is not built. [graph-wb-0926]
+  owner's or the plan's decision). The status bar's fold into the top bar under
+  680px is not built, and measured it overlaps nothing, HISTORY.md, "OPEN.md rows
+  closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)".
+  [graph-wb-0926]
 - **Dismissed reminder notifications**: a dismissed reminder notification never
   returns (`status.js` `notificationsDismissed`, keyed `reminder:<id>`), so a
   reminder snoozed and overdue again stays hidden from the bell. By design of

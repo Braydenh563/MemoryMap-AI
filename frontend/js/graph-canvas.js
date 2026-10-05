@@ -256,6 +256,11 @@ function gcRadius(node, degree, maxDegree = 0) {
 //: is unreadable anyway and 2,000 of them are a grey wash; above it there is
 //: room for them. A hovered or spotlit node always shows its own.
 const GC_LABEL_ZOOM = 1.4;
+
+//: Below this radius on screen, in device pixels, a node is drawn as a plain
+//: dot in a batched path rather than as its sprite (see the node pass in
+//: `gcDraw`): its rim and glow are a pixel or less there.
+const GC_LOD_PX = 4;
 const GC_LABEL_ALL_MAX = 400;
 //: How many search hits are still few enough to be answers rather than a
 //: filter, and so are drawn even where they overlap something already there.
@@ -1713,17 +1718,44 @@ function gcDraw(s = gcTab) {
   //: scale; the sizes are rounded to whole pixels, which keeps the cache to
   //: a few dozen entries per colour.
   const pixelScale = k * (s.dpr || 1);
+  //: **Level of detail** (audit 2026-10-05, FE-04). A node smaller on screen
+  //: than `GC_LOD_PX` is a dot whose glow and rim are a pixel or less, and
+  //: `drawImage` of its sprite was the largest single cost on a 5,000-note
+  //: map (7.8 s of a 32 s profile). Those dots are gathered into one path per
+  //: colour and lit-ness and filled once each; a node large enough for its
+  //: rim to be seen keeps its sprite.
+  const lodPaths = new Map();
+  let lodNodes = 0;
   for (const halo of haloByColour.values()) {
     for (const node of halo.nodes) {
-      ctx.globalAlpha = gcLitAlpha(node._lit);
-      if (node.type === "unresolved") ctx.globalAlpha *= 0.4;
+      let alpha = gcLitAlpha(node._lit);
+      if (node.type === "unresolved") alpha *= 0.4;
       const rWorld = node.r + node._grow;
+      if (rWorld * pixelScale < GC_LOD_PX && !node._grow) {
+        const key = `${halo.colour}|${Math.round(alpha * 8)}`;
+        let batch = lodPaths.get(key);
+        if (!batch) {
+          batch = { colour: halo.colour, alpha: Math.round(alpha * 8) / 8, path: new Path2D() };
+          lodPaths.set(key, batch);
+        }
+        batch.path.moveTo(node.x + rWorld, node.y);
+        batch.path.arc(node.x, node.y, rWorld, 0, Math.PI * 2);
+        lodNodes += 1;
+        continue;
+      }
+      ctx.globalAlpha = alpha;
       const hub = (s.adj.get(node.id) || { size: 0 }).size >= 3;
       const sprite = gcNodeSprite(halo.colour, rWorld * pixelScale, hub);
       const halfWorld = sprite.half / pixelScale;
       ctx.drawImage(sprite.canvas, node.x - halfWorld, node.y - halfWorld, halfWorld * 2, halfWorld * 2);
     }
   }
+  for (const batch of lodPaths.values()) {
+    ctx.globalAlpha = batch.alpha;
+    ctx.fillStyle = batch.colour;
+    ctx.fill(batch.path);
+  }
+  s.lodNodes = lodNodes;
   //: The hovered node's halo, lit. A second fill over the one the batch
   //: already laid down, because pulling this node out of its colour batch to
   //: give it a different alpha would cost a fill per colour rather than a fill
@@ -4248,6 +4280,7 @@ Object.defineProperty(window, "__graphDebug", {
       alpha: gcTab.alpha,
       ticks: gcTab.ticks,
       tickMs: gcTab.tickMs,
+      lodNodes: gcTab.lodNodes || 0,
       labelsWanted: gcTab.labelsWanted,
       labelsDrawn: gcTab.labelsDrawn,
       labelsPriority: gcTab.labelsPriority,

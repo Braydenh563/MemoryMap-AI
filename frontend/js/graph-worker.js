@@ -101,6 +101,30 @@ const MAX_IN_FLIGHT = 2;
 //: trade is gone, and a slower decay is what makes the layout look alive.
 const VELOCITY_DECAY = 0.4;
 const ALPHA_DECAY = 0.0228;
+
+//: **A layout ends, whatever the notebook's size** (audit 2026-10-05, FE-04).
+//: At 0.0228 a layout takes about 300 ticks to cool below `alphaMin`; a tick
+//: on a 5,000-note map is 70 to 240 ms and the loop rests as long again, so
+//: the map was still moving after 30 s and the tab idled at 44% of a core,
+//: repainting every tick. Two bounds now:
+//:
+//: - past `SETTLE_FULL_TICKS_UP_TO` notes the decay is set so the layout
+//:   cools in `SETTLE_TICKS_BIG` ticks (d3's own formula for a decay that
+//:   reaches alphaMin in n ticks), which a big map can afford;
+//: - and whatever the size, `SETTLE_BUDGET_MS` after the last thing that
+//:   moved it (an init, a drag released, a reheat), the loop stops and says
+//:   `end`, as if it had cooled. Nothing is lost: a drag or a reheat starts it
+//:   again from where it stands.
+const SETTLE_FULL_TICKS_UP_TO = 1500;
+const SETTLE_TICKS_BIG = 120;
+const SETTLE_BUDGET_MS = 20000;
+let settleFrom = 0;
+
+function alphaDecayFor(count) {
+  if (count <= SETTLE_FULL_TICKS_UP_TO) return ALPHA_DECAY;
+  const ticks = Math.max(SETTLE_TICKS_BIG, Math.round((300 * SETTLE_FULL_TICKS_UP_TO) / count));
+  return 1 - Math.pow(0.001, 1 / ticks);
+}
 //: The alphaTarget a drag raises the simulation to, and the plan's number.
 //: High enough that the neighbourhood reorganises around where you put the
 //: node, low enough that the rest of the map is not thrown into the air.
@@ -574,7 +598,8 @@ function loop() {
   const cost = Date.now() - started;
   tickMs = ticks === 1 ? cost : tickMs * 0.9 + cost * 0.1;
   clampToWorld();
-  const settled = !dragging && simulation.alpha() < simulation.alphaMin();
+  const overBudget = !dragging && Date.now() - settleFrom > SETTLE_BUDGET_MS;
+  const settled = !dragging && (simulation.alpha() < simulation.alphaMin() || overBudget);
   if (settled) {
     post(true);
     self.postMessage({ type: "end", alpha: simulation.alpha(), epoch });
@@ -619,7 +644,10 @@ function loop() {
   );
 }
 
+//: Every message that moves the layout comes through here, so this is where
+//: the settle budget starts again.
 function run() {
+  settleFrom = Date.now();
   if (timer === null && simulation) timer = setTimeout(loop, 0);
 }
 
@@ -663,7 +691,7 @@ self.onmessage = (event) => {
       simulation = d3
         .forceSimulation(nodes)
         .velocityDecay(VELOCITY_DECAY)
-        .alphaDecay(ALPHA_DECAY)
+        .alphaDecay(alphaDecayFor(nodes.length))
         .force(
           "link",
           d3

@@ -165,3 +165,22 @@ def test_the_companion_never_sits_on_the_air():
     # Asked again after a pan or zoom on a canvas, a release, and while it rests.
     assert 'document.addEventListener("wheel", nameMarkBuddySupportSoon' in AVATARS
     assert 'document.addEventListener("pointerup", nameMarkBuddySupportSoon' in AVATARS
+
+
+def test_every_animation_on_atlas_head_keeps_its_scale():
+    # The general form of the nod's fix: any keyframes run on `.atl-head`
+    # replace its resting transform, so every frame restates the scale.
+    names = set(re.findall(r"\.atl-head\s*\{\s*animation:\s*([a-z][\w-]*)", ALL_CSS))
+    assert names, "no animation on Atlas's head found: the lint would pass on nothing"
+    for name in names:
+        for frame in re.findall(r"\{([^{}]*)\}", _keyframes(name)):
+            if "transform" in frame:
+                assert "var(--atl-head-k)" in frame, f"@keyframes {name} drops the head's scale: {frame.strip()}"
+
+
+def test_design_names_the_recipe_and_its_lints():
+    design = (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
+    row = next(line for line in design.splitlines() if line.startswith("| Motion (a selection that moves"))
+    for needle in ("from 0.4", "tabPlaceholder", "curtainShell", "tests/test_smooth_boot.py", "smooth1005-boot.js", "smooth1005-tabs.js"):
+        assert needle in row, needle
+    assert "nameMarkBuddySupported" in design and "smooth1005-perch.js" in design

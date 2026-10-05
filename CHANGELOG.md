@@ -25,6 +25,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Library: opening the Library tab fetches only the Library's own code; the document editor, the whiteboard and the graph library (about 900 KB gzipped) come with the first document or board you open, or the Boards sub-tab.
 - Layout: the six rules that switched at 900px wide (the header's space name and mark, the chat's answer and records columns, the writing room's two boxes, the documents layout) switch at 820px with the rest of the tablet layout, so a window between 820 and 900 keeps the desktop header.
 - Design checks: the button census is now a sweep that fails when a kind of button (icon-only, ghost, filled, segment, tab, chip) shows up at a height it has not had before, naming the control.
 - Code health: a lint finds every GET that returns a list (or a dict holding one) by what it returns, not by its name, and makes it take a page or say why its size does not grow; On this day reads the five notes it shows instead of every match.

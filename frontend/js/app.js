@@ -2080,6 +2080,12 @@ const LAZY_MODULES = {
   //: Every listener inside the Settings window, awaited on first open: settings-controls.js.
   settingsControls: ["/js/settings-controls.js"],
   attachTo: ["/js/attach-to.js"],
+  //: The Library tab's list without the editors (audit FE-03(c)): one click
+  //: on Library fetched both editors, d3 and the whiteboard, about 900 KB
+  //: gzipped, to draw a list. `library` below still holds library.js, so
+  //: a document or a board brings the whole surface; `lazyScript` fetches
+  //: library.js once whichever asks first.
+  libraryList: ["/js/library.js"],
   //: The Capture box's template picker (note-templates.js's header).
   noteTemplates: ["/js/note-templates.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
@@ -2115,7 +2121,7 @@ function whenScriptsLoaded() {
   return new Promise((resolve) => document.addEventListener("DOMContentLoaded", resolve, { once: true }));
 }
 
-const TAB_MODULES = { graph: "graph", library: "library", documents: "library" };
+const TAB_MODULES = { graph: "graph", library: "libraryList", documents: "library" };
 
 const lazyModuleLoads = new Map();
 
@@ -2387,14 +2393,11 @@ const LAZY_ENTRY_POINTS = {
   library: [
     "applyDocGutter",
     "applyMarkdown",
-    "closeBinnedReader",
     "closeDocAiPanel",
     "createConceptMap",
     "createDocument",
     "createNewBoard",
     "expandNoteIntoDocument",
-    "flashLibraryItem",
-    "focusLibraryFile",
     "initDocSidebarTabs",
     "loadDocuments",
     "markDocDirty",
@@ -2414,6 +2417,17 @@ const LAZY_ENTRY_POINTS = {
     "wireMarkdownToolbar",
     "wireMdFormatShortcuts",
     "openWhiteboardBoard",
+    "deleteDocumentWithUndo",
+    "jumpToDocLine",
+    "renderLibraryBoardsGallery",
+  ],
+  //: The Library's own list (audit FE-03(c)): library.js alone. A call from
+  //: it into a document or a board is one of `library`'s stand-ins above,
+  //: which fetches the editors on first use.
+  libraryList: [
+    "closeBinnedReader",
+    "flashLibraryItem",
+    "focusLibraryFile",
   ],
 };
 

@@ -983,7 +983,10 @@ def _time_words(dates, today) -> list[str]:  # noqa: ANN001
     for item in dates:
         when = item.at
         day = f"{when:%A} {when.day} {when:%B %Y}"
-        span = day if item.precision == "day" else f"the {item.precision} of {day}"
+        if item.precision == "minute":
+            span = f"{day} at {when:%H:%M}"
+        else:
+            span = day if item.precision == "day" else f"the {item.precision} of {day}"
         out.append(f'"{item.phrase}" meant {span}, {days_from_today(when.date(), today)}')
     return out
 

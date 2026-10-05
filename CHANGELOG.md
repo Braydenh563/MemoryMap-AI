@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Timeline and note cards: a day a note mentions sits on that day in every timezone (it was served as UTC midnight, so "on Friday" sat under Thursday 8:00 PM in New York) and reads All day; a time said with the day ("on Friday at 3pm") is kept and shown as written (audit 2026-10-05, UX-02).
 - Reminders: Magic add reads wall-clock times with no AI ("call mum tomorrow at 5pm", "dentist next Friday at 3pm", "pay rent on 1 November", "water plants tonight", "high priority"), so the dashboard's Remind me works on the default install; the wand is no longer disabled without a model, and the AI is asked only for a phrasing the rules miss (audit 2026-10-05, UX-01).
 - Notes, Capture: the composer is one box; the note editor inside no longer draws its own border and focus ring a hair inside the composer's, and the composer's edge carries the focus (INBOX 560).
 - Boards: the gesture hints' close button is pinned at the strip's end after a divider, whole and evenly inset, instead of clipped past the edge (INBOX 562).

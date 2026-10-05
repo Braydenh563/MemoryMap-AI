@@ -1878,10 +1878,17 @@ function entryItem(entry, options = {}) {
   const mentioned = [];
   for (const when of entry.dates || []) {
     const day = new Date(`${when.at}T00:00:00`);
-    const label =
-      when.precision === "day"
-        ? day.toLocaleDateString(undefined, { day: "numeric", month: "short" })
-        : `${when.precision} of ${day.toLocaleDateString(undefined, { day: "numeric", month: "short" })}`;
+    const dayLabel = day.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+    //: "minute": the note said a clock with the day ("on Friday at 3pm"),
+    //: the writer's own wall clock, so it is shown as written (UX-02).
+    const clock = when.precision === "minute" && /^\d{2}:\d{2}$/.test(when.time || "")
+      ? new Date(`${when.at}T${when.time}:00`).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
+      : "";
+    const label = clock
+      ? `${dayLabel}, ${clock}`
+      : when.precision === "day" || when.precision === "minute"
+        ? dayLabel
+        : `${when.precision} of ${dayLabel}`;
     //: The date alone, the phrase on hover (owner, with a screenshot of
     //: "Tonight → 21 Sept on Friday → 25 Sept" in one meta line: "clean up
     //: the notes metadata and badges a bit more"). What a reader scans for is

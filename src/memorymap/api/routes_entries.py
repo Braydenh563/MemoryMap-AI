@@ -143,7 +143,12 @@ def _to_out(
         deleted_at=entry.deleted_at if entry.is_deleted else None,
         archived_at=entry.archived_at,
         dates=[
-            EntryDateOut(phrase=d.phrase, at=d.at.date(), precision=d.precision)
+            EntryDateOut(
+                phrase=d.phrase,
+                at=d.at.date(),
+                precision=d.precision,
+                time=d.at.strftime("%H:%M") if d.precision == "minute" else None,
+            )
             for d in resolved_dates
         ],
         documents=[

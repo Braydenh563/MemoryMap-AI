@@ -36,7 +36,7 @@ Counts: High 4, Medium 9, Low 10.
 
 ### High
 
-**UX-01. Plain-words reminders 503 without a model, though a model-free reader exists.** NEW
+**UX-01. Plain-words reminders 503 without a model, though a model-free reader exists.** NEW FIXED 67f52f1
 - Evidence: Reminders tab, `#reminder-magic` = "call mum tomorrow at 5pm",
   Enter: `POST /reminders/parse` 503, toast "The local AI isn't running, and I
   couldn't read a time from that. Try “in 20 minutes”, or use the form."

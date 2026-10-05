@@ -240,7 +240,9 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "The Timeline tab lays notes out chronologically in day/week/month "
             "buckets, grid or line view, with an optional band (category, tag "
-            "or space) to see how things cluster over time."
+            "or space) to see how things cluster over time. A note that names a "
+            "day (\"on Friday\") sits on that day and says All day; one that "
+            "names a time too (\"on Friday at 3pm\") shows that time."
         ),
         "badge": {"label": "Timeline", "tab": "timeline"},
     },

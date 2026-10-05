@@ -337,6 +337,11 @@ CONTRACTS: dict[str, tuple[tuple[Pre, ...], tuple[Post, ...]]] = {
 }
 
 
+def _loggable(name: str) -> str:
+    """A tool name as a model wrote it, on one log line (CodeQL, log injection)."""
+    return str(name).replace("\r", " ").replace("\n", " ")[:80]
+
+
 def precondition(session: Session, name: str, args: dict) -> str | None:
     """The one-line reason `name` cannot run on `args`, or None. May fold an
     argument to the notebook's own spelling (a category's case)."""
@@ -344,7 +349,7 @@ def precondition(session: Session, name: str, args: dict) -> str | None:
         try:
             problem = check(session, args)
         except Exception:  # noqa: BLE001  # a checker's fault is not the call's
-            _log.debug("precondition of %s skipped", name, exc_info=True)
+            _log.debug("precondition of %s skipped", _loggable(name), exc_info=True)
             continue
         if problem:
             return f"{name}: {problem}"
@@ -357,7 +362,7 @@ def postcondition(session: Session, name: str, args: dict, result: dict) -> str 
         try:
             problem = check(session, args, result)
         except Exception:  # noqa: BLE001
-            _log.debug("postcondition of %s skipped", name, exc_info=True)
+            _log.debug("postcondition of %s skipped", _loggable(name), exc_info=True)
             continue
         if problem:
             return f"{name} did not take effect: {problem}. Say so rather than claim it."

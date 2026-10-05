@@ -286,7 +286,6 @@ def parse_reminder_text(text: str, now: datetime) -> dict | None:
 # date, so a model asked about "this week" had to work out which date that
 # was: the arithmetic the 2026-09-21 decision took away from it everywhere.
 
-_UNIT_DAYS = {"day": 1, "week": 7, "month": None, "year": None}
 _SPAN = re.compile(
     r"^(?:the\s+)?(?:last|past|previous)\s+(?:(\d{1,3}|[a-z-]+)\s+)?(days?|weeks?|months?|years?)$"
 )

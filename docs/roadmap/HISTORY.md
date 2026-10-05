@@ -38,6 +38,19 @@ remaining whiteboard rows; the open rest is in
   root, was already built (FEAT-01, `cc89dcb`,
   `test_freemind_imports_its_single_root_as_the_central_topic`): not rebuilt.
 
+- **Step 3, W2, the board time machine** (decision 33). Server
+  `routes_board_history.py` (`GET /whiteboard/history`,
+  `GET /whiteboard/history/{event}`, `POST .../restore`); library placements
+  record per-item `created` events (`test_board_library.py`'s one-event test
+  rewritten to say so). Client `whiteboard-history.js` (lazy, Library
+  bundle): the slider bar on the present bar's recipe, the past drawn by the
+  board's render, writes refused (`wbHistGuard`), a restore recorded as one
+  Undo step. Found on the way: SQLite reuses a deleted row's id (no
+  AUTOINCREMENT), so one item id's log can hold two items; a `created`
+  starts a fresh state. `tests/test_board_history.py` 10;
+  `wbhistory.js` 14/14 at 1440 and 390, light and dark (the sweep ages the
+  log in its own data dir to make three moments).
+
 ## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
 
 From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN

@@ -98,9 +98,10 @@
 }
 
 /* Presenting the frames (WHITEBOARD_PLAN decision 16): every control but
-   the presentation's own bar steps aside, and the board is a view. */
+   the presentation's own bar steps aside, and the board is a view. A
+   board's History (decision 33) is this mode with its own `.wb-present-bar`. */
 #library-view-whiteboard.wb-presenting .wb-topbar,
-#library-view-whiteboard.wb-presenting .whiteboard-floating-panel:not(#wb-present-bar),
+#library-view-whiteboard.wb-presenting .whiteboard-floating-panel:not(.wb-present-bar),
 #library-view-whiteboard.wb-presenting .wb-context,
 #library-view-whiteboard.wb-presenting .wb-map-strip,
 #library-view-whiteboard.wb-presenting .wb-navigator,

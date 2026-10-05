@@ -366,6 +366,18 @@ accessibility, and learnability") are why.
     and nothing else; an edge naming a subgraph joins its frame. The export
     writes every frame that holds a joined item as a `subgraph` of its title
     (the innermost frame; nested frames go out flat).
+33. **A board's history is its items' event log, read three ways**
+    (`routes_board_history.py`): moments (runs of at most two minutes,
+    newest first, paged), the board at any event (each item folded to it;
+    an item with no log was there from the start, one whose log begins with
+    an edit was there as that edit's `before` says), and a restore of the
+    board or the named items in one transaction, each row with its own event,
+    links and a topic's parent re-pointed at remade rows. A library
+    placement records each item's `created` beside its one board event
+    (decision 25's "one event" kept for the board). A compacted moment is
+    listed and not shown (410). The client draws the past with the board's
+    own render in the presenting mode (`.wb-presenting`) with its own bar, refuses
+    writes while it is shown, and records a restore as one Undo step.
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 

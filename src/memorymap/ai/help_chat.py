@@ -1025,8 +1025,8 @@ HELP_TOPICS.extend(
                 "drag or goes back to Select. Ctrl+Z undoes, Ctrl+Y redoes. "
                 "Double-click empty board for a text box, double-click a closed shape "
                 "(or select it and press Enter) to write in it, right-click (or hold on touch) "
-                "for the menu, double-click a line to add a bend "
-                "there, and select a connector and press Enter to label it. A frame's "
+                "for the menu, double-click a line to bend "
+                "it, and select a connector and press Enter to label it. A frame's "
                 "title drags it and what is inside it (Ctrl: the frame alone); its menu exports it. "
                 "Ctrl+Shift+L locks the selection (clicks go through); Unlock is "
                 "on the board's right-click menu. Right-click an item, Comment…, starts a "
@@ -1035,6 +1035,24 @@ HELP_TOPICS.extend(
                 "Menus: Insert, Edit, Arrange (align, distribute, size, order, group, "
                 "lock), View (background, grid, snap, zoom, full screen) and Board "
                 "(rename, new, export, switch to a mind map, clear, delete, keys)."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "board-history",
+            "keywords": (
+                "board history", "history of the board", "time machine", "earlier version of the board",
+                "go back in time", "put the board back", "restore the board", "what did the board look like",
+            ),
+            "body": (
+                "Board, History… (or Ctrl+K, History) puts a slider at the foot of the board. Drag it "
+                "back, or press Left, Home and End, and the board is drawn as it was at each moment, a "
+                "moment being a run of changes up to two minutes long; the bar says when and what it "
+                "added, changed and removed. Nothing can be changed while the past is shown. Put back "
+                "restores the whole board as it was then, and the second button only what was selected "
+                "when History opened; either is one Undo step and is in the history too. Esc, or the "
+                "slider's right end, comes back to now. Changes older than ninety days may be kept only "
+                "in summary, and such a moment cannot be shown."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

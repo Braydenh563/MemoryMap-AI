@@ -188,6 +188,7 @@ const WB_COMMANDS = [
   { id: "new-board", group: "Board", icon: "ph:plus", label: "New board", keys: "", surface: "both", run: wbClickId("wb-new-board") },
   { id: "switch-kind", group: "Board", icon: "ph:tree-structure", label: "Switch between a whiteboard and a mind map", keys: "", surface: "both", run: wbClickId("wb-board-kind") },
   { id: "clear", group: "Board", icon: "ph:eraser", label: "Clear this board", keys: "", surface: "both", run: wbClickId("wb-clear-board") },
+  { id: "history", group: "Board", icon: "ph:clock-counter-clockwise", label: "History: see the board as it was, and put it back", menu: "History…", keys: "", surface: "both", run: () => wbOpenHistory() },
 ];
 
 const WB_COMMAND_BY_ID = new Map(WB_COMMANDS.map((c) => [c.id, c]));

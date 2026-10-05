@@ -217,3 +217,26 @@ def test_the_scratch_board_has_a_history_too(client):
     client.delete(f"/whiteboard/sketches/{a['id']}")
     assert "scratch" in _labels(_at(client, 0, moment))
     assert _history(client, 0)["moments"]
+
+
+def test_history_is_the_presenting_mode_with_its_own_bar() -> None:
+    """DESIGN.md's recipe row: the bar is the present bar's shape, the mode
+    hides the chrome and takes the pointer off both layers, the keys are
+    taken in the capture phase, writes are refused, and the Board menu's row
+    names the command."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    html = (root / "frontend" / "index.html").read_text(encoding="utf-8")
+    css = (root / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    js = (root / "frontend" / "js" / "whiteboard-history.js").read_text(encoding="utf-8")
+    bar = re.search(r'<div id="wb-history-bar"[^>]*>', html).group(0)
+    assert "whiteboard-floating-panel" in bar and "wb-present-bar" in bar and 'role="toolbar"' in bar
+    assert 'data-wb-cmd="history"' in html and 'type="range" id="wb-history-slider"' in html
+    assert ".wb-presenting .whiteboard-floating-panel:not(.wb-present-bar)" in css
+    assert re.search(r"\.wb-presenting #wb-svg-layer \{\s*pointer-events: none;", css)
+    assert 'classList.add("wb-presenting")' in js
+    assert '}, true);' in js and "stopImmediatePropagation" in js
+    assert "function wbHistGuard(on)" in js and "/^\\/whiteboard\\//" in js
+    assert '"/js/whiteboard-history.js"' in (root / "frontend" / "js" / "app.js").read_text(encoding="utf-8")

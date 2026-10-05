@@ -4001,6 +4001,14 @@ aside[data-resizable="1"] {
   background: var(--chip-bg);
 }
 
+/* The well keeps its days' height before they are drawn (INBOX 580): the
+   timeline's first draw wrote them after its fetch, and the well grew from
+   its padding to 44px under the page (layout shift 0.014 on the first
+   visit, `scratchpad/ui-sweeps/smooth1005-tabs.js`). */
+.timeline-days:empty {
+  min-block-size: 2.75rem;
+}
+
 .timeline-days .timeline-day.ghost.small {
   display: flex;
   align-items: center;

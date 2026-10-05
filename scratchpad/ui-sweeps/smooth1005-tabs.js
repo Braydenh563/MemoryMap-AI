@@ -5,8 +5,10 @@
 // after the step (with or without recent input: a shift you caused still
 // reads as a jump), skeleton frames, the longest frame, and long tasks.
 //   BASE=http://127.0.0.1:8860 node scratchpad/ui-sweeps/smooth1005-tabs.js
-// GATE=1 exits 1 when any tab switch has a blank frame, or a transition
-// runs outside the motion tokens (0 or 100 to 260ms; 0 under REDUCED=1).
+// GATE=1 exits 1 when any tab switch has a blank frame, or a tab or popup
+// declares a transition outside the motion tokens (100 to 260ms; exactly 0
+// under REDUCED=1). The measured fade is printed beside it: on a loaded
+// machine its frames stretch it.
 const { boot } = require('./lib.js');
 
 const PROBE = () => {
@@ -31,12 +33,26 @@ const PROBE = () => {
         if (hit && hit !== el && el.contains(hit)) hits += 1;
       }
     }
+    // A placeholder is drawn content even though it takes no pointer (hit
+    // testing passes through it).
+    if (el && el.querySelector(':scope > .tab-placeholder:not(.tab-placeholder-leaving)')) hits = Math.max(hits, 9);
     const sk = el ? el.querySelectorAll('.skeleton').length : 0;
     tp.frames.push({ t: t - tp.t0, id: el ? el.id || el.className.split(' ')[0] : '', op: +op.toFixed(3), hits, sk, h: r ? Math.round(r.height) : 0 });
     requestAnimationFrame(sample);
   };
   tp.start = (sel) => { tp.sel = sel || ''; tp.frames = []; tp.shifts = []; tp.long = []; tp.t0 = performance.now(); tp.on = true; requestAnimationFrame(sample); };
-  tp.stop = () => { tp.on = false; return { frames: tp.frames, shifts: tp.shifts, long: tp.long }; };
+  // The transition the surface declares for its opacity, in ms: the frame
+  // timing of a loaded machine stretches what is measured, this does not.
+  const declared = () => {
+    const el = tp.sel ? document.querySelector(tp.sel.replace(/ > \*$/, '')) : document.querySelector('.tab-page:not(.hidden)');
+    if (!el) return null;
+    const cs = getComputedStyle(el);
+    const props = cs.transitionProperty.split(',').map((x) => x.trim());
+    const durs = cs.transitionDuration.split(',').map((x) => parseFloat(x) * (x.trim().endsWith('ms') ? 1 : 1000));
+    const i = props.findIndex((p) => p === 'opacity' || p === 'all');
+    return i < 0 ? 0 : Math.round(durs[i % durs.length]);
+  };
+  tp.stop = () => { tp.on = false; return { frames: tp.frames, shifts: tp.shifts, long: tp.long, declared: declared() }; };
 };
 
 function report(name, d, want) {
@@ -58,7 +74,7 @@ function report(name, d, want) {
   const cls = d.shifts.reduce((s, x) => s + x.v, 0);
   const gaps = f.map((x, i) => (i ? x.t - f[i - 1].t : 0));
   const heights = [...new Set(f.map((x) => x.h))];
-  const row = { name, firstOp, fadeMs: fade, fullAtMs: full, blank, skFrames, skeletonSwapAt: skGone > 0 ? Math.round(f[skGone].t) : null, shift: +cls.toFixed(4), maxFrame: Math.round(Math.max(0, ...gaps)), long: d.long.join(',') || '-', heights: heights.slice(0, 5).join('/') };
+  const row = { name, declaredMs: d.declared, firstOp, fadeMs: fade, fullAtMs: full, blank, skFrames, skeletonSwapAt: skGone > 0 ? Math.round(f[skGone].t) : null, shift: +cls.toFixed(4), maxFrame: Math.round(Math.max(0, ...gaps)), long: d.long.join(',') || '-', heights: heights.slice(0, 5).join('/') };
   console.log(JSON.stringify(row));
   return row;
 }
@@ -99,7 +115,9 @@ function report(name, d, want) {
   }
   await browser.close();
   const bad = rows.filter((r) => r.name.startsWith('tab ') && r.blank > 0);
-  const off = rows.filter((r) => r.fadeMs !== 0 && (process.env.REDUCED ? true : r.fadeMs < 100 || r.fadeMs > 260));
-  console.log(`tab switches with a blank frame: ${bad.length}/${rows.filter((r) => r.name.startsWith('tab ')).length}; transitions outside the tokens: ${off.length} (${off.map((r) => r.name + ' ' + r.fadeMs).join(', ')})`);
+  // Tabs and popups carry the recipe's transition; sub-tabs swap in place.
+  const carried = rows.filter((r) => r.name.startsWith('tab ') || / open$| dialog$/.test(r.name));
+  const off = carried.filter((r) => (process.env.REDUCED ? r.declaredMs !== 0 : r.declaredMs < 100 || r.declaredMs > 260));
+  console.log(`tab switches with a blank frame: ${bad.length}/${rows.filter((r) => r.name.startsWith('tab ')).length}; transitions outside the tokens: ${off.length} (${off.map((r) => r.name + ' ' + r.declaredMs).join(', ')})`);
   if (process.env.GATE && (bad.length || off.length)) process.exit(1);
 })();

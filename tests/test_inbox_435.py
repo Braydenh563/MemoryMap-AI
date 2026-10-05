@@ -90,7 +90,7 @@ def test_lazily_loaded_lists_show_placeholders_while_they_load():
         ('showSkeletons(sideList, 4, "li");', "loadDocumentsNow(selectId)"),
         ("showSkeletons(grid, 4);\n  const listed", '"/whiteboard/boards"'),
         ('showSkeletons($("reminder-groups"), 3);', '"/reminders"'),
-        ("showSkeletons(grid, 6);\n  const images", '"/media"'),
+        ('if (ifUnchanged !== "skip") showSkeletons(grid, 6);', '"/media"'),
         ("showSkeletons(container, 3);", '"/audit?limit=100&entity_type=skill"'),
         ("showSkeletons(outline, 4);", "clearSkeletons(outline);"),
     ):

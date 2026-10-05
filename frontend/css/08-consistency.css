@@ -10646,6 +10646,49 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   }
 }
 
+/* --- motion: a heavy page's first visit (INBOX 580) ------------------------
+   Graph, Library and Documents fetch their code the first time they are
+   opened. Until it and their first draw are in (`tabPlaceholder`,
+   navigation.js), the page's own markup waits hidden under one skeleton
+   the size of the page; then the skeleton fades as the page fades in, over
+   `--motion-base`, so loading is never shown raw. Opacity only. */
+.tab-page.tab-loading {
+  position: relative;
+}
+
+.tab-page.tab-loading > :not(.tab-placeholder) {
+  opacity: 0;
+}
+
+.tab-page.tab-revealing > :not(.tab-placeholder) {
+  transition: opacity var(--motion-base) var(--ease-out);
+}
+
+.tab-page > .tab-placeholder {
+  position: absolute;
+  inset: var(--page-top) var(--page-right) var(--page-bottom) var(--page-gutter);
+  height: auto;
+  max-width: none;
+  margin: 0;
+  z-index: 1;
+  pointer-events: none;
+  transition: opacity var(--motion-base) var(--ease-out);
+}
+
+.tab-page > .tab-placeholder.tab-placeholder-leaving {
+  opacity: 0;
+}
+
+/* Chat's empty card waits unseen for its starters, then fades in whole
+   (`renderChatEmptyState`, chat.js): it used to grow round them in view. */
+.chat-empty {
+  transition: opacity var(--motion-base) var(--ease-out);
+}
+
+.chat-empty.chat-empty-waiting {
+  opacity: 0;
+}
+
 /* --- motion: a popup arrives (INBOX 580) ------------------------------------
    Every dialog opened between two frames: Settings, the palette, Find
    anything, the agent palette, a confirm, all at full size and full scrim at

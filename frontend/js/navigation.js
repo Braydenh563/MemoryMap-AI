@@ -1807,13 +1807,20 @@ async function switchTab(name) {
   //: keyboard, rather than one guard per listener; it is set only on the
   //: first visit, so a later switch to a tab that holds focus does not blur it.
   const lazyPage = lazy && !lazyTabsReady.has(lazy) ? $(`tab-${name}`) : null;
-  if (lazyPage) lazyPage.inert = true;
+  if (lazyPage) {
+    lazyPage.inert = true;
+    tabPlaceholder(lazyPage, true);
+  }
   try {
     if (lazy) await ensureModule(lazy);
+  } catch (error) {
+    if (lazyPage) tabPlaceholder(lazyPage, false);
+    throw error;
   } finally {
     if (lazyPage) lazyPage.inert = false;
   }
   if (lazy) lazyTabsReady.add(lazy);
+  let drawing = null;
   if (name === "chat") {
     renderChatEmptyState(); // welcome placeholder when the thread is empty
     loadChatSuggestions();
@@ -1869,7 +1876,7 @@ async function switchTab(name) {
     setGraphPhysicsEnabled(graphLayout());
     setGraphOptionsOpen(localStorage.getItem("graph-options-open") === "1");
     setTracePanelOpen(localStorage.getItem("graph-trace-open") === "1");
-    renderGraph();
+    drawing = renderGraph();
   }
   if (name === "timeline") {
     // Match the saved bucket choice on arrival, not only on change: a notebook
@@ -1882,14 +1889,47 @@ async function switchTab(name) {
     renderTimeline();
   }
   if (name === "documents") {
-    loadDocuments();
+    drawing = loadDocuments();
     renderDocStorage();
   }
-  if (name === "library") loadLibrary();
+  if (name === "library") drawing = loadLibrary();
   if (name === "reminders") {
     refreshReminderDefaults();
     loadReminders();
   }
+  //: The first visit's placeholder gives way once the tab has drawn, or
+  //: after 800ms whatever it is doing (`tabPlaceholder`).
+  if (lazyPage) Promise.race([drawing, new Promise((r) => setTimeout(r, 800))]).finally(() => tabPlaceholder(lazyPage, false));
+}
+
+//: **A heavy tab's first visit shows its shape, not its raw insides**
+//: (INBOX 580, the owner: "features like the graph etc need to be more
+//: smooth in transitions and cheap to hide the ugly loading glitches").
+//: Graph, Library and Documents fetch their own code the first time
+//: (`TAB_MODULES`), and until it and their first draw are in, the page was
+//: its bare markup: measured (`scratchpad/ui-sweeps/smooth1005-tabs.js`,
+//: 1440) four frames with nothing of the page under any of nine points,
+//: 488 to 550ms before it was whole. Now the page's own controls wait
+//: hidden under one skeleton the size of the page, which fades as they
+//: fade in (`.tab-loading`, `.tab-revealing`, 08-consistency.css).
+function tabPlaceholder(page, on) {
+  let ph = page.querySelector(":scope > .tab-placeholder");
+  if (on) {
+    if (ph) return;
+    ph = document.createElement("div");
+    ph.className = "skeleton tab-placeholder";
+    ph.setAttribute("aria-hidden", "true");
+    page.prepend(ph);
+    page.classList.add("tab-loading");
+    return;
+  }
+  if (!ph) return;
+  page.classList.replace("tab-loading", "tab-revealing");
+  ph.classList.add("tab-placeholder-leaving");
+  setTimeout(() => {
+    ph.remove();
+    page.classList.remove("tab-revealing");
+  }, 260);
 }
 
 // --- Timeline: moved to timeline.js --------------------------------------------

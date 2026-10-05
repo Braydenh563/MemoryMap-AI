@@ -120,3 +120,25 @@ def test_every_popup_has_one_way_in():
     which = ":where(.modal-overlay, .lock-overlay:not(#lock-overlay), #palette-overlay):not(.hidden)"
     assert block.count(which) == 4, "the scrim and its card, at rest and in @starting-style"
     assert "var(--motion-base)" in block and "var(--motion-slow)" in block
+
+
+def test_a_heavy_tab_shows_its_shape_while_its_code_loads():
+    nav = (ROOT / "frontend" / "js" / "navigation.js").read_text(encoding="utf-8")
+    switch = nav[nav.index("async function switchTab(") : nav.index("\n}\n", nav.index("async function switchTab("))]
+    assert "tabPlaceholder(lazyPage, true);" in switch
+    # Given back on the draw, on a timer, and on a failed load.
+    assert switch.count("tabPlaceholder(lazyPage, false)") == 2
+    assert "drawing = renderGraph();" in switch and "drawing = loadLibrary();" in switch
+    css = CSS["08-consistency.css"]
+    assert ".tab-page.tab-loading > :not(.tab-placeholder) {" in css
+    assert ".tab-page > .tab-placeholder.tab-placeholder-leaving {" in css
+
+
+def test_late_parts_do_not_push_the_page():
+    library = (ROOT / "frontend" / "js" / "library.js").read_text(encoding="utf-8")
+    gallery = _fn(library, "renderLibraryImagesGallery")
+    assert gallery.index('if (grid.querySelector(":scope > .skeleton")) empty?.classList.add("hidden");') < gallery.index('"/media"')
+    assert 'chat-empty-waiting' in _fn(JS, "renderChatEmptyState") and "chat-empty-waiting" in _fn(JS, "loadChatSuggestions")
+    assert ".timeline-days:empty {" in CSS["06-timeline-dialogs.css"]
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert '<p id="ollama-status" class="status is-checking">Checking the models…</p>' in html

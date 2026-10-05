@@ -10689,7 +10689,7 @@ async function renderContents() {
     hint.textContent =
       "Folders come from an imported Obsidian vault, they are not created in "
       + "MemoryMap. Nothing has been imported yet, so every note is grouped "
-      + "here. Import a vault from Settings → Import to see its folder tree.";
+      + "here. Import a vault from Settings → Import & export to see its folder tree.";
     hint.classList.remove("hidden");
   }
   if (hint && contentsMode === "topic") {

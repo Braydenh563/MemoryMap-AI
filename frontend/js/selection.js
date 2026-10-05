@@ -388,7 +388,7 @@ const LIBRARY_PICK_SOURCES = [
   },
   {
     kind: "board",
-    label: "Boards and maps",
+    label: "Boards & maps",
     //: Per row: a whiteboard and a mind map sit in one list, and a list of
     //: bare titles gave no way to tell them apart.
     icon: (row) => (row?.type === "board" ? "ph:squares-four" : "ph:tree-structure"),

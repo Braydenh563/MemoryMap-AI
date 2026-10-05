@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Focus mode (the graph's local view): the neighbourhood of a note is drawn from an index of the notebook's connections that is kept until a note or link changes, instead of being rebuilt from every note on each open or refocus; measured on synthetic notebooks of 2,000 and 10,000 notes, a repeat call went from 129 ms and 1,032 ms to 13 ms and 23 ms (`tests/test_graph_local_scaling.py`).
 - Atlas, on a small model (under 8B): when a request must open with a tool call, the first round is offered only the tools that act and the searches that find the note named, so "Add X to my note" no longer opens with the clock and "Put X in my shopping note" no longer makes a new note (measured on a 3B: a right first tool 17 of 22 before, 20 of 22 after). A question's first round is offered no tool that changes anything, and "File the note under Health" is offered the note edit that sets its category.
 - Web search: pressing Start on SearXNG while a reinstall begins now stops at once and says it was being reinstalled, instead of waiting out three minutes and reporting that SearXNG wrote nothing.
 - Timeline: the month above the calendar strip opens a month calendar to jump past the seven days. Arrow keys, Home, End and Page Up and Down walk it, Escape gives the focus back, days after today are off, a dot marks a day with a page, and picking a day moves the strip to it and focuses it (nothing is written).

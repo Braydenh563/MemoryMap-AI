@@ -168,6 +168,21 @@ means the entry was stale, found by reading the call site, not assumed.
 
 ### From section 29b
 
+- **`graph_local` costs a full notebook scan (item 4).** Built:
+  `routes_graph._local_topology` keeps the index and the direction map once per
+  notebook fingerprint (and per similarity setting and embedding model), built
+  by `paths.build_light` from the `id`, `parent_id` and `tags` columns instead of
+  every note as an ORM object; a call reads only the notes it draws
+  (`_load_entries`). A cold call (after any write) still builds the whole
+  topology, because PageRank is global; a warm call no longer touches it.
+  Measured 2026-10-04 (synthetic notebooks of 2,000 and 10,000 notes, two links
+  and two tags a note, depth 2, `tests/test_graph_local_scaling.py`): a warm call
+  129 ms and 1,032 ms before, 13 ms and 23 ms after; cold 0.8 s and 1.6 s (the
+  old cold call was the old warm call plus the sweep). The test pins the shape:
+  five times the notes may cost a warm call at most three times the time, a warm
+  call builds the topology zero times, a write is seen by the next call, and
+  `build_light` agrees with `build` on every note's neighbours.
+
 - **A dry-run for the background librarian (item 2).** Answered by review-after
   rather than a true dry-run: the pass keeps what it did and every write carries
   its undo (`autonomous.py`, ROADMAP section 40 item 2; a stubbed pass stops

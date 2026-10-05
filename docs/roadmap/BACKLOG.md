@@ -2092,12 +2092,9 @@ changes the app's behaviour without showing the user what it did:
    unexplainable one.
 3. ~~**Whiteboard cards outlive their notes.**~~ **Done** —
    `autonomous.clean_orphaned_board_cards`, beside the vector sweep.
-4. **`graph_local` costs a full notebook scan** to draw a local neighbourhood:
-   every entry loaded, a full similarity sweep, and a PageRank over every node.
-   Correct, and the opposite of what "focus mode" should cost. **(needs Opus)**:
-   checked 2026-10-04, `graph_local` still calls `paths.build` over the whole
-   notebook; a bounded build needs a measurement first, and the index is shared
-   with `/graph`.
+4. ~~**`graph_local` costs a full notebook scan** to draw a local neighbourhood.~~
+   **Done** 2026-10-04: the index is built from columns and kept per notebook
+   version (HISTORY.md, "Moved from the backlog, 2026-10-04", section 29b).
 5. ~~**PageRank runs on every `/graph` call, uncached.**~~ **Done** — see
    ROADMAP.md §0/§9 item 2: `routes_graph.py:60-105` caches pagerank/
    similarity by a notebook fingerprint, invalidated on write or embedding-

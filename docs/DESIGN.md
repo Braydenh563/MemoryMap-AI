@@ -36,8 +36,9 @@ lines up, and no value means anything because every one is slightly its own.
 ## The tokens
 
 All defined in `:root` in `frontend/css/00-tokens-shell.css`: the first of
-the eight files `style.css` was split into (ROADMAP.md Priority 0 item 2), so
-every later file's `var()` calls have it loaded before they need it.
+the eleven stylesheets (`00-tokens-shell.css` to `10-responsive.css`) that one
+`style.css` was split into, so every later file's `var()` calls have it loaded
+before they need it.
 
 ### Spacing: `--space-1` … `--space-9`
 
@@ -608,7 +609,7 @@ this table and its lint in the same commit as the feature, never after.
 | A character on the page (the corner companion) | the one companion, `#nm-buddy` (avatars.js): it chooses its own perch from the page's ledges and obstacles, rides with the panel it is on, and is placed, sized, recalled and hidden from its own menu and Appearance's Corner companion. A new surface does nothing for it: controls (buttons, fields, tabs, links, an editor) are kept clear by `NAME_MARK_BUDDY_NEVER_COVER`, and a new kind of control it must not sit on joins that list rather than moving the companion by hand. **It never sits on the air** (INBOX 582): what it sits, stands or hangs on is asked of the page under it (`nameMarkBuddySupported`: a visible edge within 2px), after a scroll, a canvas pan or zoom, a release, a view change and every 1.5s at rest, and when it has gone it chooses again at once; what is drawn on a board, a map or the graph is never a perch. **It stacks with its perch**: perched on something that scrolls under a bar, it goes under that bar with it (`.nm-buddy-shutter`, `nameMarkBuddyRideClip`); perched on the bar itself it stays in front. **Enlarged, it is itself**: a double-click moves the companion's own element into its large view (`nameMarkBuddyVisit`), still doing what it was doing, and home again on Close; never a second drawing of it | `tests/test_companion_motion.py`, `tests/test_companion_stacking.py`, `tests/test_companion_toggle.py`, `scratchpad/ui-sweeps/companionscroll.js`, `companionpin.js`, `companionmenu.js`, `companionstack.js`, `companiontoggle.js`, `companionchat.js`, `companionviewer.js`, `companionfade.js`, `smooth1005-perch.js` |
 | A row of facts about a card where some facts open a list (a skill's "3 steps", "4 tools") | One `.skill-card-facts` row, every fact one `--skill-fact-h` box on one baseline: a plain fact is a `.chip`, a fact that opens is a `button.skill-fact-toggle` carrying `aria-expanded` and `aria-controls` and a trailing caret that turns. What it opens is a `.skill-fact-panel` *after* the row at the card's full width, never inside it, so opening one never moves another fact (INBOX 450: a `<details>` in the row pushed "4 tools" onto a line of its own). A list of identifiers in a panel is `code.skill-tool-token`, the code chip, at the fact height. Cards of uneven height are dealt into columns in reading order (`skillColumnCount`, like `libraryColumnCount`), never a grid whose rows stretch to their tallest card | `tests/test_ui_recipes.py`, `scratchpad/ui-sweeps/skills450.js` |
 | A note's details line (category, score, tags, suggestions, the dates it mentions, links, the time) | **One line, never two**: `.entry-meta.note-meta` is `nowrap`, and `fitNoteMetas` (note-cards.js, one shared `ResizeObserver`, every line reset, read and folded in three passes so a list costs two layouts) folds what does not fit from the end: suggestions then tags into one "+N" chip (`.note-meta-more`, a press lists them through `openMenuAtPoint`, each row doing what its chip does), then the word facts keep their icon and lose their words (`.is-icon`, the words on the `title`), then they ellipsise; the category gives way last. **The time is the line's last fact at its right edge on every card**, never in the head row (the corner is the actions', and a time that faded there on hover was INBOX 446). A new fact on the line is a `.chip` with a `ph:` icon, so it can fold | `tests/test_note_meta_line.py`, `scratchpad/ui-sweeps/notemeta.js`, `scratchpad/ui-sweeps/notemetamore.js` |
-| A word saying where an item came from ("Built-in", "Edited", "Yours", "you set this", "from the model", "default"), **or what state it is in** ("Installed", "Stopped", "Not ready yet", "Fits", "Tight fit", "In use for chat", "confirms first", "online": INBOX 461 (1)) | `chip item-label`, 11px muted type on a **tinted pill without an edge** (`--chip-bg` at `--radius-pill`, `border: 0`; INBOX 553 (c), the owner's decision of 2026-10-05, matching the meta chips), one line, on every surface; `is-yours` takes the accent tint and ink for "you made or changed this" (and "in use"), `is-ok` the ok tint and icon for ready, `is-warn` the warn tint and ink for a request to look. The tone is the tint, never an edge. The Files tiles' "Read · N words" and a chat attachment's reading badge are this label too. Beside a heading it centres on the heading's text (measured within 0.7px by `badgeinv.js`). Not this recipe: a count (a number pill), a reading badge laid over a picture (it needs a ground), a fact on a facts line (`.chip.item-fact`), and the dashboard's "Editing layout", which is words by the owner's call. A model card's labels are a row of their own above its actions, one line (INBOX 468). A named item in a list (Settings' templates, skills, personas) is the row (title, label, facts, description) beside its actions, which are a right-hand column centred on the whole item and always shown | `tests/test_badge_recipe.py` (`test_a_status_label_is_a_tinted_pill_without_an_edge`), `scratchpad/ui-sweeps/badges.js`, `scratchpad/ui-sweeps/badgeinv.js`, `scratchpad/ui-sweeps/modelcardfoot.js`, `scratchpad/ui-sweeps/ux1005-pills.js` |
+| A word saying where an item came from ("Built-in", "Edited", "Yours", "you set this", "from the model", "default"), **or what state it is in** ("Installed", "Stopped", "Not ready yet", "Fits", "Tight fit", "In use for chat", "confirms first", "online": INBOX 461 (1)) | `chip item-label`, 11px muted type on a **tinted pill without an edge** (`--chip-bg` at `--radius-pill`, `border: 0`; INBOX 553 (c), the owner's decision of 2026-10-05, matching the meta chips), one line, on every surface; `is-yours` takes the accent tint and ink for "you made or changed this" (and "in use"), `is-ok` the ok tint and icon for ready, `is-warn` the warn tint and ink for a request to look. The tone is the tint, never an edge. The Files tiles' "Read · N words" and a chat attachment's reading badge are this label too. Beside a heading it centres on the heading's text (measured within 0.7px by `badgeinv.js`). Not this recipe: a count (a number pill), a reading badge laid over a picture (it needs a ground), a fact on a facts line (`.chip.item-fact`), and the dashboard's "Editing layout", which is words by the owner's call. A model card's labels are a row of their own above its actions, one line (INBOX 468). A named item in a list (Settings' templates, skills, personas) is the row (title, label, facts, description) beside its actions, which are a right-hand column centred on the whole item and always shown | `tests/test_badge_recipe.py` (`test_a_status_label_is_a_tinted_pill_without_an_edge`), `scratchpad/ui-sweeps/badges.js`, `scratchpad/ui-sweeps/badgeinv.js`, `scratchpad/ui-sweeps/modelcardfoot.js` |
 
 The sweeps that say whether a new surface matches the rest are
 `errors.js`, `contrast.js` (text), `contrastui.js` (everything that is not
@@ -750,13 +751,13 @@ stands in for it), layered app icons, the background extension effect
 under sidebars (our sidebar is a content panel, not glass), title-case
 section headers.
 
-### Where this goes next
+### Where this went
 
-INBOX 100 (scroll edge effect), 101 (concentric radius token and lint),
-102 (clear variant: the token, built 2026-10-04), 103 (menus
-morph from their opener; sheets inset and opaque at full height), 104
-(phone tab bar recedes on scroll); UI Phase 9 carries 104. Each is a
-half-day for Opus with the measurement named on its INBOX line.
+The five items this section once queued are built: the scroll edge effect, the
+concentric radius token (`--radius-inner`), the clear glass variant with its
+`--text-on-glass`, menus that open out of the control that opened them, and the
+phone tab bar that recedes on scroll. What is still open is in
+[UI_MODERNISATION_PLAN.md](roadmap/UI_MODERNISATION_PLAN.md).
 
 ## Buttons: the ramp
 
@@ -1040,7 +1041,7 @@ Notes and Library sub-tab strips are segmented controls with their labels at
 FE-15: these segments measure 36px, not `--target-min`.)
 
 **The heights each role takes, measured** (audit 2026-10-05, FE-15,
-`census.js` at 1440 over every tab and Settings pane). This is the contract
+a height census at 1440 over every tab and Settings pane). This is the contract
 a new control is held to; a role gaining a height is a finding.
 
 | Role | Height | Where |
@@ -1165,42 +1166,29 @@ internally uniform, all `.ghost.small`).
 ## What is not done yet
 
 Recorded honestly, because this document should not read as further along than
-it is. See ROADMAP §35L.
+it is.
 
-- **Most of this has still not been checked in a browser**, but it now *can*
-  be, and the parts that were are marked as such. Chromium and Playwright are
-  in the sandbox and the app runs on localhost (CLAUDE.md has the recipe). The
-  chat header and dock were measured and screenshotted in both themes; the tab
-  bar was measured at five widths. Everything else here was reasoned from the
-  stylesheet and bounded so no single value moved more than 0.1rem, which is
-  not the same as verified. **Look at what you change; it costs a minute.**
-- **Motion** is a user setting a few components still ignore. Density is done,
-  it is a multiplier over the spacing scale now. Duration is done as of this
-  pass (the `--motion-*` scale above); *honouring* `prefers-reduced-motion`
-  everywhere is not, still per-component `@media` blocks, not a single rule.
-- **The tab bar** is at the width where another tab hurts, which matters for
-  the unbuilt Library tab (§4), decide whether it absorbs existing tabs or the
-  bar gains an overflow *before* building it.
-- **The timeline's line/branch view needs more than this pass gave it**,
-  screenshotted live (9 seeded notes, populated, not empty): the SVG canvas
-  reserves a fixed height regardless of content, so a normal note count
-  leaves most of the card blank below the spine; the active band has no
-  visible label painted on the canvas itself (only in the "N notes · N
-  bands" line above it); and notes sharing a bucket stack vertically with no
-  jitter or connecting structure, which reads as a pile, not a branch. None
-  of this is a token or colour problem, it's `renderTimelineBranch`'s own
-  layout math (`app.js`, §10C) sizing the canvas and placing dots without
-  regard to how much content is actually in it. A real fix is a layout
-  change, not a CSS pass, and risked being a half-implementation attempted
-  under this pass's own budget, scoped here instead of guessed at. See
-  ROADMAP item 10.
-- **The document editor was screenshotted live and looks fine**: title
-  field, outline, word count, toolbar, AI edit/extract-notes actions all
-  present and visually consistent with the rest of the app. Its real gap is
-  the one BACKLOG.md §5 already names (wiki-links, a slash menu,
-  live-preview editing, sub-pages), a feature/product question, not a
-  design one, and correctly out of this pass's scope.
-
+- **The test suite cannot see the interface.** Spacing, type, corners and the
+  recipe index are held by lints (`tests/test_style_scale.py`,
+  `tests/test_ui_recipes.py` and the others named above), and the standing
+  sweeps in `scratchpad/ui-sweeps/` measure a running app with
+  `getComputedStyle` and `getBoundingClientRect`. A change to a surface is
+  still driven in a real browser before it is called done. **Look at what you
+  change; it costs a minute.**
+- **Reduced motion is honoured per component.** Density is a multiplier over
+  the spacing scale and duration is the `--motion-*` scale above, but
+  `prefers-reduced-motion` is still a set of `@media` blocks in the stylesheets
+  that need one, not a single rule.
+- **Documents has no tab of its own, on purpose.** It was a tab once and moved
+  back: the complaint it answered was about being conflated with the Library's
+  catch-all view, so Documents now has a view of its own inside the Library. The
+  tab bar holds seven tabs and is at the width where another one hurts, so a
+  new top-level surface needs a decision about what it absorbs, or how the bar
+  overflows, before it is built.
+- **Per-surface design work is in the plans.** The Documents, Graph, Timeline,
+  Whiteboard, Chat and Mind map plans in `docs/roadmap/` each say what exists,
+  what disappoints and what comes next; this file holds the rules they are
+  held to, not their backlogs.
 
 ---
 

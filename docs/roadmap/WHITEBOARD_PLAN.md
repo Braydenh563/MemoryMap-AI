@@ -360,6 +360,12 @@ accessibility, and learnability") are why.
     hops on its straight runs over every line painted under it, so of two
     crossing lines only the upper one hops; the hitbox and the label keep
     the plain line.
+32. **A Mermaid subgraph is a frame** (decision 22: frames are the pages). A
+    node belongs to the first subgraph that names it; a subgraph is laid out
+    as one block inside its parent's rows, so its frame holds its members
+    and nothing else; an edge naming a subgraph joins its frame. The export
+    writes every frame that holds a joined item as a `subgraph` of its title
+    (the innermost frame; nested frames go out flat).
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 

@@ -27,6 +27,17 @@ remaining whiteboard rows; the open rest is in
   updated: the bend is `points`, and the right-click point avoids the bar,
   which covered it on the base too).
 
+- **Step 2, Mermaid subgraphs as frames** (decision 32).
+  `wbMermaidParse` reads `subgraph` and `end` (three title forms, nesting);
+  `wbMermaidLayout` lays each subgraph out as a block in its parent's rows
+  and returns `frames`; `wbImportMermaid` makes them innermost first under
+  everything (`wbFrameZ`); `wbBoardToMermaid` takes `frameOf`
+  (`wbMermaidFrameOf`) and writes subgraphs. `tests/test_wb_interchange.py`
+  10 (5 new); `wbmermaidframes.js` 11/11 at 1440 and 390, light and dark;
+  `wb1005-interchange.js` 8/8. The brief's other half, FreeMind keeping its
+  root, was already built (FEAT-01, `cc89dcb`,
+  `test_freemind_imports_its_single_root_as_the_central_topic`): not rebuilt.
+
 ## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
 
 From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN

@@ -71,6 +71,10 @@ with its owner named in the entry.
      Suggestions panel head, "Suggestions 5" on one line and its five icon
      buttons wrapped onto a second, right-aligned). Placed: with 549, the
      design agent.
+     Then (verbatim): "wrapping elements at the top of the dictionary"
+     (scratchpad/inbox552-dictionary-head.png: "Writing dictionary 3 words
+     (?)" on the first row, export, import and close wrapped onto a second).
+     The same head wrap as the Suggestions panel: one shared cause.
 
 553. **The owner's decisions, 2026-10-05** (asked, answered; binding):
      (a) Entity merge gets Undo: snapshot both entities and their mentions

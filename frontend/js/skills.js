@@ -120,12 +120,6 @@ async function renderSkillToolPicker(selected = []) {
   }
 }
 
-function chosenSkillTools() {
-  const box = $("skill-tool-list");
-  if (!box) return [];
-  return [...box.querySelectorAll("input:checked")].map((input) => input.value);
-}
-
 //: **The skill's postcondition, in the editor** (CHAT_PLAN decision 10b).
 //: `skills.normalise` has read and written a `verify` block since the harness
 //: landed and nothing offered one, so only the shipped skills could say what
@@ -171,30 +165,6 @@ function setSkillVerify(block) {
 function syncSkillVerifyRow() {
   const predicate = $("skill-verify-expect").value;
   $("skill-verify-value").classList.toggle("hidden", predicate === "unchanged");
-}
-
-//: The block the editor sends, or null. Built here rather than assembled in
-//: `addSkill` so the shape has one home: the server validates it again
-//: (`skills.verify_spec`) and its complaint is what the status line shows.
-function chosenSkillVerify() {
-  const tool = $("skill-verify-tool").value;
-  if (!tool) return null;
-  const predicate = $("skill-verify-expect").value;
-  const block = {
-    tool,
-    expect: {
-      [predicate]: predicate === "unchanged" ? true : Number($("skill-verify-value").value) || 0,
-    },
-  };
-  if ($("skill-verify-untagged").checked) {
-    block.args = { untagged: true };
-    //: `count_notes` answers a filtered question in `count` and an unfiltered
-    //: one in `total`, and the verifier tries `total` first, so a filtered
-    //: block that did not name its field would read the number it is
-    //: filtering away from.
-    block.field = "count";
-  }
-  return block;
 }
 
 // Run a skill. The server owns what a skill is, so this sends its name and

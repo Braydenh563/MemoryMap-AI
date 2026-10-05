@@ -199,8 +199,9 @@ async function renderAttachToDocument(entry, wrap) {
 //: stand-in for `renderNotePickerList` fetches this file on that first open;
 //: every caller fires it and forgets (none reads its result), so the list
 //: appears a moment late on the first open of a session. The row itself
-//: (`notePickerRow`) and each source's shape stay at boot: the whiteboard's
-//: pickers draw the same row synchronously.
+//: (`notePickerRow`, pick-row.js, which both bundles name) and each
+//: source's shape stay out of this file: the whiteboard's pickers draw the
+//: same row synchronously.
 
 async function notePickerRows(source) {
   if (source === "notes") return allEntries; // already in memory

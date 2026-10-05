@@ -11001,3 +11001,28 @@ function showDetailDialog(title, text) {
     ok.focus();
   });
 }
+
+//: **Remind me, from any object's menu** (WORLD_CLASS_PLAN 1.3, row 15): a
+//: note in the Library, a document, a board or a map. The text and one of
+//: the presets the Reminders form has; the exact time is the tab's own form.
+async function remindAbout({ title, entryId = null, documentId = null }) {
+  const answer = await promptDialog("Remind me", `Follow up: ${String(title || "").trim()}`.slice(0, 200), {
+    confirmLabel: "Set reminder",
+    segment: {
+      label: "When",
+      value: "tomorrow",
+      options: [
+        { value: "1h", label: "In an hour" },
+        { value: "tonight", label: "Tonight" },
+        { value: "tomorrow", label: "Tomorrow" },
+        { value: "nextweek", label: "Next week" },
+      ],
+    },
+  });
+  const text = answer && typeof answer.text === "string" ? answer.text.trim() : "";
+  if (!text) return false;
+  return addReminder(text, presetDate(answer.choice || "tomorrow"), entryId, { documentId }).catch((error) => {
+    toast(error.message, true);
+    return false;
+  });
+}

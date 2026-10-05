@@ -3535,12 +3535,14 @@ def test_the_attach_panel_rows_are_one_renderer_with_keys() -> None:
     checkbox visually hidden), pictures are a grid, and the keys walk it:
     arrows, Home and End, Enter is Done, the tabs' arrows switch source."""
     js = (ROOT / "frontend" / "js" / "chat-attach.js").read_text(encoding="utf-8")
-    # The list renderer is lazy (attach-to.js, op4-1005); the row stays at boot.
+    # The list renderer is lazy (attach-to.js, op4-1005); the row is lazy too
+    # (pick-row.js), named by the attachTo and library bundles.
     lazy = (ROOT / "frontend" / "js" / "attach-to.js").read_text(encoding="utf-8") + "\nfunction "
     render = _function_body(lazy, "renderNotePickerList")
     assert "async function renderNotePickerList" not in js
     assert "notePickerRow(shape, row)" in render and "renderNotePickerOtherSource" not in js
-    row = _function_body(js, "notePickerRow")
+    row_js = (ROOT / "frontend" / "js" / "pick-row.js").read_text(encoding="utf-8") + "\nfunction "
+    row = _function_body(row_js, "notePickerRow")
     assert '"visually-hidden note-picker-box"' in row and "richPickerTile(" in row and "note-picker-check" in row
     assert "grid: true" in _function_body(js, "notePickerShape")
     keys = _function_body(js, "notePickerKeydown")

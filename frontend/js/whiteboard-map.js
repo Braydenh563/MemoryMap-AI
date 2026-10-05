@@ -3949,6 +3949,79 @@ document.addEventListener("paste", (event) => {
   wbRecordGesture(wbMapPasteText, [text]);
 });
 
+// MAP-DOC-BEGIN
+//: **A map written as a document** (audit brief M5, the first half: "Write
+//: this map as a document"). The tree as the document's outline: one central
+//: topic is the title, its branches are `##` headings and theirs `###`
+//: (the document's own heading levels below its title), everything deeper is
+//: a nested list, and a topic's note is the paragraph under it (decision 18:
+//: a note is plain text, so it goes in as written). Several trunks keep the
+//: map's name as the title and each trunk is a `##`. Pure, so node tests it
+//: (tests/test_map_to_document.py).
+function wbMapTreeMarkdown(roots, mapTitle) {
+  const nodes = Array.isArray(roots) ? roots : [];
+  const one = nodes.length === 1 ? nodes[0] : null;
+  const title = ((one ? one.text : mapTitle) || "Untitled map").replace(/\s+/g, " ").trim();
+  const out = [];
+  const note = (n) => String(n?.style?.note || "").trim();
+  if (one && note(one)) out.push(note(one), "");
+  const walk = (list, depth) => {
+    for (const n of list) {
+      const text = String(n.text || "Untitled").replace(/\s+/g, " ").trim();
+      const kids = n.children || [];
+      if (depth < 2) {
+        out.push(`${"#".repeat(depth + 2)} ${text}`, "");
+        if (note(n)) out.push(note(n), "");
+        walk(kids, depth + 1);
+        if (depth === 1 && kids.length) out.push("");
+      } else {
+        const pad = "  ".repeat(depth - 2);
+        out.push(`${pad}- ${text}`);
+        for (const line of note(n) ? note(n).split("\n") : []) out.push(line.trim() ? `${pad}  ${line}` : "");
+        walk(kids, depth + 1);
+      }
+    }
+  };
+  walk(one ? one.children || [] : nodes, 0);
+  return { title, body: out.join("\n").replace(/\n{3,}/g, "\n\n").trim() };
+}
+// MAP-DOC-END
+
+//: The menu row and the palette row: written, saved as a new document that
+//: opens with a card of the map at its head (the board embed, so the
+//: document leads back to its map), and opened.
+async function wbMapWriteDocument() {
+  const boardId = window.currentBoardId;
+  if (!boardId || !wbIsMap()) return null;
+  let tree;
+  try {
+    tree = await apiJson(`/whiteboard/boards/${boardId}/tree`);
+  } catch (err) {
+    toast(err.message || "Couldn't read this map.", true);
+    return null;
+  }
+  //: The index may predate a map made a moment ago; it is refreshed once.
+  if (typeof mapBoardById === "function" && !mapBoardById(boardId) && typeof loadMapBoardIndex === "function") {
+    await loadMapBoardIndex(true).catch(() => null);
+  }
+  const board = (typeof mapBoardById === "function" && mapBoardById(boardId)) || { id: boardId, type: "map", title: "" };
+  const { title, body } = wbMapTreeMarkdown(tree.roots, board.title);
+  let doc;
+  try {
+    doc = await apiJson("/documents", {
+      method: "POST",
+      body: JSON.stringify({ title: title.slice(0, 200), content: `${boardEmbedMarkdown(board)}\n\n${body}\n` }),
+    });
+  } catch (err) {
+    toast(err.message || "Couldn't make that document.", true);
+    return null;
+  }
+  switchTab("documents");
+  await openDocument(doc.id);
+  toast(`Wrote “${title}” as a document.`);
+  return doc;
+}
+
 //: **The open map's commands in the command palette** (audit FEAT-11,
 //: 2026-10-05: the palette mentioned the board only as the AI's subject, so
 //: on the most control-dense surface nothing could be found by typing its
@@ -3988,6 +4061,7 @@ function mapPaletteCommands() {
   for (const [value, name] of [["tree-right", "Tree, to the right"], ["tree-left", "Tree, to the left"], ["tree-both", "Tree, both sides"], ["tree-down", "Tree, downward"], ["radial", "Radial"], ["free", "Free"]]) {
     if (value !== wbMapLayout()) row("Map layout", `ph:tree-structure Layout: ${name}`, () => wbMapSetLayout(value));
   }
+  row("This map", "ph:file-text Write this map as a document", () => wbMapWriteDocument());
   for (const [format, name] of [["markdown", "Markdown outline"], ["opml", "OPML"], ["freemind", "FreeMind (.mm)"]]) {
     row("Export the map", `ph:export Export as ${name}`, () => wbExportMapText(format));
   }

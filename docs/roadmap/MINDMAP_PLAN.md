@@ -1235,6 +1235,13 @@ topic: a control that wide has nowhere to go.
    at the widget's width and its natural height, at least 96px, at most
    168px for six topics or fewer and 320px otherwise, then fitted whole;
    the rest as rows. DESIGN.md's recipe row names the numbers.
+31. **A map writes itself as a document, one way first** (taken 2026-10-05,
+   the audit's brief M5, first half): the board menu's Write as a document
+   and the palette row make a new document titled after the central topic
+   (or the map, with several trunks), branches as `##`, theirs as `###`,
+   deeper topics as nested lists, notes as paragraphs, and the map's card
+   (`boardEmbedMarkdown`) at its head as the way back. "Map this document's
+   headings" (the other direction) and a back-link on the map are open.
 
 ### Phases, each with the gate it is finished against
 

@@ -9238,6 +9238,7 @@ async function initWhiteboard() {
   $("wb-clear-board")?.addEventListener("click", wbClearBoard);
   $("wb-delete-board")?.addEventListener("click", wbDeleteCurrentBoard);
   $("wb-add-to-note")?.addEventListener("click", wbAddBoardToNote);
+  $("wb-map-to-doc")?.addEventListener("click", () => wbMapWriteDocument());
   $("wb-copy-link")?.addEventListener("click", () => {
     const id = window.currentBoardId ?? null;
     if (id === null) return toast("The default board has no address. Make a board first.");

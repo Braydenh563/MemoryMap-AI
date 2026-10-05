@@ -19,6 +19,20 @@ Each row was checked against the head before anything was built.
   New note (`#tab-graph:has(.dock-fab) .graph-zoom`) closed it. `graphphone.js`
   now asserts it every run: the four buttons are hit at their centres and clear
   of `.dock-fab`.
+- **The OCR workspace head could not be measured**: it can, and it had the fault.
+  `wbtopbar.js` seeds the scan itself now (a page of text drawn in a second browser
+  context, uploaded as the app uploads, opened with `openOcrWorkspace`; the head
+  opens without Tesseract, its engine line saying it cannot read yet) and measures
+  `.ocr-toolbar` at 1440 and as a phone at 390: 6 controls, one centre line (spread
+  0px), 32px each at 1440 (bar 1340x36). At 390 the zoom track was 32px tall around
+  44px segments: `.ocr-head .seg` is `height: var(--control-h)`, and the touch rule
+  that lifts the segments to `--target-min` (`.sheet-card-page .ocr-toolbar
+  .seg-compact > button`) left the track alone, so the buttons stood 12px past it
+  and 6px below the zoom-out and zoom-in beside them (the `.doc-toolbar` and
+  `.library-head` fault, in the third head). The track grows round them below 600
+  (`height: auto; min-height: var(--target-min)`): 44 across the row, 0 findings at
+  1440 and 390, light and dark. The toolbar scrolls sideways at 390 (scrollWidth 740
+  in 358), by design. `ONLY=ocr` runs just this part of the sweep.
 - **The status bar folds into the top bar under 680 (WORLD_CLASS_PLAN, "the laptop
   screen is mostly chrome")**: measured, no overlap, nothing built. The fold would be
   a design change to the shell (the bar is its own band above 600 and folds away

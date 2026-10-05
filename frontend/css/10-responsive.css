@@ -2448,6 +2448,15 @@ header#top-bar,
     min-width: var(--target-min);
   }
 
+  /* And the track grows round them: `.ocr-head .seg` is `height:
+     var(--control-h)` (32px), so the 44px segments stood 6px below their
+     neighbours and 12px past their own track (`wbtopbar.js`, the OCR head at
+     390). */
+  .sheet-card-page .ocr-toolbar .seg-compact {
+    height: auto;
+    min-height: var(--target-min);
+  }
+
   /* Find, over the reading: a 343x20 box at this width, the one control in
      the reader that is neither in the head nor in the toolbar. */
   .sheet-card-page .ocr-find-input {

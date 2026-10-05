@@ -4553,3 +4553,15 @@ def test_the_autonomous_override_names_what_it_falls_back_to():
     body = _function_body(js, "renderAutonomousModelPicker")
     assert "Same as utility model (currently ${fallback})" in body
     assert "status.utility_model || status.chat_model" in body
+
+
+def test_the_ocr_toolbars_segment_track_grows_round_its_touch_buttons() -> None:
+    """OPEN.md, "the OCR workspace head": `.ocr-head .seg` is `height:
+    var(--control-h)`, and below 600 the segments lift to `--target-min`, so
+    the 32px page-size track sat 12px short of its 44px buttons and the
+    buttons 6px below their neighbours (`wbtopbar.js` with `ONLY=ocr`). The
+    track grows round them on the same band."""
+    css = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    at = css.index("  .sheet-card-page .ocr-toolbar .seg-compact {\n")
+    block = css[at : css.index("}", at)]
+    assert "height: auto;" in block and "min-height: var(--target-min);" in block

@@ -317,13 +317,7 @@ being written by running agents stay beside this one.
 ## Settings and help
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": INBOX 235, the Settings Help page and the Models order; INBOX 237, the built-in Librarian persona is Atlas; "Advanced response settings" sits 20.8px right of its siblings; `#settings-tools`'s intro; scratchpad/ui-sweeps/help-popovers.js is not built; "Not one of the seven tabs carries a `data-help-for` popover"; The learning loop's Settings section (I9's frontend) is not built.
-- **The OCR workspace head could not be measured.** `.ocr-toolbar` only exists
-  once a file is open in the OCR workspace and the seeded notebook has no path
-  to one without a real scan; `05-sidebars-themes.css:1269` names it beside
-  `.doc-toolbar` and `.library-head` as having had the same fault.
-  `wbtopbar.js` already has a probe pointed at it; the missing piece is a way
-  to get a scanned file into the sweep's notebook. [consistency.md]
-  *Needs: a scanned file in the sweep's notebook.*
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)": The OCR workspace head could not be measured.
 
 ## Backend
 

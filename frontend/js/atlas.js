@@ -564,17 +564,25 @@ const ATLAS_LOOKS = {
       { side: -1, seg: [[26.4, 71, 25.4, 77.4, 22.6, 82.6, 18.6, 84.4]], w: 3.8, specks: [[0.45, 0.24], [0.8, 0.2]] },
       { side: 1, seg: [[31.6, 82, 34.4, 85.6, 38.4, 90.6, 42.4, 98.6]], w: 2.9, specks: [[0.55, 0.22]] },
     ],
-    torso: "M25.6 35.4C22.2 38.6 21.4 43.4 22 47.8C22.6 52.4 24.4 57.4 27.2 61C29.2 63.4 32.8 63.4 34.8 61C37.6 57.4 39.4 52.4 40 47.8C40.6 43.4 39.8 38.6 36.4 35.4Z",
-    //: Arms hanging relaxed with a soft bend at the elbow, the forearm
-    //: angling back in; slimmer (4.4 at the shoulder to 1.8 at the wrist)
+    //: **A V, not an egg** (INBOX 564, the owner: "fix or redesign the male
+    //: main body on the atlas avatar instead of just being an oval"): the
+    //: torso is widest across the shoulders (18.4 at y 39, where the egg
+    //: was widest at the belly) and tapers to the hips (14 at y 55), where
+    //: the trail leaves it as wide as they are, like a cloak.
+    torso: "M25 35.4C21 37.2 21.2 42.4 22.6 47C23.6 50.4 23.6 55.2 26.2 60.4C28.6 63.6 33.4 63.6 35.8 60.4C38.4 55.2 38.4 50.4 39.4 47C40.8 42.4 41 37.2 37 35.4Z",
+    //: **Arms that hang** (INBOX 564, 567, 568, the owner: "the arms still
+    //: look separate and they stick straight out of the body and dont hang
+    //: naturally"): from the shoulder the upper arm drops 13 degrees off
+    //: vertical to the elbow, which bends 15 degrees, and the forearm falls
+    //: back in beside the hip; 4.4 at the shoulder to 1.8 at the wrist,
     //: with a smaller mitten (0.9).
-    armL: [[26.6, 40.6, 22.2, 42.6, 19.6, 47, 18.8, 51.4], [18.8, 51.4, 18.2, 54.6, 18.6, 57, 19.4, 59]],
-    arm: [[35.4, 40.6, 39.8, 42.6, 42.4, 47, 43.2, 51.4], [43.2, 51.4, 43.8, 54.6, 43.4, 57, 42.6, 59]],
+    armL: [[24.6, 40.4, 23.6, 43.4, 22.8, 46.6, 22.4, 49.6], [22.4, 49.6, 22, 52.6, 22.2, 55.4, 22.6, 57.8]],
+    arm: [[37.4, 40.4, 38.4, 43.4, 39.2, 46.6, 39.6, 49.6], [39.6, 49.6, 40, 52.6, 39.8, 55.4, 39.4, 57.8]],
     armWidth: [4.4, 1.8],
     armHands: [-1, 1],
     handScale: 0.9,
     //: Where the right mitten grips a bell or a lantern (`atlasHandProps`).
-    propHand: [42.2, 60.4],
+    propHand: [39.4, 59.6],
   },
   //: **The feminine look** (the owner: "the female designs I gave you are
   //: quite different"): no ear tufts, only a small fin swept back at each
@@ -694,12 +702,20 @@ const ATLAS_LOOKS = {
     ],
     flyaways: "M36.4 8.6C32.4 6.2 27.4 6.4 24.2 9M41.8 11.2C44.4 12.2 45.8 14.8 45.6 17.8M20.4 14.4C17.8 15.4 16.6 17.8 17 20.4M33.6 12.4C31.8 13.6 31 15.2 31.2 16.6",
     browStar: [39.6, 10.2, 1],
-    arm: [[35.6, 40.4, 41, 41.8, 46.2, 41.2, 50.2, 39.4]],
-    armL: [[26.4, 40.4, 21.6, 41.8, 18.6, 46.6, 18.2, 53.6]],
-    //: Her held-out arm ends at (50.2, 39.4): the bell and the lantern
-    //: hang from there, where they floated 23 units off (`atlasHandProps`).
-    propHand: [51.2, 39.6],
-    seeds: [[53.6, 36.4, 0.5], [55.8, 33, 0.4], [58.4, 30.4, 0.6], [56.6, 27, 0.35], [60.6, 27.4, 0.45], [62.2, 23.6, 0.35], [59, 34.8, 0.3]],
+    //: **Her arms hang** (INBOX 567, 568, the owner: "the arms still look
+    //: separate and they stick straight out of the body and dont hang
+    //: naturally"): the right arm, held out level to sow, now hangs as the
+    //: left does, the upper arm 13 degrees off vertical, a 13 degree bend
+    //: at the elbow, the forearm falling straight beside the hip; slimmer
+    //: (4.2 to 1.9, `armWidth`). A gesture turns it up from there (its mood
+    //: angles are the old ones less a right angle, the CSS). The seeds she
+    //: sows now drift down from the hanging hand, as the reference's star
+    //: particles fall from her hand.
+    arm: [[35.6, 40.4, 36.6, 43.4, 37.4, 46.6, 37.8, 49.6], [37.8, 49.6, 38.2, 52.6, 38.2, 55, 37.8, 57.2]],
+    armL: [[26.4, 40.4, 25.4, 43.4, 24.6, 46.6, 24.2, 49.6], [24.2, 49.6, 23.8, 52.6, 23.8, 55, 24.2, 57.2]],
+    armWidth: [4.2, 1.9],
+    propHand: [38, 59],
+    seeds: [[40, 60.6, 0.5], [42.2, 62.4, 0.4], [41.2, 65.4, 0.6], [44.2, 66.2, 0.35], [43, 69.2, 0.45], [46, 70.6, 0.35], [44.8, 63.6, 0.3]],
     //: **The hair, drawn full** (the owner, round 5: "flowing, voluminous";
     //: the definitive stand, 63.png, where the hair is a mass the size of
     //: the head rising from the crown and streaming back in thick wavy
@@ -2132,8 +2148,7 @@ function atlasBody(parent, id, props, look, route = null) {
           spec.seeds.forEach(([x, y, r], k) => {
             atlasMake("circle", { class: "atl-seed", cx: x, cy: y, r }, seeds).style.setProperty("--atl-k", String(k));
           });
-          atlasSpark(seeds, 58.4, 30.4, 1.4, "atl-glint atl-seed-star");
-          atlasSpark(seeds, 62.2, 23.6, 1, "atl-glint atl-seed-star");
+          for (const [k, size] of [[2, 1.4], [5, 1]]) atlasSpark(seeds, spec.seeds[k][0], spec.seeds[k][1], size, "atl-glint atl-seed-star");
         }
       }
     }

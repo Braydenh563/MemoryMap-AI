@@ -6520,7 +6520,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    put the left hand past her head and 41% of the arm out along the rings
    (atlasarms.js POSE=lie; the owner: "no arm resting on the orbit rings"). */
 #nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-l { transform: rotate(-30deg); }
-#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(110deg); }
+#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(20deg); }
 #nm-buddy[data-pose="lie-2"] .atl-layer-lower { rotate: -16deg; }
 #nm-buddy[data-pose="lie"] .atl-layer-lower { rotate: -42deg; }
 #nm-buddy .atl-layer-lower { transition: rotate calc(var(--motion-slow) * 2) var(--ease-spring); }
@@ -7721,20 +7721,20 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas[data-atlas-look="masculine"][data-atlas-mood="determined"] { --atl-ar0: -14deg; --atl-al0: 14deg; --atl-chin0: 0; --atl-ar1: -18deg; --atl-al1: 18deg; --atl-chin1: 0; --atl-ar2: 40deg; --atl-al2: -40deg; --atl-chin2: 0; }
 .nm-atlas[data-atlas-look="masculine"][data-atlas-mood="love"] { --atl-ar0: 60deg; --atl-al0: -60deg; --atl-chin0: 0; --atl-ar1: 70deg; --atl-al1: -66deg; --atl-chin1: 0; --atl-ar2: -120deg; --atl-al2: 0deg; --atl-chin2: 0; }
 .nm-atlas[data-atlas-look="masculine"][data-atlas-mood="worried"] { --atl-ar0: 70deg; --atl-al0: -70deg; --atl-chin0: 0; --atl-ar1: 58deg; --atl-al1: -58deg; --atl-chin1: 0; --atl-ar2: 76deg; --atl-al2: -20deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="happy"] { --atl-ar0: -15deg; --atl-al0: 25deg; --atl-chin0: 0; --atl-ar1: -60deg; --atl-al1: 20deg; --atl-chin1: 0; --atl-ar2: 10deg; --atl-al2: 30deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="delighted"] { --atl-ar0: -40deg; --atl-al0: 70deg; --atl-chin0: 0; --atl-ar1: -70deg; --atl-al1: 110deg; --atl-chin1: 0; --atl-ar2: -20deg; --atl-al2: 60deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="laughing"] { --atl-ar0: -20deg; --atl-al0: 30deg; --atl-chin0: 0; --atl-ar1: 0deg; --atl-al1: 20deg; --atl-chin1: 1; --atl-ar2: 60deg; --atl-al2: -30deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="thinking"] { --atl-ar0: 0deg; --atl-al0: -12deg; --atl-chin0: 1; --atl-ar1: 100deg; --atl-al1: -50deg; --atl-chin1: 0; --atl-ar2: 0deg; --atl-al2: -24deg; --atl-chin2: 1; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="curious"] { --atl-ar0: -25deg; --atl-al0: 0deg; --atl-chin0: 0; --atl-ar1: 0deg; --atl-al1: 30deg; --atl-chin1: 0; --atl-ar2: -40deg; --atl-al2: 10deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="surprised"] { --atl-ar0: -70deg; --atl-al0: 110deg; --atl-chin0: 0; --atl-ar1: -50deg; --atl-al1: 90deg; --atl-chin1: 0; --atl-ar2: -90deg; --atl-al2: 60deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="confused"] { --atl-ar0: 0deg; --atl-al0: 145deg; --atl-chin0: 0; --atl-ar1: -63deg; --atl-al1: 0deg; --atl-chin1: 0; --atl-ar2: 20deg; --atl-al2: 145deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="sleepy"] { --atl-ar0: 84deg; --atl-al0: -6deg; --atl-chin0: 0; --atl-ar1: 110deg; --atl-al1: -30deg; --atl-chin1: 0; --atl-ar2: -84deg; --atl-al2: -6deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="sad"] { --atl-ar0: 75deg; --atl-al0: -8deg; --atl-chin0: 0; --atl-ar1: 70deg; --atl-al1: -10deg; --atl-chin1: 0; --atl-ar2: 80deg; --atl-al2: -4deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="proud"] { --atl-ar0: 62deg; --atl-al0: -10deg; --atl-chin0: 0; --atl-ar1: 58deg; --atl-al1: -14deg; --atl-chin1: 0; --atl-ar2: 66deg; --atl-al2: -6deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="shy"] { --atl-ar0: 95deg; --atl-al0: -40deg; --atl-chin0: 0; --atl-ar1: 100deg; --atl-al1: -40deg; --atl-chin1: 0; --atl-ar2: 90deg; --atl-al2: -30deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="determined"] { --atl-ar0: 40deg; --atl-al0: 10deg; --atl-chin0: 0; --atl-ar1: 20deg; --atl-al1: 15deg; --atl-chin1: 0; --atl-ar2: 55deg; --atl-al2: -20deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="love"] { --atl-ar0: 115deg; --atl-al0: -70deg; --atl-chin0: 0; --atl-ar1: 100deg; --atl-al1: -60deg; --atl-chin1: 0; --atl-ar2: -60deg; --atl-al2: 20deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="worried"] { --atl-ar0: 120deg; --atl-al0: -75deg; --atl-chin0: 0; --atl-ar1: 110deg; --atl-al1: -65deg; --atl-chin1: 0; --atl-ar2: 100deg; --atl-al2: -20deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="happy"] { --atl-ar0: -105deg; --atl-al0: 25deg; --atl-chin0: 0; --atl-ar1: -150deg; --atl-al1: 20deg; --atl-chin1: 0; --atl-ar2: -80deg; --atl-al2: 30deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="delighted"] { --atl-ar0: -130deg; --atl-al0: 70deg; --atl-chin0: 0; --atl-ar1: -160deg; --atl-al1: 110deg; --atl-chin1: 0; --atl-ar2: -110deg; --atl-al2: 60deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="laughing"] { --atl-ar0: -110deg; --atl-al0: 30deg; --atl-chin0: 0; --atl-ar1: 0deg; --atl-al1: 20deg; --atl-chin1: 1; --atl-ar2: -30deg; --atl-al2: -30deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="thinking"] { --atl-ar0: 0deg; --atl-al0: -12deg; --atl-chin0: 1; --atl-ar1: 10deg; --atl-al1: -50deg; --atl-chin1: 0; --atl-ar2: 0deg; --atl-al2: -24deg; --atl-chin2: 1; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="curious"] { --atl-ar0: -115deg; --atl-al0: 0deg; --atl-chin0: 0; --atl-ar1: 0deg; --atl-al1: 30deg; --atl-chin1: 0; --atl-ar2: -130deg; --atl-al2: 10deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="surprised"] { --atl-ar0: -160deg; --atl-al0: 110deg; --atl-chin0: 0; --atl-ar1: -140deg; --atl-al1: 90deg; --atl-chin1: 0; --atl-ar2: -180deg; --atl-al2: 60deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="confused"] { --atl-ar0: 0deg; --atl-al0: 145deg; --atl-chin0: 0; --atl-ar1: -153deg; --atl-al1: 0deg; --atl-chin1: 0; --atl-ar2: -70deg; --atl-al2: 145deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="sleepy"] { --atl-ar0: -6deg; --atl-al0: -6deg; --atl-chin0: 0; --atl-ar1: 20deg; --atl-al1: -30deg; --atl-chin1: 0; --atl-ar2: -174deg; --atl-al2: -6deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="sad"] { --atl-ar0: -15deg; --atl-al0: -8deg; --atl-chin0: 0; --atl-ar1: -20deg; --atl-al1: -10deg; --atl-chin1: 0; --atl-ar2: -10deg; --atl-al2: -4deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="proud"] { --atl-ar0: -28deg; --atl-al0: -10deg; --atl-chin0: 0; --atl-ar1: -32deg; --atl-al1: -14deg; --atl-chin1: 0; --atl-ar2: -24deg; --atl-al2: -6deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="shy"] { --atl-ar0: 5deg; --atl-al0: -40deg; --atl-chin0: 0; --atl-ar1: 10deg; --atl-al1: -40deg; --atl-chin1: 0; --atl-ar2: 0deg; --atl-al2: -30deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="determined"] { --atl-ar0: -50deg; --atl-al0: 10deg; --atl-chin0: 0; --atl-ar1: -70deg; --atl-al1: 15deg; --atl-chin1: 0; --atl-ar2: -35deg; --atl-al2: -20deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="love"] { --atl-ar0: 25deg; --atl-al0: -70deg; --atl-chin0: 0; --atl-ar1: 10deg; --atl-al1: -60deg; --atl-chin1: 0; --atl-ar2: -150deg; --atl-al2: 20deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="worried"] { --atl-ar0: 30deg; --atl-al0: -75deg; --atl-chin0: 0; --atl-ar1: 20deg; --atl-al1: -65deg; --atl-chin1: 0; --atl-ar2: 10deg; --atl-al2: -20deg; --atl-chin2: 0; }
 
 /* The companion turns limbs about its own generic joints; Atlas's are
    higher and narrower, so they are named here, one step more specific. */
@@ -7755,7 +7755,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 /* Her right arm rests held out level, so his wave's -78 to -102 degrees
    swung her hand across her own face (atlasarms.js); hers waves beside her
    head, from level to about 65 degrees up. */
-#nm-buddy.nmb-act-wave .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(-40deg); }
+#nm-buddy.nmb-act-wave .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(-130deg); }
 .nm-atlas .nmb-hold { opacity: 0; }
 /* **A silhouette per pose** (the owner's sprite grid; the coordinator:
    "the poses are nearly one pose"). The companion's `data-pose` and its
@@ -7780,7 +7780,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 #nm-buddy[data-pose="sit"] .atl-figure .nmb-arm-r { transform: rotate(-13deg); }
 /* Dozing on the perch, her held-out arm comes down to her side instead of
    lying out along the rings (69% of it was, measured). */
-#nm-buddy[data-pose="sit"] .atl-figure[data-atlas-look="feminine"][data-atlas-mood="sleepy"] .nmb-arm-r { transform: rotate(84deg); }
+#nm-buddy[data-pose="sit"] .atl-figure[data-atlas-look="feminine"][data-atlas-mood="sleepy"] .nmb-arm-r { transform: rotate(-6deg); }
 #nm-buddy[data-pose="sit"]:not(.nmb-sleep) .atl-figure .nmp-coil { opacity: 1; }
 #nm-buddy[data-pose="float"] .atl-figure.nmb-leg-l { transform: rotate(-9deg) scaleY(0.94); }
 #nm-buddy[data-pose="float"] .atl-figure.nmb-leg-r { transform: rotate(9deg) scaleY(0.94); }
@@ -7788,7 +7788,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 #nm-buddy[data-pose="float"] .atl-figure .nmb-arm-r { transform: rotate(-28deg); }
 /* Floating, her held-out arm drifts down and out like his, not up over
    the rings (-28deg lifted a level arm to 38 degrees up). */
-#nm-buddy[data-pose="float"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(40deg); }
+#nm-buddy[data-pose="float"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(-50deg); }
 #nm-buddy[data-pose="float"]:not(.nmb-act-meditate) .nm-atlas { --atl-lean: -7deg; --atl-tail: 46deg; }
 #nm-buddy[data-pose="hang"] .nm-atlas { --atl-sy: 1.05; --atl-sx: 0.97; }
 #nm-buddy.nmb-act-startle .nmb-hold { opacity: 1; }
@@ -8959,10 +8959,12 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   16%, 48%, 80% { transform: rotate(-78deg); }
   32%, 64% { transform: rotate(-102deg); }
 }
+/* INBOX 568: her right arm hangs at rest, so the wave rises from there to
+   the old wave's angles less a right angle, and settles back. */
 @keyframes atl-buddy-wave-f {
   0%, 100% { transform: rotate(0deg); }
-  16%, 48%, 80% { transform: rotate(-32deg); }
-  32%, 64% { transform: rotate(-56deg); }
+  16%, 48%, 80% { transform: rotate(-122deg); }
+  32%, 64% { transform: rotate(-146deg); }
 }
 @keyframes atl-buddy-scratch {
   0%, 100% { transform: rotate(0deg); }

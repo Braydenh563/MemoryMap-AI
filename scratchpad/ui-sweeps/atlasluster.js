@@ -3,7 +3,7 @@
 //
 //   BASE=http://127.0.0.1:8823 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
 //     SCRATCH=/tmp/x REF_DIR=/tmp/x/base node scratchpad/ui-sweeps/atlasluster.js
-//   PART=fringe,wisps,dress,tail,hair,body,gap,masc,motion,cost  (default: all)
+//   PART=fringe,wisps,dress,tail,hair,arms,body,gap,masc,motion,cost  (default: all)
 //   RUNS=3        frame-cost runs (median)
 //   REF_DIR=dir   atlas.js and 08-consistency.css from before, served in
 //                 place of the app's (lib.js's OVERRIDE_*) for every "before"
@@ -24,6 +24,9 @@
 //   width, its filaments and their paint beside the wings'.
 // - hair (INBOX 567): her locks, their largest turn, and the pixels midway
 //   between neighbouring locks in the companion (the page in none).
+// - arms (INBOX 564, 567, 568): the rest pose's upper-arm angle off
+//   vertical, the elbow's angle, the wrist's width over the shoulder's, and
+//   the largest luminance step on a line across the shoulder join.
 // - body: the head's height over the figure's (head top to the lowest point
 //   of the body), the face's height over its width, her hips over her
 //   shoulders; now and before.
@@ -41,7 +44,7 @@ const { boot } = require('./lib.js');
 const fs = require('fs');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
-const PARTS = (process.env.PART || 'fringe,wisps,dress,tail,hair,body,gap,masc,motion,cost').split(',');
+const PARTS = (process.env.PART || 'fringe,wisps,dress,tail,hair,arms,body,gap,masc,motion,cost').split(',');
 const RUNS = Number(process.env.RUNS || 3);
 const REF_DIR = process.env.REF_DIR || '';
 const SCRATCH = process.env.SCRATCH || '/tmp';
@@ -465,8 +468,58 @@ async function hairPart() {
   return { ...shape, between: rgb.length, pageBetween: rgb.filter((c) => Math.max(...c.map((v, k) => Math.abs(v - BG[k]))) < 40).length };
 }
 
+//: INBOX 564, 567, 568: the arms at rest, both looks. From the drawn
+//: centreline: the upper arm's angle off vertical (15 or less), the angle
+//: at the elbow (160 to 170), and the width at the wrist over the width at
+//: the shoulder (0.7 or less), read off the arm's own outline. In the
+//: companion at 6x, calm, still: the luminance along a line across the
+//: shoulder, from the torso into the arm, its largest step between
+//: neighbouring samples (a seam would be a step).
+async function armsPart(ref) {
+  side(ref);
+  const out = await drawingPart(async (page) => {
+    const res = {};
+    for (const look of ['feminine', 'masculine']) {
+      await mountFigure(page, look, { still: true });
+      await page.waitForTimeout(900);
+      const got = await page.evaluate((look) => {
+        const spec = ATLAS_LOOKS[look];
+        const seg = spec.arm;
+        const ang = (a, b) => Math.atan2(b[0] - a[0], b[1] - a[1]) * 180 / Math.PI;
+        const p0 = seg[0].slice(0, 2);
+        const p1 = seg[0].slice(6, 8);
+        const p2 = seg.at(-1).slice(6, 8);
+        const upper = Math.abs(ang(p0, p1));
+        const elbow = 180 - Math.abs(ang(p0, p1) - ang(p1, p2));
+        const arm = document.querySelector('#luster-box .atl-layer-body .nmb-arm-r path.atl-skin');
+        const { pts } = window.__lusterOutline(arm);
+        const w = (t) => window.__lusterWidth(pts, atlasSegsAt(seg, t));
+        const box = document.getElementById('luster-box').getBoundingClientRect();
+        const m = arm.getScreenCTM();
+        const line = [];
+        for (let k = -3; k <= 3; k += 0.5) {
+          const q = new DOMPoint(p0[0] + k, p0[1] + 3).matrixTransform(m);
+          line.push([Math.round((q.x - box.left) * 6), Math.round((q.y - box.top) * 6)]);
+        }
+        return { upperFromVertical: +upper.toFixed(1), elbow: +elbow.toFixed(1), taper: +(w(0.8) / w(0.1)).toFixed(2), line };
+      }, look);
+      const file = `${SCRATCH}/atlasluster-arm-${look}.png`;
+      await (await page.$('#luster-box')).screenshot({ path: file });
+      const rgb = JSON.parse(execFileSync(PY, ['-c', RGB, file, JSON.stringify(got.line)]).toString());
+      const lum = rgb.map(([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b);
+      got.seamStep = +Math.max(...lum.slice(1).map((v, i) => Math.abs(v - lum[i]))).toFixed(1);
+      delete got.line;
+      res[look] = got;
+    }
+    return res;
+  });
+  side(false);
+  return out;
+}
+
 (async () => {
   const out = {};
+  if (PARTS.includes('arms')) out.arms = { now: await armsPart(false), ...(REF_DIR ? { before: await armsPart(true) } : {}) };
   if (PARTS.includes('hair')) out.hair = await hairPart();
   if (PARTS.includes('tail')) {
     out.tail = { now: await tailPart(false), ...(REF_DIR ? { before: await tailPart(true) } : {}) };

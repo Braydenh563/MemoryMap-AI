@@ -699,13 +699,15 @@ def test_a_sleeping_atlas_keeps_its_arms_off_the_rings():
     # scratchpad/ui-sweeps/atlasarms.js (MOODS=sleepy, and POSE=lie, sit):
     # the eye-rub turned the arm out over the rings, and her held-out arm
     # stayed out along them when dozing, sitting or lying.
-    for look, ar2 in (("masculine", "150deg"), ("feminine", "-84deg")):
+    # INBOX 568: her right arm hangs at rest, so her angles are the old ones
+    # less a right angle (the eye-rub's -84 is -174).
+    for look, ar2 in (("masculine", "150deg"), ("feminine", "-174deg")):
         rule = re.search(rf'\[data-atlas-look="{look}"\]\[data-atlas-mood="sleepy"\] \{{([^}}]+)\}}', CSS).group(1)
         assert f"--atl-ar2: {ar2}" in rule, (look, "the eye-rub crosses the body to the face")
         angles = dict(re.findall(r"--atl-(a[rl]\d): (-?\d+)deg", rule))
         assert abs(int(angles["al0"])) <= 10 and abs(int(angles["al2"])) <= 10, (look, "the left arm hangs")
     assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-l { transform: rotate(-30deg); }' in CSS
-    assert '#nm-buddy[data-pose="sit"] .atl-figure[data-atlas-look="feminine"][data-atlas-mood="sleepy"] .nmb-arm-r { transform: rotate(84deg); }' in CSS
+    assert '#nm-buddy[data-pose="sit"] .atl-figure[data-atlas-look="feminine"][data-atlas-mood="sleepy"] .nmb-arm-r { transform: rotate(-6deg); }' in CSS
 
 
 def test_the_props_hang_from_each_look_s_own_hand():
@@ -713,8 +715,9 @@ def test_the_props_hang_from_each_look_s_own_hand():
     # old arm's hand: measured by scratchpad/ui-sweeps/atlasprop.js, they sat
     # 2.1 to 3.9 units off the masculine mitten and about 18 off her held-out
     # hand. Each look names its grip and the props move there.
-    assert "propHand: [42.2, 60.4]" in _look("masculine")
-    assert "propHand: [51.2, 39.6]" in _look("feminine")
+    # INBOX 568: both hang their arms at rest, and the grips moved with the hands.
+    assert "propHand: [39.4, 59.6]" in _look("masculine")
+    assert "propHand: [38, 59]" in _look("feminine")
     assert "atlasHandProps(arms.r, arms.l, look);" in ATLAS
     assert "const grip = (ATLAS_LOOKS[look] || {}).propHand || hand;" in ATLAS
 
@@ -942,3 +945,24 @@ def test_a_slender_figure_and_a_smaller_oval_head():
     assert (max(ys) - min(ys)) / (max(xs) - min(xs)) >= 1.2
     assert ".nm-atlas:not(.atl-head, .atl-tiny) { --atl-head-k: 0.76; }" in CSS
     assert CSS.count("scale(calc(var(--atl-tune-head) * var(--atl-head-k)))") == 2, "the head and the lids' layer scale together"
+
+
+def test_both_looks_hang_their_arms_at_rest_with_a_soft_elbow():
+    # INBOX 564, 567, 568, the owner: "the arms still look separate and they
+    # stick straight out of the body and dont hang naturally. it needs to be
+    # organic". At rest the upper arm is 15 degrees or less off vertical,
+    # the elbow bends to 160 to 170 degrees and the arm tapers (atlasluster.js
+    # measures the drawn arm: 13.4, 166.6 and 165.2, wrist over shoulder 0.54
+    # and 0.52). Gestures turn the arm up from there.
+    import math
+
+    for look in ("masculine", "feminine"):
+        spec = _look(look)
+        for key in ("arm", "armL"):
+            segs = re.search(rf"    {key}: (\[\[.*\]\]),\n", spec).group(1)
+            nums = [float(v) for v in re.findall(r"-?[0-9.]+", segs)]
+            assert len(nums) == 16, (look, key, "an upper arm and a forearm")
+            p0, p1, p2 = nums[0:2], nums[6:8], nums[14:16]
+            ang = lambda a, b: math.degrees(math.atan2(b[0] - a[0], b[1] - a[1]))  # noqa: E731
+            assert abs(ang(p0, p1)) <= 15, (look, key, ang(p0, p1))
+            assert 160 <= 180 - abs(ang(p0, p1) - ang(p1, p2)) <= 170, (look, key)

@@ -542,9 +542,6 @@ pane's name, the errors sweep's aside clipping at 390.
   [boardmap-1005, small-1005]
   *Left: the whiteboard's own rail, owned by the WHITEBOARD plan's agent.*
 
-- **Skeletons: the Library and Documents views read BLANK at 1440 and 390**
-  (`skeletons.js`; the held requests chain, so the list is probably reached
-  after 300 ms): measure before deciding. [boardmap-1005, small-1005]
 - **Phone selection menus and the selection bar** (documents): iOS and Android
   draw Cut, Copy and Paste above a selection, where the bar also goes; if a
   report arrives the bar goes below the selection on `(pointer: coarse)` (one

@@ -203,28 +203,7 @@ being written by running agents stay beside this one.
 - ~~The table cell menu is a kebabMenu with ten items and no grouping~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~Atomic ranges, the Mod+click affordance and the toolbar's own state~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~Outline rows are 24 to 25.2px, under the app's own 28px floor~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- **The rest of the app's viewport popups have not been measured with the
-  background art on.** Still open, but **the blocker is gone**: this row used
-  to sit behind "the trigger cannot be reproduced in this sandbox", and that
-  is now known to be false. With `data-bg-art="on"` a `.card` reports
-  `backdrop-filter: blur(14px) saturate(1.5) brightness(1.02)` in this
-  Chromium, and a `position: fixed` child written to `left: 0; top: 0` inside
-  `.card.doc-main` lands at x=293 against the card's own x=292, so the card is
-  its containing block and the real property traps a real popup. `kebabMenu`
-  (`wireEscapedActionMenu`) and the toolbar dropdowns (`clampToolbarMenu`) are
-  covered; the chat dock's popovers, the selection popup, the whiteboard's
-  context menu and `.wb-board-menu` (`escapeAndCapMenu`) are not.
-  **What the next session needs, and what cost this one the item**: the sweep
-  is four openers and four selectors, and guessing them produced four failures
-  that were the probe's and not the app's, which is worse than no sweep. Find
-  each opener in the page first. One is already established: the selection
-  popup cannot be raised from the capture box at all, because
-  `SELECTION_POPUP_EXCLUDED` in app.js is
-  `"input, textarea, [contenteditable], .selection-popup"`, so it needs a
-  selection over *rendered* text. Then assert the two things `spellwide.js`
-  asserts, the parent and the trap, and report a popup that would not open as
-  not measured rather than as passing. [editor-intelligence.md]
-  *Opus: four openers must be found in the page first, then a sweep built and read.*
+- ~~The rest of the app's viewport popups have not been measured with the background art on~~ Closed: measured clean, no change needed. The account is in HISTORY.md, "Moved from the plans, 2026-10-04 (design-1004)".
 - ~~clampToolbarMenu's comment says the trigger cannot be reproduced here, and that is now out of date~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - **The word menu measures its own width before it is placed.** A
   `position: fixed` box with `left` set and no `right` is shrink-to-fit, so a

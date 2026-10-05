@@ -3997,6 +3997,11 @@ function setNotesRailHidden(hidden) {
   $("notes-rail-toggle")?.addEventListener("click", () => {
     setNotesRailHidden(!notesRailHiddenByChoice());
     $("notes-more-menu")?.removeAttribute("open");
+    //: Said when nothing would change on screen (INBOX 546, the owner: "idk
+    //: if [it] does anything"): the column only shows beside an open note.
+    if (!notesRailHiddenByChoice() && notesRailId == null) {
+      toast("Connections show beside a note when you open one.");
+    }
   });
   //: The keys every list here keeps (WORLD_CLASS_PLAN 1.6): arrows walk the
   //: rows, Enter opens one (they are buttons), Escape goes back to the list.

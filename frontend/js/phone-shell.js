@@ -1456,6 +1456,12 @@ function openPhoneMoreSheet() {
         close();
         toggleAgentPalette();
       }));
+      //: The command palette, which a phone had no way to open (no Ctrl+K,
+      //: and More's Find opens the search): found by the deep-flows sweep.
+      list.appendChild(sheetRow("ph ph-command tab-icon", "Commands", () => {
+        close();
+        if (typeof openPalette === "function") openPalette();
+      }));
       list.appendChild(sheetRow("ph ph-question tab-icon", "Guide", () => {
         close();
         //: settings.js owns the Guide sheet and loads beside this file.

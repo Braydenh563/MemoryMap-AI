@@ -193,14 +193,26 @@ let settingsIndexWatch = null;
 //: pane's own title, not the ones in a popover or a hidden group.
 function settingsIndexHeads(pane) {
   const heads = [];
+  const title = settingsPaneTitleHead(pane);
   for (const h of pane.querySelectorAll("h3")) {
     if (h.closest(".help-body, .settings-pane-title, .settings-index")) continue;
     if (!h.getClientRects().length) continue;
     const label = (h.dataset.indexLabel || h.textContent).replace(/\s+/g, " ").trim();
-    if (!label || h === pane.querySelector(":scope > .help-head > h3")) continue;
+    if (!label || (title && h === title.querySelector("h3"))) continue;
     heads.push({ el: h, label });
   }
   return heads;
+}
+
+//: The pane's own title: a `.settings-pane-title`, or a `.help-head` only
+//: when it opens the pane. A `.help-head` further down is a group's head
+//: (Tasks ends with "Quit MemoryMap" as one), and anchoring the strip after
+//: it put the strip at the bottom of the pane (INBOX 541).
+function settingsPaneTitleHead(pane) {
+  const title = pane.querySelector(":scope > .settings-pane-title");
+  if (title) return title;
+  const first = [...pane.children].find((c) => !c.matches(".settings-index") && c.getClientRects().length);
+  return first?.matches(".help-head") ? first : null;
 }
 
 function settingsIndexOffset(nav) {
@@ -274,8 +286,11 @@ function settingsIndexBuild(name) {
   const scroller = settingsScroller(name);
   const existing = pane.querySelector(":scope > .settings-index");
   const heads = settingsIndexHeads(pane);
-  const long = scroller && pane.scrollHeight > scroller.clientHeight * 1.5;
-  if (heads.length < 4 || !long) {
+  //: **Every section with three or more groups has one** (INBOX 541, the
+  //: owner: "some dont have any at all"). It used to need four heads and a
+  //: pane half again as tall as the window, so whether a section had a strip
+  //: changed with the window's height.
+  if (heads.length < 3 || !scroller) {
     existing?.remove();
     return;
   }
@@ -301,7 +316,7 @@ function settingsIndexBuild(name) {
     link.addEventListener("click", () => settingsIndexGo(name, link._head));
     nav.appendChild(link);
   }
-  const anchor = pane.querySelector(":scope > .settings-pane-title, :scope > .help-head");
+  const anchor = settingsPaneTitleHead(pane);
   if (anchor) anchor.after(nav);
   else pane.prepend(nav);
   if (scroller && !settingsIndexScrollers.has(scroller)) {
@@ -335,7 +350,7 @@ function settingsIndexWatchSection(name) {
   };
   requestAnimationFrame(build);
   setTimeout(build, 700);
-  if (pane.querySelectorAll("h3").length < 4) return;
+  if (pane.querySelectorAll("h3").length < 3) return;
   let timer = null;
   settingsIndexWatch = new MutationObserver((records) => {
     if (records.every((r) => r.target.closest?.(".settings-index"))) return;

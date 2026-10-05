@@ -43,21 +43,13 @@ with its owner named in the entry.
      undo and redo across the application needs to cover EVERYTHING" Data
      loss: first.
 
-538. **The owner, 2026-10-05, verbatim.** "Im using a thinking model that can
-     use toolcalling but it fails??" (screenshots: gemma-4-E2B, spec sheet
-     "Can use tools: yes", the answer card says it "can't call tools, so this
-     answered as a plain question instead of using Agent mode").
-
-539. **The owner, 2026-10-05, verbatim.** "when I switch between tabs in the
-     top bar, the pill element for the tabs shifts position slightly
-     horizontally."
-
 540. **The owner, 2026-10-05, verbatim.** "one of the feminine atlas blinking
      animations has MASSSSIVE eyebrows."
-
-541. **The owner, 2026-10-05, verbatim.** "some of the settings section
-     navigation rows are at the bottom and some dont have any at all??"
-     (screenshot: Quit MemoryMap with its sub-tab row under the title).
+     Not reproduced (2026-10-05): the live companion drawn at 6x, feminine
+     and masculine, six poses by nine moods/acts, the blink lids sit within
+     2px of the eyes and the closed-eye stroke and lashes are their usual
+     size; mid-blink frames looked at. Needs the owner: a screenshot of the
+     moment, or which pose/mood it was in (sitting, lying, drowsy, startled).
 
 542. **The owner, 2026-10-05, verbatim.** "some of the badge icons and text
      arent aligned vertically." (screenshot: the Installed badge in Settings,
@@ -67,21 +59,14 @@ with its owner named in the entry.
      moderna dn professional redesigning and restructuring." (screenshot: the
      calendar strip under the dock).
 
-544. **The owner, 2026-10-05, verbatim.** "the graph arc view starts a little
-     too close and too high up on the screen."
-
-545. **The owner, 2026-10-05, verbatim.** "the clear button in the note
-     capture tab clashes with the text box."
-
-546. **The owner, 2026-10-05, verbatim.** "idk if the "connections beside an
-     open note" in the notes tab does anything."
-
-547. **The owner, 2026-10-05, verbatim.** "also what are topics in the graph??
-     can i change or modify or see topics in the graph or elsewhere??"
-
 548. **The owner, 2026-10-05, verbatim.** "redesign old ui popups like this as
      well to be consistent, moderna and professional." (screenshot: the mind
      map's "Point a new node at..." picker).
+
+549. **The owner, 2026-10-05, verbatim.** "can you also better redesign and
+     restructure the document editor suggestions panel?? for both docks"
+     (`#doc-prose-panel`, opened from the toolbar's Suggestions button and
+     the focus dock's). Placed: the design agent after 548.
 
 525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
      dark background behind the graph labels togglable??" Next Opus: the

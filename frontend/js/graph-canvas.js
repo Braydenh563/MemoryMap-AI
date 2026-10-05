@@ -1106,7 +1106,17 @@ function gcShowTopic(topic, colour) {
   const size = document.createElement("span");
   size.className = "muted";
   size.textContent = `${topic.size} notes`;
-  head.append(dot, name, size, smallButton("ph:x", "Close the topic", gcHideTopic));
+  //: INBOX 547: a topic's name is found, and can be replaced by one of your
+  //: own; an empty name brings the found one back.
+  const rename = smallButton("ph:pencil-simple", "Rename the topic", () => gcRenameTopic(topic, colour));
+  rename.classList.add("icon-only");
+  head.append(dot, name, size, rename);
+  if (topic.named) {
+    const back = smallButton("ph:arrow-counter-clockwise", `Use the found name, ${topic.found_name}`, () => gcRenameTopic(topic, colour, true));
+    back.classList.add("icon-only");
+    head.append(back);
+  }
+  head.append(smallButton("ph:x", "Close the topic", gcHideTopic));
   head.lastChild.classList.add("icon-only");
   const terms = document.createElement("p");
   terms.className = "muted graph-topic-terms";
@@ -1148,6 +1158,23 @@ function gcShowTopic(topic, colour) {
   if (known) say(known);
   box.replaceChildren(head, terms, summary, actions);
   box.classList.remove("hidden");
+}
+
+//: `promptDialog` answers "" for Cancel, so an empty name is never sent from
+//: it; the card's own reset button sends one.
+async function gcRenameTopic(topic, colour, reset = false) {
+  const found = topic.found_name || topic.name;
+  const wanted = reset ? "" : await promptDialog(`Rename "${topic.name}"`, topic.name, { confirmLabel: "Rename" });
+  if (!reset && !wanted) return;
+  const row = await apiJson("/graph/topics/name", { method: "PUT", body: JSON.stringify({ ids: topic.ids, name: wanted }) }).catch(() => null);
+  if (!row) return;
+  topic.found_name = found;
+  topic.named = Boolean(row.name);
+  topic.name = row.name || found;
+  const item = document.querySelector(`#graph-legend [data-topic="${topic.id}"]`);
+  if (item?.lastChild) item.lastChild.textContent = `${topic.name} (${topic.size})`;
+  gcShowTopic(topic, colour);
+  gcRequestDraw();
 }
 
 const GC_HOVER_GROW = 3;         // half the gap from a core to its own halo
@@ -3952,7 +3979,7 @@ function graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour =
   //: notebook does; its entry says those terms and finds its notes.
   if (colourMode === "topic" && graphStructure?.topics) {
     for (const topic of graphStructure.topics) {
-      entry(
+      const item = entry(
         `${topic.size} notes` + (topic.terms.length ? `: ${topic.terms.map((t) => `${t.term} (${t.notes})`).join(", ")}` : ""),
         clusterColour(String(topic.id)),
         `${topic.name} (${topic.size})`,
@@ -3962,6 +3989,7 @@ function graphRenderLegend(data, colourMode, colour, clusterColour, ruleColour =
           gcShowTopic(topic, clusterColour(String(topic.id)));
         }
       );
+      item.dataset.topic = topic.id;
     }
     return;
   }

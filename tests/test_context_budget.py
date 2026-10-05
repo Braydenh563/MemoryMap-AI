@@ -198,12 +198,15 @@ def test_every_generation_path_sends_the_options():
 
     source = Path(OllamaClient.__module__.replace(".", "/") + ".py")
     text = (Path("src") / source).read_text(encoding="utf-8")
-    # Five, not four: `_tools_path_is_broken` is a real generation request too
-    #, a one-token probe that decides whether a 500 on the tools path means
-    # "this model can't do tool calls" or "the backend is down", and it has to
-    # carry the same options as the request it is standing in for, or it would
-    # be testing a different thing from the one that failed.
-    assert text.count("self.runtime_options(model") == 5
+    # Four: chat, stream, `_tools_post` (both tools paths, streamed and not,
+    # post through it since INBOX 538 gave it a retry), and
+    # `_tools_path_is_broken`, a one-token probe that decides whether a 500 on
+    # the tools path means "this model can't do tool calls" or "the backend
+    # is down", which has to carry the same options as the request it stands
+    # in for. Every `/api/chat` post is one of these four.
+    assert text.count("self.runtime_options(model") == 4
+    assert text.count('f"{self.base_url}/api/chat"') == 4
+    assert text.count("self._tools_post(model") == 2
 
 
 # --- the agent actually uses it ---------------------------------------------

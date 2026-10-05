@@ -329,10 +329,10 @@ class _Rounds:
         yield {"final": {"content": "Done.", "tool_calls": []}}
 
 
-def _rounds(monkeypatch, question, model="qwen2.5-3b-instruct"):
+def _rounds(monkeypatch, question, model="qwen2.5-3b-instruct", session=None):
     fake = _Rounds()
     monkeypatch.setattr(agent.tools, "execute_tool", lambda *a, **k: {"results": []})
-    list(agent.run_agent(_Session(), question, [], _Named(model), fake))
+    list(agent.run_agent(session or _Session(), question, [], _Named(model), fake))
     return fake.rounds
 
 
@@ -417,3 +417,32 @@ def test_a_large_model_s_first_round_is_not_narrowed(monkeypatch, app_state):
         rounds = _rounds(monkeypatch, question, model="qwen3:14b")
         assert rounds[0][0] == rounds[1][0], question
         assert not rounds[0][1]
+
+
+def test_filing_a_note_under_a_category_that_exists_is_not_offered_a_new_category(monkeypatch, app_state, session):
+    """Qwen2.5-3B, forced: "File the dentist note under Health" opened once
+    with `create_category`. Where "Health" is already a category the round
+    offers the note edit, not the category's creation."""
+    from memorymap.entry import manager
+
+    manager.get_or_create_category(session, "Health")
+    session.commit()
+    first, forced = _rounds(monkeypatch, "File the dentist note under Health", session=session)[0]
+    assert forced
+    assert "edit_note" in first and "search_notes" in first
+    assert "create_category" not in first, first
+
+
+def test_filing_under_a_category_that_does_not_exist_may_still_create_it(monkeypatch, app_state, session):
+    first, forced = _rounds(monkeypatch, "File the dentist note under Health", session=session)[0]
+    assert forced and "edit_note" in first
+    assert "create_category" in first, first
+
+
+def test_the_category_is_offered_again_on_the_round_after(monkeypatch, app_state, session):
+    from memorymap.entry import manager
+
+    manager.get_or_create_category(session, "Health")
+    session.commit()
+    second, forced = _rounds(monkeypatch, "File the dentist note under Health", session=session)[1]
+    assert not forced and "create_category" in second

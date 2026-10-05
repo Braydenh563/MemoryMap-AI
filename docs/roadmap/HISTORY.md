@@ -7,6 +7,64 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN 94 and 282, found built)
+
+Found built in UI_MODERNISATION_PLAN.md and still standing there whole; moved
+verbatim (op4-1005): a plan holds open work only.
+
+94. **Background animations: fix, refine and improve.** Owner: UI Phase 3
+    follow-up (Opus): each style gets a measured frame cost, a still frame
+    under Performance mode, no seams at the edges, the intensity slider
+    changes something visible at every step.
+
+    Three of the four are done and are in HISTORY.md ("Moved from the plans,
+    2026-09-09"): the frame cost per style is measured and printed by
+    `scratchpad/ui-sweeps/bgart.js` (aurora +21ms, constellation +20ms,
+    waves +17ms, bubbles +17ms, mesh +28ms with a 167ms worst frame, over a
+    16.6ms idle baseline, headless and therefore software-rasterised);
+    Performance mode now stops the art dead, which it did not before because
+    `bg-motion: moving` bypassed the only test it reached the art through;
+    and there are no seams (the canvas is resized with the window and covers
+    it exactly at 1440x900, 900x1200 and 1600x800). Two of the five styles
+    also ignored the intensity slider's density and now scale with it.
+
+    **What is left is the fourth**: does the slider change something a
+    person notices at *every* step? Two ways of measuring it failed and both
+    are written into the sweep so they are not repeated: ink on the canvas
+    varies more between two boots of the same settings than it does across
+    the slider (every style places its marks with `p.random`), and the frame
+    cost at the two ends moves by less than the environment's noise. The
+    honest next step is a human looking at five screenshots, or a change of
+    design so the slider drives something with a large signature (the wash's
+    own alpha, say) rather than the population alone.
+
+282. **Found by errors.js while sweeping the writing desk, 2026-09-20.**
+    `[settings/extras] section scrolls sideways 496>492` at 820px, and only
+    at 820: 1440, 1024 and 390 are clean. Four pixels, so it is one control
+    or one row with a fixed width rather than the layout. Recommendation:
+    find the child whose `scrollWidth` is 496 at that width and let it
+    shrink, the same `min-width: 0` answer the dock heads take. Owner:
+    settings.
+
+**Found built, re-measured 2026-10-05 (op4-1005).** 94's fourth item: the
+slider already drives the wash's own alpha, the design change the entry
+asked for: `--bg-art-opacity` is the slider over 100 (settings.js,
+theme-boot.js) and `.bg-art-canvas` takes it as its opacity
+(03-dashboard-widgets.css), beside the density it already scaled. Measured
+with the art on (aurora, moving), the slider at 20 to 100 in steps of 10:
+the canvas's computed opacity 0.2, 0.3 ... 1.0, one tenth at every step.
+282: Settings, Packages at 780, 800, 820, 840 and 1024 wide: the section's
+`scrollWidth` equals its `clientWidth` at every one (476/476 at 820) and no
+child scrolls sideways; it no longer reproduces.
+
+**Found by the same pass and fixed**: `contrast.js` at 1440 and 390, light,
+reported one low-contrast text in Settings, the same before and after the
+`--field-inset` change: "Built-in" on a Skills row, `--muted` on
+rgb(219, 219, 221), 4.27:1, the fold's, the row's and the label's own tints
+stacked. A label on a Settings list row (`.skill-row`, `.persona-row`) takes
+`--ink` now, as the ok label already did (08-consistency.css). After:
+`ONLY=settings contrast.js` 0 findings in light and in dark at 1440.
+
 ## OPEN.md rows closed, 2026-10-05 (op4-1005: the concentric rollout)
 
 Decided, recorded in DESIGN.md rule 3 ("The rollout, decided 2026-10-05"), built and linted by op4-1005: a painted surface nested inside a rounded container nearer its edge than the container's radius takes --radius-inner; controls and interactive rows (buttons, fields, chips, segments, summaries, check rows) keep their tier; a surface inset by the radius or more is its own shape. A probe at the 16px corner setting over six tabs and every Settings section: none inside a .card out of concentric; .theme-preview, .theme-swatch and .setup-snippet were, and are on the token (tests/test_style_scale.py, test_the_nested_surfaces_are_concentric). The row, verbatim:

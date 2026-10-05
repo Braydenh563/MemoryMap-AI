@@ -4092,6 +4092,14 @@ body .chip.item-label,
   color: var(--accent-text);
 }
 
+/* A label in a Settings list row sits on three tints (the fold's, the row's
+   and its own): "Built-in" in Settings, Skills measured 4.27:1 in light
+   (contrast.js, op4-1005), muted on rgb(219, 219, 221). It takes the ink,
+   the same answer the ok label below took for the same reason. */
+.entry-list > li > :is(.skill-row, .persona-row) .chip.item-label:not(.is-yours):not(.is-ok) {
+  color: var(--ink);
+}
+
 /* Muted type on the ok tint measured 4.44:1 in light ("Installed",
    contrast.js), so the ready label takes the ink; the icon carries the ok. */
 :is(.entry-meta, .skill-card-header, .sampling-row, body) .chip.item-label.is-ok {

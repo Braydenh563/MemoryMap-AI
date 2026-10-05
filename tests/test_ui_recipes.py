@@ -4474,3 +4474,15 @@ def test_an_empty_line_in_a_small_panel_is_the_recipe():
     rule = next(body for sel, body in _rules(css) if sel.strip() == ".empty-line")
     for part in ("var(--muted)", "var(--text-md)", "text-align: start", "margin: var(--space-3) 0"):
         assert part in rule, f".empty-line lost {part}"
+
+
+def test_a_label_on_a_settings_list_row_takes_the_ink():
+    """`contrast.js` (op4-1005): "Built-in" on a Settings, Skills row read
+    4.27:1 in light, `--muted` on three stacked tints (the fold, the row, the
+    label). A label there takes `--ink`, as the ok label already does."""
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    rule = next(
+        body for sel, body in _rules(css)
+        if ".entry-list > li > :is(.skill-row, .persona-row) .chip.item-label" in sel
+    )
+    assert "color: var(--ink)" in rule

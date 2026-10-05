@@ -1188,31 +1188,7 @@ menus that open out of their opener.
 
 104. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
 
-94. **Background animations: fix, refine and improve.** Owner: UI Phase 3
-    follow-up (Opus): each style gets a measured frame cost, a still frame
-    under Performance mode, no seams at the edges, the intensity slider
-    changes something visible at every step.
-
-    Three of the four are done and are in HISTORY.md ("Moved from the plans,
-    2026-09-09"): the frame cost per style is measured and printed by
-    `scratchpad/ui-sweeps/bgart.js` (aurora +21ms, constellation +20ms,
-    waves +17ms, bubbles +17ms, mesh +28ms with a 167ms worst frame, over a
-    16.6ms idle baseline, headless and therefore software-rasterised);
-    Performance mode now stops the art dead, which it did not before because
-    `bg-motion: moving` bypassed the only test it reached the art through;
-    and there are no seams (the canvas is resized with the window and covers
-    it exactly at 1440x900, 900x1200 and 1600x800). Two of the five styles
-    also ignored the intensity slider's density and now scale with it.
-
-    **What is left is the fourth**: does the slider change something a
-    person notices at *every* step? Two ways of measuring it failed and both
-    are written into the sweep so they are not repeated: ink on the canvas
-    varies more between two boots of the same settings than it does across
-    the slider (every style places its marks with `p.random`), and the frame
-    cost at the two ends moves by less than the environment's noise. The
-    honest next step is a human looking at five screenshots, or a change of
-    design so the slider drives something with a large signature (the wash's
-    own alpha, say) rather than the population alone.
+94. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN 94 and 282, found built)").
 60. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
 
 279. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
@@ -1259,13 +1235,7 @@ glass. What is left is below.
 
 ## Placed from INBOX, 2026-09-21
 
-282. **Found by errors.js while sweeping the writing desk, 2026-09-20.**
-    `[settings/extras] section scrolls sideways 496>492` at 820px, and only
-    at 820: 1440, 1024 and 390 are clean. Four pixels, so it is one control
-    or one row with a fixed width rather than the layout. Recommendation:
-    find the child whose `scrollWidth` is 496 at that width and let it
-    shrink, the same `min-width: 0` answer the dock heads take. Owner:
-    settings.
+282. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN 94 and 282, found built)").
 
 ## Placed from INBOX, 2026-09-21 (the dashboard's focused hero)
 

@@ -946,6 +946,14 @@ function renderChatEmptyState() {
   const suggest = $("chat-suggest");
   if (suggest && !suggest.classList.contains("hidden")) {
     empty.appendChild(suggest);
+  } else {
+    //: **Whole, then shown** (INBOX 580): the starters land after their
+    //: fetch, and the card grew round them in view, 222 to 296px tall and
+    //: 250px wider (layout shift 0.015 on Chat's first visit,
+    //: `scratchpad/ui-sweeps/smooth1005-tabs.js`). It waits unseen for them
+    //: (`loadChatSuggestions` lets it go), 700ms at most, and fades in.
+    empty.classList.add("chat-empty-waiting");
+    setTimeout(() => empty.classList.remove("chat-empty-waiting"), 700);
   }
   box.appendChild(empty);
   // Animated like the ai-mark: a new chat is the AI waiting, and the slow

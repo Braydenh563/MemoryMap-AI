@@ -714,8 +714,8 @@ function enterWithoutPassword(body) {
   localStorage.setItem("token", body.token);
   vaultOpen = Boolean(body.vault_open);
   lockedByHand = false;
-  $("lock-overlay").classList.add("hidden");
-  startApp();
+  const opening = startApp();
+  curtainShell(opening);
 }
 
 //: A session that expired while sign-in is off comes straight back rather
@@ -906,7 +906,8 @@ async function submitLockForm() {
     // other focusable control. Found while testing the tool shortcuts: they
     // did nothing at all from a freshly unlocked app.
     $("lock-password").blur();
-    $("lock-overlay").classList.add("hidden");
+    //: The overlay stays up as the opening curtain and fades over the
+    //: drawn page (`curtainShell`, `liftLockScreen`).
     $("lock-btn").classList.remove("hidden");
     // Signing in starts a session, and a session starts at the front of every
     // tab: see `resetNavigationForNewSession`. Here as well as at load
@@ -915,7 +916,9 @@ async function submitLockForm() {
     // leave every sub-tab exactly where it was hours ago. Called before
     // `startApp()`, which is what reads the stored section back.
     resetNavigationToDefaults();
-    startApp();
+    setBusy($("lock-submit"), true, "Opening…");
+    const opening = startApp();
+    curtainShell(opening);
   } catch (error) {
     errorLine.textContent = error.message;
   }
@@ -996,25 +999,33 @@ async function lockNow() {
 // from the DOM after the fade rather than left `hidden`: nothing should
 // keep sitting fixed over the whole viewport, even invisibly, once the app
 // has decided what it's actually showing.
+//:
+//: **It fades; it used to cut** (INBOX 577). The class was `hidden`, whose
+//: `display: none !important` (02-chat-graph.css) beat the splash's own
+//: opacity rule, so the fade written for it never ran and `transitionend`
+//: never came: the splash vanished between two frames and stayed in the DOM
+//: for good (measured: still there, `display: none`, after every boot). Its
+//: own leaving class, and a timer behind the event.
 function hideBootSplash() {
   const splash = document.getElementById("boot-splash");
-  if (!splash) return;
+  if (!splash || splash.classList.contains("boot-splash-leaving")) return;
   // Snap the bar to 100% before the fade starts, so it never visibly
   // disappears mid-crawl: it always reads as "finished", never "cut off".
   document.getElementById("boot-splash-progress-fill")?.classList.add("done");
-  splash.classList.add("hidden");
-  splash.addEventListener("transitionend", () => splash.remove(), { once: true });
-  // Reduced-motion strips the transition (00-tokens-shell.css), so
-  // transitionend never fires: remove immediately in that case instead of
-  // leaving a zero-opacity element sitting in the DOM forever.
-  if (reducedMotionWanted()) splash.remove();
+  splash.classList.add("boot-splash-leaving");
+  const gone = () => splash.remove();
+  splash.addEventListener("transitionend", gone, { once: true });
+  // Reduced motion strips the transition, so transitionend never fires.
+  setTimeout(gone, reducedMotionWanted() ? 0 : 400);
 }
 
 async function initAuth() {
   // Bounded probe: if the server is unreachable or hangs, fail fast with a
   // clear message instead of an indefinite blank/"connecting" screen.
   const status = await apiJson("/auth/status", { timeoutMs: 8000 }).catch(() => null);
-  hideBootSplash();
+  //: The splash goes now only where the app is not about to start under it:
+  //: a start lifts it with the shell (`curtainShell`).
+  if (!status || status.setup_required || (!status.auto_session && !authToken())) hideBootSplash();
   if (!status) {
     $("save-status").textContent =
       "Can't reach the MemoryMap server, check it's running, then refresh.";
@@ -1038,6 +1049,7 @@ async function initAuth() {
     autoSessionOffered = false;
   }
   if (!authToken()) {
+    hideBootSplash();
     showLockScreen(false);
     return;
   }
@@ -1047,7 +1059,8 @@ async function initAuth() {
   // round trip, and without it a profile that lost its cookies drew every
   // picture broken (see `refreshMediaSession`).
   await refreshMediaSession();
-  startApp();
+  const opening = startApp();
+  curtainShell(opening);
 }
 
 // --- a share from the phone's share sheet lands in Capture -------------------
@@ -1248,7 +1261,7 @@ function startApp() {
   //: The view the address names, when the page was opened on one (a reload,
   //: a bookmark, a pasted link: router.js); it loads its own tab, so the
   //: Dashboard is not loaded under it first.
-  entriesReady.then(() => step("load this tab", async () => {
+  const tabReady = entriesReady.then(() => step("load this tab", async () => {
     if (typeof routerRestore === "function" && (await routerRestore())) return;
     return refreshActiveTab();
   }));
@@ -1262,6 +1275,9 @@ function startApp() {
   // later, and the person is welcomed to an app they have used for a month.
   looksReady.then(maybeShowOnboarding);
   looksReady.then(maybeShowConsoleViewIntro);
+  //: What the opening curtain waits for (`curtainShell`): the look and the
+  //: first tab drawn.
+  return Promise.all([looksReady, tabReady]);
 }
 // First-run "Dev view or User view?" prompt for the desktop app, gated on its
 // own preference (console_view_intro_seen). Two fixed bugs: it fired on a

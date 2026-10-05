@@ -5339,7 +5339,7 @@ function nameMarkBuddyUnheld() {
 //: (one box read every 700ms; it was two seconds, in the air all that time,
 //: INBOX 521) catches only what changes with nothing announcing it
 //: (content arriving above the panel), eased rather than jumped.
-const nmbFollow = { frame: 0, until: 0, poll: 0, observer: null, scrollAt: 0, recheck: 0 };
+const nmbFollow = { frame: 0, until: 0, poll: 0, observer: null, scrollAt: 0, recheck: 0, support: 0 };
 function nameMarkBuddyKeepUp(ms = 1500) {
   if (!nmb.glue) return;
   nmbFollow.until = Math.max(nmbFollow.until, performance.now() + ms);
@@ -5461,7 +5461,12 @@ function nameMarkBuddyTempo() {
   //: translate) is the compositor's. An act or a drag still runs at full
   //: rate: those are short and are the moment it is being looked at.
   const busy = (!!nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) || buddy.classList.contains("nm-buddy-dragging");
-  const still = now - nmbFollow.scrollAt < 300;
+  //: Held, not stepped, while a scroll is under way and while a page or a
+  //: popup is arriving (`uiSettlingUntil`, set by `switchTab` and
+  //: `openSettingsModal`; INBOX 580, the owner: "the atlas companion and app
+  //: in general is ever so slightly laggy"): each step inside a drawing is a
+  //: layout and a repaint the arriving view's frames are waiting on.
+  const still = now - nmbFollow.scrollAt < 300 || now < (window.uiSettlingUntil || 0);
   const step = Math.min(now - (nmbTempo.at || now), 250);
   //: Every read first, then every write: reading an animation's state
   //: after one has been stepped makes the page lay itself out again, once
@@ -6179,11 +6184,73 @@ function placeNameMarkBuddy(buddy = document.getElementById("nm-buddy"), instant
   nameMarkBuddyMoveTo(buddy, nameMarkBuddyNextSpot(tab, near), instant);
 }
 
+//: **Something under it** (INBOX 582, the owner: "bro's just perched on
+//: nothing in the mindmap. the companion keeps being left floating in
+//: places on various pages and sub tabs and tabs"). Its perch was chosen
+//: once and then only checked for controls coming up under it, so a perch
+//: that went (a sub-tab's dock hidden with its view, a card re-drawn, a
+//: board's content panned away) left it sitting on the air where the edge
+//: had been: measured (`scratchpad/ui-sweeps/smooth1005-perch.js`) on the
+//: Library's AI skills, seated on a dock its view had hidden. Asked of the
+//: page itself, not of the perch it remembers: under the middle of its
+//: seat, soles or hands, is there a visible element whose top edge (bottom,
+//: hanging) is within 2px of that line? Floating, peeking over the bar,
+//: leaning on a side or pinned where you put it is not a perch to check;
+//: what is drawn on a board, a map or the graph is never one.
+const NMB_CANVAS = "#whiteboard-container, #graph-canvas, #graph-svg, #graph-pane-canvas, canvas";
+function nameMarkBuddySupported() {
+  if (!["sit", "stand", "hang"].includes(nmb.pose) || nmb.legs === "peek" || nmb.spot?.side || nmb.pinned) return true;
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy) return true;
+  //: Where it is drawn: the host is not scaled (its face is, about this
+  //: same line), and a ride or a translate is in its box.
+  const at = buddy.getBoundingClientRect();
+  const hang = nmb.pose === "hang";
+  const line = at.top + (hang ? NMB_GRIP : nmb.pose === "sit" ? NMB_SEAT : NMB_FEET - 1);
+  const mid = at.left + NMB_W / 2;
+  //: The edge it chose, where it still is and still shows (a surface that
+  //: takes no pointer is missed by a hit test).
+  const el = nmb.spot?.edge?.el || nmb.spot?.anchor;
+  const box = el?.isConnected && !el.closest(NMB_CANVAS) ? nameMarkBuddyPerchShown(el) : null;
+  if (box && Math.abs((hang ? box.bottom : box.top) - line) <= 2 && box.left <= mid && box.right >= mid) return true;
+  const band = document.getElementById("nm-buddy-band");
+  for (const f of [0.3, 0.5, 0.7]) {
+    const px = at.left + NMB_W * f;
+    const py = hang ? line - 1 : line + 1;
+    if (px < 0 || px >= innerWidth || py < 0 || py >= innerHeight) continue;
+    for (const el of document.elementsFromPoint(px, py)) {
+      if (band?.contains(el)) continue;
+      if (el === document.documentElement || el === document.body || el.classList.contains("tab-page")) break;
+      if (el.closest(NMB_CANVAS) && !el.matches("#whiteboard-container")) continue;
+      const r = el.getBoundingClientRect();
+      if (Math.abs((hang ? r.bottom : r.top) - line) <= 2 && !el.matches("#whiteboard-container")) return true;
+    }
+  }
+  return false;
+}
+
+//: Asked again whenever the page under it may have changed without a
+//: scroll: a pan or a zoom on a canvas (a wheel there scrolls nothing), a
+//: press that let go, and every 1.5s while it rests in view (three hit
+//: tests). Gone from under it, it chooses again, now: a walk, a glide or a
+//: float to the nearest good perch, or the window's bar.
+//: Its timer is `nmbFollow.support`, beside the follow loop's own.
+function nameMarkBuddySupportSoon() {
+  clearTimeout(nmbFollow.support);
+  nmbFollow.support = setTimeout(queueNameMarkBuddyCheck, 400);
+}
+document.addEventListener("wheel", nameMarkBuddySupportSoon, { passive: true, capture: true });
+document.addEventListener("pointerup", nameMarkBuddySupportSoon, { passive: true, capture: true });
+setInterval(() => {
+  if (!document.hidden && !nmb.away && document.getElementById("nm-buddy")) queueNameMarkBuddyCheck();
+}, 1500);
+
 //: Where it is now still does: on screen, not lost, not held off its
-//: panel, and not over a control.
+//: panel, not over a control, and on something.
 function nameMarkBuddyStillGood(obstacles) {
   if (!Number.isFinite(nmb.x) || nmb.perch === "errand" || nmb.outOfSight) return false;
   if (nmb.glue && (nmb.glue.lost || nmb.glue.held)) return false;
+  if (!nameMarkBuddySupported()) return false;
   if (nmb.x < 0 || nmb.y < 0 || nmb.x > innerWidth - NMB_W || nmb.y > innerHeight - NMB_H) return false;
   return !nameMarkBuddyHits(nmb.x, nmb.y, nmb.pose, nmb.perch === "yours" ? nameMarkBuddyYoursObstacles(obstacles, nmb.spot) : obstacles, nmb.legs);
 }
@@ -6217,6 +6284,19 @@ function nameMarkBuddyCheck() {
   if (performance.now() - nmbFollow.scrollAt < 400) {
     clearTimeout(nmbFollow.recheck);
     nmbFollow.recheck = setTimeout(queueNameMarkBuddyCheck, 450);
+    return;
+  }
+  //: Its perch gone from under it (INBOX 582): never left sitting on the
+  //: air until its next beat. Not mid-move: where it is drawn then is on
+  //: the way, not a perch.
+  //: Once in three seconds at most, so a perch this cannot see from here is
+  //: never a loop.
+  if (Date.now() - (nmb.unheldAt || 0) > 3000 && ![nmb.anim, nmb.hopAnim, nmb.glideAnim].some((a) => a?.playState === "running") && !nameMarkBuddySupported()) {
+    nmb.unheldAt = Date.now();
+    nmb.moves = (nmb.moves || 0) + 1;
+    nmb.moveWhy = "its perch went";
+    nameMarkBuddyIndexReset();
+    placeNameMarkBuddy(buddy, false, [nmb.x, nmb.y]);
     return;
   }
   const all = nameMarkBuddyObstacles(tab);
@@ -6394,9 +6474,27 @@ function nameMarkBuddyNextSpot(tab, near = null) {
 
 //: The person has stayed: it takes its place on this tab out of sight and
 //: then comes in.
+//: **Not behind the curtain** (INBOX 577): while the boot splash, the lock
+//: screen or the opening curtain (`revealShell`, app.js) is over the page,
+//: the page under it is still filling in and nobody can see it come in.
+//: It used to play its whole entrance there, under the lock screen, and
+//: then simply be there, full size, the moment the lock lifted. It waits,
+//: and comes in once the shell has risen, as one more beat of the same
+//: sequence rather than a second one racing it.
+function nameMarkBuddyCurtained() {
+  if (document.getElementById("boot-splash")) return true;
+  if (document.documentElement.classList.contains("shell-curtain")) return true;
+  const lock = document.getElementById("lock-overlay");
+  return Boolean(lock && !lock.classList.contains("hidden") && lock.dataset.mode !== "prompt");
+}
+
 function nameMarkBuddyArrive(buddy) {
   nmb.awayTimer = 0;
   if (!buddy.isConnected || !nmb.away) return;
+  if (nameMarkBuddyCurtained()) {
+    nmb.awayTimer = setTimeout(() => nameMarkBuddyArrive(buddy), 250);
+    return;
+  }
   if (document.hidden || nameMarkBuddyMenuOpen() || buddy.classList.contains("nm-buddy-dragging")) {
     nmb.awayTimer = setTimeout(() => nameMarkBuddyArrive(buddy), 800);
     return;
@@ -6480,8 +6578,18 @@ function nameMarkBuddySettle(tab, then) {
 //: 430: "walk on from the nearest screen edge, climb up from the bottom
 //: bar, climb down from the top bar to hang, or a soft materialise (a
 //: starlight shimmer resolving into it)"). Each is the host's `translate`
-//: and the character's `scale` and `opacity`, the compositor's. With
-//: Reduce motion it fades in where it is.
+//: and the character's `opacity`, the compositor's. With Reduce motion it
+//: fades in where it is.
+//:
+//: **It comes in at its own size** (INBOX 577, the owner: "when loading
+//: into the app, the companion or atlas's head goes large then small then
+//: large again then settles on the normal size"). That was the landing
+//: squash (`nameMarkBuddySquash`: 1.06, 0.97, 1, 1.07, 0.98, 1 across)
+//: played on every way in, and the materialise's growth from half size:
+//: the first thing anyone saw of it was its size changing. An entrance
+//: moves it and fades it; a squash belongs to a hop between two perches it
+//: was already seen on. `scratchpad/ui-sweeps/smooth1005-boot.js`: the
+//: head's box moved 46% after it first showed, now under 2%.
 function nameMarkBuddyEnter(buddy, spot) {
   if (typeof buddy.animate !== "function") return "";
   nmb.anim?.cancel();
@@ -6542,7 +6650,6 @@ function nameMarkBuddyEnter(buddy, spot) {
       { rotate: `${way * 10}deg`, translate: "0px -3px" }, { rotate: `${way * 10}deg`, translate: "0px -3px", offset: 0.6 },
       { rotate: `${-way * 3}deg`, translate: "0px 0px", offset: 0.88 }, { rotate: "0deg" },
     ], { duration, easing: "ease-in-out" }) || null;
-    nameMarkBuddySquash(char, duration, true);
     nameMarkBuddyLimbs(buddy, "glide", duration, 0, way);
     return how;
   }
@@ -6566,7 +6673,6 @@ function nameMarkBuddyEnter(buddy, spot) {
     };
     walk.onfinish = done;
     walk.oncancel = done;
-    nameMarkBuddySquash(char, duration);
     return how;
   }
   if (how === "down" || how === "up") {
@@ -6596,22 +6702,18 @@ function nameMarkBuddyEnter(buddy, spot) {
       at(how === "down" ? 4 : -5, { offset: 0.78 }),
       at(0, {}),
     ], { duration, easing: "ease-in-out" });
-    nameMarkBuddySquash(char, duration - NMB_SET_OFF_MS);
     //: Hand over hand (INBOX 469), until it is out and standing.
     nameMarkBuddyTravel(buddy, "climb", Math.round(duration * 0.78), "");
     return how;
   }
   //: Starlight gathering into it: the stars first, then the figure
-  //: resolving out of them, a touch large, settling to its size, and
-  //: drifting down the last few pixels onto its perch (the owner: it "came
-  //: back with barely an entrance"; a fade in place read as a pop).
+  //: resolving out of them and drifting down the last few pixels onto its
+  //: perch (the owner: it "came back with barely an entrance"; a fade in
+  //: place read as a pop). At its own size throughout: it used to grow from
+  //: half size past its own and back (0.5, 1.06, 1).
   nameMarkBuddyBurst(buddy, 0, 0, 0);
   nmb.anim = buddy.animate([{ opacity: 0, translate: "0px -14px" }, { opacity: 0, translate: "0px -14px", offset: 0.18 }, { opacity: 1, offset: 0.6 }, { opacity: 1, translate: "0px 0px" }], { duration: 820, easing: "ease-out" });
-  nmb.hopAnim = char?.animate([
-    { scale: "0.5", opacity: 0.2 },
-    { scale: "1.06", opacity: 1, offset: 0.7 },
-    { scale: "1" },
-  ], { duration: 820, easing: "ease-out" }) || null;
+  nmb.hopAnim = null;
   nameMarkBuddyLimbs(buddy, "float", 820);
   return how;
 }

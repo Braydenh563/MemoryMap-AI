@@ -1629,13 +1629,14 @@ function mountWidgetBody(widget, body) {
     body.replaceChildren(note, retry);
   };
   let settled = false;
-  Promise.resolve()
+  const drawn = Promise.resolve()
     .then(() => widget.render(body))
     .then(() => { settled = true; })
     .catch(() => { settled = true; failed("Couldn't load this widget."); });
   setTimeout(() => {
     if (!settled && !body.childNodes.length) failed("This is taking longer than it should.");
   }, WIDGET_STALL_MS);
+  return drawn;
 }
 
 async function renderDashboard() {
@@ -1652,8 +1653,12 @@ async function renderDashboard() {
   wireDashDensity();
   const grid = $("dash-grid");
   grid.replaceChildren();
+  //: Unseen while its widgets draw and their spans settle, then faded in
+  //: whole (`dashSettled` below; `.dash-filling`, 08-consistency.css).
+  grid.classList.add("dash-filling");
   $("dash-editbar").classList.toggle("hidden", !dashEditMode); // only while editing
   const layout = dashLayout();
+  const drawing = [];
 
   // A brand-new notebook filled this grid with a dozen cards each politely
   // saying it had nothing to show. Every message was fine on its own; together
@@ -1760,7 +1765,7 @@ async function renderDashboard() {
     if (!hidden) {
       // Promise.resolve() so a synchronous renderer can't break the whole
       // dashboard loop, and a throwing one only spoils its own card.
-      mountWidgetBody(widget, body);
+      drawing.push(mountWidgetBody(widget, body));
     }
 
     // Drag to reorder (edit mode only).
@@ -1793,6 +1798,17 @@ async function renderDashboard() {
   // async widget bodies fill in.
   grid.classList.remove("spans-ready");
   watchDashWidgets();
+  //: **When the widgets have drawn** (INBOX 577): each fills after its own
+  //: fetch and the grid's spans follow their heights, so the first seconds
+  //: of a full dashboard moved its cards about (layout shift 0.12 seen
+  //: after the opening curtain had lifted, smooth1005-boot.js on 300 notes).
+  //: The opening curtain waits for this (`curtainShell`), 1.2s at most.
+  //: Every visit, not only the first: a switch back to the dashboard redrew
+  //: the widgets the same way, in view (0.26 on 300 notes, measured).
+  const settled = (window.dashSettled = Promise.race([Promise.allSettled(drawing), new Promise((r) => setTimeout(r, 1200))]));
+  settled.then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (window.dashSettled === settled) grid.classList.remove("dash-filling");
+  })));
 }
 
 // --- widget picker modal ------------------------------------------------------------

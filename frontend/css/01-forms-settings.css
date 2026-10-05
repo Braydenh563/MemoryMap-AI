@@ -3944,8 +3944,16 @@ html.modal-open body {
   font-size: var(--text-md);
 }
 
-.dash-submessage:empty {
-  display: none;
+/* **Each line holds its height before its words arrive** (INBOX 577). The
+   greeting, the clock and this line are written by the dashboard's render,
+   the line after two fetches; drawn empty first, the banner grew under the
+   page twice as they landed (64px, then 24px: layout shift 0.025 at every
+   boot, measured by `scratchpad/ui-sweeps/smooth1005-boot.js`). A space
+   gives each its own line box at its own size, so the words land in place.
+   This line used to be `display: none` while empty for the same reason
+   the banner jumped: nothing was there to keep the room. */
+:is(.dash-greeting, .dash-submessage, .dash-clock-time, .dash-clock-date):empty::before {
+  content: "\a0";
 }
 
 /* The clock: the time large and in the accent, the date under it, both

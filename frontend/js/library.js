@@ -6944,7 +6944,16 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   //: 117): the grid's own search filters `libraryImagesCache` in the
   //: browser, so a picture missing from that cache is a picture the search
   //: box can never find, and the tile count would quietly stop at one page.
-  showSkeletons(grid, 6);
+  //: Not for the poll: on an empty gallery its every-six-seconds look drew
+  //: six placeholders and took them away again, a flicker with nothing
+  //: behind it.
+  if (ifUnchanged !== "skip") showSkeletons(grid, 6);
+  //: The "nothing here" line waits with the placeholders (INBOX 580): left
+  //: up, it was pushed 396px down the page by them and thrown back when they
+  //: went, a layout shift of 0.27 on every switch to Files or Images
+  //: (`scratchpad/ui-sweeps/smooth1005-tabs.js`). The filter below puts it
+  //: back when the gallery really is empty.
+  if (grid.querySelector(":scope > .skeleton")) empty?.classList.add("hidden");
   const images = await apiPagedList("/media", MEDIA_PAGE_SIZE, { silent: true }).catch(() => null);
   // A note's own attached file (`Attachment`, not `MediaUpload`) never came
   // from `/media` at all: reported directly, twice: "a pdf I uplaoded to a

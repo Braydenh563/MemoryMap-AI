@@ -38,35 +38,6 @@ with its owner named in the entry.
      arent aligned vertically." (screenshot: the Installed badge in Settings,
      Packages).
 
-577. **The owner, 2026-10-05, verbatim.** "when loading into the app, the
-     companion or atlas's head goes large then small then large again then
-     settles on the normal size. also loading up the app is very laggy or
-     visually slow. it is visually not clean and glitchy even though it may
-     not be. can you smoothen it or do some ux shenanigans to make it
-     cleaner??" Placed: a smoothness agent (boot choreography, the
-     companion's mount) and the Atlas motion agent (the drawing at rest).
-     The drawing's part done (2026-10-05, the Atlas motion agent): the
-     figure's breath no longer stretches the head 1.8% tall every 4.4s (it
-     lifts the body 0.45px), every idle loop starts at its rest pose (no
-     loop starts after a positive delay and jumps), and the breathing box
-     pauses in a hidden tab. atlasluster.js `mount`: the head's scale
-     within the figure moves 0.00 to 0.02% over the first 2s, harness and
-     companion, both looks. Measured for the smoothness agent: the whole
-     companion figure's entrance scales 0.5 to 1.059 to 1.003 over about
-     1.1s (its pop-in), which is the large-small-large the owner saw.
-
-580. **The owner, 2026-10-05, verbatim.** "the atlas companion and app in
-     general is ever so slightly laggy. I think opening pages and between ui
-     views like tabs, pages, popups, features like the graph etc need to be
-     more smooth in transitions and cheap to hide the ugly loading glitches."
-     Placed: the smoothness agent, with 577.
-
-582. **The owner, 2026-10-05, verbatim.** "bro's just perched on nothing in
-     the mindmap. the companion keeps being left floating in places on
-     various pages and sub tabs and tabs" (screenshot: the companion sitting
-     in the air on a map's canvas). Placed: the smoothness agent (a perch is
-     re-checked on every view change, pan, zoom and popup; never in the air).
-
 561. **The owner, 2026-10-05, verbatim.** "I dont like this section in th
      timeline, it needs redesigning, restructuring, moving ro smth"
      (screenshot: the "Sep to Oct 2026" month button over a row of seven

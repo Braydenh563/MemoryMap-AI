@@ -533,13 +533,6 @@
    when it should move, which under Reduce motion means the person chose
    Movement "Moving" for the background, an explicit request that is
    meant to win (startBgArt in settings.js). */
-.bg-art-layer.is-moving .bg-drift-x {
-  animation: bg-drift-x var(--dur-x) ease-in-out var(--delay-x) infinite alternate !important;
-}
-
-.bg-art-layer.is-moving .bg-drift-y {
-  animation: bg-drift-y var(--dur-y) ease-in-out var(--delay-y) infinite alternate !important;
-}
 
 .bg-art-layer.is-moving .bg-rise {
   animation: bg-rise var(--dur-r) linear var(--delay-r) infinite !important;
@@ -550,8 +543,6 @@
 }
 
 /* Hidden, long unfocused, or covered: held where it is. */
-.bg-art-layer.is-moving.is-paused .bg-drift-x,
-.bg-art-layer.is-moving.is-paused .bg-drift-y,
 .bg-art-layer.is-moving.is-paused .bg-rise,
 .bg-art-layer.is-moving.is-paused .bg-wobble {
   animation-play-state: paused !important;
@@ -3146,7 +3137,7 @@ button.answer-figure-open {
 
    Scoped to rows rather than removed from `.seg` outright, so a segmented
    control that really is standing alone keeps the gap under it. */
-:is(.row, .reminder-listbar, .ask-history-toolbar) > .seg {
+:is(.row, .ask-history-toolbar) > .seg {
   margin-bottom: 0;
 }
 
@@ -3297,6 +3288,11 @@ button.answer-figure-open {
   display: flex;
   justify-content: center;
   margin-bottom: 0.6rem;
+  /* The mark is drawn by script once the lock screen shows (76px,
+     phone-shell.js); the room is kept before it, or the card grew by it
+     under the reader's eyes (INBOX 577: the lock card's 0.003 layout shift,
+     `scratchpad/ui-sweeps/smooth1005-boot.js`). */
+  min-block-size: 76px;
 }
 
 #about-emblem {

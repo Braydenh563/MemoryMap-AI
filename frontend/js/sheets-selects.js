@@ -1968,6 +1968,9 @@ async function loadChatSuggestions() {
   if (!box) return;
   box.replaceChildren();
   box.classList.toggle("hidden", picks.length === 0);
+  //: The empty card waits for these (`renderChatEmptyState`); the chips go
+  //: in below in this same task, so no frame shows it without them.
+  $("chat-messages").querySelector(".chat-empty")?.classList.remove("chat-empty-waiting");
   if (!picks.length) return;
   const label = document.createElement("span");
   label.className = "muted";

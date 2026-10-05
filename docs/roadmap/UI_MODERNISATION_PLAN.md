@@ -1549,3 +1549,13 @@ inside a 4,000px section.
      70 to 160px) meeting a precision trackpad's momentum, which headless
      does not emulate, and the windowed list's page load at the end. Next:
      the owner's tab and window size, then a real-device trace.
+     **Measured again 2026-10-05, not reproduced** (the smoothness agent,
+     `scratchpad/ui-sweeps/smooth1005-wheel.js`): trackpad-shaped streams
+     through CDP (140 wheel events of 6 to 10px, eased, every 8ms) down and
+     up the notes list, the notes list entered 60% deep and scrolled up
+     first (its rows between never drawn), a Settings pane, a 60-message
+     chat thread and a 160-paragraph document: on all 10 streams no frame
+     stepped back and none moved more than 1.5 times what was sent in it,
+     and the distance moved equalled the distance sent. No listener writes
+     a scrollTop under a wheel, no scroller snaps or smooth-scrolls. Left:
+     a real precision touchpad's momentum phase, which CDP cannot send.

@@ -111,6 +111,13 @@ async function boot(opts={}) {
     await page.click('#lock-submit');
   }
   await page.waitForTimeout(3000);
+  //: **The opening curtain** (INBOX 577): after a good password the lock
+  //: screen stays up, its button saying "Opening…", while the first tab
+  //: draws (`curtainShell`), and fades once it has. Waited out here, or a
+  //: loaded machine's slow first tab read as a failed unlock and the field
+  //: was filled again as it faded.
+  await page.waitForFunction(() => !document.documentElement.classList.contains('shell-curtain')
+    && !document.querySelector('#lock-overlay.lock-leaving'), null, { timeout: 15000, polling: 100 }).catch(() => {});
   if (way === 'lock' && await page.$('#lock-password') && await page.isVisible('#lock-password')) {
     await page.fill('#lock-password', PW); await page.click('#lock-submit'); await page.waitForTimeout(3000);
   }

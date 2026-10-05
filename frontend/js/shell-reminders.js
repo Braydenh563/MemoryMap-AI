@@ -1677,3 +1677,60 @@ document.getElementById("reminders-export-ics")?.addEventListener("click", () =>
   document.getElementById("reminders-more-menu")?.removeAttribute("open");
   downloadFromApi("/reminders/export.ics", "memorymap-reminders.ics");
 });
+
+// --- the opening curtain ---------------------------------------------------------
+//: Here rather than in app.js, whose gzipped size is a ratchet
+//: (tests/test_static_compression.py); `initAuth` (called at the end of
+//: spaces-find.js) and the unlock are its only callers, both after this file.
+//: **One curtain, lifted once** (INBOX 577, the owner: "loading up the app is
+//: very laggy or visually slow. it is visually not clean and glitchy even
+//: though it may not be"). Measured before (`scratchpad/ui-sweeps/
+//: smooth1005-boot.js`, 1440x900): the splash cut to the shell the moment
+//: `/auth/status` answered, and the shell then built itself in view: the
+//: dashboard's greeting, clock and widgets arrived over the next 600ms and
+//: pushed the page down twice (layout shift 0.025 after the unlock, 0.073
+//: with sign-in off), while the companion played its entrance under the
+//: lock screen and was simply there when it lifted.
+//:
+//: Now whatever covers the window when the app starts (the splash, or the
+//: lock screen once the password is in) stays up while the first tab draws,
+//: then fades once, over a finished page: the lock card says "Opening…" on
+//: its button meanwhile. It waits for `ready` (startApp's preferences and
+//: first tab) and never longer than `SHELL_CURTAIN_MAX_MS`, so a slow
+//: server shows a page filling in rather than a curtain that never lifts.
+//: Two frames after `ready`, so the tab's own render has been laid out and
+//: painted under it. The companion waits for the lift (`nameMarkBuddyCurtained`).
+const SHELL_CURTAIN_MAX_MS = 1500;
+function curtainShell(ready) {
+  const root = document.documentElement;
+  root.classList.add("shell-curtain");
+  let lifted = false;
+  const lift = () => {
+    if (lifted) return;
+    lifted = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      root.classList.remove("shell-curtain");
+      hideBootSplash();
+      liftLockScreen();
+    }));
+  };
+  //: And the dashboard's widgets, when it is the first tab (`dashSettled`).
+  Promise.resolve(ready).then(() => window.dashSettled).then(lift, lift);
+  setTimeout(lift, SHELL_CURTAIN_MAX_MS);
+}
+
+//: The lock screen after a password: it fades rather than vanishing, and
+//: takes its `hidden` (which everything else reads as "unlocked") once the
+//: fade is done. A prompt borrowing the overlay is not this.
+function liftLockScreen() {
+  const overlay = $("lock-overlay");
+  setBusy($("lock-submit"), false);
+  if (overlay.classList.contains("hidden") || overlay.dataset.mode === "prompt") return;
+  overlay.classList.add("lock-leaving");
+  const gone = () => {
+    overlay.classList.remove("lock-leaving");
+    // Not when it was asked for again meanwhile (a lock pressed during the fade).
+    if (overlay.dataset.mode !== "prompt" && localStorage.getItem("token")) overlay.classList.add("hidden");
+  };
+  setTimeout(gone, reducedMotionWanted() ? 0 : 220);
+}

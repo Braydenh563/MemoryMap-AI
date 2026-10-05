@@ -235,6 +235,7 @@ async function openSettingsModal(section = "models", scrollToId = null) {
     if (holder?.id.startsWith("settings-")) section = holder.id.slice("settings-".length);
   }
   overlayReturnFocus = document.activeElement;
+  window.uiSettlingUntil = performance.now() + 400;
   //: **The window's own listeners arrive before the window does** (the gzip
   //: budget, settings-controls.js). Only the first open waits, and only for
   //: that file: once its marker constant exists this stays synchronous, so a

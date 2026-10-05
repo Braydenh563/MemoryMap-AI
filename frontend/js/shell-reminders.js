@@ -192,7 +192,11 @@ function tabContentWidth() {
   let total = 0;
   let count = 0;
   for (const child of bar.children) {
-    if (child.classList.contains("hidden")) continue;
+    //: Tabs only (INBOX 539): the sliding `.tab-glide` is a child too and
+    //: takes the active tab's width, so counting it made the strip's need
+    //: depend on which tab was selected (485px on Timeline, 470 on Notes at
+    //: 1024) and the strip jumped 29px between centred and not.
+    if (child.classList.contains("hidden") || !child.matches("[data-tab]")) continue;
     total += child.getBoundingClientRect().width;
     count += 1;
   }

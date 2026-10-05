@@ -23,7 +23,7 @@ for the side dock).
 
 ## Traps
 
-- Boot CSS is at 183,272 of 183,300 bytes gzipped after this branch. Any new
+- Boot CSS is at 183,210 of 183,300 bytes gzipped after this branch and the 6ef2770 merge. Any new
   whiteboard rule needs dead CSS cut first (this branch cut `.reminder-item`,
   `#library-sort-seg`, the side dock's overridden placement values and a
   dead `.select-opener` rule).

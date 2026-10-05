@@ -135,12 +135,6 @@ with its owner named in the entry.
      the next Opus slot (`assistantAvatar` in chat-agent.js draws
      `atlasDraw(size)` under 28px, not the current `atlasAvatar` look).
 
-654. **The owner, 2026-10-05, verbatim, with a screenshot of the history list
-     (the status bar's back/forward popup).** "the nav history popup doesnt
-     have md or image etc rendering" Placed: next Sonnet slot (a note row's
-     title through the same plain-title and thumbnail helpers the note cards
-     use; markdown stripped, an image note shows its thumbnail).
-
 656. **The owner, 2026-10-05, verbatim, with a screenshot of the status bar's
      hollow-circle AI dot and its "Notebook ready · chat AI off" card.** "can
      the no ai available ai status icon be better??" Placed: the next Opus

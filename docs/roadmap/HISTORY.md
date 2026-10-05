@@ -44147,6 +44147,20 @@ record.)
      Not run live: Ask, the popup agent, the Guide and the document AI each
      on their own (the first two share `streamChat`).
 
+654. **The owner, 2026-10-05, verbatim, with a screenshot of the history list
+     (the status bar's back/forward popup).** "the nav history popup doesnt
+     have md or image etc rendering" Placed: next Sonnet slot (a note row's
+     title through the same plain-title and thumbnail helpers the note cards
+     use; markdown stripped, an image note shows its thumbnail).
+     **Fixed 10cc52a.** Each row is a kind icon, the plain title
+     (`notePreviewText`; an image-only note by its caption or "Image"), the
+     dashboard rows' lazy thumbnail for a note that opens with a picture, and
+     the tab in muted text; consecutive identical rows fold, history is not
+     deduped. Measured, `ui-sweeps/navhistory-rows.js`, 1440 and 390, light and
+     dark: 0 of 16 checks failing (no '#', '![', '_', 'http' in any row; 3
+     lazy thumbnails loaded; 10 entries drew 9 rows; text contrast min 5.91
+     light, 7.96 dark). Boot JS 588,744 to 588,326 (rows are a lazy bundle).
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

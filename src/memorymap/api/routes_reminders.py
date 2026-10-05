@@ -343,8 +343,9 @@ def create_reminder(body: ReminderCreate, session: Session = Depends(get_session
 def magic_add_reminder(body: MagicAddBody, session: Session = Depends(get_session)) -> dict:
     """Magic Add: parse natural language into a reminder and create it.
 
-    Needs the local model running; returns 503 otherwise so the UI can point
-    the user at the manual form.
+    The time is read by rules first ("in 20 minutes", then `ai/when`'s
+    wall-clock phrases), with no model; the model is asked only for what
+    neither reads, and a 503 when it is off points the user at the form.
     """
     from memorymap.ai import reminder_parser
 
@@ -372,12 +373,19 @@ def magic_add_reminder(body: MagicAddBody, session: Session = Depends(get_sessio
     # principle 2 for a request that needs nothing but arithmetic.
     parsed = reminder_parser.parse_relative(body.text, local_now)
     if parsed is None:
+        # Wall-clock phrases ("tomorrow at 5pm", "next Friday", "tonight") are
+        # read by `when` with no model too (audit 2026-10-05, UX-01): the model
+        # is only for what neither reader understands.
+        from memorymap.ai import when
+
+        parsed = when.parse_reminder_text(body.text, local_now)
+    if parsed is None:
         if not ollama.is_running():
             raise HTTPException(
                 status_code=503,
                 detail=(
                     "The local AI isn't running, and I couldn't read a time from "
-                    "that. Try “in 20 minutes”, or use the form."
+                    "that. Try “tomorrow at 5pm” or “in 20 minutes”, or use the form."
                 ),
             )
         parsed = reminder_parser.parse_reminder(

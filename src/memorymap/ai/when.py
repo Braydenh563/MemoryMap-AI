@@ -201,3 +201,69 @@ def resolve(phrase: str, now: datetime) -> datetime | None:
     elif at <= now and day == now.date() and _WEEKDAY.search(text):
         at += timedelta(days=7)  # "Monday 9am", said on a Monday afternoon
     return at
+
+
+# --- Magic Add: a reminder sentence with its time taken out (UX-01) ---------
+#
+# `resolve` reads the whole sentence, so "call mum tomorrow at 5pm" resolves as
+# it stands; what it cannot say is which words were the time. The reminder that
+# fires should read "Call mum", not "Call mum tomorrow at 5pm" a day later, so
+# these patterns strip the shapes `resolve` reads, and nothing else: a bare
+# number is stripped only with "at" or am/pm beside it, as `_clock` reads it.
+
+_NUMBER_WORDS = "|".join(sorted((re.escape(k) for k in _NUMBERS), key=len, reverse=True))
+_MONTH_WORDS = "|".join(sorted(_MONTHS, key=len, reverse=True))
+_WEEKDAY_WORDS = "|".join(sorted(_WEEKDAYS, key=len, reverse=True))
+_MERIDIEM = r"(?:am|pm|a\.m\.|p\.m\.)"
+_STRIP = [
+    re.compile(p, re.IGNORECASE)
+    for p in (
+        r"^\s*(?:please\s+)?remind me\s+(?:to\s+|about\s+|that\s+)?",
+        rf"\b(?:\d{{1,3}}|{_NUMBER_WORDS})\s+(?:minutes?|mins?|hours?|hrs?)\s+(?:before|after)\b",
+        r"\b(?:on\s+)?the day after tomorrow\b",
+        r"\b(?:by\s+|on\s+)?(?:tomorrow|today|tonight)\b",
+        r"\bnext week\b",
+        r"\b(?:on\s+|by\s+)?\d{4}-\d{2}-\d{2}\b",
+        rf"\b(?:on\s+|by\s+)?(?:the\s+)?\d{{1,2}}(?:st|nd|rd|th)?\s+(?:of\s+)?(?:{_MONTH_WORDS})\b",
+        rf"\b(?:on\s+|by\s+)?(?:{_MONTH_WORDS})\s+\d{{1,2}}(?:st|nd|rd|th)?\b",
+        rf"\b(?:on\s+|by\s+)?(?:(?:this|next|coming)\s+)?(?:{_WEEKDAY_WORDS})\b",
+        r"\b(?:at\s+|by\s+|around\s+|about\s+)?(?:noon|midday|midnight)\b",
+        rf"\b(?:at|by|around|about)\s+\d{{1,2}}(?::\d{{2}})?(?:\s*{_MERIDIEM})?(?=\s|$|[,.;])",
+        rf"\b\d{{1,2}}(?::\d{{2}})?\s*{_MERIDIEM}(?=\s|$|[,.;])",
+        r"\b\d{1,2}:\d{2}\b",
+        r"\b(?:(?:this|in the|at|tomorrow)\s+)?(?:morning|afternoon|evening|night)\b",
+    )
+]
+# "Call mum tomorrow evening, high priority": the placeholder's own example.
+_PRIORITY = re.compile(r"\b(high|low)\s+priority\b", re.IGNORECASE)
+
+
+def parse_reminder_text(text: str, now: datetime) -> dict | None:
+    """A reminder from a sentence `resolve` reads, with no model, or None.
+
+    {"text", "due_at", "priority", "source"}: the shape of
+    `reminder_parser.parse_relative`. The text keeps the sentence's own words
+    minus the time; a sentence that was only a time keeps itself, since an
+    empty reminder is worse than a redundant one.
+    """
+    at = resolve(text, now)
+    if at is None:
+        return None
+    rest = text
+    priority = "normal"
+    said = _PRIORITY.search(rest)
+    if said:
+        priority = said.group(1).lower()
+        rest = rest.replace(said.group(0), " ")
+    for pattern in _STRIP:
+        rest = pattern.sub(" ", rest)
+    rest = re.sub(r"\s+", " ", rest).strip(" ,.;:-")
+    rest = re.sub(r"\s+(?:on|at|by|for)$", "", rest, flags=re.IGNORECASE).strip(" ,.;:-")
+    if not rest:
+        rest = text.strip() or "Reminder"
+    return {
+        "text": (rest[0].upper() + rest[1:])[:500],
+        "due_at": at,
+        "priority": priority,
+        "source": "rule",
+    }

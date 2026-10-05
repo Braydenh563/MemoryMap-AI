@@ -278,7 +278,6 @@ MODEL_GATED_CONTROLS = {
     "doc-ai-run": "/documents/<id>/ai-edit",
     "doc-extract": "/entries/extract/preview",
     "wb-extract-notes": "/entries/extract/preview",
-    "reminder-magic-add": "/reminders/parse",
     "chat-send": "/chat/stream",
     "chat-input": "/chat/stream",
     #: **Atlas is not here, and that is this rule's own rule** (INBOX 304).
@@ -305,6 +304,11 @@ MODEL_GATED_CONTROLS = {
 #: (`scratchpad/ui-sweeps/mindmap3.js` timed out on it).
 WORKS_WITHOUT_A_MODEL = {
     "wb-boards-generate": "/whiteboard/boards/propose",
+    # Magic Add reads "in 20 minutes" and `ai/when`'s wall-clock phrases
+    # ("tomorrow at 5pm", "next Friday", "tonight") with no model, and answers
+    # 503 with a working example only for what neither reads (audit
+    # 2026-10-05, UX-01: gated, the dashboard's "Remind me" was a dead end).
+    "reminder-magic-add": "/reminders/parse",
 }
 
 

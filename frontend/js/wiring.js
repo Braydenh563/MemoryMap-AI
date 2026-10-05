@@ -1765,10 +1765,9 @@ let reminderComposeSheetClose = null;
 function openReminderCompose() {
   const form = $("reminder-compose");
   if (!form) return;
-  // The sentence box when the AI that reads it is there, the plain one when
-  // it is not (`data-needs-model` disables the sentence box's Add).
-  const field = () =>
-    ($("reminder-magic-add")?.disabled ? $("reminder-text") : $("reminder-magic")) || $("reminder-text");
+  // The sentence box first: its times are read by rules with no model
+  // (audit 2026-10-05, UX-01), so it works on the default install too.
+  const field = () => $("reminder-magic") || $("reminder-text");
   if (!window.matchMedia(REMINDER_SHEET).matches || typeof openSheet !== "function") {
     field()?.focus();
     return;

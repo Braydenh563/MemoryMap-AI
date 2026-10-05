@@ -4829,7 +4829,7 @@ Link to another note with [[its first few words]]."></textarea>
           <span class="clock-date muted"></span>
         </div>
       </div>
-      <!-- Magic Add: type natural language, the AI turns it into a reminder -->
+      <!-- Magic Add: type natural language; rules read the time (ai/when), the AI only what they cannot -->
       <div class="row" id="reminder-magic-row">
         <!-- A textarea, not an input: "remind me about the three things from
              today's meeting…" is a perfectly ordinary thing to type here, and
@@ -4841,7 +4841,7 @@ Link to another note with [[its first few words]]."></textarea>
         <!-- The wand alone (WORLD_CLASS_PLAN 507): the form below has the
              card's one worded "Add", so this reads as "add from the sentence"
              by its name and tooltip, not as a second "Add". -->
-        <button id="reminder-magic-add" data-needs-model="Reading a reminder from a sentence needs the local AI" class="ghost icon-only" type="button" title="Add from this sentence" aria-label="Add from this sentence"><i class="ph ph-magic-wand" aria-hidden="true"></i></button>
+        <button id="reminder-magic-add" class="ghost icon-only" type="button" title="Add from this sentence" aria-label="Add from this sentence"><i class="ph ph-magic-wand" aria-hidden="true"></i></button>
       </div>
       <p id="reminder-magic-status" class="status" role="status"></p>
       <div class="reminder-form">

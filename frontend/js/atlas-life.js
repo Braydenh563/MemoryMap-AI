@@ -332,6 +332,9 @@ const ATLAS_PROP_LOOPS = [
   [".nmp-map", [42, 92.4], [{ rotate: "0deg" }, { rotate: "1.6deg" }, { rotate: "0deg" }, { rotate: "-1.2deg" }, { rotate: "0deg" }], 3800, 0],
   [".nmp-map .atl-node-dot", null, [{ opacity: 1 }, { opacity: 0.3 }, { opacity: 1 }], 1800, 0.25],
   [".nmp-coil", [31, 72], [{ scale: "1 1" }, { scale: "1.03 1.06" }, { scale: "1 1" }], 3000, 0],
+  //: Icons: the startle's bubble wobbles about its middle, its "!" pops.
+  [".nmp-bubble", "box", [{ scale: "1 1" }, { scale: "1.03 0.97" }, { scale: "0.98 1.02" }, { scale: "1 1" }], 900, 0],
+  [".atl-fx-bang", [10, 10], [{ scale: 1, rotate: "0deg" }, { scale: 1.18, rotate: "-6deg" }, { scale: 1, rotate: "0deg" }], 600, 0],
 ];
 function atlasPropLoops(box) {
   if (!box.animate) return [];

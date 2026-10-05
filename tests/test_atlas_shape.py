@@ -1223,23 +1223,6 @@ def test_the_figure_head_never_pulses_and_its_loops_start_at_rest():
     assert ":root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *, .atl-lw, .atl-lw-breathe)" in CSS
 
 
-def test_an_eye_never_shows_its_white_without_its_iris_or_its_heart():
-    # INBOX 619 (the owner: "female atlas's eyes went blank white for a sec
-    # and it looked creepy"). The heart eyes and the iris cross over (the
-    # iris at 1 - --atl-hearteye): on the companion the iris's transition
-    # named only `translate`, so its opacity cut in a frame while the heart
-    # faded over 0.48s, and eased (a wake, a doze) the iris crossed over 1.8s
-    # and the heart over 0.48s. Both now cross over on the same clock, so
-    # their sum stays whole (atlas619-eyes.js: blank 464ms before, 0 after).
-    for rule in (
-        "#nm-buddy .nm-atlas .atl-iris { transition: translate var(--motion-fast) var(--ease-out), opacity calc(var(--motion-base) * 3) var(--ease-in-out); }",
-        "transition: translate var(--motion-base) var(--ease-out), opacity calc(var(--motion-base) * 3) var(--ease-in-out); }",
-    ):
-        assert rule in CSS, rule
-    eased = re.search(r":is\(\.nm-atlas\.atl-easing, #nm-buddy\.nmb-easing \.nm-atlas\) :is\(([^)]*)\) \{\s*transition: opacity", CSS).group(1)
-    assert ".atl-iris" in eased and ".atl-heart-eye" in eased, eased
-
-
 def test_the_lower_body_moves_with_the_torso_and_turns_about_the_join():
     # INBOX 615 (the owner: "the atlas masculine main body and lower body are
     # slightly misaligned") and 619 ("the lower body on the feminine atlas is
@@ -1267,6 +1250,23 @@ def test_the_lower_body_moves_with_the_torso_and_turns_about_the_join():
         row = re.search(rf"  {state}: \{{.*?v: \[(.*)\] \}},", states).group(1)
         turns = [abs(float(v)) for v in re.findall(r"\[(-?[0-9.]+),", row)]
         assert turns and max(turns) <= 4, (state, turns)
+
+
+def test_an_eye_never_shows_its_white_without_its_iris_or_its_heart():
+    # INBOX 619 (the owner: "female atlas's eyes went blank white for a sec
+    # and it looked creepy"). The heart eyes and the iris cross over (the
+    # iris at 1 - --atl-hearteye): on the companion the iris's transition
+    # named only `translate`, so its opacity cut in a frame while the heart
+    # faded over 0.48s, and eased (a wake, a doze) the iris crossed over 1.8s
+    # and the heart over 0.48s. Both now cross over on the same clock, so
+    # their sum stays whole (atlas619-eyes.js: blank 464ms before, 0 after).
+    for rule in (
+        "#nm-buddy .nm-atlas .atl-iris { transition: translate var(--motion-fast) var(--ease-out), opacity calc(var(--motion-base) * 3) var(--ease-in-out); }",
+        "transition: translate var(--motion-base) var(--ease-out), opacity calc(var(--motion-base) * 3) var(--ease-in-out); }",
+    ):
+        assert rule in CSS, rule
+    eased = re.search(r":is\(\.nm-atlas\.atl-easing, #nm-buddy\.nmb-easing \.nm-atlas\) :is\(([^)]*)\) \{\s*transition: opacity", CSS).group(1)
+    assert ".atl-iris" in eased and ".atl-heart-eye" in eased, eased
 
 
 def test_in_its_large_view_the_companion_floats_free_of_its_perch():
@@ -1300,7 +1300,7 @@ def test_each_prop_has_a_small_motion_of_its_own_about_its_grip():
     # only; cancelled (not paused, which the companion's pacer would step)
     # when hidden or when motion is not live.
     table = ATLAS[ATLAS.index("const ATLAS_PROP_LOOPS = ["):ATLAS.index("function atlasPropLoops(")]
-    for sel in (".nmp-lantern", ".nmp-bell", ".nmp-cable .atl-prop-zap", ".nmp-headphones .atl-prop-cup-glow", ".nmp-nightcap", ".nmp-glasses .atl-prop-lens", ".nmp-book .atl-prop-page", ".nmp-map", ".nmp-coil"):
+    for sel in (".nmp-lantern", ".nmp-bell", ".nmp-cable .atl-prop-zap", ".nmp-headphones .atl-prop-cup-glow", ".nmp-nightcap", ".nmp-glasses .atl-prop-lens", ".nmp-book .atl-prop-page", ".nmp-map", ".nmp-coil", ".nmp-bubble", ".atl-fx-bang"):
         assert f'[".{sel[1:]}' in table, sel
     for row in re.findall(r"^  \[(\".*?), \d+, [0-9.]+\],$", table, re.M):
         frames = re.findall(r"\{ ([^}]*) \}", row)

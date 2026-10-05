@@ -540,6 +540,7 @@ function beginOrCompleteLink(entry) {
 //   tag:work            only notes tagged "work"
 //   cat:recipes         only notes in that category (category: also works)
 //   is:favourite        favourite (is:pinned too) / private / linked / untagged
+//   is:review           filings to check: unsure, or left in Uncategorised
 //   tags:<2             fewer than 2 tags, also <=, >, >=, = (or bare N)
 //   -picnic             notes that do NOT mention "picnic"
 //   "exact phrase"      that phrase, verbatim
@@ -576,6 +577,15 @@ function liveQueryIds(q) {
 // that only ever got the janitor's default filing and never a second look,
 // since `is:untagged` alone only ever answered the zero case.
 const TAG_COUNT_RE = /^tags:(<=|>=|<|>|=)?(\d+)$/;
+
+//: The review queue (WORLD_CLASS_PLAN section 17, row 1): the janitor was
+//: unsure, or left the note in Uncategorised, and nobody has decided since.
+//: The server's `review_queue_count` is the same rule.
+function entryNeedsReview(entry) {
+  if (!entry || entry.user_filed || entry.is_draft || entry.is_board || entry.filing_state === "pending") return false;
+  const unsure = entry.ai_confidence > 0 && entry.ai_confidence < REVIEW_THRESHOLD;
+  return unsure || !entry.category || entry.category === "Uncategorised";
+}
 
 //: **The Notes tab, filtered, from anywhere.** The palette's "Show untagged
 //: notes", the dashboard's Loose ends widget and the untagged nudge in the
@@ -755,8 +765,9 @@ function matchesSearch(entry) {
     if (flag === "linked" && !(entry.links || []).length && !/\[\[[^\]\n]{1,120}\]\]/.test(entry.content || "")) return false;
     if ((flag === "draft" || flag === "drafts") && !entry.is_draft) return false;
     if (flag === "untagged" && tags.length) return false;
-    //: WORLD_CLASS_PLAN section 17 row 1: the review queue as a filter.
-    if (flag === "review" && !noteNeedsReview(entry)) return false;
+    //: The review queue (section 17, row 1): unsure or Uncategorised filings
+    //: nobody has decided on (`entryNeedsReview`, above).
+    if (flag === "review" && !entryNeedsReview(entry)) return false;
   }
   if (query.tagCount && !matchesTagCount(query.tagCount, tags.length)) return false;
   if (query.exclude.some((word) => haystack.includes(word))) return false;
@@ -3392,15 +3403,6 @@ function ensureMapChipsFor(page, generation) {
       if (generation === _entriesLoadGeneration) renderEntries();
     })
     .catch(() => {});
-}
-
-//: **The review queue** (WORLD_CLASS_PLAN section 17 row 1): a filing Atlas
-//: was unsure of (under 60%) or a note left Uncategorised, that nobody has
-//: settled. The same rule as `routes_vision.review_filter`, so the filter and
-//: the dashboard's count agree.
-function noteNeedsReview(entry) {
-  if (entry.user_filed || entry.is_board || entry.is_draft || entry.filing_state === "pending") return false;
-  return entry.category === "Uncategorised" || (entry.ai_confidence > 0 && entry.ai_confidence < 60);
 }
 
 //: The bell says so once a week, past a handful, as it does for untagged.

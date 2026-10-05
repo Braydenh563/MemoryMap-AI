@@ -2027,6 +2027,8 @@ const LAZY_MODULES = {
   atlasMotion: ["/js/atlas-motion.js"],
   //: Atlas the Guide as a chat (help-chat.js's header), on first ask.
   helpChat: ["/js/help-chat.js"],
+  //: A selection's Move to space (batch-space.js's header).
+  batchSpace: ["/js/batch-space.js"],
   //: Settings, Packages: the extras, their bundles and bulk actions (INBOX 595).
   packages: ["/js/settings-packages.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
@@ -2292,6 +2294,7 @@ const LAZY_ENTRY_POINTS = {
   atlasMotion: ["atlasBlinkStart", "atlasRigAttach", "atlasRigWake"],
   //: Opened, asked or drawn for their effect; `openHelpChat`'s close is read by no caller.
   helpChat: ["openHelpChat", "askAtlas", "renderAtlasStarters"],
+  batchSpace: ["batchMoveToSpace"],
   //: 2026-10-05, the next six: async or unread, reached by a gesture.
   reveal: ["revealFeature"],
   onboarding: ["openOnboarding", "maybeShowConsoleViewIntro"],

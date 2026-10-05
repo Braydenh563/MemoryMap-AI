@@ -54,6 +54,38 @@ from memorymap.entry.tagnames import normalise_tags
 # Where entries land when no AI is available or the AI can't decide.
 UNCATEGORISED = "Uncategorised"
 
+#: Below this confidence a filing is worth a person's look: the card's "check
+#: this" chip (`REVIEW_THRESHOLD` in app.js, the same number) and the review
+#: queue (WORLD_CLASS_PLAN section 17, row 1). Section 17 wrote "under 60%";
+#: the queue takes the card's 50 so a note in it always wears the chip that
+#: says why (recorded in the plan's Decisions made).
+REVIEW_CONFIDENCE = 50
+
+
+def review_queue_count(session: Session) -> int:
+    """How many live notes wait for a person to look at their filing: the
+    janitor was unsure (an attempt under `REVIEW_CONFIDENCE`) or left them in
+    Uncategorised, and nobody has decided since (`user_filed`). Drafts and
+    boards are not notes in the list, so they are not counted."""
+    return int(
+        session.scalar(
+            select(func.count(Entry.id))
+            .outerjoin(Category, Entry.category_id == Category.id)
+            .where(
+                Entry.is_deleted == False,  # noqa: E712
+                Entry.is_draft == False,  # noqa: E712
+                Entry.is_board == False,  # noqa: E712
+                Entry.user_filed == False,  # noqa: E712
+                or_(
+                    (Entry.ai_confidence > 0) & (Entry.ai_confidence < REVIEW_CONFIDENCE),
+                    Entry.category_id.is_(None),
+                    Category.name == UNCATEGORISED,
+                ),
+            )
+        )
+        or 0
+    )
+
 
 def log_action(
     session: Session,

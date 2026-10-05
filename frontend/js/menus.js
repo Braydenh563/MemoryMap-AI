@@ -1921,7 +1921,7 @@ function entryOverflowMenu(entry) {
         },
       },
       //: Section 17 row 1: settle a filing from the note itself.
-      ...(noteNeedsReview(entry)
+      ...(entryNeedsReview(entry)
         ? [{
           label: "ph:check-circle Accept the filing",
           title: `Keep it in ${entry.category}; it leaves the review queue`,

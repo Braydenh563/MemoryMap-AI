@@ -198,7 +198,11 @@ def link_mention(entry_id: int, body: MentionLinkIn, session: Session = Depends(
         raise HTTPException(status_code=400, detail=LINK_UNSAFE_WHY)
     rewritten = f"{text[:start]}[[{words}]]{text[end:]}"
     if body.kind == "note":
-        routes_entries.update_entry(body.id, EntryUpdate(content=rewritten), Response(), session=session, if_match=None)
+        #: By keyword: `update_entry` takes the response and `If-Match`
+        #: (B7), and a positional `session` landed in the wrong one.
+        routes_entries.update_entry(
+            body.id, EntryUpdate(content=rewritten), response=Response(), session=session, if_match=None
+        )
     else:
         routes_documents.update_document(body.id, routes_documents.DocumentPatch(content=rewritten), session)
     return {"linked": True, "kind": body.kind, "id": body.id}

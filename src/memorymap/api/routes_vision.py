@@ -42,7 +42,9 @@ from memorymap.entry import manager
 router = APIRouter(tags=["vision"])
 
 #: Under this, a filing Atlas made is one to check (section 17 row 1).
-REVIEW_BELOW = 60
+#: The card's chip and the dashboard's count use the same number
+#: (`manager.REVIEW_CONFIDENCE`, the plan's recorded decision).
+REVIEW_BELOW = manager.REVIEW_CONFIDENCE
 #: How long a category must have been empty to be offered for removal.
 EMPTY_DAYS = 30
 #: How alike two category names must read to be offered as one.

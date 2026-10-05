@@ -2741,6 +2741,15 @@ function bgArtStyle() {
 }
 
 function startBgArt() {
+  //: Off means off, whoever asks (INBOX 611, the owner: "I started the tour
+  //: from the settings and it turned my generative bg art on except the
+  //: setting is off"). Several callers restart the pictures after a change
+  //: (the power saver, a theme, a resize) without asking whether the art is
+  //: wanted, and this drew it over a notebook that had it switched off.
+  if (!bgArtOn()) {
+    stopBgArt();
+    return;
+  }
   // Wanting a calm background isn't the same as wanting a calm interface, so
   // the art has its own setting. "Moving" is an explicit request and wins over
   // the reduced-motion hint: the hint exists to protect people from motion

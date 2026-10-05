@@ -98,15 +98,6 @@ with its owner named in the entry.
      Placed: the next whiteboard agent, after the integration merges the
      whiteboard phase 2 branch (same files).
 
-598. **The owner, 2026-10-05, verbatim.** "the loading screen on features
-     like the graph tab and library is a blank screen with a horizontal line
-     in the middle which if it lasts as long as it did for me right after the
-     update (its faster now), then it might have people thinking it is
-     broken so needs a better loading screen and to be cleaner." With 596's
-     "some skeleton loaders are missing like on the dashboard". Placed: the
-     next agent slot (page skeletons for Graph, Library, Documents, the
-     dashboard's widgets; a named, moving loading state).
-
 599. **The owner, 2026-10-05, verbatim.** "can you clean up and redesign
      this top docks?? I love some of the stuff youve done to further
      modernise the ui of the app. can you keep doing it for the settings
@@ -129,10 +120,6 @@ with its owner named in the entry.
      animation as well. also I want to be able to double tab the drag to
      resize circle on the companion to reset it to default size." Placed:
      the Atlas agent slot, with 600.
-602. **The owner, 2026-10-05, verbatim.** "every time I go off the dashboard
-     and go back on it, it is empty for a second then loads :(" Placed: with
-     598 (loading states), next agent slot.
-
 606. **The owner, 2026-10-05, verbatim.** "something about the design,
      ui/ux of the note edit form still feels off..." (screenshot: the edit
      form: a full-width Title field; a "Formatting" label row with three

@@ -1,0 +1,68 @@
+"""WORLD_CLASS_PLAN row 11, section 17's fifth row: the ten notes opened
+most this month. `access_count` cannot say when, so each open is counted in
+its month (`core/opens.py`, a file beside the database), and the Most used
+widget can ask for this month."""
+
+from __future__ import annotations
+
+from datetime import date
+from pathlib import Path
+
+from memorymap.core import deps, opens
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_an_open_counts_in_its_month(tmp_path):
+    opens.record(tmp_path, 7, date(2026, 10, 3))
+    opens.record(tmp_path, 7, date(2026, 10, 4))
+    opens.record(tmp_path, 9, date(2026, 10, 4))
+    opens.record(tmp_path, 9, date(2026, 9, 30))
+    assert opens.top(tmp_path, date(2026, 10, 5)) == [(7, 2), (9, 1)]
+    assert opens.top(tmp_path, date(2026, 9, 1)) == [(9, 1)]
+
+
+def test_only_two_months_are_kept(tmp_path):
+    for month in (7, 8, 9, 10):
+        opens.record(tmp_path, 1, date(2026, month, 1))
+    assert sorted(opens.read(tmp_path)) == ["2026-09", "2026-10"]
+
+
+def test_a_broken_file_reads_as_empty(tmp_path):
+    (tmp_path / "opens.json").write_text("{not json", encoding="utf-8")
+    assert opens.top(tmp_path) == []
+    opens.record(tmp_path, 3)
+    assert opens.top(tmp_path) == [(3, 1)]
+
+
+def test_most_accessed_this_month_follows_opens_not_the_all_time_count(client):
+    old = client.post("/entries", json={"content": "read every day in spring"}).json()
+    new = client.post("/entries", json={"content": "the note in use this week"}).json()
+    from memorymap.core.database import Entry
+
+    with deps.get_db().session() as session:
+        session.get(Entry, old["id"]).access_count = 40
+        session.commit()
+    for _ in range(3):
+        client.get(f"/entries/{new['id']}")
+    month = client.get("/entries/most-accessed", params={"period": "month"}).json()
+    assert [e["id"] for e in month][:1] == [new["id"]]
+    assert old["id"] not in [e["id"] for e in month]
+    # All time is unchanged: the old note's count still leads it.
+    assert client.get("/entries/most-accessed").json()[0]["id"] == old["id"]
+
+
+def test_a_binned_note_is_not_listed_for_the_month(client):
+    note = client.post("/entries", json={"content": "about to be binned"}).json()
+    client.get(f"/entries/{note['id']}")
+    client.delete(f"/entries/{note['id']}")
+    month = client.get("/entries/most-accessed", params={"period": "month"}).json()
+    assert note["id"] not in [e["id"] for e in month]
+
+
+def test_the_widget_offers_this_month_and_all_time():
+    dash = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    widget = dash.split("async function renderMostUsedWidget", 1)[1].split("\n}\n", 1)[0]
+    assert "period=month" in widget
+    # Two exclusive choices are a `.seg` (DESIGN.md's recipe index).
+    assert '"seg' in widget and "aria-pressed" in widget

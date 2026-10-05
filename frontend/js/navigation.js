@@ -1910,7 +1910,8 @@ async function switchTab(name) {
     // since the last time this tab was visible.
     refitComposer();
   }
-  if (name === "dashboard") whenScriptsLoaded().then(() => renderDashboard());
+  //: A return to the tab refreshes what is drawn in place (INBOX 602).
+  if (name === "dashboard") whenScriptsLoaded().then(() => renderDashboard({ refresh: true }));
   if (name === "graph") {
     // A fresh visit to the tab frames the whole map; the filter/slider
     // changes that call renderGraph() again while already on this tab
@@ -1974,18 +1975,121 @@ async function switchTab(name) {
 //: 488 to 550ms before it was whole. Now the page's own controls wait
 //: hidden under one skeleton the size of the page, which fades as they
 //: fade in (`.tab-loading`, `.tab-revealing`, 08-consistency.css).
+//:
+//: **The page's shape, and its name when it is slow** (INBOX 598, the owner:
+//: "the loading screen on features like the graph tab and library is a blank
+//: screen with a horizontal line in the middle ... might have people thinking
+//: it is broken"). The one skeleton was a page-sized box whose title bar and
+//: sheen were the only marks on it, held 2.4 to 3.3s on a cold bundle at 4x
+//: CPU (`scratchpad/ui-sweeps/loading598.js`). Now each lazy surface draws its
+//: own outline from `TAB_SKELETONS` (a dock, then the graph's canvas and its
+//: dots, the library's chips and tiles, the documents list and the open
+//: page), all `.skeleton` pieces, and past `TAB_SKELETON_NAME_MS` a ring and
+//: the surface's name ("Opening the graph…") say it is on its way.
+//: Inline styles through the CSSOM (the CSP allows those) because the boot
+//: stylesheets are at their cap; every length is a token.
+const TAB_SKELETON_NAME_MS = 400;
+const TAB_SKELETONS = {
+  graph: { name: "the graph", rows: "auto 1fr", build: (add) => {
+    const canvas = add({ position: "relative" }, false);
+    //: A scatter of nodes where the map will be: fixed spots, so the shape
+    //: does not jump between visits, sized like the graph's own dots.
+    for (const [x, y, r] of [[22, 30, 1.1], [41, 52, 1.6], [58, 34, 0.9], [67, 61, 1.3], [35, 72, 0.8], [76, 24, 1], [50, 44, 0.7], [84, 58, 0.9]]) {
+      canvas.appendChild(tabSkeletonBar({ position: "absolute", left: `${x}%`, top: `${y}%`, width: `${r}rem`, height: `${r}rem`, borderRadius: "50%" }));
+    }
+  } },
+  library: { name: "the library", rows: "auto auto 1fr", build: (add) => {
+    //: The filter chips, then the tiles.
+    const chips = add({ display: "flex", gap: "var(--space-2)", background: "none", border: "0", animation: "none", overflow: "hidden" }, false);
+    for (let i = 0; i < 6; i++) chips.appendChild(tabSkeletonBar({ flex: "0 0 auto", width: "5.5rem", height: "1.9rem", borderRadius: "var(--radius-pill)" }));
+    const tiles = add({ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(10rem, 1fr))", gridAutoRows: "9rem", gap: "var(--space-4)", alignContent: "start", background: "none", border: "0", animation: "none" }, false);
+    for (let i = 0; i < 12; i++) tiles.appendChild(tabSkeletonPiece({}));
+  } },
+  documents: { name: "documents", rows: "auto 1fr", build: (add) => {
+    //: The documents list beside the open page; a phone has the list alone.
+    const phone = matchMedia("(max-width: 599.98px)").matches;
+    const area = add({ display: "grid", gridTemplateColumns: phone ? "1fr" : "min(18rem, 32%) 1fr", gap: "var(--space-4)", background: "none", border: "0", animation: "none" }, false);
+    const list = document.createElement("div");
+    for (let i = 0; i < 7; i++) list.appendChild(tabSkeletonPiece({ height: "3.2rem", marginBottom: "var(--space-2)" }));
+    area.appendChild(list);
+    if (!phone) area.appendChild(tabSkeletonPiece({}));
+  } },
+};
+
+//: The `.skeleton` bar's own ink (02-chat-graph.css), for marks drawn inside
+//: a piece whose own bars are off.
+const TAB_SKELETON_INK = "color-mix(in srgb, var(--ink) 10%, transparent)";
+
+function tabSkeletonPiece(style, bars = true) {
+  const el = document.createElement("div");
+  el.className = "skeleton";
+  el.setAttribute("aria-hidden", "true");
+  Object.assign(el.style, { margin: "0", height: "auto", minHeight: "0" }, style);
+  //: The title and text bars `.skeleton` draws are right on a tile or a row
+  //: and wrong on a canvas, a dock or a wrapper: there they are the "line".
+  if (!bars) el.style.setProperty("--sk-bar", "transparent");
+  return el;
+}
+
+function tabSkeletonBar(style) {
+  const el = document.createElement("div");
+  el.setAttribute("aria-hidden", "true");
+  Object.assign(el.style, { background: TAB_SKELETON_INK, borderRadius: "var(--radius-sm)" }, style);
+  return el;
+}
+
+//: The dock every one of these pages opens with: its name, then its actions.
+//: A phone's dock is narrow, and its middle is where the named state goes,
+//: so it keeps one action and no name bar.
+function tabSkeletonDock() {
+  const phone = matchMedia("(max-width: 599.98px)").matches;
+  const dock = tabSkeletonPiece({ display: "flex", alignItems: "center", gap: "var(--space-3)", height: "calc(var(--target-min) + var(--space-4))", paddingInline: "var(--space-4)" }, false);
+  if (!phone) dock.appendChild(tabSkeletonBar({ width: "min(9rem, 30%)", height: "0.8rem" }));
+  dock.appendChild(tabSkeletonBar({ flex: "1", background: "none" }));
+  for (let i = 0; i < (phone ? 1 : 3); i++) dock.appendChild(tabSkeletonBar({ width: "2rem", height: "2rem", borderRadius: "var(--radius-md)" }));
+  return dock;
+}
+
 function tabPlaceholder(page, on) {
   let ph = page.querySelector(":scope > .tab-placeholder");
   if (on) {
     if (ph) return;
+    const spec = TAB_SKELETONS[page.id.replace(/^tab-/, "")];
     ph = document.createElement("div");
-    ph.className = "skeleton tab-placeholder";
-    ph.setAttribute("aria-hidden", "true");
+    ph.className = "tab-placeholder";
+    //: **This was the "horizontal line in the middle".** The page is a flex
+    //: column that centres its children, and an absolutely placed child of a
+    //: flex box takes `align-self` from it: with both insets set it was not
+    //: stretched between them but shrunk to its content (49px, the old box's
+    //: two bars) and centred, 439px down a 799px page and wider than it
+    //: (measured, 1440). Stretched both ways, and `width` back to auto from
+    //: the page children's full width, it is the page's own box.
+    ph.style.alignSelf = "stretch";
+    ph.style.justifySelf = "stretch";
+    ph.style.width = "auto";
+    if (!spec) {
+      ph.classList.add("skeleton");
+      ph.setAttribute("aria-hidden", "true");
+    } else {
+      Object.assign(ph.style, { display: "grid", gridTemplateRows: spec.rows, gap: "var(--space-4)" });
+      ph.appendChild(tabSkeletonDock());
+      spec.build((style, bars) => ph.appendChild(tabSkeletonPiece(style, bars)));
+      const status = document.createElement("p");
+      status.className = "muted tab-ph-status";
+      status.setAttribute("role", "status");
+      //: In the middle of the dock, the one place on every surface the outline
+      //: leaves empty, so it never sits over a tile or the canvas.
+      Object.assign(status.style, { position: "absolute", insetInline: "0", top: "0", height: "calc(var(--target-min) + var(--space-4))", margin: "0", pointerEvents: "none", display: "flex", justifyContent: "center", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", opacity: "0", transition: "opacity var(--motion-base) var(--ease-out)" });
+      setLabel(status, `ph:spin Opening ${spec.name}…`);
+      ph.appendChild(status);
+      ph.dataset.late = String(setTimeout(() => (status.style.opacity = "1"), TAB_SKELETON_NAME_MS));
+    }
     page.prepend(ph);
     page.classList.add("tab-loading");
     return;
   }
   if (!ph) return;
+  clearTimeout(Number(ph.dataset.late));
   page.classList.replace("tab-loading", "tab-revealing");
   ph.classList.add("tab-placeholder-leaving");
   setTimeout(() => {

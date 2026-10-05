@@ -4141,11 +4141,8 @@ html.modal-open body {
   overflow: visible;
 }
 
-.dash-body:empty::after {
-  content: "Loading…";
-  color: var(--muted);
-  font-size: 0.85rem;
-}
+/* No "Loading…" in an empty body: a widget holds skeleton rows until it
+   draws (`mountWidgetBody`, INBOX 596). */
 
 .dash-big {
   font-size: var(--text-h1);

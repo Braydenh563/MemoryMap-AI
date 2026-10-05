@@ -719,6 +719,11 @@ def _payload_key(session: Session, similarity: bool, include_maps: bool, include
     with_similarity = similarity and not config.get_preference("battery_efficient_mode")
     if with_similarity:
         feed(session.execute(select(func.count(EmbeddingRecord.id), func.max(EmbeddingRecord.created_at))))
+        #: Vectors from two models live in different spaces: a switch is a new
+        #: payload though no note changed.
+        digest.update(str(deps.get_embeddings().backend_id()).encode())
+    #: A note type's name and colour paint the "Note type" rule (`type_colours`).
+    feed(session.execute(select(NoteType.id, NoteType.name, NoteType.colour).order_by(NoteType.id)))
     vault_key = vault.key()
     return (
         _graph_fingerprint(session),
@@ -843,15 +848,27 @@ def _build_graph(
     now = datetime.now(timezone.utc)
     #: Each note's label and word count, read once per version (`_note_texts`).
     labels = _note_texts(entries)
-    #: WORLD_CLASS_PLAN D5: each note's type (`type:` in its properties, KG4),
-    #: what the "Note type" colour rule paints by. One query off the index;
-    #: a private note has no rows there, so it reads as untyped.
+    #: WORLD_CLASS_PLAN row 10 (D5): a note's type, for the "Note type" colour
+    #: rule, read from the properties index KG4 keeps (one query, the `type`
+    #: key's first value per note), never by parsing every note's block. A
+    #: private note has no index rows, so it carries none.
+    #: A note may spell its type in its own case ("type: book"); the node
+    #: carries the type's own name when Note types has it, so "book" and
+    #: "Book" are one colour and one legend row, not two.
+    type_colours: dict[str, str] = {}
+    canonical: dict[str, str] = {}
+    for name, colour in session.execute(select(NoteType.name, NoteType.colour)):
+        canonical[name.casefold()] = name
+        if colour:
+            type_colours[name] = colour
     type_of: dict[int, str] = {}
     for entry_id, value in session.execute(
-        select(EntryProperty.entry_id, EntryProperty.value).where(EntryProperty.key == "type")
+        select(EntryProperty.entry_id, EntryProperty.value)
+        .where(EntryProperty.key == "type")
+        .order_by(EntryProperty.id)
     ):
         if entry_id in node_ids and value:
-            type_of.setdefault(entry_id, value)
+            type_of.setdefault(entry_id, canonical.get(value.casefold(), value))
     nodes = [
         {
             "id": e.id,
@@ -1056,8 +1073,14 @@ def _build_graph(
     # every other request while it was turned into JSON. A response built
     # in the route is encoded where the route runs; `jsonable_encoder` is
     # what FastAPI would have applied, so the body is byte for byte the same.
-    return JSONResponse(jsonable_encoder({"nodes": nodes, "edges": edges, "categories": categories, "type_colours": type_colours}))
-
+    #: `type_colours`, read with the types above: a type's own colour (Note
+    #: types), so the "Note type" rule paints a Meeting the colour the person
+    #: gave it; a type without one falls to the calm scheme in the page.
+    return JSONResponse(
+        jsonable_encoder(
+            {"nodes": nodes, "edges": edges, "categories": categories, "type_colours": type_colours}
+        )
+    )
 
 def _load_entries(session: Session, ids) -> dict[int, Entry]:  # noqa: ANN001
     """The live notes with these ids, read in chunks (SQLite's variable cap)."""

@@ -58,6 +58,6 @@ def test_the_lint_sees_the_fetches_it_is_for():
     routes = {route for _, _, route, _ in _raw_fetches()}
     # The two streams it was written for went through `api.stream` on
     # 2026-10-05 (F5, `tests/test_no_bare_fetch.py`); the raw fetches left
-    # are app.js's own sign-in calls.
-    assert "/auth/media-session" in routes
+    # are the sign-in calls (the media session went through `api()` too, in
+    # shell-reminders.js's `refreshMediaSession`).
     assert "/auth/auto-session" in routes

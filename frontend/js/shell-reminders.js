@@ -1725,10 +1725,13 @@ document.getElementById("reminders-export-ics")?.addEventListener("click", () =>
 async function refreshMediaSession() {
   if (!authToken()) return false;
   try {
-    return (await fetch("/auth/media-session", { method: "POST", headers: { "X-Auth-Token": authToken() } })).status !== 401;
-  } catch {
-    // Offline or the server is gone: the boot path says so on its own.
+    //: Through `api` (tests/test_no_bare_fetch.py), silent so a 401 does
+    //: not raise the lock screen itself: the boot path does that.
+    await api("/auth/media-session", { method: "POST", silent: true });
     return true;
+  } catch (error) {
+    // Offline or the server is gone: the boot path says so on its own.
+    return !error?.isLockout;
   }
 }
 

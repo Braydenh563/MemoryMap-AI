@@ -7,6 +7,26 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (wb-phase2: draw.io phase 2)
+
+From WHITEBOARD_PLAN (decisions 30 on) and the features audit's
+remaining whiteboard rows; the open rest is in
+`docs/roadmap/agent-remaining/wb-phase2.md`.
+
+- **Step 1, bends on straight and curved connectors, and line jumps**
+  (decisions 30, 31). `points` drives every style (`wbLinkShape`,
+  `wbCurveThroughSegs`, `wbCurvePathD`); one grip set,
+  `wbRenderWaypointHandles`; floating ends aim at the nearest waypoint;
+  `wbLineJumpsD` hops over lines painted under (read off the sorted
+  selection: d3's `sort` returns a new one). Found and fixed on the way: a
+  click or double-click on an add ring saved one or two bends at the ring
+  (elbows too), and a bend's double-click never took it out (a save on the
+  first click re-rendered the grip). `tests/test_wb_waypoints.py` 14;
+  `wbwaypoints.js` 20/20 at 1440 and 390, light and dark; `wb1005-elbow.js`
+  18/18, `wb1005-format.js` 17/17, `wblinklabel.js` 12/12 (two checks
+  updated: the bend is `points`, and the right-click point avoids the bar,
+  which covered it on the base too).
+
 ## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
 
 From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN

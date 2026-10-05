@@ -1025,8 +1025,8 @@ HELP_TOPICS.extend(
                 "drag or goes back to Select. Ctrl+Z undoes, Ctrl+Y redoes. "
                 "Double-click empty board for a text box, double-click a closed shape "
                 "(or select it and press Enter) to write in it, right-click (or hold on touch) "
-                "for the menu, double-click a line to bend "
-                "it, and select a connector and press Enter to label it. A frame's "
+                "for the menu, double-click a line to add a bend "
+                "there, and select a connector and press Enter to label it. A frame's "
                 "title drags it and what is inside it (Ctrl: the frame alone); its menu exports it. "
                 "Ctrl+Shift+L locks the selection (clicks go through); Unlock is "
                 "on the board's right-click menu. Right-click an item, Comment…, starts a "
@@ -1077,6 +1077,7 @@ HELP_TOPICS.extend(
                 "angle", "rotate by", "flip", "mirror", "opacity", "transparency", "see through", "shadow",
                 "text size in a shape", "align text", "elbow", "right angle", "orthogonal", "connector shape",
                 "line shape", "bend", "waypoint", "label position", "crow's foot", "crows foot", "er diagram",
+                "line jumps", "line jump", "crossing lines", "lines cross", "hop over",
                 "entity relationship", "mermaid", "import a flowchart", "clone and connect", "copy and connect", "next shape", "copy a shape",
                 "connect it to the copy", "connect the copy",
             ),
@@ -1084,12 +1085,15 @@ HELP_TOPICS.extend(
                 "Ctrl+Shift+P on a board (or Format panel in the selection's More menu, or View) opens "
                 "the Format panel on the right, with three tabs. Style: line colour, width and pattern, "
                 "fill, opacity, shadow, and for a connector its line shape (curved, straight or elbow), "
-                "its two ends and where its label sits along it. Text: the size, colour, weight and "
+                "its line jumps (where it crosses a line under it, it hops over with an arc, a gap or a "
+                "sharp peak), its two ends and where its label sits along it. Text: the size, colour, weight and "
                 "alignment of a text box or of the words in a shape. Arrange: X, Y, width, height and "
                 "angle as numbers, flip, and the order, align, spacing, group and lock buttons. Every "
-                "change is one undo step. An elbow connector turns at right angles and goes round the "
-                "shapes it joins: drag the small ring in the middle of a run to add a bend, drag a bend to "
-                "move it, double-click it to take it out. Drag the square on a connector's label to slide "
+                "change is one undo step. Every connector takes bends: drag the small ring in the middle "
+                "of a run (or double-click the line) to add one, drag a bend to move it, double-click it to "
+                "take it out. A straight line runs through its bends, a curved one curves smoothly through "
+                "them, and an elbow turns at right angles and goes round the shapes it joins; changing the "
+                "line shape keeps the bends. Drag the square on a connector's label to slide "
                 "it along the line. The ends include the entity-relationship marks (one, zero or one, many, "
                 "one or many, zero or many). With one shape or text box selected, the four arrows round it "
                 "(or Alt+Shift and an arrow key) copy it that way and join the two with an elbow. "

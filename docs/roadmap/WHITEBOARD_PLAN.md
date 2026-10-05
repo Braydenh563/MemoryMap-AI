@@ -344,6 +344,23 @@ accessibility, and learnability") are why.
     and delete tools, each one event and one undo step, through the same
     confirm the other destructive agent tools use.
 
+### Decisions made, 2026-10-05: draw.io phase 2 (wb-phase2)
+
+30. **Every connector style takes bends** (decision 13's single `bend`
+    retired for new edits). `points` (board units) is the one list: an elbow
+    routes through it, a straight line runs through each in turn, a curved
+    line is one Catmull-Rom curve through all of them leaving along its
+    shapes' edge normals. The same grips on every style (filled bend, hollow
+    ring to add); a double-click on the line adds a bend there; changing the
+    line shape keeps the bends. An old link's `bend` is drawn as before and
+    read as one waypoint, written as `points` on its first edit. A map's
+    cross-link keeps its own bend handle.
+31. **Line jumps are per connector** (`jumps`: arc, gap or sharp; none by
+    default, as draw.io), set in the Format panel's Style tab. A connector
+    hops on its straight runs over every line painted under it, so of two
+    crossing lines only the upper one hops; the hitbox and the label keep
+    the plain line.
+
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", WHITEBOARD_PLAN.md) on 2026-09-09: a plan holds open work only.

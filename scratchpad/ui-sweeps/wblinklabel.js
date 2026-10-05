@@ -143,11 +143,19 @@ const ratio = (a, b) => {
   // 5. The menu, and undo.
   await page.evaluate((id) => selectWbItem("sketch", id), ids.link);
   const pt = await page.evaluate((id) => {
+    //: A point on the line that nothing covers: the selection bar can sit
+    //: over the stretch at 0.3 (it did, on the head this was written on).
     const p = document.querySelector(`.sketch-group[data-id="${id}"] .sketch-path`);
     const len = p.getTotalLength();
-    const q = p.getPointAtLength(len * 0.3);
     const ctm = p.getScreenCTM();
-    return { x: ctm.a * q.x + ctm.c * q.y + ctm.e, y: ctm.b * q.x + ctm.d * q.y + ctm.f };
+    let first = null;
+    for (const t of [0.3, 0.2, 0.4, 0.15, 0.6, 0.7, 0.8]) {
+      const q = p.getPointAtLength(len * t);
+      const s = { x: ctm.a * q.x + ctm.c * q.y + ctm.e, y: ctm.b * q.x + ctm.d * q.y + ctm.f };
+      first = first || s;
+      if (document.elementFromPoint(s.x, s.y)?.closest(`.sketch-group[data-id="${id}"]`)) return s;
+    }
+    return first;
   }, ids.link);
   await page.mouse.click(pt.x, pt.y, { button: "right" });
   await page.waitForTimeout(300);
@@ -187,9 +195,10 @@ const ratio = (a, b) => {
   await page.waitForTimeout(500);
   const dbl = await page.evaluate((id) => ({
     editor: Boolean(document.querySelector(".wb-shape-label-editor")),
-    bend: JSON.parse(wbState.sketches.find((x) => x.id === id).data).bend || null,
+    //: A bend is a waypoint now, on every line style (wb-phase2 step 1).
+    bend: JSON.parse(wbState.sketches.find((x) => x.id === id).data).points || null,
   }), ids.link);
-  ok("a double-click on the line still bends it", !dbl.editor && Boolean(dbl.bend), JSON.stringify(dbl));
+  ok("a double-click on the line still bends it", !dbl.editor && dbl.bend?.length === 1, JSON.stringify(dbl));
 
   ok("no page errors", errors.length === 0, errors.join(" | "));
   console.log(`${pass} ok, ${fail} failed`);

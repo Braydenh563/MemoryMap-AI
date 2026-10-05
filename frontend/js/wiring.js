@@ -122,7 +122,11 @@ $("draft-text").addEventListener("input", () => {
   updateDraftCount();
   saveDraftLocally();
 });
-$("draft-thoughts").addEventListener("input", saveDraftLocally);
+//: One listener: the thoughts box keeps its draft and its word count (INBOX 63).
+$("draft-thoughts").addEventListener("input", () => {
+  saveDraftLocally();
+  updateDraftCount();
+});
 $("draft-tags").addEventListener("input", saveDraftLocally);
 // Ctrl/Cmd+Enter from the thoughts box drafts, matching the capture box.
 $("draft-thoughts").addEventListener("keydown", (event) => {

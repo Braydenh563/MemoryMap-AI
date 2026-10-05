@@ -373,10 +373,7 @@ the link sits.
 
 The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
 
-45. **The Ask sub-tab**: extra scroll, overflow, and the owner wants a
-    redesign with an integrated advanced search and more utility. Owner:
-    CHAT_PLAN Phase 1 (Ask) plus WORLD_CLASS 5.1 operators; the scroll
-    part is 33.
+~~45. The Ask sub-tab.~~ **Folded into 63 and closed with it, 2026-10-05.**
 
 ### Found by an agent while measuring something else (2026-09-08, graph)
 
@@ -392,29 +389,13 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
     HISTORY.md, "Moved from the plans, 2026-09-26 (the Chat pass)".
 ~~90. User chat bubbles.~~ **Built; checked 2026-09-26.** Moved to
     HISTORY.md, "Moved from the plans, 2026-09-26 (the Chat pass)".
-63. **Redesign the Ask sub-tab, Write with the AI and Capture** (three
-    screenshots, 01:12; the owner: "modernise them and bring them up to
-    standard with features, function and ui ux"). Owner: Opus, next slot,
-    one brief (CHAT_PLAN's INBOX 45 folds in). Decisions: Capture keeps
-    its one-column form but the title, the formatting strip and the box
-    become one framed field (title as the first line, strip inside the
-    frame's top edge, no separate rounded strip), the six action buttons
-    collapse to Attach + Dictate + Improve with From library and Sketch
-    under Attach, the "Add to document" and "File under" selects move to
-    one settings row under the box with the space note, Save primary and
-    "Save as draft" ghost; a live "N words · reading time" in the foot;
-    Ctrl+Enter saves. Write with the AI becomes a two-pane editor with
-    one shared toolbar (Draft it primary; Undo, Extract notes, Discard
-    ghost; tone and length as a segmented control instead of a free
-    text hint, with the hint field behind it), the draft pane in the
-    body font not monospace, a word count per pane, and the tag field
-    beside Save. Ask keeps its layout and gets: the AI answer and the
-    matching records as two equal-height columns with their own scroll,
-    the answer box unframed (one panel, not a card in a card), the
-    "Ask again" chips as a scrolling row, a "Sources" foot listing every
-    grounded note with confidence, an Answer style segment (Brief,
-    Detailed, Bullets) replacing the select, keyboard: Enter asks,
-    Shift+Enter newline, Esc clears; the settings popover keeps its id.
+~~63. Redesign the Ask sub-tab, Write with the AI and Capture.~~ **Closed
+    2026-10-05**, line by line against what renders: the last four lines
+    built (a word count and reading time in Capture's foot, a word count on
+    each Write pane, the draft in the body font, Escape clearing the Ask
+    question), the rest built by earlier passes or superseded by a later
+    decision of the owner's, each named. Moved to HISTORY.md, "Moved from
+    the plans, 2026-10-05 (INBOX 63 and 45)".
 
 ## Placed from INBOX, 2026-09-09 (the owner's evening batch)
 

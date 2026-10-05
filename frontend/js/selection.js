@@ -655,7 +655,11 @@ function fieldSelection() {
   //: palette open with their query selected so typing replaces it), and a
   //: field inside an overlay belongs to that overlay: the popup drew its
   //: menu over the Finder's own results. Writing fields only.
-  if (el.type === "search" || el.closest(".lock-overlay, .modal-overlay, .command-palette, [role='combobox']")) {
+  //: The Ask box (`data-query`) is a query too: an answer selects its
+  //: question so typing replaces it, and that programmatic selection drew
+  //: the menu over the answer's sources, wherever the pointer last was
+  //: (found 2026-10-05 measuring CHAT_PLAN's Ask layout).
+  if (el.type === "search" || "query" in el.dataset || el.closest(".lock-overlay, .modal-overlay, .command-palette, [role='combobox']")) {
     return null;
   }
   const text = el.value.slice(el.selectionStart, el.selectionEnd);

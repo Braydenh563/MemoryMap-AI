@@ -1293,7 +1293,7 @@ Link to another note with [[its first few words]]."></textarea>
             <!-- The box's own foot: Clear (field-clear.js, INBOX 466) at the left, the count at the right. -->
             <div class="note-composer-foot">
               <button type="button" id="capture-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>
-              <div class="char-count muted" id="entry-count" aria-live="polite">0 characters</div>
+              <div class="char-count muted" id="entry-count" aria-live="polite">0 words</div>
             </div>
           </div>
           <!-- The files this note's text points at, one attachment card each
@@ -1537,7 +1537,12 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="draft-column">
               <div class="row space-between draft-column-head">
                 <label for="draft-thoughts" class="muted">Your thoughts</label>
-                <span id="draft-sources-count" class="muted"></span>
+                <!-- A word count per pane (CHAT_PLAN, INBOX 63), beside the
+                     notes it is written from, as the draft's own is. -->
+                <span class="row draft-head-facts">
+                  <span id="draft-sources-count" class="muted"></span>
+                  <span id="draft-thoughts-count" class="muted"></span>
+                </span>
               </div>
               <textarea id="draft-thoughts" rows="7"
                 placeholder="Just get it down, order doesn't matter…"></textarea>
@@ -1705,7 +1710,9 @@ Link to another note with [[its first few words]]."></textarea>
           </p>
           <div class="row ask-query-row ask-composer">
             <i class="ph ph-sparkle ask-composer-icon" aria-hidden="true"></i>
-            <input id="question" type="text"
+            <!-- `data-query`: a question, not writing, so the selection menu
+                 leaves it alone (`fieldSelection`, selection.js). -->
+            <input id="question" type="text" data-query
               placeholder="e.g. What jokes have I saved?"
               aria-label="Ask your notebook a question">
             <button type="button" id="ask-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>

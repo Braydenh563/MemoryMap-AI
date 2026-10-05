@@ -19,6 +19,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Notes: Capture counts words and reading time instead of characters; Write with Atlas counts the words in each pane and sets the draft in the same font as your thoughts; Escape clears the Ask question (INBOX 63).
 - Chat and Ask: hovering a citation number now also says which words it matched on, so a number pointing at the wrong note shows the wrong words (INBOX 76). Settings, Tools it can use: the list is grouped as Reads your notebook, Changes your notebook, Asks you first and Reaches the web (INBOX 71).
 - Agent mode: every change the assistant makes is checked before and after. A link to a note that does not exist, a retag that changes nothing, or a category that is a misspelling of one you have ("Heath" beside "Health") is refused with a line saying what to use instead, and the notes are read back after each change so a change that did not hold is reported as not done rather than claimed (row 19). Removing a tag now works whatever its case. With Ollama, a small model's first round on an instruction is decoded as a tool call, as it already was with llama.cpp.
 - Documents on a narrow window: the Edit/Read segment's well grows to the 44px touch height its buttons take, so they no longer hang out of its foot and sit on the row's centre line (INBOX 568).
@@ -341,6 +342,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Dashboard: the first screen is calmer. Under the greeting is one row, the search box and a "..." menu holding Continue, your recent skills, Tools & features, Commands, View, Widgets and Edit layout; then the Start something tiles and your widgets. The Jump to and Run a skill rows, the four number tiles and the Your dashboard bar are gone from the page (the numbers are in the greeting, the status bar and the Stats, Streak and Writing pace widgets), and Edit layout shows a line above the widgets with its own Done.
 
 ### Fixed
+- Notes, Ask: the text-selection menu no longer pops up over an answer's sources when the answer selects your question for re-typing.
 - Moving a note the AI filed to another category now teaches the next filing: the move was recorded but never read back, so the same note kept being filed in the same wrong place.
 - Phone: More has a Commands row that opens the command palette, which a phone had no way to reach.
 - Notes: switching on "Connections beside an open note" with no note open says that the column shows beside a note once you open one (INBOX 546).

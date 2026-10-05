@@ -7,6 +7,40 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (INBOX 63 and 45)
+
+### From CHAT_PLAN.md, the Ask sub-tab, Write with the AI and Capture
+
+Every decision line of 63 read against the app at head
+(`scratchpad/ui-sweeps/ai1005-capture63.js`, `ai1005-desk63.js`,
+`ai1005-asklayout.js`, 1440 and 390, light and dark, 0 errors).
+
+| Line | State | Evidence |
+| --- | --- | --- |
+| Capture: title, strip and box one framed field | built (INBOX 560) | the composer is one box |
+| Capture: six buttons collapse to Attach, Dictate, Improve | superseded by INBOX 395 (the owner, 2026-09-23, on the same row): a toolbar of four that add and Improve set apart by a hairline | five unframed controls on one 8.5rem label column |
+| Capture: the selects on one settings row with the space note | built | "Filing" row with Add to document; the space note under it |
+| Capture: Save primary, Save as draft ghost; Ctrl+Enter saves | built (INBOX 432) | |
+| Capture: a live "N words · reading time" in the foot | **built now** | "12 words · under a min read" for a twelve-word note (was "61 characters"), at the documents' 220 words a minute |
+| Write: two panes, one shared toolbar, Draft primary, Undo; Extract and Discard ghost | built (Extract and Discard behind the head's menu) | |
+| Write: tone and length a segment | superseded: three selects, the shapes the chat dock uses (WORLD_CLASS_PLAN D16) | |
+| Write: the draft pane in the body font | **built now** | system-ui at 16px, as the thoughts box (was the mono stack at 13.6px) |
+| Write: a word count per pane | **built now** | "4 words" over the thoughts beside "6 words" over the draft, the two heads level at 1440 |
+| Write: the tag field beside Save | built (a Tags row over Copy, Insert, Save) | |
+| Ask: answer and records as two columns | built (INBOX 297 to 300) | 529px each at 1440 |
+| Ask: answer unframed | superseded by consistency rule 6: the answer renderer is one component in three places | |
+| Ask: "Ask again" as a row | built | |
+| Ask: a Sources foot with every grounded note | built (INBOX 300) | "4 of 4 from your notes" |
+| Ask: an Answer style segment (Brief, Detailed, Bullets) | superseded by §11: the presets are served (`/chat/modes`) and the Ask select is one of two pickers of the one preference | |
+| Ask: Enter asks, Esc clears | **Esc built now** | a typed question cleared by Escape; an empty box lets Escape through |
+
+Found on the way and fixed: an answer selects its question so typing
+replaces it, and the selection menu read that as writing and opened over the
+answer's sources wherever the pointer last was (1 of 1 answers before, 0
+after, at 1440 and 390). The Ask box carries `data-query` and
+`fieldSelection` leaves it alone, as it does a search box.
+`tests/test_desk_counts_63.py`.
+
 ## Moved from the plans, 2026-10-05 (CHAT_PLAN's placed items)
 
 ### From CHAT_PLAN.md, INBOX 71, 72 and 76 and the owner's 2026-09-09 evening batch

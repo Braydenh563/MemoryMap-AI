@@ -124,7 +124,8 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("ask", "chat", "agent", "conversation", "tool", "question", "popup agent", "everywhere"),
         "body": (
             "\"Ask your notebook\" (Notes tab) and the Chat tab both answer from "
-            "saved notes, with the raw notes shown beside the answer. Agent mode "
+            "saved notes, with the raw notes shown beside the answer; in Ask, "
+            "Enter asks and Escape clears the question. Agent mode "
             "(a toggle in Chat) lets the assistant use its tools to search, link, "
             "tag, organise and create, destructive actions always ask first, "
             "and after it reads a web page or a clipped or imported note, so "

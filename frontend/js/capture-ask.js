@@ -343,7 +343,7 @@ function resetCaptureForm(contentBox, titleBox) {
   autoGrow(contentBox); // the box shrinks back with its content
   // It's saved for real now: the words, the title and the tags.
   for (const key of ["captureDraft", "captureDraftTitle", "captureDraftTags"]) localStorage.removeItem(key);
-  $("entry-count").textContent = "0 characters";
+  $("entry-count").textContent = "0 words";
   $("entry-tags").value = "";
   $("entry-category").value = "";
   captureDocuments.clear();

@@ -9,5 +9,5 @@ from tests._app_js import app_js_text
 
 def test_strips_inside_the_region_are_marked():
     js = app_js_text()
-    assert 'region.querySelectorAll(".notes-subtabs, .library-subtabs")' in js
+    assert 'region.querySelectorAll(".notes-subtabs, .library-subtabs, [data-dock-name=notes]")' in js
     assert 'strip.setAttribute("data-scrolled", "1");' in js

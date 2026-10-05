@@ -73,6 +73,9 @@ let wbMapKeysArmed = false;
 //: the window losing focus), set by the capture listeners in initWhiteboard.
 let wbMidPanHeld = false;
 
+//: Paste and hover-lock bookkeeping, one name in the shared scope.
+const wbBoardState = { pasteArrived: false, lockHoverKey: null, lockHoverFrame: 0, lockHintSaid: false };
+
 function wbZoomFilter(event) {
   // Wheel: zoom only with Ctrl/⌘ held (which is also what a trackpad pinch
   // arrives as). A plain wheel *pans*, see the native listener in
@@ -225,7 +228,7 @@ let wbLinkDragActive = false;
 //:
 //: In `localStorage`, which is where every other thing this board remembers
 //: about how it is being *looked at* already lives: the grid and snap
-//: settings, the alignment guide colours, the background colour and image,
+//: settings, the alignment guide colours (the background is the board's now),
 //: the navigator's open state, the map's perspective. Which cards are open
 //: is that kind of fact, not part of the board's content, and keeping it
 //: here needs no migration and no round trip on a click.
@@ -674,11 +677,16 @@ function wbSyncGridToTransform(transform) {
 const WB_INV_ZOOM_GRIPS = [
   ".wb-object-frame .wb-frame-title",
   ".wb-comment-pin",
+  ".wb-lock-pin",
   ".wb-resize-handle",
   ".wb-rotate-handle",
   ".wb-sketch-resize-handle",
   ".wb-link-endpoint-handle",
   ".wb-link-bend-handle",
+  ".wb-link-waypoint-handle",
+  ".wb-link-waypoint-add",
+  ".wb-link-label-handle",
+  ".wb-clone-grip",
   ".wb-map-edge-handle",
   ".wb-sketch-rotate-handle",
   ".wb-rotate-handle-stem",
@@ -959,22 +967,100 @@ function wbApplyGrid() {
   wbSyncGridToTransform();
 }
 
-//: A board's own background image, kept per board in localStorage the same
-//: way its background colour already is, it is a property of how you like
-//: to look at that board, not notebook data, and storing it server-side
-//: would mean a schema column for something the server never reads.
-function wbBgImageKey() {
-  return `wb-bg-image-${window.currentBoardId ?? "default"}`;
+//: **A board's look lives on the board** (WHITEBOARD_PLAN decision 24,
+//: FEAT-06). It used to be one localStorage colour shared by every board and
+//: a per-board localStorage image, so neither synced, neither was in a
+//: backup, the desktop window and a browser tab drew different boards, and
+//: media cleanup deleted the image as an orphan. Now `background {color,
+//: image}` is in the board's settings and arrives with its state
+//: (`wbState.background`); grid and snap stay per device.
+function wbBoardBackground() {
+  return (wbState && wbState.background) || {};
 }
 
-function wbApplyBgImage() {
+//: The theme's own board colour as a hex string, read with no colour of the
+//: board's on the container, so "reset" still means the current theme.
+function wbThemeBoardHex() {
+  const el = document.getElementById("whiteboard-container");
+  if (!el) return null;
+  const rgb = getComputedStyle(el).backgroundColor;
+  const m = rgb.match(/(\d+),\s*(\d+),\s*(\d+)/);
+  return m ? "#" + m.slice(1, 4).map((n) => Number(n).toString(16).padStart(2, "0")).join("") : null;
+}
+
+function wbApplyBackground() {
   const el = document.getElementById("whiteboard-container");
   if (!el) return;
-  const url = localStorage.getItem(wbBgImageKey());
+  const bg = wbBoardBackground();
+  el.style.removeProperty("--wb-board-bg");
+  const themeHex = bg.color ? null : wbThemeBoardHex();
+  if (bg.color) el.style.setProperty("--wb-board-bg", bg.color);
   // `mediaSrc`, not the bare url, a CSS `background-image: url(...)` is a
   // plain resource load, same as `<img src>`, so it never attaches
   // X-Auth-Token either.
-  el.style.setProperty("--wb-bg-image", url ? `url("${mediaSrc(url)}")` : "none");
+  el.style.setProperty("--wb-bg-image", bg.image ? `url("${mediaSrc(bg.image)}")` : "none");
+  const picker = document.getElementById("wb-bg-color-picker");
+  if (picker && (bg.color || themeHex)) picker.value = bg.color || themeHex;
+  const imageButton = document.getElementById("wb-bg-image");
+  if (imageButton) {
+    const words = bg.image ? "Remove the background image" : "Set a background image";
+    imageButton.title = words;
+    imageButton.setAttribute("aria-label", words);
+  }
+}
+
+//: Writes a patch of the board's look and pushes one undo step for it. The
+//: default scratch board has no note to keep settings on, so it says so.
+async function wbSetBackground(patch, { undo = true } = {}) {
+  const id = window.currentBoardId;
+  if (!id) {
+    toast("The default board keeps the theme's look. Make a board of your own to give it one.", true);
+    wbApplyBackground();
+    return false;
+  }
+  const before = { ...wbBoardBackground() };
+  try {
+    const out = await apiJson(`/whiteboard/boards/${id}`, { method: "PUT", body: JSON.stringify({ background: patch }) });
+    if (String(window.currentBoardId ?? "") !== String(id)) return false;
+    wbState.background = out.background || {};
+  } catch (err) {
+    toast(err.message || "Couldn't change the background.", true);
+    wbApplyBackground();
+    return false;
+  }
+  wbApplyBackground();
+  if (undo) wbPushUndo({ action: "background", before });
+  return true;
+}
+
+//: **Once per board on this device, the old per-browser look moves onto the
+//: board.** A board that already has a look of its own is never overwritten.
+//: The per-board image key is removed once moved; the old colour was one key
+//: for every board, so it stays until each board this device opens has taken
+//: it, and a flag per board says which have.
+async function wbMigrateBackground() {
+  const id = window.currentBoardId;
+  if (!id || wbIsMap()) return;
+  let image = null, color = null, done = false;
+  try {
+    image = localStorage.getItem(`wb-bg-image-${id}`);
+    color = localStorage.getItem("wb-bg-color");
+    done = localStorage.getItem(`wb-bg-moved-${id}`) === "1";
+  } catch {
+    return;
+  }
+  if (done || (!image && !color)) return;
+  const have = wbBoardBackground();
+  const patch = {};
+  if (image && !have.image && /^\/media\/[A-Za-z0-9]/.test(image)) patch.image = image;
+  if (color && !have.color && /^#[0-9a-f]{6}$/i.test(color)) patch.color = color;
+  if (Object.keys(patch).length && !(await wbSetBackground(patch, { undo: false }))) return;
+  try {
+    localStorage.removeItem(`wb-bg-image-${id}`);
+    localStorage.setItem(`wb-bg-moved-${id}`, "1");
+  } catch {
+    // Private mode: it is on the board now either way.
+  }
 }
 
 // A tiny inline SVG baked into a `cursor:` value, so the OS/GPU renders and
@@ -1060,7 +1146,14 @@ new MutationObserver(wbRefreshHighlighterBlend).observe(document.documentElement
 //: arrow stroke has no enclosed area a fill would read as filling. Module
 //: scope (not inside `initWhiteboard`) since both the live-draw handlers
 //: and `renderWhiteboard` (a separate top-level function) need it.
-const WB_FILLABLE_SHAPES = new Set(["rect", "circle", "triangle", "diamond"]);
+//: `custom` is a shape from the library (a built-in set or one saved from a
+//: drawing, WHITEBOARD_PLAN decision 25): closed, fillable, takes text in its
+//: `label_area` (fractions of its box) or the whole box.
+const WB_FILLABLE_SHAPES = new Set(["rect", "circle", "triangle", "diamond", "custom"]);
+
+//: The Format panel's shadow (decision 19): one soft drop, the same on a
+//: shape, a line, a text box and a picture, and in the export.
+const WB_ITEM_SHADOW = "drop-shadow(0 2px 4px rgb(0 0 0 / 0.28))";
 
 //: SVG `stroke-dasharray` for each style, scaled to the actual stroke width
 //: so a thick dashed line doesn't look like a row of dots. `null` (solid)
@@ -1105,11 +1198,49 @@ function wbArrowHeadPath(tipX, tipY, approachAngle, headLen) {
 //: sketch as the one path they already know how to handle), "arrow" here
 //: is exactly `wbArrowHeadPath`'s own two-line V, kept for a single call
 //: site to switch on.
-const WB_CAP_KINDS = ["none", "arrow", "circle", "square", "multiline"];
+const WB_CAP_KINDS = ["none", "arrow", "circle", "square", "multiline", "er-one", "er-one-only", "er-zero-one", "er-many", "er-one-many", "er-zero-many"];
+
+//: The entity-relationship ends (the features audit W4): what is nearest the
+//: line's body, then what is at the tip. `null` near: one mark only.
+const WB_ER_CAPS = {
+  "er-one": [null, "one"],
+  "er-one-only": ["one", "one"],
+  "er-zero-one": ["zero", "one"],
+  "er-many": [null, "many"],
+  "er-one-many": ["one", "many"],
+  "er-zero-many": ["zero", "many"],
+};
 
 function wbCapPath(kind, tipX, tipY, approachAngle, headLen) {
   if (!kind || kind === "none") return "";
   if (kind === "arrow") return wbArrowHeadPath(tipX, tipY, approachAngle, headLen);
+  // The entity-relationship ends (the features audit W4, draw.io's ER set):
+  // a bar for "one", a ring for "zero" and the crow's foot for "many", read
+  // from the shape outward, so "zero-many" is a ring nearest the line's body
+  // and the foot at the tip. Each part is drawn back from the tip by a fixed
+  // share of the head length, so the marks keep apart at every line width.
+  if (WB_ER_CAPS[kind]) {
+    const cos = Math.cos(approachAngle), sin = Math.sin(approachAngle);
+    const perpX = -sin, perpY = cos;
+    const half = headLen * 0.45;
+    const at = (back) => ({ x: tipX - cos * back, y: tipY - sin * back });
+    const bar = (back) => {
+      const p = at(back);
+      return `M ${p.x - perpX * half} ${p.y - perpY * half} L ${p.x + perpX * half} ${p.y + perpY * half}`;
+    };
+    const ring = (back) => {
+      const r = headLen * 0.22, p = at(back + r);
+      return `M ${p.x - r} ${p.y} A ${r} ${r} 0 1 0 ${p.x + r} ${p.y} A ${r} ${r} 0 1 0 ${p.x - r} ${p.y} Z`;
+    };
+    const foot = () => {
+      const root = at(headLen * 0.7);
+      return `M ${root.x} ${root.y} L ${tipX + perpX * half} ${tipY + perpY * half} M ${root.x} ${root.y} L ${tipX - perpX * half} ${tipY - perpY * half}`;
+    };
+    const [near, far] = WB_ER_CAPS[kind];
+    const tip = far === "many" ? foot() : bar(headLen * 0.3);
+    const inner = near === "zero" ? ring(headLen * 0.85) : bar(headLen * 0.85);
+    return near ? `${inner} ${tip}` : tip;
+  }
   if (kind === "circle") {
     const r = headLen / 3;
     // Centred a radius back from the tip along the shaft, so the circle
@@ -1972,7 +2103,7 @@ function wbBoardSearchRun(query) {
     );
     for (const kind of ["node", "object"]) {
       for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) {
-        if (wbSearchTextFor(kind, item, byId).includes(needle)) {
+        if (!wbItemHidden(kind, item) && wbSearchTextFor(kind, item, byId).includes(needle)) {
           wbBoardSearch.matches.push({ kind, id: item.id });
         }
       }
@@ -2261,6 +2392,18 @@ function wbWithDir(pt, dir) {
   return dir ? { x: pt.x, y: pt.y, dir } : pt;
 }
 
+//: A link's resolved end for the path: the point, the side it leaves by,
+//: and for an elbow (`wbElbowRoute`) the box it must go round and whether
+//: the end floats (no fixed anchor), which an elbow settles on the facing
+//: side's middle. A fresh object every time, never the stored free point.
+function wbLinkEnd(pt, dir, box, floating) {
+  const end = { x: pt.x, y: pt.y };
+  if (dir) end.dir = dir;
+  if (box) end.box = box;
+  if (floating) end.floating = true;
+  return end;
+}
+
 function wbEllipseRayIntersection(box, towardX, towardY) {
   const cx = (box.minX + box.maxX) / 2, cy = (box.minY + box.maxY) / 2;
   const dx = towardX - cx, dy = towardY - cy;
@@ -2458,8 +2601,8 @@ function wbLinkEndpoints(sourceItem, sourceAnchor, targetItem, targetAnchor, sou
   const source = fixedSource || wbEdgePoint(sourceKind, sourceItem, (fixedTarget || targetCenter).x, (fixedTarget || targetCenter).y);
   const target = fixedTarget || wbEdgePoint(targetKind, targetItem, (fixedSource || sourceCenter).x, (fixedSource || sourceCenter).y);
   return {
-    source: wbWithDir(source, wbItemEdgeDir(sourceKind, sourceItem, source)),
-    target: wbWithDir(target, wbItemEdgeDir(targetKind, targetItem, target)),
+    source: wbLinkEnd(source, wbItemEdgeDir(sourceKind, sourceItem, source), sourceBox, !fixedSource),
+    target: wbLinkEnd(target, wbItemEdgeDir(targetKind, targetItem, target), targetBox, !fixedTarget),
   };
 }
 
@@ -2501,8 +2644,8 @@ function wbResolveLinkEndpoints(parsed) {
   // Only a card end has an edge to leave perpendicular to. A free dangling
   // point has no box, so it keeps the plain chord behaviour.
   return {
-    source: wbWithDir(source, sourceNode && wbItemEdgeDir(sourceKind, sourceNode, source)),
-    target: wbWithDir(target, targetNode && wbItemEdgeDir(targetKind, targetNode, target)),
+    source: wbLinkEnd(source, sourceNode && wbItemEdgeDir(sourceKind, sourceNode, source), sourceBox, sourceNode && !sourceFixed),
+    target: wbLinkEnd(target, targetNode && wbItemEdgeDir(targetKind, targetNode, target), targetBox, targetNode && !targetFixed),
   };
 }
 
@@ -2532,8 +2675,13 @@ function wbLinkCaps(parsed) {
 //: from that control point, so it always agrees with the drawn curve. An end
 //: with no edge (a free point, the preview) keeps the horizontal curve.
 //: `bend` (double-click to add a point): an offset from the chord's midpoint;
-//: when set, the link is one quadratic curve through it.
-function wbLinkPathD(type, sPt, tPt, caps, width, bend) {
+//: when set, the link is one quadratic curve through it. `shape`
+//: (`wbLinkShape`): an elbow, routed round its two boxes through its bends.
+function wbLinkPathD(type, sPt, tPt, caps, width, bend, shape = null) {
+  if (shape?.route === "elbow") {
+    const ends = wbElbowEnds(sPt, tPt, shape.points);
+    return wbElbowPathD(wbElbowRoute(ends.source, ends.target, sPt.box, tPt.box, shape.points), caps, width);
+  }
   if (bend && (bend.x || bend.y)) {
     const ctrl = { x: (sPt.x + tPt.x) / 2 + bend.x, y: (sPt.y + tPt.y) / 2 + bend.y };
     let d = `M ${sPt.x} ${sPt.y} Q ${ctrl.x} ${ctrl.y}, ${tPt.x} ${tPt.y}`;
@@ -2574,6 +2722,198 @@ function wbLinkPathD(type, sPt, tPt, caps, width, bend) {
   if (endCap !== "none") d += " " + wbCapPath(endCap, tPt.x, tPt.y, endAngle, headLen);
   if (startCap !== "none") d += " " + wbCapPath(startCap, sPt.x, sPt.y, startAngle, headLen);
   return d;
+}
+
+// --- Elbow connectors (WHITEBOARD_PLAN Phase B; the features audit W4) ------
+//
+// draw.io's orthogonal edge: a connector that leaves its shape straight out
+// of the side it is anchored to, turns only at right angles, and goes round
+// the two shapes it joins rather than through them. `wbElbowRoute` is the
+// pure part (tested in node, `tests/test_wb_elbow.py`): the two ends with
+// their outward direction (`wbWithDir`), the two boxes, and any waypoints the
+// person dragged in, to a polyline of axis-aligned segments.
+
+const WB_ELBOW_PAD = 24;
+
+function wbElbowSide(p) {
+  if (!p?.dir) return null;
+  return Math.abs(p.dir.x) >= Math.abs(p.dir.y) ? "h" : "v";
+}
+
+//: Whether the axis-aligned segment a-b passes through a box's inside.
+function wbElbowCrosses(a, b, box) {
+  if (!box) return false;
+  const lx = Math.min(a.x, b.x), hx = Math.max(a.x, b.x);
+  const ly = Math.min(a.y, b.y), hy = Math.max(a.y, b.y);
+  return lx < box.maxX - 1 && hx > box.minX + 1 && ly < box.maxY - 1 && hy > box.minY + 1;
+}
+
+//: One leg, from `a` heading `inDir` to `b`, arriving so that it can leave
+//: towards `outDir` (null: anything): straight when they line up, else one
+//: right-angle corner, the one that does not cut a box, does not double back
+//: and keeps going the way it was going.
+function wbElbowLeg(a, b, inDir, outDir, boxes) {
+  if (Math.abs(a.x - b.x) < 0.5 || Math.abs(a.y - b.y) < 0.5) return [];
+  const candidates = [{ x: b.x, y: a.y }, { x: a.x, y: b.y }];
+  let best = null, bestScore = Infinity;
+  for (const c of candidates) {
+    const first = { x: Math.sign(c.x - a.x), y: Math.sign(c.y - a.y) };
+    const second = { x: Math.sign(b.x - c.x), y: Math.sign(b.y - c.y) };
+    let score = 0;
+    for (const box of boxes) score += (wbElbowCrosses(a, c, box) ? 100 : 0) + (wbElbowCrosses(c, b, box) ? 100 : 0);
+    if (inDir && first.x * inDir.x + first.y * inDir.y < 0) score += 20;
+    if (outDir && second.x * outDir.x + second.y * outDir.y < 0) score += 20;
+    if (inDir && first.x * inDir.x + first.y * inDir.y > 0) score -= 1;
+    if (score < bestScore) {
+      bestScore = score;
+      best = c;
+    }
+  }
+  return [best];
+}
+
+function wbElbowRoute(s, t, sBox = null, tBox = null, points = []) {
+  const pad = WB_ELBOW_PAD;
+  const boxes = [sBox, tBox].filter(Boolean);
+  const guess = Math.abs(t.x - s.x) >= Math.abs(t.y - s.y) ? "h" : "v";
+  const sSide = wbElbowSide(s) || guess;
+  const tSide = wbElbowSide(t) || guess;
+  const sDir = sSide === "h" ? { x: Math.sign(s.dir?.x || t.x - s.x) || 1, y: 0 } : { x: 0, y: Math.sign(s.dir?.y || t.y - s.y) || 1 };
+  const tDir = tSide === "h" ? { x: Math.sign(t.dir?.x || s.x - t.x) || 1, y: 0 } : { x: 0, y: Math.sign(t.dir?.y || s.y - t.y) || 1 };
+  const s1 = { x: s.x + sDir.x * pad, y: s.y + sDir.y * pad };
+  const t1 = { x: t.x + tDir.x * pad, y: t.y + tDir.y * pad };
+  const into = { x: -tDir.x, y: -tDir.y };
+  const out = [{ x: s.x, y: s.y }, s1];
+  let cur = s1, inDir = sDir;
+  const stops = [...(points || []).map((p) => ({ x: p.x, y: p.y })), t1];
+  for (const [i, stop] of stops.entries()) {
+    const last = i === stops.length - 1;
+    let leg = wbElbowLeg(cur, stop, inDir, last ? into : null, boxes);
+    //: Two shapes facing away from each other, or one behind the other, need
+    //: two corners: out round the boxes, along, and back in.
+    if (last && !points?.length && leg.length && boxes.length && (wbElbowCrosses(cur, leg[0], sBox) || wbElbowCrosses(leg[0], stop, sBox) || wbElbowCrosses(cur, leg[0], tBox) || wbElbowCrosses(leg[0], stop, tBox))) {
+      leg = wbElbowDetour(cur, stop, sSide, sBox, tBox, pad);
+    } else if (last && !points?.length && !leg.length && sSide === tSide) {
+      leg = [];
+    }
+    if (last && !points?.length && sSide === tSide && leg.length === 1) {
+      //: Side to side (or top to bottom) facing each other: the classic
+      //: three segments, turning halfway rather than at one end.
+      if (sSide === "h") {
+        const mx = (cur.x + stop.x) / 2;
+        const mid = [{ x: mx, y: cur.y }, { x: mx, y: stop.y }];
+        if (!boxes.some((b) => wbElbowCrosses(cur, mid[0], b) || wbElbowCrosses(mid[0], mid[1], b) || wbElbowCrosses(mid[1], stop, b))) leg = mid;
+      } else {
+        const my = (cur.y + stop.y) / 2;
+        const mid = [{ x: cur.x, y: my }, { x: stop.x, y: my }];
+        if (!boxes.some((b) => wbElbowCrosses(cur, mid[0], b) || wbElbowCrosses(mid[0], mid[1], b) || wbElbowCrosses(mid[1], stop, b))) leg = mid;
+      }
+    }
+    out.push(...leg, stop);
+    const prev = out[out.length - 2];
+    inDir = { x: Math.sign(stop.x - prev.x), y: Math.sign(stop.y - prev.y) };
+    cur = stop;
+  }
+  out.push({ x: t.x, y: t.y });
+  //: Drop repeated points and the middle of three in a line.
+  const clean = [];
+  for (const p of out) {
+    const last = clean[clean.length - 1];
+    if (last && Math.abs(last.x - p.x) < 0.5 && Math.abs(last.y - p.y) < 0.5) continue;
+    const prev = clean[clean.length - 2];
+    if (prev && last && ((Math.abs(prev.x - last.x) < 0.5 && Math.abs(last.x - p.x) < 0.5) || (Math.abs(prev.y - last.y) < 0.5 && Math.abs(last.y - p.y) < 0.5))) {
+      clean[clean.length - 1] = p;
+      continue;
+    }
+    clean.push(p);
+  }
+  return clean;
+}
+
+//: Out past both boxes on the nearer side, along, and back: the route for a
+//: target behind the side its source leaves from.
+function wbElbowDetour(a, b, side, sBox, tBox, pad) {
+  if (side === "h") {
+    const top = Math.min(sBox?.minY ?? a.y, tBox?.minY ?? b.y) - pad;
+    const bottom = Math.max(sBox?.maxY ?? a.y, tBox?.maxY ?? b.y) + pad;
+    const y = Math.abs(top - a.y) + Math.abs(top - b.y) <= Math.abs(bottom - a.y) + Math.abs(bottom - b.y) ? top : bottom;
+    return [{ x: a.x, y }, { x: b.x, y }];
+  }
+  const left = Math.min(sBox?.minX ?? a.x, tBox?.minX ?? b.x) - pad;
+  const right = Math.max(sBox?.maxX ?? a.x, tBox?.maxX ?? b.x) + pad;
+  const x = Math.abs(left - a.x) + Math.abs(left - b.x) <= Math.abs(right - a.x) + Math.abs(right - b.x) ? left : right;
+  return [{ x, y: a.y }, { x, y: b.y }];
+}
+
+//: The polyline as a path, with the end caps turned to the last and first
+//: segments.
+function wbElbowPathD(pts, caps, width) {
+  let d = `M ${pts[0].x} ${pts[0].y}` + pts.slice(1).map((p) => ` L ${p.x} ${p.y}`).join("");
+  const startCap = caps?.startCap || "none", endCap = caps?.endCap || "none";
+  const headLen = (width || 3) * 4 + 6;
+  const n = pts.length;
+  if (endCap !== "none" && n > 1) d += " " + wbCapPath(endCap, pts[n - 1].x, pts[n - 1].y, Math.atan2(pts[n - 1].y - pts[n - 2].y, pts[n - 1].x - pts[n - 2].x), headLen);
+  if (startCap !== "none" && n > 1) d += " " + wbCapPath(startCap, pts[0].x, pts[0].y, Math.atan2(pts[0].y - pts[1].y, pts[0].x - pts[1].x), headLen);
+  return d;
+}
+
+//: A floating end of an elbow (no fixed anchor) sits in the middle of the
+//: side that faces the other end, the way draw.io's orthogonal edge does,
+//: rather than wherever the ray between the two centres crosses the edge:
+//: that point leaves a jog of a few pixels next to the shape, which reads as
+//: a mistake on a route that is otherwise all right angles.
+function wbElbowFloat(p, toward) {
+  if (!p?.floating || !p.box || !toward) return p;
+  const b = p.box;
+  const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
+  const hw = (b.maxX - b.minX) / 2 || 1, hh = (b.maxY - b.minY) / 2 || 1;
+  const dx = (toward.x - cx) / hw, dy = (toward.y - cy) / hh;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    const sx = Math.sign(dx) || 1;
+    return { x: cx + sx * hw, y: cy, dir: { x: sx, y: 0 }, box: b };
+  }
+  const sy = Math.sign(dy) || 1;
+  return { x: cx, y: cy + sy * hh, dir: { x: 0, y: sy }, box: b };
+}
+
+//: The two ends an elbow is drawn between, floating ends settled first; the
+//: render and the grips both read this, so a grip sits where the line starts.
+function wbElbowEnds(sPt, tPt, points) {
+  const first = points?.[0], last = points?.[points.length - 1];
+  return {
+    source: wbElbowFloat(sPt, first || (tPt.box ? { x: (tPt.box.minX + tPt.box.maxX) / 2, y: (tPt.box.minY + tPt.box.maxY) / 2 } : tPt)),
+    target: wbElbowFloat(tPt, last || (sPt.box ? { x: (sPt.box.minX + sPt.box.maxX) / 2, y: (sPt.box.minY + sPt.box.maxY) / 2 } : sPt)),
+  };
+}
+
+//: How far along a polyline the nearest point to `p` is, in board units:
+//: the order a new waypoint takes among the others.
+function wbPolylineAt(pts, p) {
+  let best = Infinity, at = 0, run = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    const u = len ? Math.max(0, Math.min(1, ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / (len * len))) : 0;
+    const dist = Math.hypot(p.x - (a.x + (b.x - a.x) * u), p.y - (a.y + (b.y - a.y) * u));
+    if (dist < best) {
+      best = dist;
+      at = run + len * u;
+    }
+    run += len;
+  }
+  return at;
+}
+
+//: A link's line shape for the context bar. An elbow is a straight link with
+//: `route: "elbow"`, so every reader that only knows the two old types (the
+//: assistant's board tools, an older build) still draws it as a link.
+function wbLinkRouteName(parsed) {
+  if (parsed?.route === "elbow") return "elbow";
+  return parsed?.type === "link-straight" ? "straight" : "curved";
+}
+
+function wbLinkShape(parsed) {
+  return parsed?.route === "elbow" ? { route: "elbow", points: Array.isArray(parsed.points) ? parsed.points : [] } : null;
 }
 
 //: A small SVG dot at each of a shape's 8 fixed anchors, shown while a link
@@ -2869,7 +3209,9 @@ function wbOwnsChord(e) {
   if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === "m") {
     return !wbIsMap();
   }
-  return (e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "g";
+  //: Ctrl+Shift+G is Ungroup here (agent mode in the app); Ctrl+Shift+P is
+  //: the Format panel here (clip a note in the app, decision 19).
+  return (e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && ["g", "p"].includes(e.key.toLowerCase());
 }
 
 async function wbFlushNudge() {
@@ -3069,7 +3411,7 @@ const WB_CONTEXT_CONTROLS = {
   tool: { bar: ["tool"], more: ["more-style"] },
   line: { bar: ["ink", "caps", "stroke", "order"], more: ["more-style"] },
   shape: { bar: ["ink", "stroke", "fill", "order"], more: ["more-style"] },
-  link: { bar: ["ink", "caps", "stroke"], more: ["more-style"] },
+  link: { bar: ["ink", "route", "caps", "stroke"], more: ["more-style"] },
   text: { bar: ["ink", "text", "order"], more: ["more-style", "more-card"] },
   image: { bar: ["order"], more: ["more-style"] },
   // A note card: its look comes from the note, so what it offers is where it
@@ -3080,7 +3422,7 @@ const WB_CONTEXT_CONTROLS = {
 
 //: Every group and menu section the table can name, so hiding "everything
 //: else" never has to list them.
-const WB_CONTEXT_GROUPS = ["tool", "ink", "caps", "stroke", "fill", "text", "arrange", "order"];
+const WB_CONTEXT_GROUPS = ["tool", "ink", "route", "caps", "stroke", "fill", "text", "arrange", "order"];
 const WB_CONTEXT_MENU_SECTIONS = ["more-style", "more-card", "more-guides", "more-notes", "more-mindmap"];
 
 //: Which row of the table a selection reads. Returns null when the bar has
@@ -3194,6 +3536,7 @@ function wbParkContextOnRail(on) {
 function wbUpdateContextBar() {
   const bar = document.getElementById("wb-context");
   if (!bar) return;
+  wbFormatSyncSoon();
   if (wbFillContextBar() === "rail") wbParkContextOnRail(true);
   else wbUpdateSelectionBar();
 }
@@ -3249,6 +3592,7 @@ function wbFillContextBar() {
     document.getElementById("wb-prop-startcap").value = caps.startCap;
     document.getElementById("wb-prop-endcap").value = caps.endCap;
     document.getElementById("wb-prop-dash").value = parsed.dash || "solid";
+    document.getElementById("wb-prop-route").value = wbLinkRouteName(parsed);
     return;
   }
 
@@ -3697,6 +4041,7 @@ function wbApplySelectionHighlight() {
   //: And the box round a sweep that caught more than one thing, which is the
   //: same affordance for the same gesture (see `wbRenderMultiSelectionHandles`).
   wbRenderMultiSelectionHandles();
+  wbRenderCloneGrips();
   wbUpdateContextBar();
   // The map dock's own buttons act on the selected topic, so they follow the
   // selection for the same reason the properties panel above does.
@@ -3752,7 +4097,7 @@ function wbSelectableItems() {
   for (const o of wbState.objects || []) if (o.kind === "image" || o.kind === "frame") out.push(["object", o]);
   //: A locked item is out of reach until it is unlocked (decision 15): not
   //: in Select all, not in the Tab walk.
-  return out.filter(([kind, item]) => !wbIsLocked(kind, item));
+  return out.filter(([kind, item]) => !wbIsLocked(kind, item) && !wbHiddenOnBoard(kind, item));
 }
 
 //: **Tab walks the board's items, and the board says which one** (INBOX
@@ -3964,6 +4309,45 @@ function wbMapStripClearOfHandle(node, { left, y, w, h, hostRect, gapBelow, bott
   return [left, y];
 }
 
+//: **A selected connector's box, for the bar to sit over** (found with
+//: Phase B, 2026-10-05). A link has no path of its own (`wbItemBBox` is null
+//: for it), so the bar measured nothing and hid: the connector row (its
+//: colour, width, ends, pattern and now its line shape) had never been on
+//: screen for anyone. The box round its two ends and its bends.
+function wbLinkSelectionBox(sketch) {
+  let parsed = null;
+  try {
+    parsed = JSON.parse(sketch.data);
+  } catch {
+    return null;
+  }
+  //: A map's cross-link has the map's ring, never the board's bar
+  //: (`maptwokinds.js`): only a board connector (`wbLinkTakesLabel`) earns one.
+  if (!String(parsed?.type || "").startsWith("link-") || !wbLinkTakesLabel(sketch, parsed)) return null;
+  const ends = wbResolveLinkEndpoints(parsed);
+  if (!ends) return null;
+  const pts = [ends.source, ends.target, ...(Array.isArray(parsed.points) ? parsed.points : [])];
+  return {
+    minX: Math.min(...pts.map((p) => p.x)), minY: Math.min(...pts.map((p) => p.y)),
+    maxX: Math.max(...pts.map((p) => p.x)), maxY: Math.max(...pts.map((p) => p.y)),
+  };
+}
+
+//: Where the selection bar may sit across the board's host, in its own
+//: units: inside 8px of either edge, and clear of whichever side panel is
+//: showing.
+function wbBarSideEdges(hostRect) {
+  let left = 8, right = hostRect.width - 8;
+  const side = document.getElementById("wb-sidebar");
+  if (side && side.offsetParent !== null) left = Math.max(left, side.getBoundingClientRect().right - hostRect.left + 8);
+  const format = document.getElementById("wb-format");
+  if (format && !format.classList.contains("hidden")) right = Math.min(right, format.getBoundingClientRect().left - hostRect.left - 8);
+  //: A board too narrow for both (a phone with a panel open) keeps the bar
+  //: on the board rather than squeezing it to nothing.
+  if (right - left < 160) return { left: 8, right: hostRect.width - 8 };
+  return { left, right };
+}
+
 function wbUpdateSelectionBar() {
   //: A direct placement makes a queued one redundant: it would place the bar
   //: from the same state a frame later.
@@ -4057,7 +4441,7 @@ function wbUpdateSelectionBar() {
     if (b) box = { minX: b.minX, minY: b.minY, maxX: b.minX + b.width, maxY: b.minY + b.height };
   } else {
     const item = (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
-    box = item ? wbItemBBox(sel.kind, item) : null;
+    box = item ? wbItemBBox(sel.kind, item) || (sel.kind === "sketch" ? wbLinkSelectionBox(item) : null) : null;
   }
   if (!box) {
     hideBoth();
@@ -4095,12 +4479,16 @@ function wbUpdateSelectionBar() {
   // the item covered it, reported: "I can't rotate objects because that
   // panel appears."
   const gapAbove = 44, gapBelow = 10;
-  let left = Math.max(8, Math.min(hostRect.width - w - 8, cx - w / 2));
+  //: Clear of the board's two side panels (the sidebar's rail on the left,
+  //: the Format panel on the right), which stand over the canvas: a shape
+  //: near the left edge put the bar's first controls under the rail.
+  const sideEdges = held ? held.sideEdges : wbBarSideEdges(hostRect);
+  let left = Math.max(sideEdges.left, Math.min(sideEdges.right - w, cx - w / 2));
   // Above the item; below it when the top bar would cover the bar. The floor
   // is the bar's own clearance and not the ring's: a floor raised by the room
   // the ring takes *below* the node is what sent the strip down there.
   const topBar = held ? held.topBar : document.getElementById("wb-topbar")?.getBoundingClientRect();
-  if (moving && !held) moving.origin.barMeasure = { rect, hostRect, w, h, topBar };
+  if (moving && !held) moving.origin.barMeasure = { rect, hostRect, w, h, topBar, sideEdges };
   const floor = topBar ? topBar.bottom - hostRect.top + gapBelow : 56;
   let y = top - h - gapAbove;
   if (y < floor) y = bottom + gapBelow;
@@ -4287,7 +4675,12 @@ function wbZOrderPeers(kind) {
 //: undo entry) so it plugs into the same undo/redo stack without a new
 //: action type.
 async function wbSetZOrder(kind, item, toFront) {
-  const zs = wbZOrderPeers(kind).map((p) => p.z || 0);
+  //: Within its band: a frame to the front of the frames, never over the
+  //: cards it holds (decision 14 stacks frames below everything).
+  const isFrame = kind === "object" && item.kind === "frame";
+  const zs = wbZOrderPeers(kind)
+    .filter((p) => kind === "sketch" || (p.kind === "frame") === isFrame)
+    .map((p) => p.z || 0);
   const next = toFront ? Math.max(0, ...zs) + 1 : Math.min(0, ...zs) - 1;
   if ((item.z || 0) === next) return null;
   const before = WB_KIND_INFO[kind].payload(item);
@@ -4307,10 +4700,136 @@ async function wbSetZOrder(kind, item, toFront) {
   return { action: "move", kind, id: item.id, before };
 }
 
-//: The context menu's own entry point, single selection or a whole
-//: multi-selection at once, same iteration shape `deleteWbSelection` above
-//: already uses.
-async function wbSendSelectionZOrder(toFront) {
+//: **One step, not the whole way** (FEAT-07, the features audit 2026-10-05:
+//: "Bring forward" wrote `max + 1`, so one press took the bottom item over
+//: everything). draw.io, Figma, Miro and PowerPoint all mean one step by
+//: `]` and `[`, and to the front or back by a modified key, so this is the
+//: step and `wbSetZOrder` above stays the front and back.
+//:
+//: The step passes the next peer that actually overlaps the item, because a
+//: step past something on the far side of the board changes nothing anyone
+//: can see; with nothing overlapping it passes the adjacent peer. Peers
+//: marked `skip` (hidden ones) are passed over rather than stepped past.
+//: Ties are real (a fresh board has every item at z 0, painted in array
+//: order), so the plan orders by z then by array index, places the item
+//: beside its target and writes the fewest rows that keep the order strict.
+function wbBoxesOverlap(a, b) {
+  return Boolean(a && b) && a.minX < b.maxX && b.minX < a.maxX && a.minY < b.maxY && b.minY < a.maxY;
+}
+
+function wbZOrderStepPlan(peers, key, dir) {
+  const order = peers
+    .map((p, i) => ({ key: p.key, z: Number(p.z) || 0, box: p.box, skip: Boolean(p.skip), i }))
+    .sort((a, b) => a.z - b.z || a.i - b.i);
+  const at = order.findIndex((p) => p.key === key);
+  if (at < 0) return [];
+  const me = order[at];
+  let target = -1;
+  for (let j = at + dir; j >= 0 && j < order.length; j += dir) {
+    if (!order[j].skip && wbBoxesOverlap(me.box, order[j].box)) { target = j; break; }
+  }
+  if (target < 0) {
+    for (let j = at + dir; j >= 0 && j < order.length; j += dir) {
+      if (!order[j].skip) { target = j; break; }
+    }
+  }
+  if (target < 0) return [];
+  const before = new Map(order.map((p) => [p.key, p.z]));
+  const seq = order.filter((p) => p !== me);
+  const pos = seq.indexOf(order[target]) + (dir > 0 ? 1 : 0);
+  seq.splice(pos, 0, me);
+  if (dir > 0) {
+    me.z = seq[pos - 1].z + 1;
+    let floor = me.z + 1;
+    for (let k = pos + 1; k < seq.length && seq[k].z < floor; k += 1) {
+      seq[k].z = floor;
+      floor += 1;
+    }
+  } else {
+    me.z = seq[pos + 1].z - 1;
+    let ceil = me.z - 1;
+    for (let k = pos - 1; k >= 0 && seq[k].z > ceil; k -= 1) {
+      seq[k].z = ceil;
+      ceil -= 1;
+    }
+  }
+  return seq.filter((p) => p.z !== before.get(p.key)).map((p) => [p.key, p.z]);
+}
+
+//: The peers of one item for a step, with the boxes the overlap test reads.
+//: A frame is stacked below everything (decision 14), so a frame steps
+//: among frames and nothing else steps past one.
+function wbZOrderStepPeers(kind, item) {
+  const isFrame = kind === "object" && item.kind === "frame";
+  const nodes = new Set(wbState.nodes || []);
+  return wbZOrderPeers(kind)
+    .filter((p) => kind === "sketch" || (p.kind === "frame") === isFrame)
+    .map((p) => {
+      const pk = kind === "sketch" ? "sketch" : nodes.has(p) ? "node" : "object";
+      return {
+        key: wbMultiKey(pk, p.id), z: p.z || 0, box: wbItemBBox(pk, p),
+        skip: wbItemHidden(pk, p), row: p, kind: pk,
+      };
+    });
+}
+
+//: Whether an item is hidden from the board (the Layers tab's eye). A card
+//: has no data blob, so its flag is a field of its own.
+function wbItemHidden(kind, item) {
+  if (!item) return false;
+  if (kind === "node") return Boolean(item.hidden);
+  const data = kind === "sketch" ? wbSketchData(item) : item.data;
+  return Boolean(data && data.hidden);
+}
+
+//: One step for every selected item, one undo step for the lot. Forward
+//: walks the selection from the top down (backward from the bottom up) so
+//: two selected items never leapfrog each other.
+async function wbStepSelectionZOrder(dir) {
+  const targets = wbZOrderTargets();
+  if (!targets.length) return;
+  targets.sort((a, b) => ((b.item.z || 0) - (a.item.z || 0)) * dir);
+  const entries = [];
+  for (const { kind, item } of targets) {
+    const peers = wbZOrderStepPeers(kind, item);
+    const byKey = new Map(peers.map((p) => [p.key, p]));
+    for (const [key, z] of wbZOrderStepPlan(peers, wbMultiKey(kind, item.id), dir)) {
+      const peer = byKey.get(key);
+      const entry = peer && await wbWriteZ(peer.kind, peer.row, z);
+      if (entry) entries.push(entry);
+    }
+  }
+  if (entries.length === 1) wbPushUndo(entries[0]);
+  else if (entries.length > 1) wbPushUndo({ action: "batch", entries });
+  if (entries.length) wbScheduleRender();
+  wbAnnounce(entries.length
+    ? (dir > 0 ? "Brought forward one step." : "Sent backward one step.")
+    : (dir > 0 ? "Already in front of what it overlaps." : "Already behind what it overlaps."));
+}
+
+//: One z write with its undo entry: `wbSetZOrder`'s save, for a value
+//: chosen elsewhere.
+async function wbWriteZ(kind, item, z) {
+  if ((item.z || 0) === z) return null;
+  const before = WB_KIND_INFO[kind].payload(item);
+  item.z = z;
+  try {
+    const saved = await apiJson(`${WB_KIND_INFO[kind].base}/${item.id}`, {
+      method: "PUT",
+      body: JSON.stringify(WB_KIND_INFO[kind].payload(item)),
+    });
+    Object.assign(item, saved);
+  } catch {
+    recordBrowserLog("WARN", [`[Whiteboard] ${kind} ${item.id} is stale: reloading the board`]);
+    await fetchWhiteboardState();
+    wbScheduleRender();
+    return null;
+  }
+  return { action: "move", kind, id: item.id, before };
+}
+
+//: What the order commands act on: the multi-selection, or the one item.
+function wbZOrderTargets() {
   const targets = [];
   if (wbMultiSelection.size > 0) {
     for (const key of wbMultiSelection) {
@@ -4324,6 +4843,12 @@ async function wbSendSelectionZOrder(toFront) {
     const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
     if (item) targets.push({ kind, item });
   }
+  return targets;
+}
+
+//: To the front or the back (Ctrl+] and Ctrl+[), one item or several.
+async function wbSendSelectionZOrder(toFront) {
+  const targets = wbZOrderTargets();
   if (!targets.length) return;
   const entries = [];
   for (const { kind, item } of targets) {
@@ -4333,6 +4858,7 @@ async function wbSendSelectionZOrder(toFront) {
   if (entries.length === 1) wbPushUndo(entries[0]);
   else if (entries.length > 1) wbPushUndo({ action: "batch", entries });
   if (entries.length) wbScheduleRender();
+  wbAnnounce(toFront ? "Brought to the front." : "Sent to the back.");
 }
 
 // --- Bulk move: dragging one member of a multi-selection moves all of them
@@ -4833,7 +5359,8 @@ async function wbSaveBulkMove(origin) {
 // nothing to gain from `navigator.clipboard` here (no cross-tab/cross-app
 // paste target makes sense for a sketch's own path data), and a plain
 // in-memory value is simpler and needs no permission prompt.
-let wbClipboard = null; // { items: [{kind, payload}], box: {minX, minY, maxX, maxY} }
+let wbClipboard = null; // { items: [{kind, payload}], box: {minX, minY, maxX, maxY}, stamp, at }
+//: Whether the browser's paste event followed the last Ctrl+V (FEAT-09).
 
 //: Where the pointer last was over the canvas, or null once it has left.
 //: Paste lands here (below), which is what Figma, Miro and tldraw all do
@@ -4895,7 +5422,25 @@ function wbCopyableSelection({ quiet = false } = {}) {
 function wbCopySelection() {
   const copied = wbCopyableSelection();
   if (!copied) return false;
+  //: The stamp is what the system clipboard carries back (`wbOnBoardCopy`),
+  //: so a paste can tell "the items I copied here" from text copied since in
+  //: another app (FEAT-09).
+  copied.stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  copied.at = Date.now();
   wbClipboard = copied;
+  //: A copy from a menu has no copy event behind it, so the stamp is written
+  //: here as well; a shell that refuses the async clipboard keeps the
+  //: board's own clipboard, which a paste falls back to.
+  try {
+    const text = wbClipboardText(copied) || " ";
+    const html = `<meta name="memorymap-board" content="${copied.stamp}"><pre>${text.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</pre>`;
+    navigator.clipboard?.write?.([new ClipboardItem({
+      "text/plain": new Blob([text], { type: "text/plain" }),
+      "text/html": new Blob([html], { type: "text/html" }),
+    })]).catch(() => {});
+  } catch {
+    // No async clipboard here.
+  }
   toast(copied.items.length > 1 ? `Copied ${copied.items.length} items.` : "Copied.");
   return true;
 }
@@ -4933,6 +5478,241 @@ async function wbPlaceCopies(copied, at) {
 async function wbPasteClipboard(at = wbPointerOnBoard()) {
   if (!wbClipboard) return;
   await wbPlaceCopies(wbClipboard, at);
+}
+
+// --- Paste from other apps (FEAT-09) ----------------------------------------
+//
+// The features audit: pasting text onto a board did nothing (3 items before a
+// three-line paste, 3 after), because the board's Ctrl+V only ever read its
+// own clipboard and swallowed the key, so the browser's paste never arrived.
+// tldraw, Miro, FigJam and Excalidraw all make text into items. Now Ctrl+V
+// lets the paste happen and the paste decides: the board's own items when the
+// clipboard still holds what was copied here (its stamp, written into the
+// clipboard's HTML by `wbOnBoardCopy`), a picture as before, otherwise text:
+// a link becomes a link box, one line a text box, several lines a grid of
+// stickies, all one undo step.
+
+//: The words of what was copied, for the clipboard's plain text: what a
+//: paste into another app gets.
+function wbClipboardText(copied) {
+  const words = [];
+  for (const { kind, payload } of copied?.items || []) {
+    if (kind === "object" && payload?.data?.content) words.push(String(payload.data.content));
+    else if (kind === "sketch") {
+      try {
+        const label = JSON.parse(payload.data || "{}").label;
+        if (label) words.push(String(label));
+      } catch {
+        // A stroke has no words.
+      }
+    }
+  }
+  return words.join("\n\n");
+}
+
+//: The copy event after the board's own Ctrl+C or Ctrl+X: the stamp goes into
+//: the clipboard's HTML and the words into its plain text.
+function wbOnBoardCopy(e) {
+  if (!wbClipboard?.stamp || Date.now() - (wbClipboard.at || 0) > 2000) return;
+  if (!e.clipboardData) return;
+  const text = wbClipboardText(wbClipboard);
+  const safe = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  e.clipboardData.setData("text/plain", text || " ");
+  e.clipboardData.setData("text/html", `<meta name="memorymap-board" content="${wbClipboard.stamp}"><pre>${safe}</pre>`);
+  e.preventDefault();
+}
+
+//: A pasted text's lines, list marks taken off.
+function wbPastedLines(text) {
+  return String(text || "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/^\s*(?:[-*\u2022]|\d+[.)])\s+/, "").trim())
+    .filter(Boolean);
+}
+
+//: What a pasted text becomes: `{kind: "link" | "text" | "stickies", ...}`.
+//: Pure, so the rule can be tested without a board.
+function wbPastePlan(text) {
+  const lines = wbPastedLines(text);
+  if (!lines.length) return null;
+  if (lines.length === 1 && /^https?:\/\/\S+$/i.test(lines[0])) return { kind: "link", url: lines[0] };
+  if (lines.length === 1) return { kind: "text", text: lines[0] };
+  if (lines.length > 50) return { kind: "text", text: lines.join("\n") };
+  return { kind: "stickies", lines };
+}
+
+const WB_PASTE_STICKY = { w: 180, h: 140, gap: 24 };
+
+async function wbPasteText(text, at) {
+  const plan = wbPastePlan(text);
+  if (!plan) return 0;
+  const [cx, cy] = at || wbViewCentre();
+  const made = [];
+  await wbRecordGesture(async () => {
+    if (plan.kind === "link") {
+      let label = plan.url;
+      try {
+        const u = new URL(plan.url);
+        label = (u.host + u.pathname).replace(/\/$/, "");
+      } catch {
+        label = plan.url;
+      }
+      const box = await wbCreateObject("text", { content: `[${label.replace(/[[\]]/g, "")}](${plan.url})`, md: true }, cx - 140, cy - 30, 280, 60);
+      if (box) made.push(box);
+    } else if (plan.kind === "text") {
+      const width = 320;
+      const rows = Math.min(30, Math.ceil(plan.text.length / 40) + plan.text.split("\n").length - 1);
+      const height = Math.min(800, 24 + rows * 22);
+      const box = await wbCreateObject("text", { content: plan.text }, cx - width / 2, cy - height / 2, width, height);
+      if (box) made.push(box);
+    } else {
+      const cols = Math.min(5, Math.ceil(Math.sqrt(plan.lines.length)));
+      const rowsN = Math.ceil(plan.lines.length / cols);
+      const { w, h, gap } = WB_PASTE_STICKY;
+      const left = cx - (cols * w + (cols - 1) * gap) / 2;
+      const top = cy - (rowsN * h + (rowsN - 1) * gap) / 2;
+      for (const [i, line] of plan.lines.entries()) {
+        const x = left + (i % cols) * (w + gap);
+        const y = top + Math.floor(i / cols) * (h + gap);
+        const sticky = await wbCreateObject(
+          "text",
+          { content: line.slice(0, 2000), bg: "#fff4a3", border_color: "#e8d56a", color: "#2a2a1f", font_size: 16 },
+          x, y, w, h
+        );
+        if (sticky) made.push(sticky);
+      }
+    }
+  });
+  if (!made.length) return 0;
+  clearWbSelection();
+  if (made.length === 1) wbSelectedItem = { kind: "object", id: made[0].id };
+  else for (const item of made) wbMultiSelection.add(wbMultiKey("object", item.id));
+  wbApplySelectionHighlight();
+  wbUpdateSelectionBar();
+  const said = plan.kind === "stickies" ? `Pasted ${made.length} stickies.` : plan.kind === "link" ? "Pasted a link." : "Pasted a text box.";
+  wbAnnounce(said);
+  toast(`${said} Ctrl+Z takes ${made.length === 1 ? "it" : "them"} back.`);
+  return made.length;
+}
+
+//: The middle of what the canvas shows, in board units.
+function wbViewCentre() {
+  const el = document.getElementById("whiteboard-container");
+  const r = el.getBoundingClientRect();
+  const t = d3.zoomTransform(el);
+  const o = wbCanvasOriginRect();
+  return [(r.left + r.width / 2 - o.left - t.x) / t.k, (r.top + r.height / 2 - o.top - t.y) / t.k];
+}
+
+// --- Clone and connect (the features audit W4; draw.io's blue arrows) -------
+//
+// A flowchart is drawn one step at a time: this box, then the next one beside
+// it, joined. draw.io puts an arrow on each side of a hovered shape that does
+// exactly that in one click, and so does this, on the one selected shape or
+// text box: an arrow grip a little outside the middle of each side. A click
+// (or Alt+Shift+Arrow) makes a copy one gap away on that side, joins the two
+// with an elbow connector, and selects the copy, so the next press steps on.
+// One undo step. Not on a map, where Tab and Enter already add a topic.
+
+const WB_CLONE_GAP = 80;
+const WB_CLONE_DIRS = {
+  right: { x: 1, y: 0, icon: "M -4 -6 L 4 0 L -4 6 Z", words: "right" },
+  left: { x: -1, y: 0, icon: "M 4 -6 L -4 0 L 4 6 Z", words: "left" },
+  down: { x: 0, y: 1, icon: "M -6 -4 L 0 4 L 6 -4 Z", words: "below" },
+  up: { x: 0, y: -1, icon: "M -6 4 L 0 -4 L 6 4 Z", words: "above" },
+};
+//: No arrow above: that is where the rotate grip stands. Alt+Shift+Up still
+//: copies upward.
+const WB_CLONE_GRIP_DIRS = ["right", "down", "left"];
+
+//: The one selected item clone-and-connect works on, or null.
+function wbCloneSource() {
+  if (wbIsMap() || wbMultiSelection.size > 1 || !wbSelectedItem) return null;
+  const { kind, id } = wbSelectedItem;
+  const item = wbFindItem(kind, id);
+  if (!item || wbIsLocked(kind, item) || wbItemHidden(kind, item)) return null;
+  if (kind === "object" && item.kind !== "text") return null;
+  if (kind === "sketch" && !wbShapeLabelKind(wbSketchParsedData(item))) return null;
+  if (kind === "node") return null;
+  const bbox = wbItemBBox(kind, item);
+  return bbox ? { kind, id, item, bbox } : null;
+}
+
+async function wbCloneConnect(dirName) {
+  const source = wbCloneSource();
+  const dir = WB_CLONE_DIRS[dirName];
+  if (!source || !dir) {
+    toast("Select one shape or text box to copy and join.");
+    return;
+  }
+  const w = source.bbox.maxX - source.bbox.minX, h = source.bbox.maxY - source.bbox.minY;
+  const dx = dir.x * (w + WB_CLONE_GAP), dy = dir.y * (h + WB_CLONE_GAP);
+  let copy = null;
+  await wbRecordGesture(async () => {
+    const [made] = await wbCreateCopies([{ kind: source.kind, payload: WB_KIND_INFO[source.kind].payload(source.item) }], dx, dy);
+    if (!made) return;
+    copy = made;
+    const link = await apiJson("/whiteboard/sketches", {
+      method: "POST",
+      body: JSON.stringify({
+        data: JSON.stringify({
+          type: "link-straight", route: "elbow",
+          sourceId: source.id, sourceKind: source.kind === "node" ? undefined : source.kind,
+          targetId: made.id, targetKind: made.kind === "node" ? undefined : made.kind,
+          color: (source.kind === "sketch" && wbSketchParsedData(source.item)?.color) || window.currentStrokeColor || "#888888",
+          width: 2, endCap: "arrow",
+        }),
+        x: 0, y: 0, z: 1, board_id: window.currentBoardId ?? null,
+      }),
+    });
+    wbState.sketches.push(link);
+  });
+  if (!copy) return;
+  selectWbItem(copy.kind, copy.id);
+  wbScheduleRender();
+  wbAnnounce(`Copied ${dir.words} and joined. Press again to keep going.`);
+}
+
+//: The four arrow grips round the selected shape, drawn in the overlay layer
+//: like the other grips, rebuilt with the selection.
+function wbRenderCloneGrips() {
+  document.getElementById("wb-clone-grips")?.remove();
+  const source = wbCloneSource();
+  const zoomGroup = document.getElementById("wb-overlay-zoom-group");
+  if (!source || !zoomGroup || window.currentTool !== "select") return;
+  const ns = "http://www.w3.org/2000/svg";
+  const group = document.createElementNS(ns, "g");
+  group.setAttribute("id", "wb-clone-grips");
+  const { bbox } = source;
+  const cx = (bbox.minX + bbox.maxX) / 2, cy = (bbox.minY + bbox.maxY) / 2;
+  const out = 22;
+  for (const name of WB_CLONE_GRIP_DIRS) {
+    const dir = WB_CLONE_DIRS[name];
+    const x = dir.x > 0 ? bbox.maxX + out : dir.x < 0 ? bbox.minX - out : cx;
+    const y = dir.y > 0 ? bbox.maxY + out : dir.y < 0 ? bbox.minY - out : cy;
+    //: The place on an outer group and the arrow inside it, so the arrow's
+    //: stylesheet scale (one size to the hand at any zoom) does not replace
+    //: the place, which a `transform` attribute and a CSS one on one element
+    //: would.
+    const at = document.createElementNS(ns, "g");
+    at.setAttribute("transform", `translate(${x} ${y})`);
+    const grip = document.createElementNS(ns, "path");
+    grip.setAttribute("class", "wb-clone-grip");
+    grip.setAttribute("d", dir.icon);
+    grip.dataset.dir = name;
+    const title = document.createElementNS(ns, "title");
+    title.textContent = `Copy ${dir.words} and join (Alt+Shift+Arrow)`;
+    grip.append(title);
+    grip.addEventListener("pointerdown", (e) => e.stopPropagation());
+    grip.addEventListener("click", (e) => {
+      e.stopPropagation();
+      wbCloneConnect(name);
+    });
+    at.append(grip);
+    group.append(at);
+  }
+  zoomGroup.append(group);
 }
 
 //: Ctrl+D: a copy of the selection beside it, one undo step, the copies
@@ -5280,16 +6060,33 @@ function wbBuildContextMenu(kind) {
   //: A frame is an export scope (WHITEBOARD_PLAN decision 18).
   const frameOn = commentOn?.kind === "object" && commentItem?.kind === "frame" ? commentItem : null;
   if (frameOn) item("Export this frame…", "The frame and what is inside it, as a picture, PDF or SVG", () => wbExportFrame(frameOn));
+  //: Into the library's "Yours" (decision 25): the rows the table says apply.
+  subItem("Library", (sub) => {
+    for (const id of ["save-selection", "save-branch", "save-shape", "save-style", "save-preset", "save-palette"]) {
+      const row = wbCommandMenuRow(id);
+      if (row) sub(...row);
+    }
+  });
+  //: The rows the Arrange menu also has come from `WB_COMMANDS`, so the two
+  //: say the same words and keys (FEAT-07: this menu called the front "Bring
+  //: to front" while the bar's "Bring forward" did the same thing). Not on a
+  //: map: a topic's place in a tree is its order (FEAT-17).
   if (!wbIsMap()) {
-    item("Lock", "Ctrl+Shift+L. Right-click the board to unlock", () => wbLockSelection());
+    subItem("Arrange", (sub) => {
+      for (const id of ["group", "ungroup", "lock"]) {
+        const row = wbCommandMenuRow(id);
+        if (row) sub(...row);
+      }
+    });
   }
-  //: Not on a laid-out map (audit FEAT-17): a tidied tree never overlaps,
-  //: so front and back mean nothing there. A Free map can overlap, so it
-  //: keeps them.
+  //: A Free map can overlap, so it keeps Order; a tidied tree cannot
+  //: (audit FEAT-17).
   if (!wbIsMap() || wbMapLayout() === "free") {
     subItem("Order", (sub) => {
-      sub("Bring to front", "Move above everything else in this layer", () => wbSendSelectionZOrder(true));
-      sub("Send to back", "Move below everything else in this layer", () => wbSendSelectionZOrder(false));
+      for (const id of ["order-forward", "order-backward", "order-front", "order-back"]) {
+        const row = wbCommandMenuRow(id);
+        if (row) sub(...row);
+      }
     });
   }
   item("Delete", "Delete", () => {
@@ -5853,7 +6650,7 @@ function wbBoardRows() {
 }
 
 function wbBoardSettings() {
-  const s = typeof wbIsMap === "function" && wbIsMap() ? window.wbMapState : null;
+  const s = wbIsMap() ? window.wbMapState : null;
   return s ? JSON.stringify({ layout: s.layout ?? null, numbered: Boolean(s.numbered), theme: s.theme || {} }) : null;
 }
 
@@ -5990,6 +6787,7 @@ const WB_KIND_INFO = {
       entry_id: d.entry_id, board_id: d.board_id, x: d.x, y: d.y, z: d.z,
       width: d.width ?? null, height: d.height ?? null, rotation: d.rotation ?? null,
       group_id: d.group_id ?? null, locked: Boolean(d.locked), comments: d.comments ?? null,
+      hidden: Boolean(d.hidden),
     }),
   },
   object: {
@@ -6327,6 +7125,15 @@ async function wbApplyHistoryEntry(from, to) {
   }
   //: The map's layout, numbering and theme as they were (`wbHistoryFromRows`):
   //: a theme is a patch, so a field the old theme lacked is sent as null.
+  //: A board's look (decision 24): put back whole, every field the step
+  //: did not have sent as null.
+  if (entry.action === "background") {
+    const current = { ...wbBoardBackground() };
+    const was = entry.before || {};
+    await wbSetBackground({ color: was.color ?? null, image: was.image ?? null }, { undo: false });
+    to.push({ action: "background", before: current });
+    return true;
+  }
   if (entry.action === "board") {
     const current = wbBoardSettings();
     if (current && entry.before) {
@@ -6339,8 +7146,8 @@ async function wbApplyHistoryEntry(from, to) {
         body: JSON.stringify({ layout: was.layout ?? undefined, numbered: was.numbered, theme }),
       });
       await wbRefreshMapState();
-      if (typeof wbApplyMapFont === "function") wbApplyMapFont();
-      if (typeof wbSyncMapChrome === "function") wbSyncMapChrome();
+      wbApplyMapFont();
+      wbSyncMapChrome();
     }
     to.push({ action: "board", before: current });
     return true;
@@ -6630,6 +7437,68 @@ async function wbUnlockAll() {
 //: The class that lets the pointer through, from state, after every render
 //: (an element rebuilt by the render has lost it). Only what changed is
 //: touched, the selection highlight's own rule.
+//: **Hidden from the board** (decision 27, the Layers tab's eye): the class
+//: `wb-hidden` (display: none) from state after every render, and on every
+//: link with an end on a hidden item, so no line points at nothing.
+function wbSketchHiddenOnBoard(sketch) {
+  if (wbItemHidden("sketch", sketch)) return true;
+  const data = wbSketchData(sketch);
+  if (!data || !String(data.type || "").startsWith("link-")) return false;
+  const end = (id, kind) => wbItemHidden(kind || "node", wbFindItem(kind || "node", id));
+  return end(data.sourceId, data.sourceKind) || end(data.targetId, data.targetKind);
+}
+
+function wbHiddenOnBoard(kind, item) {
+  return kind === "sketch" ? wbSketchHiddenOnBoard(item) : wbItemHidden(kind, item);
+}
+
+function wbSetHiddenKeys() {
+  const keys = new Set();
+  if (wbIsMap()) return keys;
+  for (const kind of ["node", "object", "sketch"]) {
+    for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) if (wbHiddenOnBoard(kind, item)) keys.add(wbMultiKey(kind, item.id));
+  }
+  return keys;
+}
+
+function wbPaintHidden() {
+  //: After every render: an open Layers, Pages or Outline tab is drawn again.
+  wbSideRefreshSoon();
+  const wanted = new Set();
+  for (const key of wbSetHiddenKeys()) {
+    const sep = key.indexOf(":");
+    const el = document.querySelector(WB_SELECTOR_BY_KIND[key.slice(0, sep)](Number(key.slice(sep + 1))));
+    if (el) wanted.add(el);
+  }
+  document.querySelectorAll("#whiteboard-container .wb-hidden").forEach((el) => {
+    if (!wanted.has(el)) el.classList.remove("wb-hidden");
+  });
+  for (const el of wanted) if (!el.classList.contains("wb-hidden")) el.classList.add("wb-hidden");
+}
+
+//: Hide or show, one undo step for the lot (`wbSetLocked`'s shape).
+async function wbSetHidden(entries, on) {
+  const undo = [];
+  for (const [kind, item] of entries) {
+    if (wbItemHidden(kind, item) === on) continue;
+    undo.push({ action: "move", kind, id: item.id, before: WB_KIND_INFO[kind].payload(item) });
+    if (kind === "node") {
+      item.hidden = on;
+      await wbSaveNode(item);
+    } else if (kind === "object") {
+      const data = { ...item.data };
+      if (on) data.hidden = true;
+      else delete data.hidden;
+      item.data = data;
+      await wbSaveObject(item);
+    } else {
+      await wbSaveSketchProps(item, { hidden: on || undefined });
+    }
+  }
+  wbPushMoveBatch(undo);
+  return undo.length;
+}
+
 function wbPaintLocks() {
   const wanted = new Set();
   if (!wbIsMap()) {
@@ -6642,6 +7511,105 @@ function wbPaintLocks() {
     if (!wanted.has(el)) el.classList.remove("wb-locked");
   });
   for (const el of wanted) if (!el.classList.contains("wb-locked")) el.classList.add("wb-locked");
+  //: A render may have moved, unlocked or removed what the lock was shown
+  //: on: it goes, and the next pointer move puts it back if it still holds.
+  if (wbBoardState.lockHoverKey) wbPaintLockHover(null);
+}
+
+//: --- A locked item answers the pointer (decision 28, INBOX 557a) ----------
+//:
+//: A locked item lets the pointer through (decision 15), so nothing on it
+//: changed under the pointer and a press did nothing visible: the owner, "I
+//: couldn't tell it was locked". A board-level hit test finds the locked item
+//: under the pointer; a faded lock shows at its top right while the pointer
+//: is on it, and the first press on one in a session says how to unlock it.
+
+
+//: The front-most locked item whose box holds the board point, or null.
+function wbLockedItemAt(x, y) {
+  let best = null;
+  for (const [kind, item] of wbLockedItems()) {
+    if (wbItemHidden(kind, item)) continue;
+    const box = wbItemBBox(kind, item);
+    if (!box || x < box.minX || x > box.maxX || y < box.minY || y > box.maxY) continue;
+    //: Cards and text over drawings, then z, as they are painted.
+    const rank = [kind === "sketch" ? 0 : 1, item.z || 0];
+    if (!best || rank[0] > best.rank[0] || (rank[0] === best.rank[0] && rank[1] >= best.rank[1])) best = { kind, item, box, rank };
+  }
+  return best;
+}
+
+function wbBoardPointOf(e) {
+  const container = document.getElementById("whiteboard-container");
+  const t = d3.zoomTransform(container);
+  const o = wbCanvasOriginRect();
+  return [(e.clientX - o.left - t.x) / t.k, (e.clientY - o.top - t.y) / t.k];
+}
+
+function wbPaintLockHover(hit) {
+  const layer = document.getElementById("wb-html-layer");
+  let pin = document.getElementById("wb-lock-hover");
+  const key = hit ? wbMultiKey(hit.kind, hit.item.id) : null;
+  if (!hit) {
+    pin?.classList.add("hidden");
+    wbBoardState.lockHoverKey = null;
+    return;
+  }
+  if (!pin && layer) {
+    pin = document.createElement("div");
+    pin.id = "wb-lock-hover";
+    pin.className = "wb-lock-pin";
+    pin.setAttribute("aria-hidden", "true");
+    const mark = document.createElement("span");
+    mark.className = "wb-lock-mark";
+    const icon = document.createElement("i");
+    icon.className = "ph ph-lock-simple";
+    mark.append(icon);
+    pin.append(mark);
+    layer.append(pin);
+  }
+  if (!pin) return;
+  pin.classList.remove("hidden");
+  if (wbBoardState.lockHoverKey === key) return;
+  wbBoardState.lockHoverKey = key;
+  pin.style.left = `${hit.box.maxX}px`;
+  pin.style.top = `${hit.box.minY}px`;
+  let top = 1;
+  for (const list of [wbState.nodes, wbState.objects]) for (const i of list || []) if (Number.isFinite(i.z)) top = Math.max(top, i.z);
+  pin.style.zIndex = String(top + 2);
+}
+
+//: Only where nothing else answers: over the canvas itself, or over the
+//: locked item that the pointer passes through to it.
+function wbLockHoverWanted(e) {
+  if (wbIsMap() || window.currentTool !== "select" || e.buttons) return false;
+  const target = e.target;
+  if (!target?.closest) return false;
+  return !target.closest("button, input, textarea, select, [contenteditable='true'], .wb-context, .wb-sidebar, .wb-format, .wb-comment-pin")
+    && (wbIsBareCanvas(target) || Boolean(target.closest(".wb-locked")));
+}
+
+function wbOnLockHoverMove(e) {
+  if (wbBoardState.lockHoverFrame) return;
+  const { clientX, clientY, target, buttons } = e;
+  wbBoardState.lockHoverFrame = requestAnimationFrame(() => {
+    wbBoardState.lockHoverFrame = 0;
+    if (!wbLockedItems().length) return wbPaintLockHover(null);
+    const ev = { clientX, clientY, target, buttons };
+    if (!wbLockHoverWanted(ev)) return wbPaintLockHover(null);
+    const [x, y] = wbBoardPointOf(ev);
+    wbPaintLockHover(wbLockedItemAt(x, y));
+  });
+}
+
+//: The first press on a locked item in a session says how to unlock it.
+function wbOnLockPress(e) {
+  if (wbBoardState.lockHintSaid || e.button !== 0 || !wbLockHoverWanted({ target: e.target, buttons: 0 })) return;
+  const [x, y] = wbBoardPointOf(e);
+  const hit = wbLockedItemAt(x, y);
+  if (!hit) return;
+  wbBoardState.lockHintSaid = true;
+  toast("Locked. Right-click to unlock it.");
 }
 
 //: --- Comments (WHITEBOARD_PLAN decision 17) --------------------------------
@@ -6783,27 +7751,76 @@ function wbOpenComments(kind, id, anchor = null) {
   const list = document.createElement("div");
   list.className = "wb-comments-list";
   list.setAttribute("role", "list");
+  //: **The composer waits behind "New comment"** (INBOX 570, the owner: "the
+  //: new comment form is permanently showing below, there should be a new
+  //: comment option below for it to show"). A thread is for reading first:
+  //: the comments, then one quiet button; the button reveals the box,
+  //: focused, with Post and Cancel; Escape cancels, a post folds it away
+  //: again. An empty thread has nothing to read, so it opens on the box.
+  const newButton = document.createElement("button");
+  newButton.type = "button";
+  newButton.className = "ghost small wb-comments-new";
+  newButton.setAttribute("aria-expanded", "false");
+  setLabel(newButton, "ph:plus New comment");
+  const composer = document.createElement("div");
+  composer.className = "wb-comments-composer";
+  composer.hidden = true;
+  composer.id = "wb-comments-composer";
+  newButton.setAttribute("aria-controls", composer.id);
   const box = document.createElement("textarea");
   box.className = "wb-comments-box";
   box.rows = 2;
   box.maxLength = 2000;
-  box.placeholder = "Add a comment";
-  box.setAttribute("aria-label", "Add a comment");
+  box.placeholder = "Write a comment";
+  box.setAttribute("aria-label", "New comment");
   const post = document.createElement("button");
   post.type = "button";
-  post.className = "small";
-  post.textContent = "Comment";
+  post.className = "small wb-comments-post";
+  post.textContent = "Post";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "ghost small wb-comments-cancel";
+  cancel.textContent = "Cancel";
   const foot = document.createElement("div");
   foot.className = "wb-comments-foot";
   const hint = document.createElement("span");
   hint.className = "muted";
-  hint.textContent = "Enter posts. Shift+Enter breaks the line.";
-  foot.append(hint, post);
-  panel.append(list, box, foot);
+  hint.textContent = "Enter posts, Shift+Enter breaks the line.";
+  const actions = document.createElement("span");
+  actions.className = "wb-comments-actions";
+  actions.append(cancel, post);
+  foot.append(hint, actions);
+  composer.append(box, foot);
+  panel.append(list, newButton, composer);
+  const hasThread = () => wbItemComments(kind, wbFindItem(kind, id)).length > 0;
+  const openComposer = () => {
+    composer.hidden = false;
+    newButton.hidden = true;
+    newButton.setAttribute("aria-expanded", "true");
+    box.focus({ preventScroll: true });
+  };
+  //: Back to the button; with nothing in the thread there is nothing to go
+  //: back to, so the popover closes instead.
+  const closeComposer = () => {
+    box.value = "";
+    if (!hasThread()) {
+      wbCloseComments({ restoreFocus: true });
+      return;
+    }
+    composer.hidden = true;
+    newButton.hidden = false;
+    newButton.setAttribute("aria-expanded", "false");
+    newButton.focus({ preventScroll: true });
+  };
+  newButton.addEventListener("click", openComposer);
+  cancel.addEventListener("click", closeComposer);
   const send = async () => {
     const text = box.value.trim();
     const now = wbFindItem(kind, id);
-    if (!text || !now) return;
+    if (!text || !now) {
+      box.focus({ preventScroll: true });
+      return;
+    }
     const thread = wbItemComments(kind, now);
     if (thread.length >= WB_COMMENTS_MAX) {
       toast(`A thread holds ${WB_COMMENTS_MAX} comments. Delete one first.`, true);
@@ -6814,6 +7831,7 @@ function wbOpenComments(kind, id, anchor = null) {
     await wbSetComments(kind, now, [...thread, made]);
     wbFillComments();
     list.lastElementChild?.scrollIntoView({ block: "nearest" });
+    closeComposer();
     wbAnnounce("Comment added.");
   };
   post.addEventListener("click", send);
@@ -6822,7 +7840,8 @@ function wbOpenComments(kind, id, anchor = null) {
     event.stopPropagation();
     if (event.key === "Escape") {
       event.preventDefault();
-      wbCloseComments({ restoreFocus: true });
+      if (!composer.hidden) closeComposer();
+      else wbCloseComments({ restoreFocus: true });
     } else if (event.key === "Enter" && !event.shiftKey && event.target === box) {
       event.preventDefault();
       send();
@@ -6837,8 +7856,15 @@ function wbOpenComments(kind, id, anchor = null) {
   wbCommentState = { key, kind, id, panel, anchor: target, outside };
   if (target.classList.contains("wb-comment-mark")) target.setAttribute("aria-expanded", "true");
   wbFillComments();
-  placeHelpPopover(panel, target);
-  box.focus({ preventScroll: true });
+  if (hasThread()) {
+    placeHelpPopover(panel, target);
+    newButton.focus({ preventScroll: true });
+  } else {
+    composer.hidden = false;
+    newButton.hidden = true;
+    placeHelpPopover(panel, target);
+    box.focus({ preventScroll: true });
+  }
 }
 
 //: The thread, oldest first, each with its time and a delete.
@@ -6883,7 +7909,17 @@ function wbFillComments() {
       if (!now) return;
       await wbSetComments(state.kind, now, wbItemComments(state.kind, now).filter((c) => c.id !== comment.id));
       wbFillComments();
-      state.panel.querySelector(".wb-comments-box")?.focus({ preventScroll: true });
+      //: The focus goes where the reader is: the button, or the box when
+      //: the last comment went and the thread is empty again.
+      const button = state.panel.querySelector(".wb-comments-new");
+      const composer = state.panel.querySelector(".wb-comments-composer");
+      if (!wbItemComments(state.kind, wbFindItem(state.kind, state.id)).length) {
+        composer.hidden = false;
+        button.hidden = true;
+        state.panel.querySelector(".wb-comments-box")?.focus({ preventScroll: true });
+      } else if (!button.hidden) {
+        button.focus({ preventScroll: true });
+      }
       wbAnnounce("Comment deleted. Ctrl+Z brings it back.");
     });
     meta.append(when, del);
@@ -7364,7 +8400,7 @@ function wbExportPaint(el, inkEl) {
   };
 }
 
-function wbBuildExportSvg(scope) {
+function wbBuildExportSvg(scope, { transparent = false } = {}) {
   const bounds = scope === "selection" ? wbSelectionBounds()
     : scope === "visible" ? wbVisibleBounds() : wbBoardBounds();
   const { minX, minY, width, height } = bounds || wbBoardBounds();
@@ -7375,7 +8411,9 @@ function wbBuildExportSvg(scope) {
   const parts = [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${width} ${height}" ` +
       `width="${Math.round(width)}" height="${Math.round(height)}">`,
-    `<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="${bgColor}" />`,
+    //: No ground at all for a transparent PNG (FEAT-14), so the picture
+    //: sits on whatever it is pasted onto.
+    transparent ? "" : `<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="${bgColor}" />`,
   ];
 
   //: Frames first (decision 14): they sit under everything they hold, in the
@@ -7383,7 +8421,7 @@ function wbBuildExportSvg(scope) {
   //: drawn, since the stylesheet does not travel into a standalone SVG.
   for (const frame of wbState.objects || []) {
     if (frame.kind !== "frame") continue;
-    if (onlyKeys && !onlyKeys.has(wbMultiKey("object", frame.id))) continue;
+    if ((onlyKeys && !onlyKeys.has(wbMultiKey("object", frame.id))) || wbItemHidden("object", frame)) continue;
     const frameEl = document.querySelector(`#wb-html-layer .wb-object[data-id="${frame.id}"]`);
     const edge = frameEl ? wbExportColour(getComputedStyle(frameEl).borderTopColor) : null;
     const titleEl = frameEl?.querySelector(".wb-frame-title");
@@ -7452,7 +8490,7 @@ function wbBuildExportSvg(scope) {
   // reinterpreted, so a stroke's colour/width/opacity (including the
   // highlighter's own translucency) survives into the export untouched.
   for (const sketch of wbState.sketches) {
-    if (onlyKeys && !onlyKeys.has(wbMultiKey("sketch", sketch.id))) continue;
+    if ((onlyKeys && !onlyKeys.has(wbMultiKey("sketch", sketch.id))) || wbSketchHiddenOnBoard(sketch)) continue;
     const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
     if (!el) continue;
     const clone = el.cloneNode(true);
@@ -7472,6 +8510,8 @@ function wbBuildExportSvg(scope) {
       copy.setAttribute("fill", wbExportColour(look.fill) || "#1f2430");
       copy.setAttribute("font-size", look.fontSize);
       copy.setAttribute("font-family", look.fontFamily);
+      if (look.fontWeight && look.fontWeight !== "400") copy.setAttribute("font-weight", look.fontWeight);
+      if (look.fontStyle === "italic") copy.setAttribute("font-style", "italic");
       //: A connector's label is haloed in the card colour (decision 13).
       if (look.paintOrder && look.paintOrder.startsWith("stroke") && look.stroke !== "none") {
         copy.setAttribute("stroke", wbExportColour(look.stroke) || "none");
@@ -7496,7 +8536,7 @@ function wbBuildExportSvg(scope) {
   const lastTopic = topics[topics.length - 1];
   const topicFallback = wbExportPaint(lastTopic, lastTopic?.querySelector(".wb-map-text"));
   for (const node of wbState.nodes) {
-    if (onlyKeys && !onlyKeys.has(wbMultiKey("node", node.id))) continue;
+    if ((onlyKeys && !onlyKeys.has(wbMultiKey("node", node.id))) || wbItemHidden("node", node)) continue;
     const entry = exportEntriesById.get(String(node.entry_id));
     const el = document.querySelector(`.node-card[data-id="${node.id}"]`);
     const w = el ? el.offsetWidth : 250;
@@ -7531,10 +8571,12 @@ function wbBuildExportSvg(scope) {
   // but honours the colour/size it was actually given rather than a fixed
   // look, since those are the whole point of a text box.
   for (const obj of wbState.objects || []) {
-    if (onlyKeys && !onlyKeys.has(wbMultiKey("object", obj.id))) continue;
+    if ((onlyKeys && !onlyKeys.has(wbMultiKey("object", obj.id))) || wbItemHidden("object", obj)) continue;
     //: Drawn before the sketches, above.
     if (obj.kind === "frame") continue;
-    parts.push(`<g transform="translate(${obj.x}, ${obj.y})">`);
+    const alpha = obj.data?.alpha != null && obj.data.alpha < 1 ? ` opacity="${obj.data.alpha}"` : "";
+    const shadow = obj.data?.shadow ? ` style="filter: ${WB_ITEM_SHADOW}"` : "";
+    parts.push(`<g transform="translate(${obj.x}, ${obj.y})"${alpha}${shadow}>`);
     if (obj.kind === "image" && obj.data.url) {
       // `mediaSrc`, not the bare url: rasterizing this SVG loads it through
       // a plain `<img>` (see `wbRasterizeSvg`), which never attaches
@@ -7664,7 +8706,13 @@ async function wbInlineSvgImages(svg) {
 }
 
 async function wbRasterizeSvg(svgInput, width, height, mime) {
-  const svgString = await wbInlineSvgImages(svgInput);
+  //: The root's own size set to the canvas's, so a 2x or 3x export
+  //: (FEAT-14) is drawn at that size from the vectors rather than drawn at
+  //: 1x and stretched.
+  const svgString = (await wbInlineSvgImages(svgInput)).replace(
+    /^(<svg\b[^>]*?) width="[^"]*" height="[^"]*"/,
+    `$1 width="${Math.max(1, Math.round(width))}" height="${Math.max(1, Math.round(height))}"`
+  );
   return new Promise((resolve, reject) => {
     const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -7786,7 +8834,7 @@ async function wbGenerateMapFromNotes() {
     // imported: landing back on an unchanged-looking list is how a thing that
     // worked reads as a thing that did not.
     await openWhiteboardBoard(board.id);
-    if (typeof wbMapTidyFresh === "function") await wbMapTidyFresh();
+    await wbMapTidyFresh();
   } catch (error) {
     toast(error.message || "Couldn't create that map.", true);
   }
@@ -7896,6 +8944,13 @@ const WB_MAX_IMPORT_CHARS = 400000;
 //: document itself (an OPML `<head><title>`, a Markdown `#` heading) and falls
 //: back to "Imported map". A filename is a worse name than the one the author
 //: wrote inside the file.
+function wbBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let text = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(text);
+}
+
 async function wbImportOutlineFile(event) {
   const input = event.target;
   const file = input.files && input.files[0];
@@ -7908,14 +8963,18 @@ async function wbImportOutlineFile(event) {
   // "is it XML?" first would send every FreeMind map to the OPML parser and
   // import it as an empty map, since OPML's nodes are `<outline>` and
   // FreeMind's are `<node>`, and neither parser finds the other's.
-  const format = /\.mm$/i.test(file.name)
-    ? "freemind"
-    : /\.(opml|xml)$/i.test(file.name)
-      ? "opml"
-      : "markdown";
+  const format = /\.xmind$/i.test(file.name)
+    ? "xmind"
+    : /\.mm$/i.test(file.name)
+      ? "freemind"
+      : /\.(opml|xml)$/i.test(file.name)
+        ? "opml"
+        : "markdown";
   let content = "";
   try {
-    content = await file.text();
+    //: An XMind file is a zip: it travels as base64 and the server unpacks
+    //: it (W5). Everything else is text.
+    content = format === "xmind" ? wbBase64(await file.arrayBuffer()) : await file.text();
   } catch {
     toast("Couldn't read that file.", true);
     return;
@@ -7945,7 +9004,7 @@ async function wbImportOutlineFile(event) {
       `Imported “${board.title}”: ${board.object_count} node${board.object_count === 1 ? "" : "s"}.`
     );
     await openWhiteboardBoard(board.id);
-    if (typeof wbMapTidyFresh === "function") await wbMapTidyFresh();
+    await wbMapTidyFresh();
   } catch (error) {
     // The server's own message, not a generic one: it names the actual
     // refusal ("Unknown import format", a DOCTYPE in the OPML, a parse
@@ -7955,8 +9014,12 @@ async function wbImportOutlineFile(event) {
 }
 
 async function wbExportSvg(scope) {
-  const { svg } = wbBuildExportSvg(scope);
-  await saveFile(`whiteboard-${scope}.svg`, new Blob([await wbInlineSvgImages(svg)], { type: "image/svg+xml" }));
+  let { svg } = wbBuildExportSvg(scope);
+  //: **The board rides inside the picture** (W5, draw.io's re-editable SVG):
+  //: its rows in `<metadata>`, which Insert, Mermaid or board SVG brings back
+  //: as shapes and connectors. A map's topics are a tree, not rows to drop.
+  if (!wbIsMap()) svg = svg.replace(/(<svg[^>]*>)/, `$1${wbBoardSvgMetadata(wbExportRows(scope))}`);
+  await saveFile(wbExportFileName(scope, "svg"), new Blob([await wbInlineSvgImages(svg)], { type: "image/svg+xml" }));
   toast("Board exported as SVG.");
 }
 
@@ -7982,6 +9045,47 @@ async function wbExportSvg(scope) {
 //: image findable by the board's name in search, and `caption_and_store` is
 //: write-once, so a vision model run later leaves it alone while the card's
 //: own Describe button (which forces) still replaces it.
+//: The board's own name, off the picker's `<kind> · <title> (N items)`.
+function wbBoardTitleForExport() {
+  return document.getElementById("wb-board-select")?.selectedOptions?.[0]
+    ?.textContent.replace(/\s*\(\d+ items?\)$/, "")
+    .replace(/^(Mind map|Board|Whiteboard) \u00b7 /, "").trim() || "";
+}
+
+//: **A file named after the board** (FEAT-14): `Launch plan.png`, or
+//: `Launch plan (selection).png`, never `whiteboard-whole.png` for every
+//: board anyone exports. Characters a file system refuses are dropped.
+function wbExportFileName(scope, extension) {
+  const title = wbBoardTitleForExport().replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80)
+    || (wbIsMap() ? "Mind map" : "Whiteboard");
+  const part = scope === "selection" ? " (selection)" : scope === "visible" ? " (view)" : "";
+  return `${title}${part}.${extension}`;
+}
+
+//: The PNG's size and ground, remembered per device (FEAT-14: the export was
+//: 1x, board units as pixels, always on the board's colour).
+const WB_EXPORT_SCALES = [1, 2, 3];
+function wbExportPngPrefs() {
+  let saved = {};
+  try {
+    saved = JSON.parse(localStorage.getItem("wb-export-png") || "{}") || {};
+  } catch {
+    saved = {};
+  }
+  return {
+    scale: WB_EXPORT_SCALES.includes(saved.scale) ? saved.scale : 2,
+    transparent: saved.transparent === true,
+  };
+}
+
+function wbSetExportPngPrefs(prefs) {
+  try {
+    localStorage.setItem("wb-export-png", JSON.stringify(prefs));
+  } catch {
+    // Private mode: the choice holds for this export.
+  }
+}
+
 function wbExportDescription(scope) {
   //: The picker's label is `<kind> · <title> (N items)` (`refreshBoardList`),
   //: and both halves of that have to come off or the sentence reads "the mind
@@ -8042,9 +9146,10 @@ async function uploadToLibrary(filename, blob, description = "") {
 }
 
 async function wbExportPng(scope) {
-  const { svg, width, height } = wbBuildExportSvg(scope);
-  const blob = await wbRasterizeSvg(svg, width, height, "image/png");
-  const filename = `whiteboard-${scope}.png`;
+  const { scale, transparent } = wbExportPngPrefs();
+  const { svg, width, height } = wbBuildExportSvg(scope, { transparent });
+  const blob = await wbRasterizeSvg(svg, width * scale, height * scale, "image/png");
+  const filename = wbExportFileName(scope, "png");
   await saveFile(filename, blob);
   // Asked for directly: an exported board should show up in the Library's
   // Images gallery, not only as a file on disk that the app has no record
@@ -8070,8 +9175,9 @@ async function wbExportPng(scope) {
 //: is the missing half that turns a region of the board into a real image
 //: the gallery, the captioner and semantic search can all see.
 async function wbSaveToLibrary(scope) {
-  const { svg, width, height } = wbBuildExportSvg(scope);
-  const blob = await wbRasterizeSvg(svg, width, height, "image/png");
+  const { scale, transparent } = wbExportPngPrefs();
+  const { svg, width, height } = wbBuildExportSvg(scope, { transparent });
+  const blob = await wbRasterizeSvg(svg, width * scale, height * scale, "image/png");
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
   await uploadToLibrary(`whiteboard-${scope}-${stamp}.png`, blob, wbExportDescription(scope));
   toast("Added to your image library.");
@@ -8088,7 +9194,7 @@ async function wbExportPdf(scope) {
     return;
   }
   win.document.write(
-    `<!doctype html><html><head><title>MemoryMap whiteboard export</title><style>` +
+    `<!doctype html><html><head><title>${wbSvgEscape(wbExportFileName(scope, "pdf").replace(/\.pdf$/, ""))}</title><style>` +
       `@page { margin: 0; } html,body{margin:0;padding:0;background:#fff;}` +
       `img{display:block;width:100%;height:auto;}</style></head>` +
       `<body><img src="${url}" alt="Whiteboard export"></body></html>`
@@ -8138,6 +9244,18 @@ const WB_EXPORT_FORMATS = [
     value: "svg", label: "SVG", scopes: ["selection", "whole"],
     note: "Vector, so it stays sharp at any size.",
     run: (scope) => wbExportSvg(scope),
+  },
+  {
+    //: A free board's own text formats (W5). `board: true`, the mirror of
+    //: `map`: a map has its own outline below.
+    value: "outline", label: "Outline", scopes: ["whole"], board: true, drawsCards: false,
+    note: "Markdown: each frame a heading over what is in it, in reading order.",
+    run: () => wbExportOutline(),
+  },
+  {
+    value: "mermaid", label: "Mermaid", scopes: ["whole"], board: true, drawsCards: false,
+    note: "A flowchart of what the connectors join, for docs and other diagram apps.",
+    run: () => wbExportMermaid(),
   },
   {
     value: "pdf", label: "PDF", scopes: ["selection", "visible", "whole"],
@@ -8237,7 +9355,7 @@ function wbExportFrame(frame) {
 function wbExportBoard() {
   const hasSelection = wbMultiSelection.size > 0 || Boolean(wbSelectedItem);
   const isMap = wbIsMap();
-  const formats = WB_EXPORT_FORMATS.filter((f) => !f.map || isMap);
+  const formats = WB_EXPORT_FORMATS.filter((f) => (!f.map || isMap) && (!f.board || !isMap));
   let format = formats[0];
   let scope = hasSelection ? "selection" : "visible";
 
@@ -8256,6 +9374,35 @@ function wbExportBoard() {
   const scopeLabel = document.createElement("span");
   scopeLabel.className = "wb-export-label";
   scopeLabel.textContent = "How much";
+  //: The picture's size and ground (FEAT-14), shown only while the format
+  //: is a picture: an outline has neither.
+  const pngPrefs = wbExportPngPrefs();
+  const sizeLabel = document.createElement("span");
+  sizeLabel.className = "wb-export-label";
+  sizeLabel.textContent = "Size";
+  const sizeSeg = wbExportSegment(
+    "Picture size",
+    WB_EXPORT_SCALES.map((n) => ({ value: String(n), label: `${n}x`, title: n === 1 ? "One pixel per board unit" : `${n} pixels per board unit, sharper on a high-resolution screen or in print` })),
+    String(pngPrefs.scale),
+    (value) => {
+      pngPrefs.scale = Number(value);
+      wbSetExportPngPrefs(pngPrefs);
+      sync();
+    }
+  );
+  const clearRow = document.createElement("label");
+  clearRow.className = "setting-check wb-export-clear";
+  const clearBox = document.createElement("input");
+  clearBox.type = "checkbox";
+  clearBox.id = "wb-export-transparent";
+  clearBox.checked = pngPrefs.transparent;
+  clearBox.addEventListener("change", () => {
+    pngPrefs.transparent = clearBox.checked;
+    wbSetExportPngPrefs(pngPrefs);
+  });
+  const clearText = document.createElement("span");
+  clearText.textContent = "Transparent background";
+  clearRow.append(clearBox, clearText);
   const note = document.createElement("p");
   note.className = "confirm-text wb-export-note";
   const warning = document.createElement("p");
@@ -8279,6 +9426,11 @@ function wbExportBoard() {
     if (!allowed.has(scope)) scope = [...allowed][0];
     wbSyncExportSeg(formatSeg, format.value, null);
     wbSyncExportSeg(scopeSeg, scope, allowed);
+    const picture = format.value === "png" || format.value === "library";
+    sizeLabel.hidden = !picture;
+    sizeSeg.hidden = !picture;
+    clearRow.hidden = !picture;
+    if (picture) wbSyncExportSeg(sizeSeg, String(pngPrefs.scale), null);
     const chosenScope = WB_EXPORT_SCOPES.find((s) => s.value === scope);
     // Two sentences, the format's and the scope's, so the line reads the same
     // way round whichever of the two was changed last.
@@ -8331,7 +9483,7 @@ function wbExportBoard() {
   const exportBtn = smallButton("Export", "Export", go, false);
   exportBtn.id = "wb-export-go";
   row.append(smallButton("Cancel", "Cancel", close), exportBtn);
-  card.append(dialogHead("Export this board", close), formatLabel, formatSeg, scopeLabel, scopeSeg, note, warning, row);
+  card.append(dialogHead("Export this board", close), formatLabel, formatSeg, scopeLabel, scopeSeg, sizeLabel, sizeSeg, clearRow, note, warning, row);
   overlay.appendChild(card);
   wireBackdropClose(overlay, close);
   document.addEventListener("keydown", onKey, true);
@@ -8531,19 +9683,13 @@ async function initWhiteboard() {
     });
   }
   
-  // Sidebar toggling
-  const setWbLibraryOpen = (open) => {
-    const sidebar = $("whiteboard-sidebar");
-    sidebar.classList.toggle("hidden", !open);
-    $("wb-add-note")?.classList.toggle("is-on", open);
-    if (open) renderWbLibrary();
-  };
+  //: The top bar's Library button opens and closes the board's sidebar
+  //: (decision 26, whiteboard-library.js) on the tab it was left on.
   $("wb-add-note").addEventListener("click", () => {
-    // Toggling on the class rather than reading it back: the panel covers the
-    // toggle, so "click it again to close" was not reachable.
-    setWbLibraryOpen($("whiteboard-sidebar").classList.contains("hidden"));
+    const panel = $("wb-sidebar-panel");
+    if (panel && !panel.classList.contains("hidden")) wbCloseSidebar();
+    else wbOpenSidebar(null);
   });
-  $("wb-library-close")?.addEventListener("click", () => setWbLibraryOpen(false));
 
   const btnAddSketch = document.getElementById("wb-add-sketch");
   if (btnAddSketch) {
@@ -8558,9 +9704,9 @@ async function initWhiteboard() {
       window.currentBoardId = e.target.value || null;
       await fetchWhiteboardState();
       wbScheduleRender();
-      // The background image is stored per board, so switching boards has
-      // to re-read it: otherwise the previous board's image stays up.
-      wbApplyBgImage();
+      // The look is the board's, so switching boards redraws it.
+      await wbMigrateBackground();
+      wbApplyBackground();
     });
   }
   //: Not `createNewBoard` itself: passed as the listener it received the click
@@ -8948,13 +10094,10 @@ async function initWhiteboard() {
     wbHintForcedOpen = false;
     $("wb-empty-hint")?.classList.add("hidden");
   });
-  // Asked for directly: a way back after "Don't show this again". Overrides
-  // both the dismissed flag and the has-content check below, since without
-  // that override this button would do nothing on a board that isn't empty.
-  $("wb-help-btn")?.addEventListener("click", () => {
-    wbHintForcedOpen = true;
-    $("wb-empty-hint")?.classList.remove("hidden");
-  });
+  //: The board's help is its own sheet now (INBOX 566): the Board menu's row
+  //: and the empty board's card open it, as "?" does.
+  $("wb-help-btn")?.addEventListener("click", () => wbOpenHelpSheet());
+  $("wb-empty-hint-keys")?.addEventListener("click", () => wbOpenHelpSheet());
 
   // Board background colour, asked for directly, the ambient generative-art
   // canvas showed straight through the board before this (`--wb-board-bg`,
@@ -8962,46 +10105,23 @@ async function initWhiteboard() {
   // `input` previews live while dragging the swatch; `change` (fires once,
   // on release/close) is what actually persists, so dragging across ten
   // hues doesn't write ten times.
+  //: The colour is the board's (decision 24): `input` previews while the
+  //: swatch is dragged, `change` (once, on release) writes it to the board.
   const bgColorPicker = document.getElementById("wb-bg-color-picker");
   const bgColorReset = document.getElementById("wb-bg-color-reset");
-  // The real default (the theme's --modal-bg) as a hex string, read fresh
-  // each time rather than cached, the whole point of "reset to theme
-  // default" is that it still means the *current* theme after a switch.
-  const themeDefaultBoardHex = () => {
-    const rgb = getComputedStyle(container.node()).backgroundColor;
-    const m = rgb.match(/(\d+),\s*(\d+),\s*(\d+)/);
-    return m ? "#" + m.slice(1, 4).map((n) => Number(n).toString(16).padStart(2, "0")).join("") : null;
-  };
   if (bgColorPicker) {
-    const savedBg = localStorage.getItem("wb-bg-color");
-    if (savedBg) {
-      container.node().style.setProperty("--wb-board-bg", savedBg);
-      bgColorPicker.value = savedBg;
-    } else {
-      // Reflect the real default in the swatch, not an arbitrary placeholder
-      // that doesn't match what's on screen.
-      const hex = themeDefaultBoardHex();
-      if (hex) bgColorPicker.value = hex;
-    }
     bgColorPicker.addEventListener("input", (e) => {
       container.node().style.setProperty("--wb-board-bg", e.target.value);
     });
     bgColorPicker.addEventListener("change", (e) => {
-      localStorage.setItem("wb-bg-color", e.target.value);
+      wbSetBackground({ color: e.target.value });
     });
   }
-  // Asked for directly: once you've picked a colour there was no way back to
-  // the theme's own board colour short of guessing its hex. Clearing the
-  // saved override and re-reading the CSS the board falls back to (rather
-  // than a hardcoded hex) means this still means "the theme's colour" after
-  // a light/dark switch, not just "whatever it happened to be once".
+  // Back to the theme's own board colour, still the current theme's after a
+  // light/dark switch, not a hex remembered once.
   if (bgColorReset && bgColorPicker) {
-    bgColorReset.addEventListener("click", () => {
-      localStorage.removeItem("wb-bg-color");
-      container.node().style.removeProperty("--wb-board-bg");
-      const hex = themeDefaultBoardHex();
-      if (hex) bgColorPicker.value = hex;
-      toast("Board background reset to the theme default.");
+    bgColorReset.addEventListener("click", async () => {
+      if (await wbSetBackground({ color: null })) toast("Board background reset to the theme default.");
     });
   }
 
@@ -9203,12 +10323,9 @@ async function initWhiteboard() {
     // A background already set means the button's job is to offer removing
     // it: a second "clear it" control for something most boards never use
     // would be permanent clutter on a panel that is already busy.
-    if (localStorage.getItem(wbBgImageKey())) {
+    if (wbBoardBackground().image) {
       if (await confirmDialog("Remove this board's background image?")) {
-        localStorage.removeItem(wbBgImageKey());
-        wbApplyBgImage();
-        toast("Background image removed.");
-        return;
+        if (await wbSetBackground({ image: null })) toast("Background image removed. Ctrl+Z puts it back.");
       }
       return;
     }
@@ -9226,15 +10343,13 @@ async function initWhiteboard() {
         headers: { "X-Auth-Token": authToken() },
         body: formData,
       });
-      localStorage.setItem(wbBgImageKey(), uploaded.url);
-      wbApplyBgImage();
-      toast("Background image set.");
+      if (await wbSetBackground({ image: uploaded.url })) toast("Background image set.");
     } catch (err) {
       toast(err.message || "Couldn't set that background image.", true);
     }
   });
   wbApplyGrid();
-  wbApplyBgImage();
+  wbApplyBackground();
 
   $("wb-clear-board")?.addEventListener("click", wbClearBoard);
   $("wb-delete-board")?.addEventListener("click", wbDeleteCurrentBoard);
@@ -9441,21 +10556,16 @@ async function initWhiteboard() {
       if (e.target.closest("input, select, textarea, [contenteditable=true]")) return;
       e.preventDefault();
     });
-    const zOrder = (toFront) => {
-      const sel = wbSelectedItem;
-      const item = sel && (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
-      if (!item) return;
-      wbSetZOrder(sel.kind, item, toFront).then((undo) => {
-        if (undo) wbPushUndo(undo);
-        wbScheduleRender();
-      });
-    };
+    //: One step each (FEAT-07); the bar's two are the step pair, and the
+    //: Arrange menu and the right-click menu add the front and back.
     const actions = {
       "wb-selbar-duplicate": () => {
         wbDuplicateSelection();
       },
-      "wb-selbar-back": () => zOrder(false),
-      "wb-selbar-forward": () => zOrder(true),
+      "wb-selbar-back": () => wbStepSelectionZOrder(-1),
+      "wb-selbar-forward": () => wbStepSelectionZOrder(1),
+      "wb-selbar-to-back": () => wbSendSelectionZOrder(false),
+      "wb-selbar-to-front": () => wbSendSelectionZOrder(true),
       "wb-selbar-delete": () => deleteWbSelection(),
       "wb-selbar-export": () => wbExportBoard(document.getElementById("wb-selbar-export")),
     };
@@ -9528,6 +10638,7 @@ async function initWhiteboard() {
     wbScheduleRender();
   }
   document.getElementById("wb-prop-startcap")?.addEventListener("change", (e) => wbSetCap("startCap", e.target.value));
+  document.getElementById("wb-prop-route")?.addEventListener("change", (e) => wbSetLinkRoute(e.target.value));
   document.getElementById("wb-prop-endcap")?.addEventListener("change", (e) => wbSetCap("endCap", e.target.value));
   document.getElementById("wb-prop-bg")?.addEventListener("change", async (e) => {
     const obj = wbSelectedTextObjectOrNull();
@@ -10017,6 +11128,7 @@ async function initWhiteboard() {
       // Before the measurement: a switch's own state can change how tall
       // the list is.
       syncPanelSwitches();
+      wbSyncCommandRows(menu);
       menu.classList.remove("wb-menu-one-col");
       escapeAndCapMenu(menu, toggle);
       //: **Hung from what opened it, every one of them** (INBOX 396). A
@@ -10093,10 +11205,12 @@ async function initWhiteboard() {
     //: owns its own listener (Rename, New board, the two map rows) used to
     //: leave the menu standing open behind the dialog it had just opened,
     //: because only the forwarding items closed it.
-    const item = e.target.closest(".wb-board-menu [data-wb-click], .wb-board-menu [data-wb-fn], .wb-board-menu .wb-menu-item");
+    const item = e.target.closest(".wb-board-menu [data-wb-click], .wb-board-menu [data-wb-fn], .wb-board-menu [data-wb-cmd], .wb-board-menu .wb-menu-item");
     if (!item) return;
     e.stopPropagation();
     closeAllWbMenus();
+    //: A row named after a command in `WB_COMMANDS` (whiteboard-commands.js).
+    if (item.dataset.wbCmd) { wbRunCommand(item.dataset.wbCmd); return; }
     if (item.dataset.wbFn === "select-all") { wbSelectAllItems(); return; }
     if (item.dataset.wbFn === "present") { wbStartPresenting(); return; }
     if (item.dataset.wbClick) document.getElementById(item.dataset.wbClick)?.click();
@@ -10170,7 +11284,7 @@ async function initWhiteboard() {
   });
   const panelSwitches = [
     ["wb-panel-overview", "wb-navigator", "wb-navigator-toggle"],
-    ["wb-panel-library", "whiteboard-sidebar", "wb-add-note"],
+    ["wb-panel-library", "wb-sidebar-panel", "wb-add-note"],
     ["wb-panel-search", "wb-search-bar", "wb-search-toggle"],
   ];
   function syncPanelSwitches() {
@@ -10583,21 +11697,24 @@ async function initWhiteboard() {
     //: `wbUndo`/`wbRedo` when a board is open, which is one owner for one
     //: shortcut, the same handoff Ctrl+F already uses. They stay on `window`
     //: below for it to call.
+    //: Not `preventDefault`: the browser's copy, cut and paste events have to
+    //: follow, so the board's items reach the system clipboard (`wbOnBoardCopy`)
+    //: and a paste can bring text or a picture in from another app (FEAT-09).
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "c") {
-      if (wbCopySelection()) e.preventDefault();
+      wbCopySelection();
       return;
     }
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "x") {
-      if (wbCutSelection()) e.preventDefault();
+      wbCutSelection();
       return;
     }
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "v") {
-      //: On a map with nothing copied here, the browser's own paste goes
-      //: ahead, so text from another app can come in as a branch
-      //: (`wbMapPasteText`, audit FEAT-09).
-      if (!wbClipboard && wbIsMap()) return;
-      e.preventDefault();
-      wbPasteClipboard();
+      //: If no paste event arrives (a shell that keeps the clipboard to
+      //: itself), the board's own clipboard is pasted as before.
+      wbBoardState.pasteArrived = false;
+      setTimeout(() => {
+        if (!wbBoardState.pasteArrived && wbClipboard) wbPasteClipboard();
+      }, 120);
       return;
     }
     //: **The camera from the keyboard** (the conventions pass: Figma, Miro,
@@ -10647,6 +11764,25 @@ async function initWhiteboard() {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "g") {
       e.preventDefault();
       wbGroupSelection();
+      return;
+    }
+    //: The Format panel (decision 19); the app's own Ctrl+Shift+P steps
+    //: aside on a board (`wbOwnsChord`).
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "p") {
+      e.preventDefault();
+      wbRunCommand("format-panel");
+      return;
+    }
+    //: Clone and connect: Alt+Shift+Arrow copies the shape that way and joins.
+    if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && e.key.startsWith("Arrow") && wbCloneSource()) {
+      e.preventDefault();
+      wbCloneConnect({ ArrowRight: "right", ArrowLeft: "left", ArrowDown: "down", ArrowUp: "up" }[e.key]);
+      return;
+    }
+    //: Save what is selected (or the topic's branch) to the library.
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      wbRunCommand(wbIsMap() ? "save-branch" : "save-selection");
       return;
     }
     // Mind-mapping's keyboard-driven branch entry (item 25's second piece,
@@ -10731,22 +11867,17 @@ async function initWhiteboard() {
       wbDuplicateSelection();
       return;
     }
-    if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/OS shortcuts alone
-    // `[` sends the selected item back, `]` brings it forward (PLAN.md W6).
-    // Same keys as Figma/Sketch; the z helpers already existed for the
-    // context menu, this only gives them a key.
-    if ((e.key === "[" || e.key === "]") && wbSelectedItem) {
-      const sel = wbSelectedItem;
-      const item = (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
-      if (item) {
-        e.preventDefault();
-        wbSetZOrder(sel.kind, item, e.key === "]").then((undo) => {
-          if (undo) wbPushUndo(undo);
-          wbScheduleRender();
-        });
-        return;
-      }
+    //: `]` and `[` are one step; Ctrl+] and Ctrl+[ go to the front and the
+    //: back (FEAT-07: draw.io's, Figma's and PowerPoint's split). `e.code`
+    //: as well, because Ctrl changes what some layouts report as the key.
+    const bracket = e.key === "]" || e.code === "BracketRight" ? 1 : e.key === "[" || e.code === "BracketLeft" ? -1 : 0;
+    if (bracket && !e.altKey && !e.shiftKey && !wbIsMap() && (wbSelectedItem || wbMultiSelection.size)) {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) wbSendSelectionZOrder(bracket > 0);
+      else wbStepSelectionZOrder(bracket);
+      return;
     }
+    if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/OS shortcuts alone
     const letter = e.key.toLowerCase();
     // Shift first: `e.key` for Shift+C is "C", which lower-cases onto the
     // unshifted tool, so reading the shift table second would make the two
@@ -11206,6 +12337,14 @@ async function initWhiteboard() {
     );
     //: The way back to a locked item (decision 15): it lets the pointer
     //: through, so a right-click on it lands here, on the board.
+    //: Right-click on the locked item itself unlocks that one, first.
+    const lockedHere = wbLockedItemAt(x, y);
+    if (lockedHere) {
+      items.unshift(makeMenuItem(
+        "ph:lock-simple-open Unlock this item", "It is locked, so the pointer passes through it",
+        () => wbSetLocked([[lockedHere.kind, lockedHere.item]], false)
+      ));
+    }
     const locked = wbLockedItems().length;
     if (locked) {
       items.push(makeMenuItem(
@@ -11215,6 +12354,12 @@ async function initWhiteboard() {
     }
     openMenuAtPoint(items, "This board", clientX, clientY);
   };
+
+  //: The hover lock (decision 28): the pointer over a locked item, which it
+  //: passes through, shows a lock; the first press says how to unlock it.
+  containerEl.addEventListener("pointermove", wbOnLockHoverMove, { passive: true });
+  containerEl.addEventListener("pointerleave", () => wbPaintLockHover(null));
+  containerEl.addEventListener("pointerdown", wbOnLockPress, true);
 
   const wbCanvasMenuWanted = (target) =>
     wbIsEmptyCanvasTarget(target) && !wbIsEditingTarget(target)
@@ -11519,15 +12664,45 @@ async function initWhiteboard() {
   // Paste has no drop coordinate to place at, the centre of whatever's
   // currently in view reads better than always the same fixed board
   // position, which would stack every pasted image on top of the last one.
-  containerEl.addEventListener("paste", (e) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    const files = [...items].filter((i) => i.kind === "file").map((i) => i.getAsFile());
-    if (!files.length) return;
-    e.preventDefault();
-    const rect = containerEl.getBoundingClientRect();
-    const [x, y] = getLogicalMouse({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 });
-    for (const file of files) wbPlaceUploadedImage(file, x, y);
+  //: On the document, not the canvas: a paste goes to whatever has the
+  //: focus, which after a click on a rail tool is not the canvas. Taken only
+  //: while a board is on screen and nothing that takes typing has the focus.
+  document.addEventListener("paste", (e) => {
+    if (!wbCommandsLive() || wbIsEditingTarget(e.target) || e.target.closest?.("input, textarea, select, .modal-overlay, .sheet-overlay")) return;
+    wbBoardState.pasteArrived = true;
+    const data = e.clipboardData;
+    const html = data?.getData("text/html") || "";
+    if (wbClipboard?.stamp && html.includes(`content="${wbClipboard.stamp}"`)) {
+      e.preventDefault();
+      wbPasteClipboard();
+      return;
+    }
+    const files = [...(data?.items || [])].filter((i) => i.kind === "file").map((i) => i.getAsFile()).filter(Boolean);
+    if (files.length) {
+      e.preventDefault();
+      const rect = containerEl.getBoundingClientRect();
+      const [x, y] = getLogicalMouse({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 });
+      for (const file of files) wbPlaceUploadedImage(file, x, y);
+      return;
+    }
+    const text = data?.getData("text/plain") || "";
+    //: A map's paste of an outline under a topic is the map's own (MINDMAP
+    //: §12.2, the map half of FEAT-09); here a map keeps its own clipboard.
+    if (text.trim() && !wbIsMap()) {
+      e.preventDefault();
+      wbPasteText(text, wbPointerOnBoard());
+      return;
+    }
+    if (wbClipboard) {
+      e.preventDefault();
+      wbPasteClipboard();
+    }
+  });
+  document.addEventListener("copy", (e) => {
+    if (wbCommandsLive() && !wbIsEditingTarget(e.target) && !e.target.closest?.("input, textarea, select")) wbOnBoardCopy(e);
+  });
+  document.addEventListener("cut", (e) => {
+    if (wbCommandsLive() && !wbIsEditingTarget(e.target) && !e.target.closest?.("input, textarea, select")) wbOnBoardCopy(e);
   });
   const imageFileInput = document.getElementById("wb-image-file-input");
   document.getElementById("wb-add-image")?.addEventListener("click", () => imageFileInput?.click());
@@ -12040,6 +13215,31 @@ function wbRememberedBoardKind() {
 }
 
 async function createNewBoard(preset = null) {
+  //: **New board opens the template gallery** (BACKLOG 4b, decision 25):
+  //: Blank, the built-in frames and your own templates, kind and name in one
+  //: dialog (`wbOpenTemplateGallery`, whiteboard-library.js, in the same
+  //: bundle as this file).
+  if (typeof wbOpenTemplateGallery === "function") {
+    const picked = await wbOpenTemplateGallery(preset || wbRememberedBoardKind());
+    if (!picked) return;
+    try {
+      localStorage.setItem(WB_LAST_BOARD_KIND, picked.kind);
+    } catch (err) { /* see wbRememberedBoardKind */ }
+    if (!picked.ref) return wbCreateBlankBoard(picked.name, picked.kind);
+    try {
+      const board = await apiJson("/board-library/new-board", {
+        method: "POST",
+        body: JSON.stringify({ ...wbLibRefBody(picked.ref), name: picked.name, ink: wbLibInk() }),
+      });
+      window.wbLastCreatedBoard = board;
+      await openWhiteboardBoard(board.id);
+      wbZoomToFit({ animate: false });
+      toast(`"${board.title}" started from a template.`);
+    } catch (err) {
+      toast(err.message || "Couldn't create that board.", true);
+    }
+    return;
+  }
   const answer = await promptDialog("Name the new board:", "", {
     //: "Save" is what `promptDialog` says by default and it is the wrong verb
     //: for a dialog whose whole job is to make something that does not exist
@@ -12072,6 +13272,11 @@ async function createNewBoard(preset = null) {
   try {
     localStorage.setItem(WB_LAST_BOARD_KIND, kind);
   } catch (err) { /* see wbRememberedBoardKind */ }
+  return wbCreateBlankBoard(name, kind);
+}
+
+//: A blank board or map named `name`: the body `createNewBoard` always had.
+async function wbCreateBlankBoard(name, kind) {
   try {
     const board = await apiJson("/whiteboard/boards", {
       method: "POST",
@@ -12392,8 +13597,15 @@ function wbShapeLabelKind(parsed) {
 //: a diamond, and the lower half of a triangle, centred on its centroid
 //: (two thirds of the way down from the apex) where it is widest enough to
 //: hold a word.
-function wbShapeLabelArea(kind, bbox) {
+function wbShapeLabelArea(kind, bbox, area = null) {
   const pad = 8;
+  if (area && Number.isFinite(area.w)) {
+    return {
+      cx: bbox.minX + bbox.width * ((area.x || 0) + area.w / 2),
+      cy: bbox.minY + bbox.height * ((area.y || 0) + (area.h ?? 1) / 2),
+      w: Math.max(24, bbox.width * area.w - pad * 2),
+    };
+  }
   const cx = bbox.minX + bbox.width / 2;
   if (kind === "triangle") {
     return { cx, cy: bbox.minY + (bbox.height * 2) / 3, w: Math.max(24, bbox.width * 0.5 - pad) };
@@ -12448,7 +13660,13 @@ function wbLayoutShapeLabel(groupEl) {
   label.removeAttribute("transform");
   const bbox = wbPathBBox(groupEl.querySelector(".sketch-path")?.getAttribute("d") || "");
   if (!bbox) return;
-  const area = wbShapeLabelArea(label.dataset.kind, bbox);
+  let labelArea = null;
+  try {
+    labelArea = label.dataset.area ? JSON.parse(label.dataset.area) : null;
+  } catch {
+    labelArea = null;
+  }
+  const area = wbShapeLabelArea(label.dataset.kind, bbox, labelArea);
   const fontSize = parseFloat(getComputedStyle(label).fontSize) || 16;
   const lineHeight = fontSize * 1.25;
   const key = `${label.__wbText}|${Math.round(area.w / 4)}|${fontSize}`;
@@ -12466,9 +13684,10 @@ function wbLayoutShapeLabel(groupEl) {
     );
   }
   const lines = label.__wbLines.length;
-  label.setAttribute("x", String(area.cx));
+  const x = label.dataset.align === "left" ? area.cx - area.w / 2 : label.dataset.align === "right" ? area.cx + area.w / 2 : area.cx;
+  label.setAttribute("x", String(x));
   label.setAttribute("y", String(area.cy - ((lines - 1) * lineHeight) / 2));
-  for (const span of label.children) span.setAttribute("x", String(area.cx));
+  for (const span of label.children) span.setAttribute("x", String(x));
 }
 
 //: A move is only a translation, so a drag frame moves the label by the
@@ -12486,7 +13705,7 @@ function wbNudgeShapeLabel(groupEl, dx, dy) {
 //: opacity is mostly board, so it keeps the theme's ink.
 function wbShapeLabelInk(parsed) {
   if (!parsed?.fill || (parsed.fillOpacity != null && parsed.fillOpacity < 0.5)) return null;
-  return typeof wbCoreInkFor === "function" ? wbCoreInkFor(parsed.fill) : null;
+  return wbCoreInkFor(parsed.fill);
 }
 
 //: Adds, updates or removes a shape's label for one render.
@@ -12510,8 +13729,16 @@ function wbPaintShapeLabel(groupEl, parsed) {
     groupEl.appendChild(label);
   }
   label.dataset.kind = kind;
+  if (parsed?.label_area) label.dataset.area = JSON.stringify(parsed.label_area);
+  else delete label.dataset.area;
   label.__wbText = text;
-  label.style.fill = wbShapeLabelInk(parsed) || "";
+  label.style.fill = parsed.label_color || wbShapeLabelInk(parsed) || "";
+  label.style.fontSize = parsed.label_size ? `${parsed.label_size}px` : "";
+  label.style.fontWeight = parsed.label_bold ? "700" : "";
+  label.style.fontStyle = parsed.label_italic ? "italic" : "";
+  const align = ["left", "right"].includes(parsed.label_align) ? parsed.label_align : "center";
+  label.dataset.align = align;
+  label.setAttribute("text-anchor", align === "left" ? "start" : align === "right" ? "end" : "middle");
   wbLayoutShapeLabel(groupEl);
 }
 
@@ -12523,7 +13750,7 @@ function wbEditShapeLabel(sketch) {
   const kind = wbShapeLabelKind(parsed);
   const bbox = kind ? wbPathBBox(parsed.d) : null;
   if (!bbox) return;
-  const area = wbShapeLabelArea(kind, bbox);
+  const area = wbShapeLabelArea(kind, bbox, parsed.label_area || null);
   const h = Math.max(bbox.height, 24);
   wbOpenSketchLabelEditor(sketch, parsed, {
     box: { x: area.cx - area.w / 2, y: area.cy - h / 2, w: area.w, h },
@@ -12603,7 +13830,7 @@ const WB_LINK_LABEL_MAX = 80;
 
 function wbLinkTakesLabel(sketch, parsed) {
   if (!parsed || !String(parsed.type || "").startsWith("link-")) return false;
-  return !(sketch && typeof wbMapCrossLinkInfo === "function" && wbMapCrossLinkInfo(sketch.id));
+  return !(sketch && wbMapCrossLinkInfo(sketch.id));
 }
 
 //: The middle of a link's shaft: the first subpath of its drawn `d`, before
@@ -12611,7 +13838,7 @@ function wbLinkTakesLabel(sketch, parsed) {
 //: a curve's middle is where the curve is rather than the chord's.
 let wbLinkMeasurePath = null;
 
-function wbLinkMidpoint(d) {
+function wbLinkMidpoint(d, t = 0.5) {
   const shaft = String(d || "").split(/\s(?=M)/)[0];
   if (!shaft) return null;
   if (!wbLinkMeasurePath || !wbLinkMeasurePath.isConnected) {
@@ -12626,7 +13853,7 @@ function wbLinkMidpoint(d) {
   wbLinkMeasurePath.setAttribute("d", shaft);
   try {
     const length = wbLinkMeasurePath.getTotalLength();
-    const p = wbLinkMeasurePath.getPointAtLength(length / 2);
+    const p = wbLinkMeasurePath.getPointAtLength(length * t);
     return { x: p.x, y: p.y };
   } catch {
     return null;
@@ -12636,7 +13863,8 @@ function wbLinkMidpoint(d) {
 function wbLayoutLinkLabel(groupEl) {
   const label = groupEl?.querySelector?.(":scope > .wb-link-label");
   if (!label) return;
-  const p = wbLinkMidpoint(groupEl.querySelector(".sketch-path")?.getAttribute("d"));
+  const t = groupEl.dataset.labelT ? Number(groupEl.dataset.labelT) : 0.5;
+  const p = wbLinkMidpoint(groupEl.querySelector(".sketch-path")?.getAttribute("d"), Number.isFinite(t) ? t : 0.5);
   if (!p) return;
   label.setAttribute("x", String(p.x));
   label.setAttribute("y", String(p.y));
@@ -12658,6 +13886,7 @@ function wbPaintLinkLabel(groupEl, sketch, parsed) {
     groupEl.appendChild(label);
   }
   if (label.textContent !== text) label.textContent = text;
+  groupEl.dataset.labelT = String(wbLinkLabelT(parsed));
   wbLayoutLinkLabel(groupEl);
 }
 
@@ -12670,7 +13899,7 @@ function wbEditLinkLabel(sketch) {
   }
   if (!wbLinkTakesLabel(sketch, parsed)) return;
   const group = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
-  const p = wbLinkMidpoint(group?.querySelector(".sketch-path")?.getAttribute("d"));
+  const p = wbLinkMidpoint(group?.querySelector(".sketch-path")?.getAttribute("d"), wbLinkLabelT(parsed));
   if (!p) return;
   const w = 180;
   const h = 32;
@@ -12909,11 +14138,14 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
   // it every call leaves its predecessor behind on the board.
   wbClearSketchHandles();
   const group = d3.select("#wb-overlay-zoom-group").append("g").attr("class", "wb-sketch-handle-group");
+  const shape = look ? null : wbLinkShape(parsed);
+  const drawnEnds = shape ? wbElbowEnds(endpoints.source, endpoints.target, shape.points) : endpoints;
 
   // The bend handle: drag to curve the link, double-click to straighten it.
   // Sits at the control point (or the chord midpoint when there is none) so
-  // the thing you grab is the thing that moves.
-  {
+  // the thing you grab is the thing that moves. An elbow has bends instead.
+  if (shape) wbRenderElbowHandles(group, sketch, parsed, endpoints, shape);
+  else {
     const mid = { x: (endpoints.source.x + endpoints.target.x) / 2, y: (endpoints.source.y + endpoints.target.y) / 2 };
     const bendLive = { x: parsed.bend?.x || 0, y: parsed.bend?.y || 0 };
     const paths = () => [".sketch-path", ".sketch-hitbox"].map((c) => document.querySelector(`.sketch-group[data-id="${sketch.id}"] ${c}`));
@@ -12968,7 +14200,7 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
 
   for (const end of ["source", "target"]) {
     const other = end === "source" ? "target" : "source";
-    const live = { x: endpoints[end].x, y: endpoints[end].y };
+    const live = { x: drawnEnds[end].x, y: drawnEnds[end].y };
     group.append("circle")
       .attr("class", "wb-link-endpoint-handle")
       .attr("data-end", end)
@@ -12996,7 +14228,7 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
             live.y += event.dy;
             d3.select(this).attr("cx", live.x).attr("cy", live.y);
             const previewPts = end === "source" ? [live, endpoints[other]] : [endpoints[other], live];
-            const previewD = wbLinkPathD(parsed.type, previewPts[0], previewPts[1], wbLinkCaps(parsed), parsed.width, parsed.bend);
+            const previewD = wbLinkPathD(parsed.type, previewPts[0], previewPts[1], wbLinkCaps(parsed), parsed.width, parsed.bend, wbLinkShape(parsed));
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", previewD);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", previewD);
             wbLayoutLinkLabel(document.querySelector(`.sketch-group[data-id="${sketch.id}"]`));
@@ -13028,6 +14260,163 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
           })
       );
   }
+  if (!look) wbRenderLinkLabelGrip(group, sketch, parsed);
+}
+
+//: **An elbow's bends, as grips** (the features audit W4). Each waypoint the
+//: person placed is a filled grip: drag it to move the bend, double-click it
+//: to take it out. Between them, in the middle of every run of the drawn
+//: route, a small hollow grip adds one: drag it and the route goes through
+//: where it is let go. The waypoint is saved in board units on the link
+//: (`points`), the route between is worked out again on every render, so a
+//: moved card brings its line round with it.
+function wbRenderElbowHandles(group, sketch, parsed, endpoints, shape) {
+  const points = shape.points.map((p) => ({ x: p.x, y: p.y }));
+  const groupEl = () => document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
+  const route = () => {
+    const ends = wbElbowEnds(endpoints.source, endpoints.target, points);
+    return wbElbowRoute(ends.source, ends.target, endpoints.source.box, endpoints.target.box, points);
+  };
+  const repaint = () => {
+    const d = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, null, { route: "elbow", points });
+    for (const c of [".sketch-path", ".sketch-hitbox"]) groupEl()?.querySelector(c)?.setAttribute("d", d);
+    wbLayoutLinkLabel(groupEl());
+  };
+  const save = async (said) => {
+    const before = WB_KIND_INFO.sketch.payload(sketch);
+    const kept = points.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) }));
+    await wbSaveSketchProps(sketch, { points: kept.length ? kept : undefined });
+    wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
+    if (said) wbAnnounce(said);
+    wbScheduleRender();
+  };
+  const follow = (p) => d3.drag()
+    .on("start", (event) => event.sourceEvent.stopPropagation())
+    .on("drag", function (event) {
+      p.x += event.dx;
+      p.y += event.dy;
+      d3.select(this).attr("cx", p.x).attr("cy", p.y);
+      repaint();
+    });
+  for (const p of points) {
+    const grip = group.append("circle")
+      .attr("class", "wb-link-waypoint-handle")
+      .attr("cx", p.x).attr("cy", p.y).attr("r", 6);
+    grip.append("title").text("Drag to move this bend · double-click to take it out");
+    grip.on("contextmenu", (event) => wbForwardGripContextMenu(event, sketch.id));
+    grip.call(follow(p).on("end", () => save())).on("dblclick", (event) => {
+      event.stopPropagation();
+      points.splice(points.indexOf(p), 1);
+      save("Bend taken out.");
+    });
+  }
+  const line = route();
+  for (let i = 0; i < line.length - 1; i++) {
+    const a = line[i], b = line[i + 1];
+    if (Math.hypot(b.x - a.x, b.y - a.y) < 36) continue;
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const grip = group.append("circle")
+      .attr("class", "wb-link-waypoint-add")
+      .attr("cx", mid.x).attr("cy", mid.y).attr("r", 4);
+    grip.append("title").text("Drag to add a bend here");
+    grip.on("contextmenu", (event) => wbForwardGripContextMenu(event, sketch.id));
+    const p = { x: mid.x, y: mid.y };
+    grip.call(
+      follow(p)
+        .on("start.add", function () {
+          const at = wbPolylineAt(line, p);
+          const index = points.filter((q) => wbPolylineAt(line, q) <= at).length;
+          points.splice(index, 0, p);
+          d3.select(this).attr("class", "wb-link-waypoint-handle").attr("r", 6);
+        })
+        .on("end", () => save("Bend added. Drag it to move it, double-click to take it out."))
+    );
+  }
+}
+
+//: **A connector's label slides along its line** (the features audit W4;
+//: draw.io keeps a label's place as a share of the edge's length). The grip
+//: sits on the label; dragging it moves the label to the nearest point of
+//: the drawn line, saved as `label_t` (0 at the start, 1 at the end), so the
+//: label keeps its place along the line when either card moves.
+function wbRenderLinkLabelGrip(group, sketch, parsed) {
+  const groupEl = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
+  const label = groupEl?.querySelector(":scope > .wb-link-label");
+  if (!label || !wbLinkMeasurePath) return;
+  //: At the label's leading edge rather than its middle: the middle of a
+  //: connector is where an elbow's add-a-bend grip sits, and two grips on
+  //: one point leave the one underneath unreachable (measured: the press
+  //: landed on this one).
+  const place = () => {
+    let box = null;
+    try {
+      box = label.getBBox();
+    } catch {
+      box = null;
+    }
+    return box && box.width ? { x: box.x - 9, y: box.y + box.height / 2 } : null;
+  };
+  const at = place();
+  if (!at) return;
+  let t = wbLinkLabelT(parsed);
+  const grip = group.append("rect")
+    .attr("class", "wb-link-label-handle")
+    .attr("x", at.x - 5).attr("y", at.y - 5).attr("width", 10).attr("height", 10)
+    .attr("rx", 2);
+  grip.append("title").text("Drag to slide the label along the line");
+  grip.on("contextmenu", (event) => wbForwardGripContextMenu(event, sketch.id));
+  grip.call(
+    d3.drag()
+      .on("start", (event) => event.sourceEvent.stopPropagation())
+      .on("drag", function (event) {
+        const [px, py] = d3.pointer(event, this.parentNode);
+        t = wbLinkNearestT(groupEl.querySelector(".sketch-path")?.getAttribute("d"), { x: px, y: py });
+        groupEl.dataset.labelT = String(t);
+        wbLayoutLinkLabel(groupEl);
+        const now = place();
+        if (now) d3.select(this).attr("x", now.x - 5).attr("y", now.y - 5);
+      })
+      .on("end", async () => {
+        const before = WB_KIND_INFO.sketch.payload(sketch);
+        const rounded = Math.round(t * 100) / 100;
+        await wbSaveSketchProps(sketch, { label_t: Math.abs(rounded - 0.5) < 0.01 ? undefined : rounded });
+        wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
+        wbScheduleRender();
+      })
+  );
+}
+
+//: Where a label sits along its line: 0 at the start, 1 at the end, the
+//: middle when it was never moved.
+function wbLinkLabelT(parsed) {
+  const t = Number(parsed?.label_t);
+  return Number.isFinite(t) && t >= 0 && t <= 1 ? t : 0.5;
+}
+
+//: The share of the drawn line nearest a point, sampled along the line's own
+//: length so a curve is measured where it is.
+function wbLinkNearestT(d, p) {
+  const shaft = String(d || "").split(/\s(?=M)/)[0];
+  if (!shaft || !wbLinkMeasurePath) return 0.5;
+  wbLinkMeasurePath.setAttribute("d", shaft);
+  let length = 0;
+  try {
+    length = wbLinkMeasurePath.getTotalLength();
+  } catch {
+    return 0.5;
+  }
+  if (!length) return 0.5;
+  let best = Infinity, bestT = 0.5;
+  const steps = 80;
+  for (let i = 0; i <= steps; i++) {
+    const q = wbLinkMeasurePath.getPointAtLength((length * i) / steps);
+    const dist = Math.hypot(q.x - p.x, q.y - p.y);
+    if (dist < best) {
+      best = dist;
+      bestT = i / steps;
+    }
+  }
+  return Math.max(0.05, Math.min(0.95, bestT));
 }
 
 // The handles themselves: a fresh SVG group per selection, since (unlike a
@@ -14164,7 +15553,7 @@ function renderWhiteboard() {
           }
         } else {
           const endpoints = wbResolveLinkEndpoints(parsed);
-          pathData = endpoints ? wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend) : "";
+          pathData = endpoints ? wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend, wbLinkShape(parsed)) : "";
         }
       }
     } catch(e) {}
@@ -14195,12 +15584,26 @@ function renderWhiteboard() {
       // "zero-length dashes" instead of "solid", a reused element from a
       // dashed sketch must not leave a stale dasharray on a solid one.
       .attr("stroke-dasharray", dashArray);
+    //: The Format panel's opacity and shadow (decision 19), on the group so
+    //: the label goes with the shape; an attribute and an inline style, both
+    //: of which the export's clone keeps.
+    const look = shapeData || linkData;
+    d3.select(this)
+      .attr("opacity", look?.alpha != null && look.alpha < 1 ? look.alpha : null)
+      .style("filter", look?.shadow ? WB_ITEM_SHADOW : null);
     // After the path, which the label is laid out from (decision 12).
     wbPaintShapeLabel(this, shapeData);
     wbPaintLinkLabel(this, d, linkData);
   });
 
   sketchSelection.exit().remove();
+  //: **A shape's z is its paint order** (found with FEAT-07). SVG paints in
+  //: document order, and a new sketch was appended last whatever its z, so
+  //: Bring forward on a shape wrote a number nothing read. `sort` reorders
+  //: the groups by z (ties by id, the order they were appended in before);
+  //: d3 moves only the groups that are out of place. Not on a map, whose
+  //: lines have no order to keep.
+  if (!wbIsMap()) sketchUpdate.sort((a, b) => (a.z || 0) - (b.z || 0) || a.id - b.id);
 
   // Render Nodes (Cards)
   const canvas = d3.select("#wb-html-layer");
@@ -14577,6 +15980,7 @@ function renderWhiteboard() {
   // actually persists (`wbSelectedItem`), not the DOM.
   wbApplySelectionHighlight();
   wbPaintLocks();
+  wbPaintHidden();
   wbPaintCommentMarks();
 
   //: A frame later, not now: a fresh element has to be drawn once before it
@@ -15511,6 +16915,10 @@ function renderWbObjects(canvas) {
     //: stacks in document order rather than at "undefined".
     if (d.z === null || d.z === undefined) this.style.removeProperty("z-index");
     else this.style.zIndex = d.z;
+    if (!WB_MAP_KINDS.has(d.kind)) {
+      this.style.opacity = d.data?.alpha != null && d.data.alpha < 1 ? String(d.data.alpha) : "";
+      this.style.filter = d.data?.shadow ? WB_ITEM_SHADOW : "";
+    }
     if (d.kind === "image") {
       el.select("img").attr("src", mediaSrc(d.data.url) || "");
     } else if (WB_MAP_KINDS.has(d.kind)) {
@@ -15527,7 +16935,9 @@ function renderWbObjects(canvas) {
       //: README's board shot).
       textEl.style("color", d.data.color || (d.data.bg && wbCoreInkFor(d.data.bg)) || "")
         .style("font-size", d.data.font_size ? `${d.data.font_size}px` : "")
-        .style("text-align", d.data.align || "");
+        .style("text-align", d.data.align || "")
+        .style("font-weight", d.data.bold ? "700" : "")
+        .style("font-style", d.data.italic ? "italic" : "");
       if (document.activeElement !== textEl.node()) wbPaintTextContent(textEl.node(), d);
     }
   });
@@ -15718,7 +17128,7 @@ function wbUpdateLinkedSketches(nodeId, precomputed) {
     if (!look && !endpoints) continue;
     const pathData = look
       ? look.d
-      : wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend);
+      : wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend, wbLinkShape(parsed));
     //: **The two paths, found once per gesture rather than once per frame**
     //: (MINDMAP_PLAN.md §13a). Three document-wide queries per link per frame
     //: is thousands of walks of the document a second on a board that mixes a
@@ -16478,7 +17888,9 @@ async function openWhiteboardBoard(boardId) {
   wbClearSelectionOverlays();
   await fetchWhiteboardState();
   wbScheduleRender();
-  wbApplyBgImage();
+  await wbMigrateBackground();
+  wbApplyBackground();
+  wbSyncSidebarKind();
   renderWbGestureHints();
   //: Rendered now rather than on the next frame, because the framing below
   //: measures the nodes it is about to fit (a map node is `height: auto`, so
@@ -16740,7 +18152,14 @@ function wbFramesInOrder() {
     if (row && Math.abs(frame.y - row[0].y) < Math.min(frame.height, row[0].height) / 2) row.push(frame);
     else rows.push([frame]);
   }
-  return rows.flatMap((row) => row.sort((a, b) => a.x - b.x));
+  const reading = rows.flatMap((row) => row.sort((a, b) => a.x - b.x));
+  //: **A page number wins** (decision 22): the sidebar's Pages tab writes
+  //: `page` on every frame when it reorders them; a frame without one (made
+  //: since) follows the numbered ones in reading order.
+  if (!reading.some((f) => Number.isFinite(f.data?.page))) return reading;
+  const at = new Map(reading.map((f, i) => [f, i]));
+  const page = (f) => (Number.isFinite(f.data?.page) ? f.data.page : Infinity);
+  return reading.slice().sort((a, b) => page(a) - page(b) || at.get(a) - at.get(b));
 }
 
 //: The steps: a board's frames, or a map's branches (MINDMAP_PLAN decision

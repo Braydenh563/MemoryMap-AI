@@ -42,6 +42,10 @@ ATLAS = Path(__file__).resolve().parents[1] / "frontend" / "js" / "atlas.js"
 DOCUMENTS_CODE = Path(__file__).resolve().parents[1] / "frontend" / "js" / "documents-code.js"
 DOCUMENTS_PROSE = Path(__file__).resolve().parents[1] / "frontend" / "js" / "documents-prose.js"
 WHITEBOARD_MAP = Path(__file__).resolve().parents[1] / "frontend" / "js" / "whiteboard-map.js"
+WHITEBOARD_EXTRAS = [
+    Path(__file__).resolve().parents[1] / "frontend" / "js" / name
+    for name in ("whiteboard-commands.js", "whiteboard-library.js", "whiteboard-format.js", "whiteboard-interchange.js")
+]
 
 #: Two listeners on one element for one event is fine when they do different
 #: jobs: the settings overlay has a backdrop-click-to-close and a delegated
@@ -125,6 +129,10 @@ def _source() -> str:
         + DOCUMENTS_PROSE.read_text(encoding="utf-8")
         + "\n"
         + WHITEBOARD_MAP.read_text(encoding="utf-8")
+        + "\n"
+        #: The board's command table and its sidebar (2026-10-05), in the
+        #: Library bundle after whiteboard.js.
+        + "\n".join(path.read_text(encoding="utf-8") for path in WHITEBOARD_EXTRAS if path.exists())
     )
     #: Line comments first, then blocks. The other way round, a `/*` written
     #: inside a `//` line is read as a block comment opening and everything to

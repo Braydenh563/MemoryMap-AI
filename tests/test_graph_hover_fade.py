@@ -117,7 +117,9 @@ def test_dots_lines_rings_and_pills_all_draw_from_their_lit_ness():
     draw = _fn("gcDraw")
     # Nodes: batched by colour only; alpha per node from its own lit-ness.
     assert "const key = node.colour;" in draw
-    assert "ctx.globalAlpha = gcLitAlpha(node._lit);" in draw
+    # Each node's alpha is its own lit-ness; FE-04's batched small dots carry
+    # it in their batch key (eight steps), large ones set it directly.
+    assert "let alpha = gcLitAlpha(node._lit);" in draw and "ctx.globalAlpha = alpha;" in draw
     # Edges: bucketed by an eleven-step level, not a dim flag.
     assert "edge._lit = gcFadeToward(edge._lit" in draw and "|${level}`" in draw
     assert "|${dim}`" not in draw

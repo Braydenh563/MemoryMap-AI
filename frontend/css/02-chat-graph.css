@@ -709,6 +709,12 @@ details.tool-chip[open] > .tool-chip-body {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  /* The rail's centre line, from the list's left edge. The rail and every
+     node are placed from this one number, so they cannot drift apart: they
+     did by 0.76px when each carried its own offset (INBOX 588: "these chat
+     agent step circles and lines are [not] exactly aligned"). */
+  --rail-x: 0.4rem;
+  --rail-node: 0.66rem;
 }
 
 /* The rail. Drawn only when there's more than one step, so an ordinary
@@ -716,7 +722,7 @@ details.tool-chip[open] > .tool-chip-body {
 .agent-steps:has(> :nth-child(2))::before {
   content: "";
   position: absolute;
-  left: 0.32rem;
+  left: calc(var(--rail-x) - 1px);
   top: 0.5rem;
   bottom: 0.5rem;
   width: 2px;
@@ -748,10 +754,12 @@ details.tool-chip[open] > .tool-chip-body {
 .agent-steps:has(> :nth-child(2))>.tool-confirm::before {
   content: "";
   position: absolute;
-  left: -1.15rem;
+  /* Measured from the step's own left edge, which sits the gutter's
+     1.25rem in from the rail's frame. */
+  left: calc(var(--rail-x) - 1.25rem - var(--rail-node) / 2);
   top: 0.55rem;
-  width: 0.66rem;
-  height: 0.66rem;
+  width: var(--rail-node);
+  height: var(--rail-node);
   border-radius: 50%;
   background: var(--card);
   border: 2px solid var(--accent);
@@ -3280,7 +3288,12 @@ kbd {
   position: absolute;
   right: 0;
   top: calc(100% + 4px);
-  z-index: 30;
+  /* 45, one tier above the fixed back-to-top button's 40 (INBOX 583: "note
+     popup menus are behind the back to top button"): an open menu is the
+     thing in hand, a button that only scrolls can wait under it.
+     menuovertop.js lays the button under the menu's corner and asks
+     `elementFromPoint` who is on top. */
+  z-index: 45;
   min-width: 12.5rem;
   /* Wide enough that a row is one line. Measured after the Images gallery's
      own menu was folded into this one: at a fixed 200px, "Read text

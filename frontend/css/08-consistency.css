@@ -1756,16 +1756,6 @@ summary > .ph-lead,
   max-height: 85vh;
 }
 
-.dash-widgets-dialog > .modal-head,
-.dash-widgets-dialog > .modal-foot {
-  flex: 0 0 auto;
-  margin: 0;
-}
-
-.dash-widgets-dialog > .modal-head h3 {
-  margin: 0;
-}
-
 .dash-widgets-dialog > .modal-body {
   display: flex;
   flex-direction: column;
@@ -1924,7 +1914,6 @@ summary > .ph-lead,
   height: var(--control-h-lg);
   border-radius: var(--radius-md);
 }
-
 
 /* DOCUMENTS_PLAN Phase 1, the chrome: three questions, three places.
    Measured before: the header held ten controls at four heights (44, 39,
@@ -3063,7 +3052,6 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   color: var(--warn);
 }
 
-
 /* **A divider needs something on both sides of it.** `.dock > * + *` draws
    one before every zone after the first, which is right until the first
    child is a zone that is not drawn: the Chat header's phone sidebar opener
@@ -3510,7 +3498,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   .rich-picker-group, .note-embed-head, .doc-prose-group,
   .wb-export-card .wb-export-label, .wb-tool-section-label,
   .dash-widgets-group-label, .wb-panel-group-label, .connection-heading,
-  .wb-help-grid h4, .finder-group, .chord-guide-title
+  .wb-help-section-head, .finder-group, .chord-guide-title
 ) {
   text-transform: none;
   letter-spacing: 0;
@@ -6657,7 +6645,6 @@ body .chip.item-label,
 #nm-buddy.nmb-act-shrug :is(.nm-figure, .atl-figure) .nmb-arm-r { transform: rotate(-40deg); }
 #nm-buddy.nmb-act-shrug :is(.nm-figure, .atl-figure) .nmb-arm-l { transform: rotate(40deg); }
 
-
 /* **Arms that match the mood** (the owner: "make sure that the positions of
    the limbs like the arm on companions ... actually match the mood as
    well"). The face it is wearing (`data-feel`, avatars.js: the passing
@@ -7434,7 +7421,7 @@ body .chip.item-label,
   --atl-head-y: 0px;
   --atl-sx: 1;
   --atl-sy: 1;
-  
+
   --atl-halo-o: 1;
   --atl-crest: 0deg;
   --atl-tail: 0deg;
@@ -10953,4 +10940,19 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 
 #settings-help .help-accordion kbd {
   font-size: 0.8em;
+}
+
+/* Simple mode (WORLD_CLASS_PLAN H9, row 27; Settings, General). theme-boot.js
+   sets `data-simple="on"` on <html> before first paint from this device's
+   choice, and these are the places a new person does not need until they
+   reach for them: the Graph, Timeline and Reminders tabs (in the tab bar and
+   wherever the phone shell puts the same buttons), the Library's Boards and
+   maps, What it learned, and the advanced response settings with their '?'.
+   Hidden, never disabled: each still opens from the command palette. */
+:root[data-simple="on"] #tab-bar button[role="tab"]:is([data-tab="graph"], [data-tab="timeline"], [data-tab="reminders"]),
+:root[data-simple="on"] [role="tab"][data-target="library-view-whiteboard"],
+:root[data-simple="on"] #settings-nav [data-section="learned"],
+:root[data-simple="on"] #sampling-box,
+:root[data-simple="on"] [data-help-for="sampling-help"] {
+  display: none;
 }

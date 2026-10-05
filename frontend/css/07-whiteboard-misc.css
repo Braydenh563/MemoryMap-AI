@@ -18,7 +18,6 @@
 /* The selection box for every kind is one rule, in 06-timeline-dialogs.css
    beside the card's: decision 6 of WHITEBOARD_PLAN. */
 
-
 /* Swapped in for an image object whose file is gone (deleted via the
    Library gallery, or off disk by hand), a closable box in its place
    rather than a broken-image glyph, asked for directly. */
@@ -243,8 +242,8 @@
   font-weight: 600;
 }
 
-/* The thread, in the help popover's shell:the comments, then one box and
-   its foot. */
+/* The thread, in the help popover's shell: the comments, then a quiet "New
+   comment" that opens the box with its Post and Cancel (INBOX 570). */
 .help-popover.wb-comments {
   display: flex;
   flex-direction: column;
@@ -280,6 +279,22 @@
   justify-content: space-between;
   gap: var(--space-2);
   font-size: var(--text-xs);
+}
+
+.wb-comments-new {
+  align-self: flex-start;
+}
+
+.wb-comments-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.wb-comments-actions {
+  display: inline-flex;
+  gap: var(--space-2);
+  flex: none;
 }
 
 .wb-comments-box {
@@ -715,7 +730,7 @@
    writes that column) and the button is --sidebar-toggle-size (36px); at
    left: 10px its right edge sat 2px from the rail's edge and read as
    clashing with it (reported directly).
-   
+
    Centred by `margin-inline: auto` between two zeroed insets rather than by
    arithmetic on 48px, because the arithmetic was 1px out on each side and
    the report came back: an absolutely positioned box is laid out in its
@@ -881,7 +896,6 @@
   right: 0;
   left: auto;
 }
-
 
 /* ======================= MICRO-ANIMATIONS ======================= */
 /* Interactive cards get a slight upward lift and shadow pop on hover */
@@ -2291,9 +2305,6 @@ body.has-agent-monitor #timeline-scroll {
 }
 
 /* A flexible gap that pushes what follows it to the far end of a row. */
-.spacer-flex {
-  flex-grow: 1;
-}
 
 /* The Timeline's find box. The popup's own rules went with the popup: a row
    opens where it sits now (TIMELINE_PLAN decision 8). */
@@ -3070,7 +3081,6 @@ body.scroll-top-visible .skills-split > .tab-main {
   flex: none;
 }
 
-
 /* --- space switcher (top bar) ------------------------------------------------
    Which notebook you are looking at, next to the wordmark. Built out of the
    app's existing `.ghost .small` button so it reads as part of the chrome, 
@@ -3262,7 +3272,6 @@ body.scroll-top-visible .skills-split > .tab-main {
   background: var(--border);
 }
 
-
 /* --- space dialogs ----------------------------------------------------------- */
 /* Reported: "New space", "Rename space" and the Widgets picker read as
    near-illegible over the dashboard's animated background: text sitting
@@ -3394,7 +3403,6 @@ dialog::backdrop {
   min-height: 0;
 }
 
-
 /* --- page margins (Appearance > Page Margins) --------------------------------
    Three presets over the shell tokens above. The sliders write --page-* on the
    root element directly from JS, which is why "custom" declares no values of
@@ -3489,7 +3497,6 @@ dialog::backdrop {
   max-width: 100%;
   object-fit: cover;
 }
-
 
 /* --- Capture: the two labelled rows under the note box -----------------------
    "Add to document" and "File under" each set their own label width, so the
@@ -6032,13 +6039,6 @@ summary:not(.icon-only):not(.icon-button) {
   color: var(--muted);
 }
 
-.whiteboard-floating-panel .wb-panel-group-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
 /* The Library toggle is what this panel is mostly used for, so it reads as
    the panel's own action rather than as the first of nine equal icons. */
 .whiteboard-floating-panel .wb-panel-primary {
@@ -6436,7 +6436,6 @@ button.connection-row {
   white-space: nowrap;
 }
 
-
 /* --- the document toolbar's two folds ------------------------------------- */
 /* `.doc-dock-menu` already carries the popup's own positioning and list
    styling (it is the document ⋯ menu's class); these three rules only make
@@ -6488,11 +6487,6 @@ button.connection-row {
    a found note is the same object here as it is in the Ask box's grounding
    row: the app should not have two different pictures of "a note this answer
    came from". */
-.cmd-palette-found {
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-}
 
 /* A note reference inside the answer's own prose. Styled as a link and not as
    a button on purpose: it sits mid-sentence, and a control with a border and
@@ -7496,7 +7490,6 @@ button.connection-row {
   }
 }
 
-
 /* The selection toolbar (editor.js). Positioned in viewport coordinates
    against the caret, so it is `fixed`, an absolutely-positioned bar would be
    offset by every scrolling ancestor between it and the textarea. */
@@ -7645,7 +7638,6 @@ button.connection-row {
   margin-right: var(--space-2);
 }
 
-
 /* The gesture strip on a board that is still being started. Floating over the
    canvas rather than in the layout: the canvas is the whole pane, and a row
    that pushed it down would move every card the moment the hint appeared or
@@ -7717,7 +7709,6 @@ button.connection-row {
   background: var(--modal-bg);
 }
 
-
 /* The ± zoom row beside the Fit/100% segment. Tabular figures so stepping
    through 75% → 100% → 125% does not shuffle the buttons sideways. */
 .ocr-zoom-steps {
@@ -7730,7 +7721,6 @@ button.connection-row {
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
-
 
 /* --- Documents: focus mode --------------------------------------------------
    Same `position: fixed` overlay pattern as the whiteboard's and graph's own
@@ -8972,13 +8962,6 @@ button.connection-row {
   color: var(--muted);
 }
 
-.wb-board-menu .wb-panel-group-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
 .wb-board-menu select {
   flex: 1 1 8rem;
   height: 2rem;
@@ -9247,13 +9230,6 @@ button.connection-row {
   margin-left: var(--space-1);
 }
 
-.wb-context-divider {
-  width: 1px;
-  align-self: stretch;
-  background: var(--divider);
-  flex: none;
-}
-
 /* A field with a word in front of it (Size, Width): the word is what stops a
    bare number box from being a mystery, and it is quiet enough not to read as
    a second row of labels. */
@@ -9271,7 +9247,6 @@ button.connection-row {
 
 #wb-prop-fontsize {
   width: 4rem;
-  margin: 0;
   padding: 0 var(--space-1);
   text-align: center;
 }
@@ -9301,8 +9276,17 @@ button.connection-row {
   min-height: var(--target-min);
 }
 
+/* **No margin of its own** (INBOX 576, the owner: "this menu's elements
+   arent aligned vertically"). The app's base field rule gives an input a
+   bottom margin, and `align-items: center` centres the margin box, so the
+   Width box sat 4.8px above every other control on the bar (measured on the
+   shape, ink, line and connector bars, 1440 and 390); Size had a margin of
+   0 on its id and so looked right, which is how one field came to differ.
+   Stated for every number field on the bar, not per id, so the next one
+   cannot. `wb1005-barline.js` holds every control to its line's centre. */
 .wb-context input[type="number"] {
   width: 3.5rem;
+  margin: 0;
   padding-block: 0;
 }
 
@@ -9403,18 +9387,22 @@ button.connection-row {
    said so through the button ramp's own disabled state; as a menu row it had
    no rule at all, so a row that does nothing looked exactly like the row above
    it. */
-.wb-menu-item:disabled {
+.wb-menu-item:disabled,
+.wb-menu-item[aria-disabled="true"] {
   color: var(--muted);
   cursor: default;
   opacity: 0.6;
 }
 
-.wb-menu-item:disabled:hover {
+/* A command row that does not apply yet (`wbSyncCommandRows`) stays
+   pressable so its toast can say why; it reads as the disabled row does. */
+.wb-menu-item:disabled:hover,
+.wb-menu-item[aria-disabled="true"]:hover {
   background: transparent;
 }
 
 .wb-menu-item kbd,
-.wb-help-grid kbd {
+.wb-help-row-keys kbd {
   font-family: var(--mono, ui-monospace, monospace);
   font-size: var(--text-xs);
   color: var(--muted);
@@ -9513,14 +9501,12 @@ button.connection-row {
   }
 }
 
-/* The help: a card of three columns, tools, moving around and selection,
-   connecting: each a list of "what · key" rows. It replaced eight
-   paragraphs of centred prose (reported: "redesign and fix the whiteboard
-   help"). Still click-through outside the card so an empty board can be
-   drawn on with the help up. */
+/* The empty board's card (INBOX 566, the features audit 9.4): one line and
+   the next step, no key list. Still click-through outside the card so an
+   empty board can be drawn on with it up. The keys are the help sheet's. */
 .wb-empty-hint-inner {
   text-align: left;
-  max-width: 46rem;
+  max-width: 26rem;
   padding: var(--space-3) var(--space-5);
   border-radius: var(--radius);
   background: var(--modal-bg);
@@ -9545,62 +9531,15 @@ button.connection-row {
 }
 
 .wb-help-lead {
-  margin: 2px 0 var(--space-2);
+  margin: var(--space-1) 0 var(--space-3);
   color: var(--muted);
   font-size: var(--text-sm);
 }
 
-.wb-help-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-4);
-}
-
-.wb-help-grid h4 {
-  margin: 0 0 var(--space-1);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.wb-help-grid h4 + ul + h4 {
-  margin-top: var(--space-3);
-}
-
-.wb-help-grid ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.wb-help-grid li {
+.wb-empty-hint-actions {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: 0;
-  line-height: 1.45;
-  font-size: var(--text-sm);
-  color: var(--ink);
-}
-
-.wb-help-grid li > span {
-  display: inline-flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-2);
-  min-width: 0;
-  white-space: nowrap;
-}
-
-.wb-help-grid li > kbd {
-  text-align: right;
-}
-
-.wb-help-note {
-  margin: var(--space-3) 0 0;
-  font-size: var(--text-xs);
 }
 
 .wb-help-foot {
@@ -9609,9 +9548,111 @@ button.connection-row {
   margin-top: var(--space-3);
 }
 
+/* **The board's help and shortcut sheet** (INBOX 566; UX-03). The dialog
+   recipe; what is new is the row. The old card set each row `nowrap` with
+   the label and its keys pushed apart by flex, so a long label ran under its
+   keys and the right column ran out of the card. Here a row is three tracks:
+   the icon, the words (the only track that gives, and it wraps) and a key
+   column of fixed width whose caps wrap inside it. Nothing in a row can
+   overlap anything else in it, at any width. Two columns of sections while
+   the card is wide, one below 48rem; the sections scroll inside the card,
+   the head and the search stay. */
+.wb-help-card {
+  width: min(60rem, 96vw);
+  overflow: hidden;
+  gap: var(--space-2);
+  --wb-help-keys-w: 10rem;
+}
+
+.wb-help-intro {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.wb-help-sections {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  columns: 2;
+  column-gap: var(--space-6);
+  padding-right: var(--space-1);
+}
+
+.wb-help-section {
+  break-inside: avoid;
+  margin: 0 0 var(--space-4);
+}
+
+.wb-help-section-head {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.wb-help-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wb-help-row {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) var(--wb-help-keys-w);
+  align-items: start;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--divider);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+.wb-help-row:last-child {
+  border-bottom: none;
+}
+
+.wb-help-row-icon {
+  color: var(--muted);
+  padding-top: 0.15em;
+}
+
+.wb-help-row-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.wb-help-row-keys {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.wb-help-row-keys kbd {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.wb-help-none {
+  margin: 0;
+}
+
 @media (max-width: 48rem) {
-  .wb-help-grid {
-    grid-template-columns: 1fr;
+  .wb-help-sections {
+    columns: 1;
+  }
+}
+
+@media (max-width: 599.98px) {
+  .wb-help-card {
+    --wb-help-keys-w: 8.5rem;
   }
 }
 
@@ -9687,7 +9728,6 @@ button.connection-row {
     display: none;
   }
 }
-
 
 /* Menus never run off the bottom: cap and scroll (reported with the View
    menu, which is the tallest). The top bar sits ~5rem below the window
@@ -9949,7 +9989,6 @@ header#top-bar:not(.tabs-wrapped):not(.tabs-centred) > .header-controls {
     max-width: none;
   }
 }
-
 
 /* **Centred when it fits, left-aligned the moment it has to scroll.** Asked
    for directly: "can you also make the tabs centered in the row but if they
@@ -11269,7 +11308,6 @@ input[type="file"] {
   opacity: 0.38;
 }
 
-
 /* **The word, drawn, not hovered for** (MINDMAP_PLAN §12.5, INBOX 200). The
    caption under the ring still carries the long sentence and the keys; this
    is the name, at rest, in the sector. */
@@ -11340,7 +11378,6 @@ input[type="file"] {
 .wb-map-radial-edge.wb-map-radial-edge-danger path {
   stroke: var(--error);
 }
-
 
 /* What the line into a topic says (§12.1 items 3 and 4). Drawn in the edge
    layer, which takes no pointer events, so the label is a caption rather than
@@ -11831,7 +11868,6 @@ input[type="file"] {
   #library-view-documents .library-toolbar > .library-search {
     flex: 1 1 100%;
   }
-
 }
 
 @media (max-width: 599.98px) {
@@ -11943,13 +11979,6 @@ input[type="file"] {
    other control in a dock has, so this only has to lay them out and let them
    wrap onto a second line on a phone rather than push the zone wider than the
    bar. */
-.dock-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-}
 
 /* **On a phone the chips are their icons.** Measured at 390 with the words in:
    the find zone is 14rem wide there, so four labelled chips wrapped to four
@@ -11958,28 +11987,11 @@ input[type="file"] {
    they are one 36px row. The label stays in the tooltip and in the accessible
    name, so nothing is lost but the width. */
 @media (max-width: 599.98px) {
-  .dock-chip-row .dock-chip-label {
-    /* Not `display: none`: the chip's accessible name is its text content, and
-       a hidden name is a button a screen reader announces as "button". */
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .dock-chip-row .library-chip {
-    padding: 0 var(--space-3);
-  }
 
   /* And the row takes a line of its own. Sharing one with the search box left
      it 127px of the find zone's 309, which is two of the four chips: the four
      icons want 154px and there is a whole line free under a 164px search
      field. */
-  .dock-chip-row {
-    flex-basis: 100%;
-  }
 }
 
 .dock-actions {
@@ -12269,7 +12281,6 @@ input[type="file"] {
 #reminder-filter {
   margin-bottom: var(--space-4);
 }
-
 
 /* A card whose menu is open comes to the front. A glass card is a stacking
    context (its backdrop filter makes it one), so a menu's own z-index cannot
@@ -13161,7 +13172,6 @@ header#top-bar {
   #dash-grid {
     grid-template-columns: minmax(0, 1fr);
   }
-
 }
 
 /* --- the whiteboard's tools become a bottom strip -------------------------
@@ -13773,7 +13783,6 @@ header#top-bar {
   border-radius: var(--radius-sm);
 }
 
-
 /* --- Find anything -----------------------------------------------------------
    The universal search dialog (app.js, `openFinder`). INBOX 270. It shares the
    agent palette's shape deliberately: the same `.lock-overlay` and `.card.glass`
@@ -14279,7 +14288,6 @@ button.finder-row:hover,
   }
 }
 
-
 /* Focused: the search and the widgets. Everything hidden here is one press
    away, from the search field itself (which finds actions as well as content)
    or from the tabs, which is the test a hidden thing has to pass. */
@@ -14447,4 +14455,645 @@ button.finder-row:hover,
 .wb-map-node,
 .wb-map-edge-label {
   font-family: var(--wb-map-font);
+}
+
+/* **The board's sidebar** (WHITEBOARD_PLAN decision 26). A rail of tab
+   glyphs on the board's left edge, between the top bar and the tool rail,
+   and the panel beside it while a tab is open. A floating panel over the
+   canvas (`.card.glass`), so it never shrinks the board: it covers its left
+   edge while it is open and leaves a rail one control wide when it is not. */
+.wb-sidebar {
+  position: absolute;
+  left: 0.5rem;
+  top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
+  bottom: calc(var(--space-2) + var(--wb-h-tools) + var(--space-3));
+  z-index: 25;
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-1);
+  max-width: calc(100% - 1rem);
+  max-height: none;
+}
+
+.wb-sidebar-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: none;
+}
+
+.wb-side-tab {
+  color: var(--muted);
+}
+
+/* The open tab, from its own state, on the selection's soft ground. */
+#wb-sidebar .wb-side-tab[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.wb-sidebar-panel {
+  width: 17.5rem;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0 var(--space-1) 0 var(--space-2);
+  border-left: 1px solid var(--divider);
+}
+
+.wb-sidebar-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+}
+
+.wb-sidebar-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.wb-side-section {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.wb-side-section[hidden] {
+  display: none;
+}
+
+.wb-lib-list,
+.wb-side-section .wb-library-list,
+.wb-layers-tree,
+.wb-outline-tree {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 0;
+}
+
+.wb-lib-keys,
+.wb-lib-note {
+  margin: 0;
+  font-size: var(--text-xs);
+  flex: none;
+}
+
+.wb-lib-group {
+  margin: 0 0 var(--space-2);
+}
+
+/* A quiet head, not a button: the group's name, its count and the one
+   caret, on no ground and no edge (the app's `summary` box is for a fold in
+   a form, not a run of tiles). */
+#wb-sidebar .wb-lib-group-head {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.wb-lib-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.wb-lib-group-head::-webkit-details-marker {
+  display: none;
+}
+
+.wb-lib-caret {
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.wb-lib-group:not([open]) .wb-lib-caret {
+  transform: rotate(-90deg);
+}
+
+.wb-lib-count {
+  margin-left: auto;
+  font-weight: 400;
+  font-size: var(--text-xs);
+}
+
+.wb-lib-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4.25rem, 1fr));
+  gap: var(--space-1);
+}
+
+/* A tile: the thumbnail drawn from what it places, its name in two lines at
+   most, a star when it is a favourite. The active tile (the list's roving
+   tab stop) wears the selection's ground. */
+.wb-lib-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  cursor: grab;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+.wb-lib-tile:hover {
+  background: var(--hover-veil);
+}
+
+.wb-lib-tile.is-active:focus-visible,
+.wb-lib-tile[aria-selected="true"]:focus {
+  background: var(--accent-soft);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.wb-lib-thumb {
+  width: 100%;
+  height: 2.75rem;
+  overflow: visible;
+}
+
+.wb-lib-name {
+  width: 100%;
+  font-size: var(--text-xs);
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wb-lib-star {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--accent-text);
+}
+
+.wb-lib-more {
+  margin-top: var(--space-1);
+}
+
+#wb-add-note.is-on {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* Below 600 the rail goes while closed (the board needs its width), and the
+   top bar's Library button opens the sidebar across the board, its tabs a
+   row over the panel, as the phone's edge sheets do. */
+@media (max-width: 599.98px) {
+  .wb-sidebar {
+    display: none;
+  }
+
+  .wb-sidebar.is-open {
+    display: flex;
+    left: var(--space-2);
+    right: var(--space-2);
+  }
+
+  .wb-sidebar.is-open {
+    flex-direction: column;
+  }
+
+  .wb-sidebar.is-open .wb-sidebar-rail {
+    flex-direction: row;
+  }
+
+  .wb-sidebar.is-open .wb-sidebar-panel {
+    width: 100%;
+    border-left: none;
+    padding: 0 var(--space-1);
+  }
+}
+
+/* The rows' own list gap, the list-row recipe's other half (`--row-gap`). */
+.wb-layers-tree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--row-gap);
+}
+
+/* The Layers tab (decision 27): a row per item in paint order, front first,
+   under a quiet head per layer. The row is the `.timeline-row` shape on
+   `--row-h`: the kind's glyph, the name (the only track that gives), the eye
+   and the lock, which show on the row under the pointer, on the focused row,
+   and always when they are off. */
+.wb-layer-head {
+  list-style: none;
+  padding: var(--space-2) 0 var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.wb-layer-row {
+  list-style: none;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--row-h);
+  padding: 0 var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+.wb-layer-depth-1 {
+  padding-left: var(--space-5);
+}
+
+.wb-layer-row:hover {
+  background: var(--hover-veil);
+}
+
+.wb-layer-row[aria-selected="true"] {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.wb-layer-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.wb-layer-icon {
+  color: var(--muted);
+}
+
+.wb-layer-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-layer-row.is-hidden .wb-layer-name {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.wb-layer-eye,
+.wb-layer-lock {
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.wb-layer-row:hover .wb-layer-eye,
+.wb-layer-row:hover .wb-layer-lock,
+.wb-layer-row:focus-within .wb-layer-eye,
+.wb-layer-row:focus-within .wb-layer-lock,
+.wb-layer-row:focus .wb-layer-eye,
+.wb-layer-row:focus .wb-layer-lock,
+.wb-layer-row.is-hidden .wb-layer-eye,
+.wb-layer-row.is-locked .wb-layer-lock {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .wb-layer-eye,
+  .wb-layer-lock {
+    opacity: 1;
+  }
+}
+
+.wb-layer-row.drop-above {
+  border-top-color: var(--accent);
+}
+
+.wb-layer-row.drop-below {
+  border-bottom-color: var(--accent);
+}
+
+/* Hidden from the board (decision 27): drawn nowhere, so nothing on it can
+   be pressed or seen; the Layers tab is the way back. */
+#whiteboard-container .wb-hidden {
+  display: none;
+}
+
+/* The template gallery's own two rows above the list. */
+.wb-template-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.wb-template-name-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.wb-template-preview .wb-lib-thumb {
+  width: 100%;
+  height: 100%;
+  min-height: 10rem;
+  color: var(--ink);
+}
+
+/* The Format panel (WHITEBOARD_PLAN decision 19): the sidebar's mirror on the
+   board's right edge, between the top bar and the tool rail, one column of
+   label and control rows under a `.tabs-line` of three words. Rows are a
+   two-track grid, the label's track fixed so every control starts on one
+   line. Below 600 it spans the board like the open sidebar does. */
+.wb-format {
+  position: absolute;
+  right: 0.5rem;
+  top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
+  bottom: calc(var(--space-2) + var(--wb-h-tools) + var(--space-3));
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 17.5rem;
+  max-width: calc(100% - 1rem);
+  max-height: none;
+  margin: 0;
+  padding: var(--space-2);
+}
+
+.wb-format.hidden {
+  display: none;
+}
+
+.wb-format-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.wb-fmt-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.wb-fmt-section[hidden],
+.wb-fmt-row[hidden],
+.wb-fmt-grid[hidden],
+.wb-fmt-commands[hidden] {
+  display: none;
+}
+
+.wb-fmt-row {
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-h-body);
+  font-size: var(--text-sm);
+}
+
+.wb-fmt-label {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.wb-fmt-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.wb-fmt-row select,
+.wb-fmt-row input[type="number"],
+.wb-fmt-row input[type="range"] {
+  width: 100%;
+  min-width: 0;
+}
+
+/* One height for every field in the panel: a number field drew taller than
+   the select beside it. */
+.wb-format input[type="number"] {
+  height: var(--control-h-body);
+  margin: 0;
+}
+
+.wb-fmt-out {
+  min-width: 3ch;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The opacity slider gives way to its percentage, which stays on its line. */
+.wb-fmt-buttons input[type="range"] {
+  flex: 1 1 0;
+  width: auto;
+}
+
+.wb-fmt-buttons:has(> input[type="range"]) {
+  flex-wrap: nowrap;
+}
+
+.wb-fmt-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.wb-fmt-num {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.wb-fmt-num input {
+  width: 100%;
+  min-width: 0;
+}
+
+.wb-fmt-commands {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--divider);
+}
+
+/* A run of buttons under its name rather than beside it: six align buttons
+   beside a label wrapped to two rows in the panel's width. */
+.wb-fmt-commands .wb-fmt-row {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+}
+
+.wb-fmt-commands .wb-fmt-buttons {
+  flex-wrap: nowrap;
+}
+
+/* A pressed toggle (bold, italic, an alignment) on the selection's soft
+   ground, the sidebar tab's own state. */
+.wb-fmt-buttons button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+@media (max-width: 599.98px) {
+  .wb-format {
+    left: var(--space-2);
+    right: var(--space-2);
+    width: auto;
+  }
+}
+
+/* An elbow's bends (Phase B, W4): a placed bend is the bend grip's filled
+   dot; the grip that adds one is a hollow ring, quieter, so the two read as
+   "this is a bend" and "a bend can go here". A connector label's grip is a
+   small square on the label. */
+.wb-link-waypoint-handle {
+  fill: var(--accent);
+  stroke: var(--card);
+  stroke-width: 2px;
+  cursor: move;
+  pointer-events: auto;
+}
+
+.wb-link-waypoint-add {
+  fill: var(--card);
+  stroke: var(--accent);
+  stroke-width: 1.5px;
+  cursor: copy;
+  pointer-events: auto;
+}
+
+.wb-link-label-handle {
+  fill: var(--card);
+  stroke: var(--accent);
+  stroke-width: 1.5px;
+  cursor: ew-resize;
+  pointer-events: auto;
+}
+
+/* Clone and connect: an arrow a little outside each side of the one
+   selected shape, the accent's, quiet until the pointer is on it. */
+.wb-clone-grip {
+  fill: var(--accent);
+  fill-opacity: 0.55;
+  stroke: var(--card);
+  stroke-width: 1px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: fill-opacity var(--motion-fast) var(--ease-out);
+}
+
+.wb-clone-grip:hover {
+  fill-opacity: 1;
+}
+
+.wb-link-waypoint-handle,
+.wb-link-waypoint-add,
+.wb-link-label-handle,
+.wb-clone-grip {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(var(--wb-inv-zoom));
+}
+
+/* Pages (decision 22): the frames in presentation order, on the Layers
+   tab's row recipe with the page's number in front. */
+.wb-pages-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--row-gap);
+}
+
+.wb-page-number {
+  min-width: 1.5rem;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.wb-page-row[aria-selected="true"] {
+  background: var(--accent-soft);
+}
+
+/* The hover lock (decision 28): a quiet lock at a locked item's top right
+   while the pointer is on it, one size at any zoom like the comment mark
+   beside it. It takes no pointer: the item lets the pointer through, and so
+   does its mark. */
+.wb-lock-pin {
+  position: absolute;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+  transform: scale(var(--wb-inv-zoom));
+  pointer-events: none;
+}
+
+.wb-lock-pin.hidden {
+  display: none;
+}
+
+.wb-lock-mark {
+  position: absolute;
+  left: var(--space-1);
+  bottom: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  color: var(--muted);
+  border: 1px solid var(--divider);
+  opacity: 0.9;
+}
+
+/* Bring in a diagram (W5): the dialog head, one line, the source in a code
+   well, the foot. */
+.wb-import-text {
+  width: 100%;
+  min-height: 10rem;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-sm);
+  resize: vertical;
+}
+
+.wb-import-about {
+  margin: 0 0 var(--space-2);
 }

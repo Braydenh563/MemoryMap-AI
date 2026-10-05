@@ -14,6 +14,8 @@ import difflib
 import importlib
 import logging
 import re
+import threading
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, time, timezone
 
@@ -275,6 +277,75 @@ def configured_thresholds() -> tuple[float, float]:
     )
 
 
+#: **Speculative retrieval** (WORLD_CLASS_PLAN H9, row 27). The question's
+#: vector, kept by its exact text for the backend that made it: the Ask box
+#: and the chat box send the words on a typing pause (`POST /search/warm`), so
+#: the embedding call, the slow part of a search with a model behind it, is
+#: already done when Enter arrives and the first token comes that much
+#: sooner. A miss costs nothing: the vector is made here as it always was.
+#: Kept on the embedding service itself, so two services (a reindex to a new
+#: width, a test's fake) can never be handed each other's vectors.
+_QUERY_VECTOR_CACHE = 64
+_query_lock = threading.Lock()
+
+
+def query_vector(embeddings: EmbeddingService, query: str):  # noqa: ANN201
+    """The vector for `query`, from the cache when it was warmed."""
+    key = (embeddings.backend_id(), query)
+    with _query_lock:
+        cache = embeddings.__dict__.setdefault("_query_vectors", OrderedDict())
+        if key in cache:
+            cache.move_to_end(key)
+            return cache[key]
+    vector = embeddings.embed_text(query)
+    if vector is not None:
+        with _query_lock:
+            cache[key] = vector
+            while len(cache) > _QUERY_VECTOR_CACHE:
+                cache.popitem(last=False)
+    return vector
+
+
+def warm(session: Session, query: str, embeddings: EmbeddingService) -> bool:
+    """Embed what `_retrieve` will embed for `query`, ahead of Enter.
+
+    The same subject `_retrieve` searches for (the question's scaffolding and
+    its time phrase taken off by `search/query.py`), so the vector warmed is
+    the vector asked for. False when there is nothing to warm.
+
+    **A model not yet loaded is loaded now, in the background.** Measured on a
+    fresh install (`scratchpad/ui-sweeps/inv1005-firstrun.js`): an empty
+    notebook skips the launch warm-up (`embeddings.start_warmup`), so the
+    first question paid the embedding model's cold load, 15 of the 17 s to
+    the first answer. The Ask box asks for this as soon as it is typed in, so
+    the load overlaps the person's typing instead of following their Enter.
+    """
+    if not embeddings.is_ready():
+        if not getattr(embeddings, "_warm_loading", False):
+            try:
+                embeddings._warm_loading = True
+            except AttributeError:
+                return False
+
+            def load() -> None:
+                try:
+                    embeddings.embed_text("warm up")
+                except Exception:  # noqa: BLE001  # the real search reports a broken model
+                    logger.debug("warm: the embedding model did not load", exc_info=True)
+                finally:
+                    embeddings._warm_loading = False
+
+            from memorymap.core import jobs
+
+            jobs.enqueue("warm", load, name="warm the search model", dedupe_key="search-warm")
+        return False
+    asked = query_understanding.understand(query, _user_today(session))
+    subject = asked.subject or query
+    if is_recency_ask(query) or asked.time_only or len(subject.strip()) < 3:
+        return False
+    return query_vector(embeddings, subject) is not None
+
+
 def semantic_search(
     session: Session,
     query: str,
@@ -298,11 +369,11 @@ def semantic_search(
     `Entry` fetched."""
     import numpy as np
 
-    query_vector = embeddings.embed_text(query)
-    if query_vector is None:
+    query_vec = query_vector(embeddings, query)
+    if query_vec is None:
         return None
 
-    query_norm = float(np.linalg.norm(query_vector))
+    query_norm = float(np.linalg.norm(query_vec))
     if query_norm == 0:
         return []
 
@@ -315,9 +386,9 @@ def semantic_search(
     # what is stored now. The table scan below stays as the fallback, for a
     # query at a width the matrix does not hold (the minority side of a
     # half-finished reindex) or a matrix that cannot be had at all.
-    scored = _score_from_matrix(session, query_vector, query_norm, embeddings.backend_id())
+    scored = _score_from_matrix(session, query_vec, query_norm, embeddings.backend_id())
     if scored is None:
-        scored = _score_from_table(session, query_vector, query_norm, embeddings.backend_id())
+        scored = _score_from_table(session, query_vec, query_norm, embeddings.backend_id())
     if scored is None:
         return []
     entry_ids, scores, valid = scored

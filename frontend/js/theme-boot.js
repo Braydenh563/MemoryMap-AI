@@ -31,6 +31,9 @@
   const pref = (key, fallback) =>
     localStorage.getItem(key) ?? preset[key] ?? fallback;
 
+  // Simple mode (Settings, General; usage-ledger.js), before first paint so
+  // the hidden tabs never flash in.
+  if (localStorage.getItem("simpleMode") === "1") _r.dataset.simple = "on";
   const theme = pref("theme", "system");
   if (theme && theme !== "system") _r.dataset.theme = theme;
   // data-mode is the RESOLVED light/dark, which the palettes match on, 

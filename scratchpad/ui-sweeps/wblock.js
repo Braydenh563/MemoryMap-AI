@@ -41,8 +41,8 @@ const OY = VW < 600 ? 150 : 0;
   await page.waitForTimeout(700);
   await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
-  await page.fill(".confirm-overlay input[type=text]", `Lock sweep ${Date.now()}`);
-  await page.click(".confirm-overlay .confirm-actions button:last-child");
+  await page.fill("#wb-template-name", `Lock sweep ${Date.now()}`);
+  await page.click("#wb-template-create");
   await page.waitForTimeout(2500);
   await page.keyboard.press("Escape");
   const box = await page.evaluate(() => {

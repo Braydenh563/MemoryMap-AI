@@ -358,8 +358,12 @@ def note_for_prompt(note: dict, limit: int = MAX_NOTE_CHARS, can_fetch: bool = T
     from memorymap.ai.fence import fence
 
     content = str(note.get("content", ""))
+    #: A note clipped from a page or brought in by an import says so in its
+    #: fence (row 24): the model is told what the text is, not just that it
+    #: is quoted, and `from_outside` is the same flag the agent's guard reads.
+    kind = "note from outside" if note.get("from_outside") else "note"
     if len(content) <= limit:
-        return fence("note", content)
+        return fence(kind, content)
     note_id = note.get("id")
     if can_fetch and note_id:
         # Naming the tool and the id: a truncation the model cannot act on is
@@ -369,7 +373,7 @@ def note_for_prompt(note: dict, limit: int = MAX_NOTE_CHARS, can_fetch: bool = T
         # No tools this turn. Say it is cut and say nothing about fixing it,
         # so the model reports the gap instead of promising to look.
         where = ", the rest is in the note itself"
-    return fence("note", f"{content[:limit].rstrip()}… [cut{where}]")
+    return fence(kind, f"{content[:limit].rstrip()}… [cut{where}]")
 
 
 def build_conversational_messages(
@@ -424,6 +428,27 @@ PICTURE_ASK = re.compile(
     r"\b(picture|photo|image|screenshot|sketch|drawing|diagram|whiteboard|scan|show me|look(s|ed)? like)",
     re.IGNORECASE,
 )
+
+
+def _tags_files_hint(note: dict) -> str:
+    """' (tags: sketches, visual ideas; files: sketch.png)', or "" for a note
+    with neither. INBOX 594: a note whose text is one word and whose point is
+    an attached sketch reached the model as "[Hobbies] whoaaahhh", and was
+    left out of "what have I saved about sketches" as too vague."""
+    parts = []
+    tags = [str(tag) for tag in note.get("tags") or [] if str(tag).strip()]
+    if tags:
+        parts.append("tags: " + ", ".join(tags[:8]))
+    files = [str(name) for name in note.get("files") or [] if str(name).strip()]
+    if files:
+        parts.append("files: " + "; ".join(files))
+    if not parts:
+        return ""
+    #: A caption is a model's reading of a picture, so it is defanged the way
+    #: a note is (ai/fence.py): it may not draw a fence line of its own.
+    from memorymap.ai.fence import _defang  # noqa: PLC2701
+
+    return f" ({_defang('; '.join(parts))})"
 
 
 def _pictures_hint(note: dict, number: int, asked: bool = True) -> str:
@@ -632,7 +657,8 @@ def build_messages(
         f"{_pictures_hint(note, i, bool(PICTURE_ASK.search(question or '')))}"
         f"{' (attached by me)' if note.get('attached') else ''}"
         f"{' (not a match: linked to one of the above)' if note.get('connected') else ''}"
-        f"{_match_info_hint(note.get('match_info'))} "
+        f"{_match_info_hint(note.get('match_info'))}"
+        f"{_tags_files_hint(note)} "
         # No tools on this path by definition, it is the plain librarian
         # prompt: so notes get the larger allowance and an honest marker.
         f"{note_for_prompt(note, UNTOOLED_NOTE_CHARS, can_fetch=False)}"

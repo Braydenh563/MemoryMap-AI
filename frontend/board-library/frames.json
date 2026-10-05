@@ -1,0 +1,394 @@
+{
+ "format": "memorymap-library-set",
+ "version": 1,
+ "key": "frames",
+ "name": "Frames",
+ "items": [
+  {
+   "key": "frame",
+   "kind": "element",
+   "name": "Frame",
+   "tags": [
+    "region",
+    "section",
+    "slide",
+    "page"
+   ],
+   "payload": {
+    "box": {
+     "w": 480,
+     "h": 320
+    },
+    "items": [
+     {
+      "key": "f0",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Frame"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 480,
+      "h": 320,
+      "z": -1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "kanban",
+   "kind": "element",
+   "name": "Kanban, three columns",
+   "tags": [
+    "board",
+    "tasks",
+    "to do",
+    "doing",
+    "done"
+   ],
+   "payload": {
+    "box": {
+     "w": 1040,
+     "h": 520
+    },
+    "items": [
+     {
+      "key": "f0",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "To do"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 320,
+      "h": 520,
+      "z": -1
+     },
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Doing"
+      },
+      "x": 360,
+      "y": 0,
+      "w": 320,
+      "h": 520,
+      "z": -1
+     },
+     {
+      "key": "f2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Done"
+      },
+      "x": 720,
+      "y": 0,
+      "w": 320,
+      "h": 520,
+      "z": -1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "retro",
+   "kind": "element",
+   "name": "Retrospective, four columns",
+   "tags": [
+    "retro",
+    "review",
+    "went well"
+   ],
+   "payload": {
+    "box": {
+     "w": 1320,
+     "h": 440
+    },
+    "items": [
+     {
+      "key": "f0",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Went well"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 300,
+      "h": 440,
+      "z": -1
+     },
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "To improve"
+      },
+      "x": 340,
+      "y": 0,
+      "w": 300,
+      "h": 440,
+      "z": -1
+     },
+     {
+      "key": "f2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Ideas"
+      },
+      "x": 680,
+      "y": 0,
+      "w": 300,
+      "h": 440,
+      "z": -1
+     },
+     {
+      "key": "f3",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Actions"
+      },
+      "x": 1020,
+      "y": 0,
+      "w": 300,
+      "h": 440,
+      "z": -1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "swot",
+   "kind": "element",
+   "name": "SWOT, two by two",
+   "tags": [
+    "strengths",
+    "weaknesses",
+    "opportunities",
+    "threats",
+    "analysis"
+   ],
+   "payload": {
+    "box": {
+     "w": 880,
+     "h": 640
+    },
+    "items": [
+     {
+      "key": "f0",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Strengths"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 420,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Weaknesses"
+      },
+      "x": 460,
+      "y": 0,
+      "w": 420,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "f2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Opportunities"
+      },
+      "x": 0,
+      "y": 340,
+      "w": 420,
+      "h": 300,
+      "z": -1
+     },
+     {
+      "key": "f3",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Threats"
+      },
+      "x": 460,
+      "y": 340,
+      "w": 420,
+      "h": 300,
+      "z": -1
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "timeline",
+   "kind": "element",
+   "name": "Timeline lane",
+   "tags": [
+    "timeline",
+    "roadmap",
+    "steps",
+    "milestones"
+   ],
+   "payload": {
+    "box": {
+     "w": 960,
+     "h": 240
+    },
+    "items": [
+     {
+      "key": "f0",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Timeline"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 960,
+      "h": 240,
+      "z": -1
+     },
+     {
+      "key": "l",
+      "kind": "sketch",
+      "data": {
+       "d": "M 40 120 L 920 120",
+       "shape": "arrow",
+       "color": "ink",
+       "width": 3,
+       "endCap": "arrow"
+      },
+      "z": 5
+     },
+     {
+      "key": "m0",
+      "kind": "sketch",
+      "data": {
+       "d": "M 110 120 A 10 10 0 1 1 130 120 A 10 10 0 1 1 110 120 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 1
+      },
+      "z": 6
+     },
+     {
+      "key": "t0",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Step 1"
+      },
+      "x": 60,
+      "y": 140,
+      "w": 120,
+      "h": 44,
+      "z": 1
+     },
+     {
+      "key": "m1",
+      "kind": "sketch",
+      "data": {
+       "d": "M 350 120 A 10 10 0 1 1 370 120 A 10 10 0 1 1 350 120 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 1
+      },
+      "z": 6
+     },
+     {
+      "key": "t1",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Step 2"
+      },
+      "x": 300,
+      "y": 140,
+      "w": 120,
+      "h": 44,
+      "z": 1
+     },
+     {
+      "key": "m2",
+      "kind": "sketch",
+      "data": {
+       "d": "M 590 120 A 10 10 0 1 1 610 120 A 10 10 0 1 1 590 120 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 1
+      },
+      "z": 6
+     },
+     {
+      "key": "t2",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Step 3"
+      },
+      "x": 540,
+      "y": 140,
+      "w": 120,
+      "h": 44,
+      "z": 1
+     },
+     {
+      "key": "m3",
+      "kind": "sketch",
+      "data": {
+       "d": "M 830 120 A 10 10 0 1 1 850 120 A 10 10 0 1 1 830 120 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 1
+      },
+      "z": 6
+     },
+     {
+      "key": "t3",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Step 4"
+      },
+      "x": 780,
+      "y": 140,
+      "w": 120,
+      "h": 44,
+      "z": 1
+     }
+    ],
+    "links": []
+   }
+  }
+ ]
+}

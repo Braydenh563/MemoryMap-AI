@@ -148,10 +148,10 @@ async function openBoardsMore(page) {
   await page.waitForTimeout(1600);
   await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
-  await page.fill(".confirm-overlay input[type=text]", "Phase 3 map");
-  await page.click('.confirm-overlay .seg button[data-value="map"]');
+  await page.fill("#wb-template-name", "Phase 3 map");
+  await page.click('#wb-template-kind button[data-value="map"]');
   await page.waitForTimeout(150);
-  await page.click(".confirm-overlay .confirm-actions button:last-child");
+  await page.click("#wb-template-create");
   await page.waitForTimeout(2500);
   const boardId = await page.evaluate(() => window.currentBoardId);
   check("a map is open to build on", Boolean(boardId), `board ${boardId}`);

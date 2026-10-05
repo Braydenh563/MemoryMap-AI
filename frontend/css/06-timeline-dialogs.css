@@ -564,7 +564,6 @@
   .timeline-table .timeline-col-wide {
     display: none;
   }
-
 }
 
 /* **Between 600px and 1024px, three columns give way** (TIMELINE_PLAN section
@@ -600,7 +599,6 @@
     display: none;
   }
 }
-
 
 /* A category heading in a tree layout, a real node in the drawing, but not
    a note: hollow, so it never reads as something you can open. */
@@ -1133,18 +1131,6 @@
 /* A saved look: its name applies it, the ✕ deletes it. One chip rather than a
    row per theme, because the list is meant to stay glanceable, twenty saved
    looks should still fit above the fold. */
-.theme-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.15rem;
-  margin: 0 0.4rem 0.4rem 0;
-}
-
-.theme-chip button:first-child {
-  max-width: 14rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 /* The Chat / Agent pair in the chat toolbar. Same segmented control the
    settings screens use, sized down to sit beside the persona dropdown. */
@@ -1463,7 +1449,6 @@
   margin-top: calc(var(--space-1) * -1);
 }
 
-
 /* --- the chat page fills its height (§36A) ----------------------------------
    Asked for: "I want the chat headers in the chat page to stay at the top of
    the screen when scrolling down a chat."
@@ -1561,7 +1546,6 @@
 #settings-nav .nav-group-label.hidden {
   display: none;
 }
-
 
 /* --- the chat toolbar, grouped (§36B) ---------------------------------------
    Eight controls used to sit as peers in one row despite answering four
@@ -1685,7 +1669,6 @@
   white-space: nowrap;
 }
 
-
 /* --- note card density (§36B) -------------------------------------------------
    Reported: "a massive gap between the lines… I don't want notes to look too
    cluttered."
@@ -1744,14 +1727,17 @@
    come later in the document, which is every note below this one. See
    `openActionMenu` in menus.js for what that cost. */
 #entry-list>li .entry-actions.menu-open {
-  z-index: 5;
+  /* 45, not 5: this strip is the menu's stacking context, so its own tier is
+     the menu's ceiling, and 5 left an open menu under the fixed back-to-top
+     button (40; INBOX 583, measured with menuovertop.js). */
+  z-index: 45;
 }
 
 /* And the Library's cards, for the same reason with a different cause: each
    card carries `backdrop-filter`, which creates a stacking context of its own,
    so a menu inside one can never rise above the card that comes after it. */
 .library-card.menu-open {
-  z-index: 5;
+  z-index: 45;
 }
 
 #entry-list>li:hover .entry-actions,
@@ -1779,7 +1765,6 @@
    so it stays visible. It never needed the corner treatment, scoping that to
    #entry-list handles the position; this handles the fade. */
 
-
 /* --- the orphan-row pattern, everywhere else it appears (§36B) ----------------
    `margin-left: auto` inside a *wrapping* flex row is the bug that put an empty
    band on every note card: the moment the row fills, the auto-margined item
@@ -1800,7 +1785,6 @@
     margin-left: 0;
   }
 }
-
 
 /* --- the notifications centre (§36E) ----------------------------------------
    A popup anchored to its own button rather than a modal: this is something
@@ -1974,7 +1958,6 @@
   white-space: nowrap;
 }
 
-
 /* The empty state: a glyph, a line, and the explanation small underneath, 
    the shape every other empty surface in this app uses. It replaced three
    lines of muted prose that filled the panel and read as an error. */
@@ -2131,11 +2114,6 @@
 
 .notif-actionable:hover {
   background: var(--chip-bg);
-}
-
-.notif-foot {
-  margin: var(--space-4) 0 0;
-  font-size: var(--text-xs);
 }
 
 /* Separates the one irreversible control in the header from the everyday ones
@@ -3141,19 +3119,6 @@
   background: var(--glass-border);
 }
 
-.wb-shape-menu-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  font-size: var(--text-sm);
-  color: var(--muted);
-}
-
-.wb-shape-menu-row select {
-  height: 2rem;
-}
-
 /* Dockable as a sidebar instead of only a bottom bar, asked for directly.
    `data-dock` is set/persisted in app.js; "side" pins the panel to the left
    edge and turns its own tool row vertical, same controls, just laid out
@@ -3532,7 +3497,6 @@
 aside[data-resizable="1"] {
   position: relative;
 }
-
 
 /* ---- WCAG 2.5.8 target size ------------------------------------------------
    A `<label>` wrapping a checkbox makes the *label* the click target, not the

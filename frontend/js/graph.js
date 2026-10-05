@@ -279,6 +279,17 @@ function radialRings(leafCount, groupCount, rings, width, height) {
   return { inner, notes, outer: notes + extra };
 }
 
+//: True when following `node`'s replies-to chain comes back to it. A loop
+//: would make the hierarchy infinite, so such a note hangs off its category.
+function replyLoops(node, byId) {
+  const seen = new Set([node.id]);
+  for (let at = byId.get(node.parent_id); at; at = byId.get(at.parent_id)) {
+    if (seen.has(at.id)) return true;
+    seen.add(at.id);
+  }
+  return false;
+}
+
 function layoutHierarchy(nodes, kind, width, height) {
   // Build parent → children from the notes themselves.
   const byId = new Map(nodes.map((node) => [node.id, node]));
@@ -289,14 +300,19 @@ function layoutHierarchy(nodes, kind, width, height) {
   const root = { id: "root", isGroup: true, preview: "Notebook", category: "", access_count: 0 };
   const children = new Map([[root.id, [...groups.values()]]]);
   for (const group of groups.values()) children.set(group.id, []);
+  //: Every note's list exists before any is filled: a reply listed ahead of
+  //: the note it answers looked its parent's list up before that note's own
+  //: turn had made it, and `undefined.push` threw on every tree, radial and
+  //: arc layout of such a notebook (the owner's log, INBOX 579: "switching
+  //: the graph layout does nothing").
+  for (const node of nodes) children.set(node.id, []);
   for (const node of nodes) {
     // A reply hangs off the note it answers, wherever that note is filed, 
     // splitting a thread across categories would lose the thing it is.
     const parent =
-      node.parent_id != null && byId.has(node.parent_id)
+      node.parent_id != null && byId.has(node.parent_id) && !replyLoops(node, byId)
         ? byId.get(node.parent_id)
         : groups.get(node.category);
-    if (!children.has(node.id)) children.set(node.id, []);
     children.get(parent.id).push(node);
   }
 

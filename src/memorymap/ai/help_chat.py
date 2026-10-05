@@ -221,7 +221,11 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "The whiteboard (Library -> Whiteboards) is a pannable canvas for "
             "freehand sketches and note cards together. Freehand sketches also "
-            "appear in the Library's Images sub-tab."
+            "appear in the Library's Images sub-tab. A board's background colour "
+            "and image are kept with the board. Board, Export saves a PNG (1x, 2x "
+            "or 3x, with a transparent background if you like), SVG or PDF named "
+            "after the board. Paste text from another app onto a board: a link "
+            "becomes a link box, one line a text box, a list a grid of stickies."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
@@ -1015,10 +1019,10 @@ HELP_TOPICS.extend(
                 "Ctrl+A selects all, Ctrl+D duplicates, Alt and drag copies as you "
                 "drag, Ctrl+C, Ctrl+X and Ctrl+V paste at the pointer, the arrows "
                 "nudge (Shift for further), Shift and drag keeps to one axis, "
-                "Shift and a corner keeps proportions, [ and ] send back and bring "
-                "forward, Ctrl+G groups, Ctrl+Shift+G ungroups, Ctrl+Alt+C and "
+                "Shift and a corner keeps proportions, [ and ] move one step back or "
+                "forward, Ctrl+[ and Ctrl+] to the back or front, Ctrl+G groups, Ctrl+Shift+G ungroups, Ctrl+Alt+C and "
                 "Ctrl+Alt+V copy and paste a style, Delete removes, Esc cancels a "
-                "drag or goes back to Select. Ctrl+Z undoes, Ctrl+Shift+Z redoes. "
+                "drag or goes back to Select. Ctrl+Z undoes, Ctrl+Y redoes. "
                 "Double-click empty board for a text box, double-click a closed shape "
                 "(or select it and press Enter) to write in it, right-click (or hold on touch) "
                 "for the menu, double-click a line to bend "
@@ -1027,11 +1031,70 @@ HELP_TOPICS.extend(
                 "Ctrl+Shift+L locks the selection (clicks go through); Unlock is "
                 "on the board's right-click menu. Right-click an item, Comment…, starts a "
                 "thread; its count reopens it. View, Present frames: one frame "
-                "at a time. The top bar's menus: Insert, Edit, Arrange (align, distribute, "
-                "order), View (background colour or image, grid of lines, "
-                "dots or isometric, snap to grid, fit, 100%, full screen) and "
-                "Board (rename, new, export as PNG, SVG, PDF, the image library or "
-                "Markdown, switch to a mind map, clear, delete)."
+                "at a time. ? shows every key; Ctrl+K finds any board action by name. "
+                "Menus: Insert, Edit, Arrange (align, distribute, size, order, group, "
+                "lock), View (background, grid, snap, zoom, full screen) and Board "
+                "(rename, new, export, switch to a mind map, clear, delete, keys)."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "board-library",
+            "keywords": (
+                "object library", "shape library", "shapes", "flowchart", "flow chart", "icons", "stencil",
+                "save to library", "save to the library", "my shapes", "custom shape", "saved style", "palette",
+                "preset", "template", "board template", "save as template", "saved branch", "import library",
+                "export library", "favourite shapes", "recent shapes", "sidebar", "layers", "pages",
+                "page order", "presentation order", "reorder frames", "order of frames", "frame order",
+                "frames in the presentation", "locked item", "unlock",
+            ),
+            "body": (
+                "A board's sidebar (the Library button in its top bar, or the rail on its left edge) has "
+                "four tabs: Library, Notes, Layers and Pages, and an Outline on a mind map. Pages lists the "
+                "board's frames in presentation order: drag a row or press Alt+Up and Alt+Down to reorder, "
+                "Enter goes to the frame, P presents from it. A locked item shows a lock when the pointer "
+                "is on it; right-click it to unlock it. The Library holds "
+                "built-in sets (General shapes, Flowchart, Arrows, Frames such as Kanban, a retrospective "
+                "and SWOT, and 1,530 icons drawn as shapes), then Favourites, Recent and your own "
+                "libraries; the search field finds any of them by name or tag. Click a tile or press Enter "
+                "to place it in the middle of the view, drag it to put it anywhere, or Shift+Enter to place "
+                "it joined to what is selected; F stars it, and Shift+F10 or a right-click opens its menu "
+                "(rename, tags, duplicate, move, delete). To save your own: select things and press "
+                "Ctrl+Shift+S, or right-click, Library, for a selection, a drawn shape, a style, a sticky "
+                "or text preset, a palette of the selection's colours, or on a mind map a branch; Board, "
+                "Save this board as a template keeps the whole board. New board then offers your templates "
+                "beside the built-in ones. The library's ⋯ makes a new library, imports a library file and "
+                "exports one. A placed item is an ordinary copy: changing the library later never changes "
+                "a board. In Agent mode the assistant can search the library and place from it, draw "
+                "shapes and frames, and move, edit or delete what is on a board, asking first."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
+            "id": "board-format",
+            "keywords": (
+                "format panel", "format", "exact position", "position", "x and y", "width and height",
+                "angle", "rotate by", "flip", "mirror", "opacity", "transparency", "see through", "shadow",
+                "text size in a shape", "align text", "elbow", "right angle", "orthogonal", "connector shape",
+                "line shape", "bend", "waypoint", "label position", "crow's foot", "crows foot", "er diagram",
+                "entity relationship", "mermaid", "import a flowchart", "clone and connect", "copy and connect", "next shape", "copy a shape",
+                "connect it to the copy", "connect the copy",
+            ),
+            "body": (
+                "Ctrl+Shift+P on a board (or Format panel in the selection's More menu, or View) opens "
+                "the Format panel on the right, with three tabs. Style: line colour, width and pattern, "
+                "fill, opacity, shadow, and for a connector its line shape (curved, straight or elbow), "
+                "its two ends and where its label sits along it. Text: the size, colour, weight and "
+                "alignment of a text box or of the words in a shape. Arrange: X, Y, width, height and "
+                "angle as numbers, flip, and the order, align, spacing, group and lock buttons. Every "
+                "change is one undo step. An elbow connector turns at right angles and goes round the "
+                "shapes it joins: drag the small ring in the middle of a run to add a bend, drag a bend to "
+                "move it, double-click it to take it out. Drag the square on a connector's label to slide "
+                "it along the line. The ends include the entity-relationship marks (one, zero or one, many, "
+                "one or many, zero or many). With one shape or text box selected, the four arrows round it "
+                "(or Alt+Shift and an arrow key) copy it that way and join the two with an elbow. "
+                "Insert, Mermaid or board SVG brings in a Mermaid flowchart or an SVG a board here "
+                "exported, as shapes and connectors; Export also writes an Outline and a Mermaid flowchart."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1072,7 +1135,7 @@ HELP_TOPICS.extend(
                 "checkbox on a topic", "topic a task", "tick a topic", "number the branches",
                 "numbered topics", "outline numbers", "note on a topic", "note behind a topic",
                 "comment on a topic", "boundary", "summary topic", "summarise topics",
-                "opml", "freemind", "import a map", "export a map", "present branches",
+                "opml", "freemind", "xmind", "import a map", "export a map", "present branches",
                 "map template", "map as a document",
             ),
             "body": (
@@ -1089,7 +1152,7 @@ HELP_TOPICS.extend(
                 "the topic opens it, and Markdown keeps it. "
                 "Comment… starts a thread, counted on its corner; its Branch group draws a boundary "
                 "round the branch or summarises topics side by side. Start from a "
-                "template, import an OPML, FreeMind or Markdown outline (an "
+                "template, import an OPML, FreeMind, XMind or Markdown outline (an "
                 "import opens laid out as a tree to the right), paste an indented "
                 "list onto a topic to add it as that topic's branch, let the "
                 "local AI propose a map from notes you pick, and export it as "

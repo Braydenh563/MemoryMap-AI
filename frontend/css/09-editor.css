@@ -1218,3 +1218,79 @@
   background: color-mix(in srgb, var(--callout-accent) 18%, transparent);
   color: var(--callout-accent);
 }
+
+/* The margin reader (WORLD_CLASS_PLAN I2, margin-reader.js): a column to the
+   right of the editor, inside `.doc-source-wrap`'s flex row, holding at most
+   three cards pinned level with the paragraph they are about (the stack's
+   top margin is set from the paragraph's position). Each card is a quiet
+   `--surface-2` group with no border: it is a reading beside the text, never
+   a panel that competes with it. Below 60rem the column goes under the
+   editor and the offset is dropped. */
+.doc-margin {
+  flex: 0 0 16rem;
+  min-width: 0;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-2);
+  border-left: 1px solid var(--divider);
+}
+
+.doc-margin.hidden {
+  display: none;
+}
+
+.doc-margin-cards {
+  display: grid;
+  gap: var(--space-2);
+  --doc-margin-offset: 0px;
+  margin-top: var(--doc-margin-offset);
+}
+
+.doc-margin-card {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.doc-margin-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.doc-margin-card-text {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.doc-margin-card-reason {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.doc-margin-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+@media (max-width: 1099.98px) {
+  .doc-source-wrap.has-margin {
+    flex-wrap: wrap;
+  }
+
+  .doc-margin {
+    flex: 1 1 100%;
+    max-height: 14rem;
+    border-left: 0;
+    border-top: 1px solid var(--divider);
+  }
+
+  .doc-margin-cards {
+    margin-top: 0;
+  }
+}

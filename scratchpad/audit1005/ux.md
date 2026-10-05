@@ -77,6 +77,8 @@ Counts: High 4, Medium 9, Low 10.
   check under `America/New_York`. Effort M.
 
 **UX-03. Whiteboard help card: text drawn over keycaps, card overflows.** NEW MOVED to the whiteboard agent (full redesign, owner request)
+
+**UX-03. Whiteboard help card: text drawn over keycaps, card overflows.** NEW FIXED cf17b52
 - Evidence: Library, Create, New board, name it: `.wb-empty-hint-inner`
   opens on every new board. Per `li`, text range right edge vs `kbd` left
   edge: 14 of 46 rows overlap, worst "Text box · canvas menu" text to 747px

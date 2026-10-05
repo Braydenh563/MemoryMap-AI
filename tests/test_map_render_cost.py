@@ -62,7 +62,10 @@ def test_an_object_that_has_not_changed_is_not_repainted() -> None:
     body = _code("renderWbObjects")
     compare = body.index("this._wbPaintKey === key")
     store = body.index("this._wbPaintKey = key")
-    write = body.index("this.style.transform")
+    #: The unchanged branch may still move the object (a drag changes its
+    #: place, not its paint), so the full write is the first one after the
+    #: key is stored.
+    write = body.index("this.style.transform", store)
     assert compare < store < write
 
 

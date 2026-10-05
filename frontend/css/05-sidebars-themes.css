@@ -362,10 +362,6 @@ select.ai-unavailable {
   object-fit: contain;
 }
 
-.attachment-link-icon {
-  margin-right: var(--space-1);
-}
-
 /* --- the attachment card (INBOX 440 (2), DESIGN.md "A file attached to a
    note") ----------------------------------------------------------------
    One card for every file attached to anything: a note's own files, a file
@@ -4581,7 +4577,6 @@ textarea.autogrow {
   padding: 0.15rem 0.5rem;
 }
 
-
 /* --- top bar polish ----------------------------------------------------------
    The controls are a row of small buttons of slightly different content
    widths; without a shared height they sit at visibly different sizes next to
@@ -4616,7 +4611,6 @@ textarea.autogrow {
   width: var(--header-control-h);
   min-width: var(--header-control-h);
 }
-
 
 /* --- assistant message layout ------------------------------------------------
    Asked for: bring the generated content further left, and stop long links
@@ -4745,9 +4739,6 @@ textarea.autogrow {
      without a floor here the whole page grows sideways instead of this box. */
   min-width: 0;
 }
-
-
-
 
 /* The Notes composer's strip. Tighter than the document editor's: that one
    is chrome for a full-page editor, this one sits directly above a
@@ -6299,7 +6290,6 @@ button.ghost.doc-template-choice[aria-checked="true"] {
   flex-wrap: nowrap;
 }
 
-
 /* **How far along a section is, on its outline row** (DOCUMENTS_PLAN Phase 3
    item 2, "task lists with progress in the outline"). Pushed to the right
    edge of the row rather than sat after the words: the headings are what the
@@ -6714,13 +6704,4 @@ button.ghost.doc-template-choice[aria-checked="true"] {
 
 /* The Tags sheet's rows (categories-panel.js `openTagsSheet`): the sheet row
    takes the width, its two small buttons sit at its end. */
-.tag-list-row {
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: var(--space-1);
-}
 
-.tag-list-row > .sheet-row {
-  flex: 1 1 auto;
-  min-width: 0;
-}

@@ -1738,8 +1738,58 @@ async function confirmLeavingUnsavedWork(name) {
   return leave;
 }
 
+//: The local usage ledger (WORLD_CLASS_PLAN H9; core/usage.py): a tab opened
+//: or a palette command run is counted here and sent in one request at most
+//: every 30 s, and when the page hides. Feature names only, to this app's own
+//: server only; Settings, General, What you use reads it back.
+const usageQueue = [];
+const usageState = { timer: null };
+//: A palette command's name in the ledger: its words, without an icon marker.
+function usageFeatureName(label) {
+  const words = String(label || "").replace(/(^|\s)ph:[\w-]+/g, " ").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return words ? `cmd:${words.slice(0, 55)}` : "";
+}
+function usageCount(name) {
+  usageQueue.push(name);
+  if (!usageState.timer) usageState.timer = setTimeout(usageFlush, 30000);
+}
+function usageFlush() {
+  clearTimeout(usageState.timer);
+  usageState.timer = null;
+  if (!usageQueue.length || !authToken()) return;
+  const features = usageQueue.splice(0, 200);
+  fetch("/usage", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() }, body: JSON.stringify({ features }) }).catch(() => {});
+}
+document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && usageFlush());
+
+//: Speculative retrieval (WORLD_CLASS_PLAN H9; `POST /search/warm`): a pause
+//: in the Ask box or the chat box sends the words, so the question's vector
+//: is made before Enter and the first token comes that much sooner.
+const warmState = { timer: null, last: "", focused: false };
+//: Focus is the earliest sign a note or a question is coming: a model not
+//: yet loaded starts loading then, once a page, under the person's typing
+//: (Capture too: the first note is filed and found by the same model).
+document.addEventListener("focusin", (event) => {
+  const id = event.target?.id;
+  if (warmState.focused || !["question", "chat-input", "entry-content"].includes(id) || !authToken()) return;
+  warmState.focused = true;
+  apiJson("/search/warm", { method: "POST", body: JSON.stringify({ q: "" }), silent: true }).catch(() => {});
+});
+document.addEventListener("input", (event) => {
+  const box = event.target;
+  if (box?.id !== "question" && box?.id !== "chat-input") return;
+  clearTimeout(warmState.timer);
+  warmState.timer = setTimeout(() => {
+    const q = box.value.trim();
+    if (q.split(/\s+/).length < 3 || q === warmState.last || !authToken()) return;
+    warmState.last = q;
+    apiJson("/search/warm", { method: "POST", body: JSON.stringify({ q }), silent: true }).catch(() => {});
+  }, 600);
+});
+
 async function switchTab(name) {
   if (!(await confirmLeavingUnsavedWork(name))) return;
+  usageCount(`tab:${name}`);
   // Profiled directly: leaving the Graph tab left `graphSimulation` running
   //, it is only ever `.stop()`-ed "before every rebuild" (graph.js), never
   // on navigating away: so its tick handler kept costing real main-thread

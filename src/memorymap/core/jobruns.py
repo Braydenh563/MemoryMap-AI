@@ -56,6 +56,7 @@ KINDS: dict[str, str] = {
     "duplicate-scan": "Duplicate scan",
     "import": "Import",
     "night-shift": "Night shift",
+    "model-bench": "Model bench",
     "autonomous": "Autonomous optimisation",
     "resurface": "Resurfacing",
     "link-reasons": "Link reasons",

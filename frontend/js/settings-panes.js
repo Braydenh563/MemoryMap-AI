@@ -1331,11 +1331,15 @@ function paletteCommands() {
   const editor = typeof docPaletteCommands === "function" ? docPaletteCommands() : [];
   //: And an open map's (whiteboard-map.js, lazy for the same reason).
   if (typeof mapPaletteCommands === "function") editor.push(...mapPaletteCommands());
+  //: The open board's commands, the same way (FEAT-11, whiteboard-commands.js):
+  //: nothing unless a board is on screen, which needs the bundle in.
+  const board = typeof wbPaletteCommands === "function" ? wbPaletteCommands() : [];
   //: Every row below declares where it goes (tests/test_catalogue_reveal.py)
   //: and `catalogueRun` makes its `run`; the editor's rows are commands on
   //: the document already open, so they keep their own.
   return [
     ...editor,
+    ...board,
     { label: "ph:clipboard Go to Dashboard", tab: "dashboard", about: "Today at a glance: recent notes, reminders and widgets." },
     { label: "ph:magnifying-glass-plus Zoom in", about: "Make everything in the app a step larger.", act: () => nudgeZoom(1) },
     { label: "ph:magnifying-glass-minus Zoom out", about: "Make everything in the app a step smaller.", act: () => nudgeZoom(-1) },

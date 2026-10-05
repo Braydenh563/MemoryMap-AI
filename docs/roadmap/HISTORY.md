@@ -79,6 +79,208 @@ Gates: `mmdoc1005-mapchecks.js` 13/13 at 1440 light and 390 dark;
 `boardundo.js` 43/43, `wbmapundo.js` 18/18, `mapstrip.js` 39/39,
 `maptheme.js` 24/24, `mapline.js` 13/13, `maprejoin.js` ok.
 
+## Moved from the plans, 2026-10-05 (H9, polish in use; the rest of row 25)
+
+**Built 2026-10-05 (WORLD_CLASS_PLAN rows 27 and 25).** Each H9 row, with its gate:
+
+- **The usage ledger.** `core/usage.py`: feature names (`tab:notes`, `cmd:go-to-graph`; a strict pattern, so nothing typed can ride in one) and their count, first and last day, in `usage.json` in the data folder, never sent anywhere. A file, not a table: a few hundred counters read and written whole need no migration shared with every branch. `/usage` (count, summary, clear). The page counts a tab opened and a palette command run (`usageCount`, navigation.js, batched every 30 s and on hide); the palette lists the most used commands first within each group; Settings, General, What you use shows the top five and the known features (tabs and palette commands) unused for 90 days, with Clear the counts. Measured: a command run six times came to the top of an empty palette; 70 of the palette's commands listed as unused on a new notebook. `tests/test_usage_ledger.py`.
+- **Time to first answer.** `scratchpad/ui-sweeps/inv1005-firstrun.js` from an empty data folder: choose a password, skip the welcome, type a note into Capture, ask about it. Before: the first question paid the embedding model's cold load (15 of 17 s; an empty notebook skips the launch warm-up). Now focus in Capture, Ask or chat starts the load in the background (`search_manager.warm`), under the person's typing: 11.5 s of the app's own time on a sandbox at load 20 (27 s with typing at 80 words a minute), the answer found the note. Under the plan's two minutes; the remaining wait is that cold load on this machine. The tour itself was not cut (it is skipped in one press).
+- **Simple mode.** Settings, General: Show only Dashboard, Notes, Chat and Library. `data-simple="on"` on <html>, set by theme-boot.js before first paint from this device's choice, hides the Graph, Timeline and Reminders tabs (and the phone's More sheet rows), the Library's Boards and maps, What it learned and the advanced response settings; nothing is turned off and the palette opens each. Measured: 7 tabs to 4 at 1440, the phone dock to Notes, Chat, Library and More at 390.
+- **The perf gate in CI.** `tests/test_perf_budget.py`: ten boot routes on a 300-note notebook, each with a statement budget (measured, plus two) and a generous wall-time budget; a deliberate N+1 is caught. The suite runs on every push, so this is the gate; `boottime.js` in the workflow itself is left.
+- **The axe sweep.** `all.sh` runs `axe.js` when a copy of axe-core is at `AXE_JS` and says it skipped otherwise (axe is MPL-2.0 and a dev tool; not vendored into the app). The WCAG 2.2 AA pass, every tab, sub-tab and Settings section: 0 findings at 1440 in light and in dark; at 390 one rule, aria-conditional-attr on the Timeline table's 25 rows (a row that opens carries aria-expanded, which a plain table does not allow), fixed by giving that table role=treegrid (tests/test_wcag_pass.py), then 0. The "incomplete" nodes are axe's own undecided cases (text over gradients and images), which `contrast.js` covers.
+- **Quick capture from anywhere.** `memorymap --capture` (`__main__.py`) opens `capture.html` on the copy already running: one line, Enter saves through `POST /entries`, the window closes when the browser allows it. Bound to a key in the system's own keyboard settings it is a global hotkey with no OS hook and no dependency; Settings, Keyboard shortcuts, Capture from anywhere shows this install's exact command (`GET /capture/command`) with Copy. Measured: a note captured and listed 606 ms after the window opened (gate: three seconds). On a phone, the PWA's share target already existed.
+- **Retry as a grammar, fault injection.** `FAULTS=1 errors.js` (`errors-faults.js`): every route the boot and the seven tabs call (29), one at a time answering 500, each tab read for an uncaught error or a blank surface with no `surfaceFailed` notice: 0 findings.
+- **Speculative retrieval.** `POST /search/warm` makes the question's vector (the same subject `_retrieve` will embed) on a typing pause in Ask or chat, cached on the embedding service by backend and text; a model not loaded starts loading. `tests/test_speculative_retrieval.py`: with a 200 ms embedding call, a warmed question's retrieval spends none of it after Enter. Not measured: time to first token against a real model.
+
+Also in this block, H6's two rows: **the WCAG audit** (the axe pass above, plus `inv1005-keyreach.js` for the keyboard) and **the first-run path timed to a first answer** (above).
+
+### From WORLD_CLASS_PLAN.md, H9 Polish in use (the owner's question, 2026-09-14; S to M each)
+
+Asked at the close of PR 144: what else makes the app better *in use*,
+not on a feature list. Checked against the code first (undo toasts, the
+service worker, skeletons, chunk-on-scroll lists, saved searches, the
+daily note, the first-run pass and the doctor route all exist), so each
+row below is a gap, with its gate:
+
+- **A local usage ledger.** Count every feature's use on this machine
+  only (a table, never sent anywhere), shown in Settings as "what you
+  use", and used to rank the palette and the Show menu by frequency. The
+  first notebook that tells its owner which of itself is dead weight.
+  Gate: a feature unused for ninety days is listed, and the palette's
+  top five are the five most used.
+- **Time to first answer as the onboarding number.** The first-run path
+  ends in a real question answered from a real note, timed; the tour is
+  cut to whatever gets that under two minutes on a cold laptop. Gate:
+  the number in the CHANGELOG, measured by a sweep that starts from an
+  empty data dir.
+- **Simple mode.** A Settings switch that hides the tabs and settings a
+  new person does not need (Timeline, Boards, the learned store, the
+  advanced response settings) until they are reached for; every hidden
+  thing reachable from the palette. Gate: the tab bar shows four tabs
+  on a fresh install and the docks lint still passes.
+- **Speculative retrieval.** Retrieval starts on a typing pause in Ask
+  and Chat, before Enter, so the first token arrives sooner; the model
+  is warmed on boot and kept resident. Gate: median time to first token
+  on the reference laptop, before and after, in the CHANGELOG.
+- **The perf gate in CI.** `boottime.js` and a per-action timing sweep
+  (open each tab, open a note, ask a question against the fake server)
+  run on every push with a budget per number; a regression fails the
+  build like a lint. Gate: the workflow, and one deliberate regression
+  caught before merge.
+- **Screen readers as a standing sweep.** axe-core over every tab in
+  both themes, next to `contrast.js` and `touch.js`, with the count
+  ratcheted to zero. Gate: the sweep in `all.sh`, zero serious findings.
+- **Quick capture from anywhere.** A global hotkey on the desktop build
+  that opens a one-line capture over any app, and the PWA's share target
+  on a phone on the same network. Gate: a note captured without the app
+  in front, under three seconds, in both cases.
+- **Retry as a grammar.** Every failed request shows the same inline
+  "try again" with the reason, never a toast alone; `errors.js` gains a
+  fault-injection pass (the fake server returns 500 on one route at a
+  time). Gate: zero routes whose failure leaves the surface blank.
+
+**State 2026-09-24:** (c) for the usage ledger, time to first answer, simple mode, the perf gate in CI (CI runs the Playwright tests, no timing budget), the axe sweep and the global capture hotkey. (b) for speculative retrieval (Ollama is asked to keep the model for 30 minutes; retrieval does not start on a pause) and for retry as a grammar (`surfaceFailed`/`surfaceRecovered` are the one recipe, `tests/test_ui_recipes.py`; the fault-injection pass in `errors.js` is not built).
+
+
+
+## Moved from the plans, 2026-10-05 (row 25, the importers and the keyboard)
+
+### From WORLD_CLASS_PLAN.md, H6 and section 5 item 7: import from another app
+
+**Built 2026-10-05.** `entry/app_import.py`: one reader per app into one plain record, one writer. Notion ("Markdown & CSV" zips, zips of zips, HTML exports; the 32-hex page id stripped from titles and used as the source key; links between pages become `[[wiki links]]`; database CSVs left out and said so), Obsidian (a vault folder or zip, `.obsidian/` and other dot folders skipped, front matter read by the markdown importer's own `_parse_frontmatter`), Evernote (`.enex` through defusedxml, so an entity bomb is refused rather than expanded; title, ENML body as markdown with to-dos and attachments as words, created time, tags; the notebook file's name is the category), Apple Notes (what exporter apps write: one HTML, Markdown or text file per note, the folder as the category). **Idempotent by source**: each note's `source_path` is `<app>:<key>`; a second import of the same export makes nothing and reports `already`; a note already here is never overwritten (it may have been edited since). Zips are read in memory with a 200 MB unpacked cap. `POST /import/app?source=` (`api/routes_import.py`), the import job line, ids for the toast's Undo. Settings, Import & export, Import from another app (`app-import.js`, lazy): four one-step buttons on the import recipe, folder pickers filtered to the files a reader uses. Imported text is text from outside (`came_from_outside` reads `source_path`). Tests: `tests/test_app_import.py` (11: a round trip per format, each imported twice; Notion titles and links; Obsidian front matter; Evernote dates, tags and to-dos; the entity bomb; Apple folders; an unknown source; the zip cap). Not verified: real exports from each app (the fixtures follow their documented formats), and a real 5,000-file vault's time.
+
+### From WORLD_CLASS_PLAN.md, H6: keyboard-complete
+
+**Measured 2026-10-05, nothing to fix.** `scratchpad/ui-sweeps/inv1005-keyreach.js` (new) marks every visible, enabled control in each tab's docks and toolbars, presses Tab from the top of the page (140 presses, 400 for a recheck), and lists any control never focused, plus anything showing a pointer cursor that is neither a control nor inside one with a tabindex (a click-only element no key can press). At 1440: 45 dock controls over seven tabs, 0 not reached, 0 pointer-only. At 390: 31, 0 and 0. The first run's two findings were the chat dock's Export and Delete, which are `visually-hidden` `aria-hidden` proxies the kebab's rows click, so the sweep now skips `aria-hidden` and `tabindex="-1"`; the timeline's rows were flagged until the sweep learned roving tabindex (one row at 0, arrows move). `keyboard.js` remains the check on each stop's quality.
+
+## Moved from the plans, 2026-10-05 (the web clipper, from the browser)
+
+**Built 2026-10-05 (WORLD_CLASS_PLAN row 24, D9).** The server-side clip (`POST /links/clip`, `core/webclip.py`, a pasted link's toast) was already there behind the web switch. What was missing was the fully local half and the bookmarklet, built now: `POST /links/clip-page` (`routes_webclip.py`) takes the page the person's own browser sends (address, title, HTML up to `CLIP_MAX_BYTES`, or the selected text) and makes a note through the same `create_entry` path, with the same extractor, so nothing is fetched and the web switch does not apply; only http and https addresses, the fragment and tracking parameters dropped; the same address clipped again returns the note it made (`existing`). Settings, Import & export, Web clipper: the Clip to MemoryMap bookmark (`web-clip.js`, its `javascript:` address written at runtime with the app's origin; Copy the bookmark beside it). Pressed on a page it opens `clip.html` (`clip.js`) with the address, title and selection in the fragment, then answers the window's ready message with the page's HTML; the window takes the page only from its opener and saves only on Save. External text: the note carries `source_url`, which `manager.came_from_outside` reads (the agent's taint), and `librarian.note_for_prompt` now fences a retrieved note from outside as `note from outside` rather than `note`. DESIGN.md recipe row for the dragged link and the window. Tests: `tests/test_webclip_page.py` (12). Not verified: the bookmarklet in a real third-party page (a site whose `Cross-Origin-Opener-Policy` severs the opener gets the fragment's address, title and selection only, by design), and a share target on a phone (the PWA's GET share target already exists). Gate "a clipped page is found by search within 2 s": the note is created through `create_entry`, indexed as it is saved; not timed here.
+
+### From WORLD_CLASS_PLAN.md, D9 Links and the web clipper (M, Opus)
+
+Exists: bookmarks with groups. Target: a "Save page" bookmarklet and a
+share-target (PWA) that POSTs a URL; the backend fetches (SearXNG-safe,
+offline-tolerant) and stores a readable extract as a document with the
+source URL, so links become searchable notes. Brief: `/links/clip` +
+readability extraction (vendored, MIT) + a bookmarklet generator in
+Settings. Gate: a clipped page is found by search within 2s.
+
+**State 2026-09-24:** (c) not built: no `/links/clip`, no readability extraction, no bookmarklet. The PWA share target exists; S5's guard in `core/security.py` is ready for the first fetch. M, Opus.
+
+## Moved from the plans, 2026-10-05 (the margin reader)
+
+**Built 2026-10-05 (WORLD_CLASS_PLAN row 22, I2; H8's margin half).** `ai/margin.py` reads one paragraph against the notebook and returns at most three typed cards, each pinned to a sentence of another note (`source_entry_id`, `source_span`, `source_text`): `repeats` (word overlap 0.7 or more), `contradicts` (the night shift's own local rule, `facts._local_disagreement`: the same sentence with a different number or a not), `answers` (an open question, `DerivedFact` kind `question`, that the paragraph holds most of: `facts._local_answer`), `date` (`timewords.find`, with the parsed time) and `related`. Candidates come from the keyword index and, when embeddings are up, `semantic_search` with row 6's chunk vectors naming each long note's best paragraph; the paragraph's vector is cached by text. Never the note being written, never one source twice. `judge` with a model up asks the model for the relation of each related or repeated card (contradicts, repeats, answers, unrelated) and drops the unrelated. Computed, never stored. `POST /editor/read` (`api/routes_editor.py`), gated by the `margin_reader` switch. In the document editor: the dock menu's While you write, Margin reader (off by default, remembered per device) shows `#doc-margin` beside the editor; `margin-reader.js` (in the Library bundle after documents.js) asks 1.2 s after typing stops, one request in flight, a reply for a paragraph that changed is dropped, and asks again with `judge` when the first reply had something to judge. Cards: the kind label, the sentence, the reason, Open, Not this, and for a date Make a reminder. DESIGN.md recipe row added. Tests: `tests/test_margin_reader_spec.py` (11). Deviation from the spec: the model's second reading is a second request rather than a second SSE event, and cards are offered on documents only (notes' editor not yet). Not verified: typing latency in Chromium (`scratchpad/ui-sweeps/editor.js`), the 150 ms keystroke-to-margin budget, a real model's judgements.
+
+### From WORLD_CLASS_PLAN.md, I2 The margin reader: a second reader in the editor, from your own notes
+
+**What the person sees.** While writing a note or document, a quiet
+margin column (off by default per editor, one toggle in the toolbar's
+more menu) fills with at most three cards, each pinned to the paragraph
+it is about: "You wrote the opposite on 12 May: 'the batch size should
+stay at 32'" (open, or mark not a contradiction), "This repeats your
+note 'Why I left the project'" (open, link), "Answers your open question
+from March: 'is the API worth the cost?'" (link as answer), "A date:
+Thursday 3pm. Make a reminder?". Nothing is ever inserted into the text.
+Cards fade when the paragraph changes and re-run after a pause.
+
+**Why it is new.** Every editor's AI writes *for* you (autocomplete,
+rewrite). None reads *with* you against your own past thinking. Obsidian
+Copilot chats; Notion AI drafts; Mem surfaces similar notes as a list, not
+pinned to the sentence and not typed (contradiction, repeat, answer,
+commitment).
+
+**Builds on.** The Phase 0 backdrop and underline geometry in
+`documents.js` (a card is anchored the same way an underline is), the
+selection toolbar D2, the chunk vectors from §14 item 3, I1's
+`derived_facts` for claims and open questions, `EntryDate`.
+
+**Data.** None persisted except accepted links (typed `EntryLink`:
+contradicts, repeats, answers) and created reminders. Cards are computed.
+
+**Endpoints.** `POST /editor/read` with `{entry_id | document_id, paragraph:
+str, ordinal: int}` returns `[{kind, text, source_entry_id, source_span,
+reason, confidence}]`, at most three, in under 300ms without the model
+(similar chunk plus claim table lookups) and, when the model is up, a
+second event over SSE with the model-judged kinds. Debounced client-side at
+1.2s after typing stops in a paragraph; one in-flight request per editor;
+the reply is dropped if the paragraph text changed.
+
+**Algorithm.** Embed the paragraph (cached by text); top-5 chunks by
+cosine excluding the current note; for each, if I1 has a claim in that
+chunk, ask the model (small prompt) for the relation in {contradicts,
+repeats, answers, unrelated}; without a model, show "related" only. Dates
+through `reminder_parser` locally. Rank by confidence, cap three, never
+show the same source twice in one note session.
+
+**Tests first** (`tests/test_margin_reader_spec.py`): the endpoint
+returns at most three cards; a paragraph that repeats a fixture note
+verbatim yields `repeats` with that note; a paragraph that negates a
+fixture claim yields `contradicts` under the fake model; a date yields a
+`date` card with a parsed ISO timestamp; with the model down the endpoint
+still answers in under 300ms with `related` cards; `test_frontend_ids.py`
+and the CSP lint pass for the margin column.
+
+**Gate.** Measured in Chromium: typing latency in the editor unchanged
+(frame time p95 within 1ms of before, `scratchpad/ui-sweeps/editor.js`);
+a card appears within 2s of a pause. **Size** M. **Model** Opus (the
+frontend anchoring is design work).
+
+**State 2026-09-24:** (c) not built: no `/editor/read`. Waits on §14's chunk vectors. M, Opus.
+
+## Moved from the plans, 2026-10-05 (the model bench)
+
+**Built 2026-10-05 (WORLD_CLASS_PLAN row 21, I8 and H3).** `ai/bench.py` builds a held-out set from the notebook with no model (seeded sample of notes the person filed themselves; per note one sentence with two words no other sampled note uses), then per model: filing through the janitor's own `SYSTEM_PROMPT` and `librarian.filing_prompt`, a cited answer from three fenced notes, five `find_note` tool calls; reports filing, citation and tool accuracy, median answer time, tokens, failed calls and the first three failures per task, best first. `citation_score` moved out of `tests/eval/scoring.py` into `ai/bench.py`, which the harness now imports. `/models/bench` (`api/routes_bench.py`): start (one at a time, a thread, `wait` for scripts), state with the last report (kept in `bench.json` in the data folder), stop; a budget in minutes; the `model_bench` switch gates it; job kind `model-bench` on the last-run line. Settings, Models, Test my models (`model-bench.js`, lazy): the models as switches, Run the test and Stop, one row per model on the list-row recipe with a facts line, Recommended and In use for chat labels, Use this one through `POST /models/chat-model`. Tests: `tests/test_bench_spec.py` (7: the set is stable and from the notebook, two fakes that differ in one filing rank right, the report names the failing question, stop and budget, the shared citation score, the routes and Use this one, the too-small notebook). Not verified: a run against a real local model (the plan's 30-minute gate and the two-point rerun gate need one; `scratchpad/llama-dev.sh` is the way). Deviation from the spec: the five tool tasks call one offered tool rather than the app's registry, so a model's score does not depend on which tools the router narrows to.
+
+### From WORLD_CLASS_PLAN.md, I8 The model bench: which local model is best on *your* notebook
+
+**What the person sees.** Settings > Models > "Test my models": pick two
+or more installed models, press Run; twenty minutes later a table: filing
+accuracy, citation accuracy, tool-call success, answer latency, tokens per
+answer, each with a number and a one-line example of a failure. "Use this
+one" applies it. Runs on the night shift budget if left overnight.
+
+**Why it is new.** Every local-AI app tells you to "try a model". None
+measures one against your own notes, offline, and shows the failures.
+
+**Builds on.** `tests/eval/` (fixture, golden, scoring for tool choice and
+citation), `ai/model_manager.py`, `routes_models.py`, I1's scheduler.
+
+**Algorithm.** Build a held-out set from the owner's notebook: sample 40
+notes, generate one question per note whose answer is a sentence in it
+(no model needed: pick a claim from I1, or a sentence with two
+distinctive terms), plus the note's own category. For each model: file the
+40 notes cold, answer the 40 questions, run five scripted tool tasks;
+score with `tests/eval/scoring.py`'s functions moved into `ai/bench.py`
+(the tests then import from there, so the harness and the feature cannot
+drift). Report per model.
+
+**Tests first** (`tests/test_bench_spec.py`): a bench over the fixture
+with two fake models that differ in one scripted answer ranks them in the
+right order; the report names the failing question; a bench respects the
+budget and can be stopped; "Use this one" switches the chat model
+preference.
+
+**Gate.** The bench over two models on 40 notes completes under 30 minutes
+on the reference small model; the numbers reproduce within 2 points on a
+second run. **Size** M. **Model** Sonnet (the scoring exists; this is
+plumbing and a table).
+
+**State 2026-09-24:** (c) only its switch exists (`model_bench` in settings.js); no `ai/bench.py`, no route, no table. H3 is the same row. M.
+
+### From WORLD_CLASS_PLAN.md, H3 The model bench (I8; M, Opus)
+
+The one question every local-AI user asks and no product answers: which
+model is best on my notes, on my machine. Build: Settings, Models, "Try
+on my notebook": the app runs a fixed set of twelve tasks (file, link,
+answer, summarise, plan a skill) against each installed model over a
+sample of the person's own notes, scores them with the verifier from B5,
+times them, and shows a table with a recommendation. Everything local, one
+click, resumable. Gate: fake-transport tests for scoring and resume;
+`docs/MODELS.md` cites the bench instead of guessing.
+
+**State 2026-09-24:** (c), I8.
+
 ## Moved from the plans, 2026-10-05 (a frame as an export scope)
 
 ### From WHITEBOARD_PLAN.md, decision 14's open edges (decision 18)
@@ -33603,7 +33805,7 @@ Each is already paid for; a small amount of work turns a frustrating surface
 into a good one.
 
 11. **The whiteboard, properly.** ~~Images, text boxes, resize (8-handle
-    corner+edge), grid (lines/dots/isometric)+snap, per-board background
+    corner+edge), grid (lines/dots/isometric)+snap, per-board background (corrected 2026-10-05, FEAT-06: it was a per-browser colour and a per-browser image; it is on the board since WHITEBOARD_PLAN decision 24)
     image, export (PNG/SVG/PDF), clear-board, a redesigned board picker,
     redo, single-item select, undo/redo, per-tool cursors, an eraser,
     keyboard shortcuts, draggable toolbar panels, highlighter+arrow tools,
@@ -40954,6 +41156,88 @@ The two cheap additions the plan's research section named (decisions 11 to
 
      Fixed (2026-10-05, Atlas merge): the fringe is drawn inside the hair cap's group; 0 of 468 hairline samples show the page (three moods, four phases).
 
+583. **The owner, 2026-10-05, verbatim.** "note popup menus are behind the
+     back to top button" Fixed (2026-10-05): an open note's action strip is
+     the menu's stacking context and sat at z 5, under the fixed button's
+     40; the strip (and a Library card's) now lifts to 45 while its menu is
+     open. menuovertop.js 4/4 (1440, 390; light and dark), FAIL 2/4 before.
+
+553. **The owner's decisions, 2026-10-05** (asked, answered; binding):
+     (a) Entity merge gets Undo: snapshot both entities and their mentions
+     before a merge, and Undo in the toast splits them back exactly.
+     Built 2026-10-05 (38debe1, `tests/test_entity_merge_undo.py`).
+     (b) The undo histories of each board, map and document survive a
+     reload (the last ~100 steps, stored; WHITEBOARD_PLAN decision 17 is
+     amended). Built 2026-10-05: IndexedDB, `undo-store.js`; decision 17
+     as amended; `mmdoc1005-undoreload.js` 4/4.
+     (c) Status labels app-wide are a tinted pill without an edge, matching
+     the meta chips.
+     (d) The dashboard's map widget is "dynamic depending on map size and
+     scale": the card's height and the map's scale follow the map's shape,
+     a small map at a readable size, a tall one in a taller card up to a
+     limit, then fitted whole. Built 2026-10-05: the Boards & maps widget
+     draws its busiest board large (`dashMapFeature`, dash-boards.js, lazy),
+     96px to 168px for six topics or fewer, up to 320px otherwise, fitted
+     whole past that; `mmdoc1005-dashmap.js` 5/5 at 1440 and 390.
+     Placed: the next free Opus, after the boot-JS split lands (budget).
+     (c) built 2026-10-05 (the UX fix agent): `chip item-label` is the
+     `--chip-bg` tint at `--radius-pill` with `border: 0`, its tones tints
+     (accent, ok, warn); the Files tiles' "Read · N words" and a chat
+     attachment's reading badge joined it; DESIGN.md's row says so and
+     `tests/test_badge_recipe.py::test_a_status_label_is_a_tinted_pill_without_an_edge`
+     holds it. `badges.js`: 53 labels, one signature (11.2px/500, 19px tall,
+     8px padding, 999px radius, no border, a fill). (a), (b) and (d) are open.
+     Fixed (2026-10-05): (a) entity-merge Undo, 38debe1; (b) undo histories kept across a reload in IndexedDB, b36cc19; (c) edgeless status pills with a ratchet, 9781258; (d) the dashboard map drawn at its own shape, d873a3f.
+
+588. **The owner, 2026-10-05, verbatim.** "I dont think these chat agent
+     step circles and lines are exactly aligned". Fixed 2026-10-05: the rail
+     and each node took their own offset and missed by 0.76px; both now
+     derive from one `--rail-x` (02-chat-graph.css), railalign.js 4/4,
+     worst 0.01px.
+
+579. **The owner, 2026-10-05, verbatim.** "switching the graph layout does
+     nothing" (the gear's Layout: Force, Tree, Radial, Arc). Placed: the
+     graph and sidebar agent, first.
+     Fixed 2026-10-05 from the owner's log: `undefined.push` at
+     layoutHierarchy on every tree, radial and arc switch, when a reply is
+     listed ahead of the note it answers. Child lists are seeded first and a
+     reply loop hangs off its category (graph.js); graphlayoutorder.js 3/3,
+     0/3 on the old code; tests/test_graph_layout_order.py.
+
+593. **The owner, 2026-10-05, verbatim.** "the warning message appeared
+     before the ai had even finished thinking" and "it disappeared after the
+     response finished tho" (screenshot: Ask, "Only 2 of 6 sentences here
+     come from your notes" under Thinking while "Consulting the stars" ran).
+     Fixed 2026-10-05: it was the last answer's notice, a sibling of
+     `#ai-answer` nothing cleared; `clearAskAnswerFoot` takes it now
+     (tests/test_answer_support_cleared.py).
+594. **The owner, 2026-10-05, verbatim.** "the response is great but it only
+     mentions one of the sketches not all the sketches" (Ask, "What have I
+     saved about sketches?"; the thinking called notes 1 and 3 "too vague").
+     Fixed 2026-10-05: the prompt gave each note its text and category only,
+     and two sketches are one word plus `sketch.png` and `#Sketches`. Each
+     note now carries its tags and its files with their stored captions
+     (routes_chat `_files_on`, librarian `_tags_files_hint`, defanged);
+     tests/test_ask_sees_tags_and_files.py. Not verified against a real
+     model's answer.
+
+566. **The owner, 2026-10-05, verbatim.** "the whiteboard help popup is still
+     cooked and needs a redesign" (screenshot: the empty board's help card,
+     the Move around column's key pills clipped at the right, long labels
+     printed over their pills, the description cut off). Placed: the
+     whiteboard agent, as the board's searchable shortcut sheet (was UX-03).
+     Fixed 2026-10-05 by the whiteboard agent: the help sheet rebuilt (cf17b52), help sweep 88/88.
+570. **The owner, 2026-10-05, verbatim.** "when I open comments on the
+     whiteboard, the new comment form is permanently showing below, there
+     should be a new comment option below for it to show" Placed: the
+     whiteboard agent.
+     Fixed 2026-10-05 by the whiteboard agent: comments open on the thread with a New comment row below it (07ea182), wbcomments 26/26.
+576. **The owner, 2026-10-05, verbatim.** "this menu's elements arent aligned
+     vertically" (screenshot: a shape's context bar, its Width input, Solid
+     select, swatches and Filled toggle at different heights and centres).
+     Placed: the whiteboard agent.
+     Fixed 2026-10-05 by the whiteboard agent: every control on the bar's centre line (017ac3d), barline 19/19 at 1440 and 390, light and dark.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.
@@ -41374,4 +41658,3 @@ loading page.
      0 off, and still 0 after a reload (kept on this device). With it the
      spec's last open KG rows: rollups on the query table and a searching
      picker for a note field (GRAPH_PLAN, "Still open after KG1 to KG9").
-

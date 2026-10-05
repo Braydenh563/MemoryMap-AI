@@ -291,6 +291,15 @@ def test_the_collector_finds_what_it_is_pointed_at():
 #: here is a promise that the source is in `SOURCES` above (or is fixed text).
 REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("app.py", "detail"): "the handler re-serialises an HTTPException's own detail: every raise site is checked",
+    ("routes_auth.py", "problem"): "_new_password_problem in routes_auth.py, one fixed sentence",
+    ("routes_bench.py", "BUSY"): "a constant in routes_bench.py, checked below",
+    ("routes_bench.py", "NOT_RUNNING"): "a constant in routes_bench.py, checked below",
+    ("routes_bench.py", "NO_MODELS"): "a constant in routes_bench.py, checked below",
+    ("routes_bench.py", "OFF"): "a constant in routes_bench.py, checked below",
+    ("routes_board_library.py", "detail"): "_fail's callers pass literals and f-strings of counts and names, which collect() checks",
+    ("routes_import.py", "str(exc)"): "TooBig from entry/app_import.py, one fixed sentence",
+    ("routes_webclip.py", "NOT_A_PAGE"): "a constant in routes_webclip.py, checked below",
+    ("routes_whiteboard.py", "detail"): "one of two literal sentences, chosen by what the XMind archive holds",
     ("routes_backups.py", "str(exc)"): "FileNotFoundError and ValueError from core/backup.py restore_backup",
     ("routes_categories.py", "str(exc)"): "ToolError (ai/tools/categories.py) and ValueError (entry/manager.py)",
     ("routes_chat.py", "str(exc)"): "ToolError from validate_make_plan and summarise_turns",
@@ -366,7 +375,7 @@ def test_no_route_literal_tells_the_person_to_run_a_command():
     assert not bad, f"a route detail carries developer vocabulary: {bad}"
 
 
-@pytest.mark.parametrize("module, name", [("routes_webclip.py", "WEB_OFF"), ("routes_mentions.py", "LINK_UNSAFE_WHY")])
+@pytest.mark.parametrize("module, name", [("routes_webclip.py", "WEB_OFF"), ("routes_webclip.py", "NOT_A_PAGE"), ("routes_mentions.py", "LINK_UNSAFE_WHY"), ("routes_bench.py", "OFF"), ("routes_bench.py", "BUSY"), ("routes_bench.py", "NO_MODELS"), ("routes_bench.py", "NOT_RUNNING")])
 def test_a_route_constant_reads_as_a_sentence(module, name):
     tree = ast.parse((API / module).read_text(encoding="utf-8"))
     texts = []

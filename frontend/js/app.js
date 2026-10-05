@@ -2235,6 +2235,11 @@ const LAZY_MODULES = {
   //: Every listener inside the Settings window, awaited on first open: settings-controls.js.
   settingsControls: ["/js/settings-controls.js"],
   attachTo: ["/js/attach-to.js"],
+  //: Settings groups, each file's header says which (WORLD_CLASS_PLAN rows 21 to 27).
+  modelBench: ["/js/model-bench.js"],
+  webClip: ["/js/web-clip.js"],
+  appImport: ["/js/app-import.js"],
+  usageLedger: ["/js/usage-ledger.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2251,8 +2256,13 @@ const LAZY_MODULES = {
     "/js/documents-code.js",
     "/js/documents-prose.js",
     "/js/documents.js",
+    "/js/margin-reader.js",
     "/js/whiteboard-map.js",
     "/js/whiteboard.js",
+    "/js/whiteboard-commands.js",
+    "/js/whiteboard-library.js",
+    "/js/whiteboard-format.js",
+    "/js/whiteboard-interchange.js",
     "/js/library.js",
   ],
 };
@@ -2458,6 +2468,8 @@ const LAZY_ENTRY_POINTS = {
   lightbox: ["openLightbox"],
   editConflict: ["editConflictPrompt"],
   noteHistory: ["openEntryHistory"],
+  modelBench: ["renderModelBench"],
+  usageLedger: ["renderUsage", "renderCaptureCommand"],
   settingsData: [
     "renderPrivacyRange",
     "renderPrivacyReceipt",

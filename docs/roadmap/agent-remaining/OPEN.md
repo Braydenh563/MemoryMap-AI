@@ -129,7 +129,7 @@ then the plan tails by surface, then the horizon.
 | CHAT_PLAN | ~~Phase 1's other half, which note grounds a sentence~~ built 2026-09-20 (the fixtures exist, 18 of 18 attributed, was 17 of 18); ~~Phase 1's fourth gate line~~ built 2026-09-21 and its replay tail 2026-09-23, so Phase 1 is closed; Phase 4's harness items were closed 2026-09-20, and what is left is its `evals` breadth (WORLD_CLASS_PLAN 9). |
 | TIMELINE_PLAN | ~~Section 7's two measurements~~ taken 2026-09-20, and both found a bug: the density strip hid on a note count (it hid a profile of 150 notes and showed a comb of 200) and the table drew no title column at all between 600 and 1024. Both fixed and re-measured. The third line, the "auto" scale thresholds, was tuned 2026-10-04 (HISTORY, "the auto scale"). |
 | AGENT_SKILLS_REFORM | ~~Phase D verified against a real model, which needs WORLD_CLASS_PLAN section 9's dev-only runner first.~~ **Done 2026-09-20.** The runner is `scratchpad/llama-dev.sh` and the gate is `tests/test_skills_evals.py`, four `evals` tests that skip at collection without a model: 3 passed and 1 skipped against Qwen2.5-1.5B-Instruct Q4_K_M through llama.cpp, with the skip itself the finding (the run stalled on step 1's `list_tags` contract and said so, rather than ticking it). Record in HISTORY's "Moved from the plans, 2026-09-20". What is left is breadth, and it sits in WORLD_CLASS_PLAN 9: the same gate at 3B and 4B, and an eval each for the rest of CLAUDE.md section 4's unproven list. |
-| WORLD_CLASS_PLAN | **Row check done 2026-09-24 (INBOX 399).** Every row read against the code; the built ones moved to HISTORY's "Moved from the plans, 2026-09-24", each open row carries a "State 2026-09-24" line, and the ranked list of 38 is at the top of the plan's section 8. The top ten, by impact: F3 `semantic_search` reading every vector per request; Brief 15's LAN hardening (S1 to S3, S5, S6); B2 durable jobs; D2's connections rail (and 261's `/resurface/near`); I1's night runs and morning card; chunk vectors then I6's evidence cards; I3's questions view; `similar_pairs` cached for link suggestions and tensions; D5 typed properties on notes; the S-sized section 1 lints. Fixed during the check: 283, 285, the Most used widget's picker line, Download .md on a locked notebook, and `/files/gallery`'s paging (F2's frontend half). Built 2026-09-24 after it: row 1 (F3, `semantic_search` on the matrix), row 9 (`similar_pairs` cached) and row 2 (S1, S2, S3, the rest of S5, S6's redirect half, `/debug/health` paths; left `tests/test_lan_mode.py` and the LAN offer). Built 2026-10-04: row 3, B2's durable jobs for the pool's six kinds (`core/jobstore.py`; left: the other kinds onto the table, the panel on `/jobs/stream`). |
+| WORLD_CLASS_PLAN | **Row check done 2026-09-24 (INBOX 399).** Every row read against the code; the built ones moved to HISTORY's "Moved from the plans, 2026-09-24", each open row carries a "State 2026-09-24" line, and the ranked list of 38 is at the top of the plan's section 8. The top ten, by impact: F3 `semantic_search` reading every vector per request; Brief 15's LAN hardening (S1 to S3, S5, S6); B2 durable jobs; D2's connections rail (and 261's `/resurface/near`); I1's night runs and morning card; chunk vectors then I6's evidence cards; I3's questions view; `similar_pairs` cached for link suggestions and tensions; D5 typed properties on notes; the S-sized section 1 lints. Fixed during the check: 283, 285, the Most used widget's picker line, Download .md on a locked notebook, and `/files/gallery`'s paging (F2's frontend half). Built 2026-09-24 after it: row 1 (F3, `semantic_search` on the matrix), row 9 (`similar_pairs` cached) and row 2 (S1, S2, S3, the rest of S5, S6's redirect half, `/debug/health` paths; left `tests/test_lan_mode.py` and the LAN offer). Built 2026-10-04: row 3, B2's durable jobs for the pool's six kinds (`core/jobstore.py`; left: the other kinds onto the table, the panel on `/jobs/stream`). Built 2026-10-05: row 21 (the model bench), row 22 (the margin reader, documents; left: the note editor), row 24 (the web clipper from the browser), row 25 (the importers, keyboard reach, the WCAG pass, the timed first run; left: multi-window), row 27 (H9 whole; left: `boottime.js` in the workflow). |
 
 **C. The horizon (WORLD_CLASS_PLAN, one item per PR, in its own stated order)**
 
@@ -699,6 +699,50 @@ written to in the last two days (`backend-probe`, `mindmap`, `noteobj`,
 `notes`, `proseeditor`, `sweeps`, `tourdepth`, `wrapup-0927`, `graph-wb-0926`,
 `mapux2`, `openitems`, `sweep-1004`), plus `agent_common.md`, the rules every
 agent carries. Their rows are theirs until the work lands or is carried here.
+
+## Atlas, placed from INBOX 2026-10-05
+
+Held by the Atlas motion agent; each closes when its sweep measures it.
+
+540. **The owner, 2026-10-05, verbatim.** "one of the feminine atlas blinking
+     animations has MASSSSIVE eyebrows."
+     Not reproduced (2026-10-05): the live companion drawn at 6x, feminine
+     and masculine, six poses by nine moods/acts, the blink lids sit within
+     2px of the eyes and the closed-eye stroke and lashes are their usual
+     size; mid-blink frames looked at. Needs the owner: a screenshot of the
+     moment, or which pose/mood it was in (sitting, lying, drowsy, startled).
+
+554. **The owner, 2026-10-05, verbatim.** "the feminine atlas whisps should
+     wrap the body a bit more instead of all of it sitting in front. also the
+     lower body still looks too sharp like a tooth. the whole avatar needs to
+     ahve dynamic and organic movement. think of it like an azur lane
+     character" Placed: with 550, the Atlas agent.
+     Partly done (2026-10-05): the wisps wrap behind the body and the hem is soft; the layered lifelike motion is the follow-up agent's, with 564.
+
+556. **The owner, 2026-10-05, verbatim.** "and a bit more texture can be
+     added to the lower body as well. make it celestial and majestic and
+     magical and attractive and flowy" Placed: with 550, the Atlas agent.
+     Partly done (2026-10-05): the gown's nebula, sheen and glowing hem; the flowing motion is with 564.
+
+564. **The owner, 2026-10-05, verbatim.** "can you fix or redesign the male
+     main body on the atlas avatar instead of just being an oval?? also fix
+     how the arms connect to the atlas bodies and how they are used in
+     transitions between places and positions, same with the lower body,
+     animate everything to be smooth and boilogically lifelike." Placed:
+     with 550, the Atlas agent (masculine torso, jointed arms from the
+     shoulder line, joint-angle blends with follow-through, lifelike idle).
+     Then (verbatim): "the arms for both the male and female atlas".
+     Partly done (2026-10-05): his V-taper torso and both looks' hanging arms (upper arm 13.4 degrees off vertical, elbow 166 and 165, wrist 0.54 and 0.52 of shoulder width). Open: joint-angle blends and IK in avatars.js, counter-phase swing, head lag, his cloak, the travelling hair and tail motion. The follow-up Atlas agent.
+
+575. **The owner, 2026-10-05, verbatim.** "can you have the lower body of
+     both atlas avatars change around in position and and how it is sitting
+     ect with different variations and changes based off the current action
+     or behaviour??" Placed: the Atlas motion agent, with 564 (a lower-body
+     pose per state, small random variants, blended with follow-through).
+     Then (verbatim): "dont forget that both atlas avatars have a tail as
+     well, same with the hair, and the nebular stream. they all need to be
+     dynamically animated and changed": both looks' tails, hair and nebula
+     streams, per state, with secondary motion.
 
 ## Not verified
 

@@ -56,6 +56,10 @@ from memorymap.api import (
     routes_entities,
     routes_relations,
     routes_properties,
+    routes_bench,
+    routes_editor,
+    routes_import,
+    routes_usage,
     routes_night,
     routes_questions,
     routes_privacy,
@@ -79,6 +83,7 @@ from memorymap.api import (
     routes_webclip,
     routes_websearch,
     routes_whiteboard,
+    routes_board_library,
 )
 from memorymap.api.routes_auth import require_unlock
 from memorymap.core import (
@@ -1184,6 +1189,11 @@ def create_app() -> FastAPI:
     app.include_router(routes_drafts.router, dependencies=locked)
     app.include_router(routes_learned.router, dependencies=locked)
     app.include_router(routes_night.router, dependencies=locked)
+    app.include_router(routes_bench.router, dependencies=locked)
+    app.include_router(routes_editor.router, dependencies=locked)
+    app.include_router(routes_import.router, dependencies=locked)
+    app.include_router(routes_usage.router, dependencies=locked)
+    app.include_router(routes_usage.capture_router, dependencies=locked)
     app.include_router(routes_questions.router, dependencies=locked)
     app.include_router(routes_resurface.router, dependencies=locked)
     app.include_router(routes_insights.router, dependencies=locked)
@@ -1196,6 +1206,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_timeline.router, dependencies=locked)
     app.include_router(routes_library.router, dependencies=locked)
     app.include_router(routes_whiteboard.router, dependencies=locked)
+    app.include_router(routes_board_library.router, dependencies=locked)
     app.include_router(routes_debug.router, dependencies=locked)
     app.include_router(routes_privacy.router, dependencies=locked)
 

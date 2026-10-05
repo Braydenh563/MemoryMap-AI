@@ -118,7 +118,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
   - Run one tidy after import.
   - Check whether `/boards/generate` and the AI's `create_mindmap` share the default.
 
-**FEAT-06. The board's background is stored per browser, not per board. Its image counts as an orphan.**
+**FEAT-06. The board's background is stored per browser, not per board. Its image counts as an orphan.** FIXED 013375b
 - Evidence:
   - `wb-bg-color` is one global key (`whiteboard.js:8952-8976`).
   - The image is stored under `wb-bg-image-${boardId}` in localStorage (`:964-971`, `:9205`).
@@ -135,7 +135,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
   - Have `media_gc` read board settings.
   - Keep grid and snap as device preferences.
 
-**FEAT-07. "Bring forward" and "Send backward" go to the very front or back. No single-step z-order exists.**
+**FEAT-07. "Bring forward" and "Send backward" go to the very front or back. No single-step z-order exists.** FIXED 93bbb62
 - Evidence:
   - `wbSetZOrder` writes `max+1` or `min-1` (`whiteboard.js:4285-4288`).
   - The Arrange menu says "Bring forward ]" and "Send backward [" (`index.html:5914-5915`), and the context bar uses the same words (`:6558-6559`). The right-click menu calls the same function "Bring to front" and "Send to back" (`whiteboard.js:5283-5284`).
@@ -157,6 +157,8 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
 - NEW (corrects a BACKLOG assumption). Fix (M/L): see brief W5. Vendor mermaid (MIT, about 3 MB, lazy) or write a flowchart-subset parser into board objects. Recommend the parser, for the CSP and size reasons the math renderer gave (`documents.js:6362`).
 
 **FEAT-09. Pasting text onto a board or a map does nothing.** FIXED 595db03 (the map half: POST /boards/{id}/nodes/outline; the board half is the whiteboard agent's)
+
+**FEAT-09. Pasting text onto a board or a map does nothing.** FIXED 8320ea2 (the board; a map's outline paste is the mind map agent's)
 - Evidence:
   - The canvas paste listener takes files only (`whiteboard.js:11485-11488`).
   - There is no `navigator.clipboard` read (`:4829` comment).
@@ -178,13 +180,15 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
 - KNOWN (BACKLOG 29c, "needs a design decision"). The decision is now cheap: the change log already exists. Fix (M): brief W2.
 
 **FEAT-11. The command palette has no board or map commands.** FIXED 46a5fa0 (map rows; the board's are the whiteboard agent's)
+
+**FEAT-11. The command palette has no board or map commands.** FIXED 93bbb62 (boards; map rows come with the map's own table)
 - Evidence:
   - `palette.js` mentions `wb` only to name the open board as the AI's subject (`:262-265`).
   - Documents have `DOC_COMMANDS`, 47 entries (`documents.js:2337`).
 - Impact: on the two most control-dense surfaces, nothing can be found by typing its name, and a keyboard user has no index of what exists.
 - NEW. Fix (M): one `WB_COMMANDS` table feeding the palette, the menus, the shortcut sheet and the help (section 8).
 
-**FEAT-12. The AI can add to a board but cannot change, move, restyle or delete anything.**
+**FEAT-12. The AI can add to a board but cannot change, move, restyle or delete anything.** FIXED (Phase G: seven tools, test_ai_board_edit.py)
 - Evidence:
   - The board and map tools are `read_whiteboard`, `search_whiteboard`, `add_whiteboard_card`, `add_whiteboard_link`, `generate_diagram`, `read_mindmap`, `create_mindmap`, `add_map_node` and `link_map_nodes` (`ai/tools/__init__.py:2814-2998`).
   - None renames a topic, moves or reparents one, deletes, restyles, adds a sticky, shape, text or frame, or groups.
@@ -197,7 +201,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
 
 ### Low
 
-**FEAT-14.** PNG export is 1x. Board units become pixels (`wbRasterizeSvg(svg, width, height)`, `whiteboard.js:8016`). There is no scale or transparent-background option, and the file is always `whiteboard-whole.png` or `whiteboard-selection.png`, never the board's name (`:8017`). Plan §12.2 item 10 asks for "PNG at 2x". NEW. Fix (S): add scale (1x, 2x, 3x), a transparent switch and a title-based name to the export dialog's PNG row.
+**FEAT-14.** PNG export is 1x. Board units become pixels (`wbRasterizeSvg(svg, width, height)`, `whiteboard.js:8016`). There is no scale or transparent-background option, and the file is always `whiteboard-whole.png` or `whiteboard-selection.png`, never the board's name (`:8017`). Plan §12.2 item 10 asks for "PNG at 2x". NEW. Fix (S): add scale (1x, 2x, 3x), a transparent switch and a title-based name to the export dialog's PNG row. FIXED b21ae81
 
 **FEAT-15.** FIXED 46a5fa0 A typed topic takes two undo steps (one create, one rename). `kb100.js`: 5 Ctrl+Z took 101 topics to 99. XMind treats add-and-type as one. NEW. Fix (S): fold the first label commit into the create's undo entry when it follows within the same edit session.
 
@@ -205,9 +209,11 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
 
 **FEAT-17.** FIXED 46a5fa0 The map topic's menu has an "Order" group, "Bring to front" and "Send to back" (`map1.js`), which mean nothing in a tidied tree. NEW. Fix (S): hide it on map topics (keep it for free-layout maps only, or drop it).
 
+**FEAT-17.** The map topic's menu has an "Order" group, "Bring to front" and "Send to back" (`map1.js`), which mean nothing in a tidied tree. NEW. Fix (S): hide it on map topics (keep it for free-layout maps only, or drop it). FIXED 93bbb62
+
 **FEAT-18.** The Word export drops images: `docexport._inline` writes no picture (`core/docexport.py`, no `add_picture`). It also needs an optional extra that is absent here (`import docx` fails in `.venv`), so the default install gets a 501. The extra is KNOWN and decided; the images are NEW. Fix (S): `add_picture` for `/media` images, read from the media dir.
 
-**FEAT-19.** Surfaces disagree about what they offer.
+**FEAT-19.** Surfaces disagree about what they offer. FIXED 93bbb62 (the Arrange and Edit menus)
 - The Arrange menu has align, distribute and z-order but no Group, Ungroup, Same size or Lock. Those live only on the context bar, Ctrl+G or the right-click menu.
 - Lock, comment, shape text, connector label and "export this frame" have no menu entry at all; they are only on right-click, double-click or a key (section 8).
 - NEW. Fix: section 8's single command table.
@@ -263,7 +269,7 @@ Priority is for a local-first notebook whiteboard (P1 core, P2 valuable, P3 late
 | Arrow nudge and Shift | done | `wbNudgeSelection` | - |
 | Shift keeps proportions | done | `wbKeepAspect` (`:12287`) | - |
 | Resize from centre (Alt) | missing | none | P3 |
-| Numeric X, Y, W, H, angle | missing | no inputs in `index.html` | P2 (Format panel) |
+| Numeric X, Y, W, H, angle | missing | no inputs in `index.html` | P2 (Format panel) FIXED (Phase B) |
 | Flip horizontal or vertical | missing | none | P2 |
 | Skew | decided out (spec D3) | - | - |
 | Alt-drag duplicate | done | `wbFinishDrag(…, altCopy)` (`:4745`) | - |
@@ -459,7 +465,7 @@ draw.io is Apache-2.0: take the features, copy no code or stencils. The built-in
 | Export | HTML, XML, VSDX | missing | P3 |
 | View | Outline window (minimap) | done | navigator |
 | View | Zoom in, out, fit, 100% | done | - |
-| View | Format panel toggle (Ctrl+Shift+P) | missing | - |
+| View | Format panel toggle (Ctrl+Shift+P) | missing | FIXED (Phase B) |
 
 ## 6. Mind map catalogue and gap matrix
 
@@ -744,6 +750,7 @@ Map (from §12.5 and `map1.js`):
    - Elbow (orthogonal) routing with several waypoints. Line jumps are optional.
    - The flowchart and General sets from 8.3 as built-in library entries, with connection points.
    - ER caps.
+   - FIXED (Phase B): elbow routing with waypoints, ER caps, sliding labels, clone-and-connect. Line jumps not built.
    - Gate: a 12-shape flowchart drawn by keyboard, with no edge crossing a shape box.
 5. **W5, interchange.**
    - Paste text (FEAT-09).
@@ -873,7 +880,7 @@ Every brief:
   - `doc2.js` print text has no `[^`.
 - Risks: the background migration must not overwrite a board that already has settings; z-order steps must skip locked and hidden items consistently.
 
-### Phase A, Library and sidebar (L, Opus)
+### Phase A, Library and sidebar (L, Opus): BUILT 5e84253 (Layers phase 1 with it)
 
 - Goal: section 8 (all six "Yours" kinds; built-in General, Flowchart, Arrows; others in A2) and the sidebar shell with the Library tab.
 - Files:
@@ -905,14 +912,14 @@ Every brief:
   - 0 console errors at 1440, 820 and 390.
 - Risks: the Phosphor font is not exportable (vendor SVGs, with licence); payload XSS (sanitise thumbnails; text only through existing escapes); the sidebar's effect on the canvas width at 820 (measure).
 
-### Phase B, Format panel and connectors (L, Opus)
+### Phase B, Format panel and connectors (L, Opus): BUILT 2026-10-05 (the map's Format tabs are the map agent's)
 
 - Goal: section 9.2 items 1, 3, 4, 5 and 6 (command table, Format panel, palette, "?") and W4 (elbow connectors with waypoints, ER caps, hover clone-and-connect, Shift+Enter connect from the library).
 - Decision changes to record: decision 2 revised, decision 12 relaxed in the panel (9.5).
 - Tests first: the command table drives every menu (a lint); elbow route avoids the endpoints' boxes (pure function tests); numeric X, Y, W, H round-trip.
 - Acceptance: `wbformat.js` (each tab changes the selection, one undo each); `wbelbow.js`; palette lists at least 40 board commands; "?" sheet equals the table.
 
-### Phase C, layers and pages (M, Opus)
+### Phase C, layers and pages (M, Opus): BUILT 2026-10-05 (Layers in 5e84253; Pages and the hover lock after it; named layers stay C2)
 
 - Goal: 9.3 Phase 1 (`hidden`, tree, restack, accessible tree), then Pages view (frames listed, reorder equals presentation order).
 - Named layers stay in Phase C2 only if the owner confirms (BACKLOG 29c).
@@ -921,7 +928,7 @@ Every brief:
   - The drag restack writes z.
   - The screen reader names every row (axe).
 
-### Phase D, mind map usability (L, Opus)
+### Phase D, mind map usability (L, Opus): the Outline tab's first cut (read and walk) BUILT 2026-10-05; editing in it, M1, fold-to-level and the strip's doors are the mind map agent's
 
 - Goal: M1 (latency), M3 (Outline tab), FEAT-09 map paste, the strip's doors moved into the Format panel (9.5), saved branches from Phase A in the topic menu, fold-to-level (Alt+1 to 9).
 - Gate:
@@ -931,7 +938,7 @@ Every brief:
   - `mapplaces.js` still finds one place per action.
 - Risks: the render-pass rework touches `renderWhiteboard` shared with boards (run `boardundo.js`, `mapperf.js` and `mapedgelag.js`).
 
-### Phase E, interchange and history (M, Opus)
+### Phase E, interchange and history (M, Opus): W5 BUILT 2026-10-05 (Mermaid in and out, the free-board outline, the board in its SVG, XMind import); W2, the board time machine, and D3, Mermaid in documents, open
 
 - Goal: W2 (board time machine), W5 (Mermaid in and out, free-board outline export, embedded data), D3 (Mermaid in documents), XMind `.xmind` import (content.json, read-only).
 
@@ -939,7 +946,7 @@ Every brief:
 
 - Goal: D2 rich paste, D4 page setup and page break, D5 image handles plus DOCX images, other-language word lists (install-time optional, like the docx extra).
 
-### Phase G, AI depth (M, Opus)
+### Phase G, AI depth (M, Opus): FEAT-12 tools BUILT 2026-10-05 (FEAT-13 ghosts, the affinity sort and the claim check open)
 
 - Goal:
   - FEAT-12 tools (edit, move, delete, add shape or frame, place library item).

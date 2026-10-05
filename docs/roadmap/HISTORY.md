@@ -7,6 +7,45 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (boardmap-1005)
+
+The board and map agent's queue: INBOX 596, 607 to 610 and 617, placed in
+MINDMAP_PLAN and WHITEBOARD_PLAN; the open remainders of 596 and 608 stay in
+WHITEBOARD_PLAN's "Placed from INBOX, 2026-10-05 (boardmap-1005)".
+
+- **609, smooth long branches** (`95e8127`): a branch's two sides are a
+  spline through more samples. `tests/test_map_ribbon_smooth.py`,
+  `bm1005-curve.js`.
+- **608, edge auto-pan on boards and maps** (`64ab644`): a marquee, an item
+  or a branch dragged to the canvas edge pans the board, faster deeper in.
+- **607, the map from the graph** (`3f4aa42`, `e1c598d`):
+  `POST /whiteboard/maps/from-notes` builds the tree from the notes' links
+  (the picked or most connected note in the middle, linked notes under the
+  note they link to, the rest by category, at most eight children a topic,
+  other links as cross-links, both sides); Open on the notice and the bell
+  row. `tests/test_map_from_notes.py`; `bm1005-mapfromgraph.js`: 37 nodes,
+  widest 8 (was 33 in one column), 22 left and 14 right, 0 overlaps.
+- **610, a topic's controls** (`4ed1b3c`): the text size on the topic's bar;
+  every select in its Text, Shape and Branch line doors drawn as a
+  `.seg[role=group]` (`wbMapChoiceRow`); one resize grip on the bottom right
+  corner (Shift scales the text), 24px at every zoom. `tests/
+  test_map_node_controls.py`; `bm1005-nodetasks.js`: 8 of 11 tasks over two
+  presses on the base, 11 of 11 in at most two after, at 1440 and 390, light
+  and dark.
+- **617, several topics picked** (`98e319e`): no group box, the bar's
+  `mapmulti` group (colour, bold, tasks, fold, summarise), the same in the
+  right-click menu, one undo step (`wbMapStyleMany`).
+  `tests/test_map_multi_select.py`; `bm1005-mapmulti.js` 10/10 in all four.
+- **596, the board's sidebar** (`b454b7b`): beside a side dock rather than over it
+  (`[data-wb-dock="side"]`), one height on a board and a map, the Library's
+  menu hung from its button's right edge, a map's rail Library, This map and
+  Outline (`WB_SIDE_TABS_BY_KIND`, `wbRenderSideMap`), and built-in
+  Templates (five board, seven map; `scripts/build_board_library.py`).
+  `tests/test_board_sidebar_596.py`, `tests/test_board_library.py`;
+  `bm1005-sidebar.js`: on the base 58,854px² of overlap, 341 against 443px,
+  the menu 20px left and 15px low, 0 templates; after, 0, 703 and 703, 0 and
+  4px, 5 and 7 templates placed by a drag (a press at 390).
+
 ## Moved from the plans, 2026-10-05 (wb-phase2: draw.io phase 2)
 
 From WHITEBOARD_PLAN (decisions 30 on) and the features audit's
@@ -42184,6 +42223,12 @@ record.)
      button; a separate boxed "Attach a link" button.) Placed: the Settings
      and popups design agent's queue (599), as the same recipe pass.
      Fixed 2026-10-05: the note edit form is one composition: one writing surface, tag chips, a category chip, a foot of Attach a link, Cancel and Save; boxed buttons 3 to 0, 554 to 507px tall at 390 (noteeditflow.js 6/6).
+
+617. **The owner, 2026-10-05, verbatim.** "on the mind map when selecting a
+     group of nodes, it defaults to the whiteboard selection and popup menus
+     and right click menus etc" (screenshots: the board's group box, its
+     right-click menu and its align/distribute bar on map topics). Placed:
+     the board and map agent, with 610.
 
 ## OPEN.md rows closed, 2026-10-05
 

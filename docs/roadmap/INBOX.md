@@ -104,12 +104,6 @@ with its owner named in the entry.
      entries, and the formatting toolbar looks really awkward when collapsed
      and the core concepts dropdown is completely out of place and badly
      designed". Placed: the design-rows agent, first.
-617. **The owner, 2026-10-05, verbatim.** "on the mind map when selecting a
-     group of nodes, it defaults to the whiteboard selection and popup menus
-     and right click menus etc" (screenshots: the board's group box, its
-     right-click menu and its align/distribute bar on map topics). Placed:
-     the board and map agent, with 610.
-
 618. **The owner, 2026-10-05, verbatim.** "do the top bar and bottom bar
      need a more modern and professional ui/ux redesign or adjustments at
      all or are they fine??" Recommendation taken: top bar polish (spaces

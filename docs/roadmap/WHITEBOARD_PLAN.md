@@ -976,27 +976,15 @@ catalogue, the library spec and the phased briefs these become.
 
 ## Placed from INBOX, 2026-10-05 (boardmap-1005)
 
-Held by the boardmap-1005 agent; the owner's words verbatim.
+Held by the boardmap-1005 agent; the built halves are in HISTORY.md
+("Moved from the plans, 2026-10-05 (boardmap-1005)"). Open:
 
-- INBOX 596. **The owner, 2026-10-05, verbatim.** "the dropdown menu from the
-  library is a little off position. the side dock of the bottom toolbar
-  in the whiteboard is ugly, poorly structured and designed and clashes
-  with the side panel. some skeleton loaders are missing like on the
-  dashboard. the height of this side bar changes on the whiteboard and
-  mindmap and I want mind map specific stuff in that sidebar too as half
-  of it is empty when on the mind map as it isnt applicable like with
-  layers and the element library. can you add preset whiteboard and mind
-  map templates that are draggable fromt he library??" (screenshots: the
-  Library panel's kebab menu sits low and left of its button; the board's
-  sidebar rail (library, format, layers, present) overlaps the tool dock's
-  left column; on a map the rail is a tall empty column with four icons.)
-  Placed: the next whiteboard agent, after the integration merges the
-  whiteboard phase 2 branch (same files).
-
-- INBOX 608. **The owner, 2026-10-05, verbatim.** "when I drag select off the
-  screen on the whiteboard and mind map and probably on other tabs, it
-  doesnt scroll down or up or the way I am dragging etc" (screenshot: a
-  marquee on a map running under the bottom toolbar). Placed: the board
-  and map agent (with 596, 607): edge auto-pan for marquee and item drags
-  on boards and maps, and edge auto-scroll for drag selection in lists
-  (Notes, Library) where a drag selects.
+- INBOX 596, the rest: "some skeleton loaders are missing like on the
+  dashboard" (not placed against a surface yet: the board's Library and
+  Notes tabs draw nothing while they load), and the side-docked tool column's
+  own layout (rows of one to four controls, centred; 173px wide on a board
+  and 225px on a map, where the layout select sets the width). At phone
+  width the open sidebar is a sheet over the board and covers the side
+  dock's collapsed picker (7,554px², the same on the base).
+- INBOX 608, the rest: edge auto-scroll for a drag selection in the lists
+  (Notes, Library) where a drag selects. Boards and maps are built.

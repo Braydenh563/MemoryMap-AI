@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Tests: the edit-embeds tests drain the shared job pool before and after each test (its dedupe key was shared by every test editing note 1), hold the embedder on its gate until released, and wait with 60 s ceilings.
 - Tests: the 5,000-entity merge-candidates speed check is measured in process CPU time, with the 1 s budget unchanged.
 - Tests: the extras install-history test polls for the history row, because the worker lowers the running flag a few statements before it records the row.
 - Tests: the relations cost test measures the 2k and 10k passes in process CPU time, so the five-times-the-notes, ten-times-the-time ratio no longer drifts with machine load.

@@ -2701,12 +2701,12 @@ function atlasDrawFigure(mood) {
   //: compositor, no layout and no paint (`.atl-layer-neb`, the CSS).
   //: `neb-front` (round 9) is the orbit's near half, over the rings, on
   //: the same drift so the two halves move as one ribbon.
-  const names = ["neb", "back", ...(spec.wisps ? ["wisps-back"] : []), "tail", ...(spec.tailWave ? ["tail-tip"] : []), ...(spec.lowers ? ["lower"] : []), ...(legs ? ["leg-l", "leg-r"] : []), "hair", "body", "lids", "front", "neb-front", ...(spec.wisps ? ["wisps", "glint-a", "glint-b"] : []), "fx-1", "fx-2"];
+  const names = ["neb", "back", ...(spec.wisps ? ["wisps-back"] : []), "tail", ...(spec.tailWave ? ["tail-tip"] : []), ...(spec.lowers ? ["lower"] : []), ...(legs ? ["leg-l", "leg-r"] : []), "hair", "body", "lidf-1", "lidf-2", "lids", "front", "neb-front", ...(spec.wisps ? ["wisps", "glint-a", "glint-b"] : []), "fx-1", "fx-2"];
   for (const name of names) {
     const legSide = name.startsWith("leg-") ? name.slice(4) : "";
     //: Her tail's tip half (`tailWave`) is a tail layer too, so every
     //: rule for the tail's root (its swish, its wag, the lean) moves both.
-    const also = name === "tail-tip" ? " atl-layer-tail" : legSide ? ` nmb-leg nmb-leg-${legSide}` : "";
+    const also = name === "tail-tip" ? " atl-layer-tail" : name.startsWith("lidf") ? " atl-layer-lids atl-layer-lidf" : legSide ? ` nmb-leg nmb-leg-${legSide}` : "";
     const svg = atlasMake("svg", { viewBox: "0 0 64 92", width: 64, height: 92, class: `nm-atlas atl atl-figure atl-layer atl-layer-${name}${also}`, "aria-hidden": "true", focusable: "false" });
     svg.dataset.nmSeed = "Atlas";
     svg.dataset.atlasLook = look;
@@ -2758,7 +2758,7 @@ function atlasDrawFigure(mood) {
       pose.style.transformOrigin = "32px 15px";
       pose.appendChild(svg);
       hairBox.appendChild(pose);
-    } else if (name === "lids" && frag.querySelector(".atl-lw-breathe")) frag.querySelector(".atl-lw-breathe").appendChild(svg);
+    } else if (name.startsWith("lid") && frag.querySelector(".atl-lw-breathe")) frag.querySelector(".atl-lw-breathe").appendChild(svg);
     else if (ATLAS_ROOT_BOXES.includes(name)) {
       const box = document.createElement("span");
       box.className = `atl-lw atl-lw-${name}`;
@@ -2799,6 +2799,10 @@ function atlasDrawFigure(mood) {
   const hairAt = atlasGroup(atlasGroup(headChain(layers.hair.rig), "atl-head", ATLAS_GEO.neck), "atl-sway", ATLAS_GEO.neck);
   atlasHead(host, id, "figure", look, hairAt);
   atlasLids(layers.lids.rig, look);
+  //: The blink's two in-between frames, the lid a third and two thirds of
+  //: the way down (`atlasBlink`).
+  atlasLids(layers["lidf-1"].rig, look, 0.38);
+  atlasLids(layers["lidf-2"].rig, look, 0.72);
   ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.front.rig, id, ring, k, true, true));
   atlasBand(layers["neb-front"].rig, id, "front", look);
   //: The head drew its extras in the body layer; the two that rise (the
@@ -2895,12 +2899,12 @@ function atlasOrbits() {
 //: the almond's own lower curve, with a fine lash line on that edge.
 //: Closed (no translate) it covers the eye exactly and the edge is the
 //: closed eye's line along its foot; open, it sits `ATLAS_LID_TRAVEL`
-//: above, wholly outside the clip. A blink (`atlasBlink`) slides it down
-//: and back; her two lashes ride the edge, pointing down and out, and
-//: fade in only as it closes. Nothing in this layer is a brow, so a blink
+//: above, wholly outside the clip; `shut` draws it part of the way down,
+//: the frames a blink (`atlasBlink`) shows in turn; her two lashes, down
+//: and out off the edge, only on the shut lid. Nothing in this layer is a brow, so a blink
 //: never touches the brows.
 const ATLAS_LID_TRAVEL = 8;
-function atlasLids(parent, look) {
+function atlasLids(parent, look, shut = 1) {
   const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
   const head = atlasGroup(parent, "atl-head atl-lids", ATLAS_GEO.neck);
   const id = `atl-${look}`;
@@ -2912,14 +2916,14 @@ function atlasLids(parent, look) {
     const edge = `M${ox} ${cy - 0.8}Q${cx + 0.2 * side} ${cy + 6.6} ${ix} ${cy + 0.2}`;
     const far = 2.4 * side;
     const clip = atlasMake("g", { "clip-path": `url(#${id}-lid${s})` }, eye);
-    const sweep = atlasMake("g", { class: "atl-lid-sweep" }, clip);
+    const sweep = atlasMake("g", shut < 1 ? { class: "atl-lid-sweep", transform: `translate(0 ${atlasFix(-(1 - shut) * ATLAS_LID_TRAVEL)})` } : { class: "atl-lid-sweep" }, clip);
     //: The lid wears the face's own paint, the skin and the head's rim
     //: shade, so no patch shows round a shut eye.
     const lidShape = `${edge}L${ix + far} ${cy + 0.2}L${ix + far} ${cy - 16}L${ox - far} ${cy - 16}L${ox - far} ${cy - 0.8}Z`;
     atlasMake("path", { class: "atl-skin", d: lidShape }, sweep);
     atlasMake("path", { class: "atl-overlay atl-rim-head", d: lidShape }, sweep);
     atlasMake("path", { class: "atl-lid-edge", d: edge }, sweep);
-    if (spec.lashes) {
+    if (spec.lashes && shut === 1) {
       //: Two lashes off the edge's outer third, down and out, as the doze
       //: line's lashes are.
       const lashes = atlasMake("g", { class: "atl-lid-lashes" }, eye);
@@ -2932,29 +2936,24 @@ function atlasLids(parent, look) {
   return head;
 }
 
-//: **One blink of a layered figure** (INBOX 540): the lids layer shown for
-//: the blink's length, each lid swept from open to closed over `close` ms
-//: (eased in, as a lid falls), held `hold` ms, and back over `open` ms
-//: (eased out). Three short animations on the layer and its lids; between
-//: blinks nothing in the layer animates.
-function atlasBlink(box, { close = 120, hold = 40, open = 160 } = {}) {
-  const lids = box.querySelector(".atl-layer-lids");
-  if (!lids || typeof lids.animate !== "function") return;
-  const ms = close + hold + open;
-  const a = close / ms;
-  const b = (close + hold) / ms;
-  const up = `0 ${-ATLAS_LID_TRAVEL}px`;
-  const shut = { duration: ms, id: "atl-blink" };
-  lids.animate([{ opacity: 1 }, { opacity: 1 }], shut);
-  const sweep = [
-    { offset: 0, translate: up, easing: "cubic-bezier(0.45, 0, 0.75, 0.9)" },
-    { offset: a, translate: "0 0", easing: "linear" },
-    { offset: b, translate: "0 0", easing: "cubic-bezier(0.2, 0.6, 0.35, 1)" },
-    { offset: 1, translate: up },
-  ];
-  for (const el of lids.querySelectorAll(".atl-lid-sweep")) el.animate(sweep, shut);
-  const lash = sweep.map((k, i) => ({ ...k, opacity: i === 1 || i === 2 ? 1 : 0 }));
-  for (const el of lids.querySelectorAll(".atl-lid-lashes")) el.animate(lash, shut);
+//: **One blink of a layered figure** (INBOX 540): the lid a third down,
+//: two thirds down, then shut, held, and back up through the same frames:
+//: 120ms down, 40 held, 160 up, or a drowsy 380, 520 and 520 (`slow`).
+//: Each frame is a root of its own (`lidf-1`, `lidf-2`, the lids), drawn
+//: whole, so only their opacity changes, by a CSS animation the class
+//: `atl-blinking` starts (`atl-blink-f1` and the rest, the CSS): the
+//: compositor runs it, and nothing is laid out or painted for a blink. A
+//: later frame lies over an earlier one and its skin covers the earlier
+//: lid's edge, so the frames stack as the lid comes down. Strokes never
+//: change width.
+function atlasBlink(box, slow = false) {
+  const roots = box.querySelectorAll(".atl-layer-lids");
+  if (!roots.length) return;
+  const cls = slow ? "atl-blinking-slow" : "atl-blinking";
+  for (const el of roots) el.classList.add(cls);
+  setTimeout(() => {
+    for (const el of roots) el.classList.remove(cls);
+  }, slow ? 1460 : 360);
 }
 
 //: **When the figures blink.** One clock for every layered figure on the
@@ -2964,24 +2963,29 @@ function atlasBlink(box, { close = 120, hold = 40, open = 160 } = {}) {
 //: Reduce motion or the system's (unless the companion is set to Always)
 //: and a hidden tab hold the eyes still: no idle loop runs there.
 let atlasBlinkTimer = 0;
+const atlasBlinkOpen = new Map();
 function atlasBlinkMay(box) {
   const root = document.documentElement;
   if (!box.isConnected || box.classList.contains("atl-off") || root.hasAttribute("data-atlas-hidden")) return false;
   if (root.dataset.avatarMotion === "off") return false;
   const reduced = root.dataset.motion === "reduced" || (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches);
   if (reduced && !(root.dataset.buddyMotion === "full" && box.closest("#nm-buddy"))) return false;
-  const lids = box.querySelector(".atl-layer-lids");
-  if (!lids || lids.getAnimations().length || box.hasAttribute("data-atl-moving")) return false;
+  const lids = box.querySelector(".atl-layer-lids:not(.atl-layer-lidf)");
+  const buddy = box.closest("#nm-buddy");
+  if (!lids || box.querySelector(".atl-blinking, .atl-blinking-slow") || box.hasAttribute("data-atl-moving") || buddy?.classList.contains("nmb-act-hide")) return false;
   //: A closed-eye mood, or an act that moves the head, sets the layer's
-  //: scale to 0 (the CSS): nothing to blink.
-  return getComputedStyle(lids).scale !== "0";
+  //: scale to 0 (the CSS): nothing to blink. Read once per mood and set
+  //: of classes, not every blink (each read makes the page restyle).
+  const key = `${box.dataset.atlasLook}|${box.dataset.atlasMood}|${buddy?.className || ""}`;
+  if (!atlasBlinkOpen.has(key)) atlasBlinkOpen.set(key, getComputedStyle(lids).scale !== "0");
+  return atlasBlinkOpen.get(key);
 }
 function atlasBlinkTick() {
   atlasBlinkTimer = 0;
   const boxes = [...document.querySelectorAll(".atl-figure-box")];
   for (const box of boxes) {
     if (!atlasBlinkMay(box)) continue;
-    if (box.closest(".nmb-drowsy")) atlasBlink(box, { close: 380, hold: 520, open: 520 });
+    if (box.closest(".nmb-drowsy")) atlasBlink(box, true);
     else {
       atlasBlink(box);
       if (Math.random() < 0.15) setTimeout(() => atlasBlinkMay(box) && atlasBlink(box), 420);

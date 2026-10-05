@@ -321,7 +321,8 @@ def test_drowsy_droops_softly_rather_than_staring():
     assert "--atl-ps: 0.8" in drowsy and "--atl-py: 1.6px" in drowsy
     assert '"atl-skin atl-lid-soft"' in ATLAS and ".nm-atlas .atl-lid-soft { opacity: var(--atl-softlid); }" in CSS
     # INBOX 540: the slow blink is the lid's own sweep, driven with the rest.
-    assert 'box.closest(".nmb-drowsy")) atlasBlink(box, { close: 380, hold: 520, open: 520 })' in ATLAS
+    assert 'box.closest(".nmb-drowsy")) atlasBlink(box, true)' in ATLAS
+    assert ".nm-atlas.atl-layer-lidf-1.atl-blinking-slow { animation: atl-blink-slow-f1 1420ms linear; }" in CSS
 
 
 def test_a_blink_is_a_lid_sweeping_down_not_a_patch_fading_in():
@@ -329,16 +330,23 @@ def test_a_blink_is_a_lid_sweeping_down_not_a_patch_fading_in():
     # has MASSSSIVE eyebrows", then "can you fix the female atlas blinking
     # animation??"): the lids layer faded in a 1.3x skin patch with a 1.8
     # ink arc across the eye's middle. Now a lid in the eye's own group,
-    # clipped to the eye, slides down (120ms, eased in), holds, and goes
-    # back up (160ms, eased out); only `translate` and opacity move, so no
-    # stroke changes width, and nothing in the layer is a brow.
+    # clipped to the eye, comes down (120ms), holds, and goes back up
+    # (160ms) through two in-between frames, each a root of its own whose
+    # opacity alone changes (the compositor's), so no stroke changes width,
+    # nothing is repainted, and nothing in the layer is a brow.
     lids = ATLAS[ATLAS.index("function atlasLids(") : ATLAS.index("function atlasBlink(")]
     assert '"atl-lid-shut' not in ATLAS and "atl-blink-lids" not in CSS and "atl-blink-heavy" not in CSS
     assert "`atl-eye atl-eye-${s} atl-lid-eye`" in lids and '"clip-path": `url(#${id}-lid${s})`' in lids
     assert 'class: "atl-lid-sweep"' in lids and 'class: "atl-lid-edge"' in lids and "brow" not in lids.split("//:")[-1]
     blink = ATLAS[ATLAS.index("function atlasBlink(") : ATLAS.index("let atlasBlinkTimer")]
-    assert "close = 120, hold = 40, open = 160" in blink
-    assert set(re.findall(r"\{ offset: [a-z0-9]+, ([a-z]+):", blink)) == {"translate"}
+    assert 'const cls = slow ? "atl-blinking-slow" : "atl-blinking";' in blink
+    for k in (1, 2, 3):
+        for name in (f"atl-blink-f{k}", f"atl-blink-slow-f{k}"):
+            body = _keyframes(name).split("{", 1)[1]
+            assert set(re.findall(r"([a-z-]+)\s*:", body)) == {"opacity"}, name
+    assert ".nm-atlas.atl-layer-lidf-1.atl-blinking { animation: atl-blink-f1 320ms linear; }" in CSS
+    assert '"hair", "body", "lidf-1", "lidf-2", "lids",' in ATLAS
+    assert "atlasLids(layers[\"lidf-1\"].rig, look, 0.38);" in ATLAS and "atlasLids(layers[\"lidf-2\"].rig, look, 0.72);" in ATLAS
     body = _keyframes("atl-lid-blink").split("{", 1)[1]
     assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"translate", "animation-timing-function"}
     assert "& .atl-blink.nm-blinks .atl-lid { animation: atl-lid-blink 9s" in CSS
@@ -1125,7 +1133,7 @@ def test_the_hair_and_her_tail_move_on_the_compositor():
     # a layer of its own whose box trails the body's sway; her tail is drawn
     # as a root half and a tip half whose box sways a quarter behind (the
     # wave runs tipward); none of it under reduced motion.
-    assert '"hair", "body", "lids",' in ATLAS and 'hairBox.className = "atl-lw atl-lw-hair";' in ATLAS
+    assert '"hair", "body", "lidf-1", "lidf-2", "lids",' in ATLAS and 'hairBox.className = "atl-lw atl-lw-hair";' in ATLAS
     assert 'tip.className = "atl-lw atl-lw-tip";' in ATLAS and "tailWave: { t: 0.5, zone: [0.42, 0.58] }," in _look("feminine")
     assert "& .atl-lw-tip { animation: atl-tail-wave 8.3s ease-in-out 2.1s infinite alternate; }" in CSS
     assert "& .atl-lw-tail { animation: atl-tail-flow 8.3s ease-in-out infinite alternate; }" in CSS

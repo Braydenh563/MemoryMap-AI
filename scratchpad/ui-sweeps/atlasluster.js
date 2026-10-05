@@ -570,11 +570,12 @@ async function blinkPart() {
           for (const a of box.getAnimations({ subtree: true })) { a.pause(); a.currentTime = 0; }
           await new Promise((r) => setTimeout(r, 700));
           for (const a of box.getAnimations({ subtree: true })) { a.pause(); a.currentTime = 0; }
-          const lids = fig.querySelector('.atl-layer-lids');
+          const lids = fig.querySelector('.atl-layer-lids:not(.atl-layer-lidf)');
           if (getComputedStyle(lids).scale === '0') return null;
           const ms = mood === 'drowsy' ? 1420 : 320;
-          atlasBlink(fig, mood === 'drowsy' ? { close: 380, hold: 520, open: 520 } : {});
-          const anims = box.getAnimations({ subtree: true }).filter((a) => a.id === 'atl-blink');
+          //: What `atlasBlink` does, without taking the class off after the blink.
+          for (const el of fig.querySelectorAll('.atl-layer-lids')) el.classList.add(mood === 'drowsy' ? 'atl-blinking-slow' : 'atl-blinking');
+          const anims = box.getAnimations({ subtree: true }).filter((a) => /^atl-blink-/.test(a.animationName));
           for (const a of anims) a.pause();
           const rect = (el) => { const b = el.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; };
           const width = (el) => parseFloat(getComputedStyle(el).strokeWidth) * Math.hypot(el.getScreenCTM().a, el.getScreenCTM().b);

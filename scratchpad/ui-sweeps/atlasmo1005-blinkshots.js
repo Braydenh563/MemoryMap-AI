@@ -43,9 +43,9 @@ const N = 11;
           holder.append(fig); box.append(holder); document.body.append(box);
           for (const a of box.getAnimations({ subtree: true })) a.pause();
           const opts = c === 'drowsy' ? { close: 380, hold: 520, open: 520 } : {};
-          atlasBlink(fig, opts);
+          for (const el of fig.querySelectorAll('.atl-layer-lids')) el.classList.add(c === 'drowsy' ? 'atl-blinking-slow' : 'atl-blinking');
           const ms = c === 'drowsy' ? 1420 : 320;
-          const anims = box.getAnimations({ subtree: true }).filter((a) => a.id === 'atl-blink');
+          const anims = box.getAnimations({ subtree: true }).filter((a) => /^atl-blink-/.test(a.animationName));
           for (const a of anims) { a.pause(); a.currentTime = (ms * f) / (N - 1); }
           window.__blk = `${Math.round((ms * f) / (N - 1))}ms ${anims.length}`;
         }

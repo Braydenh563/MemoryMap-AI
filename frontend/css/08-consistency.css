@@ -7537,6 +7537,21 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    over each eye, its lower edge the eye's own lower curve with a fine lash
    line on it, the closed eye's line once it is down. */
 .nm-atlas .atl-lid-edge { fill: none; stroke: var(--atl-line); stroke-width: 1.1; stroke-linecap: round; }
+/* A blink (atlas.js, `atlasBlink`): each frame of the lid shown from when
+   the lid reaches it on the way down until it passes it on the way up,
+   in and out over 12ms; opacity alone, the compositor's. */
+.nm-atlas.atl-layer-lidf-1.atl-blinking { animation: atl-blink-f1 320ms linear; }
+.nm-atlas.atl-layer-lidf-2.atl-blinking { animation: atl-blink-f2 320ms linear; }
+.nm-atlas.atl-layer-lids:not(.atl-layer-lidf).atl-blinking { animation: atl-blink-f3 320ms linear; }
+.nm-atlas.atl-layer-lidf-1.atl-blinking-slow { animation: atl-blink-slow-f1 1420ms linear; }
+.nm-atlas.atl-layer-lidf-2.atl-blinking-slow { animation: atl-blink-slow-f2 1420ms linear; }
+.nm-atlas.atl-layer-lids:not(.atl-layer-lidf).atl-blinking-slow { animation: atl-blink-slow-f3 1420ms linear; }
+@keyframes atl-blink-f1 { 0%, 0.75%, 93.75%, 100% { opacity: 0; } 4.5%, 90% { opacity: 1; } }
+@keyframes atl-blink-f2 { 0%, 13.13%, 76.25%, 100% { opacity: 0; } 16.88%, 72.5% { opacity: 1; } }
+@keyframes atl-blink-f3 { 0%, 26.25%, 61.25%, 100% { opacity: 0; } 30%, 57.5% { opacity: 1; } }
+@keyframes atl-blink-slow-f1 { 0%, 2.37%, 93.52%, 100% { opacity: 0; } 3.21%, 92.68% { opacity: 1; } }
+@keyframes atl-blink-slow-f2 { 0%, 11.2%, 80.7%, 100% { opacity: 0; } 12.04%, 79.86% { opacity: 1; } }
+@keyframes atl-blink-slow-f3 { 0%, 20.56%, 69.72%, 100% { opacity: 0; } 21.41%, 68.87% { opacity: 1; } }
 #nm-buddy.nmb-think .atl-layer-lids { rotate: 8deg; }
 /* An act that moves the head (a look, a yawn, the music bob) would leave
    a blink a few px off it; the lids sit the act out. */

@@ -59,11 +59,8 @@ Measured with `settingsheads.js`, `popupinv.js` (now with foot fields),
   link to 0 boxed (a quiet + per note, an icon in the foot); 554 to 507px
   tall at 390, and New note no longer floats over Save there. ce7481d.
 
-Left from this round: the Settings pane docks hold only title, index and
-'?'; a pane's own primary action (New persona, Add your own) still lives in
-its fold, not the dock (a per-pane design pass). Improve writing's foot
-buttons stay 32px under touch at 390 (pre-existing; its card is not a
-`.modal-overlay`, so the touch floor rule misses it, and the boot CSS budget
-has 5 bytes left). Not verified: the desktop window; a real tag-suggestion
+Left from this round, since done (design-rows-1005.md): a pane's New in
+its dock (Personas, Skills, Templates), and Improve writing's foot at the
+touch floor (06ef110). Not verified: the desktop window; a real tag-suggestion
 pick in the edit form (the suggest list arrives as "tag, " and commits, read
 from tag-suggest.js, not driven).

@@ -8915,6 +8915,13 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- Personas: who the AI is when it answers -->
           <section class="settings-section hidden" id="settings-personas">
+            <div class="dock settings-pane-title" data-dock-name="settings-personas">
+              <div class="dock-identity"><h3>Personas</h3></div>
+              <div class="dock-actions">
+                <button type="button" class="ghost small settings-pane-new" data-opens="persona-name"
+                  title="Write a new persona"><i class="ph ph-plus ph-lead" aria-hidden="true"></i><span class="pane-new-word">New persona</span></button>
+              </div>
+            </div>
             <p class="muted">A persona is Atlas's voice; pick the active one in the Chat tab.</p>
             <ul id="persona-list" class="entry-list"></ul>
             <div class="settings-group">
@@ -8978,6 +8985,11 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="dock settings-pane-title" data-dock-name="settings-skills">
               <div class="dock-identity"><h3>Skills</h3></div>
               <div class="dock-actions">
+                <!-- The pane's main action in its bar (design-rows-1005): opens
+                     Add your own, ends an edit, and puts the cursor in Name.
+                     A ghost: Add skill in the form is the page's filled one. -->
+                <button type="button" class="ghost small settings-pane-new" data-opens="skill-name" data-cancel="skill-cancel"
+                  title="Write a new skill"><i class="ph ph-plus ph-lead" aria-hidden="true"></i><span class="pane-new-word">New skill</span></button>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="settings-skills-help" aria-controls="settings-skills-help" aria-expanded="false"
                   title="About skills" aria-label="About skills">
@@ -9133,6 +9145,8 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="dock settings-pane-title" data-dock-name="settings-templates">
               <div class="dock-identity"><h3>Templates</h3></div>
               <div class="dock-actions">
+                <button type="button" class="ghost small settings-pane-new" data-opens="template-name" data-cancel="template-cancel"
+                  title="Write a new template"><i class="ph ph-plus ph-lead" aria-hidden="true"></i><span class="pane-new-word">New template</span></button>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="templates-help" aria-controls="templates-help" aria-expanded="false"
                   title="About templates" aria-label="About templates">

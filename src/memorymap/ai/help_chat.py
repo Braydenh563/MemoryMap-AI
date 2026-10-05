@@ -143,7 +143,7 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "Skills are one-click requests shown above the chat box (e.g. "
             "\"Summarise my week\"). Built-in skills ship with the app; add your "
-            "own in Settings -> Skills. A skill can use the AI's tools, so it "
+            "own in Settings -> Skills (New skill in the pane's bar opens the form). A skill can use the AI's tools, so it "
             "does the work rather than just describing it. A skill can also be "
             "a Markdown file saved in the skills folder that Settings -> Skills "
             "names; it is listed without a restart."
@@ -851,7 +851,8 @@ HELP_TOPICS.extend(
                 "A persona changes how Atlas talks, not what it knows: answers stay "
                 "grounded in your notes whichever one is active. Pick one in the "
                 "Chat tab; edit the built-ins or write your own in Settings, "
-                "Personas, where {ai_name} in your text becomes Atlas's name."
+                "Personas (New persona in the pane's bar), where {ai_name} in "
+                "your text becomes Atlas's name."
             ),
             "badge": {"label": "Personas", "section": "personas"},
         },
@@ -873,7 +874,7 @@ HELP_TOPICS.extend(
             "body": (
                 "Capture has templates: pick one from No template above the box and "
                 "the note starts with its outline. Save your own from Settings, "
-                "Templates, where Draft with Atlas writes a template from its name "
+                "Templates (New template in the pane's bar), where Draft with Atlas writes a template from its name "
                 "and one line (press it again for another version; nothing is saved "
                 "until you add it). The picker's Manage templates opens that page. A "
                 "new document offers its own gallery of templates too."

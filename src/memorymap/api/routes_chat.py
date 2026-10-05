@@ -56,7 +56,7 @@ from memorymap.ai.grounding import (
 )
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
-from memorymap.core import deps, docview
+from memorymap.core import deps, docview, model_gate
 from memorymap.core.database import (
     LIKE_ESCAPE,
     Attachment,
@@ -269,6 +269,11 @@ def chat_followups(body: FollowupBody) -> list[str]:
     turn is on screen and simply renders nothing if it comes back empty, which
     it does on every failure path, including the AI not running at all.
     """
+    if model_gate.busy():
+        # The person is already asking the next thing: a second model call
+        # now would put their question behind suggestions they can no longer
+        # use (audit ARCH-16).
+        return []
     return followups.suggest_followups(
         body.question,
         body.answer,
@@ -2185,10 +2190,19 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     # X-Accel-Buffering: no tells reverse proxies (nginx) not to buffer the
     # stream, so tokens reach the browser as they're produced.
     return StreamingResponse(
-        _stream_lines(req),
+        _interactive_lines(req),
         media_type="application/x-ndjson",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
+
+
+def _interactive_lines(req):  # noqa: ANN001, ANN202
+    """`_stream_lines`, marked as an interactive model call while it runs, so
+    background model work waits between its calls (`core/model_gate.py`,
+    ARCH-09). Entered on the first line, left when the stream ends or the
+    client goes: a generator closed early still runs its `finally`."""
+    with model_gate.interactive():
+        yield from _stream_lines(req)
 
 
 @router.get("/modes")

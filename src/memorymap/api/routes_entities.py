@@ -231,6 +231,12 @@ def undo_merge_route(undo_id: int, session: Session = Depends(get_session)) -> d
     try:
         back = undo_merge(session, undo_id)
     except MergeUndoError as exc:
-        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+        if exc.reason == "missing":
+            raise HTTPException(status_code=404, detail="That merge could not be found.") from exc
+        if exc.reason == "undone":
+            raise HTTPException(status_code=409, detail="That merge was already undone.") from exc
+        raise HTTPException(
+            status_code=409, detail="These names have changed since the merge, so it can't be undone."
+        ) from exc
     session.commit()
     return {"restored": back.id, "name": back.name}

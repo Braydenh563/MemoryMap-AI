@@ -1629,7 +1629,7 @@ def _prepare_turn(
     tier = size_tier(agent_model)
     persona = memory.persona_with_memory(session, persona_prompt)
 
-    system_chars = len(
+    system_chars = context.weighted_len(
         f"{persona} "
         f"{AGENT_GROUNDING} {tools_guide(window)}{librarian.length_hint(mode)}"
     )

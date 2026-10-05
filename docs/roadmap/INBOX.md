@@ -56,6 +56,7 @@ with its owner named in the entry.
 553. **The owner's decisions, 2026-10-05** (asked, answered; binding):
      (a) Entity merge gets Undo: snapshot both entities and their mentions
      before a merge, and Undo in the toast splits them back exactly.
+     Built 2026-10-05 (38debe1, `tests/test_entity_merge_undo.py`).
      (b) The undo histories of each board, map and document survive a
      reload (the last ~100 steps, stored; WHITEBOARD_PLAN decision 17 is
      amended).

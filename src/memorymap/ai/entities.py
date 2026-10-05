@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
+from memorymap.core import model_gate
 from memorymap.core.database import (
     ENTITY_KINDS,
     LIKE_ESCAPE,
@@ -244,11 +245,12 @@ def merge_with_undo(session: Session, keep: Entity, gone: Entity) -> tuple[int, 
 
 
 class MergeUndoError(Exception):
-    """Why an Undo cannot run: `status` is the HTTP status to answer with."""
+    """Why an Undo cannot run: `reason` is `missing`, `undone` or `changed`;
+    the route words each one."""
 
-    def __init__(self, status: int, message: str) -> None:
-        super().__init__(message)
-        self.status = status
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
 
 
 def undo_merge(session: Session, undo_id: int) -> Entity:
@@ -266,14 +268,14 @@ def undo_merge(session: Session, undo_id: int) -> Entity:
 
     row = session.get(AuditLog, undo_id)
     if row is None or row.action != MERGE_ACTION or not isinstance(row.payload, dict):
-        raise MergeUndoError(404, "That merge could not be found.")
+        raise MergeUndoError("missing")
     snapshot = dict(row.payload)
     if snapshot.get("undone"):
-        raise MergeUndoError(409, "That merge was already undone.")
+        raise MergeUndoError("undone")
     keep = session.get(Entity, snapshot["keep"]["id"])
     gone = session.get(Entity, snapshot["gone"]["id"])
     if keep is None or gone is None or gone.merged_into != keep.id:
-        raise MergeUndoError(409, "These names have changed since the merge, so it can't be undone.")
+        raise MergeUndoError("changed")
     for entity, state in ((keep, snapshot["keep"]), (gone, snapshot["gone"])):
         entity.name = state["name"]
         entity.kind = state["kind"]
@@ -348,6 +350,8 @@ def extract_entities_pass(
         try:
             found: list[tuple[str, str | None]] = []
             if len(content) >= MIN_CONTENT_LENGTH:
+                # A chat turn in flight goes first (ARCH-09).
+                model_gate.yield_to_interactive()
                 found = suggest_entities_with_kinds(content, model_manager, ollama)
             for name, kind in found:
                 entity = _find_or_create_entity(session, name, cache)

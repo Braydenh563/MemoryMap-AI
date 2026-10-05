@@ -81,7 +81,7 @@ The two paths that matter:
 
 ### Critical
 
-**ARCH-01. The night pass blocks every write for its whole run (NEW)**
+**ARCH-01. The night pass blocks every write for its whole run (NEW)** FIXED 5a25517
 - Evidence: `ai/facts.py:373-375` adds and flushes the `NightRun` row (an
   INSERT, so the connection holds SQLite's write lock), then per note calls
   `_narrow(provider, ...)` (a model call, `:404`) and later `_pair_passes`
@@ -105,7 +105,7 @@ The two paths that matter:
 
 ### High
 
-**ARCH-02. Every save does work proportional to the notebook (NEW)**
+**ARCH-02. Every save does work proportional to the notebook (NEW)** FIXED f7aa175 (4,300 to 390-615 ms at 5,000 notes under load 10-13; PUT still embeds on the request)
 - Measured at 5,000 notes, in-process (section 6): `POST /entries` 400 words
   **1,706 / 2,092 ms** (p50/p95), one line **930 / 1,474 ms**, `defer_filing`
   87 ms, `PUT /entries/{id}` **744 / 1,117 ms**. Seeding with 4 clients fell
@@ -125,7 +125,7 @@ The two paths that matter:
   `cached_similar_pairs` pattern); embed once per save and pass the vector.
   Gate: create p50 at 5,000 within 20% of create p50 at 500.
 
-**ARCH-03. `GET /search` returns notes from other spaces (NEW)**
+**ARCH-03. `GET /search` returns notes from other spaces (NEW)** FIXED f7aa175
 - Evidence: `routes_search.py:52-57` sets `space` only from the query string;
   `engine.search` filters its raw-SQL FTS candidates by `space` only when
   given (`engine.py:1044`, `:710`); the ORM space hook never sees raw SQL.
@@ -140,7 +140,7 @@ The two paths that matter:
   exclude `hidden_workspaces`; a two-space test.
 
 **ARCH-04. Every unlock downloads the whole notebook (KNOWN H7 / F12, the
-number is NEW)**
+number is NEW)** PARTLY FIXED 73fcd97 (server cursor; client switch is FE-05)
 - Measured (`bootnet.js`, Chromium, 5,000 notes): 55 API calls after unlock;
   **26 sequential `/entries?limit=200&offset=...` pages, 2,307 KB, 4,449 ms of
   request time**; `/entries/reference-counts` 1,060 ms; total 11.3 s of
@@ -155,7 +155,7 @@ number is NEW)**
   counts are server-side already); keyset cursor (`created_at,id`) instead of
   offset.
 
-**ARCH-05. "All spaces", the default, cannot use the list indexes (NEW)**
+**ARCH-05. "All spaces", the default, cannot use the list indexes (NEW)** FIXED 173ff35
 - Evidence: `activeSpaceId()` defaults to `"all"` (`spaces-find.js:298`);
   with "all" the hook adds no `workspace_id = ?`, and every composite index in
   `database._INDEXES` leads with `workspace_id`. EXPLAIN on the real
@@ -181,7 +181,7 @@ number is NEW)**
   The perf pass of 2026-10-03 measured with a space selected, which is why it
   missed this.
 
-**ARCH-06. Switching the chat backend turns semantic search off (NEW)**
+**ARCH-06. Switching the chat backend turns semantic search off (NEW)** FIXED f83ec98
 - Evidence: `deps.reload_llm_client` (`deps.py:260-273`), called by
   `POST /models/provider`, builds a new `EmbeddingService` with no warm-up,
   although the built-in sentence-transformers model never uses the chat
@@ -206,7 +206,7 @@ KNOWN `search-one-surface`)**
   when embeddings are ready; port the vocab correction into `_keyword_pass`.
 
 **ARCH-08. I7's filing consumer is claimed built and not wired (WRONGLY
-CLOSED)**
+CLOSED)** FIXED f7aa175
 - Evidence: `learning.centroid_excluded` (`learning.py:361`) and
   `learning.filing_evidence` (`:392`, 50 lines) have no caller in `src/`;
   `janitor.py` never imports `learning`. Only the model prompt gets corrections
@@ -251,7 +251,7 @@ CLOSED)**
 
 ### Medium
 
-**ARCH-11. Whole-notebook loads on routine endpoints (NEW)**
+**ARCH-11. Whole-notebook loads on routine endpoints (NEW)** PARTLY FIXED 38debe1 (`/suggestions` only)
 - 5,000 notes, p50/p95: `/suggestions` **1,234 / 2,377 ms** returning an
   empty list: `routes_inbox._visible` loads every note as a full ORM object to
   test membership (py-spy: 27% in that comprehension). `/library` 703 / 1,112
@@ -267,7 +267,7 @@ CLOSED)**
   is uncapped). Both with that caveat.
 - Fix (S each): ids-only `_visible`; top-k per note in `similar_pairs`.
 
-**ARCH-12. 422 has its own error shape and echoes input (NEW)**
+**ARCH-12. 422 has its own error shape and echoes input (NEW)** FIXED 73fcd97
 - No `RequestValidationError` handler. Measured: `POST /entries
   {"tags":"x"}` gives `{"detail":[{type, loc, msg, input}]}`, no `code`;
   `POST /auth/unlock {"password":["hunter2-secret"]}` echoes the password.
@@ -289,7 +289,7 @@ stated)**
 - Fix (M): response models for the 20 busiest routes; one paging helper; the
   lint keyed on "returns a list, or a dict holding one".
 
-**ARCH-14. `/graph` is 1.4 s and 2.4 MB at 5,000 notes (KNOWN H7, worse)**
+**ARCH-14. `/graph` is 1.4 s and 2.4 MB at 5,000 notes (KNOWN H7, worse)** PARTLY FIXED 73fcd97 (encoded off the loop; no payload cache)
 - p50 1,444 ms, p95 3,508 ms in-process; 667 ms and 234 KB gzipped in the
   browser. The plan recorded 600 ms. FastAPI serialises a sync route's dict on
   the event loop thread (py-spy: `serialize_response` under gzip), so a big
@@ -318,7 +318,7 @@ stated)**
   a filing job or a night-pass step for ten minutes each.
 - Fix (S): `timeout=(5, 600)` and one `requests.Session` per client.
 
-**ARCH-18. `/export/backup` is not a backup (NEW)**
+**ARCH-18. `/export/backup` is not a backup (NEW)** FIXED 73fcd97
 - `routes_settings.py:1993-2021` zips the live WAL-mode file with
   `zf.write` (no WAL, no backup API) and `media/` but not `uploads/`.
   Measured: 3 notes saved, zip taken: **5,000 entries in the zip, 5,003
@@ -329,7 +329,7 @@ stated)**
 - Fix (S): build the zip from `backup.backup_now`, add `uploads/`, or delete
   the route.
 
-**ARCH-19. Startup does maintenance before the port opens (NEW)**
+**ARCH-19. Startup does maintenance before the port opens (NEW)** FIXED 73fcd97
 - `create_app` runs the bin purge, event-log compaction and the daily backup
   synchronously (`app.py:791-821`), after `create_all`, column and index
   checks, the FTS check and Alembic (`database.py:1920-1934`). Measured: 4.45 s
@@ -338,7 +338,7 @@ stated)**
   serving.
 - Fix (S): enqueue purge, compaction and backup after startup.
 
-**ARCH-20. Lexical filing reads private notes' ciphertext (NEW)**
+**ARCH-20. Lexical filing reads private notes' ciphertext (NEW)** FIXED f7aa175
 - `lexical_filing.suggest_tags` and `_tally` have no `is_private` filter
   (`lexical_filing.py:186`); `janitor._knn_match` has one (`janitor.py:347`).
   Ciphertext tokens enter every save's TF-IDF, and private notes' tags vote.
@@ -359,15 +359,15 @@ regressed)**
   `routes_chat._stream_lines` 334; 24 functions over 150 lines.
 
 **ARCH-23. Offline-queue idempotency is a racy in-memory dict (KNOWN INBOX
-434 for restarts; the race is NEW)**
+434 for restarts; the race is NEW)** FIXED 73fcd97
 - `routes_entries.py:560-579`: check, create, remember; two concurrent resends
   with one `client_key` both create. A unique `client_key` column fixes both.
 
-**ARCH-24. Library activity ignores the query and the space (NEW)**
+**ARCH-24. Library activity ignores the query and the space (NEW)** FIXED 73fcd97
 - `/library?q=zebracorn` in "personal" returned 200 activity rows from every
   space (`_activity` takes no `q`; `audit_log` has no space).
 
-**ARCH-25. Small costs worth one line each (NEW)**
+**ARCH-25. Small costs worth one line each (NEW)** PARTLY FIXED 73fcd97 (/changelog off the loop; pool and restore not done)
 - `/changelog` 132 ms p50 per call (parsed per request).
 - `QueuePool` 5 + 10 with a 30 s timeout; a chat stream holds its session's
   connection for the whole stream (read).

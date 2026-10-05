@@ -57,7 +57,7 @@ import threading
 import time
 from collections.abc import Callable
 
-from memorymap.core import jobstore
+from memorymap.core import jobstore, model_gate
 
 logger = logging.getLogger("memorymap.jobs")
 
@@ -310,6 +310,10 @@ class Pool:
             try:
                 if job is None:
                     return
+                if lane == "model":
+                    # A chat turn in flight goes first (`core/model_gate.py`,
+                    # ARCH-09): the job stays queued until it is done.
+                    model_gate.yield_to_interactive(stop=self._stopping)
                 with self._lock:
                     self._queued.pop(job.seq, None)
                     if self._stopping.is_set():

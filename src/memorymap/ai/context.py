@@ -39,6 +39,36 @@ from dataclasses import dataclass
 
 CHARS_PER_TOKEN = 4
 
+#: **Four characters a token is English.** Chinese, Japanese and Korean run
+#: about one character a token (audit 2026-10-05, ARCH-15): a CJK notebook
+#: budgeted at four filled the window up to four times over, and Ollama then
+#: cuts from the front, which drops the system prompt and the grounding rule
+#: first. `weighted_len` counts each such character as a whole token's worth
+#: of characters, so every share below stays a share of the real window.
+_WIDE_RANGES = (
+    (0x1100, 0x11FF),  # Hangul Jamo
+    (0x2E80, 0x9FFF),  # CJK radicals, kana, CJK unified ideographs
+    (0xA960, 0xA97F),
+    (0xAC00, 0xD7AF),  # Hangul syllables
+    (0xF900, 0xFAFF),  # CJK compatibility ideographs
+    (0xFF00, 0xFFEF),  # full-width forms
+    (0x20000, 0x2FA1F),  # CJK extensions
+)
+
+
+def _wide(char: str) -> bool:
+    code = ord(char)
+    return code >= 0x1100 and any(low <= code <= high for low, high in _WIDE_RANGES)
+
+
+def weighted_len(text: str) -> int:
+    """`len(text)` with each CJK character counted as `CHARS_PER_TOKEN`
+    characters: what the budget below measures text in."""
+    if not text or text.isascii():
+        return len(text or "")
+    wide = sum(1 for char in text if _wide(char))
+    return len(text) + wide * (CHARS_PER_TOKEN - 1)
+
 # Room kept back for the answer itself. Ollama's num_ctx covers the prompt and
 # the response together, so a prompt that fills the window leaves the model
 # nowhere to reply: it stops mid-sentence, which reads as a crash rather than
@@ -164,7 +194,7 @@ def fit_notes(notes: list[dict], budget_chars: int, render) -> tuple[list[dict],
     kept: list[dict] = []
     spent = 0
     for note in notes:
-        cost = len(render(note)) + 40  # + the numbering and category wrapper
+        cost = weighted_len(render(note)) + 40  # + the numbering and category wrapper
         if kept and spent + cost > budget_chars:
             break
         kept.append(note)
@@ -185,7 +215,7 @@ def fit_history(messages: list[dict], budget_chars: int) -> list[dict]:
     kept: list[dict] = []
     spent = 0
     for pair in reversed(pairs):
-        cost = sum(len(m.get("content", "")) for m in pair)
+        cost = sum(weighted_len(m.get("content", "")) for m in pair)
         if kept and spent + cost > budget_chars:
             break
         kept = pair + kept

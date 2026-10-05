@@ -59,6 +59,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from memorymap.core import model_gate
 from memorymap.core.database import DerivedFact, Entry, utcnow
 from memorymap.core.logbuffer import safe_value
 
@@ -448,6 +449,7 @@ def run(
             if provider is not None and model and spent + cost <= budget:
                 spent += cost
                 _release(session)
+                model_gate.yield_to_interactive()
                 kept = _narrow(provider, model, content, proposed)
                 if kept is not None:
                     proposed = [item for i, item in enumerate(proposed) if i in kept]
@@ -831,6 +833,7 @@ def _pair_passes(
             found: tuple[str, str, float] | None = None
             if provider is not None and model:
                 _release(session)
+                model_gate.yield_to_interactive()
                 judged = _judge(provider, model, _JUDGE_TENSION, earlier.text, later.text)
                 if judged and judged[0] == "incompatible":
                     found = (model, judged[1], 0.7)
@@ -879,6 +882,7 @@ def _pair_passes(
             found = None
             if provider is not None and model:
                 _release(session)
+                model_gate.yield_to_interactive()
                 judged = _judge(provider, model, _JUDGE_ANSWER, question.text, claim.text)
                 if judged and judged[0] == "yes":
                     found = (model, judged[1], 0.7)

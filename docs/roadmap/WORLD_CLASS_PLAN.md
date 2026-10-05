@@ -547,6 +547,14 @@ the sandbox: keyword 0.6ms and hybrid 0.6ms on 5,000 entries (gates 50 and
 200), similarity for one note 18.0ms to 0.0ms. What is left is in
 `docs/roadmap/archive/agent-remaining/brief11-retrieval-engine.md`.
 
+**Corrected 2026-10-05 (audit ARCH-07, ARCH-03).** "Three signals" overstated
+recall: candidates came from the keyword pass alone, so cosine only re-ranked
+keyword hits (`horticulture`, `vegetable patch`, `gardn` all found nothing),
+the vocabulary typo fix was never reached from here, and `GET /search`
+ignored the active space. Now the matrix's nearest notes join the candidates,
+a word the notes never use is corrected once, and the session's space narrows
+the index read (`tests/test_search_recall.py`, `tests/test_search_spaces.py`).
+
 **Decisions made** (the three the plan had made differently, revised against
 the code and taken; the reasons are in HISTORY):
 
@@ -629,6 +637,8 @@ auth gate, and a `/capabilities` endpoint the UI reads once so features
 appear only when their backend is there (OCR, embeddings, TTS).
 
 **State 2026-09-24:** (b) the error shape exists, the schema is behind the unlock (`tests/test_openapi_gate.py`), and every list takes a `limit` (`tests/test_list_limits.py`). Not built: cursor pagination, ETags and `If-Match` on entries, and `/capabilities`. M.
+
+**Corrected 2026-10-05 (audit ARCH-12, ARCH-13, ARCH-04).** The error shape did not cover a request that failed validation: a 422 was FastAPI's own `{detail: [...]}` with no `code`, echoing the input (a password among them). It is one shape now (`tests/test_validation_error_shape.py`). "Every list takes a `limit`" holds only for functions named `list_*`, which is what the lint keys on: `/graph`, `/suggestions`, `/entries/link-suggestions`, `/documents/outline` and `/entries/query` are not covered (open). Cursor pagination exists for `GET /entries` (`after`, `X-Next-Cursor`; `tests/test_entries_keyset_paging.py`); the client still pages by offset (frontend audit FE-05).
 
 ### B8 Extensions
 
@@ -1257,7 +1267,7 @@ accuracy number equals the fixture's computed value.
 corrections improves by at least 10 points; search p95 unchanged. **Size**
 M. **Model** Opus for the prompt and fusion changes, Sonnet for the panel.
 
-**State 2026-09-24:** (b) the loop is built (`ai/learning.py`: corrections as `AuditLog` rows by decision, boosts with decay, the centroid exclusion, `open_after_ask`); the "Learned from you" line with a filing accuracy number is not in Settings. S.
+**State 2026-09-24:** (b) the loop is built (`ai/learning.py`: corrections as `AuditLog` rows by decision, boosts with decay, the centroid exclusion, `open_after_ask`). Corrected 2026-10-05 (audit ARCH-08): the centroid exclusion had no caller and the corrections query could not see the re-files `update_entry` records; both are wired now (`janitor._semantic_category`, `tests/test_save_cost_flat.py`); the "Learned from you" line with a filing accuracy number is not in Settings. S.
 
 ### I8 The model bench: which local model is best on *your* notebook
 
@@ -1478,6 +1488,15 @@ behind a feature flag. Not worth a session.
 and the rule is F4 above; the lag items: `semantic_search` (F3) is built 2026-09-24;
 `similar_pairs` for link suggestions and tensions is built 2026-09-24; the polls-to-SSE move is (d), superseded by F6's idle gate being met at 2
 requests a minute; the route-file sizes are a standing rule, not a row.
+
+**Corrected 2026-10-05 (audit ARCH-22, ARCH-10).** The split regressed:
+`agent._dispatch_call` is 448 lines, `run_agent` 439,
+`skill_runner._run_one_step` 425, `create_app` 336, `routes_chat._stream_lines`
+334, and 24 functions pass 150 lines (open). "No import cycles" counted
+`import` statements only; with the `importlib.import_module` edges the
+package's own comments use to step round the lint, there are three cycle
+groups, the largest fifteen modules. `tests/test_import_module_cycles.py` now
+counts those edges and holds both numbers as a ratchet (open: shrink them).
 
 ## Placed from INBOX, 2026-09-09
 
@@ -1798,7 +1817,7 @@ numbers go in the CHANGELOG with each step.
 | 900 lookups by `parent_id`, a note's board cards and its reminders, 5,000 notes, 4,000 cards, 1,500 reminders | 604 ms | 2.9 ms (six indexes in `_INDEXES`) |
 | a whole boot, unlock to settled, 500 notes (3 interleaved runs, median) | 1,378 ms, API time 3.1 s | 1,282 ms, API time 2.8 s |
 
-**Measured and left alone, with the number that says why.** SQLite pragmas: `cache_size` 64 MB and `mmap_size` 256 MB moved a scan of a 19 MB database from 3 to 2 ms and nothing else, against memory held per pooled connection, so they stay unset (WAL, `synchronous=NORMAL`, `busy_timeout`, `temp_store` are already set). Polling: an idle minute is 2 requests, the gate; the three `/models/status` and `/tasks` calls in the first seconds are the 1 s cadence while the filing model warms, by design. Listeners: `leaks.js` reads 0 listeners and about 20 nodes a round over five rounds of seven tabs. Layout: the whole boot spends 38 ms in layout and 51 ms in style recalculation, so the forced-layout reading `tabContentWidth` shows in a sampling profile is attribution, not cost. Batching the note cards' clamp checks into one read-then-write frame was tried and made no difference to typing in the search box (both about 150 ms of one layout over 12 keystrokes, interleaved), so it was taken back out. The three request pages of `/entries` at boot are the paging contract and the first paints at once.
+**Measured and left alone, with the number that says why.** SQLite pragmas: `cache_size` 64 MB and `mmap_size` 256 MB moved a scan of a 19 MB database from 3 to 2 ms and nothing else, against memory held per pooled connection, so they stay unset (WAL, `synchronous=NORMAL`, `busy_timeout`, `temp_store` are already set). Polling: an idle minute is 2 requests, the gate; the three `/models/status` and `/tasks` calls in the first seconds are the 1 s cadence while the filing model warms, by design. Listeners: `leaks.js` reads 0 listeners and about 20 nodes a round over five rounds of seven tabs. Layout: the whole boot spends 38 ms in layout and 51 ms in style recalculation, so the forced-layout reading `tabContentWidth` shows in a sampling profile is attribution, not cost. Batching the note cards' clamp checks into one read-then-write frame was tried and made no difference to typing in the search box (both about 150 ms of one layout over 12 keystrokes, interleaved), so it was taken back out. The three request pages of `/entries` at boot are the paging contract and the first paints at once. (Corrected 2026-10-05, audit ARCH-04: three pages was 500 notes; the loop reads until `X-Total-Count`, 26 pages and 2.3 MB at 5,000 notes. A keyset cursor exists server-side; the reader-by-reader client change is the frontend audit's FE-05.)
 
 **Found, not fixed.** The Graph tab's `GET /graph` is 600 ms and 2.5 MB at 5,000 notes (per-note dict building, two `readable_content` calls and a regex each; a payload cache keyed on `_graph_fingerprint` would need the vault and space state in the key). `p5.min.js` is the largest boot asset (247 KB on the wire, about 85 to 135 ms of parse and setup) and is still needed by the dashboard constellation and the emblem; porting those two to canvas 2D, as `bg-art.js` already was, removes it from boot. `enhanceAllSelects` wraps 99 `<select>`s at boot (about 50 ms), most inside Settings panes nobody has opened. Creating a note costs about 300 ms in this sandbox, all of it the embedding model.
 

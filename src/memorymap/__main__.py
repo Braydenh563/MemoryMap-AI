@@ -2509,7 +2509,20 @@ def main() -> None:
         _close_bootloader_splash()
         raise SystemExit(_reset_password())
     if args.reinstall:
-        _repair_install()
+        # **Not under a running copy.** The profile is the open window's
+        # live WebView2 folder: on Windows its files are locked, so
+        # `rmtree(ignore_errors=True)` deleted the unlocked half and left a
+        # profile that was neither the old one nor a fresh one, and the
+        # launch then only brought the running window forward. Quit first,
+        # then Repair, is the order that works, and the window says so.
+        state, _running = _existing_instance()
+        if state in ("live", "starting"):
+            print(
+                "MemoryMap is open, so its window cache is in use and was not "
+                "cleared. Quit it from the tray icon, then run Repair again."
+            )
+        else:
+            _repair_install()
     if args.desktop:
         _run_desktop(hidden_relaunch=args.hidden_relaunch)
     else:

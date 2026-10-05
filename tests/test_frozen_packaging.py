@@ -218,3 +218,34 @@ def test_the_smoke_knows_the_alembic_head():
     smoke = _smoke()
     head = smoke.alembic_head()
     assert re.fullmatch(r"[0-9a-f]{8,}", head)
+
+
+def test_repair_leaves_a_running_copys_window_profile_alone(tmp_path, monkeypatch):
+    """The Repair shortcut used to delete the window profile under the open
+    window, whose WebView2 holds those files locked on Windows: half a
+    profile, and the launch then only focused the running window."""
+    import sys
+    import types
+
+    from memorymap import __main__ as launcher
+
+    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    profile = tmp_path / "webview"
+    profile.mkdir()
+    (profile / "Local State").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["memorymap", "--reinstall"])
+    monkeypatch.setattr(launcher, "_existing_instance", lambda: ("live", types.SimpleNamespace(port=1)))
+    monkeypatch.setattr(launcher, "_run_server_holding_lock", lambda: None)
+    try:
+        launcher.main()
+    except SystemExit:
+        pass
+    kept = (profile / "Local State").is_file()
+    assert kept
+    monkeypatch.setattr(launcher, "_existing_instance", lambda: ("none", None))
+    try:
+        launcher.main()
+    except SystemExit:
+        pass
+    cleared = profile.exists()
+    assert not cleared

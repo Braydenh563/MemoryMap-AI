@@ -2197,6 +2197,9 @@ const LAZY_MODULES = {
   quickAccess: ["/js/quick-access.js"],
   //: The suggestions inbox (GRAPH_PLAN KG9): see suggestions-inbox.js.
   inbox: ["/js/suggestions-inbox.js", "/js/entity-page.js", "/js/link-types.js", "/js/note-properties.js"],
+  //: Landing on the feature a catalogue row names (2026-10-05, the gzip
+  //: budget): see reveal-targets.js.
+  reveal: ["/js/reveal-targets.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2417,6 +2420,10 @@ const LAZY_ENTRY_POINTS = {
     "importDocument",
   ],
   tagSuggest: ["openTagSuggest"],
+  //: Reached by a click on a catalogue row (the palette, Tools and features,
+  //: Quick access) and by the companion's setting; `async`, so the stand-in's
+  //: promise is the shape the real one returns.
+  reveal: ["revealFeature"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",

@@ -1002,7 +1002,7 @@ HELP_TOPICS.extend(
                 "map, starts one. Tab adds a child, Enter a sibling, and dragging a topic "
                 "onto another moves its whole branch. Right-click a topic for the "
                 "ring of actions, where Cross-link joins any two topics. View, How this "
-                "map looks sets its branch colours (classic, deep, soft or vivid), its "
+                "map looks sets its branch colours (eight palettes, classic first), its "
                 "font and the look every topic follows unless it was given its own; a "
                 "topic's pickers can still pull it back to the app's own default. "
                 "A topic's Add, From the library… points a new topic at a note, "

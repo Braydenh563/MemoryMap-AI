@@ -135,7 +135,7 @@ MAP_THEME_FIELDS: dict[str, frozenset | type] = {
     "edge_dashed": bool,
     "edge_width": frozenset({"thin", "thick"}),
     "edge_arrow": frozenset({"on", "off"}),
-    "palette": frozenset({"deep", "soft", "vivid"}),
+    "palette": frozenset({"deep", "soft", "vivid", "bold", "paired", "bright", "earth"}),
     "font": frozenset({"serif", "mono", "wide"}),
 }
 
@@ -1298,6 +1298,24 @@ MAP_BRANCH_PALETTES: dict[str, list[str]] = {
     "vivid": [
         "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
         "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
+    ],
+    #: The four added 2026-10-05 (§12.2 item 7: eight curated palettes).
+    #: Set1 without its yellow, Paired without its pale green, d3's
+    #: Observable10, and the dark ends of ColorBrewer's BrBG, PRGn and PiYG:
+    #: each colour at least 1.6:1 on white, so a 3px branch never vanishes
+    #: (`test_every_palette_colour_is_a_line_on_the_light_paper`).
+    "bold": ["#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00", "#a65628", "#f781bf", "#999999"],
+    "paired": [
+        "#1f78b4", "#33a02c", "#e31a1c", "#ff7f00", "#6a3d9a",
+        "#b15928", "#a6cee3", "#fb9a99", "#fdbf6f", "#cab2d6",
+    ],
+    "bright": [
+        "#4269d0", "#efb118", "#ff725c", "#6cc5b0", "#3ca951",
+        "#ff8ab7", "#a463f2", "#97bbf5", "#9c6b4e", "#9498a0",
+    ],
+    "earth": [
+        "#8c510a", "#35978f", "#762a83", "#c51b7d", "#4d9221",
+        "#bf812d", "#01665e", "#9970ab", "#b35806", "#542788",
     ],
 }
 

@@ -463,61 +463,10 @@ extended with the numbers named.
   2026-10-03): the toast's Undo and Ctrl+Z are the same entry, and the
   restore writes the whole row back, not only the text and colour.
 
-### 12.1 Phase 6a, the controls (1 session)
+### 12.1 Phase 6a, the controls
 
-1. **The map toolbar** (replaces the whiteboard rail on a map): Add
-   topic, Add sub-topic, Add sibling, Delete, Collapse/Expand branch,
-   Layout ▾, Style ▾ (theme, branch colours, line style), Insert ▾ (note
-   card, image, link, icon, boundary, summary, relationship), Arrange
-   (auto, tidy siblings, centre root), Focus, Present, Export ▾, and the
-   undo pair; seven visible at most, the rest in ▾ menus, per the dock
-   grammar. **Part of this is built**: the board-only sections (draw,
-   shapes, the free adds) are hidden on a map and the map's own Topic and
-   Branch sections carry add topic, add child, add sibling, collapse,
-   branch colour and focus; the layout picker and Tidy are still in the
-   top bar, and the Style, Insert, Arrange, Present and Export menus are
-   not written. See `agent-remaining/mindmap.md` for the measured numbers
-   and the rest of the list.
-2 to 9. **Built, 2026-09-12**: the node edit strip, the node radial, the
-   link radial, the mid-line add, the text-size grip, uncollapse, drag to
-   transplant and sever. Moved whole to HISTORY.md ("Moved from the plans,
-   2026-09-12", MINDMAP_PLAN.md §12.1 items 2 to 9); a plan holds open work
-   only. What is left of those eight, with the reason each was left:
-
-   - **An image in a node** (item 2's fourth) and **the control points on a
-     curve drag to reshape it** (item 5's third) were both built on
-     2026-09-21. Moved to HISTORY.md ("Moved from the plans, 2026-09-21",
-     MINDMAP_PLAN.md §12.1 items 2 and 5): a picture is `data.image`, a
-     `/media/upload` url, drawn as a second node shape (`data-body="picture"`,
-     measured 182x102 inside a 200x138 card, 12/12 in
-     `scratchpad/ui-sweeps/mindmapimage.js`); a bend is `edge_bend` and
-     `edge_slide` on the child, two fractions of the line's own length, with a
-     handle measured 0.2 to 0.4 board units off the path for all three line
-     shapes (14/14 in `scratchpad/ui-sweeps/mindmapcurve.js`).
-   - **Comment on a node** (item 3's sixth) is §12.2 item 6 and belongs
-     there, not here.
-   - **Line thickness** (item 4's "style") was not built: the three shapes
-     and the dash carry the distinction, and a fourth axis on a 2px line is
-     a setting nobody can see.
-   - **Shift+drag off a node to sever** (item 9's second gesture). Sever is
-     on both rings; the drag gesture would collide with drag-to-transplant,
-     which took the same pointer.
-
-Gate: every action reachable by strip, radial and key (mindmap.js counts
-the three routes per action); an empty map recreates a root; 0 console
-errors; export/import round-trip of a map using every feature.
-
-**The gate's round-trip half is met** (2026-09-12, sixth run): everything the
-strip and the two rings write is in the FreeMind and OPML exports and comes
-back through both imports, and the two rings stay inside the canvas at any
-viewport. The account, including which field each format has an honest home
-for and which ride as private attributes, is in HISTORY.md ("Moved from the
-plans, 2026-09-12", "what the sixth run closed behind items 2 to 9"). What is
-still open of §12.1 is item 1's four dock menus and the three sub-items above
-that are still open (the comment, which belongs to §12.2, line thickness, and
-the shift-drag sever).
-**Node shape is built too** (2026-09-12, same run): four shapes, decided in
-§12.0 and recorded in HISTORY with the rest.
+Closed 2026-10-05 (op5): moved whole to HISTORY.md ("Moved from the plans,
+2026-10-05 (MINDMAP_PLAN §12.1 closed, op5)").
 
 ### 12.2 Phase 6b, structure and richness (1 session)
 
@@ -525,8 +474,8 @@ the shift-drag sever).
    HISTORY.md, "Moved from the plans, 2026-10-05 (boundaries and
    summaries)"). A boundary round a lasso'd set that is not one branch is
    not built.
-3. **Relationships**: a cross-link between any two nodes with an arrow
-   and a label, curved, dashed by default so it reads as secondary.
+3. **Relationships**: built (§13c, the cross-link; HISTORY.md, op5's
+   §12.1 record).
 4. **Markers and task info**: priority 1 to 5, progress 0 to 100, flags,
    due date (a reminder can be created from it), a checkbox; filter the
    map by marker; the outline view shows them as columns. The checkbox and
@@ -541,7 +490,8 @@ the shift-drag sever).
 6. **Comments** (MindMeister): a thread per node, count marker. Built for
    topics and board items alike (WHITEBOARD_PLAN decision 17; HISTORY.md,
    "Moved from the plans, 2026-10-04 (comments)").
-7. **Multiple roots and floating topics**; **auto-colour by branch** as
+7. **Multiple roots and floating topics** (built: `wbMapAddRootAt`, `wbMapSever`);
+   **auto-colour by branch** as
    the default theme with eight curated palettes. Numbering is built
    (decision 17; HISTORY.md, "Moved from the plans, 2026-10-04").
 8. **Outline view**: built (decision 33; HISTORY.md, "Moved from the plans,
@@ -1480,18 +1430,9 @@ palette, font and the app's own default)", "the placed items of 2026-09-09").
 ## Placed from INBOX, 2026-09-09 (the owner's evening batch)
 
 The All list's kind test and the dock's wrap are built; moved to the same
-HISTORY.md record. Open:
-
-- "the boards and maps dashboard widget is ugly and needs fixing". Most of
-  what made it so is fixed (one renderer with the Library's card, a fixed
-  72x40 landscape box, no box-in-a-box, rows 51px, the body not scrolling:
-  measured 2026-10-04, 340x333 at 1440). What is left, measured: a tall map
-  draws its paper at the board's own shape (`mapPreview`'s rule, "the paper
-  is the board"), so a 25-topic tree-right map is a **20x40 sliver** in the
-  72x40 box and a 7-topic one 25x40, about a third of the box with the rest
-  empty to its left and right. Whether a row thumbnail may crop a tall map to
-  the box (breaking that rule) or the box goes square is a judgement for the
-  owner, not a measurement.
+HISTORY.md record.
+The dashboard widget's tall-map sliver is built (decision 30, `d873a3f`);
+moved to HISTORY.md with §12.1 (op5).
 
 ## Placed from INBOX, 2026-09-13
 

@@ -43870,3 +43870,95 @@ line against a real release (GitHub is not reachable from the sandbox).
 
 Measured: `tests/test_vision_rows_row11.py`. Not verified: a real local
 model filing under each style; the chart's PNG opened outside the app.
+
+## Moved from the plans, 2026-10-05 (MINDMAP_PLAN §12.1 closed, op5)
+
+Found built or decided, each checked in the code on 2026-10-05 (op5):
+
+- **Item 1, the map toolbar's menus**: superseded by §12.5's three surfaces
+  (ring, strip, dock) and decisions 16, 21, 25 and 33. Style is the View
+  menu's "How this map looks" (decision 10), Present is "Present branches"
+  (decision 21), Export is the board export dialog's three map formats,
+  layout and Tidy are the top bar's picker, Insert is decision 5's "nothing
+  added to the canvas". `mapviewmenu.js` 8/8 at 1440 (433px, 20 rows, under
+  the 450px ceiling).
+- **Line thickness**: built as `edge_width` (thin, normal, thick) in the
+  strip's line group (`WB_MAP_EDGE_WEIGHTS`, `mapline.js`).
+- **Comment on a node**: built (WHITEBOARD_PLAN decision 17).
+- **Shift+drag to sever**: not built on purpose; sever is on the ring and the
+  topic menu ("Cut this topic free of its parent", `wbMapSever`), and the
+  drag gesture belongs to drag-to-transplant.
+- **§12.2 item 3, relationships**: built as §13c's cross-link (arrow, label,
+  curve, dashed in the map's ink).
+- **The dashboard widget's tall-map sliver** (INBOX, 2026-09-09 evening
+  batch): built as decision 30 (`d873a3f`, `DASH_MAP_FEATURE` in
+  dash-boards.js: 96 to 168px for six topics or fewer, 320px otherwise).
+
+The text as it stood in the plan:
+
+#### MINDMAP_PLAN §12.1 Phase 6a, the controls (1 session)
+
+1. **The map toolbar** (replaces the whiteboard rail on a map): Add
+   topic, Add sub-topic, Add sibling, Delete, Collapse/Expand branch,
+   Layout ▾, Style ▾ (theme, branch colours, line style), Insert ▾ (note
+   card, image, link, icon, boundary, summary, relationship), Arrange
+   (auto, tidy siblings, centre root), Focus, Present, Export ▾, and the
+   undo pair; seven visible at most, the rest in ▾ menus, per the dock
+   grammar. **Part of this is built**: the board-only sections (draw,
+   shapes, the free adds) are hidden on a map and the map's own Topic and
+   Branch sections carry add topic, add child, add sibling, collapse,
+   branch colour and focus; the layout picker and Tidy are still in the
+   top bar, and the Style, Insert, Arrange, Present and Export menus are
+   not written. See `agent-remaining/mindmap.md` for the measured numbers
+   and the rest of the list.
+2 to 9. **Built, 2026-09-12**: the node edit strip, the node radial, the
+   link radial, the mid-line add, the text-size grip, uncollapse, drag to
+   transplant and sever. Moved whole to HISTORY.md ("Moved from the plans,
+   2026-09-12", MINDMAP_PLAN.md §12.1 items 2 to 9); a plan holds open work
+   only. What is left of those eight, with the reason each was left:
+
+   - **An image in a node** (item 2's fourth) and **the control points on a
+     curve drag to reshape it** (item 5's third) were both built on
+     2026-09-21. Moved to HISTORY.md ("Moved from the plans, 2026-09-21",
+     MINDMAP_PLAN.md §12.1 items 2 and 5): a picture is `data.image`, a
+     `/media/upload` url, drawn as a second node shape (`data-body="picture"`,
+     measured 182x102 inside a 200x138 card, 12/12 in
+     `scratchpad/ui-sweeps/mindmapimage.js`); a bend is `edge_bend` and
+     `edge_slide` on the child, two fractions of the line's own length, with a
+     handle measured 0.2 to 0.4 board units off the path for all three line
+     shapes (14/14 in `scratchpad/ui-sweeps/mindmapcurve.js`).
+   - **Comment on a node** (item 3's sixth) is §12.2 item 6 and belongs
+     there, not here.
+   - **Line thickness** (item 4's "style") was not built: the three shapes
+     and the dash carry the distinction, and a fourth axis on a 2px line is
+     a setting nobody can see.
+   - **Shift+drag off a node to sever** (item 9's second gesture). Sever is
+     on both rings; the drag gesture would collide with drag-to-transplant,
+     which took the same pointer.
+
+Gate: every action reachable by strip, radial and key (mindmap.js counts
+the three routes per action); an empty map recreates a root; 0 console
+errors; export/import round-trip of a map using every feature.
+
+**The gate's round-trip half is met** (2026-09-12, sixth run): everything the
+strip and the two rings write is in the FreeMind and OPML exports and comes
+back through both imports, and the two rings stay inside the canvas at any
+viewport. The account, including which field each format has an honest home
+for and which ride as private attributes, is in HISTORY.md ("Moved from the
+plans, 2026-09-12", "what the sixth run closed behind items 2 to 9"). What is
+still open of §12.1 is item 1's four dock menus and the three sub-items above
+that are still open (the comment, which belongs to §12.2, line thickness, and
+the shift-drag sever).
+**Node shape is built too** (2026-09-12, same run): four shapes, decided in
+§12.0 and recorded in HISTORY with the rest.
+
+- "the boards and maps dashboard widget is ugly and needs fixing". Most of
+  what made it so is fixed (one renderer with the Library's card, a fixed
+  72x40 landscape box, no box-in-a-box, rows 51px, the body not scrolling:
+  measured 2026-10-04, 340x333 at 1440). What is left, measured: a tall map
+  draws its paper at the board's own shape (`mapPreview`'s rule, "the paper
+  is the board"), so a 25-topic tree-right map is a **20x40 sliver** in the
+  72x40 box and a 7-topic one 25x40, about a third of the box with the rest
+  empty to its left and right. Whether a row thumbnail may crop a tall map to
+  the box (breaking that rule) or the box goes square is a judgement for the
+  owner, not a measurement.

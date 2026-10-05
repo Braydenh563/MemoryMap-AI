@@ -677,6 +677,7 @@ const WB_MAP_THEME_GROUPS = [
     fields: [
       { key: "palette", label: "Branch colours", kind: "select", options: [
         ["", "Classic"], ["deep", "Deep"], ["soft", "Soft"], ["vivid", "Vivid"],
+        ["bold", "Bold"], ["paired", "Paired"], ["bright", "Bright"], ["earth", "Earth"],
       ] },
       { key: "font", label: "Font", kind: "select", options: [
         ["", "The app's own"], ["serif", "Serif"], ["mono", "Monospace"], ["wide", "Wide sans"],

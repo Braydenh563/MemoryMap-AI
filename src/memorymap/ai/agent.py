@@ -1237,6 +1237,16 @@ AGENT_GROUNDING = (
 #: itself.
 _OUTSIDE_TOOLS = frozenset({"read_url", "web_search", "read_file", "search_files"})
 _OUTBOUND_TOOLS = frozenset({"read_url", "web_search"})
+#: **What parks once the turn is tainted** (SEC-02, audit 2026-10-05): every
+#: tool that reaches out *and* every tool that writes. Outbound alone left
+#: the slower attack open: a page that cannot send the notebook anywhere
+#: this turn could still plant a note or rewrite a saved skill (`save_skill`
+#: replaces a skill's tool list in place) so that a later, clean turn does
+#: the sending. Taint also comes from the notebook itself now: a note
+#: clipped from the web or brought in by an import, and an imported
+#: document, are text from outside however they reach the model (a tool
+#: result's `from_outside`, or a retrieved note's, see `run_agent`).
+_PARK_WHEN_TAINTED = _OUTBOUND_TOOLS | frozenset(_WRITE_TOOLS)
 
 
 def build_agent_messages(
@@ -2240,7 +2250,7 @@ def _dispatch_call(
             return False
         yield handover
         return True
-    elif spec is not None and (spec.destructive or (state.tainted and name in _OUTBOUND_TOOLS)) and state.parked.get(name, 0) >= MAX_PARKED_CONFIRMS:
+    elif spec is not None and (spec.destructive or (state.tainted and name in _PARK_WHEN_TAINTED)) and state.parked.get(name, 0) >= MAX_PARKED_CONFIRMS:
         # **A destructive tool cannot paper the turn with confirm
         # cards.** Parking one hands the model `AWAITING_CONFIRMATION`
         # rather than a result, which is honest but is not a *stop*:
@@ -2269,7 +2279,7 @@ def _dispatch_call(
             "ok": False,
             "error": result["error"],
         }
-    elif spec is not None and (spec.destructive or (state.tainted and name in _OUTBOUND_TOOLS)):
+    elif spec is not None and (spec.destructive or (state.tainted and name in _PARK_WHEN_TAINTED)):
         # Park it for the user, never auto-run a destructive tool, nor a
         # tool that reaches out once the turn has read from outside.
         # The confirm card is the honest signal, so count it as an
@@ -2389,6 +2399,11 @@ def _dispatch_call(
         result = tools.execute_tool(
             session, name, arguments, context_tokens=plan.window, model=plan.agent_model
         )
+        # SEC-02: the result carries a clipped or imported note's words (or an
+        # imported document's): from here on the turn is tainted, exactly as
+        # after a web read. Popped: the flag is for this loop, not the model.
+        if isinstance(result, dict) and result.pop("from_outside", False):
+            state.outside = True
         # What changed, and the call that would put it back. Popped
         # rather than read: `undo` is for the user, and every field
         # left in the result is resent to the model on every later
@@ -2623,6 +2638,10 @@ def run_agent(
     focused_only = plan.focused_only
     composition_tokens = plan.composition_tokens
     state = _TurnState(messages=plan.messages, offered=plan.offered)
+    # SEC-02: a note retrieved for the question that was clipped from the web
+    # or imported is already in the prompt, so the turn starts tainted.
+    if any(isinstance(n, dict) and n.get("from_outside") for n in notes or ()):
+        state.outside = True
 
     # Granted, then earned: see `_prepare_turn` for the two caps.
     granted, ceiling = plan.granted, plan.ceiling

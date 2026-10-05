@@ -18,7 +18,7 @@ from memorymap.core.database import Entry
 from memorymap.entry import manager
 from memorymap.entry.properties import strip as strip_properties
 
-from ._common import DEFAULT_LIST_LIMIT, PREVIEW_CHARS, ToolError, _clip, _limit_arg, _require_note
+from ._common import DEFAULT_LIST_LIMIT, PREVIEW_CHARS, ToolError, _clip, _limit_arg, _require_note, mark_outside
 
 def _whiteboard_board_filter(model, board_id: int | None):
     """Same rule `routes_whiteboard.py`'s own `_board_filter` uses: `== None`
@@ -193,6 +193,8 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
         # `_require_note` gives every other read.
         if entry.is_private:
             return "(private note: not available to the AI)"
+        if manager.came_from_outside(entry):
+            mark_outside()  # SEC-02: a clipped or imported note's words
         return _clip(strip_properties(entry.content).lstrip(), PREVIEW_CHARS)
 
     cards = [
@@ -278,6 +280,8 @@ def _search_whiteboard(session: Session, args: dict) -> dict:
         # report back to the model regardless. Same guard as `_read_whiteboard`'s
         # `_card_preview` above.
         if entry is not None and not entry.is_private and term in entry.content.lower():
+            if manager.came_from_outside(entry):
+                mark_outside()  # SEC-02
             matches.append({
                 "board_id": node.board_id,
                 "card_id": node.id,

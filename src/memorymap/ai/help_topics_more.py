@@ -125,7 +125,9 @@ MORE_TOPICS: list[dict] = [
         "body": (
             "Settings, Tools it can use lists the actions Atlas may take in "
             "Agent mode; turn one off and it is never offered. Destructive "
-            "actions always ask you first. How many are offered at once: Only "
+            "actions always ask you first, and once Atlas has read a web page, "
+            "a file, or a note clipped or imported from outside, every change "
+            "and every web request asks too. How many are offered at once: Only "
             "what the message needs (the default) or Always send all of them, "
             "if Atlas ever misses a tool you asked for. Small model mode offers "
             "a small model one tool at a time (Auto decides from the model's "

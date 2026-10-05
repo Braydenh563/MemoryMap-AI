@@ -10,6 +10,8 @@ below). Versioning is `0.x` while the app stabilises.
 ### Security
 
 - Other devices: `--reset-password` turns "Allow other devices on this network" off, the launcher listens on this computer only while no password is set, and a request that arrives from the network before a password exists is refused (403), however the server was started; before, a reset with the switch on reopened the whole notebook to the network with no password (SEC-01, audit 2026-10-05). The help says the traffic is plain http, for networks you trust (SEC-08).
+- Agent mode: a note clipped from the web or brought in by an import, and an imported document, now count as text from outside, like a web page: once a turn has read one (by a tool, or because it was retrieved for the question), every change to the notebook (edit, create, save a skill, set a reminder, rename) and every web request waits for your confirm, and the card says what it will do; before, only destructive tools and web requests after a web search asked, so a clipped page could steer the agent into rewriting a skill or a note unasked (SEC-02, audit 2026-10-05).
+- Private notes: making a note private now merges the search index so none of its words stay in the database file or its write-ahead log, and every backup and the Export backup zip is a cleaned snapshot, which also strips words an older version left behind; before, a private note's vocabulary (a PIN, a place) was readable with strings in every backup (SEC-03, audit 2026-10-05). The Export backup zip also stops missing changes still in the write-ahead log.
 
 ### Changed
 

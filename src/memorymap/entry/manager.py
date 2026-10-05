@@ -2360,6 +2360,42 @@ def _reassign(session: Session, from_id: int, to_id: int) -> int:
     return len(entries)
 
 
+# --- where a note's words came from (SEC-02) ----------------------------------
+
+
+def came_from_outside(entry: Entry) -> bool:
+    """Whether this note's text was written by somebody other than the person:
+    clipped from a web page (`source_url`) or brought in by an import
+    (`source_path`, set by the folder, markdown and document importers).
+
+    The agent's injection guard reads this (audit 2026-10-05, SEC-02): a page
+    clipped into a note and read back later is the same untrusted text a web
+    search returns, so it taints the turn the same way. Derived from columns
+    every clipped and imported note already has, so no row needs migrating.
+    """
+    return bool(getattr(entry, "source_url", None)) or bool(getattr(entry, "source_path", None))
+
+
+def document_came_from_outside(session: Session, document_id: int) -> bool:
+    """A document made by importing a file (the "imported" event its import
+    logged), as opposed to one written here. Events are never deleted
+    (`events.compact` strips payloads, not rows), so the answer lasts."""
+    from memorymap.core.database import AuditLog
+
+    return (
+        session.scalar(
+            select(AuditLog.id)
+            .where(
+                AuditLog.entity_type == "document",
+                AuditLog.entity_id == document_id,
+                AuditLog.action == "imported",
+            )
+            .limit(1)
+        )
+        is not None
+    )
+
+
 # --- private notes -----------------------------------------------------------
 # Encryption lives behind these two helpers so every read and write goes
 # through the same place. Scattering encrypt/decrypt calls across the routes is
@@ -2763,6 +2799,10 @@ def set_private(session: Session, entry: Entry, private: bool) -> bool:
         return False
 
     if private:
+        # SEC-03: zero what this transaction frees (the plaintext row's old
+        # cell, its search rows), not just unlink it. Per connection, and only
+        # on this path; `scrub_private_leftovers` finishes the job after commit.
+        session.connection().exec_driver_sql("PRAGMA secure_delete=ON")
         if not crypto.is_encrypted(entry.content):
             entry.content = crypto.encrypt(key, entry.content)
         entry.is_private = True
@@ -2815,6 +2855,34 @@ def set_private(session: Session, entry: Entry, private: bool) -> bool:
         payload={"after": {"content": entry.content, "is_private": bool(private)}},
     )
     return True
+
+
+def scrub_private_leftovers(session: Session) -> None:
+    """After a note is made private and committed: no word of it left in the
+    file (SEC-03, security audit 2026-10-05).
+
+    `set_private` removes the note's search rows, but FTS5 keeps a deleted
+    row's tokens in its segment blobs behind a delete marker, so a PIN or a
+    place name from a private note stayed readable with `strings` in the
+    database, every backup and the export zip. This merges both FTS tables
+    (`optimize`) with `secure_delete` on, so the freed pages are zeroed, and
+    then truncates the WAL, whose old frames still hold the plaintext pages.
+    The checkpoint is best effort: a reader holding a snapshot can stop it
+    from finishing, and the next one takes it the rest of the way.
+    """
+    from memorymap.core.backup import optimize_fts
+
+    connection = session.connection()
+    connection.exec_driver_sql("PRAGMA secure_delete=ON")
+    optimize_fts(connection)
+    session.commit()
+    raw = session.get_bind().raw_connection()
+    try:
+        raw.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    except Exception:  # noqa: BLE001  # best effort, see the docstring
+        logging.getLogger("memorymap.entries").warning("could not checkpoint after making a note private", exc_info=True)
+    finally:
+        raw.close()
 
 
 # --- [[wiki links]] ----------------------------------------------------------

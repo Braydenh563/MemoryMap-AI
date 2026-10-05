@@ -2825,6 +2825,10 @@ def set_entry_privacy(
     #: KG4: a private note has no property index; a public one gets it back.
     manager.reindex_properties(session, entry)
     session.commit()
+    if body.private:
+        # SEC-03: the note's words out of the search index's segments and the
+        # WAL too, not only out of the answers.
+        manager.scrub_private_leftovers(session)
     session.refresh(entry)
     return _to_out(session, entry)
 

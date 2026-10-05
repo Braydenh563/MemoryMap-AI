@@ -42911,6 +42911,21 @@ record.)
      fine, maybe a bit more of a gap below the top row title and close
      button". Placed: the design-rows agent, after 618.
 
+601. **The owner, 2026-10-05, verbatim.** "on atlas can you make the tail
+     seem more integrated with the body instead of just coming out from the
+     butt?? make it smooth and biological. also add more movement and
+     variation to the tail position, behaviour, movement, same with the
+     celestial rings and planets on it which dont move or look different,
+     and the astral swirl around each could have a bit of movement or subtle
+     animation as well. also I want to be able to double tab the drag to
+     resize circle on the companion to reset it to default size." Placed:
+     the Atlas agent slot, with 600.
+     **Fixed (op3-1005).** Body, rings, swirls and the resize reset landed
+     with 600 and 612; the last of it, the tail held still: atlas601-tail.js,
+     stepped at 60fps over 60s, longest tip spell within 0.75px 1,100 to
+     400ms (masculine), 650 to 150ms (feminine); real time 588 and 474ms at
+     8 to 11fps (850 and 501ms before on a quiet run).
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

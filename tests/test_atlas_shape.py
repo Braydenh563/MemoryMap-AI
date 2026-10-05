@@ -1312,3 +1312,21 @@ def test_each_prop_has_a_small_motion_of_its_own_about_its_grip():
     assert "atlasPropsFrame(box, live, tail.tick);" in ATLAS
     # Under the system's reduced motion the bell's ring holds still too.
     assert "#nm-buddy .nmp-bell { animation: none !important; }" in CSS
+
+
+def test_the_living_tail_varies_each_behaviour_and_is_never_held_still():
+    """INBOX 601: atlas601-tail.js read the tip held within 0.75px for 850ms
+    on a quiet machine; the owner asked for more variation. Each behaviour
+    taken up jitters its swing, speed, curl and wave count about the table,
+    and a third ripple on its own clock (1.73s) keeps the two main waves
+    from reaching their turning points with nothing else moving."""
+    life = (ROOT / "frontend" / "js" / "atlas-life.js").read_text(encoding="utf-8")
+    pick = life[life.index("function atlasTailPick"):life.index("function atlasTailFrame")]
+    for k in ("curl:", "amp:", "period:", "k:"):
+        assert k in pick.split("tail.goal = {")[1].split("};")[0]
+    assert "Math.random()" in pick.split("tail.goal = {")[1].split("};")[0] or "jit(" in pick
+    frame = life[life.index("function atlasTailFrame"):life.index("function atlasTailDraw")]
+    assert "tail.goal ||" in frame
+    assert "tail.ph3 +=" in frame and "/ 1.73" in frame
+    bend = life[life.index("function atlasTailBend"):life.index("function atlasTailShape")]
+    assert "ph3" in bend

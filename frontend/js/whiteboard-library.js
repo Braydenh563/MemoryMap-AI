@@ -156,6 +156,14 @@ function wbRenderSideMap() {
 // --- loading -------------------------------------------------------------------
 
 async function wbLoadLibrary({ force = false } = {}) {
+  //: **A first open waits on skeletons, not on nothing** (INBOX 596, the
+  //: owner: "some skeleton loaders are missing like on the dashboard"): the
+  //: index and each set are fetched before a tile is drawn, and the list sat
+  //: empty the whole while. `showSkeletons` draws only into an empty list, so
+  //: a reopen keeps the tiles it has; `wbRenderLibrary` clears them.
+  if (!wbLibState.lib || force || (wbLibState.lib.sets || []).some((s) => s.key !== "icons" && !wbLibSets.has(s.key))) {
+    showSkeletons(document.getElementById("wb-lib-list"), 6);
+  }
   if (!wbLibState.lib || force) {
     try {
       wbLibState.lib = await apiJson("/board-library");
@@ -430,6 +438,7 @@ function wbRenderLibrary() {
   };
   const active = list.querySelector(".wb-lib-tile.is-active")?.dataset.ref;
   const hadFocus = list.contains(document.activeElement);
+  clearSkeletons(list);
   list.replaceChildren();
   const map = wbIsMap();
   if (words.length) {

@@ -96,3 +96,18 @@ def test_the_side_column_is_one_width_and_one_grid_and_a_phone_has_no_side():
     band = band[: band.index("#wb-tools-opener {")]
     assert '.whiteboard-floating-panel.bottom-center[data-dock="side"] {\n    inset: auto 0 0;' in band
     assert "#wb-dock-toggle {\n    display: none;" in band
+
+
+def test_the_library_and_notes_tabs_wait_on_skeletons():
+    """596, the rest: "some skeleton loaders are missing like on the
+    dashboard". The Library's first open drew nothing until its index and
+    sets came (bm1005-sidebar.js, the index held 1.5s: 0 skeletons before,
+    6 after); the Notes tab drew an empty list before the notebook's first
+    page. Both draw `showSkeletons` and clear them when the list lands."""
+    load = _body("whiteboard-library.js", "wbLoadLibrary")
+    assert load.index("showSkeletons(") < load.index('apiJson("/board-library")')
+    render = _body("whiteboard-library.js", "wbRenderLibrary")
+    assert render.index("clearSkeletons(list)") < render.index("list.replaceChildren()")
+    notes = _body("whiteboard.js", "renderWbLibrary")
+    assert "if (!entriesEverLoaded)" in notes and 'showSkeletons(list, 5, "li")' in notes
+    assert "entriesEverLoaded && renderWbLibrary()" in notes

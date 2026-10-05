@@ -25,6 +25,8 @@ const { boot } = require('./lib.js');
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.click('[data-tab="library"]');
+  // The Library opens on its last sub-tab, which another sweep may have moved.
+  await page.evaluate(() => document.querySelector('#library-subtabs [data-target="library-view-whiteboard"]')?.click());
   await page.waitForFunction(() => ['initWhiteboard', 'wbOpenSidebar', 'wbMapTidyFresh'].every((f) => typeof window[f] === 'function'), null, { timeout: 15000 });
   const made = await page.evaluate(async () => {
     await initWhiteboard();
@@ -43,6 +45,20 @@ const { boot } = require('./lib.js');
   const overlap = (a, b) => (a && b ? Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l)) * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t)) : 0);
   // DOCK=side: the tool dock docked as a column on the left (Board, the
   // dock toggle), the "side dock" the owner's screenshot shows.
+  // (7) the Library's first open, its index held back 1.5s: skeletons in
+  // the list while it waits (not an empty panel), tiles after.
+  {
+    await page.evaluate(async (id) => { await openWhiteboardBoard(id); wbCloseSidebar(); wbLibState.lib = null; wbLibSets.clear(); document.getElementById('wb-lib-list').replaceChildren(); }, made.board);
+    await page.route('**/board-library', async (route) => { await new Promise((r) => setTimeout(r, 1500)); await route.continue(); });
+    await page.evaluate(() => wbOpenSidebar('library', { focus: false }));
+    await page.waitForTimeout(300);
+    const wait = await page.evaluate(() => { const l = document.getElementById('wb-lib-list'); return { sk: l.querySelectorAll(':scope > .skeleton').length, busy: l.getAttribute('aria-busy'), h: Math.round(l.querySelector('.skeleton')?.getBoundingClientRect().height || 0) }; });
+    await page.waitForTimeout(2500);
+    const after = await page.evaluate(() => { const l = document.getElementById('wb-lib-list'); return { sk: l.querySelectorAll('.skeleton').length, tiles: l.querySelectorAll('.wb-lib-tile').length, busy: l.getAttribute('aria-busy') }; });
+    await page.unroute('**/board-library');
+    console.log(`library first open: waiting ${wait.sk} skeletons (${wait.h}px, busy ${wait.busy}), then ${after.tiles} tiles, ${after.sk} skeletons left, busy ${after.busy} ${wait.sk && wait.busy === 'true' && after.tiles && !after.sk && after.busy === null ? 'PASS' : 'FAIL'}`);
+    await page.evaluate(() => wbCloseSidebar());
+  }
   const dock = process.env.DOCK || 'bottom';
   await page.evaluate((dock) => {
     const panel = document.getElementById('wb-tools-panel');

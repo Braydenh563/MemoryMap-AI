@@ -483,6 +483,16 @@ The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section
 
 ## Moved from the plans, 2026-10-05 (op3-1005)
 
+- WHITEBOARD_PLAN, INBOX 596's skeletons. Built: `wbLoadLibrary` draws
+  six `showSkeletons` into an empty list before the index and its sets
+  arrive, `wbRenderLibrary` clears them; the Notes tab (`renderWbLibrary`)
+  draws five before the notebook's first page and renders once it lands.
+  Measured with `bm1005-sidebar.js` (check 7, the index held 1.5s): 0
+  skeletons before, 6 (51px, `aria-busy`) after, then 51 tiles and none
+  left, at 1440 light and 390 dark. The Notes half is read, not measured
+  (the boot loads the notebook before a board can open).
+  `tests/test_board_sidebar_596.py`.
+
 - CHAT_PLAN, OPEN.md triage. The placed lists (72, 63, 71, 45) were already
   struck and moved by earlier passes; checked, nothing left. The question
   hover row: hung `calc(100% + 2px)` under its bubble, a 25px row in a 13px

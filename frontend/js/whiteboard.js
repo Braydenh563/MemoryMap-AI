@@ -13738,6 +13738,16 @@ async function initWhiteboard() {
 
 function renderWbLibrary() {
   const list = document.getElementById("wb-library-list");
+  //: Before the notebook's first page has come (a board opened straight
+  //: from a link at start), skeletons, then the list once it lands (INBOX
+  //: 596); never an empty panel that reads as "no notes".
+  if (!entriesEverLoaded) {
+    list.replaceChildren();
+    showSkeletons(list, 5, "li");
+    loadEntries().catch(() => {}).then(() => entriesEverLoaded && renderWbLibrary());
+    return;
+  }
+  clearSkeletons(list);
   list.innerHTML = "";
   for (const entry of allEntries) {
     const li = document.createElement("li");

@@ -12241,6 +12241,12 @@ async function initWhiteboard() {
       wbZoomToFit();
       return;
     }
+    //: Alt+1 to 9 on a map: show that many levels (`wbMapFoldToLevel`).
+    if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && /^Digit[1-9]$/.test(e.code) && wbIsMap()) {
+      e.preventDefault();
+      wbMapFoldToLevel(Number(e.code.slice(5)));
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "g") {
       e.preventDefault();
       wbUngroupSelection();
@@ -19170,7 +19176,7 @@ document.addEventListener("click", (event) => {
 //: `wbMapTransplant` keeps its own entry (it knows where a drag began), so
 //: what it calls is not recorded twice.
 const WB_RECORDED = [
-  "wbMapSetTheme", "wbMapClearEveryTopic", "wbMapSetNumbered", "wbMapExpandAll", "wbMapAddChild",
+  "wbMapSetTheme", "wbMapClearEveryTopic", "wbMapSetNumbered", "wbMapExpandAll", "wbMapFoldToLevel", "wbMapAddChild",
   "wbMapAddRootAt", "wbMapAddReference", "wbMapDuplicateTopic", "wbMapClearToOneTopic",
   "wbMapToggleCollapse", "wbMapCopyBranch", "wbMapRemoveKeepingBranch", "wbMapSever",
   "wbMapReverseCrossLink", "wbMapCrossLinkToBranch", "wbMapCutCrossLink", "wbMapReverseEdge",

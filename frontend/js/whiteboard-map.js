@@ -2352,6 +2352,41 @@ async function wbMapExpandAll() {
   toast(`Opened ${folded.length} branch${folded.length === 1 ? "" : "es"}.`);
 }
 
+//: **Fold to a level** (the features audit, Phase D: "fold-to-level (Alt+1
+//: to 9)"; XMind's and MindNode's "show levels"). Alt+N leaves the first N
+//: levels of every trunk open and folds each topic at level N that has a
+//: branch under it, so a map of two hundred topics reads as its outline at
+//: one press and opens a level at a time. Level 1 is the trunks alone. Only
+//: the topics whose fold changes are saved, and the whole press is one Undo
+//: step (`WB_RECORDED`, whiteboard.js).
+async function wbMapFoldToLevel(level) {
+  if (!wbIsMap()) return;
+  const want = Math.max(1, Math.min(9, Math.round(Number(level) || 1)));
+  const index = wbMapIndex();
+  const changed = [];
+  const seen = new Set();
+  const stack = index.roots.map((root) => [root, 1]);
+  while (stack.length) {
+    const [node, depth] = stack.pop();
+    if (seen.has(node.id)) continue;
+    seen.add(node.id);
+    const kids = index.childrenOf.get(node.id) || [];
+    for (const child of kids) stack.push([child, depth + 1]);
+    if (!kids.length) continue;
+    const fold = depth >= want;
+    if (Boolean(node.data?.collapsed) !== fold) {
+      node.data = { ...node.data, collapsed: fold };
+      changed.push(node);
+    }
+  }
+  for (const node of changed) await wbSaveObject(node);
+  if (changed.length) {
+    renderWhiteboardNow();
+    wbSyncMapToolState();
+  }
+  toast(want === 1 ? "Showing the trunks only." : `Showing ${want} levels.`);
+}
+
 //: --- drag a branch onto a new parent (MINDMAP_PLAN.md §12.1 item 8) --------
 //:
 //: Three things, and they are one gesture: dragging a topic takes its branch
@@ -4103,6 +4138,7 @@ function mapPaletteCommands() {
   row("This map", "ph:plus-circle Add a top-level topic", () => wbMapAddChild(null));
   row("This map", "ph:broom Tidy the map", () => wbMapTidy());
   row("This map", "ph:arrows-out-simple Open every folded branch", () => wbMapExpandAll());
+  row("This map", "ph:list-dashes Show two levels", () => wbMapFoldToLevel(2), "Alt+2");
   if (wbMapFocusState) {
     row("This map", "ph:x-circle Show the whole map again", () => wbMapClearFocus());
   }

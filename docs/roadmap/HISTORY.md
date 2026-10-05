@@ -483,6 +483,18 @@ The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section
 
 ## Moved from the plans, 2026-10-05 (op3-1005)
 
+- The features audit's Phase D, fold-to-level (Alt+1 to 9). Built:
+  `wbMapFoldToLevel` (whiteboard-map.js) folds every topic at the level
+  that has a branch under it and opens the shallower ones, saving only the
+  changed folds, one Undo step (`WB_RECORDED`); Alt and a digit on a map,
+  palette rows for levels 1 to 3, a "Show two levels" row in the topic menu,
+  the keys sheet and the Guide's mind map keys. Measured with
+  `bm1005-mapmulti.js` check 5 (Centre, four children, one grandchild):
+  Alt+1 shows 1 topic, Alt+2 5, Alt+3 all 6, and one Ctrl+Z after Alt+1
+  leaves 0 folded, at 1440 light and 390 dark. `tests/test_wb_commands.py`.
+  Still open from Phase D: editing in the Outline tab, M1's latency gate and
+  the strip's doors (the mind map agent's).
+
 - WHITEBOARD_PLAN, INBOX 608's list half ("edge auto-scroll for a drag
   selection in the lists where a drag selects"). Read at head: no list
   selects by dragging. notes-list.js, selection.js and library.js have no

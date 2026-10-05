@@ -257,27 +257,25 @@ def test_the_panels_quit_stops_a_queued_reading(client, kinds):
 
 def test_the_stream_sends_a_change(client, kinds, monkeypatch):
     """With a window open, a job recorded after the first snapshot arrives
-    as a second `jobs` event. The record is triggered by the first snapshot
-    itself, not by a clock, so a loaded machine cannot reorder the two."""
+    as a second `jobs` event. The record is made by the first snapshot
+    itself, right after it has read its rows, so no clock is involved: a
+    0.2 s timer here once fired after the 2.5 s window closed on a loaded CI
+    runner (one event, "retry: 3000", py3.12, 2026-10-05)."""
     db = deps.get_db()
     seen = jobstore.version()
     original = jobstore.list_jobs
-    timers: list[threading.Timer] = []
+    calls: list[int] = []
 
     def first_then_record(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
         rows = original(*args, **kwargs)
-        if not timers:
-            timer = threading.Timer(
-                0.2, jobstore.record, args=("ocr", (8, Path("/late.png")), {}), kwargs={"name": "late.png", "db": db}
-            )
-            timers.append(timer)
-            timer.start()
+        if not calls:
+            calls.append(1)
+            jobstore.record("ocr", (8, Path("/late.png")), {}, name="late.png", db=db)
         return rows
 
     monkeypatch.setattr(jobstore, "list_jobs", first_then_record)
     with client.stream("GET", "/jobs/stream", params={"seconds": 2.5}) as response:
         body = "".join(response.iter_text())
-    timers[0].join()
     assert jobstore.version() > seen
     events = body.split("event: jobs")[1:]
     assert len(events) >= 2, body

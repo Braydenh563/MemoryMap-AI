@@ -150,7 +150,16 @@ with its owner named in the entry.
      modern and professional ui/ux redesign (the note edit form)"
      (screenshot of the 606 form: boxed title band, a heavy mixed toolbar,
      big chips with a doubled #, a floating category select, large Related
-     rows, big Cancel and Save). Placed: the design-rows agent, first.
+     rows, big Cancel and Save). Then: "the note edit form attach a link
+     button doesnt do anything" and "there is no padding around the tag
+     entries, and the formatting toolbar looks really awkward when collapsed
+     and the core concepts dropdown is completely out of place and badly
+     designed". Placed: the design-rows agent, first.
+617. **The owner, 2026-10-05, verbatim.** "on the mind map when selecting a
+     group of nodes, it defaults to the whiteboard selection and popup menus
+     and right click menus etc" (screenshots: the board's group box, its
+     right-click menu and its align/distribute bar on map topics). Placed:
+     the board and map agent, with 610.
 
 ## Placed (last 20, newest first)
 

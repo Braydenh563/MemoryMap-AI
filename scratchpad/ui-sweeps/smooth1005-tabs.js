@@ -96,7 +96,7 @@ function report(name, d, want) {
   for (const pass of [1, 2]) {
     for (const tab of tabs) await step(`tab ${tab}${pass === 1 ? ' (first)' : ''}`, null, () => page.click(`#tab-bar button[data-tab="${tab}"]`), pass === 1 ? 1600 : 700, `tab-${tab}`);
   }
-  await page.click('#tab-bar button[data-tab="dashboard"]'); await page.waitForTimeout(400);
+  await page.evaluate(() => switchTab('dashboard')); await page.waitForTimeout(400);
   await step('settings open', '#settings-modal .modal-card, #settings-modal > *', () => page.evaluate(() => openSettingsModal()), 700);
   await page.keyboard.press('Escape'); await page.waitForTimeout(300);
   await step('palette open', '#palette-overlay:not(.hidden) > *', () => page.evaluate(() => openPalette()), 600);
@@ -107,7 +107,7 @@ function report(name, d, want) {
   await page.keyboard.press('Escape'); await page.waitForTimeout(300);
   // Sub-tabs: every visible role=tab strip inside the Notes and Library pages.
   for (const tab of ['notes', 'library']) {
-    await page.click(`#tab-bar button[data-tab="${tab}"]`); await page.waitForTimeout(700);
+    await page.evaluate((t) => switchTab(t), tab); await page.waitForTimeout(700);
     const subs = await page.$$eval(`#tab-${tab} [role="tablist"] [role="tab"]`, (b) => b.filter((x) => x.offsetParent && !x.classList.contains('active') && x.getAttribute('aria-selected') !== 'true').slice(0, 4).map((x) => x.id || x.dataset.view || x.textContent.trim()));
     for (const s of subs) {
       await step(`${tab} sub ${s}`, null, () => page.evaluate(([t, s]) => { const b = [...document.querySelectorAll(`#tab-${t} [role="tablist"] [role="tab"]`)].find((x) => (x.id || x.dataset.view || x.textContent.trim()) === s); b && b.click(); }, [tab, s]), 800);

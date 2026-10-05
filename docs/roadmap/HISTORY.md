@@ -41255,6 +41255,12 @@ The two cheap additions the plan's research section named (decisions 11 to
      once over a drawn first tab (the splash had cut, never faded, and
      stayed in the page); visible layout shift at boot 0.073 (sign-in off)
      and 0.025 (after the password) to 0.
+     Then (ffccc03) on a notebook of 300 notes the dashboard's widgets
+     moved for a second as each filled (0.12 after the curtain, 0.26 on
+     every revisit): the grid now waits unseen for them, 1.2s at most, and
+     fades in; the curtain waits on the same promise. 1440 and 390, light
+     and dark, reduced motion: visible boot CLS 0, the head's largest
+     frame-to-frame change under 1%.
 580. **The owner, 2026-10-05, verbatim.** "the atlas companion and app in
      general is ever so slightly laggy. I think opening pages and between ui
      views like tabs, pages, popups, features like the graph etc need to be

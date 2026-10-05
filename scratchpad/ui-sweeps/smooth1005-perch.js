@@ -64,7 +64,7 @@ const SUPPORTED = () => {
   const tabs = await page.$$eval('#tab-bar button[data-tab]', (b) => b.filter((x) => x.offsetParent).map((x) => x.dataset.tab));
   for (const tab of tabs) await step(`tab ${tab}`, () => page.click(`#tab-bar button[data-tab="${tab}"]`));
   for (const tab of ['notes', 'library']) {
-    await page.click(`#tab-bar button[data-tab="${tab}"]`); await page.waitForTimeout(600);
+    await page.evaluate((t) => switchTab(t), tab); await page.waitForTimeout(600);
     const subs = await page.$$eval(`#tab-${tab} [role="tablist"] [role="tab"]`, (b) => b.filter((x) => x.offsetParent).map((x) => x.textContent.trim()).slice(0, 6));
     for (const s of subs) await step(`${tab} sub ${s}`, () => page.evaluate(([t, s]) => [...document.querySelectorAll(`#tab-${t} [role="tablist"] [role="tab"]`)].find((x) => x.textContent.trim() === s)?.click(), [tab, s]));
   }

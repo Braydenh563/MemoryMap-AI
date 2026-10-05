@@ -178,6 +178,18 @@ Literal colours are still correct in exactly one place: the sketch palette,
 where the hex value *is* the data, and the accent presets, which are
 definitions.
 
+**A field and a track** (decided 2026-10-05, op4-1005, OPEN.md consistency
+and docks). A text field's fill, `--field-inset`, is a recess; a `.seg`
+track's, `--chip-bg`, is a tint. They are two tones in both themes, the field
+the deeper: dark draws the field in black (0.28) and the track in white
+(0.08); light had both at `rgba(31, 36, 48, 0.07)`, so a dock's search field
+and the segment beside it read as one material. Light's field is 0.10 now,
+the light `--border`'s weight and one step deeper than every light palette's
+chip tint (0.05 to 0.08). Measured: `contrast.js` at 1440 and 390, light, the
+same one finding before and after (a "Built-in" tag in Settings, Skills, at
+4.27:1 at both values). Lint: `tests/test_style_scale.py`
+(`test_a_field_is_deeper_than_a_track_in_both_themes`).
+
 ### Elevation: `--shadow-sm`, `--shadow-md`, `--shadow-lg`
 
 ```
@@ -199,6 +211,24 @@ already themed). Two literal shadows remain on purpose: the lightbox image's
 would be wrong there) and the accent-glow on the CTA button family, which
 carries the user's chosen accent colour via `color-mix()` rather than the
 neutral elevation scale, a coloured glow, not a depth cue.
+
+**What the shadow slider means** (decided 2026-10-05, op4-1005, OPEN.md
+visual-c). Settings, Appearance's shadow strength runs 0 to 50% in 5% steps
+and means strength from none (0%) through the look as it ships (5%, the
+default) to the strongest each theme's ink usefully draws (50%), every step
+moving every layer and none of them opaque before the top. Two derived
+halves, each 0 to 1, carry it: `--shadow-low` (0% to the default) and
+`--shadow-t` (the default to 50%); a layer is `calc(base * var(--shadow-low)
++ rise * var(--shadow-t))`, base its value at the default and base + rise at
+most 1 (dark's layers reach 0.9, light's `--shadow-lg` 0.75, light's
+`--shadow-sm` and `--glass-shadow` stay the slider itself). Before: dark's
+layers were 7 to 11 times the slider and opaque from 9 to 14%, light's
+`--shadow-lg` from 35%, and all twenty palettes' `--glass-shadow` (the
+default palette's included) were literals the slider never reached, so
+`--shadow-md` did not move at all. Measured (a probe at every step, light and
+dark): every layer rises at every step, and 5% reads exactly what it did.
+Lint: `tests/test_style_scale.py`
+(`test_the_shadow_slider_reaches_every_layer_and_none_clamps`).
 
 ### Motion: `--motion-fast`, `--motion-base`, `--motion-slow`
 
@@ -577,6 +607,7 @@ this table and its lint in the same commit as the feature, never after.
 | A bar of actions for the things you have selected | `.library-contextbar.selectbar`: the count first, every action inside one `.library-contextbar-end` group, and `position: sticky` at `--selectbar-top` so the bar stays with you while the selection lasts. The ground is the accent tint stacked over `--modal-bg-opaque`, never the tint alone: a 14% wash reads right at rest and turns into a window once the list scrolls under it | `tests/test_ui_recipes.py`, `scratchpad/ui-sweeps/selstick.js` |
 | Two versions of the same text, and what changed between them | `docRenderDiff(host, ops)` over `docDiffLines` in documents.js: one `.doc-diff-line` per line inside the app's `.diff-viewer` box, a marker column so every line starts on one edge, unchanged runs counted in a `.doc-diff-gap` rather than printed, `.diff-added` / `.diff-removed` for the ink (the same two colours the chat's before/after card uses), and a `.doc-diff-hunk-head` per change where a change can be kept or skipped. One builder: the history dialog and the AI edit panel are the same object at two moments, and a second builder is how they would come to disagree about what a change is | `tests/test_document_diff.py` |
 | Empty state | `.empty-state` with one sentence and one action | |
+| An empty line in a small panel (a short list with nothing in it, in a glance panel, a Settings section or a sidebar group) | `p.muted.empty-line` (07-whiteboard-misc.css): one sentence, `--muted`, `--text-md`, start-aligned, `margin: var(--space-3) 0`, no icon; at most one inline ghost action after it. `.empty-state`, a centred block with 2rem of padding, is for a surface whose whole content area is empty; in a 384px panel it pushes the panel's own controls apart. Decided 2026-10-05 (op4-1005, OPEN.md visual-c): fourteen such lines drew in four type sizes (11.2 to 14.72px) and five margins; the agent panel's line, already on `--text-md`, became the recipe. A heading's hint rule in Settings does not pull an empty line up under the heading (`:not(.empty-line)`) | `tests/test_ui_recipes.py` (every `<p id="...-empty">` is one of the two recipes, or named in a list that only shrinks) |
 | A mark generated from a name (a persona, the person) | `nameMark(seed, size)` in app.js: deterministic from the name, drawn as SVG from the categorical palette, never fetched. A persona's goes through `fillPersonaMark`; an assistant reply in the chat draws its writer's (saved per turn) through `paintPersonaAvatar`, which keeps the live emblem for the app's own voice. **The person's** is seeded by `userMarkSeed()` (the profile's display name, or "You"), and its holder carries `data-user-mark="<size>"` so `paintUserMarks()` redraws every one of them at once when the preferences arrive or are saved: the chat's own bubbles (`.msg-user-mark`), the Settings head and the profile's head (`.profile-mark`). Never a `ph-user` glyph, an `<img>` or a second builder | `tests/test_ui_recipes.py` |
 | A notice: one line the app says about what is on screen (the search index is stale, this answer is mostly the model) | `.notice`, with `.notice-warn` for something worth doubting (08-consistency.css). An icon from the vendored set as its first child, through `setLabel`, then one short line. A notice annotates what is beside it; an error is a toast, help is `data-help-for`, and `.empty-state` replaces content rather than annotating it. Two tones and no more, because a third needs a rule for when to use it. Neither tone uses a warn *fill*: a filled band over an answer reads as a failed answer, and an answer with less behind it than usual is not a failure. Added 2026-09-21 with CHAT_PLAN Phase 1's low-support line, which was the second surface to need one; the first, `.reindex-stale`, was built inline and now uses this | `tests/test_ui_recipes.py` |
 | A chart answering a question (a count or a trend over the notebook) | `renderAskChart` in ask-chart.js: one `.ask-chart` card above the answer it belongs to, a head of the title (what was counted, over what), a quiet total and Save as PNG, then the SVG (bars for a category or a tag, a line for time) and the same numbers as a `<table>` in a "The numbers" fold. Every mark takes its colour from a class (`.ask-chart-bar`, `.ask-chart-line`, `.ask-chart-grid`, `.ask-chart-axis`) over the theme's tokens, never a hex in the script, so both themes hold; the PNG writes the resolved colours onto a copy. The SVG is `role="img"` with a label pointing at the table, which is what a screen reader reads. The numbers come from the records (`POST /charts/question`), never from the model | `tests/test_vision_rows_row11.py` |
@@ -1345,6 +1376,18 @@ uses them, and `tests/test_ux1005_copy.py` holds the first of them as a lint.
 | Notes, Ask: an answer quoted from your notes | **Ask** | "Ask AI" for a no-model surface |
 | The tool-calling assistant over any tab (the status bar's wand, Ctrl+Shift+A) | **Agent** | "Ask" |
 | The app's own help assistant | **Atlas** or **the Guide** | "the agent" |
+
+## Two columns of reading: the Ask results grid
+
+Decided 2026-10-05 (op4-1005, OPEN.md ask-head-ocr). A panel that holds
+prose to read, an answer beside its sources, is two columns only from 1100
+(UI_MODERNISATION_PLAN Phase 9's band, where the sidebar opens) and one
+column below it. Measured (`#chat-results` with two columns): each half was
+262px at 820, 360 at 1024 and 397 at 1099, 30 to 45 characters a line, and
+the answer's head ellipsised a model id; from 1100 a half is 363 to 529px.
+The breakpoint is `@media (max-width: 1099.98px)` on `.chat-grid`
+(01-forms-settings.css), on the Phase 9 set `tests/test_breakpoints.py`
+holds. A future two-column reading surface takes the same band.
 
 ## Hit targets: `--target-min`
 

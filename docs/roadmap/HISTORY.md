@@ -7,6 +7,36 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## OPEN.md rows closed, 2026-10-05 (op4-1005: four design rows)
+
+Each decided, recorded in DESIGN.md, built and linted by op4-1005: the field and the track (DESIGN.md Colour, "A field and a track"; light --field-inset 0.07 to 0.10), the empty line (the recipe index's "An empty line in a small panel", nine lines on it, nine named for their owners), the shadow slider (Elevation, "What the shadow slider means"; every layer and all twenty palettes' --glass-shadow follow it, none opaque before 50%), and the Ask grid ("Two columns of reading"; one column below 1100). The rows, verbatim:
+
+- **`--field-inset` and the segmented track are one tone in light and two in
+  dark.** Light has both at `rgba(31, 36, 48, 0.07)`; dark has
+  `rgba(0, 0, 0, 0.28)` and `rgba(255, 255, 255, 0.08)`. Light flattens a
+  distinction dark makes. Belongs to whoever owns the token file.
+  [consistency.md, docks.md]
+  *Needs: belongs to the token owner.*
+- **An empty line in a small panel has no recipe.** The agent panel uses
+  `<p class="muted">` where the index names `.empty-state`, whose 2rem padding
+  and centred block would be wrong in a 384px glance panel. Worth a recipe row
+  rather than a conversion. [visual-c.md]
+  *Needs: a recipe row to design.*
+- **The dark shadow sliders saturate earlier than the light ones.** The dark
+  alphas are 7 to 11 times the light ones at the same setting, so the ambient
+  layer reaches opaque around 14% of a 0 to 50% slider; light's
+  `--shadow-lg` clamps at 33%, so both clamp and the structure matches.
+  Spreading either across its full range is a separate decision about what the
+  slider means. [visual-c.md]
+  *Needs: what the slider means is a decision.*
+- **The Ask results grid is two columns down to 900px.** At 1024 each half is
+  356px, which is why the badge has to ellipsise a long model id at all. The
+  breakpoint (`@media (max-width: 900px)` on `.chat-grid`,
+  01-forms-settings.css) is arguably too low for a panel that holds an answer,
+  but moving it is a layout decision the owner has not asked for.
+  [ask-head-ocr.md]
+  *Needs: a layout decision the owner has not asked for.*
+
 ## Moved from the plans, 2026-10-05 (AGENT_SKILLS_REFORM: a skill run's own Undo)
 
 The placed row (brief7-event-log; Brief 13): "the run's stop line in Chat

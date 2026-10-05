@@ -122,3 +122,11 @@ def test_the_breakpoints_only_shrink():
         "a width query outside UI_MODERNISATION_PLAN Phase 9's set "
         f"(599.98/600, 819.98/820, 1099.98/1100): {extra}"
     )
+
+
+def test_the_ask_results_grid_is_one_column_below_1100():
+    """DESIGN.md, "Two columns of reading" (op4-1005): two columns gave each
+    half 262px at 820 and 397 at 1099; from 1100 a half is 363 to 529px."""
+    text = (CSS / "01-forms-settings.css").read_text(encoding="utf-8")
+    rule = re.search(r"@media \(max-width: ([0-9.]+)px\) \{\s*\.chat-grid \{\s*grid-template-columns: 1fr;", text)
+    assert rule and rule.group(1) == "1099.98", "the Ask results grid's one-column width moved off 1099.98"

@@ -4434,3 +4434,43 @@ def test_a_dialog_foot_is_one_height_with_its_filled_action_last() -> None:
     for name in ("note-properties.js", "quick-access.js"):
         code = (ROOT / "frontend" / "js" / name).read_text(encoding="utf-8")
         assert '.className = "ghost small";' in code and '.className = "accent small";' in code, name
+
+
+#: `p.muted` empty lines not yet on the recipe, each in a surface another plan
+#: owns (Documents, Chat and Ask, the graph, the whiteboard). Only shrinks.
+EMPTY_LINES_NOT_YET = {
+    "doc-history-empty",
+    "doc-ai-history-empty",
+    "doc-empty",
+    "doc-outline-empty",
+    "conv-empty",
+    "ask-history-empty",
+    "graph-pane-empty",
+    "wb-navigator-empty",
+    "wb-format-empty",
+}
+
+
+def test_an_empty_line_in_a_small_panel_is_the_recipe():
+    """DESIGN.md's recipe index, "An empty line in a small panel" (OPEN.md,
+    visual-c; op4-1005). `.empty-state` is a centred block with 2rem of
+    padding for a surface whose content area is empty; a short list in a
+    glance panel or a Settings section says so in one `.empty-line` instead.
+    Measured before: fourteen such lines in four type sizes and five
+    margins. Every `<p id="...-empty">` is one of the two recipes, or a
+    named one still waiting for its owner."""
+    html = re.sub(r"<!--.*?-->", "", (ROOT / "frontend" / "index.html").read_text(encoding="utf-8"), flags=re.S)
+    off = set()
+    for tag in re.findall(r"<p\b[^>]*>", html):
+        ident = re.search(r'\bid="([a-z0-9-]+-empty)"', tag)
+        if not ident:
+            continue
+        found = re.search(r'\bclass="([^"]*)"', tag)
+        classes = found.group(1).split() if found else []
+        if "empty-line" not in classes and "empty-state" not in classes:
+            off.add(ident.group(1))
+    assert off <= EMPTY_LINES_NOT_YET, f"an empty line off the recipe: {sorted(off - EMPTY_LINES_NOT_YET)}"
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    rule = next(body for sel, body in _rules(css) if sel.strip() == ".empty-line")
+    for part in ("var(--muted)", "var(--text-md)", "text-align: start", "margin: var(--space-3) 0"):
+        assert part in rule, f".empty-line lost {part}"

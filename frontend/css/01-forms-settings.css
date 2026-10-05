@@ -1044,7 +1044,12 @@ progress {
   margin-top: 1rem;
 }
 
-@media (max-width: 819.98px) {
+/* One column below 1100 (DESIGN.md, "The Ask results grid", op4-1005).
+   Measured (askgrid probe): two columns gave each half 262px at 820, 360 at
+   1024 and 397 at 1099, so an answer ran 30 to 45 characters a line and the
+   badge had to ellipsise a model id; from 1100 (the band where the sidebar
+   opens) a half is 363 to 529px. */
+@media (max-width: 1099.98px) {
   .chat-grid {
     grid-template-columns: 1fr;
   }
@@ -5886,7 +5891,7 @@ select {
 /* Same proximity rule the bare-heading case already has: the one short line
    left under a heading belongs to it, so it sits tight underneath and the
    next control keeps its distance. */
-#settings-modal .settings-group .help-head + p.muted {
+#settings-modal .settings-group .help-head + p.muted:not(.empty-line) {
   margin-top: calc(var(--space-2) * -1);
   margin-bottom: var(--space-4);
 }

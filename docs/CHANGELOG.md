@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Appearance and layout: the shadow strength slider now changes every shadow at every step in light and dark, every palette included, from none to the strongest, with 5% looking as before; in light, a text field is a shade deeper than a segmented control beside it, as in dark; the Ask results sit in one column below 1100px wide instead of two narrow ones; and a short "nothing here" line in the agent panel and Settings lists is one size and spacing everywhere.
 - Chat, Attach: a mind map's row shows the map's own shape, a PDF's row its first page (where pages can be drawn), and a document's row whether it is prose, a table or code, each in the same small tile as before.
 - Layout: from 600 to 719px wide the status bar and the dashboard's quick access now look as they do up to 819px (the tablet band), instead of switching to their phone sizes 120px early.
 - Docs: the no-em-dash lint now covers docs/**/*.md, docs/index.html and the root *.md files, and the 5,900 em-dashes it found are reworded (comma, colon, parentheses or full stop); the two changelogs stay identical.

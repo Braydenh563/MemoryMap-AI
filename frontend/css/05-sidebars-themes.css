@@ -3466,7 +3466,7 @@ button.outline-twist:focus-visible {
   --input-bg: color-mix(in srgb, rgba(255, 253, 247, 0.62) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(255, 250, 236, 0.7);
   --modal-bg: rgba(252, 246, 235, 0.97);
-  --glass-shadow: 0 8px 32px rgba(96, 72, 38, 0.14);
+  --glass-shadow: 0 8px 32px rgba(96, 72, 38, calc(0.14 * var(--shadow-low) + 0.36 * var(--shadow-t)));
   --ink: #2f2718;
   --muted: #6d6151;
   --accent: #9a6b1f;
@@ -3484,7 +3484,7 @@ button.outline-twist:focus-visible {
   --input-bg: color-mix(in srgb, rgba(24, 20, 14, 0.6) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(226, 205, 165, 0.12);
   --modal-bg: rgba(34, 28, 19, 0.97);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, calc(0.5 * var(--shadow-low) + 0.4 * var(--shadow-t)));
   --ink: #efe6d4;
   --muted: #ad9f89;
   --accent: #e0b458;
@@ -3503,7 +3503,7 @@ button.outline-twist:focus-visible {
   --input-bg: color-mix(in srgb, rgba(253, 255, 252, 0.58) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(244, 252, 245, 0.68);
   --modal-bg: rgba(248, 252, 248, 0.97);
-  --glass-shadow: 0 8px 32px rgba(35, 74, 52, 0.13);
+  --glass-shadow: 0 8px 32px rgba(35, 74, 52, calc(0.13 * var(--shadow-low) + 0.37 * var(--shadow-t)));
   --ink: #1e2b23;
   --muted: #566a5e;
   --accent: #2f7d54;
@@ -3521,7 +3521,7 @@ button.outline-twist:focus-visible {
   --input-bg: color-mix(in srgb, rgba(11, 20, 16, 0.6) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(190, 240, 212, 0.11);
   --modal-bg: rgba(20, 31, 25, 0.97);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, calc(0.5 * var(--shadow-low) + 0.4 * var(--shadow-t)));
   --ink: #e2efe7;
   --muted: #93a99c;
   --accent: #5fd39a;
@@ -3540,7 +3540,7 @@ button.outline-twist:focus-visible {
   --input-bg: color-mix(in srgb, rgba(252, 254, 255, 0.58) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(240, 251, 255, 0.68);
   --modal-bg: rgba(246, 252, 254, 0.97);
-  --glass-shadow: 0 8px 32px rgba(16, 62, 82, 0.14);
+  --glass-shadow: 0 8px 32px rgba(16, 62, 82, calc(0.14 * var(--shadow-low) + 0.36 * var(--shadow-t)));
   --ink: #14262e;
   --muted: #4d6672;
   --accent: #0f7d99;
@@ -3558,7 +3558,7 @@ button.outline-twist:focus-visible {
   --input-bg: color-mix(in srgb, rgba(7, 16, 22, 0.6) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(180, 236, 250, 0.11);
   --modal-bg: rgba(16, 29, 37, 0.97);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, calc(0.5 * var(--shadow-low) + 0.4 * var(--shadow-t)));
   --ink: #dff0f6;
   --muted: #8ba7b4;
   --accent: #46c9e6;
@@ -3591,7 +3591,7 @@ button.outline-twist:focus-visible {
   --input-bg: color-mix(in srgb, rgba(253, 255, 255, 0.62) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(240, 252, 253, 0.72);
   --modal-bg: rgba(246, 253, 253, 0.97);
-  --glass-shadow: 0 8px 32px rgba(18, 70, 84, 0.13);
+  --glass-shadow: 0 8px 32px rgba(18, 70, 84, calc(0.13 * var(--shadow-low) + 0.37 * var(--shadow-t)));
   --ink: #10262e;
   --muted: #4a6a74;
   --accent: #0a7f8c;
@@ -3613,7 +3613,7 @@ button.outline-twist:focus-visible {
   --input-bg: color-mix(in srgb, rgba(8, 13, 28, 0.62) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(150, 210, 225, 0.14);
   --modal-bg: rgba(20, 27, 48, 0.97);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, calc(0.5 * var(--shadow-low) + 0.4 * var(--shadow-t)));
   --ink: #e6eefa;
   --muted: #a7b8d2;
   --accent: #55dcd2;
@@ -3632,7 +3632,7 @@ button.outline-twist:focus-visible {
   --input-bg: color-mix(in srgb, rgba(255, 252, 249, 0.6) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(255, 246, 238, 0.7);
   --modal-bg: rgba(253, 247, 242, 0.97);
-  --glass-shadow: 0 8px 32px rgba(120, 55, 25, 0.14);
+  --glass-shadow: 0 8px 32px rgba(120, 55, 25, calc(0.14 * var(--shadow-low) + 0.36 * var(--shadow-t)));
   --ink: #2e1e16;
   --muted: #6d574c;
   --accent: #bc5622;
@@ -3650,7 +3650,7 @@ button.outline-twist:focus-visible {
   --input-bg: color-mix(in srgb, rgba(20, 13, 10, 0.6) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(250, 214, 190, 0.12);
   --modal-bg: rgba(32, 22, 18, 0.97);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, calc(0.5 * var(--shadow-low) + 0.4 * var(--shadow-t)));
   --ink: #f4e3d8;
   --muted: #b39687;
   --accent: #f5924f;
@@ -3669,7 +3669,7 @@ button.outline-twist:focus-visible {
   --input-bg: color-mix(in srgb, rgba(254, 252, 255, 0.58) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(250, 244, 255, 0.68);
   --modal-bg: rgba(250, 246, 253, 0.97);
-  --glass-shadow: 0 8px 32px rgba(76, 32, 104, 0.14);
+  --glass-shadow: 0 8px 32px rgba(76, 32, 104, calc(0.14 * var(--shadow-low) + 0.36 * var(--shadow-t)));
   --ink: #261a2e;
   --muted: #61526c;
   --accent: #8332ad;
@@ -3687,7 +3687,7 @@ button.outline-twist:focus-visible {
   --input-bg: color-mix(in srgb, rgba(16, 11, 22, 0.6) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(230, 205, 250, 0.12);
   --modal-bg: rgba(28, 20, 37, 0.97);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, calc(0.5 * var(--shadow-low) + 0.4 * var(--shadow-t)));
   --ink: #eee2f6;
   --muted: #a795b3;
   --accent: #c07df5;
@@ -3706,7 +3706,7 @@ button.outline-twist:focus-visible {
   --input-bg: color-mix(in srgb, rgba(255, 255, 255, 0.66) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(255, 255, 255, 0.75);
   --modal-bg: rgba(250, 251, 252, 0.98);
-  --glass-shadow: 0 8px 28px rgba(20, 24, 31, 0.12);
+  --glass-shadow: 0 8px 28px rgba(20, 24, 31, calc(0.12 * var(--shadow-low) + 0.38 * var(--shadow-t)));
   --ink: #14181f;
   --muted: #59616d;
   --accent: #2b3441;
@@ -3724,7 +3724,7 @@ button.outline-twist:focus-visible {
   --input-bg: color-mix(in srgb, rgba(9, 10, 13, 0.62) calc(var(--glass-opacity) * 100%), transparent);
   --glass-border: rgba(255, 255, 255, 0.09);
   --modal-bg: rgba(19, 21, 26, 0.98);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, calc(0.6 * var(--shadow-low) + 0.3 * var(--shadow-t)));
   --ink: #f0f2f5;
   --muted: #9ba3af;
   --accent: #cdd5e0;
@@ -3749,7 +3749,7 @@ button.outline-twist:focus-visible {
   --input-bg: #ffffff;
   --glass-border: #e3e1dd;
   --modal-bg: #ffffff;
-  --glass-shadow: 0 1px 2px rgba(28, 28, 26, 0.06), 0 2px 8px rgba(28, 28, 26, 0.04);
+  --glass-shadow: 0 1px 2px rgba(28, 28, 26, calc(0.06 * var(--shadow-low) + 0.44 * var(--shadow-t))), 0 2px 8px rgba(28, 28, 26, calc(0.04 * var(--shadow-low) + 0.46 * var(--shadow-t)));
   --ink: #1c1c1a;
   --muted: #66645f;
   --accent: #2f5bd3;
@@ -3767,7 +3767,7 @@ button.outline-twist:focus-visible {
   --input-bg: #1a1a19;
   --glass-border: #2f2f2c;
   --modal-bg: #1e1e1c;
-  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.25);
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, calc(0.4 * var(--shadow-low) + 0.5 * var(--shadow-t))), 0 4px 12px rgba(0, 0, 0, calc(0.25 * var(--shadow-low) + 0.65 * var(--shadow-t)));
   --ink: #ecebe8;
   /* Muted and accent a step lighter than first chosen (#a09e98, #5b95ff),
      measured by contrast.js once it composited translucent grounds instead
@@ -3837,7 +3837,7 @@ button.outline-twist:focus-visible {
   --input-bg: #ffffff;
   --glass-border: #d5dae0;
   --modal-bg: #f8f9fa;
-  --glass-shadow: 0 1px 2px rgba(21, 25, 30, 0.08);
+  --glass-shadow: 0 1px 2px rgba(21, 25, 30, calc(0.08 * var(--shadow-low) + 0.42 * var(--shadow-t)));
   --ink: #15191e;
   --muted: #56606b;
   --accent: #1a7f45;
@@ -3855,7 +3855,7 @@ button.outline-twist:focus-visible {
   --input-bg: #12161a;
   --glass-border: #262c33;
   --modal-bg: #161a1f;
-  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, calc(0.5 * var(--shadow-low) + 0.4 * var(--shadow-t)));
   --ink: #e6eaee;
   --muted: #8f9aa6;
   --accent: #42d67f;

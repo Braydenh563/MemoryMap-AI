@@ -267,12 +267,7 @@ being written by running agents stay beside this one.
   a drawing change for the owner's call (atlas-r6-hide-mid.png).
   *Needs: a drawing change for the owner's call.*
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": A filled button is 2px shorter than every tonal button beside it, app wide.
-- **`--field-inset` and the segmented track are one tone in light and two in
-  dark.** Light has both at `rgba(31, 36, 48, 0.07)`; dark has
-  `rgba(0, 0, 0, 0.28)` and `rgba(255, 255, 255, 0.08)`. Light flattens a
-  distinction dark makes. Belongs to whoever owns the token file.
-  [consistency.md, docks.md]
-  *Needs: belongs to the token owner.*
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05 (op4-1005: four design rows)": the field and the segmented track; an empty line in a small panel; the dark shadow sliders; the Ask results grid's breakpoint.
 - **`--radius-inner` has four users.** DESIGN.md rule 3 and INBOX 101 declared
   the token and the sketch pad's toolbar, canvas and foot plus the meeting
   stage are the first to reach for it; every other surface inside a `.card`
@@ -284,18 +279,6 @@ being written by running agents stay beside this one.
   this is a question about the two recipes rather than about the dialog.
   [popup-redesigns.md]
   *Needs: a question about two app-wide recipes.*
-- **An empty line in a small panel has no recipe.** The agent panel uses
-  `<p class="muted">` where the index names `.empty-state`, whose 2rem padding
-  and centred block would be wrong in a 384px glance panel. Worth a recipe row
-  rather than a conversion. [visual-c.md]
-  *Needs: a recipe row to design.*
-- **The dark shadow sliders saturate earlier than the light ones.** The dark
-  alphas are 7 to 11 times the light ones at the same setting, so the ambient
-  layer reaches opaque around 14% of a 0 to 50% slider; light's
-  `--shadow-lg` clamps at 33%, so both clamp and the structure matches.
-  Spreading either across its full range is a separate decision about what the
-  slider means. [visual-c.md]
-  *Needs: what the slider means is a decision.*
 - **`.sidebar-head` is off the dock grammar, deliberately.** It carries
   `min-height: var(--sidebar-toggle-size)`, a negative `margin-top` that meets
   the absolutely positioned collapse toggle, and `padding-right` reserving
@@ -331,13 +314,6 @@ being written by running agents stay beside this one.
   `justify-content: center`). Revisit only if the owner reads them as
   inconsistent. [consistency.md]
   *Left: judged deliberate.*
-- **The Ask results grid is two columns down to 900px.** At 1024 each half is
-  356px, which is why the badge has to ellipsise a long model id at all. The
-  breakpoint (`@media (max-width: 900px)` on `.chat-grid`,
-  01-forms-settings.css) is arguably too low for a panel that holds an answer,
-  but moving it is a layout decision the owner has not asked for.
-  [ask-head-ocr.md]
-  *Needs: a layout decision the owner has not asked for.*
 - **`#chat-results`'s second half is the only `.panel-head` with no actions.**
   The next head that wants a control beside its title should take family 8
   rather than inventing a fourth arrangement, which is what the lint is there

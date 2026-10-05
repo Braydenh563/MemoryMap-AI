@@ -455,6 +455,8 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "alpha": None,
         "shadow": None,
         "library_ref": None,
+        #: A map topic's due day (MINDMAP decision 37); None on a board text.
+        "due": None,
         # And with a topic's markers (MINDMAP_PLAN decision 34).
         "priority": None,
         "progress": None,

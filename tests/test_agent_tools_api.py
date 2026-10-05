@@ -455,6 +455,30 @@ def test_disabled_tools_preference_roundtrips(client):
     assert client.get("/preferences").json()["disabled_tools"] == ["delete_tag"]
 
 
+def test_every_tool_can_be_switched_off_at_once(client):
+    """The preference once held at most 50 names while the catalogue is longer
+    (58 when this was found by `scratchpad/ui-sweeps/deepflows.js`, which
+    switched them all off): the 51st switch answered 422 "Check the disabled
+    tools" and the page left its switch off over a server that disagreed."""
+    from memorymap.ai import tools
+
+    names = [t["function"]["name"] for t in tools.ollama_tools()]
+    every = sorted(set(names) | {"web_search", "read_url"})
+    response = client.put("/preferences", json={"disabled_tools": every})
+    assert response.status_code == 200, response.text
+    assert client.get("/preferences").json()["disabled_tools"] == every
+
+
+def test_the_disabled_tools_cap_leaves_room_to_grow():
+    from memorymap.api.routes_settings import PreferencesBody
+
+    field = PreferencesBody.model_fields["disabled_tools"]
+    cap = next(m.max_length for m in field.metadata if getattr(m, "max_length", None))
+    from memorymap.ai import tools
+
+    assert cap >= 2 * len(tools.ollama_tools())
+
+
 # --- registry classification: what counts as a read, a write, or a duplicate ---
 
 

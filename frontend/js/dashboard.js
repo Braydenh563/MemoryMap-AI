@@ -2486,7 +2486,8 @@ function miniEntryList(body, entries, emptyText, emptyAction = null) {
     const li = document.createElement("li");
     // The wiki-link unwrap notePreviewText also did, renderInlineMarkdown
     // itself doesn't know `[[...]]`, only the full note-body renderer does.
-    const raw = (entry.content || "").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1");
+    //: A `---` properties block is never the note's words (stripFrontmatter).
+    const raw = stripFrontmatter(entry.content || "").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1");
     const image = noteRowImage(entry);
     if (image) {
       li.classList.add("dash-has-thumb");
@@ -3181,7 +3182,7 @@ async function renderRandomShuffle(body) {
     // paragraph early, which drops the styling this class carries.
     const text = document.createElement("div");
     text.className = "random-note";
-    renderMarkdown(text, truncateMarkdownSafe(note.content, 239));
+    renderMarkdown(text, truncateMarkdownSafe(stripFrontmatter(note.content), 239));
     body.appendChild(text);
 
     // A sketch's picture is never in `note.content` at all: the sketch pad
@@ -4147,7 +4148,7 @@ async function renderUnfinishedWidget(body) {
   const ul = document.createElement("ul");
   ul.className = "dash-list";
   for (const row of withTasks.slice(0, 6)) {
-    const first = (row.entry.content || "").split("\n").find((line) => line.trim())?.trim() || "Untitled note";
+    const first = stripFrontmatter(row.entry.content || "").split("\n").find((line) => line.trim())?.trim() || "Untitled note";
     const total = row.open + row.done;
     dashActionRow(ul, {
       title: first.replace(/^#{1,6}\s+/, "").slice(0, 70),

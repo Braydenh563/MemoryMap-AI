@@ -68,6 +68,9 @@ with its owner named in the entry.
      Installed badges, a note's meta row: category dot, 100%, Add tags, Tag
      with Atlas, "74% similar", "#Sketches"; link chips beside a boxed "+3
      more links" in another shape). Placed: the icon alignment agent.
+     Target decided (op3-1005): the words' cap-height centre, the recipe's;
+     badgealign.js now measures it (a skill fact read -1.5px against the
+     x-height band, -0.5px against the capitals); inkalign.js retired.
 
 595. **The owner, 2026-10-05, verbatim.** "why are new libraries off the
      table?? should we bundle multiple packages together for bulk download if

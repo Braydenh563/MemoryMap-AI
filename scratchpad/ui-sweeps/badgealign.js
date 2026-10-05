@@ -1,7 +1,9 @@
 // INBOX 503: every badge, chip, pill and tag that holds an icon and words,
 // measured by ink at 3x, never by box (a Phosphor glyph is drawn high in its
 // own em square, and a flex row centres boxes). Per badge:
-//   dy     icon ink centre minus the words' x-height-band centre (+ is low)
+//   dy     icon ink centre minus the words' cap-height centre (+ is low): the
+//          label recipe's target (DESIGN.md, INBOX 592; the x-height band
+//          INBOX 503 measured against is retired), as iconalign.js reads it
 //   gap    box gap between icon and words, and the ink gap beside it
 //   padL/R ink-to-edge at each end (symmetry is read from what is painted)
 // Also the Timeline rail (and any other icon-in-a-circle): the icon's ink
@@ -136,11 +138,11 @@ function measure(ids) {
     const cv = document.createElement('canvas').getContext('2d');
     const tp = getComputedStyle(el.querySelector(':scope > :not(i):not(svg):not(.spinner)') || el);
     cv.font = `${tp.fontStyle} ${tp.fontWeight} ${tp.fontSize} ${tp.fontFamily}`;
-    const xh = cv.measureText('x').actualBoundingBoxAscent;
+    const cap = cv.measureText('H').actualBoundingBoxAscent;
     const lead = icon.getBoundingClientRect().left <= r.left;
     const gapBox = lead ? r.left - icon.getBoundingClientRect().right : icon.getBoundingClientRect().left - r.right;
     out.push({
-      id, par: (() => { const p = el.parentElement; if (!p.dataset.bp) p.dataset.bp = String(++window.__bp || (window.__bp = 1)); return p.dataset.bp; })(), xh, box: box(el), icon: box(icon), text: r, extra: icons.slice(1).map(box),
+      id, par: (() => { const p = el.parentElement; if (!p.dataset.bp) p.dataset.bp = String(++window.__bp || (window.__bp = 1)); return p.dataset.bp; })(), cap, box: box(el), icon: box(icon), text: r, extra: icons.slice(1).map(box),
       gapBox: Math.round(gapBox * 100) / 100,
       css: `gap ${s.columnGap} ml ${is.marginLeft} mr ${is.marginRight} pad ${s.paddingLeft}/${s.paddingRight} h ${Math.round(b.height * 10) / 10}`,
       lead,

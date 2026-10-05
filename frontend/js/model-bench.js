@@ -40,7 +40,7 @@ function benchRow(row, recommended, chatModel) {
   ];
   if (row.answer_ms !== null && row.answer_ms !== undefined) parts.push(`${(row.answer_ms / 1000).toFixed(1)} s an answer`);
   if (row.tokens) parts.push(`${row.tokens} tokens`);
-  if (row.errors) parts.push(`${row.errors} failed calls`);
+  if (row.errors) parts.push(`${row.errors} failed call${row.errors === 1 ? "" : "s"}`);
   facts.textContent = parts.join(" · ");
   body.append(title, facts);
   if (row.failures && row.failures.length) {

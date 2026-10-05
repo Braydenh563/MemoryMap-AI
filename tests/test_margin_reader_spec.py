@@ -139,3 +139,12 @@ def test_the_margin_card_is_on_its_recipe():
     wrap = html.split('id="doc-source-wrap"', 1)[1].split('id="doc-preview"', 1)[0]
     assert 'id="doc-margin"' in wrap
     assert 'id="doc-margin-reader"' in html
+
+
+def test_the_same_sentence_in_two_notes_is_one_card(client):
+    _note(client, RENT)
+    _note(client, RENT)
+    cards = client.post(
+        "/editor/read", json={"paragraph": "The flat rent is 950 pounds a month and is paid on the first of the month."}
+    ).json()["cards"]
+    assert [c["kind"] for c in cards].count("contradicts") == 1, cards

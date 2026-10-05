@@ -6514,6 +6514,13 @@ select {
   background: var(--row-hover-bg);
 }
 
+/* The touch band's hit target, as every button beside it takes there. */
+@media (max-width: 819.98px), (pointer: coarse) {
+  .web-clip-bookmarklet {
+    min-height: var(--target-min);
+  }
+}
+
 /* The clip window (clip.html): one card, centred, on the app's tokens. */
 .clip-page {
   min-height: 100vh;

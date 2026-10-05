@@ -267,13 +267,19 @@ def read(
     order = {"contradicts": 0, "answers": 1, "repeats": 2, "date": 3, "related": 4}
     out: list[dict] = []
     seen: set[int] = set()
+    #: The same sentence in two notes (a note pasted twice, an import of what
+    #: was already here) is one card, not three: measured in the sweep, three
+    #: identical Differs cards filled the margin and said one thing.
+    said: set[tuple[str, str]] = set()
     for card in sorted(
         (c for c in cards if c["kind"] in order),
         key=lambda c: (-c["confidence"], order[c["kind"]]),
     ):
         source = card.get("source_entry_id")
-        if source is not None and source in seen:
+        words = (card["kind"], " ".join(str(card.get("source_text", card["text"])).lower().split()))
+        if (source is not None and source in seen) or words in said:
             continue
+        said.add(words)
         if source is not None:
             seen.add(source)
         out.append(card)

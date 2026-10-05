@@ -640,7 +640,7 @@ function filterSettings(term) {
   for (const label of document.querySelectorAll("#settings-nav .nav-group-label")) {
     const group = label.nextElementSibling;
     const anyVisible =
-      group && [...group.querySelectorAll("button")].some((b) => !b.classList.contains("hidden"));
+      group && [...group.querySelectorAll("button[data-section]")].some((b) => !b.classList.contains("hidden"));
     label.classList.toggle("hidden", !anyVisible);
   }
 

@@ -7,6 +7,90 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (INBOX 621 and 622: the header bars and the Settings navigation)
+
+### From UI_MODERNISATION_PLAN.md, "Placed from INBOX, 2026-10-05 (header bars, Settings navigation)"
+
+621. **The owner, 2026-10-05, verbatim.** "also idk but I feel like al lot of
+     these top header bars need  a better ui/ux restructuring or redesign as
+     they still dont feel professional or modern and more demo/vibe coded. as
+     well as the settings dropdown in the graph tab. it is not limited to the
+     attached screen shots, all of those bars across the application or
+     majority fo them need fixing up. idk you are teh expert" (screenshots:
+     the All notes, Questions, Graph, AI skills and Timeline docks.)
+     Decision taken (recommendation): one `.dock` redesign at the recipe,
+     not per surface. The title loses its divider and sits as the page head.
+     Counts become quiet muted text, not boxed pills. Search is a borderless
+     field with a leading icon. Icon buttons are 32px ghosts in one trailing
+     group. The single filled action stays last. Segmented controls are
+     drawn in one style. The graph settings popover is rebuilt from the
+     DESIGN.md popover recipe. DESIGN.md's dock section is updated and the
+     dock lint (`test_dock_grammar.py`) holds the new grammar. Placed: an
+     Opus design agent, after 616.
+622. **The owner, 2026-10-05, verbatim.** "also in settings idk if this
+     navigation is the right way to go about it. should it be redesigned
+     better??" (screenshot: Settings, Tools it can use: a horizontally
+     scrolling sub-tab strip with a visible scrollbar and a clipped last
+     label.)
+     Decision taken (recommendation): yes. A horizontally scrolling strip
+     hides options and shows a scrollbar. Replace the in-pane sub-tabs with
+     the pane's groups stacked under their group heads, and nest the active
+     pane's group links under it in the Settings sidebar (two levels, as in
+     VS Code and Linear settings). A click scrolls to the group, and the
+     active group is tracked on scroll. On a phone the sidebar's pane select
+     gains the groups. No horizontal scroll anywhere in Settings, held by a
+     lint. Placed: with 621.
+
+**Built** (the 1005 header-bars agent; DESIGN.md's dock row, its Settings
+index row and its pane-head row say the recipe now).
+
+- **621, the docks** (`6094967`): one grammar at the `.dock` recipe, so every
+  bar inherits it. No hairline between zones at any width (zones parted by
+  `--space-6`, `--space-4` below 600), so the title is the page head with no
+  divider; `.dock-chip` is quiet muted text with tabular figures, not a
+  bordered pill; every dock search is `div.search-field.dock-search` with its
+  magnifier, a `--field-inset` fill and no edge at rest (the accent edge and
+  ring on focus), the sort select the same quiet inset; worded ghosts at
+  weight 500; icon ghosts (32px, 44 by touch) one trailing run; the one filled
+  action last in twelve docks (markup moved, ids kept, `FAB_IDS` slots
+  unchanged); the chosen segment's ring the control edge in every look, the
+  radio form's glass-off well dropped, so one segmented style.
+  `markDockLineStarts` (phone-shell.js) and its CSS went with the hairlines.
+  `scratchpad/ui-sweeps/dockgrammar621.js` over all fifteen tab and sub-tab
+  docks: 59 fails at 1440 light, 58 dark, 26 at 390 light and dark before;
+  PASS in all four after. Phone dock heights unchanged. `test_dock_grammar.py`
+  holds it: the filled action closes the row, icons are one trailing run, a
+  dock search is the wrapped field with its icon, no zone hairline, a quiet
+  count, an edgeless field.
+- **621, the graph's display options** (`6094967`): the popover recipe. One
+  column (the two-column switch grid had two label edges and two control
+  edges), one control width (9.5rem for sliders and pickers), one section
+  head (the fold chevron at the far right, so every name stands on one edge),
+  the actions (Trace, Legend, Unpin all, Suggest links, Reset) as menu rows,
+  and Unpin all out of the Physics summary (`test_nested_interactive`'s
+  allowance is now empty). `graphpop621.js`: label lefts 2 to 1, control
+  right edges 2 to 1, head lefts 2 to 1, picker widths 4 to 1, controls in a
+  summary 1 to 0.
+- **622, Settings navigation**: the in-pane strip (`.settings-index`, which
+  scrolled sideways in ten panes at 1440 and seven at 390) is gone. The
+  active pane's group heads are the sidebar's second level
+  (`.settings-nav-groups` after the pane's `#settings-nav` link,
+  `settingsIndexBuild` in settings-find.js): a press scrolls the pane under
+  its sticky dock and focuses the head, the group you are reading is marked
+  from `aria-current` (ink, weight and an accent rail) as you scroll, and on a
+  phone `#settings-jump` gains the same groups as `pane#index` options and
+  follows the scroll. A Help topic name and the Web search snippet wrapped
+  instead of running the pane sideways at 390, and the account pane's
+  command block wraps. `settingsnav.js`: "nothing in Settings scrolls
+  sideways" fails before at 1440 and 390, passes after (light and dark);
+  press, focus, track and jump-list checks pass at both widths.
+  `tests/test_settings_no_sideways.py` holds the stylesheet half. Every
+  reveal target and help path unchanged (`test_help_settings_paths.py`,
+  `test_catalogue_reveal.py` pass); the Guide's "Finding your way round
+  Settings" topic says where the groups are now.
+- Boot CSS 183,199 to 183,174 gzip (cap 183,300, not raised); boot JS 701,507 to
+  701,266.
+
 ## OPEN.md rows closed, 2026-10-05 (the open-rows agent)
 
 The well-defined rows of `agent-remaining/OPEN.md` taken by one agent; each line says how it was verified.

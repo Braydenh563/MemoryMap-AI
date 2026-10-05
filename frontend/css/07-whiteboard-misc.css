@@ -10304,8 +10304,10 @@ input[type="file"] {
 /* A fold's summary is a sentence, not a control label: the section-wide
    `summary { white-space: nowrap }` (added for two-word button labels in
    36px boxes) ran "Tools this skill may use (optional)" 26px past the
-   column at 390px. */
-#settings-modal .settings-section .settings-fold summary {
+   column at 390px. Help's topics too (INBOX 622): "Hidden features and power
+   keys" ran 79px past a 308px pane at 390, and the pane scrolled sideways. */
+#settings-modal .settings-section .settings-fold summary,
+#settings-modal .settings-section .help-accordion summary {
   white-space: normal;
 }
 
@@ -13277,12 +13279,9 @@ header#top-bar {
     display: none;
   }
 
-  /* With the strip gone the nav is one row of two controls, so it stops
-     being a sideways scroller and stops drawing the rule that separated the
-     strip from the content under it. */
+  /* With the strip gone the nav is one row of two controls, which wraps. */
   .modal-nav {
     flex-wrap: wrap;
-    overflow-x: visible;
   }
 }
 

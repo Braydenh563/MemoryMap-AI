@@ -408,8 +408,10 @@ MORE_TOPICS: list[dict] = [
             "(Account & security, Privacy), System (Packages, Background tasks, "
             "Logs) and Help and About. The search box at the top of the list "
             "finds a setting by any word in it and lists the matching settings "
-            "under it, each opening where it sits, and a long section has an "
-            "index of its groups along its top."
+            "under it, each opening where it sits. A long section lists its "
+            "groups under its own name in that list: press one to go to it, and "
+            "the one you are reading is marked as you scroll. On a phone the "
+            "section picker holds the same groups under the section you are in."
         ),
         "badge": {"label": "General", "section": "general"},
     },

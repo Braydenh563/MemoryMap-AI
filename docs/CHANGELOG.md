@@ -608,6 +608,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 
 ### Added
 
+- Chat, skill runs: "Undo the run" beside What changed puts back every note the run changed at once, after showing what will go back; each change keeps its own Undo, and a board item is named as one that can't be undone.
 - Settings, Packages: "Read images without Tesseract (RapidOCR)", a second local reader for pictures and scanned pages with nothing else to install. It reads when Tesseract isn't ready; Tesseract stays the reader whenever it is. The Vision bundle installs both, and the OCR workspace names whichever one read.
 - Documents: in Live, drag the corner of a picture to resize it, or focus the corner and use the arrow keys, and its align button puts it on the left, in the centre or on the right; the size and alignment are written into the picture's markdown, so Read, a print and the exports show the same picture (DOCUMENTS_PLAN decision 8, the audit's D5).
 - Documents: Print or save as PDF first asks for the page size (A4 or Letter), orientation, margins and whether to print page numbers with the title at the head of each page, and remembers it; a plain Ctrl+P prints on the same page (DOCUMENTS_PLAN decision 7, the audit's D4).

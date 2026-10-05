@@ -7,6 +7,47 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (AGENT_SKILLS_REFORM: a skill run's own Undo)
+
+The placed row (brief7-event-log; Brief 13): "the run's stop line in Chat
+gets an Undo that calls `POST /events/undo` with the run's actor and first
+event id; board items stay 'not undoable', said in the row". Built by
+op4-1005, with one correction to the brief: a run has no one actor. Each
+tool call files its writes under `ai:<tool>@<model>`, so a run is several
+actors over one span.
+
+- **Backend**: `skill_runner.run_skill` takes the newest event id before the
+  run (`_event_mark`) and puts `undo_span` (`since`, `until`, `actors`: the
+  AI's writes between, `_undo_span`) on the run's `result` event; None when
+  the run wrote nothing. `events.undo` takes a list of actors and `until_id`;
+  the list's members count as one for "changed since", so a run's second
+  tool touching a note its first tool wrote is the run's own change. The
+  route's `UndoBody` gains `actors` and `until`, refuses the person in a
+  list as it did alone (400) and an empty ask (422). The wrapper closes the
+  run's generator in a `finally`, as `yield from` did, so Stop still ends it
+  at once.
+- **Chat**: "What changed (N)" carries "Undo the run" when the run changed
+  more than one thing (one change has its row's own Undo). It calls
+  `undoSkillRun` (note-history.js, lazy through `noteHistory`'s stand-in):
+  the dry run, its plan in the confirm (`activityUndoPlanText`, the Recent
+  activity widget's sentence, which names a board item as "can't be
+  undone"), then the plan applied, the button gone and the notes reloaded.
+  `undo_span` is saved with the turn, so a reopened conversation keeps it.
+- **Found and fixed on the way**: the shared plan sentence read "1 note go
+  back"; it reads "1 note goes back" now (dashboard.js).
+- **Measured**: `tests/test_skill_run_undo.py`, 5 tests (the span, the
+  actors as one, the bound, the route, the Chat wiring);
+  `tests/test_events_undo.py` 13 unchanged. In the browser (port 8807,
+  1440): a note changed through the API by an outside actor inside a span,
+  `undoSkillRun` loaded lazily, the confirm read "Undo this run? 1 note go
+  back to how it was before this run changed it" (before the grammar fix),
+  Undo put the note's text and tags back and removed the button, 0 page
+  errors.
+- **Not verified**: a real skill run's span with a model (none in this
+  sandbox), so the button inside a live run's "What changed" was not seen
+  drawn; a chat turn writing in another window during the run would fall
+  inside the span (the confirm names every note it would touch).
+
 ## Moved from the plans, 2026-10-05 (row 31 item 97, RapidOCR as an optional extra)
 
 WORLD_CLASS_PLAN row 31 item 97, the owner asking for an OCR alternative to

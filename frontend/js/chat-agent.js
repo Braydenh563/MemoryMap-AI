@@ -777,10 +777,19 @@ function agentTimeline(holder, options = {}) {
       box.className = "skill-result";
       box.dataset.changes = JSON.stringify(changes);
       if (check) box.dataset.verification = JSON.stringify(check);
+      const span = event.undo_span || null;
+      if (span) box.dataset.undoSpan = JSON.stringify(span);
       if (changes.length) {
         const title = document.createElement("div");
         title.className = "skill-result-title";
         title.textContent = `What changed (${changes.length})`;
+        //: **The run's own Undo** (AGENT_SKILLS_REFORM): everything the run
+        //: wrote, as one plan to confirm (`undoSkillRun`, note-history.js).
+        //: One change has its row's own Undo, so it is offered from two.
+        if (span && changes.length > 1) {
+          const all = smallButton("ph:arrow-counter-clockwise Undo the run", "Put back every note this run changed", () => undoSkillRun(span, all));
+          title.append(" ", all);
+        }
         box.appendChild(title);
         for (const change of changes) box.appendChild(changeRow(change, options));
       }
@@ -944,6 +953,7 @@ function agentTimeline(holder, options = {}) {
             kind: "result",
             changes: JSON.parse(node.dataset.changes || "[]"),
             verification: JSON.parse(node.dataset.verification || "null"),
+            undo_span: JSON.parse(node.dataset.undoSpan || "null"),
           });
         } else if (node.classList.contains("thinking-fold")) {
           const step = thinkingSteps.find((s) => s.el === node);

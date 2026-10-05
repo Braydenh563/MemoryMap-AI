@@ -726,10 +726,59 @@ def run_skill(
     the same trade `core/events.acting_as` already makes.
     """
     spend = budget if budget is not None else run_budget.RunBudget()
+    mark = _event_mark(session)
     with run_budget.spending(spend):
-        yield from _run_skill(
+        inner = _run_skill(
             session, skill, values, notes, model_manager, ollama, budget=spend, **kwargs
         )
+        try:
+            for event in inner:
+                if event.get("type") == "result":
+                    span = _undo_span(session, mark)
+                    if span:
+                        event["undo_span"] = span
+                yield event
+        finally:
+            # Stop closes this generator; the run's own must close with it,
+            # now, as `yield from` did, not whenever it is collected.
+            inner.close()
+
+
+def _event_mark(session: Session) -> int:
+    """The newest event id before a run starts (0 for an empty log)."""
+    from sqlalchemy import func, select
+
+    from memorymap.core.database import AuditLog
+
+    return int(session.scalar(select(func.max(AuditLog.id))) or 0)
+
+
+def _undo_span(session: Session, mark: int) -> dict | None:
+    """**A skill run's own Undo** (AGENT_SKILLS_REFORM, placed 2026-10-05).
+    Each tool call files its writes under `ai:<tool>@<model>`, so "what this
+    run did" is the AI's writes between the run's first event and its last:
+    their actors and that span, which `POST /events/undo` takes as one
+    (`actors`, `since`, `until`). None when the run wrote nothing. A chat
+    turn in another window writing in the same seconds would fall inside the
+    span too; the plan the person confirms names every note it would touch."""
+    from sqlalchemy import select
+
+    from memorymap.core.database import AuditLog
+
+    rows = session.execute(
+        select(AuditLog.id, AuditLog.actor).where(
+            AuditLog.id > mark,
+            AuditLog.entity_id.is_not(None),
+            AuditLog.actor.like("ai:%"),
+        )
+    ).all()
+    if not rows:
+        return None
+    return {
+        "since": mark,
+        "until": max(row.id for row in rows),
+        "actors": sorted({row.actor for row in rows}),
+    }
 
 
 @dataclass(slots=True)

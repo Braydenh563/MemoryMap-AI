@@ -2267,7 +2267,7 @@ document.addEventListener("keydown", (event) => {
 const LAZY_ENTRY_POINTS = {
   lightbox: ["openLightbox"],
   editConflict: ["editConflictPrompt"],
-  noteHistory: ["openEntryHistory"],
+  noteHistory: ["openEntryHistory", "undoSkillRun"],
   modelBench: ["renderModelBench"],
   usageLedger: ["renderUsage", "renderCaptureCommand"],
   packages: ["renderExtras"],

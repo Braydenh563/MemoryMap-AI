@@ -948,7 +948,7 @@ MORE_TOPICS.extend(
             "keywords": (
                 "ai skills", "built-in skill", "built in skill", "copy a skill",
                 "duplicate a skill", "my skills", "skill list", "reads only",
-                "changes notes", "last run of a skill",
+                "changes notes", "last run of a skill", "undo a skill run", "undo the run",
             ),
             "body": (
                 "Library, AI skills lists every skill: Yours and Built-in switch "
@@ -958,7 +958,11 @@ MORE_TOPICS.extend(
                 "Name A to Z or Recently run. Each card says whether the skill Reads only or Changes "
                 "notes, and how its last run went. Duplicate makes a copy of any "
                 "skill, a built-in one included, to edit as your own; Delete has "
-                "Undo. Settings, Skills is where a skill is written and edited."
+                "Undo. Settings, Skills is where a skill is written and edited. "
+                "In Chat, a run's What changed list has an Undo on each change, "
+                "and Undo the run puts back every note it changed at once, after "
+                "showing what will go back (a board item cannot be undone, and "
+                "the list says so)."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

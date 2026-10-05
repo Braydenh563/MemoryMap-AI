@@ -274,3 +274,23 @@ def test_a_stale_lock_launches_normally_and_is_replaced(monkeypatch, tmp_path):
     assert seen["lock"].port == launcher.PORT
     # Released when the window closed.
     assert il.read_lock(il.lock_path(tmp_path)) is None
+
+
+def test_every_abrupt_exit_lets_go_of_the_lock(tmp_path, monkeypatch):
+    """Quit, Restart and the console-mode switch end the process with
+    `os._exit` or an exec, which skip `_run_desktop`'s `finally`; each calls
+    `_stop_background_work` first, so that is where the lock goes. Left
+    behind, it named a dead pid that Windows soon reuses, and a restart's
+    new process could read the dying server as live."""
+    from memorymap import __main__ as launcher
+    from memorymap.core import bgtasks
+
+    monkeypatch.setattr(bgtasks, "stop_all", lambda *a, **k: None)
+    il.claim(tmp_path, 8123)
+    try:
+        launcher._stop_background_work()
+        left = il.lock_path(tmp_path).exists()
+        assert left is False
+    finally:
+        il.release()
+

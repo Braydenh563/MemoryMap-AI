@@ -784,4 +784,10 @@ def _exit_once_launched(watched: _ApplyState | None = None, attempt: int | None 
     if still_mine() and state.outcome == "launched":
         time.sleep(EXIT_DELAY_SECONDS)  # let the last status poll's response actually go out
         if still_mine():
+            # The notebook's lock goes before the exit that skips every
+            # `finally`: the installer the person reopens the app after must
+            # not find a lock naming this pid (core/instance_lock.py).
+            from memorymap.core import instance_lock
+
+            instance_lock.release()
             exit_now(0)

@@ -1145,6 +1145,7 @@ def restart_in_console_mode(hidden: bool) -> bool:
     process = _spawn_desktop(hidden)
     if process is None:
         return False
+    _stop_background_work()
     os._exit(0)
     return True  # unreachable: os._exit() never returns; keeps every path explicit
 
@@ -1373,6 +1374,46 @@ def _stop_background_work() -> None:
         bgtasks.stop_all()
     except Exception as exc:  # noqa: BLE001  # best effort on the way out
         logger.warning("couldn't stop background work before exiting: %s", exc)
+    # **And the notebook's lock is let go.** Every caller ends the process
+    # with `os._exit` or an exec, which skip the `finally` in `_run_desktop`
+    # that releases it, so Quit, Restart and the console-mode switch all left
+    # `instance.lock` naming a dead pid. A restart's new process could find
+    # it still "live" (the old server answers until the exit lands) and open
+    # a window onto a server that was going away; and Windows reuses pids
+    # quickly, so a lock left behind could read as "starting" for up to
+    # BOOT_GRACE_SECONDS. Released only if it is still this process's own.
+    try:
+        from memorymap.core import instance_lock
+
+        instance_lock.release()
+    except Exception as exc:  # noqa: BLE001  # best effort on the way out
+        logger.warning("couldn't release the instance lock before exiting: %s", exc)
+
+
+def _replace_process(argv: list[str]) -> None:
+    """Start `argv` in place of this process: `os.execv` where that is what
+    it says, a new process and an exit on Windows.
+
+    **Windows has no exec.** CPython's `os.execv` there starts a new process
+    and ends this one, and it hands the C runtime the arguments joined with
+    spaces, **unquoted** (a documented, never-fixed CPython behaviour). The
+    installed app lives in `...\Programs\MemoryMap AI\MemoryMap AI.exe`, so
+    the restarted process read its own path as three arguments, argparse
+    exited on "unrecognized arguments: AI\MemoryMap AI.exe", and the tray's
+    Restart closed the app with nothing coming back (a source checkout under
+    a folder with a space did the same). `subprocess.Popen` quotes each
+    argument; this process then exits, as `execv` would have made it.
+    """
+    if sys.platform == "win32":
+        import subprocess
+
+        flags = 0
+        if getattr(sys, "frozen", False):
+            flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+            argv = [sys.executable, *argv[1:]]
+        subprocess.Popen(argv, close_fds=True, cwd=os.getcwd(), creationflags=flags)  # noqa: S603
+        os._exit(0)
+    os.execv(sys.executable, argv)
 
 
 def _webview2_runtime_missing() -> bool:
@@ -1996,6 +2037,7 @@ def _start_tray(
         if process is None:
             return  # nothing to relaunch into; the ShowWindow attempt above is all there is
 
+        _stop_background_work()
         icon.stop()
         window.destroy()
         os._exit(0)
@@ -2082,10 +2124,14 @@ def _start_tray(
         # arguments", and the packaged app has no console to print that to:
         # the user clicks Restart, the window closes, and nothing comes back.
         argv = list(sys.argv) if getattr(sys, "frozen", False) else [sys.executable, *sys.argv]
+        # A Restart is not a repair: launched from the Start Menu's "Repair
+        # MemoryMap AI", the argv carries --reinstall, and restarting with it
+        # cleared the window's saved sign-in and theme a second time.
+        argv = [argv[0], *(arg for arg in argv[1:] if arg != "--reinstall")]
         _stop_background_work()
         icon.stop()
         window.destroy()
-        os.execv(sys.executable, argv)
+        _replace_process(argv)
 
     def _quit(icon, item) -> None:
         # **Before the hard exit below, not after it, there is no after.**

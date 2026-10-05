@@ -814,6 +814,33 @@
       <button type="button" class="accent" id="note-template-use">Use this template</button>
     </div>
   </dialog>
+  <!-- New board, from a template or blank (BACKLOG 4b, WHITEBOARD_PLAN
+       decision 25): the documents' template dialog recipe, its rows built by
+       `wbOpenTemplateGallery` (whiteboard-library.js), its preview the same
+       thumbnail the library's tile draws. -->
+  <dialog id="wb-template-dialog" class="card space-dialog doc-ai-history-dialog doc-template-dialog"
+    aria-labelledby="wb-template-title">
+    <div class="dialog-head">
+      <h2 id="wb-template-title" class="dialog-head-title">New board</h2>
+      <span class="dialog-head-actions">
+        <button type="button" class="icon-only ghost small dialog-head-btn" data-close-dialog="wb-template-dialog" title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </span>
+    </div>
+    <div class="seg seg-compact wb-template-kind" id="wb-template-kind" role="group" aria-label="What kind of board">
+      <button type="button" data-value="board" title="A free canvas: notes, sketches, images"><i class="ph ph-squares-four ph-lead" aria-hidden="true"></i> Board</button>
+      <button type="button" data-value="map" title="A tree: topics, branches and keyboard editing"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Mind map</button>
+    </div>
+    <label class="wb-template-name-row"><span>Name</span>
+      <input type="text" id="wb-template-name" maxlength="100" placeholder="Name the new board" autocomplete="off"></label>
+    <div class="doc-template-body">
+      <ul id="wb-template-list" class="doc-ai-history-list" role="radiogroup" aria-label="Start from"></ul>
+      <div id="wb-template-preview" class="doc-template-preview wb-template-preview" aria-hidden="true" inert></div>
+    </div>
+    <div class="row right space-dialog-actions">
+      <button type="button" class="ghost" data-close-dialog="wb-template-dialog">Cancel</button>
+      <button type="button" class="accent" id="wb-template-create">Create</button>
+    </div>
+  </dialog>
   <!-- Quick note (quick-note.js, INBOX 434): a note from any tab without
        leaving it. Alt+N or the palette; the head is the dialog-head recipe. -->
   <dialog id="quick-note" class="card space-dialog quick-note-dialog" aria-labelledby="quick-note-title">
@@ -5792,6 +5819,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button type="button" class="wb-menu-item" data-wb-insert="frame" data-wb-surface="board"><i class="ph ph-frame-corners ph-lead" aria-hidden="true"></i><span>Frame</span><kbd>F</kbd></button>
               <button type="button" class="wb-menu-item" data-wb-insert="image"><i class="ph ph-image ph-lead" aria-hidden="true"></i><span>Image from a file…</span></button>
               <button type="button" class="wb-menu-item" data-wb-insert="note"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i><span>A note from the library</span></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="open-library"><i class="ph ph-shapes ph-lead" aria-hidden="true"></i><span>Shapes, icons and frames…</span></button>
             </div>
             <div class="wb-menu-section">
               <span class="wb-panel-group-label">Draw</span>
@@ -5929,7 +5957,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="wb-menu-section" role="group" aria-label="Panels">
               <label class="wb-menu-row wb-snap-label" title="Show the context bar above the selection, and above the rail while a drawing tool is held"><span>Context bar</span><input type="checkbox" id="wb-panel-props" checked></label>
               <label class="wb-menu-row wb-snap-label" title="The board overview (Shift+N)"><span>Overview</span><input type="checkbox" id="wb-panel-overview"></label>
-              <label class="wb-menu-row wb-snap-label" title="The note library"><span>Library</span><input type="checkbox" id="wb-panel-library"></label>
+              <label class="wb-menu-row wb-snap-label" title="The sidebar: the library, notes and layers"><span>Sidebar</span><input type="checkbox" id="wb-panel-library"></label>
               <label class="wb-menu-row wb-snap-label" title="Find a card on this board (Ctrl+F)"><span>Search</span><input type="checkbox" id="wb-panel-search"></label>
               <div class="wb-menu-row">
                 <span>Toolbar</span>
@@ -6018,13 +6046,15 @@ Link to another note with [[its first few words]]."></textarea>
                 <span>This board itself</span>
                 <button id="wb-delete-board" class="ghost small wb-panel-danger" type="button" title="Delete this board and everything on it"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
               </div>
+              <!-- The whole board into the library as a template (decision 25). -->
+              <button type="button" class="wb-menu-item" data-wb-cmd="save-template"><i class="ph ph-squares-four ph-lead" aria-hidden="true"></i><span>Save this board as a template…</span></button>
               <!-- The board's help and shortcut sheet (INBOX 566), also "?". -->
               <button id="wb-help-btn" type="button" class="wb-menu-item" title="Every key and gesture on a board"><i class="ph ph-keyboard ph-lead" aria-hidden="true"></i><span>Keys and controls</span><kbd>?</kbd></button>
             </div>
           </div>
         </div>
         <span class="wb-topbar-divider" aria-hidden="true"></span>
-        <button id="wb-add-note" class="ghost small wb-panel-primary" title="Toggle the note library (drag notes onto the board)"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i><span class="wb-menu-label"> Library</span></button>
+        <button id="wb-add-note" class="ghost small wb-panel-primary" title="The sidebar: shapes, icons and frames, your notes, and the layers" aria-controls="wb-sidebar-panel"><i class="ph ph-shapes ph-lead" aria-hidden="true"></i><span class="wb-menu-label"> Library</span></button>
         <button id="wb-fullscreen" class="ghost small icon-button" title="Full screen (Esc to leave)" aria-label="Toggle full screen"><i class="ph ph-arrows-out" aria-hidden="true"></i></button>
       </div>
     </div>
@@ -6839,20 +6869,49 @@ Link to another note with [[its first few words]]."></textarea>
       <button id="wb-search-close" class="ghost small icon-only" type="button" title="Close (Esc)" aria-label="Close the board search"><i class="ph ph-x" aria-hidden="true"></i></button>
     </div>
 
-    <!-- A properties panel for the current single selection, asked for
-         directly, more than once ("changing properties of shapes and text
-         boxes... fill, border"). Hidden by default; shown/populated by
-         wbUpdatePropertiesPanel() whenever the selection changes, and each
-         row toggled to whatever the selected kind actually has to edit. -->
-    <aside class="whiteboard-sidebar card glass hidden" id="whiteboard-sidebar">
-      <!-- Its own close button. The panel sits at top-right, which is exactly
-           where the Library toggle is, so the list covered the only control
-           that would have dismissed it. -->
-      <div class="row space-between wb-sidebar-head">
-        <h3>Library</h3>
-        <button id="wb-library-close" class="ghost small icon-only" title="Close the library" aria-label="Close the library"><i class="ph ph-x" aria-hidden="true"></i></button>
+    <!-- **The board's sidebar** (WHITEBOARD_PLAN decision 26; INBOX 557,
+         558): a rail of tabs on the left edge, and beside it, when one is
+         pressed, the panel: the Library (shapes, icons, frames and what you
+         saved, `whiteboard-library.js`), the Notes to drag in as cards (the
+         note list that was a panel of its own on the right), the Layers
+         (`wbRenderLayers`) and, on a map, the Outline. The rail is a vertical
+         `role="tablist"`, one tab stop, Up and Down walk it; a tab pressed
+         twice closes the panel. -->
+    <aside id="wb-sidebar" class="wb-sidebar card glass" aria-label="Board sidebar">
+      <div class="wb-sidebar-rail" role="tablist" aria-label="Sidebar" aria-orientation="vertical">
+        <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="library" id="wb-side-tab-library" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="0" title="Library: shapes, icons, frames and what you saved" aria-label="Library"><i class="ph ph-shapes" aria-hidden="true"></i></button>
+        <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="notes" id="wb-side-tab-notes" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="-1" title="Notes: drag one onto the board as a card" aria-label="Notes"><i class="ph ph-note-pencil" aria-hidden="true"></i></button>
+        <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="layers" id="wb-side-tab-layers" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="-1" title="Layers: everything on the board, in order" aria-label="Layers"><i class="ph ph-stack" aria-hidden="true"></i></button>
+        <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="outline" id="wb-side-tab-outline" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="-1" title="Outline: the map as an indented list" aria-label="Outline" hidden><i class="ph ph-list-bullets" aria-hidden="true"></i></button>
       </div>
-      <ul id="wb-library-list" class="wb-library-list"></ul>
+      <div id="wb-sidebar-panel" class="wb-sidebar-panel hidden" role="tabpanel" aria-labelledby="wb-sidebar-title">
+        <div class="wb-sidebar-head">
+          <h3 id="wb-sidebar-title" class="wb-sidebar-title">Library</h3>
+          <button type="button" id="wb-lib-more" class="ghost small icon-only dialog-head-btn" data-side-only="library" title="New library, import, export" aria-label="Library actions" aria-haspopup="menu"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
+          <button type="button" id="wb-sidebar-close" class="ghost small icon-only dialog-head-btn" title="Close the sidebar" aria-label="Close the sidebar"><i class="ph ph-x" aria-hidden="true"></i></button>
+        </div>
+        <section class="wb-side-section" data-side-panel="library" aria-label="Library">
+          <div class="search-field wb-lib-search">
+            <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+            <input id="wb-lib-search" type="search" class="search-field-input" placeholder="Search shapes and icons" aria-label="Search the library" aria-controls="wb-lib-list" autocomplete="off" spellcheck="false">
+          </div>
+          <span id="wb-lib-status" class="visually-hidden" role="status" aria-live="polite"></span>
+          <div id="wb-lib-list" class="wb-lib-list" role="listbox" aria-label="Library" aria-describedby="wb-lib-keys"></div>
+          <p id="wb-lib-keys" class="muted wb-lib-keys">Click or Enter places it, drag to put it anywhere, Shift+Enter joins it to the selection.</p>
+          <input type="file" id="wb-lib-import" accept=".json,application/json" class="hidden" aria-hidden="true" tabindex="-1" aria-label="Choose a library file" title="Choose a library file">
+        </section>
+        <section class="wb-side-section" data-side-panel="notes" aria-label="Notes" hidden>
+          <p class="muted wb-lib-keys">Drag a note onto the board to place it as a card.</p>
+          <ul id="wb-library-list" class="wb-library-list"></ul>
+        </section>
+        <section class="wb-side-section" data-side-panel="layers" aria-label="Layers" hidden>
+          <ul id="wb-layers-tree" class="wb-layers-tree" role="tree" aria-label="Layers"></ul>
+          <p class="muted wb-lib-keys">Top of the list is in front. Drag a row, or Alt+Up and Alt+Down, to restack.</p>
+        </section>
+        <section class="wb-side-section" data-side-panel="outline" aria-label="Outline" hidden>
+          <ul id="wb-outline-tree" class="wb-outline-tree" role="tree" aria-label="Outline"></ul>
+        </section>
+      </div>
     </aside>
   </div>
   </div>

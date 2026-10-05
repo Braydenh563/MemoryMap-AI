@@ -1,0 +1,303 @@
+{
+ "format": "memorymap-library-set",
+ "version": 1,
+ "key": "arrows",
+ "name": "Arrows",
+ "items": [
+  {
+   "key": "block-right",
+   "kind": "element",
+   "name": "Block arrow, right",
+   "tags": [
+    "arrow",
+    "next",
+    "forward"
+   ],
+   "payload": {
+    "box": {
+     "w": 150,
+     "h": 100
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 25 L 100 25 L 100 0 L 150 50 L 100 100 L 100 75 L 0 75 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0,
+        "y": 0.25,
+        "w": 0.7,
+        "h": 0.5
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "block-left",
+   "kind": "element",
+   "name": "Block arrow, left",
+   "tags": [
+    "arrow",
+    "back",
+    "previous"
+   ],
+   "payload": {
+    "box": {
+     "w": 150,
+     "h": 100
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 150 25 L 50 25 L 50 0 L 0 50 L 50 100 L 50 75 L 150 75 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.3,
+        "y": 0.25,
+        "w": 0.7,
+        "h": 0.5
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "block-down",
+   "kind": "element",
+   "name": "Block arrow, down",
+   "tags": [
+    "arrow",
+    "below"
+   ],
+   "payload": {
+    "box": {
+     "w": 100,
+     "h": 150
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 25 0 L 25 100 L 0 100 L 50 150 L 100 100 L 75 100 L 75 0 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.25,
+        "y": 0,
+        "w": 0.5,
+        "h": 0.7
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "block-up",
+   "kind": "element",
+   "name": "Block arrow, up",
+   "tags": [
+    "arrow",
+    "above"
+   ],
+   "payload": {
+    "box": {
+     "w": 100,
+     "h": 150
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 25 150 L 25 50 L 0 50 L 50 0 L 100 50 L 75 50 L 75 150 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.25,
+        "y": 0.3,
+        "w": 0.5,
+        "h": 0.7
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "block-both",
+   "kind": "element",
+   "name": "Block arrow, both ways",
+   "tags": [
+    "arrow",
+    "two-way",
+    "exchange"
+   ],
+   "payload": {
+    "box": {
+     "w": 150,
+     "h": 100
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 50 L 40 0 L 40 25 L 110 25 L 110 0 L 150 50 L 110 100 L 110 75 L 40 75 L 40 100 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.27,
+        "y": 0.25,
+        "w": 0.46,
+        "h": 0.5
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "chevron",
+   "kind": "element",
+   "name": "Chevron",
+   "tags": [
+    "step",
+    "stage",
+    "arrow"
+   ],
+   "payload": {
+    "box": {
+     "w": 150,
+     "h": 100
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 0 L 100 0 L 150 50 L 100 100 L 0 100 L 50 50 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.3,
+        "y": 0.1,
+        "w": 0.45,
+        "h": 0.8
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "notched",
+   "kind": "element",
+   "name": "Notched arrow",
+   "tags": [
+    "arrow",
+    "flow"
+   ],
+   "payload": {
+    "box": {
+     "w": 150,
+     "h": 100
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 25 L 100 25 L 100 0 L 150 50 L 100 100 L 100 75 L 0 75 L 25 50 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.15,
+        "y": 0.25,
+        "w": 0.55,
+        "h": 0.5
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "u-turn",
+   "kind": "element",
+   "name": "U-turn arrow",
+   "tags": [
+    "arrow",
+    "return",
+    "back"
+   ],
+   "payload": {
+    "box": {
+     "w": 150,
+     "h": 140
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 140 L 0 60 A 60 60 0 0 1 120 60 L 120 90 L 150 90 L 100 140 L 50 90 L 80 90 L 80 60 A 20 20 0 0 0 40 60 L 40 140 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  }
+ ]
+}

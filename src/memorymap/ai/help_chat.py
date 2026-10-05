@@ -1010,6 +1010,32 @@ HELP_TOPICS.extend(
             "badge": {"label": "Library", "tab": "library"},
         },
         {
+            "id": "board-library",
+            "keywords": (
+                "object library", "shape library", "shapes", "flowchart", "flow chart", "icons", "stencil",
+                "save to library", "save to the library", "my shapes", "custom shape", "saved style", "palette",
+                "preset", "template", "board template", "save as template", "saved branch", "import library",
+                "export library", "favourite shapes", "recent shapes", "sidebar", "layers",
+            ),
+            "body": (
+                "A board's sidebar (the Library button in its top bar, or the rail on its left edge) has "
+                "three tabs: Library, Notes and Layers, and an Outline on a mind map. The Library holds "
+                "built-in sets (General shapes, Flowchart, Arrows, Frames such as Kanban, a retrospective "
+                "and SWOT, and 1,530 icons drawn as shapes), then Favourites, Recent and your own "
+                "libraries; the search field finds any of them by name or tag. Click a tile or press Enter "
+                "to place it in the middle of the view, drag it to put it anywhere, or Shift+Enter to place "
+                "it joined to what is selected; F stars it, and Shift+F10 or a right-click opens its menu "
+                "(rename, tags, duplicate, move, delete). To save your own: select things and press "
+                "Ctrl+Shift+S, or right-click, Library, for a selection, a drawn shape, a style, a sticky "
+                "or text preset, a palette of the selection's colours, or on a mind map a branch; Board, "
+                "Save this board as a template keeps the whole board. New board then offers your templates "
+                "beside the built-in ones. The library's ⋯ makes a new library, imports a library file and "
+                "exports one. A placed item is an ordinary copy: changing the library later never changes "
+                "a board."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
             "id": "mind-map-controls",
             "keywords": (
                 "cross-link", "cross link", "outdent", "fold", "unfold", "radial",

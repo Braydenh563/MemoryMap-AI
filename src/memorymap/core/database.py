@@ -1466,6 +1466,11 @@ class WhiteboardNode(Base, WorkspaceMixin):
     #: A comment thread on the card (WHITEBOARD_PLAN decision 17), a JSON list
     #: of `{id, text, at}`; a sketch and an object keep theirs in their data.
     comments: Mapped[list | None] = mapped_column(JSON(none_as_null=True), default=None)
+    #: Hidden from the board by the Layers tab's eye (WHITEBOARD_PLAN decision
+    #: 27): drawn nowhere, exported nowhere, skipped by search and the Tab
+    #: walk. A column here because a card has no data blob; a sketch and an
+    #: object keep the flag in theirs.
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 
@@ -1548,6 +1553,60 @@ class WhiteboardObject(Base, WorkspaceMixin):
     group_id: Mapped[str | None] = mapped_column(String(40), default=None, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class BoardLibrary(Base):
+    """A library of reusable board items (WHITEBOARD_PLAN decision 25): the
+    person's own "Yours", one made by hand, or one brought in from a file.
+    Notebook-wide rather than per space, like the app's settings: a saved
+    flowchart shape is a tool, not a note. The built-in sets are static files
+    (`frontend/board-library/`), never rows, so an upgrade can improve them."""
+
+    __tablename__ = "board_libraries"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(80))
+    #: "yours" (the default one), "custom" (made by hand) or "imported".
+    kind: Mapped[str] = mapped_column(String(12), default="custom")
+    sort: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+
+
+class BoardLibraryItem(Base):
+    """One saved thing: a selection, a shape, a style or palette, a preset, a
+    branch or a whole board as a template. Placing one makes independent rows
+    that remember `library_ref` (decision 25), so a later edit here never
+    reaches a board. `deleted_at` is the library's bin, with Undo."""
+
+    __tablename__ = "board_library_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    library_id: Mapped[int] = mapped_column(ForeignKey("board_libraries.id"), index=True)
+    #: element | shape | style | palette | preset | branch | template
+    kind: Mapped[str] = mapped_column(String(12))
+    name: Mapped[str] = mapped_column(String(120))
+    tags: Mapped[list | None] = mapped_column(JSON(none_as_null=True), default=None)
+    payload: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), default=None)
+    favourite: Mapped[bool] = mapped_column(Boolean, default=False)
+    use_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None, index=True)
+
+
+class BoardLibraryMark(Base):
+    """Favourite and recent for a built-in entry, which has no row of its own:
+    keyed `"<set>/<key>"`."""
+
+    __tablename__ = "board_library_marks"
+
+    key: Mapped[str] = mapped_column(String(120), primary_key=True)
+    favourite: Mapped[bool] = mapped_column(Boolean, default=False)
+    use_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
 
 
 class MediaUpload(Base, WorkspaceMixin):

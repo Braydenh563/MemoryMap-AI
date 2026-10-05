@@ -14487,3 +14487,366 @@ button.finder-row:hover,
 .wb-map-edge-label {
   font-family: var(--wb-map-font);
 }
+
+/* **The board's sidebar** (WHITEBOARD_PLAN decision 26). A rail of tab
+   glyphs on the board's left edge, between the top bar and the tool rail,
+   and the panel beside it while a tab is open. A floating panel over the
+   canvas (`.card.glass`), so it never shrinks the board: it covers its left
+   edge while it is open and leaves a rail one control wide when it is not. */
+.wb-sidebar {
+  position: absolute;
+  left: 0.5rem;
+  top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
+  bottom: calc(var(--space-2) + var(--wb-h-tools) + var(--space-3));
+  z-index: 25;
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-1);
+  max-width: calc(100% - 1rem);
+  max-height: none;
+}
+
+.wb-sidebar-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: none;
+}
+
+.wb-side-tab {
+  color: var(--muted);
+}
+
+/* The open tab, from its own state, on the selection's soft ground. */
+#wb-sidebar .wb-side-tab[aria-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.wb-sidebar-panel {
+  width: 17.5rem;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0 var(--space-1) 0 var(--space-2);
+  border-left: 1px solid var(--divider);
+}
+
+.wb-sidebar-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: none;
+}
+
+.wb-sidebar-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.wb-side-section {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.wb-side-section[hidden] {
+  display: none;
+}
+
+.wb-lib-list,
+.wb-side-section .wb-library-list,
+.wb-layers-tree,
+.wb-outline-tree {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 0;
+}
+
+.wb-lib-keys,
+.wb-lib-note {
+  margin: 0;
+  font-size: var(--text-xs);
+  flex: none;
+}
+
+.wb-lib-group {
+  margin: 0 0 var(--space-2);
+}
+
+/* A quiet head, not a button: the group's name, its count and the one
+   caret, on no ground and no edge (the app's `summary` box is for a fold in
+   a form, not a run of tiles). */
+#wb-sidebar .wb-lib-group-head {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.wb-lib-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.wb-lib-group-head::-webkit-details-marker {
+  display: none;
+}
+
+.wb-lib-caret {
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.wb-lib-group:not([open]) .wb-lib-caret {
+  transform: rotate(-90deg);
+}
+
+.wb-lib-count {
+  margin-left: auto;
+  font-weight: 400;
+  font-size: var(--text-xs);
+}
+
+.wb-lib-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4.25rem, 1fr));
+  gap: var(--space-1);
+}
+
+/* A tile: the thumbnail drawn from what it places, its name in two lines at
+   most, a star when it is a favourite. The active tile (the list's roving
+   tab stop) wears the selection's ground. */
+.wb-lib-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  cursor: grab;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+.wb-lib-tile:hover {
+  background: var(--hover-veil);
+}
+
+.wb-lib-tile.is-active:focus-visible,
+.wb-lib-tile[aria-selected="true"]:focus {
+  background: var(--accent-soft);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.wb-lib-thumb {
+  width: 100%;
+  height: 2.75rem;
+  overflow: visible;
+}
+
+.wb-lib-name {
+  width: 100%;
+  font-size: var(--text-xs);
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wb-lib-star {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--accent-text);
+}
+
+.wb-lib-more {
+  margin-top: var(--space-1);
+}
+
+#wb-add-note.is-on {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* Below 600 the rail goes while closed (the board needs its width), and the
+   top bar's Library button opens the sidebar across the board, its tabs a
+   row over the panel, as the phone's edge sheets do. */
+@media (max-width: 600px) {
+  .wb-sidebar {
+    display: none;
+  }
+
+  .wb-sidebar.is-open {
+    display: flex;
+    left: var(--space-2);
+    right: var(--space-2);
+  }
+
+  .wb-sidebar.is-open {
+    flex-direction: column;
+  }
+
+  .wb-sidebar.is-open .wb-sidebar-rail {
+    flex-direction: row;
+  }
+
+  .wb-sidebar.is-open .wb-sidebar-panel {
+    width: 100%;
+    border-left: none;
+    padding: 0 var(--space-1);
+  }
+}
+
+/* The rows' own list gap, the list-row recipe's other half (`--row-gap`). */
+.wb-layers-tree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--row-gap);
+}
+
+/* The Layers tab (decision 27): a row per item in paint order, front first,
+   under a quiet head per layer. The row is the `.timeline-row` shape on
+   `--row-h`: the kind's glyph, the name (the only track that gives), the eye
+   and the lock, which show on the row under the pointer, on the focused row,
+   and always when they are off. */
+.wb-layer-head {
+  list-style: none;
+  padding: var(--space-2) 0 var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.wb-layer-row {
+  list-style: none;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--row-h);
+  padding: 0 var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-out);
+}
+
+.wb-layer-depth-1 {
+  padding-left: var(--space-5);
+}
+
+.wb-layer-row:hover {
+  background: var(--hover-veil);
+}
+
+.wb-layer-row[aria-selected="true"] {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.wb-layer-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.wb-layer-icon {
+  color: var(--muted);
+}
+
+.wb-layer-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-layer-row.is-hidden .wb-layer-name {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.wb-layer-eye,
+.wb-layer-lock {
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--ease-out);
+}
+
+.wb-layer-row:hover .wb-layer-eye,
+.wb-layer-row:hover .wb-layer-lock,
+.wb-layer-row:focus-within .wb-layer-eye,
+.wb-layer-row:focus-within .wb-layer-lock,
+.wb-layer-row:focus .wb-layer-eye,
+.wb-layer-row:focus .wb-layer-lock,
+.wb-layer-row.is-hidden .wb-layer-eye,
+.wb-layer-row.is-locked .wb-layer-lock {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .wb-layer-eye,
+  .wb-layer-lock {
+    opacity: 1;
+  }
+}
+
+.wb-layer-row.drop-above {
+  border-top-color: var(--accent);
+}
+
+.wb-layer-row.drop-below {
+  border-bottom-color: var(--accent);
+}
+
+/* Hidden from the board (decision 27): drawn nowhere, so nothing on it can
+   be pressed or seen; the Layers tab is the way back. */
+#whiteboard-container .wb-hidden {
+  display: none;
+}
+
+/* The template gallery's own two rows above the list. */
+.wb-template-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.wb-template-name-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.wb-template-preview .wb-lib-thumb {
+  width: 100%;
+  height: 100%;
+  min-height: 10rem;
+  color: var(--ink);
+}

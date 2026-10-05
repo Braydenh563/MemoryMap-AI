@@ -1085,6 +1085,8 @@ LIST_ROWS = {
     ".doc-dictionary-row": ".doc-dictionary-list",
     #: The Library's Contents outline (INBOX 496, the redesign).
     ".contents-row": ".contents-list",
+    #: The board's Layers tab (WHITEBOARD_PLAN decision 27).
+    ".wb-layer-row": ".wb-layers-tree",
 }
 
 
@@ -3149,7 +3151,11 @@ def test_a_script_built_dialog_opens_with_the_dialog_head() -> None:
 #: inline ghost of the next word, the enhanced select is a `<select>`'s own
 #: list, and a space's icon choice is a grid of glyphs. The Manage categories
 #: panel left this list for a grid (INBOX 433: an option may not hold its ⋯).
-HAND_BUILT_OPTION_ROWS = {"documents.js": 1, "sheets-selects.js": 1, "spaces-find.js": 2}
+#: The board library's tiles are the same shape as a space's icons: a grid of
+#: pictures you place, walked in two directions, each opening its menu by
+#: right-click or Shift+F10 rather than holding a ⋯ (WHITEBOARD_PLAN decision
+#: 25; DESIGN.md, "A grid of things you place").
+HAND_BUILT_OPTION_ROWS = {"documents.js": 1, "sheets-selects.js": 1, "spaces-find.js": 2, "whiteboard-library.js": 1}
 
 
 def test_only_the_rich_picker_stamps_its_anatomy() -> None:
@@ -3315,7 +3321,7 @@ def test_a_dialog_head_title_out_ranks_the_card_heading_margin():
 # are folded into the recipe. May only shrink.
 IN_PAGE_CLOSE_DRIFT = {
     "ask-history-close", "notes-rail-close", "web-panel-close", "doc-find-close",
-    "wb-search-close", "wb-library-close", "wb-empty-hint-close", "global-find-close",
+    "wb-search-close", "wb-empty-hint-close", "global-find-close",
 }
 
 
@@ -3866,7 +3872,7 @@ def test_a_locked_item_is_out_of_reach_in_one_way() -> None:
     wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
     css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
     assert "#whiteboard-container .wb-locked,\n#whiteboard-container .wb-locked * {\n  pointer-events: none;" in css
-    assert "return out.filter(([kind, item]) => !wbIsLocked(kind, item));" in wb
+    assert "return out.filter(([kind, item]) => !wbIsLocked(kind, item) && !wbHiddenOnBoard(kind, item));" in wb
     assert wb.count('if (wbIsLocked("object", obj)) continue;') == 2, "the marquee and the lasso"
     assert wb.count("if (parsed.locked) continue;") == 2
     assert wb.count("if (node.locked) continue;") == 2

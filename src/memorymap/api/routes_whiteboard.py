@@ -220,6 +220,8 @@ class WhiteboardNodeBase(BaseModel):
     #: Decision 17: the card's thread. Left out of a PUT, the stored one stays
     #: (`_apply_node`), so a client that predates it cannot wipe it.
     comments: CommentThread | None = None
+    #: Hidden by the Layers tab's eye (WHITEBOARD_PLAN decision 27).
+    hidden: bool = False
 
 
 class WhiteboardNodeOut(WhiteboardNodeBase):
@@ -256,6 +258,12 @@ class WhiteboardObjectData(BaseModel):
     locked: bool | None = None
     #: The item's comment thread (WHITEBOARD_PLAN decision 17).
     comments: CommentThread | None = None
+    #: Hidden by the Layers tab's eye, and its own name there (decision 27).
+    hidden: bool | None = None
+    name: str | None = Field(default=None, max_length=80)
+    #: Where a placed library item came from (decision 25): `{id, version}`
+    #: or `{builtin}`. Kept, never followed.
+    library_ref: dict | None = None
     color: str | None = Field(default=None, max_length=20)
     #: 0 is a topic's pin to the app's own size against a map's theme
     #: (`MAP_APP_DEFAULT_PINS`); 1 to 7 stay refused (`_size_or_pin`).
@@ -2378,6 +2386,7 @@ def create_node(
     node.width, node.height, node.group_id = node_in.width, node_in.height, node_in.group_id
     node.rotation = node_in.rotation
     node.locked = node_in.locked
+    node.hidden = node_in.hidden
     _apply_comments(node, node_in)
     if existing is None:
         db.add(node)
@@ -2416,6 +2425,7 @@ def update_node(
     node.width, node.height, node.group_id = node_in.width, node_in.height, node_in.group_id
     node.rotation = node_in.rotation
     node.locked = node_in.locked
+    node.hidden = node_in.hidden
     _apply_comments(node, node_in)
     events.record(
         db,

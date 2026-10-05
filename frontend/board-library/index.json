@@ -1,0 +1,31 @@
+{
+ "format": "memorymap-library-index",
+ "version": 1,
+ "sets": [
+  {
+   "key": "general",
+   "name": "General",
+   "count": 19
+  },
+  {
+   "key": "flowchart",
+   "name": "Flowchart",
+   "count": 13
+  },
+  {
+   "key": "arrows",
+   "name": "Arrows",
+   "count": 8
+  },
+  {
+   "key": "frames",
+   "name": "Frames",
+   "count": 5
+  },
+  {
+   "key": "icons",
+   "name": "Icons",
+   "count": 1530
+  }
+ ]
+}

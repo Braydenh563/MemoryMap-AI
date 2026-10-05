@@ -621,6 +621,7 @@ def node_state(node: WhiteboardNode) -> dict:
         "group_id": node.group_id,
         "locked": bool(node.locked),
         "comments": node.comments,
+        "hidden": bool(node.hidden),
     }
 
 

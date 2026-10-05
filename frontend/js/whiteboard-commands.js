@@ -68,6 +68,17 @@ const wbCommandNeeds = {
     return wbTakesComments(wbSelectedItem.kind, wbFindItem(wbSelectedItem.kind, wbSelectedItem.id));
   },
   locked: () => wbLockedItems().length > 0,
+  topic: () => Boolean(typeof wbSelectedMapNode === "function" && wbSelectedMapNode()),
+  drawing: () => Boolean(wbCommandOneSketch() && wbSketchParsedData(wbCommandOneSketch())?.d),
+  styled: () => {
+    if (wbMultiSelection.size > 1 || !wbSelectedItem || wbSelectedItem.kind === "node") return false;
+    const item = wbFindItem(wbSelectedItem.kind, wbSelectedItem.id);
+    return wbSelectedItem.kind === "sketch" ? Boolean(wbSketchParsedData(item)) : item?.kind === "text";
+  },
+  textbox: () => {
+    if (wbMultiSelection.size > 1 || wbSelectedItem?.kind !== "object") return false;
+    return wbFindItem("object", wbSelectedItem.id)?.kind === "text";
+  },
 };
 
 const wbClickId = (id) => () => document.getElementById(id)?.click();
@@ -103,6 +114,15 @@ const WB_COMMANDS = [
     run: () => wbOpenComments(wbSelectedItem.kind, wbSelectedItem.id) },
   { id: "export-frame", group: "Item", icon: "ph:frame-corners", label: "Export this frame", keys: "", surface: "board", needs: "frame",
     run: () => wbExportFrame(wbFindItem("object", wbSelectedItem.id)) },
+  // The library (decision 25, whiteboard-library.js)
+  { id: "open-library", group: "Library", icon: "ph:shapes", label: "Open the library", menu: "Shapes, icons and frames…", keys: "", surface: "both", run: () => wbOpenSidebar("library") },
+  { id: "save-selection", group: "Library", icon: "ph:bookmark-simple", label: "Save to the library…", keys: "Ctrl+Shift+S", surface: "board", needs: "selection", run: () => wbSaveSelectionToLibrary() },
+  { id: "save-branch", group: "Library", icon: "ph:tree-structure", label: "Save this branch to the library…", keys: "Ctrl+Shift+S", surface: "map", needs: "topic", run: () => wbSaveBranchToLibrary() },
+  { id: "save-shape", group: "Library", icon: "ph:polygon", label: "Save as a shape…", keys: "", surface: "board", needs: "drawing", run: () => wbSaveShapeToLibrary() },
+  { id: "save-style", group: "Library", icon: "ph:paint-brush", label: "Save this style…", keys: "", surface: "board", needs: "styled", run: () => wbSaveStyleToLibrary() },
+  { id: "save-preset", group: "Library", icon: "ph:note", label: "Save as a preset…", keys: "", surface: "board", needs: "textbox", run: () => wbSavePresetToLibrary() },
+  { id: "save-palette", group: "Library", icon: "ph:palette", label: "Save these colours as a palette…", keys: "", surface: "board", needs: "selection", run: () => wbSavePaletteToLibrary() },
+  { id: "save-template", group: "Library", icon: "ph:squares-four", label: "Save this board as a template…", keys: "", surface: "both", run: () => wbSaveBoardAsTemplate() },
   // Arrange
   { id: "align-left", group: "Arrange", icon: "ph:align-left", label: "Align left edges", menu: "Left edges", keys: "", surface: "board", needs: "two", run: () => wbAlignSelection("left") },
   { id: "align-hcenter", group: "Arrange", icon: "ph:align-center-horizontal", label: "Align centres horizontally", menu: "Centres, horizontally", keys: "", surface: "board", needs: "two", run: () => wbAlignSelection("hcenter") },
@@ -187,6 +207,10 @@ function wbRunCommand(id) {
       frame: "Select a frame first.",
       comment: "Select one item first.",
       locked: "Nothing on this board is locked.",
+      topic: "Select a topic first.",
+      drawing: "Select one drawn shape or pen stroke first.",
+      styled: "Select one shape, line or text box first.",
+      textbox: "Select one sticky or text box first.",
     }[command.needs];
     toast(why || "That is not on a mind map.");
     return false;

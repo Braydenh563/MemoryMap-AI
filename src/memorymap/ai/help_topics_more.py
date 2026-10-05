@@ -936,6 +936,7 @@ TOPIC_META: dict[str, dict] = {
     "code-files": {"title": "Code documents", "path": "Library tab, Documents"},
     "mind-maps": {"title": "Mind maps", "path": "Library tab, Boards and maps"},
     "whiteboard-controls": {"title": "Whiteboard keys and controls", "path": "Library tab, Boards and maps"},
+    "board-library": {"title": "The board's library, layers and templates", "path": "A board, the Library button in its top bar"},
     "mind-map-controls": {"title": "Mind map keys and controls", "path": "Library tab, Boards and maps"},
     "documents-controls": {"title": "Document editor keys and controls", "path": "Library tab, Documents"},
     "callouts": {"title": "Callouts", "path": "Library tab, Documents"},
@@ -999,7 +1000,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "documents", "documents-controls", "callouts", "document-history", "writing-checks", "code-files",
     )),
     ("Boards and maps", (
-        "whiteboard", "whiteboard-controls", "mind-maps", "mind-map-controls",
+        "whiteboard", "whiteboard-controls", "board-library", "mind-maps", "mind-map-controls",
     )),
     ("Library and files", (
         "library", "library-controls", "bookmarks", "contents", "library-skills",

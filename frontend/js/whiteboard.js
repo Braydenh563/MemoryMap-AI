@@ -1136,7 +1136,10 @@ new MutationObserver(wbRefreshHighlighterBlend).observe(document.documentElement
 //: arrow stroke has no enclosed area a fill would read as filling. Module
 //: scope (not inside `initWhiteboard`) since both the live-draw handlers
 //: and `renderWhiteboard` (a separate top-level function) need it.
-const WB_FILLABLE_SHAPES = new Set(["rect", "circle", "triangle", "diamond"]);
+//: `custom` is a shape from the library (a built-in set or one saved from a
+//: drawing, WHITEBOARD_PLAN decision 25): closed, fillable, takes text in its
+//: `label_area` (fractions of its box) or the whole box.
+const WB_FILLABLE_SHAPES = new Set(["rect", "circle", "triangle", "diamond", "custom"]);
 
 //: SVG `stroke-dasharray` for each style, scaled to the actual stroke width
 //: so a thick dashed line doesn't look like a row of dots. `null` (solid)
@@ -2048,7 +2051,7 @@ function wbBoardSearchRun(query) {
     );
     for (const kind of ["node", "object"]) {
       for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) {
-        if (wbSearchTextFor(kind, item, byId).includes(needle)) {
+        if (!wbItemHidden(kind, item) && wbSearchTextFor(kind, item, byId).includes(needle)) {
           wbBoardSearch.matches.push({ kind, id: item.id });
         }
       }
@@ -3828,7 +3831,7 @@ function wbSelectableItems() {
   for (const o of wbState.objects || []) if (o.kind === "image" || o.kind === "frame") out.push(["object", o]);
   //: A locked item is out of reach until it is unlocked (decision 15): not
   //: in Select all, not in the Tab walk.
-  return out.filter(([kind, item]) => !wbIsLocked(kind, item));
+  return out.filter(([kind, item]) => !wbIsLocked(kind, item) && !wbHiddenOnBoard(kind, item));
 }
 
 //: **Tab walks the board's items, and the board says which one** (INBOX
@@ -5637,6 +5640,13 @@ function wbBuildContextMenu(kind) {
   //: A frame is an export scope (WHITEBOARD_PLAN decision 18).
   const frameOn = commentOn?.kind === "object" && commentItem?.kind === "frame" ? commentItem : null;
   if (frameOn) item("Export this frame…", "The frame and what is inside it, as a picture, PDF or SVG", () => wbExportFrame(frameOn));
+  //: Into the library's "Yours" (decision 25): the rows the table says apply.
+  subItem("Library", (sub) => {
+    for (const id of ["save-selection", "save-branch", "save-shape", "save-style", "save-preset", "save-palette"]) {
+      const row = wbCommandMenuRow(id);
+      if (row) sub(...row);
+    }
+  });
   //: The rows the Arrange menu also has come from `WB_COMMANDS`, so the two
   //: say the same words and keys (FEAT-07: this menu called the front "Bring
   //: to front" while the bar's "Bring forward" did the same thing). Not on a
@@ -6328,6 +6338,7 @@ const WB_KIND_INFO = {
       entry_id: d.entry_id, board_id: d.board_id, x: d.x, y: d.y, z: d.z,
       width: d.width ?? null, height: d.height ?? null, rotation: d.rotation ?? null,
       group_id: d.group_id ?? null, locked: Boolean(d.locked), comments: d.comments ?? null,
+      hidden: Boolean(d.hidden),
     }),
   },
   object: {
@@ -6977,6 +6988,66 @@ async function wbUnlockAll() {
 //: The class that lets the pointer through, from state, after every render
 //: (an element rebuilt by the render has lost it). Only what changed is
 //: touched, the selection highlight's own rule.
+//: **Hidden from the board** (decision 27, the Layers tab's eye): the class
+//: `wb-hidden` (display: none) from state after every render, and on every
+//: link with an end on a hidden item, so no line points at nothing.
+function wbSketchHiddenOnBoard(sketch) {
+  if (wbItemHidden("sketch", sketch)) return true;
+  const data = wbSketchData(sketch);
+  if (!data || !String(data.type || "").startsWith("link-")) return false;
+  const end = (id, kind) => wbItemHidden(kind || "node", wbFindItem(kind || "node", id));
+  return end(data.sourceId, data.sourceKind) || end(data.targetId, data.targetKind);
+}
+
+function wbHiddenOnBoard(kind, item) {
+  return kind === "sketch" ? wbSketchHiddenOnBoard(item) : wbItemHidden(kind, item);
+}
+
+function wbSetHiddenKeys() {
+  const keys = new Set();
+  if (wbIsMap()) return keys;
+  for (const kind of ["node", "object", "sketch"]) {
+    for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) if (wbHiddenOnBoard(kind, item)) keys.add(wbMultiKey(kind, item.id));
+  }
+  return keys;
+}
+
+function wbPaintHidden() {
+  const wanted = new Set();
+  for (const key of wbSetHiddenKeys()) {
+    const sep = key.indexOf(":");
+    const el = document.querySelector(WB_SELECTOR_BY_KIND[key.slice(0, sep)](Number(key.slice(sep + 1))));
+    if (el) wanted.add(el);
+  }
+  document.querySelectorAll("#whiteboard-container .wb-hidden").forEach((el) => {
+    if (!wanted.has(el)) el.classList.remove("wb-hidden");
+  });
+  for (const el of wanted) if (!el.classList.contains("wb-hidden")) el.classList.add("wb-hidden");
+}
+
+//: Hide or show, one undo step for the lot (`wbSetLocked`'s shape).
+async function wbSetHidden(entries, on) {
+  const undo = [];
+  for (const [kind, item] of entries) {
+    if (wbItemHidden(kind, item) === on) continue;
+    undo.push({ action: "move", kind, id: item.id, before: WB_KIND_INFO[kind].payload(item) });
+    if (kind === "node") {
+      item.hidden = on;
+      await wbSaveNode(item);
+    } else if (kind === "object") {
+      const data = { ...item.data };
+      if (on) data.hidden = true;
+      else delete data.hidden;
+      item.data = data;
+      await wbSaveObject(item);
+    } else {
+      await wbSaveSketchProps(item, { hidden: on || undefined });
+    }
+  }
+  wbPushMoveBatch(undo);
+  return undo.length;
+}
+
 function wbPaintLocks() {
   const wanted = new Set();
   if (!wbIsMap()) {
@@ -7800,7 +7871,7 @@ function wbBuildExportSvg(scope, { transparent = false } = {}) {
   //: drawn, since the stylesheet does not travel into a standalone SVG.
   for (const frame of wbState.objects || []) {
     if (frame.kind !== "frame") continue;
-    if (onlyKeys && !onlyKeys.has(wbMultiKey("object", frame.id))) continue;
+    if ((onlyKeys && !onlyKeys.has(wbMultiKey("object", frame.id))) || wbItemHidden("object", frame)) continue;
     const frameEl = document.querySelector(`#wb-html-layer .wb-object[data-id="${frame.id}"]`);
     const edge = frameEl ? wbExportColour(getComputedStyle(frameEl).borderTopColor) : null;
     const titleEl = frameEl?.querySelector(".wb-frame-title");
@@ -7869,7 +7940,7 @@ function wbBuildExportSvg(scope, { transparent = false } = {}) {
   // reinterpreted, so a stroke's colour/width/opacity (including the
   // highlighter's own translucency) survives into the export untouched.
   for (const sketch of wbState.sketches) {
-    if (onlyKeys && !onlyKeys.has(wbMultiKey("sketch", sketch.id))) continue;
+    if ((onlyKeys && !onlyKeys.has(wbMultiKey("sketch", sketch.id))) || wbSketchHiddenOnBoard(sketch)) continue;
     const el = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
     if (!el) continue;
     const clone = el.cloneNode(true);
@@ -7913,7 +7984,7 @@ function wbBuildExportSvg(scope, { transparent = false } = {}) {
   const lastTopic = topics[topics.length - 1];
   const topicFallback = wbExportPaint(lastTopic, lastTopic?.querySelector(".wb-map-text"));
   for (const node of wbState.nodes) {
-    if (onlyKeys && !onlyKeys.has(wbMultiKey("node", node.id))) continue;
+    if ((onlyKeys && !onlyKeys.has(wbMultiKey("node", node.id))) || wbItemHidden("node", node)) continue;
     const entry = exportEntriesById.get(String(node.entry_id));
     const el = document.querySelector(`.node-card[data-id="${node.id}"]`);
     const w = el ? el.offsetWidth : 250;
@@ -7948,7 +8019,7 @@ function wbBuildExportSvg(scope, { transparent = false } = {}) {
   // but honours the colour/size it was actually given rather than a fixed
   // look, since those are the whole point of a text box.
   for (const obj of wbState.objects || []) {
-    if (onlyKeys && !onlyKeys.has(wbMultiKey("object", obj.id))) continue;
+    if ((onlyKeys && !onlyKeys.has(wbMultiKey("object", obj.id))) || wbItemHidden("object", obj)) continue;
     //: Drawn before the sketches, above.
     if (obj.kind === "frame") continue;
     parts.push(`<g transform="translate(${obj.x}, ${obj.y})">`);
@@ -9029,19 +9100,13 @@ async function initWhiteboard() {
     });
   }
   
-  // Sidebar toggling
-  const setWbLibraryOpen = (open) => {
-    const sidebar = $("whiteboard-sidebar");
-    sidebar.classList.toggle("hidden", !open);
-    $("wb-add-note")?.classList.toggle("is-on", open);
-    if (open) renderWbLibrary();
-  };
+  //: The top bar's Library button opens and closes the board's sidebar
+  //: (decision 26, whiteboard-library.js) on the tab it was left on.
   $("wb-add-note").addEventListener("click", () => {
-    // Toggling on the class rather than reading it back: the panel covers the
-    // toggle, so "click it again to close" was not reachable.
-    setWbLibraryOpen($("whiteboard-sidebar").classList.contains("hidden"));
+    const panel = $("wb-sidebar-panel");
+    if (panel && !panel.classList.contains("hidden")) wbCloseSidebar();
+    else wbOpenSidebar(null);
   });
-  $("wb-library-close")?.addEventListener("click", () => setWbLibraryOpen(false));
 
   const btnAddSketch = document.getElementById("wb-add-sketch");
   if (btnAddSketch) {
@@ -10632,7 +10697,7 @@ async function initWhiteboard() {
   });
   const panelSwitches = [
     ["wb-panel-overview", "wb-navigator", "wb-navigator-toggle"],
-    ["wb-panel-library", "whiteboard-sidebar", "wb-add-note"],
+    ["wb-panel-library", "wb-sidebar-panel", "wb-add-note"],
     ["wb-panel-search", "wb-search-bar", "wb-search-toggle"],
   ];
   function syncPanelSwitches() {
@@ -11112,6 +11177,12 @@ async function initWhiteboard() {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "g") {
       e.preventDefault();
       wbGroupSelection();
+      return;
+    }
+    //: Save what is selected (or the topic's branch) to the library.
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      wbRunCommand(wbIsMap() ? "save-branch" : "save-selection");
       return;
     }
     // Mind-mapping's keyboard-driven branch entry (item 25's second piece,
@@ -12524,6 +12595,31 @@ function wbRememberedBoardKind() {
 }
 
 async function createNewBoard(preset = null) {
+  //: **New board opens the template gallery** (BACKLOG 4b, decision 25):
+  //: Blank, the built-in frames and your own templates, kind and name in one
+  //: dialog (`wbOpenTemplateGallery`, whiteboard-library.js, in the same
+  //: bundle as this file).
+  if (typeof wbOpenTemplateGallery === "function") {
+    const picked = await wbOpenTemplateGallery(preset || wbRememberedBoardKind());
+    if (!picked) return;
+    try {
+      localStorage.setItem(WB_LAST_BOARD_KIND, picked.kind);
+    } catch (err) { /* see wbRememberedBoardKind */ }
+    if (!picked.ref) return wbCreateBlankBoard(picked.name, picked.kind);
+    try {
+      const board = await apiJson("/board-library/new-board", {
+        method: "POST",
+        body: JSON.stringify({ ...wbLibRefBody(picked.ref), name: picked.name, ink: wbLibInk() }),
+      });
+      window.wbLastCreatedBoard = board;
+      await openWhiteboardBoard(board.id);
+      wbZoomToFit({ animate: false });
+      toast(`"${board.title}" started from a template.`);
+    } catch (err) {
+      toast(err.message || "Couldn't create that board.", true);
+    }
+    return;
+  }
   const answer = await promptDialog("Name the new board:", "", {
     //: "Save" is what `promptDialog` says by default and it is the wrong verb
     //: for a dialog whose whole job is to make something that does not exist
@@ -12556,6 +12652,11 @@ async function createNewBoard(preset = null) {
   try {
     localStorage.setItem(WB_LAST_BOARD_KIND, kind);
   } catch (err) { /* see wbRememberedBoardKind */ }
+  return wbCreateBlankBoard(name, kind);
+}
+
+//: A blank board or map named `name`: the body `createNewBoard` always had.
+async function wbCreateBlankBoard(name, kind) {
   try {
     const board = await apiJson("/whiteboard/boards", {
       method: "POST",
@@ -12876,8 +12977,15 @@ function wbShapeLabelKind(parsed) {
 //: a diamond, and the lower half of a triangle, centred on its centroid
 //: (two thirds of the way down from the apex) where it is widest enough to
 //: hold a word.
-function wbShapeLabelArea(kind, bbox) {
+function wbShapeLabelArea(kind, bbox, area = null) {
   const pad = 8;
+  if (area && Number.isFinite(area.w)) {
+    return {
+      cx: bbox.minX + bbox.width * ((area.x || 0) + area.w / 2),
+      cy: bbox.minY + bbox.height * ((area.y || 0) + (area.h ?? 1) / 2),
+      w: Math.max(24, bbox.width * area.w - pad * 2),
+    };
+  }
   const cx = bbox.minX + bbox.width / 2;
   if (kind === "triangle") {
     return { cx, cy: bbox.minY + (bbox.height * 2) / 3, w: Math.max(24, bbox.width * 0.5 - pad) };
@@ -12932,7 +13040,13 @@ function wbLayoutShapeLabel(groupEl) {
   label.removeAttribute("transform");
   const bbox = wbPathBBox(groupEl.querySelector(".sketch-path")?.getAttribute("d") || "");
   if (!bbox) return;
-  const area = wbShapeLabelArea(label.dataset.kind, bbox);
+  let labelArea = null;
+  try {
+    labelArea = label.dataset.area ? JSON.parse(label.dataset.area) : null;
+  } catch {
+    labelArea = null;
+  }
+  const area = wbShapeLabelArea(label.dataset.kind, bbox, labelArea);
   const fontSize = parseFloat(getComputedStyle(label).fontSize) || 16;
   const lineHeight = fontSize * 1.25;
   const key = `${label.__wbText}|${Math.round(area.w / 4)}|${fontSize}`;
@@ -12994,6 +13108,8 @@ function wbPaintShapeLabel(groupEl, parsed) {
     groupEl.appendChild(label);
   }
   label.dataset.kind = kind;
+  if (parsed?.label_area) label.dataset.area = JSON.stringify(parsed.label_area);
+  else delete label.dataset.area;
   label.__wbText = text;
   label.style.fill = wbShapeLabelInk(parsed) || "";
   wbLayoutShapeLabel(groupEl);
@@ -13007,7 +13123,7 @@ function wbEditShapeLabel(sketch) {
   const kind = wbShapeLabelKind(parsed);
   const bbox = kind ? wbPathBBox(parsed.d) : null;
   if (!bbox) return;
-  const area = wbShapeLabelArea(kind, bbox);
+  const area = wbShapeLabelArea(kind, bbox, parsed.label_area || null);
   const h = Math.max(bbox.height, 24);
   wbOpenSketchLabelEditor(sketch, parsed, {
     box: { x: area.cx - area.w / 2, y: area.cy - h / 2, w: area.w, h },
@@ -15068,6 +15184,7 @@ function renderWhiteboard() {
   // actually persists (`wbSelectedItem`), not the DOM.
   wbApplySelectionHighlight();
   wbPaintLocks();
+  wbPaintHidden();
   wbPaintCommentMarks();
 
   //: A frame later, not now: a fresh element has to be drawn once before it
@@ -16950,6 +17067,7 @@ async function openWhiteboardBoard(boardId) {
   wbScheduleRender();
   await wbMigrateBackground();
   wbApplyBackground();
+  if (typeof wbSyncSidebarKind === "function") wbSyncSidebarKind();
   renderWbGestureHints();
   //: Rendered now rather than on the next frame, because the framing below
   //: measures the nodes it is about to fit (a map node is `height: auto`, so

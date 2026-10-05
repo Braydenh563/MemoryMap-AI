@@ -252,3 +252,29 @@ def test_repair_leaves_a_running_copys_window_profile_alone(tmp_path, monkeypatc
         launcher.main()
     cleared = profile.exists()
     assert not cleared
+
+
+def test_both_specs_leave_bytecode_out_of_the_bundle():
+    """`migrations/` is copied whole, so a build machine with a
+    `migrations/__pycache__` shipped it (stale bytecode, and a file the
+    uninstaller's log does not know). Each spec filters its data files; the
+    filter is run here on the shapes PyInstaller hands it."""
+    for spec in SPECS:
+        text = spec.read_text(encoding="utf-8")
+        tree = ast.parse(text)
+        found = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "_without_bytecode"]
+        assert found, f"{spec.parent.name} spec has no _without_bytecode"
+        namespace: dict = {}
+        exec(compile(ast.Module(body=found, type_ignores=[]), str(spec), "exec"), namespace)  # noqa: S102
+        keep = [
+            ("migrations/env.py", "/repo/migrations/env.py", "DATA"),
+            ("migrations/versions/0001_x.py", "/repo/migrations/versions/0001_x.py", "DATA"),
+            ("frontend/js/app.js", "/repo/frontend/js/app.js", "DATA"),
+        ]
+        drop = [
+            ("migrations/__pycache__/env.cpython-311.pyc", "/repo/migrations/__pycache__/env.cpython-311.pyc", "DATA"),
+            ("migrations\\versions\\__pycache__\\0001_x.cpython-311.pyc", "C:\\repo\\x.pyc", "DATA"),
+        ]
+        assert namespace["_without_bytecode"](keep + drop) == keep, spec
+        assert text.index("a.datas = _without_bytecode(a.datas)") < text.index("COLLECT("), spec
+        assert text.index("a.datas = _without_bytecode(a.datas)") > text.index("a = Analysis("), spec

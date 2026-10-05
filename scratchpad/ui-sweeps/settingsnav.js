@@ -26,7 +26,7 @@ const check = (name, ok, detail) => {
   await page.evaluate(() => openSettingsModal('models'));
   await page.waitForTimeout(1500);
   const idx = await page.evaluate(() => {
-    const nav = document.querySelector('#settings-models > .settings-index');
+    const nav = document.querySelector('#settings-models .settings-index');
     if (!nav) return null;
     const links = [...nav.querySelectorAll('.settings-index-link')];
     return { n: links.length, labels: links.map((l) => l.textContent), sticky: getComputedStyle(nav).position, current: links.filter((l) => l.getAttribute('aria-current') === 'location').length };
@@ -34,12 +34,13 @@ const check = (name, ok, detail) => {
   check('Models has an index with a link per group head', !!idx && idx.n >= 6, idx);
   if (idx) {
     await page.evaluate(() => {
-      const links = [...document.querySelectorAll('#settings-models > .settings-index .settings-index-link')];
+      const links = [...document.querySelectorAll('#settings-models .settings-index .settings-index-link')];
       links[links.length - 1].click();
     });
     await page.waitForTimeout(900);
     const after = await page.evaluate(() => {
-      const nav = document.querySelector('#settings-models > .settings-index');
+      // Since INBOX 599 the strip is in the pane's dock, and the dock sticks.
+      const nav = document.querySelector('#settings-models .settings-index').closest('.dock') || document.querySelector('#settings-models .settings-index');
       const scroller = document.querySelector('#settings-modal .modal-content');
       const links = [...nav.querySelectorAll('.settings-index-link')];
       const cur = links.find((l) => l.getAttribute('aria-current') === 'location');

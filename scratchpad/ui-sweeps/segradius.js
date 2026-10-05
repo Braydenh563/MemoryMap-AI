@@ -7,7 +7,8 @@
 //   tab strip        --radius-strip   0.8x  (the sub-tabs, the OCR rail, the tab bar)
 //   in a .dock bar   --radius-md      0.6x  (the bar's own corner)
 //   in the chat dock --radius-pill          (a row of pills)
-//   full-bleed       0                      (#doc-sidebar-tabs only)
+//   .tabs-line        0                      (the Notes and Library strips, #doc-sidebar-tabs,
+//                                             #wb-format-tabs; the whiteboard's rail is full-bleed)
 //
 // Computed style is read whether or not the control is on screen (a hidden
 // element still resolves its rules), so a document's toggles are measured
@@ -36,7 +37,10 @@ const WIDTH = Number(process.env.WIDTH || 1440);
           root,
           dock: !!el.closest('.dock'),
           chatDock: !!el.closest('.chat-dock-controls'),
-          strip: el.matches('.notes-subtabs, .library-subtabs, .ocr-rail-switch, #tab-bar'),
+          strip: el.matches('.ocr-rail-switch, #tab-bar'),
+          //: `.tabs-line` strips have no track, and the whiteboard's vertical
+          //: rail is full-bleed: both are square by DESIGN.md's table.
+          line: el.matches('.tabs-line, .wb-sidebar-rail'),
         });
       }
       return out;
@@ -101,7 +105,7 @@ const WIDTH = Number(process.env.WIDTH || 1440);
       (f === 'strip' && row.strip) ||
       (f === 'dock' && row.dock) ||
       (f === 'pill' && row.chatDock) ||
-      (f === 'square' && row.key === '#doc-sidebar-tabs');
+      (f === 'square' && row.line);
     if (!ok) findings.push(`${row.key} is ${row.r}px (${f}) where the table says otherwise`);
   }
   console.log('families:', JSON.stringify(counts));

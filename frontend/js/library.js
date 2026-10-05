@@ -805,6 +805,9 @@ function libraryActions(item) {
       }),
       //: The shared "act on this" rows (INBOX 393): every object can be taken
       //: to the chat that answers about it.
+      makeMenuItem("ph:graph Show in graph", "Open the graph centred on this document", () =>
+        showNoteInGraph(item.id, { document: true })
+      ),
       makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this document", () =>
         askAtlasAboutThing("document", item.title)
       ),
@@ -7256,7 +7259,10 @@ function filterLibraryImagesGallery() {
       // `/media/pdf-page/{name}`); this is the same call at thumbnail size.
       // The glyph stays underneath as the fallback for everything without
       // pages, and for a PDF whose render fails.
-      if (image.has_pages || /\.pdf$/i.test(image.original_name || "")) {
+      // Only when the server says it can draw one (`has_pages`): a name
+      // ending in .pdf on an install without the render extra was four 404s
+      // per render of the Files sub-tab, one per document row.
+      if (image.has_pages) {
         const page = document.createElement("img");
         page.className = "library-file-page";
         page.loading = "lazy";

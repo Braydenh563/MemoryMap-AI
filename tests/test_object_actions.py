@@ -35,6 +35,18 @@ def test_library_notes_and_documents_reach_the_chat():
     assert "showNoteInGraph(item.id)" in note
 
 
+def test_a_library_document_reaches_the_graph():
+    """WORLD_CLASS_PLAN 1.3: the graph draws a document as `document:<id>`
+    while its Documents switch is on, so the door turns the switch on and
+    looks for that node, not the bare id a note has."""
+    document = _block(LIBRARY, 'if (item.kind === "document") {', 'if (item.kind === "archived") {')
+    assert "showNoteInGraph(item.id, { document: true })" in document
+    assert "ph:graph Show in graph" in document
+    door = _block(APP, "async function showNoteInGraph(", "focusGraphNode(node);")
+    assert "document:" in door
+    assert '$("graph-documents")' in door
+
+
 def test_a_board_or_map_card_reaches_the_chat():
     assert "askAtlasAboutThing(board.type === \"map\" ? \"map\" : \"board\", board.title)" in BOARDS
 

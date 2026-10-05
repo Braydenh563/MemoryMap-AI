@@ -127,12 +127,12 @@ async function openNotePropertiesSheet(entry) {
       actions.className = "row right space-dialog-actions";
       const cancel = document.createElement("button");
       cancel.type = "button";
-      cancel.className = "ghost";
+      cancel.className = "ghost small";
       cancel.textContent = "Cancel";
       cancel.addEventListener("click", close);
       const save = document.createElement("button");
       save.type = "button";
-      save.className = "accent";
+      save.className = "accent small";
       save.textContent = "Save";
       save.addEventListener("click", async () => {
         const properties = {};

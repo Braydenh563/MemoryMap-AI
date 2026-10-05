@@ -132,7 +132,7 @@ async function strips(page) {
 }
 
 async function settingsNav(page) {
-  await page.evaluate(() => (window.openSettings ? openSettings('appearance') : document.getElementById('settings-btn')?.click()));
+  await page.evaluate(() => openSettingsModal('appearance'));
   await page.waitForTimeout(800);
   const r = await glideOnce(page, '#settings-nav', '#settings-nav-models').catch((e) => ({ error: e.message.slice(0, 80) }));
   const s = await glideOnce(page, '#settings-nav', '#settings-nav-appearance').catch((e) => ({ error: e.message.slice(0, 80) }));
@@ -159,25 +159,203 @@ async function recipes(page) {
   });
 }
 
+
+// A note list worth settling and a row menu to open: ten notes, once.
+async function seed(page) {
+  await page.evaluate(async () => {
+    document.getElementById('tab-btn-notes')?.click();
+    await new Promise((r) => setTimeout(r, 600));
+    if (document.querySelectorAll('#entry-list > li:not(.skeleton)').length >= 6) return;
+    for (let i = 0; i < 10; i++) {
+      await apiJson('/entries', { method: 'POST', body: JSON.stringify({ content: `Motion sweep note ${i}: a short line to list.`, tags: ['motion'] }) });
+    }
+  });
+}
+
+// A menu (a note row's kebab, else any visible menu opener), then a dialog
+// (the command palette), then two toasts: what animates, from where, how
+// long a close holds the box, and whether the placement differs from the
+// same menu placed with the switch off.
+async function popups(page) {
+  return page.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
+    const out = {};
+    const opener = [...document.querySelectorAll('#entry-list .action-menu'), ...document.querySelectorAll('.action-menu')]
+      .map((m) => m.parentElement?.querySelector('[aria-haspopup]'))
+      .find((b) => b && b.offsetWidth);
+    if (opener) {
+      opener.click();
+      const menu = [...document.querySelectorAll('.action-menu:not(.hidden)')][0];
+      const anims = menu ? menu.getAnimations().map((a) => a.animationName || a.transitionProperty) : [];
+      await wait(400);
+      const r = menu.getBoundingClientRect();
+      out.menu = { anims, origin: getComputedStyle(menu).transformOrigin, rect: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)] };
+      closeActionMenus();
+      await frame();
+      await frame();
+      const cs = getComputedStyle(menu);
+      out.menu.closing = { escapedOrSnap: menu.classList.contains('ui-snap'), hidden: menu.classList.contains('hidden'), display: cs.display, opacity: +(+cs.opacity).toFixed(2) };
+      await wait(200);
+      out.menu.closed = getComputedStyle(menu).display;
+    }
+    // A dialog: the command palette (app-palette.js).
+    openPalette();
+    await frame();
+    const live = document.getElementById('palette-overlay');
+    out.dialog = { id: live?.id, firstFrameOpacity: +(+getComputedStyle(live).opacity).toFixed(2), anims: live.getAnimations({ subtree: true }).map((a) => a.transitionProperty || a.animationName).filter(Boolean).slice(0, 6) };
+    await wait(350);
+    closePalette();
+    await frame();
+    await wait(30);
+    out.dialog.closing = { display: getComputedStyle(live).display, opacity: +(+getComputedStyle(live).opacity).toFixed(2) };
+    await wait(250);
+    out.dialog.closed = getComputedStyle(live).display;
+    // Toasts: the new one's entry, and the older one sliding up to make room.
+    toast('Motion sweep, first');
+    await wait(300);
+    toast('Motion sweep, second');
+    const box = document.querySelector('#toast-box');
+    const notes = [...box.querySelectorAll('.toast')];
+    out.toast = {
+      count: notes.length,
+      newest: notes.at(-1)?.getAnimations().map((a) => a.animationName).join('+'),
+      older: notes.slice(0, -1).flatMap((n) => n.getAnimations().map((a) => (a.effect?.getKeyframes?.()[0] ? Object.keys(a.effect.getKeyframes()[0]).filter((k) => !['offset', 'easing', 'composite', 'computedOffset'].includes(k)).join('+') : a.animationName))).join(' '),
+    };
+    for (const n of notes) n.querySelector('.toast-close')?.click();
+    await wait(500);
+    return out;
+  });
+}
+
+// The first visit to Library: its lists swap skeletons for rows; how many
+// containers settled and the first row's opacity on the frame it arrived.
+async function settle(page) {
+  await page.evaluate(() => {
+    window.__settle = [];
+    new MutationObserver((list) => {
+      for (const m of list) {
+        const el = m.target;
+        if (el.classList?.contains('ui-settle') && !el.__seen) {
+          el.__seen = true;
+          requestAnimationFrame(() => {
+            const first = el.firstElementChild;
+            const eighth = el.children[7];
+            window.__settle.push({ id: el.id || el.className.split(' ')[0], first: first ? +(+getComputedStyle(first).opacity).toFixed(2) : null, delay8: eighth ? getComputedStyle(eighth).transitionDelay.split(',')[0] : null, rows: el.children.length });
+          });
+        }
+      }
+    }).observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
+  });
+  await page.evaluate(() => document.getElementById('tab-btn-library')?.click());
+  await page.waitForTimeout(1500);
+  return page.evaluate(() => window.__settle.slice(0, 6));
+}
+
+// 20 menu opens and closes and 20 tab switches: rAF intervals over 16.7ms.
+async function frames(page) {
+  return page.evaluate(async (rounds) => {
+    const gaps = [];
+    let last = performance.now();
+    let on = true;
+    const tick = (t) => { gaps.push(t - last); last = t; if (on) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const menuGaps = [];
+    document.getElementById('tab-btn-notes')?.click();
+    await wait(400);
+    const opener = [...document.querySelectorAll('.action-menu')].map((m) => m.parentElement?.querySelector('[aria-haspopup]')).find((b) => b && b.offsetWidth);
+    gaps.length = 0;
+    for (let i = 0; i < rounds && opener; i++) {
+      opener.click();
+      await wait(220);
+      closeActionMenus();
+      await wait(160);
+    }
+    menuGaps.push(...gaps.splice(0));
+    const tabs = ['tab-btn-chat', 'tab-btn-notes'].map((id) => document.getElementById(id)).filter((b) => b && b.offsetWidth);
+    const subs = [...document.querySelectorAll('#notes-subtabs > button')].slice(0, 2);
+    const strip = tabs.length === 2 ? tabs : subs;
+    for (let i = 0; i < rounds; i++) {
+      strip[i % 2].click();
+      await wait(300);
+    }
+    const tabGaps = gaps.splice(0);
+    on = false;
+    const sum = (g) => {
+      const s = [...g].sort((a, b) => a - b);
+      return { frames: g.length, over16: g.filter((x) => x > 16.7 + 1).length, over33: g.filter((x) => x > 34).length, p95: +s[Math.floor(s.length * 0.95)]?.toFixed(1), max: +s.at(-1)?.toFixed(1) };
+    };
+    return { menu: sum(menuGaps), tabs: sum(tabGaps), loaf: window.__loaf.splice(0).filter((d) => d > 50).length };
+  }, ROUNDS);
+}
+
+// This sandbox's frame times swing with the load other work puts on four
+// cores, so on and off are run alternately, three times each, and compared
+// by their medians: what the motion costs is the difference, not either one.
+async function framesAB(page) {
+  await page.evaluate(() => {
+    window.__loaf = [];
+    new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__loaf.push(e.duration); }).observe({ type: 'long-animation-frame', buffered: false });
+  });
+  const runs = { on: [], off: [] };
+  for (let i = 0; i < 6; i++) {
+    const on = i % 2 === 0;
+    await setSwitch(page, on);
+    runs[on ? 'on' : 'off'].push(await frames(page));
+  }
+  const med = (list, k1, k2) => list.map((r) => (k2 ? r[k1][k2] : r[k1])).sort((a, b) => a - b)[1];
+  const view = (list) => ({
+    menuMissed: med(list, 'menu', 'over16'), menuP95: med(list, 'menu', 'p95'), menuFrames: med(list, 'menu', 'frames'),
+    tabMissed: med(list, 'tabs', 'over16'), tabP95: med(list, 'tabs', 'p95'), tabFrames: med(list, 'tabs', 'frames'),
+    longFramesOver50: med(list, 'loaf'),
+  });
+  await setSwitch(page, true);
+  return { on: view(runs.on), off: view(runs.off) };
+}
+
 (async () => {
   const { browser, page } = await boot({ viewport: { width: W, height: 900 }, ...(REDUCED ? { reducedMotion: 'reduce' } : {}) });
   await page.evaluate(() => {
-    window.__cls = 0;
+    window.__cls = {};
+    window.__shifts = [];
+    window.__phase = 'boot';
     new PerformanceObserver((list) => {
-      for (const e of list.getEntries()) if (!e.hadRecentInput) window.__cls += e.value;
+      for (const e of list.getEntries()) {
+        if (e.hadRecentInput) continue;
+        window.__cls[window.__phase] = (window.__cls[window.__phase] || 0) + e.value;
+        const who = (e.sources || []).map((x) => x.node && (x.node.id || (x.node.className && String(x.node.className).split(' ')[0]) || x.node.nodeName)).join(',');
+        window.__shifts.push(`${window.__phase}:${e.value.toFixed(3)}:${who}`);
+      }
     }).observe({ type: 'layout-shift', buffered: false });
   });
   const result = { w: W, theme: process.env.THEME || 'light', reduced: REDUCED };
   result.switchAttr = await setSwitch(page, true);
+  await page.evaluate((p) => { window.__phase = p; }, 'settle');
+  result.settle = await settle(page);
+  await page.evaluate(() => { window.__phase = 'seed'; });
+  await seed(page);
+  await page.evaluate((p) => { window.__phase = p; }, 'recipes');
   result.recipes = await recipes(page);
+  await page.evaluate((p) => { window.__phase = p; }, 'popupsOn');
+  result.popupsOn = await popups(page);
+  await page.evaluate((p) => { window.__phase = p; }, 'on');
   result.on = await strips(page);
   result.switchAttr = [result.switchAttr, await setSwitch(page, false)];
+  await page.evaluate((p) => { window.__phase = p; }, 'off');
   result.off = await strips(page);
+  await page.evaluate((p) => { window.__phase = p; }, 'offRecipes');
   result.offRecipes = await recipes(page);
+  await page.evaluate((p) => { window.__phase = p; }, 'popupsOff');
+  result.popupsOff = await popups(page);
   await setSwitch(page, true);
+  await page.evaluate((p) => { window.__phase = p; }, 'settingsOn');
   result.settingsOn = await settingsNav(page);
-  await page.keyboard.press('Escape');
-  result.cls = await page.evaluate(() => +window.__cls.toFixed(4));
+  await page.evaluate(() => closeSettingsModal());
+  await page.evaluate(() => { window.__phase = 'frames'; });
+  result.frames = await framesAB(page);
+  result.cls = await page.evaluate(() => Object.fromEntries(Object.entries(window.__cls).map(([k, v]) => [k, +v.toFixed(4)])));
+  result.shifts = await page.evaluate(() => window.__shifts.filter((x) => +x.split(':')[1] > 0.001).slice(0, 12));
   // One line per finding: a glide is "ms/frames/lands px/what it moves".
   const g = (list) => (list || []).map((r) => (r.error ? r.error : `${r.ms}ms/${r.frames}f/${r.lands}px/${r.props.join('+') || '-'}`)).join(' ');
   for (const k of ['on', 'off']) {

@@ -232,7 +232,7 @@
   /* Not clickable while invisible, an unhovered bubble must not swallow a
      click aimed at the text under this. */
   pointer-events: none;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
   z-index: 2;
 }
 
@@ -293,7 +293,7 @@
   font-size: 0.8rem;
   line-height: 1.5;
   cursor: pointer;
-  transition: background var(--motion-fast) var(--ease-out);
+  transition: background var(--ui-fast) var(--ease-out);
 }
 
 /* One style for both roles. The user's used to be translucent white because
@@ -601,7 +601,7 @@ details.tool-chip > summary::after {
   margin-left: auto;
   flex: 0 0 auto;
   opacity: 0.7;
-  transition: transform var(--motion-base) var(--ease-out);
+  transition: transform var(--ui-base) var(--ease-out);
 }
 
 details.tool-chip[open] > summary::after {
@@ -775,7 +775,7 @@ details.tool-chip[open] > .tool-chip-body {
   border-bottom: 0.24rem solid transparent;
   transform: rotate(0deg);
   transform-origin: 40% 50%;
-  transition: transform var(--motion-base) var(--ease-out);
+  transition: transform var(--ui-base) var(--ease-out);
 }
 
 .agent-step.step-thinking[open] summary::before {
@@ -819,7 +819,7 @@ details.tool-chip[open] > .tool-chip-body {
   border-bottom: 0.24rem solid transparent;
   transform: rotate(0deg);
   transform-origin: 40% 50%;
-  transition: transform var(--motion-base) var(--ease-out);
+  transition: transform var(--ui-base) var(--ease-out);
 }
 
 .agent-step.step-plan[open] summary::before {
@@ -1223,7 +1223,7 @@ body.graph-fullscreen-on .sidebar-panel {
   color: var(--ink);
   cursor: pointer;
   box-shadow: none;
-  transition: background var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+  transition: background var(--ui-fast) var(--ease-out), transform var(--ui-fast) var(--ease-out);
 }
 
 .graph-zoom-btn:hover {
@@ -2609,10 +2609,14 @@ kbd {
    with the hint on: the emblem's transform identical 500ms apart on the lock
    screen, the dashboard, the top bar and the chat. `:where()` counts for
    nothing, so the blanket is a bare `*` again as far as the cascade is
-   concerned. `tests/test_emblem_turns.py` holds it there. */
+   concerned. `tests/test_emblem_turns.py` holds it there.
+
+   The polish set's own animations (a menu's or popover's grow, a toast)
+   are exempt too while Interface animations is on: the owner's switch, not
+   this hint, decides them (DESIGN.md, "Interface animations"). */
 @media (prefers-reduced-motion: reduce) {
 
-  *:where(:not(:is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure), :is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure) *, [data-ui-motion="on"] .ui-anim)),
+  *:where(:not(:is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure), :is(#nm-buddy, .name-mark, .nm-atlas, .nm-figure) *, [data-ui-motion="on"] :is(.action-menu, .dock-menu-list, .help-popover, .toast))),
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
@@ -2887,7 +2891,7 @@ kbd {
    people who want a still UI regardless of their OS setting. Transitions
    follow Interface animations, as under the system hint above: stilled only
    while that switch is not on, and always on the decorative surfaces. */
-:root[data-motion="reduced"] *:where(:not([data-ui-motion="on"] .ui-anim)),
+:root[data-motion="reduced"] *:where(:not([data-ui-motion="on"] :is(.action-menu, .dock-menu-list, .help-popover, .toast))),
 :root[data-motion="reduced"] *::before,
 :root[data-motion="reduced"] *::after {
   animation-duration: 0.001ms !important;
@@ -5631,7 +5635,7 @@ mark.lightbox-hit {
   text-align: left;
   text-decoration: none;
   cursor: pointer;
-  transition: background var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+  transition: background var(--ui-fast) var(--ease-out), border-color var(--ui-fast) var(--ease-out);
 }
 
 .chat-source-row:hover,
@@ -5705,7 +5709,7 @@ mark.lightbox-hit {
   background: var(--inner);
   color: var(--ink);
   text-decoration: none;
-  transition: border-color var(--motion-fast) var(--ease-out), background var(--motion-fast) var(--ease-out);
+  transition: border-color var(--ui-fast) var(--ease-out), background var(--ui-fast) var(--ease-out);
 }
 
 .link-card:hover,
@@ -5760,7 +5764,7 @@ mark.lightbox-hit {
    quieter, borderless look of a fact. */
 .chat-source-card.is-openable {
   cursor: pointer;
-  transition: border-color var(--motion-fast) var(--ease-out), background var(--motion-fast) var(--ease-out);
+  transition: border-color var(--ui-fast) var(--ease-out), background var(--ui-fast) var(--ease-out);
 }
 
 .chat-source-card.is-openable:hover,
@@ -5910,7 +5914,7 @@ mark.lightbox-hit {
   border-radius: var(--radius-sm);
   padding-inline: var(--space-1);
   margin-inline-start: calc(var(--space-1) * -1);
-  transition: background var(--motion-fast) var(--ease-out);
+  transition: background var(--ui-fast) var(--ease-out);
   /* Reported: "the icon is out of alignment". The pencil below used to be an
      `::after` on a *block* heading, so it sat on the heading's text baseline
      at `--text-sm`, visibly low against a 1.25rem title, and only ever seen
@@ -5943,7 +5947,7 @@ mark.lightbox-hit {
   font-size: var(--text-sm);
   line-height: 1;
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .chat-title:hover::after,

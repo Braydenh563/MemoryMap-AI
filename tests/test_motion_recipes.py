@@ -37,7 +37,7 @@ JS_DIR = ROOT / "frontend" / "js"
 #: that changes colour as the fill arrives under it is part of the glide.
 COMPOSITOR = {
     "opacity", "transform", "translate", "scale", "rotate",
-    "color", "background-color", "box-shadow",
+    "color", "background-color", "border-color", "outline-color", "box-shadow",
     # `display` and `overlay` with `allow-discrete` only hold an element
     # in the tree for an exit fade; they animate nothing themselves.
     "display", "overlay",

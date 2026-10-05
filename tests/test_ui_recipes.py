@@ -570,7 +570,8 @@ def test_the_press_cue_does_not_use_the_transform_property() -> None:
         "the press cue must use `translate`/`scale`, not `transform`: "
         "`transform` replaces a button's own centring and makes it jump"
     )
-    assert "translate:" in body and "scale:" in body
+    # The motion pass (2026-10-05): a scale alone, 0.97, reads as the press.
+    assert "scale: 0.97" in body and "translate:" not in body
 
 
 def test_no_dialog_is_a_direct_child_of_a_page() -> None:

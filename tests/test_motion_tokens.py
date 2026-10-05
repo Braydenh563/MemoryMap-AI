@@ -272,6 +272,8 @@ def test_the_polish_is_never_gated_by_the_media_query_alone():
         if re.search(r"(?<![-\w])(transition|animation)(-[a-z]+)?\s*:", body)
         and any(re.search(rf"(^|[\s,>(]){re.escape(p)}(?![-\w])", selector) for p in POLISH)
         and not all(any(i in part for i in INDICATORS) for part in selector.split(","))
+        # A blanket that names the polish only to exempt it while the switch is on.
+        and 'data-ui-motion="on"' not in selector
     ]
     assert not offenders, (
         "A reduced-motion block stops part of the polish set, which the "
@@ -313,3 +315,35 @@ def test_the_switch_is_wired_from_boot_to_settings():
     html = (CSS_DIR.parents[0] / "index.html").read_text(encoding="utf-8")
     assert re.search(r'<input type="checkbox" id="ui-motion-toggle" checked>', html), "the toggle is not on by default"
     assert 'data-help-for="motion-help"' in html, "the switch has no help popover"
+
+
+#: Rules whose motion is not the interface's: the companion and Atlas, the
+#: graph, the whiteboard, the boot splash, and the indicators that say work
+#: is happening (their own `progress-motion` setting). Everything else is the
+#: polish set and runs on the switch.
+DECORATIVE = re.compile(
+    r"#nm-buddy|\.nm-|\.nmb|\.nms|\.atl-|\.name-mark|\.graph-node|\.graph-edge|\.graph-label|"
+    r"\.graph-minimap|\.graph-halo|\.graph-core|graph-orb|\.emblem|\.typing|\.progress-|\.ai-writing|"
+    r"\.boot-splash|\.mic-bar|recording|\.wb-|\.sketch-color|\.onboarding-dot|theme-switching|"
+    r"\.is-generating|\.ai-status-popup"
+)
+
+
+def test_every_interface_transition_runs_on_the_switch():
+    """The motion tokens resolve against the attribute for the polish class:
+    a transition outside the decorative and progress surfaces names `--ui-*`,
+    so Interface animations off is zero for it whatever the blankets do."""
+    offenders = []
+    for path in sorted(CSS_DIR.glob("*.css")):
+        for line, selector, body in _rules(path.read_text(encoding="utf-8")):
+            flat = " ".join(selector.split())
+            if flat.startswith("@") or DECORATIVE.search(flat):
+                continue
+            for m in re.finditer(r"(?<![-\w])transition(?:-duration|-delay)?\s*:([^;]*)", body):
+                if "var(--motion-" in m.group(1):
+                    offenders.append(f"{path.name}:{line}: {flat[:70]}")
+    assert not offenders, (
+        "An interface transition reads `--motion-*`, which Interface animations "
+        "cannot turn off; use `--ui-fast`, `--ui-base`, `--ui-slow` or `--ui-exit`:\n"
+        + "\n".join(offenders)
+    )

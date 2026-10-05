@@ -2270,7 +2270,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   top: var(--space-3);
   right: var(--space-3);
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .library-card:hover .library-card-menu,
@@ -2653,7 +2653,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   /* See the visibility rule further down: this used to be 0, so the kebab did
      not exist until the pointer found it. */
   opacity: 0.6;
-  transition: opacity var(--motion-base) var(--ease-out);
+  transition: opacity var(--ui-base) var(--ease-out);
 }
 
 .library-image-menu-list {
@@ -3117,7 +3117,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   line-height: 1;
   flex: 0 0 auto;
   opacity: 0.7;
-  transition: transform var(--motion-base) var(--ease-out);
+  transition: transform var(--ui-base) var(--ease-out);
 }
 
 .library-image-reading[open] > summary::before {

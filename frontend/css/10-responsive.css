@@ -267,74 +267,74 @@ header#top-bar[data-scrolled="1"],
     0 var(--space-2) var(--space-6) calc(-1 * var(--space-3)) var(--scroll-edge);
 }
 
-/* `transition` is a shorthand, so this is only safe because none of the four
-   declares one: checked in the stylesheets and confirmed in the browser,
-   where each of them computed to no transition before this rule. A fifth bar
-   added to the effect later needs the same check, or its own transition goes
-   silently missing.
+/* The edge appears at once: a shadow's size is never animated (the motion
+   pass, 2026-10-05; `tests/test_cheap_animations.py`). */
 
-   Interface animations off makes the edge appear at once (the blanket in
-   02-chat-graph.css); on, it eases in even under reduced motion. */
-header#top-bar,
-.dock,
-.notes-subtabs,
-.library-subtabs {
-  transition: box-shadow var(--motion-base) var(--ease-out);
-}
-
-/* --- Phase 10, INBOX 103: a menu opens out of the control that opened it --
-
+/* --- motion: a menu or popover grows from what opened it (INBOX 103, 2026-10-05)
    DESIGN.md rule 12, from the HIG: controls "fluidly morph into menus and
-   popovers", and rule 6: "an action sheet originates from the element that
-   initiates the action". A menu that simply appears has no relationship to
-   the button you pressed; one that grows out of that button's corner is the
-   same object continuing.
+   popovers"; an action sheet "originates from the element that initiates
+   the action". A menu, a dock menu and a help popover fade in and grow from
+   0.96 to full size out of the corner nearest their opener over `--ui-base`;
+   a menu closes back the same way, faster, over `--ui-exit`.
 
-   **A clip, not a scale, and the reason is a measurement rather than
-   taste.** `openActionMenu` (menus.js) reads `menu.getBoundingClientRect()` in
-   the same turn it removes `.hidden`, twice: once to decide whether the menu
-   would spill past its scroll parent and flip upward, and again inside
-   `escapeMenuIfClipped`, which reparents a clipped menu to the body and
-   positions it from those coordinates. A transform is included in that rect,
-   so a menu scaling in from 0.92 would be measured at 92% of itself and
-   placed accordingly, permanently. `clip-path` changes nothing about the
-   box; it only decides which of it is painted.
-
-   The circle grows from the opener's own corner: `.action-menu` is anchored
-   `right: 0; top: calc(100% + 4px)` under its opener, so the top-right
-   corner *is* the button, and the flipped variant's origin moves to the
-   bottom with it. 140% is the diagonal of a box, so the last frame is a
-   whole menu rather than a clipped rectangle. */
-@keyframes menu-open-from-opener {
+   **Opacity and scale, and the scale starts 1ms late, which is the point.**
+   `openActionMenu` and its siblings (menus.js) measure the menu in the same
+   turn they show it, to flip it, escape a clipping box or place it on
+   `<body>`, and a transform is part of that measure: a menu measured at 96%
+   would be placed 4% wrong, for good (why this was a `clip-path` circle
+   before). A 1ms delay with no backwards fill leaves the box at full size
+   for every measure taken before the first frame, while the fade, which
+   moves nothing, already has it at 0 opacity; the grow then runs from the
+   second frame. Closing: an escaped menu goes home on close, so it carries
+   `.ui-snap` there and closes at once rather than fading where it was
+   built. */
+@keyframes ui-fade {
   from {
     opacity: 0;
-    clip-path: circle(0% at var(--menu-origin-x) var(--menu-origin-y));
   }
+}
 
-  to {
-    opacity: 1;
-    clip-path: circle(140% at var(--menu-origin-x) var(--menu-origin-y));
+@keyframes ui-grow {
+  from {
+    scale: 0.96;
   }
 }
 
 .action-menu:not(.hidden),
-.dock-menu[open] > .dock-menu-list {
-  /* Declared here rather than as a `var()` fallback: a fallback on a token
-     that is declared somewhere is dead code, and `test_style_scale.py`
-     says so by name. */
+.dock-menu[open] > .dock-menu-list,
+.help-popover {
   --menu-origin-x: 100%;
   --menu-origin-y: 0%;
-  animation: menu-open-from-opener var(--ui-base) cubic-bezier(0.2, 0.9, 0.3, 1);
+  transform-origin: var(--menu-origin-x) var(--menu-origin-y);
+  animation: ui-fade var(--ui-base) var(--ease-out), ui-grow var(--ui-base) var(--ease-out) 1ms;
 }
 
-/* Flipped upward, so it grew out of the bottom of the button instead. */
+/* Flipped upward, so it grows out of the bottom of the button instead. */
 .action-menu.action-menu-flip:not(.hidden) {
   --menu-origin-y: 100%;
 }
 
-/* A dock's `<details>` menu hangs under the left edge of its summary. */
-.dock-menu[open] > .dock-menu-list {
+/* A dock's `<details>` menu and a select's list hang under their opener's
+   left edge; a help popover from its caret, above or below. */
+.dock-menu[open] > .dock-menu-list,
+.action-menu.action-menu-start {
   --menu-origin-x: 0%;
+}
+
+.help-popover {
+  --menu-origin-x: var(--help-caret-x);
+}
+
+.help-popover.help-popover-above {
+  --menu-origin-y: 100%;
+}
+
+.action-menu.hidden:not(.ui-snap) {
+  opacity: 0;
+  scale: 0.96;
+  pointer-events: none;
+  transition: opacity var(--ui-exit) var(--ease-out), scale var(--ui-exit) var(--ease-out),
+    display var(--ui-exit) allow-discrete;
 }
 
 /* --- dark glass reads flatter, and here is which half of it does ----------
@@ -748,7 +748,7 @@ header#top-bar,
        targets. What shrinks here is a real box with real content in it, so
        it is a real layout change.
        The reduced-motion block in this file turns every transition off. */
-    transition: height var(--motion-slow) var(--ease-out);
+    transition: height var(--ui-slow) var(--ease-out);
   }
 
   /* Four parts to the strip against one to More is five equal columns: the
@@ -1601,7 +1601,7 @@ header#top-bar,
   }
 
   .entry-list li.is-settling > * {
-    transition: transform var(--motion-base) var(--ease-out);
+    transition: transform var(--ui-base) var(--ease-out);
   }
 
   .entry-list li::before,

@@ -390,7 +390,7 @@ function openActionMenu(menu, opener) {
   //: same two-step `showSelectionPopupAt` uses, and for the same reason.
   const wasVisibility = menu.style.visibility;
   menu.style.visibility = "hidden";
-  menu.classList.remove("hidden", "action-menu-flip");
+  menu.classList.remove("hidden", "action-menu-flip", "ui-snap");
   opener.setAttribute("aria-expanded", "true");
   // Whichever ancestor is the stacking context this menu is trapped in. On a
   // note card that is `.entry-actions` (positioned, z-index 1); on a Library
@@ -590,6 +590,9 @@ function restoreEscapedMenu(menu) {
   //: escaped menu accumulates stray fixed nodes forever, and the next
   //: `openActionMenu` expects to find it where it was built.
   home.parent.insertBefore(menu, home.next);
+  //: Gone home, so it closes at once rather than fading where it was built
+  //: (10-responsive.css, "a menu or popover grows from what opened it").
+  menu.classList.add("ui-snap");
   menu.classList.remove("action-menu-escaped");
   menu.style.left = "";
   menu.style.top = "";
@@ -911,6 +914,7 @@ function wireEscapedActionMenu(wrap) {
       const held = menu.contains(document.activeElement);
       homeParent.insertBefore(menu, homeNext);
       if (held && opener.isConnected) opener.focus({ preventScroll: true });
+      menu.classList.add("ui-snap");
       menu.classList.remove("action-menu-escaped");
       menu.style.left = "";
       menu.style.top = "";

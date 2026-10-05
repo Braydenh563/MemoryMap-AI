@@ -1419,7 +1419,7 @@ header#top-bar select,
   border-radius: var(--radius-md);
   min-width: 0;
   overflow-wrap: anywhere;
-  transition: background-color var(--motion-fast) var(--ease-out);
+  transition: background-color var(--ui-fast) var(--ease-out);
 }
 
 .web-result:hover,
@@ -2063,7 +2063,7 @@ header#top-bar select,
   justify-content: flex-end;
   min-width: calc(2 * var(--target-min));
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .quick-manage-item:hover .quick-manage-moves,
@@ -2363,7 +2363,7 @@ header#top-bar select,
 /* Card actions stay out of the way until you're looking at a note. */
 .entry-list li .entry-actions {
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .entry-list li:hover .entry-actions,
@@ -2381,7 +2381,6 @@ header#top-bar select,
 
 #entry-list li {
   padding: 0.8rem 1rem;
-  transition: border-color var(--motion-fast) var(--ease-out), box-shadow var(--motion-fast) var(--ease-out);
 }
 
 @media (hover: hover) {
@@ -3140,7 +3139,7 @@ button.answer-figure-open {
 
 #tab-reminders .entry-actions {
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 #tab-reminders li:hover .entry-actions,
@@ -3488,7 +3487,6 @@ button.answer-figure-open {
   padding: 0.4rem 0.6rem;
   margin-bottom: 0.15rem;
   border-left: 3px solid transparent;
-  transition: background var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
 }
 
 /* **The open chat has to be findable at a glance, not inferred.** Reported:
@@ -3537,7 +3535,7 @@ button.answer-figure-open {
 
 #conversation-list li .entry-actions {
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 #conversation-list li:hover .entry-actions,
@@ -3685,8 +3683,7 @@ button.answer-figure-open {
   border-radius: var(--radius-inner);
   /* Explicit properties, not `all`, `color`/`background` change on
      `:hover` below, plus `box-shadow` on the `:checked` state further down. */
-  transition: color var(--motion-slow) var(--ease-out), background var(--motion-slow) var(--ease-out),
-    box-shadow var(--motion-slow) var(--ease-out);
+  transition: color var(--ui-slow) var(--ease-out), background var(--ui-slow) var(--ease-out);
   user-select: none;
 }
 
@@ -4140,30 +4137,10 @@ button.answer-figure-open {
      the trigger's own centre. Declared rather than left to a `var()`
      fallback so `test_style_scale.py` can tell a real token from a typo. */
   --help-caret-x: 50%;
-  /* Arrives from its '?' (INBOX 399 (4)): a fade and 4px of travel away from
-     the button, the toasts' and menus' distance, where it used to appear
-     between two frames. `translate`, so `placeHelpPopover`'s own placement
-     is not replaced. */
-  animation: help-popover-in var(--motion-base) var(--ease-out);
+  /* Arrives from its '?': the menus' grow (10-responsive.css, "a menu or
+     popover grows from what opened it"). */
 }
 
-.help-popover.help-popover-above {
-  animation-name: help-popover-in-above;
-}
-
-@keyframes help-popover-in {
-  from {
-    opacity: 0;
-    translate: 0 -4px;
-  }
-}
-
-@keyframes help-popover-in-above {
-  from {
-    opacity: 0;
-    translate: 0 4px;
-  }
-}
 
 /* The caret. Two squares rotated 45°, the back one carries the border, the
    front one covers the join so the panel's own edge reads as continuous. */
@@ -4751,7 +4728,7 @@ button.answer-figure-open {
 }
 
 .night-kind-toggle > .ph {
-  transition: rotate var(--motion-fast) var(--ease-out);
+  transition: rotate var(--ui-fast) var(--ease-out);
 }
 
 .night-kind-toggle[aria-expanded="true"] > .ph {

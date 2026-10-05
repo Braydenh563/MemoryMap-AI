@@ -436,7 +436,7 @@
   line-height: 1;
   color: inherit;
   transform: rotate(-90deg);
-  transition: transform var(--motion-fast) var(--ease-out);
+  transition: transform var(--ui-fast) var(--ease-out);
 }
 
 /* Open: each selector is its closed twin plus `[open]`, so it always
@@ -1192,7 +1192,7 @@ summary > .ph-lead,
 /* The caret says which way it will go, by turning, never by colour alone. */
 .skill-card .skill-fact-toggle > .ph-trail {
   margin-inline-start: 0;
-  transition: rotate var(--motion-fast) var(--ease-out);
+  transition: rotate var(--ui-fast) var(--ease-out);
 }
 
 .skill-card .skill-fact-toggle[aria-expanded="true"] > .ph-trail {
@@ -3342,7 +3342,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
     margin: 0;
     z-index: 1;
     opacity: 0;
-    transition: opacity var(--motion-fast) var(--ease-out);
+    transition: opacity var(--ui-fast) var(--ease-out);
   }
 
   /* `.is-choosing` rather than a `:has()` on a checked tick
@@ -4411,11 +4411,11 @@ body .chip.item-label,
   :is(.doc-list-top, .bookmark-row) > .doc-list-tick,
   .library-image-tile > .library-tile-tick {
     opacity: 0;
-    transition: opacity var(--motion-fast) var(--ease-out);
+    transition: opacity var(--ui-fast) var(--ease-out);
   }
 
   :is(.doc-list-top, .bookmark-row) > :is(.doc-list-icon, .bookmark-mark) {
-    transition: opacity var(--motion-fast) var(--ease-out);
+    transition: opacity var(--ui-fast) var(--ease-out);
   }
 
   :is(.doc-list-item, .bookmark-row):is(:hover, :focus-within) .doc-list-tick,
@@ -4455,7 +4455,7 @@ body .chip.item-label,
 @media (hover: hover) {
   .bookmark-row > .bookmark-actions {
     opacity: 0;
-    transition: opacity var(--motion-fast) var(--ease-out);
+    transition: opacity var(--ui-fast) var(--ease-out);
   }
 
   .bookmark-row:is(:hover, :focus-within) > .bookmark-actions,
@@ -4872,8 +4872,8 @@ body .chip.item-label,
     background: var(--modal-bg-opaque);
     box-shadow: inset 0 1px 2px var(--field-inset);
     transition:
-      background var(--motion-fast) var(--ease-out),
-      border-color var(--motion-fast) var(--ease-out);
+      background var(--ui-fast) var(--ease-out),
+      border-color var(--ui-fast) var(--ease-out);
   }
 
   .library-card-tick:checked::before,
@@ -5252,7 +5252,7 @@ body .chip.item-label,
   width: min(36rem, calc(100vw - 2 * var(--space-4)));
   max-height: calc(100dvh - 2 * var(--space-6));
   overflow: hidden;
-  animation: help-popover-in var(--motion-base) var(--ease-out);
+  animation: ui-fade var(--ui-base) var(--ease-out);
 }
 
 .chord-guide-head {
@@ -5443,7 +5443,7 @@ body .chip.item-label,
   inset: calc((var(--target-min) - 1rem) / 2);
   border-radius: var(--radius-pill);
   background: var(--ghost-btn-bg);
-  transition: background var(--motion-fast) var(--ease-out);
+  transition: background var(--ui-fast) var(--ease-out);
 }
 
 .chip > .unlink:last-child > i {
@@ -9265,7 +9265,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 #entry-list > li > .entry-content::before {
@@ -9769,7 +9769,7 @@ input[type="file"]::file-selector-button {
   font-size: var(--text-md);
   font-weight: 600;
   cursor: pointer;
-  transition: background-color var(--motion-fast) var(--ease-out);
+  transition: background-color var(--ui-fast) var(--ease-out);
 }
 
 input[type="file"]::file-selector-button:hover {
@@ -10581,17 +10581,51 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
   }
 
   /* The label changes colour as the fill arrives under it rather than
-     before. The rest is `button`'s own list (the press, below). */
+     before. The rest is `button`'s own list (the press, 01-forms-settings.css). */
   :root .has-glide > button,
   :root .has-glide > [role="group"] > button {
     transition: color var(--ui-slow) var(--ease-in-out), background-color var(--ui-fast) var(--ease-out),
-      scale var(--ui-fast) var(--ease-out);
+      scale var(--ui-fast) var(--ease-out), outline-color var(--ui-fast) var(--ease-out);
   }
 }
 
 /* The phone's bottom dock marks its tab by colour alone, as before. */
 #phone-tab-dock > #tab-bar::before {
   content: none;
+}
+
+/* --- motion: a list settles in where its skeleton was (2026-10-05) --------
+   The first rows of a list that replace its skeletons (`clearSkeletons`,
+   notes-list.js, which every skeleton's owner calls) fade up a step,
+   `--ui-step` apart for the first eight and together after that, instead
+   of popping in. The class lives for that one swap only, so a filter
+   keystroke's redraw does not replay it. */
+.ui-settle > * {
+  transition: opacity var(--ui-base) var(--ease-out), translate var(--ui-base) var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+    translate: 0 var(--space-2);
+  }
+}
+
+.ui-settle > :nth-child(2) { transition-delay: var(--ui-step); }
+.ui-settle > :nth-child(3) { transition-delay: calc(var(--ui-step) * 2); }
+.ui-settle > :nth-child(4) { transition-delay: calc(var(--ui-step) * 3); }
+.ui-settle > :nth-child(5) { transition-delay: calc(var(--ui-step) * 4); }
+.ui-settle > :nth-child(6) { transition-delay: calc(var(--ui-step) * 5); }
+.ui-settle > :nth-child(7) { transition-delay: calc(var(--ui-step) * 6); }
+.ui-settle > :nth-child(n + 8) { transition-delay: calc(var(--ui-step) * 7); }
+
+/* --- motion: a hover eases (2026-10-05) ------------------------------------
+   A row or a card that changes its ground or edge under the pointer does it
+   over `--ui-base` rather than between two frames. Zero specificity, so a
+   row with a transition of its own keeps it; colours only. A button has its
+   own list (01-forms-settings.css, the press). */
+:where(li, .cat-row, .contents-row, .feature-row, .sheet-row, .space-option, .nav-history-item,
+  .doc-comment-item, .doc-suggest-item, .quick-link, .outline-link, .legend-item, .link-connection,
+  .library-card, .notif-row, .ocr-rail-item, .bench-row) {
+  transition: background-color var(--ui-base) var(--ease-out), border-color var(--ui-base) var(--ease-out);
 }
 
 /* --- motion: a sidebar's contents arrive from its edge (INBOX 459 (2)) ----
@@ -10688,12 +10722,17 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
    13 of 14 switches, which is the flash that read as a glitch. From 0.4 the
    new page is there on the first frame and settles in over `--motion-base`;
    0 blank frames. */
-.tab-page:not(.hidden) {
-  transition: opacity var(--ui-base) var(--ease-out);
+/* The motion pass (2026-10-05): over `--ui-fast`, and the Notes sections
+   (Your notes, Capture, Write, Ask) arrive the same way as their sub-tab's
+   line slides to them. */
+.tab-page:not(.hidden),
+#tab-notes :is(#browse, #capture, #writing-room, #ask):not(.hidden) {
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 @starting-style {
-  .tab-page:not(.hidden) {
+  .tab-page:not(.hidden),
+  #tab-notes :is(#browse, #capture, #writing-room, #ask):not(.hidden) {
     opacity: 0.4;
   }
 }
@@ -10755,17 +10794,19 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   opacity: 0;
 }
 
-/* --- motion: a popup arrives (INBOX 580) ------------------------------------
+/* --- motion: a popup arrives, and leaves the way it came (INBOX 580, 2026-10-05)
    Every dialog opened between two frames: Settings, the palette, Find
    anything, the agent palette, a confirm, all at full size and full scrim at
-   once. One way in for all of them: the scrim fades over `--motion-base`
-   and what stands on it rises a step (`--space-2`) from a touch smaller over
-   `--motion-slow`, both `--ease-out`, both the compositor's. Closing is
-   instant, as a page leaving is: the thing you dismissed should be gone.
-   `:where()` so the recipe is zero-weight: a dialog with motion of its own
-   (Settings' peek) keeps it. The lock screen is not in it: it is the boot's
-   curtain, which fades out (below) rather than in. Reduced motion zeroes
-   all of it (the two blankets in 02-chat-graph.css). */
+   once. One way in for all of them: the scrim fades over `--ui-base` and
+   what stands on it rises a step (`--space-2`) from a touch smaller over
+   `--ui-slow`, both `--ease-out`, both the compositor's; a sheet rises from
+   its own bottom edge. **Leaving takes the same path back, faster**
+   (`--ui-exit`): the scrim fades, the card sinks the step, and `display`
+   holds for that long (`allow-discrete`) with no pointer on it, so nothing
+   behind waits on a click. A dialog removed from the page rather than
+   hidden simply goes. `:where()` so the recipe is zero-weight: a dialog with
+   motion of its own (Settings' peek) keeps it. The lock screen is not in
+   it: it is the boot's curtain, which fades out (below) rather than in. */
 :where(.modal-overlay, .lock-overlay:not(#lock-overlay), #palette-overlay):not(.hidden) {
   transition: opacity var(--ui-base) var(--ease-out);
 
@@ -10780,6 +10821,23 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
       translate: 0 var(--space-2);
       scale: 0.985;
     }
+
+    & > .sheet-card {
+      translate: 0 var(--space-6);
+      scale: 1;
+    }
+  }
+}
+
+:where(.modal-overlay, .lock-overlay:not(#lock-overlay), #palette-overlay).hidden {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ui-exit) var(--ease-out), display var(--ui-exit) allow-discrete;
+
+  & > * {
+    translate: 0 var(--space-2);
+    scale: 0.985;
+    transition: translate var(--ui-exit) var(--ease-out), scale var(--ui-exit) var(--ease-out);
   }
 }
 

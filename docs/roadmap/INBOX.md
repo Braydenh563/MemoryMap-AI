@@ -98,9 +98,6 @@ with its owner named in the entry.
      Placed: the next whiteboard agent, after the integration merges the
      whiteboard phase 2 branch (same files).
 
-600. **The owner, 2026-10-05, verbatim.** "when I click on atlas in the
-     enlarged view, it might sway or do something for a couple seconds but
-     will then snap still." Placed: the Atlas agent slot.
 601. **The owner, 2026-10-05, verbatim.** "on atlas can you make the tail
      seem more integrated with the body instead of just coming out from the
      butt?? make it smooth and biological. also add more movement and
@@ -170,14 +167,6 @@ with its owner named in the entry.
      labelled door, the status mark explained, the clock optional, history
      arrows grouped with undo/redo). Placed: the design-rows agent, after 616.
 
-619. **The owner, 2026-10-05, verbatim.** "the lower body on the feminine
-     atlas is also slightly misaligned. and when sleeping etc, her lower body
-     actually rotates halfway off her upperbody which stays mostly upright.
-     female atlas's eyes went blank white for a sec and it looked creepy.
-     also it still snaps between behaviours and no behaviours." and "in the
-     enlarged preview atlas is still hanging, it should be slightly separate
-     from the companion but still have the same life". Placed: the Atlas
-     agent (with 600, 601, 612, 614, 615).
 620. **The owner, 2026-10-05, verbatim.** "can you also improve and
      modernise the quick sketch a little more as well?? it is already mostly
      fine, maybe a bit more of a gap below the top row title and close

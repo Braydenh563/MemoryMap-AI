@@ -4221,8 +4221,8 @@ def test_an_on_off_row_is_one_recipe_whichever_class_it_carries() -> None:
     """
     text = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
     assert re.search(
-        r'\.check-row:has\(input\[type="checkbox"\]\)\s*\{[^}]*column-gap:\s*var\(--space-4\)', text
-    ), "a checkbox .check-row must take the same --space-4 gap as .setting-check"
+        r'\n\.check-row \{[^}]*\bgap:\s*var\(--space-4\)', text
+    ), "a .check-row must take the same --space-4 gap as .setting-check"
     block = text[text.index("label.setting-check,\n.setting-check {"):]
     block = block[: block.index("}")]
     assert "column-gap: var(--space-4)" in block, "the .setting-check gap is --space-4"
@@ -4235,3 +4235,29 @@ def test_an_on_off_row_is_one_recipe_whichever_class_it_carries() -> None:
         assert inner.strip().startswith("<input"), (
             "a .setting-check row leads with its switch: " + inner.strip()[:80]
         )
+
+
+def test_the_ai_skills_dock_holds_one_row() -> None:
+    """INBOX 599, the owner, with the AI skills dock in two rows: "can you
+    clean up and redesign this top docks??". Measured with `settingsheads.js`:
+    90px and two rows at 1100 and 820 before, one row (50px) at 1440, 1280 and
+    1100 after. Three parts, any of which a later session could undo:
+
+    1. the sort is an icon-and-caret picker (`data-select-icon`) and an icon
+       picker in a dock is not held to a worded select's 9rem floor;
+    2. the segment's words are `.toolbar-word`s that leave the row when the
+       dock (a container, so the logs column counts) is under 58rem, above
+       the phone band only, where the segment has a row of its own;
+    3. the planned two-line break (INBOX 450) waits for a dock under 700px.
+    """
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    sort = re.search(r'<select id="skills-sort"[^>]*>', html).group(0)
+    assert 'data-select-icon="ph-' in sort
+    kind = html[html.index('id="skills-kind"'):]
+    kind = kind[: kind.index("</div>")]
+    assert kind.count('class="toolbar-word"') == 3
+    css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    assert ".dock:has(.toolbar-word) {\n  container: dock / inline-size;" in css
+    assert ".dock .select-shell:has(.select-opener-icon) {\n  min-width: 0;" in css
+    assert "@container dock (max-width: 700px)" in css
+    assert "skills-page" not in css

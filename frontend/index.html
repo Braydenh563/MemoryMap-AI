@@ -5474,11 +5474,14 @@ Link to another note with [[its first few words]]."></textarea>
                  `renderSkillsDashboard`'s counts; the ids are stable. -->
             <div class="dock-group dock-arrange">
               <div class="seg" id="skills-kind" role="group" aria-label="Which skills to show">
-                <button type="button" class="active" data-kind="all" aria-pressed="true"><i class="ph ph-stack ph-lead" aria-hidden="true"></i> All <span data-count></span></button>
-                <button type="button" data-kind="yours" aria-pressed="false"><i class="ph ph-user ph-lead" aria-hidden="true"></i> Yours <span data-count></span></button>
-                <button type="button" data-kind="builtin" aria-pressed="false"><i class="ph ph-package ph-lead" aria-hidden="true"></i> Built-in <span data-count></span></button>
+                <button type="button" class="active" data-kind="all" aria-pressed="true" title="All skills"><i class="ph ph-stack ph-lead" aria-hidden="true"></i><span class="toolbar-word"> All</span> <span data-count></span></button>
+                <button type="button" data-kind="yours" aria-pressed="false" title="Skills you wrote"><i class="ph ph-user ph-lead" aria-hidden="true"></i><span class="toolbar-word"> Yours</span> <span data-count></span></button>
+                <button type="button" data-kind="builtin" aria-pressed="false" title="Built-in skills"><i class="ph ph-package ph-lead" aria-hidden="true"></i><span class="toolbar-word"> Built-in</span> <span data-count></span></button>
               </div>
-              <select id="skills-sort" aria-label="Sort skills" title="Sort skills">
+              <!-- INBOX 599: an icon-and-caret picker (`data-select-icon`), so
+                   the bar holds one row; the order is still the select's
+                   value, read aloud and on its tooltip. -->
+              <select id="skills-sort" aria-label="Sort skills" title="Sort skills" data-select-icon="ph-sort-ascending">
                 <option value="yours">Yours first</option>
                 <option value="az">Name A → Z</option>
                 <option value="recent">Recently run</option>

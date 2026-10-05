@@ -2836,10 +2836,7 @@ function libraryVisibleRows() {
         ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
         : allEntries.filter((e) => !e.is_draft);
   const matched = visible.filter(matchesSearch);
-  //: **A typo finds what it meant** (audit 2026-10-05, UX-04). When the box
-  //: matches nothing and `/search` corrected the query to a word the notes
-  //: hold ("dentst" to "dentist"), the list shows those notes and the heading
-  //: says what it searched for. Never when the typed words match something.
+  //: UX-04: no match, and /search corrected a typo: show what it found.
   noteSearchCorrectionShown = false;
   const fix = noteSearchCorrection;
   if (!matched.length && fix && fix.asked === noteSearch && fix.ids.size) {
@@ -3013,15 +3010,13 @@ function applyEntryListTabOrder(list) {
   // Re-renders happen constantly (search-as-you-type, sort, edits): if the
   // previously-focused note is still present, keep it as the one Tab stop
   // instead of silently resetting focus back to the top of the list.
-  const keepId = items.some((li) => li === current) ? current.dataset.id : null;
-  items.forEach((li) => {
-    li.tabIndex = keepId ? (li.dataset.id === keepId ? 0 : -1) : -1;
-  });
-  if (!keepId && items.length > 0) items[0].tabIndex = 0;
+  const holder = current && items.find((li) => li === current || li.contains(current));
+  entryListSetStop(items, holder || items[0] || null);
 }
 
 function initEntryListKeyboardNav() {
   const list = $("entry-list");
+  list.addEventListener("focusin", entryListFocusStop);
   list.addEventListener("keydown", (event) => {
     //: Home/End, Delete (to the bin, with Undo) and F2 (edit) on a focused
     //: row, as a notes list answers them everywhere else (INBOX 432: only
@@ -3062,7 +3057,7 @@ function initEntryListKeyboardNav() {
         event.key === "Home" ? 0
           : event.key === "End" ? items.length - 1
             : Math.min(Math.max(index + (event.key === "ArrowDown" ? 1 : -1), 0), items.length - 1);
-      items.forEach((li, i) => { li.tabIndex = i === nextIndex ? 0 : -1; });
+      entryListSetStop(items, items[nextIndex]);
       items[nextIndex].focus();
       // .focus() alone scrolls in most browsers, but not predictably, 
       // explicit and consistent with the same fix on the command palette's

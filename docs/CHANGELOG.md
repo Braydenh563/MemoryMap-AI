@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Notes list: Tab walks the controls of one card, the one the arrow keys are on, and then leaves the list; 27 notes were 281 Tab stops, now the card's own five to seven (audit 2026-10-05, UX-10).
 - Notes, Ask and the Guide: a selected question no longer brings up the writing popup (Highlight, Bold) over the tab bar after it is asked (audit 2026-10-05, UX-09).
 - Command palette (Ctrl+K): rows for the recycle bin (it opens the Library with Include the bin ticked), Questions, Ask, Undo and Redo, and each row answers to the words people type for it ("trash", "deleted", "backup", "restore", "theme"), where those found nothing (audit 2026-10-05, UX-08).
 - Ask and the agent: the status bar's wand says Agent, the name of the dialog it opens; with no model, Chat's suggestions say they open in Notes, Ask; the first starter is "What have I saved recently?", which Ask answers from the newest notes with no model (audit 2026-10-05, UX-07).

@@ -1765,8 +1765,7 @@ let reminderComposeSheetClose = null;
 function openReminderCompose() {
   const form = $("reminder-compose");
   if (!form) return;
-  // The sentence box first: its times are read by rules with no model
-  // (audit 2026-10-05, UX-01), so it works on the default install too.
+  // The sentence box: its times need no model (UX-01).
   const field = () => $("reminder-magic") || $("reminder-text");
   if (!window.matchMedia(REMINDER_SHEET).matches || typeof openSheet !== "function") {
     field()?.focus();

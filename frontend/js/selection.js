@@ -655,10 +655,7 @@ function fieldSelection() {
   //: palette open with their query selected so typing replaces it), and a
   //: field inside an overlay belongs to that overlay: the popup drew its
   //: menu over the Finder's own results. Writing fields only.
-  //: `data-no-selection-popup` is the same rule for a query box that is not
-  //: `type=search` (audit 2026-10-05, UX-09): Notes, Ask selects the question
-  //: after it is asked, and the popup offered Highlight and Bold for it over
-  //: the tab bar.
+  //: UX-09: `data-no-selection-popup` marks a query box that is not type=search.
   if (el.type === "search" || el.closest("[data-no-selection-popup], .lock-overlay, .modal-overlay, .command-palette, [role='combobox']")) {
     return null;
   }

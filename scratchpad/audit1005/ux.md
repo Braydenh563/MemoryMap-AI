@@ -179,7 +179,7 @@ Counts: High 4, Medium 9, Low 10.
   trash, deleted; backup, restore; theme, appearance); add a "Bin" entry to
   the Library filter chips (Everything, Notes, ..., Bin). Effort S to M.
 
-**UX-09. The text-selection popup floats over the tab bar after every Ask.** NEW
+**UX-09. The text-selection popup floats over the tab bar after every Ask.** NEW FIXED 77af034
 - Evidence: Notes, Ask, ask anything: the query is auto-selected
   (`#question` selectionStart 0, end 19) and `fieldSelection()`
   (`selection.js:727-741`) offers the writing popup; `elementFromPoint(662,

@@ -1970,9 +1970,7 @@ async function loadChatSuggestions() {
   if (!picks.length) return;
   const label = document.createElement("span");
   label.className = "muted";
-  //: With no model the chips are answered in Notes, Ask (below), so the label
-  //: says where a press goes rather than switching tab unannounced (audit
-  //: 2026-10-05, UX-07).
+  //: UX-07: with no model a chip goes to Notes, Ask, and says so.
   label.textContent = typeof aiIsOff === "function" && aiIsOff() ? "Try in Notes, Ask:" : "Try asking:";
   box.appendChild(label);
   for (const question of picks) {

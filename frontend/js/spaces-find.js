@@ -943,13 +943,10 @@ let finderKind = "";       // "" is everything
 let finderQuery = "";
 let finderHits = [];
 let finderCounts = {};
-//: What the index holds per kind (`body.counts`), kept apart from the chips'
-//: per-query counts: the empty state's "nothing is indexed yet" is a fact
-//: about the index, and reading it off the chips told a 22-note notebook it
-//: was empty on any search with no hits (audit 2026-10-05, UX-04).
+//: UX-04: the index's size per kind, for "nothing is indexed yet"; the
+//: chips count this query's hits, so they cannot say it.
 let finderIndexTotals = {};
-//: The query the hits are for when the route corrected a typo ("dentist"
-//: for "dentst"), said in the summary so a typo never looks matched.
+//: The corrected query the hits are for, if the route fixed a typo.
 let finderCorrected = "";
 let finderTimer = null;
 let finderRun = 0;         // so a slow answer cannot paint over a newer one

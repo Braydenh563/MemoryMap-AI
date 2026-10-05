@@ -1780,9 +1780,7 @@ const REVEAL_TARGETS = {
   },
   "writing-room": { tab: "notes", open: () => showNotesSection("writing-room"), el: "draft-thoughts", focus: true },
   "notes-ask": { tab: "notes", open: () => showNotesSection("ask"), el: "question", focus: true },
-  //: UX-08 (audit 2026-10-05): a Notes sub-tab and a Library filter that the
-  //: palette could not reach. The bin is shown by ticking the Library's own
-  //: "Include the bin", the one place binned things are listed.
+  //: UX-08: the bin is the Library with its own "Include the bin" ticked.
   "notes-questions": { tab: "notes", open: () => showNotesSection("questions"), el: "questions", flash: false },
   "library-bin": {
     tab: "library",
@@ -2349,8 +2347,7 @@ function paletteCommands() {
       about: `The notes list, filtered to ${query}.`,
       act: () => showNotesFilter(query),
     })),
-    //: The places Ctrl+K could not reach (audit 2026-10-05, UX-08): the bin,
-    //: Questions, Ask by name, and undo, each under the words people type.
+    //: UX-08: places Ctrl+K could not reach (tests/test_palette_synonyms.py).
     { label: "ph:trash Open the recycle bin", reveal: "library-bin", keywords: "bin trash deleted binned restore recover", about: "Everything you threw away, in the Library, ready to restore." },
     { label: "ph:question Questions your notes ask", reveal: "notes-questions", keywords: "questions open questions", about: "The open questions found in your notes." },
     { label: "ph:chat-text Ask your notes", reveal: "notes-ask", keywords: "ask question answer search my notes", about: "An answer quoted from your own notes, with or without a model." },
@@ -2462,8 +2459,7 @@ function paletteMatches(query) {
   //: The notes rows (palette.js `notesPaletteCommands`, INBOX 432): a
   //: category to go to, a #tag to show, Move for the note in hand.
   const commands = [...paletteCommands(), ...(typeof notesPaletteCommands === "function" ? notesPaletteCommands(lowered) : [])]
-    //: `keywords`: the other words people type for a row ("trash" for the
-    //: bin, "theme" for light and dark), matched with its label (UX-08).
+    //: UX-08: `keywords`, other words for a row ("trash", "theme").
     .filter((c) => paletteText(`${c.label} ${c.keywords || ""}`).includes(lowered))
     .map((c) => (c.group ? c : { ...c, group: "Everywhere" }));
   if (!lowered) return commands;

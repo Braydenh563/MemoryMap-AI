@@ -199,7 +199,7 @@ def test_tags_filter_from_a_chip_and_from_the_box():
 
 def test_the_rail_opens_on_an_open_not_on_any_click():
     notes = _read("notes-list.js")
-    focus = notes[notes.index('list.addEventListener("focusin"'):]
+    focus = notes[notes.index('list.addEventListener("focusin", (event) =>'):]
     focus = focus[: focus.index("\n  });\n")]
     assert "if (notesRailId == null) return;" in focus
 

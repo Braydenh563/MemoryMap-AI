@@ -97,11 +97,8 @@
 //: are (decision 6) and `/timeline` does not send them yet: they read as
 //: absent rather than as zero, so a column can say "not known" instead of
 //: claiming a note has no links. The endpoint grows them with the table.
-//: **A mentioned day is the writer's own calendar day** (audit 2026-10-05,
-//: UX-02). `/timeline` sends it as `date` ("2026-10-09") and, when the note
-//: said one, `time` ("15:00"), both with no zone; built here as a *local*
-//: moment so the row groups under that day in every timezone. Read as an
-//: instant, as it used to be, UTC midnight was Thursday 8:00 PM in New York.
+//: UX-02: a mentioned day (`date`, maybe `time`, no zone) as a local moment,
+//: so it groups under its own day everywhere (routes_timeline.py says why).
 function timelineRowMoment(entry) {
   const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(entry.date || "");
   if (day) {
@@ -152,8 +149,6 @@ function timelineRow(entry) {
     snippet,
     when: timelineRowMoment(entry),
     whenIso: entry.at,
-    //: A day the note mentions with no clock: drawn as the day, never as a
-    //: midnight (audit 2026-10-05, UX-02).
     allDay: Boolean(entry.all_day),
     writtenAt: entry.written_at,
     //: Said out loud, because the alternative is a timeline that looks like it

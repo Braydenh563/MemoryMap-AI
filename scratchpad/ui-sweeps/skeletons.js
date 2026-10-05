@@ -3,6 +3,7 @@
 // that are lazily loaded like the boards and maps in the library and other
 // places").
 //
+//   ONLY=docs narrows to the views whose name holds it; W=390 is the phone.
 //   BASE=http://127.0.0.1:8781 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
 //     node scratchpad/ui-sweeps/skeletons.js          (DELAY=1500 ms)
 //
@@ -35,7 +36,7 @@ const VIEWS = [
 ];
 
 (async () => {
-  const { browser, page } = await boot({ viewport: { width: 1440, height: 900 } });
+  const { browser, page } = await boot({ viewport: { width: Number(process.env.W || 1440), height: 900 } });
   await page.route('**/*', async (route) => {
     const url = route.request().url();
     if (STATIC.test(url) || route.request().resourceType() === 'document') return route.continue();
@@ -44,16 +45,17 @@ const VIEWS = [
   });
   const out = [];
   for (const view of VIEWS) {
+    if (process.env.ONLY && !view.name.includes(process.env.ONLY)) continue;
     //: A fresh page load per view, so nothing it shows was cached by an
     //: earlier view's fetch.
     await page.goto(page.url(), { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(DELAY + 3000);
-    //: A sub-tab is pressed after its tab has settled: switching to Library
+    //: A sub-tab is pressed after its tab has settled (2.2s: the Library's own bundle loads on the first visit and a click before it is lost, which read as BLANK): switching to Library
     //: restores the last sub-tab a moment later, which would undo the press.
     const [tab, sub] = view.open.split('; ');
     await page.evaluate((code) => { try { (0, eval)(code); } catch (e) { console.warn(e.message); } }, tab);
     if (sub) {
-      await page.waitForTimeout(600);
+      await page.waitForTimeout(2200);
       await page.evaluate((code) => { try { (0, eval)(code); } catch (e) { console.warn(e.message); } }, sub);
     }
     await page.waitForTimeout(300);

@@ -488,7 +488,9 @@ function watchOverlays() {
 async function renderAccount() {
   const facts = $("account-facts");
   facts.replaceChildren();
+  showSkeletons(facts, 3, "li");
   const info = await apiJson("/auth/account").catch(() => null);
+  clearSkeletons(facts);
   if (!info) {
     const li = document.createElement("li");
     li.className = "muted";

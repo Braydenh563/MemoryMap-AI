@@ -2507,6 +2507,10 @@ function renderSettings() {
         down: "Can't reach the MemoryMap server.",
       }[modelStatusProblem] || "Checking the models…";
     ollamaLine.className = `status ${modelStatusProblem === "down" ? "off" : "is-checking"}`;
+    //: Rows on their way while the first answer is, never after a failure
+    //: (the line above says what went wrong); `renderFeatureModels` redraws
+    //: the list and takes them out.
+    if (!modelStatusProblem) showSkeletons($("feature-models-list"), 4);
     if (!modelStatusProblem) refreshModelStatus().then(() => settingsOpen() && renderSettings());
     return;
   }
@@ -2756,8 +2760,18 @@ let extrasPollTimer = null;
 async function renderExtras() {
   const list = $("extras-list");
   if (!list) return;
+  //: Skeleton rows until the catalogue answers (INBOX 596, the owner: "some
+  //: skeleton loaders are missing"): only into an empty list, so the poll
+  //: that redraws it while a package installs never covers its rows.
+  const embedList = $("embed-models-list");
+  showSkeletons(list, 3, "li");
+  showSkeletons(embedList, 2, "li");
   const body = await apiJson("/extras", { silent: true }).catch(() => null);
-  if (!body) return;
+  clearSkeletons(list);
+  if (!body) {
+    clearSkeletons(embedList);
+    return;
+  }
 
   list.replaceChildren();
   for (const extra of body.extras) {
@@ -2960,7 +2974,9 @@ let embedPollTimer = null;
 async function renderEmbedModels() {
   const list = $("embed-models-list");
   if (!list) return;
+  showSkeletons(list, 2, "li");
   const body = await apiJson("/embedding-models", { silent: true }).catch(() => null);
+  clearSkeletons(list);
   if (!body) return;
 
   list.replaceChildren();

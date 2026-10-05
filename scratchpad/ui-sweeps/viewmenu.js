@@ -27,9 +27,9 @@ function check(label, ok, detail) {
   await page.waitForTimeout(700);
   await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
-  await page.fill(".confirm-overlay input[type=text]", "View menu");
-  if (KIND === "map") await page.click('.confirm-overlay .seg button[data-value="map"]');
-  await page.click(".confirm-overlay .confirm-actions button:last-child");
+  await page.fill("#wb-template-name", "View menu");
+  if (KIND === "map") await page.click('#wb-template-kind button[data-value="map"]');
+  await page.click("#wb-template-create");
   await page.waitForTimeout(2500);
   await page.keyboard.press("Escape");
 

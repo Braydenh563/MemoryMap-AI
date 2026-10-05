@@ -11052,10 +11052,12 @@ $("doc-title").addEventListener("keydown", (event) => {
     docCmView.focus();
     return;
   }
-  const body = $("doc-content");
-  if (body && body.offsetParent !== null) {
-    body.focus();
-    body.setSelectionRange(0, 0);
+  //: Through the adapter (tests/test_doc_surface.py): the fallback box is
+  //: only reached here when CodeMirror is not on screen.
+  if (docBoxEl()?.offsetParent !== null && docBoxEl()) {
+    const surface = docSurface();
+    surface.focus();
+    surface.setSelection(0);
   }
 });
 //: The dock's breadcrumb (INBOX 424 p): back to the Library's Documents list,

@@ -33805,7 +33805,7 @@ Each is already paid for; a small amount of work turns a frustrating surface
 into a good one.
 
 11. **The whiteboard, properly.** ~~Images, text boxes, resize (8-handle
-    corner+edge), grid (lines/dots/isometric)+snap, per-board background
+    corner+edge), grid (lines/dots/isometric)+snap, per-board background (corrected 2026-10-05, FEAT-06: it was a per-browser colour and a per-browser image; it is on the board since WHITEBOARD_PLAN decision 24)
     image, export (PNG/SVG/PDF), clear-board, a redesigned board picker,
     redo, single-item select, undo/redo, per-tool cursors, an eraser,
     keyboard shortcuts, draggable toolbar panels, highlighter+arrow tools,
@@ -41220,6 +41220,23 @@ The two cheap additions the plan's research section named (decisions 11 to
      (routes_chat `_files_on`, librarian `_tags_files_hint`, defanged);
      tests/test_ask_sees_tags_and_files.py. Not verified against a real
      model's answer.
+
+566. **The owner, 2026-10-05, verbatim.** "the whiteboard help popup is still
+     cooked and needs a redesign" (screenshot: the empty board's help card,
+     the Move around column's key pills clipped at the right, long labels
+     printed over their pills, the description cut off). Placed: the
+     whiteboard agent, as the board's searchable shortcut sheet (was UX-03).
+     Fixed 2026-10-05 by the whiteboard agent: the help sheet rebuilt (cf17b52), help sweep 88/88.
+570. **The owner, 2026-10-05, verbatim.** "when I open comments on the
+     whiteboard, the new comment form is permanently showing below, there
+     should be a new comment option below for it to show" Placed: the
+     whiteboard agent.
+     Fixed 2026-10-05 by the whiteboard agent: comments open on the thread with a New comment row below it (07ea182), wbcomments 26/26.
+576. **The owner, 2026-10-05, verbatim.** "this menu's elements arent aligned
+     vertically" (screenshot: a shape's context bar, its Width input, Solid
+     select, swatches and Filled toggle at different heights and centres).
+     Placed: the whiteboard agent.
+     Fixed 2026-10-05 by the whiteboard agent: every control on the bar's centre line (017ac3d), barline 19/19 at 1440 and 390, light and dark.
 
 ## OPEN.md rows closed, 2026-10-05
 

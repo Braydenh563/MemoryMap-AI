@@ -52,6 +52,16 @@ FEATURES: list[tuple[str, tuple[str, ...], str]] = [
     ("category-chip", ("Show notes in the category",), "view all notes in a category"),
     ("bulk-tags", ("selection bar", "Tags"), "add a tag to several notes at once"),
     ("notes-filter", ("title:", "before:", "is:draft"), "filter notes by date"),
+    # Boards: the object library (WHITEBOARD_PLAN decision 25)
+    ("board-library", ("Flowchart", "1,530 icons", "Shift+Enter"), "where are the flowchart shapes on the whiteboard"),
+    ("board-library-save", ("Ctrl+Shift+S", "palette", "preset"), "save my own shape to the library"),
+    ("board-templates", ("Save this board as a template", "New board"), "save a board as a template"),
+    ("board-layers", ("Layers",), "is there a layers panel on the whiteboard"),
+    ("board-pages", ("Pages", "presentation order"), "change the order of frames in the presentation"),
+    ("board-format", ("Ctrl+Shift+P", "Arrange"), "how do I type the exact position of a shape on the whiteboard"),
+    ("board-elbow", ("elbow", "bend"), "right angle connectors with bends on the whiteboard"),
+    ("board-clone", ("Alt+Shift",), "copy a shape and connect it to the copy"),
+    ("board-mermaid", ("Mermaid",), "import a mermaid flowchart onto the whiteboard"),
     # Library
     ("bookmarks", ("Unread", "Pinned", "By site"), "where are my bookmarks"),
     ("bookmark-link", ("Bookmark link",), "insert a bookmark into a note"),

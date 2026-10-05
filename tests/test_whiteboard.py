@@ -446,6 +446,15 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "locked": None,
         # And with an item's comment thread (decision 17).
         "comments": None,
+        # And with the Layers and Pages tabs and the Format panel (WHITEBOARD_PLAN
+        # Phases A to C): a name, hidden, its page, its opacity and shadow, and
+        # the library item it was placed from.
+        "name": None,
+        "hidden": None,
+        "page": None,
+        "alpha": None,
+        "shadow": None,
+        "library_ref": None,
     }
 
     moved = board_client.put(

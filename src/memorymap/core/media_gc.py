@@ -25,7 +25,7 @@ import re
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import Conversation, Document, Entry, MediaUpload, WhiteboardObject
+from memorymap.core.database import BoardLibraryItem, Conversation, Document, Entry, MediaUpload, WhiteboardObject
 from memorymap.entry import manager
 
 # Same shape routes_whiteboard.py's own MEDIA_URL_RE validates on the way in, 
@@ -81,6 +81,19 @@ def _referenced_filenames(session: Session) -> tuple[set[str], bool]:
     #: and a kind added later is covered by having been added.
     for obj in session.scalars(select(WhiteboardObject).where(_could_name_a_file(WhiteboardObject.data))):
         referenced.update(referenced_names(obj.data))
+
+    #: A board's background image lives in its settings (WHITEBOARD_PLAN
+    #: decision 24, FEAT-06): before this, setting one made the upload an
+    #: orphan, and "clean up orphaned media" deleted it.
+    for entry in session.scalars(
+        select(Entry).where(Entry.is_deleted == False, _could_name_a_file(Entry.board_settings))  # noqa: E712
+    ):
+        referenced.update(referenced_names(entry.board_settings or ""))
+
+    #: A picture saved in the board library (decision 25), the bin's too: an
+    #: item there can be restored or placed, and its picture has to be there.
+    for item in session.scalars(select(BoardLibraryItem)):
+        referenced.update(referenced_names(json.dumps(item.payload or {})))
 
     for doc in session.scalars(select(Document).where(_could_name_a_file(Document.content))):
         referenced.update(referenced_names(doc.content))
@@ -159,6 +172,16 @@ def usage_map(session: Session) -> tuple[dict[str, list[dict]], bool]:
     for obj in session.scalars(select(WhiteboardObject).where(_could_name_a_file(WhiteboardObject.data))):
         for name in referenced_names(obj.data):
             note(name, "board", obj.board_id, "Whiteboard")
+
+    for entry in session.scalars(
+        select(Entry).where(Entry.is_deleted == False, _could_name_a_file(Entry.board_settings))  # noqa: E712
+    ):
+        for name in referenced_names(entry.board_settings or ""):
+            note(name, "board", entry.id, "Board background")
+
+    for item in session.scalars(select(BoardLibraryItem)):
+        for name in referenced_names(json.dumps(item.payload or {})):
+            note(name, "library", item.id, f"Board library: {item.name}")
 
     for doc in session.scalars(select(Document).where(_could_name_a_file(Document.content))):
         for name in referenced_names(doc.content):

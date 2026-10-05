@@ -63,8 +63,11 @@ _NUMBERS = {
     "half an": 0.5, "a half": 0.5, "a couple of": 2, "a few": 3,
 }
 
+#: Single spaces, not `\s+`: `resolve` has already folded every run of
+#: whitespace to one space, and a literal space leaves the engine nothing to
+#: backtrack over (CodeQL, polynomial regular expression).
 _ANCHORED = re.compile(
-    r"^(\d{1,3}|half an|a couple of|a few|[a-z-]+)\s+(minutes?|mins?|hours?|hrs?)\s+(before|after)\s+(.+)$"
+    r"^(\d{1,3}|half an|a couple of|a few|[a-z-]+) (minutes?|mins?|hours?|hrs?) (before|after) (.+)$"
 )
 _CLOCK = re.compile(r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?(?=\s|$)")
 _ISO_DATE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
@@ -258,7 +261,12 @@ def parse_reminder_text(text: str, now: datetime) -> dict | None:
     for pattern in _STRIP:
         rest = pattern.sub(" ", rest)
     rest = re.sub(r"\s+", " ", rest).strip(" ,.;:-")
-    rest = re.sub(r"\s+(?:on|at|by|for)$", "", rest, flags=re.IGNORECASE).strip(" ,.;:-")
+    #: A dangling "on" or "at" left by the strip, dropped by word rather than
+    #: by a `\s+...$` pattern, which backtracks on a long run of spaces.
+    head, _, last = rest.rpartition(" ")
+    if head and last.lower() in {"on", "at", "by", "for"}:
+        rest = head
+    rest = rest.strip(" ,.;:-")
     if not rest:
         rest = text.strip() or "Reminder"
     return {

@@ -38,22 +38,6 @@ with its owner named in the entry.
      arent aligned vertically." (screenshot: the Installed badge in Settings,
      Packages).
 
-566. **The owner, 2026-10-05, verbatim.** "the whiteboard help popup is still
-     cooked and needs a redesign" (screenshot: the empty board's help card,
-     the Move around column's key pills clipped at the right, long labels
-     printed over their pills, the description cut off). Placed: the
-     whiteboard agent, as the board's searchable shortcut sheet (was UX-03).
-
-570. **The owner, 2026-10-05, verbatim.** "when I open comments on the
-     whiteboard, the new comment form is permanently showing below, there
-     should be a new comment option below for it to show" Placed: the
-     whiteboard agent.
-
-576. **The owner, 2026-10-05, verbatim.** "this menu's elements arent aligned
-     vertically" (screenshot: a shape's context bar, its Width input, Solid
-     select, swatches and Filled toggle at different heights and centres).
-     Placed: the whiteboard agent.
-
 577. **The owner, 2026-10-05, verbatim.** "when loading into the app, the
      companion or atlas's head goes large then small then large again then
      settles on the normal size. also loading up the app is very laggy or

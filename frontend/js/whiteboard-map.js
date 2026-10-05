@@ -5050,7 +5050,7 @@ async function wbMapTidyFresh() {
   } finally {
     wbRecordDepth -= 1;
   }
-  if (typeof wbFrameMapOnOpen === "function") wbFrameMapOnOpen();
+  wbFrameMapOnOpen();
 }
 
 //: Is any part of the map outside the canvas right now? Read off the rendered

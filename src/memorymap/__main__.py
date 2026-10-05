@@ -596,7 +596,9 @@ def _serve_with_lan(uvicorn, app, config, bind: str) -> None:  # noqa: ANN001
             await asyncio.sleep(0.05)
         if first.done():
             sock.close()
-            await first
+            #: Done already, so its result is ready: re-raise whatever stopped
+            #: the local server rather than start the LAN one.
+            first.result()
             return
         second = asyncio.ensure_future(lan.serve(sockets=[sock]))
         while not first.done() and not second.done():

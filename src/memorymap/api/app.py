@@ -83,6 +83,7 @@ from memorymap.api import (
     routes_webclip,
     routes_websearch,
     routes_whiteboard,
+    routes_board_library,
 )
 from memorymap.api.routes_auth import require_unlock
 from memorymap.core import (
@@ -1205,6 +1206,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_timeline.router, dependencies=locked)
     app.include_router(routes_library.router, dependencies=locked)
     app.include_router(routes_whiteboard.router, dependencies=locked)
+    app.include_router(routes_board_library.router, dependencies=locked)
     app.include_router(routes_debug.router, dependencies=locked)
     app.include_router(routes_privacy.router, dependencies=locked)
 

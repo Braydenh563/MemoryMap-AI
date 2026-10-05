@@ -80,10 +80,16 @@ def _frontend_js() -> str:
     documents_code = (INDEX.parent / "js" / "documents-code.js").read_text(encoding="utf-8")
     documents_prose = (INDEX.parent / "js" / "documents-prose.js").read_text(encoding="utf-8")
     whiteboard_map = (INDEX.parent / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
+    #: The board's command table and its sidebar (2026-10-05).
+    whiteboard_extras = "\n".join(
+        (INDEX.parent / "js" / name).read_text(encoding="utf-8")
+        for name in ("whiteboard-commands.js", "whiteboard-library.js", "whiteboard-format.js", "whiteboard-interchange.js")
+        if (INDEX.parent / "js" / name).exists()
+    )
     return (
         app + "\n" + whiteboard + "\n" + graph + "\n" + documents + "\n" + library
         + "\n" + dashboard + "\n" + settings + "\n" + timeline + "\n" + palette + "\n" + avatars
-        + "\n" + documents_code + "\n" + documents_prose + "\n" + whiteboard_map
+        + "\n" + documents_code + "\n" + documents_prose + "\n" + whiteboard_map + "\n" + whiteboard_extras
     )
 
 

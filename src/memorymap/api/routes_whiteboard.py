@@ -227,6 +227,8 @@ class WhiteboardNodeBase(BaseModel):
     #: Decision 17: the card's thread. Left out of a PUT, the stored one stays
     #: (`_apply_node`), so a client that predates it cannot wipe it.
     comments: CommentThread | None = None
+    #: Hidden by the Layers tab's eye (WHITEBOARD_PLAN decision 27).
+    hidden: bool = False
 
 
 class WhiteboardNodeOut(WhiteboardNodeBase):
@@ -263,6 +265,17 @@ class WhiteboardObjectData(BaseModel):
     locked: bool | None = None
     #: The item's comment thread (WHITEBOARD_PLAN decision 17).
     comments: CommentThread | None = None
+    #: Hidden by the Layers tab's eye, and its own name there (decision 27).
+    hidden: bool | None = None
+    name: str | None = Field(default=None, max_length=80)
+    #: Where a placed library item came from (decision 25): `{id, version}`
+    #: or `{builtin}`. Kept, never followed.
+    library_ref: dict | None = None
+    #: A frame's place in the presentation (decision 22, the Pages tab).
+    page: int | None = Field(default=None, ge=1, le=100000)
+    #: The Format panel's opacity and shadow (WHITEBOARD_PLAN decision 19).
+    alpha: float | None = Field(default=None, ge=0.05, le=1)
+    shadow: bool | None = None
     color: str | None = Field(default=None, max_length=20)
     #: 0 is a topic's pin to the app's own size against a map's theme
     #: (`MAP_APP_DEFAULT_PINS`); 1 to 7 stay refused (`_size_or_pin`).
@@ -616,6 +629,8 @@ class WhiteboardStateOut(BaseModel):
     nodes: list[WhiteboardNodeOut]
     sketches: list[WhiteboardSketchOut]
     objects: list[WhiteboardObjectOut] = []
+    #: The board's look (decision 24), so opening a board draws it at once.
+    background: dict = {}
 
 
 def _board_filter(model, board_id: int | None):
@@ -728,6 +743,7 @@ def get_whiteboard_state(
         nodes=list(nodes),
         sketches=list(sketches),
         objects=[_object_to_out(o) for o in objects],
+        background=_board_background(db.get(Entry, board_id)) if board_id else {},
     )
 
 
@@ -981,6 +997,85 @@ def _store_board_numbered(entry: Entry, numbered: bool) -> None:
     entry.board_settings = json.dumps(existing)
 
 
+#: A colour the board is drawn on: `#rrggbb` only, because it is written into
+#: a CSS custom property, and anything wider would be a way to inject a rule.
+BOARD_BG_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+class BoardBackground(BaseModel):
+    """A board's look (WHITEBOARD_PLAN decision 24, FEAT-06): a colour, an
+    image from this notebook's uploads, or both. A patch: a field sent as
+    `null` is removed, a field not sent is kept."""
+
+    color: str | None = Field(default=None, max_length=7)
+    image: str | None = Field(default=None, max_length=300)
+
+    @field_validator("color")
+    @classmethod
+    def _hex_colour(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not BOARD_BG_COLOR_RE.match(value):
+            raise ValueError("A background colour is #rrggbb")
+        return value.lower()
+
+    @field_validator("image")
+    @classmethod
+    def _own_upload(cls, value: str | None) -> str | None:
+        """An upload of this notebook's or nothing, the topic picture's rule:
+        an outside address would make a board call out of an offline app."""
+        if value is None:
+            return None
+        text = value.strip()
+        if not MEDIA_URL_RE.match(text):
+            raise ValueError("A background image has to be a /media/... upload from this notebook")
+        return text
+
+
+def _board_background(entry: Entry | None) -> dict:
+    """The board's stored background, only the fields that hold a value."""
+    if entry is None:
+        return {}
+    try:
+        parsed = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        return {}
+    stored = parsed.get("background") if isinstance(parsed, dict) else None
+    if not isinstance(stored, dict):
+        return {}
+    out = {}
+    color, image = stored.get("color"), stored.get("image")
+    if isinstance(color, str) and BOARD_BG_COLOR_RE.match(color):
+        out["color"] = color
+    if isinstance(image, str) and MEDIA_URL_RE.match(image):
+        out["image"] = image
+    return out
+
+
+def _store_board_background(entry: Entry, patch: BoardBackground) -> dict:
+    """Merge the fields sent into the stored background, the read-modify-write
+    of the whole settings family (`_store_board_theme`'s reason)."""
+    merged = _board_background(entry)
+    for field in patch.model_fields_set:
+        value = getattr(patch, field)
+        if value is None:
+            merged.pop(field, None)
+        else:
+            merged[field] = value
+    try:
+        existing = json.loads(entry.board_settings or "{}")
+    except (TypeError, ValueError):
+        existing = {}
+    if not isinstance(existing, dict):
+        existing = {}
+    if merged:
+        existing["background"] = merged
+    else:
+        existing.pop("background", None)
+    entry.board_settings = json.dumps(existing)
+    return merged
+
+
 class BoardOut(BaseModel):
     #: None is the one unnamed scratch board every notebook starts with.
     id: int | None
@@ -997,6 +1092,8 @@ class BoardOut(BaseModel):
     #: "board" (a free canvas) or "map" (tree semantics). See BOARD_TYPES.
     type: str = DEFAULT_BOARD_TYPE
     layout: str = DEFAULT_BOARD_LAYOUT
+    #: The board's look, `{color, image}` (decision 24); `{}` is the theme's.
+    background: dict = {}
     #: A miniature of where things actually sit on this board: up to
     #: Up to `PREVIEW_POINTS` items, `{x, y, kind, label}`, each position
     #: normalised into 0..1 against the board's own bounding box. The
@@ -1906,6 +2003,7 @@ def list_boards(
                 ),
                 type=board_type,
                 layout=layout,
+                background=_board_background(entry),
                 **_preview_fields(db, entry.id),
             )
         )
@@ -2157,6 +2255,8 @@ class BoardRename(BoardTypeMixin):
     #: Number the map's branches by their place in the outline, 1, 1.1, 1.2
     #: (MINDMAP_PLAN.md decision 17). `None` leaves it as it is.
     numbered: bool | None = None
+    #: A patch on the board's look (decision 24). `None` leaves it as it is.
+    background: BoardBackground | None = None
     #: Optional since maps: `PUT` used to be rename-only and required a
     #: title, so a client changing the *layout* had to resend the name it was
     #: not touching: which is how a rename made in another tab gets silently
@@ -2225,6 +2325,18 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
                 "branches numbered" if body.numbered else "branches not numbered",
                 payload={"after": {"numbered": body.numbered}, "before": {"numbered": before_numbered}},
             )
+    if body.background is not None:
+        before_background = _board_background(entry)
+        stored_background = _store_board_background(entry, body.background)
+        if stored_background != before_background:
+            events.record(
+                db,
+                "edited",
+                "board",
+                entry.id,
+                "background",
+                payload={"after": stored_background, "before": before_background},
+            )
     if body.title is not None:
         title = body.title.strip()
         update_entry(db, entry, content=apply_title(entry.content, title))
@@ -2251,6 +2363,7 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
         object_count=object_count,
         type=board_type,
         layout=layout,
+        background=_board_background(entry),
         **_preview_fields(db, board_id),
     )
 
@@ -2285,6 +2398,7 @@ def create_node(
     node.width, node.height, node.group_id = node_in.width, node_in.height, node_in.group_id
     node.rotation = node_in.rotation
     node.locked = node_in.locked
+    node.hidden = node_in.hidden
     _apply_comments(node, node_in)
     if existing is None:
         db.add(node)
@@ -2323,6 +2437,7 @@ def update_node(
     node.width, node.height, node.group_id = node_in.width, node_in.height, node_in.group_id
     node.rotation = node_in.rotation
     node.locked = node_in.locked
+    node.hidden = node_in.hidden
     _apply_comments(node, node_in)
     events.record(
         db,
@@ -4148,7 +4263,7 @@ class MapImport(BaseModel):
 #: the exports above; FreeMind `.mm` is the format Coggle, Freeplane, XMind and
 #: MindMeister all write, which is what section 4's list meant by "an existing
 #: map can come in".
-IMPORT_FORMATS = ("markdown", "opml", "freemind")
+IMPORT_FORMATS = ("markdown", "opml", "freemind", "xmind")
 
 
 def _parse_xml_document(content: str, label: str):
@@ -4418,6 +4533,95 @@ def _parse_opml(content: str) -> tuple[str, list[dict]]:
         return out
 
     return title, walk(body, 0)
+
+
+#: An XMind file's map, uncompressed, at most: a map of MAX_IMPORT_NODES
+#: topics is well under this, and a zip that says it unpacks to more is a
+#: zip bomb, not a mind map.
+MAX_XMIND_JSON_BYTES = 8_000_000
+
+
+def _parse_xmind(content: str) -> tuple[str, list[dict]]:
+    """An XMind (Zen and later) `.xmind` in, `(title, [the central topic])` out.
+
+    The file is a zip; the client sends it base64 encoded. Its map is
+    `content.json`: a list of sheets, each with a `rootTopic` whose children
+    are `children.attached`. The first sheet comes in, its central topic as
+    the map's root (and its name), the rest under it as they were in XMind.
+    A topic's plain notes come in as
+    its note. XMind 8's older `content.xml` is refused with a sentence saying
+    how to get the newer file, rather than guessed at.
+    """
+    import base64
+    import binascii
+    import io
+    import zipfile
+
+    try:
+        raw = base64.b64decode(content, validate=True)
+        archive = zipfile.ZipFile(io.BytesIO(raw))
+    except (binascii.Error, ValueError, zipfile.BadZipFile) as err:
+        raise HTTPException(status_code=422, detail="That is not an XMind file (it should be a .xmind archive).") from err
+    names = set(archive.namelist())
+    if "content.json" not in names:
+        detail = (
+            "That XMind file is in the older XMind 8 format. Open it in XMind and save it again, then import it."
+            if "content.xml" in names
+            else "That XMind file has no map in it."
+        )
+        raise HTTPException(status_code=422, detail=detail)
+    info = archive.getinfo("content.json")
+    if info.file_size > MAX_XMIND_JSON_BYTES:
+        raise HTTPException(status_code=422, detail="That XMind map is too large to import: split it up first.")
+    try:
+        sheets = json.loads(archive.read("content.json").decode("utf-8"))
+    except (ValueError, UnicodeDecodeError) as err:
+        raise HTTPException(status_code=422, detail="That XMind file's map could not be read.") from err
+    sheet = sheets[0] if isinstance(sheets, list) and sheets else {}
+    root = sheet.get("rootTopic") if isinstance(sheet, dict) else None
+    if not isinstance(root, dict):
+        raise HTTPException(status_code=422, detail="That XMind file has no map in it.")
+    counted = [0]
+
+    def walk(topic: dict, depth: int) -> list[dict]:
+        out: list[dict] = []
+        if depth >= MAX_IMPORT_DEPTH:
+            return out
+        children = (topic.get("children") or {}).get("attached") or []
+        for child in children:
+            if not isinstance(child, dict):
+                continue
+            counted[0] += 1
+            if counted[0] > MAX_IMPORT_NODES:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"That outline has more than {MAX_IMPORT_NODES} nodes: split it up first.",
+                )
+            note = ((child.get("notes") or {}).get("plain") or {}).get("content")
+            out.append(
+                {
+                    "text": str(child.get("title") or "").strip()[:MAX_OBJECT_TEXT_CHARS],
+                    "style": _clean_import_style({"note": note}),
+                    "ref": str(child.get("id") or ""),
+                    "links": [],
+                    "children": walk(child, depth + 1),
+                }
+            )
+        return out
+
+    #: **The central topic stays a topic** (the features audit, FEAT-01: a
+    #: FreeMind file lost its centre this way, and an XMind map without its
+    #: central idea is N loose trunks). It also names the map.
+    title = str(root.get("title") or sheet.get("title") or "").strip()
+    note = ((root.get("notes") or {}).get("plain") or {}).get("content")
+    centre = {
+        "text": title[:MAX_OBJECT_TEXT_CHARS],
+        "style": _clean_import_style({"note": note}),
+        "ref": str(root.get("id") or ""),
+        "links": [],
+        "children": walk(root, 1),
+    }
+    return title, [centre]
 
 
 def _parse_markdown_outline(content: str) -> tuple[str, list[dict]]:
@@ -4948,6 +5152,7 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
         "opml": _parse_opml,
         "freemind": _parse_freemind,
         "markdown": _parse_markdown_outline,
+        "xmind": _parse_xmind,
     }
     title, parsed = parsers[body.format](body.content)
     name = (body.name or title or "Imported map").strip()[:100] or "Imported map"

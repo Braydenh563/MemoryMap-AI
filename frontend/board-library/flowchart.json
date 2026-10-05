@@ -1,0 +1,494 @@
+{
+ "format": "memorymap-library-set",
+ "version": 1,
+ "key": "flowchart",
+ "name": "Flowchart",
+ "items": [
+  {
+   "key": "process",
+   "kind": "element",
+   "name": "Process",
+   "tags": [
+    "step",
+    "action",
+    "box"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 80
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 0 L 160 0 L 160 80 L 0 80 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "decision",
+   "kind": "element",
+   "name": "Decision",
+   "tags": [
+    "if",
+    "branch",
+    "question",
+    "diamond"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 100
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 80 0 L 160 50 L 80 100 L 0 50 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.22,
+        "y": 0.25,
+        "w": 0.56,
+        "h": 0.5
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "terminator",
+   "kind": "element",
+   "name": "Terminator",
+   "tags": [
+    "start",
+    "end",
+    "stop",
+    "begin"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 80
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 40 0 L 120 0 A 40 40 0 0 1 120 80 L 40 80 A 40 40 0 0 1 40 0 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.15,
+        "y": 0,
+        "w": 0.7,
+        "h": 1
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "data",
+   "kind": "element",
+   "name": "Data (input or output)",
+   "tags": [
+    "input",
+    "output",
+    "io",
+    "parallelogram"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 80
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 24 0 L 160 0 L 136 80 L 0 80 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.15,
+        "y": 0,
+        "w": 0.7,
+        "h": 1
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "predefined",
+   "kind": "element",
+   "name": "Predefined process",
+   "tags": [
+    "subroutine",
+    "function",
+    "call"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 80
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 0 L 160 0 L 160 80 L 0 80 Z M 16 0 L 16 80 M 144 0 L 144 80",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.12,
+        "y": 0,
+        "w": 0.76,
+        "h": 1
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "manual-input",
+   "kind": "element",
+   "name": "Manual input",
+   "tags": [
+    "keyboard",
+    "enter"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 80
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 24 L 160 0 L 160 80 L 0 80 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0,
+        "y": 0.3,
+        "w": 1,
+        "h": 0.7
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "document",
+   "kind": "element",
+   "name": "Document",
+   "tags": [
+    "report",
+    "page"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 80
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 0 L 160 0 L 160 68 C 120 52 40 88 0 72 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 0.8
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "multi-document",
+   "kind": "element",
+   "name": "Multiple documents",
+   "tags": [
+    "reports",
+    "pages"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 80
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 12 0 L 160 0 L 160 60 L 154 60 M 6 6 L 154 6 L 154 66 L 148 66 M 0 12 L 148 12 L 148 74 C 110 60 36 92 0 78 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0,
+        "y": 0.15,
+        "w": 0.92,
+        "h": 0.7
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "database",
+   "kind": "element",
+   "name": "Database",
+   "tags": [
+    "storage",
+    "cylinder",
+    "data store"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 100
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 12 A 80 12 0 0 1 160 12 L 160 88 A 80 12 0 0 1 0 88 Z M 0 12 A 80 12 0 0 0 160 12",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0,
+        "y": 0.25,
+        "w": 1,
+        "h": 0.65
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "delay",
+   "kind": "element",
+   "name": "Delay",
+   "tags": [
+    "wait",
+    "pause"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 80
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 0 L 110 0 A 50 40 0 0 1 110 80 L 0 80 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0,
+        "y": 0,
+        "w": 0.85,
+        "h": 1
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "off-page",
+   "kind": "element",
+   "name": "Off-page reference",
+   "tags": [
+    "continue",
+    "page"
+   ],
+   "payload": {
+    "box": {
+     "w": 100,
+     "h": 96
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 0 L 100 0 L 100 64 L 50 96 L 0 64 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 0.66
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "connector",
+   "kind": "element",
+   "name": "On-page connector",
+   "tags": [
+    "circle",
+    "join",
+    "jump"
+   ],
+   "payload": {
+    "box": {
+     "w": 60,
+     "h": 60
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 30 A 30 30 0 1 1 60 30 A 30 30 0 1 1 0 30 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.15,
+        "y": 0.15,
+        "w": 0.7,
+        "h": 0.7
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  },
+  {
+   "key": "preparation",
+   "kind": "element",
+   "name": "Preparation",
+   "tags": [
+    "setup",
+    "hexagon",
+    "initialise"
+   ],
+   "payload": {
+    "box": {
+     "w": 160,
+     "h": 80
+    },
+    "items": [
+     {
+      "key": "s",
+      "kind": "sketch",
+      "data": {
+       "d": "M 28 0 L 132 0 L 160 40 L 132 80 L 28 80 L 0 40 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.15,
+        "y": 0,
+        "w": 0.7,
+        "h": 1
+       }
+      },
+      "z": 5
+     }
+    ],
+    "links": []
+   }
+  }
+ ]
+}

@@ -68,7 +68,6 @@
   #tab-bar button {
     min-height: var(--target-min);
   }
-
 }
 
 /* --- band 2 (820 to 1200): the tabs keep their names, set small ----------
@@ -629,11 +628,6 @@ header#top-bar,
 
   .dock .dock-find {
     flex-wrap: wrap;
-  }
-
-  .dock-chip-row .library-chip {
-    min-width: var(--target-min);
-    justify-content: center;
   }
 }
 
@@ -2224,7 +2218,6 @@ header#top-bar,
   }
 }
 
-
 /* --- Phase 11 item 4: the graph's controls are one sheet on a phone --------
 
    Measured at 390x844 before this: the gear's floating panel opened at
@@ -2351,7 +2344,6 @@ header#top-bar,
     min-height: var(--target-min);
     min-width: var(--target-min);
   }
-
 }
 
 /* --- the board's bar takes the floor of the whole touch band, not just 600 --
@@ -2478,7 +2470,6 @@ header#top-bar,
     min-width: 0;
   }
 }
-
 
 /* --- the lightbox on a phone (INBOX 430) ------------------------------------
    "The lightbox on phone needs a better layout": at 390 the action row

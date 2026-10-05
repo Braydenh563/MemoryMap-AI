@@ -1321,7 +1321,12 @@ function runShortcut(id) {
         $("note-search").focus();
       }
     },
-    help: openShortcuts,
+    //: On a board, "?" is the board's own sheet (INBOX 566); everywhere else
+    //: the app's.
+    help: () => {
+      if (typeof wbCommandsLive === "function" && wbCommandsLive() && typeof wbOpenHelpSheet === "function") wbOpenHelpSheet();
+      else openShortcuts();
+    },
     newNote: () => startNewNote(),
     quickNote: () => openQuickNote(),
     newDocument: () => {
@@ -1528,7 +1533,19 @@ function openShortcuts() {
   } else if (editorNote) {
     editorNote.classList.remove("hidden");
   }
+  //: The board's rows, from the board's own table (whiteboard-commands.js),
+  //: and the section scrolled into view when "?" was pressed on a board.
+  const boardList = $("shortcut-list-whiteboard");
+  const boardNote = $("shortcut-list-whiteboard-note");
+  const onBoard = typeof wbCommandsLive === "function" && wbCommandsLive();
+  if (boardList && typeof renderWbShortcutSheet === "function") {
+    renderWbShortcutSheet(boardList);
+    boardNote?.classList.add("hidden");
+  } else if (boardNote) {
+    boardNote.classList.remove("hidden");
+  }
   $("shortcuts-overlay").classList.remove("hidden");
+  if (onBoard) $("shortcut-head-whiteboard")?.scrollIntoView({ block: "start" });
   $("shortcuts-close").focus();
 }
 function closeShortcuts() {

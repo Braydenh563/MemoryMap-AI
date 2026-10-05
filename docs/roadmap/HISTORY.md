@@ -7,6 +7,17 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (backlog-1005: BACKLOG, section by section)
+
+One agent's pass over BACKLOG and the plans' open lines; each bullet says how it
+was verified. Items found already built are listed with the file that proves it.
+
+- **Audit trail export** (BACKLOG section 115 row 11): `GET /audit/export.csv`
+  (`routes_settings.py`, every field, oldest first, field names only, formula
+  cells defanged, the export itself logged) and an Export as CSV strip on the
+  Library's Activity chip. `tests/test_audit_export.py` 4/4;
+  `scratchpad/ui-sweeps/activityexport.js` PASS at 1440 and 390, light and dark.
+
 ## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
 
 From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN

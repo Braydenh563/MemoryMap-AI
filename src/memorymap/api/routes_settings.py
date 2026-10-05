@@ -1455,6 +1455,73 @@ def audit_log(
     ]
 
 
+#: A spreadsheet runs a cell that opens with one of these as a formula, and an
+#: audit trail carries free text a person (or a web page the agent read) wrote.
+_CSV_FORMULA_LEAD = ("=", "+", "-", "@", "\t", "\r")
+
+#: The ceiling on one export. A notebook's trail is bounded by its retention
+#: rule, but "bounded" has been wrong before; a hand-over file of a million
+#: rows is a file nobody opens.
+AUDIT_EXPORT_MAX_ROWS = 100_000
+
+
+def _csv_safe(value: object) -> object:
+    """A cell that cannot be read as a formula (the OWASP CSV-injection rule)."""
+    if isinstance(value, str) and value.startswith(_CSV_FORMULA_LEAD):
+        return "'" + value
+    return value
+
+
+@router.get("/audit/export.csv")
+def audit_export_csv(
+    entity_type: str = Query(default="", max_length=40),
+    session: Session = Depends(get_session),
+) -> Response:
+    """The activity log as a file a professional can hand over: who, what, when.
+
+    Every field the log keeps, oldest first (a trail reads forward), and the
+    *names* of the fields an event changed but never their values: a payload
+    holds whole note texts, a private note's among them, and this file leaves
+    the app. The export is itself logged, so the trail records who took it.
+    """
+    query = select(AuditLog)
+    if entity_type:
+        query = query.where(AuditLog.entity_type == entity_type)
+    rows = list(
+        session.scalars(query.order_by(AuditLog.id.desc()).limit(AUDIT_EXPORT_MAX_ROWS))
+    )[::-1]
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(
+        ["id", "created_at", "actor", "action", "entity_type", "entity_id", "detail", "changed_fields"]
+    )
+    for row in rows:
+        after = (row.payload or {}).get("after") if isinstance(row.payload, dict) else None
+        changed = sorted(after) if isinstance(after, dict) else []
+        writer.writerow(
+            [
+                _csv_safe(value)
+                for value in (
+                    row.id,
+                    row.created_at.isoformat(),
+                    row.actor or events.ACTOR_USER,
+                    row.action,
+                    row.entity_type,
+                    row.entity_id if row.entity_id is not None else "",
+                    row.detail or "",
+                    "|".join(changed),
+                )
+            ]
+        )
+    manager.log_action(session, "exported", "data", detail="audit csv")
+    session.commit()
+    return Response(
+        content=buffer.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=memorymap-activity.csv"},
+    )
+
+
 def _feed_item(row: AuditLog) -> dict:
     """One event as the feed reports it: what happened, not what it stored."""
     span = events.snapshot_span(row)

@@ -202,7 +202,9 @@ HELP_TOPICS: list[dict] = [
             "hyperlinked outline of the whole notebook) and AI Skills. "
             "Sub-tabs also hold Documents, Whiteboards, and the Files & "
             "Images gallery. Each sub-tab's top bar ends with a ? that says "
-            "what it holds."
+            "what it holds. The Activity chip lists everything you and Atlas "
+            "did, and its Export as CSV button saves that log as a "
+            "spreadsheet (who, what, when) to hand over."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },

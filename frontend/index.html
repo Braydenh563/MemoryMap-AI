@@ -5230,7 +5230,7 @@ Link to another note with [[its first few words]]."></textarea>
                 data-help-for="library-help" aria-controls="library-help" aria-expanded="false"
                 title="About the library" aria-label="About the library"><i class="ph ph-question" aria-hidden="true"></i></button>
               <div class="help-body hidden" id="library-help" role="dialog" aria-label="About the library">
-                <p>Everything you have made, in one list: notes, documents, chats, images and files. The chips below narrow it to one kind, Filter can match by meaning or include the bin, and ticking a card lets you act on several at once.</p>
+                <p>Everything you have made, in one list: notes, documents, chats, images and files. The chips below narrow it to one kind, Filter can match by meaning or include the bin, and ticking a card lets you act on several at once. The Activity chip is the log of what you and Atlas did, and it can be exported as a spreadsheet.</p>
               </div>
               <details class="doc-dock-menu dock-menu dock-more" id="library-more-menu">
                 <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
@@ -5261,6 +5261,13 @@ Link to another note with [[its first few words]]."></textarea>
             <span class="library-contextbar-end">
               <button id="library-bin-empty" class="ghost small" type="button"
                 title="Permanently delete everything in the bin"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Empty the bin</button>
+            </span>
+          </div>
+          <div id="library-activitybar" class="library-contextbar hidden">
+            <span class="muted">Everything you and Atlas did, oldest first. Export it to hand over.</span>
+            <span class="library-contextbar-end">
+              <button id="library-activity-export" class="ghost small" type="button"
+                title="Save the activity log as a spreadsheet: who, what, when"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export as CSV</button>
             </span>
           </div>
         </section>

@@ -1010,6 +1010,8 @@ function renderLibraryContextBars() {
         "(change that in Preferences) before they clear.";
     $("library-bin-empty").disabled = !count;
   }
+  // The audit trail's one action, on its own screen (BACKLOG 115 row 11).
+  $("library-activitybar").classList.toggle("hidden", libraryKind !== "activity");
 
   const bar = $("library-selectbar");
   const chosen = [...librarySelection];
@@ -1718,6 +1720,17 @@ $("library-bin-empty").addEventListener("click", async () => {
   toast("The bin is empty.");
   loadLibrary();
   loadEntries();
+});
+
+// The activity log as a file. A download needs the auth header, so the bytes
+// are fetched and handed to saveFile, the way every other export is.
+$("library-activity-export").addEventListener("click", async () => {
+  try {
+    const response = await api("/audit/export.csv");
+    await saveFile("memorymap-activity.csv", await response.blob());
+  } catch (e) {
+    toast(e.message, true);
+  }
 });
 
 // --- bulk actions -------------------------------------------------------------

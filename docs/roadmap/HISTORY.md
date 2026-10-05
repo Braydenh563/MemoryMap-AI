@@ -7,6 +7,170 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: UI_MODERNISATION_PLAN)
+
+Three blocks of UI_MODERNISATION_PLAN that were built and still sat in the plan, moved whole with the evidence found on the head. The plan's own record already said "Phases 0 to 11 built" (ROADMAP.md).
+
+### Phases 0 to 6 (tooling and gates, mass and layout, component consistency, typography and glass, motion and placement, the per-surface passes, designed states and copy)
+
+Found built on the head, each by a grep: Phase 0's `tests/test_ui_signatures.py` and `scratchpad/ui-sweeps/all.sh`; Phase 1's `--page-gutter` (12 uses in `00-tokens-shell.css`), `--measure: 54rem` and the `.card` and `.card.compact` recipes; Phase 2's recipes (`kebabMenu`, `.dock`, the glass and radius tokens) held by `tests/test_ui_recipes.py`, `tests/test_style_scale.py` and DESIGN.md's recipe index; Phase 3's glass-off list (`tests/test_ui_recipes.py`); Phase 4's `.is-placed` measure-place-reveal path (`sheets-selects.js`); Phase 5's surfaces (each in HISTORY under its tab); Phase 6's `dashEmpty` and `showSkeletons` and DESIGN.md's "Voice" section. Their text as it stood:
+
+## Phase 0: tooling and acceptance gates (½ session)
+
+1. Add `tests/test_ui_signatures.py`: a static lint that counts distinct
+   `gap:`/`padding:` values on `.row`-class selectors and distinct
+   `border-radius` values on surface selectors, with a ceiling the later
+   phases lower. It cannot see the DOM; it stops regressions between
+   sessions.
+2. Add a `make ui-sweep` (or a `scratchpad/ui-sweeps/all.sh`) that runs every
+   sweep against a running app and writes the tables to one file, so
+   before/after is one diff.
+3. Screenshot set: every tab + every Settings section, light and dark, 1440
+   and 1024 wide, into the scratchpad. Same script each session.
+
+## Phase 1: mass and layout (1 session)
+
+Target: the app reads as one shell with rooms in it, not as cards on a
+gradient.
+
+1. **Shell.** One gutter (`--page-gutter`, done): extend to the dashboard
+   grid gap, the Library grid gap, and the gap between the sub-tab strip and
+   its content (measured 24/17/8px). Status bar and top bar: same height
+   family (`--header-h`), same horizontal padding as the page gutter so the
+   logo, first tab, sidebar edge and first card edge share one x.
+2. **Card system.** `.card` padding to `--space-6/--space-7` on ≥1100px
+   content columns (measured 16/20px everywhere, which is dense for a full-
+   width panel and right for a widget). Define two card sizes only:
+   `.card` (panel) and `.card.compact` (widget, sidebar). Kill card-in-card:
+   `.card .card` becomes a tone (`--surface-2`), never a bordered pane.
+3. **Dashboard.** Hero from 150px to one row (greeting · date · time · name),
+   quick actions become the first widget row, stat tiles fold into the
+   Stats widget. Widget head row: 32px, title + one action, no border below.
+4. **Sidebars.** One width token, one head row (28/38px measured → one),
+   list rows at `--target-min` with tone hover, no bordered rows.
+5. **Max reading width.** `.entry-list.is-rows` already caps the measure;
+   apply the same `--measure` token to chat bubbles, document preview, the
+   Contents page and Settings prose (currently 100% of a 640px column, fine;
+   100% of a 1100px column, not).
+
+Acceptance: `space.js` shows one card padding per card size, one card gap,
+one shell gutter; head rows at one height; screenshots side by side.
+
+## Phase 2: component consistency (1–2 sessions)
+
+Target: one recipe per component family, counted.
+
+| Family | Now (measured) | Target |
+| --- | --- | --- |
+| Buttons | 13–21 signatures per tab | 4: filled, tonal, plain, icon-tonal (+ danger colour) |
+| Rows (`.row`, toolbars) | gaps 4/6.4/8/9.6/16px | 2: `--space-3` inside a control group, `--space-4` between groups |
+| Head rows | 28/38/40px | 1: `--control-h` |
+| Chips/badges | ~6 recipes (tag, link, status, count, filter, inline) | 2: static tag (tone, no border) and interactive filter chip (tonal button) |
+| Fields | inputs with border+inset; selects with border+shadow | 1: recessed well, `--field-inset`, no drop shadow |
+| Segmented | 3 | 2: tab strip (well) and choice (chip well): done, keep |
+| Menus/popovers | action-menu, select-menu, doc-dock-menu, help-popover, graph panels, 5 shells | 1 `.popover` shell: `--modal-bg-opaque`, `--border`, `--glass-shadow`, `--radius-md`, hidden-until-placed |
+| Dialogs | modal-card + 4 one-off panels | 1 |
+| List rows | entry-list li, library-card, bookmark-row, extras-row, setting-row | 2: card row (tone) and divider row |
+
+Method per family: run the sweep, read the signature table, pick the winner
+(the one most used, already on tokens), rewrite the others onto it, delete
+the one-off rules, re-run. Record each family's before/after count in the
+commit.
+
+## Phase 3: typography, colour, glass restraint (½ session)
+
+1. Type: `--text-md` for control labels everywhere (measured 0.85/0.92rem
+   one-offs remain in Settings labels and library meta). Muted text at one
+   colour, one opacity: no `opacity: 0.75` on top of `--muted`.
+2. Colour: the accent is for the one filled action, selection, and links.
+   Remove accent from decorative borders, dots and icons that are not
+   interactive. Status colours (`--ok/--warn/--error`) only on status.
+3. Glass: keep `backdrop-filter` on the top bar, sidebars, floating panels
+   and sticky strips. Remove it from widgets and list cards (tone instead):
+   the measured blur layer count drops again and the page stops shimmering.
+   Sheen: off by default; the setting stays.
+4. Background: the blobs at half strength by default; a professional product
+   has a quiet page.
+
+## Phase 4: motion and placement (½ session)
+
+1. Every floating panel opens through one path: measure → place → reveal.
+   The toolbar menus do (`.is-placed`); port the same class to
+   `.action-menu`, `.select-menu`, `.help-popover`, the graph panels and the
+   whiteboard floating panel, and the chat model panel.
+2. No transitions on `left/top/width/height`; opacity and transform only,
+   ≤ `--motion-base`. Hover changes tone, never size or shape.
+3. Focus rings: one recipe (`--accent` 2px offset) on every interactive
+   element; verify with a keyboard-walk script.
+
+## Phase 5: per-surface passes (1 session each, in this order)
+
+1. **Settings**: the most visited and the most measured; apply phases 1–3
+   and the #129 list (spacing, hierarchy, proximity per page).
+2. **Notes** (Browse, Capture, Write, Ask), #132; the capture toolbar's
+   density; the row list as the reference list component.
+3. **Chat**: dock, sidebar, bubbles; #35's odysseus-style shape as the
+   target, kept restrained.
+4. **Library**: All/Documents/Files/Images/Links/Contents rows onto the two
+   list-row recipes; #101.
+5. **Dashboard**: phase 1's hero and widget head; widget internals onto the
+   compact card.
+6. **Graph, Timeline, Reminders**: toolbars onto the row recipe; the graph's
+   floating panels onto the popover shell.
+7. **Whiteboard and Documents editor**, panel chrome onto the popover
+   shell; the toolbar strip as the reference toolbar; #133, #134.
+
+## Phase 6: designed states and copy (½ session)
+
+1. Empty states: icon + one sentence + one action, one component, used by
+   every list. 2. Loading: skeleton rows for lists, a spinner only inside a
+button. 3. Errors: inline under the control that failed; toasts only for
+background work. 4. Copy: sentence case everywhere except eyebrows; verbs on
+buttons; no exclamation marks; one voice (DESIGN.md gets a "Voice" section).
+
+### Phase 7 item 2, line numbers as a setting
+
+Built, commit 68a81d1 (recorded in HISTORY.md under "Built: items 1, 3, 4 and 5"): `mountGutterFor` (documents.js, called for the capture box, the note edit form in `note-edit-panels.js` and the documents editor) with the one remembered `doc-gutter` preference, `docGutterWanted` following the file type by default; the formatting strip carries the one toggle (a second door in the view menu was removed on request). The item as it stood:
+
+2. **Line numbers as a setting, in all three editors.** The wrap bug is fixed
+   (v0.2.2) but the gutter still appears only for code files in Documents, and
+   the note capture and edit panels have no gutter at all. Wanted: one toggle,
+   remembered, working for any file type, in all three.
+
+### The owner's evening batch of 2026-09-09 (the eight left)
+
+Each confirmed on the head: Ctrl+S in Settings rings the section's own Save (`settings-wiring.js`, INBOX 107c's record); the Packages row's head no longer wraps (`packages.js`, 2026-09-13, 107c); the panels and sidebars' scroll gutter measured 16 to 40px and the AI skills sidebar full height (the 2026-09-12 triage of INBOX 107); the hard container corners (`2767fb3`; the half that did not reproduce is recorded there); the links editor's Save and Cancel are one pair, `small` beside `ghost small` (`library.js`, `.bookmark-edit-actions`); "Write something first" is set on a press of Save and cleared on input (`capture-ask.js`, `clearCaptureStatusOnInput`), never on load; the OCR workspace's reader picker opens (`b24836d`, INBOX 107b, and `GET /ocr-readers` names OCR models, `tests/test_ocr_readers.py`); the README's screenshots were retaken on 2026-10-04 (ROADMAP.md). The section as it stood:
+
+Global, cross-surface. Phase 9 (responsive) and Phase 10 (Liquid Glass)
+own most of these.
+
+Five of these are built and are in HISTORY.md ("Moved from the plans,
+2026-09-09"): the quick-nav chord's guide and its three new second keys, the
+dashboard's back-to-top threshold, the heatmap's size, and the dark palette's
+glass. What is left is below.
+
+- "ctrl s for saving settings changes while on the settings modal doesnt
+  work and it needs visual confirmation as well."
+- "there are also still wrapping issues in the packages tab with the
+  buttons, titles, and badges" (screenshot: the Tesseract row's title, its
+  Installed badge, and Reinstall / Remove on three lines).
+- "the panels and sidebars in windows actually go quite far down below
+  where the scroll should stop, and the ai skill sidebar isnt 100%
+  height."
+- "the containers of all the ui in each tab page have hard corner
+  rectangular edges so I want that fixed because the shadows make the cut
+  off pretty obvious."
+- "the links edit save and cancel buttons arent consistent" (screenshot: an
+  accent pill beside a grey rounded rectangle at a different radius and
+  height).
+- "the words 'write something first' is at the bottom of the note capture
+  tab when I didnt do anything?? maybe I fumbled a button": a validation
+  message shown on load rather than on submit.
+- "I was in the ocr workspace and the model dropdown combobox at the top
+  bar didnt open."
+- "I think the screen shots on the readme need an update from all the ui
+  changes."
+
 ## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: MINDMAP_PLAN)
 
 Rows listed as open in MINDMAP_PLAN that are built or moot on the head, each confirmed by grep.

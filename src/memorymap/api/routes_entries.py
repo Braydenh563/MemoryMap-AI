@@ -1464,6 +1464,29 @@ def query_entries(q: str = "", session: Session = Depends(get_session)) -> dict:
     }
 
 
+class _LazyNoteFacts:
+    """`relations.NoteFacts` whose label is read only when asked for.
+
+    `recognise` names a note only when it is a hub of shared neighbours, yet
+    every note's label was cleaned up front: at 5,000 notes 0.66 s of a
+    1.08 s warm `/entries/link-suggestions` (audit 2026-10-05, ARCH-11).
+    """
+
+    __slots__ = ("_content", "_label", "tags", "created_at")
+
+    def __init__(self, content: str, tags: frozenset[str], created_at) -> None:  # noqa: ANN001
+        self._content = content
+        self._label: str | None = None
+        self.tags = tags
+        self.created_at = created_at
+
+    @property
+    def label(self) -> str:
+        if self._label is None:
+            self._label = manager.plain_label(self._content, 40) or "Untitled note"
+        return self._label
+
+
 @router.get("/link-suggestions")
 def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     """Pairs of notes that mean similar things but aren't linked yet: 
@@ -1524,11 +1547,7 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
         )
     ]
     notes = {
-        i: relations.NoteFacts(
-            label=manager.plain_label(e.content, 40) or "Untitled note",
-            tags=frozenset(t.lower() for t in manager.entry_tags(e)),
-            created_at=e.created_at,
-        )
+        i: _LazyNoteFacts(e.content, frozenset(t.lower() for t in manager.entry_tags(e)), e.created_at)
         for i, e in candidates.items()
     }
     found = relations.recognise(

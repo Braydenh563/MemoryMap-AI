@@ -108,6 +108,11 @@ with its owner named in the entry.
      animate everything to be smooth and boilogically lifelike." Placed:
      with 550, the Atlas agent (masculine torso, jointed arms from the
      shoulder line, joint-angle blends with follow-through, lifelike idle).
+     Then (verbatim): "the arms for both the male and female atlas".
+
+565. **The owner, 2026-10-05, verbatim.** "feel free to make the feminine
+     tail a little longer and flowy, maybe a subtle texture to match the
+     angel ears??" Placed: with 550, the Atlas agent.
 
 561. **The owner, 2026-10-05, verbatim.** "I dont like this section in th
      timeline, it needs redesigning, restructuring, moving ro smth"

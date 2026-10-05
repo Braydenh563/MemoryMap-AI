@@ -42099,6 +42099,23 @@ record.)
      and popups design agent's queue (599), as the same recipe pass.
      Fixed 2026-10-05: the note edit form is one composition: one writing surface, tag chips, a category chip, a foot of Attach a link, Cancel and Save; boxed buttons 3 to 0, 554 to 507px tall at 390 (noteeditflow.js 6/6).
 
+542. **The owner, 2026-10-05, verbatim.** "some of the badge icons and text
+     arent aligned vertically." (screenshot: the Installed badge in Settings,
+     Packages).
+     Fixed 2026-10-05, by the existing sweeps (INBOX 503, 592 had built the
+     recipe): `iconalign.js` over 9 views at 1440 and 390, light and dark,
+     default font and `FONT=segoe` (the owner's vertical metrics): 26 pairs
+     over 1px before, 12 after, and 14 before and 0 after in Segoe. The one
+     real outlier was the Timeline row's mark, 1.2px (Segoe 2.2px) above its
+     title: the title was the one item left centred in a track taller than
+     itself (`align-content: center` and the title start-aligned, 7 of 22
+     pairs now 0). The "Installed" badge is within 0.5px painted: DPR 1 ink
+     0.5px below the capital's centre at four sub-pixel phases, 0.17px at 3x;
+     the 1.17px `iconalign.js` still prints for it (and the search result
+     chips) in the sandbox font is the sweep reading a fractional box against
+     a snapped baseline, not paint, and reads 0.95px in Segoe. Not verified:
+     Windows' own rasteriser at 125% and 150% scale.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

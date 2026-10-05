@@ -34,10 +34,6 @@ with its owner named in the entry.
 
 ## Open items
 
-542. **The owner, 2026-10-05, verbatim.** "some of the badge icons and text
-     arent aligned vertically." (screenshot: the Installed badge in Settings,
-     Packages).
-
 561. **The owner, 2026-10-05, verbatim.** "I dont like this section in th
      timeline, it needs redesigning, restructuring, moving ro smth"
      (screenshot: the "Sep to Oct 2026" month button over a row of seven

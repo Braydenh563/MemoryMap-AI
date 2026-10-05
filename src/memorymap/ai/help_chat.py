@@ -212,8 +212,9 @@ HELP_TOPICS: list[dict] = [
             "and mind maps), Images and Files. Each sub-tab's top bar ends "
             "with a ? that says what it holds. The Highlights chip lists every "
             "passage you marked in a note, each with its note. The Activity chip "
-            "lists everything you and Atlas did, and its Export as CSV button "
-            "saves that log as a spreadsheet (who, what, when) to hand over."
+            "lists everything you and Atlas did, and its Export activity button "
+            "saves that log as a spreadsheet (when, who, what, which item) to "
+            "hand over. Events about private notes are left out of it."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },

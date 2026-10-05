@@ -453,10 +453,16 @@ was verified. Items found already built are listed with the file that proves it.
   correction. `tests/test_words_review.py` 7/7 on the fake transport. Not
   run against a real model.
 - **Audit trail export** (BACKLOG section 115 row 11): `GET /audit/export.csv`
-  (`routes_settings.py`, every field, oldest first, field names only, formula
-  cells defanged, the export itself logged) and an Export as CSV strip on the
-  Library's Activity chip. `tests/test_audit_export.py` 4/4;
-  `scratchpad/ui-sweeps/activityexport.js` PASS at 1440 and 390, light and dark.
+  (`routes_settings.py`). Decisions, taken 2026-10-05: events on private notes
+  (and the vault's own) are excluded; every cell is defanged against CSV formula
+  injection (a leading `=`, `+`, `-`, `@`, tab or carriage return gets a `'`);
+  the columns are time, actor, action, entity kind, entity id and title; `limit`,
+  `offset` and `X-Total-Count` follow the list endpoints' recipe; the export
+  itself is logged. The Activity chip's strip carries the Export activity button.
+  `tests/test_audit_export.py` 12 tests. Not run in a browser this round (the
+  earlier `scratchpad/ui-sweeps/activityexport.js` pass predates the relabel).
+  Not covered: an event about a note that was private and has since been purged
+  (its id is gone, so the filter cannot tell), whose `detail` is still exported.
 
 ## OPEN.md rows closed, 2026-10-05 (the open-rows agent)
 

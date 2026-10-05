@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Suggested links: Link all above 70% asks first, says how many pairs actually linked (Linked 3 of 4), and a pair whose link failed stays in the list; the Links help line and the Guide name it.
 - Settings at phone width: a setting's label no longer stands 114 to 202px tall above its control (39 rows, the gap above Tokens per step in Tools it can use); the stacked row sizes the label to its text.
 - Notes and Library: a text selection dragged within about 56px of the top or bottom of the list scrolls it, faster the closer to the edge (the browser alone covered only the last 20px); the selection follows (INBOX 608).
 - Startup: the note edit form, the full backup's save and restore and seven other helpers that only one lazily loaded file calls moved into that file (and, after the edit form's redesign merged, the embedding models list, the form's close and the Settings bar's New listener), and the edit form's bundle is fetched a few seconds after start so the first Edit does not wait; the scripts the app loads at start are 589,955 bytes gzipped (from 601,448 after the day's merges), and the boot, app.js, total and guard caps are lowered to the measure.

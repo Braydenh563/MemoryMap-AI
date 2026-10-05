@@ -257,19 +257,12 @@ function attachFileTo(entry) {
     for (const file of files) {
       const form = new FormData();
       form.append("file", file);
-      // Raw fetch: multipart must NOT get the JSON content-type header.
-      const response = await fetch(`/entries/${entry.id}/files`, {
-        method: "POST",
-        // X-Workspace-ID alongside X-Auth-Token: a raw fetch (multipart body,
-        // so it cannot go through api()/apiJson()) does not get either header
-        // for free the way every JSON call in this file does.
-        headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
-        body: form,
-      });
-      if (!response.ok) {
+      // `api.upload` (F5): multipart keeps its own type, and both headers ride.
+      try {
+        await api.upload(`/entries/${entry.id}/files`, form);
+      } catch (error) {
         failures++;
-        const detail = await response.json().catch(() => ({}));
-        toast(plainHttpError(response.status, detail.detail, `${file.name}: the upload did not work. Try again.`), true);
+        toast(`${file.name}: ${error.message}`, true);
       }
     }
     const attached = files.length - failures;

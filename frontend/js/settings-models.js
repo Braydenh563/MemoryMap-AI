@@ -59,7 +59,7 @@ let modelCustom = null; // { name, info } for the name just checked
 
 function modelHidesBig() {
   try {
-    return localStorage.getItem("hideBigModels") === "1";
+    return prefs.get("hideBigModels", null) === "1";
   } catch (error) {
     return false;
   }
@@ -459,7 +459,7 @@ function modelCardFor(model, status) {
 //: something in it is being downloaded or is in use right now.
 function modelGroupOpen(kind, shown, status) {
   try {
-    const kept = localStorage.getItem(`modelGroup:${kind}`);
+    const kept = prefs.get(`modelGroup:${kind}`, null);
     if (kept !== null) return kept === "1";
   } catch (error) {
     /* fall through to the default */

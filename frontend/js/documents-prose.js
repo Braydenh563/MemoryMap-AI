@@ -648,7 +648,7 @@ const DOC_SUGGEST_KEY = "docSuggestMode";
 
 function docSuggestModes() {
   try {
-    return JSON.parse(localStorage.getItem(DOC_SUGGEST_KEY) || "{}") || {};
+    return prefs.json(DOC_SUGGEST_KEY, {}) || {};
   } catch {
     return {};
   }

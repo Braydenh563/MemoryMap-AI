@@ -309,7 +309,7 @@ const WB_MAP_PERSPECTIVES = [
 //: way.
 function wbMapPerspective() {
   try {
-    const stored = localStorage.getItem("wbMapPerspective");
+    const stored = prefs.get("wbMapPerspective", null);
     return WB_MAP_PERSPECTIVES.some((p) => p.key === stored) ? stored : "branch";
   } catch {
     return "branch";
@@ -1068,7 +1068,7 @@ function wbSyncMapTemplates(passed = null) {
   const boardId = window.currentBoardId;
   let dismissed = false;
   try {
-    dismissed = Boolean(boardId && localStorage.getItem(wbMapTemplatesDismissedKey(boardId)));
+    dismissed = Boolean(boardId && prefs.get(wbMapTemplatesDismissedKey(boardId), null));
   } catch {
     dismissed = false;
   }
@@ -1101,7 +1101,7 @@ function wbSyncMapFirstHint(index) {
   if (!hint) return;
   let done = false;
   try {
-    done = Boolean(localStorage.getItem(WB_MAP_FIRST_HINT_KEY));
+    done = Boolean(prefs.get(WB_MAP_FIRST_HINT_KEY, null));
   } catch {
     // A browser that refuses storage shows the hint every time, which is the
     // gentler of the two failures: the alternative is never showing it.

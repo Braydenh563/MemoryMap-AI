@@ -1342,7 +1342,7 @@ const CARD_KINDS = {
                 //: Only when the tab is actually showing them, `loadReminders`
                 //: re-renders a list that is not on screen otherwise, and the
                 //: dashboard's own poll will pick the change up regardless.
-                if (localStorage.getItem("activeTab") === "reminders") loadReminders();
+                if (prefs.get("activeTab", null) === "reminders") loadReminders();
               } catch (error) {
                 toast(error?.message || "That reminder could not be updated.");
               }
@@ -2293,7 +2293,7 @@ function saveDraftLocally() {
 
 function restoreDraftLocally() {
   try {
-    const saved = JSON.parse(localStorage.getItem(DRAFT_STORE) || "null");
+    const saved = prefs.json(DRAFT_STORE, null);
     if (!saved) return;
     $("draft-thoughts").value = saved.thoughts || "";
     $("draft-text").value = saved.draft || "";
@@ -2362,7 +2362,7 @@ async function translateNoteInDesk(entry) {
 function draftTranslateKind() {
   let code = "es";
   try {
-    code = localStorage.getItem("draft-translate") || "es";
+    code = prefs.get("draft-translate", null) || "es";
   } catch {
     /* storage blocked: the default stands */
   }
@@ -2719,24 +2719,12 @@ async function composeDraft() {
 //: thrown out of the loop, the same rule the chat reader keeps, so one bad
 //: frame cannot lose a draft that is already half written.
 async function streamDraft(body, signal, onEvent) {
-  const response = await fetch("/drafts/compose/stream", {
+  // `api.stream` (F5): the Response, with 401 and refusals already handled.
+  const response = await api.stream("/drafts/compose/stream", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Auth-Token": authToken(),
-      "X-Workspace-ID": activeSpaceId(),
-    },
     body: JSON.stringify(body),
     signal,
   });
-  if (response.status === 401) {
-    showLockScreen(false);
-    throw new Error("Locked");
-  }
-  if (!response.ok) {
-    const detail = await response.json().catch(() => ({}));
-    throw new Error(plainHttpError(response.status, detail.detail));
-  }
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffered = "";

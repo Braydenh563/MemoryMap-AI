@@ -424,7 +424,7 @@ document.addEventListener("keydown", (event) => {
 $("chat-new").addEventListener("click", newChatConversation);
 {
   const sortSelect = $("chat-sidebar-sort");
-  sortSelect.value = localStorage.getItem(CHAT_SIDEBAR_SORT_KEY) || "recent";
+  sortSelect.value = prefs.get(CHAT_SIDEBAR_SORT_KEY, null) || "recent";
   sortSelect.addEventListener("change", () => {
     localStorage.setItem(CHAT_SIDEBAR_SORT_KEY, sortSelect.value);
     loadConversationList();
@@ -926,7 +926,7 @@ $("persona-select").addEventListener("change", async () => {
 //: every note box, remembered (`noteSourceWanted`).
 function noteSourceOn() {
   try {
-    return localStorage.getItem("note-source-view") === "1";
+    return prefs.get("note-source-view", null) === "1";
   } catch {
     return false;
   }
@@ -1079,7 +1079,7 @@ function initGraphOptionFolds() {
     fold._foldWired = true;
     const key = `graph-fold-${fold.id}`;
     try {
-      fold.open = localStorage.getItem(key) === "1";
+      fold.open = prefs.get(key, null) === "1";
     } catch (error) {
       fold.open = false;
     }
@@ -1203,7 +1203,7 @@ $("graph-trace-clear").addEventListener("click", () => setTracePanelOpen(false))
     // only an arrow names nothing.
     setLabel(toggle, collapsed ? "ph:eye Show legend" : "ph:eye-slash Hide legend");
   };
-  apply(localStorage.getItem("graphLegendCollapsed") === "1");
+  apply(prefs.get("graphLegendCollapsed", null) === "1");
   toggle.addEventListener("click", () => {
     const collapsed = !row.classList.contains("legend-collapsed");
     apply(collapsed);
@@ -1244,7 +1244,7 @@ $("graph-search").addEventListener("input", () => {
 // Physics sliders: persist, then rebuild the simulation with the new forces.
 for (const key of ["gravity", "spread", "link-force"]) {
   const input = $(`graph-${key}`);
-  input.value = localStorage.getItem(`graph-${key}`) ?? 50;
+  input.value = prefs.get(`graph-${key}`, null) ?? 50;
   input.addEventListener("change", () => {
     localStorage.setItem(`graph-${key}`, input.value);
     renderGraph();

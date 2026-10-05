@@ -297,6 +297,7 @@ REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("routes_documents.py", "str(error)"): "ValueError from core/syntaxcheck.py check",
     ("routes_documents.py", "viewed.message or 'There was no readable text in that file.'"): "ViewedFile.message in core/docview.py",
     ("routes_entries.py", "str(exc)"): "ValueError from ai/extractor.py build_extraction",
+    ("paging.py", "_BAD"): "a fixed sentence, the constant in api/paging.py",
     ("routes_entries.py", "librarian.AI_FAILED_MESSAGE"): "a constant in ai/librarian.py, checked there",
     ("routes_files.py", "reason"): "core/ocr.py unavailable_reason",
     ("routes_files.py", "edit_message"): "core/docview.py editability",

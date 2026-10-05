@@ -52,7 +52,7 @@ def test_the_grid_always_has_one_stop_and_it_follows_the_focus():
 def test_the_all_view_sort_is_remembered_like_the_other_library_sorts():
     assert 'const LIBRARY_SORT_KEY = "library-sort";' in LIBRARY
     assert "localStorage.setItem(LIBRARY_SORT_KEY, event.target.value)" in LIBRARY
-    assert "localStorage.getItem(LIBRARY_SORT_KEY)" in LIBRARY
+    assert "prefs.get(LIBRARY_SORT_KEY, null)" in LIBRARY
     # Only a value the select offers is restored.
     assert "[...select.options].some((o) => o.value === stored)" in LIBRARY
 
@@ -70,6 +70,6 @@ def test_the_timeline_grouping_is_remembered_and_its_band_filter_is_not():
     timeline = (ROOT / "frontend" / "js" / "timeline.js").read_text(encoding="utf-8")
     assert 'const TIMELINE_GROUP_KEY = "timeline-group";' in timeline
     assert "localStorage.setItem(TIMELINE_GROUP_KEY, event.target.value)" in timeline
-    assert "localStorage.getItem(TIMELINE_GROUP_KEY)" in timeline
+    assert "prefs.get(TIMELINE_GROUP_KEY, null)" in timeline
     band = timeline[timeline.index('$("timeline-band").addEventListener("change"') :][:300]
     assert "localStorage" not in band

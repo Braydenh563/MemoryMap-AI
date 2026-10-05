@@ -863,15 +863,13 @@ in `docks.js`).
 
 **State 2026-09-24:** the rows left:
 
-- F1 (c) no `prefs` module; 171 direct `localStorage.getItem` calls. M.
-- F2 (b) every list takes `limit` (`tests/test_list_limits.py`); cursors and
-  the frontend's paging are not built (`/files/gallery`'s half was built
-  2026-09-24). M.
+- F1 built 2026-10-05: `prefs.js`, every read through it but the three scripts that run before it (HISTORY.md, "Moved from the plans, 2026-10-05 (F1, F5, F12)"). Left: the writes (`localStorage.setItem`) through `prefs.set`.
+- F2 (b) every list takes `limit` (`tests/test_list_limits.py`); cursors on
+  every paged list built 2026-10-05 (row 16), and the notes list follows
+  them. Left: the other lists' renderers paging on scroll by cursor. M.
 - F4 built 2026-09-26: BLE001 is enabled (HISTORY.md, "Moved from the
   plans, 2026-09-26").
-- F5 (b) every bare `fetch` must carry the auth header
-  (`tests/test_raw_fetch_headers.py`); the `api.stream`/`api.upload` helpers and
-  the no-bare-fetch lint are not built. S.
+- F5 built 2026-10-05: `api.upload`, `api.stream`, the lint (HISTORY.md, "Moved from the plans, 2026-10-05 (F1, F5, F12)").
 - F7 (b) the pool is built (A3); a ratchet holds the thread sites
   (`tests/test_flaw_class_lints.py`). 2026-10-05: the re-index (a `batch`
   lane of its own) and the model capability probe moved onto the pool, the
@@ -880,7 +878,7 @@ in `docks.js`).
   purpose, see its comment), the scheduler, the searxng and update threads. M.
 - F10 built 2026-10-05 as a view: `readings`, `GET /files/readings`, every kind indexed (HISTORY.md, "Moved from the plans, 2026-10-05 (F7, F10)"). Left: one renderer in the Files card reading the route.
 - F11 (d) GRAPH_PLAN section 3 owns it.
-- F12 (c) no store. L.
+- F12 (b) 2026-10-05: `store.js` and its first slice, `notes` (HISTORY.md, "Moved from the plans, 2026-10-05 (F1, F5, F12)"). Left: the next slices (reminders, the current note), each surface subscribing in place of its own copy. L.
 
 ---
 

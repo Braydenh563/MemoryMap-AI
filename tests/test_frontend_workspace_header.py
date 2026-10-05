@@ -74,7 +74,7 @@ def _raw_fetch_blocks(source: str) -> dict[str, str]:
     lazy regex, since a call's own body can (and does) contain nested `{…}`
     header/body objects a non-greedy `.*?` would stop inside."""
     blocks: dict[str, str] = {}
-    for match in re.finditer(r"fetch\(\s*(`[^`]*`|\"[^\"]*\")", source):
+    for match in re.finditer(r"(?:fetch|api\.upload|api\.stream)\(\s*(`[^`]*`|\"[^\"]*\")", source):
         endpoint = match.group(1)
         if endpoint not in SCOPED_ENDPOINTS:
             continue
@@ -100,9 +100,16 @@ def test_every_scoped_raw_fetch_still_carries_the_workspace_header():
     missing = sorted(SCOPED_ENDPOINTS - blocks.keys())
     assert not missing, f"expected fetch() calls not found at all, has the source moved? {missing}"
 
+    #: Since F5 (2026-10-05) these go through `api.upload`/`api.stream`,
+    #: which is `api()`: the header is sent by the door, checked below.
     offenders = [
-        endpoint for endpoint, block in blocks.items() if "X-Workspace-ID" not in block
+        endpoint
+        for endpoint, block in blocks.items()
+        if "X-Workspace-ID" not in block and not block.startswith(("api.upload(", "api.stream("))
     ]
+    app = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
+    door = app[app.index("async function api(path") :]
+    assert '"X-Workspace-ID": activeSpaceId()' in door[: door.index("\n}\n")]
     assert not offenders, (
         "these hand-rolled fetch() calls touch workspace-scoped data but "
         f"never send X-Workspace-ID: {offenders}"

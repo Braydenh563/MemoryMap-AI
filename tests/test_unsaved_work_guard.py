@@ -74,7 +74,7 @@ def test_switch_tab_asks_before_leaving_unsaved_work() -> None:
     down."""
     app = app_js_text()
     guard = _function(app, "confirmLeavingUnsavedWork")
-    assert 'localStorage.getItem("activeTab") === name' in guard, (
+    assert 'prefs.get("activeTab", null) === name' in guard, (
         "re-pressing the tab already on screen is not a departure"
     )
     assert "hasUnsavedWork()" in guard

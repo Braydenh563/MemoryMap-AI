@@ -40652,6 +40652,41 @@ plan's item 6 decided on, and it fits the budget as it is.
   re-indexes its file in the same transaction (`tests/test_readings_f10.py`).
 - Not built: the Files card drawing from the route (one renderer).
 
+## Moved from the plans, 2026-10-05 (F1, F5, F12)
+
+### From WORLD_CLASS_PLAN.md section 10: the rows as they stood
+
+- F1 (c) no `prefs` module; 171 direct `localStorage.getItem` calls. M.
+- F5 (b) every bare `fetch` must carry the auth header (`tests/test_raw_fetch_headers.py`); the `api.stream`/`api.upload` helpers and the no-bare-fetch lint are not built. S.
+- F12 (c) no store. L.
+
+### Built 2026-10-05 (row 29, F1, F5 and F12's first slice)
+
+- **F5.** `api()` is the one door: a `FormData` body keeps the browser's
+  multipart type, a caller's headers merge with the auth and space headers
+  instead of replacing them, and the `Response` it returns is read as a
+  stream. `api.upload` and `api.stream` name the two shapes. Twenty bare
+  `fetch` calls moved onto it (the chat, Guide, draft, document check and
+  both log streams; every upload and import; the exports; the support
+  bundle; the inline pictures of an export; the dictionary); seven stay,
+  each with its reason, in `tests/test_no_bare_fetch.py` (app.js's own three,
+  the boot guard, the server-down probes, a `blob:` address).
+- **F1.** `prefs.js`, loaded after app.js: `prefs.get` never throws and never
+  returns `undefined`, `prefs.json` returns the shape asked for or the
+  default, `prefs.number` a finite number in range (the NaN class: zoom, the
+  graph's gravity and spread), a schema with a version per key and
+  `prefsMigrate`. All 29 `JSON.parse(localStorage.getItem(...))` reads and
+  the other 195 direct reads go through it, except the three scripts that
+  run before it; `tests/test_prefs_module.py` holds that and runs the module
+  in node against blocked storage and bad values.
+- **F12, the first slice.** `store.js` (`appState.get/set/subscribe/when`).
+  The `notes` slice is published by both writers of `allEntries`; the
+  dashboard's notebook-wide widgets wait for it at boot instead of asking
+  `/entries` for the same rows a second time (`tests/test_store_module.py`).
+  The notes list also follows `X-Next-Cursor` now (B7's keyset), so a note
+  saved during a long load is not listed twice.
+- Not verified in a browser beyond the sweeps named in the commit.
+
 ## INBOX resolved, 2026-10-05
 
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs

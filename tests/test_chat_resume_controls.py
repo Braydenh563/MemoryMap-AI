@@ -72,7 +72,7 @@ def test_the_guide_reads_a_stream_and_can_fall_back() -> None:
         / "frontend" / "js" / "settings.js"
     ).read_text(encoding="utf-8")
     assert "async function helpChatStreamTurn({ pending, signal, body })" in settings
-    assert 'fetch("/help/ask/stream"' in settings
+    assert 'api.stream("/help/ask/stream"' in settings
     #: The one-shot route stays as the fallback for a proxy that buffers.
     assert 'return apiJson("/help/ask", {' in settings
     #: **The thinking is the chat transcript's own reasoning block, not a

@@ -56,5 +56,8 @@ def test_every_raw_fetch_to_a_locked_route_sends_the_auth_token():
 def test_the_lint_sees_the_fetches_it_is_for():
     """A regex that matches nothing passes for the wrong reason."""
     routes = {route for _, _, route, _ in _raw_fetches()}
-    assert "/help/ask/stream" in routes
-    assert "/chat/stream" in routes
+    # The two streams it was written for went through `api.stream` on
+    # 2026-10-05 (F5, `tests/test_no_bare_fetch.py`); the raw fetches left
+    # are app.js's own sign-in calls.
+    assert "/auth/media-session" in routes
+    assert "/auth/auto-session" in routes

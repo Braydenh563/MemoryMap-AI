@@ -820,13 +820,13 @@ let reminderFilter = "open"; // open | all | done
 // narrower than Notes' own version. Applies only to the Done group; see the
 // note on #reminders-page-size in index.html for why Overdue/Today/Upcoming
 // are never paginated in any filter.
-let remindersPageSize = localStorage.getItem("reminders-page-size") || "all";
+let remindersPageSize = prefs.get("reminders-page-size", null) || "all";
 let remindersDonePage = 1;
 
 // list | calendar. Persisted the same way timeline's own view toggle is
 // (a bare localStorage key), a display mode, not data, so it doesn't need
 // the weight of a real preference round-tripped through the backend.
-let reminderView = localStorage.getItem("reminderView") === "calendar" ? "calendar" : "list";
+let reminderView = prefs.get("reminderView", null) === "calendar" ? "calendar" : "list";
 // The month the calendar is showing, always pinned to day 1 so "next month"
 // arithmetic can't land on the 31st of a shorter month.
 let reminderCalMonth = (() => {

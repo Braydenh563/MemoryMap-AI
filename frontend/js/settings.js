@@ -677,7 +677,7 @@ let logScreenOpen = false;
 // styled like a real console, see .log-terminal). Same persistence pattern
 // as reminderView/timeline-view: a per-browser display preference, not
 // something worth round-tripping through /preferences.
-let logView = localStorage.getItem("logView") === "terminal" ? "terminal" : "list";
+let logView = prefs.get("logView", null) === "terminal" ? "terminal" : "list";
 
 function logLevelRank(level) {
   return LOG_LEVEL_RANK[String(level || "").toUpperCase()] ?? 1;
@@ -982,11 +982,12 @@ async function startLogStream() {
   logStreamAbort = controller;
   setLogLive("connecting", "connecting…");
   try {
-    const response = await fetch(`/logs/stream?after=${logStreamCursor}`, {
-      headers: { "X-Auth-Token": localStorage.getItem("token") || "" },
+    // `api.stream` (F5), silent: a refusal throws into the reconnect below.
+    const response = await api.stream(`/logs/stream?after=${logStreamCursor}`, {
+      silent: true,
       signal: controller.signal,
     });
-    if (!response.ok || !response.body) throw new Error(`stream failed (${response.status})`);
+    if (!response.body) throw new Error("stream failed");
     setLogLive("live", "ph:broadcast live");
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -1129,10 +1130,9 @@ async function downloadSupportBundle() {
   const button = $("logs-bundle");
   setBusy(button, true, "Collecting…");
   try {
-    const response = await fetch("/support-bundle", {
-      headers: { "X-Auth-Token": localStorage.getItem("token") || "" },
+    const response = await api("/support-bundle").catch(() => {
+      throw new Error("Couldn't build the support bundle. Try again.");
     });
-    if (!response.ok) throw new Error("Couldn't build the support bundle. Try again.");
     await saveFile("memorymap-support-bundle.zip", await response.blob());
     toast("Support bundle saved. Have a look inside before you send it.");
   } catch (error) {
@@ -1262,7 +1262,7 @@ function currentAccentHex() {
     .trim();
   if (computed) return computed;
   return (
-    localStorage.getItem("accent-custom") ||
+    prefs.get("accent-custom", null) ||
     (ACCENTS.find((a) => a.name === activeAccent()) || ACCENTS[0]).swatch
   );
 }
@@ -1305,9 +1305,9 @@ function applyAccent(name, remember = true) {
 // visible after "clear my changes".
 function applyEffectiveAccent() {
   const root = document.documentElement;
-  const custom = localStorage.getItem("accent-custom");
+  const custom = prefs.get("accent-custom", null);
   // Only a *stored* accent is a deliberate choice; a theme never sets one.
-  const chosen = localStorage.getItem("accent");
+  const chosen = prefs.get("accent", null);
   const preset = chosen ? ACCENTS.find((a) => a.name === chosen) : null;
   if (preset && preset.name !== "indigo") root.dataset.accent = preset.name;
   else delete root.dataset.accent;
@@ -1316,7 +1316,7 @@ function applyEffectiveAccent() {
 }
 
 function contrastOn() {
-  return localStorage.getItem("contrast") === "on";
+  return prefs.get("contrast", null) === "on";
 }
 
 function applyContrast(on) {
@@ -1566,7 +1566,7 @@ function activeThemePreset() {
   //: No look chosen yet means the default look, not "no look": the default is
   //: a look like any other now (Quiet utilitarian), and theme-boot.js reads
   //: the same fallback so the first paint agrees.
-  const name = localStorage.getItem("themePreset") ?? DEFAULT_THEME_PRESET;
+  const name = prefs.get("themePreset", null) ?? DEFAULT_THEME_PRESET;
   return THEME_PRESETS[name] ? name : "";
 }
 
@@ -1590,7 +1590,7 @@ function appearancePref(key, fallback) {
   // means forgetting it degrades to the caller's intent rather than to
   // "undefined".
   return (
-    localStorage.getItem(key) ?? themeValue(key) ?? APPEARANCE_DEFAULTS[key] ?? fallback
+    prefs.get(key, null) ?? themeValue(key) ?? APPEARANCE_DEFAULTS[key] ?? fallback
   );
 }
 
@@ -1635,7 +1635,7 @@ function applyThemePreset(name, chosenByUser = false) {
 }
 
 function manualOverrides() {
-  return OVERRIDABLE_KEYS.filter((key) => localStorage.getItem(key) !== null);
+  return OVERRIDABLE_KEYS.filter((key) => prefs.get(key, null) !== null);
 }
 
 // Drop the manual layer, keeping the chosen theme, the counterpart to
@@ -1802,13 +1802,13 @@ const MAX_CUSTOM_THEMES = 20;
 function currentLookValues() {
   const values = {};
   for (const key of LOOK_KEYS) {
-    const value = localStorage.getItem(key);
+    const value = prefs.get(key, null);
     if (value !== null) values[key] = value;
   }
   // The chosen preset is part of the look: without it, saving while "Manuscript"
   // is active and then applying the save would drop back to whatever preset
   // happened to be selected at the time.
-  const preset = localStorage.getItem("themePreset");
+  const preset = prefs.get("themePreset", null);
   return { values, preset: preset || "" };
 }
 
@@ -2008,7 +2008,7 @@ function applyPageBackground(hex) {
 // background picked by hand from the colour input stays one colour in both
 // modes, which is what picking one colour means.
 function currentPageBackground() {
-  const dark = localStorage.getItem("page-bg-dark");
+  const dark = prefs.get("page-bg-dark", null);
   if (dark && resolvedTheme() === "dark") return dark;
   return appearancePref("page-bg");
 }
@@ -2099,14 +2099,14 @@ function perfModeReason() {
 const DENSITY_SHORT = window.matchMedia("(max-height: 700px)");
 
 function effectiveDensity() {
-  const chosen = localStorage.getItem("density");
+  const chosen = prefs.get("density", null);
   if (chosen) return chosen;
   return DENSITY_SHORT.matches ? "compact" : appearancePref("density");
 }
 
 //: A window that crosses 700px tall changes Auto's answer.
 DENSITY_SHORT.addEventListener("change", () => {
-  if (!localStorage.getItem("density")) applyAppearance();
+  if (!prefs.get("density", null)) applyAppearance();
 });
 
 function applyAppearance() {
@@ -2157,13 +2157,13 @@ function applyAppearance() {
   applyEffectiveAccent();
   // A theme may set the page colour; your own pick overrides it.
   applyPageBackground(currentPageBackground());
-  applyCustomCss(localStorage.getItem("custom-css"));
+  applyCustomCss(prefs.get("custom-css", null));
 }
 
 function effectiveTheme() {
   // "system" is a real choice, so an explicit one is only overridden by a
   // manual pick; a theme supplies it when you haven't made one.
-  return localStorage.getItem("theme") ?? themeValue("theme") ?? "system";
+  return prefs.get("theme", null) ?? themeValue("theme") ?? "system";
 }
 
 // What the app is *actually* showing right now: "system" is a choice, not a
@@ -2315,7 +2315,7 @@ function renderAppearance() {
     button.title = accent.label;
     button.setAttribute("aria-label", `${accent.label} accent`);
     // A custom colour wins, so no preset shows as active while it's set.
-    const customSet = Boolean(localStorage.getItem("accent-custom"));
+    const customSet = Boolean(prefs.get("accent-custom", null));
     button.classList.toggle("active", !customSet && accent.name === activeAccent());
     button.addEventListener("click", () => {
       localStorage.removeItem("accent-custom"); // presets clear a custom colour
@@ -2346,7 +2346,7 @@ function renderAppearance() {
   if (typeof mountBuddyActivities === "function") mountBuddyActivities();
   if (typeof mountBuddyPresets === "function") mountBuddyPresets();
   try {
-    $("avatar-buddy-motion").value = localStorage.getItem("avatar-buddy-motion") || "follow";
+    $("avatar-buddy-motion").value = prefs.get("avatar-buddy-motion", null) || "follow";
   } catch (e) {
     $("avatar-buddy-motion").value = "follow";
   }
@@ -2392,9 +2392,9 @@ function renderAppearance() {
   _segActive("border-style-seg", "borderChoice", appearancePref("border-style", "solid"));
   $("shadow-intensity").value = appearancePref("shadow-intensity", "5");
   $("shadow-intensity-value").textContent = `${appearancePref("shadow-intensity", "5")}%`;
-  $("accent-custom").value = localStorage.getItem("accent-custom") || "#4664f0";
-  $("page-bg-custom").value = localStorage.getItem("page-bg") || "#f5f7fb";
-  $("custom-css").value = localStorage.getItem("custom-css") || "";
+  $("accent-custom").value = prefs.get("accent-custom", null) || "#4664f0";
+  $("page-bg-custom").value = prefs.get("page-bg", null) || "#f5f7fb";
+  $("custom-css").value = prefs.get("custom-css", null) || "";
   // Blur strength and opacity only matter while glass is on.
   $("glass-blur-row").classList.toggle("disabled-row", appearancePref("glass") !== "on");
   $("glass-opacity-row").classList.toggle("disabled-row", appearancePref("glass") !== "on");
@@ -2406,7 +2406,7 @@ function renderAppearance() {
   _segActive("theme-seg", "themeChoice", effectiveTheme());
   _segActive("fontsize-seg", "fontsize", appearancePref("fontsize"));
   _segActive("font-seg", "font", appearancePref("font"));
-  _segActive("density-seg", "density", localStorage.getItem("density") || "auto");
+  _segActive("density-seg", "density", prefs.get("density", null) || "auto");
 }
 
 // A frozen background with no explanation reads as a broken app, which is
@@ -2595,7 +2595,7 @@ function renderPaletteGrid() {
       // same colour, which reads as the picker not working. The accent row
       // below is still there to deviate from the palette afterwards.
       const hadAccent =
-        activeAccent() !== "indigo" || localStorage.getItem("accent-custom");
+        activeAccent() !== "indigo" || prefs.get("accent-custom", null);
       localStorage.removeItem("accent-custom");
       applyCustomAccent(null);
       applyAccent("indigo");
@@ -2649,7 +2649,7 @@ function bgArtRefreshSeed() {
 }
 
 function bgArtOn() {
-  return localStorage.getItem("bgArt") === "on";
+  return prefs.get("bgArt", null) === "on";
 }
 
 function stopBgArt() {
@@ -2923,7 +2923,7 @@ $("avatar-buddy-actions").addEventListener("change", (e) => {
   }
 });
 try {
-  $("avatar-buddy-actions").value = localStorage.getItem("avatar-buddy-actions") || "fewer";
+  $("avatar-buddy-actions").value = prefs.get("avatar-buddy-actions", null) || "fewer";
 } catch (err) {
   $("avatar-buddy-actions").value = "fewer";
 }
@@ -3173,7 +3173,7 @@ applyAppearance();
 // repeated, and never shown when the mode was chosen by hand.
 function noticePerfMode() {
   if (appearancePref("perf") !== "auto" || !perfModeOn()) return;
-  if (localStorage.getItem("perf-noticed") === "yes") return;
+  if (prefs.get("perf-noticed", null) === "yes") return;
   if (typeof toastAction !== "function") return;
   localStorage.setItem("perf-noticed", "yes");
   toastAction(
@@ -3887,24 +3887,18 @@ async function submitHelpChatQuestion(question) {
 async function helpChatStreamTurn({ pending, signal, body }) {
   let response;
   try {
-    //: Hand-rolled like `/chat/stream` (app.js), because `api()` does not
-    //: hand back a streaming body, and with the same two headers `api()`
-    //: adds to everything else. Without `X-Auth-Token` a locked app answered
-    //: 401, this threw "no stream", and the fallback below answered in one
-    //: piece: the owner's "streaming is also broken" was exactly that, on
-    //: every locked notebook, while the streamed route tested green.
-    //: `tests/test_raw_fetch_headers.py` now fails on a raw fetch without it.
-    response = await fetch("/help/ask/stream", {
+    //: Through `api.stream` (F5). It was hand-rolled, and without
+    //: `X-Auth-Token` a locked app answered 401, this threw "no stream", and
+    //: the fallback below answered in one piece: the owner's "streaming is
+    //: also broken" was exactly that, on every locked notebook, while the
+    //: streamed route tested green. Silent, so a refusal falls back below.
+    response = await api.stream("/help/ask/stream", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Auth-Token": authToken(),
-        "X-Workspace-ID": activeSpaceId(),
-      },
+      silent: true,
       signal,
       body: JSON.stringify(body),
     });
-    if (!response.ok || !response.body) throw new Error("no stream");
+    if (!response.body) throw new Error("no stream");
   } catch (error) {
     if (signal?.aborted || error?.name === "AbortError") throw error;
     return apiJson("/help/ask", {
@@ -4779,7 +4773,7 @@ const SETTINGS_FOLDS_KEY = "settingsFolds";
 
 function settingsFoldState() {
   try {
-    const saved = JSON.parse(localStorage.getItem(SETTINGS_FOLDS_KEY) || "{}");
+    const saved = prefs.json(SETTINGS_FOLDS_KEY, {});
     return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
   } catch {
     return {};

@@ -65,7 +65,7 @@ def test_performance_mode_is_wired_end_to_end() -> None:
     assert 'id="perf-mode"' in html and 'id="perf-mode-hint"' in html
     assert html.count('<option value="auto">Auto</option>') >= 1
     # Said once, never when chosen by hand.
-    assert 'localStorage.getItem("perf-noticed")' in settings
+    assert 'prefs.get("perf-noticed", null)' in settings
     # The graph's physics rest twice as long.
     assert 'perf: document.documentElement.dataset.perf === "on"' in canvas
     assert "message.perf === true" in worker and "const rest = perf ? 2 : 1" in worker

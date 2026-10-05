@@ -389,7 +389,7 @@ function agentRunWantsPanel(run) {
   //: The tab the app is actually showing, read the way every other caller
   //: reads it: `switchTab` writes it, and there is no in-memory copy to go
   //: stale against a reload.
-  return (localStorage.getItem("activeTab") || "") !== "chat";
+  return (prefs.get("activeTab", null) || "") !== "chat";
 }
 
 function openPanelForRun(run) {
@@ -596,15 +596,10 @@ async function streamAgentLogs() {
   let cursor = 0;
   while (true) {
     try {
-      const response = await fetch(`/logs/stream?after=${cursor}`, {
-        headers: { "X-Auth-Token": authToken() }
-      });
-      if (response.status === 401) {
-         await new Promise(r => setTimeout(r, 5000));
-         continue;
-      }
-      if (!response.ok) throw new Error("stream failed");
-      
+      // `api.stream` (F5), silent: a 401 or a refusal throws into the wait
+      // below without the lock screen, as the hand-rolled fetch did.
+      const response = await api.stream(`/logs/stream?after=${cursor}`, { silent: true });
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";

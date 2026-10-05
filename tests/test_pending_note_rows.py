@@ -35,7 +35,7 @@ def test_the_list_render_asks_for_the_rows_only_when_something_is_held():
     assert '"renderPendingNoteRows"]' in code  # a lazy entry point
     notes = (JS / "notes-list.js").read_text(encoding="utf-8")
     render = notes.split("function renderEntries()")[1].split("const visible = libraryVisibleRows()")[0]
-    assert 'localStorage.getItem("noteOutbox")' in render
+    assert 'prefs.get("noteOutbox", null)' in render
     assert "renderPendingNoteRows();" in render
 
 

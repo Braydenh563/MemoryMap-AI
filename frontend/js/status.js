@@ -41,7 +41,7 @@ const ANNOUNCED_KEY = "announcedReminders";
 
 function announcedReminders() {
   try {
-    return new Set(JSON.parse(localStorage.getItem(ANNOUNCED_KEY) || "[]"));
+    return new Set(prefs.json(ANNOUNCED_KEY, []));
   } catch {
     return new Set();
   }
@@ -83,7 +83,7 @@ const MAX_NOTIFICATIONS = 50;
 
 function storedNotifications() {
   try {
-    const raw = JSON.parse(localStorage.getItem(NOTIFICATIONS_KEY) || "[]");
+    const raw = prefs.json(NOTIFICATIONS_KEY, []);
     return Array.isArray(raw) ? raw : [];
   } catch {
     return []; // hand-edited or truncated storage costs the history, not the app
@@ -107,7 +107,7 @@ function recordNotification({ kind, title, detail = "", key = "", action = null 
 }
 
 function notificationsReadAt() {
-  return Number(localStorage.getItem(NOTIFICATIONS_READ_KEY) || 0);
+  return Number(prefs.get(NOTIFICATIONS_READ_KEY, null) || 0);
 }
 
 //: **Read state is a watermark, and "mark this one unread" is not.**
@@ -126,7 +126,7 @@ const NOTIFICATIONS_UNREAD_KEY = "notificationsForcedUnread";
 
 function forcedUnreadIds() {
   try {
-    const raw = JSON.parse(localStorage.getItem(NOTIFICATIONS_UNREAD_KEY) || "[]");
+    const raw = prefs.json(NOTIFICATIONS_UNREAD_KEY, []);
     return new Set(Array.isArray(raw) ? raw : []);
   } catch {
     return new Set(); // a corrupt override list costs the flags, not the panel
@@ -157,7 +157,7 @@ const NOTIFICATIONS_READ_IDS_KEY = "notificationsForcedRead";
 
 function forcedReadIds() {
   try {
-    const raw = JSON.parse(localStorage.getItem(NOTIFICATIONS_READ_IDS_KEY) || "[]");
+    const raw = prefs.json(NOTIFICATIONS_READ_IDS_KEY, []);
     return new Set(Array.isArray(raw) ? raw : []);
   } catch {
     return new Set();
@@ -199,7 +199,7 @@ const NOTIFICATIONS_DISMISSED_KEY = "notificationsDismissed";
 
 function dismissedNotificationIds() {
   try {
-    const raw = JSON.parse(localStorage.getItem(NOTIFICATIONS_DISMISSED_KEY) || "[]");
+    const raw = prefs.json(NOTIFICATIONS_DISMISSED_KEY, []);
     return new Set(Array.isArray(raw) ? raw : []);
   } catch {
     return new Set();

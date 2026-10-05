@@ -139,7 +139,7 @@ def test_locking_reaches_every_open_tab():
     assert "purgeLockedContent()" in handler
     assert "showLockScreen(false)" in handler
     # A sign-in elsewhere must not be mistaken for a lock.
-    assert 'localStorage.getItem("token")' in handler
+    assert 'prefs.get("token", null)' in handler
 
 
 def test_the_password_free_boot_is_taken_only_when_the_server_offers_it():

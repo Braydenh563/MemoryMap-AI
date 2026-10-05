@@ -269,7 +269,7 @@ function greetingCacheSlot(now = new Date()) {
 
 function cachedGreetingPhrase(now = new Date()) {
   try {
-    const cached = JSON.parse(localStorage.getItem("greetingCache") || "null");
+    const cached = prefs.json("greetingCache", null);
     if (cached && cached.slot === greetingCacheSlot(now) && cached.phrase) {
       return {
         phrase: cached.phrase,
@@ -431,9 +431,15 @@ function dashReminders() {
 //: fetched the whole of `/entries` again per widget per render, boot included,
 //: to be told the same thing (WORLD_CLASS_PLAN A2). A new notebook is exactly
 //: the one where the empty state is what the person is looking at.
-function dashEntries() {
-  if (entriesEverLoaded) return Promise.resolve(allEntries);
-  return apiJson("/entries", { cacheMs: 4000 });
+//:
+//: Before the notes list has its first page, the store's `notes` slice is
+//: waited for (F12) rather than `/entries` fetched a second time: at boot the
+//: dashboard and the notes list both asked for the same thousand rows. A load
+//: that never lands (`appState.when`'s timeout gives null) still falls back.
+async function dashEntries() {
+  if (entriesEverLoaded) return allEntries;
+  const notes = await appState.when("notes", 8000);
+  return notes || apiJson("/entries", { cacheMs: 4000 });
 }
 
 async function renderDashSubmessage() {
@@ -509,7 +515,7 @@ function renderNameNudge(greetingEl) {
   const existing = document.getElementById("dash-name-nudge");
   if (existing) existing.remove();
   const name = ((prefsCache && prefsCache.display_name) || "").trim();
-  if (name || localStorage.getItem("nameNudgeDismissed") === "1") return;
+  if (name || prefs.get("nameNudgeDismissed", null) === "1") return;
 
   const wrap = document.createElement("span");
   wrap.id = "dash-name-nudge";
@@ -707,7 +713,7 @@ const SKILL_RUN_TIMES_KEY = "recentSkillTimes";
 
 function skillRunTimes() {
   try {
-    const stored = JSON.parse(localStorage.getItem(SKILL_RUN_TIMES_KEY) || "{}");
+    const stored = prefs.json(SKILL_RUN_TIMES_KEY, {});
     return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
   } catch {
     return {};
@@ -743,7 +749,7 @@ function noteSkillRun(name) {
   if (typeof name !== "string" || !name) return;
   let recent = [];
   try {
-    recent = JSON.parse(localStorage.getItem(RECENT_SKILLS_KEY) || "[]");
+    recent = prefs.json(RECENT_SKILLS_KEY, []);
   } catch {
     recent = [];
   }
@@ -788,7 +794,7 @@ function withoutLeadingEmoji(name) {
 function recentSkillLinks() {
   let recent = [];
   try {
-    recent = JSON.parse(localStorage.getItem(RECENT_SKILLS_KEY) || "[]");
+    recent = prefs.json(RECENT_SKILLS_KEY, []);
   } catch {
     return [];
   }
@@ -851,7 +857,7 @@ const DASH_DENSITIES = ["full", "compact", "focused"];
 const DASH_DENSITY_KEY = "dash-density";
 
 function dashDensity() {
-  const saved = localStorage.getItem(DASH_DENSITY_KEY);
+  const saved = prefs.get(DASH_DENSITY_KEY, null);
   return DASH_DENSITIES.includes(saved) ? saved : "full";
 }
 
@@ -2663,7 +2669,7 @@ function todayStamp() {
 
 function loadDigestCache() {
   try {
-    const cached = JSON.parse(localStorage.getItem(DIGEST_KEY) || "null");
+    const cached = prefs.json(DIGEST_KEY, null);
     if (cached && cached.date === todayStamp()) return cached.text; // fresh today
   } catch {
     /* corrupt cache: ignore and regenerate */

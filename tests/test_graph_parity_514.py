@@ -130,7 +130,7 @@ def test_arrows_are_off_by_default_and_drawn_as_sparks():
     html = (root / "index.html").read_text(encoding="utf-8")
     assert '<input type="checkbox" id="graph-arrows">' in html
     canvas = (root / "js" / "graph-canvas.js").read_text(encoding="utf-8")
-    assert 'localStorage.getItem("graph-arrows") === "1"' in canvas
+    assert 'prefs.get("graph-arrows", null) === "1"' in canvas
     graph = (root / "js" / "graph.js").read_text(encoding="utf-8")
     assert '"graph-arrows": false,' in graph and 'GRAPH_STORED_OFF = ["graph-arrows"]' in graph
     spark = canvas[canvas.index("function gcLinkSpark") : canvas.index("function gcFillSparks")]

@@ -814,7 +814,7 @@ function atlasLook() {
 function atlasLookReason() {
   let own = null;
   try {
-    own = localStorage.getItem("atlas-look");
+    own = prefs.get("atlas-look", null);
   } catch {
     own = null;
   }
@@ -3065,7 +3065,7 @@ function atlasStreak(days) {
   if (!(days >= 3)) return;
   const today = new Date().toDateString();
   try {
-    if (localStorage.getItem("atlas-streak-seen") === today) return;
+    if (prefs.get("atlas-streak-seen", null) === today) return;
     localStorage.setItem("atlas-streak-seen", today);
   } catch (e) {
     // Celebrated this once without remembering it.

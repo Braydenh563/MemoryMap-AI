@@ -125,7 +125,7 @@ def test_the_size_scale_is_one_band_and_the_glow_is_calm():
 def test_links_wear_their_category_and_curve_by_default():
     canvas = (JS / "graph-canvas.js").read_text(encoding="utf-8")
     assert "const GC_EDGE_TINTED" in canvas
-    assert 'localStorage.getItem("graph-curved") !== "0"' in canvas
+    assert 'prefs.get("graph-curved", null) !== "0"' in canvas
     graph = (JS / "graph.js").read_text(encoding="utf-8")
     assert '"graph-curved": true,' in graph
     # Restored when graph.js loads, not only by the SVG render the canvas
@@ -133,7 +133,7 @@ def test_links_wear_their_category_and_curve_by_default():
     stored = graph[graph.index("const GRAPH_STORED_SWITCHES") :].split("\n", 1)[0]
     for box in ("graph-curved", "graph-label-plates", "graph-nebula", "graph-length-score", "graph-group"):
         assert f'"{box}"' in stored, box
-    assert "if (box) box.checked = localStorage.getItem(id) !== \"0\";" in graph
+    assert "if (box) box.checked = prefs.get(id, null) !== \"0\";" in graph
     assert "\ngraphRestoreSwitches();\n" in graph
     assert 'id="graph-curved" checked' in (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     # The pointer finds a link where it is drawn: the hit test samples the
@@ -200,7 +200,7 @@ def test_label_backgrounds_are_a_switch_and_off_is_the_old_halo():
     for moved in ("graph-labels", "graph-curved", "graph-nebula"):
         assert f'id="{moved}"' in fold, moved
     canvas = (JS / "graph-canvas.js").read_text(encoding="utf-8")
-    assert 'localStorage.getItem("graph-label-plates") !== "0"' in canvas
+    assert 'prefs.get("graph-label-plates", null) !== "0"' in canvas
     draw = canvas[canvas.index("function gcDrawLabels") :]
     draw = draw[: draw.index("\n}\n")]
     assert "const plates = gcLabelPlates(s);" in draw

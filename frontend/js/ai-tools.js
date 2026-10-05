@@ -1589,7 +1589,7 @@ let uiStateOnServer = null;
 function uiStatePayload() {
   const state = {};
   for (const key of mirroredUiKeys()) {
-    const value = localStorage.getItem(key);
+    const value = prefs.get(key, null);
     if (value != null) state[key] = String(value).slice(0, 400);
   }
   return state;
@@ -1684,7 +1684,7 @@ function seedUiStateFromServer(state) {
   if (!state || typeof state !== "object") return false;
   let restored = 0;
   for (const key of mirroredUiKeys()) {
-    if (localStorage.getItem(key) == null && state[key] != null) {
+    if (prefs.get(key, null) == null && state[key] != null) {
       localStorage.setItem(key, String(state[key]));
       restored += 1;
     }

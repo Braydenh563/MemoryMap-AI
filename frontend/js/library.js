@@ -119,7 +119,7 @@ let libraryServerQuery = "";
 //: Same pattern as Notes' and the Library Documents sub-tab's own paging: 
 //: "all" (the default) leaves renderIncrementally's chunked scroll untouched;
 //: a number slices the already-filtered/sorted list to one flat page instead.
-let libraryPageSize = localStorage.getItem("library-page-size") || "all";
+let libraryPageSize = prefs.get("library-page-size", null) || "all";
 let libraryCurrentPage = 1;
 
 //: Order matters: it is the order of the chips. "All" first because it is the
@@ -177,7 +177,7 @@ let librarySelection = new Set();
 const LIBRARY_VIEW_KEY = "libraryView";
 
 function libraryView() {
-  return localStorage.getItem(LIBRARY_VIEW_KEY) === "list" ? "list" : "grid";
+  return prefs.get(LIBRARY_VIEW_KEY, null) === "list" ? "list" : "grid";
 }
 
 function libraryKeyOf(item) {
@@ -1664,7 +1664,7 @@ const LIBRARY_SORT_KEY = "library-sort";
 (() => {
   const select = $("library-sort");
   let stored = null;
-  try { stored = localStorage.getItem(LIBRARY_SORT_KEY); } catch { /* a private window */ }
+  try { stored = prefs.get(LIBRARY_SORT_KEY, null); } catch { /* a private window */ }
   if (stored && [...select.options].some((o) => o.value === stored)) select.value = stored;
 })();
 $("library-sort").addEventListener("change", (event) => {
@@ -2278,7 +2278,7 @@ const SKILL_SORTS = {
 function skillSort() {
   let stored = "";
   try {
-    stored = localStorage.getItem(SKILL_SORT_KEY) || "";
+    stored = prefs.get(SKILL_SORT_KEY, null) || "";
   } catch {
     // Storage can be blocked; the default order is the answer.
   }
@@ -2714,7 +2714,7 @@ const libraryDocsSelection = new Set();
 // sub-tab (§89 item 1): a plain newest-first list with no due/overdue
 // framing to protect, unlike Reminders, so a straight full-list page slice
 // is safe here.
-let libraryDocsPageSize = localStorage.getItem("library-docs-page-size") || "all";
+let libraryDocsPageSize = prefs.get("library-docs-page-size", null) || "all";
 let libraryDocsCurrentPage = 1;
 
 // The Library sub-tab drafts were supposed to live in from the start, a
@@ -2885,7 +2885,7 @@ onDomReady(() => {
 const LIBRARY_DOC_SORT_KEY = "library-docs-sort";
 
 function libraryDocSort() {
-  const stored = localStorage.getItem(LIBRARY_DOC_SORT_KEY);
+  const stored = prefs.get(LIBRARY_DOC_SORT_KEY, null);
   return LIBRARY_DOC_SORTS[stored] ? stored : "newest";
 }
 
@@ -3310,7 +3310,7 @@ function isImageUrl(url) {
 //: covers the glyph: so switching modes is a matter of whether the cover is
 //: painted, and nothing has to be rebuilt, refetched or re-laid-out.
 const LIBRARY_MEDIA_VIEW_KEY = "library-media-view";
-let libraryMediaView = localStorage.getItem(LIBRARY_MEDIA_VIEW_KEY) === "type" ? "type" : "preview";
+let libraryMediaView = prefs.get(LIBRARY_MEDIA_VIEW_KEY, null) === "type" ? "type" : "preview";
 
 function applyLibraryMediaView() {
   const grid = document.getElementById("library-images-grid");
@@ -5061,8 +5061,9 @@ async function ocrFetchFileText(row) {
     const body = await apiJson(`/files/${row.id}/text`);
     return { text: body.text || "", kind: body.kind || "plain", source: body.source || "file" };
   }
-  const res = await fetch(mediaSrc(row.url), { headers: { "X-Auth-Token": localStorage.getItem("token") || "" } });
-  if (!res.ok) throw new Error("That file could not be read.");
+  const res = await api(mediaSrc(row.url), { silent: true }).catch(() => {
+    throw new Error("That file could not be read.");
+  });
   return { text: await res.text(), kind: "plain", source: "file" };
 }
 
@@ -5486,7 +5487,7 @@ let ocrScrollObserver = null;
 
 function ocrStoredViewMode() {
   try {
-    return localStorage.getItem(OCR_VIEW_KEY) === "scroll" ? "scroll" : "page";
+    return prefs.get(OCR_VIEW_KEY, null) === "scroll" ? "scroll" : "page";
   } catch {
     //: A private window throws on localStorage. A remembered preference is
     //: worth nothing next to the dialog opening at all.
@@ -6974,7 +6975,7 @@ const LIBRARY_MEDIA_SORTS = {
 const LIBRARY_MEDIA_SORT_KEY = "library-media-sort";
 
 function libraryMediaSort() {
-  const stored = localStorage.getItem(LIBRARY_MEDIA_SORT_KEY);
+  const stored = prefs.get(LIBRARY_MEDIA_SORT_KEY, null);
   return LIBRARY_MEDIA_SORTS[stored] ? stored : "newest";
 }
 
@@ -8810,27 +8811,12 @@ onDomReady(() => {
       // docstring, name this exact case).
       form.append("direct", "true");
       try {
-        // A bare headers override, not apiJson's default: a FormData body
-        // needs the browser to set its own multipart boundary in
-        // Content-Type; apiJson's own "application/json" default would
-        // fight it (the same fix handleFileUpload's upload already needed).
-        //: **X-Workspace-ID alongside the token, and it is not decoration.**
-        //: A new row takes its space from `session.info["workspace_id"]`
-        //: (core/database.py's before-flush hook), which is set from this
-        //: header, so an upload sent without it is written with the model
-        //: default, "default". Measured: the same upload lands in `space-b`
-        //: with the header and in `default` without it, which means a picture
-        //: added while working in a space vanished from that space's Library
-        //: the moment it was uploaded. `apiJson` adds this header to every
-        //: call it makes; a hand-rolled fetch has to add it itself, and the
-        //: lint that was supposed to catch that only read app.js.
-        const response = await fetch("/media/upload", {
-          method: "POST",
-          headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
-          body: form,
-        });
-        const body = await response.json();
-        if (!response.ok) throw new Error(plainHttpError(response.status, body.detail, "The upload did not work. Try again."));
+        //: `api.upload` (F5): a FormData body keeps the browser's multipart
+        //: type, and the request carries `X-Workspace-ID`, which is not
+        //: decoration: a new row takes its space from it, and this upload,
+        //: hand-rolled without it, once landed in "default" rather than the
+        //: space being worked in. A refusal throws the server's sentence.
+        await api.upload("/media/upload", form);
         uploaded++;
       } catch (error) {
         toast(`${file.name}: ${error.message}`, true);
@@ -9376,7 +9362,7 @@ const BOOKMARK_EMPTY_GROUPS_KEY = "library-links-empty-groups";
 
 function emptyBookmarkGroups() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(BOOKMARK_EMPTY_GROUPS_KEY) || "[]");
+    const parsed = prefs.json(BOOKMARK_EMPTY_GROUPS_KEY, []);
     return Array.isArray(parsed) ? parsed.filter((g) => typeof g === "string" && g) : [];
   } catch {
     // A hand-edited or half-written value must not take the whole sub-tab
@@ -9657,7 +9643,7 @@ const BOOKMARK_SORTS = {
 const BOOKMARK_SORT_KEY = "library-links-sort";
 
 function bookmarkSort() {
-  const stored = localStorage.getItem(BOOKMARK_SORT_KEY);
+  const stored = prefs.get(BOOKMARK_SORT_KEY, null);
   return BOOKMARK_SORTS[stored] ? stored : "newest";
 }
 
@@ -10169,7 +10155,7 @@ let contentsTopics = null;
 const CONTENTS_NO_TOPIC = "In no topic";
 let contentsMode = (() => {
   try {
-    const stored = localStorage.getItem(CONTENTS_GROUP_KEY);
+    const stored = prefs.get(CONTENTS_GROUP_KEY, null);
     return CONTENTS_GROUPS.includes(stored) ? stored : "category";
   } catch {
     return "category";

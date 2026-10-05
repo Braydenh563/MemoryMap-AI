@@ -1441,7 +1441,7 @@ let webSearchPending = [];
 
 function loadWebSearchHistory() {
   try {
-    const raw = JSON.parse(localStorage.getItem(WEB_SEARCH_HISTORY_KEY) || "[]");
+    const raw = prefs.json(WEB_SEARCH_HISTORY_KEY, []);
     return Array.isArray(raw) ? raw.filter((q) => typeof q === "string") : [];
   } catch {
     return [];

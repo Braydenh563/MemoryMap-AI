@@ -75,7 +75,7 @@ console.log(JSON.stringify([a, b, c, d]));
 
 def test_both_template_makers_use_them():
     use = APP.split("async function useNoteTemplate()", 1)[1].split("function noteTemplateListKeys", 1)[0]
-    assert "fillNoteBox(box, template)" in use
+    assert "fillNoteBox($(\"entry-content\"), noteTemplateChoice)" in use
     fill = _function(NOTES, "fillNoteBox")
     assert "templateVariables(" in fill and "templateClipboard(" in fill
     assert "templateVariables(" in DOCS.split("async function createDocument(", 1)[1].split("//: **Choosing is not making**", 1)[0]

@@ -1481,21 +1481,9 @@ async function useNoteTemplate() {
   //: either: one fill per opening, whichever way it was confirmed.
   if (noteTemplateMade || !noteTemplateChoice) return;
   noteTemplateMade = true;
-  const template = noteTemplateChoice;
   $("note-template-dialog")?.close();
-  const box = $("entry-content");
-  if (!box) return;
-  //: Never silently overwrite what has already been typed: asked after the
-  //: choice is confirmed, so the question names a template the writer has
-  //: seen rather than one the list happened to land on.
-  if (box.value.trim()) {
-    const replace = await confirmDialog(
-      `Replace what you've already written with the “${template.name}” template?`,
-      { confirmLabel: "Replace", cancelLabel: "Keep my text" }
-    );
-    if (!replace) return;
-  }
-  await fillNoteBox(box, template);
+  //: The asking and the filling are `fillNoteBox` (notes-list.js, a file with room).
+  await fillNoteBox($("entry-content"), noteTemplateChoice);
 }
 
 function noteTemplateListKeys(event) {

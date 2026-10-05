@@ -612,9 +612,21 @@ function templateVariables(text, clipboard) {
   return { text: before + fill(source.slice(marker.index + marker[0].length)), cursor: before.length };
 }
 
-//: The Capture box, filled from a template: variables in, the box told, the caret
-//: where the template said (`useNoteTemplate`, app.js, does the asking first); the preview's own text is `noteTemplateFill`.
+//: The Capture box, filled from a template: the replace question, the variables in, the
+//: box told, the caret where the template said (`useNoteTemplate`, app.js, calls it); the
+//: preview's own text is `noteTemplateFill`.
 async function fillNoteBox(box, template) {
+  if (!box) return;
+  //: Never silently overwrite what has already been typed: asked after the
+  //: choice is confirmed, so the question names a template the writer has
+  //: seen rather than one the list happened to land on.
+  if (box.value.trim()) {
+    const replace = await confirmDialog(
+      `Replace what you've already written with the “${template.name}” template?`,
+      { confirmLabel: "Replace", cancelLabel: "Keep my text" }
+    );
+    if (!replace) return;
+  }
   const filled = templateVariables(noteTemplateFill(template), await templateClipboard(template.content));
   box.value = filled.text;
   box.dispatchEvent(new Event("input", { bubbles: true }));

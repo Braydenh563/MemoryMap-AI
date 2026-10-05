@@ -3705,6 +3705,17 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   border: 0;
   background: transparent;
   min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* One line, cut with an ellipsis, as Ask's results already were (below): at
+   390 a note card's connection pills wrapped their words to two 12px lines
+   inside a pill one line tall (qa-1005, qa1005-polish.js `linkpills`). */
+#entry-list .link-connection > .chip.link > .ph-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #entry-list .link-connection > .menu-wrap > button {

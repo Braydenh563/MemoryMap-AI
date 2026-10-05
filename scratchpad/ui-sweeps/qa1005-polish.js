@@ -175,6 +175,19 @@ const CHECKS = {
     console.log(`placeholders: ${found.size} cut off`, found.size ? JSON.stringify([...found].slice(0, 12)) : '');
     return found.size;
   },
+  //: A note card's connection pills are one line each, their words cut with
+  //: an ellipsis (at 390 they wrapped to two 12px lines inside the pill).
+  async linkpills(page) {
+    await page.evaluate(() => switchTab('notes'));
+    await page.waitForSelector('#entry-list .link-connection', { timeout: 15000 });
+    const m = await page.evaluate(() => {
+      const labels = [...document.querySelectorAll('#entry-list .link-connection > .chip.link > .ph-text')].filter((e) => e.getBoundingClientRect().height > 0);
+      const lh = (e) => parseFloat(getComputedStyle(e).lineHeight) || parseFloat(getComputedStyle(e).fontSize) * 1.2;
+      return { n: labels.length, wrapped: labels.filter((e) => e.getBoundingClientRect().height > lh(e) * 1.5).length };
+    });
+    console.log(`link pills: ${m.n}, ${m.wrapped} on more than one line`);
+    return m.wrapped;
+  },
   //: The empty states' "Ask Atlas" chip is set apart by space, not by a
   //: short hairline floating in the middle of a centred welcome.
   async emptyrule(page) {

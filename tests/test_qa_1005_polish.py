@@ -95,3 +95,13 @@ def test_a_settings_text_field_wraps_rather_than_shrinks():
     assert "min-width: min(100%, 15rem)" in rule
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert 'placeholder="What it\'s for (optional)"' in html
+
+
+def test_a_note_cards_connection_pill_is_one_line():
+    """At 390 a card's connection pills wrapped their words to two 12px lines
+    inside a one-line pill; Ask's results had the fix, the note list did not
+    (qa1005-polish.js `linkpills`: 112 of 112 at 390, then 0)."""
+    css = (CSS / "08-consistency.css").read_text(encoding="utf-8")
+    chip = _rule(css, "#entry-list .link-connection > .chip.link")
+    assert "white-space: nowrap" in chip and "overflow: hidden" in chip
+    assert "text-overflow: ellipsis" in _rule(css, "#entry-list .link-connection > .chip.link > .ph-text")

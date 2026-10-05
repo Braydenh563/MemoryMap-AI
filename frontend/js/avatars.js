@@ -353,7 +353,7 @@ function nameMarkBuddyCustom() {
   if (nameMarkBuddyCustomCache) return nameMarkBuddyCustomCache;
   let saved = {};
   try {
-    saved = JSON.parse(localStorage.getItem("avatar-buddy-custom") || "{}") || {};
+    saved = prefs.json("avatar-buddy-custom", {}) || {};
   } catch (e) {
     saved = {};
   }
@@ -3258,7 +3258,7 @@ function nameMarkBuddyMade(kind) {
   if (kind === "me") return Object.values(ownNameMarkStyle()).some((v) => v !== "" && v !== undefined && v !== null && v !== 0);
   if (kind === "custom") {
     try {
-      return !!localStorage.getItem("avatar-buddy-custom");
+      return !!prefs.get("avatar-buddy-custom", null);
     } catch (e) {
       return false;
     }
@@ -3567,7 +3567,7 @@ const NMB_ACTIVITIES = [
 ];
 function nameMarkBuddyActivitiesOff() {
   try {
-    return new Set((localStorage.getItem("avatar-buddy-acts-off") || "").split(",").filter(Boolean));
+    return new Set((prefs.get("avatar-buddy-acts-off", null) || "").split(",").filter(Boolean));
   } catch (e) {
     return new Set();
   }
@@ -3605,7 +3605,7 @@ const NMB_PRESET_MAX = 12;
 let nmbPresetRenaming = "";
 function nameMarkBuddyPresets() {
   try {
-    const list = JSON.parse(localStorage.getItem("avatar-buddy-presets") || "[]");
+    const list = prefs.json("avatar-buddy-presets", []);
     return Array.isArray(list) ? list : [];
   } catch (e) {
     return [];
@@ -3629,7 +3629,7 @@ function nameMarkBuddySavePreset() {
   }
   const values = {};
   for (const key of NMB_PRESET_KEYS) {
-    const v = localStorage.getItem(key);
+    const v = prefs.get(key, null);
     if (v !== null) values[key] = v;
   }
   const others = nameMarkBuddyPresets().filter((p) => p.name !== name && p.name !== nmbPresetRenaming);
@@ -3751,7 +3751,7 @@ function mountBuddyActivities() {
 
 function nameMarkBuddyActions() {
   try {
-    return localStorage.getItem("avatar-buddy-actions") || "fewer";
+    return prefs.get("avatar-buddy-actions", null) || "fewer";
   } catch (e) {
     return "fewer";
   }
@@ -3829,7 +3829,7 @@ function nameMarkBuddyMotion() {
   const root = document.documentElement;
   let choice = "follow";
   try {
-    choice = localStorage.getItem("avatar-buddy-motion") || "follow";
+    choice = prefs.get("avatar-buddy-motion", null) || "follow";
   } catch (e) {
     // The default.
   }
@@ -4104,7 +4104,7 @@ const NMB_SIZES = { small: 0.8, medium: 1, large: 1.3 };
 function nameMarkBuddyScaleSaved() {
   let v = 1;
   try {
-    v = Number(localStorage.getItem("avatar-buddy-size")) || 1;
+    v = Number(prefs.get("avatar-buddy-size", null)) || 1;
   } catch (e) {
     // Medium.
   }
@@ -4686,7 +4686,7 @@ function nameMarkBuddyChoose(tab, obstacles, near = null, per = 12) {
 
 function nameMarkBuddySpots() {
   try {
-    const spots = JSON.parse(localStorage.getItem("nm-buddy-spots") || "{}");
+    const spots = prefs.json("nm-buddy-spots", {});
     return spots && typeof spots === "object" ? spots : {};
   } catch (e) {
     return {};
@@ -7466,7 +7466,7 @@ function nameMarkBuddyStreak(days) {
   if (!(days >= 2)) return;
   let seen = 0;
   try {
-    seen = Number(localStorage.getItem("nm-buddy-streak")) || 0;
+    seen = Number(prefs.get("nm-buddy-streak", null)) || 0;
     localStorage.setItem("nm-buddy-streak", String(days));
   } catch (e) {
     return;
@@ -8424,7 +8424,7 @@ function nameMarkBuddyGone() {
 function nameMarkBuddyHide(buddy) {
   try {
     //: Which companion it was, so the hotkey brings the same one back.
-    const was = localStorage.getItem("avatar-buddy");
+    const was = prefs.get("avatar-buddy", null);
     if (was && was !== "off") localStorage.setItem("nm-buddy-last", was);
     localStorage.setItem("avatar-buddy", "off");
   } catch (e) {
@@ -8447,7 +8447,7 @@ function nameMarkBuddyHide(buddy) {
 function nameMarkBuddyShowing() {
   let choice = "off";
   try {
-    choice = localStorage.getItem("avatar-buddy") || "off";
+    choice = prefs.get("avatar-buddy", null) || "off";
   } catch (e) {
     choice = "off";
   }
@@ -8466,7 +8466,7 @@ function nameMarkBuddyToggle() {
   }
   let back = "atlas";
   try {
-    back = localStorage.getItem("nm-buddy-last") || "atlas";
+    back = prefs.get("nm-buddy-last", null) || "atlas";
     localStorage.setItem("avatar-buddy", back);
   } catch (e) {
     // Shown for this session at least.
@@ -8575,7 +8575,7 @@ function nameMarkBuddyMenu(buddy, at = null) {
   };
   let who = "off";
   try {
-    who = localStorage.getItem("avatar-buddy") || "off";
+    who = prefs.get("avatar-buddy", null) || "off";
   } catch (e) {
     who = "off";
   }
@@ -9164,8 +9164,8 @@ const NMB_HINT_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
 function nameMarkBuddyHint(fromAppearance = false) {
   let since = 0;
   try {
-    if (localStorage.getItem("nm-buddy-hint") === "done") return;
-    since = Number(localStorage.getItem("nm-buddy-first-seen")) || 0;
+    if (prefs.get("nm-buddy-hint", null) === "done") return;
+    since = Number(prefs.get("nm-buddy-first-seen", null)) || 0;
     if (!since) {
       since = Date.now();
       localStorage.setItem("nm-buddy-first-seen", String(since));

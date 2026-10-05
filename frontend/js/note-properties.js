@@ -356,7 +356,7 @@ function fillQueryRollups(cells, rollups) {
     const storeKey = `query-rollup:${key}`;
     let chosen = "";
     try {
-      chosen = localStorage.getItem(storeKey) || "";
+      chosen = prefs.get(storeKey, null) || "";
     } catch {
       chosen = "";
     }

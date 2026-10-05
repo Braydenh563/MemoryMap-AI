@@ -27,6 +27,8 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+
+from memorymap.api import paging
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -1850,6 +1852,7 @@ def list_boards(
     type: str | None = None,
     limit: int = Query(default=BOARDS_PAGE_SIZE, ge=1, le=BOARDS_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     db: Session = Depends(get_session),
 ) -> list[BoardOut]:
     """Boards actually in use, not, as the client used to build this list
@@ -1886,6 +1889,7 @@ def list_boards(
     per board, and it now runs for the rows in the page rather than for every
     board in the notebook.
     """
+    offset = paging.start(cursor, offset)
     if type is not None and type not in BOARD_TYPES:
         raise HTTPException(
             status_code=422,
@@ -1969,6 +1973,7 @@ def list_boards(
             settings[entry.id] = (board_type, layout)
             page_rows.append(entry)
     response.headers["X-Total-Count"] = str(len(page_rows))
+    paging.finish(response, offset, limit, len(page_rows))
     boards = []
     for entry in page_rows[offset:offset + limit]:
         if entry is None:
@@ -2022,6 +2027,7 @@ def list_images(
     response: Response,
     limit: int = Query(default=BOARDS_PAGE_SIZE, ge=1, le=BOARDS_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     db: Session = Depends(get_session),
 ) -> list[BoardImageOut]:
     """A page of the image objects across every board, asked for directly
@@ -2049,6 +2055,7 @@ def list_images(
     `X-Total-Count` bigger than the number of rows a caller can ever collect,
     and `apiPagedList` walks until it has that many: it would never stop.
     """
+    offset = paging.start(cursor, offset)
     rows = db.execute(
         select(WhiteboardObject.id, WhiteboardObject.board_id, WhiteboardObject.data)
         .where(WhiteboardObject.kind == "image")
@@ -2063,6 +2070,7 @@ def list_images(
         if url:
             usable.append((obj_id, board_id, url))
     response.headers["X-Total-Count"] = str(len(usable))
+    paging.finish(response, offset, limit, len(usable))
     page = usable[offset:offset + limit]
     if not page:
         return []

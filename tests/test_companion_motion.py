@@ -512,7 +512,7 @@ def test_the_companion_shows_and_hides_from_anywhere() -> None:
     # The row names which it will do (tests/test_companion_toggle.py).
     assert "Show companion\", chord: \"toggleCompanion\", act: () => nameMarkBuddyToggle()" in panes
     toggle = _fn("nameMarkBuddyToggle")
-    assert 'localStorage.getItem("nm-buddy-last")' in toggle
+    assert 'prefs.get("nm-buddy-last", null)' in toggle
     assert 'localStorage.setItem("nm-buddy-last", was)' in _fn("nameMarkBuddyHide")
 
 

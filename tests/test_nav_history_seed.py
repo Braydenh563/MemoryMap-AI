@@ -36,7 +36,7 @@ def test_a_hidden_tabs_default_section_is_not_a_visit():
     body = _show_notes_section()
     assert "recordTabVisit(" in body, "showNotesSection should still record a real arrival"
     guard = re.search(
-        r'if \(\(localStorage\.getItem\("activeTab"\)[^\n]*\) === "notes"\) \{\s*\n\s*recordTabVisit\(',
+        r'if \(\(prefs\.get\("activeTab", null\)[^\n]*\) === "notes"\) \{\s*\n\s*recordTabVisit\(',
         body,
     )
     assert guard, (
@@ -49,7 +49,7 @@ def test_a_hidden_tabs_default_section_is_not_a_visit():
 
 def test_the_stack_is_still_seeded_with_where_the_app_opened():
     assert re.search(
-        r'recordTabVisit\(localStorage\.getItem\("activeTab"\) \|\| "dashboard", null\)',
+        r'recordTabVisit\(prefs\.get\("activeTab", null\) \|\| "dashboard", null\)',
         SOURCE,
     ), (
         "The boot seed must stay: without it the first tab clicked has nothing "

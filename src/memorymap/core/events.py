@@ -37,6 +37,7 @@ import contextlib
 import functools
 import importlib
 import json
+import re
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -93,6 +94,53 @@ def acting_as(actor: str):
         yield
     finally:
         _actor.reset(token)
+
+
+#: **An outside agent, named** (WORLD_CLASS_PLAN H4). A coding agent or a
+#: desktop assistant writing to the notebook through the MCP server or the
+#: HTTP API is neither the person nor Atlas, and filing its change under
+#: either would make the activity panel's "who did this" wrong in the one
+#: case it matters most: something the person did not do and did not ask
+#: the app's own model to do. `agent:<what>@<who>`: `<what>` is the tool it
+#: called, or `api` for a plain HTTP write; `<who>` is the name the client
+#: gave (MCP's `clientInfo.name`, or the `X-MemoryMap-Agent` header).
+#: Self-declared, so it is attribution and not authentication: anyone able
+#: to write already holds the session's token.
+ACTOR_AGENT_PREFIX = "agent:"
+_AGENT_NAME = re.compile(r"[^A-Za-z0-9 ._-]+")
+_agent: ContextVar[str] = ContextVar("memorymap_event_agent", default="")
+
+
+def agent_name(raw: str | None) -> str:
+    """A client's self-given name, cut to what a label can hold safely."""
+    return _AGENT_NAME.sub("", str(raw or "")).strip()[:30]
+
+
+def agent_actor(what: str, who: str) -> str:
+    """`agent:<what>@<who>`, within the column's 60 characters."""
+    return f"{ACTOR_AGENT_PREFIX}{what[:24]}@{agent_name(who) or 'unnamed'}"[:60]
+
+
+def current_agent() -> str:
+    """The outside agent the current request or call speaks for, or ''."""
+    return _agent.get()
+
+
+@contextlib.contextmanager
+def as_agent(who: str, what: str = "api"):
+    """Everything recorded inside this block is the named outside agent's,
+    and any tool run inside it is filed under the agent too
+    (`tools.execute_tool` reads `current_agent`)."""
+    name = agent_name(who)
+    if not name:
+        yield
+        return
+    token = _agent.set(name)
+    try:
+        with acting_as(agent_actor(what, name)):
+            yield
+    finally:
+        _agent.reset(token)
 
 
 @contextlib.contextmanager

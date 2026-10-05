@@ -246,7 +246,7 @@ const WB_EXPANDED_MAX = 500;
 const wbExpandedNodes = new Set(
   (() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(WB_EXPANDED_KEY) || "[]");
+      const saved = prefs.json(WB_EXPANDED_KEY, []);
       return Array.isArray(saved) ? saved.filter((id) => Number.isFinite(id)) : [];
     } catch {
       //: A key someone edited by hand, or a storage a browser has switched
@@ -712,13 +712,13 @@ function wbPublishInvZoom(el, inv) {
 }
 
 function wbGridType() {
-  return localStorage.getItem("wb-grid") || "none";
+  return prefs.get("wb-grid", null) || "none";
 }
 
 function wbSnapOn() {
   // Snapping without a visible grid is a mystery, not a feature, the
   // toggle stays honest by only applying while a grid is actually shown.
-  return localStorage.getItem("wb-snap") === "on" && wbGridType() !== "none";
+  return prefs.get("wb-snap", null) === "on" && wbGridType() !== "none";
 }
 
 //: Round a board coordinate to the nearest grid intersection, when snap is
@@ -927,7 +927,7 @@ function wbAlignmentGuides(excludeKeys, x, y, w, h) {
 //: new top menu bar, see HISTORY.md for why that redesign is deferred.
 const WB_ALIGN_GUIDE_COLORS = { edge: "#ff00ff", center: "#00c8ff", spacing: "#3ddc84" };
 function wbAlignGuideColor(kind) {
-  return localStorage.getItem(`wb-guide-color-${kind}`) || WB_ALIGN_GUIDE_COLORS[kind] || WB_ALIGN_GUIDE_COLORS.edge;
+  return prefs.get(`wb-guide-color-${kind}`, null) || WB_ALIGN_GUIDE_COLORS[kind] || WB_ALIGN_GUIDE_COLORS.edge;
 }
 
 //: Draws (or clears) the dashed guide lines `wbAlignmentGuides` found: 
@@ -1043,9 +1043,9 @@ async function wbMigrateBackground() {
   if (!id || wbIsMap()) return;
   let image = null, color = null, done = false;
   try {
-    image = localStorage.getItem(`wb-bg-image-${id}`);
-    color = localStorage.getItem("wb-bg-color");
-    done = localStorage.getItem(`wb-bg-moved-${id}`) === "1";
+    image = prefs.get(`wb-bg-image-${id}`, null);
+    color = prefs.get("wb-bg-color", null);
+    done = prefs.get(`wb-bg-moved-${id}`, null) === "1";
   } catch {
     return;
   }
@@ -8698,8 +8698,8 @@ async function wbInlineSvgImages(svg) {
   let out = svg;
   for (const escaped of urls) {
     try {
-      const res = await fetch(unescapeAttr(escaped), { credentials: "same-origin" });
-      if (!res.ok) continue;
+      // `api()` (F5), silent: a picture that will not load keeps its address.
+      const res = await api(unescapeAttr(escaped), { silent: true });
       const blob = await res.blob();
       const dataUrl = await new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -9076,12 +9076,7 @@ function wbExportFileName(scope, extension) {
 //: 1x, board units as pixels, always on the board's colour).
 const WB_EXPORT_SCALES = [1, 2, 3];
 function wbExportPngPrefs() {
-  let saved = {};
-  try {
-    saved = JSON.parse(localStorage.getItem("wb-export-png") || "{}") || {};
-  } catch {
-    saved = {};
-  }
+  const saved = prefs.json("wb-export-png", {});
   return {
     scale: WB_EXPORT_SCALES.includes(saved.scale) ? saved.scale : 2,
     transparent: saved.transparent === true,
@@ -9663,7 +9658,7 @@ async function initWhiteboard() {
     navMap.addEventListener("lostpointercapture", wbNavigatorDragEnd);
   }
   try {
-    if (localStorage.getItem("wb-navigator-open") === "1") wbToggleNavigator(true);
+    if (prefs.get("wb-navigator-open", null) === "1") wbToggleNavigator(true);
   } catch {
     /* private mode: open it by hand */
   }
@@ -10170,7 +10165,7 @@ async function initWhiteboard() {
       panel.style.transform = "none";
     }
 
-    const saved = localStorage.getItem(storageKey);
+    const saved = prefs.get(storageKey, null);
     if (saved) {
       try {
         const { left, top } = JSON.parse(saved);
@@ -10322,7 +10317,7 @@ async function initWhiteboard() {
   }
   const snapToggle = $("wb-snap-toggle");
   if (snapToggle) {
-    snapToggle.checked = localStorage.getItem("wb-snap") === "on";
+    snapToggle.checked = prefs.get("wb-snap", null) === "on";
     snapToggle.disabled = wbGridType() === "none";
     snapToggle.addEventListener("change", (e) => {
       localStorage.setItem("wb-snap", e.target.checked ? "on" : "off");
@@ -10384,7 +10379,7 @@ async function initWhiteboard() {
   // whichever the board's own background actually resolves to; a saved
   // choice (persisted the same way the board's own background colour is)
   // always wins over the theme default.
-  const savedStroke = localStorage.getItem("wb-stroke-color");
+  const savedStroke = prefs.get("wb-stroke-color", null);
   window.currentStrokeColor =
     savedStroke || (document.documentElement.dataset.mode === "dark" ? "#ffffff" : "#000000");
   // Shared with the mousedown handler below, so the cursor preview drawn
@@ -10394,7 +10389,7 @@ async function initWhiteboard() {
   // driven by `#wb-stroke-width` below, so every closure over this variable
   // (the highlighter's own 4x multiplier, arrowhead length, the saved
   // sketch's own width) picks up a change without needing to be rewired.
-  let WB_STROKE_WIDTH = Number(localStorage.getItem("wb-stroke-width")) || 3;
+  let WB_STROKE_WIDTH = Number(prefs.get("wb-stroke-width", null)) || 3;
   const strokeWidthInput = document.getElementById("wb-stroke-width");
   const strokeWidthBadge = document.getElementById("wb-stroke-width-badge");
   let strokeWidthBadgeTimer = null;
@@ -10429,8 +10424,8 @@ async function initWhiteboard() {
   // default (Line: none, Arrow: end) and its own localStorage key; the
   // control itself still reads/writes whichever tool is currently active,
   // via `wbCurrentEndStyleKind`/`wbSetCurrentEndStyle` below.
-  window.currentLineEndStyle = localStorage.getItem("wb-line-end-style") || "none";
-  window.currentArrowEndStyle = localStorage.getItem("wb-arrow-style") || "end";
+  window.currentLineEndStyle = prefs.get("wb-line-end-style", null) || "none";
+  window.currentArrowEndStyle = prefs.get("wb-arrow-style", null) || "end";
   function wbCurrentEndStyleKind() {
     return window.currentTool === "line" ? "line" : "arrow";
   }
@@ -10465,11 +10460,11 @@ async function initWhiteboard() {
   const strokeStyleSelect = document.getElementById("wb-stroke-style");
   const strokeNoneInput = document.getElementById("wb-stroke-none");
 
-  window.currentFillColor = localStorage.getItem("wb-fill-color") || "#3355ff";
-  window.currentFillOpacity = Number(localStorage.getItem("wb-fill-opacity") ?? 100);
-  window.currentFillNone = localStorage.getItem("wb-fill-none") !== "off"; // default on (no fill)
-  window.currentDashStyle = localStorage.getItem("wb-stroke-style") || "solid";
-  window.currentStrokeNone = localStorage.getItem("wb-stroke-none") === "on";
+  window.currentFillColor = prefs.get("wb-fill-color", null) || "#3355ff";
+  window.currentFillOpacity = Number(prefs.get("wb-fill-opacity", null) ?? 100);
+  window.currentFillNone = prefs.get("wb-fill-none", null) !== "off"; // default on (no fill)
+  window.currentDashStyle = prefs.get("wb-stroke-style", null) || "solid";
+  window.currentStrokeNone = prefs.get("wb-stroke-none", null) === "on";
 
   if (fillColorInput) {
     fillColorInput.value = window.currentFillColor;
@@ -11287,7 +11282,7 @@ async function initWhiteboard() {
     viewHost?.classList.toggle("wb-hide-context", !on);
     if (propsPref) propsPref.checked = on;
   };
-  applyPropsPref(localStorage.getItem("wb-panel-props") !== "off");
+  applyPropsPref(prefs.get("wb-panel-props", null) !== "off");
   propsPref?.addEventListener("change", () => {
     localStorage.setItem("wb-panel-props", propsPref.checked ? "on" : "off");
     applyPropsPref(propsPref.checked);
@@ -11320,7 +11315,7 @@ async function initWhiteboard() {
       // The button reads as the current state, the tooltip as the action.
       setLabel(dockToggle, dock === "bottom" ? "ph:sidebar-simple Bottom" : "ph:sidebar-simple Side");
     };
-    applyDock(localStorage.getItem("wb-toolbar-dock") || "bottom");
+    applyDock(prefs.get("wb-toolbar-dock", null) || "bottom");
     dockToggle.addEventListener("click", () => {
       const next = toolsPanel.dataset.dock === "bottom" ? "side" : "bottom";
       localStorage.setItem("wb-toolbar-dock", next);
@@ -13216,7 +13211,7 @@ const WB_LAST_BOARD_KIND = "wbLastBoardKind";
 
 function wbRememberedBoardKind() {
   try {
-    const kind = localStorage.getItem(WB_LAST_BOARD_KIND);
+    const kind = prefs.get(WB_LAST_BOARD_KIND, null);
     return kind === "map" || kind === "board" ? kind : "board";
   } catch (err) {
     // Private mode, blocked site data: the default is the answer, not an error.
@@ -15187,7 +15182,7 @@ function renderWhiteboard() {
           (wbState.sketches?.length || 0) +
           (wbState.objects?.length || 0) >
             0 ||
-          localStorage.getItem("wbEmptyHintDismissed") === "1")
+          prefs.get("wbEmptyHintDismissed", null) === "1")
     );
 
   // Render Sketches (SVG)
@@ -17549,7 +17544,7 @@ function boardItemCount(board) {
 }
 
 function boardSort() {
-  const stored = localStorage.getItem(BOARD_SORT_KEY);
+  const stored = prefs.get(BOARD_SORT_KEY, null);
   return BOARD_SORTS[stored] ? stored : "newest";
 }
 
@@ -17592,7 +17587,7 @@ const BOARD_FILTERS = [
 ];
 
 function boardTypeFilter() {
-  const stored = localStorage.getItem(BOARD_FILTER_KEY);
+  const stored = prefs.get(BOARD_FILTER_KEY, null);
   return BOARD_FILTERS.some((f) => f.key === stored) ? stored : "all";
 }
 
@@ -17703,7 +17698,7 @@ function drawLibraryBoardsGallery(listed) {
   //: `.library-list` is the Library's own rows mode (00-tokens-shell.css) and
   //: a board card is already a `.library-card`, so this is the whole change:
   //: the same class the All sub-tab toggles, driven by the same preference.
-  const rowsMode = localStorage.getItem("libraryView") === "list";
+  const rowsMode = prefs.get("libraryView", null) === "list";
   grid.classList.toggle("library-list", rowsMode);
   grid.replaceChildren();
   if (!shown.length) {
@@ -17961,7 +17956,7 @@ function renderWbGestureHints() {
   if (!strip) return;
   if (wbGesturesDismissed === null) {
     try {
-      wbGesturesDismissed = localStorage.getItem(WB_GESTURES_DISMISSED) === "1";
+      wbGesturesDismissed = prefs.get(WB_GESTURES_DISMISSED, null) === "1";
     } catch {
       //: A browser with storage blocked shows the hint every time, which is the
       //: safe direction to fail in: an extra reminder beats a silent feature.

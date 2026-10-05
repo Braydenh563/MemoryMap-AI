@@ -92,7 +92,7 @@ def test_wants_thinking_words_defaults_true_and_never_touches_the_server() -> No
     """Stored the way its nearest sibling control, `progress-motion`, is: a
     per-browser `localStorage` setting, never a `/preferences` field."""
     body = _function(SHEETS, "wantsThinkingWords")
-    assert 'localStorage.getItem("show-thinking-words")' in body
+    assert 'prefs.get("show-thinking-words", null)' in body
     assert '!== "off"' in body, "missing/unset must read as on"
     assert "prefsCache" not in body
 

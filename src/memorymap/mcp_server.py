@@ -55,6 +55,12 @@ def _tool_list_payload() -> list[dict]:
     ]
 
 
+#: Who is on the other end, from `initialize`'s `clientInfo.name` (H4): every
+#: write a tool call makes is filed under it in the event log, so the activity
+#: panel says "Claude Desktop" rather than "Atlas" for a change Atlas never made.
+_client = {"name": ""}
+
+
 def _call_tool(name: str, arguments: dict) -> dict:
     """Runs one tool call against a fresh session, in MCP's own result
     shape (a `content` list plus `isError`, not this app's own
@@ -66,7 +72,9 @@ def _call_tool(name: str, arguments: dict) -> dict:
         }
     session = deps.get_db().session()
     try:
-        result = tools.execute_tool(session, name, arguments or {})
+        result = tools.execute_tool(
+            session, name, arguments or {}, agent=_client["name"] or "mcp client"
+        )
     finally:
         session.close()
     is_error = isinstance(result, dict) and "error" in result
@@ -84,6 +92,8 @@ def handle_request(message: dict) -> dict | None:
     is_notification = "id" not in message
 
     if method == "initialize":
+        info = (message.get("params") or {}).get("clientInfo") or {}
+        _client["name"] = str(info.get("name") or "") if isinstance(info, dict) else ""
         result = {
             "protocolVersion": PROTOCOL_VERSION,
             "capabilities": {"tools": {}},

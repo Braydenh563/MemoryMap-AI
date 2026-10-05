@@ -1290,6 +1290,12 @@ function historyActorLabel(actor) {
     return model ? `Atlas (${model}): ${tool.replace(/_/g, " ")}` : `AI: ${rest}`;
   }
   if (kind === "system") return `Background: ${rest}`;
+  //: `agent:<tool>@<who>`: an outside agent, through the MCP server or the
+  //: API with its name in `X-MemoryMap-Agent` (H4); `api` for a plain write.
+  if (kind === "agent") {
+    const [tool, who] = rest.split("@");
+    return tool === "api" ? `${who} (agent)` : `${who} (agent): ${tool.replace(/_/g, " ")}`;
+  }
   return actor;
 }
 

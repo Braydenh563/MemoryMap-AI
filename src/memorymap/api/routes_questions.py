@@ -11,7 +11,9 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+
+from memorymap.api import paging
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -23,14 +25,19 @@ router = APIRouter(prefix="/questions", tags=["questions"])
 
 @router.get("")
 def list_questions(
+    response: Response,
     state: Literal["open", "answered", "dropped"] | None = None,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     session: Session = Depends(get_session),
 ) -> dict:
     """`{items, total, counts}`: one page in `state` (every state when
     absent), newest note first, and how many are in each state."""
-    return questions.listing(session, state=state, limit=limit, offset=offset)
+    offset = paging.start(cursor, offset)
+    listed = questions.listing(session, state=state, limit=limit, offset=offset)
+    paging.finish(response, offset, limit, int(listed.get("total") or 0))
+    return listed
 
 
 @router.get("/summary")

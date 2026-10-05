@@ -23,7 +23,7 @@ const SIDEBAR_DEFAULTS = { "chat-sidebar": 300, sidebar: 260, "doc-sidebar": 260
 const sidebarDefault = (id) => SIDEBAR_DEFAULTS[id] || 260;
 
 function sidebarWidth(id, fallback = 260) {
-  const saved = Number(localStorage.getItem(`sidebarWidth:${id}`));
+  const saved = Number(prefs.get(`sidebarWidth:${id}`, null));
   return Number.isFinite(saved) && saved >= SIDEBAR_MIN ? saved : fallback;
 }
 
@@ -367,13 +367,13 @@ function makeSidebarResizable(aside) {
     // routed through applySidebarWidth so the left/right branch lives in one
     // place rather than being re-decided here, which is how a right-side
     // sidebar's collapse used to put its rail column on the wrong edge.
-    const saved = Number(localStorage.getItem(`sidebarWidth:${aside.id}`)) || sidebarDefault(aside.id);
+    const saved = Number(prefs.get(`sidebarWidth:${aside.id}`, null)) || sidebarDefault(aside.id);
     applySidebarWidth(aside, saved, { remember: false });
   });
   aside.appendChild(collapseBtn);
   let foldedBefore = false;
   try {
-    foldedBefore = localStorage.getItem(`sidebarCollapsed:${aside.id}`) === "1";
+    foldedBefore = prefs.get(`sidebarCollapsed:${aside.id}`, null) === "1";
   } catch {
     /* storage blocked */
   }
@@ -524,7 +524,7 @@ function resetWebPanelWidth(panel) {
 window.matchMedia(WEB_PANEL_NARROW).addEventListener("change", () => {
   const panel = document.getElementById("web-panel");
   if (!panel?.dataset.resizable) return;
-  const saved = Number(localStorage.getItem("webPanelWidth"));
+  const saved = Number(prefs.get("webPanelWidth", null));
   if (Number.isFinite(saved) && saved >= WEB_PANEL_MIN && !webPanelIsNarrow()) {
     panel.style.flex = `0 0 ${saved}px`;
     panel.style.width = `${saved}px`;
@@ -538,7 +538,7 @@ function makeWebPanelResizable(panel) {
   if (!panel || panel.dataset.resizable) return;
   panel.dataset.resizable = "1";
 
-  const saved = Number(localStorage.getItem("webPanelWidth"));
+  const saved = Number(prefs.get("webPanelWidth", null));
   if (Number.isFinite(saved) && saved >= WEB_PANEL_MIN) applyWebPanelWidth(panel, saved);
 
   const handle = document.createElement("div");
@@ -2105,7 +2105,7 @@ function thinkingWordsFor(personaName) {
 //: ("avatar-follow", "grammar_check").
 function wantsThinkingWords() {
   try {
-    return localStorage.getItem("show-thinking-words") !== "off";
+    return prefs.get("show-thinking-words", null) !== "off";
   } catch {
     return true; // no localStorage (private mode, a blocked origin): default on
   }

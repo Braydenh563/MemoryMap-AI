@@ -120,7 +120,7 @@ function agentCurrentTab() {
   if (!$("tab-documents")?.classList.contains("hidden")) return "documents";
   const tab = (() => {
     try {
-      return localStorage.getItem("activeTab");
+      return prefs.get("activeTab", null);
     } catch {
       return null;
     }
@@ -147,7 +147,7 @@ const AGENT_STARTERS_RECENT_MAX = 3;
 function agentStarterRecents() {
   let texts = [];
   try {
-    texts = JSON.parse(localStorage.getItem(AGENT_STARTERS_RECENT_KEY) || "[]");
+    texts = prefs.json(AGENT_STARTERS_RECENT_KEY, []);
   } catch {
     return [];
   }

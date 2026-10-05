@@ -199,7 +199,7 @@ for (const type of ["keyup", "mouseup"]) {
 }
 
 try {
-  if (localStorage.getItem(MARGIN_KEY) === "1") applyMarginReader(true);
+  if (prefs.get(MARGIN_KEY, null) === "1") applyMarginReader(true);
 } catch {
   // No storage: the margin starts off, which is its default anyway.
 }

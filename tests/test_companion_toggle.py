@@ -51,6 +51,10 @@ def _hide_toast(shortcuts: str) -> str:
 const said = [];
 const store = { "avatar-buddy": "atlas" };
 global.localStorage = { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = String(v); } };
+global.window = global;
+"""
+        + (ROOT / "frontend" / "js" / "prefs.js").read_text(encoding="utf-8")
+        + """
 global.document = { getElementById: () => null, querySelectorAll: () => [] };
 global.toast = (m) => said.push(m);
 global.nameMarkBuddyLeave = (b, then) => then();

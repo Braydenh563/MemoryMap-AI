@@ -14,7 +14,7 @@ import re
 import threading
 from datetime import datetime, timedelta
 
-from sqlalchemy import and_, delete, func, or_, select, text, update
+from sqlalchemy import delete, func, or_, select, text, tuple_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -305,7 +305,7 @@ def list_entries(
     limit: int | None = None,
     offset: int = 0,
     boards: str = BOARDS_INCLUDE,
-    after: tuple[bool, datetime, int] | None = None,
+    after: tuple | None = None,
     ids: list[int] | None = None,
 ) -> list[Entry]:
     """Pinned first, then newest first. Deleted and archived entries stay
@@ -325,19 +325,14 @@ def list_entries(
     )
     query = _list_entries_filter(query, include_deleted, include_archived, boards)
     if after is not None:
-        # Keyset paging (audit 2026-10-05, ARCH-04): the rows after
-        # `(pinned, created_at, id)` in this list's own order, so a note
-        # saved while a caller walks the pages neither repeats a row nor
-        # hides one, which an offset does. `entry_cursor` makes the tuple.
-        pinned, created_at, entry_id = after
-        later = [
-            and_(Entry.pinned == pinned, Entry.created_at < created_at),
-            and_(Entry.pinned == pinned, Entry.created_at == created_at, Entry.id < entry_id),
-        ]
-        if pinned:
-            # Pinned first: after the last pinned row come every unpinned one.
-            later.append(Entry.pinned == False)  # noqa: E712
-        query = query.where(or_(*later))
+        # A keyset page (WORLD_CLASS_PLAN B7): the rows that sort after the
+        # last one the caller saw, by the same three keys the ORDER BY uses,
+        # all descending, so "after" is "less than" as one row value. Served
+        # from `ix_entries_live`'s trailing columns, which are these three in
+        # this order and direction (measured in `tests/test_query_plans.py`).
+        query = query.where(
+            tuple_(Entry.pinned, Entry.created_at, Entry.id) < tuple_(*after)
+        )
     if ids is not None:
         # Just these rows of the same list, in its order (audit 2026-10-05,
         # FE-05: the client re-reads what a save touched, not the notebook).
@@ -349,29 +344,9 @@ def list_entries(
     return list(session.scalars(query))
 
 
-def entry_cursor(entry: Entry) -> str:
-    """The `after` cursor naming `entry` as the last row a page showed.
-
-    base64url, so it is URL-safe by construction: a timestamp's `+00:00` is
-    a space by the time a hand-built query string reaches the server (the
-    reason `routes_timeline` gives for its own cursor)."""
-    import base64
-
-    plain = f"{int(bool(entry.pinned))}~{entry.created_at.isoformat()}~{entry.id}"
-    return base64.urlsafe_b64encode(plain.encode()).decode()
-
-
-def parse_entry_cursor(raw: str) -> tuple[bool, datetime, int] | None:
-    """`entry_cursor` read back, or None when it is not one."""
-    import base64
-    import binascii
-
-    try:
-        plain = base64.urlsafe_b64decode(raw.encode()).decode()
-        pinned, created_at, entry_id = plain.split("~")
-        return bool(int(pinned)), datetime.fromisoformat(created_at), int(entry_id)
-    except (ValueError, binascii.Error, UnicodeDecodeError):
-        return None
+def list_sort_key(entry: Entry) -> tuple:
+    """What `list_entries(after=...)` takes: the row's own ORDER BY values."""
+    return (bool(entry.pinned), entry.created_at, entry.id)
 
 
 def count_entries(

@@ -2263,7 +2263,7 @@ function resolveNotePage(id) {
 //: round trip to change how a list looks would be the wrong trade. Read as
 //: "rows only if rows was explicitly chosen", so a profile that has never
 //: touched the toggle gets cards.
-let notesViewMode = localStorage.getItem("notesViewMode") === "rows" ? "rows" : "cards";
+let notesViewMode = prefs.get("notesViewMode", null) === "rows" ? "rows" : "cards";
 
 function applyNotesViewMode() {
   const list = $("entry-list");
@@ -2380,7 +2380,7 @@ function filterNotesByTag(tag) {
   favouritesOnly = false;
   activeCategory = null;
   notesCurrentPage = 1;
-  if (localStorage.getItem("activeTab") !== "notes") switchTab("notes");
+  if (prefs.get("activeTab", null) !== "notes") switchTab("notes");
   showNotesSection("browse");
   renderSidebar();
   renderEntries();
@@ -2424,7 +2424,7 @@ function renderEntries() {
   // toggle not working rather than a class being dropped.
   applyNotesViewMode();
   //: Held notes first (quick-note.js); loads it only when one is held.
-  if (localStorage.getItem("noteOutbox")) renderPendingNoteRows();
+  if (prefs.get("noteOutbox", null)) renderPendingNoteRows();
 
   // Drafts stay out of All/category views entirely, user-reported: they
   // should only show up in the Drafts filter until saved as a real note.
@@ -2434,7 +2434,7 @@ function renderEntries() {
   //: and Tag or Delete then acted on all five, three of them out of sight.
   //: Notes leave the selection when the view leaves them. Only on the Notes
   //: tab: the Timeline ticks into the same set (TIMELINE_PLAN decision 6).
-  if (selectMode && selectedIds.size && localStorage.getItem("activeTab") === "notes") {
+  if (selectMode && selectedIds.size && prefs.get("activeTab", null) === "notes") {
     const shown = new Set(visible.map((e) => e.id));
     let dropped = 0;
     for (const id of [...selectedIds]) if (!shown.has(id)) { selectedIds.delete(id); dropped++; }
@@ -3043,6 +3043,7 @@ async function _loadEntries() {
     if (generation !== _entriesLoadGeneration) return; // a newer load took over
     allEntries = results;
     entriesEverLoaded = true;
+    publishNotes(allEntries);
     renderStatusBar();
     renderSidebar();
     loadCategories();
@@ -3068,16 +3069,23 @@ async function _loadEntries() {
   clearTimeout(_entriesProgressTimer);
   _entriesProgressTimer = null;
   let first = true;
+  //: The next page by the server's cursor (WORLD_CLASS_PLAN B7), not by
+  //: offset: a note saved while page one is on screen would push a row of
+  //: page one onto page two as well, and the list would show it twice.
+  let cursor = "";
   while (offset < total) {
-    const response = await api(`/entries?limit=${ENTRIES_PAGE_SIZE}&offset=${offset}`);
+    const after = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
+    const response = await api(`/entries?limit=${ENTRIES_PAGE_SIZE}${after}`);
     const page = await response.json();
     if (generation !== _entriesLoadGeneration) return; // superseded mid-load
 
     allEntries = first ? page : allEntries.concat(page);
     entriesEverLoaded = true;
+    publishNotes(allEntries);
     offset += page.length;
+    cursor = response.headers.get("X-Next-Cursor") || "";
     const reported = Number(response.headers.get("X-Total-Count"));
-    total = Number.isFinite(reported) ? reported : allEntries.length;
+    total = !cursor ? offset : Number.isFinite(reported) ? reported : allEntries.length;
 
     ensureMapChipsFor(page, generation);
     //: **Twenty-one pages used to mean twenty-one full re-renders.**
@@ -3158,6 +3166,7 @@ async function refreshEntries(ids) {
   next.sort(entryListOrder);
   if (Number.isFinite(total) && total !== next.length) return loadEntries();
   allEntries = next;
+  publishNotes(allEntries);
   for (const id of wanted) {
     referenceCountsCache.delete(id);
     reminderCountsCache.delete(id);
@@ -3424,7 +3433,7 @@ const notesRailCache = new Map();
 
 function notesRailHiddenByChoice() {
   try {
-    return localStorage.getItem(NOTES_RAIL_KEY) === "off";
+    return prefs.get(NOTES_RAIL_KEY, null) === "off";
   } catch {
     return false;
   }
@@ -3452,7 +3461,7 @@ function scheduleNotesRail() {
 
 function notesRailWanted() {
   if (!notesRailWide.matches || notesRailHiddenByChoice()) return null;
-  if ((localStorage.getItem("activeTab") || "dashboard") !== "notes") return null;
+  if ((prefs.get("activeTab", null) || "dashboard") !== "notes") return null;
   if ($("browse")?.classList.contains("hidden")) return null;
   if (notesRailId == null) return null;
   return allEntries.find((entry) => entry.id === notesRailId && !entry.is_draft) || null;

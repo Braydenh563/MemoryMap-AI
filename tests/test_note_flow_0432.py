@@ -152,7 +152,7 @@ def test_leaving_a_changed_form_asks_and_an_empty_one_is_refused():
 def test_a_selection_is_of_what_is_on_screen():
     render = _function(_read("notes-list.js"), "renderEntries")
     assert "selectedIds.delete(id)" in render
-    assert 'localStorage.getItem("activeTab") === "notes"' in render
+    assert 'prefs.get("activeTab", null) === "notes"' in render
 
 
 def test_batch_tag_splits_on_commas_and_can_be_undone():

@@ -16,7 +16,7 @@ from datetime import date, datetime, timedelta
 from collections import OrderedDict
 from types import SimpleNamespace
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, or_, select
@@ -26,7 +26,8 @@ from sqlalchemy.orm import Session
 from memorymap.ai import extractor, janitor, learning, librarian, links, relations
 from memorymap.ai import tensions as tensions_module
 from memorymap.ai.ollama_client import OllamaError
-from memorymap.api.edit_conflicts import content_hash, refuse_if_stale
+from memorymap.api import paging
+from memorymap.api.edit_conflicts import content_hash, entity_tag, refuse_if_stale, refuse_unless_match
 from memorymap.api.schemas import (
     AttachmentOut,
     ContextBody,
@@ -1992,10 +1993,10 @@ def list_entries(
     q: str = "",
     limit: int = Query(default=ENTRIES_PAGE_SIZE, ge=1, le=ENTRIES_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
-    #: Keyset paging for the plain list: the `X-Next-Cursor` of the page
-    #: before. Offsets still work; see `manager.list_entries` for why a
-    #: cursor is the one to walk a list that changes during the walk.
-    after: str = Query(default="", max_length=120),
+    cursor: str | None = paging.cursor_param(),
+    #: `after` is the same cursor under the name ARCH-04's first cut gave
+    #: it; one keyset, read by `paging` either way.
+    after: str = Query(default="", max_length=512),
     # **This list is the notes list, so boards are not in it by default.**
     #
     # Reported: "I made a mindmap naming it test and I think it came up as a
@@ -2038,6 +2039,7 @@ def list_entries(
     matter the notebook's size: which is real risk for a "just works" local
     app that's supposed to degrade gracefully rather than time out or OOM.
     """
+    cursor = cursor or after or None
     if boards not in manager.BOARD_MODES:
         raise HTTPException(
             status_code=422,
@@ -2094,22 +2096,38 @@ def list_entries(
         response.headers["X-Total-Count"] = str(manager.count_entries(session, boards=boards))
         return _to_out_bulk(session, entries)
 
-    if deleted:
-        entries = manager.list_deleted_entries(session, limit=limit, offset=offset)
-        total = manager.count_deleted_entries(session)
-    elif archived:
-        entries = manager.list_archived_entries(session, limit=limit, offset=offset)
-        total = manager.count_archived_entries(session)
+    if deleted or archived:
+        # The bin and the archive page by position: both are short, both sort
+        # on a column that can be NULL on rows from before it existed (a
+        # keyset over NULLs needs a second ordering rule), and neither is
+        # written to while somebody scrolls it.
+        page = paging.resolve(response, offset=offset, limit=limit, cursor=cursor)
+        lister = manager.list_deleted_entries if deleted else manager.list_archived_entries
+        entries = lister(session, limit=limit, offset=page.offset)
+        total = (
+            manager.count_deleted_entries(session)
+            if deleted
+            else manager.count_archived_entries(session)
+        )
+        page.finish(len(entries), total)
     else:
-        cursor = None
-        if after:
-            cursor = manager.parse_entry_cursor(after)
-            if cursor is None:
-                raise HTTPException(status_code=422, detail="That page marker isn't one this list made.")
-        entries = manager.list_entries(session, limit=limit, offset=offset, boards=boards, after=cursor)
+        # The notes list pages by keyset (B7): a note saved while page one is
+        # on screen cannot push a row of page one onto page two as well.
+        after = paging.read_keyset(cursor, 3) if cursor else None
+        entries = manager.list_entries(
+            session,
+            limit=limit + 1,
+            offset=0 if after else offset,
+            boards=boards,
+            after=after,
+        )
+        more = len(entries) > limit
+        entries = entries[:limit]
+        if more and entries:
+            response.headers[paging.NEXT_CURSOR] = paging.keyset_cursor(
+                manager.list_sort_key(entries[-1])
+            )
         total = manager.count_entries(session, boards=boards)
-        if len(entries) == limit:
-            response.headers["X-Next-Cursor"] = manager.entry_cursor(entries[-1])
     response.headers["X-Total-Count"] = str(total)
     return _to_out_bulk(session, entries)
 
@@ -2199,7 +2217,10 @@ def entry_reference_counts(
 
 @router.get("/{entry_id}", response_model=EntryOut)
 def get_entry(
-    entry_id: int, deleted: bool = False, session: Session = Depends(get_session)
+    entry_id: int,
+    response: Response,
+    deleted: bool = False,
+    session: Session = Depends(get_session),
 ) -> EntryOut:
     """One entry. `?deleted=true` also reaches into the bin.
 
@@ -2244,7 +2265,13 @@ def get_entry(
         if bool(getattr(entry, "is_private", False)) and vault.key() is not None:
             manager.log_action(session, "decrypted", "entry", entry.id)
         session.commit()
-    return _to_out(session, entry)
+    out = _to_out(session, entry)
+    #: B7: the note's version as an HTTP entity tag, the same text hash the
+    #: editor already sends back as `base_hash`, so a client that never reads
+    #: the body's fields can still say "only if it is still this version" with
+    #: `If-Match` on its write (`refuse_unless_match`).
+    response.headers["ETag"] = entity_tag(out.content_hash)
+    return out
 
 
 def _safe_filename(title: str, extension: str) -> str:
@@ -2293,11 +2320,26 @@ def export_entry(entry_id: int, session: Session = Depends(get_session)) -> Resp
 
 @router.put("/{entry_id}", response_model=EntryOut)
 def update_entry(
-    entry_id: int, body: EntryUpdate, session: Session = Depends(get_session)
+    entry_id: int,
+    body: EntryUpdate,
+    response: Response,
+    session: Session = Depends(get_session),
+    if_match: str | None = Header(default=None),
 ) -> EntryOut:
     """Manual override: the user can correct anything the AI decided
-    (plan §4: the AI is a servant, not a gatekeeper)."""
+    (plan §4: the AI is a servant, not a gatekeeper).
+
+    `If-Match` (B7) is the HTTP spelling of `base_hash`: a write that names
+    the version it was made from is refused with 412 when the note is no
+    longer that version, whatever the body changes, so an outside client
+    cannot clobber a background AI edit it never saw."""
     entry = _existing_entry(session, entry_id)
+    refuse_unless_match(
+        if_match,
+        current_hash=content_hash(manager.readable_content(entry)),
+        current=lambda: _to_out(session, entry),
+        noun="note",
+    )
     #: Two windows, one note (WORLD_CLASS_PLAN 22.1 item 5): a save that
     #: started from text another window has since replaced is refused, with
     #: that text, before anything is written. Compared as the reader sees it
@@ -2384,6 +2426,7 @@ def update_entry(
         if holders and new_name:
             spelt = re.search(r"\[\[\s*(" + re.escape(old_name) + r")", holders[0].content, re.IGNORECASE)
             out.wiki_rename = {"old": spelt.group(1) if spelt else old_name, "new": new_name, "notes": len(holders)}
+    response.headers["ETag"] = entity_tag(out.content_hash)
     return out
 
 
@@ -2404,9 +2447,20 @@ def wiki_rename(entry_id: int, body: WikiRenameIn, session: Session = Depends(ge
 
 
 @router.delete("/{entry_id}", response_model=EntryOut)
-def delete_entry(entry_id: int, session: Session = Depends(get_session)) -> EntryOut:
-    """Soft delete → recycle bin. Restorable until purged."""
+def delete_entry(
+    entry_id: int,
+    session: Session = Depends(get_session),
+    if_match: str | None = Header(default=None),
+) -> EntryOut:
+    """Soft delete → recycle bin. Restorable until purged. `If-Match` as on
+    the edit: a client binning the version it read does not bin a newer one."""
     entry = _existing_entry(session, entry_id)
+    refuse_unless_match(
+        if_match,
+        current_hash=content_hash(manager.readable_content(entry)),
+        current=lambda: _to_out(session, entry),
+        noun="note",
+    )
     if not entry.is_deleted:
         manager.soft_delete_entry(session, entry)
     return _to_out(session, entry)

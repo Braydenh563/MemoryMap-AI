@@ -680,7 +680,7 @@ function gcPlacePill(a, b, w, h, boxes, discs) {
 function gcSimilarityCutoff() {
   let stored = null;
   try {
-    stored = localStorage.getItem("graph-similarity-min");
+    stored = prefs.get("graph-similarity-min", null);
   } catch (error) {
     stored = null;
   }
@@ -700,7 +700,7 @@ const GC_EDGE_CONTRADICTS = { width: 2.2, alpha: 0.85, dash: [6, 4], colour: "er
 //: and a notebook that never touched it is on.
 function gcCurvedLinks(s = gcTab) {
   const box = s.size === "full" ? gcEl("graph-curved") : null;
-  return box ? box.checked : localStorage.getItem("graph-curved") !== "0";
+  return box ? box.checked : prefs.get("graph-curved", null) !== "0";
 }
 
 //: A quadratic curve bowed to one side by a seventh of its length (48px at
@@ -712,26 +712,26 @@ function gcCurvedLinks(s = gcTab) {
 //: graph labels togglable??"): on by default, read like Curved links.
 function gcLabelPlates(s = gcTab) {
   const box = s.size === "full" ? gcEl("graph-label-plates") : null;
-  return box ? box.checked : localStorage.getItem("graph-label-plates") !== "0";
+  return box ? box.checked : prefs.get("graph-label-plates", null) !== "0";
 }
 
 //: Text fade (GRAPH_PLAN 514 (5)): the zoom past which a big map names every
 //: note, 2.6 at the left to 0.2 at the right, GC_LABEL_ZOOM at 50.
 function gcLabelZoom() {
-  const v = Number(gcEl("graph-label-fade")?.value ?? localStorage.getItem("graph-label-fade") ?? 50);
+  const v = Number(gcEl("graph-label-fade")?.value ?? prefs.get("graph-label-fade", null) ?? 50);
   return 2.6 - 0.024 * (Number.isFinite(v) ? v : 50);
 }
 
 //: Link thickness: 0.4x at the left, 1x at 50, 2.2x at the right.
 function gcLinkWidth() {
-  const v = Number(gcEl("graph-link-width")?.value ?? localStorage.getItem("graph-link-width") ?? 50);
+  const v = Number(gcEl("graph-link-width")?.value ?? prefs.get("graph-link-width", null) ?? 50);
   const at = Number.isFinite(v) ? v : 50;
   return at <= 50 ? 0.4 + (0.6 * at) / 50 : 1 + (1.2 * (at - 50)) / 50;
 }
 
 function gcArrows(s = gcTab) {
   const box = s.size === "full" ? gcEl("graph-arrows") : null;
-  return box ? box.checked : localStorage.getItem("graph-arrows") === "1";
+  return box ? box.checked : prefs.get("graph-arrows", null) === "1";
 }
 
 function gcBowPoint(a, b) {
@@ -913,7 +913,7 @@ function gcNodeSprite(colour, radiusPx, hub) {
 //: be a shape, and shapes lie about where a cluster ends.
 function gcDrawNebulae(ctx, s, inView) {
   const nebulaBox = s.size === "full" ? gcEl("graph-nebula") : null;
-  if (nebulaBox ? !nebulaBox.checked : localStorage.getItem("graph-nebula") === "0") return;
+  if (nebulaBox ? !nebulaBox.checked : prefs.get("graph-nebula", null) === "0") return;
   const dark = document.documentElement.getAttribute("data-theme") === "dark";
   const groups = new Map();
   for (const node of s.nodes) {
@@ -1013,7 +1013,7 @@ function gcDrawTopicHulls(ctx, s, k) {
 //: chip that lights its notes.
 const graphHiddenLinkKinds = new Set((() => {
   try {
-    return JSON.parse(localStorage.getItem("graph-hidden-link-kinds") || "[]");
+    return prefs.json("graph-hidden-link-kinds", []);
   } catch {
     return [];
   }
@@ -3578,14 +3578,14 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
       score: typeof e.score === "number" ? e.score : typeof e.reason_confidence === "number" ? e.reason_confidence : null,
     })),
     params: {
-      gravity: Number(localStorage.getItem("graph-gravity") || 50),
-      spread: Number(localStorage.getItem("graph-spread") || 50),
-      linkForce: Number(localStorage.getItem("graph-link-force") || 50),
-      lengthByScore: localStorage.getItem("graph-length-score") !== "0",
+      gravity: prefs.number("graph-gravity", 50, { min: 0, max: 100 }),
+      spread: prefs.number("graph-spread", 50, { min: 0, max: 100 }),
+      linkForce: Number(prefs.get("graph-link-force", null) || 50),
+      lengthByScore: prefs.get("graph-length-score", null) !== "0",
       //: The tab's map only: a local map of one note's neighbours is
       //: arranged by its links, and a ring of category places would pull
       //: three notes apart.
-      groupBy: s.size === "full" && localStorage.getItem("graph-group") !== "0",
+      groupBy: s.size === "full" && prefs.get("graph-group", null) !== "0",
       //: Unlinked notes take a seat on a ring round the cluster (the worker's
       //: `orbitForce`); a local map has none to seat.
       orbit: s.size === "full",
@@ -4572,7 +4572,7 @@ async function renderGraphPane(entryId) {
 function graphPaneFollow() {
   const pane = document.getElementById("graph-pane");
   if (!pane) return;
-  const tab = localStorage.getItem("activeTab") || "notes";
+  const tab = prefs.get("activeTab", null) || "notes";
   const hostId = tab === "notes" ? "sidebar" : tab === "documents" ? "doc-sidebar" : null;
   if (!hostId) {
     pane.hidden = true;

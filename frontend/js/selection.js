@@ -472,7 +472,7 @@ function libraryPickAbout(kind, row) {
 const PICK_SOURCE_KEY = "libraryPickSource";
 function pickerRememberedSource(available) {
   try {
-    const kind = localStorage.getItem(PICK_SOURCE_KEY);
+    const kind = prefs.get(PICK_SOURCE_KEY, null);
     return available.find((source) => source.kind === kind) || null;
   } catch {
     return null;

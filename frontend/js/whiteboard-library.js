@@ -43,12 +43,8 @@ const wbLibFolds = new Map();
 const wbLibState = { lib: null, libIcons: null, libIconShown: WB_ICON_PAGE, libPlaceFan: 0, libPlaceFanAt: 0, libDragging: null, layersDrag: null, pagesDrag: null, sideRefreshTimer: 0 };
 
 function wbSideState() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(WB_SIDE_KEY) || "{}");
-    return { open: saved.open === true, tab: saved.tab || "library" };
-  } catch {
-    return { open: false, tab: "library" };
-  }
+  const saved = prefs.json(WB_SIDE_KEY, {});
+  return { open: saved.open === true, tab: saved.tab || "library" };
 }
 
 function wbSaveSideState(state) {
@@ -154,8 +150,8 @@ async function wbLoadLibrary({ force = false } = {}) {
   const sets = (wbLibState.lib.sets || []).filter((s) => s.key !== "icons");
   await Promise.all(sets.filter((s) => !wbLibSets.has(s.key)).map(async (s) => {
     try {
-      const res = await fetch(`/board-library/${s.key}.json${lazyAssetStamp()}`, { headers: { "X-Auth-Token": authToken() } });
-      if (res.ok) wbLibSets.set(s.key, await res.json());
+      const res = await api(`/board-library/${s.key}.json${lazyAssetStamp()}`, { silent: true });
+      wbLibSets.set(s.key, await res.json());
     } catch {
       // A set that does not load is left out; the rest still show.
     }
@@ -166,8 +162,8 @@ async function wbLoadLibrary({ force = false } = {}) {
 async function wbLoadIcons() {
   if (wbLibState.libIcons) return wbLibState.libIcons;
   try {
-    const res = await fetch(`/board-library/icons.json${lazyAssetStamp()}`, { headers: { "X-Auth-Token": authToken() } });
-    wbLibState.libIcons = res.ok ? (await res.json()).icons || {} : {};
+    const res = await api(`/board-library/icons.json${lazyAssetStamp()}`, { silent: true });
+    wbLibState.libIcons = (await res.json()).icons || {};
   } catch {
     wbLibState.libIcons = {};
   }

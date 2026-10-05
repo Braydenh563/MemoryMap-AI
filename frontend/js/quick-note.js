@@ -29,7 +29,7 @@ const NOTE_OUTBOX_RETRY_MS = 15000;
 
 function noteOutbox() {
   try {
-    const list = JSON.parse(localStorage.getItem(NOTE_OUTBOX_KEY) || "[]");
+    const list = prefs.json(NOTE_OUTBOX_KEY, []);
     return Array.isArray(list) ? list : [];
   } catch {
     return [];
@@ -212,7 +212,7 @@ function openQuickNote() {
   if (!dialog.open) {
     let draft = "";
     try {
-      draft = localStorage.getItem(QUICK_NOTE_DRAFT_KEY) || "";
+      draft = prefs.get(QUICK_NOTE_DRAFT_KEY, null) || "";
     } catch {
       draft = "";
     }

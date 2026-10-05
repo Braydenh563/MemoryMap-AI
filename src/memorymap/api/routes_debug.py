@@ -134,7 +134,11 @@ def debug_health(session: Session = Depends(get_session)) -> dict:
         "data_dir": shown_path(config.data_dir),
         "db": {"path": _db_name(config), "size_bytes": db_size_bytes},
         "counts": counts,
-        "jobs": {"queue_depth": len(running_jobs), "running": running_jobs},
+        # A "more queued" row (`jobs.pending`) stands for that many jobs.
+        "jobs": {
+            "queue_depth": sum(int(row.get("more") or 1) for row in running_jobs),
+            "running": running_jobs,
+        },
         "latency_ms_by_kind": taskhistory.latency_percentiles(),
         "recent_errors": error_lines,
     }

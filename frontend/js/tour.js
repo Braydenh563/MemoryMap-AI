@@ -1234,7 +1234,7 @@ async function tourFrame() {
 //: The pressed tab button is the page you can see.
 function tourActiveTab() {
   const pressed = document.querySelector('#tab-bar [role="tab"].active');
-  return pressed?.dataset?.tab || localStorage.getItem("activeTab") || "";
+  return pressed?.dataset?.tab || prefs.get("activeTab", null) || "";
 }
 
 //: A tab switch is not finished when `switchTab` resolves. The tab's own

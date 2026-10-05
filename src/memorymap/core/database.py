@@ -2032,6 +2032,7 @@ class DatabaseManager:
         self._backfill_inherited_workspaces()
         self._ensure_fts5()
         self._ensure_indexes()
+        self._ensure_readings_view()
         # See _ensure_alembic_baseline's own docstring for why this is
         # skipped under pytest: a throwaway per-test database has nothing
         # to gain from being stamped, and the constructor runs in most of
@@ -2329,46 +2330,63 @@ class DatabaseManager:
         ("ix_whiteboard_sketches_board", "whiteboard_sketches (board_id)"),
         ("ix_reminders_entry", "reminders (entry_id)"),
         ("ix_entry_bookmarks_entry", "entry_bookmarks (entry_id)"),
-        # **"All spaces", the default view, had none of the list indexes**
-        # (audit 2026-10-05, ARCH-05). Every composite above leads with
-        # `workspace_id`, and with "all" the space hook adds no
-        # `workspace_id = ?` (at most a `NOT IN` for hidden spaces), so
-        # SQLite cannot use the prefix: EXPLAIN on the real `/entries?limit=50`
-        # was "USE TEMP B-TREE FOR ORDER BY", every live note sorted with its
-        # `content`, 26 times per unlock at 5,000 notes. The same shapes
-        # without the space column serve the everything-view, and the space
-        # filter, when there is one, is checked along the walk.
-        (
-            "ix_entries_live_all",
-            "entries (is_deleted, archived_at, pinned DESC, created_at DESC, id DESC)",
-        ),
-        (
-            "ix_entries_live_nodraft_all",
-            "entries (is_deleted, is_draft, archived_at, created_at DESC, id DESC)",
-        ),
-        ("ix_entries_bin_all", "entries (is_deleted, deleted_at DESC, id DESC)"),
-        ("ix_entries_archive_all", "entries (is_deleted, archived_at DESC, id DESC)"),
-        ("ix_documents_live_updated_all", "documents (archived_at, updated_at DESC)"),
-        ("ix_media_uploads_created_all", "media_uploads (created_at DESC)"),
-        # The chat list orders pinned first (`pinned DESC, updated_at DESC,
-        # id DESC`) over the unarchived, which the older
-        # `(workspace_id, updated_at DESC)` above never matched, in a space
-        # or out of one: both shapes, the space-led one first.
+        # **The all-spaces orders** (WORLD_CLASS_PLAN 19.3, the whole
+        # `EXPLAIN QUERY PLAN` pass, 2026-10-05: scratchpad/
+        # plat1005_query_plans.py over every GET route at 5,000 notes). Every
+        # composite above leads with `workspace_id`, and they were measured
+        # with one space selected. The page's default is "All spaces", which
+        # sends no equality on `workspace_id` (`_add_workspace_filter` adds
+        # nothing, or a NOT IN for hidden spaces), so not one of them could
+        # serve an ORDER BY in the view most people are in: SQLite sorted.
+        #
+        # **Keyed by the ORDER BY alone, not by `is_deleted` first.** The
+        # first cut put `is_deleted` in front, the way the scoped ones are
+        # built, and measured worse elsewhere: with no `ANALYZE` statistics
+        # SQLite takes an equality on an indexed column as selective, so
+        # every "live notes, by id" scan (duplicates 69.6 to 98.1 ms, a
+        # note's connections 31.9 to 40.0) switched from reading the table
+        # in rowid order to an index lookup plus a sort. An index on the
+        # order alone is only chosen where it removes a sort; the filters are
+        # checked on the walk, and the rows they drop are few (the bin and
+        # the archive are a few percent of a notebook). Before and after,
+        # each statement alone, at 5,000 notes:
+        # the notes list's first page, the Library and link suggestions
+        # (24.98 ms, "USE TEMP B-TREE FOR ORDER BY");
+        ("ix_entries_order_all", "entries (pinned DESC, created_at DESC, id DESC)"),
+        # the bin and the archive (5.10 and 4.12 ms, sorting). **Partial**,
+        # holding only binned or archived rows, and that is load-bearing: a
+        # whole-table index on `archived_at` was taken by the notes list's
+        # `archived_at IS NULL` as an equality lookup (SQLite plans `IS NULL`
+        # like `= ?`), which put the sort back on the main list (40.2 ms);
+        # one only the bin's and the archive's own WHERE can match cannot be.
+        ("ix_entries_deleted_order", "entries (deleted_at DESC, id DESC) WHERE is_deleted = 1"),
+        ("ix_entries_archived_order", "entries (archived_at DESC, id DESC) WHERE archived_at IS NOT NULL"),
+        # the Timeline's page and the Dashboard's counts since a date (35.79
+        # and 15.15 ms, a range on `created_at` read by scanning every note);
+        ("ix_entries_created_order", "entries (created_at DESC, id DESC)"),
+        # the Library's activity rows, newest first over the whole event log
+        # (76.62 ms at 20,000 events, "SCAN audit_log" and a sort), and the
+        # lookups by action (corrections, the link-reason backfill);
+        ("ix_audit_log_recent", "audit_log (created_at DESC, id DESC)"),
+        ("ix_audit_log_action", "audit_log (action, id DESC)"),
+        # and the other lists' pages: uploads (5.52 ms at 5,000), documents
+        # (5.08 ms at 1,000), chats and reminders.
+        ("ix_media_uploads_order", "media_uploads (created_at DESC, id DESC)"),
+        ("ix_documents_order", "documents (updated_at DESC, id DESC)"),
+        # the Timeline's documents since a date (13.38 ms at 1,000) and the
+        # Dashboard's most-opened notes (7.17 ms, sorting every live note);
+        ("ix_documents_created_order", "documents (created_at DESC, id DESC)"),
+        ("ix_entries_accessed_order", "entries (access_count DESC, id DESC)"),
+        ("ix_conversations_order", "conversations (pinned DESC, updated_at DESC, id DESC)"),
+        ("ix_reminders_due_order", "reminders (due_at, id)"),
+        # The chat list in one space: `pinned DESC, updated_at DESC, id DESC`
+        # over the unarchived, which `(workspace_id, updated_at DESC)` above
+        # never matched (audit 2026-10-05, ARCH-05); the all-spaces shape is
+        # `ix_conversations_order`.
         (
             "ix_conversations_live_pinned",
             "conversations (workspace_id, archived_at, pinned DESC, updated_at DESC, id DESC)",
         ),
-        (
-            "ix_conversations_live_pinned_all",
-            "conversations (archived_at, pinned DESC, updated_at DESC, id DESC)",
-        ),
-        ("ix_reminders_due_all", "reminders (due_at DESC)"),
-        # The audit log read by kind: `learning.corrections` (every filing
-        # prompt, `/suggestions`, link suggestions) asks `action = ?`, and
-        # Library's activity reads it newest first. Both were `SCAN
-        # audit_log`, a table that grows by a whole note per edit.
-        ("ix_audit_log_action", "audit_log (action, id DESC)"),
-        ("ix_audit_log_created", "audit_log (created_at DESC, id DESC)"),
     )
 
     #: Unique indexes, partial where the column is optional: the same
@@ -2376,6 +2394,21 @@ class DatabaseManager:
     _UNIQUE_INDEXES: tuple[tuple[str, str], ...] = (
         ("uq_entries_client_key", "entries (client_key) WHERE client_key IS NOT NULL"),
     )
+
+    def _ensure_readings_view(self) -> None:
+        """Every reading of a file as one `readings` view (F10, `core/readings.py`).
+
+        Replaced when its definition changes, so a column added to it reaches
+        a notebook made before; a failure is logged and the app starts, since
+        nothing writes through the view and only the readings route reads it.
+        """
+        from memorymap.core import readings
+
+        try:
+            with self.engine.begin() as connection:
+                readings.ensure_view(connection)
+        except Exception:  # noqa: BLE001  # a read model must never stop the app opening
+            logging.getLogger("memorymap.db").warning("could not create the readings view", exc_info=True)
 
     def _ensure_indexes(self) -> None:
         """Create the composite indexes the hot list queries need.

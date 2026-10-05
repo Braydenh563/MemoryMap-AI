@@ -2383,35 +2383,17 @@ async function streamChat({
   // exempt from the same-origin policy that protects this `fetch`, any page
   // the user had open could have opened it. `fetch` + a reader gives the same
   // token-by-token delivery with none of that.
-  const response = await fetch("/chat/stream", {
+  //: Through `api.stream` (F5), not a hand-rolled `fetch`. This one used to
+  //: be hand-rolled, and it went a release without `X-Workspace-ID`: every
+  //: chat and Ask turn searched every space, hidden ones too. `api()`
+  //: returns the Response, so the body is still read as it arrives, and it
+  //: already throws "Locked" (with the lock screen) on a 401 and the plain
+  //: sentence for any other refusal.
+  const response = await api.stream("/chat/stream", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Auth-Token": authToken(),
-      // Missing here, this fetch is hand-rolled rather than going through
-      // api()/apiJson() (it needs the raw streaming body, which those don't
-      // expose): and every one of the app's *other* fetches gets this
-      // header automatically, so it was easy to not notice this one never
-      // did. Reported directly: a space hidden from "All spaces" still
-      // surfaced its notes from Ask's semantic search. The real bug was
-      // wider than that one symptom, with no X-Workspace-ID at all,
-      // get_session() never populates session.info["workspace_id"], so
-      // database.py's workspace filter never runs, and *every* chat or Ask
-      // turn searched every space regardless of which one was active,
-      // hidden or not.
-      "X-Workspace-ID": activeSpaceId(),
-    },
     body: JSON.stringify(body),
     signal,
   });
-  if (response.status === 401) {
-    showLockScreen(false);
-    throw new Error("Locked");
-  }
-  if (!response.ok) {
-    const detail = await response.json().catch(() => ({}));
-    throw new Error(plainHttpError(response.status, detail.detail));
-  }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();

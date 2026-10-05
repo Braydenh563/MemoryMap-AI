@@ -36,9 +36,11 @@ from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES, GZipMiddle
 from memorymap import __version__
 from memorymap.ai import autonomous, embeddings
 from memorymap.search import searxng_manager
+from memorymap.api import versioning
 from memorymap.api import (
     asset_strip,
     routes_ask_history,
+    routes_capabilities,
     routes_auth,
     routes_bookmarks,
     routes_categories,
@@ -256,6 +258,15 @@ def served_index_html() -> bytes:
     return body
 
 
+class _UnversionedStatic(StaticFiles):
+    """A static folder that is not part of the API, so not under `/api/v1`."""
+
+    async def get_response(self, path: str, scope):
+        if versioning.is_versioned(scope):
+            raise StarletteHTTPException(status_code=404)
+        return await super().get_response(path, scope)
+
+
 class RevalidatedStatic(StaticFiles):
     """The frontend, served so a cache can never hand back yesterday's build.
 
@@ -318,6 +329,9 @@ class RevalidatedStatic(StaticFiles):
     _INDEX_PATHS = ("", ".", "index.html")
 
     async def get_response(self, path: str, scope):
+        #: `/api/v1` is the API and nothing else (H4, `api/versioning.py`).
+        if versioning.is_versioned(scope):
+            raise StarletteHTTPException(status_code=404)
         #: `super().get_response` raises this same 405 for anything but
         #: GET/HEAD; the bypass above skips straight past that check along
         #: with the conditional-request one, so it has to raise it itself.
@@ -1144,6 +1158,9 @@ def create_app() -> FastAPI:
         # script-src-elem: inline" after any frontend update, until restart).
         csp=security.CspForPage(FRONTEND_DIR / "index.html"),
     )
+    # Outermost, so every check above sees the path without its `/api/v1`
+    # and an agent-named request is named for everything inside it (H4).
+    app.add_middleware(versioning.ApiVersionMiddleware)
 
     # Everything that touches the user's data sits behind the unlock
     # gate; /auth itself and /health stay open.
@@ -1209,6 +1226,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_board_library.router, dependencies=locked)
     app.include_router(routes_debug.router, dependencies=locked)
     app.include_router(routes_privacy.router, dependencies=locked)
+    app.include_router(routes_capabilities.router, dependencies=locked)
 
     @app.get("/openapi.json", include_in_schema=False, dependencies=locked)
     def openapi_schema() -> JSONResponse:
@@ -1306,7 +1324,7 @@ def create_app() -> FastAPI:
     # "/"; plain static files, no data behind them.
     tools_dir = FRONTEND_DIR.parent / "tools"
     if tools_dir.is_dir():
-        app.mount("/tools", StaticFiles(directory=tools_dir), name="tools")
+        app.mount("/tools", _UnversionedStatic(directory=tools_dir), name="tools")
 
     # Mounted last so the API routes above always win; html=True makes
     # "/" serve frontend/index.html.

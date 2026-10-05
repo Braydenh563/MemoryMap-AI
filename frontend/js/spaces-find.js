@@ -296,7 +296,7 @@ const SPACE_ICONS = [
 let spacesCache = [];
 
 function activeSpaceId() {
-  return localStorage.getItem("spaceId") || SPACE_ALL;
+  return prefs.get("spaceId", null) || SPACE_ALL;
 }
 
 function setActiveSpace(id) {

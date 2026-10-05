@@ -24,6 +24,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import StreamingResponse, FileResponse
+
+from memorymap.api import paging
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -1180,8 +1182,12 @@ def list_skills() -> dict:
     """
     from memorymap.ai import tools
 
+    from memorymap.ai import skill_folder
+    from memorymap.api.routes_debug import shown_path
+
+    config = deps.get_config()
     catalog = []
-    for skill in skills.catalog(deps.get_config(), set(tools.TOOLS)):
+    for skill in skills.catalog(config, set(tools.TOOLS)):
         # "This one changes things" is a different question from "this one
         # uses tools", and the UI marks it as such. A skill with steps but no
         # declared tools could do anything, so it counts.
@@ -1192,8 +1198,16 @@ def list_skills() -> dict:
                 or (not skill["tools"] and bool(skill["steps"])),
             }
         )
+    where = skill_folder.folder(config)
     return {
         "skills": catalog,
+        #: The user skills folder (B8): where to drop a `.md` skill, and every
+        #: file there that did not load, with why, so a file that is not in
+        #: the menu says so rather than being silently absent.
+        "folder": {
+            "path": shown_path(where) if where else "",
+            "problems": skills.folder_skills(config, set(tools.TOOLS))[1],
+        },
         "limits": {
             "skills": skills.MAX_SKILLS,
             "steps": skills.MAX_STEPS,
@@ -1259,11 +1273,14 @@ MEMORY_PAGE_SIZE_MAX = 1000
 
 @router.get("/memory")
 def list_memory(
+    response: Response,
     limit: int = Query(default=MEMORY_PAGE_SIZE, ge=1, le=MEMORY_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     session: Session = Depends(get_session),
 ) -> dict:
     """A page of what the AI has been told to remember, newest first."""
+    offset = paging.start(cursor, offset)
     from memorymap.ai import memory
     from memorymap.core.database import UserPreference
 
@@ -1276,6 +1293,7 @@ def list_memory(
             .offset(offset)
         )
     )
+    paging.finish(response, offset, limit, total)
     return {
         "preferences": [_preference_out(r) for r in rows],
         "total": total,

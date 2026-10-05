@@ -53,7 +53,7 @@ def test_clear_forgets_every_count(client):
 def test_the_ledger_is_never_sent_anywhere():
     """The page posts only to this app's own `/usage`; nothing else names it."""
     js = "\n".join(p.read_text(encoding="utf-8") for p in (ROOT / "frontend" / "js").glob("*.js"))
-    assert re.findall(r"fetch\(\"(/usage[^\"]*)\"", js) == ["/usage"]
+    assert re.findall(r"(?:fetch|api)\(\"(/usage[^\"]*)\"", js) == ["/usage"]
     assert "usage.json" not in (ROOT / "src" / "memorymap" / "core" / "privacy_http.py").read_text(encoding="utf-8")
 
 

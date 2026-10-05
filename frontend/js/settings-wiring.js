@@ -302,7 +302,7 @@ document.addEventListener("keydown", (event) => {
 // Seed the stack with wherever the app opened, or the first tab clicked has
 // nothing behind it and Back stays dead until the second navigation, which
 // reads as the button being broken rather than empty.
-recordTabVisit(localStorage.getItem("activeTab") || "dashboard", null);
+recordTabVisit(prefs.get("activeTab", null) || "dashboard", null);
 $("save-btn").addEventListener("click", saveEntry);
 $("save-draft-btn").addEventListener("click", saveEntryAsDraft);
 $("ask-btn").addEventListener("click", () => askQuestion()); // no event as preset
@@ -352,7 +352,7 @@ $("lock-btn").addEventListener("click", lockNow);
 window.addEventListener("storage", (event) => {
   if (event.storageArea !== localStorage) return;
   if (event.key !== null && event.key !== "token") return;
-  if (localStorage.getItem("token")) return; // a sign-in elsewhere, not a lock
+  if (prefs.get("token", null)) return; // a sign-in elsewhere, not a lock
   // Already locked, unless the overlay is only asking for a password.
   if (!$("lock-overlay").classList.contains("hidden") && $("lock-overlay").dataset.mode !== "prompt") return;
   lockedByHand = true; // a lock elsewhere is a lock here: no quiet new session
@@ -883,11 +883,11 @@ function activeOverlay() {
 //: it is silent and permanent: the offer writes `tourDone` either way, so this
 //: runs at most once per notebook.
 function maybeShowOnboarding() {
-  if (!localStorage.getItem("onboardingDone")) {
+  if (!prefs.get("onboardingDone", null)) {
     openOnboarding();
     return;
   }
-  if (localStorage.getItem("tourDone")) return;
+  if (prefs.get("tourDone", null)) return;
   if (typeof openTour !== "function") return;
   if (typeof TOUR_ENABLED !== "undefined" && !TOUR_ENABLED) return;
   localStorage.setItem("tourDone", "1");
@@ -1031,7 +1031,7 @@ const SHORTCUT_STORE = "keyboardShortcuts";
 function loadShortcuts() {
   let saved = {};
   try {
-    saved = JSON.parse(localStorage.getItem(SHORTCUT_STORE) || "{}");
+    saved = prefs.json(SHORTCUT_STORE, {});
   } catch {
     saved = {}; // unreadable: fall back to defaults rather than throwing
   }
@@ -1331,7 +1331,7 @@ function runShortcut(id) {
       else closeFinder();
     },
     search: () => {
-      if (localStorage.getItem("activeTab") === "chat") {
+      if (prefs.get("activeTab", null) === "chat") {
         $("chat-input").focus();
       } else {
         switchTab("notes");
@@ -1375,7 +1375,7 @@ function runShortcut(id) {
     // which no generic DOM search can. Everywhere else opens the global
     // one below, scoped to whichever tab-page is currently visible.
     find: () => {
-      if (localStorage.getItem("activeTab") === "documents") toggleDocFindBar(true);
+      if (prefs.get("activeTab", null) === "documents") toggleDocFindBar(true);
       else openGlobalFind();
     },
     //: Acts on whichever editing surface has focus, which is the only sane
@@ -1648,7 +1648,7 @@ async function loadForgottenOrder() {
 
 //: Remembered like the page size beside it (INBOX 432: it reset on reload).
 try {
-  const kept = localStorage.getItem("notes-sort");
+  const kept = prefs.get("notes-sort", null);
   if (kept && [...$("note-sort").options].some((o) => o.value === kept)) noteSort = kept;
 } catch {
   /* storage blocked: newest, as before */
@@ -1775,7 +1775,7 @@ const STAGED_IN_DRAFT = /!\[[^\]\n]{0,200}\]\(staged:[^)\n]{1,120}\)\n?/g;
 
 // Restore an unsaved draft on load.
 (() => {
-  const stored = localStorage.getItem("captureDraft");
+  const stored = prefs.get("captureDraft", null);
   if (!stored) return;
   const draft = stored.replace(STAGED_IN_DRAFT, "");
   const lostImages = draft !== stored;
@@ -1812,7 +1812,7 @@ const STAGED_IN_DRAFT = /!\[[^\]\n]{0,200}\]\(staged:[^)\n]{1,120}\)\n?/g;
 for (const [id, key] of [["entry-title", "captureDraftTitle"], ["entry-tags", "captureDraftTags"]]) {
   const field = $(id);
   try {
-    field.value ||= localStorage.getItem(key) || "";
+    field.value ||= prefs.get(key, null) || "";
   } catch {}
   field.addEventListener("input", () => {
     try {
@@ -2163,17 +2163,12 @@ async function uploadStagedFiles(entryId) {
   for (const file of staged) {
     const form = new FormData();
     form.append("file", file);
-    // Raw fetch: multipart must NOT get the JSON content-type header.
-    const response = await fetch(`/entries/${entryId}/files`, {
-      method: "POST",
-      // Same gap as the composer's own version of this call, above.
-      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
-      body: form,
-    });
-    if (!response.ok) {
+    // `api.upload` (F5): multipart keeps its own type, and both headers ride.
+    try {
+      await api.upload(`/entries/${entryId}/files`, form);
+    } catch (error) {
       failures++;
-      const detail = await response.json().catch(() => ({}));
-      toast(plainHttpError(response.status, detail.detail, `${file.name}: couldn't attach. Try again.`), true);
+      toast(`${file.name}: ${error.message}`, true);
     }
   }
   // Only mentioned when it worked; a failure already said so, per file, and
@@ -2320,7 +2315,7 @@ if ($("entry-attach-existing")) {
 //: browser, like the other keyboard preferences); on by default.
 function singleKeysOn() {
   try {
-    return localStorage.getItem("singleKeys") !== "off";
+    return prefs.get("singleKeys", null) !== "off";
   } catch {
     return true;
   }

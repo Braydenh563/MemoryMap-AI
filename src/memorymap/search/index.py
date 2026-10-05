@@ -778,14 +778,12 @@ def _attachment_row(att) -> Row | None:  # noqa: ANN001
     """
     if att is None:
         return None
-    parts = [
-        getattr(att, "caption", None),
-        getattr(att, "ocr_text", None),
-        getattr(att, "vision_ocr_text", None),
-    ]
+    from memorymap.core import readings
+
     return Row(
         title=att.filename or "",
-        body="\n".join(part for part in parts if part),
+        # Every reading, pages included (F10, `core/readings.text_of`).
+        body=readings.text_of(att, "attachment"),
         tags=getattr(att, "mime", "") or "",
         space=getattr(att, "workspace_id", "default") or "default",
         written=_written(getattr(att, "created_at", None)),
@@ -795,10 +793,13 @@ def _attachment_row(att) -> Row | None:  # noqa: ANN001
 def _media_row(media) -> Row | None:  # noqa: ANN001
     if media is None:
         return None
-    parts = [getattr(media, "caption", None), getattr(media, "ocr_text", None)]
+    from memorymap.core import readings
+
     return Row(
         title=getattr(media, "original_name", "") or "",
-        body="\n".join(part for part in parts if part),
+        # Every reading (F10): the vision model's reading of an upload, and
+        # its pages, were the two the search could not find words in.
+        body=readings.text_of(media, "upload"),
         space=getattr(media, "workspace_id", "default") or "default",
         written=_written(getattr(media, "created_at", None)),
     )

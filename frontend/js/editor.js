@@ -714,7 +714,7 @@ const EDITOR_RECENT_KEY = "editorRecentBlocks";
 //: is read and written behind try/catch and an empty answer is fine.
 function editorRecentIds() {
   try {
-    const ids = JSON.parse(localStorage.getItem(EDITOR_RECENT_KEY) || "[]");
+    const ids = prefs.json(EDITOR_RECENT_KEY, []);
     return Array.isArray(ids) ? ids.filter((id) => typeof id === "string") : [];
   } catch {
     return [];

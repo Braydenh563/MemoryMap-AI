@@ -59,7 +59,7 @@ function applySimpleMode(on) {
     // A private window can refuse storage; the mode still applies for now.
   }
   //: The tab in front would vanish under the person: go to the dashboard.
-  if (on && SIMPLE_HIDDEN_TABS.includes(localStorage.getItem("activeTab"))) switchTab("dashboard");
+  if (on && SIMPLE_HIDDEN_TABS.includes(prefs.get("activeTab", null))) switchTab("dashboard");
 }
 
 function renderSimpleMode() {

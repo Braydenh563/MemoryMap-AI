@@ -35,7 +35,7 @@ function notesSpyActive() {
   return (
     notesRailWide.matches &&
     !notesRailHiddenByChoice() &&
-    localStorage.getItem("activeTab") === "notes" &&
+    prefs.get("activeTab", null) === "notes" &&
     !$("browse")?.classList.contains("hidden")
   );
 }

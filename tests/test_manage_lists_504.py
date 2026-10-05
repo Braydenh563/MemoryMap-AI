@@ -41,7 +41,7 @@ def test_both_panels_share_one_tool_row_and_one_set_of_helpers() -> None:
 
 def test_the_sort_is_remembered_safely() -> None:
     stored = _body(TAGS, "function manageStored(key, fallback)")
-    assert "try {" in stored and "localStorage.getItem" in stored
+    assert "try {" in stored and "prefs.get(" in stored
     assert 'manageStored("manage-tags-sort", "count")' in TAGS
     assert 'manageStored("manage-categories-sort", "name")' in CATS
 

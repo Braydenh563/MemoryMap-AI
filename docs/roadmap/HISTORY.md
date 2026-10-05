@@ -41167,6 +41167,180 @@ The two cheap additions the plan's research section named (decisions 11 to
 - Help: the '?' popover and the Guide's timeline topic (which still described
   the grid and line views of 2026-09) say both.
 
+## Moved from the plans, 2026-10-05 (B7)
+
+### From WORLD_CLASS_PLAN.md B7: the state line it replaced
+
+**State 2026-09-24:** (b) the error shape exists, the schema is behind the unlock (`tests/test_openapi_gate.py`), and every list takes a `limit` (`tests/test_list_limits.py`). Not built: cursor pagination, ETags and `If-Match` on entries, and `/capabilities`. M.
+
+### Built 2026-10-05 (row 16)
+
+- **One paging contract** (`api/paging.py`): every route that pages by
+  `offset` (18 of them) also takes `?cursor=` and answers `X-Next-Cursor`
+  while there is more; no header means the list is finished. A header, not a
+  `next_cursor` field, because the twenty array-shaped responses are read as
+  arrays by the page and by any outside caller; `offset` is unchanged. A
+  cursor of the wrong kind for its route is a 422, never a silent first page.
+- **The notes list's cursor is a keyset** over `(pinned, created_at, id)`,
+  so a note saved between two page requests neither repeats a row nor hides
+  one (`test_a_note_saved_between_pages_does_not_repeat_a_row` fails on an
+  offset). The other lists carry an offset cursor: small, ordered by a score
+  or a merge, or read once into a dialog, where a keyset buys nothing.
+- **ETags and `If-Match` on entries**: `GET /entries/{id}` and a `PUT` answer
+  `ETag: "<content_hash>"`, the hash the editor already sends as `base_hash`;
+  a `PUT` or `DELETE` with an `If-Match` naming no current version is refused
+  with 412, `code: precondition_failed` and the current note, before anything
+  is written. `*` matches; a weak tag never does (RFC 9110).
+- **`GET /capabilities`**: what this install has, every field a look at the
+  disk or a preference and never a call to a model server: the transcriber,
+  Tesseract, the Office importer, the embedding backend, the read-aloud
+  engine, the MCP server, LAN mode, the API version and how to page and guard
+  writes. Behind the unlock.
+- Tests: `tests/test_api_contract_b7.py` (10), including a lint that every
+  route with an `offset` takes a `cursor`.
+- Not verified: no page code follows the cursor yet (the lists still page by
+  offset, which keeps working), and nothing in the page reads `/capabilities`.
+
+## Moved from the plans, 2026-10-05 (B8, H4)
+
+### From WORLD_CLASS_PLAN.md B8 and H4: the state lines they replaced
+
+**B8, state 2026-09-24:** (b) the MCP server exists (`src/memorymap/mcp_server.py`) and the registry is served over HTTP (`GET /chat/tools`, `POST /chat/tools/execute`); a user skills folder of Markdown files picked up without a restart does not. M.
+
+**H4, state 2026-09-24:** (b) the MCP server exists (`mcp_server.py`); a versioned `/api/v1` and the agent named in the event log for an external write were not found. M.
+
+### Built 2026-10-05 (row 17)
+
+- **The user skills folder** (`ai/skill_folder.py`): `<data dir>/skills/*.md`
+  is read on every skill-list request and a file is parsed again only when
+  its modification time or size moves, so a file dropped in is in Settings,
+  Skills and the chat's Skills menu (which now asks again each time it opens)
+  without a restart, and leaves when the file does. The file's name is the
+  skill's name unless front matter says otherwise; front matter carries the
+  description, `when`, `tools` and `inputs`; a `## Steps` list is the steps.
+  Every field passes `skills.normalise`, the check a typed skill passes. A
+  file that does not load, or names a skill that already exists, is listed
+  in Settings with the reason; the app never edits or deletes the file
+  (`delete_skill` refuses with "delete the file").
+- **`/api/v1`** (`api/versioning.py`): every API route at `/x` is also at
+  `/api/v1/x`, the same handler behind the same unlock (a pure ASGI layer
+  outermost, so every check sees the bare path); the page's files are not
+  under it (404), every response under it says `API-Version: 1`, and the
+  schema is `/api/v1/openapi.json`, behind the unlock.
+- **The agent named** (`events.as_agent`, `agent:<tool>@<who>`): an MCP
+  client's `clientInfo.name`, or `X-MemoryMap-Agent` on any request, files
+  every change the call makes under that name; History and the activity
+  list say "<who> (agent)" and the activity list offers to undo it, as for
+  Atlas.
+- Tests: `tests/test_local_service_h4.py` (9).
+- Not verified: the Skills menu refreshing on open was not driven in a
+  browser; no real MCP client was connected.
+
+## Moved from the plans, 2026-10-05 (19.3, 19.5)
+
+### From WORLD_CLASS_PLAN.md 19.3 and 19.5: the state lines they replaced
+
+**19.3, state 2026-09-24:** (b) the index checks exist (`tests/test_entry_indexes.py`, `tests/test_db_pragmas_and_indexes.py`); the whole-query-set `EXPLAIN QUERY PLAN` pass was not found. S.
+
+**19.5, state 2026-09-24:** (b) N+1 on the list paths has a test (`tests/test_scale_query_counts.py`); the event bus, the job queue's back-pressure and the Windows frozen startup are open. S each.
+
+### Built 2026-10-05 (row 28, two of its items)
+
+- **The pass** (`scratchpad/plat1005_query_plans.py`): a 5,000-note notebook
+  (with 20,000 events, 5,000 uploads, 1,000 documents and chats, links,
+  reminders, the bin and the archive), every GET route that needs at most an
+  entry id, every distinct SELECT they ran planned and timed.
+- **The finding.** Every list index led with `workspace_id`, measured with
+  one space selected; the page's default, All spaces, sends no equality on
+  it, so in the view most people are in every list sorted its whole table.
+  Twelve indexes on the lists' own orders (`database._INDEXES`, "the
+  all-spaces orders"), each statement alone before and after: the notes
+  list's page "TEMP B-TREE" to index order (25 to 40 ms, the page of 1,000
+  rows itself now the cost), the Library's notes 36 to 0.2 ms, its activity
+  76.6 to 4.4 ms, the Timeline's page 35.8 to 0.15 ms, the bin 4.3 to 0.3 ms.
+- **The trap, measured and kept out.** A first cut led the new indexes with
+  `is_deleted` like the scoped ones, and with no `ANALYZE` statistics SQLite
+  took `is_deleted = 0` (and `archived_at IS NULL`) as selective lookups:
+  "every live note by id" turned from a table read into a lookup plus a sort
+  (duplicates 69.6 to 98.1 ms, a note's connections 31.9 to 40.0 ms) and the
+  main list sorted again. The orders alone, and the bin's and archive's as
+  partial indexes only their own WHERE can match, fixed both;
+  `tests/test_query_plans.py` holds the lists in index order and the
+  by-id reads as table reads.
+- **Back-pressure, measured** (`tests/test_job_backpressure.py`): a model
+  lane held busy and 2,000 captions queued behind it; an enqueue costs 53
+  microseconds and a queued job holds 484 bytes, so the queue needs no
+  bound. The activity panel did: `pending()` sent one row per queued job,
+  347 KB of JSON on every `/tasks` poll. It now sends the running jobs, the
+  next ten waiting of each kind and one "N more queued" row per kind;
+  `/debug/health`'s queue depth counts the folded rows.
+- Not measured: a durable job's enqueue (it writes its `jobs` row) under a
+  2,000-file drop; the event bus.
+
+## Moved from the plans, 2026-10-05 (F7, F10)
+
+### From WORLD_CLASS_PLAN.md section 10: the rows as they stood
+
+- F7 (b) the pool is built (A3); a ratchet holds the thread sites at 13 modules (`tests/test_flaw_class_lints.py`, 2026-09-26). Left: moving them onto `core/jobs.py` one at a time, lowering the ratchet each time. M.
+- F10 (c) no `readings` table (`page_reads` is document pages only). M.
+
+### Built 2026-10-05 (row 29, F7 in part and F10)
+
+- **F7.** The whole-notebook re-index runs on the pool, on a `batch` lane of
+  one worker (on `model` it would have held every caption and every new
+  note's filing for its whole run), and the model capability probe, a short
+  HTTP call, on the `cpu` lane; both are kept off the activity list (the
+  re-index has its own row). `THREAD_SITES` lowered for both modules
+  (`tests/test_f7_pool_moves.py`).
+- **F10, as a view.** A file's text was in five places (`caption`,
+  `ocr_text`, `vision_ocr_text` on two tables, and `page_reads`); the search
+  index read three for an attachment and two for an upload, so an upload's
+  vision reading and every page read in the OCR workspace could not be found
+  by their words. `readings(source, source_id, kind, page, text, model, ts)`
+  is a SQLite view over all five, replaced at startup when its definition
+  changes; a view rather than a table the writers move onto, so the four
+  extractors, the caption editor and the page reader keep writing where they
+  write and the read model cannot drift. `GET /files/readings?source=&id=`
+  returns every reading in one shape (a private note's file is a 404); the
+  index takes every kind (`readings.text_of`), and a page read or described
+  re-indexes its file in the same transaction (`tests/test_readings_f10.py`).
+- Not built: the Files card drawing from the route (one renderer).
+
+## Moved from the plans, 2026-10-05 (F1, F5, F12)
+
+### From WORLD_CLASS_PLAN.md section 10: the rows as they stood
+
+- F1 (c) no `prefs` module; 171 direct `localStorage.getItem` calls. M.
+- F5 (b) every bare `fetch` must carry the auth header (`tests/test_raw_fetch_headers.py`); the `api.stream`/`api.upload` helpers and the no-bare-fetch lint are not built. S.
+- F12 (c) no store. L.
+
+### Built 2026-10-05 (row 29, F1, F5 and F12's first slice)
+
+- **F5.** `api()` is the one door: a `FormData` body keeps the browser's
+  multipart type, a caller's headers merge with the auth and space headers
+  instead of replacing them, and the `Response` it returns is read as a
+  stream. `api.upload` and `api.stream` name the two shapes. Twenty bare
+  `fetch` calls moved onto it (the chat, Guide, draft, document check and
+  both log streams; every upload and import; the exports; the support
+  bundle; the inline pictures of an export; the dictionary); seven stay,
+  each with its reason, in `tests/test_no_bare_fetch.py` (app.js's own three,
+  the boot guard, the server-down probes, a `blob:` address).
+- **F1.** `prefs.js`, loaded after app.js: `prefs.get` never throws and never
+  returns `undefined`, `prefs.json` returns the shape asked for or the
+  default, `prefs.number` a finite number in range (the NaN class: zoom, the
+  graph's gravity and spread), a schema with a version per key and
+  `prefsMigrate`. All 29 `JSON.parse(localStorage.getItem(...))` reads and
+  the other 195 direct reads go through it, except the three scripts that
+  run before it; `tests/test_prefs_module.py` holds that and runs the module
+  in node against blocked storage and bad values.
+- **F12, the first slice.** `store.js` (`appState.get/set/subscribe/when`).
+  The `notes` slice is published by both writers of `allEntries`; the
+  dashboard's notebook-wide widgets wait for it at boot instead of asking
+  `/entries` for the same rows a second time (`tests/test_store_module.py`).
+  The notes list also follows `X-Next-Cursor` now (B7's keyset), so a note
+  saved during a long load is not listed twice.
+- Not verified in a browser beyond the sweeps named in the commit.
+
 ## INBOX resolved, 2026-10-05
 
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs

@@ -33,13 +33,10 @@ async function importFromApp(spec) {
   for (const file of files) form.append("files", file, file.webkitRelativePath || file.name);
   setLabel(status, `ph:spin Importing from ${spec.label}…`);
   try {
-    const response = await fetch(`/import/app?source=${spec.source}`, {
-      method: "POST",
-      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
-      body: form,
-    });
+    //: `api.upload` throws the server's own words on a refusal; the catch
+    //: below shows them.
+    const response = await api.upload(`/import/app?source=${spec.source}`, form);
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(typeof body.detail === "string" ? body.detail : `Couldn't import from ${spec.label}.`);
     const parts = [`Imported ${body.imported} note${body.imported === 1 ? "" : "s"} from ${spec.label}.`];
     if (body.already) parts.push(`${body.already} ${body.already === 1 ? "was" : "were"} already here.`);
     if (body.skipped && body.skipped.length) parts.push(`Left out ${body.skipped.length}: ${body.skipped.slice(0, 2).join("; ")}.`);

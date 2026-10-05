@@ -209,7 +209,7 @@ function sketchContext() {
 // Persisted the same way the whiteboard's own board colour is (a
 // `localStorage` key, not a preference, a look, not notebook data).
 const SKETCH_BG_KEY = "sketch-bg-color";
-let sketchBgColor = localStorage.getItem(SKETCH_BG_KEY) || "#ffffff";
+let sketchBgColor = prefs.get(SKETCH_BG_KEY, null) || "#ffffff";
 
 function sketchDrawBackground() {
   const canvas = $("sketch-bg-canvas");
@@ -678,13 +678,8 @@ async function toggleDictation(button, targetInput) {
     form.append("file", blob, "clip.webm");
     toast("Transcribing…");
     try {
-      const response = await fetch("/voice/transcribe", {
-        method: "POST",
-        headers: { "X-Auth-Token": authToken() },
-        body: form,
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(plainHttpError(response.status, body.detail, "The transcription did not work. Try again."));
+      // `api.upload` (F5); a refusal throws the server's sentence.
+      const body = await (await api.upload("/voice/transcribe", form)).json();
       const box = recorderTarget;
       box.value = box.value ? `${box.value.trimEnd()} ${body.text}` : body.text;
       box.focus();
@@ -942,13 +937,7 @@ async function toggleMeetingRecording() {
     $("meeting-status").textContent =
       "Transcribing… a long recording can take a while on CPU.";
     try {
-      const response = await fetch("/voice/transcribe-meeting", {
-        method: "POST",
-        headers: { "X-Auth-Token": authToken() },
-        body: form,
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(plainHttpError(response.status, body.detail, "The transcription did not work. Try again."));
+      const body = await (await api.upload("/voice/transcribe-meeting", form)).json();
       $("meeting-status").textContent = "Transcribed: review it below before saving.";
       $("meeting-transcript").value = body.text;
       $("meeting-transcript").classList.remove("hidden");

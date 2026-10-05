@@ -1160,8 +1160,7 @@ const ZOOM_MAX = 130;
 const ZOOM_STEP = 5;
 
 function currentZoom() {
-  const stored = Number(localStorage.getItem("zoom"));
-  return Number.isFinite(stored) && stored ? stored : 100;
+  return prefs.number("zoom", 100, { min: ZOOM_MIN, max: ZOOM_MAX }) || 100;
 }
 
 function setZoom(percent) {

@@ -74,7 +74,7 @@ def _cpu_width() -> int:
 
 #: Lane -> how many workers it gets. `model` is 1 on purpose; see the module
 #: docstring. Read by `tests/test_jobs_pool.py`, which fails if it grows.
-LANE_WIDTHS: dict[str, int] = {"cpu": _cpu_width(), "model": 1}
+LANE_WIDTHS: dict[str, int] = {"cpu": _cpu_width(), "model": 1, "batch": 1}
 
 #: The lane each job kind belongs on. A kind missing from here lands on
 #: `DEFAULT_LANE` with a debug line rather than raising.
@@ -88,15 +88,29 @@ KIND_LANES: dict[str, str] = {
     "maintenance": "cpu",
     "bench": "model",
     "warm": "model",
+    # F7, the threads onto the pool (2026-10-05). A whole-notebook pass gets a
+    # lane of its own: on `model` it would hold every caption and every new
+    # note's filing until it finished, which is minutes on a large notebook.
+    "reindex": "batch",
+    # Asking the model server what a model can do: a short HTTP call, no
+    # model loaded, so it waits behind nothing on the I/O-shaped lane.
+    "model-info": "cpu",
 }
 
 DEFAULT_LANE = "cpu"
+
+#: How many waiting jobs of one kind `pending()` lists by name before it
+#: counts the rest in one row (19.5: a dropped folder of 2,000 pictures made
+#: every activity-panel poll 2,000 rows). The queue itself is not bounded:
+#: measured, an enqueue costs 53 microseconds and a queued job 484
+#: bytes, and refusing work would lose a reading the person asked for.
+PENDING_ROWS_PER_KIND = 10
 
 #: Kinds that are the app's own housekeeping, not something the person asked
 #: for: the privacy ledger's flush (`core/egress.py`) queues one within a
 #: second of any connection that leaves this computer, and a row in the
 #: activity panel for it would be noise that says nothing they can act on.
-QUIET_KINDS = frozenset({"ledger", "maintenance", "warm"})
+QUIET_KINDS = frozenset({"ledger", "maintenance", "warm", "model-info", "reindex"})
 
 
 def _start_heartbeat(target):  # noqa: ANN001, ANN202
@@ -373,9 +387,18 @@ class Pool:
             )
             running = set(self._running)
         rows = []
+        #: Back-pressure on the panel (19.5): the running jobs, the next few
+        #: waiting of each kind, then one row per kind with the rest counted.
+        shown: dict[str, int] = {}
+        hidden: dict[str, int] = {}
         for job in jobs:
             label = LABELS.get(job.kind, "Background job")
             waiting = job.seq not in running
+            if waiting:
+                shown[job.kind] = shown.get(job.kind, 0) + 1
+                if shown[job.kind] > PENDING_ROWS_PER_KIND:
+                    hidden[job.kind] = hidden.get(job.kind, 0) + 1
+                    continue
             rows.append(
                 {
                     "kind": f"job-{job.kind}",
@@ -391,6 +414,20 @@ class Pool:
                     #: The `jobs` row, for `/jobs/{id}/cancel`; None when
                     #: this process alone knows the job.
                     "job_id": job.durable_id,
+                }
+            )
+        for kind, count in hidden.items():
+            rows.append(
+                {
+                    "kind": f"job-{kind}",
+                    "name": "",
+                    "label": LABELS.get(kind, "Background job"),
+                    "detail": f"{count:,} more queued",
+                    "progress": None,
+                    "log": [],
+                    "queued": True,
+                    "job_id": None,
+                    "more": count,
                 }
             )
         return rows

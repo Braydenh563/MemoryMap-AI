@@ -60,7 +60,7 @@ async function checkForUpdate(silent = false) {
     // colour prefs above). Re-showing it every login for a version the
     // user has already dismissed would be the exact nagging this was
     // asked to avoid.
-    if (silent && localStorage.getItem(UPDATE_SEEN_KEY) !== result.latest) {
+    if (silent && prefs.get(UPDATE_SEEN_KEY, null) !== result.latest) {
       showUpdateAvailableDialog(result);
     } else {
       toast(msg);
@@ -82,7 +82,7 @@ async function askUpdateChoiceOnce() {
   //: run's first step timed out on it). It waits for the welcome to close.
   let welcoming = false;
   try {
-    welcoming = !localStorage.getItem("onboardingDone");
+    welcoming = !prefs.get("onboardingDone", null);
   } catch {
     welcoming = false;
   }

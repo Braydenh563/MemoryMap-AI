@@ -1729,7 +1729,7 @@ window.addEventListener("beforeunload", (event) => {
 let tabSwitchDeclined = false;
 async function confirmLeavingUnsavedWork(name) {
   tabSwitchDeclined = false;
-  if (localStorage.getItem("activeTab") === name) return true;
+  if (prefs.get("activeTab", null) === name) return true;
   if (!hasUnsavedWork()) return true;
   const leave = await confirmDialog(
     "Leave without saving?\n\nWhat you were working on here hasn't been saved yet."
@@ -1765,7 +1765,8 @@ function usageFlush() {
   usageState.timer = null;
   if (!usageQueue.length || !authToken()) return;
   const features = usageQueue.splice(0, 200);
-  fetch("/usage", { method: "POST", keepalive: true, headers: { "Content-Type": "application/json", "X-Auth-Token": authToken() }, body: JSON.stringify({ features }) }).catch(backgroundWriteFailed);
+  //: `readOnly`: the count changes nothing the read cache holds.
+  api("/usage", { method: "POST", keepalive: true, silent: true, readOnly: true, body: JSON.stringify({ features }) }).catch(backgroundWriteFailed);
 }
 document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && usageFlush());
 
@@ -1810,7 +1811,7 @@ async function switchTab(name) {
   // safe to call unconditionally on leaving: `renderGraph()` already
   // creates a fresh simulation on the next visit regardless of whether the
   // old one was still running or already stopped.
-  const leavingGraph = localStorage.getItem("activeTab") === "graph" && name !== "graph";
+  const leavingGraph = prefs.get("activeTab", null) === "graph" && name !== "graph";
   recordTabVisit(name);
   //: The next 400ms belong to the page arriving (INBOX 580): the companion's
   //: paced animations hold still through them (`nameMarkBuddyTempo`), so the
@@ -1921,13 +1922,13 @@ async function switchTab(name) {
     
     // Same for what the colours mean: a saved setting the control does not
     // show is a control that lies about the map beside it.
-    const savedColour = localStorage.getItem("graph-colour");
+    const savedColour = prefs.get("graph-colour", null);
     const colourSelect = document.getElementById("graph-colour");
     if (savedColour && colourSelect && [...colourSelect.options].some((o) => o.value === savedColour)) {
       colourSelect.value = savedColour;
     }
     //: And what the sizes mean (INBOX 430), the same way.
-    const savedSize = localStorage.getItem("graph-size");
+    const savedSize = prefs.get("graph-size", null);
     const sizeSelect = document.getElementById("graph-size");
     if (savedSize && sizeSelect && [...sizeSelect.options].some((o) => o.value === savedSize)) {
       sizeSelect.value = savedSize;
@@ -1935,8 +1936,8 @@ async function switchTab(name) {
     // Match the saved layout on arrival, not only on change, otherwise a
     // notebook left on Tree comes back with two live-looking dead sliders.
     setGraphPhysicsEnabled(graphLayout());
-    setGraphOptionsOpen(localStorage.getItem("graph-options-open") === "1");
-    setTracePanelOpen(localStorage.getItem("graph-trace-open") === "1");
+    setGraphOptionsOpen(prefs.get("graph-options-open", null) === "1");
+    setTracePanelOpen(prefs.get("graph-trace-open", null) === "1");
     drawing = renderGraph();
   }
   if (name === "timeline") {
@@ -2121,7 +2122,7 @@ function resetNavigationToDefaults() {
 }
 
 function activeNotesSection() {
-  const saved = localStorage.getItem(NOTES_SECTION_STORE);
+  const saved = prefs.get(NOTES_SECTION_STORE, null);
   return NOTES_SECTIONS.includes(saved) ? saved : "browse";
 }
 
@@ -2153,7 +2154,7 @@ function showNotesSection(name, { focus = false } = {}) {
   // Back went somewhere you had never been, and the owner reported exactly
   // that. `revealTab` writes `activeTab` before any of a tab's own loading
   // runs, so by the time a real arrival calls this, it reads "notes".
-  if ((localStorage.getItem("activeTab") || "dashboard") === "notes") {
+  if ((prefs.get("activeTab", null) || "dashboard") === "notes") {
     recordTabVisit("notes", wanted);
   }
   for (const id of NOTES_SECTIONS) {
@@ -2272,7 +2273,7 @@ function chatMessagesEl() {
 }
 
 function scrollTopTargetEl() {
-  const tab = localStorage.getItem("activeTab") || "dashboard";
+  const tab = prefs.get("activeTab", null) || "dashboard";
   return NESTED_SCROLL_TABS[tab]?.() || scrollingPage();
 }
 
@@ -2477,7 +2478,7 @@ function initScrollTopButton() {
 
   let wasVisible = false;
   const update = () => {
-    const tab = localStorage.getItem("activeTab") || "dashboard";
+    const tab = prefs.get("activeTab", null) || "dashboard";
     const target = scrollTopTargetEl();
     const scrollTop = target?.scrollTop || 0;
     //: Chat flips the button over: it appears when you have scrolled *up*

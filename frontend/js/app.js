@@ -440,16 +440,17 @@ async function api(path, options = {}) {
   let response;
   try {
     response = await fetch(path, {
+      ...fetchOptions,
       headers: {
-        "Content-Type": "application/json",
+        ...(fetchOptions.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
         "X-Auth-Token": authToken(),
         // Which space this request is scoped to. The server reads it in
         // get_session() and adds a loader criterion for it, so leaving it off
         // means every request silently sees every space, the switcher would
         // change the label in the header and nothing else.
         "X-Workspace-ID": activeSpaceId(),
+        ...fetchOptions.headers,
       },
-      ...fetchOptions,
     });
   } catch (networkErr) {
     // fetch() itself threw: this is a real network failure (offline, CORS,
@@ -544,6 +545,9 @@ async function api(path, options = {}) {
   }
   return response;
 }
+// F5 (tests/test_no_bare_fetch.py)
+api.upload = (path, body, options) => api(path, { method: "POST", body, ...options });
+api.stream = api;
 
 // --- reading a paged list endpoint whole ---------------------------------------
 //

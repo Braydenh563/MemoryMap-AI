@@ -27,7 +27,8 @@
   // No look chosen means the default look, Quiet utilitarian (settings.js
   // `DEFAULT_THEME_PRESET`); an explicit choice, "default" (Classic)
   // included, is kept.
-  const preset = THEMES[localStorage.getItem("themePreset") ?? "utilitarian"] || {};
+  const themePreset = localStorage.getItem("themePreset");
+  const preset = THEMES[themePreset ?? "utilitarian"] || {};
   const pref = (key, fallback) =>
     localStorage.getItem(key) ?? preset[key] ?? fallback;
 
@@ -74,7 +75,7 @@
   _r.dataset.perf = perf ? "on" : "off";
   _r.dataset.glass = perf ? "off" : pref("glass", "on");
   _r.dataset.motion = perf ? "reduced" : pref("motion", "auto");
-  _r.dataset.themePreset = localStorage.getItem("themePreset") || "";
+  _r.dataset.themePreset = themePreset || "";
   _r.style.setProperty("--radius", pref("radius", "14") + "px");
   _r.style.setProperty("--glass-blur", pref("glass-blur", "14") + "px");
   _r.style.setProperty("--bg-art-opacity", Number(pref("bg-intensity", "45")) / 100);

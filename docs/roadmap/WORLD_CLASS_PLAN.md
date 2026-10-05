@@ -649,7 +649,7 @@ editor cannot clobber a background AI edit), an OpenAPI schema behind the
 auth gate, and a `/capabilities` endpoint the UI reads once so features
 appear only when their backend is there (OCR, embeddings, TTS).
 
-**State 2026-09-24:** (b) the error shape exists, the schema is behind the unlock (`tests/test_openapi_gate.py`), and every list takes a `limit` (`tests/test_list_limits.py`). Not built: cursor pagination, ETags and `If-Match` on entries, and `/capabilities`. M.
+**State 2026-10-05:** built (cursors on every paged list, ETags and `If-Match` on entries, `/capabilities`); moved to HISTORY.md, "Moved from the plans, 2026-10-05 (B7)". Left: the page's own lists following `X-Next-Cursor` on scroll, and the page reading `/capabilities` once to hide a control whose backend is not installed. S.
 
 **Corrected 2026-10-05 (audit ARCH-12, ARCH-13, ARCH-04).** The error shape did not cover a request that failed validation: a 422 was FastAPI's own `{detail: [...]}` with no `code`, echoing the input (a password among them). It is one shape now (`tests/test_validation_error_shape.py`). "Every list takes a `limit`" holds only for functions named `list_*`, which is what the lint keys on: `/graph`, `/suggestions`, `/entries/link-suggestions`, `/documents/outline` and `/entries/query` are not covered (open). Cursor pagination exists for `GET /entries` (`after`, `X-Next-Cursor`; `tests/test_entries_keyset_paging.py`); the client still pages by offset (frontend audit FE-05).
 
@@ -661,7 +661,7 @@ the skill format). That is the plugin API: a skill is a Markdown file with
 tool calls; a tool is a Python function registered with a contract. Gate:
 a skill dropped into the folder appears in the picker without a restart.
 
-**State 2026-09-24:** (b) the MCP server exists (`src/memorymap/mcp_server.py`) and the registry is served over HTTP (`GET /chat/tools`, `POST /chat/tools/execute`); a user skills folder of Markdown files picked up without a restart does not. M.
+**State 2026-10-05:** built (the user skills folder, read per request); moved to HISTORY.md, "Moved from the plans, 2026-10-05 (B8, H4)". Left: a tool registered from the folder (a Python function with a contract) is not built, by design for now: a skill is Markdown, and code from a folder would need the trust model BACKLOG §29 names.
 
 ---
 
@@ -818,6 +818,10 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 16 | B7 | cursor pagination, ETags and `If-Match` on entries, `/capabilities` | M | `api/` |
 | 17 | B8, H4 | a user skills folder picked up without a restart; `/api/v1`; the agent named on an external write | M | `ai/skills.py`, `mcp_server.py` |
 | 18 | ~~B4~~ | ~~typed links, a derived tensions table, rebuild determinism, the Tensions widget~~ built 2026-10-05 (`tensions` table rebuilt from events, night facts and links, `tests/test_tensions_table_b4.py`; typed links were KG3); left: derived person and project pages, per-claim citations, "what changed about X" | done | HISTORY |
+
+| 16 | ~~B7~~ | ~~cursor pagination, ETags and `If-Match` on entries, `/capabilities`~~ built 2026-10-05 (`api/paging.py`, `routes_capabilities.py`, `tests/test_api_contract_b7.py`); left: the page's own lists following the cursor on scroll, and the page reading `/capabilities` to hide what is not installed | done | HISTORY |
+| 17 | ~~B8, H4~~ | ~~a user skills folder picked up without a restart; `/api/v1`; the agent named on an external write~~ built 2026-10-05 (`ai/skill_folder.py`, `api/versioning.py`, `events.as_agent`, `tests/test_local_service_h4.py`); left: the MCP server running the same tool tests as the in-app agent, and confirm cards for an outside agent's destructive call | done | HISTORY |
+| 18 | B4 | typed links, a derived tensions table, rebuild determinism, the Tensions widget | M to L | `ai/tensions.py`, `ai/entities.py` |
 | 19 | B5, §9 | per-tool pre and post conditions, grammar-forced JSON, evals at 3B and 4B, concurrent tool calls, Ollama's native dialect | M | `ai/tools/`, `tests/test_skills_evals.py` |
 | 20 | I7 | the "Learned from you" line with a filing accuracy number | S | `settings.js` |
 | 21 | ~~I8, H3~~ | ~~the model bench~~ built 2026-10-05: `ai/bench.py`, `/models/bench`, Settings, Models, Test my models (`tests/test_bench_spec.py`); left: a run against a real model for the 30-minute and rerun gates | done | HISTORY |
@@ -837,6 +841,9 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 26 | H7 | boot JS under 1 MB (1,072 KB now), first paint under 300 ms, every list over 200 rows virtualised | S each | `boottime.js` |
 | 27 | ~~H9~~ | ~~usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval~~ built 2026-10-05 (HISTORY); left: `boottime.js` in the CI workflow | S | HISTORY |
 | 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure; the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
+
+| 27 | H9 | usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval | S to M each | H9 |
+| 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; ~~the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure~~ built 2026-10-05 (HISTORY, "Moved from the plans, 2026-10-05 (19.3, 19.5)"); the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
 | 29 | §10 | F1 a `prefs` module, F5 `api.stream`/`api.upload` and the no-bare-fetch lint, F7's threads onto the pool (the ratchet is built), F10 a `readings` table, F12 a store (F4 built 2026-09-26) | S to L | §10 |
 | 30 | §5 | notes' unlinked mentions, word count and reading time; `{{clipboard}}` and a cursor mark; move to a space and export from a selection; the bin for documents and reminders | S each | §5 |
 | 31 | Placed 2026-09-09 | 1 capture into the selected space and a bulk move; 99 (b) scroll restore, (c) the AI dot's latency tooltip, (d) Paste as note; 92's row redesign; 97 RapidOCR; 79 and 22 to 23 not re-checked; 261's vault re-key (`POST /auth/rotate-vault-key`) has no UI | S to M | those sections |
@@ -895,21 +902,22 @@ in `docks.js`).
 
 **State 2026-09-24:** the rows left:
 
-- F1 (c) no `prefs` module; 171 direct `localStorage.getItem` calls. M.
-- F2 (b) every list takes `limit` (`tests/test_list_limits.py`); cursors and
-  the frontend's paging are not built (`/files/gallery`'s half was built
-  2026-09-24). M.
+- F1 built 2026-10-05: `prefs.js`, every read through it but the three scripts that run before it (HISTORY.md, "Moved from the plans, 2026-10-05 (F1, F5, F12)"). Left: the writes (`localStorage.setItem`) through `prefs.set`.
+- F2 (b) every list takes `limit` (`tests/test_list_limits.py`); cursors on
+  every paged list built 2026-10-05 (row 16), and the notes list follows
+  them. Left: the other lists' renderers paging on scroll by cursor. M.
 - F4 built 2026-09-26: BLE001 is enabled (HISTORY.md, "Moved from the
   plans, 2026-09-26").
-- F5 (b) every bare `fetch` must carry the auth header
-  (`tests/test_raw_fetch_headers.py`); the `api.stream`/`api.upload` helpers and
-  the no-bare-fetch lint are not built. S.
-- F7 (b) the pool is built (A3); a ratchet holds the thread sites at 13
-  modules (`tests/test_flaw_class_lints.py`, 2026-09-26). Left: moving them
-  onto `core/jobs.py` one at a time, lowering the ratchet each time. M.
-- F10 (c) no `readings` table (`page_reads` is document pages only). M.
+- F5 built 2026-10-05: `api.upload`, `api.stream`, the lint (HISTORY.md, "Moved from the plans, 2026-10-05 (F1, F5, F12)").
+- F7 (b) the pool is built (A3); a ratchet holds the thread sites
+  (`tests/test_flaw_class_lints.py`). 2026-10-05: the re-index (a `batch`
+  lane of its own) and the model capability probe moved onto the pool, the
+  ratchet lowered by two (HISTORY.md, "Moved from the plans, 2026-10-05
+  (F7, F10)"). Left: the model downloads, the embedding warm-up (kept apart on
+  purpose, see its comment), the scheduler, the searxng and update threads. M.
+- F10 built 2026-10-05 as a view: `readings`, `GET /files/readings`, every kind indexed (HISTORY.md, "Moved from the plans, 2026-10-05 (F7, F10)"). Left: one renderer in the Files card reading the route.
 - F11 (d) GRAPH_PLAN section 3 owns it.
-- F12 (c) no store. L.
+- F12 (b) 2026-10-05: `store.js` and its first slice, `notes` (HISTORY.md, "Moved from the plans, 2026-10-05 (F1, F5, F12)"). Left: the next slices (reminders, the current note), each surface subscribing in place of its own copy. L.
 
 ---
 
@@ -1694,7 +1702,7 @@ lands in the event log with the agent named. Gate: the MCP server passes
 the same tool tests as the in-app agent; an external write shows in the
 activity panel within one poll.
 
-**State 2026-09-24:** (b) the MCP server exists (`mcp_server.py`); a versioned `/api/v1` and the agent named in the event log for an external write were not found. M.
+**State 2026-10-05:** built (`/api/v1`, the agent named on an outside write over MCP and HTTP); moved to HISTORY.md, "Moved from the plans, 2026-10-05 (B8, H4)". Left: the gate's first half, the MCP server passing the in-app agent's own tool tests, is not run. S.
 
 ### H5 Sync without a server (B6; L, design first)
 
@@ -1925,7 +1933,7 @@ paths and the search fallback. That is a measurement (`EXPLAIN QUERY PLAN`
 over the real query set), not an opinion, and it is the sort of thing that
 turns a 0.9 s list load into a 0.2 s one.
 
-**State 2026-09-24:** (b) the index checks exist (`tests/test_entry_indexes.py`, `tests/test_db_pragmas_and_indexes.py`); the whole-query-set `EXPLAIN QUERY PLAN` pass was not found. S.
+**State 2026-10-05:** built; moved to HISTORY.md, "Moved from the plans, 2026-10-05 (19.3, 19.5)". Left: the full reads (the graph, duplicates, resurfacing read every live note, 70 to 100 ms at 5,000) are reads of everything by design, not index misses; nothing runs `ANALYZE`, and turning it on is a separate measurement.
 
 ### 19.4 Idle compute: the assumption did not hold
 
@@ -1962,7 +1970,7 @@ list paths?), the event bus, the job queue's back-pressure, the frozen
 build's startup profile on Windows, and the `EXPLAIN QUERY PLAN` pass in
 19.3. Each is a measurement with a command, in the manner of §10.
 
-**State 2026-09-24:** (b) N+1 on the list paths has a test (`tests/test_scale_query_counts.py`); the event bus, the job queue's back-pressure and the Windows frozen startup are open. S each.
+**State 2026-10-05:** (b) N+1 on the list paths has a test (`tests/test_scale_query_counts.py`); the job queue's back-pressure is measured and built (HISTORY.md, "Moved from the plans, 2026-10-05 (19.3, 19.5)"); the event bus and the Windows frozen startup are open. S each.
 
 ## Placed from INBOX, 2026-09-21
 

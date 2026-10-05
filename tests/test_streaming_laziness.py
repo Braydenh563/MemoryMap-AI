@@ -138,7 +138,7 @@ def test_the_chat_stream_is_a_plain_post_not_a_websocket(ai_client):
 def test_the_frontend_streams_chat_over_fetch(request):
 
     app_js = app_js_text()
-    assert 'fetch("/chat/stream"' in app_js
+    assert 'api.stream("/chat/stream"' in app_js
     assert "new WebSocket(" not in app_js
 
 

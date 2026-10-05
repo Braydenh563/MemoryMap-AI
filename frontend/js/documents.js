@@ -964,7 +964,7 @@ let docPositionTimer = 0;
 
 function docPositionsRead() {
   try {
-    const value = JSON.parse(localStorage.getItem(DOC_POSITIONS_KEY) || "{}");
+    const value = prefs.json(DOC_POSITIONS_KEY, {});
     return value && typeof value === "object" && !Array.isArray(value) ? value : {};
   } catch {
     return {};
@@ -1799,7 +1799,7 @@ function docWordGoalKey(id) {
 
 function getDocWordGoal(id) {
   if (!id) return 0;
-  return Number(localStorage.getItem(docWordGoalKey(id))) || 0;
+  return Number(prefs.get(docWordGoalKey(id), null)) || 0;
 }
 
 function setDocWordGoal(id, goal) {
@@ -2161,7 +2161,7 @@ function docOutlineFolds() {
   const store = docOutlineFoldStore();
   if (!store) return new Set();
   try {
-    const raw = JSON.parse(localStorage.getItem(store) || "[]");
+    const raw = prefs.json(store, []);
     return new Set(Array.isArray(raw) ? raw.filter((k) => typeof k === "string") : []);
   } catch {
     //: Private mode, or a value written by an older shape. An outline that
@@ -2447,7 +2447,7 @@ const DOC_COMMANDS = [
 function docPaletteCommands() {
   let tab = "";
   try {
-    tab = localStorage.getItem("activeTab") || "";
+    tab = prefs.get("activeTab", null) || "";
   } catch {
     //: Private mode. One group missing from the palette is the right failure.
     return [];
@@ -9410,18 +9410,8 @@ async function downloadDocumentExport(path, fallbackName) {
   //: so the server answers 401 and the browser renders that error *in place of
   //: the app*: it navigates away instead of downloading.
   try {
-    const response = await fetch(`/documents/${currentDoc.id}/${path}`, {
-      headers: { "X-Auth-Token": authToken() },
-    });
-    if (!response.ok) {
-      let detail = "";
-      try {
-        detail = (await response.json()).detail || "";
-      } catch (error) {
-        detail = "";
-      }
-      throw new Error(plainHttpError(response.status, detail, "The export did not work. Try again."));
-    }
+    // `api()` (F5) throws the server's own sentence on a refusal.
+    const response = await api(`/documents/${currentDoc.id}/${path}`);
     const disposition = response.headers.get("content-disposition") || "";
     const match = disposition.match(/filename="([^"]+)"/);
     await saveFile(match ? match[1] : fallbackName, await response.blob());
@@ -9449,10 +9439,7 @@ async function exportDocumentMarkdown() {
   // the server answers 401 and the browser renders that error *in place of the
   // app*: it navigates away instead of downloading.
   try {
-    const response = await fetch(`/documents/${currentDoc.id}/export.md`, {
-      headers: { "X-Auth-Token": authToken() },
-    });
-    if (!response.ok) throw new Error("The export did not work. Try again.");
+    const response = await api(`/documents/${currentDoc.id}/export.md`);
     // The filename is decided server-side, so read it back off the header.
     const disposition = response.headers.get("content-disposition") || "";
     const match = disposition.match(/filename="([^"]+)"/);
@@ -9739,8 +9726,9 @@ async function docExportInlineImages(root) {
     let dataUri = null;
     if (src && !/^https?:/i.test(src) && spent < DOC_EXPORT_IMAGE_BUDGET) {
       try {
-        const response = await fetch(src, { headers: { "X-Auth-Token": authToken() } });
-        if (response.ok) {
+        // `api()` (F5), silent: a picture that will not load is dropped below.
+        const response = await api(src, { silent: true });
+        {
           const blob = await response.blob();
           if (spent + blob.size <= DOC_EXPORT_IMAGE_BUDGET) {
             dataUri = `data:${blob.type || "application/octet-stream"};base64,${await blobToBase64(blob)}`;
@@ -9833,7 +9821,7 @@ let docPrintRestore = null;
 function docPrintIsOurs() {
   if (!currentDoc) return false;
   try {
-    return localStorage.getItem("activeTab") === "documents";
+    return prefs.get("activeTab", null) === "documents";
   } catch {
     //: Private mode: the tab the reader is on is still knowable from the DOM,
     //: and printing the chrome is worse than printing the document.
@@ -11027,7 +11015,7 @@ function initDocSidebarTabs() {
     if (!step) return;
     event.preventDefault();
     const index = DOC_SIDEBAR_SECTIONS.indexOf(
-      localStorage.getItem(DOC_SIDEBAR_STORE) || "list"
+      prefs.get(DOC_SIDEBAR_STORE, null) || "list"
     );
     const next =
       DOC_SIDEBAR_SECTIONS[
@@ -11036,7 +11024,7 @@ function initDocSidebarTabs() {
     showDocSidebarSection(next);
     strip.querySelector(`button[data-section="${next}"]`)?.focus();
   });
-  showDocSidebarSection(localStorage.getItem(DOC_SIDEBAR_STORE) || "list");
+  showDocSidebarSection(prefs.get(DOC_SIDEBAR_STORE, null) || "list");
 }
 
 // --- documents wiring ---
@@ -11694,7 +11682,7 @@ const NOTE_SOURCE_HOSTS = new Set(["entry-content", "entry-edit-content"]);
 
 function noteSourceWanted() {
   try {
-    return localStorage.getItem(NOTE_SOURCE_KEY) === "1";
+    return prefs.get(NOTE_SOURCE_KEY, null) === "1";
   } catch {
     return false;
   }
@@ -12027,7 +12015,7 @@ try {
   //: 11 item 6). Nothing stored means the width decides: Rendered below 600,
   //: Live Preview above, and a stored choice still wins at every width.
   setDocView(
-    localStorage.getItem(DOC_VIEW_KEY)
+    prefs.get(DOC_VIEW_KEY, null)
       || (window.matchMedia("(max-width: 599.98px)").matches ? "rendered" : "live")
   );
 } catch {
@@ -12083,7 +12071,7 @@ $("doc-width-toggle")?.addEventListener("click", toggleDocWidth);
 $("doc-width-menu")?.addEventListener("click", toggleDocWidth);
 
 try {
-  applyDocWidth(localStorage.getItem(DOC_WIDTH_KEY) === "wide");
+  applyDocWidth(prefs.get(DOC_WIDTH_KEY, null) === "wide");
 } catch {
   applyDocWidth(false);
 }
@@ -12249,9 +12237,9 @@ function docRestoreReading() {
   let typewriter = false;
   let serif = false;
   try {
-    dim = localStorage.getItem(DOC_DIM_KEY) === "1";
-    typewriter = localStorage.getItem(DOC_TYPEWRITER_KEY) === "1";
-    serif = localStorage.getItem(DOC_SERIF_KEY) === "1";
+    dim = prefs.get(DOC_DIM_KEY, null) === "1";
+    typewriter = prefs.get(DOC_TYPEWRITER_KEY, null) === "1";
+    serif = prefs.get(DOC_SERIF_KEY, null) === "1";
   } catch {
     // Nothing stored, nothing remembered: the defaults below are all off.
   }
@@ -12801,8 +12789,8 @@ const DOC_TOOLBAR_MODE_MIGRATED_KEY = "doc-toolbar-mode-migrated-2026-09-09";
 
 function docToolbarMode() {
   try {
-    const stored = localStorage.getItem(DOC_TOOLBAR_MODE_KEY);
-    if (stored === "row" && !localStorage.getItem(DOC_TOOLBAR_MODE_MIGRATED_KEY)) {
+    const stored = prefs.get(DOC_TOOLBAR_MODE_KEY, null);
+    if (stored === "row" && !prefs.get(DOC_TOOLBAR_MODE_MIGRATED_KEY, null)) {
       localStorage.removeItem(DOC_TOOLBAR_MODE_KEY);
       localStorage.setItem(DOC_TOOLBAR_MODE_MIGRATED_KEY, "1");
       return "wrap";
@@ -12884,7 +12872,7 @@ const DOC_GUTTER_KEY = "doc-gutter";
 
 function docGutterPref() {
   try {
-    return localStorage.getItem(DOC_GUTTER_KEY); // "1", "0", or null for "follow the file type"
+    return prefs.get(DOC_GUTTER_KEY, null); // "1", "0", or null for "follow the file type"
   } catch {
     return null;
   }
@@ -12974,7 +12962,7 @@ function docToolbarCollapsed() {
     // 30-control, three-row block that pushed the first line of text to
     // y=284 at 1440px. The collapsed strip keeps its own name and the
     // chevron that brings it back, and a choice either way is remembered.
-    return (localStorage.getItem(DOC_TOOLBAR_COLLAPSED_KEY) ?? "1") === "1";
+    return (prefs.get(DOC_TOOLBAR_COLLAPSED_KEY, null) ?? "1") === "1";
   } catch {
     return false; // private mode: the expanded shape is the safe default
   }
@@ -13024,7 +13012,7 @@ function setDocToolbarCollapsed(collapsed) {
   if (collapsed) {
     let told = false;
     try {
-      told = localStorage.getItem(DOC_TOOLBAR_HINT_KEY) === "1";
+      told = prefs.get(DOC_TOOLBAR_HINT_KEY, null) === "1";
       localStorage.setItem(DOC_TOOLBAR_HINT_KEY, "1");
     } catch {
       /* private mode: said every time, which is the safe side */
@@ -13942,8 +13930,8 @@ function docWordlistReady() {
 function docLoadWordlist() {
   if (docWordlist || docWordlistLoading || docWordlistFailed) return;
   docWordlistLoading = true;
-  fetch(DOC_WORDLIST_URL)
-    .then((response) => (response.ok ? response.text() : Promise.reject(new Error(String(response.status)))))
+  api(DOC_WORDLIST_URL, { silent: true })
+    .then((response) => response.text())
     .then((text) => {
       const words = new Set(DOC_EXTRA_WORDS);
       //: **`trim()`, and it is the whole bug report.** Reported with a
@@ -15280,7 +15268,7 @@ const DOC_TOOL_KEYS = {
 
 function docToolPref(name, fallback) {
   try {
-    const stored = localStorage.getItem(DOC_TOOL_KEYS[name]);
+    const stored = prefs.get(DOC_TOOL_KEYS[name], null);
     return stored === null ? fallback : stored === "1";
   } catch {
     return fallback; // private mode: the default shape
@@ -15917,7 +15905,7 @@ const DOC_PROSE_NARROW = "(max-width: 720px)";
 
 function docProseDockChoice() {
   try {
-    return localStorage.getItem(DOC_PROSE_DOCK_KEY) === "right" ? "right" : "bottom";
+    return prefs.get(DOC_PROSE_DOCK_KEY, null) === "right" ? "right" : "bottom";
   } catch {
     return "bottom";
   }
@@ -15950,7 +15938,7 @@ function docProseApplyWidth(width) {
 
 function docProseSavedWidth() {
   try {
-    return Number(localStorage.getItem(DOC_PROSE_WIDTH_KEY)) || DOC_PROSE_WIDTH_DEFAULT;
+    return Number(prefs.get(DOC_PROSE_WIDTH_KEY, null)) || DOC_PROSE_WIDTH_DEFAULT;
   } catch {
     return DOC_PROSE_WIDTH_DEFAULT;
   }
@@ -17054,27 +17042,17 @@ async function docAiReview() {
   renderDocProse();
   const offset = selection ? range.from : 0;
   try {
-    const response = await fetch(`/documents/${doc.id}/ai-check`, {
+    // `api.stream` (F5): 401 and refusals are thrown as they were here.
+    const response = await api.stream(`/documents/${doc.id}/ai-check`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Auth-Token": authToken(),
-        "X-Workspace-ID": activeSpaceId(),
-      },
       //: The text as it is on screen, not as last saved: the autosave is a
       //: second behind the typing, and a finding about words that are no
       //: longer there is one the panel cannot find.
       body: JSON.stringify({ selection: selection || full }),
+      // A check is a read: it must not empty the app's read cache.
+      readOnly: true,
       signal: controller.signal,
     });
-    if (response.status === 401) {
-      showLockScreen(false);
-      throw new Error("Locked");
-    }
-    if (!response.ok) {
-      const detail = await response.json().catch(() => ({}));
-      throw new Error(plainHttpError(response.status, detail.detail));
-    }
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffered = "";

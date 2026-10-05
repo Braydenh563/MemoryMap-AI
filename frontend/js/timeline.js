@@ -288,7 +288,7 @@ const TIMELINE_KINDS_STORE = "timeline-kinds";
 function timelineKindChoice() {
   let chosen = null;
   try {
-    chosen = JSON.parse(localStorage.getItem(TIMELINE_KINDS_STORE) || "null");
+    chosen = prefs.json(TIMELINE_KINDS_STORE, null);
   } catch {
     chosen = null;
   }
@@ -430,7 +430,7 @@ const TIMELINE_SCALES = ["day", "week", "month", "year"];
 const TIMELINE_DENSITY = { day: "full", week: "compact", month: "dense", year: "dense" };
 
 function timelineScaleChoice() {
-  const saved = localStorage.getItem("timeline-scale");
+  const saved = prefs.get("timeline-scale", null);
   return saved === "auto" || TIMELINE_SCALES.includes(saved) ? saved : "auto";
 }
 
@@ -2013,7 +2013,7 @@ $("timeline-scrubber").addEventListener("pointermove", (event) => {
 //: cannot disagree about what a search matched, because they read the same
 //: `timelineVisibleRows()`.
 function timelineViewMode() {
-  const stored = localStorage.getItem("timeline-view");
+  const stored = prefs.get("timeline-view", null);
   if (stored === "table" || stored === "feed") return stored;
   //: **A phone opens the timeline as the table** (UI_MODERNISATION_PLAN
   //: Phase 11 item 8): the feed's two-column ribbon is a desktop's shape,
@@ -2335,7 +2335,7 @@ const TIMELINE_GROUP_KEY = "timeline-group";
 (() => {
   const select = $("timeline-group");
   let stored = null;
-  try { stored = localStorage.getItem(TIMELINE_GROUP_KEY); } catch { /* a private window */ }
+  try { stored = prefs.get(TIMELINE_GROUP_KEY, null); } catch { /* a private window */ }
   if (stored && [...select.options].some((o) => o.value === stored)) select.value = stored;
 })();
 $("timeline-group").addEventListener("change", (event) => {

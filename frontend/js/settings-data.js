@@ -328,15 +328,11 @@ async function importMarkdown(inputId = "import-md-files") {
   input.value = "";
   setLabel(status, `ph:spin Importing ${chosen.length} file${chosen.length === 1 ? "" : "s"}…`);
   try {
-    const response = await fetch("/import/markdown", {
-      method: "POST",
-      // The multipart type still comes from the browser; X-Workspace-ID does
-      // not, and without it an import while a non-default space is active
-      // would silently land the new notes in the default space instead.
-      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
-      body: form,
+    // `api.upload` (F5): the multipart type from the browser, and
+    // X-Workspace-ID, without which the notes land in the default space.
+    const response = await api.upload("/import/markdown", form).catch(() => {
+      throw new Error("The import did not work. Check the file and try again.");
     });
-    if (!response.ok) throw new Error("The import did not work. Check the file and try again.");
     const result = await response.json();
     status.textContent =
       `Imported ${result.imported} note${result.imported === 1 ? "" : "s"}.` +
@@ -365,17 +361,7 @@ async function importDocument() {
   input.value = "";
   setLabel(status, `ph:spin Importing ${file.name}…`);
   try {
-    const response = await fetch("/import/document", {
-      method: "POST",
-      // Same gap as /import/markdown above: without this, the imported
-      // document lands in the default space regardless of which is active.
-      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
-      body: form,
-    });
-    if (!response.ok) {
-      const detail = await response.json().catch(() => ({}));
-      throw new Error(plainHttpError(response.status, detail.detail, "The import did not work. Check the file and try again."));
-    }
+    const response = await api.upload("/import/document", form);
     const result = await response.json();
     status.textContent =
       `Imported ${result.imported} note${result.imported === 1 ? "" : "s"}` +

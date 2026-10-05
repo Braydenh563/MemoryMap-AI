@@ -127,7 +127,7 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
   const accentHex = typeof currentAccentHex === "function"
     ? currentAccentHex()
     : getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() ||
-      localStorage.getItem("accent-custom") ||
+      prefs.get("accent-custom", null) ||
       "#7c8cf8";
   // The emblem spins unless the user has explicitly asked for a still UI in
   // Settings → Appearance. We deliberately don't freeze it on the OS-level
@@ -136,7 +136,7 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
   //: Guarded: settings.js may not have run yet (test_emblem_boot.py).
   const still = (typeof appearancePref === "function"
     ? appearancePref("motion")
-    : localStorage.getItem("motion")) === "reduced";
+    : prefs.get("motion", null)) === "reduced";
 
   const sketch = (p) => {
     let nodes = [];
@@ -405,7 +405,7 @@ $("tab-bar").addEventListener("keydown", (e) => {
   const buttons = [...document.querySelectorAll("#tab-bar button")];
   if (!buttons.length) return;
   const names = buttons.map((b) => b.dataset.tab);
-  const index = Math.max(0, names.indexOf(localStorage.getItem("activeTab") || "notes"));
+  const index = Math.max(0, names.indexOf(prefs.get("activeTab", null) || "notes"));
   let next;
   if (e.key === "Home") next = 0;
   else if (e.key === "End") next = names.length - 1;
@@ -447,7 +447,7 @@ document.addEventListener("keydown", (e) => {
 // Skip link (Wave L): jump keyboard focus straight into the open panel.
 $("skip-link").addEventListener("click", (e) => {
   e.preventDefault();
-  $(`tab-${localStorage.getItem("activeTab") || "notes"}`).focus();
+  $(`tab-${prefs.get("activeTab", null) || "notes"}`).focus();
 });
 initSelectionPopup();
 initEntryListKeyboardNav();

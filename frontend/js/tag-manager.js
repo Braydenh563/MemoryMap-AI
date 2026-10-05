@@ -238,7 +238,7 @@ const MANAGE_SORTS = [
 
 function manageStored(key, fallback) {
   try {
-    return localStorage.getItem(key) || fallback;
+    return prefs.get(key, null) || fallback;
   } catch {
     return fallback;
   }

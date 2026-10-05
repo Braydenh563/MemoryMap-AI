@@ -131,7 +131,7 @@ function graphNodeRadius(node) {
 // under the note they answer, so a thread reads as one branch.
 
 function graphLayout() {
-  const saved = localStorage.getItem("graph-layout");
+  const saved = prefs.get("graph-layout", null);
   return ["force", "tree", "radial", "arc"].includes(saved) ? saved : "force";
 }
 
@@ -1540,7 +1540,7 @@ let graphGroupOf = new Map();
 
 function graphGroups() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(GRAPH_GROUPS_KEY) || "[]");
+    const parsed = prefs.json(GRAPH_GROUPS_KEY, []);
     return Array.isArray(parsed) ? parsed.filter((g) => g && typeof g.query === "string" && g.query.trim()) : [];
   } catch {
     return [];
@@ -1685,7 +1685,7 @@ function graphSyncFocusChip() {
 //: path is deleted in one commit once the canvas one passes the gate, and this
 //: function goes with it.
 function graphRenderer() {
-  return localStorage.getItem("graph-renderer") === "svg" ? "svg" : "canvas";
+  return prefs.get("graph-renderer", null) === "svg" ? "svg" : "canvas";
 }
 
 //: **The map's category colours.** Its own ordinal scale supplies the
@@ -1739,8 +1739,8 @@ async function renderGraph() {
 //: The local graph's query (GRAPH_PLAN 514 (1)): depth and the three
 //: switches, stored per surface ("focus" in the gear, "pane" beside a note).
 function graphLocalQuery(prefix, depth) {
-  const on = (id) => localStorage.getItem(`graph-${prefix}-${id}`) !== "0";
-  const stored = Number(localStorage.getItem(`graph-${prefix}-depth`));
+  const on = (id) => prefs.get(`graph-${prefix}-${id}`, null) !== "0";
+  const stored = Number(prefs.get(`graph-${prefix}-depth`, null));
   const hops = stored >= 1 && stored <= 5 ? stored : depth;
   return `depth=${hops}&incoming=${on("in")}&outgoing=${on("out")}&neighbours=${on("neighbours")}`;
 }
@@ -2086,8 +2086,8 @@ async function renderGraphSvg() {
 
   // Physics sliders (0–100, default 50) scale the tuned defaults so the
   // out-of-the-box layout is unchanged at 50.
-  const gravity = Number(localStorage.getItem("graph-gravity") ?? 50);
-  const spread = Number(localStorage.getItem("graph-spread") ?? 50);
+  const gravity = prefs.number("graph-gravity", 50, { min: 0, max: 100 });
+  const spread = prefs.number("graph-spread", 50, { min: 0, max: 100 });
   const spreadScale = 0.5 + spread / 50; // 0.5×–2.5× the base link distance
   const gravityScale = 0.4 + gravity / 41.7; // stronger pull → tighter clusters
   //: **Gravity moves the whole layout, not the repulsion alone.** At 100 the
@@ -2104,7 +2104,7 @@ async function renderGraphSvg() {
   //: line carries its score and a deduced link its confidence, and a strong
   //: relation should read as a short one. 1.3x the base length at 0, 0.7x at
   //: 1; a link with no score keeps the base length.
-  const lengthByScore = localStorage.getItem("graph-length-score") !== "0";
+  const lengthByScore = prefs.get("graph-length-score", null) !== "0";
   const linkLength = (d) => {
     const base = (d.kind === "similar" ? 130 : 80) * spreadScale;
     const score = lengthByScore ? d.score ?? d.reason_confidence : null;
@@ -4519,7 +4519,7 @@ function graphMinimapShown(shown) {
   const box = document.getElementById("graph-minimap");
   //: Never over the person's own choice: "off" is a setting, and a graph
   //: filling up is not a reason to overrule it.
-  if (!box || localStorage.getItem(GRAPH_MINIMAP_CORNER_KEY) === "off") return;
+  if (!box || prefs.get(GRAPH_MINIMAP_CORNER_KEY, null) === "off") return;
   box.classList.toggle("hidden", !shown);
 }
 
@@ -4539,7 +4539,7 @@ let graphMinimapStale = false;
 
 function graphMinimapCanShow() {
   if (document.hidden) return false;
-  if (localStorage.getItem(GRAPH_MINIMAP_CORNER_KEY) === "off") return false;
+  if (prefs.get(GRAPH_MINIMAP_CORNER_KEY, null) === "off") return false;
   const page = document.getElementById("tab-graph");
   return !page || !page.classList.contains("hidden");
 }
@@ -4987,8 +4987,8 @@ function initGraphMinimap() {
   // Existing installs kept only "hidden or not" under an older key. Read it
   // once so nobody who had deliberately turned the minimap off has it come
   // back on after an update; the new key takes over from the first change.
-  const storedCorner = localStorage.getItem(GRAPH_MINIMAP_CORNER_KEY);
-  const legacyHidden = localStorage.getItem("graph-minimap-hidden") === "1";
+  const storedCorner = prefs.get(GRAPH_MINIMAP_CORNER_KEY, null);
+  const legacyHidden = prefs.get("graph-minimap-hidden", null) === "1";
   applyMinimapPosition(storedCorner || (legacyHidden ? "off" : "tl"));
 
   document.getElementById("graph-minimap-corner")?.addEventListener("change", (event) => {
@@ -5018,7 +5018,7 @@ function initGraphMinimap() {
     const picker = document.getElementById("graph-minimap-size");
     if (picker) picker.value = chosen;
   };
-  applyMinimapSize(localStorage.getItem(GRAPH_MINIMAP_SIZE_KEY));
+  applyMinimapSize(prefs.get(GRAPH_MINIMAP_SIZE_KEY, null));
   document.getElementById("graph-minimap-size")?.addEventListener("change", (event) => {
     const choice = event.target.value;
     localStorage.setItem(GRAPH_MINIMAP_SIZE_KEY, choice);
@@ -5038,7 +5038,7 @@ const GRAPH_VIEWS_KEY = "graph-saved-views";
 
 function graphSavedViews() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(GRAPH_VIEWS_KEY) || "[]");
+    const parsed = prefs.json(GRAPH_VIEWS_KEY, []);
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return []; // corrupt or hand-edited: an empty list beats a broken tab
@@ -5048,8 +5048,8 @@ function graphSavedViews() {
 function graphCaptureView() {
   const transform = graphSvg ? d3.zoomTransform(graphSvg.node()) : null;
   return {
-    layout: localStorage.getItem("graph-layout") || "force",
-    colour: localStorage.getItem("graph-colour") || "",
+    layout: prefs.get("graph-layout", null) || "force",
+    colour: prefs.get("graph-colour", null) || "",
     hiddenCategories: [...graphHiddenCategories],
     hiddenKeys: [...graphHiddenKeys],
     groups: graphGroups(),
@@ -5243,11 +5243,11 @@ const GRAPH_STORED_SLIDERS = ["graph-label-fade", "graph-link-width", "graph-foc
 function graphRestoreSwitches() {
   for (const id of GRAPH_STORED_SWITCHES) {
     const box = $(id);
-    if (box) box.checked = localStorage.getItem(id) !== "0";
+    if (box) box.checked = prefs.get(id, null) !== "0";
   }
-  for (const id of GRAPH_STORED_OFF) if ($(id)) $(id).checked = localStorage.getItem(id) === "1";
+  for (const id of GRAPH_STORED_OFF) if ($(id)) $(id).checked = prefs.get(id, null) === "1";
   for (const id of GRAPH_STORED_SLIDERS) {
-    const stored = localStorage.getItem(id);
+    const stored = prefs.get(id, null);
     if ($(id) && stored !== null && Number.isFinite(Number(stored))) $(id).value = stored;
   }
 }
@@ -5334,7 +5334,7 @@ function graphSyncSimilarityRow() {
   if (!slider) return;
   let stored = null;
   try {
-    stored = localStorage.getItem("graph-similarity-min");
+    stored = prefs.get("graph-similarity-min", null);
   } catch (error) {
     stored = null;
   }

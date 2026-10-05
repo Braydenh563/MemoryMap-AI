@@ -277,7 +277,7 @@ function showCategoryNotes(name, { clearSearch = false } = {}) {
   activeCategory = name;
   draftsOnly = false;
   favouritesOnly = false;
-  if (localStorage.getItem("activeTab") !== "notes") switchTab("notes");
+  if (prefs.get("activeTab", null) !== "notes") switchTab("notes");
   showNotesSection("browse");
   renderSidebar();
   renderEntries();

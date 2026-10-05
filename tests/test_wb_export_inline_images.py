@@ -34,6 +34,7 @@ def test_the_saved_svg_is_self_contained_too():
 def test_a_picture_that_cannot_be_fetched_keeps_its_address():
     text = WHITEBOARD.read_text(encoding="utf-8")
     body = _function(text, "async function wbInlineSvgImages(")
-    assert "if (!res.ok) continue;" in body
+    # `api()` throws on a refusal (F5), and the catch keeps the address.
+    assert "api(unescapeAttr(escaped), { silent: true })" in body
     assert "catch {" in body
     assert "data:" in body

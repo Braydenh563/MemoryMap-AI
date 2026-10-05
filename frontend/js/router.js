@@ -243,7 +243,7 @@ async function routerRestore() {
 //: shows is corrected.
 function routerSettle() {
   if (!/^#\/settings/.test(location.hash)) return;
-  const entry = { tab: localStorage.getItem("activeTab") || "dashboard", section: null };
+  const entry = { tab: prefs.get("activeTab", null) || "dashboard", section: null };
   try {
     history.replaceState(history.state, "", `${location.pathname}${location.search}${routeHash(entry)}`);
   } catch {

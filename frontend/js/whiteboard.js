@@ -5045,7 +5045,9 @@ async function wbSaveBulkMove(origin) {
 // nothing to gain from `navigator.clipboard` here (no cross-tab/cross-app
 // paste target makes sense for a sketch's own path data), and a plain
 // in-memory value is simpler and needs no permission prompt.
-let wbClipboard = null; // { items: [{kind, payload}], box: {minX, minY, maxX, maxY} }
+let wbClipboard = null; // { items: [{kind, payload}], box: {minX, minY, maxX, maxY}, stamp, at }
+//: Whether the browser's paste event followed the last Ctrl+V (FEAT-09).
+let wbPasteArrived = false;
 
 //: Where the pointer last was over the canvas, or null once it has left.
 //: Paste lands here (below), which is what Figma, Miro and tldraw all do
@@ -5107,7 +5109,25 @@ function wbCopyableSelection({ quiet = false } = {}) {
 function wbCopySelection() {
   const copied = wbCopyableSelection();
   if (!copied) return false;
+  //: The stamp is what the system clipboard carries back (`wbOnBoardCopy`),
+  //: so a paste can tell "the items I copied here" from text copied since in
+  //: another app (FEAT-09).
+  copied.stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  copied.at = Date.now();
   wbClipboard = copied;
+  //: A copy from a menu has no copy event behind it, so the stamp is written
+  //: here as well; a shell that refuses the async clipboard keeps the
+  //: board's own clipboard, which a paste falls back to.
+  try {
+    const text = wbClipboardText(copied) || " ";
+    const html = `<meta name="memorymap-board" content="${copied.stamp}"><pre>${text.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</pre>`;
+    navigator.clipboard?.write?.([new ClipboardItem({
+      "text/plain": new Blob([text], { type: "text/plain" }),
+      "text/html": new Blob([html], { type: "text/html" }),
+    })]).catch(() => {});
+  } catch {
+    // No async clipboard here.
+  }
   toast(copied.items.length > 1 ? `Copied ${copied.items.length} items.` : "Copied.");
   return true;
 }
@@ -5145,6 +5165,131 @@ async function wbPlaceCopies(copied, at) {
 async function wbPasteClipboard(at = wbPointerOnBoard()) {
   if (!wbClipboard) return;
   await wbPlaceCopies(wbClipboard, at);
+}
+
+// --- Paste from other apps (FEAT-09) ----------------------------------------
+//
+// The features audit: pasting text onto a board did nothing (3 items before a
+// three-line paste, 3 after), because the board's Ctrl+V only ever read its
+// own clipboard and swallowed the key, so the browser's paste never arrived.
+// tldraw, Miro, FigJam and Excalidraw all make text into items. Now Ctrl+V
+// lets the paste happen and the paste decides: the board's own items when the
+// clipboard still holds what was copied here (its stamp, written into the
+// clipboard's HTML by `wbOnBoardCopy`), a picture as before, otherwise text:
+// a link becomes a link box, one line a text box, several lines a grid of
+// stickies, all one undo step.
+
+//: The words of what was copied, for the clipboard's plain text: what a
+//: paste into another app gets.
+function wbClipboardText(copied) {
+  const words = [];
+  for (const { kind, payload } of copied?.items || []) {
+    if (kind === "object" && payload?.data?.content) words.push(String(payload.data.content));
+    else if (kind === "sketch") {
+      try {
+        const label = JSON.parse(payload.data || "{}").label;
+        if (label) words.push(String(label));
+      } catch {
+        // A stroke has no words.
+      }
+    }
+  }
+  return words.join("\n\n");
+}
+
+//: The copy event after the board's own Ctrl+C or Ctrl+X: the stamp goes into
+//: the clipboard's HTML and the words into its plain text.
+function wbOnBoardCopy(e) {
+  if (!wbClipboard?.stamp || Date.now() - (wbClipboard.at || 0) > 2000) return;
+  if (!e.clipboardData) return;
+  const text = wbClipboardText(wbClipboard);
+  const safe = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  e.clipboardData.setData("text/plain", text || " ");
+  e.clipboardData.setData("text/html", `<meta name="memorymap-board" content="${wbClipboard.stamp}"><pre>${safe}</pre>`);
+  e.preventDefault();
+}
+
+//: A pasted text's lines, list marks taken off.
+function wbPastedLines(text) {
+  return String(text || "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/^\s*(?:[-*\u2022]|\d+[.)])\s+/, "").trim())
+    .filter(Boolean);
+}
+
+//: What a pasted text becomes: `{kind: "link" | "text" | "stickies", ...}`.
+//: Pure, so the rule can be tested without a board.
+function wbPastePlan(text) {
+  const lines = wbPastedLines(text);
+  if (!lines.length) return null;
+  if (lines.length === 1 && /^https?:\/\/\S+$/i.test(lines[0])) return { kind: "link", url: lines[0] };
+  if (lines.length === 1) return { kind: "text", text: lines[0] };
+  if (lines.length > 50) return { kind: "text", text: lines.join("\n") };
+  return { kind: "stickies", lines };
+}
+
+const WB_PASTE_STICKY = { w: 180, h: 140, gap: 24 };
+
+async function wbPasteText(text, at) {
+  const plan = wbPastePlan(text);
+  if (!plan) return 0;
+  const [cx, cy] = at || wbViewCentre();
+  const made = [];
+  await wbRecordGesture(async () => {
+    if (plan.kind === "link") {
+      let label = plan.url;
+      try {
+        const u = new URL(plan.url);
+        label = (u.host + u.pathname).replace(/\/$/, "");
+      } catch {
+        label = plan.url;
+      }
+      const box = await wbCreateObject("text", { content: `[${label.replace(/[[\]]/g, "")}](${plan.url})`, md: true }, cx - 140, cy - 30, 280, 60);
+      if (box) made.push(box);
+    } else if (plan.kind === "text") {
+      const width = 320;
+      const rows = Math.min(30, Math.ceil(plan.text.length / 40) + plan.text.split("\n").length - 1);
+      const height = Math.min(800, 24 + rows * 22);
+      const box = await wbCreateObject("text", { content: plan.text }, cx - width / 2, cy - height / 2, width, height);
+      if (box) made.push(box);
+    } else {
+      const cols = Math.min(5, Math.ceil(Math.sqrt(plan.lines.length)));
+      const rowsN = Math.ceil(plan.lines.length / cols);
+      const { w, h, gap } = WB_PASTE_STICKY;
+      const left = cx - (cols * w + (cols - 1) * gap) / 2;
+      const top = cy - (rowsN * h + (rowsN - 1) * gap) / 2;
+      for (const [i, line] of plan.lines.entries()) {
+        const x = left + (i % cols) * (w + gap);
+        const y = top + Math.floor(i / cols) * (h + gap);
+        const sticky = await wbCreateObject(
+          "text",
+          { content: line.slice(0, 2000), bg: "#fff4a3", border_color: "#e8d56a", color: "#2a2a1f", font_size: 16 },
+          x, y, w, h
+        );
+        if (sticky) made.push(sticky);
+      }
+    }
+  });
+  if (!made.length) return 0;
+  clearWbSelection();
+  if (made.length === 1) wbSelectedItem = { kind: "object", id: made[0].id };
+  else for (const item of made) wbMultiSelection.add(wbMultiKey("object", item.id));
+  wbApplySelectionHighlight();
+  wbUpdateSelectionBar();
+  const said = plan.kind === "stickies" ? `Pasted ${made.length} stickies.` : plan.kind === "link" ? "Pasted a link." : "Pasted a text box.";
+  wbAnnounce(said);
+  toast(`${said} Ctrl+Z takes ${made.length === 1 ? "it" : "them"} back.`);
+  return made.length;
+}
+
+//: The middle of what the canvas shows, in board units.
+function wbViewCentre() {
+  const el = document.getElementById("whiteboard-container");
+  const r = el.getBoundingClientRect();
+  const t = d3.zoomTransform(el);
+  const o = wbCanvasOriginRect();
+  return [(r.left + r.width / 2 - o.left - t.x) / t.k, (r.top + r.height / 2 - o.top - t.y) / t.k];
 }
 
 //: Ctrl+D: a copy of the selection beside it, one undo step, the copies
@@ -10832,17 +10977,24 @@ async function initWhiteboard() {
     //: `wbUndo`/`wbRedo` when a board is open, which is one owner for one
     //: shortcut, the same handoff Ctrl+F already uses. They stay on `window`
     //: below for it to call.
+    //: Not `preventDefault`: the browser's copy, cut and paste events have to
+    //: follow, so the board's items reach the system clipboard (`wbOnBoardCopy`)
+    //: and a paste can bring text or a picture in from another app (FEAT-09).
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "c") {
-      if (wbCopySelection()) e.preventDefault();
+      wbCopySelection();
       return;
     }
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "x") {
-      if (wbCutSelection()) e.preventDefault();
+      wbCutSelection();
       return;
     }
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "v") {
-      e.preventDefault();
-      wbPasteClipboard();
+      //: If no paste event arrives (a shell that keeps the clipboard to
+      //: itself), the board's own clipboard is pasted as before.
+      wbPasteArrived = false;
+      setTimeout(() => {
+        if (!wbPasteArrived && wbClipboard) wbPasteClipboard();
+      }, 120);
       return;
     }
     //: **The camera from the keyboard** (the conventions pass: Figma, Miro,
@@ -11753,15 +11905,45 @@ async function initWhiteboard() {
   // Paste has no drop coordinate to place at, the centre of whatever's
   // currently in view reads better than always the same fixed board
   // position, which would stack every pasted image on top of the last one.
-  containerEl.addEventListener("paste", (e) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    const files = [...items].filter((i) => i.kind === "file").map((i) => i.getAsFile());
-    if (!files.length) return;
-    e.preventDefault();
-    const rect = containerEl.getBoundingClientRect();
-    const [x, y] = getLogicalMouse({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 });
-    for (const file of files) wbPlaceUploadedImage(file, x, y);
+  //: On the document, not the canvas: a paste goes to whatever has the
+  //: focus, which after a click on a rail tool is not the canvas. Taken only
+  //: while a board is on screen and nothing that takes typing has the focus.
+  document.addEventListener("paste", (e) => {
+    if (!wbCommandsLive() || wbIsEditingTarget(e.target) || e.target.closest?.("input, textarea, select, .modal-overlay, .sheet-overlay")) return;
+    wbPasteArrived = true;
+    const data = e.clipboardData;
+    const html = data?.getData("text/html") || "";
+    if (wbClipboard?.stamp && html.includes(`content="${wbClipboard.stamp}"`)) {
+      e.preventDefault();
+      wbPasteClipboard();
+      return;
+    }
+    const files = [...(data?.items || [])].filter((i) => i.kind === "file").map((i) => i.getAsFile()).filter(Boolean);
+    if (files.length) {
+      e.preventDefault();
+      const rect = containerEl.getBoundingClientRect();
+      const [x, y] = getLogicalMouse({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 });
+      for (const file of files) wbPlaceUploadedImage(file, x, y);
+      return;
+    }
+    const text = data?.getData("text/plain") || "";
+    //: A map's paste of an outline under a topic is the map's own (MINDMAP
+    //: §12.2, the map half of FEAT-09); here a map keeps its own clipboard.
+    if (text.trim() && !wbIsMap()) {
+      e.preventDefault();
+      wbPasteText(text, wbPointerOnBoard());
+      return;
+    }
+    if (wbClipboard) {
+      e.preventDefault();
+      wbPasteClipboard();
+    }
+  });
+  document.addEventListener("copy", (e) => {
+    if (wbCommandsLive() && !wbIsEditingTarget(e.target) && !e.target.closest?.("input, textarea, select")) wbOnBoardCopy(e);
+  });
+  document.addEventListener("cut", (e) => {
+    if (wbCommandsLive() && !wbIsEditingTarget(e.target) && !e.target.closest?.("input, textarea, select")) wbOnBoardCopy(e);
   });
   const imageFileInput = document.getElementById("wb-image-file-input");
   document.getElementById("wb-add-image")?.addEventListener("click", () => imageFileInput?.click());

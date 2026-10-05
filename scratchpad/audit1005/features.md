@@ -197,7 +197,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
 
 ### Low
 
-**FEAT-14.** PNG export is 1x. Board units become pixels (`wbRasterizeSvg(svg, width, height)`, `whiteboard.js:8016`). There is no scale or transparent-background option, and the file is always `whiteboard-whole.png` or `whiteboard-selection.png`, never the board's name (`:8017`). Plan §12.2 item 10 asks for "PNG at 2x". NEW. Fix (S): add scale (1x, 2x, 3x), a transparent switch and a title-based name to the export dialog's PNG row.
+**FEAT-14.** PNG export is 1x. Board units become pixels (`wbRasterizeSvg(svg, width, height)`, `whiteboard.js:8016`). There is no scale or transparent-background option, and the file is always `whiteboard-whole.png` or `whiteboard-selection.png`, never the board's name (`:8017`). Plan §12.2 item 10 asks for "PNG at 2x". NEW. Fix (S): add scale (1x, 2x, 3x), a transparent switch and a title-based name to the export dialog's PNG row. FIXED b21ae81
 
 **FEAT-15.** A typed topic takes two undo steps (one create, one rename). `kb100.js`: 5 Ctrl+Z took 101 topics to 99. XMind treats add-and-type as one. NEW. Fix (S): fold the first label commit into the create's undo entry when it follows within the same edit session.
 

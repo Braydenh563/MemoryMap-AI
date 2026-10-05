@@ -221,7 +221,8 @@ HELP_TOPICS: list[dict] = [
             "appear in the Library's Images sub-tab. A board's background colour "
             "and image are kept with the board. Board, Export saves a PNG (1x, 2x "
             "or 3x, with a transparent background if you like), SVG or PDF named "
-            "after the board."
+            "after the board. Paste text from another app onto a board: a link "
+            "becomes a link box, one line a text box, a list a grid of stickies."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },

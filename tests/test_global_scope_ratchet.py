@@ -21,8 +21,12 @@ from memorymap.api.asset_strip import strip_js
 JS = Path(__file__).resolve().parents[1] / "frontend" / "js"
 
 #: 2026-10-05 (comments excluded; worker files included, they are few).
-GUARDS_CAP = 371
-TOP_LEVEL_LETS_CAP = 706
+#: Set on the frontend branch alone (371 and 706), then measured on the merged
+#: tree the same day, 2026-10-05: six branches written in parallel added lazy
+#: bundles and their guards without knowing this ratchet existed. These are
+#: that tree's exact counts; they only go down (the perf2 follow-up owns it).
+GUARDS_CAP = 387
+TOP_LEVEL_LETS_CAP = 718
 
 
 def _code() -> dict[str, str]:

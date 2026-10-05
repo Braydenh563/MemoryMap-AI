@@ -949,6 +949,8 @@ TOPIC_META: dict[str, dict] = {
     "whiteboard-controls": {"title": "Whiteboard keys and controls", "path": "Library tab, Boards and maps"},
     "mind-map-controls": {"title": "Mind map keys and controls", "path": "Library tab, Boards and maps"},
     "documents-controls": {"title": "Document editor keys and controls", "path": "Library tab, Documents"},
+    "documents-features": {"title": "Document editor features", "path": "Library tab, Documents"},
+    "mind-map-features": {"title": "Mind map features", "path": "Library tab, Boards and maps"},
     "callouts": {"title": "Callouts", "path": "Library tab, Documents"},
     "graph-controls": {"title": "Graph keys and controls", "path": "Graph tab"},
     "graph-display": {"title": "More graph controls", "path": "Graph tab, the gear"},
@@ -1007,10 +1009,10 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "contradictions", "skills", "personas", "answer-style", "memory", "learned", "open-questions",
     )),
     ("Documents and code", (
-        "documents", "documents-controls", "callouts", "document-history", "writing-checks", "code-files",
+        "documents", "documents-controls", "documents-features", "callouts", "document-history", "writing-checks", "code-files",
     )),
     ("Boards and maps", (
-        "whiteboard", "whiteboard-controls", "mind-maps", "mind-map-controls",
+        "whiteboard", "whiteboard-controls", "mind-maps", "mind-map-controls", "mind-map-features",
     )),
     ("Library and files", (
         "library", "library-controls", "bookmarks", "contents", "library-skills",

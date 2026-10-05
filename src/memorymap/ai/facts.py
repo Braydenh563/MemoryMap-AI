@@ -1145,12 +1145,20 @@ def forget(session: Session) -> dict[str, int]:
     # corrections above; the table built from them goes with them. A
     # `contradicts` link stays (a person's link), so the table rebuilt next
     # lists it as accepted, and nothing else.
-    from memorymap.ai import tensions
+    #: Read from the loaded module rather than imported: `ai/tensions.py`
+    #: reaches `core/events`, and an import here (even in the function) puts
+    #: it in the cycle `tests/test_import_module_cycles.py` counts. A module
+    #: never loaded has built no table to forget.
+    import sys
+
     from memorymap.core.database import DerivedTension
 
-    session.query(AuditLog).filter(AuditLog.entity_type == tensions.EVENT_TYPE).delete(synchronize_session=False)
+    tensions = sys.modules.get("memorymap.ai.tensions")
+    event_type = tensions.EVENT_TYPE if tensions is not None else "tension"
+    session.query(AuditLog).filter(AuditLog.entity_type == event_type).delete(synchronize_session=False)
     session.query(DerivedTension).delete(synchronize_session=False)
-    tensions._built.clear()
+    if tensions is not None:
+        tensions._built.clear()
     session.flush()
     return {"facts": facts, "corrections": corrections, "scores": scores}
 

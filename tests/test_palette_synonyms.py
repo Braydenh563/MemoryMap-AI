@@ -13,7 +13,10 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-SOURCE = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "settings-panes.js").read_text(
+_JS = Path(__file__).resolve().parents[1] / "frontend" / "js"
+#: The row registry stays in settings-panes.js (boot); the palette's own
+#: window, `paletteMatches` with it, moved to the lazy app-palette.js.
+SOURCE = (_JS / "settings-panes.js").read_text(encoding="utf-8") + (_JS / "app-palette.js").read_text(
     encoding="utf-8"
 )
 

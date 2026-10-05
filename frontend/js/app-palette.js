@@ -92,7 +92,8 @@ function paletteMatches(query) {
   //: The notes rows (palette.js `notesPaletteCommands`, INBOX 432): a
   //: category to go to, a #tag to show, Move for the note in hand.
   const commands = [...paletteCommands(), ...(typeof notesPaletteCommands === "function" ? notesPaletteCommands(lowered) : [])]
-    .filter((c) => paletteText(c.label).includes(lowered))
+    //: UX-08: `keywords`, other words for a row ("trash", "theme").
+    .filter((c) => paletteText(`${c.label} ${c.keywords || ""}`).includes(lowered))
     .map((c) => (c.group ? c : { ...c, group: "Everywhere" }));
   if (!lowered) return commands;
 

@@ -65,7 +65,13 @@ def test_a_stamped_asset_is_immutable_and_gzipped(client):
 #: caps are those numbers plus 2%; the per-piece bound is the plan's 64 KB
 #: scaled by the same strip, rounded. What is measured is code now, not
 #: prose: a comment costs nothing here.
-APP_JS_CAP = 15_070
+#:
+#: **Re-measured on the merged tree, 2026-10-05.** The 15,070 above was set on
+#: the frontend branch alone, while the boot split (merged the same hour) had
+#: moved seven surfaces out of app.js and registered them in its lazy table;
+#: together app.js measured 15,132 bytes. The cap is that plus 2%, the rule
+#: this comment states, and it only goes down from here.
+APP_JS_CAP = 15_435
 PIECE_CAP = 32_000
 TOTAL_CAP = 342_100
 

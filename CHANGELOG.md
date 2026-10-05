@@ -19,6 +19,11 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Chat, Web panel: each result's snippet marks the words the search was for (the query's own words without the little ones), built as text nodes so a snippet is never parsed as markup, with the same accent wash a note card's search match uses (BACKLOG section 13).
+- Library, Documents: the more menu has Import a file as a document, which turns a Word file, PDF, spreadsheet, Markdown or code file into an editable document through the existing import route, redraws the list and names any file it could not read; the '?', the Guide's import topic and `tests/test_library_docs_import.py` say so (BACKLOG section 99).
+- Settings, Web search: the '?' now lists what the code does with a search (a browser-like request that never names the app, no cookies kept between searches, the words sent in the request body and not the address, tracking parameters stripped from results, a self-hosted engine keeping the words on your network), and `tests/test_websearch_privacy_copy.py` holds each claim against the module (BACKLOG section 13).
+- Search: the startup backfill and the Settings re-index embed notes in batches of 16 through one batched encode (`EmbeddingService.store_for_entries`) instead of one note at a time, and check for a cancel between batches; the stored vectors are identical (BACKLOG section 11).
+- Docs: BACKLOG.md swept against the code: 97 open items struck as built with their file and line, 3 recorded as decided, 44 whiteboard, documents, graph and harness items pointed at their plans, and 93 given a one-line Next brief or marked as the owner's call; four small ones were built in the same pass (the Web search '?', batched embeddings, Import a file as a document, highlighted web snippets).
 - Documents on a narrow window: the Edit/Read segment's well grows to the 44px touch height its buttons take, so they no longer hang out of its foot and sit on the row's centre line (INBOX 568).
 - Notes, Capture: the composer is one box; the note editor inside no longer draws its own border and focus ring a hair inside the composer's, and the composer's edge carries the focus (INBOX 560).
 - Boards: the gesture hints' close button is pinned at the strip's end after a divider, whole and evenly inset, instead of clipped past the edge (INBOX 562).

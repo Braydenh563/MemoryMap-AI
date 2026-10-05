@@ -436,7 +436,7 @@
   line-height: 1;
   color: inherit;
   transform: rotate(-90deg);
-  transition: transform var(--motion-fast) var(--ease-out);
+  transition: transform var(--ui-fast) var(--ease-out);
 }
 
 /* Open: each selector is its closed twin plus `[open]`, so it always
@@ -452,18 +452,6 @@ details[open] > .about-whats-new::before,
 .advanced-css[open] > summary:not(.icon-only):not(.icon-button)::before,
 .task-log[open] > summary:not(.icon-only):not(.icon-button)::before {
   transform: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .help-accordion summary::before,
-  .about-whats-new::before,
-  .settings-section summary::before,
-  .settings-group > summary::before,
-  .settings-fold > summary::before,
-  .advanced-css > summary::before,
-  .task-log > summary::before {
-    transition: none;
-  }
 }
 
 /* Hover is the only state that fills. Restated because the flat rule above
@@ -1204,7 +1192,7 @@ summary > .ph-lead,
 /* The caret says which way it will go, by turning, never by colour alone. */
 .skill-card .skill-fact-toggle > .ph-trail {
   margin-inline-start: 0;
-  transition: rotate var(--motion-fast) var(--ease-out);
+  transition: rotate var(--ui-fast) var(--ease-out);
 }
 
 .skill-card .skill-fact-toggle[aria-expanded="true"] > .ph-trail {
@@ -3354,7 +3342,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
     margin: 0;
     z-index: 1;
     opacity: 0;
-    transition: opacity var(--motion-fast) var(--ease-out);
+    transition: opacity var(--ui-fast) var(--ease-out);
   }
 
   /* `.is-choosing` rather than a `:has()` on a checked tick
@@ -4423,11 +4411,11 @@ body .chip.item-label,
   :is(.doc-list-top, .bookmark-row) > .doc-list-tick,
   .library-image-tile > .library-tile-tick {
     opacity: 0;
-    transition: opacity var(--motion-fast) var(--ease-out);
+    transition: opacity var(--ui-fast) var(--ease-out);
   }
 
   :is(.doc-list-top, .bookmark-row) > :is(.doc-list-icon, .bookmark-mark) {
-    transition: opacity var(--motion-fast) var(--ease-out);
+    transition: opacity var(--ui-fast) var(--ease-out);
   }
 
   :is(.doc-list-item, .bookmark-row):is(:hover, :focus-within) .doc-list-tick,
@@ -4467,7 +4455,7 @@ body .chip.item-label,
 @media (hover: hover) {
   .bookmark-row > .bookmark-actions {
     opacity: 0;
-    transition: opacity var(--motion-fast) var(--ease-out);
+    transition: opacity var(--ui-fast) var(--ease-out);
   }
 
   .bookmark-row:is(:hover, :focus-within) > .bookmark-actions,
@@ -4884,8 +4872,8 @@ body .chip.item-label,
     background: var(--modal-bg-opaque);
     box-shadow: inset 0 1px 2px var(--field-inset);
     transition:
-      background var(--motion-fast) var(--ease-out),
-      border-color var(--motion-fast) var(--ease-out);
+      background var(--ui-fast) var(--ease-out),
+      border-color var(--ui-fast) var(--ease-out);
   }
 
   .library-card-tick:checked::before,
@@ -5264,7 +5252,7 @@ body .chip.item-label,
   width: min(36rem, calc(100vw - 2 * var(--space-4)));
   max-height: calc(100dvh - 2 * var(--space-6));
   overflow: hidden;
-  animation: help-popover-in var(--motion-base) var(--ease-out);
+  animation: ui-fade var(--ui-base) var(--ease-out);
 }
 
 .chord-guide-head {
@@ -5455,7 +5443,7 @@ body .chip.item-label,
   inset: calc((var(--target-min) - 1rem) / 2);
   border-radius: var(--radius-pill);
   background: var(--ghost-btn-bg);
-  transition: background var(--motion-fast) var(--ease-out);
+  transition: background var(--ui-fast) var(--ease-out);
 }
 
 .chip > .unlink:last-child > i {
@@ -9277,7 +9265,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 #entry-list > li > .entry-content::before {
@@ -9781,7 +9769,7 @@ input[type="file"]::file-selector-button {
   font-size: var(--text-md);
   font-weight: 600;
   cursor: pointer;
-  transition: background-color var(--motion-fast) var(--ease-out);
+  transition: background-color var(--ui-fast) var(--ease-out);
 }
 
 input[type="file"]::file-selector-button:hover {
@@ -10480,201 +10468,164 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
   gap: var(--space-2);
 }
 
-/* --- motion: the selection glides between options (INBOX 459 (2)) ---------
+/* --- motion: one sliding indicator for every strip (INBOX 459 (2), 2026-10-05)
    The owner: "cheap css animations to things like the horizontal pill
-   selectors and sidebars ... using anchor for smooth tab transitions ...
-   dont over do it". A segmented control, the top bar's tabs, the Notes and
-   Library sub-tabs and the Settings nav each drew the chosen option's fill
-   on the option itself, so choosing another one made the fill vanish here
-   and appear there: two states, nothing between them to say they are one
-   selection that moved. Now one indicator per strip, the strip's own
-   `::before`, is anchored to whichever option is `.active` and travels to
-   the next one; the option underneath keeps its text and loses its fill.
+   selectors and sidebars", "a slight css sliding animation for the active
+   tab ... cheap but looks professional", and "Also like the smooth slide
+   across tabs". A strip drew its chosen option's fill on the option, so a
+   choice made the fill vanish here and appear there. Now one indicator per
+   strip, the strip's own `::before`, sits on the chosen option and slides
+   to the next one: the top bar, the sub-tab strips (`.tabs-line`, as their
+   2px line), every segmented control, the Settings sections and a pane's
+   groups (as their rail).
 
-   **CSS anchor positioning, no script.** The active option carries the
-   anchor name, `anchor-scope` keeps every strip's name its own, and the
-   indicator's four insets are `anchor()`s. Moving `.active` changes what
-   those resolve to, which runs an ordinary transition, so it is
-   interruptible (a second click mid-glide retargets from where it is) and
-   every place that already sets `.active` gets it with no code.
-
-   **One trade, measured.** The insets are layout properties: each frame of
-   the glide lays out this one absolutely positioned box, nothing in flow
-   (`scratchpad/ui-sweeps/glide.js` counts it against a control with the
-   transition off). There is no transform form of "go to wherever the
-   chosen option is" without measuring in script, which is what the anchor
-   is for. It is the one transition on an inset `tests/test_cheap_animations.py`
-   lets through, and `tests/test_motion_recipes.py` keeps it the only one.
-
-   Gated on `anchor-scope`: without it every strip's name would be one
-   global name and every indicator would sit on the last strip's option, so
-   an engine without it keeps the instant fill, exactly as before. Forced
-   colours keep it too: the system paints the fill there. Reduced motion
-   (either switch) makes the move instant through the blankets in
-   02-chat-graph.css, which zero every `::before` transition. */
-@supports (anchor-scope: --a) {
-  @media (forced-colors: none) {
-
-    /* Zero specificity: the strips that are already sticky or absolute
-       (the sub-tabs, the top bar) keep that, and still contain the box. */
-    :where(.seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg), #settings-nav) {
-      position: relative;
-    }
-
-    .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg),
-    #settings-nav {
-      anchor-scope: --glide;
-      /* The indicator sits at z-index -1, over the strip's own ground and
-         under its options, without giving every option a z-index. */
-      isolation: isolate;
-    }
-
-    /* The fill and the corner each strip's chosen option was drawn with:
-       the defaults at zero specificity, so each family below wins. */
-    :where(.seg, #settings-nav) {
-      --glide-fill: var(--accent-surface);
-      --glide-ring: none;
-      --glide-radius: var(--radius-choice);
-    }
-
-    .dock .seg {
-      --glide-radius: var(--radius-sm);
-    }
-
-    .chat-dock-controls .seg {
-      --glide-radius: var(--radius-pill);
-    }
-
-    #settings-nav {
-      --glide-fill: var(--accent-soft);
-      --glide-radius: var(--radius-md);
-    }
-
-    /* The control edge, as `.seg button.active` and the radio form's
-       chosen option draw it (INBOX 464, 621): one chosen state for every
-       segmented control, where the glide's 8% ink ring was a third. */
-    :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .seg {
-      --glide-fill: color-mix(in srgb, var(--ink) 11%, transparent);
-      --glide-ring: inset 0 0 0 1px var(--control-edge);
-    }
-
-    .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg) > .active,
-    #settings-nav [data-section].active {
-      anchor-name: --glide;
-    }
-
-    .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg)::before,
-    #settings-nav::before {
-      content: "";
-      position: absolute;
-      position-anchor: --glide;
-      top: anchor(top);
-      right: anchor(right);
-      bottom: anchor(bottom);
-      left: anchor(left);
-      z-index: -1;
-      pointer-events: none;
-      border-radius: var(--glide-radius);
-      background: var(--glide-fill);
-      box-shadow: var(--glide-ring);
-      /* The one inset transition in the app (the trade is written at the
-         head of this block): a box of its own, out of flow, so a frame of
-         it lays out nothing but itself. */
-      transition: top var(--motion-slow) var(--ease-in-out), right var(--motion-slow) var(--ease-in-out),
-        bottom var(--motion-slow) var(--ease-in-out), left var(--motion-slow) var(--ease-in-out);
-    }
-
-    /* The chosen option is the indicator's now; a fill of its own as well
-       would draw it twice (and a hover on it a third time). `:not(#glide)`
-       matches every element and lifts this to (2,2,1), above every rule
-       that paints a chosen option: the flat looks' top tab is (1,3,1). */
-    :root .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg) > .active:not(#glide),
-    :root #settings-nav [data-section].active:not(#glide) {
-      background: transparent;
-      box-shadow: none;
-    }
-
-    /* The label changes colour as the fill arrives under it rather than
-       before: white on the empty well for a frame or two read as a flash.
-       The rest is `button`'s own list (01-forms-settings.css), restated
-       because a `transition` replaces the whole list. */
-    :root .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg) > button,
-    :root #settings-nav [data-section] {
-      transition: color var(--motion-slow) var(--ease-in-out), background-color var(--motion-fast) var(--ease-out),
-        translate var(--motion-fast) var(--ease-out), scale var(--motion-fast) var(--ease-out);
-    }
-  }
+   **One measured box, moved by `transform`** (`glideStrip`,
+   shell-reminders.js). Script writes the chosen option's place and size
+   into `--glide-x/y/w/h` at once, then animates the pseudo-element's
+   `transform` from where it was drawn (translate and scale, origin top
+   left), so no frame of the glide lays anything out, a click mid-glide
+   carries on from where the box is, and every engine glides (the anchored
+   recipe this replaces needed `anchor-scope` and moved four insets, a
+   layout each frame). A strip is wired the first time the pointer or the
+   focus reaches it; until then the option's own fill draws it, exactly as
+   before. `--ui-slow` (`--ease-in-out`): Interface animations off lands it
+   at once, reduced motion does not. `scratchpad/ui-sweeps/motion1005.js`
+   measures it landing on the option at 1440 and 390 and after a resize. */
+:where(.has-glide) {
+  position: relative;
 }
 
-/* --- motion: the top bar's tab glides on the compositor (2026-10-04) ------
-   The owner: "a slight css sliding animation for the active tab on the
-   menubar tabs when moving between them, something that is cheap but looks
-   professional". The top bar was one of the anchored strips above, which an
-   engine without `anchor-scope` (the gate) draws with no glide at all, and
-   whose four insets lay the box out on every frame. The top bar is on every
-   screen and is the one strip worth a measured indicator: `.tab-glide`
-   (shell-reminders.js, `tabGlideInit`), one box in the strip placed on the
-   active tab by `translate` and its size, then moved from where it was by a
-   `transform` animation (translateX and scaleX, from the left edge), so a
-   frame of the glide lays out nothing and every engine glides. Same fill,
-   ring and corner as the strips above; the label's colour changes on the
-   same clock. Reduced motion (either switch) lands it at once; the phone's
-   bottom dock marks its tab by colour and has no box. */
-#tab-bar {
-  position: relative;
+.has-glide {
   isolation: isolate;
+}
+
+/* The fill and the corner each family's chosen option was drawn with: the
+   defaults at zero specificity, so each family below wins. */
+:where(.seg, #settings-nav, #tab-bar, .tabs-line, .settings-nav-groups) {
+  --glide-x: 0px;
+  --glide-y: 0px;
+  --glide-w: 0px;
+  --glide-h: 0px;
   --glide-fill: var(--accent-surface);
   --glide-ring: none;
+  --glide-radius: var(--radius-choice);
+}
+
+.dock .seg {
+  --glide-radius: var(--radius-sm);
+}
+
+.chat-dock-controls .seg {
+  --glide-radius: var(--radius-pill);
+}
+
+#settings-nav {
+  --glide-fill: var(--accent-soft);
   --glide-radius: var(--radius-md);
 }
 
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) #tab-bar {
+#tab-bar {
+  --glide-radius: var(--radius-md);
+}
+
+/* The control edge, as `.seg button.active` and the radio form's chosen
+   option draw it (INBOX 464, 621). */
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) :is(.seg, #tab-bar) {
   --glide-fill: color-mix(in srgb, var(--ink) 11%, transparent);
-  --glide-ring: inset 0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent);
+  --glide-ring: inset 0 0 0 1px var(--control-edge);
 }
 
-#tab-bar > .tab-glide {
-  --tab-glide-x: 0px;
-  --tab-glide-y: 0px;
-  --tab-glide-w: 0px;
-  --tab-glide-h: 0px;
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: -1;
-  width: var(--tab-glide-w);
-  height: var(--tab-glide-h);
-  translate: var(--tab-glide-x) var(--tab-glide-y);
-  transform-origin: left center;
-  pointer-events: none;
-  border-radius: var(--glide-radius);
-  background: var(--glide-fill);
-  box-shadow: var(--glide-ring);
+/* A sub-tab strip's indicator is its 2px line, a group's its rail. */
+.tabs-line,
+.settings-nav-groups {
+  --glide-radius: 0;
+  --glide-ring: none;
 }
 
-#tab-bar:not(.has-glide) > .tab-glide,
-#phone-tab-dock > #tab-bar > .tab-glide {
-  display: none;
+.tabs-line {
+  --glide-fill: linear-gradient(var(--accent-text), var(--accent-text)) bottom / 100% 2px no-repeat;
 }
 
-@media (forced-colors: active) {
-  #tab-bar > .tab-glide {
-    display: none;
-  }
+.settings-nav-groups {
+  --glide-fill: linear-gradient(var(--accent), var(--accent)) left / 2px 100% no-repeat;
 }
 
 @media (forced-colors: none) {
-  /* The phone's bottom dock marks its tab by colour alone, as before. */
-  :root #tab-bar.has-glide > .active:not(#glide),
-  :root #phone-tab-dock > #tab-bar > .active:not(#glide) {
+  .has-glide::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: -1;
+    width: var(--glide-w);
+    height: var(--glide-h);
+    translate: var(--glide-x) var(--glide-y);
+    transform-origin: 0 0;
+    pointer-events: none;
+    border-radius: var(--glide-radius);
+    background: var(--glide-fill);
+    box-shadow: var(--glide-ring);
+  }
+
+  /* The chosen option is the indicator's now; its own fill, line or rail
+     as well would draw it twice. `:not(#glide)` lifts this over every rule
+     that paints a chosen option (the flat looks' top tab is (1,3,1)). */
+  :root .has-glide > :is(.active, [aria-selected="true"], [aria-current="location"]):not(#glide):not(#glide),
+  :root .has-glide > [role="group"] > .active:not(#glide):not(#glide) {
     background: transparent;
     box-shadow: none;
   }
 
-  :root #tab-bar.has-glide > button {
-    transition: color var(--motion-slow) var(--ease-in-out), background-color var(--motion-fast) var(--ease-out),
-      translate var(--motion-fast) var(--ease-out), scale var(--motion-fast) var(--ease-out);
+  .tabs-line.has-glide > button::after {
+    content: none;
   }
+
+  /* The label changes colour as the fill arrives under it rather than
+     before. The rest is `button`'s own list (the press, 01-forms-settings.css). */
+  :root .has-glide > button,
+  :root .has-glide > [role="group"] > button {
+    transition: color var(--ui-slow) var(--ease-in-out), background-color var(--ui-fast) var(--ease-out),
+      scale var(--ui-fast) var(--ease-out), outline-color var(--ui-fast) var(--ease-out);
+  }
+}
+
+/* The phone's bottom dock marks its tab by colour alone, as before. */
+#phone-tab-dock > #tab-bar::before {
+  content: none;
+}
+
+/* --- motion: a list settles in where its skeleton was (2026-10-05) --------
+   The first rows of a list that replace its skeletons (`clearSkeletons`,
+   notes-list.js, which every skeleton's owner calls) fade up a step,
+   `--ui-step` apart for the first eight and together after that, instead
+   of popping in. The class lives for that one swap only, so a filter
+   keystroke's redraw does not replay it. */
+.ui-settle > * {
+  transition: opacity var(--ui-base) var(--ease-out), translate var(--ui-base) var(--ease-out);
+
+  @starting-style {
+    opacity: 0;
+    translate: 0 var(--space-2);
+  }
+}
+
+.ui-settle > :nth-child(2) { transition-delay: var(--ui-step); }
+.ui-settle > :nth-child(3) { transition-delay: calc(var(--ui-step) * 2); }
+.ui-settle > :nth-child(4) { transition-delay: calc(var(--ui-step) * 3); }
+.ui-settle > :nth-child(5) { transition-delay: calc(var(--ui-step) * 4); }
+.ui-settle > :nth-child(6) { transition-delay: calc(var(--ui-step) * 5); }
+.ui-settle > :nth-child(7) { transition-delay: calc(var(--ui-step) * 6); }
+.ui-settle > :nth-child(n + 8) { transition-delay: calc(var(--ui-step) * 7); }
+
+/* --- motion: a hover eases (2026-10-05) ------------------------------------
+   A row or a card that changes its ground or edge under the pointer does it
+   over `--ui-base` rather than between two frames. Zero specificity, so a
+   row with a transition of its own keeps it; colours only. A button has its
+   own list (01-forms-settings.css, the press). */
+:where(li, .cat-row, .contents-row, .feature-row, .sheet-row, .space-option, .nav-history-item,
+  .doc-comment-item, .doc-suggest-item, .quick-link, .outline-link, .legend-item, .link-connection,
+  .library-card, .notif-row, .ocr-rail-item, .bench-row, .ask-history-item, .chat-source-row, .link-card, .web-result, .note-picker-row, .note-picker-cell, .manage-cat-row, .att-card, .doc-dictionary-row, .embed-card, .wb-library-item, .check-row, .wb-layer-row, .wb-lib-tile, label.setting-check, .setting-check, .start-step) {
+  transition: background-color var(--ui-base) var(--ease-out), border-color var(--ui-base) var(--ease-out);
 }
 
 /* --- motion: a sidebar's contents arrive from its edge (INBOX 459 (2)) ----
@@ -10691,14 +10642,14 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
    The phone's edge sheet already slides and is untouched (those widths take
    these classes off the aside). */
 aside[data-resizable] > :not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name) {
-  transition: opacity var(--motion-slow) var(--ease-out), transform var(--motion-slow) var(--ease-out),
-    translate var(--motion-fast) var(--ease-out), scale var(--motion-fast) var(--ease-out),
-    background-color var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-slow) var(--ease-out), transform var(--ui-slow) var(--ease-out),
+    translate var(--ui-fast) var(--ease-out), scale var(--ui-fast) var(--ease-out),
+    background-color var(--ui-fast) var(--ease-out);
 }
 
 aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name) {
   transform: translateX(calc(var(--space-3) * -1));
-  transition: opacity var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out), transform var(--ui-fast) var(--ease-out);
 }
 
 /* Skill logs folds to the right (RIGHT_SIDE_SIDEBARS). */
@@ -10712,8 +10663,8 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
      8px toward its edge while peeked, under the toggle (INBOX 495): the
      second selector matches it. */
   transform: none;
-  transition: opacity var(--motion-slow) var(--ease-out) var(--motion-fast),
-    transform var(--motion-slow) var(--ease-out) var(--motion-fast);
+  transition: opacity var(--ui-slow) var(--ease-out) var(--ui-fast),
+    transform var(--ui-slow) var(--ease-out) var(--ui-fast);
 }
 
 /* Focus mode opens the documents sidebar whole as its own panel, folded on
@@ -10725,9 +10676,9 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 /* The rail's sideways name is what the sidebar folded into: it comes in as
    the contents go, rather than being there before they have left. */
 .sidebar-collapsed > .sidebar-rail-name {
-  transition: opacity var(--motion-slow) var(--ease-out) var(--motion-fast),
-    translate var(--motion-fast) var(--ease-out), scale var(--motion-fast) var(--ease-out),
-    background-color var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-slow) var(--ease-out) var(--ui-fast),
+    translate var(--ui-fast) var(--ease-out), scale var(--ui-fast) var(--ease-out),
+    background-color var(--ui-fast) var(--ease-out);
 }
 
 @starting-style {
@@ -10741,7 +10692,7 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
    leaves with the class that gave it, so there is nothing to fade out. */
 #tab-documents.doc-focus #doc-prose-panel:not(.hidden),
 #tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar {
-  transition: opacity var(--motion-slow) var(--ease-out), translate var(--motion-slow) var(--ease-out);
+  transition: opacity var(--ui-slow) var(--ease-out), translate var(--ui-slow) var(--ease-out);
 }
 
 @starting-style {
@@ -10771,8 +10722,13 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
    13 of 14 switches, which is the flash that read as a glitch. From 0.4 the
    new page is there on the first frame and settles in over `--motion-base`;
    0 blank frames. */
+/* Over `--ui-fast` (the motion pass, 2026-10-05). A sub-tab's panel does
+   not fade with it: `@starting-style` cannot tell a section switch from its
+   page arriving, so the section faded inside the page's own fade (0.4 of
+   0.4, two layers), measured as the frames the switch missed; the sub-tab's
+   sliding line is its motion. */
 .tab-page:not(.hidden) {
-  transition: opacity var(--motion-base) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 @starting-style {
@@ -10796,7 +10752,7 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 }
 
 .tab-page.tab-revealing > :not(.tab-placeholder) {
-  transition: opacity var(--motion-base) var(--ease-out);
+  transition: opacity var(--ui-base) var(--ease-out);
 }
 
 .tab-page > .tab-placeholder {
@@ -10807,7 +10763,7 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   margin: 0;
   z-index: 1;
   pointer-events: none;
-  transition: opacity var(--motion-base) var(--ease-out);
+  transition: opacity var(--ui-base) var(--ease-out);
 }
 
 .tab-page > .tab-placeholder.tab-placeholder-leaving {
@@ -10820,7 +10776,7 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
    opacity, so nothing under it is clickable and nothing it does is a
    layout shift anyone sees; the fade back is opacity alone. */
 #dash-grid {
-  transition: opacity var(--motion-base) var(--ease-out);
+  transition: opacity var(--ui-base) var(--ease-out);
 }
 
 #dash-grid.dash-filling {
@@ -10831,29 +10787,31 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 /* Chat's empty card waits unseen for its starters, then fades in whole
    (`renderChatEmptyState`, chat.js): it used to grow round them in view. */
 .chat-empty {
-  transition: opacity var(--motion-base) var(--ease-out);
+  transition: opacity var(--ui-base) var(--ease-out);
 }
 
 .chat-empty.chat-empty-waiting {
   opacity: 0;
 }
 
-/* --- motion: a popup arrives (INBOX 580) ------------------------------------
+/* --- motion: a popup arrives, and leaves the way it came (INBOX 580, 2026-10-05)
    Every dialog opened between two frames: Settings, the palette, Find
    anything, the agent palette, a confirm, all at full size and full scrim at
-   once. One way in for all of them: the scrim fades over `--motion-base`
-   and what stands on it rises a step (`--space-2`) from a touch smaller over
-   `--motion-slow`, both `--ease-out`, both the compositor's. Closing is
-   instant, as a page leaving is: the thing you dismissed should be gone.
-   `:where()` so the recipe is zero-weight: a dialog with motion of its own
-   (Settings' peek) keeps it. The lock screen is not in it: it is the boot's
-   curtain, which fades out (below) rather than in. Reduced motion zeroes
-   all of it (the two blankets in 02-chat-graph.css). */
+   once. One way in for all of them: the scrim fades over `--ui-base` and
+   what stands on it rises a step (`--space-2`) from a touch smaller over
+   `--ui-slow`, both `--ease-out`, both the compositor's; a sheet rises from
+   its own bottom edge. **Leaving takes the same path back, faster**
+   (`--ui-exit`): the scrim fades, the card sinks the step, and `display`
+   holds for that long (`allow-discrete`) with no pointer on it, so nothing
+   behind waits on a click. A dialog removed from the page rather than
+   hidden simply goes. `:where()` so the recipe is zero-weight: a dialog with
+   motion of its own (Settings' peek) keeps it. The lock screen is not in
+   it: it is the boot's curtain, which fades out (below) rather than in. */
 :where(.modal-overlay, .lock-overlay:not(#lock-overlay), #palette-overlay):not(.hidden) {
-  transition: opacity var(--motion-base) var(--ease-out);
+  transition: opacity var(--ui-base) var(--ease-out);
 
   & > * {
-    transition: translate var(--motion-slow) var(--ease-out), scale var(--motion-slow) var(--ease-out);
+    transition: translate var(--ui-slow) var(--ease-out), scale var(--ui-slow) var(--ease-out);
   }
 
   @starting-style {
@@ -10863,6 +10821,23 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
       translate: 0 var(--space-2);
       scale: 0.985;
     }
+
+    & > .sheet-card {
+      translate: 0 var(--space-6);
+      scale: 1;
+    }
+  }
+}
+
+:where(.modal-overlay, .lock-overlay:not(#lock-overlay), #palette-overlay).hidden {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ui-exit) var(--ease-out), display var(--ui-exit) allow-discrete;
+
+  & > * {
+    translate: 0 var(--space-2);
+    scale: 0.985;
+    transition: translate var(--ui-exit) var(--ease-out), scale var(--ui-exit) var(--ease-out);
   }
 }
 
@@ -10874,7 +10849,7 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 #lock-overlay.lock-leaving {
   opacity: 0;
   pointer-events: none;
-  transition: opacity var(--motion-slow) var(--ease-out);
+  transition: opacity var(--ui-slow) var(--ease-out);
 }
 /* --- the 464 round: Settings groups, switch rows, the phone's chrome --------
    1. Every Settings head is a group head (DESIGN.md "A group head in

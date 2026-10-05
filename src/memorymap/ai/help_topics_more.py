@@ -372,7 +372,7 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "save a theme", "my own theme", "custom css", "text size",
             "corner rounding", "zoom level", "colour scheme", "color scheme",
-            "build a scheme", "border style", "shadow",
+            "build a scheme", "border style", "shadow", "interface animations",
         ),
         "body": (
             "Settings, Appearance. Themes: save and switch your own. Theme & "
@@ -381,7 +381,11 @@ MORE_TOPICS: list[dict] = [
             "Typography & layout: Text size, Font, Density, Corner rounding, "
             "Zoom, Border style and Shadow intensity. Effects & accessibility: "
             "Performance mode, the glass's sheen, blur and opacity, Progress "
-            "indicators and Reduce motion. Advanced has Custom CSS. Ctrl+Shift+L "
+            "indicators, Reduce motion (stills Atlas, the background art, the "
+            "graph and the whiteboard) and Interface animations (on by default: "
+            "a button's press, menus and dialogs opening, a tab's sliding marker, "
+            "even with Reduce motion on; off makes them instant). Advanced has "
+            "Custom CSS. Ctrl+Shift+L "
             "switches light and dark from anywhere."
         ),
         "badge": {"label": "Appearance", "section": "appearance"},
@@ -1053,7 +1057,8 @@ MORE_TOPICS.extend(
                 "through, while the focused control is under it. For a screen "
                 "reader every tab has one main landmark, editors and panels have "
                 "names, and resize grips say how wide a panel is. Settings, "
-                "Appearance has High contrast, Reduce motion, Text size and Zoom."
+                "Appearance has High contrast, Reduce motion, Interface animations, "
+                "Text size and Zoom."
             ),
             "badge": {"label": "Appearance", "section": "appearance"},
         },

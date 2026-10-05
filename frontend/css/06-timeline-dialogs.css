@@ -964,7 +964,7 @@
   flex: 0 0 auto;
   padding: 0 0.25rem;
   line-height: 1.4;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .log-list li:hover .log-copy,
@@ -1360,7 +1360,6 @@
   padding: var(--space-2) var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  transition: background var(--motion-base) var(--ease-out), border-color var(--motion-base) var(--ease-out);
   /* Contains the radio-hiding rule's own `position: absolute` below, so
      that 1px box stays inside this row instead of positioning against
      whatever ancestor happens to be positioned. */
@@ -2104,7 +2103,7 @@
   background: transparent;
   color: var(--muted);
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 #notif-panel .notif-row:hover .notif-dismiss,
@@ -3305,7 +3304,6 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
 }
 
 /* A row you can pick up says so under the pointer (INBOX 463: "no hover
@@ -3522,8 +3520,8 @@ aside[data-resizable="1"] {
      to bordered buttons like Select, not as a control you could click.
      Reported directly against the Semantic toggle specifically. */
   border: 1px solid var(--border);
-  transition: background var(--motion-base) var(--ease-out), color var(--motion-base) var(--ease-out),
-    border-color var(--motion-base) var(--ease-out);
+  transition: background var(--ui-base) var(--ease-out), color var(--ui-base) var(--ease-out),
+    border-color var(--ui-base) var(--ease-out);
 }
 
 .checkbox-label:hover {
@@ -3562,8 +3560,8 @@ aside[data-resizable="1"] {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--inner);
-  transition: transform var(--motion-base) var(--ease-out), box-shadow var(--motion-base) var(--ease-out),
-    border-color var(--motion-base) var(--ease-out);
+  transition: transform var(--ui-base) var(--ease-out),
+    border-color var(--ui-base) var(--ease-out);
 }
 
 .saved-look:hover,
@@ -3646,7 +3644,7 @@ aside[data-resizable="1"] {
   align-items: center;
   justify-content: center;
   opacity: 0;
-  transition: opacity var(--motion-base) var(--ease-out);
+  transition: opacity var(--ui-base) var(--ease-out);
 }
 
 .saved-look:hover .saved-look-delete,
@@ -3787,7 +3785,7 @@ aside[data-resizable="1"] {
   flex: 0 0 auto;
   align-self: center;
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .notif-row:hover .notif-read-toggle,
@@ -3825,7 +3823,7 @@ aside[data-resizable="1"] {
   height: var(--notif-line);
   opacity: 0;
   pointer-events: none;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .notif-row:hover .notif-row-actions,
@@ -3835,7 +3833,7 @@ aside[data-resizable="1"] {
 }
 
 .notif-row .notif-time {
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .notif-row:hover .notif-time,

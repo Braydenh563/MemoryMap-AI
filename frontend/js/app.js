@@ -1956,6 +1956,7 @@ const LAZY_MODULES = {
   //: 2026-10-05 (gzip budget), the next seven: each file's header says why.
   reveal: ["/js/reveal-targets.js"],
   onboarding: ["/js/onboarding.js"],
+  tour: ["/js/tour.js"],
   updates: ["/js/update-dialogs.js"],
   appPalette: ["/js/app-palette.js"],
   notePanels: ["/js/note-panels.js", "/js/note-edit-panels.js"],
@@ -2268,6 +2269,7 @@ const LAZY_ENTRY_POINTS = {
   //: 2026-10-05, the next six: async or unread, reached by a gesture.
   reveal: ["revealFeature"],
   onboarding: ["openOnboarding", "maybeShowConsoleViewIntro"],
+  tour: ["openTour", "renderTourReplay"],
   updates: ["checkForUpdate", "applyUpdateNow", "showSourceUpdatedDialog", "askUpdateChoiceOnce"],
   appPalette: ["openPalette"],
   notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing", "renderEditForm"],

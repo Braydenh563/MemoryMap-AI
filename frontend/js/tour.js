@@ -1947,19 +1947,9 @@ function renderTourReplay() {
   }
 }
 
-//: The strip is built once, as soon as there is a document to build it into.
-//: This file is the last script on the page, so the else branch is the branch
-//: that runs in practice; the listener is for the case where a later change
-//: moves the tag up into the head, where the box would not exist yet.
-function tourWireReplay() {
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", renderTourReplay);
-  } else {
-    renderTourReplay();
-  }
-}
-
-tourWireReplay();
+//: A lazy bundle now (`tour`, app.js): `onDomReady` runs it at once when the
+//: file arrives after the page has loaded, which is every time.
+onDomReady(renderTourReplay);
 
 //: One place for the words, so every disabled door says the same thing and
 //: says why rather than just refusing.

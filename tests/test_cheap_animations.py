@@ -24,8 +24,11 @@ recedes from 57.59px to 44px really is a box changing size with content in it,
 where `translateY` would take the bottom off a 44px touch target and `scaleY`
 would squash the icons.
 
-**`box-shadow` is deliberately not on the list**, and this is the place that
-decision is written down so it is not remade. Ten transitions in
+**`box-shadow` is not on the list for the decorative surfaces**, and this is
+the place that decision is written down so it is not remade. (The interface's
+own transitions, the polish set, gave it up in the motion pass of
+2026-10-05, "no animation on ... box-shadow size": the last test below holds
+that; a shadow there changes at once while the rest eases.) Ten transitions in
 `frontend/css/` animate it, mostly the hover lift on buttons and cards. It
 repaints, it does not relayout, it is the app's idiomatic hover treatment, and
 the cheaper form (a pseudo-element carrying the shadow, animated on `opacity`)
@@ -268,3 +271,47 @@ def test_the_rule_is_written_where_designers_read_it():
         "transform rather than width/height has to be readable where the design "
         "system is, not only where it is enforced"
     )
+
+
+#: The polish set (DESIGN.md, "Interface animations"): everything but the
+#: decorative and progress surfaces `tests/test_motion_tokens.py` names.
+from tests.test_motion_tokens import DECORATIVE  # noqa: E402
+
+
+def _rules_of(text: str):
+    for m in re.finditer(r"([^{}]+)\{([^{}]*)\}", _blank_comments(text)):
+        yield text.count("\n", 0, m.start()) + 1, " ".join(m.group(1).split()), m.group(2)
+
+
+@pytest.mark.parametrize("path", _css_files(), ids=lambda p: p.name)
+def test_the_polish_never_animates_a_shadow(path: Path):
+    offenders = []
+    for line, selector, body in _rules_of(path.read_text(encoding="utf-8")):
+        if selector.startswith("@") or DECORATIVE.search(selector):
+            continue
+        for m in re.finditer(r"(?<![-\w])transition(?:-property)?\s*:([^;]*)", body):
+            if "box-shadow" in _transition_properties(m.group(1)):
+                offenders.append(f"{path.name}:{line}: {selector[:70]}")
+    assert not offenders, (
+        "An interface transition animates `box-shadow` (the motion pass: transform "
+        "and opacity, and a colour, only). Let the shadow change at once:\n" + "\n".join(offenders)
+    )
+
+
+def test_the_motion_sections_hold_no_layer_and_no_loop():
+    """`will-change` only while something animates (never in a stylesheet,
+    where it is permanent), and no polish animation repeats."""
+    offenders = []
+    for path in _css_files():
+        raw = path.read_text(encoding="utf-8")
+        heads = [m.start() for m in re.finditer(r"/\* ---", raw)]
+        for n, start in enumerate(heads):
+            if not raw.startswith("/* --- motion:", start):
+                continue
+            end = heads[n + 1] if n + 1 < len(heads) else len(raw)
+            code = _blank_comments(raw[start:end])
+            if re.search(r"(?<![-\w])will-change\s*:", code):
+                offenders.append(f"{path.name}: will-change in the section at line {raw.count(chr(10), 0, start) + 1}")
+            if re.search(r"\binfinite\b", code):
+                offenders.append(f"{path.name}: an infinite animation in the section at line {raw.count(chr(10), 0, start) + 1}")
+    assert not offenders, "\n".join(offenders)

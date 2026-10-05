@@ -2758,7 +2758,16 @@ function showSkeletons(container, count = 3, tag = "div") {
 function clearSkeletons(container) {
   if (!container) return;
   container.removeAttribute("aria-busy");
-  for (const el of container.querySelectorAll(":scope > .skeleton")) el.remove();
+  const held = container.querySelectorAll(":scope > .skeleton");
+  for (const el of held) el.remove();
+  //: **What replaces them settles in** (the motion pass, 2026-10-05): the
+  //: first rows fade up a step, staggered (`.ui-settle`, 08-consistency.css),
+  //: instead of popping in where the skeletons were. Only on this first
+  //: swap: the class is gone before any later redraw.
+  if (held.length) {
+    container.classList.add("ui-settle");
+    setTimeout(() => container.classList.remove("ui-settle"), 600);
+  }
 }
 
 // A page of the plain list. Smaller than the backend's own default

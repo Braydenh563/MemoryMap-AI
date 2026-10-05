@@ -718,7 +718,7 @@
   justify-content: center;
   /* Explicit properties, not `all`, only `background`/`color` change, on
      `:hover` just below. */
-  transition: background var(--motion-slow) var(--ease-out), color var(--motion-slow) var(--ease-out);
+  transition: background var(--ui-slow) var(--ease-out), color var(--ui-slow) var(--ease-out);
   padding: 0;
 }
 
@@ -769,7 +769,7 @@
      instantly by applySidebarWidth, so animating the aside's own width
      only made it lag its track. Opacity and transform are the only
      animated properties in the shell (Phase 4). */
-  transition: box-shadow var(--motion-slow) var(--ease-out);
+  transition: none;
   box-shadow: none;
   border-right: 1px solid var(--border);
 }
@@ -777,7 +777,7 @@
 .sidebar-collapsed>*:not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name) {
   opacity: 0;
   pointer-events: none;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 /* Hover-peek */
@@ -811,7 +811,7 @@
 .layout-sidebar-collapsed>.sidebar-collapsed:hover>*:not(.sidebar-collapse-toggle):not(.sidebar-resize) {
   opacity: 1;
   pointer-events: auto;
-  transition: opacity var(--motion-slow) var(--ease-out) var(--motion-fast);
+  transition: opacity var(--ui-slow) var(--ease-out) var(--ui-fast);
 }
 
 /* The toggle moves back to the right edge on hover-peek (above): the same
@@ -925,7 +925,6 @@
 .wb-card,
 .library-chip {
   transition: transform var(--motion-slow) var(--ease-out),
-    box-shadow var(--motion-slow) var(--ease-out),
     border-color var(--motion-slow) var(--ease-out);
 }
 
@@ -1091,7 +1090,7 @@
   background: var(--inner);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  transition: transform var(--motion-slow) var(--ease-out), border-color var(--motion-slow) var(--ease-out);
+  transition: transform var(--ui-slow) var(--ease-out), border-color var(--ui-slow) var(--ease-out);
 }
 
 @media (hover: hover) {
@@ -3245,7 +3244,7 @@ body.scroll-top-visible .skills-split > .tab-main {
   gap: var(--space-1);
   flex: 0 0 auto;
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .space-option:hover .space-option-actions,
@@ -4309,7 +4308,8 @@ button.setting-hint-toggle {
    so the browser's own disclosure triangle stays where it is. */
 summary:not(.icon-only):not(.icon-button) {
   border-radius: var(--radius-md);
-  transition: background var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
+  transition: background var(--ui-fast) var(--ease-out), color var(--ui-fast) var(--ease-out),
+    outline-color var(--ui-fast) var(--ease-out);
 }
 
 summary:not(.icon-only):not(.icon-button):hover {
@@ -4985,7 +4985,7 @@ button.icon-button:not(.ghost):not(.active):not(.status-item):not(.tool-btn):not
   justify-content: center;
   border-radius: var(--radius-pill);
   background: var(--ghost-btn-bg);
-  transition: background var(--motion-fast) var(--ease-out), color var(--motion-fast) var(--ease-out);
+  transition: background var(--ui-fast) var(--ease-out), color var(--ui-fast) var(--ease-out);
 }
 
 .unlink:hover {
@@ -5218,8 +5218,8 @@ summary:not(.icon-only):not(.icon-button) {
     0 1px 2px rgba(0, 0, 0, 0.25);
   cursor: pointer;
   transition:
-    background var(--motion-fast) var(--ease-out),
-    border-color var(--motion-fast) var(--ease-out);
+    background var(--ui-fast) var(--ease-out),
+    border-color var(--ui-fast) var(--ease-out);
 }
 
 .library-card-tick:hover,
@@ -6146,7 +6146,7 @@ summary:not(.icon-only):not(.icon-button) {
      same carve-out `.library-image-actions` already carries. */
 .library-image-tile:has(> .library-image-frame) > .library-tile-tick {
   opacity: 0;
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 .library-image-tile:has(> .library-image-frame):hover > .library-tile-tick,
@@ -7787,7 +7787,7 @@ button.connection-row {
   padding: var(--space-1) var(--space-1) var(--space-1) var(--space-5);
   border-radius: var(--radius-pill);
   box-shadow: var(--shadow-md);
-  transition: opacity var(--motion-slow) var(--ease-out);
+  transition: opacity var(--ui-slow) var(--ease-out);
 }
 
 /* Idle: gone, and out of the pointer's way, until a move brings it back.
@@ -7799,6 +7799,8 @@ button.connection-row {
   pointer-events: none;
 }
 
+/* Not the polish set: an idle fade of a whole bar, which keeps reduced
+   motion (DESIGN.md, the whole-window mode). */
 @media (prefers-reduced-motion: reduce) {
   #tab-documents.doc-focus > .doc-focus-bar {
     transition: none;
@@ -12428,19 +12430,6 @@ header#top-bar {
   padding-bottom: calc(var(--space-2) + var(--dock-bottom-inset));
 }
 
-/* --- 4. reduced motion ---------------------------------------------------
-   Declared here with the motion it belongs to. The sidebar sheet slides and
-   the floating action button fades in; with this preference set, both simply
-   are where they are going to be. */
-@media (prefers-reduced-motion: reduce) {
-
-  #sidebar,
-  #chat-sidebar,
-  #doc-sidebar {
-    transition: none;
-  }
-}
-
 /* --- band 2: 820-1100, iPad landscape and small laptops -------------------
    The layout above, with two things given room they do not have at this
    width.
@@ -12614,7 +12603,7 @@ header#top-bar {
     overflow-y: auto;
     border-radius: 0 var(--radius) var(--radius) 0;
     transform: translateX(calc(var(--sheet-rail) - 100%));
-    transition: transform var(--motion-slow) var(--ease-out), box-shadow var(--motion-slow) var(--ease-out);
+    transition: transform var(--ui-slow) var(--ease-out);
     box-shadow: none;
   }
 
@@ -14550,7 +14539,6 @@ button.finder-row:hover,
   border-radius: var(--radius-sm);
   color: var(--ink);
   cursor: grab;
-  transition: background-color var(--motion-fast) var(--ease-out);
 }
 
 .wb-lib-tile:hover {
@@ -14661,7 +14649,6 @@ button.finder-row:hover,
   border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   cursor: pointer;
-  transition: background-color var(--motion-fast) var(--ease-out);
 }
 
 .wb-layer-depth-1 {

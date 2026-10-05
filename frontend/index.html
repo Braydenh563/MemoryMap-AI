@@ -9880,13 +9880,38 @@ Link to another note with [[its first few words]]."></textarea>
             </details>
 
             <!-- ---------- Effects & accessibility ---------- -->
+            <div class="fold-help-wrap">
+              <button type="button" class="icon-only ghost small graph-help-toggle fold-help"
+                data-help-for="motion-help" aria-controls="motion-help" aria-expanded="false"
+                title="About motion" aria-label="About motion">
+                <i class="ph ph-question" aria-hidden="true"></i>
+              </button>
             <details class="settings-group settings-fold" data-fold-key="appearance-effects">
-              <summary><h3 class="inline-h3">Effects &amp; accessibility</h3></summary>
+              <summary><div class="row help-head">
+                <h3 class="inline-h3">Effects &amp; accessibility</h3>
+                <span class="fold-help-slot" aria-hidden="true"></span>
+              </div></summary>
+              <div class="help-body hidden" id="motion-help" role="dialog" aria-label="About motion">
+                <p>
+                  Two switches, two kinds of motion. Reduce motion stills the
+                  large movement: Atlas, the background art, the graph's
+                  layout and the whiteboard, and so does your system's
+                  reduced-motion setting.
+                </p>
+                <p>
+                  Interface animations are the short ones that say what
+                  happened: a button pressing in, a menu or dialog opening from
+                  where you clicked, a tab's marker sliding to the new tab, a
+                  list settling, a toast arriving. They are on by default and
+                  play even with Reduce motion on; turn them off and every one
+                  of them is instant.
+                </p>
+              </div>
 
               <div class="setting-row" id="perf-mode-row">
                 <div class="setting-label">
                   <span>Performance mode</span>
-                  <small class="muted">Flat panels, no animations, slower graph physics. Auto: on for a machine with 2 cores or 4 GB or fewer.</small>
+                  <small class="muted">Flat panels, still background, slower graph physics. Auto: on for a machine with 2 cores or 4 GB or fewer.</small>
                   <small class="muted hint-inline hidden" id="perf-mode-hint"></small>
                 </div>
                 <select id="perf-mode" class="small-select setting-control" aria-label="Performance mode">
@@ -10000,11 +10025,23 @@ Link to another note with [[its first few words]]."></textarea>
                 <input type="checkbox" id="reduce-motion-toggle">
                 <span>
                   Reduce motion
-                  <small class="muted">Turns off animations and transitions.</small>
+                  <small class="muted">Stills the large movement: Atlas, the background art, the graph and the whiteboard.</small>
+                </span>
+              </label>
+
+              <!-- The interface's own motion, a switch of its own (the owner,
+                   2026-10-05): on by default, and on means it plays even with
+                   Reduce motion or the system's reduced-motion setting on. -->
+              <label class="setting-check" id="ui-motion-row">
+                <input type="checkbox" id="ui-motion-toggle" checked>
+                <span>
+                  Interface animations
+                  <small class="muted">Short fades and slides as menus, dialogs and tabs open, and a press on buttons.</small>
                 </span>
               </label>
 
             </details>
+            </div>
 
             <!-- ---------- Atlas and faces ----------
                  Its own fold rather than the tail of Effects & accessibility
@@ -13173,11 +13210,8 @@ Link to another note with [[its first few words]]."></textarea>
        whose own tail starts the art; this file only defines. -->
   <script src="/js/bg-art.js?v=0.3.32"></script>
   <script src="/js/settings.js?v=0.3.32"></script>
-  <!-- The guided tour (tour.js). Last, and its position is not load-bearing:
-       every cross-file call it makes (switchTab, showNotesSection, toast) runs
-       from a step or a listener, never while the file is being parsed. app.js
-       reaches back the same way, behind a `typeof openTour === "function"`
-       guard, so a page served without this file still boots. -->
-  <script src="/js/tour.js?v=0.3.32"></script>
+  <!-- The guided tour (tour.js) is a lazy bundle (`tour` in LAZY_MODULES,
+       app.js): `openTour` and `renderTourReplay` are stand-ins that fetch it
+       the first time a tour starts or Settings, Help is shown. -->
 </body>
 </html>

@@ -946,6 +946,22 @@ function renderAgentActivityMode() {
 // already been read is just something left to wait out otherwise, the
 // timer clears when this fires, so a stray late setTimeout can't reach for
 // a note the click already removed.
+//: **Toasts stack smoothly** (the motion pass, 2026-10-05): a toast arriving
+//: or leaving moves the others, and they slide there by `translate` over
+//: `--ui-base` from where they were (measured, changed, played back) rather
+//: than jumping a toast's height between two frames. Interface animations
+//: off makes `--ui-base` 0 and they jump.
+function toastStack(box, change) {
+  const was = [...box.children].map((t) => [t, t.getBoundingClientRect().top]);
+  change();
+  const cs = getComputedStyle(box);
+  const ms = parseFloat(cs.getPropertyValue("--ui-base")) * 1000;
+  for (const [t, top] of ms ? was : []) {
+    const dy = top - t.getBoundingClientRect().top;
+    if (dy && t.isConnected) t.animate([{ translate: `0 ${dy}px` }, { translate: "0 0" }], { duration: ms, easing: cs.getPropertyValue("--ease-out") });
+  }
+}
+
 //: **A toast leaves the way it came** (INBOX 399 (4)): it fades and drops
 //: 4px on the same curve it arrived on (`.toast.is-leaving`,
 //: 01-forms-settings.css) rather than vanishing between two frames, which
@@ -954,7 +970,7 @@ function renderAgentActivityMode() {
 function dismissToast(note) {
   if (!note.isConnected || note.classList.contains("is-leaving")) return;
   note.classList.add("is-leaving");
-  const done = () => note.remove();
+  const done = () => note.isConnected && toastStack(note.parentElement, () => note.remove());
   note.addEventListener("animationend", done, { once: true });
   setTimeout(done, 400);
 }
@@ -1129,7 +1145,7 @@ function toast(message, isError = false, { exempt = false } = {}) {
     clearTimeout(timer);
     dismissToast(note);
   });
-  box.appendChild(note);
+  toastStack(box, () => box.appendChild(note));
 }
 
 // A toast with one action button, used for Undo (Wave J). The button
@@ -1154,7 +1170,7 @@ function toastProgress(message) {
   text.className = "toast-msg";
   setLabel(text, `ph:spin ${message}`);
   note.append(text);
-  box.appendChild(note);
+  toastStack(box, () => box.appendChild(note));
   return {
     say(next) {
       setLabel(text, `ph:spin ${next}`);
@@ -1204,7 +1220,7 @@ function toastAction(message, actionLabel, onAction, opts = {}) {
   text.textContent = message;
   note.toastTimer = setTimeout(() => dismissToast(note), 8000);
   note.append(text, toastActionButton(note, actionLabel, run), toastCloseButton(note, note.toastTimer));
-  box.appendChild(note);
+  toastStack(box, () => box.appendChild(note));
 }
 
 // --- the server-down banner (WORLD_CLASS_PLAN 22.1 item 6) ------------------
@@ -1246,7 +1262,7 @@ function showServerDownBanner() {
   button.textContent = "Retry";
   button.addEventListener("click", () => retryServerNow());
   note.append(text, button, toastCloseButton(note, null));
-  box.appendChild(note);
+  toastStack(box, () => box.appendChild(note));
   serverDownNote = note;
 }
 

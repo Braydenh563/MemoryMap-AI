@@ -338,6 +338,23 @@ Each row below was checked against the head before anything was built.
   before. The six carry `data-wb-closes`, the closer selects it, and
   `tests/test_wb_menu_rows_close.py` pins both.
 
+## Moved from the plans, 2026-10-05 (UI_MODERNISATION Phase 4 item 2, the motion pass)
+
+The row, verbatim: "No transitions on `left/top/width/height`; opacity and
+transform only, ≤ `--motion-base`. Hover changes tone, never size or shape."
+Built by the motion pass (motion-1005; the owner: "subtle animations or
+transitions that are modern, professional ... cheap ones", "make them happen
+even with reduced motion but with a separate toggle", "Also like the smooth
+slide across tabs"). Interface animations (Appearance, on by default,
+`data-ui-motion`, the `--ui-*` tokens) governs the polish set and plays it
+under reduced motion; every interface transition is on `--ui-*`, moves
+transform, opacity or a colour, never a shadow (`tests/test_motion_tokens.py`,
+`tests/test_cheap_animations.py`); the one inset in motion (the anchored
+selection indicator) became a measured `::before` moved by `transform` on
+every strip. Measured by `scratchpad/ui-sweeps/motion1005.js`: the
+indicator 164 to 221ms, 10 or 11 frames, transform only, lands 0px and 0px
+after a resize; off, 0ms; menus placed to the same pixel with the switch on
+and off. DESIGN.md, "Motion" and "Interface animations".
 ## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)
 
 Rows of WORLD_CLASS_PLAN listed as open that are built on the head, each confirmed by grep. A partly built row keeps a short open line.

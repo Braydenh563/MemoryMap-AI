@@ -562,7 +562,7 @@ def test_the_press_cue_does_not_use_the_transform_property() -> None:
     css = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
     body = ""
     for selector, rule in _rules(css):
-        if selector.strip() == "button:active:not(:disabled)":
+        if selector.split(",")[0].strip() == "button:active:not(:disabled)":
             body = rule
             break
     assert body, "the global press cue rule has gone missing"
@@ -570,7 +570,8 @@ def test_the_press_cue_does_not_use_the_transform_property() -> None:
         "the press cue must use `translate`/`scale`, not `transform`: "
         "`transform` replaces a button's own centring and makes it jump"
     )
-    assert "translate:" in body and "scale:" in body
+    # The motion pass (2026-10-05): a scale alone, 0.97, reads as the press.
+    assert "scale: 0.97" in body and "translate:" not in body
 
 
 def test_no_dialog_is_a_direct_child_of_a_page() -> None:
@@ -4095,11 +4096,12 @@ def test_a_menu_fades_out_through_the_one_class_every_close_path_sets() -> None:
     the frames: 4 part way, gone by about 150ms, on all eight kebab and select
     close paths."""
     css = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
-    at = css.index("  .action-menu {\n    transition:")
-    block = css[at : css.index("\n  /* Flipped upward", at)]
-    assert "opacity var(--motion-fast) var(--ease-out)" in block
-    assert "display var(--motion-fast) linear allow-discrete" in block
-    assert ".action-menu.hidden {\n    opacity: 0;\n    pointer-events: none;" in block
+    # The motion pass (2026-10-05): the exit runs on Interface animations'
+    # `--ui-exit` and shrinks back as it fades; on the closed state only.
+    at = css.index(".action-menu.hidden {\n  opacity: 0;\n  scale: 0.96;\n  pointer-events: none;")
+    block = css[at : css.index("}", at)]
+    assert "opacity var(--ui-exit) var(--ease-out)" in block
+    assert "display var(--ui-exit) linear allow-discrete" in block
     menus = (ROOT / "frontend" / "js" / "menus.js").read_text(encoding="utf-8")
     assert "restoreEscapedMenuAfterExit(menu);" in menus[menus.index("function closeActionMenus()") :][:900]
     assert "const exit = menuExitMs(menu);" in menus, "the escape observer must wait for the exit too"

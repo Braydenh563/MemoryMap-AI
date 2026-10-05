@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from urllib.parse import urlsplit
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import NamedTuple
@@ -1248,6 +1249,79 @@ _OUTBOUND_TOOLS = frozenset({"read_url", "web_search"})
 #: result's `from_outside`, or a retrieved note's, see `run_agent`).
 _PARK_WHEN_TAINTED = _OUTBOUND_TOOLS | frozenset(_WRITE_TOOLS)
 
+#: **Which pages a tainted turn may still open without a card** (SEC-02's last
+#: step). Parking every `read_url` once outside text is in the turn stopped a
+#: page sending the notebook anywhere, and made every research turn a stack of
+#: cards. Two addresses carry nothing the model could have put there:
+#: one the person named (its site, by their own choice), and the exact
+#: address a search result gave this turn. Anything else, a query string
+#: added, a longer path, a name that only ends like the site, still parks:
+#: that is where a page smuggles data out.
+_ADDRESS = re.compile(
+    r"(?:https?://)?((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63})(?::\d+)?(/[^\s<>()\"']*)?",
+    re.IGNORECASE,
+)
+
+
+def _page_key(url: str) -> str | None:
+    """An address as compared: no scheme, no fragment, no trailing slash,
+    the host lowercased. None when it names no host."""
+    text = (url or "").strip()
+    if not text:
+        return None
+    if "://" not in text:
+        text = "https://" + text
+    parsed = urlsplit(text)
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return None
+    path = parsed.path.rstrip("/")
+    return host + path + (f"?{parsed.query}" if parsed.query else "")
+
+
+def _bare_host(host: str) -> str:
+    host = host.lower().rstrip(".")
+    return host[4:] if host.startswith("www.") else host
+
+
+def _hosts_named(question: str) -> set[str]:
+    """The sites the person named in their own words."""
+    return {_bare_host(m.group(1)) for m in _ADDRESS.finditer(question or "")}
+
+
+def _result_urls(result) -> set[str]:  # noqa: ANN001
+    """Every address a search result handed back, as page keys."""
+    found: set[str] = set()
+
+    def walk(value) -> None:  # noqa: ANN001
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if key in ("url", "link", "href") and isinstance(item, str):
+                    page = _page_key(item)
+                    if page:
+                        found.add(page)
+                else:
+                    walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+
+    walk(result)
+    return found
+
+
+def _cleared_page(state: "_TurnState", name: str, arguments: dict) -> bool:
+    """Whether a `read_url` in a tainted turn opens without a card."""
+    if name != "read_url":
+        return False
+    page = _page_key(str(arguments.get("url") or ""))
+    if page is None:
+        return False
+    if page in state.result_pages:
+        return True
+    host = _bare_host(urlsplit("https://" + page).hostname or "")
+    return host in state.named_hosts
+
 
 def build_agent_messages(
     question: str,
@@ -1905,6 +1979,10 @@ class _TurnState:
     fresh_reads: set[tuple[str, str]] = field(default_factory=set)
     #: Did this round do something new? Reset at the top of each round.
     progressed: bool = False
+    #: SEC-02: the sites the person named, and the exact addresses this
+    #: turn's searches returned (`_cleared_page`).
+    named_hosts: set[str] = field(default_factory=set)
+    result_pages: set[str] = field(default_factory=set)
 
     def count_failure(self, tool_name: str) -> int:
         self.tool_failures[tool_name] = self.tool_failures.get(tool_name, 0) + 1
@@ -2250,7 +2328,7 @@ def _dispatch_call(
             return False
         yield handover
         return True
-    elif spec is not None and (spec.destructive or (state.tainted and name in _PARK_WHEN_TAINTED)) and state.parked.get(name, 0) >= MAX_PARKED_CONFIRMS:
+    elif spec is not None and (spec.destructive or (state.tainted and name in _PARK_WHEN_TAINTED and not _cleared_page(state, name, arguments))) and state.parked.get(name, 0) >= MAX_PARKED_CONFIRMS:
         # **A destructive tool cannot paper the turn with confirm
         # cards.** Parking one hands the model `AWAITING_CONFIRMATION`
         # rather than a result, which is honest but is not a *stop*:
@@ -2279,7 +2357,7 @@ def _dispatch_call(
             "ok": False,
             "error": result["error"],
         }
-    elif spec is not None and (spec.destructive or (state.tainted and name in _PARK_WHEN_TAINTED)):
+    elif spec is not None and (spec.destructive or (state.tainted and name in _PARK_WHEN_TAINTED and not _cleared_page(state, name, arguments))):
         # Park it for the user, never auto-run a destructive tool, nor a
         # tool that reaches out once the turn has read from outside.
         # The confirm card is the honest signal, so count it as an
@@ -2424,6 +2502,8 @@ def _dispatch_call(
             state.fresh_reads.add(signature)
         if "error" not in result and name in _OUTSIDE_TOOLS:
             state.outside = True
+        if "error" not in result and name == "web_search":
+            state.result_pages |= _result_urls(result)
         if "error" not in result and name in _WRITE_TOOLS:
             state.did_write = True
             state.ran_writes.add(name)
@@ -2637,7 +2717,7 @@ def run_agent(
     every_tool = plan.every_tool
     focused_only = plan.focused_only
     composition_tokens = plan.composition_tokens
-    state = _TurnState(messages=plan.messages, offered=plan.offered)
+    state = _TurnState(messages=plan.messages, offered=plan.offered, named_hosts=_hosts_named(question))
     # SEC-02: a note retrieved for the question that was clipped from the web
     # or imported is already in the prompt, so the turn starts tainted.
     if any(isinstance(n, dict) and n.get("from_outside") for n in notes or ()):

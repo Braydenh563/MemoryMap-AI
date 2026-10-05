@@ -40505,6 +40505,17 @@ made") and the audit's leftovers, each with its test written first.
   check ever ran (measured in Chromium before and after;
   `scratchpad/ui-sweeps/sec2-1005-sweep.js`). `tests/test_password_floor.py`.
 
+- **SEC-02's last step, which pages a tainted turn may open.** In a turn
+  that has read outside text, `read_url` still parks unless
+  `agent._cleared_page` clears it: its page key (host lowercased, no scheme,
+  fragment or trailing slash, the query kept) is one a `web_search` returned
+  this turn (`_TurnState.result_pages`, from every `url`/`link`/`href` in
+  the result), or its host, `www.` aside, is one the person named in the
+  question (`_hosts_named`, `named_hosts`). A query string or a longer path
+  added to a result, and a host that only ends like the named one, still
+  park. Untainted turns are unchanged. `tests/test_injection_fence.py`, four
+  new.
+
 ## Moved from the plans, 2026-10-04 (design-1004)
 
 ### From WORLD_CLASS_PLAN.md 1.2: one primary per modal, meta without border or hover

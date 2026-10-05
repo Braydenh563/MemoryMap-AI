@@ -915,8 +915,9 @@ real fix, LAN mode over HTTPS with a certificate made on this computer, the
 same day, and SEC-10, a folder import safe to run again, and SEC-14, answers that quoted a note
 redacted when it goes private (HISTORY.md, "Security audit, second pass").
 SEC-17, a floor of 8 for new passwords and a warning above it, the same
-day. Open: SEC-02's last step
-(`read_url` parks for a URL not in the question or this turn's results).
+day, and SEC-02's last step (a tainted turn opens without a card only a
+page its search returned or a site the person named). Nothing from the
+audit is open.
 
 **Decisions made** (the owner, 2026-10-05; do not remake):
 

@@ -9765,39 +9765,8 @@ function bookmarkSiteSection(host, total) {
   return { root, body };
 }
 
-//: What kind of thing a link points at, from its address alone: this app
-//: fetches nothing from the internet, so there is no favicon, but a tile that
-//: says "video", "code", "PDF" or "email" tells a list of links apart at a
-//: glance, which is what a favicon column is for. Hosts are matched at their
-//: tail so "m.youtube.com" and "www.youtube.com" are one kind.
-const BOOKMARK_KINDS = [
-  { key: "email", icon: "ph:envelope-simple", label: "Email address", test: (u) => u.protocol === "mailto:" },
-  { key: "phone", icon: "ph:phone", label: "Phone number", test: (u) => u.protocol === "tel:" },
-  { key: "pdf", icon: "ph:file-pdf", label: "PDF", test: (u) => /\.pdf$/i.test(u.pathname) },
-  {
-    key: "video", icon: "ph:play-circle", label: "Video",
-    test: (u) => /(^|\.)(youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com)$/.test(u.hostname),
-  },
-  {
-    key: "code", icon: "ph:code", label: "Code",
-    test: (u) => /(^|\.)(github\.com|gitlab\.com|bitbucket\.org|codeberg\.org|stackoverflow\.com|developer\.mozilla\.org|docs\.python\.org)$/.test(u.hostname),
-  },
-  {
-    key: "reference", icon: "ph:book-open", label: "Reference",
-    test: (u) => /(^|\.)(wikipedia\.org|arxiv\.org|wikimedia\.org|britannica\.com)$/.test(u.hostname),
-  },
-];
-const BOOKMARK_KIND_DEFAULT = { key: "link", icon: "ph:globe", label: "Web page" };
-
-function bookmarkKind(url) {
-  const raw = String(url || "").trim();
-  try {
-    const parsed = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
-    return BOOKMARK_KINDS.find((kind) => kind.test(parsed)) || BOOKMARK_KIND_DEFAULT;
-  } catch {
-    return BOOKMARK_KIND_DEFAULT;
-  }
-}
+//: `bookmarkKind` (what a link points at, its tile) lives in selection.js,
+//: which is loaded at boot: the notebook picker draws it too (INBOX 572).
 
 function bookmarkRow(bookmark) {
   const row = document.createElement("div");

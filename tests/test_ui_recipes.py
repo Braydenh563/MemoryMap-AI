@@ -3125,6 +3125,28 @@ def test_every_notebook_picker_is_the_picker_dialog() -> None:
     assert "notePickerRow(" in _function_body(source, "pickNotesDialog")
 
 
+def test_a_picker_row_never_shrinks_and_its_sources_span_the_dialog() -> None:
+    """INBOX 572 (the owner: "this whole popup panel is cooked"). The list is
+    a column flex box of one fixed height, so with more rows than fit every
+    row shrank to the target floor (28px measured with 25 notes) while its
+    32px tile stayed whole and hung over the next row's title. A row never
+    shrinks and has one height; the sources are a full-width `.seg` of
+    equal segments carrying their counts; the source is remembered; a title
+    is clipped by the row's width (CSS), never by a character count."""
+    rows = _css_block(".entry-pick-card > .entry-pick-list > li")
+    assert "flex: none" in rows
+    rich = _css_block(".entry-pick-list > .entry-pick-row")
+    assert "height: var(--pick-row-h)" in rich
+    seg = _css_block(".entry-pick-card > .seg")
+    assert "align-self: stretch" in seg and "flex-wrap: nowrap" in seg
+    tab = _css_block(".entry-pick-card > .seg > button")
+    assert "flex: 1 1 0" in tab and "min-width: 0" in tab
+    source = frontend_text("selection.js")
+    body = _function_body(source, "pickLibraryItemDialog")
+    assert "seg-count" in body and "pickerRememberedSource" in body
+    assert "noteLabel(row, 70)" not in _function_body(source, "libraryPickLabel")
+
+
 #: Script-built dialogs that still open on the confirm alert's `confirm-head`
 #: (a question and its answers, which DESIGN.md exempts): may only fall. A
 #: dialog that is not a question takes `dialogHead` (selection.js; INBOX 548).

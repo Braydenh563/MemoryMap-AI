@@ -931,6 +931,7 @@ HELP_TOPICS.extend(
             "keywords": (
                 "mind map", "mindmap", "mind-map", "branch", "child topic", "brainstorm",
                 "branch colours", "branch colors", "map font", "map theme", "palette",
+                "from the library", "point a topic at a note", "link a note to a topic", "reference node",
             ),
             "body": (
                 "Mind maps live in the Library, under Boards and maps; New, then Mind "
@@ -939,7 +940,11 @@ HELP_TOPICS.extend(
                 "ring of actions, where Cross-link joins any two topics. View, How this "
                 "map looks sets its branch colours (classic, deep, soft or vivid), its "
                 "font and the look every topic follows unless it was given its own; a "
-                "topic's pickers can still pull it back to the app's own default."
+                "topic's pickers can still pull it back to the app's own default. "
+                "A topic's Add, From the library… points a new topic at a note, "
+                "document, file or bookmark: a tab for each with its count (the "
+                "arrows move between them; it opens on the one you used last), "
+                "type to narrow the list, Down and Enter to choose."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

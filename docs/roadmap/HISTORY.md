@@ -41043,3 +41043,21 @@ chat, graph, Library (every sub-tab), documents editor, board, map,
 timeline, reminders, settings (every pane), dialogs and menus, the finder
 and command palette, the status bar and notifications, the lock screen and
 loading page.
+
+572. **The owner, 2026-10-05, verbatim.** "this whole popup panel is cooked
+     ui/ux wise and needs another redesign for the pill bar and ui fix"
+     (screenshot: the mind map's "Point a new node at..." picker; the source
+     pills in a loose well, icon tiles overlapping the next row, rows running
+     together). Placed: a picker agent. **Fixed 2026-10-05** (pickerDialog,
+     selection.js; 04-chat-dock-appearance.css). Cause: the list is a column
+     flex box of one height and its rows shrank, measured 28px rows under
+     32px tiles with 25 notes (9 tiles over the next row, 8.6px off centre);
+     now `flex: none`, 56px rows 8px apart, 0 overlaps, 0px off centre. The
+     sources span the card as equal segments (502 of 544px at 1440; was 301,
+     left-aligned) of one height (32px; 44 at 390), counted, Home and End,
+     remembered. Type icons (bookmark kind, file type), labels clipped by CSS
+     not at 70 characters, the empty state recipe, a 2px search ring (was
+     3), a thin arrowless scrollbar, one card height while filtering.
+     `scratchpad/ui-sweeps/pickers.js` 88 checks green at 1440 and 390,
+     light and dark (18 fail on the old code).
+

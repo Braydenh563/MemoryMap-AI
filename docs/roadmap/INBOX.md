@@ -105,12 +105,6 @@ with its owner named in the entry.
      you are reading (the card clicked, or the card in view as you scroll),
      marked on the card; the toggle says so. Placed: the UX agent.
 
-572. **The owner, 2026-10-05, verbatim.** "this whole popup panel is cooked
-     ui/ux wise and needs another redesign for the pill bar and ui fix"
-     (screenshot: the mind map's "Point a new node at..." picker; the source
-     pills in a loose well, icon tiles overlapping the next row, rows running
-     together). Placed: a picker agent.
-
 573. **The owner, 2026-10-05, verbatim.** "these anchor points appeared and
      wont go away" (screenshot: a map topic keeping eight resize handles and
      its Aa and arrow marks after deselecting). Placed: the mind map agent.

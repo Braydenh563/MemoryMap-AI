@@ -546,7 +546,11 @@ const ATLAS_LOOKS = {
     //: ears rise from it (`atlasHairCap`).
     cap: "M18.4 20.6C17.8 12.6 23.4 6.8 31 6.8C38.6 6.8 44.2 12.6 43.8 20C42.6 16.2 40.2 13.4 37 12.2C36.4 13.6 35 14.6 33.6 14.8C33.8 13.8 33.6 13 33 12.4C31.6 14 29.6 15 27.6 15.2C28 14.4 28 13.6 27.6 13C25 14.4 22 16.8 18.4 20.6Z",
     legs: false,
-    lowerPivot: [31, 58],
+    //: The lower body's pose (`.atl-lower`, the CSS) shears and stretches
+    //: about the join itself, the middle of the torso's fade into it (INBOX
+    //: 615): about the hips below it, a float's lean slid the cloak 0.4
+    //: across the join (0.9px at 2.2x, atlas615-join.js).
+    lowerPivot: [31, 55.5],
     //: **One snake of a wisp, sub-wisps branching off it** (INBOX 435 (3),
     //: wrapup-0927 item 7; the owner: "on the masculine atlas lower body
     //: looks like a tripod and very straight pencil-y, I was thinking like a
@@ -577,7 +581,7 @@ const ATLAS_LOOKS = {
     //: (atlasBuild), the sub-wisps its tatters. Its dust is [t, across, r]
     //: along the cloak, its glints [t, across, size], its motes [dx, dy, r,
     //: glint] about the hem's end.
-    cloak: [9.8, 12, 2],
+    cloak: [9.4, 12, 2],
     cloakDust: {
       dust: [[0.34, 0.2, 0.18], [0.4, -0.28, 0.14], [0.47, 0.05, 0.26], [0.53, 0.33, 0.12], [0.58, -0.14, 0.2], [0.64, 0.24, 0.13], [0.7, -0.3, 0.17], [0.77, 0.1, 0.22], [0.83, -0.2, 0.12], [0.9, 0.16, 0.15]],
       glints: [[0.49, -0.16, 0.8], [0.72, 0.2, 0.6]],
@@ -669,8 +673,8 @@ const ATLAS_LOOKS = {
     //: now rooted at her other hip and curling up the other way. In the
     //: companion the big tail is the `lower` layer, which sways on its
     //: root; each pose shapes it from the group inside (`.atl-lower`, the
-    //: CSS), which turns about the hips (`lowerPivot`).
-    lowerPivot: [31, 60],
+    //: CSS), which shears about the join (`lowerPivot`, INBOX 615).
+    lowerPivot: [31, 55.5],
     lowerTaper: "sower",
     auraAt: [33.5, 46],
     //: **Astral wisps** (INBOX 535, the owner: "add some ribbon like astral
@@ -2843,13 +2847,30 @@ function atlasDrawFigure(mood) {
       if (["lower", "tail", "wisps", "wisps-back", "glint-a", "glint-b", "neb", "neb-front"].includes(name)) {
         into = document.createElement("span");
         into.className = `atl-lw-pose atl-lw-pose-${name}`;
-        const [ox, oy] = name === "tail" ? spec.tailSegsNow[0].slice(0, 2) : name.startsWith("neb") ? [31, 52] : spec.lowerPivot || [31, 58];
+        //: The lower body's and her wisps' pose turn about the join itself,
+        //: the middle of the torso's fade into it (`lowerPivot`, INBOX 615).
+        const [ox, oy] = name === "tail" ? spec.tailSegsNow[0].slice(0, 2) : name.startsWith("neb") ? [31, 52] : spec.lowerPivot || [31, 55.5];
         into.style.transformOrigin = `${ox}px ${oy}px`;
         box.appendChild(into);
       }
       into.appendChild(svg);
       frag.appendChild(box);
     } else frag.appendChild(svg);
+  }
+  //: **The lower body moves with the torso** (INBOX 615, the owner: "the
+  //: atlas masculine main body and lower body are slightly misaligned").
+  //: The body's box swayed about the feet and breathed, and the lower
+  //: body's box did neither, so at the join, where the torso fades into it,
+  //: the two outlines slid apart by up to 3.4px at 2.2x at rest, and further
+  //: through a change of pose (atlas615-join.js). Its box now sits in the
+  //: body's breathing box, first, under the hair and the body as before, so
+  //: every sway and breath moves the two as one; what it does of its own
+  //: (its wind, its pose for the state) turns about the join itself.
+  const lowerBox = [...frag.children].find((el) => el.classList.contains("atl-lw-lower"));
+  const breathe = frag.querySelector(".atl-lw-breathe");
+  if (lowerBox && breathe) {
+    Object.assign(lowerBox.style, { position: "absolute", left: "0", top: "0", width: "64px", height: "92px" });
+    breathe.prepend(lowerBox);
   }
   const id = `atl-${look}`;
   atlasMake("title", {}, layers.body.svg);
@@ -3276,16 +3297,21 @@ const ATLAS_RIG_ZETA = { sh: 0.8, el: 0.74, wr: 0.62, sy: 0.9 };
 //: the way it goes (it trails behind and stretches). One variant is picked
 //: at random as a state begins, and at rest a new one every 8 to 14
 //: seconds, so no two repeats look alike.
+//: INBOX 615 and 619 (the owner: "the lower body ... slightly misaligned",
+//: "her lower body actually rotates halfway off her upperbody"): sitting,
+//: lying and startled, the lower body turned 8 to 16 degrees off the torso
+//: (and the CSS 42 more lying down); it turns at most 4 now, about the join,
+//: and takes its width from the torso there, so the two read as one chain.
 const ATLAS_LOWER_STATES = {
   idle: { ms: 900, ease: "cubic-bezier(0.45, 0, 0.35, 1)", v: [[-2.5, 1, 1, 2, -5], [2, 1, 1.02, -2, 4], [3.5, 0.98, 1, 1, 7], [-1, 1.02, 0.99, -3, -2]] },
   walk: { ms: 450, ease: "cubic-bezier(0.34, 1.3, 0.64, 1)", v: [[-9, 0.94, 1.08, 6, -12], [-7, 0.95, 1.1, 8, -9], [-11, 0.93, 1.06, 4, -15]] },
-  sit: { ms: 550, ease: "cubic-bezier(0.34, 1.25, 0.6, 1)", v: [[8, 1.1, 0.86, -6, -14], [-8, 1.08, 0.88, 6, 14], [5, 1.12, 0.84, -4, -10]] },
-  lie: { ms: 600, ease: "cubic-bezier(0.4, 1.15, 0.6, 1)", v: [[16, 1, 0.86, -8, 24], [12, 1.02, 0.9, -6, 30]] },
+  sit: { ms: 550, ease: "cubic-bezier(0.34, 1.25, 0.6, 1)", v: [[3, 1.1, 0.86, -3, -14], [-3, 1.08, 0.88, 3, 14], [2, 1.12, 0.84, -2, -10]] },
+  lie: { ms: 600, ease: "cubic-bezier(0.4, 1.15, 0.6, 1)", v: [[3, 1, 0.86, -3, 24], [2, 1.02, 0.9, -2, 30]] },
   gesture: { ms: 350, ease: "cubic-bezier(0.3, 1.6, 0.6, 1)", v: [[-5, 0.98, 0.95, 4, 9], [-3, 1, 0.94, 6, 12], [-6, 0.97, 0.96, 3, 7]] },
   think: { ms: 900, ease: "cubic-bezier(0.45, 0, 0.55, 1)", v: [[6, 1, 0.97, -4, 12], [4, 0.99, 0.96, -6, 16]] },
   happy: { ms: 380, ease: "cubic-bezier(0.25, 1.8, 0.5, 1)", v: [[-6, 1.02, 0.94, 5, -10], [5, 1.02, 0.95, -5, -14], [-4, 1.03, 0.93, 3, -8]] },
   sad: { ms: 800, ease: "cubic-bezier(0.5, 0, 0.6, 1)", v: [[1.5, 0.96, 1.07, -1, 16], [-1.5, 0.97, 1.06, 1, 20]] },
-  startle: { ms: 260, ease: "cubic-bezier(0.2, 2, 0.4, 1)", v: [[-10, 0.94, 0.9, 8, -18], [-8, 0.95, 0.92, 10, -22]] },
+  startle: { ms: 260, ease: "cubic-bezier(0.2, 2, 0.4, 1)", v: [[-4, 0.94, 0.9, 4, -18], [-3, 0.95, 0.92, 5, -22]] },
 };
 //: The hair's turn about the crown and the nebula stream's [turn, width,
 //: height] about the figure's middle, per state (INBOX 575, the owner:
@@ -3409,7 +3435,15 @@ function atlasRigLower(rig, now, live, buddy) {
     el.style.transition = live ? `transform ${spec.ms + lag * 2}ms ${spec.ease} ${lag}ms` : "none";
     el.style.transform = transform;
   };
-  for (const el of low.boxes) go(el, pose(1));
+  //: The lower body's own box shears about the join rather than turning
+  //: (INBOX 615): a turn, even about the join, moves the outline's sides up
+  //: and down there, and where they slope that is a step against the torso
+  //: (atlas615-join.js: 1.07 to 1.49px at 2.2x at rest); a shear leaves
+  //: the join's row where it is and swings the hem. At 0.4 of the pose's
+  //: lean and half its stretch: the torso's fade is three units deep, and a
+  //: startle's full 8 degrees still opened 1.8px there. The tails and her
+  //: wisps, which leave the body, take the whole pose.
+  for (const el of low.boxes) go(el, `skewX(${atlasFix((skew - rot) * way * 0.4)}deg) scale(1, ${(1 + (sy - 1) * 0.5).toFixed(3)})`);
   for (const el of low.wisps) go(el, pose(0.7), 40);
   for (const el of low.tails) go(el, `rotate(${atlasFix(tail * way)}deg)`, 70);
   for (const el of low.hair) go(el, `rotate(${atlasFix(hair)}deg)`, 90);

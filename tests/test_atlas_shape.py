@@ -1235,3 +1235,32 @@ def test_an_eye_never_shows_its_white_without_its_iris_or_its_heart():
         assert rule in CSS, rule
     eased = re.search(r":is\(\.nm-atlas\.atl-easing, #nm-buddy\.nmb-easing \.nm-atlas\) :is\(([^)]*)\) \{\s*transition: opacity", CSS).group(1)
     assert ".atl-iris" in eased and ".atl-heart-eye" in eased, eased
+
+
+def test_the_lower_body_moves_with_the_torso_and_turns_about_the_join():
+    # INBOX 615 (the owner: "the atlas masculine main body and lower body are
+    # slightly misaligned") and 619 ("the lower body on the feminine atlas is
+    # also slightly misaligned"). The body's box swayed and breathed and the
+    # lower body's did not, so at the join the outlines slid apart by up to
+    # 3.4px at 2.2x (atlas615-join.js). The lower body's box sits in the
+    # body's breathing box now; what it does of its own turns about the join
+    # (y 55.5, the middle of the torso's fade into it), never sideways at the
+    # waist, and its hem's wind is a turn with no slide.
+    assert "breathe.prepend(lowerBox);" in ATLAS
+    assert ATLAS.count("lowerPivot: [31, 55.5],") == 2 and "spec.lowerPivot || [31, 55.5];" in ATLAS
+    assert ".atl-lw-lower { transform-origin: 31px 55.5px; }" in CSS
+    assert ".nm-atlas.atl-layer-lower { transform-origin: 31px 55.5px;" in CSS
+    assert "for (const el of low.boxes) go(el, `skewX(${atlasFix((skew - rot) * way * 0.4)}deg) scale(1, ${(1 + (sy - 1) * 0.5).toFixed(3)})`);" in ATLAS
+    # Its idle loops shear about the join and never turn or slide there.
+    for name in ("atl-hem-wind", "atl-skirt-idle", "atl-lower-sway", "atl-lower-sway-heavy", "atl-lower-flick"):
+        frames = _keyframes(name).split("{", 1)[1]
+        assert "skewX" in frames and not re.search(r"rotate|translate", frames), (name, frames)
+    for pose in ("sit", "float", "lean"):
+        rule = re.search(rf'#nm-buddy\[data-pose="{pose}"\] \.atl-figure \.atl-lower \{{ transform: ([^;]*); \}}', CSS).group(1)
+        assert not re.search(r"rotate|scale\(", rule), (pose, rule)
+    # The rig's pose for a state turns the lower body at most 4 degrees.
+    states = ATLAS[ATLAS.index("const ATLAS_LOWER_STATES = {"):ATLAS.index("const ATLAS_HAIR_STATES")]
+    for state in ("sit", "lie", "startle"):
+        row = re.search(rf"  {state}: \{{.*?v: \[(.*)\] \}},", states).group(1)
+        turns = [abs(float(v)) for v in re.findall(r"\[(-?[0-9.]+),", row)]
+        assert turns and max(turns) <= 4, (state, turns)

@@ -7539,7 +7539,7 @@ body .chip.item-label,
 /* The lower body's and the tail's pose for what it is doing (atlas.js,
    `atlasLowerState`, INBOX 575): set by the rig, on the compositor. */
 .atl-lw > .atl-lw-pose { position: absolute; left: 0; top: 0; width: 64px; height: 92px; will-change: transform; }
-.atl-lw-lower { transform-origin: 31px 57px; }
+.atl-lw-lower { transform-origin: 31px 55.5px; }
 /* The legs' limb gestures (`nameMarkBuddyLimbs`: rotate and scale) turn the box about the hip, the same two points the root's own `transform` uses. */
 .atl-lw-leg-l { transform-origin: 27.4px 60px; }
 .atl-lw-leg-r { transform-origin: 34.6px 60px; }
@@ -8278,13 +8278,15 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    waist (a static transform, which costs nothing): seated it pools and
    spreads over the ledge; floating it trails behind the tilted body;
    hanging it falls straight; leaning it swings the other way; sitting
-   cross-legged it spreads widest. */
+   cross-legged it spreads widest. Gently (INBOX 615, 619): a turn or a
+   spread here moves the outline where the torso fades into it, so each is
+   a few degrees or a few per cent, and the join stays one silhouette. */
 .nm-atlas .atl-lower { transition: transform var(--motion-slow) var(--ease-out); }
-#nm-buddy[data-pose="sit"] .atl-figure .atl-lower { transform: scale(1.18, 0.64); }
-#nm-buddy[data-pose="float"] .atl-figure .atl-lower { transform: rotate(12deg) scaleY(0.96); }
+#nm-buddy[data-pose="sit"] .atl-figure .atl-lower { transform: scaleY(0.82); }
+#nm-buddy[data-pose="float"] .atl-figure .atl-lower { transform: skewX(-4deg) scaleY(0.96); }
 #nm-buddy[data-pose="hang"] .atl-figure .atl-lower { transform: scaleY(1.04); }
-#nm-buddy[data-pose="lean"] .atl-figure .atl-lower { transform: rotate(-6deg); }
-#nm-buddy.nmb-act-meditate .atl-figure .atl-lower { transform: scale(1.32, 0.54); }
+#nm-buddy[data-pose="lean"] .atl-figure .atl-lower { transform: skewX(3deg); }
+#nm-buddy.nmb-act-meditate .atl-figure .atl-lower { transform: scaleY(0.8); }
 /* The sway is on the layer's root, not the group: a transform animated on
    a group inside an svg repaints the svg on the main thread every frame
    (57 paints a second and 15 ms/s for the sash this replaced,
@@ -8294,7 +8296,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    with the glide, the feminine look's walk, since it has no legs to step
    with; carried, kicked or dangling they flick. Still under Off and
    Reduce motion. */
-.nm-atlas.atl-layer-lower { transform-origin: 31px 57px; will-change: transform; }
+.nm-atlas.atl-layer-lower { transform-origin: 31px 55.5px; will-change: transform; }
 @media all {
   :root:not([data-avatar-motion="off"]):is(:not([data-motion="reduced"]), [data-buddy-motion="full"]) #nm-buddy {
     /* `.nm-live .nm-atlas` in each: the idle drift below is written in an
@@ -8361,8 +8363,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   to { transform: translateY(-1.5px) rotate(2deg); }
 }
 @keyframes atl-lower-sway-heavy {
-  from { transform: rotate(-2.4deg) skewX(1.2deg); }
-  to { transform: rotate(3deg) skewX(-1.2deg); }
+  from { transform: skewX(3.6deg); }
+  to { transform: skewX(-4.2deg); }
 }
 @keyframes atl-lower-trail {
   from { transform: rotate(calc(var(--nmb-lean) * -5deg - 1deg)) skewX(calc(var(--nmb-lean) * 3deg)); }
@@ -8391,29 +8393,34 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   #nm-buddy:has(.atl-figure[data-atlas-look="masculine"]) .nm-buddy-char { animation-duration: 6s !important; }
 }
 /* A slow turn and lift about her middle, the compositor's (a box). */
+/* A shear about the join, not a turn (INBOX 615): the hem swings and the
+   waist, where the torso fades into it, stays where the torso is. */
 @keyframes atl-float {
   from { translate: 0 0.5px; }
   to { translate: 0 -0.9px; }
 }
 @keyframes atl-hem-wind {
-  from { rotate: -1.3deg; translate: 0.35px 0; }
-  to { rotate: 1.5deg; translate: -0.5px 0; }
+  from { transform: skewX(1.3deg); }
+  to { transform: skewX(-1.5deg); }
 }
 @keyframes atl-wisp-drift {
   from { rotate: -2.2deg; translate: 0 0.6px; }
   to { rotate: 2deg; translate: 0 -1.2px; }
 }
+/* The walk's, the carry's and the kick's swing of the lower body: shears
+   about the join (INBOX 615), the hem swinging and the waist staying under
+   the torso; a turn there stepped the outline 0.7px at 2.2x. */
 @keyframes atl-skirt-idle {
-  from { transform: rotate(-1.4deg) skewX(1.6deg); }
-  to { transform: rotate(1.6deg) skewX(-1.6deg); }
+  from { transform: skewX(1.6deg); }
+  to { transform: skewX(-1.8deg); }
 }
 @keyframes atl-lower-sway {
-  from { transform: rotate(-4deg) skewX(3deg); }
-  to { transform: rotate(5deg) skewX(-3deg); }
+  from { transform: skewX(4deg); }
+  to { transform: skewX(-4.5deg); }
 }
 @keyframes atl-lower-flick {
-  from { transform: rotate(-3deg) scaleY(1); }
-  to { transform: rotate(11deg) scaleY(0.94) skewX(-4deg); }
+  from { transform: skewX(3deg) scaleY(1); }
+  to { transform: skewX(-12deg) scaleY(0.94); }
 }
 .nm-atlas .atl-eye-open { opacity: var(--atl-open); }
 .nm-atlas .atl-e-happy { opacity: var(--atl-happy); }

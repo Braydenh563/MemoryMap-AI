@@ -6672,6 +6672,17 @@ Link to another note with [[its first few words]]."></textarea>
         <button type="button" id="wb-selbar-back" class="ghost small icon-only" title="Send backward ([)" aria-label="Send backward"><i class="ph ph-arrow-down" aria-hidden="true"></i></button>
         <button type="button" id="wb-selbar-forward" class="ghost small icon-only" title="Bring forward (])" aria-label="Bring forward"><i class="ph ph-arrow-up" aria-hidden="true"></i></button>
       </div>
+      <!-- **Several topics on a map** (INBOX 617): the map's verbs for a
+           selection of topics, in the board's arrange and order groups'
+           place (`WB_CONTEXT_CONTROLS.mapmulti`). Each press reads the whole
+           selection; the right-click menu has the same five in words. -->
+      <div class="wb-context-group hidden" data-wb-ctx="mapmulti">
+        <input type="color" id="wb-mapmulti-color" class="wb-color-picker" aria-label="Colour of these topics" title="Colour of these topics, carried down each branch">
+        <button type="button" id="wb-mapmulti-bold" class="ghost small icon-only" title="Bold, every topic picked" aria-label="Bold" aria-pressed="false"><i class="ph ph-text-b" aria-hidden="true"></i></button>
+        <button type="button" id="wb-mapmulti-task" class="ghost small icon-only" title="Make these tasks, a box to tick on each" aria-label="Tasks" aria-pressed="false"><i class="ph ph-check-square" aria-hidden="true"></i></button>
+        <button type="button" id="wb-mapmulti-fold" class="ghost small icon-only" title="Fold or open these branches" aria-label="Fold these branches" aria-pressed="false"><i class="ph ph-caret-down" aria-hidden="true"></i></button>
+        <button type="button" id="wb-mapmulti-summary" class="ghost small icon-only" title="Summarise these topics: a brace beside them with your words" aria-label="Summarise these topics"><i class="ph ph-brackets-curly" aria-hidden="true"></i></button>
+      </div>
       <div class="wb-context-group" data-wb-ctx="common">
         <button type="button" id="wb-selbar-duplicate" class="ghost small icon-only" title="Duplicate (Ctrl+D)" aria-label="Duplicate"><i class="ph ph-copy" aria-hidden="true"></i></button>
         <button type="button" id="wb-selbar-delete" class="ghost small icon-only danger" title="Delete (Del)" aria-label="Delete"><i class="ph ph-trash" aria-hidden="true"></i></button>

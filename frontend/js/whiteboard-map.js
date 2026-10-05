@@ -5459,6 +5459,146 @@ function wbWireMapChoices() {
   for (const select of document.querySelectorAll("#wb-map-strip select")) wbMapChoiceRow(select);
 }
 
+// --- several topics at once (INBOX 617) --------------------------------------
+//
+//: **A marquee round topics is a map selection, not a board one** (INBOX 617,
+//: the owner: "on the mind map when selecting a group of nodes, it defaults
+//: to the whiteboard selection and popup menus and right click menus"). With
+//: two or more topics picked, every surface fell back to the board's: the
+//: group box with its eight resize handles and rotate knob (a tidied tree
+//: owns where a topic sits and how it turns, so all nine were grips that
+//: could only fight the layout), the bar's group, align, distribute,
+//: same-size and order rows, and a right-click menu with nothing a mind
+//: mapper does to several topics at once. Measured by
+//: `scratchpad/ui-sweeps/bm1005-mapmulti.js` on the base: a group box with
+//: ten handles, five board groups on the bar, one map row in the menu.
+//:
+//: Now a selection that is only topics, on a map, reads this: no group box
+//: (each topic keeps its own outline), the bar's `mapmulti` group (colour,
+//: bold, task, fold, summarise and delete) and the same five as words in the
+//: right-click menu. A selection that mixes a topic with a card or a drawing
+//: is still the board's, because the board's verbs are the ones that apply
+//: to all of it.
+function wbMapMultiTopics() {
+  if (!wbIsMap() || wbMultiSelection.size < 2) return null;
+  const topics = [];
+  for (const key of wbMultiSelection) {
+    const sep = key.indexOf(":");
+    if (key.slice(0, sep) !== "object") return null;
+    const obj = wbFindItem("object", Number(key.slice(sep + 1)));
+    if (!obj || !WB_MAP_KINDS.has(obj.kind)) return null;
+    topics.push(obj);
+  }
+  return topics;
+}
+
+//: One change to several topics: one undo step for all of them, each saved
+//: in turn (a burst of simultaneous writes races the board's stale-client
+//: recovery, `wbSaveMultiSnapshot` says why), one render at the end.
+//: `patchOf` returns null for a topic the change leaves as it is.
+async function wbMapStyleMany(topics, patchOf) {
+  const entries = [];
+  const changed = [];
+  for (const node of topics) {
+    const patch = patchOf(node);
+    if (!patch) continue;
+    entries.push({ action: "move", kind: "object", id: node.id, before: WB_KIND_INFO.object.payload(node) });
+    node.data = { ...node.data, ...patch };
+    changed.push(node);
+  }
+  if (!changed.length) return 0;
+  wbPushDragUndo(entries);
+  for (const node of changed) await wbSaveObject(node);
+  renderWhiteboardNow();
+  return changed.length;
+}
+
+//: What each of the five does, from the bar and from the menu alike. Each is
+//: a toggle that reads the whole selection: if any picked topic is not yet
+//: bold, Bold makes them all bold; only when every one is does it take bold
+//: off, which is how a word processor's Bold treats a mixed run.
+function wbMapMultiState(topics) {
+  const index = wbMapIndex();
+  const branches = topics.filter((n) => (index.childrenOf.get(n.id) || []).length);
+  const parent = topics[0].parent_id;
+  return {
+    branches,
+    folded: branches.length > 0 && branches.every((n) => n.data?.collapsed),
+    bold: topics.every((n) => wbMapThemedData(n).bold),
+    tasks: topics.every((n) => n.data?.task === "open" || n.data?.task === "done"),
+    siblings: parent != null && index.byId.has(parent) && topics.every((n) => n.parent_id === parent),
+  };
+}
+
+const WB_MAP_MULTI_ACTIONS = {
+  async fold(topics) {
+    const state = wbMapMultiState(topics);
+    if (!state.branches.length) {
+      toast("None of these topics has anything under it to fold.");
+      return;
+    }
+    const fold = !state.folded;
+    await wbMapStyleMany(state.branches, (n) => (Boolean(n.data?.collapsed) === fold ? null : { collapsed: fold }));
+    wbAnnounce(fold ? "Folded." : "Opened.");
+  },
+  async bold(topics) {
+    const want = !wbMapMultiState(topics).bold;
+    const fallback = Boolean(wbMapThemeDefault("bold"));
+    await wbMapStyleMany(topics, (n) =>
+      Boolean(wbMapThemedData(n).bold) === want ? null : { bold: want === fallback ? null : want });
+  },
+  async task(topics) {
+    const make = !wbMapMultiState(topics).tasks;
+    await wbMapStyleMany(topics, (n) => {
+      const is = n.data?.task === "open" || n.data?.task === "done";
+      if (make) return is ? null : { task: "open" };
+      return is ? { task: null } : null;
+    });
+    wbAnnounce(make ? "Tasks, not done yet." : "No longer tasks.");
+  },
+  async color(topics, value) {
+    await wbMapStyleMany(topics, (n) => (n.data?.color === value ? null : { color: value }));
+  },
+  summary(topics) {
+    if (wbMapMultiState(topics).siblings) wbMapSummarise(topics);
+    else toast("A summary goes beside topics under one parent: pick siblings to summarise them together.");
+  },
+};
+
+//: The bar's group, set from the selection each time it changes: pressed
+//: states, and Fold and Summarise only when they have something to act on.
+function wbSyncMapMulti(topics) {
+  const state = wbMapMultiState(topics);
+  const set = (id, fn) => {
+    const el = document.getElementById(id);
+    if (el) fn(el);
+  };
+  set("wb-mapmulti-bold", (el) => el.setAttribute("aria-pressed", String(state.bold)));
+  set("wb-mapmulti-task", (el) => el.setAttribute("aria-pressed", String(state.tasks)));
+  set("wb-mapmulti-fold", (el) => {
+    el.classList.toggle("hidden", !state.branches.length);
+    el.setAttribute("aria-pressed", String(state.folded));
+  });
+  set("wb-mapmulti-summary", (el) => el.classList.toggle("hidden", !state.siblings));
+  const color = topics.map((n) => n.data?.color).find((c) => /^#[0-9a-f]{6}$/i.test(c || ""));
+  set("wb-mapmulti-color", (el) => {
+    if (color) el.value = color;
+  });
+}
+
+//: Wired once, from `initWhiteboard`. Each reads the selection when it is
+//: pressed rather than holding one, as the strip's controls do.
+function wbWireMapMulti() {
+  const run = (name, ...args) => {
+    const topics = wbMapMultiTopics();
+    if (topics) WB_MAP_MULTI_ACTIONS[name](topics, ...args);
+  };
+  for (const name of ["fold", "bold", "task", "summary"]) {
+    document.getElementById(`wb-mapmulti-${name}`)?.addEventListener("click", () => run(name));
+  }
+  document.getElementById("wb-mapmulti-color")?.addEventListener("change", (e) => run("color", e.target.value));
+}
+
 function wbSyncMapStrip(node) {
   //: **The effective state, not the stored one** (§13e). The arrow button has
   //: always worked this way and says why below; a theme makes it true of the

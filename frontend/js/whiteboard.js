@@ -3776,11 +3776,14 @@ const WB_CONTEXT_CONTROLS = {
   // sits and what it can become.
   note: { bar: ["order"], more: ["more-mindmap", "more-notes"] },
   multi: { bar: ["arrange", "order"], more: ["more-notes"] },
+  //: Several topics on a map (INBOX 617, `wbMapMultiTopics`): the map's own
+  //: verbs, never the board's arrange and order, which fight the layout.
+  mapmulti: { bar: ["mapmulti"], more: [] },
 };
 
 //: Every group and menu section the table can name, so hiding "everything
 //: else" never has to list them.
-const WB_CONTEXT_GROUPS = ["tool", "ink", "route", "caps", "stroke", "fill", "text", "arrange", "order"];
+const WB_CONTEXT_GROUPS = ["tool", "ink", "route", "caps", "stroke", "fill", "text", "arrange", "order", "mapmulti"];
 const WB_CONTEXT_MENU_SECTIONS = ["more-style", "more-card", "more-guides", "more-notes", "more-mindmap"];
 
 //: Which row of the table a selection reads. Returns null when the bar has
@@ -3910,6 +3913,18 @@ function wbFillContextBar() {
   // A multi-selection has no one fill or stroke to edit (mixed kinds), but it
   // does have arrange, which only means anything here.
   if (wbMultiSelection.size > 0) {
+    //: Only topics, on a map: the map's group, and neither Duplicate (a copy
+    //: of several topics lands as loose roots) nor the More menu, whose
+    //: format, style and guides rows are all the board's.
+    const mapTopics = wbMapMultiTopics();
+    if (mapTopics) {
+      wbApplyContextRow(WB_CONTEXT_CONTROLS.mapmulti);
+      document.getElementById("wb-selbar-duplicate")?.classList.add("hidden");
+      wbContextMoreWrap()?.classList.add("hidden");
+      wbSyncMapMulti(mapTopics);
+      delete bar.dataset.wbAnchor;
+      return null;
+    }
     wbApplyContextRow(WB_CONTEXT_CONTROLS.multi);
     // Extract notes (BACKLOG.md §62) only makes sense once the selection
     // actually includes a note card's content to extract from; a selection of
@@ -6439,16 +6454,32 @@ function wbBuildContextMenu(kind) {
   // Asked for directly. Available for every kind, a sketch reorders
   // against other sketches, a card/object against both (wbZOrderPeers'
   // own comment has the full reasoning for that split).
-  //: Several topics side by side: one summary over them (MINDMAP_PLAN 20).
-  if (wbIsMap() && wbMultiSelection.size > 1) {
-    const picked = [...wbMultiSelection].map((key) => {
-      const [k, id] = key.split(":");
-      return k === "object" ? wbFindItem("object", Number(id)) : null;
+  //: **Several topics: the map's verbs, in words** (INBOX 617), the same
+  //: five the bar's `mapmulti` group has, each a toggle over the whole
+  //: selection (`WB_MAP_MULTI_ACTIONS`). A summary only over siblings
+  //: (MINDMAP_PLAN 20).
+  const mapTopics = wbMapMultiTopics();
+  if (mapTopics) {
+    const state = wbMapMultiState(mapTopics);
+    subItem("Topics", (sub) => {
+      sub(state.bold ? "Not bold" : "Bold", "Every topic picked", () => WB_MAP_MULTI_ACTIONS.bold(mapTopics));
+      sub(state.tasks ? "Stop being tasks" : "Make these tasks", "A box to tick on each", () => WB_MAP_MULTI_ACTIONS.task(mapTopics));
+      sub("Colour these…", "Carries down each one's branch", () => {
+        const well = document.getElementById("wb-mapmulti-color");
+        try {
+          well?.showPicker();
+        } catch {
+          well?.click();
+        }
+      });
+      if (state.branches.length) {
+        sub(state.folded ? "Open these branches" : "Fold these branches", "The topics picked that have anything under them", () =>
+          WB_MAP_MULTI_ACTIONS.fold(mapTopics));
+      }
+      if (state.siblings) {
+        sub("Summarise these topics…", "A brace beside them with your words", () => WB_MAP_MULTI_ACTIONS.summary(mapTopics));
+      }
     });
-    const parent = picked[0]?.parent_id;
-    if (parent != null && picked.every((o) => o && o.parent_id === parent)) {
-      item("Summarise these topics…", "A brace beside them with your words", () => wbMapSummarise(picked));
-    }
   }
   //: Decision 15: held in place until unlocked from the board's own menu.
   //: Decision 17: one item's thread, from its menu as from its mark.
@@ -10354,6 +10385,7 @@ async function initWhiteboard() {
   crossSlot("wb-link-cut", (node) => wbMapSever(node.id), (id) => wbMapCutCrossLink(id));
 
   wbWireMapChoices();
+  wbWireMapMulti();
   //: The node edit strip (§12.1 item 2). Every handler reads the selection at
   //: the moment it fires rather than closing over a node: the strip is one set
   //: of controls that moves between nodes, so a captured node is a control
@@ -15283,6 +15315,10 @@ async function wbSaveMultiSnapshot(rows) {
 }
 
 function wbRenderMultiSelectionHandles() {
+  //: Not round several topics on a map (INBOX 617): the layout owns where a
+  //: topic sits, so the box's eight sizes and its turn could only fight it.
+  //: Each topic keeps its own outline (`.wb-in-group`).
+  if (wbMapMultiTopics()) return;
   const entries = wbMultiSelectionEntries();
   if (entries.length < 2) return;
   const boxes = entries.map((entry) => ({ entry, box: wbEntryBox(entry) })).filter((row) => row.box);

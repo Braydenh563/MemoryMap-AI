@@ -1143,6 +1143,7 @@ HELP_TOPICS.extend(
                 "move a topic", "reorder topics", "checkbox on a topic", "topic a task",
                 "tick a topic", "number the branches", "numbered topics", "outline numbers", "note on a topic", "note behind a topic", "comment on a topic", "boundary", "summary topic", "summarise topics",
                 "resize a topic", "topic size", "bigger topic", "text size on a topic", "topic bar", "topic toolbar",
+                "several topics", "select several topics", "many topics at once", "bold several topics", "fold several branches",
             ),
             "body": (
                 "Mind map keys (a map lives in the Library under Boards and "
@@ -1164,7 +1165,10 @@ HELP_TOPICS.extend(
                 "its bar above it: the colour, the text size (S, M, L, XL), and "
                 "Text, Shape and Branch line, each a panel of choices you press "
                 "once. Drag the square on its bottom right corner to resize it; "
-                "hold Shift as you drag to scale its text with it."
+                "hold Shift as you drag to scale its text with it. Pick several "
+                "topics (drag a box round them, or Shift-click) and the bar and "
+                "the right-click menu act on all of them: colour, bold, tasks, "
+                "fold, and a summary when they share a parent."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

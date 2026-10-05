@@ -10845,7 +10845,7 @@ input[type="file"] {
 }
 
 /* The focus ring is the app's own (every button has it). */
-#whiteboard-container[data-current-tool="select"] .wb-map-node:is(:hover, .wb-selected) .wb-map-resize-grip,
+#whiteboard-container[data-current-tool="select"] .wb-map-node:is(:hover, .wb-selected):not(.wb-in-group) .wb-map-resize-grip,
 .wb-map-resize-grip:focus-visible {
   display: block;
 }

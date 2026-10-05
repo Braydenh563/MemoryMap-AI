@@ -2221,6 +2221,46 @@ class DatabaseManager:
         ("ix_whiteboard_sketches_board", "whiteboard_sketches (board_id)"),
         ("ix_reminders_entry", "reminders (entry_id)"),
         ("ix_entry_bookmarks_entry", "entry_bookmarks (entry_id)"),
+        # **"All spaces", the default view, had none of the list indexes**
+        # (audit 2026-10-05, ARCH-05). Every composite above leads with
+        # `workspace_id`, and with "all" the space hook adds no
+        # `workspace_id = ?` (at most a `NOT IN` for hidden spaces), so
+        # SQLite cannot use the prefix: EXPLAIN on the real `/entries?limit=50`
+        # was "USE TEMP B-TREE FOR ORDER BY", every live note sorted with its
+        # `content`, 26 times per unlock at 5,000 notes. The same shapes
+        # without the space column serve the everything-view, and the space
+        # filter, when there is one, is checked along the walk.
+        (
+            "ix_entries_live_all",
+            "entries (is_deleted, archived_at, pinned DESC, created_at DESC, id DESC)",
+        ),
+        (
+            "ix_entries_live_nodraft_all",
+            "entries (is_deleted, is_draft, archived_at, created_at DESC, id DESC)",
+        ),
+        ("ix_entries_bin_all", "entries (is_deleted, deleted_at DESC, id DESC)"),
+        ("ix_entries_archive_all", "entries (is_deleted, archived_at DESC, id DESC)"),
+        ("ix_documents_live_updated_all", "documents (archived_at, updated_at DESC)"),
+        ("ix_media_uploads_created_all", "media_uploads (created_at DESC)"),
+        # The chat list orders pinned first (`pinned DESC, updated_at DESC,
+        # id DESC`) over the unarchived, which the older
+        # `(workspace_id, updated_at DESC)` above never matched, in a space
+        # or out of one: both shapes, the space-led one first.
+        (
+            "ix_conversations_live_pinned",
+            "conversations (workspace_id, archived_at, pinned DESC, updated_at DESC, id DESC)",
+        ),
+        (
+            "ix_conversations_live_pinned_all",
+            "conversations (archived_at, pinned DESC, updated_at DESC, id DESC)",
+        ),
+        ("ix_reminders_due_all", "reminders (due_at DESC)"),
+        # The audit log read by kind: `learning.corrections` (every filing
+        # prompt, `/suggestions`, link suggestions) asks `action = ?`, and
+        # Library's activity reads it newest first. Both were `SCAN
+        # audit_log`, a table that grows by a whole note per edit.
+        ("ix_audit_log_action", "audit_log (action, id DESC)"),
+        ("ix_audit_log_created", "audit_log (created_at DESC, id DESC)"),
     )
 
     def _ensure_indexes(self) -> None:

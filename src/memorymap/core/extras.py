@@ -1512,10 +1512,13 @@ def _run_bulk() -> None:
             try:
                 _run_bulk_item(item)
             except Exception:  # noqa: BLE001  # one package's surprise is never the batch's
-                # No label in the line: it travels through the request that
-                # started the batch (CodeQL, log injection), and the item's own
-                # outcome below already names it to the person.
-                _logger.exception("Couldn't %s one package in a bulk batch", _bulk.action)
+                # Nothing from the request in the line (CodeQL, log injection):
+                # the verb is looked up in a table of fixed words, and the
+                # item's own outcome below names the package to the person.
+                verb = {"install": "install", "uninstall": "uninstall", "reinstall": "reinstall"}.get(
+                    _bulk.action, "change"
+                )
+                _logger.exception("Couldn't %s one package in a bulk batch", verb)
                 item["outcome"] = "failed"
                 item["message"] = "Couldn't finish it: see Settings → Logs for why."
             finally:

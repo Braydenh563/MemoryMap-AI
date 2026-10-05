@@ -28,7 +28,7 @@ def _age(session, note_id: int, days: int) -> None:
 
 def test_an_empty_notebook_is_an_empty_timeline_not_an_error(client):
     body = client.get("/timeline").json()
-    assert body["notes"] == [] and body["buckets"] == []
+    assert body["rows"] == [] and body["buckets"] == []
 
 
 def test_notes_land_in_buckets_on_the_scale_asked_for(client, session):
@@ -50,7 +50,7 @@ def test_a_note_plots_at_what_it_is_about_not_when_it_was_typed(client, session)
     Friday and belongs there."""
     note = _save(client, "the deadline is next friday")
     body = client.get("/timeline?scale=day").json()
-    placed = next(n for n in body["notes"] if n["id"] == note["id"])
+    placed = next(n for n in body["rows"] if n["id"] == note["id"])
 
     assert placed["placed_by"] == "mentioned"
     assert placed["phrase"] == "next friday"
@@ -58,7 +58,7 @@ def test_a_note_plots_at_what_it_is_about_not_when_it_was_typed(client, session)
     # A note with no dates in it stays where it was written, and says so.
     plain = _save(client, "no dates in this one")
     again = client.get("/timeline?scale=day").json()
-    written = next(n for n in again["notes"] if n["id"] == plain["id"])
+    written = next(n for n in again["rows"] if n["id"] == plain["id"])
     assert written["placed_by"] == "written" and written["phrase"] == ""
 
 
@@ -115,7 +115,7 @@ def test_a_thread_whose_root_is_outside_the_window_still_bands(client, session):
     _age(session, root["id"], days=400)
 
     body = client.get("/timeline?group=thread&days=30").json()
-    assert [n["id"] for n in body["notes"]] == [child["id"]]
+    assert [n["id"] for n in body["rows"]] == [child["id"]]
     bands = {b["name"]: b["count"] for b in body["bands"]}
     from memorymap.api.routes_timeline import THREAD_BAND
 
@@ -152,13 +152,13 @@ def test_private_notes_stay_out_of_the_view(client, session):
     client.post(f"/entries/{note['id']}/privacy", json={"private": True})
 
     body = client.get("/timeline").json()
-    assert [n["id"] for n in body["notes"]] == []
+    assert [n["id"] for n in body["rows"]] == []
 
 
 def test_binned_notes_stay_out_too(client):
     note = _save(client, "a mistake")
     client.delete(f"/entries/{note['id']}")
-    assert client.get("/timeline").json()["notes"] == []
+    assert client.get("/timeline").json()["rows"] == []
 
 
 def test_a_window_can_be_asked_for(client, session):
@@ -167,9 +167,9 @@ def test_a_window_can_be_asked_for(client, session):
     _save(client, "recent")
 
     year = client.get("/timeline?days=365").json()
-    assert [n["preview"] for n in year["notes"]] == ["recent"]
+    assert [n["preview"] for n in year["rows"]] == ["recent"]
     everything = client.get("/timeline?days=0").json()
-    assert len(everything["notes"]) == 2
+    assert len(everything["rows"]) == 2
 
 
 def test_a_scale_or_grouping_it_does_not_know_is_refused(client):
@@ -187,7 +187,7 @@ def test_a_truncated_preview_says_so(client):
     long_note = _save(client, "x" * (PREVIEW_CHARS + 50))
 
     body = client.get("/timeline").json()
-    previews = {n["id"]: n["preview"] for n in body["notes"]}
+    previews = {n["id"]: n["preview"] for n in body["rows"]}
 
     assert previews[short["id"]] == "a short note well under the preview limit"
     assert previews[long_note["id"]].endswith("…")
@@ -206,7 +206,7 @@ def test_a_row_carries_what_the_table_view_puts_in_its_columns(client):
     first = _save(client, "the first note, which is six words long")
     second = _save(client, f"a second note linking to [[{first['id']}]]")
 
-    rows = {note["id"]: note for note in client.get("/timeline").json()["notes"]}
+    rows = {note["id"]: note for note in client.get("/timeline").json()["rows"]}
 
     assert rows[first["id"]]["words"] == 8
     # The default space is named, not slugged: a column has to be readable.
@@ -231,18 +231,18 @@ def test_the_view_is_paged_rather_than_capped(client, session):
         _age(session, note["id"], i)
 
     first = client.get("/timeline?limit=2").json()
-    assert len(first["notes"]) == 2
+    assert len(first["rows"]) == 2
     assert first["has_more"] is True
     assert first["next_cursor"]
 
     second = client.get(f"/timeline?limit=2&cursor={first['next_cursor']}").json()
-    assert len(second["notes"]) == 2
-    seen = [note["id"] for note in first["notes"]] + [n["id"] for n in second["notes"]]
+    assert len(second["rows"]) == 2
+    seen = [note["id"] for note in first["rows"]] + [n["id"] for n in second["rows"]]
     assert len(set(seen)) == 4, "a page repeated a note"
     # Newest first, all the way through the pages: by when they were written,
     # which is what the cursor orders by (the ids run the other way here,
     # because each note is backdated one day further than the last).
-    written = [n["written_at"] for n in first["notes"]] + [n["written_at"] for n in second["notes"]]
+    written = [n["written_at"] for n in first["rows"]] + [n["written_at"] for n in second["rows"]]
     assert written == sorted(written, reverse=True)
 
     last = client.get(f"/timeline?limit=2&cursor={second['next_cursor']}").json()
@@ -258,7 +258,7 @@ def test_a_page_still_carries_the_density_of_the_whole_range(client, session):
         _age(session, note["id"], i * 3)
 
     page = client.get("/timeline?limit=2").json()
-    assert len(page["notes"]) == 2
+    assert len(page["rows"]) == 2
     # Six notes, six different days, all of them in the strip.
     assert sum(page["density"].values()) == 6
     assert len(page["density"]) == 6
@@ -289,7 +289,7 @@ def _reminder(client, text="ring the landlord back", days=1):
 
 
 def _kinds(body) -> list[str]:
-    return [row["kind"] for row in body["notes"]]
+    return [row["kind"] for row in body["rows"]]
 
 
 def test_a_document_and_a_reminder_are_rows_in_the_feed(client):
@@ -301,13 +301,13 @@ def test_a_document_and_a_reminder_are_rows_in_the_feed(client):
     assert sorted(set(_kinds(body))) == ["document", "note", "reminder"]
     #: Every row says what it is and carries an identity that is unique across
     #: kinds: note 1 and document 1 are two different things.
-    assert len({row["key"] for row in body["notes"]}) == len(body["notes"])
-    assert all(row["key"].startswith(row["kind"] + ":") for row in body["notes"])
+    assert len({row["key"] for row in body["rows"]}) == len(body["rows"])
+    assert all(row["key"].startswith(row["kind"] + ":") for row in body["rows"])
 
 
 def test_a_reminder_sits_on_the_day_it_is_due_and_says_so(client):
     _reminder(client, days=3)
-    row = client.get("/timeline").json()["notes"][0]
+    row = client.get("/timeline").json()["rows"][0]
     assert row["kind"] == "reminder"
     #: The same claim a note makes when it only mentions a date, and the row
     #: says it the same way, so the view can be honest in one place.
@@ -321,7 +321,7 @@ def test_a_document_sits_where_it_was_started_not_where_it_was_last_saved(client
     do."""
     document = _document(client)
     client.put(f"/documents/{document['id']}", json={"content": "# Field notes\nmore"})
-    row = [r for r in client.get("/timeline").json()["notes"] if r["kind"] == "document"][0]
+    row = [r for r in client.get("/timeline").json()["rows"] if r["kind"] == "document"][0]
     assert row["at"] == row["written_at"]
     assert "updated_at" in row
 
@@ -341,7 +341,7 @@ def test_kind_narrows_the_feed_and_a_board_is_not_a_note(client, session):
         "document",
         "note",
     ]
-    assert client.get("/timeline?kind=note").json()["notes"][0]["id"] == note["id"]
+    assert client.get("/timeline?kind=note").json()["rows"][0]["id"] == note["id"]
 
 
 def test_an_unknown_kind_is_refused_rather_than_silently_empty(client):
@@ -360,7 +360,7 @@ def test_paging_across_three_tables_loses_nothing_and_repeats_nothing(client):
     for _ in range(5):
         url = "/timeline?limit=1" + (f"&cursor={cursor}" if cursor else "")
         body = client.get(url).json()
-        seen += [row["key"] for row in body["notes"]]
+        seen += [row["key"] for row in body["rows"]]
         cursor = body["next_cursor"]
         if not cursor:
             break
@@ -382,7 +382,7 @@ def test_a_cursor_from_before_the_other_kinds_existed_still_works(client, sessio
     ).decode()
 
     body = client.get(f"/timeline?cursor={old_style}").json()
-    assert [row["id"] for row in body["notes"] if row["kind"] == "note"] == [first["id"]]
+    assert [row["id"] for row in body["rows"] if row["kind"] == "note"] == [first["id"]]
 
 
 def test_the_density_strip_counts_every_kind_the_feed_shows(client):
@@ -393,21 +393,19 @@ def test_the_density_strip_counts_every_kind_the_feed_shows(client):
     assert sum(client.get("/timeline?kind=note").json()["density"].values()) == 0
 
 
-def test_the_row_list_is_called_rows_with_notes_kept_for_one_release(client):
+def test_the_row_list_is_called_rows_and_sent_once(client):
     """`notes` held documents, boards and reminders, which is a name that lies.
 
-    Both keys carry the same list while a cached frontend can still be older
-    than this server: the desktop window and the service worker both keep a
-    build of `app.js` across an upgrade, and `body.notes.map` on an undefined
-    empties the Timeline with nothing on screen to say why. The old key goes in
-    the release after this one.
+    Both keys carried the same list for the releases a cached frontend could
+    still read `notes`; at 5,000 notes the copy was half of a 350 KB page
+    (audit 2026-10-05, ARCH-11), so it is gone and the list is sent once.
     """
     _save(client, "a note about the roof")
     _document(client)
     _reminder(client)
 
     body = client.get("/timeline").json()
-    assert body["rows"] == body["notes"]
+    assert "notes" not in body
     assert {row["kind"] for row in body["rows"]} == {"note", "document", "reminder"}
 
 

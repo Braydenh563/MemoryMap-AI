@@ -13,15 +13,14 @@
 // a list right here, which meant the server could not resolve a skill the
 // user clicked; they are served from GET /skills now, alongside the user's own.
 let skillsCache = [];
-let skillLimits = { steps: 10, tools: 12, inputs: 5 };
 //: The user skills folder (B8): its path and the files there that did not load.
-const skillsState = { folder: null };
+const skillsState = { folder: null, limits: { steps: 10, tools: 12, inputs: 5 }, dismissChat: null };
 
 async function loadSkills() {
   const body = await apiJson("/skills").catch(() => null);
   if (!body) return skillsCache;
   skillsCache = body.skills || [];
-  if (body.limits) skillLimits = body.limits;
+  if (body.limits) skillsState.limits = body.limits;
   skillsState.folder = body.folder || null;
   return skillsCache;
 }
@@ -349,7 +348,6 @@ const SKILL_MANAGE_VALUE = "__manage__";
 //: build they belong to: `loadChatSkills` runs at boot and again after every
 //: skill saved in Settings, and each run left its pair behind, holding the
 //: dropdown it was built for (listenerrounds.js: +35 listeners a rebuild).
-let chatSkillsDismiss = null;
 
 async function loadChatSkills() {
   await loadSkills();
@@ -475,9 +473,9 @@ function buildSkillsPanel(box, label, select, run, trigger) {
 
   //: Every listener this build puts on something that outlives it (document,
   //: the Settings checkbox the pace pill mirrors) goes with the build.
-  chatSkillsDismiss?.abort();
-  chatSkillsDismiss = new AbortController();
-  const { signal } = chatSkillsDismiss;
+  skillsState.dismissChat?.abort();
+  skillsState.dismissChat = new AbortController();
+  const { signal } = skillsState.dismissChat;
 
   const pickRow = document.createElement("label");
   pickRow.className = "chat-skills-row";
@@ -1196,6 +1194,25 @@ async function downloadFromApi(path, fallbackName) {
   }
 }
 
+//: The browser's own download of a Blob: the one copy of the hidden-anchor
+//: click (audit FE-16 found it written out in four files). `saveFile` is the
+//: caller to use for an export, since it also covers the desktop window,
+//: which swallows this click; this is for a file that is already in the
+//: desktop's exports folder (the Settings list) or a browser-only path.
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  // In the document, not detached: some engines ignore a click on an anchor
+  // that was never in the DOM.
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 // Save a Blob under `filename`. Resolves once the file is somewhere the user
 // can find it, and says where when that isn't the browser's own downloads.
 async function saveFile(filename, blob) {
@@ -1237,17 +1254,7 @@ async function saveFile(filename, blob) {
       return null;
     }
   }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  // In the document, not detached: some engines ignore a click on an anchor
-  // that was never in the DOM.
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  downloadBlob(blob, filename);
   //: UX-11: a download said nothing; Settings' list is the desktop's folder.
   toast(`Downloaded ${filename}, to your browser's downloads.`);
   //: The browser's own downloads shelf has the file; this is the record of

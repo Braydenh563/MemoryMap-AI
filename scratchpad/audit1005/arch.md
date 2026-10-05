@@ -105,7 +105,7 @@ The two paths that matter:
 
 ### High
 
-**ARCH-02. Every save does work proportional to the notebook (NEW)** FIXED f7aa175 (4,300 to 390-615 ms at 5,000 notes under load 10-13; PUT still embeds on the request)
+**ARCH-02. Every save does work proportional to the notebook (NEW)** FIXED f7aa175 (4,300 to 390-615 ms at 5,000 notes under load 10-13; PUT still embeds on the request) / PUT FIXED 98c3a74 (the edit's vector from an embed-entry job); the numpy and lexical growth open: create p50 210 to 345 ms at 5,000 notes under load, not under 150
 - Measured at 5,000 notes, in-process (section 6): `POST /entries` 400 words
   **1,706 / 2,092 ms** (p50/p95), one line **930 / 1,474 ms**, `defer_filing`
   87 ms, `PUT /entries/{id}` **744 / 1,117 ms**. Seeding with 4 clients fell
@@ -251,7 +251,7 @@ CLOSED)** FIXED f7aa175
 
 ### Medium
 
-**ARCH-11. Whole-notebook loads on routine endpoints (NEW)** PARTLY FIXED 38debe1 (`/suggestions`; pairs capped per note in 535ae2e)
+**ARCH-11. Whole-notebook loads on routine endpoints (NEW)** PARTLY FIXED 38debe1 (`/suggestions`; pairs capped per note in 535ae2e) / FIXED 7449811, ea24997 (reference-counts 1,112 to 214 ms, /timeline 132 to 100 ms and half the bytes, /duplicates about 160 s to 4 to 7 s and the whole text no longer sent, /entries/link-suggestions warm 1.08 s to 371 ms; /library 209 to 188 ms; backlinks 6 ms already)
 - 5,000 notes, p50/p95: `/suggestions` **1,234 / 2,377 ms** returning an
   empty list: `routes_inbox._visible` loads every note as a full ORM object to
   test membership (py-spy: 27% in that comprehension). `/library` 703 / 1,112
@@ -277,7 +277,7 @@ CLOSED)** FIXED f7aa175
   never `input`.
 
 **ARCH-13. The API contract is mostly untyped (KNOWN B7, larger than
-stated)**
+stated)** / PART 4460c21 (the list lint keyed on what a route returns; typed responses and one paging helper not done)
 - 403 routes: 259 return a bare `dict`, 33 have no annotation or model.
   Creates disagree: `POST /entries` 201; `/entries/{id}/links`, `/spaces`,
   `/whiteboard/nodes`, `/whiteboard/sketches` 200. DELETE: 30 answer 200 with
@@ -289,7 +289,7 @@ stated)**
 - Fix (M): response models for the 20 busiest routes; one paging helper; the
   lint keyed on "returns a list, or a dict holding one".
 
-**ARCH-14. `/graph` is 1.4 s and 2.4 MB at 5,000 notes (KNOWN H7, worse)** PARTLY FIXED 73fcd97, d5754d4 (encoded off the loop; warm 3.3-4.1 s to 0.7-1.0 s in process; the payload cache left, GRAPH_PLAN "Still open")
+**ARCH-14. `/graph` is 1.4 s and 2.4 MB at 5,000 notes (KNOWN H7, worse)** PARTLY FIXED 73fcd97, d5754d4 (encoded off the loop; warm 3.3-4.1 s to 0.7-1.0 s in process; the payload cache left, GRAPH_PLAN "Still open") / payload cache FIXED 26be6d7 (737 to 149 ms warm in process)
 - p50 1,444 ms, p95 3,508 ms in-process; 667 ms and 234 KB gzipped in the
   browser. The plan recorded 600 ms. FastAPI serialises a sync route's dict on
   the event loop thread (py-spy: `serialize_response` under gzip), so a big
@@ -346,14 +346,14 @@ stated)**
 
 ### Low
 
-**ARCH-21. Test scaffolding ships in production modules (NEW)**
+**ARCH-21. Test scaffolding ships in production modules (NEW)** FIXED bc0e0a9 (drivers, run_for_test, filing_prompt_for_test to tests/; _encode_cursor deleted)
 - `core/events.py:858-1004` (`_drive_*`, `exercise_for_test`, 150 lines),
   `skill_runner.run_for_test` (99), `librarian.filing_prompt_for_test`. 17
   functions (306 lines) are referenced only from `tests/`; 2 are dead
   (`routes_timeline._encode_cursor`, `engine.similar_to_vector`).
 
 **ARCH-22. Oversized functions after the A5 split (KNOWN section 16,
-regressed)**
+regressed)** PART 3393d84 (_dispatch_call 455 to 302, create_app 354 to about 80, _stream_lines 334 to under 270, run_agent 443 to 416; _run_one_step 425 left)
 - `agent._dispatch_call` 448 lines, `run_agent` 439,
   `skill_runner._run_one_step` 425, `create_app` 336,
   `routes_chat._stream_lines` 334; 24 functions over 150 lines.

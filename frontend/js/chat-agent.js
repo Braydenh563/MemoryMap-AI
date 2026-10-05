@@ -97,12 +97,8 @@ const CHAT_POSITIONS_KEY = "chat-positions";
 let chatPositionTimer = 0;
 
 function chatPositions() {
-  try {
-    const map = JSON.parse(localStorage.getItem(CHAT_POSITIONS_KEY) || "{}");
-    return map && typeof map === "object" && !Array.isArray(map) ? map : {};
-  } catch {
-    return {};
-  }
+  //: A plain object or `{}`, whatever is stored (`prefs.json`).
+  return prefs.json(CHAT_POSITIONS_KEY, {});
 }
 
 function noteChatPosition(element, atEnd) {

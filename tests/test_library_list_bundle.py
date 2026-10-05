@@ -1,0 +1,48 @@
+"""The Library tab loads library.js alone (audit 2026-10-05, FE-03(c)).
+
+One click on Library fetched both editors, d3 and the whiteboard to draw a
+list. `libraryList` is library.js on its own; the `library` bundle still
+holds it, so a document or a board brings the whole surface. Every editor
+function library.js calls has to be one of `library`'s stand-ins, or the
+call throws while the editors are absent: this test reads the calls.
+`scratchpad/ui-sweeps/perf2-1005-libsplit.js` measured it in a browser:
+the tab fetched library.js only, All and Documents drew, Boards fetched the
+editors, a document opened, no page errors.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+JS = Path(__file__).resolve().parents[1] / "frontend" / "js"
+EDITORS = ["undo-store.js", "documents-code.js", "documents-prose.js", "documents.js", "whiteboard-map.js", "whiteboard.js"]
+APP = (JS / "app.js").read_text(encoding="utf-8")
+
+
+def _table(name: str) -> str:
+    start = APP.index(f"const {name} = {{")
+    return APP[start : APP.index("\n};\n", start)]
+
+
+def test_the_library_tab_takes_the_list_bundle():
+    assert 'library: "libraryList"' in APP and 'documents: "library"' in APP
+    modules = _table("LAZY_MODULES")
+    assert re.search(r'libraryList: \["/js/library\.js"\]', modules)
+    library = re.search(r"\n  library: \[(.*?)\]", modules, re.S).group(1)
+    assert '"/js/library.js"' in library, "the whole surface still includes the list"
+
+
+def test_every_editor_call_from_the_list_is_a_stand_in():
+    defined = set()
+    for name in EDITORS:
+        defined |= set(re.findall(r"^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)", (JS / name).read_text(encoding="utf-8"), re.M))
+    code = "\n".join(
+        line for line in (JS / "library.js").read_text(encoding="utf-8").splitlines() if not line.lstrip().startswith("//")
+    )
+    used = {n for n in defined if re.search(r"(?<![\w$.])" + re.escape(n) + r"(?![\w$])", code)}
+    entry = _table("LAZY_ENTRY_POINTS")
+    library = re.search(r"\n  library: \[(.*?)\]", entry, re.S).group(1)
+    stand_ins = set(re.findall(r'"([A-Za-z_$][\w$]*)"', library))
+    missing = sorted(used - stand_ins)
+    assert not missing, f"library.js names editor functions with no stand-in: {missing}"

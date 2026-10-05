@@ -28,14 +28,14 @@
 //: `renderEntries` clears whichever is showing, so only one can ever be on
 //: screen anyway. The variable now says that rather than three variables
 //: agreeing by accident.
-let notePanel = { id: null, kind: null };
+const notePanel = { id: null, kind: null };
 
 //: Toggle the named panel on a note: returns true when it should now be
 //: drawn, false when the click closed it. `renderEntries` between the two is
 //: what takes the previous panel off, whichever card it was on.
 function toggleNotePanel(entry, kind) {
   const open = notePanel.id === entry.id && notePanel.kind === kind;
-  notePanel = open ? { id: null, kind: null } : { id: entry.id, kind };
+  Object.assign(notePanel, open ? { id: null, kind: null } : { id: entry.id, kind });
   renderEntries();
   return !open;
 }

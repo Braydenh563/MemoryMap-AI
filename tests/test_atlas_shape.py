@@ -12,6 +12,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ATLAS = (ROOT / "frontend" / "js" / "atlas.js").read_text(encoding="utf-8")
+#: The blink clock and the arm rig, split out of atlas.js to leave the boot
+#: (atlas-motion.js, a lazy bundle); read as one with the drawing.
+ATLAS_MOTION = (ROOT / "frontend" / "js" / "atlas-motion.js").read_text(encoding="utf-8")
+ATLAS = ATLAS + "\n" + ATLAS_MOTION
 CSS = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
 AVATARS = (ROOT / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
 
@@ -1118,7 +1122,7 @@ def test_the_arm_is_a_jointed_chain_that_the_rig_eases(tmp_path):
         a = math.atan2(ey - c2y, ex - c2x)
         b = math.atan2(c3y - ey, c3x - ex)
         assert abs(a - b) < 1e-6, (look, "a kink at the elbow")
-    rig = ATLAS[ATLAS.index("const ATLAS_RIG_DELAY") : ATLAS.index("let atlasFigureObserver")]
+    rig = ATLAS[ATLAS.index("const ATLAS_RIG_DELAY") :]
     # The body leads and the limbs follow; a move's time is its size; limits.
     assert "const ATLAS_RIG_DELAY = { sh: 30, el: 80, wr: 130 };" in rig
     assert "j.w = 5 / Math.min(0.5, 0.25 + (0.25 * jump) / 120);" in rig

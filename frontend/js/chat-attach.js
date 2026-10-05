@@ -345,7 +345,7 @@ async function commitStagedImages() {
     // headers rather than merging.
     const uploaded = await apiJson("/media/upload", {
       method: "POST",
-      headers: { "X-Auth-Token": authToken() },
+      headers: authHeaders(),
       body: form,
     });
     image.id = uploaded.id;
@@ -403,7 +403,7 @@ async function keepUnreadableChatFile(file, error) {
   try {
     await apiJson("/media/upload", {
       method: "POST",
-      headers: { "X-Auth-Token": authToken() },
+      headers: authHeaders(),
       body: form,
     });
   } catch {
@@ -435,7 +435,7 @@ async function importChatDocuments(files) {
       // has to be overridden rather than merged.
       const document = await apiJson("/documents/import", {
         method: "POST",
-        headers: { "X-Auth-Token": authToken() },
+        headers: authHeaders(),
         body: form,
       });
       made.push(document);

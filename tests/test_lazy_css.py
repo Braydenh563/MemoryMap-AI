@@ -47,7 +47,8 @@ def test_a_lazy_stylesheet_is_not_also_linked_and_is_linted():
 
 
 def test_the_loader_gives_a_css_file_a_link():
+    """`lazyScript` loads every file of a bundle, once, whichever asks first."""
     app = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
-    body = app[app.index("function ensureModule(") :]
+    body = app[app.index("function lazyScript(") :]
     body = body[: body.index("\n}\n")]
     assert 'file.endsWith(".css")' in body and 'el.rel = "stylesheet"' in body

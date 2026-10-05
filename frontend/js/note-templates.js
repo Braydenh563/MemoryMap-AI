@@ -1,0 +1,154 @@
+// note-templates.js: the Capture box's template picker, its dialog of radio
+// rows, preview and Use this template button. Moved out of app.js on
+// 2026-10-05 (app.js's gzip cap, tests/test_static_compression.py): it opens
+// only from the Templates button, so the boot never needs it. Loaded on first
+// use by `LAZY_MODULES.noteTemplates` (app.js), whose stand-ins for
+// `openNoteTemplateDialog` and `useNoteTemplate` fetch this file and call the
+// real one. `noteTemplateListKeys` has no stand-in on purpose: it reads
+// `event.currentTarget` and calls `preventDefault`, which an async stand-in
+// would reach too late, so the opener binds it to the list itself, once.
+
+// --- the Capture box's template picker (INBOX 410) ---------------------------
+//
+// **Choosing is not making**, for notes as for documents. The owner decided it
+// on 2026-09-24: the Capture box's templates get the confirm step the
+// documents' New from a template has (`openDocTemplateDialog` in documents.js).
+// The picker was a native `<select>` whose `change` filled the box the moment
+// a name was touched, so arrowing down the list to read the names wrote the
+// note once per name, and a template picked by mistake asked "replace what
+// you've written?" before you had seen what it was. Now it is DESIGN.md's
+// recipe for a dialog of choices that each make something: radio rows (yours
+// first, then the built-in ones), the chosen row's text beside them, and one
+// filled button, Use this template, that fills the box. Enter on the list and a
+// double click also make it; the first row is chosen on open so one Enter still
+// works. This file, not documents.js, because the Capture box is always loaded
+// and the documents bundle is not.
+const noteTemplateState = { choice: null, made: false };
+
+//: The text a template puts in the Capture box. One function for the preview
+//: and the fill, so the preview cannot show something the button would not
+//: write (the recipe's rule, `docTemplateFill`'s for documents).
+function noteTemplateFill(template) {
+  return noteTemplateText(template?.content).replaceAll(NOTE_TEMPLATE_CURSOR, "");
+}
+
+//: Yours first, then the built-in ones, as the old dropdown's groups were:
+//: one recognisable shape for "your stuff first, then what shipped".
+function noteTemplateRows() {
+  const { builtin, custom } = templateCatalogue();
+  return [...custom, ...builtin];
+}
+
+function chooseNoteTemplate(template, { focus = false } = {}) {
+  if (!template) return;
+  noteTemplateState.choice = template;
+  for (const row of document.querySelectorAll("#note-template-list .doc-template-choice")) {
+    const on = row.dataset.template === template.name;
+    row.setAttribute("aria-checked", String(on));
+    //: The radio pattern's roving tab stop, as in the documents' dialog.
+    row.tabIndex = on ? 0 : -1;
+    if (on && focus) row.focus();
+  }
+  showNoteTemplatePreview(template);
+}
+
+//: The chosen template's text as it will land in the box, inert and hidden
+//: from a screen reader (each row already says what it is). A note is plain
+//: text in the box, so the preview is the text itself, wrapped as it would be.
+function showNoteTemplatePreview(template) {
+  const pane = $("note-template-preview");
+  if (!pane || !template) return;
+  const page = document.createElement("div");
+  page.className = "doc-template-page note-template-page";
+  const text = document.createElement("p");
+  text.className = "note-template-text";
+  text.textContent = noteTemplateFill(template);
+  page.appendChild(text);
+  pane.replaceChildren(page);
+}
+
+async function useNoteTemplate() {
+  //: A double click is a click and then a dblclick, and Enter can follow
+  //: either: one fill per opening, whichever way it was confirmed.
+  if (noteTemplateState.made || !noteTemplateState.choice) return;
+  noteTemplateState.made = true;
+  const template = noteTemplateState.choice;
+  $("note-template-dialog")?.close();
+  const box = $("entry-content");
+  if (!box) return;
+  //: Never silently overwrite what has already been typed: asked after the
+  //: choice is confirmed, so the question names a template the writer has
+  //: seen rather than one the list happened to land on.
+  if (box.value.trim()) {
+    const replace = await confirmDialog(
+      `Replace what you've already written with the “${template.name}” template?`,
+      { confirmLabel: "Replace", cancelLabel: "Keep my text" }
+    );
+    if (!replace) return;
+  }
+  const filled = await noteTemplateForUse(template);
+  box.value = filled.text;
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+  placeTemplateCaret(box, filled.caret);
+}
+
+function noteTemplateListKeys(event) {
+  const rows = [...event.currentTarget.querySelectorAll(".doc-template-choice")];
+  if (!rows.length) return;
+  const index = rows.findIndex((row) => row.getAttribute("aria-checked") === "true");
+  const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
+  let next = null;
+  if (step) next = rows[(index + step + rows.length) % rows.length];
+  else if (event.key === "Home") next = rows[0];
+  else if (event.key === "End") next = rows[rows.length - 1];
+  const find = (row) => noteTemplateRows().find((t) => t.name === row.dataset.template);
+  if (next) {
+    event.preventDefault();
+    chooseNoteTemplate(find(next), { focus: true });
+  } else if (event.key === "Enter") {
+    //: Enter on a focused row would fire its click, which only chooses; on
+    //: this list Enter is the confirmation, as it is on a form.
+    event.preventDefault();
+    useNoteTemplate();
+  }
+}
+
+function openNoteTemplateDialog() {
+  const dialog = $("note-template-dialog");
+  const list = $("note-template-list");
+  if (!dialog || !list) return;
+  noteTemplateState.made = false;
+  if (!list.dataset.keysBound) {
+    list.addEventListener("keydown", noteTemplateListKeys);
+    list.dataset.keysBound = "1";
+  }
+  const templates = noteTemplateRows();
+  list.replaceChildren();
+  for (const template of templates) {
+    const li = document.createElement("li");
+    li.setAttribute("role", "presentation");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost doc-template-choice";
+    button.setAttribute("role", "radio");
+    button.setAttribute("aria-checked", "false");
+    button.dataset.template = template.name;
+    const name = document.createElement("strong");
+    name.textContent = template.name;
+    //: The row's one line: the template's own description when it has one,
+    //: else which group it is in, so a row never repeats its preview.
+    const hint = document.createElement("span");
+    hint.className = "muted text-sm";
+    hint.textContent = template.description || (template.builtin ? (template.overridden ? "Built-in, edited" : "Built-in") : "Yours");
+    const check = document.createElement("i");
+    check.className = "ph ph-check doc-template-check";
+    check.setAttribute("aria-hidden", "true");
+    button.append(name, hint, check);
+    button.addEventListener("click", () => chooseNoteTemplate(template));
+    button.addEventListener("dblclick", useNoteTemplate);
+    li.appendChild(button);
+    list.appendChild(li);
+  }
+  dialog.showModal();
+  chooseNoteTemplate(templates[0], { focus: true });
+}

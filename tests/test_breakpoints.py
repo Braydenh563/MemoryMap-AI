@@ -13,8 +13,12 @@ Two rules, read from every stylesheet:
   (rem and em at 16px) both match a window W wide.
 - **The set only shrinks.** A width outside Phase 9's is either a named
   component's own (listed below, with how many rules use it) or it fails;
-  the counts may only go down. The 720, 640 and 900 groups are the next to
+  the counts may only go down. The 720 and 640 groups are the next to
   move onto the Phase 9 set, each with a sweep at the widths it changes.
+  The 900 group moved to 819.98/820 on 2026-10-05
+  (`scratchpad/ui-sweeps/perf2-1005-bp900.js`: the header keeps the space's
+  name and the AI mark from 820 up with nothing overlapping, no page
+  scroll at 820, 860, 899 or 901).
 """
 
 from __future__ import annotations
@@ -38,12 +42,10 @@ PHASE_9 = {
 #: Every other width in use on 2026-10-05, and how many queries use it.
 #: Lower a number (or drop a row) when a group moves onto Phase 9's set.
 ALLOWED = {
-    # The three groups the audit named, next to move onto Phase 9's set.
+    # The two groups the audit named that have not moved onto Phase 9's set.
     ("max", 719.98): 26,
     ("min", 720.0): 6,
     ("max", 640.0): 11,  # px and 40rem
-    ("max", 900.0): 5,
-    ("min", 901.0): 1,
     # Components' own widths (rem at 16px: dialogs, panels, the timeline).
     ("max", 400.0): 4,
     ("min", 1024.0): 4,

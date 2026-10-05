@@ -20,13 +20,17 @@
   const clip = { url: "", title: "", selection: "", html: "" };
   let saved = false;
 
-  function token() {
+  //: What the app saved in this browser: the session token, and the space
+  //: open there (`activeSpaceId`, spaces-find.js), so a capture lands where
+  //: the person is working rather than in the default space.
+  function stored(key) {
     try {
-      return localStorage.getItem("token") || "";
+      return localStorage.getItem(key) || "";
     } catch {
       return "";
     }
   }
+  const token = () => stored("token");
 
   function status(text, isError = false) {
     const line = $("clip-status");
@@ -80,7 +84,7 @@
     try {
       const response = await fetch("/links/clip-page", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Auth-Token": token() },
+        headers: { "Content-Type": "application/json", "X-Auth-Token": token(), "X-Workspace-ID": stored("spaceId") || "all" },
         body: JSON.stringify({
           url: clip.url,
           title: $("clip-title").value.trim() || clip.title,

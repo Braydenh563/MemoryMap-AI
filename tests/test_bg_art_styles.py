@@ -276,8 +276,8 @@ def test_the_art_runs_at_30_or_20_frames_a_second():
 
 
 def test_the_art_needs_no_p5():
-    """The art draws on its own canvas; p5 stays for the emblem and the
-    dashboard's art widget only."""
+    """The art draws on its own canvas; p5 stays for the dashboard's art
+    widget only (the emblem is a 2D canvas since audit FE-07)."""
     text = BG_ART.read_text(encoding="utf-8")
     assert "new p5(" not in text
     start = SETTINGS.read_text(encoding="utf-8")
@@ -291,7 +291,9 @@ def test_the_emblem_turns_by_css_not_by_redrawing():
     body = app[app.index("function renderEmblem(") :]
     body = body[: body.index("\n}\n")]
     assert "frameRate(" not in body, "the emblem must draw once, not loop"
-    assert "p.noLoop();" in body and 'classList.add("emblem-spin")' in body
+    #: A 2D canvas since audit FE-07, drawn once: no p5 instance, no loop.
+    assert "new p5(" not in body and "requestAnimationFrame" not in body
+    assert 'classList.add("emblem-spin")' in body
     css = CSS.read_text(encoding="utf-8")
     assert "@keyframes emblem-spin" in css
 

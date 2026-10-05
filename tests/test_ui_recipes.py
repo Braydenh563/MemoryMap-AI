@@ -3756,7 +3756,7 @@ def test_one_builder_draws_a_thinking_fold() -> None:
     for name, call in (
         ("chat-agent.js", "const el = thinkingFold();"),
         ("palette.js", "thinkingBox = thinkingFold();"),
-        ("settings.js", "const think = thinkingFold();"),
+        ("help-chat.js", "const think = thinkingFold();"),
         ("capture-ask.js", 'thinkingFoldIn(thinkingHost)'),
         ("chat-agent.js", 'thinkingFoldIn(thinkingHost)'),
     ):
@@ -3818,7 +3818,7 @@ def test_an_assistant_head_asks_one_function_for_its_face() -> None:
     ):
         assert call in js[name], f"{name}'s reply head no longer asks paintPersonaAvatar"
     assert "paintAssistantAvatar(host, size)" in js["atlas.js"], "the guide and agent heads skip the setting"
-    assert "paintAssistantAvatar(mark," in js["settings.js"], "the guide sheet's head skips the setting"
+    assert "paintAssistantAvatar(mark," in js["help-chat.js"], "the guide sheet's head skips the setting"
     #: INBOX 471: Ask's answer, the writing room's draft and the guide's chat
     #: rows wear the same reply head (the face, then the name), painted through
     #: the same function, so the setting and its live repaint reach them.
@@ -3829,7 +3829,7 @@ def test_an_assistant_head_asks_one_function_for_its_face() -> None:
     assert "paintAssistantAvatar(holder, 20)" in chat[chat.index("function paintAssistantHeads") :][:200]
     assert "paintAssistantAvatar(avatar, 20)" in chat[chat.index("function assistantHeadRow") :][:600]
     assert "paintAssistantHeads()" in js["navigation.js"], "a section change fills the static heads"
-    guide = js["settings.js"]
+    guide = js["help-chat.js"]
     assert guide.count("assistantHeadRow(GUIDE_NAME)") == 4, "a guide row, its pending row, the streamed one and the revealed one each open with the head"
     #: The setting: a default, a control, a live repaint and a reset.
     settings = js["settings.js"]

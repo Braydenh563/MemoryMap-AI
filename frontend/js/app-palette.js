@@ -23,14 +23,12 @@
 let paletteIndex = 0;
 
 let paletteReminders = [];
-let paletteConversations = [];
+const paletteData = { conversations: [], media: [], boards: [] };
 //: Files and boards, so the palette resolves every kind of thing this app
 //: holds rather than four of six. REDESIGN.md R7.3 asks for exactly this, 
 //: "one universal picker... resolving notes, documents, files and maps
 //: alike", and it is the difference between a jump-to-note box and the way
 //: you actually move around the app.
-let paletteMedia = [];
-let paletteBoards = [];
 //: The usage ledger's counts (core/usage.py, WORLD_CLASS_PLAN H9): with
 //: nothing typed, the commands this person runs most come first.
 const paletteUsage = new Map();
@@ -69,12 +67,12 @@ async function openPalette() {
   //: past the first page was simply not findable from the palette. The chat
   //: list joined them when its own flat cap became a page (INBOX 117's
   //: finding, one list later).
-  apiPagedList("/conversations", 200, { silent: true }).then(res => { paletteConversations = res || []; }).catch(() => { paletteConversations = []; });
-  apiPagedList("/media", 200, { silent: true }).then(res => { paletteMedia = res || []; }).catch(() => { paletteMedia = []; });
+  apiPagedList("/conversations", 200, { silent: true }).then(res => { paletteData.conversations = res || []; }).catch(() => { paletteData.conversations = []; });
+  apiPagedList("/media", 200, { silent: true }).then(res => { paletteData.media = res || []; }).catch(() => { paletteData.media = []; });
   //: Boards joined them when `GET /whiteboard/boards` became a page of its
   //: own: the palette searches boards by title, so a board past the first
   //: page would not be findable from here.
-  apiPagedList("/whiteboard/boards", 200, { silent: true }).then(res => { paletteBoards = res || []; }).catch(() => { paletteBoards = []; });
+  apiPagedList("/whiteboard/boards", 200, { silent: true }).then(res => { paletteData.boards = res || []; }).catch(() => { paletteData.boards = []; });
   apiJson("/usage/summary", { method: "POST", body: JSON.stringify({ known: [] }), silent: true })
     .then((res) => {
       paletteUsage.clear();
@@ -190,7 +188,7 @@ function paletteMatches(query) {
     }));
 
   // Conversations: search title.
-  const conversationMatches = paletteConversations
+  const conversationMatches = paletteData.conversations
     .filter((c) => paletteText(c.title).includes(lowered))
     .slice(0, 3)
     .map((c) => ({
@@ -207,7 +205,7 @@ function paletteMatches(query) {
   // "the screenshot of the timetable" is how people remember an image, not
   // `a3f9c2.png`. Opens the Library's Files tab, which is where the file's own
   // metadata and its usage links live.
-  const mediaMatches = paletteMedia
+  const mediaMatches = paletteData.media
     .filter(
       (m) =>
         paletteText(m.original_name).includes(lowered) ||
@@ -227,7 +225,7 @@ function paletteMatches(query) {
   // Boards and maps. `id` is null for the default board, passed through as
   // null rather than skipped, because the default board is the one most
   // people actually draw on.
-  const boardMatches = paletteBoards
+  const boardMatches = paletteData.boards
     .filter((b) => paletteText(b.title).includes(lowered))
     .slice(0, 3)
     .map((b) => ({

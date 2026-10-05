@@ -975,12 +975,12 @@ class RequestPulse:
         await self.app(scope, receive, send)
 
 
-def create_app() -> FastAPI:
-    # First, before any singleton is built. This catches `uvicorn … --workers 4`
-    # run directly against this factory, which is the only way the app can be
-    # started multi-worker: `python -m memorymap` hands uvicorn an app object
-    # rather than an import string, and uvicorn cannot fork that.
-    deps.refuse_multiple_workers()
+def _start_services() -> Path:
+    """`create_app`'s first step: the logs, the egress ledger, the app's
+    state, interrupted jobs, the launcher's choices and the local services,
+    in the order they always started. Returns the ledger's path, which the
+    lifespan flushes at shutdown. Lifted with no behaviour change (audit
+    2026-10-05, ARCH-22: create_app was 354 lines)."""
     pin_static_mime_types()
     logbuffer.install()  # start capturing logs for the Settings viewer
     # The privacy receipt's record (core/egress.py): before anything below
@@ -1029,62 +1029,12 @@ def create_app() -> FastAPI:
     # construction was an extra round on every fake model in the suite. The
     # page asks for both once it is unlocked (`POST /models/warm-filing`).
     startup_status.set_phase("Starting the server…")
+    return ledger_path
 
-    # **Nothing stopped background work when the app quit, and that was the
-    # whole of the bug.** Reported directly: "make sure that if the app is
-    # quit, all ai tasks and bg tasks stop as well." `/shutdown`'s own
-    # docstring already promised that "lifespan handlers run, and the SearXNG
-    # subprocess this app may own is torn down by the code that already knows
-    # how", accurately describing a handler that did not exist. Daemon
-    # threads do die with the process; a pip subprocess and a SearXNG server
-    # do not, and an autonomous pass part-way through writing to the notebook
-    # was cut off wherever it happened to be.
-    #
-    # An async lifespan rather than the deprecated `@app.on_event`, and it
-    # yields immediately: everything above already ran at import time, and
-    # moving it in here would change when the singletons exist for every
-    # caller of `create_app()`, tests included.
-    @asynccontextmanager
-    async def lifespan(_app: FastAPI):
-        # On the pool, not a thread of its own (the THREAD_SITES ratchet in
-        # tests/test_flaw_class_lints.py): it is the app's housekeeping, a
-        # quiet kind, after the server is up (ARCH-19).
-        jobs.enqueue("maintenance", _startup_maintenance, name="startup maintenance")
-        yield
-        # Never raises: `stop_all` swallows per-job failures itself, and a
-        # shutdown that fails to shut down is worse than one that leaves a
-        # line in the log.
-        bgtasks.stop_all()
-        # The bounded pool (core/jobs.py) is the other half: `stop_all`
-        # handles the jobs that own something interruptible, and this one
-        # drops the queue of captions and OCR passes behind it. A deadline
-        # rather than a join, because the job in flight may be inside a model
-        # call that cannot be interrupted and the workers are daemons: see
-        # `jobs.Pool.shutdown`.
-        jobs.shutdown(deadline=_JOB_SHUTDOWN_SECONDS)
-        # The receipt's ledger keeps what this launch saw; the writer thread
-        # (`egress.configure`) flushes within a second of a connection and the
-        # route on every read, so this is the last drain on a clean quit.
-        # The path was taken at startup: by now the app state may be gone.
-        egress.flush(ledger_path)
 
-    # No auto-mounted `/docs`, `/redoc` or `/openapi.json`. Two reasons, and
-    # the second is the one that matters. The Swagger and ReDoc pages load
-    # their scripts from a CDN, which this offline app's own CSP refuses, so
-    # they never rendered anyway. And the schema: every route, parameter and
-    # model name, 238 paths, was served to anyone who could reach the port,
-    # before the unlock: MODERNISATION_AUDIT.md D5, the one security finding
-    # in that audit not already handled. The schema is mounted again below,
-    # behind the same `locked` dependency every data route carries.
-    app = FastAPI(
-        title="MemoryMap AI",
-        version=__version__,
-        lifespan=lifespan,
-        docs_url=None,
-        redoc_url=None,
-        openapi_url=None,
-    )
-    _register_error_handlers(app)
+def _add_middleware(app: FastAPI) -> None:
+    """The middleware stack, in the order it is added (the last added runs
+    first, so the order is load-bearing; each block says why). ARCH-22."""
 
     # Middleware is added inside-out: the LAST one added is the outermost, so
     # the headers below are stamped on the origin check's own 403 too.
@@ -1167,9 +1117,9 @@ def create_app() -> FastAPI:
     # and an agent-named request is named for everything inside it (H4).
     app.add_middleware(versioning.ApiVersionMiddleware)
 
-    # Everything that touches the user's data sits behind the unlock
-    # gate; /auth itself and /health stay open.
-    locked = [Depends(require_unlock)]
+
+def _include_routers(app: FastAPI, locked: list) -> None:
+    """Every API router, behind `locked` unless it says otherwise. ARCH-22."""
     app.include_router(routes_auth.router)
     app.include_router(routes_entries.router, dependencies=locked)
     app.include_router(routes_mentions.router, dependencies=locked)
@@ -1234,6 +1184,11 @@ def create_app() -> FastAPI:
     app.include_router(routes_capabilities.router, dependencies=locked)
     #: WORLD_CLASS_PLAN section 17: the review queue, most opened, tidy proposals, charts.
     app.include_router(routes_vision.router, dependencies=locked)
+
+
+def _add_system_routes(app: FastAPI, locked: list) -> None:
+    """The few routes the app answers itself: the schema, the static cache,
+    health, the single-instance focus and the changelog. ARCH-22."""
 
     @app.get("/openapi.json", include_in_schema=False, dependencies=locked)
     def openapi_schema() -> JSONResponse:
@@ -1325,6 +1280,78 @@ def create_app() -> FastAPI:
             # A packaged build may not ship it. Missing notes are not an error
             # worth a 500: the About panel just doesn't offer them.
             return {"markdown": ""}
+
+
+def create_app() -> FastAPI:
+    # First, before any singleton is built. This catches `uvicorn … --workers 4`
+    # run directly against this factory, which is the only way the app can be
+    # started multi-worker: `python -m memorymap` hands uvicorn an app object
+    # rather than an import string, and uvicorn cannot fork that.
+    deps.refuse_multiple_workers()
+    ledger_path = _start_services()
+
+    # **Nothing stopped background work when the app quit, and that was the
+    # whole of the bug.** Reported directly: "make sure that if the app is
+    # quit, all ai tasks and bg tasks stop as well." `/shutdown`'s own
+    # docstring already promised that "lifespan handlers run, and the SearXNG
+    # subprocess this app may own is torn down by the code that already knows
+    # how", accurately describing a handler that did not exist. Daemon
+    # threads do die with the process; a pip subprocess and a SearXNG server
+    # do not, and an autonomous pass part-way through writing to the notebook
+    # was cut off wherever it happened to be.
+    #
+    # An async lifespan rather than the deprecated `@app.on_event`, and it
+    # yields immediately: everything above already ran at import time, and
+    # moving it in here would change when the singletons exist for every
+    # caller of `create_app()`, tests included.
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        # On the pool, not a thread of its own (the THREAD_SITES ratchet in
+        # tests/test_flaw_class_lints.py): it is the app's housekeeping, a
+        # quiet kind, after the server is up (ARCH-19).
+        jobs.enqueue("maintenance", _startup_maintenance, name="startup maintenance")
+        yield
+        # Never raises: `stop_all` swallows per-job failures itself, and a
+        # shutdown that fails to shut down is worse than one that leaves a
+        # line in the log.
+        bgtasks.stop_all()
+        # The bounded pool (core/jobs.py) is the other half: `stop_all`
+        # handles the jobs that own something interruptible, and this one
+        # drops the queue of captions and OCR passes behind it. A deadline
+        # rather than a join, because the job in flight may be inside a model
+        # call that cannot be interrupted and the workers are daemons: see
+        # `jobs.Pool.shutdown`.
+        jobs.shutdown(deadline=_JOB_SHUTDOWN_SECONDS)
+        # The receipt's ledger keeps what this launch saw; the writer thread
+        # (`egress.configure`) flushes within a second of a connection and the
+        # route on every read, so this is the last drain on a clean quit.
+        # The path was taken at startup: by now the app state may be gone.
+        egress.flush(ledger_path)
+
+    # No auto-mounted `/docs`, `/redoc` or `/openapi.json`. Two reasons, and
+    # the second is the one that matters. The Swagger and ReDoc pages load
+    # their scripts from a CDN, which this offline app's own CSP refuses, so
+    # they never rendered anyway. And the schema: every route, parameter and
+    # model name, 238 paths, was served to anyone who could reach the port,
+    # before the unlock: MODERNISATION_AUDIT.md D5, the one security finding
+    # in that audit not already handled. The schema is mounted again below,
+    # behind the same `locked` dependency every data route carries.
+    app = FastAPI(
+        title="MemoryMap AI",
+        version=__version__,
+        lifespan=lifespan,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
+    _register_error_handlers(app)
+    _add_middleware(app)
+
+    # Everything that touches the user's data sits behind the unlock
+    # gate; /auth itself and /health stay open.
+    locked = [Depends(require_unlock)]
+    _include_routers(app, locked)
+    _add_system_routes(app, locked)
 
     # The owner's benches (tools/avatar-lab.html, tools/companion-sim.html)
     # are served beside the app so they can load its own renderers from

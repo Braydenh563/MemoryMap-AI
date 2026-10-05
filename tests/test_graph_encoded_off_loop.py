@@ -8,7 +8,7 @@ encoded itself, which runs where the route runs: the threadpool.
 
 from __future__ import annotations
 
-from fastapi.responses import JSONResponse
+from fastapi.responses import Response
 
 from memorymap.api import routes_graph
 
@@ -16,7 +16,7 @@ from memorymap.api import routes_graph
 def test_the_graph_route_hands_back_bytes_not_a_dict(client, session):
     client.post("/entries", json={"content": "one note"})
     answer = routes_graph.graph(similarity=False, session=session)
-    assert isinstance(answer, JSONResponse)
+    assert isinstance(answer, Response) and isinstance(answer.body, bytes)
     over_http = client.get("/graph").json()
-    assert set(over_http) == {"nodes", "edges", "categories"}
+    assert set(over_http) == {"nodes", "edges", "categories", "type_colours"}
     assert len(over_http["nodes"]) == 1

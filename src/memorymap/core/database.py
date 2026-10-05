@@ -1268,7 +1268,7 @@ class EntryOpen(Base):
     row 5, "most opened this month").
 
     `Entry.access_count` is all time, and "this month" cannot be read off a
-    running total, so each open adds one to its day's row (`manager.
+    running total, so each open adds one to its day's row (`entry.opens.
     record_open`). A row per note per day, not per open: the dashboard asks
     for thirty days at a time, and a year of daily reading is a few thousand
     rows rather than a few hundred thousand.

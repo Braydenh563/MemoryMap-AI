@@ -2177,7 +2177,7 @@ async function commitCaptureImages() {
     form.append("file", image.file);
     const uploaded = await apiJson("/media/upload", {
       method: "POST",
-      headers: { "X-Auth-Token": authToken() },
+      headers: authHeaders(),
       body: form,
     });
     urlByKey[image.key] = uploaded.url;
@@ -2287,7 +2287,7 @@ async function handleFileUpload(textarea, files) {
     try {
       const res = await apiJson("/media/upload", {
         method: "POST",
-        headers: { "X-Auth-Token": authToken() },
+        headers: authHeaders(),
         body: formData
       });
       // Image syntax (`![]()`) unconditionally became an <img> at render

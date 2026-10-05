@@ -3206,7 +3206,9 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .entry-meta.note-meta:not(.is-measuring) > :is(.when, .refs, .reminders, .review, .untagged, .untagged-ai, .source-path, .tag:not(.hashtag, .suggested-tag)) {
   flex-shrink: 5;
   min-width: 2.5em;
-  overflow: hidden;
+  /* Clipped across, open above and below: `hidden` clipped the chip's own
+     hit-target overhang (`.chip-interactive::after`, audit FE-14) too. */
+  overflow: clip visible;
 }
 
 /* The category gives way last, and keeps a word of itself. Its factor is

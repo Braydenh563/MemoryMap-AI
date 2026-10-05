@@ -938,7 +938,7 @@ function editorCommands(context) {
       label: `${template.name}`,
       about: "Insert this template",
       keywords: ["template", template.name],
-      sample: noteTemplateFill(template).split("\n").slice(0, 8).join("\n"),
+      sample: noteTemplateText(template.content).replaceAll(NOTE_TEMPLATE_CURSOR, "").split("\n").slice(0, 8).join("\n"),
       //: The variables the Capture box's picker fills (`noteTemplateForUse`,
       //: WORLD_CLASS_PLAN 5 item 4), so a template behaves the same whichever
       //: way it was reached; the caret lands on its `{{cursor}}`. The range is

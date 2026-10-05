@@ -3006,7 +3006,7 @@ async function importLibraryDocuments(files) {
     try {
       const document_ = await apiJson("/documents/import", {
         method: "POST",
-        headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
+        headers: authHeaders(),
         body: form,
       });
       made.push(document_);
@@ -4607,7 +4607,7 @@ async function ocrRunRegion(mode) {
     //: in its own comment).
     const answer = await apiJson(`${base}/region-read`, {
       method: "POST",
-      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
+      headers: authHeaders(),
       body: form,
     });
     ocrShowRegionResult({
@@ -10913,3 +10913,56 @@ onDomReady(() => {
   $("contents-expand")?.addEventListener("click", () => contentsSetAll(true));
   $("contents-collapse")?.addEventListener("click", () => contentsSetAll(false));
 });
+
+// Moved from app.js (its gzip cap): the Library's Activity cards are its one caller.
+// `confirmDialog`'s other missing sibling: show a whole piece of text with
+// no decision to make, just a way to close it. Asked for directly: "longer
+// logs get truncated with no way to expand or collapse and view the whole
+// log", the Library's Activity cards show a clipped preview (server-side,
+// `ACTIVITY_DETAIL_CHARS`) so the grid stays scannable, and this is what a
+// click on one opens instead of doing nothing.
+function showDetailDialog(title, text) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", title);
+
+    const card = document.createElement("div");
+    card.className = "card modal-card confirm-card detail-dialog-card";
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    const body = document.createElement("p");
+    body.className = "confirm-text detail-dialog-text";
+    body.textContent = text;
+    const row = document.createElement("div");
+    row.className = "row confirm-actions";
+
+    let settled = false;
+    const close = () => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      returnFocus?.focus?.();
+      resolve();
+    };
+    const onKey = (event) => {
+      if (event.key === "Escape" || event.key === "Enter") {
+        event.stopPropagation();
+        close();
+      }
+    };
+
+    const returnFocus = document.activeElement;
+    const ok = smallButton("Close", "Close", close, false);
+    row.append(ok);
+    card.append(heading, body, row);
+    overlay.appendChild(card);
+    wireBackdropClose(overlay, () => close());
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    ok.focus();
+  });
+}

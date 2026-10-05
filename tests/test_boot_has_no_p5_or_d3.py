@@ -1,0 +1,60 @@
+"""The boot loads neither p5 nor d3 (audit 2026-10-05, FE-07).
+
+p5 (1 MB raw, 239 KB gzipped) was fetched after every load for the emblem,
+a still drawing turned by CSS; d3 (280 KB raw, 90 KB gzipped) was a blocking
+script in the head for two lazy surfaces. The emblem is a 2D canvas now
+(pixel-matched against the p5 sketch by
+`scratchpad/ui-sweeps/perf2-1005-emblem.js`), and d3 is the first file of the
+two bundles that use it.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+JS = ROOT / "frontend" / "js"
+
+
+def _function(text: str, name: str) -> str:
+    start = text.index(f"function {name}(")
+    return text[start : text.index("\n}\n", start)]
+
+
+def test_the_page_has_no_d3_script():
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert not re.search(r'<script src="/vendor/d3', html)
+
+
+def test_d3_leads_both_bundles_that_use_it():
+    app = (JS / "app.js").read_text(encoding="utf-8")
+    table = app[app.index("const LAZY_MODULES = {") :]
+    graph = re.search(r"graph: \[([^\]]*)\]", table).group(1)
+    library = re.search(r"library: \[(.*?)\]", table, re.S).group(1)
+    for files in (graph, library):
+        names = re.findall(r'"(/[^"]+)"', files)
+        assert names[0] == "/vendor/d3.v7.min.js", names
+
+
+def test_a_file_two_bundles_share_is_fetched_once():
+    app = (JS / "app.js").read_text(encoding="utf-8")
+    assert "lazyFileLoads" in _function(app, "lazyScript")
+    assert "files.map(lazyScript)" in _function(app, "ensureModule")
+
+
+def test_the_emblem_needs_no_p5():
+    shell = (JS / "phone-shell.js").read_text(encoding="utf-8")
+    body = _function(shell, "renderEmblem")
+    code = "\n".join(line for line in body.splitlines() if not line.lstrip().startswith("//"))
+    assert "p5" not in code and "ensureP5" not in code
+    assert 'getContext("2d")' in code
+    avatar = (JS / "assistant-avatar.js").read_text(encoding="utf-8")
+    assert "ensureP5" not in _function(avatar, "assistantEmblemShot")
+
+
+def test_the_layout_is_p5s_own_generator():
+    """Same seed, same nodes: p5's LCG constants."""
+    shell = (JS / "phone-shell.js").read_text(encoding="utf-8")
+    body = _function(shell, "emblemRandom")
+    assert "1664525" in body and "1013904223" in body and "4294967296" in body

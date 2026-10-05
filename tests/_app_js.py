@@ -47,7 +47,7 @@ def app_js_files() -> list[Path]:
 #: (app.js, `LAZY_MODULES`). Still the app's code for every test that reads
 #: it, so `app_js_text` includes them; not in `app_js_files`, which is what
 #: loads at boot and what the gzip budget counts.
-LAZY_PIECES = ("lightbox-view.js", "edit-conflict.js", "categories-panel.js", "tag-manager.js", "chip-menus.js", "note-history.js", "ask-history.js", "settings-data.js", "settings-find.js", "settings-models.js", "tag-suggest.js", "attachment-actions.js", "ocr-engine.js", "quick-note.js", "quick-access.js", "field-clear.js", "assistant-avatar.js", "suggestions-inbox.js", "entity-page.js", "link-types.js", "note-properties.js", "reveal-targets.js", "onboarding.js", "update-dialogs.js", "app-palette.js", "note-panels.js", "settings-controls.js", "note-edit-panels.js", "attach-to.js", "notes-rail-spy.js", "dash-boards.js", "model-bench.js", "web-clip.js", "app-import.js", "usage-ledger.js")
+LAZY_PIECES = ("lightbox-view.js", "edit-conflict.js", "categories-panel.js", "tag-manager.js", "chip-menus.js", "note-history.js", "ask-history.js", "settings-data.js", "settings-find.js", "settings-models.js", "tag-suggest.js", "attachment-actions.js", "ocr-engine.js", "quick-note.js", "quick-access.js", "field-clear.js", "assistant-avatar.js", "suggestions-inbox.js", "entity-page.js", "link-types.js", "note-properties.js", "reveal-targets.js", "onboarding.js", "update-dialogs.js", "app-palette.js", "note-panels.js", "settings-controls.js", "note-edit-panels.js", "attach-to.js", "notes-rail-spy.js", "dash-boards.js", "model-bench.js", "web-clip.js", "app-import.js", "usage-ledger.js", "note-templates.js", "atlas-motion.js", "help-chat.js")
 
 
 @lru_cache(maxsize=1)

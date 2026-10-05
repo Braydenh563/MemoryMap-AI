@@ -41,7 +41,7 @@ def test_audit_log_carries_actor_and_payload():
 
 def test_every_manager_write_records_exactly_one_event(session):
     """Enumerates the public write functions so a new one cannot be missed."""
-    from memorymap.core import events  # the helper module Brief 7 adds
+    from tests._event_drivers import exercise_for_test
 
     entry = manager.create_entry(session, "hello", tags=[])
     session.commit()
@@ -49,7 +49,7 @@ def test_every_manager_write_records_exactly_one_event(session):
     assert writes, "the enumeration found nothing; the prefixes are wrong"
     for name in writes:
         before = session.query(AuditLog).count()
-        events.exercise_for_test(session, name, entry)  # Brief 7 provides a per-function driver
+        exercise_for_test(session, name, entry)  # a driver per write (tests/_event_drivers.py)
         session.commit()
         after = session.query(AuditLog).count()
         assert after == before + 1, f"{name} recorded {after - before} events, not one"

@@ -42,7 +42,7 @@ overflow on any of 40 tab x width combinations; one dead function in 3,950.
 - Severity High. KNOWN as a decision (CLAUDE.md section 5, `dd2d843`); its cost is NEW.
 - Fix: stamp each URL with a hash of that file's bytes (computed once at startup, or at precompress time) instead of a per-process token: a changed file gets a new URL, an unchanged one keeps its cache across launches. `tests/test_asset_cache_busting.py` keeps holding the stamp's presence. Acceptance: `cachecost.js` after a server restart shows 49 of 49 from cache. Effort S to M.
 
-**FE-03. Opening the Library tab starts the grammar checker: 15.9 MB WASM, 871 KB word list, six bundled surfaces.** FIXED 76a7165
+**FE-03. Opening the Library tab starts the grammar checker: 15.9 MB WASM, 871 KB word list, six bundled surfaces.** FIXED 76a7165 / (c) FIXED 68e0448 (the Library tab fetches library.js alone; the editors, d3 and the whiteboard with the first document or board)
 - Evidence (`libreq.js`): one click on Library fetched `documents-code.js`, `documents-prose.js`, `documents.js`, `whiteboard-map.js`, `whiteboard.js`, `library.js` (893 KB gz, 2,885 KB raw), then `harper-worker.js`, `BinaryModule`, `slimBinary.js`, `/vendor/wordlist/en.txt` (253 KB gz) and `/vendor/harper/harper_wasm_slim_bg.wasm` at **15,935,196 bytes, no content-encoding** (it gzips to 8,051,298). Stack: `renderDocTools()` at `frontend/js/documents.js:16988` (last line of the file, run at load) calls `renderDocProse` which calls `docLoadWordlist` (`documents.js:13666`) and `docGrammarAsk` (`documents-prose.js:84`, `new Worker`), on an empty editor nobody opened. WASM is excluded from gzip on purpose (`app.py:931`, 755 ms to gzip per cold fetch on loopback).
 - Impact: browsing the Library (the most-used list after Notes) costs about 17 MB of transfer, a worker and a 16 MB WASM compile. Over LAN mode on a phone this is the single largest cost in the app. First Library visit: 779 to 1,210 ms to quiet, 565 ms of long tasks at 5,000 notes.
 - Severity High. NEW.
@@ -68,7 +68,7 @@ overflow on any of 40 tab x width combinations; one dead function in 3,950.
 - Severity Medium. Claimed built and regressed.
 - Fix: `tests/test_boot_budget.py` reading the `<script src>` list from `index.html`, gzipping each, failing over a number (start at today's 1,384 KB and ratchet down); lazy-load the decoration (`avatars.js`, `atlas.js`, `bg-art.js`, `tour.js`: about 850 KB raw, 260 KB gz) behind the first paint of a face, the art or the tour. Effort S for the ratchet, M for the moves.
 
-**FE-07. p5 (1 MB raw, 239 KB gz) is still fetched and parsed every boot; d3 (280 KB raw, 90 KB gz) still blocks DOMContentLoaded.** NOT FIXED (left to the lazy-module agent: d3 and p5 tags sit in its files)
+**FE-07. p5 (1 MB raw, 239 KB gz) is still fetched and parsed every boot; d3 (280 KB raw, 90 KB gz) still blocks DOMContentLoaded.** NOT FIXED (left to the lazy-module agent: d3 and p5 tags sit in its files) / FIXED aac8690 (the emblem a 2D canvas, pixel-matched; d3 in the graph and library bundles; boot JS 691,724 to 589,299 bytes gz)
 - Evidence: `/vendor/p5.min.js` is in every boot's resource list (`perf.js`), requested by `ensureP5()` (`phone-shell.js:60`) because the emblem is drawn at boot. `<script src="/vendor/d3.v7.min.js">` at `index.html:12239`, synchronous; `d3.` is used in `graph*.js`, `whiteboard*.js` and three lines of `wiring.js` (1380 to 1382, inside the graph's physics toggle).
 - Impact: 330 KB gz and about 85 to 135 ms of parse (the plan's own figure for p5) for decoration and two lazy surfaces.
 - Severity Medium. KNOWN (WORLD_CLASS_PLAN H7 "found, not fixed"; MODERNISATION_AUDIT C3 proposed `import()` for both).
@@ -80,19 +80,19 @@ overflow on any of 40 tab x width combinations; one dead function in 3,950.
 - Severity Medium. NEW.
 - Fix: make `startReminderWatch` idempotent (module flag, or keep the interval id and `clearInterval` first; bind the two listeners once at module level). Find the +470 nodes with a heap snapshot diff across one cycle. Acceptance: `lockleak.js` shows `/reminders` 1 per idle minute after 4 cycles and node growth under 50 per cycle. Effort S.
 
-**FE-09. CSS: 2.59 MB shipped, 378 KB of it used.** PARTIAL b861898 (the strip: 810 to 180 KB gz on the wire; unused rules not deleted)
+**FE-09. CSS: 2.59 MB shipped, 378 KB of it used.** PARTIAL b861898 (the strip: 810 to 180 KB gz on the wire; unused rules not deleted) / still open after perf2: no coverage-driven deletion (not started)
 - Evidence (`csscov.js`, Chromium CSS coverage, light, 1440, every tab and all 20 Settings panes visited): 2,591 KB, 930 KB once comments are removed, 378 KB used (41% of rule bytes, 15% of what is shipped). 10,241 selector occurrences, 8,278 distinct, 140 selectors defined in four or more places, 160 `!important`. The 2026-09-13 audit measured 1.24 MB of CSS (MODERNISATION_AUDIT C3): it has doubled in three weeks.
 - Impact: render-blocking 821 KB gz before the lock screen; every style recalculation walks about 10,000 selectors.
 - Severity Medium. NEW (the size, the coverage).
 - Fix: FE-01 removes 80% of the bytes; then a coverage sweep in dark, 390 and with menus and the whiteboard open, to list rules no state uses, and delete them in batches with `tests/test_css_braces.py` and the sweeps as the gate. Effort M.
 
-**FE-10. `index.html` is 852 KB and builds 8,906 elements before the lock screen.** PARTIAL b861898 (the strip: page 206 to 93 KB gz; panes not moved into templates)
+**FE-10. `index.html` is 852 KB and builds 8,906 elements before the lock screen.** PARTIAL b861898 (the strip: page 206 to 93 KB gz; panes not moved into templates) / NOT MOVED, decided d43564c (the panes are 1,949 of 9,014 elements in a display:none window; a <template> is still parsed, and 5 interleaved runs showed no DOMContentLoaded gain: perf2-1005-settingstpl.js)
 - Evidence: `wc -c` 851,545 (206 KB gz, 39% comments); `document.getElementsByTagName('*').length` 8,906 at boot (9,792 at 5,000 notes); CDP `Nodes` 23,839. Every Settings pane (20), every dialog and every tab's markup is in the page at boot.
 - Impact: parse and style of 9,000 elements nobody sees at the lock screen; the pre-auth long tasks were 85, 100 and 90 ms (10 notes) and up to 358 ms under load.
 - Severity Medium. NEW.
 - Fix: FE-01's comment strip first (206 to 92 KB gz); then move the Settings panes into `<template>` elements cloned on the first `openSettingsModal` (the panes are already lazily wired). Effort M.
 
-**FE-11. Breakpoints are not "stated once": 58 distinct width queries, and two conventions collide at 600 and 720.** FIXED 4a5344d
+**FE-11. Breakpoints are not "stated once": 58 distinct width queries, and two conventions collide at 600 and 720.** FIXED 4a5344d / 900 group FIXED 24c1df9 (onto 819.98/820, swept 820 to 901 light and dark); 720 and 640 groups still allow-listed
 - Evidence: `grep -ohE "\((max|min)-width: ?[0-9.]+(px|rem|em)\)" css/*.css | sort -u | wc -l` = 58. Commonest: 599.98px (51), 819.98px (37), 720px (28), 600px (21), min 600px (15), 1099.98px (7), 640px (6), 900px (5), 40rem (5). `max-width: 600px` and `min-width: 600px` both match at exactly 600 px (21 + 15 rules), and `max-width: 720px` with `min-width: 720px` at 720 (28 + 3).
 - Impact: four designed layouts (UI_MODERNISATION_PLAN Phase 9: 600, 820, 1100) became dozens; a 600 px or 720 px window gets both sides' rules.
 - Severity Medium. Claimed built (Phase 9, "makes the breakpoints a design, stated once").
@@ -104,7 +104,7 @@ overflow on any of 40 tab x width combinations; one dead function in 3,950.
 - Severity Medium. NEW.
 - Fix: replace `.catch(() => {})` on mutations with `.catch((e) => toast(e.message, true))` and return early before the success toast; a lint that fails on `method: "(POST|PUT|PATCH|DELETE)"` followed by a silent catch, with an allow-list for beacons. Effort S.
 
-**FE-13. First visits at 5,000 notes: Timeline and Dashboard block for a second.** NOT FIXED (re-measured: tab JS about 100 ms at 5,000 notes; the cost is the routes, /timeline 3.5 s under load, a backend item)
+**FE-13. First visits at 5,000 notes: Timeline and Dashboard block for a second.** NOT FIXED (re-measured: tab JS about 100 ms at 5,000 notes; the cost is the routes, /timeline 3.5 s under load, a backend item) / routes FIXED 7449811 (/timeline 132 to 100 ms and 323 to 163 KB, /entries/reference-counts 1,112 to 214 ms in process at 5,000 notes); tab JS unchanged
 - Evidence (`perf.js`, 5,010 notes, load about 14): Timeline first visit `/timeline` 1,302 ms, 12 long tasks, 1,286 ms; Dashboard first visit 13 fetches, 8 long tasks, 815 ms (max 172 ms); Library 7 long tasks 565 ms; unlock to quiet 1,199 ms. At 10 notes the same tabs were 0 to 1 long task.
 - Impact: the app feels slow exactly when the notebook is large; the long tasks scale with N.
 - Severity Medium. NEW at this size (TIMELINE_PLAN section 7 measured smaller notebooks).
@@ -112,13 +112,13 @@ overflow on any of 40 tab x width combinations; one dead function in 3,950.
 
 ### Low
 
-**FE-14. Desktop controls under the app's own 28 px floor.** FIXED 4a5344d
+**FE-14. Desktop controls under the app's own 28 px floor.** FIXED 4a5344d / chips FIXED 139ee7b (28px target by a ::after overhang, paint stays 24; 0 under at 1440 light and dark)
 - Evidence (`floor.js`, 1440, `--target-min` = 1.75rem): the view-toggle segments in four docks, `#notes-view-rows`/`-cards`, the Library's two, `#timeline-view-feed`/`-table`, the Reminders' two, all **28 x 24**; Documents Edit/Read 74 x 24 and 82 x 24; interactive category and "Add tags" chips 24 tall; `#chat-title` (a button) 110 x 24.
 - Impact: DESIGN.md "Hit targets" says 28 px is "the floor under every interactive thing"; `iconfloor.js` only checks touch contexts (44 px), so the desktop floor has no sweep.
 - Severity Low. Claimed (DESIGN.md hit targets).
 - Fix: segments in a dock track `min-height: var(--target-min)` with the track growing to 32 + padding, or the track 36; a `floor.js`-style desktop check in `iconfloor.js`. Effort S.
 
-**FE-15. The design census: same role, different numbers.** PARTIAL (role table in DESIGN.md, docs commit; census sweep not extended)
+**FE-15. The design census: same role, different numbers.** PARTIAL (role table in DESIGN.md, docs commit; census sweep not extended) / FIXED d43564c (perf2-1005-census.js fails when a role gains a height, baseline at 1440)
 - Evidence (`census.js`, 1440 light, 8 tabs, the shell and 20 Settings panes, 1,183 buttons):
 
 | Role | Count | Heights (px: count) | Font sizes | Radii |
@@ -135,7 +135,7 @@ overflow on any of 40 tab x width combinations; one dead function in 3,950.
 - Severity Low (the token layer is sound: off-token sizes and radii are near zero; the variance is in which token each role picks). NEW.
 - Fix: write the role table above into DESIGN.md as the contract and extend `census.js` into a sweep that fails when a role gains a height. Effort S.
 
-**FE-16. Three relative-time formatters, five download helpers.** FIXED ac96ac7 (download helpers not merged)
+**FE-16. Three relative-time formatters, five download helpers.** FIXED ac96ac7 (download helpers not merged) / download helpers FIXED 3aceb1a (downloadBlob, one copy; the dictionary export via saveFile)
 - Evidence: `dashRelativeTime` (`dashboard.js:4105`, "3 hours ago", `new Date(iso)`), `relativeTime` (`sheets-selects.js:1440`, "3h ago", "yesterday", via `parseServerTime`), `relativeWhen` (`shell-reminders.js:1297`, "3 hours ago" and "in 3 hours", `new Date(iso)`). Downloads: `downloadDocumentExport` (`documents.js`), `downloadExport` (`settings-panes.js`), `downloadSupportBundle` (`settings.js`), `downloadJson` and `downloadFromApi` (`skills.js`); `URL.createObjectURL` in 9 files.
 - Impact: the same timestamp reads differently on the Dashboard and in a list; two formatters skip the UTC guard the third added after an "Invalid Date" bug.
 - Severity Low. NEW. Fix: one `relativeTime(iso, {future})` in `app.js` using `parseServerTime`; one `downloadBlob(blob, name)`. Effort S.
@@ -148,7 +148,7 @@ overflow on any of 40 tab x width combinations; one dead function in 3,950.
 - Evidence: `field-clear.js:111`, `setInterval(..., 1000)` re-syncing every clear button, never cleared; inputs already have `input` listeners.
 - Severity Low. NEW. Fix: sync on `input`, `change` and after programmatic value sets (a `fieldClearSync` call where code assigns `.value`). Effort S.
 
-**FE-19. Responsive: small defects only.** PARTIAL 4a5344d (toggle at 768, snippet tooltips; Documents' Outline tab at 1024 and Library at 390 open)
+**FE-19. Responsive: small defects only.** PARTIAL 4a5344d (toggle at 768, snippet tooltips; Documents' Outline tab at 1024 and Library at 390 open) / Outline tab FIXED fad3c4b (under the toggle below a 14rem sidebar, DOCUMENTS_PLAN decision 6); Library at 390 not re-checked
 - Evidence (`resp.js`, 8 tabs x 390, 768, 1024, 1440, 1920, touch context under 820): document horizontal overflow 0 everywhere. `.sidebar-collapse-toggle` starts at x = -5 at 768 (Notes, Chat, Documents). Documents at 1024: the sidebar's "Outline" tab cut 7 px and overlapped by the collapse toggle. Library at 390: the sort select and the Rows/Cards toggle have a corner under the kind chips. Under-44 targets at 390: only chips (24 tall), `#chat-title`, `#doc-title` (32). Orphaned headings: 0 at 1440 and 768, 4 at 390 (`settings:models` "Advanced response settings", three skill names). Truncation without a tooltip: 250 `.timeline-row-snippet` at 1440 (the title beside it has one).
 - Severity Low. NEW. Fix: per item, S.
 

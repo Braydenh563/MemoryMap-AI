@@ -1719,7 +1719,7 @@ $("timeline-scroll").addEventListener("keydown", (event) => {
 //: wheel is one step and a pinch's stream of small deltas is not four.
 const TIMELINE_ZOOM_STEP = 50;
 const TIMELINE_ZOOM_GAP = 350;
-let timelineZoom = { sum: 0, at: 0, stepped: false };
+const timelineZoom = { sum: 0, at: 0, stepped: false };
 
 $("timeline-scroll").addEventListener(
   "wheel",

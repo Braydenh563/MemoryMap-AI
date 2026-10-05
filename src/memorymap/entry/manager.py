@@ -350,18 +350,6 @@ def list_sort_key(entry: Entry) -> tuple:
     return (bool(entry.pinned), entry.created_at, entry.id)
 
 
-#: Read by routes_vision's "most opened" (WORLD_CLASS_PLAN section 17 row 5);
-#: here, not there, so opening a note does not import a route module.
-def record_open(session: Session, entry_id: int) -> None:
-    """Count one open of a note today, in the caller's transaction."""
-    today = utcnow().date().isoformat()
-    row = session.scalar(select(EntryOpen).where(EntryOpen.entry_id == entry_id, EntryOpen.day == today))
-    if row is None:
-        session.add(EntryOpen(entry_id=entry_id, day=today, count=1))
-    else:
-        row.count = (row.count or 0) + 1
-
-
 def count_entries(
     session: Session,
     include_deleted: bool = False,

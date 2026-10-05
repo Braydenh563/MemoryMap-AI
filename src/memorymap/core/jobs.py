@@ -85,6 +85,8 @@ KIND_LANES: dict[str, str] = {
     "vision": "model",
     "vision-pdf": "model",
     "file-entry": "model",
+    #: An edited note's new vector (routes_entries `_queue_embedding`).
+    "embed-entry": "model",
     "maintenance": "cpu",
     "bench": "model",
     "warm": "model",

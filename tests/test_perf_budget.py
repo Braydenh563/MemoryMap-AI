@@ -78,7 +78,15 @@ def _measure(client, path: str) -> tuple[int, float, int]:
 @pytest.mark.parametrize("path", list(BUDGET))
 def test_each_route_stays_inside_its_budget(notebook, path):
     _measure(notebook, path)  # warm: the first call builds caches and matrices
-    statements, seconds, status = _measure(notebook, path)
+    #: Wall time is the best of three: one CI run read /insights/heatmap at
+    #: 1.20 s against a measured 6 ms (2026-10-05, Python 3.11 runner, the
+    #: same route passing on 3.12 and 3.13 of that push), a stall of the
+    #: runner rather than of the route. The minimum is what a timing gate
+    #: compares, and a real slowdown is slow on all three. Statements are
+    #: exact and read from the first of them.
+    runs = [_measure(notebook, path) for _ in range(3)]
+    statements, _, status = runs[0]
+    seconds = min(run[1] for run in runs)
     budget, limit = BUDGET[path]
     assert status == 200, path
     assert statements <= budget, f"{path}: {statements} statements, the budget is {budget}"

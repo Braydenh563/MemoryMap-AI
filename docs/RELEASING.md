@@ -65,8 +65,9 @@ does not set them for you.
 in-app update check (`GET /update/check`) compares against GitHub's latest
 release tag. **A tag that disagrees with it stops the release**: the first job
 of `release.yml` compares the two and fails before anything is built, and
-`installer.iss` reads the installer's own version from this file too (it refuses
-a `MEMORYMAP_VERSION` that says otherwise).
+the workflow reads the installer's own version from this file too and passes it
+to `installer.iss` as `/DMyAppVersion` (which refuses a `MEMORYMAP_VERSION` that
+says otherwise).
 
 The same number is written in four more places. Two have a lint that fails the
 build if they are missed, and two you must remember:
@@ -162,9 +163,9 @@ after the release exists:
   an app meant to open like a normal desktop app.
 - **Smoke-tests the frozen app.** It starts the built executable on a scratch data
   folder and fails the release unless the app serves its page within a minute.
-- Runs Inno Setup against `packaging/windows/installer.iss`, which reads the
-  version from `src/memorymap/__init__.py` and refuses a `MEMORYMAP_VERSION` (the
-  tag) that differs.
+- Runs Inno Setup against `packaging/windows/installer.iss` with
+  `/DMyAppVersion=` the version in `src/memorymap/__init__.py`; it refuses a
+  `MEMORYMAP_VERSION` (the tag) that differs.
 - Uploads `MemoryMap-AI-Setup-<version>-windows-x86_64.exe` to the release. The
   WiX `.msi` steps are present but switched off: its toolkit's licence terms
   stopped the release build.

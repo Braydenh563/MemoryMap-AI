@@ -13,37 +13,22 @@
 ; prompt at all.
 ;
 ; Local build/test (from a Windows machine, Inno Setup installed):
-;   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\installer.iss
+;   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=<__version__> packaging\windows\installer.iss
 
 #define MyAppName "MemoryMap AI"
 
-; **The version is read from src\memorymap\__init__.py, never typed here.**
-; It used to come from MEMORYMAP_VERSION with a hard-coded "0.1.0" fallback,
-; so a local build, or any build whose environment forgot the variable, was
-; an installer that called itself 0.1.0 in Add/Remove Programs and in its
-; own file name, whatever it held; and package-check.yml stamped every test
-; build "0.0.0". The app's own `__version__` is the one number the About
-; panel, /health and the updater compare against, so it is the installer's.
-; release.yml still passes MEMORYMAP_VERSION from the tag, and a tag that
-; disagrees with the code stops the build here instead of shipping a
-; mislabelled installer.
-#define VersionFile AddBackslash(SourcePath) + "..\..\src\memorymap\__init__.py"
-#define VersionHandle FileOpen(VersionFile)
-#if !VersionHandle
-  #error Cannot open src\memorymap\__init__.py to read __version__
-#endif
-#define MyAppVersion ""
-#define VersionLine ""
-#sub ReadVersionLine
-  #define VersionLine FileRead(VersionHandle)
-  #if Pos("__version__ = ", VersionLine) == 1
-    #define MyAppVersion Copy(VersionLine, Pos('"', VersionLine) + 1, RPos('"', VersionLine) - Pos('"', VersionLine) - 1)
-  #endif
-#endsub
-#for {0; MyAppVersion == "" && !FileEof(VersionHandle); 0} ReadVersionLine
-#expr FileClose(VersionHandle)
-#if MyAppVersion == ""
-  #error No __version__ line in src\memorymap\__init__.py
+; **The version is src\memorymap\__init__.py's `__version__`, never typed
+; here.** It used to come from MEMORYMAP_VERSION with a hard-coded "0.1.0"
+; fallback, so a build whose environment forgot the variable was an installer
+; that called itself 0.1.0 in Add/Remove Programs. The caller reads
+; `__version__` and passes it as /DMyAppVersion=<it> (both workflows do); a
+; build without it stops here rather than guessing. An ISPP line reader
+; (FileOpen/FileRead in a #sub) did the reading first and found nothing on
+; CI's Windows runner, so the reading moved to the caller, where it is one
+; tested line of PowerShell. release.yml also passes MEMORYMAP_VERSION from
+; the tag, and a tag that disagrees with the code stops the build.
+#ifndef MyAppVersion
+  #error Pass /DMyAppVersion=<__version__ from src\memorymap\__init__.py> to ISCC
 #endif
 #if GetEnv("MEMORYMAP_VERSION") != "" && GetEnv("MEMORYMAP_VERSION") != MyAppVersion
   #error MEMORYMAP_VERSION (the release tag) does not match __version__ in src\memorymap\__init__.py

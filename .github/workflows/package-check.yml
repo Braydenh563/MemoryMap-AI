@@ -180,14 +180,15 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
-      # No MEMORYMAP_VERSION: installer.iss reads __version__ itself, and the
-      # file name proves it did.
+      # No MEMORYMAP_VERSION: the version is read from __version__ here and
+      # passed in, and the file name proves installer.iss used it.
       - name: Build the .exe installer (Inno Setup)
         shell: pwsh
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\installer.iss
-          if ($LASTEXITCODE -ne 0) { throw "ISCC exited $LASTEXITCODE" }
           $version = (Select-String -Path src\memorymap\__init__.py -Pattern '^__version__ = "([^"]+)"').Matches[0].Groups[1].Value
+          if (-not $version) { throw "no __version__ line in src\memorymap\__init__.py" }
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" packaging\windows\installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC exited $LASTEXITCODE" }
           $want = "dist\installer\MemoryMap-AI-Setup-$version-windows-x86_64.exe"
           if (-not (Test-Path $want)) {
             Get-ChildItem dist\installer | Format-Table Name

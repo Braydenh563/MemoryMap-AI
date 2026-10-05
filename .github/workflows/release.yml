@@ -174,7 +174,10 @@ jobs:
         env:
           MEMORYMAP_VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\installer.iss
+          $version = (Select-String -Path src\memorymap\__init__.py -Pattern '^__version__ = "([^"]+)"').Matches[0].Groups[1].Value
+          if (-not $version) { throw "no __version__ line in src\memorymap\__init__.py" }
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" packaging\windows\installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC exited $LASTEXITCODE" }
 
       # The MSI ships alongside the .exe, not instead of it (the owner's
       # explicit call): the .exe stays the simplest no-terminal path, the

@@ -10,6 +10,7 @@ the bundle reads in whatever encoding the person's Windows happens to use.
 
 from __future__ import annotations
 
+import contextlib
 import ast
 import re
 from pathlib import Path
@@ -141,12 +142,18 @@ def test_both_specs_carry_the_standard_library_the_extras_import():
 
 
 def test_the_installer_reads_its_version_from_the_code():
-    """No version number typed into installer.iss: it reads `__version__`
-    from src/memorymap/__init__.py (and refuses a tag that differs)."""
+    """No version number typed into installer.iss: both workflows read
+    `__version__` from src/memorymap/__init__.py and pass it as
+    /DMyAppVersion, and the script stops without one (and refuses a tag that
+    differs). An ISPP line reader did this first and found nothing on CI's
+    Windows runner (2026-10-05, "No __version__ line")."""
     text = (ROOT / "packaging" / "windows" / "installer.iss").read_text(encoding="utf-8")
     assert re.search(r'#define\s+MyAppVersion\s+"\d', text) is None
-    assert "src\\memorymap\\__init__.py" in text
-    assert 'Pos("__version__ = ", VersionLine) == 1' in text
+    assert "#ifndef MyAppVersion" in text and "#error Pass /DMyAppVersion=" in text
+    for workflow in ("package-check.yml", "release.yml"):
+        flow = (ROOT / ".github" / "workflows" / workflow).read_text(encoding="utf-8")
+        read = flow.index("-Pattern '^__version__ = \"([^\"]+)\"'")
+        assert read < flow.index('"/DMyAppVersion=$version" packaging\\windows\\installer.iss'), workflow
     init = (ROOT / "src" / "memorymap" / "__init__.py").read_text(encoding="utf-8")
     lines = [line for line in init.splitlines() if line.startswith("__version__ = ")]
     assert len(lines) == 1 and lines[0].count('"') == 2, lines
@@ -236,16 +243,12 @@ def test_repair_leaves_a_running_copys_window_profile_alone(tmp_path, monkeypatc
     monkeypatch.setattr(sys, "argv", ["memorymap", "--reinstall"])
     monkeypatch.setattr(launcher, "_existing_instance", lambda: ("live", types.SimpleNamespace(port=1)))
     monkeypatch.setattr(launcher, "_run_server_holding_lock", lambda: None)
-    try:
+    with contextlib.suppress(SystemExit):
         launcher.main()
-    except SystemExit:
-        pass
     kept = (profile / "Local State").is_file()
     assert kept
     monkeypatch.setattr(launcher, "_existing_instance", lambda: ("none", None))
-    try:
+    with contextlib.suppress(SystemExit):
         launcher.main()
-    except SystemExit:
-        pass
     cleared = profile.exists()
     assert not cleared

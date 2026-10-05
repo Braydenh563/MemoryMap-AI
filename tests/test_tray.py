@@ -9,6 +9,7 @@ see it: the packaged Windows app, which has no console to print an error to.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import re
 from pathlib import Path
 from tests._app_js import frontend_text
@@ -83,10 +84,8 @@ def test_restart_never_hands_windows_an_unquoted_argv(monkeypatch):
 
     monkeypatch.setattr(launcher.os, "_exit", fake_exit)
     monkeypatch.setattr(launcher.os, "execv", lambda *a: started.append(("execv", a)))
-    try:
+    with contextlib.suppress(Exited):
         launcher._replace_process(["C:\\Users\\Jos\u00e9\\MemoryMap AI\\MemoryMap AI.exe", "--desktop"])
-    except Exited:
-        pass
     assert len(started) == 1 and started[0][0] != "execv", started
     argv, kwargs = started[0]
     assert argv == [launcher.sys.executable, "--desktop"]

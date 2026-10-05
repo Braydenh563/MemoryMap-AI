@@ -4003,6 +4003,7 @@ function wbQueueSelectionBar() {
     wbSelectionBarFrame = 0;
     wbUpdateSelectionBar();
     wbPaintCommentMarks();
+    if (wbIsMap()) wbRenderMapStructure();
   });
 }
 
@@ -5281,6 +5282,30 @@ function wbBuildContextMenu(kind) {
       sub("Reset branch styling", "Drop this topic's own colour, size, weight, alignment, shape, icon, link and line", () =>
         wbMapResetToBranch(mapNode.id)
       );
+      //: A boundary round the branch (MINDMAP_PLAN decision 19).
+      const boundary = mapNode.data?.boundary;
+      if (!boundary) {
+        sub("Draw a boundary round this branch", "A shaded shape round this topic and everything under it, in the branch colour", () =>
+          wbMapSetStructure(mapNode, { boundary: "rounded" }, "Boundary drawn."));
+      } else {
+        for (const [style, words] of [["rounded", "Make the boundary solid"], ["dashed", "Make the boundary dashed"], ["cloud", "Make the boundary a cloud"]]) {
+          if (style !== boundary) sub(words, "Its colour is the branch colour", () => wbMapSetStructure(mapNode, { boundary: style }));
+        }
+        sub(mapNode.data?.boundary_label ? "Change the boundary's label…" : "Label the boundary…", "Words over its top edge", () =>
+          wbMapAskStructureWords(mapNode, "boundary_label", "What should the boundary say?", "Label it"));
+        sub("Remove the boundary", "The topics stay; Ctrl+Z brings it back", () =>
+          wbMapSetStructure(mapNode, { boundary: null, boundary_label: null }, "Boundary removed."));
+      }
+      //: A summary beside a run of siblings (decision 20); a root takes none.
+      if (!rooted && mapNode.data?.summary) {
+        sub("Change the summary…", "The words beside the brace", () =>
+          wbMapAskStructureWords(mapNode, "summary", "What do these topics come to? A few words beside them.", "Change the summary"));
+        sub("Remove the summary", "The topics stay; Ctrl+Z brings it back", () =>
+          wbMapSetStructure(mapNode, { summary: null, summary_span: null }, "Summary removed."));
+      } else if (!rooted) {
+        sub("Summarise this topic…", "A brace beside it with your words; select several side by side to summarise them together", () =>
+          wbMapSummarise([mapNode]));
+      }
     });
   }
   //: The words for decision 12's gesture, so typing into a shape is found
@@ -5308,6 +5333,17 @@ function wbBuildContextMenu(kind) {
   // Asked for directly. Available for every kind, a sketch reorders
   // against other sketches, a card/object against both (wbZOrderPeers'
   // own comment has the full reasoning for that split).
+  //: Several topics side by side: one summary over them (MINDMAP_PLAN 20).
+  if (wbIsMap() && wbMultiSelection.size > 1) {
+    const picked = [...wbMultiSelection].map((key) => {
+      const [k, id] = key.split(":");
+      return k === "object" ? wbFindItem("object", Number(id)) : null;
+    });
+    const parent = picked[0]?.parent_id;
+    if (parent != null && picked.every((o) => o && o.parent_id === parent)) {
+      item("Summarise these topics…", "A brace beside them with your words", () => wbMapSummarise(picked));
+    }
+  }
   //: Decision 15: held in place until unlocked from the board's own menu.
   //: Decision 17: one item's thread, from its menu as from its mark.
   const commentOn = !mapNode && wbMultiSelection.size <= 1 && wbSelectedItem ? wbSelectedItem : null;
@@ -7162,6 +7198,27 @@ function wbBuildExportSvg(scope) {
   // screen. First in the list, so they sit under every node.
   const exportMapIndex = wbIsMap() ? wbMapIndex() : null;
   const exportMapColors = exportMapIndex ? wbMapNodeColors(exportMapIndex) : null;
+  //: A map's boundaries (decision 19) under its lines, its summaries over
+  //: them, as drawn, the paint read off each one like the lines below.
+  const structure = (selector) => {
+    for (const el of document.querySelectorAll(selector)) {
+      const clone = el.cloneNode(true);
+      const look = getComputedStyle(el);
+      for (const attr of ["class", "style", "data-topic"]) clone.removeAttribute(attr);
+      clone.setAttribute("fill", wbExportColour(look.fill) || "none");
+      clone.setAttribute("stroke", wbExportColour(look.stroke) || "none");
+      clone.setAttribute("stroke-width", look.strokeWidth || "1");
+      if (look.fillOpacity && look.fillOpacity !== "1") clone.setAttribute("fill-opacity", look.fillOpacity);
+      if (look.strokeDasharray && look.strokeDasharray !== "none") clone.setAttribute("stroke-dasharray", look.strokeDasharray);
+      if (el.tagName === "text") {
+        clone.setAttribute("font-size", look.fontSize);
+        clone.setAttribute("font-family", look.fontFamily);
+        clone.setAttribute("paint-order", "stroke");
+      }
+      parts.push(clone.outerHTML);
+    }
+  };
+  if (exportMapIndex) structure(".wb-map-boundaries > *");
   if (exportMapIndex) {
     for (const edge of document.querySelectorAll(".wb-map-edges .wb-map-edge")) {
       const clone = edge.cloneNode(true);
@@ -7183,6 +7240,8 @@ function wbBuildExportSvg(scope) {
       parts.push(clone.outerHTML);
     }
   }
+
+  if (exportMapIndex) structure(".wb-map-summaries > *");
 
   // Sketches already exist as real SVG, cloned as-is rather than
   // reinterpreted, so a stroke's colour/width/opacity (including the
@@ -14291,6 +14350,8 @@ function renderWhiteboard() {
   // sizes and leave every edge one frame stale, visible as edges that lag
   // behind a node the moment its text changes length.
   wbRenderMapEdges();
+  //: A map's boundaries and summaries, from the boxes just measured.
+  wbRenderMapStructure();
 
   // Every element above was just rebuilt, so any `.wb-selected` class set
   // before this render is gone with it, re-apply from the state that

@@ -344,6 +344,14 @@ class WhiteboardObjectData(BaseModel):
     #: plain text, shown on demand from a marker on the topic. Content, like
     #: `task`: no theme sets it and no reset clears it (`MAP_CONTENT_FIELDS`).
     note: str | None = Field(default=None, max_length=MAX_TOPIC_NOTE_CHARS)
+    #: **A boundary round this topic's branch** (MINDMAP_PLAN.md decision 19)
+    #: and the words over it. Content, like `note`.
+    boundary: str | None = Field(default=None, pattern="^(rounded|dashed|cloud)$")
+    boundary_label: str | None = Field(default=None, max_length=80)
+    #: **A summary of a run of siblings** starting here (decision 20): the
+    #: words, and how many siblings the run takes, this topic first.
+    summary: str | None = Field(default=None, max_length=80)
+    summary_span: int | None = Field(default=None, ge=1, le=100)
     #: **The bar down a topic's leading edge** (MINDMAP_PLAN.md item 177:
     #: "per-node left edge: solid, dashed or none"). Two values, because the
     #: third is the absence of the field: a map drawn before this existed and
@@ -2818,6 +2826,10 @@ MAP_STYLE_FIELDS = (
     "image",
     "task",
     "note",
+    "boundary",
+    "boundary_label",
+    "summary",
+    "summary_span",
 )
 
 
@@ -3423,7 +3435,7 @@ class MapClearStyleOut(BaseModel):
 #: does. `MAP_STYLE_FIELDS` minus the content ones, plus the colour it does
 #: not list because a node has carried `color` as a key of its own since
 #: before any of this existed.
-MAP_CONTENT_FIELDS = frozenset({"image", "task", "note"})
+MAP_CONTENT_FIELDS = frozenset({"image", "task", "note", "boundary", "boundary_label", "summary", "summary_span"})
 MAP_CLEARABLE_FIELDS = frozenset(MAP_STYLE_FIELDS) - MAP_CONTENT_FIELDS | {"color"}
 
 
@@ -3749,6 +3761,9 @@ _FREEMIND_PRIVATE = {
     #: whose body is HTML, which this file neither writes nor reads (see
     #: `_parse_freemind`); the attribute keeps the text plain both ways.
     "note": "_note",
+    #: Decisions 19 and 20: FreeMind's own `<cloud>` is one shape with no
+    #: label, and it has no summary at all, so both ride as private ones.
+    **{f: f"_{f}" for f in ("boundary", "boundary_label", "summary", "summary_span")},
 }
 #: OPML 2.0 defines `text`, `type`, `url`, `isComment`, `isBreakpoint`,
 #: `created` and `category` and nothing else, so `url` is the only native
@@ -3777,6 +3792,7 @@ _OPML_PRIVATE = {
     #: `_note` is the spelling OmniOutliner and Workflowy already write, so
     #: this one reaches another outliner as a note rather than being dropped.
     "note": "_note",
+    **{f: f"_{f}" for f in ("boundary", "boundary_label", "summary", "summary_span")},
 }
 
 

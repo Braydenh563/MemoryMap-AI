@@ -3860,6 +3860,35 @@ def test_presenting_is_one_mode_with_one_bar() -> None:
     assert "Present frames: one frame" in guide
 
 
+def test_the_text_box_grip_stands_on_an_opaque_ground() -> None:
+    """The "⠿" tab on a text box or sticky's top edge: `--card-bg` is a glass
+    in most looks, so on a sticky's yellow the muted glyph measured 1.68:1 in
+    dark (`scratchpad/ui-sweeps/wbgripink.js`; 7.86:1 on the opaque ground)."""
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    rule = css[css.index(".wb-object-grip {") :][:900]
+    assert "background: var(--modal-bg-opaque);" in rule and "var(--card-bg)" not in rule.split("}")[0]
+
+
+def test_a_maps_boundaries_and_summaries_are_drawn_in_one_pass() -> None:
+    """MINDMAP_PLAN decisions 19 and 20 (DESIGN.md's row): one function draws
+    both from where the topics are, after the lines on every render and on the
+    selection bar's frame so a drag carries them; every change goes through
+    the topic's one undo step; both reach the image export; neither takes the
+    pointer; and a theme reset keeps them."""
+    wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
+    wm = (ROOT / "frontend" / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    render = wb[wb.index("function renderWhiteboard()") :]
+    assert render.index("wbRenderMapStructure();") > render.index("wbRenderMapEdges();")
+    assert "if (wbIsMap()) wbRenderMapStructure();" in wb[wb.index("function wbQueueSelectionBar()") :][:400]
+    setter = wm[wm.index("async function wbMapSetStructure(") :][:300]
+    assert "await wbMapSetNodeStyle(node, patch);" in setter
+    assert 'structure(".wb-map-boundaries > *")' in wb and 'structure(".wb-map-summaries > *")' in wb
+    assert ".wb-map-boundaries,\n.wb-map-summaries {\n  --wb-boundary: var(--accent);\n  pointer-events: none;" in css
+    for key in ("boundary", "boundary_label", "summary", "summary_span"):
+        assert f'"{key}"' in wm[wm.index("const WB_MAP_CONTENT_KEYS") :][:200]
+
+
 def test_a_comment_thread_is_one_popover_reached_three_ways() -> None:
     """WHITEBOARD_PLAN decision 17 (DESIGN.md's comment row): the mark, the
     item menu and a topic's menu open the one thread, in the help popover's

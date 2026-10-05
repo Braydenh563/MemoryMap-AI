@@ -183,7 +183,51 @@
   }
 }
 
-/* The thread, in the help popover's shell: the comments, then one box and
+/* A map's boundary and summary (MINDMAP_PLAN.md decisions 19, 20): the
+   branch colour as `--wb-boundary` (set in JS, the accent when the branch has
+   none), a tint inside a boundary and the colour on its edge and on the
+   brace; their words in the line label's recipe. Never a pointer target. */
+.wb-map-boundaries,
+.wb-map-summaries {
+  --wb-boundary: var(--accent);
+  pointer-events: none;
+}
+
+.wb-map-boundary {
+  fill: var(--wb-boundary);
+  fill-opacity: 0.08;
+  stroke: var(--wb-boundary);
+  stroke-width: 1.5;
+}
+
+.wb-map-boundary-dashed {
+  stroke-dasharray: 6 4;
+}
+
+.wb-map-summary-brace {
+  fill: none;
+  stroke: var(--wb-boundary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.wb-map-boundary-label,
+.wb-map-summary-label {
+  fill: var(--ink);
+  stroke: var(--card);
+  stroke-width: 3;
+  paint-order: stroke;
+  font-family: var(--wb-map-font);
+  font-size: var(--text-xs);
+}
+
+.wb-map-summary-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+/* The thread, in the help popover's shell:the comments, then one box and
    its foot. */
 .help-popover.wb-comments {
   display: flex;
@@ -299,7 +343,10 @@
   left: 6px;
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);
-  background: var(--card-bg);
+  /* Opaque in every look: `--card-bg` is a 55% glass in most, and on a
+     sticky's yellow the muted glyph over it measured 1.68:1 (Classic, dark)
+     (`wbgripink.js`). */
+  background: var(--modal-bg-opaque);
   color: var(--muted);
   font-size: var(--text-sm);
   line-height: 1.4;

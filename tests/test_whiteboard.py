@@ -425,6 +425,11 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "task": None,
         # And with a note behind a topic (decision 18).
         "note": None,
+        # And with a boundary and a summary (MINDMAP_PLAN decisions 19, 20).
+        "boundary": None,
+        "boundary_label": None,
+        "summary": None,
+        "summary_span": None,
         "spine": None,
         # And with a topic's fill (one topic, or its whole branch).
         "fill": None,

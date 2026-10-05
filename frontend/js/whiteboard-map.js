@@ -5924,7 +5924,8 @@ const WB_MAP_STYLE_KEYS = [
 //: A task (decision 15) is content for the same reason: "reset this topic's
 //: look" must not untick or un-task anything.
 //: And a note (decision 18): a reset is about looks, never about words.
-const WB_MAP_CONTENT_KEYS = ["image", "task", "note"];
+//: And a boundary and a summary (decisions 19, 20): what the map says.
+const WB_MAP_CONTENT_KEYS = ["image", "task", "note", "boundary", "boundary_label", "summary", "summary_span"];
 
 //: Remove this topic and keep its branch: the children move up to its parent
 //: first, then the node goes. Through `/move`, which is the only endpoint
@@ -6597,4 +6598,218 @@ async function wbMapPinOnDrag(d) {
   d.data = { ...d.data, pinned: true };
   await wbSaveObject(d);
   wbScheduleRender();
+}
+
+//: --- Boundaries and summaries (MINDMAP_PLAN.md decisions 19 and 20) --------
+//:
+//: Both are drawn from where the topics are, on every render and every drag
+//: frame (the selection bar's frame), so they grow, fold and move with the
+//: branch and there is nothing stored about where they sit. A boundary goes
+//: under the lines, a summary's brace and words over them; both in the
+//: branch's colour, so the branch colour well is their colour control.
+
+const WB_MAP_BOUNDARY_PAD = 12;
+const WB_MAP_BRACE_GAP = 10;
+const WB_MAP_BRACE_W = 14;
+
+//: The box round a topic and every topic under it that is showing.
+function wbMapBranchBox(index, hidden, id) {
+  let box = null;
+  for (const node of wbMapSubtree(index, id)) {
+    if (hidden.has(node.id)) continue;
+    const size = wbMapNodeSize(node);
+    const r = { minX: node.x, minY: node.y, maxX: node.x + size.w, maxY: node.y + size.h };
+    box = box
+      ? { minX: Math.min(box.minX, r.minX), minY: Math.min(box.minY, r.minY), maxX: Math.max(box.maxX, r.maxX), maxY: Math.max(box.maxY, r.maxY) }
+      : r;
+  }
+  return box;
+}
+
+//: The siblings a summary on `node` covers: it and the ones after it.
+function wbMapSummaryRun(index, node) {
+  const span = Math.max(1, Math.round(Number(node.data?.summary_span) || 1));
+  const siblings = wbMapSiblingsOf(index, node);
+  const at = siblings.findIndex((s) => s.id === node.id);
+  return at < 0 ? [node] : siblings.slice(at, at + span);
+}
+
+//: A cloud: the box's four sides as runs of outward bumps, drawn clockwise
+//: so every arc's sweep puts its bulge outside.
+function wbMapCloudD(x, y, w, h) {
+  const bump = 26;
+  const nx = Math.max(2, Math.round(w / bump));
+  const ny = Math.max(2, Math.round(h / bump));
+  const sx = w / nx;
+  const sy = h / ny;
+  const across = `a${sx / 2} ${Math.min(sx / 2, 9)} 0 0 1`;
+  const down = `a${Math.min(sy / 2, 9)} ${sy / 2} 0 0 1`;
+  let d = `M${x} ${y}`;
+  for (let i = 0; i < nx; i += 1) d += ` ${across} ${sx} 0`;
+  for (let i = 0; i < ny; i += 1) d += ` ${down} 0 ${sy}`;
+  for (let i = 0; i < nx; i += 1) d += ` ${across} ${-sx} 0`;
+  for (let i = 0; i < ny; i += 1) d += ` ${down} 0 ${-sy}`;
+  return `${d} Z`;
+}
+
+//: A brace along one side of `box`, its tip pointing away from the parent.
+//: Worked out along the side (`a`) and outwards from it (`o`), then turned
+//: onto the side, so all four sides are one drawing.
+function wbMapBraceGeometry(side, box) {
+  const horizontal = side === "left" || side === "right";
+  const a1 = horizontal ? box.minY : box.minX;
+  const a2 = horizontal ? box.maxY : box.maxX;
+  const am = (a1 + a2) / 2;
+  const base = side === "right" ? box.maxX + WB_MAP_BRACE_GAP
+    : side === "left" ? box.minX - WB_MAP_BRACE_GAP
+    : side === "bottom" ? box.maxY + WB_MAP_BRACE_GAP
+    : box.minY - WB_MAP_BRACE_GAP;
+  const sign = side === "right" || side === "bottom" ? 1 : -1;
+  const at = (a, o) => (horizontal ? `${base + sign * o} ${a}` : `${a} ${base + sign * o}`);
+  const r = Math.min(10, (a2 - a1) / 4);
+  const h = WB_MAP_BRACE_W / 2;
+  const d = [
+    `M${at(a1, 0)}`, `Q${at(a1, h)} ${at(a1 + r, h)}`, `L${at(am - r, h)}`,
+    `Q${at(am, h)} ${at(am, WB_MAP_BRACE_W)}`, `Q${at(am, h)} ${at(am + r, h)}`,
+    `L${at(a2 - r, h)}`, `Q${at(a2, h)} ${at(a2, 0)}`,
+  ].join(" ");
+  const out = WB_MAP_BRACE_W + 8;
+  const tip = horizontal ? { x: base + sign * out, y: am } : { x: am, y: base + sign * (out + (sign > 0 ? 8 : 0)) };
+  const anchor = side === "right" ? "start" : side === "left" ? "end" : "middle";
+  return { d, tip, anchor };
+}
+
+function wbMapStructureGroup(zoomGroup, cls, before) {
+  let group = zoomGroup.querySelector(`:scope > .${cls}`);
+  if (!group) {
+    group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    group.setAttribute("class", cls);
+    group.setAttribute("aria-hidden", "true");
+    zoomGroup.insertBefore(group, before);
+  }
+  return group;
+}
+
+function wbMapStructureText(cls, x, y, anchor, words, colour) {
+  const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  text.setAttribute("class", cls);
+  text.setAttribute("x", String(x));
+  text.setAttribute("y", String(y));
+  text.setAttribute("text-anchor", anchor);
+  text.setAttribute("dominant-baseline", "middle");
+  text.textContent = words;
+  if (colour) text.style.setProperty("--wb-boundary", colour);
+  return text;
+}
+
+function wbRenderMapStructure() {
+  const zoomGroup = document.getElementById("wb-zoom-group");
+  if (!zoomGroup) return;
+  const marked = wbIsMap() && (wbState.objects || []).some((o) => o.data?.boundary || o.data?.summary);
+  if (!marked) {
+    zoomGroup.querySelector(":scope > .wb-map-boundaries")?.remove();
+    zoomGroup.querySelector(":scope > .wb-map-summaries")?.remove();
+    return;
+  }
+  const NS = "http://www.w3.org/2000/svg";
+  const boundaries = wbMapStructureGroup(zoomGroup, "wb-map-boundaries", zoomGroup.firstChild);
+  const edges = zoomGroup.querySelector(":scope > .wb-map-edges");
+  const summaries = wbMapStructureGroup(zoomGroup, "wb-map-summaries", edges ? edges.nextSibling : boundaries.nextSibling);
+  //: Under the lines, always: a render can put the edge group first again.
+  if (zoomGroup.firstChild !== boundaries) zoomGroup.insertBefore(boundaries, zoomGroup.firstChild);
+  const index = wbMapIndex();
+  const hidden = wbMapConcealed(index);
+  const colors = wbMapNodeColors(index);
+  const tint = (id) => colors.get(id) || "var(--accent)";
+  const shapes = [];
+  const marks = [];
+  for (const node of index.nodes) {
+    if (hidden.has(node.id)) continue;
+    const style = node.data?.boundary;
+    if (style) {
+      const box = wbMapBranchBox(index, hidden, node.id);
+      if (box) {
+        const x = box.minX - WB_MAP_BOUNDARY_PAD;
+        const y = box.minY - WB_MAP_BOUNDARY_PAD;
+        const w = box.maxX - box.minX + WB_MAP_BOUNDARY_PAD * 2;
+        const h = box.maxY - box.minY + WB_MAP_BOUNDARY_PAD * 2;
+        const path = document.createElementNS(NS, "path");
+        path.setAttribute("class", `wb-map-boundary wb-map-boundary-${style}`);
+        path.setAttribute("data-topic", String(node.id));
+        path.setAttribute("d", style === "cloud" ? wbMapCloudD(x, y, w, h)
+          : `M${x + 16} ${y} H${x + w - 16} Q${x + w} ${y} ${x + w} ${y + 16} V${y + h - 16} Q${x + w} ${y + h} ${x + w - 16} ${y + h} H${x + 16} Q${x} ${y + h} ${x} ${y + h - 16} V${y + 16} Q${x} ${y} ${x + 16} ${y} Z`);
+        path.style.setProperty("--wb-boundary", tint(node.id));
+        shapes.push(path);
+        const label = String(node.data?.boundary_label || "").trim();
+        if (label) shapes.push(wbMapStructureText("wb-map-boundary-label", x + 6, y - (style === "cloud" ? 16 : 10), "start", label, null));
+      }
+    }
+    const words = String(node.data?.summary || "").trim();
+    const parent = node.parent_id != null ? index.byId.get(node.parent_id) : null;
+    if (words && parent) {
+      const run = wbMapSummaryRun(index, node).filter((s) => !hidden.has(s.id));
+      let box = null;
+      let own = null;
+      for (const topic of run) {
+        const b = wbMapBranchBox(index, hidden, topic.id);
+        const size = wbMapNodeSize(topic);
+        const o = { minX: topic.x, minY: topic.y, maxX: topic.x + size.w, maxY: topic.y + size.h };
+        box = !b ? box : box ? { minX: Math.min(box.minX, b.minX), minY: Math.min(box.minY, b.minY), maxX: Math.max(box.maxX, b.maxX), maxY: Math.max(box.maxY, b.maxY) } : b;
+        own = own ? { minX: Math.min(own.minX, o.minX), minY: Math.min(own.minY, o.minY), maxX: Math.max(own.maxX, o.maxX), maxY: Math.max(own.maxY, o.maxY) } : o;
+      }
+      if (box && own) {
+        const ps = wbMapNodeSize(parent);
+        const dx = (own.minX + own.maxX) / 2 - (parent.x + ps.w / 2);
+        const dy = (own.minY + own.maxY) / 2 - (parent.y + ps.h / 2);
+        const side = Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? "right" : "left") : dy >= 0 ? "bottom" : "top";
+        const geom = wbMapBraceGeometry(side, box);
+        const brace = document.createElementNS(NS, "path");
+        brace.setAttribute("class", "wb-map-summary-brace");
+        brace.setAttribute("data-topic", String(node.id));
+        brace.setAttribute("d", geom.d);
+        brace.style.setProperty("--wb-boundary", tint(node.id));
+        marks.push(brace, wbMapStructureText("wb-map-summary-label", geom.tip.x, geom.tip.y, geom.anchor, words, null));
+      }
+    }
+  }
+  boundaries.replaceChildren(...shapes);
+  summaries.replaceChildren(...marks);
+}
+
+//: Sets a boundary's or a summary's fields through the topic's one undo step.
+async function wbMapSetStructure(node, patch, said = "") {
+  await wbMapSetNodeStyle(node, patch);
+  renderWhiteboardNow();
+  if (said) wbAnnounce(said);
+}
+
+//: A boundary's label or a summary's words, asked for in the app's prompt.
+//: An empty answer changes nothing (Escape is never destructive; removing is
+//: its own row, `wbMapEditLink`'s rule).
+async function wbMapAskStructureWords(node, field, question, confirmLabel, extra = {}) {
+  const current = String(node.data?.[field] || "");
+  const next = String((await promptDialog(question, current, { confirmLabel })) ?? "").trim().slice(0, 80);
+  if (!next || (next === current && Object.keys(extra).every((k) => node.data?.[k] === extra[k]))) return false;
+  await wbMapSetStructure(node, { [field]: next, ...extra });
+  return true;
+}
+
+//: A summary over the given topics: the run from the first of them to the
+//: last, in sibling order, kept on the first. Siblings only.
+async function wbMapSummarise(nodes) {
+  const index = wbMapIndex();
+  const first = nodes[0];
+  if (!first || first.parent_id == null) return;
+  const siblings = wbMapSiblingsOf(index, first);
+  const places = nodes.map((n) => siblings.findIndex((s) => s.id === n.id));
+  if (places.some((at) => at < 0)) {
+    toast("A summary covers topics side by side under one parent.", true);
+    return;
+  }
+  const from = Math.min(...places);
+  const to = Math.max(...places);
+  const head = siblings[from];
+  const made = await wbMapAskStructureWords(head, "summary", "What do these topics come to? A few words beside them.",
+    head.data?.summary ? "Change the summary" : "Add the summary", { summary_span: to - from + 1 });
+  if (made) wbAnnounce("Summary added.");
 }

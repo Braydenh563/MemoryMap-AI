@@ -519,11 +519,10 @@ the shift-drag sever).
 
 ### 12.2 Phase 6b, structure and richness (1 session)
 
-1. **Boundaries** (XMind): a shaded background shape around a branch or
-   a lasso'd set, with a label, a colour and a style (rounded, cloud,
-   dashed); moves with its nodes.
-2. **Summaries** (XMind): a bracket beside a set of siblings with a
-   summary node.
+1. **Boundaries** and 2. **Summaries**: built (decisions 19 and 20;
+   HISTORY.md, "Moved from the plans, 2026-10-05 (boundaries and
+   summaries)"). A boundary round a lasso'd set that is not one branch is
+   not built.
 3. **Relationships**: a cross-link between any two nodes with an arrow
    and a label, curved, dashed by default so it reads as secondary.
 4. **Markers and task info**: priority 1 to 5, progress 0 to 100, flags,

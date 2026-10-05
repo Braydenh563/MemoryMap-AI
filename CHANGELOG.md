@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Mind maps: boundaries and summaries. A topic's menu (More, Branch) draws a boundary round its branch, rounded, dashed or as a cloud, in the branch colour and with a label if you like, and it grows, folds and moves with the branch; Summarise puts a brace beside one topic, or beside several selected side by side, with your words past its tip. Both undo, survive OPML and FreeMind exports and come out in the picture exports.
 - Whiteboard and mind maps: comments. Right-click a card, sticky, shape or topic and choose Comment… for a thread on it; a count on its corner opens the thread again, Enter posts, a trash deletes and Ctrl+Z takes either back. Kept with the item through moves, copies, undo and a duplicated board; not exported.
 - Atlas, on a small model (under 8B): when a request must open with a tool call, the first round is offered only the tools that act and the searches that find the note named, so "Add X to my note" no longer opens with the clock and "Put X in my shopping note" no longer makes a new note (measured on a 3B: a right first tool 17 of 22 before, 20 of 22 after). A question's first round is offered no tool that changes anything, and "File the note under Health" is offered the note edit that sets its category.
 - Web search: pressing Start on SearXNG while a reinstall begins now stops at once and says it was being reinstalled, instead of waiting out three minutes and reporting that SearXNG wrote nothing.

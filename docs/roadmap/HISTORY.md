@@ -7,6 +7,22 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (boundaries and summaries)
+
+### From MINDMAP_PLAN.md §12.2 items 1 and 2 (decisions 19 and 20)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A boundary: `data.boundary` (rounded, dashed, cloud) and `boundary_label` on the topic whose branch it holds; `wbRenderMapStructure` draws it under the lines round the showing branch, in the branch colour, on every render and drag frame; the topic menu's Branch group draws, restyles, labels and removes it; one undo step; OPML and FreeMind carry `_boundary` and `_boundary_label`; a theme reset keeps it | no way to mark a branch as a region | holds Pack and Passport, not Go; cloud, dashed; label above the top edge (17.07:1 light); follows a drag of its topic (50px drag, 50px move); shrinks when the branch folds (500 to 224px); removed and brought back by Ctrl+Z | `scratchpad/ui-sweeps/mapstructure.js` 19/19 at 1440x900 and 390x844, light and dark; `test_mindmap.py` (`test_a_boundary_and_a_summary_are_checked_on_the_way_in`, `test_boundaries_and_summaries_round_trip_through_both_xml_formats`, `test_resetting_a_maps_looks_keeps_its_boundaries_and_summaries`) |
+| A summary: `data.summary` and `summary_span` on the first topic of a run of siblings; a brace beyond the run's branches, on the side away from the parent, the words past its tip; Summarise this topic… on the Branch group, Summarise these topics… on a multi-selection of siblings; changed and removed from the first topic; OPML and FreeMind carry `_summary` and `_summary_span` | none | Pack and Book summarised as one run of 2, kept on Pack; the brace right of both branches and clear of Go; the words past its tip; both in the image export | the same sweep; `test_ui_recipes.py::test_a_maps_boundaries_and_summaries_are_drawn_in_one_pass` |
+
+Help moved with it: the Guide's mind-map topic and the map help sheet. Not
+built: a boundary round a lasso'd set that is not one branch; a summary that
+is a topic of its own (decision 20 says why); Markdown carries neither. Not
+verified: the radial and free layouts' brace side by eye (the side is
+computed from where the run lies; the sweep is tree-right only), the
+desktop window (WebView2).
+
 ## Moved from the plans, 2026-10-04 (comments)
 
 ### From WHITEBOARD_PLAN.md, the open "comments" row, and MINDMAP_PLAN §12.2 item 6 (decision 17)

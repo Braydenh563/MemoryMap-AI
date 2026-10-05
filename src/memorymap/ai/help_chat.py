@@ -1004,7 +1004,7 @@ HELP_TOPICS.extend(
                 "tidy", "layout of the map", "duplicate a topic", "copy a topic",
                 "undo steps", "how many undo", "topic before", "topic after",
                 "move a topic", "reorder topics", "checkbox on a topic", "topic a task",
-                "tick a topic", "number the branches", "numbered topics", "outline numbers", "note on a topic", "note behind a topic", "comment on a topic",
+                "tick a topic", "number the branches", "numbered topics", "outline numbers", "note on a topic", "note behind a topic", "comment on a topic", "boundary", "summary topic", "summarise topics",
             ),
             "body": (
                 "Mind map keys (a map lives in the Library under Boards and maps). "
@@ -1031,10 +1031,11 @@ HELP_TOPICS.extend(
                 "exports write tasks as - [ ] and - [x]. View, Number the branches numbers "
                 "every topic by its place (1, 1.1, 1.2), and the Markdown and OPML exports keep "
                 "the numbers. A topic's menu adds a note behind it: its mark on the topic "
-                "opens it, and Markdown exports it as a paragraph under the topic. "
-                "Comment… starts a thread, counted on its corner. "
-                "Start from a template (brainstorm, decision, "
-                "project, cause and effect), import an OPML, FreeMind or Markdown "
+                "opens it, and Markdown keeps it. "
+                "Comment… starts a thread, counted on its corner; its Branch group draws a "
+                "boundary round the branch or summarises topics side by side. "
+                "Start from a template, "
+                "import an OPML, FreeMind or Markdown "
                 "outline, let the local AI propose a map from notes you pick, and "
                 "export it as OPML or Markdown as well as a picture."
             ),

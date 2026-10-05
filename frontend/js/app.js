@@ -2037,7 +2037,10 @@ function smallButton(label, title, onClick, ghost = true) {
 //: document order: a dynamic script defaults to async, and library.js running
 //: before documents.js would be a different program.
 const LAZY_MODULES = {
-  graph: ["/js/graph.js", "/js/graph-canvas.js"],
+  //: d3 (90 KB gzipped) comes with the two surfaces that use it, not at boot
+  //: (audit FE-07); `ensureModule` fetches a file once whichever bundle names
+  //: it first.
+  graph: ["/vendor/d3.v7.min.js", "/js/graph.js", "/js/graph-canvas.js"],
   //: The image viewer (2026-09-27, the boot-script gzip budget): see
   //: lightbox-view.js's header.
   lightbox: ["/js/lightbox-view.js"],
@@ -2090,6 +2093,8 @@ const LAZY_MODULES = {
   //: whiteboard-map.js (the mind map layer, split out of whiteboard.js the
   //: same day) goes before whiteboard.js on the same terms.
   library: [
+    //: d3 before whiteboard.js, whose top level calls `d3.zoom()`.
+    "/vendor/d3.v7.min.js",
     //: First: the stored undo histories both editors read (undo-store.js).
     "/js/undo-store.js",
     "/js/documents-code.js",
@@ -2161,24 +2166,33 @@ function onDomReady(fn) {
   else queueMicrotask(fn);
 }
 
+//: One fetch per file, whichever bundle asks first: d3 is in two. An
+//: `async = false` script runs in insertion order with every other one, so a
+//: bundle reusing a file still in flight still runs after it.
+const lazyFileLoads = new Map();
+function lazyScript(file) {
+  if (!lazyFileLoads.has(file)) {
+    lazyFileLoads.set(
+      file,
+      new Promise((resolve) => {
+        const script = document.createElement("script");
+        script.async = false; // document order, not network order
+        script.src = file + lazyAssetStamp(file);
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.head.appendChild(script);
+      })
+    );
+  }
+  return lazyFileLoads.get(file);
+}
+
 function ensureModule(name) {
   const files = LAZY_MODULES[name];
   if (!files) return Promise.resolve(false);
   const pending = lazyModuleLoads.get(name);
   if (pending) return pending;
-  const loaded = Promise.all(
-    files.map(
-      (file) =>
-        new Promise((resolve) => {
-          const script = document.createElement("script");
-          script.async = false; // document order, not network order
-          script.src = file + lazyAssetStamp(file);
-          script.onload = () => resolve(true);
-          script.onerror = () => resolve(false);
-          document.head.appendChild(script);
-        })
-    )
-  ).then((results) => results.every(Boolean));
+  const loaded = Promise.all(files.map(lazyScript)).then((results) => results.every(Boolean));
   lazyModuleLoads.set(name, loaded);
   return loaded;
 }

@@ -25,6 +25,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Startup: the graph library (d3) loads with the Graph tab or the Library instead of before the lock screen, and the app's emblem draws on a plain canvas, so the 1 MB p5 library loads only for the dashboard's art widget (about 330 KB gzipped off every launch).
 - Notes: a card's category, Add tags and references chips take a click 2px above and below the chip as well, so each is a 28px target on a desktop while it still looks 24px tall.
 - Suggested links: a note's name is read only for the notes a suggestion names (1.08 s to 371 ms warm at 5,000 notes).
 - Graph: opening the map again with nothing changed reuses the last picture instead of rebuilding it (737 to 149 ms at 5,000 notes); a pin, a visit count, an attachment, a note put on a map, a link's reason or locking the vault still rebuilds it.

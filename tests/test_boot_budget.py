@@ -34,7 +34,10 @@ STYLE = re.compile(r'<link[^>]*rel="stylesheet"[^>]*href="(/[^"?]+)(?:\?[^"]*)?"
 #: the largest of the app's, avatars.js, 91,517), 12 stylesheets 179,712.
 #: Before the strip the audit measured 1,384 KB of boot JS and 810 KB of CSS.
 #: Plus 2%.
-BOOT_JS_CAP = 705_600
+#: 2026-10-05, audit FE-07: d3 left the boot (it comes with the graph and
+#: library bundles) and the template picker and a few guards left app.js:
+#: 37 scripts, 589,299 bytes. Plus 2%.
+BOOT_JS_CAP = 601_100
 BOOT_CSS_CAP = 183_300
 
 

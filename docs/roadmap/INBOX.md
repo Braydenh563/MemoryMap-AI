@@ -88,6 +88,10 @@ with its owner named in the entry.
      ect with different variations and changes based off the current action
      or behaviour??" Placed: the Atlas motion agent, with 564 (a lower-body
      pose per state, small random variants, blended with follow-through).
+     Then (verbatim): "dont forget that both atlas avatars have a tail as
+     well, same with the hair, and the nebular stream. they all need to be
+     dynamically animated and changed": both looks' tails, hair and nebula
+     streams, per state, with secondary motion.
 
 566. **The owner, 2026-10-05, verbatim.** "the whiteboard help popup is still
      cooked and needs a redesign" (screenshot: the empty board's help card,

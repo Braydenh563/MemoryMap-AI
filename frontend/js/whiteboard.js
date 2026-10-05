@@ -197,6 +197,7 @@ let wbCancelSelectionDragRef = null;
 function wbClearSelectionOverlays() {
   const inFlight = Boolean(wbCancelSelectionDragRef?.());
   for (const stray of document.querySelectorAll(".wb-marquee, .wb-lasso")) stray.remove();
+  if (!wbLinkDragActive) wbClearAnchorHints();
   return inFlight;
 }
 // Same shape, for refreshing the "Line ends" control's displayed value when
@@ -3829,6 +3830,8 @@ function wbWalkItems(dir) {
 }
 
 function clearWbSelection() {
+  //: Deselecting clears every overlay, the link tool's dots included (INBOX 573).
+  if (!wbLinkDragActive) wbClearAnchorHints();
   if (!wbSelectedItem && wbMultiSelection.size === 0) return;
   wbSelectedItem = null;
   wbMultiSelection.clear();
@@ -9656,6 +9659,8 @@ async function initWhiteboard() {
   // keyboard shortcuts below can never drift out of sync with each other.
   function selectWbTool(tool) {
     window.currentTool = tool;
+    //: A link tool's anchor dots belong to that tool (INBOX 573).
+    if (!String(tool).startsWith("link-") && !wbLinkDragActive) wbClearAnchorHints();
     if (toolGroup) {
       toolGroup.querySelectorAll("button[data-tool]").forEach((b) => {
         b.classList.toggle("active", b.dataset.tool === tool);
@@ -11237,8 +11242,14 @@ async function initWhiteboard() {
   containerEl.addEventListener("pointerleave", () => { wbPointerClient = null; });
 
   containerEl.addEventListener("pointermove", (e) => {
-    if (!window.currentTool || !window.currentTool.startsWith("link-")) return;
     if (wbLinkDragActive) return;
+    //: Off a link tool there are no dots to show, and any left over go (INBOX
+    //: 573: the cross-link tool's dots stayed on a topic after switching back
+    //: to Select, through Escape, a press on the canvas, Undo and a tab switch).
+    if (!window.currentTool || !window.currentTool.startsWith("link-")) {
+      wbClearAnchorHints();
+      return;
+    }
     const [x, y] = getLogicalMouse(e);
     // Every linkable thing, in its rotated frame, this was cards only, on
     // their unrotated box (reported: stickies "light up" wrong).

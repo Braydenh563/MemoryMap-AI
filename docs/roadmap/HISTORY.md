@@ -40640,3 +40640,17 @@ plan's item 6 decided on, and it fits the budget as it is.
      31/36 before, 36/36 after, light and dark; a solid bar has 0 gaps, a
      dashed one 39% to 67%.
 
+573. **Fixed 2026-10-05.** The owner, verbatim: "these anchor points appeared
+     and wont go away" (dark screenshot: a map's "New topic" ringed by eight
+     round accent dots that stayed after deselecting). They were the
+     cross-link tool's anchor hints, not resize handles (a map topic has
+     none: its size is its text's and its own grips', MINDMAP_PLAN). The
+     hover listener drew them under a link tool and returned early under
+     every other one, so after Select (V or Escape) nothing took them away.
+     Now a tool switch, a deselect, the overlay clear and any pointer move
+     off a link tool clear them. `scratchpad/ui-sweeps/mmdoc1005-handlesleft.js`
+     deselects five ways (Escape, a press on empty canvas, Undo and Redo, a
+     tab switch and back, the Shape menu opened and closed) and counts dots,
+     handles and selection marks left: 8 dots left every time before (0/5),
+     0 after (5/5), light and dark.
+

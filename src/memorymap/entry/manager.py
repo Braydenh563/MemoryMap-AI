@@ -1043,11 +1043,35 @@ def _board_type_of(session: Session, board_id: int) -> str:
 _MEDIA_URL_RE = re.compile(r"^/media/[A-Za-z0-9][A-Za-z0-9._-]{0,119}$")
 
 
+def seal_private_events(session: Session, ids: list[int]) -> None:
+    """Mark every event about these (private) notes as sealed, and empty it.
+
+    The activity export leaves out events about a private note by looking the
+    note up (`routes_settings._not_private_events`), and a purged note is
+    gone, so that lookup stops matching and its events, which carry a title or
+    a clip of it in `detail` and the whole text in `payload`, would be handed
+    over. A purge seals them first: `detail` dropped, `payload` replaced by
+    the flag the export reads. The history of a note that no longer exists
+    cannot be replayed or undone anyway.
+    """
+    if not ids:
+        return
+    from memorymap.core.database import AuditLog
+
+    session.flush()
+    session.execute(
+        update(AuditLog)
+        .where(AuditLog.entity_type.in_(("entry", "note", "entries")), AuditLog.entity_id.in_(ids))
+        .values(detail=None, payload={"private": True})
+    )
+
+
 def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | None = None) -> int:
     """Permanently remove entries plus their vectors, links, and files."""
     ids = [e.id for e in entries]
     if not ids:
         return 0
+    seal_private_events(session, [e.id for e in entries if e.is_private])
     # Attached files: remove bytes from disk (best effort) then the rows.
     attachments = list(
         session.scalars(select(Attachment).where(Attachment.entry_id.in_(ids)))
@@ -1236,6 +1260,7 @@ def purge_entries(
     note that is gone from the list and still findable by search.
     """
     ids = [entry.id for entry in entries]
+    private_ids = [entry.id for entry in entries if entry.is_private]
     count = _hard_delete(session, entries, uploads_dir=uploads_dir)
     if count:
         # One event carrying the id list, never one per row: a purge is a
@@ -1250,6 +1275,8 @@ def purge_entries(
             f"{count} entries",
             payload={"ids": ids, "count": count},
         )
+        # The purge event is itself about the first id; sealed when that was private.
+        seal_private_events(session, private_ids[:1] if private_ids[:1] == ids[:1] else [])
     session.commit()
     return count
 

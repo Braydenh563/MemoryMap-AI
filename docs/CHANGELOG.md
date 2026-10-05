@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Export activity: events about a private note stay out of the file after the note is purged too (a purge seals its events, dropping their text and flagging them private, and the export leaves flagged events out)
 - Settings: a status line that names a server address (Models, "Saved, but nothing is answering at ...") and a long Ask Atlas question in a help popover wrap inside the pane at 390 instead of running it sideways
 - Gzip caps back down: the list drag-select edge scroll moved whole into drag-edge.js and the note edit form's formatting strip into note-edit-panels.js (both lazy, one caller each), boot JS cap 589,600 to 588,400 and the scripts total 321,500 to 320,300; the edge scroll loads three seconds after boot, so a drag in the first seconds does not scroll at the edge
 - Docs: the no-em-dash lint now covers docs/**/*.md, docs/index.html and the root *.md files, and the 5,900 em-dashes it found are reworded (comma, colon, parentheses or full stop); the two changelogs stay identical.

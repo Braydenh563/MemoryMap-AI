@@ -2089,7 +2089,7 @@ async function commitCaptureImages() {
     form.append("file", image.file);
     const uploaded = await apiJson("/media/upload", {
       method: "POST",
-      headers: { "X-Auth-Token": authToken() },
+      headers: authHeaders(),
       body: form,
     });
     urlByKey[image.key] = uploaded.url;
@@ -2119,7 +2119,7 @@ async function uploadStagedFiles(entryId) {
     const response = await fetch(`/entries/${entryId}/files`, {
       method: "POST",
       // Same gap as the composer's own version of this call, above.
-      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
+      headers: authHeaders(),
       body: form,
     });
     if (!response.ok) {
@@ -2204,7 +2204,7 @@ async function handleFileUpload(textarea, files) {
     try {
       const res = await apiJson("/media/upload", {
         method: "POST",
-        headers: { "X-Auth-Token": authToken() },
+        headers: authHeaders(),
         body: formData
       });
       // Image syntax (`![]()`) unconditionally became an <img> at render

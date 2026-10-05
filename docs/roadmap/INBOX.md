@@ -110,30 +110,10 @@ with its owner named in the entry.
      printed over their pills, the description cut off). Placed: the
      whiteboard agent, as the board's searchable shortcut sheet (was UX-03).
 
-569. **The owner, 2026-10-05, verbatim.** "it says the edge bar is solid even
-     though it is dashed" (screenshots: a map topic's Shape menu says Edge bar
-     "Solid bar" while the bar is drawn in dashes, like its dashed box).
-     Placed: the mind map agent.
-
 570. **The owner, 2026-10-05, verbatim.** "when I open comments on the
      whiteboard, the new comment form is permanently showing below, there
      should be a new comment option below for it to show" Placed: the
      whiteboard agent.
-
-571. **The owner, 2026-10-05, verbatim.** "again, what constitutes opening a
-     note if I can see a whole note in the notes section, Id just scroll to it
-     and see it yk??" Decision taken: the connections rail follows the note
-     you are reading (the card clicked, or the card in view as you scroll),
-     marked on the card; the toggle says so. Placed: the UX agent.
-
-573. **The owner, 2026-10-05, verbatim.** "these anchor points appeared and
-     wont go away" (screenshot: a map topic keeping eight resize handles and
-     its Aa and arrow marks after deselecting). Placed: the mind map agent.
-
-574. **The owner, 2026-10-05, verbatim.** "I think there needs to be an easier
-     way to open the formatting toolbar in the documents editor if it is
-     closed in case the user accidentally closes it and cant figure out how
-     to open it back up again" Placed: the documents agent.
 
 576. **The owner, 2026-10-05, verbatim.** "this menu's elements arent aligned
      vertically" (screenshot: a shape's context bar, its Width input, Solid

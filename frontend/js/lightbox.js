@@ -263,7 +263,7 @@ function attachFileTo(entry) {
         // X-Workspace-ID alongside X-Auth-Token: a raw fetch (multipart body,
         // so it cannot go through api()/apiJson()) does not get either header
         // for free the way every JSON call in this file does.
-        headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
+        headers: authHeaders(),
         body: form,
       });
       if (!response.ok) {

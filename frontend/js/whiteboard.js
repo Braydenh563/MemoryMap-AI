@@ -8013,7 +8013,7 @@ async function uploadToLibrary(filename, blob, description = "") {
   formData.append("direct", "true");
   const uploaded = await apiJson("/media/upload", {
     method: "POST",
-    headers: { "X-Auth-Token": authToken() },
+    headers: authHeaders(),
     body: formData,
   });
   //: Only when the upload came back with nothing: a caption written by a model
@@ -9223,7 +9223,7 @@ async function initWhiteboard() {
       formData.append("file", file);
       const uploaded = await apiJson("/media/upload", {
         method: "POST",
-        headers: { "X-Auth-Token": authToken() },
+        headers: authHeaders(),
         body: formData,
       });
       localStorage.setItem(wbBgImageKey(), uploaded.url);
@@ -11490,7 +11490,7 @@ async function initWhiteboard() {
       formData.append("file", file);
       const uploaded = await apiJson("/media/upload", {
         method: "POST",
-        headers: { "X-Auth-Token": authToken() },
+        headers: authHeaders(),
         body: formData,
       });
       const img = new Image();

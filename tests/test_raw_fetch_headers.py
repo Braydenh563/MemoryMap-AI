@@ -48,7 +48,7 @@ def test_every_raw_fetch_to_a_locked_route_sends_the_auth_token():
     missing = [
         f"{name}:{line} fetch({route!r})"
         for name, line, route, window in _raw_fetches()
-        if "X-Auth-Token" not in window
+        if "X-Auth-Token" not in window and "authHeaders()" not in window
     ]
     assert not missing, "raw fetch without X-Auth-Token (use api() or add the header):\n" + "\n".join(missing)
 

@@ -101,7 +101,9 @@ def test_every_scoped_raw_fetch_still_carries_the_workspace_header():
     assert not missing, f"expected fetch() calls not found at all, has the source moved? {missing}"
 
     offenders = [
-        endpoint for endpoint, block in blocks.items() if "X-Workspace-ID" not in block
+        endpoint
+        for endpoint, block in blocks.items()
+        if "X-Workspace-ID" not in block and "authHeaders()" not in block
     ]
     assert not offenders, (
         "these hand-rolled fetch() calls touch workspace-scoped data but "

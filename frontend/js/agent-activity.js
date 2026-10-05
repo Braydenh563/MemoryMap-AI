@@ -597,7 +597,7 @@ async function streamAgentLogs() {
   while (true) {
     try {
       const response = await fetch(`/logs/stream?after=${cursor}`, {
-        headers: { "X-Auth-Token": authToken() }
+        headers: authHeaders()
       });
       if (response.status === 401) {
          await new Promise(r => setTimeout(r, 5000));

@@ -9385,7 +9385,7 @@ async function downloadDocumentExport(path, fallbackName) {
   //: the app*: it navigates away instead of downloading.
   try {
     const response = await fetch(`/documents/${currentDoc.id}/${path}`, {
-      headers: { "X-Auth-Token": authToken() },
+      headers: authHeaders(),
     });
     if (!response.ok) {
       let detail = "";
@@ -9424,7 +9424,7 @@ async function exportDocumentMarkdown() {
   // app*: it navigates away instead of downloading.
   try {
     const response = await fetch(`/documents/${currentDoc.id}/export.md`, {
-      headers: { "X-Auth-Token": authToken() },
+      headers: authHeaders(),
     });
     if (!response.ok) throw new Error("The export did not work. Try again.");
     // The filename is decided server-side, so read it back off the header.
@@ -9713,7 +9713,7 @@ async function docExportInlineImages(root) {
     let dataUri = null;
     if (src && !/^https?:/i.test(src) && spent < DOC_EXPORT_IMAGE_BUDGET) {
       try {
-        const response = await fetch(src, { headers: { "X-Auth-Token": authToken() } });
+        const response = await fetch(src, { headers: authHeaders() });
         if (response.ok) {
           const blob = await response.blob();
           if (spent + blob.size <= DOC_EXPORT_IMAGE_BUDGET) {

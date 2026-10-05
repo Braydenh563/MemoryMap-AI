@@ -488,7 +488,7 @@ async function saveSketch() {
     form.append("file", blob, `sketch-${stamp}.png`);
     const uploaded = await apiJson("/media/upload", {
       method: "POST",
-      headers: { "X-Auth-Token": authToken() },
+      headers: authHeaders(),
       body: form,
     });
     // The caption stays the note's own first line, it is what the person
@@ -680,7 +680,7 @@ async function toggleDictation(button, targetInput) {
     try {
       const response = await fetch("/voice/transcribe", {
         method: "POST",
-        headers: { "X-Auth-Token": authToken() },
+        headers: authHeaders(),
         body: form,
       });
       const body = await response.json();
@@ -944,7 +944,7 @@ async function toggleMeetingRecording() {
     try {
       const response = await fetch("/voice/transcribe-meeting", {
         method: "POST",
-        headers: { "X-Auth-Token": authToken() },
+        headers: authHeaders(),
         body: form,
       });
       const body = await response.json();

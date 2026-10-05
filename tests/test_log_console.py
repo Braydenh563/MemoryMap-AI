@@ -294,7 +294,7 @@ def test_the_console_does_not_authenticate_through_the_query_string():
     URL would write it into the very log being streamed."""
     source = _settings_js()
     body = _function_body(source, "startLogStream")
-    assert "X-Auth-Token" in body
+    assert "X-Auth-Token" in body or "authHeaders()" in body
     assert "token=" not in body
 
 

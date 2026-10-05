@@ -2934,7 +2934,7 @@ async function importLibraryDocuments(files) {
     try {
       const document_ = await apiJson("/documents/import", {
         method: "POST",
-        headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
+        headers: authHeaders(),
         body: form,
       });
       made.push(document_);
@@ -4535,7 +4535,7 @@ async function ocrRunRegion(mode) {
     //: in its own comment).
     const answer = await apiJson(`${base}/region-read`, {
       method: "POST",
-      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
+      headers: authHeaders(),
       body: form,
     });
     ocrShowRegionResult({
@@ -5115,7 +5115,7 @@ async function ocrFetchFileText(row) {
     const body = await apiJson(`/files/${row.id}/text`);
     return { text: body.text || "", kind: body.kind || "plain", source: body.source || "file" };
   }
-  const res = await fetch(mediaSrc(row.url), { headers: { "X-Auth-Token": localStorage.getItem("token") || "" } });
+  const res = await fetch(mediaSrc(row.url), { headers: authHeaders() });
   if (!res.ok) throw new Error("That file could not be read.");
   return { text: await res.text(), kind: "plain", source: "file" };
 }
@@ -8897,7 +8897,7 @@ onDomReady(() => {
         //: lint that was supposed to catch that only read app.js.
         const response = await fetch("/media/upload", {
           method: "POST",
-          headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
+          headers: authHeaders(),
           body: form,
         });
         const body = await response.json();

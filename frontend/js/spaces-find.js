@@ -299,6 +299,19 @@ function activeSpaceId() {
   return localStorage.getItem("spaceId") || SPACE_ALL;
 }
 
+//: The two headers every hand-built request needs, for a call that has to
+//: replace `api()`'s defaults (a FormData body must not carry its JSON
+//: Content-Type). Passing a headers object holding only the token replaced
+//: the space header too, so a document imported through the chat's paperclip
+//: landed in the default space whatever space was open (audit 2026-10-05).
+//: `tests/test_auth_headers_space.py` fails on a literal that drops it.
+function authHeaders() {
+  return {
+    "X-Auth-Token": authToken(),
+    "X-Workspace-ID": activeSpaceId(),
+  };
+}
+
 function setActiveSpace(id) {
   localStorage.setItem("spaceId", id);
   // A full reload rather than a re-fetch of everything on the page. Every list,

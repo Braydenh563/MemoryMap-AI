@@ -5684,7 +5684,7 @@ async function wbMapTakePicture(file) {
     // `apiJson` leaves the content type to the browser for one.
     const uploaded = await apiJson("/media/upload", {
       method: "POST",
-      headers: { "X-Auth-Token": authToken() },
+      headers: authHeaders(),
       body: formData,
     });
     await wbMapSetNodeStyle(node, { image: uploaded.url });

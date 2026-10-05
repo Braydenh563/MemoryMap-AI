@@ -333,7 +333,7 @@ async function importMarkdown(inputId = "import-md-files") {
       // The multipart type still comes from the browser; X-Workspace-ID does
       // not, and without it an import while a non-default space is active
       // would silently land the new notes in the default space instead.
-      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
+      headers: authHeaders(),
       body: form,
     });
     if (!response.ok) throw new Error("The import did not work. Check the file and try again.");
@@ -369,7 +369,7 @@ async function importDocument() {
       method: "POST",
       // Same gap as /import/markdown above: without this, the imported
       // document lands in the default space regardless of which is active.
-      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
+      headers: authHeaders(),
       body: form,
     });
     if (!response.ok) {

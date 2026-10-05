@@ -2154,9 +2154,8 @@ async function addMemoryByHand() {
 // second door in a sidebar that is meant to be a category list is exactly the
 // "too much in one place, clashing with the text beside it" this app has been
 // asked to stop doing.
-$("entry-template")?.addEventListener("click", openNoteTemplateDialog);
-$("note-template-list")?.addEventListener("keydown", noteTemplateListKeys);
-$("note-template-use")?.addEventListener("click", useNoteTemplate);
+$("entry-template")?.addEventListener("click", () => openNoteTemplateDialog());
+$("note-template-use")?.addEventListener("click", () => useNoteTemplate());
 //: Manage templates, from the picker (the owner at release): the list is
 //: made and edited in Settings > Templates, so the way there is here too.
 $("note-template-manage")?.addEventListener("click", () => {

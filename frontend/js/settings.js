@@ -983,7 +983,7 @@ async function startLogStream() {
   setLogLive("connecting", "connecting…");
   try {
     const response = await fetch(`/logs/stream?after=${logStreamCursor}`, {
-      headers: { "X-Auth-Token": localStorage.getItem("token") || "" },
+      headers: authHeaders(),
       signal: controller.signal,
     });
     if (!response.ok || !response.body) throw new Error(`stream failed (${response.status})`);
@@ -1138,7 +1138,7 @@ async function downloadSupportBundle() {
   setBusy(button, true, "Collecting…");
   try {
     const response = await fetch("/support-bundle", {
-      headers: { "X-Auth-Token": localStorage.getItem("token") || "" },
+      headers: authHeaders(),
     });
     if (!response.ok) throw new Error("Couldn't build the support bundle. Try again.");
     await saveFile("memorymap-support-bundle.zip", await response.blob());

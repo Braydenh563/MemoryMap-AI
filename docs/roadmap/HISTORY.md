@@ -12,6 +12,15 @@ that answers "has this been done?" before anyone starts.
 One agent's pass over BACKLOG and the plans' open lines; each bullet says how it
 was verified. Items found already built are listed with the file that proves it.
 
+- **A synthesised export, as a skill** (BACKLOG section 26, 102 item 10, 109.3
+  item 5): the built-in "Write a document from a tag" (`ai/skills.py`; input
+  `tag`; list_notes, get_note, an ordering judgement, then create_document as the
+  one write, last, so a run that stalls earlier has changed nothing; it carries no
+  note-editing tool). README says 21 built-in skills.
+  `tests/test_tag_document_skill.py` 3/3, `test_skills.py`, `test_run_skill.py`,
+  `test_readme_freshness.py` green. Not run against a model: the steps' contracts
+  are checked, how a small model writes the document is not. The Graph/list
+  selection button is still open.
 - **Encrypted export and import of the whole notebook** (BACKLOG section 115 row
   10): `GET /export/backup` has long written the zip and nothing read it back.
   `core/backup_bundle.py` builds it (a cleaned snapshot plus `media/` and

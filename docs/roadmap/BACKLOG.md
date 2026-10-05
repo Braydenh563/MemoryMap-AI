@@ -1815,7 +1815,7 @@ thing anywhere in the app.
   likely solving a problem that doesn't exist yet at any realistic notebook
   size — worth measuring an actual `data/memorymap.db` before writing any
   compression code, not assuming it's needed. **(needs owner)**: see 79b.
-- **A synthesised export, not just a raw one.** **Next:** a built-in skill in `ai/skills.py` `BUILTIN_SKILLS` (steps: search a tag, read the notes, `create_document`) with `{{tag}}` as its input; a new skill moves `tests/test_readme_freshness.py`'s skill count. Same item as sections 102 item 10 and 109.3 item 5. Export today (JSON/CSV/MD)
+- **A synthesised export, not just a raw one.** **Skill built 2026-10-05** (HISTORY.md, "backlog-1005"): "Write a document from a tag" in `ai/skills.py`; the button on a graph or list selection is still open (it needs a place in the selection bar, a design call). Same item as sections 102 item 10 and 109.3 item 5. Export today (JSON/CSV/MD)
   is a dump of what's selected; Gemini's grounded suggestion was a step
   beyond that — pick a tag or a cluster and have the AI *compile* it into
   one coherent document (a project writeup, a portfolio piece, a README)

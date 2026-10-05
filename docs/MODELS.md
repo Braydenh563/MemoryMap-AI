@@ -86,7 +86,7 @@ use.
 | `gemma4:26b` | 19 GB | The 26B Gemma. `gemma4:26b-a4b` is not a tag; this is |
 | `qwen3:30b-a3b` | 19 GB | Mixture-of-experts: 30B stored, 3B active per token |
 | `gemma4:31b` | 20 GB | Large dense multimodal model |
-| `qwen3.5:35b-a3b` | 24 GB | The most capable here, and still quick. Needs ~32 GB |
+| `qwen3.5:35b-a3b` | 21 GB | The most capable here, and still quick. Needs ~24 GB |
 
 **Mixture-of-experts, and why `a3b` is not a small model.** A tag like
 `35b-a3b` holds 35B of weights and computes with about 3B of them at a time.

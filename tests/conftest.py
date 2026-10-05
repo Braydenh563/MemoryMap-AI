@@ -244,3 +244,38 @@ def _reset_the_librarian():
     autonomous.reset_state()
     yield
     autonomous.reset_state()
+
+
+@pytest.fixture(autouse=True)
+def _release_fastapi_callable_caches():
+    """Stop FastAPI's process-wide callable caches from pinning every test app.
+
+    `fastapi.dependencies.models` keeps three `lru_cache`s (generator, async
+    generator and coroutine classification, 4,096 entries each) keyed by the
+    *identity* of each endpoint and dependency callable. `create_app()` defines
+    its system routes (`/health`, `/openapi.json`, `/changelog`...) as closures
+    over the `app` being built, so one cache entry holds that closure, the
+    closure holds the `FastAPI` instance, and the instance holds every router,
+    route context, pydantic field and the first request's lazily built
+    `_EffectiveRouteContext` objects: about 8 MB per app. The caches only
+    evict at 4,096 entries, so a test process kept a few hundred dead apps and
+    every pytest-xdist worker climbed to 2 to 2.7 GB by the end of the suite
+    (four of them filled a 16 GB CI runner, which then shut down mid-run).
+    Measured with a per-test RSS plugin: 7 to 9 MB per test that builds an app,
+    perfectly linear, and `gc.get_referrers` on a dead app ends at
+    `_is_*_callable_cached`.
+
+    The app itself does not leak: a real process builds one. Clearing between
+    tests is the whole fix, and it is a clear, not a patch, so what a test
+    sees is unchanged (the caches only memoise a classification that is cheap
+    to recompute). Found by `cache_clear` rather than by name so a FastAPI
+    release that renames or adds one of them is still covered."""
+    yield
+    import sys
+
+    models = sys.modules.get("fastapi.dependencies.models")
+    if models is not None:
+        for value in vars(models).values():
+            clear = getattr(value, "cache_clear", None)
+            if callable(clear):
+                clear()

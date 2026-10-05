@@ -229,19 +229,6 @@ const ATLAS_TAB_STARTERS = {
   reminders: ["Where do reminders live?", "How do I make a reminder recurring?"],
 };
 
-//: The tab's questions first, topped up from the generic three, capped at
-//: three: the same count the panel was designed around ("Three, not a wall",
-//: index.html), and the same cap the reference notes themselves have.
-function atlasStartersFor(tab) {
-  const here = ATLAS_TAB_STARTERS[tab] || [];
-  const out = here.slice(0, 3);
-  for (const question of ATLAS_STARTERS) {
-    if (out.length >= 3) break;
-    if (!out.includes(question)) out.push(question);
-  }
-  return out;
-}
-
 //: The one door, so every suggestion in the app opens the same sheet with the
 //: same question. settings.js owns the chat, and it loads after this file, so
 //: this is checked rather than assumed: before settings.js has run there is no

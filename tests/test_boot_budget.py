@@ -37,7 +37,11 @@ STYLE = re.compile(r'<link[^>]*rel="stylesheet"[^>]*href="(/[^"?]+)(?:\?[^"]*)?"
 #: 2026-10-05, audit FE-07: d3 left the boot (it comes with the graph and
 #: library bundles) and the template picker and a few guards left app.js:
 #: 37 scripts, 589,299 bytes. Plus 2%.
-BOOT_JS_CAP = 601_100
+#: 2026-10-05, the integration branch after search-boot-1005 merged: 590,758
+#: (the note edit form, the full backup's two handlers and seven other
+#: one-caller helpers moved into the lazy files that call them, and 63
+#: same-bundle guards dropped). The measure rounded up to the next 100.
+BOOT_JS_CAP = 590_800
 BOOT_CSS_CAP = 183_300
 
 

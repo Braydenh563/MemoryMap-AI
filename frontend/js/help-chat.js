@@ -691,3 +691,17 @@ function openHelpChat() {
   $("help-chat-input")?.focus();
   return close;
 }
+
+// Moved from wiring.js (boot gzip): every caller is in this file.
+//: The tab's questions first, topped up from the generic three, capped at
+//: three: the same count the panel was designed around ("Three, not a wall",
+//: index.html), and the same cap the reference notes themselves have.
+function atlasStartersFor(tab) {
+  const here = ATLAS_TAB_STARTERS[tab] || [];
+  const out = here.slice(0, 3);
+  for (const question of ATLAS_STARTERS) {
+    if (out.length >= 3) break;
+    if (!out.includes(question)) out.push(question);
+  }
+  return out;
+}

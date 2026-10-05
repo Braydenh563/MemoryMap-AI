@@ -12083,7 +12083,7 @@ function wireMarkdownToolbar(bar) {
 //: on the *same* element (a note re-opened for editing without a full
 //: reload) must not stack a second listener that fires the same keydown
 //: twice.
-//: Takes the element itself, not only its id: `renderEditForm` (notes-list.js)
+//: Takes the element itself, not only its id: `renderEditForm` (note-edit-panels.js)
 //: builds the note edit form's textarea and wires this before appending it
 //: to the document, where `$(id)` (`document.getElementById`) would find
 //: nothing yet. `#entry-content` is already in the page at boot, so the

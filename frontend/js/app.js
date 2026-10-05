@@ -2291,7 +2291,7 @@ const LAZY_ENTRY_POINTS = {
   onboarding: ["openOnboarding", "maybeShowConsoleViewIntro"],
   updates: ["checkForUpdate", "applyUpdateNow", "showSourceUpdatedDialog", "askUpdateChoiceOnce"],
   appPalette: ["openPalette"],
-  notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing"],
+  notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing", "renderEditForm"],
   attachTo: ["renderAttachToBoard", "renderAttachToDocument"],
   noteTemplates: ["openNoteTemplateDialog", "useNoteTemplate"],
   askHistory: [
@@ -2404,4 +2404,4 @@ for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
 }
 //: Fetched soon after boot, not on first use: the outbox is for the moment
 //: the server is gone, when no script can be fetched (quick-note.js).
-setTimeout(() => ["quickNote", "fieldClear", "chordGuide"].forEach((name) => ensureModule(name)), 3000);
+setTimeout(() => ["quickNote", "fieldClear", "chordGuide", "notePanels"].forEach((name) => ensureModule(name)), 3000);

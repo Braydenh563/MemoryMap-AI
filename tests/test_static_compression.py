@@ -77,11 +77,13 @@ def test_a_stamped_asset_is_immutable_and_gzipped(client):
 #: checkers that one lazy file alone uses moved into that file: app.js
 #: 15,221 (cap was 15,435), total 323,086 (cap was 342,100),
 #: both measured by this test's client. Caps are the measure rounded up.
-APP_JS_CAP = 14_450
-#: Merged into the integration branch the same day: app.js keeps the lower
-#: 14,450 cap the template picker's move had set.
+#: **Merged into the integration branch the same day**: app.js 14,207, total
+#: 322,228 after the note edit form (renderEditForm, now note-edit-panels.js
+#: behind a stand-in) and eight one-caller helpers moved to their lazy files.
+#: Caps are the measure rounded up to the next 100.
+APP_JS_CAP = 14_300
 PIECE_CAP = 32_000
-TOTAL_CAP = 323_500
+TOTAL_CAP = 322_300
 
 
 def _served_gzip_size(client, name: str) -> int:

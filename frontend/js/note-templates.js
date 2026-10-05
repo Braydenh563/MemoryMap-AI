@@ -152,3 +152,21 @@ function openNoteTemplateDialog() {
   dialog.showModal();
   chooseNoteTemplate(templates[0], { focus: true });
 }
+
+// Moved from capture-ask.js (boot gzip): every caller is in this file.
+//: The caret at the template's `{{cursor}}`, in the editor when one is
+//: mounted (it mirrors the textarea a frame later), else in the textarea;
+//: at the end when the template has no mark.
+function placeTemplateCaret(box, caret) {
+  requestAnimationFrame(() => {
+    const at = caret >= 0 ? caret : box.value.length;
+    const surface = noteSurfaceIfAny(box);
+    if (surface) {
+      surface.focus();
+      surface.setSelection?.(at, at);
+    } else {
+      box.focus();
+      box.setSelectionRange(at, at);
+    }
+  });
+}

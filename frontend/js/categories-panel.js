@@ -1038,3 +1038,11 @@ function offerCategoryUndo(message, undo, redo) {
     await refreshAfterCategoryChange();
   });
 }
+
+// Moved from notes-list.js (boot gzip): every caller is in this file.
+//: After any change: the notes, the sidebar, and the open panel, redrawn.
+async function refreshAfterCategoryChange() {
+  await loadEntries();
+  await loadCategories();
+  manageCategoriesRedraw?.();
+}

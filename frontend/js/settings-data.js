@@ -373,3 +373,17 @@ async function importDocument() {
     status.textContent = error.message;
   }
 }
+
+// Moved from settings-panes.js (boot gzip): every caller is in this file.
+const PRIVACY_VERDICTS = {
+  stayed_on_this_computer: ["ph:shield-check", "Nothing left this computer.", false],
+  local_network: ["ph:wifi-high", "Only devices on your own network were contacted.", false],
+  internet: ["ph:globe-hemisphere-west", "This app connected to the internet. Each connection is listed below.", true],
+};
+
+// Moved from settings-panes.js (boot gzip): every caller is in this file.
+const PRIVACY_SCOPE_WORDS = {
+  this_computer: "This computer",
+  local_network: "Your network",
+  internet: "The internet",
+};

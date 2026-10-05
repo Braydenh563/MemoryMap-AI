@@ -76,7 +76,7 @@ def test_ctrl_enter_reaches_the_box_under_the_editor():
     capture = wiring[wiring.index('$("entry-content").addEventListener("keydown"'):][:300]
     assert "preventDefault" in capture and "metaKey" in capture
     # The edit form has the same chord.
-    form = _function(_read("notes-list.js"), "renderEditForm")
+    form = _function(_read("note-edit-panels.js"), "renderEditForm")
     assert 'event.key === "Enter"' in form and "saveButton.click()" in form
 
 
@@ -126,7 +126,7 @@ def test_the_batch_move_lists_empty_categories():
 
 def test_an_open_edit_keeps_its_text_through_a_redraw():
     notes = _read("notes-list.js")
-    form = _function(notes, "renderEditForm")
+    form = _function(_read("note-edit-panels.js"), "renderEditForm")
     assert "noteFormDraft.id === entry.id" in form
     assert "draft ? draft.content :" in form and "draft ? draft.title :" in form
     # The title is its own field and goes back on as the leading heading.
@@ -138,7 +138,7 @@ def test_an_open_edit_keeps_its_text_through_a_redraw():
 
 def test_leaving_a_changed_form_asks_and_an_empty_one_is_refused():
     notes = _read("notes-list.js")
-    form = _function(notes, "renderEditForm")
+    form = _function(_read("note-edit-panels.js"), "renderEditForm")
     assert 'event.key !== "Escape"' in form and "noteFormMayClose()" in form
     assert "A note needs some text" in form
     assert "noteFormMayClose()" in _function(notes, "openNoteEditor")
@@ -291,7 +291,7 @@ def test_note_boxes_are_live_with_a_source_switch_not_a_preview():
     assert "function setNoteSource(on)" in wiring and "paintEntryPreview" not in wiring
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert 'id="entry-preview"' not in html and "<span class=\"toolbar-word\">Source</span>" in html
-    assert "setNoteSource(!noteSourceOn())" in _function(_read("notes-list.js"), "renderEditForm")
+    assert "setNoteSource(!noteSourceOn())" in _function(_read("note-edit-panels.js"), "renderEditForm")
     css = (ROOT / "frontend" / "css" / "05-sidebars-themes.css").read_text(encoding="utf-8")
     assert ":not(#entry-preview-toggle):not([data-note-preview])" in css
 

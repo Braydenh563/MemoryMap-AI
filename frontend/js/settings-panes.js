@@ -589,18 +589,6 @@ async function renderLanAccess() {
 // since the ledger on disk began. Nothing here can change a setting: the
 // switches listed at the bottom are facts, each set where it lives.
 
-const PRIVACY_SCOPE_WORDS = {
-  this_computer: "This computer",
-  local_network: "Your network",
-  internet: "The internet",
-};
-
-const PRIVACY_VERDICTS = {
-  stayed_on_this_computer: ["ph:shield-check", "Nothing left this computer.", false],
-  local_network: ["ph:wifi-high", "Only devices on your own network were contacted.", false],
-  internet: ["ph:globe-hemisphere-west", "This app connected to the internet. Each connection is listed below.", true],
-};
-
 let privacyReceipt = null;
 let privacyRange = "launch";
 
@@ -1069,16 +1057,6 @@ function updateProfileCount() {
     : `${used} of ${PROFILE_ABOUT_CAP} characters.`;
 }
 
-async function deleteProfile() {
-  if (!(await confirmDialog("Delete your profile text? Atlas will stop personalising answers."))) return;
-  prefsCache = await apiJson("/preferences", {
-    method: "PUT",
-    body: JSON.stringify({ user_profile: "", profile_enabled: false }),
-  });
-  await renderPrefs();
-  toast("Profile data deleted.");
-}
-
 // Downloads need the auth header, so plain <a href> won't do: fetch the
 // bytes and hand the browser a blob instead.
 async function downloadExport(kind) {
@@ -1089,55 +1067,6 @@ async function downloadExport(kind) {
     kind === "backup" ? "memorymap-backup.zip" :
     `memorymap-export.${kind}`;
   await saveFile(name, await response.blob());
-}
-
-//: The full backup is a POST, not `/export/backup`'s GET, so a password goes
-//: in the body and not in an address that lands in a log. With one the file is
-//: a sealed .mmenc (`core/backup_bundle.py`); without, the same zip as before.
-async function exportFullBackup() {
-  const field = $("export-backup-password");
-  const password = field ? field.value : "";
-  const response = await api("/backups/bundle", {
-    method: "POST",
-    body: JSON.stringify({ password: password || null }),
-  });
-  await saveFile(password ? "memorymap-backup.mmenc" : "memorymap-backup.zip", await response.blob());
-  if (field) field.value = "";
-}
-
-//: Restoring replaces the notebook and ends every session, so the page is
-//: reloaded afterwards: the lock screen is the honest next thing to see.
-async function restoreFullBackup() {
-  const input = $("restore-bundle-file");
-  const status = $("restore-bundle-status");
-  const file = input.files[0];
-  if (!file) return;
-  input.value = "";
-  const sealed = /\.mmenc$/i.test(file.name);
-  const password = $("restore-bundle-password").value;
-  if (sealed && !password) {
-    status.textContent = "That file is sealed. Enter its password, then choose it again.";
-    return;
-  }
-  if (
-    !(await confirmDialog(
-      "Restore this backup? Your current notebook is snapshotted first, then replaced by the one in the file."
-    ))
-  )
-    return;
-  const form = new FormData();
-  form.append("file", file, file.name);
-  form.append("password", password);
-  setLabel(status, "ph:spin Restoring…");
-  try {
-    const response = await api.upload("/backups/bundle/restore", form);
-    const result = await response.json();
-    $("restore-bundle-password").value = "";
-    status.textContent = `Restored, with ${result.files} attached file${result.files === 1 ? "" : "s"}. Reloading to unlock it.`;
-    setTimeout(() => location.reload(), 1200);
-  } catch (error) {
-    status.textContent = error.message || "The restore did not work. Nothing was changed.";
-  }
 }
 
 // --- Wave F: backups UI -------------------------------------------------------------

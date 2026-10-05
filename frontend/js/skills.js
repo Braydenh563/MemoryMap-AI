@@ -1252,17 +1252,6 @@ function pickJsonFile(inputId, apply) {
   input.click();
 }
 
-// Merge imported {name, prompt} items over existing ones (imports win
-// on a name clash), used by both skills and personas.
-function mergeNamedPrompts(existing, imported) {
-  const cleaned = (imported || []).filter(
-    (item) => item && typeof item.name === "string" && typeof item.prompt === "string"
-  );
-  if (!cleaned.length) return null;
-  const names = new Set(cleaned.map((item) => item.name));
-  return [...existing.filter((item) => !names.has(item.name)), ...cleaned];
-}
-
 // --- Wave M: batch operations on notes ----------------------------------------------
 
 let selectMode = false;

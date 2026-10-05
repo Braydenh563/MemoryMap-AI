@@ -26,8 +26,11 @@ JS = Path(__file__).resolve().parents[1] / "frontend" / "js"
 #: the time a lazy bundle runs) came out, and twelve lets became fields of
 #: one const per file (the palette, onboarding, the notes rail, the template
 #: picker, the finder) or plain consts (`timelineZoom`, `notePanel`).
-GUARDS_CAP = 368
-TOP_LEVEL_LETS_CAP = 706
+#: The integration branch after search-boot-1005 merged, 2026-10-05: 288
+#: guards (63 same-bundle ones in boot files dropped to bring boot JS under its
+#: cap) and 705 lets.
+GUARDS_CAP = 288
+TOP_LEVEL_LETS_CAP = 705
 
 
 def _code() -> dict[str, str]:

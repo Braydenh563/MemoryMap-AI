@@ -348,23 +348,6 @@ function noteSurfaceIfAny(box) {
   return typeof noteSurfaceFor === "function" ? noteSurfaceFor(box) : null;
 }
 
-//: The caret at the template's `{{cursor}}`, in the editor when one is
-//: mounted (it mirrors the textarea a frame later), else in the textarea;
-//: at the end when the template has no mark.
-function placeTemplateCaret(box, caret) {
-  requestAnimationFrame(() => {
-    const at = caret >= 0 ? caret : box.value.length;
-    const surface = noteSurfaceIfAny(box);
-    if (surface) {
-      surface.focus();
-      surface.setSelection?.(at, at);
-    } else {
-      box.focus();
-      box.setSelectionRange(at, at);
-    }
-  });
-}
-
 function openDocumentFromNote(documentId) {
   switchTab("documents");
   // The tab's own loader races us otherwise, and opens the last document.

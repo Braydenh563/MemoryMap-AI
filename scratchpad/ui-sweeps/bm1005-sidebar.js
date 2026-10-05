@@ -13,7 +13,10 @@
 //   (4) the tabs a map shows: none that does not apply there (Layers, Notes
 //       for cards), and at least one map tab besides the Outline;
 //   (5) the Library on each kind has templates of that kind, and dragging one
-//       onto the canvas adds what it holds.
+//       onto the canvas adds what it holds;
+//   (6) DOCK=side: one column width on both kinds, its cells in at most four
+//       columns and none past the padding; below 600, the collapsed tool
+//       picker answers its own centre with the sidebar open.
 // Pass: every line PASS.
 const { boot } = require('./lib.js');
 (async () => {
@@ -22,6 +25,10 @@ const { boot } = require('./lib.js');
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.click('[data-tab="library"]');
+  // The Library opens on its last sub-tab, which another sweep may have moved.
+  await page.waitForSelector('#library-subtabs [data-target="library-view-whiteboard"]', { state: 'attached' }).catch(() => {});
+  await page.waitForTimeout(400);
+  await page.evaluate(() => document.querySelector('#library-subtabs [data-target="library-view-whiteboard"]')?.click());
   await page.waitForFunction(() => ['initWhiteboard', 'wbOpenSidebar', 'wbMapTidyFresh'].every((f) => typeof window[f] === 'function'), null, { timeout: 15000 });
   const made = await page.evaluate(async () => {
     await initWhiteboard();
@@ -40,6 +47,20 @@ const { boot } = require('./lib.js');
   const overlap = (a, b) => (a && b ? Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l)) * Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t)) : 0);
   // DOCK=side: the tool dock docked as a column on the left (Board, the
   // dock toggle), the "side dock" the owner's screenshot shows.
+  // (7) the Library's first open, its index held back 1.5s: skeletons in
+  // the list while it waits (not an empty panel), tiles after.
+  {
+    await page.evaluate(async (id) => { await openWhiteboardBoard(id); wbCloseSidebar(); wbLibState.lib = null; wbLibSets.clear(); document.getElementById('wb-lib-list').replaceChildren(); }, made.board);
+    await page.route('**/board-library', async (route) => { await new Promise((r) => setTimeout(r, 1500)); await route.continue(); });
+    await page.evaluate(() => wbOpenSidebar('library', { focus: false }));
+    await page.waitForTimeout(300);
+    const wait = await page.evaluate(() => { const l = document.getElementById('wb-lib-list'); return { sk: l.querySelectorAll(':scope > .skeleton').length, busy: l.getAttribute('aria-busy'), h: Math.round(l.querySelector('.skeleton')?.getBoundingClientRect().height || 0) }; });
+    await page.waitForTimeout(2500);
+    const after = await page.evaluate(() => { const l = document.getElementById('wb-lib-list'); return { sk: l.querySelectorAll('.skeleton').length, tiles: l.querySelectorAll('.wb-lib-tile').length, busy: l.getAttribute('aria-busy') }; });
+    await page.unroute('**/board-library');
+    console.log(`library first open: waiting ${wait.sk} skeletons (${wait.h}px, busy ${wait.busy}), then ${after.tiles} tiles, ${after.sk} skeletons left, busy ${after.busy} ${wait.sk && wait.busy === 'true' && after.tiles && !after.sk && after.busy === null ? 'PASS' : 'FAIL'}`);
+    await page.evaluate(() => wbCloseSidebar());
+  }
   const dock = process.env.DOCK || 'bottom';
   await page.evaluate((dock) => {
     const panel = document.getElementById('wb-tools-panel');
@@ -47,6 +68,7 @@ const { boot } = require('./lib.js');
   }, dock);
   console.log(`dock: ${dock}`);
   const heights = {};
+  const widths = {};
   for (const kind of ['board', 'map']) {
     await page.evaluate(async (id) => {
       await openWhiteboardBoard(id);
@@ -62,9 +84,19 @@ const { boot } = require('./lib.js');
     const col = await page.evaluate(() => {
       const p = document.getElementById('wb-tools-panel');
       const r = p.getBoundingClientRect();
-      return { w: Math.round(r.width), h: Math.round(r.height), scrolls: p.scrollHeight > p.clientHeight + 1, sections: [...p.querySelectorAll('.wb-tool-section')].filter((x) => x.getBoundingClientRect().width).length };
+      // the cells' left edges across every row (a select excepted), and any
+      // control past the panel's padding: a side column lines up as four.
+      const cells = [...p.querySelectorAll('.wb-tool-section-row > :not(.select-shell)')].map((k) => k.getBoundingClientRect()).filter((k) => k.width);
+      const inner = r.right - parseFloat(getComputedStyle(p).paddingRight);
+      return { w: Math.round(r.width), h: Math.round(r.height), scrolls: p.scrollHeight > p.clientHeight + 1, sections: [...p.querySelectorAll('.wb-tool-section')].filter((x) => x.getBoundingClientRect().width).length, xs: [...new Set(cells.map((k) => Math.round(k.left - r.left)))].sort((a, b) => a - b), past: cells.filter((k) => k.right > inner + 0.5).length };
     });
-    console.log(`${kind} tool dock: ${col.w}x${col.h}, ${col.sections} sections, scrolls ${col.scrolls}`);
+    widths[kind] = col.w;
+    console.log(`${kind} tool dock: ${col.w}x${col.h}, ${col.sections} sections, scrolls ${col.scrolls}, cell columns at [${col.xs}], ${col.past} past the padding`);
+    if (dock === 'side' && W >= 600) console.log(`${kind} side column: ${col.xs.length} columns, ${col.past} past ${col.xs.length <= 4 && !col.past ? 'PASS' : 'FAIL'}`);
+    if (W < 600) {
+      const hit = await page.evaluate(() => { const o = document.getElementById('wb-tools-opener'); const r = o.getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!e && o.contains(e); });
+      console.log(`${kind} tool picker answers its own centre with the sidebar open ${hit ? 'PASS' : 'FAIL'}`);
+    }
     console.log(`W${W} ${kind}: sidebar ${side ? `${Math.round(side.l)},${Math.round(side.t)} ${Math.round(side.w)}x${Math.round(side.h)}` : 'none'}; overlap with the tool dock ${Math.round(worst)}px² ${worst === 0 ? 'PASS' : 'FAIL'}`);
     // the tabs
     const tabs = await page.evaluate(() => [...document.querySelectorAll('#wb-sidebar [data-side-tab]')].filter((t) => !t.hidden && t.getBoundingClientRect().width).map((t) => t.dataset.sideTab));
@@ -115,6 +147,7 @@ const { boot } = require('./lib.js');
   }
   const dh = Math.abs((heights.board || 0) - (heights.map || 0));
   console.log(`sidebar height board ${Math.round(heights.board)} map ${Math.round(heights.map)}: ${dh <= 1 ? 'PASS' : 'FAIL'}`);
+  if (dock === 'side' && W >= 600) console.log(`side column width board ${widths.board} map ${widths.map}: ${widths.board === widths.map ? 'PASS' : 'FAIL'}`);
   await page.screenshot({ path: `${process.env.SCRATCH || '.'}/bm1005-sidebar-${W}.png` });
   console.log(`page errors: ${errors.length}${errors.length ? ' ' + errors.slice(0, 3).join(' | ') : ''}`);
   await browser.close();

@@ -16,7 +16,10 @@ const { boot } = require('./lib.js');
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.click('[data-tab="library"]');
-  await page.waitForFunction(() => ['initWhiteboard', 'wbFormatSyncSoon', 'wbMapTidyFresh'].every((f) => typeof window[f] === 'function'), null, { timeout: 15000 });
+  await page.waitForSelector('#library-subtabs [data-target="library-view-whiteboard"]', { state: 'attached' }).catch(() => {});
+  await page.waitForTimeout(400);
+  await page.evaluate(() => document.querySelector('#library-subtabs [data-target="library-view-whiteboard"]')?.click());
+  await page.waitForFunction(() => ['initWhiteboard', 'wbOpenSidebar', 'wbMapTidyFresh'].every((f) => typeof window[f] === 'function'), null, { timeout: 15000 });
   const ids = await page.evaluate(async () => {
     await initWhiteboard();
     const board = await apiJson('/whiteboard/boards', { method: 'POST', body: JSON.stringify({ name: `multi ${Date.now()}`, type: 'map', layout: 'tree-right' }) });
@@ -103,6 +106,55 @@ const { boot } = require('./lib.js');
   const mapRows = menu.filter((r) => /fold|task|bold|summar|colour/i.test(r));
   console.log(`right-click menu: [${menu.join(' | ')}]; board-only rows ${boardRows.length}, map rows ${mapRows.length} ${!boardRows.length && mapRows.length >= 2 ? 'PASS' : 'FAIL'}`);
   await page.keyboard.press('Escape');
+  // (5) fold to a level (the features audit, Phase D): Alt+1 shows the trunk
+  // alone, Alt+2 the trunk and its children with One folded over its
+  // grandchild, Alt+3 everything; each press one Undo step.
+  {
+    const shown = () => page.evaluate(() => [...document.querySelectorAll('#whiteboard-container .wb-object[data-id]')].filter((el) => el.getClientRects().length && getComputedStyle(el).display !== 'none' && getComputedStyle(el).visibility !== 'hidden').length);
+    const folded = () => page.evaluate(() => wbMapIndex().nodes.filter((n) => n.data?.collapsed).length);
+    await page.evaluate(() => wbMapExpandAll());
+    await page.waitForTimeout(400);
+    await page.mouse.click(5, (W < 600 ? 844 : 900) / 2);
+    const all = await shown();
+    const read = [];
+    for (const key of ['Alt+1', 'Alt+2', 'Alt+3']) {
+      await page.keyboard.press(key);
+      await page.waitForTimeout(900);
+      read.push(`${key} ${await shown()} shown, ${await folded()} folded`);
+    }
+    await page.keyboard.press('Alt+1');
+    await page.waitForTimeout(900);
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(900);
+    const undone = await folded();
+    const [one, two, three] = read.map((r) => +r.split(' ')[1]);
+    console.log(`fold to a level: all ${all}; ${read.join('; ')}; Alt+1 then Ctrl+Z ${undone} folded ${one === 1 && two === 5 && three === all && undone === 0 ? 'PASS' : 'FAIL'}`);
+  }
+  // (6) Summarise this branch (the features audit, Phase G), the topic menu's
+  // action: the summary lands in the topic's open note, inside the window, and
+  // is kept when the note closes (no model on a sweep's server: the branch
+  // said from its own topics).
+  {
+    await page.keyboard.press('Alt+3');
+    await page.waitForTimeout(700);
+    const el = await page.$(`.wb-object[data-id="${ids.root}"]`);
+    const bb = await el.boundingBox();
+    await page.mouse.click(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(300);
+    await page.evaluate((id) => wbMapSummariseBranch(wbMapIndex().nodes.find((n) => n.id === id)), ids.root);
+    await page.waitForTimeout(1200);
+    const open = await page.evaluate(() => {
+      const p = document.getElementById('wb-map-note-peek');
+      if (!p) return null;
+      const r = p.getBoundingClientRect();
+      return { text: p.querySelector('textarea').value, hint: p.querySelector('.wb-map-note-hint').textContent, inside: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, focus: document.activeElement === p.querySelector('textarea') };
+    });
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(1200);
+    const kept = await page.evaluate((id) => wbMapIndex().nodes.find((n) => n.id === id)?.data?.note || '', ids.root);
+    const want = 'Centre: One, Two, Three and Four (6 topics in all).';
+    console.log(`summarise this branch: ${JSON.stringify(open)}; kept "${kept}" ${open && open.text === want && open.inside && open.focus && kept === want ? 'PASS' : 'FAIL'}`);
+  }
   await page.screenshot({ path: `${process.env.SCRATCH || '.'}/bm1005-mapmulti-${W}.png` });
   console.log(`page errors: ${errors.length}${errors.length ? ' ' + errors.slice(0, 3).join(' | ') : ''}`);
   await browser.close();

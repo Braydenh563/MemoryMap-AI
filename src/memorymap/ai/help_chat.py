@@ -1183,6 +1183,8 @@ HELP_TOPICS.extend(
                 "tick a topic", "number the branches", "numbered topics", "outline numbers", "note on a topic", "note behind a topic", "comment on a topic", "boundary", "summary topic", "summarise topics",
                 "resize a topic", "topic size", "bigger topic", "text size on a topic", "topic bar", "topic toolbar",
                 "several topics", "select several topics", "many topics at once", "bold several topics", "fold several branches",
+                "show levels", "fold to a level", "only the first levels", "collapse to level",
+                "summarise this branch", "summarize this branch", "summary of a branch",
             ),
             "body": (
                 "Mind map keys (a map lives in the Library under Boards and "
@@ -1193,7 +1195,8 @@ HELP_TOPICS.extend(
                 "siblings, Shift+Tab outdents it, the arrow keys walk the tree, "
                 "F2 or double-click renames, Delete removes the topic and "
                 "everything under it, C folds or unfolds its branch (or click the "
-                "chevron), Shift+C draws a cross-link to another topic, F shows "
+                "chevron), Alt+1 to Alt+9 show that many levels of the whole map "
+                "(Alt+1: the trunks alone), Shift+C draws a cross-link to another topic, F shows "
                 "only this branch and its neighbours (F again: all), Shift+F10 "
                 "opens every action. Ctrl+Z undoes (100 steps, kept across a "
                 "reload; a deleted branch comes back whole), Ctrl+Shift+Z redoes. "
@@ -1207,7 +1210,9 @@ HELP_TOPICS.extend(
                 "hold Shift as you drag to scale its text with it. Pick several "
                 "topics (drag a box round them, or Shift-click) and the bar and "
                 "the right-click menu act on all of them: colour, bold, tasks, "
-                "fold, and a summary when they share a parent."
+                "fold, and a summary when they share a parent. A topic's menu "
+                "has Summarise this branch: a few sentences about everything "
+                "under it go into the topic's note, yours to change or keep."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

@@ -532,10 +532,12 @@ block. What stays here is the standing decisions and what is still open.
 
 - A real local model's `name|kind` entity extraction and a topic's sentence
   were never run here (no model in the sandbox); both fall back cleanly.
-- `/graph` at 5,000 notes: the encoded payload is cached (HISTORY, "the
-  graph's payload cache"), so a visit with nothing changed is 149 ms; the
-  first visit after any change still builds 3 MB in 0.7 to 1.0 s. Open: a
-  slimmer node (the label and the numbers, the rest on demand).
+- `/graph` at 5,000 notes: the map's read is slim (`slim=1`, 1,767 KB from
+  3,145; built, HISTORY.md "Moved from the plans, 2026-10-05 (op3-1005)").
+  The generic encoder is skipped and the PageRank's links are read as
+  columns (same HISTORY block): the first build after a change is about
+  0.7 s on this sandbox at load 7. Open: nothing measured worth a step;
+  PageRank itself is 0.13 s.
 - The note field's picker and the query table's rollups are built
   (2026-10-05): moved to HISTORY.md ("Moved from the plans, 2026-10-05
   (GRAPH_PLAN, the last KG rows)").

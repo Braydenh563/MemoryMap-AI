@@ -875,8 +875,8 @@ remaining whiteboard rows; the open rest is in
   table (`suggest-branches`). `tests/test_map_suggest.py` 6 (fake transport:
   the prompt's parse, both fallbacks, no invented note); `mapsuggest.js` 8/8
   at 1440 and 390, light and dark (no model on the sweep's server, so the
-  notebook fallback). Open: ghosts on the canvas, Expand from my notes,
-  Summarise this branch, the affinity sort, the claim check.
+  notebook fallback). Open: placed in MINDMAP_PLAN, "The features audit's
+  Phase G, what is left" (Summarise this branch is built, op3-1005).
 
 - **Found by the regression sweeps after steps 5 and 6.** A press on a
   port with Select released a click on the container, which cleared the
@@ -993,6 +993,93 @@ The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section
 - **The fold chip is 128.8px of a 156.3px content column at 1440** (Library). Already built: INBOX 279 replaced the card's fold with a one-word `.library-image-text-chip` ("Text") that opens the lightbox at the reading. Measured with the new `scratchpad/ui-sweeps/foldchip.js`: 60px of a 179.4px column at 1440 (33%) and of 328.4px at 390 (18%), light and dark.
 - **The six descriptions start at six different heights** and **Two pictures in a gallery row are still different sizes when one card has nothing to say** (Library). Decided, not open: UI_MODERNISATION_PLAN's Phase 7 amendments record the trade (the picture takes the slack; a two-row subgrid was built, measured and taken out because it puts a 75px hole under the shortest card), so neither is work until the owner reports the row as ragged.
 - **Toggle rows onto one recipe (no lavender-filled bars)** (Settings and help). Mostly already built: the consistency pass (08-consistency.css) took the fill off every checked checkbox row of both classes and gave both the `--divider` hairline. Measured with the new `scratchpad/ui-sweeps/togglerows.js` (every Settings section's visible switches, grouped by shape): the one difference left was the gap, 15 checkbox `.check-row` rows at 6.4px against 8 `.setting-check` rows at 9.6px; both take `--space-4` now, and `#searxng-autostart` leads its row in the markup. After: one shape (32x18 switch at +9, 9.6px gap, no fill at rest) at 1440 and 390, light and dark. `tests/test_ui_recipes.py` holds it; DESIGN.md's on/off row names it.
+
+## Moved from the plans, 2026-10-05 (op3-1005)
+
+- GRAPH_PLAN, the first build after a change. `jsonable_encoder` walked
+  the whole payload (213,459 calls, 0.96 s of a 1.95 s cold build at 5,000
+  notes, cProfile) to return the plain values it was given; `_build_graph`
+  hands the payload to `JSONResponse` as it is and falls back to the encoder
+  only on a value JSON cannot take. Same bytes (a test compares them).
+  Measured on the bench notebook, alternating which shape goes first, load
+  about 7: the first cold build 1,519 to 1,541 ms before, 1,197 to 1,212 ms
+  after; the second 696 to 1,470 ms before, 466 to 532 ms after.
+  `tests/test_graph_encoded_off_loop.py`. Then `paths._connect` (the map's PageRank
+  and every path search) reads a link's five columns instead of building
+  10,000 `EntryLink` objects: `_connect` 0.48 to 0.14 s under cProfile, the
+  first cold build 1,197 to 1,212 ms before, 670 to 712 ms after (one run at
+  1,048 ms in a load spike). `tests/test_graph_paths.py`.
+
+- The features audit's Phase G, Summarise this branch. Built:
+  `POST /whiteboard/boards/{b}/nodes/{n}/summary` (routes_map_suggest.py)
+  reads the branch as an indented outline (120 topics, 6,000 characters at
+  most) and writes nothing; the model's two to four sentences when it
+  answers in prose, else the branch said plainly ("Centre: One, Two, Three
+  and Four (6 topics in all).", `source: "outline"`, with why). The map's
+  `wbMapSummariseBranch` puts it into the topic's own note, open and
+  focused, kept on close as one Undo step; the topic menu, the palette and
+  the Guide's mind map keys name it. `tests/test_map_summary.py` 5 (fake
+  transport: the outline sent, a list reply refused, the fallback);
+  `bm1005-mapmulti.js` check 6 at 1440 light and 390 dark (no model on the
+  sweep's server: the plain form, the note inside the window, kept).
+
+- The features audit's Phase D, fold-to-level (Alt+1 to 9). Built:
+  `wbMapFoldToLevel` (whiteboard-map.js) folds every topic at the level
+  that has a branch under it and opens the shallower ones, saving only the
+  changed folds, one Undo step (`WB_RECORDED`); Alt and a digit on a map,
+  palette rows for levels 1 to 3, a "Show two levels" row in the topic menu,
+  the keys sheet and the Guide's mind map keys. Measured with
+  `bm1005-mapmulti.js` check 5 (Centre, four children, one grandchild):
+  Alt+1 shows 1 topic, Alt+2 5, Alt+3 all 6, and one Ctrl+Z after Alt+1
+  leaves 0 folded, at 1440 light and 390 dark. `tests/test_wb_commands.py`.
+  Still open from Phase D: editing in the Outline tab, M1's latency gate and
+  the strip's doors (the mind map agent's).
+
+- WHITEBOARD_PLAN, INBOX 608's list half: read at head here as nothing to
+  build (no list selected by dragging) and closed; superseded the same day
+  by the list drag-select built on `claude/notes-flow-rebuild` (`DRAG_EDGE`,
+  selection.js), which WHITEBOARD_PLAN now names.
+
+- WHITEBOARD_PLAN, INBOX 596's skeletons. Built: `wbLoadLibrary` draws
+  six `showSkeletons` into an empty list before the index and its sets
+  arrive, `wbRenderLibrary` clears them; the Notes tab (`renderWbLibrary`)
+  draws five before the notebook's first page and renders once it lands.
+  Measured with `bm1005-sidebar.js` (check 7, the index held 1.5s): 0
+  skeletons before, 6 (51px, `aria-busy`) after, then 51 tiles and none
+  left, at 1440 light and 390 dark. The Notes half is read, not measured
+  (the boot loads the notebook before a board can open).
+  `tests/test_board_sidebar_596.py`.
+
+- CHAT_PLAN, OPEN.md triage. The placed lists (72, 63, 71, 45) were already
+  struck and moved by earlier passes; checked, nothing left. The question
+  hover row: hung `calc(100% + 2px)` under its bubble, a 25px row in a 13px
+  gap; it overlapped the answer below by 13px in height everywhere and in
+  width only from 640 to 820 (7, 3 and 13px at 820, 700 and 640; -28 and
+  -53px, clear, at 1024 and 1280, where the answer's width cap leaves room).
+  Now `top: calc(100% - 0.75rem)`: 2px under the bubble's last line, 1px
+  clear of the next message at 640 and 1280 (a probe through `addBubble`).
+  `tests/test_chat_transcript.py`.
+
+- GRAPH_PLAN, a slimmer node. Built: `/graph?slim=1` leaves out a note
+  node's keys at their default (`_NOTE_DEFAULTS`, routes_graph.py) and a
+  link's three nulls, times to the second, centrality to six figures; the
+  map asks for it (`graphEndpoint`) and `graphFill` (graph.js) restores the
+  shape on arrival in both renderers. Measured on the 5,000-note bench
+  notebook (`kg1005_graph_bench.py` seeding): 3,145 to 1,767 KB; the second
+  cold build after a write 992 to 1,470 ms full against 696 to 736 ms slim;
+  the first cold build 1.4 to 1.6 s either way. `graph514.js` passes on the
+  slim payload. The dashboard's widgets read the slim payload too (only each
+  link's two ends), so one cached build after a change serves both; boot JS
+  paid for it with two optional chains. `tests/test_graph_slim.py`.
+
+- WHITEBOARD_PLAN, INBOX 596's side column. Built: the column is
+  `--wb-w-tools` (176px) on a board and a map (173 and 225 before), each
+  row a four-cell grid across it, the layout select a whole row; below 600
+  a side dock is the bottom strip and the dock switch is hidden. Measured
+  with `bm1005-sidebar.js` (DOCK=side): cell columns [7,49,91,133] on a
+  board and [7,49,91] on a map, 0 past the padding; at 390 light and dark
+  the picker answers its own centre with the sidebar open (covered,
+  7,554px², before). `tests/test_board_sidebar_596.py`.
 
 ## INBOX resolved, 2026-10-05 (ledger-1005: OPEN.md rows)
 
@@ -43138,7 +43225,9 @@ record.)
      more links" in another shape). Placed: the icon alignment agent.
      Fixed 2026-10-05: an icon beside words sits on the words' cap-height
      centre in the drawing font; on Windows icons were up to 1.7px off
-     (5afe089, 4111aa2).
+     (5afe089, 4111aa2). The sweeps agree since 4a2dfaf: badgealign.js
+     measures the cap-height centre too (it read -1.5px against INBOX 503's
+     x-height band, -0.5px against the capitals); inkalign.js retired.
 595. **The owner, 2026-10-05, verbatim.** "why are new libraries off the
      table?? should we bundle multiple packages together for bulk download if
      various features need multiple libraries or dependencies in the packages
@@ -43253,6 +43342,21 @@ record.)
      modernise the quick sketch a little more as well?? it is already mostly
      fine, maybe a bit more of a gap below the top row title and close
      button". Placed: the design-rows agent, after 618.
+
+601. **The owner, 2026-10-05, verbatim.** "on atlas can you make the tail
+     seem more integrated with the body instead of just coming out from the
+     butt?? make it smooth and biological. also add more movement and
+     variation to the tail position, behaviour, movement, same with the
+     celestial rings and planets on it which dont move or look different,
+     and the astral swirl around each could have a bit of movement or subtle
+     animation as well. also I want to be able to double tab the drag to
+     resize circle on the companion to reset it to default size." Placed:
+     the Atlas agent slot, with 600.
+     **Fixed (op3-1005).** Body, rings, swirls and the resize reset landed
+     with 600 and 612; the last of it, the tail held still: atlas601-tail.js,
+     stepped at 60fps over 60s, longest tip spell within 0.75px 1,100 to
+     400ms (masculine), 650 to 150ms (feminine); real time 588 and 474ms at
+     8 to 11fps (850 and 501ms before on a quiet run).
 
 ## OPEN.md rows closed, 2026-10-05
 

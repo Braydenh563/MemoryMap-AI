@@ -11,7 +11,8 @@
 //     thirty-second along (reported only: the tail may leave the body by then), lie inside the body's own silhouette (the torso's
 //     skin path, `isPointInFill` in its own space), read through every
 //     transform on the way by probe points, not by assuming a matrix.
-// Exits 1 when the tail is still for over a second, visits fewer than 2
+// Exits 1 when the tail is still for over 600ms (stepped at 60fps over 60s;
+// in real time too when the run drew 20 frames a second), visits fewer than 2
 // behaviours, or its root leaves the body in any pose.
 //   BASE=... LOOKS=masculine,feminine THEME=dark node atlas601-tail.js
 const { boot } = require('./lib.js');
@@ -114,9 +115,38 @@ const { boot } = require('./lib.js');
       still = Math.max(still, 20000 - anchorT);
       return { acts: [...acts], shapes: shapes.size, tipRange: [+(maxX - minX).toFixed(1), +(maxY - minY).toFixed(1)], stillMs: Math.round(still), stillEndsAt: Math.round(stillAt) };
     });
+    // The same reading with the clock stepped by hand at 60 frames a second
+    // over 60s of the tail's own time: the motion's design, whatever the
+    // machine's load (a loaded run draws four frames a second and reads the
+    // frame rate, not the tail). `fps` above is the real run's draws.
+    life.fps = +(life.shapes / 20).toFixed(1);
+    life.sim = await page.evaluate(() => {
+      const box = document.querySelector('.nm-viewer .atl-figure-box');
+      const tail = box.atlasTail;
+      const g = box.querySelector('svg.atl-layer-tail:not(.atl-layer-tail-tip) .atl-fills .atl-tail-swish');
+      const tip = () => { const p = tail.shape.pts; return window.__screen(g, p[p.length - 1][0], p[p.length - 1][1]); };
+      cancelAnimationFrame(tail.raf);
+      const t0 = performance.now();
+      let anchor = tip(); let anchorT = 0; let still = 0; let n = 0; let during = ''; const acts = new Set();
+      for (let t = 0; t <= 60000; t += 1000 / 60) {
+        atlasTailFrame(tail, t0 + t);
+        cancelAnimationFrame(tail.raf);
+        acts.add(tail.act);
+        if (n++ % 3) continue;
+        const p = tip();
+        if (Math.hypot(p[0] - anchor[0], p[1] - anchor[1]) > 0.75) {
+          if (t - anchorT > still) { still = t - anchorT; during = `${tail.act} ${Object.entries(tail.p).map(([k, j]) => `${k} ${j.x.toFixed(2)}`).join(' ')}`; }
+          anchor = p; anchorT = t;
+        }
+      }
+      tail.at = 0;
+      tail.raf = requestAnimationFrame((t) => atlasTailFrame(tail, t));
+      return { stillMs: Math.round(Math.max(still, 60000 - anchorT)), acts: acts.size, during };
+    });
     out[look] = { poses, life };
     console.log(look, JSON.stringify(out[look]));
-    if (life.stillMs > 1000) fails.push(`${look}: the tail's tip still for ${life.stillMs}ms`);
+    if (life.sim.stillMs > 600) fails.push(`${look}: the tail's tip still for ${life.sim.stillMs}ms (stepped)`);
+    if (life.fps >= 20 && life.stillMs > 600) fails.push(`${look}: the tail's tip still for ${life.stillMs}ms at ${life.fps}fps`);
     if (life.acts.length < 2) fails.push(`${look}: one behaviour in 20s (${life.acts})`);
     await browser.close();
   }

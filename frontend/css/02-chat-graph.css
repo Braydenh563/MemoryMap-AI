@@ -202,7 +202,14 @@
    edge its own bubble is anchored to. */
 .msg-actions {
   position: absolute;
-  top: calc(100% + 2px);
+  /* **Over its own bubble's foot, not the next message's head.** Hung 2px
+     below, the 25px row overran the 13px between messages by 13px, and from
+     640 to 820 that band lay on the answer under a question (7 to 13px across
+     at 820, 700 and 640; clear of it only where the answer's width cap left
+     room, 1024 up). Raised by the bubble's own foot padding (9.6px) and a
+     little of its last line's leading, it ends at the gap's far side, so it
+     covers nothing but its own bubble's empty foot. */
+  top: calc(100% - 0.75rem);
   /* **Exempt from the bubble's own width cap.** `.msg > *` sets
      `max-width: 100%` so nothing inside a bubble can be wider than it, right
      for content, wrong for a row that is deliberately out of flow. On a

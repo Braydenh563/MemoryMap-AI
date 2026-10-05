@@ -75,3 +75,22 @@ def test_the_palette_and_the_sheet_read_the_table() -> None:
 
 def test_menu_rows_run_through_the_table() -> None:
     assert "wbRunCommand(item.dataset.wbCmd)" in BOARD
+
+
+def test_a_map_folds_to_a_level_from_the_keys_the_table_and_the_sheet():
+    """The features audit, Phase D: fold-to-level (Alt+1 to 9). One function
+    (`wbMapFoldToLevel`), one Undo step (`WB_RECORDED`), reached by Alt and a
+    digit on a map, by three palette rows and by the keys sheet's row.
+    bm1005-mapmulti.js check 5: Alt+1 1 topic shown, Alt+2 5, Alt+3 all 6,
+    one Ctrl+Z puts the folds back; 1440 light and 390 dark."""
+    js = ROOT / "frontend" / "js"
+    board = (js / "whiteboard.js").read_text(encoding="utf-8")
+    mapjs = (js / "whiteboard-map.js").read_text(encoding="utf-8")
+    assert "async function wbMapFoldToLevel(level)" in mapjs
+    assert '"wbMapFoldToLevel"' in board[board.index("const WB_RECORDED = [") :][:900]
+    assert "/^Digit[1-9]$/.test(e.code) && wbIsMap()" in board
+    for n in (1, 2, 3):
+        assert f'keys: "Alt+{n}", surface: "map", run: () => wbMapFoldToLevel({n})' in COMMANDS
+    assert 'keys: ["Alt+1 to 9"]' in COMMANDS
+    help_text = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    assert "Alt+1 to Alt+9 show that many levels" in help_text

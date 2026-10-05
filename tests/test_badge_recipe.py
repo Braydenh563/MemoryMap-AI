@@ -10,6 +10,7 @@ index names `chip item-label` for every one of them;
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 from tests._app_js import JS_DIR
 
@@ -187,3 +188,17 @@ def test_a_status_label_is_a_tinted_pill_without_an_edge():
     read = read[: read.index("}")]
     assert "border: 0" in read and "radius-pill" in read
 
+
+
+def test_the_badge_sweep_measures_against_the_recipes_target():
+    """One target (DESIGN.md, the label row): an icon beside words lands on
+    the words' cap-height centre (INBOX 592). badgealign.js measured against
+    the x-height band (INBOX 503) and read a cap-aligned skill fact 1.5px
+    high; it reads the font's cap height now, as iconalign.js does."""
+    sweeps = Path(__file__).resolve().parents[1] / "scratchpad" / "ui-sweeps"
+    js = (sweeps / "badgealign.js").read_text(encoding="utf-8")
+    py = (sweeps / "badgealign.py").read_text(encoding="utf-8")
+    assert "measureText('H')" in js and "measureText('x')" not in js
+    assert 'capcentre(tr, it["cap"])' in py and "xcentre" not in py
+    design = (Path(__file__).resolve().parents[1] / "docs" / "DESIGN.md").read_text(encoding="utf-8")
+    assert "the x-height band INBOX 503 measured against is retired" in design

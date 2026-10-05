@@ -1700,3 +1700,23 @@ Built; moved whole to HISTORY.md ("Moved from the plans, 2026-10-03", "From MIND
      by perch; (6) graph default forces; (7) the two small visual ones
      (button gap, Plan/Web pill contrast) with contrast.js.
 
+## The features audit's Phase G, what is left (placed 2026-10-05, op3-1005)
+
+From `scratchpad/audit1005/features.md` section 10 and Phase G, open since
+FEAT-13's first part (HISTORY.md, "Step 6"). Built so far: Branches from my
+notes (decision 36 in WHITEBOARD_PLAN) and Summarise this branch (HISTORY.md,
+"Moved from the plans, 2026-10-05 (op3-1005)"). Open, each with the fake
+transport for its tests and the no-model fallback measured in a sweep:
+
+- **Ghost topics on the canvas**: the suggestions drawn faded under the topic,
+  Tab to take one, Escape to drop them all. Waits on boot CSS room (the cap
+  is full; the picker dialog is the shape until then).
+- **Expand from my notes**: a topic grown a level from the note it is
+  grounded in (its headings and links), not from search.
+- **The affinity sort** (a board, WHITEBOARD_PLAN's territory): thirty
+  stickies grouped into named frames by theme, each placement shown with the
+  notes that back it, accepted per frame, one Undo step.
+- **The claim check** (DOCUMENTS_PLAN's territory): a document's sentences
+  checked against the notebook, each marked supported, contradicted or not
+  found, with the note.
+

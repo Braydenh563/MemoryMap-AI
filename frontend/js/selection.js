@@ -4,14 +4,9 @@
 // app.js's globals, loaded in app.js's old order; nothing in an earlier file
 // calls into it while the page loads (scratchpad/appjs-map.js --check).
 
-// Where the selected passage came from, when the app actually knows.
-//
-// Only the web reader can answer this today, and it can answer it exactly:
-// `webReaderPage` already holds the url and title of the page on screen. This
-// is the "capture surface" half of BACKLOG.md §65 (highlight/web-clip
-// capture): the half that item calls small. Everywhere else in the app the
-// honest answer is "no external source", and `null` says so rather than
-// inventing one.
+// Where the selected passage came from, when the app knows: only the web
+// reader (`webReaderPage` holds the page's url and title; BACKLOG.md §65).
+// Elsewhere `null` says there is no external source rather than inventing one.
 function selectionSource(node) {
   const el = node && (node.nodeType === 1 ? node : node.parentElement);
   if (!el || !el.closest("#web-reader")) return null;
@@ -19,12 +14,9 @@ function selectionSource(node) {
   return { url: webReaderPage.url, title: webReaderPage.title || webReaderPage.domain || "" };
 }
 
-// A passage, quoted, with its origin attributed underneath.
-//
-// Markdown blockquote rather than a bare paste, because a clipping is somebody
-// else's words and a notebook that cannot tell them from yours is worse than
-// one that refuses the clipping. The source line is a real markdown link, so
-// it stays clickable in the rendered note.
+// A passage, quoted, its origin attributed under it: a blockquote, because a
+// clipping is somebody else's words, and a real markdown link so it stays
+// clickable.
 function clippingMarkdown(text, source) {
   const quoted = text
     .split("\n")
@@ -37,20 +29,15 @@ function clippingMarkdown(text, source) {
 
 async function saveSelectionAsNote(text, { draft = false, source = null } = {}) {
   const content = source ? clippingMarkdown(text, source) : text;
-  // Real metadata alongside the body's own blockquote+link (BACKLOG §65's
-  // "source as metadata, not just folded into body text"), the body copy
-  // stays so the note is still a plain, portable markdown file with no app
-  // behind it; the columns are what let a note card show a real badge or a
-  // future "everything clipped from this site" filter without parsing it
-  // back out.
+  // Real metadata beside the body's own quote and link (BACKLOG §65): the body
+  // keeps the note a portable markdown file, the columns let a card show a
+  // badge without parsing it back out.
   const sourceFields = source
     ? { source_url: source.url, source_title: source.title || "" }
     : {};
-  //: **Said the moment it is pressed** (INBOX 446, the owner: "it did do
-  //: smth but i had to hard reset the app to see it and there was no
-  //: indication of it"). The save waits on the server, which files the note
-  //: before it answers, and seconds of nothing read as a dead menu item. A
-  //: progress toast now, then where it went, with Open to go and see it.
+  //: **Said the moment it is pressed** (INBOX 446): the save waits on the
+  //: server, which files the note first, and seconds of nothing read as a dead
+  //: menu item. A progress toast now, then where it went, with Open.
   const progress = toastProgress(draft ? "Saving as a draft…" : "Saving as a note…");
   try {
     const created = await apiJson("/entries", {
@@ -59,9 +46,7 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
       //: answer for as long as the model took (INBOX 446).
       body: JSON.stringify({ content, is_draft: draft, defer_filing: true, ...sourceFields }),
     });
-    // Undoable, like every other create in this app (the global stack: 
-    // see pushUndo). Saving a clipping by accident and having no way back
-    // would be a worse experience than the old three-button bar's.
+    // Undoable, like every other create (the global stack, `pushUndo`).
     pushUndo(
       draft ? "Saved a selection as a draft" : "Saved a selection as a note",
       async () => {
@@ -76,10 +61,8 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
         await loadEntries();
       }
     );
-    // Same fix as saveChatAnswerAsNote(): unconditional. A selection saved
-    // from wherever the popup was invoked (not necessarily the Notes tab)
-    // must not leave the in-memory `entries` list stale until something
-    // else happens to refetch it.
+    // Unconditional, as in saveChatAnswerAsNote(): the popup may not be on the
+    // Notes tab, and `entries` must not go stale.
     await loadEntries();
     progress.done(
       draft ? "Saved as a draft." : "Saved as a note, filing it now.",
@@ -90,17 +73,10 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
   }
 }
 
-// Append the selection to a note the user picks.
-//
-// Uses `pickEntryDialog` below rather than the chat dock's `#note-picker-panel`
-//, that one is a multi-select bound to the chat composer, not a general
-// chooser, and reusing it would mean it had two owners.
-//: `jump` is for the one caller that is not a selection: the writing desk's
-//: "Insert into a note". `flashEntry` is the app's answer to "where did it
-//: go", and it is the right answer for the selection popup, which has nothing
-//: left behind it. From the desk it walks off a half-written draft and its
-//: thoughts to show a note that is already saved, so that caller takes the
-//: same trip as an offer instead (`toastAction`), and stays where it is.
+// Append the selection to a note the user picks (`pickEntryDialog`; the chat's
+// Attach picker is the composer's). `jump` is for the writing desk's "Insert
+// into a note": `flashEntry` would walk off its half-written draft, so the
+// trip is offered (`toastAction`) instead.
 async function appendSelectionToNote(text, { jump = true, message = null, what = "the selected text" } = {}) {
   const entry = await pickEntryDialog(message || "Add the selected text to which note?");
   if (!entry) return;
@@ -124,21 +100,10 @@ async function appendSelectionToNote(text, { jump = true, message = null, what =
   }
 }
 
-//: **The board's own way into a note** (INBOX 309). The second of the two
-//: doorways the owner asked for, and the one that starts where the thought
-//: does: you are looking at the board, and it belongs with something you
-//: wrote.
-//:
-//: Deliberately `appendSelectionToNote` rather than a second write path. That
-//: function already picks the note, appends, records the undo
-//: (`pushEntryPutUndo`) and reloads the list; a board-shaped copy of it would
-//: be a second place for "add text to a note" to get its undo wrong.
-//:
-//: The index is invalidated before the note is drawn again, because the board
-//: may have been made in the last eight seconds: see `loadMapBoardIndex`'s
-//: `force`. Without it the note would paint the board's own object as a
-//: tombstone the moment it was added, which is the worst possible first
-//: impression of this feature.
+//: **The board's own way into a note** (INBOX 309), through
+//: `appendSelectionToNote` rather than a second write path (one undo). The
+//: index is invalidated first: a board made in the last eight seconds would
+//: otherwise paint as a tombstone (`loadMapBoardIndex`'s `force`).
 async function addBoardToNote(board) {
   if (!board || board.id == null) {
     toast("The default board has no name to put in a note. Make a board first.");
@@ -153,115 +118,204 @@ async function addBoardToNote(board) {
   if (typeof loadMapBoardIndex === "function") loadMapBoardIndex(true);
 }
 
-// A one-off "choose a note" dialog: search box, live list, Escape to cancel.
-//
-// Built on the same shape as `promptDialog` (overlay + card + captured
-// keydown + returned focus) rather than beside it, so a dialog opened from a
-// selection behaves identically to every other dialog in the app, 
-// `activeOverlay()` picks it up from its `role="dialog"` and traps Tab inside
-// it with no registration step.
+//: **The picker dialog** (INBOX 548, the owner: "redesign old ui popups like
+//: this as well to be consistent, modern and professional"). One shell for
+//: every "choose from your notebook" dialog, on DESIGN.md's recipes rather than
+//: the confirm alert's: the `.dialog-head` (the title, the icon X last), a
+//: `.seg` of sources when there are several, one line of description, the
+//: `.search-field` well, the list, and the dialog foot only when a choice
+//: needs confirming. Escape, the X and the backdrop close it, and the focus
+//: goes back to what opened it. `role="dialog"` on the overlay is what
+//: `activeOverlay()` traps Tab inside, with no registration step. The
+//: `entry-pick-*` classes stay as the sweeps' hooks.
+function pickerDialog({ title, about = "", placeholder, searchLabel = placeholder, list = null }) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay confirm-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", title);
+  const card = document.createElement("div");
+  card.className = "card modal-card space-dialog entry-pick-card";
+  const head = document.createElement("div");
+  head.className = "dialog-head";
+  const heading = document.createElement("h2");
+  heading.className = "dialog-head-title";
+  heading.textContent = title;
+  const actions = document.createElement("span");
+  actions.className = "dialog-head-actions";
+  head.append(heading, actions);
+  const line = document.createElement("p");
+  line.className = "muted entry-pick-about";
+  line.textContent = about;
+  const field = document.createElement("div");
+  field.className = "search-field";
+  const glyph = document.createElement("i");
+  glyph.className = "ph ph-magnifying-glass search-field-icon";
+  glyph.setAttribute("aria-hidden", "true");
+  const search = document.createElement("input");
+  search.type = "search";
+  search.className = "search-field-input";
+  search.autocomplete = "off";
+  search.placeholder = placeholder;
+  search.setAttribute("aria-label", searchLabel);
+  field.append(glyph, search);
+  if (!list) {
+    list = document.createElement("ul");
+    list.className = "rich-picker-list entry-pick-list";
+  }
+  const returnFocus = document.activeElement;
+  let settled = false;
+  let answer = () => {};
+  const onKey = (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    event.stopPropagation();
+    close(null);
+  };
+  const close = (value) => {
+    if (settled) return;
+    settled = true;
+    document.removeEventListener("keydown", onKey, true);
+    overlay.remove();
+    if (returnFocus?.isConnected) returnFocus.focus?.();
+    answer(value);
+  };
+  const x = smallButton("ph:x", "Close", () => close(null));
+  x.classList.add("icon-only", "dialog-head-btn");
+  x.setAttribute("aria-label", "Close");
+  actions.appendChild(x);
+  return {
+    card, search, list, close,
+    //: The parts in the recipe's order, then open.
+    open(resolve, { seg = null, foot = null } = {}) {
+      answer = resolve;
+      card.append(head, ...(seg ? [seg] : []), ...(about ? [line] : []), field, list, ...(foot ? [foot] : []));
+      overlay.appendChild(card);
+      wireBackdropClose(overlay, () => close(null));
+      document.addEventListener("keydown", onKey, true);
+      document.body.appendChild(overlay);
+      search.focus();
+    },
+  };
+}
+
+//: A list's own state in its place (loading, nothing there, nothing
+//: matching): the Attach picker's, one sentence and at most one action.
+function pickerListState(list, text, action = null) {
+  list.replaceChildren();
+  notePickerEmpty(list, text, action);
+  list.lastElementChild?.setAttribute("role", "presentation");
+}
+
+//: **One choice, picked by typing** (the "/" menu's keys, the rich picker's
+//: rows): the field is a combobox driving a listbox; Down and Up light a row,
+//: Enter takes it, the pointer lights the row under it and a click takes it.
+//: A lit row is brought into view by the list's own `scrollTop`.
+let pickerListCount = 0;
+function pickerListbox(shell, label) {
+  const { search, list } = shell;
+  list.id = `entry-pick-list-${(pickerListCount += 1)}`;
+  list.setAttribute("role", "listbox");
+  list.setAttribute("aria-label", label);
+  search.setAttribute("role", "combobox");
+  search.setAttribute("aria-controls", list.id);
+  search.setAttribute("aria-expanded", "true");
+  search.setAttribute("aria-autocomplete", "list");
+  let rows = [];
+  let values = [];
+  let at = -1;
+  const light = (index) => {
+    at = index;
+    const row = richPickerSetActive(list, rows, index);
+    if (!row) return search.removeAttribute("aria-activedescendant");
+    search.setAttribute("aria-activedescendant", row.id);
+    const box = list.getBoundingClientRect();
+    const r = row.getBoundingClientRect();
+    if (r.top < box.top) list.scrollTop -= box.top - r.top;
+    else if (r.bottom > box.bottom) list.scrollTop += r.bottom - box.bottom;
+  };
+  search.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (rows.length) light(Math.max(0, Math.min(rows.length - 1, at + (event.key === "ArrowDown" ? 1 : -1))));
+    } else if (event.key === "Enter" && rows[at]) {
+      event.preventDefault();
+      shell.close(values[at]);
+    }
+  });
+  return {
+    //: `items` are `{icon, label, about, value}`; `query` marks the letters.
+    fill(items, query, emptyText) {
+      if (!items.length) {
+        rows = [];
+        values = [];
+        light(-1);
+        return pickerListState(list, emptyText);
+      }
+      list.replaceChildren();
+      rows = items.map((item, i) => {
+        const row = richPickerRow({ ...item, query, id: `${list.id}-${i}`, className: "entry-pick-row" });
+        row.title = item.label;
+        row.addEventListener("mousemove", () => at !== i && light(i));
+        row.addEventListener("mousedown", (event) => event.preventDefault());
+        row.addEventListener("click", () => shell.close(item.value));
+        list.appendChild(row);
+        return row;
+      });
+      values = items.map((item) => item.value);
+      list.scrollTop = 0;
+      light(0);
+    },
+    loading(text) {
+      rows = [];
+      light(-1);
+      pickerListState(list, text);
+    },
+  };
+}
+
+//: A note's second line: its category, then when it was last touched.
+function pickerNoteAbout(entry) {
+  return notePickerFacts(entry.category || "Unfiled", relativeTime(entry.updated_at || entry.created_at));
+}
+
+//: A one-off "choose a note" dialog (the selection's "Add to a note…", a
+//: board's "Add to which note?"). Drafts are left out: adding to a half-typed
+//: capture is not what "an existing note" means.
 function pickEntryDialog(message) {
   return new Promise((resolve) => {
-    const overlay = document.createElement("div");
-    overlay.className = "modal-overlay confirm-overlay";
-    overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-modal", "true");
-    overlay.setAttribute("aria-label", message);
-
-    const card = document.createElement("div");
-    card.className = "card modal-card confirm-card entry-pick-card";
-    const text = document.createElement("p");
-    text.className = "confirm-text";
-    text.textContent = message;
-    const search = document.createElement("input");
-    search.type = "text";
-    search.placeholder = "Search your notes…";
-    search.setAttribute("aria-label", "Search your notes");
-    const list = document.createElement("div");
-    list.className = "entry-pick-list";
-
-    const returnFocus = document.activeElement;
-    let settled = false;
-    const close = (entry) => {
-      if (settled) return;
-      settled = true;
-      document.removeEventListener("keydown", onKey, true);
-      overlay.remove();
-      returnFocus?.focus?.();
-      resolve(entry);
-    };
-    const onKey = (event) => {
-      if (event.key !== "Escape") return;
-      event.stopPropagation();
-      close(null);
-    };
-
-    // Drafts excluded: adding to a half-finished draft is not what "an
-    // existing note" means, and the Notes tab already keeps them out of every
-    // other list for the same reason.
+    const shell = pickerDialog({ title: message, placeholder: "Search your notes…", searchLabel: "Search your notes" });
+    const box = pickerListbox(shell, "Your notes");
     const paint = () => {
-      const term = search.value.trim().toLowerCase();
-      const matches = allEntries
+      const term = shell.search.value.trim();
+      const needle = term.toLowerCase();
+      const items = allEntries
         .filter((e) => !e.is_draft && !e.is_deleted)
-        .filter((e) => !term || (e.content || "").toLowerCase().includes(term))
-        .slice(0, 40);
-      list.replaceChildren();
-      if (!matches.length) {
-        const empty = document.createElement("p");
-        empty.className = "muted";
-        empty.textContent = term ? "No notes match that." : "No notes yet.";
-        list.appendChild(empty);
-        return;
-      }
-      for (const entry of matches) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "entry-pick-row";
-        button.textContent = entry.title || clipText(notePreviewText(entry.content), 90);
-        button.addEventListener("click", () => close(entry));
-        list.appendChild(button);
-      }
+        .filter((e) => !needle || (e.content || "").toLowerCase().includes(needle))
+        .slice(0, 40)
+        .map((entry) => ({
+          icon: "ph:note",
+          label: entry.title || clipText(notePreviewText(entry.content), 90),
+          about: pickerNoteAbout(entry),
+          value: entry,
+        }));
+      box.fill(items, term, term ? `No notes match “${term}”.` : "No notes yet.");
     };
-    search.addEventListener("input", paint);
+    shell.search.addEventListener("input", paint);
     paint();
-
-    const row = document.createElement("div");
-    row.className = "row confirm-actions";
-    row.append(smallButton("Cancel", "Cancel", () => close(null)));
-    card.append(text, search, list, row);
-    overlay.appendChild(card);
-    wireBackdropClose(overlay, () => close(null));
-    document.addEventListener("keydown", onKey, true);
-    document.body.appendChild(overlay);
-    search.focus();
+    shell.open(resolve);
   });
 }
 
 //: **Choose any one thing the library holds**, a note, a document, a file or
-//: a saved link: as `{kind, id, label}`.
-//:
-//: A fourth chooser only because the three that exist answer different
-//: questions. `pickEntryDialog` above returns a *note* and nothing else;
-//: `pickMediaDialog` below returns an upload; the chat dock's
-//: `#note-picker-panel` is a multi-select bound to the composer's own
-//: attachment lists, so borrowing it would give it two owners (its own
-//: comment says as much). This one returns exactly one item and says which of
-//: the four tables it came from, which is what a map's reference node needs:
-//: `POST /whiteboard/boards/{id}/nodes` takes a `kind` and a `ref_id` and
-//: resolves the label itself (MINDMAP_PLAN.md §9.2: a copied title goes
-//: stale the moment the thing behind it is renamed).
-//:
-//: `kind` is deliberately the *server's* vocabulary: note / document / file
-//: / link, `MAP_REFERENCE_KINDS` in routes_whiteboard.py: rather than a
-//: display word, so a caller never has to translate between what the picker
-//: says and what the endpoint accepts.
-//: **`optIn` keeps a source out of the default set.** A board is a thing the
-//: Library holds and a perfectly good thing to point at from a note (INBOX
-//: 309), but this dialog's first caller feeds a map's reference node, and
-//: `MAP_REFERENCE_KINDS` in routes_whiteboard.py is note / document / file /
-//: link: a board offered there would be a row that cannot be saved. So the
-//: board source exists, and only a caller that names it in `sources` is
-//: shown it.
+//: a saved link, as `{kind, id, label, row}`. Not `pickEntryDialog` (notes
+//: only), `pickMediaDialog` (an upload) or the chat's Attach picker (a
+//: multi-select bound to the composer). `kind` is the *server's* vocabulary
+//: (`MAP_REFERENCE_KINDS` in routes_whiteboard.py), so a map's reference node
+//: posts it as is and the server resolves the label (MINDMAP_PLAN.md §9.2).
+//: **`optIn` keeps a source out of the default set**: a board is a fine thing
+//: to point at from a note (INBOX 309), but not from a map's reference node,
+//: so only a caller that names it in `sources` is shown it.
 const LIBRARY_PICK_SOURCES = [
   { kind: "note", label: "Notes", icon: "ph:note", placeholder: "Search your notes…" },
   { kind: "document", label: "Documents", icon: "ph:file-text", path: "/documents", placeholder: "Search your documents…" },
@@ -270,23 +324,19 @@ const LIBRARY_PICK_SOURCES = [
   {
     kind: "board",
     label: "Boards and maps",
-    //: Per row, not per source: a whiteboard and a mind map sit in one list
-    //: here, and the owner has already reported once that a list of bare
-    //: titles gives no way to tell them apart.
+    //: Per row: a whiteboard and a mind map sit in one list, and a list of
+    //: bare titles gave no way to tell them apart.
     icon: (row) => (row?.type === "board" ? "ph:squares-four" : "ph:tree-structure"),
     path: "/whiteboard/boards",
     placeholder: "Search your boards and maps…",
-    //: The unnamed scratch board (`id: null`) is left out, the same rule
-    //: `renderAttachToBoard` states: it is where things land when nobody
-    //: chose a board, not somewhere to point at on purpose.
+    //: The unnamed scratch board (`id: null`) is where things land when nobody
+    //: chose a board, not somewhere to point at (`renderAttachToBoard`).
     keep: (row) => row && row.id != null,
     optIn: true,
   },
 ];
 
-//: One row's label per source, in one table for the reason `notePickerShape`
-//: gives for its own: the renderer is the same list either way, and four
-//: copies of it is how the four drift apart.
+//: One row's label per source, in one table (`notePickerShape`'s reason).
 function libraryPickLabel(kind, row) {
   if (kind === "note") return noteLabel(row, 70);
   if (kind === "board") return row.title || (row.type === "board" ? "Untitled board" : "Untitled map");
@@ -295,76 +345,52 @@ function libraryPickLabel(kind, row) {
   return row.title || row.url || "Link";
 }
 
-//: Fetched once per dialog rather than per keystroke, and per source rather
-//: than all four up front, the same two rules `notePickerRows` follows, and
-//: for the same reason: three of these lists are never looked at by someone
-//: who came to point at a note.
+//: And its second line: what tells two rows with one name apart.
+function libraryPickAbout(kind, row) {
+  const when = relativeTime(row.updated_at || row.created_at);
+  if (kind === "note") return pickerNoteAbout(row);
+  if (kind === "document") return notePickerFacts(when && `Edited ${when}`, row.words ? `${row.words} word${row.words === 1 ? "" : "s"}` : "");
+  if (kind === "file") return notePickerFacts(row.size_bytes ? formatFileSize(row.size_bytes) : "", notePickerUsedIn(row) || when);
+  if (kind === "board") return notePickerFacts(row.type === "board" ? "Whiteboard" : "Mind map", when);
+  let host = "";
+  try {
+    host = new URL(row.url).hostname.replace(/^www\./, "");
+  } catch {
+    host = row.url || "";
+  }
+  return notePickerFacts(host, row.group || "");
+}
+
+//: Fetched once per dialog and per source, not per keystroke and not all up
+//: front (three of these lists are never looked at by someone pointing at a
+//: note). A slow fetch that lands after the tab changed paints nothing.
 function pickLibraryItemDialog(message, { sources = null } = {}) {
   const available = LIBRARY_PICK_SOURCES.filter((source) =>
     sources ? sources.includes(source.kind) : !source.optIn
   );
   return new Promise((resolve) => {
-    const overlay = document.createElement("div");
-    overlay.className = "modal-overlay confirm-overlay";
-    overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-modal", "true");
-    overlay.setAttribute("aria-label", message);
-
-    const card = document.createElement("div");
-    card.className = "card modal-card confirm-card entry-pick-card";
-    const text = document.createElement("p");
-    text.className = "confirm-text";
-    text.textContent = message;
-
     let active = available[0];
+    const shell = pickerDialog({ title: message, placeholder: active.placeholder, searchLabel: message });
+    const box = pickerListbox(shell, active.label);
     const seg = document.createElement("div");
     seg.className = "seg seg-compact";
     seg.setAttribute("role", "tablist");
     seg.setAttribute("aria-label", "What to point at");
 
-    const search = document.createElement("input");
-    search.type = "search";
-    search.placeholder = active.placeholder;
-    search.setAttribute("aria-label", message);
-    const list = document.createElement("div");
-    list.className = "entry-pick-list";
-
-    const returnFocus = document.activeElement;
-    let settled = false;
-    const close = (choice) => {
-      if (settled) return;
-      settled = true;
-      document.removeEventListener("keydown", onKey, true);
-      overlay.remove();
-      returnFocus?.focus?.();
-      resolve(choice);
-    };
-    const onKey = (event) => {
-      if (event.key !== "Escape") return;
-      event.stopPropagation();
-      close(null);
-    };
-
-    //: Per-source, so switching tabs and back does not re-fetch. Notes are
-    //: never in here: `allEntries` is already in memory and is kept current
-    //: by every save, so a second copy would be the stale one.
+    //: Notes are never cached: `allEntries` is kept current by every save.
+    //: Drafts, deleted, private notes and boards are left out (a board is
+    //: usually the very thing this picker was opened from).
     const cache = {};
     let token = 0;
-
     const rowsFor = async (kind) => {
       if (kind === "note") {
-        //: Drafts, deleted notes, private notes and boards are all excluded.
-        //: Drafts for the reason `pickEntryDialog` gives: "an existing note"
-        //: does not mean a half-typed capture, and a board because it is
-        //: usually the very thing this picker was opened *from*.
         return (typeof allEntries !== "undefined" ? allEntries : []).filter(
           (entry) => !entry.is_draft && !entry.is_deleted && !entry.is_board && !entry.is_private
         );
       }
       if (cache[kind]) return cache[kind];
       const source = available.find((s) => s.kind === kind);
-      //: The gallery is paged (tests/test_gallery_paging.py); the other
-      //: sources answer in one response.
+      //: The gallery is paged (tests/test_gallery_paging.py); the rest answer once.
       const read = source.path === "/files/gallery"
         ? apiPagedList(source.path, 200, { silent: true })
         : apiJson(source.path, { silent: true });
@@ -376,270 +402,185 @@ function pickLibraryItemDialog(message, { sources = null } = {}) {
 
     const paint = async () => {
       const mine = (token += 1);
-      const kind = active.kind;
-      const term = search.value.trim().toLowerCase();
-      const rows = await rowsFor(kind);
-      // A slow fetch that finished after the user moved on must not paint
-      // over the tab they are actually looking at.
-      if (mine !== token || active.kind !== kind) return;
-      const matches = rows
-        .map((row) => ({ row, label: libraryPickLabel(kind, row) }))
-        .filter(({ label }) => !term || label.toLowerCase().includes(term))
-        .slice(0, 40);
-      list.replaceChildren();
-      if (!matches.length) {
-        const empty = document.createElement("p");
-        empty.className = "muted";
-        empty.textContent = term
-          ? `No ${active.label.toLowerCase()} match that.`
-          : `No ${active.label.toLowerCase()} yet.`;
-        list.appendChild(empty);
-        return;
-      }
-      for (const { row, label } of matches) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "entry-pick-row";
-        setLabel(button, `${typeof active.icon === "function" ? active.icon(row) : active.icon} ${label}`);
-        button.title = label;
-        //: The row itself travels with the choice. A caller that only needs
-        //: an id is unchanged (it destructures the three it always did), and
-        //: a caller that needs a fact the row already carries, whether a
-        //: board is a map, gets it without a second fetch for a list it has
-        //: just read.
-        button.addEventListener("click", () => close({ kind, id: row.id, label, row }));
-        list.appendChild(button);
-      }
+      const source = active;
+      const term = shell.search.value.trim();
+      if (source.kind !== "note" && !cache[source.kind]) box.loading(`Loading your ${source.label.toLowerCase()}…`);
+      const rows = await rowsFor(source.kind);
+      if (mine !== token || active !== source) return;
+      const nouns = source.label.toLowerCase();
+      const items = rows
+        .map((row) => ({ row, label: libraryPickLabel(source.kind, row) }))
+        .filter(({ label }) => !term || label.toLowerCase().includes(term.toLowerCase()))
+        .slice(0, 40)
+        //: The row itself travels with the choice, so a caller that needs a
+        //: fact the row carries (whether a board is a map) has it without a
+        //: second fetch.
+        .map(({ row, label }) => ({
+          icon: typeof source.icon === "function" ? source.icon(row) : source.icon,
+          label,
+          about: libraryPickAbout(source.kind, row),
+          value: { kind: source.kind, id: row.id, label, row },
+        }));
+      box.fill(items, term, term ? `No ${nouns} match “${term}”.` : `No ${nouns} yet.`);
     };
 
+    //: The tabs: one Tab stop, the arrows walk them (the Attach picker's keys).
+    const choose = (source, focus) => {
+      active = source;
+      for (const tab of seg.children) {
+        const on = tab.dataset.pickKind === source.kind;
+        tab.classList.toggle("active", on);
+        tab.setAttribute("aria-selected", String(on));
+        tab.tabIndex = on ? 0 : -1;
+        if (on && focus) tab.focus();
+      }
+      shell.search.placeholder = source.placeholder;
+      shell.list.setAttribute("aria-label", source.label);
+      paint();
+    };
     for (const source of available) {
       const tab = document.createElement("button");
       tab.type = "button";
       tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-controls", shell.list.id);
       tab.dataset.pickKind = source.kind;
       tab.textContent = source.label;
-      const on = source.kind === active.kind;
-      tab.classList.toggle("active", on);
-      tab.setAttribute("aria-selected", on ? "true" : "false");
       tab.addEventListener("click", () => {
-        active = source;
-        for (const sibling of seg.querySelectorAll("button")) {
-          const chosen = sibling.dataset.pickKind === source.kind;
-          sibling.classList.toggle("active", chosen);
-          sibling.setAttribute("aria-selected", chosen ? "true" : "false");
-        }
-        search.placeholder = source.placeholder;
-        paint();
-        search.focus();
+        choose(source);
+        shell.search.focus();
       });
       seg.appendChild(tab);
     }
-
-    search.addEventListener("input", paint);
-    paint();
-
-    const row = document.createElement("div");
-    row.className = "row confirm-actions";
-    row.append(smallButton("Cancel", "Cancel", () => close(null)));
-    card.append(text, ...(available.length > 1 ? [seg] : []), search, list, row);
-    overlay.appendChild(card);
-    wireBackdropClose(overlay, () => close(null));
-    document.addEventListener("keydown", onKey, true);
-    document.body.appendChild(overlay);
-    search.focus();
+    seg.addEventListener("keydown", (event) => {
+      const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+      if (!step) return;
+      event.preventDefault();
+      const at = available.indexOf(active);
+      choose(available[(at + step + available.length) % available.length], true);
+    });
+    shell.search.addEventListener("input", paint);
+    choose(active);
+    shell.open(resolve, { seg: available.length > 1 ? seg : null });
   });
 }
 
-//: **Several notes at once**, which `pickLibraryItemDialog` above deliberately
-//: cannot do: that one closes on the first click, because pointing a node at a
-//: note is one choice and a confirm step would be a second click for nothing.
-//: "Make a map of these notes" is the opposite shape, a list you assemble, so
-//: the row is a checkbox and the dialog closes on a button.
-//:
-//: It draws the same `.entry-pick-*` recipe as its single-pick sibling rather
-//: than a second look for the same job, and it reads `allEntries`, the
-//: in-memory list every save keeps current, so there is no fetch and no second
-//: copy of the notebook to go stale.
-//:
-//: Resolves with an array of `{id, label}` in the order they were ticked, or
-//: null if the dialog was dismissed: the empty array is a real answer nobody
-//: wants (a map of no notes), so the confirm button stays disabled until at
-//: least one row is on.
+//: **Several notes at once**, which `pickLibraryItemDialog` deliberately
+//: cannot do: "make a map of these notes" is a list you assemble, so the rows
+//: are the Attach picker's (`notePickerRow`: tile, name over its facts, a
+//: check ring) and the dialog closes on its one filled button. The ticks live
+//: in `chosen`, not the DOM, so a note stays chosen when a search hides its
+//: row. Resolves with `{id, label}`s in the order they were ticked, or null
+//: when dismissed; the button stays off until one row is on.
 function pickNotesDialog(message, { confirmLabel = "Continue", limit = 40 } = {}) {
   return new Promise((resolve) => {
-    const overlay = document.createElement("div");
-    overlay.className = "modal-overlay confirm-overlay";
-    overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-modal", "true");
-    overlay.setAttribute("aria-label", message);
-
-    const card = document.createElement("div");
-    card.className = "card modal-card confirm-card entry-pick-card";
-    const head = document.createElement("div");
-    head.className = "row confirm-head";
-    const title = document.createElement("h3");
-    title.className = "confirm-title";
-    title.textContent = message;
-    head.appendChild(title);
-
-    const search = document.createElement("input");
-    search.type = "search";
-    search.placeholder = "Search your notes…";
-    search.setAttribute("aria-label", message);
-    const list = document.createElement("div");
-    list.className = "entry-pick-list";
-    const count = document.createElement("p");
-    count.className = "muted";
-
-    //: The ticks live here and not in the DOM, so a note stays chosen when a
-    //: search term hides its row: typing a second term to find the second note
-    //: would otherwise silently unpick the first.
+    const list = document.createElement("ul");
+    list.className = "note-picker-list entry-pick-list";
+    list.setAttribute("aria-label", "Your notes");
+    const shell = pickerDialog({ title: message, placeholder: "Search your notes…", searchLabel: message, list });
     const chosen = new Map();
-    const returnFocus = document.activeElement;
-    let settled = false;
-    const close = (answer) => {
-      if (settled) return;
-      settled = true;
-      document.removeEventListener("keydown", onKey, true);
-      overlay.remove();
-      returnFocus?.focus?.();
-      resolve(answer);
-    };
-    const onKey = (event) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      event.stopPropagation();
-      close(null);
-    };
-
+    const count = document.createElement("span");
+    count.className = "muted";
     const confirm = smallButton(confirmLabel, confirmLabel, () => {
-      if (!chosen.size) return;
-      close([...chosen.entries()].map(([id, label]) => ({ id, label })));
+      if (chosen.size) shell.close([...chosen.entries()].map(([id, label]) => ({ id, label })));
     }, false);
+    confirm.classList.add("accent");
+    const cancel = smallButton("Cancel", "Cancel", () => shell.close(null));
+    const foot = document.createElement("div");
+    foot.className = "row space-dialog-actions";
+    foot.append(count, cancel, confirm);
 
     const refreshCount = () => {
       count.textContent = chosen.size
-        ? `${chosen.size} note${chosen.size === 1 ? "" : "s"} chosen${chosen.size >= limit ? ` (the most this can use is ${limit})` : ""}`
-        : "Pick the notes this should be built from.";
+        ? `${chosen.size} note${chosen.size === 1 ? "" : "s"} chosen${chosen.size >= limit ? ` (the most is ${limit})` : ""}`
+        : "Pick the notes to build from.";
       confirm.disabled = chosen.size === 0;
     };
-
-    const paint = () => {
-      const term = search.value.trim().toLowerCase();
-      const rows = (typeof allEntries !== "undefined" ? allEntries : []).filter(
-        (entry) => !entry.is_draft && !entry.is_deleted && !entry.is_board && !entry.is_private
-      );
-      const matches = rows
-        .map((row) => ({ row, label: noteLabel(row, 70) }))
-        .filter(({ label }) => !term || label.toLowerCase().includes(term))
-        .slice(0, 60);
-      list.replaceChildren();
-      if (!matches.length) {
-        const empty = document.createElement("p");
-        empty.className = "muted";
-        empty.textContent = term ? "No notes match that." : "No notes yet.";
-        list.appendChild(empty);
-        return;
-      }
-      for (const { row, label } of matches) {
-        const line = document.createElement("label");
-        line.className = "entry-pick-row entry-pick-check";
-        const box = document.createElement("input");
-        box.type = "checkbox";
-        box.checked = chosen.has(row.id);
-        box.addEventListener("change", () => {
-          if (box.checked && chosen.size >= limit && !chosen.has(row.id)) {
-            box.checked = false;
-            toast(`That is the most this can use at once: ${limit} notes.`);
-            return;
-          }
-          if (box.checked) chosen.set(row.id, label);
-          else chosen.delete(row.id);
-          refreshCount();
-        });
-        const text = document.createElement("span");
-        text.textContent = label;
-        line.append(box, text);
-        line.title = label;
-        list.appendChild(line);
-      }
+    const shape = {
+      label: (row) => noteLabel(row, 70),
+      icon: () => "ph:note",
+      meta: notePickerShape("notes").meta,
+      isOn: (row) => chosen.has(row.id),
+      add: (row) => {
+        if (chosen.size >= limit) return false;
+        chosen.set(row.id, noteLabel(row, 70));
+      },
+      remove: (row) => chosen.delete(row.id),
+      full: `That is the most this can use at once: ${limit} notes.`,
     };
-
-    search.addEventListener("input", paint);
+    const paint = () => {
+      const term = shell.search.value.trim();
+      const rows = (typeof allEntries !== "undefined" ? allEntries : [])
+        .filter((entry) => !entry.is_draft && !entry.is_deleted && !entry.is_board && !entry.is_private)
+        .filter((entry) => !term || noteLabel(entry, 70).toLowerCase().includes(term.toLowerCase()))
+        .slice(0, 60);
+      if (!rows.length) return pickerListState(list, term ? `No notes match “${term}”.` : "No notes yet.");
+      list.replaceChildren(
+        ...rows.map((row) => {
+          const li = notePickerRow(shape, row);
+          li.classList.add("entry-pick-check");
+          li.querySelector(".note-picker-box").addEventListener("change", refreshCount);
+          return li;
+        })
+      );
+      notePickerRoving(list, 0);
+    };
+    //: The keys: Down from the field enters the list, Up and Down walk it
+    //: (Up from the first row goes back), Space ticks, Enter confirms.
+    shell.search.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowDown") return;
+      event.preventDefault();
+      list.querySelector(".note-picker-box")?.focus();
+    });
+    list.addEventListener("keydown", (event) => {
+      const boxes = [...list.querySelectorAll(".note-picker-box")];
+      const at = boxes.indexOf(document.activeElement);
+      if (at < 0) return;
+      if (event.key === "Enter") {
+        event.preventDefault();
+        return confirm.click();
+      }
+      const to = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: boxes.length - 1 }[event.key];
+      if (to === undefined) return;
+      event.preventDefault();
+      if (to < 0) return shell.search.focus();
+      notePickerRoving(list, Math.min(to, boxes.length - 1))[Math.min(to, boxes.length - 1)].focus();
+    });
+    shell.search.addEventListener("input", paint);
     paint();
     refreshCount();
-
-    const row = document.createElement("div");
-    row.className = "row confirm-actions";
-    row.append(smallButton("Cancel", "Cancel", () => close(null)), confirm);
-    card.append(head, search, list, count, row);
-    overlay.appendChild(card);
-    wireBackdropClose(overlay, () => close(null));
-    document.addEventListener("keydown", onKey, true);
-    document.body.appendChild(overlay);
-    search.focus();
+    shell.open(resolve, { foot });
   });
 }
 
-// Pick something already uploaded rather than uploading it again, asked for
-// directly: "I also want to be able to attach images that are already in the
-// image library... to new notes in the capture subtab." `/media` (the same
-// list the Image Gallery renders from) has no mime field, only a filename
-// and an original name, reusing the gallery's own approach of just trying
-// each as an <img> and dropping the tile on error, rather than guessing from
-// a file extension.
+//: Pick something already uploaded rather than uploading it again ("attach
+//: images that are already in the image library... to new notes in the
+//: capture subtab"). `/media` has no mime field, so each tile is tried as an
+//: `<img>` and drops itself on error, the gallery's own approach.
 function pickMediaDialog() {
   return new Promise((resolve) => {
-    const overlay = document.createElement("div");
-    overlay.className = "modal-overlay confirm-overlay";
-    overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-modal", "true");
-    overlay.setAttribute("aria-label", "Choose from your library");
-
-    const card = document.createElement("div");
-    card.className = "card modal-card confirm-card entry-pick-card";
-    const text = document.createElement("p");
-    text.className = "confirm-text";
-    text.textContent = "Choose an image already in your library";
-    const search = document.createElement("input");
-    search.type = "text";
-    search.placeholder = "Search by filename…";
-    search.setAttribute("aria-label", "Search your uploaded images");
     const grid = document.createElement("div");
     grid.className = "media-pick-grid";
-
-    const returnFocus = document.activeElement;
-    let settled = false;
-    const close = (upload) => {
-      if (settled) return;
-      settled = true;
-      document.removeEventListener("keydown", onKey, true);
-      overlay.remove();
-      returnFocus?.focus?.();
-      resolve(upload);
-    };
-    const onKey = (event) => {
-      if (event.key !== "Escape") return;
-      event.stopPropagation();
-      close(null);
-    };
-
+    const shell = pickerDialog({
+      title: "Choose from your library",
+      about: "An image already in your library, attached without uploading it again.",
+      placeholder: "Search by file name…",
+      searchLabel: "Search your uploaded images",
+      list: grid,
+    });
     let uploads = [];
+    const say = (text) => {
+      const line = document.createElement("p");
+      line.className = "muted entry-pick-empty";
+      line.textContent = text;
+      grid.replaceChildren(line);
+    };
     const paint = () => {
-      const term = search.value.trim().toLowerCase();
-      const matches = uploads
-        .filter((u) => !term || u.original_name.toLowerCase().includes(term))
-        .slice(0, 60);
-      grid.replaceChildren();
+      const term = shell.search.value.trim().toLowerCase();
+      const matches = uploads.filter((u) => !term || u.original_name.toLowerCase().includes(term)).slice(0, 60);
       if (!matches.length) {
-        const empty = document.createElement("p");
-        empty.className = "muted";
-        empty.textContent = uploads.length
-          ? "No uploads match that."
-          : "Nothing uploaded yet: attach a new file to start your library.";
-        grid.appendChild(empty);
-        return;
+        return say(uploads.length ? "No uploads match that." : "Nothing uploaded yet: attach a new file to start your library.");
       }
+      grid.replaceChildren();
       for (const upload of matches) {
         const tile = document.createElement("button");
         tile.type = "button";
@@ -649,41 +590,23 @@ function pickMediaDialog() {
         img.src = mediaSrc(upload.url);
         img.alt = "";
         img.loading = "lazy";
-        // Not every upload is an image (there's no mime field to check
-        // first): a file that can't decode as one drops its own tile
-        // rather than showing a broken-image glyph, same as the gallery.
         img.addEventListener("error", () => tile.remove());
         const name = document.createElement("span");
         name.textContent = upload.original_name;
         tile.append(img, name);
-        tile.addEventListener("click", () => close(upload));
+        tile.addEventListener("click", () => shell.close(upload));
         grid.appendChild(tile);
       }
     };
-    search.addEventListener("input", paint);
-
-    const row = document.createElement("div");
-    row.className = "row confirm-actions";
-    row.append(smallButton("Cancel", "Cancel", () => close(null)));
-    card.append(text, search, grid, row);
-    overlay.appendChild(card);
-    wireBackdropClose(overlay, () => close(null));
-    document.addEventListener("keydown", onKey, true);
-    document.body.appendChild(overlay);
-    search.focus();
-
+    shell.search.addEventListener("input", paint);
+    say("Loading your library…");
+    shell.open(resolve);
     apiJson("/media", { silent: true })
       .then((list) => {
         uploads = list || [];
         paint();
       })
-      .catch(() => {
-        grid.replaceChildren();
-        const err = document.createElement("p");
-        err.className = "muted";
-        err.textContent = "Couldn't load your library.";
-        grid.appendChild(err);
-      });
+      .catch(() => say("Couldn't load your library."));
   });
 }
 
@@ -708,21 +631,13 @@ async function remindFromSelection(text) {
   }
 }
 
-// The actions the ⋯ offers. Rebuilt on every open rather than once, because
-// two of them depend on state that changes between selections: whether the
-// passage has a source to attribute, and whether the local model is running.
-// The <textarea>/<input> a selection came from, or null when the selection is
-// in rendered content. Kept separate from `selectionPopupText` because the
-// field is what an edit action needs to write back into.
+// The field a selection came from (what an edit action writes back into), or
+// null in rendered content.
 let selectionPopupField = null;
 
-// A selection inside a text field, or null.
-//
-// This needs its own path because `window.getSelection()` does not see inside
-// a <textarea>, the browser keeps that selection on the element itself, as
-// `selectionStart`/`selectionEnd`. That is the real reason the popup never
-// appeared while editing, and reading the DOM selection alone will always
-// come back empty there no matter what the exclusion list says.
+// A selection inside a text field, or null: `window.getSelection()` does not
+// see inside a <textarea>, which keeps its own
+// `selectionStart`/`selectionEnd`.
 function fieldSelection() {
   const el = document.activeElement;
   if (!el || (el.tagName !== "TEXTAREA" && el.tagName !== "INPUT")) return null;
@@ -740,10 +655,8 @@ function fieldSelection() {
   return text.trim() ? { el, start: el.selectionStart, end: el.selectionEnd, text } : null;
 }
 
-// Replace a field's selected range, then put the caret back around the same
-// passage. Dispatches `input` because everything downstream of typing, 
-// draft autosave, the character counter, the live markdown preview, listens
-// for it, and a programmatic value change fires nothing on its own.
+// Replace a field's selected range and reselect the passage. `input` is
+// dispatched because autosave, the counter and the preview listen for it.
 function wrapFieldSelection(field, before, after) {
   const { el, start, end, text } = field;
   el.value = el.value.slice(0, start) + before + text + after + el.value.slice(end);
@@ -759,12 +672,8 @@ function selectionMenuItems() {
 
   const items = [];
 
-  // **Where highlighting is discoverable from.** `==text==` renders as a
-  // highlight, but a syntax nobody is told about may as well not exist, 
-  // reported exactly that way ("I still dont know how to highlight text").
-  // Selecting the words you want marked and picking a colour is the
-  // affordance; the syntax it writes is still plain text in the note, so
-  // nothing here is a second way of storing a highlight.
+  // **Where highlighting is discovered** ("I still dont know how to highlight
+  // text"): select, pick a colour; what it writes is still plain `==text==`.
   if (selectionPopupField) {
     const field = selectionPopupField;
     items.push(
@@ -890,15 +799,9 @@ function hideSelectionPopup() {
   selectionPopupSource = null;
 }
 
-// Keep the menu inside the window, the literal ask ("shows the Popup buttons
-// within the application window").
-//
-// `.action-menu` is `position: absolute; right: 0; top: calc(100% + 4px)`,
-// which is right for a kebab sitting in a card near the top of a page and
-// wrong for one that can appear anywhere, including two lines above the
-// footer. Measured after opening, the same way `buildMenuGroupButton` already
-// decides which side a submenu flies out to, and using the same
-// measure-then-classify shape rather than a second mechanism.
+// Keep the menu inside the window ("shows the Popup buttons within the
+// application window"): measured after opening and flipped, the shape
+// `buildMenuGroupButton` uses.
 function clampSelectionMenu(menu) {
   menu.classList.remove("menu-flip-up", "menu-flip-left");
   //: **A menu that has left its box is already placed, and flipping it here
@@ -1009,13 +912,8 @@ function showSelectionPopupAt(rect, text, source, point) {
   box.style.visibility = "";
 }
 
-// Whether a selection is one this popup should offer to act on.
-//
-// Both ends are checked, not just `anchorNode`. A drag that starts in prose
-// and ends inside a textarea (or the reverse) is one selection with two
-// different homes, and testing only the anchor let the popup appear over a
-// form field half the time, which is exactly the case the denylist exists
-// to prevent.
+// Whether this popup should offer to act on a selection. Both ends are
+// checked: a drag from prose into a textarea is one selection with two homes.
 function selectionIsActionable(selection) {
   const ends = [selection.anchorNode, selection.focusNode];
   for (const node of ends) {
@@ -1025,17 +923,9 @@ function selectionIsActionable(selection) {
   return true;
 }
 
-// Where the pointer was when the selection finished, or null.
-//
-// Asked for directly: the kebab should appear off the top-right of the
-// *cursor*, not of the highlighted text. Those differ a lot on a multi-line
-// selection: the range's corner can be half a screen from where the user
-// actually let go, which is the one place they are already looking.
-//
-// Only a pointer can answer this: a keyboard selection (Shift+Arrow) and a
-// touch long-press dispatch `selectionchange` with no coordinates at all, so
-// those keep the range-rectangle anchoring. Cleared on keydown so a mouse
-// selection followed by Shift+Arrow does not keep using a stale point.
+// Where the pointer was when the selection finished, or null: the kebab sits
+// off the cursor, not the range's corner. A keyboard or touch selection has no
+// point and keeps the range anchoring; cleared on keydown.
 let selectionPointerPoint = null;
 
 function syncSelectionPopup() {
@@ -1123,10 +1013,8 @@ function initSelectionPopup() {
   window.addEventListener("resize", hideSelectionPopup);
 }
 
-// Open the selection menu from the keyboard, for a selection made with
-// Shift+Arrow. Without this the whole feature is unreachable without a mouse:
-// the popup can now *appear* from a keyboard selection (selectionchange fires
-// for those too), but its menu still needed a pointer to open.
+// Open the selection menu from the keyboard, for a Shift+Arrow selection:
+// otherwise the menu needed a pointer.
 function openSelectionMenuFromKeyboard() {
   syncSelectionPopup();
   if (!selectionPopupText) {

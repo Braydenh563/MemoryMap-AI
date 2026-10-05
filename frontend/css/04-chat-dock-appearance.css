@@ -4884,11 +4884,83 @@ span > .chip {
 }
 
 
-/* The "choose a note" dialog `pickEntryDialog()` builds: used by the
-   selection kebab's "Add to a note…". A scrolling list inside a modal card,
-   capped so a long notebook cannot push the dialog past the viewport. */
+/* **The picker dialog** (`pickerDialog`, selection.js; INBOX 548): every
+   "choose from your notebook" dialog on the dialog recipes, the head, the
+   `.seg` of sources, the `.search-field`, the rich picker's rows (or the
+   Attach picker's for several) and the dialog foot. One width and one list
+   height for every source, so a tab never resizes the dialog. */
 .entry-pick-card {
-  width: min(32rem, calc(100vw - var(--space-8)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: min(34rem, calc(100vw - var(--space-8) * 2));
+}
+
+.entry-pick-card > .seg {
+  align-self: flex-start;
+  max-width: 100%;
+  margin: 0;
+}
+
+.entry-pick-about {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.entry-pick-card > .entry-pick-list {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-1);
+  height: min(20rem, 46vh);
+  margin: 0 calc(var(--space-1) * -1);
+}
+
+/* (0,3,1): `.space-dialog label` (a form label: block, muted, a top margin)
+   would win over the Attach row's own flex, as in Quick access. */
+.entry-pick-list > li > label.note-picker-row {
+  display: flex;
+  margin-top: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+.entry-pick-card > .entry-pick-list > .note-picker-empty {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+.entry-pick-card > .space-dialog-actions {
+  flex-wrap: nowrap;
+  align-items: center;
+  margin-top: 0;
+}
+
+.entry-pick-card > .space-dialog-actions > .muted {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-sm);
+}
+
+.entry-pick-card > .space-dialog-actions > button {
+  flex: none;
+  white-space: nowrap;
+}
+
+/* On a phone the count takes its own line over the buttons. */
+@media (max-width: 600px) {
+  .entry-pick-card > .space-dialog-actions {
+    flex-wrap: wrap;
+  }
+
+  .entry-pick-card > .space-dialog-actions > .muted {
+    flex-basis: 100%;
+  }
+}
+
+.entry-pick-empty {
+  grid-column: 1 / -1;
+  margin: auto;
 }
 
 /* pickMediaDialog's own grid: thumbnails, not the text-row list
@@ -4897,10 +4969,11 @@ span > .chip {
 .media-pick-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
+  align-content: start;
   gap: var(--space-2);
-  max-height: 40vh;
-  margin-top: var(--space-3);
+  height: min(20rem, 46vh);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .media-pick-tile {
@@ -4934,117 +5007,6 @@ span > .chip {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.entry-pick-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  max-height: 40vh;
-  /* No `margin-top`: `.modal-card` is a flex column and `.confirm-card` sets
-     its gap to 1rem, so the margin was a second gap on top of the first -
-     28px between the search field and the first row against 16px everywhere
-     else in the same dialog. */
-  overflow-y: auto;
-  /* The scroll stays inside the list. Without it a long notebook grew the
-     card until the dialog itself scrolled, which moves the search field you
-     are typing into off the top of the screen. */
-  overscroll-behavior: contain;
-}
-
-/* **A row is an icon and a title, left-aligned, and the title ellipsises.**
-   Reported against the map's "Point a new node at…" picker: long titles ran
-   past the row edge, icons drifted off centre, and the rows read as centred
-   text. All three are one cause and it was measured, not guessed:
-
-   - The row is a `<button>`, so the app's generic button rule gives it
-     `justify-content: center`. With one short title that centres the whole
-     icon-plus-title pair, and the pair's position then moves with the length
-     of the title, which is the "icons drift off-centre" in the report.
-   - `text-overflow: ellipsis` on the row itself does nothing, because the row
-     is a flex container: its children are flex items, not line boxes. The
-     title is a `.ph-text` span from `setLabel`, and a flex item will not
-     shrink below its content without `min-width: 0`, so it simply overflowed.
-     Measured on a real note title: 63px past the row's own edge.
-
-   Same fix, and the same reasoning, as `.library-image-usage-chip` in
-   07-whiteboard-misc.css, put the rule where the text actually is, and stop
-   the icon shrinking with it. */
-.entry-pick-row {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: var(--space-3);
-  /* A stated height rather than one inferred from the tallest label, so a row
-     with an icon and one without are the same size in the same list. */
-  min-height: 2.25rem;
-  padding: var(--space-3);
-  overflow: hidden;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  background: none;
-  /* **A row in a list is not a raised button.** Measured on the live dialog:
-     every row carried the base button rule's accent glow -
-     `rgba(70,100,240,0.25) 0 2px 10px`, over a transparent background, which
-     paints as a blue smear under each row and is plainly visible in a
-     screenshot of the picker. The row's own hover state (border plus
-     `--card-bg-hover`, below) is the affordance here. */
-  box-shadow: none;
-  color: var(--ink);
-  font-size: var(--text-md);
-  /* `.menu-item`'s weight (02-chat-graph.css), which is this app's own recipe
-     for a row in a list of choices. The base button weight made seven note
-     titles read as seven buttons stacked on top of each other. */
-  font-weight: 500;
-  text-align: left;
-}
-
-/* A fixed icon column: every title in the list starts at the same x, which is
-   what makes a list of them scannable rather than ragged. */
-.entry-pick-row > .ph-lead {
-  flex: 0 0 auto;
-  /* `setLabel`'s own trailing margin would add to the row's `gap` and double
-     it, the gap is the row's business here. */
-  margin-inline-end: 0;
-  width: 1.25rem;
-  text-align: center;
-}
-
-.entry-pick-row > .ph-text {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The multi-pick variant (`pickNotesDialog`, app.js: "make a map of these
-   notes"). It is a `<label>` wrapping a checkbox rather than a `<button>`, so
-   it needs the two things the button gave the row for free and nothing else:
-   a pointer, and a title that shrinks instead of pushing the box off the end.
-   Same height, same padding, same hover as its single-pick sibling, because it
-   is the same list of the same notes. */
-.entry-pick-check {
-  cursor: pointer;
-}
-
-.entry-pick-check > input {
-  flex: 0 0 auto;
-  margin: 0;
-}
-
-.entry-pick-check > span {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.entry-pick-row:hover,
-.entry-pick-row:focus-visible {
-  border-color: var(--border);
-  background: var(--card-bg-hover);
 }
 
 /* The selection menu's own width. `.action-menu`'s 12.5rem default suits the

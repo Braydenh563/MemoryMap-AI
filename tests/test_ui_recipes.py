@@ -3104,7 +3104,23 @@ RICH_PICKERS = [
     ("settings-panes.js", "renderPalette"),
     ("library.js", "openLibraryCreatePicker"),
     ("settings-wiring.js", "chordGuideGroup"),
+    ("selection.js", "pickerListbox"),
 ]
+
+
+def test_every_notebook_picker_is_the_picker_dialog() -> None:
+    """INBOX 548: the "choose from your notebook" dialogs share one shell on
+    the dialog recipes (`pickerDialog`: the head with its X, the search field
+    well, the dialog foot), never the confirm alert's card and a bare input."""
+    source = frontend_text("selection.js")
+    shell = _function_body(source, "pickerDialog")
+    for part in ('"dialog-head"', '"search-field"', '"dialog-head-btn"', "space-dialog"):
+        assert part in shell, part
+    for picker in ("pickEntryDialog", "pickLibraryItemDialog", "pickNotesDialog", "pickMediaDialog"):
+        body = _function_body(source, picker)
+        assert "pickerDialog(" in body, picker
+        assert "confirm-card" not in body and "confirm-text" not in body, picker
+    assert "notePickerRow(" in _function_body(source, "pickNotesDialog")
 
 #: Lists that still build their own `role="option"` rows. May only fall:
 #: convert one to `richPickerRow` and lower its count here (the test fails

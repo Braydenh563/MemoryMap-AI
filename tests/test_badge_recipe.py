@@ -70,8 +70,6 @@ def test_every_status_badge_is_the_label_recipe():
     # The fit words live in a table, not a chip() call.
     fit = js[js.index("const FIT_WORDS = {"):][:400]
     assert fit.count('tone: "item-label') == 3, fit
-    #: "In use for", not the bare "in use": the installed models became model
-    #: cards (0c04bcd, op4-1005), whose label says what each is in use for.
     assert {"Installed", "Not ready yet", "confirms first", "online", "In use for"} <= seen
 
 

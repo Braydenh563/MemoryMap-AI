@@ -135,7 +135,7 @@ MAP_THEME_FIELDS: dict[str, frozenset | type] = {
     "edge_dashed": bool,
     "edge_width": frozenset({"thin", "thick"}),
     "edge_arrow": frozenset({"on", "off"}),
-    "palette": frozenset({"deep", "soft", "vivid"}),
+    "palette": frozenset({"deep", "soft", "vivid", "bold", "paired", "bright", "earth"}),
     "font": frozenset({"serif", "mono", "wide"}),
 }
 
@@ -380,6 +380,10 @@ class WhiteboardObjectData(BaseModel):
     markers: list[Annotated[str, StringConstraints(pattern=r"^[a-z0-9-]{1,40}$")]] | None = Field(
         default=None, max_length=6
     )
+    #: **A due date** (§12.2 item 4, decision 37): a calendar day, no time,
+    #: so a topic is due on a day wherever the map is opened. Content, like
+    #: the markers; a reminder is made from it on request, never by itself.
+    due: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
     #: **The bar down a topic's leading edge** (MINDMAP_PLAN.md item 177:
     #: "per-node left edge: solid, dashed or none"). Two values, because the
     #: third is the absence of the field: a map drawn before this existed and
@@ -1298,6 +1302,24 @@ MAP_BRANCH_PALETTES: dict[str, list[str]] = {
     "vivid": [
         "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
         "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf",
+    ],
+    #: The four added 2026-10-05 (§12.2 item 7: eight curated palettes).
+    #: Set1 without its yellow, Paired without its pale green, d3's
+    #: Observable10, and the dark ends of ColorBrewer's BrBG, PRGn and PiYG:
+    #: each colour at least 1.6:1 on white, so a 3px branch never vanishes
+    #: (`test_every_palette_colour_is_a_line_on_the_light_paper`).
+    "bold": ["#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00", "#a65628", "#f781bf", "#999999"],
+    "paired": [
+        "#1f78b4", "#33a02c", "#e31a1c", "#ff7f00", "#6a3d9a",
+        "#b15928", "#a6cee3", "#fb9a99", "#fdbf6f", "#cab2d6",
+    ],
+    "bright": [
+        "#4269d0", "#efb118", "#ff725c", "#6cc5b0", "#3ca951",
+        "#ff8ab7", "#a463f2", "#97bbf5", "#9c6b4e", "#9498a0",
+    ],
+    "earth": [
+        "#8c510a", "#35978f", "#762a83", "#c51b7d", "#4d9221",
+        "#bf812d", "#01665e", "#9970ab", "#b35806", "#542788",
     ],
 }
 
@@ -2972,6 +2994,7 @@ MAP_STYLE_FIELDS = (
     "progress",
     "flag",
     "markers",
+    "due",
 )
 
 
@@ -3650,7 +3673,7 @@ class MapClearStyleOut(BaseModel):
 #: before any of this existed.
 MAP_CONTENT_FIELDS = frozenset({
     "image", "task", "note", "boundary", "boundary_label", "summary", "summary_span",
-    "priority", "progress", "flag", "markers",
+    "priority", "progress", "flag", "markers", "due",
 })
 MAP_CLEARABLE_FIELDS = frozenset(MAP_STYLE_FIELDS) - MAP_CONTENT_FIELDS | {"color"}
 
@@ -3886,6 +3909,17 @@ def _export_markdown(title: str, roots: list[dict], numbered: bool = False) -> s
     return "\n".join(lines) + "\n"
 
 
+def _export_text(roots: list[dict]) -> str:
+    """The plain-text outline (§12.2 item 10): one topic per line, a tab per
+    level, nothing else. No title line, because a plain outline has no word
+    for one and a first line would come back as a topic: the file's name is
+    the map's, and the import is sent it. No bullets, numbers, boxes or
+    notes: this is the format for pasting into something that knows nothing
+    about lists, and `_outline_from_paste` reads it back."""
+    lines = [f"{chr(9) * depth}{node['text'] or '(untitled)'}" for depth, node in _outline_rows(roots)]
+    return "\n".join(lines) + "\n"
+
+
 #: **A note is an indented paragraph under its bullet** (MINDMAP_PLAN.md
 #: decision 18): a blank line, the note at the bullet's content column, a
 #: blank line. Every Markdown reader draws that as a paragraph inside the
@@ -3982,7 +4016,7 @@ _FREEMIND_PRIVATE = {
     **{f: f"_{f}" for f in ("boundary", "boundary_label", "summary", "summary_span")},
     #: Markers (decision 34): neither format has a place for them that the
     #: other reads, so all four ride as private attributes.
-    **{f: f"_{f}" for f in ("priority", "progress", "flag", "markers")},
+    **{f: f"_{f}" for f in ("priority", "progress", "flag", "markers", "due")},
 }
 #: OPML 2.0 defines `text`, `type`, `url`, `isComment`, `isBreakpoint`,
 #: `created` and `category` and nothing else, so `url` is the only native
@@ -4014,7 +4048,7 @@ _OPML_PRIVATE = {
     **{f: f"_{f}" for f in ("boundary", "boundary_label", "summary", "summary_span")},
     #: Markers (decision 34): neither format has a place for them that the
     #: other reads, so all four ride as private attributes.
-    **{f: f"_{f}" for f in ("priority", "progress", "flag", "markers")},
+    **{f: f"_{f}" for f in ("priority", "progress", "flag", "markers", "due")},
 }
 
 
@@ -4236,6 +4270,7 @@ EXPORT_FORMATS = {
     "markdown": ("text/markdown", "md"),
     "opml": ("text/x-opml", "opml"),
     "freemind": ("application/x-freemind", "mm"),
+    "text": ("text/plain", "txt"),
 }
 
 
@@ -4292,6 +4327,8 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
     numbered = _board_numbered(entry)
     if format == "markdown":
         text = _export_markdown(title, roots, numbered)
+    elif format == "text":
+        text = _export_text(roots)
     elif format == "opml":
         links = _cross_links(db, board_id, {node["id"] for _, node in _outline_rows(roots)})
         text = _export_opml(title, roots, links, numbered)
@@ -4336,7 +4373,7 @@ class MapImport(BaseModel):
 #: the exports above; FreeMind `.mm` is the format Coggle, Freeplane, XMind and
 #: MindMeister all write, which is what section 4's list meant by "an existing
 #: map can come in".
-IMPORT_FORMATS = ("markdown", "opml", "freemind", "xmind")
+IMPORT_FORMATS = ("markdown", "opml", "freemind", "xmind", "text")
 
 
 def _parse_xml_document(content: str, label: str):
@@ -5232,8 +5269,14 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
         "freemind": _parse_freemind,
         "markdown": _parse_markdown_outline,
         "xmind": _parse_xmind,
+        #: A plain indented outline (§12.2 item 10) is what a paste is, so it
+        #: is read the way a paste is read (decision 29), and a single top
+        #: line names the map when the client sent no name.
+        "text": lambda content: _parse_markdown_outline(_outline_from_paste(content)),
     }
     title, parsed = parsers[body.format](body.content)
+    if body.format == "text" and len(parsed) == 1:
+        title = parsed[0]["text"]
     name = (body.name or title or "Imported map").strip()[:100] or "Imported map"
     entry = Entry(content=f"# {name}", is_board=True)
     _store_board_settings(entry, "map", DEFAULT_MAP_LAYOUT)

@@ -459,6 +459,15 @@ def _image_size(image_path: Path, lines: list[tuple[list, str, float]]) -> tuple
         with Image.open(image_path) as img:
             return float(img.size[0]), float(img.size[1])
     except Exception:  # noqa: BLE001  # Pillow missing or the file unreadable: the boxes still say something
+        # A PNG says its size in its first 24 bytes, so a RapidOCR install
+        # without Pillow still gets the true page size for the commonest
+        # screenshot format; anything else falls back to the boxes.
+        try:
+            head = image_path.read_bytes()[:24]
+            if head[:8] == b"\x89PNG\r\n\x1a\n" and head[12:16] == b"IHDR":
+                return float(int.from_bytes(head[16:20], "big")), float(int.from_bytes(head[20:24], "big"))
+        except OSError:
+            pass  # unreadable here too: the boxes below are what is left
         xs = [x for corners, _, _ in lines for x, _ in corners] or [0.0]
         ys = [y for corners, _, _ in lines for _, y in corners] or [0.0]
         return max(xs), max(ys)

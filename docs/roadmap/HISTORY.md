@@ -7,6 +7,124 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## OPEN.md rows closed, 2026-10-05 (the overnight pass on "Carried from the agent files archived 2026-10-05")
+
+Each row below was checked against the head before anything was built.
+
+- **`_export_opml` and `_export_freemind` recurse with nothing bounding depth**:
+  already built. Both go through the iterative `_export_tree`
+  (`routes_whiteboard.py`: a seen set and nesting clamped at `MAX_MAP_DEPTH`,
+  200), and `tests/test_mindmap.py` holds a 1,200-deep chain and a ring through
+  all three export formats (both tests pass on this head).
+- **`phonechrome.js`'s fresh text box overflowing 5px**: not an overflow of its
+  content. The 5px was the box's eight resize grips, centred on its border by
+  design; the sweep's `drawnPast` ignores a grip since 2026-09-23. Measured
+  2026-10-05 at 390x844 on a text box made by `wbCreateTextBox`: `clientWidth`
+  198, `scrollWidth` 198, nothing drawn past its right edge. The sweep now
+  creates that box itself, so the board step measures it every run.
+- **The Timeline's feed and table duplicating on a breakpoint-crossing
+  re-entry**: fixed already (`paintTimeline` empties the mode it does not
+  draw). The only check was a one-off probe that is not in the repo;
+  `scratchpad/ui-sweeps/timelinetable.js` now crosses 1440, 1024, 390, 1440 and
+  390 with no stored view and asserts the rows are all in one view. Measured
+  75 rows each time (feed at 1440 and 1024, table at 390); with the two
+  `replaceChildren` lines removed it reads 75 and 75 at every width and fails.
+- **Lists have no edge auto-scroll for a drag selection** (INBOX 608's list
+  half): already built, `DRAG_EDGE` in `frontend/js/drag-edge.js`.
+  `s2-1005.js` with `MODE=listedge` at 1440 passes all ten cases (Notes and the
+  Library, top and bottom edge, near and past: 222 to 2,318 px moved in a
+  one-second hold).
+- **The sticky's grip in dark** (1.42:1): already fixed, `.wb-object-grip` has
+  an opaque `--modal-bg-opaque` ground. `wbgripink.js` in dark at 1440x900:
+  7.96:1 on a sticky, a text box and a dark box.
+- **The table full view's X is 28x28, "under `--target-min`"**: it is equal to
+  it. `--target-min` is 28px with a pointer and 44px on touch, and the X
+  measured 28x28 at 1440 and 44x44 at 390. `tablefullclose.js` now asserts
+  the X is at least the token's pixels (`WIDTH=390 PHONE=1` for the phone).
+- **Settings, Tools it can use at 390: a tall gap between "Tokens per step"'s
+  description and its field**: not reproduced. The gap is the row's own 16px
+  gap (`rowGap: 16px`, a column at 390 and a row at 1440), 16px at both widths;
+  the description is two lines at 390 (35px).
+- **Models pane first frame** ("Checking the models..." bare until the first
+  answer): built, with its placeholders (`#models-skeleton`, `settings.js`
+  paints them when `modelStatus` is null). `settingsskel.js` (it nulls
+  `modelStatus` first, `early: true`) passes every check at 1440, the models
+  pane's "keeps its words, above the placeholders" included.
+- **`skeletons.js` reading Library and Documents views BLANK**: a timing read,
+  not a missing skeleton. A view whose module loads on first open (the boards
+  gallery) paints its placeholders 200 to 450 ms after the press depending on
+  load, and the sweep read once at 300 ms. It now reads again every 100 ms
+  until the held answer is due; 11 views as expected at 1440 and at 390.
+- **`tests/test_relations_kg2.py`'s 10k timing flaking under load**: it
+  compared wall times, and a loaded machine stretched whichever run it landed
+  on. It now compares CPU time (`time.process_time`, best of three), which
+  showed the true ratio is 8 to 13 (59 to 82 ms at 2k, 510 to 770 ms at 10k),
+  so the ceiling is 18 times against all-pairs' 25 (it was 10).
+- **`gate.sh --staged` not running `tests/test_help_controls.py`**: it does now
+  (a help edit once put the Guide's whiteboard keys entry at 1,926 characters
+  against 1,920 and passed); `test_like_escaping.py` was already in the list.
+  `tests/test_gate_lint_set.py` pins both, with `test_scratchpad_size.py` and
+  `test_codeql_shapes.py`.
+- **The Word writer never having run**: its five tests ran in a scratch venv
+  with python-docx 1.2.0: `test_docexport_pictures.py` 13 of 13, none skipped;
+  `test_docexport_bundle.py`, `test_document_import.py`,
+  `test_docview_import.py` and `test_extras_bundles.py` 57 passed.
+- **`mappan.js`'s fixture posting a `rect` sketch with no path** ("Expected
+  moveto path command" twice): already fixed; the fixture posts a path
+  (`M 140 320 h 200 v 140 h -200 Z`, `shape: "rect"`), and its comment says
+  why.
+- **The tour between 600 and 1100 wide** (a tablet, a half window): walked
+  with `tour.js` at 700x900, 820x1180 and 1024x768, then 390x844 and 1440x900
+  again after the fixes. Found at 700x900: the chat section planned 4 steps and
+  showed 3 (the chat sidebar is a sheet parked at x -243 from 600 to 819.98 and
+  on any coarse pointer, `#conversation-list` had nothing to point at), and the
+  status section planned 4 and showed 3 (`#status-command` is hidden in that
+  band, `10-responsive.css`). Both steps now carry the media condition that
+  matches, so they are left out of the count; all four sizes then pass every
+  check but one stale one. At all three tablet widths the no-map card was 209
+  characters against the sweep's 140: shortened to 115. The stale check was a
+  regex for the words "New mind map" in a card that says "New, then Mind map";
+  it reads the card's words now. 5,981 checks passed at the four sizes with
+  that one check failing once at each; 700x900 alone with the regex fixed:
+  1,480 checks, 0 failures, 91 of 91 steps. Not walked: a fresh data dir with
+  no notes and no boards.
+- **Sweep comments naming `agent-remaining/mindmap.md` and `mapux2.md`**:
+  repointed to `archive/agent-remaining/` in the nine `scratchpad/ui-sweeps`
+  files that carried them (`canvasconventions`, `dragprofile3`, `mapstrip`,
+  `mindmap3`, `wbdrawloops`, `wbhandlezoom`, `wbmarqueeescape`, `whiteboard`,
+  `whiteboard3`).
+- **A board object in a note, three unmeasured places** (390x780, a chat
+  transcript, the inline id-form chip): measured by `noteobject.js`
+  (`W=390 H=780 PHONE=1`, 0 findings): the card is 320 wide and 104 tall with
+  its preview in a 390 note (the tombstone 86 tall), 259 wide and 109 tall in a
+  chat answer's bubble with no sideways scroll, 106 tall in a document; the
+  live inline chip opens its board at 390 and 1440. The run was under load 40
+  to 50, so the sweep waits for the cards to settle instead of a fixed three
+  seconds.
+- **Found while measuring the board object in a note at 390x780: a board made a
+  moment before its note was drawn read as "no longer in your notebook"**
+  (`noteobject.js` failed on the head at 1440 too). The note's second draw (a
+  second `loadEntries`) found the board's id already marked as asked, skipped
+  the wait and wrote the tombstone while the walk that would have found it was
+  in flight; the first card, the one waiting, had left the page. Fixed in
+  `boardEmbedElement` (`markdown.js`): the marker is the walk's promise until it
+  settles and a second card waits on it. `noteobject.js` passes at 1440 and
+  now also checks the card in a chat answer (813 wide in its bubble, drawn) and
+  a live inline `[[board:ID|label]]` chip (opens its board). A chat answer
+  draws `![[board:ID]]` as a card but `[[board:ID]]` as plain text: only the
+  note renderer draws wiki links.
+- **Found while running `noteobject.js` at 390x780: the Board menu stayed open
+  over what its action rows opened.** Export, Clear, Add to a note, Map to
+  document, Copy app link and Delete are a label and a button inside a
+  `.wb-menu-row`, which the delegated closer in `whiteboard.js` did not name
+  (Rename and New board had been fixed by taking the `wb-menu-item` class).
+  Measured at 390 with a fresh board per row: all six left the menu open
+  (z-index 1020 over the picker's and the dialogs' 1010, the menu covering
+  x 29 to 301 so the note picker's first row at x 41 to 349 could not be
+  pressed); after, the menu is closed for all six, Rename and New board as
+  before. The six carry `data-wb-closes`, the closer selects it, and
+  `tests/test_wb_menu_rows_close.py` pins both.
+
 ## Moved from the plans, 2026-10-05 (444 decision 10: the autonomous override's default)
 
 Decision 10 counted "a background-job model is still chosen in Models and in
@@ -43974,3 +44092,303 @@ line against a real release (GitHub is not reachable from the sandbox).
 
 Measured: `tests/test_vision_rows_row11.py`. Not verified: a real local
 model filing under each style; the chart's PNG opened outside the app.
+
+## Moved from the plans, 2026-10-05 (MINDMAP_PLAN §12.1 closed, op5)
+
+Found built or decided, each checked in the code on 2026-10-05 (op5):
+
+- **Item 1, the map toolbar's menus**: superseded by §12.5's three surfaces
+  (ring, strip, dock) and decisions 16, 21, 25 and 33. Style is the View
+  menu's "How this map looks" (decision 10), Present is "Present branches"
+  (decision 21), Export is the board export dialog's three map formats,
+  layout and Tidy are the top bar's picker, Insert is decision 5's "nothing
+  added to the canvas". `mapviewmenu.js` 8/8 at 1440 (433px, 20 rows, under
+  the 450px ceiling).
+- **Line thickness**: built as `edge_width` (thin, normal, thick) in the
+  strip's line group (`WB_MAP_EDGE_WEIGHTS`, `mapline.js`).
+- **Comment on a node**: built (WHITEBOARD_PLAN decision 17).
+- **Shift+drag to sever**: not built on purpose; sever is on the ring and the
+  topic menu ("Cut this topic free of its parent", `wbMapSever`), and the
+  drag gesture belongs to drag-to-transplant.
+- **§12.2 item 3, relationships**: built as §13c's cross-link (arrow, label,
+  curve, dashed in the map's ink).
+- **The dashboard widget's tall-map sliver** (INBOX, 2026-09-09 evening
+  batch): built as decision 30 (`d873a3f`, `DASH_MAP_FEATURE` in
+  dash-boards.js: 96 to 168px for six topics or fewer, 320px otherwise).
+
+The text as it stood in the plan:
+
+#### MINDMAP_PLAN §12.1 Phase 6a, the controls (1 session)
+
+1. **The map toolbar** (replaces the whiteboard rail on a map): Add
+   topic, Add sub-topic, Add sibling, Delete, Collapse/Expand branch,
+   Layout ▾, Style ▾ (theme, branch colours, line style), Insert ▾ (note
+   card, image, link, icon, boundary, summary, relationship), Arrange
+   (auto, tidy siblings, centre root), Focus, Present, Export ▾, and the
+   undo pair; seven visible at most, the rest in ▾ menus, per the dock
+   grammar. **Part of this is built**: the board-only sections (draw,
+   shapes, the free adds) are hidden on a map and the map's own Topic and
+   Branch sections carry add topic, add child, add sibling, collapse,
+   branch colour and focus; the layout picker and Tidy are still in the
+   top bar, and the Style, Insert, Arrange, Present and Export menus are
+   not written. See `archive/agent-remaining/mindmap.md` for the measured numbers
+   and the rest of the list.
+2 to 9. **Built, 2026-09-12**: the node edit strip, the node radial, the
+   link radial, the mid-line add, the text-size grip, uncollapse, drag to
+   transplant and sever. Moved whole to HISTORY.md ("Moved from the plans,
+   2026-09-12", MINDMAP_PLAN.md §12.1 items 2 to 9); a plan holds open work
+   only. What is left of those eight, with the reason each was left:
+
+   - **An image in a node** (item 2's fourth) and **the control points on a
+     curve drag to reshape it** (item 5's third) were both built on
+     2026-09-21. Moved to HISTORY.md ("Moved from the plans, 2026-09-21",
+     MINDMAP_PLAN.md §12.1 items 2 and 5): a picture is `data.image`, a
+     `/media/upload` url, drawn as a second node shape (`data-body="picture"`,
+     measured 182x102 inside a 200x138 card, 12/12 in
+     `scratchpad/ui-sweeps/mindmapimage.js`); a bend is `edge_bend` and
+     `edge_slide` on the child, two fractions of the line's own length, with a
+     handle measured 0.2 to 0.4 board units off the path for all three line
+     shapes (14/14 in `scratchpad/ui-sweeps/mindmapcurve.js`).
+   - **Comment on a node** (item 3's sixth) is §12.2 item 6 and belongs
+     there, not here.
+   - **Line thickness** (item 4's "style") was not built: the three shapes
+     and the dash carry the distinction, and a fourth axis on a 2px line is
+     a setting nobody can see.
+   - **Shift+drag off a node to sever** (item 9's second gesture). Sever is
+     on both rings; the drag gesture would collide with drag-to-transplant,
+     which took the same pointer.
+
+Gate: every action reachable by strip, radial and key (mindmap.js counts
+the three routes per action); an empty map recreates a root; 0 console
+errors; export/import round-trip of a map using every feature.
+
+**The gate's round-trip half is met** (2026-09-12, sixth run): everything the
+strip and the two rings write is in the FreeMind and OPML exports and comes
+back through both imports, and the two rings stay inside the canvas at any
+viewport. The account, including which field each format has an honest home
+for and which ride as private attributes, is in HISTORY.md ("Moved from the
+plans, 2026-09-12", "what the sixth run closed behind items 2 to 9"). What is
+still open of §12.1 is item 1's four dock menus and the three sub-items above
+that are still open (the comment, which belongs to §12.2, line thickness, and
+the shift-drag sever).
+**Node shape is built too** (2026-09-12, same run): four shapes, decided in
+§12.0 and recorded in HISTORY with the rest.
+
+- "the boards and maps dashboard widget is ugly and needs fixing". Most of
+  what made it so is fixed (one renderer with the Library's card, a fixed
+  72x40 landscape box, no box-in-a-box, rows 51px, the body not scrolling:
+  measured 2026-10-04, 340x333 at 1440). What is left, measured: a tall map
+  draws its paper at the board's own shape (`mapPreview`'s rule, "the paper
+  is the board"), so a 25-topic tree-right map is a **20x40 sliver** in the
+  72x40 box and a 7-topic one 25x40, about a third of the box with the rest
+  empty to its left and right. Whether a row thumbnail may crop a tall map to
+  the box (breaking that rule) or the box goes square is a judgement for the
+  owner, not a measurement.
+
+## Moved from the plans, 2026-10-05 (MINDMAP_PLAN §12.2 items 7 and 10, op5)
+
+The plan's text: "7. **Multiple roots and floating topics**; **auto-colour by
+branch** as the default theme with eight curated palettes." and "10.
+**Export**: PNG at 2x with the theme, PDF, SVG, FreeMind .mm, OPML, Markdown
+outline, plain-text outline; **import** by drop of .mm, .opml, .txt outline
+or Markdown, and from XMind's .xmind (its content.json) read-only."
+
+- **Multiple roots and floating topics** were built (`wbMapAddRootAt`, a
+  double-click or the canvas menu's "Add a topic here"; `wbMapSever`).
+- **Eight palettes**: four added to `MAP_BRANCH_PALETTES` (Bold: Set1 less its
+  yellow; Paired less its pale green; Bright: Observable10; Earth: the dark
+  ends of BrBG, PRGn and PiYG), each colour at least 1.6:1 on white.
+  `tests/test_map_theme_palette.py` pins eight, the picker's names against
+  the server's, and the contrast.
+- **Plain-text outline out** (`format=text`, `_export_text`): one topic per
+  line, a tab per level, no title, bullets, numbers, boxes or notes; the
+  export dialog's "Plain text" and the palette's "Export as plain text".
+- **.txt in** (`format: "text"`): read the way a paste is (decision 29), the
+  file's name sent as the map's name, a single top line naming it otherwise.
+- **Import by drop**: an outline file let go on the boards landing
+  (`#wb-boards-landing`) imports as the Import picker does.
+- PNG at 2x, PDF, SVG, FreeMind, OPML, Markdown and XMind were already built.
+
+Measured: `tests/test_mindmap.py` (the 101-topic map round-trips through
+text; a hand-written outline with spaces, a numbered line and a bullet);
+`scratchpad/ui-sweeps/op5-1005.js` MODE=mapio 8/8 at 1440 and 390, light and
+dark (eight palettes in the look dialog, Plain text in the export dialog
+inside the window, the palette row, the tabbed round trip, a dropped .txt
+imported and opened; the drop fails on the base, which has no handler).
+Not verified: a real file dragged from a desktop file manager (the sweep
+dispatches the DragEvent).
+
+## Moved from the plans, 2026-10-05 (the whiteboard file's off-band widths, op5)
+
+UI_MODERNISATION_PLAN Phase 9's last ten off-band queries, all in
+07-whiteboard-misc.css and 06-timeline-dialogs.css, moved to 819.98/820 and
+their allowances taken out of `tests/test_breakpoints.py` (the 720, 640 and
+900 groups are empty):
+
+- The full-screen document's prose and sidebar panels (719.98 x2, 720 x2):
+  over the page below 820, beside it from 820 (the sidebar is an edge sheet
+  below 820 anyway).
+- The board's navigator hidden (719.98): below 820.
+- Settings' label row and section select (640 x2): below 820; no section
+  scrolls sideways at 600, 640, 700 or 819 (General, Models, Appearance,
+  Tasks).
+- The board's tool dock taking the bottom edge and the top bar's search and
+  overview toggles (40rem x3): below 820. **This fixed a bug on the way**:
+  between 641 and 819 the tool dock and the zoom cluster overlapped,
+  6,841px² at 680, 719, 760 and 819 on the base, 0 after; the top bar is one
+  row (54px) from 680 where it was two (104px) up to 760.
+
+Measured: `scratchpad/ui-sweeps/op5-1005.js` MODE=bands, 25/25 light and
+dark (a map at 600, 640, 680, 719, 760, 819, 820, 900; Settings at four
+widths), against 17/24 on the base. Not verified: documents' focus mode
+between 720 and 819 (reasoned from the rules: the panels now cover the page
+there, as they did below 720).
+
+## Moved from the plans, 2026-10-05 (placed blocks found built, op5)
+
+Checked on the head 2026-10-05 (op5): MINDMAP_PLAN's 2026-09-13 block (177,
+part) is built item by item, as it says. WHITEBOARD_PLAN's evening batch:
+the Arrange menu's labelled rows are in the markup ("Distribute and size");
+the View menu's height is measured, `mapviewmenu.js` 8/8 at 1440 (433px on a
+map, 373px on a board, under the 450px ceiling); the 422 on
+`POST /whiteboard/nodes` is answered at the drop (`whiteboard.js`, "Only a
+note id may be dropped here": a toast that says what failed, no request).
+
+### From MINDMAP_PLAN.md
+
+#### Placed from INBOX, 2026-09-13
+
+177 (part). **Node styling this plan does not yet cover** (the owner, with
+Coggle captures). Built already: the radial ring's visibility, 3px branches
+with an arrowhead, the "Aa" grip's placement, topics as link-tool
+candidates. Placed here:
+
+- **Core nodes**: built. The strip's crown writes `core` on the node and the
+  shape picker gained `ellipse`. Measured, `scratchpad/ui-sweeps/mapcore.js`,
+  10/10 at 1440 light, 1440 dark and 390x844: the spine goes 4px to 6px, the
+  outline 1px to 2px and the type 400 to 600 against a plain sibling, the
+  ellipse computes a 50% radius with centred text, and the round trip through
+  `/whiteboard/boards/<id>/tree` keeps `core` (the `WhiteboardObjectData`
+  drop trap). The strip is 540px in a 1408px canvas at 1440 and wraps to
+  348x102 in 364px at 390.
+- **Per-node left edge**: built. The strip's second picker writes `spine`
+  (`dashed`, `none`, absent for solid). Measured,
+  `scratchpad/ui-sweeps/mapspine.js`, 9/9 at 1440 light, 1440 dark and
+  390x844: 4px solid to 4px dashed to a 1px hairline at the same 55% alpha
+  the other three sides carry, the label moving 3px with it; the choice beats
+  a core node's 6px bar (6px to 1px) and the node stays core; a plain topic,
+  whose box is transparent on purpose, is untouched (4px, label at the same
+  x); downward the choice is on the top edge instead. A server restart was
+  needed for the round trip to pass: the field is dropped by a stale process,
+  which is the `WhiteboardObjectData` trap wearing its other hat.
+- **Connection line styles**: built. `edge_width` (`thin`, `thick`) and
+  `edge_arrow` (`on`, `off`) join `edge_dashed` on the child, and all three
+  are in the strip's line group, which a trunk is not shown. Measured,
+  `scratchpad/ui-sweeps/mapline.js`, 13/13 at 1440 light, 1440 dark and
+  390x844: the ribbon goes 6.5 units at the parent to 11 thick and 3.6 thin
+  while its sibling stays 6.5, the stroked shapes 3px to 5.1px, a head added
+  to a ribbon takes its path from 50 to 53 points and its far end from 3.4 to
+  11.5 units, a head comes off a stroked line as `marker-end: none`, and all
+  three survive the round trip. The line group measures 0px on a trunk and
+  1/117/28/28px on a child. The strip is now 853px inside a 1408px canvas at
+  1440 and wraps to 348x150 inside 364px at 390.
+- **Resize a topic**: built, commit `3c9b874`. Measured,
+  `scratchpad/ui-sweeps/mapresize.js`: 170x44 dragged to 290x100, stored as
+  `width` 290 / `height` 100 / `sized` true, still 290x100 after a tidy.
+
+Each becomes a phase row when its phase is written; until then this list is
+the phase.
+
+### From WHITEBOARD_PLAN.md
+
+#### Placed from INBOX, 2026-09-09 (the owner's evening batch)
+
+- "can the whiteboard arrange tools be better structured??" (screenshot):
+  ten icon-only buttons under one ARRANGE heading in a ragged 2-3-3-2 grid.
+  Three labelled sub-rows (Group, Align, Distribute), three per row, each
+  with a title and an aria-label.
+- "the view dropdown is still overly short", and separately "on the
+  mindmap, the view dropdown is even more visually broken". Both are the
+  escaped-menu height, fixed on 2026-09-09 (`place()` now measures at
+  `max-height: none` and caps against the room the trigger actually has).
+  Retest both at 1440 and 820 before closing.
+- Console, 2026-09-09: `POST /whiteboard/nodes` answered 422 with
+  `entry_id: Input should be a valid integer, input: null`, and the app
+  logged "Error creating node: {}". A node created with no backing entry
+  sends null where the schema wants an int. Two halves: the schema should
+  accept a node with no entry (a plain shape is not a note), and the
+  client's error path should say what failed rather than print an empty
+  object.
+
+## Moved from the plans, 2026-10-05 (study the map, op5)
+
+MINDMAP_PLAN §12.3 item 5, as the plan had it: "**Study mode**: hide all but
+the root, reveal a branch at a time, with a "recall" prompt before revealing
+(the note's own text is the answer); progress stored per map." Built as
+decision 36: the board menu's Study the map and the palette's row; the
+presenting shell with Show, Knew it and Not yet in its bar; the questions and
+the tally in a node-tested region of whiteboard-map.js
+(`wbMapStudyQuestions`, `wbMapStudyTally`, `tests/test_map_study.py`, 4
+tests); the marks in local storage per map. Measured on the 40-topic map the
+gate asked for, `scratchpad/ui-sweeps/op5-1005.js` MODE=study, 8/8 at 1440
+and 390, light and dark: 7 of 40 topics drawn while asking, Enter draws
+Branch 1's six leaves and no other branch's, Knew it moves on, six marks kept
+(3 and 3), the map whole (40) after. The View menu stays at 433px
+(`mapviewmenu.js` 8/8; the row there took it to 474px, so it went to the
+board menu). The Guide has its own topic (`mind-map-study`). Not built: the
+note behind a topic as the answer.
+
+## Moved from the plans, 2026-10-05 (276, op5)
+
+WHITEBOARD_PLAN 276's recommendation taken (standing order 3): 820 with Large
+text and Spacious density together lets the sketch pad's bar take two rows,
+and the sweep says so (`sketchbar.js`: `twoRowsAllowed`, that one
+combination at 820 to 1023); every other combination stays one row. Measured
+2026-10-05: PASS in all 16 combinations, 820/large+spacious `rows=2` (684px
+of content in 684), the other three at 820 `rows=1`. The block as it stood:
+
+276. **The sketch pad's toolbar wraps to two rows at 820 on Large text**, and
+    has since before this session: `scratchpad/ui-sweeps/sketchbar.js` reports
+    `rows=2` at 820/large-text (content 712 of an inner 714) and at
+    820/large+spacious (688 of 690), while 820/default and 820/spacious are
+    one row. The Canvas group is the one that drops. Found while giving the
+    ink dots a finger-sized target (the same sweep), not caused by it: the
+    dots only change below 820. Recommendation: the bar is five groups and
+    Large text buys their labels about 10px each, so the cheapest honest fix
+    is the group labels, not the controls: hide `.wb-tool-section-label`
+    below 1024 the way the phone band already hides other labels, and
+    re-measure; it is worth about 60px, which is more than the 2px the wrap
+    is short by. Owner: whoever next opens the pad's bar.
+    **Re-measured 2026-10-04, and the recommendation would buy nothing.** The
+    labels sit *above* their rows (a section is a column), and every label is
+    narrower than its row at 820 on Large text (Draw 37 over 104, Shapes 52
+    over 176, Ink 22 over 153, Size 29 over 97, Canvas 51 over 176), so hiding
+    them takes height, not width. The rows alone are 706px plus four 4.5px
+    separators, 724px, in a 705px inner bar: 19px short, still `rows=2` in
+    `sketchbar.js`. The width is in the rows: the Ink dots' gaps (6 x 5px at
+    Large text) and the Size slider's fixed 3rem are the two places with
+    room. **Half done the same day**: between 600 and 1023px the dots drop
+    their gap (a dot's own 2px transparent ring keeps the discs 4px apart), and
+    820 on Large text is one row (`sketchbar.js` 2 findings to 1; 1024 and
+    1440 unchanged). **Still open: 820 on Large text with Spacious density**,
+    41px short (rows 701px plus four 6px separators in a 684px inner bar), more
+    than the slider (about 9px) and the separators (24px) could give together.
+    Recommendation: let that one combination take two rows, and say so in the
+    sweep, rather than shrink 44px targets.
+
+## Moved from the plans, 2026-10-05 (due dates, op5)
+
+MINDMAP_PLAN §12.2 item 4's "due date (a reminder can be created from it)",
+built as decision 37: `due` on the node data model (a checked day), in
+`MAP_STYLE_FIELDS`, `MAP_CONTENT_FIELDS` and both XML formats' private maps
+(`_due`); the client's marker parts, words, row and filter key, and the
+Markers popover's Due row with Clear and Remind me. Measured:
+`tests/test_mindmap.py::test_a_due_date_is_a_marker_checked_kept_and_carried`
+(a day and nothing else accepted, both XML round trips, Markdown silent, a
+look reset keeps it); `scratchpad/ui-sweeps/op5-1005.js` MODE=due, 5/5 at
+1440 and 390, light and dark: a day to come drawn in the ink (17.07:1 light,
+14.01:1 dark), a day gone in the error ink (6.98:1, 6.96:1; the branch colour
+the glyphs take read 3.67:1 on the dark board, so the words do not take it),
+Remind me on a day gone makes nothing, on a day to come one reminder at 9:00.
+Not verified: the date field's own picker on a touch keyboard.
+

@@ -9268,6 +9268,7 @@ async function wbExportMapText(format) {
     markdown: { suffix: "md", said: "a Markdown outline" },
     opml: { suffix: "opml", said: "OPML" },
     freemind: { suffix: "mm", said: "a FreeMind map" },
+    text: { suffix: "txt", said: "a plain-text outline" },
   };
   const chosen = formats[format] || formats.markdown;
   await saveFile(`${safe}.${chosen.suffix}`, blob);
@@ -9463,7 +9464,9 @@ async function wbImportOutlineFile(event) {
       ? "freemind"
       : /\.(opml|xml)$/i.test(file.name)
         ? "opml"
-        : "markdown";
+        : /\.txt$/i.test(file.name)
+          ? "text"
+          : "markdown";
   let content = "";
   try {
     //: An XMind file is a zip: it travels as base64 and the server unpacks
@@ -9487,7 +9490,11 @@ async function wbImportOutlineFile(event) {
   try {
     const board = await apiJson("/whiteboard/boards/import", {
       method: "POST",
-      body: JSON.stringify({ format, content }),
+      //: A plain-text outline has no title line (§12.2 item 10): the
+      //: file's name is the map's, as the export wrote it.
+      body: JSON.stringify(format === "text"
+        ? { format, content, name: file.name.replace(/\.txt$/i, "").slice(0, 100) || undefined }
+        : { format, content }),
     });
     // The gallery is refreshed *and* the new map is opened, because an import
     // is a thing you then want to look at, landing back on an unchanged-
@@ -9770,6 +9777,11 @@ const WB_EXPORT_FORMATS = [
     value: "freemind", label: "FreeMind", scopes: ["whole"], map: true, drawsCards: false,
     note: "For FreeMind and Freeplane.",
     run: () => wbExportMapText("freemind"),
+  },
+  {
+    value: "text", label: "Plain text", scopes: ["whole"], map: true, drawsCards: false,
+    note: "One topic per line, a tab per level, for anything that reads plain text.",
+    run: () => wbExportMapText("text"),
   },
 ];
 
@@ -10845,6 +10857,7 @@ async function initWhiteboard() {
   $("wb-delete-board")?.addEventListener("click", wbDeleteCurrentBoard);
   $("wb-add-to-note")?.addEventListener("click", wbAddBoardToNote);
   $("wb-map-to-doc")?.addEventListener("click", () => wbMapWriteDocument());
+  $("wb-map-study")?.addEventListener("click", () => wbMapStartStudy());
   $("wb-copy-link")?.addEventListener("click", () => {
     const id = window.currentBoardId ?? null;
     if (id === null) return toast("The default board has no address. Make a board first.");
@@ -11695,7 +11708,11 @@ async function initWhiteboard() {
     //: owns its own listener (Rename, New board, the two map rows) used to
     //: leave the menu standing open behind the dialog it had just opened,
     //: because only the forwarding items closed it.
-    const item = e.target.closest(".wb-board-menu [data-wb-click], .wb-board-menu [data-wb-fn], .wb-board-menu [data-wb-cmd], .wb-board-menu .wb-menu-item");
+    //: `[data-wb-closes]` is the six action rows drawn as a label and a button
+    //: (Export, Clear, Add to a note, Map to document, Copy app link, Delete):
+    //: they left the menu open over the dialog or picker they opened, which at
+    //: 390 wide covered its middle (tests/test_wb_menu_rows_close.py).
+    const item = e.target.closest(".wb-board-menu [data-wb-click], .wb-board-menu [data-wb-fn], .wb-board-menu [data-wb-cmd], .wb-board-menu .wb-menu-item, .wb-board-menu [data-wb-closes]");
     if (!item) return;
     e.stopPropagation();
     closeAllWbMenus();
@@ -18347,6 +18364,27 @@ onDomReady(() => {
     $("wb-import-map-file")?.click();
   });
   $("wb-import-map-file")?.addEventListener("change", wbImportOutlineFile);
+  //: **Import by drop** (MINDMAP_PLAN §12.2 item 10): an outline file let go
+  //: anywhere on the boards landing imports as the Import button's picker
+  //: would. Only a drag that carries a file is taken, so a card dragged
+  //: inside the gallery keeps its own handling.
+  const landing = $("wb-boards-landing");
+  const carriesFile = (e) => [...(e.dataTransfer?.items || [])].some((i) => i.kind === "file");
+  landing?.addEventListener("dragover", (e) => {
+    if (!carriesFile(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  });
+  landing?.addEventListener("drop", (e) => {
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    e.preventDefault();
+    if (!/\.(opml|xml|mm|xmind|md|markdown|txt)$/i.test(file.name)) {
+      toast("Drop an outline to import it: OPML, FreeMind, XMind, Markdown or plain text.", true);
+      return;
+    }
+    wbImportOutlineFile({ target: { files: [file], value: "" } });
+  });
   $("wb-back-to-boards")?.addEventListener("click", wbShowBoardsLanding);
   $("library-boards-search")?.addEventListener("input", redrawLibraryBoardsGallery);
   // The Reload button beside "+ New board", now named after what it reloads.
@@ -19059,7 +19097,7 @@ function wbPresentSteps() {
       };
     });
   }
-  return wbMapPresentSteps();
+  return wbStudy.on ? wbMapStudySteps() : wbMapPresentSteps();
 }
 
 function wbStartPresenting() {
@@ -19119,13 +19157,14 @@ function wbPresentShow(index) {
   const prev = document.getElementById("wb-present-prev");
   const next = document.getElementById("wb-present-next");
   if (prev) prev.disabled = at === 0;
-  if (next) next.disabled = at === steps.length - 1;
+  if (next) next.disabled = at === steps.length - 1;  if (wbStudy.on) wbMapStudySyncBar();
 }
 
 function wbStopPresenting() {
   if (!wbPresent) return;
   const { wasFull, camera, focus } = wbPresent;
   wbPresent = null;
+  wbMapEndStudy();
   document.getElementById("library-view-whiteboard")?.classList.remove("wb-presenting");
   document.getElementById("wb-present-bar")?.classList.add("hidden");
   if (!wasFull) toggleWhiteboardFullscreen(false);
@@ -19155,6 +19194,12 @@ window.addEventListener("keydown", (event) => {
     if (!button.disabled) button.click();
     return;
   }
+  //: Studying, Enter and Space draw the answer before they move on.
+  const asking = wbStudy.on && !document.getElementById("wb-study-show")?.classList.contains("hidden");
+  if (asking && (event.key === "Enter" || event.key === " ")) {
+    wbMapStudyShow();
+    return;
+  }
   if (event.key === "Escape") wbStopPresenting();
   else if (event.key === "Home") wbPresentShow(0);
   else if (event.key === "End") wbPresentShow(wbPresent.steps.length - 1);
@@ -19168,6 +19213,9 @@ document.addEventListener("click", (event) => {
   if (button.id === "wb-present-prev") wbPresentShow(wbPresent.at - 1);
   else if (button.id === "wb-present-next") wbPresentShow(wbPresent.at + 1);
   else if (button.id === "wb-present-end") wbStopPresenting();
+  else if (button.id === "wb-study-show") wbMapStudyShow();
+  else if (button.id === "wb-study-knew") wbMapStudyMark(true);
+  else if (button.id === "wb-study-missed") wbMapStudyMark(false);
 });
 
 //: The gestures that are one Undo step each, read off what they changed

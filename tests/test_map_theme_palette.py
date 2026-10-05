@@ -84,6 +84,41 @@ def test_the_classic_palette_is_the_one_every_map_had():
         assert len(set(colours)) == len(colours), name
 
 
+def test_eight_curated_palettes_and_the_picker_offers_each():
+    """MINDMAP_PLAN §12.2 item 7: "auto-colour by branch ... with eight
+    curated palettes". Every stored name is one the theme accepts, and the
+    canvas's picker offers exactly the server's names (no colour lives in
+    the client), so a palette added on one side is never missing on the
+    other."""
+    import re
+    from pathlib import Path
+
+    from memorymap.api.routes_whiteboard import MAP_THEME_FIELDS
+
+    assert len(MAP_BRANCH_PALETTES) == 8
+    assert set(MAP_BRANCH_PALETTES) - {"classic"} == set(MAP_THEME_FIELDS["palette"])
+    js = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "whiteboard-map.js").read_text()
+    block = js[js.index('key: "palette"'):]
+    block = block[: block.index("] },")]
+    offered = set(re.findall(r'\["([a-z]*)", "', block))
+    assert offered == (set(MAP_BRANCH_PALETTES) - {"classic"}) | {""}
+
+
+def test_every_palette_colour_is_a_line_on_the_light_paper():
+    """A branch colour is drawn as a 3px line on the page; one that nearly
+    vanishes on white (Set1's yellow, Pastel's tints) is not curated. The four
+    added 2026-10-05 hold 1.6:1 against white at least; the first four are
+    what maps already wear and are pinned as they are."""
+    def lum(hex_colour):
+        rgb = [int(hex_colour[i : i + 2], 16) / 255 for i in (1, 3, 5)]
+        lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb]
+        return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+    for name in ("bold", "paired", "bright", "earth"):
+        for colour in MAP_BRANCH_PALETTES[name]:
+            assert 1.05 / (lum(colour) + 0.05) >= 1.6, (name, colour)
+
+
 def test_the_tree_hands_the_canvas_its_resolved_palette(client):
     """The canvas no longer keeps its own copy: `/tree` says which colours."""
     board = _map(client)

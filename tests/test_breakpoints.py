@@ -41,14 +41,12 @@ PHASE_9 = {
 #: Every other width in use on 2026-10-05, and how many queries use it.
 #: Lower a number (or drop a row) when a group moves onto Phase 9's set.
 ALLOWED = {
-    # The three groups the audit named. 2026-10-05 (uimod-89) moved 35 of
-    # their 49 rules onto Phase 9's set, and op4-1005 the status bar's and the
-    # dashboard quick access's (both to 599.98; the 900 group is empty). What
-    # is left is the whiteboard's (06's floating panel, and every one of these
-    # in 07-whiteboard-misc.css), owned by the whiteboard agent.
-    ("max", 719.98): 3,
-    ("min", 720.0): 2,
-    ("max", 640.0): 5,  # px and 40rem
+    # The three groups the audit named (720, 640 and 900) are empty: uimod-89
+    # moved 35 of their 49 rules onto Phase 9's set, op4-1005 the status
+    # bar's and the dashboard quick access's, and op5-1005 the last ten (the
+    # whiteboard file's, to 819.98/820, which also took the tool dock off the
+    # zoom cluster between 641 and 819: 6,841px² to 0, `op5-1005.js`
+    # MODE=bands).
     # Components' own widths (rem at 16px: dialogs, panels, the timeline).
     ("max", 400.0): 4,
     ("min", 1024.0): 4,

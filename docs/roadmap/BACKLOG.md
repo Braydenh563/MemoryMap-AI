@@ -1103,6 +1103,13 @@ now that SearXNG is a real running thing rather than a plan:
 
 ## 14. More tools worth adding
 
+Pickup notes (2026-10-05, read before building; deferred until after PR 162):
+- The six named tools are still missing. Check the registry's real count first: the README says 65, while this section said 58.
+- `execute_tool` already files writes as `ai:<tool>` through `events.acting_as` (`ai/tools/__init__.py`), so a new tool only needs a test for it.
+- Undo is a single tool call posted back to `/chat/tools/execute` (`chat-agent.js`, `changeRow`). Its arguments may carry extra keys, which `move_notes` needs in order to put each note back in its old category.
+- `move_notes` to a space can reuse `routes_spaces.py`'s `move_notes_to_space`, once that body is lifted into a shared helper. `export_notes` writes into `_exports_dir()` (`routes_files.py`).
+- There is no calendar events table: `core/events.py` is the change log, and the timeline's kinds are note, board, document and reminder. The plan for `add_event`: a `Reminder` row with a new `kind` column, which needs one migration. The plan for `list_events`: read the timeline over a date window.
+
 **Checked against the registry 2026-10-04.** Built since this list was
 written: `create_document`, `related_notes`, `find_similar_notes`,
 `notebook_overview` and `count_notes` (the stats), `save_user_preference`

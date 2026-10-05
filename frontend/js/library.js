@@ -870,7 +870,7 @@ function libraryActions(item) {
     // _shelved), each with its own unarchive route/method and its own
     // "bring it back to..." wording: `subtype` is what tells them apart.
     const UNARCHIVE = {
-      note: { url: `/entries/${item.id}/unarchive`, method: "POST", noun: "note", reload: () => loadEntries() },
+      note: { url: `/entries/${item.id}/unarchive`, method: "POST", noun: "note", reload: () => refreshEntries([item.id]) },
       chat: { url: `/conversations/${item.id}/unarchive`, method: "PUT", noun: "chat", reload: () => loadConversationList() },
       document: { url: `/documents/${item.id}/unarchive`, method: "PUT", noun: "document", reload: () => {} },
     };

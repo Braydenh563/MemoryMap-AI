@@ -2890,7 +2890,7 @@
 /* Below this there is not enough width left to share the edge at all, the
    tools row would be squeezed to a few icons per line. The zoom cluster moves
    up out of the way instead and the tools take the full width. */
-@media (max-width: 40rem) {
+@media (max-width: 819.98px) {
 
   .whiteboard-floating-panel.bottom-center {
     max-width: calc(100% - 2rem);

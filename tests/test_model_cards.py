@@ -253,3 +253,48 @@ def test_pulling_a_pasted_link_downloads_the_normalised_name(ai_client, fake_oll
     response = ai_client.post("/models/pull", json={"name": link})
     assert response.status_code == 200
     assert response.json()["name"] == "hf.co/unsloth/gemma-3-4b-it-GGUF:Q4_K_M"
+
+
+# --- what an installed model may be used for (op4-1005's found-not-fixed) -----
+
+
+@pytest.mark.parametrize(
+    ("entry", "uses"),
+    [
+        # The catalogue knows these by name, with or without ":latest".
+        ({"name": "nomic-embed-text:latest"}, ["embeddings"]),
+        ({"name": "llama3.2:latest"}, ["chat"]),
+        ({"name": "moondream"}, ["vision", "ocr", "chat"]),
+        # Not in the catalogue: Ollama's own details say the kind.
+        ({"name": "my/embedder:v2", "details": {"family": "bert", "families": ["bert"]}}, ["embeddings"]),
+        ({"name": "someone/seer:7b", "details": {"family": "llama", "families": ["llama", "clip"]}}, ["vision", "ocr", "chat"]),
+        ({"name": "someone/writer:7b", "details": {"family": "qwen2", "families": ["qwen2"]}}, ["chat"]),
+        # No details (an OpenAI-dialect server): the name is all there is.
+        ({"name": "text-embedding-3-small"}, ["embeddings"]),
+        ({"name": "llava-phi3"}, ["vision", "ocr", "chat"]),
+        ({"name": "some-ocr-model"}, ["ocr"]),
+        ({"name": "mistral-small"}, ["chat"]),
+    ],
+)
+def test_an_installed_model_is_offered_only_the_uses_its_kind_has(entry, uses):
+    """An embedding model was offered "Use for chat" (and never "Use for
+    search"): the installed card offered chat, images and reading text to
+    every model whatever it was."""
+    assert model_cards.installed_uses(entry) == uses
+
+
+def test_the_status_poll_carries_each_installed_models_uses(ai_client, fake_ollama):
+    ai_client.post("/models/pull", json={"name": "nomic-embed-text"})
+    status = ai_client.get("/models/status").json()
+    embedder = next(m for m in status["installed_models"] if m["name"].startswith("nomic-embed-text"))
+    assert embedder["uses"] == ["embeddings"]
+
+
+def test_the_installed_card_menu_offers_the_models_own_uses():
+    """The menu reads `uses` from the poll, so no client-side list of every
+    purpose is offered to a model that cannot serve it."""
+    from pathlib import Path
+
+    js = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "settings-models.js").read_text()
+    assert '["chat", "vision", "ocr"]' not in js
+    assert "uses: m.uses" in js

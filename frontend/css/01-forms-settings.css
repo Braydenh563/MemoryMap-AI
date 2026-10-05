@@ -3110,11 +3110,6 @@ li.link-source {
   overflow: hidden;
 }
 
-#ask-history-empty {
-  padding: var(--space-4) 0;
-  text-align: center;
-}
-
 #ask-history-more {
   width: 100%;
   margin-top: var(--space-2);

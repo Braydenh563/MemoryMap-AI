@@ -3972,7 +3972,9 @@ def test_presenting_is_one_mode_with_one_bar() -> None:
     css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
     assert 'data-wb-fn="present" data-wb-surface="board"' in index
     assert 'data-wb-fn="present" data-wb-surface="map"' in index, "a map presents by branch (MINDMAP_PLAN 21)"
-    assert "return wbMapPresentSteps();" in wb
+    #: Studying a map (MINDMAP_PLAN decision 36) is the same mode and bar.
+    assert "return wbStudy.on ? wbMapStudySteps() : wbMapPresentSteps();" in wb
+    assert 'id="wb-study-show"' in index and "wbMapEndStudy();" in wb
     assert 'if (item.dataset.wbFn === "present") { wbStartPresenting(); return; }' in wb
     assert 'id="wb-present-count" class="wb-present-count" aria-live="polite"' in index
     assert "#library-view-whiteboard.wb-presenting .wb-topbar," in css
@@ -4436,19 +4438,9 @@ def test_a_dialog_foot_is_one_height_with_its_filled_action_last() -> None:
         assert '.className = "ghost small";' in code and '.className = "accent small";' in code, name
 
 
-#: `p.muted` empty lines not yet on the recipe, each in a surface another plan
-#: owns (Documents, Chat and Ask, the graph, the whiteboard). Only shrinks.
-EMPTY_LINES_NOT_YET = {
-    "doc-history-empty",
-    "doc-ai-history-empty",
-    "doc-empty",
-    "doc-outline-empty",
-    "conv-empty",
-    "ask-history-empty",
-    "graph-pane-empty",
-    "wb-navigator-empty",
-    "wb-format-empty",
-}
+#: `p.muted` empty lines not yet on the recipe. Empty since op5-1005 moved the
+#: last nine (Documents', Chat's, Ask's, the graph's and the whiteboard's).
+EMPTY_LINES_NOT_YET: set[str] = set()
 
 
 def test_an_empty_line_in_a_small_panel_is_the_recipe():
@@ -4504,7 +4496,8 @@ def test_the_installed_models_are_model_cards():
     boot = (ROOT / "frontend" / "js" / "ai-tools.js").read_text(encoding="utf-8")
     assert "function renderInstalledModels" not in boot
     status = (ROOT / "frontend" / "js" / "status.js").read_text(encoding="utf-8")
-    assert 'if (typeof renderInstalledModels === "function") renderInstalledModels(status);' in status
+    #: Drawn under the one check that the lazy settingsUi file has loaded.
+    assert 'if (typeof renderSuggested === "function") {\n      renderInstalledModels(status);' in status
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert '<div id="installed-list" class="model-grid"></div>' in html
     css = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")

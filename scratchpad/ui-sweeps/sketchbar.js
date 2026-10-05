@@ -131,7 +131,12 @@ const probe = () => {
       await page.evaluate(() => document.getElementById('sketch-btn').click());
       await page.waitForTimeout(400);
       const r = await page.evaluate(probe);
-      if (r.rows > 1 && w > 600) bad += 1;
+      //: WHITEBOARD_PLAN 276, decided 2026-10-05 (op5): 820 with Large text
+      //: and Spacious density together takes two rows (41px short; the
+      //: slider and the separators give 33 between them), rather than
+      //: shrinking 44px targets. Every other combination is one row.
+      const twoRowsAllowed = w >= 820 && w < 1024 && s.name === 'large+spacious';
+      if (r.rows > (twoRowsAllowed ? 2 : 1) && w > 600) bad += 1;
       //: Below 820 the pointer is a finger, so the dot's *target* carries the
       //: app's stepped floor in the axis that has room for it and stays over
       //: the 24px WCAG minimum in the one that does not, and no two dots

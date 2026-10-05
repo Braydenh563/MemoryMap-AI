@@ -119,6 +119,11 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # file) never selects it, and the first new string written after it landed
   # broke it. Caught by a full local run rather than by any gate that day.
   tests/test_ai_name.py tests/test_frontend_symbols.py
+  # The Guide's controls entries against the markup and the shortcut tables:
+  # it reads `ai/help_chat.py` and the frontend together, so a help or a
+  # control edit never names it. A help edit once put the Guide's whiteboard
+  # keys entry at 1,926 characters against 1,920 and passed this gate.
+  tests/test_help_controls.py
   # Same reason again: it reads every string in `frontend/js/*.js`, so no changed
   # source file selects it.
   tests/test_no_glyph_icons.py

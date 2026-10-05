@@ -190,7 +190,11 @@ const TOUR_SECTIONS = [
         target: "#conversation-list",
         side: "right",
         tab: "chat",
-        media: "(min-width: 600px)",
+        //: 820, not 600: from 600 to 819.98 (and on any coarse pointer) the
+        //: chat sidebar is a sheet parked off screen at x -243 until its hinge
+        //: is pressed, so there is nothing here to point at (700x900 planned
+        //: 4 and showed 3: `scratchpad/ui-sweeps/tour.js`).
+        media: "(min-width: 820px) and (pointer: fine)",
         title: "Your conversations",
         text: "Every chat is kept here. Pick one to carry on where you left off.",
       },
@@ -342,7 +346,7 @@ const TOUR_SECTIONS = [
         //: map's own cards are dropped from the run then, and this card is
         //: the one that says why and what to press.
         unless: "map",
-        unlessText: "You have no mind map yet, so this is where one starts: New, then Mind map, begins from one central idea, and inside it Tab adds a branch and Enter adds one beside it. Its own tools are shown once you have one.",
+        unlessText: "You have no mind map yet. New, then Mind map, starts one from a central idea; its own tools show once you have one.",
       },
       {
         target: "#wb-map-add-root",
@@ -540,6 +544,10 @@ const TOUR_SECTIONS = [
       {
         target: "#status-command",
         side: "top",
+        //: Hidden from 600 to 819.98 and on any coarse pointer
+        //: (`10-responsive.css`, the status bar's icon-only band), so a step
+        //: here has nothing to point at at those widths.
+        media: "(max-width: 599.98px), (min-width: 820px) and (pointer: fine)",
         title: "Commands",
         text: "Ctrl and K, or a press here, searches and runs anything by name.",
       },

@@ -99,7 +99,7 @@ def _installed_models(running: bool) -> list[dict]:
         return []
     try:
         return [
-            {"name": m.get("name", ""), "size": m.get("size", 0)}
+            {"name": m.get("name", ""), "size": m.get("size", 0), "uses": model_cards.installed_uses(m)}
             for m in deps.get_ollama().list_models()
         ]
     except OllamaError:
@@ -164,7 +164,8 @@ def _installed_or_last_known(client) -> list[dict] | None:  # noqa: ANN001
 def _run_list_flight(client, key: tuple[str, str], flight: _ListFlight) -> None:  # noqa: ANN001
     try:
         flight.result = [
-            {"name": m.get("name", ""), "size": m.get("size", 0)} for m in client.list_models()
+            {"name": m.get("name", ""), "size": m.get("size", 0), "uses": model_cards.installed_uses(m)}
+            for m in client.list_models()
         ]
     except OllamaError:
         flight.result = None

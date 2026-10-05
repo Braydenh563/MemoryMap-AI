@@ -553,6 +553,8 @@ function wbMapConcealed(index) {
   // to that one would be this function editing another function's answer.
   const concealed = new Set(wbMapHidden(index));
   for (const id of wbMapFocusHidden(index)) concealed.add(id);
+  //: Study's hidden answers (decision 36), a view like focus.
+  if (wbStudy.on) for (const id of wbStudy.hidden) concealed.add(id);
   return concealed;
 }
 
@@ -677,6 +679,7 @@ const WB_MAP_THEME_GROUPS = [
     fields: [
       { key: "palette", label: "Branch colours", kind: "select", options: [
         ["", "Classic"], ["deep", "Deep"], ["soft", "Soft"], ["vivid", "Vivid"],
+        ["bold", "Bold"], ["paired", "Paired"], ["bright", "Bright"], ["earth", "Earth"],
       ] },
       { key: "font", label: "Font", kind: "select", options: [
         ["", "The app's own"], ["serif", "Serif"], ["mono", "Monospace"], ["wide", "Wide sans"],
@@ -4148,6 +4151,7 @@ function mapPaletteCommands() {
   row("This map", numbered ? "ph:list-bullets Stop numbering the topics" : "ph:list-numbers Number the topics", () => wbMapSetNumbered(!numbered));
   row("This map", "ph:chart-bar What this map is made of", () => wbShowMapStats());
   row("This map", "ph:presentation Present branches", () => wbStartPresenting());
+  row("This map", "ph:student Study the map", () => wbMapStartStudy());
   row("This map", "ph:funnel Filter by marker…", () => wbMapChooseMarkerFilter());
   if (wbMarkerUi.filter) row("This map", "ph:x-circle Stop filtering by marker", () => wbMapSetMarkerFilter(null));
   row("This map", wbOutlineShowing() ? "ph:list-dashes Hide the outline" : "ph:list-dashes Show the map as an outline", () => wbOutlineToggle());
@@ -4156,7 +4160,7 @@ function mapPaletteCommands() {
     if (value !== wbMapLayout()) row("Map layout", `ph:tree-structure Layout: ${name}`, () => wbMapSetLayout(value));
   }
   row("This map", "ph:file-text Write this map as a document", () => wbMapWriteDocument());
-  for (const [format, name] of [["markdown", "Markdown outline"], ["opml", "OPML"], ["freemind", "FreeMind (.mm)"]]) {
+  for (const [format, name] of [["markdown", "Markdown outline"], ["opml", "OPML"], ["freemind", "FreeMind (.mm)"], ["text", "plain text"]]) {
     row("Export the map", `ph:export Export as ${name}`, () => wbExportMapText(format));
   }
   return rows;
@@ -6640,7 +6644,7 @@ const WB_MAP_STYLE_KEYS = [
 //: And a boundary and a summary (decisions 19, 20): what the map says.
 const WB_MAP_CONTENT_KEYS = [
   "image", "task", "note", "boundary", "boundary_label", "summary", "summary_span",
-  "priority", "progress", "flag", "markers",
+  "priority", "progress", "flag", "markers", "due",
 ];
 
 //: Remove this topic and keep its branch: the children move up to its parent
@@ -7580,6 +7584,156 @@ function wbMapPresentSteps() {
   return steps;
 }
 
+// --- Study the map (MINDMAP_PLAN §12.3 item 5, decision 36) ----------------
+//
+//: **Presenting, with each branch's topics hidden until recalled.** The
+//: questions are the trunks' branches that have topics under them, in the
+//: order Present branches walks; each step shows the branch topic alone,
+//: "Show" (or Enter) draws what is under it, and "Knew it" or "Not yet"
+//: marks it and moves on. Hidden is a view, like focus: nothing is folded
+//: or written. The marks are kept per map on this device (`wbStudy:<id>`),
+//: and a branch missed last time says so in its step.
+const wbStudy = { on: false, hidden: new Set(), steps: [], marks: {}, boardId: null };
+
+// WB-MAP-STUDY-BEGIN
+//: The questions: each trunk's children with a branch under them, in sibling
+//: order (`childrenOf` is already sorted), and every topic under each one.
+//: Pure, so `tests/test_map_study.py` runs it in node.
+function wbMapStudyQuestions(index) {
+  const out = [];
+  const under = (id) => {
+    const all = [];
+    const stack = [...(index.childrenOf.get(id) || [])];
+    const seen = new Set();
+    while (stack.length) {
+      const node = stack.pop();
+      if (seen.has(node.id)) continue;
+      seen.add(node.id);
+      all.push(node.id);
+      stack.push(...(index.childrenOf.get(node.id) || []));
+    }
+    return all;
+  };
+  for (const root of index.roots) {
+    for (const branch of index.childrenOf.get(root.id) || []) {
+      const hides = under(branch.id);
+      if (hides.length) out.push({ id: branch.id, hides });
+    }
+  }
+  return out;
+}
+
+//: What "Recalled 3 of 5" counts, and the line a step carries from last time.
+function wbMapStudyTally(questions, marks) {
+  const knew = questions.filter((q) => marks[q.id]?.last === "knew").length;
+  const missed = new Set(questions.filter((q) => marks[q.id]?.last === "missed").map((q) => q.id));
+  return { knew, of: questions.length, missed };
+}
+// WB-MAP-STUDY-END
+
+function wbMapStudyKey() {
+  return `wbStudy:${wbStudy.boardId}`;
+}
+
+function wbMapStudyLoad() {
+  //: Through the one door to saved settings (prefs.js), which already
+  //: survives blocked storage and an unreadable value.
+  return prefs.json(wbMapStudyKey(), {}) || {};
+}
+
+function wbMapStudySave() {
+  try {
+    localStorage.setItem(wbMapStudyKey(), JSON.stringify(wbStudy.marks));
+  } catch {
+    // storage blocked (a private window): the run still works, unremembered
+  }
+}
+
+//: The steps the presenting shell walks: one per question, fitted to what
+//: is showing of the branch (the question alone, then the answer).
+function wbMapStudySteps() {
+  const pad = 24;
+  return wbStudy.steps.map((q) => ({
+    id: q.id,
+    title: () => {
+      const label = wbMapLabel(wbMapIndex().byId.get(q.id) || {}) || "Topic";
+      const shown = !q.hides.some((id) => wbStudy.hidden.has(id));
+      const was = wbStudy.marks[q.id]?.last === "missed" ? " (not yet, last time)" : "";
+      return shown ? label : `What is under “${label}”?${was}`;
+    },
+    box: () => {
+      const now = wbMapIndex();
+      if (!now.byId.has(q.id)) return null;
+      const b = wbMapBranchBox(now, wbMapConcealed(now), q.id);
+      return b ? { x: b.minX - pad, y: b.minY - pad, w: b.maxX - b.minX + pad * 2, h: b.maxY - b.minY + pad * 2 } : null;
+    },
+  }));
+}
+
+function wbMapStartStudy() {
+  const questions = wbMapStudyQuestions(wbMapIndex());
+  if (!questions.length) {
+    toast("Nothing to recall yet: a branch with topics under it is a question.");
+    return;
+  }
+  wbStudy.on = true;
+  wbStudy.boardId = window.currentBoardId;
+  wbStudy.steps = questions;
+  wbStudy.hidden = new Set(questions.flatMap((q) => q.hides));
+  wbStudy.marks = wbMapStudyLoad();
+  renderWhiteboardNow();
+  wbStartPresenting();
+  wbMapStudySyncBar();
+  //: After the shell's own focus on Next (a frame on), so Enter shows.
+  requestAnimationFrame(() => requestAnimationFrame(() =>
+    document.getElementById("wb-study-show")?.focus({ preventScroll: true })));
+}
+
+//: Show, then the two marks: the bar's study buttons follow the step.
+function wbMapStudySyncBar() {
+  const step = wbStudy.on && wbPresent ? wbStudy.steps[wbPresent.at] : null;
+  const shown = step ? !step.hides.some((id) => wbStudy.hidden.has(id)) : false;
+  document.getElementById("wb-study-show")?.classList.toggle("hidden", !step || shown);
+  document.getElementById("wb-study-knew")?.classList.toggle("hidden", !step || !shown);
+  document.getElementById("wb-study-missed")?.classList.toggle("hidden", !step || !shown);
+}
+
+function wbMapStudyShow() {
+  const step = wbPresent && wbStudy.steps[wbPresent.at];
+  if (!step) return;
+  for (const id of step.hides) wbStudy.hidden.delete(id);
+  renderWhiteboardNow();
+  wbPresentShow(wbPresent.at);
+  wbMapStudySyncBar();
+  document.getElementById("wb-study-knew")?.focus({ preventScroll: true });
+}
+
+function wbMapStudyMark(knew) {
+  const step = wbPresent && wbStudy.steps[wbPresent.at];
+  if (!step) return;
+  const was = wbStudy.marks[step.id] || { knew: 0, missed: 0 };
+  wbStudy.marks[step.id] = { ...was, [knew ? "knew" : "missed"]: (was[knew ? "knew" : "missed"] || 0) + 1, last: knew ? "knew" : "missed" };
+  wbMapStudySave();
+  if (wbPresent.at < wbStudy.steps.length - 1) {
+    wbPresentShow(wbPresent.at + 1);
+    wbMapStudySyncBar();
+    document.getElementById("wb-study-show")?.focus({ preventScroll: true });
+    return;
+  }
+  const tally = wbMapStudyTally(wbStudy.steps, wbStudy.marks);
+  wbStopPresenting();
+  toast(`Recalled ${tally.knew} of ${tally.of} branches.`);
+}
+
+//: Called by `wbStopPresenting`: the map draws whole again.
+function wbMapEndStudy() {
+  if (!wbStudy.on) return;
+  wbStudy.on = false;
+  wbStudy.hidden = new Set();
+  wbMapStudySyncBar();
+  renderWhiteboardNow();
+}
+
 // --- The outline (MINDMAP_PLAN §12.2 item 8, the audit's M3) ---------------
 //
 //: **The map as an indented list, edited in place and kept in step both
@@ -7907,7 +8061,19 @@ function wbMapMarkerParts(data) {
   const icons = Array.isArray(data?.markers)
     ? data.markers.filter((name) => typeof name === "string" && /^[a-z0-9-]{1,40}$/.test(name)).slice(0, WB_MAP_MARKERS_MAX)
     : [];
-  return { priority, progress, flag, icons };
+  //: A due day (decision 37), checked as the server checks it.
+  const due = typeof data?.due === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data.due) ? data.due : null;
+  return { priority, progress, flag, icons, due };
+}
+
+//: "12 Oct", and whether that day has gone (local midnight to midnight).
+function wbMapDueWords(due) {
+  const [y, m, d] = due.split("-").map(Number);
+  const day = new Date(y, m - 1, d);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const words = day.toLocaleDateString(undefined, { day: "numeric", month: "short", ...(y !== today.getFullYear() ? { year: "numeric" } : {}) });
+  return { words, past: day < today };
 }
 
 function wbMapProgressWords(progress) {
@@ -7923,6 +8089,10 @@ function wbMapMarkerWords(parts) {
   if (parts.priority) words.push(`priority ${parts.priority}`);
   if (parts.progress != null) words.push(wbMapProgressWords(parts.progress));
   if (parts.flag) words.push("flagged");
+  if (parts.due) {
+    const due = wbMapDueWords(parts.due);
+    words.push(due.past ? `was due ${due.words}` : `due ${due.words}`);
+  }
   for (const icon of parts.icons) words.push((WB_MAP_MARKER_ICON_NAMES.get(icon) || icon).toLowerCase());
   const text = words.join(", ");
   return text ? text[0].toUpperCase() + text.slice(1) : "";
@@ -7932,7 +8102,7 @@ function wbMapMarkerWords(parts) {
 //: render of an unchanged map writes nothing here.
 function wbMapPaintMarkers(host, data) {
   const parts = wbMapMarkerParts(data);
-  const key = `${parts.priority}|${parts.progress}|${parts.flag}|${parts.icons.join(",")}`;
+  const key = `${parts.priority}|${parts.progress}|${parts.flag}|${parts.icons.join(",")}|${parts.due}`;
   if (host.dataset.key === key) return;
   host.dataset.key = key;
   host.replaceChildren();
@@ -7966,7 +8136,58 @@ function wbMapPaintMarkers(host, data) {
     host.appendChild(i);
   };
   if (parts.flag) glyph("flag", " wb-map-mark-flag");
+  if (parts.due) {
+    const due = wbMapDueWords(parts.due);
+    const chip = document.createElement("span");
+    chip.className = `wb-map-mark wb-map-mark-due${due.past ? " is-past" : ""}`;
+    chip.textContent = due.words;
+    host.appendChild(chip);
+  }
   for (const icon of parts.icons) glyph(icon);
+}
+
+//: The Due row (decision 37): the browser's own date field, Clear, and
+//: Remind me, which makes an ordinary reminder at 9:00 that day.
+function wbMapDueRow(node, parts, set) {
+  const wrap = document.createElement("div");
+  wrap.className = "wb-map-markers-row";
+  const name = document.createElement("span");
+  name.className = "wb-map-markers-label";
+  name.textContent = "Due";
+  const field = document.createElement("input");
+  field.type = "date";
+  field.value = parts.due || "";
+  field.setAttribute("aria-label", "Due date");
+  field.addEventListener("change", () => set({ due: field.value || null }));
+  wrap.append(name, field);
+  if (parts.due) {
+    const clear = document.createElement("button");
+    clear.type = "button";
+    clear.className = "ghost small";
+    clear.textContent = "Clear";
+    clear.addEventListener("click", () => set({ due: null }));
+    const remind = document.createElement("button");
+    remind.type = "button";
+    remind.className = "ghost small";
+    remind.textContent = "Remind me";
+    remind.title = "A reminder at 9:00 on the due day, in Reminders";
+    remind.addEventListener("click", async () => {
+      const [y, m, d] = parts.due.split("-").map(Number);
+      const at = new Date(y, m - 1, d, 9, 0, 0);
+      if (at < new Date()) {
+        toast("That day has gone: pick a later due date for a reminder.", true);
+        return;
+      }
+      try {
+        await apiJson("/reminders", { method: "POST", body: JSON.stringify({ text: wbMapLabel(node) || "Map topic", due_at: at.toISOString() }) });
+        toast(`Reminder set for ${wbMapDueWords(parts.due).words}, 9:00.`);
+      } catch (error) {
+        toast(error.message || "Couldn't set that reminder.", true);
+      }
+    });
+    wrap.append(clear, remind);
+  }
+  return wrap;
 }
 
 const wbMarkerUi = { pop: null, filter: null };
@@ -8072,6 +8293,7 @@ function wbMapOpenMarkers(id, anchor = null) {
       wbMapMarkerSeg("Progress", [[null, "None"], [0, "0%"], [25, "25%"], [50, "50%"], [75, "75%"], [100, "Done"]],
         parts.progress, (value) => set({ progress: value })),
       wbMapMarkerSeg("Flag", [[false, "Off"], [true, "On"]], parts.flag, (value) => set({ flag: value || null })),
+      wbMapDueRow(live, parts, set),
       iconRow,
       hint,
     );
@@ -8109,6 +8331,7 @@ function wbMapMarkerKeys(data) {
   if (parts.priority) keys.push(`p${parts.priority}`);
   if (parts.progress != null) keys.push(parts.progress === 100 ? "done" : "going");
   if (parts.flag) keys.push("flag");
+  if (parts.due) keys.push("due");
   for (const icon of parts.icons) keys.push(`i:${icon}`);
   return keys;
 }
@@ -8118,6 +8341,7 @@ function wbMapMarkerKeyWords(key) {
   if (key === "done") return ["Done", "ph:check-circle"];
   if (key === "going") return ["Under way", "ph:circle-half"];
   if (key === "flag") return ["Flagged", "ph:flag"];
+  if (key === "due") return ["With a due date", "ph:calendar-dots"];
   const icon = key.slice(2);
   return [WB_MAP_MARKER_ICON_NAMES.get(icon) || icon, `ph:${icon}`];
 }

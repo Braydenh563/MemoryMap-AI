@@ -625,7 +625,7 @@ async function openBoardsMore(page) {
   await page.screenshot({ path: `${OUT}/mindmap3-chat-${process.env.THEME || "light"}-${VIEWPORT.width}.png` });
 
   // ==========================================================================
-  // Item 5 — the preview redesign (agent-remaining/mindmap.md F)
+  // Item 5 — the preview redesign (archive/agent-remaining/mindmap.md F)
   //
   // What is being measured, and why a screenshot would not have caught any of
   // it: the miniature used to be drawn with preserveAspectRatio="none" into a

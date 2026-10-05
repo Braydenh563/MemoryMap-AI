@@ -463,61 +463,10 @@ extended with the numbers named.
   2026-10-03): the toast's Undo and Ctrl+Z are the same entry, and the
   restore writes the whole row back, not only the text and colour.
 
-### 12.1 Phase 6a, the controls (1 session)
+### 12.1 Phase 6a, the controls
 
-1. **The map toolbar** (replaces the whiteboard rail on a map): Add
-   topic, Add sub-topic, Add sibling, Delete, Collapse/Expand branch,
-   Layout ▾, Style ▾ (theme, branch colours, line style), Insert ▾ (note
-   card, image, link, icon, boundary, summary, relationship), Arrange
-   (auto, tidy siblings, centre root), Focus, Present, Export ▾, and the
-   undo pair; seven visible at most, the rest in ▾ menus, per the dock
-   grammar. **Part of this is built**: the board-only sections (draw,
-   shapes, the free adds) are hidden on a map and the map's own Topic and
-   Branch sections carry add topic, add child, add sibling, collapse,
-   branch colour and focus; the layout picker and Tidy are still in the
-   top bar, and the Style, Insert, Arrange, Present and Export menus are
-   not written. See `archive/agent-remaining/mindmap.md` for the measured numbers
-   and the rest of the list.
-2 to 9. **Built, 2026-09-12**: the node edit strip, the node radial, the
-   link radial, the mid-line add, the text-size grip, uncollapse, drag to
-   transplant and sever. Moved whole to HISTORY.md ("Moved from the plans,
-   2026-09-12", MINDMAP_PLAN.md §12.1 items 2 to 9); a plan holds open work
-   only. What is left of those eight, with the reason each was left:
-
-   - **An image in a node** (item 2's fourth) and **the control points on a
-     curve drag to reshape it** (item 5's third) were both built on
-     2026-09-21. Moved to HISTORY.md ("Moved from the plans, 2026-09-21",
-     MINDMAP_PLAN.md §12.1 items 2 and 5): a picture is `data.image`, a
-     `/media/upload` url, drawn as a second node shape (`data-body="picture"`,
-     measured 182x102 inside a 200x138 card, 12/12 in
-     `scratchpad/ui-sweeps/mindmapimage.js`); a bend is `edge_bend` and
-     `edge_slide` on the child, two fractions of the line's own length, with a
-     handle measured 0.2 to 0.4 board units off the path for all three line
-     shapes (14/14 in `scratchpad/ui-sweeps/mindmapcurve.js`).
-   - **Comment on a node** (item 3's sixth) is §12.2 item 6 and belongs
-     there, not here.
-   - **Line thickness** (item 4's "style") was not built: the three shapes
-     and the dash carry the distinction, and a fourth axis on a 2px line is
-     a setting nobody can see.
-   - **Shift+drag off a node to sever** (item 9's second gesture). Sever is
-     on both rings; the drag gesture would collide with drag-to-transplant,
-     which took the same pointer.
-
-Gate: every action reachable by strip, radial and key (mindmap.js counts
-the three routes per action); an empty map recreates a root; 0 console
-errors; export/import round-trip of a map using every feature.
-
-**The gate's round-trip half is met** (2026-09-12, sixth run): everything the
-strip and the two rings write is in the FreeMind and OPML exports and comes
-back through both imports, and the two rings stay inside the canvas at any
-viewport. The account, including which field each format has an honest home
-for and which ride as private attributes, is in HISTORY.md ("Moved from the
-plans, 2026-09-12", "what the sixth run closed behind items 2 to 9"). What is
-still open of §12.1 is item 1's four dock menus and the three sub-items above
-that are still open (the comment, which belongs to §12.2, line thickness, and
-the shift-drag sever).
-**Node shape is built too** (2026-09-12, same run): four shapes, decided in
-§12.0 and recorded in HISTORY with the rest.
+Closed 2026-10-05 (op5): moved whole to HISTORY.md ("Moved from the plans,
+2026-10-05 (MINDMAP_PLAN §12.1 closed, op5)").
 
 ### 12.2 Phase 6b, structure and richness (1 session)
 
@@ -525,33 +474,30 @@ the shift-drag sever).
    HISTORY.md, "Moved from the plans, 2026-10-05 (boundaries and
    summaries)"). A boundary round a lasso'd set that is not one branch is
    not built.
-3. **Relationships**: a cross-link between any two nodes with an arrow
-   and a label, curved, dashed by default so it reads as secondary.
+3. **Relationships**: built (§13c, the cross-link; HISTORY.md, op5's
+   §12.1 record).
 4. **Markers and task info**: priority 1 to 5, progress 0 to 100, flags,
    due date (a reminder can be created from it), a checkbox; filter the
    map by marker; the outline view shows them as columns. The checkbox and
    the count up the branch are built (decision 15; HISTORY.md, "Moved from
    the plans, 2026-10-04"); priority, progress, the flag, icon markers and
    the filter are built (decision 34; HISTORY.md, "Moved from the plans,
-   2026-10-05 (markers)"); due dates (with a reminder) and tags on a topic
-   are open.
+   2026-10-05 (markers)"); due dates with a reminder are built (decision
+   37; HISTORY.md, "Moved from the plans, 2026-10-05 (due dates, op5)");
+   tags on a topic are open.
 5. **Notes on nodes**: a node that is a notebook note shows the note's
    own text here, editable both ways. The text note behind a topic is
    built (decision 18; HISTORY.md, "Moved from the plans, 2026-10-04").
 6. **Comments** (MindMeister): a thread per node, count marker. Built for
    topics and board items alike (WHITEBOARD_PLAN decision 17; HISTORY.md,
    "Moved from the plans, 2026-10-04 (comments)").
-7. **Multiple roots and floating topics**; **auto-colour by branch** as
-   the default theme with eight curated palettes. Numbering is built
-   (decision 17; HISTORY.md, "Moved from the plans, 2026-10-04").
+7. **Multiple roots, floating topics, eight palettes**: built (HISTORY.md,
+   "Moved from the plans, 2026-10-05 (MINDMAP_PLAN §12.2 items 7 and 10, op5)").
 8. **Outline view**: built (decision 33; HISTORY.md, "Moved from the plans,
    2026-10-05 (the map's outline)"). Its markers as columns wait on item 4.
 9. **Presentation mode**: built (decision 21; HISTORY.md, "Moved from the
    plans, 2026-10-05 (a map presented by branch)").
-10. **Export**: PNG at 2x with the theme, PDF, SVG, FreeMind .mm, OPML,
-    Markdown outline, plain-text outline; **import** by drop of .mm,
-    .opml, .txt outline or Markdown, and from XMind's .xmind (its
-    content.json) read-only.
+10. **Export and import**: built (the same HISTORY.md record).
 Gate: mindmap3.js extended with one check per feature; the 201-node map
 keeps 60 fps pan (measured with the frame probe); round-trip of every
 export that claims it.
@@ -573,9 +519,9 @@ export that claims it.
 4. **Graph sync**: a map's cross-links become graph links (kind "map");
    the graph's "Mind map" selection action (Phase 4) opens here with the
    layout pre-chosen.
-5. **Study mode**: hide all but the root, reveal a branch at a time,
-   with a "recall" prompt before revealing (the note's own text is the
-   answer); progress stored per map.
+5. **Study mode**: built (decision 36; HISTORY.md, "Moved from the plans,
+   2026-10-05 (study the map, op5)"). The note behind a topic as the answer
+   is open.
 Gate: each AI action grounded (its sources listed) and faked in tests;
 the study mode measured on a 40-node map.
 
@@ -1317,6 +1263,30 @@ topic: a control that wide has nowhere to go.
    any document topic does), so it travels with the map into every export
    that keeps references. A twin kept in step both ways is the audit's idea,
    not built.
+36. **Studying a map is presenting with each branch hidden until recalled**
+   (taken 2026-10-05, §12.3 item 5, under standing order 3; op5). The board
+   menu's Study the map (maps only; the View menu is at its 450px ceiling)
+   and the palette's row start the presenting shell (decision 21's bar,
+   keys and Escape). The questions are the trunks' branches that have
+   topics under them, in Present branches' order; everything under each is
+   hidden as a view, like focus (`wbMapConcealed`), never folded or
+   written. Show (or Enter) draws the answer; Knew it or Not yet marks it
+   and moves on; the end says how many were recalled. The marks are kept
+   per map on this device (`wbStudy:<id>` in local storage: a study record
+   is the person's, not the map's), and a branch missed last time says so
+   in its step. Not built: a note behind the topic as the answer (the
+   plan's "the note's own text"), a spaced order.
+37. **A topic's due date is a day, a marker, and a reminder only when asked**
+   (taken 2026-10-05, §12.2 item 4, under standing order 3; op5).
+   `data.due` is a calendar day (`YYYY-MM-DD`, no time: a topic is due on a
+   day wherever the map is opened), content like decision 34's markers (a
+   look reset keeps it; OPML and FreeMind carry `_due`; Markdown does not).
+   Set in the Markers popover's Due row (the browser's date field, Clear),
+   drawn in the marker row as words ("14 Mar") in the ink, a day gone in the
+   error ink and read "was due"; View, Filter by marker lists "With a due
+   date". Remind me makes an ordinary reminder at 9:00 that day; a day gone
+   makes none and says why. No reminder is made by setting a date. Tags on a
+   topic stay open.
 
 ### Phases, each with the gate it is finished against
 
@@ -1480,61 +1450,14 @@ palette, font and the app's own default)", "the placed items of 2026-09-09").
 ## Placed from INBOX, 2026-09-09 (the owner's evening batch)
 
 The All list's kind test and the dock's wrap are built; moved to the same
-HISTORY.md record. Open:
-
-- "the boards and maps dashboard widget is ugly and needs fixing". Most of
-  what made it so is fixed (one renderer with the Library's card, a fixed
-  72x40 landscape box, no box-in-a-box, rows 51px, the body not scrolling:
-  measured 2026-10-04, 340x333 at 1440). What is left, measured: a tall map
-  draws its paper at the board's own shape (`mapPreview`'s rule, "the paper
-  is the board"), so a 25-topic tree-right map is a **20x40 sliver** in the
-  72x40 box and a 7-topic one 25x40, about a third of the box with the rest
-  empty to its left and right. Whether a row thumbnail may crop a tall map to
-  the box (breaking that rule) or the box goes square is a judgement for the
-  owner, not a measurement.
+HISTORY.md record.
+The dashboard widget's tall-map sliver is built (decision 30, `d873a3f`);
+moved to HISTORY.md with §12.1 (op5).
 
 ## Placed from INBOX, 2026-09-13
 
-177 (part). **Node styling this plan does not yet cover** (the owner, with
-Coggle captures). Built already: the radial ring's visibility, 3px branches
-with an arrowhead, the "Aa" grip's placement, topics as link-tool
-candidates. Placed here:
-
-- **Core nodes**: built. The strip's crown writes `core` on the node and the
-  shape picker gained `ellipse`. Measured, `scratchpad/ui-sweeps/mapcore.js`,
-  10/10 at 1440 light, 1440 dark and 390x844: the spine goes 4px to 6px, the
-  outline 1px to 2px and the type 400 to 600 against a plain sibling, the
-  ellipse computes a 50% radius with centred text, and the round trip through
-  `/whiteboard/boards/<id>/tree` keeps `core` (the `WhiteboardObjectData`
-  drop trap). The strip is 540px in a 1408px canvas at 1440 and wraps to
-  348x102 in 364px at 390.
-- **Per-node left edge**: built. The strip's second picker writes `spine`
-  (`dashed`, `none`, absent for solid). Measured,
-  `scratchpad/ui-sweeps/mapspine.js`, 9/9 at 1440 light, 1440 dark and
-  390x844: 4px solid to 4px dashed to a 1px hairline at the same 55% alpha
-  the other three sides carry, the label moving 3px with it; the choice beats
-  a core node's 6px bar (6px to 1px) and the node stays core; a plain topic,
-  whose box is transparent on purpose, is untouched (4px, label at the same
-  x); downward the choice is on the top edge instead. A server restart was
-  needed for the round trip to pass: the field is dropped by a stale process,
-  which is the `WhiteboardObjectData` trap wearing its other hat.
-- **Connection line styles**: built. `edge_width` (`thin`, `thick`) and
-  `edge_arrow` (`on`, `off`) join `edge_dashed` on the child, and all three
-  are in the strip's line group, which a trunk is not shown. Measured,
-  `scratchpad/ui-sweeps/mapline.js`, 13/13 at 1440 light, 1440 dark and
-  390x844: the ribbon goes 6.5 units at the parent to 11 thick and 3.6 thin
-  while its sibling stays 6.5, the stroked shapes 3px to 5.1px, a head added
-  to a ribbon takes its path from 50 to 53 points and its far end from 3.4 to
-  11.5 units, a head comes off a stroked line as `marker-end: none`, and all
-  three survive the round trip. The line group measures 0px on a trunk and
-  1/117/28/28px on a child. The strip is now 853px inside a 1408px canvas at
-  1440 and wraps to 348x150 inside 364px at 390.
-- **Resize a topic**: built, commit `3c9b874`. Measured,
-  `scratchpad/ui-sweeps/mapresize.js`: 170x44 dragged to 290x100, stored as
-  `width` 290 / `height` 100 / `sized` true, still 290x100 after a tidy.
-
-Each becomes a phase row when its phase is written; until then this list is
-the phase.
+177 (part): every item built; moved whole to HISTORY.md ("Moved from the
+plans, 2026-10-05 (placed blocks found built, op5)").
 
 ## Placed from INBOX, 2026-09-21
 

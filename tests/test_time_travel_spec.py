@@ -89,6 +89,14 @@ def test_before_the_notebook_existed_the_answer_is_empty_and_says_so(ai_client, 
     assert "1 January 2025" in answer and "no notes" in answer.lower()
 
 
+def test_the_unstreamed_chat_takes_as_of_too(ai_client, fake_ollama, session):
+    entry = _note_with_history(session, BATCH, [0, 30, 60])
+    as_of = (T0 + timedelta(days=45)).date().isoformat()
+    body = ai_client.post("/chat", json={"question": "what batch size?", "as_of": as_of}).json()
+    record = next(row for row in body["raw_results"] if row["id"] == entry.id)
+    assert record["content"] == BATCH[1]
+
+
 def test_then_and_now_reports_one_revised_one_dropped_one_new(ai_client, session):
     then = (
         "The batch size should stay at 32. We train on the March dataset only. "

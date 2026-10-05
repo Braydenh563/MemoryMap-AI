@@ -1360,6 +1360,8 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         # This endpoint has no tool loop, it retrieves and answers, nothing
         # else: so every turn through it is an ask by construction.
         surface=ASK_SURFACE,
+        # Row 23: the same time travel the stream takes.
+        as_of=body.as_of,
     )
     #: This surface's own model, if one is set (model_manager.FEATURES).
     #: A view over the same manager, so everything downstream, the agent

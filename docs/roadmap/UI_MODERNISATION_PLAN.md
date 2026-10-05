@@ -1,6 +1,6 @@
-# UI modernisation — the dev plan for the next session
+# UI modernisation: the dev plan for the next session
 
-> Companions: [ROADMAP.md](../ROADMAP.md) (live list — this plan is its top
+> Companions: [ROADMAP.md](../ROADMAP.md) (live list: this plan is its top
 > priority) · [HANDOVER.md](HANDOVER.md) (what the last session measured and
 > left) · [../DESIGN.md](../DESIGN.md) (the rules this plan extends) ·
 > [BACKLOG.md](BACKLOG.md) · [HISTORY.md](HISTORY.md) · [ANALYSIS.md](ANALYSIS.md)
@@ -59,7 +59,7 @@ one of them and is judged by a count, not by looking at a screenshot.
   otherwise. If a phase needs a value the scale lacks, add the token with a
   comment saying which measurement asked for it.
 - **Subtract before adding.** Every phase first removes a recipe, a border,
-  a shadow, a size — and only then adjusts what is left.
+  a shadow, a size, and only then adjusts what is left.
 - **One commit per phase, pushed, with the before/after counts in the
   message.** The user's usage is finite; a session that ends mid-phase must
   leave a green, pushed head.
@@ -213,7 +213,7 @@ survive its archiving; the numbering is that file's.
    rather than a same-session, same-commit add. Left inline; `countjs.py`
    will keep reporting TOTAL 2 until a future pass does that properly.
 
-## Phase 0 — tooling and acceptance gates (½ session)
+## Phase 0: tooling and acceptance gates (½ session)
 
 1. Add `tests/test_ui_signatures.py`: a static lint that counts distinct
    `gap:`/`padding:` values on `.row`-class selectors and distinct
@@ -226,12 +226,12 @@ survive its archiving; the numbering is that file's.
 3. Screenshot set: every tab + every Settings section, light and dark, 1440
    and 1024 wide, into the scratchpad. Same script each session.
 
-## Phase 1 — mass and layout (1 session)
+## Phase 1: mass and layout (1 session)
 
 Target: the app reads as one shell with rooms in it, not as cards on a
 gradient.
 
-1. **Shell.** One gutter (`--page-gutter`, done) — extend to the dashboard
+1. **Shell.** One gutter (`--page-gutter`, done): extend to the dashboard
    grid gap, the Library grid gap, and the gap between the sub-tab strip and
    its content (measured 24/17/8px). Status bar and top bar: same height
    family (`--header-h`), same horizontal padding as the page gutter so the
@@ -254,7 +254,7 @@ gradient.
 Acceptance: `space.js` shows one card padding per card size, one card gap,
 one shell gutter; head rows at one height; screenshots side by side.
 
-## Phase 2 — component consistency (1–2 sessions)
+## Phase 2: component consistency (1–2 sessions)
 
 Target: one recipe per component family, counted.
 
@@ -265,8 +265,8 @@ Target: one recipe per component family, counted.
 | Head rows | 28/38/40px | 1: `--control-h` |
 | Chips/badges | ~6 recipes (tag, link, status, count, filter, inline) | 2: static tag (tone, no border) and interactive filter chip (tonal button) |
 | Fields | inputs with border+inset; selects with border+shadow | 1: recessed well, `--field-inset`, no drop shadow |
-| Segmented | 3 | 2: tab strip (well) and choice (chip well) — done, keep |
-| Menus/popovers | action-menu, select-menu, doc-dock-menu, help-popover, graph panels — 5 shells | 1 `.popover` shell: `--modal-bg-opaque`, `--border`, `--glass-shadow`, `--radius-md`, hidden-until-placed |
+| Segmented | 3 | 2: tab strip (well) and choice (chip well): done, keep |
+| Menus/popovers | action-menu, select-menu, doc-dock-menu, help-popover, graph panels, 5 shells | 1 `.popover` shell: `--modal-bg-opaque`, `--border`, `--glass-shadow`, `--radius-md`, hidden-until-placed |
 | Dialogs | modal-card + 4 one-off panels | 1 |
 | List rows | entry-list li, library-card, bookmark-row, extras-row, setting-row | 2: card row (tone) and divider row |
 
@@ -275,22 +275,22 @@ Method per family: run the sweep, read the signature table, pick the winner
 the one-off rules, re-run. Record each family's before/after count in the
 commit.
 
-## Phase 3 — typography, colour, glass restraint (½ session)
+## Phase 3: typography, colour, glass restraint (½ session)
 
 1. Type: `--text-md` for control labels everywhere (measured 0.85/0.92rem
    one-offs remain in Settings labels and library meta). Muted text at one
-   colour, one opacity — no `opacity: 0.75` on top of `--muted`.
+   colour, one opacity: no `opacity: 0.75` on top of `--muted`.
 2. Colour: the accent is for the one filled action, selection, and links.
    Remove accent from decorative borders, dots and icons that are not
    interactive. Status colours (`--ok/--warn/--error`) only on status.
 3. Glass: keep `backdrop-filter` on the top bar, sidebars, floating panels
-   and sticky strips. Remove it from widgets and list cards (tone instead) —
+   and sticky strips. Remove it from widgets and list cards (tone instead):
    the measured blur layer count drops again and the page stops shimmering.
    Sheen: off by default; the setting stays.
 4. Background: the blobs at half strength by default; a professional product
    has a quiet page.
 
-## Phase 4 — motion and placement (½ session)
+## Phase 4: motion and placement (½ session)
 
 1. Every floating panel opens through one path: measure → place → reveal.
    The toolbar menus do (`.is-placed`); port the same class to
@@ -301,24 +301,24 @@ commit.
 3. Focus rings: one recipe (`--accent` 2px offset) on every interactive
    element; verify with a keyboard-walk script.
 
-## Phase 5 — per-surface passes (1 session each, in this order)
+## Phase 5: per-surface passes (1 session each, in this order)
 
-1. **Settings** — the most visited and the most measured; apply phases 1–3
+1. **Settings**: the most visited and the most measured; apply phases 1–3
    and the #129 list (spacing, hierarchy, proximity per page).
-2. **Notes** (Browse, Capture, Write, Ask) — #132; the capture toolbar's
+2. **Notes** (Browse, Capture, Write, Ask), #132; the capture toolbar's
    density; the row list as the reference list component.
-3. **Chat** — dock, sidebar, bubbles; #35's odysseus-style shape as the
+3. **Chat**: dock, sidebar, bubbles; #35's odysseus-style shape as the
    target, kept restrained.
-4. **Library** — All/Documents/Files/Images/Links/Contents rows onto the two
+4. **Library**: All/Documents/Files/Images/Links/Contents rows onto the two
    list-row recipes; #101.
-5. **Dashboard** — phase 1's hero and widget head; widget internals onto the
+5. **Dashboard**: phase 1's hero and widget head; widget internals onto the
    compact card.
-6. **Graph, Timeline, Reminders** — toolbars onto the row recipe; the graph's
+6. **Graph, Timeline, Reminders**: toolbars onto the row recipe; the graph's
    floating panels onto the popover shell.
-7. **Whiteboard and Documents editor** — panel chrome onto the popover
+7. **Whiteboard and Documents editor**, panel chrome onto the popover
    shell; the toolbar strip as the reference toolbar; #133, #134.
 
-## Phase 6 — designed states and copy (½ session)
+## Phase 6: designed states and copy (½ session)
 
 1. Empty states: icon + one sentence + one action, one component, used by
    every list. 2. Loading: skeleton rows for lists, a spinner only inside a
@@ -335,7 +335,7 @@ buttons; no exclamation marks; one voice (DESIGN.md gets a "Voice" section).
 - The four traps in CLAUDE.md still apply: stale server, stale `app.js`, a
   screenshot is not a measurement, "already exists" is where triage starts.
 
-## Phase 7 — the reports from the v0.2.2 round that are still open
+## Phase 7: the reports from the v0.2.2 round that are still open
 
 Each one was triaged against the running app this session; these are the ones
 that need building rather than fixing.
@@ -368,14 +368,14 @@ that need building rather than fixing.
 5. **The Files sub-tab has to show more than a row can hold.** OCR text for a
    long document does not fit where a photo's caption fits; the row needs a
    summary plus a way to open the reading, not a clamped paragraph.
-6. **The agent activity panel** — see
+6. **The agent activity panel**, see
    [AGENT_SKILLS_REFORM.md](AGENT_SKILLS_REFORM.md) Phase C, which owns it.
 
-### Built — items 1, 3, 4 and 5
+### Built: items 1, 3, 4 and 5
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", UI_MODERNISATION_PLAN.md) on 2026-09-09: a plan holds open work only.
 
-### Decided, 2026-09-13 — how the page reader is reached (do not remake)
+### Decided, 2026-09-13: how the page reader is reached (do not remake)
 
 From INBOX 125: "alsi I want an easier and more accessible way to access the
 ocr workspace as a proper and more central feature." Triaged against the
@@ -411,7 +411,7 @@ pattern for the same shape is what DESIGN.md's recipe index exists to stop.
 - **No new markup.** Both entries are rows in existing catalogues, so there is
   no new id, no new surface and nothing for the recipe index to cover.
 
-### Decided, 2026-09-12 — what a Files row is for (do not remake)
+### Decided, 2026-09-12: what a Files row is for (do not remake)
 
 From INBOX 115, "the files rows in files still needs some ui improvement and
 redesign, and better function". The row had grown by accretion: five
@@ -434,7 +434,7 @@ restacking it.
   states; the "Used in" chips open the note they name; the kebab acts. A row
   that draws all three the same way is the report this decision answers.
 
-### Decided, 2026-09-12 — what the bottom of a picture card is (do not remake)
+### Decided, 2026-09-12: what the bottom of a picture card is (do not remake)
 
 From INBOX 115 ("the bottom of the image cards in the library images
 subsaection needs a desperate redesign and funection") and INBOX 118 after the
@@ -507,7 +507,7 @@ under the last line is 0px, an opened fold takes the card's full width (159px
 of 180px, no overflow) and the row grows with it, and contrast is 7.48 / 7.53 /
 6.56 in light and 6.47 / 6.44 / 5.06 in dark.
 
-## Phase 8 — control docks: one grammar for every tab's head (2 sessions)
+## Phase 8: control docks: one grammar for every tab's head (2 sessions)
 
 **The instruction, verbatim** (after Phases 0–7 were built):
 
@@ -528,18 +528,18 @@ per dock: controls, distinct control heights, kinds):
 
 | Dock | Controls | Heights | What the eye reads |
 | --- | --- | --- | --- |
-| Graph toolbar | 28 | 1 / 24 / 25 / 32 | two segments, a select, five buttons, a filled "New note" *and* "Concept maps" in the head row, a count and a legend below — every feature the tab has, in a row |
+| Graph toolbar | 28 | 1 / 24 / 25 / 32 | two segments, a select, five buttons, a filled "New note" *and* "Concept maps" in the head row, a count and a legend below, every feature the tab has, in a row |
 | Library head + toolbar | 2 + 16 | 18 / 30 / 36 | two switches, a segmented sort **and** a sort select saying the same thing, a view segment, a filter select, then eleven chips |
 | Notes toolbar | 14 | 32 / 36 | title, refresh, Select, view segment, search, Semantic, help, sort, page size |
 | Whiteboard top bar | 17 | 32 / 36 | back, board select, rename, add, layout select, then search, minimap, five menus, Library, fullscreen |
 | Documents header + strip | 9 + 26 | 28 / 32 / 36 | see DOCUMENTS_PLAN.md §3.2 |
 | Timeline toolbar | 9 | 24 / 32 | View, a select, Today, Options, Highlight, a filter, a count, help |
-| Reminders | 1 + 8 + 4 | 28 / 44 | a magic row, eight presets, four due buttons — three rows of ghost buttons |
+| Reminders | 1 + 8 + 4 | 28 / 44 | a magic row, eight presets, four due buttons, three rows of ghost buttons |
 | Chat | 1 + 6 | 28 / 36 | a filled New, then a toolbar of six at a different height |
 
 Seven docks, seven layouts. Phases 1–5 fixed the *recipes* (heights,
-radii, gaps); what they did not fix is the **grammar** — what goes where,
-in what order, in what kind of control — and that is what "chucked at the
+radii, gaps); what they did not fix is the **grammar**, what goes where,
+in what order, in what kind of control, and that is what "chucked at the
 top" means.
 
 ### The dock grammar (the rule the whole phase enforces)
@@ -555,7 +555,7 @@ sub-tab:
 1. **Identity first**: the title (or breadcrumb) and, when the surface has
    one, its context chip (the board's name, the space, a count). Never a
    control.
-2. **Find, narrow, order, view — in that order, always.** Search is the
+2. **Find, narrow, order, view, in that order, always.** Search is the
    first control after the title on every list surface. Filters are one
    `Filter ▾` popover (the Notes sheet from Phase 5 is the model) or a chip
    row *below* the dock, never both. Sort is one select, never a segment
@@ -571,7 +571,7 @@ sub-tab:
    that are used sometimes; a verb used every minute stays in the row.
 6. **One height, one baseline, two gaps.** `--control-h-lg` for every
    control in a dock, `--space-3` inside a group, `--space-4` between
-   groups (Phase 2's numbers), the group boundary drawn by gap alone —
+   groups (Phase 2's numbers), the group boundary drawn by gap alone,
    never by a rule or a border.
 7. **The same control does the same thing everywhere.** A segmented
    control changes *view*; a select changes *sort or filter*; a switch is a
@@ -640,9 +640,9 @@ it, Enter opens a popover, Escape closes it and returns focus) scripted in
   moves to the bottom (Phase 9).
 - **The whiteboard top bar** (`#wb-topbar`): a menu bar is its own valid
   pattern (Insert · Edit · Arrange · View · Board) but it follows the
-  dock's zones — identity (Boards ‹, board select, rename, new; the Map
+  dock's zones: identity (Boards ‹, board select, rename, new; the Map
   chip, layout, Tidy), find (search, navigator), the menus, actions
-  (Library, fullscreen) — one height, and its menus on the `.dock-menu`
+  (Library, fullscreen): one height, and its menus on the `.dock-menu`
   recipe so they close on pick, outside click and Escape like every other
   menu. The floating tool palette and the properties panel take the
   popover shell. Nothing on the board may feel like a different app.
@@ -650,13 +650,13 @@ it, Enter opens a popover, Escape closes it and returns focus) scripted in
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", UI_MODERNISATION_PLAN.md) on 2026-09-09: a plan holds open work only.
 
-## Phase 9 — responsive by device, on purpose (1 session)
+## Phase 9: responsive by device, on purpose (1 session)
 
 **The instruction, verbatim:** "Also intentional and adjusted design that
 alters specifically for smaller resolutions like for iPad, tablet, iPhone
 etc."
 
-Phase 5's phone work was reactive — each 390px finding fixed where it was
+Phase 5's phone work was reactive, each 390px finding fixed where it was
 found. This phase makes the breakpoints a design, stated once:
 
 (Corrected 2026-10-05, audit FE-11: built as a design but not held. The
@@ -664,8 +664,10 @@ audit counted 58 distinct width queries, with `max-width: 600px` and
 `min-width: 600px` both matching a 600px window, and 720 the same.
 `tests/test_breakpoints.py` now fails on a width on both sides and on any
 new width outside the set below; the double matches are gone and the count
-is 48. Still open: the 720, 640 and 900 groups (26, 11 and 5 rules) move
-onto 600/820, each with a sweep at the widths it changes.)
+is 48. The 720, 640 and 900 groups were moved onto the bands on 2026-10-05:
+HISTORY.md, "Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN Phase 9,
+the off-band widths)". What is left of them is listed in
+`agent-remaining/uimod-89.md`.)
 
 | Width | Device | What changes, app-wide |
 | --- | --- | --- |
@@ -687,7 +689,7 @@ every tab and sub-tab; `all.sh` gains `WIDTH=820`; a `touch.js` sweep
 Library and Chat at 390 and asserts each hit target ≥ 44px and that no tap
 lands on two controls; screenshots at all four widths in the shots set.
 
-## Built — Phase 9
+## Built: Phase 9
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", UI_MODERNISATION_PLAN.md) on 2026-09-09: a plan holds open work only.
 
@@ -696,7 +698,7 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-09", UI_MODERNISATION_PLAN.m
 New features. The plan is subtraction and alignment; the feature backlog
 (BACKLOG.md) waits until the shell is quiet.
 
-## Phase 10 — the Liquid Glass adoptions (½ session)
+## Phase 10: the Liquid Glass adoptions (½ session)
 
 DESIGN.md's "Taken from Liquid Glass and the HIG" rules 2, 3, 4, 8, 10 and
 12, as the placed items below (INBOX 100 to 104). Rules 2, 3 and 12 are
@@ -707,7 +709,7 @@ top bar mode and the glass recipe)"). Rule 10's receding tab bar (104)
 is phone work and moves to Phase 11 with the rest of it. Deliberately not taken: refraction and lensing (measured too costly),
 title-case headers.
 
-## Phase 11 — the phone, done properly (1 to 2 sessions, next session or later)
+## Phase 11: the phone, done properly (1 to 2 sessions, next session or later)
 
 The owner, 2026-09-09: "the mobile view still needs quite a lot of work but
 that isn't for this PR, scope and plan it for later sessions." Phase 9's

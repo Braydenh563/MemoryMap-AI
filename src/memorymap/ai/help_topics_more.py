@@ -201,7 +201,7 @@ MORE_TOPICS: list[dict] = [
             "general settings",
         ),
         "body": (
-            "Settings, General. Bin: auto-clear binned notes after a "
+            "Settings, General. Bin: auto-clear binned notes, documents and reminders after a "
             "number of days. Chat history: delete saved chats after a number "
             "of days (0 keeps every chat; pinned chats are never deleted). "
             "Notifications: mute everything except reminders. Writing: smart "
@@ -274,12 +274,21 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "packages", "package", "pip", "install a feature", "optional feature",
             "extra", "extras", "dictation model", "embedding model", "markitdown",
+            "bundle", "bundles", "reinstall", "uninstall", "install several",
         ),
         "body": (
             "Settings, Packages lists what MemoryMap can do with one more "
             "package installed: nothing there is needed to write, search, tag "
             "or organise notes, each one switches on a feature that is "
-            "otherwise off, downloaded from PyPI to this machine. What pip is "
+            "otherwise off, downloaded from PyPI to this machine. Bundles "
+            "group the packages one kind of work needs (Documents, Vision, AI, "
+            "Voice, Desktop, Code): a bundle's Install fetches what is "
+            "missing, and its ⋯ reinstalls or removes them all. Tick packages "
+            "to install, reinstall or remove several at once from the bar "
+            "above the list; they run one after another and one that fails "
+            "does not stop the rest. An installed package's ⋯ has Reinstall "
+            "(for a feature that is on but not working) and Remove, and its "
+            "row shows its version and size on disk. What pip is "
             "doing shows an install as it runs. Dictation model size runs from "
             "Tiny (fastest) to Medium (most accurate). Embedding models chooses "
             "what search by meaning uses; it is downloaded once and kept."
@@ -291,12 +300,15 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "import markdown", "import a folder", "import a pdf", "import word",
             "import as a document", "slide deck", "merge duplicates",
-            "tidy up duplicates", "full backup",
+            "tidy up duplicates", "full backup", "restore a full backup", "mmenc", "seal a backup",
             "export csv", "export json", "exports folder", "zip",
         ),
         "body": (
             "Settings, Import & export. Export your data as JSON, CSV, Markdown "
-            "or a full backup (.zip of the database and media); Open exports "
+            "or a full backup (the database, media and attached files as one "
+            "file, sealed with a password if you type one: a .mmenc, else a "
+            ".zip); Restore a full backup, just below, reads either back and "
+            "replaces the notebook after a safety snapshot; Open exports "
             "folder and Save exports to set where files land. Tidy up "
             "duplicates finds notes that say much the same thing, no AI "
             "needed, and merging keeps every tag and bins the rest. Import "
@@ -421,7 +433,7 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "auto-lock", "auto lock", "change my password", "reset password",
             "other devices", "on my phone", "another computer", "sessions",
-            "lock everywhere",
+            "lock everywhere", "re-encrypt", "new key", "rotate key",
         ),
         "body": (
             "Settings, Account & security. Signing in: ask for a password when "
@@ -432,7 +444,7 @@ MORE_TOPICS: list[dict] = [
             "SHA-256 fingerprint with the one under the switch before you "
             "continue, and Regenerate certificate makes a new one. Change your password or PIN (private "
             "notes move across; a new one needs at least 8 characters, and an "
-            "easy one gets a warning). Re-encrypt private notes (Settings, Account) makes "
+            "easy one gets a warning). Re-encrypt private notes (Settings, Account & security) makes "
             "a new encryption key and moves every private note onto it, so an old "
             "backup stops opening them; every other session is signed out. Sessions: Auto-lock when idle, from 5 minutes "
             "to 12 hours, and Lock everywhere now; the lock in the top bar "
@@ -613,10 +625,7 @@ MORE_TOPICS.extend(
                 "and the note is saved and filed in the background while you stay "
                 "where you were. Escape closes it and keeps the words for next "
                 "time; Open in Capture moves them to the full composer. The "
-                "dashboard's Quick capture saves the same way. Paste as note, in the "
-                "command palette, saves what is on the clipboard as a note in one step "
-                "(when the browser will not share the clipboard it opens Quick note "
-                "instead). A bare link pasted "
+                "dashboard's Quick capture saves the same way. A bare link pasted "
                 "into Capture or Quick note offers its page as a note through the "
                 "web clipper, only while web search is allowed. \"Clear\" (the eraser "
                 "icon) is in every box you type into: Capture, with its title, tags "
@@ -669,6 +678,7 @@ MORE_TOPICS.extend(
                 "percentage", "percent", "how sure", "confidence", "filed", "filed without ai",
                 "stuck on filing", "still filing", "file by meaning", "file it myself",
                 "wrong category", "uncategorised", "uncategorized", "choose category",
+                "filing style", "review queue", "is:review", "accept the filing",
             ),
             "body": (
                 "Each new note is filed into a category in the background. Its "
@@ -686,10 +696,9 @@ MORE_TOPICS.extend(
                 "hand teaches the filing where things go. In Settings, Background tasks, Load "
                 "the search model when the app starts chooses when filing by "
                 "meaning gets ready: at launch, or on the first note, which then "
-                "waits a few seconds. Filing style, in the same place, tells Atlas how "
-                "to carve notes up: by topic (the default), by the project they serve, "
-                "or by when they belong; it steers the model's choice and the name of "
-                "a new category, and your existing categories still count first."
+                "waits a few seconds. Filing style (Settings, Background tasks) files by topic, "
+                "by project or by time. Filings Atlas was unsure of wait in "
+                "is:review, with Accept the filing on the note's menu."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -756,13 +765,10 @@ MORE_TOPICS.extend(
                 "the Timeline and the Dashboard; select several to colour, merge "
                 "or delete them together, with one question and one Undo. Sort by "
                 "name, notes or the one used most recently, Empty lists the ones "
-                "with no notes, look-alike names are offered as one Merge, and the "
-                "count after a name shows its notes. Tidy-ups suggested, above the "
-                "list, are the librarian's proposals: a category whose notes are "
-                "about the same things as another's (Merge), or one empty for 30 "
-                "days (Remove); nothing changes until you press one, Keep both and "
-                "Keep it are remembered, and a category you made or renamed yourself "
-                "is never suggested away. A category chip on a note opens "
+                "with no notes, Tidy suggestions offer names alike (in spelling or "
+                "meaning) as one Merge and categories empty for thirty days to "
+                "Remove, Not these never asks about a pair again, and the "
+                "count after a name shows its notes. A category chip on a note opens "
                 "Show notes in the category, Move to another category and Manage "
                 "categories; dragging a note's category label onto another "
                 "category moves it too."

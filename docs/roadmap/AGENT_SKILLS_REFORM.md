@@ -1,4 +1,4 @@
-# The agent and skills reform — a dev plan
+# The agent and skills reform, a dev plan
 
 > Companions: [ROADMAP.md](../ROADMAP.md) · [HANDOVER.md](HANDOVER.md) ·
 > [UI_MODERNISATION_PLAN.md](UI_MODERNISATION_PLAN.md) (the UI half of the same
@@ -36,7 +36,7 @@ step's own answer is carried into the next step's history.
 Three structural properties explain every symptom in the report:
 
 1. **A step is a turn, not a goal.** The runner decides a step is over when the
-   model stops emitting, not when the step's *objective* is satisfied — so a
+   model stops emitting, not when the step's *objective* is satisfied, so a
    small model that narrates ("Here is the result of step 2…") without calling
    anything is treated as having completed the step. That is exactly "it ran no
    tools" and "dont even properly complete a step before they are prompted for
@@ -51,7 +51,7 @@ Three structural properties explain every symptom in the report:
 
 ## The reform, in phases
 
-### Phase A — a step has a contract (1 session)
+### Phase A: a step has a contract (1 session)
 
 Give each step an explicit, machine-checkable completion condition, and stop
 advancing without it.
@@ -61,7 +61,7 @@ advancing without it.
   and `retries` (default 2).
 - The runner checks the contract before advancing. A step whose contract is not
   met is **re-prompted**, not skipped, with a short, literal nudge naming the
-  tool it was supposed to call — the single highest-yield change for small
+  tool it was supposed to call, the single highest-yield change for small
   models, and the one the report is really asking for.
 - After `retries`, the step is marked `stalled` as it is today. Never silently
   `done`.
@@ -69,7 +69,7 @@ advancing without it.
   `tags`, `last_tool_result`) that the next step's instruction can reference by
   name, so "those notes" resolves to ids.
 
-### Phase B — small-model mode (1 session)
+### Phase B: small-model mode (1 session)
 
 - **One tool per step, offered explicitly.** When the model has fewer than N
   parameters (or the user ticks "small model mode"), send only the tools that
@@ -80,20 +80,20 @@ advancing without it.
   one tool.
 - **A worked example in the prompt**, per step, showing the exact call shape.
   Small models copy structure far more reliably than they follow description.
-- Verify against a real local model — this is the standing caveat in CLAUDE.md
+- Verify against a real local model, this is the standing caveat in CLAUDE.md
   and the reason this phase cannot be called done from tests alone.
 
-### Phase C — the run as a readable object (1 session)
+### Phase C: the run as a readable object (1 session)
 
 This is the "text dump in your face" half.
 
 - **The activity panel becomes a run list, not a log.** One row per run: skill
   name, step *k* of *n*, a progress bar, state. Collapsed by default.
 - **Opening a row shows the steps**; opening a step shows its tool calls and
-  their results. Three levels, each collapsed until asked for — the same shape
+  their results. Three levels, each collapsed until asked for, the same shape
   the chat transcript already uses for Thinking.
 - **The full log stays one click away**, unchanged, for when it is needed.
-- Toasts announce only *start*, *finished* and *failed* — never per-step
+- Toasts announce only *start*, *finished* and *failed*, never per-step
   chatter. (The mute and "Panel only" switches are already honoured as of
   v0.2.2.)
 - **Verify tool calls render in the chat transcript.** `toolChip()` exists and
@@ -101,7 +101,7 @@ This is the "text dump in your face" half.
   confirmed this session. Check the plain-chat tool path as well as the agent
   and skill paths.
 
-### Phase D — recovery
+### Phase D: recovery
 
 Built, 2026-09-13: see HISTORY.md, "Moved from the plans, 2026-09-13". Two of
 the three were already standing when the phase was opened (resume, and the
@@ -160,16 +160,16 @@ has. One decision, recorded on 2026-09-20 so it is not remade:
   `tests/test_skills_evals.py::test_no_step_is_ticked_without_its_contract`,
   green against Qwen2.5-1.5B-Instruct Q4_K_M. Still to run at 3B and 4B.
 - ~~The activity panel opens on a run list, not a wall of text.~~ Built in
-  Phase C (HISTORY.md, "Built — Phase C").
+  Phase C (HISTORY.md, "Built: Phase C").
 - ~~Tool calls are visible in the chat transcript for all three paths.~~
   Built in Phase C: plain chat, agent mode and a skill run each draw their
   chips (HISTORY.md, "The three paths, verified for real").
 
-## Built — Phases A and B, backend only
+## Built: Phases A and B, backend only
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", AGENT_SKILLS_REFORM.md) on 2026-09-09: a plan holds open work only.
 
-## Built — Phase C, the run as a readable object
+## Built: Phase C, the run as a readable object
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", AGENT_SKILLS_REFORM.md) on 2026-09-09: a plan holds open work only.
 

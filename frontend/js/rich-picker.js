@@ -169,7 +169,7 @@ function richPickerSetActive(list, rows, index) {
 //: a handful is plenty.
 function richPickerLines(content, max = 6) {
   const raw = String(content || "");
-  const text = typeof notePreviewText === "function" ? notePreviewText(raw) : raw;
+  const text = notePreviewText(raw);
   const sample = document.createElement("div");
   for (const line of text.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, max)) {
     const p = document.createElement("p");

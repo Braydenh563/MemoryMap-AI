@@ -149,7 +149,7 @@ def test_applying_a_marker_tells_the_box_it_changed():
     underneath never received it, `input` fired 0 times."""
     documents = _read("documents.js")
     start = documents.index("function wrapDocSelection(")
-    end = documents.index("async function exportDocumentMarkdown()")
+    end = documents.index("function exportDocumentMarkdown()")
     body = documents[start:end]
     assert body.count("finishMarkdownEdit(box, boxId)") == 3, (
         "all three exits of wrapDocSelection, both toggle-offs and the apply "

@@ -335,13 +335,17 @@ def delete_space(
     from memorymap.core.database import (
         AskTurn, Attachment, Bookmark, Conversation, Document, DocumentAiEdit,
         DocumentBookmark, DocumentLink, DocumentRevision, EmbeddingRecord,
-        EntityMention, EntryBookmark, EntryDate, EntryLink, EntryProperty, EntryRevision, MediaUpload,
+        EntityMention, EntryBookmark, EntryDate, EntryLink, EntryOpen, EntryProperty, EntryRevision, MediaUpload,
         PageRead, Reminder, WhiteboardNode, WhiteboardObject, WhiteboardSketch,
     )
 
+    from memorymap.entry import bin as other_bin
+
     config = deps.get_config()
     to_unlink: list[Path] = []
-    with impersonate_workspace(session, "all"):
+    #: The space's bin goes with it: a binned document or reminder is hidden
+    #: from every ordinary read, so this block reads them on purpose.
+    with impersonate_workspace(session, "all"), other_bin.including_binned(session):
         def rows(model):
             return session.query(model).filter_by(workspace_id=space_id)
 
@@ -380,6 +384,7 @@ def delete_space(
             (EntryRevision, EntryRevision.entry_id),
             (EntryDate, EntryDate.entry_id),
             (EntryProperty, EntryProperty.entry_id),
+            (EntryOpen, EntryOpen.entry_id),
             (EntryBookmark, EntryBookmark.entry_id),
             (DocumentLink, DocumentLink.entry_id),
         ):
@@ -448,3 +453,58 @@ def delete_space(
         except OSError:
             pass  # the row is gone; a stray file is the recoverable failure
     return response
+
+
+class MoveNotesBody(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=500)
+
+
+@router.post("/spaces/{space_id}/move-notes")
+def move_notes_to_space(space_id: str, body: MoveNotesBody, session: Session = Depends(get_session)) -> dict:
+    """Move these notes into one space (WORLD_CLASS_PLAN 5 item 5, section 8
+    row 30; INBOX 1's "a Move to space bulk action").
+
+    Only notes the request can see move: the ambient space filter reads them,
+    so a selection made in one space cannot reach into another. A note keeps
+    its category's *name*: categories are per space, so the target's category
+    of that name is used, made when it has none. What hangs off the note in
+    its old space comes with it (its files, its reminders, its fade score),
+    and so do links whose both ends moved; a link to a note left behind stays
+    where it was, as a space's delete leaves one. `from` is each note's old
+    space, which is what an Undo sends back.
+    """
+    from memorymap.core.database import Attachment, EntryLink, NoteScore, Reminder
+    from memorymap.entry import manager
+
+    if space_id == "all":
+        raise HTTPException(400, "Pick one space to move them to.")
+    deps.get_or_404(session, Space, space_id, "That space could not be found.")
+    wanted = list(dict.fromkeys(body.ids))
+    entries = [
+        e for e in session.scalars(sa_select(Entry).where(Entry.id.in_(wanted)))
+        if (e.workspace_id or "default") != space_id
+    ]
+    if not entries:
+        return {"moved": 0, "from": {}}
+    names = manager.bulk_category_names(session, entries)
+    moved_ids = [e.id for e in entries]
+    before = {str(e.id): e.workspace_id or "default" for e in entries}
+    with impersonate_workspace(session, space_id):
+        for entry in entries:
+            name = names.get(entry.category_id)
+            if entry.category_id is not None and name:
+                entry.category_id = manager.get_or_create_category(session, name, space_id).id
+            entry.workspace_id = space_id
+    with impersonate_workspace(session, "all"):
+        for model in (Attachment, Reminder, NoteScore):
+            for row in session.scalars(sa_select(model).where(model.entry_id.in_(moved_ids))):
+                row.workspace_id = space_id
+        for link in session.scalars(
+            sa_select(EntryLink).where(
+                EntryLink.source_entry_id.in_(moved_ids), EntryLink.target_entry_id.in_(moved_ids)
+            )
+        ):
+            link.workspace_id = space_id
+    manager.log_action(session, "moved", "entry", None, f"{len(entries)} note(s) to the space {space_id}")
+    session.commit()
+    return {"moved": len(entries), "from": before}

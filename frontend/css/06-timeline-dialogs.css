@@ -210,7 +210,6 @@
 
 .timeline-row-title {
   font-size: var(--text-md);
-  font-weight: 600;
   color: var(--ink);
   /* One line. A note whose first line is a paragraph is not a title, and
      letting it wrap is how every card in the old grid became the same
@@ -320,7 +319,7 @@
 /* On a phone the third column has nowhere to go: the facts move under the
    title instead of squeezing it to nothing. Measured at 390: the title keeps
    246px of a 358px row rather than 96px. */
-@media (max-width: 40rem) {
+@media (max-width: 599.98px) {
   .timeline-feed .timeline-row {
     grid-template-columns: auto minmax(0, 1fr);
   }
@@ -377,7 +376,7 @@
 
 /* On a phone the strip is 10% of the width, and a 390px screen has no width to
    give to an overview. The feed's own headers are the map there. */
-@media (max-width: 40rem) {
+@media (max-width: 599.98px) {
   .timeline-scrubber {
     display: none;
   }
@@ -663,7 +662,6 @@
 .chat-input {
   resize: none;
   margin-bottom: 0;
-  min-height: 2.6rem;
   line-height: 1.4;
 }
 
@@ -1576,7 +1574,7 @@
   margin-left: auto;
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
 
   /* Wrapped onto several lines the dividers stop meaning anything, they would
      separate whatever happened to land beside them rather than the groups. */
@@ -1811,13 +1809,8 @@
   top: calc(100% + var(--space-3));
   right: 0;
   z-index: 60;
-  width: 22rem;
-  max-width: min(22rem, calc(100vw - var(--space-8)));
   max-height: 60vh;
   overflow-y: auto;
-  padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   /* **Reported as hard to read, and the cause was a missing blur rather than a
      thin colour.** `--card` is 55% opaque *and assumes the frosting that
      `.card` applies over it*: every other glass surface in the app pairs the
@@ -1829,9 +1822,6 @@
      stays as well, so the panel still reads as part of the same material as
      the header it hangs from rather than as a flat card pasted on top. */
   background: var(--modal-bg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
   /* **Inherited from `.header-controls`, which sets `nowrap` so "⚙ Settings"
      cannot break in two and make the whole bar taller.** That is right for the
      buttons and wrong for a panel of prose hanging off one: every reminder
@@ -2692,10 +2682,8 @@
    it rather than spilling into the reserved strip. */
 .wb-empty-hint-inner {
   pointer-events: auto;
-  max-width: 26rem;
   max-height: 100%;
   overflow-y: auto;
-  text-align: center;
 }
 
 .wb-empty-hint-inner>* {
@@ -2828,25 +2816,11 @@
   left: 1rem;
 }
 
-/* Asked for directly: "the main tool panel sits right up against the
-   [gesture hint] popup notification", both bottom-docked panels shared
-   `bottom: 1rem` with `#wb-gestures` fixed at `bottom: 5.25rem` above them,
-   which cleared the toolbar's own height but left under 1rem of visible
-   gap once borders and shadow were counted. Dropping both panels' own
-   `bottom` to 0.5rem does not touch the hint's position: it just leaves
-   more of that 5.25rem as open canvas above the panels instead of as
-   toolbar height. Both panels move together so they still share one edge. */
-.whiteboard-floating-panel.bottom-right {
-  bottom: 0.5rem;
-  right: 1rem;
-}
 
 /* Bottom-left by default (asked for directly): the class name predates the
    move and is left as-is since it's also the drag/reset storage key
    (`wb-panel-pos-tools`) and the [data-dock="side"] override below. */
 .whiteboard-floating-panel.bottom-center {
-  bottom: 0.5rem;
-  left: 1rem;
   border-radius: var(--radius-pill);
   /* Measured across eight viewports: this row is ~900px of tools and the zoom
      cluster is bottom-right on the same edge, so from about 1180px down they
@@ -2882,7 +2856,6 @@
      row's own `left` and the zoom cluster's `right`. Subtracting only one
      of them left a measured 8px overlap. */
   flex-wrap: wrap;
-  max-width: calc(100% - var(--wb-w-zoom) - 2rem - var(--space-3));
 }
 
 /* **The zoom cluster is the same shape as the tools row, and was drawn as a
@@ -3075,8 +3048,6 @@
 }
 
 .whiteboard-floating-panel input[type="color"].wb-color-picker {
-  width: 2.25rem;
-  height: 2.25rem;
   padding: 2px;
   box-sizing: border-box;
 }
@@ -3146,7 +3117,6 @@
 
 .wb-shape-menu-divider {
   height: 1px;
-  background: var(--glass-border);
 }
 
 /* Dockable as a sidebar instead of only a bottom bar, asked for directly.
@@ -3253,11 +3223,6 @@
   display: none;
 }
 
-.wb-tool-group button.active {
-  background: var(--chip-bg);
-  color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--border);
-}
 
 /* **A swatch has to show its colour, including when that colour is white.**
    The board-background picker sits on a white floating panel and its value is
@@ -3566,14 +3531,6 @@ aside[data-resizable="1"] {
   font-weight: 600;
 }
 
-/* The Library's per-card selection tick is the one genuinely undersized
-   control in the app: a bare 13x13 native checkbox, and nothing wraps it, so
-   13x13 is the entire target. It only appears in select mode, which is why a
-   sweep of the resting page missed it. */
-.library-card-tick {
-  width: 1.5rem;
-  height: 1.5rem;
-}
 
 /* A saved look, shown as the look. It was a text pill and a ✕, which told you
    a look called "Sea of Prosperity" existed and nothing about what it was, so
@@ -3665,7 +3622,6 @@ aside[data-resizable="1"] {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: var(--text-sm);
 }
 
@@ -3838,7 +3794,6 @@ aside[data-resizable="1"] {
    "new" flag, and hiding the thing that says a row is new until you point at
    it would be hiding the state itself. */
 .notif-row.notif-unread .notif-read-toggle {
-  opacity: 0.85;
   color: var(--accent-text);
 }
 

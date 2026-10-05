@@ -920,7 +920,7 @@ async function openDocument(id) {
   docBoxEl().disabled = false;
   $("doc-title").value = doc.title;
   docResetDocument(doc.content, doc.id);
-  if (typeof scheduleUndoBar === "function") scheduleUndoBar();
+  scheduleUndoBar();
   docDirty = false;
   $("doc-saved").textContent = "Saved";
   // Before the renders below: it decides which of them are even reachable
@@ -1183,7 +1183,7 @@ async function docLinkMention(row, button) {
         method: "PUT",
         body: JSON.stringify({ content: next }),
       });
-      if (typeof loadEntries === "function") loadEntries();
+      loadEntries();
     } else {
       await apiJson(`/documents/${row.id}`, {
         method: "PUT",
@@ -1515,26 +1515,12 @@ function docTemplateFill(template) {
 
 async function createDocument(template = null) {
   const body = template ? docTemplateFill(template) : { title: "Untitled", content: "" };
-  //: `{{clipboard}}` and `{{cursor}}` (templateVariables, app.js): the caret goes
-  //: where the template put it, the title is where it goes otherwise.
-  let cursor = null;
-  if (template) {
-    const filled = templateVariables(body.content, await templateClipboard(body.content));
-    body.content = filled.text;
-    cursor = filled.cursor;
-  }
   const doc = await apiJson("/documents", {
     method: "POST",
     body: JSON.stringify(body),
   });
   loadCaptureDocuments(); // so Capture can attach to it straight away
   await loadDocuments(doc.id);
-  if (cursor !== null) {
-    const surface = docSurface();
-    surface.focus?.();
-    surface.setSelection(cursor);
-    return;
-  }
   $("doc-title").focus();
   $("doc-title").select();
 }
@@ -2398,6 +2384,8 @@ const DOC_COMMANDS = [
     run: () => docRunControl("doc-ai", "AI editing") },
   { id: "extract", icon: "ph:scissors", label: "Extract notes from this document", keys: "",
     run: () => docRunControl("doc-extract", "Extracting notes") },
+  { id: "map-headings", icon: "ph:tree-structure", label: "Map this document's headings", keys: "",
+    run: () => docRunControl("doc-map-headings", "Mapping the headings") },
   { id: "history", icon: "ph:clock-counter-clockwise", label: "Every version this document has had", keys: "",
     run: () => docRunControl("doc-history", "Version history") },
   { id: "connections", icon: "ph:graph", label: "What this document is joined to", keys: "",
@@ -3177,6 +3165,7 @@ function renderDocPreview() {
   }
   layerDocWikiLinks(preview);
   docLayerImageOptions(preview);
+  docRenderMermaidIn(preview);
 }
 
 //: **The document, rendered, with its columns side by side.** `renderMarkdown`
@@ -5556,7 +5545,7 @@ function docPropsTypeRows(host, fm) {
     value.appendChild(input);
     //: KG4: a note field searches the notebook (selection.js); choosing one
     //: fires the box's change, which writes the `[[link]]` above.
-    if (kind === "note" && typeof noteFieldPickButton === "function") {
+    if (kind === "note") {
       value.appendChild(noteFieldPickButton(input));
     }
     //: The written rows end in a trash button; an unwritten one holds its
@@ -5843,6 +5832,23 @@ function docImageOptions(spec) {
   return options;
 }
 
+//: **An image's alt with its width or alignment changed** (DOCUMENTS_PLAN
+//: decision 8, the audit's D5): the name first, then the width, then the
+//: alignment, then the caption's words in the order they were written; an
+//: option set to null is taken out. Written back by the Live editor's grip
+//: and align menu, so the markdown stays the one place the size lives.
+function docImageAltWith(alt, change) {
+  const parts = String(alt == null ? "" : alt).split("|");
+  const name = parts.shift();
+  const now = docImageOptions(alt);
+  const kept = parts
+    .map((part) => part.trim())
+    .filter((part) => part && !/^\d{1,4}(x\d{1,4})?$/i.test(part) && !/^(left|centre|center|right)$/i.test(part));
+  const width = "width" in change ? change.width : now.width;
+  const align = "align" in change ? change.align : now.align;
+  return [name, ...(width ? [String(Math.round(width))] : []), ...(align ? [align] : []), ...kept].join("|");
+}
+
 // DOC-BLOCKS-END
 
 // =============================================================================
@@ -6124,7 +6130,7 @@ async function docCopyBlockRef() {
   //: Through the shared helper, not `navigator.clipboard`: it falls back to
   //: the copy dialog in the contexts where the API is not there at all, which
   //: is the desktop window's own case.
-  if (typeof copyToClipboard === "function") await copyToClipboard(reference);
+  await copyToClipboard(reference);
   toast(`Copied ${reference}`);
 }
 
@@ -6939,7 +6945,7 @@ function docLivePlugin(CM) {
     eq(other) {
       return other.src === this.src && other.alt === this.alt && other.underSource === this.underSource;
     }
-    toDOM() {
+    toDOM(view) {
       const img = document.createElement("img");
       img.className = this.underSource ? "cm-md-image cm-md-image-under" : "cm-md-image";
       //: **Through `mediaSrc`, like every other image in this app.** An
@@ -6951,9 +6957,19 @@ function docLivePlugin(CM) {
       //: two console 401s per image, `naturalWidth` 0 in Live and 1 in the
       //: rendered pane beside it, which is the same file through the two
       //: paths. The embed path below already did this; this one never did.
-      img.src = typeof mediaSrc === "function" ? mediaSrc(this.src) : this.src;
+      img.src = mediaSrc(this.src);
       img.alt = this.options.caption || this.options.name || "";
-      return docApplyImageOptions(img, this.options);
+      if (this.underSource) return docApplyImageOptions(img, this.options);
+      //: **Resized and aligned where it is shown** (decision 8, the audit's
+      //: D5): a frame round the picture holding a grip on its lower right
+      //: corner and an align button, both writing the options back into the
+      //: alt text (`docImageAltWith`), so Read, a print and an export agree.
+      const frame = document.createElement("span");
+      frame.className = "cm-md-image-frame";
+      frame.appendChild(img);
+      if (this.options.width) frame.dataset.sized = "1";
+      docWireImageEdit(view, frame, this.options);
+      return docApplyImageOptions(frame, this.options);
     }
   }
 
@@ -7175,7 +7191,7 @@ function docLivePlugin(CM) {
     //: A menu whose opener is being removed has to close with it, or it is
     //: left floating over the document.
     destroy(dom) {
-      if (dom && dom.querySelector(".action-menu:not(.hidden)") && typeof closeActionMenus === "function") {
+      if (dom && dom.querySelector(".action-menu:not(.hidden)")) {
         closeActionMenus();
       }
     }
@@ -7269,7 +7285,7 @@ function docLivePlugin(CM) {
       return true;
     }
     toDOM(view) {
-      const nav = typeof mdTocElement === "function" ? mdTocElement() : document.createElement("nav");
+      const nav = mdTocElement();
       nav.classList.add("cm-md-toc");
       const list = nav.querySelector(".md-toc-list") || nav;
       const top = this.entries.length ? Math.min(...this.entries.map((e) => e.level)) : 1;
@@ -7791,7 +7807,7 @@ function docLivePlugin(CM) {
             const line = doc.lineAt(node.from);
             //: The variant the rendered view draws (`mdDividerKind`): a
             //: hairline, the three-dot break, or the strong rule.
-            const variant = typeof mdDividerKind === "function" ? mdDividerKind(line.text) : null;
+            const variant = mdDividerKind(line.text);
             ranges.push(
               Decoration.line({ class: `cm-md-rule${variant ? ` cm-md-rule-${variant}` : ""}` }).range(line.from)
             );
@@ -7871,7 +7887,7 @@ function docLivePlugin(CM) {
         let tocEntries = null;
         scan(/^[ \t]*\[toc\][ \t]*$/gim, (match, from, to) => {
           if (rangeRevealed(from, to)) return;
-          if (!tocEntries) tocEntries = typeof mdTocEntries === "function" ? mdTocEntries(doc.toString()) : [];
+          if (!tocEntries) tocEntries = mdTocEntries(doc.toString());
           ranges.push(Decoration.replace({ widget: new DocTocWidget(tocEntries) }).range(from, to));
         });
       }
@@ -8472,7 +8488,7 @@ function docColumnsField(CM) {
 //: widget and the arrow keys that step into it belong to Live exactly as the
 //: markdown decorations do.
 function docLiveExtensions(CM) {
-  return [docLivePlugin(CM), docColumnsField(CM), docColumnsArrowKeymap(CM)];
+  return [docLivePlugin(CM), docColumnsField(CM), docColumnsArrowKeymap(CM), docMermaidField(CM)];
 }
 
 //: Arrow into a rendered block rather than over it. CodeMirror moves the caret
@@ -8503,6 +8519,452 @@ function docColumnsArrowKeymap(CM) {
   ]);
 }
 
+
+// -----------------------------------------------------------------------------
+// Mermaid flowcharts, drawn by this file (DOCUMENTS_PLAN decision 20.3, 20.6)
+// -----------------------------------------------------------------------------
+//
+//: **A ```mermaid fence that is a flowchart draws as one**, in Read, in Live
+//: (while the caret is outside it), in a print and in the HTML export, with
+//: no library: the fully-local rule keeps Mermaid's 2.6 MB bundle out of
+//: `frontend/vendor/`, and a flowchart is the one Mermaid diagram most notes
+//: carry. The subset (decision 20.6): `flowchart` or `graph` with TD, TB, BT,
+//: LR or RL; nodes as `id`, `id[text]`, `id(text)`, `id([text])`,
+//: `id((text))`, `id{text}` and `id{{text}}`, text optionally in quotes; links
+//: `-->`, `---`, `-.->`, `-.-`, `==>` and `===`, labelled `-->|text|` or
+//: `-- text -->`, chained (`a --> b --> c`) and fanned (`a & b --> c`);
+//: `%%` comments; `style`, `classDef`, `class`, `linkStyle` and `click` lines
+//: are read and ignored. Anything else (a subgraph, another diagram type, a
+//: line it cannot read) leaves the fence as the code it is, so nothing is
+//: ever drawn half right.
+//:
+//: The region is pure (no DOM): `mermaidFlowParse` reads the text,
+//: `mermaidFlowLayout` places it in layers (ranks by longest path with the
+//: cycles' back links reversed, a few barycentre sweeps to order each layer,
+//: each layer centred), and `mermaidFlowSvgTree` describes the SVG as plain
+//: objects, which `docMermaidSvg` turns into elements. Node runs the region
+//: (`tests/test_doc_mermaid.py`).
+// DOC-MERMAID-BEGIN
+const MERMAID_SHAPES = [
+  ["([", "])", "stadium"], ["((", "))", "circle"], ["{{", "}}", "hexagon"],
+  ["[", "]", "rect"], ["(", ")", "round"], ["{", "}", "diamond"],
+];
+const MERMAID_IGNORED = /^(style|classDef|class|linkStyle|click)\b/;
+//: Longest first, so `-.->` is not read as `-.-` and a stray `>`.
+const MERMAID_LINKS = [
+  ["-.->", "dotted", true], ["==>", "thick", true], ["-->", "solid", true],
+  ["-.-", "dotted", false], ["===", "thick", false], ["---", "solid", false],
+];
+const MERMAID_MAX_NODES = 120;
+
+function mermaidFlowUnquote(text) {
+  const t = text.trim();
+  return t.length >= 2 && t[0] === '"' && t[t.length - 1] === '"' ? t.slice(1, -1) : t;
+}
+
+//: One node reference: an id and, optionally, its shape and text. Returns the
+//: node and how many characters it took, or null.
+function mermaidFlowNode(src, at) {
+  //: A hyphen only between word characters: `a-->b` is a, a link and b.
+  const id = /^[A-Za-z0-9_]+(?:-[A-Za-z0-9_]+)*/.exec(src.slice(at));
+  if (!id) return null;
+  let i = at + id[0].length;
+  for (const [open, close, shape] of MERMAID_SHAPES) {
+    if (src.startsWith(open, i)) {
+      const end = src.indexOf(close, i + open.length);
+      if (end === -1) return null;
+      const text = mermaidFlowUnquote(src.slice(i + open.length, end));
+      return { id: id[0], shape, text, end: end + close.length };
+    }
+  }
+  return { id: id[0], shape: null, text: null, end: i };
+}
+
+function mermaidFlowLink(src, at) {
+  const rest = src.slice(at);
+  //: `-- text -->`, `-. text .->`, `== text ==>`.
+  const worded = /^(--|-\.|==)\s*([^-.=|>][^|>]*?)\s*(-->|\.->|==>|---|-\.-|===)/.exec(rest);
+  if (worded) {
+    const head = MERMAID_LINKS.find(([s]) => s === worded[3] || (worded[3] === ".->" && s === "-.->"));
+    const style = worded[1] === "-." ? "dotted" : worded[1] === "==" ? "thick" : "solid";
+    return { style, arrow: head ? head[2] : true, label: mermaidFlowUnquote(worded[2]), end: at + worded[0].length };
+  }
+  for (const [token, style, arrow] of MERMAID_LINKS) {
+    if (!rest.startsWith(token)) continue;
+    let end = at + token.length;
+    let label = "";
+    const piped = /^\s*\|([^|]*)\|/.exec(src.slice(end));
+    if (piped) {
+      label = mermaidFlowUnquote(piped[1]);
+      end += piped[0].length;
+    }
+    return { style, arrow, label, end };
+  }
+  return null;
+}
+
+//: The text of a fence as nodes and edges, or null when it is not a flowchart
+//: this reads whole.
+function mermaidFlowParse(source) {
+  const lines = String(source || "").replace(/\r/g, "").split(/\n|;/).map((l) => l.replace(/%%.*$/, "").trim()).filter(Boolean);
+  if (!lines.length) return null;
+  const head = /^(flowchart|graph)(?:\s+(TD|TB|BT|LR|RL))?\s*$/i.exec(lines[0]);
+  if (!head) return null;
+  const dir = (head[2] || "TD").toUpperCase().replace("TB", "TD");
+  const nodes = new Map();
+  const edges = [];
+  const touch = (n) => {
+    const had = nodes.get(n.id);
+    if (!had) nodes.set(n.id, { id: n.id, shape: n.shape || "rect", text: n.text ?? n.id, order: nodes.size });
+    else if (n.shape) Object.assign(had, { shape: n.shape, text: n.text ?? had.text });
+  };
+  for (const line of lines.slice(1)) {
+    if (MERMAID_IGNORED.test(line)) continue;
+    let at = 0;
+    let group = [];
+    let pending = null;
+    const skip = () => {
+      while (at < line.length && /\s/.test(line[at])) at++;
+    };
+    for (;;) {
+      skip();
+      const node = mermaidFlowNode(line, at);
+      if (!node) return null;
+      touch(node);
+      group.push(node.id);
+      at = node.end;
+      skip();
+      if (line[at] === "&") {
+        at++;
+        continue;
+      }
+      if (pending) {
+        for (const from of pending.from) for (const to of group) edges.push({ from, to, style: pending.style, arrow: pending.arrow, label: pending.label });
+      }
+      if (at >= line.length) break;
+      const link = mermaidFlowLink(line, at);
+      if (!link) return null;
+      pending = { from: group, ...link };
+      group = [];
+      at = link.end;
+    }
+    if (nodes.size > MERMAID_MAX_NODES) return null;
+  }
+  if (!nodes.size) return null;
+  return { dir, nodes: [...nodes.values()], edges };
+}
+
+//: Layers, then places. `measure(text)` is a width in px; the default is an
+//: estimate so node can run this.
+function mermaidFlowLayout(graph, measure = (t) => t.length * 7.4) {
+  const across = graph.dir === "LR" || graph.dir === "RL";
+  const ids = graph.nodes.map((n) => n.id);
+  const out = new Map(ids.map((id) => [id, []]));
+  const into = new Map(ids.map((id) => [id, []]));
+  //: The back links of every cycle, found by a walk in the order the nodes
+  //: were written, are ranked as if reversed: a loop still draws, upward.
+  const state = new Map();
+  const back = new Set();
+  const visit = (id) => {
+    state.set(id, 1);
+    graph.edges.forEach((e, k) => {
+      if (e.from !== id || e.from === e.to) return;
+      if (state.get(e.to) === 1) back.add(k);
+      else if (!state.get(e.to)) visit(e.to);
+    });
+    state.set(id, 2);
+  };
+  for (const id of ids) if (!state.get(id)) visit(id);
+  graph.edges.forEach((e, k) => {
+    if (e.from === e.to) return;
+    const [a, b] = back.has(k) ? [e.to, e.from] : [e.from, e.to];
+    out.get(a).push(b);
+    into.get(b).push(a);
+  });
+  const rank = new Map();
+  const rankOf = (id, seen = new Set()) => {
+    if (rank.has(id)) return rank.get(id);
+    if (seen.has(id)) return 0;
+    seen.add(id);
+    const r = into.get(id).length ? Math.max(...into.get(id).map((p) => rankOf(p, seen) + 1)) : 0;
+    rank.set(id, r);
+    return r;
+  };
+  ids.forEach((id) => rankOf(id));
+  const layers = [];
+  for (const id of ids) (layers[rank.get(id)] ||= []).push(id);
+  const pos = new Map();
+  const reindex = () => layers.forEach((layer) => layer.forEach((id, i) => pos.set(id, i)));
+  reindex();
+  const bary = (id, side) => {
+    const near = side.get(id);
+    return near.length ? near.reduce((s, n) => s + pos.get(n), 0) / near.length : pos.get(id);
+  };
+  for (let sweep = 0; sweep < 4; sweep++) {
+    const down = sweep % 2 === 0;
+    const order = down ? layers.slice(1) : layers.slice(0, -1).reverse();
+    for (const layer of order) {
+      layer.sort((a, b) => bary(a, down ? into : out) - bary(b, down ? into : out) || pos.get(a) - pos.get(b));
+      layer.forEach((id, i) => pos.set(id, i));
+    }
+  }
+  const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+  const size = new Map();
+  for (const n of graph.nodes) {
+    const w = Math.max(48, Math.ceil(measure(n.text)) + 28);
+    const h = 38;
+    if (n.shape === "diamond") size.set(n.id, { w: w + 28, h: h + 22 });
+    else if (n.shape === "circle") size.set(n.id, { w: Math.max(w, 60), h: Math.max(w, 60) });
+    else size.set(n.id, { w, h });
+  }
+  //: Main axis (down the ranks) and cross axis (along a rank), turned for LR.
+  const main = (s) => (across ? s.w : s.h);
+  const cross = (s) => (across ? s.h : s.w);
+  const gapMain = 56;
+  const gapCross = 28;
+  const pad = 12;
+  const rankSpan = layers.map((layer) => Math.max(...layer.map((id) => main(size.get(id)))));
+  const rankWidth = layers.map((layer) => layer.reduce((s, id) => s + cross(size.get(id)), 0) + gapCross * (layer.length - 1));
+  const widest = Math.max(...rankWidth);
+  const place = new Map();
+  let along = pad;
+  layers.forEach((layer, r) => {
+    let c = pad + (widest - rankWidth[r]) / 2;
+    for (const id of layer) {
+      const s = size.get(id);
+      const mid = along + rankSpan[r] / 2;
+      const cmid = c + cross(s) / 2;
+      place.set(id, across ? { x: mid, y: cmid } : { x: cmid, y: mid });
+      c += cross(s) + gapCross;
+    }
+    along += rankSpan[r] + gapMain;
+  });
+  const total = { main: along - gapMain + pad, cross: widest + pad * 2 };
+  let width = across ? total.main : total.cross;
+  let height = across ? total.cross : total.main;
+  //: BT and RL are TD and LR mirrored.
+  if (graph.dir === "BT") for (const p of place.values()) p.y = height - p.y;
+  if (graph.dir === "RL") for (const p of place.values()) p.x = width - p.x;
+  const boxes = graph.nodes.map((n) => ({ ...byId.get(n.id), ...place.get(n.id), ...size.get(n.id) }));
+  const at = new Map(boxes.map((b) => [b.id, b]));
+  //: Where a line meets a box: its outline on the line toward the other
+  //: point (a diamond's and a circle's own, a rectangle's for the rest).
+  const edgePoint = (b, toward) => {
+    const dx = toward.x - b.x;
+    const dy = toward.y - b.y;
+    if (!dx && !dy) return { x: b.x, y: b.y };
+    let s;
+    if (b.shape === "diamond") s = 1 / (Math.abs(dx) / (b.w / 2) + Math.abs(dy) / (b.h / 2));
+    else if (b.shape === "circle") s = (b.w / 2) / Math.hypot(dx, dy);
+    else s = Math.min(dx ? (b.w / 2) / Math.abs(dx) : Infinity, dy ? (b.h / 2) / Math.abs(dy) : Infinity);
+    return { x: b.x + dx * s, y: b.y + dy * s };
+  };
+  const lines = graph.edges.map((e) => {
+    const a = at.get(e.from);
+    const b = at.get(e.to);
+    if (e.from === e.to) {
+      const top = { x: a.x + a.w / 2, y: a.y - a.h / 4 };
+      return { ...e, d: `M${top.x} ${top.y} c 30 -20 30 ${a.h / 2 + 20} 0 ${a.h / 2}`, mid: { x: top.x + 26, y: a.y } };
+    }
+    //: **A line that would lie on another bows aside**: a link back up the
+    //: flow (a loop's return), the second of two links between one pair, and
+    //: one that skips a rank (it would cross the box between) are curves
+    //: whose middle is pushed off the straight line, to the right of the flow
+    //: for a return and to alternate sides for the rest.
+    const k = graph.edges.indexOf(e);
+    const twin = graph.edges.findIndex((o, j) => j < k && ((o.from === e.from && o.to === e.to) || (o.from === e.to && o.to === e.from)));
+    const backward = rank.get(e.to) <= rank.get(e.from);
+    const skips = Math.abs(rank.get(e.to) - rank.get(e.from)) > 1;
+    const bend = backward ? 46 : twin !== -1 ? -46 : skips ? 40 * (k % 2 ? -1 : 1) : 0;
+    if (!bend) {
+      const p = edgePoint(a, b);
+      const q = edgePoint(b, a);
+      const mid = { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 };
+      return { ...e, d: `M${p.x.toFixed(1)} ${p.y.toFixed(1)} L${q.x.toFixed(1)} ${q.y.toFixed(1)}`, mid };
+    }
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const c = { x: (a.x + b.x) / 2 - (dy / len) * bend * 2, y: (a.y + b.y) / 2 + (dx / len) * bend * 2 };
+    const p = edgePoint(a, c);
+    const q = edgePoint(b, c);
+    const mid = { x: 0.25 * p.x + 0.5 * c.x + 0.25 * q.x, y: 0.25 * p.y + 0.5 * c.y + 0.25 * q.y };
+    const f = (n) => n.toFixed(1);
+    return { ...e, d: `M${f(p.x)} ${f(p.y)} Q${f(c.x)} ${f(c.y)} ${f(q.x)} ${f(q.y)}`, mid };
+  });
+  //: A curve may bow past an edge: the box grows to hold it, on any side.
+  let x0 = 0;
+  let y0 = 0;
+  for (const line of lines) {
+    if (line.from === line.to) continue;
+    const nums = line.d.match(/-?[\d.]+/g).map(Number);
+    for (let i = 0; i + 1 < nums.length; i += 2) {
+      x0 = Math.min(x0, nums[i] - 12);
+      y0 = Math.min(y0, nums[i + 1] - 12);
+      width = Math.max(width, nums[i] + 12);
+      height = Math.max(height, nums[i + 1] + 12);
+    }
+  }
+  return { x0: Math.floor(x0), y0: Math.floor(y0), width: Math.ceil(width - x0), height: Math.ceil(height - y0), boxes, lines };
+}
+
+//: The SVG as plain objects: `{ tag, attrs, kids, text }`.
+function mermaidFlowSvgTree(graph, layout, label = "Flowchart") {
+  const el = (tag, attrs = {}, kids = [], text = null) => ({ tag, attrs, kids, text });
+  const kids = [el("title", {}, [], label)];
+  const marker = el("marker", { id: "md-mermaid-arrow", viewBox: "0 0 10 10", refX: "9", refY: "5", markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" },
+    [el("path", { d: "M0 0 L10 5 L0 10 z", fill: "currentColor" })]);
+  kids.push(el("defs", {}, [marker]));
+  for (const line of layout.lines) {
+    const attrs = { d: line.d, class: `md-mermaid-edge md-mermaid-${line.style}`, fill: "none", stroke: "currentColor", "stroke-width": line.style === "thick" ? "2.5" : "1.4" };
+    if (line.style === "dotted") attrs["stroke-dasharray"] = "4 4";
+    if (line.arrow) attrs["marker-end"] = "url(#md-mermaid-arrow)";
+    kids.push(el("path", attrs));
+  }
+  for (const b of layout.boxes) {
+    const x = b.x - b.w / 2;
+    const y = b.y - b.h / 2;
+    const common = { class: `md-mermaid-node md-mermaid-${b.shape}`, fill: "Canvas", stroke: "currentColor", "stroke-width": "1.4" };
+    let shape;
+    if (b.shape === "diamond") shape = el("path", { ...common, d: `M${b.x} ${y} L${x + b.w} ${b.y} L${b.x} ${y + b.h} L${x} ${b.y} z` });
+    else if (b.shape === "circle") shape = el("circle", { ...common, cx: b.x, cy: b.y, r: b.w / 2 });
+    else if (b.shape === "hexagon") {
+      const k = Math.min(14, b.w / 4);
+      shape = el("path", { ...common, d: `M${x + k} ${y} L${x + b.w - k} ${y} L${x + b.w} ${b.y} L${x + b.w - k} ${y + b.h} L${x + k} ${y + b.h} L${x} ${b.y} z` });
+    } else {
+      const r = b.shape === "stadium" ? b.h / 2 : b.shape === "round" ? 10 : 3;
+      shape = el("rect", { ...common, x, y, width: b.w, height: b.h, rx: r, ry: r });
+    }
+    kids.push(shape);
+    kids.push(el("text", { x: b.x, y: b.y, "text-anchor": "middle", "dominant-baseline": "central", fill: "currentColor", class: "md-mermaid-text" }, [], b.text));
+  }
+  for (const line of layout.lines) {
+    if (!line.label) continue;
+    const w = line.label.length * 6.6 + 10;
+    kids.push(el("rect", { x: line.mid.x - w / 2, y: line.mid.y - 9, width: w, height: 18, rx: 3, fill: "Canvas", class: "md-mermaid-label-bg" }));
+    kids.push(el("text", { x: line.mid.x, y: line.mid.y, "text-anchor": "middle", "dominant-baseline": "central", fill: "currentColor", class: "md-mermaid-label" }, [], line.label));
+  }
+  return el("svg", {
+    xmlns: "http://www.w3.org/2000/svg", viewBox: `${layout.x0 || 0} ${layout.y0 || 0} ${layout.width} ${layout.height}`,
+    width: layout.width, height: layout.height, role: "img", "aria-label": label, class: "md-mermaid-svg",
+  }, kids);
+}
+
+//: The words a screen reader hears for a flowchart: its links, in order.
+function mermaidFlowSummary(graph) {
+  const name = new Map(graph.nodes.map((n) => [n.id, n.text]));
+  const said = graph.edges.slice(0, 12).map((e) => `${name.get(e.from)} to ${name.get(e.to)}${e.label ? ` (${e.label})` : ""}`);
+  const more = graph.edges.length > 12 ? `, and ${graph.edges.length - 12} more` : "";
+  return `Flowchart of ${graph.nodes.length} step${graph.nodes.length === 1 ? "" : "s"}${said.length ? `: ${said.join("; ")}${more}` : ""}`;
+}
+// DOC-MERMAID-END
+
+//: The tree as elements: `createElementNS` and `textContent`, never markup,
+//: so a node's text can hold anything and stays text.
+function docMermaidSvg(source) {
+  const graph = mermaidFlowParse(source);
+  if (!graph) return null;
+  let measure;
+  try {
+    const ctx = document.createElement("canvas").getContext("2d");
+    ctx.font = "13px system-ui, sans-serif";
+    measure = (t) => ctx.measureText(t).width;
+  } catch {
+    measure = undefined;
+  }
+  const layout = mermaidFlowLayout(graph, measure);
+  const tree = mermaidFlowSvgTree(graph, layout, mermaidFlowSummary(graph));
+  const NS = "http://www.w3.org/2000/svg";
+  const build = (node) => {
+    const made = document.createElementNS(NS, node.tag);
+    for (const [k, v] of Object.entries(node.attrs)) if (k !== "xmlns") made.setAttribute(k, String(v));
+    if (node.text != null) made.textContent = node.text;
+    for (const kid of node.kids) made.appendChild(build(kid));
+    return made;
+  };
+  return build(tree);
+}
+
+//: Read (and so the print and the HTML export, which are drawn from it):
+//: each mermaid fence that reads whole becomes its figure; the rest stay code.
+function docRenderMermaidIn(container) {
+  for (const code of container.querySelectorAll('.code-block code[data-lang="mermaid"]')) {
+    const svg = docMermaidSvg(code.textContent);
+    if (!svg) continue;
+    const block = code.closest(".code-block");
+    const figure = document.createElement("figure");
+    figure.className = "md-mermaid";
+    if (block.dataset.srcLine) figure.dataset.srcLine = block.dataset.srcLine;
+    figure.appendChild(svg);
+    block.replaceWith(figure);
+  }
+}
+
+//: Live: a mermaid fence the caret is outside of is its figure, through a
+//: state field for the reason the columns block gives (a replace that spans
+//: line breaks may not come from a plugin). Pressing the figure puts the
+//: caret on the fence's first line, which shows the text to edit.
+const docPhase2State = { mermaidFieldCache: null, imageRefocus: null, printSheet: null };
+
+function docMermaidBlocks(text) {
+  const blocks = [];
+  const re = /^```[ \t]*mermaid[^\n]*\n([\s\S]*?)\n```[ \t]*$/gm;
+  for (let m = re.exec(text); m; m = re.exec(text)) {
+    blocks.push({ from: m.index, to: m.index + m[0].length, source: m[1] });
+  }
+  return blocks;
+}
+
+function docMermaidField(CM) {
+  if (docPhase2State.mermaidFieldCache) return docPhase2State.mermaidFieldCache;
+  const { StateField } = CM.state;
+  const { Decoration, EditorView, WidgetType } = CM.view;
+  class DocMermaidWidget extends WidgetType {
+    constructor(source, from) {
+      super();
+      this.source = source;
+      this.from = from;
+    }
+    eq(other) {
+      return other.source === this.source && other.from === this.from;
+    }
+    ignoreEvent(event) {
+      return event.type !== "mousedown";
+    }
+    toDOM(view) {
+      const figure = document.createElement("figure");
+      figure.className = "md-mermaid cm-md-mermaid";
+      const svg = docMermaidSvg(this.source);
+      if (svg) figure.appendChild(svg);
+      figure.title = "Press to edit the diagram's text";
+      figure.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        const at = Math.min(this.from + 4, view.state.doc.length);
+        view.dispatch({ selection: { anchor: at } });
+        view.focus();
+      });
+      return figure;
+    }
+  }
+  const build = (state) => {
+    const text = state.doc.toString();
+    if (!text.includes("```mermaid") && !/```[ \t]+mermaid/.test(text)) return Decoration.none;
+    const sel = state.selection.main;
+    const ranges = [];
+    for (const block of docMermaidBlocks(text)) {
+      if (sel.from <= block.to && sel.to >= block.from) continue;
+      if (!mermaidFlowParse(block.source)) continue;
+      ranges.push(Decoration.replace({ widget: new DocMermaidWidget(block.source, block.from), block: true }).range(block.from, block.to));
+    }
+    return Decoration.set(ranges, true);
+  };
+  docPhase2State.mermaidFieldCache = StateField.define({
+    create: (state) => build(state),
+    update: (value, tr) => (tr.docChanged || tr.selection ? build(tr.state) : value),
+    provide: (field) => EditorView.decorations.from(field),
+  });
+  return docPhase2State.mermaidFieldCache;
+}
 
 // -----------------------------------------------------------------------------
 // Embeds: `![[…]]` draws the thing, not a link to it
@@ -8568,7 +9030,7 @@ function docEmbedNode(target, name) {
     box.append(body, source);
     return box;
   }
-  if (target.kind === "note" && typeof entryItem === "function") {
+  if (target.kind === "note") {
     //: `entryItem` is an `<li>`, and `.entry-list li` is where a note card's
     //: whole appearance lives: handed out on its own it would render as a
     //: bare list item. The list around it is the card's other half.
@@ -8581,18 +9043,18 @@ function docEmbedNode(target, name) {
   //: draws for the same line; it used to be a chip saying there was no
   //: preview for a document yet.
   if (target.kind === "document" && target.doc) return mdDocumentCard(target.doc, name);
-  if (target.kind === "board" && typeof mapChip === "function") {
+  if (target.kind === "board") {
     const box = document.createElement("span");
     box.className = "doc-embed-map";
     box.appendChild(mapChip(target.entry, { interactive: false }));
-    if (typeof mapPreview === "function") box.appendChild(mapPreview(target.entry, { size: "card" }));
+    box.appendChild(mapPreview(target.entry, { size: "card" }));
     return box;
   }
-  if (target.kind === "file" && typeof fileCard === "function") {
+  if (target.kind === "file") {
     const file = target.file;
     const url = file.url || `/files/${file.id}`;
     const label = file.original_name || file.filename || name;
-    if (file._isImage && typeof mediaSrc === "function") {
+    if (file._isImage) {
       //: An image embed is the image. `fileCard` would be a tile with the
       //: picture's *name* on it, which is what `![[photo.png]]` is asking not
       //: to have to look at.
@@ -8634,6 +9096,128 @@ function docApplyImageOptions(img, options) {
     figure.appendChild(caption);
   }
   return figure;
+}
+
+//: The grip and the align button on a picture in Live (decision 8). The
+//: picture's markdown is found from where its widget sits (`posAtDOM`), its
+//: alt rewritten in one change, one Undo step. The grip is a slider to a
+//: screen reader and to the keys (the arrows, 10px; with Shift, 50px), and a
+//: drag to the hand, held to between 40px and the text column's width.
+const DOC_IMAGE_MIN = 40;
+
+function docWireImageEdit(view, frame, options) {
+  const grip = document.createElement("span");
+  grip.className = "cm-md-image-grip";
+  grip.tabIndex = 0;
+  grip.setAttribute("role", "slider");
+  grip.setAttribute("aria-label", "Picture width");
+  grip.title = "Drag to resize the picture, or use the arrow keys";
+  const align = document.createElement("button");
+  align.type = "button";
+  align.className = "ghost icon-only small cm-md-image-align";
+  align.setAttribute("aria-label", "Align the picture");
+  align.title = "Align the picture: left, centre or right";
+  const glyph = document.createElement("i");
+  glyph.className = `ph ph-text-align-${options.align || "left"}`;
+  glyph.setAttribute("aria-hidden", "true");
+  align.appendChild(glyph);
+  frame.append(grip, align);
+  const widest = () => Math.max(DOC_IMAGE_MIN, Math.floor(view.contentDOM.getBoundingClientRect().width - 48));
+  const shown = () => Math.round(frame.getBoundingClientRect().width);
+  const setValue = () => {
+    grip.setAttribute("aria-valuemin", String(DOC_IMAGE_MIN));
+    grip.setAttribute("aria-valuemax", String(widest()));
+    grip.setAttribute("aria-valuenow", String(options.width || shown() || DOC_IMAGE_MIN));
+    grip.setAttribute("aria-valuetext", `${options.width || shown()} pixels wide`);
+  };
+  requestAnimationFrame(setValue);
+  //: Where this picture's markdown starts, read at the moment of writing:
+  //: the document may have moved under it since it was drawn.
+  const write = (change) => {
+    const root = frame.closest(".cm-md-figure") || frame;
+    let at;
+    try {
+      at = view.posAtDOM(root);
+    } catch {
+      return false;
+    }
+    const head = view.state.doc.sliceString(at, Math.min(view.state.doc.length, at + 2000));
+    const m = /^!\[([^\]\n]*)\]\(/.exec(head);
+    if (!m) return false;
+    const alt = docImageAltWith(m[1], change);
+    if (alt === m[1]) return false;
+    docPhase2State.imageRefocus = change.align !== undefined ? null : at;
+    view.dispatch({ changes: { from: at + 2, to: at + 2 + m[1].length, insert: alt } });
+    return true;
+  };
+  grip.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    grip.setPointerCapture?.(event.pointerId);
+    const startX = event.clientX;
+    const start = shown();
+    const max = widest();
+    let width = start;
+    frame.classList.add("is-resizing");
+    const move = (e) => {
+      width = Math.max(DOC_IMAGE_MIN, Math.min(max, Math.round(start + e.clientX - startX)));
+      frame.style.width = `${width}px`;
+      frame.dataset.sized = "1";
+    };
+    const up = () => {
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", up);
+      grip.removeEventListener("pointercancel", up);
+      frame.classList.remove("is-resizing");
+      if (width !== start) write({ width });
+    };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", up);
+    grip.addEventListener("pointercancel", up);
+  });
+  grip.addEventListener("keydown", (event) => {
+    const step = event.shiftKey ? 50 : 10;
+    const now = options.width || shown();
+    let next = null;
+    if (event.key === "ArrowRight" || event.key === "ArrowUp") next = now + step;
+    else if (event.key === "ArrowLeft" || event.key === "ArrowDown") next = now - step;
+    else if (event.key === "Home") next = DOC_IMAGE_MIN;
+    else if (event.key === "End") next = widest();
+    else if (event.key === "Delete" || event.key === "Backspace") next = 0;
+    if (next == null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    write({ width: next ? Math.max(DOC_IMAGE_MIN, Math.min(widest(), next)) : null });
+  });
+  align.addEventListener("mousedown", (event) => event.preventDefault());
+  align.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const box = align.getBoundingClientRect();
+    const pick = (value) => () => write({ align: value });
+    openMenuAtPoint([
+      makeMenuItem("ph:text-align-left Left", "On the left, text below it", pick("left")),
+      makeMenuItem("ph:text-align-center Centre", "In the middle of the column", pick("center")),
+      makeMenuItem("ph:text-align-right Right", "On the right", pick("right")),
+      makeMenuItem("ph:x Inline", "In the line, as written", pick(null)),
+    ], "Align the picture", box.left, box.bottom + 4);
+  });
+  //: The grip that was being pressed keeps the keys after its write redraws
+  //: the picture.
+  if (docPhase2State.imageRefocus != null) {
+    requestAnimationFrame(() => {
+      if (docPhase2State.imageRefocus == null || !frame.isConnected) return;
+      let at = -1;
+      try {
+        at = view.posAtDOM(frame.closest(".cm-md-figure") || frame);
+      } catch {
+        at = -1;
+      }
+      if (at === docPhase2State.imageRefocus) {
+        docPhase2State.imageRefocus = null;
+        grip.focus({ preventScroll: true });
+      }
+    });
+  }
 }
 
 //: **A markdown image's alt text is its caption once it carries options.**
@@ -8772,7 +9356,7 @@ function docResolveWikiTarget(name) {
   if (!wanted) return null;
   const asDoc = docs.find((doc) => (doc.title || "").trim().toLowerCase() === wanted);
   if (asDoc) return { kind: "document", doc: asDoc };
-  return typeof resolveWikiTarget === "function" ? resolveWikiTarget(name) : null;
+  return resolveWikiTarget(name);
 }
 
 //: What a resolved target is called, for a link's tooltip. A note has no
@@ -9447,21 +10031,10 @@ function exportDocumentDocx() {
   return downloadDocumentExport("export.docx", "document.docx");
 }
 
-async function exportDocumentMarkdown() {
-  if (!currentDoc) return;
-  // Fetched rather than navigated to. A plain link carries no X-Auth-Token, so
-  // the server answers 401 and the browser renders that error *in place of the
-  // app*: it navigates away instead of downloading.
-  try {
-    const response = await api(`/documents/${currentDoc.id}/export.md`);
-    // The filename is decided server-side, so read it back off the header.
-    const disposition = response.headers.get("content-disposition") || "";
-    const match = disposition.match(/filename="([^"]+)"/);
-    await saveFile(match ? match[1] : "document.md", await response.blob());
-  } catch (error) {
-    $("doc-status").classList.add("error");
-    $("doc-status").textContent = error.message;
-  }
+//: The same fetch, name and save as the zip and the Word file (audit FE-16:
+//: this was a second copy of `downloadDocumentExport`).
+function exportDocumentMarkdown() {
+  return downloadDocumentExport("export.md", "document.md");
 }
 
 // DOC-EXPORT-HTML-BEGIN
@@ -9606,6 +10179,10 @@ details.callout[open] > .callout-head::before { content: "\\25BE\\2002"; }
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 0.85rem;
 }
+.md-mermaid { margin: 1.2em 0; overflow-x: auto; color: var(--ink); }
+.md-mermaid svg { display: block; max-width: 100%; height: auto; margin: 0 auto; font: 13px system-ui, sans-serif; }
+.md-mermaid .md-mermaid-node, .md-mermaid .md-mermaid-label-bg { fill: var(--ground); }
+.md-mermaid .md-mermaid-label { font-size: 12px; }
 `;
 
 function docExportEscape(text) {
@@ -9854,6 +10431,8 @@ window.addEventListener("beforeprint", () => {
     docPrintRestore = () => setDocView(wasView);
   }
   renderDocPreview();
+  //: A plain Ctrl+P prints on the page last chosen (decision 7).
+  docApplyPrintSetup();
   document.body.classList.add("printing-doc");
 });
 
@@ -9865,11 +10444,174 @@ window.addEventListener("afterprint", () => {
   restore?.();
 });
 
+//: **The page a document prints on** (DOCUMENTS_PLAN decision 7, the audit's
+//: D4): size, orientation, margins, and the page number and title in the
+//: page's own margin, chosen in one step before the browser's print dialog and
+//: remembered on this computer. Written as a constructed stylesheet
+//: (`adoptedStyleSheets`), because the CSP refuses a `<style>` element and an
+//: `@page` rule has no element to put a class on. The number and the title are
+//: CSS page-margin boxes (`@bottom-center`, `@top-center`), which Chromium
+//: draws from version 131; where the browser has no `CSSMarginRule` the
+//: switch says it cannot, rather than printing nothing silently.
+const DOC_PRINT_KEY = "docPrintSetup";
+const DOC_PRINT_MARGINS = { narrow: "12mm", normal: "20mm", wide: "28mm" };
+
+function docPrintSetupRead() {
+  const saved = prefs.json(DOC_PRINT_KEY, {});
+  //: Letter where the reader's own locale says it (the US and Canada print on
+  //: it), A4 everywhere else, until they choose.
+  const letter = /-(US|CA)$/i.test(navigator.language || "");
+  return {
+    size: saved.size === "Letter" || saved.size === "A4" ? saved.size : letter ? "Letter" : "A4",
+    orientation: saved.orientation === "landscape" ? "landscape" : "portrait",
+    margin: DOC_PRINT_MARGINS[saved.margin] ? saved.margin : "normal",
+    numbers: saved.numbers !== false,
+  };
+}
+
+function docPrintMarginBoxes() {
+  return typeof window.CSSMarginRule === "function";
+}
+
+//: A title as a CSS string: quotes and backslashes escaped, line breaks gone.
+function docPrintCssString(text) {
+  return `"${String(text || "").replace(/[\\"]/g, "\\$&").replace(/[\r\n]+/g, " ").slice(0, 120)}"`;
+}
+
+function docApplyPrintSetup(setup = docPrintSetupRead(), title = currentDoc?.title || "") {
+  if (typeof CSSStyleSheet !== "function" || !("adoptedStyleSheets" in document)) return false;
+  if (!docPhase2State.printSheet) {
+    docPhase2State.printSheet = new CSSStyleSheet();
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, docPhase2State.printSheet];
+  }
+  const boxes = setup.numbers && docPrintMarginBoxes()
+    ? ` @top-center { content: ${docPrintCssString(title)}; font: 9pt system-ui, sans-serif; color: #555; }` +
+      ` @bottom-center { content: counter(page) " / " counter(pages); font: 9pt system-ui, sans-serif; color: #555; }`
+    : "";
+  docPhase2State.printSheet.replaceSync(`@media print { @page { size: ${setup.size} ${setup.orientation}; margin: ${DOC_PRINT_MARGINS[setup.margin]};${boxes} } }`);
+  return true;
+}
+
+//: The one step before the browser's dialog: four choices and Print.
+function docPrintSetupDialog() {
+  return new Promise((resolve) => {
+    const setup = docPrintSetupRead();
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", "Print or save as PDF");
+    const card = document.createElement("div");
+    card.className = "card modal-card space-dialog doc-print-card";
+    const returnFocus = document.activeElement;
+    let settled = false;
+    const close = (go) => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      if (!go) returnFocus?.focus?.();
+      resolve(go ? setup : null);
+    };
+    const onKey = (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        close(false);
+      } else if (event.key === "Enter" && !(event.target instanceof HTMLButtonElement)) {
+        event.preventDefault();
+        event.stopPropagation();
+        close(true);
+      }
+    };
+    const seg = (label, key, options) => {
+      const row = document.createElement("div");
+      row.className = "doc-print-row";
+      const name = document.createElement("span");
+      name.className = "doc-print-label";
+      name.textContent = label;
+      const group = document.createElement("div");
+      group.className = "seg";
+      group.setAttribute("role", "group");
+      group.setAttribute("aria-label", label);
+      for (const [value, words] of options) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = words;
+        b.dataset.value = value;
+        b.setAttribute("aria-pressed", String(setup[key] === value));
+        b.addEventListener("click", () => {
+          setup[key] = value;
+          for (const other of group.children) other.setAttribute("aria-pressed", String(other === b));
+        });
+        group.appendChild(b);
+      }
+      row.append(name, group);
+      return row;
+    };
+    const numbers = document.createElement("label");
+    numbers.className = "setting-check doc-print-numbers";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.id = "doc-print-numbers";
+    const can = docPrintMarginBoxes();
+    box.checked = setup.numbers && can;
+    box.disabled = !can;
+    box.addEventListener("change", () => { setup.numbers = box.checked; });
+    const words = document.createElement("span");
+    words.textContent = "Page numbers and the title";
+    const small = document.createElement("small");
+    small.className = "muted";
+    small.textContent = can
+      ? "The number at the foot of each page, the title at the head."
+      : "This browser cannot print them; your print dialog's own headers and footers can.";
+    words.append(document.createElement("br"), small);
+    numbers.append(box, words);
+    const foot = document.createElement("div");
+    foot.className = "row space-dialog-actions";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "ghost";
+    cancel.textContent = "Cancel";
+    cancel.addEventListener("click", () => close(false));
+    const go = document.createElement("button");
+    go.type = "button";
+    go.id = "doc-print-go";
+    setLabel(go, "ph:printer Print");
+    go.addEventListener("click", () => close(true));
+    foot.append(cancel, go);
+    const body = document.createElement("div");
+    body.className = "doc-print-body";
+    body.append(
+      seg("Page size", "size", [["A4", "A4"], ["Letter", "Letter"]]),
+      seg("Orientation", "orientation", [["portrait", "Portrait"], ["landscape", "Landscape"]]),
+      seg("Margins", "margin", [["narrow", "Narrow"], ["normal", "Normal"], ["wide", "Wide"]]),
+      numbers,
+    );
+    card.append(dialogHead("Print or save as PDF", () => close(false)), body, foot);
+    overlay.appendChild(card);
+    wireBackdropClose(overlay, () => close(false));
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    go.focus();
+  }).then((setup) => {
+    if (!setup) return null;
+    try {
+      localStorage.setItem(DOC_PRINT_KEY, JSON.stringify(setup));
+    } catch {
+      /* this print still uses it */
+    }
+    return setup;
+  });
+}
+
 // PDF via the browser's own print dialog: it renders the preview exactly as
 // shown and every platform already has "Save as PDF" there. Bundling a PDF
 // engine would add a heavy dependency to produce a worse-looking result.
-function exportDocumentPdf() {
+async function exportDocumentPdf() {
   if (!currentDoc) return;
+  const setup = await docPrintSetupDialog();
+  if (!setup) return;
+  docApplyPrintSetup(setup);
   //: Set *before* `withDocPreviewShown`, which renders the pane on the way in:
   //: the whole point of the flag is that the render it triggers is the one that
   //: carries the footnotes (DOCUMENTS_PLAN Phase 5 item 1, "exported as
@@ -9891,67 +10633,32 @@ function exportDocumentPdf() {
   });
 }
 
-//: **Deleting a document is the only permanent loss left in this app, and it
-//: is the longest thing anyone writes here.** Notes go to a recycle bin;
-//: conversations, files and whiteboards are all recoverable one way or
-//: another; a document was gone the moment you confirmed, which is why both
-//: delete prompts had to say "This cannot be undone" out loud.
-//:
-//: Asked as part of "is everythign wired to the nav history and universal
-//: undo/redo", and it was not. This wires it, from the client side, by
-//: keeping the document's own text and re-creating it: `pushUndo` puts it on
-//: the app-wide stack (Ctrl+Z, the status bar's Undo, and its right-click
-//: list of the last fifty), and `toastAction` offers it immediately, which is
-//: when people actually notice.
-//:
-//: **What does not come back, stated plainly:** the id changes, so anything
-//: that pointed at the old one by id, a bookmark, a chat attachment, points
-//: at nothing; and the revision history is genuinely gone, because
-//: `delete_document` removes it deliberately (see its comment: keeping the
-//: text of something the user asked to destroy would be worse). The words come
-//: back. That is the difference between a mistake and a loss.
+//: **A deleted document goes to the recycle bin** (WORLD_CLASS_PLAN 5 item
+//: 10), as a note does: `DELETE /documents/{id}` bins it, and Undo is
+//: `POST /documents/{id}/restore`, the same document with its id, its history,
+//: its attached notes and its reminders. Before the bin, Undo re-created the
+//: text as a new document and everything that pointed at the old id was lost.
+//: `pushUndo` puts it on the app-wide stack (Ctrl+Z, the status bar's Undo)
+//: and `toastAction` offers it at once, which is when people notice.
 async function deleteDocumentWithUndo(doc) {
-  //: Fetched, not taken from the list row: the list carries a summary, and
-  //: restoring from it would bring back a document with its body missing, 
-  //: an undo that silently loses the content is worse than no undo at all.
-  const full = await apiJson(`/documents/${doc.id}`).catch(() => null);
   await apiJson(`/documents/${doc.id}`, { method: "DELETE" });
-  if (!full) {
-    //: Deleted, but nothing to restore from. Say so rather than offering an
-    //: Undo that would quietly do nothing.
-    toast("Document deleted. It could not be read first, so this one can't be undone.", true);
-    return;
-  }
-  const recreate = async () => {
-    const made = await apiJson("/documents", {
-      method: "POST",
-      body: JSON.stringify({
-        title: full.title || "Untitled",
-        content: full.content || "",
-        file_type: full.file_type || "md",
-      }),
-    });
-    await loadDocuments(made.id);
-    return made;
-  };
-  let restored = null;
+  const title = doc.title || "Untitled";
   const action = pushUndo(
-    `Deleted “${full.title || "Untitled"}”`,
+    `Moved “${title}” to the bin`,
     async () => {
-      restored = await recreate();
+      await apiJson(`/documents/${doc.id}/restore`, { method: "POST" });
+      await loadDocuments(doc.id);
     },
     async () => {
-      if (restored) await apiJson(`/documents/${restored.id}`, { method: "DELETE" });
-      restored = null;
+      await apiJson(`/documents/${doc.id}`, { method: "DELETE" });
       await loadDocuments();
     }
   );
-  toastAction("Document deleted.", "Undo", async () => {
+  toastAction("Document moved to the bin.", "Undo", async () => {
     await action.undo();
     //: `settleUndoFromToast`, not a bare stack pop: the toast's Undo and the
     //: status bar's Undo are the same action, and without this a later Ctrl+Z
-    //: would run the same restore a second time, the closure works fine
-    //: twice and nothing else stops it.
+    //: would run the same restore a second time.
     settleUndoFromToast(action);
     toast("Document restored.");
   });
@@ -11099,7 +11806,7 @@ $("doc-back")?.addEventListener("click", () => {
 //: update listener once the view is mounted, so there is one pipeline rather
 //: than one per engine.
 function docSurfaceInput() {
-  if (typeof scheduleUndoBar === "function") scheduleUndoBar();
+  scheduleUndoBar();
   markDocDirty();
   scheduleDocPreview();
   renderDocGutter();
@@ -11376,7 +12083,7 @@ function wireMarkdownToolbar(bar) {
 //: on the *same* element (a note re-opened for editing without a full
 //: reload) must not stack a second listener that fires the same keydown
 //: twice.
-//: Takes the element itself, not only its id: `renderEditForm` (notes-list.js)
+//: Takes the element itself, not only its id: `renderEditForm` (note-edit-panels.js)
 //: builds the note edit form's textarea and wires this before appending it
 //: to the document, where `$(id)` (`document.getElementById`) would find
 //: nothing yet. `#entry-content` is already in the page at boot, so the
@@ -12605,7 +13312,7 @@ $("doc-focus-sidebar")?.addEventListener("click", () =>
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape" || event.defaultPrevented) return;
   if (!docFocusOn()) return;
-  if (typeof activeOverlay === "function" && activeOverlay()) return;
+  if (activeOverlay()) return;
   const menuOpen = [...document.querySelectorAll('[role="menu"], .cm-tooltip')]
     .some((el) => el.getClientRects().length > 0);
   if (menuOpen) return;
@@ -12697,6 +13404,12 @@ for (const radio of document.querySelectorAll('input[name="doc-ai-verb"]')) {
 }
 $("doc-ai-history").addEventListener("click", openDocAiHistory);
 $("doc-extract").addEventListener("click", openDocExtractPreview);
+//: **A document's headings as a new mind map** (MINDMAP_PLAN decision 35):
+//: the map side does the work (`wbMapFromDocument`, whiteboard-map.js), from
+//: the text as it stands in the editor, saved or not.
+$("doc-map-headings")?.addEventListener("click", () => {
+  if (currentDoc) wbMapFromDocument(currentDoc, docText());
+});
 docBoxEl().addEventListener("keydown", (event) => {
   // The fallback textarea's half of the Escape-then-Tab hatch, the same rule
   // the engine's keymap states (`docTabEscapes`), because which of the two
@@ -15026,7 +15739,7 @@ function docFillAt(box) {
     locale: undefined,
     name: (typeof prefsCache === "object" && prefsCache?.display_name) || "",
     doc: tok.kind === "toc" ? docText() : "",
-    slug: typeof mdHeadingId === "function" ? mdHeadingId : (t) => t,
+    slug: mdHeadingId,
   });
   if (!options.length) return null;
   return { start: line.from + tok.start, options };
@@ -17298,15 +18011,9 @@ async function docDictionaryImport(file) {
 function docDictionaryExport() {
   const words = [...docDictionary()].sort((a, b) => a.localeCompare(b));
   if (!words.length) return toast("The dictionary is empty, so there is nothing to export.", true);
-  const blob = new Blob([`${words.join("\n")}\n`], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "writing-dictionary.txt";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  //: Through `saveFile`, so the desktop window (which swallows an anchor's
+  //: download) saves it too (audit FE-16).
+  return saveFile("writing-dictionary.txt", new Blob([`${words.join("\n")}\n`], { type: "text/plain" }));
 }
 
 //: Last line, deliberately: everything above has to exist before the first
@@ -19448,7 +20155,7 @@ $("doc-preview")?.addEventListener("scroll", docBlockBarClose);
 
 function docCalloutKindMenu(at, x, y) {
   const box = docSurface();
-  if (!box || typeof calloutMenuItems !== "function" || typeof openMenuAtPoint !== "function") return;
+  if (!box || typeof openMenuAtPoint !== "function") return;
   const head = typeof mdCalloutHead === "function"
     ? mdCalloutHead(box.lineAt(Math.max(0, at)).text.replace(/^\s*>\s?/, ""))
     : null;
@@ -19507,7 +20214,7 @@ function docGoToFootnote(id) {
   let at = text.startsWith(`[^${id}]:`) ? 0 : text.indexOf(marker);
   if (at > 0) at += 1;
   if (at < 0) {
-    if (typeof toast === "function") toast(`Footnote ${id} has no text yet`);
+    toast(`Footnote ${id} has no text yet`);
     return;
   }
   surface.focus();
@@ -19664,3 +20371,38 @@ function docWatchLock() {
   }).observe(overlay, { attributes: true, attributeFilter: ["class", "data-mode"] });
 }
 docWatchLock();
+
+// ---- from editor.js (search-boot-1005): calloutMenuItems ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+//: **The menu that changes a callout from where it is drawn** (INBOX 421 b).
+//: One list for both places a rendered callout offers it (the icon in the
+//: Live view, the block bar in the Read view), so the two cannot offer
+//: different kinds. `apply(kind, fold)` writes the change; the rows are the
+//: app's own menu rows (`kebabMenu` groups), with the current kind and fold
+//: marked by a check glyph rather than by colour alone.
+function calloutMenuItems(current, fold, apply) {
+  const items = [];
+  for (const [kind, meta] of Object.entries(CALLOUT_KINDS)) {
+    items.push({
+      group: "Kind",
+      label: `${kind === current ? "ph:check" : meta.icon} ${meta.label}`,
+      title: meta.about,
+      run: () => apply(kind, fold),
+    });
+  }
+  const folds = [
+    ["", "ph:rows", "Always open"],
+    ["-", "ph:caret-right", "Folded until clicked"],
+    ["+", "ph:caret-down", "Foldable, starts open"],
+  ];
+  for (const [flag, icon, label] of folds) {
+    items.push({
+      group: "Folding",
+      label: `${flag === fold ? "ph:check" : icon} ${label}`,
+      title: label,
+      run: () => apply(current, flag),
+    });
+  }
+  return items;
+}

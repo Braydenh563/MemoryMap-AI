@@ -23,6 +23,7 @@ import time
 from memorymap.ai import budget, skill_runner, skills, tools
 from memorymap.core import deps
 from memorymap.entry import manager
+from tests._skill_run import run_for_test
 
 
 def _events(client, question, **body):
@@ -272,7 +273,7 @@ def test_a_postcondition_that_holds_verifies(app_state, fake_ollama, fake_embedd
         manager.create_entry(session, f"note {index}", "Work", [])
     _save(COUNTING_SKILL)
     fake_ollama.tool_script = _counting_script()
-    run = skill_runner.run_for_test(fake_ollama, skill="count_them")
+    run = run_for_test(fake_ollama, skill="count_them")
     assert run.verification.ok
     assert run.verification.got == 4
     assert run.stopped_by == ""
@@ -285,7 +286,7 @@ def test_a_postcondition_that_does_not_hold_fails_the_run(
     manager.create_entry(session, "the only note", "Work", [])
     _save(COUNTING_SKILL)
     fake_ollama.tool_script = _counting_script()
-    run = skill_runner.run_for_test(fake_ollama, skill="count_them")
+    run = run_for_test(fake_ollama, skill="count_them")
     assert run.verification.ok is False
     assert "came back 1" in run.verification.reason
     assert [s.state for s in run.steps] == ["done"], (
@@ -306,7 +307,7 @@ def test_unchanged_is_read_against_the_reading_taken_before_the_run(
         [{"name": "get_note", "arguments": {"note_id": 1}}],
         [],
     ]
-    run = skill_runner.run_for_test(fake_ollama, skill="find_loose_ends")
+    run = run_for_test(fake_ollama, skill="find_loose_ends")
     assert run.verification.ok, run.verification.reason
     assert (run.verification.before, run.verification.got) == (3, 3)
 
@@ -320,7 +321,7 @@ def test_a_run_that_stopped_is_never_reported_as_verified(
         manager.create_entry(session, f"note {index}", "Work", [])
     _save(COUNTING_SKILL)
     fake_ollama.tool_script = [[]]  # narrates, never calls the tool
-    run = skill_runner.run_for_test(fake_ollama, skill="count_them")
+    run = run_for_test(fake_ollama, skill="count_them")
     assert run.stopped_by == "step"
     assert run.verification.ok is False
     assert "stopped at step 1" in run.verification.reason
@@ -331,7 +332,7 @@ def test_a_skill_with_no_verify_block_is_verified_by_finishing(
 ):
     _save({**COUNTING_SKILL, "name": "No promise", "verify": None})
     fake_ollama.tool_script = _counting_script()
-    run = skill_runner.run_for_test(fake_ollama, skill="no_promise")
+    run = run_for_test(fake_ollama, skill="no_promise")
     assert run.verification.ok
     assert run.verification.reason == "every step finished"
 
@@ -515,7 +516,7 @@ def test_a_verifier_may_not_write(app_state, fake_ollama, fake_embeddings, sessi
         }
     )
     fake_ollama.tool_script = _counting_script()
-    run = skill_runner.run_for_test(fake_ollama, skill="sneaky")
+    run = run_for_test(fake_ollama, skill="sneaky")
     assert run.verification.ok is False
     assert "cannot check anything" in run.verification.reason
     assert manager.count_entries(session) == 1
@@ -607,7 +608,7 @@ def test_a_verify_block_can_narrow_what_it_counts(
         }
     )
     fake_ollama.tool_script = _counting_script()
-    run = skill_runner.run_for_test(fake_ollama, skill="tag_them")
+    run = run_for_test(fake_ollama, skill="tag_them")
     assert run.verification.ok is False
     assert run.verification.got == 1, "the unfiltered count is 2; this one is scoped"
     assert "count_notes(untagged)" in run.verification.reason
@@ -631,7 +632,7 @@ def test_a_scoped_postcondition_that_holds_verifies(
         }
     )
     fake_ollama.tool_script = _counting_script()
-    run = skill_runner.run_for_test(fake_ollama, skill="tag_them")
+    run = run_for_test(fake_ollama, skill="tag_them")
     assert run.verification.ok, run.verification.reason
     assert run.verification.got == 0
 

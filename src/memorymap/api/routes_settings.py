@@ -34,7 +34,7 @@ from memorymap import __version__
 from memorymap.ai import budget as run_budget
 from memorymap.ai import librarian, presets, skills
 from memorymap.api.routes_categories import CATEGORY_PALETTE_KEYS
-from memorymap.core import backup, deps, embedmodels, events, extras, jobruns, logbuffer, security
+from memorymap.core import backup_bundle, deps, embedmodels, events, extras, jobruns, logbuffer, security
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import importer, manager
@@ -496,15 +496,14 @@ class PreferencesBody(BaseModel):
     autonomous_tasks_interval_hours: int | None = Field(default=None, ge=1, le=168)
     autonomous_tasks_model: str | None = Field(default=None, max_length=100)
     filing_wait_seconds: int | None = Field(default=None, ge=5, le=60)
-    #: Section 17 row 3: how the filing prompt carves notes up
-    #: (`librarian.FILING_STYLES`).
-    filing_style: Literal["topic", "project", "time"] | None = None
     #: **Four filing and image switches Settings has always shown and never
     #: saved** (found 2026-10-04 with INBOX 509): they were missing here, so
     #: pydantic dropped them on the way in and the checkbox snapped back on
     #: the next load. `tests/test_preferences_roundtrip.py` now compares
     #: every key the frontend sends with this body.
     ai_first_filing: bool | None = None
+    #: WORLD_CLASS_PLAN section 17 row 3 (`librarian.FILING_STYLES`).
+    filing_style: Literal["topic", "project", "time"] | None = None
     background_filing: bool | None = None
     auto_caption_images: bool | None = None
     auto_read_image_text: bool | None = None
@@ -705,11 +704,11 @@ def get_preferences() -> dict:
     return {
         "recycle_bin_days": config.get_preference("recycle_bin_days", 30),
         "ai_first_filing": config.get_preference("ai_first_filing", True),
+        "filing_style": config.get_preference("filing_style", "topic"),
         "background_filing": config.get_preference("background_filing", True),
         "auto_caption_images": config.get_preference("auto_caption_images", True),
         "auto_read_image_text": config.get_preference("auto_read_image_text", True),
         "filing_wait_seconds": config.get_preference("filing_wait_seconds", None),
-        "filing_style": config.get_preference("filing_style", "topic"),
         "warm_search_model_at_launch": config.get_preference("warm_search_model_at_launch", True),
         "conversation_retention_days": config.get_preference("conversation_retention_days", 0),
         "export_save_dir": config.get_preference("export_save_dir", ""),
@@ -1459,6 +1458,97 @@ def audit_log(
     ]
 
 
+#: A spreadsheet runs a cell that opens with one of these as a formula, and an
+#: audit trail carries free text a person (or a web page the agent read) wrote.
+_CSV_FORMULA_LEAD = ("=", "+", "-", "@", "\t", "\r")
+
+#: One page of the export, and the most one call may ask for: the list
+#: endpoints' recipe (`limit`, `offset`, `X-Total-Count`), with a ceiling
+#: because "bounded by the retention rule" has been wrong before and a file of
+#: a million rows is a file nobody opens. A caller with more walks `offset`.
+AUDIT_EXPORT_MAX_ROWS = 100_000
+
+#: The columns, in order: when, who, what, which kind of thing, which one, and
+#: its title (the log's own one-line description of it). No payload, ever.
+AUDIT_EXPORT_COLUMNS = ["time", "actor", "action", "entity kind", "entity id", "title"]
+
+
+def _csv_safe(value: object) -> object:
+    """A cell that cannot be read as a formula (the OWASP CSV-injection rule)."""
+    if isinstance(value, str) and value.startswith(_CSV_FORMULA_LEAD):
+        return "'" + value
+    return value
+
+
+def _not_private_events(query):
+    """Drop every event about a private note, and the vault's own.
+
+    The file leaves the app, and a private note exists so that nothing about
+    what it says does. An event on one carries its title or a clip of it in
+    `detail`; the vault's events (unlocking, re-keying) say that private notes
+    exist and when they were opened. Neither is part of a hand-over file.
+    """
+    private_ids = select(Entry.id).where(Entry.is_private == True)  # noqa: E712
+    return query.where(
+        AuditLog.entity_type != "vault",
+        ~(
+            AuditLog.entity_type.in_(("entry", "note", "entries"))
+            & AuditLog.entity_id.in_(private_ids)
+        ),
+    )
+
+
+@router.get("/audit/export.csv")
+def audit_export_csv(
+    limit: int = Query(default=AUDIT_EXPORT_MAX_ROWS, ge=1, le=AUDIT_EXPORT_MAX_ROWS),
+    offset: int = Query(default=0, ge=0),
+    entity_type: str = Query(default="", max_length=40),
+    session: Session = Depends(get_session),
+) -> Response:
+    """The activity log as a file a professional can hand over: who, what, when.
+
+    Oldest first (a trail reads forward), six columns, and never a payload
+    value: a payload holds whole note texts. Events about private notes are
+    left out (`_not_private_events`). Every cell is defanged against CSV
+    formula injection (`_csv_safe`): the log carries free text a person, or a
+    web page the agent read, wrote. `limit` and `offset` page it and
+    `X-Total-Count` is the size of the same filtered set. The export is itself
+    logged, so the trail records who took it.
+    """
+    query = _not_private_events(select(AuditLog))
+    if entity_type:
+        query = query.where(AuditLog.entity_type == entity_type)
+    total = session.scalar(select(func.count()).select_from(query.subquery())) or 0
+    rows = session.scalars(query.order_by(AuditLog.id).limit(limit).offset(offset))
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(AUDIT_EXPORT_COLUMNS)
+    for row in rows:
+        writer.writerow(
+            [
+                _csv_safe(value)
+                for value in (
+                    row.created_at.isoformat(),
+                    row.actor or events.ACTOR_USER,
+                    row.action,
+                    row.entity_type,
+                    row.entity_id if row.entity_id is not None else "",
+                    row.detail or "",
+                )
+            ]
+        )
+    manager.log_action(session, "exported", "data", detail="audit csv")
+    session.commit()
+    return Response(
+        content=buffer.getvalue(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=memorymap-activity.csv",
+            "X-Total-Count": str(total),
+        },
+    )
+
+
 def _feed_item(row: AuditLog) -> dict:
     """One event as the feed reports it: what happened, not what it stored."""
     span = events.snapshot_span(row)
@@ -1592,9 +1682,13 @@ def clear_audit_log(
 
 @router.post("/recycle-bin/empty")
 def empty_recycle_bin(session: Session = Depends(get_session)) -> dict:
+    from memorymap.entry import bin as other_bin
+
     removed = manager.empty_recycle_bin(
         session, uploads_dir=deps.get_config().uploads_dir
     )
+    #: The bin's documents and reminders go with its notes (5 item 10).
+    removed += other_bin.empty(session)
     return {"removed": removed}
 
 
@@ -1609,14 +1703,37 @@ def list_extras() -> dict:
     so this is only the catalogue and the current state.
     """
     state = extras.current()
+    bulk = extras.bulk_status()
     return {
         "extras": extras.status(),
-        "running": state.running,
+        "bundles": extras.bundles(),
+        #: A bulk action is running between two of its packages too, when
+        #: `state` is idle for a moment: the screen keeps polling through it.
+        "running": state.running or bulk["running"],
         "installing": state.extra_id if state.running else "",
         "step": state.step,
         "outcome": state.outcome,
         "log": list(state.log),
+        "bulk": bulk,
     }
+
+
+class ExtrasBulkBody(BaseModel):
+    """A bulk action: ids from the allowlist, or one bundle's id. Never a
+    package spec: `core/extras.start_bulk` refuses any id it does not hold."""
+
+    action: str = Field(max_length=20)
+    ids: list[str] = Field(default_factory=list, max_length=50)
+    bundle: str = Field(default="", max_length=40)
+
+
+@router.post("/extras/bulk")
+def bulk_extras(body: ExtrasBulkBody) -> dict:
+    """Install, remove or reinstall several extras, one after another, as one
+    background job (INBOX 595). Each package reports its own outcome in
+    `GET /extras`'s `bulk.items`; one failing does not stop the rest."""
+    started, message = extras.start_bulk(body.action, body.ids, bundle=body.bundle)
+    return {"started": started, "message": message}
 
 
 @router.post("/extras/{extra_id}/install")
@@ -2057,53 +2174,24 @@ def _export_rows(session: Session) -> tuple[list[Category], list[Entry], list[En
 def export_backup(background_tasks: BackgroundTasks):
     import os
     config = deps.get_config()
-    db_path = config.data_dir / "memorymap.db"
-    media_dir = config.data_dir / "media"
-    
     fd, tmp_path = tempfile.mkstemp(suffix=".zip", prefix="memorymap_backup_")
     os.close(fd)
-    
+
     def cleanup():
         try:
             os.remove(tmp_path)
         except OSError:
             pass  # already gone, or never got written, nothing left to clean up
-            
-    background_tasks.add_task(cleanup)
-    
-    # **A snapshot, not the live file** (audit 2026-10-05, ARCH-18). The
-    # database runs in WAL mode, so what was saved last sits in
-    # `memorymap.db-wal` until a checkpoint, and zipping the main file alone
-    # lost it: measured, three notes saved and none of them in the zip, with
-    # `integrity_check` passing, so nothing said so. SQLite's backup API
-    # copies a consistent whole, log included, the way `core/backup.py`'s
-    # daily copies already do. `uploads/` (every attachment) joins `media/`.
-    snapshot_fd, snapshot_path = tempfile.mkstemp(suffix=".db", prefix="memorymap_snapshot_")
-    os.close(snapshot_fd)
-    try:
-        if db_path.exists():
-            # A cleaned snapshot, never the live file: the file alone misses
-            # whatever is still in the WAL (ARCH-18), and can carry a private
-            # note's old words in its search segments (SEC-03).
-            backup.snapshot(db_path, Path(snapshot_path))
-        with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
-            if db_path.exists():
-                zf.write(snapshot_path, "memorymap.db")
-            for folder in (media_dir, config.data_dir / "uploads"):
-                if not folder.is_dir():
-                    continue
-                for root, _, files in os.walk(folder):
-                    for f in files:
-                        file_path = Path(root) / f
-                        arcname = file_path.relative_to(config.data_dir)
-                        zf.write(file_path, str(arcname))
-    finally:
-        for stray in (snapshot_path, f"{snapshot_path}-wal", f"{snapshot_path}-shm"):
-            try:
-                os.remove(stray)
-            except OSError:
-                pass  # never written, or already gone
 
+    background_tasks.add_task(cleanup)
+    #: **A snapshot, not the live file** (audit 2026-10-05, ARCH-18): the
+    #: database runs in WAL mode, so zipping the main file alone lost what
+    #: was saved last (measured, three notes and none of them in the zip,
+    #: with `integrity_check` passing). `backup_bundle.build_zip` copies a
+    #: consistent whole through SQLite's backup API, and adds `uploads/` to
+    #: `media/`. The same zip is what `POST /backups/bundle` seals with a
+    #: password and `POST /backups/bundle/restore` reads back.
+    backup_bundle.build_zip(config.data_dir, config.data_dir / "memorymap.db", Path(tmp_path))
     return FileResponse(tmp_path, media_type="application/zip", filename="memorymap_backup.zip", background=background_tasks)
 
 @router.get("/export/json")
@@ -2178,7 +2266,7 @@ def _slug(text: str, length: int = 30) -> str:
     return re.sub(r"[\s]+", "-", cleaned) or "note"
 
 
-def build_markdown_export(session: Session, only_ids: "list[int] | None" = None) -> bytes:
+def build_markdown_export(session: Session, ids: list[int] | None = None) -> bytes:
     """The zip itself, as bytes, with nothing HTTP about it.
 
     Lifted out of the route below so `python -m memorymap --export PATH`
@@ -2193,11 +2281,10 @@ def build_markdown_export(session: Session, only_ids: "list[int] | None" = None)
     either way.
     """
     _categories, entries, _links = _export_rows(session)
-    if only_ids is not None:
-        #: A selection (WORLD_CLASS_PLAN row 30): the same files and folders
-        #: as the whole export, for the notes picked. Ids this session cannot
-        #: see are simply absent from `entries`.
-        wanted = set(only_ids)
+    #: A selection (WORLD_CLASS_PLAN 5 item 6, section 8 row 30): the same
+    #: files the whole export writes, for these notes only.
+    if ids is not None:
+        wanted = set(ids)
         entries = [entry for entry in entries if entry.id in wanted]
     category_names = manager.bulk_category_names(session, entries)
     
@@ -2231,36 +2318,26 @@ def build_markdown_export(session: Session, only_ids: "list[int] | None" = None)
             front.append("---")
             body = "\n".join(front) + f"\n\n{readable}\n"
             archive.writestr(f"{folder}/{entry.id}-{_slug(readable)}.md", body)
-    manager.log_action(
-        session, "exported", "data", detail="markdown" if only_ids is None else f"markdown, {len(entries)} selected"
-    )
+    detail = "markdown" if ids is None else f"markdown, {len(entries)} selected"
+    manager.log_action(session, "exported", "data", detail=detail)
     session.commit()
     return buffer.getvalue()
 
 
 @router.get("/export/markdown")
-def export_markdown(session: Session = Depends(get_session)) -> Response:
+def export_markdown(
+    session: Session = Depends(get_session),
+    ids: str = Query(default="", max_length=6000, description="Comma-separated note ids; empty for every note"),
+) -> Response:
     """A zip of Obsidian-friendly .md files: one file per note, one
     folder per category, YAML frontmatter carrying the metadata. Binned
-    notes go under _recycle-bin/, exports never silently drop data."""
+    notes go under _recycle-bin/, exports never silently drop data. With
+    `ids`, only those notes (the Notes selection's Export)."""
+    chosen = [int(part) for part in ids.split(",") if part.strip().isdigit()] if ids.strip() else None
     return Response(
-        content=build_markdown_export(session),
+        content=build_markdown_export(session, chosen),
         media_type="application/zip",
         headers={"Content-Disposition": "attachment; filename=memorymap-markdown.zip"},
-    )
-
-
-class ExportSelection(BaseModel):
-    ids: list[int] = Field(min_length=1, max_length=2000)
-
-
-@router.post("/export/markdown")
-def export_markdown_selection(body: ExportSelection, session: Session = Depends(get_session)) -> Response:
-    """The notes picked in the selection bar, as the same zip of `.md` files."""
-    return Response(
-        content=build_markdown_export(session, only_ids=body.ids),
-        media_type="application/zip",
-        headers={"Content-Disposition": "attachment; filename=memorymap-selection.zip"},
     )
 
 

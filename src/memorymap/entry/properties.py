@@ -95,16 +95,57 @@ def write(text: str, props: dict[str, object]) -> str:
     return "---\n" + "\n".join(lines) + "\n---\n" + body
 
 
+#: WORLD_CLASS_PLAN D5's built-in kinds: the five a notebook starts with, so
+#: "this note is a person" is one pick rather than a type to design first.
+#: Each colour is what the graph's "Note type" rule paints (`routes_graph`).
+#: Ordinary rows once seeded: renamed, re-coloured or deleted like any other.
+BUILTIN_TYPES: tuple[dict, ...] = (
+    {"name": "Person", "icon": "ph-user", "colour": "#2f80ed",
+     "fields": [{"name": "role", "kind": "text"}, {"name": "email", "kind": "text"}, {"name": "met", "kind": "date"}]},
+    {"name": "Project", "icon": "ph-kanban", "colour": "#76b041",
+     "fields": [{"name": "status", "kind": "text"}, {"name": "due", "kind": "date"}, {"name": "people", "kind": "list"}]},
+    {"name": "Meeting", "icon": "ph-users-three", "colour": "#e4572e",
+     "fields": [{"name": "date", "kind": "date"}, {"name": "attendees", "kind": "list"}, {"name": "project", "kind": "note"}]},
+    {"name": "Book", "icon": "ph-book-open", "colour": "#a06cd5",
+     "fields": [{"name": "author", "kind": "text"}, {"name": "finished", "kind": "date"}, {"name": "rating", "kind": "number"}]},
+    {"name": "Place", "icon": "ph-map-pin", "colour": "#17bebb",
+     "fields": [{"name": "address", "kind": "text"}, {"name": "visited", "kind": "date"}]},
+)
+
+#: The preference that says the five were offered once. A flag rather than
+#: "seed when the table is empty", because a person who deletes every type
+#: has said they want none, and a restart must not hand them back.
+BUILTINS_SEEDED_PREF = "note_types_seeded"
+
+
+def ensure_builtin_types(session: Session, config) -> None:  # noqa: ANN001
+    """Seed `BUILTIN_TYPES` once per notebook. A name already taken (an
+    imported or hand-made "Book") is left as the person made it. `config` is
+    the caller's (`deps.get_config()` in a route): reaching for `deps` from
+    here put this module in the import_module cycle (ARCH-10's ratchet)."""
+    if config.get_preference(BUILTINS_SEEDED_PREF):
+        return
+    added = False
+    for spec in BUILTIN_TYPES:
+        if find_type(session, spec["name"]) is None:
+            session.add(NoteType(name=spec["name"], icon=spec["icon"], colour=spec["colour"], fields=list(spec["fields"])))
+            added = True
+    if added:
+        session.commit()
+    config.set_preference(BUILTINS_SEEDED_PREF, True)
+
+
 def find_type(session: Session, name: str | None) -> NoteType | None:
     if not name:
         return None
     return session.scalar(select(NoteType).where(func.lower(NoteType.name) == name.strip().lower()))
 
 
-def with_type_fields(session: Session, content: str, type_name: str) -> str:
+def with_type_fields(session: Session, content: str, type_name: str, config) -> str:  # noqa: ANN001
     """`content` with `type:` and the type's fields first in its block (KG4).
     A field the note already has keeps its value; an unknown type is written
     as the type alone, which is what an imported vault's notes do."""
+    ensure_builtin_types(session, config)
     row = find_type(session, type_name)
     found, _ = split(content)
     props: dict[str, object] = {"type": row.name if row else type_name.strip()}

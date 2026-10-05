@@ -51,7 +51,10 @@ def test_choosing_is_not_making() -> None:
     assert "entry-content" not in choose and "aria-checked" in choose
     assert "showNoteTemplatePreview(" in choose
     use = _body("useNoteTemplate")
-    assert "noteTemplateFill(" in use and "entry-content" in use
+    #: The fill and the preview read one function (`noteTemplateText`); the
+    #: fill adds the clipboard and the caret (WORLD_CLASS_PLAN 5 item 4).
+    assert "noteTemplateForUse(" in use and "entry-content" in use
+    assert "noteTemplateText(" in _body("noteTemplateFill") and "noteTemplateText(" in _body("noteTemplateForUse")
     opener = _body("openNoteTemplateDialog")
     assert 'addEventListener("dblclick", useNoteTemplate)' in opener
     assert 'addEventListener("click", () => chooseNoteTemplate(' in opener

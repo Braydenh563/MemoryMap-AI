@@ -4171,7 +4171,7 @@ function wbMindMapEnsureMap(fromId) {
 //: `parentId`, the one operation both Tab and Enter reduce to, differing
 //: only in which card counts as the parent.
 async function wbMindMapAddCard(parentId, x, y) {
-  const entry = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "New branch" }) });
+  const entry = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "New branch", map_topic: true }) });
   wbPushUndo({ action: "noteMade", entryId: entry.id });
   const nodeRes = await apiJson("/whiteboard/nodes", {
     method: "POST",
@@ -4224,7 +4224,19 @@ async function wbMindMapAddCard(parentId, x, y) {
  *  makes `Tab, type, Tab, type` a fluent way to work rather than a sequence
  *  of edits.
  */
-function wbEditNodeText(nodeId) {
+//: **After Enter names a card, letters name it again** (audit 2026-10-05,
+//: UX-06). The editor's Enter left the card selected and the next word typed
+//: went to the board's tool keys: "Flowers" picked five tools and drew a
+//: stray shape. Now, until the selection moves on, a printable key on that
+//: card opens it for typing with the key as its first letter (XMind's rule
+//: for a selected topic); Tab and Enter still branch. Elsewhere a letter is
+//: still a tool key. The focus is left where it was, not moved to the
+//: canvas as a map's is (decision 27): a focused board canvas reads Tab as
+//: "walk the items" (`wbWalkItems`), which would take the branch key away.
+const wbAddGate = { cardRetypeId: null, renderHold: null, barDeferred: false, barDeferredQueued: false };
+
+function wbEditNodeText(nodeId, firstKey = "") {
+  wbAddGate.cardRetypeId = null;
   const node = wbState.nodes.find((n) => n.id === nodeId);
   if (!node) return;
   const card = document.querySelector(`.node-card[data-id="${nodeId}"]`);
@@ -4261,6 +4273,7 @@ function wbEditNodeText(nodeId) {
   content.replaceChildren(box);
   box.focus();
   box.select();
+  if (firstKey) box.setRangeText(firstKey, 0, box.value.length, "end");
 
   //: Listeners on the card's content element rather than on the textarea,
   //: so they hold whichever of the two has the focus, and all of them go
@@ -4296,6 +4309,7 @@ function wbEditNodeText(nodeId) {
     content.replaceChildren();
     renderMarkdown(content, keep);
     wbScheduleRender();
+    if (save && wbSelectedItem?.kind === "node" && wbSelectedItem.id === nodeId) wbAddGate.cardRetypeId = nodeId;
   };
 
   // Enter commits, Shift+Enter is a real newline, the convention for a
@@ -4434,6 +4448,7 @@ function wbApplySelectionHighlight() {
 }
 
 function selectWbItem(kind, id) {
+  if (kind !== "node" || id !== wbAddGate.cardRetypeId) wbAddGate.cardRetypeId = null;
   wbSelectedItem = { kind, id };
   //: Choosing a topic, by pointer, arrow, new map or a topic just made, is
   //: working in the map, so Tab adds under it (see `wbMapKeysArmed`).
@@ -4549,6 +4564,7 @@ function wbWalkItems(dir) {
 }
 
 function clearWbSelection() {
+  wbAddGate.cardRetypeId = null;
   //: Deselecting clears every overlay, the link tool's dots included (INBOX 573).
   if (!wbLinkDragActive) wbClearAnchorHints();
   if (!wbSelectedItem && wbMultiSelection.size === 0) return;
@@ -4721,7 +4737,43 @@ function wbBarSideEdges(hostRect) {
   return { left, right };
 }
 
+//: **What a render may leave until the new topic's editor is open**
+//: (FEAT-02's 100ms gate): the transforms of the topics that only moved, and
+//: the lines. Opening the editor focuses it, which makes the browser bring
+//: every pending style up to date first; with a tidy's two hundred moves and
+//: three hundred lines pending, that was 37 to 86ms (traced, 1,550 elements)
+//: between the key and a topic you can type in. Written right after the
+//: editor opens, in the same task, so the first frame painted shows all of
+//: it; only the order of the work changes. `wbRenderRelease` writes them.
+
+function wbRenderRelease() {
+  const held = wbAddGate.renderHold;
+  wbAddGate.renderHold = null;
+  if (!held) return;
+  for (const [el, place] of held.moves) el.style.transform = place;
+  if (held.edges) {
+    wbRenderMapEdges();
+    wbRenderMapStructure();
+  }
+}
+
+//: **Set while an add opens its topic for typing** (FEAT-02's 100ms gate):
+//: the bar's placement reads layout, and read in the middle of the add it
+//: restyled the whole moved map before the editor could open (traced: 33 to
+//: 60ms, 2,100 elements, on every Tab at 301 topics). Placed two frames on
+//: instead, after the editor, from the same selection.
+
 function wbUpdateSelectionBar() {
+  if (wbAddGate.barDeferred) {
+    if (!wbAddGate.barDeferredQueued) {
+      wbAddGate.barDeferredQueued = true;
+      requestAnimationFrame(() => {
+        wbAddGate.barDeferredQueued = false;
+        wbQueueSelectionBar();
+      });
+    }
+    return;
+  }
   //: A direct placement makes a queued one redundant: it would place the bar
   //: from the same state a frame later.
   if (wbSelectionBarFrame) {
@@ -6318,6 +6370,9 @@ function wbBuildContextMenu(kind) {
           });
         }
       }
+      //: Markers (MINDMAP_PLAN decision 34): priority, progress, a flag, icons.
+      sub(wbMapMarkerWords(wbMapMarkerParts(mapNode.data)) ? "Change the markers…" : "Markers…",
+        "A priority, how far along it is, a flag and icons", () => wbMapOpenMarkers(mapNode.id));
       const comments = wbItemComments("object", mapNode).length;
       sub(comments ? `Comments (${comments})…` : "Comment…", "A thread on this topic, behind the mark on its corner", () =>
         wbOpenComments("object", mapNode.id)
@@ -8562,7 +8617,7 @@ async function wbAddBoardToNote() {
   const title =
     row?.title || select?.options?.[select.selectedIndex]?.textContent?.trim() || "This board";
   const type = row?.type || (wbIsMap() ? "map" : "board");
-  if (typeof addBoardToNote === "function") await addBoardToNote({ id: boardId, title, type });
+  await addBoardToNote({ id: boardId, title, type });
 }
 
 async function wbDeleteCurrentBoard() {
@@ -9200,7 +9255,7 @@ async function wbExportMapText(format) {
   // strip `renameCurrentBoard` already does, and the only place the open
   // board's title exists on the client.
   const title = document.getElementById("wb-board-select")?.selectedOptions?.[0]
-    ?.textContent.replace(/\s*\(\d+ items?\)$/, "") || "mindmap";
+    ?.dataset.title || "mindmap";
   // The extension the format actually is, a `.md` file holding OPML is a
   // file nothing will open. The name is reduced to word characters, spaces and
   // hyphens because a map may be called anything at all and this becomes a
@@ -9239,7 +9294,6 @@ async function wbExportMapText(format) {
 //: was not would make the model look better than it is, which is exactly the
 //: kind of thing this app does not do.
 async function wbGenerateMapFromNotes() {
-  if (typeof pickNotesDialog !== "function") return;
   const chosen = await pickNotesDialog("Which notes should the map be built from?", {
     confirmLabel: "Propose a map",
   });
@@ -9527,8 +9581,7 @@ function wbExportDescription(scope) {
   //: map \"Mind map · Export map\"", which is what the first run of the sweep
   //: measured.
   const title = document.getElementById("wb-board-select")?.selectedOptions?.[0]
-    ?.textContent.replace(/\s*\(\d+ items?\)$/, "")
-    .replace(/^(Mind map|Board|Whiteboard) \u00b7 /, "").trim() || "";
+    ?.dataset.title?.trim() || "";
   const kind = wbIsMap() ? "mind map" : "whiteboard";
   const part = scope === "selection" ? "Part of the " : "The ";
   const named = title ? ` "${title}"` : "";
@@ -9552,7 +9605,7 @@ async function uploadToLibrary(filename, blob, description = "") {
   formData.append("direct", "true");
   const uploaded = await apiJson("/media/upload", {
     method: "POST",
-    headers: { "X-Auth-Token": authToken() },
+    headers: authHeaders(),
     body: formData,
   });
   //: Only when the upload came back with nothing: a caption written by a model
@@ -10777,7 +10830,7 @@ async function initWhiteboard() {
       formData.append("file", file);
       const uploaded = await apiJson("/media/upload", {
         method: "POST",
-        headers: { "X-Auth-Token": authToken() },
+        headers: authHeaders(),
         body: formData,
       });
       if (await wbSetBackground({ image: uploaded.url })) toast("Background image set.");
@@ -12318,6 +12371,14 @@ async function initWhiteboard() {
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/OS shortcuts alone
+    if (
+      wbAddGate.cardRetypeId != null && e.key.length === 1 && e.key !== " " && !wbIsMap()
+      && wbSelectedItem?.kind === "node" && wbSelectedItem.id === wbAddGate.cardRetypeId && !wbMultiSelection.size
+    ) {
+      e.preventDefault();
+      wbEditNodeText(wbAddGate.cardRetypeId, e.key);
+      return;
+    }
     const letter = e.key.toLowerCase();
     // Shift first: `e.key` for Shift+C is "C", which lower-cases onto the
     // unshifted tool, so reading the shift table second would make the two
@@ -13290,7 +13351,7 @@ async function initWhiteboard() {
       formData.append("file", file);
       const uploaded = await apiJson("/media/upload", {
         method: "POST",
-        headers: { "X-Auth-Token": authToken() },
+        headers: authHeaders(),
         body: formData,
       });
       const img = new Image();
@@ -13805,7 +13866,6 @@ async function refreshBoardList(justCreated = null) {
     // Images and text boxes count too, a board holding only those (no
     // cards or sketches) read as "(0 items)" here, which is exactly what
     // exposed this: a board with three text boxes on it, live-verified.
-    const count = board.node_count + board.sketch_count + (board.object_count || 0);
     //: **Each row says what it is** (INBOX 179: "I cant tell with this boards
     //: dropdown menu which is a whitebaord and which is a mindmap"). The
     //: optgroups above only appear when both kinds exist, so a list of two
@@ -13813,9 +13873,12 @@ async function refreshBoardList(justCreated = null) {
     //: quietly, said nothing. A word costs less than a guess, and a native
     //: <option> can carry nothing but text.
     const kind = board.type === "map" ? "Mind map" : "Board";
+    opt.dataset.title = board.title;
+    opt.dataset.kind = kind;
     opt.textContent = board.id === null
       ? `${kind} · ${board.title}`
-      : `${kind} · ${board.title} (${count} item${count === 1 ? "" : "s"})`;
+      : `${kind} · ${board.title} (${wbBoardCountWords(board.type === "map",
+        board.node_count, board.sketch_count - (board.link_count || 0), board.object_count || 0)})`;
     (groups.get(board.type === "map" ? "map" : "board") || select).appendChild(opt);
   }
   select.value = window.currentBoardId || "";
@@ -13825,10 +13888,32 @@ async function refreshBoardList(justCreated = null) {
   if (renameBtn) renameBtn.disabled = !window.currentBoardId;
 }
 
+//: **What the picker says a board holds** (audit 2026-10-05, UX-06). A map
+//: counts topics; a board counts what was put on it, and not the lines
+//: between cards, which are links rather than items. The open board's row is
+//: kept current from what is on screen (`wbSyncBoardCount`): it read
+//: "Pets (1 item)" with three cards on the board, because the list is
+//: fetched when the board opens and was never told about a Tab.
+function wbBoardCountWords(isMap, nodes, drawings, objects) {
+  const n = isMap ? objects : nodes + Math.max(0, drawings) + objects;
+  const noun = isMap ? "topic" : "item";
+  return `${n} ${noun}${n === 1 ? "" : "s"}`;
+}
+
+function wbSyncBoardCount() {
+  const opt = document.getElementById("wb-board-select")?.selectedOptions?.[0];
+  if (!opt || !window.currentBoardId || !opt.dataset.title) return;
+  const sketches = wbState.sketches || [];
+  let links = 0;
+  for (const sk of sketches) if (String(sk.data).includes('"type":"link-')) links++;
+  const text = `${opt.dataset.kind} · ${opt.dataset.title} (${wbBoardCountWords(wbIsMap(),
+    (wbState.nodes || []).length, sketches.length - links, (wbState.objects || []).length)})`;
+  if (opt.textContent !== text) opt.textContent = text;
+}
+
 async function renameCurrentBoard() {
   if (!window.currentBoardId) return;
-  const current = document.getElementById("wb-board-select")?.selectedOptions?.[0]?.textContent
-    .replace(/\s*\(\d+ items?\)$/, "") || "";
+  const current = document.getElementById("wb-board-select")?.selectedOptions?.[0]?.dataset.title || "";
   const name = await promptDialog("Rename this board:", current);
   if (!name || !name.trim()) return;
   try {
@@ -15862,6 +15947,8 @@ function wbScheduleRender() {
     wbRenderQueued = false;
     renderWhiteboard();
     wbUpdateSelectionBar();
+    wbSyncBoardCount();
+    wbMapAfterRender();
   });
 }
 
@@ -15885,6 +15972,8 @@ function renderWhiteboardNow() {
   // from state rather than being re-derived by their own callers.
   wbApplySearchHighlight();
   wbRenderNavigator();
+  wbSyncBoardCount();
+  wbMapAfterRender();
 }
 
 function renderWhiteboard() {
@@ -16722,9 +16811,13 @@ function renderWhiteboard() {
   // its text's), so running this first would measure the previous render's
   // sizes and leave every edge one frame stale, visible as edges that lag
   // behind a node the moment its text changes length.
-  wbRenderMapEdges();
-  //: A map's boundaries and summaries, from the boxes just measured.
-  wbRenderMapStructure();
+  //: Held while an add opens its topic (`wbAddGate.renderHold`): written right after.
+  if (wbAddGate.renderHold) wbAddGate.renderHold.edges = true;
+  else {
+    wbRenderMapEdges();
+    //: A map's boundaries and summaries, from the boxes just measured.
+    wbRenderMapStructure();
+  }
 
   // Every element above was just rebuilt, so any `.wb-selected` class set
   // before this render is gone with it, re-apply from the state that
@@ -17640,6 +17733,16 @@ function renderWbObjects(canvas) {
   // text box's saved colour/size might have changed elsewhere (undo/redo);
   // the text itself is deliberately left alone here so a re-render mid-edit
   // (another item moving, say) can't overwrite what's being typed.
+  //: **Moves are written after the measure, and only what was repainted is
+  //: measured** (FEAT-02's 100ms gate). A tidy that shifts two hundred topics
+  //: wrote two hundred transforms here, and the measure's first
+  //: `offsetHeight` then restyled all of them before reading one height
+  //: (traced: 37 to 63ms, 1,260 elements, on every Tab at 301 topics). A
+  //: move changes no size, so the measure now reads only the topics this
+  //: pass repainted, with nothing else dirty yet, and the moves are written
+  //: after it, to be restyled once with the rest of the frame.
+  const movesLater = [];
+  const repainted = new Set();
   objectUpdate.each(function (d) {
     const key = wbObjectPaintKey(d, paintCtx);
     //: **A move is a transform, not a repaint** (audit FEAT-02): the key left
@@ -17648,9 +17751,10 @@ function renderWbObjects(canvas) {
     //: (measured: 409ms of `setAttribute` in one Tab at 301 topics).
     if (this._wbPaintKey === key) {
       const place = wbItemTransform(d);
-      if (this.style.transform !== place) this.style.transform = place;
+      if (this.style.transform !== place) movesLater.push([this, place]);
       return;
     }
+    repainted.add(this);
     this._wbPaintKey = key;
     //: Drawn live for this pass, so the measure below reads what the new
     //: content really needs rather than the size it was culled at. The next
@@ -17728,11 +17832,14 @@ function renderWbObjects(canvas) {
     if (!wbMapNodeSizeCache) wbMapNodeSizeCache = new Map();
     objectUpdate.each(function (d) {
       if (!WB_MAP_KINDS.has(d.kind)) return;
-      //: A culled topic was not repainted (the paint above uncovers anything
-      //: it repaints), so its stored height is still the one it drew at.
-      if (this.classList.contains("wb-culled")) {
-        if (d.width && d.height) wbMapNodeSizeCache.set(d.id, { w: d.width, h: d.height });
-        return;
+      //: A topic this pass did not repaint is the size it last measured (a
+      //: move is not a resize), and a culled one was not repainted either.
+      if (!repainted.has(this) || this.classList.contains("wb-culled")) {
+        if (d.width && d.height) {
+          wbMapNodeSizeCache.set(d.id, { w: d.width, h: d.height });
+          return;
+        }
+        if (this.classList.contains("wb-culled")) return;
       }
       const h = this.offsetHeight;
       if (!h) return;
@@ -17740,6 +17847,8 @@ function renderWbObjects(canvas) {
       d.height = h;
     });
   }
+  if (wbAddGate.renderHold) wbAddGate.renderHold.moves.push(...movesLater);
+  else for (const [el, place] of movesLater) el.style.transform = place;
 }
 
 //: Everything `renderWbObjects` reads when it paints one object, as one
@@ -18545,8 +18654,10 @@ function drawLibraryBoardsGallery(listed) {
           makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this board or map", () =>
             askAtlasAboutThing(board.type === "map" ? "map" : "board", board.title)
           ),
+          //: A board is an `Entry`, so its reminder is an `entry_id` one; the
+          //: row in Reminders opens the board (WORLD_CLASS_PLAN 1.3, row 15).
           makeMenuItem("ph:alarm Remind me", "Set a reminder about this board or map", () =>
-            remindAboutThing({ entryId: board.id, title: board.title })
+            remindAbout({ title: board.title, entryId: board.id })
           ),
           makeMenuItem("ph:pencil-simple Rename", "Rename this board", async () => {
             const next = await promptDialog("Rename this board:", board.title);
@@ -18584,7 +18695,7 @@ function drawLibraryBoardsGallery(listed) {
           //: one you want in a note is usually one you are looking at in a
           //: list rather than one you have opened.
           makeMenuItem("ph:note-pencil Add to a note", "Put this board in a note as an object", async () => {
-            if (typeof addBoardToNote === "function") await addBoardToNote(board);
+            await addBoardToNote(board);
           }),
           appLinkMenuItem(board.type === "map" ? "map" : "board", board.id),
           makeMenuItem("ph:trash Delete", "Delete this board", () => wbDeleteBoard(board.id, board.title)),
@@ -18785,7 +18896,7 @@ async function createConceptMap() {
     // categorisation off the critical path, the map should open now.
     const root = await apiJson("/entries", {
       method: "POST",
-      body: JSON.stringify({ content: `# ${title}`, tags: [], defer_filing: true }),
+      body: JSON.stringify({ content: `# ${title}`, tags: [], defer_filing: true, map_topic: true }),
     });
     await apiJson("/whiteboard/nodes", {
       method: "POST",
@@ -19071,4 +19182,116 @@ for (const name of WB_RECORDED) {
       wbRecordDepth -= 1;
     }
   };
+}
+
+// ---- from selection.js (search-boot-1005): pickNotesDialog, addBoardToNote ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+//: **Several notes at once**, which `pickLibraryItemDialog` deliberately
+//: cannot do: "make a map of these notes" is a list you assemble, so the rows
+//: are the Attach picker's (`notePickerRow`: tile, name over its facts, a
+//: check ring) and the dialog closes on its one filled button. The ticks live
+//: in `chosen`, not the DOM, so a note stays chosen when a search hides its
+//: row. Resolves with `{id, label}`s in the order they were ticked, or null
+//: when dismissed; the button stays off until one row is on.
+function pickNotesDialog(message, { confirmLabel = "Continue", limit = 40 } = {}) {
+  return new Promise((resolve) => {
+    const list = document.createElement("ul");
+    list.className = "note-picker-list entry-pick-list";
+    list.setAttribute("aria-label", "Your notes");
+    const shell = pickerDialog({ title: message, placeholder: "Search your notes…", searchLabel: message, list });
+    const chosen = new Map();
+    const count = document.createElement("span");
+    count.className = "muted";
+    const confirm = smallButton(confirmLabel, confirmLabel, () => {
+      if (chosen.size) shell.close([...chosen.entries()].map(([id, label]) => ({ id, label })));
+    }, false);
+    confirm.classList.add("accent");
+    const cancel = smallButton("Cancel", "Cancel", () => shell.close(null));
+    const foot = document.createElement("div");
+    foot.className = "row space-dialog-actions";
+    foot.append(count, cancel, confirm);
+
+    const refreshCount = () => {
+      count.textContent = chosen.size
+        ? `${chosen.size} note${chosen.size === 1 ? "" : "s"} chosen${chosen.size >= limit ? ` (the most is ${limit})` : ""}`
+        : "Pick the notes to build from.";
+      confirm.disabled = chosen.size === 0;
+    };
+    const shape = {
+      label: (row) => noteLabel(row, 200),
+      icon: () => "ph:note",
+      meta: notePickerShape("notes").meta,
+      isOn: (row) => chosen.has(row.id),
+      add: (row) => {
+        if (chosen.size >= limit) return false;
+        chosen.set(row.id, noteLabel(row, 70));
+      },
+      remove: (row) => chosen.delete(row.id),
+      full: `That is the most this can use at once: ${limit} notes.`,
+    };
+    const paint = () => {
+      const term = shell.search.value.trim();
+      const rows = (typeof allEntries !== "undefined" ? allEntries : [])
+        .filter((entry) => !entry.is_draft && !entry.is_deleted && !entry.is_board && !entry.is_private)
+        .filter((entry) => !term || noteLabel(entry, 200).toLowerCase().includes(term.toLowerCase()))
+        .slice(0, 60);
+      if (!rows.length) {
+        const empty = pickerEmpty("notes", term, "ph:note", LIBRARY_PICK_SOURCES[0].hint);
+        return pickerListState(list, empty.text, empty);
+      }
+      list.replaceChildren(
+        ...rows.map((row) => {
+          const li = notePickerRow(shape, row);
+          li.classList.add("entry-pick-check");
+          li.querySelector(".note-picker-box").addEventListener("change", refreshCount);
+          return li;
+        })
+      );
+      notePickerRoving(list, 0);
+    };
+    //: The keys: Down from the field enters the list, Up and Down walk it
+    //: (Up from the first row goes back), Space ticks, Enter confirms.
+    shell.search.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowDown") return;
+      event.preventDefault();
+      list.querySelector(".note-picker-box")?.focus();
+    });
+    list.addEventListener("keydown", (event) => {
+      const boxes = [...list.querySelectorAll(".note-picker-box")];
+      const at = boxes.indexOf(document.activeElement);
+      if (at < 0) return;
+      if (event.key === "Enter") {
+        event.preventDefault();
+        return confirm.click();
+      }
+      const to = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: boxes.length - 1 }[event.key];
+      if (to === undefined) return;
+      event.preventDefault();
+      if (to < 0) return shell.search.focus();
+      notePickerRoving(list, Math.min(to, boxes.length - 1))[Math.min(to, boxes.length - 1)].focus();
+    });
+    shell.search.addEventListener("input", paint);
+    paint();
+    refreshCount();
+    shell.open(resolve, { foot });
+  });
+}
+
+//: **The board's own way into a note** (INBOX 309), through
+//: `appendSelectionToNote` rather than a second write path (one undo). The
+//: index is invalidated first: a board made in the last eight seconds would
+//: otherwise paint as a tombstone (`loadMapBoardIndex`'s `force`).
+async function addBoardToNote(board) {
+  if (!board || board.id == null) {
+    toast("The default board has no name to put in a note. Make a board first.");
+    return;
+  }
+  const isMap = board.type !== "board";
+  await appendSelectionToNote(boardEmbedMarkdown(board), {
+    jump: false,
+    what: isMap ? "that map" : "that board",
+    message: `Add \u201c${board.title || (isMap ? "this map" : "this board")}\u201d to which note?`,
+  });
+  if (typeof loadMapBoardIndex === "function") loadMapBoardIndex(true);
 }

@@ -573,35 +573,6 @@ function renderLanState(state) {
   }
 }
 
-//: **Shared with the About panel's own "Restart MemoryMap" button**
-//: (`#about-restart`, phone-shell.js): one restart mechanism, `/system/restart`
-//: (Windows desktop only; everywhere else it answers `restarting: false` and
-//: this says so), so the LAN switch's own restart offer below reuses it
-//: rather than re-implementing "ask, restart, or say why not" a second time.
-//: `confirm` is skipped for a `toastAction` call: the person already made an
-//: explicit choice by pressing that button's own label, the same reasoning
-//: every other `toastAction` in the app (Undo, and the rest) already follows.
-async function restartMemoryMap({ confirm = true } = {}) {
-  if (
-    confirm &&
-    !(await confirmDialog(
-      "Restart MemoryMap?\n\nThe app closes and reopens. Your notes are already saved."
-    ))
-  ) {
-    return;
-  }
-  try {
-    const result = await apiJson("/system/restart", { method: "POST" });
-    if (result.restarting) {
-      toast("Restarting…");
-    } else {
-      toast("Restart isn't available in this build, close and reopen MemoryMap by hand.", true);
-    }
-  } catch (error) {
-    toast(error.message || "Couldn't restart.", true);
-  }
-}
-
 async function renderLanAccess() {
   if (!$("account-allow-lan")) return;
   try {
@@ -619,18 +590,6 @@ async function renderLanAccess() {
 // this pane only reads it. Two ranges on one `.seg`: since this launch, and
 // since the ledger on disk began. Nothing here can change a setting: the
 // switches listed at the bottom are facts, each set where it lives.
-
-const PRIVACY_SCOPE_WORDS = {
-  this_computer: "This computer",
-  local_network: "Your network",
-  internet: "The internet",
-};
-
-const PRIVACY_VERDICTS = {
-  stayed_on_this_computer: ["ph:shield-check", "Nothing left this computer.", false],
-  local_network: ["ph:wifi-high", "Only devices on your own network were contacted.", false],
-  internet: ["ph:globe-hemisphere-west", "This app connected to the internet. Each connection is listed below.", true],
-};
 
 let privacyReceipt = null;
 let privacyRange = "launch";
@@ -804,10 +763,10 @@ async function renderPrefs() {
 function renderAutonomousSettings() {
   $("pref-autonomous-tasks").checked = Boolean(prefsCache.autonomous_tasks_enabled);
   $("pref-ai-first-filing").checked = prefsCache.ai_first_filing ?? true;
+  $("pref-filing-style").value = prefsCache.filing_style || "topic";
   $("pref-background-filing").checked = prefsCache.background_filing ?? true;
   $("pref-warm-search-model").checked = prefsCache.warm_search_model_at_launch ?? true;
   $("pref-filing-wait").value = prefsCache.filing_wait_seconds || 15;
-  $("pref-filing-style").value = prefsCache.filing_style || "topic";
   $("pref-auto-caption-images").checked = prefsCache.auto_caption_images ?? true;
   $("pref-auto-read-image-text").checked = prefsCache.auto_read_image_text ?? true;
   $("pref-auto-tag").checked = prefsCache.auto_tag_enabled ?? true;
@@ -856,6 +815,8 @@ async function renderWebSearch() {
     row.append(radio, text);
     picker.appendChild(row);
   }
+  //: `refreshSearxngHost` is in settings-controls.js; the stand-in
+  //: (LAZY_ENTRY_POINTS) loads it for a pane drawn before the window's await.
   refreshSearxngHost().catch(() => {});
 }
 
@@ -866,31 +827,6 @@ async function saveSearchProvider(provider) {
       method: "PUT",
       body: JSON.stringify({ search_provider: provider }),
     });
-    status.classList.remove("error");
-    status.textContent = "Saved.";
-  } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
-  }
-}
-
-async function saveWebSearchSettings() {
-  const status = $("search-provider-status");
-  try {
-    prefsCache = await apiJson("/preferences", {
-      method: "PUT",
-      body: JSON.stringify({
-        web_search_enabled: $("pref-web-search").checked,
-        searxng_url: $("pref-searxng").value.trim(),
-      }),
-    });
-    // Reported: "the web search button is visibly disabled in the chat
-    // dock instead of inactive when I have web search enabled in the
-    // settings", the chat dock's own click handler keeps this Settings
-    // checkbox in sync going the other way, but this save handler never
-    // synced the chat dock button back, so it stayed on whatever look it
-    // had at page load until clicked directly or the page reloaded.
-    renderWebSearchToggle();
     status.classList.remove("error");
     status.textContent = "Saved.";
   } catch (error) {
@@ -1121,16 +1057,6 @@ function updateProfileCount() {
   line.textContent = used > PROFILE_ABOUT_CAP
     ? `${used} characters; Atlas reads the first ${PROFILE_ABOUT_CAP}.`
     : `${used} of ${PROFILE_ABOUT_CAP} characters.`;
-}
-
-async function deleteProfile() {
-  if (!(await confirmDialog("Delete your profile text? Atlas will stop personalising answers."))) return;
-  prefsCache = await apiJson("/preferences", {
-    method: "PUT",
-    body: JSON.stringify({ user_profile: "", profile_enabled: false }),
-  });
-  await renderPrefs();
-  toast("Profile data deleted.");
 }
 
 // Downloads need the auth header, so plain <a href> won't do: fetch the
@@ -1387,7 +1313,7 @@ function paletteCommands() {
     //: chord is in the palette or says why it cannot be).
     { label: "ph:calendar-check Open today's note", reveal: "todays-note", chord: "todaysNote", about: "Today's page, or a new one titled with the day." },
     { label: "ph:lightning Quick note", about: "A note saved without leaving this page.", chord: "quickNote", act: () => openQuickNote() },
-    { label: "ph:clipboard-text Paste as note", about: "Save what is on the clipboard as a note, in one step.", act: () => ensureModule("quickNote").then((loaded) => loaded && pasteAsNote()) },
+    { label: "ph:clipboard-text Paste as a note", about: "What you copied, saved as a new note.", chord: "pasteNote", act: () => pasteClipboardAsNote() },
     { label: "ph:file-text New document", reveal: "doc-new", chord: "newDocument" },
     { label: "ph:magic-wand Write a note from rough thoughts", reveal: "writing-room" },
     { label: "ph:sparkle New chat", reveal: "chat-new", chord: "newChat" },

@@ -122,6 +122,10 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # Same reason again: it reads every string in `frontend/js/*.js`, so no changed
   # source file selects it.
   tests/test_no_glyph_icons.py
+  # The scratchpad file cap: a merge adds sweeps from several branches at once,
+  # and no changed source file selects it (2026-10-05: an Atlas merge took the
+  # count 14 over and the gate passed).
+  tests/test_scratchpad_size.py
   tests/test_plan_hygiene.py tests/test_readme_freshness.py tests/test_vendor_licences.py
   # Mirror drift (docs/CHANGELOG.md and friends) belongs here rather than in
   # --changed: the file that goes stale is a `.md` at the repo root, and the

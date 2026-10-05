@@ -42,7 +42,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from memorymap.core import extra_downloads, ocr
+from memorymap.core import extra_downloads, jobs, ocr
 from memorymap.core.extra_downloads import Download
 from memorymap.core.subproc import NO_WINDOW
 
@@ -84,6 +84,20 @@ _NOT_A_REASON = (
 )
 
 
+#: What pip (through urllib3 and the resolver) prints when it cannot reach
+#: the package index at all: no route, no name lookup, nothing listening.
+_OFFLINE_MARKERS = (
+    "newconnectionerror",
+    "failed to establish a new connection",
+    "temporary failure in name resolution",
+    "name or service not known",
+    "getaddrinfo failed",
+    "network is unreachable",
+)
+
+PIP_OFFLINE_MESSAGE = "Couldn't reach PyPI to download it. Check the internet connection, then try again."
+
+
 def _pip_reason(log: list[str], prefix: str) -> str:
     """`prefix`, plus the most useful line pip actually printed.
 
@@ -93,7 +107,15 @@ def _pip_reason(log: list[str], prefix: str) -> str:
     line is pip's update nag, not the failure" problem for the SearXNG
     installer; extracted here rather than imported because the source is a
     line list already split into `_state.log`, not a `CompletedProcess`.
+
+    **Offline is said as offline.** Without a network pip retries, then ends
+    on "Could not find a version that satisfies the requirement", which reads
+    as a package that does not exist; its retry lines name the real cause, so
+    those win, as one plain sentence (INBOX 595: a bulk install offline would
+    otherwise print that misleading line under every row).
     """
+    if any(marker in line.lower() for line in log for marker in _OFFLINE_MARKERS):
+        return PIP_OFFLINE_MESSAGE
     useful = [
         line for line in log if not any(marker in line.lower() for marker in _NOT_A_REASON)
     ]
@@ -396,7 +418,7 @@ EXTRAS: tuple[Extra, ...] = (
         id="docx",
         label="Export to Word (python-docx)",
         enables="The Word (.docx) item in a document's Export menu: headings, "
-        "lists, quotes, tables, links and code written as a real Word file "
+        "lists, quotes, tables, links, pictures and code written as a real Word file "
         "rather than as markdown with a different extension, and suggested "
         "changes as Word's own tracked changes.",
         packages=("python-docx",),
@@ -595,6 +617,70 @@ EXTRAS: tuple[Extra, ...] = (
 EXTRAS_BY_ID = {extra.id: extra for extra in EXTRAS}
 
 
+@dataclass(frozen=True)
+class Bundle:
+    """A named group of extras that one kind of work needs together.
+
+    INBOX 595, the owner: "should we bundle multiple packages together for
+    bulk download if various features need multiple libraries". A bundle is
+    only a list of ids from the allowlist above, so it can never name a
+    package the allowlist does not: installing one is installing each of its
+    entries in turn, with each entry's own guards (`start_bulk`).
+    """
+
+    id: str
+    label: str
+    #: One sentence, said under the bundle's name.
+    about: str
+    extras: tuple[str, ...]
+
+
+#: Defined once, here; `GET /extras` carries them and the Packages screen
+#: draws them. An entry may be in more than one (pdfpages reads scans for
+#: both Documents and Vision), and every entry is in at least one
+#: (`tests/test_extras_bundles.py`), so nothing is reachable only by hand.
+BUNDLES: tuple[Bundle, ...] = (
+    Bundle(
+        id="documents",
+        label="Documents",
+        about="Import PDFs, Word files and slides, read scanned PDFs, and export to Word.",
+        extras=("documents", "docx", "pdfpages"),
+    ),
+    Bundle(
+        id="vision",
+        label="Vision",
+        about="Read the text in pictures and in scanned pages.",
+        extras=("ocr", "pdfpages"),
+    ),
+    Bundle(
+        id="ai",
+        label="AI",
+        about="Search by meaning, and tool calling and models without a separate runner.",
+        extras=("semantic", "needle", "localllm"),
+    ),
+    Bundle(
+        id="voice",
+        label="Voice",
+        about="Dictate notes and questions, transcribed on this computer.",
+        extras=("voice",),
+    ),
+    Bundle(
+        id="desktop",
+        label="Desktop",
+        about="MemoryMap in its own window, with a tray icon on Windows.",
+        extras=("desktop",),
+    ),
+    Bundle(
+        id="code",
+        label="Code",
+        about="Run Python files inside the app, offline.",
+        extras=("pyodide",),
+    ),
+)
+
+BUNDLES_BY_ID = {bundle.id: bundle for bundle in BUNDLES}
+
+
 @dataclass
 class InstallState:
     """What one install is doing, for `/tasks` and the panel."""
@@ -626,6 +712,50 @@ _lock = threading.Lock()
 #: a build record, and pip on a large wheel prints a great deal.
 MAX_LOG_LINES = 200
 
+#: What a bulk action can do. Reinstall is pip's `--force-reinstall` through
+#: the same runner as a single Reinstall (`_run_install`), not an uninstall
+#: and an install: one pip call that replaces the files in place leaves the
+#: package usable if it is stopped half way, where a removal followed by a
+#: failed download leaves nothing.
+BULK_ACTIONS = ("install", "uninstall", "reinstall")
+_BULK_VERBS = {
+    "install": ("Installing", "Installed"),
+    "uninstall": ("Removing", "Removed"),
+    "reinstall": ("Reinstalling", "Reinstalled"),
+}
+
+
+@dataclass
+class BulkState:
+    """A bulk action: several extras, one after another, as one pool job.
+
+    `_state` above still describes the package in hand, so `/tasks`, the log
+    and Quit work on a bulk exactly as on a single install; this adds the
+    list, each entry's outcome and sentence, and whether the rest should run.
+    """
+
+    running: bool = False
+    action: str = ""
+    bundle: str = ""
+    #: `{"id", "label", "outcome", "message"}` per extra, in the order asked.
+    #: outcome: queued, running, completed, failed, skipped or cancelled.
+    items: list[dict] = field(default_factory=list)
+    started: float = 0.0
+    #: Set by `cancel()`: the package in hand stops and the rest never start.
+    cancelled: bool = False
+    #: When it is over: completed, failed (one or more did) or cancelled.
+    outcome: str = ""
+    message: str = ""
+
+
+_bulk = BulkState()
+
+#: An installed extra's version and its own files' size, by id. Reading
+#: package metadata walks `sys.path`, and the Packages screen polls while
+#: anything runs, so it is read once and forgotten whenever an install or a
+#: removal ends (`_forget_footprints`).
+_footprints: dict[str, tuple[str, int | None]] = {}
+
 
 def is_installed(extra: Extra) -> bool:
     """Can this interpreter import it *right now*?
@@ -656,29 +786,128 @@ def is_installed(extra: Extra) -> bool:
 
 
 def status() -> list[dict]:
-    """Every extra, with whether it is installed and whether it is installing."""
+    """Every extra, with whether it is installed and whether it is installing,
+    and once installed its version and the size of its own files."""
+    rows = []
+    for extra in EXTRAS:
+        row = _status_row(extra)
+        version, disk = footprint(extra) if row["installed"] else ("", None)
+        row["version"] = version
+        row["disk_bytes"] = disk
+        row["bundles"] = [bundle.id for bundle in BUNDLES if extra.id in bundle.extras]
+        #: Waiting its turn in a bulk action, so the row can say so rather
+        #: than offering an Install that would be refused.
+        row["queued"] = _bulk.running and any(
+            item["id"] == extra.id and item["outcome"] == "queued" for item in _bulk.items
+        )
+        rows.append(row)
+    return rows
+
+
+def _status_row(extra: Extra) -> dict:
+    return {
+        "id": extra.id,
+        "label": extra.label,
+        "enables": extra.enables,
+        "size": extra.size,
+        #: The OCR caveat explains how the program gets installed; once it
+        #: can read, it is noise under a green "Installed".
+        "caveat": "" if extra.id == "ocr" and is_installed(extra) else extra.caveat,
+        "unavailable": unavailable_reason(extra),
+        "packages": list(extra.packages),
+        "kind": extra.kind,
+        "licence": extra.licence,
+        #: Where a download comes from, for the confirm dialog ("pypi.org"
+        #: for pip, which is what pip reaches by default).
+        "source": extra_downloads.source(extra) if extra.kind == "download" else "pypi.org",
+        "installed": is_installed(extra),
+        "installing": _state.running and _state.extra_id == extra.id,
+        "step": _state.step if _state.running and _state.extra_id == extra.id else "",
+    }
+
+
+def bundles() -> list[dict]:
+    """The bundles, for `GET /extras`."""
     return [
-        {
-            "id": extra.id,
-            "label": extra.label,
-            "enables": extra.enables,
-            "size": extra.size,
-            #: The OCR caveat explains how the program gets installed; once it
-            #: can read, it is noise under a green "Installed".
-            "caveat": "" if extra.id == "ocr" and is_installed(extra) else extra.caveat,
-            "unavailable": unavailable_reason(extra),
-            "packages": list(extra.packages),
-            "kind": extra.kind,
-            "licence": extra.licence,
-            #: Where a download comes from, for the confirm dialog ("pypi.org"
-            #: for pip, which is what pip reaches by default).
-            "source": extra_downloads.source(extra) if extra.kind == "download" else "pypi.org",
-            "installed": is_installed(extra),
-            "installing": _state.running and _state.extra_id == extra.id,
-            "step": _state.step if _state.running and _state.extra_id == extra.id else "",
-        }
-        for extra in EXTRAS
+        {"id": bundle.id, "label": bundle.label, "about": bundle.about, "extras": list(bundle.extras)}
+        for bundle in BUNDLES
     ]
+
+
+def footprint(extra: Extra) -> tuple[str, int | None]:
+    """(version, bytes on disk) of an installed extra, or ("", None).
+
+    A pip extra is read from its packages' own metadata: the version of the
+    first package it names (the one the label is about), and the size its
+    RECORD files list for every package it names, never their dependencies,
+    the same line `_run_uninstall` draws: sentence-transformers is a few
+    megabytes, and the PyTorch it pulled in belongs to whoever else uses it.
+    A packaged build reads its own folder (`frozen_extras_dir`). A download
+    extra is its pinned version and its folder.
+    """
+    cached = _footprints.get(extra.id)
+    if cached is not None:
+        return cached
+    try:
+        found = _read_footprint(extra)
+    except Exception:  # noqa: BLE001  # a status row must never fail on odd metadata
+        _logger.debug("couldn't read the footprint of %s", extra.id, exc_info=True)
+        found = ("", None)
+    _footprints[extra.id] = found
+    return found
+
+
+def _read_footprint(extra: Extra) -> tuple[str, int | None]:
+    if extra.kind == "download":
+        folder = extra_downloads.folder(extra)
+        if not folder.is_dir():
+            return "", None
+        total = sum(path.stat().st_size for path in folder.rglob("*") if path.is_file())
+        return extra.version, total
+    from importlib import metadata
+
+    target = frozen_extras_dir()
+    wanted = [_canonical(_requirement_name(package)) for package in extra.packages]
+    found: dict[str, metadata.Distribution] = {}
+    if target is not None:
+        for dist in metadata.distributions(path=[str(target)]):
+            name = _canonical(str(dist.metadata.get("Name") or ""))
+            if name in wanted:
+                found.setdefault(name, dist)
+    else:
+        for name in wanted:
+            try:
+                found[name] = metadata.distribution(name)
+            except metadata.PackageNotFoundError:
+                continue
+    if not found:
+        return "", None
+    first = found.get(wanted[0]) or next(iter(found.values()))
+    total = sum(entry.size or 0 for dist in found.values() for entry in (dist.files or []))
+    return str(first.version or ""), total or None
+
+
+def _forget_footprints() -> None:
+    _footprints.clear()
+
+
+def bulk_status() -> dict:
+    """The bulk action in hand or the last one, for `GET /extras`."""
+    done = sum(1 for item in _bulk.items if item["outcome"] not in ("queued", "running"))
+    return {
+        "running": _bulk.running,
+        "action": _bulk.action,
+        "bundle": _bulk.bundle,
+        "items": [dict(item) for item in _bulk.items],
+        "done": done,
+        "total": len(_bulk.items),
+        "outcome": _bulk.outcome,
+        "message": _bulk.message,
+    }
+
+
+def bulk() -> BulkState:
+    return _bulk
 
 
 def unavailable_reason(extra: Extra) -> str:
@@ -711,6 +940,14 @@ def cancel() -> tuple[bool, str]:
     environment as it was rather than half-written. The extras panel re-reads
     `is_installed` on its next poll and will simply still say "not installed".
     """
+    if _bulk.running:
+        #: A bulk action stops whole: the package in hand the way a single
+        #: one stops (below), and none of the rest starts (`_run_bulk`).
+        #: Between two packages nothing is running yet, and the flag alone
+        #: is the stop.
+        _bulk.cancelled = True
+        if not _state.running:
+            return True, "Stopping before the next package."
     process = _state.process
     extra = EXTRAS_BY_ID.get(_state.extra_id)
     if _state.running and extra is not None and extra.kind == "download":
@@ -721,6 +958,8 @@ def cancel() -> tuple[bool, str]:
         _state.step = "Stopping…"
         return True, "Stopping the download."
     if not _state.running or process is None:
+        if _bulk.running:
+            return True, "Stopping before the next package."
         return False, "Nothing is installing."
     _state.cancelled = True
     _state.step = "Stopping…"
@@ -1099,6 +1338,51 @@ def _run_download_uninstall(extra: Extra) -> None:
         _state.running = False
 
 
+def _claim(extra: Extra, step: str) -> None:
+    """Mark `extra` as the one in hand. The caller holds `_lock`."""
+    _state.running = True
+    _state.extra_id = extra.id
+    _state.outcome = ""
+    _state.step = step
+    _state.log = []
+    _state.started = time.time()
+    _state.cancelled = False
+
+
+def _busy() -> bool:
+    """Something holds the installer: one package, or a bulk action between
+    two of its packages (when `_state` is momentarily idle)."""
+    return _state.running or _bulk.running
+
+
+def _dispatch(func, *args: object, name: str = "") -> None:  # noqa: ANN001
+    """Run an install, a removal or a bulk action on the job pool's one-wide
+    `install` lane (`core/jobs.py`), never on a thread of its own: the pool
+    is where background work is counted, and one wide is the one-pip-at-a-
+    time rule made structural. Tests replace this to run the work inline.
+
+    A pool that is shutting down drops the job (`enqueue` returns 0), and the
+    claim taken for it would then hold the installer shut for the rest of the
+    process; so it is let go here, with the reason where the screen reads it.
+    """
+    if jobs.enqueue("extras", func, *args, name=name):
+        return
+    _state.running = False
+    _state.outcome = "failed"
+    _state.step = "MemoryMap is shutting down, so nothing was started."
+    if _bulk.running:
+        _bulk.running = False
+        _bulk.outcome = "failed"
+        _bulk.message = _state.step
+
+
+def _run_single(worker, extra: Extra, *args: object) -> None:  # noqa: ANN001
+    try:
+        worker(extra, *args)
+    finally:
+        _forget_footprints()
+
+
 def start(extra_id: str, reinstall: bool = False) -> tuple[bool, str]:
     """Begin an install. Returns (started, message).
 
@@ -1112,31 +1396,31 @@ def start(extra_id: str, reinstall: bool = False) -> tuple[bool, str]:
     extra = EXTRAS_BY_ID.get(extra_id)
     if extra is None:
         return False, "No such extra."
-    # Checked before the lock and before `reinstall` is considered: an extra
-    # nothing calls is not made installable by asking twice.
-    if extra.unavailable:
-        return False, f"{extra.label} isn't ready to install yet. {extra.unavailable}"
-    if unavailable_reason(extra):
-        return False, f"{extra.label} can't be installed here. {unavailable_reason(extra)}"
-    if reinstall:
-        blocked = _loaded_in_process_reason(extra)
-        if blocked:
-            return False, blocked
+    refused = _install_refusal(extra, reinstall)
+    if refused:
+        return False, refused
     with _lock:
-        if _state.running:
+        if _busy():
             return False, "Another install is already running."
         if is_installed(extra) and not reinstall:
             return False, f"{extra.label} is already installed."
-        _state.running = True
-        _state.extra_id = extra.id
-        _state.outcome = ""
-        _state.step = "starting pip…" if extra.kind == "pip" else "Starting the download…"
-        _state.log = []
-        _state.started = time.time()
-        _state.cancelled = False
+        _claim(extra, "starting pip…" if extra.kind == "pip" else "Starting the download…")
     worker = _run_download_install if extra.kind == "download" else _run_install
-    threading.Thread(target=worker, args=(extra, reinstall), daemon=True).start()
+    _dispatch(_run_single, worker, extra, reinstall, name=extra.label)
     return True, f"{'Reinstalling' if reinstall else 'Installing'} {extra.label}."
+
+
+def _install_refusal(extra: Extra, reinstall: bool) -> str:
+    """Why `extra` may not be installed now, or "". Checked before the lock
+    and before `reinstall` is considered: an extra nothing calls is not made
+    installable by asking twice."""
+    if extra.unavailable:
+        return f"{extra.label} isn't ready to install yet. {extra.unavailable}"
+    if unavailable_reason(extra):
+        return f"{extra.label} can't be installed here. {unavailable_reason(extra)}"
+    if reinstall:
+        return _loaded_in_process_reason(extra)
+    return ""
 
 
 def remove(extra_id: str) -> tuple[bool, str]:
@@ -1153,18 +1437,177 @@ def remove(extra_id: str) -> tuple[bool, str]:
     if blocked:
         return False, blocked
     with _lock:
-        if _state.running:
+        if _busy():
             return False, "Another install is already running."
-        _state.running = True
-        _state.extra_id = extra.id
-        _state.outcome = ""
-        _state.step = "starting pip…" if extra.kind == "pip" else "Removing…"
-        _state.log = []
-        _state.started = time.time()
-        _state.cancelled = False
+        _claim(extra, "starting pip…" if extra.kind == "pip" else "Removing…")
     worker = _run_download_uninstall if extra.kind == "download" else _run_uninstall
-    threading.Thread(target=worker, args=(extra,), daemon=True).start()
+    _dispatch(_run_single, worker, extra, name=extra.label)
     return True, f"Removing {extra.label}."
+
+
+def start_bulk(action: str, ids: list[str] | None = None, bundle: str = "") -> tuple[bool, str]:
+    """Install, remove or reinstall several extras, one after another, as one
+    job on the pool. Returns (started, message).
+
+    INBOX 595. The ids come from a request, so each one must be an entry of
+    the allowlist and the whole request is refused otherwise: a bulk body is
+    no more a place for a package name than a single install's path is. A
+    bundle is resolved here, from `BUNDLES`, never from the client's list.
+
+    Each package keeps its own guards, checked when its turn comes rather
+    than up front (the state can change while the ones before it run): one
+    that is not ready, already there, or held open by this process is
+    skipped or failed with its own sentence, and the rest go on. One failing
+    never stops the others.
+    """
+    if action not in BULK_ACTIONS:
+        return False, "Choose install, remove or reinstall."
+    if bundle:
+        chosen = BUNDLES_BY_ID.get(bundle)
+        if chosen is None:
+            return False, "No such bundle."
+        wanted = list(chosen.extras)
+    else:
+        wanted = list(ids or [])
+    if not wanted:
+        return False, "Choose at least one package."
+    if any(extra_id not in EXTRAS_BY_ID for extra_id in wanted):
+        return False, "No such extra."
+    ordered = list(dict.fromkeys(wanted))
+    with _lock:
+        if _busy():
+            return False, "Another install is already running."
+        _bulk.running = True
+        _bulk.action = action
+        _bulk.bundle = bundle
+        _bulk.items = [
+            {"id": extra_id, "label": EXTRAS_BY_ID[extra_id].label, "outcome": "queued", "message": ""}
+            for extra_id in ordered
+        ]
+        _bulk.started = time.time()
+        _bulk.cancelled = False
+        _bulk.outcome = ""
+        _bulk.message = ""
+    label = bulk_label(action, len(ordered))
+    _dispatch(_run_bulk, name=label)
+    return True, f"{label}."
+
+
+def bulk_label(action: str, count: int) -> str:
+    """"Installing 3 packages", for `/tasks`, the toast and the history."""
+    doing = _BULK_VERBS.get(action, _BULK_VERBS["install"])[0]
+    return f"{doing} {count} package{'' if count == 1 else 's'}"
+
+
+def _run_bulk() -> None:
+    """The bulk job: each package in the order asked, each reporting its own
+    outcome, until the list ends or someone presses Quit."""
+    try:
+        for item in _bulk.items:
+            if _bulk.cancelled:
+                item["outcome"] = "cancelled"
+                item["message"] = "Stopped before it started."
+                continue
+            item["outcome"] = "running"
+            try:
+                _run_bulk_item(item)
+            except Exception:  # noqa: BLE001  # one package's surprise is never the batch's
+                # The label is the catalogue's, but it travels through the request
+                # that started the batch, so it is logged on one line (CodeQL, log
+                # injection).
+                _logger.exception(
+                    "Couldn't %s %s", _bulk.action, str(item["label"]).replace("\r", " ").replace("\n", " ")
+                )
+                item["outcome"] = "failed"
+                item["message"] = "Couldn't finish it: see Settings → Logs for why."
+            finally:
+                _state.running = False
+                _state.process = None
+                _forget_footprints()
+    finally:
+        _finish_bulk()
+
+
+def _run_bulk_item(item: dict) -> None:
+    """One package of a bulk action, with the guards its own button has."""
+    extra = EXTRAS_BY_ID[item["id"]]
+    action = _bulk.action
+    installed = is_installed(extra)
+    reinstall = action == "reinstall" and installed
+    if action == "uninstall":
+        if not installed:
+            item["outcome"] = "skipped"
+            item["message"] = "Not installed, so there was nothing to remove."
+            return
+        refused = _loaded_in_process_reason(extra)
+    else:
+        if action == "install" and installed:
+            item["outcome"] = "skipped"
+            item["message"] = "Already installed."
+            return
+        refused = _install_refusal(extra, reinstall)
+        if refused and (extra.unavailable or unavailable_reason(extra)):
+            #: Not a failure: the row says this before anyone presses
+            #: anything, and a bundle that names it is still worth the rest.
+            item["outcome"] = "skipped"
+            item["message"] = refused
+            return
+    if refused:
+        item["outcome"] = "failed"
+        item["message"] = refused
+        return
+    removing = action == "uninstall"
+    with _lock:
+        if extra.kind == "pip":
+            _claim(extra, "starting pip…")
+        else:
+            _claim(extra, "Removing…" if removing else "Starting the download…")
+    if removing:
+        (_run_download_uninstall if extra.kind == "download" else _run_uninstall)(extra)
+    elif extra.kind == "download":
+        _run_download_install(extra, reinstall)
+    else:
+        _run_install(extra, reinstall)
+    item["outcome"] = _state.outcome or "failed"
+    item["message"] = _state.step
+    if _state.outcome == "cancelled":
+        _bulk.cancelled = True
+
+
+def _finish_bulk() -> None:
+    """The bulk's own ending: its outcome, one sentence for the history card
+    naming what did not work, and the running flag down last."""
+    items = _bulk.items
+    total = len(items)
+    done = [item for item in items if item["outcome"] == "completed"]
+    failed = [item for item in items if item["outcome"] == "failed"]
+    finished = _BULK_VERBS.get(_bulk.action, _BULK_VERBS["install"])[1]
+    if _bulk.cancelled:
+        _bulk.outcome = "cancelled"
+    elif failed:
+        _bulk.outcome = "failed"
+    else:
+        _bulk.outcome = "completed"
+    parts = [f"{finished} {len(done)} of {total}."]
+    if failed:
+        parts.append("Not done: " + ", ".join(item["label"] for item in failed) + ".")
+    if _bulk.cancelled:
+        parts.append("Stopped before the rest.")
+    if _bulk.action != "uninstall" and any(EXTRAS_BY_ID[item["id"]].kind == "pip" for item in done):
+        parts.append("Restart MemoryMap to use what was installed.")
+    _bulk.message = " ".join(parts)
+    from memorymap.core import taskhistory
+
+    taskhistory.record(
+        "extra",
+        bulk_label(_bulk.action, total),
+        _bulk.outcome,
+        _bulk.message,
+        duration_ms=(time.time() - _bulk.started) * 1000 if _bulk.started else None,
+    )
+    if failed:
+        _logger.warning("%s: %s", bulk_label(_bulk.action, total), _bulk.message)
+    _bulk.running = False
 
 
 def _loaded_in_process_reason(extra: Extra) -> str:
@@ -1211,8 +1654,10 @@ def _loaded_in_process_reason(extra: Extra) -> str:
 def reset_for_tests() -> None:
     """Process-global state, like the job registry, tests have to clear it or
     one test's install leaks into the next one's assertions."""
-    global _state
+    global _state, _bulk
     _state = InstallState()
+    _bulk = BulkState()
+    _footprints.clear()
 
 
 def install_blocking(extra_ids: list[str]) -> int:

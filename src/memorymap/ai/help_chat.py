@@ -127,7 +127,11 @@ HELP_TOPICS: list[dict] = [
             "\"Ask your notebook\" (Notes tab) and the Chat tab both answer from "
             "saved notes, with the raw notes shown beside the answer; in Ask, "
             "Enter asks and Escape clears the question, and the clock button "
-            "answers from your notes as they were on a day you pick. Agent mode "
+            "answers from your notes as they were on a day you pick. A counting "
+            "question in Ask (how many notes per category this month) also gets "
+            "a chart from your notes, with its numbers and Save as PNG. A note's "
+            "... menu has Explain this note: read aloud, then what it links to "
+            "and why. Agent mode "
             "(a toggle in Chat) lets the assistant use its tools to search, link, "
             "tag, organise and create, destructive actions always ask first, "
             "and after it reads a web page or a clipped or imported note, so "
@@ -159,7 +163,9 @@ HELP_TOPICS: list[dict] = [
             "drawn between them, plus optional AI similarity lines. Search "
             "highlights matches, dragging rearranges, and the legend toggles "
             "categories on and off. Concept maps (an authored mindmap, not the "
-            "automatic graph) are made and managed from the Library."
+            "automatic graph) are made and managed from the Library. A concept "
+            "map's topics are notes, kept out of Notes and Recently added; a "
+            "search finds them. After Enter names a topic, typing renames it."
         ),
         "badge": {"label": "Graph", "tab": "graph"},
     },
@@ -176,7 +182,8 @@ HELP_TOPICS: list[dict] = [
             "let the AI schedule it. In the chat, \"remind me two hours before "
             "midnight\" works too: Atlas passes your words and the app works "
             "out the time on your own clock. Notifications fire while the app "
-            "is open."
+            "is open. Remind me is on a note's, a document's and a board's ⋯ "
+            "menu too, and the reminder's row opens what it is about."
         ),
         "badge": {"label": "Reminders", "tab": "reminders"},
     },
@@ -187,11 +194,9 @@ HELP_TOPICS: list[dict] = [
             "The Dashboard is the at-a-glance home: a greeting with your note "
             "count and what is due, a search box, the Quick access tiles, "
             "and widgets such as reminders, recent notes, the weekly AI digest, "
-            "stats and your streak. Customise, beside the search box, has Edit "
+            "stats, your streak, Most opened this month and Filings to check. Customise, beside the search box, has Edit "
             "layout and Widgets to show, hide and rearrange them; the layout is "
-            "remembered per user. The Most used widget lists the ten notes you "
-            "opened or asked about most, with This month and All time buttons "
-            "above it; the choice is remembered on this device."
+            "remembered per user."
         ),
         "badge": {"label": "Dashboard", "tab": "dashboard"},
     },
@@ -205,7 +210,11 @@ HELP_TOPICS: list[dict] = [
             "hyperlinked outline of the whole notebook) and AI skills. "
             "The other sub-tabs are Documents, Boards & maps (whiteboards "
             "and mind maps), Images and Files. Each sub-tab's top bar ends "
-            "with a ? that says what it holds."
+            "with a ? that says what it holds. The Highlights chip lists every "
+            "passage you marked in a note, each with its note. The Activity chip "
+            "lists everything you and Atlas did, and its Export activity button "
+            "saves that log as a spreadsheet (when, who, what, which item) to "
+            "hand over. Events about private notes are left out of it."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
@@ -218,7 +227,14 @@ HELP_TOPICS: list[dict] = [
             "in the title moves to the body. Code "
             "files get line numbers, Tab/Shift+Tab indenting and Ctrl+/ "
             "commenting. \"Check with AI\" reviews a document for wording issues "
-            "a spellchecker can't catch."
+            "a spellchecker can't catch. The menu's Map the headings turns its "
+            "headings into a new mind map. A mermaid code block (flowchart TD, "
+            "A --> B) draws as a diagram in Read and Live and in a print; press "
+            "it to edit its text, and any other Mermaid stays as code. Print or "
+            "save as PDF first asks for the page size, orientation, margins and "
+            "page numbers, and a plain Ctrl+P uses the last choice. In Live, drag "
+            "the corner of a picture to resize it (or focus the corner and use the "
+            "arrow keys), and its align button puts it left, centre or right."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
@@ -351,7 +367,8 @@ HELP_TOPICS: list[dict] = [
             "companion, Ctrl+Alt+R reload clearing "
             "cached files. Make: Ctrl+Shift+N a new note, Alt+N a quick note saved "
             "without leaving the page, Ctrl+Shift+D a new "
-            "document, Ctrl+D today's note, Ctrl+Shift+R record a meeting, "
+            "document, Ctrl+D today's note, Ctrl+Shift+V paste what you copied as a "
+            "new note, Ctrl+Shift+R record a meeting, "
             "Ctrl+Shift+K the quick sketch pad, Ctrl+Shift+B the whiteboard. "
             "Writing: Ctrl+S save, Ctrl+/ the blocks and commands menu (in a "
             "document it comments the line instead), Ctrl+J Atlas writes at the "
@@ -385,7 +402,8 @@ HELP_TOPICS: list[dict] = [
             "Everything lives in a data folder you control: the notebook "
             "database, uploads, and daily local backups. Settings, Import & export shows "
             "exactly where it is on disk, and lets you export as JSON, CSV or "
-            "Markdown, and manage or restore backups."
+            "Markdown, save a full backup (sealed with a password if you like) and "
+            "restore one from a file, and manage or restore backups."
         ),
         "badge": {"label": "Import & export", "section": "data"},
     },
@@ -430,9 +448,9 @@ HELP_TOPICS: list[dict] = [
         "id": "undo-bin",
         "keywords": ("undo", "redo", "recycle bin", "restore", "deleted", "trash"),
         "body": (
-            "Deleting a note or a board goes to the bin, not gone for "
-            "good: restore it from the Library (Filter, Include the bin, or "
-            "Open the bin from Ctrl+K), or use the Undo "
+            "Deleting a note, a board, a document or a reminder goes to the "
+            "bin, not gone for good: restore it from the Library (Filter, "
+            "Include the bin, or Open the bin from Ctrl+K), or use the Undo "
             "toast that appears right after deleting. Ctrl/Cmd+Z undoes and "
             "Ctrl+Shift+Z or Ctrl+Y redoes; the status bar's Undo and Redo "
             "buttons do the same by click. Which history they walk depends on "
@@ -475,7 +493,10 @@ HELP_TOPICS: list[dict] = [
             "tasks. The background librarian then tags, links and flags "
             "duplicate notes on an interval you choose. It is off by default, "
             "since it writes to your notebook without being asked each time. "
-            "It never deletes anything and skips itself on battery power."
+            "It never deletes anything and skips itself on battery power. It "
+            "also gives a second opinion on notes that were filed by your "
+            "notebook's own words while no model was available, moving the "
+            "ones the model files elsewhere."
         ),
         "badge": {"label": "Background tasks", "section": "tasks"},
     },
@@ -519,7 +540,9 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("command palette", "jump anywhere", "quick actions", "jump to"),
         "body": (
             "Ctrl/Cmd+K opens the command palette: jump to any tab or "
-            "setting, search notes, or run a quick action (new note, new "
+            "setting, search notes and documents (the same search as Find "
+            "anything: it reads the words inside them, and forgives a typo), "
+            "or run a quick action (new note, new "
             "chat, back up now, toggle the theme, and more) without leaving "
             "the keyboard. It's a different box from the popup agent "
             "(Ctrl/Cmd+Shift+A): this one runs fixed commands, that one "
@@ -643,11 +666,7 @@ HELP_TOPICS: list[dict] = [
             "most\". These are counted from your data rather than generated, so "
             "the numbers are exact, the answer is instant, and it works even "
             "with no AI model running at all. Private and binned notes are never "
-            "counted. Ask a counting question and a chart goes under the answer "
-            "(\"how many notes per category\", \"notes per month\", \"chart my "
-            "race times\"): a bar or a line drawn from the same counted numbers, "
-            "with Data to open them as a table and Save as PNG to keep the picture. "
-            "A trend needs at least three notes with a number in them."
+            "counted."
         ),
         "badge": {"label": "Chat", "tab": "chat"},
     },
@@ -771,7 +790,7 @@ HELP_TOPICS.extend(
                 "through notes, documents, boards, files, links and reminders at "
                 "once, by your words and by meaning, and the chips narrow it to one "
                 "kind. You can type operators: tag:work, kind:document, before:2026-01, "
-                "has:image, and -word to leave something out. A small typo that "
+                "has:image, has:highlight, and -word to leave something out. A small typo that "
                 "finds nothing is searched as the nearest word your notes use, "
                 "and the line says \"showing results for\" it. To narrow only the "
                 "notes list, use Filter notes on the Your notes tab."
@@ -786,10 +805,7 @@ HELP_TOPICS.extend(
                 "then picking it from the list. The link shows on both notes as a "
                 "connection, with a menu to add a reason, open or remove it. Atlas "
                 "also suggests links as you write, and every note's menu has Link "
-                "to. The Graph draws all of them. A note's menu also has Explain this "
-                "note, which reads the note aloud and then says what it links to and "
-                "why, from the reason on each link (no AI model needed; press it again "
-                "or Stop to cancel), Copy wiki "
+                "to. The Graph draws all of them. A note's menu also has Copy wiki "
                 "link (a [[link]] for another note) and Copy app link (an address "
                 "that opens the note in the app). Delete the [[name]] and its link "
                 "goes with it; rename a note and a toast offers to rename the "
@@ -800,9 +816,9 @@ HELP_TOPICS.extend(
                 "[[link]] cannot hold). Suggestions (Find links to add on the "
                 "Dashboard's Loose ends, Suggest links in the Graph's options, or "
                 "the command palette) is one sheet of four kinds: Links lists pairs "
-                "worth connecting with every reason (shared wording, names, links or "
-                "tags) and how sure it is (Add a reason, Link, or Link all above 70% "
-                "in the head); Tensions, notes that may disagree; Names, one "
+                "worth connecting with every reason (similar wording, people or "
+                "things both name, a note both link with, a rare tag both carry) "
+                "and how sure it is; Tensions, notes that may disagree; Names, one "
                 "person or thing named two ways, with Merge; and Link types, a link whose own "
                 "sentence says \"for example\" or \"continues\". Accepting or "
                 "dismissing any of them teaches it which reasons to trust in your "
@@ -889,12 +905,8 @@ HELP_TOPICS.extend(
                 "the note starts with its outline. Save your own from Settings, "
                 "Templates (New template in the pane's bar), where Draft with Atlas writes a template from its name "
                 "and one line (press it again for another version; nothing is saved "
-                "until you add it). The picker's Manage templates opens that page. In a "
-                "template, {date} becomes today's date, {clipboard} what you last "
-                "copied, and {cursor} marks where the cursor lands. A "
-                "new document offers its own gallery of templates too, and its "
-                "templates take {{clipboard}} and {{cursor}} the same way. While you "
-                "edit a note, its word count and reading time sit in the form's foot."
+                "until you add it). The picker's Manage templates opens that page. A "
+                "new document offers its own gallery of templates too."
             ),
             "badge": {"label": "Templates", "section": "templates"},
         },
@@ -1205,6 +1217,9 @@ HELP_TOPICS.extend(
                 "numbered topics", "outline numbers", "note on a topic", "note behind a topic",
                 "comment on a topic", "boundary", "summary topic", "summarise topics",
                 "opml", "freemind", "xmind", "import a map", "export a map", "present branches",
+                "map template", "map as a document", "marker", "markers", "priority on a topic",
+                "flag a topic", "filter by marker", "map outline", "outline of the map",
+                "map the headings",
                 "map template", "map as a document", "suggest branches", "branches from my notes",
                 "grow the map", "expand from my notes", "children from notes",
             ),
@@ -1213,7 +1228,13 @@ HELP_TOPICS.extend(
                 "radial or free, and Tidy lays every unpinned topic out again. "
                 "The View menu sets Colour by (branch, category, age, or whether "
                 "a note is behind it) and opens every folded branch; View, "
-                "Present branches shows it branch by branch. A topic's menu makes "
+                "Present branches shows it branch by branch. A topic's menu, "
+                "Content, Markers sets a priority (1 to 5), how far along it is, a "
+                "flag and up to six icons; View, Filter by marker dims every topic "
+                "without the one you pick. The sidebar's Outline tab (View, "
+                "Outline) lists the map as an indented outline: type to rename, "
+                "Enter adds a topic, Tab and Shift+Tab move it in and out a level. "
+                "A topic's menu makes "
                 "it a task: press its box to tick it, and every topic above "
                 "counts the done ones (1/2); Markdown exports write tasks as - [ "
                 "] and - [x]. View, Number the branches numbers every topic by "
@@ -1222,16 +1243,17 @@ HELP_TOPICS.extend(
                 "the topic opens it, and Markdown keeps it. "
                 "Comment… starts a thread, counted on its corner; its Branch group draws a boundary "
                 "round the branch or summarises topics side by side. Start from a "
-                "template, import an OPML, FreeMind, XMind or Markdown outline (an "
-                "import opens laid out as a tree to the right), paste an indented "
+                "template, import an OPML, FreeMind, XMind or Markdown outline "
+                "(it opens as a tree), paste an indented "
                 "list onto a topic to add it as that topic's branch, let the "
                 "local AI propose a map from notes you pick, or on a topic choose "
                 "Add, Branches from my notes… for up to five children found in your "
-                "notes, each saying which note it came from (tick the ones to keep; "
-                "one Undo takes them back), and export it as "
+                "notes, each saying which note it came from (one Undo takes them "
+                "back), and export it as "
                 "OPML, FreeMind or Markdown as well as a picture, or write it as "
                 "a document (the board menu's Write as a document: branches "
-                "become headings, deeper topics lists, notes paragraphs). With a "
+                "become headings, deeper topics lists, notes paragraphs); a "
+                "document's menu, Map the headings, goes the other way. With a "
                 "map open, the command palette (Ctrl+K) lists the map's commands: "
                 "add, rename, fold, focus, tidy, layout, look, numbering, present "
                 "and export."
@@ -1297,7 +1319,8 @@ HELP_TOPICS.extend(
                 "changes (tracked changes to accept or reject one at a time or "
                 "all at once), Read aloud (Esc stops), autocorrect, and word "
                 "suggestions (Tab accepts). Word: Download as .docx (with the "
-                "optional Word exporter) keeps tables, links, lists, code and "
+                "optional Word exporter) keeps tables, links, lists, code, "
+                "pictures (with their alt text, width and alignment) and "
                 "suggested changes as Word's tracked changes, and importing that "
                 ".docx brings them back; other downloads are .md, .html, a .zip "
                 "with images, and print or save as PDF."
@@ -1374,6 +1397,7 @@ HELP_TOPICS.extend(
                 "link thickness", "link force", "label background",
                 "topic", "topics", "subjects", "outline", "colour by topic",
                 "filter links", "kind of link", "hide links", "property chips",
+                "note type", "colour by type",
             ),
             "body": (
                 "More graph controls, in the gear. Show adds Tags (a node per tag), "
@@ -1397,7 +1421,9 @@ HELP_TOPICS.extend(
                 "no note's name is drawn over a topic's name. Filter holds a chip per "
                 "kind of link on the map (press one to take those links off, again "
                 "to bring them back) and per property value (press to light those "
-                "notes). In Trace, a step marked +2 has two more reasons "
+                "notes). Colour: Note type paints each note its type's colour "
+                "(Person, Project, Meeting, Book and Place come built in). "
+                "In Trace, a step marked +2 has two more reasons "
                 "its notes relate; point at it to read them."
             ),
             "badge": {"label": "Graph", "tab": "graph"},
@@ -1522,16 +1548,17 @@ HELP_TOPICS.extend(
                 "in any order), \"a quoted phrase\", tag:work, cat:recipes, "
                 "#tag, title:, in:, before: and after: (a date such as 2026-09), "
                 "is:favourite, is:pinned, is:private, is:linked, is:untagged, "
-                "is:draft, tags:<2 (also <=, > and >=), and -word to leave a word "
+                "is:draft, tags:<2 (also <=, > and >=), has:link (also file, image or "
+                "reminder), space:work and kind:note (asked of the search engine), and -word to leave a word "
                 "out. is:review lists the filings to check (Atlas was unsure, or "
                 "left the note in Uncategorised), each with Accept, Refile and "
                 "Split; the Categories widget on the dashboard counts them. Select ticks several notes to move to a category, tag or "
                 "delete together, and Select all ticks the whole page; the "
                 "selection bar's Tags adds or removes tags on every selected note, "
                 "and its ... menu adds to or removes from Favourites, archives, "
-                "publishes drafts, moves the notes to another space (Move to space) or "
-                "saves them as a zip of Markdown files (Export selection), each "
-                "move undoable."
+                "publishes drafts, removes a tag, moves them to another space or "
+                "exports them as Markdown, each undoable. Editing a note shows "
+                "its words and reading time beside Save."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1591,15 +1618,12 @@ HELP_TOPICS.extend(
                 "high) and a repeat (once, daily, weekly or monthly), and use Quick "
                 "set: in 30 min, in 1 hour, in 3 hours, tonight 7pm, tomorrow 9am, "
                 "tomorrow 2pm, this weekend or next week. A due reminder can be "
-                "snoozed one hour, ten minutes (its menu) or to tomorrow 9am (Undo in the toast puts the time back), edited in place, or ticked "
+                "snoozed one hour or to tomorrow 9am (ten minutes is on its menu; Undo in the toast puts the time back), "
+                "edited in place, or ticked "
                 "done; completed ones page at the foot. Add to calendar (.ics), on "
                 "a reminder's menu, saves it as a calendar file, and Add all to "
-                "calendar (.ics) in the More menu saves every upcoming one. A note, a "
-                "document or a board can have one too: Remind me in its menu (the "
-                "Library's cards, and the Notes card) asks for the words and when "
-                "(in an hour, tomorrow 9am or next week); the reminder then shows "
-                "what it is about, and Open its document or Open its board is in its "
-                "menu. Press m then r to jump here from anywhere."
+                "calendar (.ics) in the More menu saves every upcoming one. Press m "
+                "then r to jump here from anywhere."
             ),
             "badge": {"label": "Reminders", "tab": "reminders"},
         },

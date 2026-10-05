@@ -186,3 +186,360 @@ async function openBookmarkAttachPicker(entry, done) {
   toast("Link attached.");
   done();
 }
+
+//: The note edit form, moved from notes-list.js (boot gzip): `entryItem`
+//: reaches it through its stand-in (`LAZY_ENTRY_POINTS.notePanels`), and the
+//: bundle is fetched a few seconds after boot so the first Edit is not a wait.
+function renderEditForm(li, entry) {
+  const draft = noteFormDraft && noteFormDraft.id === entry.id ? noteFormDraft : null;
+  noteFormDirty = Boolean(draft);
+  //: **A title field, as Capture has** (INBOX 432: renaming a note meant
+  //: finding and editing its "# " line by hand). Not a stored field: the
+  //: leading heading is split off into it and put back on save, the shape
+  //: `withTitle` writes in Capture, so the two cannot disagree.
+  const heading = /^#[ \t]+([^\n]+)\n*/.exec(entry.content || "");
+  const titleInput = document.createElement("input");
+  titleInput.type = "text";
+  titleInput.maxLength = 200;
+  titleInput.className = "note-edit-title";
+  titleInput.placeholder = "Title";
+  titleInput.setAttribute("aria-label", "Title: becomes the note's leading heading");
+  titleInput.value = draft ? draft.title : heading ? heading[1].trim() : "";
+  titleInput.addEventListener("input", () => { noteFormDirty = true; });
+  const textarea = document.createElement("textarea");
+  textarea.rows = 3;
+  textarea.setAttribute("aria-label", "Note text"); // its editor takes this name (noteSurfaceName)
+  textarea.value = draft ? draft.content : heading ? entry.content.slice(heading[0].length) : entry.content;
+  textarea.addEventListener("input", () => { noteFormDirty = true; });
+  //: A stable id, because three separate features key off one: the "/" menu
+  //: and the `[[` autocomplete (EDITOR_SURFACES in editor.js), the selection
+  //: bar, and this form's own toolbar. Safe to be a constant rather than a
+  //: per-note id: `editingId` allows exactly one open edit form at a time.
+  textarea.id = "entry-edit-content";
+  textarea.className = "note-edit-box";
+  //: Ctrl+B/Ctrl+I/Ctrl+Shift+S, same as the capture box (documents.js:
+  //: `wireMdFormatShortcuts`). Passed the element itself, not its id: this
+  //: textarea is not in the document yet, and a fresh one exists every
+  //: time a note is opened for editing, so this runs on every open rather
+  //: than once at boot.
+  if (typeof wireMdFormatShortcuts === "function") wireMdFormatShortcuts(textarea);
+  //: Three rows is a form field; a note is prose. Grows with its content the
+  //: way the composer does, up to the same shared ceiling.
+  textarea.addEventListener("input", () => autoGrow(textarea));
+  //: `requestAnimationFrame`, not `queueMicrotask`: a microtask runs before
+  //: the browser has laid anything out, and `autoGrow` reads `scrollHeight`,
+  //: which is 0 on an element that is not yet in the document, measured, the
+  //: box stayed at its three-row height with the note scrolling inside it.
+  //: Also on focus, because a note opened while its list was hidden (a tab
+  //: switch, a filter) is laid out only when it becomes visible.
+  textarea.addEventListener("focus", () => autoGrow(textarea));
+  requestAnimationFrame(() => autoGrow(textarea));
+
+  //: **Tags are chips with one input** (INBOX 606, the owner: the edit form
+  //: "still feels off", with a long comma field in the screenshot). The comma
+  //: string the save reads stays in a hidden input; each tag is a `.chip.tag`
+  //: that removes itself on a press, and Enter, a comma or leaving the field
+  //: makes a chip of what was typed; Backspace in an empty field takes the last.
+  //: **No well, no leading '#'** (INBOX 616: a boxed field with a '#' icon
+  //: beside chips that each say '#', and no room inside it): the chips and the
+  //: input sit on the properties line under the title, one chip height.
+  const tagsInput = document.createElement("input");
+  tagsInput.type = "hidden";
+  tagsInput.value = draft ? draft.tags : entry.tags.join(", ");
+  const tagField = document.createElement("div");
+  tagField.className = "tag-field note-edit-tags";
+  const tagEntry = document.createElement("input");
+  tagEntry.type = "text";
+  tagEntry.className = "note-edit-tag-input";
+  tagEntry.placeholder = "Add tag";
+  tagEntry.setAttribute("aria-label", "Add a tag");
+  tagEntry.autocomplete = "off";
+  tagField.append(tagsInput, tagEntry);
+  const tagList = () => tagsInput.value.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean);
+  const setTags = (tags) => {
+    tagsInput.value = [...new Set(tags)].join(", ");
+    noteFormDirty = true;
+    keepDraft();
+    drawTagChips();
+  };
+  const commitTag = () => {
+    const typed = tagEntry.value.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean);
+    tagEntry.value = "";
+    if (typed.length) setTags([...tagList(), ...typed]);
+  };
+  function drawTagChips() {
+    for (const old of tagField.querySelectorAll(".chip")) old.remove();
+    for (const tag of tagList()) {
+      const tagChip = chip(`#${tag}`, "tag", () => {
+        setTags(tagList().filter((t) => t !== tag));
+        tagEntry.focus();
+      });
+      tagChip.append(Object.assign(document.createElement("i"), { className: "ph ph-x" }));
+      tagChip.title = `Remove #${tag}`;
+      tagChip.setAttribute("aria-label", `Remove tag ${tag}`);
+      tagField.insertBefore(tagChip, tagEntry);
+    }
+  }
+  drawTagChips();
+  tagEntry.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === ",") {
+      event.preventDefault();
+      commitTag();
+    } else if (event.key === "Backspace" && !tagEntry.value && tagList().length) {
+      setTags(tagList().slice(0, -1));
+    }
+  });
+  //: A suggestion taken from the tag list (tag-suggest.js) arrives as "tag, ".
+  tagEntry.addEventListener("input", () => {
+    noteFormDirty = true;
+    if (tagEntry.value.includes(",")) commitTag();
+  });
+  tagEntry.addEventListener("blur", commitTag);
+  if (focusTagsAfterRender === entry.id) {
+    focusTagsAfterRender = null;
+    // The form is not in the document yet; focus once it is.
+    requestAnimationFrame(() => tagEntry.focus());
+  }
+  if (focusBodyAfterRender === entry.id) {
+    focusBodyAfterRender = null;
+    requestAnimationFrame(() => {
+      const surface = noteSurfaceIfAny(textarea);
+      if (surface) surface.focus();
+      else textarea.focus();
+    });
+  }
+
+  const categorySelect = document.createElement("select");
+  fillCategoryOptions(categorySelect, entry.category);
+  categorySelect.setAttribute("aria-label", "Category");
+  if (draft && [...categorySelect.options].some((o) => o.value === draft.category)) {
+    categorySelect.value = draft.category;
+  }
+  categorySelect.addEventListener("change", () => { noteFormDirty = true; });
+  //: **The category is its chip** (INBOX 606): the note card's own category
+  //: chip, dot and name, opening a menu of the categories. The select is the
+  //: value `resolveCategoryChoice` reads, never in the page.
+  const categoryChip = chip("", "category note-edit-category", (event) => {
+    event.stopPropagation();
+    const box = categoryChip.getBoundingClientRect();
+    const items = [...categorySelect.options].map((option) => ({
+      group: option.value === "__new__" ? "new" : "pick",
+      label: `${option.value === "__new__" ? "ph:plus" : option.selected ? "ph:check" : "ph:folder-simple"} ${option.textContent.replace(/^\+ /, "")}`,
+      run: async () => {
+        let value = option.value;
+        if (value === "__new__") {
+          const name = await promptDialog("Name for the new category:", "", { confirmLabel: "Create" });
+          if (!name) return;
+          const made = Object.assign(document.createElement("option"), { value: name, textContent: name });
+          categorySelect.insertBefore(made, option);
+          value = name;
+        }
+        categorySelect.value = value;
+        categorySelect.dispatchEvent(new Event("change"));
+      },
+    }));
+    openMenuAtPoint(items, "Category", box.left, box.bottom + 4);
+  });
+  categoryChip.setAttribute("aria-haspopup", "menu");
+  const drawCategoryChip = () => {
+    const name = categorySelect.value;
+    const label = categorySelect.selectedOptions[0]?.textContent || "Let Atlas decide";
+    categoryChip.replaceChildren(
+      Object.assign(document.createElement("span"), { className: "ph-text", textContent: label }),
+      Object.assign(document.createElement("i"), { className: "ph ph-caret-down" })
+    );
+    categoryChip.setAttribute("aria-label", `Category: ${label}`);
+    if (name) paintCategoryDot(categoryChip, name);
+  };
+  drawCategoryChip();
+  categorySelect.addEventListener("change", drawCategoryChip);
+  const keepDraft = () => {
+    noteFormDraft = { id: entry.id, title: titleInput.value, content: textarea.value, tags: tagsInput.value, category: categorySelect.value };
+  };
+  for (const field of [titleInput, textarea]) field.addEventListener("input", keepDraft);
+  categorySelect.addEventListener("change", keepDraft);
+
+  const row = document.createElement("div");
+  row.className = "row";
+  const saveButton = (
+    smallButton(
+      "Save changes",
+      "Save your corrections",
+      async () => {
+        commitTag();
+        const category = await resolveCategoryChoice(categorySelect);
+        if (category === undefined) return; // user cancelled the prompt
+        //: An emptied box used to save as "Note saved." while quietly
+        //: keeping the old text (INBOX 432). Said instead, with the way to
+        //: actually remove a note.
+        const written = withTitle(textarea.value.trim(), titleInput.value);
+        if (!written.trim()) {
+          toast("A note needs some text. To remove it, use Move to bin in its menu.", true);
+          return;
+        }
+        const before = { content: entry.content, category: entry.category, tags: entry.tags };
+        const after = {
+          content: written,
+          category,
+          tags: tagsInput.value.split(",").map((t) => t.trim()).filter(Boolean),
+        };
+        //: `base_hash`: the text this form opened on, so a save over a
+        //: newer text from another window is refused rather than silently
+        //: replacing it (WORLD_CLASS_PLAN 22.1 item 5); the prompt then
+        //: decides: "keep mine" saves again from the other window's text,
+        //: "take theirs" puts that text in the form to go on from.
+        let base = entry.content_hash;
+        let saved = null;
+        for (;;) {
+          try {
+            saved = await api(`/entries/${entry.id}`, {
+              method: "PUT",
+              body: JSON.stringify({ ...after, base_hash: base, ai_assisted: textarea.dataset.aiTouched === "1" }),
+            });
+            break;
+          } catch (error) {
+            if (!isEditConflict(error)) throw error;
+            const current = error.detail.current;
+            const answer = await editConflictPrompt({ noun: "note", mine: after.content, theirs: current.content || "" });
+            if (answer === "mine") {
+              base = current.content_hash;
+              continue;
+            }
+            if (answer === "theirs") {
+              Object.assign(entry, current);
+              const theirs = /^#[ \t]+([^\n]+)\n*/.exec(current.content || "");
+              titleInput.value = theirs ? theirs[1].trim() : "";
+              textarea.value = theirs ? current.content.slice(theirs[0].length) : current.content || "";
+              noteFormDirty = false;
+            }
+            return;
+          }
+        }
+        editingId = null;
+        noteFormDirty = false;
+        noteFormDraft = null;
+        toast("Note saved.");
+        offerWikiRename(entry.id, await saved?.json?.().catch(() => null));
+        await refreshEntries([entry.id]);
+        pushEntryPutUndo(entry.id, "Edited a note", before, after);
+      },
+      false
+    )
+  );
+  //: Ctrl+Enter saves, as it does in the capture box (INBOX 432): the edit
+  //: form had no chord at all, so a note opened from the list could only be
+  //: saved with the mouse. The editor view forwards the chord here.
+  textarea.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      saveButton.click();
+    }
+  });
+  //: Escape closes the form, asking first when it has changes (INBOX 432:
+  //: it did nothing). Bubbling, and only when nothing inside took it first,
+  //: so the "/" menu, the [[ list and the editor's own Escape still win.
+  li.addEventListener("keydown", async (event) => {
+    if (event.key !== "Escape" || event.defaultPrevented || editingId !== entry.id) return;
+    if (document.querySelector(".action-menu:not(.hidden), #editor-menu:not(.hidden)")) return;
+    event.preventDefault();
+    if (await noteFormMayClose()) closeNoteForm();
+  });
+  row.append(
+    smallButton("Cancel", "Discard changes", async () => {
+      if (await noteFormMayClose()) closeNoteForm();
+    }),
+    saveButton
+  );
+
+  //: **The properties line**, under the title inside the surface (INBOX 616,
+  //: the owner: "the core concepts dropdown is completely out of place"): the
+  //: category chip, then the tags, then the add-tag input, one chip height,
+  //: wrapping as one line. The foot under everything: the panels' Attach a
+  //: link at its left, the word count, then Cancel and the one filled Save at
+  //: its right (INBOX 606: Save sat mid-row between the fields and Cancel).
+  const meta = document.createElement("div");
+  meta.className = "note-edit-meta";
+  row.classList.add("note-edit-actions");
+  meta.append(categoryChip, tagField);
+  //: Words and reading time while the note is open (WORLD_CLASS_PLAN 5 item
+  //: 9): the count a document's head carries, for a note, at the documents'
+  //: 220 words a minute; the properties block is not prose, so not counted.
+  const count = document.createElement("span");
+  count.className = "char-count muted note-edit-count note-edit-counts";
+  count.setAttribute("aria-live", "polite");
+  const recount = () => {
+    const words = (stripFrontmatter(`${titleInput.value}
+${textarea.value}`).match(/\S+/g) || []).length;
+    const minutes = words / 220;
+    const read = !words ? "" : minutes < 1 ? " · under a min" : ` · ${Math.round(minutes)} min read`;
+    count.textContent = `${words.toLocaleString()} word${words === 1 ? "" : "s"}${read}`;
+  };
+  recount();
+  for (const field of [titleInput, textarea]) field.addEventListener("input", recount);
+  const foot = document.createElement("div");
+  foot.className = "note-edit-foot";
+  foot.append(count, row);
+  const toolbarEl = noteEditToolbar(textarea.id);
+  //: Preview: reported: "there is no preview", then, once there was one,
+  //: "if the formatting bar was the same, the preview button would be in
+  //: it". So there is no second Write / Preview control any more: the
+  //: cloned strip's own Preview button is the switch, exactly as in the
+  //: capture box and the document editor, and it renders the textarea's
+  //: current text with the same renderer every note card uses.
+  //: The cloned strip's Source button (wiring.js `setNoteSource`): the same
+  //: one choice as Capture's, for every note box. The edit box renders as you
+  //: type, so there is no Preview to switch to (INBOX 430).
+  const sourceBtn = toolbarEl.querySelector("[data-note-preview]");
+  sourceBtn?.addEventListener("click", () => setNoteSource(!noteSourceOn()));
+  if (sourceBtn) {
+    sourceBtn.setAttribute("aria-pressed", String(noteSourceOn()));
+    sourceBtn.classList.toggle("is-active", noteSourceOn());
+  }
+  //: Attachment cards for the files this note's text points at, the same
+  //: cards and the same menu as the capture box (INBOX 440 (2)).
+  const chipsHost = document.createElement("div");
+  chipsHost.className = "att-cards hidden";
+  chipsHost.id = "entry-edit-attachment-chips";
+  chipsHost.setAttribute("role", "group");
+  chipsHost.setAttribute("aria-label", "Files in this note");
+  //: **One writing surface** (INBOX 606): the title, the properties line, the
+  //: strip and the text in the capture box's own `.note-composer`, which
+  //: carries the edge, the ground and the focus ring for all of them.
+  const surface = document.createElement("div");
+  surface.className = "note-composer note-edit-surface";
+  surface.append(titleInput, meta, toolbarEl, textarea);
+  li.append(surface, chipsHost, foot);
+  // The same line-number gutter the capture box and the documents editor
+  // carry (documents.js `mountGutterFor`); it follows the one remembered
+  // choice, so a person who turned numbers on in Capture sees them here too.
+  //: On the next frame, not now: this <li> is still detached (`entryItem`
+  //: returns it to the list renderer), and `applyDocGutter` walks the
+  //: document to set the strip button's pressed state: measured, the button
+  //: opened with no state and no title until the first click without this.
+  //:
+  //: **Both are lazy entry points** (`LAZY_ENTRY_POINTS`). `applyDocGutter`
+  //: was not, so before the Library bundle had loaded this line threw a
+  //: ReferenceError in the middle of `renderEntries` and left the list half
+  //: drawn: the owner's "the first time I try editing a note after a restart,
+  //: the notes page goes blank". The mount is awaited so the strip exists
+  //: when the pressed state is set.
+  Promise.resolve(mountGutterFor(textarea)).then(() => requestAnimationFrame(() => applyDocGutter()));
+  renderEntryAttachmentChips(textarea, chipsHost);
+  textarea.addEventListener("input", () => renderEntryAttachmentChips(textarea, chipsHost));
+  renderRelatedWhileEditing(li, entry);
+  renderNoteBookmarksWhileEditing(li, entry);
+}
+
+// Moved from notes-list.js (boot gzip): the edit form's Cancel and Escape are its callers.
+function closeNoteForm() {
+  //: The focus goes back to the note (WCAG 2.4.3): the redraw removes the form
+  //: that held it.
+  const back = editingId;
+  const held = document.activeElement;
+  const wasInside = !held || held === document.body || Boolean(held.closest?.("#entry-list"));
+  editingId = null;
+  noteFormDirty = false;
+  noteFormDraft = null;
+  renderEntries();
+  if (back != null && wasInside) focusNoteRow(back);
+}

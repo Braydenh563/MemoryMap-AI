@@ -82,6 +82,33 @@ function ensureP5() {
   return p5Loading;
 }
 
+//: p5's seeded generator (its `randomSeed` and `random`, an LCG), so the
+//: emblem's canvas port lays out the nodes p5 did for a seed.
+function emblemRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (1664525 * state + 1013904223) % 4294967296;
+    return state / 4294967296;
+  };
+}
+
+//: A colour's HSL hue, the number p5's `hue()` gave (the same sum as
+//: bg-art.js's `bgColourHue`, which loads after this file). Reads #rgb and
+//: #rrggbb; anything else is the default indigo's hue.
+function emblemHue(colour) {
+  const c = String(colour || "").trim();
+  const short = /^#([0-9a-f]{3})$/i.exec(c);
+  const long = /^#([0-9a-f]{6})/i.exec(c);
+  if (!short && !long) return 230;
+  const hex = short ? short[1].replace(/./g, (d) => d + d) : long[1];
+  const [r, g, b] = [0, 2, 4].map((at) => parseInt(hex.slice(at, at + 2), 16) / 255);
+  const max = Math.max(r, g, b);
+  const d = max - Math.min(r, g, b);
+  if (!d) return 0;
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return (h * 60 + 360) % 360;
+}
+
 // --- generated faces: moved to avatars.js (2026-09-24) ---
 
 //: A sketch and its observer go together: the observer holds the instance
@@ -112,12 +139,6 @@ function releaseDetachedEmblems() {
 
 function renderEmblem(holder, size = 34, { animate = false } = {}) {
   if (!holder) return;
-  if (typeof p5 === "undefined") {
-    ensureP5().then((ok) => {
-      if (ok && holder.isConnected) renderEmblem(holder, size, { animate });
-    });
-    return;
-  }
   releaseDetachedEmblems();
   releaseEmblem(holder);
   //: The colour the page is actually wearing (`currentAccentHex`, settings.js),
@@ -138,59 +159,61 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
     ? appearancePref("motion")
     : prefs.get("motion", null)) === "reduced";
 
-  const sketch = (p) => {
-    let nodes = [];
-    let baseHue = 230;
-    p.setup = () => {
-      p.createCanvas(size, size);
-      p.colorMode(p.HSL, 360, 100, 100, 1);
-      p.randomSeed(emblemSeed);
-      baseHue = p.hue(p.color(accentHex));
-      const count = 4 + Math.floor(p.random(3)); // 4-6 nodes
-      nodes = Array.from({ length: count }, (_, i) => ({
-        angle: (i / count) * p.TWO_PI + p.random(-0.3, 0.3),
-        hue: (baseHue + p.random(-40, 40) + 360) % 360,
-      }));
-      //: **Drawn once, turned by CSS.** It used to redraw the whole sketch
-      //: 24 times a second, per emblem on the page, only to rotate it by
-      //: 0.006 radians a frame: a p5 loop (and its allocations) for what a
-      //: compositor rotation of one still image does for free. The turn is
-      //: `canvas.emblem-spin` (03-dashboard-widgets.css), at the same speed:
-      //: 0.006 rad x 24 frames a second, one turn in 43.6 seconds.
-      p.draw();
-      p.noLoop();
-    };
-    p.draw = () => {
-      p.clear();
-      p.translate(size / 2, size / 2);
-      const r = size * 0.32;
-      const dot = Math.max(4, size * 0.18);
-      p.stroke(baseHue, 60, 60, 0.6);
-      p.strokeWeight(Math.max(1, size / 34));
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          p.line(
-            Math.cos(nodes[i].angle) * r,
-            Math.sin(nodes[i].angle) * r,
-            Math.cos(nodes[j].angle) * r,
-            Math.sin(nodes[j].angle) * r
-          );
-        }
+  //: **Canvas 2D, not p5** (audit 2026-10-05, FE-07). p5 (1 MB raw, 239 KB
+  //: gzipped) was fetched and parsed on every boot for this one still drawing
+  //: (the dashboard's art widget is now its only user). The same nodes from
+  //: the same seed (`emblemRandom` is p5's generator), the same HSL colours,
+  //: line widths and sizes, at the device's pixel density as p5 drew it.
+  //: **Drawn once, turned by CSS**, as before: `canvas.emblem-spin`
+  //: (03-dashboard-widgets.css), one turn in 43.6 seconds.
+  const canvas = document.createElement("canvas");
+  const density = window.devicePixelRatio || 1;
+  canvas.width = Math.round(size * density);
+  canvas.height = Math.round(size * density);
+  canvas.style.width = `${size}px`;
+  canvas.style.height = `${size}px`;
+  holder.appendChild(canvas);
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    const random = emblemRandom(emblemSeed);
+    const between = (low, high) => random() * (high - low) + low;
+    const baseHue = emblemHue(accentHex);
+    const count = 4 + Math.floor(random() * 3); // 4-6 nodes
+    const nodes = Array.from({ length: count }, (_, i) => ({
+      angle: (i / count) * Math.PI * 2 + between(-0.3, 0.3),
+      hue: (baseHue + between(-40, 40) + 360) % 360,
+    }));
+    ctx.scale(density, density);
+    ctx.translate(size / 2, size / 2);
+    const r = size * 0.32;
+    const dot = Math.max(4, size * 0.18);
+    ctx.strokeStyle = `hsla(${baseHue}, 60%, 60%, 0.6)`;
+    ctx.lineWidth = Math.max(1, size / 34);
+    ctx.lineCap = "round";
+    //: One stroke a line, as p5's `line()` was: where two cross, their
+    //: translucent strokes add up.
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(nodes[i].angle) * r, Math.sin(nodes[i].angle) * r);
+        ctx.lineTo(Math.cos(nodes[j].angle) * r, Math.sin(nodes[j].angle) * r);
+        ctx.stroke();
       }
-      p.noStroke();
-      for (const n of nodes) {
-        p.fill(n.hue, 75, 60, 1);
-        p.circle(Math.cos(n.angle) * r, Math.sin(n.angle) * r, dot);
-      }
-      p.fill(baseHue, 70, 62, 1);
-      p.circle(0, 0, dot * 0.85); // a bright hub
+    }
+    const disc = (x, y, diameter, fill) => {
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      ctx.arc(x, y, diameter / 2, 0, Math.PI * 2);
+      ctx.fill();
     };
-  };
-  const instance = new p5(sketch, holder);
+    for (const n of nodes) disc(Math.cos(n.angle) * r, Math.sin(n.angle) * r, dot, `hsl(${n.hue}, 75%, 60%)`);
+    disc(0, 0, dot * 0.85, `hsl(${baseHue}, 70%, 62%)`); // a bright hub
+  }
+  //: What `releaseEmblem` calls, as it called a p5 instance's.
+  const instance = { remove: () => canvas.remove() };
   emblemInstances.set(holder, instance);
   // Only the animated ones turn, and only those have a turn to pause.
-  const canvas = holder.querySelector("canvas");
-  if (animate && !still && canvas) {
+  if (animate && !still) {
     canvas.classList.add("emblem-spin");
     watchEmblemVisibility(holder, canvas);
   }
@@ -225,7 +248,7 @@ function renderBrandLogo() {
     if (holder) renderEmblemWhenShown(holder, size, animate);
   }
   //: The assistant heads that wear the emblem take the new colour or motion.
-  if (typeof repaintAssistantAvatars === "function") repaintAssistantAvatars(true);
+  repaintAssistantAvatars(true);
 }
 
 //: **An emblem nobody can see is drawn when it can be** (the performance
@@ -578,7 +601,7 @@ function dockTabBar(toBottom) {
   }
   // The fade is about a strip that scrolls inside the header; recompute it
   // for wherever the strip now lives.
-  if (typeof syncTabOverflowFade === "function") syncTabOverflowFade();
+  syncTabOverflowFade();
 }
 
 function initBottomTabBar() {
@@ -921,7 +944,6 @@ function openNotePage(entry, returnFocus = null) {
   if (!entry || notePageOpenId === entry.id) return;
   expandedNotes.add(entry.id);
   notePageOpenId = entry.id;
-  noteOpened(entry.id);
   const title = entry.title || clipText(notePreviewText(entry.content).split("\n")[0], 80) || "Note";
   notePageClose = openSheet({
     label: title,
@@ -1096,7 +1118,7 @@ function dockChatAttachments(toStrip) {
       box.placeholder = box.dataset.placeholderHome;
       delete box.dataset.placeholderHome;
     }
-    if (typeof autoGrow === "function") autoGrow(box);
+    autoGrow(box);
   }
   if (toStrip) {
     if (!movers.length) return;
@@ -1315,7 +1337,13 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
     const sheets = document.querySelectorAll(".sheet-overlay");
     if (sheets.length && sheets[sheets.length - 1] !== overlay) return;
     //: A ⋯ menu open over the sheet takes its own Escape (an entity page's).
-    if (document.querySelector(".action-menu:not(.hidden)")) return;
+    //: Not the menu this sheet *is* (`openKebabSheet` moves a ⋯ menu in,
+    //: unhidden): counting that one let every phone action sheet ignore
+    //: Escape, which then reached the page and closed what was under it,
+    //: Settings included (measured at 390 on Settings, Packages: the sheet
+    //: stayed up and the Settings window closed, INBOX 595's sweep).
+    const menus = document.querySelectorAll(".action-menu:not(.hidden)");
+    if ([...menus].some((menu) => !card.contains(menu))) return;
     event.stopPropagation();
     //: An open '?' popover takes the first Escape, the sheet the next.
     if (openHelpPopovers.size) {
@@ -2005,20 +2033,12 @@ async function renderExportsList() {
     name.title = file.filename;
     const facts = document.createElement("span");
     facts.className = "muted text-sm exports-facts";
-    const size = typeof formatFileSize === "function" ? formatFileSize(file.bytes) : `${file.bytes} B`;
+    const size = formatFileSize(file.bytes);
     facts.textContent = `${size} · ${relativeTime(file.modified_at)}`;
     const get = smallButton("ph:download-simple Download", `Download ${file.filename}`, async () => {
       try {
         const response = await api(`/files/exports/${encodeURIComponent(file.filename)}`);
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = file.filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
+        downloadBlob(await response.blob(), file.filename);
       } catch (error) {
         toast(error.message || `Couldn't fetch ${file.filename}.`, true);
       }
@@ -2026,26 +2046,6 @@ async function renderExportsList() {
     get.classList.add("ghost");
     row.append(name, facts, get);
     list.appendChild(row);
-  }
-}
-
-// Saved on blur/Enter, not on every keystroke, a half-typed path is not a
-// preference worth validating server-side yet. Reverts the field on a
-// rejected value rather than leaving a bad path sitting there looking saved.
-async function saveExportSaveDir() {
-  const input = $("pref-export-dir");
-  const value = input.value.trim();
-  if (value === (prefsCache?.export_save_dir || "")) return; // nothing changed
-  try {
-    prefsCache = await apiJson("/preferences", {
-      method: "PUT",
-      body: JSON.stringify({ export_save_dir: value }),
-    });
-    input.value = prefsCache.export_save_dir;
-    toast(value ? `Exports will now be saved to ${prefsCache.export_save_dir}` : "Exports will save to the default location.");
-  } catch (error) {
-    input.value = prefsCache?.export_save_dir || "";
-    toast(error.message || "Couldn't save that folder.", true);
   }
 }
 
@@ -2090,24 +2090,6 @@ async function renderAutonomousReview() {
   list.replaceChildren(...changes.map((change) => changeRow(change)));
 }
 
-async function addMemoryByHand() {
-  const input = $("memory-new");
-  const status = $("memory-status");
-  const text = (input?.value || "").trim();
-  status.classList.add("hidden");
-  status.classList.remove("error");
-  if (!text) return;
-  try {
-    await apiJson("/memory", { method: "POST", body: JSON.stringify({ content: text }) });
-    input.value = "";
-    renderMemorySettings();
-  } catch (error) {
-    status.textContent = error.message || "Couldn't save that.";
-    status.classList.remove("hidden");
-    status.classList.add("error");
-  }
-}
-
 // There is no Tags / Recycle bin / Activity shortcut in the notes sidebar, and
 // `openLibraryOn` went with them. The buttons were dropped once with their
 // handlers left behind (which is how `test_frontend_ids` found three ids that
@@ -2121,9 +2103,8 @@ async function addMemoryByHand() {
 // second door in a sidebar that is meant to be a category list is exactly the
 // "too much in one place, clashing with the text beside it" this app has been
 // asked to stop doing.
-$("entry-template")?.addEventListener("click", openNoteTemplateDialog);
-$("note-template-list")?.addEventListener("keydown", noteTemplateListKeys);
-$("note-template-use")?.addEventListener("click", useNoteTemplate);
+$("entry-template")?.addEventListener("click", () => openNoteTemplateDialog());
+$("note-template-use")?.addEventListener("click", () => useNoteTemplate());
 //: Manage templates, from the picker (the owner at release): the list is
 //: made and edited in Settings > Templates, so the way there is here too.
 $("note-template-manage")?.addEventListener("click", () => {

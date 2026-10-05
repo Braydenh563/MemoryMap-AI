@@ -10,6 +10,7 @@ Nodes are non-deleted entries; edges come from three places:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import threading
@@ -18,7 +19,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -663,6 +664,81 @@ _GRAPH_COLUMNS = (
 )
 
 
+def _payload_key(session: Session, similarity: bool, include_maps: bool, include_tags: bool) -> tuple:
+    """Everything the default `/graph` payload is made of, as one digest.
+
+    GRAPH_PLAN "Still open": the payload at 5,000 notes is 0.7 to 1.0 s warm
+    and 3 MB, and the fingerprint the centrality cache uses (counts and the
+    newest edit) misses what moves a node without editing a note: a pin, an
+    access count, an attachment, a note put on a map, a link's reason, the
+    vault opening. So every column the payload reads is hashed instead, row
+    by row: a few small-column reads against the build's dozen queries, the
+    content itself left out because `updated_at` moves with it. Read through
+    the ORM so the space filter applies, as the payload's own reads do.
+    """
+    from memorymap.core import vault
+    from memorymap.core.database import Category, WhiteboardObject
+
+    digest = hashlib.blake2b(digest_size=16)
+
+    def feed(rows) -> None:  # noqa: ANN001
+        for row in rows:
+            digest.update(repr(tuple(row)).encode())
+        digest.update(b"|")
+
+    feed(
+        session.execute(
+            select(
+                Entry.id, Entry.updated_at, Entry.access_count, Entry.pinned, Entry.graph_pin_x,
+                Entry.graph_pin_y, Entry.category_id, Entry.tags, Entry.is_private, Entry.workspace_id,
+                Entry.parent_id, Entry.is_board, Entry.board_settings, Entry.source_path, Entry.created_at,
+            )
+            .where(Entry.is_deleted == False, Entry.is_draft == False)  # noqa: E712
+            .order_by(Entry.id)
+        )
+    )
+    feed(session.execute(select(Category.id, Category.name).order_by(Category.id)))
+    feed(
+        session.execute(
+            select(
+                EntryLink.id, EntryLink.source_entry_id, EntryLink.target_entry_id, EntryLink.reason,
+                EntryLink.reason_confidence, EntryLink.link_type,
+            ).order_by(EntryLink.id)
+        )
+    )
+    feed(session.execute(select(Attachment.entry_id).distinct().order_by(Attachment.entry_id)))
+    feed(
+        session.execute(
+            select(WhiteboardObject.id, WhiteboardObject.board_id, WhiteboardObject.data)
+            .where(WhiteboardObject.kind == "note")
+            .order_by(WhiteboardObject.id)
+        )
+    )
+    digest.update(repr(sorted(manager.relation_types(session).items())).encode())
+    config = deps.get_config()
+    with_similarity = similarity and not config.get_preference("battery_efficient_mode")
+    if with_similarity:
+        feed(session.execute(select(func.count(EmbeddingRecord.id), func.max(EmbeddingRecord.created_at))))
+        #: Vectors from two models live in different spaces: a switch is a new
+        #: payload though no note changed.
+        digest.update(str(deps.get_embeddings().backend_id()).encode())
+    #: A note type's name and colour paint the "Note type" rule (`type_colours`).
+    feed(session.execute(select(NoteType.id, NoteType.name, NoteType.colour).order_by(NoteType.id)))
+    vault_key = vault.key()
+    return (
+        _graph_fingerprint(session),
+        digest.hexdigest(),
+        with_similarity,
+        include_maps,
+        include_tags,
+        # A node's `age_days` counts from today.
+        datetime.now(timezone.utc).date().isoformat(),
+        # A private note's label is its text while this request may read it,
+        # a placeholder otherwise; a new key reads differently again.
+        hashlib.blake2b(vault_key, digest_size=8).hexdigest() if vault_key else None,
+    )
+
+
 @router.get("/graph")
 def graph(
     similarity: bool = False,
@@ -673,7 +749,41 @@ def graph(
     include_unresolved: bool = False,
     include_attachments: bool = False,
     session: Session = Depends(get_session),
-) -> dict:
+) -> Response:
+    """The notebook as nodes and edges, served from a cache of the encoded
+    payload while nothing it is made of has moved (`_payload_key`).
+
+    Only the common shape is cached: entities, documents, unresolved links
+    and attachments as nodes read tables the key does not hash, so a request
+    for any of them is built every time, as before.
+    """
+    build = lambda: _build_graph(  # noqa: E731
+        similarity=similarity,
+        include_entities=include_entities,
+        include_documents=include_documents,
+        include_maps=include_maps,
+        include_tags=include_tags,
+        include_unresolved=include_unresolved,
+        include_attachments=include_attachments,
+        session=session,
+    ).body
+    if include_entities or include_documents or include_unresolved or include_attachments:
+        return Response(content=build(), media_type="application/json")
+    key = _payload_key(session, similarity, include_maps, include_tags)
+    body = _cached(f"payload:{bool(similarity)}:{include_maps}:{include_tags}", key, build)
+    return Response(content=body, media_type="application/json")
+
+
+def _build_graph(
+    similarity: bool = False,
+    include_entities: bool = False,
+    include_documents: bool = False,
+    include_maps: bool = False,
+    include_tags: bool = False,
+    include_unresolved: bool = False,
+    include_attachments: bool = False,
+    session: Session | None = None,
+) -> JSONResponse:
     # A draft is unfinished by definition, and the Notes tab already keeps
     # every draft out of the notebook it draws from, the graph is a map of
     # your notes and their connections, not a staging area, and a half-typed
@@ -954,6 +1064,9 @@ def graph(
     if include_attachments:
         _add_attachment_nodes(session, nodes, edges, node_ids)
 
+    #: A type's own colour, so "Note type" paints a Person the colour the
+    #: person gave Person rather than the next one in the scheme.
+    type_colours = {row.name: row.colour for row in session.scalars(select(NoteType)) if row.colour}
     # **Encoded here, on the worker thread** (audit 2026-10-05, ARCH-14).
     # A sync route's returned dict is encoded by FastAPI on the event loop
     # (py-spy: `serialize_response`), so a 2.4 MB graph at 5,000 notes held

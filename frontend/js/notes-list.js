@@ -159,19 +159,6 @@ async function noteFormMayClose() {
   return confirmDialog("Discard your changes to this note?", { confirmLabel: "Discard" });
 }
 
-function closeNoteForm() {
-  //: The focus goes back to the note (WCAG 2.4.3): the redraw removes the form
-  //: that held it.
-  const back = editingId;
-  const held = document.activeElement;
-  const wasInside = !held || held === document.body || Boolean(held.closest?.("#entry-list"));
-  editingId = null;
-  noteFormDirty = false;
-  noteFormDraft = null;
-  renderEntries();
-  if (back != null && wasInside) focusNoteRow(back);
-}
-
 //: The keyboard back on a note's row after a redraw, unless it went somewhere.
 function focusNoteRow(id) {
   requestAnimationFrame(() => {
@@ -206,342 +193,6 @@ async function openNoteEditor(id, { focusTags = false } = {}) {
   renderEntries();
   requestAnimationFrame(() => scrollEditingEntryIntoView(id));
   return true;
-}
-
-function renderEditForm(li, entry) {
-  const draft = noteFormDraft && noteFormDraft.id === entry.id ? noteFormDraft : null;
-  noteFormDirty = Boolean(draft);
-  //: **A title field, as Capture has** (INBOX 432: renaming a note meant
-  //: finding and editing its "# " line by hand). Not a stored field: the
-  //: leading heading is split off into it and put back on save, the shape
-  //: `withTitle` writes in Capture, so the two cannot disagree.
-  const heading = /^#[ \t]+([^\n]+)\n*/.exec(entry.content || "");
-  const titleInput = document.createElement("input");
-  titleInput.type = "text";
-  titleInput.maxLength = 200;
-  titleInput.className = "note-edit-title";
-  titleInput.placeholder = "Title";
-  titleInput.setAttribute("aria-label", "Title: becomes the note's leading heading");
-  titleInput.value = draft ? draft.title : heading ? heading[1].trim() : "";
-  titleInput.addEventListener("input", () => { noteFormDirty = true; });
-  const textarea = document.createElement("textarea");
-  textarea.rows = 3;
-  textarea.setAttribute("aria-label", "Note text"); // its editor takes this name (noteSurfaceName)
-  textarea.value = draft ? draft.content : heading ? entry.content.slice(heading[0].length) : entry.content;
-  textarea.addEventListener("input", () => { noteFormDirty = true; });
-  //: A stable id, because three separate features key off one: the "/" menu
-  //: and the `[[` autocomplete (EDITOR_SURFACES in editor.js), the selection
-  //: bar, and this form's own toolbar. Safe to be a constant rather than a
-  //: per-note id: `editingId` allows exactly one open edit form at a time.
-  textarea.id = "entry-edit-content";
-  textarea.className = "note-edit-box";
-  //: Ctrl+B/Ctrl+I/Ctrl+Shift+S, same as the capture box (documents.js:
-  //: `wireMdFormatShortcuts`). Passed the element itself, not its id: this
-  //: textarea is not in the document yet, and a fresh one exists every
-  //: time a note is opened for editing, so this runs on every open rather
-  //: than once at boot.
-  if (typeof wireMdFormatShortcuts === "function") wireMdFormatShortcuts(textarea);
-  //: Three rows is a form field; a note is prose. Grows with its content the
-  //: way the composer does, up to the same shared ceiling.
-  textarea.addEventListener("input", () => autoGrow(textarea));
-  //: `requestAnimationFrame`, not `queueMicrotask`: a microtask runs before
-  //: the browser has laid anything out, and `autoGrow` reads `scrollHeight`,
-  //: which is 0 on an element that is not yet in the document, measured, the
-  //: box stayed at its three-row height with the note scrolling inside it.
-  //: Also on focus, because a note opened while its list was hidden (a tab
-  //: switch, a filter) is laid out only when it becomes visible.
-  textarea.addEventListener("focus", () => autoGrow(textarea));
-  requestAnimationFrame(() => autoGrow(textarea));
-
-  //: **Tags are chips with one input** (INBOX 606, the owner: the edit form
-  //: "still feels off", with a long comma field in the screenshot). The comma
-  //: string the save reads stays in a hidden input; each tag is a `.chip.tag`
-  //: that removes itself on a press, and Enter, a comma or leaving the field
-  //: makes a chip of what was typed; Backspace in an empty field takes the last.
-  //: **No well, no leading '#'** (INBOX 616: a boxed field with a '#' icon
-  //: beside chips that each say '#', and no room inside it): the chips and the
-  //: input sit on the properties line under the title, one chip height.
-  const tagsInput = document.createElement("input");
-  tagsInput.type = "hidden";
-  tagsInput.value = draft ? draft.tags : entry.tags.join(", ");
-  const tagField = document.createElement("div");
-  tagField.className = "tag-field note-edit-tags";
-  const tagEntry = document.createElement("input");
-  tagEntry.type = "text";
-  tagEntry.className = "note-edit-tag-input";
-  tagEntry.placeholder = "Add tag";
-  tagEntry.setAttribute("aria-label", "Add a tag");
-  tagEntry.autocomplete = "off";
-  tagField.append(tagsInput, tagEntry);
-  const tagList = () => tagsInput.value.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean);
-  const setTags = (tags) => {
-    tagsInput.value = [...new Set(tags)].join(", ");
-    noteFormDirty = true;
-    keepDraft();
-    drawTagChips();
-  };
-  const commitTag = () => {
-    const typed = tagEntry.value.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean);
-    tagEntry.value = "";
-    if (typed.length) setTags([...tagList(), ...typed]);
-  };
-  function drawTagChips() {
-    for (const old of tagField.querySelectorAll(".chip")) old.remove();
-    for (const tag of tagList()) {
-      const tagChip = chip(`#${tag}`, "tag", () => {
-        setTags(tagList().filter((t) => t !== tag));
-        tagEntry.focus();
-      });
-      tagChip.append(Object.assign(document.createElement("i"), { className: "ph ph-x" }));
-      tagChip.title = `Remove #${tag}`;
-      tagChip.setAttribute("aria-label", `Remove tag ${tag}`);
-      tagField.insertBefore(tagChip, tagEntry);
-    }
-  }
-  drawTagChips();
-  tagEntry.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === ",") {
-      event.preventDefault();
-      commitTag();
-    } else if (event.key === "Backspace" && !tagEntry.value && tagList().length) {
-      setTags(tagList().slice(0, -1));
-    }
-  });
-  //: A suggestion taken from the tag list (tag-suggest.js) arrives as "tag, ".
-  tagEntry.addEventListener("input", () => {
-    noteFormDirty = true;
-    if (tagEntry.value.includes(",")) commitTag();
-  });
-  tagEntry.addEventListener("blur", commitTag);
-  if (focusTagsAfterRender === entry.id) {
-    focusTagsAfterRender = null;
-    // The form is not in the document yet; focus once it is.
-    requestAnimationFrame(() => tagEntry.focus());
-  }
-  if (focusBodyAfterRender === entry.id) {
-    focusBodyAfterRender = null;
-    requestAnimationFrame(() => {
-      const surface = typeof noteSurfaceFor === "function" ? noteSurfaceFor(textarea) : null;
-      if (surface) surface.focus();
-      else textarea.focus();
-    });
-  }
-
-  const categorySelect = document.createElement("select");
-  fillCategoryOptions(categorySelect, entry.category);
-  categorySelect.setAttribute("aria-label", "Category");
-  if (draft && [...categorySelect.options].some((o) => o.value === draft.category)) {
-    categorySelect.value = draft.category;
-  }
-  categorySelect.addEventListener("change", () => { noteFormDirty = true; });
-  //: **The category is its chip** (INBOX 606): the note card's own category
-  //: chip, dot and name, opening a menu of the categories. The select is the
-  //: value `resolveCategoryChoice` reads, never in the page.
-  const categoryChip = chip("", "category note-edit-category", (event) => {
-    event.stopPropagation();
-    const box = categoryChip.getBoundingClientRect();
-    const items = [...categorySelect.options].map((option) => ({
-      group: option.value === "__new__" ? "new" : "pick",
-      label: `${option.value === "__new__" ? "ph:plus" : option.selected ? "ph:check" : "ph:folder-simple"} ${option.textContent.replace(/^\+ /, "")}`,
-      run: async () => {
-        let value = option.value;
-        if (value === "__new__") {
-          const name = await promptDialog("Name for the new category:", "", { confirmLabel: "Create" });
-          if (!name) return;
-          const made = Object.assign(document.createElement("option"), { value: name, textContent: name });
-          categorySelect.insertBefore(made, option);
-          value = name;
-        }
-        categorySelect.value = value;
-        categorySelect.dispatchEvent(new Event("change"));
-      },
-    }));
-    openMenuAtPoint(items, "Category", box.left, box.bottom + 4);
-  });
-  categoryChip.setAttribute("aria-haspopup", "menu");
-  const drawCategoryChip = () => {
-    const name = categorySelect.value;
-    const label = categorySelect.selectedOptions[0]?.textContent || "Let Atlas decide";
-    categoryChip.replaceChildren(
-      Object.assign(document.createElement("span"), { className: "ph-text", textContent: label }),
-      Object.assign(document.createElement("i"), { className: "ph ph-caret-down" })
-    );
-    categoryChip.setAttribute("aria-label", `Category: ${label}`);
-    if (name) paintCategoryDot(categoryChip, name);
-  };
-  drawCategoryChip();
-  categorySelect.addEventListener("change", drawCategoryChip);
-  const keepDraft = () => {
-    noteFormDraft = { id: entry.id, title: titleInput.value, content: textarea.value, tags: tagsInput.value, category: categorySelect.value };
-  };
-  for (const field of [titleInput, textarea]) field.addEventListener("input", keepDraft);
-  categorySelect.addEventListener("change", keepDraft);
-
-  const row = document.createElement("div");
-  row.className = "row";
-  const saveButton = (
-    smallButton(
-      "Save changes",
-      "Save your corrections",
-      async () => {
-        commitTag();
-        const category = await resolveCategoryChoice(categorySelect);
-        if (category === undefined) return; // user cancelled the prompt
-        //: An emptied box used to save as "Note saved." while quietly
-        //: keeping the old text (INBOX 432). Said instead, with the way to
-        //: actually remove a note.
-        const written = withTitle(textarea.value.trim(), titleInput.value);
-        if (!written.trim()) {
-          toast("A note needs some text. To remove it, use Move to bin in its menu.", true);
-          return;
-        }
-        const before = { content: entry.content, category: entry.category, tags: entry.tags };
-        const after = {
-          content: written,
-          category,
-          tags: tagsInput.value.split(",").map((t) => t.trim()).filter(Boolean),
-        };
-        //: `base_hash`: the text this form opened on, so a save over a
-        //: newer text from another window is refused rather than silently
-        //: replacing it (WORLD_CLASS_PLAN 22.1 item 5); the prompt then
-        //: decides: "keep mine" saves again from the other window's text,
-        //: "take theirs" puts that text in the form to go on from.
-        let base = entry.content_hash;
-        let saved = null;
-        for (;;) {
-          try {
-            saved = await api(`/entries/${entry.id}`, {
-              method: "PUT",
-              body: JSON.stringify({ ...after, base_hash: base, ai_assisted: textarea.dataset.aiTouched === "1" }),
-            });
-            break;
-          } catch (error) {
-            if (!isEditConflict(error)) throw error;
-            const current = error.detail.current;
-            const answer = await editConflictPrompt({ noun: "note", mine: after.content, theirs: current.content || "" });
-            if (answer === "mine") {
-              base = current.content_hash;
-              continue;
-            }
-            if (answer === "theirs") {
-              Object.assign(entry, current);
-              const theirs = /^#[ \t]+([^\n]+)\n*/.exec(current.content || "");
-              titleInput.value = theirs ? theirs[1].trim() : "";
-              textarea.value = theirs ? current.content.slice(theirs[0].length) : current.content || "";
-              noteFormDirty = false;
-            }
-            return;
-          }
-        }
-        editingId = null;
-        noteFormDirty = false;
-        noteFormDraft = null;
-        toast("Note saved.");
-        offerWikiRename(entry.id, await saved?.json?.().catch(() => null));
-        await refreshEntries([entry.id]);
-        pushEntryPutUndo(entry.id, "Edited a note", before, after);
-      },
-      false
-    )
-  );
-  //: Ctrl+Enter saves, as it does in the capture box (INBOX 432): the edit
-  //: form had no chord at all, so a note opened from the list could only be
-  //: saved with the mouse. The editor view forwards the chord here.
-  textarea.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-      event.preventDefault();
-      saveButton.click();
-    }
-  });
-  //: Escape closes the form, asking first when it has changes (INBOX 432:
-  //: it did nothing). Bubbling, and only when nothing inside took it first,
-  //: so the "/" menu, the [[ list and the editor's own Escape still win.
-  li.addEventListener("keydown", async (event) => {
-    if (event.key !== "Escape" || event.defaultPrevented || editingId !== entry.id) return;
-    if (document.querySelector(".action-menu:not(.hidden), #editor-menu:not(.hidden)")) return;
-    event.preventDefault();
-    if (await noteFormMayClose()) closeNoteForm();
-  });
-  row.append(
-    smallButton("Cancel", "Discard changes", async () => {
-      if (await noteFormMayClose()) closeNoteForm();
-    }),
-    saveButton
-  );
-
-  //: **The properties line**, under the title inside the surface (INBOX 616,
-  //: the owner: "the core concepts dropdown is completely out of place"): the
-  //: category chip, then the tags, then the add-tag input, one chip height,
-  //: wrapping as one line. The foot under everything: the panels' Attach a
-  //: link at its left, the word count, then Cancel and the one filled Save at
-  //: its right (INBOX 606: Save sat mid-row between the fields and Cancel).
-  const meta = document.createElement("div");
-  meta.className = "note-edit-meta";
-  row.classList.add("note-edit-actions");
-  meta.append(categoryChip, tagField);
-  //: Words and reading time while writing, at the foot beside Cancel and Save
-  //: (INBOX 616 put the count there; WORLD_CLASS_PLAN row 30 added the reading
-  //: time, as a document's header has it).
-  const count = document.createElement("span");
-  count.className = "char-count muted note-edit-count";
-  count.setAttribute("aria-live", "polite");
-  const countWords = () => {
-    count.textContent = noteReadingFacts(textarea.value);
-  };
-  countWords();
-  textarea.addEventListener("input", countWords);
-  const foot = document.createElement("div");
-  foot.className = "note-edit-foot";
-  foot.append(count, row);
-  const toolbarEl = noteEditToolbar(textarea.id);
-  //: Preview: reported: "there is no preview", then, once there was one,
-  //: "if the formatting bar was the same, the preview button would be in
-  //: it". So there is no second Write / Preview control any more: the
-  //: cloned strip's own Preview button is the switch, exactly as in the
-  //: capture box and the document editor, and it renders the textarea's
-  //: current text with the same renderer every note card uses.
-  //: The cloned strip's Source button (wiring.js `setNoteSource`): the same
-  //: one choice as Capture's, for every note box. The edit box renders as you
-  //: type, so there is no Preview to switch to (INBOX 430).
-  const sourceBtn = toolbarEl.querySelector("[data-note-preview]");
-  sourceBtn?.addEventListener("click", () => setNoteSource(!noteSourceOn()));
-  if (sourceBtn) {
-    sourceBtn.setAttribute("aria-pressed", String(noteSourceOn()));
-    sourceBtn.classList.toggle("is-active", noteSourceOn());
-  }
-  //: Attachment cards for the files this note's text points at, the same
-  //: cards and the same menu as the capture box (INBOX 440 (2)).
-  const chipsHost = document.createElement("div");
-  chipsHost.className = "att-cards hidden";
-  chipsHost.id = "entry-edit-attachment-chips";
-  chipsHost.setAttribute("role", "group");
-  chipsHost.setAttribute("aria-label", "Files in this note");
-  //: **One writing surface** (INBOX 606): the title, the properties line, the
-  //: strip and the text in the capture box's own `.note-composer`, which
-  //: carries the edge, the ground and the focus ring for all of them.
-  const surface = document.createElement("div");
-  surface.className = "note-composer note-edit-surface";
-  surface.append(titleInput, meta, toolbarEl, textarea);
-  li.append(surface, chipsHost, foot);
-  // The same line-number gutter the capture box and the documents editor
-  // carry (documents.js `mountGutterFor`); it follows the one remembered
-  // choice, so a person who turned numbers on in Capture sees them here too.
-  //: On the next frame, not now: this <li> is still detached (`entryItem`
-  //: returns it to the list renderer), and `applyDocGutter` walks the
-  //: document to set the strip button's pressed state: measured, the button
-  //: opened with no state and no title until the first click without this.
-  //:
-  //: **Both are lazy entry points** (`LAZY_ENTRY_POINTS`). `applyDocGutter`
-  //: was not, so before the Library bundle had loaded this line threw a
-  //: ReferenceError in the middle of `renderEntries` and left the list half
-  //: drawn: the owner's "the first time I try editing a note after a restart,
-  //: the notes page goes blank". The mount is awaited so the strip exists
-  //: when the pressed state is set.
-  Promise.resolve(mountGutterFor(textarea)).then(() => requestAnimationFrame(() => applyDocGutter()));
-  renderEntryAttachmentChips(textarea, chipsHost);
-  textarea.addEventListener("input", () => renderEntryAttachmentChips(textarea, chipsHost));
-  renderRelatedWhileEditing(li, entry);
-  renderNoteBookmarksWhileEditing(li, entry);
 }
 
 
@@ -580,67 +231,6 @@ async function resolveCategoryChoice(select) {
   // both, so there is no null to check the way window.prompt needed.
   const name = await promptDialog("Name for the new category:", "", { confirmLabel: "Create" });
   return name || undefined;
-}
-
-//: **Template variables that need the page** (WORLD_CLASS_PLAN row 30, section
-//: 5 item 4): `{{clipboard}}` is what is on the clipboard when the template is
-//: used (nothing when the browser will not say), and `{{cursor}}` marks where the
-//: caret lands. Both spellings, `{{x}}` and the note templates' older `{x}`.
-//: Shared by the Capture box's templates (`useNoteTemplate`, app.js) and the documents' (documents.js); here, in a file with room, because app.js is at its byte cap.
-const TEMPLATE_CLIPBOARD = /\{\{clipboard\}\}|\{clipboard\}/g;
-const TEMPLATE_CURSOR = /\{\{cursor\}\}|\{cursor\}/;
-
-async function templateClipboard(text) {
-  if (!/\{\{?clipboard\}\}?/.test(String(text || ""))) return "";
-  try {
-    return await navigator.clipboard.readText();
-  } catch {
-    return ""; // refused, or not allowed here: the variable fills with nothing
-  }
-}
-
-//: `{ text, cursor }`: the text with the variables filled, and the caret's offset in
-//: it (null when there was no marker). The marker is found before the clipboard is
-//: put in, so pasted text that happens to say `{{cursor}}` is only text.
-function templateVariables(text, clipboard) {
-  const source = String(text || "");
-  //: Stray second markers go first, so only the template's own are ever read.
-  const fill = (part) => part.replace(new RegExp(TEMPLATE_CURSOR, "g"), "").replace(TEMPLATE_CLIPBOARD, () => clipboard);
-  const marker = TEMPLATE_CURSOR.exec(source);
-  if (!marker) return { text: fill(source), cursor: null };
-  const before = fill(source.slice(0, marker.index));
-  return { text: before + fill(source.slice(marker.index + marker[0].length)), cursor: before.length };
-}
-
-//: The Capture box, filled from a template: the replace question, the variables in, the
-//: box told, the caret where the template said (`useNoteTemplate`, app.js, calls it); the
-//: preview's own text is `noteTemplateFill`.
-async function fillNoteBox(box, template) {
-  if (!box) return;
-  //: Never silently overwrite what has already been typed: asked after the
-  //: choice is confirmed, so the question names a template the writer has
-  //: seen rather than one the list happened to land on.
-  if (box.value.trim()) {
-    const replace = await confirmDialog(
-      `Replace what you've already written with the “${template.name}” template?`,
-      { confirmLabel: "Replace", cancelLabel: "Keep my text" }
-    );
-    if (!replace) return;
-  }
-  const filled = templateVariables(noteTemplateFill(template), await templateClipboard(template.content));
-  box.value = filled.text;
-  box.dispatchEvent(new Event("input", { bubbles: true }));
-  box.focus();
-  if (filled.cursor !== null) box.setSelectionRange(filled.cursor, filled.cursor);
-}
-
-//: "412 words · 2 min read" for a note's text; empty for none. The same 220 words
-//: a minute the document editor uses (`DOC_READING_WPM`), and never less than one.
-function noteReadingFacts(text) {
-  const words = (String(text).match(/\S+/g) || []).length;
-  if (!words) return "";
-  const minutes = Math.max(1, Math.round(words / 220));
-  return `${words.toLocaleString()} ${words === 1 ? "word" : "words"} · ${minutes} min read`;
 }
 
 function beginOrCompleteLink(entry) {
@@ -755,6 +345,42 @@ function liveQueryIds(q) {
   return null;
 }
 
+//: **The operators the engine owns** (`kind:`, `has:`, `space:`): the Notes
+//: parser had no meaning for them (each was a plain word that matched
+//: nothing), and `GET /search` (`search/query.py`) has all three. They are
+//: asked of the engine, the way `type:` and `prop:` are asked of
+//: `/entries/query`, and the list keeps its own order and its own look.
+const ENGINE_QUERY_RE = /(^|\s)((?:kind|has|space):(?:"[^"]{1,200}"|[^\s"]+))/gi;
+//: One object for this file's engine state (the global-scope ratchet counts
+//: top-level `let`s): `ids` answers `q`, `pending` is the question in the air,
+//: `capped` says the engine's page (50) was full, `semanticFor` is the box text
+//: the Semantic toggle's results were loaded for, and `rank` their order.
+const noteEngine = { q: "", ids: null, pending: "", capped: false, semanticFor: "", rank: new Map() };
+
+//: The ids the engine gives for these operators, or null while it is asked.
+//: Notes only (`kind=note`) unless the terms name a kind themselves.
+function engineQueryIds(q) {
+  if (noteEngine.q === q && noteEngine.ids) return noteEngine.ids;
+  if (noteEngine.pending !== q) {
+    noteEngine.pending = q;
+    const kind = /(^|\s)kind:/i.test(q) ? "" : "&kind=note";
+    apiJson(`/search?q=${encodeURIComponent(q)}${kind}&limit=50`, { silent: true })
+      .then((body) => {
+        if (noteEngine.pending !== q) return;
+        const hits = (body.hits || []).filter((hit) => hit.kind === "note");
+        noteEngine.q = q;
+        noteEngine.ids = new Set(hits.map((hit) => hit.id));
+        noteEngine.capped = (body.hits || []).length >= 50;
+        noteEngine.pending = "";
+        renderEntries();
+      })
+      .catch(() => {
+        if (noteEngine.pending === q) Object.assign(noteEngine, { q, ids: new Set(), capped: false, pending: "" });
+      });
+  }
+  return null;
+}
+
 // `tags:<2`, `tags:<=1`, `tags:0` and so on: "how many tags", not "which
 // ones" (that's plain `tag:`). Asked for directly: a way to find the notes
 // that only ever got the janitor's default filing and never a second look,
@@ -765,7 +391,7 @@ const TAG_COUNT_RE = /^tags:(<=|>=|<|>|=)?(\d+)$/;
 //: unsure, or left the note in Uncategorised, and nobody has decided since.
 //: The server's `review_queue_count` is the same rule.
 function entryNeedsReview(entry) {
-  if (!entry || entry.user_filed || entry.is_draft) return false;
+  if (!entry || entry.user_filed || entry.is_draft || entry.is_board || entry.filing_state === "pending") return false;
   const unsure = entry.ai_confidence > 0 && entry.ai_confidence < REVIEW_THRESHOLD;
   return unsure || !entry.category || entry.category === "Uncategorised";
 }
@@ -796,9 +422,14 @@ function parseNoteQuery(raw) {
     before: null,
     after: null,
     structural: [],
+    engine: [],
   };
   raw = (raw || "").replace(LIVE_QUERY_RE, (_, lead, term) => {
     query.structural.push(term);
+    return lead || " ";
+  });
+  raw = raw.replace(ENGINE_QUERY_RE, (_, lead, term) => {
+    query.engine.push(term);
     return lead || " ";
   });
   //: `tag:"two words"` and `cat:"Home office"` first, then bare quoted
@@ -823,7 +454,7 @@ function parseNoteQuery(raw) {
     //: `#trip` is how a card shows a tag, so it is how people type one
     //: (INBOX 432: it matched nothing); `tag:#trip` the same.
     //: A bare `tag:` is still being typed: it narrows nothing yet.
-    if (/^(tag:#?|#|category:|cat:|in:|title:|is:)$/.test(lower)) continue;
+    if (/^(tag:#?|#|category:|cat:|in:|title:|is:|kind:|has:|space:)$/.test(lower)) continue;
     if (lower.startsWith("tag:")) query.tags.push(lower.slice(4).replace(/^#/, ""));
     else if (lower.startsWith("#") && lower.length > 1) query.tags.push(lower.slice(1));
     else if (lower.startsWith("category:")) query.categories.push(lower.slice(9));
@@ -848,7 +479,8 @@ function parseNoteQuery(raw) {
 function liveQueryBar(visible) {
   const list = $("entry-list");
   let bar = list.parentElement?.querySelector(":scope > .note-query-bar");
-  const live = Boolean(noteSearch) && parseNoteQuery(noteSearch).structural.length > 0;
+  const parsed = noteSearch ? parseNoteQuery(noteSearch) : null;
+  const live = Boolean(parsed) && (parsed.structural.length > 0 || parsed.engine.length > 0);
   if (!live) {
     bar?.remove();
     return;
@@ -861,7 +493,11 @@ function liveQueryBar(visible) {
   const ids = visible.map((e) => e.id);
   const count = document.createElement("span");
   count.className = "muted";
-  count.textContent = `${ids.length} note${ids.length === 1 ? "" : "s"} match this query`;
+  //: The engine answers one page (50); a full page says so rather than
+  //: letting the count pass for the whole of a larger answer.
+  count.textContent = parsed.engine.length > 0 && noteEngine.capped
+    ? `The first ${ids.length} notes that match this query`
+    : `${ids.length} note${ids.length === 1 ? "" : "s"} match this query`;
   bar.replaceChildren(
     count,
     smallButton("ph:table Table", "These notes as a table, their properties as columns", () => openQueryTable(ids)),
@@ -881,7 +517,8 @@ function noteQueryIsEmpty(query) {
     !query.titles.length &&
     !query.before &&
     !query.after &&
-    !query.structural.length
+    !query.structural.length &&
+    !query.engine.length
   );
 }
 
@@ -900,6 +537,12 @@ function matchesTagCount(tagCount, n) {
   }
 }
 
+//: True while the list on screen is the engine's answer to the box (the
+//: Semantic toggle is on and its results were loaded for this very text).
+function noteSemanticLoaded() {
+  return Boolean(noteSearch) && noteEngine.semanticFor === noteSearch && Boolean($("semantic-search-toggle")?.checked);
+}
+
 function matchesSearch(entry) {
   if (!noteSearch) return true;
   const query = parseNoteQuery(noteSearch);
@@ -907,6 +550,10 @@ function matchesSearch(entry) {
 
   if (query.structural.length) {
     const ids = liveQueryIds(query.structural.join(" "));
+    if (!ids || !ids.has(entry.id)) return false;
+  }
+  if (query.engine.length) {
+    const ids = engineQueryIds(query.engine.join(" "));
     if (!ids || !ids.has(entry.id)) return false;
   }
   const content = (entry.content || "").toLowerCase();
@@ -954,6 +601,10 @@ function matchesSearch(entry) {
   }
   if (query.tagCount && !matchesTagCount(query.tagCount, tags.length)) return false;
   if (query.exclude.some((word) => haystack.includes(word))) return false;
+  //: With Semantic on, the list *is* the engine's answer for these words, which
+  //: includes notes that share none of them; testing the words again here
+  //: would drop exactly the notes the toggle exists to find.
+  if (noteSemanticLoaded()) return true;
   if (!query.phrases.every((phrase) => content.includes(phrase))) return false;
   // Every word must appear somewhere, in any order.
   return query.words.every((word) => haystack.includes(word));
@@ -1818,7 +1469,7 @@ function boardEmbedRef(name) {
 //: between a tombstone that is right and one that is merely early.
 function boardEmbedTarget(ref) {
   if (!ref || !ref.id) return null;
-  const byId = typeof mapBoardById === "function" ? mapBoardById(ref.id) : null;
+  const byId = mapBoardById(ref.id);
   if (byId) return byId;
   if (!ref.title || typeof mapBoardTitled !== "function") return null;
   return mapBoardTitled(ref.title.toLowerCase());
@@ -2241,7 +1892,13 @@ function sortEntries(entries) {
       return (forgottenOrder.get(a.id) ?? far) - (forgottenOrder.get(b.id) ?? far) || b.id - a.id;
     },
   };
-  const cmp = modes[noteSort] || modes.newest;
+  //: A Semantic search under the default order is a ranking, so it is shown
+  //: ranked (best first); it used to be re-sorted newest first here, which
+  //: threw away the only thing the toggle computes. Any other sort the person
+  //: chose is still theirs.
+  const ranked = noteSort === "newest" && noteSemanticLoaded() && noteEngine.rank.size;
+  const place = (e) => noteEngine.rank.get(e.id) ?? noteEngine.rank.size;
+  const cmp = ranked ? (a, b) => place(a) - place(b) : modes[noteSort] || modes.newest;
   return [...entries].sort((a, b) => byPinned(a, b) || cmp(a, b));
 }
 
@@ -2411,10 +2068,10 @@ function orderedNotesForCurrentView() {
   let visible = draftsOnly
     ? allEntries.filter((e) => e.is_draft)
     : favouritesOnly
-      ? allEntries.filter((e) => e.pinned && !e.is_draft)
+      ? allEntries.filter((e) => e.pinned && noteListed(e))
       : activeCategory
-        ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
-        : allEntries.filter((e) => !e.is_draft);
+        ? allEntries.filter((e) => e.category === activeCategory && noteListed(e))
+        : allEntries.filter(noteListed);
   visible = visible.filter(matchesSearch);
 
   const flat = Boolean(noteSearch) || noteSort !== "newest";
@@ -2570,6 +2227,15 @@ $("notes-expand-all")?.addEventListener("click", toggleExpandAllRows);
 $("notes-view-rows")?.addEventListener("click", () => setNotesViewMode("rows"));
 $("notes-view-cards")?.addEventListener("click", () => setNotesViewMode("cards"));
 
+//: **A map's topics live on their map** (audit 2026-10-05, UX-06). Each
+//: topic a concept map's Tab or Enter makes is a note (`map_topic`), and a
+//: map of forty put forty one-word rows at the top of All. They stay out of
+//: All, the categories and Favourites, and come back for a search, which is
+//: how a person looks for one; Drafts keeps its own row as before.
+function noteListed(e) {
+  return !e.is_draft && (!e.map_topic || Boolean(noteSearch));
+}
+
 function noteCountExcludingDrafts() {
   let n = 0;
   for (const e of allEntries) if (!e.is_draft) n += 1;
@@ -2601,10 +2267,10 @@ function libraryVisibleRows() {
   let visible = draftsOnly || wantsDrafts
     ? allEntries.filter((e) => e.is_draft)
     : favouritesOnly
-      ? allEntries.filter((e) => e.pinned && !e.is_draft)
+      ? allEntries.filter((e) => e.pinned && noteListed(e))
       : activeCategory
-        ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
-        : allEntries.filter((e) => !e.is_draft);
+        ? allEntries.filter((e) => e.category === activeCategory && noteListed(e))
+        : allEntries.filter(noteListed);
   const matched = visible.filter(matchesSearch);
   //: UX-04: no match, and /search corrected a typo: show what it found.
   noteSearchCorrectionShown = false;
@@ -2667,10 +2333,10 @@ function renderEntries() {
   const total = draftsOnly
     ? allEntries.filter((e) => e.is_draft).length
     : favouritesOnly
-      ? allEntries.filter((e) => e.pinned && !e.is_draft).length
+      ? allEntries.filter((e) => e.pinned && noteListed(e)).length
       : activeCategory
-        ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft).length
-        : allEntries.filter((e) => !e.is_draft).length;
+        ? allEntries.filter((e) => e.category === activeCategory && noteListed(e)).length
+        : allEntries.filter(noteListed).length;
   $("entries-heading-label").textContent =
     noteSearchCorrectionShown
       ? `${scope}: showing results for “${noteSearchCorrection.corrected}”`
@@ -2916,7 +2582,7 @@ function renderSidebar() {
   //: (INBOX 432). Uncategorised only while something is in it.
   for (const name of categoryMeta.keys()) if (name !== "Uncategorised") counts.set(name, 0);
   for (const entry of allEntries) {
-    if (entry.is_draft) continue;
+    if (!noteListed(entry)) continue;
     counts.set(entry.category, (counts.get(entry.category) || 0) + 1);
   }
 
@@ -2981,7 +2647,7 @@ function renderSidebar() {
     ul.appendChild(li);
   };
 
-  addRow("All", allEntries.filter((e) => !e.is_draft).length, null);
+  addRow("All", allEntries.filter(noteListed).length, null);
 
   // A drafts count, not a category, asked for directly: a Drafts filter
   // findable in the same place categories are, so a note drafted with the
@@ -3018,7 +2684,7 @@ function renderSidebar() {
   //
   // The notes it collects are the pinned ones (see `favouritesOnly`), no new
   // flag, no second place to star something.
-  const favouriteCount = allEntries.filter((e) => e.pinned && !e.is_draft).length;
+  const favouriteCount = allEntries.filter((e) => e.pinned && noteListed(e)).length;
   const favouriteRow = document.createElement("li");
   favouriteRow.className = "category-drafts-row";
   if (favouritesOnly) markSidebarRowCurrent(favouriteRow);
@@ -3105,24 +2771,6 @@ function wireSidebarRowKeys(li) {
 //: Notes also move by ticking them in the list and choosing Move to (the
 //: batch bar), or by dragging a note's category label onto a category in
 //: the sidebar.
-
-//: After any change: the notes, the sidebar, and the open panel, redrawn.
-async function refreshAfterCategoryChange() {
-  await loadEntries();
-  await loadCategories();
-  manageCategoriesRedraw?.();
-}
-
-//: One toast and one undo-stack entry per change, so the toast's Undo and
-//: Ctrl+Z are the same act.
-function offerCategoryUndo(message, undo, redo) {
-  const action = pushUndo(message, async () => { await undo(); await refreshAfterCategoryChange(); }, async () => { await redo(); await refreshAfterCategoryChange(); });
-  toastAction(message, "Undo", async () => {
-    settleUndoFromToast(action);
-    await undo();
-    await refreshAfterCategoryChange();
-  });
-}
 
 let manageCategoriesRedraw = null;
 
@@ -3244,12 +2892,21 @@ async function _loadEntries() {
 
   const isSemantic = $("semantic-search-toggle")?.checked;
   if (isSemantic && noteSearch) {
-    // Semantic search is already bounded server-side (SEMANTIC_LIST_LIMIT)
-    //, nothing here needs paging.
-    const results = await apiJson(
-      `/entries?q=${encodeURIComponent(noteSearch)}&semantic=true`
-    );
+    //: **The Semantic toggle asks the engine** (`GET /search`), the one place
+    //: words, meaning and the links are ranked together, rather than a second
+    //: cosine-only list path (retired). The engine's page
+    //: is at most 50 hits, so nothing here needs paging; the list is then read
+    //: by id, which is also what keeps the bin, the archive and the boards out
+    //: of it (the index holds them, flagged), and put in the engine's order.
+    const asked = noteSearch;
+    const found = await apiJson(`/search?q=${encodeURIComponent(asked)}&kind=note&limit=50`);
+    const order = (found.hits || []).map((hit) => hit.id);
+    const rows = order.length ? await apiJson(`/entries?ids=${order.join(",")}`) : [];
     if (generation !== _entriesLoadGeneration) return; // a newer load took over
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const results = order.filter((id) => byId.has(id)).map((id) => byId.get(id));
+    noteEngine.semanticFor = asked;
+    noteEngine.rank = new Map(results.map((row, place) => [row.id, place]));
     allEntries = results;
     entriesEverLoaded = true;
     publishNotes(allEntries);
@@ -3325,6 +2982,7 @@ async function _loadEntries() {
   }
   if (generation === _entriesLoadGeneration) entriesComplete = true;
   nudgeUntaggedNotes();
+  nudgeReviewQueue();
 }
 
 //: **Re-read the notes a change touched, not the notebook** (audit
@@ -3578,6 +3236,21 @@ function ensureMapChipsFor(page, generation) {
     .catch(() => {});
 }
 
+//: The bell says so once a week, past a handful, as it does for untagged.
+async function nudgeReviewQueue() {
+  const queue = await apiJson("/review-queue?limit=1", { silent: true, cacheMs: 60000 }).catch(() => null);
+  if (!queue || queue.count < UNTAGGED_NUDGE_MIN) return;
+  const now = new Date();
+  const week = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / (7 * 86400000));
+  recordNotification({
+    kind: "assist",
+    title: `${queue.count} filings to check`,
+    detail: "Atlas was unsure where these belong. Accept each, or move it.",
+    key: `review:${now.getFullYear()}-${week}`,
+    action: { tab: "notes", filter: "is:review" },
+  });
+}
+
 //: **The app notices what the person has not got round to** (INBOX 162).
 //: Once the notebook is loaded, a bell entry counts the real notes with no
 //: tag and offers the filtered list. Keyed by the ISO week, so it is said
@@ -3586,7 +3259,7 @@ function ensureMapChipsFor(page, generation) {
 const UNTAGGED_NUDGE_MIN = 5;
 
 function nudgeUntaggedNotes() {
-  const untagged = allEntries.filter((e) => !e.is_board && !e.is_draft && !(e.tags || []).length);
+  const untagged = allEntries.filter((e) => !e.is_board && !e.is_draft && !e.map_topic && !(e.tags || []).length);
   if (untagged.length < UNTAGGED_NUDGE_MIN) return;
   const now = new Date();
   const week = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / (7 * 86400000));

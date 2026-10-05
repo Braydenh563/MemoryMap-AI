@@ -413,6 +413,10 @@ def on_this_day(session: Session = Depends(get_session)) -> list[dict]:
                 Entry.created_at <= now - timedelta(days=28),
                 func.strftime("%d", Entry.created_at) == f"{now.day:02d}",
             )
+            #: The five it answers with, read as five (ARCH-13): every match
+            #: was hydrated, about a thirtieth of the notebook, to keep five.
+            .order_by(Entry.id)
+            .limit(5)
         )
     )
     matches = []

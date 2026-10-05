@@ -755,7 +755,8 @@ def _register_all() -> None:
 
 
 def _document_row(doc) -> Row | None:  # noqa: ANN001
-    if doc is None:
+    #: A binned document is out of search until it is restored (5 item 10).
+    if doc is None or getattr(doc, "deleted_at", None) is not None:
         return None
     flags = ["archived"] if getattr(doc, "archived_at", None) else []
     return Row(
@@ -820,7 +821,7 @@ def _bookmark_row(mark) -> Row | None:  # noqa: ANN001
 
 
 def _reminder_row(rem) -> Row | None:  # noqa: ANN001
-    if rem is None:
+    if rem is None or getattr(rem, "deleted_at", None) is not None:
         return None
     flags = ["done"] if getattr(rem, "done", False) else ["open"]
     if getattr(rem, "priority", "") == "high":

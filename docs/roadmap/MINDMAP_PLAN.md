@@ -1,4 +1,4 @@
-# Mindmaps — a dev plan
+# Mindmaps: a dev plan
 
 > Companions: [ROADMAP.md](../ROADMAP.md) · [HANDOVER.md](HANDOVER.md) ·
 > [UI_MODERNISATION_PLAN.md](UI_MODERNISATION_PLAN.md) ·
@@ -29,13 +29,13 @@
 > etc.
 
 **The naming question is settled.** Asked directly, the user confirmed
-"kaggle" was a typo for **Coggle (coggle.it)** — and said all of the tools
+"kaggle" was a typo for **Coggle (coggle.it)**: and said all of the tools
 named here are good references, so the feature set below draws on **Coggle**
 (immediacy, branch colours, loops and joins, image nodes, PNG/PDF/text/OPML
 export, `.mm` import), **Kumu** (attributes, perspectives, focus mode, signed
 edges), **XMind** (output quality, structure templates) and **Obsidian Canvas
 Mindmap** (the keyboard set). They also named **Lucidchart** as a reference,
-"but that's more for the whiteboard" — its smart connectors, containers,
+"but that's more for the whiteboard", its smart connectors, containers,
 alignment tools and shape libraries map onto PLAN.md W1–W5, not this plan.
 
 **The scope call in §4 is made: option B** (confirmed by the user in the same
@@ -52,11 +52,11 @@ rebuilt existing work here.
   `ForeignKey("entries.id")` (`src/memorymap/core/database.py` ~930-1010). A
   board *is* a note row. So "the mindmap as a whole is its own object that can
   be attached to, linked to and referenced" is **already true at the data
-  layer** — it inherits linking, tags, categories, the graph, the timeline and
+  layer**: it inherits linking, tags, categories, the graph, the timeline and
   full-text search for free. The work is surfacing that, not adding it.
 - **Nodes, sketches and objects are all board-scoped and workspace-scoped**
   (`WorkspaceMixin`), with `x/y/z`, optional `width/height/rotation`, and a
-  `group_id` — so grouping and z-order exist.
+  `group_id`, so grouping and z-order exist.
 - **`WhiteboardObject` uses one table with a `kind` discriminator**, which is
   the extension point for new node kinds (a mindmap topic, an embedded file
   card) without a migration per kind.
@@ -65,7 +65,7 @@ rebuilt existing work here.
   manages them, plus duplicate.
 - **A Concept Map feature exists** (task #7, "Build the authored mindmap"),
   reachable from the Graph tab's toolbar. Its learnability is a known open item
-  (task #103). **Read what it does before designing a second one** — the
+  (task #103). **Read what it does before designing a second one**, the
   likeliest right answer is that "mindmap" and "concept map" become one feature,
   not two.
 - **The graph already renders note-to-note structure** (`frontend/js/graph.js`),
@@ -89,7 +89,7 @@ Sources at the end. Grouped by what it would mean here.
 - **Obsidian Canvas Mindmap** is the closest model for keyboard-first editing:
   Tab adds a child, Enter adds a sibling, arrow keys navigate, a node's whole
   subtree can be selected and moved, and edges can be coloured for grouping.
-  This is the interaction set to copy — it is what makes a mindmap fast rather
+  This is the interaction set to copy, it is what makes a mindmap fast rather
   than a drawing.
 - **XMind** is the benchmark for *output* quality and offline work; **Coggle**
   for immediacy (no ceremony, real-time concurrent edits); **MindMeister** for
@@ -98,14 +98,14 @@ Sources at the end. Grouped by what it would mean here.
 ### 3.2 Semantics beyond a tree
 - **Kumu** is the one worth studying hardest for this app: elements and
   connections carry **tags and attributes**, and "perspectives" turn that data
-  into decorations — colour, size, filter. It adds **social-network metrics**
+  into decorations: colour, size, filter. It adds **social-network metrics**
   (betweenness, closeness, eigenvector centrality), **automated community
   detection**, and a **focus mode** that starts from one element and unfolds the
   network step by step. It supports **systems maps and causal loop diagrams**
   (signed, directional edges), not just trees.
 - That maps onto MemoryMap directly: a map's nodes are often *real notes*, which
   already have tags and categories, so "perspectives" is a filter over data the
-  app already holds — and the graph tab already computes some of these metrics.
+  app already holds: and the graph tab already computes some of these metrics.
 
 ### 3.3 Integration patterns
 - **Excalidraw-in-Obsidian** is the reference for "a drawing is a first-class
@@ -122,11 +122,11 @@ Three options, with a recommendation.
 
 | | Option | Consequence |
 | --- | --- | --- |
-| A | Mindmap as a **mode of the whiteboard** — same board, a toggle that turns on tree semantics, auto-layout and keyboard editing | Least new code, no second data model, one Library home. Risk: modes are a learnability tax. |
+| A | Mindmap as a **mode of the whiteboard**, same board, a toggle that turns on tree semantics, auto-layout and keyboard editing | Least new code, no second data model, one Library home. Risk: modes are a learnability tax. |
 | B | Mindmap as a **new board `type`** on the existing board entry (`board.type = "map" \| "board"`) | One data model, two behaviours, two filters in the Library. Clean. **Recommended.** |
 | C | A **separate entity** with its own tables and sub-tab | Duplicates linking, preview, export, permissions and the Library plumbing that boards already have. Not recommended. |
 
-**Decision: B — confirmed by the user.** A board is already an entry; add a
+**Decision: B: confirmed by the user.** A board is already an entry; add a
 `type` and a `layout` to it. Everything in §5 and §6 assumes B.
 
 ### What Coggle specifically does that the phases below must keep
@@ -137,7 +137,7 @@ Recorded because Coggle is the reference the user actually meant:
   the `+` on hover or `Tab`; there is no "mode" to enter. Phase 2 item 5 is
   the keyboard half of this; the `+` affordance on the hovered node is the
   pointer half and belongs in the same item.
-- **Branch colour carries down the branch** — every descendant inherits the
+- **Branch colour carries down the branch**, every descendant inherits the
   first-level colour unless overridden. Phase 2 item 8's "inherit-from-parent
   by default" is exactly this; the default palette is one colour per
   first-level branch, assigned in order.
@@ -155,10 +155,10 @@ Recorded because Coggle is the reference the user actually meant:
 
 ## 5. The feature set, in build order
 
-### Phase 1 — the map object (foundation)
+### Phase 1: the map object (foundation)
 1. **`type` and `layout` on the board entry.** `type: "board" | "map"`;
    `layout: "free" | "tree-right" | "tree-down" | "radial"`. Stored on the
-   board's own `Entry` (a JSON settings column or a dedicated table —
+   board's own `Entry` (a JSON settings column or a dedicated table,
    `WhiteboardObject`'s `kind` discriminator is the precedent for not adding a
    table per idea).
 2. **A parent edge for nodes.** Mindmaps are trees; the whiteboard's links are
@@ -166,30 +166,30 @@ Recorded because Coggle is the reference the user actually meant:
    existing free links for cross-branch connections (which every serious
    mindmapper supports and calls a "relationship" or "cross-link").
 3. **Node kinds**, on the existing discriminator: `topic` (text), `note` (a real
-   `Entry` — this is `WhiteboardNode` today), `document`, `file`, `image`,
+   `Entry`, this is `WhiteboardNode` today), `document`, `file`, `image`,
    `link`. A node that *is* a note keeps its identity: editing it edits the note.
 4. **Containment is real.** "any and all text boxes and things that are in the
-   map stay bundled within the map" — enforce it: deleting a map deletes its
+   map stay bundled within the map", enforce it: deleting a map deletes its
    `topic` nodes (they exist only there) and *unlinks* its `note`/`document`/
    `file` nodes (those live in the library and must survive). Write the test
    first; this is the rule most likely to be got wrong.
 
-### Phase 2 — editing that feels like a mindmap
+### Phase 2: editing that feels like a mindmap
 5. **Keyboard-first**: Tab = child, Enter = sibling, Shift+Tab = outdent,
    arrows = navigate, F2/double-click = rename, Delete = subtree with confirm.
    Copy Obsidian Canvas Mindmap's set; it is the de-facto standard.
 6. **Auto-layout** via Reingold–Tilford with variable node sizes (d3-flextree's
-   algorithm, implemented locally — **no CDN, the app is offline-first**;
+   algorithm, implemented locally: **no CDN, the app is offline-first**;
    `frontend/js/graph.js` already hand-rolls layout, so this is a sibling of
    existing code, not a new dependency).
 7. **Collapse/expand a branch**, with a count badge on the collapsed node.
 8. **Styling that carries meaning, not decoration**: per-node colour, shape and
    icon; per-edge colour and thickness; inherit-from-parent by default.
-9. **Cross-links** (non-tree edges) rendered distinctly — dashed, per the
-   systems-map convention — and optionally **signed/directional** for causal
+9. **Cross-links** (non-tree edges) rendered distinctly, dashed, per the
+   systems-map convention: and optionally **signed/directional** for causal
    loop diagrams (Kumu's model).
 
-### Phase 3 — the map as a citizen of the app
+### Phase 3: the map as a citizen of the app
 10. **Library**: maps live in **Boards & maps** with a Maps filter chip (the
     user's stated preference), with the existing board preview upgraded to
     render map structure.
@@ -199,39 +199,39 @@ Recorded because Coggle is the reference the user actually meant:
     inline with the existing `@` picker.
 12. **Rendered previews and chips** everywhere the user listed: note bodies,
     the chat transcript, dashboard widgets, the timeline and the graph. One
-    `mapChip()` and one `mapPreview()`, used by all of them — the app's
+    `mapChip()` and one `mapPreview()`, used by all of them, the app's
     recurring failure is the same object drawn five ways.
 13. **Graph integration**: a map is a node in the graph; its note-nodes are
     edges from the map to those notes. This is the "decide once" call from
-    §3.3 — a map's *membership* is a link, a node's *position* is not.
+    §3.3: a map's *membership* is a link, a node's *position* is not.
 
-### Phase 4 — AI and export
+### Phase 4: AI and export
 14. **The AI can read a map.** A `read_mindmap` tool returning an indented
     outline (title, then the tree, with each node's kind and any note id), which
     is the form a small model handles best. Plus `create_mindmap`,
-    `add_map_node`, `link_map_nodes` — gated behind the tool toggles, and
+    `add_map_node`, `link_map_nodes`, gated behind the tool toggles, and
     written to the *contract* shape the skills reform (Phase A of
     [AGENT_SKILLS_REFORM.md](AGENT_SKILLS_REFORM.md)) defines, so they are
     usable by a 4B model.
-15. **AI generation**: "make a map of these notes" — the agent proposes a tree,
+15. **AI generation**: "make a map of these notes", the agent proposes a tree,
     the user accepts or edits it. Every mainstream tool now has this; the
     differentiator here is that the nodes are *the user's real notes*, not
     invented text.
 16. **Export**: PNG and SVG from the existing canvas render, and PDF via the
     same path the app already uses for "Print or save as PDF" in the documents
-    kebab. Also **Markdown outline**, **OPML** and **FreeMind `.mm`** — the
-    interchange formats every mindmapper (Coggle included) reads — cheap, and
+    kebab. Also **Markdown outline**, **OPML** and **FreeMind `.mm`**, the
+    interchange formats every mindmapper (Coggle included) reads: cheap, and
     it makes the feature not a lock-in.
 17. **Import**: OPML, FreeMind `.mm` and indented Markdown, so an existing map
     can come in.
 
-### Phase 5 — utility
+### Phase 5: utility
 18. **Focus mode** (Kumu): start at one node, reveal the network step by step.
 19. **Filter/perspective**: colour or hide by tag, category, age, or "has a
-    note behind it" — reusing the notebook's own metadata, which is the thing
+    note behind it", reusing the notebook's own metadata, which is the thing
     a general mindmapper cannot do.
 20. **Map metrics** where they are honest: node count, depth, orphan branches,
-    and — for cross-linked maps — the centrality measures the graph tab already
+    and, for cross-linked maps, the centrality measures the graph tab already
     computes.
 21. **Templates**: a few starting shapes (brainstorm, decision tree, project
     breakdown, cause-and-effect), because an empty canvas is the main reason
@@ -239,17 +239,17 @@ Recorded because Coggle is the reference the user actually meant:
 
 ## 6. Files this will touch
 
-- `src/memorymap/core/database.py` — board `type`/`layout`, node `parent_id`,
+- `src/memorymap/core/database.py`, board `type`/`layout`, node `parent_id`,
   new `kind` values. One Alembic migration.
-- `src/memorymap/api/routes_whiteboard.py` — map CRUD, layout endpoint, node
+- `src/memorymap/api/routes_whiteboard.py`, map CRUD, layout endpoint, node
   tree endpoints, export; extend `_board_preview` for map structure.
-- `src/memorymap/ai/tools*.py` — the four map tools, contract-shaped.
-- `frontend/js/whiteboard.js` (and `frontend/js/graph.js` for layout precedent) — the
+- `src/memorymap/ai/tools*.py`, the four map tools, contract-shaped.
+- `frontend/js/whiteboard.js` (and `frontend/js/graph.js` for layout precedent): the
   map mode, keyboard editing, auto-layout, collapse.
-- `frontend/js/library.js` — the Maps filter and the upgraded preview.
-- `frontend/js/app.js` — `mapChip()`/`mapPreview()`, the `@` picker source, chat
+- `frontend/js/library.js`, the Maps filter and the upgraded preview.
+- `frontend/js/app.js`, `mapChip()`/`mapPreview()`, the `@` picker source, chat
   attachment, dashboard widget, timeline row.
-- `docs/DESIGN.md` — the node/edge visual language, once, so it is not
+- `docs/DESIGN.md`, the node/edge visual language, once, so it is not
   reinvented per surface.
 
 ## 7. Acceptance
@@ -258,7 +258,7 @@ Recorded because Coggle is the reference the user actually meant:
   edits the note; deleting the map leaves the notes intact and deletes only its
   own topics (test first).
 - The same map appears as a chip in a note, in a chat message, in the graph, in
-  a dashboard widget and on the timeline — all drawn by one renderer.
+  a dashboard widget and on the timeline, all drawn by one renderer.
 - `read_mindmap` returns an outline a 4B model can act on, verified against a
   real local model (the standing caveat in CLAUDE.md applies).
 - Export produces PNG, SVG, PDF, Markdown and OPML; OPML round-trips through
@@ -267,11 +267,11 @@ Recorded because Coggle is the reference the user actually meant:
 
 ## 8. Risks
 
-- **Two linking levels** (§3.3) — decide the rule before building, or the graph
+- **Two linking levels** (§3.3): decide the rule before building, or the graph
   fills with noise.
 - **A second concept-map feature.** Check task #7 and #103 first; merging is
   almost certainly right.
-- **Layout performance** on a large map — the whiteboard already had "shapes
+- **Layout performance** on a large map, the whiteboard already had "shapes
   and links lag behind notes when panning" (task #71); auto-layout must run off
   the paint path.
 - **Scope.** Phases 1-3 are the user's actual request; 4-5 are where a
@@ -279,20 +279,20 @@ Recorded because Coggle is the reference the user actually meant:
 
 ## Sources
 
-- [Kumu](https://kumu.io/) · [Kumu — network mapping](https://kumu.io/markets/network-mapping)
-- [Best Mind Mapping Software for 2026 — ClickHelp](https://clickhelp.com/clickhelp-technical-writing-blog/best-mind-mapping-software/)
-- [The 12 Best Mind Mapping Tools and Apps — Storyflow](https://storyflow.so/blog/best-mind-mapping-tools-2025)
-- [Canvas Mindmap — Obsidian plugin](https://community.obsidian.md/plugins/canvas-mindmap)
+- [Kumu](https://kumu.io/) · [Kumu: network mapping](https://kumu.io/markets/network-mapping)
+- [Best Mind Mapping Software for 2026, ClickHelp](https://clickhelp.com/clickhelp-technical-writing-blog/best-mind-mapping-software/)
+- [The 12 Best Mind Mapping Tools and Apps, Storyflow](https://storyflow.so/blog/best-mind-mapping-tools-2025)
+- [Canvas Mindmap: Obsidian plugin](https://community.obsidian.md/plugins/canvas-mindmap)
 - [Mind mapping with Excalidraw in Obsidian](https://www.zsolt.blog/2021/09/mind-mapping-with-excalidraw-in-obsidian.html)
 - [Spatial canvases and your notes](https://tfthacker.substack.com/p/spatial-canvases-and-your-notes)
-- [d3-hierarchy `tree()` — Reingold–Tilford](https://d3js.org/d3-hierarchy/tree) · [d3-flextree](https://github.com/Klortho/d3-flextree)
-- [Radial tree component — Observable](https://observablehq.com/@d3/radial-tree-component)
+- [d3-hierarchy `tree()`, Reingold–Tilford](https://d3js.org/d3-hierarchy/tree) · [d3-flextree](https://github.com/Klortho/d3-flextree)
+- [Radial tree component: Observable](https://observablehq.com/@d3/radial-tree-component)
 
-## 9. Built — Phase 1 (backend)
+## 9. Built: Phase 1 (backend)
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", MINDMAP_PLAN.md) on 2026-09-09: a plan holds open work only.
 
-## 10. Built — Phase 2 (frontend)
+## 10. Built: Phase 2 (frontend)
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", MINDMAP_PLAN.md) on 2026-09-09: a plan holds open work only.
 
@@ -531,7 +531,10 @@ the shift-drag sever).
    due date (a reminder can be created from it), a checkbox; filter the
    map by marker; the outline view shows them as columns. The checkbox and
    the count up the branch are built (decision 15; HISTORY.md, "Moved from
-   the plans, 2026-10-04"); the rest is open.
+   the plans, 2026-10-04"); priority, progress, the flag, icon markers and
+   the filter are built (decision 34; HISTORY.md, "Moved from the plans,
+   2026-10-05 (markers)"); due dates (with a reminder) and tags on a topic
+   are open.
 5. **Notes on nodes**: a node that is a notebook note shows the note's
    own text here, editable both ways. The text note behind a topic is
    built (decision 18; HISTORY.md, "Moved from the plans, 2026-10-04").
@@ -541,9 +544,8 @@ the shift-drag sever).
 7. **Multiple roots and floating topics**; **auto-colour by branch** as
    the default theme with eight curated palettes. Numbering is built
    (decision 17; HISTORY.md, "Moved from the plans, 2026-10-04").
-8. **Outline view** beside the map (a two-pane split): the same tree as
-   indented text, editable, Tab and Shift+Tab re-parent, every edit
-   mirrored live.
+8. **Outline view**: built (decision 33; HISTORY.md, "Moved from the plans,
+   2026-10-05 (the map's outline)"). Its markers as columns wait on item 4.
 9. **Presentation mode**: built (decision 21; HISTORY.md, "Moved from the
    plans, 2026-10-05 (a map presented by branch)").
 10. **Export**: PNG at 2x with the theme, PDF, SVG, FreeMind .mm, OPML,
@@ -1217,9 +1219,18 @@ topic: a control that wide has nowhere to go.
    what changed and moves what only moved (the paint key has no x or y).
    Three stylesheet rules whose `:has()` sat before a classless compound
    made every DOM insertion restyle the whole page; they are rewritten and
-   `tests/test_has_invalidation.py` holds the line. The 100ms gate at 300
-   topics is not yet met on this sandbox (see HISTORY, "Moved from the
-   plans, 2026-10-05 (the map's add path)").
+   `tests/test_has_invalidation.py` holds the line. Second pass, the same
+   day (HISTORY, "Moved from the plans, 2026-10-05 (the add path, second
+   pass)"): the editor opens in the add's own task, before the moved
+   topics' transforms and the lines are written (`wbRenderHold`), the
+   measure reads only what was repainted, the mid-line `+` buttons and the
+   edge handles are kept rather than rebuilt, the selection bar is placed
+   two frames on, and a `:has()` keyed on `.ph` (every icon) is rewritten
+   with a ratchet against its kind. The render of one add is 21 to 63ms at
+   301 topics against 118 to 421 before; the 100ms key-to-editable gate is
+   still not met on this sandbox under a load of 7 to 10 (medians 177 to
+   276ms against 265 to 351 for the base scripts on the same runs), and is
+   to be measured on a quiet machine.
 25. **The open map's commands are palette rows** (taken 2026-10-05, audit
    FEAT-11): add, rename, fold, focus, delete, tidy, open every branch,
    look, numbering, statistics, present, zoom to fit, the six layouts and
@@ -1251,8 +1262,61 @@ topic: a control that wide has nowhere to go.
    and the palette row make a new document titled after the central topic
    (or the map, with several trunks), branches as `##`, theirs as `###`,
    deeper topics as nested lists, notes as paragraphs, and the map's card
-   (`boardEmbedMarkdown`) at its head as the way back. "Map this document's
-   headings" (the other direction) and a back-link on the map are open.
+   (`boardEmbedMarkdown`) at its head as the way back. The other direction
+   is decision 35.
+32. **A concept map's topics are notes that stay on their map** (taken
+   2026-10-05, audit UX-06). A note made by a map gesture (a new concept
+   map's root, a card Tab or Enter adds) carries `map_topic`; Notes (All,
+   the categories, Favourites, Untagged) and Recently added leave it out,
+   and a search in Notes, Ctrl+K and Ask still find it. Old maps' topics
+   are marked by the upgrade (a short note placed on a board within ten
+   seconds of being written). The board picker counts a map's topics and a
+   board's items (not the links between them) and is kept current from the
+   board on screen; the Library and dashboard say "links" and "drawings",
+   never "sketches". After Enter names a card, a letter renames it (the
+   focus is not moved to the canvas, where Tab walks items).
+33. **A map's outline is a panel of fields in the tree's order** (taken
+   2026-10-05, §12.2 item 8, the audit's M3). View, Outline (and the
+   palette's row) opens it in the board sidebar's place (`#wb-map-outline`,
+   the `.whiteboard-sidebar` shell, one of the two at a time), on maps only,
+   remembered per device. One text field per topic, indented by depth; the
+   keys are an outliner's: Enter adds a topic after this one and types it in
+   the outline (not on the canvas), Tab makes it the last child of the topic
+   above, Shift+Tab puts it right after its old parent, Backspace on an
+   empty topic with no branch removes it, the arrows walk the rows, Escape
+   hands the keys to the canvas. Every change goes through the canvas's own
+   functions (the add, `wbMapTransplant`, `wbMapOutdent`, the rename's save
+   and its FEAT-15 fold), so Undo and the tidy are the canvas's. Typing
+   draws the label on the canvas as it goes, without a render; the name is
+   saved when the row is left. The outline follows every render, rebuilt only
+   when the tree's shape changed, never taking the field being typed in.
+34. **A topic's markers are content, from one icon set** (taken 2026-10-05,
+   §12.2 item 4, the audit's M4). `data.priority` (1 to 5), `data.progress`
+   (0 to 100; the menu offers None, 0, 25, 50, 75 and Done), `data.flag` and
+   `data.markers` (up to six names from `WB_MAP_MARKER_ICONS`, twelve glyphs
+   of the vendored Phosphor font; never emoji, which each system draws its
+   own way and an export does not draw at all). Drawn in one row before the
+   label, set in one popover from the topic's menu (Content, Markers) and
+   the palette, each press one Undo step. Content, not a look: a look reset
+   and a branch copy keep them; OPML and FreeMind carry them as private
+   `_priority`, `_progress`, `_flag` and `_markers` (a comma list), Markdown
+   not at all (decision 12's rule). View, Filter by marker lists the markers
+   in use with their counts and dims (never hides) every topic without the
+   chosen one, for this visit, with a bar in the focus bar's shell to end
+   it. Not built: due dates, tags, several filters at once, markers as the
+   outline's columns.
+35. **A document maps its own headings, one way** (taken 2026-10-05, the
+   audit's M5 second half). The document's menu, Map the headings (and the
+   palette's row) makes a new map through the Markdown import, so it opens
+   in tree-right and tidied (decision 23). The headings are read by
+   `wbMapHeadingsOutline` (node-tested): a heading inside a fenced code
+   block is code; one top-level heading, first, is the central topic,
+   otherwise the document's title is and every top-level heading a branch;
+   a skipped level hangs one level down, never two. The way back is a
+   document topic under the centre pointing at the document (it opens it, as
+   any document topic does), so it travels with the map into every export
+   that keeps references. A twin kept in step both ways is the audit's idea,
+   not built.
 
 ### Phases, each with the gate it is finished against
 
@@ -1506,7 +1570,7 @@ Built; moved whole to HISTORY.md ("Moved from the plans, 2026-10-03", "From MIND
      chair and sitting on it, face palming, other gestures and props etc. But
      focus on the smooth transitions and movement adjustment transitions and
      other similar organic movement as that is the current worst thing. Maybe
-     also giving like the hair , tails, nebular streams some flow and swaying
+     also giving like the hair, tails, nebular streams some flow and swaying
      or smth to make the atlas characters really attractive, well designed,
      well animated and more. The female atlas main body could potentially
      have a bit more of a femine chest but don't overdo it just really

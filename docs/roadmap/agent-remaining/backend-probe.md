@@ -172,7 +172,7 @@ still had any, nine of them, every one naming I9, and they are now gone.
 
 Mechanical hygiene pass (schemas.py, ruff/CodeQL-shaped read, import
 warnings, doc lints). Worktree had fallen behind the branch tip (stale
-CLAUDE.md/docs layout, no scripts/gate.sh) — merged
+CLAUDE.md/docs layout, no scripts/gate.sh), merged
 `origin/claude/epic-ramanujan-8xocc0` first (commit `65e31e2`), one
 conflict in schemas.py's import line, resolved by keeping both names.
 
@@ -184,12 +184,12 @@ error::pydantic.warnings.PydanticDeprecatedSince20`: clean.
 
 **Checked clean, no fix needed:** `ruff check .` (0); CodeQL-shaped read of
 unclosed `open()` (one found, `searxng_process.py:151`, already closed in
-a `finally`), lazy `.*?` over paths/argv (none — the six hits are all over
+a `finally`), lazy `.*?` over paths/argv (none: the six hits are all over
 HTML/markdown text, not paths), case-sensitive tag filters (all lowercase
 consistently), XML parsers (the two stdlib `ElementTree` uses in
 routes_whiteboard.py only serialize/export, never parse; parsing uses
 defusedxml already), `shell=True` (none), bare/silent `except: pass`
-(none — every `except Exception` carries a `# noqa: BLE001` with a
+(none: every `except Exception` carries a `# noqa: BLE001` with a
 rationale comment); `python -W error -c "from memorymap.api.app import
 create_app; create_app()"` (clean); `test_readme_freshness.py`,
 `test_docs_layout.py`, `test_plan_hygiene.py`, `test_no_em_dashes.py`,

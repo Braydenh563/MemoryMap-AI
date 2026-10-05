@@ -35,12 +35,12 @@ def test_one_install_flow_for_the_ocr_extra():
     buttons) and by the engine line, and by nothing else."""
     sources = {path.name for path in JS.glob("*.js") if "/extras/ocr/install" in path.read_text(encoding="utf-8")}
     assert sources == {"ocr-engine.js"}, sources
-    status = (JS / "status.js").read_text(encoding="utf-8")
+    status = (JS / "settings-packages.js").read_text(encoding="utf-8")
     assert "`/extras/${extra.id}/install" in status
 
 
 def test_the_packages_row_hands_the_language_to_the_engine_line_only():
-    status = (JS / "status.js").read_text(encoding="utf-8")
+    status = (JS / "settings-packages.js").read_text(encoding="utf-8")
     assert "ocrEngineMount(li.appendChild(document.createElement(\"div\")), { settings: true })" in status
     # The row does not grow a language control of its own.
     assert "ocr/language" not in status

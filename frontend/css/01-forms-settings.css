@@ -607,9 +607,7 @@ button.ghost.danger {
   align-items: center;
   gap: var(--space-1);
 }
-button.ghost.danger > .ph-lead {
-  color: inherit;
-}
+
 
 /* Not on a destructive one: Stop's square was accent blue beside red text
    (release). A danger button's icon takes its own colour. */
@@ -936,15 +934,10 @@ input[type="checkbox"] {
 }
 
 .shortcut-list {
-  list-style: none;
   margin: 0.4rem 0;
-  padding: 0;
 }
 
 .shortcut-list li {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
   padding: 0.4rem 0;
   border-bottom: 1px solid var(--border);
 }
@@ -959,13 +952,6 @@ input[type="checkbox"] {
 }
 
 kbd {
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 0.8rem;
-  padding: 0.1rem 0.4rem;
-  border: 1px solid var(--glass-border);
-  border-bottom-width: 2px;
-  border-radius: var(--radius-md);
-  background: var(--chip-bg);
   color: var(--ink);
   white-space: nowrap;
 }
@@ -1058,7 +1044,7 @@ progress {
   margin-top: 1rem;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 819.98px) {
   .chat-grid {
     grid-template-columns: 1fr;
   }
@@ -1106,7 +1092,6 @@ progress {
 .answer-title {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
   /* Not `1 1 auto`: the label is two words and they are never the thing that
      should give way. The badge beside it is. */
   flex: 0 0 auto;
@@ -1272,19 +1257,7 @@ progress {
   word-break: normal;
 }
 
-.md-table {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 0.88em;
-}
 
-.md-table th,
-.md-table td {
-  border: 1px solid var(--border);
-  padding: 0.4rem 0.6rem;
-  text-align: left;
-  vertical-align: top;
-}
 
 .md-table thead th {
   background: var(--chip-bg);
@@ -1422,7 +1395,6 @@ progress {
      lets high-contrast mode put the line back. */
   background: var(--surface-2);
   border: 1px solid transparent;
-  border-radius: var(--radius-lg);
   padding: 0.6rem 0.8rem;
   margin-bottom: 0.6rem;
 }
@@ -1585,7 +1557,6 @@ progress {
      content column keeps the rest. */
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
 }
 
 /* Nothing in the lane shrinks, it scrolls instead. `.entry-meta-end` is
@@ -1798,12 +1769,10 @@ progress {
      gap replaces the icon's margin-inline-end for precise, density-independent spacing. */
   display: inline-flex;
   align-items: center;
-  gap: 0.3em;
   padding: 0.1rem 0.6rem;
   border-radius: var(--radius-sm);
   font-size: 0.75rem;
   background: var(--accent-soft);
-  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -1836,10 +1805,6 @@ progress {
   font-weight: 400;
 }
 
-.chip.confidence {
-  background: var(--ok-soft);
-  color: var(--ok);
-}
 
 .chip.review {
   background: var(--warn-soft);
@@ -1887,7 +1852,22 @@ progress {
    visible keyboard focus ring. */
 .chip-interactive {
   cursor: pointer;
-  min-height: 1.5rem; /* 24px tap target minimum */
+  min-height: 1.5rem; /* the painted chip: a row of 24px pills */
+  position: relative;
+}
+
+/* The target is `--target-min` tall whatever the paint (audit FE-14: the
+   category and "Add tags" chips were 24px targets under the 28px floor).
+   The switches' pattern (DESIGN.md, Hit targets): a transparent overhang,
+   centred, so the row of pills keeps its density and a click 2px above or
+   below still lands. Never shorter than the chip itself. */
+.chip-interactive::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  /* No transform: a later rule resets pseudo-element transforms, and the
+     overhang must not depend on it. Half the shortfall, never negative. */
+  inset-block: min(0px, calc(50% - var(--target-min) / 2));
 }
 
 .chip-interactive:hover {
@@ -1913,9 +1893,6 @@ progress {
 
 .entry-date {
   color: var(--muted);
-  font-size: 0.8rem;
-  min-width: 7ch;
-  text-align: right;
   white-space: nowrap;
 }
 
@@ -2305,7 +2282,6 @@ button:not(.ghost) > .spinner {
 
 /* Library -> Links (§30): a plain list of saved websites, one row each. */
 #bookmark-form {
-  align-items: center;
   gap: var(--space-3);
   margin: var(--space-4) 0;
 }
@@ -2908,7 +2884,6 @@ button:not(.ghost) > .spinner {
    rather than an aside, and quietening those would be the opposite fix. */
 #entry-list .chip.link {
   background: transparent;
-  color: var(--muted);
   font-weight: 400;
 }
 
@@ -3633,11 +3608,7 @@ mark.global-find-hit.global-find-current {
 }
 
 .code-block {
-  margin: 0.4rem 0;
   padding: 0.6rem 0.8rem;
-  border-radius: var(--radius-md);
-  background: var(--chip-bg);
-  border: 1px solid var(--border);
   font-family: ui-monospace, Consolas, monospace;
   font-size: 0.8rem;
   overflow-x: auto;
@@ -3991,7 +3962,7 @@ html.modal-open body {
   color: var(--muted);
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   .dash-hero {
     flex-wrap: wrap;
     padding: var(--space-4) var(--space-5);
@@ -4103,7 +4074,7 @@ html.modal-open body {
   grid-column: span 2;
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   .dash-widget.wide {
     grid-column: span 1;
   }
@@ -4356,7 +4327,7 @@ html.modal-open body {
   opacity: 0.35;
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   .reminder-cal-dow {
     font-size: 0.7rem;
   }
@@ -5036,8 +5007,16 @@ html.modal-open body {
    A row of chips that scrolls sideways is the same answer the app's own tab
    bar already uses when it outgrows its width, so this is a pattern already
    in the product rather than a new one. The nav is capped to its own single
-   row and the content pane gets everything else. */
-@media (max-width: 640px) {
+   row and the content pane gets everything else.
+
+   **Below 820, not only on a phone** (Phase 9's bands, 2026-10-05). This was
+   640, so from 640 to 820 the dialog kept its 232px column of sections and
+   the settings themselves got what was left: 282px at 620 once the width
+   moved onto the band set, 322 at 660, narrower than a phone's 358, with a
+   select's value cut short. The band is one column (UI_MODERNISATION_PLAN
+   Phase 9's table), and as a strip the pane is 530px at 620 and 729 at 819
+   (`scratchpad/ui-sweeps/bands.js`). */
+@media (max-width: 819.98px) {
   .modal-body {
     grid-template-columns: 1fr;
     grid-template-rows: auto minmax(0, 1fr);
@@ -6291,6 +6270,14 @@ select {
   display: none;
 }
 
+/* Under a finger a group link keeps the touch floor (touch.js; the mouse
+   size above is the Quiet tier's). */
+@media (pointer: coarse) {
+  #settings-nav .settings-nav-group {
+    min-height: var(--target-min);
+  }
+}
+
 /* **On a phone the pane's New sits on the title's row** (design-rows-1005):
    the title, then the actions pushed to the end. New is its plus there, the
    word visually hidden (it still names the button) and the title saying it.
@@ -6322,9 +6309,9 @@ select {
   }
 }
 
-/* The strip is a row on a phone (the nav is one), so the results would sit in
+/* The strip is a row below 820 (the nav is one), so the results would sit in
    it as one more cell. They get the width of the pane instead. */
-@media (max-width: 640px) {
+@media (max-width: 819.98px) {
   .modal-nav .settings-results {
     flex: 0 0 100%;
   }

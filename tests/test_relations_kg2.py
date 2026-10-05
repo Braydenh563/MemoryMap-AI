@@ -112,7 +112,8 @@ def test_cost_at_2k_and_10k_notes():
     for n in (2000, 10000):
         data = _synthetic(n)
         runs = []
-        for _ in range(2):
+        #: Best of three: a busy runner (xdist on four cores) can stall one run.
+        for _ in range(3):
             started = time.perf_counter()
             found = recognise(*data, exclude=set())
             runs.append(time.perf_counter() - started)

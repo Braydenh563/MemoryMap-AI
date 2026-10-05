@@ -99,18 +99,16 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: WORLD_CLASS_PLAN section 17 row 4: called inside
+    #: `ensureModule("askHistory").then(...)` in `askQuestion`, so the bundle
+    #: has loaded by the time the call runs.
+    "renderAskChart": "askHistory, called from ensureModule('askHistory').then in askQuestion",
     #: The Escape handler (settings-wiring.js) closes the welcome card only
     #: when `#onboarding-overlay` is showing, and the only thing that shows it
     #: is `openOnboarding`, whose stand-in loads the bundle first.
     #: The same for the palette: `closePalette` is called (Escape, the chord's
     #: toggle, a chord that closes overlays) only while `#palette-overlay` is
     #: showing, and only `openPalette`, whose stand-in loads the bundle, shows it.
-    #: The chart under an Ask answer (section 17 row 4) is drawn only inside
-    #: the `.then` of `ensureModule("chart")`, and only when that said it loaded.
-    #: Paste as note (row 31) is called from the palette row only inside the
-    #: `.then` of `ensureModule("quickNote")`, and only when that said it loaded.
-    "pasteAsNote": "quickNote, called only after ensureModule(\"quickNote\") resolved true",
-    "drawAnswerChart": "chart, called only after ensureModule(\"chart\") resolved true",
     "closePalette": "appPalette, called only while the palette overlay is showing, and only openPalette shows it",
     "closeOnboarding": "onboarding, called on Escape only while the overlay is open, and only openOnboarding opens it",
     #: Capture's staged-files list asks the clear button to re-sync when it

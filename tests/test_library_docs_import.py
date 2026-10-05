@@ -46,7 +46,7 @@ def test_the_handler_posts_each_file_to_documents_import_with_both_headers():
     assert '"/documents/import"' in body
     # `api()` replaces its default headers when `headers` is given, so the
     # workspace has to be named or the document lands in the default space.
-    assert "X-Workspace-ID" in body and "X-Auth-Token" in body
+    assert "authHeaders()" in body or ("X-Workspace-ID" in body and "X-Auth-Token" in body)
     # A FormData body must not carry a hand-set Content-Type.
     assert "Content-Type" not in body
     # One file that cannot be read must not stop the rest.

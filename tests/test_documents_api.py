@@ -641,6 +641,12 @@ def test_a_document_with_a_note_attached_can_still_be_deleted(client, session):
 
     removed = client.delete(f"/documents/{document['id']}")
     assert removed.status_code == 200, removed.text
+    #: A delete is the bin now (WORLD_CLASS_PLAN 5 item 10): the attachment
+    #: stays with the binned document, and goes with its purge.
+    session.expire_all()
+    assert session.scalar(select(func.count()).select_from(DocumentLink)) == 1
+    purged = client.delete(f"/documents/{document['id']}/purge")
+    assert purged.status_code == 200, purged.text
     session.expire_all()
     assert session.scalar(select(func.count()).select_from(DocumentLink)) == 0
     assert session.scalar(select(func.count()).select_from(DocumentBookmark)) == 0

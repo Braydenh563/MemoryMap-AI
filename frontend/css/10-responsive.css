@@ -572,7 +572,7 @@ header#top-bar,
 
 /* **The segment grows with its buttons, not past them** (INBOX 568, the
    owner: "the document editor edit/read pill is overflowing at the bottom
-   and those elements arent aligned"). Under 720px every `button.small` takes
+   and those elements arent aligned"). Below 820 every `button.small` takes
    a 44px floor for a finger, and `.doc-dock .seg` kept its desktop
    `height: var(--control-h)` (32px), so Edit and Read stood 44px tall in a
    32px well and hung 16px out of its foot, centred 10px below the chevron,
@@ -953,7 +953,7 @@ header#top-bar,
    Above a phone the sheet keeps its direction (it still rises from the
    bottom edge) and takes a reading width, centred, the way a tablet sheet
    does. The corner sheet (Atlas) has its own geometry and is left alone. */
-@media (min-width: 720px) {
+@media (min-width: 600px) {
   .sheet-card:not(.sheet-card-corner) {
     max-width: 34rem;
     margin-inline: auto;

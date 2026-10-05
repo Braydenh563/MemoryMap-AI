@@ -13,8 +13,11 @@ Two rules, read from every stylesheet:
   (rem and em at 16px) both match a window W wide.
 - **The set only shrinks.** A width outside Phase 9's is either a named
   component's own (listed below, with how many rules use it) or it fails;
-  the counts may only go down. The 720, 640 and 900 groups are the next to
-  move onto the Phase 9 set, each with a sweep at the widths it changes.
+  the counts may only go down. The 720, 640 and 900 groups were moved onto
+  the Phase 9 set on 2026-10-05 with `scratchpad/ui-sweeps/bands.js` (a
+  before and after at 390 to 1440); the rules left in them are listed.
+  The 900 group's header rules moved first, with
+  `scratchpad/ui-sweeps/perf2-1005-bp900.js`.
 """
 
 from __future__ import annotations
@@ -38,12 +41,15 @@ PHASE_9 = {
 #: Every other width in use on 2026-10-05, and how many queries use it.
 #: Lower a number (or drop a row) when a group moves onto Phase 9's set.
 ALLOWED = {
-    # The three groups the audit named, next to move onto Phase 9's set.
-    ("max", 719.98): 26,
-    ("min", 720.0): 6,
-    ("max", 640.0): 11,  # px and 40rem
-    ("max", 900.0): 5,
-    ("min", 901.0): 1,
+    # The three groups the audit named. 2026-10-05 (uimod-89) moved 35 of
+    # their 49 rules onto Phase 9's set; what is left belongs to work in
+    # flight elsewhere: the status bar (00's trimmed items, 03's AI mark),
+    # the dashboard's quick access (03), and the whiteboard (06's floating
+    # panel, and every one of these in 07-whiteboard-misc.css).
+    ("max", 719.98): 5,
+    ("min", 720.0): 2,
+    ("max", 640.0): 5,  # px and 40rem
+    ("max", 900.0): 2,
     # Components' own widths (rem at 16px: dialogs, panels, the timeline).
     ("max", 400.0): 4,
     ("min", 1024.0): 4,

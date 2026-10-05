@@ -1,88 +1,93 @@
 # Installing and running MemoryMap AI
 
-Three ways in, pick whichever fits: the **Windows installer** (no terminal),
-the **launcher script** (any OS, one command), or **manual setup** (if you'd
-rather manage the virtual environment yourself).
+There are three ways in. Pick the one that fits.
+
+| You want | Use |
+| --- | --- |
+| No terminal, on Windows | [The Windows installer](#windows-installer) |
+| No terminal, on Linux | [The Linux package](#linux-package) |
+| Any operating system, one command | [The launcher script](#launcher-script) |
+| To manage the Python environment yourself | [Manual setup](#manual-setup) |
 
 - [Windows installer](#windows-installer)
-- [Launcher script (Windows / macOS / Linux)](#launcher-script)
+- [Linux package](#linux-package)
+- [Launcher script](#launcher-script)
 - [Manual setup](#manual-setup)
 - [Running it](#running-it)
+- [Settings you can change before you start](#environment-variables)
 - [Updating](#updating)
 - [Uninstalling](#uninstalling)
 
 ## Windows installer
 
-The simplest way in on Windows, no terminal or Python install required:
+No terminal and no Python install are needed to run the app.
 
 1. Download the latest `MemoryMap-AI-Setup-*.exe` from
-   [Releases](https://github.com/Braydenh563/MemoryMap-AI/releases).
-2. Run it. **Windows will show a blue "Windows protected your PC" screen**:
-   this build is not code-signed yet (a certificate costs money every year,
-   and is not worth it before there is a real user base to justify it), so
-   Windows flags it as from an unrecognised publisher. Click **More info**,
-   then **Run anyway**. The installer only copies the app into your own
-   user folder: nothing system-wide, no admin prompt.
-3. It installs a Start Menu shortcut (and, optionally, a desktop one) and
-   offers to launch the app when it finishes.
+   [Releases](https://github.com/Braydenh563/MemoryMap-AI/releases/latest).
+2. Run it. Windows shows a blue "Windows protected your PC" screen, because
+   this build is not code-signed yet. Click **More info**, then **Run anyway**.
+   The installer copies the app into your own user folder: nothing
+   system-wide, and no administrator prompt.
+3. It adds a Start Menu shortcut, an optional desktop shortcut and a "Repair
+   MemoryMap AI" shortcut, then offers to start the app.
 
-**Deploying to several machines?** The installer runs silently for the
-person running it: `MemoryMap-AI-Setup-<version>-windows-x86_64.exe
-/VERYSILENT /SUPPRESSMSGBOXES`. A silent install downloads no optional
-packages unless you name them, for example `/EXTRAS=documents,docx`. An MSI
-build (per machine, for `msiexec /quiet` and Group Policy) exists in
-`packaging/windows/installer.wxs` but is paused: its toolkit's new licence
-terms stopped the release build, so current releases carry the .exe only.
+The app opens in its own window. A tray icon keeps it running when you close
+the window. The tray menu brings it back, starts a note, a question or a search,
+opens Settings or the logs, and restarts or quits the app. If Settings, Packages shows the desktop window as installed but
+no tray icon appears, reinstall that package from the same pane.
 
-The desktop window is part of the app. The optional packages (search by
-meaning, voice notes, document import and Word export) are downloaded, on the
-installer's last page or later from **Settings → Packages**, with a Python
-from [python.org](https://www.python.org/downloads/) on the same computer:
-the default options of its installer are enough. Without one, the app works
-and those four features stay off.
+**Optional packages.** The installer's last page offers three boxes: search by
+meaning (about 2 GB), voice notes, and document import with scanned-PDF
+reading and Word export. All are optional, and each can be installed or
+removed later from **Settings, Packages**. Downloading them needs Python from
+[python.org](https://www.python.org/downloads/) on the same computer; the
+default options of its installer are enough. Without one, the app works and
+those features stay off.
 
-Your notes live in `%APPDATA%\MemoryMap AI`, untouched by an update or
-reinstall, and left alone if you uninstall the app itself.
+**Where your notes live.** In `%APPDATA%\MemoryMap AI`. An update or a
+reinstall leaves them alone, and so does uninstalling the app.
 
-**The installer is a snapshot, not a subscription.** It does not phone home
-or patch itself: a release built today is exactly what you will be running
-a year from now, unless you download a newer one by hand. Turn on
-**Settings → About → "Check GitHub for a newer version"** (off by default,
-the same "100% offline unless you ask" rule as web search) and the app
-tells you when a newer release exists. It only ever checks; it never
-downloads or installs anything on its own.
+**Several machines.** The installer runs silently:
+`MemoryMap-AI-Setup-<version>-windows-x86_64.exe /VERYSILENT /SUPPRESSMSGBOXES`.
+A silent install downloads no optional packages unless you name them, for
+example `/EXTRAS=documents,docx`. An MSI build for Group Policy exists in
+`packaging/windows/installer.wxs`, but it is paused: its toolkit's new licence
+terms stopped the release build, so releases carry the `.exe` only.
 
-**No terminal window.** The desktop app runs its server in the background
-and puts an icon in the system tray. Closing the window minimises it there
-rather than quitting, and the tray menu (Open / View Logs / Restart / Quit)
-is how you get it back or shut it down for real. If Settings → Packages
-shows the desktop extra as installed but no tray icon appears, the tray
-piece (`pystray` + `Pillow`) did not come along with it: reinstall the
-desktop extra from that same panel.
+**The installer is a snapshot.** It does not update itself, and nothing
+contacts GitHub until you ask: see [Updating](#updating).
 
-Prefer to build it yourself, or want it on macOS or Linux? See below:
-`start.sh`/`start.bat` work on all three, today.
+## Linux package
+
+1. Download `MemoryMap-AI-*-linux-x86_64.tar.gz` from the same
+   [Releases](https://github.com/Braydenh563/MemoryMap-AI/releases/latest)
+   page and unpack it with `tar -xzf`.
+2. Run `MemoryMap AI` from the unpacked folder.
+
+Use the tarball, not the `.zip` beside it. A zip does not reliably keep the
+executable bit, so some archive managers unpack a launcher that will not
+start. The window needs GTK and WebKit as system packages (on Debian and
+Ubuntu: `python3-gi`, `python3-gi-cairo`, `gir1.2-gtk-3.0` and
+`gir1.2-webkit2-4.1`). This build has no tray icon, so closing the window quits
+the app. Your notes live in `~/.local/share/MemoryMap AI` (or under
+`$XDG_DATA_HOME`).
 
 ## Launcher script
 
-**You need Python 3.11 or newer.** That is all it takes to get running. If
-you have never used a terminal before, follow the numbered steps below
-exactly: every grey box is a command to copy and paste, one line at a
-time.
+**You need Python 3.11 or newer.** If you have never used a terminal, follow
+these steps exactly. Every code block is a command to copy and paste.
 
 ### 1. Open a terminal
 
 - **Windows:** press `Win`, type `PowerShell`, press Enter.
 - **macOS:** press `Cmd`+`Space`, type `Terminal`, press Enter.
-- **Linux:** usually `Ctrl`+`Alt`+`T`, or find "Terminal" in your app menu.
+- **Linux:** usually `Ctrl`+`Alt`+`T`, or look for "Terminal" in your app menu.
 
-### 2. Get the app onto your machine
+### 2. Get the app
 
-Pick whichever of these two you find easier: both end up in the same
-place, a folder called `MemoryMap-AI`.
+Either way ends in a folder called `MemoryMap-AI`.
 
-**With git** (if you are not sure, you probably do not have it: skip to
-the next option):
+**With git:**
 
 ```
 cd ~
@@ -90,78 +95,61 @@ git clone https://github.com/Braydenh563/MemoryMap-AI.git
 cd MemoryMap-AI
 ```
 
-**Without git**: download instead:
+**Without git:**
 
 1. Open <https://github.com/Braydenh563/MemoryMap-AI> in your browser.
 2. Click the green **Code** button, then **Download ZIP**.
-3. Unzip it wherever you like (double-click the downloaded file on
-   Windows/macOS).
-4. Back in your terminal, `cd` into the folder you just unzipped. The
-   easiest way: type `cd ` (with a trailing space), then **drag the unzipped
-   folder from your file browser into the terminal window** (most terminals
-   fill in the correct path for you), then press Enter.
+3. Unzip it wherever you like.
+4. In your terminal, type `cd ` (with a trailing space), drag the unzipped
+   folder into the terminal window so it fills in the path, then press Enter.
 
-Either way, you should now be sitting *inside* the `MemoryMap-AI` folder.
-`ls` (macOS/Linux) or `dir` (Windows) should list `start.sh`,
-`start-desktop.sh`, `start.bat`, `start-desktop.bat` and this repo's
-`README.md` among the files.
+You should now be inside the `MemoryMap-AI` folder. `ls` (macOS and Linux) or
+`dir` (Windows) lists `start.sh`, `start-desktop.sh`, `start.bat`,
+`start-desktop.bat` and `README.md`.
 
 ### 3. Run the launcher
 
-From inside that same folder:
+- **Windows:** double-click `start-desktop.bat`, or type `start-desktop.bat` in
+  the terminal. This opens the app in its own window. `start.bat` opens a
+  browser tab instead.
+- **macOS and Linux:** run `./start-desktop.sh` for the app's own window, or
+  `./start.sh` for a browser tab.
 
-- **Windows**: double-click **`start-desktop.bat`** in File Explorer, or
-  type `start-desktop.bat` and press Enter in the terminal you are already
-  in. This opens the app in its own window rather than a browser tab.
-  Prefer it unless you specifically want a browser tab (`start.bat`, no
-  arguments, does that instead).
-- **macOS / Linux**: run **`./start-desktop.sh`** for the app's own window,
-  or `./start.sh` for a browser tab.
+The launcher builds a virtual environment, installs everything, starts the app
+and opens <http://localhost:8000>. The first run takes a few minutes. After
+that it goes straight to launching, and reinstalls only when
+`requirements.txt` changes.
 
-The launcher builds the virtual environment, installs everything, starts the
-app and opens <http://localhost:8000> (or <http://127.0.0.1:8000>). The
-first run takes a few minutes; after that it goes straight to launching, and
-only re-installs when `requirements.txt` changes.
-
-**The first launch also fetches the search model's package.** The built-in
-search model (filing and search by meaning) needs `sentence-transformers`.
-Wherever it is missing, the packaged Windows and Linux apps included, the app
-installs it by itself the first time the model is needed: a one-time
-download of several hundred MB (more on Windows, where it brings torch) that
-needs the internet and can take several minutes. Settings, Models, Search
-engine says when it is running, and Settings, Background tasks shows it. To
-skip it, install [Ollama](https://ollama.com), run
-`ollama pull nomic-embed-text`, and choose that model under Ollama embedding
-model in the same place.
-
-**Losing track of the folder is the single most common stumbling block
-here**, so every launch prints exactly where it is running from and the
-command to get back, right above the browser opening:
+Every launch prints where it is running from, so you can find your way back:
 
 ```
 Installed at: /home/you/MemoryMap-AI
 Next time:    open a terminal there and run ./start.sh again
 ```
 
-That line is your answer any time you cannot remember where you put it:
-scroll up in that terminal window, or re-run the launcher from the same
-place you ran it the first time.
-
-Prefer a browser tab over the app's own window? `start.bat`/`./start.sh`
-with no arguments does that instead.
+**The first launch also fetches the search model's package.** The built-in
+search model (filing and search by meaning) needs `sentence-transformers`.
+The launcher installs it with the other requirements. A packaged Windows or
+Linux app installs it itself the first time it is needed: a one-time download
+of several hundred MB (more on Windows, where it brings torch) that needs the
+internet and can take several minutes. Settings, Search and index, Search
+engine says when it is running, and Settings, Background tasks shows it. To
+avoid it, install [Ollama](https://ollama.com), run
+`ollama pull nomic-embed-text`, and pick that model under Ollama embedding
+model in the same place.
 
 ### Launcher options
 
-Both launchers take the same flags, in the same order, so an instruction
-works whichever one you are on. `./start.sh --help` or `start.bat --help`
-prints this list, and the path to your notes with it.
+`start.sh` and `start.bat` take the same flags in the same order, and
+`start-desktop.sh` and `start-desktop.bat` pass them straight through.
+`--help` prints this list with the path to your notes.
 
 | Flag | What it does |
 | --- | --- |
 | `desktop` | Start in the app's own window instead of a browser tab |
 | `--port N` | Serve on port N instead of 8000 |
-| `--no-browser` | Start the server but do not open a browser |
-| `--no-update` | Skip the update check and run the code that is here now |
+| `--no-browser` | Start the server without opening a browser |
+| `--no-update` | Skip the update step and run the code that is here now |
 | `--reinstall` | Rebuild the virtual environment from scratch, then start |
 | `--doctor` | Check this machine, print a table and exit |
 | `--logs` | Open the launcher log folder and exit |
@@ -170,18 +158,17 @@ prints this list, and the path to your notes with it.
 | `--help` | Show the list and exit |
 
 **If it does not start, run `--doctor` first.** It prints one row per thing
-that can stop a launch, with a tick or a cross and, for a cross, one line
-saying what to do: Python's version and path, whether the virtual
-environment can import what the server needs, free disk where your notes
-are, whether the port is free or already has MemoryMap on it, whether the
-update remote answers, your model provider, where your notes are and how
-big, and the last error from the previous run's log. It exits 0 when
-everything checks out and 1 when something needs fixing, and it works on a
-machine where the app itself will not start.
+that can stop a launch, with a tick or a cross and, for a cross, one line on
+what to do: Python's version and path, whether the virtual environment can
+import what the server needs, free disk where your notes are, whether the port
+is free or already has MemoryMap on it, the update setting and whether its
+remote answers, your model provider, where your notes are and how big, and the
+last error from the previous run's log. It exits 0 when everything checks out
+and 1 when something needs fixing, and it works on a machine where the app
+will not start.
 
-Every run also writes `<your notes folder>/logs/launcher-<date>.log`, ten
-days of them, so "it did not start" can be answered by reading something.
-`--logs` opens that folder.
+Every run also writes `<your notes folder>/logs/launcher-<date>.log` and keeps
+ten of them. `--logs` opens that folder.
 
 ## Manual setup
 
@@ -194,34 +181,39 @@ source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
 # 2. Dependencies, then the app itself
 pip install -r requirements.txt
-pip install -e .                 # the dot matters - it means "this folder"
+pip install -e .                 # the dot matters: it means "this folder"
 
-# 3. Optional: relocate your data or point at a different Ollama
+# 3. Optional: change where your notes live or where Ollama is
 cp .env.example .env             # Windows: copy .env.example .env
 ```
 
-Optional extras, installed only if you want them:
+The optional extras are easiest from **Settings, Packages**, which installs
+and checks each one and needs no terminal. From a source install you can also
+use pip:
 
 ```
-pip install pywebview        # the --desktop window
-pip install pystray Pillow   # tray icon for the desktop window above
-pip install faster-whisper   # local speech-to-text for the 🎙 buttons
-pip install pytesseract Pillow   # OCR text on uploaded images (Library -> Image Gallery search)
+pip install faster-whisper                # voice notes
+pip install pywebview pystray Pillow      # the desktop window and its tray icon
+pip install pypdfium2 Pillow              # read scanned PDFs
+pip install "markitdown[pdf,docx,pptx]"   # import PDF, Word and PowerPoint
+pip install python-docx                   # export a document to Word
+pip install pytesseract Pillow            # text in images
 ```
 
-The OCR extra also needs the `tesseract` **system binary** on your PATH:
-`pip` cannot install that part for you, since it is not a Python package.
+The text-in-images extra also needs the `tesseract` program on your PATH,
+which pip cannot install. The Settings button tries to install it for you
+through winget, brew, apt, dnf or pacman; by hand:
 
 ```
-# Debian/Ubuntu
-sudo apt install tesseract-ocr
-# macOS
-brew install tesseract
+sudo apt install tesseract-ocr    # Debian and Ubuntu
+brew install tesseract            # macOS
 # Windows: https://github.com/UB-Mannheim/tesseract/wiki
 ```
 
-Without it, uploaded images just do not get searchable text. Nothing else
-about the app is affected, and no upload ever fails because of it.
+Without it, images simply do not get searchable text, and no upload fails.
+Two extras are downloads rather than pip packages, so Settings, Packages is the
+only place that fetches them: Run Python files (Pyodide) and Tool calling
+without Ollama (needle). Both are pinned and checked against a sha256.
 
 ## Running it
 
@@ -233,32 +225,73 @@ python -m memorymap --desktop   # the same app in its own window
 Without `pywebview`, `--desktop` falls back to a browser tab rather than
 failing.
 
-On first run you choose a password (bcrypt-hashed, stays on your machine).
-The interactive API explorer lives at <http://localhost:8000/docs>.
+On first run you choose a password (bcrypt-hashed, kept on your machine). Then
+add a model: see [MODELS.md](MODELS.md).
+
+Other commands:
+
+| Command | What it does |
+| --- | --- |
+| `python -m memorymap --export PATH` | Write your notes to PATH as a Markdown zip, then exit |
+| `python -m memorymap --reset-password` | Clear a forgotten password so you can set a new one; private notes are lost |
+| `python -m memorymap --capture` | Open a one-line capture window on the running app: bind it to a key in your system settings |
+| `python -m memorymap.mcp_server` | A stdio MCP server over the app's own non-destructive tools, for another program on this computer |
+
+### Environment variables
+
+Set these in your environment, or in `.env` in the project folder for a source
+install.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `MEMORYMAP_DATA_DIR` | `data` beside a source checkout; the per-user app folder when installed | Where your notes, preferences, uploads and backups live |
+| `MEMORYMAP_PORT` | `8000` | The port the server listens on (`--port` sets it for you) |
+| `MEMORYMAP_LAN_PORT` | `8443` | The HTTPS port other devices use, when Settings, Account & security allows them |
+| `OLLAMA_URL` | `http://localhost:11434` | Where Ollama listens |
+| `MEMORYMAP_SEARXNG_PORT` | `8888` | The port for the SearXNG instance the app can run for web search |
+| `MEMORYMAP_NO_AUTO_INSTALL` | unset | Set it to stop the app installing the search model's package by itself |
+| `MEMORYMAP_EMBED_THREADS` | automatic | How many threads the built-in search model may use |
+| `MEMORYMAP_RAM_GB` | detected | Overrides the memory the app thinks it has, for a container |
+| `MEMORYMAP_EXTRAS_MIRROR` | unset | A mirror for the pinned downloads in Settings, Packages |
+
+A model backend other than Ollama is chosen in **Settings, Models**, not here.
 
 ## Updating
 
-Same command: `start.sh`/`start.bat` pull the latest code and reinstall
-dependencies automatically every time you run them, before the app starts.
+Nothing about updating touches the network until you say so.
 
-**Schema upgrades happen automatically at startup**: new columns are added
-in place, your notes are never touched. You do not need to delete
-`data/memorymap.db` when updating.
+- **The installed app** is a snapshot. Turn on **Settings, About, Updates,
+  Check GitHub for a newer version** (off by default, like web search) and the
+  app tells you when a newer release exists. The **Check for updates** button
+  checks once even with the switch off. On a packaged Windows install, the
+  **Update automatically** button runs the official installer for you, and a
+  second switch, **Update automatically when a new version is found**, does it
+  without asking each time. With both off, nothing is downloaded or installed:
+  fetch a newer installer and run it over the old one.
+- **A launcher copy** asks once, the first time it starts, whether to check for
+  updates each time it launches. Answer yes and it pulls the latest code from
+  GitHub, then reinstalls dependencies when `requirements.txt` changes. Answer
+  no and it runs what is here. Settings, About, Updates can change the answer
+  and choose between finished releases and the newest changes. `--no-update`
+  skips the step for one launch.
+
+Schema upgrades happen on their own at startup: new columns are added in
+place, and your notes are not touched. You never need to delete
+`memorymap.db` to update.
 
 ## Uninstalling
 
-**Installed with the Windows installer:** Windows Settings → Apps → MemoryMap
-AI → Uninstall. That removes the program and its Start Menu entries and
-leaves your notes and settings in `%APPDATA%\MemoryMap AI` alone. At the
-end it asks whether to delete the optional packages you downloaded too (its
-`python-extras` folder, which can be large); a silent uninstall keeps them.
-To take your notes with you first, use Settings → Import & export.
+**The Windows installer:** Windows Settings, Apps, MemoryMap AI, Uninstall. That
+removes the program and its Start Menu entries and leaves your notes and
+settings in `%APPDATA%\MemoryMap AI`. It then asks whether to delete the
+optional packages you downloaded (the `python-extras` folder, which can be
+large); a silent uninstall keeps them. To take your notes with you first, use
+Settings, Import & export.
 
-**Run from a source checkout:** run `./uninstall.sh` (or `uninstall.bat`). It removes the virtual
-environment the launcher built, and the caches that came with it, and leaves
-your notes untouched unless you explicitly pass `--delete-data`. Start with
-`--dry-run`: it lists everything that would go, with a size against each,
-and changes nothing.
+**A source checkout:** run `./uninstall.sh` (or `uninstall.bat`). It removes the
+virtual environment the launcher built and its caches, and leaves your notes
+alone unless you pass `--delete-data`. Start with `--dry-run`: it lists
+everything that would go, with a size against each, and changes nothing.
 
 | Flag | What it does |
 | --- | --- |
@@ -269,15 +302,13 @@ and changes nothing.
 | `--yes` | Skip the "remove the virtual environment?" prompts |
 | `--help` | Show the list and exit |
 
-Two things it will not do. It stops rather than deleting under a MemoryMap
-that is still running, so close the app first. And `--delete-data` asks you
-to type DELETE at its own prompt, which `--yes` does not skip.
+It stops rather than delete under a MemoryMap that is still running, so close
+the app first. `--delete-data` asks you to type DELETE at its own prompt,
+which `--yes` does not skip.
 
-`--export` writes the same Markdown zip the Settings download does, one
-`.md` file per note with its metadata in the frontmatter, so you can take
-your notes with you before removing anything. The same export is available
-without the uninstaller: `python -m memorymap --export ~/my-notes.zip`.
+`--export` writes the same Markdown zip as Settings, Import & export: one `.md`
+file per note, with its metadata in the frontmatter. For a copy you can restore
+into the app, use Settings, Import & export, Export full backup instead.
 
-Optional extras (dictation, the desktop window, search-by-meaning) can be
-installed, reinstalled or removed individually and without touching a
-terminal at all, from **Settings → Packages**.
+The optional packages can be installed, reinstalled or removed one at a time,
+without a terminal, from **Settings, Packages**.

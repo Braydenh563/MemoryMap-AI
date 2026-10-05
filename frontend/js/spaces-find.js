@@ -299,6 +299,19 @@ function activeSpaceId() {
   return prefs.get("spaceId", null) || SPACE_ALL;
 }
 
+//: The two headers every hand-built request needs, for a call that has to
+//: replace `api()`'s defaults (a FormData body must not carry its JSON
+//: Content-Type). Passing a headers object holding only the token replaced
+//: the space header too, so a document imported through the chat's paperclip
+//: landed in the default space whatever space was open (audit 2026-10-05).
+//: `tests/test_auth_headers_space.py` fails on a literal that drops it.
+function authHeaders() {
+  return {
+    "X-Auth-Token": authToken(),
+    "X-Workspace-ID": activeSpaceId(),
+  };
+}
+
 function setActiveSpace(id) {
   localStorage.setItem("spaceId", id);
   // A full reload rather than a re-fetch of everything on the page. Every list,
@@ -763,41 +776,6 @@ async function saveTemplateList(templates) {
   renderTemplateSettings();
 }
 
-async function addTemplate() {
-  const name = $("template-name").value.trim();
-  const body = $("template-body").value.trim();
-  const status = $("template-status");
-  status.classList.remove("error");
-  if (!name || !body) {
-    status.classList.add("error");
-    status.textContent = "Both a name and a template body are needed.";
-    return;
-  }
-  // Only the entry being edited is dropped before the push, a genuine
-  // rename (or, for a built-in, the previous edit of it). A name that
-  // instead collides with a DIFFERENT saved template is left in place and
-  // the save is rejected server-side (§_validated_templates) rather than
-  // silently replacing someone else's saved text the way a same-named skill
-  // would. A new template given a built-in's name becomes that built-in's
-  // edit, which is what the name means now.
-  const custom = customTemplates().filter((t) => t.name !== editingTemplateName);
-  custom.push({
-    name,
-    description: $("template-description").value.trim(),
-    content: body,
-  });
-  const wasEditing = editingTemplateName;
-  try {
-    await saveTemplateList(custom);
-  } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
-    return;
-  }
-  stopEditingTemplate();
-  status.textContent = wasEditing ? `Updated “${name}”.` : `Saved “${name}”.`;
-}
-
 // One row in the Settings list, deliberately the same shape as `skillRow`
 // (same classes, same chip-then-blurb-then-actions layout) so the two panes
 // that manage a "named, user-editable list of markdown" read as one pattern
@@ -933,7 +911,7 @@ let finderCounts = {};
 //: chips count this query's hits, so they cannot say it.
 let finderIndexTotals = {};
 //: The corrected query the hits are for, if the route fixed a typo.
-let finderCorrected = "";
+const finderState = { corrected: "" };
 let finderTimer = null;
 let finderRun = 0;         // so a slow answer cannot paint over a newer one
 let finderActive = -1;     // which row the keyboard is on
@@ -1032,7 +1010,7 @@ async function finderSearch() {
   }
   surfaceRecovered(results);
   finderIndexTotals = body.counts || {};
-  finderCorrected = body.corrected || "";
+  finderState.corrected = body.corrected || "";
   const actions = finderKind && finderKind !== "action" ? [] : finderActions(query);
   const hits = finderKind === "action" ? [] : body.hits || [];
   //: **A chip counts what this search found, not what the index holds.**
@@ -1208,7 +1186,7 @@ function finderRender() {
   }
   if (summary) {
     summary.textContent = `${rows.length} result${rows.length === 1 ? "" : "s"}${
-      finderCorrected ? `, showing results for “${finderCorrected}”` : ""
+      finderState.corrected ? `, showing results for “${finderState.corrected}”` : ""
     }`;
   }
   const icons = Object.fromEntries(FINDER_KINDS.map((k) => [k.key, k.icon]));

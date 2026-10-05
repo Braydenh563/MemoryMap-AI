@@ -2049,22 +2049,17 @@ function aiStatusState() {
 // rendering fault. The ellipsis says "waiting" while perfectly still.
 const AI_STATUS_GLYPH = { idle: "…", ok: "✓", warn: "!", error: "✕", off: "" };
 
-//: What the last answer cost, in the dot's popup (WORLD_CLASS_PLAN row 31, item
-//: 99 (c)): the time, the model, and how much of its context window the prompt
-//: used. Set by a finished chat turn (`noteAiTurn`); nothing is invented before one.
-let lastAiTurn = null;
+//: **How the last answer went, on the AI dot** (WORLD_CLASS_PLAN, Placed
+//: 2026-09-09 item 99 (c)): the model, the time it took and how much of its
+//: window the question filled, set by the chat when a turn ends.
+let lastAnswerFacts = null;
 
-function noteAiTurn(turn) {
-  lastAiTurn = turn;
-  renderAiPill();
-}
-
-function aiTurnLine(turn) {
-  if (!turn) return "";
-  const used = turn.prompt > 0 && turn.context > 0
-    ? `, using ${turn.prompt.toLocaleString("en-US")} of ${turn.context.toLocaleString("en-US")} tokens of context (${Math.round((turn.prompt / turn.context) * 100)}%)`
-    : "";
-  return `Last answer: ${(turn.elapsedMs / 1000).toFixed(1)} s${turn.model ? ` on ${turn.model}` : ""}${used}.`;
+function lastAnswerLine() {
+  const facts = lastAnswerFacts;
+  if (!facts || !facts.ms) return "";
+  const parts = [facts.model, `${(facts.ms / 1000).toFixed(1)} s`];
+  if (facts.used && facts.window) parts.push(`${Math.min(100, Math.round((facts.used / facts.window) * 100))}% of its window`);
+  return `Last answer: ${parts.filter(Boolean).join(", ")}.`;
 }
 
 function renderAiPill() {
@@ -2083,8 +2078,8 @@ function renderAiPill() {
   $("ai-status-label").textContent = summary;
   // button.title = `${state.title}\n\n${state.detail}`;
   $("ai-status-title").textContent = state.title;
-  const lastTurn = aiTurnLine(lastAiTurn);
-  $("ai-status-detail").textContent = lastTurn ? `${state.detail}\n\n${lastTurn}` : state.detail;
+  const last = lastAnswerLine();
+  $("ai-status-detail").textContent = last ? `${state.detail} ${last}` : state.detail;
   renderChatActiveModelBadge();
   nudgeEmbeddingProblem();
 }
@@ -2344,15 +2339,6 @@ function toggleAiStatusPopup(force) {
   // the CSS hover rule would then have to fight. The stylesheet owns whether
   // the popup is shown; this only records that it has been pinned open.
   popup.classList.toggle("pinned", open);
-  //: In the phone's header the popup hangs from a dot that is not at the window's
-  //: left, and a message wider than the room ran off its edge (93 px at 390, found
-  //: measuring the last-answer line): nudged back inside by `translate`.
-  popup.style.translate = "";
-  if (open) {
-    const box = popup.getBoundingClientRect();
-    const shift = box.left < 8 ? 8 - box.left : box.right > innerWidth - 8 ? innerWidth - 8 - box.right : 0;
-    if (shift) popup.style.translate = `${shift}px`;
-  }
 }
 
 // One plain-English line: which search engine is active and whether it works.
@@ -2494,38 +2480,6 @@ function renderBackendPicker(status) {
   }
 }
 
-async function applyBackendChoice() {
-  const provider = $("llm-provider-select").value;
-  const baseUrl = $("llm-base-url").value.trim();
-  const note = $("llm-provider-status");
-  setLabel(note, "ph:spin Connecting…");
-  try {
-    const body = await apiJson("/models/provider", {
-      method: "POST",
-      body: JSON.stringify({ provider, base_url: baseUrl }),
-    });
-    backendFieldsDirty = false;
-    // The setting is saved either way, you set the address, then you start
-    // the server: so this reports what was found rather than treating an
-    // unreachable server as a rejected setting.
-    setLabel(
-      note,
-      body.reachable
-        ? `ph:plugs-connected Connected to ${body.base_url}: ${body.installed_models.length} model(s) available.`
-        : `ph:plugs Saved, but nothing is answering at ${body.base_url} yet. Start the server and this will light up.`
-    );
-    // This app's headline promise is that notes stay on the machine. A backend
-    // somewhere else is allowed, someone may want it, but never quietly, so
-    // the warning is loud and stays until the address changes.
-    const privacy = $("llm-privacy-warning");
-    privacy.textContent = body.privacy_note || "";
-    privacy.classList.toggle("hidden", !body.privacy_note);
-    await refreshModelStatus();
-  } catch (err) {
-    note.textContent = err.message;
-  }
-}
-
 function renderSettings() {
   const status = modelStatus;
   const ollamaLine = $("ollama-status");
@@ -2558,11 +2512,11 @@ function renderSettings() {
   const backend = backendLabel(status);
   //: The dot is the line's class, as on the search engine line under it,
   //: not a typed "●"/"○" beside a CSS dot: two alphabets for one signal.
-  //: Not running says why when the provider said (section 21 row 12): a wrong
-  //: address and an absent server are different advice.
+  //: Section 21 row 12: an address the person typed that nothing answers is
+  //: a different problem from a server that is not started, and says so.
   ollamaLine.textContent = status.ollama_running
     ? `${backend} is running`
-    : status.ollama_problem || `${backend} isn't running`;
+    : status.unreachable_hint || `${backend} isn't running`;
   ollamaLine.className = `status ${status.ollama_running ? "ok" : "off"}`;
   renderBackendPicker(status);
   const embeddingError = $("embedding-error");
@@ -2573,22 +2527,21 @@ function renderSettings() {
   //: Ollama embedding model. Said even when Ollama is not running, because
   //: the owner's report was exactly that case ("no nomic-embed-text
   //: suggested") and the button below only exists while it is.
+  //: The notice recipe's icon first (section 21 rows 1 and 2), then the line.
+  const say = (text) => setLabel(embeddingError, `ph:warning ${text}`);
   if (status.embedding_error && /^Search by meaning/.test(status.embedding_error)) {
-    setLabel(
-      embeddingError,
-      `ph:warning ${status.embedding_error}. ` +
-        (status.ollama_running
-          ? `Or switch the search engine to ${EMBEDDING_FALLBACK_MODEL} below: smaller, and offline.`
-          : `Or start Ollama and pick ${EMBEDDING_FALLBACK_MODEL} as the search engine: smaller, and offline.`)
+    say(
+      `${status.embedding_error}. ` +
+      (status.ollama_running
+        ? `Or switch the search engine to ${EMBEDDING_FALLBACK_MODEL} below: smaller, and offline.`
+        : `Or start Ollama and pick ${EMBEDDING_FALLBACK_MODEL} as the search engine: smaller, and offline.`)
     );
   } else if (status.embedding_error) {
-    //: Through `setLabel`: `.notice` carries its icon as a child element.
-    setLabel(
-      embeddingError,
-      `ph:warning Search engine problem: ${status.embedding_error}: semantic search is ` +
-        "falling back to keywords. Quick fix: switch the search engine below to " +
-        "an Ollama embedding model (download nomic-embed-text from the list), " +
-        "it runs fully offline. Full details in Settings → Logs."
+    say(
+      `Search engine problem: ${status.embedding_error}: semantic search is ` +
+      "falling back to keywords. Quick fix: switch the search engine below to " +
+      "an Ollama embedding model (download nomic-embed-text from the list), " +
+      "it runs fully offline. Full details in Settings → Logs."
     );
   }
   // The one-click version of the "quick fix" sentence above: only offered
@@ -2789,364 +2742,4 @@ function noticeTaskTransitions(running, history) {
   }
 }
 
-// --- optional extras (Settings → Optional extras) -----------------------------
-//
-// Each of these is a feature the app already offers and cannot run: the microphone
-// buttons need faster-whisper, the desktop window needs pywebview, search by
-// meaning needs sentence-transformers. The only way to switch one on was a
-// terminal and a README.
-//
-// The catalogue is the **server's**, and the install is chosen by id from an
-// allowlist there: the client never sends a package name. See
-// `core/extras.py` for why that is the whole security property.
-let extrasPollTimer = null;
-
-async function renderExtras() {
-  const list = $("extras-list");
-  if (!list) return;
-  //: Skeleton rows until the catalogue answers (INBOX 596, the owner: "some
-  //: skeleton loaders are missing"): only into an empty list, so the poll
-  //: that redraws it while a package installs never covers its rows.
-  const embedList = $("embed-models-list");
-  showSkeletons(list, 3, "li");
-  showSkeletons(embedList, 2, "li");
-  const body = await apiJson("/extras", { silent: true }).catch(() => null);
-  clearSkeletons(list);
-  if (!body) {
-    clearSkeletons(embedList);
-    return;
-  }
-
-  list.replaceChildren();
-  for (const extra of body.extras) {
-    const li = document.createElement("li");
-    li.className = "extras-row";
-    //: So a feature that needs this extra can open Settings at its row (Run
-    //: on a .py document opens `extra-row-pyodide`).
-    li.id = `extra-row-${extra.id}`;
-
-    const head = document.createElement("div");
-    head.className = "entry-meta";
-    // The name and its state chip are one flex item now, not two. Reported:
-    // "there are also still wrapping issues in the packages tab with the
-    // buttons, titles, and badges" -- the Tesseract row's title, its
-    // "Installed" chip and its Reinstall/Remove buttons are three
-    // independent flex children of one wrapping row, same shape as the
-    // chat answer header's own wrap bug (see .answer-title). A long label
-    // like "Search inside images (Tesseract OCR)" plus a chip plus two
-    // buttons does not fit one line in the settings modal, and letting the
-    // three fragment independently is what put them on three unrelated
-    // lines instead of two related ones (title+chip, then actions).
-    const title = document.createElement("span");
-    title.className = "entry-title";
-    const name = document.createElement("strong");
-    name.textContent = extra.label;
-    title.appendChild(name);
-    head.appendChild(title);
-
-    const actions = document.createElement("span");
-    actions.className = "entry-actions";
-    if (extra.installed) {
-      // A chip beside the name, not a bare word between the title and the
-      // buttons (reported: "poorly spaced and aligned and need affordance"):
-      // a chip says "state", a button says "press me". "Installed" means it
-      // works: the OCR row counts the Tesseract program too (core/extras.py).
-      const done = chip("ph:check-circle Installed", "item-label is-ok");
-      title.appendChild(done);
-      // And a way back out of the state detection cannot see. `find_spec`
-      // answers "is it there", not "is it sound", a half-finished download or
-      // a wheel built for the wrong platform imports and does not work, and
-      // this is the button for that. Quiet, because it is the rarer need.
-      // …except when nothing calls the package. Reinstalling a library the app
-      // never imports cannot fix anything, because there is nothing to fix.
-      if (!extra.unavailable) actions.appendChild(
-        smallButton("ph:arrow-clockwise Reinstall", `Reinstall ${extra.label}`, async () => {
-          const ok = await confirmDialog(
-            `Reinstall ${extra.label}?\n\nUse this if the feature is switched ` +
-              "on but not working, it downloads the package again from " +
-              "scratch rather than trusting what is already there."
-          );
-          if (!ok) return;
-          const result = await apiJson(`/extras/${extra.id}/install?reinstall=true`, {
-            method: "POST",
-          }).catch((e) => ({ started: false, message: e.message }));
-          toast(result.message, !result.started);
-          renderExtras();
-        })
-      );
-      actions.appendChild(
-        smallButton("ph:trash Remove", `Uninstall ${extra.label}`, async () => {
-          const ok = await confirmDialog(
-            `Remove ${extra.label}?\n\nThe feature it turns on stops working. ` +
-              "Only the package itself is removed, anything it pulled in is " +
-              "left alone, since something else may be using it."
-          );
-          if (!ok) return;
-          const result = await apiJson(`/extras/${extra.id}/uninstall`, {
-            method: "POST",
-          }).catch((e) => ({ started: false, message: e.message }));
-          toast(result.message, !result.started);
-          renderExtras();
-        })
-      );
-    } else if (extra.installing) {
-      const busy = document.createElement("div");
-      busy.className = "muted extras-install-progress";
-
-      const text = document.createElement("span");
-      text.className = "extras-install-progress-text";
-      text.textContent = extra.step || "Installing…";
-
-      const bar = document.createElement("progress");
-      bar.className = "task-progress extras-install-progress-bar";
-
-      busy.append(text, bar);
-      actions.appendChild(busy);
-    } else if (extra.unavailable) {
-      // Greyed out rather than hidden. The row still earns its place, it says
-      // what the app *will* be able to do, and hiding the two unfinished
-      // extras would be tidier and less honest. The reason travels with the
-      // button as its tooltip and is spelled out in full underneath, because a
-      // disabled control whose reason is not visible is just a broken one.
-      const blocked = smallButton("ph:download-simple Install", extra.unavailable, () => {});
-      blocked.disabled = true;
-      actions.appendChild(blocked);
-      // Same treatment as Installed, and for the same reason: it is the row's
-      // state, so it sits with the name rather than in the action column.
-      title.appendChild(chip("ph:hourglass Not ready yet", "item-label extras-soon"));
-    } else {
-      actions.appendChild(
-        smallButton("ph:download-simple Install", `Install ${extra.label}`, async () => {
-          //: A download extra (Pyodide, needle) is pinned files checked
-          //: against a written-down hash, and needs no restart; a pip extra
-          //: comes from PyPI and does. Both say where it comes from.
-          const ok = await confirmDialog(
-            extra.kind === "download"
-              ? `Install ${extra.label}?\n\n${extra.size}, downloaded once from ` +
-                `${extra.source} and checked against its pinned checksum. ` +
-                "After that it works offline, with no restart."
-              : `Install ${extra.label}?\n\n${extra.size}. It is downloaded from ` +
-                "PyPI to this machine, and MemoryMap needs a restart afterwards " +
-                "before the feature works."
-          );
-          if (!ok) return;
-          const result = await apiJson(`/extras/${extra.id}/install`, {
-            method: "POST",
-          }).catch((e) => ({ started: false, message: e.message }));
-          toast(result.message, !result.started);
-          renderExtras();
-        })
-      );
-    }
-    head.appendChild(actions);
-    li.appendChild(head);
-
-    const enables = document.createElement("p");
-    enables.className = "muted extras-enables";
-    enables.textContent = extra.enables;
-    li.appendChild(enables);
-
-    const meta = document.createElement("p");
-    meta.className = "muted extras-meta";
-    meta.textContent = [extra.packages.join(", "), extra.size, extra.licence].filter(Boolean).join(" · ");
-    li.appendChild(meta);
-
-    //: The language choice (ocr-engine.js); the buttons stay this row's own.
-    if (extra.id === "ocr" && extra.installed) ocrEngineMount(li.appendChild(document.createElement("div")), { settings: true });
-
-    // Said before the button is pressed, not after: "this installs the library
-    // but nothing uses it yet" is exactly the sort of thing that turns into a
-    // bug report if it is discovered afterwards.
-    if (extra.caveat) {
-      const caveat = document.createElement("p");
-      caveat.className = "muted extras-caveat";
-      setLabel(caveat, `ph:warning ${extra.caveat}`);
-      li.appendChild(caveat);
-    }
-    // The reason the button is grey, in full. Same shape as the caveat because
-    // it is the same kind of sentence, the difference is that this one is
-    // also enforced by `core/extras.py`, so it is a fact about the app rather
-    // than advice about a choice.
-    if (extra.unavailable) {
-      const why = document.createElement("p");
-      why.className = "muted extras-caveat";
-      setLabel(why, `ph:traffic-cone ${extra.unavailable}`);
-      li.appendChild(why);
-    }
-    list.appendChild(li);
-  }
-
-  $("extras-status").textContent = body.running
-    ? body.step
-    : body.outcome === "completed"
-      ? `${body.step}`
-      : body.outcome === "failed"
-        ? `Install failed. ${body.step}`
-        : "";
-  const logWrap = $("extras-log-wrap");
-  logWrap.classList.toggle("hidden", !body.log.length);
-  $("extras-log").textContent = body.log.join("\n");
-
-  // Poll only while something is running, and only while the panel is open.
-  clearTimeout(extrasPollTimer);
-  if (body.running && settingsModalOpen() && currentSettingsSection === "extras") {
-    extrasPollTimer = setTimeout(renderExtras, 1500);
-  }
-  renderEmbedModels();
-
-  // The model-size choice only means anything once faster-whisper is
-  // actually there to load one.
-  const voiceExtra = body.extras.find((e) => e.id === "voice");
-  const wrap = $("voice-model-wrap");
-  if (wrap) {
-    wrap.classList.toggle("hidden", !voiceExtra?.installed);
-    if (voiceExtra?.installed) {
-      if (!prefsCache) prefsCache = await apiJson("/preferences").catch(() => null);
-      $("voice-model-select").value = prefsCache?.voice_model || "base";
-    }
-  }
-}
-
-// --- embedding models, on the same screen as the packages ------------------------
-//
-// Reuses `.extras-row` deliberately. These are two lists of "things downloaded
-// to this machine, with a way to undo it", and giving the second one its own
-// row style would make them look like different kinds of thing when the whole
-// argument for putting them together is that they are not.
-let embedPollTimer = null;
-
-async function renderEmbedModels() {
-  const list = $("embed-models-list");
-  if (!list) return;
-  showSkeletons(list, 2, "li");
-  const body = await apiJson("/embedding-models", { silent: true }).catch(() => null);
-  clearSkeletons(list);
-  if (!body) return;
-
-  list.replaceChildren();
-  for (const model of body.models) {
-    const li = document.createElement("li");
-    li.className = "extras-row";
-
-    const head = document.createElement("div");
-    head.className = "entry-meta";
-    //: **The name and this row's status are one column; the buttons are the
-    //: other.** The same shape the packages list above already uses, and for
-    //: the reason recorded there (INBOX 107c): `.extras-row .entry-meta` is
-    //: `flex-wrap: nowrap` so the buttons never drop below the title, which
-    //: means whatever cannot shrink pushes the row off its own edge instead.
-    //:
-    //: This list was built the other way, with "✓ 1015 KB on disk" inside
-    //: `.entry-actions`, which is `flex: 0 0 auto`. Measured at 820px: the
-    //: chip 164px plus Re-download 122px plus Remove 91px made a 390px block
-    //: that would not shrink, against 458px of row holding an 80px name, so
-    //: Settings, Extras scrolled sideways (496 against 492). The status is
-    //: not an action; moving it into `.entry-title`, which is the shrinking
-    //: column and wraps inside itself, leaves the buttons 219px and lets the
-    //: name and the chip take the rest.
-    const title = document.createElement("div");
-    title.className = "entry-title";
-    const name = document.createElement("strong");
-    name.textContent = model.label + (model.default ? " · default" : "");
-    title.appendChild(name);
-    head.appendChild(title);
-
-    const actions = document.createElement("span");
-    actions.className = "entry-actions";
-    if (model.downloading) {
-      const busy = document.createElement("span");
-      busy.className = "muted";
-      setLabel(busy, "ph:spin Downloading…");
-      title.appendChild(busy);
-    } else if (model.installed) {
-      const done = document.createElement("span");
-      done.className = "chip item-label is-ok";
-      setLabel(done, `ph:check ${model.on_disk} on disk`);
-      title.appendChild(done);
-      // The same argument the packages' Reinstall makes: "the directory is
-      // there" is not "the model is sound". A download interrupted halfway
-      // leaves a snapshot that loads and produces nonsense, and fetching over
-      // the top of it resumes the same broken files, so this removes first.
-      if (body.can_download) {
-        actions.appendChild(
-          smallButton("ph:arrow-clockwise Re-download", `Fetch ${model.label} again from scratch`, async () => {
-            if (!(await confirmDialog(
-              `Download ${model.label} again?\n\nThe copy on this machine is ` +
-                "deleted first, so this is the fix for one that arrived broken."
-            ))) return;
-            const result = await apiJson(
-              `/embedding-models/${model.id}/download?reinstall=true`,
-              { method: "POST" }
-            ).catch((e) => ({ started: false, message: e.message }));
-            toast(result.message, !result.started);
-            renderEmbedModels();
-          })
-        );
-      }
-      actions.appendChild(
-        smallButton("ph:trash Remove", `Delete ${model.label} from this machine`, async () => {
-          if (!(await confirmDialog(
-            `Remove ${model.label}?\n\nIt frees ${model.on_disk}. Nothing is ` +
-              "lost that a download cannot bring back, but if this is the " +
-              "model in use, searching falls back to keywords until it returns."
-          ))) return;
-          const result = await apiJson(`/embedding-models/${model.id}`, {
-            method: "DELETE",
-          }).catch((e) => ({ removed: false, message: e.message }));
-          toast(result.message, !result.removed);
-          renderEmbedModels();
-        })
-      );
-    } else {
-      const get = smallButton("ph:download-simple Download", `Fetch ${model.label}`, async () => {
-        if (!(await confirmDialog(
-          `Download ${model.label}?\n\n${model.size}, fetched from HuggingFace ` +
-            "to this machine. It is the one thing on this screen that needs " +
-            "the internet."
-        ))) return;
-        const result = await apiJson(`/embedding-models/${model.id}/download`, {
-          method: "POST",
-        }).catch((e) => ({ started: false, message: e.message }));
-        toast(result.message, !result.started);
-        renderEmbedModels();
-      });
-      // Without huggingface_hub there is nothing to download *with*, so the
-      // button says so rather than failing on an ImportError nobody can read.
-      if (!body.can_download) {
-        get.disabled = true;
-        get.title =
-          "Needs the huggingface_hub library, it arrives with “Search by " +
-          "meaning” in the list above.";
-      }
-      actions.appendChild(get);
-    }
-    head.appendChild(actions);
-    li.appendChild(head);
-
-    const about = document.createElement("p");
-    about.className = "muted extras-enables";
-    about.textContent = model.about;
-    li.appendChild(about);
-
-    const meta = document.createElement("p");
-    meta.className = "muted extras-meta";
-    meta.textContent = `${model.repo} · ${model.size}`;
-    li.appendChild(meta);
-    list.appendChild(li);
-  }
-
-  // Where they are, in as many words. "Somewhere in your home directory" is
-  // the answer people are given everywhere else and it is the reason this
-  // screen had to exist.
-  $("embed-models-cache").textContent = `Kept in ${body.cache}`;
-  $("embed-models-status").textContent = body.running
-    ? body.step
-    : body.outcome
-      ? body.step
-      : "";
-
-  clearTimeout(embedPollTimer);
-  if (body.running && settingsModalOpen() && currentSettingsSection === "extras") {
-    embedPollTimer = setTimeout(renderEmbedModels, 1500);
-  }
-}
+// --- optional extras and embedding models: Settings, Packages, is settings-packages.js (lazy, INBOX 595) ---

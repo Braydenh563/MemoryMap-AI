@@ -35,6 +35,7 @@ import errno
 import logging
 import os
 import shutil
+import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
@@ -87,6 +88,56 @@ def total_bytes(path: str | os.PathLike[str]) -> int | None:
         except (OSError, ValueError):
             continue
     return None
+
+
+#: How long a directory's measured size is believed (BACKLOG section 26, "what
+#: is taking the room"). `GET /storage` is read when Settings opens, and a walk
+#: of an uploads folder with tens of thousands of files is not something to do
+#: on every open; a minute is far under how fast a person can change the answer.
+DIR_SIZE_TTL_SECONDS = 60.0
+#: A walk gives up at this many entries and reports what it has, so a data
+#: folder somebody symlinked a whole disk into cannot hold a request for minutes.
+DIR_SIZE_MAX_ENTRIES = 200_000
+
+_dir_sizes: dict[str, tuple[float, int]] = {}
+
+
+def dir_bytes(path: str | os.PathLike[str], ttl: float = DIR_SIZE_TTL_SECONDS) -> int:
+    """Bytes in every regular file under `path`, cached for `ttl` seconds.
+
+    Links are not followed (a link out of the data folder is not this
+    notebook's weight, and a link back into it would count twice or loop), a
+    folder that cannot be read counts as nothing rather than failing the page,
+    and a folder that does not exist is 0. `ttl=0` always measures afresh.
+    """
+    key = str(path)
+    now = time.monotonic()
+    cached = _dir_sizes.get(key)
+    if cached and ttl > 0 and now - cached[0] < ttl:
+        return cached[1]
+    total = seen = 0
+    stack = [key]
+    while stack and seen < DIR_SIZE_MAX_ENTRIES:
+        folder = stack.pop()
+        try:
+            with os.scandir(folder) as entries:
+                for entry in entries:
+                    seen += 1
+                    try:
+                        if entry.is_symlink():
+                            continue
+                        if entry.is_dir(follow_symlinks=False):
+                            stack.append(entry.path)
+                        elif entry.is_file(follow_symlinks=False):
+                            total += entry.stat(follow_symlinks=False).st_size
+                    except OSError:
+                        # A file that vanished between listing and stat.
+                        continue
+        except OSError:
+            # An unreadable or missing folder weighs nothing here.
+            continue
+    _dir_sizes[key] = (now, total)
+    return total
 
 
 def out_of_space(exc: BaseException | None) -> bool:

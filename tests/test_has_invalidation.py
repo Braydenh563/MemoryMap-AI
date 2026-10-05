@@ -96,3 +96,29 @@ def test_the_three_measured_rules_stay_rewritten():
 def test_no_new_unkeyed_rule_after_a_has():
     found = offenders()
     assert len(found) <= CEILING, "\n".join(found)
+
+
+#: Classes so common that a `:has()` keyed on one of them is keyed on nothing:
+#: `.doc-ai-card > #doc-ai-verb label:has(input:checked) > .ph` restyled every
+#: icon on the page, 4,700 on one Tab on a 301-topic map (FEAT-02's 100ms gate,
+#: `scratchpad/ui-sweeps/mmd2-1005-maptrace.js` with WHY=1).
+UBIQUITOUS = {"ph", "ph-lead", "ghost", "small", "icon-only", "card", "hidden", "muted"}
+
+
+def test_no_has_is_keyed_only_on_a_class_everything_wears():
+    found = []
+    for path in CSS:
+        text = re.sub(r"/\*.*?\*/", "", path.read_text(encoding="utf-8"), flags=re.S)
+        for prelude in re.findall(r"([^{}]+)\{", text):
+            if ":has(" not in prelude or prelude.strip().startswith("@"):
+                continue
+            for selector in _split_top(prelude, ","):
+                selector = " ".join(selector.split())
+                last = _rightmost(selector)
+                if ":has(" not in selector or ":has(" in last:
+                    continue
+                keyed = _outside_parens(re.sub(r"::?[\w-]+", "", last))
+                classes = set(re.findall(r"\.([\w-]+)", keyed))
+                if classes and classes <= UBIQUITOUS and "#" not in keyed:
+                    found.append(f"{path.name}: {selector}")
+    assert not found, "\n".join(found)

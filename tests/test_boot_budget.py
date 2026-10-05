@@ -34,7 +34,20 @@ STYLE = re.compile(r'<link[^>]*rel="stylesheet"[^>]*href="(/[^"?]+)(?:\?[^"]*)?"
 #: the largest of the app's, avatars.js, 91,517), 12 stylesheets 179,712.
 #: Before the strip the audit measured 1,384 KB of boot JS and 810 KB of CSS.
 #: Plus 2%.
-BOOT_JS_CAP = 705_600
+#: 2026-10-05, audit FE-07: d3 left the boot (it comes with the graph and
+#: library bundles) and the template picker and a few guards left app.js:
+#: 37 scripts, 589,299 bytes. Plus 2%.
+#: 2026-10-05, the integration branch after search-boot-1005 merged: 590,758
+#: (the note edit form, the full backup's two handlers and seven other
+#: one-caller helpers moved into the lazy files that call them, and 63
+#: same-bundle guards dropped). The measure rounded up to the next 100.
+#: After claude/notes-flow-rebuild 143b240 merged (616's form, skeletons):
+#: 589,955, with the embedding models list, the edit form's close and the
+#: Settings bar's New listener moved to their lazy files.
+#: And after 88227db (621, 622): 589,719.
+#: And after the Atlas merge (f22bd43), with the companion's menu and
+#: enlarged view in companion-menu.js (lazy): 589,093.
+BOOT_JS_CAP = 589_100
 BOOT_CSS_CAP = 183_300
 
 

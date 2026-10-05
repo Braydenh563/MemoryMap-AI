@@ -103,122 +103,6 @@ document.addEventListener(
   },
   true
 );
-// Managed SearXNG: show what's there, and start/stop it on request.
-async function refreshSearxngHost() {
-  const badge = $("searxng-host-state");
-  const start = $("searxng-start");
-  const stop = $("searxng-stop");
-  const info = await apiJson("/websearch/searxng/status").catch(() => null);
-  if (!info) {
-    badge.textContent = "Unknown";
-    return;
-  }
-  // No usable backend: nothing we can drive, so say so plainly. "Docker is
-  // installed but not started" is a different problem from "Docker isn't
-  // installed", and the detail from the server distinguishes them.
-  if (!info.backend) {
-    badge.textContent = info.docker_installed ? "Docker not started" : "Not available";
-    badge.title = info.detail || "";
-    start.disabled = true;
-    stop.disabled = true;
-    $("searxng-host-status").classList.remove("error");
-    $("searxng-host-status").textContent = info.detail || "";
-    return;
-  }
-  // Which way it'll be run, so "a few minutes" isn't a surprise.
-  $("searxng-backend").textContent =
-    info.backend === "docker"
-      ? "Docker is installed, so it runs as a container."
-      : "Docker isn't installed, so it runs from its own virtualenv instead. " +
-        "The first start takes a few minutes to download and install.";
-
-  // An install is minutes long and runs in the background, poll it so the
-  // step text keeps moving instead of the screen looking stuck.
-  const bar = $("searxng-install-progress");
-  if (info.installing) {
-    const stage = info.install_stage || 1;
-    const stages = info.install_stages || 5;
-    badge.textContent = `Installing… ${stage}/${stages}`;
-    badge.className = "chip";
-    start.disabled = true;
-    stop.disabled = true;
-    $("searxng-host-status").classList.remove("error");
-    $("searxng-host-status").textContent =
-      info.install_step || "Setting SearXNG up…";
-    // Reported: "the searxng reinstall doesn't have a progress bar so idk if
-    // it has frozen or is working". The bar moves through the five stages;
-    // the line under it is what pip is printing right now, which is what
-    // actually distinguishes slow from stuck.
-    bar.classList.remove("hidden");
-    if (typeof info.install_progress === "number") {
-      bar.removeAttribute("data-indeterminate");
-      bar.value = info.install_progress;
-    } else {
-      bar.setAttribute("data-indeterminate", "1");
-      bar.removeAttribute("value");
-    }
-    const said = (info.install_log || []).at(-1);
-    $("searxng-install-line").textContent = said || "";
-    clearTimeout(refreshSearxngHost.timer);
-    refreshSearxngHost.timer = setTimeout(refreshSearxngHost, 2000);
-    return;
-  }
-  bar.classList.add("hidden");
-  $("searxng-install-line").textContent = "";
-  if (info.install_error) {
-    $("searxng-host-status").classList.add("error");
-    $("searxng-host-status").textContent = info.install_error;
-  } else if (info.detail) {
-    // e.g. "Docker isn't running, so it'll be set up in a virtualenv", an
-    // explanation of what will happen, not a failure.
-    $("searxng-host-status").classList.remove("error");
-    $("searxng-host-status").textContent = info.detail;
-  } else {
-    // Always say something current. This line used to keep whatever the last
-    // poll wrote, so a finished install left "Installing SearXNG…" sitting
-    // under a badge reading "Stopped", reported with a photo, and the
-    // install had in fact completed.
-    $("searxng-host-status").classList.remove("error");
-    $("searxng-host-status").textContent =
-      info.state === "stopped"
-        ? "Installed and ready: press Start SearXNG."
-        : info.state === "running"
-          ? "Running."
-          : "";
-  }
-  const running = info.state === "running" && info.responding;
-  badge.textContent = running
-    ? "Running"
-    : info.state === "running"
-      ? "Starting…"
-      : info.state === "stopped"
-        ? "Stopped"
-        : "Not installed";
-  badge.className = `chip item-label${running ? " is-ok" : ""}`;
-  start.disabled = running;
-  stop.disabled = info.state === "absent";
-  setLabel(start, info.state === "absent" ? "ph:play Install & start" : "ph:play Start SearXNG");
-  // Keep polling while it's starting, so "Starting…" can't stick forever with
-  // no way to tell whether anything is still happening.
-  if (info.state === "running" && !info.responding) {
-    clearTimeout(refreshSearxngHost.timer);
-    refreshSearxngHost.timer = setTimeout(refreshSearxngHost, 3000);
-  }
-  // What the instance itself printed. Only worth showing when it is not
-  // running happily: when it is, its own log is just noise.
-  const fold = $("searxng-output-fold");
-  const said = (info.output || "").trim();
-  fold.classList.toggle("hidden", !said || running);
-  if (said) $("searxng-output").textContent = said;
-
-  // The port, answered rather than suggested. Only three states matter, and
-  // only one of them is the user's problem to go and solve.
-  const port = info.port;
-  const portLine = $("searxng-port");
-  portLine.textContent = port ? port.detail : "";
-  portLine.classList.toggle("error", Boolean(port && !port.free && !port.held_by_searxng));
-}
-
 $("draft-model").addEventListener("click", () => openFeatureModelSheet("writing"));
 wireFeatureModelSelects();
 
@@ -616,7 +500,7 @@ document.addEventListener("keydown", (e) => {
       return;
     }
     for (const [id, def] of Object.entries(shortcuts)) {
-      if ((id === "undo" || id === "redo") && inTextField) continue;
+      if ((id === "undo" || id === "redo" || id === "pasteNote") && inTextField) continue;
       //: INBOX 321: on an open board the same chord duplicates the selection.
       //: And an editor that already answered it keeps it: the documents
       //: editor binds Ctrl+D to "select the next match" (CodeMirror's search
@@ -938,6 +822,10 @@ const DEFAULT_SHORTCUTS = {
   help: { keys: "?", label: "Show this shortcuts list" },
   newNote: { keys: "Ctrl+Shift+N", label: "Start a new note" },
   quickNote: { keys: "Alt+N", label: "Quick note, saved without leaving the page" },
+  //: WORLD_CLASS_PLAN, Placed 2026-09-09 item 99 (d): the fastest capture on
+  //: a desktop. Not in a text box, where the chord is the browser's own
+  //: "paste as plain text" and is left to it.
+  pasteNote: { keys: "Ctrl+Shift+V", label: "Save what you copied as a new note" },
   newDocument: { keys: "Ctrl+Shift+D", label: "Start a new document" },
   //: WORLD_CLASS_PLAN D6. Opens today's page wherever it is (a note or a
   //: document titled with the day), or starts one in the composer. Not while a
@@ -1145,137 +1033,13 @@ function closeOverlaysForChord() {
 //: second `m` all mean "not this". `role="status"` so a screen reader hears it.
 let chordGuideTimer = null;
 
-function chordGuideEl() {
-  let guide = document.getElementById("chord-guide");
-  if (!guide) {
-    guide = document.createElement("div");
-    guide.id = "chord-guide";
-    guide.className = "chord-guide hidden";
-    guide.setAttribute("role", "status");
-    guide.setAttribute("aria-live", "polite");
-    document.body.appendChild(guide);
-  }
-  return guide;
-}
-
-//: `entries` is `[key, label, run, icon, here]`. The `run` comes from the same
-//: two tables the keyboard reads (`TAB_JUMP_KEYS`, `CHORD_ACTIONS`), so a row
-//: and its key are two doors onto one action rather than two copies of one.
-//: **The rich picker's row** (INBOX 484, the owner: "more professional, more
-//: modern and more impressive"): the icon tile, the name, and the key in the
-//: keycap column at the right edge, the "/" menu's own anatomy, as buttons
-//: because a pointer can pick one too.
-function chordGuideGroup(title, entries) {
-  const group = document.createElement("section");
-  group.className = "chord-guide-group";
-  const heading = document.createElement("h3");
-  heading.className = "chord-guide-title";
-  heading.textContent = title;
-  const list = document.createElement("div");
-  list.className = "chord-guide-list rich-picker-list";
-  for (const [key, label, run, icon, here] of entries) {
-    const row = richPickerRow({ tag: "button", role: null, icon, label, keys: key, className: "chord-guide-row" });
-    row.title = `${label} (m then ${key})`;
-    //: The tab you are on is marked, so "Go to" also says where you are.
-    if (here) {
-      row.classList.add("is-here");
-      row.setAttribute("aria-current", "page");
-    }
-    row.addEventListener("click", () => {
-      //: Disarmed first: the chord has been answered, and leaving it armed
-      //: would make the next letter you type navigate somewhere.
-      tabJumpArmedAt = 0;
-      hideChordGuide();
-      //: The keyboard branch's two lines, in its order: leave whatever is over
-      //: the page, or the destination lands behind a modal holding focus.
-      closeOverlaysForChord();
-      run();
-    });
-    list.appendChild(row);
-  }
-  group.append(heading, list);
-  return group;
-}
-
+//: The panel's builders (`chordGuideEl`, `chordGuideGroup`, `chordGuideKey`,
+//: `showTabJumpHint`) are in chord-guide.js, loaded after boot; see its header.
 function hideChordGuide() {
   const guide = document.getElementById("chord-guide");
   if (!guide) return;
   window.clearTimeout(chordGuideTimer);
   guide.classList.add("hidden");
-}
-
-//: A key drawn as a key, for the head and the hint line.
-function chordGuideKey(text) {
-  const kbd = document.createElement("kbd");
-  kbd.className = "chord-guide-key";
-  kbd.textContent = text;
-  return kbd;
-}
-
-function showTabJumpHint() {
-  const guide = chordGuideEl();
-  //: **The head: what the app is waiting for, and the way out** (the dialog
-  //: head's shape: the title, then the Close at the right). It is a mode, not
-  //: a menu, so it says so: "m" is down, the next key decides.
-  const head = document.createElement("div");
-  head.className = "chord-guide-head";
-  const title = document.createElement("p");
-  title.className = "chord-guide-lead";
-  const words = document.createElement("span");
-  words.textContent = "then a key";
-  title.append(chordGuideKey("m"), words);
-  //: Asked for directly: "press m again to close it or an x close button".
-  //: In the head now rather than the window's corner, beside what it closes.
-  const close = document.createElement("button");
-  close.type = "button";
-  close.className = "icon-only ghost small dialog-head-btn chord-guide-close";
-  close.title = "Close (Esc)";
-  close.setAttribute("aria-label", "Close");
-  setLabel(close, "ph:x");
-  close.addEventListener("click", () => {
-    tabJumpArmedAt = 0;
-    hideChordGuide();
-  });
-  head.append(title, close);
-  //: The hint line: the three ways out of the mode, said once at the foot.
-  const hint = document.createElement("p");
-  hint.className = "chord-guide-hint";
-  hint.append("Press a key or pick a row. ", chordGuideKey("m"), " or ", chordGuideKey("Esc"), " closes.");
-  //: **One panel on the popover shell** (the owner's screenshot, 2026-09-23:
-  //: pills drawn straight over the dashboard's text read through it). The
-  //: tab's icon is read off its own button in the tab bar, so the two cannot
-  //: disagree.
-  const tabIcon = (tab) => {
-    const glyph = document.querySelector(`#tab-btn-${tab} i.ph`);
-    const name = glyph && [...glyph.classList].find((c) => c.startsWith("ph-"));
-    return name ? `ph:${name.slice(3)}` : "ph:arrow-right";
-  };
-  const current = document.querySelector('[role="tab"][data-tab].active')?.dataset.tab;
-  const panel = document.createElement("div");
-  panel.className = "chord-guide-panel";
-  panel.setAttribute("role", "group");
-  panel.setAttribute("aria-label", "m, then a key");
-  const body = document.createElement("div");
-  body.className = "chord-guide-body";
-  body.append(
-    chordGuideGroup(
-      "Go to",
-      Object.entries(TAB_JUMP_KEYS).map(([key, tab]) => [
-        key,
-        tab[0].toUpperCase() + tab.slice(1),
-        () => switchTab(tab),
-        tabIcon(tab),
-        tab === current,
-      ])
-    ),
-    chordGuideGroup(
-      "Do",
-      Object.entries(CHORD_ACTIONS).map(([key, action]) => [key, action.label, action.run, action.icon])
-    )
-  );
-  panel.append(head, body, hint);
-  guide.replaceChildren(panel);
-  guide.classList.remove("hidden");
 }
 
 function saveShortcutOverrides() {
@@ -1346,6 +1110,7 @@ function runShortcut(id) {
     },
     newNote: () => startNewNote(),
     quickNote: () => openQuickNote(),
+    pasteNote: () => pasteClipboardAsNote(),
     newDocument: () => {
       switchTab("documents");
       createDocument();
@@ -1418,6 +1183,41 @@ function runShortcut(id) {
     navigateForward: () => stepTabHistory(1),
   };
   actions[id]?.();
+}
+
+//: The clipboard's text as a new note, filed by Atlas like any capture
+//: (`createNoteSafely`, the quick note's path, so a note pasted while the
+//: server is gone waits in the outbox rather than being lost). Undo bins it.
+async function pasteClipboardAsNote() {
+  let text = "";
+  try {
+    text = ((await navigator.clipboard.readText()) || "").trim();
+  } catch {
+    toast("Couldn't read the clipboard here. Paste into Capture instead.", true);
+    return;
+  }
+  if (!text) return toast("There is no text on the clipboard to save.", true);
+  const result = await createNoteSafely({ content: text }).catch((error) => {
+    toast(error.message, true);
+    return null;
+  });
+  if (!result) return;
+  if (result.queued) return toast("Saved here; it is sent when the app's server is back.");
+  const id = result.saved.id;
+  refreshEntries([id]);
+  const bin = async () => {
+    await apiJson(`/entries/${id}`, { method: "DELETE" });
+    refreshEntries([id]);
+  };
+  const back = async () => {
+    await apiJson(`/entries/${id}/restore`, { method: "POST" });
+    refreshEntries([id]);
+  };
+  const action = pushUndo("Pasted a note", bin, back);
+  toastAction("Saved what you copied as a new note.", "Undo", async () => {
+    settleUndoFromToast(action);
+    await bin();
+  });
 }
 
 function resetShortcuts() {
@@ -2137,7 +1937,7 @@ async function commitCaptureImages() {
     form.append("file", image.file);
     const uploaded = await apiJson("/media/upload", {
       method: "POST",
-      headers: { "X-Auth-Token": authToken() },
+      headers: authHeaders(),
       body: form,
     });
     urlByKey[image.key] = uploaded.url;
@@ -2247,7 +2047,7 @@ async function handleFileUpload(textarea, files) {
     try {
       const res = await apiJson("/media/upload", {
         method: "POST",
-        headers: { "X-Auth-Token": authToken() },
+        headers: authHeaders(),
         body: formData
       });
       // Image syntax (`![]()`) unconditionally became an <img> at render

@@ -28,14 +28,14 @@ BACKLOG; nothing was dropped in the move.
 Eleven plans and a handful of reference files live under `docs/roadmap/`.
 Work from the plans, in this order; look things up in the rest.
 
-| Work from these (in this order) | Where it stands, 2026-10-04 |
+| Work from these (in this order) | Where it stands, 2026-10-05 |
 | --- | --- |
-| [roadmap/HANDOVER.md](roadmap/HANDOVER.md) | The standing orders, the "Now" line (2026-10-03 night: Library pages, job last-run status, note making, the zoom sweep merged; UI consistency pass 2 running), and the plan-progress table. Read first, every session. |
+| [roadmap/HANDOVER.md](roadmap/HANDOVER.md) | The standing orders, the "Now" line (what is in flight and what its gate is) and the plan-progress table. Read first, every session. |
 | [roadmap/INBOX.md](roadmap/INBOX.md) | The owner's open reports, each with an owner. Bugs first. Under twenty items by lint. |
 | [roadmap/agent-remaining/OPEN.md](roadmap/agent-remaining/OPEN.md) | Every open item the agent files left, by surface, with file, id and next step. The finished files are in `roadmap/archive/agent-remaining/`. |
 | [roadmap/WORLD_CLASS_PLAN.md](roadmap/WORLD_CLASS_PLAN.md) | The consistency contract (all lints), the competitor gap table, the backend moves and inventions, the security review, section 18's horizon. Every row was read against the code on 2026-09-24 (INBOX 399): the built ones are in HISTORY, each open row carries a "State 2026-09-24" line, and the ranked list of 38 is at the top of section 8. Built since: F3 (`semantic_search` on a matrix), `similar_pairs` cached, S1 to S3, S5 and S6's redirect half; the dev-only llama.cpp runner (section 9, `scratchpad/llama-dev.sh`). Open at the top: Brief 15's LAN hardening tail, B2 durable jobs, D2's connections rail, I1's night runs, chunk vectors then I6's evidence cards. |
-| [roadmap/SESSION_BRIEFS.md](roadmap/SESSION_BRIEFS.md) | The operating protocol and one brief per session (Briefs 1 to 34; the last is Brief 34, characters, faces, the companion and Atlas). |
-| [roadmap/UI_MODERNISATION_PLAN.md](roadmap/UI_MODERNISATION_PLAN.md) | Phases 0 to 11 built (Phase 8's docks re-measured under the ceiling, the phone done properly on 2026-09-20), plus the Settings information architecture (INBOX 444) and the 2026-10-03 consistency passes. Open: Phase 10's `.glass-clear`; the screenshot set (README remake, 2026-10-04) and consistency pass 2 (the UI round, INBOX 464) are done. |
+| [roadmap/SESSION_BRIEFS.md](roadmap/SESSION_BRIEFS.md) | The operating protocol and one brief per session (Briefs 1 to 34; the last is Brief 34, characters, faces, the companion and Atlas; Brief 33 and Brief 32 sit in the file out of numeric order). |
+| [roadmap/UI_MODERNISATION_PLAN.md](roadmap/UI_MODERNISATION_PLAN.md) | Phases 0 to 11 built (Phase 8's docks re-measured under the ceiling, the phone done properly on 2026-09-20, Phase 10's clear glass variant built on 2026-10-04 as the `--glass-filter-clear` token), plus the Settings information architecture (INBOX 444) and the 2026-10-03 consistency passes. The README screenshot set was retaken on 2026-10-04. |
 | [roadmap/DOCUMENTS_PLAN.md](roadmap/DOCUMENTS_PLAN.md) | Phases 0 to 8 built (CodeMirror 6 as the surface, blocks, the connected document, review and history, export, one editor everywhere), plus the slash menus as one system (section 18) and boards and maps as objects in a note (section 19). Open: the Phase 2, 6 and 8 tails, the engine's three deliberate omissions, the bottom formatting bar on a phone. |
 | [roadmap/GRAPH_PLAN.md](roadmap/GRAPH_PLAN.md) | Phases 1 to 6 built, the minimap (6b) and the local pane included, and the 2026-10-03 shape work (categories gather, the unlinked on a ring). Open: the `?since=` cursor (nothing polls `/graph` yet) and the local pane's Show switches, left by decision. |
 | [roadmap/MINDMAP_PLAN.md](roadmap/MINDMAP_PLAN.md) | Phases 1 to 5 built, and section 12's controls and structure; section 13's render pass met its gate at 500 topics. Open: an outline view beside the map (L), a map-level branch palette and font (13e), a notebook-note node that shows and edits its text (12.2 item 5's second half), and the owner's calls on middle-button and right-drag pan; tasks, notes behind a topic and branch numbering were built on 2026-10-04. |
@@ -124,10 +124,10 @@ no new plan documents; every claim carries a number from a sweep.
 - `pytest tests/`: 6,700+ tests, fully offline, no Ollama needed
   (`pytest.ini` sets `pythonpath = src`); ten to fifteen minutes, so the
   routine local gate is `bash scripts/gate.sh --changed` and CI runs the rest.
-- `ruff check .` — matches CI.
-- `node --check frontend/js/<file>.js` — the frontend is plain JS with no bundler (61 files in `frontend/js/`); run it on each file you touch.
-- **Install non-ML deps by hand** (see root `CLAUDE.md`) — do not install
-  `torch` or `sentence-transformers`; both have failed to install cleanly in
+- `ruff check .`: matches CI.
+- `node --check frontend/js/<file>.js`: the frontend is plain JS with no bundler (61 files in `frontend/js/`), so run it on each file you touch.
+- **Install non-ML deps by hand** (see root `CLAUDE.md`); do not install
+  `torch` or `sentence-transformers`, since both have failed to install cleanly in
   past sessions and the suite passes without them (semantic search falls
   back to keywords; tests that care use a fake embedding backend).
 - **Drive the app in a browser before claiming a UI change works.** Chromium
@@ -135,17 +135,17 @@ no new plan documents; every claim carries a number from a sweep.
   `sw.js` serves a cached `app.js` and you'll be testing yesterday's code.
   Assert on measured geometry (`scrollWidth - clientWidth`), not screenshots.
 - **Collect the console while driving.** The app sends a strict CSP; a
-  refused style/script/fetch shows up *only* in the console — no failed
-  request, no thrown error, the thing just silently doesn't happen.
+  refused style/script/fetch shows up *only* in the console (no failed
+  request, no thrown error, the thing just silently doesn't happen).
 
 ### Traps that have each cost real time
 
-1. **Don't guess element ids** — check `index.html` or query generically.
+1. **Don't guess element ids.** Check `index.html` or query generically.
 2. **`git checkout <file>` discards uncommitted work in that file.** Commit
    before experimenting.
-3. **A POST response can lie about stored state** — SQLAlchemy returns the
+3. **A POST response can lie about stored state.** SQLAlchemy returns the
    in-memory object; assert on the next GET, not the create response.
-4. **`utcnow() + offset` is a lie with a timezone attached** — it tags UTC on
+4. **`utcnow() + offset` is a lie with a timezone attached.** It tags UTC on
    a value that actually holds local wall-clock. Build the user's clock as
    `utcnow().astimezone(timezone(offset))`.
 5. **The Notes tab is sub-tabbed.** Anything that scrolls to a note must call
@@ -160,16 +160,16 @@ no new plan documents; every claim carries a number from a sweep.
    `1fr` grid track or a flex item with default `min-width: auto` refuses to
    shrink below its content; `overflow-x: auto` on the child does nothing
    until every ancestor has an explicit floor.
-8. **A POSIX idiom can mean something else on Windows, silently** —
+8. **A POSIX idiom can mean something else on Windows, silently.**
    `os.kill(pid, 0)` terminates on Windows rather than probing; the sandbox
    is Linux, so this class of bug never reproduces here.
-9. **A control that "does nothing" is usually working** — check the
+9. **A control that "does nothing" is usually working.** Check the
    *computed* result. Most reported cases wrote correctly and were then
    overridden by CSS source order, a status poll repainting, or living in a
    hidden section.
 10. **This suite cannot see any of the above.** Every UI bug this project has
     found passed a fully green test run first.
 
-Full historical detail for every trap above — the original report, the
-diagnosis, the fix, and what verification could and couldn't cover — is in
+Full historical detail for every trap above (the original report, the
+diagnosis, the fix, and what verification could and couldn't cover) is in
 [roadmap/HISTORY.md](roadmap/HISTORY.md).

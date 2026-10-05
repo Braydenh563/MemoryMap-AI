@@ -11,9 +11,9 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-#: atlas.js and its lazy half, atlas-life.js (the living tail and the
-#: rings' loops, out of the boot for the gzip budget), read as one.
-ATLAS = "\n".join((ROOT / "frontend" / "js" / name).read_text(encoding="utf-8") for name in ("atlas.js", "atlas-life.js"))
+#: atlas.js and its lazy halves, atlas-motion.js (the blink clock and the arm
+#: rig) and atlas-life.js (the living tail and the rings' loops), read as one.
+ATLAS = "\n".join((ROOT / "frontend" / "js" / name).read_text(encoding="utf-8") for name in ("atlas.js", "atlas-motion.js", "atlas-life.js"))
 CSS = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
 AVATARS = (ROOT / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
 
@@ -349,7 +349,7 @@ def test_a_blink_is_a_lid_sweeping_down_not_a_patch_fading_in():
     assert '"atl-lid-shut' not in ATLAS and "atl-blink-lids" not in CSS and "atl-blink-heavy" not in CSS
     assert "`atl-eye atl-eye-${s} atl-lid-eye`" in lids and '"clip-path": `url(#${id}-lid${s})`' in lids
     assert 'class: "atl-lid-sweep"' in lids and 'class: "atl-lid-edge"' in lids and "brow" not in lids.split("//:")[-1]
-    blink = ATLAS[ATLAS.index("function atlasBlink(") : ATLAS.index("const atlasState")]
+    blink = ATLAS[ATLAS.index("function atlasBlink(") : ATLAS.index("const atlasBlinkOpen")]
     assert 'const cls = slow ? "atl-blinking-slow" : "atl-blinking";' in blink
     for k in (1, 2, 3):
         for name in (f"atl-blink-f{k}", f"atl-blink-slow-f{k}"):
@@ -1137,7 +1137,7 @@ def test_the_arm_is_a_jointed_chain_that_the_rig_eases(tmp_path):
         a = math.atan2(ey - c2y, ex - c2x)
         b = math.atan2(c3y - ey, c3x - ex)
         assert abs(a - b) < 1e-6, (look, "a kink at the elbow")
-    rig = ATLAS[ATLAS.index("const ATLAS_RIG_DELAY") : ATLAS.index("let atlasFigureObserver")]
+    rig = ATLAS[ATLAS.index("const ATLAS_RIG_DELAY") :]
     # The body leads and the limbs follow; a move's time is its size; limits.
     assert "const ATLAS_RIG_DELAY = { sh: 30, el: 80, wr: 130 };" in rig
     assert "j.w = 5 / Math.min(0.5, 0.25 + (0.25 * jump) / 120);" in rig

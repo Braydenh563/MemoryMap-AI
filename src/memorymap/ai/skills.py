@@ -1425,6 +1425,37 @@ BUILTIN_SKILLS: list[dict] = [
         "tools": _READING_TOOLS,
     },
     {
+        "name": "Write a document from a tag",
+        "description": "Every note under one tag, written up as one document.",
+        "prompt": "Write one document that brings together every note I tagged {{tag}}.",
+        "steps": [
+            _step("List the notes tagged {{tag}}.", "tool_called", "list_notes"),
+            _step(
+                "Read each one in full with get_note, rather than working "
+                "from the previews.",
+                "tool_called",
+                "get_note",
+            ),
+            _step(
+                "Decide the order the notes read best in, and what the "
+                "document should open with. Do not invent anything the notes "
+                "do not say.",
+                "answer_only",
+            ),
+            #: The one write, last, so a run that stalls earlier has changed
+            #: nothing. A document, never an edit to the notes it draws on.
+            _step(
+                "Save it with create_document, titled after {{tag}}, as "
+                "Markdown with a heading for each theme, and say which notes "
+                "it draws on.",
+                "tool_called",
+                "create_document",
+            ),
+        ],
+        "inputs": [{"name": "tag", "label": "Which tag?", "required": True}],
+        "tools": [*_READING_TOOLS, "create_document"],
+    },
+    {
         "name": "Daily review",
         "description": "Today's notes, turned into tomorrow's list.",
         "prompt": "Review what I captured today and tell me what needs doing.",

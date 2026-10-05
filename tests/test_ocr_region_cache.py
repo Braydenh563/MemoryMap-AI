@@ -119,6 +119,8 @@ def test_re_reading_a_page_throws_its_stored_regions_away(client, monkeypatch, f
     calls: list[Path] = []
     _counting_reader(monkeypatch, calls)
     monkeypatch.setattr(ocr, "tesseract_available", lambda: True)
+    #: Both halves of Tesseract (`ocr.engine_status`): the program and its package.
+    monkeypatch.setattr(ocr, "packages_available", lambda: True)
     monkeypatch.setattr(ocr, "extract_text", lambda path: "Hello world")
     attachment_id = _attach(client, "lecture.pdf", TWO_PAGE_PDF)
 

@@ -2,7 +2,8 @@
 
 Asked for directly: "remove ALL INSTANCES of em-dashes, they give the
 vibe-coded feel." The sweep (scratchpad/emdash.py) removed 10,879 of them
-from frontend/, src/ and tests/; this keeps them out. Vendored third-party
+from frontend/, src/ and tests/; this keeps them out. The docs (docs/, docs/index.html, root *.md) are covered too.
+Vendored third-party
 files are excluded because they are not this app's copy. Fix a hit by
 rewriting the sentence (a colon, a comma or a full stop), never by
 substituting an en-dash.
@@ -23,6 +24,13 @@ def _files():
                 yield path
 
 
+def _doc_files():
+    """The docs the owner reads: docs/**/*.md, docs/index.html, root *.md."""
+    yield from (ROOT / "docs").rglob("*.md")
+    yield ROOT / "docs" / "index.html"
+    yield from ROOT.glob("*.md")
+
+
 def test_the_apps_own_files_carry_no_em_dash():
     hits = []
     for path in _files():
@@ -32,4 +40,19 @@ def test_the_apps_own_files_carry_no_em_dash():
     assert not hits, (
         "an em-dash in the app's own files; rewrite the sentence "
         "(colon, comma or full stop), never an en-dash:\n" + "\n".join(hits[:40])
+    )
+
+
+def test_the_docs_carry_no_em_dash():
+    hits = []
+    for path in _doc_files():
+        if not path.exists():
+            continue
+        for number, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+            if EM_DASH in line:
+                hits.append(f"{path.relative_to(ROOT)}:{number}")
+    assert not hits, (
+        "an em-dash in the docs; rewrite the sentence (comma, colon, "
+        "parentheses or full stop), never just delete it "
+        "(python scratchpad/emdash.py docs *.md does the mechanical cases):\n" + "\n".join(hits[:40])
     )

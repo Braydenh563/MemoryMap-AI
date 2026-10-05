@@ -4408,8 +4408,11 @@ button.is-on {
   position: relative;
   flex: 0 0 auto;
   height: max(var(--control-h-body), var(--target-min));
-  /* The floor is for the short word: "All" measured 42.5px wide on touch. */
-  min-width: var(--target-min);
+  /* The floor is for the short word: "All" measured 42.5px wide on touch,
+     and "Ask" 50px beside 80 to 133px tabs, its underline and focus ring a
+     sliver (INBOX 605: "the ask subtab is very thin in width"). 4.5rem is
+     the narrowest a tab reads as one of the set. */
+  min-width: max(var(--target-min), 4.5rem);
   padding: 0 var(--space-5);
   background: transparent;
   border: none;

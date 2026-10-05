@@ -273,7 +273,7 @@ function mediaSrc(url) {
   //: image address was pasted into. The media cookie the server sets at
   //: unlock (`MEDIA_COOKIE`, routes_auth.py) rides along on these loads by
   //: itself, opens `/media` and `/files` only, and no script can read it;
-  //: `refreshMediaSession` below re-asks for it when a token is restored.
+  //: `refreshMediaSession` (shell-reminders.js) re-asks for it when a token is restored.
   return url;
 }
 
@@ -284,17 +284,6 @@ function mediaSrc(url) {
 //: the cookie in their own responses, so they never need this. Never throws:
 //: a failure here is a broken picture, not a broken boot, and the first
 //: locked request will show the lock screen anyway if the token is stale.
-async function refreshMediaSession() {
-  if (!authToken()) return;
-  try {
-    await fetch("/auth/media-session", {
-      method: "POST",
-      headers: { "X-Auth-Token": authToken() },
-    });
-  } catch {
-    // Offline or the server is gone: the boot path says so on its own.
-  }
-}
 
 // **A file that is no longer there should say so, not draw a broken frame.**
 //
@@ -1062,7 +1051,11 @@ async function initAuth() {
   // awaited, so the first pictures the app draws already carry it: one local
   // round trip, and without it a profile that lost its cookies drew every
   // picture broken (see `refreshMediaSession`).
-  await refreshMediaSession();
+  if (!(await refreshMediaSession())) {
+    hideBootSplash();
+    showLockScreen(false);
+    return;
+  }
   const opening = startApp();
   curtainShell(opening);
 }

@@ -1716,6 +1716,22 @@ document.getElementById("reminders-export-ics")?.addEventListener("click", () =>
   downloadFromApi("/reminders/export.ics", "memorymap-reminders.ics");
 });
 
+//: In this boot file rather than app.js, whose gzipped size is a ratchet;
+//: `initAuth` (spaces-find.js's last line) calls it after this file loads.
+//: Answers whether the token is still live (false on a 401), so the boot
+//: path can go to the lock screen before drawing a page whose every widget
+//: would fail (the owner, INBOX 597: "after the loading screen, it goes to
+//: this blank dashboard for a couple seconds then goes to the lock screen").
+async function refreshMediaSession() {
+  if (!authToken()) return false;
+  try {
+    return (await fetch("/auth/media-session", { method: "POST", headers: { "X-Auth-Token": authToken() } })).status !== 401;
+  } catch {
+    // Offline or the server is gone: the boot path says so on its own.
+    return true;
+  }
+}
+
 // --- the opening curtain ---------------------------------------------------------
 //: Here rather than in app.js, whose gzipped size is a ratchet
 //: (tests/test_static_compression.py); `initAuth` (called at the end of

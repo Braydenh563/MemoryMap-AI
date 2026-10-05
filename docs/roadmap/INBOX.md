@@ -83,6 +83,77 @@ with its owner named in the entry.
      reinstall per extra, version and size per row. With it: pictures in the
      Word export on the existing `docx` extra (FEAT-18). Next agent slot.
 
+596. **The owner, 2026-10-05, verbatim.** "the dropdown menu from the
+     library is a little off position. the side dock of the bottom toolbar
+     in the whiteboard is ugly, poorly structured and designed and clashes
+     with the side panel. some skeleton loaders are missing like on the
+     dashboard. the height of this side bar changes on the whiteboard and
+     mindmap and I want mind map specific stuff in that sidebar too as half
+     of it is empty when on the mind map as it isnt applicable like with
+     layers and the element library. can you add preset whiteboard and mind
+     map templates that are draggable fromt he library??" (screenshots: the
+     Library panel's kebab menu sits low and left of its button; the board's
+     sidebar rail (library, format, layers, present) overlaps the tool dock's
+     left column; on a map the rail is a tall empty column with four icons.)
+     Placed: the next whiteboard agent, after the integration merges the
+     whiteboard phase 2 branch (same files).
+
+598. **The owner, 2026-10-05, verbatim.** "the loading screen on features
+     like the graph tab and library is a blank screen with a horizontal line
+     in the middle which if it lasts as long as it did for me right after the
+     update (its faster now), then it might have people thinking it is
+     broken so needs a better loading screen and to be cleaner." With 596's
+     "some skeleton loaders are missing like on the dashboard". Placed: the
+     next agent slot (page skeletons for Graph, Library, Documents, the
+     dashboard's widgets; a named, moving loading state).
+
+599. **The owner, 2026-10-05, verbatim.** "can you clean up and redesign
+     this top docks?? I love some of the stuff youve done to further
+     modernise the ui of the app. can you keep doing it for the settings
+     pages adn popups and in more places?? make sure all the design styles
+     across all pages and popups are consistent." (screenshot: Settings, AI
+     skills head: title, a long search box, divider, a filled New skill and
+     a '?' on one row; the All/Yours/Built-in segment with counts and a
+     "Yours first" select on a second row, the select a different height.)
+     Placed: next agent slot (Opus, design): Settings docks and popups onto
+     the modern dock recipe, one consistent style everywhere.
+600. **The owner, 2026-10-05, verbatim.** "when I click on atlas in the
+     enlarged view, it might sway or do something for a couple seconds but
+     will then snap still." Placed: the Atlas agent slot.
+601. **The owner, 2026-10-05, verbatim.** "on atlas can you make the tail
+     seem more integrated with the body instead of just coming out from the
+     butt?? make it smooth and biological. also add more movement and
+     variation to the tail position, behaviour, movement, same with the
+     celestial rings and planets on it which dont move or look different,
+     and the astral swirl around each could have a bit of movement or subtle
+     animation as well. also I want to be able to double tab the drag to
+     resize circle on the companion to reset it to default size." Placed:
+     the Atlas agent slot, with 600.
+602. **The owner, 2026-10-05, verbatim.** "every time I go off the dashboard
+     and go back on it, it is empty for a second then loads :(" Placed: with
+     598 (loading states), next agent slot.
+
+606. **The owner, 2026-10-05, verbatim.** "something about the design,
+     ui/ux of the note edit form still feels off..." (screenshot: the edit
+     form: a full-width Title field; a "Formatting" label row with three
+     icons and a boxed Source toggle; the body with a line number; one row
+     of a long tags field, a "Core Concepts" select, a filled Save changes
+     and Cancel; a Related row of "≈ title" texts each with a boxed Link
+     button; a separate boxed "Attach a link" button.) Placed: the Settings
+     and popups design agent's queue (599), as the same recipe pass.
+607. **The owner, 2026-10-05, verbatim.** "I made a mind map from the graph
+     but the notification included no link to it" (toast: "Mind map "test"
+     made from 33 notes. It is in Library, Boards." with no action) and "this
+     is how it made the map, surely there's a better and more dynamic way it
+     can build the map based off the connections and links and relevancy
+     etc??" (screenshot: one root with 33 children in a single column).
+     Placed: next agent slot (Opus): an Open action on the toast and the
+     bell row; the map built from the graph's structure: clusters
+     (categories or link communities) as branches, linked notes as children
+     of the note they link to, a central note (most connected or the one
+     picked) as the root, a balanced radial/tree layout, cross-links for
+     links that do not fit the tree.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 540, 554, 556, 564, 575 (Atlas motion and form) placed in

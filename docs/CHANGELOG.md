@@ -604,6 +604,9 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - Speed: the foreign keys a note is looked up by now have indexes (a note's replies, the boards it is on and a board's cards and sketches, its reminders and bookmarks), added to existing notebooks at startup like the others. 900 lookups by them took 604 ms unindexed and 2.9 ms indexed on 5,000 notes with 4,000 board cards and 1,500 reminders; opening a note's connections or deleting one is within noise at that size, so this matters for big boards rather than ordinary use.
 ### Fixed
 
+- Ask: a sentence drawn from a picture's caption gets its note's number, so a note that is one word and a sketch is cited too (INBOX 604).
+- Notes: the Ask sub-tab is as wide as a tab should be (INBOX 605); Customise can reset the Quick access highlights alone (INBOX 603).
+- Start-up: a session left over from before the app restarted goes straight to the lock screen, instead of drawing the dashboard with every widget failing first (INBOX 597).
 - Ask: the model is shown each note's tags and attached files (with their captions), so a note that is one word and a sketch is no longer passed over as too vague (INBOX 594).
 - Ask: the last answer's "Only 2 of 6 sentences" notice goes when you ask again, rather than sitting over the next answer's thinking (INBOX 593).
 - Graph: tree, radial and arc no longer throw when a reply is listed before the note it answers, so switching layout works again (INBOX 579); a reply loop hangs off its category instead of hanging the layout.

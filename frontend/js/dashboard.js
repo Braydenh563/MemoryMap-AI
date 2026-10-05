@@ -1225,6 +1225,17 @@ function dashCustomiseItems() {
     run: () => $("dash-edit").click(),
   });
   items.push({ label: "ph:pencil-simple Edit quick access", title: "Add, remove and reorder the Quick access tiles", group: "quick", run: () => { quickEditing = true; renderQuickLinks(); } });
+  //: The colours alone, keeping the tiles (INBOX 603, the owner: "reset the
+  //: highlights on the quick access back to default or at least the first
+  //: one being auto highlighted"). Only when one has been chosen.
+  if (Object.keys(prefsCache?.dashboard_quick_tints || {}).length) {
+    items.push({
+      label: "ph:palette Reset highlights",
+      title: "No colours chosen: the first tile is highlighted again",
+      group: "quick",
+      run: async () => { await saveQuickTints({}); renderQuickLinks(); renderDashMore(); },
+    });
+  }
   items.push({
     label: "ph:arrow-counter-clockwise Reset quick access",
     title: "Back to New note, Ask AI, Sketch, Remind me and Meeting notes, the first highlighted",

@@ -1951,6 +1951,12 @@ function answerObject({
 //: then deleted a moment later, on every answer, invisibly.
 function clearAskAnswerFoot() {
   $("ask-answer-foot")?.classList.add("hidden");
+  //: The last answer's "Only 2 of 6 sentences" notice goes with the rest of
+  //: its foot. It sits beside the answer box, not in it, so emptying the box
+  //: left it above the next question's thinking until that answer finished
+  //: (the owner, INBOX 593: "the warning message appeared before the ai had
+  //: even finished thinking").
+  $("ai-answer")?.parentElement?.querySelector(":scope > .answer-support")?.remove();
   $("ask-answer-related")?.replaceChildren();
   $("ask-answer-sources")?.replaceChildren();
   const strip = $("ask-followups");

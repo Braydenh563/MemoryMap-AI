@@ -41204,6 +41204,23 @@ The two cheap additions the plan's research section named (decisions 11 to
      reply loop hangs off its category (graph.js); graphlayoutorder.js 3/3,
      0/3 on the old code; tests/test_graph_layout_order.py.
 
+593. **The owner, 2026-10-05, verbatim.** "the warning message appeared
+     before the ai had even finished thinking" and "it disappeared after the
+     response finished tho" (screenshot: Ask, "Only 2 of 6 sentences here
+     come from your notes" under Thinking while "Consulting the stars" ran).
+     Fixed 2026-10-05: it was the last answer's notice, a sibling of
+     `#ai-answer` nothing cleared; `clearAskAnswerFoot` takes it now
+     (tests/test_answer_support_cleared.py).
+594. **The owner, 2026-10-05, verbatim.** "the response is great but it only
+     mentions one of the sketches not all the sketches" (Ask, "What have I
+     saved about sketches?"; the thinking called notes 1 and 3 "too vague").
+     Fixed 2026-10-05: the prompt gave each note its text and category only,
+     and two sketches are one word plus `sketch.png` and `#Sketches`. Each
+     note now carries its tags and its files with their stored captions
+     (routes_chat `_files_on`, librarian `_tags_files_hint`, defanged);
+     tests/test_ask_sees_tags_and_files.py. Not verified against a real
+     model's answer.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

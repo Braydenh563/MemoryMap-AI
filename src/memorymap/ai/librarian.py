@@ -430,6 +430,27 @@ PICTURE_ASK = re.compile(
 )
 
 
+def _tags_files_hint(note: dict) -> str:
+    """' (tags: sketches, visual ideas; files: sketch.png)', or "" for a note
+    with neither. INBOX 594: a note whose text is one word and whose point is
+    an attached sketch reached the model as "[Hobbies] whoaaahhh", and was
+    left out of "what have I saved about sketches" as too vague."""
+    parts = []
+    tags = [str(tag) for tag in note.get("tags") or [] if str(tag).strip()]
+    if tags:
+        parts.append("tags: " + ", ".join(tags[:8]))
+    files = [str(name) for name in note.get("files") or [] if str(name).strip()]
+    if files:
+        parts.append("files: " + "; ".join(files))
+    if not parts:
+        return ""
+    #: A caption is a model's reading of a picture, so it is defanged the way
+    #: a note is (ai/fence.py): it may not draw a fence line of its own.
+    from memorymap.ai.fence import _defang  # noqa: PLC2701
+
+    return f" ({_defang('; '.join(parts))})"
+
+
 def _pictures_hint(note: dict, number: int, asked: bool = True) -> str:
     """' (has 2 pictures: write [picture 3] or [picture 3.2] to show one)', or
     "" for a note without any. INBOX 526: the token is replaced by the picture
@@ -636,7 +657,8 @@ def build_messages(
         f"{_pictures_hint(note, i, bool(PICTURE_ASK.search(question or '')))}"
         f"{' (attached by me)' if note.get('attached') else ''}"
         f"{' (not a match: linked to one of the above)' if note.get('connected') else ''}"
-        f"{_match_info_hint(note.get('match_info'))} "
+        f"{_match_info_hint(note.get('match_info'))}"
+        f"{_tags_files_hint(note)} "
         # No tools on this path by definition, it is the plain librarian
         # prompt: so notes get the larger allowance and an honest marker.
         f"{note_for_prompt(note, UNTOOLED_NOTE_CHARS, can_fetch=False)}"

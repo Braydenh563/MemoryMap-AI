@@ -1050,6 +1050,34 @@ def _media_readings(session: Session, content: str) -> str:
     return "\n\n[Pictures in this note, as this app read them:\n" + "\n".join(lines) + "]"
 
 
+#: A file's caption as the prompt gives it beside a retrieved note: one line,
+#: enough for "a sketch of a bean" to be seen as a sketch, not the reading
+#: `_attachment_readings` gives a note picked by hand.
+FILE_CAPTION_CHARS = 160
+
+
+def _files_on(session: Session, entry_ids: list[int]) -> dict[int, list[str]]:
+    """Each note's attached files, "sketch.png (a blue bean drawn in pen)",
+    in one query. Names and stored captions only: nothing is read from disk
+    here, so ten notes cost one SELECT."""
+    if not entry_ids:
+        return {}
+    out: dict[int, list[str]] = {}
+    rows = (
+        session.query(Attachment.entry_id, Attachment.filename, Attachment.caption)
+        .filter(Attachment.entry_id.in_(entry_ids))
+        .order_by(Attachment.id)
+        .all()
+    )
+    for entry_id, filename, caption in rows:
+        names = out.setdefault(entry_id, [])
+        if len(names) >= MEDIA_READINGS_PER_NOTE:
+            continue
+        said = " ".join((caption or "").split())[:FILE_CAPTION_CHARS]
+        names.append(f"{filename} ({said})" if said else filename)
+    return out
+
+
 def _attachment_readings(session: Session, entry_id: int) -> str:
     """What's inside the *files* attached to a note (PDFs, Office documents,
     code, plain text): `_media_readings` above's own sibling, and the gap it
@@ -1227,11 +1255,19 @@ def _prepare(
             #: the notes were listed in.
             "written": _note_dates(entry, zone),
             "dates": _time_words(time_words.get(entry.id, []), today),
+            #: Its tags and the files on it, which the model never saw (INBOX
+            #: 594, the owner: "it only mentions one of the sketches not all
+            #: the sketches"). Two of three sketches were notes whose text is
+            #: one word with a `sketch.png` attached and `#Sketches` on them;
+            #: shown "[Hobbies] whoaaahhh", the model called them "too vague".
+            "tags": manager.entry_tags(entry),
+            "files": files_on.get(entry.id, []),
         }
 
     now = user_now(deps.get_config())
     zone, today = now.tzinfo, now.date()
     time_words = manager.entry_dates_bulk(session, [entry.id for entry in entries])
+    files_on = _files_on(session, [entry.id for entry in entries])
     notes = [as_note(entry) for entry in entries]
     #: Listed newest first for "my last note": said on the first, which a
     #: small model otherwise ignores the order of (measured on a 1.5B model).

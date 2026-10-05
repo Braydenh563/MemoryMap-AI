@@ -312,9 +312,10 @@ the edge it lives on, and nothing moves to decorate.
   (`scratchpad/ui-sweeps/sidemotion.js`): opacity and transform only, and no
   layouts the control does not have (14 against 14 on Notes, 2 against 1 on
   Chat, per fold).
-- **A page arriving** (a tab switch, and a Notes section as its sub-tab's
-  line slides to it) fades in over `--ui-fast` (120ms, the motion pass of
-  2026-10-05) by `opacity` alone, **from 0.4, never from nothing** (INBOX 580): from 0 the
+- **A page arriving** (a tab switch) fades in over `--ui-fast` (120ms, the
+  motion pass of 2026-10-05; a sub-tab's panel does not, since
+  `@starting-style` cannot tell a section switch from its page arriving and
+  the two fades nested) by `opacity` alone, **from 0.4, never from nothing** (INBOX 580): from 0 the
   first three or four frames of every switch were the bare window, the
   flash that read as a glitch (`scratchpad/ui-sweeps/smooth1005-tabs.js`:
   13 of 14 switches had a blank frame, now 0). The page leaving does not

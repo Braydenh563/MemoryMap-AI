@@ -296,8 +296,8 @@ commit.
    The toolbar menus do (`.is-placed`); port the same class to
    `.action-menu`, `.select-menu`, `.help-popover`, the graph panels and the
    whiteboard floating panel, and the chat model panel.
-2. No transitions on `left/top/width/height`; opacity and transform only,
-   ≤ `--motion-base`. Hover changes tone, never size or shape.
+2. Built (the motion pass, 2026-10-05): HISTORY.md, "Moved from the plans,
+   2026-10-05 (UI_MODERNISATION Phase 4 item 2, the motion pass)".
 3. Focus rings: one recipe (`--accent` 2px offset) on every interactive
    element; verify with a keyboard-walk script.
 

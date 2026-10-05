@@ -10722,17 +10722,17 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
    13 of 14 switches, which is the flash that read as a glitch. From 0.4 the
    new page is there on the first frame and settles in over `--motion-base`;
    0 blank frames. */
-/* The motion pass (2026-10-05): over `--ui-fast`, and the Notes sections
-   (Your notes, Capture, Write, Ask) arrive the same way as their sub-tab's
-   line slides to them. */
-.tab-page:not(.hidden),
-#tab-notes :is(#browse, #capture, #writing-room, #ask):not(.hidden) {
+/* Over `--ui-fast` (the motion pass, 2026-10-05). A sub-tab's panel does
+   not fade with it: `@starting-style` cannot tell a section switch from its
+   page arriving, so the section faded inside the page's own fade (0.4 of
+   0.4, two layers), measured as the frames the switch missed; the sub-tab's
+   sliding line is its motion. */
+.tab-page:not(.hidden) {
   transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 @starting-style {
-  .tab-page:not(.hidden),
-  #tab-notes :is(#browse, #capture, #writing-room, #ask):not(.hidden) {
+  .tab-page:not(.hidden) {
     opacity: 0.4;
   }
 }

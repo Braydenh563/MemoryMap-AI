@@ -562,7 +562,7 @@ def test_the_press_cue_does_not_use_the_transform_property() -> None:
     css = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
     body = ""
     for selector, rule in _rules(css):
-        if selector.strip() == "button:active:not(:disabled)":
+        if selector.split(",")[0].strip() == "button:active:not(:disabled)":
             body = rule
             break
     assert body, "the global press cue rule has gone missing"

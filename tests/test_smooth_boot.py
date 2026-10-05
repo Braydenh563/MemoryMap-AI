@@ -110,7 +110,7 @@ def test_a_page_never_arrives_from_nothing():
     css = CSS["08-consistency.css"]
     block = css[css.index("/* --- motion: a page arrives") :]
     block = block[: block.index("/* --- ", 10)]
-    assert "transition: opacity var(--motion-base) var(--ease-out);" in block
+    assert "transition: opacity var(--ui-fast) var(--ease-out);" in block
     start = re.search(r"@starting-style\s*\{\s*\.tab-page:not\(\.hidden\)\s*\{\s*opacity:\s*([\d.]+);", block)
     assert start and float(start.group(1)) >= 0.3, "a page fading in from 0 shows the bare window for its first frames"
 
@@ -122,8 +122,8 @@ def test_every_popup_has_one_way_in():
     which = ":where(.modal-overlay, .lock-overlay:not(#lock-overlay), #palette-overlay):not(.hidden) {"
     assert block.count(which) == 1, "one rule for every overlay"
     flat = " ".join(block.split())
-    assert "@starting-style { opacity: 0; & > * { translate: 0 var(--space-2); scale: 0.985; } }" in flat
-    assert "var(--motion-base)" in block and "var(--motion-slow)" in block
+    assert "@starting-style { opacity: 0; & > * { translate: 0 var(--space-2); scale: 0.985; }" in flat
+    assert "var(--ui-base)" in block and "var(--ui-slow)" in block and "var(--ui-exit)" in block
 
 
 def test_a_heavy_tab_shows_its_shape_while_its_code_loads():

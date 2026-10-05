@@ -109,10 +109,11 @@ async function strips(page) {
   // A visible segmented control with two options or more.
   const seg = await page.evaluate(() => {
     const all = [...document.querySelectorAll('.seg:not(.seg-multi):not(.wb-export-seg)')];
-    const s = all.find((el) => el.offsetWidth && el.querySelectorAll(':scope > button').length > 1 && el.querySelector(':scope > button.active'));
+    const seen = (el) => el.offsetWidth && el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && el.getBoundingClientRect().bottom < innerHeight;
+    const s = all.find((el) => seen(el) && el.querySelectorAll(':scope > button').length > 1 && el.querySelector(':scope > button.active'));
     if (!s) return null;
     s.id = s.id || 'mot-seg';
-    const other = [...s.querySelectorAll(':scope > button')].find((b) => !b.classList.contains('active') && b.offsetWidth);
+    const other = [...s.querySelectorAll(':scope > button')].find((b) => !b.classList.contains('active') && seen(b));
     other.id = other.id || 'mot-seg-other';
     const back = s.querySelector(':scope > button.active');
     back.id = back.id || 'mot-seg-back';
@@ -152,7 +153,7 @@ async function recipes(page) {
     return Object.fromEntries([
       pick(visible('button.ghost'), 'button.ghost'),
       pick(visible('button:not(.ghost)'), 'button'),
-      pick(visible('button.chip, .chip[role="button"]'), 'chip'),
+      pick(visible('.chip-interactive, button.chip'), 'chip'),
       pick(visible('.tab-page:not(.hidden)'), 'tab-page'),
       pick(visible('.entry-list li, .card.interactive'), 'row/card'),
     ]);
@@ -186,10 +187,24 @@ async function popups(page) {
       .find((b) => b && b.offsetWidth);
     if (opener) {
       opener.click();
-      const menu = [...document.querySelectorAll('.action-menu:not(.hidden)')][0];
+      // Below 600 a row's menu is an action sheet: a dialog from the bottom.
+      const sheet = document.querySelector('.sheet-overlay:not(.hidden)');
+      if (sheet) {
+        await frame();
+        const card = sheet.querySelector('.sheet-card');
+        out.sheet = { firstFrameOpacity: +(+getComputedStyle(sheet).opacity).toFixed(2), cardTranslate: getComputedStyle(card).translate };
+        await wait(400);
+        sheet.querySelector('.sheet-close')?.click();
+        await frame();
+        await frame();
+        out.sheet.closing = { display: getComputedStyle(sheet).display, opacity: +(+getComputedStyle(sheet).opacity).toFixed(2), connected: sheet.isConnected };
+        await wait(300);
+      }
+      const menu = sheet ? null : [...document.querySelectorAll('.action-menu:not(.hidden)')][0];
       const anims = menu ? menu.getAnimations().map((a) => a.animationName || a.transitionProperty) : [];
       await wait(400);
-      const r = menu.getBoundingClientRect();
+      const r = menu ? menu.getBoundingClientRect() : null;
+      if (menu) {
       out.menu = { anims, origin: getComputedStyle(menu).transformOrigin, rect: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)] };
       closeActionMenus();
       await frame();
@@ -198,6 +213,7 @@ async function popups(page) {
       out.menu.closing = { escapedOrSnap: menu.classList.contains('ui-snap'), hidden: menu.classList.contains('hidden'), display: cs.display, opacity: +(+cs.opacity).toFixed(2) };
       await wait(200);
       out.menu.closed = getComputedStyle(menu).display;
+      }
     }
     // A dialog: the command palette (app-palette.js).
     openPalette();
@@ -270,6 +286,7 @@ async function frames(page) {
       opener.click();
       await wait(220);
       closeActionMenus();
+      document.querySelector('.sheet-overlay:not(.hidden) .sheet-close')?.click();
       await wait(160);
     }
     menuGaps.push(...gaps.splice(0));
@@ -350,7 +367,8 @@ async function framesAB(page) {
   result.popupsOff = await popups(page);
   await setSwitch(page, true);
   await page.evaluate((p) => { window.__phase = p; }, 'settingsOn');
-  result.settingsOn = await settingsNav(page);
+  // Below 600 the sections are a jump list, not a strip.
+  result.settingsOn = W >= 600 ? await settingsNav(page) : [];
   await page.evaluate(() => closeSettingsModal());
   await page.evaluate(() => { window.__phase = 'frames'; });
   result.frames = await framesAB(page);

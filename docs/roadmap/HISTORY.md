@@ -40432,6 +40432,40 @@ written first and seen failing.
 - **Not verified:** real-model compliance (scripted model only); a real
   rebinding page in a browser; the pywebview window; Windows file modes.
 
+## Security audit, second pass, 2026-10-05 (the owner's two decisions, SEC-08 to SEC-17)
+
+The owner's two decisions of 2026-10-05 (WORLD_CLASS_PLAN 12, "Decisions
+made") and the audit's leftovers, each with its test written first.
+
+- **Auto-update asks once.** `update_choice_made` (core/config.py) is
+  false until the person answers; `auto_update_enabled` is off by default
+  for every install. start.sh's `mm_update_plan` says `ask` until then and
+  neither pulls nor reaches the remote (the doctor too); `mm_ask_update_choice`
+  asks in a terminal (60 s, Enter is no) and exports `MM_UPDATE_CHOICE`,
+  which `routes_update.apply_launcher_choice` keeps at startup. start.bat
+  reads the same four plans in `:read_update_plan` and leaves the question
+  to the app (its console may sit behind the splash). The app asks through
+  `askUpdateChoiceOnce` (update-dialogs.js, `POST /update/choice`); in the
+  packaged app yes means "tell me", installing keeps its own switch. The
+  Settings button is "Check for updates" and checks once with the switch
+  off (`/update/check?manual=1`). Tests: `tests/test_update_ask_once.py`,
+  `TestUpdatesAskOnce` in `tests/test_launcher_scripts.py` (a scratch copy,
+  a recording `git`, a pty), `tests/test_launcher_update_settings.py`.
+- **SEC-08, LAN over HTTPS.** `core/lancert.py` makes an EC P-256,
+  825-day, serverAuth certificate with `cryptography`, its SAN the host
+  name, `.local`, localhost and every LAN address, in `<data>/lan-tls/`
+  (folder 0700, files 0600), once, reused, renewed 30 days before expiry or
+  when unreadable. `__main__._serve_with_lan` serves the network over TLS on
+  `netbind.lan_port` (8443 beside 8000, `MEMORYMAP_LAN_PORT`) beside plain
+  http on 127.0.0.1, one app, one loop, the second listener leaving signals
+  to the first; the fingerprint is printed at start. Settings, Other devices
+  shows the fingerprint (`GET /auth/lan-access` `certificate`) and
+  Regenerate certificate (`POST /auth/lan-certificate`), which reloads the
+  live TLS context, no restart. Tests: `tests/test_lan_tls.py`, and
+  `tests/test_lan_mode.py`'s end-to-end test now verifies the handshake
+  against the notebook's own certificate by IP (the SAN), a Secure cookie,
+  and plain http refused from the network.
+
 ## Moved from the plans, 2026-10-04 (design-1004)
 
 ### From WORLD_CLASS_PLAN.md 1.2: one primary per modal, meta without border or hover

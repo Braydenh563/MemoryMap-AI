@@ -470,10 +470,10 @@ def _run_server() -> None:
     from memorymap.core import deps, netbind
 
     app = create_app()
-    # LAN mode (core/netbind.py): 0.0.0.0 only when "Allow other devices on
-    # this network" was turned on with the password; 127.0.0.1 otherwise.
-    # Everything else in this file keeps talking to the server on HOST, which
-    # a 0.0.0.0 bind answers too.
+    # LAN mode (core/netbind.py): a second, HTTPS listener on every interface
+    # only when "Allow other devices on this network" was turned on with the
+    # password (`_serve_with_lan`). This computer always has plain http on
+    # HOST:PORT, which everything else in this file talks to.
     config = deps.get_config()
     has_password = _password_exists(deps.get_db())
     bind = netbind.bind_host(config, has_password=has_password)
@@ -484,33 +484,11 @@ def _run_server() -> None:
             "Other devices on this network are not let in until a password is set: "
             "listening on this computer only."
         )
-    #: LAN mode over IPv6 (WORLD_CLASS_PLAN §12, row 2): "::" is one
-    #: dual-stack socket made here, since uvicorn's own bind of "::" is IPv6
-    #: only on Windows. If it cannot be made, LAN mode binds IPv4 as before.
-    sock = netbind.listening_socket(bind, PORT)
-    if bind == netbind.ALL_INTERFACES_V6 and sock is None:
-        bind = netbind.ALL_INTERFACES
-    netbind.set_current(bind)
-    if bind != HOST:
-        logger.warning(
-            "Other devices on this network can reach this notebook (with the password): %s",
-            ", ".join(
-                f"http://{netbind.url_host(a)}:{PORT}"
-                for a in netbind.lan_addresses(include_v6=sock is not None)
-            )
-            or bind,
-        )
-    if sock is not None:
-        # What `uvicorn.run` does for one worker, with the socket handed in;
-        # Ctrl+C ends it quietly in both shapes.
-        try:
-            uvicorn.Server(uvicorn.Config(app, host=bind, port=PORT, log_level="info")).run(sockets=[sock])
-        except KeyboardInterrupt:
-            # Ctrl+C is how a person stops the server: quiet, like uvicorn.run,
-            # and on to the shutdown below.
-            logger.debug("server stopped by Ctrl+C")
-    else:
+    if bind == HOST:
+        netbind.set_current(bind)
         uvicorn.run(app, host=bind, port=PORT, log_level="info")
+    else:
+        _serve_with_lan(uvicorn, app, config, bind)
     # **The process used to sit here for 5 to 9 seconds after "Finished
     # server process" was already logged** (INBOX 423i). Every synchronous
     # route in this app (almost all of them: `def`, not `async def`) is run
@@ -534,6 +512,107 @@ def _run_server() -> None:
     # microseconds of work, not a wait. `join(1.0)` bounds this function's
     # own worst case rather than trusting that to be instant everywhere.
     _stop_lingering_worker_threads()
+
+
+def _serve_with_lan(uvicorn, app, config, bind: str) -> None:  # noqa: ANN001
+    """LAN mode: plain http on loopback as always, HTTPS for the network.
+
+    The owner, 2026-10-05: "Yes, self-signed HTTPS" (WORLD_CLASS_PLAN 12,
+    "Decisions made"; SEC-08). This computer keeps `http://127.0.0.1:PORT`,
+    which the launcher's health checks, the desktop window and every saved
+    tab use, and a browser treats as trustworthy anyway. Other devices get
+    TLS on `netbind.lan_port(PORT)` (8443 beside 8000) with the certificate
+    `core/lancert.py` made on this computer: two listeners, one app, one event
+    loop, because one socket cannot speak both and a wildcard bind beside a
+    loopback bind on the same port conflicts on Linux.
+
+    If the HTTPS port is taken, the notebook stays on this computer only and
+    says so, rather than failing to start.
+    """
+    import asyncio
+    import contextlib
+    import socket as socket_module
+
+    from memorymap.core import lancert, netbind
+
+    lan_port = netbind.lan_port(PORT)
+    info = lancert.ensure(config.data_dir)
+    #: LAN mode over IPv6 (WORLD_CLASS_PLAN §12, row 2): "::" is one
+    #: dual-stack socket made here, since uvicorn's own bind of "::" is IPv6
+    #: only on Windows. If it cannot be made, LAN mode binds IPv4 as before.
+    sock = netbind.listening_socket(bind, lan_port)
+    if bind == netbind.ALL_INTERFACES_V6 and sock is None:
+        bind = netbind.ALL_INTERFACES
+    if sock is None:
+        try:
+            sock = socket_module.create_server((bind, lan_port))
+        except OSError as exc:
+            logger.warning(
+                "Other devices can't reach this notebook: port %s is taken (%s). "
+                "Listening on this computer only.", lan_port, exc,
+            )
+            netbind.set_current(HOST)
+            uvicorn.run(app, host=HOST, port=PORT, log_level="info")
+            return
+    netbind.set_current(bind)
+    netbind.set_lan_port(lan_port)
+    addresses = ", ".join(
+        f"https://{netbind.url_host(a)}:{lan_port}"
+        for a in netbind.lan_addresses(include_v6=sock.family == socket_module.AF_INET6)
+    ) or bind
+    # Printed, not only logged: the terminal is where the person starting the
+    # app looks, and the fingerprint is what they compare on the phone.
+    print(
+        f"Other devices on this network can open this notebook (with the password, over HTTPS): {addresses}\n"
+        f"The certificate's fingerprint, to compare on the other device: {info.fingerprint}",
+        flush=True,
+    )
+
+    class _NoSignals(uvicorn.Server):
+        """The second listener leaves Ctrl+C and SIGTERM to the first, which
+        `serve_both` then passes on, so one signal ends both."""
+
+        def capture_signals(self):  # noqa: ANN202
+            return contextlib.nullcontext()
+
+    local = uvicorn.Server(uvicorn.Config(app, host=HOST, port=PORT, log_level="info"))
+    lan_config = uvicorn.Config(
+        app,
+        host=bind,
+        port=lan_port,
+        log_level="info",
+        lifespan="off",  # the app starts and stops once, with the first listener
+        ssl_certfile=str(info.cert_path),
+        ssl_keyfile=str(info.key_path),
+    )
+    lan_config.load()
+    # "Regenerate certificate" in Settings reaches this context (lancert.reload).
+    lancert.set_live_context(lan_config.ssl)
+    lan = _NoSignals(lan_config)
+
+    async def serve_both() -> None:
+        first = asyncio.ensure_future(local.serve())
+        while not local.started and not first.done():
+            await asyncio.sleep(0.05)
+        if first.done():
+            sock.close()
+            await first
+            return
+        second = asyncio.ensure_future(lan.serve(sockets=[sock]))
+        while not first.done() and not second.done():
+            if local.should_exit or lan.should_exit:
+                local.should_exit = lan.should_exit = True
+            await asyncio.sleep(0.2)
+        local.should_exit = lan.should_exit = True
+        await asyncio.gather(first, second, return_exceptions=True)
+
+    try:
+        asyncio.run(serve_both())
+    except KeyboardInterrupt:
+        logger.debug("server stopped by Ctrl+C")
+    finally:
+        lancert.set_live_context(None)
+        netbind.set_lan_port(None)
 
 
 def _stop_lingering_worker_threads(timeout: float = 1.0) -> None:

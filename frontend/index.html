@@ -10951,9 +10951,21 @@ Link to another note with [[its first few words]]."></textarea>
                   computer is set to. Private notes still ask for it too.
                 </p>
                 <p>
-                  Traffic on your network is not encrypted: the app talks
-                  plain http, so use this only on a network you trust, never
-                  on public Wi-Fi.
+                  Traffic on your network is encrypted (https, on its own
+                  port, 8443 beside the usual 8000). The certificate is made
+                  on this computer rather than bought from a company browsers
+                  already trust, so the first time a device opens the address
+                  it warns that the connection is not private.
+                </p>
+                <p>
+                  Before you continue past that warning, open the
+                  certificate's details on the other device and compare its
+                  SHA-256 fingerprint with the one shown here. If they match,
+                  continue, and that device will not ask again. If they do
+                  not, stop: something else is answering at that address.
+                  Regenerate certificate makes a new one, for example after
+                  this computer's address changes; every device then warns
+                  once more.
                 </p>
                 <p>
                   The change takes effect the next time the app starts.
@@ -10965,10 +10977,21 @@ Link to another note with [[its first few words]]."></textarea>
                 <input type="checkbox" id="account-allow-lan">
                 <span>
                   Allow other devices on this network
-                  <small class="muted">They always need your password. Traffic is not encrypted; use networks you trust.</small>
+                  <small class="muted">They always need your password, over an encrypted connection.</small>
                 </span>
               </label>
               <p id="account-lan-state" class="notice hidden" role="status"></p>
+              <!-- The certificate LAN mode serves (core/lancert.py; SEC-08, the
+                   owner's "Yes, self-signed HTTPS"): its fingerprint, to
+                   compare with a phone's one-time warning, and a way to make
+                   a new one. Shown once a certificate exists. -->
+              <div id="account-lan-cert" class="hidden">
+                <p class="muted text-sm flush">Certificate fingerprint (SHA-256), to compare with the warning on the other device:</p>
+                <p class="lan-fingerprint flush" id="account-lan-fingerprint"></p>
+                <div class="row button-row">
+                  <button id="account-lan-regenerate" class="ghost small" type="button">Regenerate certificate</button>
+                </div>
+              </div>
             </div>
 
             <div class="settings-group">

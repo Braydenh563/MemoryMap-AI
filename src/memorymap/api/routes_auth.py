@@ -746,10 +746,42 @@ class LanAccessBody(BaseModel):
     current_password: str | None = Field(default=None, max_length=MAX_PASSWORD_CHARS)
 
 
+def _lan_state(config: ConfigManager, request: Request) -> dict:
+    """The switch, who can reach the app, and the certificate's fingerprint
+    (core/lancert.py), which a phone user compares with the warning."""
+    from memorymap.core import lancert
+
+    info = lancert.read(config.data_dir)
+    return {
+        "allow_lan": netbind.lan_enabled(config),
+        **netbind.describe(config, request.url.port),
+        "certificate": info.public() if info else None,
+    }
+
+
 @router.get("/lan-access", dependencies=[Depends(require_unlock)])
 def lan_access(request: Request, config: ConfigManager = Depends(get_config)) -> dict:
     """What Settings says about "Allow other devices on this network"."""
-    return {"allow_lan": netbind.lan_enabled(config), **netbind.describe(config, request.url.port)}
+    return _lan_state(config, request)
+
+
+@router.post("/lan-certificate", dependencies=[Depends(require_unlock)])
+def regenerate_lan_certificate(
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
+    """Settings, Other devices, "Regenerate certificate": a new key and
+    certificate (core/lancert.py), handed to the running HTTPS listener so
+    the next connection uses it. Every device that trusted the old one sees
+    the warning once more, with the new fingerprint to compare."""
+    from memorymap.core import lancert
+
+    info = lancert.generate(config.data_dir)
+    lancert.reload(info)
+    log_action(session, "edited", "user", None, "made a new certificate for other devices")
+    session.commit()
+    return _lan_state(config, request)
 
 
 @router.post("/lan-access", dependencies=[Depends(require_unlock)])
@@ -782,12 +814,18 @@ def set_lan_access(
             raise HTTPException(status_code=401, detail="That isn't your current password.")
         _unlock_succeeded(client)
     config.set_preference(netbind.LAN_PREF, body.enabled)
+    if body.enabled:
+        # Made now rather than at the next launch, so Settings can show the
+        # fingerprint before a phone ever connects (core/lancert.py).
+        from memorymap.core import lancert
+
+        lancert.ensure(config.data_dir)
     log_action(
         session, "edited", "user", user.id,
         f"allow other devices on this network: {'on' if body.enabled else 'off'} (from the next launch)",
     )
     session.commit()
-    return {"allow_lan": body.enabled, **netbind.describe(config, request.url.port)}
+    return _lan_state(config, request)
 
 
 @router.post("/lock")

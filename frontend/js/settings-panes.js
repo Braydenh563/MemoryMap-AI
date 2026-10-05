@@ -561,6 +561,14 @@ function renderLanState(state) {
   }
   line.classList.toggle("hidden", !words);
   if (words) setLabel(line, `${icon} ${words}`);
+  //: The certificate the network is served with (core/lancert.py), shown
+  //: while the switch is on so a phone's one-time warning can be checked.
+  const cert = $("account-lan-cert");
+  if (cert) {
+    const shown = Boolean(state.allow_lan && state.certificate);
+    cert.classList.toggle("hidden", !shown);
+    $("account-lan-fingerprint").textContent = shown ? state.certificate.fingerprint : "";
+  }
 }
 
 //: **Shared with the About panel's own "Restart MemoryMap" button**

@@ -910,9 +910,9 @@ and the switch in Settings, Account and security. IPv6 built 2026-10-04
 (HISTORY.md, "row 2: LAN mode over IPv6"). Nothing is left of Brief 15.
 
 **Security audit, 2026-10-05:** SEC-01 to SEC-09, SEC-11 to SEC-13, SEC-15
-and SEC-16 fixed (HISTORY.md, "Security audit fixes, 2026-10-05"). Open:
-SEC-08's real fix (a self-signed certificate at first LAN start, with a
-fingerprint for the phone to compare); SEC-10 (a folder import killed
+and SEC-16 fixed (HISTORY.md, "Security audit fixes, 2026-10-05"); SEC-08's
+real fix, LAN mode over HTTPS with a certificate made on this computer, the
+same day (HISTORY.md, "Security audit, second pass"). Open: SEC-10 (a folder import killed
 mid-way duplicates on re-run: dedupe on source path and content hash,
 rollback per failed file, a task-history row at start); SEC-14 (ask-history
 answers and chat messages that quoted a note before it went private stay

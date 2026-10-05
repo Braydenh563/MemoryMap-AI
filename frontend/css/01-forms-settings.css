@@ -4791,6 +4791,17 @@ html.modal-open body {
   min-width: 0;
 }
 
+/* The LAN certificate's fingerprint (Settings, Other devices; SEC-08): 95
+   characters and no spaces, read pair by pair against a phone's warning, so
+   monospaced, selectable in one go, and free to wrap anywhere rather than
+   push the column wide on a phone. */
+.lan-fingerprint {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
 /* Tabular figures so the number does not jitter the reset button sideways as
    the slider moves. */
 .sampling-value {

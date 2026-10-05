@@ -32,8 +32,8 @@ No terminal and no Python install are needed to run the app.
    MemoryMap AI" shortcut, then offers to start the app.
 
 The app opens in its own window. A tray icon keeps it running when you close
-the window; the tray menu (Open, View logs, Restart, Quit) brings it back or
-shuts it down. If Settings, Packages shows the desktop window as installed but
+the window. The tray menu brings it back, starts a note, a question or a search,
+opens Settings or the logs, and restarts or quits the app. If Settings, Packages shows the desktop window as installed but
 no tray icon appears, reinstall that package from the same pane.
 
 **Optional packages.** The installer's last page offers three boxes: search by

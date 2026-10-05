@@ -146,6 +146,12 @@ with its owner named in the entry.
      node toolbar instead of nested popup menus, every node property
      reachable in at most two steps, measured by a task sweep.
 
+616. **The owner, 2026-10-05, verbatim.** "its better but still needs a more
+     modern and professional ui/ux redesign (the note edit form)"
+     (screenshot of the 606 form: boxed title band, a heavy mixed toolbar,
+     big chips with a doubled #, a floating category select, large Related
+     rows, big Cancel and Save). Placed: the design-rows agent, first.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 540, 554, 556, 564, 575 (Atlas motion and form) placed in

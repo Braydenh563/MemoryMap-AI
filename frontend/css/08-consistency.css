@@ -7353,7 +7353,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   --atl-br-y: 0px;
   --atl-bl-r: 0deg;
   --atl-br-r: 0deg;
-  --atl-lid: 0.04;
+  --atl-lid: 0.12;
   --atl-lid-r: 0deg;
   --atl-low: 0;
   --atl-eye-s: 1;
@@ -7362,6 +7362,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   --atl-lean: 0deg;
   /* The avatar lab's tune (atlas.js, ATLAS_TUNE) rides on these. */
   --atl-tune-head: 1;
+  --atl-head-k: 1;
   --atl-tune-star: 1;
   --atl-tune-strand: 1;
   --atl-ps: 1;
@@ -7498,7 +7499,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .atl-lw-neb, .atl-lw-neb-front { transform-origin: 31px 52px; will-change: translate; }
 .atl-lw-wisps { transform-origin: 31px 60px; will-change: rotate; }
 .nm-atlas.atl-layer-front { will-change: opacity; }
-.nm-atlas.atl-layer-lids { transform-origin: 31px 37px; opacity: 0; will-change: opacity; transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(var(--atl-tune-head)); scale: var(--atl-open); transition: rotate var(--motion-slow) var(--ease-out); }
+.nm-atlas.atl-layer-lids { transform-origin: 31px 37px; opacity: 0; will-change: opacity; transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(calc(var(--atl-tune-head) * var(--atl-head-k))); scale: var(--atl-open); transition: rotate var(--motion-slow) var(--ease-out); }
 .nm-atlas.atl-layer-lids .atl-head { transform: none; }
 .nm-atlas .atl-lid-shut { opacity: 1; }
 #nm-buddy.nmb-think .atl-layer-lids { rotate: 8deg; }
@@ -8071,7 +8072,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    character"): softer eyes, a size smaller, the upper lid resting a little
    lower so the look is relaxed rather than a wide stare. Individual
    properties, so every mood's own scale and lid still apply over them. */
-.nm-atlas[data-atlas-look="masculine"] .atl-eye { scale: 0.9; }
+.nm-atlas[data-atlas-look="masculine"] .atl-eye { scale: 0.84; }
+/* INBOX 563: softer eyes in the narrower face, a little smaller and less
+   wide open at rest (`--atl-lid`, the calm face), so they do not stare. */
+.nm-atlas[data-atlas-look="feminine"] .atl-eye { scale: 0.9; }
 .nm-atlas[data-atlas-look="masculine"] .atl-lid { translate: 0 0.8px; }
 .nm-atlas .atl-pupil { transform: translate(calc(var(--atl-px) + var(--atl-lean-dir) * 0.8px), var(--atl-py)) scale(var(--atl-ps)); }
 .nm-atlas .atl-lid { transform: rotate(calc(var(--atl-lid-r) * var(--atl-side))) translateY(calc(var(--atl-lid) * 11px)); }
@@ -8084,7 +8088,13 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-ear-l { transform: rotate(calc(var(--atl-crest) * -1)); }
 .nm-atlas .atl-brow-l { transform: translateY(calc(var(--atl-brow-y) + var(--atl-bl-y))) rotate(calc(var(--atl-knit) + var(--atl-bl-r))); }
 .nm-atlas .atl-brow-r { transform: translateY(calc(var(--atl-brow-y) + var(--atl-br-y))) rotate(calc(var(--atl-knit) * -1 + var(--atl-br-r))); }
-.nm-atlas .atl-head { transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(var(--atl-tune-head)); }
+.nm-atlas .atl-head { transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(calc(var(--atl-tune-head) * var(--atl-head-k))); }
+/* **A smaller head** (INBOX 563, "the large round heads ... giving fnaf"):
+   wherever the body is drawn (the companion, the large view, the bust),
+   the head, its hair and its ears are 0.76 of their drawn size about the
+   neck. The head marks and the icon crop to the head, so they keep it
+   whole. */
+.nm-atlas:not(.atl-head, .atl-tiny) { --atl-head-k: 0.76; }
 @property --atl-lean { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
 @property --atl-sx { syntax: "<number>"; inherits: false; initial-value: 1; }
 @property --atl-sy { syntax: "<number>"; inherits: false; initial-value: 1; }

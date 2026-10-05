@@ -248,7 +248,7 @@ def test_the_feminine_chest_is_a_subtle_contour_in_light_not_lines():
     # wearing cup bikinis ... make it attractive and smooth"): a continuous
     # swell in the outline and radial light, never a stroke.
     feminine = _look("feminine")
-    assert "C22.4 38.8 26.2 44.4 26.2 51" in feminine and "chestLight:" in feminine
+    assert "C23.4 38.8 26.6 44.6 26.9 51" in feminine and "chestLight:" in feminine
     assert "bust:" not in feminine and "atl-chest {" not in CSS and "atl-bust" not in CSS
     assert "chestLight" not in _look("masculine")
     torso = re.search(r'torso: "([^"]+)"', feminine).group(1)
@@ -457,7 +457,7 @@ def test_the_masculine_look_is_a_star_being_not_an_animatronic():
     assert "armWidth: [4.4, 1.8]," in masculine and "handScale: 0.9," in masculine
     arms = re.search(r"    arm: \[(\[[^\]]+\]), (\[[^\]]+\])\],", masculine)
     assert arms, "the arm bends: two segments"
-    assert '.nm-atlas[data-atlas-look="masculine"] .atl-eye { scale: 0.9; }' in CSS
+    assert '.nm-atlas[data-atlas-look="masculine"] .atl-eye { scale: 0.84; }' in CSS
     assert '.atl-lw-body[data-atlas-look="masculine"] { animation: atl-idle-sway' in CSS
     body = _keyframes("atl-idle-sway").split("{", 1)[1]
     assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"rotate"}
@@ -908,3 +908,24 @@ def test_one_aura_centred_on_the_figure_and_no_stray_glows():
     for k in "012":
         assert f".atl-st-aura{k} {{ stop-color: var(--atl-aura-c);" in CSS
     assert "--atl-aura-c: color-mix(in oklab, var(--atl-neb-c) 55%" in CSS
+
+
+def test_a_slender_figure_and_a_smaller_oval_head():
+    # INBOX 563, the owner: "I feel like the hip makes it look fat. make it
+    # like a girl who is 19-21. also I feel like the large round heads on
+    # both the atlas avatars are giving fnaf and a little scary". Her hips
+    # 13.6 across (17.2 before); the head an oval at least 1.2 times as tall
+    # as wide (1.13 before), tapering to the chin, drawn at 0.76 wherever
+    # the body is (the head marks keep it whole); the eyes a little smaller
+    # and softer at rest. atlasluster.js measures it as drawn.
+    feminine = _look("feminine")
+    torso = re.search(r'torso: "([^"]+)"', feminine).group(1)
+    width = lambda y: _cubic_x_at_y(torso, y, "r") - _cubic_x_at_y(torso, y, "l")  # noqa: E731
+    hips = max(width(y / 10) for y in range(550, 620))
+    assert hips <= 14.0, hips
+    head = re.search(r'const ATLAS_HEAD_PATH = "([^"]+)"', ATLAS).group(1)
+    nums = [float(v) for v in re.findall(r"-?[0-9.]+", head)]
+    xs, ys = nums[0::2], nums[1::2]
+    assert (max(ys) - min(ys)) / (max(xs) - min(xs)) >= 1.2
+    assert ".nm-atlas:not(.atl-head, .atl-tiny) { --atl-head-k: 0.76; }" in CSS
+    assert CSS.count("scale(calc(var(--atl-tune-head) * var(--atl-head-k)))") == 2, "the head and the lids' layer scale together"

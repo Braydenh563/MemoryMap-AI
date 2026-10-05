@@ -416,7 +416,7 @@ const atlasTaper = (a, b) => (t) => a + (b - a) * (t < 0.5 ? 2 * t * t : 1 - 2 *
 const ATLAS_GEO = {
   eyes: [[24.4, 27, 1], [37.6, 27, -1]],
   brows: [[24.4, 20.6, 1], [37.6, 20.6, -1]],
-  cheeks: [[19.6, 32.4], [42.4, 32.4]],
+  cheeks: [[21.4, 32], [40.6, 32]],
   mouth: [31, 35.2],
   ear: [[21, 14], [41, 14]],
   hair: [31, 10],
@@ -455,8 +455,12 @@ const ATLAS_GEO = {
 //: than at the crown, the chin one gentle curve that runs into the body
 //: (its outline stops at the cheeks, `ATLAS_HEAD_EDGE`, so there is no
 //: chin line).
-const ATLAS_HEAD_PATH = "M31 38.4C24 38.4 17.6 33 17.6 24C17.6 14.6 23.4 8 31 8C38.6 8 44.4 14.6 44.4 24C44.4 33 38 38.4 31 38.4Z";
-const ATLAS_HEAD_EDGE = "M18.4 30.4C16.6 20.2 22.6 8 31 8C39.4 8 45.4 20.2 43.6 30.4";
+//: **An oval, not a ball** (INBOX 563, the owner: "the large round heads on
+//: both the atlas avatars are giving fnaf and a little scary"): 24.5 wide
+//: where it was 26.8, so it is 1.24 times as tall as wide (1.13 before),
+//: widest at the cheekbones and tapering softly to the chin.
+const ATLAS_HEAD_PATH = "M31 38.4C25.4 38.4 19.6 33.8 18.8 25.6C18.6 16.4 23.6 8 31 8C38.4 8 43.4 16.4 43.2 25.6C42.4 33.8 36.6 38.4 31 38.4Z";
+const ATLAS_HEAD_EDGE = "M19.4 31C17.6 20.6 23 8 31 8C39 8 44.4 20.6 42.6 31";
 //: The left ear: a wisp of flame that leaves the crown's shoulder, leans
 //: out and back, its outer edge flicked into two small tongues, its tip
 //: soft; inside it the inner ear, the same shape inset, filled with
@@ -733,16 +737,19 @@ const ATLAS_LOOKS = {
     ],
     hairStars: [[50, -2], [62, 4], [72, 18], [77, 36], [72, 52], [62, 62], [52, 67]],
     //: **An hourglass** (INBOX 535, the reference's "defined feminine
-    //: torso"): narrow shoulders (10 across where the arms join), a small
-    //: chest curve (12.9 at y 40.5), a clear waist (9.6 at y 51, upright
-    //: there so the line has no corner) that flares into rounded hips (17.2
-    //: at y 59), and a round bottom the tail grows from, one continuous
+    //: torso"): narrow shoulders (9.2 across where the arms join), a small
+    //: chest curve, a clear waist (8.2 at y 51, upright there so the line
+    //: has no corner) that flares gently into the hips (13.6 at y 59), and
+    //: a round bottom the dress grows from, one continuous
     //: line with no seam. Round 9's lesson stands: no line
     //: anywhere on the chest, its form carried by light alone
     //: (`chestLight`). The five curves keep their roles (two per flank,
     //: one hem), which `atlasTorsoEdge` counts on. The torso fades into the
     //: tail over 62 to 69 (the feminine `waist` mask), below the hips.
-    torso: "M26 35.4C22.4 38.8 26.2 44.4 26.2 51C26.2 55.4 21.4 57 22.4 61.8C23 68.6 39 68.6 39.6 61.8C40.6 57 35.8 55.4 35.8 51C35.8 44.4 39.6 38.8 36 35.4Z",
+    //: **Slender, 19 to 21** (INBOX 563, the owner: "I feel like the hip
+    //: makes it look fat"): the hips 13.6 across where they were 17.2, the
+    //: waist 8.2 where it was 9.6, the chest a little narrower, a gentle S.
+    torso: "M26.4 35.4C23.4 38.8 26.6 44.6 26.9 51C27.1 55 23.8 57.2 24.4 61.6C25 67.6 37 67.6 37.6 61.6C38.2 57.2 34.9 55 35.1 51C35.4 44.6 38.6 38.8 35.6 35.4Z",
     //: [cx, cy, rx, ry] of the glow on each side and of the shade under it.
     chestLight: { glow: [[27.8, 42.6, 3.6, 3], [34.2, 42.6, 3.6, 3]], shade: [[27.9, 45.6, 3.4, 1.8], [34.1, 45.6, 3.4, 1.8]] },
     brow: "arch",
@@ -1066,7 +1073,7 @@ function atlasBuild() {
         //: **A dress, not a tooth** (INBOX 554, the owner: "the lower body
         //: still looks too sharp like a tooth"; 559). The tooth was its end:
         //: `cap`'s arc bulges inward (`atlasStem`), a notch with two horns.
-        //: Now the end is one soft lobe half again as long as it is wide,
+        //: Now the end is one soft lobe a little longer than it is wide,
         //: a little fuller on the side it curls from, leaving each side
         //: along it, so nothing on the outline is a corner; and the last
         //: third of the dress dissolves into light (`hemfade`, the defs).
@@ -1075,7 +1082,7 @@ function atlasBuild() {
           const pts = [tipL];
           for (let i = 1; i < 16; i += 1) {
             const u = i / 16;
-            const k = r * 1.5 * Math.sin(Math.PI * u) ** 0.6 * (1 + 0.3 * (1 - 2 * u));
+            const k = r * 1.1 * Math.sin(Math.PI * u) ** 0.6 * (1 + 0.3 * (1 - 2 * u));
             pts.push([tipL[0] + (tipR[0] - tipL[0]) * u + d[0] * k, tipL[1] + (tipR[1] - tipL[1]) * u + d[1] * k]);
           }
           pts.push(tipR);
@@ -2138,10 +2145,10 @@ function atlasBody(parent, id, props, look, route = null) {
     const backFades = [backLow, backHost].map((g) => atlasMake("g", { mask: `url(#${id}-wispends)` }, g));
     spec.wispPaths.forEach((w, i) => {
       const paint = `url(#${id}-wisp${i})`;
-      for (const [runs, into] of [[w.back, backFades[w.low ? 0 : 1]], [w.front, fades[w.low ? 0 : 1]]]) {
+      for (const [runs, into, side] of [[w.back, backFades[w.low ? 0 : 1], "back"], [w.front, fades[w.low ? 0 : 1], "front"]]) {
         for (const run of runs) {
           atlasMake("path", { class: "atl-astral-glow", d: run.glow, fill: paint }, into);
-          atlasMake("path", { class: "atl-astral-core", d: run.core, fill: paint }, into);
+          atlasMake("path", { class: "atl-astral-core", d: run.core, fill: paint, "data-wisp": i, "data-run": side }, into);
           atlasMake("path", { class: "atl-astral-edge", d: run.edge }, into);
         }
       }

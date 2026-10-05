@@ -1,50 +1,60 @@
-// The feminine Atlas's lustre (INBOX 550), as numbers: the fringe's strands,
-// the astral wisps, the masculine look left alone, the reduced-motion path
-// and the frame cost.
+// The feminine Atlas's lustre (INBOX 550, 554, 555, 556, 559, 563), as
+// numbers.
 //
 //   BASE=http://127.0.0.1:8823 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
-//     SCRATCH=/tmp/x node scratchpad/ui-sweeps/atlasluster.js
-//   PART=fringe,wisps,masc,motion,cost  (default: all)
-//   RUNS=3                     frame-cost runs (median)
-//   REF_DIR=/tmp/x/base        atlas.js and 08-consistency.css from before,
-//                              measured interleaved with the app's own
+//     SCRATCH=/tmp/x REF_DIR=/tmp/x/base node scratchpad/ui-sweeps/atlasluster.js
+//   PART=fringe,wisps,dress,body,gap,masc,motion,cost  (default: all)
+//   RUNS=3        frame-cost runs (median)
+//   REF_DIR=dir   atlas.js and 08-consistency.css from before, served in
+//                 place of the app's (lib.js's OVERRIDE_*) for every "before"
 //
-// - fringe: every `.atl-fringe-lock` in a full drawing. `turn` is the largest
-//   change of direction along its outline per 0.1 unit of length, in degrees
-//   (a hard wedge point turns 120 or more in one step; a round tip of radius
-//   0.25 about 25); `taper` is its tip's width over its root's, from the
-//   outline itself (twice the distance from the centreline to the nearest
-//   outline point). The old cap's own outline is measured the same way, as
-//   the before.
-// - wisps: every `.atl-astral-core`: widths at 3%, 30% and 97% along, the
-//   largest turn, its gradient's stop opacities (ends near 0, middle high),
-//   the glints' count and how many sizes they come in.
-// - masc: the masculine drawings' markup at five levels and 6x screenshots
-//   of the companion figure (stand, sit, lie) and a full mark, from the
-//   app's files and from REF_DIR's: which markup differs and how many
-//   pixels differ in each shot (both should be none and 0).
-// - motion: the glint layers' running animations with motion on, with the
-//   system's reduced motion and with Avatar animation Off.
-// - cost: main-thread time (CDP TaskDuration) over 8s with the feminine
-//   companion figure, and separately a 208px full mark, animating, minus the
-//   same page without either; the median of RUNS, and with REF_DIR the same
-//   for the files from before and the change in percent.
+// `turn` everywhere is the largest change of direction along an outline per
+// 0.1 unit of length, in degrees: a hard point turns 120 or more in one
+// step, a round end of radius 0.25 about 25.
+// - fringe: every `.atl-fringe-lock` in a full drawing, its turn and its
+//   tip's width over its root's (from the outline: twice the distance from
+//   the centreline to the nearest outline point); the cap's own turn.
+// - wisps: per wisp, its front and back runs, the largest turn over its
+//   cores, its widths at 3%, 30% and 97% along, the alpha its cores paint on
+//   a clear page along its centreline (the ends near 0); the glints, their
+//   sizes; in the companion, whether the back runs' layer is under the body.
+// - dress: its outline's turn, the overlap (IoU) of its shape with
+//   REF_DIR's, its parts, and any stroke on it (none: no outline).
+// - body: the head's height over the figure's (head top to the lowest point
+//   of the body), the face's height over its width, her hips over her
+//   shoulders; now and before.
+// - gap (INBOX 555): pixels along the hair's outer arc, 0.8 inside it, in
+//   the companion at 6x on a magenta page, three moods, four phases of every
+//   running loop: how many are the page's colour (none should be).
+// - masc: the masculine figure's layers, markup now and before: which
+//   differ (only the head may, INBOX 563), and 6x pixels.
+// - motion: her figure's loops (name and period) with motion on, and how
+//   many of the INBOX 550 and 554 loops run under reduced motion and Off.
+// - cost: main-thread time (CDP TaskDuration) over 8s with her companion
+//   figure, and separately a 208px full mark, minus the page without; now
+//   and before, interleaved.
 const { boot } = require('./lib.js');
 const fs = require('fs');
 const crypto = require('crypto');
-const PARTS = (process.env.PART || 'fringe,wisps,masc,motion,cost').split(',');
-const RUNS = Number(process.env.RUNS || 3);
 const { execFileSync } = require('child_process');
+const PARTS = (process.env.PART || 'fringe,wisps,dress,body,gap,masc,motion,cost').split(',');
+const RUNS = Number(process.env.RUNS || 3);
+const REF_DIR = process.env.REF_DIR || '';
+const SCRATCH = process.env.SCRATCH || '/tmp';
 const PY = process.env.PY || '/home/user/MemoryMap-AI/.venv/bin/python';
-//: Pixels that differ between two PNGs of one size (the count), and the
-//: alpha at given device pixels, each the largest in a 3x3 patch.
+//: Pixels that differ between two PNGs (the count); the alpha at given
+//: device pixels, the largest in a 3x3 patch; the RGB at given pixels.
 const DIFF = 'import sys\nfrom PIL import Image, ImageChops\na=Image.open(sys.argv[1]).convert("RGBA");b=Image.open(sys.argv[2]).convert("RGBA")\nprint(-1 if a.size!=b.size else sum(1 for p in ImageChops.difference(a,b).getdata() if max(p)>2))';
 const ALPHA = 'import sys,json\nfrom PIL import Image\nim=Image.open(sys.argv[1]).convert("RGBA");w,h=im.size\nout=[]\nfor t,x,y in json.loads(sys.argv[2]):\n  out.append([t,max(im.getpixel((min(w-1,max(0,x+dx)),min(h-1,max(0,y+dy))))[3] for dx in (-1,0,1) for dy in (-1,0,1))])\nprint(json.dumps(out))';
-const REF_DIR = process.env.REF_DIR || '';
+const RGB = 'import sys,json\nfrom PIL import Image\nim=Image.open(sys.argv[1]).convert("RGB");w,h=im.size\nprint(json.dumps([im.getpixel((min(w-1,max(0,x)),min(h-1,max(0,y)))) for x,y in json.loads(sys.argv[2])]))';
+const BG = [255, 0, 255];
+
+const side = (ref) => {
+  if (ref) { process.env.OVERRIDE_JS = `atlas.js=${REF_DIR}/atlas.js`; process.env.OVERRIDE_CSS = `08-consistency.css=${REF_DIR}/08-consistency.css`; }
+  else { delete process.env.OVERRIDE_JS; delete process.env.OVERRIDE_CSS; }
+};
 
 const GEOMETRY = () => {
-  //: Outline points every 0.1 unit along a closed path, and the largest
-  //: turn between successive steps.
   window.__lusterOutline = (path) => {
     const n = path.getTotalLength();
     const pts = [];
@@ -72,207 +82,327 @@ async function mountFigure(page, look, extra = {}) {
     const holder = document.createElement('div'); holder.id = 'nm-buddy';
     Object.assign(holder.style, { position: 'absolute', left: '40px', top: '40px', width: '64px', height: '92px' });
     if (extra.pose && extra.pose !== 'stand') holder.dataset.pose = extra.pose;
-    try { atlasMoodNow = 'calm'; } catch (e) {}
+    const mood = extra.mood || 'calm';
+    try { atlasMoodNow = mood; } catch (e) {}
     const fig = atlasFigure(); Object.assign(fig.style, { position: 'relative', display: 'block', width: '64px', height: '92px' });
-    for (const svg of fig.querySelectorAll('svg')) atlasApply(svg, 'calm');
+    for (const svg of fig.querySelectorAll('svg')) atlasApply(svg, mood);
     holder.append(fig); box.append(holder); document.body.append(box);
     if (extra.still) for (const el of box.querySelectorAll('*')) el.style.animation = 'none';
   }, { look, extra });
 }
 
-//: The masculine look, drawn by the app's files and (with REF_DIR) by the
-//: files from before, in the same run: a hash of each level's markup and a
-//: 6x screenshot of the companion figure in three poses and of a full mark.
-async function mascSnapshot(ref) {
-  if (ref) { process.env.OVERRIDE_JS = `atlas.js=${REF_DIR}/atlas.js`; process.env.OVERRIDE_CSS = `08-consistency.css=${REF_DIR}/08-consistency.css`; }
-  else { delete process.env.OVERRIDE_JS; delete process.env.OVERRIDE_CSS; }
+async function drawingPart(fn, arg) {
   const { browser, page } = await boot({ viewport: { width: 520, height: 700 }, scale: 6 });
+  await page.evaluate(GEOMETRY);
   await page.evaluate(() => { document.documentElement.dataset.avatarMotion = 'off'; });
-  const marks = await page.evaluate(() => {
-    localStorage.setItem('atlas-look', 'masculine');
-    const html = {};
-    for (const [size, level] of [[400, 'full'], [208, 'bust'], [64, 'head'], [20, 'tiny']]) html[level] = atlasDraw(size, 'calm', level).outerHTML;
-    const span = document.createElement('span'); span.append(atlasDraw(92, 'calm', 'figure'));
-    html.figure = span.innerHTML;
-    return html;
-  });
-  const hash = (s) => crypto.createHash('sha1').update(s).digest('hex').slice(0, 12);
-  const out = Object.fromEntries(Object.entries(marks).map(([k, v]) => [k, hash(v)]));
-  const files = {};
-  for (const pose of ['stand', 'sit', 'lie']) {
-    await mountFigure(page, 'masculine', { still: true, pose });
-    await page.waitForTimeout(1500);
-    files[pose] = `${process.env.SCRATCH || '/tmp'}/atlasluster-masc-${pose}-${ref ? 'ref' : 'now'}.png`;
-    await (await page.$('#luster-box')).screenshot({ path: files[pose] });
-  }
-  await page.evaluate(() => { document.getElementById('luster-box')?.remove(); const s = atlasDraw(400, 'calm', 'full'); s.id = 'luster-full'; Object.assign(s.style, { position: 'fixed', left: '0', top: '0', zIndex: '9999', background: '#f3f4fa' }); document.body.append(s); });
-  await page.waitForTimeout(800);
-  files.full = `${process.env.SCRATCH || '/tmp'}/atlasluster-masc-full-${ref ? 'ref' : 'now'}.png`;
-  await (await page.$('#luster-full')).screenshot({ path: files.full });
+  const out = await fn(page, arg);
   await page.evaluate(() => localStorage.removeItem('atlas-look'));
   await browser.close();
-  return { hashes: out, files };
+  return out;
+}
+
+const fringePart = (page) => page.evaluate(() => {
+  localStorage.setItem('atlas-look', 'feminine');
+  const svg = atlasDraw(400, 'calm', 'full');
+  document.body.append(svg);
+  const spec = ATLAS_LOOKS.feminine;
+  const locks = [...svg.querySelectorAll('.atl-fringe-lock')].map((p, i) => {
+    const { pts, turn } = window.__lusterOutline(p);
+    const seg = spec.fringe[i].seg;
+    const w = (t) => +window.__lusterWidth(pts, atlasSegsAt(seg, t)).toFixed(2);
+    return { turn, root: w(0.04), tip: w(0.96), taper: +(w(0.96) / w(0.04)).toFixed(2) };
+  });
+  const capTurn = window.__lusterOutline(svg.querySelector('.atl-cap-fill')).turn;
+  const inCap = !!svg.querySelector('.atl-hair-cap .atl-fringe-lock');
+  const parts = ['atl-fringe-shadow', 'atl-fringe-sheen', 'atl-flyaway'].map((c) => svg.querySelectorAll(`.${c}`).length);
+  svg.remove();
+  return { locks: locks.length, maxTurn: Math.max(...locks.map((l) => l.turn)), maxTaper: Math.max(...locks.map((l) => l.taper)), capTurn, inCapGroup: inCap, shadowSheenFlyaway: parts, each: locks };
+});
+
+async function wispsPart(page) {
+  const out = await page.evaluate(() => {
+    localStorage.setItem('atlas-look', 'feminine');
+    const svg = atlasDraw(400, 'calm', 'full');
+    svg.id = 'luster-svg';
+    Object.assign(svg.style, { position: 'fixed', left: '0', top: '0', zIndex: '9999' });
+    document.body.append(svg);
+    const spec = ATLAS_LOOKS.feminine;
+    const each = spec.wisps.map((wisp, i) => {
+      const cores = [...svg.querySelectorAll(`.atl-astral-core[data-wisp="${i}"]`)];
+      const outl = cores.map((p) => window.__lusterOutline(p));
+      const pts = outl.flatMap((o) => o.pts);
+      const w = (t) => +window.__lusterWidth(pts, atlasSegsAt(wisp.seg, t)).toFixed(2);
+      return { runs: { front: cores.filter((c) => c.dataset.run === 'front').length, back: cores.filter((c) => c.dataset.run === 'back').length }, turn: Math.max(...outl.map((o) => o.turn)), w03: w(0.03), w30: w(0.3), w97: w(0.97) };
+    });
+    window.__lusterCore = (i) => {
+      //: Everything hidden but this wisp's cores (CSSOM: the page's CSP
+      //: refuses a <style> written here).
+      for (const el of [document.documentElement, document.body]) { el.style.background = 'transparent'; el.style.visibility = 'hidden'; }
+      svg.style.visibility = 'hidden';
+      for (const el of svg.querySelectorAll('*')) el.style.visibility = 'hidden';
+      //: The masks' contents live in the shared defs, which must show.
+      for (const d of document.querySelectorAll('svg.atl-defs')) d.style.visibility = 'visible';
+      const cores = [...svg.querySelectorAll(`.atl-astral-core[data-wisp="${i}"]`)];
+      for (const c of cores) c.style.visibility = 'visible';
+      const box = svg.getBoundingClientRect();
+      return [0.01, 0.04, 0.5, 0.96, 0.99].map((t) => {
+        const [x, y] = atlasSegsAt(spec.wisps[i].seg, t);
+        const q = new DOMPoint(x, y).matrixTransform(cores[0].getScreenCTM());
+        return [t, Math.round((q.x - box.left) * 6), Math.round((q.y - box.top) * 6)];
+      });
+    };
+    const glints = [...svg.querySelectorAll('.atl-wisp-glint')];
+    return { glints: glints.length, glintSizes: new Set(glints.map((g) => g.dataset.k)).size, oldDots: svg.querySelectorAll('.atl-astral-sparkle').length, each };
+  });
+  for (let i = 0; i < out.each.length; i += 1) {
+    const pts = await page.evaluate((i) => window.__lusterCore(i), i);
+    await page.waitForTimeout(300);
+    const file = `${SCRATCH}/atlasluster-core${i}.png`;
+    const r = await page.evaluate(() => { const b = document.getElementById('luster-svg').getBoundingClientRect(); return { x: b.left, y: b.top, width: b.width, height: b.height }; });
+    await page.screenshot({ path: file, omitBackground: true, clip: r });
+    out.each[i].alpha = JSON.parse(execFileSync(PY, ['-c', ALPHA, file, JSON.stringify(pts)]).toString());
+  }
+  await page.evaluate(() => { document.getElementById('luster-svg')?.remove(); for (const el of [document.documentElement, document.body]) { el.style.background = ''; el.style.visibility = ''; } });
+  await mountFigure(page, 'feminine', { still: true });
+  out.backLayerUnderBody = await page.evaluate(() => {
+    const kids = [...document.querySelector('#luster-box .atl-figure-box').children];
+    const at = (cls) => kids.findIndex((k) => k.classList.contains(cls) || k.querySelector(`:scope > .${cls}`));
+    return at('atl-layer-wisps-back') >= 0 && at('atl-layer-wisps-back') < at('atl-layer-body');
+  });
+  return out;
+}
+
+async function dressPart() {
+  let refFill = null;
+  if (REF_DIR) {
+    side(true);
+    refFill = await drawingPart((page) => page.evaluate(() => { localStorage.setItem('atlas-look', 'feminine'); atlasBuild(); return ATLAS_LOOKS.feminine.sower.fill; }));
+    side(false);
+  }
+  return drawingPart((page, refFill) => page.evaluate((refFill) => {
+    localStorage.setItem('atlas-look', 'feminine');
+    const svg = atlasDraw(400, 'calm', 'full');
+    document.body.append(svg);
+    const fill = svg.querySelector('.atl-sower-fill');
+    const { turn } = window.__lusterOutline(fill);
+    let iou = null;
+    if (refFill) {
+      //: Both shapes rasterised at 10 px a unit; the overlap over the union.
+      const k = 10;
+      const c = document.createElement('canvas'); c.width = 90 * k; c.height = 70 * k;
+      const ctx = c.getContext('2d');
+      const mask = (d) => { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height); ctx.setTransform(k, 0, 0, k, 20 * k, -40 * k); ctx.fill(new Path2D(d)); return ctx.getImageData(0, 0, c.width, c.height).data; };
+      const a = mask(fill.getAttribute('d'));
+      const b = mask(refFill);
+      //: Whole, and below y 64 (the dress past the hips, which INBOX 563
+      //: narrowed on purpose).
+      const count = (fromY) => {
+        let and = 0; let or = 0;
+        for (let i = 3; i < a.length; i += 4) {
+          if (Math.floor((i - 3) / 4 / c.width) / k + 40 < fromY) continue;
+          const x = a[i] > 127; const y = b[i] > 127;
+          if (x && y) and += 1;
+          if (x || y) or += 1;
+        }
+        return +(and / or).toFixed(3);
+      };
+      iou = { whole: count(-99), belowHips: count(64) };
+    }
+    const parts = Object.fromEntries(['atl-dress-neb', 'atl-dress-sheen', 'atl-dress-rim', 'atl-dress-star', 'atl-dress-glint', 'atl-dress-mote', 'atl-sower-glow'].map((c) => [c, svg.querySelectorAll(`.${c}`).length]));
+    const strokes = [...svg.querySelectorAll('.atl-sower *')].filter((el) => getComputedStyle(el).stroke !== 'none').length;
+    const dust = [...svg.querySelectorAll('.atl-dress-star')].map((p) => (p.getAttribute('d').match(/a([0-9.]+)/g) || []).map((m) => +m.slice(1)))[0] || [];
+    return { turn, iouWithBefore: iou, parts, strokes, dustSizes: new Set(dust).size, mask: fill.parentElement.getAttribute('mask') };
+  }, refFill), refFill);
+}
+
+async function bodyPart(ref) {
+  side(ref);
+  const out = await drawingPart(async (page) => {
+    const res = {};
+    for (const look of ['feminine', 'masculine']) {
+      await mountFigure(page, look, { still: true });
+      await page.waitForTimeout(800);
+      res[look] = await page.evaluate((look) => {
+        const box = document.querySelector('#luster-box .atl-figure-box');
+        const headSkin = [...box.querySelectorAll('.atl-layer-body .atl-head .atl-skin')].find((p) => p.getAttribute('d') === ATLAS_HEAD_PATH);
+        const h = headSkin.getBoundingClientRect();
+        let bottom = 0;
+        for (const p of box.querySelectorAll('.atl-layer-body .atl-fills > *, .atl-layer-lower .atl-fills .atl-sower-fill, .atl-layer-lower .atl-fills .atl-ribbon-veil, [class*="atl-layer-leg"] .atl-fills .atl-skin')) bottom = Math.max(bottom, p.getBoundingClientRect().bottom);
+        const tmp = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', ATLAS_HEAD_PATH); tmp.append(path); document.body.append(tmp);
+        const bb = path.getBBox();
+        const spec = ATLAS_LOOKS[look];
+        path.setAttribute('d', spec.torsoNow);
+        const n = path.getTotalLength();
+        const rows = {};
+        for (let s = 0; s <= n; s += 0.05) { const q = path.getPointAtLength(s); const y = Math.round(q.y * 2) / 2; (rows[y] ||= []).push(q.x); }
+        const wAt = (y0, y1) => Math.max(...Object.entries(rows).filter(([y]) => +y >= y0 && +y <= y1).map(([, xs]) => Math.max(...xs) - Math.min(...xs)));
+        tmp.remove();
+        return { headOverHeight: +(h.height / (bottom - h.top)).toFixed(3), faceAspect: +(bb.height / bb.width).toFixed(3), hipsOverShoulders: +(wAt(55, 62) / wAt(37, 38.5)).toFixed(2), hips: +wAt(55, 62).toFixed(1) };
+      }, look);
+    }
+    return res;
+  });
+  side(false);
+  return out;
+}
+
+async function gapPart() {
+  const { browser, page } = await boot({ viewport: { width: 520, height: 700 }, scale: 6 });
+  await page.evaluate(() => { document.documentElement.dataset.avatarMotion = 'always'; });
+  const out = { samples: 0, background: 0, worst: [] };
+  for (const mood of ['calm', 'surprised', 'happy']) {
+    await mountFigure(page, 'feminine', { mood });
+    //: Magenta behind her, which no part of her is, so a sample that is the
+    //: page cannot be mistaken for her palest hair.
+    await page.evaluate(() => { document.getElementById('luster-box').style.background = '#ff00ff'; });
+    await page.waitForTimeout(1500);
+    for (const phase of [0, 0.25, 0.5, 0.75]) {
+      const pts = await page.evaluate((phase) => {
+        const box = document.getElementById('luster-box');
+        for (const a of box.getAnimations({ subtree: true })) {
+          a.pause();
+          const d = a.effect.getComputedTiming().duration;
+          if (Number.isFinite(d)) a.currentTime = d * phase;
+        }
+        const cap = box.querySelector('.atl-layer-body .atl-cap-fill');
+        const m = cap.getScreenCTM();
+        const r = box.getBoundingClientRect();
+        //: The cap's outer arc (its first two curves, from the left temple
+        //: over the crown to the right), 0.8 in toward the head's middle.
+        const tmp = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        tmp.setAttribute('d', cap.getAttribute('d').split('C').slice(0, 3).join('C'));
+        cap.parentNode.append(tmp);
+        const n = tmp.getTotalLength();
+        const res = [];
+        for (let i = 1; i < 40; i += 1) {
+          const q = tmp.getPointAtLength((n * i) / 40);
+          const dx = 31 - q.x; const dy = 24 - q.y; const len = Math.hypot(dx, dy);
+          const p = new DOMPoint(q.x + (dx / len) * 0.8, q.y + (dy / len) * 0.8).matrixTransform(m);
+          res.push([Math.round((p.x - r.left) * 6), Math.round((p.y - r.top) * 6)]);
+        }
+        tmp.remove();
+        return res;
+      }, phase);
+      const file = `${SCRATCH}/atlasluster-gap.png`;
+      await (await page.$('#luster-box')).screenshot({ path: file });
+      const rgb = JSON.parse(execFileSync(PY, ['-c', RGB, file, JSON.stringify(pts)]).toString());
+      for (const c of rgb) {
+        out.samples += 1;
+        const d = Math.max(...c.map((v, k) => Math.abs(v - BG[k])));
+        if (d < 40) { out.background += 1; if (out.worst.length < 5) out.worst.push({ mood, phase, c }); }
+      }
+    }
+  }
+  await page.evaluate(() => localStorage.removeItem('atlas-look'));
+  await browser.close();
+  return out;
+}
+
+async function mascPart() {
+  const snap = async (ref) => {
+    side(ref);
+    const res = await drawingPart(async (page) => {
+      const layers = await page.evaluate(() => {
+        localStorage.setItem('atlas-look', 'masculine');
+        const span = document.createElement('span'); span.append(atlasDraw(92, 'calm', 'figure'));
+        //: The head's own geometry (its outline and the cheeks), named, so
+        //: a layer can be compared with the head's changes taken out.
+        const head = (html) => ATLAS_GEO.cheeks.reduce((h, [x, y], i) => h.replace(`cx="${x}" cy="${y}"`, `cheek${i}`), html.split(ATLAS_HEAD_PATH).join('HEAD').split(ATLAS_HEAD_EDGE).join('EDGE'));
+        return Object.fromEntries([...span.querySelectorAll('svg.atl-layer')].map((s) => [s.dataset.atlasLayer, [s.outerHTML, head(s.outerHTML)]]));
+      });
+      await mountFigure(page, 'masculine', { still: true });
+      await page.waitForTimeout(1200);
+      const file = `${SCRATCH}/atlasluster-masc-${ref ? 'ref' : 'now'}.png`;
+      await (await page.$('#luster-box')).screenshot({ path: file });
+      return { layers, file };
+    });
+    side(false);
+    return res;
+  };
+  const now = await snap(false);
+  if (!REF_DIR) return { note: 'set REF_DIR to compare' };
+  const ref = await snap(true);
+  const differ = Object.keys(now.layers).filter((k) => now.layers[k][0] !== ref.layers[k][0]);
+  const beyondHead = differ.filter((k) => now.layers[k][1] !== ref.layers[k][1]);
+  return { layersDiffer: differ, differBeyondTheHead: beyondHead, pixelsDiffering: +execFileSync(PY, ['-c', DIFF, now.file, ref.file]).toString() };
+}
+
+async function motionPart() {
+  const out = {};
+  for (const [name, opts, attr] of [['on', {}, 'always'], ['reduced', { reducedMotion: 'reduce' }, 'always'], ['off', {}, 'off']]) {
+    const { browser, page } = await boot({ viewport: { width: 520, height: 700 }, ...opts });
+    await page.evaluate((attr) => { document.documentElement.dataset.avatarMotion = attr; }, attr);
+    await mountFigure(page, 'feminine');
+    await page.waitForTimeout(1200);
+    out[name] = await page.evaluate(() => {
+      const box = document.querySelector('#luster-box .atl-figure-box');
+      const anims = [box, ...box.querySelectorAll('*')].flatMap((el) => el.getAnimations());
+      const loops = [...new Set(anims.map((a) => `${a.animationName} ${+(a.effect.getComputedTiming().duration / 1000).toFixed(1)}s`))].sort();
+      const ours = anims.filter((a) => ['atl-float', 'atl-hem-wind', 'atl-glint-twinkle', 'atl-wisp-drift'].includes(a.animationName)).length;
+      return { loops, ours };
+    });
+    await page.evaluate(() => localStorage.removeItem('atlas-look'));
+    await browser.close();
+  }
+  return out;
+}
+
+async function costPart() {
+  const measure = async (what, ref) => {
+    side(ref);
+    const { browser, ctx, page } = await boot({ viewport: { width: 1280, height: 800 } });
+    await page.evaluate((what) => {
+      document.documentElement.dataset.avatarMotion = 'always';
+      localStorage.setItem('atlas-look', 'feminine');
+      document.getElementById('nm-buddy')?.remove();
+      const stage = document.createElement('div'); stage.id = 'cost-stage';
+      Object.assign(stage.style, { position: 'fixed', right: '16px', top: '80px', zIndex: '9999', display: 'flex', gap: '8px', alignItems: 'end' });
+      document.body.append(stage);
+      if (what === 'figure') {
+        const holder = document.createElement('div'); holder.id = 'nm-buddy';
+        Object.assign(holder.style, { position: 'relative', width: '64px', height: '92px' });
+        const fig = atlasFigure(); Object.assign(fig.style, { position: 'relative', display: 'block', width: '64px', height: '92px' });
+        holder.append(fig); stage.append(holder);
+      }
+      if (what === 'mark') stage.append(nameMarkLive('Atlas', 208));
+    }, what);
+    await page.waitForTimeout(2000);
+    const cdp = await ctx.newCDPSession(page);
+    await cdp.send('Performance.enable');
+    const read = async () => Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map((m) => [m.name, m.value]));
+    const a = await read();
+    await page.waitForTimeout(8000);
+    const b = await read();
+    await page.evaluate(() => localStorage.removeItem('atlas-look'));
+    await browser.close();
+    side(false);
+    return (b.TaskDuration - a.TaskDuration) * 1000;
+  };
+  const median = (xs) => xs.slice().sort((x, y) => x - y)[Math.floor(xs.length / 2)];
+  const sides = REF_DIR ? ['now', 'ref'] : ['now'];
+  const runs = {};
+  for (let i = 0; i < RUNS; i += 1) for (const s of sides) for (const what of ['none', 'figure', 'mark']) (runs[`${s}-${what}`] ||= []).push(await measure(what, s === 'ref'));
+  const out = {};
+  for (const s of sides) {
+    const none = median(runs[`${s}-none`]);
+    out[s] = Object.fromEntries(['figure', 'mark'].map((w) => [w, +(median(runs[`${s}-${w}`]) - none).toFixed(1)]));
+  }
+  if (REF_DIR) out.change = Object.fromEntries(['figure', 'mark'].map((w) => [w, `${(100 * (out.now[w] / out.ref[w] - 1)).toFixed(1)}%`]));
+  out.runs = Object.fromEntries(Object.entries(runs).map(([k, v]) => [k, v.map((x) => +x.toFixed(0))]));
+  return out;
 }
 
 (async () => {
   const out = {};
-  if (PARTS.includes('masc')) {
-    const now = await mascSnapshot(false);
-    if (REF_DIR) {
-      const ref = await mascSnapshot(true);
-      const markup = Object.keys(now.hashes).filter((k) => now.hashes[k] !== ref.hashes[k]);
-      const pixels = Object.fromEntries(Object.keys(now.files).map((k) => [k, +execFileSync(PY, ['-c', DIFF, now.files[k], ref.files[k]]).toString()]));
-      out.masc = { markupDiffers: markup, pixelsDiffering: pixels };
-    } else out.masc = { hashes: now.hashes, note: 'set REF_DIR to compare' };
-  }
-  if (PARTS.some((p) => ['fringe', 'wisps'].includes(p))) {
-    const { browser, page } = await boot({ viewport: { width: 520, height: 700 }, scale: 6 });
-    await page.evaluate(GEOMETRY);
-    await page.evaluate(() => { document.documentElement.dataset.avatarMotion = 'off'; });
-    if (PARTS.includes('fringe')) {
-      out.fringe = await page.evaluate(() => {
-        localStorage.setItem('atlas-look', 'feminine');
-        const svg = atlasDraw(400, 'calm', 'full');
-        document.body.append(svg);
-        const spec = ATLAS_LOOKS.feminine;
-        const locks = [...svg.querySelectorAll('.atl-fringe-lock')].map((p, i) => {
-          const { pts, turn } = window.__lusterOutline(p);
-          const seg = (spec.fringe || [])[i]?.seg;
-          const w = (t) => seg ? +window.__lusterWidth(pts, atlasSegsAt(seg, t)).toFixed(2) : null;
-          const root = w(0.04);
-          const tip = w(0.96);
-          return { turn, root, tip, taper: root ? +(tip / root).toFixed(2) : null };
-        });
-        const cap = svg.querySelector('.atl-cap-fill');
-        const capTurn = cap ? window.__lusterOutline(cap).turn : null;
-        const fly = svg.querySelectorAll('.atl-flyaway').length;
-        const sheen = svg.querySelectorAll('.atl-fringe-sheen').length;
-        const under = svg.querySelectorAll('.atl-fringe-under').length;
-        svg.remove();
-        return { locks: locks.length, maxTurn: locks.length ? Math.max(...locks.map((l) => l.turn)) : null, maxTaper: locks.length ? Math.max(...locks.map((l) => l.taper)) : null, capTurn, flyaways: fly, sheens: sheen, underlayers: under, each: locks };
-      });
-    }
-    if (PARTS.includes('wisps')) {
-      out.wisps = await page.evaluate(() => {
-        localStorage.setItem('atlas-look', 'feminine');
-        const svg = atlasDraw(400, 'calm', 'full');
-        document.body.append(svg);
-        const spec = ATLAS_LOOKS.feminine;
-        const each = [...svg.querySelectorAll('.atl-astral-core')].map((p, i) => {
-          const { pts, turn } = window.__lusterOutline(p);
-          const seg = spec.wisps[i].seg;
-          const w = (t) => +window.__lusterWidth(pts, atlasSegsAt(seg, t)).toFixed(2);
-          return { turn, w03: w(0.03), w30: w(0.3), w97: w(0.97) };
-        });
-        //: Each core alone on a clear page, its centre points in device
-        //: pixels, for the alpha read below.
-        window.__lusterCore = (i) => {
-          document.getElementById('luster-only')?.remove();
-          const st = document.createElement('style'); st.id = 'luster-only';
-          st.textContent = '#luster-svg, #luster-svg * { visibility: hidden; } #luster-svg .luster-on { visibility: visible; }';
-          document.head.append(st);
-          for (const el of svg.querySelectorAll('.luster-on')) el.classList.remove('luster-on');
-          const core = svg.querySelectorAll('.atl-astral-core')[i];
-          core.classList.add('luster-on');
-          const m = core.getScreenCTM();
-          const box = svg.getBoundingClientRect();
-          return [0.01, 0.04, 0.3, 0.5, 0.96, 0.99].map((t) => {
-            const [x, y] = atlasSegsAt(spec.wisps[i].seg, t);
-            const q = new DOMPoint(x, y).matrixTransform(m);
-            return [t, Math.round((q.x - box.left) * 6), Math.round((q.y - box.top) * 6)];
-          });
-        };
-        svg.id = 'luster-svg';
-        const glints = [...svg.querySelectorAll('.atl-wisp-glint')];
-        const sizes = new Set(glints.map((g) => g.dataset.k));
-        const dots = svg.querySelectorAll('.atl-astral-sparkle').length;
-        return { count: each.length, glints: glints.length, glintSizes: sizes.size, oldDots: dots, each };
-      });
-      Object.assign(await page.evaluate(() => { const s = document.getElementById('luster-svg'); Object.assign(s.style, { position: 'fixed', left: '0', top: '0', zIndex: '9999' }); return 0; }) || {}, {});
-      for (let i = 0; i < out.wisps.count; i += 1) {
-        const pts = await page.evaluate((i) => window.__lusterCore(i), i);
-        await page.waitForTimeout(300);
-        const file = `${process.env.SCRATCH || '/tmp'}/atlasluster-core${i}.png`;
-        await (await page.$('#luster-svg')).screenshot({ path: file, omitBackground: true });
-        const alpha = JSON.parse(execFileSync(PY, ['-c', ALPHA, file, JSON.stringify(pts)]).toString());
-        out.wisps.each[i].alpha = alpha;
-      }
-      await page.evaluate(() => { document.getElementById('luster-svg')?.remove(); document.getElementById('luster-only')?.remove(); });
-    }
-    await page.evaluate(() => localStorage.removeItem('atlas-look'));
-    await browser.close();
-  }
-  if (PARTS.includes('motion')) {
-    out.motion = {};
-    for (const [name, opts, attr] of [['on', {}, 'always'], ['reduced', { reducedMotion: 'reduce' }, 'always'], ['off', {}, 'off']]) {
-      const { browser, page } = await boot({ viewport: { width: 520, height: 700 }, ...opts });
-      await page.evaluate((attr) => { document.documentElement.dataset.avatarMotion = attr; }, attr);
-      await mountFigure(page, 'feminine');
-      await page.waitForTimeout(1200);
-      out.motion[name] = await page.evaluate(() => {
-        const layers = [...document.querySelectorAll('#luster-box [class*="atl-layer-glint"]')];
-        const running = layers.reduce((n, el) => n + el.getAnimations().length, 0);
-        const inside = layers.reduce((n, el) => n + el.getAnimations({ subtree: true }).length, 0);
-        const opacity = layers.map((el) => getComputedStyle(el).opacity);
-        return { layers: layers.length, running, inside, opacity };
-      });
-      await page.evaluate(() => localStorage.removeItem('atlas-look'));
-      await browser.close();
-    }
-  }
-  if (PARTS.includes('cost')) {
-    //: `what`: 'none', 'figure' (the companion's layered figure) or 'mark'
-    //: (a 208px full drawing, one svg). `ref`: serve REF_DIR's atlas.js and
-    //: 08-consistency.css in place of the app's (lib.js's OVERRIDE_*), so
-    //: before and after are measured interleaved, under the same load.
-    const measure = async (what, ref) => {
-      if (ref) { process.env.OVERRIDE_JS = `atlas.js=${REF_DIR}/atlas.js`; process.env.OVERRIDE_CSS = `08-consistency.css=${REF_DIR}/08-consistency.css`; }
-      else { delete process.env.OVERRIDE_JS; delete process.env.OVERRIDE_CSS; }
-      const { browser, ctx, page } = await boot({ viewport: { width: 1280, height: 800 } });
-      await page.evaluate((what) => {
-        document.documentElement.dataset.avatarMotion = 'always';
-        localStorage.setItem('atlas-look', 'feminine');
-        document.getElementById('nm-buddy')?.remove();
-        const stage = document.createElement('div'); stage.id = 'cost-stage';
-        Object.assign(stage.style, { position: 'fixed', right: '16px', top: '80px', zIndex: '9999', display: 'flex', gap: '8px', alignItems: 'end' });
-        document.body.append(stage);
-        if (what === 'figure') {
-          const holder = document.createElement('div'); holder.id = 'nm-buddy';
-          Object.assign(holder.style, { position: 'relative', width: '64px', height: '92px' });
-          const fig = atlasFigure(); Object.assign(fig.style, { position: 'relative', display: 'block', width: '64px', height: '92px' });
-          holder.append(fig); stage.append(holder);
-        }
-        if (what === 'mark') stage.append(nameMarkLive('Atlas', 208));
-      }, what);
-      await page.waitForTimeout(2000);
-      const cdp = await ctx.newCDPSession(page);
-      await cdp.send('Performance.enable');
-      const read = async () => Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map((m) => [m.name, m.value]));
-      const a = await read();
-      await page.waitForTimeout(8000);
-      const b = await read();
-      await page.evaluate(() => localStorage.removeItem('atlas-look'));
-      await browser.close();
-      return (b.TaskDuration - a.TaskDuration) * 1000;
-    };
-    const median = (xs) => xs.slice().sort((x, y) => x - y)[Math.floor(xs.length / 2)];
-    const sides = REF_DIR ? ['now', 'ref'] : ['now'];
-    const runs = {};
-    for (let i = 0; i < RUNS; i += 1) {
-      for (const side of sides) {
-        for (const what of ['none', 'figure', 'mark']) {
-          (runs[`${side}-${what}`] ||= []).push(await measure(what, side === 'ref'));
-        }
-      }
-    }
-    out.cost = {};
-    for (const side of sides) {
-      const none = median(runs[`${side}-none`]);
-      out.cost[side] = Object.fromEntries(['figure', 'mark'].map((w) => [w, +(median(runs[`${side}-${w}`]) - none).toFixed(1)]));
-      out.cost[side].noneMs = +none.toFixed(1);
-    }
-    if (REF_DIR) out.cost.change = Object.fromEntries(['figure', 'mark'].map((w) => [w, `${(100 * (out.cost.now[w] / out.cost.ref[w] - 1)).toFixed(1)}%`]));
-    out.cost.runs = Object.fromEntries(Object.entries(runs).map(([k, v]) => [k, v.map((x) => +x.toFixed(0))]));
-  }
+  if (PARTS.includes('fringe')) out.fringe = await drawingPart(fringePart);
+  if (PARTS.includes('wisps')) out.wisps = await drawingPart(wispsPart);
+  if (PARTS.includes('dress')) out.dress = await dressPart();
+  if (PARTS.includes('body')) out.body = { now: await bodyPart(false), ...(REF_DIR ? { before: await bodyPart(true) } : {}) };
+  if (PARTS.includes('gap')) out.gap = await gapPart();
+  if (PARTS.includes('masc')) out.masc = await mascPart();
+  if (PARTS.includes('motion')) out.motion = await motionPart();
+  if (PARTS.includes('cost')) out.cost = await costPart();
   console.log(JSON.stringify(out, null, 1));
 })();

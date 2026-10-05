@@ -266,6 +266,30 @@ GALLERY_PAGE_SIZE = 200
 GALLERY_PAGE_SIZE_MAX = 1000
 
 
+@router.get("/files/readings")
+def file_readings(
+    source: str = Query(pattern="^(attachment|upload)$"),
+    id: int = Query(ge=1),  # noqa: A002  # the file's id, named as the API names it
+    session: Session = Depends(get_session),
+) -> dict:
+    """Every reading of one file in one shape (F10, `core/readings.py`): its
+    caption, Tesseract's text, the vision model's reading and each page read
+    in the OCR workspace, as `{kind, page, text, model, at}` rows, so one
+    renderer draws all of them instead of three cards each knowing one column.
+    A private note's attachment is not read out."""
+    from memorymap.core import readings
+
+    model = Attachment if source == "attachment" else MediaUpload
+    row = session.get(model, id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="That file could not be found.")
+    if source == "attachment":
+        owner = session.get(Entry, row.entry_id)
+        if owner is None or owner.is_deleted or bool(getattr(owner, "is_private", False)):
+            raise HTTPException(status_code=404, detail="That file could not be found.")
+    return {"source": source, "id": id, "readings": readings.for_file(session, source, id)}
+
+
 @router.get("/files/gallery", response_model=list[AttachmentGalleryOut])
 def list_attachment_gallery(
     response: Response,
@@ -2700,12 +2724,32 @@ def _remember_page_read(key: tuple[str, int] | None, result: OcrPageReadOut, rea
             #: invalidation of its own.
             row.regions = ""
             row.created_at = datetime.now(timezone.utc)
+            session.flush()
+            _reindex_file(session, kind, source_id)
             #: Explicit: `DatabaseManager.session()` hands back a bare Session,
             #: and `with` on one closes it without committing, the whole point
             #: of this table is that the reading outlives the request.
             session.commit()
     except Exception:  # noqa: BLE001 - a cache write must never fail a read
         logger.debug("could not store the page reading", exc_info=True)
+
+
+def _reindex_file(session, kind: str, source_id: int) -> None:  # noqa: ANN001
+    """A page's words are the file's words (F10): put them in its index row.
+
+    `page_reads` is not a model the index's flush hook watches, so a page read
+    in the OCR workspace was never findable by search; the file's row is
+    re-read here, in the same transaction as the reading it now carries.
+    """
+    from memorymap.search import index as search_index
+
+    source = {"attachment": "attachments", "upload": "media"}.get(kind)
+    if source is None:
+        return
+    try:
+        search_index.touch(session, source, int(source_id))
+    except Exception:  # noqa: BLE001  # the reading is kept even if the index is not
+        logger.debug("could not re-index a file after a page reading", exc_info=True)
 
 
 def _remember_page_caption(key: tuple[str, int] | None, page: int, caption: str, model: str) -> None:
@@ -2743,6 +2787,8 @@ def _remember_page_caption(key: tuple[str, int] | None, page: int, caption: str,
                 session.add(row)
             row.caption = caption.strip()
             row.caption_model = model or ""
+            session.flush()
+            _reindex_file(session, kind, source_id)
             session.commit()
     except Exception:  # noqa: BLE001 - a cache write must never fail a describe
         logger.debug("could not store the page description", exc_info=True)

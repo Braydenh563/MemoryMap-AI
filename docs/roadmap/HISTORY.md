@@ -40623,6 +40623,35 @@ plan's item 6 decided on, and it fits the budget as it is.
 - Not measured: a durable job's enqueue (it writes its `jobs` row) under a
   2,000-file drop; the event bus.
 
+## Moved from the plans, 2026-10-05 (F7, F10)
+
+### From WORLD_CLASS_PLAN.md section 10: the rows as they stood
+
+- F7 (b) the pool is built (A3); a ratchet holds the thread sites at 13 modules (`tests/test_flaw_class_lints.py`, 2026-09-26). Left: moving them onto `core/jobs.py` one at a time, lowering the ratchet each time. M.
+- F10 (c) no `readings` table (`page_reads` is document pages only). M.
+
+### Built 2026-10-05 (row 29, F7 in part and F10)
+
+- **F7.** The whole-notebook re-index runs on the pool, on a `batch` lane of
+  one worker (on `model` it would have held every caption and every new
+  note's filing for its whole run), and the model capability probe, a short
+  HTTP call, on the `cpu` lane; both are kept off the activity list (the
+  re-index has its own row). `THREAD_SITES` lowered for both modules
+  (`tests/test_f7_pool_moves.py`).
+- **F10, as a view.** A file's text was in five places (`caption`,
+  `ocr_text`, `vision_ocr_text` on two tables, and `page_reads`); the search
+  index read three for an attachment and two for an upload, so an upload's
+  vision reading and every page read in the OCR workspace could not be found
+  by their words. `readings(source, source_id, kind, page, text, model, ts)`
+  is a SQLite view over all five, replaced at startup when its definition
+  changes; a view rather than a table the writers move onto, so the four
+  extractors, the caption editor and the page reader keep writing where they
+  write and the read model cannot drift. `GET /files/readings?source=&id=`
+  returns every reading in one shape (a private note's file is a 404); the
+  index takes every kind (`readings.text_of`), and a page read or described
+  re-indexes its file in the same transaction (`tests/test_readings_f10.py`).
+- Not built: the Files card drawing from the route (one renderer).
+
 ## INBOX resolved, 2026-10-05
 
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs

@@ -74,7 +74,7 @@ def _cpu_width() -> int:
 
 #: Lane -> how many workers it gets. `model` is 1 on purpose; see the module
 #: docstring. Read by `tests/test_jobs_pool.py`, which fails if it grows.
-LANE_WIDTHS: dict[str, int] = {"cpu": _cpu_width(), "model": 1}
+LANE_WIDTHS: dict[str, int] = {"cpu": _cpu_width(), "model": 1, "batch": 1}
 
 #: The lane each job kind belongs on. A kind missing from here lands on
 #: `DEFAULT_LANE` with a debug line rather than raising.
@@ -85,6 +85,13 @@ KIND_LANES: dict[str, str] = {
     "vision": "model",
     "vision-pdf": "model",
     "file-entry": "model",
+    # F7, the threads onto the pool (2026-10-05). A whole-notebook pass gets a
+    # lane of its own: on `model` it would hold every caption and every new
+    # note's filing until it finished, which is minutes on a large notebook.
+    "reindex": "batch",
+    # Asking the model server what a model can do: a short HTTP call, no
+    # model loaded, so it waits behind nothing on the I/O-shaped lane.
+    "model-info": "cpu",
 }
 
 DEFAULT_LANE = "cpu"
@@ -100,7 +107,7 @@ PENDING_ROWS_PER_KIND = 10
 #: for: the privacy ledger's flush (`core/egress.py`) queues one within a
 #: second of any connection that leaves this computer, and a row in the
 #: activity panel for it would be noise that says nothing they can act on.
-QUIET_KINDS = frozenset({"ledger"})
+QUIET_KINDS = frozenset({"ledger", "model-info", "reindex"})
 
 
 def _start_heartbeat(target):  # noqa: ANN001, ANN202

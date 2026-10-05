@@ -235,7 +235,11 @@ def _warm_capabilities(client, model: str) -> None:
             with _warming_lock:
                 _warming.discard(model)
 
-    threading.Thread(target=run, name=f"capabilities-{model}", daemon=True).start()
+    # On the pool (F7): a short call to the model server, no session, no
+    # result to wait for; the next status poll reads what it learned.
+    from memorymap.core import jobs
+
+    jobs.enqueue("model-info", run, name=model)
 
 
 

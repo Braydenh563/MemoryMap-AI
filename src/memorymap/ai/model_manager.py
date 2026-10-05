@@ -858,9 +858,16 @@ def start_reindex(db: DatabaseManager, embeddings: Embedder) -> bool:
             return False
         _reindex_job = Job(kind="reindex")
         job = _reindex_job
-    threading.Thread(
-        target=_run_reindex, args=(db, embeddings, job), name="reindex", daemon=True
-    ).start()
+    # On the pool's `batch` lane (F7): one worker, a session of its own
+    # (`_reindex_pass` opens it), and the activity panel's row is still the
+    # job's own (`reindex_status`), so the pool keeps it off its list.
+    from memorymap.core import jobs
+
+    if not jobs.enqueue("reindex", _run_reindex, db, embeddings, job, name="reindex"):
+        with _lock:
+            job.status = "error"
+            job.error = "The app is shutting down."
+        return False
     return True
 
 

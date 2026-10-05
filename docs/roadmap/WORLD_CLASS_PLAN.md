@@ -872,10 +872,13 @@ in `docks.js`).
 - F5 (b) every bare `fetch` must carry the auth header
   (`tests/test_raw_fetch_headers.py`); the `api.stream`/`api.upload` helpers and
   the no-bare-fetch lint are not built. S.
-- F7 (b) the pool is built (A3); a ratchet holds the thread sites at 13
-  modules (`tests/test_flaw_class_lints.py`, 2026-09-26). Left: moving them
-  onto `core/jobs.py` one at a time, lowering the ratchet each time. M.
-- F10 (c) no `readings` table (`page_reads` is document pages only). M.
+- F7 (b) the pool is built (A3); a ratchet holds the thread sites
+  (`tests/test_flaw_class_lints.py`). 2026-10-05: the re-index (a `batch`
+  lane of its own) and the model capability probe moved onto the pool, the
+  ratchet lowered by two (HISTORY.md, "Moved from the plans, 2026-10-05
+  (F7, F10)"). Left: the model downloads, the embedding warm-up (kept apart on
+  purpose, see its comment), the scheduler, the searxng and update threads. M.
+- F10 built 2026-10-05 as a view: `readings`, `GET /files/readings`, every kind indexed (HISTORY.md, "Moved from the plans, 2026-10-05 (F7, F10)"). Left: one renderer in the Files card reading the route.
 - F11 (d) GRAPH_PLAN section 3 owns it.
 - F12 (c) no store. L.
 

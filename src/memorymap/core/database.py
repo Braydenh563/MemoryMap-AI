@@ -1924,6 +1924,7 @@ class DatabaseManager:
         self._backfill_inherited_workspaces()
         self._ensure_fts5()
         self._ensure_indexes()
+        self._ensure_readings_view()
         # See _ensure_alembic_baseline's own docstring for why this is
         # skipped under pytest: a throwaway per-test database has nothing
         # to gain from being stamped, and the constructor runs in most of
@@ -2271,6 +2272,21 @@ class DatabaseManager:
         ("ix_conversations_order", "conversations (pinned DESC, updated_at DESC, id DESC)"),
         ("ix_reminders_due_order", "reminders (due_at, id)"),
     )
+
+    def _ensure_readings_view(self) -> None:
+        """Every reading of a file as one `readings` view (F10, `core/readings.py`).
+
+        Replaced when its definition changes, so a column added to it reaches
+        a notebook made before; a failure is logged and the app starts, since
+        nothing writes through the view and only the readings route reads it.
+        """
+        from memorymap.core import readings
+
+        try:
+            with self.engine.begin() as connection:
+                readings.ensure_view(connection)
+        except Exception:  # noqa: BLE001  # a read model must never stop the app opening
+            logging.getLogger("memorymap.db").warning("could not create the readings view", exc_info=True)
 
     def _ensure_indexes(self) -> None:
         """Create the composite indexes the hot list queries need.

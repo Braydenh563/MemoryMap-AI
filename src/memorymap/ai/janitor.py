@@ -26,12 +26,13 @@ import json
 import logging
 import threading
 from dataclasses import dataclass
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import lexical_filing, librarian
-from memorymap.ai.embeddings import EmbeddingService, bytes_to_vector, cosine_similarity
+from memorymap.ai import learning, lexical_filing, librarian
+from memorymap.ai.embeddings import EmbeddingService, cosine_similarity
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient, OllamaError
 
@@ -48,7 +49,7 @@ from memorymap.ai.ollama_client import OllamaClient, OllamaError
 # attempt, "no AI available") never touches a vector and must not pay to load
 # one.
 from memorymap.core import deps
-from memorymap.core.database import Category, EmbeddingRecord, Entry
+from memorymap.core.database import Category, Entry
 from memorymap.core.logbuffer import safe_value
 from memorymap.entry.manager import AUTO_FILED, UNCATEGORISED, WORDS_FILED
 
@@ -245,8 +246,14 @@ def _semantic_category(
     `ai_first_filing` is off. Two copies would be two chances for the
     orderings to drift apart.
     """
+    # One read of the filed vectors for both passes below, and the categories
+    # the person has corrected notes like this one out of (I7's consumer:
+    # `learning.centroid_excluded` was claimed built with no caller, ARCH-08).
+    labelled = _labelled_vectors(session, embeddings, exclude_entry_id)
+    excluded = learning.excluded_categories(session, content)
     match = _best_centroid_match(
-        session, content, embeddings, exclude_entry_id=exclude_entry_id
+        session, content, embeddings, exclude_entry_id=exclude_entry_id,
+        labelled=labelled, excluded=excluded,
     )
     if match is not None and match.similarity >= CONFIDENT_MATCH:
         confidence = min(100, round(match.similarity * 100))
@@ -263,7 +270,8 @@ def _semantic_category(
     # between them, resembling neither. Individual neighbours don't average
     # away like that.
     neighbours = _knn_match(
-        session, content, embeddings, exclude_entry_id=exclude_entry_id
+        session, content, embeddings, exclude_entry_id=exclude_entry_id,
+        labelled=labelled, excluded=excluded,
     )
     if neighbours is not None:
         logger.info(
@@ -275,44 +283,104 @@ def _semantic_category(
     return None
 
 
+@dataclass
+class _Labelled:
+    """Every filed note's vector beside its category, for one filing call."""
+
+    names: list[str]
+    #: One unit-length row per name (numpy, imported lazily like the rest).
+    rows: Any
+    #: Which rows are private notes, as a boolean array.
+    private: Any
+
+
+def _labelled_vectors(
+    session: Session, embeddings: EmbeddingService, exclude_entry_id: int | None = None
+) -> _Labelled | None:
+    """The filed notes' vectors, from the search engine's matrix.
+
+    **Not from the table.** This used to select every stored vector as a blob
+    and decode each one, on every save, twice (once for the centroids, once
+    for the neighbours): 539 ms of a 1,415 ms save at 610 notes (audit
+    2026-10-05, ARCH-02), beside a matrix in the search engine that already
+    holds every one of them decoded, unit length and kept in step with every
+    write. What is read here per save is one small query, each filed note's
+    id and category, and the rows are a slice of that matrix.
+
+    Only vectors of the current backend count (the matrix is per backend),
+    never Uncategorised (filing must not gravitate into the junk drawer).
+    """
+    from memorymap.search import engine as search_engine
+
+    import numpy as np
+
+    query = (
+        select(Entry.id, Category.name, Entry.is_private)
+        .join(Category, Entry.category_id == Category.id)
+        .where(
+            Entry.is_deleted == False,  # noqa: E712
+            Category.name != UNCATEGORISED,
+        )
+    )
+    if exclude_entry_id is not None:
+        query = query.where(Entry.id != exclude_entry_id)
+    filed = session.execute(query).all()
+    if not filed:
+        return None
+    matrix = search_engine.current_matrix(session, embeddings.backend_id())
+    if matrix is None:
+        return None
+    ids = [entry_id for entry_id, _name, _private in filed]
+    found = search_engine.rows_for(matrix, ids)
+    if found is None:
+        return None
+    positions, rows = found
+    names = [filed[i][1] for i in positions]
+    private = np.array([bool(filed[i][2]) for i in positions], dtype=bool)
+    return _Labelled(names=names, rows=rows, private=private)
+
+
 def _best_centroid_match(
     session: Session,
     content: str,
     embeddings: EmbeddingService,
     exclude_entry_id: int | None = None,
+    labelled: _Labelled | None = None,
+    excluded: set[str] | None = None,
 ) -> CentroidMatch | None:
     """Compare the note's vector to the average vector (centroid) of each
-    existing category. Only vectors from the current backend count."""
+    existing category. Only vectors from the current backend count.
+
+    `excluded` are the categories the person has corrected notes like this
+    one away from (`learning.excluded_categories`, WORLD_CLASS_PLAN I7):
+    never the answer, however close."""
     note_vector = embeddings.embed_text(content)
     if note_vector is None:
         return None
-
-    query = (
-        select(Category.name, EmbeddingRecord.embedding)
-        .join(Entry, Entry.category_id == Category.id)
-        .join(EmbeddingRecord, EmbeddingRecord.entry_id == Entry.id)
-        .where(
-            Entry.is_deleted == False,  # noqa: E712
-            EmbeddingRecord.model_version == embeddings.backend_id(),
-            Category.name != UNCATEGORISED,  # never gravitate INTO the junk drawer
-        )
-    )
-    if exclude_entry_id is not None:
-        query = query.where(Entry.id != exclude_entry_id)
-    rows = session.execute(query).all()
-    if not rows:
+    if labelled is None:
+        labelled = _labelled_vectors(session, embeddings, exclude_entry_id)
+    if labelled is None or not labelled.names:
         return None
 
     import numpy as np
 
-    vectors_by_category: dict[str, list[np.ndarray]] = {}
-    for name, blob in rows:
-        vectors_by_category.setdefault(name, []).append(bytes_to_vector(blob))
+    if labelled.rows.shape[1] != note_vector.shape[0]:
+        return None
+    order = sorted(set(labelled.names))
+    index = {name: i for i, name in enumerate(order)}
+    groups = np.array([index[name] for name in labelled.names])
+    # A masked sum per category. Measured at 5,000 vectors: 3 to 12 ms, where
+    # `np.add.at` (an unbuffered per-row loop) took 670 ms and a product with
+    # a membership matrix 400 to 1,300 ms on a loaded machine (BLAS threads).
+    centroids = np.stack(
+        [labelled.rows[groups == i].mean(axis=0) for i in range(len(order))]
+    )
 
     best: CentroidMatch | None = None
-    for name, vectors in vectors_by_category.items():
-        centroid = np.mean(vectors, axis=0)
-        similarity = cosine_similarity(note_vector, centroid)
+    for name, centroid in zip(order, centroids):
+        if excluded and name in excluded:
+            continue
+        similarity = cosine_similarity(note_vector, centroid.astype("float32"))
         if best is None or similarity > best.similarity:
             best = CentroidMatch(name=name, similarity=similarity)
     return best
@@ -323,6 +391,8 @@ def _knn_match(
     content: str,
     embeddings: EmbeddingService,
     exclude_entry_id: int | None = None,
+    labelled: _Labelled | None = None,
+    excluded: set[str] | None = None,
 ) -> NeighbourMatch | None:
     """Vote among the k most similar individual notes.
 
@@ -330,51 +400,41 @@ def _knn_match(
     so one very close note outweighs three vague ones. Returns None unless the
     nearest note is genuinely close *and* the winner takes a clear majority, 
     a split vote is the case where asking the model is worth its cost.
+    `excluded` categories have no vote (see `_best_centroid_match`).
     """
     note_vector = embeddings.embed_text(content)
     if note_vector is None:
         return None
-
-    query = (
-        select(Category.name, EmbeddingRecord.embedding)
-        .join(Entry, Entry.category_id == Category.id)
-        .join(EmbeddingRecord, EmbeddingRecord.entry_id == Entry.id)
-        .where(
-            Entry.is_deleted == False,  # noqa: E712
-            # Private notes are excluded from everything the AI touches, and
-            # filing is no exception: a category chosen by a private note's
-            # neighbours would leak what that note is about.
-            Entry.is_private == False,  # noqa: E712
-            EmbeddingRecord.model_version == embeddings.backend_id(),
-            Category.name != UNCATEGORISED,
-        )
-    )
-    if exclude_entry_id is not None:
-        query = query.where(Entry.id != exclude_entry_id)
-    rows = session.execute(query).all()
-    if not rows:
+    if labelled is None:
+        labelled = _labelled_vectors(session, embeddings, exclude_entry_id)
+    if labelled is None or not labelled.names:
         return None
 
-    # Was a Python loop calling `cosine_similarity` once per candidate note, 
-    # every save paid an unvectorized per-row cost that `embeddings.similar_pairs`
-    # already avoids for the equivalent all-pairs comparison. One query vector
-    # against N candidates is a single matrix-vector product, not a block sweep
-    # (no N² blow-up to guard against the way `similar_pairs` does).
     import numpy as np
 
-    names = [name for name, _blob in rows]
-    matrix = np.stack([bytes_to_vector(blob) for _name, blob in rows]).astype("float32")
+    # Private notes are excluded from everything the AI touches, and filing
+    # is no exception: a category chosen by a private note's neighbours would
+    # leak what that note is about.
+    keep = ~labelled.private
+    if excluded:
+        keep &= np.array([name not in excluded for name in labelled.names], dtype=bool)
+    if not keep.any():
+        return None
+    if keep.all():
+        # The usual case: nothing to leave out, so no copy of every row.
+        names, matrix = labelled.names, labelled.rows
+    else:
+        names = [name for name, kept in zip(labelled.names, keep) if kept]
+        matrix = labelled.rows[keep]
+    if matrix.shape[1] != note_vector.shape[0]:
+        return None
+    # One query vector against N candidates is a single matrix-vector
+    # product; the matrix's rows are already unit length.
     query_vec = note_vector.astype("float32")
     query_norm = float(np.linalg.norm(query_vec))
     if query_norm == 0.0:
         return None  # every pair would score 0, same as the old per-row path
-    row_norms = np.linalg.norm(matrix, axis=1)
-    similarities = np.divide(
-        matrix @ query_vec,
-        row_norms * query_norm,
-        out=np.zeros(len(rows), dtype="float32"),
-        where=row_norms != 0,
-    )
+    similarities = matrix @ (query_vec / query_norm)
 
     order = np.argsort(-similarities)[:KNN_NEIGHBOURS]
     scored = [(float(similarities[i]), names[i]) for i in order]

@@ -37,7 +37,9 @@ from __future__ import annotations
 import json
 import math
 import re
-from dataclasses import dataclass
+import threading
+import time
+from dataclasses import dataclass, field
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -187,59 +189,33 @@ def suggest_tags(
     wanted = tokens(content)
     if not wanted:
         return []
-    query = (
-        select(Entry.content, Entry.tags)
-        .where(Entry.is_deleted == False, Entry.tags != "[]")  # noqa: E712
-        .order_by(Entry.id.desc())
-        .limit(MAX_EXAMPLES)
-    )
-    if exclude_entry_id is not None:
-        query = query.where(Entry.id != exclude_entry_id)
-    rows = [(text, _tags(raw)) for text, raw in session.execute(query).all()]
-    rows = [(text, tags) for text, tags in rows if tags]
-    if not rows:
-        return []
-    have_folded = {tag.casefold() for tag in have}
-    frequency: dict[str, int] = {}
-    bags = []
-    for text, _tags_of in rows:
-        bag: dict[str, float] = {}
-        for word in tokens(text):
-            bag[word] = bag.get(word, 0.0) + 1.0
-        for word in bag:
-            frequency[word] = frequency.get(word, 0) + 1
-        bags.append(bag)
-    total = len(bags)
-    idf = {word: math.log((1 + total) / (1 + count)) + 1.0 for word, count in frequency.items()}
-
-    def vector(bag: dict[str, float]) -> dict[str, float]:
-        out = {word: (1.0 + math.log(n)) * idf.get(word, 0.0) for word, n in bag.items() if word in idf}
-        norm = math.sqrt(sum(v * v for v in out.values())) or 1.0
-        return {word: v / norm for word, v in out.items()}
-
-    query_bag: dict[str, float] = {}
-    for word in wanted:
-        query_bag[word] = query_bag.get(word, 0.0) + 1.0
-    target = vector(query_bag)
-    scored = []
-    for (text, tags_of), bag in zip(rows, bags):
-        doc = vector(bag)
-        similarity = sum(value * doc.get(word, 0.0) for word, value in target.items())
-        if similarity > 0:
-            scored.append((similarity, tags_of))
-    scored.sort(key=lambda pair: pair[0], reverse=True)
-    votes: dict[str, float] = {}
-    spelled: dict[str, str] = {}
-    for similarity, tags_of in scored[:TAG_NEIGHBOURS]:
-        for tag in tags_of:
-            key = tag.casefold()
-            spelled.setdefault(key, tag)
-            votes[key] = votes.get(key, 0.0) + similarity
-    #: A tag the note names outright ("some cardio after work").
-    wanted_set = set(wanted)
-    vocabulary = {tag.casefold(): tag for _text, tags_of in rows for tag in tags_of}
+    with _corpus_lock:
+        corpus = _corpus_for(session)
+        scope = _scope(session)
+        docs = [
+            (entry_id, doc)
+            for entry_id, doc in corpus.docs.items()
+            if doc.tags and entry_id != exclude_entry_id and scope(doc)
+        ]
+        if not docs:
+            return []
+        query_bag: dict[str, float] = {}
+        for word in wanted:
+            query_bag[word] = query_bag.get(word, 0.0) + 1.0
+        scored = corpus.nearest(query_bag, "words", docs)
+        have_folded = {tag.casefold() for tag in have}
+        votes: dict[str, float] = {}
+        spelled: dict[str, str] = {}
+        for similarity, doc in scored[:TAG_NEIGHBOURS]:
+            for tag in doc.tags:
+                key = tag.casefold()
+                spelled.setdefault(key, tag)
+                votes[key] = votes.get(key, 0.0) + similarity
+        #: A tag the note names outright ("some cardio after work").
+        wanted_set = set(wanted)
+        vocabulary = {tag.casefold(): tag for _id, doc in docs for tag in doc.tags}
     for key, tag in vocabulary.items():
-        words = tokens(tag.replace("/", " "))
+        words = _tag_words(tag)
         if words and all(word in wanted_set for word in words):
             spelled.setdefault(key, tag)
             votes[key] = votes.get(key, 0.0) + TAG_NAME_VOTE
@@ -259,69 +235,39 @@ def _tally(
     wanted = tokens(content)
     if not wanted:
         return None
-    query = (
-        select(Category.name, Entry.content, Entry.tags, Entry.user_filed)
-        .join(Entry, Entry.category_id == Category.id)
-        .where(
-            Entry.is_deleted == False,  # noqa: E712
-            Entry.is_board == False,  # noqa: E712
-            Category.name != UNCATEGORISED,
-        )
-        .order_by(Entry.id.desc())
-        .limit(MAX_EXAMPLES)
-    )
-    if exclude_entry_id is not None:
-        query = query.where(Entry.id != exclude_entry_id)
-    rows = session.execute(query).all()
-    if not rows:
-        return None
+    names = dict(session.execute(select(Category.id, Category.name)).all())
+    with _corpus_lock:
+        corpus = _corpus_for(session)
+        scope = _scope(session)
+        docs = [
+            (entry_id, doc)
+            for entry_id, doc in corpus.docs.items()
+            if entry_id != exclude_entry_id
+            and not doc.board
+            and doc.tagged
+            and names.get(doc.category_id, UNCATEGORISED) != UNCATEGORISED
+            and scope(doc)
+        ]
+        if not docs:
+            return None
 
-    #: **Nearest notes by shared rare words** (TF-IDF cosine), each voting for
-    #: its category by how close it is. Naive Bayes was tried first and
-    #: measured on a 100-note, ten-category notebook (scratchpad/
-    #: filing_eval.py): 46% right when it filed. On notes this short, the
-    #: words two notes share are the whole signal, and a rare shared word
-    #: ("squats", "lentils") says far more than a common one.
-    docs: list[tuple[str, dict[str, float], int]] = []
-    frequency: dict[str, int] = {}
-    for name, text, raw_tags, by_hand in rows:
-        bag: dict[str, float] = {}
-        for word in tokens(text):
-            bag[word] = bag.get(word, 0.0) + 1.0
-        for tag in _tags(raw_tags):
-            for word in tokens(tag.replace("/", " ")):
-                bag[word] = bag.get(word, 0.0) + TAG_WEIGHT
-        if not bag:
-            continue
-        for word in bag:
-            frequency[word] = frequency.get(word, 0) + 1
-        docs.append((name, bag, USER_FILED_WEIGHT if by_hand else 1))
-    if not docs:
-        return None
-    total = len(docs)
-    idf = {word: math.log((1 + total) / (1 + count)) + 1.0 for word, count in frequency.items()}
-
-    def vector(bag: dict[str, float]) -> dict[str, float]:
-        out = {word: (1.0 + math.log(n)) * idf.get(word, 0.0) for word, n in bag.items() if word in idf}
-        norm = math.sqrt(sum(v * v for v in out.values())) or 1.0
-        return {word: v / norm for word, v in out.items()}
-
-    query_bag: dict[str, float] = {}
-    for word in wanted:
-        query_bag[word] = query_bag.get(word, 0.0) + 1.0
-    query = vector(query_bag)
-    notes_in: dict[str, int] = {}
-    for name, _bag, _weight in docs:
-        notes_in[name] = notes_in.get(name, 0) + 1
-
-    scored: list[tuple[float, str, int]] = []
-    for name, bag, weight in docs:
-        if not query:
-            break
-        doc = vector(bag)
-        similarity = sum(value * doc.get(word, 0.0) for word, value in query.items())
-        if similarity > 0:
-            scored.append((similarity, name, weight))
+        #: **Nearest notes by shared rare words** (TF-IDF cosine), each voting
+        #: for its category by how close it is. Naive Bayes was tried first
+        #: and measured on a 100-note, ten-category notebook (scratchpad/
+        #: filing_eval.py): 46% right when it filed. On notes this short, the
+        #: words two notes share are the whole signal, and a rare shared word
+        #: ("squats", "lentils") says far more than a common one.
+        query_bag: dict[str, float] = {}
+        for word in wanted:
+            query_bag[word] = query_bag.get(word, 0.0) + 1.0
+        notes_in: dict[str, int] = {}
+        for _id, doc in docs:
+            name = names[doc.category_id]
+            notes_in[name] = notes_in.get(name, 0) + 1
+        scored = [
+            (similarity, names[doc.category_id], USER_FILED_WEIGHT if doc.by_hand else 1)
+            for similarity, doc in corpus.nearest(query_bag, "tagged", docs)
+        ]
     scored.sort(reverse=True)
     votes: dict[str, float] = {}
     supporters: dict[str, int] = {}
@@ -339,3 +285,298 @@ def _tally(
             supporters[name] = supporters.get(name, 0) + MIN_SUPPORT
 
     return votes, supporters
+
+
+# --- the corpus, kept rather than rebuilt (audit 2026-10-05, ARCH-02) ---------
+#
+# **A save used to read the notebook.** Both passes above read up to
+# `MAX_EXAMPLES` notes' full text and tokenised every one of them, on every
+# save, to rebuild the same TF-IDF tables: 490 ms of a 1,415 ms save at 610
+# notes, and the main reason seeding fell from 11 notes a second at 40 notes
+# to 1 a second at 750. The tables are now kept per notebook and brought up
+# to date by a diff: one query of small columns (id, when it changed, its
+# tags, its category) finds what changed since the last call, and only those
+# notes are read and tokenised again. Scoring then reads only the notes that
+# share a word with the one being filed, through an inverted index.
+#
+# The stamp is what an edit moves: `updated_at` (`onupdate`, so every ORM
+# write), and the tags and category themselves, because a notebook-wide tag
+# or category rename is one UPDATE statement that does not.
+
+
+@dataclass
+class _Doc:
+    stamp: tuple
+    workspace: str
+    category_id: int | None
+    by_hand: bool
+    board: bool
+    tags: list[str]
+    #: `1 + log(count)` per word of the text: the tag pass's bag.
+    words: dict[str, float]
+    #: The same over the text and the tags (a tag counting `TAG_WEIGHT`
+    #: times): the filing pass's bag.
+    tagged: dict[str, float]
+    #: `{kind: (epoch, length)}`: the bag's TF-IDF length, kept until the
+    #: corpus has grown enough to move every word's rarity (`_Corpus.epoch`).
+    lengths: dict[str, tuple[int, float]] = field(default_factory=dict)
+
+
+#: Past this many postings, candidates come from the query's rarest words
+#: only, and only the best `RESCORE` of them are scored in full. A shared
+#: rare word is what puts a note among the nearest seven ("squats",
+#: "lentils"); a word half the notebook uses moves the score a little and the
+#: order of the top hardly at all, and reading its postings was most of the
+#: cost on a notebook with a small vocabulary.
+POSTINGS_BUDGET = 4_000
+RESCORE = 64
+#: How far the corpus may grow or shrink before every kept length is stale.
+EPOCH_DRIFT = 0.1
+
+
+class _Corpus:
+    def __init__(self, key: str) -> None:
+        self.key = key
+        self.docs: dict[int, _Doc] = {}
+        #: Per bag kind: how many docs hold each word, and which ones.
+        self.frequency: dict[str, dict[str, int]] = {"words": {}, "tagged": {}}
+        self.postings: dict[str, dict[str, set[int]]] = {"words": {}, "tagged": {}}
+        self.totals: dict[str, int] = {"words": 0, "tagged": 0}
+        #: Bumped when a kind's total has drifted `EPOCH_DRIFT` from the
+        #: total its lengths were taken at; a length from an older epoch is
+        #: taken again the next time its doc is scored.
+        self.epoch: dict[str, int] = {"words": 0, "tagged": 0}
+        self._epoch_total: dict[str, int] = {"words": 0, "tagged": 0}
+        #: The newest `updated_at` read, and when the corpus was last read
+        #: whole (`_corpus_for`).
+        self.mark: str | None = None
+        self.full_at = 0.0
+
+    def _bags(self, doc: _Doc) -> dict[str, dict[str, float]]:
+        # The tag pass only ever reads tagged notes, so only they count
+        # towards its word rarity, as when it read them from the table.
+        return {"words": doc.words if doc.tags else {}, "tagged": doc.tagged}
+
+    def remove(self, entry_id: int) -> None:
+        doc = self.docs.pop(entry_id, None)
+        if doc is None:
+            return
+        for kind, bag in self._bags(doc).items():
+            if not bag:
+                continue
+            self.totals[kind] -= 1
+            frequency, postings = self.frequency[kind], self.postings[kind]
+            for word in bag:
+                frequency[word] -= 1
+                if not frequency[word]:
+                    del frequency[word]
+                holders = postings.get(word)
+                if holders is not None:
+                    holders.discard(entry_id)
+                    if not holders:
+                        del postings[word]
+
+    def add(self, entry_id: int, doc: _Doc) -> None:
+        self.remove(entry_id)
+        self.docs[entry_id] = doc
+        for kind, bag in self._bags(doc).items():
+            if not bag:
+                continue
+            self.totals[kind] += 1
+            frequency, postings = self.frequency[kind], self.postings[kind]
+            for word in bag:
+                frequency[word] = frequency.get(word, 0) + 1
+                postings.setdefault(word, set()).add(entry_id)
+
+    def _idf(self, kind: str, word: str) -> float:
+        count = self.frequency[kind].get(word)
+        return math.log((1 + self.totals[kind]) / (1 + count)) + 1.0 if count else 0.0
+
+    def _length(self, kind: str, doc: _Doc) -> float:
+        kept = doc.lengths.get(kind)
+        if kept is not None and kept[0] == self.epoch[kind]:
+            return kept[1]
+        bag = doc.words if kind == "words" else doc.tagged
+        frequency, total = self.frequency[kind], self.totals[kind]
+        squares = 0.0
+        for word, weight in bag.items():
+            count = frequency.get(word)
+            if count:
+                value = weight * (math.log((1 + total) / (1 + count)) + 1.0)
+                squares += value * value
+        length = math.sqrt(squares) or 1.0
+        doc.lengths[kind] = (self.epoch[kind], length)
+        return length
+
+    def nearest(
+        self, query_bag: dict[str, float], kind: str, docs: list[tuple[int, _Doc]]
+    ) -> list[tuple[float, _Doc]]:
+        """`(cosine, doc)` for the docs in `docs` that share a word with the
+        query, best first: TF-IDF, each word's rarity taken over the whole
+        kept corpus of this kind. Bounded work per call (`POSTINGS_BUDGET`,
+        `RESCORE`), whatever the notebook's size."""
+        total = self.totals[kind]
+        if abs(total - self._epoch_total[kind]) > EPOCH_DRIFT * max(self._epoch_total[kind], 1):
+            self.epoch[kind] += 1
+            self._epoch_total[kind] = total
+        target = {word: (1.0 + math.log(n)) * self._idf(kind, word) for word, n in query_bag.items()}
+        target = {word: value for word, value in target.items() if value}
+        if not target:
+            return []
+        norm = math.sqrt(sum(v * v for v in target.values())) or 1.0
+        #: Each query word's share of a dot product with a doc's `1 + log n`.
+        share = {word: value / norm * self._idf(kind, word) for word, value in target.items()}
+        allowed = dict(docs)
+        postings = self.postings[kind]
+        by_words = kind == "words"
+        partial: dict[int, float] = {}
+        read = 0
+        for word in sorted(share, key=lambda w: len(postings.get(w, ()))):
+            holders = postings.get(word, ())
+            if read and read + len(holders) > POSTINGS_BUDGET:
+                break
+            read += len(holders)
+            weight = share[word]
+            for holder in holders:
+                doc = allowed.get(holder)
+                if doc is not None:
+                    partial[holder] = partial.get(holder, 0.0) + weight * (doc.words if by_words else doc.tagged)[word]
+        if not partial:
+            return []
+        ranked = sorted(partial, key=partial.__getitem__, reverse=True)[:RESCORE]
+        scored: list[tuple[float, _Doc]] = []
+        for holder in ranked:
+            doc = allowed[holder]
+            bag = doc.words if by_words else doc.tagged
+            dot = sum(weight * bag.get(word, 0.0) for word, weight in share.items())
+            similarity = dot / self._length(kind, doc)
+            if similarity > 0:
+                scored.append((similarity, doc))
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        return scored
+
+
+_corpus: _Corpus | None = None
+#: Held while the corpus changes or is read. Never across a model call; the
+#: only database work under it is the diff's own two small reads.
+_corpus_lock = threading.RLock()
+
+
+def _tag_words(tag: str) -> list[str]:
+    return tokens(tag.replace("/", " "))
+
+
+def _make_doc(stamp: tuple, content: str, tags: list[str], workspace, category_id, by_hand, board) -> _Doc:  # noqa: ANN001
+    counts: dict[str, float] = {}
+    for word in tokens(content):
+        counts[word] = counts.get(word, 0.0) + 1.0
+    tagged_counts = dict(counts)
+    for tag in tags:
+        for word in _tag_words(tag):
+            tagged_counts[word] = tagged_counts.get(word, 0.0) + TAG_WEIGHT
+    words = {word: 1.0 + math.log(n) for word, n in counts.items()}
+    tagged = {word: 1.0 + math.log(n) for word, n in tagged_counts.items()}
+    return _Doc(
+        stamp=stamp,
+        workspace=str(workspace or "default"),
+        category_id=category_id,
+        by_hand=bool(by_hand),
+        board=bool(board),
+        tags=tags,
+        words=words,
+        tagged=tagged,
+    )
+
+
+#: How often the corpus is read whole rather than by what changed. Between
+#: full reads only notes whose `updated_at` moved are read, which every ORM
+#: write does; a statement that writes round the ORM (a space deleted, its
+#: notes moved, which calls `forget_corpus`; a hard purge) is caught here.
+FULL_REFRESH_SECONDS = 30.0
+
+_STAMP_COLUMNS = "id, updated_at, tags, category_id, user_filed, is_board, workspace_id"
+
+
+def _corpus_for(session: Session) -> _Corpus:
+    """The kept corpus for this notebook, brought up to date. Call under
+    `_corpus_lock`.
+
+    Driver SQL, not an ORM select, on purpose: the corpus is every space's
+    notes (the space hook would otherwise narrow it to whichever space the
+    first caller had), and `_scope` narrows at read time instead.
+    """
+    global _corpus
+    bind = session.get_bind()
+    key = str(getattr(bind, "url", ""))
+    if _corpus is None or _corpus.key != key:
+        _corpus = _Corpus(key)
+    corpus = _corpus
+    connection = session.connection()
+    now = time.monotonic()
+    current: dict[int, tuple] = {}
+    if corpus.mark is None or now - corpus.full_at > FULL_REFRESH_SECONDS:
+        rows = connection.exec_driver_sql(
+            f"SELECT {_STAMP_COLUMNS} FROM entries "  # noqa: S608  # constant columns
+            "WHERE is_deleted = 0 AND is_private = 0 ORDER BY id DESC LIMIT ?",
+            (MAX_EXAMPLES,),
+        ).fetchall()
+        current = {int(row[0]): tuple(row[1:]) for row in rows}
+        for gone in [entry_id for entry_id in corpus.docs if entry_id not in current]:
+            corpus.remove(gone)
+        corpus.full_at = now
+    else:
+        # What moved since the last read, binned and made private included:
+        # those leave the corpus. `>=`, so a write in the same instant as the
+        # mark is read again rather than missed; its stamp then matches.
+        for row in connection.exec_driver_sql(
+            f"SELECT {_STAMP_COLUMNS}, is_deleted, is_private FROM entries "  # noqa: S608  # constant columns
+            "WHERE updated_at >= ?",
+            (corpus.mark,),
+        ).fetchall():
+            entry_id = int(row[0])
+            if row[7] or row[8]:
+                corpus.remove(entry_id)
+            else:
+                current[entry_id] = tuple(row[1:7])
+    marks = [stamp[0] for stamp in current.values() if stamp[0] is not None]
+    if marks:
+        corpus.mark = max([*marks, corpus.mark] if corpus.mark is not None else marks)
+    elif corpus.mark is None:
+        corpus.mark = ""
+    stale = [entry_id for entry_id, stamp in current.items() if (doc := corpus.docs.get(entry_id)) is None or doc.stamp != stamp]
+    for start in range(0, len(stale), 500):
+        batch = stale[start : start + 500]
+        placeholders = ",".join("?" for _ in batch)
+        for entry_id, content in connection.exec_driver_sql(
+            f"SELECT id, content FROM entries WHERE id IN ({placeholders})", tuple(batch)  # noqa: S608  # placeholders only
+        ).fetchall():
+            stamp = current[int(entry_id)]
+            _updated, raw_tags, category_id, by_hand, board, workspace = stamp
+            corpus.add(
+                int(entry_id),
+                _make_doc(stamp, content or "", _tags(raw_tags), workspace, category_id, by_hand, board),
+            )
+    # The newest `MAX_EXAMPLES`, as the full read takes them.
+    if len(corpus.docs) > MAX_EXAMPLES:
+        for entry_id in sorted(corpus.docs)[: len(corpus.docs) - MAX_EXAMPLES]:
+            corpus.remove(entry_id)
+    return corpus
+
+
+def _scope(session: Session):  # noqa: ANN202
+    """Which kept notes this session may see: its space, or every space not
+    hidden from "All spaces", as the space hook decides for an ORM read."""
+    workspace = session.info.get("workspace_id")
+    if workspace and workspace != "all":
+        return lambda doc: doc.workspace == workspace
+    hidden = set(session.info.get("hidden_workspaces") or ()) if workspace == "all" else set()
+    if hidden:
+        return lambda doc: doc.workspace not in hidden
+    return lambda doc: True
+
+
+def forget_corpus() -> None:
+    """Drop the kept corpus (a restore replaced the notebook underneath it)."""
+    global _corpus
+    with _corpus_lock:
+        _corpus = None

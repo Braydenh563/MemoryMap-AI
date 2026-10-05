@@ -534,6 +534,7 @@ def update_entry(
             entry.id,
             f"moved from {before_category} to {after_category}",
             payload={
+                "kind": "refile",
                 "from": before_category,
                 "to": after_category,
                 # The note's own words, so a filing prompt can say what kind

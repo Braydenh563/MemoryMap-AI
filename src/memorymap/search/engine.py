@@ -395,6 +395,32 @@ def current_matrix(session: Session, backend_id: str) -> _Matrix | None:
     return matrix
 
 
+def rows_for(matrix: _Matrix, ids: list[int]) -> tuple[list[int], np.ndarray] | None:
+    """`(positions in ids, rows)` for the ids the matrix holds, copied under
+    its lock: a caller's own read of the vectors it needs, without the scan
+    of the table this matrix exists to replace (the janitor's filing by
+    meaning, ARCH-02). None when it holds none of them."""
+    import numpy as np
+
+    wanted = np.fromiter(ids, dtype=np.int64, count=len(ids))
+    with _matrix_lock:
+        if not matrix.ids or not len(wanted):
+            return None
+        held = np.asarray(matrix.ids, dtype=np.int64)
+        # Sorted lookup in C: the dict walk this replaces was 200 ms of a
+        # save at 5,000 notes. A dead row holds id -1, which no caller asks for.
+        order = np.argsort(held, kind="stable")
+        at = np.searchsorted(held[order], wanted)
+        at[at >= len(held)] = 0
+        hit = held[order][at] == wanted
+        if not hit.any():
+            return None
+        positions = order[at[hit]]
+        # Fancy indexing copies, so the caller holds its own rows.
+        rows = matrix.rows[positions]
+    return np.flatnonzero(hit).tolist(), rows
+
+
 def _reconcile(session: Session, matrix: _Matrix, backend_id: str, fingerprint: tuple) -> bool:
     """Apply the writes the hook missed. False means "rebuild instead"."""
     import numpy as np
@@ -681,11 +707,49 @@ def _match_expression(terms: list[str], phrases: list[str], excluded: list[str],
     return expression
 
 
+def _space_clause(space, params: dict) -> list[str]:  # noqa: ANN001
+    """The space part of a raw index query.
+
+    `space` is a space id (that space only), a tuple of ids (every space but
+    those: "All spaces" leaving out the ones marked hidden from it), or
+    empty (no narrowing). Raw SQL never meets the ORM's space hook, which is
+    why `search` resolves this from the session itself (ARCH-03).
+    """
+    if isinstance(space, tuple):
+        if not space:
+            return []
+        names = {f"hidden{i}": value for i, value in enumerate(space)}
+        params.update(names)
+        return ["AND space NOT IN (" + ", ".join(f":{name}" for name in names) + ")"]
+    if space:
+        params["space"] = space
+        return ["AND space = :space"]
+    return []
+
+
+def _session_space(session: Session):  # noqa: ANN202
+    """The space this session reads, as `_space_clause` takes it.
+
+    **The search index is raw SQL, so the space hook never sees it.** Measured
+    (audit 2026-10-05, ARCH-03): a note written in "work" came back from
+    `/search` asked in "personal", while `/entries/query`, the graph, the
+    timeline and chat retrieval all returned nothing. The finder and the
+    palette call `/search` with no `space`, so they crossed spaces, titles
+    and snippets included, and spaces hidden from "All spaces" too.
+    """
+    workspace = session.info.get("workspace_id")
+    if workspace and workspace != "all":
+        return workspace
+    if workspace == "all":
+        return tuple(session.info.get("hidden_workspaces") or ())
+    return None
+
+
 def _candidates(
     session: Session,
     expression: str,
     kinds: list[str],
-    space: str | None,
+    space: str | tuple[str, ...] | None,
     since,
     until,
     depth: int,
@@ -707,9 +771,7 @@ def _candidates(
         names = {f"kind{i}": kind for i, kind in enumerate(kinds)}
         sql.append("AND kind IN (" + ", ".join(f":{name}" for name in names) + ")")
         params.update(names)
-    if space:
-        sql.append("AND space = :space")
-        params["space"] = space
+    sql.extend(_space_clause(space, params))
     # ISO dates sort as text, which is the whole reason the column holds them
     # that way; a row with no date is kept, the same choice `search_manager`
     # makes, since dropping it would be filtering on an absence.
@@ -727,7 +789,7 @@ def _candidates(
 def _filter_only(
     session: Session,
     kinds: list[str],
-    space: str | None,
+    space: str | tuple[str, ...] | None,
     since,
     until,
     depth: int,
@@ -749,9 +811,7 @@ def _filter_only(
         names = {f"kind{i}": kind for i, kind in enumerate(kinds)}
         sql.append("AND kind IN (" + ", ".join(f":{name}" for name in names) + ")")
         params.update(names)
-    if space:
-        sql.append("AND space = :space")
-        params["space"] = space
+    sql.extend(_space_clause(space, params))
     if since is not None:
         sql.append("AND (written = '' OR written >= :since)")
         params["since"] = since.isoformat()
@@ -776,7 +836,7 @@ def _keyword_pass(
     terms: list[str],
     asked,
     kinds: list[str],
-    space: str | None,
+    space: str | tuple[str, ...] | None,
     depth: int,
 ) -> list[dict]:
     for mode in ("all", "prefix", "any"):
@@ -1042,6 +1102,8 @@ def search(
         )
     context = ctx or {}
     space = context.get("space") or (asked.filters["space"][0] if asked.filters["space"] else None)
+    if not space:
+        space = _session_space(session)
     wanted_kinds = [kind for kind in (kinds or asked.filters["kind"]) if kind in search_index.KINDS]
 
     # Something has to be *asked for*. An empty box, or a query that is only

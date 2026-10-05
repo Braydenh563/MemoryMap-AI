@@ -3251,6 +3251,15 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   margin-inline-end: 0;
 }
 
+/* The chip turns square round its icon (iconchip.js: was 30x24, 4.5px off). */
+.entry-meta.note-meta:not(.is-measuring) > .chip.is-icon {
+  aspect-ratio: 1;
+  min-width: 0;
+  flex-shrink: 0;
+  justify-content: center;
+  padding-inline: 0;
+}
+
 /* The "+N" is one of the tags it stands for: the group's own 8px. */
 .entry-meta.note-meta > .chip.hashtag:not([hidden]) ~ .note-meta-more {
   margin-inline-start: calc(var(--space-3) - var(--space-6) - var(--space-1));

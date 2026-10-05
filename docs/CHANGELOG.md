@@ -25,6 +25,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 - Layout: from 600 to 719px wide the status bar and the dashboard's quick access now look as they do up to 819px (the tablet band), instead of switching to their phone sizes 120px early.
+- Docs: the no-em-dash lint now covers docs/**/*.md, docs/index.html and the root *.md files, and the 5,900 em-dashes it found are reworded (comma, colon, parentheses or full stop); the two changelogs stay identical.
+- Docs: MODELS.md now says `qwen3.5:35b-a3b` is about 21 GB and needs about 24 GB, as the in-app catalogue does (it said 24 GB and 32 GB); `tests/test_models_doc_sizes.py` pins every catalogue model's size and stated memory in that file to the catalogue.
 - Startup: the note edit form, the full backup's save and restore and seven other helpers that only one lazily loaded file calls moved into that file (and, after the edit form's redesign merged, the embedding models list, the form's close and the Settings bar's New listener), and the edit form's bundle is fetched a few seconds after start so the first Edit does not wait; the scripts the app loads at start are 589,955 bytes gzipped (from 601,448 after the day's merges), and the boot, app.js, total and guard caps are lowered to the measure.
 - Settings, Packages: bundles of the packages one kind of work needs together (Documents, Vision, AI, Voice, Desktop, Code). A bundle's Install fetches the ones still missing, and its ⋯ reinstalls or removes them all; tick any packages to install, reinstall or remove them together from the selection bar. They run one after another as one background job with its progress in the activity panel, each package says how it went under its row, one that fails does not stop the rest, and Quit stops the rest. An installed package shows its version and its size on disk, and Reinstall and Remove are in its ⋯. Offline, an install says it could not reach PyPI rather than that the package does not exist (INBOX 595).
 - Documents, Download as .docx: pictures come along now. A picture on a line of its own keeps the width, alignment and caption you gave it (`![A river|400|center](...)`) and is fitted to the page; one in a sentence stays in its line; each keeps its alt text. A picture that is missing, on the web or in a format Word cannot hold stays as its words (FEAT-18).
@@ -50,7 +52,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Library: a Highlights chip lists every passage you marked with ==words== (or a colour), one card each with the note it is in, and pressing one opens the note; search takes `has:highlight`, and a highlight is read the same way in both.
 - Filing: a note of one to three words is filed by meaning only when its nearest filed note is close (0.72), so "ai is cool" no longer lands in whichever category is least far; measured with the shipped embedding model, 59 of 60 short notes that have a home still file and 3 of 20 that have none do (it was all 20). Otherwise it falls to your notebook's own words, or the model.
 - Background tasks: notes that were filed by your notebook's own words while no model was available get a second opinion once one is back (20 a tick); the ones the model files elsewhere move, and the rest are marked as the AI's, so moving one by hand teaches the filer. Never a private, binned or hand-filed note.
-- Library, Activity: an Export as CSV button saves the activity log as a spreadsheet (when, who, what, which note, and the names of the fields it changed, never their values), oldest first, and the export is itself logged; `GET /audit/export.csv`.
+- Library, Activity: an Export activity button saves the activity log as a spreadsheet (time, actor, action, entity kind, entity id and title; never a payload value), oldest first, with events about private notes and the vault left out, every cell defanged against CSV formula injection (a leading `=`, `+`, `-`, `@`, tab or carriage return gets a `'` in front), `limit`/`offset` paging and `X-Total-Count`, and the export is itself logged; `GET /audit/export.csv`.
 - Settings: Personas, Skills and Templates have New persona, New skill and New template in the bar at the top of the pane, which opens the form, ends an edit in progress and puts the cursor in its Name field; on a phone it is a + on the title's row.
 - Quick sketch: more room under the title and close button, and a quieter toolbar, a soft tint with no border and no lines between its groups; the white ink dot has a ring so it shows on a light bar, and the black one on a dark bar (INBOX 620).
 - The top bar and the status bar, polished (INBOX 618). The spaces picker is a quiet control the shape of a tab, with no box; the tab you are on is marked by its fill alone, not also drawn heavier; the logo is a smaller tile; Quit is quieter than the other icons until you point at it. In the status bar the note and reminder counts are quiet, Agent, Guide and Find are icons (hover one for its name and keys) with Commands the one worded button, and back, forward and history sit with undo and redo as one group, without the line between them.
@@ -5451,7 +5453,7 @@ orchestrator; these are the ones that change what the app does.
   health budget times its fastest sample rather than the median, so it
   measures the endpoint instead of the machine's load.
 
-## [0.2.2] — 2026-09-07
+## [0.2.2]: 2026-09-07
 
 ### Recorded late (shipped in 0.2.2, listed under Unreleased until 0.3.0 was cut)
 
@@ -5469,7 +5471,7 @@ orchestrator; these are the ones that change what the app does.
 - **Ask the notebook about itself.** "What are my most common tags", "which
   categories have the most notes", "how many notes have no tags", "which are my
   most linked notes", "when do I write most" are counted from your data rather
-  than generated — exact, instant, and answered with no AI model running at all.
+  than generated: exact, instant, and answered with no AI model running at all.
   Private and binned notes are never counted.
 - **"Ask the AI for wordings"** in the document suggestion menu: where the
   built-in checks have no mechanical fix, the local model offers two or three
@@ -5478,7 +5480,7 @@ orchestrator; these are the ones that change what the app does.
   that finishes after you close the workspace is still there when you come
   back, and a range read that is interrupted keeps the pages it managed.
 - **The OCR reader picker offers both AI readers** where a machine has two
-  different models — a dedicated document reader and a general vision model —
+  different models, a dedicated document reader and a general vision model,
   instead of one option named after whichever it happened to resolve.
 - **Mark a notification unread**, per row, plus "Mark all read".
 - **"Edit document"** on a previewed document in the lightbox.
@@ -5498,11 +5500,11 @@ orchestrator; these are the ones that change what the app does.
   notebook folder has gone read-only.
 - **Document editor: "Check with AI."** Sends the current document to Chat
   with a prompt asking the model to flag wording issues a spellchecker
-  can't catch — agreement, tense, clarity — without rewriting the document.
+  can't catch, agreement, tense, clarity, without rewriting the document.
 - **Archive extended to chats and documents** (BACKLOG §30b's own named
   remaining scope, after notes got this first). An "Archive" action beside
-  Delete in the chat sidebar and the documents dock — kept, never deleted,
-  out of the way — and the Library's Shelved filter now covers all three
+  Delete in the chat sidebar and the documents dock, kept, never deleted,
+  out of the way, and the Library's Shelved filter now covers all three
   kinds.
 - **The popup agent in the status bar.** It works from every tab and had
   nothing on screen saying so. Now a slot beside the Ctrl-K hint, on by
@@ -5517,13 +5519,13 @@ orchestrator; these are the ones that change what the app does.
   wand in the selection bar open a small bar at the caret instead of a side
   panel: type an instruction, the answer replaces the selection (or writes at
   the cursor) and lands *selected*, with Keep / Try again / Undo underneath.
-  No new endpoint — the existing `POST /documents/{id}/ai-edit`.
+  No new endpoint: the existing `POST /documents/{id}/ai-edit`.
 - **Several routes between two notes, not just the best one.** The graph's
   Trace panel now finds up to three genuinely different, loopless routes
   (Yen's K-shortest paths) and draws all of them at once, each in its own
   colour, with switchable chips above the readout.
-- **"Generate story from path" is a menu of six shapes** — narrative,
-  explainer, timeline, argument, teaching notes, short brief — instead of one
+- **"Generate story from path" is a menu of six shapes**, narrative,
+  explainer, timeline, argument, teaching notes, short brief, instead of one
   fixed prompt.
 - **The Files sub-tab is a reading list.** Every file tile carries a
   "Read · N words" / "Not read" badge and a primary "Read this" / "Open
@@ -5535,15 +5537,15 @@ orchestrator; these are the ones that change what the app does.
   (heading/list/table/code/text, read off their own shape) instead of one
   whole-page fallback region, and each region shows which page and section it
   came from.
-- **Delete a stored OCR reading**, not just overwrite it by reading again —
+- **Delete a stored OCR reading**, not just overwrite it by reading again,
   `DELETE /{files,media}/{id}/page-reads/{page}` plus a "Delete this reading"
   action in the workspace. Redo already worked (a re-read replaces the stored
   answer); its button now says so.
 - **Ask the notebook about itself, in more ways, and past a typo.** Word
   count, longest notes, notes gone stale, and which tags keep turning up
-  together — and every question now survives a misspelling ("catagories",
+  together: and every question now survives a misspelling ("catagories",
   "docuemnts") against a small fixed vocabulary, transpositions included.
-- **Undo for deleting a document.** The one permanent loss left in the app —
+- **Undo for deleting a document.** The one permanent loss left in the app,
   notes, chats, files and boards were all recoverable, a document was not.
   All four delete doors now offer Undo.
 - **A refresh button on the Your Notes sub-tab**, matching the one every
@@ -5555,7 +5557,7 @@ orchestrator; these are the ones that change what the app does.
   picture itself does.
 - **`read_file` can target a search term.** A new optional `query` argument
   returns the text around where it actually appears instead of only the
-  first ~2000 characters — a multi-page scan's later pages were previously
+  first ~2000 characters: a multi-page scan's later pages were previously
   unreachable through this tool no matter how precisely `search_files` had
   already located the match. `list_documents`'s search preview and
   `get_document`'s no-embedding-backend fallback got the same fix.
@@ -5563,19 +5565,19 @@ orchestrator; these are the ones that change what the app does.
 ### Fixed
 - **The chat sidebar never marked the open conversation.** A `null` passed as
   the highlight terms threw inside the Sources panel, which aborted
-  `openConversation` before it repainted the sidebar — the click worked, the
+  `openConversation` before it repainted the sidebar, the click worked, the
   transcript rendered, and an unrelated null check stopped the row from ever
   being marked. A third of each row was also dead to clicks, and the mark it
   would have got was a 3px bar and a 13% tint.
 - **The chat header's model name opened its panel off the bottom of the
-  window** — `position: absolute` with no positioned ancestor put it at (0, 905)
+  window**: `position: absolute` with no positioned ancestor put it at (0, 905)
   in a 900px viewport, which is indistinguishable from a control that does
   nothing.
 - **A page read that finished after the OCR workspace was closed was lost**,
   even though the app announces such reads as background tasks precisely so the
   window can be closed.
 - **The OCR picker and the OCR reader disagreed about which model would run.**
-- **The gallery's per-image select checkboxes could not be clicked** — the
+- **The gallery's per-image select checkboxes could not be clicked**, the
   actions row above them stretched across the tile and swallowed every click.
 - **The lightbox could not be dismissed by clicking beside the picture**, and
   its close button was covered by the content column on taller documents.
@@ -5588,25 +5590,25 @@ orchestrator; these are the ones that change what the app does.
   buttons measured at 43.6x28.
 - **The formatting toolbar's dropdowns un-clipped the whole toolbar**, spilling
   every control past the panel edge.
-- **Files and attachments did not render in the timeline or graph popups** —
+- **Files and attachments did not render in the timeline or graph popups**,
   both filtered to images and dropped everything else.
 - **The dashboard greeting could call you by a misspelt or invented name.**
 - **The note cards' ⋯ glyph sat above centre**, drawn as a typed character
   where the app's other ⋯ builder uses the icon font.
 - **Deleting a document failed** once it had a history, on a foreign key.
-- **Restoring a document version restored the wrong text** — the snapshot taken
+- **Restoring a document version restored the wrong text**, the snapshot taken
   first coalesced into the very revision being restored. Caught by a test
   before it shipped.
 - **Short background AI jobs were invisible.** The status loop idles at 10s
   (120s in a hidden tab) and can only announce a job it has seen in a
-  `/tasks` payload, so an image caption — often shorter than that gap —
+  `/tasks` payload, so an image caption, often shorter than that gap,
   began and ended unobserved: no "Started" line, no status-bar slot, no
   "Finished" toast. Writes that can leave work on a background thread now
   kick a poll, and `jobsRunning()` counts every task rather than only
   re-index and model pulls.
 - **Formatting-toolbar dropdowns escaped their panel.** Measured in the
   capture composer: the Insert menu sat 123px outside the panel's left edge,
-  because `.doc-dock-menu-list` is anchored `right: 0` and grows leftwards —
+  because `.doc-dock-menu-list` is anchored `right: 0` and grows leftwards:
   right for the document ⋯ it was written for, wrong for an opener near the
   left of a toolbar. Clamped inside the panel on open.
 - **The OCR workspace's reader picker named the wrong model.** It resolved a
@@ -5622,16 +5624,16 @@ orchestrator; these are the ones that change what the app does.
   lists, and the widget picker listed "On this day" twice.
 - **Toolbar dropdowns in the capture and documents toolbars opened up to
   151px from the button that opened them**, and after that, in the top-left
-  corner of the panel — three related bugs in the same placement function,
+  corner of the panel, three related bugs in the same placement function,
   in the same viewport-fixed-menu change: wrong alignment axis, no
   containing-block correction, and a zeroed fallback on a failed measurement.
 - **The traced graph path's chips clipped from both ends** ("ting is the
-  delivery of computing se") — a flex item that could not shrink, centred in
+  delivery of computing se"), a flex item that could not shrink, centred in
   its box, overflowing equally on either side; `text-overflow` on the parent
   button never touched it.
 - **A misspelt "ask the notebook about itself" question fell through to
   ordinary semantic search**, which is precisely the case that feature exists
-  to answer better — and one new question's own pre-filter accidentally
+  to answer better: and one new question's own pre-filter accidentally
   rejected it before any matcher saw it.
 - **`clampToolbarMenu`'s CodeQL-adjacent cousin**: three cyclic imports
   (one already a CodeQL alert, two more of the same shape unreported)
@@ -5640,8 +5642,8 @@ orchestrator; these are the ones that change what the app does.
 ### Verified
 - **A real (non-Ollama) backend, driven live for the first time.** A
   stand-in OpenAI-`/v1` server (a real socket, not a mocked `requests`)
-  proved `/help/ask`, `/voice/summarize` and a full `/chat/stream` turn —
-  SSE framing included — all round-trip correctly through
+  proved `/help/ask`, `/voice/summarize` and a full `/chat/stream` turn:
+  SSE framing included: all round-trip correctly through
   `OpenAICompatClient`, the dialect LM Studio/llama.cpp/Jan/vLLM share.
   Tool-call streaming remains spec-verified only; see HISTORY.md §113.
 
@@ -5651,12 +5653,12 @@ A bug-fix and consistency release, from one long round of live reports.
 - **The formatting-toolbar dropdowns rendered as transparent, block-flow
   text.** The previous release's hide-until-placed fix for menu flicker split
   the rule wrongly, leaving the menu's whole appearance (flex column, padding,
-  border, background, shadow) behind the `.is-placed` class — and because the
+  border, background, shadow) behind the `.is-placed` class: and because the
   placement code gives up when a menu measures 0x0, that class was then never
   added. Self-sealing, and it affected every `<details>` menu in the note
   capture, note edit and document toolbars.
 - **Turning the background librarian off did not stop the pass already
-  running** — nor did battery-saver mode. Both now request a stop, which the
+  running**: nor did battery-saver mode. Both now request a stop, which the
   pass honours at its next checkpoint instead of finishing first.
 - **Agent-activity notices ignored both the mute switch and "Panel only"**
   whenever they carried an error. The notifications centre records them
@@ -5665,14 +5667,14 @@ A bug-fix and consistency release, from one long round of live reports.
   workspace.** The per-page readings are now joined into the file and media
   list responses, in page order, with a whole-file reading still winning.
 - **Chat: scrolling up left the pane stuck** with the answer cut off until
-  "Jump to latest" was clicked — `scroll-behavior: smooth` on a pane written
+  "Jump to latest" was clicked: `scroll-behavior: smooth` on a pane written
   to every frame turned each auto-scroll into an animation competing with the
   wheel.
 - **Chat: every finished answer step kept its blinking caret** during an agent
   run, and the caret sat on a line of its own whenever an answer ended in a
   list.
 - **The spaces switcher in the top bar was shorter than everything beside
-  it** — 28px against 36px for the tabs and the five icon buttons.
+  it**: 28px against 36px for the tabs and the five icon buttons.
 - **The whiteboard's view dropdown had a horizontal scrollbar**, and long
   dropdown menus could run off the bottom of the window instead of scrolling.
   Every popover menu is now capped to the window height and scrolls inside
@@ -5735,10 +5737,10 @@ A bug-fix and consistency release, from one long round of live reports.
 - Stop buttons all carry the stop icon and the error colour.
 - Tighter shell: one `--page-gutter` (ceiling 24px → 18px) for the page edge,
   the sidebar gap and the top, and one gap under both sub-tab strips.
-- Surface tiers and a border budget, one button ramp, one eyebrow recipe —
+- Surface tiers and a border budget, one button ramp, one eyebrow recipe,
   see `docs/roadmap/UI_MODERNISATION_PLAN.md` for what remains.
 
-## [0.2.0] — 2026-09-05
+## [0.2.0]: 2026-09-05
 
 A long round driven almost entirely by live reports with screenshots. Two
 defect *shapes* account for most of the visual bugs in it, and both are
@@ -5757,8 +5759,8 @@ border-style rule to resurrect as 3px.
   vault-relative path, `[[wiki links]]` resolve by **filename** (which is what
   Obsidian links name), the Contents index gained a By-folder mode, and
   Settings gained a folder picker beside the file picker.
-- **The Contents sub-tab is a real index** — sticky sections, a filter, a jump
-  bar, folding, grouping by category, tag or month — rather than a masonry of
+- **The Contents sub-tab is a real index**, sticky sections, a filter, a jump
+  bar, folding, grouping by category, tag or month, rather than a masonry of
   boxes with a scroller inside each one.
 - **A selection toolbar** in both editing surfaces, and the note *edit* form
   (the app's poorest editing surface) gained the toolbar, the "/" menu and the
@@ -5771,7 +5773,7 @@ border-style rule to resurrect as 3px.
 - **Favourites** as a parallel pseudo-category, integrated everywhere.
 
 ### Changed
-- The Images/Files gallery kebab is the app's own `kebabMenu()` — it was a
+- The Images/Files gallery kebab is the app's own `kebabMenu()`, it was a
   second implementation of one control, which is how it drifted three times.
 - The widgets picker shows Wide as a state, marks Remove as destructive, and
   can be reordered from the keyboard.
@@ -5786,11 +5788,11 @@ border-style rule to resurrect as 3px.
 - Attached (not embedded) images never appeared in widget rows.
 
 
-## [0.1.9] — 2026-09-04
+## [0.1.9]: 2026-09-04
 
 ### Added
 - **A note's attached files can be read.** An attachment now carries a
-  caption, extracted text and a vision-model transcription of its own —
+  caption, extracted text and a vision-model transcription of its own,
   columns `MediaUpload` has always had and `Attachment` never did. One
   endpoint (`POST /files/{id}/analyse`) covers all three: Tesseract for a
   picture, the document extractor for a .docx or a text-layer PDF, and a
@@ -5819,7 +5821,7 @@ border-style rule to resurrect as 3px.
   and the model that wrote a caption is a badge rather than a bare id.
 
 ### Fixed
-- **A PDF's pages no longer disappear when you read its text** — pages on one
+- **A PDF's pages no longer disappear when you read its text**, pages on one
   side, the extracted text on the other.
 - **Popup menus clipped in many places, not one.** Every `<select>` in the
   app now escapes its clipping ancestor; the escape mechanism itself gained
@@ -5828,7 +5830,7 @@ border-style rule to resurrect as 3px.
 - **A note's attached PDF never appeared in the Library**, because the
   gallery only ever queried one of the two file tables.
 - Agent rows printed their icon spec as text ("ph:folder Merged …").
-- Whiteboard link endpoints drifted away from the cursor while zoomed — the
+- Whiteboard link endpoints drifted away from the cursor while zoomed, the
   zoom scale was applied twice.
 - Usage chips printed raw markdown instead of a readable line.
 - A turn that is still generating now says so for as long as it runs, rather
@@ -5901,10 +5903,10 @@ border-style rule to resurrect as 3px.
 - The AI Skills tab's step/tool fact list had no visual container.
 - The Graph Options toggles (and two more elsewhere in Settings) now use
   the same pill styling as other toggles instead of a bare switch.
-## [0.1.7] — 2026-08-31
+## [0.1.7]: 2026-08-31
 
 ### Added
-- **Links**: a bookmark shelf for websites, in a new Library sub-tab —
+- **Links**: a bookmark shelf for websites, in a new Library sub-tab,
   save a URL, group them (a free-text group with a "/" convention for
   sub-groups, e.g. "Work/Reading"), filter by group or search text, pin
   favourites to the top. Saving a URL you already have warns rather than
@@ -5914,7 +5916,7 @@ border-style rule to resurrect as 3px.
   document's Outline sidebar), with a picker to attach one and a one-click
   way to remove it.
 - **Contents**: a new Library sub-tab with a hyperlinked outline of the
-  whole notebook, grouped by category or by tag — click a note to jump
+  whole notebook, grouped by category or by tag, click a note to jump
   straight to it. The fast, scannable companion to the Graph tab's spatial
   view, not a replacement for it.
 - The Library "All" tab's create button now opens a "What would you like to
@@ -5928,7 +5930,7 @@ border-style rule to resurrect as 3px.
 - A related-notes panel that updates live while editing a note, not just
   when you click to reveal it.
 - The AI can now read a note's attached files (PDFs, code, text) when that
-  note is hand-attached to a chat turn — previously only attached pictures
+  note is hand-attached to a chat turn, previously only attached pictures
   were read; other attachments were invisible to the model.
 - Meeting-note transcripts get an AI-generated "Decisions" / "Action items"
   summary block prepended automatically when saved as a note, best-effort
@@ -5950,7 +5952,7 @@ border-style rule to resurrect as 3px.
 
 ### Fixed
 - An attached chat document's extracted text never actually reached the
-  model — the attachment showed in the composer but the AI couldn't see it.
+  model: the attachment showed in the composer but the AI couldn't see it.
 - A private note could leak its content via `restore_note` while the vault
   was locked.
 - The Documents kebab dropdown's real transparency bug (not a z-index issue,
@@ -5962,7 +5964,7 @@ border-style rule to resurrect as 3px.
 - The Timeline thread view's band labels overlapped their own dots; lanes
   now space dynamically so dense clusters can't bleed into a neighbour.
 - The "Your notes" filter help button (and the capture composer's own "?"
-  button) didn't match the app's other circular help-toggle buttons — first
+  button) didn't match the app's other circular help-toggle buttons, first
   a markup/class mismatch, then, reported again, a `.library-toolbar button`
   CSS rule silently overriding the circle's height back to the toolbar's
   shared control height while leaving its width alone, stretching it into
@@ -5981,14 +5983,14 @@ border-style rule to resurrect as 3px.
 - Several CodeQL alerts closed: a path-injection sanitizer, an exception's
   raw text reaching the user, and related lint findings.
 
-## [0.1.6] — 2026-08-30
+## [0.1.6]: 2026-08-30
 
 Follow-on fixes and features added to the 0.1.5 branch after that release was
 tagged, ahead of the PR merging.
 
 ### Fixed
 - A `keydown` handler on the graph map hijacked keystrokes typed into a note's
-  popup or the "Grow the map" form — Space/Enter reopened the wrong note
+  popup or the "Grow the map" form: Space/Enter reopened the wrong note
   instead of typing a space or submitting. Now ignored while the event target
   is an input, textarea, select, or contenteditable element.
 - An unhandled exception anywhere inside `run_agent`/`run_skill`, outside the
@@ -6001,69 +6003,69 @@ tagged, ahead of the PR merging.
 - The AI Skills page was unusable below ~900px (fixed two-column grid, a
   sticky sidebar with nowhere to go).
 - A private note's new "decrypted" audit-log entry could fire while the vault
-  was locked — `readable_content()` returns a placeholder, not the real text,
+  was locked: `readable_content()` returns a placeholder, not the real text,
   when the vault has no key, so a locked-vault read logged a decrypt that
   never happened.
-- `<summary>`-based icon buttons (the kebab/ellipsis menus) were off-centre —
+- `<summary>`-based icon buttons (the kebab/ellipsis menus) were off-centre,
   the centring CSS selector only ever matched `<button>`.
 - The "Your themes" section in Settings → Appearance had a `-stack` class
   that only overrode `align-items`, not `flex-direction`, so a row with more
   than two children never actually stacked.
 - The llama.cpp extra's "unavailable" message implied the app doesn't talk to
   llama.cpp at all; it already does, via `llama-server`'s OpenAI-compatible
-  API — only in-process `llama-cpp-python` embedding is unbuilt.
+  API: only in-process `llama-cpp-python` embedding is unbuilt.
 - The Capture tab's "File under" row could run its later buttons off the
-  card's right edge instead of wrapping — `.capture-field-row` claimed to
+  card's right edge instead of wrapping, `.capture-field-row` claimed to
   wrap but never set `flex-wrap: wrap`.
 - The Image Gallery's kebab button had square corners: the base `button`
   rule's `border-radius` never reaches a `<summary>` element (it is a
-  `<details>` disclosure, not a real button) — the centring fix above this
+  `<details>` disclosure, not a real button), the centring fix above this
   same element already got was never joined by one for its corners.
-- The lightbox's prev/next arrow icons sat visibly off-centre — inherited
+- The lightbox's prev/next arrow icons sat visibly off-centre, inherited
   padding (`0.5rem 1rem`) the sibling close button already resets shrank the
   centring box to less than the glyph's own width, and CSS Grid's "safe
   centre" fallback shifted the oversized glyph to the padding box's edge.
 - A tool call a model wrote as text instead of using the structured
   tool_calls field (small/local models do this routinely) silently failed
-  to recover whenever its `arguments` were themselves an object or array —
-  an entirely ordinary shape — because the fallback regex could not match
+  to recover whenever its `arguments` were themselves an object or array,
+  an entirely ordinary shape, because the fallback regex could not match
   across a nested brace. Replaced with a real brace-balanced scanner.
 - `PUT /preferences` logged an audit-log ("Activity") row for every key
   changed, `ui_state` (the interface's entire theme/appearance state behind
-  one key) included — a slider drag read identically to changing the model
+  one key) included: a slider drag read identically to changing the model
   backend. Cosmetic/one-shot keys no longer write an audit row; the
   preference itself still saves exactly as before.
 - The Library's Activity cards clip long entries at 400 characters
-  server-side with no way to see the rest — clicking one with nothing to
+  server-side with no way to see the rest, clicking one with nothing to
   jump to (most of them) now opens the full, un-clipped text.
 - The image gallery's popup menu could still run off the *left* edge on a
-  narrow (single/two-column) gallery — the existing flip logic only ever
+  narrow (single/two-column) gallery: the existing flip logic only ever
   corrected right-edge overflow. Now clamped back into bounds after the
   flip decision, regardless of which edge or how narrow.
 - `renderLibraryDocuments()` and `renderLibraryBoardsGallery()` overwrote
   the Library's empty-state element's `textContent` on every render (to
-  show a "no search match" message) — harmless while that element was a
+  show a "no search match" message): harmless while that element was a
   plain line of text, but it silently erased any richer markup put there
   instead. Found while giving those two subtabs the same icon+title empty
   state "All" and Image Gallery already had (below); the "no match" case
   now has its own sibling element instead of overwriting the real one.
 - The "Detailed" response length preset could come back with no answer at
-  all, or a much shorter one than promised — the same shared
+  all, or a much shorter one than promised, the same shared
   thinking/answer token budget already documented as a risk in
   `test_thinking_budget.py` ("1,024 shared between deliberation and answer
   is the same trap in a larger size"). Detailed's own prompt explicitly
   asks the model to reason through the notes, inviting more deliberation
   than Normal or Quick, but got the same flat 1,024-token thinking
-  allowance as both — a verbose reasoning model given more to think about
+  allowance as both: a verbose reasoning model given more to think about
   and no more room for it starved its own answer. Detailed's allowance is
   now 3,072 tokens.
 - The launcher's PowerShell splash (`scripts/splash.ps1`) never called
-  `[System.Windows.Forms.Application]::EnableVisualStyles()` — without it
+  `[System.Windows.Forms.Application]::EnableVisualStyles()`, without it
   WinForms renders every control with the classic, unthemed renderer, and
   the classic renderer does not animate a Marquee-style ProgressBar at all,
   regardless of its colours (a second, independent cause of the "bar just
   stays empty" symptom already fixed once by removing its ForeColor/
-  BackColor). Not verified live — this sandbox has no Windows/PowerShell
+  BackColor). Not verified live: this sandbox has no Windows/PowerShell
   runtime to run it on; the fix is standard WinForms practice and matches
   the documented behaviour, but say so plainly rather than claim it's seen.
 - The boot splash (`#boot-splash`, shown for the one `/auth/status` round
@@ -6072,7 +6074,7 @@ tagged, ahead of the PR merging.
   100% the instant the real request resolves, so it never claims to finish
   before the work behind it does.
 - The Library's "Activity" filter chip could land alone on its own row,
-  looking like a stray pill under the others — `.library-chip-activity`'s
+  looking like a stray pill under the others, `.library-chip-activity`'s
   `margin-left: auto` (meant to push it to the end of the row) fights
   `flex-wrap` the moment the chips before it don't all fit on one line, and
   a wrapping auto-margin item gets shoved onto a lonely row of its own. The
@@ -6081,18 +6083,18 @@ tagged, ahead of the PR merging.
 
 ### Added
 - `notebook_overview`, an AI tool combining `list_categories` + `list_tags`
-  + `count_notes` into one call — a skill wanting "the notebook's shape"
+  + `count_notes` into one call: a skill wanting "the notebook's shape"
   (Notebook health check, Tidy suggestions) needed three round trips for
   numbers this app already had cheap SQL for.
 - `llama-server`'s own `/props` is now probed as a context-length source
-  (ROADMAP.md item A.2) — a real number (the `-c` it was started with) in
+  (ROADMAP.md item A.2): a real number (the `-c` it was started with) in
   place of the guess-from-model-name table, for plain llama.cpp servers
   that report neither `loaded_context_length` nor `max_context_length`.
 - Exporting a single note as a `.md` download (`GET /entries/{id}/export.md`),
-  mirroring the document export that already existed — a "Download .md"
+  mirroring the document export that already existed, a "Download .md"
   item on a note's overflow menu and its Library card menu.
 - A tip under the custom-template textarea (Settings → Templates) saying
-  `{date}` resolves to today's date — the substitution already worked for
+  `{date}` resolves to today's date: the substitution already worked for
   any template (`applyTemplate()` does a plain string replace), including
   user-made ones; it just wasn't discoverable without reading the source.
 - The Library's Documents, Whiteboards, and Image Gallery subtabs now get
@@ -6103,65 +6105,65 @@ tagged, ahead of the PR merging.
   §95 item 2).
 - Settings → Background tasks' finished-jobs list now shows which model did
   the work (captioning, OCR, the autonomous pass), when the job recorded
-  one — the data already existed, it just wasn't rendered (BACKLOG.md §95
+  one: the data already existed, it just wasn't rendered (BACKLOG.md §95
   item 3).
-- macOS gets a launch splash too now — a non-modal `display notification`
+- macOS gets a launch splash too now, a non-modal `display notification`
   banner (never steals focus, unlike `display dialog`) showing the same
   phase text the Linux/zenity dialog already showed. Asked for directly.
 - Recency and pinning are now a search-ranking signal (BACKLOG.md §95 item
   6): hybrid search's candidates are reordered by pinned-first /
   most-recently-touched and fused in as a third ranked list, the same rank-
-  position fusion the existing semantic/keyword combination already uses —
+  position fusion the existing semantic/keyword combination already uses,
   never a new source of matches, only a reorder of notes a real search
   already found relevant.
-- The Quick sketch pad's highlighter had no visible transparency — "basically
+- The Quick sketch pad's highlighter had no visible transparency, "basically
   a thick pen." `sketchMove` kept extending one open canvas path with
   `lineTo()` and calling `stroke()` on every pointer-move without ever
   starting a fresh path, so `stroke()` re-drew the *entire accumulated path*
-  each time, not just the newest segment — a stroke ten points long got its
+  each time, not just the newest segment, a stroke ten points long got its
   first segment recomposited ten times. Invisible on the plain pen (opaque
   drawn twice is still opaque) but at the highlighter's 0.35 alpha, ~10
   overlapping passes already reads as ~99% opaque. Fixed by reopening the
   path from the current point after every stroke, so each call draws its one
   new segment exactly once. Verified by sampling canvas pixels before/after
-  a multi-point stroke — the repeatedly-touched start and the once-touched
+  a multi-point stroke: the repeatedly-touched start and the once-touched
   end now composite identically.
 - CodeQL alerts on `main` (user-pasted screenshots): #289/#290
-  (`py/path-injection`, High) — a second fix attempt for this same alert
+  (`py/path-injection`, High): a second fix attempt for this same alert
   still didn't close it; researched CodeQL's actual sanitiser model
   (`Path::SafeAccessCheck`'s only recognised Python shape is a bare
   `x.startswith(base)` as a guard's sole condition) and simplified
   `_within_exports` to match it exactly, dropping the compound condition
   and computed `+ os.sep` argument that likely broke pattern recognition
   the second time. #296 (information exposure through an exception,
-  Medium) — `routes_chat.py`'s error-fallback path sent a raw exception's
+  Medium): `routes_chat.py`'s error-fallback path sent a raw exception's
   `str()` straight to the client; now goes through `safe_value`, the same
   sanitiser `librarian.model_error_message` already uses for the identical
   shape. #319 (duplicate `import re` in a test function), #320/#321
   (mixed implicit/explicit returns in `ollama_client.py`/`openai_client.py`'s
-  retry-loop `chat()` methods — added an unreachable trailing raise so the
+  retry-loop `chat()` methods: added an unreachable trailing raise so the
   function reads as exhaustive).
 - Three more Preferences toggles ("Mute notifications except reminders",
   "Let the AI use this profile...", "Allow web search when I ask for it")
   had the same bare-`<label>`-missing-`.check-row` bug as Settings → About's
-  five — swept the whole file for the pattern (`<label>` directly wrapping
+  five: swept the whole file for the pattern (`<label>` directly wrapping
   a checkbox, no class) rather than trusting the one page already fixed was
   the only one.
 - Settings → Help's "Related" links could only ever open another Settings
-  section — a topic about a real *tab* (Reminders, Graph, Library…) had
+  section: a topic about a real *tab* (Reminders, Graph, Library…) had
   nowhere to send you but a settings screen that only tangentially mentions
   it. Added `[data-goto-tab]`, the same delegated-click pattern as the
   existing `[data-goto-section]`, closing the modal and switching tabs
   directly. Wired up for every topic with a real tab to go to (Capturing
   notes, Asking & chatting, Skills, Graph, Reminders, Dashboard, Library,
   Timeline); Reminders and Dashboard also gained the Settings links they
-  were missing (a notification-mute toggle, the dashboard greeting name —
+  were missing (a notification-mute toggle, the dashboard greeting name,
   both in Preferences). Skills, What it remembers, Spaces, Appearance and
   Keyboard shortcuts have no tab of their own, so no tab link was added for
-  those — a manufactured one would be worse than none.
+  those: a manufactured one would be worse than none.
 - Arrow-key navigation on the command palette (34+ commands, only ~7 visible
   at once) never scrolled the selected row into view past the first
-  screenful — confirmed live (15x ArrowDown left the active row off-screen).
+  screenful: confirmed live (15x ArrowDown left the active row off-screen).
   `renderPalette` rebuilds the list from scratch every keypress, so there
   was never a focused/tracked element for the browser's native
   scroll-on-focus to follow; `.active` is a plain CSS class on an unfocused
@@ -6170,17 +6172,17 @@ tagged, ahead of the PR merging.
   the `[[wiki-link]]` autocomplete popup for consistency.
 - Every `.small.icon-only`/`.small.icon-button` control (Settings modal's
   back/forward nav arrows, plus several search/sort/filter icon buttons
-  elsewhere) rendered oversized and square-boxy — 43px next to a 30px
+  elsewhere) rendered oversized and square-boxy, 43px next to a 30px
   "Close" button beside it. `.small`'s own horizontal padding
   (01-forms-settings.css, a later file) was clobbering `.icon-only`'s
   intended padding (00-tokens-shell.css) for the shared physical left/
   right sides, whichever file happened to load second winning regardless
-  of which rule actually fit an icon button — `aspect-ratio: 1` then
+  of which rule actually fit an icon button, `aspect-ratio: 1` then
   squared that oversized width into an oversized height too. A compound
   selector fixes it generally (specificity, not file order), reported live
   with a screenshot against the Settings nav arrows specifically.
 - Settings → About's five on/off toggles (three Updates, two desktop-only)
-  were still bare `<label>` elements with no `.check-row` class — a prior
+  were still bare `<label>` elements with no `.check-row` class: a prior
   pass's own comment claimed they'd been lined up with every other toggle
   in the app, but only the DOM order changed; the actual pill/box/hover
   treatment `.check-row` provides never applied. Reported live with a
@@ -6194,7 +6196,7 @@ tagged, ahead of the PR merging.
   settings page uses; Settings → Help's "Settings → X" mentions are now
   real links to that section, plus two new ones for topics that had none.
 - The status bar's back/forward now cover opening Settings and moving
-  between its sections, not just the tabs and sub-tabs it already tracked —
+  between its sections, not just the tabs and sub-tabs it already tracked,
   including a second copy of the two buttons in the Settings header itself,
   since the modal overlay sits above the status bar's own.
 - Meeting Notes as a real Library filter chip (tag-based, alongside the
@@ -6214,25 +6216,25 @@ tagged, ahead of the PR merging.
 ### Reverted
 - A mechanical check flagging a skill step "failed" if its own instruction
   named one of the skill's tools by identifier and that tool was never
-  called — real steps that conditionally act on "each X" legitimately call
+  called: real steps that conditionally act on "each X" legitimately call
   nothing when there is no X, and the check could not tell that apart from
   a step that should have called it and didn't. Reverted before merging;
   see HANDOVER.md §97 for what would be needed to attempt this safely.
 - Minimise-on-Quit (`js_api=bridge` on `webview.create_window()`): caused a
-  real hang on Windows — a recursion storm in `window.native` COM property
+  real hang on Windows, a recursion storm in `window.native` COM property
   access on the WebView2 UI thread. Fully reverted; root cause confirmed,
   not re-attempted this release.
 
-## [0.1.5] — 2026-08-30
+## [0.1.5]: 2026-08-30
 
 A correctness and cost release. The headline items are a chat bug that could
 file an answer under the wrong conversation, a prompt that spent more on tool
 schemas than on the user's own notes, and a Restart button that killed the
 packaged app.
 
-### Fixed — a chat turn could be saved into the wrong conversation
+### Fixed: a chat turn could be saved into the wrong conversation
 
-`chatConv` is reassigned when you switch chats, and every save read it *live* —
+`chatConv` is reassigned when you switch chats, and every save read it *live*,
 at each checkpoint and again when the turn finished, minutes after the send. So
 switching mid-stream wrote the finished answer into whichever conversation was
 open when it landed, or made a new one out of it. Visible only as the message
@@ -6244,15 +6246,15 @@ live nodes and re-attaches them on return, so the reply continues in front of
 you rather than appearing all at once at the end, and the notice names the
 thread that is actually being answered instead of the one you just left.
 
-### Fixed — the tool-call disclosure was permanently open
+### Fixed: the tool-call disclosure was permanently open
 
 A chip rendered as its label with the entire raw result stuck to it. The
 disclosure was built correctly; `.tool-chip-body` set `display: flex`
 unconditionally, and an author rule beats the user-agent rule that hides a
-closed `<details>`. It collapses now — one line, click to see the arguments and
+closed `<details>`. It collapses now: one line, click to see the arguments and
 the result.
 
-### Fixed — the glass sheen made dialogs unreadable in light mode
+### Fixed: the glass sheen made dialogs unreadable in light mode
 
 The sheen used the `background` shorthand, which re-declared the fill as
 `--card` at a specificity that beat `.modal-card`'s deliberately near-opaque
@@ -6260,310 +6262,310 @@ The sheen used the `background` shorthand, which re-declared the fill as
 glass. It layers as `background-image` now, and is halved in light mode where a
 white sheen on a near-white surface only flattens it.
 
-### Fixed — an off toggle switch looked like a blank gap
+### Fixed: an off toggle switch looked like a blank gap
 
 The track was 7% alpha inside a 10% border: invisible on a card, so an unchecked
 switch read as empty space. Reported twice, on the semantic-search and
 smart-model-routing controls.
 
-### Fixed — Restart from the tray killed the packaged app
+### Fixed: Restart from the tray killed the packaged app
 
 `os.execv(sys.executable, [sys.executable, *sys.argv])` is right from source,
 but in a PyInstaller build both are the .exe, so the executable's own path
-arrived as a positional argument and argparse exited — with no console to print
+arrived as a positional argument and argparse exited, with no console to print
 to. Open and View Logs also failed to raise the window when it was merely
 behind something.
 
-### Added — advanced response settings, detected per model
+### Added: advanced response settings, detected per model
 
 Top-k, top-p, min-p, repeat penalty and the repeat window, in Settings →
 Models. Values start at what the model itself recommends: a GGUF ships its
 author's parameters and Ollama reports them in `/api/show`, which the app was
 already fetching and discarding. Each row says whether a number came from the
-model, the task, or you, and only what you change is stored — so switching
+model, the task, or you, and only what you change is stored, so switching
 model still picks up the new one's recommendations.
 
-### Added — a separate OCR model, and scanned PDFs that actually read
+### Added: a separate OCR model, and scanned PDFs that actually read
 
 Rasterising a PDF does not read it; it makes a picture a model still has to
 read. A general vision model describes an invoice, a document reader
-transcribes it — so OCR has its own setting, and automatic mode prefers an
+transcribes it: so OCR has its own setting, and automatic mode prefers an
 installed reader (GLM-OCR, DeepSeek-OCR, PaddleOCR-VL) over a general VLM.
 
 `core/pdfpages.py` supplies the pages, behind an optional ~16 MB extra. The
 path had never once executed before: `docview.extract` has always taken a
 vision reader and its only caller passed nothing.
 
-### Added — the chat attach button takes any file
+### Added: the chat attach button takes any file
 
 Images to the gallery as before; anything else is imported as a document with
 its text extracted. Four verified OCR models were added to the suggested list.
 
-### Added — a splash during the pre-launch work
+### Added: a splash during the pre-launch work
 
 The git pull, venv build and pip install all happen before Python exists, so no
 window could cover them. Now one does, on Windows and on Linux under zenity.
 
-### Changed — the prompt costs a quarter less on a small model
+### Changed: the prompt costs a quarter less on a small model
 
 Measured on an 8k window with eight notes and no history: 32% of the context
 before the conversation started, with tool schemas costing nearly twice the
-user's own notes. Now 23%. Schemas are trimmed before any tool is dropped —
-dropping one changes what the app can do — and the tool guide has a short form
+user's own notes. Now 23%. Schemas are trimmed before any tool is dropped,
+dropping one changes what the app can do, and the tool guide has a short form
 below 8k.
 
-### Changed — tool selection reads words, not substrings
+### Changed: tool selection reads words, not substrings
 
 `ai/toolwords.py` replaces substring matching, which offered the tag tools for
 "my vintage camera" and the link tools for "blinking lights". It ranks rather
 than gates, tells a question about a capability from a request to use it, and
-stays a suggestion the model may overrule — reaching for an unoffered tool now
+stays a suggestion the model may overrule, reaching for an unoffered tool now
 widens the set for the rest of the turn.
 
-### Changed — a 500 on the tools path falls back instead of failing
+### Changed: a 500 on the tools path falls back instead of failing
 
 Ollama answers 400 for a model that declares no tool support, but a model whose
-chat template breaks answers 500 — common on community re-quants. The app now
+chat template breaks answers 500, common on community re-quants. The app now
 retries the same request without tools to tell that apart from a real outage,
 and falls back to a plain answer rather than failing the turn.
 
-### Fixed — two buttons wired to nothing
+### Fixed: two buttons wired to nothing
 
 Settings → About's "Take tour again", and the Whiteboards Reload button. After
 accounting for ids built at runtime there are now zero interactive elements in
 the page without a handler.
 
-### Fixed — whiteboard panels collided below 1180px
+### Fixed: whiteboard panels collided below 1180px
 
 The tools row and the zoom cluster shared the bottom edge; by 900px the tools
 row ran off the canvas. Verified clean at eight viewports from 1920 to 600.
 
 
-### Fixed — the Documents Library sub-tab looked nothing like the rest of the app
+### Fixed: the Documents Library sub-tab looked nothing like the rest of the app
 
 Reported bluntly and repeatedly: "SOOOO ugly and not consistent with the
 other application design style." Root cause, found by screenshotting it
 beside the "All" library view: its rows had no scoped CSS at all, so every
-one fell through to the app's default filled button style — a solid-accent
+one fell through to the app's default filled button style, a solid-accent
 bar with the title and word count crammed onto one line. Given a document
 icon and a proper card look (border, hover state, title/meta on separate
 lines) matching the rest of the Library. Verified in both themes.
 
-### Added — back/forward now covers switching between saved chats
+### Added: back/forward now covers switching between saved chats
 
 Opening a different saved conversation, or starting a new one, is now a
-real history step — Back/Forward restores the right chat. Fixed a genuine
+real history step: Back/Forward restores the right chat. Fixed a genuine
 async-ordering bug in the process: `stepTabHistory` now awaits
 `openConversation` on that branch, because `openConversation` calls
-`recordTabVisit` itself only after a network fetch — without the await,
+`recordTabVisit` itself only after a network fetch, without the await,
 every Back/Forward through a saved chat would have recorded a spurious new
 entry rather than being a no-op. Caught live via Playwright before it
 shipped.
 
-### Added — onboarding can pull a model and seed example notes
+### Added: onboarding can pull a model and seed example notes
 
 The first-run tour's "Your setup" slide now makes two one-click offers,
 neither automatic: download a starter model when Ollama is running but none
 is installed, and add five short, linked example notes when the notebook is
-genuinely empty — so the Graph, Timeline and Dashboard have something to show
+genuinely empty: so the Graph, Timeline and Dashboard have something to show
 before your first real note. Seeding refuses server-side on any notebook
 that already has a note, so it can never run twice or land on top of real
 work.
 
-### Added — "Build a skill", a built-in skill that writes skills
+### Added: "Build a skill", a built-in skill that writes skills
 
-Interviews you about a job you do often — what it should do, whether it
-touches your notes, what should be fill-in-the-blank each run — then saves it
+Interviews you about a job you do often, what it should do, whether it
+touches your notes, what should be fill-in-the-blank each run, then saves it
 as a real skill with `save_skill`: ordered steps and an actual tool
 allowlist, not a paraphrase saved as a sentence. Checks `list_skills` first
 so a near-duplicate ask reuses or refines what's already there instead of
 shipping a second copy.
 
-### Fixed — the "AI isn't available" pill could be wrong while Ollama was up
+### Fixed: the "AI isn't available" pill could be wrong while Ollama was up
 
-`/models/status` used to probe Ollama twice on every poll — `is_running()`
-and `list_models()` both hit its own `/api/tags` — which could take up to 7s
+`/models/status` used to probe Ollama twice on every poll, `is_running()`
+and `list_models()` both hit its own `/api/tags`, which could take up to 7s
 combined against the frontend's 5s abort on that exact call. One reachability
 check now does both jobs, and the frontend's timeout has real headroom above
 the new (lower) worst case instead of racing it at the wire.
 
-### Fixed — the agent's "View" button after deleting a note pointed nowhere
+### Fixed: the agent's "View" button after deleting a note pointed nowhere
 
 A destructive result reused the same navigation as every other change, which
-only ever looks in the ordinary notes list — a note the agent just moved to
+only ever looks in the ordinary notes list, a note the agent just moved to
 the bin was never there, so the button silently found nothing. It now opens
 the Library's own Bin filter and highlights the note there, which is the one
 place a binned note actually lives.
 
-### Added — a minimap and saved views for the Graph
+### Added: a minimap and saved views for the Graph
 
 A minimap in the corner of the map shows every note at once with a rectangle marking what you're currently looking at; click anywhere on it to jump there, keeping your zoom level. Alongside it, **saved views**: name a combination of layout, colouring, filters and position, and come back to it later. Both were the missing half of "the graph is a tool" once a notebook gets dense enough that the force layout stops being readable.
 
-### Added — the Library search box can search by meaning
+### Added: the Library search box can search by meaning
 
-Notes match on meaning as well as words, the same way the Notes tab already worked. Documents, chats, images and skills still match on their words — they have no embeddings — and the toggle says so rather than implying more than it does. Turning it on can only ever add results, never remove one.
+Notes match on meaning as well as words, the same way the Notes tab already worked. Documents, chats, images and skills still match on their words, they have no embeddings, and the toggle says so rather than implying more than it does. Turning it on can only ever add results, never remove one.
 
-### Added — chat history can expire
+### Added: chat history can expire
 
 Saved chats had no retention policy at all and grew forever. Settings → Preferences now takes a number of days after which old chats are deleted. Off by default, and **pinned chats are never deleted, however old they are**.
 
-### Performance — the notes list no longer builds the whole notebook at once
+### Performance: the notes list no longer builds the whole notebook at once
 
 It renders what fits and fills in as you scroll, staying one continuous list rather than becoming pages. On a 1,501-note notebook that took first paint from 533ms to 16ms and the page from 31,680 elements to 4,306. The Library grid does the same.
 
-### Fixed — 49 icon-only buttons were unnamed to a screen reader
+### Fixed: 49 icon-only buttons were unnamed to a screen reader
 
 Buttons across the whiteboard, sketch pad, document toolbar and status bar announced only as "button". A re-scan found 56 such buttons, not the 13 previously recorded.
 
-### Fixed — several controls were too small to tap reliably
+### Fixed: several controls were too small to tap reliably
 
 Measured across every tab: a tag chip one pixel under the 24px minimum, two toggle labels four pixels short, the Library's per-card selection tick at 13×13, and a link in Settings.
 
-### Fixed — dropdown panels trapped keyboard focus
+### Fixed: dropdown panels trapped keyboard focus
 
-The previous release made every dialog trap Tab inside it, which was right for real dialogs and wrong for the notifications panel, the note picker, the graph popups and the help panels — those sit over a page that stays usable, so focus should be able to leave them.
+The previous release made every dialog trap Tab inside it, which was right for real dialogs and wrong for the notifications panel, the note picker, the graph popups and the help panels, those sit over a page that stays usable, so focus should be able to leave them.
 
-### Fixed — the Agent Activity panel took a third of a phone screen
+### Fixed: the Agent Activity panel took a third of a phone screen
 
 On the Graph tab in particular, where there is no way to scroll it out of the way, it left barely a third of the screen for the map. Its log area is now compact on narrow screens; it still scrolls, so nothing is lost.
 
-### Added — the text-selection popup is now a kebab, with nine actions instead of three
+### Added: the text-selection popup is now a kebab, with nine actions instead of three
 
-Highlight text anywhere in the app and a single ⋯ appears; clicking it opens a menu that stays inside the window, flipping up or sideways near an edge rather than running off it. It now offers *Save as a note*, *Save as a draft*, *Add to a note…*, *Save with its source* (when the passage came from the web reader — a quoted clipping with a link back), *Copy*, *Search the notebook*, *Set a reminder*, *Extract notes…* and *Ask the AI about this*. The old three-button bar could not fit on a phone screen, never appeared for a touch selection or a keyboard one, and had no room to grow.
+Highlight text anywhere in the app and a single ⋯ appears; clicking it opens a menu that stays inside the window, flipping up or sideways near an edge rather than running off it. It now offers *Save as a note*, *Save as a draft*, *Add to a note…*, *Save with its source* (when the passage came from the web reader, a quoted clipping with a link back), *Copy*, *Search the notebook*, *Set a reminder*, *Extract notes…* and *Ask the AI about this*. The old three-button bar could not fit on a phone screen, never appeared for a touch selection or a keyboard one, and had no room to grow.
 
-### Added — the selection menu is reachable without a mouse
+### Added: the selection menu is reachable without a mouse
 
 A long-press drag on a touchscreen now raises the kebab (the popup listened for `mouseup` and nothing else before, so touch selections raised nothing at all), and a new rebindable `Ctrl+Shift+E` opens the menu for a selection made with Shift+Arrow.
 
-### Fixed — the selection popup could render off the left edge of the screen
+### Fixed: the selection popup could render off the left edge of the screen
 
-The clamp that was meant to keep it on screen was nested the wrong way round, so a popup wider than the viewport — which the old three-label bar was, on any phone — ended up at a negative left position instead of pinned to the margin.
+The clamp that was meant to keep it on screen was nested the wrong way round, so a popup wider than the viewport, which the old three-label bar was, on any phone, ended up at a negative left position instead of pinned to the margin.
 
-### Fixed — arrow keys did nothing in most of the app's ⋯ menus
+### Fixed: arrow keys did nothing in most of the app's ⋯ menus
 
-Arrow-key navigation was written inside the note card's menu specifically, so every other kebab menu — saved conversations, the sidebars, and the new selection menu — had none, even though they announce themselves as menus to a screen reader.
+Arrow-key navigation was written inside the note card's menu specifically, so every other kebab menu, saved conversations, the sidebars, and the new selection menu, had none, even though they announce themselves as menus to a screen reader.
 
-### Fixed — eight dialogs let keyboard focus escape behind them
+### Fixed: eight dialogs let keyboard focus escape behind them
 
 The confirm and prompt dialogs, the image viewer, note history, the recycle bin, the skill-run panel, the agent command palette and the graph's connection dialog were all missing a focus trap, because the trap worked from a hard-coded list of dialogs that nobody adding a new one knew about. It now recognises any dialog automatically. The image viewer and command palette also gained the dialog semantics they were missing.
 
-### Performance — the note list builds around 76% fewer DOM elements
+### Performance: the note list builds around 76% fewer DOM elements
 
-Every note card was eagerly building its full 19-item ⋯ menu, hidden, at render time — and rebuilding it on every search keystroke, sort change and save. Menus are now built when first opened. Measured on a 1,501-note notebook: 133,748 elements before, 31,680 after.
+Every note card was eagerly building its full 19-item ⋯ menu, hidden, at render time, and rebuilding it on every search keystroke, sort change and save. Menus are now built when first opened. Measured on a 1,501-note notebook: 133,748 elements before, 31,680 after.
 
-### Performance — the notebook's list queries are served from an index
+### Performance: the notebook's list queries are served from an index
 
 The `entries` table had no index on any of the columns its list queries filter and sort by, so SQLite sorted every live note in the notebook on each request. On a 20,000-note database the main list query went from 46 ms to 15 ms; saving a note is 0.02 ms slower.
 
-### Performance — responses are compressed
+### Performance: responses are compressed
 
-The app served roughly 2.3MB of uncompressed frontend on a cold load, and uncompressed JSON besides. `app.js` is now 70% smaller over the wire (1071.7 KB → 320.1 KB) and `index.html` 75% smaller. Chat streaming, the weekly digest and the live log are unaffected — they still arrive incrementally.
+The app served roughly 2.3MB of uncompressed frontend on a cold load, and uncompressed JSON besides. `app.js` is now 70% smaller over the wire (1071.7 KB → 320.1 KB) and `index.html` 75% smaller. Chat streaming, the weekly digest and the live log are unaffected, they still arrive incrementally.
 
-### Added — a global Undo/Redo system
+### Added: a global Undo/Redo system
 
 Two new buttons in the status bar (Undo/Redo), plus Ctrl+Z / Ctrl+Shift+Z, wired into note delete (single and multi-select), note creation, reminder delete, linking/unlinking notes, and note content edits (which covers attaching or removing an image, since that's just a content edit). Session-only, and deliberately steps aside for a text field's own native undo while you're typing in it.
 
-### Fixed — the Ask tab's search-relevance button did nothing
+### Fixed: the Ask tab's search-relevance button did nothing
 
 `#ask-search-tune` existed in the markup with the right icon and tooltip, but no click handler was ever attached to it. It now opens the same Settings → Preferences "Search relevance" group its sibling buttons elsewhere in the app already jump to, and sits at the right edge of its row instead of squeezed against the mode chip.
 
-### Fixed — draft notes appearing in Library and Graph
+### Fixed: draft notes appearing in Library and Graph
 
-A draft is unfinished by definition, and the Notes tab already excludes drafts from its own note lists — Library's mixed "note" view and the Graph's node list didn't, so an unfinished draft showed up as a first-class card and graph node.
+A draft is unfinished by definition, and the Notes tab already excludes drafts from its own note lists, Library's mixed "note" view and the Graph's node list didn't, so an unfinished draft showed up as a first-class card and graph node.
 
-### Security — a real path-injection finding, closed
+### Security: a real path-injection finding, closed
 
 CodeQL flagged `POST /files/save`'s filename handling (`py/path-injection`) despite an existing whitelist sanitiser; the sanitiser is now built on `os.path.basename` and the write path is checked for real containment inside the exports folder before it's ever used.
 
 ## [0.1.3] - 2026-08-23
 
-### Fixed — chat citation badges silently dropped in the Chat tab
+### Fixed: chat citation badges silently dropped in the Chat tab
 
-The backend already computed per-sentence note grounding and sent a `grounding` event for any notes-related turn, but the frontend only ever rendered it in the Ask tab — the Chat tab never listened for the event at all, so a chat answer that clearly drew on specific notes named none of them. Each chat bubble now gets its own "Grounded in:" chip strip, the same one the Ask tab already had.
+The backend already computed per-sentence note grounding and sent a `grounding` event for any notes-related turn, but the frontend only ever rendered it in the Ask tab, the Chat tab never listened for the event at all, so a chat answer that clearly drew on specific notes named none of them. Each chat bubble now gets its own "Grounded in:" chip strip, the same one the Ask tab already had.
 
-### Added — search-relevance help and quick-access links
+### Added: search-relevance help and quick-access links
 
-Settings → Preferences → "Search relevance (advanced)" (minimum similarity, above-average margin) had no explanation and no way in except scrolling Settings by hand. Added a hover tooltip and a click-open panel explaining both numbers, plus three quick-access links — the Dashboard's Tools & Features catalog, the Ask tab's Matching Records heading, and Chat's per-turn matching-notes summary — that jump straight to the setting and highlight it.
+Settings → Preferences → "Search relevance (advanced)" (minimum similarity, above-average margin) had no explanation and no way in except scrolling Settings by hand. Added a hover tooltip and a click-open panel explaining both numbers, plus three quick-access links, the Dashboard's Tools & Features catalog, the Ask tab's Matching Records heading, and Chat's per-turn matching-notes summary, that jump straight to the setting and highlight it.
 
-### Added — an "Open exports folder" button, and a configurable export location
+### Added: an "Open exports folder" button, and a configurable export location
 
 Graph PNGs, chat exports and the like landed in the app's data folder with only a toast naming the path. Settings → Data now has a button to open that folder directly (desktop app only), and a new preference to redirect where exports are saved, validated as a real, writable folder before it's accepted.
 
-### Fixed — three preferences silently dropped by Settings
+### Fixed: three preferences silently dropped by Settings
 
-`auto_stale_review_enabled` (the autonomous stale/orphaned-note reviewer), `session_idle_ttl_minutes` (Settings → Account's sign-out timer), and `response_mode` (the Quick/Normal/Detailed picker) each had a working Settings control that saved without error but never actually took effect — some were never echoed back after saving (so the control looked reset on reload even though the saved value was in effect), one was never actually accepted by the save endpoint at all. All three now round-trip correctly.
+`auto_stale_review_enabled` (the autonomous stale/orphaned-note reviewer), `session_idle_ttl_minutes` (Settings → Account's sign-out timer), and `response_mode` (the Quick/Normal/Detailed picker) each had a working Settings control that saved without error but never actually took effect, some were never echoed back after saving (so the control looked reset on reload even though the saved value was in effect), one was never actually accepted by the save endpoint at all. All three now round-trip correctly.
 
-### Fixed — the in-app package installer failing on the packaged Windows build
+### Fixed: the in-app package installer failing on the packaged Windows build
 
-Reported by a real user: installing "Search by meaning" or dictation from Settings → Packages failed with a cryptic "unrecognized arguments" error and no visible cause. The installer was accidentally re-launching the packaged app itself instead of running `pip`, a mistake only possible in the installed .exe, not a source checkout — which is also the real explanation for two earlier, unresolved "pip install just fails" reports. It now finds a real Python on the system and uses that; if none is found, it says so plainly instead of failing mysteriously. The same fix was needed, and applied, to the SearXNG (private web search) setup process for the same reason.
+Reported by a real user: installing "Search by meaning" or dictation from Settings → Packages failed with a cryptic "unrecognized arguments" error and no visible cause. The installer was accidentally re-launching the packaged app itself instead of running `pip`, a mistake only possible in the installed .exe, not a source checkout, which is also the real explanation for two earlier, unresolved "pip install just fails" reports. It now finds a real Python on the system and uses that; if none is found, it says so plainly instead of failing mysteriously. The same fix was needed, and applied, to the SearXNG (private web search) setup process for the same reason.
 
-### Fixed — a missing search-engine component in the packaged build
+### Fixed: a missing search-engine component in the packaged build
 
 The packaged Windows app was missing four internal files needed for the optional local web-search engine (SearXNG) to install itself, producing a "module not found" error for anyone who tried. Fixed, and guarded against happening again for any future addition to that engine.
 
-### Fixed — the background-activity notification visibly shrinking the Chat tab
+### Fixed: the background-activity notification visibly shrinking the Chat tab
 
-Reported and reproduced live: opening the small "Agent Activity" notification panel while on the Chat tab visibly shoved the whole conversation — messages, the composer, the Send button — up the page. The panel was never meant to overlap the conversation at all (only the chat list beside it), so the leftover spacing rule causing the squeeze was removed.
+Reported and reproduced live: opening the small "Agent Activity" notification panel while on the Chat tab visibly shoved the whole conversation, messages, the composer, the Send button, up the page. The panel was never meant to overlap the conversation at all (only the chat list beside it), so the leftover spacing rule causing the squeeze was removed.
 
-### Added — a one-click fix when the built-in search engine can't install
+### Added: a one-click fix when the built-in search engine can't install
 
-If the offline "search by meaning" engine can't be installed (a known limitation on some systems), Settings → Models now offers a single button to switch to an equivalent Ollama-based engine (nomic-embed-text) instead — downloading it and switching over automatically, rather than requiring several manual steps across two different settings panels.
+If the offline "search by meaning" engine can't be installed (a known limitation on some systems), Settings → Models now offers a single button to switch to an equivalent Ollama-based engine (nomic-embed-text) instead: downloading it and switching over automatically, rather than requiring several manual steps across two different settings panels.
 
-### Changed — the in-chat "Web" toggle now visibly shows when it's off
+### Changed: the in-chat "Web" toggle now visibly shows when it's off
 
 The web-search toggle in the chat composer looked identical whether it was on or off, which made it easy to overlook that it was left on (or think it was on when it wasn't). It now dims clearly when off, while staying just as easy to turn on.
 
-### Added — automatic updates for the packaged Windows app
+### Added: automatic updates for the packaged Windows app
 
-Settings → About can now download and install a new release itself — no more being sent back through a browser to redownload and re-run the installer by hand. A popup after login offers it the moment a real release is found (once per version, not every login); Settings → About has the same "Update automatically" action as a manual fallback. Two new, separate switches: whether the app may check GitHub for a release at all, and whether it may apply one automatically once found — turning either off is respected everywhere, including the popup. A "choose a specific version" picker lists recent releases directly in Settings, and a "track the main branch" channel option is now a real, storable preference (main-branch tracking itself still reports honestly as not yet available — no nightly-build pipeline exists yet to make good on it). Every step — checking, downloading, and applying — degrades cleanly when offline or blocked by a firewall/antivirus, and a failed attempt can always be retried, either from the next login's popup or by hand in Settings. Source checkouts (`start.sh`/`start.bat`) already auto-update on every launch via `git pull`; they now default to tracking main (since that's what they're actually doing) and show their own "you were just updated" popup after a real update, using the same mechanism.
+Settings → About can now download and install a new release itself, no more being sent back through a browser to redownload and re-run the installer by hand. A popup after login offers it the moment a real release is found (once per version, not every login); Settings → About has the same "Update automatically" action as a manual fallback. Two new, separate switches: whether the app may check GitHub for a release at all, and whether it may apply one automatically once found, turning either off is respected everywhere, including the popup. A "choose a specific version" picker lists recent releases directly in Settings, and a "track the main branch" channel option is now a real, storable preference (main-branch tracking itself still reports honestly as not yet available, no nightly-build pipeline exists yet to make good on it). Every step, checking, downloading, and applying, degrades cleanly when offline or blocked by a firewall/antivirus, and a failed attempt can always be retried, either from the next login's popup or by hand in Settings. Source checkouts (`start.sh`/`start.bat`) already auto-update on every launch via `git pull`; they now default to tracking main (since that's what they're actually doing) and show their own "you were just updated" popup after a real update, using the same mechanism.
 
-### Fixed — a background embedding-model install failure now retries itself
+### Fixed: a background embedding-model install failure now retries itself
 
-Reported by a real user: when the BGE semantic-search model failed to install, the app fell back to a lower-quality model and stayed there, even after the underlying cause (a transient `pip` failure) resolved itself. A missing `sentence_transformers` package now triggers one automatic reinstall attempt in the background, and search quality recovers on its own once it succeeds — no more permanently stuck on the fallback after a one-off install hiccup.
+Reported by a real user: when the BGE semantic-search model failed to install, the app fell back to a lower-quality model and stayed there, even after the underlying cause (a transient `pip` failure) resolved itself. A missing `sentence_transformers` package now triggers one automatic reinstall attempt in the background, and search quality recovers on its own once it succeeds, no more permanently stuck on the fallback after a one-off install hiccup.
 
-### Added — search inside uploaded images (OCR), and a search box for the Image Gallery
+### Added: search inside uploaded images (OCR), and a search box for the Image Gallery
 
-A whiteboard photo or a scanned page attached to a note used to sit as an opaque file — nothing could search what was actually written on it. Uploaded images now get local OCR text (Tesseract, running entirely on your machine, in the background so uploading never waits on it), and the Library's Image Gallery has a new search box that matches against both filenames and that extracted text — "what was on that whiteboard photo from March" is now answerable by typing a word from it. Entirely optional: without Tesseract installed, images just upload normally with no OCR text, nothing else is affected. Settings → Packages can now install this feature like any other optional extra, and tries to install the Tesseract program itself automatically too (winget/brew/apt/dnf/pacman, whichever this computer has) rather than only pointing at manual instructions.
+A whiteboard photo or a scanned page attached to a note used to sit as an opaque file, nothing could search what was actually written on it. Uploaded images now get local OCR text (Tesseract, running entirely on your machine, in the background so uploading never waits on it), and the Library's Image Gallery has a new search box that matches against both filenames and that extracted text, "what was on that whiteboard photo from March" is now answerable by typing a word from it. Entirely optional: without Tesseract installed, images just upload normally with no OCR text, nothing else is affected. Settings → Packages can now install this feature like any other optional extra, and tries to install the Tesseract program itself automatically too (winget/brew/apt/dnf/pacman, whichever this computer has) rather than only pointing at manual instructions.
 
-### Fixed — a security review found two real issues in the new auto-update code, both fixed
+### Fixed: a security review found two real issues in the new auto-update code, both fixed
 
 `POST /update/apply`'s specific-version picker built a GitHub URL from the requested version without checking its shape first; it now only accepts a real release-tag pattern. A failed install used to report the raw system error, which on Windows could include a local file path; it now reports a safe, generic message while the full detail still goes to the app's own logs.
 
 ## [0.1.2] - 2026-08-23
 
-### Added — Dev view / User view console mode, a terminal-style log view, advanced search settings
+### Added: Dev view / User view console mode, a terminal-style log view, advanced search settings
 
-A first-run choice, and a live Settings/tray toggle, for whether the desktop app keeps a console window open ("Dev view") or runs with none at all ("User view"). The mechanism is a relaunch — a detached `pythonw.exe` that never allocates a console — rather than hiding one already created, after "hide console" reports turned out to trace to Windows Terminal/ConPTY returning a handle to a hidden pseudo-console host rather than the real window. Settings → Logs gained a List/Terminal toggle rendering the same records as raw console-style lines, the GUI answer to User view hiding the real thing. Settings → Preferences gained "Search relevance (advanced)" (minimum similarity, above-average margin, reset to default) for tuning semantic search directly instead of only via a code constant.
+A first-run choice, and a live Settings/tray toggle, for whether the desktop app keeps a console window open ("Dev view") or runs with none at all ("User view"). The mechanism is a relaunch, a detached `pythonw.exe` that never allocates a console, rather than hiding one already created, after "hide console" reports turned out to trace to Windows Terminal/ConPTY returning a handle to a hidden pseudo-console host rather than the real window. Settings → Logs gained a List/Terminal toggle rendering the same records as raw console-style lines, the GUI answer to User view hiding the real thing. Settings → Preferences gained "Search relevance (advanced)" (minimum similarity, above-average margin, reset to default) for tuning semantic search directly instead of only via a code constant.
 
-### Fixed — a sign-out bug in the console-mode feature above, found the same session it shipped
+### Fixed: a sign-out bug in the console-mode feature above, found the same session it shipped
 
-The first-run popup could fire before real sign-in, fire again after, and randomly sign the user out. It guarded only on a preference flag that read as "unseen" during a stale-token bootstrap pass (not just "not yet answered"), and it called the same route Settings/tray use to live-restart the desktop process — killing the in-memory session mid-login and racing its own "mark this answered" write against that exit. The popup now requires the preferences fetch to have actually succeeded, and never restarts the process itself.
+The first-run popup could fire before real sign-in, fire again after, and randomly sign the user out. It guarded only on a preference flag that read as "unseen" during a stale-token bootstrap pass (not just "not yet answered"), and it called the same route Settings/tray use to live-restart the desktop process, killing the in-memory session mid-login and racing its own "mark this answered" write against that exit. The popup now requires the preferences fetch to have actually succeeded, and never restarts the process itself.
 
-### Fixed — semantic search returning irrelevant results
+### Fixed: semantic search returning irrelevant results
 
-An unrelated note scored 57% cosine similarity for an unconnected query. The similarity floor assumed "0 means unrelated," which doesn't hold for the current embedding model (BGE-family, anisotropic — unrelated notes routinely land at 0.4-0.6). Added a second, relative floor from each query's own score distribution, self-calibrating rather than a fixed number.
+An unrelated note scored 57% cosine similarity for an unconnected query. The similarity floor assumed "0 means unrelated," which doesn't hold for the current embedding model (BGE-family, anisotropic: unrelated notes routinely land at 0.4-0.6). Added a second, relative floor from each query's own score distribution, self-calibrating rather than a fixed number.
 
-### Fixed — larger local models timing out or failing to respond
+### Fixed: larger local models timing out or failing to respond
 
-Both the Ollama and OpenAI-compatible clients defaulted their request timeout to 120s, unconfigurable — too short for a cold load of a model past roughly 4B parameters on modest hardware. Raised to 600s, and Ollama chat requests now ask the server to keep a model loaded for 30 minutes of idle time instead of its own 5-minute default.
+Both the Ollama and OpenAI-compatible clients defaulted their request timeout to 120s, unconfigurable, too short for a cold load of a model past roughly 4B parameters on modest hardware. Raised to 600s, and Ollama chat requests now ask the server to keep a model loaded for 30 minutes of idle time instead of its own 5-minute default.
 
-### Fixed — drafts
+### Fixed: drafts
 
-The primary Capture box had no way to save a note as a draft at all (only three other, less obvious paths did); it does now. Drafts were also never actually surfaced in the Library despite being documented as such — the sub-tab didn't exist — and, separately, kept showing up in All notes and category views, undercutting the point of a separate Drafts section. All three fixed.
+The primary Capture box had no way to save a note as a draft at all (only three other, less obvious paths did); it does now. Drafts were also never actually surfaced in the Library despite being documented as such, the sub-tab didn't exist, and, separately, kept showing up in All notes and category views, undercutting the point of a separate Drafts section. All three fixed.
 
-### Fixed — a batch of smaller reports
+### Fixed: a batch of smaller reports
 
 The Image Gallery lightbox miscounting images when one's backing file was missing on disk; the tool-call output panel in chat truncating to 300 characters for no reason tied to cost (raised to 4000); a long model id pushing the chat header's buttons onto their own row; a form-alignment gap in Capture's "File under" row; the AI never seeing the similarity score or matched keyword terms behind its own search results, despite that data already existing for the frontend's badges.
 
 ## [0.1.1] - 2026-08-18
 
-### Fixed — two system tray bugs
+### Fixed: two system tray bugs
 
 Both reported directly, right after v0.1.0 shipped. "View Logs" opened
 Settings → Logs unconditionally, reaching straight past the lock screen if
-the app was locked — now it only jumps into Settings when `#lock-overlay`
+the app was locked, now it only jumps into Settings when `#lock-overlay`
 isn't showing, otherwise it just brings the (still locked) window forward.
-"Quit" closed the window but left the process running in its terminal —
+"Quit" closed the window but left the process running in its terminal,
 `window.destroy()` runs on the tray's own thread, not the main thread
 blocked inside `webview.start()`, and a cross-thread destroy call isn't
 guaranteed to unblock that wait. Quit now hard-exits the process directly,
@@ -6572,45 +6574,45 @@ being unnecessary here.
 
 ## [0.1.0] - 2026-08-18
 
-### Added — an allowlist for note attachments
+### Added: an allowlist for note attachments
 
 Reported directly: `POST /entries/{id}/files` (the generic "attach a file"
-button on a note) had no file-type validation at all — anything uploaded,
+button on a note) had no file-type validation at all, anything uploaded,
 video included. `/media/upload` (pasted/dropped images) already had a real
 allowlist for a stored-XSS reason specific to that route; this one is
 broader (attachments download rather than render inline) but still refuses
 video, audio and executable shapes with a clear 415, while covering images,
 PDF, common office formats, and text/code files. Audio specifically is
-tracked as a real feature to add (BACKLOG §75 — capture, playback, a
+tracked as a real feature to add (BACKLOG §75: capture, playback, a
 library page) rather than a permanent refusal.
 
-### Changed — a themed dialog for the document word-count goal
+### Changed: a themed dialog for the document word-count goal
 
-Was a bare `window.prompt()` — functional, but the only dialog in the app
+Was a bare `window.prompt()`, functional, but the only dialog in the app
 with no app styling, font or theme at all. Reported directly. Now a `card
 space-dialog` matching every other small dialog in the app (the space
 create/rename/delete ones, the documents-storage one).
 
-### Fixed — three UI issues at the top of the Documents sidebar
+### Fixed: three UI issues at the top of the Documents sidebar
 
 All reported directly, with a photo. (1) The document title input had no
 floor on how far it could shrink, so on a narrow window it was crushed to
 a few illegible pixels before the toolbar ever wrapped its buttons onto
-their own row — given a real minimum width, the toolbar now wraps instead.
+their own row: given a real minimum width, the toolbar now wraps instead.
 (2) The four new help-tooltip circles (below) rendered as ovals, not
-circles, everywhere except the Graph/Timeline tabs — `--control-h`, the
+circles, everywhere except the Graph/Timeline tabs, `--control-h`, the
 custom property they sized themselves against, is only declared in a
 handful of scopes, and silently resolved to nothing everywhere else,
 falling back to `button.small`'s asymmetric padding. Fixed with a literal
 size instead of a token that isn't always in scope. (3) The Documents/
 Outline pill toggle's "Recent"/"+ New" row was reserving the same
 right-side clearance for the collapse toggle that the tab strip above it
-already reserves, even though the toggle only ever appears once — "+ New"
+already reserves, even though the toggle only ever appears once, "+ New"
 sat well short of the sidebar's real edge with dead space beside it. Given
 its own clearance instead, plus a little extra beyond the bare minimum for
 visual breathing room next to the toggle.
 
-### Fixed — the sidebar collapse toggle escaping to the page's top-left on a phone
+### Fixed: the sidebar collapse toggle escaping to the page's top-left on a phone
 
 Reported directly: the collapse toggle (Notes, Chat and Documents sidebars
 alike) could render pinned near the very top of the viewport, over the app
@@ -6621,15 +6623,15 @@ establish a positioning context for an absolutely-positioned child, so the
 toggle fell through to the page's own initial containing block. `position:
 relative` disables sticky the same way while still containing the toggle.
 
-### Removed — two dead files at the repo root
+### Removed: two dead files at the repo root
 
 `find_emojis.py` was an unreferenced one-off debugging script (scanned
 `app.js` for stray emoji during a past cleanup pass); `mkdocs.yml`
-configured a docs site nothing builds — no CI step, no Makefile target, no
+configured a docs site nothing builds, no CI step, no Makefile target, no
 `mkdocs` dependency anywhere, and the real GitHub Pages site is the
 hand-built `docs/index.html` renderer. Asked for directly.
 
-### Added — help tooltips on Timeline and the three Library subtabs
+### Added: help tooltips on Timeline and the three Library subtabs
 
 Asked for directly, matching the existing Graph tab pattern. The Timeline
 toolbar and the AI Skills, Whiteboards and Image Gallery subtabs each had a
@@ -6643,7 +6645,7 @@ same click/outside-click/Escape listener trio. Verified live: all five
 panels are hidden by default, open correctly positioned under their button,
 and close on outside-click and Escape.
 
-### Fixed — sketch/attachment images rendering below a note's metadata
+### Fixed: sketch/attachment images rendering below a note's metadata
 
 Reported directly ("attached sketches are below note metadata"). The note
 card built its attachment thumbnails and appended them to the list item
@@ -6653,23 +6655,23 @@ inserting the attachment row before the metadata element rather than
 appending after it. Verified live: attachments now render above the
 metadata footer in the note list.
 
-### Fixed — two error-prevention gaps
+### Fixed: two error-prevention gaps
 
 Asked for directly. `deleteAskHistoryTurn` deleted a Q&A permanently with
-no confirmation or undo — its own "clear all" sibling already confirms,
+no confirmation or undo, its own "clear all" sibling already confirms,
 this didn't. Now it does. A reminder's `due_at` could be set in the past
 (create and edit both) with no check, silently creating a reminder that
-could never usefully fire — `POST /reminders` and `PUT /reminders/{id}`
+could never usefully fire, `POST /reminders` and `PUT /reminders/{id}`
 now reject one more than a minute in the past (a small clock-skew/latency
 allowance, not real slack) with a clear 422.
 
-### Fixed — Library thumbnails for pasted/dropped images, not just sketches
+### Fixed: Library thumbnails for pasted/dropped images, not just sketches
 
 Asked for directly ("make the sketches render... the same as how images are
 visually displayed"). Found the opposite of the assumed direction: sketches
 already got a Library thumbnail (a real `Attachment`), but a note with a
-pasted or dropped image — inline markdown in the note's own text, no
-`Attachment` row — got none at all, and its title/preview showed the raw
+pasted or dropped image, inline markdown in the note's own text, no
+`Attachment` row: got none at all, and its title/preview showed the raw
 `![alt](url)` syntax literally. Root cause: `routes_library.py`'s
 `thumb_by_entry` only ever looked at `Attachment` rows, and `_clip()` never
 stripped inline markdown the way `routes_graph.py`'s node-label preview
@@ -6677,22 +6679,22 @@ already did.
 
 Fixed by factoring the shared fix out (`manager.strip_inline_markdown`,
 reused by both `routes_graph.py` and `routes_library.py` instead of two
-near-duplicate regexes) and adding a `thumb_url` fallback — the note's own
+near-duplicate regexes) and adding a `thumb_url` fallback: the note's own
 first inline image, same URL shapes the note editor itself already renders
-— checked only when there's no `Attachment` thumbnail, so a sketch's own
+- checked only when there's no `Attachment` thumbnail, so a sketch's own
 drawing always wins over anything mentioned in its caption. Extended to the
 recycle bin and archive views too, which had no thumbnails of either kind
 before. Verified live: a pasted-image note and a sketch note both show
 correct thumbnails in grid and list view, with clean (non-markdown) titles.
 
-### Added — pagination for `GET /entries`
+### Added: pagination for `GET /entries`
 
 Requested directly ("that is a real app feature... probably needed for
-real world use"). `GET /entries` was genuinely unbounded — every note in
+real world use"). `GET /entries` was genuinely unbounded: every note in
 the notebook, every load, no matter its size. Now takes `limit`/`offset`
 (default page 1000, hard ceiling 5000) and reports the true total via an
 `X-Total-Count` header. `entry/manager.py` grew matching params on all
-three list functions plus three new count helpers — additive, so every
+three list functions plus three new count helpers, additive, so every
 existing in-process caller is unaffected.
 
 `app.js`'s `loadEntries()` fetches pages in a loop, painting the first
@@ -6702,7 +6704,7 @@ exactly as complete as it always was once loading finishes. Caught and
 fixed in the same pass, by grepping every `/entries` call site rather than
 assuming the new default was safe everywhere: three dashboard widgets each
 independently re-fetched the whole list and would have silently truncated
-past 1000 notes (wrong tag counts, most seriously) — now they reuse
+past 1000 notes (wrong tag counts, most seriously), now they reuse
 `allEntries` instead. Also removed dead code found the same way: `copyLogs()`
 built and fetched an `/entries` URL it never used.
 
@@ -6711,7 +6713,7 @@ Verified live: seeded 2500 notes, confirmed exactly 3 page requests fire,
 render, and the dashboard's widgets show correct totals with zero console
 errors.
 
-### Fixed — backend hardening pass
+### Fixed: backend hardening pass
 
 Requested directly ("harden the backend, make sure it's robust"); found by a
 targeted audit rather than guessed at, each verified live before being
@@ -6719,11 +6721,11 @@ called fixed:
 
 - `GET /graph/local/{id}?depth=` had no upper bound; the BFS loop ran
   `range(depth)` regardless, so a large `depth` blocked this single-worker
-  server's one request thread for real wall-clock time — a trivial DoS on a
+  server's one request thread for real wall-clock time, a trivial DoS on a
   personal-notebook app. Now `Query(ge=1, le=6)`, plus the loop breaks as
   soon as its frontier empties instead of finishing out the range.
 - `GET /timeline?days=` had no upper bound either, and fed straight into
-  `timedelta(days=days)` — a large enough value raised an unhandled
+  `timedelta(days=days)`, a large enough value raised an unhandled
   `OverflowError` (Python int too large to convert to C int), surfacing as a
   raw 500 instead of a clean error. Now `Query(ge=0, le=40000)` (0 still
   means "everything").
@@ -6732,40 +6734,40 @@ called fixed:
   (`MAX_DOCUMENT_IMPORT_NOTES`). Now capped at `MAX_IMPORT_FILES = 500` with
   a clear 422 past that, rather than unbounded work per request.
 - Wiki-link resync failures in `create_entry`/`update_entry` were swallowed
-  with no logging — the embedding-refresh block three lines above both of
+  with no logging: the embedding-refresh block three lines above both of
   them explicitly logs on failure ("logged rather than swallowed" is the
   comment right there), and the wiki-link block didn't follow its own
   neighbour's pattern. A real link-resolution bug was invisible in both the
   UI and Settings → Logs; now it isn't.
 - `searxng_manager._run_streaming`'s deadline was only checked *between*
-  output lines — a child process that went quiet without exiting (a stalled
+  output lines: a child process that went quiet without exiting (a stalled
   download, a hung subprocess) blocked the call forever no matter what
   `timeout` said. Reads the pipe from a background thread into a queue now,
   so the deadline is checked on a real poll loop even when nothing is being
   read. Reproduced the actual hang locally before and after the fix.
 
-### Added — Windows installer
+### Added: Windows installer
 
 - A real installed build for Windows: `packaging/windows/memorymap.spec`
   (PyInstaller, onedir) and `packaging/windows/installer.iss` (Inno Setup,
-  per-user install — no admin prompt). `release.yml` now builds and attaches
+  per-user install: no admin prompt). `release.yml` now builds and attaches
   it to the GitHub Release whenever a `v*` tag is pushed. Unsigned for now
   (see README's Windows install note); ships to GitHub Releases only.
 - `core/config.py` and `api/app.py` both located `frontend/` and the app
   icon via a path relative to the source file's own position, which assumes
-  a `src/` layer a PyInstaller bundle doesn't have — both now branch on
+  a `src/` layer a PyInstaller bundle doesn't have: both now branch on
   `sys.frozen` and resolve against the bundle's own extraction root instead.
   Notes now default to `%APPDATA%\MemoryMap AI` (or the platform
   equivalent) only for a frozen build; a source checkout is unaffected.
 
-### Added — system tray, update check
+### Added: system tray, update check
 
 - **System tray for the desktop window.** Closing the window now minimizes it
   to a tray icon instead of quitting; the tray menu is Open / View Logs /
   Restart / Quit. `pystray` + `Pillow` join `pywebview` as the `desktop`
   extra (`core/extras.py`) and are bundled into the Windows installer. Missing
   or unusable on the running platform (no display, package not installed) is
-  a soft fallback, not a crash — the window just closes for real, same as
+  a soft fallback, not a crash, the window just closes for real, same as
   before.
 - **"Check for updates" (Settings → About).** Off by default, same reasoning
   as web search. A `GET /update/check` endpoint compares the running version
@@ -6774,19 +6776,19 @@ called fixed:
   exists) are all new. Caught live rather than merely reasoned about: the new
   `update_check_enabled` preference wasn't declared on `PreferencesBody`, so
   the PUT silently dropped it, and `get_preferences()`'s hand-built response
-  dict never echoed it back either — both fixed.
+  dict never echoed it back either, both fixed.
 
-### Fixed / Added — CodeQL cleanup, extract-notes feature, a real private-note leak, design pass
+### Fixed / Added: CodeQL cleanup, extract-notes feature, a real private-note leak, design pass
 
 - **Security.** All 81 open CodeQL alerts closed. Separately: a private
   note's ciphertext was reaching the AI in four places once a link, card, or
   reminder referencing it predated the note being marked private
-  (`set_private` doesn't touch existing references) — the weekly digest,
+  (`set_private` doesn't touch existing references), the weekly digest,
   `audit_vague_links`, the whiteboard `read_whiteboard`/`search_whiteboard`
   agent tools, and a reminder's entry preview. All four now respect the
   private-note guard; each has a regression test.
-- **Extract notes** (new). Turn selected text — in the Writing Room, a
-  Document, or a whiteboard multi-selection — into one or more AI-drafted
+- **Extract notes** (new). Turn selected text: in the Writing Room, a
+  Document, or a whiteboard multi-selection, into one or more AI-drafted
   notes, auto-filed and auto-linked with real generated reasons, previewed
   before anything is written. Reuses the janitor's filing/merge judgement
   and the librarian's link-reason generation rather than new logic.
@@ -6804,26 +6806,26 @@ called fixed:
 - **Docs.** ~1,000 lines of resolved ROADMAP/BACKLOG items moved into
   `docs/roadmap/HISTORY.md`; both live docs now hold only open work.
 
-### Fixed / Added — work-recovery session: icon system, spaces, timeline, chat dock, link reasons
+### Fixed / Added: work-recovery session: icon system, spaces, timeline, chat dock, link reasons
 
 A previous session's work was lost; the recovery attempt had left the app
 with a broken icon system and several silently-dead features. Baseline was
-16 failing tests, not 2 — six of them because the link-reason feature had
+16 failing tests, not 2, six of them because the link-reason feature had
 never run once (`provider.run_prompt` does not exist).
 
-- **Icons.** The Phosphor stylesheet was vendored but never linked — no icon
+- **Icons.** The Phosphor stylesheet was vendored but never linked, no icon
   in the app rendered. All 367 colour emoji replaced app-wide (frontend and
   backend tool/skill labels) with Phosphor glyphs via a `ph:name` label
   marker (`setLabel()`) for the ~300 that live in JS string literals rather
   than markup. `lucide.min.js` and its dead branch removed.
 - **CSS correctness.** Five custom properties used but never declared
   (`--surface-2`, `--text-main`, `--card-hover`, `--radius-3`,
-  `--accent-alpha-1`) — an undeclared property invalidates its whole
+  `--accent-alpha-1`), an undeclared property invalidates its whole
   declaration, so the workspace menu had no background and timeline cards no
   radius. A literal `\n` inside a `:root[data-glass="off"]` selector list
   invalidated that entire rule.
 - **Spaces.** Rebuilt switcher (markup had been deleted by a bad regex, CSS
-  and JS left behind); create/rename/delete hardened — reserved ids can no
+  and JS left behind); create/rename/delete hardened: reserved ids can no
   longer be claimed, icon values are validated (were interpolated unescaped
   into a class name), delete reassigns every `WorkspaceMixin` model instead
   of four hardcoded ones and no longer reads a deleted ORM row.
@@ -6835,7 +6837,7 @@ never run once (`provider.run_prompt` does not exist).
 - **Chat dock.** Skills folded into one dropdown (selector, Auto|Manual
   pace, Run) instead of four loose controls. Plan is a toggle applied on
   the way out of `sendChatMessage`, so Enter and suggestion chips honour it
-  too — previously only its own button sent a plan.
+  too: previously only its own button sent a plan.
 - **Link reasons.** `audit_vague_links` rewritten onto
   `librarian.generate_link_reason` (the old call target did not exist);
   rejects reasons that are themselves vague; commits once per batch instead
@@ -6848,19 +6850,19 @@ never run once (`provider.run_prompt` does not exist).
   dedicated `auto_link_reason_audit` preference (was previously untested
   that the pass reached the audit at all).
 - **Security.** `_unlink_notes` bypassed the private-note guard that
-  `link_notes` immediately above it enforces — it could unlink and reveal
+  `link_notes` immediately above it enforces, it could unlink and reveal
   the existence of a private note the caller cannot read.
 - **Dashboard.** Widget preview rows: `safeMdSlice` returned the empty
   string whenever an unpaired markdown marker was the first character
   (`cut.slice(0, cut.lastIndexOf(marker))` with index 0), rendering as a
-  bare "…" — now falls back to a plain-text slice. Block markdown (headings,
+  bare "…", now falls back to a plain-text slice. Block markdown (headings,
   lists) rendered as literal syntax because the widgets used the inline-only
   renderer; now strip block syntax and show the note's first line as a
   title. A widget-picker modal (roadmap item 26) on top of the existing
   `dashboard_layout` preference and inline edit mode, not a second store.
 - **Graph.** Fit-to-view computed its bounding box from node centres
   (ignoring radius/halo/label), used a flat 60px margin regardless of
-  container size, and clamped only the zoom-in direction — one distant
+  container size, and clamped only the zoom-in direction, one distant
   outlier collapsed the whole graph to a scale of 0.07. Padded by rendered
   node extent, container-relative margin, clamped both directions.
 - **Whiteboard.** A note card showed 100 characters of escaped plain text
@@ -6869,9 +6871,9 @@ never run once (`provider.run_prompt` does not exist).
 - **Documents.** Full-height sticky sidebar (was shrink-wrapped to its
   content by a duplicate `#doc-sidebar` rule later in the file that re-set
   `align-self: start`). The storage-path disclosure moved into a dialog
-  behind a link-styled button — ~370px back to the document list.
+  behind a link-styled button, ~370px back to the document list.
 - **Sidebars.** Categories, Chats and Recent headers now sit level with
-  their collapse toggle — the toggle is positioned against the card's
+  their collapse toggle: the toggle is positioned against the card's
   border box, the heading row started at the content box, `--space-6`
   lower, with nothing keeping the two in step.
 - **Misc.** `!err?.name === "AbortError"` parsed as `(!err?.name) ===
@@ -6889,28 +6891,28 @@ never run once (`provider.run_prompt` does not exist).
   the user just pressed, not background chatter).
 
 
-### Fixed / Added — whiteboard redo & select, highlighter persistence, arc-label spacing, touch input (roadmap §11, §15)
+### Fixed / Added: whiteboard redo & select, highlighter persistence, arc-label spacing, touch input (roadmap §11, §15)
 
 - Whiteboard: a redo stack (Ctrl+Y / Ctrl+Shift+Z, toolbar button), and a
   real single-item Select tool (was folded into Pan) with Delete/Backspace
   and Escape support.
 - Whiteboard: a highlighter stroke's width/opacity is now saved and
-  restored correctly — it previously reloaded as a plain full-opacity 3px
+  restored correctly: it previously reloaded as a plain full-opacity 3px
   line, losing the tool's whole point.
 - Whiteboard: an arrow tool (shaft + arrowhead as one path/one undo entry).
-  **Its live drag-to-save path was not confirmed working this session** —
+  **Its live drag-to-save path was not confirmed working this session**,
   see HANDOVER.md for why, and check this first next session.
 - Graph (arc view): labels were re-reported as reading like they belonged
-  to the wrong node — widened node spacing, shortened the label limit, and
+  to the wrong node, widened node spacing, shortened the label limit, and
   steepened the label tilt so a label's own reach stays under one node-step.
   Category labels also now get an accent colour, not just bold, so they
   read as a distinct kind of label.
 - Whiteboard and graph: switched from mouse events to pointer events (the
   sketch pad already did this) so touch and pen input work, not just a
-  mouse — not verified against real touch hardware, reasoned from the
+  mouse: not verified against real touch hardware, reasoned from the
   event model.
 
-### Changed — licence: MIT → AGPL-3.0
+### Changed: licence: MIT → AGPL-3.0
 
 MemoryMap is now under the **GNU Affero General Public License v3.0**. The
 licence text is the official one from the FSF, unmodified.
@@ -6928,8 +6930,8 @@ What it means in practice:
 
 **One consequence worth flagging, because it inverts a documented constraint:**
 ANALYSIS.md §34a said "odysseus is AGPL, MemoryMap is MIT, no code crosses in
-either direction." Half of that is now lifted — odysseus's AGPL code *may* come
-in, carrying its notices and attribution — and the other half is tighter:
+either direction." Half of that is now lifted, odysseus's AGPL code *may* come
+in, carrying its notices and attribution, and the other half is tighter:
 nothing from here can go out to an MIT project. §34a is rewritten to say so.
 
 Updated: `LICENSE`, the pyproject classifier, the README badge and footer,
@@ -6937,7 +6939,7 @@ ANALYSIS.md §34a, and the cross-reference line in every roadmap file and
 CLAUDE.md.
 
 
-### Fixed — the owner's reported list
+### Fixed: the owner's reported list
 
 Diagnosed in the running app rather than from the report. Full triage, with
 what was checked and found already correct, in [ROADMAP.md §41](docs/ROADMAP.md).
@@ -6951,7 +6953,7 @@ what was checked and found already correct, in [ROADMAP.md §41](docs/ROADMAP.md
   cursor so the mode looks like one.
 - **The autonomous-tasks switch turned itself off.** Two controls write that
   preference and the one on the skills panel saved straight to the server
-  without updating `prefsCache` — so the next `savePrefs`, which rebuilds the
+  without updating `prefsCache`, so the next `savePrefs`, which rebuilds the
   whole object from the DOM, read the other checkbox and switched it back.
 - **Light/dark stopped affecting the page background** after using the colour
   scheme selector. The builder computes a page colour *for a mode* and stored
@@ -6974,7 +6976,7 @@ what was checked and found already correct, in [ROADMAP.md §41](docs/ROADMAP.md
 - **A text box in "What it remembers".** `save_user_preference` is the model's
   way in; this is the one people reach for first.
 
-### Checked and found correct — not changed
+### Checked and found correct, not changed
 
 - **Password, token and secret storage.** bcrypt with a per-password salt;
   `secrets.token_hex(32)` session tokens held in memory and swept on expiry;
@@ -6983,7 +6985,7 @@ what was checked and found already correct, in [ROADMAP.md §41](docs/ROADMAP.md
   The real defect underneath is the highlighter at 5% opacity.
 
 
-### Audited — a week of another agent's work, brought to a mergeable state
+### Audited: a week of another agent's work, brought to a mergeable state
 
 `fix/Antigravity-Audit` arrived with 8 commits, ~9,600 insertions and no test
 files. It had **90 failing tests and 20 ruff errors** against a `main` whose
@@ -6998,24 +7000,24 @@ three new features it brought are documented in §39.
   (Sessions are not thread-safe) and closed it twice, leaked that thread when a
   client hung up, had to be mounted outside `dependencies=locked` and reimplement
   auth by hand, and replaced a transport the same-origin policy protects with
-  one it does not — so any page the user had open could drive the agent. It
+  one it does not, so any page the user had open could drive the agent. It
   also accounted for ~70 of the 90 failures. Two genuine improvements from the
   rewrite were kept: mid-stream `error` events, and tool-error logging.
 - **`generate_skill` removed.** It wrote unvalidated AI-authored skills straight
   into preferences, bypassing `save_skill`'s schema check, built-in-name guard,
-  tool-name validation and `MAX_SKILLS` — and called `config.save_preference`,
+  tool-name validation and `MAX_SKILLS`, and called `config.save_preference`,
   a method with no definition anywhere, so it could only ever have raised.
 
-#### Fixed — security and privacy
+#### Fixed: security and privacy
 
 - **The AI could tag and link private notes.** `tag_note` and `link_notes` grew
   batch arguments and stopped routing through `_require_note`, the one place
   that refuses a private note. The batch feature is kept; the guard is back.
-- **`/media/upload` and `/media/{filename}`** noted as a hardening item — the
+- **`/media/upload` and `/media/{filename}`** noted as a hardening item, the
   filename is whitelisted so there is no traversal, but uploads are served
   same-origin with no type restriction.
 
-#### Fixed — data loss and correctness
+#### Fixed: data loss and correctness
 
 - **JSON export silently dropped `is_deleted`**, so every note in the recycle
   bin would have re-imported as a live note.
@@ -7023,24 +7025,24 @@ three new features it brought are documented in §39.
   stored vector was stacked into one array; a notebook holding two widths
   mid-reindex raised on the ragged list and took every query down with it. The
   same crash, plus an N×N memory blowup, was in the graph's similarity edges
-  and in link suggestions — all three now go through one blocked,
+  and in link suggestions, all three now go through one blocked,
   dimension-safe `embeddings.similar_pairs`.
 - **`?semantic=true` threw away its own ranking**, returning matches in
   notebook order, and swallowed a cold embedding model as "here is your whole
   notebook" instead of a 503.
-- **Notes sharing an uppercase tag stopped being neighbours** — the tag index
+- **Notes sharing an uppercase tag stopped being neighbours**, the tag index
   was keyed lowercase and intersected against unfolded tags.
 - **`search_notes` scaled its ceiling with the context window**, so a 128k
   model could pull 768 note previews into a single tool result.
 - **`find_similar_notes` was listed in `WRITE_TOOLS`**, so a pure read cleared
   the agent's read-dedup ledger and counted as work for the claim checker.
-- **`ask_user` was culled from small models**, leaving them to guess — the
+- **`ask_user` was culled from small models**, leaving them to guess, the
   exact failure that tool exists to prevent.
 - **The memory stream was injected unbounded into the system prompt** on every
   round, past the `PROSE_BUDGET_CHARS` guard that exists to stop that. Now
   capped at 600 characters, newest-first, and never fatal when unavailable.
 
-#### Fixed — features that had never executed once
+#### Fixed: features that had never executed once
 
 - **The background librarian was never started.** `app.py` imported
   `autonomous` and called nothing, so the interval, the on/off switch and three
@@ -7049,7 +7051,7 @@ three new features it brought are documented in §39.
   `except Exception` wide enough to swallow the `AttributeError`. Now
   implemented, and it returns a count.
 - **`VACUUM` moved onto an autocommit connection.** Through a `Session` it
-  works only while it is the first statement — pysqlite defers its BEGIN — and
+  works only while it is the first statement, pysqlite defers its BEGIN, and
   raises once anything has read or written, which is the state the background
   pass leaves behind.
 - **`trigger-autonomous` had no guard**, so each press started another agent
@@ -7058,10 +7060,10 @@ three new features it brought are documented in §39.
   app.js template literals**, all refused by the app's own
   `style-src 'self'` CSP and therefore rendering as no styling at all.
 
-#### Fixed — the interface
+#### Fixed: the interface
 
 - **Every card, field and dialog in the app had no border and no shadow.**
-  `border-style` and `shadow-intensity` — two new Settings controls — were
+  `border-style` and `shadow-intensity`, two new Settings controls, were
   missing from `APPEARANCE_DEFAULTS`, so `undefined` and `NaN` were written
   into two CSS custom properties on `<html>`. Both are invalid where they are
   *used*, which is an `!important` rule matching `.card`, `input`, `textarea`,
@@ -7074,13 +7076,13 @@ three new features it brought are documented in §39.
   now aliased to the real theme-aware tokens.
 - **Graph Trace threw a ReferenceError.** It moved from two `<select>`s to
   click-two-notes and left three references to the locals the selects filled.
-- **Picking a sketch colour left the eraser armed** — the button was renamed
+- **Picking a sketch colour left the eraser armed**, the button was renamed
   and one call kept the old id, swallowed by an optional chain.
 - **Tags / Recycle bin / Activity** lost their markup but kept their click
   handlers; the sidebar shortcuts are back.
 - `applyThemeChoice(undefined)` stamped `data-theme="undefined"` onto `<html>`.
 
-#### Added — tests and lints
+#### Added: tests and lints
 
 46 tests across `test_whiteboard.py`, `test_autonomous.py` and
 `test_antigravity_regressions.py`; 28 of the 32 applicable ones fail against
@@ -7090,7 +7092,7 @@ fallback; the inline-style ban covers app.js; and the dated search tests own
 their own clock.
 
 
-### Fixed — agent robustness pass
+### Fixed: agent robustness pass
 
 - **A skill/plan step now hands the next step the actual notes and
   documents it touched, not just its own prose summary.** Reported as the
@@ -7107,13 +7109,13 @@ their own clock.
   `agent._change_note_id`/`_change_document_id` now resolve each tool's id
   from the field it actually uses.
 
-### Added — §37G, §37I, §37K
+### Added: §37G, §37I, §37K
 
 - **A document importer.** `markitdown` had been an installable extra with
   nothing calling it since it was added; Settings → Import & export now has
   an "Import a document" button (PDF, Word, slides) alongside the existing
   markdown importer. A converted file with more than one top-level heading
-  becomes one note per heading — a deck or a document with real chapters —
+  becomes one note per heading, a deck or a document with real chapters,
   otherwise the whole thing is one note, capped at 25 notes per upload.
 - **The sketch pad accepts a background image.** An "🖼️ Add image" button
   draws a chosen photo onto its own canvas layer beneath the pen strokes, so
@@ -7122,18 +7124,18 @@ their own clock.
   painting white, so erasing a stroke reveals the image underneath instead of
   punching a white hole through it.
 - **`compress_chat`, an agent tool.** The agent can now ask to compress the
-  older part of a long conversation — `POST /chat/compress`'s summarising
-  logic, reused rather than duplicated — but the turn still ends on a review
+  older part of a long conversation, `POST /chat/compress`'s summarising
+  logic, reused rather than duplicated, but the turn still ends on a review
   card the user approves before it replaces anything, the same human-gated
   flow the manual Compress button already used. Deciding *not* to let the
   agent auto-apply its own summary was the point: a summary nobody can
   correct is one they have to trust blindly.
 - **A handful of emoji were missing their colour variation selector**
   (⚡️ ✖️ ▶️ ☑️ ⚠️), rendering as thin text-style glyphs on some platforms next
-  to fully-qualified emoji in the same row — the same bug one of them was
+  to fully-qualified emoji in the same row, the same bug one of them was
   already fixed for once, audited across the rest of the frontend.
 
-### Fixed — a second round of reported UI bugs
+### Fixed: a second round of reported UI bugs
 
 - **Quick sketch's Close button darkened the background instead of closing.**
   `#sketch-overlay` sat at `z-index: 60`, the toast/popup tier; the "close
@@ -7148,7 +7150,7 @@ their own clock.
   as the Library toolbar: one declared `--control-h` for the filter box, the
   sort select and both buttons.
 - **The category sidebar's ✎/🗑 buttons overlapped the note count** instead of
-  replacing it — `background: inherit` was meant to hide the count underneath
+  replacing it: `background: inherit` was meant to hide the count underneath
   but a glass card is never fully opaque. The count now fades out exactly
   when the actions fade in.
 - **A stale login token produced a toast storm before the lock screen.**
@@ -7157,7 +7159,7 @@ their own clock.
   correctly, explained the one real state. The 401 now carries a marker the
   bootstrap loop checks before toasting.
 - **First load now defaults to the Dashboard**, not Notes. Only the fallback
-  changed — a returning visit still opens on whichever tab was last active.
+  changed: a returning visit still opens on whichever tab was last active.
 
 ### Roadmap
 
@@ -7165,16 +7167,16 @@ their own clock.
   resizable/refined web panel, a UI zoom setting, the graph toolbar, sketch
   image/document upload, llama.cpp wiring, chat compression as an agent tool,
   a real Timeline fix, emoji rendering) in priority order, and corrects three
-  stale claims in the roadmap's own top-level priority sections — including
+  stale claims in the roadmap's own top-level priority sections, including
   "the Library tab" listed as an open Tier 3 item after it had been built and
   partly deleted.
 
-### Removed — the three panels the Library replaced (roadmap §36G)
+### Removed: the three panels the Library replaced (roadmap §36G)
 
 **The first surface this project has taken away rather than added.** The Notes
 sidebar's 🗑, 📜 and 🏷 buttons opened the Library, but `#bin-panel`,
 `#activity-panel` and `#tags-panel` were still in the markup and still
-rendered, so each of those three things had two implementations — and the
+rendered, so each of those three things had two implementations, and the
 bin's two could disagree about what was in it, because each fetched its own
 list. Gone with them: `renderBin`, `renderActivity`, `renderTags`, `showPanel`,
 the `#bin-empty` handler and `entryItem`'s `options.bin` branch.
@@ -7195,18 +7197,18 @@ the `#bin-empty` handler and `entryItem`'s `options.bin` branch.
 - **Embedding models you can see and remove** (Settings → Optional extras).
   Which models are on this machine, their real size on disk, where the cache
   is, and download / re-download / remove. Answers a question the logs made
-  look alarming: the model is fetched **once** — the HuggingFace requests on
+  look alarming: the model is fetched **once**, the HuggingFace requests on
   every start are checking the copy you already have.
 - **A 🧭 Plan button in the chat.** The `make_plan` tool has existed since
   §35K and the only way to reach it was to hope the model chose it. An action
   rather than a toggle: planning costs a round-trip, and "plan this one" is a
   decision about the message in the box.
 - **SearXNG can start with the app** (Settings → Web search, off by default).
-  Reported as web search "disabling itself" — it was the container going away
+  Reported as web search "disabling itself", it was the container going away
   after a reboot, and every search after that fell through to a rate-limited
   DuckDuckGo.
-- **The dashboard's launcher is three labelled groups** — Start something, Jump
-  to, Run a skill — instead of one grid of seven identical chips doing three
+- **The dashboard's launcher is three labelled groups**, Start something, Jump
+  to, Run a skill, instead of one grid of seven identical chips doing three
   different jobs. The Library, the Timeline and the command palette are
   reachable from it at last.
 - **Optional extras that nothing calls yet are greyed out** and refused
@@ -7217,14 +7219,14 @@ the `#bin-empty` handler and `entryItem`'s `options.bin` branch.
 
 - **Web search opens as a column beside the conversation**, not a drawer inside
   the composer dock. Inside the dock it had to be capped at `min(38vh, 20rem)`
-  — a search box, a results list and a whole web page in 20rem — reported as
+  - a search box, a results list and a whole web page in 20rem, reported as
   *"squashed ugly … what it is right now isn't working"*. As a column it needs
   no cap at all, and the reader takes the column over rather than sharing it.
 - **The dock's controls are one visual family**: one corner radius, one border,
   one hover, and selects that give up the platform's chrome. A toggle that is
   on now says so with the accent.
 - **Switches instead of checkboxes** wherever a checkbox means on-or-off.
-  Radios keep `accent-color` — one-of-several is not on-or-off — and
+  Radios keep `accent-color`, one-of-several is not on-or-off, and
   checkboxes in a *list* stay ticks.
 - The **Rediscover** widget renders markdown instead of showing `## Schedule`
   and `**bold**` spelled out.
@@ -7235,7 +7237,7 @@ the `#bin-empty` handler and `entryItem`'s `options.bin` branch.
 - **The chat dock drew outside its own card.** Measured at 1849×700 with a
   hand-dragged composer: the dock's box ended at y=614 and the composer at
   y=814, with Send below the window. A dragged height is now trimmed to the
-  room the card has — measured, not guessed — and the *preference* is never
+  room the card has, measured, not guessed, and the *preference* is never
   rewritten, so the box comes back when there is room.
 - **Starting a skill from the dashboard didn't take you to it.** The run began
   and streamed into a tab nobody was looking at.
@@ -7251,7 +7253,7 @@ the `#bin-empty` handler and `entryItem`'s `options.bin` branch.
   character class with `*` next to an anchor is the shape to avoid; the linear
   replacement is again the more readable one.
 
-### Fixed — long jobs finish, or say where they stopped (roadmap §35K)
+### Fixed: long jobs finish, or say where they stopped (roadmap §35K)
 
 Two reports, one subject: *"the agent struggles with long tasks like skills
 then cuts out half way through and has to restart, or it hits a limit for tool
@@ -7259,13 +7261,13 @@ calls which has happened quite a bit."*
 
 - **Rounds are earned now, not granted.** The cap counted rounds, which cannot
   tell a model doing eight useful things from a model doing the same thing
-  eight times — and "tag these eight notes" is a search, a read and eight
+  eight times: and "tag these eight notes" is a search, a read and eight
   writes. A round that makes a successful call it has not already made buys
   another round, up to a ceiling. A model looping on one call earns nothing and
   still stops where it always did.
 - **A step that ran out of rounds is no longer ticked off as done.** The runner
   could only see that the step's turn produced text, and "I couldn't finish
-  step 1" is text — so a step cut off mid-job was marked ✓ and the next one ran
+  step 1" is text: so a step cut off mid-job was marked ✓ and the next one ran
   on top of half-finished work. It is marked stalled, the run stops there, and
   the result says which step it stopped on.
 - **Resume from step N.** A run that stopped picks up where it stopped instead
@@ -7273,13 +7275,13 @@ calls which has happened quite a bit."*
   rounds gets a **Continue** button, rather than a paragraph asking you to type
   "carry on".
 
-### Added — the agent can plan a big job and work through it (roadmap §35K)
+### Added: the agent can plan a big job and work through it (roadmap §35K)
 
 Reported: *"I will say fix my categories and it will only merge two categories
 and leave it at that, ignoring the rest."*
 
 A model given one broad instruction does the first part and reports success.
-Skills already solved this — each step is its own turn — but only for a job you
+Skills already solved this, each step is its own turn, but only for a job you
 had saved as a skill. Now the agent can call **`make_plan`**: it writes 2–6
 steps, its turn ends, and the same runner works through them one at a time,
 ticking each off and listing what changed with an Undo on each.
@@ -7288,7 +7290,7 @@ A plan is a skill nobody saved, so it looks and behaves exactly like a skill
 run. A plan that is too long is refused rather than trimmed, because silently
 dropping the end of the job is the failure this exists to prevent.
 
-### Changed — the chat controls moved down to the chat box (roadmap §36B)
+### Changed: the chat controls moved down to the chat box (roadmap §36B)
 
 Asked for directly: *"moving the majority of the ui controls like the
 chat/agent pull, web search and stuff to the bottom bar with the chat input."*
@@ -7296,10 +7298,10 @@ chat/agent pull, web search and stuff to the bottom bar with the chat input."*
 Chat/Agent, Web, answer length, persona, the skill picker and attached notes
 now sit in a dock with the message box, so you set them as you write instead of
 scrolling back to the top of a long conversation. The chat header keeps what is
-about the conversation itself — its name, what it has cost, and Export. The web
+about the conversation itself, its name, what it has cost, and Export. The web
 and persona panels moved down with the buttons that open them.
 
-### Added — compress a long conversation (roadmap §35I)
+### Added: compress a long conversation (roadmap §35I)
 
 Asked for directly: *"there should be a tool as well as a manual command or
 something to be able to compress chat context on longer chats so the AI can
@@ -7308,17 +7310,17 @@ better continue."*
 **🗜 Compress** in the chat header summarises the earlier messages, shows you
 the summary to read and edit, and then sends that in place of them. What it
 fixes is not what it sounds like: a long chat never overflowed the model's
-window — the oldest messages were quietly dropped to make room — so the model
+window, the oldest messages were quietly dropped to make room, so the model
 was forgetting the start of the conversation and re-asking things you had told
 it. A summary keeps the gist of ten messages for the price of one.
 
 Nothing is deleted. Every message stays in the conversation and in the saved
 transcript; only what the model is *sent* changes, and one Undo puts it back.
 
-### Changed — the chat's controls are one strip, and its header has two levels
+### Changed: the chat's controls are one strip, and its header has two levels
 
-The dock under the chat was three stacked bands — skills, controls, then the
-message box — which is most of the height of a short conversation. It is one
+The dock under the chat was three stacked bands, skills, controls, then the
+message box: which is most of the height of a short conversation. It is one
 line now: skills · what the AI may use · how it answers, with everything the
 same height so it reads as a single strip. The skill's description moved into
 the picker's tooltip, where the steps and tools it uses already were.
@@ -7327,11 +7329,11 @@ The chat header shows the conversation's name as a heading with its token count
 and compression state as quiet metadata beneath, instead of a row of things
 that all looked like buttons.
 
-### Fixed — the desktop app could keep running an old build
+### Fixed: the desktop app could keep running an old build
 
 If a button you were told was fixed is still broken, this is why. The frontend
 was served with no `Cache-Control` header at all, which lets a cache reuse it
-without checking — and the desktop shell has no reload button, its own on-disk
+without checking: and the desktop shell has no reload button, its own on-disk
 cache, and restarts the process without clearing it. After an update it could
 go on running the previous `app.js` indefinitely. The files are now served
 `no-cache`, so every start checks for a newer build (and gets a 304 when there
@@ -7339,22 +7341,22 @@ isn't one).
 
 The recycle bin's **Empty now** was the report that led here. It was driven end
 to end in a real browser against this server: the confirm dialog opens, the
-notes go, the bin comes back empty. The fix has been in the code since §35F —
+notes go, the bin comes back empty. The fix has been in the code since §35F,
 what was missing was any guarantee you were running it.
 
-### Fixed — reminders were polled twice a minute, not once
+### Fixed: reminders were polled twice a minute, not once
 
 A rewrite left the previous poller's timer behind. Both timers ran the new
 poller, so the app asked the server for reminders twice as often as intended,
 and two polls landing together could announce the same reminder twice.
 
-### Fixed — all seven tabs stay readable
+### Fixed: all seven tabs stay readable
 
 When the tab strip cannot fit beside the app name and the header buttons it now
 takes a row of its own, instead of scrolling with "Dashboard" clipped against
 the left edge.
 
-### Fixed — the Reminders tab is no longer faded at the edge
+### Fixed: the Reminders tab is no longer faded at the edge
 
 Reported: *"the reminders tab in the top bar is partially faded out on the
 right."* The tab strip's fade meant "this bar scrolls" rather than "there is
@@ -7362,15 +7364,15 @@ more that way", so the last tab stayed dimmed with nothing hidden behind it.
 Each edge now fades only when there is something beyond it, the fade is a fixed
 width rather than a share of the bar, and choosing a tab scrolls it into view.
 
-### Added — any OpenAI-compatible backend (roadmap §6)
+### Added: any OpenAI-compatible backend (roadmap §6)
 
 The headline ask was "support LM Studio". What got built is the **dialect**,
 not the product: LM Studio serves the OpenAI API on `localhost:1234/v1`, and so
 do llama.cpp's server, Jan, vLLM, and Ollama's own `/v1` surface. One provider
 gets all of them, and the only thing that differs between them is an address.
 
-Pick it in **Settings → Models → Model backend**. It applies immediately — no
-restart, nothing to put in `.env` — and the setting is saved whether or not the
+Pick it in **Settings → Models → Model backend**. It applies immediately: no
+restart, nothing to put in `.env`, and the setting is saved whether or not the
 server is answering yet, because "set the address, then start the server" is
 the normal order to do it in.
 
@@ -7378,7 +7380,7 @@ the normal order to do it in.
   about Ollama moved there and is now shared: the think-tag splitter, the
   tool-text gate and the prose-tool-call recovery, the error classes, the
   context ceiling, the neutral `{context_tokens, max_output_tokens}` budget.
-  They were *moved*, not copied — a test asserts they are gone from the old
+  They were *moved*, not copied, a test asserts they are gone from the old
   file, because two copies of a tool-call gate that drift apart is exactly the
   bug this refactor exists to prevent.
 
@@ -7391,11 +7393,11 @@ the normal order to do it in.
   Ollama equivalent: arguments come through as partial JSON spread over many
   chunks, and two concurrent calls interleave on the wire. Folding them by
   arrival order instead of by index produces one unparseable blob the moment a
-  model asks for two things at once — which small models do constantly.
+  model asks for two things at once, which small models do constantly.
 
 - **The window a server *loaded* beats the window a model *could* hold.** LM
   Studio reports both; a 128k model loaded at 4k will drop the front of the
-  prompt — the system prompt, the part telling it that it has tools — if the
+  prompt, the system prompt, the part telling it that it has tools, if the
   app budgets against the bigger number. Where nothing is reported at all
   (plain llama.cpp), a known-model table answers, and where that doesn't
   either, the app says "unknown" and budgets conservatively rather than
@@ -7404,7 +7406,7 @@ the normal order to do it in.
 - **Tool results are addressed by id.** Ollama accepts `{"role": "tool",
   "tool_name": …}`; the OpenAI shape wants a `tool_call_id` matching an id the
   assistant turn issued. The agent keeps writing one dialect and the client
-  translates at the boundary — including the case where a model calls the same
+  translates at the boundary, including the case where a model calls the same
   tool twice in one turn, where matching on name alone leaves a call
   unanswered and the server rejects the whole turn.
 
@@ -7412,7 +7414,7 @@ the normal order to do it in.
   four Ollama generation paths send an options block; `tests/test_providers.py`
   now asserts the equivalent for the new provider, against the payloads that
   actually went out. A path that omits `max_tokens` is a model running unbounded
-  on the backend's defaults — the bug the context-budget work was spent fixing,
+  on the backend's defaults: the bug the context-budget work was spent fixing,
   arriving again through a different door.
 
 - Downloading models is an Ollama capability, so the suggested-downloads panel
@@ -7420,31 +7422,31 @@ the normal order to do it in.
   work, and the status line names whichever backend actually answered instead
   of telling an LM Studio user to go and install Ollama.
 
-### Added — finished background tasks, and a way to quit
+### Added: finished background tasks, and a way to quit
 
 **Settings → Background tasks now shows what stopped, not only what is
 running.** The old rule was that a finished job isn't a task and a screen that
-accumulates them is a log — tidy, and wrong in the one way that matters: a job
+accumulates them is a log, tidy, and wrong in the one way that matters: a job
 that *fails* disappeared at the moment it became interesting. A re-index that
 died halfway left exactly the same empty list as one that finished, and the
 reason existed only in the log console, a different screen you have to know to
 open. Endings are now recorded with their outcome and reason: in memory,
 bounded to the last 40, newest first. Cancelling is reported as *cancelled*
-rather than failed — a user's own decision in red is how people learn to ignore
+rather than failed: a user's own decision in red is how people learn to ignore
 red.
 
 **A Quit button** stops the app and its server properly. Until now the ways out
 were Ctrl+C in a window the launcher hides, or closing the tab and leaving the
-server running — which is why a second start could find its port taken. It is a
+server running: which is why a second start could find its port taken. It is a
 POST behind the unlock gate (a GET would be reachable from a link in another
 tab), it replies before it signals, and it uses SIGINT rather than a hard exit
 so uvicorn's normal shutdown runs and the SearXNG subprocess is torn down by
 the code that knows how.
 
-### Changed — many more suggested models, sorted by what your machine can run
+### Changed: many more suggested models, sorted by what your machine can run
 
-Three chat models became twelve, in three tiers — runs-on-anything, 8 GB, and
-a mixture-of-experts tier for 16 GB and up — in Settings → Models and in the
+Three chat models became twelve, in three tiers, runs-on-anything, 8 GB, and
+a mixture-of-experts tier for 16 GB and up, in Settings → Models and in the
 README, on the current Gemma 4 and Qwen 3.5 families.
 
 The MoE tier is the one worth explaining rather than just listing:
@@ -7458,11 +7460,11 @@ matters: someone reading the list is choosing against hardware they already
 own, and a quality-sorted list puts the model they can't run at the top and the
 one they should start with out of sight. Each says what it is *for* rather than
 how good it is, and the README points at the new "Can use tools" row for agent
-work — read from the model rather than guessed.
+work: read from the model rather than guessed.
 
-### Added — five notebook-audit skills, and taking a link back out
+### Added: five notebook-audit skills, and taking a link back out
 
-Asked for: *"a skill that can do a full audit and clean up of my notebook —
+Asked for: *"a skill that can do a full audit and clean up of my notebook,
 linking notes, removing inaccurate links, analysing categories and tags,
 retagging, changing categories, moving notes, combining duplicates."*
 
@@ -7472,46 +7474,46 @@ would either stop half-finished or have steps so broad a 3B model can't tell
 whether it has done them. Each job also wants a different toolbox, and the
 allowlist is what keeps a run cheap and safe.
 
-- **🩺 Notebook health check** — the audit. Read-only *by construction*: it is
+- **🩺 Notebook health check**: the audit. Read-only *by construction*: it is
   offered no tool that can write, so a model that ignores "change nothing"
   still can't. Finishes by naming which clean-up skill fixes each problem.
-- **🏷 Clean up my tags** — merges plurals, spellings and synonyms via
+- **🏷 Clean up my tags**, merges plurals, spellings and synonyms via
   `rename_tag`, then removes tags that don't match what a note says.
-- **🗂 Reorganise my categories** — proposes a structure first, then creates,
+- **🗂 Reorganise my categories**: proposes a structure first, then creates,
   renames, merges and moves notes into it. `delete_category` is deliberately
   absent: it's destructive, so it would stop a bulk run for a confirm card, and
   merging keeps the notes together rather than scattering them.
-- **🔗 Fix my links** — removes connections that don't hold up and adds ones
+- **🔗 Fix my links**: removes connections that don't hold up and adds ones
   that should exist.
-- **🧬 Find notes worth combining** — reports the merged note it *would* write
+- **🧬 Find notes worth combining**, reports the merged note it *would* write
   and links the group. Deciding what to lose isn't a judgement to hand a model
   across a whole notebook.
 
 **`unlink_notes`** is the tool that made the fourth possible. Its absence had a
 specific cost: an audit could add a connection and never correct one, so a wrong
-link was permanent from inside the app. It is a write but *not* destructive —
+link was permanent from inside the app. It is a write but *not* destructive,
 no writing is lost, both notes survive, and the result carries the `link_notes`
-call that puts it back — because a confirm card on every correction in a tidy-up
+call that puts it back, because a confirm card on every correction in a tidy-up
 run is how people learn to click through confirm cards. (Removing a link by hand
 already worked: the `×` on a link chip in Notes.)
 
-### Changed — the graph tool costs half what it did
+### Changed: the graph tool costs half what it did
 
 Asked for: *"the knowledge graph needs to be very solid and token efficient."*
-It wasn't. Twelve neighbours came back as full `_note_summary` rows — 200-char
+It wasn't. Twelve neighbours came back as full `_note_summary` rows: 200-char
 previews, ISO timestamps, `pinned`, `truncated`, and a null `via` on every
-one-hop result — **~1,230 tokens for one call**, a third of a 4k window before
+one-hop result: **~1,230 tokens for one call**, a third of a 4k window before
 the question or the notes.
 
 A graph walk's job is to say *what connects to what*; reading one in full is
 `get_note`'s job. Rows now carry an id, a 90-character preview, the category,
-how it connects and how far — with tags and `via` omitted when empty rather than
+how it connects and how far, with tags and `via` omitted when empty rather than
 sent as null. **633 tokens**, and a test holds the worst case under 800.
 
-### Changed — skills the model can find, and a budget guard retired
+### Changed: skills the model can find, and a budget guard retired
 
 A skill was findable only by the person who remembered writing it. `when_to_use`
-is a field now — *when* to reach for a skill, as opposed to what it is — and
+is a field now, *when* to reach for a skill, as opposed to what it is, and
 `list_skills` reports it along with `step_count` and `changes_notes`, so a skill
 that alters the notebook reads differently from one that only summarises. The
 note to the model also says plainly that it cannot start a skill itself, because
@@ -7519,7 +7521,7 @@ a model that believes it can will narrate having done so.
 
 **`PROMPT_BUDGET_CHARS` is retired**, on its own instructions. Its comment said
 to retire it if it ever needed raising a third time for a tool rather than for
-prose — and the third time came in the same session, for one added argument on
+prose: and the third time came in the same session, for one added argument on
 `save_skill`. It weighed the *whole* tool registry, and no turn has sent the
 whole registry since `within_budget` started fitting the schemas to the model's
 reported window. A guard that must be raised every time the app legitimately
@@ -7531,31 +7533,31 @@ whole to a 3B model and a 70B one alike; and the existing post-trim test covers
 what actually reaches a 4,096-token model. The registry is capped by the
 model's real window, per turn, by code that is tested.
 
-### Added — the graph is walkable by the AI (roadmap §9)
+### Added: the graph is walkable by the AI (roadmap §9)
 
 Asked directly: *"is the graph an actual knowledge graph? I want it to be one
 for the AI to have easily usable and accessible context."*
 
-It was half of one. The edges were real and persisted — explicit links, reply
-threads, shared tags — and the graph *view* has drawn them as typed edges since
+It was half of one. The edges were real and persisted, explicit links, reply
+threads, shared tags: and the graph *view* has drawn them as typed edges since
 it was built. What the agent could see was `get_note`'s `links` field: a bare
 list of note ids, with no indication of what any of them meant, one note per
 tool call. It could add connections and never follow them.
 
 `related_notes` walks the neighbourhood breadth-first to depth 2, capped at 12
-notes, and **every result says how it connects** — "linked", "thread: this is a
-reply to it", "shares #recipes" — plus how many hops out and which note it hung
+notes, and **every result says how it connects**, "linked", "thread: this is a
+reply to it", "shares #recipes", plus how many hops out and which note it hung
 off. The typing is the point: "you linked these" and "these share a tag" are
 different strengths of evidence, and a flat list of ids hides that. Sharing a
 *category* is deliberately not a connection, since nearly every note shares one.
 
 **Potential connections too**, on request: `include_suggestions` adds notes that
 *read* alike but were never linked. They come back in their own list, labelled
-"NOT linked yet", with an instruction to say so — because the one way this could
+"NOT linked yet", with an instruction to say so, because the one way this could
 mislead is a guess repeated to the user as a fact. Off by default, since a
 similarity sweep costs a comparison per note.
 
-### Security — the AI is locked to this machine by default
+### Security: the AI is locked to this machine by default
 
 The backend address is now *refused* if it isn't on this computer or your own
 network, rather than allowed with a warning. "100% offline, on your machine"
@@ -7563,7 +7565,7 @@ should be a promise the app keeps, not one it reminds you that you are breaking.
 
 Enforced in two places, and the second is the one that matters:
 `preferences.json` is a plain file, and it is what a restored backup or a copied
-config brings with it — so checking only at the endpoint would let an address
+config brings with it, so checking only at the endpoint would let an address
 that never passed through it be used anyway, silently, on every turn. When the
 saved address is refused the app falls back to the local default and logs why,
 rather than refusing to start: it has to open so the setting can be fixed from
@@ -7572,51 +7574,51 @@ inside it.
 Unlocking is a visible switch in Settings → Models, for anyone who genuinely
 wants a hosted API.
 
-### Fixed — "'timeout' is not recognized" on Windows
+### Fixed: "'timeout' is not recognized" on Windows
 
 Reported in use, and real. `start.bat` waited three seconds before opening the
-browser with `timeout /t 3`, and `timeout` is `System32\timeout.exe` — an
+browser with `timeout /t 3`, and `timeout` is `System32\timeout.exe`, an
 external program, not a `cmd` builtin. On any machine whose `PATH` has lost
 System32 it fails outright, and it also refuses to run when its input is
 redirected. It now waits with the virtual environment's own Python, which the
 script has already created and checked at an absolute path, so it needs nothing
 on `PATH` at all.
 
-### Added — peek, colour schemes, and saving a look (roadmap §33)
+### Added: peek, colour schemes, and saving a look (roadmap §33)
 
 Three appearance additions, the first two taken from odysseus.
 
 - **Peek.** A checkbox in the Settings title bar fades the panel so a colour
   change can be seen on the page behind it. The technique is the part worth
   copying: the fade is `color-mix` on the *background*, never element
-  `opacity` — opacity fades the swatches and the controls too, which makes the
+  `opacity`, opacity fades the swatches and the controls too, which makes the
   thing you are trying to judge harder to see rather than easier. It clears
   itself on close and when you leave Appearance, because a panel left
   semi-transparent on the Logs screen reads as a rendering bug.
 
 - **Build a scheme from one colour.** Picking an accent is easy; picking a page
   background that *goes* with it is the part people give up on. Choose a colour
-  and a relationship — monochromatic, analogous, complementary, triadic — and
+  and a relationship, monochromatic, analogous, complementary, triadic, and
   the two are worked out together: the hue rotates by the amount that
   relationship names, the saturation drops hard (a background carrying the
   accent's full saturation is exhausting to read against), and the lightness
   goes to whichever end the *resolved* mode needs, so it is right under
   "System" too.
 
-- **Save the look you built.** Everything the appearance controls write —
-  colours, font, spacing, corners, background, the selected theme — saved under
+- **Save the look you built.** Everything the appearance controls write,
+  colours, font, spacing, corners, background, the selected theme, saved under
   a name and applied again in one click. Stored server-side with the rest of
   your preferences rather than in the browser: a look built by hand is a thing
   you would be upset to lose to a cleared cache, and in preferences it rides
   along in the daily backup and is there in the desktop window too.
 
-### Added — the agent can ask instead of guessing (roadmap §33)
+### Added: the agent can ask instead of guessing (roadmap §33)
 
 Told "delete the one about the beans" when there are three, the agent had
 exactly one move: pick one and act. A confident wrong action on someone's
 notebook is worse than a question, and the user finds out afterwards.
 
-`ask_user` offers 2-6 options as buttons and **ends the turn** — which is the
+`ask_user` offers 2-6 options as buttons and **ends the turn**, which is the
 feature, not a limitation: the model asked because it does not know what to do
 next, so carrying on would mean carrying on with the guess the question exists
 to avoid.
@@ -7627,7 +7629,7 @@ to avoid.
   into the conversation like any other.
 - **A malformed question is recoverable, not fatal.** A model that offers one
   option, or sends `"yes, no"` as a string instead of a list, has made a fixable
-  mistake — the string is parsed, and anything genuinely unusable goes back to
+  mistake: the string is parsed, and anything genuinely unusable goes back to
   the model with the reason so the run continues rather than stranding the user.
 - **It cannot be run as an ordinary tool.** The handler raises, so a path that
   bypasses the agent loop can't fabricate an answer to a question nobody saw.
@@ -7636,19 +7638,19 @@ to avoid.
   while it stays cheap, so the schema is 507 characters and a test holds it
   under 900.
 
-### Added — quick / normal / detailed (roadmap §11)
+### Added: quick / normal / detailed (roadmap §11)
 
 The prompt side of a turn has been budgeted against the model's real window
 since the context work. The **output** side had one number for everything:
 `num_predict` was a flat 1,024 whether the question was "when did I write about
 beans" or "draft me a summary of the last month". Output tokens are generated
-one at a time, so they cost far more wall-clock each than prompt tokens do — a
+one at a time, so they cost far more wall-clock each than prompt tokens do, a
 uniform cap means every short question pays for the possibility of a long
 answer.
 
 One picker in the chat toolbar now moves four settings together: the reply cap,
 the temperature, the thinking toggle and a length hint in the prompt. They
-belong together — capping the reply without telling the model to be brief
+belong together: capping the reply without telling the model to be brief
 truncates it mid-sentence, which reads as a crash rather than as brevity.
 
 - **`normal` is exactly what every turn got before**, and a test says so. It is
@@ -7657,7 +7659,7 @@ truncates it mid-sentence, which reads as a crash rather than as brevity.
 - **Settings a model can't do are never sent.** Thinking is only ever toggled
   *off*: turning it off on a model with none is a harmless no-op, while turning
   it on where it isn't supported is the request that errors. An unset
-  temperature is omitted rather than sent as null — absent means "your default",
+  temperature is omitted rather than sent as null, absent means "your default",
   which is what happened before presets existed.
 - **The picker is per-turn, the preference is the default.** One quick answer
   doesn't change the setting for every answer after it, but the last choice is
@@ -7665,7 +7667,7 @@ truncates it mid-sentence, which reads as a crash rather than as brevity.
 - The mode list is served from `GET /chat/modes` rather than duplicated in
   `app.js`, so adding a fourth preset is a change to `ai/presets.py` alone.
 
-### Security — the backend address is the one setting that can leave the machine
+### Security: the backend address is the one setting that can leave the machine
 
 Everything else about MemoryMap is local by construction: the server binds to
 localhost, the database is a file, nothing phones home. §6 made the chat
@@ -7694,7 +7696,7 @@ case there and refusing them would break the only thing the setting is for.
   entitled to is for it to happen quietly, because the app's headline promise
   is that notes stay on the machine. Settings → Models shows a plain warning
   naming what is being sent where, and it stays until the address changes.
-- A name that does not resolve yet is not an error — "set the address, then
+- A name that does not resolve yet is not an error, "set the address, then
   start the server" is the normal order, and a container name resolves only
   once its container is up.
 
@@ -7707,7 +7709,7 @@ so the next audit does not have to rediscover them. The other four were real.
 
 - **SearXNG was reachable from the local network when run under Docker.** The
   container was created with `-p 8888:8080`, which publishes on *every*
-  interface rather than just this machine — and because Docker installs its
+  interface rather than just this machine, and because Docker installs its
   own firewall rules, a host firewall set to refuse that port never saw the
   packet. SearXNG has no authentication in front of it, so anyone on the same
   network had both a free proxy to the internet and a view of what had been
@@ -7715,7 +7717,7 @@ so the next audit does not have to rediscover them. The other four were real.
   fixed when a container is created, so **a container left behind by an
   earlier version is detected and recreated** rather than started as it was;
   one that cannot be inspected is left alone rather than removed on a guess.
-  The from-source path was never affected — it has always set
+  The from-source path was never affected, it has always set
   `SEARXNG_BIND_ADDRESS=127.0.0.1`.
 
 - **Requests caused by another site's page are refused.** Binding to localhost
@@ -7723,7 +7725,7 @@ so the next audit does not have to rediscover them. The other four were real.
   have the browser send requests to `http://localhost:8000` on your behalf,
   which is how local dev servers and Ollama itself have been attacked. The API
   now checks the `Origin` (or, failing that, `Referer`) against the host the
-  request was actually sent to. Requests carrying neither header still work —
+  request was actually sent to. Requests carrying neither header still work,
   that is curl, the desktop window, and a shortcut, none of which a browser
   sends an origin for. This closes a window that was widest **before a
   password was set**, when the unlock gate is deliberately open and a
@@ -7735,7 +7737,7 @@ so the next audit does not have to rediscover them. The other four were real.
   been. Expiry also forgets the private-note key, so an expired session cannot
   leave decrypted notes behind in memory.
 
-- **Every response carries a strict Content-Security-Policy** — no inline
+- **Every response carries a strict Content-Security-Policy**, no inline
   script or style, no `eval`, and no remote host named anywhere in it. The
   project's existing "no asset from a CDN" rule is what made a policy this
   tight affordable. Alongside it: `X-Content-Type-Options`,
@@ -7750,7 +7752,7 @@ so the next audit does not have to rediscover them. The other four were real.
   "like the terminal running in the background, with key errors flagged".
   Alongside that:
   - **Follow** keeps the newest records in view, and pauses the moment you
-    scroll up to read something — scrolling back to the bottom resumes it.
+    scroll up to read something, scrolling back to the bottom resumes it.
   - **Filters** by level (all / warnings / errors), by source, and by text.
     They re-draw what is already on screen rather than refetching, so changing
     one in the middle of an incident cannot lose the records you were reading.
@@ -7766,17 +7768,17 @@ so the next audit does not have to rediscover them. The other four were real.
 - **The AI can manage categories, not just use them.** It could already file a
   note into a category but had no way to make one, so asking it to organise
   anything ran into a wall. It now has `create_category`, `rename_category`,
-  `merge_categories` and `delete_category` — enough to answer "tidy up my
+  `merge_categories` and `delete_category`, enough to answer "tidy up my
   duplicate categories" or "file these under a new Recipes category".
 
   Deleting a category never deletes notes; they're kept and become
   Uncategorised. Merging and deleting ask for your approval before they run,
-  because neither can be undone afterwards — nothing records which notes came
+  because neither can be undone afterwards, nothing records which notes came
   from where. Creating and renaming can be undone, and offer it.
 
 - **Any error in the log can be copied on its own.** Each record has its own
   copy button that takes the traceback with it, and an open traceback has a
-  **Copy traceback** button of its own — so getting one error out is a click,
+  **Copy traceback** button of its own, so getting one error out is a click,
   not a filter-then-select-across-a-scrolling-box. The error count on the Logs
   menu item is clickable and opens the screen already filtered to errors, and
   **Copy all** relabels itself to "Copy 12 shown" whenever a filter is hiding
@@ -7784,7 +7786,7 @@ so the next audit does not have to rediscover them. The other four were real.
   discover until you pasted it.
 
 - **A support bundle button** (Settings → Logs). It saves a zip containing the
-  log, your settings, app and model status, and how many notes exist — the
+  log, your settings, app and model status, and how many notes exist, the
   things a bug report needs. Nothing is sent anywhere: the file lands on your
   disk and it is entirely your choice whether to share it.
 
@@ -7797,10 +7799,10 @@ so the next audit does not have to rediscover them. The other four were real.
 
 - **The results panel says which engine answered, and what that meant.** You
   choose an engine in Settings for a privacy reason, and until now nothing
-  reported whether that choice was honoured — under *Automatic* the engine
+  reported whether that choice was honoured, under *Automatic* the engine
   that answers is not necessarily the one configured. Searches now report
-  "via SearXNG — your own instance, the query stayed on your machine" or
-  "via DuckDuckGo — a third party saw this query, but not your notes",
+  "via SearXNG: your own instance, the query stayed on your machine" or
+  "via DuckDuckGo: a third party saw this query, but not your notes",
   **including when nothing was found**, which is when it matters most and was
   exactly when the panel used to go quiet. Individual results also name the
   upstream engines SearXNG used to find them: it is a metasearch engine, so
@@ -7808,7 +7810,7 @@ so the next audit does not have to rediscover them. The other four were real.
 
 - **The log viewer admits when it has forgotten something.** The buffer keeps
   the most recent 500 records and silently discarded the rest, so a busy hour
-  and a quiet one looked identical — 500 rows either way, with no way to tell
+  and a quiet one looked identical, 500 rows either way, with no way to tell
   whether the top row was the start of the story or the middle of it. It now
   says how many earlier records were dropped and how far back it still
   reaches. Worst in exactly the case the viewer exists for: chasing something
@@ -7826,14 +7828,14 @@ so the next audit does not have to rediscover them. The other four were real.
 ### Changed
 
 - **SearXNG is presented as the recommended way to search**, not "an optional,
-  self-hosted search engine" — the one-click install works now, and it needs
+  self-hosted search engine", the one-click install works now, and it needs
   no Docker and no account. The default setting is deliberately still
   *Automatic*, which prefers SearXNG whenever it is running and falls back to
   DuckDuckGo until you have one, so search keeps working on a fresh notebook.
   (*SearXNG only* remains available and still refuses to fall back.)
 
 - **Autocomplete is pinned off in the generated SearXNG settings.** It is the
-  one thing in a search UI that leaks without a search being run — a fragment
+  one thing in a search UI that leaks without a search being run, a fragment
   of every query goes to a third-party suggestion endpoint as it is typed.
   SearXNG already defaults it off; stating it explicitly means neither a
   hand-edited file nor a changed upstream default can turn it back on.
@@ -7841,12 +7843,12 @@ so the next audit does not have to rediscover them. The other four were real.
 ### Changed
 
 - **The whole prompt is now sized to the model's real context window.** Every
-  part of it — the instructions, the tool definitions, your retrieved notes,
-  the conversation so far, and the results of anything the AI looks up — used
+  part of it: the instructions, the tool definitions, your retrieved notes,
+  the conversation so far, and the results of anything the AI looks up, used
   to have its own separate limit, and nothing ever added them up. Together they
   came to roughly 11,300 tokens against a window that is commonly 4,096: nearly
   three times too big. When that overflows, the *start* of the prompt is what
-  gets discarded, which is the part telling the AI what it can do — so the
+  gets discarded, which is the part telling the AI what it can do, so the
   symptom was an assistant that suddenly forgot it had tools, rather than any
   error you could see.
 
@@ -7862,14 +7864,14 @@ so the next audit does not have to rediscover them. The other four were real.
   long answer costs far more waiting than a long prompt does.
 
 - **MemoryMap now tells Ollama how much context to allocate.** It previously
-  sent no settings at all, so Ollama used its own default — typically 4,096
-  tokens — no matter what the model was capable of. Asking for the right window
+  sent no settings at all, so Ollama used its own default, typically 4,096
+  tokens: no matter what the model was capable of. Asking for the right window
   is what makes the budgeting above true rather than optimistic. Capped at 8,192
   by default because a larger window costs memory; raise `max_context_tokens`
   in preferences if your machine has room.
 
 - **The AI is given as many tools as its model can actually hold.** The number
-  used to be fixed, tuned for a 4,096-token context — which is what Ollama
+  used to be fixed, tuned for a 4,096-token context, which is what Ollama
   falls back to when a model doesn't declare a size, not a fact about any
   particular model. Most current models declare 8k, 32k or far more, and were
   being rationed for no reason; genuinely small ones needed rationing harder
@@ -7883,7 +7885,7 @@ so the next audit does not have to rediscover them. The other four were real.
 
 - **"🎲 Another" in the Rediscover widget often did nothing.** It picked a note
   at random *including the one already on screen*, so a click could land back
-  on the same note — 1 in 10 clicks on a ten-note notebook, half of them on
+  on the same note, 1 in 10 clicks on a ten-note notebook, half of them on
   two notes, and every single one when there was only one note to show. It now
   picks from the others, and says so instead of offering a dead button when
   there's only one note in the notebook.
@@ -7893,19 +7895,19 @@ so the next audit does not have to rediscover them. The other four were real.
   the next day. Two things were wrong.
 
   The route built your clock as "UTC now, plus your offset" and then labelled
-  the result UTC — an aware timestamp claiming `+00:00` while actually holding
+  the result UTC: an aware timestamp claiming `+00:00` while actually holding
   local wall-clock. The AI was told "now is 23:30+00:00" when that `+00:00`
   was a fiction, so when it answered with a timezone of its own (the natural
   thing, having been given one) that answer was trusted as-is and skipped the
-  correction. The reminder landed out by exactly your UTC offset — ten hours
+  correction. The reminder landed out by exactly your UTC offset, ten hours
   in eastern Australia, which turns half an hour away into 10am tomorrow.
   Anyone on UTC never saw it.
 
   Separately, *"in half an hour"* was being handed to a 3B model to work out.
   That is arithmetic, and the answer varied with whichever model happened to be
   installed. **"In …" phrases are now resolved by rule before the AI is asked**
-  — "in half an hour", "in 20 minutes", "in a couple of hours", "in an hour and
-  a half", "in 3 days" and so on — which also means they work **with Ollama
+  - "in half an hour", "in 20 minutes", "in a couple of hours", "in an hour and
+  a half", "in 3 days" and so on: which also means they work **with Ollama
   switched off**, where Magic Add used to refuse outright. Phrases that name a
   time rather than an offset ("at 8pm", "tomorrow morning") still go to the
   model, now inside a timezone frame that is actually true. The time phrase is
@@ -7913,39 +7915,39 @@ so the next audit does not have to rediscover them. The other four were real.
   than repeating "in half an hour" when it fires.
 
 - **Copy buttons work when the app isn't on localhost.** Every copy in the app
-  — a note, an answer, a code block, a log record — used `navigator.clipboard`,
+  - a note, an answer, a code block, a log record, used `navigator.clipboard`,
   which browsers only expose in a *secure context*. On `http://localhost` that
   is satisfied, so this looked fine; reach the app at `http://192.168.1.20:8000`
   or through a tunnel and the entire API is `undefined`, and every copy button
   became a no-op that said "couldn't copy". Copying now tries the modern API,
-  falls back to the older mechanism that works over plain http, and — if the
-  browser refuses both — shows the text in a dialog with it already selected,
+  falls back to the older mechanism that works over plain http, and, if the
+  browser refuses both: shows the text in a dialog with it already selected,
   so Ctrl+C still gets it out.
 
 - **Gravity and Spread no longer pretend to work under the tree layouts.**
-  Both scale the force simulation, which Tree and Radial tree do not run —
-  their positions come from the hierarchy — so the sliders moved, saved their
+  Both scale the force simulation, which Tree and Radial tree do not run,
+  their positions come from the hierarchy, so the sliders moved, saved their
   value, and changed nothing. They are now disabled and dimmed under those
   layouts, with the reason on hover, and restored when you switch back.
 
 - **Custom CSS works under the new security policy.** Settings → Appearance
   applied your CSS by injecting a `<style>` element, which is precisely what
-  the new `Content-Security-Policy` refuses — so the feature would have
+  the new `Content-Security-Policy` refuses: so the feature would have
   silently stopped working. It now uses an adopted stylesheet, which keeps the
   feature *and* the strict policy; the alternative would have been to permit
   inline styles everywhere, including any injected through note text.
 
 - **Renaming or moving the app folder no longer breaks the launcher.** The
   app is installed into its own `.venv` by absolute path, so a renamed folder
-  left the venv pointing at somewhere that no longer exists — and the
+  left the venv pointing at somewhere that no longer exists, and the
   "dependencies already up to date" check, which only watches
   `requirements.txt`, skipped the reinstall that would have fixed it. The
   launch then died with `No module named memorymap`. Both launchers now ask
   the venv whether it can actually import the app, which catches a rename, a
   move, and a half-deleted venv alike.
 
-- **Picking a theme works every time.** A single earlier tweak — one palette,
-  one light/dark choice — sat on top of every theme picked afterwards and
+- **Picking a theme works every time.** A single earlier tweak, one palette,
+  one light/dark choice: sat on top of every theme picked afterwards and
   cancelled that part of it, so a theme could appear to do nothing. Choosing a
   theme now clears the manual settings that theme covers, and leaves the ones
   it says nothing about alone.
@@ -7953,7 +7955,7 @@ so the next audit does not have to rediscover them. The other four were real.
   indigo-tinted, and Lagoon's inset panels and secondary text are no longer
   washed out against their cards.
 - **Background tasks shows SearXNG starting**, not just installing. A start
-  waits up to 90 seconds for the service to answer — the longest silence in
+  waits up to 90 seconds for the service to answer, the longest silence in
   the app, and the one thing missing from the screen that exists to explain
   silences.
 - **The AI emblem has one home.** It was squeezed into the Notes and Chat
@@ -7962,18 +7964,18 @@ so the next audit does not have to rediscover them. The other four were real.
 - **A long note no longer crowds out the rest of your notebook.** Ten notes
   are retrieved so the AI sees ten of them; one note of several pages used to
   fill the prompt on its own. Notes now go in capped, cut with a marker
-  telling the AI exactly how to read the rest — which it could already do.
+  telling the AI exactly how to read the rest, which it could already do.
 - **A chat's prompt stops moving between rounds.** The clock in the system
   prompt carried microseconds, and that line sits above your notes and the
   conversation so far. Ollama caches the prompt only up to the first
   difference, so every round of every turn re-read the whole thing from
-  scratch. It is now to the minute — identical across the rounds of one tool
+  scratch. It is now to the minute, identical across the rounds of one tool
   loop, which is exactly where the re-reading was costing the most.
 - **SearXNG moves to a free port instead of giving up.** Port 8888 is a
   popular number, and "close whatever has it" is advice that assumes you can.
   It now tries 8080, 8081, 8890 and 8899 in turn, and `MEMORYMAP_SEARXNG_PORT`
   picks one yourself. A SearXNG already answering on the wanted port still
-  wins over a free one — that is ours from a previous run, and moving would
+  wins over a free one, that is ours from a previous run, and moving would
   start a second copy beside it.
 - **The dashboard's widgets no longer go missing on a cold load.** Starting the
   app fetched your notes and rendered the open tab at the same time, so the
@@ -7982,8 +7984,8 @@ so the next audit does not have to rediscover them. The other four were real.
 
 ### Added
 
-- **A new document, without leaving the note.** The *Add to document* picker —
-  in the capture box and in a note's ⋯ menu — offers **＋ New document…**, so
+- **A new document, without leaving the note.** The *Add to document* picker,
+  in the capture box and in a note's ⋯ menu: offers **＋ New document…**, so
   a note can go into a document that does not exist yet.
 - **The app's icon is the app's icon.** The top bar now shows the favicon, so
   the mark in your browser tab and the mark above the tabs are the same thing.
@@ -7999,18 +8001,18 @@ so the next audit does not have to rediscover them. The other four were real.
 - **Saved filters**: name a filter and keep it as a chip above the notes list.
   Stored as a preference, so it survives a restart.
 - **Private notes**: mark any note private and its text is encrypted at rest
-  with AES-GCM. The design is an envelope — a random data key encrypts the
-  notes, and your password only encrypts that key — so changing your password
+  with AES-GCM. The design is an envelope, a random data key encrypts the
+  notes, and your password only encrypts that key, so changing your password
   re-wraps 32 bytes instead of re-encrypting every note, which is where an
   interruption could otherwise lose data. Private notes are kept out of search
   and are never given to the AI, and their embeddings are deleted (a vector
   encodes what a note is about, so keeping one would leak the point). The key
   exists in memory only while the app is unlocked. There is no recovery if you
-  forget your password — that is inherent to encryption, not a shortcut here.
+  forget your password: that is inherent to encryption, not a shortcut here.
 - **Documents tab**: a markdown editor for long-form writing, with a live
   preview, autosave, `Ctrl+S`/`B`/`I`, `.md` and PDF export, and AI editing.
-  Documents are a separate table from notes on purpose — a note is a captured
-  thought, a document is something you sit down and write — so they never
+  Documents are a separate table from notes on purpose, a note is a captured
+  thought, a document is something you sit down and write, so they never
   appear in note search or the graph. AI edits are always shown as a proposal
   to accept or reject, never written straight into the file.
 - **Writing room** (Notes tab): write loose thoughts, get a drafted note back,
@@ -8024,12 +8026,12 @@ so the next audit does not have to rediscover them. The other four were real.
   Uncategorised. Neither can lose a note.
 - **Back-to-top button** on every tab except the graph, and the Notes panels
   (Activity / Tags / Recycle bin) return to the top when opened.
-- **Settings navigation is grouped** — the AI, your notebook, system, getting
-  help — instead of eleven flat buttons. Appearance is unchanged.
+- **Settings navigation is grouped**, the AI, your notebook, system, getting
+  help: instead of eleven flat buttons. Appearance is unchanged.
 - **Settings → Background tasks shows everything that's running**, not just
   two of them. It knew about re-indexing and model downloads; the embedding
   model loading at startup (a ~90 MB download the first time) and the SearXNG
-  install (several minutes) both ran with nothing on that screen to say so —
+  install (several minutes) both ran with nothing on that screen to say so,
   which reads as the app being broken rather than busy. The list now comes
   from the server, with a live step for each job, a progress bar where there
   is a real number to show, and a Quit button only on the jobs that can be
@@ -8040,19 +8042,19 @@ so the next audit does not have to rediscover them. The other four were real.
   that document, and the document lists the notes it draws on, each with a
   detach button. Detaching removes the connection and never the note; binning
   a note takes it out of the document's list on its own. A note you wrote
-  before the document existed can be added afterwards, too — **📄 Add to a
+  before the document existed can be added afterwards, too, **📄 Add to a
   document** in a note's ⋯ menu picks from the documents you have, and the ×
   on the note's 📄 chip detaches it again without going to find the document
   first.
 - **The graph has layouts.** A picker for how the notes are arranged: the
-  force-directed **web** as before, a **tree** — notebook → category → note,
+  force-directed **web** as before, a **tree**, notebook → category → note,
   reading left to right, with a note's replies branching off the note they
-  answer — and a **radial tree**, the same shape wrapped into a circle. Most
+  answer: and a **radial tree**, the same shape wrapped into a circle. Most
   notebooks have far more filing than links, and a force graph of
   mostly-unlinked notes is a cloud of dots; a tree shows the structure that is
   actually there. Your choice is remembered.
 - **Both trees are legible at the size of a real notebook.** Reported with a
-  photo — "the graph tree and radial are a bit hard to read and aren't neat" —
+  photo, "the graph tree and radial are a bit hard to read and aren't neat" ,
   of 29 notes squeezed into the panel's height at eighteen pixels a row. The
   tree now gives every note the room a label needs and pans if that makes it
   taller than the panel, zooming out only when the whole thing nearly fits;
@@ -8060,17 +8062,17 @@ so the next audit does not have to rediscover them. The other four were real.
   than straight diagonals. The radial sizes its rings from the panel and the
   note count instead of a fixed radius, gives each category a wedge of its own
   so a one-note category is not squeezed against its neighbour, and rings by
-  depth — notebook, category, note, reply — so a category that happens to
+  depth, notebook, category, note, reply, so a category that happens to
   contain a thread no longer sits a ring in from its siblings.
-- **A Timeline tab.** Opening on days by default. Your notes on a time axis, in bands — one per category
-  or tag — with the bucket size you choose, from days to years. A note sits
+- **A Timeline tab.** Opening on days by default. Your notes on a time axis, in bands, one per category
+  or tag: with the bucket size you choose, from days to years. A note sits
   where it is *about* when it says so ("the beans need netting next week"
   plots on that week, marked 🕓, with the date it was written on hover) and at
   when it was written otherwise. Click any note to open it.
 - **Notes remember what "tomorrow" meant.** A note saying "the deadline is
   next Friday" is correct the day it is written and misleading forever after,
   and nothing recorded which Friday it was. Every note's relative time
-  phrases — tomorrow, last week, in three days, next Friday, two months ago —
+  phrases, tomorrow, last week, in three days, next Friday, two months ago,
   are now worked out when it is saved and kept beside it, shown as a small
   chip (`🕓 last week → week of Jul 20`) with the full date on hover. The
   phrase is always shown next to the date, because the resolution is a rule
@@ -8085,48 +8087,48 @@ so the next audit does not have to rediscover them. The other four were real.
 - **A message is only offered the tools it plausibly needs.** Every tool is
   described to the model again on every round of every message, and all of
   them together were about three quarters of what it read before reaching
-  your question — on a small model, most of the window. A question now
+  your question: on a small model, most of the window. A question now
   carries the reading tools; "remind me…" adds the reminder ones; "tidy up my
   notes", which could mean anything, still gets everything. Measured: the
   fixed overhead of a typical question drops from ~3,157 tokens to ~1,439.
-  It only decides what is *offered* — a tool is never blocked from running —
+  It only decides what is *offered*, a tool is never blocked from running,
   and Settings → Tools can turn it off.
 - **Skills are jobs now, not saved prompts.** A skill was a name and a string,
-  and clicking one dropped that string into the chat box — which is why asking
+  and clicking one dropped that string into the chat box, which is why asking
   the AI to make one only ever produced another sentence. A skill now carries
   ordered **steps**, an explicit **tool allowlist**, and declared **inputs**
   it asks you for before it runs, and `save_skill` accepts all of them so the
   AI can write a real one. Skills with only a prompt keep working exactly as
   before.
   - **Naming a skill's tools makes it work on a small model.** Only those
-    tools are offered for the run — 1,963 characters of schema for "Auto-tag
-    my notes" instead of the full registry's 10,215 — and calling anything
+    tools are offered for the run, 1,963 characters of schema for "Auto-tag
+    my notes" instead of the full registry's 10,215: and calling anything
     outside the list is refused rather than merely discouraged. That leaves
     far more of a 4k context window for the actual question.
   - **Running one is a job, not a paragraph.** Each step is its own turn, so
     the steps tick off as they finish, and a step that fails is named with the
     reason instead of the run quietly doing less than it claimed.
-  - **A run ends in what changed** — every note it wrote, with a button to see
+  - **A run ends in what changed**, every note it wrote, with a button to see
     it and a button to put it back. Nothing is taken on trust from the model's
     own account of what it did.
   - **A skill asks for what it needs first.** "Draft an email" has a box for
     who it's to and what it's about, instead of spending a chat round asking.
   - The ten built-in skills moved out of the frontend and are served by the
-    API, so the AI can list and run them too — it used to answer "you have no
+    API, so the AI can list and run them too, it used to answer "you have no
     skills" while ten were on screen.
 
 ### Fixed
 
 - **SearXNG couldn't be imported on Windows at all.** With the install
   finally finishing, the start died on `ModuleNotFoundError: No module named
-  'pwd'` — a POSIX-only module SearXNG imports at the top of one file. It is
+  'pwd'`, a POSIX-only module SearXNG imports at the top of one file. It is
   the only such import in the whole package, and the only thing it's used for
   is naming the current user in an error message that can't be reached without
   a Valkey database. A stand-in module now goes into SearXNG's own virtualenv
   where the platform hasn't got one.
 - **The install said it had worked when it hadn't.** Its final check was
-  `import searx`, which passed on Windows while the thing that actually runs —
-  `searx.webapp` — could not be imported. It checks that now, using the same
+  `import searx`, which passed on Windows while the thing that actually runs,
+  `searx.webapp`, could not be imported. It checks that now, using the same
   settings a real start uses.
 - **The chat box couldn't grow.** It was a one-line `<input>`, so a
   three-sentence question scrolled sideways inside a box the width of the chat
@@ -8135,10 +8137,10 @@ so the next audit does not have to rediscover them. The other four were real.
   newline, which a single-line box couldn't offer at all.
 - **One long note filled the whole list.** Notes past about ten lines are now
   clamped with a fade and a "Show more", so the list stays a list. Only notes
-  that genuinely overflow get one — a note you can already read in full never
+  that genuinely overflow get one, a note you can already read in full never
   grows a button.
 - **The app was naming the wrong embedding model.** Settings → Models said
-  "Built-in (all-MiniLM)" — it had been `BAAI/bge-small-en-v1.5` for two
+  "Built-in (all-MiniLM)", it had been `BAAI/bge-small-en-v1.5` for two
   changes, and the only way to find out was to watch it download from Hugging
   Face in the log. Reported by someone who did exactly that. The name now
   comes from the running service rather than a string in the interface, so it
@@ -8147,17 +8149,17 @@ so the next audit does not have to rediscover them. The other four were real.
 - **The SearXNG install had no progress and no output**, so a working install
   and a hung one looked identical for several minutes. It now shows which of
   five stages it is in, a bar that moves (the download reports real bytes),
-  and the lines pip is printing as it prints them — which is what actually
+  and the lines pip is printing as it prints them, which is what actually
   tells you it is alive while a bar sits still. Both appear on the Web search
   screen and in Settings → Background tasks.
 - **A finished install left "Installing SearXNG…" on screen** under a badge
-  that said "Stopped" — reported with a photo, and the install had in fact
+  that said "Stopped", reported with a photo, and the install had in fact
   succeeded. That line now always says something current.
 - **SearXNG now installs, starts and answers.** Five separate bugs, none of
   them in its log, because three of them happened before it wrote a line.
   - *`git clone` can never work on Windows.* Four files in the SearXNG
     repository have a colon in the name (`…/searxng.conf:socket`), which
-    Windows refuses — git fetches everything and then dies at the checkout,
+    Windows refuses: git fetches everything and then dies at the checkout,
     leaving a half-written folder behind. `pip install <tarball-url>` unpacks
     the same files, so the no-git path was broken there too. The archive is
     now downloaded and unpacked by the app, skipping the handful of members a
@@ -8179,13 +8181,13 @@ so the next audit does not have to rediscover them. The other four were real.
     download whenever that folder existed, then handed it to pip. Reinstalling
     made it permanent rather than fixing it: the wipe used
     `rmtree(ignore_errors=True)`, git marks `.git/objects` read-only, Windows
-    enforces that — so the writable files went, the folder stayed, and the
+    enforces that: so the writable files went, the folder stayed, and the
     wipe reported success. Now the question asked is whether the folder
     *contains a project*, the wipe clears the read-only bit (moving the tree
     aside if it still can't delete it) and says what survived, and an install
     isn't called done until `import searx` works in the new virtualenv.
   - *"SearXNG started but never answered."* The liveness check was
-    `os.kill(pid, 0)` — on Windows any signal but CTRL_C/CTRL_BREAK goes to
+    `os.kill(pid, 0)`, on Windows any signal but CTRL_C/CTRL_BREAK goes to
     `TerminateProcess`, so checking whether the instance was alive killed it.
     The Web search screen polls status every three seconds, so it was killed
     seconds after every start.
@@ -8194,14 +8196,14 @@ so the next audit does not have to rediscover them. The other four were real.
   long URL pushed the layout sideways: a horizontal scrollbar, and text that
   read as scaled up because every paragraph had been stretched to the width of
   the widest thing on screen. Measured at 1280px, the document was 3425px
-  wide. The cause was CSS automatic minimum sizing in two places — a `1fr`
-  grid track and a flex item with `min-width: auto` — which is what stopped
+  wide. The cause was CSS automatic minimum sizing in two places, a `1fr`
+  grid track and a flex item with `min-width: auto`, which is what stopped
   the `overflow-x: auto` already set on code blocks and tables from taking
   effect. Now 0 overflow across six tabs at four widths.
 - **The top bar overflowed itself by up to 215px.** The block meant to let the
   tab strip scroll declared `flex`, but so did the base rule ~70 lines later
   at equal specificity, so the tabs stayed rigid at 579px and the header
-  controls were squeezed to 76px around 201px of buttons — Settings, the lock
+  controls were squeezed to 76px around 201px of buttons, Settings, the lock
   and the theme toggle pushed out of the window. Worst in the desktop shell,
   whose 1200x800 window lands at 800–960 CSS pixels on a scaled display. The
   documented degradation ladder (wordmark → status pill → tab padding → tabs
@@ -8209,19 +8211,19 @@ so the next audit does not have to rediscover them. The other four were real.
   guessed from a breakpoint.
 - **Accent swatches did nothing while any theme was selected.** `[data-accent]`
   rules sit near the top of the stylesheet and `[data-palette]` rules near the
-  bottom, both the same specificity — so the palette won on source order, and
+  bottom, both the same specificity, so the palette won on source order, and
   every theme selects a palette. An explicit pick is now an inline custom
   property, which beats both. Clearing an accent also left it applied, because
   `applyAppearance` re-applied every setting except that one.
-- **The search-engine radios reset themselves.** Picking one saves nothing —
-  "Apply & re-index" does — and the guard against the status poll was a focus
+- **The search-engine radios reset themselves.** Picking one saves nothing,
+  "Apply & re-index" does: and the guard against the status poll was a focus
   check, so the moment focus moved the poll put the saved backend back and the
   setting looked stuck.
 - **Editing an answer reverted when the chat was reopened.** The edit updated
   the message text, but a reopened chat replays the saved step timeline, which
   kept its own copy of the model's original wording.
 - **Sketches couldn't be opened from the graph.** A sketch is a note plus a
-  PNG, so its node showed the caption and nothing else — the drawing was
+  PNG, so its node showed the caption and nothing else, the drawing was
   unreachable from the map. Image attachments now preview in the popup and
   open full size on click.
 - **"New note" on the dashboard did nothing** unless you had left the Notes tab
@@ -8241,7 +8243,7 @@ so the next audit does not have to rediscover them. The other four were real.
 - **`pytest` didn't work in a fresh clone** without an editable install, though
   the README and CONTRIBUTING both say to run exactly that.
 - **Keyword search only matched contiguous substrings.** "bread proving" found
-  a note that "proving bread" did not — word order was something you had to
+  a note that "proving bread" did not: word order was something you had to
   guess. It now matches every word in any order across content and tags, and
   ranks results (exact phrase, then tags, then the opening of a note) rather
   than listing them newest-first. With no AI running this is the whole of
@@ -8249,12 +8251,12 @@ so the next audit does not have to rediscover them. The other four were real.
 - **AI-only buttons looked usable with no AI.** Improve, Magic Add, Draft it
   and AI edit stayed enabled, so you'd type a note, press the button, wait, and
   get an apology. They're disabled with the reason in the tooltip. Save, Ask,
-  search, tags, categories, reminders, documents and the graph are unaffected —
+  search, tags, categories, reminders, documents and the graph are unaffected,
   they work fully without AI.
 - **The status pill announced faults instead of capability.** "search AI
-  unavailable — see Settings → Logs" pointed at a log viewer; it now reads
+  unavailable: see Settings → Logs" pointed at a log viewer; it now reads
   "word search on · AI search unavailable" with the detail in the tooltip.
-- **The command palette had gone stale** — it knew nothing about Documents, the
+- **The command palette had gone stale**, it knew nothing about Documents, the
   writing room, or the newer settings screens.
 - **The chat answered "hey" with a summary of your notebook.** Every message
   was retrieved-for and then answered "using ONLY the notes provided"; on an
@@ -8265,7 +8267,7 @@ so the next audit does not have to rediscover them. The other four were real.
 - **Message metadata was missing whenever tools were on** (the default). The
   agent path never read the token counts out of Ollama's response, so the line
   under each answer lost everything but the model name and elapsed time.
-- **Editing a chat message didn't edit anything** — it copied the text into the
+- **Editing a chat message didn't edit anything**: it copied the text into the
   input box and left the original exchange in place, so a one-word correction
   left the typo, the answer to the typo, and the fix all in the thread. The
   bubble is now the editor, and saving clears the replies that followed.
@@ -8279,12 +8281,12 @@ so the next audit does not have to rediscover them. The other four were real.
 - **Reminders landed at the wrong time.** The due field opened at 9am tomorrow
   rather than now, and Magic Add was given the time in UTC, so every relative
   phrase ("tomorrow evening") resolved against the wrong clock.
-- **The graph node popup could hang off the bottom of the map** — it was
+- **The graph node popup could hang off the bottom of the map**, it was
   positioned before the note loaded, then grew as its chips and buttons
   rendered.
 - **Note timestamps were misaligned** from card to card: two `margin-left:auto`
   in one flex row split the free space between them.
-- **Jumping to a note looked like nothing happened** — the highlight started
+- **Jumping to a note looked like nothing happened**, the highlight started
   fading as the scroll began, so it was gone by the time the note arrived.
 - **The markdown export navigated the app away** instead of downloading: a
   plain link carries no auth header, so the server's 401 was rendered in place
@@ -8301,7 +8303,7 @@ so the next audit does not have to rediscover them. The other four were real.
   /insights/greeting`, cached per time-block, with handwritten fallbacks
   whenever the local model is unavailable), a line summarising your notebook,
   a live clock, and one-tap quick actions. The greeting phrase never contains a
-  name — the display name is added from preferences. The Reminders tab shows a
+  name: the display name is added from preferences. The Reminders tab shows a
   live clock too, so "now" is always visible.
 - **One-click launchers**: `start.bat` (Windows) and `start.sh` (macOS/Linux)
   create the virtualenv, install/update dependencies, copy `.env`, and start
@@ -8332,7 +8334,7 @@ so the next audit does not have to rediscover them. The other four were real.
   halos, and highlighted "hub" notes. The dashboard constellation gains a
   caption and a category colour key.
 - **Notes**: sticky category sidebar, collapsible Capture / Ask / Browse
-  section cards with remembered state, and a richer markdown renderer — GFM
+  section cards with remembered state, and a richer markdown renderer, GFM
   pipe tables, blockquotes, horizontal rules, `####`–`######` headings,
   `~~strikethrough~~`, task-list checkboxes, and bare URLs.
 
@@ -8343,7 +8345,7 @@ so the next audit does not have to rediscover them. The other four were real.
   UI no longer appears frozen during a cold-start search. Live-markdown
   re-rendering is throttled to cut main-thread jank on long answers, and
   anti-buffering headers were added.
-- The dashboard no longer breaks when a widget renderer is synchronous — one
+- The dashboard no longer breaks when a widget renderer is synchronous, one
   failing widget can only spoil its own card.
 - Settings checkboxes stacked correctly instead of running together (the
   `display: block` rule targeted the wrong container).
@@ -8351,7 +8353,7 @@ so the next audit does not have to rediscover them. The other four were real.
   `#settings` / `#prefs-panel` selectors that matched nothing).
 - A failed startup call no longer stops the rest of the app from loading, and
   an unreachable server fails fast with a clear message instead of hanging.
-- `requirements.txt` — two optional extras were written as literal
+- `requirements.txt`, two optional extras were written as literal
   `pip install …` lines, which made pip reject the whole file.
 
 ### Added
@@ -8382,25 +8384,25 @@ so the next audit does not have to rediscover them. The other four were real.
 - **More appearance options.** Nine accent colours, a Font choice
   (System / Serif / Mono), and a Reduce-motion toggle; subtle button press
   feedback throughout.
-- **Action skills — skills that actually *do* things.** Skills can now be
+- **Action skills: skills that actually *do* things.** Skills can now be
   marked "can make changes": running one turns on the AI's tools for that
   message, so it uses them instead of only answering (destructive steps still
-  ask first). Two new tool-using built-ins — 🏷 Auto-tag my notes and
-  🔗 Link related notes — and a "can make changes" checkbox when you create
+  ask first). Two new tool-using built-ins, 🏷 Auto-tag my notes and
+  🔗 Link related notes: and a "can make changes" checkbox when you create
   your own. Action skills are marked with a ⚙ in the chip row.
 - **Per-note "Re-evaluate with AI".** A ⋯-menu action on every note that
   re-runs the AI to refresh its confidence (and category, unless you filed it
-  yourself) and suggests topic tags and links to related notes — each applied
+  yourself) and suggests topic tags and links to related notes, each applied
   with a click, inline on the card. Backed by `POST /entries/{id}/reevaluate`
   and a new `librarian.suggest_tags`; every step is best-effort so it still
   works (with empty suggestions) when the AI is offline.
-- **Chat enhancements.** Per-message actions revealed on hover — copy any
+- **Chat enhancements.** Per-message actions revealed on hover, copy any
   message, **edit & resend** your last question, **regenerate** the last answer
   (re-runs it without a duplicate prompt bubble), and read-aloud; **export a
   conversation to Markdown**; role labels on every bubble; and a friendly
   empty-state welcome so the chat page isn't a blank rectangle.
 - **Graph view enhancements.** On-screen zoom controls (＋ / － / fit-to-view)
-  so zooming no longer depends on discovering scroll/pinch; hover-spotlight —
+  so zooming no longer depends on discovering scroll/pinch; hover-spotlight:
   pointing at a note dims everything except it and its directly-linked
   neighbours (shares one dimming pass with search so they never conflict); a
   "Hide unlinked" toggle to declutter the map to just the connected web; and a
@@ -8431,7 +8433,7 @@ so the next audit does not have to rediscover them. The other four were real.
 
 ### Ideas / not yet
 
-- A GitHub Pages **landing page** (marketing/showcase only — the app itself is a
+- A GitHub Pages **landing page** (marketing/showcase only: the app itself is a
   local Python server and can't run on Pages).
 
 ---
@@ -8441,42 +8443,42 @@ so the next audit does not have to rediscover them. The other four were real.
 MemoryMap AI was built in numbered phases and lettered "waves." This is the
 condensed record of what each one delivered.
 
-### Phases 1–5 — Core product
+### Phases 1–5: Core product
 
-- **Phase 1 — Walking skeleton:** server starts, entries stored in SQLite,
+- **Phase 1: Walking skeleton:** server starts, entries stored in SQLite,
   tests green.
-- **Phase 2 — Make the AI real:** auto-categorising janitor + question-answering
+- **Phase 2: Make the AI real:** auto-categorising janitor + question-answering
   librarian + semantic search, verified end-to-end with a real Ollama model.
-- **Phase 3 — Web interface:** capture box, category sidebar, chat panel showing
+- **Phase 3: Web interface:** capture box, category sidebar, chat panel showing
   the answer *and* the raw results, confidence flags.
-- **Phase 3.5 — Model Manager:** pick & download Ollama models in-app; switch the
+- **Phase 3.5: Model Manager:** pick & download Ollama models in-app; switch the
   embedding backend with a safe automatic re-index.
-- **Phase 4 — Core MVP:** single-user unlock, manual overrides, recycle bin,
+- **Phase 4: Core MVP:** single-user unlock, manual overrides, recycle bin,
   entry linking, guided mode, audit viewer, export, preferences.
-- **Phase 5 — Quick access + polish:** recent questions, most-used dashboard,
+- **Phase 5: Quick access + polish:** recent questions, most-used dashboard,
   optional AI profile, glassmorphism UI with dark mode.
 
-### Waves A–I — Platform, power features, hardening
+### Waves A–I: Platform, power features, hardening
 
-- **Waves A–D — App shell & power features:** tabbed UI, settings modal, log
+- **Waves A–D: App shell & power features:** tabbed UI, settings modal, log
   viewer, note threads/files/pins/tags, chat tab with personas and saved
   conversations, dashboard, reminders.
-- **Wave E — Graph view:** Obsidian-style force-directed map (D3 vendored
+- **Wave E: Graph view:** Obsidian-style force-directed map (D3 vendored
   locally).
-- **Wave F — Platform:** command palette (Ctrl/Cmd-K), markdown import/export,
+- **Wave F: Platform:** command palette (Ctrl/Cmd-K), markdown import/export,
   daily local backups + restore, PWA + mobile pass, opt-in web search, sketch pad.
-- **Wave G — Agentic tools + skills:** the chat AI can create/tag/pin/link/delete
+- **Wave G: Agentic tools + skills:** the chat AI can create/tag/pin/link/delete
   notes and set reminders (destructive actions always confirmed), plus one-click
   skills.
-- **Wave H — Voice & desktop:** local Whisper dictation (optional), read-aloud,
+- **Wave H: Voice & desktop:** local Whisper dictation (optional), read-aloud,
   and a `python -m memorymap --desktop` window (optional pywebview).
-- **Wave I — Hardening:** GitHub Actions CI (offline test suite), accessibility +
+- **Wave I: Hardening:** GitHub Actions CI (offline test suite), accessibility +
   keyboard + loading polish.
 
-### Later waves — UI & graph refinements
+### Later waves: UI & graph refinements
 
 - **Wave K:** empty states, streak widget, high-contrast mode, larger tap targets.
-- **Wave L:** UI rework — accessibility, usability, design.
+- **Wave L:** UI rework, accessibility, usability, design.
 - **Wave M:** graph filters + search + pinning, image thumbnails, sharing, batch
   operations.
 - **Wave N:** graph fixes + auto-linking, AI writing help, a dedicated utility

@@ -18,11 +18,10 @@ def test_dir_bytes_sums_nested_files_and_ignores_links(tmp_path):
     _write(tmp_path / "a" / "deep", "two", 50)
     outside = tmp_path.parent / (tmp_path.name + "-outside")
     _write(outside, "big", 10_000)
-    link = tmp_path / "a" / "link"
     try:
-        os.symlink(outside, link)
+        os.symlink(outside, tmp_path / "a" / "link")
     except (OSError, NotImplementedError):
-        link = None  # a filesystem without symlinks: the other checks still hold
+        pass  # a filesystem without symlinks: the other checks still hold
     assert diskspace.dir_bytes(tmp_path / "a", ttl=0) == 150
     assert diskspace.dir_bytes(tmp_path / "missing", ttl=0) == 0
 

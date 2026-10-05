@@ -27,7 +27,8 @@ def test_a_fresh_notebook_has_the_five_kinds_each_with_a_colour_and_fields(clien
 def test_the_kinds_are_seeded_once_and_a_deleted_one_stays_deleted(client):
     rows = client.get("/note-types").json()
     for row in rows:
-        assert client.delete(f"/note-types/{row['id']}").status_code == 200
+        response = client.delete(f"/note-types/{row['id']}")
+        assert response.status_code == 200
     assert client.get("/note-types").json() == []
 
 

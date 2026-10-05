@@ -393,8 +393,8 @@ Sweeps in `scratchpad/ui-sweeps/`, measured at 1093x614 unless named.
   it is just a fourth `<span>` in the same row appended by
   `startThinkingWordRotation`. The word inherited a dot's 0.45rem circle
   stretched to its own 233px `min-width` (a flattened `border-radius: 50%`
-  pill — the "line"), `background: var(--muted)` painted solid across it,
-  and `dot-bounce` running on it (the "pulse") — all three symptoms, one
+  pill: the "line"), `background: var(--muted)` painted solid across it,
+  and `dot-bounce` running on it (the "pulse"), all three symptoms, one
   leak. Fixed at the cause: the three real dots now get their own
   `.typing-dot` class (chat.js) and every dot rule (both files) is scoped
   to it, so a future span in this row can't be caught the same way. Also

@@ -24,7 +24,7 @@ def test_only_the_helper_names_a_download():
     for path in sorted(JS.glob("*.js")):
         if path.name in ALLOWED:
             continue
-        for match in re.finditer(r"\.download\s*=", path.read_text(encoding="utf-8")):
+        for _ in re.finditer(r"\.download\s*=", path.read_text(encoding="utf-8")):
             found.append(path.name)
     assert found == ["skills.js"], found
 

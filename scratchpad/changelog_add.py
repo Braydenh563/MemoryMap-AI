@@ -11,7 +11,7 @@ line = "- " + sys.argv[1].strip() + "\n"
 for name in ("CHANGELOG.md", "docs/CHANGELOG.md"):
     path = ROOT / name
     text = path.read_text(encoding="utf-8")
-    anchor = "## [Unreleased]\n\n### Changed\n\n"
+    anchor = "### Changed\n"  # the first one, under [Unreleased]
     if anchor not in text:
         raise SystemExit(f"{name}: no Unreleased/Changed heading")
     path.write_text(text.replace(anchor, anchor + line, 1), encoding="utf-8")

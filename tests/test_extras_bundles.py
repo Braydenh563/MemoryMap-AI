@@ -347,9 +347,11 @@ def test_offline_is_said_as_offline_on_each_row(client, fake_pip, monkeypatch):
             super().__init__(command, **kwargs)
             self._code = 1
             self.stdout = [
-                "WARNING: Retrying (Retry(total=4)) after connection broken by "
-                "'NewConnectionError(': Failed to establish a new connection: "
-                "[Errno -3] Temporary failure in name resolution')': /simple/python-docx/",
+                (
+                    "WARNING: Retrying (Retry(total=4)) after connection broken by "
+                    + "'NewConnectionError(': Failed to establish a new connection: "
+                    + "[Errno -3] Temporary failure in name resolution')': /simple/python-docx/"
+                ),
                 "ERROR: Could not find a version that satisfies the requirement python-docx",
             ]
 

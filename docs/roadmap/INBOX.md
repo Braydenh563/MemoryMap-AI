@@ -49,34 +49,12 @@ with its owner named in the entry.
      sub-tabs, segmented controls and the Settings sidebar, under the
      Interface animations toggle).
 
-641. **The owner, 2026-10-05, verbatim.** "can we take anything more from
-     applications like coggle.it, adobe illustrator, adobe photoshop, and miro
-     for the whiteboard and mind map?? I'm still not happy on the mindmap with
-     how the core nodes work and can be customised as well as with the icons
-     in them." Placed: an Opus research and design pass. It compares those
-     four apps against the board and the map, then redesigns the map's core
-     nodes and node icons, and writes the result into MINDMAP_PLAN and
-     WHITEBOARD_PLAN with decisions, before anything is built.
-
 642. **The owner, 2026-10-05, verbatim.** "I want an emoji and icon widget
      library which can be dragged and placed in the whiteboard and mindmap and
      which are also available in text editors and formatting toolbars."
      Placed: with 641. One picker (emoji plus the vendored Phosphor set, both
      local), draggable onto boards and maps and insertable from the editors'
      formatting toolbars.
-
-643. **The owner, 2026-10-05, verbatim.** "Can we take anything from
-     Microsoft onenote??" Placed: with 641, as a research pass over notes,
-     pages, sections, ink and tags, compared with what MemoryMap has.
-
-644. **The owner, 2026-10-05, verbatim.** "Can you also redesign and expand
-     and improve the meeting notes feature?? I feel like it is neglected and a
-     bit left behind and tucked away." With it: "Hold the release until these
-     things are done. Just make sure all the open items are completed as well,
-     that there are no bugs, and that everything is polished." Placed: the
-     Opus research and design pass with 641 to 643, then a build agent.
-     Decision taken: release 0.4.0 waits for 640 to 644 and every buildable
-     non-backlog open item.
 
 645. **The owner, 2026-10-05, verbatim.** "Once everything is done, update the
      pr title and description, update the screenshots on the readme, can your
@@ -89,24 +67,13 @@ with its owner named in the entry.
      correct, make sure the release is ready for v0.4.0 and then lemme know
      when it's ready to merge, before that do a final scan for bugs, security
      flaws, codeql and ci issues you may have missed." Placed: the release
-     close-out, in this order once 640 to 644 and the buildable items land:
+     close-out, in this order once 640, 642 and the buildable items land
+     (641's remainder, 643, 644 and 646 went to the next PR, ROADMAP top):
      fresh README screenshots (`docs/screenshots/`), an Opus agent rebuilding
      `docs/index.html` as a static landing page (no fetch of repo docs, links
      out to GitHub instead), a documentation correctness pass, version 0.4.0
      and its CHANGELOG section, a final bug, security, CodeQL and CI scan,
      then the PR title and description, then the owner is told it is ready.
-
-646. **The owner, 2026-10-05, verbatim.** "Can you also make sure the code
-     editor and and grammar checker etc are really good and used across the
-     app and also cover a large range of code languages?? I want the code
-     editor to be on par with and even surpass vs code. With also styling and
-     formatting options, small things the user takes for granted and expects
-     to be there but aren't, code suggested prefills, shortcuts, key binds,
-     options for specific code elements like for example what css options are
-     available for a specific css feature, python, java, js, c#, c, c++,
-     Visual Basic, p5.js, and more" Placed: DOCUMENTS_PLAN section 21, an
-     Opus audit-then-build agent after the 641 to 644 design pass. Release
-     0.4.0 waits for it.
 
 648. **The owner, 2026-10-05, verbatim.** "Make sure you finish everything that
      is left except for the large backlog, work toast and token efficiently.

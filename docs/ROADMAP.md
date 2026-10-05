@@ -23,6 +23,54 @@ HISTORY under "ROADMAP archive, 2026-09-14", verbatim. Everything still
 open from them is in the plans, `roadmap/agent-remaining/OPEN.md`, or
 BACKLOG; nothing was dropped in the move.
 
+## Next PR, first (the owner, 2026-10-05: "maybe push these to next pr at the top of the roadmap")
+
+Moved out of release 0.4.0, which no longer waits for them. In this order,
+each an Opus agent that audits what exists first (CLAUDE.md section 1):
+
+1. **OneNote ideas and the meeting notes redesign** (INBOX 643, 644 below).
+2. **The code editor to VS Code standard, and writing checks everywhere**
+   (INBOX 646; the audit and target are DOCUMENTS_PLAN section 21).
+3. **What is left of the Coggle, Miro, Illustrator and Photoshop ideas**
+   (INBOX 641) once the map-nodes and icon-library agent of 2026-10-05 has
+   landed: read its remaining file in `roadmap/agent-remaining/` first.
+
+The owner's words, moved here from INBOX whole:
+
+643. **The owner, 2026-10-05, verbatim.** "Can we take anything from
+     Microsoft onenote??" Placed: with 641, as a research pass over notes,
+     pages, sections, ink and tags, compared with what MemoryMap has.
+
+644. **The owner, 2026-10-05, verbatim.** "Can you also redesign and expand
+     and improve the meeting notes feature?? I feel like it is neglected and a
+     bit left behind and tucked away." With it: "Hold the release until these
+     things are done. Just make sure all the open items are completed as well,
+     that there are no bugs, and that everything is polished." Placed: the
+     Opus research and design pass with 641 to 643, then a build agent.
+     Decision taken (superseded the same day: these moved to the next PR): release 0.4.0 waits for 640 to 644 and every buildable
+     non-backlog open item.
+
+646. **The owner, 2026-10-05, verbatim.** "Can you also make sure the code
+     editor and and grammar checker etc are really good and used across the
+     app and also cover a large range of code languages?? I want the code
+     editor to be on par with and even surpass vs code. With also styling and
+     formatting options, small things the user takes for granted and expects
+     to be there but aren't, code suggested prefills, shortcuts, key binds,
+     options for specific code elements like for example what css options are
+     available for a specific css feature, python, java, js, c#, c, c++,
+     Visual Basic, p5.js, and more" Placed: DOCUMENTS_PLAN section 21, an
+     Opus audit-then-build agent after the 641 to 644 design pass. Moved to
+     the next PR with 641's remainder, 643 and 644.
+
+641. **The owner, 2026-10-05, verbatim.** "can we take anything more from
+     applications like coggle.it, adobe illustrator, adobe photoshop, and miro
+     for the whiteboard and mind map?? I'm still not happy on the mindmap with
+     how the core nodes work and can be customised as well as with the icons
+     in them." Placed: an Opus research and design pass. It compares those
+     four apps against the board and the map, then redesigns the map's core
+     nodes and node icons, and writes the result into MINDMAP_PLAN and
+     WHITEBOARD_PLAN with decisions, before anything is built.
+
 ## The plan documents, in one list (read this before opening any of them)
 
 Eleven plans and a handful of reference files live under `docs/roadmap/`.

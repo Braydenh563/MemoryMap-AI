@@ -536,6 +536,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 
 ### Added
 
+- Notes: the filter is:review lists the filings to check, notes Atlas filed with little confidence or left in Uncategorised, each with Accept (keep its category, with Undo), Refile and Split; the dashboard's Categories widget says how many wait, and the palette has Show filings to check (WORLD_CLASS_PLAN section 17).
 - Graph: View, Colour, Note type paints each note by its type (Meeting, Book, your own), with "No type" in grey; a type's colour is chosen in Note types, its ⋯, Colour…, and Automatic is the colour the picker previews (WORLD_CLASS_PLAN row 10, D5).
 - Timeline: in the feed, Ctrl and the mouse wheel, or a trackpad pinch, makes the date groups finer or coarser (day, week, month, year), one step per gesture, keeping your place; + and - on a row do the same. Options, Time range has On this day: what you wrote on today's date in earlier months and years, in your own time zone (TIMELINE_PLAN decisions 11 and 12).
 - Dashboard, Tensions: the widget now lists the disagreements already found and not yet decided (by a review or the overnight pass), each with both notes, what it is about, and which model found it when, with buttons to open either note, link the two as contradicting, or dismiss the pair. A review keeps what it finds and never asks the model about the same pair twice, and the review sheet shows what is waiting before you start (WORLD_CLASS_PLAN B4, row 18).

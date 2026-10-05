@@ -41378,6 +41378,36 @@ The two cheap additions the plan's research section named (decisions 11 to
 - Left: the Library grouping notes by type (D5's target names it; the
   Library lists documents and files, and groups none by a note's type).
 
+## Moved from the plans, 2026-10-05 (section 17)
+
+### From WORLD_CLASS_PLAN.md section 17, row 1: the review queue
+
+**State 2026-09-24:** 1 review queue (c), S.
+
+- **Built 2026-10-05 (row 11).** The Notes filter `is:review`
+  (`entryNeedsReview`, notes-list.js): a note the janitor filed under
+  `REVIEW_THRESHOLD` (the card's "check this" chip) or left in
+  Uncategorised, that nobody has decided on since (`user_filed`). In that
+  list each card has a line of its own, like "why this result": **Accept**
+  (`POST /entries/{id}/filing`, `{accepted}`, logged as `filing_accepted`;
+  the note leaves the list, with Undo), **Refile…** (the Move to category
+  sheet; a move is a decision already) and **Split…** (Extract notes over
+  the whole note; disabled with the reason while the model is off). The
+  Categories widget says "N notes to check where they were filed" with
+  Review filings (`manager.review_queue_count` on `/insights/stats`,
+  `to_review`); the palette has Show filings to check; the filter's help
+  and the Guide name it.
+- Decided (recommended, not confirmed): the line is the card's 50, not the
+  row's 60, so a queued note always shows the chip that says why.
+- Measured: `tests/test_review_queue_17.py` 6 tests;
+  `scratchpad/ui-sweeps/reviewq.js` 9/9 at 1440 and 390, light and dark
+  (the count, the list holding the unsure and the Uncategorised notes and
+  not the sure one, the three buttons one height inside the card, nothing
+  sideways, Accept out with its toast, the server's `user_filed`, Undo back).
+- Not verified: with no model every note lands in Uncategorised, so on a
+  model-less notebook the queue is every note the person has not filed by
+  hand; that is the row as written ("anything filed Uncategorised").
+
 ## INBOX resolved, 2026-10-05
 
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs

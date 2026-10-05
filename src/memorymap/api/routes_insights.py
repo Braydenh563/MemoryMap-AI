@@ -71,6 +71,10 @@ def stats(session: Session = Depends(get_session)) -> dict:
         "categories": [{"name": name, "count": count} for name, count in by_category],
         "per_day": per_day,
         "days": ACTIVITY_DAYS,
+        #: The review queue's size (WORLD_CLASS_PLAN section 17, row 1), for
+        #: the Categories widget's line; the queue itself is the Notes filter
+        #: `is:review`.
+        "to_review": manager.review_queue_count(session),
     }
 
 

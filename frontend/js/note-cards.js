@@ -2046,6 +2046,12 @@ function entryItem(entry, options = {}) {
     line.appendChild(why);
     li.appendChild(line);
   }
+  //: The review queue's three answers (WORLD_CLASS_PLAN section 17, row 1),
+  //: a line of their own for the reason "why this result" is: they belong to
+  //: the `is:review` list and go with it, rather than sit on every card.
+  if (options.actions && !entry.is_board && entryNeedsReview(entry) && parseNoteQuery(noteSearch || "").flags.includes("review")) {
+    li.appendChild(noteReviewActions(entry));
+  }
 
   // A note's own files, as attachment cards (INBOX 440 (2)). Before `meta`
   // (the category/date/pin/actions footer), not after, reported directly: a
@@ -2247,6 +2253,46 @@ function entryItem(entry, options = {}) {
 //: Take a note to the graph and put it in the middle, lit. The graph is its
 //: own lazy bundle and lays itself out after the tab opens, so this waits for
 //: the node to exist and to have a position rather than guessing a delay.
+//: Accept keeps the janitor's category and makes it the person's (the note
+//: leaves the queue, with Undo); Refile is the Move to category sheet, and a
+//: move is a decision already; Split is Extract notes over the whole note,
+//: which needs the model, so it is disabled with the reason when it is off.
+function noteReviewActions(entry) {
+  const row = document.createElement("div");
+  //: `.night-questions-row` is the wrapping line of small buttons this is.
+  row.className = "row night-questions-row entry-review";
+  const set = async (accepted) => {
+    await apiJson(`/entries/${entry.id}/filing`, { method: "POST", body: JSON.stringify({ accepted }) });
+    for (const e of allEntries) if (e.id === entry.id) e.user_filed = accepted;
+    renderEntries();
+  };
+  const where = entry.category || "Uncategorised";
+  const accept = smallButton("ph:check Accept", `Keep it in ${where}`, async () => {
+    try {
+      await set(true);
+    } catch (error) {
+      toast(error.message, true);
+      return;
+    }
+    const message = `Kept in ${where}.`;
+    const action = pushUndo(message, () => set(false), () => set(true));
+    toastAction(message, "Undo", async () => {
+      settleUndoFromToast(action);
+      await set(false).catch((error) => toast(error.message, true));
+    });
+  });
+  const refile = smallButton("ph:folder-open Refile…", `Now in ${where}; choose another`, () => chooseNoteCategory([entry.id], entry.category));
+  const aiOff = modelStatus ? modelStatus.ollama_running === false : false;
+  const split = smallButton(
+    "ph:scissors Split…",
+    aiOff ? `Splitting a note needs the local AI. ${AI_OFFLINE_HINT}.` : "Split it into linked notes, with a preview first",
+    () => openExtractPreview(entry.content || "", { sourceEntryIds: [entry.id] })
+  );
+  split.disabled = aiOff;
+  row.append(accept, refile, split);
+  return row;
+}
+
 async function showNoteInGraph(id) {
   await switchTab("graph");
   const deadline = Date.now() + 4000;

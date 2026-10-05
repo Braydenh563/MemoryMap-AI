@@ -3118,6 +3118,19 @@ async function renderCategoriesWidget(body) {
     list.appendChild(row);
   }
   body.appendChild(list);
+  //: The review queue's size (WORLD_CLASS_PLAN section 17, row 1): the
+  //: filings Atlas was unsure of or left in Uncategorised, with the way in.
+  const waiting = (stats && stats.to_review) || 0;
+  if (!waiting) return;
+  const line = document.createElement("p");
+  line.className = "muted night-questions";
+  line.textContent = `${waiting} note${waiting === 1 ? "" : "s"} to check where ${waiting === 1 ? "it was" : "they were"} filed.`;
+  const open = smallButton("ph:check-square Review filings", "The Notes list, filtered to the filings to check", () => showNotesFilter("is:review"));
+  const review = document.createElement("div");
+  //: The night widget's question line is the same shape: one recipe, no new rule.
+  review.className = "row night-questions-row";
+  review.append(line, open);
+  body.appendChild(review);
 }
 
 // A plain char-count slice can land inside an unclosed `![alt](url` or

@@ -212,11 +212,13 @@ function settingsPaneTitleHead(pane) {
   const title = pane.querySelector(":scope > .settings-pane-title");
   if (title) return title;
   const first = [...pane.children].find((c) => !c.matches(".settings-index") && c.getClientRects().length);
-  return first?.matches(".help-head") ? first : null;
+  return first?.matches(".help-head, .dock") ? first : null;
 }
 
+//: The sticky bar is the pane's dock, which holds the strip (INBOX 599).
 function settingsIndexOffset(nav) {
-  return (nav ? nav.getBoundingClientRect().height : 0) + 8;
+  const bar = nav && (nav.closest(".dock") || nav);
+  return (bar ? bar.getBoundingClientRect().height : 0) + 8;
 }
 
 //: Where the scroller should stop for a head: its top just under the sticky
@@ -224,7 +226,7 @@ function settingsIndexOffset(nav) {
 //: scrollable ancestor (DESIGN.md, the outline recipe).
 function settingsIndexGo(name, head) {
   const scroller = settingsScroller(name);
-  const nav = $(`settings-${name}`)?.querySelector(":scope > .settings-index");
+  const nav = $(`settings-${name}`)?.querySelector(".settings-index");
   if (!scroller) return;
   const delta = head.getBoundingClientRect().top - scroller.getBoundingClientRect().top - settingsIndexOffset(nav);
   //: **The head clicked is the head marked** (INBOX 459, the owner: on
@@ -247,7 +249,7 @@ function settingsIndexGo(name, head) {
 //: whole state; the paint is the stylesheet's.
 function settingsIndexMark(name) {
   const pane = $(`settings-${name}`);
-  const nav = pane?.querySelector(":scope > .settings-index");
+  const nav = pane?.querySelector(".settings-index");
   const scroller = settingsScroller(name);
   if (!nav || !scroller) return;
   const line = scroller.getBoundingClientRect().top + settingsIndexOffset(nav) + 24;
@@ -284,7 +286,7 @@ function settingsIndexBuild(name) {
   const pane = $(`settings-${name}`);
   if (!pane || pane.classList.contains("hidden")) return;
   const scroller = settingsScroller(name);
-  const existing = pane.querySelector(":scope > .settings-index");
+  const existing = pane.querySelector(".settings-index");
   const heads = settingsIndexHeads(pane);
   //: **Every section with three or more groups has one** (INBOX 541, the
   //: owner: "some dont have any at all"). It used to need four heads and a
@@ -316,8 +318,11 @@ function settingsIndexBuild(name) {
     link.addEventListener("click", () => settingsIndexGo(name, link._head));
     nav.appendChild(link);
   }
+  //: In the pane's dock, between the title and its '?' (INBOX 599), so the
+  //: head is one bar; a pane with no dock keeps the strip under its head.
   const anchor = settingsPaneTitleHead(pane);
-  if (anchor) anchor.after(nav);
+  if (anchor?.matches(".dock")) anchor.insertBefore(nav, anchor.querySelector(":scope > .dock-actions"));
+  else if (anchor) anchor.after(nav);
   else pane.prepend(nav);
   if (scroller && !settingsIndexScrollers.has(scroller)) {
     settingsIndexScrollers.add(scroller);

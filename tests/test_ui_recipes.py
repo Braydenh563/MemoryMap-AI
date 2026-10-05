@@ -3636,8 +3636,11 @@ def test_a_settings_index_is_a_sticky_strip_on_the_opaque_ground() -> None:
     translucent strip becomes a window once the pane scrolls under it), its
     links are the Quiet tier (no fill at rest) and the one you are in is painted
     from `aria-current`, not a class."""
-    strip = _css_block(".settings-index")
-    assert "position: sticky" in strip and "var(--modal-bg-opaque)" in strip
+    # Since INBOX 599 the strip is in the pane's dock and the dock is what
+    # sticks, on the opaque ground.
+    bar = _css_block("#settings-modal .settings-section > .dock")
+    assert "position: sticky" in bar and "var(--modal-bg-opaque)" in bar
+    assert "overflow-x: auto" in _css_block(".settings-index")
     link = _css_block(".settings-index-link")
     assert "background: transparent" in link and "box-shadow: none" in link
     current = _css_block('.settings-index-link[aria-current="location"]')
@@ -4261,3 +4264,32 @@ def test_the_ai_skills_dock_holds_one_row() -> None:
     assert ".dock .select-shell:has(.select-opener-icon) {\n  min-width: 0;" in css
     assert "@container dock (max-width: 700px)" in css
     assert "skills-page" not in css
+
+
+def test_every_settings_pane_opens_on_its_dock() -> None:
+    """DESIGN.md, "A Settings pane's head" (INBOX 599, the owner: "keep doing
+    it for the settings pages ... make sure all the design styles across all
+    pages and popups are consistent"). Measured with `settingsheads.js` before:
+    21 panes opened on a bare 18.4px title row with the '?' at the far right
+    and the section index as a second strip under it, Logs on a `.dock` with a
+    12px title. After: every pane's head is a `.dock` (title 16px 600, the index
+    inside it, the '?' last), one row and one control height at 1440.
+
+    A pane written in the markup opens on `.dock.settings-pane-title`; a pane
+    without one gets the same shape from `ensureSettingsPaneTitle`; the index
+    goes inside the dock (`settingsIndexBuild`), and the dock is what sticks.
+    """
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    html = re.sub(r"<!--.*?-->", "", html, flags=re.S)
+    for match in re.finditer(r'<section class="settings-section[^"]*" id="(settings-[a-z]+)">\s*<([a-z]+)([^>]*)>', html):
+        pane, tag, attrs = match.groups()
+        assert "help-head" not in attrs, f"{pane} opens on a bare help-head row: make it the pane's dock"
+        if "dock" in attrs:
+            assert tag == "div" and re.search(r'class="dock\b', attrs), pane
+    settings = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+    body = _function_body(settings, "ensureSettingsPaneTitle")
+    assert '"dock settings-pane-title"' in body and '"dock-identity"' in body
+    find = (ROOT / "frontend" / "js" / "settings-find.js").read_text(encoding="utf-8")
+    assert 'anchor?.matches(".dock")' in _function_body(find, "settingsIndexBuild")
+    title = _css_block("#settings-modal .settings-section > .dock h3")
+    assert "var(--text-body)" in title and "600" in title

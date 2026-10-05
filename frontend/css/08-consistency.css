@@ -582,6 +582,7 @@ details[open] > .about-whats-new::before,
 .dock > .dock-identity {
   flex: 0 0 auto;
   min-width: auto;
+  min-height: var(--control-h);
 }
 
 .dock .dock-identity h2 {
@@ -3768,18 +3769,19 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    under it.
 
    Now every "?" ends on the group content edge (16px inside the pane), and
-   the pane title is the pane's heading: ink, one step above body, flush
-   with the description and the groups below it. */
-#settings-modal .settings-section > .help-head {
-  padding-inline: 0 var(--space-6);
-  /* A pane whose first child is a group (Appearance, Import & export) had
-     its new title flush on the group's border, 0px apart. */
-  margin-bottom: var(--space-4);
-}
+   the pane title is the pane's heading: ink, flush with the description and
+   the groups below it.
 
-#settings-modal .settings-section > .help-head > h3 {
+   **Then the head became the pane's dock** (INBOX 599, the owner: "keep
+   doing it for the settings pages ... make sure all the design styles across
+   all pages and popups are consistent"). Measured with `settingsheads.js`:
+   21 panes opened on a bare 18.4px title with its '?' far right, while Logs
+   and every Library view opened on a `.dock` bar at a 16px title, and Logs'
+   own title drew 12px (the `.card h3` eyebrow). Every pane now opens on the
+   bar, its title the dock's 16px 600 and its '?' in the actions zone. */
+#settings-modal .settings-section > .dock h3 {
   padding: 0;
-  font-size: var(--text-h3);
+  font-size: var(--text-body);
   font-weight: 600;
   color: var(--ink);
   text-transform: none;

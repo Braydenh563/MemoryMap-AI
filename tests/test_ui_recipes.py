@@ -4318,3 +4318,27 @@ def test_the_note_edit_form_is_one_composition() -> None:
     assert "foot.prepend(attachButton)" in panels
     rows = (ROOT / "frontend" / "js" / "note-panels.js").read_text(encoding="utf-8")
     assert 'smallButton("ph:plus", `Link this note to' in rows
+
+
+def test_a_dialog_foot_is_one_height_with_its_filled_action_last() -> None:
+    """DESIGN.md, "A popup window or panel": the foot (INBOX 599, the owner:
+    "make sure all the design styles across all pages and popups are
+    consistent"). The popup census (`popupinv.js`, foot fields) found, at 1440:
+    eight `.space-dialog-actions` feet with two button heights (40 and 38, the
+    base button size) beside the confirm alert's and the pickers' 32, and the
+    Extract and Improve writing feet with the filled action first, at the left.
+    Now every dialog foot is `row right space-dialog-actions`: `small` buttons,
+    ghosts first, the one filled action last."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    html = re.sub(r"<!--.*?-->", "", html, flags=re.S)
+    feet = re.findall(r'<div class="row right space-dialog-actions">(.*?)</div>', html, re.S)
+    assert len(feet) >= 12
+    for foot in feet:
+        buttons = re.findall(r"<button[^>]*>", foot)
+        for button in buttons:
+            assert re.search(r'class="[^"]*\bsmall\b', button), f"a dialog foot button is not small: {button}"
+        kinds = ["ghost" if re.search(r'class="[^"]*\bghost\b', b) else "filled" for b in buttons]
+        assert kinds.count("filled") <= 1 and (not kinds.count("filled") or kinds[-1] == "filled"), kinds
+    for name in ("note-properties.js", "quick-access.js"):
+        code = (ROOT / "frontend" / "js" / name).read_text(encoding="utf-8")
+        assert '.className = "ghost small";' in code and '.className = "accent small";' in code, name

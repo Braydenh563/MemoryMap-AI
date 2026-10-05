@@ -688,8 +688,8 @@
     <input type="hidden" id="space-create-icon" value="ph-folder">
     <p id="space-create-error" class="status error" role="alert"></p>
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="space-create-dialog">Cancel</button>
-      <button type="button" class="accent" id="space-create-submit">Create space</button>
+      <button type="button" class="ghost small" data-close-dialog="space-create-dialog">Cancel</button>
+      <button type="button" class="accent small" id="space-create-submit">Create space</button>
     </div>
   </dialog>
 
@@ -708,8 +708,8 @@
     <input type="hidden" id="space-edit-icon">
     <p id="space-edit-error" class="status error" role="alert"></p>
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="space-edit-dialog">Cancel</button>
-      <button type="button" class="accent" id="space-edit-submit">Save</button>
+      <button type="button" class="ghost small" data-close-dialog="space-edit-dialog">Cancel</button>
+      <button type="button" class="accent small" id="space-edit-submit">Save</button>
     </div>
   </dialog>
 
@@ -728,8 +728,8 @@
     <input type="hidden" id="space-delete-id">
     <p id="space-delete-error" class="status error" role="alert"></p>
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="space-delete-dialog">Cancel</button>
-      <button type="button" class="danger" id="space-delete-submit">Delete space</button>
+      <button type="button" class="ghost small" data-close-dialog="space-delete-dialog">Cancel</button>
+      <button type="button" class="danger small" id="space-delete-submit">Delete space</button>
     </div>
   </dialog>
 
@@ -756,7 +756,7 @@
       export to back up or export everything at once.
     </p>
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="doc-storage-dialog">Close</button>
+      <button type="button" class="ghost small" data-close-dialog="doc-storage-dialog">Close</button>
     </div>
   </dialog>
 
@@ -786,8 +786,8 @@
       <div id="doc-template-preview" class="doc-template-preview" aria-hidden="true" inert></div>
     </div>
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="doc-template-dialog">Cancel</button>
-      <button type="button" class="accent" id="doc-template-use">Use this template</button>
+      <button type="button" class="ghost small" data-close-dialog="doc-template-dialog">Cancel</button>
+      <button type="button" class="accent small" id="doc-template-use">Use this template</button>
     </div>
   </dialog>
   <!-- The Capture box's own template picker (INBOX 410), the same recipe as
@@ -809,9 +809,9 @@
       <div id="note-template-preview" class="doc-template-preview" aria-hidden="true" inert></div>
     </div>
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" id="note-template-manage"><i class="ph ph-gear-six ph-lead" aria-hidden="true"></i> Manage templates</button>
-      <button type="button" class="ghost" data-close-dialog="note-template-dialog">Cancel</button>
-      <button type="button" class="accent" id="note-template-use">Use this template</button>
+      <button type="button" class="ghost small" id="note-template-manage"><i class="ph ph-gear-six ph-lead" aria-hidden="true"></i> Manage templates</button>
+      <button type="button" class="ghost small" data-close-dialog="note-template-dialog">Cancel</button>
+      <button type="button" class="accent small" id="note-template-use">Use this template</button>
     </div>
   </dialog>
   <!-- New board, from a template or blank (BACKLOG 4b, WHITEBOARD_PLAN
@@ -830,9 +830,9 @@
     <textarea id="wb-import-text" class="wb-import-text" rows="8" spellcheck="false" aria-label="Mermaid flowchart" aria-describedby="wb-import-about" placeholder="flowchart TD&#10;  A[Start] --> B{Ready?}&#10;  B -->|yes| C[Ship it]"></textarea>
     <input type="file" id="wb-import-file" accept=".mmd,.mermaid,.txt,.md,.svg,text/plain,image/svg+xml" class="hidden" aria-hidden="true" tabindex="-1" aria-label="Choose a diagram file" title="Choose a diagram file">
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" id="wb-import-choose">Choose a file…</button>
-      <button type="button" class="ghost" data-close-dialog="wb-import-dialog">Cancel</button>
-      <button type="button" class="accent" id="wb-import-go">Bring in</button>
+      <button type="button" class="ghost small" id="wb-import-choose">Choose a file…</button>
+      <button type="button" class="ghost small" data-close-dialog="wb-import-dialog">Cancel</button>
+      <button type="button" class="accent small" id="wb-import-go">Bring in</button>
     </div>
   </dialog>
 
@@ -855,8 +855,8 @@
       <div id="wb-template-preview" class="doc-template-preview wb-template-preview" aria-hidden="true" inert></div>
     </div>
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="wb-template-dialog">Cancel</button>
-      <button type="button" class="accent" id="wb-template-create">Create</button>
+      <button type="button" class="ghost small" data-close-dialog="wb-template-dialog">Cancel</button>
+      <button type="button" class="accent small" id="wb-template-create">Create</button>
     </div>
   </dialog>
   <!-- Quick note (quick-note.js, INBOX 434): a note from any tab without
@@ -890,8 +890,8 @@
     <p id="quick-note-status" class="status" role="status"></p>
     <div class="row right space-dialog-actions">
       <button type="button" id="quick-note-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>
-      <button type="button" class="ghost" id="quick-note-more">Open in Capture</button>
-      <button type="button" class="accent" id="quick-note-save">Save note</button>
+      <button type="button" class="ghost small" id="quick-note-more">Open in Capture</button>
+      <button type="button" class="accent small" id="quick-note-save">Save note</button>
     </div>
   </dialog>
   <!-- **These two live here, beside the other dialogs, and not inside
@@ -942,7 +942,7 @@
       <p id="doc-history-empty" class="muted hidden">Nothing yet: this document
         has not been changed since it was made.</p>
       <div class="row right space-dialog-actions">
-        <button type="button" class="ghost" data-close-dialog="doc-history-dialog">Close</button>
+        <button type="button" class="ghost small" data-close-dialog="doc-history-dialog">Close</button>
       </div>
     </dialog>
     <dialog id="doc-ai-history-dialog" class="card space-dialog doc-ai-history-dialog">
@@ -956,7 +956,7 @@
       <ul id="doc-ai-history-list" class="doc-ai-history-list"></ul>
       <p id="doc-ai-history-empty" class="muted hidden">No AI edits yet.</p>
       <div class="row right space-dialog-actions">
-        <button type="button" class="ghost" data-close-dialog="doc-ai-history-dialog">Close</button>
+        <button type="button" class="ghost small" data-close-dialog="doc-ai-history-dialog">Close</button>
       </div>
     </dialog>
   <dialog id="doc-word-goal-dialog" class="card space-dialog">
@@ -973,8 +973,8 @@
     <label for="doc-word-goal-input">Goal (0 to clear)</label>
     <input type="number" id="doc-word-goal-input" min="0" step="1" inputmode="numeric" autocomplete="off">
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="doc-word-goal-dialog">Cancel</button>
-      <button type="button" class="accent" id="doc-word-goal-submit">Set goal</button>
+      <button type="button" class="ghost small" data-close-dialog="doc-word-goal-dialog">Cancel</button>
+      <button type="button" class="accent small" id="doc-word-goal-submit">Set goal</button>
     </div>
   </dialog>
 
@@ -992,7 +992,7 @@
     <input type="search" id="dash-widgets-search" placeholder="Filter widgets…" autocomplete="off">
     <div id="dash-widgets-list" class="dash-widgets-list"></div>
     <div class="row right space-dialog-actions">
-      <button type="button" class="ghost" data-close-dialog="dash-widgets-dialog">Done</button>
+      <button type="button" class="ghost small" data-close-dialog="dash-widgets-dialog">Done</button>
     </div>
   </dialog>
 
@@ -8169,9 +8169,11 @@ Link to another note with [[its first few words]]."></textarea>
       <p class="muted" id="extract-status" role="status"></p>
       <div id="extract-notes-list" class="extract-notes-list"></div>
       <div id="extract-links-list" class="extract-links-list"></div>
-      <div class="row">
-        <button id="extract-commit" data-needs-model="Extracting notes needs the local AI"><i class="ph ph-floppy-disk ph-lead" aria-hidden="true"></i> Save notes</button>
-        <button id="extract-cancel" class="ghost" type="button">Cancel</button>
+      <!-- The dialog foot (INBOX 599, the popup census): at the right, Cancel
+           then the one filled action, both the confirm alert's height. -->
+      <div class="row right space-dialog-actions">
+        <button id="extract-cancel" class="ghost small" type="button">Cancel</button>
+        <button id="extract-commit" data-needs-model="Extracting notes needs the local AI" class="small"><i class="ph ph-floppy-disk ph-lead" aria-hidden="true"></i> Save notes</button>
       </div>
     </div>
   </div>
@@ -12423,9 +12425,11 @@ Link to another note with [[its first few words]]."></textarea>
         </div>
       </div>
       <p id="improve-status" class="status" role="status"></p>
-      <div class="row">
-        <button id="improve-apply">Use the suggestion</button>
-        <button id="improve-retry" data-needs-model="Proofreading needs the local AI" class="ghost">Start</button>
+      <!-- The dialog foot (INBOX 599): Start or Try again, then the one
+           filled Use the suggestion, at the right. -->
+      <div class="row right space-dialog-actions">
+        <button id="improve-retry" data-needs-model="Proofreading needs the local AI" class="ghost small">Start</button>
+        <button id="improve-apply" class="small">Use the suggestion</button>
       </div>
     </div>
   </div>

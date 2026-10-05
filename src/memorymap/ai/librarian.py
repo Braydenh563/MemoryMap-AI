@@ -1370,7 +1370,46 @@ def filing_style_note() -> str:
     return FILING_STYLES.get(style, "")
 
 
-def filing_prompt(session, content: str, categories: list[str]) -> str:
+#: How many rows of each kind the evidence block carries: the plan's "three
+#: nearest already-filed notes" and "last three refile corrections".
+FILING_EVIDENCE_ROWS = 3
+
+
+def evidence_note(session, content: str, already: str = "", exclude_entry_id: int | None = None) -> str:
+    """The evidence block of a filing prompt (WORLD_CLASS_PLAN I7): the notes
+    already filed that read like this one, with their categories, and any
+    refile correction that reads like it and is not already in `already`
+    (the corrections block). "" when there is none, or when the corrections
+    runner is switched off, the same switch `excluded_categories` obeys."""
+    from memorymap.ai import learning
+    from memorymap.ai.facts import runner_enabled
+
+    if not runner_enabled("corrections"):
+        return ""
+    lines: list[str] = []
+    seen_moves: list[str] = []
+    for item in learning.filing_evidence(
+        session, content, limit=FILING_EVIDENCE_ROWS, exclude_entry_id=exclude_entry_id
+    ):
+        excerpt = str(item.get("excerpt") or "")[:CORRECTION_EXCERPT_CHARS]
+        if item["kind"] == "neighbour":
+            lines.append(f'- "{excerpt}" is in {item["category"]}')
+        elif excerpt and excerpt not in already:
+            where = f" from {item['from']}" if item["from"] else ""
+            seen_moves.append(f'- "{excerpt}" was moved{where} to {item["to"]}')
+    if not lines and not seen_moves:
+        return ""
+    out = []
+    if lines:
+        out.append("Notes already filed that read like this one:\n" + "\n".join(lines))
+    if seen_moves:
+        out.append("Moves I made to notes like it:\n" + "\n".join(seen_moves))
+    return "\n".join(out)
+
+
+def filing_prompt(
+    session, content: str, categories: list[str], exclude_entry_id: int | None = None
+) -> str:
     """The user half of the filing prompt: the choices, what the person has
     already corrected about them, and the note itself.
 
@@ -1386,5 +1425,8 @@ def filing_prompt(session, content: str, categories: list[str]) -> str:
     note = corrections_note(session, categories)
     if note:
         parts.append(note)
+    evidence = evidence_note(session, content, already=note, exclude_entry_id=exclude_entry_id)
+    if evidence:
+        parts.append(evidence)
     parts.append(f"Note: {content}")
     return "\n".join(parts)

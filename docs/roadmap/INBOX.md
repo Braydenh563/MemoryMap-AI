@@ -109,6 +109,11 @@ with its owner named in the entry.
      like a circus" (scratchpad/inbox559-gown.png: the lower body as drawn,
      vertical pale stripes like a tent, a wavy outlined hem, dot stars in a
      line). Placed: with 550, the Atlas agent.
+     Then (verbatim): "I prefered closer to the old tooth look, maybe work
+     from that then implement the othe rthings u suggested. maybe as a dress
+     or smth??" Direction: the original silhouette kept, refined into a
+     dress with a soft trailing hem, then the modern treatment (no outline,
+     the hem dissolving into light, soft sheen, nebula, rim light).
 
 557. **The owner, 2026-10-05, three asks, verbatim.** "should there be a popup
      hover subtle faded lick icon on locked elements or smth on the

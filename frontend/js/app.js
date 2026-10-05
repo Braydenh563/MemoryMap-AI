@@ -2197,14 +2197,14 @@ const LAZY_MODULES = {
   quickAccess: ["/js/quick-access.js"],
   //: The suggestions inbox (GRAPH_PLAN KG9): see suggestions-inbox.js.
   inbox: ["/js/suggestions-inbox.js", "/js/entity-page.js", "/js/link-types.js", "/js/note-properties.js"],
-  //: Landing on the feature a catalogue row names (2026-10-05, the gzip
-  //: budget): see reveal-targets.js.
+  //: Catalogue deep links (2026-10-05, gzip budget): reveal-targets.js.
   reveal: ["/js/reveal-targets.js"],
-  //: The first-run welcome card (2026-10-05, the gzip budget): onboarding.js.
+  //: The welcome card: onboarding.js.
   onboarding: ["/js/onboarding.js"],
-  //: The update check and its dialogs (2026-10-05, the gzip budget): see
-  //: update-dialogs.js.
+  //: The update check and its dialogs: update-dialogs.js.
   updates: ["/js/update-dialogs.js"],
+  //: The Ctrl/Cmd-K palette's window: app-palette.js.
+  appPalette: ["/js/app-palette.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2425,20 +2425,14 @@ const LAZY_ENTRY_POINTS = {
     "importDocument",
   ],
   tagSuggest: ["openTagSuggest"],
-  //: Reached by a click on a catalogue row (the palette, Tools and features,
-  //: Quick access) and by the companion's setting; `async`, so the stand-in's
-  //: promise is the shape the real one returns.
+  //: Clicks only; `async` already.
   reveal: ["revealFeature"],
-  //: Opened once per notebook (`maybeShowOnboarding`) and by "Replay the
-  //: welcome"; nobody reads its return value. The card's own close and step
-  //: functions are only reached from its buttons, which this file's module
-  //: wires when it loads.
+  //: Nobody reads it; the card's buttons are wired by the module.
   onboarding: ["openOnboarding"],
-  //: `checkForUpdate` is Settings' "Check now" and, only when the person
-  //: turned the check on, the startup step (which returns its promise);
-  //: `applyUpdateNow` is awaited by both of its callers; the source-checkout
-  //: dialog opens only when the server says an update just happened.
+  //: All async or unread (update-dialogs.js header).
   updates: ["checkForUpdate", "applyUpdateNow", "showSourceUpdatedDialog"],
+  //: Gesture-opened, nothing read back (app-palette.js header).
+  appPalette: ["openPalette"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",

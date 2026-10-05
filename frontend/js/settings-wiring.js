@@ -1940,13 +1940,6 @@ $("import-document").addEventListener("click", () => $("import-document-file").c
 $("import-document-file").addEventListener("change", () => importDocument());
 $("backup-now").addEventListener("click", backupNow);
 
-$("palette-input").addEventListener("input", () => {
-  paletteIndex = 0;
-  renderPalette($("palette-input").value);
-});
-$("palette-input").addEventListener("keydown", paletteKeydown);
-wireBackdropClose($("palette-overlay"), () => closePalette());
-
 $("sketch-btn").addEventListener("click", openSketch);
 $("sketch-close").addEventListener("click", closeSketch);
 $("sketch-save").addEventListener("click", saveSketch);

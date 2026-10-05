@@ -107,6 +107,9 @@ with its owner named in the entry.
      boxed day cells, Tue 29 to Mon 5, each its own bordered tile).
      Placed: the design agent, whose 543 rework of this strip is not merged
      yet; it is told this is still not right.
+     Merged 2026-10-05 (543): the month sits between its arrows and the days
+     are one well to the dock's edge, one Tab stop, arrows walk them
+     (daystrip.js 44/44). Waits on the owner's look before closing.
 
 525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
      dark background behind the graph labels togglable??" Next Opus: the

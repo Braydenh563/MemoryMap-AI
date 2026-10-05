@@ -2597,6 +2597,25 @@ header#top-bar,
   #tab-documents:has(#doc-panes.reading) .doc-phone-bar {
     display: none;
   }
+
+  /* **The first line under the chrome** (UI_MODERNISATION_PLAN Phase 11
+     item 12: chrome at most 25% of the height, 211px here). Measured at
+     390x844 in Read, the phone's default view: the first line at y=255,
+     under the top bar (0 to 58), the dock's two rows (80 to 174), the
+     pane's 24px pad and the document's name again as a heading (207 to
+     248), which the head row already shows. On a phone the head row is the
+     name and the pane pads as the card does: the line is at 199. */
+  #doc-panes.reading > #doc-preview {
+    padding: var(--space-6);
+  }
+
+  #doc-preview > .doc-preview-title {
+    display: none;
+  }
+
+  #doc-preview > .doc-preview-title + * {
+    margin-top: 0;
+  }
 }
 
 /* And on a touch-first tablet, the keyboard help too: the same Ctrl chords,

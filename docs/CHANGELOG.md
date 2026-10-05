@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Documents on a phone: in Read view the first line sits right under the head row (y=199 at 390x844, was 255): the document's name is not repeated as a heading under the row that already shows it, and the page's padding matches the card's. Desktop Read view still opens with the name.
 - Atlas, on a small model (under 8B): when a request must open with a tool call, the first round is offered only the tools that act and the searches that find the note named, so "Add X to my note" no longer opens with the clock and "Put X in my shopping note" no longer makes a new note (measured on a 3B: a right first tool 17 of 22 before, 20 of 22 after). A question's first round is offered no tool that changes anything, and "File the note under Health" is offered the note edit that sets its category.
 - Web search: pressing Start on SearXNG while a reinstall begins now stops at once and says it was being reinstalled, instead of waiting out three minutes and reporting that SearXNG wrote nothing.
 - Dialogs show one filled button at a time: the Documents AI panel's Replace with this, the OCR workspace's Save changes, the meeting recorder's Save as a note and Settings' embedding fix take the fill only when their step arrives (the button before them goes quiet); About's Install this version and Change keyboard shortcuts are quiet buttons.

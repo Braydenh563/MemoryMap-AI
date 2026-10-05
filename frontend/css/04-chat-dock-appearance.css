@@ -243,21 +243,6 @@
   color: var(--muted);
 }
 
-.graph-help {
-  margin-bottom: 0.5rem;
-}
-
-.graph-help summary {
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-
-.graph-help p {
-  margin: 0.4rem 0 0;
-  font-size: 0.85rem;
-  line-height: 1.5;
-}
-
 /* :not(.hidden) so these never override the hide rule, an ID selector would
    otherwise beat .hidden and leave every tab visible at once. */
 /* #tab-graph:not(.hidden),
@@ -547,14 +532,6 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 @media (max-width: 719.98px) {
   #graph-card {
     margin: 0 0 var(--space-5);
-  }
-
-  .graph-toolbar #graph-search {
-    width: 100%;
-  }
-
-  .graph-toolbar #graph-add-node {
-    margin-left: 0;
   }
 }
 

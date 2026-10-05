@@ -4215,8 +4215,7 @@ button.is-on {
 
   /* Rows of controls wrap instead of pushing the page sideways. */
   .doc-actions,
-  .chat-toolbar,
-  .graph-toolbar {
+  .chat-toolbar {
     flex-wrap: wrap;
   }
 
@@ -4693,21 +4692,6 @@ textarea.autogrow {
   font-size: 0.75rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-
-/* --- Timeline (§10B): the notebook on a time axis, in bands ----------------- */
-/* The base rule gives every select `width: 100%`, which stacked the three
-   toolbar pickers into three full-width rows. `.small-select` exists for
-   exactly this, but the toolbar owns its own widths so the markup stays
-   plain. */
-.graph-toolbar select {
-  width: auto;
-  max-width: 10rem;
-  margin-bottom: 0;
-}
-
-.graph-toolbar label {
-  white-space: nowrap;
 }
 
 /* Same fix, same reason, for the folded-away bucket/bands/range pickers:

@@ -59,7 +59,7 @@ def test_every_event_the_app_produces_is_recorded(producer):
 def test_recording_is_de_duplicated():
     """The reminder poll runs every thirty seconds and the task list re-renders
     every three; without a key, one due reminder becomes a hundred rows."""
-    assert "if (key && items.some((n) => n.id === id)) return;" in APP_JS
+    assert "if (key && items.some((n) => n.id === id)) return null;" in APP_JS
 
 
 def test_the_store_is_bounded():

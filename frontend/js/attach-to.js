@@ -86,7 +86,7 @@ async function renderAttachToBoard(entry, wrap) {
           await refreshEntries([entry.id]);
           toastAction(`Put on \u201c${title}\u201d.`, "Open", () => {
             if (typeof openWhiteboardBoard === "function") openWhiteboardBoard(id);
-          });
+          }, { go: { open: "board", id } });
         } catch (error) {
           toast(error.message, true);
         }
@@ -170,7 +170,7 @@ async function renderAttachToDocument(entry, wrap) {
           inlineAction = null;
           await refreshEntries([entry.id]);
           toastAction(`Added to “${title}”.`, "Open", () =>
-            openDocumentFromNote(Number(id))
+            openDocumentFromNote(Number(id)), { go: { open: "doc", id: Number(id) } }
           );
         } catch (error) {
           toast(error.message, true);

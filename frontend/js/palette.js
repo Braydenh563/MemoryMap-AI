@@ -481,7 +481,7 @@ async function cmdPaletteSaveAsChat() {
       toggleAgentPalette();
       switchTab("chat");
       return openConversation(conversation.id);
-    });
+    }, { go: { open: "conversation", id: conversation.id } });
     //: The list behind the Chat tab's sidebar is stale the moment this lands,
     //: and it is cheap to refresh: without it the new thread is missing until
     //: something else happens to reload it.

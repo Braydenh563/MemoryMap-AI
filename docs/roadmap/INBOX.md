@@ -58,17 +58,6 @@ with its owner named in the entry.
      in the air on a map's canvas). Placed: the smoothness agent (a perch is
      re-checked on every view change, pan, zoom and popup; never in the air).
 
-584. **The owner, 2026-10-05, verbatim.** "no spacing between the message and
-     show it link on this notification" ("Finished reading this file.Show
-     it"). Placed: the notifications agent.
-
-585. **The owner, 2026-10-05, verbatim.** "the elements in notifications are
-     clashing, misaligned, and/or poorly spaced again. and that notification
-     I mentioned just before isnt available for me to access the link in the
-     notifications. all notifiactions that contain links or buttons need to
-     show and be accessible in the notifications panel" Placed: the
-     notifications agent.
-
 561. **The owner, 2026-10-05, verbatim.** "I dont like this section in th
      timeline, it needs redesigning, restructuring, moving ro smth"
      (screenshot: the "Sep to Oct 2026" month button over a row of seven

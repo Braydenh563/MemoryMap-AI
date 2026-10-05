@@ -3707,13 +3707,6 @@ button.answer-figure-open {
   text-decoration: line-through;
 }
 
-/* Toolbar clusters, separated rather than crowded. */
-.graph-toolbar .graph-physics {
-  padding: 0 0.6rem;
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
-}
-
 /* Segmented Controls (replaces native radio buttons) */
 /* --- the two radio-backed segmented bars ------------------------------------
    `#doc-ai-verb` (Edit / Write / Remove, in the document assistant) and
@@ -3823,124 +3816,10 @@ button.answer-figure-open {
   background: var(--accent-surface);
 }
 
-/* --- graph page layout ------------------------------------------------------
-   One toolbar row instead of three stacked ones, and a canvas that fills the
-   window so the map never runs off the bottom of the page. Shared with the
-   Timeline toolbar (same class, same strip). */
-.graph-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.5rem;
-  /* Anchor for the help button's corner placement below. */
-  position: relative;
-  /* Same rule DESIGN.md states for the chat dock: one height for every
-     select/input/button/segmented-control in the strip. Measured, not
-     assumed: the search box and the segmented Layout/Colour groups were
-     45px tall against 28-30px buttons beside them, the exact "stood four
-     pixels taller" failure DESIGN.md names, just wider here because a full
-     text input's padding is a bigger jump than a segmented control's. */
-  --control-h: var(--control-h-lg);
-}
-
-.graph-toolbar h2 {
-  margin: 0;
-  margin-right: 0.25rem;
-}
-
-/* Was `width: 100%`, which forced this row to claim the whole line every
-   time: the highlight/trace group now lives beside "Graph" directly in
-   index.html instead (see its own comment there) precisely because a flex
-   item inside the `display: contents` `#graph-toolbar-secondary` wrapper
-   would not size to content no matter what was tried here (explicit widths,
-   flex-basis, even `!important`, measured with a live page, not assumed).
-   This still merges what used to be two hard-split rows into one, which
-   remains a real win: Options now wraps up onto whichever line has room
-   instead of being pinned to a permanent second row. */
-.graph-toolbar-row {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  width: 100%;
-}
-
-/* A select sized to its widest option, so nothing truncates to "Minimap: t…".
-   The browser's own intrinsic sizing does not account for the dropdown arrow,
-   which is what pushed these two past their box. */
-.graph-toolbar select {
-  min-width: 8.5rem;
-}
-
-/* Wide enough for "No saved views" plus the arrow: at 10rem it still
-   truncated to "No saved vi…", which was the reported symptom. */
-.graph-toolbar #graph-view-picker {
-  min-width: 12.5rem;
-}
-
-/* Related controls read as one thing, with a hairline between groups.
-   The strip was a flat run of a dozen equally-weighted controls that wrapped
-   into a mostly-empty second row, reported directly, with a screenshot. The
-   separator is a border rather than a spacer element so it disappears cleanly
-   when a group wraps to the start of a new line. */
-.graph-toolbar-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding-left: var(--space-3);
-  border-left: 1px solid var(--border);
-}
-
-/* The first group needs no separator, and neither does one that has wrapped
-   to the start of a row, a leading hairline on a new line reads as a stray
-   mark rather than a divider. */
-.graph-toolbar-group:first-of-type {
-  padding-left: 0;
-  border-left: 0;
-}
-
-@media (max-width: 700px) {
-  /* At this width almost every group wraps, so every separator would be a
-     leading one. Drop them and let the row gap do the grouping instead. */
-  .graph-toolbar-group {
-    padding-left: 0;
-    border-left: 0;
-  }
-}
-
-.graph-toolbar #graph-search,
-.graph-toolbar .timeline-search {
-  width: 11rem;
-  height: var(--control-h);
-  padding-block: 0;
-  margin: 0;
-}
-
-.graph-toolbar select {
-  height: var(--control-h);
-  /* Missing here while `#graph-search`/`.timeline-search` right above and
-     `.library-sort select` elsewhere both zero it: the base `select` rule's
-     own `padding-block` (from `--space-4`) was left fighting this fixed
-     height, so the option text sat low and, at some zoom/density
-     combinations, clipped against the box. */
-  padding-block: 0;
-}
-
-.graph-toolbar .tools-toggle {
-  white-space: nowrap;
-  margin: 0;
-}
 
 .timeline-custom-range {
   gap: var(--space-1);
   margin-left: var(--space-2);
-}
-
-.graph-toolbar button {
-  white-space: nowrap;
-  height: var(--control-h);
-  padding-block: 0;
 }
 
 /* Last in the row (see index.html) so this pushes only itself to the far
@@ -4066,36 +3945,6 @@ button.answer-figure-open {
 #library-view-media .card,
 #capture {
   position: relative;
-}
-
-.graph-toolbar .segmented-control {
-  height: var(--control-h);
-}
-
-.graph-toolbar .segmented-control label {
-  display: inline-flex;
-  align-items: center;
-  height: 100%;
-  padding-block: 0;
-}
-
-.graph-toolbar .graph-physics input[type="range"] {
-  width: 5rem;
-}
-
-/* The two action buttons used to group on the right (`margin-left: auto`), and
-   that is the orphan-row pattern §36B names: the moment the row fills, the
-   auto-margined item wraps and lands alone on the next line, hard right, with
-   nothing beside it. Measured in a browser after the Colour picker was added, 
-   at 1700px the second row was `↻ Refresh` by itself, and at 1500–1440 it was
-   an orphaned "Labels" checkbox plus the two buttons.
-
-   It was previously patched with a `max-width: 1080px` reset, and that is the
-   part worth not repeating: a breakpoint chosen to match the row's contents is
-   wrong again the next time a control is added, silently, at whatever width
-   people actually use. Packing left needs no number and cannot go stale. */
-.graph-toolbar #link-suggest-btn {
-  margin-left: 0;
 }
 
 /* The tuned-once controls, behind the dock's gear (INBOX 41). **A column of
@@ -4328,50 +4177,11 @@ button.answer-figure-open {
 #graph-mobile-more-toggle {
   display: none;
 }
-.graph-toolbar-secondary {
-  display: contents;
-}
 
 @media (max-width: 599.98px) {
   #graph-mobile-more-toggle {
     display: inline-flex;
   }
-  .graph-toolbar-secondary {
-    display: none;
-    flex-basis: 100%;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-    padding-top: 0.5rem;
-    margin-top: 0.5rem;
-    border-top: 1px solid var(--border-light);
-  }
-  .graph-toolbar-secondary.open {
-    display: flex;
-  }
-}
-
-/* "+ New note" and the help button, pinned together to the strip's top-right
-   corner. `margin-left: auto` only reaches the end of the line it is on, and
-   with the toolbar wrapping into several rows below, either button ended up
-   alone on its own line if left in normal flow. Absolute placement puts the
-   pair where they belong regardless of how many rows the controls beneath
-   take, and removes both from the wrap calculation entirely.
-
-   These two used to bookend the strip separately, "+ New note" beside the
-   "Graph" title on the left, "?" alone on the right, which read as two
-   unrelated leftover controls rather than a group. Reported directly; now
-   one pinned pair. `#graph-help-toggle` cancels its own general
-   `.graph-help-toggle` rule (margin-left: auto, position: static) because
-   the wrapper positions both buttons now, that general rule is still what
-   the Skills/Whiteboards/Image Gallery copies of this button use, unscoped
-   by id, so they keep their own single-row behaviour untouched. */
-.graph-toolbar-end {
-  position: absolute;
-  top: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
 }
 
 #graph-help-toggle {

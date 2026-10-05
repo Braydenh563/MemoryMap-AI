@@ -1238,12 +1238,6 @@ body.graph-fullscreen-on .sidebar-panel {
   border-radius: 0;
 }
 
-.graph-fullscreen .graph-toolbar {
-  padding: 0.5rem 1rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--card);
-}
-
 .graph-zoom {
   position: absolute;
   right: 12px;
@@ -2739,7 +2733,6 @@ kbd {
    toast, and on today's light toast it drew white text on white, so every
    toast's action (Undo, Turn on) was invisible in the light theme. */
 .toast-action {
-  margin-left: 0.8rem;
   padding: 0.15rem 0.6rem;
   font-size: 0.8rem;
   background: var(--ghost-btn-bg);
@@ -2756,7 +2749,6 @@ kbd {
 /* Asked for directly: a way to dismiss a toast faster than its own timer. */
 .toast-close {
   flex: 0 0 auto;
-  margin-left: 0.6rem;
   padding: 0.1rem;
   border: none;
   background: none;
@@ -2784,10 +2776,44 @@ kbd {
   }
 }
 
+/* One toast recipe (INBOX 584, the owner: "no spacing between the message
+   and show it link"; measured before: 0px between "...final.png." and its
+   Show it, because the progress toast's action was a bare link with no
+   margin and every other part carried its own). The message, its actions,
+   then the close, spaced by one gap. Every control is `--toast-ctl` tall and
+   the message's first line is padded to centre on it, so a one-line toast
+   is one centre line and a wrapped message keeps its actions beside its
+   first line rather than floating to the middle of the paragraph. */
 .toast {
+  --toast-ctl: var(--target-min);
+  --toast-line: 1.375rem;
   display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--space-3);
+}
+
+.toast > .toast-msg {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: var(--toast-line);
+  padding-block: calc((var(--toast-ctl) - var(--toast-line)) / 2);
+  overflow-wrap: anywhere;
+}
+
+.toast.toast > button {
+  flex: 0 0 auto;
+  height: var(--toast-ctl);
+  min-height: var(--toast-ctl);
+  margin: 0;
+  white-space: nowrap;
+}
+
+.toast.toast > .toast-close {
+  min-width: var(--toast-ctl);
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
 }
 
 @media (max-width: 719.98px) {

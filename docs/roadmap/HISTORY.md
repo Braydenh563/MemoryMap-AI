@@ -41301,6 +41301,39 @@ The two cheap additions the plan's research section named (decisions 11 to
      12 to 27 fps under load 19, which hides the beat (`gl1005-graphjitter.js`
      reads the motion when the box is quieter).
 
+584. **The owner, 2026-10-05, verbatim.** "no spacing between the message and
+     show it link on this notification" ("Finished reading this file.Show
+     it").
+     **Fixed 2026-10-05**: one toast recipe (`.toast-msg`, `toastActionButton`,
+     the close, one `--space-3` gap, controls `--toast-ctl` tall with the
+     message's first line centred on them; toasts 24rem); measured 0px
+     before, 8px after between the words and every action, every control
+     within 0.5px of the message's first-line centre
+     (`scratchpad/ui-sweeps/notif1005-sweep.js`, six toast kinds at 1440
+     and 390, light and dark). No caller concatenated a link into a
+     message: the glued "Show it" was the progress toast's bare link.
+
+585. **The owner, 2026-10-05, verbatim.** "the elements in notifications are
+     clashing, misaligned, and/or poorly spaced again. and that notification
+     I mentioned just before isnt available for me to access the link in the
+     notifications. all notifiactions that contain links or buttons need to
+     show and be accessible in the notifications panel"
+     **Fixed 2026-10-05**: one row recipe (dot, icon, text, a side column
+     where the time and the two controls share a cell; every column's first
+     line the title's): dot, icon, title and controls 0px apart in centre
+     (the controls were 4px low and over the text), 8px padding on all four
+     sides (an unread row was 24px left). Every `toastAction` and
+     `toastProgress` action is recorded with its label (`keepToastAction`):
+     openers carry `go` and resolve by id when pressed (a gone target says
+     so); one-shot actions read Done once pressed and Expired after a
+     reload; an Undo is live while its `pushUndo` entry is on the stack, or
+     five minutes. The sweep fires five kinds, finds each row's button and
+     presses it (Undo ran once and left the stack; the opener found its
+     note again after a reload), 4 of 4 runs.
+     Decision taken: error toasts' "Report this" and the server-down
+     banner's Retry are not recorded (Settings, Logs has the Support
+     bundle; the banner stays up while it is true).
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

@@ -3249,7 +3249,8 @@ function noticePerfMode() {
   toastAction(
     "Performance mode is on for this machine: flat panels, no animations.",
     "Change",
-    () => openSettingsModal("appearance", "perf-mode")
+    () => openSettingsModal("appearance", "perf-mode"),
+    { go: { settings: "appearance", focus: "perf-mode" } }
   );
 }
 window.setTimeout(noticePerfMode, 8000);

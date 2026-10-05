@@ -50,11 +50,12 @@ def test_the_notice_carries_a_way_back_that_survives_storage():
     assert "const action = { panel, answer:" in body, "plain data: it is stored in localStorage"
     assert "onOpen: () => reopenAnswerPanel(action)" in body
     notice = _body(APP, "function agentActivityNotice(")
-    assert "toastAction(message, \"Open\", onOpen)" in notice
+    # Already recorded above it, so the toast does not record it twice.
+    assert "toastAction(message, \"Open\", onOpen, { record: false })" in notice
     assert "notificationsMuted()" in notice, "the mute still binds"
 
 
 def test_the_bell_row_reopens_the_panel():
-    start = APP.index("item.action && (item.action.tab || item.action.exports || item.action.panel")
-    block = APP[start : start + 700]
-    assert "reopenAnswerPanel(item.action)" in block
+    go = _body(APP, "async function runNotificationGo(")
+    assert "if (action.panel) return reopenAnswerPanel(action);" in go
+    assert "action.panel" in _body(APP, "function notificationGoes(")

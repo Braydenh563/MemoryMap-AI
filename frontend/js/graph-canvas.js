@@ -3391,7 +3391,7 @@ async function gcWriteUnresolved(node) {
       body: JSON.stringify({ content: `# ${node.preview}`, defer_filing: true }),
     });
     if (created.filing_state === "pending" && typeof watchFiling === "function") watchFiling(created);
-    toastAction(`Wrote “${node.preview}”.`, "Open", () => flashEntry(created.id));
+    toastAction(`Wrote “${node.preview}”.`, "Open", () => flashEntry(created.id), { go: { open: "entry", id: created.id } });
     await renderGraph();
   } catch (error) {
     toast(error.message || "Couldn't write that note.", true);

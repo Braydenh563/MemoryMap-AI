@@ -131,7 +131,7 @@ function returnNoteToCapture(content, reason) {
   if (!box || !content) return;
   box.value = box.value.trim() ? `${box.value}\n\n${content}` : content;
   box.dispatchEvent(new Event("input", { bubbles: true }));
-  toastAction(`A note kept on this device was refused (${reason}). It is back in Capture.`, "Open Capture", () => startNewNote());
+  toastAction(`A note kept on this device was refused (${reason}). It is back in Capture.`, "Open Capture", () => startNewNote(), { go: { open: "capture" } });
 }
 
 //: One notice above the Capture box while anything is held, with a way to
@@ -272,6 +272,7 @@ async function saveQuickNote() {
       saved.filing_state === "pending" ? "Saved. Filing it now." : `Filed under “${saved.category}”.`,
       "Go to it",
       () => flashEntry(saved.id),
+      { go: { open: "entry", id: saved.id } },
     );
     //: In the list now, not when filing settles: measured, 2 to 4 s later
     //: on every tab but the dashboard when this waited on the watch.
@@ -329,6 +330,7 @@ async function clipPastedLink(url) {
     progress.done(`Saved “${note.source_title || url}” as a note, filing it now.`, {
       actionLabel: "Open",
       onAction: () => flashEntry(note.id),
+      go: { open: "entry", id: note.id },
     });
     loadEntries().catch(() => {});
     if (note.filing_state === "pending") watchFiling(note, { quiet: true });

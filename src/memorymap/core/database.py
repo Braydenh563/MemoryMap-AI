@@ -351,6 +351,12 @@ class Entry(Base, WorkspaceMixin):
     #: plain type reads back naive, so the PUT response and a later GET
     #: disagreed by the "Z" (measured while writing its test).
     edited_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    #: The offline queue's own name for the save that made this note
+    #: (`EntryCreate.client_key`), so a resend whose answer was lost is the
+    #: same note, after a restart too, and two resends at once cannot both
+    #: create: unique where set (`_UNIQUE_INDEXES`). Audit 2026-10-05,
+    #: ARCH-23; INBOX 434 named the restart half.
+    client_key: Mapped[str | None] = mapped_column(String(80), default=None)
     # Train-of-thought threads: a child continues its parent.
     # (Added by the auto-migrator as a plain column on old DBs, the FK
     # constraint only exists on freshly created databases.)
@@ -2263,6 +2269,12 @@ class DatabaseManager:
         ("ix_audit_log_created", "audit_log (created_at DESC, id DESC)"),
     )
 
+    #: Unique indexes, partial where the column is optional: the same
+    #: additive `IF NOT EXISTS` convention as `_INDEXES`.
+    _UNIQUE_INDEXES: tuple[tuple[str, str], ...] = (
+        ("uq_entries_client_key", "entries (client_key) WHERE client_key IS NOT NULL"),
+    )
+
     def _ensure_indexes(self) -> None:
         """Create the composite indexes the hot list queries need.
 
@@ -2280,6 +2292,10 @@ class DatabaseManager:
             for name, definition in self._INDEXES:
                 connection.exec_driver_sql(
                     f"CREATE INDEX IF NOT EXISTS {name} ON {definition}"
+                )
+            for name, definition in self._UNIQUE_INDEXES:
+                connection.exec_driver_sql(
+                    f"CREATE UNIQUE INDEX IF NOT EXISTS {name} ON {definition}"
                 )
 
     #: Rows whose space has to be *inherited* rather than defaulted, as

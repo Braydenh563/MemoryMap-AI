@@ -25,7 +25,7 @@ import json
 import re
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import (
@@ -757,24 +757,58 @@ def _drafts(session: Session) -> list[dict]:
     return items
 
 
-def _activity(session: Session) -> list[dict]:
+def _activity(session: Session, q: str = "") -> list[dict]:
     """What you did, as a kind rather than as a panel.
 
     It was behind a button in the Notes sidebar, which is a strange place for a
     record of everything you did *anywhere*, and a list of things you did is
     the same shape as a list of things you made, so it costs one entry in this
     function rather than a surface of its own.
+
+    **The columns it shows, the query and the space** (audit 2026-10-05,
+    ARCH-24, ARCH-05): it loaded whole rows, each `payload` a whole note, 200
+    of them to print a verb; it ignored `q` (every other kind here honours
+    it); and the audit log has no space, so "personal" listed what was done
+    in "work". A row about a note now follows that note's space, the way the
+    space hook narrows every other read; a row about anything else is the
+    notebook's and shows in every space.
     """
-    rows = session.scalars(
-        select(AuditLog)
+    query = (
+        select(
+            AuditLog.id,
+            AuditLog.action,
+            AuditLog.entity_type,
+            AuditLog.entity_id,
+            AuditLog.detail,
+            AuditLog.created_at,
+        )
         # The bookkeeping events (a version snapshotted before an edit, the
         # dates re-resolved because the text changed) always accompany the
         # edit that caused them, so a feed that shows both says everything
         # twice and buries the half a person recognises.
         .where(AuditLog.action.notin_(sorted(events.QUIET_ACTIONS)))
-        .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
-        .limit(PER_KIND_LIMIT)
     )
+    workspace = session.info.get("workspace_id")
+    scoped = bool((workspace and workspace != "all") or session.info.get("hidden_workspaces"))
+    if q or scoped:
+        query = query.outerjoin(
+            Entry, and_(AuditLog.entity_type == "entry", Entry.id == AuditLog.entity_id)
+        )
+    if scoped:
+        query = query.where(or_(AuditLog.entity_type != "entry", Entry.id.is_not(None)))
+    if q:
+        # A note's own events carry no sentence (its words are the note), so
+        # a row about a note matches on the note's text as well.
+        pattern = f"%{like_escape(q)}%"
+        query = query.where(
+            or_(
+                AuditLog.detail.ilike(pattern, escape=LIKE_ESCAPE),
+                Entry.content.ilike(pattern, escape=LIKE_ESCAPE),
+            )
+        )
+    rows = session.execute(
+        query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).limit(PER_KIND_LIMIT)
+    ).all()
     items = []
     for row in rows:
         word = _ACTION_WORDS.get(row.action, row.action.capitalize())
@@ -909,7 +943,7 @@ def library(
         + _archive(session)
         + _shelved(session)
         + _drafts(session)
-        + _activity(session)
+        + _activity(session, q)
     )
     counts: dict[str, int] = {}
     for item in items:

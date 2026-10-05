@@ -17,6 +17,8 @@ from typing import Annotated
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -839,7 +841,13 @@ def graph(
     if include_attachments:
         _add_attachment_nodes(session, nodes, edges, node_ids)
 
-    return {"nodes": nodes, "edges": edges, "categories": categories}
+    # **Encoded here, on the worker thread** (audit 2026-10-05, ARCH-14).
+    # A sync route's returned dict is encoded by FastAPI on the event loop
+    # (py-spy: `serialize_response`), so a 2.4 MB graph at 5,000 notes held
+    # every other request while it was turned into JSON. A response built
+    # in the route is encoded where the route runs; `jsonable_encoder` is
+    # what FastAPI would have applied, so the body is byte for byte the same.
+    return JSONResponse(jsonable_encoder({"nodes": nodes, "edges": edges, "categories": categories}))
 
 def _load_entries(session: Session, ids) -> dict[int, Entry]:  # noqa: ANN001
     """The live notes with these ids, read in chunks (SQLite's variable cap)."""

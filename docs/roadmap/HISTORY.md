@@ -41902,8 +41902,8 @@ found).
 - Measured: `tests/test_note_words_templates_30.py` (4 tests; the two pure
   functions run in node from their own source); `scratchpad/ui-sweeps/notewords.js`
   6/6 at 1440 light and 390 dark (the form says "220 words · 1 min read", follows
-  typing to 450 words and 2 min, sits inside its row with nothing sideways, wrapping
-  under the tags at 390; a template with `{{clipboard}}` and `{cursor}` fills, drops
+  typing to 450 words and 2 min, sits inside the form's foot with nothing sideways
+  (on a phone the foot drops the count, INBOX 618); a template with `{{clipboard}}` and `{cursor}` fills, drops
   the marker and leaves the caret at offset 22 of 22 in the focused box).
 - Not verified: the clipboard read in the desktop window (permission is the
   webview's), and the caret landing in a CodeMirror document body (the textarea

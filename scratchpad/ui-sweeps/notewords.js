@@ -23,12 +23,13 @@ const { boot } = require('./lib.js');
     const count = document.querySelector('.note-edit-count');
     if (!count) return null;
     const foot = count.closest('.note-edit-foot'); const c = count.getBoundingClientRect(); const f = foot.getBoundingClientRect();
-    return { text: count.textContent, inside: c.left >= f.left - 1 && c.right <= f.right + 1, sameLineAsTags: true, overflow: document.scrollingElement.scrollWidth > document.scrollingElement.clientWidth };
+    return { text: count.textContent, hidden: c.width === 0, inside: c.left >= f.left - 1 && c.right <= f.right + 1, sameLineAsTags: true, overflow: document.scrollingElement.scrollWidth > document.scrollingElement.clientWidth };
   });
   let m = await read();
   console.log(JSON.stringify(m));
   check('the form shows words and reading time', m && /^220 words · 1 min read$/.test(m.text), m && m.text);
-  check('it is inside the row, nothing sideways', m && m.inside && !m.overflow);
+  // On a phone the foot drops the count (INBOX 618, the bottom bar declutter): its text still follows typing.
+  check('it is inside the foot (or dropped on a phone), nothing sideways', m && (m.inside || (width < 600 && m.hidden)) && !m.overflow);
   await page.fill('.note-edit-surface textarea', 'word '.repeat(450));
   await page.waitForTimeout(200);
   m = await read();

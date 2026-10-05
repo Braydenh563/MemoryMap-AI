@@ -25,6 +25,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Line numbers, in Capture, the note edit form and the documents editor: no boxed column any more. The figures sit in the field's margin, a size under the text, muted and of one width, each on its line's baseline, and the line the caret is on is brighter while you type; a note box numbers its own lines once its editor opens, so a wrapped line keeps one number (INBOX 590).
 - Dashboard, Quick access: the first tile is highlighted by its position, not because it is New note, so whatever you put first is the one marked. Each tile's menu (Customise, Edit quick access) has Highlight: the accent, one of the twelve category colours, or No highlight; the choice is stored per user and Reset quick access clears it. Label and description keep 4.5:1 on every colour in both themes (INBOX 589).
 - Checks: an animated `filter` or backdrop blur now has to say why above it, as an animated layout property already did (it repaints everything under the surface each frame); the graph node's hover glow, the one there is, says so.
 - The '?' in the Suggestions, Manage tags and Manage categories sheets opens its explanation again (it did nothing: the sheet was built after the page's '?' buttons were wired). Escape closes an open explanation first and the sheet on the next press.

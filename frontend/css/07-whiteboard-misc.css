@@ -10270,8 +10270,13 @@ header#top-bar > #tab-bar {
 textarea.has-gutter {
   white-space: pre;
   overflow-x: auto;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
+}
+
+/* **Once the editor view is mounted, its own numbers are the column**
+   (`noteSurfaceGutter`, documents.js; INBOX 590), so the one beside it,
+   which numbered the hidden textarea, goes. */
+.gutter-wrap:has(> .note-surface > .cm-editor) > .doc-gutter {
+  display: none;
 }
 
 /* --- Settings at phone width: nothing scrolls sideways (Phase 5.1, 390px) ---

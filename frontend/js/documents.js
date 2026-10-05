@@ -3439,10 +3439,12 @@ function docGutters() {
 //: line, and the density setting could widen that at will. A number beside the
 //: wrong line is not a small cosmetic error: it is the one thing a gutter is
 //: for.
-const DOC_GUTTER_PROPS = [
-  "fontFamily", "fontSize", "fontWeight", "fontStyle", "letterSpacing",
-  "lineHeight", "paddingTop", "paddingBottom",
-];
+//:
+//: Only what places a row (INBOX 590): the figures are smaller than the text
+//: and set in the stylesheet, and a line box of the text's own height in px
+//: centres each one on its row whatever size it is drawn at.
+const DOC_GUTTER_PROPS = ["lineHeight", "paddingTop", "paddingBottom"];
+const DOC_GUTTER_BASELINE = 0.43;
 
 //: **The gutter is clipped to the textarea, not to the row it sits in.**
 //: Reported with a screenshot: numbers 1 to 18 continuing below a textarea
@@ -3465,6 +3467,17 @@ function syncDocGutterMetrics(only = null) {
     if (gutter.classList.contains("hidden")) continue;
     const metrics = getComputedStyle(box);
     for (const prop of DOC_GUTTER_PROPS) gutter.style[prop] = metrics[prop];
+    //: **On the text's baseline, not its centre** (INBOX 590). A smaller
+    //: figure in the same line box is centred on the row, which puts its
+    //: baseline above the text's by about 0.43 of the difference in size
+    //: (measured 2.1px for 11.2px figures beside 16px text, `gutter.js`).
+    //: The figures move down by that much and the bottom padding gives it
+    //: back, so the column's scroll range stays the box's.
+    const drop = DOC_GUTTER_BASELINE * (parseFloat(metrics.fontSize) - parseFloat(getComputedStyle(gutter).fontSize));
+    if (drop > 0) {
+      gutter.style.paddingTop = `calc(${metrics.paddingTop} + ${drop.toFixed(2)}px)`;
+      gutter.style.paddingBottom = `max(0px, calc(${metrics.paddingBottom} - ${drop.toFixed(2)}px))`;
+    }
     gutter.style.height = `${box.offsetHeight}px`;
   }
 }
@@ -3497,7 +3510,19 @@ function renderDocGutter(only = null) {
     // One text node of numbers, not one element per line: a 5,000-line file
     // is 5,000 elements to build and lay out on every keystroke otherwise,
     // and the gutter is doing nothing that needs per-line nodes.
-    gutter.textContent = Array.from({ length: lines }, (_, i) => i + 1).join("\n");
+    //: Three while the box has the focus: the caret's line is a span of its
+    //: own (`.doc-gutter-current`, in the body ink), the editor's mark.
+    const numbers = Array.from({ length: lines }, (_, i) => i + 1);
+    const at = document.activeElement === box ? box.value.slice(0, box.selectionStart).split("\n").length : 0;
+    if (!at) gutter.textContent = numbers.join("\n");
+    else {
+      const mark = document.createElement("span");
+      mark.className = "doc-gutter-current";
+      mark.textContent = String(at);
+      const before = numbers.slice(0, at - 1).join("\n");
+      const after = numbers.slice(at).join("\n");
+      gutter.replaceChildren(before ? `${before}\n` : "", mark, after ? `\n${after}` : "");
+    }
     //: Height on every paint, not only on mount: the textarea grows and
     //: shrinks with the pane, with the chat dock, and with its own resize
     //: handle, and none of those tells this code anything.
@@ -3555,6 +3580,7 @@ function mountGutterFor(textarea) {
   if (textarea.isConnected) copyMetrics();
   else requestAnimationFrame(copyMetrics);
   textarea.addEventListener("input", () => renderDocGutter(textarea));
+  for (const type of ["focus", "blur", "keyup", "mouseup"]) textarea.addEventListener(type, () => renderDocGutter(textarea));
   textarea.addEventListener("scroll", () => {
     if (!gutter.classList.contains("hidden")) gutter.scrollTop = textarea.scrollTop;
   });
@@ -11529,6 +11555,7 @@ function noteSurfaceExtensions(CM, host, options) {
     //: Grammar rides with the rendering: the note's own list (PROSE-TOOLS,
     //: `noteGrammarPlugin`).
     host.noteLiveSlot.of(noteSourceWanted() && NOTE_SOURCE_HOSTS.has(host.id) ? [] : live),
+    (host.noteGutterSlot = new CM.state.Compartment()).of(noteSurfaceGutter(CM, host)),
     //: **No findings plugin here, and that is the option the plan names
     //: rather than an omission.** `docProseFound` is the *document's* list of
     //: prose findings, at the document's offsets; drawn over a note it would
@@ -12918,6 +12945,10 @@ function applyDocGutter() {
   //: The document's own numbers come from the engine once it is mounted, so
   //: the preference has to reach it as well as the two note columns.
   docCmSyncGutter();
+  for (const { box } of docGutters()) {
+    const view = noteSurfaceViews.get(box);
+    if (view && box.noteGutterSlot && window.CM6) view.dispatch({ effects: box.noteGutterSlot.reconfigure(noteSurfaceGutter(window.CM6, box)) });
+  }
   for (const button of document.querySelectorAll(".doc-toolbar-gutter")) {
     const bar = button.closest(".doc-toolbar");
     const own = bar?.id === "doc-toolbar"
@@ -17653,7 +17684,28 @@ function docCmTheme(CM) {
         color: "var(--muted)",
       },
       ".cm-gutterElement:hover .cm-fold-caret": { color: "var(--text)" },
-      ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--text)" },
+      //: **The numbers** (INBOX 590, the owner: "cleaner and more modern and
+      //: professional"): a size under the text's, figures of one width so 9
+      //: and 10 end on the same edge, right-aligned with room either side,
+      //: and the line box the text's own (`1.6em` of the text is `1.6 /
+      //: 0.8 = 2em` of the smaller figure). Centred in that box a figure's
+      //: baseline sits about 2.4px above the text's (the size difference plus
+      //: the 0.6px the gutter's rounded offset adds, `gutter.js`), so it is
+      //: drawn 0.17em lower, onto the line it counts; `top` moves the glyph
+      //: and not the element, so the rows below keep their places. The line
+      //: the caret is on is in the body ink while the editor has the focus,
+      //: and muted like the rest when it does not.
+      ".cm-lineNumbers .cm-gutterElement": {
+        fontSize: "0.8em",
+        lineHeight: "2em",
+        position: "relative",
+        top: "0.17em",
+        fontVariantNumeric: "tabular-nums",
+        padding: "0 var(--space-4) 0 var(--space-3)",
+        minWidth: "3ch",
+      },
+      ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--muted)" },
+      "&.cm-focused .cm-activeLineGutter": { color: "var(--text)" },
       ".cm-activeLine": { backgroundColor: "transparent" },
       ".cm-selectionMatch": { backgroundColor: "var(--accent-soft)" },
       ".cm-searchMatch": { backgroundColor: "var(--accent-soft)" },
@@ -19114,7 +19166,20 @@ function docCmGutter(CM) {
     icon.setAttribute("aria-hidden", "true");
     return icon;
   };
-  return [CM.view.lineNumbers(), CM.language.foldGutter({ markerDOM })];
+  return [CM.view.lineNumbers(), CM.view.highlightActiveLineGutter(), CM.language.foldGutter({ markerDOM })];
+}
+
+//: **A note box's numbers are the view's own** (INBOX 590). The capture box
+//: and the note edit form used to number the editor from outside, with the
+//: `.doc-gutter` column beside it copying the *hidden* textarea's metrics: a
+//: 16px "1" beside 14.72px text, one number per hard line however many rows a
+//: wrapped line took. `lineNumbers()` inside the view draws one number per
+//: line at that line's own height, wrapped or not, the same column the
+//: documents editor has; the outside column stays for the textarea before
+//: the editor mounts (`.gutter-wrap:has(.cm-editor)` hides it after).
+function noteSurfaceGutter(CM, host) {
+  if (!host.closest?.(".gutter-wrap") || docGutterPref() !== "1") return [];
+  return [CM.view.lineNumbers(), CM.view.highlightActiveLineGutter()];
 }
 
 //: **Folding on headings.** The markdown parser gives fold ranges for fenced

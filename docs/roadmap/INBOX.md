@@ -75,6 +75,12 @@ with its owner named in the entry.
      wisps round the body, flat lavender bands with dot sparkles; the fringe
      close up, flat wedges with hard edges). Placed: the next free Opus.
 
+552. **The owner, 2026-10-05, verbatim.** "I also want a redesign of the
+     dictionary popup and to fix ugly line wraps" (screenshot: the document
+     Suggestions panel head, "Suggestions 5" on one line and its five icon
+     buttons wrapped onto a second, right-aligned). Placed: with 549, the
+     design agent.
+
 525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
      dark background behind the graph labels togglable??" Next Opus: the
      label plate switch in the graph's gear (Obsidian-parity brief).

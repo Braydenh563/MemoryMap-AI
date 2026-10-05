@@ -1255,7 +1255,7 @@ initPhoneChatRow();
 //: is a class rather than a second recipe so everything else about a sheet,
 //: the scrim, the tier, the head with its X, Escape and the backdrop press,
 //: stays the one thing it already is.
-function openSheet({ label, sub = "", name, build, variant = "", returnFocus = document.activeElement, onClose = null }) {
+function openSheet({ label, sub = "", name, build, variant = "", returnFocus = document.activeElement, onClose = null, onGone = null }) {
   const overlay = document.createElement("div");
   overlay.className = `modal-overlay sheet-overlay${variant ? ` sheet-${variant}` : ""}`;
   overlay.dataset.sheet = name || "";
@@ -1313,9 +1313,26 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
     if (settled) return;
     settled = true;
     document.removeEventListener("keydown", onKey, true);
-    overlay.remove();
     onClose?.();
     returnFocus?.focus?.();
+    //: **The way out** (OPEN.md, after the menus got theirs): a sheet used to
+    //: vanish in one frame on Escape, a press outside or a row, though a ⋯
+    //: menu on a desktop fades over --motion-fast. `.sheet-leaving` fades the
+    //: scrim and drops the card (10-responsive.css), the overlay is removed
+    //: when that is over, and `onGone` runs then (the ⋯ sheet sends its menu
+    //: home there, so the card is not empty while it leaves). No exit under
+    //: Interface animations "reduced" or the OS hint, where the transition
+    //: is 0s: removed at once, as before. `data-sheet` goes now, so a lookup
+    //: by name (a second Guide, a reveal) never finds a sheet that is leaving.
+    overlay.removeAttribute("data-sheet");
+    overlay.classList.add("sheet-leaving");
+    const seconds = Math.max(0, ...getComputedStyle(overlay).transitionDuration.split(",").map(parseFloat).filter(Number.isFinite));
+    const gone = () => {
+      overlay.remove();
+      onGone?.();
+    };
+    if (seconds > 0.001) setTimeout(gone, Math.round(seconds * 1000) + 40);
+    else gone();
   };
   //: Captured, so a keyboard shortcut bound further down the page cannot take
   //: the Escape that is meant to close this. The same shape `confirmDialog`
@@ -1339,7 +1356,7 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
     //: **One Escape, one sheet.** A sheet can open over a sheet (a ⋯ action
     //: sheet over the note page, INBOX 392), and every sheet's listener is
     //: on the document, so one Escape closed both. Only the topmost answers.
-    const sheets = document.querySelectorAll(".sheet-overlay");
+    const sheets = document.querySelectorAll(".sheet-overlay:not(.sheet-leaving)");
     if (sheets.length && sheets[sheets.length - 1] !== overlay) return;
     //: A ⋯ menu open over the sheet takes its own Escape (an entity page's).
     //: Not the menu this sheet *is* (`openKebabSheet` moves a ⋯ menu in,

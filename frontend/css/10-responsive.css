@@ -947,6 +947,31 @@ header#top-bar,
   padding-bottom: calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
 }
 
+/* **The way out** (a sheet used to vanish in one frame, where a menu fades).
+   `openSheet` adds `.sheet-leaving` and removes the overlay once --motion-fast
+   has run (`close` reads the computed duration, so it is 0 and the removal is
+   at once under the reduced-motion hint and Interface animations "reduced",
+   both of which zero every transition). Opacity and a short drop only: no
+   layout. It takes no press while it leaves. */
+@media (prefers-reduced-motion: no-preference) {
+  .sheet-overlay {
+    transition: opacity var(--motion-fast) var(--ease-out);
+  }
+
+  .sheet-overlay .sheet-card {
+    transition: transform var(--motion-fast) var(--ease-out);
+  }
+
+  .sheet-overlay.sheet-leaving {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .sheet-overlay.sheet-leaving .sheet-card {
+    transform: translateY(var(--space-4));
+  }
+}
+
 /* Two classes: `.card h2` (a class and a tag) out-ranked a bare
    `.sheet-title` and kept its 9.6px bottom margin, so every sheet's title
    sat 4.8px above its X (sheetheads.js: New reminder, a category split). */

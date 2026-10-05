@@ -1026,6 +1026,7 @@ function openKebabSheet(menu, opener, label) {
   closeActionMenus();
   const home = menu.parentElement;
   let closeSheet = null;
+  let sheetCard = null;
   // A group's row opens its group in place (below 720 a submenu is an
   // accordion, `buildMenuGroupButton`), so it leaves the sheet open.
   const onRow = (event) => {
@@ -1038,6 +1039,7 @@ function openKebabSheet(menu, opener, label) {
     returnFocus: opener,
     build: (card) => {
       card.classList.add("action-menu-card");
+      sheetCard = card;
       menu._inSheet = true;
       menu.style.left = "";
       menu.style.top = "";
@@ -1047,6 +1049,14 @@ function openKebabSheet(menu, opener, label) {
     },
     onClose: () => {
       closeSheet = null;
+      opener.setAttribute("aria-expanded", "false");
+    },
+    //: After the sheet's exit (`openSheet`'s `onGone`), so the card is not an
+    //: empty rectangle while it leaves. Skipped when the menu has already
+    //: been taken into a newer sheet (the same ⋯ pressed again inside the
+    //: exit window): sending it home then would empty the sheet that is open.
+    onGone: () => {
+      if (menu.parentElement !== sheetCard) return;
       menu.classList.add("hidden");
       if (home) home.appendChild(menu);
       // After the observer has seen the class change above, so it does not
@@ -1054,7 +1064,6 @@ function openKebabSheet(menu, opener, label) {
       queueMicrotask(() => {
         menu._inSheet = false;
       });
-      opener.setAttribute("aria-expanded", "false");
     },
   });
   opener.setAttribute("aria-expanded", "true");

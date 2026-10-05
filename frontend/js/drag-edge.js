@@ -41,13 +41,27 @@ function dragEdgeTick() {
   if (at && d.el.contains(at.offsetNode)) sel.extend(at.offsetNode, at.offset);
   d.frame = requestAnimationFrame(dragEdgeTick);
 }
+//: The list a press at `target` would scroll, or null outside the zones.
+function dragEdgeZone(target) {
+  let el = target?.closest?.("#entry-list, .library-view-section");
+  while (el && el !== document.documentElement && !(/auto|scroll/.test(getComputedStyle(el).overflowY) && el.scrollHeight > el.clientHeight)) el = el.parentElement;
+  return el || null;
+}
 function initDragSelectEdgeScroll() {
   const d = DRAG_EDGE;
   document.addEventListener("mousedown", (e) => {
-    let el = e.button === 0 && e.target.closest?.("#entry-list, .library-view-section");
-    while (el && el !== document.documentElement && !(/auto|scroll/.test(getComputedStyle(el).overflowY) && el.scrollHeight > el.clientHeight)) el = el.parentElement;
-    d.el = el || null;
+    d.el = e.button === 0 ? dragEdgeZone(e.target) : null;
   }, true);
+  //: **A drag already under way when this file arrives** (selection.js's
+  //: `dragEdgePress`): the press that fetched it, picked up here so the very
+  //: first drag after boot scrolls too. Before, a drag begun in the first
+  //: seconds (before the preload) or on a slow disk did nothing at the edge
+  //: (qa-1005, `search1005-lazy.js` FIRST=1: 0px, then 432px).
+  const held = typeof dragEdgePress !== "undefined" && dragEdgePress;
+  if (held) {
+    Object.assign(d, { el: dragEdgeZone(held.target), x: held.x, y: held.y });
+    if (d.el) d.frame = requestAnimationFrame(dragEdgeTick);
+  }
   document.addEventListener("mousemove", (e) => {
     if (!d.el || !(e.buttons & 1)) return;
     d.x = e.clientX;

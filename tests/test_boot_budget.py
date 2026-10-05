@@ -98,3 +98,16 @@ def test_the_list_edge_scroll_is_a_lazy_file_not_boot_code():
     assert lazy.rstrip().endswith("initDragSelectEdgeScroll();")
     app = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
     assert 'dragEdge: ["/js/drag-edge.js"]' in app and '"notePanels", "dragEdge"' in app
+
+
+def test_a_drag_begun_before_the_edge_scroll_arrives_still_scrolls():
+    """qa-1005: a drag in the first seconds after boot (before the preload) or
+    on a slow disk scrolled 0px at the edge, since the file's listeners missed
+    the press. Boot keeps only the press (`dragEdgePress`, selection.js) and
+    asks for the bundle; drag-edge.js picks the held press up at load and
+    starts its tick from the pointer's last place. Measured by
+    `scratchpad/ui-sweeps/search1005-lazy.js` FIRST=1 SLOW=1500: 0px, then 756px."""
+    boot = (FRONTEND / "js" / "selection.js").read_text(encoding="utf-8")
+    assert "dragEdgePress = { target: event.target" in boot and 'ensureModule("dragEdge")' in boot
+    lazy = (FRONTEND / "js" / "drag-edge.js").read_text(encoding="utf-8")
+    assert "dragEdgeZone(held.target)" in lazy and "d.frame = requestAnimationFrame(dragEdgeTick)" in lazy

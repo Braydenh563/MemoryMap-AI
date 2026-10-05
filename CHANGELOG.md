@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Notes and Library: a drag-selection begun in the first seconds after the app opens (or on a slow disk) now scrolls the list at its edge like every later one; before, the edge scroll's file had not arrived and the first drag scrolled 0px (qa-1005, measured 756px with the file held back 1.5s).
 - Sweeps and docs: `errors.js` runs a browser per width with `--disable-dev-shm-usage` and reports a renderer crash as a finding; `noteeditflow.js` and `noteedit616.js` seed their own bookmark and note so they pass on a fresh data dir; thirty-eight finished agent files left `docs/roadmap/agent-remaining/` for the archive, their open rows carried into `OPEN.md`.
 - Export activity: events about a private note stay out of the file after the note is purged too (a purge seals its events, dropping their text and flagging them private, and the export leaves flagged events out)
 - Settings: a status line that names a server address (Models, "Saved, but nothing is answering at ...") and a long Ask Atlas question in a help popover wrap inside the pane at 390 instead of running it sideways

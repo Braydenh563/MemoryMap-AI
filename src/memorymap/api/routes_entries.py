@@ -19,7 +19,7 @@ from types import SimpleNamespace
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -2709,10 +2709,23 @@ def _reference_rows_batch(session: Session, entries: list[Entry]) -> dict[int, l
             for i, label in enumerate(distinct):
                 if row[3 + i] and len(document_hits[label]) < REFERENCE_SOURCES_MAX:
                     document_hits[label].append((row[0], row[1] or "Untitled", row[2] or ""))
-        flags = [Entry.content.like(f"%{like_escape(label)}%", escape=LIKE_ESCAPE) for label in distinct]
-        for row in session.execute(
-            select(Entry.id, Entry.content, *[f.label(f"m{i}") for i, f in enumerate(flags)])
-            .where(
+        #: Two groups (audit 2026-10-05, ARCH-11: 1.1 s for sixty cards at
+        #: 5,000 notes, all of it SQLite running sixty LIKEs over every
+        #: note). A label with an interior word has a phrase the full-text
+        #: index can find, so its LIKE only reads the notes holding that
+        #: phrase; a short label still reads every note. Each label is in
+        #: one group, each group is read newest first, so a label's hits come
+        #: back in the order they always did.
+        narrowed = {label: _interior_phrase(label) for label in distinct}
+        groups = [
+            [label for label in distinct if narrowed[label] is None],
+            [label for label in distinct if narrowed[label] is not None],
+        ]
+        for group in groups:
+            if not group:
+                continue
+            flags = [Entry.content.like(f"%{like_escape(label)}%", escape=LIKE_ESCAPE) for label in group]
+            where = [
                 Entry.is_deleted.is_(False),
                 #: A private note is encrypted at rest, so its content could not
                 #: match the LIKE anyway; the filter is here so that stays true
@@ -2720,15 +2733,29 @@ def _reference_rows_batch(session: Session, entries: list[Entry]) -> dict[int, l
                 #: `routes_documents._backlinks` carries, for the same reason.
                 Entry.is_private.is_(False),
                 or_(*flags),
-            )
-            .order_by(Entry.id.desc())
-        ):
-            for i, label in enumerate(distinct):
-                #: One over the cap, because the note itself can be among its
-                #: own label's matches and is dropped per note below: the cap
-                #: is on sources other than the note, as it always was.
-                if row[2 + i] and len(note_hits[label]) <= REFERENCE_SOURCES_MAX:
-                    note_hits[label].append((row[0], row[1] or ""))
+            ]
+            if narrowed[group[0]] is not None:
+                where.append(
+                    Entry.id.in_(
+                        text(
+                            " UNION ".join(
+                                f"SELECT rowid FROM entries_fts WHERE entries_fts MATCH :p{i}"
+                                for i in range(len(group))
+                            )
+                        ).bindparams(**{f"p{i}": narrowed[label] for i, label in enumerate(group)})
+                    )
+                )
+            for row in session.execute(
+                select(Entry.id, Entry.content, *[f.label(f"m{i}") for i, f in enumerate(flags)])
+                .where(*where)
+                .order_by(Entry.id.desc())
+            ):
+                for i, label in enumerate(group):
+                    #: One over the cap, because the note itself can be among its
+                    #: own label's matches and is dropped per note below: the cap
+                    #: is on sources other than the note, as it always was.
+                    if row[2 + i] and len(note_hits[label]) <= REFERENCE_SOURCES_MAX:
+                        note_hits[label].append((row[0], row[1] or ""))
 
     for entry in entries:
         rows = list(result.get(entry.id, []))
@@ -2758,6 +2785,35 @@ def _reference_rows_batch(session: Session, entries: list[Entry]) -> dict[int, l
         rows.sort(key=lambda row: {"on it": 0, "links to it": 1, "mentions it": 2}[row["how"]])
         result[entry.id] = rows[:REFERENCE_ROWS_MAX]
     return result
+
+
+#: A run of characters the full-text tokenizer may treat as one word: ASCII
+#: letters and digits, and anything outside ASCII (whose class only the
+#: tokenizer knows, so it is never assumed to split a word).
+_FTS_WORDISH = re.compile(r"[A-Za-z0-9\u0080-\U0010ffff]+")
+
+
+def _interior_phrase(label: str) -> str | None:
+    """An `entries_fts` phrase every note containing `label` also contains.
+
+    A note that holds the label as a substring (the LIKE's question) holds
+    its interior words as whole words: the label's second word to its
+    second-last are bounded by ASCII separators inside the label, so they are
+    bounded the same way in the note, and the index (unicode61, which splits
+    on every ASCII non-alphanumeric) tokenizes that span exactly as it
+    tokenizes the phrase. The first and last words are left out because the
+    note may run on into them ("biweekly reviews" holds "weekly review"), and
+    no prefix query is used because porter stems a prefix too ("runn"* finds
+    nothing where "running" is). None when there is no interior word, or no
+    ASCII letter in it to be sure the phrase is not empty.
+    """
+    words = list(_FTS_WORDISH.finditer(label))
+    if len(words) < 3:
+        return None
+    interior = label[words[1].start() : words[-2].end()]
+    if not re.search(r"[A-Za-z0-9]", interior):
+        return None
+    return '"' + interior.replace('"', '""') + '"'
 
 
 def _links_to(content: str | None, wanted: str) -> bool:

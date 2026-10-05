@@ -25,6 +25,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Speed at 5,000 notes: a page of reference counts reads only the notes the search index says hold a long label's words (1,112 to 214 ms); the Timeline sends its rows once, not twice, and counts its days in the database (323 to 163 KB, 132 to 100 ms); Find duplicates on a notebook of a few hundred common words compares notes by one matrix product instead of pair by pair (about 160 s to 4 to 7 s) and sends each note's first 1,000 characters rather than the whole text; Library previews read at most the first 4,000 characters of a note.
 - Checks: an animated `filter` or backdrop blur now has to say why above it, as an animated layout property already did (it repaints everything under the surface each frame); the graph node's hover glow, the one there is, says so.
 - The '?' in the Suggestions, Manage tags and Manage categories sheets opens its explanation again (it did nothing: the sheet was built after the page's '?' buttons were wired). Escape closes an open explanation first and the sheet on the next press.
 - Whiteboard: a frame's title can be grabbed at any zoom. Zoomed out to fit a phone it was about 7px tall and a drag aimed at it moved nothing; its hit area now stays at least a touch target tall on screen (44px at the fitted zoom), and the frame, what is inside it and anything selected move together by one amount.

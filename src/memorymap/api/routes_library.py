@@ -108,10 +108,22 @@ _MD_TABLE_PIPE = re.compile(r"\|")
 _MD_LOOSE_MARKER = re.compile(r"\*\*|__|~~|(?<!\w)\*(?=\w)|(?<=\w)\*(?!\w)")
 
 
+#: How much of a note `_clip` reads, in lines up to this many characters. A
+#: preview is 160 characters and every pass below only removes text, so the
+#: opening few thousand always hold it, and a long document no longer costs
+#: its whole length in eight regex passes per Library visit (audit
+#: 2026-10-05, ARCH-11). Cut at a line end so no marker is split.
+CLIP_WINDOW = 4000
+
+
 def _clip(text: str, limit: int = PREVIEW_CHARS) -> str:
     # A note's or document's `---` properties block is data about it, never
     # its opening words (GRAPH_PLAN, "Still open after KG1 to KG9").
-    text = _MD_TABLE_RULE.sub("", strip_properties(text or ""))
+    text = strip_properties(text or "")
+    if len(text) > CLIP_WINDOW:
+        end = text.rfind("\n", 0, CLIP_WINDOW)
+        text = text[: end if end > limit else CLIP_WINDOW]
+    text = _MD_TABLE_RULE.sub("", text)
     # Each line's own heading, quote or list marker goes as its kind is read,
     # and the blocks stay apart (`join_blocks`, INBOX 464): "oat milk · eggs",
     # not "oat milk eggs".

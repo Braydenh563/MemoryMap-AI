@@ -80,7 +80,7 @@ function docGrammarAsk(text) {
       //: Stamped like every other local script, so a new release never
       //: runs last release's worker; the vendored files it imports are not,
       //: by the cache-busting rule for `vendor/`.
-      const stamp = typeof lazyAssetStamp === "function" ? lazyAssetStamp() : "";
+      const stamp = typeof lazyAssetStamp === "function" ? lazyAssetStamp(DOC_GRAMMAR_WORKER_URL) : "";
       docGrammarWorker = new Worker(`${DOC_GRAMMAR_WORKER_URL}${stamp}`, { type: "module" });
     } catch (error) {
       docGrammarFail(String(error && error.message ? error.message : error));
@@ -196,7 +196,12 @@ function docProseRemap(findings, from, to) {
 //: Ask for the document's text unless it is already asked for or answered.
 //: One ask in flight: the answer to a stale ask repaints and the repaint asks
 //: again, so a burst of typing costs one lint per pause, not one per key.
+//: Nothing to check is no reason to start the checker (audit 2026-10-05,
+//: FE-03): the load-time paint of an empty editor started the worker and
+//: compiled the 15.9 MB grammar WASM on every first Library visit. It starts
+//: on the first document opened (or typed into) with grammar on.
 function docGrammarRequest(text) {
+  if (!text || !text.trim()) return;
   if (!docGrammarEnabled() || docGrammarAsking !== null || docGrammarCache.text === text) return;
   docGrammarAsking = text;
   docGrammarAsk(text).then((lints) => {

@@ -1043,8 +1043,9 @@ def create_app() -> FastAPI:
             # The grammar checker's 15.9 MB binary (INBOX 401). Measured on
             # loopback: 755 ms to gzip it on every cold fetch against 60 ms
             # to send it as it is, so compressing it made the first check
-            # slower by the whole difference. It is fetched once per launch
-            # and revalidated by its ETag after that.
+            # slower by the whole difference. Never compressed *here*: the
+            # precompressed cache (`RevalidatedStatic._precompressed`) gzips
+            # it once per version and this middleware passes that through.
             "application/wasm",
         ),
     )

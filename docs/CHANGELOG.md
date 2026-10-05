@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Library (audit FE-03): opening the Library no longer starts the grammar checker. The load-time paint of an empty editor fetched the 15.9 MB grammar WASM, its worker and the 871 KB word list on every first visit; they now load when a document with text is opened (measured: Library visit fetches none of them; opening a document fetches all three and finds its mistakes).
 - Launch cost (audit FE-01, FE-02): the app's own scripts, stylesheets and page are served with their comments stripped (the files on disk keep them; a scanner, not a regex, proven by identical acorn token streams over every script), and each asset URL is stamped with a hash of its own file instead of a per-launch token. A relaunch now takes all 49 boot assets from the browser's cache (was 0 of 49); an edited file is still a new URL on the next page load. A cold load's assets went from about 2.4 MB to 772 KB; the app's 25 boot scripts from 792 to 329 KB gzipped. The grammar checker's WASM is gzipped once per version (8 MB instead of 15.9 MB on the wire).
 - Notes, Capture: the composer is one box; the note editor inside no longer draws its own border and focus ring a hair inside the composer's, and the composer's edge carries the focus (INBOX 560).
 - Boards: the gesture hints' close button is pinned at the strip's end after a divider, whole and evenly inset, instead of clipped past the edge (INBOX 562).

@@ -60,14 +60,25 @@ def test_the_policy_compiles_wasm_and_still_refuses_eval() -> None:
     assert "worker-src 'self'" in policy
 
 
-def test_the_binary_is_served_as_wasm_and_not_gzipped(client) -> None:
-    """Measured: 755 ms to gzip it per cold fetch against 60 ms to send it."""
-    response = client.get(
-        "/vendor/harper/harper_wasm_slim_bg.wasm", headers={"Accept-Encoding": "gzip"}
-    )
+def test_the_binary_is_served_as_wasm_and_gzipped_once(client) -> None:
+    """Was left uncompressed: the middleware took 755 ms to gzip it on every
+    cold fetch. The precompressed cache (`RevalidatedStatic`) pays that once
+    per version and keeps the bytes, so it now goes as 8 MB rather than 15.9
+    (audit 2026-10-05, FE-03); the bytes are the file's own."""
+    import gzip
+
+    from memorymap.api.app import FRONTEND_DIR
+
+    with client.stream(
+        "GET", "/vendor/harper/harper_wasm_slim_bg.wasm", headers={"Accept-Encoding": "gzip"}
+    ) as response:
+        raw = b"".join(response.iter_raw())
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/wasm"
-    assert "content-encoding" not in response.headers
+    assert response.headers["content-encoding"] == "gzip"
+    wasm = FRONTEND_DIR / "vendor" / "harper" / "harper_wasm_slim_bg.wasm"
+    assert len(raw) < wasm.stat().st_size * 0.6
+    assert gzip.decompress(raw) == wasm.read_bytes()
 
 
 def test_the_grammar_switch_is_a_preference_on_by_default(client) -> None:

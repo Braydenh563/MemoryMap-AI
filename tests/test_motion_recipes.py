@@ -5,25 +5,22 @@ selectors and sidebars ... but dont over do it in a vibecoded way". DESIGN.md's
 recipe index has one "Motion" row for what came of it; this holds the row:
 
 - **One indicator.** A selection that moves between options (a `.seg`, the top
-  bar's tabs, the sub-tab strips, the Settings nav) is drawn by one shared
-  rule: the strip's `::before`, anchored (`position-anchor: --glide`) to the
-  option carrying `.active`. A second indicator, per control or in script, is
-  how ten strips end up moving ten ways. So `--glide` is named once as an
-  anchor and used once as a position anchor, inside the `@supports
-  (anchor-scope ...)` gate that keeps an engine without scoped anchors on the
-  old instant fill, and no script writes an anchor name.
+  bar's tabs, the sub-tab strips, the Settings sections and a pane's groups)
+  is drawn by one shared recipe: the strip's `::before`, placed on the chosen
+  option by `glideStrip` (shell-reminders.js) through `--glide-x/y/w/h`, and
+  moved from where it was drawn by a `transform` animation on that
+  pseudo-element (the owner, 2026-10-05: "Also like the smooth slide across
+  tabs"). A second indicator, per control, is how ten strips end up moving
+  ten ways. It replaced a CSS-anchored `::before` whose four insets were the
+  one layout property in motion in the app, so no inset moves anywhere now.
 - **Only the compositor's properties move.** Every rule in a section headed
   `/* --- motion:` transitions or starts from `opacity`, `transform`,
-  `translate`, `scale` or a colour, and nothing else. The one exception is the
-  indicator's four insets, which is the trade DESIGN.md writes down (an
-  out-of-flow box of its own, measured by `scratchpad/ui-sweeps/glide.js`);
-  it is allowed in that one rule and nowhere else, so a second inset
-  transition cannot ride in on the first one's reason.
+  `translate`, `scale` or a colour, and nothing else.
 
-Reduced motion is not a rule here because it is not per rule: the two
-blankets in 02-chat-graph.css zero every transition's duration, `::before`
-included, and `glide.js` (REDUCED=1, APPEARANCE=1) measures that the indicator
-lands at once under both. Like the other frontend lints this cannot see the
+Reduced motion is not a rule here: the polish follows Interface animations
+(`data-ui-motion`, the `--ui-*` tokens; `tests/test_motion_tokens.py`), and
+`scratchpad/ui-sweeps/motion1005.js` measures the indicator gliding with the
+switch on under reduced motion and landing at once with it off. Like the other frontend lints this cannot see the
 DOM; the sweep is what runs against a browser.
 """
 
@@ -103,7 +100,7 @@ def test_motion_rules_move_only_what_the_compositor_moves():
     for name, line, css in _motion_sections():
         for selector, body in _rules(css):
             moved = _transitioned(body)
-            allowed = COMPOSITOR | (INSETS if "position-anchor: --glide" in " ".join(body.split()) else set())
+            allowed = COMPOSITOR
             bad = sorted(moved - allowed)
             if bad:
                 offenders.append(f"{name} (section from line {line}): `{selector}` transitions {', '.join(bad)}")
@@ -133,20 +130,16 @@ def test_starting_styles_in_motion_sections_set_only_compositor_properties():
 def test_the_selection_indicator_is_one_recipe():
     css = "".join(_blank_comments(t) for t in _sheets().values())
     flat = " ".join(css.split())
-    anchors = re.findall(r"anchor-name\s*:\s*--glide\b", flat)
-    users = re.findall(r"position-anchor\s*:\s*--glide\b", flat)
-    assert len(anchors) == 1, f"`anchor-name: --glide` is declared {len(anchors)} times; one rule names the chosen option"
-    assert len(users) == 1, f"`position-anchor: --glide` is declared {len(users)} times; one indicator recipe draws every strip"
-    gate = flat.find("@supports (anchor-scope: --a)")
-    assert gate != -1 and gate < flat.find("position-anchor: --glide"), (
-        "the indicator must sit inside `@supports (anchor-scope: --a)`: without "
-        "scoped names every strip's indicator would anchor to one option"
+    assert "anchor-name: --glide" not in flat and "position-anchor: --glide" not in flat, (
+        "the anchored indicator is back beside the measured one: one recipe draws every strip"
     )
-    # No other position anchor is transitioned: the inset trade is the glide's alone.
+    boxes = re.findall(r"([^{}]*::before)\s*\{([^{}]*var\(--glide-x\)[^{}]*)\}", css)
+    assert len(boxes) == 1, f"{len(boxes)} rules draw a sliding indicator; one does"
+    selector, body = boxes[0]
+    assert ".has-glide::before" in selector and "translate: var(--glide-x) var(--glide-y)" in body
+    assert "transition" not in body, "the indicator moves by its transform animation, not a transition"
     for selector, body in _rules(css):
-        b = " ".join(body.split())
-        if "position-anchor" in b and "--glide" not in b:
-            assert not (_transitioned(body) & INSETS), f"`{selector}` transitions an anchored inset"
+        assert not (_transitioned(body) & INSETS), f"`{selector}` transitions an inset"
 
 
 def test_no_script_names_an_anchor():
@@ -160,29 +153,22 @@ def test_no_script_names_an_anchor():
     )
 
 
-def test_the_top_bars_tab_glides_on_the_compositor_in_every_engine():
-    """The owner, 2026-10-04: "a slight css sliding animation for the active
-    tab on the menubar tabs ... cheap but looks professional". The top bar
-    left the anchored recipe (which an engine without `anchor-scope` draws
-    with no glide, and which lays its box out every frame) for one measured
-    box moved by a `transform` animation; `scratchpad/ui-sweeps/tabglide.js`
-    measures it (transform only, lands to 0px, none under reduced motion)."""
-    css = "".join(_blank_comments(t) for t in _sheets().values())
-    flat = " ".join(css.split())
-    start = flat.find("@supports (anchor-scope: --a)")
-    depth, i = 0, flat.index("{", start)
-    while True:
-        depth += {"{": 1, "}": -1}.get(flat[i], 0)
-        i += 1
-        if depth == 0:
-            break
-    assert "#tab-bar" not in flat[start:i], "the top bar is anchored again"
-    box = re.search(r"#tab-bar > \.tab-glide \{([^}]*)\}", css)
-    assert box and "transition" not in box.group(1) and "translate: var(--tab-glide-x)" in box.group(1)
+def test_every_strip_glides_on_the_compositor_in_every_engine():
+    """The owner, 2026-10-04 and 2026-10-05: "a slight css sliding animation
+    for the active tab ... cheap but looks professional", "Also like the
+    smooth slide across tabs". One function wires every strip; it animates
+    `transform` alone, on the `::before`, for `--ui-slow`, so Interface
+    animations governs it and reduced motion does not."""
     js = (JS_DIR / "shell-reminders.js").read_text(encoding="utf-8")
-    init = js[js.index("function tabGlideInit()") :]
+    init = js[js.index("function glideStrip(strip)") :]
     init = init[: init.index("\n}\n")]
-    assert "box.animate(" in init and "translateX(" in init and "scaleX(" in init
+    assert "strip.animate(" in init and 'pseudoElement: "::before"' in init
     assert re.findall(r"\{ (\w+): `", init) == ["transform"], "the glide animates something other than transform"
-    assert 'prefers-reduced-motion: reduce' in init and 'root.dataset.motion === "reduced"' in init
-    assert "tabGlideInit();" in js
+    assert '"--ui-slow"' in init, "the glide does not read the Interface animations token"
+    assert "prefers-reduced-motion" not in init and "dataset.motion" not in init, (
+        "the glide asks reduced motion; Interface animations decides it"
+    )
+    strips = re.search(r'const GLIDE_STRIPS = "([^"]+)"', js).group(1)
+    for strip in ("#tab-bar", "#settings-nav", ".settings-nav-groups", ".tabs-line", ".seg"):
+        assert strip in strips, f"{strip} has no sliding indicator"
+    assert 'glideStrip($("tab-bar"));' in js

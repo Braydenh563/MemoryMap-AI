@@ -127,6 +127,19 @@ with its owner named in the entry.
      Placed: into the whiteboard briefs after the features audit
      (scratchpad/audit1005/features.md).
 
+558. **The owner, 2026-10-05, verbatim.** "I think an object or elements
+     library would be really good like with what draw.io has. I want more
+     whiteboard features, take everything from draw.io as it is sooooo
+     useful and nifty. also improve the usability and reliablility of the
+     mindmap. make them features people can actually use and use well.
+     redesign the controls and how they can be used and accessed where
+     needed to maximise usability, utility, accessibility, and
+     learnability" Placed: the features audit is now writing the full
+     draw.io catalogue, the library spec, a controls redesign for board and
+     map, and a mind map usability pass, as phased briefs. Each phase then
+     goes to one Opus agent, its decisions entered in WHITEBOARD_PLAN and
+     MINDMAP_PLAN.
+
 525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
      dark background behind the graph labels togglable??" Next Opus: the
      label plate switch in the graph's gear (Obsidian-parity brief).

@@ -100,6 +100,11 @@ def _graph_fingerprint(session: Session) -> tuple:
         # backup or pointing MEMORYMAP_DATA_DIR somewhere else could be served
         # the previous notebook's centrality.
         str(deps.get_config().data_dir),
+        # Which space. Every count below is already narrowed to it (the
+        # session's workspace filter), but two spaces with equal counts and
+        # an equal newest edit would otherwise share one centrality.
+        str(session.info.get("workspace_id") or ""),
+        tuple(sorted(session.info.get("hidden_workspaces") or ())),
         session.scalar(select(func.count(Entry.id)).where(live)) or 0,
         session.scalar(select(func.max(Entry.updated_at)).where(live)),
         session.scalar(select(func.count(EntryLink.id))) or 0,
@@ -237,14 +242,31 @@ def _similarity_edges(
     backend = deps.get_embeddings().backend_id()
     fingerprint = (*_graph_fingerprint(session), backend)
 
+    #: **One sweep, over the map's notes, whoever asks** (GRAPH_PLAN, 2026-10-05).
+    #: The build used to read the caller's `node_ids` while the slot's key did
+    #: not, so the map (no drafts, no boards) and focus mode (every live note)
+    #: were served each other's sweep, whichever came first. The sweep is now
+    #: over the notes a similarity line means something for (live, not a
+    #: draft, not a board, whose text is its title), and each caller keeps the
+    #: pairs inside its own set: one sweep per version of the notebook, and
+    #: the same answer in any order.
     def build() -> list[tuple[int, int, float]]:
+        wanted = set(
+            session.scalars(
+                select(Entry.id).where(
+                    Entry.is_deleted == False,  # noqa: E712
+                    Entry.is_draft == False,  # noqa: E712
+                    Entry.is_board == False,  # noqa: E712
+                )
+            )
+        )
         records = session.scalars(
             select(EmbeddingRecord).where(EmbeddingRecord.model_version == backend)
         )
         vectors = {
             r.entry_id: bytes_to_vector(r.embedding)
             for r in records
-            if r.entry_id in node_ids
+            if r.entry_id in wanted
         }
         return similar_pairs(vectors, SIMILARITY_EDGE_THRESHOLD, per_node=SIMILAR_PER_NODE)
 
@@ -252,22 +274,52 @@ def _similarity_edges(
     scored = [
         {"source": a, "target": b, "kind": "similar", "score": round(score, 2)}
         for a, b, score in _cached("similarity", fingerprint, build)
-        if frozenset((a, b)) not in taken
+        if a in node_ids and b in node_ids and frozenset((a, b)) not in taken
     ]
     return scored[:MAX_SIMILARITY_EDGES]
 
 
-def _centrality(session: Session, index: paths.Connections, similarity: bool) -> dict:
-    """PageRank over the whole graph, once per version of the notebook.
+def _centrality(session: Session, similarity: bool, maps: bool) -> dict:
+    """PageRank over the map's own picture, once per version of the notebook.
 
-    `similarity` is in the key because similarity edges change the graph, so
-    they change every node's rank: the same notebook scores differently with
-    the edges on and off, and both answers are correct for their own picture.
+    **One number per note, the map's** (GRAPH_PLAN, "Decision made,
+    2026-10-05: one PageRank, the map's"). `/graph` and `/graph/local` used to
+    hand this their own index and share one slot keyed only by the notebook
+    and the similarity switch, but the two indexes were different graphs (the
+    map leaves drafts out, and boards unless Maps is on; focus mode indexed
+    every live note), so whichever call came first was served to the other,
+    and turning Maps on was served the no-maps ranking. Now the graph ranked
+    is always the map's: live, non-draft notes, boards only with `maps`, their
+    links, threads and shared tags, and similarity edges when `similarity` is
+    on, built here from columns (`paths.build_light`) and never from a
+    caller's index. A note is the same size in focus mode as on the map.
+
+    Not a PageRank of the focus neighbourhood: centrality is a global
+    property, and a local one would make the centre of every focus view its
+    biggest dot whatever the notebook says about it.
     """
-    fingerprint = (*_graph_fingerprint(session), similarity)
-    return _cached("centrality", fingerprint, lambda: paths.pagerank(index))
+    use_similarity = similarity and not deps.get_config().get_preference("battery_efficient_mode")
+    fingerprint = (*_graph_fingerprint(session), use_similarity, maps)
+    if use_similarity:
+        fingerprint = (*fingerprint, deps.get_embeddings().backend_id())
 
+    def build() -> dict:
+        extra: list[dict] = []
+        if use_similarity:
+            ids = set(
+                session.scalars(
+                    select(Entry.id).where(
+                        Entry.is_deleted == False,  # noqa: E712
+                        Entry.is_draft == False,  # noqa: E712
+                        *(() if maps else (Entry.is_board == False,)),  # noqa: E712
+                    )
+                )
+            )
+            extra = _similarity_edges(session, ids, set())
+        index = paths.build_light(session, extra_edges=extra, drafts=False, boards=maps)
+        return paths.pagerank(index)
 
+    return _cached(f"centrality_{int(use_similarity)}_{int(maps)}", fingerprint, build)
 
 
 @router.get("/graph/match")
@@ -586,6 +638,29 @@ def _word_count(text: str | None) -> int:
     return len((text or "").split())
 
 
+#: What `/graph` reads of a note: the node's fields, the label's text (the
+#: memo below decides whether it is read), and what the opt-in layers need
+#: (a board's settings, a vault file's path for unwritten links).
+_GRAPH_COLUMNS = (
+    Entry.id,
+    Entry.content,
+    Entry.tags,
+    Entry.workspace_id,
+    Entry.category_id,
+    Entry.created_at,
+    Entry.updated_at,
+    Entry.access_count,
+    Entry.pinned,
+    Entry.graph_pin_x,
+    Entry.graph_pin_y,
+    Entry.parent_id,
+    Entry.is_board,
+    Entry.is_private,
+    Entry.board_settings,
+    Entry.source_path,
+)
+
+
 @router.get("/graph")
 def graph(
     similarity: bool = False,
@@ -602,9 +677,15 @@ def graph(
     # your notes and their connections, not a staging area, and a half-typed
     # draft has nothing worth connecting yet. Reported directly alongside the
     # same gap in Library (routes_library.py's `_notes()`).
+    #: **Columns, not notes** (GRAPH_PLAN, 2026-10-05, measured at 5,000
+    #: notes): every field a node or an opt-in layer reads, as plain rows. The
+    #: whole `Entry` objects this loaded (and the 10,000 `EntryLink` objects
+    #: below) were half of a warm call's time in the ORM's instance
+    #: bookkeeping alone; a row answers `e.id`, `e.content`, `e.is_board` the
+    #: same way, so every helper below takes it unchanged.
     entries = list(
-        session.scalars(
-            select(Entry).where(
+        session.execute(
+            select(*_GRAPH_COLUMNS).where(
                 Entry.is_deleted == False,  # noqa: E712
                 Entry.is_draft == False,  # noqa: E712
             )
@@ -716,7 +797,16 @@ def graph(
     taken: set[frozenset[int]] = set()  # pairs already connected
 
     types = manager.relation_types(session)
-    for link in session.scalars(select(EntryLink)):
+    for link in session.execute(
+        select(
+            EntryLink.id,
+            EntryLink.source_entry_id,
+            EntryLink.target_entry_id,
+            EntryLink.reason,
+            EntryLink.reason_confidence,
+            EntryLink.link_type,
+        )
+    ):
         if link.source_entry_id in node_ids and link.target_entry_id in node_ids:
             pair = frozenset((link.source_entry_id, link.target_entry_id))
             if pair not in taken:
@@ -766,8 +856,9 @@ def graph(
     if with_similarity:
         edges.extend(_similarity_edges(session, node_ids, taken))
 
-    index = paths.build(session, extra_edges=edges, entries=entries)
-    centrality_scores = _centrality(session, index, with_similarity)
+    #: The map's PageRank, shared with focus mode (`_centrality`); a warm call
+    #: no longer builds an index at all.
+    centrality_scores = _centrality(session, similarity, include_maps)
 
     # Stable category order so the frontend assigns stable colours.
     # Phase 5: degree per node, from the edges this payload carries, so a
@@ -917,7 +1008,7 @@ def graph_local(
     session: Session = Depends(get_session)
 ) -> dict:
     """Focus Mode API: Gets the local neighborhood up to N degrees."""
-    index, directed, with_similarity = _local_topology(session, similarity)
+    index, directed, _with_similarity = _local_topology(session, similarity)
 
     if entry_id not in index.entries:
         return {"nodes": [], "edges": [], "categories": []}
@@ -1001,10 +1092,11 @@ def graph_local(
         if e_id in drawn
     ]
     
-    centrality_scores = _centrality(session, index, with_similarity)
+    #: The map's numbers, not this neighbourhood's (`_centrality`).
+    centrality_scores = _centrality(session, similarity, False)
     for n in nodes:
         n["centrality"] = centrality_scores.get(n["id"], 0)
-        
+
     categories = sorted({n["category"] for n in nodes})
     return {"nodes": nodes, "edges": edges, "categories": categories}
 

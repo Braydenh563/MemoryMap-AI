@@ -837,3 +837,11 @@ catalogue, the library spec and the phased briefs these become.
      and palettes, sticky/card/topic presets, saved branches, and whole
      boards as templates, all in the library's "Yours", importable and
      exportable.
+
+## Placed from INBOX, 2026-10-05 (OPEN.md triage)
+
+- **`contrast.js` never visits a board or a map** (documents was added
+  2026-10-04). Brief: add `whiteboard` and `mindmap` to its `TABS` with a seeded
+  board (cards, stickies, a frame, shapes) and a seeded map, run at 1440 and
+  390 in both themes, fix what it finds one surface per commit. Expect
+  pre-existing findings; a session of its own. Opus, M.

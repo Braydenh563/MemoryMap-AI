@@ -91,66 +91,9 @@ two decisions only the owner can take are INBOX 427.
   with the rest (`SKIP=ocr`). [docs-0.3.3]
   *Blocked here: needs a Tesseract binary.*
 
-## The owner's requests on fix/gemini-fixes-5 (PR 157), 2026-09-23: the ledger
+## The owner's requests on fix/gemini-fixes-5 (PR 157), 2026-09-23
 
-Every ask from that session, verbatim in spirit, with its state. The owner:
-"make sure you havent missed anything from any of my requests and make sure
-all are fullfilled." A row leaves this table only when it is done and
-measured; "partial" names what is left.
-
-| Ask | State |
-| --- | --- |
-| Review and refine Gemini's pass: revert the risky, redo the attempted fixes better | Done |
-| Packaged .exe splash; installer optional packages; embedding model missing with no nudge; wrong model in the chat header | Done |
-| Toolbars wrapping at 100% zoom; Capture toolbar wrap | Done (notes dock, Capture toolbar) |
-| Notes page blank or jumping to the top on edit; mind maps in Find anything; digest filler and "tonight" | Done |
-| Per-feature model pickers (and "too big"); agent activity alignment; image filter by kind; done notification for a closed panel; Select all; 29/30/31 note counts | Done |
-| Duplicate caption and OCR jobs; CodeQL #423 | Done |
-| Themes: Quiet utilitarian default, Paper, Mono, Classic second; card text and alignment; loading screen, graph bar and menus follow the look; page shine toggle | Done |
-| Dashboard top calmer; then "squished" and Full the same as Compact | Done (density fix, Full restored) |
-| Map node menu grouped; radial ring stays open | Done |
-| Pan and drag smoothness on the board and map | Done (style recalc 2439 to 29 ms) |
-| "Do that optimisation on the rest of the app" | Done: scroll handlers (back-to-top, scroll edge, graph wheel); Notes raster during scroll 2.7-3.0s to about 0.25s and typing style 1,651 to 350ms (Library agent); board and map style recalc 2,439 to 29ms; left: CodeMirror's own 12ms per key, and map culling at 500 topics (agent running, MINDMAP_PLAN 13a-view) |
-| Efficiency: CPU, RAM, network, storage | Measured 2026-09-23: idle network 2 requests and 1.9KB a minute; boot 25 requests, 1.0s to load; JS heap 25MB and 11,001 elements, flat over three rounds of every tab (no leak); CPU on scroll and pan fixed. Left: per-interaction traces for typing and dialogs (Library agent has scroll and typing), 217 document-level listeners worth consolidating |
-| Mind map professional refinement: controls findability, View menu size, hint strip over the canvas | Done: node menu, cross-link tool, label drag, cross-links drawn like branches, View menu 714 to 357px, hint strip, discoverability (canvas agent, `canvasconventions.js` 54 of 54) |
-| Cross-links look the same as branches | Done |
-| Live view markdown rendering and table editing | Done (documents agent) |
-| Code documents as a code editor: errors, suggestions | Done (diagnostics, completions) |
-| Auto-closing pairs, Enter indentation, format document or selection, quick fixes | Done (code editor agent: 48 of 48 in `doccodeedit.js`, 39 tests; HISTORY "code documents as a code editor, part two") |
-| Indent and dedent across the app | Done: note surfaces (Tab bridge), board and map text, documents (code: indent unit and Shift+Tab; prose: the editor's own Tab); chat and single-line fields keep Tab as focus movement on purpose (a keyboard user's way out) |
-| Phone designed on purpose; responsive at every resolution | Done for 390, 768 and 1024 (`phonechrome.js`, 0 findings; touch.js clean); 1280, 1920 and 2560 measured with no horizontal overflow on any tab |
-| De-vibecode all the UI, surface by surface, not one fix and stop | First pass done on every surface in the audit order below (Notes, dashboard incl. widgets and empty notebook, chat, graph, Library, timeline, reminders, every Settings pane, Finder, palette, notifications, menus, confirm dialogs, lock screen, boot splash, empty states); second pass on the Library, documents, notes and chat running (agent) |
-| Note metadata, badges and links redesigned everywhere | Done: one line of facts with a category pill and stable colour dot, #tags, dates as days, connection pills with their menu inside; Settings lists (skills, personas, templates) have title, label and facts |
-| More integration between features (INBOX 393) | Partial: Ask Atlas on every object (notes, documents, boards, maps, reminders, files as of 2026-09-23, one wording and glyph, `test_object_actions.py`); the consistency table is WORLD_CLASS_PLAN 1.3; left: the rows that table marks open (Remind me beyond notes, Show in graph for documents, the Library note card's Remind me and Link to) |
-| Glass on every surface when glass is on | Done: graph dock and panels, chat composer; a sweep of every positioned surface on every tab with notifications, Find and Settings open (Classic, glass on) finds none translucent without blur; the dock menus are opaque on purpose (`--modal-bg-opaque`, legibility over the editor) |
-| Gaps between stacked elements | Done: offline notices; a flush-sibling sweep over every tab and six Settings panes finds only hairline-divided list rows, which are flush by design |
-| Micro-conventions (double-click rotate handle to reset, and the rest) on board, map, documents and every surface | Placed (WHITEBOARD_PLAN, Placed from INBOX 2026-09-23); next agent |
-| Suite too slow | Done (parallel, 25 to under 9 minutes) |
-| CI red on Python 3.13 | Done: vault key leak between tests, a create_all race (a lock on the singletons), 3.13's JSON trailing-comma position |
-| Graph: Documents switch did nothing; options panel arrows and field height | Done |
-| Settings: "?" buttons misaligned and missed; pane titles; section headers; flattened badges hard to read | Done: one right edge for every "?", a title on every pane, item rows with a hierarchy |
-| Guided tour broken past slide one | Done: re-enabled; overlays closed before each step, phone steps point at More, a fixed counter, typing left alone; `tour.js` 118 of 118 steps at 1440, 1184 and 390 (`archive/agent-remaining/tour.md`) |
-| Second de-vibecoding pass of the whole app, especially the Library; micro-conventions everywhere; optimisation | In progress: orchestrator did Settings (intros, pane titles), Finder, palette, notifications, lock screen, Timeline rows, graph options heads, reminders rows, dashboard tiles; Library/documents/notes/chat pass merged (list conventions 18 of 18); Guide panel and IA read, map culling, Ask citations agents running |
-| Agents commit often so nothing is lost | Done (agents told; the hourly check-in merges gated agent commits and pushes) |
-| Chip colours; Atlas personality; code completions (Emmet `!`, CSS values, inline); radial More menu; dashboard head; link pill corners; page shine (INBOX 394) | Done (head at the fold reverted at the owner's word) |
-| VS Code features: language-aware Ctrl+/, Emmet beyond HTML, rename tag, swatches, hover docs, guides, symbols, Alt+Z, sticky scroll (INBOX 402) | Done (codecomplete agent) |
-| Code files: snippets, Run with a console, go to definition, find across documents (INBOX 404) | Done for JS and HTML. Open: Python Run via a Pyodide download extra and TypeScript via a vendored type-stripper (recommendations taken per standing order 3; next agent slot) |
-| Prose files: grammar (Harper), suggestion mode, read aloud, accessibility check, Word round trip (INBOX 401, 404) | Done (proseeditor agent) |
-| Menus with bad widths, spacing, alignment; the trust bar (INBOX 403) | Done for menus: 325 findings to 0 (`menus.js`), arrow keys and focus in every menu; the bar stands for every pass |
-| Pan glitches from style invalidation, app-wide; architecture review (INBOX 400) | Done: review in ANALYSIS.md; Notes 61 to 28ms, Library 283 to 32ms, Timeline 89 to 46ms; hover filters gone |
-| World class plan rows left; hole poke; installer and update paths; component refinement (INBOX 399) | Update paths verified end to end; package-check workflow added; hole poke and polish agents running; WORLD_CLASS_PLAN row check done 2026-09-24 (table B) |
-| Finder headings; back-to-top hover; jump-to-latest flicker; user bubble; model chip and picker with no model; avatars; translation (INBOX 405) | Done. Open: avatars beyond personas (graph people, the user's own mark); translate a text selection (queued) |
-| Guide help: more topics, better offline answers (INBOX 406) | Done (top-1 49% to 99%). Open: docs/*.md as a second source, blocked on packaging `docs/` |
-| Empty chat scrolls; jump pill on an empty chat (INBOX 407) | Done |
-| Graph similarity lines unreadable; no reset to defaults (INBOX 412) | Done: top 2 matches per note, crossings 1,701 to 39, hover scores, a strength slider, Reset to defaults with Undo |
-| Split app.js and other large files further | Splits agent running (documents, whiteboard, one app.js surface) |
-
-**De-vibecode audit order** (each surface: list every finding first, then
-fix them all, then the next): Notes (list, capture, write, ask), dashboard,
-chat, graph, Library (every sub-tab), documents editor, board, map,
-timeline, reminders, settings (every pane), dialogs and menus, the finder
-and command palette, the status bar and notifications, the lock screen and
-loading page.
+The ledger moved whole to HISTORY.md, "OPEN.md rows closed, 2026-10-05": its 34 Done rows are done. Its ten partial rows each have a home: 113's CodeMirror cost is pass2's row below; 114's traces and listeners are the frontend performance agent's; 124 is WORLD_CLASS_PLAN 1.3; 127 is WHITEBOARD_PLAN's Placed from INBOX 2026-09-23; 133 is the UX agent's surface pass; 137 is codecomplete's row below; 141 is holepoke's; 142's avatars beyond personas and translate-a-selection are queued in INBOX 405's HISTORY entry; 143 is guide's (WORLD_CLASS_PLAN); 146 is the boot split's row above.
 
 ## What is left after PR 144, in the order to build it (written 2026-09-14)
 
@@ -171,31 +114,8 @@ then the plan tails by surface, then the horizon.
 | ~~253~~ | **Done 2026-09-20** (b062d0d, f0d478b, f24d8a5, 1f018d6). `start.sh`/`start.bat` self-repair a failed start once with no prompt; the venv health check imports the app itself; a Repair MemoryMap AI shortcut in the .exe installer and the MSI runs `--desktop --reinstall`. Record in HISTORY's INBOX 253. | done |
 | ~~225~~ | **Done 2026-09-21.** The row was half right: the "the AI" half was swept and linted a week earlier, and the lint has held it since. "The assistant" was never covered, and eight pieces of copy still said it, five of them the Tools and features descriptions a person reads while learning the app. Reworded to name Atlas, and `tests/test_ai_name.py` now carries the second phrase, proved against a reintroduction. "The guide" is deliberately left out: that is a surface with a name. | done |
 | 226 | A flicker above the bottom bar on the dashboard, never reproduced here; needs the owner's theme, art setting and zoom. (needs owner: their preferences; HISTORY holds the entry as "not reproduced") | HISTORY, INBOX 226 |
-| 213, 220, 228 | Documentation leftovers recorded in their entries. 220 is resolved (HISTORY, "INBOX 220"); 213 and 228 are no longer in INBOX and were both "the owner's, the merge is the last act" (HISTORY, the PR 149 record). (needs owner: the PR merge is theirs) | HISTORY |
 
-**B. Plan tails, by surface**
-
-| Plan | Still open |
-| --- | --- |
-| DOCUMENTS_PLAN | ~~Phase 4~~ closed 2026-09-20: the templates gallery was verified by `scratchpad/ui-sweeps/doctemplates.js` (six templates, each with a description), and item 5's daily notes were built from the decision in DOCUMENTS_PLAN section 14 and measured by `docdaily.js`, 11 of 11 (7 templates with Daily, the document titled with the ISO day, 0 "start today's note" offers beside a day already written as a document). What is left: the Phase 2, 6 and 8 tails and the engine's three deliberate omissions, in this file's Documents section. Everything else this row used to list was built or already existed: the Library's property filter, outline reorder with folding and a filter box, the command palette and shortcut sheet from one table, version history with its diff and its AI filter, the per-hunk AI diff, reading typography and the print stylesheet (all 2026-09-20 or earlier, each with its probe named in HISTORY.md). |
-| UI_MODERNISATION_PLAN | ~~Phase 8's docks over the seven-control ceiling~~: re-measured 2026-09-20 (`docks.js` at 1440): notes 6, graph 6, library 5, chat 4, timeline 4, reminders 4, and only `#wb-topbar` at 13, which the plan names as the menu-bar exception (Insert, Edit, Arrange, View, Board on the dock's zones). Done. Phase 11, the phone done properly: items 1, 2, 3, 5 (its share sheet half), 6, 8 and 9 were built on 2026-09-20, and items 4 (the graph: the hold that opens the node menu and arms the lasso, the controls as one sheet) and 7 (the whiteboard and the map: two fingers for the camera, the tools as a sheet, the board bar at the touch floor) on the same day, each with its own gate in `scratchpad/ui-sweeps/` (`graphphone.js`, `wbphone.js`). Item 5's reader full screen with a bottom bar was built on 2026-09-20 (`scratchpad/ui-sweeps/libreader.js`, the sheet recipe's `page` variant, and a pane-grid bug it found that was wrong at every width under 1100). Item 9's hover-only half was swept properly on 2026-09-20 (`scratchpad/ui-sweeps/hoveronly.js`: 45 reveal rules, eleven stops, `hover: none` emulated and each candidate tapped) and the two it found were both a `hover: none` override written a class short of the rule it had to beat, so neither had ever applied. Item 11's two open gates were closed on 2026-09-20: errors.js was already clean at 390, and contrast.js, which took no viewport and had only ever run at 1440x900, now takes one, reaches Settings the way a phone reaches it, reports how many text elements it measured (which caught the whiteboard being in its tab list with no tab page to open, so it had been measuring an empty window at every width) and comes back 0 low-contrast over 33 surfaces at 390, 820 and 1440 in light and dark. Item 7's leftovers at 820 were measured and fixed in the same pass. What is left of the phase: item 11's screenshot set for the owner. |
-| GRAPH_PLAN | ~~All four~~ **stale, checked 2026-09-23**: Phase 5's real gap (a saved view restoring unpinned positions) was built 2026-09-21 and the `?since=` cursor is left until something polls, both on the plan's Phase 5 row; Phase 6 was measured built on 2026-09-20 (this file's Graph section); the local pane's switches are left by the 2026-09-13 decision; 6b the minimap was built 2026-09-13 (`minimap6b.js`). The one line the plan still held, a lasso selection dragging as one, was built 2026-09-23 (`oi-groupdrag.js`). |
-| WHITEBOARD_PLAN | Decision 7's other half; the phone context bar comparison; sketch handles at zoom; the arrange panel items. |
-| MINDMAP_PLAN | The mapux agent's leftover list (this file's Mind map section). |
-| CHAT_PLAN | ~~Phase 1's other half, which note grounds a sentence~~ built 2026-09-20 (the fixtures exist, 18 of 18 attributed, was 17 of 18); ~~Phase 1's fourth gate line~~ built 2026-09-21 and its replay tail 2026-09-23, so Phase 1 is closed; Phase 4's harness items were closed 2026-09-20, and what is left is its `evals` breadth (WORLD_CLASS_PLAN 9). |
-| TIMELINE_PLAN | ~~Section 7's two measurements~~ taken 2026-09-20, and both found a bug: the density strip hid on a note count (it hid a profile of 150 notes and showed a comb of 200) and the table drew no title column at all between 600 and 1024. Both fixed and re-measured. The third line, the "auto" scale thresholds, was tuned 2026-10-04 (HISTORY, "the auto scale"). |
-| AGENT_SKILLS_REFORM | ~~Phase D verified against a real model, which needs WORLD_CLASS_PLAN section 9's dev-only runner first.~~ **Done 2026-09-20.** The runner is `scratchpad/llama-dev.sh` and the gate is `tests/test_skills_evals.py`, four `evals` tests that skip at collection without a model: 3 passed and 1 skipped against Qwen2.5-1.5B-Instruct Q4_K_M through llama.cpp, with the skip itself the finding (the run stalled on step 1's `list_tags` contract and said so, rather than ticking it). Record in HISTORY's "Moved from the plans, 2026-09-20". What is left is breadth, and it sits in WORLD_CLASS_PLAN 9: the same gate at 3B and 4B, and an eval each for the rest of CLAUDE.md section 4's unproven list. |
-| WORLD_CLASS_PLAN | **Row check done 2026-09-24 (INBOX 399).** Every row read against the code; the built ones moved to HISTORY's "Moved from the plans, 2026-09-24", each open row carries a "State 2026-09-24" line, and the ranked list of 38 is at the top of the plan's section 8. The top ten, by impact: F3 `semantic_search` reading every vector per request; Brief 15's LAN hardening (S1 to S3, S5, S6); B2 durable jobs; D2's connections rail (and 261's `/resurface/near`); I1's night runs and morning card; chunk vectors then I6's evidence cards; I3's questions view; `similar_pairs` cached for link suggestions and tensions; D5 typed properties on notes; the S-sized section 1 lints. Fixed during the check: 283, 285, the Most used widget's picker line, Download .md on a locked notebook, and `/files/gallery`'s paging (F2's frontend half). Built 2026-09-24 after it: row 1 (F3, `semantic_search` on the matrix), row 9 (`similar_pairs` cached) and row 2 (S1, S2, S3, the rest of S5, S6's redirect half, `/debug/health` paths; left `tests/test_lan_mode.py` and the LAN offer). Built 2026-10-04: row 3, B2's durable jobs for the pool's six kinds (`core/jobstore.py`; left: the other kinds onto the table, the panel on `/jobs/stream`). |
-
-**C. The horizon (WORLD_CLASS_PLAN, one item per PR, in its own stated order)**
-
-H7 the speed budget, H9's perf gate and usage ledger, H1 the night shift,
-H2 evidence cards and open questions, H3 the model bench, H6 professional
-use (imports, print and PDF, keyboard-complete, WCAG audit, multi-window,
-first-run tour; 253 is its first row), H4 the API contract and extensions,
-H8 time travel and the margin reader, H5 sync. Behind them the backend
-moves B2's second half, B4, B6 to B8 and the inventions I1 to I3 and I5 to
-I8, each with its spec test named in the plan.
+**B. Plan tails, by surface.** Moved to HISTORY.md, "OPEN.md rows closed, 2026-10-05", 2026-10-05: every row was built or held by its plan. Two stay open: MINDMAP_PLAN's mapux leftover list (this file's Mind map section, the mind map agent's) and UI_MODERNISATION_PLAN Phase 11 item 11's screenshot set for the owner. Section C, the horizon, is WORLD_CLASS_PLAN section 8's own ranked list.
 
 **Done-when for the next session:** sections A and B empty, each Built
 block moved to HISTORY, the CHANGELOG carrying the numbers, CI green, and a
@@ -228,19 +148,7 @@ being written by running agents stay beside this one.
   case measured sat at the 15rem minimum). Next step if a report arrives:
   measure at `left: 8px` first, then place. [editor-intelligence.md]
   *Left: not observed; measure at `left: 8px` first only if a report arrives.*
-- **A finding below the editor's visible box gets a menu drawn over its own
-  word.** **2026-10-04: the assertion exists** (`spellwide2.js` fails when the
-  menu overlaps the word) **and the case did not reproduce** (table-cell word
-  at 551..568 inside a box ending at 584, menu below it, overlap 0 on the
-  vertical axis in all five cases); the half that is still open is why
-  `docRevealForSuggest` would not bring a word below the box in. Was: Measured in `spellwide2.js`'s table-cell case: the word sits at
-  `655..707` in an editor whose visible box ends at `572`, and the menu is
-  placed at `440..717`. The sweep reads that as a 0px gap and passes. Two
-  things to decide: why `docRevealForSuggest` did not bring that word in (a
-  table cell's mark may measure outside the scroller the reveal scrolls), and
-  that a placement must never cover the rect it is anchored to, which is worth
-  an assertion of its own in both sweeps. [editor-intelligence.md]
-  *Opus: why `docRevealForSuggest` will not bring a table-cell word in is an investigation, not a named fix.*
+- ~~A finding below the editor's visible box gets a menu drawn over its own word~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - ~~The writing-suggestion underline is the only surface with no hover affordance~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~docFindingAtPoint walks every mark on every pointer event~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~The three finding kinds are named in two places~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
@@ -347,19 +255,7 @@ being written by running agents stay beside this one.
 
 ## Timeline
 
-- **WORLD_CLASS D6, the daily journal: the backend is built, the frontend is
-  not.** `POST /entries/daily/{date}` creates or returns and
-  `GET /entries/daily?through=&days=` gives the calendar strip its days and
-  the streak (`tests/test_daily_journal.py`). **Re-read 2026-09-23**: the
-  first step is superseded, not missing. `startTodaysNote` deliberately opens
-  the composer with the day's title and saves nothing until Save (INBOX 199,
-  the comment above it in app.js), which is what removed the duplicate, and
-  the POST stays for the agent's own tool. `Ctrl+D` built 2026-09-23 on the
-  decision in INBOX 321 (now in HISTORY). Still open: the calendar strip and
-  the yesterday and tomorrow pair (the pair sits in the note head, which is
-  the notes surface's owner's).
-  [chat-timeline-skills.md]
-  *Opus: the calendar strip and the yesterday/tomorrow pair are new UI on the notes surface.*
+- ~~WORLD_CLASS D6, the daily journal: the backend is built, the frontend is not~~ Verified built. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - ~~The timeline strip's threshold~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~The timeline table at 820~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~The "auto" scale thresholds~~ Closed. The account is in HISTORY.md, "Moved from the plans, 2026-10-04 (the auto scale)".
@@ -381,22 +277,7 @@ being written by running agents stay beside this one.
   and "Text in this image" is the shortest true thing it can say.
   [image-cards.md]
   *Opus: copy and layout judgement.*
-- ~~**The Files sub-tab rows were never on screen.**~~ **Measured 2026-09-21.**
-  `imagecardfoot.js` seeds PDFs through `/media/upload` and takes `SUBTAB=files`,
-  and `imagefold.js` seeds them too. At 1440 in light: a row with nothing to say
-  is 160px and one with a description 226.3px, four controls at rest on each,
-  the description block 43.5px (the same `--text-md` block a picture card
-  draws), the fold summary 1197.6px wide of a 1197.6px column and 32.8px tall
-  at contrast 6.02. The full-width fold is by design and is now a number rather
-  than an inference: on a Files row it is 100% of the content column, against
-  the 82% that was judged nearly a bar on a 156.3px picture tile. The rows are
-  `display: flex`, one per line, not the pictures' grid, so an open reading
-  moves 0 of 0 row-mates and pushes only its own row, 160 to 167.5px: the hole
-  the picture cards were rescued from cannot happen there while that holds, and
-  `imagefold.js` is the ratchet on it. Open, and measured rather than guessed: a
-  described row leaves 50.3px of slack under its last block against 24.8px on an
-  undescribed one, so the two ranks of Files row do not sit on one rhythm.
-  [image-cards.md, logs-cards-links.md, readings.md]
+- ~~The Files sub-tab rows were never on screen~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - **An uploaded document cannot be given a reading from outside the app.**
   `POST /media/{id}/ocr` and `/media/{id}/vision-ocr` both answer 415 for a
   PDF, because `ocr.OCR_SUFFIXES` and `vision_ocr.VISION_OCR_SUFFIXES` are the
@@ -422,43 +303,17 @@ being written by running agents stay beside this one.
   facts, which take a taller photograph instead of a hole.
   [logs-cards-links.md]
   *Opus: the subgrid trade-off is already decided in the plan; revisit only on a report.*
-- **A tile's Rename and Delete buttons are never in the DOM.** They are
-  detached `<button>` objects the kebab's rows `.click()`
-  (`renderLibraryImagesGallery`, `library.js`). Deliberate and working, but it
-  is a behaviour question: either the buttons belong in the row with the menu
-  as the overflow, or they stay detached and that is written down. The dead
-  glass-off rules that used to name them are already gone. [visual-c.md,
-  image-cards.md]
-  *Opus: a behaviour question (buttons in the row or detached and written down).*
-- **A caption for an image that has none.** The attach picker's second line
-  falls back to the note the picture is used in, then to "No caption yet"; the
-  Library can write one (`POST /media/{id}/caption`). An "Ask the model for
-  one" action on that line is the obvious next step and was not built because
-  it puts a model call behind a row in a picker, which is a decision. File:
-  `frontend/js/app.js`, the `caption` entry of the images shape.
-  [picker-catalog-readme.md]
-  *Opus: a model call behind a picker row is a decision.*
-- **The other four picker sources have no thumbnail.** Documents, files and
-  maps all have something to show (a first page, a file glyph, `mapPreview`
-  already draws a map for the boards gallery). The renderer is ready:
-  `shape.thumb` is optional and per source. File: `frontend/js/app.js`,
-  `notePickerShape`. [picker-catalog-readme.md]
-  *Opus: a per-source thumbnail design in `notePickerShape`.*
-- **The Notes (10) and Library (9) docks are still over the seven-control
-  ceiling.** The graph's move to six was decided for the graph specifically;
-  INBOX 47 records that nothing was decided for these two and that guessing is
-  a design call. [graph.md]
-  *Opus: INBOX 47, which control count the ceiling means is a design call.*
+- ~~A tile's Rename and Delete buttons are never in the DOM~~ Decided. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
+- ~~A caption for an image that has none~~ Decided. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
+- ~~The other four picker sources have no thumbnail~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
+- ~~The Notes (10) and Library (9) docks are still over the seven-control ceiling~~ Verified. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 
 ## Notes and capture
 
 - ~~The Notes categories sidebar overflows at 390px, on every sub-tab~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~`textarea.autogrow`'s shared `min-height`~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~The note edit form's strip is a clone~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- **INBOX 38's bulk-move action is still to build.** The chip and label are
-  the visibility fix that lets a person tell which space a survivor is in;
-  moving a batch of them is the item's own D2 owner line. [batch-a.md]
-  *Opus: a new feature.*
+- ~~INBOX 38's bulk-move action is still to build~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - ~~Boards and maps on a note (INBOX 246)~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 
 ## App wide: shell, phone and the shared recipes
@@ -519,13 +374,7 @@ being written by running agents stay beside this one.
   with `.dock` gaining the three properties behind a `.dock.is-sidebar`
   modifier and `heads.js` run before and after. [docks.md]
   *Left: deliberate; all three properties or none.*
-- **Phase 11 item 1's last bullet: the top bar's own reduction at 320.** The
-  title, the AI dot and one action. Never measured at 320 with the wordmark,
-  the space switcher and the two control clusters in it; nothing at 320 is
-  broken. Files: `frontend/css/10-responsive.css` band 4,
-  `frontend/index.html` `#top-bar`. Next step: measure the header's content
-  width at 320 before deciding what leaves. [ui-phase-11.md]
-  *Opus: measure the header at 320 before deciding what leaves.*
+- ~~Phase 11 item 1's last bullet: the top bar's own reduction at 320~~ Measured. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - **Phase 11 item 9's other half**: no hover-only affordance (every hover
   state needs a tap equivalent) and long-press replacing right-click app wide.
   The 44px half is built and gated; neither of these is measured anywhere and
@@ -625,12 +474,7 @@ being written by running agents stay beside this one.
   Next step: decide what "open" means on that surface, per the app's own focus
   model. [brief11-retrieval-engine.md]
   *Opus: what "open" means on the card view is a decision.*
-- **Global undo of an AI action: a skill run's Undo.** `events.undo`, `POST
-  /events/undo` and the Recent activity widget's "Undo what Atlas did" are
-  built 2026-09-26 (HISTORY.md, "Moved from the plans, 2026-09-26"). Left: a
-  skill run's own Undo calling it with the run's actor and first event id
-  (Brief 13). Board items stay "not undoable". [brief7-event-log.md]
-  *Opus: Brief 13's run-level Undo.*
+- ~~Global undo of an AI action: a skill run's Undo~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - ~~The Timeline and Dashboard activity strips~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - **Sync (B6) as log shipping.** `id: events-sync`. Unstarted and no longer
   blocked: it needed the retention rule, which now exists. A compacted
@@ -661,29 +505,8 @@ being written by running agents stay beside this one.
 
 ## Sweeps and tooling
 
-- **`scratchpad/ui-sweeps/editor.js` still describes the retired editor.**
-  1,058 lines, 89 checks, written against the textarea, the per-paragraph Live
-  view, the Phase 0 backdrop and the D3 snapshot stack, all four gone; it
-  still references `docUndoStack`, `docUndoAt`, `docUndoReset`,
-  `#doc-live .lp-src` and `has-backdrop`, so it throws rather than failing
-  usefully. What it carries that nothing else does is the long tail: the
-  colour menus, the footnote and table commands, the toolbar's collapse and
-  wrap modes, the gutter pairing for the two note editors. Next step: re-point
-  its reads at `docSurface()` and its Live interactions at
-  `#doc-editor .cm-content`, drop the four retired checks, and report how many
-  of the 89 survive. [documents-engine.md, documents-batch.md,
-  documents-phase4.md, prose-intelligence.md]
-  *Opus: a 1,058-line rewrite of a retired sweep.*
-- **`contrast.js` never visits the Documents tab.** **2026-10-04: `documents`
-  is in `TABS` now and `ONLY=document` opens a fixture document and reads
-  every view and the outline (0 findings at 1440 both themes, 820 light, 390
-  dark); the whiteboard and the mind map are still not covered.** Was: its
-  `TABS` constant holds
-  seven tabs and documents, whiteboard and mindmap are not among them, so the
-  merge gate's contrast step has never measured any of those surfaces. Adding
-  the three is a two-line change that will almost certainly find pre-existing
-  findings, which is a session of its own. [doc-sidebar.md]
-  *Opus: whiteboard and mind map will find pre-existing findings, a session of their own.*
+- ~~`scratchpad/ui-sweeps/editor.js` still describes the retired editor~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
+- ~~`contrast.js` never visits the Documents tab~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - ~~`menus.js` timing out at its last step~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~`notessubtabs.js` counting the hidden native selects~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - **A check that cannot tell "nothing matched" from "labels are broken" cries
@@ -723,18 +546,12 @@ are named in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 `readings` hold nothing that is not already a row in this ledger or built on
 the head, so they carry no row of their own.
 
-- **anim.md**: a `box-shadow` transition over a `backdrop-filter` surface was
-  never measured (`animcost.js` is the shape of the probe), and `filter` and
-  `backdrop-filter` are not in the transition lint because nothing transitions
-  them. [anim]
-  *Left: add both to the lint and measure only if a glass shadow transition is ever added.*
+- ~~anim.md~~ Fixed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - **arch.md**: the Dashboard emblem is most of an idle window's cost (5.55% of
   one core open, 2.09% parked); `entry_revisions` and `audit_log` are never
   pruned; INBOX 266's usability and lightweight items belong to nobody. [arch]
   *Opus: the emblem's frame rate is the owner's call (they asked for "always rotating"); pruning needs a retention rule.*
-- **askcite.md**: the Chat tab's Ask mode receives `grounding_live` and ignores
-  it, so its inline numbers arrive with the finished answer. [askcite]
-  *Opus: new wiring in the Chat tab's renderer, measured against a model.*
+- ~~askcite.md~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - **backend-0926.md**: LAN mode binds `0.0.0.0` only (no IPv6); F7's thread modules
   onto `core/jobs.py` (13 left, `tests/test_flaw_class_lints.py`'s ratchet);
   night passes for tensions and answered questions as `DerivedFact` kinds.
@@ -742,17 +559,8 @@ the head, so they carry no row of their own.
   desktop window, LAN from a second device, the `.ics` in a real calendar app.
   [backend-0926]
   *Opus: IPv6 needs a dual-stack bind; the unverified list is blocked here. The Undo row, the night card's scroll and the ledger's flush are closed, HISTORY.md, "OPEN.md rows closed, 2026-10-04".*
-- **chat-0926.md**: CHAT_PLAN's "Placed from INBOX" list needs one triage pass
-  (72 the popup agent panel, 63 Ask/Write/Capture and 71's Tools table look
-  open); the mouse hover row on a question overlaps the answer under it by
-  13px while it shows (1280 and 1024, transient, left); the dock's bottom-row
-  gap and the chat panel's shadow in the gap were not re-measured; the
-  citation peek covers notes only. [chat-0926]
-  *Opus: a plan triage and a layout call.*
-- **chrome2.md**: `initHelpToggles` runs once at boot over the whole document
-  and is re-runnable (wiring.js); anything built after boot with
-  `data-help-for` has no lint that it calls it. [chrome2]
-  *Opus: a lint that every script-built `data-help-for` caller re-runs it.*
+- ~~chat-0926.md~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
+- ~~chrome2.md~~ Fixed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - **codecomplete.md**: Python Run via a Pyodide download extra (INBOX 404's
   recommendation, needs the owner's yes to a download kind of extra) and
   TypeScript Run via a vendored type-stripper; SCSS, Less and SVG are not file
@@ -760,22 +568,13 @@ the head, so they carry no row of their own.
   handling of the run sandbox's CSP, the native colour picker's window.
   [codecomplete]
   *Opus: a decision and a vendored dependency each.*
+  *Needs owner, 2026-10-05: a Pyodide "download extra" fetches at runtime, which the owner's fully-local rule of 2026-10-05 forbids unless it is vendored (about 10 MB, MPL-2.0); the TypeScript stripper is a vendoring call of the same kind.*
 - **companion-r5.md**: the toss on a phone (a quick swipe on the companion
   tosses it) was not tried on a device; `test_unlock_throttle_per_client.py`
   failed once under load and passes alone. [companion-r5]
   *Blocked here: needs a phone; the flake is load, not the test.*
-- **featuremodels.md**: smart model routing moves the Guide and its copy does
-  not say so (INBOX 288, WORLD_CLASS_PLAN 20 "Still open"); the per-feature
-  list lives inside `#models-config`, which Settings hides when no backend
-  answers; only the Chat tab shows its pinned model on its surface. [featuremodels]
-  *Opus: three design questions.*
-- **guide.md**: the Guide's corpus is kept in step with the Help accordion by
-  hand (a lint needs the accordion marked up with ids first); retrieval is
-  keyword matching, so a question sharing no word with a topic reaches
-  nothing (a synonym column is the cheap next step); the accordion cannot
-  grow a row without converting its thirteen `<details>` to the named family
-  (a visual change across the list, `test_ui_recipes.py`'s ratchet). [guide]
-  *Opus: markup plus a ratchet, and a retrieval change that wants a real model's read.*
+- ~~featuremodels.md~~ Verified. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
+- ~~guide.md~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - **guideia.md**: the Guide is a modal sheet whose scrim dims the app, so
   "Open the Reminders tab" cannot be read against the tab; the Chat empty
   state's "Try asking" chips stay pressable with no model; the rows
@@ -839,6 +638,7 @@ the head, so they carry no row of their own.
   `#chat-delete` (an `i.ph` at their centre) were never triaged; Settings
   Packages rows leave a 16px gap between title and description. [uipolish-0924]
   *Opus: item D; the two small ones are measurements to retake on this head.*
+  *2026-10-05: `#chat-export` and `#chat-delete` are visually-hidden, `aria-hidden` proxies the ⋯ rows click (index.html ~2335), so deadbtn's point test landing on their icon is the sweep's finding, not a dead control. The rest is the UX agent's.*
 - **uitrio.md**: the focused dashboard head's `flex: 1 1 20rem` breakpoint was
   measured at 1440 and 390 only; the density picker is hidden below 600 so a
   phone cannot choose Focused; INBOX 301's app-wide navigation and undo
@@ -851,6 +651,7 @@ the head, so they carry no row of their own.
   `#wb-context-menu` is not swept (`wbcontextphone.js` is where it belongs).
   [wbtopbar]
   *Opus: INBOX 47 is the owner's rule to state first.*
+  *2026-10-05: the Notes and Library docks measure 6 controls each (`docks.js`), so INBOX 47 no longer decides them; left: `#wb-context-menu` is unswept.*
 - **whiteboard-tail.md**: INBOX 276, the sketch pad's toolbar wraps to two rows
   at 820 on Large text; the AI half of the map needs a model. [whiteboard-tail]
   *Opus: the entry's recommendation is the group labels, not the controls.*

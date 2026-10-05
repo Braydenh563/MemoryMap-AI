@@ -1267,3 +1267,26 @@ def test_the_lower_body_moves_with_the_torso_and_turns_about_the_join():
         row = re.search(rf"  {state}: \{{.*?v: \[(.*)\] \}},", states).group(1)
         turns = [abs(float(v)) for v in re.findall(r"\[(-?[0-9.]+),", row)]
         assert turns and max(turns) <= 4, (state, turns)
+
+
+def test_in_its_large_view_the_companion_floats_free_of_its_perch():
+    # INBOX 619 (the owner: "in the enlarged preview atlas is still hanging,
+    # it should be slightly separate from the companion but still have the
+    # same life"): visiting the view it floats, with the view's sway, and its
+    # perch's pose and legs go back with it.
+    visit = AVATARS[AVATARS.index("function nameMarkBuddyVisit("):AVATARS.index("function nameMarkBuddyHome(")]
+    home = AVATARS[AVATARS.index("function nameMarkBuddyHome("):AVATARS.index("//: **The larger faces have a life")]
+    assert "pose: nmb.pose, legs: nmb.legs" in visit
+    assert 'nmb.pose = "float";' in visit and 'buddy.dataset.pose = "float";' in visit
+    assert "atl-figure-box" not in visit.split("const sway = [];", 1)[1].split("sway.push", 1)[0]
+    assert "nmb.pose = visit.pose;" in home and "buddy.dataset.pose = visit.pose;" in home
+
+
+def test_an_act_is_eased_into_as_well_as_out_of():
+    # INBOX 619 (the owner: "it still snaps between behaviours and no
+    # behaviours"): the act's class goes on inside the hand-over, as it
+    # comes off inside one (INBOX 497).
+    assert "nameMarkBuddyBlend(buddy, () => buddy.classList.add(`nmb-act-${act}`), NMB_BLEND_IN_MS);" in AVATARS
+    assert "if (was) nameMarkBuddyBlend(buddy, () => buddy.classList.remove(`nmb-act-${was}`));" in AVATARS
+    ms = int(re.search(r"const NMB_BLEND_IN_MS = (\d+);", AVATARS).group(1))
+    assert 250 <= ms <= 500

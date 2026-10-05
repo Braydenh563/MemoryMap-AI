@@ -2930,19 +2930,33 @@ function nameMarkBuddyVisit(host) {
   //: that never line up (6.7s, 4.3s), so one is under way while the other
   //: turns; `rotate` and `translate` on the face's own box, which nothing
   //: else moves, so an act plays over them. Each starts half a swing in, at
-  //: rest. A face drawn from a name only: Atlas's layers have their own
-  //: loops. Script, not the stylesheet (the boot CSS is at its budget);
-  //: gone with the visit, and never under reduced motion or with the
-  //: companion's actions off.
+  //: rest. Atlas too (INBOX 619): its layers' own loops are under a pixel
+  //: for over a second at a time (atlas619-viewer.js: still 1,051 to
+  //: 1,787ms in the view), so it floats on the same two clocks. Script, not
+  //: the stylesheet (the boot CSS is at its budget); gone with the visit,
+  //: and never under reduced motion or with the companion's actions off.
   const face = buddy.querySelector(":scope > .nm-buddy-face");
   const sway = [];
-  if (face && typeof face.animate === "function" && !nameMarkIdleQuiet() && !buddy.querySelector(".atl-figure-box, .atl-classic-box")) {
+  if (face && typeof face.animate === "function" && !nameMarkIdleQuiet()) {
     const loop = (frames, ms) => face.animate(frames, { duration: ms, delay: -ms / 2, iterations: Infinity, direction: "alternate", easing: "ease-in-out" });
     sway.push(loop([{ rotate: "-2deg" }, { rotate: "2deg" }], 6700), loop([{ translate: "0 1.2px" }, { translate: "0 -1.4px" }], 4300));
   }
   const watch = new MutationObserver(mirror);
-  nmb.visit = { home: buddy.parentNode, next: buddy.nextSibling, watch, sway };
+  nmb.visit = { home: buddy.parentNode, next: buddy.nextSibling, watch, sway, pose: nmb.pose, legs: nmb.legs };
   buddy.classList.remove("nmb-dodge");
+  //: **Free of its perch in there** (INBOX 619, the owner: "in the enlarged
+  //: preview atlas is still hanging, it should be slightly separate from the
+  //: companion but still have the same life"). It came in holding the pose
+  //: of its perch: hanging by its hands from the card's top edge, sitting on
+  //: a drawn ledge, leaning on nothing. In the view it floats, clear of the
+  //: card's edges, with its float's own loops and the view's beat; the
+  //: perch's pose and legs go back with it (`nameMarkBuddyHome`). Asleep
+  //: lying or curled, it stays so, and gets up into the float.
+  if (nmb.pose !== "stand") {
+    nmb.pose = "float";
+    buddy.dataset.legs = nmb.legs = "";
+    if (!/^(lie|curl)/.test(buddy.dataset.pose || "")) buddy.dataset.pose = "float";
+  }
   host.appendChild(buddy);
   mirror();
   watch.observe(buddy, { attributes: true, attributeFilter: ["data-pose"] });
@@ -2958,6 +2972,12 @@ function nameMarkBuddyHome() {
   for (const anim of visit.sway || []) anim.cancel();
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
+  //: Back to its perch's pose (the view floated it, `nameMarkBuddyVisit`).
+  if (visit.pose && nmb.pose !== visit.pose) {
+    nmb.pose = visit.pose;
+    buddy.dataset.legs = nmb.legs = visit.legs || "";
+    if (!/^(lie|curl)/.test(buddy.dataset.pose || "")) buddy.dataset.pose = visit.pose;
+  }
   buddy.querySelector(":scope > .nm-say")?.remove();
   if (visit.home?.isConnected) visit.home.insertBefore(buddy, visit.next?.parentNode === visit.home ? visit.next : null);
   nameMarkBuddyRelease();
@@ -6905,7 +6925,12 @@ function nameMarkBuddyAct(act, ms) {
     buddy.dataset.variant = String(v);
   } else delete buddy.dataset.variant;
   if (act === "tilt") nameMarkBuddyTilt(Math.random() < 0.5 ? -0.7 : 0.7, (ms || spec.ms) - 400);
-  buddy.classList.add(`nmb-act-${act}`);
+  //: **Into an act eased, as out of one** (INBOX 619, the owner: "it still
+  //: snaps between behaviours and no behaviours"). An act's class takes
+  //: over parts whose idle loop was mid-swing, and its first frame put them
+  //: at the act's start in one frame; `nameMarkBuddyBlend` hands each such
+  //: part over from where it was, in `NMB_BLEND_IN_MS`.
+  nameMarkBuddyBlend(buddy, () => buddy.classList.add(`nmb-act-${act}`), NMB_BLEND_IN_MS);
   //: A new act starts with its arms (INBOX 469): a small lift and back.
   if (act !== was && !NMB_FACELESS_ACTS.includes(act) && !NMB_RESTING_ACTS.has(act) && !nameMarkBuddyStill()) nameMarkBuddyLimbs(buddy, "cue", 420);
   nmb.act = act;
@@ -7840,6 +7865,8 @@ function nameMarkBuddyAsleep(buddy) {
 //: (atlas.js, `setAtlasMood`, INBOX 600: "it might sway or do something for
 //: a couple seconds but will then snap still").
 const NMB_BLEND_MS = 480;
+//: Into an act: shorter, so a quick one (a hop, 800ms) still reads as itself.
+const NMB_BLEND_IN_MS = 300;
 const NMB_BLEND_PROPS = ["transform", "translate", "rotate", "scale", "opacity"];
 function nameMarkBuddyBlend(buddy, change, ms = NMB_BLEND_MS) {
   const roots = (Array.isArray(buddy) ? buddy : [buddy]).filter((el) => el && typeof el.getAnimations === "function");

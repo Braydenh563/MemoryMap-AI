@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Atlas, in its large view: the companion visiting it floats free in the middle of the view, clear of the card's edges, instead of hanging from its perch's edge or sitting on a drawn ledge, and sways and bobs on the view's two clocks between its acts; its perch's pose comes back with it when the view closes. An act is eased into over 0.3s, as it was already eased out of (INBOX 619).
 - Atlas: lying down and curled up, the whole figure turns as one; the lower body and her waist wisps no longer turn 16 to 42 degrees off the torso, which stayed nearly upright while the lower body lay half off it (INBOX 619).
 - Atlas: the torso and the lower body meet as one silhouette (INBOX 615, and 619 for her). The lower body moves inside the body's own sway and breath, and its own swing (the hem's wind, the walk, a pose's lean) is a shear about the join rather than a turn, so the waist stays under the torso while the hem moves; his cloak is a little narrower at the waist.
 - Atlas: its eyes never go blank. Changing to or from the heart eyes, the iris and the heart now cross over on one clock, on the companion and in its wake and doze; before, the companion's iris cut out at once while the heart faded in, leaving a white eye for up to half a second (INBOX 619).

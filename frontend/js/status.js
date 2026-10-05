@@ -2674,7 +2674,17 @@ function taskKey(task) {
 //: for work nobody asked for and nothing waits on; filing a note already has
 //: its own line under the composer. They still get a row in the run list and
 //: still say so when they fail.
-const QUIET_TASK_KINDS = new Set(["job-warm-filing", "job-file-entry", "filing-late"]);
+//: The owner, 2026-10-05, with a screenshot of the panel open over the
+//: dashboard on every login for "Loading the embedding model": the same rule
+//: for every start-up and upkeep task the app runs on its own (the search
+//: model, the index, the local search engine, image captions and page reads),
+//: and for downloads started in Settings, which show their progress there.
+//: The status bar's activity item still lists them; a failure still says so.
+const QUIET_TASK_KINDS = new Set([
+  "job-warm-filing", "job-file-entry", "filing-late",
+  "embeddings", "embedding-model", "reindex", "searxng-start", "searxng",
+  "job-caption", "caption", "page-read", "pull", "extra",
+]);
 
 function noticeTaskTransitions(running, history) {
   const now = new Map(running.map((task) => [taskKey(task), task]));

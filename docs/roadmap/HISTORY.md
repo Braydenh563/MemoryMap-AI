@@ -43850,6 +43850,15 @@ record.)
      link stayed on the unturned box even after release);
      `tests/test_wb_rotate_links.py`.
 
+653. **The owner, 2026-10-05, verbatim, with a screenshot of Agent activity
+     open over the dashboard on "Loading the embedding model".** "is there a
+     way to not have this show up or to show up minimised every time I log
+     in??" Fixed: start-up and upkeep tasks (the search model's load, the
+     index, the local search engine, image captions, page reads) and Settings
+     downloads join the quiet kinds (`QUIET_TASK_KINDS`, status.js): listed in
+     the status bar's activity item, not opened over the page or toasted on
+     finish; a failure still says so. `tests/test_note_flow_0432.py`.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

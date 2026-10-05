@@ -250,7 +250,11 @@ def test_the_notes_chrome_says_less():
     assert "spacesCache.length > 1 && notesSpanSpaces()" in cards
     # Housekeeping does not open the activity panel or toast its finish.
     status = _read("status.js")
-    assert 'QUIET_TASK_KINDS = new Set(["job-warm-filing", "job-file-entry", "filing-late"])' in status
+    assert 'const QUIET_TASK_KINDS = new Set([\n  "job-warm-filing", "job-file-entry", "filing-late",' in status
+    # Start-up upkeep too: the search model's load opened the panel on every
+    # login (INBOX 653).
+    for kind in ("embeddings", "embedding-model", "reindex", "job-caption"):
+        assert f'"{kind}"' in status.split("const QUIET_TASK_KINDS", 1)[1].split("]);", 1)[0], kind
     assert "if (!QUIET_TASK_KINDS.has(task.kind)) openPanelForRun(run);" in status
     # The sidebar fold is remembered and its peek icon is a pin.
     sheets = _read("sheets-selects.js")

@@ -34,6 +34,7 @@ from memorymap.core.database import (
     DocumentBookmark,
     DocumentLink,
     DocumentRevision,
+    Reminder,
     utcnow,
     like_escape,
 )
@@ -741,6 +742,11 @@ def delete_document(document_id: int, session: Session = Depends(get_session)) -
         (DocumentBookmark, DocumentBookmark.document_id),
     ):
         session.query(model).filter(column == document.id).delete(synchronize_session=False)
+    #: A reminder about the document stays (its text is still what the person
+    #: wanted to be told); it just no longer points anywhere (row 15).
+    session.query(Reminder).filter(Reminder.document_id == document.id).update(
+        {Reminder.document_id: None}, synchronize_session=False
+    )
     session.delete(document)
     session.commit()
     return {"deleted": True}

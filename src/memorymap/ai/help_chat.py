@@ -189,7 +189,9 @@ HELP_TOPICS: list[dict] = [
             "and widgets such as reminders, recent notes, the weekly AI digest, "
             "stats and your streak. Customise, beside the search box, has Edit "
             "layout and Widgets to show, hide and rearrange them; the layout is "
-            "remembered per user."
+            "remembered per user. The Most used widget lists the ten notes you "
+            "opened or asked about most, with This month and All time buttons "
+            "above it; the choice is remembered on this device."
         ),
         "badge": {"label": "Dashboard", "tab": "dashboard"},
     },
@@ -641,7 +643,11 @@ HELP_TOPICS: list[dict] = [
             "most\". These are counted from your data rather than generated, so "
             "the numbers are exact, the answer is instant, and it works even "
             "with no AI model running at all. Private and binned notes are never "
-            "counted."
+            "counted. Ask a counting question and a chart goes under the answer "
+            "(\"how many notes per category\", \"notes per month\", \"chart my "
+            "race times\"): a bar or a line drawn from the same counted numbers, "
+            "with Data to open them as a table and Save as PNG to keep the picture. "
+            "A trend needs at least three notes with a number in them."
         ),
         "badge": {"label": "Chat", "tab": "chat"},
     },
@@ -780,7 +786,10 @@ HELP_TOPICS.extend(
                 "then picking it from the list. The link shows on both notes as a "
                 "connection, with a menu to add a reason, open or remove it. Atlas "
                 "also suggests links as you write, and every note's menu has Link "
-                "to. The Graph draws all of them. A note's menu also has Copy wiki "
+                "to. The Graph draws all of them. A note's menu also has Explain this "
+                "note, which reads the note aloud and then says what it links to and "
+                "why, from the reason on each link (no AI model needed; press it again "
+                "or Stop to cancel), Copy wiki "
                 "link (a [[link]] for another note) and Copy app link (an address "
                 "that opens the note in the app). Delete the [[name]] and its link "
                 "goes with it; rename a note and a toast offers to rename the "
@@ -791,9 +800,9 @@ HELP_TOPICS.extend(
                 "[[link]] cannot hold). Suggestions (Find links to add on the "
                 "Dashboard's Loose ends, Suggest links in the Graph's options, or "
                 "the command palette) is one sheet of four kinds: Links lists pairs "
-                "worth connecting with every reason (similar wording, people or "
-                "things both name, a note both link with, a rare tag both carry) "
-                "and how sure it is; Tensions, notes that may disagree; Names, one "
+                "worth connecting with every reason (shared wording, names, links or "
+                "tags) and how sure it is (Add a reason, Link, or Link all above 70% "
+                "in the head); Tensions, notes that may disagree; Names, one "
                 "person or thing named two ways, with Merge; and Link types, a link whose own "
                 "sentence says \"for example\" or \"continues\". Accepting or "
                 "dismissing any of them teaches it which reasons to trust in your "
@@ -880,8 +889,12 @@ HELP_TOPICS.extend(
                 "the note starts with its outline. Save your own from Settings, "
                 "Templates (New template in the pane's bar), where Draft with Atlas writes a template from its name "
                 "and one line (press it again for another version; nothing is saved "
-                "until you add it). The picker's Manage templates opens that page. A "
-                "new document offers its own gallery of templates too."
+                "until you add it). The picker's Manage templates opens that page. In a "
+                "template, {date} becomes today's date, {clipboard} what you last "
+                "copied, and {cursor} marks where the cursor lands. A "
+                "new document offers its own gallery of templates too, and its "
+                "templates take {{clipboard}} and {{cursor}} the same way. While you "
+                "edit a note, its word count and reading time sit in the form's foot."
             ),
             "badge": {"label": "Templates", "section": "templates"},
         },
@@ -1516,7 +1529,9 @@ HELP_TOPICS.extend(
                 "delete together, and Select all ticks the whole page; the "
                 "selection bar's Tags adds or removes tags on every selected note, "
                 "and its ... menu adds to or removes from Favourites, archives, "
-                "publishes drafts or removes a tag, each undoable."
+                "publishes drafts, moves the notes to another space (Move to space) or "
+                "saves them as a zip of Markdown files (Export selection), each "
+                "move undoable."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1576,11 +1591,15 @@ HELP_TOPICS.extend(
                 "high) and a repeat (once, daily, weekly or monthly), and use Quick "
                 "set: in 30 min, in 1 hour, in 3 hours, tonight 7pm, tomorrow 9am, "
                 "tomorrow 2pm, this weekend or next week. A due reminder can be "
-                "snoozed one hour or to tomorrow 9am, edited in place, or ticked "
+                "snoozed one hour, ten minutes (its menu) or to tomorrow 9am (Undo in the toast puts the time back), edited in place, or ticked "
                 "done; completed ones page at the foot. Add to calendar (.ics), on "
                 "a reminder's menu, saves it as a calendar file, and Add all to "
-                "calendar (.ics) in the More menu saves every upcoming one. Press m "
-                "then r to jump here from anywhere."
+                "calendar (.ics) in the More menu saves every upcoming one. A note, a "
+                "document or a board can have one too: Remind me in its menu (the "
+                "Library's cards, and the Notes card) asks for the words and when "
+                "(in an hour, tomorrow 9am or next week); the reminder then shows "
+                "what it is about, and Open its document or Open its board is in its "
+                "menu. Press m then r to jump here from anywhere."
             ),
             "badge": {"label": "Reminders", "tab": "reminders"},
         },

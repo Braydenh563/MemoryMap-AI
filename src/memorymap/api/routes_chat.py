@@ -56,7 +56,7 @@ from memorymap.ai.grounding import (
 )
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
-from memorymap.core import deps, docview, model_gate
+from memorymap.core import deps, docview, model_gate, opens
 from memorymap.core.database import (
     LIKE_ESCAPE,
     Attachment,
@@ -1346,6 +1346,12 @@ def _prepare(
         entry.access_count += 1
     manager.log_action(session, "queried", surface, detail=question)
     session.commit()
+    #: And in this month's opens (section 17, row 5), the half a count cannot
+    #: say: when. Ids only; best effort, like the count it sits beside.
+    try:
+        opens.record_many(config.data_dir, [entry.id for entry in entries])
+    except OSError as exc:
+        logging.getLogger("memorymap.chat").warning("Could not count the matches: %s", type(exc).__name__)
     logging.getLogger("memorymap.chat").info(
         "chat: %d note(s) via %s search for %r",
         len(entries),
@@ -1364,7 +1370,7 @@ def _prepare(
         #: prompt below hands it to the model as ground truth rather than
         #: asking it to work the numbers out.
         "stats": (
-            {"kind": stats.kind, "text": stats.text, "facts": stats.facts}
+            {"kind": stats.kind, "text": stats.text, "facts": stats.facts, "chart": stats.chart}
             if stats is not None
             else None
         ),
@@ -1940,6 +1946,9 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             "when_phrase": prepared["when_phrase"],
             "as_of": prepared.get("as_of"),
             "as_of_revisions": prepared.get("as_of_revisions") or {},
+            #: A bar or a line for a counting or trend question
+            #: (`ai/stat_charts.py`); the page draws it under the answer.
+            "chart": (prepared["stats"] or {}).get("chart"),
             "answered_by": (
                 "needle (tools only)"
                 if tools_only and will_answer

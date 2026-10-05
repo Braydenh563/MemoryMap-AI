@@ -2049,6 +2049,24 @@ function aiStatusState() {
 // rendering fault. The ellipsis says "waiting" while perfectly still.
 const AI_STATUS_GLYPH = { idle: "…", ok: "✓", warn: "!", error: "✕", off: "" };
 
+//: What the last answer cost, in the dot's popup (WORLD_CLASS_PLAN row 31, item
+//: 99 (c)): the time, the model, and how much of its context window the prompt
+//: used. Set by a finished chat turn (`noteAiTurn`); nothing is invented before one.
+let lastAiTurn = null;
+
+function noteAiTurn(turn) {
+  lastAiTurn = turn;
+  renderAiPill();
+}
+
+function aiTurnLine(turn) {
+  if (!turn) return "";
+  const used = turn.prompt > 0 && turn.context > 0
+    ? `, using ${turn.prompt.toLocaleString("en-US")} of ${turn.context.toLocaleString("en-US")} tokens of context (${Math.round((turn.prompt / turn.context) * 100)}%)`
+    : "";
+  return `Last answer: ${(turn.elapsedMs / 1000).toFixed(1)} s${turn.model ? ` on ${turn.model}` : ""}${used}.`;
+}
+
 function renderAiPill() {
   const button = $("ai-status");
   if (!button) return;
@@ -2065,7 +2083,8 @@ function renderAiPill() {
   $("ai-status-label").textContent = summary;
   // button.title = `${state.title}\n\n${state.detail}`;
   $("ai-status-title").textContent = state.title;
-  $("ai-status-detail").textContent = state.detail;
+  const lastTurn = aiTurnLine(lastAiTurn);
+  $("ai-status-detail").textContent = lastTurn ? `${state.detail}\n\n${lastTurn}` : state.detail;
   renderChatActiveModelBadge();
   nudgeEmbeddingProblem();
 }
@@ -2325,6 +2344,15 @@ function toggleAiStatusPopup(force) {
   // the CSS hover rule would then have to fight. The stylesheet owns whether
   // the popup is shown; this only records that it has been pinned open.
   popup.classList.toggle("pinned", open);
+  //: In the phone's header the popup hangs from a dot that is not at the window's
+  //: left, and a message wider than the room ran off its edge (93 px at 390, found
+  //: measuring the last-answer line): nudged back inside by `translate`.
+  popup.style.translate = "";
+  if (open) {
+    const box = popup.getBoundingClientRect();
+    const shift = box.left < 8 ? 8 - box.left : box.right > innerWidth - 8 ? innerWidth - 8 - box.right : 0;
+    if (shift) popup.style.translate = `${shift}px`;
+  }
 }
 
 // One plain-English line: which search engine is active and whether it works.
@@ -2530,9 +2558,11 @@ function renderSettings() {
   const backend = backendLabel(status);
   //: The dot is the line's class, as on the search engine line under it,
   //: not a typed "●"/"○" beside a CSS dot: two alphabets for one signal.
+  //: Not running says why when the provider said (section 21 row 12): a wrong
+  //: address and an absent server are different advice.
   ollamaLine.textContent = status.ollama_running
     ? `${backend} is running`
-    : `${backend} isn't running`;
+    : status.ollama_problem || `${backend} isn't running`;
   ollamaLine.className = `status ${status.ollama_running ? "ok" : "off"}`;
   renderBackendPicker(status);
   const embeddingError = $("embedding-error");
@@ -2544,17 +2574,22 @@ function renderSettings() {
   //: the owner's report was exactly that case ("no nomic-embed-text
   //: suggested") and the button below only exists while it is.
   if (status.embedding_error && /^Search by meaning/.test(status.embedding_error)) {
-    embeddingError.textContent =
-      `${status.embedding_error}. ` +
-      (status.ollama_running
-        ? `Or switch the search engine to ${EMBEDDING_FALLBACK_MODEL} below: smaller, and offline.`
-        : `Or start Ollama and pick ${EMBEDDING_FALLBACK_MODEL} as the search engine: smaller, and offline.`);
+    setLabel(
+      embeddingError,
+      `ph:warning ${status.embedding_error}. ` +
+        (status.ollama_running
+          ? `Or switch the search engine to ${EMBEDDING_FALLBACK_MODEL} below: smaller, and offline.`
+          : `Or start Ollama and pick ${EMBEDDING_FALLBACK_MODEL} as the search engine: smaller, and offline.`)
+    );
   } else if (status.embedding_error) {
-    embeddingError.textContent =
-      `Search engine problem: ${status.embedding_error}: semantic search is ` +
-      "falling back to keywords. Quick fix: switch the search engine below to " +
-      "an Ollama embedding model (download nomic-embed-text from the list), " +
-      "it runs fully offline. Full details in Settings → Logs.";
+    //: Through `setLabel`: `.notice` carries its icon as a child element.
+    setLabel(
+      embeddingError,
+      `ph:warning Search engine problem: ${status.embedding_error}: semantic search is ` +
+        "falling back to keywords. Quick fix: switch the search engine below to " +
+        "an Ollama embedding model (download nomic-embed-text from the list), " +
+        "it runs fully offline. Full details in Settings → Logs."
+    );
   }
   // The one-click version of the "quick fix" sentence above: only offered
   // when it can actually be carried out (Ollama has to be running to either

@@ -25,6 +25,21 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 - The bars at the top of every tab and Library view read as one quiet page head: the title with no divider after it, a count as plain muted words, a search box with a magnifier and no border until you type in it, the icon buttons together at the end and the one filled action last. The graph's display options are one aligned column with one head style, and Settings lists a long section's groups under its name in the sidebar (on a phone, in the section picker) instead of a strip that scrolled sideways; nothing in Settings scrolls sideways now.
+- Suggestions, Links: a suggested link is two note chips joined by an arrow (each opens its note), a small meter for how sure it is, Add a reason (the field opens by itself where Atlas has guessed one), Link and a dismiss; the head has Link all above 70%, which asks first. The row's styles moved to a lazy stylesheet, which also frees boot CSS (WORLD_CLASS_PLAN row 31, item 92).
+- Reminders: snoozing one (+1h, tomorrow, 10 minutes) has an Undo in its toast and in the status bar's pair, which puts the old time back even when it was already past; `PUT /reminders/{id}` takes `restore` for that (WORLD_CLASS_PLAN row 32).
+- AI status dot: its popup says what the last answer cost, "Last answer: 2.4 s on llama3.2, using 3,100 of 8,192 tokens of context (38%)", once a chat turn has finished. On a phone the popup also stays inside the window (it ran 93 px off the left edge at 390 wide) (WORLD_CLASS_PLAN row 31, item 99).
+- Settings, Account: Re-encrypt private notes, under Change your password. Changing your password keeps the key that encrypts your private notes, so a backup made earlier still opens them; Re-encrypt asks for your password, then moves every private note onto a new key and signs the other sessions out, all or nothing. It could only be reached through the API before (WORLD_CLASS_PLAN row 31, item 261).
+- Command palette: Paste as note saves what is on the clipboard as a note in one step, filed in the background, with Go to it and Undo; when the browser will not share the clipboard it opens Quick note instead (WORLD_CLASS_PLAN row 31, item 99).
+- Reminders: a reminder's menu has Snooze 10 minutes, beside the +1h and tomorrow buttons on its row (WORLD_CLASS_PLAN row 34, D8).
+- Notes: editing a note shows its word count and reading time in the form's foot, beside Cancel and Save (the count was words only), as a document's header does ("412 words · 2 min read"), live as you type. Templates, in Capture and for new documents, take `{clipboard}` (what you last copied; nothing when the browser will not say) and `{cursor}` (where the cursor lands), alongside `{date}` (WORLD_CLASS_PLAN row 30).
+- Notes: the selection bar's ... menu has Move to space and Export selection. Move to space sends the ticked notes (and boards and maps) to another space in one go: a note's category follows by name, its reminders and files go with it, search finds it in the new space at once, and Undo sends each back to the space it came from. Export selection saves the ticked notes as a zip of Markdown files, folders by category, as the whole export does. `POST /entries/move-space`, `POST /export/markdown` (WORLD_CLASS_PLAN row 30).
+- Settings, Search and index: the search engine's error is a notice with a warning icon, the same as the other warnings, not a red status line. When a model server does not answer, the Models status line says why in the server's own words ("Nothing answered at <address>. Check the address in Settings, Models, and that the server is running") instead of only "isn't running". Settings, About and the update dialog say how big the download is ("about 83 MB") before Update automatically is pressed (WORLD_CLASS_PLAN section 21 rows 1, 2, 12 and 13).
+- Reminders: a document or a board can have a reminder. Remind me is in a Library document card's menu, a board card's menu and a Documents list card's menu, and asks for the words and when (in an hour, tomorrow 9am, next week); the reminder row shows the document and has Open its document or Open its board. The Library's note card gains Remind me and Link to another, as the Notes card has. `POST /reminders` takes `document_id` (a board is a note, so it takes `entry_id`), `GET /reminders?document_id=` lists a document's, and deleting a document keeps its reminders as plain ones (WORLD_CLASS_PLAN row 15).
+- Ask: a counting or trend question ("how many notes per category this month", "notes per tag", "notes per week", "chart my race times", "plot my weight") gets a bar or a line under the answer, drawn from the same counted numbers with no model, so it cannot invent a value; Data opens them as a table and Save as PNG keeps the picture. A line needs at least three notes with a number in them, and times such as 24:10 are drawn as m:ss. The most-used tags and categories answers carry a bar too (WORLD_CLASS_PLAN section 17 row 4).
+- Categories: Manage categories shows Tidy suggestions from Atlas. A category whose notes are about the same things as another's can be merged into it, and one that has been empty for 30 days can be removed; nothing changes until you press Merge or Remove, which are the panel's own merge and delete with their Undo. Keep both and Keep it are remembered, and a category you made or renamed yourself is never suggested away. It reads no model, only the notes' meaning vectors.
+- Dashboard: the Most used widget has This month and All time buttons. This month lists the ten notes you opened or asked about most this month (a note opened from a search result, the graph, a link or its own page, and the notes an Ask matched); All time is the count it always showed. The choice is kept on this device, and a notebook with no opens yet this month shows All time until it has some.
+- Notes: Explain this note in a note's menu, under Connect. It reads the note aloud, says where it is filed, then names each note it links to, which way the link points and why, from the reason on the link. It needs no AI model, so it works with Atlas off; a private note's words and a linked private note's title are never read out. Press it again, or Stop, to cancel.
+- Settings: a Filing style choice (by topic, by project, by time; by topic stays the default and changes nothing). By project and by time add a rule and three examples to what Atlas reads when it files a note, steering its choice among your categories and the name of a new one; the by-meaning filing that never asks a model follows your notebook's own shape.
 - Mind maps: Branches from my notes. On a topic, Add, Branches from my notes… (or Ctrl+K) suggests up to five children found in your own notes, each saying which note it came from; with a model running it names a topic for each, without one the notes' titles are the suggestions. Tick the ones to keep and Add makes them under the topic, each with its source in its note, as one Undo step (the features audit's FEAT-13; WHITEBOARD_PLAN decision 36).
 - Whiteboard: connection points, like draw.io's. With Select, pointing at a shape, card or text box shows where a connector can attach, on the shape itself: a diamond's tips and side middles, a triangle's corners and sides, an ellipse's compass points (they were its box's corners, off the shape); drag from one to draw an elbow connector with an arrow to whatever you let go on, or to a free end. Links made before keep their ends. Moving both things a connector joins now moves its bends with them, in the same Undo step (WHITEBOARD_PLAN decision 35).
 - Whiteboard: smart guides line a dragged item up with drawn shapes too (a flowchart's boxes are shapes, and had nothing to snap to), and the third box of a row snaps to the spacing the first two set, with the two gaps marked while you drag; Alt still turns every guide off (WHITEBOARD_PLAN decision 34).
@@ -707,7 +722,6 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - The companion can be rested on a button: dropped on a Start something tile or a toolbar button at least as wide as it, it stands there, and the button still takes its click under its feet. A wide control nearby (the dashboard's find field) no longer throws it off a place you chose.
 - A generated companion's arms rest in its mood (open when happy, up when surprised, a hand to its chin, its head, an eye or its mouth when thinking, confused, sleepy or worried), easing from one to the next, and an act such as a wave hands them back to the mood's pose.
 - The companion's gaze reaches as far for every kind (further for a Large one), follows a little wider, and drifts back to looking ahead when you move away rather than snapping. The larger faces (the enlarged view, your Profile face, persona cards) now glance, blink, hop and, enlarged, wave now and then, and blink when the pointer comes onto them, from one shared timer that runs only while such a face is on screen; the enlarged view says what a face is and how to say hello rather than "A face of its own".
-- Atlas's hair now starts on the head: a short swept cap (masculine) or a soft parted cap (feminine) covers the crown down to a soft hairline, so the hair grows from the scalp instead of rising behind a bald dome.
 - The masculine Atlas reads as a star-being rather than a stiff mascot: his torso tapers from natural shoulders into a trail of nebula wisps instead of two pillar legs, his arms are slimmer with a soft bend and small relaxed hands, his eyes are softer, and he sways gently at rest.
 - Categories can be managed by hand: a Manage categories panel (from the Categories head in the notes sidebar, each category's menu, and Settings) renames, merges, splits (pick the notes, or review a split suggested from their tags) and deletes categories, asking where the notes go; notes move by ticking them and choosing Move to, or by dragging a note's category label onto another category. Every change can be undone.
 - Atlas can lie down to sleep on its own nebula stream, which gathers under it as a bed: sprawled with an arm behind his head (masculine) or curled on her side with her hands under her cheek (feminine), either way round, through in-between frames from sitting, and can also curl up where it sits.
@@ -860,7 +874,6 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - The feminine Atlas's hip sash sways on the compositor, as the tail and the breathing do, rather than repainting its layer every frame while the companion walks (176 paints a second down to 118, the same as the masculine look).
 - The About pane's "Take tour again" button is greyed out while the tour is off. The code that did it read `TOUR_ENABLED` at load, before tour.js (the last script) had defined it, so it never ran; it waits for the page now, and a load-order test holds the shape.
 - When the AI files a note (on capture, after new context, on re-evaluation) the move is now recorded in the note's history as the filer's, with the category it came from, so History shows where a note was filed and the filing can be undone; before, capture's filing left no record and the other two were recorded as yours with no values.
-- The corner companion is lighter while it walks: Atlas's steps are paced like its idle motion, 120 to 39 repaints and 60 to 20 layouts a second (round 5).
 
 ## [0.3.3] - 2026-09-26
 
@@ -2121,17 +2134,14 @@ Privacy: making a note private now encrypts the history it already had (its firs
   ended the underlying 40-against-42px difference for good was measured
   instead of taken: it moved eighteen buttons, put a half pixel into five
   graph controls and turned a text link into a box, so it was not taken.
-- A mind map can be laid out to the left, and on both sides of its trunk,
   which is the arrangement most mind-mapping tools are pictured in. The
   branches are split so the two sides hold about the same number of topics
   rather than the same number of branches, and a topic whose parent is to its
   right carries its branch bar on that side.
-- A mind map now answers the two gestures anybody tries on a blank part of it.
   A right-click on empty canvas opens a short menu of the things that apply to
   the map itself: add a topic here, tidy it, open every folded branch, fit
   everything. A double-click makes a new trunk where the pointer was, ready to
   be typed, and it stays where it was put. Both did nothing at all before.
-- A mind map now says which of its two kinds of connection it is talking
   about, everywhere it talks about one. A branch and a cross-link get the same
   ring, which names the kind it is on and offers the right three things for
   it, including turning a cross-link into a branch when the drawing gesture
@@ -2139,7 +2149,6 @@ Privacy: making a note private now encrypts the history it already had (its firs
   and a cross-link is drawn in the map's own ink, dashed, from the moment it
   is drawn rather than from the next time the board is opened. It used to take
   the pen's colour, so one drawn while the ink was red read as a branch.
-- The bar that appears over a selected topic on a mind map is a third of the
   width it was. It carried fourteen icons in one run, 959px of controls to
   describe a topic 95px wide, which at 1024 took 94% of the window and at no
   width drew a single word; the same fourteen controls now sit behind three
@@ -3766,7 +3775,6 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - A board or map exported into the image library arrives with a description
   naming the board it came from, so its card is no longer a picture over an
   empty strip on a notebook with no vision model (INBOX 184).
-- A board or map exported into the image library arrives with a description
   naming the board it came from, so its card is no longer a picture over an
   empty strip on a notebook with no vision model (INBOX 184).
 - Both of the mind map's radial rings sit on a ground of their own now, so a

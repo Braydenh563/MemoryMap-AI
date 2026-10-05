@@ -8813,7 +8813,7 @@ Link to another note with [[its first few words]]."></textarea>
                scratchpad/ui-sweeps/settingsia.js. -->
           <section class="settings-section hidden" id="settings-searchindex">
             <p id="search-engine-health" class="status"></p>
-            <p id="embedding-error" class="status error hidden"></p>
+            <p id="embedding-error" class="notice notice-warn hidden" role="status"></p>
             <!-- The text above already told people the fix ("switch to an
                  Ollama embedding model, download nomic-embed-text"), this
                  is that fix as a button instead of a set of instructions to
@@ -9256,7 +9256,9 @@ Link to another note with [[its first few words]]."></textarea>
               placeholder="Book: &#10;Author: &#10;Started: &#10;Thoughts:"></textarea>
             <p class="muted">
               Tip: write <code>{date}</code> anywhere in the template and it's
-              replaced with today's date when the template is applied.
+              replaced with today's date when the template is applied;
+              <code>{clipboard}</code> with what you have copied, and
+              <code>{cursor}</code> marks where the cursor lands.
             </p>
             <div class="row">
               <button id="template-add" class="small">Add template</button>
@@ -10989,6 +10991,19 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
                 <button type="button" id="settings-manage-tags" class="ghost small setting-control">Manage tags</button>
               </div>
+              <!-- Section 17 row 3: how Atlas carves notes up when it files
+                   (librarian.FILING_STYLES). By topic adds nothing to the prompt. -->
+              <div class="setting-row" id="filing-style-row">
+                <div class="setting-label">
+                  <span>Filing style</span>
+                  <small class="muted">How Atlas groups notes: by topic, by the project they serve, or by when they belong.</small>
+                </div>
+                <select id="pref-filing-style" class="small-select setting-control" aria-label="Filing style">
+                  <option value="topic">By topic</option>
+                  <option value="project">By project</option>
+                  <option value="time">By time</option>
+                </select>
+              </div>
               <label class="check-row">
                 <input type="checkbox" id="pref-ai-first-filing">
                 <span>Ask Atlas where each note belongs (more accurate, slower to save)</span>
@@ -11601,6 +11616,35 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="row">
                 <button id="account-change">Change password</button>
                 <span id="account-status" class="status" role="status"></span>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <div class="row help-head">
+                <h3>Re-encrypt private notes</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="rekey-help" aria-controls="rekey-help" aria-expanded="false"
+                  title="What re-encrypting does" aria-label="What re-encrypting does">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Moves every private note onto a new encryption key.</p>
+              <div class="help-body hidden" id="rekey-help" role="dialog" aria-label="What re-encrypting does">
+                <p>
+                  Changing your password keeps the key that encrypts your private
+                  notes, so a backup made before the change still opens them.
+                  Re-encrypting makes a new key and moves every private note
+                  onto it, so an old backup or a copied database file stops
+                  opening today's notes. Every other session is signed out, and
+                  nothing is changed unless every note checks out.
+                </p>
+              </div>
+              <label class="stacked-label" for="account-rekey-password">Current password</label>
+              <input id="account-rekey-password" type="password" autocomplete="current-password"
+                placeholder="Your current password or PIN">
+              <div class="row">
+                <button id="account-rekey" class="ghost small" type="button">Re-encrypt</button>
+                <span id="account-rekey-status" class="status" role="status"></span>
               </div>
             </div>
 

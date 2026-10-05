@@ -479,12 +479,14 @@ function renderEditForm(li, entry) {
   meta.className = "note-edit-meta";
   row.classList.add("note-edit-actions");
   meta.append(categoryChip, tagField);
+  //: Words and reading time while writing, at the foot beside Cancel and Save
+  //: (INBOX 616 put the count there; WORLD_CLASS_PLAN row 30 added the reading
+  //: time, as a document's header has it).
   const count = document.createElement("span");
   count.className = "char-count muted note-edit-count";
   count.setAttribute("aria-live", "polite");
   const countWords = () => {
-    const n = (textarea.value.match(/\S+/g) || []).length;
-    count.textContent = `${n} word${n === 1 ? "" : "s"}`;
+    count.textContent = noteReadingFacts(textarea.value);
   };
   countWords();
   textarea.addEventListener("input", countWords);
@@ -578,6 +580,67 @@ async function resolveCategoryChoice(select) {
   // both, so there is no null to check the way window.prompt needed.
   const name = await promptDialog("Name for the new category:", "", { confirmLabel: "Create" });
   return name || undefined;
+}
+
+//: **Template variables that need the page** (WORLD_CLASS_PLAN row 30, section
+//: 5 item 4): `{{clipboard}}` is what is on the clipboard when the template is
+//: used (nothing when the browser will not say), and `{{cursor}}` marks where the
+//: caret lands. Both spellings, `{{x}}` and the note templates' older `{x}`.
+//: Shared by the Capture box's templates (`useNoteTemplate`, app.js) and the documents' (documents.js); here, in a file with room, because app.js is at its byte cap.
+const TEMPLATE_CLIPBOARD = /\{\{clipboard\}\}|\{clipboard\}/g;
+const TEMPLATE_CURSOR = /\{\{cursor\}\}|\{cursor\}/;
+
+async function templateClipboard(text) {
+  if (!/\{\{?clipboard\}\}?/.test(String(text || ""))) return "";
+  try {
+    return await navigator.clipboard.readText();
+  } catch {
+    return ""; // refused, or not allowed here: the variable fills with nothing
+  }
+}
+
+//: `{ text, cursor }`: the text with the variables filled, and the caret's offset in
+//: it (null when there was no marker). The marker is found before the clipboard is
+//: put in, so pasted text that happens to say `{{cursor}}` is only text.
+function templateVariables(text, clipboard) {
+  const source = String(text || "");
+  //: Stray second markers go first, so only the template's own are ever read.
+  const fill = (part) => part.replace(new RegExp(TEMPLATE_CURSOR, "g"), "").replace(TEMPLATE_CLIPBOARD, () => clipboard);
+  const marker = TEMPLATE_CURSOR.exec(source);
+  if (!marker) return { text: fill(source), cursor: null };
+  const before = fill(source.slice(0, marker.index));
+  return { text: before + fill(source.slice(marker.index + marker[0].length)), cursor: before.length };
+}
+
+//: The Capture box, filled from a template: the replace question, the variables in, the
+//: box told, the caret where the template said (`useNoteTemplate`, app.js, calls it); the
+//: preview's own text is `noteTemplateFill`.
+async function fillNoteBox(box, template) {
+  if (!box) return;
+  //: Never silently overwrite what has already been typed: asked after the
+  //: choice is confirmed, so the question names a template the writer has
+  //: seen rather than one the list happened to land on.
+  if (box.value.trim()) {
+    const replace = await confirmDialog(
+      `Replace what you've already written with the “${template.name}” template?`,
+      { confirmLabel: "Replace", cancelLabel: "Keep my text" }
+    );
+    if (!replace) return;
+  }
+  const filled = templateVariables(noteTemplateFill(template), await templateClipboard(template.content));
+  box.value = filled.text;
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+  box.focus();
+  if (filled.cursor !== null) box.setSelectionRange(filled.cursor, filled.cursor);
+}
+
+//: "412 words · 2 min read" for a note's text; empty for none. The same 220 words
+//: a minute the document editor uses (`DOC_READING_WPM`), and never less than one.
+function noteReadingFacts(text) {
+  const words = (String(text).match(/\S+/g) || []).length;
+  if (!words) return "";
+  const minutes = Math.max(1, Math.round(words / 220));
+  return `${words.toLocaleString()} ${words === 1 ? "word" : "words"} · ${minutes} min read`;
 }
 
 function beginOrCompleteLink(entry) {

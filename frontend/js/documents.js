@@ -1515,12 +1515,26 @@ function docTemplateFill(template) {
 
 async function createDocument(template = null) {
   const body = template ? docTemplateFill(template) : { title: "Untitled", content: "" };
+  //: `{{clipboard}}` and `{{cursor}}` (templateVariables, app.js): the caret goes
+  //: where the template put it, the title is where it goes otherwise.
+  let cursor = null;
+  if (template) {
+    const filled = templateVariables(body.content, await templateClipboard(body.content));
+    body.content = filled.text;
+    cursor = filled.cursor;
+  }
   const doc = await apiJson("/documents", {
     method: "POST",
     body: JSON.stringify(body),
   });
   loadCaptureDocuments(); // so Capture can attach to it straight away
   await loadDocuments(doc.id);
+  if (cursor !== null) {
+    const surface = docSurface();
+    surface.focus?.();
+    surface.setSelection(cursor);
+    return;
+  }
   $("doc-title").focus();
   $("doc-title").select();
 }

@@ -77,19 +77,8 @@ $("history-close").addEventListener("click", () =>
   $("history-overlay").classList.add("hidden")
 );
 
-$("find-duplicates").addEventListener("click", findDuplicates);
-$("duplicate-threshold").addEventListener("input", (e) => {
-  $("duplicate-threshold-value").textContent = `${e.target.value}%`;
-});
-
-// From Help, go to the Settings section rather than swapping one dialog for
-// another: "how do I change a shortcut?" should end somewhere you can find
-// again, not in an overlay with no address.
-$("about-shortcuts").addEventListener("click", () => showSettingsSection("shortcuts"));
 $("shortcuts-reset").addEventListener("click", resetShortcuts);
-$("shortcuts-reset-settings").addEventListener("click", resetShortcuts);
 
-$("prefs-save").addEventListener("click", () => savePrefs());
 wirePrefsDirtyMarks();
 
 //: **Ctrl+S on the Preferences section**, which the section's own copy has
@@ -114,11 +103,6 @@ document.addEventListener(
   },
   true
 );
-$("pref-search-reset").addEventListener("click", () => {
-  $("pref-search-min-sim").value = 0.25;
-  $("pref-search-z-margin").value = 0.5;
-  savePrefs();
-});
 // Managed SearXNG: show what's there, and start/stop it on request.
 async function refreshSearxngHost() {
   const badge = $("searxng-host-state");
@@ -235,117 +219,8 @@ async function refreshSearxngHost() {
   portLine.classList.toggle("error", Boolean(port && !port.free && !port.held_by_searxng));
 }
 
-$("searxng-reinstall").addEventListener("click", async () => {
-  if (
-    !(await confirmDialog(
-      "Delete the SearXNG install and set it up again from scratch?\n\n" +
-        "Your settings file is kept, only the downloaded copy and its " +
-        "virtualenv are removed. Reinstalling takes a few minutes."
-    ))
-  )
-    return;
-  const status = $("searxng-host-status");
-  status.classList.remove("error");
-  setLabel(status, "ph:spin Removing the old install…");
-  try {
-    await apiJson("/websearch/searxng/reinstall", { method: "POST" });
-    status.textContent = "Reinstalling: this takes a few minutes.";
-    toast("Reinstalling SearXNG.");
-  } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
-  }
-  refreshSearxngHost();
-});
-
-$("searxng-start").addEventListener("click", async () => {
-  const status = $("searxng-host-status");
-  status.classList.remove("error");
-  status.textContent = "Starting SearXNG… the first run pulls the image, so give it a minute.";
-  $("searxng-start").disabled = true;
-  try {
-    const body = await apiJson("/websearch/searxng/start", { method: "POST" });
-    $("pref-searxng").value = body.url;
-    prefsCache = await apiJson("/preferences").catch(() => prefsCache);
-    status.textContent = `Running at ${body.url}: web search now uses it.`;
-    toast("SearXNG is running.");
-  } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
-  }
-  refreshSearxngHost();
-});
-
-$("searxng-stop").addEventListener("click", async () => {
-  const status = $("searxng-host-status");
-  status.classList.remove("error");
-  status.textContent = "Stopping…";
-  try {
-    await apiJson("/websearch/searxng/stop", { method: "POST" });
-    $("pref-searxng").value = "";
-    prefsCache = await apiJson("/preferences").catch(() => prefsCache);
-    status.textContent = "Stopped: web search is back on DuckDuckGo.";
-  } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
-  }
-  refreshSearxngHost();
-});
-
-// Find a running SearXNG so the user never has to work out the wiring.
-$("searxng-detect").addEventListener("click", async () => {
-  const status = $("searxng-status");
-  const typed = $("pref-searxng").value.trim();
-  status.classList.remove("error");
-  status.textContent = typed ? "Testing that URL…" : "Looking for a local SearXNG…";
-  const query = typed ? `?url=${encodeURIComponent(typed)}` : "";
-  const body = await apiJson(`/websearch/detect-searxng${query}`, {
-    method: "POST",
-  }).catch((error) => ({ found: false, detail: error.message }));
-  if (body.found) {
-    $("pref-searxng").value = body.url;
-    prefsCache = await apiJson("/preferences").catch(() => prefsCache);
-    status.textContent = `Connected to ${body.url}`;
-  } else {
-    status.classList.add("error");
-    status.textContent = body.detail || "No SearXNG found.";
-  }
-});
-$("profile-delete").addEventListener("click", deleteProfile);
-$("export-json").addEventListener("click", () => downloadExport("json"));
-$("export-csv").addEventListener("click", () => downloadExport("csv"));
-$("chat-model-apply").addEventListener("click", applyChatModel);
-//: `change`, not `input`: a number box fires `change` when the value is
-//: committed (Enter, or focus leaving), which is the moment somebody means it.
-//: `input` would PUT once per keystroke while they type 16384.
-$("model-context-window")?.addEventListener("change", saveModelContextWindow);
-$("llm-provider-apply").addEventListener("click", applyBackendChoice);
-// Mark the fields dirty on any edit so the five-second status poll stops
-// rewriting them underneath the person typing an address into them.
-$("llm-base-url").addEventListener("input", () => (backendFieldsDirty = true));
-$("llm-provider-select").addEventListener("change", () => {
-  backendFieldsDirty = true;
-  // Switching the dropdown should re-suggest that backend's usual address
-  // rather than leave the other one's sitting there looking authoritative.
-  const defaults = (modelStatus && modelStatus.provider_default_base_urls) || {};
-  $("llm-base-url").value = "";
-  $("llm-base-url").placeholder = defaults[$("llm-provider-select").value] || "Default address";
-});
-$("utility-model-apply").addEventListener("click", applyUtilityModel);
-$("feature-models-reset").addEventListener("click", resetAllFeatureModels);
 $("draft-model").addEventListener("click", () => openFeatureModelSheet("writing"));
 wireFeatureModelSelects();
-$("vision-model-apply").addEventListener("click", applyVisionModel);
-$("ocr-model-apply")?.addEventListener("click", applyOcrModel);
-$("embedding-apply").addEventListener("click", applyEmbeddingBackend);
-$("utility-model-select").addEventListener(
-  "change",
-  () => ($("utility-model-select").dataset.userChosen = "1")
-);
-$("vision-model-select").addEventListener(
-  "change",
-  () => ($("vision-model-select").dataset.userChosen = "1")
-);
 
 // Wave N: improve-writing, link suggestions.
 $("improve-btn").addEventListener("click", () => openImprove($("entry-content")));
@@ -424,8 +299,6 @@ document.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeNavHistoryMenu();
 });
-$("settings-nav-back")?.addEventListener("click", () => stepTabHistory(-1));
-$("settings-nav-forward")?.addEventListener("click", () => stepTabHistory(1));
 // Seed the stack with wherever the app opened, or the first tab clicked has
 // nothing behind it and Back stays dead until the second navigation, which
 // reads as the button being broken rather than empty.
@@ -1006,19 +879,6 @@ function maybeShowOnboarding() {
   });
 }
 
-// Two buttons, two behaviours, each the one its own words name. Settings →
-// Help has "Replay the welcome" and Settings → About has "Take tour again";
-// only the first was ever wired, so the About one was a button that did
-// nothing at all (found by listing every id in index.html that no JS file and
-// no stylesheet mentions), and wiring both to the same call then made the
-// About one say "tour" and open the welcome card instead. They are not the
-// same thing: the card is five slides about what MemoryMap is, the tour is
-// anchored cards on the real controls. So the welcome button opens the
-// welcome and the tour button opens the tour.
-$("show-guide-btn")?.addEventListener("click", () => {
-  closeSettingsModal();
-  openOnboarding();
-});
 //: The third door into the tour, and it was the one left open (the owner,
 //: 2026-09-21: "the take the tour again button in the about settings page
 //: isnt disabled"). Same flag, same words as the replay strip's buttons.
@@ -1037,19 +897,6 @@ onDomReady(() => {
       aboutTour.setAttribute("aria-label", aboutTour.title);
     }
   }
-});
-
-$("about-take-tour")?.addEventListener("click", () => {
-  if (typeof TOUR_ENABLED !== "undefined" && !TOUR_ENABLED) return;
-  closeSettingsModal();
-  // A frame later, for the same reason tour.js's own replay strip waits: the
-  // first step's rectangle is measured against the page the modal was
-  // covering, and a step measured while the modal is still up is dropped for
-  // having nothing on screen to point at.
-  requestAnimationFrame(() => {
-    if (typeof openTour === "function") openTour("basics");
-    else openOnboarding();
-  });
 });
 
 // Keyboard-shortcuts cheat-sheet (press ?), a learnability aid.
@@ -1925,21 +1772,6 @@ for (const [id, key] of [["entry-title", "captureDraftTitle"], ["entry-tags", "c
   });
 }
 
-$("export-md").addEventListener("click", () => downloadExport("markdown"));
-//: One step (INBOX 464 (18)): the button opens its picker and choosing
-//: starts the import. The folder picker posts through the same function,
-//: the only difference is which input it reads, so `importMarkdown` takes
-//: the id rather than growing a second copy of the upload/report sequence.
-$("import-md").addEventListener("click", () => $("import-md-files").click());
-$("import-md-files").addEventListener("change", () => importMarkdown());
-$("import-md-folder-btn").addEventListener("click", () => $("import-md-folder").click());
-$("import-md-folder").addEventListener("change", () => importMarkdown("import-md-folder"));
-$("import-dir")?.addEventListener("click", importDirectory);
-$("export-backup-zip")?.addEventListener("click", () => downloadExport("backup"));
-$("import-document").addEventListener("click", () => $("import-document-file").click());
-$("import-document-file").addEventListener("change", () => importDocument());
-$("backup-now").addEventListener("click", backupNow);
-
 $("sketch-btn").addEventListener("click", openSketch);
 $("sketch-close").addEventListener("click", closeSketch);
 $("sketch-save").addEventListener("click", saveSketch);
@@ -2445,10 +2277,3 @@ function singleKeysOn() {
 }
 
 $("pref-single-keys").checked = singleKeysOn();
-$("pref-single-keys").addEventListener("change", (event) => {
-  try {
-    localStorage.setItem("singleKeys", event.target.checked ? "on" : "off");
-  } catch {
-    // Storage blocked: the switch holds for this session only.
-  }
-});

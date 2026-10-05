@@ -14,7 +14,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-WIRING = (ROOT / "frontend" / "js" / "settings-wiring.js").read_text(encoding="utf-8")
+#: The import buttons' listeners moved to settings-controls.js (2026-10-05,
+#: the boot gzip budget), so the two files are read as one text.
+WIRING = (ROOT / "frontend" / "js" / "settings-wiring.js").read_text(encoding="utf-8") + "\n" + (
+    ROOT / "frontend" / "js" / "settings-controls.js"
+).read_text(encoding="utf-8")
 DATA = (ROOT / "frontend" / "js" / "settings-data.js").read_text(encoding="utf-8")
 
 PAIRS = (

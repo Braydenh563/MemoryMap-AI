@@ -268,58 +268,6 @@ function renderEmblemWhenShown(holder, size, animate) {
 
 // --- wiring --------------------------------------------------------------------
 
-$("account-change").addEventListener("click", changePassword);
-//: "Ask for a password when the app opens". Off needs the current password,
-//: asked through the lock screen's card; on needs nothing.
-$("account-password-on-open").addEventListener("change", async (e) => {
-  const box = e.target;
-  const wanted = box.checked;
-  box.checked = !wanted; // the server's answer decides what it shows
-  try {
-    if (wanted) {
-      await apiJson("/auth/password-on-open", {
-        method: "POST",
-        body: JSON.stringify({ enabled: true }),
-      });
-      autoSessionOffered = false;
-      box.checked = true;
-      toast("The app asks for your password when it opens.");
-    } else {
-      const done = await askPasswordPrompt({
-        title: "Stop asking for a password",
-        message: "Enter your password to open the app on this computer without it.",
-        submitLabel: "Turn off",
-        submit: (password) =>
-          apiJson("/auth/password-on-open", {
-            method: "POST",
-            body: JSON.stringify({ enabled: false, current_password: password }),
-            ownsAuthErrors: true,
-          }),
-      });
-      if (done) {
-        box.checked = false;
-        toast("This computer opens the app without a password. Private notes still ask.");
-      }
-    }
-  } catch (error) {
-    toast(error.message, true);
-  }
-  renderAccount().catch(() => {});
-});
-$("account-idle-ttl").addEventListener("change", (e) => {
-  setPreference("session_idle_ttl_minutes", Number(e.target.value));
-});
-$("account-lock-all").addEventListener("click", async () => {
-  //: With "Ask for a password when the app opens" off, this computer gets
-  //: back in without one (only other devices and private notes need it).
-  const back = autoSessionOffered
-    ? "Other devices will need your password to get back in, and private notes will lock."
-    : "You'll need your password to get back in.";
-  if (!(await confirmDialog(`End every session, including this one? ${back}`))) return;
-  await apiJson("/auth/lock-all", { method: "POST" }).catch(() => {});
-  localStorage.removeItem("token");
-  location.reload();
-});
 // Enter anywhere in the change-password form submits it.
 for (const id of ["account-current", "account-new", "account-confirm"]) {
   $(id).addEventListener("keydown", (e) => {
@@ -1986,28 +1934,6 @@ initAutoGrow(); // capture + magic-add boxes follow their content
 // dismissed.
 revealTab("dashboard");
 
-$("local-only-ai").addEventListener("change", async (e) => {
-  const on = e.target.checked;
-  await apiJson("/preferences", {
-    method: "PUT",
-    body: JSON.stringify({ local_only_ai: on }),
-  }).catch((error) => toast(error.message, true));
-  // Say it plainly on the way out of the safe state. Turning the lock ON is
-  // unremarkable; turning it OFF is the moment worth naming, because the app's
-  // central promise stops being enforced at exactly that click.
-  toast(
-    on
-      ? "Atlas is locked to this machine."
-      : "Off: MemoryMap will now let you point Atlas at a server on the internet."
-  );
-  refreshModelStatus();
-});
-$("task-history-clear").addEventListener("click", async () => {
-  await apiJson("/tasks/history/clear", { method: "POST" }).catch((e) =>
-    toast(e.message, true)
-  );
-  renderTasks();
-});
 // Quit, from either place it is offered: the top bar (§36D) and Settings →
 // System. One handler, bound to both, rather than two copies that drift.
 async function quitApp() {
@@ -2031,133 +1957,10 @@ async function quitApp() {
     "<h1>MemoryMap has stopped.</h1>" +
     "<p>Your notes are saved. You can close this tab.</p></div>";
 }
-$("app-quit").addEventListener("click", quitApp);
 $("quit-btn")?.addEventListener("click", quitApp);
 for (const button of document.querySelectorAll("#chat-mode-seg button")) {
   button.addEventListener("click", () => setChatMode(button.dataset.chatMode));
 }
-// Web search saves on change rather than behind a Save button: there are two
-// controls, and a checkbox that needs a second click elsewhere to take effect
-// is the shape of "this control does nothing" that keeps getting reported.
-$("pref-web-search").addEventListener("change", saveWebSearchSettings);
-$("pref-searxng").addEventListener("change", saveWebSearchSettings);
-
-$("pref-update-check").addEventListener("change", (e) =>
-  setPreference("update_check_enabled", e.target.checked)
-);
-$("update-check-now").addEventListener("click", () => checkForUpdate());
-$("update-apply-now").addEventListener("click", async () => {
-  const button = $("update-apply-now");
-  const status = $("update-check-status");
-  button.disabled = true;
-  const ok = await applyUpdateNow((state) => {
-    if (status) {
-      status.textContent = state.total_bytes
-        ? `${state.step} (${Math.round((state.done_bytes / state.total_bytes) * 100)}%)`
-        : state.step;
-    }
-  });
-  if (!ok) {
-    // Failed (offline, GitHub unreachable, no asset), never leave the
-    // button stuck disabled over a real network error someone can just
-    // retry once they're back online.
-    button.disabled = false;
-    toast((status && status.textContent) || "Couldn't apply the update.", true);
-  }
-});
-$("pref-auto-update").addEventListener("change", (e) =>
-  setPreference("auto_update_enabled", e.target.checked)
-);
-$("pref-update-channel-main").addEventListener("change", (e) =>
-  setPreference("update_channel", e.target.checked ? "main" : "stable")
-);
-// "Choose a specific version…" fetches the release list only on demand, 
-// not on every Settings open, so leaving this tab open doesn't mean
-// repeated GitHub calls, same restraint as the rest of this app's opt-in
-// network features.
-$("update-show-versions").addEventListener("click", async () => {
-  const select = $("update-version-select");
-  const installBtn = $("update-install-version");
-  const status = $("update-version-status");
-  status.textContent = "Loading releases…";
-  const result = await apiJson("/update/releases", { silent: true }).catch(() => null);
-  if (!result || !result.available) {
-    select.classList.add("hidden");
-    installBtn.classList.add("hidden");
-    status.textContent =
-      result?.reason === "channel_unavailable"
-        ? "Not available while tracking the main branch."
-        : result?.reason === "not_supported"
-          ? "Only available for the packaged Windows app."
-          : result?.reason === "disabled"
-            ? "Enable 'Check GitHub for a newer version' first."
-            : "Couldn't reach GitHub to list releases.";
-    return;
-  }
-  select.innerHTML = "";
-  for (const release of result.releases) {
-    const option = document.createElement("option");
-    option.value = release.tag;
-    option.textContent = release.tag === `v${result.current}` || release.version === result.current
-      ? `${release.name} (current)`
-      : release.name;
-    select.appendChild(option);
-  }
-  select.classList.toggle("hidden", result.releases.length === 0);
-  installBtn.classList.toggle("hidden", result.releases.length === 0);
-  status.textContent = result.releases.length ? "" : "No installable releases found.";
-});
-$("update-install-version").addEventListener("click", async () => {
-  const select = $("update-version-select");
-  const button = $("update-install-version");
-  const status = $("update-version-status");
-  const tag = select.value;
-  if (!tag) return;
-  if (
-    !(await confirmDialog(
-      `Download and install ${tag} now? MemoryMap AI will close once the installer starts.`,
-      { confirmLabel: "Install" }
-    ))
-  ) {
-    return;
-  }
-  button.disabled = true;
-  select.disabled = true;
-  const ok = await applyUpdateNow((state) => {
-    status.textContent = state.total_bytes
-      ? `${state.step} (${Math.round((state.done_bytes / state.total_bytes) * 100)}%)`
-      : state.step;
-  }, tag);
-  if (!ok) {
-    button.disabled = false;
-    select.disabled = false;
-    toast(status.textContent || "Couldn't install that version.", true);
-  }
-});
-
-// Not a plain setPreference: switching Dev view/User view is meant to take
-// effect live, not just on the next launch (asked for directly: togglable
-// from Settings as well as the tray). /system/console-mode saves the same
-// preference and, in the desktop app on Windows, restarts the whole
-// process into the new console mode right after responding.
-$("pref-show-console").addEventListener("change", async (e) => {
-  const checked = e.target.checked;
-  try {
-    const result = await apiJson("/system/console-mode", {
-      method: "POST",
-      body: JSON.stringify({ show_console_on_startup: checked }),
-    });
-    if (prefsCache) prefsCache.show_console_on_startup = result.show_console_on_startup;
-    toast(
-      result.restarting
-        ? `Switching to ${checked ? "Dev" : "User"} view: restarting…`
-        : `Will switch to ${checked ? "Dev" : "User"} view next launch.`
-    );
-  } catch (error) {
-    e.target.checked = !checked; // the change didn't take: don't leave the switch lying
-    toast(error.message || "Couldn't switch view.", true);
-  }
-});
 
 // ROADMAP item C: "several extras only take effect on restart and the app
 // says so without offering one." This is that offer, a plain restart, not
@@ -2183,46 +1986,6 @@ async function forceReloadApp() {
   await clearAppCache();
   location.reload();
 }
-//: Settings, Data: the same clearing with a word first, and a beat so the toast
-//: is read before the page goes.
-$("clear-app-cache")?.addEventListener("click", async (event) => {
-  event.currentTarget.disabled = true;
-  await clearAppCache();
-  toast("App cache cleared. Reloading.");
-  setTimeout(() => location.reload(), 900);
-});
-$("about-force-reload")?.addEventListener("click", forceReloadApp);
-
-//: `restartMemoryMap` (settings-panes.js): one restart mechanism shared with
-//: the LAN switch's own "Restart now" toast action, rather than two copies
-//: of "ask, restart, or say why not" drifting apart.
-$("about-restart")?.addEventListener("click", () => restartMemoryMap());
-
-// Takes effect on the next close, not on a restart, the handler reads the
-// preference each time the window is closed rather than at launch, precisely
-// so this switch is not a "restart to apply" one.
-//: Read by the launcher on the next launch, before any window opens, so this
-//: is not a "restart to apply" switch either: it decides what the *next*
-//: double-click does.
-$("pref-new-window-on-launch")?.addEventListener("change", (e) => {
-  const checked = e.target.checked;
-  setPreference("new_window_on_launch", checked);
-  toast(
-    checked
-      ? "Launching again will open another window onto this notebook."
-      : "Launching again will bring this window forward."
-  );
-});
-
-$("pref-close-to-tray")?.addEventListener("change", (e) => {
-  const checked = e.target.checked;
-  setPreference("close_to_tray", checked);
-  toast(
-    checked
-      ? "Closing the window will keep MemoryMap in the tray."
-      : "Closing the window will quit MemoryMap."
-  );
-});
 
 //: **Where an export lands, from a notification.** On the desktop the OS file
 //: manager opens on the folder; a browser tab has no file manager to hand
@@ -2288,17 +2051,6 @@ async function renderExportsList() {
   }
 }
 
-$("exports-refresh")?.addEventListener("click", renderExportsList);
-
-$("open-exports-folder").addEventListener("click", async () => {
-  try {
-    const result = await apiJson("/files/open-exports-folder", { method: "POST" });
-    toast(`Opened ${result.path}`);
-  } catch (error) {
-    toast(error.message || "Couldn't open the exports folder.", true);
-  }
-});
-
 // Saved on blur/Enter, not on every keystroke, a half-typed path is not a
 // preference worth validating server-side yet. Reverts the field on a
 // rejected value rather than leaving a bad path sitting there looking saved.
@@ -2318,95 +2070,11 @@ async function saveExportSaveDir() {
     toast(error.message || "Couldn't save that folder.", true);
   }
 }
-$("pref-export-dir").addEventListener("blur", saveExportSaveDir);
-$("pref-export-dir").addEventListener("keydown", (event) => {
-  if (event.key === "Enter") $("pref-export-dir").blur();
-});
-$("pref-export-dir-reset").addEventListener("click", () => {
-  $("pref-export-dir").value = "";
-  saveExportSaveDir();
-});
 
 function toggleAutonomousPanel() {
   const panel = $("autonomous-settings-panel");
   if (panel) panel.classList.toggle("hidden", !$("pref-autonomous-tasks").checked);
 }
-// Each of these saves only its own key via `setPreference`, never
-// `savePrefs`, which rebuilds and re-sends every field on the Preferences
-// section's own form. That form may never have been rendered this session
-// (a fresh page load landing straight on Background tasks, say), and its
-// stale/default DOM values would silently overwrite whatever was really
-// saved the moment any one of these checkboxes changed.
-$("pref-autonomous-tasks").addEventListener("change", (e) => {
-  toggleAutonomousPanel();
-  setPreference("autonomous_tasks_enabled", e.target.checked);
-});
-$("pref-background-filing").addEventListener("change", (e) =>
-  setPreference("background_filing", e.target.checked)
-);
-$("pref-warm-search-model").addEventListener("change", (e) =>
-  setPreference("warm_search_model_at_launch", e.target.checked)
-);
-//: Clamped here as the backend clamps it (5 to 60), so a typed 100 saves
-//: as 60 rather than being refused by the preferences schema.
-$("pref-filing-wait").addEventListener("change", (e) => {
-  const seconds = Math.max(5, Math.min(60, Math.round(Number(e.target.value) || 15)));
-  e.target.value = seconds;
-  setPreference("filing_wait_seconds", seconds);
-});
-$("pref-filing-wait-reset").addEventListener("click", () => {
-  $("pref-filing-wait").value = 15;
-  setPreference("filing_wait_seconds", 15);
-});
-$("pref-ai-first-filing").addEventListener("change", (e) =>
-  setPreference("ai_first_filing", e.target.checked)
-);
-$("pref-auto-caption-images").addEventListener("change", (e) =>
-  setPreference("auto_caption_images", e.target.checked)
-);
-$("pref-auto-read-image-text").addEventListener("change", (e) =>
-  setPreference("auto_read_image_text", e.target.checked)
-);
-$("pref-auto-tag").addEventListener("change", (e) =>
-  setPreference("auto_tag_enabled", e.target.checked)
-);
-$("pref-auto-link").addEventListener("change", (e) =>
-  setPreference("auto_link_enabled", e.target.checked)
-);
-$("pref-auto-dedupe").addEventListener("change", (e) =>
-  setPreference("auto_dedupe_enabled", e.target.checked)
-);
-$("pref-auto-stale-review").addEventListener("change", (e) =>
-  setPreference("auto_stale_review_enabled", e.target.checked)
-);
-$("pref-auto-capture").addEventListener("change", (e) =>
-  setPreference("auto_capture_enabled", e.target.checked)
-);
-$("pref-battery-mode").addEventListener("change", (e) => {
-  setPreference("battery_efficient_mode", e.target.checked);
-  $("power-saver-indicator")?.classList.toggle("hidden", !e.target.checked);
-  //: `prefsCache` is what `batteryModeOn` reads, and `setPreference` writes
-  //: the server before the cache, so the two pictures are restarted from
-  //: here with the new value already in hand. Without this the setting took
-  //: effect on the next load, which for a setting about power is the wrong
-  //: half of "immediately".
-  if (prefsCache) prefsCache.battery_efficient_mode = e.target.checked;
-  if (typeof startBgArt === "function") startBgArt();
-  if (typeof renderDashboard === "function") renderDashboard();
-});
-$("pref-autonomous-interval").addEventListener("change", (e) =>
-  setPreference("autonomous_tasks_interval_hours", Number(e.target.value) || 6)
-);
-$("pref-autonomous-model").addEventListener("change", (e) =>
-  setPreference("autonomous_tasks_model", e.target.value.trim())
-);
-//: The switch changes which model background jobs run on, so the line under
-//: the utility picker (INBOX 277) is re-read once the preference has landed
-//: rather than left describing the old state until the next poll.
-$("pref-smart-model-routing").addEventListener("change", async (e) => {
-  await setPreference("smart_model_routing_enabled", e.target.checked);
-  refreshModelStatus();
-});
 
 $("semantic-search-toggle")?.addEventListener("change", () => {
   // `loadEntries`, which is what re-runs the list with the toggle's new
@@ -2462,34 +2130,6 @@ async function addMemoryByHand() {
   }
 }
 
-$("memory-add")?.addEventListener("click", addMemoryByHand);
-$("memory-new")?.addEventListener("keydown", (e) => {
-  // Enter saves. Typing a one-line rule and having to reach for the mouse is
-  // the kind of small friction that stops people using a feature at all.
-  if (e.key === "Enter") { e.preventDefault(); addMemoryByHand(); }
-});
-
-$("autonomous-review-clear")?.addEventListener("click", async () => {
-  await api("/tasks/autonomous/last/clear", { method: "POST" }).catch(() => {});
-  renderAutonomousReview();
-});
-
-$("autonomous-trigger").addEventListener("click", () => {
-  api("/tasks/trigger-autonomous", { method: "POST" })
-    .then(async (response) => {
-      const body = await response.json().catch(() => ({}));
-      toast(
-        body.started === false
-          ? "A pass is already running, the results will appear below."
-          : "Optimization started. Its changes will be listed below when it finishes."
-      );
-      // The pass runs on a worker thread, so there is nothing to await. Look
-      // again shortly rather than leaving the panel showing the previous run.
-      setTimeout(renderAutonomousReview, 4000);
-    })
-    .catch((err) => toast(err.message, true));
-});
-
 // There is no Tags / Recycle bin / Activity shortcut in the notes sidebar, and
 // `openLibraryOn` went with them. The buttons were dropped once with their
 // handlers left behind (which is how `test_frontend_ids` found three ids that
@@ -2516,6 +2156,3 @@ $("note-template-manage")?.addEventListener("click", () => {
 // Chat tab (Wave C).
 $("chat-send").addEventListener("click", () => sendChatMessage());
 
-$("voice-model-select").addEventListener("change", (e) =>
-  setPreference("voice_model", e.target.value)
-);

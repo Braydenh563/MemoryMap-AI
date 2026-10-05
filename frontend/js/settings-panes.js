@@ -601,59 +601,6 @@ async function renderLanAccess() {
   }
 }
 
-$("account-allow-lan")?.addEventListener("change", async (event) => {
-  const box = event.target;
-  const wanted = box.checked;
-  box.checked = !wanted; // the server's answer decides what it shows
-  try {
-    if (!wanted) {
-      const off = await apiJson("/auth/lan-access", {
-        method: "POST",
-        body: JSON.stringify({ enabled: false }),
-      });
-      renderLanState(off);
-      //: The bind itself doesn't drop until the next launch (`netbind`'s own
-      //: comment on `restart_required`), the same as turning it on: this
-      //: computer's own access never depended on it, but another device
-      //: already in can still reach the app until the app is restarted.
-      if (off.restart_required) {
-        toastAction("Restart to close the app to other devices now.", "Restart now", () =>
-          restartMemoryMap({ confirm: false })
-        );
-      } else {
-        toast("Only this computer will be able to open the app.");
-      }
-      return;
-    }
-    let reply = null;
-    const done = await askPasswordPrompt({
-      title: "Allow other devices",
-      message: "Enter your password to let devices on this network open the app. They will need it too.",
-      submitLabel: "Allow",
-      submit: async (password) => {
-        reply = await apiJson("/auth/lan-access", {
-          method: "POST",
-          body: JSON.stringify({ enabled: true, current_password: password }),
-          ownsAuthErrors: true,
-        });
-        return reply;
-      },
-    });
-    if (done && reply) {
-      renderLanState(reply);
-      if (reply.restart_required) {
-        toastAction("Other devices can open the app after a restart.", "Restart now", () =>
-          restartMemoryMap({ confirm: false })
-        );
-      } else {
-        toast("Other devices can already open the app at this address.");
-      }
-    }
-  } catch (error) {
-    toast(error.message, true);
-  }
-});
-
 // --- Privacy: where your data went (GET /privacy/receipt) ---------------------
 //
 // WORLD_CLASS_PLAN section 2, standout 5: "a page that proves, from the app's
@@ -684,7 +631,6 @@ for (const button of document.querySelectorAll("#privacy-range [data-range]")) {
     renderPrivacyRange();
   });
 }
-$("privacy-refresh")?.addEventListener("click", () => renderPrivacyReceipt().catch(() => {}));
 
 async function changePassword() {
   const status = $("account-status");
@@ -1189,24 +1135,6 @@ async function downloadExport(kind) {
 }
 
 // --- Wave F: backups UI -------------------------------------------------------------
-
-$("backup-retention")?.addEventListener("change", async (e) => {
-  const status = $("backup-retention-status");
-  const keep = Number(e.target.value);
-  try {
-    const result = await apiJson("/backups/retention", {
-      method: "PUT",
-      body: JSON.stringify({ keep }),
-    });
-    status.textContent = result.removed
-      ? `Saved: removed ${result.removed} old backup${result.removed === 1 ? "" : "s"}.`
-      : "Saved.";
-    renderBackups();
-  } catch (error) {
-    status.textContent = error.message;
-    renderBackupRetention(); // put the field back to what's actually saved
-  }
-});
 
 // --- Wave F: command palette (Ctrl/Cmd-K) -------------------------------------------
 

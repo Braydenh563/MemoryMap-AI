@@ -2207,6 +2207,10 @@ const LAZY_MODULES = {
   appPalette: ["/js/app-palette.js"],
   //: A note card's menu panels: note-panels.js.
   notePanels: ["/js/note-panels.js"],
+  //: Every listener inside the Settings window, awaited on first open: settings-controls.js.
+  settingsControls: ["/js/settings-controls.js"],
+  //: An open edit form's Similar and links panels: note-edit-panels.js.
+  noteEditPanels: ["/js/note-edit-panels.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2437,6 +2441,8 @@ const LAZY_ENTRY_POINTS = {
   appPalette: ["openPalette"],
   //: Menu items and a chip, all async, nothing read back.
   notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders"],
+  //: Called by renderEditForm, async, nothing read back.
+  noteEditPanels: ["renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",

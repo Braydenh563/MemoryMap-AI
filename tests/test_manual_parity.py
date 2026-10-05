@@ -76,7 +76,8 @@ def test_every_named_manual_path_still_exists():
 
 def test_the_categories_panel_is_reachable_from_the_sidebar_the_menu_and_settings():
     html = (FRONTEND / "index.html").read_text(encoding="utf-8")
-    wiring = (FRONTEND / "js" / "wiring.js").read_text(encoding="utf-8")
+    #: The Settings button's listener is in settings-controls.js now.
+    wiring = "\n".join((FRONTEND / "js" / name).read_text(encoding="utf-8") for name in ("wiring.js", "settings-controls.js"))
     # The panel moved to its own lazy piece (categories-panel.js).
     notes = "\n".join((FRONTEND / "js" / name).read_text(encoding="utf-8") for name in ("notes-list.js", "categories-panel.js"))
     assert 'id="manage-categories-btn"' in html and 'id="settings-manage-categories"' in html

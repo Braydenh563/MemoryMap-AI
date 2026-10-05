@@ -3060,6 +3060,12 @@ Link to another note with [[its first few words]]."></textarea>
                   <option value="90">Last 3 months</option>
                   <option value="365" selected>Last year</option>
                   <option value="0">Everything</option>
+                  <!-- TIMELINE_PLAN section 8 (Day One's "On this day"): today's
+                       date in earlier months and years, the Dashboard widget's
+                       rule, asked of the server (`on=`) so last year is not
+                       one page-load away. A range, not a dock control: the
+                       dock is at its ceiling. -->
+                  <option value="onthisday">On this day</option>
                   <option value="custom">Custom range</option>
                 </select>
                 <span id="timeline-custom-range" class="hidden row align-center timeline-custom-range">
@@ -3089,6 +3095,9 @@ Link to another note with [[its first few words]]."></textarea>
         The strip below shows the last seven days: a dot marks a day with a page,
         and pressing a day opens its page or starts it. The arrows beside the
         month walk a week, and the month opens a calendar to jump to any earlier day.
+        In the feed, Ctrl and the mouse wheel, or a pinch, makes the date
+        groups finer or coarser, as do + and - on a row. Options, Time range, On this day shows
+        what you wrote on today's date in earlier months and years.
   </p>
 </div>
       <!-- The calendar strip (WORLD_CLASS_PLAN D6; INBOX 543 redesign): one

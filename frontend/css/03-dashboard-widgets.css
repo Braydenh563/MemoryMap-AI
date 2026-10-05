@@ -386,6 +386,27 @@
   white-space: nowrap;
 }
 
+/* Rollups: the footer stays in view under a long table, the kind of
+   rollup quiet beside its value. */
+.query-table tfoot td,
+.query-table tfoot th {
+  position: sticky;
+  bottom: 0;
+  background: var(--modal-bg-opaque);
+  border-top: 1px solid var(--border);
+  border-bottom: 0;
+  vertical-align: middle;
+}
+
+.query-rollup {
+  white-space: nowrap;
+}
+
+.query-rollup-value {
+  margin-inline-start: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+
 /* The kind's name from the other end, quiet, giving way before the name. */
 .relation-type-hint {
   flex: 0 1 auto;
@@ -5043,6 +5064,17 @@ button.answer-figure-open {
   flex: none;
   display: flex;
   gap: var(--space-1);
+}
+
+/* The Tensions widget's rows carry four actions: where the card is too
+   narrow for the names beside them (a phone, a narrow column), the actions
+   go under the words rather than squeezing them to a word a line. */
+.dash-tensions > li.night-fact {
+  flex-wrap: wrap;
+}
+
+.dash-tensions > li.night-fact > .dash-list-text {
+  flex-basis: 10rem;
 }
 
 .night-more {

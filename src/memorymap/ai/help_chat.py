@@ -241,9 +241,14 @@ HELP_TOPICS: list[dict] = [
         "id": "timeline",
         "keywords": ("timeline",),
         "body": (
-            "The Timeline tab lays notes out chronologically in day/week/month "
-            "buckets, grid or line view, with an optional band (category, tag "
-            "or space) to see how things cluster over time. A note that names a "
+            "The Timeline tab lists what you wrote newest first, grouped by day, "
+            "week, month or year (Auto picks the finest that reads well), as a "
+            "feed or as a sortable table. Kinds chooses notes, boards, documents "
+            "and reminders; Options sets the grouping, Group by (category, tag "
+            "or thread) and Show group, and the Time range, where On this day "
+            "shows today's date in earlier months and years. In the feed, Ctrl and "
+            "the mouse wheel, or a pinch, makes the date groups finer or coarser, "
+            "as do + and - on a row. The strip under the bar walks your daily pages. A note that names a "
             "day (\"on Friday\") sits on that day and says All day; one that "
             "names a time too (\"on Friday at 3pm\") shows that time."
         ),
@@ -640,7 +645,12 @@ HELP_TOPICS: list[dict] = [
             "over the notebook with the local model. It never edits anything: "
             "the point is to show you the pair and let you decide. Open "
             "Suggestions (the Tensions widget's Review disagreements, or the "
-            "command palette), choose Tensions and press Start the review."
+            "command palette), choose Tensions and press Start the review. "
+            "What a review or the overnight pass already found stays found: "
+            "the Tensions widget lists the pairs still to decide, each with "
+            "what it is about and which model found it when, and its buttons "
+            "open either note, link the two as contradicting, or dismiss the "
+            "pair for good. A review only reads pairs it has not read before."
         ),
         "badge": {"label": "Dashboard", "tab": "dashboard"},
     },
@@ -1231,6 +1241,7 @@ HELP_TOPICS.extend(
                 "property", "properties", "frontmatter", "yaml", "note type",
                 "note types", "fields", "field", "status", "metadata",
                 "query", "live query", "type:", "prop:", "table view",
+                "rollup", "rollups", "roll up",
             ),
             "body": (
                 "A note can carry properties (status: open, owner: Priya), kept "
@@ -1241,7 +1252,8 @@ HELP_TOPICS.extend(
                 "one, or pick a Type, and Save rewrites only those lines. Note "
                 "types in the command palette makes a kind of note (Meeting: "
                 "attendees, date) with fields that are text, a number, a date, a "
-                "list, yes/no or another note; its New note starts with them. A "
+                "list, yes/no or another note (the magnifier beside a note field "
+                "searches your notes for it); its New note starts with them. A "
                 "document's properties panel does the same: with type: Meeting "
                 "in its properties, the type's fields it has not written yet "
                 "show as empty rows, and a value you enter is written as one "
@@ -1249,7 +1261,9 @@ HELP_TOPICS.extend(
                 "(or prop:effort>2), links:[[Kiln plan]], rel:supports, "
                 "entity:\"Sam Lee\", with - before any of them to leave those out; "
                 "a bar over the list then shows the same notes as a Table, with "
-                "their properties as columns, or lit on the graph."
+                "their properties as columns, or lit on the graph. The table's "
+                "last row rolls each column up over every match: Count, and Sum, "
+                "Min and Max for numbers, Earliest and Latest for dates."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

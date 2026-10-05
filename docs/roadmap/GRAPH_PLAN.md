@@ -475,6 +475,38 @@ chips per kind of link on the map and a row per property value, built from
 what is on the map, so the closed panel grows by one summary row and the
 chips never cost the Show grid a row.
 
+## Decision made, 2026-10-05: one PageRank, the map's
+
+`/graph` and `/graph/local` shared one cache slot ("centrality", keyed by the
+notebook and the similarity switch) while ranking two different graphs: the
+map leaves drafts out, and boards unless Maps is on; focus mode indexed every
+live note. Whichever call came first was served to the other (a note's size in
+focus mode depended on which view had been opened since the last edit), and
+Maps on was served the no-maps ranking. The similarity sweep's slot had the
+same shape. Decided: **a note's centrality is the map's** (live, non-draft
+notes; boards only with Maps on), one slot per (similarity, maps), built from
+columns by `_centrality` itself and never from a caller's index; focus mode
+shows the map's number, not a PageRank of its own neighbourhood, because
+centrality is a global property and a local one would make every focus
+view's centre its biggest dot. One similarity sweep per version, over the
+map's notes, each caller keeping the pairs inside its own set.
+`tests/test_graph_centrality_slot.py` (3, all failing before). A warm `/graph`
+no longer builds an index at all, and reads its notes and links as column
+rows instead of 15,000 ORM objects (the space is in the fingerprint now too).
+
+**Measured at 5,000 notes** (`scratchpad/kg1005_graph_bench.sh`, in process,
+10,000 links, two tags a note, the box shared with seven other agents, so the
+numbers are relative; before and after alternated twice on one notebook):
+warm `/graph` p50 3,273 to 4,127 ms before, 720 to 1,017 ms after; cold 6.9 to
+7.4 s before, 4.5 to 4.7 s after; Maps on warm 2.8 to 2.9 s before, 0.8 to
+1.1 s after; focus mode warm 80 to 101 ms either way; the payload is 3.0 MB
+(234 KB gzipped in the browser, ARCH-14). Profiled warm handler: 2.77 s to
+0.89 s, of which building the node dicts is now the largest part (0.37 s) and
+`json.dumps` 0.15 s. Left: the payload itself (a fingerprint-keyed cache of the
+encoded bytes needs the pins, access counts, attachments and board members in
+its key, none of which moves the fingerprint), and the canvas side at 5,000
+(FE-04, the frontend agent's).
+
 ## Placed from INBOX, 2026-10-04: parity with Obsidian's graph
 
 514 (parity with Obsidian's graph) and 518 (wiki link origin, the payload cache,
@@ -500,11 +532,14 @@ block. What stays here is the standing decisions and what is still open.
 
 - A real local model's `name|kind` entity extraction and a topic's sentence
   were never run here (no model in the sandbox); both fall back cleanly.
-- A note type's "note" field is a `[[link]]` written into the block (a text
-  box in the note sheet and the document panel), not a picker that searches
-  (KG4).
-- Rollups over a live query's table (count, sum, min, max, earliest,
-  latest) are not built.
+- `/graph` at 5,000 notes is still 0.7 to 1.0 s warm and 3 MB (decision
+  2026-10-05, "one PageRank, the map's"): the next step is a cache of the
+  encoded payload keyed by what moves it (the fingerprint plus pins, access
+  counts, attachments, board members and the vault's state), or a slimmer
+  node (the label and the numbers, the rest on demand).
+- The note field's picker and the query table's rollups are built
+  (2026-10-05): moved to HISTORY.md ("Moved from the plans, 2026-10-05
+  (GRAPH_PLAN, the last KG rows)").
 
 **Decisions made (recommendations taken):** a suggestion never links by
 itself; every inferred relation carries a reason and a confidence, and the

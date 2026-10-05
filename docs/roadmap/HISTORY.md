@@ -40590,6 +40590,93 @@ reading pane pads `--space-6`. First line 255 to 199, light and dark; Live
 stays at 192. At 1440 the Read view's title heading is still drawn (block,
 33px). The dock's two rows stay: the Edit/Read row is the view switch the
 plan's item 6 decided on, and it fits the budget as it is.
+## Moved from the plans, 2026-10-05 (GRAPH_PLAN, the last KG rows)
+
+- **Rollups on a live query's table** (the six the plan allows: count, sum,
+  min, max, earliest, latest). `entry/query.rollups` reads the property index
+  (`EntryProperty.number` and `.date`) over every note the query matched, not
+  the 500 rows drawn; `GET /entries/query` returns `rollups` per column. The
+  table's footer (`queryTableRollupFoot`, note-properties.js) is sticky, a
+  `<select>` per column offering only what the values read as (a column of
+  words says Count with no select), its choice kept on this device; default
+  sum, else latest, else count. `tests/test_query_rollups_kg7.py` (4);
+  `scratchpad/ui-sweeps/kg1005-rollups.js` 8/8 at 1440 light and 390 dark
+  (Sum 200.5 over 120, 80.5 and "soon"; Latest 2026-03-02; Max 120 after a
+  change).
+- **A note field searches** (KG4): `noteFieldPickButton` (selection.js) puts
+  the notebook picker (`pickEntryDialog`, the INBOX 548 recipe) beside a
+  note-kind field in the note's Properties sheet and the document's
+  properties panel; the chosen note's name fills the box and fires its
+  change, so the document panel writes the `[[link]]` at once. Before, the
+  only help was a datalist of the first 300 titles. Same sweep: the button is
+  square in its row (28px desktop, 44px touch), and choosing "Lisbon" fills
+  the field.
+
+## Moved from the plans, 2026-10-05 (row 18: the derived tensions table)
+
+WORLD_CLASS_PLAN B4, row 18. Typed links were already KG3 (`LINK_TYPES` plus
+`relation_types`). Built here:
+
+- **The table** (`tensions`, `DerivedTension` in `core/database.py`): one row
+  per pair of notes, with its status (open, accepted, dismissed), the reason,
+  who decided it (a model, `local`, or `person`), when, its source (scan,
+  night, link) and the event it cites. A new table, so `create_all` builds it;
+  no migration.
+- **The sources** (`ai/tensions.py`, `derive`): tension events written by the
+  scan (`tension_found`, with reason, model and confidence) and by Accept and
+  Dismiss (`tension_accepted`, `tension_dismissed`), all `entity_type=
+  "tension"` so the entity index serves them; the night shift's `tension`
+  facts (a tombstone is a dismissal); the `contradicts` links. `refresh`
+  rebuilds when `sources_version` (seven indexed aggregates) moved;
+  `rebuild` runs with the space filter lifted, so a request in one space never
+  drops another space's links.
+- **The scan never asks twice**: `GET /entries/tensions` skips every pair in
+  the table and records each new finding as an event.
+  `GET /entries/tensions/known?status=` lists the table in the scan's shape
+  plus status, model, computed_at, source and event_id; a pair whose note is
+  private, binned or in another space is hidden by the join.
+- **The widget** (`renderTensionsWidget`, `dashTensionRow` in dashboard.js):
+  the open pairs by both names, the reason, "Found by <model> · <when>" (B4's
+  stamp), and the night card's four icon actions (open either note, link as
+  contradicting, dismiss); the review sheet lists what was found earlier
+  before Start the review is pressed. Actions go under the words where the
+  card is narrow.
+- Tests: `tests/test_tensions_table_b4.py` (7: each source and state, a
+  rebuild from nothing equal to the first, every row's event exists and
+  matches, accept and un-link, privacy, the scan records and never asks
+  twice, forgetting). Sweep: `scratchpad/ui-sweeps/kg1005-tensions.js` 9/9 at
+  1440 light and 390 dark (four 28px, or 44px touch, square buttons inside the
+  card; linking takes the row away and the table has it accepted).
+- Not verified: a real local model's verdicts (the scan's judge is faked, the
+  night pass ran on its no-model rule).
+
+## Moved from the plans, 2026-10-05 (TIMELINE_PLAN, zoom and On this day)
+
+The two cheap additions the plan's research section named (decisions 11 to
+13 stay in the plan).
+
+- **Zoom the dates** (`timelineStepScale`, timeline.js): Ctrl and the wheel
+  on the list, or a trackpad pinch (a wheel with `ctrlKey`), steps the bucket
+  one scale per gesture (deltas summed to 50, a 350 ms pause ends a gesture),
+  `preventDefault` so the page itself does not zoom; + and - on a focused row
+  do the same. The focused row, else the topmost, keeps its place; the step
+  is written into Bucket by and announced.
+- **On this day** (Options, Time range): `GET /timeline?on=MM-DD&tz=` keeps
+  rows whose date, shifted into the reader's day, is today's month and day,
+  today itself left out; applied to notes, documents and reminders and to
+  the density strip through the one `in_range`.
+  `tests/test_timeline_on_this_day.py` (4: earlier years, an earlier month,
+  the reader's day not UTC's, a bad day refused).
+- The feed only: in the table (a phone's default view) there are no date
+  groups, so the gesture stays the browser's and + and - do nothing.
+- Sweep: `scratchpad/ui-sweeps/kg1005-timelinezoom.js` 10/10 at 1440 light
+  and 390 dark with the feed chosen (one notch day to week, a twelve-delta
+  pinch one step, in again, page zoom unchanged, - and + on a focused row
+  with focus kept, the table left alone, the request carrying `on=` and
+  `tz=`, today's notes absent).
+- Help: the '?' popover and the Guide's timeline topic (which still described
+  the grid and line views of 2026-09) say both.
+
 ## INBOX resolved, 2026-10-05
 
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs
@@ -41194,4 +41281,13 @@ loading page.
      Formatting button or Ctrl+Shift+X." once; the help says so.
      `scratchpad/ui-sweeps/mmdoc1005-formatback.js` 13/13 at 1440 light and
      dark, 2/2 at 390.
+
+525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
+     dark background behind the graph labels togglable??" Next Opus: the
+     label plate switch in the graph's gear (Obsidian-parity brief).
+     **Fixed** (verified 2026-10-05): Graph, gear, Display, Label
+     backgrounds; `scratchpad/ui-sweeps/graphplates.js` counts 72 plates on,
+     0 off, and still 0 after a reload (kept on this device). With it the
+     spec's last open KG rows: rollups on the query table and a searching
+     picker for a note field (GRAPH_PLAN, "Still open after KG1 to KG9").
 

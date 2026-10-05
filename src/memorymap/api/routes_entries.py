@@ -24,6 +24,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from memorymap.ai import extractor, janitor, learning, librarian, links, relations
+from memorymap.ai import tensions as tensions_module
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.edit_conflicts import content_hash, refuse_if_stale
 from memorymap.api.schemas import (
@@ -42,6 +43,7 @@ from memorymap.core.events import ACTOR_USER_AND_AI
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
     AuditLog,
     Bookmark,
+    DerivedTension,
     Document,
     DocumentLink,
     EmbeddingRecord,
@@ -1393,7 +1395,7 @@ def query_entries(q: str = "", session: Session = Depends(get_session)) -> dict:
 
     terms = live_query.parse(q)
     if not terms:
-        return {"ids": [], "columns": [], "rows": [], "structural": False}
+        return {"ids": [], "columns": [], "rows": [], "structural": False, "rollups": {}}
     ids = live_query.run(session, q)
     rows = []
     counts: dict[str, int] = {}
@@ -1411,7 +1413,15 @@ def query_entries(q: str = "", session: Session = Depends(get_session)) -> dict:
             "properties": found,
         })
     columns = sorted(counts, key=lambda k: (k != "type", -counts[k], k))[:QUERY_COLUMNS_MAX]
-    return {"ids": ids, "columns": columns, "rows": rows, "structural": live_query.is_structural(terms)}
+    return {
+        "ids": ids,
+        "columns": columns,
+        "rows": rows,
+        "structural": live_query.is_structural(terms),
+        #: The footer's count, sum, min, max, earliest and latest, over every
+        #: match (not only the rows drawn), per column.
+        "rollups": live_query.rollups(session, ids, columns),
+    }
 
 
 @router.get("/link-suggestions")
@@ -1572,7 +1582,6 @@ def find_tensions(
     a bare `[]` renders them identically, which is how a feature that never
     ran gets reported as a feature that found nothing.
     """
-    from memorymap.ai import tensions as tensions_module
 
     ollama = deps.get_ollama()
     if not ollama.is_running():
@@ -1599,6 +1608,11 @@ def find_tensions(
     known: set[str] = set(_dismissed_tensions())
     for link in session.scalars(select(EntryLink).where(EntryLink.link_type == "contradicts")):
         known.add(_tension_key(link.source_entry_id, link.target_entry_id))
+    # WORLD_CLASS_PLAN B4: a pair already in the tensions table (found by an
+    # earlier scan or the night shift, whatever became of it) is never asked
+    # about again; the widget and `GET /entries/tensions/known` list it.
+    tensions_module.refresh(session)
+    known.update(session.scalars(select(DerivedTension.pair)))
 
     models = deps.get_model_manager()
     found: list[dict] = []
@@ -1615,6 +1629,17 @@ def find_tensions(
         tension = tensions_module.compare_pair(ordered[0], ordered[1], models, ollama)
         if tension is None:
             continue
+        #: Kept as an event, so the finding outlives this response and the
+        #: table can be rebuilt from it (B4).
+        tensions_module.record_event(
+            session,
+            tensions_module.FOUND,
+            tension.earlier_id,
+            tension.later_id,
+            reason=tension.explanation,
+            model=str(models.utility_model() or "local"),
+            confidence=0.7,
+        )
         found.append(
             {
                 "key": _tension_key(tension.earlier_id, tension.later_id),
@@ -1630,7 +1655,59 @@ def find_tensions(
             }
         )
     status = "ok" if found else ("none_found" if checked else "no_candidates")
+    session.commit()
     return {"tensions": found, "status": status, "pairs_checked": checked}
+
+
+@router.get("/tensions/known")
+def known_tensions(
+    status: str = Query(default="open", pattern="^(open|accepted|dismissed|all)$"),
+    limit: int = Query(default=20, ge=1, le=100),
+    session: Session = Depends(get_session),
+) -> dict:
+    """The tensions the notebook already knows (WORLD_CLASS_PLAN B4): the
+    derived table, rebuilt from its sources when one moved, in the shape the
+    scan returns plus who decided each and when. Reads nothing with a model,
+    so the Tensions widget can show it on every Dashboard draw."""
+    rows, counts = tensions_module.listing(session, status=None if status == "all" else status, limit=limit)
+    session.commit()
+    notes = {
+        e.id: e
+        for e in session.scalars(
+            select(Entry).where(Entry.id.in_({r.earlier_id for r in rows} | {r.later_id for r in rows}))
+        )
+    }
+    out = []
+    for row in rows:
+        earlier, later = notes.get(row.earlier_id), notes.get(row.later_id)
+        if earlier is None or later is None:
+            continue
+        out.append(
+            {
+                "key": row.pair,
+                "earlier_id": row.earlier_id,
+                "later_id": row.later_id,
+                "explanation": row.reason,
+                "earlier_excerpt": tensions_module._excerpt(manager.readable_content(earlier))[:280],
+                "later_excerpt": tensions_module._excerpt(manager.readable_content(later))[:280],
+                "earlier_title": manager.extract_title(manager.readable_content(earlier))
+                or manager.plain_label(manager.readable_content(earlier), 60),
+                "later_title": manager.extract_title(manager.readable_content(later))
+                or manager.plain_label(manager.readable_content(later), 60),
+                "earlier_at": tensions_module._stamp(earlier.created_at),
+                "later_at": tensions_module._stamp(later.created_at),
+                "gap_days": abs((later.created_at - earlier.created_at).days)
+                if earlier.created_at and later.created_at
+                else 0,
+                "status": row.status,
+                "model": row.model,
+                "confidence": row.confidence,
+                "computed_at": row.computed_at.isoformat() if row.computed_at else None,
+                "source": row.source,
+                "event_id": row.event_id,
+            }
+        )
+    return {"tensions": out, "counts": counts}
 
 
 class TensionPair(BaseModel):
@@ -1657,6 +1734,7 @@ def accept_tension(body: TensionPair, session: Session = Depends(get_session)) -
     )
     #: KG9: the inbox's decisions are corrections like every other kind.
     learning.record(session, kind="accept_tension", subject={"a": earlier.id, "b": later.id})
+    tensions_module.record_event(session, tensions_module.ACCEPTED, earlier.id, later.id)
     session.commit()
     return {"created": link is not None}
 
@@ -1677,6 +1755,7 @@ def dismiss_tension(body: TensionPair, session: Session = Depends(get_session)) 
     del stored[:-500]
     config.set_preference(TENSION_DISMISSED_KEY, stored)
     learning.record(session, kind="dismiss_tension", subject={"a": body.earlier_id, "b": body.later_id})
+    tensions_module.record_event(session, tensions_module.DISMISSED, body.earlier_id, body.later_id)
     session.commit()
     return {"dismissed": key}
 

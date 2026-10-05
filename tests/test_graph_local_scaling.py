@@ -53,7 +53,12 @@ def build_calls(monkeypatch):
     real = paths.build_light
 
     def counting(*args, **kwargs):
-        calls.append("build")
+        # The focus topology only (every live note). The map's PageRank
+        # builds its own picture once per version (`routes_graph._centrality`,
+        # drafts left out), shared with `/graph`, and is not what these
+        # tests count.
+        if kwargs.get("drafts", True):
+            calls.append("build")
         return real(*args, **kwargs)
 
     monkeypatch.setattr(paths, "build_light", counting)

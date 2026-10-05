@@ -337,6 +337,25 @@ function pickEntryDialog(message) {
   });
 }
 
+//: **A note field's picker** (GRAPH_PLAN KG4): a note-kind property was a text
+//: box with the first 300 titles as suggestions, so a note past the 300th
+//: could only be typed from memory. This puts the notebook's own search beside
+//: the box: the button opens `pickEntryDialog`, and the chosen note's name goes
+//: into the box (the caller writes it as `[[name]]`), then `after` runs, so a
+//: field that saves on change saves.
+function noteFieldPickButton(input, after) {
+  const button = smallButton("ph:magnifying-glass", "Choose a note", async () => {
+    const entry = await pickEntryDialog("Choose a note");
+    if (!entry) return;
+    input.value = noteSortName(entry).split("\n")[0].slice(0, 80);
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    if (after) after(entry);
+  });
+  button.classList.add("icon-only", "prop-note-pick");
+  button.setAttribute("aria-label", "Choose a note");
+  return button;
+}
+
 //: **Choose any one thing the library holds**, a note, a document, a file or
 //: a saved link, as `{kind, id, label, row}`. Not `pickEntryDialog` (notes
 //: only), `pickMediaDialog` (an upload) or the chat's Attach picker (a

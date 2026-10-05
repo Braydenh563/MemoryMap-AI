@@ -339,6 +339,18 @@ function inboxTensionsPane() {
   });
   tools.append(status, run);
   list.replaceChildren(tools, results);
+  //: WORLD_CLASS_PLAN B4: what an earlier review or the night shift found and
+  //: nobody decided yet is listed at once, from the tensions table; Start the
+  //: review only asks the model about pairs not read before.
+  apiJson("/entries/tensions/known?limit=20", { silent: true })
+    .then((known) => {
+      const waiting = (known && known.tensions) || [];
+      if (!waiting.length || results.childElementCount) return;
+      inboxCount("tensions", waiting.length);
+      status.textContent = `${waiting.length} found earlier, still to decide.`;
+      for (const tension of waiting) results.appendChild(tensionCard(tension));
+    })
+    .catch(() => {});
 }
 
 /** One proposed disagreement, with both notes and the two decisions. */

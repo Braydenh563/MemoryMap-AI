@@ -5514,6 +5514,11 @@ function docPropsTypeRows(host, fm) {
       renderDocProperties(true);
     });
     value.appendChild(input);
+    //: KG4: a note field searches the notebook (selection.js); choosing one
+    //: fires the box's change, which writes the `[[link]]` above.
+    if (kind === "note" && typeof noteFieldPickButton === "function") {
+      value.appendChild(noteFieldPickButton(input));
+    }
     //: The written rows end in a trash button; an unwritten one holds its
     //: place, so the fields line up down the panel.
     const spacer = docPropsIconButton("trash", "");

@@ -89,4 +89,4 @@ def test_the_table_has_the_properties_as_columns(client):
 
 
 def test_an_empty_or_plain_query_is_refused_politely(client):
-    assert client.get("/entries/query", params={"q": ""}).json() == {"ids": [], "columns": [], "rows": [], "structural": False}
+    assert client.get("/entries/query", params={"q": ""}).json() == {"ids": [], "columns": [], "rows": [], "structural": False, "rollups": {}}

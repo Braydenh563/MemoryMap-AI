@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Whiteboard: a frame's title can be grabbed at any zoom. Zoomed out to fit a phone it was about 7px tall and a drag aimed at it moved nothing; its hit area now stays at least a touch target tall on screen (44px at the fitted zoom), and the frame, what is inside it and anything selected move together by one amount.
 - More deletes have Undo, from their toast and from the status bar (undo-1005): a reference removed from a note you are editing (it comes back in its place in the list), a note type (with its id and fields), a kind of link (with its key, and every link it was on typed again unless you have given that link another kind since), a chat (whole: its turns, pin, archive and dates) and a space that was empty or whose contents were moved to another (every moved row goes back, and a category merged into the other space is made again with its notes). Deleting a space together with everything in it stays final. Deleting a kind of link now clears it from links in every space, not only the open one.
 - Documents on a narrow window: the Edit/Read segment's well grows to the 44px touch height its buttons take, so they no longer hang out of its foot and sit on the row's centre line (INBOX 568).
 - Notes, Capture: the composer is one box; the note editor inside no longer draws its own border and focus ring a hair inside the composer's, and the composer's edge carries the focus (INBOX 560).

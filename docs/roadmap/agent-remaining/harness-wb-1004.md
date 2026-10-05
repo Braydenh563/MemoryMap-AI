@@ -25,12 +25,16 @@ to 21). Sweeps added: `wbcomments.js`, `mapstructure.js`, `mappresent.js`,
 `wbframeexport.js`, `wbgripink.js` (each takes `VW`, `VH`, `THEME`), and
 `wbregress.sh` runs the whiteboard set in one go. What is left:
 
-1. **A frame's title at a phone's fitted zoom** (found 2026-10-05): about 7px
-   tall at k 0.24, and a press-drag aimed at it moved nothing, or with a
-   selection held moved the inner frame and its sticky by different amounts
-   (570 and 541 board units for a 60px drag). Right at half zoom. Measure the
-   hit target against `--target-min` and the bulk mover's start with a held
-   selection; `wbframeexport.js` at `VW=390` with the fit zoom reproduces it.
+1. **A frame's title at a phone's fitted zoom**: done (left1005). The title
+   grows a transparent top border to `--target-min` on screen (44px at k
+   0.21; `WB_INV_ZOOM_GRIPS` names it); `left1005-frametitle.js` 7/7 at 390
+   and 1440, light and dark: one delta for the frame, the inner frame and its
+   sticky with nothing, the frame, everything or the inner pair selected. The
+   different-amounts drag (570 and 541) did not reproduce on this head, with
+   or without the fix (the old title moved nothing at all); every selection
+   move already goes through `wbApplyBulkMove`'s one delta. Left: nested
+   frames whose tops are close at that zoom share the grown area, and the
+   inner (drawn later) wins it; aim at the outer title's words.
 2. MINDMAP_PLAN §12.2's rest: a boundary round a lasso'd set that is not one
    branch (decision 19 left it out), item 4's priority, progress, flags and due
    dates, item 7's floating topics and palettes, item 8's outline pane.

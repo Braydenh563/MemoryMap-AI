@@ -75,9 +75,19 @@ with its owner named in the entry.
 
 546. **The owner, 2026-10-05, verbatim.** "idk if the "connections beside an
      open note" in the notes tab does anything."
+     Checked: it works at 1280px and wider, beside a note you have opened
+     (`notesRailWanted`); with no note open nothing changes, so pressing it
+     looked like nothing. It now says so in a toast when that is the case.
 
 547. **The owner, 2026-10-05, verbatim.** "also what are topics in the graph??
      can i change or modify or see topics in the graph or elsewhere??"
+     Answer: a topic is a subject the app finds inside a cluster (GRAPH_PLAN
+     KG6): notes linked closely together, named by the tag, person or word
+     they share most. Seen via the graph's gear, Colour: Topic (an outline
+     per topic, a legend entry per topic, a card with Summarise). They are
+     computed, not editable. Recommendation (taken): rename a topic from its
+     card (a stored name that wins over the computed one), and list topics
+     in Library, Contents, so they are visible outside the graph. Next Opus.
 
 548. **The owner, 2026-10-05, verbatim.** "redesign old ui popups like this as
      well to be consistent, moderna and professional." (screenshot: the mind

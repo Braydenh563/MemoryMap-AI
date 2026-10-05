@@ -54,6 +54,11 @@ with its owner named in the entry.
 
 540. **The owner, 2026-10-05, verbatim.** "one of the feminine atlas blinking
      animations has MASSSSIVE eyebrows."
+     Not reproduced (2026-10-05): the live companion drawn at 6x, feminine
+     and masculine, six poses by nine moods/acts, the blink lids sit within
+     2px of the eyes and the closed-eye stroke and lashes are their usual
+     size; mid-blink frames looked at. Needs the owner: a screenshot of the
+     moment, or which pose/mood it was in (sitting, lying, drowsy, startled).
 
 541. **The owner, 2026-10-05, verbatim.** "some of the settings section
      navigation rows are at the bottom and some dont have any at all??"

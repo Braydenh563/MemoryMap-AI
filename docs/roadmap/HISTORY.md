@@ -40339,3 +40339,7 @@ border or answering hover). Both are strict now.
      (1116px at 1440, 708 at 1024, 330 at 390, 46px a day), today filled,
      one Tab stop with arrow keys; `daystrip.js` 44 of 44 at 1440 and 390.
 
+548. **The owner, 2026-10-05, verbatim.** "redesign old ui popups like this as
+     well to be consistent, moderna and professional." (screenshot: the mind
+     map's "Point a new node at..." picker).
+

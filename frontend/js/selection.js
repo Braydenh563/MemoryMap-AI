@@ -118,6 +118,24 @@ async function addBoardToNote(board) {
   if (typeof loadMapBoardIndex === "function") loadMapBoardIndex(true);
 }
 
+//: **A dialog's head** built in script (DESIGN.md, "A dialog's head"): the
+//: title at a dialog's size, then the icon X last, which calls `close`.
+function dialogHead(title, close) {
+  const head = document.createElement("div");
+  head.className = "dialog-head";
+  const heading = document.createElement("h2");
+  heading.className = "dialog-head-title";
+  heading.textContent = title;
+  const actions = document.createElement("span");
+  actions.className = "dialog-head-actions";
+  const x = smallButton("ph:x", "Close", close);
+  x.classList.add("icon-only", "dialog-head-btn");
+  x.setAttribute("aria-label", "Close");
+  actions.appendChild(x);
+  head.append(heading, actions);
+  return head;
+}
+
 //: **The picker dialog** (INBOX 548, the owner: "redesign old ui popups like
 //: this as well to be consistent, modern and professional"). One shell for
 //: every "choose from your notebook" dialog, on DESIGN.md's recipes rather than
@@ -136,14 +154,6 @@ function pickerDialog({ title, about = "", placeholder, searchLabel = placeholde
   overlay.setAttribute("aria-label", title);
   const card = document.createElement("div");
   card.className = "card modal-card space-dialog entry-pick-card";
-  const head = document.createElement("div");
-  head.className = "dialog-head";
-  const heading = document.createElement("h2");
-  heading.className = "dialog-head-title";
-  heading.textContent = title;
-  const actions = document.createElement("span");
-  actions.className = "dialog-head-actions";
-  head.append(heading, actions);
   const line = document.createElement("p");
   line.className = "muted entry-pick-about";
   line.textContent = about;
@@ -180,10 +190,7 @@ function pickerDialog({ title, about = "", placeholder, searchLabel = placeholde
     if (returnFocus?.isConnected) returnFocus.focus?.();
     answer(value);
   };
-  const x = smallButton("ph:x", "Close", () => close(null));
-  x.classList.add("icon-only", "dialog-head-btn");
-  x.setAttribute("aria-label", "Close");
-  actions.appendChild(x);
+  const head = dialogHead(title, () => close(null));
   return {
     card, search, list, close,
     //: The parts in the recipe's order, then open.

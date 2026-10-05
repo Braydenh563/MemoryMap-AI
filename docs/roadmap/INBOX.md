@@ -75,10 +75,6 @@ with its owner named in the entry.
 547. **The owner, 2026-10-05, verbatim.** "also what are topics in the graph??
      can i change or modify or see topics in the graph or elsewhere??"
 
-548. **The owner, 2026-10-05, verbatim.** "redesign old ui popups like this as
-     well to be consistent, moderna and professional." (screenshot: the mind
-     map's "Point a new node at..." picker).
-
 525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
      dark background behind the graph labels togglable??" Next Opus: the
      label plate switch in the graph's gear (Obsidian-parity brief).

@@ -4889,11 +4889,19 @@ span > .chip {
    `.seg` of sources, the `.search-field`, the rich picker's rows (or the
    Attach picker's for several) and the dialog foot. One width and one list
    height for every source, so a tab never resizes the dialog. */
-.entry-pick-card {
+.entry-pick-card,
+.wb-info-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   width: min(34rem, calc(100vw - var(--space-8) * 2));
+}
+
+/* A map's facts and its look (`wbInfoDialog`): the same head, no foot. */
+.wb-info-card {
+  width: min(30rem, calc(100vw - var(--space-8) * 2));
+  max-height: calc(100vh - var(--space-8) * 2);
+  overflow-y: auto;
 }
 
 .entry-pick-card > .seg {

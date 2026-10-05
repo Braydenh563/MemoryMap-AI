@@ -161,6 +161,28 @@ with its owner named in the entry.
      right-click menu and its align/distribute bar on map topics). Placed:
      the board and map agent, with 610.
 
+618. **The owner, 2026-10-05, verbatim.** "do the top bar and bottom bar
+     need a more modern and professional ui/ux redesign or adjustments at
+     all or are they fine??" Recommendation taken: top bar polish (spaces
+     picker as a ghost control matching the tab pills, active tab without
+     extra bold, a smaller logo tile, power secondary); bottom bar declutter
+     (counts quiet, Agent/Guide/Find icon-only with tooltips, Commands the one
+     labelled door, the status mark explained, the clock optional, history
+     arrows grouped with undo/redo). Placed: the design-rows agent, after 616.
+
+619. **The owner, 2026-10-05, verbatim.** "the lower body on the feminine
+     atlas is also slightly misaligned. and when sleeping etc, her lower body
+     actually rotates halfway off her upperbody which stays mostly upright.
+     female atlas's eyes went blank white for a sec and it looked creepy.
+     also it still snaps between behaviours and no behaviours." and "in the
+     enlarged preview atlas is still hanging, it should be slightly separate
+     from the companion but still have the same life". Placed: the Atlas
+     agent (with 600, 601, 612, 614, 615).
+620. **The owner, 2026-10-05, verbatim.** "can you also improve and
+     modernise the quick sketch a little more as well?? it is already mostly
+     fine, maybe a bit more of a gap below the top row title and close
+     button". Placed: the design-rows agent, after 618.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 540, 554, 556, 564, 575 (Atlas motion and form) placed in

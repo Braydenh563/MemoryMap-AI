@@ -432,6 +432,147 @@ MORE_TOPICS: list[dict] = [
         ),
         "badge": {"label": "Account & security", "section": "account"},
     },
+    {
+        "id": "model-bench",
+        "keywords": (
+            "model bench", "test my models", "which model is best", "compare models",
+            "best model for my notes", "benchmark", "try my models",
+        ),
+        "body": (
+            "Settings, Models, Test my models runs your installed models on your "
+            "own notes and recommends one. Tick the models to compare and press "
+            "Run the test: each model files a sample of the notes you filed "
+            "yourself, answers a question about each one from three notes shown "
+            "to it, and calls a search tool five times. Every row shows Filing, "
+            "Answers and Tools as a percentage, how long an answer took and how "
+            "many tokens it used, with the first few things it got wrong, so you "
+            "can check the recommendation. Use this one makes that model answer "
+            "in chat. Stop ends a run, and a stopped run makes no "
+            "recommendation. It needs at least six filed notes, runs entirely on "
+            "this computer, and can be switched off in Settings, What the "
+            "notebook learned, Model bench."
+        ),
+        "badge": {"label": "Test my models", "section": "models", "target": "bench-box"},
+    },
+    {
+        "id": "margin-reader",
+        "keywords": (
+            "margin reader", "margin", "notes beside my writing", "related notes while writing",
+            "did I write this before", "contradiction while writing", "second reader",
+        ),
+        "body": (
+            "The margin reader reads with you while you write a document. Turn "
+            "it on from the document's menu, While you write, Margin reader. A "
+            "column to the right of the editor then shows at most three cards "
+            "about the paragraph the caret is in, a moment after you stop "
+            "typing: Repeats (you already wrote this in another note), Differs "
+            "(the same thing with a different number or a not, or what the "
+            "model judges a disagreement), Answers (it answers an open question "
+            "from your notes), Date (a time in the paragraph, with Make a "
+            "reminder) and Related. Each card has Open and Not this; nothing is "
+            "ever written into your text. It is off until you turn it on, "
+            "remembered on this device, and can be switched off everywhere in "
+            "Settings, What the notebook learned, Margin reader."
+        ),
+        "badge": {"label": "What the notebook learned", "section": "learned"},
+    },
+    {
+        "id": "web-clipper-bookmark",
+        "keywords": (
+            "bookmarklet", "clip to memorymap", "clip a page from my browser", "browser extension",
+            "save this page", "clipper bookmark", "keep a web page", "clip a web page",
+            "from my browser", "clip from the browser",
+        ),
+        "body": (
+            "Settings, Import & export, Web clipper has a bookmark called Clip to "
+            "MemoryMap. Drag it to your browser's bookmarks bar (or press Copy the "
+            "bookmark and make a bookmark with it as the address). On any page, "
+            "press it: a small MemoryMap window opens beside the page with its "
+            "title and address, and Save as a note keeps the page's main text, or "
+            "only the text you had selected. Your own browser sends the page, so "
+            "nothing is fetched from the web: it works with web search off and on "
+            "pages you signed in to see. No browser extension is needed. A clipped "
+            "note keeps its address, Atlas treats its text as someone else's words "
+            "and never follows instructions in it, and clipping the same page again "
+            "points you to the note it made the first time."
+        ),
+        "badge": {"label": "Web clipper", "section": "data", "target": "web-clip-box"},
+    },
+    {
+        "id": "import-apps",
+        "keywords": (
+            "import from notion", "notion", "evernote", "enex", "apple notes", "obsidian vault",
+            "import from another app", "move my notes from", "switch from notion", "switch from evernote",
+        ),
+        "body": (
+            "Settings, Import & export, Import from another app has four buttons: "
+            "From Notion (choose the zip from Notion's Export, Markdown & CSV), "
+            "From Obsidian (choose the vault folder), From Evernote (choose the "
+            ".enex files you exported) and From Apple Notes (choose the folder an "
+            "exporter app wrote, one HTML, Markdown or text file per note). "
+            "Choosing starts the import and the toast's Undo moves exactly those "
+            "notes to the recycle bin. Folders and notebooks become categories, "
+            "tags and dates come along where the app wrote them, and links between "
+            "Notion pages become wiki links. Each note remembers where it came from, "
+            "so importing the same export again adds nothing twice and says how "
+            "many were already here. Imported text is treated as someone else's "
+            "words: Atlas never follows instructions written in it."
+        ),
+        "badge": {"label": "Import from another app", "section": "data", "target": "import-app-box"},
+    },
+    {
+        "id": "simple-mode",
+        "keywords": (
+            "simple mode", "fewer tabs", "hide tabs", "hide the tabs", "tabs i do not need", "too many tabs", "simpler", "beginner",
+            "where did the graph go", "where did the timeline go", "where are reminders",
+        ),
+        "body": (
+            "Settings, General, Simple mode: Show only Dashboard, Notes, Chat and "
+            "Library. It hides the Graph, Timeline and Reminders tabs, the "
+            "Library's Boards and maps, What it learned and the advanced response "
+            "settings until you want them. Nothing is turned off: every hidden "
+            "place still opens from the command palette (Ctrl+K), and reminders "
+            "still ring. It is remembered on this device; turn it off in the "
+            "same place to bring the tabs back."
+        ),
+        "badge": {"label": "Simple mode", "section": "general", "target": "simple-mode-box"},
+    },
+    {
+        "id": "usage-ledger",
+        "keywords": (
+            "what you use", "what i use", "usage", "most used", "never use", "unused features",
+            "is it tracking me", "telemetry", "analytics",
+        ),
+        "body": (
+            "Settings, General, What you use counts each tab you open and each "
+            "command you run from the palette, on this computer only, in a small "
+            "file in your data folder: names and dates, never what you typed, "
+            "and never sent anywhere (there is no telemetry). It lists your most "
+            "used tabs and commands and the ones not used in 90 days, and the "
+            "command palette lists the commands you use most first. Clear the "
+            "counts forgets every one."
+        ),
+        "badge": {"label": "What you use", "section": "general", "target": "usage-box"},
+    },
+    {
+        "id": "capture-anywhere",
+        "keywords": (
+            "capture from anywhere", "global hotkey", "global shortcut", "system shortcut",
+            "capture without opening", "note from another app", "--capture",
+        ),
+        "body": (
+            "Settings, Keyboard shortcuts, Capture from anywhere shows the command "
+            "for this install (memorymap --capture, with its full path) and a "
+            "Copy button. Give that command a key in your system's own keyboard "
+            "settings: on Windows a desktop shortcut with it as the target and a "
+            "Shortcut key, on macOS a Shortcuts action, on Linux a custom keyboard "
+            "shortcut. Pressing the key over any app opens a one-line box on the "
+            "MemoryMap that is already running; Enter saves the note, filed like "
+            "any other, and the box closes. On a phone, Share to MemoryMap does "
+            "the same."
+        ),
+        "badge": {"label": "Capture from anywhere", "section": "shortcuts", "target": "capture-anywhere-box"},
+    },
 ]
 
 #: **Every feature since 0.3.0, large and small** (INBOX 448 (1), the owner:
@@ -889,6 +1030,13 @@ TOPIC_META: dict[str, dict] = {
     "statusbar": {"title": "The status bar", "path": "Settings, Appearance, Status bar"},
     "shortcuts": {"title": "Keyboard shortcuts", "path": "Settings, Keyboard shortcuts"},
     "models": {"title": "Models", "path": "Settings, Models"},
+    "model-bench": {"title": "Test my models", "path": "Settings, Models, Test my models", "target": "bench-box"},
+    "margin-reader": {"title": "The margin reader", "path": "A document's menu, While you write, Margin reader"},
+    "web-clipper-bookmark": {"title": "Clip a page from your browser", "path": "Settings, Import & export, Web clipper", "target": "web-clip-box"},
+    "import-apps": {"title": "Import from another app", "path": "Settings, Import & export, Import from another app", "target": "import-app-box"},
+    "simple-mode": {"title": "Simple mode", "path": "Settings, General, Simple mode", "target": "simple-mode-box"},
+    "usage-ledger": {"title": "What you use", "path": "Settings, General, What you use", "target": "usage-box"},
+    "capture-anywhere": {"title": "Capture from anywhere", "path": "Settings, Keyboard shortcuts, Capture from anywhere", "target": "capture-anywhere-box"},
     "storage": {"title": "Where your data lives", "path": "Settings, Import & export"},
     "websearch": {"title": "Web search", "path": "Settings, Web search"},
     "privacy": {"title": "Privacy", "path": "Settings, Privacy"},
@@ -997,7 +1145,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "command-palette", "find-anything", "search", "addresses", "settings-overview",
     )),
     ("Writing notes", (
-        "capture", "quick-note", "note-outbox", "attachments", "notes-controls",
+        "capture", "quick-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
         "notes-list", "note-history", "links", "favourites", "templates",
         "write-with-atlas", "translate", "extract-notes", "voice",
     )),
@@ -1010,12 +1158,13 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     )),
     ("Documents and code", (
         "documents", "documents-controls", "documents-features", "callouts", "document-history", "writing-checks", "code-files",
+        "margin-reader",
     )),
     ("Boards and maps", (
         "whiteboard", "whiteboard-controls", "mind-maps", "mind-map-controls", "mind-map-features",
     )),
     ("Library and files", (
-        "library", "library-controls", "bookmarks", "contents", "library-skills",
+        "library", "library-controls", "bookmarks", "web-clipper-bookmark", "contents", "library-skills",
         "files-images", "ocr-workspace", "ocr-engine", "archive", "undo-bin",
     )),
     ("Graph, Timeline, Reminders and Dashboard", (
@@ -1023,15 +1172,15 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "reminders-controls", "dashboard", "dashboard-controls", "notifications", "spaces",
     )),
     ("Look and feel", (
-        "appearance", "themes", "accessibility", "performance", "background-art",
+        "appearance", "themes", "simple-mode", "accessibility", "performance", "background-art",
         "statusbar", "companion", "atlas-look", "faces",
     )),
     ("Models and the AI", (
-        "models", "model-downloads", "tools-setting", "autonomous", "websearch",
+        "models", "model-downloads", "model-bench", "tools-setting", "autonomous", "websearch",
         "search-index", "packages",
     )),
     ("Privacy and your data", (
-        "privacy", "security", "lock", "storage", "import-export", "background-tasks",
+        "privacy", "security", "lock", "storage", "import-export", "import-apps", "usage-ledger", "background-tasks",
     )),
     ("Settings and support", (
         "profile", "general-settings", "updates", "logs", "troubleshooting",

@@ -23,6 +23,9 @@ const PW='testpassword123'; const BASE=process.env.BASE||'http://127.0.0.1:8781'
 const TABS=['dashboard','notes','library','chat','graph','timeline','reminders','documents','whiteboard'];
 const SECTIONS=['account','privacy','learned','appearance','preferences','models','tools','skills','personas','templates','websearch','memory','tasks','data','logs','shortcuts','extras','help','about'];
 const SUBTABS={notes:['browse','capture','writing-room','ask'],library:['docs','boards','images','files','skills','links','contents']};
+// FAULTS=1: the fault-injection pass instead (errors-faults.js, WORLD_CLASS_PLAN H9):
+// one route at a time answers 500, and no tab may go blank or throw.
+if (process.env.FAULTS) { require("./errors-faults.js"); return; }
 (async()=>{
   const browser=await chromium.launch();
   for(const width of (process.env.WIDTHS||'1440,1024,820,390').split(',').map(Number)){

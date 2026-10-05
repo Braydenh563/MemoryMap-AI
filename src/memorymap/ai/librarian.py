@@ -358,8 +358,12 @@ def note_for_prompt(note: dict, limit: int = MAX_NOTE_CHARS, can_fetch: bool = T
     from memorymap.ai.fence import fence
 
     content = str(note.get("content", ""))
+    #: A note clipped from a page or brought in by an import says so in its
+    #: fence (row 24): the model is told what the text is, not just that it
+    #: is quoted, and `from_outside` is the same flag the agent's guard reads.
+    kind = "note from outside" if note.get("from_outside") else "note"
     if len(content) <= limit:
-        return fence("note", content)
+        return fence(kind, content)
     note_id = note.get("id")
     if can_fetch and note_id:
         # Naming the tool and the id: a truncation the model cannot act on is
@@ -369,7 +373,7 @@ def note_for_prompt(note: dict, limit: int = MAX_NOTE_CHARS, can_fetch: bool = T
         # No tools this turn. Say it is cut and say nothing about fixing it,
         # so the model reports the gap instead of promising to look.
         where = ", the rest is in the note itself"
-    return fence("note", f"{content[:limit].rstrip()}… [cut{where}]")
+    return fence(kind, f"{content[:limit].rstrip()}… [cut{where}]")
 
 
 def build_conversational_messages(

@@ -166,11 +166,18 @@ function showSettingsSection(name) {
       })
       .catch(() => {});
   }
+  if (name === "models") renderModelBench();
+  if (name === "general") renderUsage();
   if (name === "appearance") renderAppearance();
-  if (name === "shortcuts") renderShortcutList();
+  if (name === "shortcuts") {
+    renderShortcutList();
+    renderCaptureCommand();
+  }
   if (name === "account") renderAccount().catch(() => {});
   if (name === "privacy") renderPrivacyReceipt().catch(() => {});
   if (name === "data") {
+    ensureModule("webClip");
+    ensureModule("appImport");
     renderBackups();
     renderBackupRetention();
   }

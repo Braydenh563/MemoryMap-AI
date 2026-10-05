@@ -10851,3 +10851,18 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 #settings-help .help-accordion kbd {
   font-size: 0.8em;
 }
+
+/* Simple mode (WORLD_CLASS_PLAN H9, row 27; Settings, General). theme-boot.js
+   sets `data-simple="on"` on <html> before first paint from this device's
+   choice, and these are the places a new person does not need until they
+   reach for them: the Graph, Timeline and Reminders tabs (in the tab bar and
+   wherever the phone shell puts the same buttons), the Library's Boards and
+   maps, What it learned, and the advanced response settings with their '?'.
+   Hidden, never disabled: each still opens from the command palette. */
+:root[data-simple="on"] #tab-bar button[role="tab"]:is([data-tab="graph"], [data-tab="timeline"], [data-tab="reminders"]),
+:root[data-simple="on"] [role="tab"][data-target="library-view-whiteboard"],
+:root[data-simple="on"] #settings-nav [data-section="learned"],
+:root[data-simple="on"] #sampling-box,
+:root[data-simple="on"] [data-help-for="sampling-help"] {
+  display: none;
+}

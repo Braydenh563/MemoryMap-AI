@@ -6456,3 +6456,132 @@ select {
 .model-card .chip.item-label:not(.is-warn, .is-yours) {
   color: var(--ink);
 }
+
+/* The model bench (WORLD_CLASS_PLAN I8): the models to test as switches in a
+   wrapping row, then one row per model on the list-row recipe (DESIGN.md, "A
+   row in a list"): the name with its labels, one facts line, the first
+   failures under it, and the action cell centred on the whole row. */
+.bench-models {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  margin-block: var(--space-2);
+}
+
+.bench-results {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--row-gap);
+}
+
+.bench-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  min-height: var(--row-h);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+}
+
+.bench-row:hover {
+  background: var(--row-hover-bg);
+}
+
+.bench-row-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+}
+
+.bench-row-meta {
+  margin: var(--space-1) 0 0;
+}
+
+.bench-failures {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-5);
+}
+
+.bench-row-actions {
+  align-self: center;
+}
+
+@media (max-width: 599.98px) {
+  .bench-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The web clipper's bookmark (row 24): a link you drag, not a button you
+   press, so it reads as an object with a dashed edge rather than as one more
+   ghost button; the accent ink says it is a link. On the control height. */
+.web-clip-bookmarklet {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h);
+  padding: 0 var(--space-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--accent-text);
+  text-decoration: none;
+  cursor: grab;
+}
+
+.web-clip-bookmarklet:hover {
+  background: var(--row-hover-bg);
+}
+
+/* The touch band's hit target, as every button beside it takes there. */
+@media (max-width: 819.98px), (pointer: coarse) {
+  .web-clip-bookmarklet {
+    min-height: var(--target-min);
+  }
+}
+
+/* The clip window (clip.html): one card, centred, on the app's tokens. */
+.clip-page {
+  min-height: 100vh;
+  margin: 0;
+  display: grid;
+  place-items: start center;
+  padding: var(--space-6) var(--space-4);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.clip-card {
+  width: min(32rem, 100%);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.clip-heading {
+  margin: 0;
+  font-size: var(--text-h2);
+}
+
+.clip-preview {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.clip-preview.hidden {
+  display: none;
+}
+
+.clip-source {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Capture from anywhere (row 27): the command for this install, wrapping
+   rather than widening the group when its path is long. */
+.capture-command {
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+}

@@ -390,14 +390,7 @@ through and fade, a "today" band at the top. Gate: row recipe shared
 
 ### D9 Links and the web clipper (M, Opus)
 
-Exists: bookmarks with groups. Target: a "Save page" bookmarklet and a
-share-target (PWA) that POSTs a URL; the backend fetches (SearXNG-safe,
-offline-tolerant) and stores a readable extract as a document with the
-source URL, so links become searchable notes. Brief: `/links/clip` +
-readability extraction (vendored, MIT) + a bookmarklet generator in
-Settings. Gate: a clipped page is found by search within 2s.
-
-**State 2026-09-24:** (c) not built: no `/links/clip`, no readability extraction, no bookmarklet. The PWA share target exists; S5's guard in `core/security.py` is ready for the first fetch. M, Opus.
+Built 2026-10-05: the brief and its record moved to HISTORY.md, "Moved from the plans, 2026-10-05 (the web clipper, from the browser)".
 
 ### D10 Documents and PDFs (L, see DOCUMENTS_PLAN.md; add PDF annotation as
 Phase 8: highlight → note with page anchor, rendered by pdf.js vendored)
@@ -709,7 +702,7 @@ too much routes through the model. Each of these is pure code:
    space and export from a selection were not found. S.
 6. (a) built: JSON, CSV, Markdown and zip export, OPML for maps, the print
    stylesheet for documents.
-7. (c) Notion, Evernote and Apple Notes importers are not built (H6). M.
+7. (a) built 2026-10-05: Notion, Obsidian, Evernote and Apple Notes import, idempotent by source (HISTORY, "row 25, the importers and the keyboard").
 8. (a) built: `DEFAULT_SHORTCUTS` and the shortcut sheet.
 9. (b) documents have word count and reading time; notes were not found to. S.
 10. (b) the bin restores entries (notes, boards, maps: `POST /entries/{id}/restore`);
@@ -827,13 +820,13 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 18 | ~~B4~~ | ~~typed links, a derived tensions table, rebuild determinism, the Tensions widget~~ built 2026-10-05 (`tensions` table rebuilt from events, night facts and links, `tests/test_tensions_table_b4.py`; typed links were KG3); left: derived person and project pages, per-claim citations, "what changed about X" | done | HISTORY |
 | 19 | B5, §9 | per-tool pre and post conditions, grammar-forced JSON, evals at 3B and 4B, concurrent tool calls, Ollama's native dialect | M | `ai/tools/`, `tests/test_skills_evals.py` |
 | 20 | I7 | the "Learned from you" line with a filing accuracy number | S | `settings.js` |
-| 21 | I8, H3 | the model bench | M | a new `ai/bench.py` |
-| 22 | I2, H8 | the margin reader (after row 6's chunks) | M | `documents.js`, a new `/editor/read` |
+| 21 | ~~I8, H3~~ | ~~the model bench~~ built 2026-10-05: `ai/bench.py`, `/models/bench`, Settings, Models, Test my models (`tests/test_bench_spec.py`); left: a run against a real model for the 30-minute and rerun gates | done | HISTORY |
+| 22 | ~~I2, H8~~ | ~~the margin reader~~ built 2026-10-05 for documents: `ai/margin.py`, `POST /editor/read`, `margin-reader.js` (`tests/test_margin_reader_spec.py`); left: the note editor, typing latency in Chromium | S | HISTORY; I2 |
 | 23 | I5, H8 | time travel: `as_of` on chat, then-and-now | M | `routes_chat.py` |
-| 24 | D9 | the web clipper | M | `routes_bookmarks.py`, `core/security.py` |
-| 25 | H6, §5.7 | Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete; a WCAG audit; multi-window; a first-run path timed to a first answer | M to L each | H6 |
+| 24 | ~~D9~~ | ~~the web clipper~~ built 2026-10-05: `POST /links/clip-page` from the browser, the Clip to MemoryMap bookmark and `clip.html` (`tests/test_webclip_page.py`) | done | HISTORY |
+| 25 | H6, §5.7 | ~~Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete; a WCAG audit; a first-run path timed to a first answer~~ built 2026-10-05 (HISTORY); left: multi-window | M | H6 |
 | 26 | H7 | boot JS under 1 MB (1,072 KB now), first paint under 300 ms, every list over 200 rows virtualised | S each | `boottime.js` |
-| 27 | H9 | usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval | S to M each | H9 |
+| 27 | ~~H9~~ | ~~usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval~~ built 2026-10-05 (HISTORY); left: `boottime.js` in the CI workflow | S | HISTORY |
 | 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure; the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
 | 29 | §10 | F1 a `prefs` module, F5 `api.stream`/`api.upload` and the no-bare-fetch lint, F7's threads onto the pool (the ratchet is built), F10 a `readings` table, F12 a store (F4 built 2026-09-26) | S to L | §10 |
 | 30 | §5 | notes' unlinked mentions, word count and reading time; `{{clipboard}}` and a cursor mark; move to a space and export from a selection; the bin for documents and reminders | S each | §5 |
@@ -1161,59 +1154,7 @@ recipes.
 
 ### I2 The margin reader: a second reader in the editor, from your own notes
 
-**What the person sees.** While writing a note or document, a quiet
-margin column (off by default per editor, one toggle in the toolbar's
-more menu) fills with at most three cards, each pinned to the paragraph
-it is about: "You wrote the opposite on 12 May: 'the batch size should
-stay at 32'" (open, or mark not a contradiction), "This repeats your
-note 'Why I left the project'" (open, link), "Answers your open question
-from March: 'is the API worth the cost?'" (link as answer), "A date:
-Thursday 3pm. Make a reminder?". Nothing is ever inserted into the text.
-Cards fade when the paragraph changes and re-run after a pause.
-
-**Why it is new.** Every editor's AI writes *for* you (autocomplete,
-rewrite). None reads *with* you against your own past thinking. Obsidian
-Copilot chats; Notion AI drafts; Mem surfaces similar notes as a list, not
-pinned to the sentence and not typed (contradiction, repeat, answer,
-commitment).
-
-**Builds on.** The Phase 0 backdrop and underline geometry in
-`documents.js` (a card is anchored the same way an underline is), the
-selection toolbar D2, the chunk vectors from §14 item 3, I1's
-`derived_facts` for claims and open questions, `EntryDate`.
-
-**Data.** None persisted except accepted links (typed `EntryLink`:
-contradicts, repeats, answers) and created reminders. Cards are computed.
-
-**Endpoints.** `POST /editor/read` with `{entry_id | document_id, paragraph:
-str, ordinal: int}` returns `[{kind, text, source_entry_id, source_span,
-reason, confidence}]`, at most three, in under 300ms without the model
-(similar chunk plus claim table lookups) and, when the model is up, a
-second event over SSE with the model-judged kinds. Debounced client-side at
-1.2s after typing stops in a paragraph; one in-flight request per editor;
-the reply is dropped if the paragraph text changed.
-
-**Algorithm.** Embed the paragraph (cached by text); top-5 chunks by
-cosine excluding the current note; for each, if I1 has a claim in that
-chunk, ask the model (small prompt) for the relation in {contradicts,
-repeats, answers, unrelated}; without a model, show "related" only. Dates
-through `reminder_parser` locally. Rank by confidence, cap three, never
-show the same source twice in one note session.
-
-**Tests first** (`tests/test_margin_reader_spec.py`): the endpoint
-returns at most three cards; a paragraph that repeats a fixture note
-verbatim yields `repeats` with that note; a paragraph that negates a
-fixture claim yields `contradicts` under the fake model; a date yields a
-`date` card with a parsed ISO timestamp; with the model down the endpoint
-still answers in under 300ms with `related` cards; `test_frontend_ids.py`
-and the CSP lint pass for the margin column.
-
-**Gate.** Measured in Chromium: typing latency in the editor unchanged
-(frame time p95 within 1ms of before, `scratchpad/ui-sweeps/editor.js`);
-a card appears within 2s of a pause. **Size** M. **Model** Opus (the
-frontend anchoring is design work).
-
-**State 2026-09-24:** (c) not built: no `/editor/read`. Waits on §14's chunk vectors. M, Opus.
+Built 2026-10-05 for documents: the spec and its record moved to HISTORY.md, "Moved from the plans, 2026-10-05 (the margin reader)". Left: the same column in the note editor; typing latency measured in Chromium.
 
 ### I3 Open questions: the notebook keeps a list of what you have not answered
 
@@ -1319,39 +1260,7 @@ M. **Model** Opus for the prompt and fusion changes, Sonnet for the panel.
 
 ### I8 The model bench: which local model is best on *your* notebook
 
-**What the person sees.** Settings > Models > "Test my models": pick two
-or more installed models, press Run; twenty minutes later a table: filing
-accuracy, citation accuracy, tool-call success, answer latency, tokens per
-answer, each with a number and a one-line example of a failure. "Use this
-one" applies it. Runs on the night shift budget if left overnight.
-
-**Why it is new.** Every local-AI app tells you to "try a model". None
-measures one against your own notes, offline, and shows the failures.
-
-**Builds on.** `tests/eval/` (fixture, golden, scoring for tool choice and
-citation), `ai/model_manager.py`, `routes_models.py`, I1's scheduler.
-
-**Algorithm.** Build a held-out set from the owner's notebook: sample 40
-notes, generate one question per note whose answer is a sentence in it
-(no model needed: pick a claim from I1, or a sentence with two
-distinctive terms), plus the note's own category. For each model: file the
-40 notes cold, answer the 40 questions, run five scripted tool tasks;
-score with `tests/eval/scoring.py`'s functions moved into `ai/bench.py`
-(the tests then import from there, so the harness and the feature cannot
-drift). Report per model.
-
-**Tests first** (`tests/test_bench_spec.py`): a bench over the fixture
-with two fake models that differ in one scripted answer ranks them in the
-right order; the report names the failing question; a bench respects the
-budget and can be stopped; "Use this one" switches the chat model
-preference.
-
-**Gate.** The bench over two models on 40 notes completes under 30 minutes
-on the reference small model; the numbers reproduce within 2 points on a
-second run. **Size** M. **Model** Sonnet (the scoring exists; this is
-plumbing and a table).
-
-**State 2026-09-24:** (c) only its switch exists (`model_bench` in settings.js); no `ai/bench.py`, no route, no table. H3 is the same row. M.
+Built 2026-10-05: the spec and its record moved to HISTORY.md, "Moved from the plans, 2026-10-05 (the model bench)".
 
 ### I9 What the notebook learned: one place to see, edit, delete and switch it all off
 
@@ -1760,16 +1669,7 @@ answer's ranking (asserted, not eyeballed).
 
 ### H3 The model bench (I8; M, Opus)
 
-The one question every local-AI user asks and no product answers: which
-model is best on my notes, on my machine. Build: Settings, Models, "Try
-on my notebook": the app runs a fixed set of twelve tasks (file, link,
-answer, summarise, plan a skill) against each installed model over a
-sample of the person's own notes, scores them with the verifier from B5,
-times them, and shows a table with a recommendation. Everything local, one
-click, resumable. Gate: fake-transport tests for scoring and resume;
-`docs/MODELS.md` cites the bench instead of guessing.
-
-**State 2026-09-24:** (c), I8.
+Built 2026-10-05 with I8: moved to HISTORY.md, "Moved from the plans, 2026-10-05 (the model bench)".
 
 ### H4 The notebook as a local service for other agents (B7 and B8; M, Opus)
 
@@ -1840,7 +1740,7 @@ first note and a first question, measured by time to first answer.
    and read as intended, not that `wix build`/`ISCC.exe` actually produced
    a file with that name.
 
-**State 2026-09-24:** (b) done: one-click recovery (253) and the release naming (decision 1). Open: the three importers, print and PDF of a document with its citations (the print stylesheet exists; citations in it were not checked), keyboard-complete, the WCAG audit, multi-window, and a first-run tour that ends in a first answer (the tour exists; the timed path does not).
+**State 2026-10-05:** (b) done: one-click recovery (253), the release naming (decision 1), the four importers, keyboard-complete for every dock, the WCAG audit and the first-run path timed to a first answer (HISTORY, "row 25, the importers and the keyboard" and "H9, polish in use; the rest of row 25"). Open: print and PDF of a document with its citations (the print stylesheet exists; citations in it were not checked) and multi-window.
 
 ### H7 The speed budget (A1 continued; S each)
 
@@ -1881,54 +1781,11 @@ as they write, from the same engine, with the link-strength explanation
 under each. Both reuse B3; both gate on the 150 ms budget for a
 keystroke-to-margin update.
 
-**State 2026-09-24:** (c), I5 and I2.
+**State 2026-10-05:** I2, the margin reader, built for documents (HISTORY, "the margin reader"); I5 open (row 23).
 
 ### H9 Polish in use (the owner's question, 2026-09-14; S to M each)
 
-Asked at the close of PR 144: what else makes the app better *in use*,
-not on a feature list. Checked against the code first (undo toasts, the
-service worker, skeletons, chunk-on-scroll lists, saved searches, the
-daily note, the first-run pass and the doctor route all exist), so each
-row below is a gap, with its gate:
-
-- **A local usage ledger.** Count every feature's use on this machine
-  only (a table, never sent anywhere), shown in Settings as "what you
-  use", and used to rank the palette and the Show menu by frequency. The
-  first notebook that tells its owner which of itself is dead weight.
-  Gate: a feature unused for ninety days is listed, and the palette's
-  top five are the five most used.
-- **Time to first answer as the onboarding number.** The first-run path
-  ends in a real question answered from a real note, timed; the tour is
-  cut to whatever gets that under two minutes on a cold laptop. Gate:
-  the number in the CHANGELOG, measured by a sweep that starts from an
-  empty data dir.
-- **Simple mode.** A Settings switch that hides the tabs and settings a
-  new person does not need (Timeline, Boards, the learned store, the
-  advanced response settings) until they are reached for; every hidden
-  thing reachable from the palette. Gate: the tab bar shows four tabs
-  on a fresh install and the docks lint still passes.
-- **Speculative retrieval.** Retrieval starts on a typing pause in Ask
-  and Chat, before Enter, so the first token arrives sooner; the model
-  is warmed on boot and kept resident. Gate: median time to first token
-  on the reference laptop, before and after, in the CHANGELOG.
-- **The perf gate in CI.** `boottime.js` and a per-action timing sweep
-  (open each tab, open a note, ask a question against the fake server)
-  run on every push with a budget per number; a regression fails the
-  build like a lint. Gate: the workflow, and one deliberate regression
-  caught before merge.
-- **Screen readers as a standing sweep.** axe-core over every tab in
-  both themes, next to `contrast.js` and `touch.js`, with the count
-  ratcheted to zero. Gate: the sweep in `all.sh`, zero serious findings.
-- **Quick capture from anywhere.** A global hotkey on the desktop build
-  that opens a one-line capture over any app, and the PWA's share target
-  on a phone on the same network. Gate: a note captured without the app
-  in front, under three seconds, in both cases.
-- **Retry as a grammar.** Every failed request shows the same inline
-  "try again" with the reason, never a toast alone; `errors.js` gains a
-  fault-injection pass (the fake server returns 500 on one route at a
-  time). Gate: zero routes whose failure leaves the surface blank.
-
-**State 2026-09-24:** (c) for the usage ledger, time to first answer, simple mode, the perf gate in CI (CI runs the Playwright tests, no timing budget), the axe sweep and the global capture hotkey. (b) for speculative retrieval (Ollama is asked to keep the model for 30 minutes; retrieval does not start on a pause) and for retry as a grammar (`surfaceFailed`/`surfaceRecovered` are the one recipe, `tests/test_ui_recipes.py`; the fault-injection pass in `errors.js` is not built).
+Built 2026-10-05, every row: moved to HISTORY.md, "Moved from the plans, 2026-10-05 (H9, polish in use; the rest of row 25)". Left: `boottime.js` in the CI workflow itself (the budget that runs on every push is `tests/test_perf_budget.py`).
 
 ### The order, and the rule
 

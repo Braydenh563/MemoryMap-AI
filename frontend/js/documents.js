@@ -278,7 +278,7 @@ foldDocMenuGroup("ph:layout Editor and layout", [
   "doc-format-toggle", "doc-width-menu", "doc-toolbar-mode", "doc-code-wrap-row", "doc-whitespace-row",
 ]);
 foldDocMenuGroup("ph:pencil-simple While you write", [
-  "doc-dim-others", "doc-typewriter", "doc-serif", "doc-autocorrect-row", "doc-complete-row",
+  "doc-dim-others", "doc-typewriter", "doc-serif", "doc-margin-reader", "doc-autocorrect-row", "doc-complete-row",
 ]);
 
 // --- which of the four views is showing ----------------------------------------

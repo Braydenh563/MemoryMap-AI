@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Mind maps: a topic you have dragged into place (pinned, drawn with a dashed box) keeps the Edge bar the Shape menu says: a Solid bar is solid again instead of dashed like the box (INBOX 569).
 - Boards, mind maps and documents: Undo and Redo survive a reload. Each board, map and document keeps its last 100 steps on this computer, so closing the desktop window or reloading no longer takes Ctrl+Z away; locking the notebook clears them (INBOX 553(b)).
 - Mind maps: paste an indented or bulleted list (from a note, a document or another app) onto a selected topic and it becomes that topic's branch, one topic per line, nested by indentation; one Ctrl+Z takes it back (audit FEAT-09, the map half).
 - Mind maps: Tab and Enter open the new topic for typing at once instead of after the server and two redraws of the whole map (median 1,279ms to 320ms at 301 topics, measured back to back on the test box); a new topic and the name typed into it are one Undo step; after a name is committed the keys stay on the map and the name is read out; a laid-out map's topic menu no longer offers Bring to front and Send to back; and with a map open the command palette lists its commands (add, rename, fold, focus, tidy, layout, look, numbering, present, export). App-wide: three style rules that made every change to the page restyle all of it are rewritten (audit FEAT-02, 11, 15, 16, 17).

@@ -40624,3 +40624,19 @@ plan's item 6 decided on, and it fits the budget as it is.
      switch rows; `docdictionary.js` and `docwraps.js` (find bar, AI panel,
      Earlier versions) all ok, no line of words broken onto two.
 
+569. **Fixed 2026-10-05.** The owner, verbatim: "it says the edge bar is solid
+     even though it is dashed" (dark screenshots: a topic's Shape menu reads
+     Box Rounded, Edge bar Solid bar, Fill No fill, and on the canvas the
+     topic has a dashed border and a dashed left bar). The menu was right:
+     the topic was pinned (dragged), and `.wb-map-pinned { border-style:
+     dashed }`, later in 07-whiteboard-misc.css and of equal weight, beat the
+     bar's own `border-left: 4px solid`. 44% of the bar's pixels were gaps
+     (tree-right, pinned, Solid bar). Now the pin dashes the hairline sides
+     only and the bar's side keeps what the Edge bar says; the left hairline
+     of a downward or mirrored pinned topic takes the dash too.
+     `scratchpad/ui-sweeps/mmdoc1005-spinebar.js`: every Box (solid, pinned)
+     by Edge bar (solid, dashed, none) in tree-right, tree-down and both
+     sides, menu text, computed style and the bar's pixels sampled for gaps:
+     31/36 before, 36/36 after, light and dark; a solid bar has 0 gaps, a
+     dashed one 39% to 67%.
+

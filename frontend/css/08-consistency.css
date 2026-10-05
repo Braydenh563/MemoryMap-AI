@@ -607,20 +607,37 @@ details[open] > .about-whats-new::before,
   flex: 1 1 14rem;
 }
 
-.dock .dock-find input[type="search"] {
+/* **The quiet field** (INBOX 621, the owner's "the search fields are heavy
+   and bordered"). Every dock's search box is the `.search-field` recipe with
+   its leading magnifier, drawn as a subtle fill with no edge at rest: the
+   bar already frames it, and a 1px box inside a 1px bar is the "box in a
+   box" the report describes. The edge arrives with focus, as the one focus
+   ring (`.search-field:focus-within`), so where you are typing is still
+   unmistakable. */
+.dock .dock-search {
   flex: 1 1 12rem;
   min-width: 8rem;
   max-width: 28rem;
+  border-color: transparent;
+  background: var(--field-inset);
+  box-shadow: none;
 }
 
-/* One inset for anything that takes input: one fill, one edge, one radius,
-   one height. Three of these (search, the select opener, the native select
-   behind it) drew three radii while sitting side by side. */
-.dock input:not([type="checkbox"]):not([type="radio"]),
+.dock .dock-search:focus-within {
+  border-color: var(--accent);
+  background: var(--input-bg);
+}
+
+/* One inset for anything that takes input: one fill, one radius, one
+   height, and the same quiet edge as the search field beside it (INBOX 621:
+   a bordered sort select next to an edgeless field was two answers again).
+   Three of these (search, the select opener, the native select behind it)
+   drew three radii while sitting side by side. */
+.dock input:not([type="checkbox"]):not([type="radio"]):not(.search-field-input),
 .dock select:not(.select-native-hidden):not(.dock-native-hidden),
 .dock .select-shell > .select-opener {
   height: var(--control-h);
-  border: 1px solid var(--control-edge);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: var(--field-inset);
 }
@@ -649,6 +666,16 @@ details[open] > .about-whats-new::before,
   background: none;
   box-shadow: none;
   color: var(--ink);
+  /* One weight for every worded ghost (INBOX 621): Select and Concept maps
+     were 600 beside Filter and Options at 400, so the quiet controls read
+     as two kinds. 600 is the filled action's, the one thing that is loud. */
+  font-weight: 500;
+}
+
+/* The field's words at the bar's control size, not the 12px a picker's
+   search uses: a placeholder smaller than the buttons beside it. */
+.dock .dock-search > .search-field-input {
+  font-size: var(--text-md);
 }
 
 .dock > * > button.ghost:hover,
@@ -763,38 +790,14 @@ details[open] > .about-whats-new::before,
   height: var(--control-h);
 }
 
-/* Zones are separated by a hairline, not by guessing at a gap. The gap alone
-   was the Phase 8 decision and it is not enough once the bar has a surface:
-   `--space-4` between groups against `--space-3` inside one is a 3.2px
-   difference, which no eye reads as a boundary. */
-.dock > * + * {
-  border-left: 1px solid var(--divider);
-  padding-left: var(--space-4);
-}
-
-/* `.dock-actions` carries `margin-left: auto`, so without this its hairline
-   would float in the middle of the empty space rather than sitting against
-   the cluster it introduces. */
-.dock > .dock-actions {
-  padding-left: var(--space-4);
-}
-
-/* A zone that wrapped opens its line with no hairline (`markDockLineStarts`,
-   phone-shell.js; INBOX 479). A line at the dock's edge also gives up the
-   hairline's padding, and takes the same width back as a right margin, so
-   its outer width, which is what decides the wrap, does not move. Below 600
-   the phone rule already drops every hairline. */
-@media (min-width: 600px) {
-  .dock > [data-line-start] {
-    border-left-color: transparent;
-  }
-
-  .dock > [data-line-start="flush"] {
-    border-left-width: 0;
-    padding-left: 0;
-    margin-right: calc(var(--space-4) + 1px);
-  }
-}
+/* **No hairline between zones** (INBOX 621). A `border-left` before every
+   zone after the first was this file's answer to a 3.2px gap step nobody
+   could read; it boxed the title off from its own page and put a line
+   between every two icons the owner saw ("icon buttons are scattered among
+   dividers"). The zones are parted by `--space-6` now (07-whiteboard-misc.css,
+   `.dock`), twice the gap inside one, which reads as a boundary without
+   drawing one, and the wrapped-line marks (`markDockLineStarts`, INBOX 479)
+   that kept a hairline off the start of a wrapped line went with them. */
 
 /* Icon-only utilities are one cluster at the far end (refresh · help · more),
    not three separately-spaced buttons. The negative margin is written from
@@ -3006,30 +3009,6 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   color: var(--warn);
 }
 
-/* **A divider needs something on both sides of it.** `.dock > * + *` draws
-   one before every zone after the first, which is right until the first
-   child is a zone that is not drawn: the Chat header's phone sidebar opener
-   is `display: none` on a desktop, so the rule put a hairline between
-   nothing and the thread mark, and it read as a line floating to the left of
-   the chat icon (the owner, 2026-09-21, with a screenshot; reported again,
-   INBOX 430, "the icon tile already separates"). Measured: the line is
-   `.dock-identity`'s own `border-left` from that rule. On a phone, where the
-   opener is drawn, a divider immediately after it is equally wrong: it is a
-   control, not a zone.
-
-   **The regression, and why this needed measuring twice.** The first fix
-   targeted `.phone-sidebar-open`, the opener's class name at the time; the
-   opener was rebuilt since as `mountPhoneSidebarOpeners`'s `.dock-nav`
-   wrapper (DESIGN.md's own recipe index entry for "a sidebar on a phone"),
-   and nothing renamed this selector to match. Grepped rather than guessed:
-   `.phone-sidebar-open` does not appear anywhere else in the frontend, so
-   this rule had matched nothing since the rebuild and the divider had
-   nothing left undoing it. */
-.dock > .dock-nav + * {
-  border-left: 0;
-  padding-left: 0;
-}
-
 /* --- glass reaches the floating chrome that sat outside it ------------------
    Owner, with four screenshots: "some elements dont use the glass styles if
    they are active". Measured with glass on in Classic dark: the graph's
@@ -3251,7 +3230,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   margin-inline-end: 0;
 }
 
-/* The chip turns square round its icon (iconchip.js: was 30x24, 4.5px off). */
+/* Square round its icon (iconchip.js). */
 .entry-meta.note-meta:not(.is-measuring) > .chip.is-icon {
   aspect-ratio: 1;
   min-width: 0;
@@ -3753,6 +3732,30 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #graph-options .graph-options-fold > summary {
   padding-inline: var(--space-3);
   border-radius: var(--radius-sm);
+}
+
+/* **One head for every section** (INBOX 621). The fold's chevron led its
+   name, so Physics, Display, Filter, Groups and Minimap began 20px right of
+   View, Show and Time: two left edges for one rank of head. The chevron
+   goes to the far end, where a disclosure's state reads without moving the
+   word, and the summary gives its inset back so every name stands on the
+   section's own edge. */
+#graph-options .graph-options-fold > summary:not(.icon-only):not(.icon-button) {
+  padding-inline: 0;
+  border: 0;
+}
+
+#graph-options .graph-options-fold > summary:not(.icon-only):not(.icon-button)::before {
+  order: 1;
+  margin-left: auto;
+  color: var(--muted);
+}
+
+/* With no inset a hover fill would hug the word; the head and the panel's
+   menu rows answer the pointer in ink instead. */
+#graph-options .graph-options-fold > summary:not(.icon-only):not(.icon-button):hover {
+  background: none;
+  color: var(--accent-text);
 }
 
 .graph-group-add-row {
@@ -4986,10 +4989,15 @@ body .chip.item-label,
    line row is unchanged, since there the title's line is the row. */
 .timeline-feed .timeline-row {
   --timeline-title-line: calc(var(--text-md) * 1.25);
+  align-content: center;
 }
 
 .timeline-feed .timeline-row-title {
   line-height: 1.25;
+}
+
+.timeline-feed .timeline-row > .timeline-row-main {
+  align-self: start;
 }
 
 .timeline-feed .timeline-row > .timeline-row-mark {
@@ -6560,13 +6568,13 @@ body .chip.item-label,
    (atlasarms.js POSE=lie; the owner: "no arm resting on the orbit rings"). */
 #nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-l { transform: rotate(-30deg); }
 #nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(20deg); }
-#nm-buddy[data-pose="lie-2"] .atl-layer-lower { rotate: -16deg; }
-#nm-buddy[data-pose="lie"] .atl-layer-lower { rotate: -42deg; }
-#nm-buddy .atl-layer-lower { transition: rotate calc(var(--motion-slow) * 2) var(--ease-spring); }
-/* The body leads and the hem follows (INBOX 554, 564): the lower layer and
-   its group take a change of pose a beat after the torso does, and settle
-   past it on the spring, as cloth and hair do. */
-#nm-buddy :is(.atl-layer-lower, .atl-lower) { transition-delay: 70ms; }
+/* (Lying and curled, the lower layer turned 16 to 42 degrees off the torso;
+   it lies down with it now, one chain, INBOX 619.) */
+/* (The lower layer used to take a change of pose 70ms after the torso, its
+   follow-through; at the join that lag opened a step between the two
+   outlines through every change of pose, INBOX 615. The hem's own wind and the rig's
+   pose for the state, both about the join, carry the follow-through now.) */
+
 /* Curling up where it sits: hunched forward, arms round the knees, the
    stream drawn in close about it. */
 #nm-buddy[data-pose="curl-1"] .nm-figure { --nmb-lean-pose: 6deg; }
@@ -6577,7 +6585,7 @@ body .chip.item-label,
 #nm-buddy[data-pose="curl-1"] .atl-figure .nmb-arm-r { transform: rotate(30deg); }
 #nm-buddy[data-pose="curl"] .atl-figure .nmb-arm-l { transform: rotate(-58deg); }
 #nm-buddy[data-pose="curl"] .atl-figure .nmb-arm-r { transform: rotate(58deg); }
-#nm-buddy[data-pose="curl"] .atl-layer-lower { rotate: -24deg; }
+
 #nm-buddy[data-pose="curl-1"] :is(.atl-layer-neb, .atl-layer-neb-front) { scale: 0.9; }
 #nm-buddy[data-pose="curl"] :is(.atl-layer-neb, .atl-layer-neb-front) { scale: 0.78 0.7; }
 
@@ -7037,6 +7045,8 @@ body .chip.item-label,
   #nm-buddy :is(.nm-buddy-char, .nm-figure, .nm-buddy-head, .nmp-lantern-glow, .nmb-leg-l, .nmb-leg-r, .nmb-arm-l, .nmb-arm-r, .nmb-hold-l, .nmb-hold-r, .nm-buddy-think i, .nm-buddy-z, .nm-buddy-z i) {
     animation-duration: 6s !important;
   }
+  /* A prop's own motion holds still (INBOX 623): the bell's ring too. */
+  #nm-buddy .nmp-bell { animation: none !important; }
 }
 
 @keyframes nmb-stir {
@@ -7548,7 +7558,7 @@ body .chip.item-label,
 /* The lower body's and the tail's pose for what it is doing (atlas.js,
    `atlasLowerState`, INBOX 575): set by the rig, on the compositor. */
 .atl-lw > .atl-lw-pose { position: absolute; left: 0; top: 0; width: 64px; height: 92px; will-change: transform; }
-.atl-lw-lower { transform-origin: 31px 57px; }
+.atl-lw-lower { transform-origin: 31px 55.5px; }
 /* The legs' limb gestures (`nameMarkBuddyLimbs`: rotate and scale) turn the box about the hip, the same two points the root's own `transform` uses. */
 .atl-lw-leg-l { transform-origin: 27.4px 60px; }
 .atl-lw-leg-r { transform-origin: 34.6px 60px; }
@@ -7598,9 +7608,9 @@ body .chip.item-label,
 /* Atlas's eyes on what it looks at, as the faces' are (`--nmb-ex`,
    `--nmb-ey`, avatars.js `nameMarkBuddyAim`): the iris inside its pupil, so
    the mood's own pupil placement (`--atl-px`) is kept and this adds to it. */
-#nm-buddy .nm-atlas .atl-iris { transition: translate var(--motion-fast) var(--ease-out); }
-#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate: calc(var(--nmb-ex) * 1.2px) calc(var(--nmb-ey) * 0.75px); transition: translate var(--motion-base) var(--ease-out); }
-#nm-buddy .nm-atlas .atl-iris { transition-duration: calc(var(--motion-slow) * 3); }
+#nm-buddy .nm-atlas .atl-iris { transition: translate var(--motion-fast) var(--ease-out), opacity calc(var(--motion-base) * 3) var(--ease-in-out); }
+#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate: calc(var(--nmb-ex) * 1.2px) calc(var(--nmb-ey) * 0.75px); transition: translate var(--motion-base) var(--ease-out), opacity calc(var(--motion-base) * 3) var(--ease-in-out); }
+#nm-buddy .nm-atlas .atl-iris { transition-duration: calc(var(--motion-slow) * 3), calc(var(--motion-base) * 3); }
 /* **The pupils stay in the eyes** (INBOX 497, the owner: "when I have my
    cursor to the top right of the companion or atlas, the pupils basically
    go off the head and you can only see white eyes"). Four offsets added up
@@ -7633,9 +7643,9 @@ body .chip.item-label,
 .atl-orbits, .atl-orbit, .atl-orbit-arm { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
 .atl-orbit, .atl-orbit-arm { transform-origin: 0 0; }
 .atl-orbit {
-  --atl-orbit-t: 70s;
-  &.atl-orbit-1 { --atl-orbit-t: 96s; }
-  &.atl-orbit-2 { --atl-orbit-t: 124s; }
+  --atl-orbit-t: 38s;
+  &.atl-orbit-1 { --atl-orbit-t: 52s; }
+  &.atl-orbit-2 { --atl-orbit-t: 68s; }
 }
 /* Where each planet starts, as a fraction of the turn: set by atlas.js. */
 .atl-orbit-arm {
@@ -8276,24 +8286,22 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-astral-back .atl-astral-edge { opacity: 0.3; }
 .nm-atlas:is(.atl-layer-glint-a, .atl-layer-glint-b) { will-change: opacity; }
 @keyframes atl-glint-twinkle { 0%, 100% { opacity: 0.4; } 45% { opacity: 1; } 60% { opacity: 0.85; } }
-/* The waist and tail wisps take the tail's pose: each pose's turn of the
-   lower layer (above, `.atl-layer-lower`) on their own group, about the same
-   point; the pose shapes (`.atl-lower`) reach them by class. */
-.nm-atlas .atl-astral-hips { transition: transform calc(var(--motion-slow) * 2) var(--ease-spring); }
-#nm-buddy[data-pose="lie-2"] .atl-astral-hips { transform: rotate(-16deg); }
-#nm-buddy[data-pose="lie"] .atl-astral-hips { transform: rotate(-42deg); }
-#nm-buddy[data-pose="curl"] .atl-astral-hips { transform: rotate(-24deg); }
+/* (The waist and tail wisps turned 16 to 42 degrees lying and curled, with
+   the lower layer; both lie down with the torso now, INBOX 619. The pose
+   shapes, `.atl-lower`, still reach them by class.) */
 /* Each pose shapes the skirt from the group inside the layer, about the
    waist (a static transform, which costs nothing): seated it pools and
    spreads over the ledge; floating it trails behind the tilted body;
    hanging it falls straight; leaning it swings the other way; sitting
-   cross-legged it spreads widest. */
+   cross-legged it spreads widest. Gently (INBOX 615, 619): a turn or a
+   spread here moves the outline where the torso fades into it, so each is
+   a few degrees or a few per cent, and the join stays one silhouette. */
 .nm-atlas .atl-lower { transition: transform var(--motion-slow) var(--ease-out); }
-#nm-buddy[data-pose="sit"] .atl-figure .atl-lower { transform: scale(1.18, 0.64); }
-#nm-buddy[data-pose="float"] .atl-figure .atl-lower { transform: rotate(12deg) scaleY(0.96); }
+#nm-buddy[data-pose="sit"] .atl-figure .atl-lower { transform: scaleY(0.82); }
+#nm-buddy[data-pose="float"] .atl-figure .atl-lower { transform: skewX(-4deg) scaleY(0.96); }
 #nm-buddy[data-pose="hang"] .atl-figure .atl-lower { transform: scaleY(1.04); }
-#nm-buddy[data-pose="lean"] .atl-figure .atl-lower { transform: rotate(-6deg); }
-#nm-buddy.nmb-act-meditate .atl-figure .atl-lower { transform: scale(1.32, 0.54); }
+#nm-buddy[data-pose="lean"] .atl-figure .atl-lower { transform: skewX(3deg); }
+#nm-buddy.nmb-act-meditate .atl-figure .atl-lower { transform: scaleY(0.8); }
 /* The sway is on the layer's root, not the group: a transform animated on
    a group inside an svg repaints the svg on the main thread every frame
    (57 paints a second and 15 ms/s for the sash this replaced,
@@ -8303,7 +8311,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    with the glide, the feminine look's walk, since it has no legs to step
    with; carried, kicked or dangling they flick. Still under Off and
    Reduce motion. */
-.nm-atlas.atl-layer-lower { transform-origin: 31px 57px; will-change: transform; }
+.nm-atlas.atl-layer-lower { transform-origin: 31px 55.5px; will-change: transform; }
 @media all {
   :root:not([data-avatar-motion="off"]):is(:not([data-motion="reduced"]), [data-buddy-motion="full"]) #nm-buddy {
     /* `.nm-live .nm-atlas` in each: the idle drift below is written in an
@@ -8370,8 +8378,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   to { transform: translateY(-1.5px) rotate(2deg); }
 }
 @keyframes atl-lower-sway-heavy {
-  from { transform: rotate(-2.4deg) skewX(1.2deg); }
-  to { transform: rotate(3deg) skewX(-1.2deg); }
+  from { transform: skewX(3.6deg); }
+  to { transform: skewX(-4.2deg); }
 }
 @keyframes atl-lower-trail {
   from { transform: rotate(calc(var(--nmb-lean) * -5deg - 1deg)) skewX(calc(var(--nmb-lean) * 3deg)); }
@@ -8404,25 +8412,30 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   from { translate: 0 0.5px; }
   to { translate: 0 -0.9px; }
 }
+/* A shear about the join, not a turn (INBOX 615): the hem swings and the
+   waist, where the torso fades into it, stays where the torso is. */
 @keyframes atl-hem-wind {
-  from { rotate: -1.3deg; translate: 0.35px 0; }
-  to { rotate: 1.5deg; translate: -0.5px 0; }
+  from { transform: skewX(1.3deg); }
+  to { transform: skewX(-1.5deg); }
 }
 @keyframes atl-wisp-drift {
   from { rotate: -2.2deg; translate: 0 0.6px; }
   to { rotate: 2deg; translate: 0 -1.2px; }
 }
 @keyframes atl-skirt-idle {
-  from { transform: rotate(-1.4deg) skewX(1.6deg); }
-  to { transform: rotate(1.6deg) skewX(-1.6deg); }
+  from { transform: skewX(1.6deg); }
+  to { transform: skewX(-1.8deg); }
 }
+/* The walk's, the carry's and the kick's swing of the lower body: shears
+   about the join (INBOX 615), the hem swinging and the waist staying under
+   the torso; a turn there stepped the outline 0.7px at 2.2x. */
 @keyframes atl-lower-sway {
-  from { transform: rotate(-4deg) skewX(3deg); }
-  to { transform: rotate(5deg) skewX(-3deg); }
+  from { transform: skewX(4deg); }
+  to { transform: skewX(-4.5deg); }
 }
 @keyframes atl-lower-flick {
-  from { transform: rotate(-3deg) scaleY(1); }
-  to { transform: rotate(11deg) scaleY(0.94) skewX(-4deg); }
+  from { transform: skewX(3deg) scaleY(1); }
+  to { transform: skewX(-12deg) scaleY(0.94); }
 }
 .nm-atlas .atl-eye-open { opacity: var(--atl-open); }
 .nm-atlas .atl-e-happy { opacity: var(--atl-happy); }
@@ -8492,7 +8505,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    a mood eased over seconds) or `nmb-easing` on the companion (avatars.js,
    its own sleep and wake), eyes, mouth and brows cross over 1.8s, not
    0.16s. Measured by scratchpad/ui-sweeps/atlassleepinput.js. */
-:is(.nm-atlas.atl-easing, #nm-buddy.nmb-easing .nm-atlas) :is(.atl-eye-open, .atl-e-happy, .atl-e-shut, .atl-e-doze, .atl-e-squeeze, .atl-iris, .atl-m, .atl-cheek) {
+:is(.nm-atlas.atl-easing, #nm-buddy.nmb-easing .nm-atlas) :is(.atl-eye-open, .atl-e-happy, .atl-e-shut, .atl-e-doze, .atl-e-squeeze, .atl-iris, .atl-heart-eye, .atl-m, .atl-cheek) {
   transition: opacity calc(var(--motion-slow) * 9) var(--ease-in-out);
 }
 :is(.nm-atlas.atl-easing, #nm-buddy.nmb-easing .nm-atlas) :is(.atl-lid, .atl-lid-low, .atl-brow) {
@@ -8899,7 +8912,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     & .atl-lw-body[data-atlas-look="feminine"] .atl-lw-breathe { animation-duration: 3.7s; }
     & .atl-layer-glint-a { animation: atl-glint-twinkle 3.4s ease-in-out infinite; }
     & .atl-layer-glint-b { animation: atl-glint-twinkle 4.7s ease-in-out -2.2s infinite; }
-    &:is([data-atlas-mood="happy"], [data-atlas-mood="delighted"], [data-atlas-mood="love"], [data-atlas-mood="laughing"]) .atl-lw-tail { animation: none; }
+    /* (The happy moods stopped this flow while the wag ran on the layer; the
+       living tail wags now, atlas.js, and the flow runs on: INBOX 600.) */
   }
 }
 
@@ -10293,10 +10307,13 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
 }
 
 /* Improve writing's two actions at one height (the owner at release: the
-   filled and the ghost button drew 40 and 42px side by side). */
+   filled and the ghost button drew 40 and 42px side by side). No
+   `min-height` of its own: the small button's floor (`max(--target-min,
+   --button-min-h)`, 01-forms-settings.css) beats `height`, so under touch
+   both are 44 like every other dialog foot; an id-weight min-height here
+   held them at 32 (design-rows-1005, `improvefoot.js`). */
 :is(#improve-apply, #improve-retry) {
   height: var(--control-h);
-  min-height: var(--control-h);
   padding-block: 0;
 }
 
@@ -10349,8 +10366,6 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
     order: 1;
     flex: 1 1 100%;
     justify-content: space-between;
-    border-left: 0;
-    padding-left: 0;
   }
 }
 
@@ -10494,9 +10509,12 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
       --glide-radius: var(--radius-md);
     }
 
+    /* The control edge, as `.seg button.active` and the radio form's
+       chosen option draw it (INBOX 464, 621): one chosen state for every
+       segmented control, where the glide's 8% ink ring was a third. */
     :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .seg {
       --glide-fill: color-mix(in srgb, var(--ink) 11%, transparent);
-      --glide-ring: inset 0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent);
+      --glide-ring: inset 0 0 0 1px var(--control-edge);
     }
 
     .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg) > .active,

@@ -144,7 +144,7 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "Skills are one-click requests shown above the chat box (e.g. "
             "\"Summarise my week\"). Built-in skills ship with the app; add your "
-            "own in Settings, Skills. A skill can use the AI's tools, so it "
+            "own in Settings, Skills (New skill in the pane's bar opens the form). A skill can use the AI's tools, so it "
             "does the work rather than just describing it. A skill can also be "
             "a Markdown file saved in the skills folder that Settings, Skills "
             "names; it is listed without a restart."
@@ -189,7 +189,9 @@ HELP_TOPICS: list[dict] = [
             "and widgets such as reminders, recent notes, the weekly AI digest, "
             "stats and your streak. Customise, beside the search box, has Edit "
             "layout and Widgets to show, hide and rearrange them; the layout is "
-            "remembered per user."
+            "remembered per user. The Most used widget lists the ten notes you "
+            "opened or asked about most, with This month and All time buttons "
+            "above it; the choice is remembered on this device."
         ),
         "badge": {"label": "Dashboard", "tab": "dashboard"},
     },
@@ -320,8 +322,10 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "The status bar is the strip along the bottom of every screen. It "
             "shows what the local model is doing, your note count, open and due "
-            "reminders, back and forward, undo and redo, the Ctrl/Cmd+K hint, "
-            "Agent (the popup agent), Atlas the guide, and Find anything. The offline "
+            "reminders, back and forward, undo and redo, Commands with its "
+            "Ctrl/Cmd+K hint, and three icons: the wand for the popup agent, the "
+            "compass for Atlas the guide, and the magnifying glass for Find "
+            "anything (hover one for its name and keys). The offline "
             "badge, the power-saver badge and the running-job slot appear only "
             "when there is something to say. Settings, Appearance, Status "
             "bar chooses which of the rest to show."
@@ -639,7 +643,11 @@ HELP_TOPICS: list[dict] = [
             "most\". These are counted from your data rather than generated, so "
             "the numbers are exact, the answer is instant, and it works even "
             "with no AI model running at all. Private and binned notes are never "
-            "counted."
+            "counted. Ask a counting question and a chart goes under the answer "
+            "(\"how many notes per category\", \"notes per month\", \"chart my "
+            "race times\"): a bar or a line drawn from the same counted numbers, "
+            "with Data to open them as a table and Save as PNG to keep the picture. "
+            "A trend needs at least three notes with a number in them."
         ),
         "badge": {"label": "Chat", "tab": "chat"},
     },
@@ -778,7 +786,10 @@ HELP_TOPICS.extend(
                 "then picking it from the list. The link shows on both notes as a "
                 "connection, with a menu to add a reason, open or remove it. Atlas "
                 "also suggests links as you write, and every note's menu has Link "
-                "to. The Graph draws all of them. A note's menu also has Copy wiki "
+                "to. The Graph draws all of them. A note's menu also has Explain this "
+                "note, which reads the note aloud and then says what it links to and "
+                "why, from the reason on each link (no AI model needed; press it again "
+                "or Stop to cancel), Copy wiki "
                 "link (a [[link]] for another note) and Copy app link (an address "
                 "that opens the note in the app). Delete the [[name]] and its link "
                 "goes with it; rename a note and a toast offers to rename the "
@@ -789,9 +800,9 @@ HELP_TOPICS.extend(
                 "[[link]] cannot hold). Suggestions (Find links to add on the "
                 "Dashboard's Loose ends, Suggest links in the Graph's options, or "
                 "the command palette) is one sheet of four kinds: Links lists pairs "
-                "worth connecting with every reason (similar wording, people or "
-                "things both name, a note both link with, a rare tag both carry) "
-                "and how sure it is; Tensions, notes that may disagree; Names, one "
+                "worth connecting with every reason (shared wording, names, links or "
+                "tags) and how sure it is (Add a reason, Link, or Link all above 70% "
+                "in the head); Tensions, notes that may disagree; Names, one "
                 "person or thing named two ways, with Merge; and Link types, a link whose own "
                 "sentence says \"for example\" or \"continues\". Accepting or "
                 "dismissing any of them teaches it which reasons to trust in your "
@@ -853,7 +864,8 @@ HELP_TOPICS.extend(
                 "A persona changes how Atlas talks, not what it knows: answers stay "
                 "grounded in your notes whichever one is active. Pick one in the "
                 "Chat tab; edit the built-ins or write your own in Settings, "
-                "Personas, where {ai_name} in your text becomes Atlas's name."
+                "Personas (New persona in the pane's bar), where {ai_name} in "
+                "your text becomes Atlas's name."
             ),
             "badge": {"label": "Personas", "section": "personas"},
         },
@@ -875,10 +887,14 @@ HELP_TOPICS.extend(
             "body": (
                 "Capture has templates: pick one from No template above the box and "
                 "the note starts with its outline. Save your own from Settings, "
-                "Templates, where Draft with Atlas writes a template from its name "
+                "Templates (New template in the pane's bar), where Draft with Atlas writes a template from its name "
                 "and one line (press it again for another version; nothing is saved "
-                "until you add it). The picker's Manage templates opens that page. A "
-                "new document offers its own gallery of templates too."
+                "until you add it). The picker's Manage templates opens that page. In a "
+                "template, {date} becomes today's date, {clipboard} what you last "
+                "copied, and {cursor} marks where the cursor lands. A "
+                "new document offers its own gallery of templates too, and its "
+                "templates take {{clipboard}} and {{cursor}} the same way. While you "
+                "edit a note, its word count and reading time sit in the form's foot."
             ),
             "badge": {"label": "Templates", "section": "templates"},
         },
@@ -1023,12 +1039,12 @@ HELP_TOPICS.extend(
                 "triangle, D diamond, T text, N sticky note, F frame, C connector (Shift+C "
                 "curved), I image, X delete. Moving around: the wheel or two "
                 "fingers pan, Shift+wheel pans sideways, Ctrl+wheel or a pinch "
-                "zooms, Space and drag pans with any tool, Ctrl+= and Ctrl+- zoom, "
-                "Ctrl+0 is 100%, Shift+1 fits everything, Shift+N shows the "
+                "zooms, Space and drag pans with any tool, a drag to an edge pans, Ctrl+= and Ctrl+- zoom, "
+                "Ctrl+0 is 100%, Shift+1 fits all, Shift+N shows the "
                 "overview, / or Ctrl+F finds a card, and Tab walks the board's "
                 "items from the keyboard. Selection: Shift+click adds, "
                 "Ctrl+A selects all, Ctrl+D duplicates, Alt and drag copies as you "
-                "drag, Ctrl+C, Ctrl+X and Ctrl+V paste at the pointer, the arrows "
+                "drag, Ctrl+V pastes at the pointer, the arrows "
                 "nudge (Shift for further), Shift and drag keeps to one axis, "
                 "Shift and a corner keeps proportions, [ and ] move one step back or "
                 "forward, Ctrl+[ and Ctrl+] to the back or front, Ctrl+G groups, Ctrl+Shift+G ungroups, Ctrl+Alt+C and "
@@ -1050,6 +1066,24 @@ HELP_TOPICS.extend(
             "badge": {"label": "Library", "tab": "library"},
         },
         {
+            "id": "board-history",
+            "keywords": (
+                "board history", "history of the board", "time machine", "earlier version of the board",
+                "go back in time", "put the board back", "restore the board", "what did the board look like",
+            ),
+            "body": (
+                "Board, History… (or Ctrl+K, History) puts a slider at the foot of the board. Drag it "
+                "back, or press Left, Home and End, and the board is drawn as it was at each moment, a "
+                "moment being a run of changes up to two minutes long; the bar says when and what it "
+                "added, changed and removed. Nothing can be changed while the past is shown. Put back "
+                "restores the whole board as it was then, and the second button only what was selected "
+                "when History opened; either is one Undo step and is in the history too. Esc, or the "
+                "slider's right end, comes back to now. Changes older than ninety days may be kept only "
+                "in summary, and such a moment cannot be shown."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
             "id": "board-library",
             "keywords": (
                 "object library", "shape library", "shapes", "flowchart", "flow chart", "icons", "stencil",
@@ -1058,10 +1092,15 @@ HELP_TOPICS.extend(
                 "export library", "favourite shapes", "recent shapes", "sidebar", "layers", "pages",
                 "page order", "presentation order", "reorder frames", "order of frames", "frame order",
                 "frames in the presentation", "locked item", "unlock",
+                "templates in the library", "drag a template", "map templates", "this map tab", "map stats",
             ),
             "body": (
                 "A board's sidebar (the Library button in its top bar, or the rail on its left edge) has "
-                "four tabs: Library, Notes, Layers and Pages, and an Outline on a mind map. Pages lists the "
+                "four tabs: Library, Notes, Layers and Pages; a mind map's has Library, This map (its "
+                "facts, its look, open every fold, lay it out again) and Outline. The Library starts with "
+                "Templates (a board's: Kanban, retrospective, flowchart, meeting notes, week plan; a map's: "
+                "Brainstorm, Decision, Project, Cause and effect, Pros and cons, Book notes, Meeting, "
+                "placed under the topic they are dropped on). Pages lists the "
                 "board's frames in presentation order: drag a row or press Alt+Up and Alt+Down to reorder, "
                 "Enter goes to the frame, P presents from it. A locked item shows a lock when the pointer "
                 "is on it; right-click it to unlock it. The Library holds "
@@ -1088,24 +1127,34 @@ HELP_TOPICS.extend(
                 "angle", "rotate by", "flip", "mirror", "opacity", "transparency", "see through", "shadow",
                 "text size in a shape", "align text", "elbow", "right angle", "orthogonal", "connector shape",
                 "line shape", "bend", "waypoint", "label position", "crow's foot", "crows foot", "er diagram",
-                "entity relationship", "mermaid", "import a flowchart", "clone and connect", "copy and connect", "next shape", "copy a shape",
+                "connection point", "connection points", "port", "ports", "anchor point",
+                "line jumps", "line jump", "crossing lines", "lines cross", "hop over",
+                "entity relationship", "mermaid", "subgraph", "import a flowchart", "clone and connect", "copy and connect", "next shape", "copy a shape",
                 "connect it to the copy", "connect the copy",
             ),
             "body": (
                 "Ctrl+Shift+P on a board (or Format panel in the selection's More menu, or View) opens "
                 "the Format panel on the right, with three tabs. Style: line colour, width and pattern, "
                 "fill, opacity, shadow, and for a connector its line shape (curved, straight or elbow), "
-                "its two ends and where its label sits along it. Text: the size, colour, weight and "
+                "its line jumps (where it crosses a line under it, it hops over with an arc, a gap or a "
+                "sharp peak), its two ends and where its label sits along it. Text: the size, colour, weight and "
                 "alignment of a text box or of the words in a shape. Arrange: X, Y, width, height and "
                 "angle as numbers, flip, and the order, align, spacing, group and lock buttons. Every "
-                "change is one undo step. An elbow connector turns at right angles and goes round the "
-                "shapes it joins: drag the small ring in the middle of a run to add a bend, drag a bend to "
-                "move it, double-click it to take it out. Drag the square on a connector's label to slide "
+                "change is one undo step. Every connector takes bends: drag the small ring in the middle "
+                "of a run (or double-click the line) to add one, drag a bend to move it, double-click it to "
+                "take it out. A straight line runs through its bends, a curved one curves smoothly through "
+                "them, and an elbow turns at right angles and goes round the shapes it joins; changing the "
+                "line shape keeps the bends; moving both things a connector joins moves its bends too. "
+                "With Select, pointing at a shape, card or text box shows its connection points (a "
+                "diamond's tips and side middles, an ellipse's compass points); drag from one to draw an "
+                "elbow connector to whatever you let go on, or to a free end. "
+                "Drag the square on a connector's label to slide "
                 "it along the line. The ends include the entity-relationship marks (one, zero or one, many, "
                 "one or many, zero or many). With one shape or text box selected, the four arrows round it "
                 "(or Alt+Shift and an arrow key) copy it that way and join the two with an elbow. "
                 "Insert, Mermaid or board SVG brings in a Mermaid flowchart or an SVG a board here "
-                "exported, as shapes and connectors; Export also writes an Outline and a Mermaid flowchart."
+                "exported, as shapes and connectors, each Mermaid subgraph as a titled frame round its "
+                "shapes; Export also writes an Outline and a Mermaid flowchart, frames as subgraphs."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1118,6 +1167,8 @@ HELP_TOPICS.extend(
                 "undo steps", "how many undo", "topic before", "topic after",
                 "move a topic", "reorder topics", "checkbox on a topic", "topic a task",
                 "tick a topic", "number the branches", "numbered topics", "outline numbers", "note on a topic", "note behind a topic", "comment on a topic", "boundary", "summary topic", "summarise topics",
+                "resize a topic", "topic size", "bigger topic", "text size on a topic", "topic bar", "topic toolbar",
+                "several topics", "select several topics", "many topics at once", "bold several topics", "fold several branches",
             ),
             "body": (
                 "Mind map keys (a map lives in the Library under Boards and "
@@ -1135,7 +1186,14 @@ HELP_TOPICS.extend(
                 "Right-click a topic for the ring: Add child, Add beside, Fold, "
                 "Delete, Cross-link and More; hold Alt on the ring to remove "
                 "instead of add. Dragging a topic onto another moves its whole "
-                "branch; double-click a line to label it."
+                "branch; double-click a line to label it. A selected topic has "
+                "its bar above it: the colour, the text size (S, M, L, XL), and "
+                "Text, Shape and Branch line, each a panel of choices you press "
+                "once. Drag the square on its bottom right corner to resize it; "
+                "hold Shift as you drag to scale its text with it. Pick several "
+                "topics (drag a box round them, or Shift-click) and the bar and "
+                "the right-click menu act on all of them: colour, bold, tasks, "
+                "fold, and a summary when they share a parent."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1147,7 +1205,8 @@ HELP_TOPICS.extend(
                 "numbered topics", "outline numbers", "note on a topic", "note behind a topic",
                 "comment on a topic", "boundary", "summary topic", "summarise topics",
                 "opml", "freemind", "xmind", "import a map", "export a map", "present branches",
-                "map template", "map as a document",
+                "map template", "map as a document", "suggest branches", "branches from my notes",
+                "grow the map", "expand from my notes", "children from notes",
             ),
             "body": (
                 "Mind map features. The layout picker lays the map out as a tree, "
@@ -1166,7 +1225,10 @@ HELP_TOPICS.extend(
                 "template, import an OPML, FreeMind, XMind or Markdown outline (an "
                 "import opens laid out as a tree to the right), paste an indented "
                 "list onto a topic to add it as that topic's branch, let the "
-                "local AI propose a map from notes you pick, and export it as "
+                "local AI propose a map from notes you pick, or on a topic choose "
+                "Add, Branches from my notes… for up to five children found in your "
+                "notes, each saying which note it came from (tick the ones to keep; "
+                "one Undo takes them back), and export it as "
                 "OPML, FreeMind or Markdown as well as a picture, or write it as "
                 "a document (the board menu's Write as a document: branches "
                 "become headings, deeper topics lists, notes paragraphs). With a "
@@ -1282,7 +1344,10 @@ HELP_TOPICS.extend(
                 "and Remove, and click a legend "
                 "colour to hide that category. Shift and drag on empty map lassos "
                 "notes, and the selection bar can Tag, Link together or make a Mind "
-                "map of them. Display options, the gear, opens with View: Layout "
+                "map of them, built from their links: the picked or most connected "
+                "note in the middle, linked notes under the note they link to, the "
+                "rest by category, the other links kept as cross-links, and Open on "
+                "the notice that follows. Display options, the gear, opens with View: Layout "
                 "(Force, Tree, Radial or Arc), Colour, Size, Trace, which finds how "
                 "two notes connect, and Legend, which hides the key. Then Physics (Unpin all, Gravity, Spread, Link force, Length by similarity, Group by category), the Show switches (Similarity, "
                 "Entities, Documents, Boards, Tags, Attachments, Unwritten links, Hide unlinked), "
@@ -1464,7 +1529,9 @@ HELP_TOPICS.extend(
                 "delete together, and Select all ticks the whole page; the "
                 "selection bar's Tags adds or removes tags on every selected note, "
                 "and its ... menu adds to or removes from Favourites, archives, "
-                "publishes drafts or removes a tag, each undoable."
+                "publishes drafts, moves the notes to another space (Move to space) or "
+                "saves them as a zip of Markdown files (Export selection), each "
+                "move undoable."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1524,11 +1591,15 @@ HELP_TOPICS.extend(
                 "high) and a repeat (once, daily, weekly or monthly), and use Quick "
                 "set: in 30 min, in 1 hour, in 3 hours, tonight 7pm, tomorrow 9am, "
                 "tomorrow 2pm, this weekend or next week. A due reminder can be "
-                "snoozed one hour or to tomorrow 9am, edited in place, or ticked "
+                "snoozed one hour, ten minutes (its menu) or to tomorrow 9am (Undo in the toast puts the time back), edited in place, or ticked "
                 "done; completed ones page at the foot. Add to calendar (.ics), on "
                 "a reminder's menu, saves it as a calendar file, and Add all to "
-                "calendar (.ics) in the More menu saves every upcoming one. Press m "
-                "then r to jump here from anywhere."
+                "calendar (.ics) in the More menu saves every upcoming one. A note, a "
+                "document or a board can have one too: Remind me in its menu (the "
+                "Library's cards, and the Notes card) asks for the words and when "
+                "(in an hour, tomorrow 9am or next week); the reminder then shows "
+                "what it is about, and Open its document or Open its board is in its "
+                "menu. Press m then r to jump here from anywhere."
             ),
             "badge": {"label": "Reminders", "tab": "reminders"},
         },

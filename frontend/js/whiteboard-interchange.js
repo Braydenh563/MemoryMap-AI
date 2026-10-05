@@ -36,9 +36,14 @@ function wbMermaidText(text) {
 
 //: The board as a Mermaid flowchart: every connector whose two ends are a
 //: shape, a text box or a card, and the things it joins. Pure: reads `state`.
-function wbBoardToMermaid(state, cardTitle = (node) => `Note ${node.entry_id}`) {
+//: `frameOf(kind, item)` (the board passes one) names the frame an item lies
+//: in, `{id, title}` or null: those items are written inside a `subgraph`
+//: of the frame's title, so frames go out and come back as frames.
+function wbBoardToMermaid(state, cardTitle = (node) => `Note ${node.entry_id}`, frameOf = null) {
   const ids = new Map();
-  const lines = ["flowchart TD"];
+  const loose = [];
+  const framed = new Map();
+  const edges = [];
   const declare = (kind, item) => {
     const key = `${kind}:${item.id}`;
     if (ids.has(key)) return ids.get(key);
@@ -59,7 +64,13 @@ function wbBoardToMermaid(state, cardTitle = (node) => `Note ${node.entry_id}`) 
       shape = data.shape === "diamond" ? "diamond" : data.shape === "circle" ? "circle" : "rect";
     }
     const [open, close] = WB_MERMAID_SHAPES[shape];
-    lines.push(`  ${id}${open}"${wbMermaidText(words)}"${close}`);
+    const frame = frameOf ? frameOf(kind, item) : null;
+    let bucket = loose;
+    if (frame) {
+      if (!framed.has(frame.id)) framed.set(frame.id, { title: frame.title, lines: [] });
+      bucket = framed.get(frame.id).lines;
+    }
+    bucket.push(`${id}${open}"${wbMermaidText(words)}"${close}`);
     return id;
   };
   const find = (kind, id) => (state[{ node: "nodes", object: "objects", sketch: "sketches" }[kind]] || []).find((i) => i.id === id);
@@ -77,24 +88,37 @@ function wbBoardToMermaid(state, cardTitle = (node) => `Note ${node.entry_id}`) 
     const a = declare(sKind, s), b = declare(tKind, t);
     const arrow = (data.endCap && data.endCap !== "none") || data.endStyle === "end" || data.endStyle === "both" ? "-->" : "---";
     const label = data.label ? `|${wbMermaidText(data.label)}|` : "";
-    lines.push(`  ${a} ${arrow}${label} ${b}`);
+    edges.push(`  ${a} ${arrow}${label} ${b}`);
   }
+  const lines = ["flowchart TD"];
+  let f = 0;
+  for (const { title, lines: inside } of framed.values()) {
+    f += 1;
+    lines.push(`  subgraph f${f} ["${wbMermaidText(title)}"]`, ...inside.map((l) => `    ${l}`), "  end");
+  }
+  lines.push(...loose.map((l) => `  ${l}`), ...edges);
   return lines.join("\n") + "\n";
 }
 
-//: The `graph`/`flowchart` subset, to `{ dir, nodes: [{id, text, shape}],
-//: edges: [{from, to, label, arrow}] }`. Unknown lines (style, classDef,
-//: click, subgraph and end) are skipped and counted, never fatal.
+//: The `graph`/`flowchart` subset, to `{ dir, nodes: [{id, text, shape,
+//: group}], edges: [{from, to, label, arrow}], subgraphs: [{id, title,
+//: parent}] }`. A `subgraph` (nested or not, `subgraph id [Title]`,
+//: `subgraph id`, or `subgraph Some title`) up to its `end` holds every node
+//: first named inside it, and comes in as a frame (wb-phase2 step 2; it was
+//: skipped). An edge may name a subgraph: it joins the frame. Unknown lines
+//: (style, classDef, click, direction) are skipped and counted, never fatal.
 function wbMermaidParse(source) {
-  const out = { dir: "TD", nodes: [], edges: [], skipped: 0 };
+  const out = { dir: "TD", nodes: [], edges: [], subgraphs: [], skipped: 0 };
   const byId = new Map();
+  const open = [];
   const node = (id, text = null, shape = null) => {
     let n = byId.get(id);
     if (!n) {
-      n = { id, text: id, shape: "rect" };
+      n = { id, text: id, shape: "rect", group: null };
       byId.set(id, n);
       out.nodes.push(n);
     }
+    if (n.group == null && open.length) n.group = open[open.length - 1];
     if (text != null) n.text = text;
     if (shape) n.shape = shape;
     return n;
@@ -127,6 +151,20 @@ function wbMermaidParse(source) {
       out.dir = (head[2] || "TD").toUpperCase().replace("TB", "TD");
       continue;
     }
+    const sub = /^subgraph\s+(.+)$/.exec(line);
+    if (sub) {
+      const rest = sub[1].trim();
+      const named = /^([A-Za-z0-9_][\w-]*)\s*\[\s*(.*?)\s*\]$/.exec(rest);
+      const id = named ? named[1] : rest;
+      const title = named ? unquote(named[2]) || id : unquote(rest);
+      if (!out.subgraphs.some((g) => g.id === id)) out.subgraphs.push({ id, title, parent: open.length ? open[open.length - 1] : null });
+      open.push(id);
+      continue;
+    }
+    if (/^end$/.test(line) && open.length) {
+      open.pop();
+      continue;
+    }
     if (/^(style|classDef|class|click|linkStyle|subgraph|end|direction)\b/.test(line)) {
       out.skipped += 1;
       continue;
@@ -155,49 +193,128 @@ function wbMermaidParse(source) {
       rest = next.rest;
     }
   }
+  //: A subgraph named in an edge is the frame, not a node of its own.
+  const groups = new Set(out.subgraphs.map((g) => g.id));
+  out.nodes = out.nodes.filter((n) => !groups.has(n.id));
   return out;
 }
 
 //: Rows by depth from the nodes nothing points at (a cycle's entry is its
-//: first node), columns in the order met; then each node's centre in board
-//: units, top-down or left-right as the source said.
-function wbMermaidLayout(graph, { gapX = 220, gapY = 140 } = {}) {
-  const incoming = new Map(graph.nodes.map((n) => [n.id, 0]));
-  const out = new Map(graph.nodes.map((n) => [n.id, []]));
-  for (const e of graph.edges) {
-    if (e.from === e.to) continue;
-    incoming.set(e.to, (incoming.get(e.to) || 0) + 1);
-    out.get(e.from)?.push(e.to);
-  }
-  const depth = new Map();
-  const queue = graph.nodes.filter((n) => !incoming.get(n.id)).map((n) => n.id);
-  if (!queue.length && graph.nodes.length) queue.push(graph.nodes[0].id);
-  for (const id of queue) depth.set(id, 0);
-  while (queue.length) {
-    const id = queue.shift();
-    for (const next of out.get(id) || []) {
-      if (depth.has(next)) continue;
-      depth.set(next, depth.get(id) + 1);
-      queue.push(next);
-    }
-  }
-  for (const n of graph.nodes) if (!depth.has(n.id)) depth.set(n.id, 0);
-  const rows = new Map();
-  for (const n of graph.nodes) {
-    const d = depth.get(n.id);
-    if (!rows.has(d)) rows.set(d, []);
-    rows.get(d).push(n.id);
-  }
-  const at = new Map();
+//: first node), in the order met; then each node's centre in board units,
+//: top-down or left-right as the source said, the whole centred on 0. A
+//: subgraph is laid out the same way inside itself and then takes its place
+//: in its parent's rows as one block (its edges to the outside count as the
+//: block's), so a frame never covers a node that is not in it. The returned
+//: Map carries `frames`: `{id, title, depth, x, y, w, h}`, outermost first.
+function wbMermaidLayout(graph, { w = 160, h = 70, gapX = 220, gapY = 140, pad = 30, head = 34 } = {}) {
   const across = graph.dir === "LR" || graph.dir === "RL";
   const flip = graph.dir === "BT" || graph.dir === "RL";
-  for (const [d, ids] of rows) {
-    ids.forEach((id, i) => {
-      const along = (flip ? -1 : 1) * d * (across ? gapX : gapY);
-      const side = (i - (ids.length - 1) / 2) * (across ? gapY : gapX);
-      at.set(id, across ? { x: along, y: side } : { x: side, y: along });
-    });
+  const subs = graph.subgraphs || [];
+  const sub = new Map(subs.map((g) => [g.id, g]));
+  const groupOf = new Map();
+  for (const n of graph.nodes) groupOf.set(n.id, sub.has(n.group) ? n.group : null);
+  for (const g of subs) groupOf.set(g.id, sub.has(g.parent) && g.parent !== g.id ? g.parent : null);
+  const order = new Map(graph.nodes.map((n, i) => [n.id, i]));
+  const first = (id, seen = new Set()) => {
+    if (order.has(id)) return order.get(id);
+    if (seen.has(id)) return Infinity;
+    seen.add(id);
+    let best = Infinity;
+    for (const [k, g] of groupOf) if (g === id) best = Math.min(best, first(k, seen));
+    order.set(id, best);
+    return best;
+  };
+  //: The unit at level `g` that holds `id`: itself, or its ancestor there.
+  const unitAt = (id, g) => {
+    let cur = id;
+    for (let guard = 0; cur != null && guard < 64; guard += 1) {
+      if (groupOf.get(cur) === g && groupOf.has(cur)) return cur;
+      cur = groupOf.get(cur);
+    }
+    return null;
+  };
+  const sepAlong = across ? gapX - w : gapY - h;
+  const sepCross = across ? gapY - h : gapX - w;
+  const block = (g, depth) => {
+    const units = [...groupOf.keys()].filter((id) => groupOf.get(id) === g).sort((a, b) => first(a) - first(b));
+    const size = new Map(), inner = new Map();
+    for (const u of units) {
+      if (sub.has(u)) {
+        const b = block(u, depth + 1);
+        inner.set(u, b);
+        size.set(u, { w: Math.max(b.w, w) + pad * 2, h: Math.max(b.h, 0) + pad * 2 + head });
+      } else {
+        size.set(u, { w, h });
+      }
+    }
+    const incoming = new Map(units.map((u) => [u, 0]));
+    const out = new Map(units.map((u) => [u, []]));
+    for (const e of graph.edges) {
+      const a = unitAt(e.from, g), b = unitAt(e.to, g);
+      if (a == null || b == null || a === b || !incoming.has(a) || !incoming.has(b)) continue;
+      incoming.set(b, incoming.get(b) + 1);
+      out.get(a).push(b);
+    }
+    const level = new Map();
+    const queue = units.filter((u) => !incoming.get(u));
+    if (!queue.length && units.length) queue.push(units[0]);
+    for (const u of queue) level.set(u, 0);
+    while (queue.length) {
+      const u = queue.shift();
+      for (const next of out.get(u) || []) {
+        if (level.has(next)) continue;
+        level.set(next, level.get(u) + 1);
+        queue.push(next);
+      }
+    }
+    for (const u of units) if (!level.has(u)) level.set(u, 0);
+    const rows = new Map();
+    for (const u of units) {
+      if (!rows.has(level.get(u))) rows.set(level.get(u), []);
+      rows.get(level.get(u)).push(u);
+    }
+    const rowList = [...rows.keys()].sort((a, b) => a - b).map((k) => rows.get(k));
+    if (flip) rowList.reverse();
+    const along = (u) => (across ? size.get(u).w : size.get(u).h);
+    const cross = (u) => (across ? size.get(u).h : size.get(u).w);
+    const extent = (row) => row.reduce((t, u) => t + cross(u), 0) + sepCross * (row.length - 1);
+    const crossMax = Math.max(0, ...rowList.map(extent));
+    const centres = new Map();
+    let a = 0;
+    for (const row of rowList) {
+      const thick = Math.max(...row.map(along));
+      let c = (crossMax - extent(row)) / 2;
+      for (const u of row) {
+        const ca = a + thick / 2, cc = c + cross(u) / 2;
+        centres.set(u, across ? { x: ca, y: cc } : { x: cc, y: ca });
+        c += cross(u) + sepCross;
+      }
+      a += thick + sepAlong;
+    }
+    const total = Math.max(0, a - sepAlong);
+    const res = { w: across ? total : crossMax, h: across ? crossMax : total, at: new Map(), frames: [] };
+    for (const u of units) {
+      const c = centres.get(u);
+      if (!sub.has(u)) {
+        res.at.set(u, c);
+        continue;
+      }
+      const sz = size.get(u), b = inner.get(u);
+      const fx = c.x - sz.w / 2, fy = c.y - sz.h / 2;
+      res.frames.push({ id: u, title: sub.get(u).title, depth, x: fx, y: fy, w: sz.w, h: sz.h });
+      const ox = fx + pad + (sz.w - pad * 2 - b.w) / 2, oy = fy + pad + head;
+      for (const [id, p] of b.at) res.at.set(id, { x: p.x + ox, y: p.y + oy });
+      for (const f of b.frames) res.frames.push({ ...f, x: f.x + ox, y: f.y + oy });
+    }
+    return res;
+  };
+  const top = block(null, 0);
+  const at = new Map();
+  for (const n of graph.nodes) {
+    const p = top.at.get(n.id) || { x: 0, y: 0 };
+    at.set(n.id, { x: p.x - top.w / 2, y: p.y - top.h / 2 });
   }
+  at.frames = top.frames.map((f) => ({ ...f, x: f.x - top.w / 2, y: f.y - top.h / 2 })).sort((p, q) => p.depth - q.depth);
   return at;
 }
 
@@ -346,8 +463,15 @@ async function wbImportMermaid(source, at = wbViewCentre()) {
   const place = wbMermaidLayout(graph);
   const ink = window.currentStrokeColor && /^#[0-9a-f]{6}$/i.test(window.currentStrokeColor) ? window.currentStrokeColor : "#335599";
   const ids = new Map();
+  const frameIds = new Map();
   const w = 160, h = 70;
   await wbRecordGesture(async () => {
+    //: Innermost first: `wbFrameZ` puts each new frame under everything,
+    //: so the outer frame, made last, is under the inner one.
+    for (const f of [...(place.frames || [])].reverse()) {
+      const made = await wbCreateObject("frame", { content: f.title || "Frame" }, Math.round(at[0] + f.x), Math.round(at[1] + f.y), Math.round(f.w), Math.round(f.h), wbFrameZ());
+      if (made) frameIds.set(f.id, made.id);
+    }
     for (const n of graph.nodes) {
       const c = place.get(n.id);
       const x = at[0] + c.x - w / 2, y = at[1] + c.y - h / 2;
@@ -364,9 +488,11 @@ async function wbImportMermaid(source, at = wbViewCentre()) {
       ids.set(n.id, made.id);
     }
     for (const e of graph.edges) {
-      const s = ids.get(e.from), t = ids.get(e.to);
-      if (s == null || t == null || s === t) continue;
-      const data = { type: "link-straight", route: "elbow", sourceId: s, sourceKind: "sketch", targetId: t, targetKind: "sketch", color: ink, width: 2 };
+      //: An end that names a subgraph joins its frame.
+      const s = ids.get(e.from) ?? frameIds.get(e.from), t = ids.get(e.to) ?? frameIds.get(e.to);
+      if (s == null || t == null || (s === t && ids.has(e.from) === ids.has(e.to))) continue;
+      const sKind = ids.has(e.from) ? "sketch" : "object", tKind = ids.has(e.to) ? "sketch" : "object";
+      const data = { type: "link-straight", route: "elbow", sourceId: s, sourceKind: sKind, targetId: t, targetKind: tKind, color: ink, width: 2 };
       if (e.arrow) data.endCap = "arrow";
       if (e.dashed) data.dash = "dashed";
       if (e.label) data.label = e.label;
@@ -375,7 +501,8 @@ async function wbImportMermaid(source, at = wbViewCentre()) {
     }
   });
   renderWhiteboardNow();
-  const said = `Brought in ${graph.nodes.length} shapes and ${graph.edges.length} connectors${graph.skipped ? `; ${graph.skipped} line${graph.skipped === 1 ? "" : "s"} left out` : ""}.`;
+  const frames = frameIds.size ? ` in ${frameIds.size} frame${frameIds.size === 1 ? "" : "s"}` : "";
+  const said = `Brought in ${graph.nodes.length} shapes${frames} and ${graph.edges.length} connectors${graph.skipped ? `; ${graph.skipped} line${graph.skipped === 1 ? "" : "s"} left out` : ""}.`;
   wbAnnounce(said);
   toast(said);
   return graph.nodes.length;
@@ -386,8 +513,22 @@ function wbCardTitleForExport(node) {
   return entry ? notePreviewText(entry.content || "").split("\n")[0].slice(0, 80) : `Note ${node.entry_id}`;
 }
 
+//: The innermost frame an item lies wholly inside, for the Mermaid export's
+//: subgraphs (the same "wholly inside" a frame's drag uses).
+function wbMermaidFrameOf(kind, item) {
+  const box = wbItemBBox(kind, item);
+  if (!box) return null;
+  let best = null;
+  for (const f of wbState.objects || []) {
+    if (f.kind !== "frame" || wbItemHidden("object", f)) continue;
+    if (box.minX < f.x || box.minY < f.y || box.maxX > f.x + f.width || box.maxY > f.y + f.height) continue;
+    if (!best || f.width * f.height < best.width * best.height) best = f;
+  }
+  return best ? { id: best.id, title: wbFrameTitle(best) } : null;
+}
+
 async function wbExportMermaid() {
-  const text = wbBoardToMermaid(wbState, wbCardTitleForExport);
+  const text = wbBoardToMermaid(wbState, wbCardTitleForExport, wbMermaidFrameOf);
   if (text.trim() === "flowchart TD") {
     toast("Nothing on this board is joined by a connector, so there is no flowchart to write.");
     return;

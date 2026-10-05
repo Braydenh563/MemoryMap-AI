@@ -1342,6 +1342,54 @@ def corrections_note(session, categories: list[str]) -> str:
     )
 
 
+#: Section 17 row 3, the filing style: how the person wants the notebook
+#: carved up. "topic" is the default and adds nothing to the prompt (the
+#: filing assistant's own instruction already files by topic), so a notebook
+#: that never opens the setting gets the prompt it always had. The other two
+#: add one line of rule and three examples; they steer the model's choice among
+#: existing categories and the name of a new one. The embedding paths that
+#: never ask a model (centroid, neighbours) follow the notebook's existing
+#: shape, which is the person's own style already.
+FILING_STYLES = {
+    "topic": (),
+    "project": (
+        "Group notes by the project or goal they serve, not by subject. "
+        "Name a new category after the project (1-3 words).",
+        "Ran 5k in 24 minutes -> Marathon training (not Fitness)",
+        "Venue quote for the offsite -> Offsite planning (not Events)",
+        "Draft intro for the report -> Q3 report (not Writing)",
+    ),
+    "time": (
+        "Group notes by when they belong: the month or the season of the "
+        "work. Name a new category with its period (for example 'October 2026').",
+        "Ran 5k in 24 minutes, noted 3 October 2026 -> October 2026",
+        "Plans for next spring -> Spring 2027",
+        "Ideas from the weekly review -> Weekly reviews",
+    ),
+}
+FILING_STYLE_DEFAULT = "topic"
+
+
+def filing_style() -> str:
+    """The saved style, or the default for an unknown value."""
+    from memorymap.core import deps
+
+    try:
+        value = str(deps.get_config().get_preference("filing_style", FILING_STYLE_DEFAULT))
+    except Exception:  # noqa: BLE001 - no config in a bare unit test means the default style
+        return FILING_STYLE_DEFAULT
+    return value if value in FILING_STYLES else FILING_STYLE_DEFAULT
+
+
+def filing_style_note() -> str:
+    """The style block of a filing prompt, or "" for the default."""
+    lines = FILING_STYLES[filing_style()]
+    if not lines:
+        return ""
+    rule, *examples = lines
+    return "Filing style: " + rule + "\n" + "\n".join(f"- {example}" for example in examples)
+
+
 def filing_prompt(session, content: str, categories: list[str]) -> str:
     """The user half of the filing prompt: the choices, what the person has
     already corrected about them, and the note itself.
@@ -1352,6 +1400,9 @@ def filing_prompt(session, content: str, categories: list[str]) -> str:
     to put them in.
     """
     parts = [f"Existing categories: {', '.join(categories) if categories else '(none yet)'}"]
+    style = filing_style_note()
+    if style:
+        parts.append(style)
     note = corrections_note(session, categories)
     if note:
         parts.append(note)

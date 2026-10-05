@@ -59,7 +59,10 @@
 //:   comet glow at the tip. The feminine tail runs longer with a second
 //:   curve. It is the companion's tail too: it lies along a ledge when
 //:   Atlas sits, hangs when it hangs, curls when it sleeps and wags when
-//:   it is pleased.
+//:   it is pleased. Since INBOX 601 its root is inside the lower body and
+//:   it is widest where it leaves, in the body's colour, deepening into the
+//:   galaxy along its length; in the layered figure it bends along its
+//:   whole length by what it is doing (`atlasTailFrame`).
 //: - **The signature.** A faded constellation inside the chest and belly:
 //:   a few small dim stars joined by hairlines, each in a soft glow, the
 //:   heart among them only a little brighter (round 6: "they should be
@@ -518,8 +521,9 @@ const ATLAS_LOOKS = {
     ],
     brow: "straight",
     lashes: false,
-    tail: [[33, 60, 45, 57.6, 56, 62.6, 53.6, 71], [53.6, 71, 50.6, 80, 53, 89, 62, 90.4], [62, 90.4, 69.6, 91.4, 72.4, 84.4, 66.6, 80.4]],
-    tailWidth: (t) => 3.6 + 5.8 * Math.sin(Math.PI * Math.min(1, t * 1.06)) - 1.8 * t * t,
+    tail: [[31.4, 56.6, 40.6, 61.8, 55, 59.8, 53.6, 71], [53.6, 71, 50.6, 80, 53, 89, 62, 90.4], [62, 90.4, 69.6, 91.4, 72.4, 84.4, 66.6, 80.4]],
+    tailWidth: (t) => 3.4 + 4.4 * Math.sin(Math.PI * Math.min(1, 0.25 + 0.85 * t)) - 2 * t * t,
+    tailJoin: [35.8, 58.8, 4.2],
     //: His tail waves as hers does (the owner: "both atlas avatars have a
     //: tail as well ... they all need to be dynamically animated").
     tailWave: { t: 0.5, zone: [0.42, 0.58] },
@@ -542,7 +546,11 @@ const ATLAS_LOOKS = {
     //: ears rise from it (`atlasHairCap`).
     cap: "M18.4 20.6C17.8 12.6 23.4 6.8 31 6.8C38.6 6.8 44.2 12.6 43.8 20C42.6 16.2 40.2 13.4 37 12.2C36.4 13.6 35 14.6 33.6 14.8C33.8 13.8 33.6 13 33 12.4C31.6 14 29.6 15 27.6 15.2C28 14.4 28 13.6 27.6 13C25 14.4 22 16.8 18.4 20.6Z",
     legs: false,
-    lowerPivot: [31, 58],
+    //: The lower body's pose (`.atl-lower`, the CSS) shears and stretches
+    //: about the join itself, the middle of the torso's fade into it (INBOX
+    //: 615): about the hips below it, a float's lean slid the cloak 0.4
+    //: across the join (0.9px at 2.2x, atlas615-join.js).
+    lowerPivot: [31, 55.5],
     //: **One snake of a wisp, sub-wisps branching off it** (INBOX 435 (3),
     //: wrapup-0927 item 7; the owner: "on the masculine atlas lower body
     //: looks like a tripod and very straight pencil-y, I was thinking like a
@@ -573,23 +581,33 @@ const ATLAS_LOOKS = {
     //: (atlasBuild), the sub-wisps its tatters. Its dust is [t, across, r]
     //: along the cloak, its glints [t, across, size], its motes [dx, dy, r,
     //: glint] about the hem's end.
-    cloak: [14.6, 18.4, 2.4],
+    cloak: [9.4, 12, 2],
     cloakDust: {
       dust: [[0.34, 0.2, 0.18], [0.4, -0.28, 0.14], [0.47, 0.05, 0.26], [0.53, 0.33, 0.12], [0.58, -0.14, 0.2], [0.64, 0.24, 0.13], [0.7, -0.3, 0.17], [0.77, 0.1, 0.22], [0.83, -0.2, 0.12], [0.9, 0.16, 0.15]],
       glints: [[0.49, -0.16, 0.8], [0.72, 0.2, 0.6]],
       motes: [[-3.4, 2.6, 0.3], [2.8, 3.4, 0.2], [-6.2, -1.2, 0.24], [5.4, -0.6, 0.16], [0.6, 5, 0.18], [-1.6, 4.6, 0.55, 1], [6.6, 2.4, 0.42, 1]],
     },
     lowers: [
-      { main: true, seg: [[31, 56, 31, 63.5, 26, 68, 26.4, 75], [26.4, 75, 26.8, 82, 35.6, 83, 35.8, 90], [35.8, 90, 36, 95, 32.4, 98.2, 30.2, 96.2]], w: 11, hip: 16, specks: [[0.3, 0.34], [0.52, 0.3], [0.7, 0.32], [0.86, 0.26]] },
-      { side: -1, seg: [[26.4, 71, 25.4, 77.4, 22.6, 82.6, 18.6, 84.4]], w: 3.8, specks: [[0.45, 0.24], [0.8, 0.2]] },
-      { side: 1, seg: [[31.6, 82, 34.4, 85.6, 38.4, 90.6, 42.4, 98.6]], w: 2.9, specks: [[0.55, 0.22]] },
+      { main: true, seg: [[31, 56, 31, 63.5, 26, 68, 26.4, 75], [26.4, 75, 26.8, 82, 35.6, 83, 35.8, 90], [35.8, 90, 36, 95, 32.4, 98.2, 30.2, 96.2]], w: 8, hip: 10, specks: [[0.3, 0.34], [0.52, 0.3], [0.7, 0.32], [0.86, 0.26]] },
+      { side: -1, seg: [[26.4, 71, 25.4, 77.4, 22.6, 82.6, 18.6, 84.4]], w: 3.2, specks: [[0.45, 0.24], [0.8, 0.2]] },
+      { side: 1, seg: [[31.6, 82, 34.4, 85.6, 38.4, 90.6, 42.4, 98.6]], w: 2.5, specks: [[0.55, 0.22]] },
     ],
     //: **A V, not an egg** (INBOX 564, the owner: "fix or redesign the male
     //: main body on the atlas avatar instead of just being an oval"): the
     //: torso is widest across the shoulders (18.4 at y 39, where the egg
     //: was widest at the belly) and tapers to the hips (14 at y 55), where
     //: the trail leaves it as wide as they are, like a cloak.
-    torso: "M25 35.4C21 37.2 21.2 42.4 22.6 47C23.6 50.4 23.6 55.2 26.2 60.4C28.6 63.6 33.4 63.6 35.8 60.4C38.4 55.2 38.4 50.4 39.4 47C40.8 42.4 41 37.2 37 35.4Z",
+    //: **Young and athletic, 19 to 21, as she is** (INBOX 614, the owner:
+    //: "the masculine atlas kinda looks fat", "make the masculine atlas look
+    //: hot and 19-21 like the feminine one"): the torso was 15.1 across the
+    //: belly at y 51 under 18.6 shoulders, a broad soft column, and the
+    //: cloak widened to 18.4 below it. Now defined shoulders 17 across taper
+    //: in a V to a 9.5 waist and 9.8 hips (1.8 : 1 : 1.03, where it was 1.5
+    //: : 1.2 : 0.8 against the belly; hers is 1.44 : 1 : 1.63), the arms are
+    //: slimmer (3.8 to 1.6), the cloak and its tatters narrower (9.8 at the
+    //: hips, 12 at its fullest) and the tail slimmer to match
+    //: (scratchpad/ui-sweeps/atlas614-build.js).
+    torso: "M25.6 35.4C22.2 36.4 21.8 40.4 23.4 43.6C25.8 47.6 26.8 55.4 26 61C28 63.4 34 63.4 36 61C35.2 55.4 36.2 47.6 38.6 43.6C40.2 40.4 39.8 36.4 36.4 35.4Z",
     //: **Arms that hang** (INBOX 564, 567, 568, the owner: "the arms still
     //: look separate and they stick straight out of the body and dont hang
     //: naturally"): from the shoulder the upper arm drops 13 degrees off
@@ -598,7 +616,7 @@ const ATLAS_LOOKS = {
     //: with a smaller mitten (0.9).
     armL: [[24.6, 40.4, 23.6, 43.4, 22.8, 46.6, 22.4, 49.6], [22.4, 49.6, 22, 52.6, 22.2, 55.4, 22.6, 57.8]],
     arm: [[37.4, 40.4, 38.4, 43.4, 39.2, 46.6, 39.6, 49.6], [39.6, 49.6, 40, 52.6, 39.8, 55.4, 39.4, 57.8]],
-    armWidth: [4.4, 1.8],
+    armWidth: [3.8, 1.6],
     armHands: [-1, 1],
     handScale: 0.9,
     //: Where the right mitten grips a bell or a lantern (`atlasHandProps`).
@@ -655,8 +673,8 @@ const ATLAS_LOOKS = {
     //: now rooted at her other hip and curling up the other way. In the
     //: companion the big tail is the `lower` layer, which sways on its
     //: root; each pose shapes it from the group inside (`.atl-lower`, the
-    //: CSS), which turns about the hips (`lowerPivot`).
-    lowerPivot: [31, 60],
+    //: CSS), which shears about the join (`lowerPivot`, INBOX 615).
+    lowerPivot: [31, 55.5],
     lowerTaper: "sower",
     auraAt: [33.5, 46],
     //: **Astral wisps** (INBOX 535, the owner: "add some ribbon like astral
@@ -734,6 +752,7 @@ const ATLAS_LOOKS = {
     arm: [[35.6, 40.4, 36.6, 43.4, 37.4, 46.6, 37.8, 49.6], [37.8, 49.6, 38.2, 52.6, 38.2, 55, 37.8, 57.2]],
     armL: [[26.4, 40.4, 25.4, 43.4, 24.6, 46.6, 24.2, 49.6], [24.2, 49.6, 23.8, 52.6, 23.8, 55, 24.2, 57.2]],
     armWidth: [4.2, 1.9],
+    armPivots: { l: [26.4, 40.6], r: [35.6, 40.6] },
     propHand: [38, 59],
     seeds: [[40, 60.6, 0.5], [42.2, 62.4, 0.4], [41.2, 65.4, 0.6], [44.2, 66.2, 0.35], [43, 69.2, 0.45], [46, 70.6, 0.35], [44.8, 63.6, 0.3]],
     //: **The hair, drawn full** (the owner, round 5: "flowing, voluminous";
@@ -809,8 +828,9 @@ const ATLAS_LOOKS = {
     //: last tenth), filaments run along it as the feathers run along a
     //: wing (`tailFilaments`, fractions of its half-width off the middle),
     //: and its tip wears the wings' soft glow, not the comet's.
-    tail: [[36.4, 60, 46, 58.4, 57, 64.4, 53.6, 74], [53.6, 74, 49.4, 83.4, 53, 92, 62, 92.4], [62, 92.4, 69.6, 92.6, 72, 86, 66.6, 82.6], [66.6, 82.6, 61.4, 79.2, 60.4, 72.6, 64.4, 69.8]],
-    tailWidth: (t) => 4.6 + 5 * Math.sin(Math.PI * Math.min(1, t * 1.1)) - 3.9 * t ** 4,
+    tail: [[33.4, 57.4, 42.4, 62.6, 56.6, 62, 53.6, 74], [53.6, 74, 49.4, 83.4, 53, 92, 62, 92.4], [62, 92.4, 69.6, 92.6, 72, 86, 66.6, 82.6], [66.6, 82.6, 61.4, 79.2, 60.4, 72.6, 64.4, 69.8]],
+    tailWidth: (t) => 3.6 + 4.8 * Math.sin(Math.PI * Math.min(1, 0.22 + 0.86 * t)) - 2.9 * t ** 6,
+    tailJoin: [37.8, 60.2, 4.6],
     tailRound: true,
     tailFilaments: [-0.42, -0.1, 0.3],
     //: **A wave down her tail** (INBOX 554): in the companion the tail is
@@ -1802,16 +1822,18 @@ function atlasEars(parent, level, edge, look) {
 //: weave inside it, star dots ride it, and the tip is a bright comet glow.
 function atlasTail(layer, edge, look) {
   const spec = ATLAS_LOOKS[look] || ATLAS_LOOKS.masculine;
-  const tail = atlasGroup(layer, "atl-tail", ATLAS_GEO.tail);
-  const swish = atlasGroup(tail, "atl-tail-swish", ATLAS_GEO.tail);
-  if (!edge) atlasMake("path", { class: "atl-tail-glow", d: spec.tailPath }, swish);
-  atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: spec.tailPath }, swish);
+  const tail = atlasGroup(layer, "atl-tail", spec.tailSegsNow ? spec.tailSegsNow[0].slice(0, 2) : ATLAS_GEO.tail);
+  const swish = atlasGroup(tail, "atl-tail-swish", spec.tailSegsNow ? spec.tailSegsNow[0].slice(0, 2) : ATLAS_GEO.tail);
+  //: Every paint but the skin fades in from the root (`tailroot`, INBOX 601).
+  const fade = { mask: `url(#atl-${ATLAS_LOOKS[look] ? look : "masculine"}-tailroot)` };
+  if (!edge) atlasMake("path", { class: "atl-tail-glow", d: spec.tailPath, ...fade }, swish);
+  atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: spec.tailPath, ...(edge ? fade : {}) }, swish);
   if (edge) return tail;
-  atlasMake("path", { class: "atl-overlay atl-tail-galaxy", d: spec.tailPath }, swish);
-  atlasMake("path", { class: "atl-tail-silk", d: spec.silkPath }, swish);
-  atlasMake("path", { class: "atl-tail-stream", d: spec.streamPath }, swish);
-  atlasMake("path", { class: "atl-tail-edge", d: spec.tailPath }, swish);
-  if (spec.tailFilamentPaths) atlasMake("path", { class: "atl-tail-filament", d: spec.tailFilamentPaths }, swish);
+  atlasMake("path", { class: "atl-overlay atl-tail-galaxy", d: spec.tailPath, ...fade }, swish);
+  atlasMake("path", { class: "atl-tail-silk", d: spec.silkPath, ...fade }, swish);
+  atlasMake("path", { class: "atl-tail-stream", d: spec.streamPath, ...fade }, swish);
+  atlasMake("path", { class: "atl-tail-edge", d: spec.tailPath, ...fade }, swish);
+  if (spec.tailFilamentPaths) atlasMake("path", { class: "atl-tail-filament", d: spec.tailFilamentPaths, ...fade }, swish);
   const stars = atlasGroup(swish, "atl-tail-core");
   atlasSpecks(stars, spec.tailStarsNow);
   const [tx, ty] = spec.tailTipNow;
@@ -2227,7 +2249,8 @@ function atlasBody(parent, id, props, look, route = null) {
     //: so a full outline drew its hem over them: a pale line across the
     //: tops of the legs, the lid of an egg sitting on two tubes. The hem is
     //: inside the legs or the skirt, so it needs no edge.
-    atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: edge ? spec.torsoEdgeNow || torsoPath : torsoPath }, torso);
+    //: Its glow edge stops short of where the tail leaves it (`tailjoin`).
+    atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d: edge ? spec.torsoEdgeNow || torsoPath : torsoPath, ...(edge && spec.tailJoin ? { mask: `url(#${id}-tailjoin)` } : {}) }, torso);
     if (!edge) {
       atlasMake("path", { class: "atl-overlay atl-belly", d: torsoPath }, torso);
       atlasMake("path", { class: "atl-overlay atl-rim-body", d: torsoPath }, torso);
@@ -2266,6 +2289,15 @@ function atlasBody(parent, id, props, look, route = null) {
     }
     for (const [side, d] of spec.armPaths || ATLAS_LIMBS.arms) {
       const arm = atlasGroup(layer, `nmb-arm nmb-arm-${side}`);
+      //: **Her arms turn about their own roots** (INBOX 612, the owner: "the
+      //: arm on the right for the feminine atlas actually separates from the
+      //: body when it moves"). Her shoulders are 1.8 units inside his, and her
+      //: arms turned about his joints (the CSS's), so a big turn (love, worried,
+      //: a wave) swung each root round a point at the torso's edge and out of
+      //: it: 2.5px of background between arm and body at 1x
+      //: (atlas612-shoulder.js). About her own roots, inside the torso, the root
+      //: never leaves it at any angle.
+      if (spec.armPivots) arm.style.transformOrigin = spec.armPivots[side].map((v) => `${v}px`).join(" ");
       atlasMake("path", { class: edge ? "atl-edge" : "atl-skin", d }, arm);
       if (!edge) {
         atlasMake("path", { class: "atl-overlay atl-rim-body", d }, arm);
@@ -2306,6 +2338,16 @@ function atlasBody(parent, id, props, look, route = null) {
       atlasMake("path", { class: "atl-skin", d: torsoPath }, cap);
       atlasMake("path", { class: "atl-overlay atl-belly", d: torsoPath }, cap);
       atlasMake("path", { class: "atl-overlay atl-rim-body", d: torsoPath }, cap);
+      //: The tail's join (INBOX 601): the body's skin and its light without
+      //: the rim shade that rounds the flank off, faded out from the join,
+      //: so the flank runs on into the tail with no darker line between.
+      if (spec.tailJoin) {
+        const join = atlasMake("g", { class: "atl-tail-cap" }, layer);
+        if (spec.lowers) join.setAttribute("mask", `url(#${id}-waist)`);
+        const inner = atlasMake("g", { mask: `url(#${id}-tailcap)` }, join);
+        atlasMake("path", { class: "atl-skin", d: torsoPath }, inner);
+        atlasMake("path", { class: "atl-overlay atl-belly", d: torsoPath }, inner);
+      }
       //: The torso's light (the constellation's glow, the chest's light,
       //: the gloss) moves above the joins, so the patch never covers it
       //: and the arms' roots lie under the same light as the body.
@@ -2606,6 +2648,32 @@ function atlasBuildDefs(svg, id) {
     atlasMake("path", { d: atlasScalePath(atlasAlmond(cx, cy, side).d, 1.3, cx, cy + 1.6) }, lid);
     if (ATLAS_LOOKS[id.slice(4)]?.lashes) atlasMake("ellipse", { cx: cx - 5.4 * side, cy: cy - 2.7, rx: 2.5, ry: 2.8 }, lid);
   }
+  //: **The tail grows out of the body** (INBOX 601, the owner: "make the
+  //: tail seem more integrated with the body instead of just coming out
+  //: from the butt"). Its root is inside the lower body now, wide, and every
+  //: paint but its skin (the galaxy, the silk, the stream, the lit edge,
+  //: the glow, the outline) fades in from nothing over its first stretch
+  //: (`tailroot`, a radial fade about the root, in the tail's own space so
+  //: it turns with it): where it leaves the body it is the body's own
+  //: colour, and it deepens into the galaxy along its length. The body's
+  //: glow edge stops short of the join (`tailjoin`) and the join itself
+  //: wears the body's skin without its rim shade (`tailcap`), so no line
+  //: is drawn across it either way.
+  const look = ATLAS_LOOKS[id.slice(4)];
+  if (look?.tailSegsNow) {
+    const [rx, ry] = look.tailSegsNow[0];
+    const rootFade = atlasMake("radialGradient", { id: `${id}-tailrootg`, gradientUnits: "userSpaceOnUse", cx: rx, cy: ry, r: 15 }, defs);
+    stops(rootFade, [[0.4, "atl-st-white-0"], [0.95, "atl-st-white"]]);
+    const root = atlasMake("mask", { id: `${id}-tailroot`, maskUnits: "userSpaceOnUse", x: -30, y: -30, width: 124, height: 150 }, defs);
+    atlasMake("rect", { x: -30, y: -30, width: 124, height: 150, fill: `url(#${id}-tailrootg)` }, root);
+    const [jx, jy, jr] = look.tailJoin;
+    const holeFade = atlasMake("radialGradient", { id: `${id}-tailjoing`, gradientUnits: "userSpaceOnUse", cx: jx, cy: jy, r: jr }, defs);
+    stops(holeFade, [[0.35, "atl-st-white-0"], [1, "atl-st-white"]]);
+    const hole = atlasMake("mask", { id: `${id}-tailjoin`, maskUnits: "userSpaceOnUse", x: -30, y: -30, width: 124, height: 150 }, defs);
+    atlasMake("rect", { x: -30, y: -30, width: 124, height: 150, fill: `url(#${id}-tailjoing)` }, hole);
+    const cap = atlasMake("mask", { id: `${id}-tailcap`, maskUnits: "userSpaceOnUse", x: -30, y: -30, width: 124, height: 150 }, defs);
+    atlasMake("ellipse", { cx: jx, cy: jy, rx: jr * 0.8, ry: jr * 0.8, fill: `url(#${id}-shoulderg)` }, cap);
+  }
   //: The rings' front halves, in the ring frame.
   const front = atlasMake("clipPath", { id: `${id}-front` }, defs);
   atlasMake("rect", { x: -50, y: 0, width: 100, height: 50 }, front);
@@ -2762,6 +2830,8 @@ function atlasDrawFigure(mood) {
     else if (ATLAS_ROOT_BOXES.includes(name)) {
       const box = document.createElement("span");
       box.className = `atl-lw atl-lw-${name}`;
+      //: The tail turns about its own root, inside the body (INBOX 601).
+      if (name === "tail") box.style.transformOrigin = svg.style.transformOrigin = spec.tailSegsNow[0].slice(0, 2).map((v) => `${v}px`).join(" ");
       box.dataset.atlasLook = look;
       let into = box;
       if (name === "body") {
@@ -2777,7 +2847,9 @@ function atlasDrawFigure(mood) {
       if (["lower", "tail", "wisps", "wisps-back", "glint-a", "glint-b", "neb", "neb-front"].includes(name)) {
         into = document.createElement("span");
         into.className = `atl-lw-pose atl-lw-pose-${name}`;
-        const [ox, oy] = name === "tail" ? ATLAS_GEO.tail : name.startsWith("neb") ? [31, 52] : spec.lowerPivot || [31, 58];
+        //: The lower body's and her wisps' pose turn about the join itself,
+        //: the middle of the torso's fade into it (`lowerPivot`, INBOX 615).
+        const [ox, oy] = name === "tail" ? spec.tailSegsNow[0].slice(0, 2) : name.startsWith("neb") ? [31, 52] : spec.lowerPivot || [31, 55.5];
         into.style.transformOrigin = `${ox}px ${oy}px`;
         box.appendChild(into);
       }
@@ -2785,10 +2857,26 @@ function atlasDrawFigure(mood) {
       frag.appendChild(box);
     } else frag.appendChild(svg);
   }
+  //: **The lower body moves with the torso** (INBOX 615, the owner: "the
+  //: atlas masculine main body and lower body are slightly misaligned").
+  //: The body's box swayed about the feet and breathed, and the lower
+  //: body's box did neither, so at the join, where the torso fades into it,
+  //: the two outlines slid apart by up to 3.4px at 2.2x at rest, and further
+  //: through a change of pose (atlas615-join.js). Its box now sits in the
+  //: body's breathing box, first, under the hair and the body as before, so
+  //: every sway and breath moves the two as one; what it does of its own
+  //: (its wind, its pose for the state) turns about the join itself.
+  const lowerBox = [...frag.children].find((el) => el.classList.contains("atl-lw-lower"));
+  const breathe = frag.querySelector(".atl-lw-breathe");
+  if (lowerBox && breathe) {
+    Object.assign(lowerBox.style, { position: "absolute", left: "0", top: "0", width: "64px", height: "92px" });
+    breathe.prepend(lowerBox);
+  }
   const id = `atl-${look}`;
   atlasMake("title", {}, layers.body.svg);
   atlasMake("ellipse", { class: "atl-aura", ...atlasAuraAt(spec) }, layers.back.pose);
-  ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.back.rig, id, ring, k, false, true));
+  //: The rings, in boxes of their own over and under the figure (`atlasRings`).
+  layers.back.svg.after(atlasRings(look, false));
   atlasBody(layers.body.rig, id, true, look, { neb: layers.neb.rig, back: layers.back.rig, tail: layers.tail.rig, tailTip: layers["tail-tip"]?.rig, lower: layers.lower?.rig, wisps: layers.wisps?.rig, wispsBack: layers["wisps-back"]?.rig, glints: spec.wisps ? [layers["glint-a"].rig, layers["glint-b"].rig] : null, legs: legs ? { l: layers["leg-l"].rig, r: layers["leg-r"].rig } : null, front: layers.front.rig });
   //: `atl-head-lag` (the rig, INBOX 564): the head's lag behind a change of
   //: pose, a turn of its own inside every rule that turns the head.
@@ -2803,7 +2891,7 @@ function atlasDrawFigure(mood) {
   //: the way down (`atlasBlink`).
   atlasLids(layers["lidf-1"].rig, look, 0.38);
   atlasLids(layers["lidf-2"].rig, look, 0.72);
-  ATLAS_GEO.rings.forEach((ring, k) => atlasRing(layers.front.rig, id, ring, k, true, true));
+  layers.front.svg.after(atlasRings(look, true));
   atlasBand(layers["neb-front"].rig, id, "front", look);
   //: The head drew its extras in the body layer; the two that rise (the
   //: Zs, the hearts) move to their roots, each pair under the wrappers the
@@ -2851,14 +2939,17 @@ function atlasOrbits() {
     const frame = document.createElement("span");
     frame.className = `atl-orbit atl-orbit-${k}`;
     frame.style.transform = `translate(${cx}px, ${cy}px) rotate(${tilt}deg) scale(1, ${flat})`;
-    for (const [deg, size, kind] of glints) {
-      if (kind === "star") continue;
+    for (const [deg, drawn, kind] of glints) {
+      //: A ring's star glint goes round with it too, a small pale body (INBOX
+      //: 601: the rings are their own boxes now, `atlasRings`).
+      const star = kind === "star";
+      const size = star ? drawn * 0.7 : drawn;
       const arm = document.createElement("span");
       arm.className = "atl-orbit-arm";
       arm.style.setProperty("--atl-at", String(+(deg / 360).toFixed(4)));
       arm.style.rotate = `${deg}deg`;
       const body = document.createElement("span");
-      body.className = `atl-orbiter atl-orbiter-${kind}`;
+      body.className = `atl-orbiter atl-orbiter-${star ? "pale atl-orbiter-star" : kind}`;
       const d = `${+(size * 2).toFixed(2)}px`;
       body.style.width = d;
       body.style.height = d;
@@ -2869,9 +2960,74 @@ function atlasOrbits() {
       //: Where the animation is off, the same fade behind the head.
       const t = (deg * Math.PI) / 180;
       if (Math.sin(t) < 0 && Math.abs(Math.cos(t)) < 0.6) body.style.opacity = "0";
+      //: Each planet's own light and its astral swirl (INBOX 601: "the
+      //: astral swirl around each could have a bit of movement"): a soft
+      //: glow that swells and brightens, and two thin arcs of the rings'
+      //: light round it, which turn (`atlasRingLoops`). Inline: the boot
+      //: stylesheets are at their budget.
+      const ring = (cls, inset, background, mask) => {
+        const el = document.createElement("span");
+        el.className = cls;
+        Object.assign(el.style, { position: "absolute", inset, borderRadius: "50%", background, pointerEvents: "none" });
+        if (mask) for (const p of ["mask", "-webkit-mask"]) el.style.setProperty(p, mask);
+        body.appendChild(el);
+      };
+      ring("atl-orbiter-glow", "-70%", "radial-gradient(closest-side, rgb(255 255 255 / 0.6), transparent)");
+      if (!star) ring("atl-orbiter-swirl", "-150%", "conic-gradient(transparent 0 6%, var(--atl-ring-c) 20%, transparent 34% 52%, rgb(255 255 255 / 0.8) 66%, transparent 80%)", "radial-gradient(closest-side, transparent 50%, #000 58% 68%, transparent 86%)");
       arm.appendChild(body);
       frame.appendChild(arm);
     }
+    box.appendChild(frame);
+  });
+  return box;
+}
+
+//: **The rings move** (INBOX 601, the owner: "the celestial rings and
+//: planets on it which dont move or look different, and the astral swirl
+//: around each could have a bit of movement or subtle animation as well").
+//: In the layered figure the rings were drawn into the back and front
+//: layers and held still there (any motion inside a layer repaints it), so
+//: only the planets went round, once a minute or two. Now each ring is a
+//: box of its own, the planets' frame (`atlasOrbits`) in HTML: the ring's
+//: centre, tilt and flattening, then a box that turns (`.atl-ring-spin`)
+//: holding a small svg of the ring's glow, line and dust, so the dust runs
+//: round the ring; the near half is the same ring under a box that clips
+//: to the frame's lower half, over the figure, the far half under it. Every
+//: frame, ring and planet alike, sways its tilt and its flattening on a
+//: clock of its own (`ATLAS_RING_SWAY`), so the three never line up, and
+//: each planet's glow swells and its swirl turns on its own clock too
+//: (`atlasRingLoops`). All of it `transform`, `rotate`, `scale` and
+//: `opacity` on boxes: the compositor's, nothing repainted.
+const ATLAS_RING_SWAY = [[11.3, 2.6, 0.06], [14.7, 2.1, 0.07], [18.1, 2.9, 0.05]];
+function atlasRings(look, front) {
+  const { cx, cy, flat, tilt } = ATLAS_GEO.ringFrame;
+  const box = document.createElement("span");
+  box.className = `atl-orbits atl-rings atl-rings-${front ? "front" : "back"}`;
+  box.setAttribute("aria-hidden", "true");
+  const place = (el, x, y, w, h) => Object.assign(el.style, { position: "absolute", left: `${x}px`, top: `${y}px`, width: `${w}px`, height: `${h}px` });
+  ATLAS_GEO.rings.forEach(({ r }, k) => {
+    const R = r + 3;
+    const frame = document.createElement("span");
+    frame.className = `atl-ring-frame atl-ring-frame-${k}`;
+    place(frame, 0, 0, 0, 0);
+    frame.style.transformOrigin = "0 0";
+    frame.style.transform = `translate(${cx}px, ${cy}px) rotate(${tilt}deg) scale(1, ${flat})`;
+    const clip = document.createElement("span");
+    place(clip, -R, front ? 0 : -R, 2 * R, front ? R : 2 * R);
+    if (front) clip.style.overflow = "hidden";
+    const spin = document.createElement("span");
+    spin.className = "atl-ring-spin";
+    place(spin, 0, front ? -R : 0, 2 * R, 2 * R);
+    const svg = atlasMake("svg", { viewBox: `${-R} ${-R} ${2 * R} ${2 * R}`, width: 2 * R, height: 2 * R, class: "nm-atlas atl atl-ring-svg", "aria-hidden": "true", focusable: "false" });
+    svg.dataset.atlasLook = look;
+    svg.style.display = "block";
+    atlasTuneStyle(svg);
+    atlasApply(svg, atlasMoodNow);
+    const g = atlasMake("g", { class: `atl-ring atl-ring-${k}` }, svg);
+    for (const cls of ["atl-ring-glow", "atl-ring-line", "atl-dust"]) atlasMake("circle", { class: cls, r }, g);
+    spin.appendChild(svg);
+    clip.appendChild(spin);
+    frame.appendChild(clip);
     box.appendChild(frame);
   });
   return box;
@@ -2964,7 +3120,7 @@ function atlasBlink(box, slow = false) {
 //: and a hidden tab hold the eyes still: no idle loop runs there.
 //: The blink's pending timer, and the rig's trace when a sweep records one
 //: (`atlasluster.js` sets `rigTrace` to an array and reads it back).
-const atlasState = { blinkTimer: 0, rigTrace: null };
+const atlasState = { blinkTimer: 0, rigTrace: null, easeTimer: 0 };
 const atlasBlinkOpen = new Map();
 function atlasBlinkMay(box) {
   const root = document.documentElement;
@@ -3081,6 +3237,16 @@ function atlasFigure() {
   //: The rig takes the arms once the figure is on the page (it watches the
   //: companion or the box the figure sits in).
   atlasRigAttach(figure);
+  //: The tail's life and the rings' loops arrive with atlas-life.js (a lazy
+  //: bundle, the boot budget); until then the figure stands in its drawn
+  //: shape, which is the shape the tail and the rings rest in.
+  ensureModule("atlasLife").then((ok) => {
+    if (!ok) return;
+    atlasRigLowerAttach(figure);
+    figure.atlasLoops = atlasRingLoops(figure);
+    figure.atlasPropLoops = atlasPropLoops(figure);
+    atlasTailAttach(figure);
+  });
   const settle = (tries) => (figure.isConnected ? atlasRigWake(figure) : tries && requestAnimationFrame(() => settle(tries - 1)));
   requestAnimationFrame(() => settle(30));
   return figure;
@@ -3121,46 +3287,6 @@ function atlasFigure() {
 //: once, in one frame.
 const ATLAS_RIG_DELAY = { sh: 30, el: 80, wr: 130 };
 const ATLAS_RIG_ZETA = { sh: 0.8, el: 0.74, wr: 0.62, sy: 0.9 };
-//: **The lower body by what it is doing** (INBOX 575, the owner: "have the
-//: lower body of both atlas avatars change around in position and how it
-//: is sitting ect with different variations and changes based off the
-//: current action or behaviour"). Her dress and his cloak (with her wisps,
-//: which wrap the dress) and both tails take a pose per state, on top of
-//: the pose's own CSS: each variant is [turn about the hips, width, length,
-//: lean (skew), the tail's turn], in degrees and scales; `ms` and `ease`
-//: are the change's time and curve (a curve past 1 overshoots and settles,
-//: a flick or a snap; an ease in and out is a slow curl). A walk's turns and lean take
-//: the way it goes (it trails behind and stretches). One variant is picked
-//: at random as a state begins, and at rest a new one every 8 to 14
-//: seconds, so no two repeats look alike.
-const ATLAS_LOWER_STATES = {
-  idle: { ms: 900, ease: "cubic-bezier(0.45, 0, 0.35, 1)", v: [[-2.5, 1, 1, 2, -5], [2, 1, 1.02, -2, 4], [3.5, 0.98, 1, 1, 7], [-1, 1.02, 0.99, -3, -2]] },
-  walk: { ms: 450, ease: "cubic-bezier(0.34, 1.3, 0.64, 1)", v: [[-9, 0.94, 1.08, 6, -12], [-7, 0.95, 1.1, 8, -9], [-11, 0.93, 1.06, 4, -15]] },
-  sit: { ms: 550, ease: "cubic-bezier(0.34, 1.25, 0.6, 1)", v: [[8, 1.1, 0.86, -6, -14], [-8, 1.08, 0.88, 6, 14], [5, 1.12, 0.84, -4, -10]] },
-  lie: { ms: 600, ease: "cubic-bezier(0.4, 1.15, 0.6, 1)", v: [[16, 1, 0.86, -8, 24], [12, 1.02, 0.9, -6, 30]] },
-  gesture: { ms: 350, ease: "cubic-bezier(0.3, 1.6, 0.6, 1)", v: [[-5, 0.98, 0.95, 4, 9], [-3, 1, 0.94, 6, 12], [-6, 0.97, 0.96, 3, 7]] },
-  think: { ms: 900, ease: "cubic-bezier(0.45, 0, 0.55, 1)", v: [[6, 1, 0.97, -4, 12], [4, 0.99, 0.96, -6, 16]] },
-  happy: { ms: 380, ease: "cubic-bezier(0.25, 1.8, 0.5, 1)", v: [[-6, 1.02, 0.94, 5, -10], [5, 1.02, 0.95, -5, -14], [-4, 1.03, 0.93, 3, -8]] },
-  sad: { ms: 800, ease: "cubic-bezier(0.5, 0, 0.6, 1)", v: [[1.5, 0.96, 1.07, -1, 16], [-1.5, 0.97, 1.06, 1, 20]] },
-  startle: { ms: 260, ease: "cubic-bezier(0.2, 2, 0.4, 1)", v: [[-10, 0.94, 0.9, 8, -18], [-8, 0.95, 0.92, 10, -22]] },
-};
-//: The hair's turn about the crown and the nebula stream's [turn, width,
-//: height] about the figure's middle, per state (INBOX 575, the owner:
-//: "both atlas avatars have a tail as well, same with the hair, and the
-//: nebular stream ... dynamically animated and changed"), a variant each
-//: as the lower body's; a walk's turn takes the way it goes.
-const ATLAS_HAIR_STATES = { idle: [0, 1.6, -1.4, 0.8], walk: [-5, -4, -6], sit: [2, 1], lie: [4, 5], gesture: [-3, -2], think: [2.5, 1.5], happy: [-3.5, -2.5, -4], sad: [4, 5], startle: [-6, -7] };
-const ATLAS_NEB_STATES = {
-  idle: [[0, 1, 1], [2, 1.02, 0.98], [-2, 0.98, 1.02], [1, 1.01, 1]],
-  walk: [[-4, 1.05, 0.95], [-3, 1.06, 0.94], [-5, 1.04, 0.96]],
-  sit: [[3, 1.06, 0.9], [-3, 1.08, 0.88]],
-  lie: [[6, 1.04, 0.86], [4, 1.06, 0.84]],
-  gesture: [[-2, 1.03, 1.03], [-3, 1.02, 1.04]],
-  think: [[5, 0.97, 1], [7, 0.96, 1.01]],
-  happy: [[-3, 1.04, 1.04], [3, 1.05, 1.03], [-2, 1.03, 1.05]],
-  sad: [[2, 0.97, 0.94], [-1, 0.96, 0.95]],
-  startle: [[-6, 1.08, 1.08], [-5, 1.1, 1.06]],
-};
 function atlasLowerState(buddy, box) {
   const has = (c) => !!buddy && buddy.classList.contains(c);
   const pose = buddy?.dataset.pose || "";
@@ -3210,68 +3336,13 @@ function atlasRigAttach(box) {
       antic: null,
     });
   }
-  rig.lower = {
-    boxes: [...box.querySelectorAll(".atl-lw-pose-lower")],
-    wisps: [...box.querySelectorAll(".atl-lw-pose-wisps, .atl-lw-pose-wisps-back, .atl-lw-pose-glint-a, .atl-lw-pose-glint-b")],
-    tails: [...box.querySelectorAll(".atl-lw-pose-tail")],
-    hair: [...box.querySelectorAll(".atl-lw-pose-hair")],
-    neb: [...box.querySelectorAll(".atl-lw-pose-neb, .atl-lw-pose-neb-front")],
-    state: "",
-    variant: 0,
-    at: 0,
-    shown: "",
-    timer: 0,
-  };
   box.atlasRig = rig;
   atlasRigWake(box);
 }
-//: The lower body's pose for the state: its variant (a new one as the
-//: state begins, and every 8 to 14 seconds at rest, on a timer), and the
-//: way a walk goes. Each part is a box of its own, and the change is a CSS
-//: transition on it, run by the compositor: the state's own time and
-//: curve, the tail and the hair a beat later and longer (follow-through).
-//: A change mid-way is taken up from where the part is, so nothing snaps.
-function atlasRigLower(rig, now, live, buddy) {
-  const low = rig.lower;
-  if (!low || !(low.boxes.length || low.tails.length || low.hair.length)) return;
-  const state = atlasLowerState(buddy, rig.box);
-  const spec = ATLAS_LOWER_STATES[state];
-  const fresh = state !== low.state;
-  if (fresh || (live && state === "idle" && now >= low.at)) {
-    //: Reduced motion keeps each state's first pose and no idle variation.
-    const pick = live ? Math.floor(Math.random() * spec.v.length) : 0;
-    low.variant = !fresh && spec.v.length > 1 && pick === low.variant ? (pick + 1) % spec.v.length : pick;
-    low.state = state;
-    low.at = now + 8000 + Math.random() * 6000;
-  }
-  clearTimeout(low.timer);
-  //: The next idle variant, unless the tab is hidden or the figure gone or
-  //: off screen then (it waits, and does nothing meanwhile).
-  const next = () => {
-    if (!rig.box.isConnected) return;
-    if (document.hidden || rig.box.classList.contains("atl-off")) low.timer = setTimeout(next, 4000);
-    else atlasRigLower(rig, performance.now(), atlasMotionOK(rig.box), buddy);
-  };
-  if (live && state === "idle") low.timer = setTimeout(next, low.at - now + 10);
-  const way = state === "walk" ? (parseFloat(buddy?.style.getPropertyValue("--nmb-lean")) < 0 ? -1 : 1) : 1;
-  const [rot, sx, sy, skew, tail] = spec.v[low.variant] || spec.v[0];
-  const hairs = ATLAS_HAIR_STATES[state];
-  const [neb, nsx, nsy] = ATLAS_NEB_STATES[state][low.variant % ATLAS_NEB_STATES[state].length];
-  const hair = hairs[low.variant % hairs.length] * way;
-  const pose = (k) => `rotate(${atlasFix(rot * way * k)}deg) skewX(${atlasFix(skew * way * k)}deg) scale(${(1 + (sx - 1) * k).toFixed(3)}, ${(1 + (sy - 1) * k).toFixed(3)})`;
-  const key = `${state} ${low.variant} ${way} ${live}`;
-  if (key === low.shown) return;
-  low.shown = key;
-  const go = (el, transform, lag = 0) => {
-    el.style.transition = live ? `transform ${spec.ms + lag * 2}ms ${spec.ease} ${lag}ms` : "none";
-    el.style.transform = transform;
-  };
-  for (const el of low.boxes) go(el, pose(1));
-  for (const el of low.wisps) go(el, pose(0.7), 40);
-  for (const el of low.tails) go(el, `rotate(${atlasFix(tail * way)}deg)`, 70);
-  for (const el of low.hair) go(el, `rotate(${atlasFix(hair)}deg)`, 90);
-  //: The stream's two halves move as one ribbon.
-  for (const el of low.neb) go(el, `rotate(${atlasFix(neb * way)}deg) scale(${nsx}, ${nsy})`, 120);
+
+function atlasTailWake(box) {
+  const tail = box?.atlasTail;
+  if (tail && !tail.raf) tail.raf = requestAnimationFrame((now) => atlasTailFrame(tail, now));
 }
 //: Where the CSS has the arm: the probe's turn (its transform's and any
 //: gesture's `rotate`) and its vertical scale (a meditating arm's).
@@ -3318,6 +3389,9 @@ function atlasRigSpring(j, target, dt, zeta) {
 function atlasRigWake(host) {
   const box = host?.classList?.contains("atl-figure-box") ? host : host?.querySelector?.(".atl-figure-box");
   const rig = box?.atlasRig;
+  //: The tail (`atlasTailFrame`) wakes with it: back on screen, a new
+  //: state, a figure just put on the page.
+  atlasTailWake(box);
   if (!rig) return;
   if (!rig.observer && typeof MutationObserver === "function" && box.isConnected) {
     rig.host = box.closest("#nm-buddy") || box;
@@ -3429,7 +3503,9 @@ function atlasRigFrame(rig, now) {
     if (Math.abs(off) > 0.05 || Math.abs(rig.lag.v) > 1) busy = true;
     if (atlasState.rigTrace) atlasState.rigTrace.push([now, rig.look, "head", +off.toFixed(2), +turn.toFixed(2), 0]);
   }
-  atlasRigLower(rig, now, live, buddy);
+  //: The lower body's pose for the state, once atlas-life.js has given the
+  //: rig its lower body (`atlasRigLowerAttach`).
+  if (rig.lower) atlasRigLower(rig, now, live, buddy);
   box.toggleAttribute("data-atl-moving", busy);
   //: Six quiet frames in a row and it sleeps until the next change.
   rig.still = busy ? 0 : rig.still + 1;
@@ -3449,6 +3525,7 @@ function atlasWatchFigure(figure) {
 }
 document.addEventListener("visibilitychange", () => {
   document.documentElement.toggleAttribute("data-atlas-hidden", document.hidden);
+  if (!document.hidden) for (const box of document.querySelectorAll(".atl-figure-box")) atlasTailWake(box);
 });
 
 //: A mood is one attribute: the CSS turns it into brows, lids, eyes,
@@ -3678,7 +3755,6 @@ let atlasAwakeUntil = 0;
 const ATLAS_WAKE_MS = 2400;
 const ATLAS_AWAKE_HOLD_MS = 45 * 1000;
 const ATLAS_DOZE_MS = 3000;
-let atlasEaseTimer = 0;
 
 function atlasRestingMood() {
   if (Date.now() < atlasAwakeUntil) return "calm";
@@ -3699,7 +3775,7 @@ function setAtlasMood(mood, forMs = 0, { quiet = false, easeMs = 0, backEaseMs =
   atlasMoodNow = next;
   if (!quiet && typeof nameMarkBuddyCue === "function") nameMarkBuddyCue(ATLAS_MOODS[next].cue);
   const marks = [...document.querySelectorAll(".nm-atlas")];
-  clearTimeout(atlasEaseTimer);
+  clearTimeout(atlasState.easeTimer);
   for (const svg of marks) {
     if (easeMs) {
       svg.style.setProperty("--atl-ease", `${easeMs}ms`);
@@ -3707,15 +3783,29 @@ function setAtlasMood(mood, forMs = 0, { quiet = false, easeMs = 0, backEaseMs =
     } else svg.classList.remove("atl-easing");
   }
   if (easeMs) {
-    atlasEaseTimer = setTimeout(() => {
+    atlasState.easeTimer = setTimeout(() => {
       for (const svg of document.querySelectorAll(".nm-atlas.atl-easing")) svg.classList.remove("atl-easing");
     }, easeMs + 100);
   }
-  for (const svg of marks) {
-    //: The classic globe draws a mood rather than easing into one.
-    if (svg.classList.contains("atl-classic")) svg.replaceWith(atlasClassicMark(Number(svg.getAttribute("width")) || 20, next));
-    else atlasApply(svg, next);
-  }
+  const apply = () => {
+    for (const svg of marks) {
+      //: The classic globe draws a mood rather than easing into one.
+      if (svg.classList.contains("atl-classic")) svg.replaceWith(atlasClassicMark(Number(svg.getAttribute("width")) || 20, next));
+      else atlasApply(svg, next);
+    }
+  };
+  //: **A mood's move hands back, never snaps** (INBOX 600, the owner: "when
+  //: I click on atlas in the enlarged view, it might sway or do something
+  //: for a couple seconds but will then snap still"). A poke's mood runs a
+  //: loop on the figure's box and its tail (a giggle, a hop, a sway, a
+  //: wag); the mood's end took the loop away and every part landed at rest
+  //: in one frame (atlas600-still.js: the tail's stars 11 to 59px in a
+  //: frame). Each part a loop leaves is eased from where it is into what
+  //: now moves it, over 0.7s (`nameMarkBuddyBlend`, the companion's own
+  //: hand-over), in every layered figure on screen.
+  const boxes = [...document.querySelectorAll(".atl-figure-box:not(.atl-off)")];
+  if (boxes.length) nameMarkBuddyBlend(boxes, apply, 700);
+  else apply();
   if (next === "surprised" && forMs > 2000) {
     //: A failure startles first, then worries until it has passed.
     atlasMoodTimer = setTimeout(() => setAtlasMood("worried", forMs - 900, { quiet: true }), 900);

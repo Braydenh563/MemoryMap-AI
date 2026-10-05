@@ -1,0 +1,104 @@
+/* The Suggested links row (WORLD_CLASS_PLAN row 31, item 92), in the suggestions
+   inbox. suggestions-inbox.js links this file when it loads, so the boot
+   stylesheets do not carry it. Two note chips joined by an arrow, the score as
+   a small meter, the reason behind "Add a reason", Link and Dismiss at the end;
+   on a narrow sheet the actions drop under the pair. */
+.link-suggestion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+}
+
+.link-suggestion-pair {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.link-suggestion-pair > .chip {
+  max-width: calc(50% - var(--space-5));
+  min-width: 0;
+}
+
+/* The chip's words are the child that is cut, with an ellipsis. */
+.link-suggestion-pair > .chip > .ph-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* One chip a line on a phone: half a sheet shows too little of a name. */
+@media (max-width: 599.98px) {
+  .link-suggestion-pair > .chip {
+    max-width: 100%;
+  }
+}
+
+.link-suggestion-arrow {
+  color: var(--muted);
+}
+
+.link-suggestion-score {
+  margin-inline-end: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+/* A track and a fill: how sure, over every reason, read at a glance. */
+.link-suggestion-meter {
+  display: inline-block;
+  width: calc(var(--space-9) * 2);
+  height: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+  overflow: hidden;
+}
+
+.link-suggestion-meter > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.link-suggestion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+/* The reason box, shown when asked for (or when Atlas has guessed one), on a
+   line of its own under the pair. */
+.link-suggestion-reason {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--text-sm);
+  /* One control height on the row, as the small buttons beside it. */
+  height: 1.75rem;
+  padding-block: 0;
+}
+
+/* Each reason the pair was found for, with its own confidence, on a line of
+   its own under the row (GRAPH_PLAN KG2). */
+.link-suggestion-why {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: var(--text-xs);
+}
+
+.inbox-row .link-suggestion-why {
+  margin: 0;
+}

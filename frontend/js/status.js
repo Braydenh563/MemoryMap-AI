@@ -2049,6 +2049,24 @@ function aiStatusState() {
 // rendering fault. The ellipsis says "waiting" while perfectly still.
 const AI_STATUS_GLYPH = { idle: "…", ok: "✓", warn: "!", error: "✕", off: "" };
 
+//: What the last answer cost, in the dot's popup (WORLD_CLASS_PLAN row 31, item
+//: 99 (c)): the time, the model, and how much of its context window the prompt
+//: used. Set by a finished chat turn (`noteAiTurn`); nothing is invented before one.
+let lastAiTurn = null;
+
+function noteAiTurn(turn) {
+  lastAiTurn = turn;
+  renderAiPill();
+}
+
+function aiTurnLine(turn) {
+  if (!turn) return "";
+  const used = turn.prompt > 0 && turn.context > 0
+    ? `, using ${turn.prompt.toLocaleString("en-US")} of ${turn.context.toLocaleString("en-US")} tokens of context (${Math.round((turn.prompt / turn.context) * 100)}%)`
+    : "";
+  return `Last answer: ${(turn.elapsedMs / 1000).toFixed(1)} s${turn.model ? ` on ${turn.model}` : ""}${used}.`;
+}
+
 function renderAiPill() {
   const button = $("ai-status");
   if (!button) return;
@@ -2065,7 +2083,8 @@ function renderAiPill() {
   $("ai-status-label").textContent = summary;
   // button.title = `${state.title}\n\n${state.detail}`;
   $("ai-status-title").textContent = state.title;
-  $("ai-status-detail").textContent = state.detail;
+  const lastTurn = aiTurnLine(lastAiTurn);
+  $("ai-status-detail").textContent = lastTurn ? `${state.detail}\n\n${lastTurn}` : state.detail;
   renderChatActiveModelBadge();
   nudgeEmbeddingProblem();
 }
@@ -2251,6 +2270,9 @@ function renderStatusBar() {
     //: UX-07: the name of the dialog it opens; "Ask" is Notes' and Chat's.
     word.textContent = "Agent";
     agent.append(glyph, word);
+    //: Icon-only at every width (INBOX 618): the word is clipped by CSS, and
+    //: names the button here so a screen reader and voice control keep it.
+    agent.setAttribute("aria-label", "Agent");
     //: `STATUS_META_KEY` is the whole "Ctrl K"/"⌘K" hint, not a bare
     //: modifier: appending "+Shift+A" to it produced "Ctrl K+Shift+A", which
     //: names no shortcut at all. Caught by reading the rendered title
@@ -2276,6 +2298,9 @@ function renderStatusBar() {
     const word = document.createElement("span");
     word.textContent = "Find";
     find.append(glyph, word);
+    //: Icon-only at every width (INBOX 618): the word is clipped by CSS, and
+    //: names the button here so a screen reader and voice control keep it.
+    find.setAttribute("aria-label", "Find");
     //: Built the same way the agent's hint two controls up is, and for the
     //: same reason it records: `STATUS_META_KEY` is the whole hint, so
     //: appending to it names no shortcut at all.
@@ -2301,6 +2326,7 @@ function renderStatusBar() {
     word.textContent = "Guide";
     const guideName = typeof GUIDE_NAME === "string" ? GUIDE_NAME : "Atlas";
     guide.append(glyph, word);
+    guide.setAttribute("aria-label", "Guide");
     guide.title = `Ask ${guideName} how this app works, from any tab`;
   }
 }
@@ -2318,6 +2344,15 @@ function toggleAiStatusPopup(force) {
   // the CSS hover rule would then have to fight. The stylesheet owns whether
   // the popup is shown; this only records that it has been pinned open.
   popup.classList.toggle("pinned", open);
+  //: In the phone's header the popup hangs from a dot that is not at the window's
+  //: left, and a message wider than the room ran off its edge (93 px at 390, found
+  //: measuring the last-answer line): nudged back inside by `translate`.
+  popup.style.translate = "";
+  if (open) {
+    const box = popup.getBoundingClientRect();
+    const shift = box.left < 8 ? 8 - box.left : box.right > innerWidth - 8 ? innerWidth - 8 - box.right : 0;
+    if (shift) popup.style.translate = `${shift}px`;
+  }
 }
 
 // One plain-English line: which search engine is active and whether it works.
@@ -2507,9 +2542,15 @@ function renderSettings() {
         down: "Can't reach the MemoryMap server.",
       }[modelStatusProblem] || "Checking the models…";
     ollamaLine.className = `status ${modelStatusProblem === "down" ? "off" : "is-checking"}`;
+    //: The pane's shape under the line while it waits, never the line alone
+    //: (DESIGN.md's list recipe). Not when the answer is a fault: a skeleton
+    //: says "on its way", and "can't reach" is not that.
+    if (modelStatusProblem === "down") clearSkeletons($("models-skeleton"));
+    else showSkeletons($("models-skeleton"), 2);
     if (!modelStatusProblem) refreshModelStatus().then(() => settingsOpen() && renderSettings());
     return;
   }
+  clearSkeletons($("models-skeleton"));
 
   // Name the backend that actually answered. Saying "Ollama not detected"
   // when the app was pointed at LM Studio sends people to install the wrong
@@ -2517,9 +2558,11 @@ function renderSettings() {
   const backend = backendLabel(status);
   //: The dot is the line's class, as on the search engine line under it,
   //: not a typed "●"/"○" beside a CSS dot: two alphabets for one signal.
+  //: Not running says why when the provider said (section 21 row 12): a wrong
+  //: address and an absent server are different advice.
   ollamaLine.textContent = status.ollama_running
     ? `${backend} is running`
-    : `${backend} isn't running`;
+    : status.ollama_problem || `${backend} isn't running`;
   ollamaLine.className = `status ${status.ollama_running ? "ok" : "off"}`;
   renderBackendPicker(status);
   const embeddingError = $("embedding-error");
@@ -2531,17 +2574,22 @@ function renderSettings() {
   //: the owner's report was exactly that case ("no nomic-embed-text
   //: suggested") and the button below only exists while it is.
   if (status.embedding_error && /^Search by meaning/.test(status.embedding_error)) {
-    embeddingError.textContent =
-      `${status.embedding_error}. ` +
-      (status.ollama_running
-        ? `Or switch the search engine to ${EMBEDDING_FALLBACK_MODEL} below: smaller, and offline.`
-        : `Or start Ollama and pick ${EMBEDDING_FALLBACK_MODEL} as the search engine: smaller, and offline.`);
+    setLabel(
+      embeddingError,
+      `ph:warning ${status.embedding_error}. ` +
+        (status.ollama_running
+          ? `Or switch the search engine to ${EMBEDDING_FALLBACK_MODEL} below: smaller, and offline.`
+          : `Or start Ollama and pick ${EMBEDDING_FALLBACK_MODEL} as the search engine: smaller, and offline.`)
+    );
   } else if (status.embedding_error) {
-    embeddingError.textContent =
-      `Search engine problem: ${status.embedding_error}: semantic search is ` +
-      "falling back to keywords. Quick fix: switch the search engine below to " +
-      "an Ollama embedding model (download nomic-embed-text from the list), " +
-      "it runs fully offline. Full details in Settings → Logs.";
+    //: Through `setLabel`: `.notice` carries its icon as a child element.
+    setLabel(
+      embeddingError,
+      `ph:warning Search engine problem: ${status.embedding_error}: semantic search is ` +
+        "falling back to keywords. Quick fix: switch the search engine below to " +
+        "an Ollama embedding model (download nomic-embed-text from the list), " +
+        "it runs fully offline. Full details in Settings → Logs."
+    );
   }
   // The one-click version of the "quick fix" sentence above: only offered
   // when it can actually be carried out (Ollama has to be running to either
@@ -2756,8 +2804,18 @@ let extrasPollTimer = null;
 async function renderExtras() {
   const list = $("extras-list");
   if (!list) return;
+  //: Skeleton rows until the catalogue answers (INBOX 596, the owner: "some
+  //: skeleton loaders are missing"): only into an empty list, so the poll
+  //: that redraws it while a package installs never covers its rows.
+  const embedList = $("embed-models-list");
+  showSkeletons(list, 3, "li");
+  showSkeletons(embedList, 2, "li");
   const body = await apiJson("/extras", { silent: true }).catch(() => null);
-  if (!body) return;
+  clearSkeletons(list);
+  if (!body) {
+    clearSkeletons(embedList);
+    return;
+  }
 
   list.replaceChildren();
   for (const extra of body.extras) {
@@ -2960,7 +3018,9 @@ let embedPollTimer = null;
 async function renderEmbedModels() {
   const list = $("embed-models-list");
   if (!list) return;
+  showSkeletons(list, 2, "li");
   const body = await apiJson("/embedding-models", { silent: true }).catch(() => null);
+  clearSkeletons(list);
   if (!body) return;
 
   list.replaceChildren();

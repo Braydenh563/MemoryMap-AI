@@ -33,14 +33,14 @@ before.
 from __future__ import annotations
 
 import difflib
-import json
 import re
 from collections import Counter
-from dataclasses import dataclass, field
 from datetime import timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+
+from memorymap.ai.stat_answer import StatAnswer, _plural, _tags_of, _visible  # noqa: F401  (re-exported)
 
 from memorymap.core.database import Category, Document, Entry, EntryLink, utcnow
 
@@ -48,43 +48,6 @@ from memorymap.core.database import Category, Document, Entry, EntryLink, utcnow
 #: nobody reads in a chat bubble, and the follow-up question ("show me all of
 #: them") has the Library for an answer.
 TOP_N = 10
-
-
-@dataclass
-class StatAnswer:
-    """One computed answer, ready to be spoken or rendered.
-
-    `text` is a complete answer on its own, that is what makes this work with
-    the model stopped. `facts` is the same information as rows, so a caller can
-    render a list or hand the model something to phrase without re-parsing
-    prose.
-    """
-
-    kind: str
-    text: str
-    facts: list[dict] = field(default_factory=list)
-
-
-def _visible(query):
-    """Live notes only: binned and private notes are nobody's statistics.
-
-    Private notes are excluded for the reason the rest of the app excludes
-    them: a count that changes when a note is made private is a count that
-    leaks what is in it.
-    """
-    return query.where(Entry.deleted_at.is_(None), Entry.is_private.is_(False))
-
-
-def _tags_of(raw: str) -> list[str]:
-    try:
-        parsed = json.loads(raw or "[]")
-    except (ValueError, TypeError):
-        return []
-    return [str(tag).strip() for tag in parsed if str(tag).strip()] if isinstance(parsed, list) else []
-
-
-def _plural(n: int, word: str) -> str:
-    return f"{n} {word}" if n == 1 else f"{n} {word}s"
 
 
 # --- the questions -----------------------------------------------------------
@@ -215,6 +178,16 @@ def answer(message: str, session: Session) -> StatAnswer | None:
     #: Spelling is fixed once, here, and every matcher below sees the corrected
     #: text: including `_recent_count`, which reads the string itself.
     text = _despell((message or "").strip().lower())
+    #: Before the pre-filter below: "chart my race times" names no tag, no
+    #: category and no note, and is exactly the question a chart answers.
+    #: `stat_charts` reads the message as written (a topic word must not be
+    #: "corrected" into the vocabulary) and returns None for anything it is
+    #: not sure of, so the matchers below see every other question unchanged.
+    from memorymap.ai import stat_charts
+
+    charted = stat_charts.answer(message, session)
+    if charted is not None:
+        return charted
     if not text or not looks_like_a_question_about_the_notebook(text):
         return None
 
@@ -262,11 +235,14 @@ def _top_tags(session: Session) -> StatAnswer:
         return StatAnswer("tags", "You have not tagged any notes yet.")
     top = counts.most_common(TOP_N)
     listed = ", ".join(f"{tag} ({n})" for tag, n in top)
+    from memorymap.ai import stat_charts
+
     return StatAnswer(
         "tags",
         f"Your most-used tags are {listed}. "
         f"That is across {_plural(len(counts), 'distinct tag')}.",
         [{"label": tag, "count": n} for tag, n in top],
+        stat_charts.bar_chart("Most-used tags", top[: stat_charts.MAX_BARS]),
     )
 
 
@@ -281,10 +257,13 @@ def _top_categories(session: Session) -> StatAnswer:
     if not rows:
         return StatAnswer("categories", "None of your notes are filed in a category yet.")
     listed = ", ".join(f"{name} ({n})" for name, n in rows)
+    from memorymap.ai import stat_charts
+
     return StatAnswer(
         "categories",
         f"The categories with the most notes are {listed}.",
         [{"label": name, "count": n} for name, n in rows],
+        stat_charts.bar_chart("Categories with the most notes", [(name, int(n)) for name, n in rows][: stat_charts.MAX_BARS]),
     )
 
 

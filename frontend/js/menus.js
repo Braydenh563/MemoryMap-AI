@@ -1882,6 +1882,13 @@ function entryOverflowMenu(entry) {
         run: () => askAtlasAboutNote(entry),
       },
       {
+        //: Section 17 row 6. Needs no model, so it is not in the AI group
+        //: and stays when Atlas is off.
+        label: "ph:speaker-high Explain this note",
+        title: "Hear this note, then what it links to and why",
+        run: () => explainNoteAloud(entry),
+      },
+      {
         label: "ph:translate Translate",
         title: "Open this note in Write with Atlas, set to translate",
         run: () => translateNoteInDesk(entry),

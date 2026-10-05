@@ -75,68 +75,6 @@
   border-color: var(--border);
 }
 
-/* On the app's own scale, not on four numbers typed by hand. Part of the
-   same report that the panel is "not consistent with the rest of the app ui
-   style": every other list row in this app is spaced in `--space-*` and
-   sized in `--text-*`, and 0.5/0.6/0.4rem and 0.92rem are none of those, so
-   this list sat a couple of pixels off everything around it in every
-   direction at once. */
-.link-suggestion {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-  padding: var(--space-3);
-  margin-bottom: var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  font-size: var(--text-sm);
-}
-
-.link-suggestion-text {
-  flex: 1 1 16rem;
-  min-width: 12rem;
-}
-
-/* Each reason the pair was found for, with its own confidence, on a line of
-   its own under the row (GRAPH_PLAN KG2). */
-.link-suggestion-why {
-  flex: 1 1 100%;
-  margin: 0;
-  font-size: var(--text-xs);
-}
-
-/* The reason box. Sized so it is obviously a field you may type in rather
-   than a label: the whole complaint was that every suggestion said "similar
-   in meaning" and there was no way to say anything else without linking
-   first, hunting the link down and editing it. */
-.link-suggestion-reason {
-  flex: 1 1 14rem;
-  min-width: 10rem;
-  margin: 0;
-  font-size: var(--text-sm);
-  /* One control height on the row (INBOX 110/111, "poorly designed and not
-     consistent with the rest of the app"): measured, the reason field was
-     42px beside 28px buttons and a 23px chip, three heights on one line,
-     which made every row 69px tall. The field takes the small buttons'
-     height, as the capture and draft rows already do for their fields. */
-  height: 1.75rem;
-  padding-block: 0;
-}
-
-/* The one height left on the row. Measured on the live panel (INBOX 110, the
-   spacing and padding report): the reason field and both buttons stand 28px
-   and the score chip stood 23.2px between them, which is the same "three
-   heights on one line" the field's own rule above was written for, two
-   pixels' worth rather than fourteen. A chip is text in a pill everywhere
-   else in the app, so the height goes on this row's chip rather than on the
-   chip recipe. */
-.link-suggestion > .chip {
-  display: inline-flex;
-  align-items: center;
-  height: 1.75rem;
-}
-
 /* The suggestions inbox (GRAPH_PLAN KG9, suggestions-inbox.js): one sheet,
    a `.seg` of four kinds with their counts, and one scroller under it. A
    reading width wider than a sheet of choices: a link row holds a name pair,
@@ -226,8 +164,7 @@
   overflow-wrap: anywhere;
 }
 
-.inbox-row .doc-backlink-context,
-.inbox-row .link-suggestion-why {
+.inbox-row .doc-backlink-context {
   margin: 0;
 }
 
@@ -473,92 +410,13 @@
   background-repeat: no-repeat;
 }
 
-/* The CSS styles (mesh, bubbles): pre-rendered images and gradients on
-   their own elements, moved by the compositor. Each path is split over
-   nested elements (horizontal on one, vertical or rise on the next, wobble
-   innermost) so each axis keeps its own period. Durations, reaches and
-   delays are per element, set from bg-art.js as custom properties. */
+/* The layer a CSS style (`dom: true` in bg-art.js) mounts its elements in.
+   No style is a CSS style now: the mesh and the bubbles became canvas
+   styles (bg-art.js says why), so their elements, keyframes and per-element
+   timings went from here (design-rows-1005, room in the boot CSS budget);
+   the runtime keeps the path, and a new CSS style brings its own rules. */
 .bg-art-layer {
   overflow: hidden;
-  /* Each moving element sets its own; these are the resting values. */
-  --dx: 0px;
-  --dy: 0px;
-  --dur-x: 30s;
-  --dur-y: 30s;
-  --dur-r: 60s;
-  --dur-w: 1.5s;
-  --delay-x: 0s;
-  --delay-y: 0s;
-  --delay-r: 0s;
-  --delay-w: 0s;
-}
-
-.bg-mesh-field,
-.bg-bubble {
-  position: absolute;
-}
-
-.bg-mesh-field-body,
-.bg-bubble-part {
-  width: 100%;
-  height: 100%;
-}
-
-.bg-bubble-part {
-  background-size: 100% 100%;
-}
-
-@keyframes bg-drift-x {
-  from { transform: translateX(calc(-1 * var(--dx))); }
-  to { transform: translateX(var(--dx)); }
-}
-
-@keyframes bg-drift-y {
-  from { transform: translateY(calc(-1 * var(--dy))); }
-  to { transform: translateY(var(--dy)); }
-}
-
-@keyframes bg-rise {
-  from { transform: translateY(0); }
-  to { transform: translateY(calc(-100vh - 100%)); }
-}
-
-@keyframes bg-wobble {
-  from { transform: scale(1.035, 0.965); }
-  to { transform: scale(0.965, 1.035); }
-}
-
-/* `!important` answers the blanket in 02-chat-graph.css that stops every
-   animation under Reduce motion: the art is only ever given `is-moving`
-   when it should move, which under Reduce motion means the person chose
-   Movement "Moving" for the background, an explicit request that is
-   meant to win (startBgArt in settings.js). */
-
-.bg-art-layer.is-moving .bg-rise {
-  animation: bg-rise var(--dur-r) linear var(--delay-r) infinite !important;
-}
-
-.bg-art-layer.is-moving .bg-wobble {
-  animation: bg-wobble var(--dur-w) ease-in-out var(--delay-w) infinite alternate !important;
-}
-
-/* Hidden, long unfocused, or covered: held where it is. */
-.bg-art-layer.is-moving.is-paused .bg-rise,
-.bg-art-layer.is-moving.is-paused .bg-wobble {
-  animation-play-state: paused !important;
-}
-
-/* The system asks for calm: startBgArt already mounts the art still unless
-   the background's Movement is "Moving" (`is-requested`), and this is the
-   same rule in CSS, so a moving layer mounted without that request cannot
-   slip past it. */
-@media (prefers-reduced-motion: reduce) {
-  .bg-art-layer.is-moving:not(.is-requested) .bg-drift-x,
-  .bg-art-layer.is-moving:not(.is-requested) .bg-drift-y,
-  .bg-art-layer.is-moving:not(.is-requested) .bg-rise,
-  .bg-art-layer.is-moving:not(.is-requested) .bg-wobble {
-    animation: none !important;
-  }
 }
 
 /* --- Wave O: expanded appearance (theme/size/density/glass) ---------------------- */
@@ -3725,10 +3583,9 @@ button.answer-figure-open {
   gap: 0.15rem;
 }
 
-:root[data-glass="off"] .segmented-control {
-  background: var(--card);
-  border: 1px solid var(--border);
-}
+/* No glass-off well of its own (INBOX 621): it drew a card-white well with a
+   1px edge where every `.seg` beside it is the tinted well with none, two
+   segmented controls in two styles. Both are `--chip-bg` now. */
 
 .segmented-control label {
   cursor: pointer;
@@ -3966,22 +3823,14 @@ button.answer-figure-open {
    packing two per row costs nothing but the width, which this panel has:
    `min(22rem, 100%)` is wide enough for two "Hide unlinked"-length rows
    side by side without either wrapping. */
+/* **One column, at every width** (INBOX 621). Two switches to a row put a
+   second column of labels at x=204 and a second column of switches mid
+   panel, so the panel's rows answered to two left edges and two right
+   edges where every other row has one: measured 19 labels at 9px and 7 at
+   204px. A list that scrolls is the cost, and the folds keep it short. */
 .graph-toggle-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  column-gap: var(--space-3);
   row-gap: var(--space-1);
-}
-
-@media (max-width: 819.98px) {
-  /* Below 820 the pointer is a finger and `--target-min` grows every row to
-     44px (07-whiteboard-misc.css, "touch targets, one step, one block"); two
-     of those side by side in a 22rem panel is a label and a knob fighting
-     for less than 11rem each. One column there, the same as the rest of the
-     panel already is. */
-  .graph-toggle-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* One setting, one row: what it is on the left, the control that changes it
@@ -4018,55 +3867,52 @@ button.answer-figure-open {
   text-overflow: ellipsis;
 }
 
-.graph-option-row > input[type="range"] {
-  flex: 1 1 auto;
-  width: auto;
-  max-width: 9.5rem;
-  min-width: 5rem;
+/* **One control column** (INBOX 621): a slider and a picker are the same
+   width, so every control in the panel ends on one right edge and the
+   sliders start on one left edge. Measured before: picker widths of 83, 94,
+   107 and 129px under three sliders of their own width. */
+.graph-option-row > input[type="range"],
+.graph-option-row > select,
+.graph-option-row > .select-shell {
+  flex: 0 0 9.5rem;
+  width: 9.5rem;
+  max-width: none;
   margin: 0;
 }
 
-.graph-option-row > button,
-.graph-option-row > select {
+.graph-option-row > .select-shell > .select-opener {
+  width: 100%;
+}
+
+.graph-option-row > button {
   flex: 0 0 auto;
 }
 
-/* The Strength cell (INBOX 412) shares the grid's second column with the
-   switches. A range's usual 5rem floor made that column wider than the
-   panel could give it beside "Length by similarity", and the grid pushed
-   the whole right column 39px past the panel's edge (measured: the switches
-   there were clipped off). The floor alone is not enough, because a range
-   whose width is `auto` counts its intrinsic width (about 8rem) towards its
-   column's minimum; a set width is its minimum, and `flex-grow` still hands
-   it whatever the cell has left. */
-#graph-similarity-min-row > input[type="range"] {
-  width: 3.5rem;
-  min-width: 3.5rem;
-}
-
-/* The panel's last row: its two actions, one at each end (INBOX 412). A
-   `.dock-menu-section` is a column, which stretched a lone button to the
-   panel's width; a row keeps each at the width of its words. */
-.graph-options .graph-options-foot,
-.graph-options .graph-view-tools {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-}
-
-/* The View section's own last row (Trace, Legend), laid out as the foot is:
-   one action at each end, each at the width of its words. A mode that is on
-   takes the accent tint a menu row's selected state wears
+/* Trace and Legend, Unpin all, Suggest links and Reset: the panel's actions
+   are menu rows (`.doc-dock-menu-item`), the popover recipe's row, icon and
+   words at the row's left edge. They were bordered tonal buttons, two to a
+   row, one at each end, which is a dialog's footer inside a list. A mode
+   that is on takes the accent tint a menu row's selected state wears
    (08-consistency.css), since both write `.is-on` from their handlers. */
 .graph-options .graph-view-tools {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding-top: var(--space-1);
+  flex-direction: column;
 }
 
-.graph-options .graph-view-tools button.is-on {
+#graph-options .doc-dock-menu-item {
+  padding-inline: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+#graph-options .doc-dock-menu-item:hover {
+  color: var(--accent-text);
+}
+
+#graph-options .doc-dock-menu-item.is-on {
   background: var(--accent-soft);
   color: var(--accent-text);
   font-weight: 600;
@@ -4126,13 +3972,6 @@ button.answer-figure-open {
 
 .graph-options .graph-options-fold > :not(summary) + :not(summary) {
   margin-top: var(--space-1);
-}
-
-/* The section's one action, where `.dock-menu-section-head` used to put it:
-   hard right, with the fold's name at the left. The summary is already a
-   flex row (08-consistency.css), so one `auto` margin is the whole of it. */
-.graph-options .graph-options-fold > summary > button {
-  margin-left: auto;
 }
 
 /* An id rule outranks the generic .hidden helper, restate it, the same trap

@@ -735,8 +735,29 @@ function scrollEditingEntryIntoView(id) {
   if (rect.top < 0) window.scrollBy(0, rect.top - 8);
 }
 
+//: **Count an open the page made without reading** (section 17, row 5, the
+//: dashboard's "this month"). The Notes list holds every note, so a card
+//: flashed from a search result, the graph or a link, and a note's own page,
+//: never GET the note and the server never hears of them. One count per note
+//: per half minute, so a jump that repeats (a rerender, a double press) is one
+//: open. Best effort and quiet: a missed count is not worth a toast.
+const noteOpenSeen = new Map();
+async function noteOpened(id) {
+  const now = Date.now();
+  if (!Number.isFinite(id) || now - (noteOpenSeen.get(id) || 0) < 30000) return;
+  noteOpenSeen.set(id, now);
+  try {
+    await api(`/entries/${id}/opened`, { method: "POST", silent: true });
+  } catch (error) {
+    // Not worth a message: the note opened either way, and a missed count is
+    // one open fewer in a month's list.
+    noteOpenSeen.delete(id);
+  }
+}
+
 function flashEntry(id) {
   lastOpenedEntryId = id;
+  noteOpened(id);
   switchTab("notes");
   // The Notes tab is split into sub-tabs, and the note list lives in "browse".
   // Without this the card is found and scrolled to while its whole section is
@@ -1850,6 +1871,14 @@ function answerFigure(entry, n, k, alts, sizes) {
 
 function placeAnswerFigures(answerEl, meta, question) {
   const targets = answerEl && !answerEl.nodeType ? [...answerEl] : answerEl ? [answerEl] : [];
+  //: A counting or trend question's chart (ai/stat_charts.py), drawn once under
+  //: the answer; answer-chart.js loads the first time one arrives.
+  if (meta?.chart && targets.length && !targets[0].querySelector(".answer-chart")) {
+    ensureModule("chart").then((loaded) => {
+      const figure = loaded ? drawAnswerChart(meta.chart) : null;
+      if (figure && !targets[0].querySelector(".answer-chart")) targets[0].append(figure);
+    });
+  }
   if (!targets.length || targets.some((t) => t.querySelector(".answer-figure"))) return;
   const notes = meta?.raw_results || [];
   const { picture_alts: alts, picture_sizes: sizes } = meta || {};

@@ -38,6 +38,10 @@ CSS_FILES = [
     #: load order, which is what makes the concatenation above meaningful.
     CSS_DIR / "09-editor.css",
     CSS_DIR / "10-responsive.css",
+    #: Loaded by its own lazy bundle, not linked in index.html (`lazy-*.css`,
+    #: `asset_stamps` in api/app.py): last, so a lint reads it with the rest.
+    CSS_DIR / "lazy-answer-chart.css",
+    CSS_DIR / "lazy-inbox.css",
 ]
 
 

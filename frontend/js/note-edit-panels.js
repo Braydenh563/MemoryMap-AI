@@ -42,18 +42,33 @@ async function renderRelatedWhileEditing(li, entry) {
     panel.textContent = "No related notes yet.";
     return;
   }
-  const label = document.createElement("span");
-  label.textContent = "Related";
-  //: The label on a line of its own, so the notes under it start on one edge.
-  label.style.flexBasis = "100%";
-  panel.appendChild(label);
-  for (const other of related) {
-    panel.appendChild(similarNoteRow(entry, other, () => {
-      if (!panel.querySelector(".entry-related-row")) {
-        panel.textContent = "All related notes are linked.";
-      }
-    }));
-  }
+  //: **Folded into one line until asked for** (INBOX 616, the owner: Related
+  //: was "three large rows" under the text): "3 suggested links" with a caret,
+  //: and the notes as compact chips with a + each once it is opened.
+  panel.classList.add("note-edit-related");
+  const list = document.createElement("div");
+  list.className = "note-edit-related-list";
+  list.hidden = true;
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "ghost small note-edit-related-toggle";
+  toggle.setAttribute("aria-expanded", "false");
+  const say = () => {
+    const n = list.querySelectorAll(".entry-related-row").length;
+    if (!n) {
+      panel.textContent = "All related notes are linked.";
+      return;
+    }
+    setLabel(toggle, `${list.hidden ? "ph:caret-right" : "ph:caret-down"} ${n} suggested link${n === 1 ? "" : "s"}`);
+  };
+  toggle.addEventListener("click", () => {
+    list.hidden = !list.hidden;
+    toggle.setAttribute("aria-expanded", String(!list.hidden));
+    say();
+  });
+  for (const other of related) list.appendChild(similarNoteRow(entry, other, say));
+  panel.append(toggle, list);
+  say();
 }
 
 // **A note's References** (§30, directly requested: "attach a bookmark to
@@ -76,7 +91,7 @@ async function renderNoteBookmarksWhileEditing(li, entry) {
   setLabel(attachButton, "ph:link-simple-horizontal");
   attachButton.title = "Attach a link";
   attachButton.setAttribute("aria-label", "Attach a link");
-  attachButton.addEventListener("click", () => openBookmarkAttachPicker(entry, panel));
+  attachButton.addEventListener("click", () => openBookmarkAttachPicker(entry, refresh));
 
   async function refresh() {
     let attached;
@@ -147,42 +162,27 @@ async function renderNoteBookmarksWhileEditing(li, entry) {
   await refresh();
 }
 
-async function openBookmarkAttachPicker(entry, panel) {
-  let all;
+//: **The app's one-thing picker on its Bookmarks source** (INBOX 616, the
+//: owner: "the note edit form attach a link button doesnt do anything"). It
+//: put a bare select into the References panel, which is hidden while the
+//: note has no reference, so the first press drew nothing anyone could see,
+//: and a pick re-ran the whole panel, which added a second Attach button. The
+//: picker dialog (`pickLibraryItemDialog`, selection.js) is what the "/"
+//: menu's bookmark link already uses; its empty state says where links come
+//: from. `done` repaints the one panel this form already has.
+async function openBookmarkAttachPicker(entry, done) {
+  const chosen = await pickLibraryItemDialog("Attach a link", { sources: ["link"] });
+  const id = chosen?.row?.id;
+  if (id == null || editingId !== entry.id) return;
   try {
-    all = await apiJson("/bookmarks");
+    await apiJson(`/entries/${entry.id}/bookmarks`, {
+      method: "POST",
+      body: JSON.stringify({ bookmark_id: Number(id) }),
+    });
   } catch (error) {
     toast(error.message, true);
     return;
   }
-  if (!all.length) {
-    toast("No saved bookmarks yet, add one in Library → Bookmarks first.");
-    return;
-  }
-  const select = document.createElement("select");
-  select.className = "bookmark-attach-picker";
-  const placeholder = document.createElement("option");
-  placeholder.textContent = "Pick a saved link…";
-  placeholder.value = "";
-  select.appendChild(placeholder);
-  for (const bookmark of all) {
-    const option = document.createElement("option");
-    option.value = String(bookmark.id);
-    option.textContent = bookmark.title || bookmark.url;
-    select.appendChild(option);
-  }
-  select.addEventListener("change", async () => {
-    if (!select.value) return;
-    await apiJson(`/entries/${entry.id}/bookmarks`, {
-      method: "POST",
-      body: JSON.stringify({ bookmark_id: Number(select.value) }),
-    });
-    select.remove();
-    renderNoteBookmarksWhileEditing(panel.parentElement, entry);
-  });
-  panel.appendChild(select);
-  //: `focusSelect`, not `select.focus()`: the native control is out of the tab
-  //: order once `enhanceSelect` has replaced it, so the direct call focuses
-  //: nothing and this picker opened with the focus on the page body.
-  focusSelect(select);
+  toast("Link attached.");
+  done();
 }

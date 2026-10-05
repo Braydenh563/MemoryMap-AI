@@ -89,3 +89,93 @@ def test_the_svg_carries_the_board_and_the_paths_are_wired() -> None:
     assert 'data-wb-cmd="import-diagram"' in INDEX and 'id="wb-import-dialog"' in INDEX
     meta = _run('wbBoardSvgMetadata([{kind: "sketch", id: 1, payload: {data: "<x>&"}}])')
     assert meta.startswith('<metadata id="memorymap-board">') and "<x>" not in meta
+
+
+# --- Subgraphs come in as frames, and frames go out as subgraphs (wb-phase2 step 2)
+
+NESTED = """flowchart TD
+A[Start] --> B
+subgraph S1 [Build]
+  B[Compile] --> C[Test]
+  subgraph S2 ["Ship it"]
+    D[Deploy]
+  end
+  C --> D
+end
+subgraph Plain words here
+  E[Lone]
+end
+D --> E
+A --> S1
+"""
+
+
+def test_subgraphs_parse_with_their_titles_and_members() -> None:
+    g = _run(f"wbMermaidParse({json.dumps(NESTED)})")
+    assert g["subgraphs"] == [
+        {"id": "S1", "title": "Build", "parent": None},
+        {"id": "S2", "title": "Ship it", "parent": "S1"},
+        {"id": "Plain words here", "title": "Plain words here", "parent": None},
+    ]
+    groups = {n["id"]: n["group"] for n in g["nodes"]}
+    # B is named first outside S1 (A --> B), then given its words inside it:
+    # it belongs to the first subgraph that names it, as in Mermaid.
+    assert groups == {"A": None, "B": "S1", "C": "S1", "D": "S2", "E": "Plain words here"}
+    # The subgraph named in an edge is not a node of its own, and nothing is
+    # counted as left out.
+    assert "S1" not in groups and g["skipped"] == 0
+    assert any(e["from"] == "A" and e["to"] == "S1" for e in g["edges"])
+
+
+def test_a_frame_holds_its_members_and_nothing_else() -> None:
+    out = _run(f"(() => {{ const m = wbMermaidLayout(wbMermaidParse({json.dumps(NESTED)})); return {{ at: Object.fromEntries(m), frames: m.frames }}; }})()")
+    at, frames = out["at"], {f["id"]: f for f in out["frames"]}
+    assert out["frames"][0]["depth"] == 0 and out["frames"][-1]["depth"] == 1  # outermost first
+    assert frames["S2"]["depth"] == 1 and frames["S1"]["depth"] == 0
+    members = {"S1": {"B", "C", "D"}, "S2": {"D"}, "Plain words here": {"E"}}
+    for fid, f in frames.items():
+        for nid, p in at.items():
+            box = (p["x"] - 80, p["y"] - 35, p["x"] + 80, p["y"] + 35)
+            inside = box[0] >= f["x"] and box[1] >= f["y"] and box[2] <= f["x"] + f["w"] and box[3] <= f["y"] + f["h"]
+            overlaps = box[0] < f["x"] + f["w"] and box[2] > f["x"] and box[1] < f["y"] + f["h"] and box[3] > f["y"]
+            if nid in members[fid]:
+                assert inside, (fid, nid, f, p)
+            else:
+                assert not overlaps, (fid, nid, f, p)
+    # The inner frame sits wholly inside the outer one.
+    o, i = frames["S1"], frames["S2"]
+    assert o["x"] < i["x"] and o["y"] < i["y"] and i["x"] + i["w"] < o["x"] + o["w"] and i["y"] + i["h"] < o["y"] + o["h"]
+    # Two frames side by side never overlap.
+    p, q = frames["S1"], frames["Plain words here"]
+    assert p["x"] + p["w"] <= q["x"] or q["x"] + q["w"] <= p["x"] or p["y"] + p["h"] <= q["y"] or q["y"] + q["h"] <= p["y"]
+
+
+def test_a_flat_flowchart_lays_out_as_it_did() -> None:
+    at = _run('Object.fromEntries(wbMermaidLayout(wbMermaidParse("graph LR\\nA-->B\\nA-->C")))')
+    assert at["B"]["x"] - at["A"]["x"] == 220 and abs(at["B"]["y"] - at["C"]["y"]) == 140
+
+
+def test_frames_go_out_as_subgraphs_and_come_back() -> None:
+    state = {
+        "nodes": [],
+        "objects": [],
+        "sketches": [
+            {"id": 5, "data": json.dumps({"d": "M 0 0 L 10 0 Z", "label": "In"})},
+            {"id": 7, "data": json.dumps({"d": "M 0 0 L 10 0 Z", "label": "Out"})},
+            {"id": 6, "data": json.dumps({"type": "link-straight", "sourceId": 5, "sourceKind": "sketch", "targetId": 7, "targetKind": "sketch"})},
+        ],
+    }
+    frame_of = "(kind, item) => item.id === 5 ? { id: 9, title: 'Team [A]' } : null"
+    text = _run(f"wbBoardToMermaid({json.dumps(state)}, undefined, {frame_of})")
+    assert '  subgraph f1 ["Team A"]\n    n1["In"]\n  end\n' in text
+    back = _run(f"wbMermaidParse({json.dumps(text)})")
+    assert back["subgraphs"] == [{"id": "f1", "title": "Team A", "parent": None}]
+    assert {n["text"]: n["group"] for n in back["nodes"]} == {"In": "f1", "Out": None}
+
+
+def test_the_import_makes_the_frames_and_joins_a_subgraph_edge_to_its_frame() -> None:
+    body = SOURCE[SOURCE.index("async function wbImportMermaid(") :]
+    body = body[: body.index("\n}\n")]
+    assert 'wbCreateObject("frame"' in body and "wbFrameZ()" in body
+    assert "frameIds.get(e.from)" in body and 'tKind = ids.has(e.to) ? "sketch" : "object"' in body
+    assert "wbMermaidFrameOf" in SOURCE[SOURCE.index("async function wbExportMermaid(") :]

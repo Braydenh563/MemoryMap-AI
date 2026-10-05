@@ -144,19 +144,17 @@ column and the one wording.
 | Object, its menu | Open | Ask Atlas about this | Show in graph | Remind me | Link to |
 | --- | --- | --- | --- | --- | --- |
 | Note, Notes card ⋯ | the card | yes | yes | yes | yes |
-| Note, Library card ⋯ | Open in Notes | yes | yes | no | no |
-| Document, Library card ⋯ | the card | yes | yes (2026-10-05) | no | no |
-| Board or map, Boards card ⋯ | the card | yes | no | no | no |
+| Note, Library card ⋯ | Open in Notes | yes | yes | yes (2026-10-05) | yes (2026-10-05) |
+| Document, Library card ⋯ | the card | yes | yes (2026-10-05) | yes (2026-10-05) | no |
+| Board or map, Boards card ⋯ | the card | yes | no | yes (2026-10-05) | no |
 | Reminder, row ⋯ | Open its note (when it has one) | yes | no | n/a | no |
 | File, Library card ⋯ | the card | yes (2026-09-23) | no | no | no |
 
-Open next, in impact order: Remind me on a document and a board (a
-reminder carries an `entry_id` only, so this needs the reminder to point at
-other kinds first, a backend step); the Library note card's Remind me and Link to,
-which the Notes card already has, so the Library one is two rows short of
-its twin.
+The "no" cells for Remind me (document, board, Library note) and Link to
+(Library note) are built 2026-10-05 (HISTORY, "From WORLD_CLASS_PLAN.md section
+1.3, row 15"): nothing in this list is open.
 
-**State 2026-10-04:** (b) the recipe is held by `tests/test_ui_recipes.py` (hand-built menus may not multiply, a pointer-anchored menu is the recipe, a long kebab is grouped); the rule that a menu item has no rest background is `tests/test_consistency_contract.py` (0 offences). The act-on-this rows marked open in the table above are open. S each.
+**State 2026-10-04:** (b) the recipe is held by `tests/test_ui_recipes.py` (hand-built menus may not multiply, a pointer-anchored menu is the recipe, a long kebab is grouped); the rule that a menu item has no rest background is `tests/test_consistency_contract.py` (0 offences). The act-on-this rows are built (2026-10-05, row 15).
 
 ### 1.4 Bars (docks, heads, toolbars, footers)
 
@@ -694,18 +692,23 @@ too much routes through the model. Each of these is pure code:
    (app.js ~9894) and `search/engine.py` answers the same operators;
    whether the Library, Timeline and palette share the parser was not checked.
 2. (a) built (saved searches, `routes_settings.py` and app.js).
-3. (b) documents have unlinked mentions (`routes_documents.py`); notes do not. S.
-4. (b) document templates fill `{{title}}` and `{{date}}`; `{{clipboard}}`
-   and a cursor mark are not built, and note templates were not checked. S.
-5. (b) merge, delete, add to a board or map and make a map exist; move to a
-   space and export from a selection were not found. S.
+3. (a) built: documents (`routes_documents.py`) and, with KG1, notes (the Unlinked mentions group in a note's connections).
+4. (a) built 2026-10-05: document templates fill `{{title}}`, `{{date}}`, `{{clipboard}}` and
+   a `{{cursor}}` mark; Capture's templates take `{clipboard}` and `{cursor}` beside `{date}`
+   (`templateVariables`, app.js; HISTORY, "From WORLD_CLASS_PLAN.md section 5, row 30: words and templates").
+5. (a) built: merge, delete, add to a board or map and make a map exist;
+   2026-10-05 Move to space and Export selection (HISTORY, "From
+   WORLD_CLASS_PLAN.md section 5, row 30: the selection bar").
 6. (a) built: JSON, CSV, Markdown and zip export, OPML for maps, the print
    stylesheet for documents.
 7. (a) built 2026-10-05: Notion, Obsidian, Evernote and Apple Notes import, idempotent by source (HISTORY, "row 25, the importers and the keyboard").
 8. (a) built: `DEFAULT_SHORTCUTS` and the shortcut sheet.
-9. (b) documents have word count and reading time; notes were not found to. S.
+9. (a) built 2026-10-05: the note edit form shows words and reading time live (`noteReadingFacts`).
 10. (b) the bin restores entries (notes, boards, maps: `POST /entries/{id}/restore`);
-    documents and reminders were not traced. S.
+    traced 2026-10-05: a deleted document or reminder is gone from the database, with a
+    toast Undo that makes it again (`deleteDocumentWithUndo`, the reminder row), and no
+    list to restore from later. A visible bin for them is open: a `deleted_at` on both,
+    every reader filtering it. M.
 
 ---
 
@@ -809,11 +812,11 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 8 | ~~Placed 2026-09-13~~ | ~~`/files/gallery`'s five callers onto `apiPagedList`, then its default to 200~~ built 2026-09-24 (`tests/test_gallery_paging.py`) | done | HISTORY |
 | 9 | ~~§16~~ | ~~cache `similar_pairs` for link suggestions and tensions~~ built 2026-09-24: keyed by the matrix's version; 5,000 notes 322 to 104 ms a repeat request (`tests/test_similar_pairs_cache.py`) | done | HISTORY |
 | 10 | ~~D5~~ | ~~typed properties on notes~~ built: KG4 (2026-10-04) for the properties, the types and the note head; 2026-10-05 the gate's rest, the graph colouring by note type and a type's own colour (`tests/test_note_types_graph_d5.py`); left: the Library grouping notes by type | done | HISTORY |
-| 11 | §17 | ~~review queue~~ built 2026-10-05 (`is:review`, `tests/test_review_queue_17.py`); filing style, explain this note, most opened this month (S each); tidy proposals, charts from questions (M each); `.ics` export built 2026-09-26 | S to M | §17 |
+| 11 | §17 | ~~review queue~~ built 2026-10-05 (`is:review`, `tests/test_review_queue_17.py`); ~~filing style, explain this note, most opened this month~~ built 2026-10-05; ~~tidy proposals~~ built 2026-10-05; ~~charts from questions~~ built 2026-10-05; `.ics` export built 2026-09-26 | S to M | §17 |
 | 12 | ~~D6~~ | ~~the calendar strip, the yesterday/tomorrow pair and the month popover~~ built 2026-10-04 (`timeline.js`, `note-cards.js`; HISTORY, "the consistency contract's missing lints") | done | HISTORY |
 | 13 | ~~§1, D14~~ | ~~the lints not written: surface budget, one primary per modal, meta without border or hover, a menu item's rest background, every `data-action` in the palette~~ built 2026-10-04 (`tests/test_consistency_contract.py`); left: the two ratchets (5 modals with 2 to 3 filled buttons, 13 chip rules) | done | HISTORY |
 | 14 | ~~A8~~ | ~~the '?' help on every tab's dock (Chat and Graph have it)~~ built 2026-10-04: Dashboard and Reminders were the two docks without one (`tests/test_dock_help_507.py` fails on a dock with none) | done | HISTORY |
-| 15 | §1.3 | Remind me on documents and boards (the reminder must point at other kinds first) (Show in graph for a document built 2026-10-05), the Library note card's Remind me and Link to | S to M | app.js, library.js, `routes_reminders.py` |
+| 15 | §1.3 | ~~Remind me on documents and boards, the Library note card's Remind me and Link to~~ built 2026-10-05 (HISTORY, "From WORLD_CLASS_PLAN.md section 1.3, row 15"; `tests/test_reminder_targets_15.py`); Show in graph for a document built 2026-10-05 | done | HISTORY |
 | 16 | B7 | cursor pagination, ETags and `If-Match` on entries, `/capabilities` | M | `api/` |
 | 17 | B8, H4 | a user skills folder picked up without a restart; `/api/v1`; the agent named on an external write | M | `ai/skills.py`, `mcp_server.py` |
 | 18 | ~~B4~~ | ~~typed links, a derived tensions table, rebuild determinism, the Tensions widget~~ built 2026-10-05 (`tensions` table rebuilt from events, night facts and links, `tests/test_tensions_table_b4.py`; typed links were KG3); left: derived person and project pages, per-claim citations, "what changed about X" | done | HISTORY |
@@ -837,18 +840,18 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 23 | ~~I5, H8~~ | ~~time travel: `as_of` on chat, then-and-now~~ built 2026-10-05 (`ai/timetravel.py`; 200 candidates rewound in under a second); left: a model's judgement over the pairs, past texts re-embedded, cards grouped by month | done | HISTORY |
 | 24 | D9 | the web clipper | M | `routes_bookmarks.py`, `core/security.py` |
 | 25 | H6, §5.7 | Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete; a WCAG audit; multi-window; a first-run path timed to a first answer | M to L each | H6 |
-| 26 | H7 | boot JS under 1 MB (1,072 KB now), first paint under 300 ms, every list over 200 rows virtualised | S each | `boottime.js` |
+| 26 | H7 | ~~boot JS under 1 MB~~ built (`tests/test_boot_budget.py`; 702,053 bytes gzipped on 2026-10-05, 947 KB over the wire at `boottime.js`); open: first paint under 300 ms (not measurable on this sandbox: DOMContentLoaded 1,130 ms at a load average near 12, 46 scripts, 29 boot fetches, 18 MB heap) and every list over 200 rows virtualised (the notes list pages; Library, Reminders and the Timeline were not measured past 200) | S each | `boottime.js` |
 | 27 | ~~H9~~ | ~~usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval~~ built 2026-10-05 (HISTORY); left: `boottime.js` in the CI workflow | S | HISTORY |
-| 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure; the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
+| 28 | §19 | ~~torch still loads at launch~~ built (INBOX 509: `warm_search_model_at_launch`, Settings, Search and index; a notebook with notes can load it on first use); ~~the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure~~ built 2026-10-05 (HISTORY, "Moved from the plans, 2026-10-05 (19.3, 19.5)"); lazy stylesheets: the mechanism is built (`css/lazy-*.css`, HISTORY "From WORLD_CLASS_PLAN.md section 17, row 4"), the eleven surface sheets stay boot (moving one needs `ensureModule` to await its stylesheet, and `app.js` is at its byte cap); the Phosphor subset: decided against (HISTORY, "From WORLD_CLASS_PLAN.md rows 26 and 28"); the Windows frozen startup (cannot be run here) | S to M | `ai/embeddings.py`, `index.html` |
 
 | 27 | H9 | usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval | S to M each | H9 |
-| 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; ~~the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure~~ built 2026-10-05 (HISTORY, "Moved from the plans, 2026-10-05 (19.3, 19.5)"); the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
+| 28 | §19 | ~~torch still loads at launch~~ built (INBOX 509: `warm_search_model_at_launch`, Settings, Search and index; a notebook with notes can load it on first use); ~~the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure~~ built 2026-10-05 (HISTORY, "Moved from the plans, 2026-10-05 (19.3, 19.5)"); lazy stylesheets: the mechanism is built (`css/lazy-*.css`, HISTORY "From WORLD_CLASS_PLAN.md section 17, row 4"), the eleven surface sheets stay boot (moving one needs `ensureModule` to await its stylesheet, and `app.js` is at its byte cap); the Phosphor subset: decided against (HISTORY, "From WORLD_CLASS_PLAN.md rows 26 and 28"); the Windows frozen startup (cannot be run here) | S to M | `ai/embeddings.py`, `index.html` |
 | 29 | §10 | F1 a `prefs` module, F5 `api.stream`/`api.upload` and the no-bare-fetch lint, F7's threads onto the pool (the ratchet is built), F10 a `readings` table, F12 a store (F4 built 2026-09-26) | S to L | §10 |
-| 30 | §5 | notes' unlinked mentions, word count and reading time; `{{clipboard}}` and a cursor mark; move to a space and export from a selection; the bin for documents and reminders | S each | §5 |
-| 31 | Placed 2026-09-09 | 1 capture into the selected space and a bulk move; 99 (b) scroll restore, (c) the AI dot's latency tooltip, (d) Paste as note; 92's row redesign; 97 RapidOCR; 79 and 22 to 23 not re-checked; 261's vault re-key (`POST /auth/rotate-vault-key`) has no UI | S to M | those sections |
-| 32 | 301 | the navigation and undo audit table, then the fixes | M | every surface |
-| 33 | §21 | rows 1 and 2 on the notice recipe, row 12's "check the address" in the status line, row 13's update size in the About page | S | app.js, `routes_models.py`, settings.js |
-| 34 | D1, D8, §13 | drag on the grid; the reminder row recipe and a 10m snooze; the minimap's NaN rects, the tab bar at 600 to 819px, a whiteboard menu sweep, the tidy layout past five nodes (all not re-checked) | S each | their plans |
+| 30 | §5 | ~~notes' unlinked mentions (KG1), word count and reading time, `{{clipboard}}` and a cursor mark, move to a space and export from a selection~~ built 2026-10-05 (`tests/test_selection_move_export_30.py`, `tests/test_note_words_templates_30.py`); open: the bin for documents and reminders (a document's delete has an Undo, a visible bin does not exist) | S each | §5 |
+| 31 | Placed 2026-09-09 | 1 capture into the selected space (built: the space hint, INBOX 38) and a bulk move (built 2026-10-05, row 30); 99 (b) documents' scroll and caret restore (built: `docRestorePosition`), (c) the AI dot's latency and context line (`tests/test_ai_dot_tooltip_31.py`), (d) Paste as note (`tests/test_paste_as_note_31.py`; no chord, Ctrl+Shift+V is paste-as-plain-text); 92 the Suggested links row (`tests/test_link_suggestion_row_92.py`); 261's vault re-key button (`tests/test_vault_rekey_ui_31.py`), all built 2026-10-05; 79 re-read 2026-10-05: a file row's name opens the row (`cap.addEventListener("click", ...)`, library.js; the tile is still 160 px with eight buttons, the redesign was not done); open: 97 RapidOCR (a second engine behind `core/ocr.py`, whose status, fix and every caller are Tesseract-shaped: M), 22 to 23 not re-checked | S to M | those sections |
+| 32 | 301 | ~~the navigation and undo audit table, then the fixes~~ built 2026-10-05 (HISTORY, "From WORLD_CLASS_PLAN.md row 32 (INBOX 301)"): the table, read from the code and the existing sweeps; no inconsistent twin found; open and not planned: a board's history across a reload | done | HISTORY |
+| 33 | §21 | ~~rows 1 and 2 on the notice recipe, row 12's "check the address" in the status line, row 13's update size in the About page~~ built 2026-10-05 (HISTORY, "From WORLD_CLASS_PLAN.md section 21"; `tests/test_failure_remedies_21.py`) | done | HISTORY |
+| 34 | D1, D8, §13 | re-checked 2026-10-05 (HISTORY, "From WORLD_CLASS_PLAN.md rows 34 and 33"): drag on the dashboard grid is built (edit mode, `dashDragOverCard`), the tab bar fits at 600 to 819 (no scroll, 7 labelled tabs), the whiteboard menus (`wbmenus.js`: 0 filled rows, one shell recipe) and the tidy layout past five nodes (`maptidy.js`, 12 nodes, 5/5) pass, the 10 minute snooze is built (`tests/test_reminder_snooze_34.py`); not re-checked: the board-preview minimap's NaN rects, and whether a reminder row shares the notes' row class | S each | their plans |
 | 35 | §2 | the offline studio (the privacy receipt, its record, API and Settings page, built 2026-09-26) | L | new |
 | 36 | B6, H5 | sync without a server | L | design first |
 | 37 | Audio | deferred until the owner says go | L | the audio section |
@@ -1569,7 +1572,7 @@ and they go first in the next session's World-class section.
 | 100% offline, models local; optional web search for context | Built (models through Ollama, not bundled, by decision; web search opt-in) |
 | File attachments copied into the app's folder | Built (Files, three readings per image, PDFs read page by page) |
 | Google Drive plus Notion plus NotebookLM | Built as Library, Documents and Ask with sources |
-| AI-generated data visualisation | **Open: charts from questions** |
+| AI-generated data visualisation | ~~Open: charts from questions~~ built 2026-10-05 |
 | Last five queries; most-accessed information | Built (Ask history); **open: most-opened widget** |
 | A log of everything entered, accessed, altered, archived | Built (activity log) |
 | Manual links, or tell the AI about a link | Built |
@@ -1618,14 +1621,21 @@ review queue's line is the card's `REVIEW_THRESHOLD`, 50, not row 1's
 that says why, and one number cannot drift from the other
 (`manager.REVIEW_CONFIDENCE`). Its count sits in the Categories widget,
 not a widget of its own. Split is Extract notes over the whole note.
+(2) Tidy categories: the proposal list lives in Manage categories beside the
+merge and delete it calls (with their Undo), not in Settings, What it
+remembers (the standing instructions the person told Atlas); a category made
+or renamed by hand is never proposed away, and a hand-made empty one is exempt
+from removal; the merge line is a centroid cosine of 0.80. (3) Filing style: one
+block in the filing prompt, three examples per style, the default adds nothing;
+the by-meaning paths follow the notebook's own shape. (5) Most opened: a
+file beside the database, not a table; the page's opens count in the month only.
+(6) Explain this note: built from the links' stored reasons with no model, the
+note's first 600 characters read aloud, in the note's menu under Connect.
 
 **State 2026-09-24:** the seven rows: 1 review queue: built 2026-10-05
-(HISTORY.md, "Moved from the plans, 2026-10-05 (section 17)"). 2 tidy categories (b): the agent has `merge_categories`
-(`ai/tools/categories.py`); the proposal list is not built, M. 3 filing style
-(c), S. 4 charts from questions (c), M. 5 most opened (b): the Most used
-widget lists the notes opened or matched most, all time
-(`/entries/most-accessed`); "this month" needs an open log, S (its picker
-line was wrong and was fixed 2026-09-24). 6 explain this note (c), S. 7
+(HISTORY.md, "Moved from the plans, 2026-10-05 (section 17)"). 2 tidy categories: built 2026-10-05 (HISTORY.md, same heading). 3 filing style:
+built 2026-10-05 (HISTORY.md, same heading). 4 charts from questions: built 2026-10-05 (HISTORY.md, same heading). 5 most opened: built 2026-10-05
+(HISTORY.md, same heading). 6 explain this note: built 2026-10-05 (HISTORY.md, same heading). 7
 calendar: built. The month view (`#reminder-calendar`) and, 2026-09-26,
 `.ics` export with its two buttons (HISTORY.md, "Moved from the plans,
 2026-09-26").
@@ -1873,7 +1883,7 @@ Three directions, cheapest first, none yet taken:
    the scientific stack may be a load-time import only. If so it is 553
    shared objects mapped for nothing.
 
-**State 2026-09-24:** (b) direction 1 is half taken: numpy is imported lazily (`tests/test_lazy_heavy_imports.py`) and the warm-up waits for the first page and skips an empty notebook (`tests/test_embedding_warmup.py`), but a notebook with notes still loads torch at launch. Directions 2 (ONNX) and 3 (is scipy reachable) are (c). M.
+**State 2026-10-05:** direction 1 is taken: numpy is imported lazily (`tests/test_lazy_heavy_imports.py`), the warm-up waits for the first page and skips an empty notebook (`tests/test_embedding_warmup.py`), and a notebook with notes can skip the launch load too, Settings, Search and index, "Load the search model at launch" (`warm_search_model_at_launch`, INBOX 509); the default stays on. Directions 2 (ONNX) and 3 (is scipy reachable) are (c). M.
 
 ### 19.2 The frontend is 5.9 MB decoded, and that is mostly fine
 
@@ -1912,7 +1922,7 @@ Two things are worth doing anyway, both small:
 the dashboard art runs), which is the right answer and is recorded here so
 nobody "discovers" it again.
 
-**State 2026-09-24:** (c) both: `Phosphor.woff2` is still 147 KB whole, and all twelve stylesheets are linked eagerly. S each.
+**State 2026-10-05:** the Phosphor subset: decided against, with the reason in HISTORY.md ("From WORLD_CLASS_PLAN.md rows 26 and 28"); stylesheets: one lazy sheet exists, the eleven surface sheets are still linked eagerly for the reason in row 28's line.
 
 ### 19.3 SQLite is the right store, and the reasons are not the obvious ones
 
@@ -2045,7 +2055,7 @@ HISTORY.md, "Moved from the plans, 2026-09-24".
     an audit before any fix: every surface, what it pushes to history and
     what it makes undoable, as a table. Placed into WORLD_CLASS_PLAN.
 
-**State 2026-09-24:** (c) the audit table (every surface, what it pushes to history, what it makes undoable) does not exist yet. M.
+**State 2026-10-05:** built: the audit table is in HISTORY.md, "From WORLD_CLASS_PLAN.md row 32 (INBOX 301)"; no fix was left that the table named.
 
 ## Audio in the notebook: the architecture decided 2026-09-21, the build deferred
 
@@ -2212,17 +2222,9 @@ suggests it. and same for many other instances." INBOX 272 called this a class; 
 record of rows 9 to 11 built on 2026-09-21 moved to HISTORY.md, "Moved from the plans, 2026-09-24". The lint
 that holds it is `tests/test_failure_remedies.py`.
 
-State 2026-09-24, what the survey left open:
-
-- Row 1 and 2: the embedding-model messages still draw with `.status.error`
-  rather than the `.notice.notice-warn` recipe (DESIGN.md). S, `frontend/js/app.js`
-  `embedding-error-fix-row`.
-- Row 12: a wrong custom `base_url` and an absent server now differ in the
-  provider (`list_models` raises "Nothing answered at <url>. Check the
-  address", 283, 2026-09-24), but the status line still reads "not
-  detected" for both. S, `api/routes_models.py` status route.
-- Row 13: whether the About page shows `candidate.size` before the update
-  button is pressed was never traced in the frontend. S, `settings.js`.
+State 2026-10-05: the survey's three open rows are built (HISTORY.md, "From
+WORLD_CLASS_PLAN.md section 21, rows 1, 2, 12 and 13"); nothing in this section is
+open.
 
 ## 22. The professional baseline and the devibecode programme (2026-09-27)
 
@@ -2987,11 +2989,6 @@ breadcrumbs).
 
 ## Placed from INBOX, 2026-10-05 (OPEN.md triage)
 
-- **Move a batch of notes to another space** (INBOX 38's own D2 line; the
-  chip and label that show which space a note is in are built). Brief: a
-  `POST /entries/move-space` with ids and a target (one transaction, the
-  search index rebuilt, an Undo that moves them back), and a "Move to space"
-  row in the selection bar. Opus, M.
 - **The Guide's corpus and the Help accordion are kept in step by hand**
   (guide; the synonym column it asked for exists, `help_chat.py`'s keyword
   table). Brief: give the accordion's thirteen `<details>` ids, convert them

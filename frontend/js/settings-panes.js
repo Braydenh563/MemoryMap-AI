@@ -488,7 +488,9 @@ function watchOverlays() {
 async function renderAccount() {
   const facts = $("account-facts");
   facts.replaceChildren();
+  showSkeletons(facts, 3, "li");
   const info = await apiJson("/auth/account").catch(() => null);
+  clearSkeletons(facts);
   if (!info) {
     const li = document.createElement("li");
     li.className = "muted";
@@ -805,6 +807,7 @@ function renderAutonomousSettings() {
   $("pref-background-filing").checked = prefsCache.background_filing ?? true;
   $("pref-warm-search-model").checked = prefsCache.warm_search_model_at_launch ?? true;
   $("pref-filing-wait").value = prefsCache.filing_wait_seconds || 15;
+  $("pref-filing-style").value = prefsCache.filing_style || "topic";
   $("pref-auto-caption-images").checked = prefsCache.auto_caption_images ?? true;
   $("pref-auto-read-image-text").checked = prefsCache.auto_read_image_text ?? true;
   $("pref-auto-tag").checked = prefsCache.auto_tag_enabled ?? true;
@@ -1384,6 +1387,7 @@ function paletteCommands() {
     //: chord is in the palette or says why it cannot be).
     { label: "ph:calendar-check Open today's note", reveal: "todays-note", chord: "todaysNote", about: "Today's page, or a new one titled with the day." },
     { label: "ph:lightning Quick note", about: "A note saved without leaving this page.", chord: "quickNote", act: () => openQuickNote() },
+    { label: "ph:clipboard-text Paste as note", about: "Save what is on the clipboard as a note, in one step.", act: () => ensureModule("quickNote").then((loaded) => loaded && pasteAsNote()) },
     { label: "ph:file-text New document", reveal: "doc-new", chord: "newDocument" },
     { label: "ph:magic-wand Write a note from rough thoughts", reveal: "writing-room" },
     { label: "ph:sparkle New chat", reveal: "chat-new", chord: "newChat" },

@@ -2542,10 +2542,13 @@ label.setting-check,
   padding: 0.6rem 0.8rem;
   border-radius: calc(var(--radius) * 0.5);
   font-size: 0.8rem;
-  overflow-x: auto;
-  /* A pasted command or a stack trace is wider than the dialog. Wrapping the
-     scroll in this element only works while its ancestors have a floor to
-     shrink to: see the automatic-minimum-sizing note in ARCHITECTURE §10. */
+  /* A pasted command or a stack trace is wider than the dialog. It wraps
+     rather than scrolling sideways (INBOX 622: nothing in Settings scrolls
+     sideways; measured 395px of snippet in a 242px box at 390), and the
+     floor lets its ancestors shrink: see the automatic-minimum-sizing note
+     in ARCHITECTURE §10. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   min-width: 0;
   margin: 0 0 0.5rem;
 }

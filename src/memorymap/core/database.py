@@ -1034,6 +1034,11 @@ class Reminder(Base, WorkspaceMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     entry_id: Mapped[int | None] = mapped_column(ForeignKey("entries.id"), default=None)
+    #: A document the reminder is about (WORLD_CLASS_PLAN row 15). A board is a
+    #: note, so it already used `entry_id`; a document is not, so it needed its
+    #: own column. At most one of the two is set. Deleting the document clears
+    #: it (the reminder stays, as plain text).
+    document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"), default=None)
     text: Mapped[str] = mapped_column(String(500))
     due_at: Mapped[datetime] = mapped_column(DateTime)
     done: Mapped[bool] = mapped_column(Boolean, default=False)

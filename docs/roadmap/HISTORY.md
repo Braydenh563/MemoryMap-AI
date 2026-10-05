@@ -7,6 +7,253 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (INBOX 621 and 622: the header bars and the Settings navigation)
+
+### From UI_MODERNISATION_PLAN.md, "Placed from INBOX, 2026-10-05 (header bars, Settings navigation)"
+
+621. **The owner, 2026-10-05, verbatim.** "also idk but I feel like al lot of
+     these top header bars need  a better ui/ux restructuring or redesign as
+     they still dont feel professional or modern and more demo/vibe coded. as
+     well as the settings dropdown in the graph tab. it is not limited to the
+     attached screen shots, all of those bars across the application or
+     majority fo them need fixing up. idk you are teh expert" (screenshots:
+     the All notes, Questions, Graph, AI skills and Timeline docks.)
+     Decision taken (recommendation): one `.dock` redesign at the recipe,
+     not per surface. The title loses its divider and sits as the page head.
+     Counts become quiet muted text, not boxed pills. Search is a borderless
+     field with a leading icon. Icon buttons are 32px ghosts in one trailing
+     group. The single filled action stays last. Segmented controls are
+     drawn in one style. The graph settings popover is rebuilt from the
+     DESIGN.md popover recipe. DESIGN.md's dock section is updated and the
+     dock lint (`test_dock_grammar.py`) holds the new grammar. Placed: an
+     Opus design agent, after 616.
+622. **The owner, 2026-10-05, verbatim.** "also in settings idk if this
+     navigation is the right way to go about it. should it be redesigned
+     better??" (screenshot: Settings, Tools it can use: a horizontally
+     scrolling sub-tab strip with a visible scrollbar and a clipped last
+     label.)
+     Decision taken (recommendation): yes. A horizontally scrolling strip
+     hides options and shows a scrollbar. Replace the in-pane sub-tabs with
+     the pane's groups stacked under their group heads, and nest the active
+     pane's group links under it in the Settings sidebar (two levels, as in
+     VS Code and Linear settings). A click scrolls to the group, and the
+     active group is tracked on scroll. On a phone the sidebar's pane select
+     gains the groups. No horizontal scroll anywhere in Settings, held by a
+     lint. Placed: with 621.
+
+**Built** (the 1005 header-bars agent; DESIGN.md's dock row, its Settings
+index row and its pane-head row say the recipe now).
+
+- **621, the docks** (`6094967`): one grammar at the `.dock` recipe, so every
+  bar inherits it. No hairline between zones at any width (zones parted by
+  `--space-6`, `--space-4` below 600), so the title is the page head with no
+  divider; `.dock-chip` is quiet muted text with tabular figures, not a
+  bordered pill; every dock search is `div.search-field.dock-search` with its
+  magnifier, a `--field-inset` fill and no edge at rest (the accent edge and
+  ring on focus), the sort select the same quiet inset; worded ghosts at
+  weight 500; icon ghosts (32px, 44 by touch) one trailing run; the one filled
+  action last in twelve docks (markup moved, ids kept, `FAB_IDS` slots
+  unchanged); the chosen segment's ring the control edge in every look, the
+  radio form's glass-off well dropped, so one segmented style.
+  `markDockLineStarts` (phone-shell.js) and its CSS went with the hairlines.
+  `scratchpad/ui-sweeps/dockgrammar621.js` over all fifteen tab and sub-tab
+  docks: 59 fails at 1440 light, 58 dark, 26 at 390 light and dark before;
+  PASS in all four after. Phone dock heights unchanged. `test_dock_grammar.py`
+  holds it: the filled action closes the row, icons are one trailing run, a
+  dock search is the wrapped field with its icon, no zone hairline, a quiet
+  count, an edgeless field.
+- **621, the graph's display options** (`6094967`): the popover recipe. One
+  column (the two-column switch grid had two label edges and two control
+  edges), one control width (9.5rem for sliders and pickers), one section
+  head (the fold chevron at the far right, so every name stands on one edge),
+  the actions (Trace, Legend, Unpin all, Suggest links, Reset) as menu rows,
+  and Unpin all out of the Physics summary (`test_nested_interactive`'s
+  allowance is now empty). `graphpop621.js`: label lefts 2 to 1, control
+  right edges 2 to 1, head lefts 2 to 1, picker widths 4 to 1, controls in a
+  summary 1 to 0.
+- **622, Settings navigation**: the in-pane strip (`.settings-index`, which
+  scrolled sideways in ten panes at 1440 and seven at 390) is gone. The
+  active pane's group heads are the sidebar's second level
+  (`.settings-nav-groups` after the pane's `#settings-nav` link,
+  `settingsIndexBuild` in settings-find.js): a press scrolls the pane under
+  its sticky dock and focuses the head, the group you are reading is marked
+  from `aria-current` (ink, weight and an accent rail) as you scroll, and on a
+  phone `#settings-jump` gains the same groups as `pane#index` options and
+  follows the scroll. A Help topic name and the Web search snippet wrapped
+  instead of running the pane sideways at 390, and the account pane's
+  command block wraps. `settingsnav.js`: "nothing in Settings scrolls
+  sideways" fails before at 1440 and 390, passes after (light and dark);
+  press, focus, track and jump-list checks pass at both widths.
+  `tests/test_settings_no_sideways.py` holds the stylesheet half. Every
+  reveal target and help path unchanged (`test_help_settings_paths.py`,
+  `test_catalogue_reveal.py` pass); the Guide's "Finding your way round
+  Settings" topic says where the groups are now.
+- Boot CSS 183,199 to 183,174 gzip (cap 183,300, not raised); boot JS 701,507 to
+  701,266.
+
+## Moved from the plans, 2026-10-05 (small-1005: the small open items)
+
+Small, well-defined open items cleared in one pass; each line says how it was verified.
+
+- **BACKLOG 115 row 8, saved searches.** Built, the row still read "Next": `settings-wiring.js` (`renderSavedSearches`, `persistSavedSearches`, `saveCurrentSearch`) draws the `saved_searches` preference as chips under the Notes filter (`#saved-searches`), and `tests/test_keyword_search.py` `test_saved_searches_round_trip` pins the preference. The row now says so; `tests/test_backlog_status_rows.py` pins the row to that evidence.
+- **`scratchpad/ui-sweeps/editor.js` described the retired editor** (DOCUMENTS_PLAN placed row). Built: every read goes through `docSurface()`, the marks are `.cm-finding[data-doc-finding]`, Source is reached through Edit's chevron menu, undo is the view's one history. 78 of the old 89 checks remain, 78 pass at 1440 (run twice). Retired, with reasons in the sweep's header: the backdrop's geometry and ink, D3's stack depth, cap and coalesce constants, Live's per-paragraph boxes, the textarea gutter's padding and font-size match (INBOX 590 made the numbers smaller on purpose, so baselines are compared: 0.06px). New: the documents editor's own column is measured against `coordsAt` (constant 1.59px offset, no drift, also scrolled). Found while porting: Playwright's `Control+Shift+z` sends `event.key === "z"`, which CodeMirror reads as Ctrl+Z, so the old redo checks failed for the harness, not the app (`Control+Shift+Z` redoes). `tests/test_backlog_status_rows.py` `test_no_sweep_reads_the_retired_textarea_editor` keeps any sweep from reading the retired names again.
+- **`scratchpad/ui-sweeps/quickaccess.js` opened a row menu in `.launch-head`** (open-rows-1005, found-not-fixed). Built: INBOX 488 moved Customise to the dashboard dock (`#dash-customise`: "Edit quick access", "Reset quick access") and INBOX 524 made adding a checklist dialog (Done, Cancel, a refusal line at eight), so the sweep drives those; 24 checks pass at 1440 and 23 at 390 (the drag is a pointer's). `tests/test_backlog_status_rows.py` pins it off the old selectors.
+- **`mappan.js`'s rect sketch fixture logged "Expected moveto path command" twice** (open-rows-1005, found-not-fixed). Built: the fixture stored `{type, x, y, width, height}`; a shape sketch is a path, `{d: "M 140 320 h 200 v 140 h -200 Z", shape: "rect", color, width}`, the rectangle tool's own. The sweep now asserts "no console errors" (it did not assert on the page's log at all), 12 of 12 pass; the shape now has a body, so its gap to the note moved from 120 to -20 and held (drift 0.00px over 14 moves).
+- **`skeletons.js` read chat/conversations and documents/list at 390 as BLANK.** Both are expected (chat's list is answered at boot; the documents list is a drawer, closed below 600), so the sweep names them (`EXPECTED_BLANK`, with the reason and the width), takes `WIDTH=390`, and exits 1 only for a view that is missing, empty too soon or blank without being expected. Found, not fixed: library/docs reads BLANK at both widths (its text is the head and the property filter, no placeholder while the list is held), which needs a look at what that list does before its first answer.
+- **OPEN.md section A and the duplicated plan-tails table, pruned 2026-10-05.** Moved whole, so no account is lost; the ledger keeps one line each.
+
+  Section A's done rows:
+
+  | ~~238~~ | **Done 2026-09-19** (5a9c909, 128a731, 7e8d902). All three parts, with measurements in INBOX 238: the card clips its own text (`min-height: 0` plus `overflow: hidden` on `.wb-card-content`, and the "Show more" decided by the box rather than by a character count); the expanded set is in `localStorage`; and the export's line budget comes from the card's measured height (7 lines collapsed, 22 expanded, both were 6) with a `--warn` line in the dialog naming how many notes are collapsed. | done |
+  | ~~246~~ | **Done 2026-09-20.** Maps' own reference nodes counted (`_board_reference_rows`, both tables, one reader), `GET /entries/reference-counts` and the chip row on the card measured in Chromium (`refchips.js`), Connections telling maps from boards and listing every reference the chip counts. Record in HISTORY's INBOX 246. | done |
+  | ~~232~~ | **Mostly already built; measure before building any of it.** Checked on the branch head 2026-09-19 (`scratchpad` sweep, one document holding all of them): tables render as 6 `.cm-md-td` cells with **0 pipes on screen**, callouts as 2 `.cm-md-callout` lines with a label and **0 `[!note]` markers**, task lists as 2 real `<input type="checkbox">` with **0 `- [ ]` brackets**, and an image as a drawn `.cm-md-image` with **0 `![...]` syntax**; strikethrough, highlight, footnotes and maths all carry their marks too. The two things that were genuinely wrong are fixed: the code fence's empty rows (706e2af) and the chips that broke in half when they wrapped (2b94271). This row was stale, and rebuilding from it would have been the fourth time this project rebuilt something that existed. **Closed 2026-09-20.** The one line of the brief nobody had checked, "a header row with the language and a copy button", was measured before being written and is built: `renderMarkdown`'s `.code-bar` has carried the language, Copy and Save since INBOX 172, and a document with a `python` fence and an unlabelled one draws 2 bars, 4 buttons and the labels `python` and `code`. The live view keeps the corner label and no button, by the decision now in DOCUMENTS_PLAN section 15 (a control inside a contenteditable is a caret trap; the row it would hang from is 8px tall against a 36px line, measured, and that smallness is the 2026-09-19 fix). What the measurement found instead was the glyph in those labels, a typed `⧉` on a Copy button in an app that ships `ph:copy`: fixed at both call sites and added to `tests/test_no_glyph_icons.py`. `scratchpad/ui-sweeps/doccodecopy.js`, 11 of 11. | done |
+  | ~~253~~ | **Done 2026-09-20** (b062d0d, f0d478b, f24d8a5, 1f018d6). `start.sh`/`start.bat` self-repair a failed start once with no prompt; the venv health check imports the app itself; a Repair MemoryMap AI shortcut in the .exe installer and the MSI runs `--desktop --reinstall`. Record in HISTORY's INBOX 253. | done |
+  | ~~225~~ | **Done 2026-09-21.** The row was half right: the "the AI" half was swept and linted a week earlier, and the lint has held it since. "The assistant" was never covered, and eight pieces of copy still said it, five of them the Tools and features descriptions a person reads while learning the app. Reworded to name Atlas, and `tests/test_ai_name.py` now carries the second phrase, proved against a reintroduction. "The guide" is deliberately left out: that is a surface with a name. | done |
+
+  The second "B. Plan tails, by surface" table (the first block already says it moved):
+
+  **B. Plan tails, by surface**
+
+  | Plan | Still open |
+  | --- | --- |
+  | DOCUMENTS_PLAN | ~~Phase 4~~ closed 2026-09-20: the templates gallery was verified by `scratchpad/ui-sweeps/doctemplates.js` (six templates, each with a description), and item 5's daily notes were built from the decision in DOCUMENTS_PLAN section 14 and measured by `docdaily.js`, 11 of 11 (7 templates with Daily, the document titled with the ISO day, 0 "start today's note" offers beside a day already written as a document). What is left: the Phase 2, 6 and 8 tails and the engine's three deliberate omissions, in this file's Documents section. Everything else this row used to list was built or already existed: the Library's property filter, outline reorder with folding and a filter box, the command palette and shortcut sheet from one table, version history with its diff and its AI filter, the per-hunk AI diff, reading typography and the print stylesheet (all 2026-09-20 or earlier, each with its probe named in HISTORY.md). |
+  | UI_MODERNISATION_PLAN | ~~Phase 8's docks over the seven-control ceiling~~: re-measured 2026-09-20 (`docks.js` at 1440): notes 6, graph 6, library 5, chat 4, timeline 4, reminders 4, and only `#wb-topbar` at 13, which the plan names as the menu-bar exception (Insert, Edit, Arrange, View, Board on the dock's zones). Done. Phase 11, the phone done properly: items 1, 2, 3, 5 (its share sheet half), 6, 8 and 9 were built on 2026-09-20, and items 4 (the graph: the hold that opens the node menu and arms the lasso, the controls as one sheet) and 7 (the whiteboard and the map: two fingers for the camera, the tools as a sheet, the board bar at the touch floor) on the same day, each with its own gate in `scratchpad/ui-sweeps/` (`graphphone.js`, `wbphone.js`). Item 5's reader full screen with a bottom bar was built on 2026-09-20 (`scratchpad/ui-sweeps/libreader.js`, the sheet recipe's `page` variant, and a pane-grid bug it found that was wrong at every width under 1100). Item 9's hover-only half was swept properly on 2026-09-20 (`scratchpad/ui-sweeps/hoveronly.js`: 45 reveal rules, eleven stops, `hover: none` emulated and each candidate tapped) and the two it found were both a `hover: none` override written a class short of the rule it had to beat, so neither had ever applied. Item 11's two open gates were closed on 2026-09-20: errors.js was already clean at 390, and contrast.js, which took no viewport and had only ever run at 1440x900, now takes one, reaches Settings the way a phone reaches it, reports how many text elements it measured (which caught the whiteboard being in its tab list with no tab page to open, so it had been measuring an empty window at every width) and comes back 0 low-contrast over 33 surfaces at 390, 820 and 1440 in light and dark. Item 7's leftovers at 820 were measured and fixed in the same pass. What is left of the phase: item 11's screenshot set for the owner. |
+  | GRAPH_PLAN | ~~All four~~ **stale, checked 2026-09-23**: Phase 5's real gap (a saved view restoring unpinned positions) was built 2026-09-21 and the `?since=` cursor is left until something polls, both on the plan's Phase 5 row; Phase 6 was measured built on 2026-09-20 (this file's Graph section); the local pane's switches are left by the 2026-09-13 decision; 6b the minimap was built 2026-09-13 (`minimap6b.js`). The one line the plan still held, a lasso selection dragging as one, was built 2026-09-23 (`oi-groupdrag.js`). |
+  | WHITEBOARD_PLAN | Decision 7's other half; the phone context bar comparison; sketch handles at zoom; the arrange panel items. |
+  | MINDMAP_PLAN | The mapux agent's leftover list (this file's Mind map section). |
+  | CHAT_PLAN | ~~Phase 1's other half, which note grounds a sentence~~ built 2026-09-20 (the fixtures exist, 18 of 18 attributed, was 17 of 18); ~~Phase 1's fourth gate line~~ built 2026-09-21 and its replay tail 2026-09-23, so Phase 1 is closed; Phase 4's harness items were closed 2026-09-20, and what is left is its `evals` breadth (WORLD_CLASS_PLAN 9). |
+  | TIMELINE_PLAN | ~~Section 7's two measurements~~ taken 2026-09-20, and both found a bug: the density strip hid on a note count (it hid a profile of 150 notes and showed a comb of 200) and the table drew no title column at all between 600 and 1024. Both fixed and re-measured. The third line, the "auto" scale thresholds, was tuned 2026-10-04 (HISTORY, "the auto scale"). |
+  | AGENT_SKILLS_REFORM | ~~Phase D verified against a real model, which needs WORLD_CLASS_PLAN section 9's dev-only runner first.~~ **Done 2026-09-20.** The runner is `scratchpad/llama-dev.sh` and the gate is `tests/test_skills_evals.py`, four `evals` tests that skip at collection without a model: 3 passed and 1 skipped against Qwen2.5-1.5B-Instruct Q4_K_M through llama.cpp, with the skip itself the finding (the run stalled on step 1's `list_tags` contract and said so, rather than ticking it). Record in HISTORY's "Moved from the plans, 2026-09-20". What is left is breadth, and it sits in WORLD_CLASS_PLAN 9: the same gate at 3B and 4B, and an eval each for the rest of CLAUDE.md section 4's unproven list. |
+  | WORLD_CLASS_PLAN | **Row check done 2026-09-24 (INBOX 399).** Every row read against the code; the built ones moved to HISTORY's "Moved from the plans, 2026-09-24", each open row carries a "State 2026-09-24" line, and the ranked list of 38 is at the top of the plan's section 8. The top ten, by impact: F3 `semantic_search` reading every vector per request; Brief 15's LAN hardening (S1 to S3, S5, S6); B2 durable jobs; D2's connections rail (and 261's `/resurface/near`); I1's night runs and morning card; chunk vectors then I6's evidence cards; I3's questions view; `similar_pairs` cached for link suggestions and tensions; D5 typed properties on notes; the S-sized section 1 lints. Fixed during the check: 283, 285, the Most used widget's picker line, Download .md on a locked notebook, and `/files/gallery`'s paging (F2's frontend half). Built 2026-09-24 after it: row 1 (F3, `semantic_search` on the matrix), row 9 (`similar_pairs` cached) and row 2 (S1, S2, S3, the rest of S5, S6's redirect half, `/debug/health` paths; left `tests/test_lan_mode.py` and the LAN offer). Built 2026-10-04: row 3, B2's durable jobs for the pool's six kinds (`core/jobstore.py`; left: the other kinds onto the table, the panel on `/jobs/stream`). Built 2026-10-05: row 21 (the model bench), row 22 (the margin reader, documents; left: the note editor), row 24 (the web clipper from the browser), row 25 (the importers, keyboard reach, the WCAG pass, the timed first run; left: multi-window), row 27 (H9 whole; left: `boottime.js` in the workflow). |
+- **Settings panes with no loading state** (found-not-fixed in other agents' lists). Built: Models, What it remembers, What it learned (its switches and its list) and the Logs list put `showSkeletons` placeholders where their rows will be and `clearSkeletons` them when the answer lands (DESIGN.md's list recipe; only into an empty list). The Models pane's `Checking the models…` line keeps its words, and the placeholders sit under it; a status already known is painted the moment Settings opens instead of waiting for the refresh. `scratchpad/ui-sweeps/settingsskel.js` holds each pane's one endpoint for 2.5s: placeholders at 400 ms with `aria-busy` and none left after the answer, 15 of 15 (the base had no placeholder code in any of the five). `tests/test_settings_skeletons.py` (4).
+- **Capture's formatting strip changed height when the Library bundle landed.** Built: at 390 the strip drew expanded (two rows, 104px) and folded to the 54px collapsed bar when documents.js mounted the fold, the name and the tools group (More, layout, line numbers, the chevron); the collapsed shape is the default, so it is now the markup's (`is-collapsed` on `#note-toolbar`), `foldNoteToolbarForFirstPaint` (notes-list.js, boot) undoes it for a saved expanded choice, and the name is drawn by a `::before` at the cluster's own height (2rem, the touch floor under a coarse pointer) until the real one mounts. `scratchpad/ui-sweeps/capturestrip.js` (the bundle's scripts held 4s, then the box pressed): one row at every sample before and after, a constant 54px at 390 and 42px at 1440 (before: 2 rows, 104px, then 54px). Not as briefed (a reserved More slot): measured, the More button is only shown by the one-row mode, which is not the default, so the shift was the fold. The CSS-styles art block (`.bg-mesh-field`, `.bg-bubble`, `@keyframes bg-drift-x/y, bg-rise, bg-wobble` and their `.bg-art-layer` rules, 2.6 KB) was removed to keep the boot CSS under its cap: nothing sets those classes since bg-art.js drew every style on the canvas. `tests/test_capture_strip_first_paint.py` (3).
+- **DOCUMENTS_PLAN's table-cell reveal row** (`docRevealForSuggest` would not bring a cell's word into view). Not reproduced: `scratchpad/ui-sweeps/revealcell.js` seeds 70 paragraphs and a table whose cells hold "seperate" and "definately", presses each word's row in the findings panel from the top, and reads the mark's box inside a drawn `.cm-md-td` against the scroller's box (whole box inside) and the floating menu against the word (no overlap): 9 of 9 in Live at 1440 and at 390, 7 of 7 in Source at 1440.
+
+## Moved from the plans, 2026-10-05 (boardmap-1005)
+
+The board and map agent's queue: INBOX 596, 607 to 610 and 617, placed in
+MINDMAP_PLAN and WHITEBOARD_PLAN; the open remainders of 596 and 608 stay in
+WHITEBOARD_PLAN's "Placed from INBOX, 2026-10-05 (boardmap-1005)".
+
+- **609, smooth long branches** (`95e8127`): a branch's two sides are a
+  spline through more samples. `tests/test_map_ribbon_smooth.py`,
+  `bm1005-curve.js`.
+- **608, edge auto-pan on boards and maps** (`64ab644`): a marquee, an item
+  or a branch dragged to the canvas edge pans the board, faster deeper in.
+- **607, the map from the graph** (`3f4aa42`, `e1c598d`):
+  `POST /whiteboard/maps/from-notes` builds the tree from the notes' links
+  (the picked or most connected note in the middle, linked notes under the
+  note they link to, the rest by category, at most eight children a topic,
+  other links as cross-links, both sides); Open on the notice and the bell
+  row. `tests/test_map_from_notes.py`; `bm1005-mapfromgraph.js`: 37 nodes,
+  widest 8 (was 33 in one column), 22 left and 14 right, 0 overlaps.
+- **610, a topic's controls** (`4ed1b3c`): the text size on the topic's bar;
+  every select in its Text, Shape and Branch line doors drawn as a
+  `.seg[role=group]` (`wbMapChoiceRow`); one resize grip on the bottom right
+  corner (Shift scales the text), 24px at every zoom. `tests/
+  test_map_node_controls.py`; `bm1005-nodetasks.js`: 8 of 11 tasks over two
+  presses on the base, 11 of 11 in at most two after, at 1440 and 390, light
+  and dark.
+- **617, several topics picked** (`98e319e`): no group box, the bar's
+  `mapmulti` group (colour, bold, tasks, fold, summarise), the same in the
+  right-click menu, one undo step (`wbMapStyleMany`).
+  `tests/test_map_multi_select.py`; `bm1005-mapmulti.js` 10/10 in all four.
+- **596, the board's sidebar** (`b454b7b`): beside a side dock rather than over it
+  (`[data-wb-dock="side"]`), one height on a board and a map, the Library's
+  menu hung from its button's right edge, a map's rail Library, This map and
+  Outline (`WB_SIDE_TABS_BY_KIND`, `wbRenderSideMap`), and built-in
+  Templates (five board, seven map; `scripts/build_board_library.py`).
+  `tests/test_board_sidebar_596.py`, `tests/test_board_library.py`;
+  `bm1005-sidebar.js`: on the base 58,854px² of overlap, 341 against 443px,
+  the menu 20px left and 15px low, 0 templates; after, 0, 703 and 703, 0 and
+  4px, 5 and 7 templates placed by a drag (a press at 390).
+
+## Moved from the plans, 2026-10-05 (wb-phase2: draw.io phase 2)
+
+From WHITEBOARD_PLAN (decisions 30 on) and the features audit's
+remaining whiteboard rows; the open rest is in
+`docs/roadmap/agent-remaining/wb-phase2.md`.
+
+- **Step 1, bends on straight and curved connectors, and line jumps**
+  (decisions 30, 31). `points` drives every style (`wbLinkShape`,
+  `wbCurveThroughSegs`, `wbCurvePathD`); one grip set,
+  `wbRenderWaypointHandles`; floating ends aim at the nearest waypoint;
+  `wbLineJumpsD` hops over lines painted under (read off the sorted
+  selection: d3's `sort` returns a new one). Found and fixed on the way: a
+  click or double-click on an add ring saved one or two bends at the ring
+  (elbows too), and a bend's double-click never took it out (a save on the
+  first click re-rendered the grip). `tests/test_wb_waypoints.py` 14;
+  `wbwaypoints.js` 20/20 at 1440 and 390, light and dark; `wb1005-elbow.js`
+  18/18, `wb1005-format.js` 17/17, `wblinklabel.js` 12/12 (two checks
+  updated: the bend is `points`, and the right-click point avoids the bar,
+  which covered it on the base too).
+
+- **Step 2, Mermaid subgraphs as frames** (decision 32).
+  `wbMermaidParse` reads `subgraph` and `end` (three title forms, nesting);
+  `wbMermaidLayout` lays each subgraph out as a block in its parent's rows
+  and returns `frames`; `wbImportMermaid` makes them innermost first under
+  everything (`wbFrameZ`); `wbBoardToMermaid` takes `frameOf`
+  (`wbMermaidFrameOf`) and writes subgraphs. `tests/test_wb_interchange.py`
+  10 (5 new); `wbmermaidframes.js` 11/11 at 1440 and 390, light and dark;
+  `wb1005-interchange.js` 8/8. The brief's other half, FreeMind keeping its
+  root, was already built (FEAT-01, `cc89dcb`,
+  `test_freemind_imports_its_single_root_as_the_central_topic`): not rebuilt.
+
+- **Step 3, W2, the board time machine** (decision 33). Server
+  `routes_board_history.py` (`GET /whiteboard/history`,
+  `GET /whiteboard/history/{event}`, `POST .../restore`); library placements
+  record per-item `created` events (`test_board_library.py`'s one-event test
+  rewritten to say so). Client `whiteboard-history.js` (lazy, Library
+  bundle): the slider bar on the present bar's recipe, the past drawn by the
+  board's render, writes refused (`wbHistGuard`), a restore recorded as one
+  Undo step. Found on the way: SQLite reuses a deleted row's id (no
+  AUTOINCREMENT), so one item id's log can hold two items; a `created`
+  starts a fresh state. `tests/test_board_history.py` 10;
+  `wbhistory.js` 14/14 at 1440 and 390, light and dark (the sweep ages the
+  log in its own data dir to make three moments).
+
+- **Step 4, smart guides** (decision 34). Checked first: edge and centre
+  guides, equal spacing between two neighbours, Alt to bypass, group drags,
+  and the Arrange menu's align and distribute (`WB_COMMANDS`) all existed;
+  not rebuilt. Added: drawn shapes as targets (`wbGuideBoxes`, hidden items
+  left out) and a row's or column's spacing continued past its end
+  (`wbSpacingSeries`). `tests/test_wb_guides.py` 5; `wbguides.js` 6/6 at
+  1440 and 390, light and dark; `wbgroupguides.js` 0 findings.
+
+- **Step 5, connection points and waypoint consistency** (decision 35).
+  Checked first: eight fixed anchors and their hover hints with a link
+  tool existed (bbox fractions, so off a diamond's or an ellipse's outline);
+  waypoints on every style came with step 1. Added: `wbPortsForPath` (a
+  polygon's corners and side middles, a curve's compass points, cached per
+  path), `wbAnchorPoint` read from the fraction, ports on hover with Select
+  and a drag from one to connect (initWhiteboard's "Connection points with
+  Select"), and `wbCarryWaypoints` in `wbFinishDrag`.
+  `tests/test_wb_ports.py` 7; `wbports.js` 9/9 and `wbwaypoints.js` 22/22
+  at 1440 and 390, light and dark.
+
+- **Step 6, FEAT-13 first part: Branches from my notes** (decision 36).
+  `routes_map_suggest.py` (`POST .../nodes/{id}/suggest`, writes nothing;
+  `POST .../nodes/{id}/branches`, one transaction, a created event each);
+  `wbMapSuggestBranches` (whiteboard-map.js) on the picker dialog with the
+  Attach picker's rows, from the topic menu's Add group and the command
+  table (`suggest-branches`). `tests/test_map_suggest.py` 6 (fake transport:
+  the prompt's parse, both fallbacks, no invented note); `mapsuggest.js` 8/8
+  at 1440 and 390, light and dark (no model on the sweep's server, so the
+  notebook fallback). Open: ghosts on the canvas, Expand from my notes,
+  Summarise this branch, the affinity sort, the claim check.
+
+- **Found by the regression sweeps after steps 5 and 6.** A press on a
+  port with Select released a click on the container, which cleared the
+  selection it had just made (`wblock.js` 6/17 on step 5, 17/17 after the
+  release's click is swallowed for that task); and the search engine joins
+  the nearest notes by meaning to every keyword search, so a topic was
+  offered notes that shared nothing with it: a note found by meaning alone
+  now needs a cosine of 0.5 (`MIN_MEANING`).
+  And on a data dir other sweeps had used, a new board's first moment
+  counted "4 added, 2 removed" for two shapes: a reused id's log held another
+  board's item, so each event is now placed by the board its payload names
+  (`_board_events`; `test_a_reused_id_brings_no_other_boards_history`).
+
 ## OPEN.md rows closed, 2026-10-05 (the open-rows agent)
 
 The well-defined rows of `agent-remaining/OPEN.md` taken by one agent; each line says how it was verified.
@@ -41443,6 +41690,484 @@ The two cheap additions the plan's research section named (decisions 11 to
   model-less notebook the queue is every note the person has not filed by
   hand; that is the row as written ("anything filed Uncategorised").
 
+### From WORLD_CLASS_PLAN.md section 17, row 3: the filing style
+
+**State 2026-09-24:** 3 filing style (c), S.
+
+- **Built 2026-10-05 (worldclass-1005c).** `filing_style` preference
+  (`topic` default, `project`, `time`; a `Literal` in `PreferencesBody`, so
+  `mood` is a 422). `librarian.filing_style_note` adds "Filing style: <rule>"
+  and three "- example" lines to the user half of the filing prompt
+  (`filing_prompt`); `topic` adds nothing, so the default prompt is byte for
+  byte the old one. An unknown stored value reads as `topic`. Settings,
+  Background tasks, Filing style (`#pref-filing-style`, a `setting-row`
+  select); the Guide's "How a note is filed" names it.
+- Decided (recommended, not confirmed): one prompt block rather than a
+  second category-namer prompt, because the namer is the same model call
+  ("invent a short new category name only if none fit"); the centroid and
+  neighbour paths, which never ask a model, are left alone because they
+  already follow the shape of the notebook.
+- Measured: `tests/test_filing_style_17.py` 5 tests;
+  `scratchpad/ui-sweeps/filingstyle.js` 7/7 at 1440 and 390, light and dark
+  (the select inside its row and pane, 32px at 1440 and 44px at 390, the
+  same as the Manage categories button, nothing sideways, saved and read
+  back, no page errors).
+- Not verified: how a real small model responds to the three examples (the
+  suite's transports are fake, CLAUDE.md section 4).
+
+### From WORLD_CLASS_PLAN.md section 17, row 6: explain this note
+
+**State 2026-09-24:** 6 explain this note (c), S.
+
+- **Built 2026-10-05 (worldclass-1005c).** `GET /entries/{id}/explain`
+  (`entry/explain.py`): the note's title, its first 600 characters as plain
+  speech (markdown marks, images and fences off; cut at a sentence, then
+  "The note goes on."), "It is filed under X, tagged a, b.", then "It links
+  to N notes." and a sentence per link, up to six ("It points at B, because
+  <reason>." / "C points at it, because <reason>."), "And N more.", or "It
+  is not linked to any other note yet." No model: the reasons are the ones
+  written on the links. A private note never gives its words (a locked one
+  answers "This note is private. Unlock the app to hear it."; a linked
+  private note is "a private note", reason dropped). The note's menu,
+  Connect, Explain this note (`menus.js`) calls `explainNoteAloud`
+  (`note-cards.js`), which speaks the script through the app's own
+  `speakText` and offers a Stop toast; asking again while it speaks stops it.
+  The Guide's links topic names it.
+- Decided (recommended, not confirmed): built from the links' stored reasons,
+  not a model call, so it is instant and works offline with Atlas off; the
+  row's "reads the note aloud" is the note's first 600 characters, not the
+  whole note (a long note read in full is a lecture; its own Read aloud is in
+  documents).
+- Measured: `tests/test_explain_note_17.py` 10 tests;
+  `scratchpad/ui-sweeps/explainnote.js` 8/8 at 1440 and 390, light and dark
+  (the item in the menu, the spoken text starting with the note and ending
+  with the link and its reason, a Stop toast, a second press cancelling, no
+  page errors, nothing sideways). Speech is captured in the sweep, not played.
+- Not verified: a real voice (headless Chromium has none); how the sentence
+  sounds read by a real engine.
+
+### From WORLD_CLASS_PLAN.md section 17, row 5: most opened this month
+
+**State 2026-09-24:** 5 most opened (b), S: "this month" needs an open log.
+
+- **Built 2026-10-05 (worldclass-1005c, from worldclass-1005b's parked
+  half).** `core/opens.py`: `opens.json` in the data dir, one bucket per
+  month (this one and the last kept), note id to opens, ids only, 5,000 notes
+  a month at most, written atomically; `record_many` is one read and one write
+  however many notes an Ask matched. Counted from three places: a real read
+  (`GET /entries/{id}`), the notes an Ask matched (`routes_chat._prepare`),
+  and the page's own opens, which never GET the note (the Notes list holds
+  every note): `POST /entries/{id}/opened` (204, the log only; a binned or
+  missing note counts nothing), called by `noteOpened` (capture-ask.js) from
+  `flashEntry` and `openNotePage`, once per note per 30 seconds.
+  `GET /entries/most-accessed?period=month|all`: the month's ten, a binned or
+  archived note left out. The Most used widget (`renderMostUsedWidget`,
+  dashboard.js) has a `.seg` of This month and All time (`aria-pressed`, kept in
+  `localStorage` `mostUsedPeriod`); with no choice made, a month with opens
+  shows the month and an empty one shows all time.
+- Decided (recommended, not confirmed): a file beside the database, not a
+  table (the reasons of `core/usage.py`: a few hundred counters, no query, no
+  migration); the page's opens count in the month only, the all-time count and
+  `last_opened_at` stay what a real read makes them.
+- Measured: `tests/test_most_opened_month_17.py` 10 tests;
+  `scratchpad/ui-sweeps/mostopened.js` 11/11 at 1440 and 390, light and dark
+  (two jumps inside 30 seconds are one open in the file, the widget's two
+  choices with the month pressed, the month listing the note only the page
+  opened and not the one nobody did, the seg inside its card with no sideways
+  scroll and 28px (44 at 390) buttons, All time pressed and different after a
+  click, the choice kept and surviving a redraw, no page errors).
+- Not verified: the dashboard's in-place refresh path with the seg clicked
+  mid-refresh; a notebook across a month boundary (tested on `date`s in
+  `opens`, not on a live clock).
+
+### From WORLD_CLASS_PLAN.md section 17, row 2: tidy categories
+
+**State 2026-09-24:** 2 tidy categories (b): the agent has `merge_categories`;
+the proposal list is not built, M. (The panel's look-alike row, names that
+are probably one name, was already built.)
+
+- **Built 2026-10-05 (worldclass-1005c).** `ai/tidy.py`: `proposals` gives
+  two kinds, never applied. **Merge**: two categories in one space, each with
+  at least 2 public embedded notes, whose notes' centroids (the search
+  engine's matrix, `janitor._labelled_vectors`) are at least 0.80 alike, the
+  smaller folding into the larger (a tie folds the newer); names that are one
+  name by the panel's own key (Recipe and recipes) are left to its look-alike
+  row (`tests/test_tidy_categories_17.py` runs the JS key and the Python one on
+  the same names). **Remove**: no live notes and made 30 or more days ago.
+  Respecting manual changes: a category made by hand (`POST /categories`) or
+  renamed by hand (`PUT /categories/{id}`, not a merge) goes in the
+  `tidy_hand_named` preference and is never the one proposed away; "Keep both"
+  and "Keep it" (`POST /categories/tidy/decline`) go in `tidy_declined`, a pair
+  in either order and any case; both lists are capped at 500 and, being
+  preferences, are described not disclosed in the support bundle.
+  `GET /categories/tidy` lists up to 20. In Manage categories
+  (`loadTidyProposals`, `drawTidyProposals`, categories-panel.js, a second
+  `.manage-suggest` region under the look-alike row): up to three rows, the
+  names, the reason under them, Merge or Remove (the panel's own
+  `mergeCategoriesFromPanel` and `deleteCategory`, so their confirm and their
+  Undo) and Keep both or Keep it; Not now hides them until the panel opens
+  again. No model call, so it works with Atlas off. Help: the panel's '?', the
+  Guide's manage-categories topic.
+- Decided (recommended, not confirmed): the list lives in Manage categories,
+  beside the merge and delete it calls, not in Settings, What it remembers (that
+  pane is the standing instructions the person told Atlas); a hand-made empty
+  category is waiting for notes, not forgotten, so it is exempt from removal;
+  0.80 for two whole categories (the filing path trusts 0.60 for one note
+  against a category). Not built: proposals on a timer or a notification (it
+  is computed when the panel opens, a few milliseconds).
+- Measured: `tests/test_tidy_categories_17.py` 13 tests;
+  `scratchpad/ui-sweeps/tidycats.js` 9/9 at 1440 and 390, light and dark (the
+  head counts two, the merge reads "A into B", each row has its reason, four
+  buttons 32px high at 1440 and 44 at 390 and none past the box, the region
+  inside the card with nothing sideways, Keep it sent and the next list one
+  shorter, a real Merge moving 2 notes so the large one holds 5, and Undo
+  offered; names wrap on a phone rather than being cut).
+- Not verified: proposals on a real embedding model (the sandbox has none, so
+  the sweep answers the list with a canned one and the unit tests use directed
+  vectors); whether 0.80 is the right line for a person's real categories.
+
+### From WORLD_CLASS_PLAN.md section 17, row 4: charts from questions
+
+**State 2026-09-24:** 4 charts from questions (c), M: the original vision's
+"AI-generated data visualisation" had no chart.
+
+- **Built 2026-10-05 (worldclass-1005c).** `ai/stat_charts.py`, called first by
+  `notebook_stats.answer` (so "chart my race times", which names no tag or
+  category, is not turned away by the question pre-filter), returns a
+  `StatAnswer` whose `chart` is `{kind: bar | line, title, labels, values, unit,
+  format: count | number | duration}` and whose `facts` are the same rows. No
+  model: a regex matcher and SQL, so it works with Atlas off and cannot invent a
+  value. Three shapes: a count by category or tag (a bar, up to 12, with
+  "this week / month / year" windows); a count over time ("notes per
+  day / week / month / year", a line, empty periods drawn as zero); a number in
+  the notes over time ("chart my race times", "plot my weight": the notes that
+  contain the topic words, one value from each, a time such as 24:10 read as
+  seconds and drawn as m:ss, otherwise the first number after the topic word
+  with its unit). Fewer than 3 points is not a trend and falls through to
+  ordinary retrieval; private and binned notes are nobody's statistics. The
+  existing top-tags and top-categories answers carry a bar too. `/chat/stream`'s
+  `meta` carries `chart` (None for a plain answer). The page: `answer-chart.js`
+  (lazy, `ensureModule("chart")`, called from `placeAnswerFigures`) draws
+  horizontal bars or a line as SVG from tokens (its stylesheet is `css/lazy-answer-chart.css`, linked by the bundle: the boot CSS was 158 bytes over its cap with the rules in it, so `lazy-*.css` is the first lazy stylesheet, stamped through `asset_stamps`), `Data` opens the table, Save as
+  PNG clones the SVG with computed paint and saves through `saveFile`. Help:
+  the Guide's notebook-questions topic.
+- Decided (recommended, not confirmed): the chart sits under the answer text in
+  Ask only (the Chat tab does not draw it yet); a bar is horizontal so category
+  names read; 3 points is the line's floor.
+- Measured: `tests/test_charts_from_questions_17.py`;
+  `scratchpad/ui-sweeps/askchart.js` 10/10 at 1440 dark, 390 dark and light, and
+  1440 light (run on a fresh data dir: it counts categories): one chart,
+  bars equal the counts, the table repeats the chart, inside the answer, nothing
+  sideways, paint resolves to rgb from tokens, Save as PNG yields a PNG of
+  10 KB (magic bytes), a four-point line, times as m:ss, the save button 32 px
+  high at 1440 and a touch target at 390, no page errors.
+- Not verified: a real model's answer sitting beside a chart; the PNG's look in
+  the desktop window (the sweep captures what `saveFile` receives); the chart in
+  the Chat tab, which does not draw it.
+
+### From WORLD_CLASS_PLAN.md section 1.3, row 15: the act-on-this rows
+
+**State 2026-10-04:** Remind me on a document and a board needed the reminder
+to point at other kinds; Show in graph for a document; the Library note card's
+Remind me and Link to.
+
+- **Built 2026-10-05 (worldclass-1005c).** Show in graph for a document was
+  built on the main line the same day (`docingraph.js`). A board is a note
+  (`Entry.is_board`), so its reminder already had a place, `entry_id`; a
+  document got `Reminder.document_id` (a nullable FK, the additive migrator
+  adds it). `POST /reminders` takes `document_id` (404 when missing, 422 with
+  both ids), `GET /reminders?document_id=`, and each reminder says
+  `document_id`, `document_title` and `entry_is_board`. Deleting a document
+  clears the column and keeps the reminder as plain text. The page:
+  `remindAboutThing` (library.js) is one `promptDialog` with a `.seg` for when
+  (in an hour, tomorrow 9am, next week) over `addReminder`, and is a row in the
+  Library document card, the Documents list card, the board card and the
+  Library note card; the note card also gets Link to another (the Notes card's
+  own two-step, `beginOrCompleteLink`, then the Notes tab). A reminder row shows
+  its document as a chip and its menu says Open its document or Open its board;
+  Undo of a delete carries `document_id`. Help: the Guide's reminders-controls
+  topic. Two boot-CSS rules (row 5's `.dash-period`, row 2's tidy names) went
+  into `el.style` assignments because the boot stylesheets were at their cap.
+- Measured: `tests/test_reminder_targets_15.py`;
+  `scratchpad/ui-sweeps/remindthings.js` 10/10 at 1440 light and 390 dark (the
+  rows exist on the four menus, the dialog names the thing and offers three
+  times inside the viewport, each reminder reads back from `/reminders`, Link
+  to another lands on Notes with this note as the first end, the document's
+  chip shows on the Reminders tab with nothing overflowing).
+- Decided (recommended, not confirmed): three preset times in the dialog, not a
+  date picker (the Reminders tab edits anything else); a Library note's Link to
+  another reuses the Notes two-step rather than a new picker.
+- Not verified: Open its board and Open its document from a reminder row in the
+  browser (the row and the openers are wired and tested by source, not
+  clicked); a document reminder on the phone's Reminders tab.
+
+### From WORLD_CLASS_PLAN.md section 21, rows 1, 2, 12 and 13
+
+**State 2026-09-24:** the embedding-model messages drew with `.status.error`;
+the status line read the same for a wrong address and an absent server; whether
+About showed the update's size was never traced.
+
+- **Built 2026-10-05 (worldclass-1005c).** Rows 1 and 2: `#embedding-error` is
+  `.notice.notice-warn`, its text set through `setLabel` with the warning icon
+  as the first child (DESIGN.md's notice recipe). Row 12: `routes_models`
+  keeps the provider's sentence when the model list fails (`_installed_problem`,
+  cleared by the next answer) and `GET /models/status` returns it as
+  `ollama_problem` (None while running); the Models status line shows it when
+  present, so an OpenAI-dialect server at a wrong address reads "Nothing
+  answered at <url>. Check the address in Settings, Models, and that the server
+  is running". Row 13: the update check already returned `asset.size` (only where
+  an in-place update is possible); `updateSizeNote` puts "The download is about
+  N MB." on Settings, About's message and the update dialog, and says nothing
+  where there is no asset.
+- Measured: `tests/test_failure_remedies_21.py` (6 tests);
+  `scratchpad/ui-sweeps/embnotice.js` 5/5 at 1440 light and 390 dark: the notice
+  is `display: flex` with an icon child, fits its column with nothing
+  overflowing, and the status line shows the address sentence.
+- Not verified: a real wrong address against LM Studio (the sweep edits the
+  status answer in flight, the unit test uses a client that raises the
+  provider's sentence); the update size against a real GitHub release.
+
+### From WORLD_CLASS_PLAN.md section 5, row 30: the selection bar
+
+**State 2026-09-24:** item 5, "move to a space and export from a selection were
+not found". Placed from INBOX 2026-10-05 as "Move a batch of notes to another
+space": `POST /entries/move-space`, one transaction, the search index rebuilt, an
+Undo that moves them back, a "Move to space" row in the selection bar.
+
+- **Built 2026-10-05 (worldclass-1005c).** `POST /entries/move-space`
+  (`ids` up to 500, `target` a space id; 404 for an unknown space, 422 for "all"
+  or an empty list) looks the ids up in every space (the Undo posts from the
+  space the notes went to, and All spaces mixes them), moves each note's
+  `workspace_id`, maps its category by name into the target (an existing one is
+  reused, else one is made with the same colour and description; looked up as the
+  target space, since the session's space filter would otherwise hide the
+  existing one from the insert and the UNIQUE on space and name would fire), and
+  moves what belongs to it: reminders, files, fade scores, and a board's cards,
+  sketches and objects. Links to notes left behind are kept. The search index
+  follows through the ORM flush (a note's FTS row carries its space). The answer
+  lists `moved`, `skipped` (unknown or already there) and `previous` (each note's
+  old space and category name), which is the Undo: the page posts each group back
+  to its space. `POST /export/markdown` takes `ids` and returns the same zip as
+  the whole export for just those notes (`build_markdown_export(session,
+  only_ids=...)`). The page: the selection bar's ... menu (`fillBatchMore`) has
+  Move to space (a menu of the other spaces) and Export selection (`saveFile`).
+  Help: the Guide's notes-controls topic.
+- Measured: `tests/test_selection_move_export_30.py` (6 tests: category by name,
+  reminders follow, search follows, moving back is the Undo, bad requests, a zip
+  of two of three notes); `scratchpad/ui-sweeps/selectmove.js` 8/8 at 1440 and
+  390 dark: two ticked, the menu has both rows, a zip comes out (PK, 513 bytes),
+  the spaces menu fits the window, both notes are in the other space, the toast
+  offers Undo and Undo brings them back.
+- Decided (recommended, not confirmed): links to notes in another space are
+  kept, not cut; a selection export is the whole export's format rather than a
+  new one.
+- Not verified: moving a board with many cards (the cards move by `board_id`,
+  tested only by the table list); a note being filed by Atlas at the moment of
+  the move (the background filer holds the space it started in).
+
+### From WORLD_CLASS_PLAN.md section 5, row 30: words and templates
+
+**State 2026-09-24:** item 4 (`{{clipboard}}` and a cursor mark not built, note
+templates not checked) and item 9 (a note's word count and reading time not
+found).
+
+- **Built 2026-10-05 (worldclass-1005c).** `noteReadingFacts` (notes-list.js)
+  gives "412 words · 2 min read" at 220 words a minute, the document editor's own
+  rate and never under a minute; the note edit form draws it live in its
+  foot (`.note-edit-count`, INBOX 616 had put a words-only count there). `templateVariables(text, clipboard)` and
+  `templateClipboard(text)` (notes-list.js, boot, shared; `fillNoteBox` too, called from `useNoteTemplate` in app.js, which is at its gzip cap): `{{clipboard}}` or
+  `{clipboard}` is the clipboard's text (nothing when the browser refuses; read
+  only when the template says so), `{{cursor}}` or `{cursor}` marks the caret,
+  found before the clipboard goes in so pasted text saying `{{cursor}}` is only
+  text. Capture's note templates (`useNoteTemplate`) and the document templates
+  (`createDocument`) both use them; a document puts the caret in its body at the
+  mark (`docSurface().setSelection`) and otherwise selects the title as before.
+  Help: the Guide's templates topic and the Settings, Templates tip.
+- Measured: `tests/test_note_words_templates_30.py` (4 tests; the two pure
+  functions run in node from their own source); `scratchpad/ui-sweeps/notewords.js`
+  6/6 at 1440 light and 390 dark (the form says "220 words · 1 min read", follows
+  typing to 450 words and 2 min, sits inside the form's foot with nothing sideways
+  (on a phone the foot drops the count, INBOX 618); a template with `{{clipboard}}` and `{cursor}` fills, drops
+  the marker and leaves the caret at offset 22 of 22 in the focused box).
+- Not verified: the clipboard read in the desktop window (permission is the
+  webview's), and the caret landing in a CodeMirror document body (the textarea
+  surface is the one the function was read against).
+
+### From WORLD_CLASS_PLAN.md rows 31 and 34: Paste as note, the ten minute snooze, and the re-checks
+
+- **Built 2026-10-05 (worldclass-1005c).** Row 31, item 99 (d): `pasteAsNote`
+  (quick-note.js, lazy) reads the clipboard and saves it through
+  `createNoteSafely`, the same door as Quick note, and `announceNewNote` (lifted
+  out of `saveQuickNote`, shared) says where it was filed, offers Go to it and an
+  Undo. A refused clipboard opens Quick note with a toast; an empty one says so.
+  The palette row (`ph:clipboard-text Paste as note`) calls it only after
+  `ensureModule("quickNote")` resolved (`tests/test_lazy_bundle_calls.py`
+  `REACHED_AFTER_LOAD`). Row 34 (D8): the reminder row's menu has Snooze 10
+  minutes for a reminder that is not done (`snoozeReminderTo`, the row's +1h and
+  tomorrow stay buttons). Help: Guide's quick-note and reminders topics.
+- **Re-checked, row 34, measured 2026-10-05.** Drag on the dashboard grid: built
+  (`dragstart`, `dragover`, `dashDragOverCard` in edit mode, persisted on
+  `dragend`). The tab bar between 600 and 819 px: `scrollWidth` equals
+  `clientWidth` at 600, 640, 700, 768, 819, 820, 900 and 1100, seven tabs with
+  labels, the last tab's right edge 529 to 802 inside the window. The five
+  whiteboard menus, `wbmenus.js`: 0 filled rows at rest, one shell recipe, row
+  heights 34.5 (32 and 56 for a row with a description). The tidy layout past five
+  nodes, `maptidy.js`: 12 nodes, one `move-many` request, `wbMapNodeSize` 0 px off,
+  the map framed, 5/5. `errors.js` at 1440 on a notebook with boards: 0 errors.
+  Not re-checked: the minimap's NaN rects on a notebook with many boards (only the
+  Library visit above), and whether a reminder row and a note row share one class
+  (the reminder row uses the notes' `.entry-meta`, `.entry-actions` and
+  `.entry-links`, not `.entry`).
+- Measured: `tests/test_paste_as_note_31.py`, `tests/test_reminder_snooze_34.py`;
+  `scratchpad/ui-sweeps/remindthings.js` 12/12 (the Snooze row moves a reminder to
+  10.0 minutes from now).
+- Not verified: Paste as note against a real clipboard permission prompt (the
+  sweep for it does not exist; the function is covered by source tests).
+
+### From WORLD_CLASS_PLAN.md row 31: the AI dot's line and the vault re-key
+
+- **Built 2026-10-05 (worldclass-1005c).** Item 99 (c): `noteAiTurn` (status.js)
+  keeps the last finished chat turn (`chat-attach.js` reports it: model, wall
+  time, prompt tokens, context window) and `aiTurnLine` puts "Last answer: 2.4 s
+  on llama3.2, using 3,100 of 8,192 tokens of context (38%)." under the dot's
+  detail, on its own paragraph; before a turn there is no line. Found measuring
+  it: the dot's popup in the phone header ran off the window's left edge by 93 px
+  at 390 (its box is anchored to the dot's right, 312 px wide); the pinned-open
+  popup is now nudged inside by `translate` (left edge 8 px). Item 261: Settings,
+  Account has Re-encrypt private notes under Change your password (current
+  password, a confirm that says what happens, the fresh token kept as Change
+  password does, the result as "Done: N private notes re-encrypted."); the
+  endpoint, `POST /auth/rotate-vault-key`, was unchanged. Help: the Guide's
+  account topic and the pane's '?' (`#rekey-help`).
+- Measured: `tests/test_ai_dot_tooltip_31.py` (the line from node, 4 cases),
+  `tests/test_vault_rekey_ui_31.py`; `scratchpad/ui-sweeps/aidot.js` 5/5 at 1440
+  light and 390 dark (popup inside the window both times; 390 was -93 to 219
+  before the nudge, 8 to 320 after); `scratchpad/ui-sweeps/rekeyui.js` 7/7 at
+  1440 and 390 dark on a real private note (group fits the pane, button 32 px,
+  empty password said, confirm says what happens, "Done: 1 private note
+  re-encrypted.", this tab's new token works and the note still reads).
+- Not verified: the AI dot line after a real model's turn (the sweep reports a
+  turn through `noteAiTurn`); Ask's answers do not report to the dot (only the
+  Chat tab does).
+
+### From WORLD_CLASS_PLAN.md row 32 (INBOX 301): the navigation and undo audit
+
+**State 2026-09-24:** "the application wide forward/backward navigation and
+undo/redo dont work for everything everywhere": the audit table (every surface,
+what it pushes to history, what it makes undoable) did not exist.
+
+Read from the code on 2026-10-05 (`router.js`, `navigation.js`'s
+`openHistoryEntry`, every `pushUndo` site) and against the sweeps that drive
+them; not driven again here except the rows marked "driven".
+
+**Back and forward** (`recordTabVisit`, the hash router, `popstate`): a step is
+`{tab, section}` and every one has an address.
+
+| Surface | Recorded as | Address | Restored by |
+| --- | --- | --- | --- |
+| Dashboard, Timeline, Reminders, Graph | the tab | `#/dashboard`, `#/timeline`, `#/reminders`, `#/graph` | `switchTab` |
+| Notes sub-tabs (Capture, Writing room, Ask, Questions) | `section` | `#/notes/<section>` | `showNotesSection` |
+| A note | `note:<id>` | `#/notes/<id>` | `flashEntry` |
+| A chat | `conv:<id>` | `#/chat/<id>` | `openConversation` (awaited) |
+| A document | `doc:<id>` | `#/docs/<id>` | `openDocument` (awaited) |
+| Library sub-tabs (All, Documents, Boards, Images, Files, Links, Skills, Contents) | the view, and the kind for Images and Files | `#/library/<word>` | the sub-tab's own click handler |
+| A board or a map | `board:<id>` | `#/library/board/<id>` | `openWhiteboardBoard` (awaited) |
+| The graph centred on a note or document | `focus:<id>` | `#/graph/focus/<id>` | `graphFocusModeId` |
+| Settings (a modal) | `settings`, the section | `#/settings/<section>` | `openSettingsModal` |
+| Not recorded | an Ask answer shown from History, the lightbox, a graph filter, a Timeline day, an open Quick note | | |
+
+**Undo and redo**, one stack for the app (`pushUndo`, the status bar's pair, the
+toast's Undo) plus a history of its own where the surface has text or geometry:
+
+| Surface | What is undoable | Evidence |
+| --- | --- | --- |
+| Notes | edit, bin, archive, create (Quick note, Paste as note, Capture), generate or remove a title, a link's kind or properties, tags and categories (move, rename, merge, delete, split, colour), duplicate merge, attach or detach a bookmark | `appundo.js` 3/3, `tests/test_undo_deletes_1005.py` |
+| The selection bar | tags, category, favourite, publish, archive, delete, Move to space (back to each note's own space) | code read; Move to space driven (`selectmove.js` 8/8) |
+| Reminders | delete (any state), clear completed, snooze (added 2026-10-05: the toast's Undo and the app's pair put the old time back, `PUT /reminders/{id}` `restore`); done is its own checkbox | `appundo.js`; snooze driven (`remindthings.js`) |
+| Documents | every edit in the editor's own history (per document, by id); delete and restore | `docundo.js` 8/8; `deleteDocumentWithUndo` |
+| Boards and maps | every gesture, each board its own history; delete (the bin), rename, duplicate | `boardundo.js` 43/43 (WHITEBOARD_PLAN, "Undo coverage") |
+| Library | bookmarks, board deletes, a conversation, a skill, a space, a note type, a kind of link; a binned note restores | `left1005-undodeletes.js` 7/7 |
+| Entities | merge (`merge_with_undo`, `undo_merge`; `undo-1005.md` still listed it as open) | code read |
+| Settings | not undoable, by design: a setting is the current state, changed back by changing it | |
+| Permanent, with a confirm that says "cannot be undone" | an uploaded file, a media item, one Ask question, Clear history, a note purged from the bin, Delete for good | code read |
+
+- **What the audit found.** Nothing that is "undoable on one surface and not on
+  its twin" remains in the surfaces read; the two conventions are consistent
+  (taking something out of view is undoable, destroying its bytes asks first).
+  Open and not planned: a board's history does not survive a reload (the event
+  log is the long memory, decision 17), and an agent's or another tab's change
+  to the open board is not on its stack. Redo for the board-level steps (theme,
+  numbering, layout), the link kind and duplicate-merge Undos and the AI-edit
+  Undo were read, not driven.
+- Not verified: any of this in the desktop window; Back and Forward after a
+  hard reload on each address (`routerRestore`'s own sweep covers notes, docs,
+  chats and boards).
+
+### From WORLD_CLASS_PLAN.md rows 26 and 28: what was checked, and the Phosphor decision
+
+- **Row 28, torch at launch.** Already built after the plan's state line was
+  written: `warm_search_model_at_launch` (INBOX 509), off loads the model on first
+  use (`app.py` start-up, `search_manager.warm`, the Settings checkbox
+  `#pref-warm-search-model`, `tests/test_preferences_roundtrip.py`). An empty
+  notebook skips the launch load regardless.
+- **Row 28, lazy stylesheets.** The mechanism is built (`css/lazy-*.css`,
+  `asset_stamps` stamps them, a bundle links its own); used once, for the Ask
+  chart. The eleven surface sheets are not moved: a tab shown before its sheet
+  arrived would flash unstyled, so `ensureModule` would have to await the sheet,
+  and `app.js` is at its gzip cap (`tests/test_static_compression.py`). Boot CSS
+  is 183,294 bytes gzipped against a cap of 183,300, which is why two rules of
+  this session's went into `el.style` assignments.
+- **Row 28, the Phosphor subset: decided against.** The icon font is 147 KB
+  woff2 and loopback makes that cost nothing measurable; the subset would be
+  built from the names the source mentions, and the app takes icon names that no
+  source mentions: a mind map topic's own icon (`data.icon`,
+  `whiteboard-map.js`), the `ph:name` marker in rendered text and chat replies
+  (`chat-attach.js`), a space's icon, an entity or skill icon from the server.
+  A missing glyph draws nothing and logs nothing (`tests/test_icon_names.py`'s
+  own warning), so the failure would be silent and user-visible. If the font
+  becomes worth shrinking, the way is a closed list those pickers offer first.
+- **Row 28, the Windows frozen startup**: not runnable in this sandbox; left.
+- **Row 26.** Boot JS is under 1 MB by `tests/test_boot_budget.py` (702,053
+  bytes gzipped). `boottime.js` at 2026-10-05, load average near 12: DOMContentLoaded
+  1,130 ms, 46 scripts and 12 stylesheets, 29 boot fetches (`/auth/unlock`
+  991 ms the slowest), 18 MB heap, 0 page errors; after every tab, 61 scripts. A
+  first paint under 300 ms cannot be claimed or refuted at that load. Lists over
+  200 rows: the notes list pages (`#notes-pagination`); the other lists were not
+  measured past 200 rows.
+
+### From WORLD_CLASS_PLAN.md row 31, item 92: the Suggested links row
+
+**State 2026-09-24:** "Add a reason" sat behind a menu row; the chips-and-arrow
+row and "Link all above 70%" were not found.
+
+- **Built 2026-10-05 (worldclass-1005c).** `inboxLinkRow` (suggestions-inbox.js)
+  draws a pair as two note chips joined by an arrow (a chip closes the sheet and
+  opens its note, `flashEntry`), a `role="meter"` bar and the percent for how sure
+  it is, **Add a reason** (the reason field is hidden until asked for, and opens by
+  itself when Atlas's guess fills it, `reveal`), Link and a dismiss, the reasons
+  under it; one `link(quiet)` function is the row's Link and what the head calls.
+  The head has **Link all above 70%** (`LINK_ALL_AT`): it counts the visible pairs
+  at least that sure, asks once ("Link 2 pairs of notes?"), links them one by one
+  with their own reasons and says how many went. The row's CSS left the boot sheet
+  (`03-dashboard-widgets.css` lost its `.link-suggestion*` rules, about 2.3 KB) for
+  `css/lazy-inbox.css`, linked by the bundle and awaited by `openSuggestionsInbox`;
+  `CSS_FILES` in `tests/_css_paths.py` lists it so the style lints read it. Help:
+  the Guide's links topic and the sheet's '?' (`INBOX_HELP`).
+- Measured: `tests/test_link_suggestion_row_92.py` (4 tests);
+  `scratchpad/ui-sweeps/linkrow92.js` 12/12 at 1440 light and 390 dark (three
+  suggestions at 92, 78 and 51 percent answered in flight, real Link calls): two
+  chips and an arrow and a meter per row, the meter fill 92, 78 and 51 percent,
+  the reason hidden until Add a reason (then shown and focused), rows 104 px tall
+  at 1440 and 196 at 390 (the actions on their own lines), nothing clipped or
+  sideways, Link all above 70% asks for 2 pairs and links exactly those two (the
+  links read back), the 51 percent one stays.
+- Decided (recommended, not confirmed): Link stays a ghost button on every row
+  ("Link primary per row" would put a filled button on each of up to a dozen rows,
+  against the one-primary rule); Link all has no Undo, its confirm says a link can
+  be removed from either note.
+- Not verified: the row against a real model's suggestions (the sweep answers the
+  endpoint in flight); the screen-reader reading of the meter.
+
 ## Built 2026-10-05: INBOX 598, 602 and 596's skeleton part (loading states)
 
 (The INBOX entries themselves are moved by the orchestrator; this is the
@@ -42104,6 +42829,87 @@ record.)
      button; a separate boxed "Attach a link" button.) Placed: the Settings
      and popups design agent's queue (599), as the same recipe pass.
      Fixed 2026-10-05: the note edit form is one composition: one writing surface, tag chips, a category chip, a foot of Attach a link, Cancel and Save; boxed buttons 3 to 0, 554 to 507px tall at 390 (noteeditflow.js 6/6).
+
+612. **The owner, 2026-10-05, verbatim.** "the arm on the right for the
+     feminine atlas actually separates from the body when it moves".
+     Placed: the Atlas agent, with 600 and 601.
+     Fixed 2026-10-05 (dc6237a): her arms turn about her own shoulder roots, inside the torso; atlas612-shoulder.js, both looks, 20s idle and every pose and gesture: root gap 2.5px before, 0 after (slide 0.38 to 0.86px).
+614. **The owner, 2026-10-05, verbatim.** "the masculine atlas kinda looks
+     fat" and "make the masculine atlas look hot and 19-21 like the feminine
+     one". Placed: the Atlas agent.
+     Fixed 2026-10-05 (948eb8e): shoulders 17 tapering in a V to a 9.5 waist and 9.8 hips (1.80 : 1 : 1.03; before 18.6 over a 15.1 belly), slimmer arms, cloak and tail; atlas614-build.js.
+615. **The owner, 2026-10-05, verbatim.** "the atlas masculine main body
+     and lower body are slightly misaligned". Placed: the Atlas agent.
+     Fixed 2026-10-05 (0c7b64b): the lower body moves in the body's breathing box and shears about the join; atlas615-join.js at 2.2x, worst step 8.64px before, 0.76 after (masculine), 6.29 to 0.57 (feminine).
+
+600. **The owner, 2026-10-05, verbatim.** "when I click on atlas in the
+     enlarged view, it might sway or do something for a couple seconds but
+     will then snap still." Placed: the Atlas agent slot.
+     Fixed 2026-10-05 (dc6237a, f7d77c7): a mood's loop hands back over 0.7s, and the visiting companion sways and bobs between beats; atlas600-still.js, the companion visiting, longest still 1,102ms before, 625 after.
+619. **The owner, 2026-10-05, verbatim.** "the lower body on the feminine
+     atlas is also slightly misaligned. and when sleeping etc, her lower body
+     actually rotates halfway off her upperbody which stays mostly upright.
+     female atlas's eyes went blank white for a sec and it looked creepy.
+     also it still snaps between behaviours and no behaviours." and "in the
+     enlarged preview atlas is still hanging, it should be slightly separate
+     from the companion but still have the same life". Placed: the Atlas
+     agent (with 600, 601, 612, 614, 615).
+     Fixed 2026-10-05: her seam (0c7b64b, atlas615-join.js worst step 6.29 to 0.57px at 2.2x); the sleep chain (cc2f11e, lying step 3.35 to 0.22px); the eyes (f8d82a4, atlas619-eyes.js blank 464ms to 0); the large view (f7d77c7, floats free, still at most 935ms at 1440); an act eased into (f7d77c7). Left: laughing's end, a 3px move over three frames under the stepped clock, in agent-remaining/atlas-1005.md.
+
+623. **The owner, 2026-10-05, verbatim.** "can the atlas agent also animate
+     the props and icons as well for various actions and behaviours??"
+     Placed: the Atlas agent (here, the INBOX at its cap): each prop and
+     icon Atlas holds or shows moves with the hands and body and has its own
+     small motion (a book's pages, a lamp's flicker, sleep's Zs drifting,
+     thinking marks pulsing), still under reduced motion, measured attached
+     at its grip every frame.
+     Fixed 2026-10-05 (b6f93a8, 1189acc and the ground and icons commits): eleven props and the startle's "!" loop about their grips while shown; atlas623-props.js grip gap 0px every frame, own motion 0.2 to 2.6px or 0.2 to 0.8 opacity, none under reduced motion. The Zs, thinking dots, hearts, tears and sparkles already moved (the CSS).
+617. **The owner, 2026-10-05, verbatim.** "on the mind map when selecting a
+     group of nodes, it defaults to the whiteboard selection and popup menus
+     and right click menus etc" (screenshots: the board's group box, its
+     right-click menu and its align/distribute bar on map topics). Placed:
+     the board and map agent, with 610.
+
+542. **The owner, 2026-10-05, verbatim.** "some of the badge icons and text
+     arent aligned vertically." (screenshot: the Installed badge in Settings,
+     Packages).
+     Fixed 2026-10-05, by the existing sweeps (INBOX 503, 592 had built the
+     recipe): `iconalign.js` over 9 views at 1440 and 390, light and dark,
+     default font and `FONT=segoe` (the owner's vertical metrics): 26 pairs
+     over 1px before, 12 after, and 14 before and 0 after in Segoe. The one
+     real outlier was the Timeline row's mark, 1.2px (Segoe 2.2px) above its
+     title: the title was the one item left centred in a track taller than
+     itself (`align-content: center` and the title start-aligned, 7 of 22
+     pairs now 0). The "Installed" badge is within 0.5px painted: DPR 1 ink
+     0.5px below the capital's centre at four sub-pixel phases, 0.17px at 3x;
+     the 1.17px `iconalign.js` still prints for it (and the search result
+     chips) in the sandbox font is the sweep reading a fractional box against
+     a snapped baseline, not paint, and reads 0.95px in Segoe. Not verified:
+     Windows' own rasteriser at 125% and 150% scale.
+
+616. **The owner, 2026-10-05, verbatim.** "its better but still needs a more
+     modern and professional ui/ux redesign (the note edit form)"
+     (screenshot of the 606 form: boxed title band, a heavy mixed toolbar,
+     big chips with a doubled #, a floating category select, large Related
+     rows, big Cancel and Save). Then: "the note edit form attach a link
+     button doesnt do anything" and "there is no padding around the tag
+     entries, and the formatting toolbar looks really awkward when collapsed
+     and the core concepts dropdown is completely out of place and badly
+     designed". Placed: the design-rows agent, first.
+
+618. **The owner, 2026-10-05, verbatim.** "do the top bar and bottom bar
+     need a more modern and professional ui/ux redesign or adjustments at
+     all or are they fine??" Recommendation taken: top bar polish (spaces
+     picker as a ghost control matching the tab pills, active tab without
+     extra bold, a smaller logo tile, power secondary); bottom bar declutter
+     (counts quiet, Agent/Guide/Find icon-only with tooltips, Commands the one
+     labelled door, the status mark explained, the clock optional, history
+     arrows grouped with undo/redo). Placed: the design-rows agent, after 616.
+
+620. **The owner, 2026-10-05, verbatim.** "can you also improve and
+     modernise the quick sketch a little more as well?? it is already mostly
+     fine, maybe a bit more of a gap below the top row title and close
+     button". Placed: the design-rows agent, after 618.
 
 ## OPEN.md rows closed, 2026-10-05
 

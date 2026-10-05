@@ -47,7 +47,7 @@ def test_reminders_card_has_one_worded_add():
 
 def test_boards_and_maps_dock_has_one_new_menu_holding_both_kinds():
     dock_start = HTML.index('data-dock-name="library-boards"')
-    dock = HTML[dock_start : HTML.index("wb-boards-intro", dock_start)]
+    dock = HTML[dock_start : HTML.index('id="wb-boards-intro"', dock_start)]
     menu = re.search(r'<details[^>]*id="wb-boards-new-menu"[^>]*>(.*?)</details>', dock, re.S)
     assert menu, "the New menu is a details.dock-menu in the dock"
     body = menu.group(1)
@@ -68,7 +68,7 @@ def test_each_kind_in_the_new_menu_says_what_it_makes():
     visible second line now (`.dock-menu-item-hint`, DESIGN.md's row for a
     dock's one filled action with a choice inside it)."""
     dock_start = HTML.index('data-dock-name="library-boards"')
-    dock = HTML[dock_start : HTML.index("wb-boards-intro", dock_start)]
+    dock = HTML[dock_start : HTML.index('id="wb-boards-intro"', dock_start)]
     for row_id in ("wb-boards-new", "wb-boards-new-map"):
         row = re.search(rf'<button id="{row_id}"[^>]*>(.*?)</button>', dock, re.S)
         assert row, row_id

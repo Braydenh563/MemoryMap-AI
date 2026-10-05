@@ -921,6 +921,7 @@ function openNotePage(entry, returnFocus = null) {
   if (!entry || notePageOpenId === entry.id) return;
   expandedNotes.add(entry.id);
   notePageOpenId = entry.id;
+  noteOpened(entry.id);
   const title = entry.title || clipText(notePreviewText(entry.content).split("\n")[0], 80) || "Note";
   notePageClose = openSheet({
     label: title,
@@ -1813,43 +1814,6 @@ function initDockFolding() {
 }
 
 initDockFolding();
-
-//: **A wrapped zone does not open its line with a hairline** (INBOX 479).
-//: Zones are parted by a `border-left` (08-consistency.css), and a zone that
-//: wraps took it to the start of an empty line: 7 docks at 640, 3 at 820
-//: (`dockseams.js`). CSS cannot see a wrap, so the layout is read here: a zone
-//: whose top is at or below the previous zone's bottom starts a line. Read
-//: from `offset*`, which no mark changes, and drawn without changing the
-//: zone's outer width (08-consistency.css), so a mark can never move the
-//: wrap it was read from. `flush` is a line that starts at the dock's edge.
-function markDockLineStarts(dock) {
-  let prev = null;
-  let first = null;
-  for (const zone of dock.children) {
-    if (!zone.offsetParent) continue;
-    first ??= zone;
-    let mark = null;
-    if (prev && zone.offsetTop >= prev.offsetTop + prev.offsetHeight - 1) {
-      mark = zone.offsetLeft <= first.offsetLeft + 1 ? "flush" : "wrap";
-    }
-    if (mark) zone.dataset.lineStart = mark;
-    else delete zone.dataset.lineStart;
-    prev = zone;
-  }
-}
-
-if (window.ResizeObserver) {
-  //: The zones too: a zone that grows (a menu's label, a fold) can wrap the
-  //: row without the dock changing size.
-  const seams = new ResizeObserver((entries) => {
-    const docks = new Set(entries.map((entry) => entry.target.closest(".dock")));
-    for (const dock of docks) if (dock) markDockLineStarts(dock);
-  });
-  for (const dock of document.querySelectorAll(".dock")) {
-    seams.observe(dock);
-    for (const zone of dock.children) seams.observe(zone);
-  }
-}
 
 //: **The second fold: a dock's secondary actions, at a phone's width.**
 //: The Boards & maps dock was four rows and 198px at 390, where every other

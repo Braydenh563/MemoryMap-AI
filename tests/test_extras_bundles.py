@@ -338,6 +338,32 @@ def test_the_bulk_summary_reaches_the_history(client, fake_pip, monkeypatch):
     assert "Export to Word" in detail
 
 
+def test_offline_is_said_as_offline_on_each_row(client, fake_pip, monkeypatch):
+    """Without a network pip ends on "Could not find a version", which reads
+    as a package that does not exist; the retry lines name the real cause."""
+
+    class _OfflinePip(_FakePip):
+        def __init__(self, command, **kwargs):
+            super().__init__(command, **kwargs)
+            self._code = 1
+            self.stdout = [
+                "WARNING: Retrying (Retry(total=4)) after connection broken by "
+                "'NewConnectionError(': Failed to establish a new connection: "
+                "[Errno -3] Temporary failure in name resolution')': /simple/python-docx/",
+                "ERROR: Could not find a version that satisfies the requirement python-docx",
+            ]
+
+    monkeypatch.setattr(extras.subprocess, "Popen", _OfflinePip)
+    _installed(monkeypatch, set())
+    extras.start_bulk("install", ["voice", "docx"])
+    for item in extras.bulk_status()["items"]:
+        assert item["outcome"] == "failed"
+        assert item["message"] == extras.PIP_OFFLINE_MESSAGE
+    from tests.test_server_detail_wording import problems
+
+    assert not problems(extras.PIP_OFFLINE_MESSAGE)
+
+
 # --- the screen (source checks: the suite cannot see the DOM) ---------------
 
 ROOT = Path(__file__).resolve().parents[1]

@@ -1133,7 +1133,8 @@ From `scratchpad/audit1005/features.md` (FEAT-03, FEAT-04, FEAT-08, the
 documents briefs D1 to D5). Built work is in HISTORY.md ("Moved from the
 plans, 2026-10-05 (the feature audit's documents and map fixes)"). Open:
 D3 (a Mermaid flowchart parser), D4's page size, margins and page numbers,
-D5 (image handles in Live, pictures in the Word export).
+D5's image handles in Live (its pictures in the Word export are built, FEAT-18:
+HISTORY.md, the same section).
 
 **Decisions made.**
 

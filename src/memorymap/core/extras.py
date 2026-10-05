@@ -84,6 +84,20 @@ _NOT_A_REASON = (
 )
 
 
+#: What pip (through urllib3 and the resolver) prints when it cannot reach
+#: the package index at all: no route, no name lookup, nothing listening.
+_OFFLINE_MARKERS = (
+    "newconnectionerror",
+    "failed to establish a new connection",
+    "temporary failure in name resolution",
+    "name or service not known",
+    "getaddrinfo failed",
+    "network is unreachable",
+)
+
+PIP_OFFLINE_MESSAGE = "Couldn't reach PyPI to download it. Check the internet connection, then try again."
+
+
 def _pip_reason(log: list[str], prefix: str) -> str:
     """`prefix`, plus the most useful line pip actually printed.
 
@@ -93,7 +107,15 @@ def _pip_reason(log: list[str], prefix: str) -> str:
     line is pip's update nag, not the failure" problem for the SearXNG
     installer; extracted here rather than imported because the source is a
     line list already split into `_state.log`, not a `CompletedProcess`.
+
+    **Offline is said as offline.** Without a network pip retries, then ends
+    on "Could not find a version that satisfies the requirement", which reads
+    as a package that does not exist; its retry lines name the real cause, so
+    those win, as one plain sentence (INBOX 595: a bulk install offline would
+    otherwise print that misleading line under every row).
     """
+    if any(marker in line.lower() for line in log for marker in _OFFLINE_MARKERS):
+        return PIP_OFFLINE_MESSAGE
     useful = [
         line for line in log if not any(marker in line.lower() for marker in _NOT_A_REASON)
     ]

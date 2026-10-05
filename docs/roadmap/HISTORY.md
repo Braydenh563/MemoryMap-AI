@@ -41464,6 +41464,49 @@ The two cheap additions the plan's research section named (decisions 11 to
   saved during a long load is not listed twice.
 - Not verified in a browser beyond the sweeps named in the commit.
 
+## Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN Phase 9, the off-band widths)
+
+Phase 9's last open line (audit FE-11): the 720, 640 and 900 groups onto the
+four bands. 35 of their 49 width queries moved; the counts in
+`tests/test_breakpoints.py` went 26/6/11/5/1 to 5/2/5/2/0.
+
+- **The rule.** A block the band already drew the way the 720 rule drew it
+  below 720 went to its band edge; everything else followed the band's own
+  table. 720 and 640 to the phone (599.98/600): the phone header, page gutter
+  and card padding, the dashboard hero, wrapping `.row`s, the library
+  activity pair (with its min-720 twin), the reading-width sheets (three
+  min-720 rules, "above a phone"), the timeline's phone row and scrubber,
+  the settings row stacking. 720 to 819.98 where the narrower side is the
+  safe one: the submenu flyout drawn in place, the sketch palette's foot.
+  900 to 819.98: `.chat-grid`, `.draft-columns` (and its min-901 twin),
+  `.doc-layout`.
+- **Settings went to 819.98, not 599.98**, because the band is one column:
+  as a 640 rule moved to the phone the dialog kept its 232px section column
+  at 620 and gave the settings 282px (a select's value cut short); as a
+  strip below 820 the pane is 530px at 620 and 729 at 819.
+- **What it fixed at 600 to 720:** a note row's four actions stood in a
+  44x195 column (`flex-wrap` from the 720 touch block) and are one 195x44
+  row; the dashboard is two-up as the band's table says (294px columns at
+  620) where it was one column; the header is the band's 124px at every
+  width in it (it was 110 below 720 and 124 above).
+- **Not moved, owned elsewhere:** the status bar (00's trimmed items, 03's
+  AI mark), the dashboard's quick access (03), the whiteboard (06's
+  floating panel, all of 07's). Listed in `agent-remaining/uimod-89.md`.
+- **One finger target fixed on the way:** `.settings-index-link` takes
+  `min-width: var(--target-min)`; "AI" was 43x44 (`touch.js` at 700).
+- Sweep: `scratchpad/ui-sweeps/bands.js`, a before and after snapshot of
+  every visible box on the seven tabs, Documents and Settings at 390, 620,
+  700, 760, 800, 860, 1024 and 1440, light and dark, and a diff. 390 and
+  1440 unchanged (the diffs left are relative times and the graph settling);
+  overflowX 0 and offscreen 0 at every width before and after; clipped text
+  unchanged but for one timeline title at 620 (a 329px title column now).
+  `errors.js` 0 at 1440, 1024, 860, 820, 760, 700, 620 and 390 (light) and
+  760, 620 (dark); `touch.js` 0 findings at 700 and 390.
+- **Phase 8 re-measured** (`docks.js` at 1440): every dock one height, at
+  most six controls, one filled. The one row with two heights was the Notes
+  Connections column's head (`.notes-rail-actions`: the '?' 32px, the X 28,
+  2px out of line); both take `--control-h` now, 32 and 32 at y 97.
+
 ## INBOX resolved, 2026-10-05
 
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs

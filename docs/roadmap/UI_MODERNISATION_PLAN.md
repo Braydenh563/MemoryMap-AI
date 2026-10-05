@@ -664,8 +664,10 @@ audit counted 58 distinct width queries, with `max-width: 600px` and
 `min-width: 600px` both matching a 600px window, and 720 the same.
 `tests/test_breakpoints.py` now fails on a width on both sides and on any
 new width outside the set below; the double matches are gone and the count
-is 48. Still open: the 720, 640 and 900 groups (26, 11 and 5 rules) move
-onto 600/820, each with a sweep at the widths it changes.)
+is 48. The 720, 640 and 900 groups were moved onto the bands on 2026-10-05:
+HISTORY.md, "Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN Phase 9,
+the off-band widths)". What is left of them is listed in
+`agent-remaining/uimod-89.md`.)
 
 | Width | Device | What changes, app-wide |
 | --- | --- | --- |

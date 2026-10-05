@@ -372,6 +372,15 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   flex: none;
 }
 
+/* One height for the pair (Phase 8's rule 6). The '?' took
+   `.graph-help-toggle`'s 32px and the X `.ghost.small.icon-only`'s 28, so the
+   two stood side by side 2px out of line (`docks.js` at 1440: the only row
+   reporting two heights, 28/32). Both take the control height. */
+.notes-rail-actions > button {
+  height: var(--control-h);
+  min-width: var(--control-h);
+}
+
 /* The note the column is about, one line: the head says what the column is,
    this says which note, so a reader who has walked the list with the arrows
    can see the column has followed. */
@@ -529,7 +538,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   display: none;
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   #graph-card {
     margin: 0 0 var(--space-5);
   }
@@ -561,8 +570,8 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   grid-template-rows: minmax(0, 1fr);
 }
 
-/* Below 720px `.layout` stacks aside and main into two rows instead of one
-   row of two columns (the base rule's own `@media (max-width: 719.98px)`
+/* On a phone `.layout` stacks aside and main into two rows instead of one
+   row of two columns (the base rule's own `@media (max-width: 599.98px)`
    block), but this rule's `grid-template-rows: minmax(0, 1fr)` still names
    only one explicit row. The sidebar (row 1, the explicit `1fr` track) was
    losing almost all of it to `main`'s implicit auto row claiming its full
@@ -573,7 +582,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
    card background floating above `chat-main`'s real header, its own content
    rendered outside its box. Each row sizes to its own content when stacked,
    same as `#tab-notes` (which never set an explicit row template at all). */
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   #tab-chat:not(.hidden)>.layout {
     grid-template-rows: none;
   }
@@ -1497,7 +1506,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   display: none;
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
 
   /* Two rows of controls above a composer is most of a phone screen. They stay
      - hiding a control the user has to reach for is worse than scrolling, but
@@ -2300,7 +2309,7 @@ label.setting-check,
   font-size: 0.85rem;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 599.98px) {
   .setting-row {
     flex-direction: column;
     align-items: stretch;
@@ -2703,7 +2712,7 @@ span > .chip {
   outline-offset: 2px;
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   .scroll-top {
     right: 1rem;
     bottom: calc(var(--status-bar-h) + var(--space-3));
@@ -6208,7 +6217,7 @@ button.manage-cat-count:hover {
 /* A wider reading width than a sheet of choices (34rem): the tool row holds
    a field, a sort, a toggle and New, and the footer four actions, and at
    34rem each wrapped (measured: New on a second line, "Merge into…" on two). */
-@media (min-width: 720px) {
+@media (min-width: 600px) {
   .sheet-card.manage-cat-card:not(.sheet-card-corner) {
     max-width: 40rem;
   }

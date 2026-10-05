@@ -55,7 +55,7 @@
   margin-top: var(--space-4);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 599.98px) {
   .improve-cols {
     grid-template-columns: 1fr;
   }
@@ -191,7 +191,7 @@
   gap: var(--space-3);
 }
 
-@media (min-width: 720px) {
+@media (min-width: 600px) {
   .sheet-card.inbox-card:not(.sheet-card-corner) {
     max-width: 48rem;
   }
@@ -3039,7 +3039,7 @@ button.answer-figure-open {
   margin-bottom: 0.8rem;
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   .reminders-card {
     /* The horizontal inset is `.tab-page`'s job (--page-gutter). Setting one
        here put the card 1rem inside a gutter that had already been applied,

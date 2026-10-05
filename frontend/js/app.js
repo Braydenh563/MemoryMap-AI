@@ -2019,7 +2019,7 @@ const LAZY_MODULES = {
   //: gzipped, to draw a list. `library` below still holds library.js, so
   //: a document or a board brings the whole surface; `lazyScript` fetches
   //: library.js once whichever asks first.
-  libraryList: ["/js/library.js"],
+  libraryList: ["/css/library-lazy.css", "/js/library.js"],
   //: The Capture box's template picker (note-templates.js's header).
   noteTemplates: ["/js/note-templates.js"],
   //: Atlas's blink and arm rig (atlas-motion.js's header): the drawing is

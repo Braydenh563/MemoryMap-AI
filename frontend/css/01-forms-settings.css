@@ -3954,7 +3954,7 @@ html.modal-open body {
   color: var(--muted);
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   .dash-hero {
     flex-wrap: wrap;
     padding: var(--space-4) var(--space-5);
@@ -4066,7 +4066,7 @@ html.modal-open body {
   grid-column: span 2;
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   .dash-widget.wide {
     grid-column: span 1;
   }
@@ -4322,7 +4322,7 @@ html.modal-open body {
   opacity: 0.35;
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   .reminder-cal-dow {
     font-size: 0.7rem;
   }
@@ -5002,8 +5002,16 @@ html.modal-open body {
    A row of chips that scrolls sideways is the same answer the app's own tab
    bar already uses when it outgrows its width, so this is a pattern already
    in the product rather than a new one. The nav is capped to its own single
-   row and the content pane gets everything else. */
-@media (max-width: 640px) {
+   row and the content pane gets everything else.
+
+   **Below 820, not only on a phone** (Phase 9's bands, 2026-10-05). This was
+   640, so from 640 to 820 the dialog kept its 232px column of sections and
+   the settings themselves got what was left: 282px at 620 once the width
+   moved onto the band set, 322 at 660, narrower than a phone's 358, with a
+   select's value cut short. The band is one column (UI_MODERNISATION_PLAN
+   Phase 9's table), and as a strip the pane is 530px at 620 and 729 at 819
+   (`scratchpad/ui-sweeps/bands.js`). */
+@media (max-width: 819.98px) {
   .modal-body {
     grid-template-columns: 1fr;
     grid-template-rows: auto minmax(0, 1fr);
@@ -6221,6 +6229,9 @@ select {
   flex: 0 0 auto;
   height: auto;
   min-height: var(--target-min);
+  /* Both sides of the floor: a one-word head ("AI") was 43x44 under a finger
+     (`touch.js` at 700, Settings General). */
+  min-width: var(--target-min);
   margin: 0;
   padding: var(--space-1) var(--space-4);
   white-space: nowrap;
@@ -6243,9 +6254,9 @@ select {
   font-weight: 650;
 }
 
-/* The strip is a row on a phone (the nav is one), so the results would sit in
+/* The strip is a row below 820 (the nav is one), so the results would sit in
    it as one more cell. They get the width of the pane instead. */
-@media (max-width: 640px) {
+@media (max-width: 819.98px) {
   .modal-nav .settings-results {
     flex: 0 0 100%;
   }

@@ -154,6 +154,29 @@ with its owner named in the entry.
      picked) as the root, a balanced radial/tree layout, cross-links for
      links that do not fit the tree.
 
+608. **The owner, 2026-10-05, verbatim.** "when I drag select off the
+     screen on the whiteboard and mind map and probably on other tabs, it
+     doesnt scroll down or up or the way I am dragging etc" (screenshot: a
+     marquee on a map running under the bottom toolbar). Placed: the board
+     and map agent (with 596, 607): edge auto-pan for marquee and item drags
+     on boards and maps, and edge auto-scroll for drag selection in lists
+     (Notes, Library) where a drag selects.
+609. **The owner, 2026-10-05, verbatim.** "on longer mind map links, I can
+     actually see the hard bends in the line and it isnt a smooth curve"
+     (screenshot: a map branch line drawn as four straight segments). Placed:
+     the board and map agent: the tapered branch path sampled finely enough
+     (or drawn as true curves) that no corner shows at any zoom.
+
+610. **The owner, 2026-10-05, verbatim.** "also utility and usability for
+     the mindmap is unintuitive like with resizing the mindmap nodes,
+     resizing the text, changing various features and other things about
+     the mindmap nodes with the individual nodes themselves adn the popup
+     tool menus (not the radials)". Placed: the board and map agent (with
+     596, 607-609): direct manipulation on the node (resize grips that
+     appear on select, text size on the node's bar, inline edit), one clear
+     node toolbar instead of nested popup menus, every node property
+     reachable in at most two steps, measured by a task sweep.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 540, 554, 556, 564, 575 (Atlas motion and form) placed in

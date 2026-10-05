@@ -1284,6 +1284,48 @@ function gcFadeStep(s, still) {
 
 // --- the draw ------------------------------------------------------------------
 
+//: The glide between two worker ticks (INBOX 586; see the tick handler in
+//: `gcStartWorker`): how long it lasts follows how far apart ticks are
+//: arriving, between one display frame and the slowest duty cycle the worker
+//: takes on a big map.
+const GC_GLIDE_MIN_MS = 16;
+const GC_GLIDE_MAX_MS = 120;
+
+//: Moves every note the share of the way from the tick before to the last
+//: one that the time since the last one says, over the interval that brought
+//: it, and reports whether there is more of the glide to draw. A note in the hand, and a note a new
+//: render replaced, carry no target and are left alone.
+function gcGlideStep(s) {
+  if (!s.gliding) return false;
+  const share = Math.min(1, (performance.now() - s.glideFrom) / (s.tickGap || GC_GLIDE_MIN_MS));
+  // Linear, not eased: glides follow one another tick after tick, and an
+  // eased one would speed up and slow down inside every tick interval, which
+  // is a pulse of its own.
+  for (const node of s.nodes) {
+    if (node._toX === undefined || node === s.dragNode) continue;
+    node.x = node._fromX + (node._toX - node._fromX) * share;
+    node.y = node._fromY + (node._toY - node._fromY) * share;
+  }
+  s.quadtreeDirty = true;
+  if (share >= 1) gcGlideFinish(s);
+  return share < 1;
+}
+
+function gcGlideFinish(s) {
+  if (!s.gliding) return;
+  s.gliding = false;
+  for (const node of s.nodes) {
+    if (node._toX === undefined) continue;
+    if (node !== s.dragNode) {
+      node.x = node._toX;
+      node.y = node._toY;
+    }
+    node._toX = undefined;
+    node._toY = undefined;
+  }
+  s.quadtreeDirty = true;
+}
+
 function gcRequestDraw(s = gcTab) {
   if (s.drawQueued || !s.ctx) return;
   s.drawQueued = true;
@@ -1433,6 +1475,7 @@ function gcDraw(s = gcTab) {
   //: Advanced once, before anything is measured, so every radius in this frame
   //: agrees, and another frame is asked for only while it is still moving.
   const easing = gcHoverStep(s);
+  const gliding = gcGlideStep(s);
   const fadeStep = gcFadeStep(s, window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
   let fading = false;
   const ctx = s.ctx;
@@ -2094,7 +2137,7 @@ function gcDraw(s = gcTab) {
   //: One more frame while the hover is still growing or shrinking. Nothing
   //: is scheduled once `gcHoverStep` reports it has arrived, so an idle graph
   //: costs no frames at all.
-  if (easing || fading) gcRequestDraw(s);
+  if (easing || fading || gliding) gcRequestDraw(s);
 }
 
 //: The line under the pointer, drawn again over the rest, wider and in its
@@ -3394,15 +3437,41 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
         s.tickMs = message.tickMs || 0;
         const positions = message.positions;
         const count = Math.min(s.nodes.length, positions.length / 2);
+        //: **Drawn between ticks, not at them** (INBOX 586, "the graph is a
+        //: little jittery when nodes move around or adjust position"). The
+        //: worker steps on its own timer (16 ms, or as long as a tick took on
+        //: a big map) and the canvas paints on the display's: the two beat,
+        //: so a note moved two steps in one frame, none in the next, one in
+        //: the one after. Each tick is now kept with the one before it, and a
+        //: frame draws the point between them that its time says
+        //: (`gcGlideStep`): the motion one tick interval late, at an even
+        //: speed across the frames in between.
+        //: How long a glide lasts is the interval ticks have been arriving
+        //: at, smoothed (a timer's few milliseconds of jitter would otherwise
+        //: make every glide a different speed), and a gap after the layout was
+        //: at rest is not an interval at all.
+        const now = performance.now();
+        const gap = s.lastTickAt && now - s.lastTickAt < GC_GLIDE_MAX_MS * 2 ? now - s.lastTickAt : null;
+        s.lastTickAt = now;
+        if (gap !== null) {
+          const smoothed = s.tickGap ? s.tickGap * 0.8 + gap * 0.2 : gap;
+          s.tickGap = Math.min(GC_GLIDE_MAX_MS, Math.max(GC_GLIDE_MIN_MS, smoothed));
+        }
         for (let i = 0; i < count; i++) {
           const node = s.nodes[i];
           // A node being dragged is authoritative on this side: its position
           // came from the pointer this frame and the worker's copy is one
           // message behind.
           if (node === s.dragNode) continue;
-          node.x = positions[i * 2];
-          node.y = positions[i * 2 + 1];
+          // From where the last glide was headed (or, the first time, from
+          // where the note is), to the new tick.
+          node._fromX = node._toX === undefined ? node.x : node._toX;
+          node._fromY = node._toY === undefined ? node.y : node._toY;
+          node._toX = positions[i * 2];
+          node._toY = positions[i * 2 + 1];
         }
+        s.glideFrom = now;
+        s.gliding = true;
         // The positions moved, so the hit-test index is stale. Marked here
         // rather than at the end of every draw: a settled map redraws on
         // hover without anything having moved, and rebuilding a 2,000-point
@@ -3448,6 +3517,9 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
           if (graphMinimapTick % 8 === 0) graphMinimapQueuePaint();
         }
       } else if (message.type === "end") {
+        //: At rest is where the last tick said: the glide is finished here,
+        //: not by the next paint, so the fit below frames the final shape.
+        gcGlideFinish(s);
         //: What just came to rest, so the next render of exactly these
         //: inputs can hold it instead of settling it again (`gcStartWorker`).
         s.settledSig = s.layoutSig;

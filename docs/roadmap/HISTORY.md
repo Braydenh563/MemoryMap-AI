@@ -41006,6 +41006,24 @@ The two cheap additions the plan's research section named (decisions 11 to
      opens the note's card; an 8-step drag still carries the note.
      `tests/test_graph_click_threshold.py`.
 
+586. **The owner, 2026-10-05, verbatim.** "the graph is a little jittery
+     when nodes move around or adjust position"
+     **Fixed 2026-10-05**: the worker ticks on its own timer (16 ms, or the
+     tick's own cost on a big map) and the canvas paints on the display's,
+     so a note moving evenly in the simulation moved 2, 0, 1 steps across
+     frames. Each tick is now kept with the one before it and a frame draws
+     the point between them its time says (`gcGlideStep`), over the smoothed
+     tick interval: one interval late, at an even speed. Checked and not the
+     cause: no direction flips (2 to 5% of steps, the settle's own), no
+     camera moves mid-settle (the fits are the 500 ms eased ones), FE-04's
+     batching draws at exact positions. `tests/test_graph_glide.py` runs the
+     two functions under node, frames at 60 Hz: ticks every 16 ms (4 ms
+     jitter) gave a per-frame step variation (cv) of 0.34 and 8 still frames
+     of 179, now 0.13 and 0; every 70 ms (a big map), 1.78 and 136 still,
+     now 0.19 and 0. Not measured in a browser: headless frames here run at
+     12 to 27 fps under load 19, which hides the beat (`gl1005-graphjitter.js`
+     reads the motion when the box is quieter).
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

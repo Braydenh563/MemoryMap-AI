@@ -432,7 +432,7 @@ MORE_TOPICS: list[dict] = [
             "SHA-256 fingerprint with the one under the switch before you "
             "continue, and Regenerate certificate makes a new one. Change your password or PIN (private "
             "notes move across; a new one needs at least 8 characters, and an "
-            "easy one gets a warning). Re-encrypt private notes (Settings, Account) makes "
+            "easy one gets a warning). Re-encrypt private notes (Settings, Account & security) makes "
             "a new encryption key and moves every private note onto it, so an old "
             "backup stops opening them; every other session is signed out. Sessions: Auto-lock when idle, from 5 minutes "
             "to 12 hours, and Lock everywhere now; the lock in the top bar "

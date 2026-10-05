@@ -682,15 +682,37 @@ def _wait_for_server(timeout: float = 20.0) -> bool:
     return False
 
 
+def _bootloader_splash():
+    """`pyi_splash`, when the bootloader really opened a splash, else None.
+
+    **The environment variable is checked before the import, not after.**
+    PyInstaller bundles `pyi_splash` into any build whose code names it, with
+    or without a `Splash` in the spec, and importing it where the bootloader
+    made no splash prints a traceback ("The environment does not allow
+    connecting to the splash screen", `KeyError: '_PYI_SPLASH_IPC'`) on the
+    way to failing. This spec has had no splash since 0.3.3, so every launch
+    of the packaged app wrote that traceback into `desktop-stdio.log`, twice,
+    the first thing anyone reading a support bundle saw (measured on the
+    Linux build of the Windows spec). `_PYI_SPLASH_IPC` is what the
+    bootloader sets when it has a splash to talk to.
+    """
+    if "_PYI_SPLASH_IPC" not in os.environ:
+        return None
+    try:
+        import pyi_splash  # type: ignore[import-not-found]
+    except Exception:  # noqa: BLE001  # ImportError, or the module's own failure
+        return None
+    return pyi_splash
+
+
 def _splash_status(text: str) -> None:
     """Say what the app is doing on the packaged exe's bootloader splash.
 
     The splash is a still card (memorymap.spec); this line under its rule is
     the part that moves, so a slow first launch reads as work, not a hang.
     Does nothing outside a PyInstaller build made with a splash."""
-    try:
-        import pyi_splash  # type: ignore[import-not-found]
-    except ImportError:
+    pyi_splash = _bootloader_splash()
+    if pyi_splash is None:
         return
     try:
         pyi_splash.update_text(text)
@@ -707,9 +729,8 @@ def _close_bootloader_splash() -> None:
     once the app window is shown rather than when it is created: between the
     two there is nothing on screen, which is the gap the splash is for.
     """
-    try:
-        import pyi_splash  # type: ignore[import-not-found]
-    except ImportError:
+    pyi_splash = _bootloader_splash()
+    if pyi_splash is None:
         return
     try:
         pyi_splash.close()

@@ -75,3 +75,21 @@ def test_both_specs_bundle_every_app_module():
         assert "memorymap.__main__" not in modules, "the entry script must not be bundled twice"
         assert {"memorymap", "memorymap.core.backup_bundle", "memorymap.core.ocr"} <= modules
 
+
+def test_the_bootloader_splash_is_asked_for_only_when_the_bootloader_made_one(monkeypatch):
+    """Importing `pyi_splash` in a build with no splash prints a traceback on
+    its way to failing, and every packaged launch wrote it into the log."""
+    import sys
+    import types
+
+    from memorymap import __main__ as launcher
+
+    fake = types.ModuleType("pyi_splash")
+    monkeypatch.setitem(sys.modules, "pyi_splash", fake)
+    monkeypatch.delenv("_PYI_SPLASH_IPC", raising=False)
+    without = launcher._bootloader_splash()
+    assert without is None
+    monkeypatch.setenv("_PYI_SPLASH_IPC", "1")
+    with_ipc = launcher._bootloader_splash()
+    assert with_ipc is fake
+

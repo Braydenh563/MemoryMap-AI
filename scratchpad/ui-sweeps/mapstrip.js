@@ -130,7 +130,7 @@ async function newBoard(page, name, type) {
   // instead of standing 392px wide in a 364px canvas and out of the window.
   // `pageScroll` is reported, not asserted: at 390 the whole shell overflows
   // by 7px (43 elements, `.header-controls` among them), which is nothing to
-  // do with the map and is written down in agent-remaining/mindmap.md.
+  // do with the map and is written down in archive/agent-remaining/mindmap.md.
   check("the strip stays inside the canvas",
     placed.w <= placed.hostW && placed.right <= placed.view,
     JSON.stringify({ w: placed.w, hostW: placed.hostW, right: placed.right,

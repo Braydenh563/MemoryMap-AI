@@ -8,7 +8,7 @@
 // each asserted by its effect as a number (a rotation, a size, a count of
 // items, the depth of the undo stack, the zoom transform), never by a
 // screenshot. WHITEBOARD_PLAN.md "Placed from INBOX, 2026-09-23" is the
-// record; docs/roadmap/agent-remaining/mapux2.md holds the checklist.
+// record; docs/roadmap/archive/agent-remaining/mapux2.md holds the checklist.
 //
 //   BASE=http://127.0.0.1:8795 SCRATCH=/tmp/mm-agentM \
 //   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node scratchpad/ui-sweeps/canvasconventions.js

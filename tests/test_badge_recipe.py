@@ -107,17 +107,13 @@ def _css() -> str:
     return "\n".join(p.read_text(encoding="utf-8") for p in sorted((JS_DIR.parent / "css").glob("*.css")))
 
 
-def test_a_chips_words_are_trimmed_to_their_x_height_band():
-    """INBOX 503: a flex row centres boxes, and the words' line box is not
-    where the eye reads them (the x-height band sits lower by the font's own
-    amount), so a fixed drop on the icon was right for one chip and 1.5px off
-    on the "Installed" pill. The recipe trims the words to the band and lets
-    the row centre it; `scratchpad/ui-sweeps/badgealign.js` measures it."""
+def test_a_chips_height_floor_survives_the_untrimmed_words():
+    """INBOX 503 trimmed a chip's words to the x-height band; INBOX 592 took
+    the trim off (a trimmed chip beside the untrimmed date sat on another
+    centre line in Segoe UI; `tests/test_icon_label_align.py` holds the
+    recipe now). The floor it added stays: zero specificity, so every
+    family's own floor wins."""
     css = _css()
-    assert re.search(r"@supports \(text-box: trim-both ex alphabetic\)\s*\{\s*(?:/\*.*?\*/\s*)?\.chip \.ph-text\s*\{\s*text-box: trim-both ex alphabetic;", css, re.S)
-    assert re.search(r"\.chip \.ph-lead\s*\{\s*translate: 0 calc\(0\.05em - var\(--ph-ink-dy\)\);", css)
-    # The floor that keeps a chip's height now its words' box is trimmed:
-    # zero specificity, so every family's own floor wins.
     assert re.search(r":where\(\.chip\)\s*\{\s*min-height: 1\.125rem;", css)
 
 
@@ -127,9 +123,8 @@ def test_a_chips_icon_gap_is_a_token():
 
 
 def test_every_chip_builder_puts_its_words_in_a_span():
-    """`chip()` wraps bare words in `.ph-text`: text in the chip itself cannot
-    be trimmed, and one untrimmed chip in a row sits a pixel below its
-    neighbours."""
+    """`chip()` wraps bare words in `.ph-text`, so every chip's words are one
+    element a rule can reach (the ellipsis, the facts line's shrink)."""
     js = (JS_DIR / "app.js").read_text(encoding="utf-8")
     words = js[js.index("function chipWords("):]
     assert 'className: "ph-text"' in words[: words.index("\n}\n")]

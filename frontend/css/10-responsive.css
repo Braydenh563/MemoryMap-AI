@@ -653,15 +653,6 @@ header#top-bar,
    hidden name is a button a screen reader announces as "button". */
 @media (max-width: 1199.98px) {
 
-  .seg-multi .seg-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
   /* Square, so four icons read as four cells of one well rather than four
      pills with air between them. */
   .seg-multi > button {
@@ -2759,6 +2750,12 @@ header#top-bar,
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
+  }
+
+  /* Its words are hidden here, so its icon is alone: centred in its
+     control rather than moved onto words (INBOX 592). */
+  .dash-customise .ph-lead:has(~ .dock-word) {
+    translate: none;
   }
 
   .dash-customise .menu-wrap > button {

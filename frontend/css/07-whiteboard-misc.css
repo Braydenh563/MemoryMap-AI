@@ -3076,10 +3076,33 @@ body.scroll-top-visible .skills-split > .tab-main {
   line-height: 1;
   /* Icons are decorative next to a label; they must never be the thing that
      sets a button's line box height, or every labelled button grows by the
-     icon's overshoot. */
-  vertical-align: -0.12em;
+     icon's overshoot. In running text this is the whole placement: from the
+     baseline, -0.12em puts the em box's middle (Phosphor's is 0.4375em up)
+     on the capitals' middle in any UI font, and `--ph-ink-dy` lifts the few
+     glyphs drawn off that middle. */
+  vertical-align: calc(-0.12em + var(--ph-ink-dy));
   flex: none;
 }
+
+/* **A label's icon on its words' cap-height centre** (INBOX 592; DESIGN.md,
+   "An icon beside words"). In a flex row the icon is centred on the words'
+   box, and that box's middle is the font's ascent-and-descent middle, not
+   its capitals': the same in DejaVu Sans (the sandbox), 0.064em higher in
+   Segoe UI (the owner's Windows). `measureLabelOptics` (settings.js) reads the
+   difference from the live font into `--ph-cap-dy`, in em of the words
+   (the icon is 1.15 of them); the glyph's own ink offset comes off too.
+   `translate` does nothing to an inline box, so in running text the
+   `vertical-align` above does the job alone, and an icon with no words
+   (`.icon-only`, no `.ph-lead`) stays centred in its control. This
+   replaces the drops written for one family at a time (a chip's 0.05em
+   under words trimmed to the x-height band, the status bar's 0.1em), each
+   calibrated in DejaVu against the x-height, which left "Installed"'s tick
+   1.6px under the capitals and a facts line on two centres. */
+.ph-lead,
+.ph-trail {
+  translate: 0 calc(var(--ph-cap-dy) * 1em / 1.15 - var(--ph-ink-dy));
+}
+
 
 /* --- space switcher (top bar) ------------------------------------------------
    Which notebook you are looking at, next to the wordmark. Built out of the
@@ -7330,6 +7353,7 @@ button.connection-row {
 
 .ocr-phone-bar button:has(> .toolbar-word) > .ph-lead {
   margin-inline-end: 0;
+  translate: none;
 }
 
 /* The reading as editable text, in place of the sections while it is open. */
@@ -11978,26 +12002,6 @@ input[type="file"] {
 .dock-find input[type="search"] {
   flex: 1 1 10rem;
   min-width: 8rem;
-}
-
-/* A row of filter chips inside a dock zone (TIMELINE_PLAN.md Phase 4's `kind=`
-   chips). The chips are `.library-chip`, which already carries the height every
-   other control in a dock has, so this only has to lay them out and let them
-   wrap onto a second line on a phone rather than push the zone wider than the
-   bar. */
-
-/* **On a phone the chips are their icons.** Measured at 390 with the words in:
-   the find zone is 14rem wide there, so four labelled chips wrapped to four
-   lines, the chip row stood 195px tall and the Timeline dock went from 146px to
-   297px, a third of the screen before a single row of the journal. Icon-only,
-   they are one 36px row. The label stays in the tooltip and in the accessible
-   name, so nothing is lost but the width. */
-@media (max-width: 599.98px) {
-
-  /* And the row takes a line of its own. Sharing one with the search box left
-     it 127px of the find zone's 309, which is two of the four chips: the four
-     icons want 154px and there is a whole line free under a 164px search
-     field. */
 }
 
 .dock-actions {

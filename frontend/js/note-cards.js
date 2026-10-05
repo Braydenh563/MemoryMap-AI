@@ -2115,16 +2115,16 @@ function entryItem(entry, options = {}) {
       // Kortex's own, which arrows every row).
       const outgoing = link.direction !== "in";
       linkChip.classList.add(outgoing ? "link-out" : "link-in");
-      linkChip.appendChild(
-        setLabel(
-          document.createElement("span"),
-          outgoing ? "ph:arrow-up-right" : "ph:arrow-down-left"
-        )
-      );
-    linkChip.appendChild(document.createTextNode(" "));
+      //: The arrow and the words are the label grammar's own pair, so the
+      //: arrow is a `.ph-lead` straight in the chip and lands on the words'
+      //: cap height like every other label's icon (INBOX 592). It sat in a
+      //: span of its own, inline on that span's baseline in a 12px line box
+      //: its 13.8px glyph overflowed: 1.1px above the words, measured.
+      //: The words are a note's own text, so they never go through the label
+      //: grammar (a preview ending in "ph:x" would draw an icon).
+      setLabel(linkChip, outgoing ? "ph:arrow-up-right" : "ph:arrow-down-left");
+      linkChip.firstElementChild.classList.add("ph-lead");
       const linkPreview = document.createElement("span");
-      //: `ph-text`, like every chip's words, so the recipe trims them to
-      //: their x-height band and they share the chip's centre line.
       linkPreview.className = "ph-text";
       linkPreview.textContent = short;
       linkChip.appendChild(linkPreview);

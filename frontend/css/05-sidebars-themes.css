@@ -2330,6 +2330,7 @@ body.resizing-sidebar {
 
   .note-toolbar button:has(> .toolbar-word) > .ph-lead {
     margin-inline-end: 0;
+    translate: none;
   }
 }
 
@@ -5912,6 +5913,12 @@ textarea.autogrow {
     white-space: nowrap;
   }
 
+  /* Its words are hidden here, so its icon is alone: centred in its
+     control rather than moved onto words (INBOX 592). */
+  .doc-prose-tools > .doc-prose-fix-all .ph-lead:has(~ .ph-text) {
+    translate: none;
+  }
+
   .doc-prose-panel .doc-prose-tools > .doc-prose-fix-all.ghost.small {
     width: var(--dialog-head-btn-size);
     padding: 0;
@@ -6346,10 +6353,6 @@ button.ghost.doc-template-choice[aria-checked="true"] {
 
   .header-controls {
     gap: 0.25rem;
-  }
-
-  .header-divider {
-    display: none;
   }
 }
 

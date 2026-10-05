@@ -576,10 +576,6 @@
   accent-color: var(--accent);
 }
 
-.tool-activity:empty {
-  display: none;
-}
-
 .tool-chip {
   display: block;
   font-size: 0.85rem;

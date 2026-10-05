@@ -863,6 +863,12 @@ details[open] > .about-whats-new::before,
     clip-path: inset(50%);
     white-space: nowrap;
   }
+
+  /* Its words are hidden here, so its icon is alone: centred in its
+     control rather than moved onto words (INBOX 592). */
+  [data-dock-name="notes"] .ph-lead:has(~ .dock-word) {
+    translate: none;
+  }
 }
 
 /* The documents editor's head already *is* a bar - `.doc-toolbar`
@@ -1026,51 +1032,20 @@ summary > .ph-lead,
   margin-inline-end: 0;
 }
 
-/* A chip's icon and words share one centre line, and it is the chip's own
-   (INBOX 503: "make sure that in all badges, the text and icons are properly
-   aligned and spaced", then "the content in the badges is vertically centred
-   as well as aligned with each other"). A flex row centres BOXES, and the
-   words' box is the font's line box, whose centre is not where the eye reads
-   the words: the x-height band's centre sits below it by an amount that is
-   the font's (0.07em in DejaVu Sans, about 0.16em in Segoe UI). A fixed drop
-   on the icon (the old `0.1em`) was right for one font and chip: "Installed"'s
-   check was 1.5px low, the map chip's glyph 1.5px low, "Tag with Atlas"'s
-   sparkle 0.5px high, and nothing put the words themselves on the chip's
-   centre. `text-box` trims the words' box to exactly that band (the
-   x-height's top to the baseline), so the flex row's centring puts the
-   band's centre on the chip's centre in any font, and the icon, centred in
-   its own box, meets it. Phosphor's glyphs are centred in their em boxes to
-   within 0.01em, so the icon needs no drop; the few that are not are listed
-   below. A chip keeps the height it had (a `min-height` floor of 1.125rem, `:where` so
-   every family's own floor wins: the words' box is no longer what sets it). Where `text-box` is not supported the chip keeps
-   the older fixed drop. */
+/* A chip's icon and words share one centre line, and it is the label
+   recipe's (INBOX 592, 07-whiteboard-misc.css beside `.ph`): the words are
+   never trimmed, so a chip's words and the untrimmed date beside it share a
+   centre, and the icon moves by the live font's own gap. INBOX 503 trimmed
+   them to the x-height band here; in Segoe UI that put the words 2px below
+   the date beside them and the icon 1.6px below the capitals. A chip keeps
+   the height floor that rule set (`:where`, so every family's own floor
+   wins). */
 :where(.chip) {
   min-height: 1.125rem;
 }
 
 .chip {
   gap: var(--space-1);
-}
-
-@supports (text-box: trim-both ex alphabetic) {
-  /* The padding and the equal negative margin give back the room an ascender
-     and a descender need inside the box a trimmed line is clipped to
-     (`overflow: hidden` for the ellipsis), at no cost to the layout. */
-  .chip .ph-text {
-    text-box: trim-both ex alphabetic;
-    padding-block: 0.35em;
-    margin-block: -0.35em;
-  }
-
-  .chip .ph-lead {
-    translate: 0 calc(0.05em - var(--ph-ink-dy));
-  }
-}
-
-@supports not (text-box: trim-both ex alphabetic) {
-  .chip .ph-lead {
-    translate: 0 0.1em;
-  }
 }
 
 /* The map chip's height was its words' line box (`line-height: 24px`), not a
@@ -1080,21 +1055,17 @@ summary > .ph-lead,
   min-height: 1.5rem;
 }
 
-/* Its glyph is 18.4px beside 16px words, and the shared 0.05em drop is a
-   fraction of the glyph: measured 1.5px low against the words (INBOX 503). */
-@supports (text-box: trim-both ex alphabetic) {
-  .chip.map-chip .ph-lead {
-    translate: 0 calc(-0.03em - var(--ph-ink-dy));
-  }
-}
-
 /* Where a glyph's own ink is not centred in its em box (read from the font at
    100px, ink centre against the box's, in em: positive is low). Phosphor is
-   centred to within 0.01em except these. A new glyph in a chip is measured by
-   `badgealign.js` first. */
+   centred to within 0.01em except these (re-read for INBOX 592 by drawing
+   each glyph at 100px on a canvas). Used by every icon, inline or in a row
+   (`.ph` and `.ph-lead` in 07-whiteboard-misc.css). */
 
 :root {
   --ph-ink-dy: 0em;
+  /* Written by `measureLabelOptics` (settings.js) from the live font; until it
+     runs a label's icon is centred on its words' box. */
+  --ph-cap-dy: 0;
 }
 
 .ph-check {
@@ -1110,6 +1081,11 @@ summary > .ph-lead,
   --ph-ink-dy: -0.04em;
 }
 
+.ph-toolbox {
+  --ph-ink-dy: -0.04em;
+}
+
+.ph-trash,
 .ph-calendar-blank,
 .ph-calendar-dot {
   --ph-ink-dy: -0.025em;
@@ -1119,31 +1095,10 @@ summary > .ph-lead,
   --ph-ink-dy: 0.035em;
 }
 
-/* The status bar's words and their glyphs, the same drop (INBOX 494: "the
-   text and icons in the bottom bar elements arent aligned vertically").
-   Measured by ink at 3x (`inkalign.js`), glyph centre against the label's
-   x-height centre: Ask -1.83px, Guide -1.67, the notebook -1.17, reminders
-   -0.67, Find -0.50, and the Ctrl K chip -0.83. A glyph alone in its button
-   (Back, Undo) has no words to meet and stays centred in its box. After:
-   every glyph and the chip within 0.5px, light and dark. From 1024 up only:
-   below it Ask, Guide and Find show the glyph alone, centred like Back. */
+/* The status bar's Ctrl K chip against the words beside it (INBOX 494).
+   Its glyphs were dropped here too, 0.1em onto the x-height in DejaVu; they
+   follow the label recipe now (INBOX 592, `.ph-lead` beside `.ph`). */
 @media (min-width: 1024px) {
-  #status-bar .status-item > i.ph:first-child:not(:only-child) {
-    translate: 0 0.1em;
-  }
-
-  /* The count's glyph sits in a span of its own, inline on that span's own
-     baseline already, so it needs less: 0.1em took the reminders to +0.67. */
-  #status-bar .status-item > span:first-child:has(> i.ph) {
-    translate: 0 0.06em;
-  }
-
-  /* The magnifier's handle hangs below its lens, so its ink sits lower than
-     a round glyph's at the same box: 0.1em took Find to +0.83px. */
-  #status-bar .status-item > i.ph-magnifying-glass:first-child:not(:only-child) {
-    translate: 0 0.03em;
-  }
-
   #status-bar .status-key {
     translate: 0 0.07em;
   }
@@ -4726,6 +4681,12 @@ body .chip.item-label,
     clip-path: inset(50%);
     white-space: nowrap;
     border: 0;
+  }
+
+  /* Its words are hidden here, so its icon is alone: centred in its
+     control rather than moved onto words (INBOX 592). */
+  #wb-boards-new-menu .ph-lead:has(~ .toolbar-word) {
+    translate: none;
   }
 
   #wb-boards-new-menu > summary {
@@ -9660,9 +9621,34 @@ input[type="file"]:active::file-selector-button {
   display: none;
 }
 
-.entry-links > .entry-links-more {
+/* "+N more links" is one more pill in the row of link pills (INBOX 592,
+   the owner: "these could be better aligned"): measured as a ghost button,
+   32px tall, weight 600 and a 4.8px radius beside 26px outlined pills at
+   400. The connection's edge, radius, voice and height: an interactive
+   chip's 1.5rem floor inside the pill's two 1px edges, so it is the pills'
+   height on a line of its own too (it wraps there on the Ask tab), and
+   `stretch` beside them. */
+.entry-links > button.ghost.entry-links-more {
+  align-self: stretch;
+  min-height: calc(1.5rem + 2px);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  box-shadow: none;
   color: var(--muted);
   font-size: var(--text-sm);
+  font-weight: 400;
+}
+
+#raw-results .entry-links > button.ghost.entry-links-more {
+  border-color: color-mix(in srgb, var(--ink) 9%, transparent);
+}
+
+.entry-links > button.ghost.entry-links-more:is(:hover, :focus-visible) {
+  border-color: color-mix(in srgb, var(--ink) 22%, transparent);
+  background: transparent;
+  color: var(--ink);
 }
 
 /* **Settings does not blur what it scrolls over** (INBOX 426 u: "scrolling

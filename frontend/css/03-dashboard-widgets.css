@@ -1694,6 +1694,12 @@ header#top-bar select,
     border: 0;
   }
 
+  /* Its words are hidden here, so its icon is alone: centred in its
+     control rather than moved onto words (INBOX 592). */
+  .web-reader #web-reader-ask .ph-lead:has(~ .toolbar-word) {
+    translate: none;
+  }
+
   .web-reader .web-reader-title {
     font-size: var(--text-body);
   }
@@ -3505,14 +3511,6 @@ button.answer-figure-open {
   padding: 0.05rem 0.25rem;
   border-radius: var(--radius-sm);
   font-size: 0.86em;
-}
-
-/* Tool activity reads as a distinct strip of "things it did". */
-.tool-activity:not(:empty) {
-  margin: 0.4rem 0 0.5rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
 }
 
 /* The composer reads as one control rather than three loose boxes. */

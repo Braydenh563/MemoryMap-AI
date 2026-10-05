@@ -2124,10 +2124,65 @@ DENSITY_SHORT.addEventListener("change", () => {
   if (!localStorage.getItem("density")) applyAppearance();
 });
 
+//: **Where a label's icon sits: on its words' cap-height centre** (INBOX
+//: 592, after 494 and 503). A flex row centres boxes, and a line of words'
+//: box is centred on the font's ascent and descent, which is not where the
+//: words are: in DejaVu Sans (the sandbox) that centre falls within 0.02em of
+//: the capitals' middle, in Segoe UI (the owner's Windows) 0.064em above it,
+//: because Segoe's ascent is tall. So a centred icon beside centred words
+//: read right in every sweep here and high on Windows, and the per-family
+//: drops written to correct it (0.05em in a chip, 0.1em in the status bar)
+//: were calibrated against the wrong font. CSS has a unit for the cap height
+//: and none for the ascent, so the gap is read once, here, from the font the
+//: page is actually drawn in: a probe line with a zero-size box on its
+//: baseline and one `1cap` tall. `--ph-cap-dy` is that gap in em of the
+//: words, and `.ph-lead`/`.ph-trail` move by it (07-whiteboard-misc.css,
+//: next to `.ph`). `translate` does nothing to an inline box, so an icon in
+//: running text keeps its `vertical-align`, which is already on the
+//: baseline and needs no font's metrics. Measured again when Settings
+//: changes the font (`applyAppearance`, below). Here and not in app.js, whose
+//: gzipped size is a ratchet; nothing calls it before this file loads.
+function measureLabelOptics() {
+  const probe = document.createElement("div");
+  probe.setAttribute("aria-hidden", "true");
+  for (const [key, value] of [["position", "fixed"], ["top", "0"], ["left", "0"], ["visibility", "hidden"],
+    ["fontSize", "100px"], ["lineHeight", "normal"], ["whiteSpace", "nowrap"], ["pointerEvents", "none"]]) probe.style[key] = value;
+  const words = document.createTextNode("H");
+  const mark = (height) => {
+    const box = document.createElement("span");
+    box.style.display = "inline-block";
+    box.style.width = "0";
+    box.style.height = height;
+    box.style.verticalAlign = "baseline";
+    return box;
+  };
+  const baseline = mark("0");
+  const cap = mark("1cap");
+  probe.append(words, baseline, cap);
+  document.body.append(probe);
+  const range = document.createRange();
+  range.selectNodeContents(words);
+  const line = range.getBoundingClientRect();
+  const base = baseline.getBoundingClientRect().bottom;
+  const capHeight = cap.getBoundingClientRect().height;
+  probe.remove();
+  // No `cap` unit (an old engine) or nothing laid out: leave the icons
+  // box-centred, which is what they were before this.
+  if (!(capHeight > 1) || !(line.height > 1)) return;
+  const ascent = base - line.top;
+  const descent = line.bottom - base;
+  const dy = ((ascent - descent) / 2 - capHeight / 2) / 100;
+  document.documentElement.style.setProperty("--ph-cap-dy", String(Math.round(dy * 1000) / 1000));
+}
+
+measureLabelOptics();
+document.fonts?.ready?.then(measureLabelOptics);
+
 function applyAppearance() {
   const root = document.documentElement;
   root.dataset.fontsize = appearancePref("fontsize");
   root.dataset.font = appearancePref("font");
+  measureLabelOptics();
   root.dataset.density = effectiveDensity();
   //: The dashboard's own level follows the app's Compact (dashboard.js).
   if (typeof applyDashDensity === "function") applyDashDensity(dashDensity(), { persist: false });

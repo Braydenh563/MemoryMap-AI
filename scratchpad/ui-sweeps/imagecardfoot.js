@@ -72,13 +72,16 @@ const probe = () => {
       el && seen(el)
         ? Object.fromEntries(props.map((p) => [p, getComputedStyle(el)[p]]))
         : null;
-    const last = [...t.children].filter(seen).pop();
-    const lastInner = fields && seen(fields) ? [...fields.children].filter(seen).pop() : null;
-    const bottom = lastInner
-      ? lastInner.getBoundingClientRect().bottom
-      : last
-        ? last.getBoundingClientRect().bottom
-        : r.bottom;
+    // The lowest ink in the card: every visible child, and the fields' own
+    // blocks (the fields box carries its own bottom padding). Taking only the
+    // fields' last block missed `.library-image-provenance`, a sibling drawn
+    // after them, and reported a described Files row's 9px as 50.3px
+    // (op4-1005); a Files row's thumbnail is ink too, and sets the height of
+    // a row whose text is shorter than it.
+    const inks = [...t.children].filter(seen)
+      .filter((c) => c !== fields)
+      .concat(fields && seen(fields) ? [...fields.children].filter(seen) : []);
+    const bottom = inks.length ? Math.max(...inks.map((c) => c.getBoundingClientRect().bottom)) : r.bottom;
     return {
       card: +r.height.toFixed(1),
       cardBottom: +r.bottom.toFixed(1),

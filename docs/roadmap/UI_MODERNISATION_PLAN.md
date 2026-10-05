@@ -1184,13 +1184,9 @@ Built and moved to HISTORY.md ("Moved from the plans, 2026-09-09"): 100 the
 scroll edge effect, 101 the concentric corner token and its lint, 103 the
 menus that open out of their opener.
 
-102. **Clear glass, and text on glass.** Built (2026-10-04) as the
-    recorded decision below it said; the block is in HISTORY.md ("Moved
-    from the plans, 2026-10-04 (the top bar mode and the glass recipe)").
+102. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
 
-104. **The phone tab bar recedes on scroll** (icons only on scroll down,
-    full on scroll up), never hidden. Built (2026-09-13); the block is in
-    HISTORY.md ("Moved from the plans, 2026-09-13").
+104. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
 
 94. **Background animations: fix, refine and improve.** Owner: UI Phase 3
     follow-up (Opus): each style gets a measured frame cost, a still frame
@@ -1217,22 +1213,9 @@ menus that open out of their opener.
     honest next step is a human looking at five screenshots, or a change of
     design so the slider drives something with a large signature (the wash's
     own alpha, say) rather than the population alone.
-60. **Dashboard "Jump to / Run a skill / stat tiles" section**: built, moved
-    to HISTORY.md ("Moved from the plans, 2026-09-09"). The band fills its own
-    width, carries a Continue pill and a fortnight sparkline, and every skill
-    pill says when it last ran.
+60. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
 
-279. **The owner's four reports, 2026-09-20.** All four built (2026-09-20);
-    the block, with the before and after numbers at 1440, 1930, 1600 and 390,
-    is in HISTORY.md ("Moved from the plans, 2026-09-20"). The dashboard's
-    three densities keep the greeting and the one number and shrink the art
-    instead (heroes 157.2 / 99.6 / 47.2px, were 157.2 / 76.3 / 133.2); the
-    Timeline table's Title column stops halving when a row opens; the Files
-    sub-tab's reading block is two ranks and one control rather than four and
-    two, with the reading itself on screen; and a picture card's reading is one
-    `.library-chip` that opens the lightbox, so asking for the text no longer
-    grows the card from 240.7px to 416.3px and takes its five neighbours'
-    heights with it.
+279. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
 
 ## Placed from INBOX, 2026-09-09 (the owner's evening batch)
 
@@ -1268,140 +1251,11 @@ glass. What is left is below.
 
 ## Placed from INBOX, 2026-09-13
 
-186. **The timeline dock's kind buttons.** Built (2026-09-13); the block, with
-    its numbers, is in HISTORY.md ("Moved from the plans, 2026-09-13"). One
-    decision made here and not to be remade: a fixed filter set is a `.seg`
-    well and not a row of chips, because a chip is a filter you can take off
-    and these four are always all four. The variant is `.seg-multi` in
-    DESIGN.md's recipe index, with `tests/test_ui_recipes.py` holding it.
+186. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
 
 
-165. **Mid-work drop, 2026-09-13, verbatim (the owner), the Library's selection
-    bar, one screenshot ("1 selected" with Open, Delete, Done).** "I want the
-    selected bars to be sticky to the top of the screen when scrolling".
-
-    **Built** (2026-09-13). One recipe for all seven bars, `.library-contextbar`
-    plus the new `.selectbar`, in DESIGN.md's recipe index with
-    `tests/test_ui_recipes.py` holding it: sticky at `--selectbar-top`, the
-    accent tint stacked over `--modal-bg-opaque` so the list cannot show
-    through it, and the Notes and timeline bars moved off their own hand-built
-    paint onto the shared strip. `--selectbar-top` is zero for every bar whose
-    scroller starts below its sub-tab strip, and `var(--notes-sticky-top)` on
-    `#tab-notes`, which is the trap commit 27167e3 records. The Library's own
-    "All" bar moved out of the controls card to be a child of the scrolling
-    section: sticky only travels as far as its own parent, and that card ends
-    above the grid. Measured with `scratchpad/ui-sweeps/selstick.js` in both
-    themes: before, the Notes bar at y=-465 with 677px of list scrolled; after,
-    four bars parked at their scroller's top edge (offset 0, and 56 under the
-    Notes strip) through 7,136px, 1,552px, 5,025px and 2,701px of scroll, and
-    the timeline's bar sticky over a table that pages rather than scrolls. 0
-    console errors, contrast.js 31 surfaces ok.
-
-    Found, not fixed: `selectMode` in app.js is one flag shared by the Notes
-    list and the timeline table, so leaving Notes in select mode turns the
-    timeline's own Select off on the first press. The sweep works round it and
-    records why.
-164. **Mid-work drop, 2026-09-13, verbatim (the owner), three surfaces, one
-    screenshot of a board card's preview (a wash of rounded blobs and one
-    squiggle over "3 cards, 8 sketches, 1 item").** "board previews need
-    upgrading and fixing, the graph minimap needs an upgrade, and the image
-    cards in the library images subtab need a massive improvement in ui and
-    ux." The fourth report on the picture cards; the third (145) was fixed the
-    same day, so this one is about what is left after it.
-
-    **Board previews: built** (2026-09-13). Three faults, each measured with
-    `scratchpad/ui-sweeps/boardpreview.js`, which seeds the owner's own board (3
-    cards, 8 sketches, 1 item) and exits non-zero on any of them.
-
-    - *The one squiggle.* A sketch is stored with `x = 0, y = 0` and its path in
-      absolute board coordinates, so the preview drew all eight at the board's
-      origin at one default size: 8 marks at 1 position, 1 size. The server
-      reads the stroke's own box now (`_sketch_preview`, the server's copy of
-      the canvas's `wbPathBBox`, and the reason it is a copy is written there)
-      and also sends the tool and the ink, so `mapPreviewSketch` draws a
-      rectangle as a rectangle, a circle as a circle, a line corner to corner
-      and a pen stroke as a scribble filling its box. After: 8 marks, 8
-      positions, 7 sizes, and 3 inks on the card where there was 1.
-    - *The blobs.* A block's corner was 0.35 of its own short side, measured at
-      8.66px on a 24.7px block, which is 35%: not a rounded rectangle and
-      nothing like the canvas's own 7%. Capped in the preview's nominal units as
-      well as by the fraction, so it is one corner at both sizes the preview
-      draws at. After: 2.35px, 8%.
-    - *The titles.* Three cards titled "Retry budget", "Ingest pipeline" and
-      "Open questions" drew "Retr…", "Inge…" and "Open…", because a label went
-      *inside* its block whenever five characters fitted. Inside is now for a
-      label that nearly all fits, which is the map topic it was built for; a
-      note's title goes beside its block, where the budget is 16 and it arrives
-      whole.
-
-    Also: a picture on the board takes the picture glyph and `--muted` rather
-    than a third shade of the same accent (it is the one item with no words of
-    its own, and the server deliberately sends no label for it). Regression
-    checks: `preview.js` on four cards (a map keeps its 6 labels, 2 inside, and
-    its 5 edges; contrast 4.77:1), `boardsthumb.js` unchanged at 72x40 with a
-    fill ratio of 0.852, `errors.js` 0 errors and 0 layout findings.
-
-    **The graph minimap: built** (2026-09-13), measured with
-    `scratchpad/ui-sweeps/graphminimap.js`, which seeds a hub-and-spokes notebook
-    and asks five questions of the panel.
-
-    Before, on a 192-note map with 39 links: 192 dots, **0 edges**, 0 marks for
-    the note in hand. The viewport rectangle and drag-to-pan were already right
-    (the frame moved 8.8px on a 260px pan; a drag across the panel moved the
-    canvas centre 23.6px) and are untouched. What was missing is the half that
-    makes an overview an overview: a scatter of points says where the notes are
-    and nothing about what is joined to what. The links are drawn under the dots
-    now, deduped (the adjacency map holds both directions) and built once per
-    render rather than once per paint, because a cooling layout paints every
-    eighth tick; the list is strided to a cap of 600 lines, evenly, for the same
-    reason the dots already are. And the note that is selected, or the one the
-    keyboard is on, takes a ring in `--ink`: the two pieces of state that already
-    mean "the one in hand", read rather than duplicated. After: 39 edges, 1 ring,
-    in both themes, 0 console errors.
-
-    Not verified: the drag-fps gate in `graph.js` reports 43.9 fps against its
-    own 55, with the renderer drawing in 5.30ms of a 16ms budget. That is the
-    sandbox limit HISTORY.md records under "What the gate does not meet, and why"
-    (7.9 fps with the layout hot, 59.2 with the worker stopped and nothing else
-    changed), not a cost of this change, but it was not measured against the base
-    branch this session.
-
-    **The picture cards, fourth report: the part that was broken is built**
-    (2026-09-13), measured with `scratchpad/ui-sweeps/imagecard4.js`, which asks
-    about use rather than paint (`imagecard3.js` still owns the geometry).
-
-    The fault: **the card's own action was pointer-only.** Opening the picture is
-    the whole point of a gallery, and it was a click handler on an `<img>` and
-    another on the filename. Measured on a resting card, the controls a keyboard
-    could reach were the selection tick and the Rename button: so a keyboard
-    could select a picture and rename it but could not open one, and a screen
-    reader was read the file's `alt` with nothing to say it did anything. The
-    thumbnail is now the control it already behaved like (`role="button"`,
-    `tabindex="0"`, "Open <name>", Enter and Space), with the ring drawn *inside*
-    the frame because the frame clips and an outside ring is clipped away
-    entirely. After: Tab reaches it, Enter opens the lightbox, the ring is 2px
-    solid accent at -4px, 0 console errors. The cursor was already `zoom-in`, so
-    the card was telling a pointer the truth and a keyboard nothing.
-
-    **Measured and deliberately not changed: the hole a row-mate's open fold
-    leaves.** At rest the row is right: seven cards all 240.7px tall with 1px
-    under the last line, and the picture taking the slack (229.1px on a card with
-    no caption against 144px on one with a caption and a reading). Open one card's
-    fold and the row goes to 411.1px: every picture grows to its 16rem ceiling and
-    the leftover becomes a hole of 59 to 145px under the other six cards' last
-    lines. That ceiling is the recorded decision (a 583px picture in a 176px
-    column was the alternative, and a two-row subgrid was built, measured and
-    taken back out because it put the same hole back at *rest*), so this is the
-    trade-off working as written rather than an oversight. The three ways out, for
-    whoever takes it next: a shorter fold body (11rem keeps about six lines and
-    was chosen for that), a taller picture ceiling (the poster), or a caption
-    clamp that grows into the slack (not expressible in CSS today).
-
-    Also fixed here: `imagecard3.js`'s open-to-shut ratio was taken across the
-    whole gallery, so on 182 cards it compared two different rows and reported
-    2.63 against its own limit of 2. The report it gates is about cards "side by
-    side", which is one grid row: row-scoped it reads 1.71, the figure commit
-    e5a0a19 recorded.
+165. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
+164. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN's built INBOX blocks)").
 
 ## Placed from INBOX, 2026-09-21
 
@@ -1528,11 +1382,9 @@ inside a 4,000px section.
 
 ## Placed from INBOX, 2026-10-05 (OPEN.md triage)
 
-- **The Files sub-tab's two kinds of row sit on two rhythms** (image-cards,
-  readings): a described row leaves 50.3px of slack under its last block, an
-  undescribed one 24.8px (1440, light). Brief: one bottom padding for both,
-  measured with `imagecardfoot.js SUBTAB=files`, `imagefold.js` as the
-  ratchet. Sonnet, S.
+- The Files rows' two rhythms: a measuring error, closed; HISTORY.md, "Moved
+  from the plans, 2026-10-05 (UI_MODERNISATION_PLAN: the Files rows' two
+  rhythms, a measuring error)".
 - **The picker's other four sources have no thumbnail** (documents, files,
   maps). `notePickerShape`'s `shape.thumb` is optional and per source; a first
   page, the file's type glyph and `mapPreview` are all already drawn

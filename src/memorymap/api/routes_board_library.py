@@ -894,11 +894,15 @@ def _place_branch(db: Session, board_id: int | None, payload: dict, body: PlaceB
 
 
 @router.post("/whiteboard/boards/{board_id}/place", status_code=201)
-@events.writes("board", "placed")
 def place_library_item(board_id: int, body: PlaceBody, db: Session = Depends(get_session)) -> dict:
-    """Make a library item's rows on a board, in one transaction and one
-    event. `board_id` 0 is the default scratch board. A template is not
-    placed; it starts a board (`/board-library/new-board`)."""
+    """Make a library item's rows on a board, in one transaction: one board
+    event naming the placement and its rows, and each row's own `created`
+    event, so every placed item replays like one drawn by hand (the board's
+    time machine reads them; WHITEBOARD_PLAN decision 33). It was one
+    `@events.writes` scope, which folded the rows' events into the board's
+    with their values dropped, so a placed item had no log of its own.
+    `board_id` 0 is the default scratch board. A template is not placed; it
+    starts a board (`/board-library/new-board`)."""
     target = None if board_id == 0 else board_id
     if target is not None:
         entry = db.get(Entry, target)
@@ -923,9 +927,15 @@ def place_library_item(board_id: int, body: PlaceBody, db: Session = Depends(get
         raise _fail("A style or a palette is applied to what is selected, not placed.")
     events.record(
         db, "placed", "board", target, f"{entry_data.get('name', 'item')} placed"[:80],
-        payload={"after": {"library_ref": ref, "sketches": [_sketch_state(s) for s in made["sketches"]],
-                           "objects": [_object_state(o) for o in made["objects"]]}},
+        payload={"after": {"library_ref": ref, "sketches": [{"id": s.id, **_sketch_state(s)} for s in made["sketches"]],
+                           "objects": [{"id": o.id, **_object_state(o)} for o in made["objects"]]}},
     )
+    for s in made["sketches"]:
+        events.record(db, "created", "whiteboard_sketch", s.id, f"drawing on board {target} (library)",
+                      payload={"after": _sketch_state(s)})
+    for o in made["objects"]:
+        events.record(db, "created", "whiteboard_object", o.id, f"{o.kind} on board {target} (library)",
+                      payload={"after": _object_state(o)})
     db.commit()
     for row in made["sketches"] + made["objects"]:
         db.refresh(row)

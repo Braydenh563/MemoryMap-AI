@@ -60,10 +60,24 @@ class _Reader2:
 
 @pytest.fixture
 def page(tmp_path: Path) -> Path:
-    from PIL import Image
+    """A real 200x100 white PNG, written without Pillow: CI installs no
+    imaging library, and the reader reads only the page's size from it."""
+    import struct
+    import zlib
 
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+
+    width, height = 200, 100
+    rows = b"".join(b"\x00" + b"\xff" * (width * 3) for _ in range(height))
+    png = (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(rows))
+        + chunk(b"IEND", b"")
+    )
     path = tmp_path / "page.png"
-    Image.new("RGB", (200, 100), "white").save(path)
+    path.write_bytes(png)
     return path
 
 
@@ -178,10 +192,14 @@ def test_it_is_an_optional_extra_and_never_a_dependency():
     # to install is Tesseract's program), never in requirements.
     assert [b.id for b in extras.BUNDLES if "rapidocr" in b.extras] == ["vision"]
     root = Path(__file__).resolve().parents[1]
+    # Never a requirement line. The "Optional extras" comment block in
+    # requirements.txt does name it, as it names every extra
+    # (test_failure_remedies), and a comment installs nothing.
     for name in ("requirements.txt", "pyproject.toml"):
         path = root / name
         if path.exists():
-            assert "rapidocr" not in path.read_text(encoding="utf-8").lower()
+            live = [line for line in path.read_text(encoding="utf-8").lower().splitlines() if not line.lstrip().startswith("#")]
+            assert not any("rapidocr" in line for line in live), name
     source = (root / "src" / "memorymap" / "core" / "ocr.py").read_text(encoding="utf-8")
     assert "\nimport rapidocr" not in source and "\nfrom rapidocr" not in source
 

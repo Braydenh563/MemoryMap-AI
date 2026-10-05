@@ -983,8 +983,8 @@ MORE_TOPICS.extend(
                 "engine that read it. Read again reads afresh, and a reading can "
                 "be edited by hand or added to an existing note. Settings, "
                 "Packages shows the same status and language. RapidOCR, a second "
-                "reader with nothing else to install (Settings, Packages, Read "
-                "images without Tesseract), reads when Tesseract isn't ready; its "
+                "reader with nothing else to install (its own row in Settings, "
+                "Packages), reads when Tesseract isn't ready; its "
                 "models read English and Chinese, so the language does not apply."
             ),
             "badge": {"label": "Packages", "section": "extras"},

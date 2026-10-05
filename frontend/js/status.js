@@ -2586,8 +2586,12 @@ function renderSettings() {
     renderVisionModelPicker(status);
   renderOcrModelPicker(status);
     renderAutonomousModelPicker(status);
-    if (typeof renderInstalledModels === "function") renderInstalledModels(status);
-    if (typeof renderSuggested === "function") renderSuggested(status);
+    //: Both live in the lazy `settingsUi` file: one check that it has loaded
+    //: covers the two (it has whenever Settings is open, the only time this runs).
+    if (typeof renderSuggested === "function") {
+      renderInstalledModels(status);
+      renderSuggested(status);
+    }
     renderModelSpec(status.chat_model);
   } else {
     $("installed-box").classList.add("hidden");

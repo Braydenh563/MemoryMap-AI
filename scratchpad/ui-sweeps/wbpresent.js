@@ -52,7 +52,7 @@ const VH = Number(process.env.VH || 900);
   await page.waitForTimeout(2500);
   await page.keyboard.press("Escape");
 
-  const present = () => page.evaluate(() => document.querySelector('.wb-board-menu [data-wb-fn="present"]').click());
+  const present = () => page.evaluate(() => document.querySelector('.wb-board-menu [data-wb-fn="present"][data-wb-surface="board"]').click());
 
   // 1. No frame yet.
   await present();
@@ -178,14 +178,14 @@ const VH = Number(process.env.VH || 900);
   ok("Escape ends it: chrome back, bar gone, window as it was", !after.presenting && !after.full && !after.bar && after.topbar, JSON.stringify(after));
   ok("and the camera where it was", Math.abs(after.k - before.k) < 1e-6 && Math.abs(after.x - before.x) < 0.5 && Math.abs(after.y - before.y) < 0.5, JSON.stringify({ before, after }));
 
-  // 7. A map has no Present row.
+  // 7. A map has no Present frames row (it has its own, mappresent.js).
   const mapRow = await page.evaluate(async () => {
     const board = await apiJson("/whiteboard/boards", { method: "POST", body: JSON.stringify({ name: `Present map ${Date.now()}`, type: "map", layout: "tree-right" }) });
     window.currentBoardId = board.id;
     await fetchWhiteboardState();
     renderWhiteboardNow();
     await new Promise((r) => setTimeout(r, 600));
-    const row = document.querySelector('.wb-board-menu [data-wb-fn="present"]');
+    const row = document.querySelector('.wb-board-menu [data-wb-fn="present"][data-wb-surface="board"]');
     const frameRow = document.querySelector('.wb-board-menu [data-wb-insert="frame"]');
     return { isMap: wbIsMap(), present: row.hidden, frame: frameRow.hidden };
   });

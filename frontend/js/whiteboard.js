@@ -16492,11 +16492,29 @@ function wbFramesInOrder() {
   return rows.flatMap((row) => row.sort((a, b) => a.x - b.x));
 }
 
+//: The steps: a board's frames, or a map's branches (MINDMAP_PLAN decision
+//: 21). Each step answers its box live (a title's strip included), so a
+//: frame deleted or a branch folded mid-run is followed, not remembered.
+function wbPresentSteps() {
+  if (!wbIsMap()) {
+    return wbFramesInOrder().map((f) => {
+      const frame = () => (wbState.objects || []).find((o) => o.id === f.id);
+      return {
+        title: () => wbFrameTitle(frame()),
+        box: () => {
+          const now = frame();
+          return now ? { x: now.x, y: now.y - 28, w: now.width, h: now.height + 28 } : null;
+        },
+      };
+    });
+  }
+  return wbMapPresentSteps();
+}
+
 function wbStartPresenting() {
-  if (wbIsMap()) return;
-  const frames = wbFramesInOrder();
-  if (!frames.length) {
-    toast("Add a frame first (F): each frame is one step of the presentation.");
+  const steps = wbPresentSteps();
+  if (!steps.length) {
+    toast(wbIsMap() ? "This map has no topics to present." : "Add a frame first (F): each frame is one step of the presentation.");
     return;
   }
   const host = document.getElementById("library-view-whiteboard");
@@ -16504,7 +16522,7 @@ function wbStartPresenting() {
   if (!host || !container) return;
   clearWbSelection();
   wbPresent = {
-    ids: frames.map((f) => f.id),
+    steps,
     at: 0,
     wasFull: host.classList.contains("wb-fullscreen"),
     camera: d3.zoomTransform(container),
@@ -16522,37 +16540,35 @@ function wbStartPresenting() {
 
 function wbPresentShow(index) {
   if (!wbPresent) return;
-  const ids = wbPresent.ids.filter((id) => (wbState.objects || []).some((o) => o.id === id));
-  if (!ids.length) {
+  const steps = wbPresent.steps.filter((step) => step.box());
+  if (!steps.length) {
     wbStopPresenting();
     return;
   }
-  wbPresent.ids = ids;
-  const at = Math.max(0, Math.min(ids.length - 1, index));
+  wbPresent.steps = steps;
+  const at = Math.max(0, Math.min(steps.length - 1, index));
   wbPresent.at = at;
-  const frame = wbState.objects.find((o) => o.id === ids[at]);
+  const box = steps[at].box();
   const container = document.getElementById("whiteboard-container");
   const rect = container.getBoundingClientRect();
-  //: The title sits above the frame, so the box shown takes it in.
-  const title = 28;
   const pad = Math.min(48, rect.width * 0.05);
   //: And the bar keeps its own strip at the foot, so it never sits on the frame.
   const bar = document.getElementById("wb-present-bar");
   const foot = bar ? bar.offsetHeight + 16 : 0;
-  const w = frame.width, h = frame.height + title;
+  const w = Math.max(1, box.w), h = Math.max(1, box.h);
   const room = rect.height - pad * 2 - foot;
   const k = Math.max(0.1, Math.min(4, (rect.width - pad * 2) / w, room / h));
-  const cx = frame.x + w / 2, cy = frame.y - title + h / 2;
+  const cx = box.x + w / 2, cy = box.y + h / 2;
   const target = d3.zoomIdentity.translate(rect.width / 2 - k * cx, pad + room / 2 - k * cy).scale(k);
   const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   const sel = d3.select(container);
   (reduce ? sel : sel.transition().duration(320)).call(wbZoom.transform, target);
   const count = document.getElementById("wb-present-count");
-  if (count) count.textContent = `${at + 1} of ${ids.length}: ${wbFrameTitle(frame)}`;
+  if (count) count.textContent = `${at + 1} of ${steps.length}: ${steps[at].title()}`;
   const prev = document.getElementById("wb-present-prev");
   const next = document.getElementById("wb-present-next");
   if (prev) prev.disabled = at === 0;
-  if (next) next.disabled = at === ids.length - 1;
+  if (next) next.disabled = at === steps.length - 1;
 }
 
 function wbStopPresenting() {
@@ -16590,7 +16606,7 @@ window.addEventListener("keydown", (event) => {
   }
   if (event.key === "Escape") wbStopPresenting();
   else if (event.key === "Home") wbPresentShow(0);
-  else if (event.key === "End") wbPresentShow(wbPresent.ids.length - 1);
+  else if (event.key === "End") wbPresentShow(wbPresent.steps.length - 1);
   else if (step) wbPresentShow(wbPresent.at + step);
 }, true);
 

@@ -7,6 +7,17 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (a map presented by branch)
+
+### From MINDMAP_PLAN.md §12.2 item 9 (decision 21)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| View, Present branches on a map: the board's presentation (`wbStartPresenting`, bar, keys, Escape) over steps that answer their box live (`wbPresentSteps`; a map's from `wbMapPresentSteps`): the whole map, then each trunk's branches in sibling order, each fitted with what of it is showing | the board's Present frames was the only one, and not on maps | "1 of 4: Trip" then "2 of 4: Pack", Pack and Passport inside the screen and clear of the bar, 85% of the width; End is "4 of 4: Go"; Delete removed nothing; Escape put the camera back to the pixel, left full screen; a map's View menu shows Present branches and not Present frames | `scratchpad/ui-sweeps/mappresent.js` 6/6 at 1440x900 and 390x844, light and dark; `wbpresent.js` 18/18 unchanged; `test_ui_recipes.py::test_presenting_is_one_mode_with_one_bar` |
+
+Help moved with it: the Guide's mind-map topic, the map help sheet, DESIGN.md's
+presentation row. Not built: a branch's own branches as steps; speaker notes.
+
 ## Moved from the plans, 2026-10-05 (boundaries and summaries)
 
 ### From MINDMAP_PLAN.md §12.2 items 1 and 2 (decisions 19 and 20)

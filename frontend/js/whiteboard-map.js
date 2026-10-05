@@ -6813,3 +6813,36 @@ async function wbMapSummarise(nodes) {
     head.data?.summary ? "Change the summary" : "Add the summary", { summary_span: to - from + 1 });
   if (made) wbAnnounce("Summary added.");
 }
+
+//: **A map presents by branch** (decision 21): the whole map first, then each
+//: trunk's branches in sibling order, each fitted with what of it is showing
+//: (a folded branch is its topic). A trunk with nothing under it is a step of
+//: its own. The board's bar, keys and Escape (`wbStartPresenting`).
+function wbMapPresentSteps() {
+  const index = wbMapIndex();
+  if (!index.nodes.length) return [];
+  const pad = 24;
+  const branch = (id) => () => {
+    const now = wbMapIndex();
+    if (!now.byId.has(id)) return null;
+    const b = wbMapBranchBox(now, wbMapConcealed(now), id);
+    return b ? { x: b.minX - pad, y: b.minY - pad, w: b.maxX - b.minX + pad * 2, h: b.maxY - b.minY + pad * 2 } : null;
+  };
+  const named = (id) => () => wbMapLabel(wbMapIndex().byId.get(id) || {}) || "Topic";
+  const steps = [{
+    title: () => (index.roots.length === 1 ? named(index.roots[0].id)() : "The whole map"),
+    box: () => {
+      const b = wbContentBounds();
+      return b && Number.isFinite(b.minX) ? { x: b.minX - pad, y: b.minY - pad, w: b.maxX - b.minX + pad * 2, h: b.maxY - b.minY + pad * 2 } : null;
+    },
+  }];
+  const hidden = wbMapConcealed(index);
+  for (const root of index.roots) {
+    if (hidden.has(root.id)) continue;
+    const kids = (index.childrenOf.get(root.id) || []).filter((k) => !hidden.has(k.id));
+    for (const node of kids.length ? kids : index.roots.length > 1 ? [root] : []) {
+      steps.push({ title: named(node.id), box: branch(node.id) });
+    }
+  }
+  return steps;
+}

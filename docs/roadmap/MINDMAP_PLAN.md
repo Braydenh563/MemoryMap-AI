@@ -542,8 +542,8 @@ the shift-drag sever).
 8. **Outline view** beside the map (a two-pane split): the same tree as
    indented text, editable, Tab and Shift+Tab re-parent, every edit
    mirrored live.
-9. **Presentation mode** (MindMeister): step through branches with the
-   arrow keys, each step zooming to a branch; Escape ends.
+9. **Presentation mode**: built (decision 21; HISTORY.md, "Moved from the
+   plans, 2026-10-05 (a map presented by branch)").
 10. **Export**: PNG at 2x with the theme, PDF, SVG, FreeMind .mm, OPML,
     Markdown outline, plain-text outline; **import** by drop of .mm,
     .opml, .txt outline or Markdown, and from XMind's .xmind (its
@@ -1167,6 +1167,16 @@ topic: a control that wide has nowhere to go.
    (the run from the first of them to the last); changed and removed from the
    first topic's menu. A root takes none. Content, exported as boundaries are
    (`_summary`, `_summary_span`).
+21. **A map presents by branch** (taken 2026-10-05, §12.2 item 9, under
+   standing order 3; MindMeister's shape on the board's machinery,
+   WHITEBOARD_PLAN decision 16). View, Present branches: the board's full
+   screen, bar, keys and Escape, with the steps a map has instead of frames:
+   the whole map first, then each trunk's branches in sibling order, each
+   fitted with what of it is showing (a folded branch is its topic); a trunk
+   with nothing under it is a step of its own when the map has more than
+   one. One level deep: a branch's own branches are not steps, which keeps a
+   two-hundred-topic map a talk of a dozen steps. No key edits the map while
+   it runs.
 
 ### Phases, each with the gate it is finished against
 

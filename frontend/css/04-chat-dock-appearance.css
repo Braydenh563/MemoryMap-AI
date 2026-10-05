@@ -3549,6 +3549,19 @@ span > .chip {
   min-width: 0;
 }
 
+/* On a phone one nowrap row left each select 62px with its value cut to 16px
+   ("D…"): what to write takes its own line, tone, length and Use notes share
+   the next. */
+@media (max-width: 599.98px) {
+  .draft-controls.draft-desk-controls {
+    flex-wrap: wrap;
+  }
+
+  .draft-desk-controls > .select-shell:first-child {
+    flex-basis: 100%;
+  }
+}
+
 /* A source is a fact about this request (which notes it is written from),
    which is what `.chip` means; the X inside it is the one action a fact is
    allowed to carry, and it is how you take the fact back. */

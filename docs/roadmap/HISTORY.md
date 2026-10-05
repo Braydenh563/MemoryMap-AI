@@ -19,6 +19,20 @@ Each row was checked against the head before anything was built.
   New note (`#tab-graph:has(.dock-fab) .graph-zoom`) closed it. `graphphone.js`
   now asserts it every run: the four buttons are hit at their centres and clear
   of `.dock-fab`.
+- **Writing Room and table full view at phone width**: the page did not
+  overflow in either (`documentElement.scrollWidth - clientWidth` 0 at 390x844,
+  430x932 and 360x640, default and Large text with Spacious; the full view's
+  panel 16..374 of 390 wide with a 14-column table, no sideways page scroll).
+  What was wrong was inside the Writing Room: its one nowrap row held three
+  selects and Use notes, so what to write, tone and length were 62px wide each
+  with the value cut to 16px (89, 65 and 59px needed). Below 600 the row wraps
+  and what to write takes its own line: 89, 65 and 59 of 89, 65 and 59 px
+  shown. `phonecapture.js` now measures the three values and the page overflow
+  at 390; `tablefullclose.js` asserts the full view stays in the window and the
+  page does not scroll sideways at the width it runs at (1440 and 390).
+  Found, not fixed: at 360 with Large text and Spacious the whole shell is 368
+  wide (the header controls and five tab buttons of 74px), 8px of sideways page
+  scroll on every tab, not the Writing Room's.
 - **Spacious density takes two rows (INBOX 276, the 820px setting)**: decided
   at 820 only, and the sweep said "820 to 1023". `sketchbar.js` now measures 1440,
   1100, 1024, 1000, 900, 820, 819, 700, 640 and 390, four settings each: the one

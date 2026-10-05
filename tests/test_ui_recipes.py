@@ -4069,6 +4069,19 @@ def test_the_sketch_pads_ink_dots_close_up_in_the_tablet_band() -> None:
     assert ".sketch-toolbar .wb-tool-section-row.sketch-colors" in block and "column-gap: 0;" in block
 
 
+def test_the_writing_rooms_selects_get_their_own_line_on_a_phone() -> None:
+    """OPEN.md, "Writing Room at phone width": one nowrap row held what to
+    write, tone, length and Use notes, so each select was 62px wide at 390 with
+    its value cut to 16px. Below 600 the row wraps and the first select takes
+    the line; `scratchpad/ui-sweeps/phonecapture.js` measures the three values
+    (89, 65 and 59px shown of what they need)."""
+    css = (ROOT / "frontend" / "css" / "04-chat-dock-appearance.css").read_text(encoding="utf-8")
+    at = css.index("@media (max-width: 599.98px) {\n  .draft-controls.draft-desk-controls {")
+    block = css[at : css.index("\n}\n", at)]
+    assert "flex-wrap: wrap;" in block
+    assert ".draft-desk-controls > .select-shell:first-child" in block and "flex-basis: 100%;" in block
+
+
 def test_a_locked_load_is_not_logged_as_a_failure() -> None:
     """The lock screen is the expected state at boot, not a failed load: the
     browser log used to open with `WARN browser: [notes] could not load:

@@ -571,7 +571,9 @@ pane's name, the errors sweep's aside clipping at 390.
 - **The Writing Room's stretch**: measured at 1440x900 light on the two
   `NOTE_SURFACES` boxes only, the graph's two note boxes not opened. (The table
   full view's X is built: 28x28 at 1440 and 44x44 at 390, each equal to
-  `--target-min`; `tablefullclose.js` asserts it.) [notes]
+  `--target-min`; `tablefullclose.js` asserts it. Its phone width and the Writing
+  Room's are closed, HISTORY.md, "OPEN.md rows closed, 2026-10-05 (the pre-0.4.0
+  buildable rows, sweeps on port 8815)".) [notes]
 
 ### Whiteboard, mind map and Atlas
 

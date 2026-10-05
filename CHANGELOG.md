@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Write with Atlas on a phone: the what-to-write select takes its own line, so it and tone and length show their values (they were cut to 16px in one row of four controls); phonecapture.js and tablefullclose.js measure the Writing Room and the table full view at 390.
 - Sketch pad: below 820px the ink dots keep their gap, so no two colour targets overlap (six pairs did at 700 with Large text and Spacious); the bar's one allowed second row is 820 with Large text and Spacious, and sketchbar.js now measures ten widths.
 - Sweeps: contrast.js now reads a board and a map (open, every item selected, each sidebar tab) at 1440 and 390 in both themes; none fails, the sticky's drag grip included.
 - Gate: scripts/gate.sh --staged lints the staged index once instead of the working tree and then the index (the same lint set twice); with nothing staged it lints the working tree, so it never runs zero lints (tests/test_gate_staged_once.py).

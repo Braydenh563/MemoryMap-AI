@@ -694,7 +694,7 @@ MORE_TOPICS.extend(
                 "hand teaches the filing where things go. In Settings, Background tasks, Load "
                 "the search model when the app starts chooses when filing by "
                 "meaning gets ready: at launch, or on the first note, which then "
-                "waits a few seconds. Filing style (Settings, AI) files by topic, "
+                "waits a few seconds. Filing style (Settings, Background tasks) files by topic, "
                 "by project or by time. Filings Atlas was unsure of wait in "
                 "is:review, with Accept the filing on the note's menu."
             ),

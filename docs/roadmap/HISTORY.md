@@ -483,6 +483,16 @@ The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section
 
 ## Moved from the plans, 2026-10-05 (op3-1005)
 
+- GRAPH_PLAN, a slimmer node. Built: `/graph?slim=1` leaves out a note
+  node's keys at their default (`_NOTE_DEFAULTS`, routes_graph.py) and a
+  link's three nulls, times to the second, centrality to six figures; the
+  map asks for it (`graphEndpoint`) and `graphFill` (graph.js) restores the
+  shape on arrival in both renderers. Measured on the 5,000-note bench
+  notebook (`kg1005_graph_bench.py` seeding): 3,145 to 1,767 KB; the second
+  cold build after a write 992 to 1,470 ms full against 696 to 736 ms slim;
+  the first cold build 1.4 to 1.6 s either way. `graph514.js` passes on the
+  slim payload. `tests/test_graph_slim.py`.
+
 - WHITEBOARD_PLAN, INBOX 596's side column. Built: the column is
   `--wb-w-tools` (176px) on a board and a map (173 and 225 before), each
   row a four-cell grid across it, the layout select a whole row; below 600

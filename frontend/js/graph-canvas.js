@@ -3782,7 +3782,7 @@ async function renderGraphCanvas(s = gcTab) {
   //: drew "Nothing to map yet" over a notebook full of linked notes because
   //: the only thing distinguishing the two was a null this returned silently.
   //: See `surfaceFailed` in navigation.js.
-  const data = await apiJson(endpoint).catch(() => null);
+  const data = await apiJson(endpoint).then(graphFill).catch(() => null);
   if (!data) {
     surfaceFailed(document.getElementById("graph-empty"), "map", renderGraph);
     //: And the overview goes with the map it summarises, exactly as it does

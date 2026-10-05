@@ -1384,7 +1384,7 @@ function timelineRowElement(row, density) {
   //: Through the app's preview cleaner, as every other list does: a title or
   //: snippet that holds a wiki link showed its raw `[[...]]` here (and a
   //: heading its `#`), the one list in the app that printed markup.
-  const plainTitle = typeof notePreviewText === "function" ? notePreviewText(row.title) : row.title;
+  const plainTitle = notePreviewText(row.title);
   title.textContent = plainTitle;
   // One native tooltip for the full title, because the ellipsis is the only
   // other escape hatch and the text is already plain.
@@ -1393,7 +1393,7 @@ function timelineRowElement(row, density) {
   if (density === "full" && row.snippet) {
     const snippet = document.createElement("span");
     snippet.className = "timeline-row-snippet";
-    snippet.textContent = typeof notePreviewText === "function" ? notePreviewText(row.snippet) : row.snippet;
+    snippet.textContent = notePreviewText(row.snippet);
     //: Cut with an ellipsis like the title beside it, so it carries the same
     //: tooltip (audit 2026-10-05, FE-19: 250 snippets truncated with none).
     snippet.title = snippet.textContent;

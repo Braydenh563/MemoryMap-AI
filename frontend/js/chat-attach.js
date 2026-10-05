@@ -1121,7 +1121,7 @@ function notePickerShape(source) {
       const cat = document.createElement("span");
       cat.className = "note-picker-category";
       cat.textContent = entry.category || "Unfiled";
-      if (typeof paintCategoryDot === "function") paintCategoryDot(cat, entry.category);
+      paintCategoryDot(cat, entry.category);
       const when = relativeTime(entry.updated_at || entry.created_at);
       return when ? [cat, ` · ${when}`] : [cat];
     },

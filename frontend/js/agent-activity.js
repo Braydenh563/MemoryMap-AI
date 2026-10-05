@@ -407,7 +407,7 @@ function renderActivityStatusItem() {
   const button = $("status-activity");
   if (!button) return;
   button.classList.toggle("hidden", agentRuns.length === 0);
-  if (typeof syncPhoneMoreRuns === "function") syncPhoneMoreRuns();
+  syncPhoneMoreRuns();
   if (!agentRuns.length) return;
   const running = agentRuns.filter((run) => run.state === "running").length;
   paintStatusItem("status-activity", {

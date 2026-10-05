@@ -1329,7 +1329,7 @@ function tourClearTheWay(step) {
     if (typeof window[name] === "function") window[name]();
   };
   const keepSettings = Boolean(step && step.settings);
-  if (!keepSettings && (typeof settingsModalOpen === "function" ? settingsModalOpen() : shown("settings-modal"))) {
+  if (!keepSettings && settingsModalOpen()) {
     call("closeSettingsModal");
   }
   if (shown("palette-overlay")) call("closePalette");
@@ -1376,10 +1376,10 @@ async function tourNavigate(step) {
     await tourFrame();
     return;
   }
-  if (step.tab && typeof switchTab === "function") {
+  if (step.tab) {
     if (tourActiveTab() !== step.tab) await switchTab(step.tab);
   }
-  if (step.notes && typeof showNotesSection === "function") showNotesSection(step.notes);
+  if (step.notes) showNotesSection(step.notes);
   if (step.library) tourLibraryView(step.library);
   if (step.wb) await tourWhiteboard(step.wb);
   await tourFrame();
@@ -1441,7 +1441,7 @@ async function tourOpenSettings(section) {
     typeof settingsModalOpen === "function"
       ? settingsModalOpen()
       : !document.getElementById("settings-modal")?.classList.contains("hidden");
-  if (!open && typeof openSettingsModal === "function") {
+  if (!open) {
     if (tourRun) tourRun.openedSettings = true;
     await openSettingsModal(section);
   } else if (typeof showSettingsSection === "function") {
@@ -1782,13 +1782,13 @@ function tourClose(finished) {
   }
   //: Settings, if the tour opened it, is closed with the tour: it was opened
   //: to be pointed at, and left up it covers the page the focus goes back to.
-  if (run.openedSettings && typeof settingsModalOpen === "function" && settingsModalOpen()) {
+  if (run.openedSettings && settingsModalOpen()) {
     if (typeof closeSettingsModal === "function") closeSettingsModal();
   }
   //: And the folds it opened to reach a control are folded again.
   for (const fold of run.openedFolds || []) fold.open = false;
   run.returnFocus?.focus?.();
-  if (finished && typeof toast === "function") {
+  if (finished) {
     toast("That is the tour. Settings, help and guide has it again whenever you want it.");
   }
 }

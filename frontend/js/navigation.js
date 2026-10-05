@@ -2220,7 +2220,7 @@ function resetNavigationToDefaults() {
   if (allTab && !allTab.classList.contains("active")) allTab.click();
   // If the Notes strip is already built, put it back on its front page now;
   // on a cold load it has not been built yet and will read the cleared key.
-  if (typeof showNotesSection === "function" && document.getElementById("notes-subtabs")?.dataset.ready) {
+  if (document.getElementById("notes-subtabs")?.dataset.ready) {
     showNotesSection("browse");
   }
 }
@@ -2237,7 +2237,7 @@ function showNotesSection(name, { focus = false } = {}) {
   // loaded: a stale list is how "add to document" ends up offering nothing.
   if (name === "capture") loadCaptureDocuments();
   //: Questions (row 7) re-reads its list each time it is shown.
-  if (name === "questions" && typeof loadQuestions === "function") {
+  if (name === "questions") {
     initQuestionsView();
     loadQuestions();
   }
@@ -2275,10 +2275,10 @@ function showNotesSection(name, { focus = false } = {}) {
   }
   localStorage.setItem(NOTES_SECTION_STORE, wanted);
   //: Ask's answer and the draft carry static assistant heads (INBOX 471).
-  if (typeof paintAssistantHeads === "function") paintAssistantHeads();
+  paintAssistantHeads();
   //: The connections rail belongs to the list (notes-list.js): it leaves with
   //: Browse and comes back with it.
-  if (typeof scheduleNotesRail === "function") scheduleNotesRail();
+  scheduleNotesRail();
   // A textarea measured while its section is display:none reports
   // scrollHeight 0, so autoGrow collapsed the capture box to its minimum and
   // it only sprang open once clicked (user-reported). Re-measure now that the

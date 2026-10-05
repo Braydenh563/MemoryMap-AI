@@ -1119,7 +1119,7 @@ function kebabMenu(items, ariaLabel) {
     //: card's flyout recipe, `buildMenuGroupButton` (menus.js), which
     //: already flies out beside the row, clamps to the window, escapes a
     //: clipping ancestor, and opens in place in the phone's sheet.
-    if (Array.isArray(item.items) && typeof buildMenuGroupButton === "function") {
+    if (Array.isArray(item.items)) {
       menu.appendChild(buildMenuGroupButton(item.label, item.items));
       continue;
     }

@@ -115,7 +115,7 @@ async function addBoardToNote(board) {
     what: isMap ? "that map" : "that board",
     message: `Add \u201c${board.title || (isMap ? "this map" : "this board")}\u201d to which note?`,
   });
-  if (typeof loadMapBoardIndex === "function") loadMapBoardIndex(true);
+  loadMapBoardIndex(true);
 }
 
 //: **A dialog's head** built in script (DESIGN.md, "A dialog's head"): the

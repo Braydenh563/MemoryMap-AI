@@ -478,8 +478,8 @@ async function renderDashSubmessage() {
     //: (atlas.js, `atlasStreak`), and the companion cheers once when it grows
     //: (avatars.js). Here since INBOX 436 took the stat strip that used to
     //: carry both calls off the first screen: this line reads the same figure.
-    if (typeof atlasStreak === "function") atlasStreak(streak);
-    if (typeof nameMarkBuddyStreak === "function") nameMarkBuddyStreak(streak);
+    atlasStreak(streak);
+    nameMarkBuddyStreak(streak);
   }
   el.textContent = bits.join(" · ");
 }
@@ -636,7 +636,7 @@ function watchDashWidgets() {
 //: awaits the tab's module before its own focus handling, so a same-turn
 //: `focus()` could land on a page that is not drawn yet).
 async function openAskFromDashboard() {
-  const offline = typeof aiIsOff === "function" && aiIsOff();
+  const offline = aiIsOff();
   await switchTab(offline ? "notes" : "chat");
   if (offline) {
     showNotesSection("ask");
@@ -901,7 +901,7 @@ function paintDashEmblem() {
     return;
   }
   //: A face instead of the logo when Appearance asks (avatars.js).
-  const face = typeof dashboardMarkSeed === "function" ? dashboardMarkSeed() : null;
+  const face = dashboardMarkSeed();
   if (face) {
     //: The logo's sketch stops first: a p5 loop on a canvas that is no
     //: longer in the page still draws every frame.
@@ -959,7 +959,7 @@ function dashMarkMenu(x, y) {
       event.preventDefault();
       dashMarkMenu(event.clientX, event.clientY);
     });
-    if (typeof wireLongPress === "function") wireLongPress(holder, (event, point) => dashMarkMenu(point.x, point.y));
+    wireLongPress(holder, (event, point) => dashMarkMenu(point.x, point.y));
   }
 }
 
@@ -2411,9 +2411,9 @@ async function startArt(holder) {
   //: setting people read as broken, whatever its help text says.
   const reduceMotion =
     window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
-    (typeof reducedMotionWanted === "function" && reducedMotionWanted()) ||
+    reducedMotionWanted() ||
     (typeof perfModeOn === "function" && perfModeOn()) ||
-    (typeof batteryModeOn === "function" && batteryModeOn());
+    batteryModeOn();
   // data-mode is always resolved to light or dark, including under "System",
   // so this no longer has to re-derive it from two sources.
   const dark = resolvedTheme() === "dark";
@@ -3028,7 +3028,7 @@ async function renderDigestWidget(body) {
     offline.className = "ai-offline-note hidden";
     offline.dataset.offlineLine = "No model is connected, so the digest cannot be written yet.";
     body.append(generate, offline);
-    if (typeof syncModelGatedControls === "function") syncModelGatedControls();
+    syncModelGatedControls();
   }
 }
 
@@ -4153,7 +4153,7 @@ async function undoActorFrom(actor, since, byId, rerender) {
       body: JSON.stringify({ actor, since, dry_run: false }),
     });
     toast(`Put back ${done.undone} note${done.undone === 1 ? "" : "s"}.`);
-    if (typeof loadEntries === "function") await loadEntries().catch(() => {});
+    await loadEntries().catch(() => {});
     rerender();
   } catch (error) {
     toast(error.message || "Couldn't undo that.", true);

@@ -248,7 +248,7 @@ function renderBrandLogo() {
     if (holder) renderEmblemWhenShown(holder, size, animate);
   }
   //: The assistant heads that wear the emblem take the new colour or motion.
-  if (typeof repaintAssistantAvatars === "function") repaintAssistantAvatars(true);
+  repaintAssistantAvatars(true);
 }
 
 //: **An emblem nobody can see is drawn when it can be** (the performance
@@ -601,7 +601,7 @@ function dockTabBar(toBottom) {
   }
   // The fade is about a strip that scrolls inside the header; recompute it
   // for wherever the strip now lives.
-  if (typeof syncTabOverflowFade === "function") syncTabOverflowFade();
+  syncTabOverflowFade();
 }
 
 function initBottomTabBar() {
@@ -1118,7 +1118,7 @@ function dockChatAttachments(toStrip) {
       box.placeholder = box.dataset.placeholderHome;
       delete box.dataset.placeholderHome;
     }
-    if (typeof autoGrow === "function") autoGrow(box);
+    autoGrow(box);
   }
   if (toStrip) {
     if (!movers.length) return;
@@ -2070,7 +2070,7 @@ async function renderExportsList() {
     name.title = file.filename;
     const facts = document.createElement("span");
     facts.className = "muted text-sm exports-facts";
-    const size = typeof formatFileSize === "function" ? formatFileSize(file.bytes) : `${file.bytes} B`;
+    const size = formatFileSize(file.bytes);
     facts.textContent = `${size} · ${relativeTime(file.modified_at)}`;
     const get = smallButton("ph:download-simple Download", `Download ${file.filename}`, async () => {
       try {

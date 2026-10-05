@@ -44,7 +44,7 @@ document.getElementById("settings-nav")?.addEventListener("keydown", (event) => 
   //: Page Up and Page Down still read the pane from the list (INBOX 426 u's
   //: reading keys, now that a click leaves the focus here: INBOX 467).
   if ((event.key === "PageDown" || event.key === "PageUp") && document.activeElement?.closest("#settings-nav")) {
-    const scroller = typeof settingsScroller === "function" ? settingsScroller(currentSettingsSection) : null;
+    const scroller = settingsScroller(currentSettingsSection);
     if (scroller) {
       event.preventDefault();
       scroller.scrollBy({ top: (event.key === "PageDown" ? 1 : -1) * scroller.clientHeight * 0.9 });
@@ -108,7 +108,7 @@ function settingsScroller(name) {
 function showSettingsSection(name) {
   //: The companion's one-time nudge (avatars.js) may show when Appearance
   //: is first opened.
-  if (name === "appearance" && typeof nameMarkBuddyHint === "function") nameMarkBuddyHint(true);
+  if (name === "appearance") nameMarkBuddyHint(true);
   //: Reported: reopening Settings lands on Models "but the scroll doesn't
   //: reset", so the first section opened halfway down. The section's own
   //: scrolling ancestor goes back to the top whenever the section changes.
@@ -121,7 +121,7 @@ function showSettingsSection(name) {
   // nothing actually changed and while a back/forward move is in progress
   // (tabHistory.navigating), the same guard showNotesSection already relies
   // on for Notes' own sub-tabs.
-  if (typeof recordTabVisit === "function") recordTabVisit("settings", name);
+  recordTabVisit("settings", name);
   for (const section of SETTINGS_SECTIONS) {
     $(`settings-${section}`).classList.toggle("hidden", section !== name);
   }
@@ -195,7 +195,7 @@ function showSettingsSection(name) {
   if (name === "about") renderHealthBlock().catch(() => {});
   //: The "Last run" lines on this section's controls, and the Background jobs
   //: overview (INBOX 438): one fetch fills every line on the page.
-  if (typeof refreshJobRuns === "function") refreshJobRuns();
+  refreshJobRuns();
 }
 
 // Peek fades the settings panel so a colour change is visible on the page
@@ -262,7 +262,7 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   //: reported still showing an older look (the owner at release) and not
   //: reproduced, so whatever path changed the look without a repaint, the
   //: window never opens on a stale one.
-  if (typeof paintUserMarks === "function") paintUserMarks();
+  paintUserMarks();
   $("settings-close").focus();
   //: The version alone: "46 entries loaded" was a debugging line (the
   //: client's cache size, drafts included) sitting beside the Health
@@ -320,7 +320,7 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   //: The setting search's results, each long section's index and the model
   //: cards arrive with the first open (app.js `LAZY_MODULES.settingsUi`);
   //: every call into them is behind a `typeof` guard.
-  if (typeof ensureModule === "function") await ensureModule("settingsUi");
+  await ensureModule("settingsUi");
   //: Settings, Help's topics, from the Guide's own table (settings-find.js).
   if (typeof renderHelpTopics === "function") renderHelpTopics();
   showSettingsSection(section);
@@ -643,7 +643,7 @@ function filterSettings(term) {
 
 function closeSettingsModal() {
   //: The address and the title go back to the tab under it (router.js).
-  if (typeof routerSettle === "function") routerSettle();
+  routerSettle();
   const search = $("settings-search");
   if (search) {
     search.value = "";
@@ -655,7 +655,7 @@ function closeSettingsModal() {
   //: A select's list escapes to <body> while it is open, so it does not go
   //: away with the window: closing Settings with one open left the list
   //: floating over the page (measured, scratchpad/ui-sweeps/menus.js).
-  if (typeof closeActionMenus === "function") closeActionMenus();
+  closeActionMenus();
   $("settings-modal").classList.add("hidden");
   overlayReturnFocus?.focus?.();
   overlayReturnFocus = null;
@@ -2195,7 +2195,7 @@ function applyAppearance() {
   measureLabelOptics();
   root.dataset.density = effectiveDensity();
   //: The dashboard's own level follows the app's Compact (dashboard.js).
-  if (typeof applyDashDensity === "function") applyDashDensity(dashDensity(), { persist: false });
+  applyDashDensity(dashDensity(), { persist: false });
   const perf = perfModeOn();
   root.dataset.perf = perf ? "on" : "off";
   // The preferences themselves are untouched: Performance mode overrides
@@ -2209,7 +2209,7 @@ function applyAppearance() {
   root.dataset.progressMotion = appearancePref("progress-motion");
   root.dataset.avatarMotion = appearancePref("avatar-motion");
   root.dataset.avatarFollow = appearancePref("avatar-follow");
-  if (typeof syncNameMarkBuddy === "function") syncNameMarkBuddy();
+  syncNameMarkBuddy();
   root.style.setProperty("--bg-art-opacity", Number(appearancePref("bg-intensity")) / 100);
   // Cards thin out slightly while the art is on, so it reads through the page
   // rather than only in the margins.
@@ -2422,16 +2422,16 @@ function renderAppearance() {
   $("avatar-motion").value = appearancePref("avatar-motion");
   $("avatar-follow").checked = appearancePref("avatar-follow") === "on";
   $("avatar-buddy").value = appearancePref("avatar-buddy");
-  if (typeof mountBuddyCustom === "function") mountBuddyCustom();
-  if (typeof mountBuddyActivities === "function") mountBuddyActivities();
-  if (typeof mountBuddyPresets === "function") mountBuddyPresets();
+  mountBuddyCustom();
+  mountBuddyActivities();
+  mountBuddyPresets();
   try {
     $("avatar-buddy-motion").value = prefs.get("avatar-buddy-motion", null) || "follow";
   } catch (e) {
     $("avatar-buddy-motion").value = "follow";
   }
-  if (typeof nameMarkBuddyMotionApply === "function") nameMarkBuddyMotionApply();
-  if (typeof nameMarkBuddySizeSelect === "function") nameMarkBuddySizeSelect();
+  nameMarkBuddyMotionApply();
+  nameMarkBuddySizeSelect();
   $("atlas-style").value = appearancePref("atlas-style");
   $("assistant-avatar").value = appearancePref("assistant-avatar");
   $("atlas-look").value = appearancePref("atlas-look");
@@ -2520,7 +2520,7 @@ function renderBgStyleHint() {
   if (!hint) return;
   const style = bgArtStyle();
   let text = "";
-  if ((style === "microbes" || style === "mycelium") && typeof bgArtStrains === "function") {
+  if ((style === "microbes" || style === "mycelium")) {
     const seed = bgArtSeedText();
     const names = bgArtStrains(seed, bgArtStrainCount(seed)).map(bgArtSpeciesName);
     const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
@@ -2788,7 +2788,7 @@ function startBgArt() {
   const reduceMotion =
     bgMotion === "still" ||
     perfModeOn() ||
-    (typeof batteryModeOn === "function" && batteryModeOn()) ||
+    batteryModeOn() ||
     (bgMotion !== "moving" && reducedMotionWanted());
   const bgStyle = bgArtStyle();
   //: No p5: the art draws on its own canvas (bg-art.js), so it mounts at
@@ -3019,25 +3019,25 @@ try {
 $("avatar-buddy-recall").addEventListener("click", () => nameMarkBuddyCallBack());
 $("atlas-style").addEventListener("change", (e) => {
   localStorage.setItem("atlas-style", e.target.value);
-  if (typeof atlasRepaint === "function") atlasRepaint();
+  atlasRepaint();
 });
 $("assistant-avatar").addEventListener("change", (e) => {
   localStorage.setItem("assistant-avatar", e.target.value);
-  if (typeof repaintAssistantAvatars === "function") repaintAssistantAvatars();
+  repaintAssistantAvatars();
 });
 $("atlas-look").addEventListener("change", (e) => {
   localStorage.setItem("atlas-look", e.target.value);
-  if (typeof atlasRepaint === "function") atlasRepaint();
+  atlasRepaint();
 });
 $("face-look").addEventListener("change", (e) => {
   localStorage.setItem("face-look", e.target.value);
-  if (typeof nameMarkRepaintAll === "function") nameMarkRepaintAll();
+  nameMarkRepaintAll();
   //: An Atlas on Auto takes its look from here (`atlasLook`).
-  if (typeof atlasRepaint === "function") atlasRepaint();
+  atlasRepaint();
 });
 $("dash-mark").addEventListener("change", (e) => {
   localStorage.setItem("dash-mark", e.target.value);
-  if (typeof paintDashEmblem === "function") paintDashEmblem();
+  paintDashEmblem();
 });
 $("avatar-motion").addEventListener("change", (e) => {
   localStorage.setItem("avatar-motion", e.target.value);
@@ -3920,7 +3920,7 @@ function learnedRow(fact) {
   const parts = [];
   if (fact.model) parts.push(fact.model);
   if (typeof fact.confidence === "number") parts.push(`${Math.round(fact.confidence * 100)}% sure`);
-  if (fact.computed_at && typeof relativeTime === "function") parts.push(relativeTime(fact.computed_at));
+  if (fact.computed_at) parts.push(relativeTime(fact.computed_at));
   meta.textContent = parts.join(" · ");
   li.appendChild(meta);
 

@@ -414,7 +414,7 @@ function editorNotifyHost(textarea) {
   //: silently stopped growing. Found by driving the capture box
   //: (`scratchpad/ui-sweeps/cm-notes.js`), not by reading: the surface wears
   //: enough of a textarea's names that the call site reads as correct.
-  if (typeof autoGrow === "function" && textarea.classList.contains("autogrow")) {
+  if (textarea.classList.contains("autogrow")) {
     autoGrow(textarea.el);
   }
 }
@@ -1173,11 +1173,10 @@ function editorLinkMatches(needle) {
   //: can do is ask for the list and let the *next* keystroke show it. The
   //: request itself is cached for 8s inside `loadMapBoardIndex`, so a burst
   //: of typing costs one call.
-  if (typeof mapBoardRows === "function" && !mapBoardRows().length
-      && typeof loadMapBoardIndex === "function") {
+  if (!mapBoardRows().length) {
     loadMapBoardIndex();
   }
-  const boards = (typeof mapBoardRows === "function" ? mapBoardRows() : [])
+  const boards = mapBoardRows()
     .filter((b) => b.id != null)
     .filter((b) => !query || String(b.title || "").toLowerCase().includes(query))
     .slice(0, 3)
@@ -1334,7 +1333,7 @@ function editorRenderPreview(item) {
   if (pane.dataset.for === item.id) return;
   pane.dataset.for = item.id || "";
   let sample = item.entry ? richPickerLines(item.entry.content) : null;
-  if (!sample && item.sample && typeof renderMarkdown === "function") {
+  if (!sample && item.sample) {
     sample = document.createElement("div");
     renderMarkdown(sample, item.sample);
   }
@@ -2075,7 +2074,7 @@ function editorChoiceDialog(message, choices) {
 async function offerToCreateWikiTarget(name) {
   //: A board reference keeps its bar (it is read just below); any other link
   //: offers to create the note its target names, not `Target|Shown`.
-  const wanted = String((typeof wikiLinkTarget === "function" ? wikiLinkTarget(name) : name) || "").trim();
+  const wanted = String(wikiLinkTarget(name) || "").trim();
   if (!wanted) return;
 
   //: **A board reference is not a name that can be created** (INBOX 309).
@@ -2084,7 +2083,7 @@ async function offerToCreateWikiTarget(name) {
   //: create "a note beginning board:12|House jobs" would make a note nobody
   //: wants and still leave the link dead, which is the dead end this
   //: function exists to remove, not a new one.
-  const ref = typeof boardEmbedRef === "function" ? boardEmbedRef(wanted) : null;
+  const ref = boardEmbedRef(wanted);
   if (ref) {
     toast(`\u201c${ref.title || "That board"}\u201d is no longer in your notebook.`);
     return;

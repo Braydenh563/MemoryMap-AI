@@ -1735,7 +1735,7 @@ function boardEmbedRef(name) {
 //: between a tombstone that is right and one that is merely early.
 function boardEmbedTarget(ref) {
   if (!ref || !ref.id) return null;
-  const byId = typeof mapBoardById === "function" ? mapBoardById(ref.id) : null;
+  const byId = mapBoardById(ref.id);
   if (byId) return byId;
   if (!ref.title || typeof mapBoardTitled !== "function") return null;
   return mapBoardTitled(ref.title.toLowerCase());

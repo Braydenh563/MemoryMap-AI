@@ -252,7 +252,7 @@ function agentOpenSubject() {
   //: which entry ids are boards, and a board row carries its own `type`, so a
   //: map is named a map and a board a board.
   const asBoard = (id) => {
-    const board = typeof mapBoardById === "function" ? mapBoardById(id) : null;
+    const board = mapBoardById(id);
     if (!board) return null;
     const kind = (board.type || "map") === "map" ? "map" : "board";
     return { kind, id, label: board.title || `${kind} ${id}` };
@@ -326,7 +326,7 @@ function syncAgentOpenNoteToggle() {
   //: working: it would look fixed. Asked for once per opening (the flag is
   //: cleared by `toggleAgentPalette`), and the repaint is what puts the right
   //: word on the label when the answer arrives.
-  if (!agentBoardIndexAsked && typeof loadMapBoardIndex === "function") {
+  if (!agentBoardIndexAsked) {
     agentBoardIndexAsked = true;
     loadMapBoardIndex().then(() => syncAgentOpenNoteToggle()).catch(() => {});
   }
@@ -736,7 +736,7 @@ function cmdNoteName(entry) {
     .map((line) => line.trim())
     .find((line) => line.length > 0);
   if (!first) return "";
-  const clean = (typeof notePreviewText === "function" ? notePreviewText(first) : first)
+  const clean = notePreviewText(first)
     .replace(/\s+/g, " ")
     .trim();
   if (!clean) return "";

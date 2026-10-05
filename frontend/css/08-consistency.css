@@ -582,6 +582,7 @@ details[open] > .about-whats-new::before,
 .dock > .dock-identity {
   flex: 0 0 auto;
   min-width: auto;
+  min-height: var(--control-h);
 }
 
 .dock .dock-identity h2 {
@@ -930,6 +931,7 @@ details[open] > .about-whats-new::before,
 .setting-check:has(input[type="checkbox"]:checked):hover {
   background: var(--row-hover-bg);
 }
+
 
 /* One stack, one line between its rows. The negative margin that used to
    collapse the gap between consecutive rows goes with it: it existed to make
@@ -3769,19 +3771,18 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    under it.
 
    Now every "?" ends on the group content edge (16px inside the pane), and
-   the pane title is the pane's heading: ink, one step above body, flush
-   with the description and the groups below it. */
-#settings-modal .settings-section > .help-head {
-  padding-inline: 0 var(--space-6);
-  /* A pane whose first child is a group (Appearance, Import & export) had
-     its new title flush on the group's border, 0px apart. */
-  margin-bottom: var(--space-4);
-}
+   the pane title is the pane's heading: ink, flush with the description and
+   the groups below it.
 
-#settings-modal .settings-section > .help-head > h3 {
-  padding: 0;
-  font-size: var(--text-h3);
-  font-weight: 600;
+   **Then the head became the pane's dock** (INBOX 599, the owner: "keep
+   doing it for the settings pages ... make sure all the design styles across
+   all pages and popups are consistent"). Measured with `settingsheads.js`:
+   21 panes opened on a bare 18.4px title with its '?' far right, while Logs
+   and every Library view opened on a `.dock` bar at a 16px title, and Logs'
+   own title drew 12px (the `.card h3` eyebrow). Every pane now opens on the
+   bar, its title the dock's 16px 600 and its '?' in the actions zone. */
+#settings-modal .settings-section > .dock h3 {
+  font-size: var(--text-body);
   color: var(--ink);
   text-transform: none;
   letter-spacing: 0;
@@ -10321,42 +10322,22 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
   font-weight: 500;
 }
 
-/* --- the AI skills dock: one row where it fits, two on purpose where not ---
-   INBOX 450, the owner: "the top bar in the ai skills page overflows". The
-   dock is the Library's grammar (identity, find, arrange, actions), but the
-   search asked for a 14rem basis and the row broke wherever it ran out, so
-   at 1440 with a Windows scrollbar New skill and '?' fell to a line of their
-   own under a full one (90px; measured with SCROLLBARS=1). The search takes
-   the Notes dock's 8rem basis and the sort the Notes dock's 9rem cap, so
-   the whole row needs about 58rem: at that width or more it is one line.
-   Narrower (a 1100 window beside the logs sidebar is a 742px dock), the
-   break is chosen rather than suffered: the title, the search and the
-   actions keep the first line and the segment and the sort take the second,
-   the segment at the start and the sort at the end. Measured on the page's
-   own width (a container query), because the logs sidebar, not the window,
-   decides what it has. Above the phone band only: below 600 the zone is
-   already laid out (10-responsive.css). */
-#library-skills-section {
-  container: skills-page / inline-size;
-}
-
+/* --- the AI skills dock: one row where it fits (INBOX 450, 599) ----------
+   The search takes an 8rem basis and the sort is an icon picker, so the row
+   holds a 662px dock; in a dock under 700px the segment and sort take a
+   second line on purpose, measured on the dock (the logs column decides it).
+   Below 600, 10-responsive.css lays the zone out (`display: contents`). */
 .dock[data-dock-name="library-skills"] .dock-find {
   flex: 1 1 8rem;
 }
 
-.dock[data-dock-name="library-skills"] .dock-arrange .select-shell {
-  max-width: 9rem;
-}
-
-@media (min-width: 600px) {
-  @container skills-page (max-width: 57.99rem) {
-    .dock[data-dock-name="library-skills"] > .dock-arrange {
-      order: 1;
-      flex: 1 1 100%;
-      justify-content: space-between;
-      border-left: 0;
-      padding-left: 0;
-    }
+@container dock (max-width: 700px) {
+  .dock[data-dock-name="library-skills"] > .dock-arrange {
+    order: 1;
+    flex: 1 1 100%;
+    justify-content: space-between;
+    border-left: 0;
+    padding-left: 0;
   }
 }
 
@@ -11060,4 +11041,25 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 :root[data-simple="on"] #sampling-box,
 :root[data-simple="on"] [data-help-for="sampling-help"] {
   display: none;
+}
+
+/* A dock holds one row (INBOX 599; settingsheads.js, tests/test_ui_recipes.py):
+   a segment's `.toolbar-word`s leave a narrow dock, measured on the dock. */
+.dock:has(.toolbar-word) {
+  container: dock / inline-size;
+}
+
+@container dock (max-width: 57.99rem) {
+  .seg .toolbar-word {
+    position: absolute;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* An icon picker keeps the dock's inset (a sort takes input, section 3) and
+   drops the 9rem floor a worded select needs: its value is not on screen. */
+.dock .select-shell:has(.select-opener-icon) {
+  min-width: 0;
 }

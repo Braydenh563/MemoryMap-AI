@@ -801,15 +801,14 @@ function libraryActions(item) {
       }),
       //: The shared "act on this" rows (INBOX 393): every object can be taken
       //: to the chat that answers about it.
+      makeMenuItem("ph:graph Show in graph", "Open the graph centred on this document", () =>
+        showNoteInGraph(item.id, { document: true })
+      ),
       makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this document", () =>
         askAtlasAboutThing("document", item.title)
       ),
       //: The rest of the "act on this" vocabulary (WORLD_CLASS_PLAN 1.3,
-      //: row 15): the graph draws documents behind its Documents switch, and
-      //: a reminder can point at a document.
-      makeMenuItem("ph:graph Show in graph", "Open the graph with documents shown, centred on this one", () =>
-        showDocumentInGraph(item.id)
-      ),
+      //: row 15): a reminder can point at a document.
       makeMenuItem("ph:alarm Remind me", "Set a reminder about this document", () =>
         remindAbout({ title: item.title, documentId: item.id })
       ),
@@ -1013,19 +1012,6 @@ function binRoutes(item) {
     return { noun: "reminder", restore: `/reminders/${item.id}/restore`, purge: `/reminders/${item.id}/purge`, reload: () => loadReminders() };
   }
   return { noun: "note", restore: `/entries/${item.id}/restore`, purge: `/entries/${item.id}/purge`, reload: () => refreshEntries([item.id]) };
-}
-
-//: A document on the graph (WORLD_CLASS_PLAN 1.3, row 15). Documents are
-//: drawn only with the Show, Documents switch on, so this turns it on first;
-//: the node's id is `document:<id>` (`routes_graph._add_document_nodes`).
-async function showDocumentInGraph(id) {
-  await switchTab("graph");
-  const box = document.getElementById("graph-documents");
-  if (box && !box.checked) {
-    box.checked = true;
-    box.dispatchEvent(new Event("change", { bubbles: true }));
-  }
-  await showNoteInGraph(`document:${id}`, "document");
 }
 
 //: Link a Library note to another, chosen from a picker. The same route the
@@ -7306,7 +7292,10 @@ function filterLibraryImagesGallery() {
       // `/media/pdf-page/{name}`); this is the same call at thumbnail size.
       // The glyph stays underneath as the fallback for everything without
       // pages, and for a PDF whose render fails.
-      if (image.has_pages || /\.pdf$/i.test(image.original_name || "")) {
+      // Only when the server says it can draw one (`has_pages`): a name
+      // ending in .pdf on an install without the render extra was four 404s
+      // per render of the Files sub-tab, one per document row.
+      if (image.has_pages) {
         const page = document.createElement("img");
         page.className = "library-file-page";
         page.loading = "lazy";

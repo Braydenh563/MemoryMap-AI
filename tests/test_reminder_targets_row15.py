@@ -62,8 +62,8 @@ def test_the_menus_offer_the_rows():
     assert "linkNoteFromLibrary(" in note
     document = LIBRARY.split('if (item.kind === "document") {', 1)[1].split('if (item.kind === "archived") {', 1)[0]
     assert "remindAbout(" in document
-    assert "showDocumentInGraph(" in document
+    #: The note's door takes a document too (note-cards.js, `{ document: true }`).
+    assert "showNoteInGraph(item.id, { document: true })" in document
     assert "remindAbout(" in BOARDS
     app = app_js_text()
     assert "function remindAbout(" in app
-    assert "function showDocumentInGraph(" in app + LIBRARY

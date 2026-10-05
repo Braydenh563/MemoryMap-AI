@@ -63,16 +63,6 @@ with its owner named in the entry.
      Placed: the next whiteboard agent, after the integration merges the
      whiteboard phase 2 branch (same files).
 
-599. **The owner, 2026-10-05, verbatim.** "can you clean up and redesign
-     this top docks?? I love some of the stuff youve done to further
-     modernise the ui of the app. can you keep doing it for the settings
-     pages adn popups and in more places?? make sure all the design styles
-     across all pages and popups are consistent." (screenshot: Settings, AI
-     skills head: title, a long search box, divider, a filled New skill and
-     a '?' on one row; the All/Yours/Built-in segment with counts and a
-     "Yours first" select on a second row, the select a different height.)
-     Placed: next agent slot (Opus, design): Settings docks and popups onto
-     the modern dock recipe, one consistent style everywhere.
 600. **The owner, 2026-10-05, verbatim.** "when I click on atlas in the
      enlarged view, it might sway or do something for a couple seconds but
      will then snap still." Placed: the Atlas agent slot.
@@ -85,14 +75,6 @@ with its owner named in the entry.
      animation as well. also I want to be able to double tab the drag to
      resize circle on the companion to reset it to default size." Placed:
      the Atlas agent slot, with 600.
-606. **The owner, 2026-10-05, verbatim.** "something about the design,
-     ui/ux of the note edit form still feels off..." (screenshot: the edit
-     form: a full-width Title field; a "Formatting" label row with three
-     icons and a boxed Source toggle; the body with a line number; one row
-     of a long tags field, a "Core Concepts" select, a filled Save changes
-     and Cancel; a Related row of "≈ title" texts each with a boxed Link
-     button; a separate boxed "Attach a link" button.) Placed: the Settings
-     and popups design agent's queue (599), as the same recipe pass.
 607. **The owner, 2026-10-05, verbatim.** "I made a mind map from the graph
      but the notification included no link to it" (toast: "Mind map "test"
      made from 33 notes. It is in Library, Boards." with no action) and "this
@@ -128,6 +110,43 @@ with its owner named in the entry.
      appear on select, text size on the node's bar, inline edit), one clear
      node toolbar instead of nested popup menus, every node property
      reachable in at most two steps, measured by a task sweep.
+
+616. **The owner, 2026-10-05, verbatim.** "its better but still needs a more
+     modern and professional ui/ux redesign (the note edit form)"
+     (screenshot of the 606 form: boxed title band, a heavy mixed toolbar,
+     big chips with a doubled #, a floating category select, large Related
+     rows, big Cancel and Save). Then: "the note edit form attach a link
+     button doesnt do anything" and "there is no padding around the tag
+     entries, and the formatting toolbar looks really awkward when collapsed
+     and the core concepts dropdown is completely out of place and badly
+     designed". Placed: the design-rows agent, first.
+617. **The owner, 2026-10-05, verbatim.** "on the mind map when selecting a
+     group of nodes, it defaults to the whiteboard selection and popup menus
+     and right click menus etc" (screenshots: the board's group box, its
+     right-click menu and its align/distribute bar on map topics). Placed:
+     the board and map agent, with 610.
+
+618. **The owner, 2026-10-05, verbatim.** "do the top bar and bottom bar
+     need a more modern and professional ui/ux redesign or adjustments at
+     all or are they fine??" Recommendation taken: top bar polish (spaces
+     picker as a ghost control matching the tab pills, active tab without
+     extra bold, a smaller logo tile, power secondary); bottom bar declutter
+     (counts quiet, Agent/Guide/Find icon-only with tooltips, Commands the one
+     labelled door, the status mark explained, the clock optional, history
+     arrows grouped with undo/redo). Placed: the design-rows agent, after 616.
+
+619. **The owner, 2026-10-05, verbatim.** "the lower body on the feminine
+     atlas is also slightly misaligned. and when sleeping etc, her lower body
+     actually rotates halfway off her upperbody which stays mostly upright.
+     female atlas's eyes went blank white for a sec and it looked creepy.
+     also it still snaps between behaviours and no behaviours." and "in the
+     enlarged preview atlas is still hanging, it should be slightly separate
+     from the companion but still have the same life". Placed: the Atlas
+     agent (with 600, 601, 612, 614, 615).
+620. **The owner, 2026-10-05, verbatim.** "can you also improve and
+     modernise the quick sketch a little more as well?? it is already mostly
+     fine, maybe a bit more of a gap below the top row title and close
+     button". Placed: the design-rows agent, after 618.
 
 ## Placed (last 20, newest first)
 

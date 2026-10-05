@@ -232,18 +232,68 @@ function renderEditForm(li, entry) {
   textarea.addEventListener("focus", () => autoGrow(textarea));
   requestAnimationFrame(() => autoGrow(textarea));
 
+  //: **Tags are chips with one input** (INBOX 606, the owner: the edit form
+  //: "still feels off", with a long comma field in the screenshot). The comma
+  //: string the save reads stays in a hidden input; each tag is a `.chip.tag`
+  //: that removes itself on a press, and Enter, a comma or leaving the field
+  //: makes a chip of what was typed; Backspace in an empty field takes the last.
   const tagsInput = document.createElement("input");
-  tagsInput.type = "text";
-  tagsInput.placeholder = "Tags, comma separated";
+  tagsInput.type = "hidden";
   tagsInput.value = draft ? draft.tags : entry.tags.join(", ");
-  tagsInput.className = "note-edit-tags";
-  tagsInput.setAttribute("aria-label", "Tags, comma separated");
-  tagsInput.autocomplete = "off";
-  tagsInput.addEventListener("input", () => { noteFormDirty = true; });
+  const tagField = document.createElement("div");
+  tagField.className = "search-field tag-field note-edit-tags";
+  const tagEntry = document.createElement("input");
+  tagEntry.type = "text";
+  tagEntry.className = "search-field-input";
+  tagEntry.placeholder = "Add a tag";
+  tagEntry.setAttribute("aria-label", "Add a tag");
+  tagEntry.autocomplete = "off";
+  tagField.append(Object.assign(document.createElement("i"), { className: "ph ph-hash search-field-icon" }), tagsInput, tagEntry);
+  const tagList = () => tagsInput.value.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean);
+  const setTags = (tags) => {
+    tagsInput.value = [...new Set(tags)].join(", ");
+    noteFormDirty = true;
+    keepDraft();
+    drawTagChips();
+  };
+  const commitTag = () => {
+    const typed = tagEntry.value.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean);
+    tagEntry.value = "";
+    if (typed.length) setTags([...tagList(), ...typed]);
+  };
+  function drawTagChips() {
+    for (const old of tagField.querySelectorAll(".chip")) old.remove();
+    for (const tag of tagList()) {
+      const tagChip = chip(`#${tag}`, "tag", () => {
+        setTags(tagList().filter((t) => t !== tag));
+        tagEntry.focus();
+      });
+      tagChip.append(Object.assign(document.createElement("i"), { className: "ph ph-x" }));
+      tagChip.title = `Remove #${tag}`;
+      tagChip.setAttribute("aria-label", `Remove tag ${tag}`);
+      tagField.insertBefore(tagChip, tagEntry);
+    }
+  }
+  drawTagChips();
+  tagEntry.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === ",") {
+      event.preventDefault();
+      commitTag();
+    } else if (event.key === "Backspace" && !tagEntry.value && tagList().length) {
+      setTags(tagList().slice(0, -1));
+    }
+  });
+  //: A suggestion taken from the tag list (tag-suggest.js) arrives as "tag, ".
+  tagEntry.addEventListener("input", () => {
+    noteFormDirty = true;
+    if (tagEntry.value.includes(",")) commitTag();
+  });
+  tagEntry.addEventListener("blur", commitTag);
+  tagField.addEventListener("click", (event) => { if (event.target === tagField) tagEntry.focus(); });
   if (focusTagsAfterRender === entry.id) {
     focusTagsAfterRender = null;
     // The form is not in the document yet; focus once it is.
-    requestAnimationFrame(() => tagsInput.focus());
+    requestAnimationFrame(() => tagEntry.focus());
   }
   if (focusBodyAfterRender === entry.id) {
     focusBodyAfterRender = null;
@@ -261,19 +311,57 @@ function renderEditForm(li, entry) {
     categorySelect.value = draft.category;
   }
   categorySelect.addEventListener("change", () => { noteFormDirty = true; });
+  //: **The category is its chip** (INBOX 606): the note card's own category
+  //: chip, dot and name, opening a menu of the categories. The select is the
+  //: value `resolveCategoryChoice` reads, never in the page.
+  const categoryChip = chip("", "category note-edit-category", (event) => {
+    event.stopPropagation();
+    const box = categoryChip.getBoundingClientRect();
+    const items = [...categorySelect.options].map((option) => ({
+      group: option.value === "__new__" ? "new" : "pick",
+      label: `${option.value === "__new__" ? "ph:plus" : option.selected ? "ph:check" : "ph:folder-simple"} ${option.textContent.replace(/^\+ /, "")}`,
+      run: async () => {
+        let value = option.value;
+        if (value === "__new__") {
+          const name = await promptDialog("Name for the new category:", "", { confirmLabel: "Create" });
+          if (!name) return;
+          const made = Object.assign(document.createElement("option"), { value: name, textContent: name });
+          categorySelect.insertBefore(made, option);
+          value = name;
+        }
+        categorySelect.value = value;
+        categorySelect.dispatchEvent(new Event("change"));
+      },
+    }));
+    openMenuAtPoint(items, "Category", box.left, box.bottom + 4);
+  });
+  categoryChip.setAttribute("aria-haspopup", "menu");
+  const drawCategoryChip = () => {
+    const name = categorySelect.value;
+    const label = categorySelect.selectedOptions[0]?.textContent || "Let Atlas decide";
+    categoryChip.replaceChildren(
+      Object.assign(document.createElement("span"), { className: "ph-text", textContent: label }),
+      Object.assign(document.createElement("i"), { className: "ph ph-caret-down" })
+    );
+    categoryChip.setAttribute("aria-label", `Category: ${label}`);
+    if (name) paintCategoryDot(categoryChip, name);
+  };
+  drawCategoryChip();
+  categorySelect.addEventListener("change", drawCategoryChip);
   const keepDraft = () => {
     noteFormDraft = { id: entry.id, title: titleInput.value, content: textarea.value, tags: tagsInput.value, category: categorySelect.value };
   };
-  for (const field of [titleInput, textarea, tagsInput]) field.addEventListener("input", keepDraft);
+  for (const field of [titleInput, textarea]) field.addEventListener("input", keepDraft);
   categorySelect.addEventListener("change", keepDraft);
 
   const row = document.createElement("div");
   row.className = "row";
-  const saveButton = row.appendChild(
+  const saveButton = (
     smallButton(
       "Save changes",
       "Save your corrections",
       async () => {
+        commitTag();
         const category = await resolveCategoryChoice(categorySelect);
         if (category === undefined) return; // user cancelled the prompt
         //: An emptied box used to save as "Note saved." while quietly
@@ -351,15 +439,17 @@ function renderEditForm(li, entry) {
     event.preventDefault();
     if (await noteFormMayClose()) closeNoteForm();
   });
-  row.appendChild(
+  row.append(
     smallButton("Cancel", "Discard changes", async () => {
       if (await noteFormMayClose()) closeNoteForm();
-    })
+    }),
+    saveButton
   );
 
-  //: One meta row, tags, category, then Save/Cancel at the right, instead
-  //: of three stacked full-width rows under the text (reported with a
-  //: screenshot: "better ui structure").
+  //: One meta row, tags then the category (reported with a screenshot:
+  //: "better ui structure"), and the form's foot under everything: Cancel and
+  //: the one filled Save at the right, the panels' Attach a link at its left
+  //: (INBOX 606: Save sat mid-row between the fields and Cancel).
   const meta = document.createElement("div");
   meta.className = "note-edit-meta";
   row.classList.add("note-edit-actions");
@@ -376,7 +466,11 @@ function renderEditForm(li, entry) {
   };
   recount();
   for (const field of [titleInput, textarea]) field.addEventListener("input", recount);
-  meta.append(tagsInput, categorySelect, counts, row);
+  meta.append(tagField, categoryChip);
+  const foot = document.createElement("div");
+  foot.className = "note-edit-foot";
+  //: The counts sit at the right with Cancel and Save, the slack before them.
+  foot.append(counts, row);
   const toolbarEl = noteEditToolbar(textarea.id);
   //: Preview: reported: "there is no preview", then, once there was one,
   //: "if the formatting bar was the same, the preview button would be in
@@ -400,7 +494,13 @@ function renderEditForm(li, entry) {
   chipsHost.id = "entry-edit-attachment-chips";
   chipsHost.setAttribute("role", "group");
   chipsHost.setAttribute("aria-label", "Files in this note");
-  li.append(titleInput, toolbarEl, textarea, chipsHost, meta);
+  //: **One writing surface** (INBOX 606): the title, the strip and the text
+  //: in the capture box's own `.note-composer`, which carries the edge, the
+  //: ground and the focus ring for all three; they were three boxes.
+  const surface = document.createElement("div");
+  surface.className = "note-composer note-edit-surface";
+  surface.append(titleInput, toolbarEl, textarea);
+  li.append(surface, chipsHost, meta, foot);
   // The same line-number gutter the capture box and the documents editor
   // carry (documents.js `mountGutterFor`); it follows the one remembered
   // choice, so a person who turned numbers on in Capture sees them here too.

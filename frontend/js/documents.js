@@ -17522,7 +17522,13 @@ function placeDocSuggest() {
   const menu = $("doc-suggest-menu");
   if (!menu || !docSuggestAnchor || menu.classList.contains("hidden")) return;
   //: Measured after it is visible, because a hidden element measures zero and
-  //: a menu positioned against zero opens in the corner.
+  //: a menu positioned against zero opens in the corner. And measured parked
+  //: at the window's left edge, not wherever the last open left it: a fixed
+  //: box with `left` and no `right` is shrink-to-fit against the room to its
+  //: right, so a short menu left near the right edge and then filled with a
+  //: long candidate measured 256px of its 316 at 390 wide and was placed
+  //: from that, its right edge on the window's (`wordmenuwidth.js`).
+  docPlaceFixed(menu, DOC_SUGGEST_EDGE, DOC_SUGGEST_EDGE);
   const width = menu.offsetWidth;
   const height = menu.offsetHeight;
   const band = docSuggestBand(width);

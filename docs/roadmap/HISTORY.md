@@ -216,6 +216,35 @@ remaining whiteboard rows; the open rest is in
   board's item, so each event is now placed by the board its payload names
   (`_board_events`; `test_a_reused_id_brings_no_other_boards_history`).
 
+## OPEN.md rows closed, 2026-10-05 (the open-ledger pass)
+
+The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section: each open row checked against the head and the running app; a row found built, or built here, is deleted from the ledger and named below with how it was verified. The pass's own account is `agent-remaining/open-ledger-pass.md`.
+
+- **The word menu measures its own width before it is placed** (Documents). Built: reproduced at 390x844 (a short menu at the right edge, then a long candidate: 256 of 316px, right edge on the window's), fixed by parking the menu with `docPlaceFixed` at the edge before `placeDocSuggest` reads `offsetWidth`; `tests/test_ui_recipes.py` holds the order, `scratchpad/ui-sweeps/wordmenuwidth.js` 5 of 5 at 1440 and 390, light and dark.
+- **A Files row asks for a PDF first page that this sandbox cannot render** (Library). Built: `GET /media` rows carry `has_pages` (a PDF and `pdfpages.available()`), the attachment gallery's `has_pages` now needs the extra too, and `renderLibraryImagesGallery` asks for a page on `has_pages` alone (the `.pdf$` name guess removed). `tests/test_pdf_first_page_only_when_renderable.py` (3); `scratchpad/ui-sweeps/pdfpagereq.js` at 1440 and 390, light and dark, against a server with `pypdfium2` hidden (0 requests, glyph on both rows) and one with it (2 requests, 0 404s).
+- **The fold chip is 128.8px of a 156.3px content column at 1440** (Library). Already built: INBOX 279 replaced the card's fold with a one-word `.library-image-text-chip` ("Text") that opens the lightbox at the reading. Measured with the new `scratchpad/ui-sweeps/foldchip.js`: 60px of a 179.4px column at 1440 (33%) and of 328.4px at 390 (18%), light and dark.
+- **The six descriptions start at six different heights** and **Two pictures in a gallery row are still different sizes when one card has nothing to say** (Library). Decided, not open: UI_MODERNISATION_PLAN's Phase 7 amendments record the trade (the picture takes the slack; a two-row subgrid was built, measured and taken out because it puts a 75px hole under the shortest card), so neither is work until the owner reports the row as ragged.
+- **Toggle rows onto one recipe (no lavender-filled bars)** (Settings and help). Mostly already built: the consistency pass (08-consistency.css) took the fill off every checked checkbox row of both classes and gave both the `--divider` hairline. Measured with the new `scratchpad/ui-sweeps/togglerows.js` (every Settings section's visible switches, grouped by shape): the one difference left was the gap, 15 checkbox `.check-row` rows at 6.4px against 8 `.setting-check` rows at 9.6px; both take `--space-4` now, and `#searxng-autostart` leads its row in the markup. After: one shape (32x18 switch at +9, 9.6px gap, no fill at rest) at 1440 and 390, light and dark. `tests/test_ui_recipes.py` holds it; DESIGN.md's on/off row names it.
+
+## INBOX resolved, 2026-10-05 (ledger-1005: OPEN.md rows)
+
+The third pass over `agent-remaining/OPEN.md` (Whiteboard and mind map and Atlas left to their agents). Each line says how the row was verified; every remaining open row now ends in a "Needs:" line.
+
+- **Open questions switch** (Learning loop). Built: `facts.run` and `_pair_passes` read `open_questions` (`questions_on`), so off stops collecting questions and matching them to answers; `tests/test_night_pairs.py` `test_the_open_questions_switch_stops_collecting_and_answering` and its on twin. The row's other three switches: `margin_reader` is read by `api/routes_editor.py`, `model_bench` by `api/routes_bench.py`; `evidence_checks` stays open (what it gates is undecided).
+- **`#doc-ai-verb` and `#graph-layout` differ in segment radius.** Decided and built: DESIGN.md's segmented-track table puts both in "a choice control" (`--radius-choice`); `scratchpad/ui-sweeps/segradius.js` reads 8.8px for both at 1440 and PASSes (its square-strip expectation now follows `.tabs-line`, 0 findings after 4).
+- **Phase 11 item 9's other half** (hover-only and long-press). Built: `hoveronly.js` (UI_MODERNISATION_PLAN Phase 11, item 9) and `tests/test_ui_recipes.py` `test_every_right_click_menu_has_a_long_press_twin` (`wireLongPress`, 23 call sites).
+- **Phase 11 items 2 to 8** (per-surface phone shapes). Built or decided, each with its gate named in UI_MODERNISATION_PLAN Phase 11 (Capture is the sub-tab behind the +, Documents open Rendered below 600, the whiteboard's tools are a sheet, Settings keeps its phone shape).
+- **uitrio.md: the focused head's `flex: 1 1 20rem` breakpoint, and the density picker hidden below 600.** The row's premise is gone: Focused is now a banner over a full-width search (07-whiteboard-misc.css, "Do not remake the one-row head"); `scratchpad/ui-sweeps/focusedhead.js` measures it at 1440, 1024, 820, 599 and 390, no sideways scroll at any width. The phone is decided in `dashCustomiseItems` ("Below 600 the view is not offered: a phone's Full is already compact").
+- **Settings Packages rows leave a 16px gap** (uipolish-0924). Measured, not so: 12.8px at 1440, 1024, 820 and 390 (`scratchpad/ui-sweeps/packagesgap.js`).
+- **The About pane's "Take tour again" greyed out with the tour off.** Closed: `TOUR_ENABLED` is pinned `true` by `tests/test_ui_recipes.py` (so the disabled branch cannot be reached), and the guard's load order that was the real fault is held by `tests/test_frontend_load_order.py`.
+- **arch.md: `entry_revisions` and `audit_log` never pruned.** Built: `EntryRevision` keeps the last `MAX_REVISIONS` (`entry/manager.py`) and `events.compact` (`COMPACT_AFTER_DAYS`, `COMPACT_KEEP_LAST`) runs at startup as `_compact_event_log` (`api/app.py`); `tests/test_events.py`.
+- **backend-0926: LAN mode binds `0.0.0.0` only (no IPv6).** Built: one dual-stack socket (`netbind.listening_socket`); `tests/test_lan_mode.py` `test_lan_mode_answers_on_ipv6_and_ipv4_from_one_server`.
+- **backend-0926: night passes for tensions and answered questions as fact kinds.** Built: passes 4 and 5 (`ai/facts.py` `_pair_passes`; `tests/test_night_pairs.py`).
+- **world-class-rows-1-2-9: `tests/test_lan_mode.py`, the "Allow other devices" toggle, S6's model address on the receipt.** Built: the test file runs the launcher in a subprocess (`test_lan_mode_end_to_end`), the toggle is `settings-panes.js` ("Allow other devices on this network"), and `tests/test_privacy_receipt.py` `test_the_model_server_address_is_on_the_receipt`.
+- **guideia.md: Show in graph for a document.** Built: the Library document card's menu row (`library.js`) goes through `showNoteInGraph(id, { document: true })` (`note-cards.js`: turns the Documents switch on, finds `document:<id>`, focuses it); `scratchpad/ui-sweeps/docingraph.js` PASS 10 of 10 at 1440 and 390 (row present before Ask Atlas, switch on, the node drawn and focused, a note leaves the switch alone), `tests/test_object_actions.py` `test_a_library_document_reaches_the_graph`. WORLD_CLASS_PLAN 1.3's table updated.
+- **guideia.md: the Chat empty state's "Try asking" chips stay pressable with no model.** Already built (UX-07): with the model off the label reads "Try in Notes, Ask:" and a chip opens Notes, Ask (`sheets-selects.js`, the chip handler on `aiIsOff()`).
+- **The Notes filter knows only `tag:`, `category:`, `is:` and phrases.** Stale text corrected, not closed: `parseNoteQuery` now also reads `in:`, `title:`, `before:` and `after:` and sends `type:`, `prop:`, `links:`, `rel:` and `entity:` to the server (`liveQuery`); `kind:`, `has:` and `space:` and the other surfaces stay open.
+
 ## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
 
 From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN
@@ -42354,6 +42383,27 @@ record.)
      Fixed 2026-10-05: Packages has bundles (Documents, Vision, AI, Voice,
      Desktop, Code), bulk install, reinstall and remove as one background job
      with per-package progress, and pictures in the Word export (ec52214).
+
+599. **The owner, 2026-10-05, verbatim.** "can you clean up and redesign
+     this top docks?? I love some of the stuff youve done to further
+     modernise the ui of the app. can you keep doing it for the settings
+     pages adn popups and in more places?? make sure all the design styles
+     across all pages and popups are consistent." (screenshot: Settings, AI
+     skills head: title, a long search box, divider, a filled New skill and
+     a '?' on one row; the All/Yours/Built-in segment with counts and a
+     "Yours first" select on a second row, the select a different height.)
+     Placed: next agent slot (Opus, design): Settings docks and popups onto
+     the modern dock recipe, one consistent style everywhere.
+     Fixed 2026-10-05: every Settings pane head is one 50px sticky bar (title, section links, '?'), the AI skills dock one row at 1100+, every dialog's button row 32px with ghosts first and the filled action last at the right (settingsheads.js, popupinv.js).
+606. **The owner, 2026-10-05, verbatim.** "something about the design,
+     ui/ux of the note edit form still feels off..." (screenshot: the edit
+     form: a full-width Title field; a "Formatting" label row with three
+     icons and a boxed Source toggle; the body with a line number; one row
+     of a long tags field, a "Core Concepts" select, a filled Save changes
+     and Cancel; a Related row of "≈ title" texts each with a boxed Link
+     button; a separate boxed "Attach a link" button.) Placed: the Settings
+     and popups design agent's queue (599), as the same recipe pass.
+     Fixed 2026-10-05: the note edit form is one composition: one writing surface, tag chips, a category chip, a foot of Attach a link, Cancel and Save; boxed buttons 3 to 0, 554 to 507px tall at 390 (noteeditflow.js 6/6).
 
 ## OPEN.md rows closed, 2026-10-05
 

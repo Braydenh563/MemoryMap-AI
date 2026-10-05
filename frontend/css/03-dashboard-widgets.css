@@ -1076,9 +1076,12 @@ header#top-bar select,
   margin-top: 0.4rem;
 }
 
+/* `--space-4` from the switch to its label, as `.setting-check`: one on/off
+   row in Settings, whichever class it carries (togglerows.js). */
 .check-row {
   display: flex;
-  gap: 0.4rem;
+  align-items: center;
+  gap: var(--space-4);
   min-width: 0;
   font-size: 0.85rem;
   cursor: pointer;
@@ -4158,17 +4161,6 @@ button.answer-figure-open {
   display: none;
 }
 
-
-/* --- Mobile Graph Toolbar Collapse --- */
-#graph-mobile-more-toggle {
-  display: none;
-}
-
-@media (max-width: 599.98px) {
-  #graph-mobile-more-toggle {
-    display: inline-flex;
-  }
-}
 
 #graph-help-toggle {
   position: static;

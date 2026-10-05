@@ -7964,18 +7964,12 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   --atl-dp: #a49fdd;
   --atl-rim: #7d74c2;
 }
-/* **Her arms read when she is small.** At the companion's 64x92 her pale
-   arms over her pale body and hair were lost (atlasmoodgrid.js: the
-   gestures of every mood read on him and not on her). A fine line of her
-   rim colour round each arm, about 3.3:1 against her skin, draws the
-   gesture; the shoulder joins (`atl-shoulders`) are painted over it, so it
-   stops where the arm leaves the body. */
-.nm-atlas[data-atlas-look="feminine"] .nmb-arm path.atl-skin {
-  stroke: var(--atl-rim);
-  stroke-width: 0.5;
-  stroke-opacity: 0.75;
-  stroke-linejoin: round;
-}
+/* Her arms carry no line of their own (INBOX 567, the owner: "the arm on
+   the right of the female atlas still looks disconnected"): the fine rim
+   line round each arm, added so her gestures read at the companion's 1x,
+   drew the step where the arm met her body. The arm takes the body's own
+   paint and rim shade, and the shoulder joins (`atl-shoulders`) are
+   painted over its root. */
 /* Round 9: the feminine chest's form in light alone (atlas.js,
    `chestLight`), no stroke: a soft glow over each side and a softer shade
    under it, both radial fades to nothing. */
@@ -8001,6 +7995,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-flyaway { fill: none; stroke: var(--atl-hi); stroke-width: 0.3; stroke-linecap: round; opacity: 0.75; }
 /* The mane's lustre (INBOX 550): a highlight band along each of her locks. */
 .nm-atlas .atl-lock-sheen { fill: white; opacity: 0.2; }
+/* INBOX 567: her back hair a shade deeper, under the locks. */
+.nm-atlas .atl-hair-back { fill: var(--atl-rim); opacity: 0.2; }
 .nm-atlas .atl-brow-halo { fill: var(--atl-tip); opacity: 0.6; }
 .nm-atlas .atl-brow-star { opacity: 0.95; }
 .nm-atlas .atl-st-chest-clear { stop-color: white; stop-opacity: 0; }

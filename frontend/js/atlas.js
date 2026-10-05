@@ -718,24 +718,34 @@ const ATLAS_LOOKS = {
     //: lock is shaded darker at the scalp fading to its light ends
     //: (`atl-hair-root`), so the whole reads as one mass growing from the
     //: head rather than a slab laid behind it.
+    //: **Soft, flowing hair, not a fan of spikes** (INBOX 567, the owner:
+    //: "can the female long hair be better redesigned to be more attractive
+    //: and beautiful and flowy ... the hair right now makes her look a
+    //: little like a punk"). Seven thin locks fanned out from the crown to
+    //: points, each its own direction. Now four broad locks (10 to 12 at
+    //: the root) sweep up over the crown together and fall down her back in
+    //: one S, each ending in a soft curl with a round tip 2.2 or more
+    //: across (`roundLocks`); a darker mass behind them carries the volume
+    //: down past the shoulder; one fine strand frames the face on the left.
+    //: Each lock has a sheen band along its curve (INBOX 550).
+    roundLocks: true,
     locks: [
-      { seg: [[27, 14, 30, -5, 50, -9, 62, 2], [62, 2, 72, 10, 74, 22, 66, 28]], w: [9, 1] },
-      { seg: [[28.6, 12, 36, -7, 56, -3, 66, 10], [66, 10, 77, 22, 77, 38, 68, 46]], w: [10, 1.2] },
-      { seg: [[33, 12, 43, 0, 60, 5, 69, 20], [69, 20, 78, 38, 75, 54, 64, 60]], w: [10.5, 1.2] },
-      { seg: [[36.4, 13.4, 45, 6, 58, 13, 63, 28], [63, 28, 69, 46, 66, 60, 56, 68]], w: [9, 1] },
-      { seg: [[38.6, 16, 45, 15, 52, 24, 54, 38], [54, 38, 56, 52, 52, 62, 44, 68]], w: [7, 0.8] },
-      { seg: [[24.6, 17, 18.4, 20, 14, 32, 17, 44], [17, 44, 19, 52, 15, 58, 11, 62]], w: [6.5, 0.8] },
-      { seg: [[31, 21, 28.8, 4, 42, -4.6, 56, -2.2], [56, -2.2, 65, 0.8, 69.4, 9, 67.4, 17]], w: [20, 3], mass: true },
+      { seg: [[27, 14, 30, -4, 50, -8, 60, 2], [60, 2, 70, 12, 68, 26, 62, 36], [62, 36, 57, 44, 59, 52, 65, 54]], w: [10, 2.4] },
+      { seg: [[29, 12, 36, -5, 56, -2, 63, 10], [63, 10, 70, 24, 64, 38, 60, 48], [60, 48, 57, 56, 60, 63, 65.4, 62.4]], w: [11.5, 2.4] },
+      { seg: [[33, 12, 42, 0, 58, 6, 61, 20], [61, 20, 64, 34, 56, 46, 54, 56], [54, 56, 52, 64, 55, 70, 60, 69.4]], w: [11, 2.4] },
+      { seg: [[37, 14, 46, 8, 56, 16, 56, 28], [56, 28, 56, 40, 48, 50, 48, 60], [48, 60, 48, 66, 51, 70, 55, 69.6]], w: [9, 2.2] },
+      { seg: [[24.6, 17, 19, 21, 16, 30, 18, 38], [18, 38, 20, 46, 17, 52, 13.6, 54]], w: [4.6, 1.4] },
+      { seg: [[31, 21, 29, 2, 46, -6, 60, 0], [60, 0, 72, 8, 72, 30, 64, 48], [64, 48, 60, 56, 52, 60, 46, 62]], w: [22, 7], mass: true },
     ],
     head: [
-      { seg: [[25.4, 15, 26, 2, 44, -1, 54, 6], [54, 6, 59, 10, 60, 16, 56, 19.6]], w: [8, 0.8] },
-      { seg: [[26.6, 12.4, 32, -1, 49, 0, 56, 10], [56, 10, 61, 15.6, 61, 22, 57, 26]], w: [8.8, 0.9] },
-      { seg: [[31, 11.4, 38, -2, 53, 1, 58, 14], [58, 14, 62, 22, 61, 30, 56, 35]], w: [9.4, 1] },
-      { seg: [[35.6, 12.6, 43, 2.6, 55, 6.4, 58, 20], [58, 20, 61, 28, 59.6, 36, 54, 41]], w: [8.6, 0.9] },
-      { seg: [[24.6, 17, 18.6, 20, 15, 30, 18, 40]], w: [6, 0.8] },
-      { seg: [[31, 20, 29, 2, 42, -6.8, 53, -3.6], [53, -3.6, 58.6, -1.4, 60.6, 5, 59, 12]], w: [18, 3], mass: true },
+      { seg: [[25.4, 15, 26, 2, 44, -1, 54, 6], [54, 6, 60, 11, 61, 18, 57, 23]], w: [8.6, 2] },
+      { seg: [[27, 12.4, 32, -1, 50, 0, 57, 10], [57, 10, 62, 17, 61, 26, 56, 31]], w: [10, 2.2] },
+      { seg: [[31, 11.4, 38, -2, 54, 2, 58, 15], [58, 15, 61, 24, 58, 32, 53, 37]], w: [10, 2.2] },
+      { seg: [[35.6, 12.6, 43, 3, 54, 8, 56, 20], [56, 20, 58, 29, 55, 36, 50, 40]], w: [8.6, 2] },
+      { seg: [[24.6, 17, 19, 21, 16, 30, 18, 38]], w: [4.6, 1.4] },
+      { seg: [[31, 20, 29, 2, 44, -6.8, 55, -3], [55, -3, 63, 1, 64, 14, 60, 26]], w: [18, 5], mass: true },
     ],
-    hairStars: [[50, -2], [62, 4], [72, 18], [77, 36], [72, 52], [62, 62], [52, 67]],
+    hairStars: [[48, -4], [60, 2], [66, 16], [66, 30], [61, 44], [60, 56], [57, 66]],
     //: **An hourglass** (INBOX 535, the reference's "defined feminine
     //: torso"): narrow shoulders (9.2 across where the arms join), a small
     //: chest curve, a clear waist (8.2 at y 51, upright there so the line
@@ -954,7 +964,7 @@ const ATLAS_GLINT_K = [1.3, 0.55, 0.9, 0.7, 1.1];
 
 function atlasBuild() {
   const tune = atlasTune();
-  const lock = (l) => ({ fill: atlasStem(l.seg, atlasTaper(l.w[0], l.w[1]), { samples: 10, cap: false }), light: atlasStemEdge(l.seg, atlasTaper(l.w[0], l.w[1]), 10), mass: !!l.mass });
+  const lock = (l, round) => ({ fill: atlasStem(l.seg, atlasTaper(l.w[0], l.w[1]), { samples: 10, cap: false, round }), light: atlasStemEdge(l.seg, atlasTaper(l.w[0], l.w[1]), 10), mass: !!l.mass });
   for (const spec of Object.values(ATLAS_LOOKS)) {
     const root = [spec.tail[0][0], spec.tail[0][1]];
     const tail = atlasTuneSegs(spec.tail, root, tune.tailLength, tune.tailCurl, spec.tail.length - 1);
@@ -973,8 +983,8 @@ function atlasBuild() {
     const last = tail[tail.length - 1];
     spec.tailTipNow = [last[6], last[7]];
     const n = tune.lockCount > 0 ? Math.round(tune.lockCount) : spec.locks.length;
-    spec.lockPaths = spec.locks.slice(0, n).map(lock);
-    spec.headPaths = spec.head.slice(0, n).map(lock);
+    spec.lockPaths = spec.locks.slice(0, n).map((l) => lock(l, !!spec.roundLocks));
+    spec.headPaths = spec.head.slice(0, n).map((l) => lock(l, !!spec.roundLocks));
     //: **Lustre** (INBOX 550): a look with a fringe (the feminine) wears a
     //: highlight band along each lock of the mane, inside its lit edge and
     //: thin at both ends (`sheen`, drawn on its own lock); the masculine none.
@@ -1551,6 +1561,8 @@ function atlasMane(parent, level, edge, look) {
       atlasMake("path", { class: "atl-overlay atl-hair-root", d: lock.fill }, mane);
       if (!lock.mass) atlasMake("path", { class: "atl-hair-light", d: lock.light }, mane);
       if (lock.sheen) atlasMake("path", { class: "atl-lock-sheen", d: lock.sheen }, mane);
+      //: INBOX 567: the hair behind, a shade deeper than the locks over it.
+      if (lock.mass && spec.roundLocks) atlasMake("path", { class: "atl-overlay atl-hair-back", d: lock.fill }, mane);
     }
   });
   if (!edge) {

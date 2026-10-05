@@ -3,7 +3,7 @@
 //
 //   BASE=http://127.0.0.1:8823 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
 //     SCRATCH=/tmp/x REF_DIR=/tmp/x/base node scratchpad/ui-sweeps/atlasluster.js
-//   PART=fringe,wisps,dress,tail,body,gap,masc,motion,cost  (default: all)
+//   PART=fringe,wisps,dress,tail,hair,body,gap,masc,motion,cost  (default: all)
 //   RUNS=3        frame-cost runs (median)
 //   REF_DIR=dir   atlas.js and 08-consistency.css from before, served in
 //                 place of the app's (lib.js's OVERRIDE_*) for every "before"
@@ -22,6 +22,8 @@
 //   REF_DIR's, its parts, and any stroke on it (none: no outline).
 // - tail (INBOX 565): her comet tail's length now over before, its tip's
 //   width, its filaments and their paint beside the wings'.
+// - hair (INBOX 567): her locks, their largest turn, and the pixels midway
+//   between neighbouring locks in the companion (the page in none).
 // - body: the head's height over the figure's (head top to the lowest point
 //   of the body), the face's height over its width, her hips over her
 //   shoulders; now and before.
@@ -39,7 +41,7 @@ const { boot } = require('./lib.js');
 const fs = require('fs');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
-const PARTS = (process.env.PART || 'fringe,wisps,dress,tail,body,gap,masc,motion,cost').split(',');
+const PARTS = (process.env.PART || 'fringe,wisps,dress,tail,hair,body,gap,masc,motion,cost').split(',');
 const RUNS = Number(process.env.RUNS || 3);
 const REF_DIR = process.env.REF_DIR || '';
 const SCRATCH = process.env.SCRATCH || '/tmp';
@@ -419,8 +421,53 @@ async function tailPart(ref) {
   return out;
 }
 
+//: INBOX 567: her long hair's locks (count, the largest turn on their
+//: outlines, so no point), and, in the companion at 6x on a magenta page,
+//: the pixels midway between neighbouring locks down their fall, which
+//: must be hair (the mass behind), never the page.
+async function hairPart() {
+  const shape = await drawingPart((page) => page.evaluate(() => {
+    localStorage.setItem('atlas-look', 'feminine');
+    const svg = atlasDraw(400, 'calm', 'full');
+    document.body.append(svg);
+    const locks = [...svg.querySelectorAll('.atl-mane .atl-lock:not(.atl-hair-mass)')];
+    const turns = locks.map((p) => window.__lusterOutline(p).turn);
+    svg.remove();
+    return { locks: locks.length, maxTurn: Math.max(...turns) };
+  }));
+  const { browser, page } = await boot({ viewport: { width: 520, height: 700 }, scale: 6 });
+  await page.evaluate(() => { document.documentElement.dataset.avatarMotion = 'off'; });
+  await mountFigure(page, 'feminine', { still: true });
+  await page.evaluate(() => { document.getElementById('luster-box').style.background = '#ff00ff'; });
+  await page.waitForTimeout(1200);
+  const pts = await page.evaluate(() => {
+    const box = document.getElementById('luster-box');
+    const mane = box.querySelector('.atl-layer-body .atl-mane');
+    const m = mane.querySelector('path').getScreenCTM();
+    const r = box.getBoundingClientRect();
+    const locks = ATLAS_LOOKS.feminine.locks.filter((l) => !l.mass).slice(0, 4);
+    const res = [];
+    for (let i = 0; i < locks.length - 1; i += 1) {
+      for (let t = 0.3; t <= 0.81; t += 0.1) {
+        const a = atlasSegsAt(locks[i].seg, t);
+        const b = atlasSegsAt(locks[i + 1].seg, t);
+        const q = new DOMPoint((a[0] + b[0]) / 2, (a[1] + b[1]) / 2).matrixTransform(m);
+        res.push([Math.round((q.x - r.left) * 6), Math.round((q.y - r.top) * 6)]);
+      }
+    }
+    return res;
+  });
+  const file = `${SCRATCH}/atlasluster-hair.png`;
+  await (await page.$('#luster-box')).screenshot({ path: file });
+  const rgb = JSON.parse(execFileSync(PY, ['-c', RGB, file, JSON.stringify(pts)]).toString());
+  await page.evaluate(() => localStorage.removeItem('atlas-look'));
+  await browser.close();
+  return { ...shape, between: rgb.length, pageBetween: rgb.filter((c) => Math.max(...c.map((v, k) => Math.abs(v - BG[k]))) < 40).length };
+}
+
 (async () => {
   const out = {};
+  if (PARTS.includes('hair')) out.hair = await hairPart();
   if (PARTS.includes('tail')) {
     out.tail = { now: await tailPart(false), ...(REF_DIR ? { before: await tailPart(true) } : {}) };
     if (out.tail.before) out.tail.lengthRatio = +(out.tail.now.length / out.tail.before.length).toFixed(2);

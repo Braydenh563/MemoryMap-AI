@@ -26,7 +26,7 @@ def test_the_feminine_look_has_no_legs_and_one_spectral_tail():
     assert "legs: false," in feminine
     # INBOX 535 (the Galaxy Seed Sower): no gown, no ribbons, one tail.
     assert 'lowerTaper: "sower",' in feminine and "skirt" not in feminine
-    assert feminine.count("seg: [[") == 1 + 7 + 6 + 3 + 5  # the tail, the mane's locks, the head's locks, the astral wisps, the fringe's locks
+    assert feminine.count("seg: [[") == 1 + 6 + 6 + 3 + 5  # the tail, the mane's locks (INBOX 567: four, a framing strand, the mass), the head's locks, the astral wisps, the fringe's locks
     # No leg layers are built for a look without legs, and none is drawn.
     assert 'const legs = spec.legs !== false;' in ATLAS
     assert '...(legs ? ["leg-l", "leg-r"] : [])' in ATLAS
@@ -719,15 +719,18 @@ def test_the_props_hang_from_each_look_s_own_hand():
     assert "const grip = (ATLAS_LOOKS[look] || {}).propHand || hand;" in ATLAS
 
 
-def test_a_head_scratch_reaches_the_head_and_her_arms_are_outlined():
+def test_a_head_scratch_reaches_the_head_and_her_arms_carry_no_line():
     # atlasarms.js: "a scratch at the head" at 103deg and 108deg left the hand
     # out at shoulder height over the rings; a left arm's positive angle turns
     # it out, so reaching the head takes 145 to 163 degrees.
     for look, al0 in (("masculine", "163deg"), ("feminine", "145deg")):
         rule = re.search(rf'\[data-atlas-look="{look}"\]\[data-atlas-mood="confused"\] \{{([^}}]+)\}}', CSS).group(1)
         assert f"--atl-al0: {al0}" in rule, look
-    # Her pale arms were lost at the companion's size (atlasmoodgrid.js).
-    assert '.nm-atlas[data-atlas-look="feminine"] .nmb-arm path.atl-skin {' in CSS
+    # Her pale arms were lost at the companion's size (atlasmoodgrid.js), and
+    # a fine rim line round each was added; INBOX 567 ("the arm on the right
+    # of the female atlas still looks disconnected") took it away again: it
+    # drew the step where the arm met the body. No line round her arms.
+    assert '.nm-atlas[data-atlas-look="feminine"] .nmb-arm path.atl-skin {' not in CSS
 
 
 def test_atlas_moves_by_its_own_look_and_its_rules_out_rank_the_generic_ones():

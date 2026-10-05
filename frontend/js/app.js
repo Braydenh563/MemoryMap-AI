@@ -2297,7 +2297,7 @@ const LAZY_ENTRY_POINTS = {
   updates: ["checkForUpdate", "applyUpdateNow", "showSourceUpdatedDialog", "askUpdateChoiceOnce"],
   appPalette: ["openPalette"],
   notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing", "renderEditForm"],
-  attachTo: ["renderAttachToBoard", "renderAttachToDocument"],
+  attachTo: ["renderAttachToBoard", "renderAttachToDocument", "renderNotePickerList"],
   noteTemplates: ["openNoteTemplateDialog", "useNoteTemplate"],
   askHistory: [
     "toggleAskHistoryPanel",

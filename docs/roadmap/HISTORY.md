@@ -7,6 +7,35 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN: the attach picker's tiles)
+
+The placed row: "The picker's other four sources have no thumbnail
+(documents, files, maps)". Built in one commit rather than one per source:
+the change is one optional `face` per source in `notePickerShape`
+(chat-attach.js) and one line in `notePickerRow`, and the three share the
+fallback. A map's row draws `mapPreview(row, { size: "row" })` (the Library's
+row-sized preview; an empty map draws the shared ghost); a file's row draws
+its PDF's first page where the server can (`has_pages`,
+`/files/{id}/pdf-page/0`, the Library Files row's own test and URL) and puts
+its type glyph back when the page fails to load; a document has no rendered
+page anywhere in the app, so its tile says its kind instead (prose
+`ph:file-text`, a table `ph:table`, code `ph:file-code`, on `file_type`).
+Every face fills the one 2rem tile (`.rich-picker-tile-face > :is(img, svg)`,
+05-sidebars-themes.css). Measured at 1440 (a picker probe): notes, documents
+and maps rows 53 to 54px with a 32x32 tile, the map's preview 30x30 inside
+it; a Files row seeded with `has_pages` and a missing file drew an `img`,
+then `ph-file-pdf` in a 32px tile once the request failed; 0 page errors.
+`tests/test_ui_recipes.py::test_the_attach_picker_rows_show_what_they_hold`.
+The faces cost 182 bytes of boot gzip against 7 of headroom, so the panel's
+list renderer moved to the lazy `attachTo` file (`renderNotePickerList` and
+its fetch `notePickerRows`, now in attach-to.js behind a stand-in; every
+caller fires it and forgets): chat-attach.js 19,031 to 18,403 bytes served
+gzip. `notePickerRow` and the shapes stay at boot, since the whiteboard's
+pickers draw the same row synchronously. The probes above were re-run after
+the move with the same numbers.
+Not verified: a real PDF's first page in the tile (this sandbox has no PDF
+render extra, so `has_pages` is false for every file).
+
 ## Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN: the Files rows' two rhythms, a measuring error)
 
 The placed row ("a described row leaves 50.3px of slack under its last block,

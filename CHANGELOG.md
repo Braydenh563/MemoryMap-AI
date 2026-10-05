@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Chat, Attach: a mind map's row shows the map's own shape, a PDF's row its first page (where pages can be drawn), and a document's row whether it is prose, a table or code, each in the same small tile as before.
 - Layout: from 600 to 719px wide the status bar and the dashboard's quick access now look as they do up to 819px (the tablet band), instead of switching to their phone sizes 120px early.
 - Docs: the no-em-dash lint now covers docs/**/*.md, docs/index.html and the root *.md files, and the 5,900 em-dashes it found are reworded (comma, colon, parentheses or full stop); the two changelogs stay identical.
 - Docs: MODELS.md now says `qwen3.5:35b-a3b` is about 21 GB and needs about 24 GB, as the in-app catalogue does (it said 24 GB and 32 GB); `tests/test_models_doc_sizes.py` pins every catalogue model's size and stated memory in that file to the catalogue.

@@ -962,6 +962,21 @@ button.map-chip:focus-visible {
   overflow: hidden;
 }
 
+/* A picture in the face (the attach picker's map preview and a PDF's first
+   page): it fills the tile, so the row keeps its 2rem height; a page is
+   cropped from its top, where the title is. */
+.rich-picker-tile-face > :is(img, svg) {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+.rich-picker-tile-face > img {
+  object-fit: cover;
+  object-position: top;
+  background: var(--card);
+}
+
 .rich-picker-tile.doc-block-kind {
   border-color: color-mix(in srgb, var(--callout-accent) 35%, transparent);
   background: color-mix(in srgb, var(--callout-accent) 14%, transparent);

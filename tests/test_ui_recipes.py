@@ -3534,7 +3534,10 @@ def test_the_attach_panel_rows_are_one_renderer_with_keys() -> None:
     checkbox visually hidden), pictures are a grid, and the keys walk it:
     arrows, Home and End, Enter is Done, the tabs' arrows switch source."""
     js = (ROOT / "frontend" / "js" / "chat-attach.js").read_text(encoding="utf-8")
-    render = _function_body(js, "renderNotePickerList")
+    # The list renderer is lazy (attach-to.js, op4-1005); the row stays at boot.
+    lazy = (ROOT / "frontend" / "js" / "attach-to.js").read_text(encoding="utf-8") + "\nfunction "
+    render = _function_body(lazy, "renderNotePickerList")
+    assert "async function renderNotePickerList" not in js
     assert "notePickerRow(shape, row)" in render and "renderNotePickerOtherSource" not in js
     row = _function_body(js, "notePickerRow")
     assert '"visually-hidden note-picker-box"' in row and "richPickerTile(" in row and "note-picker-check" in row
@@ -3550,6 +3553,25 @@ def test_the_attach_panel_rows_are_one_renderer_with_keys() -> None:
     assert 'row.store === "file") return attachLibraryFile(' in shape
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert 'data-help-for="note-picker-help"' in html and 'id="note-picker-help"' in html
+
+
+def test_the_attach_picker_rows_show_what_they_hold() -> None:
+    """UI_MODERNISATION_PLAN, "the picker's other four sources have no
+    thumbnail" (op4-1005): a map's row draws the map (`mapPreview` at its row
+    size), a PDF's row its first page where the server can draw one, a
+    document's row its kind (prose, table, code); all inside the one 2rem
+    tile, so a row's height is unchanged, and a page that fails to load
+    puts the glyph back."""
+    js = app_js_text()
+    shape = _function_body(js, "notePickerShape")
+    assert 'face: (row) => mapPreview(row, { size: "row" })' in shape
+    assert "row.has_pages ? notePickerPage(" in shape
+    assert '"ph:file-code"' in shape and '"ph:table"' in shape
+    row = _function_body(js, "notePickerRow")
+    assert "face: shape.face?.(row)" in row
+    assert 'tile.addEventListener("error"' in row and "tile.replaceWith(richPickerTile(" in row
+    css = (ROOT / "frontend" / "css" / "05-sidebars-themes.css").read_text(encoding="utf-8")
+    assert ".rich-picker-tile-face > :is(img, svg)" in css
 
 
 def test_every_dialog_dims_the_page_with_the_one_scrim_token() -> None:

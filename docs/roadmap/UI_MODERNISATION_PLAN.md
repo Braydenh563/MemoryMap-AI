@@ -1385,10 +1385,8 @@ inside a 4,000px section.
 - The Files rows' two rhythms: a measuring error, closed; HISTORY.md, "Moved
   from the plans, 2026-10-05 (UI_MODERNISATION_PLAN: the Files rows' two
   rhythms, a measuring error)".
-- **The picker's other four sources have no thumbnail** (documents, files,
-  maps). `notePickerShape`'s `shape.thumb` is optional and per source; a first
-  page, the file's type glyph and `mapPreview` are all already drawn
-  elsewhere. Brief: one source per commit, the row height unchanged. Opus, M.
+- The picker's other four sources: built; HISTORY.md, "Moved from the plans,
+  2026-10-05 (UI_MODERNISATION_PLAN: the attach picker's tiles)".
 
 460. **The owner, 2026-10-03 night, verbatim.** "I keep experiencing scroll
      jump when scrolling with two fingers on my trackpad?? idk". Placed: the

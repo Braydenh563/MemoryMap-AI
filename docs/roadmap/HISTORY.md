@@ -40342,4 +40342,9 @@ border or answering hover). Both are strict now.
 548. **The owner, 2026-10-05, verbatim.** "redesign old ui popups like this as
      well to be consistent, moderna and professional." (screenshot: the mind
      map's "Point a new node at..." picker).
+     **Fixed 2026-10-05**: `pickerDialog` (selection.js) for the four
+     notebook pickers (head with X, search-field well, rich rows with a facts
+     line, combobox keys; `pickers.js` 22 of 22 at 1440 and 390, light and
+     dark) and `dialogHead` for six script-built dialogs (`dialogheads.js`
+     20 of 20); `CONFIRM_HEAD_DIALOGS` ratchet in test_ui_recipes.py.
 

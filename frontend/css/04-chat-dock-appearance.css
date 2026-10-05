@@ -3609,7 +3609,7 @@ span > .chip {
    own `min-height` floor, on a 534px card. The height belongs to the desk,
    not to a rows attribute, and the boxes take the slack the way
    `.draft-columns`' own `align-items: stretch` already intends. */
-@media (min-width: 901px) {
+@media (min-width: 820px) {
   .draft-columns {
     min-height: 30rem;
   }
@@ -3617,7 +3617,7 @@ span > .chip {
 
 /* One column on narrow screens, side-by-side textareas become unusable
    well before the phone breakpoint. */
-@media (max-width: 900px) {
+@media (max-width: 819.98px) {
   .draft-columns {
     grid-template-columns: 1fr;
   }

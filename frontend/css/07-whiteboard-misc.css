@@ -3182,7 +3182,7 @@ body.scroll-top-visible .skills-split > .tab-main {
 
 /* Below the wordmark breakpoint the icon alone carries it, the switcher is
    the first thing that should give up width to the tabs, not the last. */
-@media (max-width: 900px) {
+@media (max-width: 819.98px) {
   .space-switcher-name {
     display: none;
   }

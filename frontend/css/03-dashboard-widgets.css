@@ -454,7 +454,7 @@
 
 /* The header is the first thing to run out of room; the mark is the first
    thing that can go when it does. */
-@media (max-width: 900px) {
+@media (max-width: 819.98px) {
   .emblem-mark {
     display: none;
   }

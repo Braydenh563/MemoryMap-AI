@@ -1058,7 +1058,7 @@ progress {
   margin-top: 1rem;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 819.98px) {
   .chat-grid {
     grid-template-columns: 1fr;
   }

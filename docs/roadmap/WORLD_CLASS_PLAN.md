@@ -695,8 +695,9 @@ too much routes through the model. Each of these is pure code:
 3. (b) documents have unlinked mentions (`routes_documents.py`); notes do not. S.
 4. (b) document templates fill `{{title}}` and `{{date}}`; `{{clipboard}}`
    and a cursor mark are not built, and note templates were not checked. S.
-5. (b) merge, delete, add to a board or map and make a map exist; move to a
-   space and export from a selection were not found. S.
+5. (a) built: merge, delete, add to a board or map and make a map exist;
+   2026-10-05 Move to space and Export selection (HISTORY, "From
+   WORLD_CLASS_PLAN.md section 5, row 30: the selection bar").
 6. (a) built: JSON, CSV, Markdown and zip export, OPML for maps, the print
    stylesheet for documents.
 7. (a) built 2026-10-05: Notion, Obsidian, Evernote and Apple Notes import, idempotent by source (HISTORY, "row 25, the importers and the keyboard").
@@ -842,7 +843,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 27 | H9 | usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval | S to M each | H9 |
 | 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; ~~the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure~~ built 2026-10-05 (HISTORY, "Moved from the plans, 2026-10-05 (19.3, 19.5)"); the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
 | 29 | §10 | F1 a `prefs` module, F5 `api.stream`/`api.upload` and the no-bare-fetch lint, F7's threads onto the pool (the ratchet is built), F10 a `readings` table, F12 a store (F4 built 2026-09-26) | S to L | §10 |
-| 30 | §5 | notes' unlinked mentions, word count and reading time; `{{clipboard}}` and a cursor mark; move to a space and export from a selection; the bin for documents and reminders | S each | §5 |
+| 30 | §5 | notes' unlinked mentions (built, KG1), word count and reading time; `{{clipboard}}` and a cursor mark; ~~move to a space and export from a selection~~ built 2026-10-05 (`tests/test_selection_move_export_30.py`); the bin for documents and reminders | S each | §5 |
 | 31 | Placed 2026-09-09 | 1 capture into the selected space and a bulk move; 99 (b) scroll restore, (c) the AI dot's latency tooltip, (d) Paste as note; 92's row redesign; 97 RapidOCR; 79 and 22 to 23 not re-checked; 261's vault re-key (`POST /auth/rotate-vault-key`) has no UI | S to M | those sections |
 | 32 | 301 | the navigation and undo audit table, then the fixes | M | every surface |
 | 33 | §21 | ~~rows 1 and 2 on the notice recipe, row 12's "check the address" in the status line, row 13's update size in the About page~~ built 2026-10-05 (HISTORY, "From WORLD_CLASS_PLAN.md section 21"; `tests/test_failure_remedies_21.py`) | done | HISTORY |
@@ -2984,11 +2985,6 @@ breadcrumbs).
 
 ## Placed from INBOX, 2026-10-05 (OPEN.md triage)
 
-- **Move a batch of notes to another space** (INBOX 38's own D2 line; the
-  chip and label that show which space a note is in are built). Brief: a
-  `POST /entries/move-space` with ids and a target (one transaction, the
-  search index rebuilt, an Undo that moves them back), and a "Move to space"
-  row in the selection bar. Opus, M.
 - **The Guide's corpus and the Help accordion are kept in step by hand**
   (guide; the synonym column it asked for exists, `help_chat.py`'s keyword
   table). Brief: give the accordion's thirteen `<details>` ids, convert them

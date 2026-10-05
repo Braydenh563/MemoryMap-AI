@@ -41674,6 +41674,44 @@ About showed the update's size was never traced.
   status answer in flight, the unit test uses a client that raises the
   provider's sentence); the update size against a real GitHub release.
 
+### From WORLD_CLASS_PLAN.md section 5, row 30: the selection bar
+
+**State 2026-09-24:** item 5, "move to a space and export from a selection were
+not found". Placed from INBOX 2026-10-05 as "Move a batch of notes to another
+space": `POST /entries/move-space`, one transaction, the search index rebuilt, an
+Undo that moves them back, a "Move to space" row in the selection bar.
+
+- **Built 2026-10-05 (worldclass-1005c).** `POST /entries/move-space`
+  (`ids` up to 500, `target` a space id; 404 for an unknown space, 422 for "all"
+  or an empty list) looks the ids up in every space (the Undo posts from the
+  space the notes went to, and All spaces mixes them), moves each note's
+  `workspace_id`, maps its category by name into the target (an existing one is
+  reused, else one is made with the same colour and description; looked up as the
+  target space, since the session's space filter would otherwise hide the
+  existing one from the insert and the UNIQUE on space and name would fire), and
+  moves what belongs to it: reminders, files, fade scores, and a board's cards,
+  sketches and objects. Links to notes left behind are kept. The search index
+  follows through the ORM flush (a note's FTS row carries its space). The answer
+  lists `moved`, `skipped` (unknown or already there) and `previous` (each note's
+  old space and category name), which is the Undo: the page posts each group back
+  to its space. `POST /export/markdown` takes `ids` and returns the same zip as
+  the whole export for just those notes (`build_markdown_export(session,
+  only_ids=...)`). The page: the selection bar's ... menu (`fillBatchMore`) has
+  Move to space (a menu of the other spaces) and Export selection (`saveFile`).
+  Help: the Guide's notes-controls topic.
+- Measured: `tests/test_selection_move_export_30.py` (6 tests: category by name,
+  reminders follow, search follows, moving back is the Undo, bad requests, a zip
+  of two of three notes); `scratchpad/ui-sweeps/selectmove.js` 8/8 at 1440 and
+  390 dark: two ticked, the menu has both rows, a zip comes out (PK, 513 bytes),
+  the spaces menu fits the window, both notes are in the other space, the toast
+  offers Undo and Undo brings them back.
+- Decided (recommended, not confirmed): links to notes in another space are
+  kept, not cut; a selection export is the whole export's format rather than a
+  new one.
+- Not verified: moving a board with many cards (the cards move by `board_id`,
+  tested only by the table list); a note being filed by Atlas at the moment of
+  the move (the background filer holds the space it started in).
+
 ## Built 2026-10-05: INBOX 598, 602 and 596's skeleton part (loading states)
 
 (The INBOX entries themselves are moved by the orchestrator; this is the

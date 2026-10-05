@@ -2178,7 +2178,7 @@ def _slug(text: str, length: int = 30) -> str:
     return re.sub(r"[\s]+", "-", cleaned) or "note"
 
 
-def build_markdown_export(session: Session) -> bytes:
+def build_markdown_export(session: Session, only_ids: "list[int] | None" = None) -> bytes:
     """The zip itself, as bytes, with nothing HTTP about it.
 
     Lifted out of the route below so `python -m memorymap --export PATH`
@@ -2193,6 +2193,12 @@ def build_markdown_export(session: Session) -> bytes:
     either way.
     """
     _categories, entries, _links = _export_rows(session)
+    if only_ids is not None:
+        #: A selection (WORLD_CLASS_PLAN row 30): the same files and folders
+        #: as the whole export, for the notes picked. Ids this session cannot
+        #: see are simply absent from `entries`.
+        wanted = set(only_ids)
+        entries = [entry for entry in entries if entry.id in wanted]
     category_names = manager.bulk_category_names(session, entries)
     
     buffer = io.BytesIO()
@@ -2225,7 +2231,9 @@ def build_markdown_export(session: Session) -> bytes:
             front.append("---")
             body = "\n".join(front) + f"\n\n{readable}\n"
             archive.writestr(f"{folder}/{entry.id}-{_slug(readable)}.md", body)
-    manager.log_action(session, "exported", "data", detail="markdown")
+    manager.log_action(
+        session, "exported", "data", detail="markdown" if only_ids is None else f"markdown, {len(entries)} selected"
+    )
     session.commit()
     return buffer.getvalue()
 
@@ -2239,6 +2247,20 @@ def export_markdown(session: Session = Depends(get_session)) -> Response:
         content=build_markdown_export(session),
         media_type="application/zip",
         headers={"Content-Disposition": "attachment; filename=memorymap-markdown.zip"},
+    )
+
+
+class ExportSelection(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=2000)
+
+
+@router.post("/export/markdown")
+def export_markdown_selection(body: ExportSelection, session: Session = Depends(get_session)) -> Response:
+    """The notes picked in the selection bar, as the same zip of `.md` files."""
+    return Response(
+        content=build_markdown_export(session, only_ids=body.ids),
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=memorymap-selection.zip"},
     )
 
 

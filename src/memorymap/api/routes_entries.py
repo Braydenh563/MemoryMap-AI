@@ -42,8 +42,10 @@ from memorymap.api.schemas import (
 from memorymap.core import deps, events, jobruns, jobs, opens, vault
 from memorymap.core.events import ACTOR_USER_AND_AI
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
+    Attachment,
     AuditLog,
     Bookmark,
+    Category,
     DerivedTension,
     Document,
     DocumentLink,
@@ -55,8 +57,12 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
     EntryLink,
     EntryRevision,
     MediaUpload,
+    NoteScore,
+    Reminder,
+    Space,
     WhiteboardNode,
     WhiteboardObject,
+    WhiteboardSketch,
     like_escape,
     utcnow,
 )
@@ -2518,6 +2524,81 @@ def delete_entry(
     if not entry.is_deleted:
         manager.soft_delete_entry(session, entry)
     return _to_out(session, entry)
+
+
+class MoveSpaceBody(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=500)
+    target: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/move-space")
+def move_space(body: MoveSpaceBody, session: Session = Depends(get_session)) -> dict:
+    """A batch of notes, boards and maps into another space, in one
+    transaction (WORLD_CLASS_PLAN row 30, the selection bar's Move to space).
+
+    A note's category is a row *of its space*, so it follows by name: the
+    target's own category of that name when it has one, else a new one with
+    the same colour and description. What belongs to the note moves with it
+    (its reminders, files, fade score, and a board's cards, sketches and
+    objects); links to notes that stay behind are kept, and simply read as
+    absent from either side until both are in one space again. Ids that do not
+    exist and notes already in the target are `skipped`, not an error. The ids are
+    looked up in every space, whichever one the page is showing, so the Undo
+    works from the space the notes were moved to.
+
+    `previous` is the way back: moving those ids to that space is the Undo, and
+    the category goes back by name the same way. The search index follows
+    through the ORM flush, so `/search` in the target finds them at once.
+    """
+    target = body.target.strip()
+    if target == "all":
+        raise HTTPException(status_code=422, detail="Pick one space to move them to.")
+    if target != "default" and session.scalar(select(Space.id).where(Space.id == target)) is None:
+        raise HTTPException(status_code=404, detail="That space could not be found.")
+    ids = list(dict.fromkeys(body.ids))
+    #: Across every space, whichever one the page is showing: the Undo posts
+    #: from the space the notes were moved *to*, and "All spaces" asks for ids
+    #: from several at once. The ids are the person's own.
+    moved: list[int] = []
+    previous: list[dict] = []
+    with deps.impersonate_workspace(session, "all"):
+        rows = {row.id: row for row in session.scalars(select(Entry).where(Entry.id.in_(ids)))}
+        categories: dict[int, Category | None] = {}
+        for entry_id in ids:
+            entry = rows.get(entry_id)
+            if entry is None or manager.entry_space(entry) == target:
+                continue
+            source = manager.entry_space(entry)
+            old = session.scalar(select(Category).where(Category.id == entry.category_id)) if entry.category_id else None
+            previous.append({"id": entry.id, "space": source, "category": old.name if old is not None else None})
+            if old is not None:
+                if old.id not in categories:
+                    #: As the target: the session's own space filter would
+                    #: otherwise hide the target's category of that name and the
+                    #: insert would collide with it (UNIQUE on space and name).
+                    with deps.impersonate_workspace(session, target):
+                        found = manager.get_or_create_category(session, old.name, target)
+                    for field in ("colour", "description"):
+                        if not getattr(found, field, None) and getattr(old, field, None):
+                            setattr(found, field, getattr(old, field))
+                    categories[old.id] = found
+                entry.category_id = categories[old.id].id
+            entry.workspace_id = target
+            moved.append(entry.id)
+        if moved:
+            for model in (Reminder, Attachment, NoteScore):
+                for child in session.scalars(select(model).where(model.entry_id.in_(moved))):
+                    child.workspace_id = target
+            for model in (WhiteboardNode, WhiteboardSketch, WhiteboardObject):
+                for child in session.scalars(select(model).where(model.board_id.in_(moved))):
+                    child.workspace_id = target
+            manager.log_action(session, "moved", "entries", detail=f"{len(moved)} to {target}")
+            session.commit()
+            from memorymap.ai import lexical_filing
+
+            lexical_filing.forget_corpus()
+    skipped = [entry_id for entry_id in ids if entry_id not in moved]
+    return {"moved": moved, "skipped": skipped, "target": target, "previous": previous}
 
 
 @router.post("/{entry_id}/restore", response_model=EntryOut)

@@ -1469,7 +1469,9 @@ HELP_TOPICS.extend(
                 "delete together, and Select all ticks the whole page; the "
                 "selection bar's Tags adds or removes tags on every selected note, "
                 "and its ... menu adds to or removes from Favourites, archives, "
-                "publishes drafts or removes a tag, each undoable."
+                "publishes drafts, moves the notes to another space (Move to space) or "
+                "saves them as a zip of Markdown files (Export selection), each "
+                "move undoable."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

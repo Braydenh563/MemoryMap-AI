@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Whiteboard: right-click a frame's title, Export this frame…, to export the frame and everything inside it (locked items too) as a picture, PDF or SVG. A frame inside another moves with it.
 - Mind maps: View, Present branches shows a map full screen one branch at a time: the whole map first, then each branch fitted to the screen, with the same bar and keys as a board's Present frames (arrows, Space, Home, End; Escape puts everything back).
 - Mind maps: boundaries and summaries. A topic's menu (More, Branch) draws a boundary round its branch, rounded, dashed or as a cloud, in the branch colour and with a label if you like, and it grows, folds and moves with the branch; Summarise puts a brace beside one topic, or beside several selected side by side, with your words past its tip. Both undo, survive OPML and FreeMind exports and come out in the picture exports.
 - Whiteboard and mind maps: comments. Right-click a card, sticky, shape or topic and choose Comment… for a thread on it; a count on its corner opens the thread again, Enter posts, a trash deletes and Ctrl+Z takes either back. Kept with the item through moves, copies, undo and a duplicated board; not exported.

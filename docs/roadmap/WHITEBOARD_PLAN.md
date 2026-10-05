@@ -244,6 +244,16 @@ kind. Every tool has a key and every key is in the tooltip and the help.
    names, mentions or resolve (deleting the last comment is resolving). A
    connector takes no thread (its label is what a line says). Not in any
    export: a thread is talk about the board, not the board.
+18. **A frame is an export scope; frames nest by what they hold; nothing is
+   clipped** (taken 2026-10-05, decision 14's three open edges, under standing
+   order 3). "Export this frame…" on a frame's right-click menu selects the
+   frame and everything wholly inside it, locked items too, and opens the
+   export dialog on Selection, so every format the dialog has applies. A
+   frame wholly inside another is one of the things it holds: dragging the
+   outer one carries the inner one and what is in it, which decision 14's rule
+   already does, so nesting needs no rule of its own. An item that overhangs a
+   frame belongs to no frame and is drawn whole: clipping would hide what a
+   person put there with no way to see it but moving it.
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 

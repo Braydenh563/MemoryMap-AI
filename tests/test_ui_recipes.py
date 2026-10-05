@@ -3835,7 +3835,8 @@ def test_a_locked_item_is_out_of_reach_in_one_way() -> None:
     assert wb.count("if (parsed.locked) continue;") == 2
     assert wb.count("if (node.locked) continue;") == 2
     assert "!wbIsLocked(memberKind, candidate)" in wb
-    assert "if (wbIsLocked(kind, item)) continue;" in wb[wb.index("function wbFrameContents(") :][:800]
+    assert "if (!withLocked && wbIsLocked(kind, item)) continue;" in wb[wb.index("function wbFrameContents(") :][:800]
+    assert "function wbFrameContents(frame, { withLocked = false } = {})" in wb, "a drag passes locked items by; only Export this frame takes them"
     assert "wbPaintLocks();" in wb[wb.index("function renderWhiteboard()") :]
     assert "Unlock ${locked} locked item" in wb
 

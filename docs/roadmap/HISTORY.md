@@ -7,6 +7,19 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (a frame as an export scope)
+
+### From WHITEBOARD_PLAN.md, decision 14's open edges (decision 18)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| Export this frame… on a frame's menu (`wbExportFrame`): the frame and everything wholly inside it, locked items too (`wbFrameContents(frame, { withLocked: true })`), as the selection, then the export dialog on Selection. Nesting by what a frame holds; nothing clipped | a frame could only be exported by selecting what it held by hand, and a locked item could not be selected at all | the export holds the sticky, the inner frame and the locked rectangle, not the card outside; its box is the frame plus the 40px margin (0 40 700 500); dragging the outer frame carries the inner one and its sticky by the same 60px | `scratchpad/ui-sweeps/wbframeexport.js` 7/7 at 1440x900 and 390x844 (at half zoom), light and dark; `wbframes.js` 24/24 |
+
+Found, not fixed: on a phone at the fitted zoom (k 0.24) the frame's title is
+about 7px tall, and a press-drag aimed at it moved nothing, or with a
+selection held moved the inner frame and the sticky by different amounts (570
+and 541 board units for a 60px drag). At half zoom it is right.
+
 ## Moved from the plans, 2026-10-05 (a map presented by branch)
 
 ### From MINDMAP_PLAN.md §12.2 item 9 (decision 21)

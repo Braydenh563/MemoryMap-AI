@@ -5354,6 +5354,9 @@ function wbBuildContextMenu(kind) {
       wbOpenComments(commentOn.kind, commentOn.id)
     );
   }
+  //: A frame is an export scope (WHITEBOARD_PLAN decision 18).
+  const frameOn = commentOn?.kind === "object" && commentItem?.kind === "frame" ? commentItem : null;
+  if (frameOn) item("Export this frame…", "The frame and what is inside it, as a picture, PDF or SVG", () => wbExportFrame(frameOn));
   if (!wbIsMap()) {
     item("Lock", "Ctrl+Shift+L. Right-click the board to unlock", () => wbLockSelection());
   }
@@ -6763,14 +6766,14 @@ async function wbCreateFrame(x, y, box = null) {
 //: Everything lying wholly inside a frame, as selection keys: what a drag of
 //: the frame carries. Read at the start of the drag, from where things are,
 //: so an item dragged out of a frame stops belonging to it with no bookkeeping.
-function wbFrameContents(frame) {
+function wbFrameContents(frame, { withLocked = false } = {}) {
   const fx = frame.x, fy = frame.y, fr = frame.x + frame.width, fb = frame.y + frame.height;
   const keys = [];
   for (const kind of ["node", "object", "sketch"]) {
     for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) {
       if (kind === "object" && item.id === frame.id) continue;
       //: A locked item stays where it was put, frame or no frame.
-      if (wbIsLocked(kind, item)) continue;
+      if (!withLocked && wbIsLocked(kind, item)) continue;
       const box = wbItemBBox(kind, item);
       if (box && box.minX >= fx && box.minY >= fy && box.maxX <= fr && box.maxY <= fb) keys.push(wbMultiKey(kind, item.id));
     }
@@ -8020,6 +8023,17 @@ function wbClippedCardCount(scope) {
     if (content.scrollHeight > content.clientHeight + 1) clipped += 1;
   }
   return clipped;
+}
+
+//: The frame and everything wholly inside it (locked or not) as the
+//: selection, then the export dialog, which opens on "Selection" for it.
+function wbExportFrame(frame) {
+  clearWbSelection();
+  wbMultiSelection.add(wbMultiKey("object", frame.id));
+  for (const key of wbFrameContents(frame, { withLocked: true })) wbMultiSelection.add(key);
+  wbApplySelectionHighlight();
+  wbUpdateSelectionBar();
+  wbExportBoard();
 }
 
 function wbExportBoard() {

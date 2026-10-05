@@ -42,14 +42,19 @@ async function newRelationType() {
 /** One link's kind and properties. */
 async function openLinkTypeSheet(entryId, link) {
   const types = await linkTypesList();
+  //: Each change has an app Undo (INBOX 537): the kind or properties it had.
+  const send = (body) => apiJson(`/entries/${entryId}/links/${link.link_id}`, { method: "PATCH", body: JSON.stringify(body) })
+    .then((saved) => { loadEntries().catch(() => {}); return saved; });
   const patch = async (body, done) => {
-    const saved = await apiJson(`/entries/${entryId}/links/${link.link_id}`, { method: "PATCH", body: JSON.stringify(body) }).catch((e) => {
+    const before = "props" in body ? { props: link.props || {} } : { link_type: link.link_type ?? null };
+    const saved = await send(body).catch((e) => {
       toast(e.message, true);
       return null;
     });
     if (!saved) return false;
+    Object.assign(link, body);
+    pushUndo(done.replace(/\.$/, ""), () => send(before), () => send(body));
     toast(done);
-    loadEntries().catch(() => {});
     return true;
   };
   openSheet({

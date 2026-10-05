@@ -407,11 +407,16 @@ HELP_TOPICS: list[dict] = [
         "id": "undo-bin",
         "keywords": ("undo", "redo", "recycle bin", "restore", "deleted", "trash"),
         "body": (
-            "Deleting a note goes to the recycle bin, not gone for good, "
-            "restore it from the Library's Bin filter, or use the Undo toast "
-            "that appears right after deleting. Ctrl/Cmd+Z undoes the last "
-            "change generally; the status bar's own Undo/Redo buttons do the "
-            "same thing by click."
+            "Deleting a note or a board goes to the recycle bin, not gone for "
+            "good: restore it from the Library's Bin filter, or use the Undo "
+            "toast that appears right after deleting. Ctrl/Cmd+Z undoes and "
+            "Ctrl+Shift+Z or Ctrl+Y redoes; the status bar's Undo and Redo "
+            "buttons do the same by click. Which history they walk depends on "
+            "where you are: an open board or mind map has its own, an open "
+            "document has its own, and both are kept while you switch away "
+            "and back during the session; everywhere else it is the app's "
+            "(notes, tags, categories, links, reminders). Inside a text box "
+            "Ctrl+Z undoes your typing."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },

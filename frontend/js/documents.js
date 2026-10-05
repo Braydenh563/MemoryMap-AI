@@ -918,7 +918,8 @@ async function openDocument(id) {
   $("doc-title").disabled = false;
   docBoxEl().disabled = false;
   $("doc-title").value = doc.title;
-  docResetDocument(doc.content);
+  docResetDocument(doc.content, doc.id);
+  if (typeof scheduleUndoBar === "function") scheduleUndoBar();
   docDirty = false;
   $("doc-saved").textContent = "Saved";
   // Before the renders below: it decides which of them are even reachable
@@ -10866,6 +10867,7 @@ $("doc-back")?.addEventListener("click", () => {
 //: update listener once the view is mounted, so there is one pipeline rather
 //: than one per engine.
 function docSurfaceInput() {
+  if (typeof scheduleUndoBar === "function") scheduleUndoBar();
   markDocDirty();
   scheduleDocPreview();
   renderDocGutter();
@@ -17063,6 +17065,10 @@ function docUndo() {
   return document.execCommand("undo");
 }
 
+//: For the status bar's pair (`surfaceHistory`): this document's own steps.
+window.docCanUndo = () => (docCmView && window.CM6 ? window.CM6.commands.undoDepth(docCmView.state) > 0 : Boolean(currentDoc));
+window.docCanRedo = () => (docCmView && window.CM6 ? window.CM6.commands.redoDepth(docCmView.state) > 0 : Boolean(currentDoc));
+
 function docRedo() {
   const CM = window.CM6;
   if (docCmView && CM) return CM.commands.redo(docCmView);
@@ -19168,16 +19174,37 @@ function docHeadingFold(CM) {
 //: is the worst kind of undo bug because it reads as the app corrupting your
 //: file. `setState` replaces the history along with the text, which is the
 //: whole reason this is not a change transaction.
-function docResetDocument(text) {
+//:
+//: **And each document keeps its own, for the session** (the owner,
+//: 2026-10-05: "undo and redo history for specific documents"). The history
+//: of the one being left is kept as JSON by its id and given back when it
+//: opens again, but only over the very text it was taken against (an edit
+//: made elsewhere since would make its steps wrong). A lock purges them all.
+const docHistories = new Map();
+let docHistoryOwner = null;
+
+function docResetDocument(text, id = null) {
   const CM = window.CM6;
   if (!docCmView || !CM) {
     const surface = docSurface();
     if (surface) surface.text = text;
     return;
   }
-  docCmView.setState(
-    CM.state.EditorState.create({ doc: text, extensions: docCmExtensions(CM) })
-  );
+  const field = CM.commands.historyField;
+  if (docHistoryOwner != null && field) {
+    try {
+      docHistories.set(docHistoryOwner, docCmView.state.toJSON({ history: field }));
+    } catch { /* nothing to keep */ }
+  }
+  const kept = id != null ? docHistories.get(id) : null;
+  let state = null;
+  if (kept && kept.doc === text && field) {
+    try {
+      state = CM.state.EditorState.fromJSON(kept, { extensions: docCmExtensions(CM) }, { history: field });
+    } catch { state = null; }
+  }
+  docHistoryOwner = id;
+  docCmView.setState(state || CM.state.EditorState.create({ doc: text, extensions: docCmExtensions(CM) }));
   //: `docCmExtensions` builds *new* compartments, so everything held in one
   //: has to be said again. Missing this is the "a value that is invalid where
   //: it is used" shape: the view would come back in Source's configuration
@@ -19225,7 +19252,9 @@ function docWatchLock() {
     if (!docCmView) return;
     //: `setState`, not a change transaction: the history is part of the
     //: state, and an undo that could bring the document back after a lock
-    //: would make this purge decorative.
+    //: would make this purge decorative. The kept histories go with it.
+    docHistoryOwner = null;
+    docHistories.clear();
     docResetDocument("");
   }).observe(overlay, { attributes: true, attributeFilter: ["class", "data-mode"] });
 }

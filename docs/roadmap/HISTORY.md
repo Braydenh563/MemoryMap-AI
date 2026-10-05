@@ -40503,3 +40503,20 @@ plan's item 6 decided on, and it fits the budget as it is.
      so the old empty line ("after Atlas reads your notes") promised a read
      that never came. questionsfind.js 4/4 at 1440 and 390.
 
+537. **The owner, 2026-10-05, verbatim.** "I accidentally clicked the + button
+     on a mindmap link. then it made an extra node. I didnt want that so I
+     pressed ctrl+z, it undid most of it, but the link from the parent node
+     to the rest of the branch disappeared. I was trying to figure out how to
+     reconnect them, then I moved the separated branch and it straight up
+     disappeared. I cant undo or redo anything and Ive lost that branch. the
+     undo and redo across the application needs to cover EVERYTHING" Data
+     loss: first.
+     Fixed 2026-10-05: insert-between is one step (b3b93cf); then every
+     board and map change audited and made undoable (WHITEBOARD_PLAN, "Undo
+     coverage", decisions 17 and 18): a gesture's Undo is read off what it
+     changed, a deleted topic returns with its branch, a deleted item with
+     its links, each board, map and document keeps its own history. "Moved
+     the separated branch and it straight up disappeared" reproduced: a loose
+     branch dropped on a folded topic went under the fold; the target now
+     opens. `boardundo.js` 43/43, `docundo.js` 8/8.
+

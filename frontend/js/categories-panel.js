@@ -759,11 +759,19 @@ async function deleteCategory(meta, name, count) {
   ));
   if (!ok) return;
   try {
-    await apiJson(`/categories/${meta.id}`, { method: "DELETE" });
+    const result = await apiJson(`/categories/${meta.id}`, { method: "DELETE" });
     if (activeCategory === name) activeCategory = null;
-    toast(`Deleted "${name}". Its notes are in Uncategorised.`);
-    await loadEntries();
-    await loadCategories();
+    const ids = result.moved_ids || [];
+    offerCategoryUndo(
+      `Deleted "${name}". Its notes are in Uncategorised.`,
+      () => apiJson(ids.length ? "/categories/move" : "/categories", { method: "POST", body: JSON.stringify(ids.length ? { entry_ids: ids, category: name } : { name }) }),
+      async () => {
+        await loadCategories();
+        const again = categoryMeta.get(name);
+        if (again) await apiJson(`/categories/${again.id}`, { method: "DELETE" });
+      }
+    );
+    await refreshAfterCategoryChange();
   } catch (error) {
     toast(error.message, true);
   }

@@ -1107,11 +1107,25 @@ async function clearDoneReminders() {
   if (!(await confirmDialog(`Delete ${done.length} completed reminder${done.length === 1 ? "" : "s"}?`))) {
     return;
   }
-  await Promise.all(
-    done.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).catch(() => {}))
-  );
-  toast(`Cleared ${done.length} completed reminder${done.length === 1 ? "" : "s"}.`);
-  loadReminders();
+  //: One Undo for the lot (INBOX 537), each made again as it was.
+  let live = done;
+  const drop = async () => {
+    await Promise.all(live.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).catch(() => {})));
+    loadReminders();
+  };
+  const remake = async () => {
+    live = await Promise.all(live.map((r) => apiJson("/reminders", {
+      method: "POST",
+      body: JSON.stringify({ text: r.text, due_at: r.due_at, entry_id: r.entry_id, priority: r.priority || "normal", recurring: r.recurring || "none", restore: true, done: true }),
+    })));
+    loadReminders();
+  };
+  await drop();
+  const action = pushUndo(`Cleared ${done.length} completed reminders`, remake, drop);
+  toastAction(`Cleared ${done.length} completed reminder${done.length === 1 ? "" : "s"}.`, "Undo", async () => {
+    settleUndoFromToast(action);
+    await remake().catch((e) => toast(e.message, true));
+  });
 }
 
 let editingReminderId = null;
@@ -1220,6 +1234,8 @@ function reminderItem(reminder, label) {
             entry_id: reminder.entry_id,
             priority: reminder.priority || "normal",
             recurring: reminder.recurring || "none",
+            restore: true,
+            done: Boolean(reminder.done),
           }),
         });
         liveId = created.id;

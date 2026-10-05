@@ -331,65 +331,14 @@ const WB_UNDO_MAX = 100;
 // entry off the stack (whatever else was pushed in between).
 const wbDeleting = new Set();
 
-//: **All three layers pan the same way, and they did not used to.** Reported:
-//: "when I drag the whiteboard around, notes seamlessly move but the shapes
-//: and links lag behind."
-//:
-//: They did. The cards (`#wb-html-layer`) were moved with a CSS `transform`,
-//: which the compositor can apply to an already-painted layer; the two SVG
-//: groups were moved by setting the `transform` *attribute*, which is a
-//: geometry change the renderer has to lay out and repaint every frame. Same
-//: numbers, two different pipelines, and on a board with any real number of
-//: shapes the SVG one cannot keep up with a pan, so the shapes visibly trail
-//: the notes they are attached to.
-//:
-//: Switching the groups to a CSS transform is only safe because every drag
-//: handler in this file resolves pointer coordinates through
-//: `getScreenCTM()`, and the question of whether that folds in a CSS
-//: transform on an SVG element is the whole risk. Measured in Chromium rather
-//: than assumed: two identical `<g>`s, one carrying `transform="translate(37,
-//: 61) scale(2.5)"` and one carrying the same as CSS, returned the same
-//: matrix, [2.5, 2.5, 37, 844.14], and mapped the same screen point to the
-//: same board point, [185.2, -177.66]. Nothing reads the attribute back
-//: either, so there is no second consumer to keep in sync.
-//:
-//: `transform-origin: 0 0` is not optional: CSS defaults an SVG element's
-//: origin to the centre of its bounding box, while the `transform` attribute
-//: has always scaled about the user-space origin. Without it every zoom would
-//: pivot somewhere that moves as the board's contents change. It is set in
-//: CSS beside the layers rather than here, so it cannot be lost by an edit to
-//: this function.
-// PLAN.md P2: a trackpad emits several wheel events per frame, and each one
-// used to write three transforms, three grid variables and the navigator
-// synchronously. Only the last transform in a frame can be painted, so the
-// rest was work the compositor threw away. One pending write per frame.
-//
-//: **The split: the layers move now, the rest waits for the frame.**
-//: Reported as "when I pan the whiteboard and mindmap around, it is still
-//: laggy and the shapes and links and everything feels like it lags behind a
-//: bit", and the first attempt at it A/B'd six conditions and found identical
-//: frame times (this sandbox is vsync-bound), which is the wrong end of the
-//: problem: nothing about the *shape* of the work above depended on how long
-//: the work took.
-//:
-//: What the coalescing above is right about is the *cost* half: grid
-//: variables, the selection bar and the navigator are per-frame work and
-//: three wheel events in one frame should not do them three times. What it
-//: was also doing is deferring the transform itself, which is the one write
-//: with nothing to save: the compositor can only paint the last value of a
-//: frame either way, so writing it on every event costs three style
-//: invalidations and no layout, and writing it late can only ever be later.
-//:
-//: Honest about what that does and does not prove. What is measured
-//: (`scratchpad/ui-sweeps/panlag.js`) is that the layer transform is now the
-//: new matrix in the same task as the input event, while the grid variables
-//: are still written once per frame. What is *not* measured, and cannot be
-//: on this box, is a frame of latency: Chromium dispatches coalesced input at
-//: the start of a frame and runs `requestAnimationFrame` later in that same
-//: frame, so for input that arrives on that path the old code was already
-//: painting in the right frame. This removes a deferral that had nothing to
-//: gain, for input on any other path; it is not a claim that the report is
-//: fixed.
+//: **All three layers pan the same way** ("shapes and links lag behind"): the
+//: SVG groups take a CSS transform like the cards, so the compositor moves
+//: them. Safe because every drag resolves points through `getScreenCTM()`,
+//: measured to fold a CSS transform in identically; `transform-origin: 0 0`
+//: is set in CSS beside the layers. The layer transform is written on every
+//: event (the compositor paints the last one anyway); grid variables, the
+//: selection bar and the navigator wait for one frame (PLAN.md P2;
+//: `panlag.js`). A frame of latency is not measurable on this box.
 let wbZoomFrame = 0;
 let wbZoomPending = null;
 
@@ -2573,54 +2522,15 @@ function wbLinkCaps(parsed) {
   };
 }
 
-//: Shared by the render path and the live drag preview so a straight vs.
-//: curved link can't compute its path two different ways. `caps` (from
-//: `wbLinkCaps`) is optional: asked for directly ("customisable links...
-//: connection endpoint designs", later extended to "circle/square/multi-
-//: line ends, independently per end"), a link had no endpoint marker
-//: option at all before the first version of this. The approach angle for
-//: a cap is the straight line to the *other* endpoint, which is exact for
-//: a straight link and a reasonable approximation for a curved one (the
-//: curve's own tangent at the endpoint, not attempted, this app's curves
-//: are gentle enough that the difference is small).
-//: **A curved link leaves and enters along the edge it is attached to, and
-//: its arrowheads point along the curve rather than along the chord.**
-//:
-//: Reported: "links don't change in their direction based off the edge they
-//: are connected to and where the other end is coming from." That was two
-//: faults in this one function, and both are visible on any two cards that
-//: are not side by side:
-//:
-//: 1. **The curve was hardcoded horizontal.** The control points offset the
-//:    endpoints in `x` only (`sPt.x + dx/2, sPt.y`), so every curved link
-//:    left its source heading sideways and entered its target heading
-//:    sideways: whichever edge each end was actually anchored to. Two cards
-//:    stacked vertically got an S-bend that bulged out to the side and
-//:    re-entered, instead of a short curve leaving the bottom edge and
-//:    arriving at the top one.
-//: 2. **The arrowhead angle was the chord**, `atan2` between the two
-//:    endpoints: not the tangent of the curve it is drawn on. On any link
-//:    with real curvature the head pointed visibly off the line it ended.
-//:
-//: Both now derive from each end's outward edge normal (`wbEdgeNormal`,
-//: attached to the endpoint by `wbWithDir`). The control point is pushed
-//: along that normal, so the curve leaves perpendicular to its edge; and
-//: because a cubic Bezier's tangent at an endpoint is the direction to its
-//: adjacent control point, the cap angle is read from that same control
-//: point and therefore always agrees with the drawn curve.
-//:
-//: The offset is proportional to the distance between the ends and clamped:
-//: unclamped, two distant cards produced a control point far outside the
-//: board and a curve that swung wide of both; a fixed offset made a short
-//: link between adjacent cards loop absurdly. An endpoint with no direction
-//:, a free dangling point, or the live drag preview, keeps the original
-//: horizontal behaviour, which is correct for a point with no edge.
-//: `bend`, asked for directly: "I want to be able to double click on lines,
-//: add points for curving lines and connections." An offset from the chord's
-//: midpoint, in board units; when set, the link is a single quadratic curve
-//: through that control point (straight *or* curved kind, a bent straight
-//: line is a curve, which is what "add a point" means). Absent, both kinds
-//: draw exactly as they always did.
+//: One path for a link, shared by the render and the live drag preview.
+//: **A curved link leaves and enters along the edge it is attached to**, and
+//: its caps point along the curve: each end's control point is pushed along
+//: its edge's outward normal (`wbEdgeNormal` via `wbWithDir`), by an offset
+//: proportional to the ends' distance and clamped, and a cap's angle is read
+//: from that control point, so it always agrees with the drawn curve. An end
+//: with no edge (a free point, the preview) keeps the horizontal curve.
+//: `bend` (double-click to add a point): an offset from the chord's midpoint;
+//: when set, the link is one quadratic curve through it.
 function wbLinkPathD(type, sPt, tPt, caps, width, bend) {
   if (bend && (bend.x || bend.y)) {
     const ctrl = { x: (sPt.x + tPt.x) / 2 + bend.x, y: (sPt.y + tPt.y) / 2 + bend.y };
@@ -3543,6 +3453,7 @@ function wbMindMapEnsureMap(fromId) {
 //: only in which card counts as the parent.
 async function wbMindMapAddCard(parentId, x, y) {
   const entry = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "New branch" }) });
+  wbPushUndo({ action: "noteMade", entryId: entry.id });
   const nodeRes = await apiJson("/whiteboard/nodes", {
     method: "POST",
     body: JSON.stringify({ entry_id: entry.id, board_id: window.currentBoardId ?? null, x: wbSnap(x), y: wbSnap(y), z: 1 }),
@@ -3649,6 +3560,7 @@ function wbEditNodeText(nodeId) {
           method: "PUT",
           body: JSON.stringify({ content: text }),
         });
+        wbPushUndo({ action: "note", entryId: node.entry_id, content: original });
         // The card reads its text out of `allEntries`; without this the next
         // render would use the old content and the edit would look discarded.
         await loadEntries();
@@ -4316,17 +4228,24 @@ const WB_LIST_BY_KIND = { sketch: "sketches", node: "nodes", object: "objects" }
 // other), but checking the set first is the honest way to say so.
 function deleteWbSelection() {
   if (wbMultiSelection.size > 0) {
-    const keys = [...wbMultiSelection];
+    //: **One Undo step for the whole selection, deleted one at a time**
+    //: (INBOX 537): it was one step per item, and the deletes ran at once, so a
+    //: link already dropped with its card 404'd and took the wrong entry off.
+    //: Links first, then shapes, cards and boxes.
+    const rank = { sketch: 0, node: 1, object: 2 };
+    const keys = [...wbMultiSelection].sort((a, b) => rank[a.split(":")[0]] - rank[b.split(":")[0]]);
     wbMultiSelection.clear();
-    for (const key of keys) {
-      const sep = key.indexOf(":");
-      const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
-      const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
-      if (!item) continue;
-      if (kind === "sketch") wbDeleteSketchRef?.(item);
-      else if (kind === "node") wbDeleteNodeRef?.(item);
-      else wbDeleteObjectRef?.(item);
-    }
+    wbRecordGesture(async () => {
+      for (const key of keys) {
+        const sep = key.indexOf(":");
+        const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
+        const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+        if (!item) continue;
+        if (kind === "sketch") await wbDeleteSketchRef?.(item);
+        else if (kind === "node") await wbDeleteNodeRef?.(item);
+        else await wbDeleteObjectRef?.(item);
+      }
+    });
     wbApplySelectionHighlight();
     return true;
   }
@@ -5769,7 +5688,26 @@ function wbWireContextMenu(selection, kind) {
     .on("pointerup.wbctx pointercancel.wbctx pointermove.wbctx", cancelHold);
 }
 
+//: **Each board and map keeps its own history** (the owner, 2026-10-05: "undo
+//: and redo history for specific documents, whiteboards, mindmaps"). One pair
+//: of stacks served every board, so Ctrl+Z on a second board replayed the
+//: first board's steps against rows it could not see, or re-made them there.
+//: The pair is swapped by board on every read, kept for the session.
+const wbHistoryByBoard = new Map();
+let wbHistoryBoard = null;
+
+function wbHistoryFor() {
+  const key = String(window.currentBoardId ?? "default");
+  if (key === wbHistoryBoard) return;
+  if (wbHistoryBoard !== null) wbHistoryByBoard.set(wbHistoryBoard, { undo: wbUndoStack, redo: wbRedoStack });
+  const kept = wbHistoryByBoard.get(key) || { undo: [], redo: [] };
+  wbUndoStack = kept.undo;
+  wbRedoStack = kept.redo;
+  wbHistoryBoard = key;
+}
+
 function wbUpdateUndoRedoButtons() {
+  wbHistoryFor();
   const undoBtn = document.getElementById("wb-undo");
   const redoBtn = document.getElementById("wb-redo");
   if (undoBtn) undoBtn.disabled = wbUndoStack.length === 0;
@@ -5780,7 +5718,14 @@ function wbUpdateUndoRedoButtons() {
   if (typeof renderUndoBar === "function") renderUndoBar();
 }
 
+function wbDropUndoEntry(entry) {
+  const at = wbUndoStack.lastIndexOf(entry);
+  if (at !== -1) wbUndoStack.splice(at, 1);
+  wbUpdateUndoRedoButtons();
+}
+
 function wbPushUndo(entry) {
+  wbHistoryFor();
   wbUndoStack.push(entry);
   if (wbUndoStack.length > WB_UNDO_MAX) wbUndoStack.shift();
   // A fresh action makes whatever redo history existed unreachable, the
@@ -5798,17 +5743,21 @@ function wbPushUndo(entry) {
 //: ids it just minted, over both stacks, and over a link's two ends because a
 //: link sketch names its topics by id as well. Original ids cannot be reused
 //: instead: the create route assigns them.
-function wbRemapUndoIds(objects, sketches = new Map()) {
-  if (!objects.size && !sketches.size) return;
+//: Cards and shapes too (INBOX 537): a link names a card or a shape by id as
+//: well, and a card brought back by Undo is a new row like any other.
+function wbRemapUndoIds(objects, sketches = new Map(), nodes = new Map()) {
+  if (!objects.size && !sketches.size && !nodes.size) return;
   const obj = (id) => (objects.has(id) ? objects.get(id) : id);
   const sketch = (id) => (sketches.has(id) ? sketches.get(id) : id);
+  const node = (id) => (nodes.has(id) ? nodes.get(id) : id);
+  const byKind = { object: obj, sketch, node };
   const linkText = (text) => {
     if (typeof text !== "string" || !text.includes("link-")) return text;
     try {
       const data = JSON.parse(text);
       if (!data || typeof data !== "object" || !String(data.type || "").startsWith("link-")) return text;
-      if (data.sourceKind === "object") data.sourceId = obj(data.sourceId);
-      if (data.targetKind === "object") data.targetId = obj(data.targetId);
+      data.sourceId = byKind[data.sourceKind || "node"]?.(data.sourceId) ?? data.sourceId;
+      data.targetId = byKind[data.targetKind || "node"]?.(data.targetId) ?? data.targetId;
       return JSON.stringify(data);
     } catch {
       return text;
@@ -5830,6 +5779,7 @@ function wbRemapUndoIds(objects, sketches = new Map()) {
       }
     }
     if (entry.kind === "sketch" && entry.id != null) entry.id = sketch(entry.id);
+    if (entry.kind === "node" && entry.id != null) entry.id = node(entry.id);
     for (const key of ["payload", "before"]) {
       if (entry.kind === "sketch" && entry[key] && typeof entry[key].data === "string") {
         entry[key].data = linkText(entry[key].data);
@@ -5848,6 +5798,140 @@ function wbRemapUndoIds(objects, sketches = new Map()) {
 //: The steps of a batch being replayed right now, and the reverses it has made
 //: so far (`wbApplyHistoryEntry`), so an id remap reaches them too.
 const wbHistoryInFlight = [];
+
+//: **One gesture, one Undo step, read off what it changed** (INBOX 537: "the
+//: undo and redo across the application needs to cover EVERYTHING"). A
+//: gesture in `WB_RECORDED` (the end of this file) snapshots every row and the
+//: map's settings, runs, and pushes the difference as one batch in place of
+//: whatever it pushed itself, so a write nobody recorded by hand (a fold, a
+//: tidy, a parent unfolded on the way, a theme) cannot be left out.
+let wbRecordDepth = 0;
+
+function wbBoardRows() {
+  const rows = new Map();
+  for (const kind of ["node", "sketch", "object"]) {
+    const { list, payload } = WB_KIND_INFO[kind];
+    for (const item of wbState?.[list] || []) {
+      rows.set(`${kind}:${item.id}`, { kind, id: item.id, parent: item.parent_id ?? null, json: JSON.stringify(payload(item)) });
+    }
+  }
+  return rows;
+}
+
+function wbBoardSettings() {
+  const s = typeof wbIsMap === "function" && wbIsMap() ? window.wbMapState : null;
+  return s ? JSON.stringify({ layout: s.layout ?? null, numbered: Boolean(s.numbered), theme: s.theme || {} }) : null;
+}
+
+const wbIsLinkRow = (row) => row.kind === "sketch" && /"type"\s*:\s*"link-/.test(JSON.parse(row.json).data || "");
+
+//: The steps that take the board from now back to `was`, in the order that
+//: works: lost rows back first (a map's topics as one branch, parents first),
+//: then topics back under their old parents (all lifted to the top first when
+//: several moved, so no step can make a ring `/move` refuses), then what the
+//: gesture made goes (links first, children before parents), then every
+//: changed row is written back whole.
+function wbHistoryFromRows(was, wasBoard) {
+  const now = wbBoardRows();
+  const lost = [], made = [], reparent = [], change = [];
+  for (const [key, row] of was) {
+    const cur = now.get(key);
+    if (!cur) { lost.push(row); continue; }
+    if (cur.json !== row.json) change.push({ action: "move", kind: row.kind, id: row.id, before: JSON.parse(row.json) });
+    if (row.kind === "object" && cur.parent !== row.parent) reparent.push(row);
+  }
+  for (const [key, row] of now) if (!was.has(key)) made.push(row);
+  const steps = [];
+  const board = wbBoardSettings();
+  if (board !== wasBoard && wasBoard) steps.push({ action: "board", before: wasBoard });
+  const isTopic = (row) => row.kind === "object" && WB_MAP_KINDS.has(JSON.parse(row.json).kind) && wbIsMap();
+  const topics = lost.filter(isTopic).map((row) => ({ ...JSON.parse(row.json), id: row.id, parent_id: row.parent }));
+  const byId = new Map(topics.map((t) => [t.id, t]));
+  const depth = (t, n = 0) => (n < 500 && byId.has(t.parent_id) ? depth(byId.get(t.parent_id), n + 1) + 1 : 0);
+  topics.sort((a, b) => depth(a) - depth(b));
+  if (topics.length) steps.push({ action: "subtree", kind: "object", rows: topics, links: [] });
+  const restore = lost.filter((row) => !isTopic(row)).sort((a, b) => wbIsLinkRow(a) - wbIsLinkRow(b));
+  for (const row of restore) steps.push({ action: "delete", kind: row.kind, payload: JSON.parse(row.json), oldId: row.id });
+  if (reparent.length > 1) for (const row of reparent) steps.push({ action: "reparent", kind: "object", id: row.id, parentId: null });
+  for (const row of reparent) steps.push({ action: "reparent", kind: "object", id: row.id, parentId: row.parent });
+  const order = { sketch: 0, node: 1, object: 2 };
+  const madeDepth = (row) => { let d = 0, p = row.parent; while (p != null && d < 500) { d += 1; p = now.get(`object:${p}`)?.parent ?? null; } return d; };
+  made.sort((a, b) => wbIsLinkRow(b) - wbIsLinkRow(a) || order[a.kind] - order[b.kind] || madeDepth(b) - madeDepth(a));
+  for (const row of made) steps.push({ action: "create", kind: row.kind, id: row.id });
+  return [...steps, ...change];
+}
+
+async function wbRecordGesture(run, args = []) {
+  if (wbRecordDepth > 0 || !wbState) return run(...args);
+  wbHistoryFor();
+  const boardId = window.currentBoardId;
+  const rows = wbBoardRows();
+  const board = wbBoardSettings();
+  const had = new Set(wbUndoStack);
+  wbRecordDepth += 1;
+  try {
+    return await run(...args);
+  } finally {
+    wbRecordDepth -= 1;
+    if (window.currentBoardId === boardId) {
+      //: A note's own steps cannot be read off the board's rows, so they stay.
+      const notes = [];
+      for (let i = wbUndoStack.length - 1; i >= 0; i -= 1) {
+        if (had.has(wbUndoStack[i])) continue;
+        const [inner] = wbUndoStack.splice(i, 1);
+        if (/^note/.test(inner.action || "")) notes.unshift(inner);
+      }
+      const steps = [...wbHistoryFromRows(rows, board), ...notes];
+      if (steps.length) wbPushUndo(steps.length === 1 ? steps[0] : { action: "batch", entries: steps });
+      else wbUpdateUndoRedoButtons();
+    }
+  }
+}
+
+//: The links on the board with an end on this item: the server drops them
+//: with it (`_forget_links_to`), so a delete keeps them to put back.
+function wbLinksTouching(kind, id) {
+  return (wbState.sketches || []).filter((s) => {
+    let data = null;
+    try { data = JSON.parse(s.data); } catch { return false; }
+    if (!data || !String(data.type || "").startsWith("link-")) return false;
+    return (data.sourceId === id && (data.sourceKind || "node") === kind)
+      || (data.targetId === id && (data.targetKind || "node") === kind);
+  }).map((s) => ({ ...WB_KIND_INFO.sketch.payload(s), id: s.id }));
+}
+
+function wbForgetLinks(links) {
+  const gone = new Set((links || []).map((link) => link.id));
+  if (gone.size) wbState.sketches = (wbState.sketches || []).filter((s) => !gone.has(s.id));
+}
+
+//: Draw `links` again with `oldId` (a `kind`) now `newId`; an end on an item
+//: no longer on the board is skipped, a line to nowhere.
+async function wbRestoreLinks(links, kind, oldId, newId) {
+  const sketchRemap = new Map();
+  const present = (k, id) => (wbState[WB_LIST_BY_KIND[k]] || []).some((i) => i.id === id);
+  for (const link of links || []) {
+    let data;
+    try { data = JSON.parse(link.data); } catch { continue; }
+    if (!data || typeof data !== "object") continue;
+    let whole = true;
+    for (const [idKey, kindKey] of [["sourceId", "sourceKind"], ["targetId", "targetKind"]]) {
+      const k = data[kindKey] || "node";
+      if (k === kind && data[idKey] === oldId) data[idKey] = newId;
+      else if (!present(k, data[idKey])) whole = false;
+    }
+    if (!whole) continue;
+    try {
+      const made = await apiJson("/whiteboard/sketches", {
+        method: "POST",
+        body: JSON.stringify({ ...link, id: undefined, data: JSON.stringify(data) }),
+      });
+      wbState.sketches.push(made);
+      sketchRemap.set(link.id, made.id);
+    } catch { /* the item came back; a link that cannot is not worth failing it */ }
+  }
+  return sketchRemap;
+}
 
 // The shared half of undo and redo: pop one entry off `from`, apply its
 // inverse, and push what would undo *that* onto `to`. Undo and redo are
@@ -6191,6 +6275,42 @@ async function wbApplyHistoryEntry(from, to) {
     to.push({ action: "subtree", kind: "object", rows, links });
     return true;
   }
+  //: The note behind a card: its words as they were, or the note a branch
+  //: card made, to the recycle bin and back (never purged from here).
+  if (entry.action === "note") {
+    const current = await apiJson(`/entries/${entry.entryId}`);
+    await apiJson(`/entries/${entry.entryId}`, { method: "PUT", body: JSON.stringify({ content: entry.content }) });
+    to.push({ action: "note", entryId: entry.entryId, content: current.content });
+    await loadEntries();
+    return true;
+  }
+  if (entry.action === "noteMade" || entry.action === "noteBinned") {
+    const made = entry.action === "noteMade";
+    await apiJson(made ? `/entries/${entry.entryId}` : `/entries/${entry.entryId}/restore`, { method: made ? "DELETE" : "POST" });
+    to.push({ action: made ? "noteBinned" : "noteMade", entryId: entry.entryId });
+    await loadEntries();
+    return true;
+  }
+  //: The map's layout, numbering and theme as they were (`wbHistoryFromRows`):
+  //: a theme is a patch, so a field the old theme lacked is sent as null.
+  if (entry.action === "board") {
+    const current = wbBoardSettings();
+    if (current && entry.before) {
+      const was = JSON.parse(entry.before);
+      const now = JSON.parse(current);
+      const theme = {};
+      for (const key of new Set([...Object.keys(was.theme), ...Object.keys(now.theme)])) theme[key] = was.theme[key] ?? null;
+      await apiJson(`/whiteboard/boards/${window.currentBoardId}`, {
+        method: "PUT",
+        body: JSON.stringify({ layout: was.layout ?? undefined, numbered: was.numbered, theme }),
+      });
+      await wbRefreshMapState();
+      if (typeof wbApplyMapFont === "function") wbApplyMapFont();
+      if (typeof wbSyncMapChrome === "function") wbSyncMapChrome();
+    }
+    to.push({ action: "board", before: current });
+    return true;
+  }
   const { base, list, payload: toPayload } = WB_KIND_INFO[entry.kind];
   if (entry.action === "delete") {
     // This entry means "bring back what was deleted". Applying it recreates
@@ -6208,7 +6328,14 @@ async function wbApplyHistoryEntry(from, to) {
       });
       Object.assign(restored, placed);
     }
-    if (entry.kind === "object" && entry.oldId != null) wbRemapUndoIds(new Map([[entry.oldId, restored.id]]));
+    //: And its links with it, re-ended on the new id (INBOX 537): the server
+    //: drops a deleted item's links, so a card, box or shape came back alone.
+    const linkIds = await wbRestoreLinks(entry.links, entry.kind, entry.oldId, restored.id);
+    if (entry.oldId != null) {
+      const ids = new Map([[entry.oldId, restored.id]]);
+      const none = new Map();
+      wbRemapUndoIds(entry.kind === "object" ? ids : none, entry.kind === "sketch" ? new Map([...ids, ...linkIds]) : linkIds, entry.kind === "node" ? ids : none);
+    }
     to.push({ action: "create", kind: entry.kind, id: restored.id });
   } else if (entry.action === "move") {
     // A drag, resize, or nudge's own undo: asked for directly ("account
@@ -6232,17 +6359,32 @@ async function wbApplyHistoryEntry(from, to) {
     // future redo/undo) needs a real payload to recreate it from, not a
     // blank one.
     const item = wbState[list].find((i) => i.id === entry.id);
-    const payload = item && toPayload(item);
-    await apiJson(`${base}/${entry.id}`, { method: "DELETE" });
+    //: Already gone (taken with its parent's branch a step earlier): nothing
+    //: to delete, and a DELETE would 404 and stop the rest of the batch.
+    if (!item) return true;
+    const payload = toPayload(item);
+    const links = wbLinksTouching(entry.kind, entry.id);
+    const res = await apiJson(`${base}/${entry.id}`, { method: "DELETE" });
+    //: **A topic that has gained a branch since goes, and comes back, whole**
+    //: (INBOX 537). The server takes a map topic's subtree with it; this step
+    //: used to keep only the one row, so the branch under it was lost for good.
+    const rows = entry.kind === "object" && Array.isArray(res?.deleted) ? res.deleted : [];
+    if (rows.length > 1) {
+      const gone = new Set(rows.map((row) => row.id));
+      wbState.objects = wbState.objects.filter((o) => !gone.has(o.id));
+      wbForgetLinks(res.links);
+      if (item.parent_id != null) wbUndoParents.push(item.parent_id);
+      to.push({ action: "subtree", kind: "object", rows, links: Array.isArray(res.links) ? res.links : [] });
+      return true;
+    }
     wbState[list] = wbState[list].filter((i) => i.id !== entry.id);
+    wbForgetLinks(links);
     //: A topic made by Tab or Enter and taken back leaves its parent as the
     //: selection (below, in `wbUndo`): the person was on that topic a moment
     //: before they made the new one, and nothing selected would drop them off
     //: the keyboard path the map is built on.
     if (entry.kind === "object" && item && item.parent_id != null) wbUndoParents.push(item.parent_id);
-    if (payload) {
-      to.push({ action: "delete", kind: entry.kind, payload, oldId: entry.id, parentId: item?.parent_id ?? null });
-    }
+    to.push({ action: "delete", kind: entry.kind, payload, oldId: entry.id, parentId: item.parent_id ?? null, links });
   }
   return true;
 }
@@ -6258,15 +6400,24 @@ window.wbRedo = wbRedo;
 //: And whether there is anything on either stack, so the status bar's two
 //: buttons can be lit or dimmed by the board's own history rather than by the
 //: app's, which knows nothing about a shape that moved.
-window.wbCanUndo = () => wbUndoStack.length > 0;
-window.wbCanRedo = () => wbRedoStack.length > 0;
+window.wbCanUndo = () => (wbHistoryFor(), wbUndoStack.length > 0);
+window.wbCanRedo = () => (wbHistoryFor(), wbRedoStack.length > 0);
 
 //: The parents of the topics one Undo took away, in the order they went. A
 //: batch (a duplicated branch) removes several, and most of their parents go
 //: with them, so `wbUndo` picks the first that is still on the board.
 let wbUndoParents = [];
 
+//: A topic or box being typed in is finished first, as its own step, so an
+//: Undo never runs under an open editor that saves into the board afterwards.
+function wbCommitOpenEdit() {
+  const active = document.activeElement;
+  if (active?.isContentEditable && active.closest("#wb-html-layer")) active.blur();
+}
+
 async function wbUndo() {
+  wbHistoryFor();
+  wbCommitOpenEdit();
   wbUndoParents = [];
   try {
     if (!(await wbApplyHistoryEntry(wbUndoStack, wbRedoStack))) return;
@@ -6286,6 +6437,8 @@ async function wbUndo() {
 // `wbUndoStack`, so undo/redo/undo/redo keeps working rather than only
 // ever reversing once.
 async function wbRedo() {
+  wbHistoryFor();
+  wbCommitOpenEdit();
   try {
     if (!(await wbApplyHistoryEntry(wbRedoStack, wbUndoStack))) return;
     wbUpdateUndoRedoButtons();
@@ -6917,17 +7070,33 @@ async function wbDeleteCurrentBoard() {
   const select = $("wb-board-select");
   const title =
     select?.options?.[select.selectedIndex]?.textContent?.trim() || "this board";
-  if (!(await confirmDialog(`Delete "${title}"? This cannot be undone.`))) return;
-  try {
-    await apiJson(`/entries/${boardId}`, { method: "DELETE" });
-  } catch (err) {
-    toast(err.message || "Couldn't delete that board.", true);
-    return;
-  }
+  if (!(await wbDeleteBoard(boardId, title))) return;
   window.currentBoardId = null;
   wbShowBoardsLanding();
+}
+
+//: A board is a note, so deleting one moves it to the recycle bin, and the
+//: app's Undo (and the toast's) bring it back with everything on it (INBOX
+//: 537). The confirm used to say "This cannot be undone", which was untrue.
+async function wbBinBoard(id, bin) {
+  await apiJson(bin ? `/entries/${id}` : `/entries/${id}/restore`, { method: bin ? "DELETE" : "POST" });
   await refreshBoardList();
-  toast(`Deleted "${title}".`);
+  if ($("wb-boards-landing") && !$("wb-boards-landing").classList.contains("hidden")) renderLibraryBoardsGallery();
+}
+
+async function wbDeleteBoard(id, title) {
+  try {
+    await wbBinBoard(id, true);
+  } catch (err) {
+    toast(err.message || "Couldn't delete that board.", true);
+    return false;
+  }
+  const action = pushUndo(`Deleted "${title}"`, () => wbBinBoard(id, false), () => wbBinBoard(id, true));
+  toastAction(`Moved "${title}" to the recycle bin.`, "Undo", async () => {
+    await wbBinBoard(id, false);
+    settleUndoFromToast(action);
+  });
+  return true;
 }
 
 async function wbClearBoard() {
@@ -6938,27 +7107,26 @@ async function wbClearBoard() {
   }
   const ok = await confirmDialog(
     `Clear this board? ${total} item${total === 1 ? "" : "s"} will be removed. ` +
-    "Ctrl+Z undoes them one at a time afterward."
+    "One Ctrl+Z puts them all back."
   );
   if (!ok) return;
-  try {
-    for (const kind of ["node", "sketch", "object"]) {
-      const { base, list, payload } = WB_KIND_INFO[kind];
+  //: One Undo step (INBOX 537), read off the board before and after; and an
+  //: item the server already dropped with another (a card's links, a topic's
+  //: branch) is skipped rather than ending the clear part way.
+  await wbRecordGesture(async () => {
+    for (const kind of ["sketch", "node", "object"]) {
+      const { base, list } = WB_KIND_INFO[kind];
       for (const item of [...(wbState[list] || [])]) {
-        await apiJson(`${base}/${item.id}`, { method: "DELETE" });
-        wbPushUndo({ action: "delete", kind, payload: payload(item) });
+        await apiJson(`${base}/${item.id}`, { method: "DELETE", silent: true }).catch(() => null);
       }
-      wbState[list] = [];
     }
-    wbSelectedItem = null;
-    wbScheduleRender();
-    await refreshBoardList();
-    toast("Board cleared.");
-  } catch {
-    toast("Couldn't clear the whole board, reloading to show what's left.", true);
     await fetchWhiteboardState();
-    wbScheduleRender();
-  }
+  });
+  wbSelectedItem = null;
+  wbScheduleRender();
+  await refreshBoardList();
+  const left = wbState.nodes.length + wbState.sketches.length + (wbState.objects?.length || 0);
+  toast(left ? "Couldn't clear the whole board; what is left is shown." : "Board cleared.", Boolean(left));
 }
 
 // --- Whiteboard export (asked for directly: "a way to screen clip a or a
@@ -13599,18 +13767,20 @@ function renderWhiteboard() {
     const deletingKey = `sketch:${d.id}`;
     if (wbDeleting.has(deletingKey)) return;
     wbDeleting.add(deletingKey);
-    wbPushUndo({
-      action: "delete",
-      kind: "sketch",
-      payload: { data: d.data, board_id: d.board_id, x: d.x, y: d.y, z: d.z },
-    });
+    //: With the links that end on it, which the server drops too (INBOX 537),
+    //: and taken off the stack by identity, not by `pop`: a second delete in
+    //: flight may have pushed after this one.
+    const links = wbLinksTouching("sketch", d.id);
+    const entry = { action: "delete", kind: "sketch", payload: WB_KIND_INFO.sketch.payload(d), oldId: d.id, links };
+    wbPushUndo(entry);
     try {
       await apiJson(`/whiteboard/sketches/${d.id}`, { method: "DELETE" });
       wbState.sketches = wbState.sketches.filter((s) => s.id !== d.id);
+      wbForgetLinks(links);
       wbScheduleRender();
     } catch (e) {
       console.error(e);
-      wbUndoStack.pop(); // the delete never happened, so neither did the undo entry
+      wbDropUndoEntry(entry); // the delete never happened, so neither did the undo entry
     } finally {
       wbDeleting.delete(deletingKey);
     }
@@ -14004,19 +14174,17 @@ function renderWhiteboard() {
     const deletingKey = `node:${d.id}`;
     if (wbDeleting.has(deletingKey)) return;
     wbDeleting.add(deletingKey);
-    wbPushUndo({
-      action: "delete",
-      kind: "node",
-      payload: WB_KIND_INFO.node.payload(d),
-    });
+    const links = wbLinksTouching("node", d.id);
+    const entry = { action: "delete", kind: "node", payload: WB_KIND_INFO.node.payload(d), oldId: d.id, links };
+    wbPushUndo(entry);
     try {
       await apiJson(`/whiteboard/nodes/${d.id}`, { method: "DELETE" });
       wbState.nodes = wbState.nodes.filter((n) => n.id !== d.id);
-      // also delete links connected to it? For MVP just delete the node.
+      wbForgetLinks(links);
       wbScheduleRender();
     } catch (e) {
       console.error(e);
-      wbUndoStack.pop();
+      wbDropUndoEntry(entry);
     } finally {
       wbDeleting.delete(deletingKey);
     }
@@ -14646,9 +14814,16 @@ function renderWbObjects(canvas) {
     const deletingKey = `object:${d.id}`;
     if (wbDeleting.has(deletingKey)) return;
     wbDeleting.add(deletingKey);
-    wbPushUndo({ action: "delete", kind: "object", payload: WB_KIND_INFO.object.payload(d) });
+    const entry = { action: "delete", kind: "object", payload: WB_KIND_INFO.object.payload(d), oldId: d.id, parentId: d.parent_id ?? null, links: wbLinksTouching("object", d.id) };
+    wbPushUndo(entry);
     try {
       const res = await apiJson(`/whiteboard/objects/${d.id}`, { method: "DELETE" });
+      //: **A topic's branch is on the entry too** (INBOX 537): the server took
+      //: the whole subtree, and an entry of one row brought back one topic.
+      if (Array.isArray(res?.deleted) && res.deleted.length > 1) {
+        Object.assign(entry, { action: "subtree", rows: res.deleted, links: Array.isArray(res.links) ? res.links : [] });
+      }
+      wbForgetLinks(Array.isArray(res?.links) ? res.links : entry.links);
       // **Whatever the server says it deleted, not just the row we asked
       // about.** On a map this endpoint takes the node's whole subtree and
       // returns it as `deleted[]` (§9.1), so dropping only `d.id` here left
@@ -14667,7 +14842,7 @@ function renderWbObjects(canvas) {
       wbScheduleRender();
     } catch (e) {
       console.error(e);
-      wbUndoStack.pop();
+      wbDropUndoEntry(entry);
     } finally {
       wbDeleting.delete(deletingKey);
     }
@@ -15865,6 +16040,7 @@ function wbShowBoardsLanding() {
   $("wb-canvas-view")?.classList.add("hidden");
   $("wb-boards-landing")?.classList.remove("hidden");
   renderLibraryBoardsGallery();
+  if (typeof scheduleUndoBar === "function") scheduleUndoBar();
 }
 
 //: Sorting for the Whiteboards sub-tab, the fifth and last list to get it
@@ -16153,11 +16329,16 @@ function drawLibraryBoardsGallery(listed) {
           makeMenuItem("ph:pencil-simple Rename", "Rename this board", async () => {
             const next = await promptDialog("Rename this board:", board.title);
             if (!next) return;
-            await apiJson(`/whiteboard/boards/${board.id}`, {
+            const named = (title) => apiJson(`/whiteboard/boards/${board.id}`, {
               method: "PUT",
-              body: JSON.stringify({ title: next }),
-            }).catch((e) => toast(e.message, true));
-            renderLibraryBoardsGallery();
+              body: JSON.stringify({ title }),
+            }).then(() => renderLibraryBoardsGallery());
+            try {
+              await named(next);
+              pushUndo(`Renamed "${board.title}"`, () => named(board.title), () => named(next));
+            } catch (e) {
+              toast(e.message, true);
+            }
           }),
           // ROADMAP.md item 8: creating, listing and renaming a map all
           // worked; duplicating did not exist, and it is the one that makes a
@@ -16170,6 +16351,7 @@ function drawLibraryBoardsGallery(listed) {
                 method: "POST",
               });
               renderLibraryBoardsGallery();
+              pushUndo(`Copied "${board.title}"`, () => wbBinBoard(copy.id, false), () => wbBinBoard(copy.id, true));
               toast(`Copied to “${copy.title}”`);
             } catch (e) {
               toast(e.message, true);
@@ -16183,11 +16365,7 @@ function drawLibraryBoardsGallery(listed) {
             if (typeof addBoardToNote === "function") await addBoardToNote(board);
           }),
           appLinkMenuItem(board.type === "map" ? "map" : "board", board.id),
-          makeMenuItem("ph:trash Delete", "Delete this board", async () => {
-            if (!(await confirmDialog(`Delete "${board.title}"? This cannot be undone.`))) return;
-            await apiJson(`/entries/${board.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
-            renderLibraryBoardsGallery();
-          }),
+          makeMenuItem("ph:trash Delete", "Delete this board", () => wbDeleteBoard(board.id, board.title)),
         //: Six rows is past the ceiling (DESIGN.md): what you do to it, its
         //: address, and the row that ends it.
         ].map((item) => ({ ...item, group: /Copy app link/.test(item.label) ? "copy" : /Delete/.test(item.label) ? "end" : "act" })),
@@ -16234,6 +16412,7 @@ async function openWhiteboardBoard(boardId) {
   wbShowCanvasView();
   await new Promise((resolve) => setTimeout(resolve, 60));
   window.currentBoardId = boardId ?? null;
+  wbUpdateUndoRedoButtons();
   // Anything a previous board's selection drag left behind goes now. The
   // rectangle lives in `#wb-zoom-group`, which the render joins by data and
   // never empties, so without this a stray one followed you from board to
@@ -16632,3 +16811,33 @@ document.addEventListener("click", (event) => {
   else if (button.id === "wb-present-next") wbPresentShow(wbPresent.at + 1);
   else if (button.id === "wb-present-end") wbStopPresenting();
 });
+
+//: The gestures that are one Undo step each, read off what they changed
+//: (`wbRecordGesture`). Wrapped by name so every caller, the keys, the ring,
+//: the menus, gets the recorded one. A gesture inside another runs plain.
+//: `wbMapTransplant` keeps its own entry (it knows where a drag began), so
+//: what it calls is not recorded twice.
+const WB_RECORDED = [
+  "wbMapSetTheme", "wbMapClearEveryTopic", "wbMapSetNumbered", "wbMapExpandAll", "wbMapAddChild",
+  "wbMapAddRootAt", "wbMapAddReference", "wbMapDuplicateTopic", "wbMapClearToOneTopic",
+  "wbMapToggleCollapse", "wbMapCopyBranch", "wbMapRemoveKeepingBranch", "wbMapSever",
+  "wbMapReverseCrossLink", "wbMapCrossLinkToBranch", "wbMapCutCrossLink", "wbMapReverseEdge",
+  "wbMapSetLayout", "wbMapInsertBetween", "wbMapOutdent", "wbMapMoveAmongSiblings",
+  "wbApplyMapTemplate", "wbMapTidy", "wbGroupSelection", "wbUngroupSelection",
+  "wbPasteCopiedStyle", "wbArrangeMindMap", "wbMindMapAddCard", "wbBucketFillSketch", "wbFitToText",
+];
+for (const name of WB_RECORDED) {
+  const plain = window[name];
+  if (typeof plain === "function") window[name] = (...args) => wbRecordGesture(plain, args);
+}
+{
+  const plain = window.wbMapTransplant;
+  window.wbMapTransplant = async (...args) => {
+    wbRecordDepth += 1;
+    try {
+      return await plain(...args);
+    } finally {
+      wbRecordDepth -= 1;
+    }
+  };
+}

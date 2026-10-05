@@ -2904,6 +2904,42 @@ onDomReady(() => {
   });
 });
 
+//: Each file is its own request, so one that cannot be read does not take the
+//: others with it, and says so by name. The headers are written out in full:
+//: a FormData body needs the browser's own multipart boundary (so no
+//: `Content-Type`), and passing `headers` to `api()` replaces its defaults
+//: whole, which is why the workspace goes in by hand (without it the document
+//: lands in the default space whichever one is open).
+async function importLibraryDocuments(files) {
+  const made = [];
+  for (const file of files) {
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      const document_ = await apiJson("/documents/import", {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
+        body: form,
+      });
+      made.push(document_);
+    } catch (error) {
+      toast(`Couldn't import “${file.name}”: ${error.message || "the file could not be read."}`, true);
+    }
+  }
+  if (!made.length) return;
+  await renderLibraryDocuments();
+  // The list is already on screen and redrawn, so "Show them" would be a
+  // button that does nothing; only a single import has somewhere to go.
+  if (made.length > 1) {
+    toast(`Added ${made.length} files to your documents.`);
+    return;
+  }
+  toastAction(`Added “${made[0].title}” to your documents.`, "Open it", () => {
+    switchTab("documents");
+    openDocument(made[0].id);
+  });
+}
+
 async function renderLibraryDocuments() {
   const list = document.getElementById("library-docs-list");
   const empty = document.getElementById("library-docs-empty");
@@ -8749,6 +8785,23 @@ onDomReady(() => {
       openDocument(doc.id);
     }
   });
+  //: **Import a file as a document** (BACKLOG section 99, "an upload documents
+  //: option in the documents tab in the library"). `POST /documents/import`
+  //: extracts a Word file, PDF, spreadsheet, Markdown or code file to text
+  //: and stores it as an ordinary Document, so it opens in the same editor as
+  //: one written here; the original bytes are not kept, which the route's own
+  //: docstring explains. The menu closes first so the file picker is not
+  //: opening over an open menu.
+  $("library-docs-import")?.addEventListener("click", () => {
+    const menu = $("library-docs-more-menu");
+    if (menu) menu.open = false;
+    $("library-docs-import-input")?.click();
+  });
+  $("library-docs-import-input")?.addEventListener("change", (event) =>
+    importLibraryDocuments([...event.target.files]).finally(() => {
+      event.target.value = "";
+    })
+  );
   // Filter as you type. No debounce: the list is already in memory after the
   // first fetch and re-rendering it is cheap, unlike the semantic searches
   // elsewhere that a debounce exists to protect.

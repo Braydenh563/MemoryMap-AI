@@ -283,7 +283,8 @@ MORE_TOPICS: list[dict] = [
         "id": "import-export",
         "keywords": (
             "import markdown", "import a folder", "import a pdf", "import word",
-            "slide deck", "merge duplicates", "tidy up duplicates", "full backup",
+            "import as a document", "slide deck", "merge duplicates",
+            "tidy up duplicates", "full backup",
             "export csv", "export json", "exports folder", "zip",
         ),
         "body": (
@@ -294,6 +295,8 @@ MORE_TOPICS: list[dict] = [
             "needed, and merging keeps every tag and bins the rest. Import "
             "markdown files or a folder (Obsidian frontmatter is understood), "
             "or a PDF, Word file or slide deck, one note per chapter or slide. "
+            "To keep a file whole as a document you can edit instead, open "
+            "Library, Documents, the more menu, Import a file as a document. "
             "Backups: Back up now, and how many to keep; one is also taken "
             "each day the app starts, and restoring snapshots first, so even a "
             "restore can be undone. App cache, at the bottom: Clear app cache "

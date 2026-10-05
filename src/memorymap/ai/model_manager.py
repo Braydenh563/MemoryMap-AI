@@ -897,7 +897,15 @@ def _reindex_pass(
             session.scalars(select(Entry).where(Entry.is_deleted == False))  # noqa: E712
         )
         job.total = len(entries)
-        for entry in entries:
+        #: Imported here, not at the top: `ai/embeddings.py` imports this
+        #: module, so a top-level import would be the cycle `Embedder`'s own
+        #: docstring describes.
+        from memorymap.ai.embeddings import EMBED_BATCH
+
+        #: A stand-in that only knows `store_for_entry` (the contract `Embedder`
+        #: states, and what the tests pass) is walked one note at a time.
+        store_batch = getattr(embeddings, "store_for_entries", None)
+        for start in range(0, len(entries), EMBED_BATCH):
             if job.cancel_requested:  # user quit it from the tasks manager
                 job.status = "cancelled"
                 run.cancel(f"stopped after {job.done} of {job.total} notes")
@@ -909,14 +917,21 @@ def _reindex_pass(
                     duration_ms=(time.monotonic() - started) * 1000,
                 )
                 return
-            # Drop the stale vector first so a failed re-embed never
+            batch = entries[start : start + EMBED_BATCH]
+            # Drop the stale vectors first so a failed re-embed never
             # leaves an old-model vector looking current.
             session.execute(
-                delete(EmbeddingRecord).where(EmbeddingRecord.entry_id == entry.id)
+                delete(EmbeddingRecord).where(
+                    EmbeddingRecord.entry_id.in_([entry.id for entry in batch])
+                )
             )
             session.commit()
-            embeddings.store_for_entry(session, entry)  # False = skip, keep going
-            job.done += 1
+            if store_batch is not None:
+                store_batch(session, batch)  # one batched encode; a miss is skipped
+            else:
+                for entry in batch:
+                    embeddings.store_for_entry(session, entry)  # False = skip, keep going
+            job.done += len(batch)
         log_action(
             session,
             "reindexed",

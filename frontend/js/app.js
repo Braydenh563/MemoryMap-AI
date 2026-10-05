@@ -2197,6 +2197,15 @@ const LAZY_MODULES = {
   quickAccess: ["/js/quick-access.js"],
   //: The suggestions inbox (GRAPH_PLAN KG9): see suggestions-inbox.js.
   inbox: ["/js/suggestions-inbox.js", "/js/entity-page.js", "/js/link-types.js", "/js/note-properties.js"],
+  //: 2026-10-05 (gzip budget), the next seven: each file's header says why.
+  reveal: ["/js/reveal-targets.js"],
+  onboarding: ["/js/onboarding.js"],
+  updates: ["/js/update-dialogs.js"],
+  appPalette: ["/js/app-palette.js"],
+  notePanels: ["/js/note-panels.js", "/js/note-edit-panels.js"],
+  //: Every listener inside the Settings window, awaited on first open: settings-controls.js.
+  settingsControls: ["/js/settings-controls.js"],
+  attachTo: ["/js/attach-to.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2417,6 +2426,13 @@ const LAZY_ENTRY_POINTS = {
     "importDocument",
   ],
   tagSuggest: ["openTagSuggest"],
+  //: 2026-10-05, the next six: async or unread, reached by a gesture.
+  reveal: ["revealFeature"],
+  onboarding: ["openOnboarding"],
+  updates: ["checkForUpdate", "applyUpdateNow", "showSourceUpdatedDialog"],
+  appPalette: ["openPalette"],
+  notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing"],
+  attachTo: ["renderAttachToBoard", "renderAttachToDocument"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",

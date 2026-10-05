@@ -881,32 +881,6 @@ function renderSmallModelMode(current) {
   select.value = current || "auto";
 }
 
-$("small-model-mode")?.addEventListener("change", async () => {
-  const select = $("small-model-mode");
-  const status = $("small-model-mode-status");
-  if (status) status.textContent = "Saving…";
-  try {
-    prefsCache = await apiJson("/preferences", {
-      method: "PUT",
-      body: JSON.stringify({ small_model_mode: select.value }),
-    });
-  } catch (error) {
-    if (status) {
-      status.classList.add("error");
-      status.textContent = error.message;
-    }
-    return;
-  }
-  if (!status) return;
-  status.classList.remove("error");
-  status.textContent =
-    select.value === "on"
-      ? "Every skill step is offered only the tool it names."
-      : select.value === "off"
-        ? "Every step is offered the skill's whole toolbox."
-        : "Decided per run from the chat model's name.";
-});
-
 //: **The run budget** (Brief 13), the same shape as the two controls above:
 //: saved on change, because a control that waits for an Apply button reads as
 //: broken here, the next preferences render paints the old value back over it.
@@ -952,9 +926,6 @@ async function saveRunBudget() {
   parts.push(body.run_budget_seconds ? `${body.run_budget_seconds}s` : "no time limit");
   status.textContent = `A run may spend ${parts.join(" and ")}.`;
 }
-
-$("run-budget-tokens")?.addEventListener("change", saveRunBudget);
-$("run-budget-seconds")?.addEventListener("change", saveRunBudget);
 
 //: One tool's switch, saved. A refused save puts the switch back and says why:
 //: the handler used to `await` with nothing to catch it, so a 422 was an
@@ -1080,8 +1051,6 @@ function applyToolFilter() {
       : `${on} of ${rows.length} on`;
   }
 }
-
-$("tool-filter")?.addEventListener("input", applyToolFilter);
 
 // --- Wave M: share skills/personas as JSON ------------------------------------------
 

@@ -277,6 +277,14 @@ MemoryMap-AI/
 │   ├── ocr-engine.js        # the OCR workspace's Tesseract status line; lazy
 │   ├── settings-data.js · settings-find.js · settings-models.js # lazy parts
 │   │                        #   of Settings (data, search, model cards)
+│   ├── settings-controls.js # every listener inside the Settings window; the first
+│   │                        #   openSettingsModal awaits it
+│   ├── reveal-targets.js · onboarding.js · update-dialogs.js · app-palette.js
+│   │                        # lazy: catalogue deep links, welcome card, update check
+│   │                        #   and dialogs, the Ctrl/Cmd-K palette's window
+│   ├── note-panels.js · note-edit-panels.js · attach-to.js # lazy: a note card's
+│   │                        #   menu panels and the edit form's two panels (one
+│   │                        #   bundle), the put-on-a-board and add-to-document pickers
 │   ├── settings.js          # Settings, appearance, whether the background art runs
 │   ├── bg-art.js            # the background art: its styles and its runtime
 │   ├── dashboard.js         # the dashboard's widgets
@@ -1060,7 +1068,7 @@ Sixty-one JavaScript files in `frontend/js/`, in four kinds (37 load at boot; ch
 | The app's own code | `app.js`, `note-cards.js`, `menus.js`, `lightbox.js`, `selection.js`, `notes-list.js`, `capture-ask.js`, `chat.js`, `chat-agent.js`, `chat-attach.js`, `sheets-selects.js`, `skills.js`, `shell-reminders.js`, `markdown.js`, `navigation.js`, `router.js`, `settings-panes.js`, `media.js`, `status.js`, `ai-tools.js`, `phone-shell.js`, `wiring.js`, `settings-wiring.js`, `spaces-find.js`, `agent-activity.js` | at the end of `<body>`, in this order |
 | The boot surfaces | `avatars.js`, `atlas.js`, `editor.js`, `dashboard.js`, `timeline.js`, `palette.js`, `bg-art.js`, `settings.js`, `tour.js` | straight after, in this order |
 | Lazy bundles | `graph.js` and `graph-canvas.js` (the Graph tab); `documents-code.js`, `documents-prose.js`, `documents.js`, `whiteboard-map.js`, `whiteboard.js`, `library.js` (Library and Documents) | on the first visit to the tab, by `ensureModule` from `LAZY_MODULES` in `app.js` |
-| Lazy pieces | one entry each in `LAZY_MODULES`: `lightbox-view.js`, `edit-conflict.js`, `categories-panel.js`, `tag-manager.js`, `chip-menus.js`, `note-history.js`, `ask-history.js`, `settings-data.js`, `settings-find.js` + `settings-models.js` (`settingsUi`), `tag-suggest.js`, `attachment-actions.js`, `ocr-engine.js`, `quick-note.js` | on first use through `LAZY_ENTRY_POINTS`, to keep the boot scripts under their gzip budget; `quick-note.js` is fetched a few seconds after boot, because its outbox is for the moment the server is gone and a script cannot be fetched then |
+| Lazy pieces | one entry each in `LAZY_MODULES`: `lightbox-view.js`, `edit-conflict.js`, `categories-panel.js`, `tag-manager.js`, `chip-menus.js`, `note-history.js`, `ask-history.js`, `settings-data.js`, `settings-find.js` + `settings-models.js` (`settingsUi`), `tag-suggest.js`, `attachment-actions.js`, `ocr-engine.js`, `quick-note.js`, and (2026-10-05) `reveal-targets.js`, `onboarding.js`, `update-dialogs.js`, `app-palette.js`, `note-panels.js` + `note-edit-panels.js` (`notePanels`), `attach-to.js`, `settings-controls.js` (no entry points: `openSettingsModal` awaits it on the first open) | on first use through `LAZY_ENTRY_POINTS`, to keep the boot scripts under their gzip budget; `quick-note.js` is fetched a few seconds after boot, because its outbox is for the moment the server is gone and a script cannot be fetched then |
 
 Plus three that are not page scripts: `sw.js` (the service worker),
 `graph-worker.js` and `harper-worker.js` (web workers for the graph's layout

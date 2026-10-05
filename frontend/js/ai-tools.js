@@ -1256,7 +1256,6 @@ async function runEmbeddingFallback() {
     refreshModelStatus();
   }
 }
-$("embedding-error-fix").addEventListener("click", runEmbeddingFallback);
 
 async function applyChatModel() {
   const select = $("chat-model-select");

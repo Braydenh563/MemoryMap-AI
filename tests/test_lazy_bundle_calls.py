@@ -99,6 +99,14 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: The Escape handler (settings-wiring.js) closes the welcome card only
+    #: when `#onboarding-overlay` is showing, and the only thing that shows it
+    #: is `openOnboarding`, whose stand-in loads the bundle first.
+    #: The same for the palette: `closePalette` is called (Escape, the chord's
+    #: toggle, a chord that closes overlays) only while `#palette-overlay` is
+    #: showing, and only `openPalette`, whose stand-in loads the bundle, shows it.
+    "closePalette": "appPalette, called only while the palette overlay is showing, and only openPalette shows it",
+    "closeOnboarding": "onboarding, called on Escape only while the overlay is open, and only openOnboarding opens it",
     #: The settingsUi bundle (settings-find.js) is awaited by `openSettingsModal`
     #: before it shows any section, and every call below runs from a section
     #: that is on screen or a search field inside the open dialog. With the

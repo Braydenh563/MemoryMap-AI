@@ -3101,7 +3101,7 @@ RICH_PICKER_PARTS = ("row", "tile", "keys", "group", "label", "about", "text", "
 #: The pickers that draw through the recipe: (file, function).
 RICH_PICKERS = [
     ("editor.js", "editorRenderMenu"),
-    ("settings-panes.js", "renderPalette"),
+    ("app-palette.js", "renderPalette"),
     ("library.js", "openLibraryCreatePicker"),
     ("settings-wiring.js", "chordGuideGroup"),
     ("selection.js", "pickerListbox"),
@@ -3764,7 +3764,7 @@ def test_an_assistant_head_asks_one_function_for_its_face() -> None:
     #: Atlas's drawing calls belong to the decider, atlas.js and avatars.js
     #: (their own files), the welcome card's large greeting and Settings' find
     #: row (a result's icon, not a reply head).
-    allowed = {"atlas.js", "avatars.js", "chat-agent.js", "settings-wiring.js", "settings-panes.js"}
+    allowed = {"atlas.js", "avatars.js", "chat-agent.js", "settings-wiring.js", "onboarding.js", "settings-panes.js"}
     strays = [
         name
         for name, text in js.items()

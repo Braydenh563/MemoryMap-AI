@@ -107,11 +107,11 @@ def test_the_frontends_raw_content_clips_read_past_the_block():
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1] / "frontend" / "js"
-    for name in ("categories-panel", "graph", "lightbox", "notes-list", "settings-panes"):
+    for name in ("categories-panel", "graph", "lightbox", "notes-list", "app-palette"):
         text = (root / f"{name}.js").read_text(encoding="utf-8")
         assert "stripFrontmatter(" in text, name
     assert "entry.content.slice(0, 60)" not in (root / "graph.js").read_text(encoding="utf-8")
-    assert "e.content.slice(0, 55)" not in (root / "settings-panes.js").read_text(encoding="utf-8")
+    assert "e.content.slice(0, 55)" not in (root / "app-palette.js").read_text(encoding="utf-8")
 
 
 def test_a_contradictions_excerpt_has_no_block():

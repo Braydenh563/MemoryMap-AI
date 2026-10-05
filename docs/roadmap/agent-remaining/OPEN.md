@@ -7,6 +7,22 @@ The four agent files of that round (`companion-426.md`, `atlas-fable.md`,
 they left that is still true on the 0.3.3 head is here, one line each. The
 two decisions only the owner can take are INBOX 427.
 
+- **Boot gzip budget, what the 2026-10-05 split did not take** (792,754 to
+  758,418 bytes, notes-list.js 63,548 to 57,929; `test_static_compression.py`
+  has the numbers). Candidates measured and left, each with its catch:
+  the chord guide in settings-wiring.js (`showTabJumpHint`, `chordGuideEl`,
+  `chordGuideGroup`, about 3 KB gzipped; a stand-in makes the guide appear a
+  moment after the first `m`, so the real function would need a "still armed"
+  check or the second key can leave it stuck on screen); the SearXNG host
+  block in settings-wiring.js (about 3 KB; its caller
+  is `renderWebSearch`, a Settings render, so it wants `await ensureModule` there); the Ask
+  rendering in capture-ask.js (`askQuestion`, `renderChatMeta`,
+  `renderAnswerGrounding`, `placeAnswerFigures`; about 10 KB but read by the
+  Ask tab's own submit path, so it is a design judgement, not a move); the
+  edit form in notes-list.js (`renderEditForm`, 4.5 KB: `renderEntries` calls
+  it synchronously and reads the card it fills, so it needs `openNoteEditor`
+  to load the file first and every other way into `editingId` checked).
+  [split1005]
 - ~~Stray Atlas heads under the status bar (INBOX 429)~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - **`tests/test_name_mood.py` asserts `oklch(from var(--accent)` in the
   CSS**: it holds (the accent tints the glow), but a test for the fixed

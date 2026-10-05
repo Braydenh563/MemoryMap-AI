@@ -14,7 +14,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-SHELL = (ROOT / "frontend" / "js" / "phone-shell.js").read_text(encoding="utf-8")
+#: The helpers stay in phone-shell.js; the button's own listener moved to
+#: settings-controls.js with every other listener inside the Settings window
+#: (2026-10-05, the boot gzip budget), so the two are read as one text.
+SHELL = (ROOT / "frontend" / "js" / "phone-shell.js").read_text(encoding="utf-8") + "\n" + (
+    ROOT / "frontend" / "js" / "settings-controls.js"
+).read_text(encoding="utf-8")
 
 
 def _function(name: str) -> str:

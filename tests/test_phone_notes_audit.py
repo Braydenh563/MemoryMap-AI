@@ -113,7 +113,7 @@ def test_the_command_palette_carries_the_notes_rows():
 
 
 def test_the_palette_asks_for_the_notes_rows_with_the_query():
-    matches = _function(_read("settings-panes.js"), "paletteMatches")
+    matches = _function(_read("app-palette.js"), "paletteMatches")
     assert 'typeof notesPaletteCommands === "function" ? notesPaletteCommands(lowered) : []' in matches
 
 

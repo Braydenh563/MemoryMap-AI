@@ -228,6 +228,13 @@ async function openSettingsModal(section = "models", scrollToId = null) {
     if (holder?.id.startsWith("settings-")) section = holder.id.slice("settings-".length);
   }
   overlayReturnFocus = document.activeElement;
+  //: **The window's own listeners arrive before the window does** (the gzip
+  //: budget, settings-controls.js). Only the first open waits, and only for
+  //: that file: once its marker constant exists this stays synchronous, so a
+  //: caller that reads the window straight after the call still finds it open.
+  if (typeof SETTINGS_CONTROLS_READY === "undefined" && typeof ensureModule === "function") {
+    await ensureModule("settingsControls");
+  }
   $("settings-modal").classList.remove("hidden");
   // Runs on open rather than once at load: several sections are built
   // lazily, and a pass that ran before they existed would leave exactly the

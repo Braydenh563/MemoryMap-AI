@@ -968,35 +968,6 @@ function paintDashboardPersonaMark() {
   fillPersonaMark($("dashboard-persona-mark"), dashboardGreetingPersona(), 28);
 }
 
-$("dashboard-persona-select").addEventListener("change", async () => {
-  const persona = $("dashboard-persona-select").value;
-  //: Set before the save, not after it: the mark and the dashboard's face
-  //: read it, and a second change while the first save was in flight was
-  //: drawn from the old value (the owner: "when I changed the persona
-  //: again, it didnt change again").
-  if (prefsCache) prefsCache.dashboard_persona = persona;
-  paintDashboardPersonaMark();
-  if (typeof paintDashEmblem === "function") paintDashEmblem();
-  await apiJson("/preferences", {
-    method: "PUT",
-    body: JSON.stringify({ dashboard_persona: persona }),
-  }).catch(() => {});
-  toast(persona ? `Dashboard greeting now speaks as ${persona}.` : "Dashboard greeting back to matching Chat.");
-});
-$("dashboard-greeting-regenerate")?.addEventListener("click", async () => {
-  const btn = $("dashboard-greeting-regenerate");
-  const status = $("dashboard-greeting-status");
-  btn.disabled = true;
-  //: The persona actually asked, not always Atlas (the owner: "I set the
-  //: dashboard greeting to another persona, but when I hit regenerate, it
-  //: said asking Atlas").
-  const who = dashboardGreetingPersona();
-  if (status) status.textContent = `Asking ${who}…`;
-  const ok = await refreshAiGreeting(true).catch(() => false);
-  btn.disabled = false;
-  if (status) status.textContent = ok ? "New greeting set." : `Couldn't reach ${who}, kept the current one.`;
-  setTimeout(() => { if (status) status.textContent = ""; }, 3000);
-});
 for (const id of RESPONSE_MODE_SELECTS) {
   $(id)?.addEventListener("change", (e) => setResponseMode(e.target.value));
 }
@@ -1058,10 +1029,6 @@ if (dashFind) {
 // rather than four boxes that pop into existence a second later.
 renderStatusBar();
 
-$("persona-add").addEventListener("click", addPersona);
-$("skill-add").addEventListener("click", addSkill);
-$("skill-cancel").addEventListener("click", stopEditingSkill);
-$("skill-verify-expect").addEventListener("change", syncSkillVerifyRow);
 $("graph-refresh").addEventListener("click", () => {
   graphHighlightIds = null; // a refresh clears any "similar notes" spotlight
   renderGraph();
@@ -1442,14 +1409,12 @@ $("select-btn").addEventListener("click", () =>
 //: Categories head and from Settings (INBOX 431 (e)).
 $("manage-categories-btn").addEventListener("click", () => openManageCategories());
 $("manage-categories-foot").addEventListener("click", () => openManageCategories());
-$("settings-manage-categories").addEventListener("click", () => openManageCategories());
 //: The tag manager (tag-manager.js, lazy): the Notes ⋯ menu and Settings
 //: (INBOX 447 (4)); the sidebar's Tags row and the palette open it too.
 $("notes-manage-tags").addEventListener("click", () => {
   $("notes-more-menu")?.removeAttribute("open");
   openTagsSheet();
 });
-$("settings-manage-tags").addEventListener("click", () => openTagsSheet());
 
 //: **Select all, as one toggle** (owner: "no select all option??"). Every
 //: note the current filter shows, across pages, since the batch actions act
@@ -1481,41 +1446,6 @@ $("batch-tag").addEventListener("click", batchTag);
 $("batch-delete").addEventListener("click", batchDelete);
 $("batch-cancel").addEventListener("click", exitSelectMode);
 
-$("skill-export").addEventListener("click", () =>
-  downloadJson("memorymap-skills.json", {
-    skills: (prefsCache && prefsCache.skills) || [],
-  })
-);
-$("skill-import").addEventListener("click", () =>
-  pickJsonFile("skill-import-file", async (data) => {
-    const merged = mergeNamedPrompts((prefsCache && prefsCache.skills) || [], data.skills);
-    if (!merged) return toast("No skills found in that file.", true);
-    try {
-      await saveSkillList(merged);
-    } catch (error) {
-      // The server validates imports the same way it validates the editor, 
-      // a skill naming a tool that no longer exists is refused by name.
-      return toast(error.message, true);
-    }
-    toast("Skills imported.");
-  })
-);
-$("persona-export").addEventListener("click", () =>
-  downloadJson("memorymap-personas.json", {
-    personas: (prefsCache && prefsCache.personas) || [],
-  })
-);
-$("persona-import").addEventListener("click", () =>
-  pickJsonFile("persona-import-file", async (data) => {
-    const merged = mergeNamedPrompts(
-      (prefsCache && prefsCache.personas) || [],
-      data.personas
-    );
-    if (!merged) return toast("No personas found in that file.", true);
-    await savePersonaList(merged);
-    toast("Personas imported.");
-  })
-);
 $("tools-toggle").addEventListener("change", async () => {
   // The pill reads from this checkbox, so anything else that flips it, a
   // skill that needs tools, a restored preference, has to redraw the pair or
@@ -1604,25 +1534,6 @@ $("chat-plan").addEventListener("click", async () => {
 });
 
 renderPlanToggle();
-
-// Start the user's own engine with the app. See the markup for why this is the
-// answer to "web search keeps disabling itself", it was the container going
-// away, not the setting.
-$("searxng-autostart").addEventListener("change", async (event) => {
-  const on = event.target.checked;
-  prefsCache = await apiJson("/preferences", {
-    method: "PUT",
-    body: JSON.stringify({ searxng_autostart: on }),
-  }).catch((error) => {
-    toast(error.message, true);
-    return prefsCache;
-  });
-  toast(
-    on
-      ? "SearXNG will start with MemoryMap from now on."
-      : "SearXNG will only start when you press Start."
-  );
-});
 
 $("web-search-toggle").addEventListener("click", async () => {
   const next = !(prefsCache && prefsCache.web_search_enabled);

@@ -827,45 +827,6 @@ async function renderTemplateSettings() {
   for (const template of [...custom, ...builtin]) list.appendChild(templateRow(template));
 }
 
-$("template-add")?.addEventListener("click", addTemplate);
-//: **Draft with Atlas** (INBOX 430): the body written from the name and the
-//: line; pressed again it asks for a different take on what is in the box,
-//: and the result is only ever put in the box, never saved, so Add is still
-//: the person's decision.
-$("template-draft")?.addEventListener("click", async () => {
-  const name = $("template-name").value.trim();
-  const status = $("template-status");
-  status.classList.remove("error");
-  if (!name) {
-    status.classList.add("error");
-    status.textContent = "Name it first, then Atlas can draft it.";
-    $("template-name").focus();
-    return;
-  }
-  const button = $("template-draft");
-  button.disabled = true;
-  status.textContent = "Drafting…";
-  try {
-    const result = await apiJson("/templates/draft", {
-      method: "POST",
-      body: JSON.stringify({ name, description: $("template-description").value.trim(), current: $("template-body").value }),
-    });
-    if (result.content) {
-      $("template-body").value = result.content;
-      status.textContent = "Drafted. Edit it, press again for another version, then save.";
-    } else {
-      status.classList.add("error");
-      status.textContent = result.reason || "The model wrote nothing.";
-    }
-  } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
-  } finally {
-    button.disabled = false;
-  }
-});
-$("template-cancel")?.addEventListener("click", stopEditingTemplate);
-
 
 // Upgrade every dropdown in the app, and keep upgrading the ones that
 // appear later. Last line of the file on purpose: by here every panel this

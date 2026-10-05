@@ -141,7 +141,7 @@
   width: 0;
   height: 0;
   transform-origin: 0 0;
-  transform: scale(var(--wb-inv-zoom, 1));
+  transform: scale(var(--wb-inv-zoom));
 }
 
 .wb-comment-mark {

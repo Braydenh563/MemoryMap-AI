@@ -3171,11 +3171,17 @@ function renderDocPreview() {
 //: blocks the model finds, and each column is rendered by that same renderer
 //: into its own element. The result is one pass over the document either way,
 //: and a document with no columns in it takes exactly the path it always did.
-function docRenderBody(container, text) {
+function docRenderBody(container, raw) {
+  //: Footnotes over the whole document, before it is cut into pieces (audit
+  //: FEAT-03): a note defined at the foot is cited from every piece above it,
+  //: and each piece's own `renderMarkdown` would see only its half.
+  const footnotes = mdFootnotePrepare(String(raw ?? "").split("\n"));
+  const text = footnotes.lines.join("\n");
   const blocks = docColumnsBlocks(text);
   if (!blocks.length) {
     container.replaceChildren();
     docRenderFlow(container, text);
+    mdFootnotesFinish(container, footnotes.notes);
     //: Once more over the whole page: the flow is rendered in pieces (around
     //: block embeds and columns), and a `[TOC]` has to list every heading,
     //: not only the ones in its own piece.
@@ -3206,6 +3212,7 @@ function docRenderBody(container, text) {
     at = block.to;
   }
   if (at < text.length) docRenderFlow(container, text.slice(at), lineOf(at));
+  mdFootnotesFinish(container, footnotes.notes);
   mdFillTocs(container);
 }
 
@@ -9386,7 +9393,7 @@ details.callout[open] > .callout-head::before { content: "\\25BE\\2002"; }
 .md-toc-depth-2 { padding-left: 2.4em; }
 .md-toc-depth-3 { padding-left: 3.6em; }
 .md-math-block { margin: 1.5em 0; text-align: center; overflow-x: auto; }
-.doc-footnotes {
+.md-footnotes {
   margin-top: 3em;
   padding-top: 1em;
   border-top: 1px solid var(--rule);

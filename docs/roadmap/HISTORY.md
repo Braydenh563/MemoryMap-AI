@@ -27039,7 +27039,8 @@ Footnotes: `[^1]` and its `[^1]: text` definition render as the identifier
 alone, raised, with the brackets hidden like every other marker in Live, and
 a click on the reference goes to the text. Drawn by a scan rather than from
 the tree because the lezer grammar here has no footnote extension, which is
-also why nothing was drawing them before.
+also why nothing was drawing them before. (Live only: Read, print and the
+HTML export drew them raw until audit FEAT-03, 2026-10-05.)
 
 **Math, with no KaTeX, as the plan asks.** A TeX subset to MathML in about
 200 lines of documents.js (`DOC-MATH-BEGIN` to `DOC-MATH-END`): fractions,

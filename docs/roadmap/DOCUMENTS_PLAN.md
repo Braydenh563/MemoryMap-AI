@@ -874,7 +874,10 @@ That is one assertion and everything below follows from it.
   title as its first heading, and the name also travels in `<title>`, which is
   what names a tab, a bookmark and the saved file.
 - **Comments travel as footnotes**, exactly as they do in the PDF export: a
-  document handed to somebody carries what was said about it.
+  document handed to somebody carries what was said about it. (Audit
+  2026-10-05, FEAT-03: footnotes rendered only in Live, so this travelled as
+  literal `[^c1]` text until `mdFootnotePrepare`/`mdFootnotesFinish` in
+  markdown.js drew them in Read, print and the HTML export the same day.)
 
 **What holds the line**: `tests/test_document_export_html.py` runs the document
 shell in node and fails on a host name, a `<link>`, an `@import`, a `url()` or a

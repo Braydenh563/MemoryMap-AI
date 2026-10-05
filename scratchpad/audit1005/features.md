@@ -41,7 +41,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
 
 ### High
 
-**FEAT-01. FreeMind import drops the root topic, so a single-root map does not round-trip.** FIXED COMMIT_FEAT01
+**FEAT-01. FreeMind import drops the root topic, so a single-root map does not round-trip.** FIXED cc89dcb
 - Evidence:
   - `fm.js` exports Root>{A>{A1}, B} as `<map><node TEXT="Root">…`.
   - Re-imported, it comes back as roots `[A>{A1}, B]` and Root is gone.
@@ -79,7 +79,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
   - Run the branch tidy without a full `renderWhiteboard`, using the 13a-view culled join.
   - Gate: key to editable at or under 100ms at 300 topics, in a new `mapaddlatency.js`.
 
-**FEAT-03. Markdown footnotes render only in Live. Read, Print/PDF and HTML export show them raw.**
+**FEAT-03. Markdown footnotes render only in Live. Read, Print/PDF and HTML export show them raw.** FIXED COMMIT_FEAT03
 - Evidence:
   - `md1.js`: `renderMarkdown(d, "Text[^1].\n\n[^1]: A footnote.")` gives `<p>Text[^1].</p><p>[^1]: A footnote.</p>`. `markdown.js` has no footnote handling at all.
   - `doc2.js`: the render a print triggers (`docPrintComments = true`) reads `A claim[^1] and this phrase[^c1] here. … [^1]: The footnote text. [^c1]: check the source`.
@@ -107,7 +107,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
   - Shift+Ctrl+V keeps plain text.
   - No library needed; tests in node.
 
-**FEAT-05. Imported and generated maps open in the Free layout, so keyboard adds pile up.** FIXED COMMIT_FEAT05
+**FEAT-05. Imported and generated maps open in the Free layout, so keyboard adds pile up.** FIXED cc89dcb
 - Evidence:
   - `import_board` passes `layout=DEFAULT_BOARD_LAYOUT` ("free") (`routes_whiteboard.py`, import route), while `createNewBoard` makes `tree-right` (`whiteboard.js:12048`).
   - `kb100.js` on an imported map: 101 topics with **240 overlapping on-screen pairs**. The same run on tree-right: **0**.

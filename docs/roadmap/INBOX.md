@@ -129,6 +129,32 @@ with its owner named in the entry.
      the panel id was already `writing-room`, the Guide still answers to
      "write with atlas").
 
+649. **The owner, 2026-10-05, verbatim.** "Also in all the chat areas for the
+     "thinking..." text, I think it should change based on the state like for
+     if it is waiting for the first token, thinking, or writing etc. maybe the
+     wording can be more atlas themed or smth but just to help with
+     information architecture" Decision taken: one phase vocabulary for every
+     chat surface through `progressLine().setPhase`: waiting for the first
+     token "Reaching Atlas…", loading a model "Waking the model…", retrieval
+     "Reading your notes…", reasoning "Atlas is thinking…", streaming "Atlas is
+     writing…", a tool "Atlas is <verb>…"; a persona's name replaces Atlas.
+     Placed: Sonnet agent.
+
+650. **The owner, 2026-10-05, verbatim.** "Can you also update the small
+     miniature atlas male and female avatar icons that go in the corner of
+     chat bubbles?? They aren't up to date and they look like aliens" Placed:
+     the next Opus slot (`assistantAvatar` in chat-agent.js draws
+     `atlasDraw(size)` under 28px, not the current `atlasAvatar` look).
+
+651. **The owner, 2026-10-05, verbatim.** "Also like subtle line highlighting
+     in the document editor when the line numbers are showing??" Placed:
+     Sonnet agent, with 652 (DOCUMENTS_PLAN 21).
+
+652. **The owner, 2026-10-05, verbatim.** "Whole line copying or cutting when
+     selected on the end of a line etc, quality of life stuff" Decision
+     taken: VS Code's rule, copy or cut with an empty selection takes the
+     whole line. Placed: Sonnet agent, with 651.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

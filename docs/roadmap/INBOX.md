@@ -146,6 +146,73 @@ with its owner named in the entry.
      node toolbar instead of nested popup menus, every node property
      reachable in at most two steps, measured by a task sweep.
 
+616. **The owner, 2026-10-05, verbatim.** "its better but still needs a more
+     modern and professional ui/ux redesign (the note edit form)"
+     (screenshot of the 606 form: boxed title band, a heavy mixed toolbar,
+     big chips with a doubled #, a floating category select, large Related
+     rows, big Cancel and Save). Then: "the note edit form attach a link
+     button doesnt do anything" and "there is no padding around the tag
+     entries, and the formatting toolbar looks really awkward when collapsed
+     and the core concepts dropdown is completely out of place and badly
+     designed". Placed: the design-rows agent, first.
+617. **The owner, 2026-10-05, verbatim.** "on the mind map when selecting a
+     group of nodes, it defaults to the whiteboard selection and popup menus
+     and right click menus etc" (screenshots: the board's group box, its
+     right-click menu and its align/distribute bar on map topics). Placed:
+     the board and map agent, with 610.
+
+618. **The owner, 2026-10-05, verbatim.** "do the top bar and bottom bar
+     need a more modern and professional ui/ux redesign or adjustments at
+     all or are they fine??" Recommendation taken: top bar polish (spaces
+     picker as a ghost control matching the tab pills, active tab without
+     extra bold, a smaller logo tile, power secondary); bottom bar declutter
+     (counts quiet, Agent/Guide/Find icon-only with tooltips, Commands the one
+     labelled door, the status mark explained, the clock optional, history
+     arrows grouped with undo/redo). Placed: the design-rows agent, after 616.
+
+619. **The owner, 2026-10-05, verbatim.** "the lower body on the feminine
+     atlas is also slightly misaligned. and when sleeping etc, her lower body
+     actually rotates halfway off her upperbody which stays mostly upright.
+     female atlas's eyes went blank white for a sec and it looked creepy.
+     also it still snaps between behaviours and no behaviours." and "in the
+     enlarged preview atlas is still hanging, it should be slightly separate
+     from the companion but still have the same life". Placed: the Atlas
+     agent (with 600, 601, 612, 614, 615).
+620. **The owner, 2026-10-05, verbatim.** "can you also improve and
+     modernise the quick sketch a little more as well?? it is already mostly
+     fine, maybe a bit more of a gap below the top row title and close
+     button". Placed: the design-rows agent, after 618.
+
+621. **The owner, 2026-10-05, verbatim.** "also idk but I feel like al lot of
+     these top header bars need  a better ui/ux restructuring or redesign as
+     they still dont feel professional or modern and more demo/vibe coded. as
+     well as the settings dropdown in the graph tab. it is not limited to the
+     attached screen shots, all of those bars across the application or
+     majority fo them need fixing up. idk you are teh expert" (screenshots:
+     the All notes, Questions, Graph, AI skills and Timeline docks.)
+     Decision taken (recommendation): one `.dock` redesign at the recipe,
+     not per surface. The title loses its divider and sits as the page head.
+     Counts become quiet muted text, not boxed pills. Search is a borderless
+     field with a leading icon. Icon buttons are 32px ghosts in one trailing
+     group. The single filled action stays last. Segmented controls are
+     drawn in one style. The graph settings popover is rebuilt from the
+     DESIGN.md popover recipe. DESIGN.md's dock section is updated and the
+     dock lint (`test_dock_grammar.py`) holds the new grammar. Placed: an
+     Opus design agent, after 616.
+622. **The owner, 2026-10-05, verbatim.** "also in settings idk if this
+     navigation is the right way to go about it. should it be redesigned
+     better??" (screenshot: Settings, Tools it can use: a horizontally
+     scrolling sub-tab strip with a visible scrollbar and a clipped last
+     label.)
+     Decision taken (recommendation): yes. A horizontally scrolling strip
+     hides options and shows a scrollbar. Replace the in-pane sub-tabs with
+     the pane's groups stacked under their group heads, and nest the active
+     pane's group links under it in the Settings sidebar (two levels, as in
+     VS Code and Linear settings). A click scrolls to the group, and the
+     active group is tracked on scroll. On a phone the sidebar's pane select
+     gains the groups. No horizontal scroll anywhere in Settings, held by a
+     lint. Placed: with 621.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 540, 554, 556, 564, 575 (Atlas motion and form) placed in

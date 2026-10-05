@@ -8459,17 +8459,11 @@ button.connection-row {
   white-space: normal;
 }
 
-/* Read and unread are a *state*, so they are coloured like every other state
-   in this app rather than getting their own pair: `--ok` for done, muted for
-   not-yet. Deliberately not red for unread, an unread file is not a problem. */
-.library-read-badge.is-read {
-  color: var(--ok);
-  border-color: color-mix(in srgb, var(--ok) 35%, transparent);
-}
-
-.library-read-badge.is-unread {
-  color: var(--muted);
-}
+/* Read and unread are a *state*, so they are the status label (`chip
+   item-label`, `is-ok` for read) like every other state in this app rather
+   than a pair of their own (INBOX 553 (c)): the ok tint for done, the quiet
+   one for not yet. Deliberately not red for unread, an unread file is not a
+   problem. */
 
 .library-read-open {
   flex: none;

@@ -4339,12 +4339,15 @@ mark.lightbox-hit {
    words" shape and the same `--ok` "this is done" colour the Files sub-tab's
    reading list uses (`library-read-badge.is-read`), so the one fact reads
    the same way in both places. A real `<button>`, `align-self: flex-start`
-   so it does not stretch to the card's width like a block-level chip would. */
+   so it does not stretch to the card's width like a block-level chip would.
+   Drawn as the status label (INBOX 553 (c)): the ok tint at the pill radius,
+   no edge. */
 .msg-attachment-read-badge {
   align-self: flex-start;
-  border: 1px solid color-mix(in srgb, var(--ok) 35%, transparent);
+  border: 0;
+  border-radius: var(--radius-pill);
   color: var(--ok);
-  background: none;
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
   cursor: pointer;
 }
 

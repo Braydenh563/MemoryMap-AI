@@ -639,7 +639,7 @@ function labelledMenu(label, items, ariaLabel, openerClass = "ghost small") {
     button.className = "menu-item";
     button.setAttribute("role", "menuitem");
     setLabel(button, item.label);
-    button.title = item.title;
+    if (item.title) button.title = item.title;
     button.addEventListener("click", async (event) => {
       event.stopPropagation();
       closeActionMenus();
@@ -1134,7 +1134,7 @@ function kebabMenu(items, ariaLabel) {
     if (item.danger) button.classList.add("menu-danger");
     button.setAttribute("role", "menuitem");
     setLabel(button, item.label);
-    button.title = item.title;
+    if (item.title) button.title = item.title;
     // Muted, not `disabled`, a native disabled button also blocks its own
     // title tooltip on some platforms, which is the one piece of information
     // this state actually needs to deliver (why the button can't do its

@@ -2348,7 +2348,7 @@ function paletteCommands() {
       act: () => showNotesFilter(query),
     })),
     //: UX-08: places Ctrl+K could not reach (tests/test_palette_synonyms.py).
-    { label: "ph:trash Open the recycle bin", reveal: "library-bin", keywords: "bin trash deleted binned restore recover", about: "Everything you threw away, in the Library, ready to restore." },
+    { label: "ph:trash Open the bin", reveal: "library-bin", keywords: "bin trash deleted binned restore recover", about: "Everything you threw away, in the Library, ready to restore." },
     { label: "ph:question Questions your notes ask", reveal: "notes-questions", keywords: "questions open questions", about: "The open questions found in your notes." },
     { label: "ph:chat-text Ask your notes", reveal: "notes-ask", keywords: "ask question answer search my notes", about: "An answer quoted from your own notes, with or without a model." },
     { label: "ph:arrow-u-up-left Undo", keywords: "undo take back revert", about: "Undo the last change, wherever it was made.", act: () => performUndo() },

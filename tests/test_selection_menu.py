@@ -145,6 +145,15 @@ def test_every_shortcut_has_something_to_run():
         assert re.search(rf"\b{name}[,:]", actions), f"{name} has no action"
 
 
+def test_a_highlight_colour_is_picked_not_typed():
+    """UX-19: "Highlight in a colour..." asked the reader to type a colour's
+    name into a prompt and refused anything else with an error toast."""
+    source = app_js_text()
+    items = source.split("function selectionMenuItems() {")[1].split("\n}\n")[0]
+    assert "Colour: green, blue" not in items and "promptDialog(" not in items
+    assert 'openMenuAtPoint(["green", "blue", "pink", "purple", "orange"]' in items
+
+
 def test_a_question_box_does_not_offer_the_writing_popup():
     """UX-09: Notes, Ask selects the question after asking, and the popup
     offered Highlight and Bold for a query, drawn over the tab bar."""

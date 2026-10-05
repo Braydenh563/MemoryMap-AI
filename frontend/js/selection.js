@@ -688,16 +688,13 @@ function selectionMenuItems() {
       makeMenuItem("ph:highlighter Highlight", "Mark this passage (yellow)", () =>
         wrapFieldSelection(field, "==", "==")
       ),
-      makeMenuItem("ph:palette Highlight in a colour…", "Green, blue, pink, purple or orange", async () => {
-        const colour = (await promptDialog(
-          "Colour: green, blue, pink, purple or orange:", "green"
-        )).trim().toLowerCase();
-        if (!colour) return;
-        if (!["yellow", "green", "blue", "pink", "purple", "orange"].includes(colour)) {
-          toast("Pick one of: yellow, green, blue, pink, purple, orange.", true);
-          return;
-        }
-        wrapFieldSelection(field, colour === "yellow" ? "==" : `==${colour}|`, "==");
+      //: UX-19: the colours are a menu to pick from, not a name to type.
+      makeMenuItem("ph:palette Highlight in a colour…", "Green, blue, pink, purple or orange", () => {
+        const at = document.querySelector(".selection-popup")?.getBoundingClientRect() || { left: 80, bottom: 80 };
+        openMenuAtPoint(["green", "blue", "pink", "purple", "orange"].map((c) => ({
+          label: `ph:highlighter ${c[0].toUpperCase()}${c.slice(1)}`,
+          run: () => wrapFieldSelection(field, `==${c}|`, "=="),
+        })), "Highlight colour", at.left, at.bottom);
       }),
       makeMenuItem("ph:text-b Bold", "Wrap this in **bold**", () =>
         wrapFieldSelection(field, "**", "**")

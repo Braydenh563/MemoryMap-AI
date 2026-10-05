@@ -1195,7 +1195,7 @@ async function binNoteWithUndo(entry) {
     await loadEntries();
   };
   const action = pushUndo("Moved a note to the bin", restoreIt, binIt);
-  toastAction("Moved to the recycle bin.", "Undo", async () => {
+  toastAction("Moved to the bin.", "Undo", async () => {
     settleUndoFromToast(action);
     await restoreIt();
     toast("Note restored.");
@@ -1955,7 +1955,8 @@ function entryItem(entry, options = {}) {
   //: corner faded it whenever the card was pointed at; INBOX 455 (1): a line
   //: that wrapped put it on a line of its own). The line never wraps now
   //: (`fitNoteMetas`), so this is the line's last fact at its right edge.
-  if (edited && !byEdit) date.textContent += " · edited";
+  //: The suffix its own span: a phone drops it before the category (UX-13).
+  if (edited && !byEdit) date.append(Object.assign(document.createElement("span"), { className: "entry-edited", textContent: " · edited" }));
   meta.appendChild(date);
   meta.appendChild(metaEnd);
 

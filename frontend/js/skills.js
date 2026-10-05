@@ -1434,7 +1434,7 @@ async function batchDelete() {
     await loadEntries();
   };
   const action = pushUndo(`Moved ${ids.length} note${ids.length === 1 ? "" : "s"} to the bin`, restoreAll, binAll);
-  toastAction(`Moved ${ids.length} to the recycle bin.`, "Undo", async () => {
+  toastAction(`Moved ${ids.length} to the bin.`, "Undo", async () => {
     settleUndoFromToast(action);
     await restoreAll();
     toast("Notes restored.");

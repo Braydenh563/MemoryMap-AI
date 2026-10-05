@@ -269,7 +269,7 @@ HELP_TOPICS: list[dict] = [
             "happens to its contents: delete everything in it, or move "
             "everything to another space (a category both have is merged)."
         ),
-        "badge": {"label": "Spaces", "section": "account"},
+        "badge": {"label": "Account & security", "section": "account"},
     },
     {
         "id": "appearance",
@@ -343,7 +343,7 @@ HELP_TOPICS: list[dict] = [
             "Go to and Do with each letter beside its name, marks the tab you are "
             "on, and takes a click as well."
         ),
-        "badge": {"label": "Shortcuts", "section": "shortcuts"},
+        "badge": {"label": "Keyboard shortcuts", "section": "shortcuts"},
     },
     {
         "id": "models",
@@ -363,11 +363,11 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("backup", "storage", "data dir", "where is my", "export", "data folder", "import", "obsidian", "vault", "migrate", "restore"),
         "body": (
             "Everything lives in a data folder you control: the notebook "
-            "database, uploads, and daily local backups. Settings -> Data shows "
+            "database, uploads, and daily local backups. Settings, Import & export shows "
             "exactly where it is on disk, and lets you export as JSON, CSV or "
             "Markdown, and manage or restore backups."
         ),
-        "badge": {"label": "Data", "section": "data"},
+        "badge": {"label": "Import & export", "section": "data"},
     },
     {
         "id": "websearch",
@@ -410,8 +410,9 @@ HELP_TOPICS: list[dict] = [
         "id": "undo-bin",
         "keywords": ("undo", "redo", "recycle bin", "restore", "deleted", "trash"),
         "body": (
-            "Deleting a note or a board goes to the recycle bin, not gone for "
-            "good: restore it from the Library's Bin filter, or use the Undo "
+            "Deleting a note or a board goes to the bin, not gone for "
+            "good: restore it from the Library (Filter, Include the bin, or "
+            "Open the bin from Ctrl+K), or use the Undo "
             "toast that appears right after deleting. Ctrl/Cmd+Z undoes and "
             "Ctrl+Shift+Z or Ctrl+Y redoes; the status bar's Undo and Redo "
             "buttons do the same by click. Which history they walk depends on "
@@ -453,7 +454,7 @@ HELP_TOPICS: list[dict] = [
             "being asked each time. It never deletes anything and skips "
             "itself on battery power."
         ),
-        "badge": {"label": "Preferences", "section": "preferences"},
+        "badge": {"label": "Profile", "section": "preferences"},
     },
     {
         #: **The guide's entry about itself** (INBOX 204: "improve its
@@ -501,7 +502,7 @@ HELP_TOPICS: list[dict] = [
             "(Ctrl/Cmd+Shift+A): this one runs fixed commands, that one "
             "answers and acts on an open-ended request."
         ),
-        "badge": {"label": "Shortcuts", "section": "shortcuts"},
+        "badge": {"label": "Keyboard shortcuts", "section": "shortcuts"},
     },
     {
         "id": "extract-notes",
@@ -1434,7 +1435,7 @@ HELP_TOPICS.extend(
                 "operators, the dashboard's ... menu has Tools & features, which lists everything the "
                 "app can do, and each section's ? explains itself."
             ),
-            "badge": {"label": "Shortcuts", "section": "shortcuts"},
+            "badge": {"label": "Keyboard shortcuts", "section": "shortcuts"},
         },
     ]
 )

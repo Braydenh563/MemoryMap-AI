@@ -267,7 +267,7 @@ function renderLibraryOverview() {
   if (libraryOverview.attachment_bytes) {
     parts.push(`${libraryOverview.attachment_size} of attachments`);
   }
-  if (libraryOverview.words) parts.push(`${libraryOverview.words.toLocaleString()} words written`);
+  if (libraryOverview.words) parts.push(`${libraryOverview.words.toLocaleString()} words in documents`);
   if (libraryOverview.private_notes) {
     parts.push(`${libraryOverview.private_notes} private (locked, never previewed here)`);
   }
@@ -915,7 +915,7 @@ function libraryActions(item) {
           loadEntries();
         };
         const action = pushUndo("Moved a note to the bin", restoreIt, binIt);
-        toastAction("Moved to the recycle bin.", "Undo", async () => {
+        toastAction("Moved to the bin.", "Undo", async () => {
           settleUndoFromToast(action);
           await restoreIt();
           toast("Note restored.");
@@ -2006,7 +2006,10 @@ function openLibraryCreatePicker() {
       icon,
       label: entry.label.replace(/^ph:\S+\s*/, ""),
       about: hint,
-      keys: chord && typeof shortcuts !== "undefined" ? shortcuts[chord]?.keys || "" : "",
+      //: UX-21 (audit 2026-10-05): Ctrl+Shift+N, D, O and R belong to a
+      //: browser tab (incognito, bookmarks, reload) and never reach the page,
+      //: so the chord is shown only in the desktop window, where they work.
+      keys: chord && typeof shortcuts !== "undefined" && window.pywebview ? shortcuts[chord]?.keys || "" : "",
     });
     button.dataset.kind = kind;
     button.addEventListener("click", () => {
@@ -6608,13 +6611,13 @@ function mediaReadingBadge(row) {
   const badge = document.createElement("span");
   const reading = mediaReading(row);
   if (!reading) {
-    badge.className = "chip library-read-badge is-unread";
+    badge.className = "chip item-label library-read-badge is-unread";
     chipWords(badge, "Not read");
     badge.title = "Nothing has been transcribed from this yet";
     return badge;
   }
   const words = reading.split(/\s+/).length;
-  badge.className = "chip library-read-badge is-read";
+  badge.className = "chip item-label library-read-badge is-read is-ok";
   chipWords(badge, `Read · ${words.toLocaleString()} words`);
   badge.title = "Open the reader to see it beside the page";
   return badge;
@@ -9133,7 +9136,7 @@ async function bulkDeleteLibraryBoards() {
   // things about whether it comes back.
   if (
     !(await confirmDialog(
-      `Delete ${boards.length} board${boards.length === 1 ? "" : "s"}? They go to the recycle bin.`
+      `Delete ${boards.length} board${boards.length === 1 ? "" : "s"}? They go to the bin.`
     ))
   ) {
     return;
@@ -9157,7 +9160,7 @@ async function bulkDeleteLibraryBoards() {
   };
   if (deleted) {
     const action = pushUndo(`Deleted ${deleted} boards`, move(false), move(true));
-    toastAction(`Moved ${deleted} board${deleted === 1 ? "" : "s"} to the recycle bin.`, "Undo", async () => {
+    toastAction(`Moved ${deleted} board${deleted === 1 ? "" : "s"} to the bin.`, "Undo", async () => {
       settleUndoFromToast(action);
       await move(false)();
     });

@@ -2007,7 +2007,7 @@ async function mergeDuplicateGroup(ids, card) {
     `Merge ${ids.length} notes into one?\n\n` +
       `The merged note will read:\n\n${preview.merged.slice(0, 400)}` +
       `${preview.merged.length > 400 ? "…" : ""}\n\n` +
-      `The other ${ids.length - 1} go to the recycle bin, so this is undoable.`
+      `The other ${ids.length - 1} go to the bin, so this is undoable.`
   ));
   if (!ok) return;
 

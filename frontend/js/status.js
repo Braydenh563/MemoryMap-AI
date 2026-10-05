@@ -1878,7 +1878,7 @@ function aiStatusState() {
   if (!chatReady && searchReady) {
     return {
       level: "off",
-      title: "Everything works · chat AI off",
+      title: "Notebook ready · chat AI off",
       detail:
         "Notes, search, tags, reminders and the graph all work. Connect a " +
         "model in Settings, Models to add chat and auto-filing.",
@@ -1895,7 +1895,7 @@ function aiStatusState() {
   }
   return {
     level: "off",
-    title: "Everything works · AI off",
+    title: "Notebook ready · AI off",
     detail:
       "Writing, searching, tagging, reminders, documents and the graph all " +
       "work without any AI. Connect a model in Settings, Models to add chat, " +

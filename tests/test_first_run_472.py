@@ -28,7 +28,9 @@ def test_no_ai_is_a_calm_off_state_not_a_warning():
     "not running" mark Settings > Models uses, and the popup names where a
     model is connected."""
     js = frontend_text("status.js")
-    for title in ("Everything works · AI off", "Everything works · chat AI off"):
+    # UX-17 (audit 2026-10-05): "Everything works" beside "AI off" read as a
+    # contradiction; the notebook is what is ready.
+    for title in ("Notebook ready · AI off", "Notebook ready · chat AI off"):
         branch = _state_branch(js, title)
         assert 'level: "off"' in branch, title
         assert "Settings, Models" in branch, title

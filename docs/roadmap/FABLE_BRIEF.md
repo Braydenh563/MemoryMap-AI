@@ -112,7 +112,7 @@ reliability, testing and observability. Each workstream needs goals and success
 metrics; each initiative needs the problem, the approach, the specific
 files/areas, dependencies, effort (S/M/L), risk, and owner type.
 
-**5) A phased 90-day roadmap**, Now (0-4 weeks), Next (5-8), Later (9-12+) ,
+**5) A phased 90-day roadmap**, Now (0-4 weeks), Next (5-8), Later (9-12+),
 6-10 initiatives per phase, each phase delivering visible user value, plus three
 "killer combos" that together make the app feel transformed.
 

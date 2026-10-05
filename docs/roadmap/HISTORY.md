@@ -5355,7 +5355,7 @@ is not a property of `window`. Worth knowing for the next session that tries.
 
 **So every other gesture built this session was driven too, and a second one
 was broken.** Dragging the chat composer taller stored the new height and
-snapped the box straight back to one line, immediately, before a keystroke ,
+snapped the box straight back to one line, immediately, before a keystroke,
 because `autoGrow` took `min(scrollHeight, limit)` and an empty box is one row
 tall. A hand-set height only ever worked as a ceiling. It is a **floor** now,
 which is what "manually adjustable" means. The other three held: Trace from the
@@ -8277,7 +8277,7 @@ replaced 4+ per-note queries with one bulk query per field. `tag_cloud()`
 scan: it now calls `manager.all_tags()`, the same function `all_tags()`
 itself, ending the duplicate computation. `on_this_day()`
 (`routes_insights.py`) moved its day-of-month/age filter from a Python loop
-over every entry into the SQL `WHERE` clause, and, found doing that ,
+over every entry into the SQL `WHERE` clause, and, found doing that,
 also started excluding private notes, which it had uniquely been leaking
 (reading `entry.content` as ciphertext straight off the column). `janitor.py`'s
 per-save centroid + kNN auto-filing is vectorized now, reusing the numpy
@@ -8589,7 +8589,7 @@ radios on every focus change, since picking one saves nothing until "Apply
 specificity, and `applyAppearance` re-applying every setting except the
 accent); sketches not opening from the graph (the popup showed the caption
 but never the image); web search returning nothing (three different
-failures, no egress, a rate-limit challenge page, a genuine empty result ,
+failures, no egress, a rate-limit challenge page, a genuine empty result,
 all surfacing identically, now logged and named separately).
 
 **Found while fixing the above, also fixed:** editing an answer reverted on
@@ -9161,7 +9161,7 @@ Worth 10 minutes with a real server before this area is touched again.
 ## 73. The trace-path redesign redone after a live report, and find/replace in the document editor (ROADMAP items 5 and 16b)
 
 **The trace-path redesign had to be redone.** §71's own predecessor entry
-above already carries the honest caveat, shipped without a live check ,
+above already carries the honest caveat, shipped without a live check,
 and it turned out to matter: reported back immediately as "crushes the
 graph, takes up most of the page". Reproduced: the vertical, one-row-per-
 note layout was genuinely ~10 rows tall for a 5-hop path, sitting in
@@ -9861,7 +9861,7 @@ link graph. `link_strength(link_type, reason_confidence)`
 (`core/database.py`, beside `LINK_TYPES`) is the shared signal: 1.0
 baseline (a bare link, what every link from before either column existed
 still is), boosted for any of the six named types (a considered choice,
-not a ranking between them), discounted, floored, never to nothing ,
+not a ranking between them), discounted, floored, never to nothing,
 for a reason that was *deduced* rather than said (`reason_confidence`
 only exists on a guess). Wired into `entry/paths.py`'s Dijkstra search
 (as a divisor: strength up, cost down, so `Step.weight` is now `float`)
@@ -10034,7 +10034,7 @@ somewhere it was never written for.
    widens the list (204 → 338px on "Postgraduate Research & Methods") instead
    of wrapping across two lines; it grows leftward from `right: 0`, so the
    right edge does not move.
-4. **The Ask history toolbar.** Four heights on one row, 40.38, 32, 28, 28 ,
+4. **The Ask history toolbar.** Four heights on one row, 40.38, 32, 28, 28,
    with matching centres, which is why it read as mismatched rather than
    crooked. One declared `--control-h`; all four are 36 now.
 5. **Reminders.** The gap between the "Remind me to" row and the When block was
@@ -15699,7 +15699,7 @@ depend on it and does not block it.
   index) fall through to the first image attachment.
 - **A deleted file can take its `![...]()` with it.** Reported: "notes still
   mention removed images". `strip_references=true` on either delete route
-  removes the *embed*, never a link, which is a sentence the author wrote ,
+  removes the *embed*, never a link, which is a sentence the author wrote,
   and the Library's confirm offers it as a tickbox, ticked. Seven tests.
 - **The OCR workspace fits the page.** Fit is computed in JS, and the CSS
   comment says why the obvious answer fails: a percentage `max-height` resolves
@@ -17688,7 +17688,7 @@ its own honest reason why).
   Left as the docs already assessed it: low urgency, not gone, not this.
 - **A security sweep** (`shell=True`/`os.system`/`eval`/`pickle.load`/raw SQL
   string interpolation, path-traversal in the file-serving routes) found
-  nothing new, every `subprocess` call already carries a `# noqa: S603 ,
+  nothing new, every `subprocess` call already carries a `# noqa: S603,
   fixed args, no shell` from prior audits, and `routes_files._within_exports`
   already has a long comment on exactly the CodeQL `py/path-injection` shape
   this kind of check would otherwise re-discover. Prior sessions' audits
@@ -20585,7 +20585,7 @@ Settings → Account & security's working dropdown), the per-note "Duplicate"
 action (already in the note's overflow menu), the command palette's
 title/Documents/Reminders/Conversations search (already covers all of it),
 and Timeline's "jump to today" + custom date range (both already built and
-wired). Each retraction is written in place, struck through, not deleted ,
+wired). Each retraction is written in place, struck through, not deleted,
 so the claim and its correction both stay on record. Gaps 1–2 (image OCR,
 vision-model chat input) and two-thirds of gap 3 (graph minimap, saved
 views: the export third is now done, below) are genuinely still open, also
@@ -20614,7 +20614,7 @@ re-verified rather than assumed.
   edge count, no new backend route.
 - **Reminders gets a month-grid calendar view** next to the existing flat
   list (ROADMAP.md gap 4, re-verified genuinely open). Cell height started
-  at `aspect-ratio: 1`, measured 179px square, 1140px for the whole grid ,
+  at `aspect-ratio: 1`, measured 179px square, 1140px for the whole grid,
   fixed to a 3.75rem floor before committing; a month view that needs
   scrolling to see its own last week defeats the point.
 - **Graph tab gets PNG export** (the export third of gap 3), captures
@@ -24681,7 +24681,7 @@ design-spike recommendation, not an excuse.
 **§38 item 5 (Chat/Agent/Browse) turned out to be substantially done
 already**, checked rather than assumed either way: the Ask/Request mode
 toggle, the web panel column and `make_plan`'s ticked-step display satisfy
-its substance through a different, and per §36G's own reasoning, better ,
+its substance through a different, and per §36G's own reasoning, better,
 shape than literal sub-tabs. One small real gap noted in BACKLOG.md §3 (no
 user-facing tool-allowlist/max-rounds control in Agent mode) and left
 unbuilt as not worth its own session. **Next: §38 item 3 (graph layouts, now
@@ -25180,7 +25180,7 @@ with text in them, rather than being official clean buttons", not one
 control, `button.ghost`, which is what almost every toolbar/toggle button in
 the app carries (graph toolbar, Options/Trace, the five filter pills above,
 Settings, whiteboard panels). Its old recipe reused `--chip-bg`/
-`--glass-border` verbatim, the same 7-10% opacity a plain tag chip uses ,
+`--glass-border` verbatim, the same 7-10% opacity a plain tag chip uses,
 with `box-shadow: none`, so a button and a label read the same: near-flat
 colour, a border at the edge of visibility, nothing raised. `--chip-bg`/
 `--glass-border` are left alone (real chips/tags elsewhere still need their
@@ -25608,7 +25608,7 @@ rather than from images.
      per row on every gallery load", which is still right);
    - genuine features needing new columns and capture at upload time:
      **source**, **originating chat/session**, **albums**.
-3. **One manager shell, four tabs**, Chats / Documents / Research / Archive ,
+3. **One manager shell, four tabs**, Chats / Documents / Research / Archive,
    each with: a count in the header ("37 documents"), Import + Create, a
    Recent / Select / Tidy row, a search field, **type-filter chips carrying
    counts** (all 37, markdown 27, html 7, css 1 …), and rows showing a type
@@ -38563,8 +38563,8 @@ width, 47% of the column at 1440.
      aligned and/or positioned. continue with everything. find and fix more
      bugs. then use your ui/ux skills and devibecoding skills to further fix,
      improve and redesign the ui/ux for the application. /anthropic-skills:
-     unslop-ui , /ui-styling , /ui-ux-pro-max /anthropic-skills:web-design-
-     guidelines , /design-system /design , /anthropic-skills:frontend-design ,
+     unslop-ui, /ui-styling, /ui-ux-pro-max /anthropic-skills:web-design-
+     guidelines, /design-system /design, /anthropic-skills:frontend-design,
      /anthropic-skills:apple-design". Then: "double clicking the model
      advanced settings sliders resets the value but not the badge. and make
      sure the badges are thje same style across the app. make sure all the ui

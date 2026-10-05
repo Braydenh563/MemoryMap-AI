@@ -5479,7 +5479,7 @@ orchestrator; these are the ones that change what the app does.
   that finishes after you close the workspace is still there when you come
   back, and a range read that is interrupted keeps the pages it managed.
 - **The OCR reader picker offers both AI readers** where a machine has two
-  different models, a dedicated document reader and a general vision model ,
+  different models, a dedicated document reader and a general vision model,
   instead of one option named after whichever it happened to resolve.
 - **Mark a notification unread**, per row, plus "Mark all read".
 - **"Edit document"** on a previewed document in the lightbox.
@@ -5600,7 +5600,7 @@ orchestrator; these are the ones that change what the app does.
   before it shipped.
 - **Short background AI jobs were invisible.** The status loop idles at 10s
   (120s in a hidden tab) and can only announce a job it has seen in a
-  `/tasks` payload, so an image caption, often shorter than that gap ,
+  `/tasks` payload, so an image caption, often shorter than that gap,
   began and ended unobserved: no "Started" line, no status-bar slot, no
   "Finished" toast. Writes that can leave work on a background thread now
   kick a poll, and `jobsRunning()` counts every task rather than only
@@ -7114,7 +7114,7 @@ their own clock.
   nothing calling it since it was added; Settings → Import & export now has
   an "Import a document" button (PDF, Word, slides) alongside the existing
   markdown importer. A converted file with more than one top-level heading
-  becomes one note per heading, a deck or a document with real chapters ,
+  becomes one note per heading, a deck or a document with real chapters,
   otherwise the whole thing is one note, capped at 25 notes per upload.
 - **The sketch pad accepts a background image.** An "🖼️ Add image" button
   draws a chosen photo onto its own canvas layer beneath the pen strokes, so
@@ -8071,7 +8071,7 @@ so the next audit does not have to rediscover them. The other four were real.
 - **Notes remember what "tomorrow" meant.** A note saying "the deadline is
   next Friday" is correct the day it is written and misleading forever after,
   and nothing recorded which Friday it was. Every note's relative time
-  phrases, tomorrow, last week, in three days, next Friday, two months ago ,
+  phrases, tomorrow, last week, in three days, next Friday, two months ago,
   are now worked out when it is saved and kept beside it, shown as a small
   chip (`🕓 last week → week of Jul 20`) with the full date on hover. The
   phrase is always shown next to the date, because the resolution is a rule
@@ -8090,7 +8090,7 @@ so the next audit does not have to rediscover them. The other four were real.
   carries the reading tools; "remind me…" adds the reminder ones; "tidy up my
   notes", which could mean anything, still gets everything. Measured: the
   fixed overhead of a typical question drops from ~3,157 tokens to ~1,439.
-  It only decides what is *offered*, a tool is never blocked from running ,
+  It only decides what is *offered*, a tool is never blocked from running,
   and Settings → Tools can turn it off.
 - **Skills are jobs now, not saved prompts.** A skill was a name and a string,
   and clicking one dropped that string into the chat box, which is why asking

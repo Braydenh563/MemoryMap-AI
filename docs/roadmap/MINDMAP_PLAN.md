@@ -1570,7 +1570,7 @@ Built; moved whole to HISTORY.md ("Moved from the plans, 2026-10-03", "From MIND
      chair and sitting on it, face palming, other gestures and props etc. But
      focus on the smooth transitions and movement adjustment transitions and
      other similar organic movement as that is the current worst thing. Maybe
-     also giving like the hair , tails, nebular streams some flow and swaying
+     also giving like the hair, tails, nebular streams some flow and swaying
      or smth to make the atlas characters really attractive, well designed,
      well animated and more. The female atlas main body could potentially
      have a bit more of a femine chest but don't overdo it just really

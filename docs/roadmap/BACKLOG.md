@@ -1489,7 +1489,7 @@ is what makes it reach for one.
 - **A step that fails is named**, with the reason, and the run stops there
   instead of ploughing on. §21 asked for exactly this.
 - **The run ends in what changed**, not prose claiming something happened:
-  a list of every write, each with a **View** and, where an inverse exists ,
+  a list of every write, each with a **View** and, where an inverse exists,
   an **Undo**. The undo is a tool call captured *before* the write and run
   through `POST /chat/tools/execute`, the same endpoint the confirm button
   uses. It is stripped out of what the model sees, since every field left in

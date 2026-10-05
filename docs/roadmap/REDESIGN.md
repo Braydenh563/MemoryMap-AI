@@ -118,7 +118,7 @@ first."
 > popup notification so I dont have to wait twiddling my thumbs for it to
 > file."*
 
-`POST /entries` ran `janitor.categorise` inline, a local-model round trip ,
+`POST /entries` ran `janitor.categorise` inline, a local-model round trip,
 with the composer disabled behind "Filing…". Two more slow things were in
 the same request: embedding the note, and a full semantic search run only to
 *maybe* show an advisory "this is similar to…" toast.

@@ -58,7 +58,9 @@ class PropertiesIn(BaseModel):
 
 
 @router.put("/entries/{entry_id}/properties", response_model=EntryOut)
-def put_properties(entry_id: int, body: PropertiesIn, session: Session = Depends(get_session)) -> EntryOut:
+def put_properties(
+    entry_id: int, body: PropertiesIn, response: Response, session: Session = Depends(get_session)
+) -> EntryOut:
     """Replace the note's block with these properties; the body is untouched."""
     if len(body.properties) > MAX_PROPERTIES:
         raise HTTPException(status_code=422, detail=f"A note holds {MAX_PROPERTIES} properties at most.")
@@ -75,8 +77,18 @@ def put_properties(entry_id: int, body: PropertiesIn, session: Session = Depends
             clean[name] = value
     entry = routes_entries._existing_entry(session, entry_id)
     text = note_properties.write(manager.readable_content(entry), clean)
+    #: By keyword, and with the response passed through: B7 put `response`
+    #: and `If-Match` into `update_entry`'s signature, and a positional
+    #: `session` landed in `response` while `session` stayed the bare
+    #: `Depends` marker, so every properties save was a 500 (found
+    #: 2026-10-05 by row 10's test). The ETag the save sets is this
+    #: response's too.
     return routes_entries.update_entry(
-        entry_id, EntryUpdate(content=text, base_hash=body.base_hash), Response(), session=session, if_match=None
+        entry_id,
+        EntryUpdate(content=text, base_hash=body.base_hash),
+        response=response,
+        session=session,
+        if_match=None,
     )
 
 

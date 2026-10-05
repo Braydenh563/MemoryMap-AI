@@ -41341,6 +41341,114 @@ The two cheap additions the plan's research section named (decisions 11 to
   saved during a long load is not listed twice.
 - Not verified in a browser beyond the sweeps named in the commit.
 
+## Moved from the plans, 2026-10-05 (D5)
+
+### From WORLD_CLASS_PLAN.md D5: the state line it replaced
+
+**State 2026-09-24:** (b) documents have typed properties (`tests/test_doc_properties.py`, the Library's property filter); notes do not: no `properties` column on `entries`, no editor in the note head, no kinds. M, Opus.
+
+### Built 2026-10-05 (row 10)
+
+- **Most of D5 was already built** as GRAPH_PLAN KG4 (2026-10-04, recorded
+  above under "KG4, note properties and note types"): the properties live in
+  the note's `---` block, indexed in `entry_properties`, edited from the
+  note's ⋯, with note types and their fields. The state line was stale.
+- **The gate's rest.** FTS finds a property value (it is in the note's
+  text); the graph colours by it: View, Colour, **Note type**
+  (`GRAPH_COLOUR_RULES`, `gcRuleKey`/`gcRuleScale`). Each note node carries
+  `note_type` from the index (one query on `entry_properties`, the type's
+  own name when Note types has it, so "book" and "Book" are one colour and
+  one legend row) and the payload carries `type_colours`. A type's colour
+  is chosen in Note types, its ⋯, **Colour…**: DESIGN.md's swatch picker in
+  a sheet (`noteTypePickColour`, note-properties.js), with Undo; Automatic
+  is `categoryAutoDot(name)`, the colour the sheet's preview shows, so the
+  two never disagree. An untyped note is grey, "No type".
+- **Found and fixed on the way:** `PUT /entries/{id}/properties` and the
+  note half of `POST /entries/{id}/mentions/link` were 500s on the branch.
+  B7 added `response` and `If-Match` to `routes_entries.update_entry`, and
+  both callers passed `session` positionally, which landed in `response`
+  and left `session` the bare `Depends` marker. Both now call by keyword;
+  the properties PUT passes its own response through, so it answers with
+  the ETag too. `tests/test_note_properties_kg4.py` had been failing since.
+- Measured: `tests/test_note_types_graph_d5.py` 8 tests;
+  `scratchpad/ui-sweeps/d5types.js` 11/11 at 1440 and 390, light and dark
+  (legend, own colour, automatic colour equal to the preview's, the type's
+  own name, the Note types dot centred, the Colour sheet fitting, a swatch
+  saved, no page errors).
+- Left: the Library grouping notes by type (D5's target names it; the
+  Library lists documents and files, and groups none by a note's type).
+
+## Moved from the plans, 2026-10-05 (section 17)
+
+### From WORLD_CLASS_PLAN.md section 17, row 1: the review queue
+
+**State 2026-09-24:** 1 review queue (c), S.
+
+- **Built 2026-10-05 (row 11).** The Notes filter `is:review`
+  (`entryNeedsReview`, notes-list.js): a note the janitor filed under
+  `REVIEW_THRESHOLD` (the card's "check this" chip) or left in
+  Uncategorised, that nobody has decided on since (`user_filed`). In that
+  list each card has a line of its own, like "why this result": **Accept**
+  (`POST /entries/{id}/filing`, `{accepted}`, logged as `filing_accepted`;
+  the note leaves the list, with Undo), **Refile…** (the Move to category
+  sheet; a move is a decision already) and **Split…** (Extract notes over
+  the whole note; disabled with the reason while the model is off). The
+  Categories widget says "N notes to check where they were filed" with
+  Review filings (`manager.review_queue_count` on `/insights/stats`,
+  `to_review`); the palette has Show filings to check; the filter's help
+  and the Guide name it.
+- Decided (recommended, not confirmed): the line is the card's 50, not the
+  row's 60, so a queued note always shows the chip that says why.
+- Measured: `tests/test_review_queue_17.py` 6 tests;
+  `scratchpad/ui-sweeps/reviewq.js` 9/9 at 1440 and 390, light and dark
+  (the count, the list holding the unsure and the Uncategorised notes and
+  not the sure one, the three buttons one height inside the card, nothing
+  sideways, Accept out with its toast, the server's `user_filed`, Undo back).
+- Not verified: with no model every note lands in Uncategorised, so on a
+  model-less notebook the queue is every note the person has not filed by
+  hand; that is the row as written ("anything filed Uncategorised").
+
+## Built 2026-10-05: INBOX 598, 602 and 596's skeleton part (loading states)
+
+(The INBOX entries themselves are moved by the orchestrator; this is the
+record.)
+
+- **598, the "horizontal line in the middle", found.** The first-visit
+  placeholder of Graph, Library and Documents (`tabPlaceholder`,
+  navigation.js) was one `.skeleton` meant to fill the page, absolutely
+  placed with both insets. The page is a flex column that centres its
+  children, and an absolutely placed flex child takes `align-self` from it:
+  it shrank to its content, 49px (the skeleton's two bars), centred 439px
+  down a 799px page and wider than it (measured at 1440). Stretched now.
+- **598, the page's shape and its name.** `TAB_SKELETONS`: a dock (name bar
+  and actions), then the graph's canvas with a scatter of dots, the
+  library's chips and twelve tiles, the documents list beside the open page
+  (the list alone on a phone); all `.skeleton` pieces through the CSSOM, the
+  boot CSS being at its cap. Past 400ms a `role="status"` line with the ring
+  in the dock's middle: "Opening the graph…", "Opening the library…",
+  "Opening documents…".
+- **596, the dashboard.** A widget mounts with two skeleton rows
+  (`showSkeletons`), gone the moment it draws its own; the
+  `.dash-body:empty::after { content: "Loading…" }` rule is deleted. While
+  a full draw fills the grid unseen (`.dash-filling`), `dashFillingSkeleton`
+  lays skeleton cards in the grid's own columns over its box. Found on the
+  way: a brand-new notebook's getting-started card was added after
+  `.dash-filling` and returned early, so it stayed hidden for good.
+- **602, back to the dashboard.** `switchTab` asks `renderDashboard({
+  refresh: true })`; when the layout is the one drawn (`dashGridShape`),
+  `refreshDashWidgets` draws each widget again into a body laid out beside
+  the old one at its width, unseen, and swaps it in when done.
+- Measured (`scratchpad/ui-sweeps/loading598.js`, CPU 4x by CDP, lazy
+  bundles held 1.5s): before, the placeholder was one piece for 2.4 to
+  3.3s with no name, the dashboard's return had 10 frames with no
+  dashboard (491 to 998ms), and widgets said "Loading…". After: 11 to 26
+  pieces per surface, the name at the first frame past 400ms, 0 blank
+  frames, 0 empty frames on the return with every card swapped, 0 "Loading…",
+  the grid's outline 0px off its box; at 1440 and 390, light and dark.
+  `tests/test_lazy_skeletons_598.py` (5), with DESIGN.md's new recipe row.
+- Not verified: the desktop window (pywebview) itself; a real slow disk
+  rather than a held route.
+
 ## INBOX resolved, 2026-10-05
 
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs
@@ -41910,6 +42018,20 @@ The two cheap additions the plan's research section named (decisions 11 to
 605. **The owner, 2026-10-05, verbatim.** "the ask subtab is very thin in
      width". Fixed 2026-10-05: a sub-tab is at least 4.5rem; Ask measured
      50px beside 80 to 133px, now 72px (1440).
+
+598. **The owner, 2026-10-05, verbatim.** "the loading screen on features
+     like the graph tab and library is a blank screen with a horizontal line
+     in the middle which if it lasts as long as it did for me right after the
+     update (its faster now), then it might have people thinking it is
+     broken so needs a better loading screen and to be cleaner." With 596's
+     "some skeleton loaders are missing like on the dashboard". Placed: the
+     next agent slot (page skeletons for Graph, Library, Documents, the
+     dashboard's widgets; a named, moving loading state).
+     Fixed 2026-10-05: the loading placeholder sat 49px wide in a centring page; each lazy page now draws its own outline skeleton, named after 400ms (loading598.js 92/92; tests/test_lazy_skeletons_598.py).
+602. **The owner, 2026-10-05, verbatim.** "every time I go off the dashboard
+     and go back on it, it is empty for a second then loads :(" Placed: with
+     598 (loading states), next agent slot.
+     Fixed 2026-10-05: returning to the dashboard keeps the old widgets and swaps each in when redrawn: 10 empty frames to 0.
 
 ## OPEN.md rows closed, 2026-10-05
 

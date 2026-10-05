@@ -1628,8 +1628,7 @@ function gettingStartedCard() {
 }
 
 //: A widget that throws, or never draws, says so and offers Retry (INBOX
-//: 513): an empty body reads "Loading…" (01-forms-settings.css) and a render
-//: that never settled left it saying that for good. Promise.resolve() so a
+//: 513): a render that never settled left its body loading for good. Promise.resolve() so a
 //: synchronous renderer cannot break the dashboard loop.
 const WIDGET_STALL_MS = 20000;
 
@@ -1645,18 +1644,72 @@ function mountWidgetBody(widget, body) {
     });
     body.replaceChildren(note, retry);
   };
+  //: **Skeleton rows while it loads, never the word** (INBOX 596, the owner:
+  //: "some skeleton loaders are missing like on the dashboard"). An empty
+  //: body read "Loading…"; now it holds DESIGN.md's list skeleton
+  //: (`showSkeletons`), which goes the moment the widget draws anything of
+  //: its own, so a widget that fills in steps never shows both.
+  showSkeletons(body, 2);
+  const waiting = new MutationObserver(() => {
+    if ([...body.children].some((el) => !el.classList.contains("skeleton"))) unskeleton();
+  });
+  const unskeleton = () => {
+    waiting.disconnect();
+    clearSkeletons(body);
+  };
+  waiting.observe(body, { childList: true });
   let settled = false;
   const drawn = Promise.resolve()
     .then(() => widget.render(body))
-    .then(() => { settled = true; })
-    .catch(() => { settled = true; failed("Couldn't load this widget."); });
+    .then(() => { settled = true; unskeleton(); })
+    .catch(() => { settled = true; unskeleton(); failed("Couldn't load this widget."); });
   setTimeout(() => {
-    if (!settled && !body.childNodes.length) failed("This is taking longer than it should.");
+    if (!settled && !body.querySelector(":scope > :not(.skeleton)")) {
+      unskeleton();
+      failed("This is taking longer than it should.");
+    }
   }, WIDGET_STALL_MS);
   return drawn;
 }
 
-async function renderDashboard() {
+//: **Back on the dashboard, the last picture stays** (INBOX 602, the owner:
+//: "every time I go off the dashboard and go back on it, it is empty for a
+//: second then loads"). A visit redrew the grid from nothing and hid it
+//: until its widgets settled: 10 frames with no dashboard, 491 to 998ms
+//: after the switch at 4x CPU (`scratchpad/ui-sweeps/loading598.js`). When
+//: the layout is the one already drawn, each widget draws again into a body
+//: laid out beside the old one at its width, unseen, and takes its place
+//: when it is done; until then the old one is what shows.
+function refreshDashWidgets(grid) {
+  const drawing = [];
+  for (const card of grid.querySelectorAll(".dash-widget:not(.dash-hidden)")) {
+    const widget = DASH_WIDGETS[card.dataset.widget];
+    const old = card.querySelector(":scope > .dash-body");
+    if (!widget || !old) continue;
+    const next = document.createElement("div");
+    next.className = "dash-body";
+    Object.assign(next.style, { position: "absolute", top: "0", insetInline: "var(--card-pad-x)", visibility: "hidden", pointerEvents: "none" });
+    card.style.position = "relative";
+    card.appendChild(next);
+    drawing.push(
+      mountWidgetBody(widget, next).then(() => {
+        if (!next.isConnected) return;
+        next.removeAttribute("style");
+        card.style.position = "";
+        old.replaceWith(next);
+      })
+    );
+  }
+  window.dashSettled = Promise.allSettled(drawing);
+}
+
+//: What the drawn grid was drawn from: a visit with the same answer refreshes
+//: in place rather than starting again.
+function dashGridShape(layout) {
+  return JSON.stringify([layout.order, layout.hidden, layout.wide, dashEditMode, entriesEverLoaded && !allEntries.length]);
+}
+
+async function renderDashboard({ refresh = false } = {}) {
   // The saved layout lives in preferences, after a page reload this can run
   // before startApp has fetched them. `loadPreferences` (settings-panes.js) is the shared
   // reader: the cache if it is filled, otherwise the request already in flight,
@@ -1669,12 +1722,19 @@ async function renderDashboard() {
   renderDashMore();
   wireDashDensity();
   const grid = $("dash-grid");
+  const layout = dashLayout();
+  const shape = dashGridShape(layout);
+  //: Not while a full draw is still filling: its settle is what shows the grid.
+  if (refresh && grid.dataset.shape === shape && grid.querySelector(".dash-widget") && !grid.classList.contains("dash-filling")) {
+    refreshDashWidgets(grid);
+    return;
+  }
+  grid.dataset.shape = shape;
   grid.replaceChildren();
   //: Unseen while its widgets draw and their spans settle, then faded in
   //: whole (`dashSettled` below; `.dash-filling`, 08-consistency.css).
   grid.classList.add("dash-filling");
   $("dash-editbar").classList.toggle("hidden", !dashEditMode); // only while editing
-  const layout = dashLayout();
   const drawing = [];
 
   // A brand-new notebook filled this grid with a dozen cards each politely
@@ -1687,6 +1747,10 @@ async function renderDashboard() {
   // brand-new-notebook card over a notebook full of notes.
   if (entriesEverLoaded && !allEntries.length && !dashEditMode) {
     grid.appendChild(gettingStartedCard());
+    //: It has nothing to wait for. Left on, `.dash-filling` (added above)
+    //: kept a brand-new notebook's only card hidden for good.
+    grid.classList.remove("dash-filling");
+    window.dashSettled = Promise.resolve();
     return;
   }
 
@@ -1823,9 +1887,52 @@ async function renderDashboard() {
   //: Every visit, not only the first: a switch back to the dashboard redrew
   //: the widgets the same way, in view (0.26 on 300 notes, measured).
   const settled = (window.dashSettled = Promise.race([Promise.allSettled(drawing), new Promise((r) => setTimeout(r, 1200))]));
+  const outline = dashFillingSkeleton(grid, drawing.length);
   settled.then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
-    if (window.dashSettled === settled) grid.classList.remove("dash-filling");
+    if (window.dashSettled !== settled) return;
+    grid.classList.remove("dash-filling");
+    dashFillingSkeletonDone(outline);
   })));
+}
+
+//: **While the grid fills unseen, its outline shows** (INBOX 596, the owner:
+//: "some skeleton loaders are missing like on the dashboard"). The grid is
+//: hidden until its widgets settle (`.dash-filling`, so the cards do not move
+//: about in view), which left the page under the greeting empty for up to
+//: 1.2s. In its place, cards of `.skeleton` in the grid's own columns, laid
+//: over the same box, fading as the grid fades in. Inline styles through the
+//: CSSOM because the boot stylesheets are at their cap.
+function dashFillingSkeleton(grid, count) {
+  document.querySelector(".dash-grid-skeleton")?.remove();
+  const host = grid.offsetParent;
+  if (!count || !host) return null;
+  const cs = getComputedStyle(grid);
+  const outline = document.createElement("div");
+  outline.className = "dash-grid-skeleton";
+  outline.setAttribute("aria-hidden", "true");
+  const columns = Math.max(1, cs.gridTemplateColumns.split(" ").length);
+  Object.assign(outline.style, {
+    position: "absolute",
+    left: `${grid.offsetLeft}px`,
+    top: `${grid.offsetTop}px`,
+    width: `${grid.offsetWidth}px`,
+    maxHeight: `${Math.max(0, innerHeight - grid.getBoundingClientRect().top)}px`,
+    overflow: "hidden",
+    display: "grid",
+    gridTemplateColumns: cs.gridTemplateColumns,
+    gap: cs.rowGap === "normal" ? "var(--space-4)" : `${cs.rowGap} ${cs.columnGap}`,
+    pointerEvents: "none",
+    transition: "opacity var(--motion-base) var(--ease-out)",
+  });
+  for (let i = 0; i < Math.min(count, columns * 2); i++) outline.appendChild(tabSkeletonPiece({ height: "12rem" }));
+  host.appendChild(outline);
+  return outline;
+}
+
+function dashFillingSkeletonDone(outline) {
+  if (!outline) return;
+  outline.style.opacity = "0";
+  setTimeout(() => outline.remove(), 260);
 }
 
 // --- widget picker modal ------------------------------------------------------------
@@ -3129,6 +3236,19 @@ async function renderCategoriesWidget(body) {
     list.appendChild(row);
   }
   body.appendChild(list);
+  //: The review queue's size (WORLD_CLASS_PLAN section 17, row 1): the
+  //: filings Atlas was unsure of or left in Uncategorised, with the way in.
+  const waiting = (stats && stats.to_review) || 0;
+  if (!waiting) return;
+  const line = document.createElement("p");
+  line.className = "muted night-questions";
+  line.textContent = `${waiting} note${waiting === 1 ? "" : "s"} to check where ${waiting === 1 ? "it was" : "they were"} filed.`;
+  const open = smallButton("ph:check-square Review filings", "The Notes list, filtered to the filings to check", () => showNotesFilter("is:review"));
+  const review = document.createElement("div");
+  //: The night widget's question line is the same shape: one recipe, no new rule.
+  review.className = "row night-questions-row";
+  review.append(line, open);
+  body.appendChild(review);
 }
 
 // A plain char-count slice can land inside an unclosed `![alt](url` or

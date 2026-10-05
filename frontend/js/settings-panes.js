@@ -1490,6 +1490,7 @@ function paletteCommands() {
       ["ph:tag Show untagged notes", "is:untagged"],
       ["ph:lock Show private notes", "is:private"],
       ["ph:link Show linked notes", "is:linked"],
+      ["ph:check-square Show filings to check", "is:review"],
     ].map(([label, query]) => ({
       label,
       about: `The notes list, filtered to ${query}.`,

@@ -18,5 +18,5 @@ def test_the_graph_route_hands_back_bytes_not_a_dict(client, session):
     answer = routes_graph.graph(similarity=False, session=session)
     assert isinstance(answer, JSONResponse)
     over_http = client.get("/graph").json()
-    assert set(over_http) == {"nodes", "edges", "categories"}
+    assert set(over_http) == {"nodes", "edges", "categories", "type_colours"}
     assert len(over_http["nodes"]) == 1

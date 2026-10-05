@@ -1362,7 +1362,9 @@ HELP_TOPICS.extend(
                 "a bar over the list then shows the same notes as a Table, with "
                 "their properties as columns, or lit on the graph. The table's "
                 "last row rolls each column up over every match: Count, and Sum, "
-                "Min and Max for numbers, Earliest and Latest for dates."
+                "Min and Max for numbers, Earliest and Latest for dates. On the "
+                "graph, View, Colour, Note type paints each note by its type; a "
+                "type's ⋯ in Note types has Colour to choose which."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1452,7 +1454,9 @@ HELP_TOPICS.extend(
                 "#tag, title:, in:, before: and after: (a date such as 2026-09), "
                 "is:favourite, is:pinned, is:private, is:linked, is:untagged, "
                 "is:draft, tags:<2 (also <=, > and >=), and -word to leave a word "
-                "out. Select ticks several notes to move to a category, tag or "
+                "out. is:review lists the filings to check (Atlas was unsure, or "
+                "left the note in Uncategorised), each with Accept, Refile and "
+                "Split; the Categories widget on the dashboard counts them. Select ticks several notes to move to a category, tag or "
                 "delete together, and Select all ticks the whole page; the "
                 "selection bar's Tags adds or removes tags on every selected note, "
                 "and its ... menu adds to or removes from Favourites, archives, "

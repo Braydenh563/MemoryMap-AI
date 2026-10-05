@@ -9,5 +9,6 @@ def test_the_dashboard_is_drawn_once_scripts_have_loaded():
     js = app_js_text()
     assert "function whenScriptsLoaded()" in js
     assert 'if (name === "dashboard") return whenScriptsLoaded().then(() => renderDashboard());' in js
-    assert 'if (name === "dashboard") whenScriptsLoaded().then(() => renderDashboard());' in js
+    # A return to the tab refreshes in place (INBOX 602); still after the scripts.
+    assert 'if (name === "dashboard") whenScriptsLoaded().then(() => renderDashboard({ refresh: true }));' in js
     assert 'if (name === "dashboard") renderDashboard();' not in js

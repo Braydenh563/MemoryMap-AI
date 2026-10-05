@@ -1163,7 +1163,7 @@ function drawTrace() {
   // `graphTraceRoutes` inside the frame (see `gcDrawTrace`), so redrawing it is
   // a redraw request. Everything above this line, running the search, filling
   // the readout, the route chips, is renderer-agnostic and unchanged.
-  if (graphRenderer() === "canvas" && typeof gcRequestDraw === "function") {
+  if (graphRenderer() === "canvas") {
     gcRequestDraw();
     return;
   }
@@ -1475,7 +1475,9 @@ let graphStructure = null;
 //: GRAPH_PLAN Phase 3. The rule the colours follow; anything the select
 //: does not offer collapses to category, so a stale saved view cannot ask
 //: for a rule that no longer exists.
-const GRAPH_COLOUR_RULES = ["category", "cluster", "topic", "kind", "age", "space", "tag", "file"];
+//: "type" is the note's type (D5, KG4's `type:` property), in the type's own
+//: colour where Note types gives it one.
+const GRAPH_COLOUR_RULES = ["category", "cluster", "topic", "kind", "type", "age", "space", "tag", "file"];
 
 //: INBOX 430, View > Size: what a node's size says. Connections (the default)
 //: is `4 + 2*sqrt(degree)`, GRAPH_PLAN §5 Phase 1; length is the note's words,
@@ -1722,14 +1724,14 @@ document.addEventListener("categorycolours", () => {
 });
 
 async function renderGraph() {
-  if (typeof closeGraphLinkPeek === "function") closeGraphLinkPeek();
+  closeGraphLinkPeek();
   const svg = document.getElementById("graph-svg");
   const canvas = document.getElementById("graph-canvas");
   // `typeof` rather than a bare name: graph-canvas.js is a separate <script>,
   // and a load failure there must degrade to the old renderer rather than
   // throw a ReferenceError out of every control that calls this.
   const useCanvas =
-    graphRenderer() === "canvas" && canvas && typeof renderGraphCanvas === "function";
+    graphRenderer() === "canvas" && canvas;
   if (svg) svg.classList.toggle("hidden", Boolean(useCanvas));
   if (canvas) canvas.classList.toggle("hidden", !useCanvas);
   if (useCanvas) return renderGraphCanvas();
@@ -1930,7 +1932,7 @@ async function renderGraphSvg() {
   );
   const keptIds = new Set(visibleNodes.map((n) => n.id));
   const visibleEdges = data.edges.filter(
-    (e) => keptIds.has(e.source) && keptIds.has(e.target) && !(typeof gcLinkKindHidden === "function" && gcLinkKindHidden(e))
+    (e) => keptIds.has(e.source) && keptIds.has(e.target) && !(gcLinkKindHidden(e))
   );
   // "Hide unlinked" (declutter): keep only notes that appear in an edge.
   if ($("graph-hide-orphans") && $("graph-hide-orphans").checked) {
@@ -3071,7 +3073,7 @@ function focusGraphNode(node, { announceIt = true } = {}) {
   }
   // The canvas renderer rings `graphKeyboardId` in the same pass as the hover
   // ring, so moving the keyboard focus is one more frame.
-  if (typeof gcRequestDraw === "function") gcRequestDraw();
+  gcRequestDraw();
   if (announceIt) {
     const links = graphAdjacency?.get(node.id)?.size || 0;
     announce(
@@ -3328,7 +3330,7 @@ function applyGraphHighlight() {
   // "similar notes" set, a traced path, the hover neighbourhood) inside its own
   // draw, from this same state, see `gcHighlight`. There are no selections to
   // classed() there, so all this has to do is ask for a frame.
-  if (graphRenderer() === "canvas" && typeof gcRequestDraw === "function") {
+  if (graphRenderer() === "canvas") {
     gcRequestDraw();
     return;
   }
@@ -4162,8 +4164,8 @@ function clearGraphKeyboardFocus() {
   const wasHovered = graphHoveredId === graphKeyboardId;
   graphKeyboardId = null;
   if (wasHovered) graphHoveredId = null;
-  if (typeof applyGraphHighlight === "function") applyGraphHighlight();
-  if (typeof gcRequestDraw === "function") gcRequestDraw();
+  applyGraphHighlight();
+  gcRequestDraw();
 }
 $("graph-box")?.addEventListener("focusout", (event) => {
   if (!$("graph-box").contains(event.relatedTarget)) clearGraphKeyboardFocus();
@@ -4392,7 +4394,7 @@ async function exportGraphPng() {
     // the legend and a caption painted on (gcExportPng); the live bitmap is
     // the fallback if the renderer is not wired yet.
     const out =
-      (typeof gcExportPng === "function" && gcExportPng(2)) ||
+      (gcExportPng(2)) ||
       (() => {
         const fallback = document.createElement("canvas");
         fallback.width = liveCanvas.width;
@@ -5259,13 +5261,13 @@ graphRestoreSwitches();
 for (const id of ["graph-tags", "graph-attachments", "graph-unresolved"]) $(id)?.addEventListener("change", renderGraph);
 $("graph-arrows")?.addEventListener("change", (event) => {
   localStorage.setItem("graph-arrows", event.target.checked ? "1" : "0");
-  if (typeof gcRequestDraw === "function") gcRequestDraw();
+  gcRequestDraw();
 });
 for (const id of ["graph-label-fade", "graph-link-width"]) {
-  $(id)?.addEventListener("input", () => typeof gcRequestDraw === "function" && gcRequestDraw());
+  $(id)?.addEventListener("input", () => gcRequestDraw());
   $(id)?.addEventListener("change", (event) => {
     localStorage.setItem(id, event.target.value);
-    if (typeof gcRequestDraw === "function") gcRequestDraw();
+    gcRequestDraw();
   });
 }
 for (const prefix of ["focus", "pane"]) {
@@ -5284,19 +5286,19 @@ for (const prefix of ["focus", "pane"]) {
 
 $("graph-label-plates")?.addEventListener("change", (event) => {
   localStorage.setItem("graph-label-plates", event.target.checked ? "1" : "0");
-  if (typeof gcRequestDraw === "function") gcRequestDraw();
+  gcRequestDraw();
 });
 
 $("graph-curved")?.addEventListener("change", (event) => {
   localStorage.setItem("graph-curved", event.target.checked ? "1" : "0");
-  if (typeof gcRequestDraw === "function") gcRequestDraw();
+  gcRequestDraw();
 });
 
 //: The cluster wash is on by default and remembered off (the owner: "the
 //: nebulae could be a togglable feature??"); like Curved links it is a redraw.
 $("graph-nebula")?.addEventListener("change", (event) => {
   localStorage.setItem("graph-nebula", event.target.checked ? "1" : "0");
-  if (typeof gcRequestDraw === "function") gcRequestDraw();
+  gcRequestDraw();
 });
 
 //: Link length by similarity changes the forces, so it is a relayout rather

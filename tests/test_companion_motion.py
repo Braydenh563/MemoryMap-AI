@@ -1500,3 +1500,35 @@ def test_it_perches_on_every_library_view_and_on_a_board_never_in_the_air() -> N
     assert "nameMarkBuddyRefitClear(buddy)" in _fn("nameMarkBuddyRefit")
     gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
     assert " perchall " in gate
+
+
+def test_the_large_view_of_a_face_is_alive_like_the_companion() -> None:
+    # INBOX 591 (the owner: "the regular companion enlarged panel view has no
+    # life to it like with atlas and the companion itself"). Measured
+    # (scratchpad/ui-sweeps/atlasmo1005-viewerlife.js, a plain face, 2s): 3
+    # of 40 elements moved before (its 1.3px breath and a blink), and the
+    # pointer moved nothing (its face is not one of the faces on screen the
+    # follow listener nudges). Now its weight shifts, its head sways and its
+    # arms drift on clocks that never line up, each starting at rest, and its
+    # eyes and head turn to the pointer; under reduced motion, none of it.
+    gate = ':root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-viewer-figure > .nm-figure.nm-live {'
+    assert gate in CSS08
+    block = CSS08[CSS08.index(gate) : CSS08.index("\n  }\n", CSS08.index(gate))]
+    for rule in (
+        "& .nm-char { animation: nmv-shift 7.3s ease-in-out -3.65s infinite alternate; }",
+        "& .nm-char .nm-buddy-head { animation: nmv-head-sway 5.9s ease-in-out -2.95s infinite alternate; }",
+        "& .nmb-arm-l { animation: nmv-arm-drift 4.6s ease-in-out -2.3s infinite alternate; }",
+        "& .nmb-arm-r { animation: nmv-arm-drift 4.6s ease-in-out -2.3s infinite alternate-reverse; }",
+    ):
+        assert rule in block, rule
+    assert "translate: calc(var(--nmv-x) * 3.4px) calc(var(--nmv-y) * 2.6px);" in block
+    assert "rotate: calc(var(--nmv-x) * 7deg);" in block
+    reduce = CSS08[CSS08.index("/* INBOX 591: under the system's reduced-motion hint") :]
+    assert ".nm-viewer-figure > .nm-figure :is(.nm-char, .nm-buddy-head, .nmb-arm-l, .nmb-arm-r) { animation: none !important; }" in reduce[:800]
+    viewer = _fn("openNameMarkViewer")
+    # Attached only once the quiet check has returned, so reduced motion and
+    # Avatar animation off never follow; Faces follow the pointer off holds.
+    assert viewer.index("if (nameMarkIdleQuiet())") < viewer.index("nameMarkViewerFollow(overlay, figure)")
+    follow = _fn("nameMarkViewerFollow")
+    assert 'document.documentElement.dataset.avatarFollow === "off"' in follow
+    assert 'style.setProperty("--nmv-x"' in follow and "requestAnimationFrame" in follow

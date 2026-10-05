@@ -6348,6 +6348,8 @@ body .chip.item-label,
    so the box is placed where scaling about its top left corner put it: in
    by half its width and down by its height to the feet, times 1.2. */
 .nm-viewer-figure > .nm-figure {
+  --nmv-x: 0;
+  --nmv-y: 0;
   position: absolute;
   left: calc(64px * 0.5 * 1.2);
   top: calc(26px + 92px * 0.98 * 1.2);
@@ -6355,6 +6357,63 @@ body .chip.item-label,
   height: 92px;
   scale: 2.2;
   transform-origin: 50% 98%;
+}
+
+/* **A face's large view is alive, as the companion is** (INBOX 591, the
+   owner: "the regular companion enlarged panel view has no life to it like
+   with atlas and the companion itself"). Before, all that moved there was
+   the face's own 0.6px breath and its blink (3 of 40 elements over 2s,
+   atlasmo1005-viewerlife.js), between the small acts the idle beat plays.
+   Now its weight shifts about its feet, its head sways at the neck and its
+   arms drift at the shoulders, on clocks that never line up (7.3s, 5.9s,
+   4.6s), the arms out of step with each other; each loop starts half a
+   swing in, at its rest pose, so the view never opens on a jump. Each is a
+   `transform` on a part's own box (the compositor's), so it composes with
+   the acts (a glance moves the eyes' `translate`, a wave the arm's `rotate`,
+   a fidget the figure's `rotate`) and with the pointer's pull below.
+   Its eyes and head turn to the pointer (avatars.js, `nameMarkViewerFollow`,
+   `--nmv-x` and `--nmv-y`), as the companion's do when it attends: the same
+   reach, 3.4px of eye and 7 degrees of head. The same gates as every face's
+   loops; the reduce block below stops them. */
+@media all {
+  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) .nm-viewer-figure > .nm-figure.nm-live {
+    & .nm-char { transform-origin: 50% 96%; }
+    & .nm-char { animation: nmv-shift 7.3s ease-in-out -3.65s infinite alternate; }
+    & .nm-char .nm-buddy-head { animation: nmv-head-sway 5.9s ease-in-out -2.95s infinite alternate; }
+    & .nmb-arm-l { animation: nmv-arm-drift 4.6s ease-in-out -2.3s infinite alternate; }
+    & .nmb-arm-r { animation: nmv-arm-drift 4.6s ease-in-out -2.3s infinite alternate-reverse; }
+    & .name-mark .nm-eyes {
+      translate: calc(var(--nmv-x) * 3.4px) calc(var(--nmv-y) * 2.6px);
+      transition: translate var(--motion-fast) var(--ease-out);
+    }
+    & .nm-char .nm-buddy-head {
+      translate: calc(var(--nmv-x) * 3px) calc(var(--nmv-y) * 1.5px);
+      rotate: calc(var(--nmv-x) * 7deg);
+      transition: translate var(--motion-slow) var(--ease-out), rotate var(--motion-slow) var(--ease-out);
+    }
+  }
+}
+
+/* INBOX 591: under the system's reduced-motion hint the large view holds
+   still but for its blink (the face's own reduce rules keep that), and the
+   pointer is not followed there (avatars.js attaches nothing). */
+@media (prefers-reduced-motion: reduce) {
+  .nm-viewer-figure > .nm-figure :is(.nm-char, .nm-buddy-head, .nmb-arm-l, .nmb-arm-r) { animation: none !important; }
+}
+
+@keyframes nmv-shift {
+  from { transform: rotate(-1.1deg); }
+  to { transform: rotate(1.1deg); }
+}
+
+@keyframes nmv-head-sway {
+  from { transform: rotate(-2.6deg); }
+  to { transform: rotate(2.6deg); }
+}
+
+@keyframes nmv-arm-drift {
+  from { transform: rotate(-4deg); }
+  to { transform: rotate(4deg); }
 }
 
 /* **The companion visiting its large view** (avatars.js,

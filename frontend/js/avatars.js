@@ -2843,11 +2843,50 @@ function openNameMarkViewer(seed, { visit = false } = {}) {
     blinks = nameMarkViewerBlinks(figure);
     return;
   }
-  //: Alive while it is open: a first small act soon, then the view's beat.
+  //: Alive while it is open: a first small act soon, then the view's beat,
+  //: and its eyes and head on the pointer (INBOX 591; its loops are the
+  //: CSS's, under `.nm-viewer-figure > .nm-figure.nm-live`).
   if (!home) {
     setTimeout(() => figure.isConnected && nameMarkIdleAct(figure, "glance"), 900);
     nameMarkIdleWake();
+    nameMarkViewerFollow(overlay, figure);
   }
+}
+
+//: **A face in its large view watches the pointer** (INBOX 591, the owner:
+//: the view "has no life to it like with atlas and the companion itself").
+//: Its face is not one of the faces on screen the page's follow listener
+//: nudges (that one tilts a whole face 10 degrees, which on a standing
+//: figure tips the body over), so the view has its own: over the dialog,
+//: at most once a frame, the pointer's offset from the head as two numbers
+//: from -1 to 1 (`--nmv-x`, `--nmv-y` on the figure) that the CSS turns into
+//: the companion's own attending look, eyes first and the head after.
+//: Nothing with Faces follow the pointer off; never under reduced motion
+//: (the caller returns before this); gone with the dialog.
+function nameMarkViewerFollow(overlay, figure) {
+  const drawn = figure.querySelector(":scope > .nm-figure");
+  if (!drawn) return;
+  let frame = 0;
+  let at = null;
+  const set = (x, y) => {
+    drawn.style.setProperty("--nmv-x", x.toFixed(2));
+    drawn.style.setProperty("--nmv-y", y.toFixed(2));
+  };
+  overlay.addEventListener("pointermove", (event) => {
+    if (document.documentElement.dataset.avatarFollow === "off") return;
+    at = [event.clientX, event.clientY];
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      const head = (drawn.querySelector(".nm-buddy-head") || drawn).getBoundingClientRect();
+      const reach = Math.max(240, head.width * 3);
+      const clamp = (v) => Math.max(-1, Math.min(1, v));
+      set(clamp((at[0] - (head.left + head.width / 2)) / reach), clamp((at[1] - (head.top + head.height / 2)) / reach));
+    });
+  }, { passive: true });
+  //: The pointer gone from the window: it looks ahead again, slowly (the
+  //: CSS's transition).
+  overlay.addEventListener("pointerleave", () => set(0, 0), { passive: true });
 }
 
 //: **Under reduced motion, a blink now and then** and nothing else (the

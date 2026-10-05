@@ -11453,7 +11453,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <span>Check GitHub for a newer version</span>
               </label>
               <div class="row button-row setting-dependent" id="update-check-row">
-                <button id="update-check-now" class="ghost small" type="button">Check now</button>
+                <button id="update-check-now" class="ghost small" type="button">Check for updates</button>
                 <!-- Shown only once a check finds a newer version this app can
                      actually apply itself (the post-login dialog's own
                      "Update automatically", same underlying flow, same
@@ -11528,7 +11528,8 @@ Link to another note with [[its first few words]]."></textarea>
                   Which one you can actually use depends on how this copy was
                   installed. A copy started by start.bat or start.sh can
                   follow the newest changes, because it pulls them from GitHub
-                  itself on every launch (the main branch). The packaged app
+                  itself at launch (the main branch) once you have said yes to
+                  checking automatically; the first start asks that once. The packaged app
                   has no way to do that, so it always installs releases, and
                   this switch changes nothing for it.
                 </p>

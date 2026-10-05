@@ -920,6 +920,24 @@ plain; `/export/json` now says `is_private`); SEC-17's floor (warn or raise
 the minimum when a notebook has private notes); SEC-02's last step
 (`read_url` parks for a URL not in the question or this turn's results).
 
+**Decisions made** (the owner, 2026-10-05; do not remake):
+
+1. **Auto-update: "Ask once".** The first launch asks once, in the terminal
+   (start.sh, when there is a terminal to answer in) or in the app, whether
+   to check for updates automatically, and remembers the answer
+   (`update_choice_made`). Until it is answered nothing about updating
+   touches the network: the launchers neither pull nor reach the remote, the
+   doctor included. Settings, About keeps the switches and a "Check for
+   updates" button, which checks once whatever the switch says. The packaged
+   app asks in the app; there, yes means "tell me", and installing stays
+   behind its own switch.
+2. **LAN HTTPS: "Yes, self-signed HTTPS".** On the first LAN start the app
+   makes a self-signed certificate with `cryptography` (no network), kept in
+   the data folder at 0600, and serves HTTPS on the network; loopback stays
+   HTTP. Settings, LAN shows the certificate's fingerprint, so a phone user
+   can check the one-time warning, with "Regenerate certificate". The help
+   says the traffic is encrypted and explains the warning.
+
 ## 13. Open bugs and gaps from the merged agent reports (with owners)
 
 Each of these was found by measuring and deferred with evidence; the

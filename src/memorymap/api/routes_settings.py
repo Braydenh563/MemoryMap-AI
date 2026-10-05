@@ -719,6 +719,7 @@ def get_preferences() -> dict:
         "web_search_enabled": config.get_preference("web_search_enabled", False),
         "update_check_enabled": config.get_preference("update_check_enabled", False),
         "auto_update_enabled": config.get_preference("auto_update_enabled", False),
+        "update_choice_made": config.get_preference("update_choice_made", False) is True,
         "update_channel": config.get_preference("update_channel", "stable"),
         "searxng_url": config.get_preference("searxng_url", ""),
         "searxng_autostart": config.get_preference("searxng_autostart", False),
@@ -920,6 +921,9 @@ def update_preferences(
             value = _validated_context_windows(value)
         config.set_preference(key, value)
         changed_keys.add(key)
+        if key in ("update_check_enabled", "auto_update_enabled"):
+            # Either switch is an answer to the ask-once question (routes_update).
+            config.set_preference("update_choice_made", True)
         if key == "warm_search_model_at_launch" and value:
             # Switched on mid-session: load it now rather than at the next
             # launch. Idempotent, so a model already warm costs nothing.

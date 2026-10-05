@@ -45,7 +45,7 @@ INVENTORY = {
         "the person's model server: Ollama at localhost:11434 or an OpenAI-compatible one at localhost:1234 unless they typed another address",
         "a chat, an embedding, a model list",
     ),
-    "api/routes_update.py": ("api.github.com and the release download", "update_check_enabled (off by default) or a Check now / Install click"),
+    "api/routes_update.py": ("api.github.com and the release download", "update_check_enabled (off until the ask-once question is answered yes) or a Check for updates / Install click"),
     "core/embedmodels.py": ("huggingface.co (an allowlisted model)", "an Install or Reinstall click in Settings, Models"),
     "core/extra_downloads.py": ("the pinned URL of an allowlisted extra, sha256 checked", "an Install click in Settings, Extras"),
     "core/privacy_http.py": ("whatever its caller names; records each destination on the privacy receipt", "its callers' triggers"),
@@ -94,11 +94,10 @@ def test_every_module_that_can_reach_the_network_is_accounted_for():
 
 def test_the_defaults_are_local_and_off(app_state):
     from memorymap.ai import ollama_client, openai_client
-    # `auto_update_enabled` is not here: the backend downloads nothing on it
-    # alone (`routes_update` refuses unless `update_check_enabled` is on), and
-    # what it does default to on, for a source checkout, is the launcher
-    # scripts' own `git pull` (INBOX 221), outside the backend.
-    for key in ("web_search_enabled", "update_check_enabled"):
+    # "Ask once" (the owner, 2026-10-05): `auto_update_enabled`, which the
+    # launchers' own pull obeys, is off for every install, a source checkout
+    # included, until the one-time question is answered (`update_choice_made`).
+    for key in ("web_search_enabled", "update_check_enabled", "auto_update_enabled", "update_choice_made"):
         assert app_state.get_preference(key, None) is False, key
     assert app_state.get_preference("llm_provider", None) == "ollama"
     assert app_state.get_preference("llm_base_url", None) == ""

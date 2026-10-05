@@ -1206,6 +1206,7 @@ function startApp() {
   // also checks the preference server-side, but skipping the call here means
   // an opted-out install makes zero network attempts, not a wasted one.
   step("check for an update", () => {
+    if (prefsCache && prefsCache.update_choice_made === false) return askUpdateChoiceOnce();
     if (prefsCache && prefsCache.update_check_enabled) return checkForUpdate(true);
   });
   // Independent of update_check_enabled above, this isn't a network
@@ -2429,7 +2430,7 @@ const LAZY_ENTRY_POINTS = {
   //: 2026-10-05, the next six: async or unread, reached by a gesture.
   reveal: ["revealFeature"],
   onboarding: ["openOnboarding"],
-  updates: ["checkForUpdate", "applyUpdateNow", "showSourceUpdatedDialog"],
+  updates: ["checkForUpdate", "applyUpdateNow", "showSourceUpdatedDialog", "askUpdateChoiceOnce"],
   appPalette: ["openPalette"],
   notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing"],
   attachTo: ["renderAttachToBoard", "renderAttachToDocument"],

@@ -1,7 +1,7 @@
 // update-dialogs.js: the update check, applying an update, and the two
 // "a new version" dialogs. Moved out of settings-panes.js on 2026-10-05 (the
 // boot-script gzip budget, ratchet in tests/test_static_compression.py): the
-// check runs from Settings' "Check now" button and, only for someone who
+// check runs from Settings' "Check for updates" button and, only for someone who
 // turned it on, once at startup; the dialogs open from those and from the
 // source-checkout notice. Loaded on first use by `LAZY_MODULES.updates`
 // (app.js), whose stand-ins for `checkForUpdate`, `applyUpdateNow` and
@@ -11,7 +11,7 @@
 // `checkForSourceUpdateNotice` stays in settings-panes.js: it runs on every
 // start, and the common answer (nothing was updated) needs none of this.
 
-// Shared by the "Check now" button and the silent startup check. `silent`
+// Shared by the "Check for updates" button and the silent startup check. `silent`
 // suppresses the status-line text and the toast for the common "you're on
 // the latest version" outcome: the startup check should only ever speak up
 // when there's actually something to say.
@@ -21,7 +21,9 @@ async function checkForUpdate(silent = false) {
   if (!silent && status) setLabel(status, "ph:spin Checking…");
   let result;
   try {
-    result = await apiJson("/update/check", { silent: true });
+    // A click on Check for updates is the person asking for this one
+    // request, so the server does not refuse it with the switch off.
+    result = await apiJson(silent ? "/update/check" : "/update/check?manual=1", { silent: true });
   } catch (error) {
     if (!silent && status) status.textContent = "Couldn't check for updates.";
     return;
@@ -66,6 +68,30 @@ async function checkForUpdate(silent = false) {
   } else if (!silent && status) {
     status.textContent = `You're on the latest version (${result.current}).`;
   }
+}
+
+//: **Ask once** (the owner, 2026-10-05, WORLD_CLASS_PLAN 12 "Decisions
+//: made"): the first start asks whether to check for updates by itself, and
+//: until the answer is in nothing about updating touches the network.
+//: Closing the question is "no", the answer that touches nothing; Settings,
+//: About holds the switch and the Check for updates button either way.
+//: start.sh may already have asked in the terminal, and then this never runs.
+async function askUpdateChoiceOnce() {
+  const yes = await confirmDialog(
+    "Check for updates automatically?\n\nMemoryMap AI can look for a newer version each time it starts. " +
+      "Nothing about your notes is sent. You can change this in Settings, About.",
+    { confirmLabel: "Check automatically", cancelLabel: "Don't check", danger: false }
+  );
+  try {
+    const saved = await apiJson("/update/choice", { method: "POST", body: JSON.stringify({ check: Boolean(yes) }) });
+    if (prefsCache) Object.assign(prefsCache, saved);
+    if ($("pref-update-check")) $("pref-update-check").checked = Boolean(saved.update_check_enabled);
+    if ($("pref-auto-update")) $("pref-auto-update").checked = Boolean(saved.auto_update_enabled);
+  } catch (error) {
+    toast(error.message || "Couldn't save that answer.", true);
+    return;
+  }
+  if (yes) await checkForUpdate(true);
 }
 
 //: The last version this profile was already told about, so the post-login

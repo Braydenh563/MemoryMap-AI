@@ -801,6 +801,9 @@ def create_app() -> FastAPI:
     # read and at a clean shutdown, so a killed process loses at most
     # `egress.FLUSH_DELAY` of what it saw.
     egress.configure(ledger_path)
+    # The terminal's answer to "check for updates automatically?" (start.sh
+    # asks before there is a Python to write it down; routes_update).
+    routes_update.apply_launcher_choice(deps.get_config())
     _purge_expired_bin_entries()
     _compact_event_log()
     _backup_if_due()

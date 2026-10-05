@@ -3285,21 +3285,6 @@
   border-radius: 50%;
 }
 
-.whiteboard-sidebar {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  width: 300px;
-  height: calc(100% - 2rem);
-  max-height: calc(100% - 2rem);
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  padding: 1rem;
-  gap: 1rem;
-  overflow: hidden;
-}
-
 .wb-library-list {
   list-style: none;
   padding: 0;

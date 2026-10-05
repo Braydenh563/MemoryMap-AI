@@ -59,12 +59,14 @@ def test_the_companion_comes_in_at_its_own_size():
 
 
 def test_the_nod_keeps_the_head_at_its_resting_size():
-    # Every frame of a keyframe `transform` on `.atl-head` replaces the
-    # resting one, so each must carry the head's own scale.
+    # A keyframe `transform` on `.atl-head` replaces the resting one (and its
+    # 0.76 scale); the nod moves the individual `translate` and `rotate`,
+    # which compose with it.
     frames = re.findall(r"\{([^{}]*)\}", _keyframes("atl-nod"))
     assert frames
     for frame in frames:
-        assert "var(--atl-head-k)" in frame and "var(--atl-tune-head)" in frame, frame
+        assert not re.search(r"(?<![-\w])transform\s*:", frame), frame
+        assert "rotate:" in frame and "translate:" in frame, frame
 
 
 def test_the_companion_waits_for_the_curtain():
@@ -117,8 +119,10 @@ def test_every_popup_has_one_way_in():
     css = CSS["08-consistency.css"]
     block = css[css.index("/* --- motion: a popup arrives") :]
     block = block[: block.index("/* --- ", 10)]
-    which = ":where(.modal-overlay, .lock-overlay:not(#lock-overlay), #palette-overlay):not(.hidden)"
-    assert block.count(which) == 4, "the scrim and its card, at rest and in @starting-style"
+    which = ":where(.modal-overlay, .lock-overlay:not(#lock-overlay), #palette-overlay):not(.hidden) {"
+    assert block.count(which) == 1, "one rule for every overlay"
+    flat = " ".join(block.split())
+    assert "@starting-style { opacity: 0; & > * { translate: 0 var(--space-2); scale: 0.985; } }" in flat
     assert "var(--motion-base)" in block and "var(--motion-slow)" in block
 
 
@@ -184,3 +188,16 @@ def test_design_names_the_recipe_and_its_lints():
     for needle in ("from 0.4", "tabPlaceholder", "curtainShell", "tests/test_smooth_boot.py", "smooth1005-boot.js", "smooth1005-tabs.js"):
         assert needle in row, needle
     assert "nameMarkBuddySupported" in design and "smooth1005-perch.js" in design
+
+
+def test_the_dashboard_shows_its_widgets_once_they_have_drawn():
+    dash = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    render = dash[dash.index("async function renderDashboard(") :]
+    render = render[: render.index("\n}\n")]
+    assert 'grid.classList.add("dash-filling");' in render
+    assert "drawing.push(mountWidgetBody(widget, body));" in render
+    assert "window.dashSettled = Promise.race([Promise.allSettled(drawing)" in render
+    assert 'grid.classList.remove("dash-filling")' in render
+    assert "return drawn;" in _fn(dash, "mountWidgetBody")
+    assert "#dash-grid.dash-filling {" in CSS["08-consistency.css"]
+    assert ".then(() => window.dashSettled).then(lift, lift);" in _fn(JS, "curtainShell")

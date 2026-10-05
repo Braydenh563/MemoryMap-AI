@@ -533,13 +533,6 @@
    when it should move, which under Reduce motion means the person chose
    Movement "Moving" for the background, an explicit request that is
    meant to win (startBgArt in settings.js). */
-.bg-art-layer.is-moving .bg-drift-x {
-  animation: bg-drift-x var(--dur-x) ease-in-out var(--delay-x) infinite alternate !important;
-}
-
-.bg-art-layer.is-moving .bg-drift-y {
-  animation: bg-drift-y var(--dur-y) ease-in-out var(--delay-y) infinite alternate !important;
-}
 
 .bg-art-layer.is-moving .bg-rise {
   animation: bg-rise var(--dur-r) linear var(--delay-r) infinite !important;
@@ -550,8 +543,6 @@
 }
 
 /* Hidden, long unfocused, or covered: held where it is. */
-.bg-art-layer.is-moving.is-paused .bg-drift-x,
-.bg-art-layer.is-moving.is-paused .bg-drift-y,
 .bg-art-layer.is-moving.is-paused .bg-rise,
 .bg-art-layer.is-moving.is-paused .bg-wobble {
   animation-play-state: paused !important;
@@ -3098,20 +3089,6 @@ button.answer-figure-open {
   color: var(--warn);
 }
 
-.reminder-listbar {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.6rem;
-  padding-bottom: 0.6rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.reminder-listbar h2 {
-  margin: 0;
-  margin-right: auto;
-}
 
 /* **A stray bottom margin reads as a misalignment, and this one was
    reported.** `.seg` carries `margin-bottom: 0.5rem` for the case it was
@@ -3128,23 +3105,13 @@ button.answer-figure-open {
 
    Scoped to rows rather than removed from `.seg` outright, so a segmented
    control that really is standing alone keeps the gap under it. */
-:is(.row, .reminder-listbar, .ask-history-toolbar) > .seg {
+:is(.row, .ask-history-toolbar) > .seg {
   margin-bottom: 0;
 }
 
 /* One height across the bar, the same way `.ask-query-row` and
    `.capture-field-row` do it. Before: segments 40px, the page-size select
    35.59px, the heading 24px. */
-.reminder-listbar {
-  --control-h: var(--control-h-body);
-}
-
-.reminder-listbar > .seg,
-.reminder-listbar > .select-shell > .select-opener,
-.reminder-listbar > select,
-.reminder-listbar > button:not(.menu-item) {
-  min-height: var(--control-h);
-}
 
 /* Group headings read as section labels with their count beside them. */
 .reminder-group-head {
@@ -3864,29 +3831,14 @@ button.answer-figure-open {
    into a mostly-empty second row, reported directly, with a screenshot. The
    separator is a border rather than a spacer element so it disappears cleanly
    when a group wraps to the start of a new line. */
-.graph-toolbar-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding-left: var(--space-3);
-  border-left: 1px solid var(--border);
-}
 
 /* The first group needs no separator, and neither does one that has wrapped
    to the start of a row, a leading hairline on a new line reads as a stray
    mark rather than a divider. */
-.graph-toolbar-group:first-of-type {
-  padding-left: 0;
-  border-left: 0;
-}
 
 @media (max-width: 700px) {
   /* At this width almost every group wraps, so every separator would be a
      leading one. Drop them and let the row gap do the grouping instead. */
-  .graph-toolbar-group {
-    padding-left: 0;
-    border-left: 0;
-  }
 }
 
 .graph-toolbar #graph-search,
@@ -4308,25 +4260,10 @@ button.answer-figure-open {
 #graph-mobile-more-toggle {
   display: none;
 }
-.graph-toolbar-secondary {
-  display: contents;
-}
 
 @media (max-width: 599.98px) {
   #graph-mobile-more-toggle {
     display: inline-flex;
-  }
-  .graph-toolbar-secondary {
-    display: none;
-    flex-basis: 100%;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-    padding-top: 0.5rem;
-    margin-top: 0.5rem;
-    border-top: 1px solid var(--border-light);
-  }
-  .graph-toolbar-secondary.open {
-    display: flex;
   }
 }
 

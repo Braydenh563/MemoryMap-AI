@@ -1714,7 +1714,8 @@ function curtainShell(ready) {
       liftLockScreen();
     }));
   };
-  Promise.resolve(ready).then(lift, lift);
+  //: And the dashboard's widgets, when it is the first tab (`dashSettled`).
+  Promise.resolve(ready).then(() => window.dashSettled).then(lift, lift);
   setTimeout(lift, SHELL_CURTAIN_MAX_MS);
 }
 

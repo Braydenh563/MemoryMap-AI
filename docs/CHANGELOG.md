@@ -544,6 +544,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - The Manage categories list no longer puts each row's menu button inside the row a screen reader selects: the rows are a grid, the menu is its own cell (Right reaches it, Left comes back), and every key and click works as before.
 ### Changed
 
+- The dashboard's widgets appear together once they have drawn, on every visit, instead of moving about for a second as each one filled in (a layout shift of 0.26 on a notebook of 300 notes); the opening waits for them too, 1.2 seconds at most. Stylesheet rules for ten classes nothing in the app uses any more (an old Library activity view and stat row, a whiteboard sidebar, the reminders' old list bar, the graph's old toolbar groups, two background-art drifts) are gone, which keeps the boot stylesheets under their budget (INBOX 577, 580).
 - Code layout: the frontend's scripts live in `frontend/js/` (50 files, beside `css/` and `vendor/`), not loose in `frontend/`. `sw.js` stays at the frontend root, because a service worker only controls pages under its own path. Nothing about the app changes; the script URLs are `/js/<name>.js`, a test checks that every script path in `index.html`, the lazy loader and the workers resolves to a real file.
 ### Changed
 

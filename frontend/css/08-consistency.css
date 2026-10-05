@@ -3470,7 +3470,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   outline-offset: 2px;
 }
 
-:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) :is(.library-note, .library-document, .library-chat, .library-file, .library-tag, .library-archived, .library-activity) {
+:root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) :is(.library-note, .library-document, .library-chat, .library-file, .library-tag, .library-archived) {
   box-shadow: none;
 }
 
@@ -8971,11 +8971,11 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    gives as it arrives drew the head at full size for 0.9s, a third larger,
    and dropped it back. Measured by its screen matrix
    (`scratchpad/ui-sweeps/smooth1005-boot.js`): 0.74 at rest, 0.96 through
-   the nod. Each frame now restates the resting transform, with the nod's
-   dip and turn added to it. */
+   the nod. The nod now moves the individual `translate` and `rotate`,
+   which compose with the resting `transform` instead of replacing it, so
+   the head keeps its size, its lean and its tilt through it. */
 @keyframes atl-nod {
-  0%, 45%, 100% { transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(calc(var(--atl-tune-head) * var(--atl-head-k))); }
-  22%, 68% { transform: translate(calc(var(--atl-lean-dir) * 0.9px), calc(var(--atl-head-y) + 1.6px)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg + 8deg)) scale(calc(var(--atl-tune-head) * var(--atl-head-k))); }
+  22%, 68% { translate: 0 1.6px; rotate: 8deg; }
 }
 @keyframes atl-hop-once {
   0%, 100% { transform: none; }
@@ -9738,10 +9738,6 @@ input[type="file"]:active::file-selector-button {
     padding-right: 0;
   }
 
-  .library-grid .library-card.library-activity .library-card-title {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
 }
 
 /* --- the selection tick in Rows (INBOX 426 z, image 91) ---------------------
@@ -10666,6 +10662,20 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   opacity: 0;
 }
 
+/* The dashboard's widgets wait unseen while they draw and their spans
+   settle, then fade in together (`renderDashboard`): drawn in view, the
+   cards moved about for a second on every visit. `visibility` as well as
+   opacity, so nothing under it is clickable and nothing it does is a
+   layout shift anyone sees; the fade back is opacity alone. */
+#dash-grid {
+  transition: opacity var(--motion-base) var(--ease-out);
+}
+
+#dash-grid.dash-filling {
+  opacity: 0;
+  visibility: hidden;
+}
+
 /* Chat's empty card waits unseen for its starters, then fades in whole
    (`renderChatEmptyState`, chat.js): it used to grow round them in view. */
 .chat-empty {
@@ -10689,22 +10699,18 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
    all of it (the two blankets in 02-chat-graph.css). */
 :where(.modal-overlay, .lock-overlay:not(#lock-overlay), #palette-overlay):not(.hidden) {
   transition: opacity var(--motion-base) var(--ease-out);
-}
 
-:where(.modal-overlay, .lock-overlay:not(#lock-overlay), #palette-overlay):not(.hidden) > * {
-  transition:
-    translate var(--motion-slow) var(--ease-out),
-    scale var(--motion-slow) var(--ease-out);
-}
-
-@starting-style {
-  :where(.modal-overlay, .lock-overlay:not(#lock-overlay), #palette-overlay):not(.hidden) {
-    opacity: 0;
+  & > * {
+    transition: translate var(--motion-slow) var(--ease-out), scale var(--motion-slow) var(--ease-out);
   }
 
-  :where(.modal-overlay, .lock-overlay:not(#lock-overlay), #palette-overlay):not(.hidden) > * {
-    translate: 0 var(--space-2);
-    scale: 0.985;
+  @starting-style {
+    opacity: 0;
+
+    & > * {
+      translate: 0 var(--space-2);
+      scale: 0.985;
+    }
   }
 }
 

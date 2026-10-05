@@ -684,6 +684,14 @@ Held by the Atlas motion agent; each closes when its sweep measures it.
      dynamically animated and changed": both looks' tails, hair and nebula
      streams, per state, with secondary motion.
 
+623. **The owner, 2026-10-05, verbatim.** "can the atlas agent also animate
+     the props and icons as well for various actions and behaviours??"
+     Placed: the Atlas agent (here, the INBOX at its cap): each prop and
+     icon Atlas holds or shows moves with the hands and body and has its own
+     small motion (a book's pages, a lamp's flicker, sleep's Zs drifting,
+     thinking marks pulsing), still under reduced motion, measured attached
+     at its grip every frame.
+
 ## Not verified
 
 - ~~The feminine sash sways on an inner <g>~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".

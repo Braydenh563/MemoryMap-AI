@@ -42099,6 +42099,18 @@ record.)
      and popups design agent's queue (599), as the same recipe pass.
      Fixed 2026-10-05: the note edit form is one composition: one writing surface, tag chips, a category chip, a foot of Attach a link, Cancel and Save; boxed buttons 3 to 0, 554 to 507px tall at 390 (noteeditflow.js 6/6).
 
+612. **The owner, 2026-10-05, verbatim.** "the arm on the right for the
+     feminine atlas actually separates from the body when it moves".
+     Placed: the Atlas agent, with 600 and 601.
+     Fixed 2026-10-05 (dc6237a): her arms turn about her own shoulder roots, inside the torso; atlas612-shoulder.js, both looks, 20s idle and every pose and gesture: root gap 2.5px before, 0 after (slide 0.38 to 0.86px).
+614. **The owner, 2026-10-05, verbatim.** "the masculine atlas kinda looks
+     fat" and "make the masculine atlas look hot and 19-21 like the feminine
+     one". Placed: the Atlas agent.
+     Fixed 2026-10-05 (948eb8e): shoulders 17 tapering in a V to a 9.5 waist and 9.8 hips (1.80 : 1 : 1.03; before 18.6 over a 15.1 belly), slimmer arms, cloak and tail; atlas614-build.js.
+615. **The owner, 2026-10-05, verbatim.** "the atlas masculine main body
+     and lower body are slightly misaligned". Placed: the Atlas agent.
+     Fixed 2026-10-05 (0c7b64b): the lower body moves in the body's breathing box and shears about the join; atlas615-join.js at 2.2x, worst step 8.64px before, 0.76 after (masculine), 6.29 to 0.57 (feminine).
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

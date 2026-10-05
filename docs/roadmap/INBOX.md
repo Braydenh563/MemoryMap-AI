@@ -102,12 +102,6 @@ with its owner named in the entry.
      the next Opus slot (`assistantAvatar` in chat-agent.js draws
      `atlasDraw(size)` under 28px, not the current `atlasAvatar` look).
 
-654. **The owner, 2026-10-05, verbatim, with a screenshot of the history list
-     (the status bar's back/forward popup).** "the nav history popup doesnt
-     have md or image etc rendering" Placed: next Sonnet slot (a note row's
-     title through the same plain-title and thumbnail helpers the note cards
-     use; markdown stripped, an image note shows its thumbnail).
-
 660. **The owner, 2026-10-05, verbatim.** "also I want to be able to drag
      elements on the whiteboard and mindmap onto a popup delete button to
      delete them" Placed: the next Opus slot, with 650 and 656: a delete

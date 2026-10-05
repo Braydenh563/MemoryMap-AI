@@ -696,6 +696,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - The Manage categories list no longer puts each row's menu button inside the row a screen reader selects: the rows are a grid, the menu is its own cell (Right reaches it, Left comes back), and every key and click works as before.
 ### Changed
 
+- Sweeps: lib.js gains openBoardsTab and waitForBoardOpen (the Boards sub-tab picked and the board code waited for, not a Library press and a sleep); seven board sweeps use them, two of which used to time out.
 - Sweeps: bm1005-sidebar.js measures the whiteboard rail's Notes tab skeletons (5 at 300ms, 264 notes after) as well as the Library's; both were already built.
 - OCR workspace on a phone: the page-size track (Fit, 100%) grows round its 44px buttons instead of leaving them 12px past a 32px track; wbtopbar.js seeds a scanned image and measures the head at 1440 and 390.
 - Sweeps: phonechrome.js asserts, at any WIDTH and HEIGHT, that every tab's page ends where the status bar (or the phone tab dock) begins; measured at nine widths from 600 to 1093, nothing overlaps.

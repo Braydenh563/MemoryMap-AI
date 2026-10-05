@@ -3,7 +3,7 @@
 // one finger dragged over empty canvas with each tool, and a two-finger
 // pinch, reading the zoom transform before and after.
 //   TAG=before node scratchpad/ui-sweeps/wbtouchpan.js
-const { boot } = require("./lib.js");
+const { boot, openBoardsTab, waitForBoardOpen } = require("./lib.js");
 const SIZES = (process.env.SIZES || "390x844,768x1024").split(",").map((s) => s.split("x").map(Number));
 (async () => {
   let fails = 0;
@@ -14,15 +14,14 @@ const SIZES = (process.env.SIZES || "390x844,768x1024").split(",").map((s) => s.
   for (const [w, h] of SIZES) {
     const { page, browser } = await boot({ viewport: { width: w, height: h }, hasTouch: true, isMobile: true });
     const cdp = await page.context().newCDPSession(page);
+    await openBoardsTab(page);
     await page.evaluate(async () => {
-      switchTab("library");
-      await new Promise((r) => setTimeout(r, 800));
       const headers = { "X-Auth-Token": localStorage.getItem("token") || "", "Content-Type": "application/json" };
-      const b = await (await fetch("/whiteboard/boards", { method: "POST", headers, body: JSON.stringify({ title: "Touch probe" }) })).json();
+      const b = await (await fetch("/whiteboard/boards", { method: "POST", headers, body: JSON.stringify({ name: "Touch probe" }) })).json();
       window.__probeBoard = b.id;
       await openWhiteboardBoard(b.id);
-      await new Promise((r) => setTimeout(r, 2500));
     });
+    await waitForBoardOpen(page);
     const state = () => page.evaluate(() => {
       const t = d3.zoomTransform(document.getElementById("whiteboard-container"));
       return { k: Number(t.k.toFixed(3)), x: Math.round(t.x), y: Math.round(t.y), tool: window.currentTool, marquee: Boolean(document.querySelector(".wb-marquee")) };

@@ -1,10 +1,9 @@
 // INBOX 516: inside an open board or map, the Library tab button gets you back.
-const { boot } = require('./lib.js');
+const { boot, openBoardsTab, waitForBoardOpen } = require('./lib.js');
 (async () => {
   const { browser, page } = await boot();
   for (const kind of ['board', 'map']) {
-    await page.evaluate(() => switchTab('library'));
-    await page.waitForTimeout(800);
+    await openBoardsTab(page);
     const opened = await page.evaluate(async (kind) => {
       const list = await apiJson(`/whiteboard/boards${kind === 'map' ? '?type=map' : ''}`).catch(() => []);
       const b = (list.boards || list)[0];
@@ -12,7 +11,7 @@ const { boot } = require('./lib.js');
       await openWhiteboardBoard(b.id);
       return b.id;
     }, kind);
-    await page.waitForTimeout(1500);
+    if (opened) await waitForBoardOpen(page);
     const before = await page.evaluate(() => {
       const t = document.getElementById('tab-btn-library').getBoundingClientRect();
       const hit = document.elementFromPoint(t.x + t.width / 2, t.y + t.height / 2);

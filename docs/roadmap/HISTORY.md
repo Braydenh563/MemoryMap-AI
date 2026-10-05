@@ -19,6 +19,24 @@ Each row was checked against the head before anything was built.
   New note (`#tab-graph:has(.dock-fab) .graph-zoom`) closed it. `graphphone.js`
   now asserts it every run: the four buttons are hit at their centres and clear
   of `.dock-fab`.
+- **Board sweeps that only press the Library tab time out**: reproduced
+  (`bm1005-segstate.js` and `bm1005-nodetasks.js` both died on a 15s `waitForFunction`).
+  The Library reopens on its last sub-tab (mirrored to the server, so a fresh context
+  inherits another sweep's), the board code is a lazy bundle the Boards sub-tab fetches,
+  and those two also waited for `wbFormatSyncSoon`, which the board no longer loads at
+  open. `lib.js` gains `openBoardsTab(page, fns)` (presses the Library, then presses
+  Boards & maps again inside the wait until it is the active sub-tab and the named
+  functions exist, so a restore that undoes an early press cannot strand it) and
+  `waitForBoardOpen(page)` (the top bar and the canvas laid out and their objects drawn,
+  in place of a 1.2 to 2.5s sleep). Applied to the seven sweeps that reached a board
+  from a bare Library press or a fixed sleep: `bm1005-segstate.js`,
+  `bm1005-nodetasks.js`, `wbcardeditor.js`, `wbtouchpan.js`, `libtab.js`,
+  `phonechrome.js` (its board step) and `barinv479.js`. Run: segstate and the
+  touch probe pass (the touch probe also made its board with `title`, which the route
+  answers 422 to; it sends `name`), the card editor and phonechrome pass, `libtab.js`
+  runs through (its "board" case finds no board listed, as it did). The fifty-odd
+  sweeps that already press the sub-tab keep their own sleeps; they are not wrong, only
+  slower, and `openBoardsTab` is what a new one should call.
 - **Skeletons for the whiteboard rail's Library and Notes tabs (INBOX 596)**: already
   built, and both halves are now measured (the Notes half had only been read, "the boot
   loads the notebook before a board can open"). `wbLoadLibrary` draws 6 skeletons into an

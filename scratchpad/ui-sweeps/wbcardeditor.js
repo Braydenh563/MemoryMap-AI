@@ -10,7 +10,7 @@
 //
 //   BASE=http://127.0.0.1:8796 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node wbcardeditor.js
 // EXPECT_SURFACE=1 fails when the card is still a bare textarea.
-const { boot } = require('./lib.js');
+const { boot, openBoardsTab, waitForBoardOpen } = require('./lib.js');
 
 (async () => {
   const { page, browser } = await boot({});
@@ -22,12 +22,12 @@ const { boot } = require('./lib.js');
     const entry = await apiJson('/entries', { method: 'POST', body: JSON.stringify({ content: 'Root idea for the probe' }) });
     await apiJson('/whiteboard/nodes', { method: 'POST', body: JSON.stringify({ entry_id: entry.id, board_id: board.id, x: 200, y: 200 }) });
     await loadEntries();
-    switchTab('library');
-    await new Promise((r) => setTimeout(r, 400));
-    await openWhiteboardBoard(board.id);
-    await new Promise((r) => setTimeout(r, 1200));
     return board.id;
   });
+  // The Boards sub-tab, picked and waited for, not a press on the Library tab and a sleep.
+  await openBoardsTab(page);
+  await page.evaluate((id) => openWhiteboardBoard(id), boardId);
+  await waitForBoardOpen(page);
   const nodeCount = () => page.evaluate(() => wbState.nodes.length);
   // Open an editor the way a person does: a branch off the root card.
   const openEditor = async () => {

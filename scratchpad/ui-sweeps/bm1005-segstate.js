@@ -1,11 +1,12 @@
 // Prints each strip segment row's pressed buttons against its select's value,
 // for one selected topic: a row with two pressed, or a pressed one that is
 // not the select's value, is a mirror out of step.
-const { boot } = require('./lib.js');
+const { boot, openBoardsTab } = require('./lib.js');
 (async () => {
   const { page, browser } = await boot({});
-  await page.click('[data-tab="library"]');
-  await page.waitForFunction(() => ['initWhiteboard', 'wbFormatSyncSoon', 'wbMapTidyFresh', 'wbWireMapChoices'].every((f) => typeof window[f] === 'function'), null, { timeout: 15000 });
+  // The Boards sub-tab, picked and waited for (lib.js `openBoardsTab`): the Library
+  // reopens on its last sub-tab, and `wbFormatSyncSoon` is not loaded at open any more.
+  await openBoardsTab(page, ['initWhiteboard', 'wbMapTidyFresh', 'wbWireMapChoices']);
   const kid = await page.evaluate(async () => {
     await initWhiteboard();
     const board = await apiJson('/whiteboard/boards', { method: 'POST', body: JSON.stringify({ name: `seg ${Date.now()}`, type: 'map', layout: 'tree-right' }) });

@@ -27,7 +27,7 @@
 //   6. a list row at rest draws nothing of its own over its text.
 // `WIDTH=768 HEIGHT=1024` and `WIDTH=1024 HEIGHT=768` run the same gate on a
 // tablet.
-const { boot } = require('./lib.js');
+const { boot, openBoardsTab, waitForBoardOpen } = require('./lib.js');
 
 const W = Number(process.env.WIDTH || 390);
 const H = Number(process.env.HEIGHT || 844);
@@ -59,8 +59,7 @@ const TABS = [
 
   for (const [tab, contentSel] of TABS) {
     if (tab === 'board') {
-      await page.evaluate(() => switchTab('library'));
-      await page.waitForTimeout(600);
+      await openBoardsTab(page);
       const id = Number(process.env.BOARD || 0) || await page.evaluate(async () => {
         const r = await (await api('/whiteboard/boards')).json();
         const list = Array.isArray(r) ? r : (r.boards || []);
@@ -68,7 +67,7 @@ const TABS = [
         return b ? b.id : 0;
       }).catch(() => 0);
       await page.evaluate((i) => openWhiteboardBoard(i), id).catch((e) => errs.push('open board: ' + e.message.slice(0, 80)));
-      await page.waitForTimeout(2200);
+      await waitForBoardOpen(page).catch((e) => errs.push('board not on screen: ' + e.message.slice(0, 80)));
       // A fresh text box in its editing state: it read 203>198 here once (its
       // grips, not its content: see `drawnPast`), and nothing else puts one
       // on the board, so the check below would never see it.

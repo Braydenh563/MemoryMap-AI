@@ -1102,69 +1102,8 @@ function renderReindex(status) {
   }
 }
 
-function renderInstalledModels(status) {
-  const box = $("installed-box");
-  const list = $("installed-list");
-  const models = status.installed_models || [];
-  box.classList.toggle("hidden", models.length === 0);
-  list.replaceChildren();
-
-  // Models the app is actively pointing at can't be removed (would break it).
-  const inUse = new Set([status.chat_model]);
-  if (status.utility_model) inUse.add(status.utility_model);
-  if (status.vision_model) inUse.add(status.vision_model);
-  //: The OCR reader is a fourth assignable role and was missing from this set,
-  //: so a model set as the OCR model showed a Remove button instead of "in
-  //: use", reported directly. Both the chosen name and what it actually
-  //: resolves to: the setting may be blank ("use the vision model") or name a
-  //: model by a tag Ollama reports differently.
-  if (status.ocr_model) inUse.add(status.ocr_model);
-  if (status.ocr_model_resolved) inUse.add(status.ocr_model_resolved);
-  if (status.vision_model_resolved) inUse.add(status.vision_model_resolved);
-  if (status.embedding_backend === "ollama") inUse.add(status.embedding_model);
-  const usedBases = new Set([...inUse].map((n) => (n || "").split(":")[0]));
-
-  for (const model of models) {
-    const li = document.createElement("li");
-    const name = document.createElement("span");
-    name.className = "model-name";
-    name.textContent = model.name;
-    const info = document.createElement("span");
-    info.className = "model-info";
-    info.textContent = model.size ? `${(model.size / 1e9).toFixed(1)} GB` : "";
-    li.append(name, info);
-
-    const used = inUse.has(model.name) || usedBases.has(model.name.split(":")[0]);
-    if (used) {
-      li.appendChild(chip("in use", "item-label is-yours"));
-    } else {
-      li.appendChild(
-        smallButton("Remove", `Uninstall ${model.name}`, async (event) => {
-          if (
-            !(await confirmDialog(
-              `Remove “${model.name}” from Ollama? This frees its disk space, ` +
-                "you can re-download it any time."
-            ))
-          )
-            return;
-          event.target.disabled = true;
-          try {
-            await api("/models/delete", {
-              method: "POST",
-              body: JSON.stringify({ name: model.name }),
-            });
-            toast(`Removed ${model.name}.`);
-            refreshModelStatus();
-          } catch (error) {
-            toast(error.message, true);
-            event.target.disabled = false;
-          }
-        })
-      );
-    }
-    list.appendChild(li);
-  }
-}
+//: The installed models are model cards too, drawn by `renderInstalledModels`
+//: in settings-models.js (lazy, INBOX 444 decision 10, op4-1005).
 
 //: The Models screen's suggested downloads are model cards now: `renderSuggested`
 //: lives in settings-models.js (INBOX 444), loaded with the first open of

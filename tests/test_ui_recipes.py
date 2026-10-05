@@ -4486,3 +4486,26 @@ def test_a_label_on_a_settings_list_row_takes_the_ink():
         if ".entry-list > li > :is(.skill-row, .persona-row) .chip.item-label" in sel
     )
     assert "color: var(--ink)" in rule
+
+
+def test_the_installed_models_are_model_cards():
+    """UI_MODERNISATION_PLAN 444, decision 10 (op4-1005): "the Installed models
+    list is the old row list". It is the suggested downloads' own card now
+    (`buildModelCard` as a custom model, in the lazy settings-models.js), in
+    a `.model-grid`, with no "Installed" badge in a list where every card is
+    installed; the boot copy and its fixed-column CSS are gone, and the
+    status poll calls it behind a `typeof` guard, as it does the suggested
+    list."""
+    lazy = (ROOT / "frontend" / "js" / "settings-models.js").read_text(encoding="utf-8")
+    body = _function_body(lazy, "renderInstalledModels")
+    assert "buildModelCard(model, state)" in body and 'listed: "installed"' in body
+    assert "list.dataset.sig === sig" in body, "a poll must not redraw the cards under an open menu"
+    assert 'state.installed && !model.listed' in lazy
+    boot = (ROOT / "frontend" / "js" / "ai-tools.js").read_text(encoding="utf-8")
+    assert "function renderInstalledModels" not in boot
+    status = (ROOT / "frontend" / "js" / "status.js").read_text(encoding="utf-8")
+    assert 'if (typeof renderInstalledModels === "function") renderInstalledModels(status);' in status
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert '<div id="installed-list" class="model-grid"></div>' in html
+    css = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
+    assert "#installed-list li" not in css

@@ -1348,7 +1348,9 @@ inside a 4,000px section.
 10. **Not done, left open:** the Tools and Appearance panes are still long
     (4,247px and 1,296px at desktop width) and are indexed rather than
     split; a background-job model is still chosen in Models and in Background
-    tasks; the Installed models list is the old row list.
+    tasks. (The Installed models list is model cards now: HISTORY.md, "Moved
+    from the plans, 2026-10-05 (444 decision 10: the installed models as
+    model cards)".)
 
 ## Placed from INBOX, 2026-10-05 (OPEN.md triage)
 

@@ -2085,94 +2085,9 @@ button:not(.ghost) > .spinner {
   margin-bottom: 0;
 }
 
-/* The models you already have. Reported as a formatting problem and it was
-   simply *unstyled*: a bare <ul>, so it rendered with browser bullets, no row
-   layout, and the name, the size and the Remove button stacked or ran into
-   each other. The suggested list beside it had all of this; this one had none.
-
-   The size gets a column of its own rather than sitting in the flow: sizes are
-   the thing you scan this list for when you are looking for disk space to
-   reclaim, and numbers you scan have to share a right edge. Tabular figures so
-   "1.9 GB" and "11.4 GB" line up on the decimal point rather than on whichever
-   glyphs happen to be wide. */
-#installed-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-#installed-list li {
-  display: flex;
-  gap: var(--space-4);
-  align-items: center;
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--border);
-  font-size: var(--text-lg);
-}
-
-#installed-list li:last-child {
-  border-bottom: none;
-}
-
-#installed-list .model-name {
-  font-weight: 600;
-  /* The name gives way, not the size or the button: a long tag is the least
-     important part of a row whose other two items are fixed and small. */
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-#installed-list .model-info {
-  /* A fixed column, so the *actions* beside it share a left edge too, with an
-     auto width the "in use" chip and the "Remove" button started at different
-     x on every row, which is the ragged edge that reads as unformatted even
-     once the rows themselves are right. */
-  flex: 0 0 5rem;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-/* The action column is fixed too, and right-aligned inside itself. Without
-   this the narrower "in use" chip and the wider "Remove" button each sized
-   their own column, so no two rows agreed on where either the size or the
-   action began: measured at x=980/1070 on one row and 953/1042 on the next. */
-/* Reported: "the model button text in the settings isnt centred and has poor
-   affordance". `justify-content: flex-end` shares the column but pushes the
-   label to the right-hand edge *inside* the control, so "in use" sat against
-   the pill's right border with 2.5rem of empty pill beside it. The column is
-   what has to be fixed-width; the label inside it centres like every other
-   button's does. */
-#installed-list li > :last-child {
-  flex: 0 0 5.5rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0;
-}
-
-/* Affordance, same report: the two states were both grey pills, so the one
-   you can press looked exactly like the one you cannot. The chip stops
-   looking like a control (no border, no hover) and the button gains the
-   destructive tint it earns by deleting gigabytes off disk. */
-#installed-list li > .chip {
-  border-color: transparent;
-  background: var(--chip-bg);
-  color: var(--muted);
-  cursor: default;
-}
-
-#installed-list li > button {
-  border-color: var(--border);
-  color: var(--ink);
-}
-
-#installed-list li > button:hover {
-  border-color: var(--error);
-  color: var(--error);
-  background: var(--error-soft);
-}
+/* The models you already have are model cards in a `.model-grid`, the
+   suggested downloads' own recipe (UI_MODERNISATION_PLAN 444, decision 10;
+   op4-1005): the row list's fixed columns went with the rows. */
 
 /* --- lock screen (Phase 4) ------------------------------------------------- */
 .lock-overlay {

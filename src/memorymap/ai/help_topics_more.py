@@ -1016,6 +1016,7 @@ MORE_TOPICS.extend(
                 "which model fits", "fits my computer", "fit my computer", "too big",
                 "hugging face", "huggingface", "pull a model", "install a model",
                 "gguf", "custom model", "model name", "get a model",
+                "installed models", "remove a model", "uninstall a model", "free disk space",
             ),
             "body": (
                 "Settings, Models, Suggested downloads: cards grouped by purpose "
@@ -1027,7 +1028,10 @@ MORE_TOPICS.extend(
                 "are in its menu. Hide models too big for this computer leaves "
                 "out the ones that will not fit. Download another model takes any "
                 "Ollama model name or a Hugging Face link and says what it is "
-                "before it downloads."
+                "before it downloads. Installed models shows the models you have "
+                "as the same cards, with their size on this computer and what "
+                "each is in use for; a card's menu puts it to use, copies its "
+                "name or removes it (not while it is in use)."
             ),
             "badge": {"label": "Models", "section": "models"},
         },

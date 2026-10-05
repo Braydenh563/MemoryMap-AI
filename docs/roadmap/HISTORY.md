@@ -7,6 +7,36 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (444 decision 10: the installed models as model cards)
+
+UI_MODERNISATION_PLAN, Settings information architecture, decision 10 left
+"the Installed models list is the old row list" open. Built by op4-1005.
+
+- **Before**: a `ul` of rows (name, size, then "in use" or Remove), on its
+  own fixed-column CSS in 01-forms-settings.css, drawn by a boot function in
+  ai-tools.js. "In use" did not say for what, and Remove was the only verb.
+- **Now**: each installed model is the suggested downloads' own card
+  (`buildModelCard` as a custom model) in a `.model-grid`: the name, its
+  size measured on this computer ("2.0 GB on disk"), "In use for chat" where
+  it is, and its menu: use it for chat, images or reading text, copy its
+  name, Remove (disabled with the reason while in use). No "Installed" badge
+  in a list where every card is installed (`model.listed`). The function moved
+  to the lazy settings-models.js (out of the boot bundle), the status poll
+  calls it behind a `typeof` guard as it does the suggested list, and it
+  redraws only when what it shows changes, so a poll never closes an open
+  menu. The row CSS (88 lines) is gone.
+- **Measured** with the fake Ollama (`scratchpad/fake_ollama_server.py`,
+  two models installed, llama3.2 the chat model) and an installed-models
+  probe: at 1440, two cards 342x137 in two columns, llama3.2 "In use for
+  chat" with Remove disabled in its menu, nomic-embed-text with Remove
+  enabled, section overflow 0, 0 page errors; at 390 one column of 268px
+  cards, overflow 0; dark the same. `modelcards.js` (the suggested list):
+  12 ok, 0 failed. `tests/test_ui_recipes.py`
+  (`test_the_installed_models_are_model_cards`).
+- **Not verified**: a real Ollama; the custom card offers every use (an
+  embedding model is offered "Use for chat"), the same trade the Download
+  another model card already makes.
+
 ## Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN 94 and 282, found built)
 
 Found built in UI_MODERNISATION_PLAN.md and still standing there whole; moved

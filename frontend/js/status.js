@@ -2586,7 +2586,7 @@ function renderSettings() {
     renderVisionModelPicker(status);
   renderOcrModelPicker(status);
     renderAutonomousModelPicker(status);
-    renderInstalledModels(status);
+    if (typeof renderInstalledModels === "function") renderInstalledModels(status);
     if (typeof renderSuggested === "function") renderSuggested(status);
     renderModelSpec(status.chat_model);
   } else {

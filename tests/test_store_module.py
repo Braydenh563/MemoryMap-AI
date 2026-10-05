@@ -9,6 +9,7 @@ the same rows a second time at boot.
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -19,10 +20,9 @@ JS = ROOT / "frontend" / "js"
 
 
 def _node(script: str) -> str:
-    try:
-        result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=30)
-    except FileNotFoundError:
+    if shutil.which("node") is None:
         pytest.skip("node is not installed")
+    result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stderr
     return result.stdout.strip()
 

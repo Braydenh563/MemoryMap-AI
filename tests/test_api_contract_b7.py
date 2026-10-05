@@ -137,9 +137,8 @@ def test_if_match_refuses_a_write_made_from_an_old_version(client):
     # Nothing was written by the refused request.
     assert "mine" not in client.get(f"/entries/{note['id']}").json()["tags"]
     # Delete is guarded the same way.
-    assert (
-        client.delete(f"/entries/{note['id']}", headers={"If-Match": etag}).status_code == 412
-    )
+    refused = client.delete(f"/entries/{note['id']}", headers={"If-Match": etag})
+    assert refused.status_code == 412
 
 
 def test_if_match_with_the_current_version_or_a_star_goes_through(client):

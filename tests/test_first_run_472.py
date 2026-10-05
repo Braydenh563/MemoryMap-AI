@@ -77,7 +77,7 @@ def test_the_setup_slide_is_short_and_offers_the_ai_setup():
     """The welcome's setup card stacked two marks, repeated the first card's
     privacy sentence, said "0.0 MB so far", and had no way from "Ollama
     isn't running" to where a model is connected."""
-    js = frontend_text("settings-wiring.js")
+    js = frontend_text("onboarding.js")
     diag = js.split("async function loadOnboardingDiagnostics(")[1].split("\nfunction ")[0]
     assert "nothing here leaves this machine" not in diag
     assert "MB so far" not in diag

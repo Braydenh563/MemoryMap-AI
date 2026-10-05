@@ -2200,6 +2200,8 @@ const LAZY_MODULES = {
   //: Landing on the feature a catalogue row names (2026-10-05, the gzip
   //: budget): see reveal-targets.js.
   reveal: ["/js/reveal-targets.js"],
+  //: The first-run welcome card (2026-10-05, the gzip budget): onboarding.js.
+  onboarding: ["/js/onboarding.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2424,6 +2426,11 @@ const LAZY_ENTRY_POINTS = {
   //: Quick access) and by the companion's setting; `async`, so the stand-in's
   //: promise is the shape the real one returns.
   reveal: ["revealFeature"],
+  //: Opened once per notebook (`maybeShowOnboarding`) and by "Replay the
+  //: welcome"; nobody reads its return value. The card's own close and step
+  //: functions are only reached from its buttons, which this file's module
+  //: wires when it loads.
+  onboarding: ["openOnboarding"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",

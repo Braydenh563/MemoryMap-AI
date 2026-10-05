@@ -23,12 +23,14 @@ import json
 import logging
 import re
 from collections import Counter
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from memorymap.ai import tidy
 from memorymap.ai.tools._common import ToolError
 from memorymap.ai.tools.categories import _create_category, _merge_categories
 from memorymap.core.database import Category, Entry
@@ -160,7 +162,32 @@ def create_category(body: CreateBody, session: Session = Depends(get_session)) -
         result = _create_category(session, {"name": body.name, "description": body.description})
     except ToolError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    # Made by hand, so the librarian's tidy never proposes it away (an empty
+    # category a person made is waiting for notes, not forgotten).
+    tidy.remember_hand_name(deps.get_config(), result["name"])
     return {"name": result["name"], "created": result["created"]}
+
+
+class TidyDeclineBody(BaseModel):
+    kind: Literal["merge", "remove"]
+    name: str = Field(min_length=1, max_length=100)
+    other: str | None = Field(default=None, max_length=100)
+
+
+@router.get("/tidy")
+def tidy_proposals(session: Session = Depends(get_session)) -> dict:
+    """The librarian's tidy proposals (section 17, row 2): categories to fold
+    into one about the same things, and ones empty for 30 days. Nothing is
+    applied here; the panel accepts through the merge and delete calls below,
+    which already return what an undo needs."""
+    return {"proposals": tidy.proposals(session, deps.get_embeddings(), deps.get_config())}
+
+
+@router.post("/tidy/decline")
+def tidy_decline(body: TidyDeclineBody) -> dict:
+    """"Keep both" or "Keep it": not proposed again."""
+    tidy.decline(deps.get_config(), body.kind, body.name, body.other)
+    return {"declined": True}
 
 
 @router.post("/move")
@@ -332,9 +359,14 @@ def rename_category(
 ) -> dict:
     """Rename a category. Renaming onto an existing one merges them."""
     try:
-        return manager.rename_category(session, category_id, body.name)
+        result = manager.rename_category(session, category_id, body.name)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not result.get("merged"):
+        # A name chosen by hand is a decision (section 17 row 2: the librarian
+        # "respects manual changes"): this category is never proposed away.
+        tidy.remember_hand_name(deps.get_config(), body.name)
+    return result
 
 
 @router.delete("/{category_id}")

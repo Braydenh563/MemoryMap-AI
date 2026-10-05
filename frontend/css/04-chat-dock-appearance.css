@@ -6313,6 +6313,14 @@ button.manage-cat-count:hover {
   font-size: var(--text-sm);
 }
 
+/* The tidy suggestions (section 17 row 2) carry two buttons beside the names,
+   so on a narrow card a name wraps instead of being cut: it is the thing the
+   person decides about. */
+.manage-tidy-item .manage-suggest-names {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
 /* The ⋯ is a ghost icon, the head's own button shape, shown on hover or
    focus (always on touch, where there is no hover). */
 .manage-cat-menu > button {

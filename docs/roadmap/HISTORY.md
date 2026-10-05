@@ -41498,6 +41498,52 @@ The two cheap additions the plan's research section named (decisions 11 to
   mid-refresh; a notebook across a month boundary (tested on `date`s in
   `opens`, not on a live clock).
 
+### From WORLD_CLASS_PLAN.md section 17, row 2: tidy categories
+
+**State 2026-09-24:** 2 tidy categories (b): the agent has `merge_categories`;
+the proposal list is not built, M. (The panel's look-alike row, names that
+are probably one name, was already built.)
+
+- **Built 2026-10-05 (worldclass-1005c).** `ai/tidy.py`: `proposals` gives
+  two kinds, never applied. **Merge**: two categories in one space, each with
+  at least 2 public embedded notes, whose notes' centroids (the search
+  engine's matrix, `janitor._labelled_vectors`) are at least 0.80 alike, the
+  smaller folding into the larger (a tie folds the newer); names that are one
+  name by the panel's own key (Recipe and recipes) are left to its look-alike
+  row (`tests/test_tidy_categories_17.py` runs the JS key and the Python one on
+  the same names). **Remove**: no live notes and made 30 or more days ago.
+  Respecting manual changes: a category made by hand (`POST /categories`) or
+  renamed by hand (`PUT /categories/{id}`, not a merge) goes in the
+  `tidy_hand_named` preference and is never the one proposed away; "Keep both"
+  and "Keep it" (`POST /categories/tidy/decline`) go in `tidy_declined`, a pair
+  in either order and any case; both lists are capped at 500 and, being
+  preferences, are described not disclosed in the support bundle.
+  `GET /categories/tidy` lists up to 20. In Manage categories
+  (`loadTidyProposals`, `drawTidyProposals`, categories-panel.js, a second
+  `.manage-suggest` region under the look-alike row): up to three rows, the
+  names, the reason under them, Merge or Remove (the panel's own
+  `mergeCategoriesFromPanel` and `deleteCategory`, so their confirm and their
+  Undo) and Keep both or Keep it; Not now hides them until the panel opens
+  again. No model call, so it works with Atlas off. Help: the panel's '?', the
+  Guide's manage-categories topic.
+- Decided (recommended, not confirmed): the list lives in Manage categories,
+  beside the merge and delete it calls, not in Settings, What it remembers (that
+  pane is the standing instructions the person told Atlas); a hand-made empty
+  category is waiting for notes, not forgotten, so it is exempt from removal;
+  0.80 for two whole categories (the filing path trusts 0.60 for one note
+  against a category). Not built: proposals on a timer or a notification (it
+  is computed when the panel opens, a few milliseconds).
+- Measured: `tests/test_tidy_categories_17.py` 13 tests;
+  `scratchpad/ui-sweeps/tidycats.js` 9/9 at 1440 and 390, light and dark (the
+  head counts two, the merge reads "A into B", each row has its reason, four
+  buttons 32px high at 1440 and 44 at 390 and none past the box, the region
+  inside the card with nothing sideways, Keep it sent and the next list one
+  shorter, a real Merge moving 2 notes so the large one holds 5, and Undo
+  offered; names wrap on a phone rather than being cut).
+- Not verified: proposals on a real embedding model (the sandbox has none, so
+  the sweep answers the list with a canned one and the unit tests use directed
+  vectors); whether 0.80 is the right line for a person's real categories.
+
 ## Built 2026-10-05: INBOX 598, 602 and 596's skeleton part (loading states)
 
 (The INBOX entries themselves are moved by the orchestrator; this is the

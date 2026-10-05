@@ -221,6 +221,25 @@ def test_a_silent_install_downloads_nothing_it_was_not_asked_for():
     assert "{param:EXTRAS|}" in body
 
 
+def test_a_silent_update_reopens_the_app_it_closed():
+    """The updater's /VERYSILENT install skipped the "Launch now" entry
+    (skipifsilent), so the app closed for an update and stayed closed. The
+    updater now passes /RELAUNCH=1 and a [Run] entry honours it, silent
+    installs only: a scripted /VERYSILENT alone must not open a window."""
+    text = ISS_PATH.read_text(encoding="utf-8")
+    run = text[text.index("[Run]") : text.index("[UninstallDelete]")]
+    entries = [line for line in run.splitlines() if "Check: ShouldRelaunch" in line]
+    assert len(entries) == 1, "exactly one relaunch entry"
+    assert "skipifsilent" not in entries[0] and "nowait" in entries[0]
+    assert "runasoriginaluser" in entries[0]
+    body = _code_section()
+    body = body[body.index("function ShouldRelaunch") :]
+    body = body[: body.index("\nend;")]
+    assert "WizardSilent" in body and "{param:RELAUNCH|0}" in body
+    updater = (ROOT / "src" / "memorymap" / "api" / "routes_update.py").read_text(encoding="utf-8")
+    assert '"/RELAUNCH=1"' in updater
+
+
 def test_the_installer_only_runs_where_the_exe_can():
     text = ISS_PATH.read_text(encoding="utf-8")
     assert "ArchitecturesAllowed=x64compatible" in text

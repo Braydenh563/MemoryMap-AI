@@ -148,6 +148,11 @@ Name: "{autoprograms}\{#MyAppName}\Repair {#MyAppName}"; Filename: "{app}\{#MyAp
 Filename: "{app}\{#MyAppExeName}"; Parameters: "--install-extras {code:GetSelectedExtras}"; StatusMsg: "Installing the optional packages you picked..."; Flags: runhidden waituntilterminated runasoriginaluser; Check: HasSelectedExtras
 ; Launch the app after installation (existing behaviour).
 Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Description: "Launch {#MyAppName} now"; Flags: nowait postinstall skipifsilent
+; The in-app updater's silent install reopens the app it closed: it passes
+; /RELAUNCH=1 (routes_update.py), and only a silent install honours it, so a
+; scripted fleet install (/VERYSILENT alone) never opens a window on a
+; machine nobody is sitting at. runasoriginaluser: the person's own account.
+Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Flags: nowait runasoriginaluser; Check: ShouldRelaunch
 
 [UninstallDelete]
 ; The app's own data (notes, attachments, preferences) lives under the
@@ -356,6 +361,13 @@ function HasSelectedExtras: Boolean;
   one box was ticked. }
 begin
   Result := (GetSelectedExtras('') <> '');
+end;
+
+function ShouldRelaunch: Boolean;
+{ Check function for the relaunch [Run] entry. Silent only: an interactive
+  install has the "Launch now" checkbox for this. }
+begin
+  Result := WizardSilent and (ExpandConstant('{param:RELAUNCH|0}') = '1');
 end;
 
 // The optional packages on uninstall (the owner, 2026-09-24: "yes" to

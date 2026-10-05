@@ -21,7 +21,12 @@ from memorymap.api.asset_strip import strip_js
 JS = Path(__file__).resolve().parents[1] / "frontend" / "js"
 
 #: 2026-10-05 (comments excluded; worker files included, they are few).
-GUARDS_CAP = 371
+#: The same day, after six branches merged, 387 guards and 718 lets: 19
+#: guards in documents.js on boot files' own functions (always defined by
+#: the time a lazy bundle runs) came out, and twelve lets became fields of
+#: one const per file (the palette, onboarding, the notes rail, the template
+#: picker, the finder) or plain consts (`timelineZoom`, `notePanel`).
+GUARDS_CAP = 368
 TOP_LEVEL_LETS_CAP = 706
 
 

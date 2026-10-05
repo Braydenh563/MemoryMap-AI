@@ -23,8 +23,7 @@
 // double click also make it; the first row is chosen on open so one Enter still
 // works. This file, not documents.js, because the Capture box is always loaded
 // and the documents bundle is not.
-let noteTemplateChoice = null;
-let noteTemplateMade = false;
+const noteTemplateState = { choice: null, made: false };
 
 //: The text a template puts in the Capture box. One function for the preview
 //: and the fill, so the preview cannot show something the button would not
@@ -42,7 +41,7 @@ function noteTemplateRows() {
 
 function chooseNoteTemplate(template, { focus = false } = {}) {
   if (!template) return;
-  noteTemplateChoice = template;
+  noteTemplateState.choice = template;
   for (const row of document.querySelectorAll("#note-template-list .doc-template-choice")) {
     const on = row.dataset.template === template.name;
     row.setAttribute("aria-checked", String(on));
@@ -71,9 +70,9 @@ function showNoteTemplatePreview(template) {
 async function useNoteTemplate() {
   //: A double click is a click and then a dblclick, and Enter can follow
   //: either: one fill per opening, whichever way it was confirmed.
-  if (noteTemplateMade || !noteTemplateChoice) return;
-  noteTemplateMade = true;
-  const template = noteTemplateChoice;
+  if (noteTemplateState.made || !noteTemplateState.choice) return;
+  noteTemplateState.made = true;
+  const template = noteTemplateState.choice;
   $("note-template-dialog")?.close();
   const box = $("entry-content");
   if (!box) return;
@@ -117,7 +116,7 @@ function openNoteTemplateDialog() {
   const dialog = $("note-template-dialog");
   const list = $("note-template-list");
   if (!dialog || !list) return;
-  noteTemplateMade = false;
+  noteTemplateState.made = false;
   if (!list.dataset.keysBound) {
     list.addEventListener("keydown", noteTemplateListKeys);
     list.dataset.keysBound = "1";

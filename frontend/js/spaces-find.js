@@ -946,7 +946,7 @@ let finderCounts = {};
 //: chips count this query's hits, so they cannot say it.
 let finderIndexTotals = {};
 //: The corrected query the hits are for, if the route fixed a typo.
-let finderCorrected = "";
+const finderState = { corrected: "" };
 let finderTimer = null;
 let finderRun = 0;         // so a slow answer cannot paint over a newer one
 let finderActive = -1;     // which row the keyboard is on
@@ -1045,7 +1045,7 @@ async function finderSearch() {
   }
   surfaceRecovered(results);
   finderIndexTotals = body.counts || {};
-  finderCorrected = body.corrected || "";
+  finderState.corrected = body.corrected || "";
   const actions = finderKind && finderKind !== "action" ? [] : finderActions(query);
   const hits = finderKind === "action" ? [] : body.hits || [];
   //: **A chip counts what this search found, not what the index holds.**
@@ -1221,7 +1221,7 @@ function finderRender() {
   }
   if (summary) {
     summary.textContent = `${rows.length} result${rows.length === 1 ? "" : "s"}${
-      finderCorrected ? `, showing results for “${finderCorrected}”` : ""
+      finderState.corrected ? `, showing results for “${finderState.corrected}”` : ""
     }`;
   }
   const icons = Object.fromEntries(FINDER_KINDS.map((k) => [k.key, k.icon]));

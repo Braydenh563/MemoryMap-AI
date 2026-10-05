@@ -21,7 +21,7 @@
 
 const NOTES_SPY_SETTLE_MS = 150;
 const notesSpyVisible = new Set();
-let notesSpyTimer = 0;
+const notesSpy = { timer: 0, last: null };
 //: The card chosen by hand (a click, a focus, an edit, a jump to it), held
 //: until it is more than a viewport out of sight. Measured from the card, not
 //: from where the list was when it was chosen: a jump scrolls to its note
@@ -29,7 +29,6 @@ let notesSpyTimer = 0;
 let notesSpyPin = null;
 //: The subject this file chose, so a subject chosen anywhere else (notes-list
 //: sets `notesRailId` for an edit, a jump and a focus) is known to be a pin.
-let notesSpyLast = null;
 
 function notesSpyActive() {
   return (
@@ -47,7 +46,7 @@ function notesSpyPick() {
   const list = $("entry-list");
   if (!list || !notesSpyActive()) return;
   const box = list.getBoundingClientRect();
-  if (notesRailId != null && notesRailId !== notesSpyLast && notesSpyPin?.id !== String(notesRailId)) {
+  if (notesRailId != null && notesRailId !== notesSpy.last && notesSpyPin?.id !== String(notesRailId)) {
     notesSpyPin = { id: String(notesRailId) };
   }
   if (notesSpyPin) {
@@ -76,14 +75,14 @@ function notesSpyPick() {
   const id = best ? Number(best.dataset.id) : null;
   if (id !== notesRailId && (id == null || Number.isFinite(id))) {
     notesRailId = id;
-    notesSpyLast = id;
+    notesSpy.last = id;
     scheduleNotesRail();
   }
 }
 
 function notesSpySchedule() {
-  clearTimeout(notesSpyTimer);
-  notesSpyTimer = setTimeout(notesSpyPick, NOTES_SPY_SETTLE_MS);
+  clearTimeout(notesSpy.timer);
+  notesSpy.timer = setTimeout(notesSpyPick, NOTES_SPY_SETTLE_MS);
 }
 
 //: Called by `renderNotesRail` with the note it is drawing (or null): the

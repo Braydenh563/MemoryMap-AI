@@ -920,7 +920,7 @@ async function openDocument(id) {
   docBoxEl().disabled = false;
   $("doc-title").value = doc.title;
   docResetDocument(doc.content, doc.id);
-  if (typeof scheduleUndoBar === "function") scheduleUndoBar();
+  scheduleUndoBar();
   docDirty = false;
   $("doc-saved").textContent = "Saved";
   // Before the renders below: it decides which of them are even reachable
@@ -1183,7 +1183,7 @@ async function docLinkMention(row, button) {
         method: "PUT",
         body: JSON.stringify({ content: next }),
       });
-      if (typeof loadEntries === "function") loadEntries();
+      loadEntries();
     } else {
       await apiJson(`/documents/${row.id}`, {
         method: "PUT",
@@ -5516,7 +5516,7 @@ function docPropsTypeRows(host, fm) {
     value.appendChild(input);
     //: KG4: a note field searches the notebook (selection.js); choosing one
     //: fires the box's change, which writes the `[[link]]` above.
-    if (kind === "note" && typeof noteFieldPickButton === "function") {
+    if (kind === "note") {
       value.appendChild(noteFieldPickButton(input));
     }
     //: The written rows end in a trash button; an unwritten one holds its
@@ -6084,7 +6084,7 @@ async function docCopyBlockRef() {
   //: Through the shared helper, not `navigator.clipboard`: it falls back to
   //: the copy dialog in the contexts where the API is not there at all, which
   //: is the desktop window's own case.
-  if (typeof copyToClipboard === "function") await copyToClipboard(reference);
+  await copyToClipboard(reference);
   toast(`Copied ${reference}`);
 }
 
@@ -6911,7 +6911,7 @@ function docLivePlugin(CM) {
       //: two console 401s per image, `naturalWidth` 0 in Live and 1 in the
       //: rendered pane beside it, which is the same file through the two
       //: paths. The embed path below already did this; this one never did.
-      img.src = typeof mediaSrc === "function" ? mediaSrc(this.src) : this.src;
+      img.src = mediaSrc(this.src);
       img.alt = this.options.caption || this.options.name || "";
       return docApplyImageOptions(img, this.options);
     }
@@ -7135,7 +7135,7 @@ function docLivePlugin(CM) {
     //: A menu whose opener is being removed has to close with it, or it is
     //: left floating over the document.
     destroy(dom) {
-      if (dom && dom.querySelector(".action-menu:not(.hidden)") && typeof closeActionMenus === "function") {
+      if (dom && dom.querySelector(".action-menu:not(.hidden)")) {
         closeActionMenus();
       }
     }
@@ -7229,7 +7229,7 @@ function docLivePlugin(CM) {
       return true;
     }
     toDOM(view) {
-      const nav = typeof mdTocElement === "function" ? mdTocElement() : document.createElement("nav");
+      const nav = mdTocElement();
       nav.classList.add("cm-md-toc");
       const list = nav.querySelector(".md-toc-list") || nav;
       const top = this.entries.length ? Math.min(...this.entries.map((e) => e.level)) : 1;
@@ -7751,7 +7751,7 @@ function docLivePlugin(CM) {
             const line = doc.lineAt(node.from);
             //: The variant the rendered view draws (`mdDividerKind`): a
             //: hairline, the three-dot break, or the strong rule.
-            const variant = typeof mdDividerKind === "function" ? mdDividerKind(line.text) : null;
+            const variant = mdDividerKind(line.text);
             ranges.push(
               Decoration.line({ class: `cm-md-rule${variant ? ` cm-md-rule-${variant}` : ""}` }).range(line.from)
             );
@@ -7831,7 +7831,7 @@ function docLivePlugin(CM) {
         let tocEntries = null;
         scan(/^[ \t]*\[toc\][ \t]*$/gim, (match, from, to) => {
           if (rangeRevealed(from, to)) return;
-          if (!tocEntries) tocEntries = typeof mdTocEntries === "function" ? mdTocEntries(doc.toString()) : [];
+          if (!tocEntries) tocEntries = mdTocEntries(doc.toString());
           ranges.push(Decoration.replace({ widget: new DocTocWidget(tocEntries) }).range(from, to));
         });
       }
@@ -8528,7 +8528,7 @@ function docEmbedNode(target, name) {
     box.append(body, source);
     return box;
   }
-  if (target.kind === "note" && typeof entryItem === "function") {
+  if (target.kind === "note") {
     //: `entryItem` is an `<li>`, and `.entry-list li` is where a note card's
     //: whole appearance lives: handed out on its own it would render as a
     //: bare list item. The list around it is the card's other half.
@@ -8541,18 +8541,18 @@ function docEmbedNode(target, name) {
   //: draws for the same line; it used to be a chip saying there was no
   //: preview for a document yet.
   if (target.kind === "document" && target.doc) return mdDocumentCard(target.doc, name);
-  if (target.kind === "board" && typeof mapChip === "function") {
+  if (target.kind === "board") {
     const box = document.createElement("span");
     box.className = "doc-embed-map";
     box.appendChild(mapChip(target.entry, { interactive: false }));
-    if (typeof mapPreview === "function") box.appendChild(mapPreview(target.entry, { size: "card" }));
+    box.appendChild(mapPreview(target.entry, { size: "card" }));
     return box;
   }
-  if (target.kind === "file" && typeof fileCard === "function") {
+  if (target.kind === "file") {
     const file = target.file;
     const url = file.url || `/files/${file.id}`;
     const label = file.original_name || file.filename || name;
-    if (file._isImage && typeof mediaSrc === "function") {
+    if (file._isImage) {
       //: An image embed is the image. `fileCard` would be a tile with the
       //: picture's *name* on it, which is what `![[photo.png]]` is asking not
       //: to have to look at.
@@ -8732,7 +8732,7 @@ function docResolveWikiTarget(name) {
   if (!wanted) return null;
   const asDoc = docs.find((doc) => (doc.title || "").trim().toLowerCase() === wanted);
   if (asDoc) return { kind: "document", doc: asDoc };
-  return typeof resolveWikiTarget === "function" ? resolveWikiTarget(name) : null;
+  return resolveWikiTarget(name);
 }
 
 //: What a resolved target is called, for a link's tooltip. A note has no
@@ -11069,7 +11069,7 @@ $("doc-back")?.addEventListener("click", () => {
 //: update listener once the view is mounted, so there is one pipeline rather
 //: than one per engine.
 function docSurfaceInput() {
-  if (typeof scheduleUndoBar === "function") scheduleUndoBar();
+  scheduleUndoBar();
   markDocDirty();
   scheduleDocPreview();
   renderDocGutter();
@@ -12574,7 +12574,7 @@ $("doc-focus-sidebar")?.addEventListener("click", () =>
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape" || event.defaultPrevented) return;
   if (!docFocusOn()) return;
-  if (typeof activeOverlay === "function" && activeOverlay()) return;
+  if (activeOverlay()) return;
   const menuOpen = [...document.querySelectorAll('[role="menu"], .cm-tooltip')]
     .some((el) => el.getClientRects().length > 0);
   if (menuOpen) return;
@@ -14985,7 +14985,7 @@ function docFillAt(box) {
     locale: undefined,
     name: (typeof prefsCache === "object" && prefsCache?.display_name) || "",
     doc: tok.kind === "toc" ? docText() : "",
-    slug: typeof mdHeadingId === "function" ? mdHeadingId : (t) => t,
+    slug: mdHeadingId,
   });
   if (!options.length) return null;
   return { start: line.from + tok.start, options };
@@ -19436,7 +19436,7 @@ function docGoToFootnote(id) {
   let at = text.startsWith(`[^${id}]:`) ? 0 : text.indexOf(marker);
   if (at > 0) at += 1;
   if (at < 0) {
-    if (typeof toast === "function") toast(`Footnote ${id} has no text yet`);
+    toast(`Footnote ${id} has no text yet`);
     return;
   }
   surface.focus();

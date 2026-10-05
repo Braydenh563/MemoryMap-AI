@@ -65,7 +65,10 @@ def test_a_stamped_asset_is_immutable_and_gzipped(client):
 #: caps are those numbers plus 2%; the per-piece bound is the plan's 64 KB
 #: scaled by the same strip, rounded. What is measured is code now, not
 #: prose: a comment costs nothing here.
-APP_JS_CAP = 15_070
+#: 2026-10-05, after the merges: app.js was 15,132 against 15,070; the
+#: Capture box's template picker moved to a lazy note-templates.js and it
+#: measured 14,165, so the cap is that plus 2%.
+APP_JS_CAP = 14_450
 PIECE_CAP = 32_000
 TOTAL_CAP = 342_100
 

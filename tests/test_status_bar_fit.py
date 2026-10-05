@@ -56,14 +56,13 @@ def test_below_1024_the_bar_keeps_slack_for_a_running_job():
     block = SHELL[SHELL.index("@media (max-width: 1023.98px) {") :]
     block = block[: block.index("\n}\n")]
     assert "#status-command .status-key {\n    display: none;" in block
+    # INBOX 618: Agent, Guide and Find are icons at every width now
+    # (tests/test_bars_618.py), so only the two counts' words go here.
     for selector in (
         "#status-reminders > b + span",
         "#status-activity > b + span",
-        "#status-agent > span",
-        "#status-guide > span",
-        "#status-find > span",
     ):
         assert selector in block, selector
-    hidden = block[block.index("#status-find > span {") :]
+    hidden = block[block.index("#status-activity > b + span {") :]
     hidden = hidden[: hidden.index("}")]
     assert "clip-path: inset(50%);" in hidden and "display: none" not in hidden

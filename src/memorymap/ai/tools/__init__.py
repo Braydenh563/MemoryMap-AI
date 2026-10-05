@@ -4738,7 +4738,7 @@ def execute_tool(
     if spec is None:
         return {"error": f"Unknown tool '{name}'"}
     if not tool_enabled(name):
-        return {"error": f"The '{name}' tool is turned off in Settings → Tools"}
+        return {"error": f"The '{name}' tool is turned off in Settings → Tools it can use"}
     args, problem = check_arguments(name, dict(arguments or {}))
     if problem:
         # Logged like a handler's argument failure, so Settings → Logs shows

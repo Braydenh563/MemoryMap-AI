@@ -132,6 +132,12 @@ remaining whiteboard rows; the open rest is in
   board's item, so each event is now placed by the board its payload names
   (`_board_events`; `test_a_reused_id_brings_no_other_boards_history`).
 
+## OPEN.md rows closed, 2026-10-05 (the open-rows agent)
+
+The well-defined rows of `agent-remaining/OPEN.md` taken by one agent; each line says how it was verified.
+
+- **The note card's "Tag with Atlas" chip was drawn on a private note** (sweep 1004 item 7, found-not-fixed in `agent-remaining/sweep-1004.md`). Built: the chip's gate in `note-cards.js` carries `!entry.is_private`, as the note menu's AI actions group already did (`menus.js`); `POST /entries/{id}/reevaluate` refuses a private note, so the chip's only answer was a toast. Measured at 1440 with `scratchpad/ui-sweeps/open-privatechip.js` (a plain and a private untagged note, a model reported running): base plain 1, private 1; fixed plain 1, private 0. `tests/test_private_note_no_ai_offer.py`.
+
 ## OPEN.md rows closed, 2026-10-05 (the open-ledger pass)
 
 The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section: each open row checked against the head and the running app; a row found built, or built here, is deleted from the ledger and named below with how it was verified. The pass's own account is `agent-remaining/open-ledger-pass.md`.
@@ -42229,6 +42235,47 @@ record.)
      and right click menus etc" (screenshots: the board's group box, its
      right-click menu and its align/distribute bar on map topics). Placed:
      the board and map agent, with 610.
+
+542. **The owner, 2026-10-05, verbatim.** "some of the badge icons and text
+     arent aligned vertically." (screenshot: the Installed badge in Settings,
+     Packages).
+     Fixed 2026-10-05, by the existing sweeps (INBOX 503, 592 had built the
+     recipe): `iconalign.js` over 9 views at 1440 and 390, light and dark,
+     default font and `FONT=segoe` (the owner's vertical metrics): 26 pairs
+     over 1px before, 12 after, and 14 before and 0 after in Segoe. The one
+     real outlier was the Timeline row's mark, 1.2px (Segoe 2.2px) above its
+     title: the title was the one item left centred in a track taller than
+     itself (`align-content: center` and the title start-aligned, 7 of 22
+     pairs now 0). The "Installed" badge is within 0.5px painted: DPR 1 ink
+     0.5px below the capital's centre at four sub-pixel phases, 0.17px at 3x;
+     the 1.17px `iconalign.js` still prints for it (and the search result
+     chips) in the sandbox font is the sweep reading a fractional box against
+     a snapped baseline, not paint, and reads 0.95px in Segoe. Not verified:
+     Windows' own rasteriser at 125% and 150% scale.
+
+616. **The owner, 2026-10-05, verbatim.** "its better but still needs a more
+     modern and professional ui/ux redesign (the note edit form)"
+     (screenshot of the 606 form: boxed title band, a heavy mixed toolbar,
+     big chips with a doubled #, a floating category select, large Related
+     rows, big Cancel and Save). Then: "the note edit form attach a link
+     button doesnt do anything" and "there is no padding around the tag
+     entries, and the formatting toolbar looks really awkward when collapsed
+     and the core concepts dropdown is completely out of place and badly
+     designed". Placed: the design-rows agent, first.
+
+618. **The owner, 2026-10-05, verbatim.** "do the top bar and bottom bar
+     need a more modern and professional ui/ux redesign or adjustments at
+     all or are they fine??" Recommendation taken: top bar polish (spaces
+     picker as a ghost control matching the tab pills, active tab without
+     extra bold, a smaller logo tile, power secondary); bottom bar declutter
+     (counts quiet, Agent/Guide/Find icon-only with tooltips, Commands the one
+     labelled door, the status mark explained, the clock optional, history
+     arrows grouped with undo/redo). Placed: the design-rows agent, after 616.
+
+620. **The owner, 2026-10-05, verbatim.** "can you also improve and
+     modernise the quick sketch a little more as well?? it is already mostly
+     fine, maybe a bit more of a gap below the top row title and close
+     button". Placed: the design-rows agent, after 618.
 
 ## OPEN.md rows closed, 2026-10-05
 

@@ -2252,6 +2252,13 @@
   color: var(--error);
 }
 
+/* **Power is secondary** (INBOX 618): quieter than the bell, the theme and
+   the gear at rest, at full strength under the pointer or the keyboard. Still
+   3:1 on the bar's ground in both themes (`contrast.js`), a control's floor. */
+#top-bar #quit-btn:not(:hover, :focus-visible) {
+  opacity: 0.72;
+}
+
 /* --- one switch, everywhere a checkbox means "on or off" ---------------------
    Asked for: *"I want to ditch the radio buttons mostly application wide …
    the ui needs to match and be the same style, shape size and alignment."*

@@ -488,7 +488,9 @@ function watchOverlays() {
 async function renderAccount() {
   const facts = $("account-facts");
   facts.replaceChildren();
+  showSkeletons(facts, 3, "li");
   const info = await apiJson("/auth/account").catch(() => null);
+  clearSkeletons(facts);
   if (!info) {
     const li = document.createElement("li");
     li.className = "muted";
@@ -1523,7 +1525,7 @@ function paletteCommands() {
     { label: "ph:package Settings → Packages", reveal: "settings:extras", about: "Optional parts: speech, reading pages, better search." },
     { label: "ph:tree-evergreen Settings → Logs", reveal: "settings:logs", about: "What happened, for when something did not work." },
     { label: "ph:question Settings → Help", reveal: "settings:help", about: "How the app works, a section at a time." },
-    { label: "ph:info Settings → About & updates", reveal: "settings:about", about: "The version you have and whether a newer one exists." },
+    { label: "ph:info Settings → About", reveal: "settings:about", about: "The version you have and whether a newer one exists." },
     { label: "ph:archive Back up now", keywords: "backup snapshot save a copy", about: "Save a copy of the whole notebook, now.", act: () => { openSettingsModal("data"); backupNow(); } },
     { label: "ph:export Export markdown", about: "Every note as a Markdown file, in one download.", act: () => downloadExport("markdown") },
     { label: "ph:circle-half Toggle light/dark", keywords: "theme dark mode light mode night", chord: "toggleTheme", act: toggleTheme },

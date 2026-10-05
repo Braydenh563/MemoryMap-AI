@@ -1297,10 +1297,13 @@
                  editor rather than crowding a three-row box. -->
             <div class="doc-toolbar note-toolbar" id="note-toolbar" role="toolbar"
               aria-label="Formatting" data-md-target="entry-content">
-              <button type="button" data-md="bold" title="Bold (Ctrl+B)"><strong>B</strong></button>
-              <button type="button" data-md="italic" title="Italic (Ctrl+I)"><em>I</em></button>
-              <button type="button" data-md="strike" title="Strikethrough"><s>S</s></button>
-              <button type="button" data-md="code" title="Inline code">&lt;/&gt;</button>
+              <!-- Icons, not typed letters (INBOX 616: "one quiet icon-only
+                   toolbar"): B, I, S and </> were glyphs in the page font
+                   beside Phosphor icons, four weights in one strip. -->
+              <button type="button" class="icon-only" data-md="bold" title="Bold (Ctrl+B)" aria-label="Bold"><i class="ph ph-text-b" aria-hidden="true"></i></button>
+              <button type="button" class="icon-only" data-md="italic" title="Italic (Ctrl+I)" aria-label="Italic"><i class="ph ph-text-italic" aria-hidden="true"></i></button>
+              <button type="button" class="icon-only" data-md="strike" title="Strikethrough" aria-label="Strikethrough"><i class="ph ph-text-strikethrough" aria-hidden="true"></i></button>
+              <button type="button" class="icon-only" data-md="code" title="Inline code" aria-label="Inline code"><i class="ph ph-code-simple" aria-hidden="true"></i></button>
               <span class="doc-toolbar-sep" aria-hidden="true"></span>
               <button type="button" class="icon-only" data-md="highlight" title="Highlight (yellow)"
                 aria-label="Highlight"><i class="ph ph-highlighter" aria-hidden="true"></i></button>
@@ -5575,7 +5578,7 @@ Link to another note with [[its first few words]]."></textarea>
              named in it: a mind map reachable only by opening the board dialog
              and changing a control inside it is one nobody finds. -->
         <div class="dock" data-dock-name="library-boards" role="toolbar"
-          aria-label="Boards and maps controls">
+          aria-label="Boards &amp; maps controls">
           <div class="dock-identity">
             <!-- "Boards & maps", matching the sub-tab that opens it. It read
                  "Whiteboards" while the tab above it read "Boards & maps", which
@@ -8586,8 +8589,8 @@ Link to another note with [[its first few words]]."></textarea>
                   Left on “Automatic”, this prefers a document reader
                   (GLM-OCR, DeepSeek-OCR, PaddleOCR-VL) when you have one
                   installed, then falls back to your vision model. Scanned
-                  PDFs also need the “Read scanned PDFs” extra, below in
-                  Packages.
+                  PDFs also need the “Read scanned PDFs” extra, in
+                  Settings, Packages.
                 </p>
               </div>
 
@@ -8959,7 +8962,28 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- Personas: who the AI is when it answers -->
           <section class="settings-section hidden" id="settings-personas">
+            <div class="dock settings-pane-title" data-dock-name="settings-personas">
+              <div class="dock-identity"><h3>Personas</h3></div>
+              <div class="dock-actions">
+                <button type="button" class="ghost small settings-pane-new" data-opens="persona-name"
+                  title="Write a new persona"><i class="ph ph-plus ph-lead" aria-hidden="true"></i><span class="pane-new-word">New persona</span></button>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="personas-help" aria-controls="personas-help" aria-expanded="false"
+                  title="About personas" aria-label="About personas">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
             <p class="muted">A persona is Atlas's voice; pick the active one in the Chat tab.</p>
+            <div class="help-body hidden" id="personas-help" role="dialog" aria-label="About personas">
+              <p>
+                Each persona is a name and a set of instructions that shape
+                how Atlas talks: its tone, what it leads with, what it
+                avoids. New persona writes one; the Chat tab's persona menu
+                picks which one answers. The answer style below applies
+                whichever persona is active.
+              </p>
+            </div>
             <ul id="persona-list" class="entry-list"></ul>
             <div class="settings-group">
             <h3>Answer style</h3>
@@ -9022,6 +9046,11 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="dock settings-pane-title" data-dock-name="settings-skills">
               <div class="dock-identity"><h3>Skills</h3></div>
               <div class="dock-actions">
+                <!-- The pane's main action in its bar (design-rows-1005): opens
+                     Add your own, ends an edit, and puts the cursor in Name.
+                     A ghost: Add skill in the form is the page's filled one. -->
+                <button type="button" class="ghost small settings-pane-new" data-opens="skill-name" data-cancel="skill-cancel"
+                  title="Write a new skill"><i class="ph ph-plus ph-lead" aria-hidden="true"></i><span class="pane-new-word">New skill</span></button>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="settings-skills-help" aria-controls="settings-skills-help" aria-expanded="false"
                   title="About skills" aria-label="About skills">
@@ -9089,7 +9118,7 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="help-body hidden" id="skill-tools-help" role="dialog" aria-label="About tool choice">
                 <p>
                   Leave everything unticked to let it use whatever is
-                  switched on in Settings → Tools. Ticking a few is both
+                  switched on in Settings, Tools it can use. Ticking a few is both
                   safer and more reliable: they're the only ones offered for
                   the run, which leaves far more room in a small model's
                   context.
@@ -9177,6 +9206,8 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="dock settings-pane-title" data-dock-name="settings-templates">
               <div class="dock-identity"><h3>Templates</h3></div>
               <div class="dock-actions">
+                <button type="button" class="ghost small settings-pane-new" data-opens="template-name" data-cancel="template-cancel"
+                  title="Write a new template"><i class="ph ph-plus ph-lead" aria-hidden="true"></i><span class="pane-new-word">New template</span></button>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="templates-help" aria-controls="templates-help" aria-expanded="false"
                   title="About templates" aria-label="About templates">
@@ -10616,7 +10647,7 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="help-body hidden" id="simple-mode-help" role="dialog" aria-label="About simple mode">
                 <p>
                   Hides the Graph, Timeline and Reminders tabs, the Library's
-                  Boards and maps, What it learned and the advanced response
+                  Boards &amp; maps, What it learned and the advanced response
                   settings, until you want them. Nothing is turned off: every
                   hidden place still opens from the command palette (Ctrl+K),
                   and reminders still ring. Remembered on this device.
@@ -11067,23 +11098,25 @@ Link to another note with [[its first few words]]."></textarea>
               </label>
             </div>
 
-            <div class="row help-head">
-              <h3>Quit MemoryMap</h3>
-              <button type="button" class="icon-only ghost small graph-help-toggle"
-                data-help-for="quit-help" aria-controls="quit-help" aria-expanded="false"
-                title="About quitting" aria-label="About quitting">
-                <i class="ph ph-question" aria-hidden="true"></i>
-              </button>
+            <div class="settings-group">
+              <div class="row help-head">
+                <h3>Quit MemoryMap</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="quit-help" aria-controls="quit-help" aria-expanded="false"
+                  title="About quitting" aria-label="About quitting">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Stops the app and its server properly.</p>
+              <div class="help-body hidden" id="quit-help" role="dialog" aria-label="About quitting">
+                <p>
+                  Stops the app and its server properly, so nothing is left
+                  running in the background and the next start finds its
+                  port free.
+                </p>
+              </div>
+              <button id="app-quit" class="ghost small"><i class="ph ph-power ph-lead" aria-hidden="true"></i> Quit the app</button>
             </div>
-            <p class="muted">Stops the app and its server properly.</p>
-            <div class="help-body hidden" id="quit-help" role="dialog" aria-label="About quitting">
-              <p>
-                Stops the app and its server properly, so nothing is left
-                running in the background and the next start finds its
-                port free.
-              </p>
-            </div>
-            <button id="app-quit" class="ghost small"><i class="ph ph-power ph-lead" aria-hidden="true"></i> Quit the app</button>
           </section>
 
           <!-- Data: markdown + backups join the exports -->
@@ -11236,7 +11269,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <p>
                   Turns a PDF, Word file or slide deck into notes, one per
                   chapter or slide when the file has that shape, one note
-                  otherwise. Needs the markitdown extra below.
+                  otherwise. Needs the “Import documents” extra in Settings, Packages.
                 </p>
               </div>
               <p class="status job-line" role="status" data-job-line="import"></p>
@@ -11723,7 +11756,7 @@ Link to another note with [[its first few words]]."></textarea>
                   data-help-for="logs-help" aria-controls="logs-help" aria-expanded="false"
                   title="About the log" aria-label="About the log"><i class="ph ph-question" aria-hidden="true"></i></button>
                 <div class="help-body hidden" id="logs-help" role="dialog" aria-label="About the log">
-                  <p>The app's own log, updating live. Filter the records by text, switch between a list and a terminal view, and use the three dots to narrow by which log and how serious. Support saves a zip of the log, your settings and the app's status, for a bug report.</p>
+                  <p>The app's own log, updating live. Filter the records by text, switch between a list and a terminal view, and use the three dots to narrow by which log and how serious. Support bundle saves a zip of the log, your settings and the app's status, for a bug report.</p>
                 </div>
                 <details class="doc-dock-menu dock-menu dock-more" id="logs-more-menu">
                   <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>

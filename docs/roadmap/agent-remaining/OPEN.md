@@ -330,7 +330,7 @@ being written by running agents stay beside this one.
   stage are the first to reach for it; every other surface inside a `.card`
   still draws `--radius-lg`, which is the concentric rule half applied.
   [popup-redesigns.md]
-  *Needs: stale count (about seventeen declarations now); the concentric rule's rollout is design.*
+  *Needs: the concentric rule's rollout is design. Count re-measured 2026-10-05: 13 `var(--radius-inner)` declarations in six stylesheets (02 six, 05 three, 03, 06, 07 and 08 one each) plus `documents.js`'s colour swatch; the row's "four" and the earlier "about seventeen" were both stale.*
 - **The meeting dialog's head row holds two heights**, a 28px `.ghost.small`
   Close beside the 32px `.graph-help-toggle`. Both are app-wide recipes, so
   this is a question about the two recipes rather than about the dialog.

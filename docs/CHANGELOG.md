@@ -602,6 +602,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - Speed: the foreign keys a note is looked up by now have indexes (a note's replies, the boards it is on and a board's cards and sketches, its reminders and bookmarks), added to existing notebooks at startup like the others. 900 lookups by them took 604 ms unindexed and 2.9 ms indexed on 5,000 notes with 4,000 board cards and 1,500 reminders; opening a note's connections or deleting one is within noise at that size, so this matters for big boards rather than ordinary use.
 ### Fixed
 
+- Improve writing: Start and Use the suggestion are 44px under touch like every other dialog foot (they were held at 32 by their own height rule; `improvefoot.js`, 0 findings at 390 and 1440, light and dark). The background art's unused CSS-style rules (the mesh and bubbles, canvas styles since) are gone, 370 bytes of boot CSS.
 - Graph: the map stays framed when a panel opens or closes beside it (INBOX 613).
 - Appearance: the generative background stays off when it is switched off; the power saver, a theme change or the tour could draw it anyway (INBOX 611).
 - Ask: a sentence drawn from a picture's caption gets its note's number, so a note that is one word and a sketch is cited too (INBOX 604).

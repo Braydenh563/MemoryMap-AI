@@ -7,6 +7,22 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (the graph's payload cache)
+
+From GRAPH_PLAN "Still open after KG1 to KG9". `/graph` serves its encoded
+JSON from a cache while nothing it is made of has moved
+(`routes_graph._payload_key`): every column a node or an edge reads is
+hashed row by row (pins, access counts, categories, tags, parent, board
+settings, link reasons and types, attachments, map members, relation
+types), with the notebook fingerprint, today's date (a node's age), the
+similarity switch and whether this request may read private text. Content
+is not hashed; `updated_at` moves with it. The opt-in layers whose tables
+the key does not read (entities, documents, unresolved links, attachments
+as nodes) are built every time. Measured on the audit's 5,032-note
+notebook in process: p50 737 to 149 ms, the first build unchanged.
+`tests/test_graph_payload_cache.py` moves each input once and expects a
+fresh payload.
+
 ## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
 
 From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN

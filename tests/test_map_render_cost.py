@@ -62,7 +62,8 @@ def test_an_object_that_has_not_changed_is_not_repainted() -> None:
     body = _code("renderWbObjects")
     compare = body.index("this._wbPaintKey === key")
     store = body.index("this._wbPaintKey = key")
-    write = body.index("this.style.transform")
+    #: The repaint's own write; a move is queued in the compare branch.
+    write = body.index("this.style.transform = wbItemTransform(d)")
     assert compare < store < write
 
 

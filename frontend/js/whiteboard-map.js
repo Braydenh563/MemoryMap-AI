@@ -1498,9 +1498,14 @@ function wbBuildMapNode(el, d) {
   //: label's editor never sees it. Hidden on a map that does not number and
   //: on a root, which is the map's subject rather than a place in it.
   body.append("span").attr("class", "wb-map-number").attr("aria-hidden", "true").property("hidden", true);
+  //: **No `contenteditable="false"` at birth** (FEAT-02's 100ms gate): the
+  //: attribute is the default it states, and setting it forced a style
+  //: recalculation of the whole map in the middle of building one topic
+  //: (traced, `mmd2-1005-maptrace.js`: 28 to 49ms, 1,213 elements, on every
+  //: Tab at 301 topics). `wbBeginTextEdit` turns editing on and
+  //: `wbEndTextEdit` writes "false" back, which is a topic already drawn.
   const text = body.append("div")
-    .attr("class", "wb-map-text")
-    .attr("contenteditable", "false");
+    .attr("class", "wb-map-text");
   //: How many of the tasks under this topic are done (decision 15), "2/5",
   //: hidden on a topic with none under it. Quiet text after the label, not a
   //: pill: a count is a fact about the branch, not a control.
@@ -3632,62 +3637,88 @@ function wbRenderMapEdgePluses(index, hidden, layout) {
     layer.className = "wb-map-plus-layer";
     host.appendChild(layer);
   }
-  const next = [];
+  //: **Kept, keyed by their two ends, and moved rather than rebuilt**
+  //: (FEAT-02's 100ms gate). Every render threw away a button per line and
+  //: built it again with its icon and four listeners: 300 created and 300
+  //: removed on every Tab at 301 topics, each a style recalculation, which
+  //: the selection bar's read then paid for (traced: 33 to 60ms, 2,100
+  //: elements). Now a button is built once per line, placed when its line's
+  //: middle moved, and the layer reordered only where the tree's order and
+  //: the layer's disagree (`mapstrip.js` pairs the first line with the first
+  //: `+`).
+  const cache = layer._wbPluses instanceof Map ? layer._wbPluses : (layer._wbPluses = new Map());
+  const wanted = new Set();
+  let slot = 0;
   for (const parent of index.nodes) {
     if (hidden.has(parent.id) || parent.data?.collapsed) continue;
     for (const child of index.childrenOf.get(parent.id) || []) {
       if (hidden.has(child.id)) continue;
-      const a = wbMapEdgeAnchors(parent, child, layout);
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "ghost small icon-only wb-map-edge-plus";
-      // The two ends, so `wbSyncMapEdgeHandles` can stand this button aside
-      // for the waypoint handle, which lives at the same point on the line.
-      button.dataset.parent = String(parent.id);
-      button.dataset.child = String(child.id);
-      button.title = "Put a topic between these two";
-      button.setAttribute("aria-label", "Put a topic between these two");
-      // Half the button's own 1.5rem, so its centre is on the line rather
-      // than its top-left corner. In board units, which is what this layer
-      // is measured in.
-      // The *line's* middle, not the anchors': a bent line (§12.1 item 5's
-      // third) no longer passes through the halfway point between its ends,
-      // and a `+` floating off the line it inserts into is a button that
-      // looks like it belongs to something else.
+      const key = `${parent.id}:${child.id}`;
+      wanted.add(key);
       const middle = wbMapEdgePlusPoint(parent, child, layout);
-      button.style.left = `${middle.x - 12}px`;
-      button.style.top = `${middle.y - 12}px`;
-      const glyph = document.createElement("i");
-      glyph.className = "ph ph-plus";
-      glyph.setAttribute("aria-hidden", "true");
-      button.appendChild(glyph);
-      button.addEventListener("pointerdown", (event) => event.stopPropagation());
-      button.addEventListener("click", (event) => {
-        event.stopPropagation();
-        wbMapInsertBetween(parent.id, child.id);
-      });
-      //: **It sits exactly where you would right-click the line**, so it has
-      //: to pass that gesture on. Found by the sweep the moment this landed:
-      //: the link ring stopped opening at a line's middle, because an
-      //: invisible button was in front of the hit stroke and a right-click on
-      //: a button is not a click. Forwarding it means the whole line answers
-      //: the same gesture, middle included.
-      button.addEventListener("contextmenu", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        wbOpenMapLinkRadial(child.id, event.clientX, event.clientY);
-      });
-      //: And the hold, for the same reason: a finger has no second button, so
-      //: the button that sits on the line's middle has to answer the line's
-      //: own gesture there too. `wireLongPress` (navigation.js) is the app's one
-      //: hold, and it swallows the click the lift makes, which this button's
-      //: own click (insert a topic here) would otherwise run the moment the
-      //: ring opened.
-      wireLongPress(button, (event, point) => wbOpenMapLinkRadial(child.id, point.x, point.y));
-      next.push(button);
+      const left = `${middle.x - 12}px`;
+      const top = `${middle.y - 12}px`;
+      let button = cache.get(key);
+      if (!button) {
+        button = wbMapEdgePlusButton(parent.id, child.id);
+        cache.set(key, button);
+      }
+      if (button.style.left !== left) button.style.left = left;
+      if (button.style.top !== top) button.style.top = top;
+      if (layer.childNodes[slot] !== button) layer.insertBefore(button, layer.childNodes[slot] || null);
+      slot += 1;
     }
   }
-  layer.replaceChildren(...next);
+  for (const [key, button] of cache) {
+    if (wanted.has(key)) continue;
+    button.remove();
+    cache.delete(key);
+  }
+}
+
+//: One mid-line `+`, built once for the line between two topics.
+function wbMapEdgePlusButton(parentId, childId) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "ghost small icon-only wb-map-edge-plus";
+  // The two ends, so `wbSyncMapEdgeHandles` can stand this button aside
+  // for the waypoint handle, which lives at the same point on the line.
+  button.dataset.parent = String(parentId);
+  button.dataset.child = String(childId);
+  button.title = "Put a topic between these two";
+  button.setAttribute("aria-label", "Put a topic between these two");
+  // Placed by `wbRenderMapEdgePluses`: half the button's own 1.5rem off
+  // the *line's* middle, not the anchors' (a bent line, §12.1 item 5's
+  // third, no longer passes through the halfway point between its ends),
+  // in board units, which is what this layer is measured in.
+  const glyph = document.createElement("i");
+  glyph.className = "ph ph-plus";
+  glyph.setAttribute("aria-hidden", "true");
+  button.appendChild(glyph);
+  button.addEventListener("pointerdown", (event) => event.stopPropagation());
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    wbMapInsertBetween(parentId, childId);
+  });
+  //: **It sits exactly where you would right-click the line**, so it has
+  //: to pass that gesture on. Found by the sweep the moment this landed:
+  //: the link ring stopped opening at a line's middle, because an
+  //: invisible button was in front of the hit stroke and a right-click on
+  //: a button is not a click. Forwarding it means the whole line answers
+  //: the same gesture, middle included.
+  button.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    wbOpenMapLinkRadial(childId, event.clientX, event.clientY);
+  });
+  //: And the hold, for the same reason: a finger has no second button, so
+  //: the button that sits on the line's middle has to answer the line's
+  //: own gesture there too. `wireLongPress` (navigation.js) is the app's one
+  //: hold, and it swallows the click the lift makes, which this button's
+  //: own click (insert a topic here) would otherwise run the moment the
+  //: ring opened.
+  wireLongPress(button, (event, point) => wbOpenMapLinkRadial(childId, point.x, point.y));
+  return button;
 }
 
 //: Put a new topic between a parent and one of its children: the new topic
@@ -3894,12 +3925,31 @@ async function wbMapAddChild(parentId, { order = null } = {}) {
   //: The branch laid out without a render or a save of its own: the one
   //: render below draws it, and the save goes after the create.
   const origin = wbMapTidyBranchPlan(parentId, created);
-  if (origin) wbApplyBulkMove(origin, 0, 0);
+  //: **The new places as data only** (FEAT-02's 100ms gate): the render
+  //: right below writes every moved topic's transform and every line, after
+  //: its measure, so writing them here as well was the same work twice and
+  //: left the whole moved map dirty for the measure's first read. A plan that
+  //: carries a drawn line (a cross-link) is applied in full, as before.
+  if (origin && [...origin.values()].every((entry) => entry.kind !== "sketch")) {
+    for (const entry of origin.values()) {
+      entry.item.x = entry.x;
+      entry.item.y = entry.y;
+    }
+    wbScheduleCull();
+  } else if (origin) wbApplyBulkMove(origin, 0, 0);
   const undo = { action: "create", kind: "object", id: created.id };
   wbPushUndo(undo);
-  renderWhiteboardNow();
-  selectWbItem("object", created.id);
-  wbMapEditNode(created.id);
+  wbSelectionBarDeferred = true;
+  wbRenderHold = { moves: [], edges: false };
+  try {
+    renderWhiteboardNow();
+    selectWbItem("object", created.id);
+    wbMapEditNode(created.id, { now: true });
+  } finally {
+    wbRenderRelease();
+    wbSyncMapEdgeHandles();
+    wbSelectionBarDeferred = false;
+  }
   created._creating = wbMapAdoptProvisional(created, { expand: expand ? parent : null, origin, order });
   //: The editor is already open; what waits here is the caller, so a caller
   //: that uses the topic it gets back (a script, the recorded gesture's
@@ -4371,7 +4421,7 @@ function wbMapNavigate(id, key) {
 //: F2 / double-click: rename in place, through the same two functions a text
 //: box uses. A reference node has no text of its own: its label is the note's,
 //: and editing it here would either lie or silently rename the note.
-function wbMapEditNode(id) {
+function wbMapEditNode(id, { now = false } = {}) {
   //: A topic the outline's Enter made is typed in the outline (decision 33).
   if (wbOutlineAdding) {
     wbMapTypeahead = null;
@@ -4387,7 +4437,10 @@ function wbMapEditNode(id) {
   }
   // The render that just ran replaced this element, so it is looked up fresh
   // rather than kept from before, the same trap `wbCreateTextBox` documents.
-  requestAnimationFrame(() => {
+  //: `now` when the caller has just drawn it synchronously (the add path,
+  //: FEAT-02's 100ms gate): waiting a frame was a frame of the gate spent on
+  //: nothing, and the frame's own style pass is then the editor's.
+  const open = () => {
     const typed = wbMapTypeahead?.text || "";
     const commit = Boolean(wbMapTypeahead?.commit);
     wbMapTypeahead = null;
@@ -4408,7 +4461,9 @@ function wbMapEditNode(id) {
     //: The Enter typed ahead (`wbMapCatchTypeahead`): the blur is the same
     //: commit the editor's own Enter makes.
     if (commit) el.blur();
-  });
+  };
+  if (now) open();
+  else requestAnimationFrame(open);
 }
 
 //: **A map always keeps one topic** (MINDMAP_PLAN.md §12.0, decided after the
@@ -6528,13 +6583,30 @@ function wbMapCrossLinkInfo(sketchId) {
 //: that says the control exists at all. A cheap attribute toggle over elements
 //: the render already built, so it can run on every selection change rather
 //: than forcing a re-render.
+//: **Only the handles that change are touched** (FEAT-02's 100ms gate): this
+//: walked every handle on the map twice per add and toggled each one (12ms
+//: at 301 topics). The handles shown are the selected topic's own lines, so
+//: the ones to show are found by their ends, and the ones to hide are the
+//: ones showing now.
 function wbSyncMapEdgeHandles() {
+  const group = document.querySelector("#wb-zoom-group .wb-map-edges");
+  if (!group) return;
   const selected = wbIsMap() && wbMultiSelection.size <= 1 ? wbSelectedMapNode() : null;
   const id = selected ? String(selected.id) : null;
-  const mine = (el) => Boolean(id) && (el.dataset.parent === id || el.dataset.child === id);
-  for (const handle of document.querySelectorAll(".wb-map-edges .wb-map-edge-handle")) {
-    handle.classList.toggle("is-shown", mine(handle));
+  const want = new Set();
+  const cache = group._wbMapEdges;
+  if (id && cache instanceof Map) {
+    for (const [key, held] of cache) {
+      const cut = key.indexOf(":");
+      if (key.slice(0, cut) !== id && key.slice(cut + 1) !== id) continue;
+      const handle = held.wrap.querySelector(".wb-map-edge-handle");
+      if (handle) want.add(handle);
+    }
   }
+  for (const handle of group.querySelectorAll(".wb-map-edge-handle.is-shown")) {
+    if (!want.has(handle)) handle.classList.remove("is-shown");
+  }
+  for (const handle of want) if (!handle.classList.contains("is-shown")) handle.classList.add("is-shown");
 }
 
 //: Dragging one waypoint handle (§12.1 item 5's third).

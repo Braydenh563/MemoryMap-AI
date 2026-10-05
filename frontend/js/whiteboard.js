@@ -3980,7 +3980,46 @@ function wbMapStripClearOfHandle(node, { left, y, w, h, hostRect, gapBelow, bott
   return [left, y];
 }
 
+//: **What a render may leave until the new topic's editor is open**
+//: (FEAT-02's 100ms gate): the transforms of the topics that only moved, and
+//: the lines. Opening the editor focuses it, which makes the browser bring
+//: every pending style up to date first; with a tidy's two hundred moves and
+//: three hundred lines pending, that was 37 to 86ms (traced, 1,550 elements)
+//: between the key and a topic you can type in. Written right after the
+//: editor opens, in the same task, so the first frame painted shows all of
+//: it; only the order of the work changes. `wbRenderRelease` writes them.
+let wbRenderHold = null;
+
+function wbRenderRelease() {
+  const held = wbRenderHold;
+  wbRenderHold = null;
+  if (!held) return;
+  for (const [el, place] of held.moves) el.style.transform = place;
+  if (held.edges) {
+    wbRenderMapEdges();
+    wbRenderMapStructure();
+  }
+}
+
+//: **Set while an add opens its topic for typing** (FEAT-02's 100ms gate):
+//: the bar's placement reads layout, and read in the middle of the add it
+//: restyled the whole moved map before the editor could open (traced: 33 to
+//: 60ms, 2,100 elements, on every Tab at 301 topics). Placed two frames on
+//: instead, after the editor, from the same selection.
+let wbSelectionBarDeferred = false;
+let wbSelectionBarDeferredQueued = false;
+
 function wbUpdateSelectionBar() {
+  if (wbSelectionBarDeferred) {
+    if (!wbSelectionBarDeferredQueued) {
+      wbSelectionBarDeferredQueued = true;
+      requestAnimationFrame(() => {
+        wbSelectionBarDeferredQueued = false;
+        wbQueueSelectionBar();
+      });
+    }
+    return;
+  }
   //: A direct placement makes a queued one redundant: it would place the bar
   //: from the same state a frame later.
   if (wbSelectionBarFrame) {
@@ -14622,9 +14661,13 @@ function renderWhiteboard() {
   // its text's), so running this first would measure the previous render's
   // sizes and leave every edge one frame stale, visible as edges that lag
   // behind a node the moment its text changes length.
-  wbRenderMapEdges();
-  //: A map's boundaries and summaries, from the boxes just measured.
-  wbRenderMapStructure();
+  //: Held while an add opens its topic (`wbRenderHold`): written right after.
+  if (wbRenderHold) wbRenderHold.edges = true;
+  else {
+    wbRenderMapEdges();
+    //: A map's boundaries and summaries, from the boxes just measured.
+    wbRenderMapStructure();
+  }
 
   // Every element above was just rebuilt, so any `.wb-selected` class set
   // before this render is gone with it, re-apply from the state that
@@ -15539,6 +15582,16 @@ function renderWbObjects(canvas) {
   // text box's saved colour/size might have changed elsewhere (undo/redo);
   // the text itself is deliberately left alone here so a re-render mid-edit
   // (another item moving, say) can't overwrite what's being typed.
+  //: **Moves are written after the measure, and only what was repainted is
+  //: measured** (FEAT-02's 100ms gate). A tidy that shifts two hundred topics
+  //: wrote two hundred transforms here, and the measure's first
+  //: `offsetHeight` then restyled all of them before reading one height
+  //: (traced: 37 to 63ms, 1,260 elements, on every Tab at 301 topics). A
+  //: move changes no size, so the measure now reads only the topics this
+  //: pass repainted, with nothing else dirty yet, and the moves are written
+  //: after it, to be restyled once with the rest of the frame.
+  const movesLater = [];
+  const repainted = new Set();
   objectUpdate.each(function (d) {
     const key = wbObjectPaintKey(d, paintCtx);
     //: **A move is a transform, not a repaint** (audit FEAT-02): the key left
@@ -15547,9 +15600,10 @@ function renderWbObjects(canvas) {
     //: (measured: 409ms of `setAttribute` in one Tab at 301 topics).
     if (this._wbPaintKey === key) {
       const place = wbItemTransform(d);
-      if (this.style.transform !== place) this.style.transform = place;
+      if (this.style.transform !== place) movesLater.push([this, place]);
       return;
     }
+    repainted.add(this);
     this._wbPaintKey = key;
     //: Drawn live for this pass, so the measure below reads what the new
     //: content really needs rather than the size it was culled at. The next
@@ -15621,11 +15675,14 @@ function renderWbObjects(canvas) {
     if (!wbMapNodeSizeCache) wbMapNodeSizeCache = new Map();
     objectUpdate.each(function (d) {
       if (!WB_MAP_KINDS.has(d.kind)) return;
-      //: A culled topic was not repainted (the paint above uncovers anything
-      //: it repaints), so its stored height is still the one it drew at.
-      if (this.classList.contains("wb-culled")) {
-        if (d.width && d.height) wbMapNodeSizeCache.set(d.id, { w: d.width, h: d.height });
-        return;
+      //: A topic this pass did not repaint is the size it last measured (a
+      //: move is not a resize), and a culled one was not repainted either.
+      if (!repainted.has(this) || this.classList.contains("wb-culled")) {
+        if (d.width && d.height) {
+          wbMapNodeSizeCache.set(d.id, { w: d.width, h: d.height });
+          return;
+        }
+        if (this.classList.contains("wb-culled")) return;
       }
       const h = this.offsetHeight;
       if (!h) return;
@@ -15633,6 +15690,8 @@ function renderWbObjects(canvas) {
       d.height = h;
     });
   }
+  if (wbRenderHold) wbRenderHold.moves.push(...movesLater);
+  else for (const [el, place] of movesLater) el.style.transform = place;
 }
 
 //: Everything `renderWbObjects` reads when it paints one object, as one

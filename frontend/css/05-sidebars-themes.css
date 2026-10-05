@@ -2352,7 +2352,7 @@ body.resizing-sidebar {
     padding-inline: 0;
   }
 
-  .note-toolbar button:has(> .toolbar-word) > .ph-lead {
+  .note-toolbar button > .ph-lead:has(~ .toolbar-word) {
     margin-inline-end: 0;
   }
 }

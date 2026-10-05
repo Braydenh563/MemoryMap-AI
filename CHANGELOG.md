@@ -25,6 +25,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Mind maps: adding a topic with Tab or Enter is quicker on a big map (the redraw of one add at 300 topics went from 120 to 420ms to 20 to 60ms here); the name opens for typing before the rest of the map shifts, and a hidden style rule that restyled every icon in the app on each change is gone (audit FEAT-02, second pass).
 - Concept maps: a topic made with Tab or Enter (and a new map's root) is still a note that search and Ask find, but Notes and Recently added leave it out, so a forty-topic map no longer puts forty one-word rows at the top of both; the board picker counts what is on the board and keeps the count current as you add (a map counts topics), the Library and the dashboard say links rather than sketches for the lines between cards, and after Enter names a card, typing renames it instead of picking tools (UX-06, audit 2026-10-05).
 - Checks: an animated `filter` or backdrop blur now has to say why above it, as an animated layout property already did (it repaints everything under the surface each frame); the graph node's hover glow, the one there is, says so.
 - The '?' in the Suggestions, Manage tags and Manage categories sheets opens its explanation again (it did nothing: the sheet was built after the page's '?' buttons were wired). Escape closes an open explanation first and the sheet on the next press.

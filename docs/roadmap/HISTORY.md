@@ -7,6 +7,36 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (the add path, second pass)
+
+Audit FEAT-02's 100ms gate, MINDMAP_PLAN decision 24. Traced with
+`scratchpad/ui-sweeps/mmd2-1005-maptrace.js` (every style recalculation and
+layout of one Tab with the script that forced it; `WHY=1` adds Chromium's
+invalidation reasons) and `mmd2-1005-mapmutations.js` (every DOM write).
+What one Tab at 301 topics cost, and what was done:
+
+| Cost (traced) | Cause | Change |
+| --- | --- | --- |
+| 4,700 icons restyled on every Tab | `.doc-ai-card > #doc-ai-verb label:has(input:checked) > .ph`: a `:has()` keyed on the class every icon wears | rewritten by the sibling (`input:checked + .ph`); three `.ph-lead` cousins rewritten with the `:has()` on the subject; `test_has_invalidation.py::test_no_has_is_keyed_only_on_a_class_everything_wears` |
+| 600 elements created and removed per render | the mid-line `+` buttons rebuilt every render | kept, keyed by their two ends, moved when their line's middle moves |
+| 28 to 49ms forced, 1,213 elements | `contenteditable="false"` set on every new label | not set at birth (it is the default) |
+| 37 to 63ms forced, 1,260 elements | the measure read every topic after the tidy's transforms were written | moves written after the measure, and only repainted topics measured |
+| 33 to 60ms forced, 2,100 elements | the selection bar read layout inside the add | placed two frames on (`wbSelectionBarDeferred`) |
+| 37 to 86ms forced, 1,550 elements | the editor's focus brought every pending move and line up to date first | the editor opens before the moves and lines are written, in the same task (`wbRenderHold`, `wbRenderRelease`) |
+| 12ms | the edge handles toggled one by one, twice | only the ones that change, found from the lines' cache |
+
+Measured with `mmd2-1005-mapab.sh` (the base commit's scripts and these,
+alternated on one server, ten adds each, load 7 to 10): render per add 122
+to 421ms before, 21 to 63ms after (one outlier 188); key to editable median
+265, 336, 351ms before against 185, 177, 276ms after. **Not met:** the
+100ms gate on this sandbox; the fastest adds were 117 to 125ms, and what is
+left is the moved map's own style pass in the frame and the machine's load.
+Gates: `mmdoc1005-mapchecks.js` 15/15, `boardundo.js` 43/43, `wbmapundo.js`
+18/18, `mapstrip.js` 39/39, `maptheme.js` 24/24, `mapline.js` 13/13,
+`maprejoin.js` ok, `mapstructure.js` 19/19, `mappresent.js` 6/6 (all through
+`mmd2-1005-runmapsweeps.sh`). Not run: `mapperf.js` and `mapedgelag.js` (the
+drag path takes the moves-after-measure change too, in the same frame).
+
 ## Moved from the plans, 2026-10-05 (pictures resized in Live)
 
 ### From DOCUMENTS_PLAN.md section 20, the audit's D5 (decision 8)

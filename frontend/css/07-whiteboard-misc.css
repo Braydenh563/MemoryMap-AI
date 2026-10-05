@@ -7342,7 +7342,7 @@ button.connection-row {
   padding-inline: 0;
 }
 
-.ocr-phone-bar button:has(> .toolbar-word) > .ph-lead {
+.ocr-phone-bar button > .ph-lead:has(~ .toolbar-word) {
   margin-inline-end: 0;
 }
 
@@ -8046,7 +8046,7 @@ button.connection-row {
     padding-inline: 0;
   }
 
-  #tab-documents.doc-focus > .doc-focus-bar button:has(.doc-focus-word) .ph-lead {
+  #tab-documents.doc-focus > .doc-focus-bar button > .ph-lead:has(~ .doc-focus-word) {
     margin: 0;
   }
 }

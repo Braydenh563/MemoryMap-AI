@@ -1208,9 +1208,18 @@ topic: a control that wide has nowhere to go.
    what changed and moves what only moved (the paint key has no x or y).
    Three stylesheet rules whose `:has()` sat before a classless compound
    made every DOM insertion restyle the whole page; they are rewritten and
-   `tests/test_has_invalidation.py` holds the line. The 100ms gate at 300
-   topics is not yet met on this sandbox (see HISTORY, "Moved from the
-   plans, 2026-10-05 (the map's add path)").
+   `tests/test_has_invalidation.py` holds the line. Second pass, the same
+   day (HISTORY, "Moved from the plans, 2026-10-05 (the add path, second
+   pass)"): the editor opens in the add's own task, before the moved
+   topics' transforms and the lines are written (`wbRenderHold`), the
+   measure reads only what was repainted, the mid-line `+` buttons and the
+   edge handles are kept rather than rebuilt, the selection bar is placed
+   two frames on, and a `:has()` keyed on `.ph` (every icon) is rewritten
+   with a ratchet against its kind. The render of one add is 21 to 63ms at
+   301 topics against 118 to 421 before; the 100ms key-to-editable gate is
+   still not met on this sandbox under a load of 7 to 10 (medians 177 to
+   276ms against 265 to 351 for the base scripts on the same runs), and is
+   to be measured on a quiet machine.
 25. **The open map's commands are palette rows** (taken 2026-10-05, audit
    FEAT-11): add, rename, fold, focus, delete, tidy, open every branch,
    look, numbering, statistics, present, zoom to fit, the six layouts and

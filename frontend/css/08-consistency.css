@@ -6511,7 +6511,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #nm-buddy[data-pose="lie-2"] .atl-figure .nmb-arm-l { transform: rotate(40deg); }
 #nm-buddy[data-pose="lie-2"] .atl-figure .nmb-arm-r { transform: rotate(-60deg); }
 /* Masculine, sprawled: an arm behind the head, the other loose, a knee up. */
-#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-r { transform: rotate(-150deg); }
+#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-r { transform: rotate(-172deg); }
 #nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-l { transform: rotate(20deg); }
 #nm-buddy[data-pose="lie"] .nmb-leg-l { transform: rotate(8deg); }
 #nm-buddy[data-pose="lie"] .nmb-leg-r { transform: rotate(-34deg) scaleY(0.84); }
@@ -7728,7 +7728,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas[data-atlas-look="feminine"][data-atlas-mood="curious"] { --atl-ar0: -115deg; --atl-al0: 0deg; --atl-chin0: 0; --atl-ar1: 0deg; --atl-al1: 30deg; --atl-chin1: 0; --atl-ar2: -130deg; --atl-al2: 10deg; --atl-chin2: 0; }
 .nm-atlas[data-atlas-look="feminine"][data-atlas-mood="surprised"] { --atl-ar0: -160deg; --atl-al0: 110deg; --atl-chin0: 0; --atl-ar1: -140deg; --atl-al1: 90deg; --atl-chin1: 0; --atl-ar2: -180deg; --atl-al2: 60deg; --atl-chin2: 0; }
 .nm-atlas[data-atlas-look="feminine"][data-atlas-mood="confused"] { --atl-ar0: 0deg; --atl-al0: 145deg; --atl-chin0: 0; --atl-ar1: -153deg; --atl-al1: 0deg; --atl-chin1: 0; --atl-ar2: -70deg; --atl-al2: 145deg; --atl-chin2: 0; }
-.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="sleepy"] { --atl-ar0: -6deg; --atl-al0: -6deg; --atl-chin0: 0; --atl-ar1: 20deg; --atl-al1: -30deg; --atl-chin1: 0; --atl-ar2: -174deg; --atl-al2: -6deg; --atl-chin2: 0; }
+.nm-atlas[data-atlas-look="feminine"][data-atlas-mood="sleepy"] { --atl-ar0: -6deg; --atl-al0: -6deg; --atl-chin0: 0; --atl-ar1: 20deg; --atl-al1: -30deg; --atl-chin1: 0; --atl-ar2: 140deg; --atl-al2: -6deg; --atl-chin2: 0; }
 .nm-atlas[data-atlas-look="feminine"][data-atlas-mood="sad"] { --atl-ar0: -15deg; --atl-al0: -8deg; --atl-chin0: 0; --atl-ar1: -20deg; --atl-al1: -10deg; --atl-chin1: 0; --atl-ar2: -10deg; --atl-al2: -4deg; --atl-chin2: 0; }
 .nm-atlas[data-atlas-look="feminine"][data-atlas-mood="proud"] { --atl-ar0: -28deg; --atl-al0: -10deg; --atl-chin0: 0; --atl-ar1: -32deg; --atl-al1: -14deg; --atl-chin1: 0; --atl-ar2: -24deg; --atl-al2: -6deg; --atl-chin2: 0; }
 .nm-atlas[data-atlas-look="feminine"][data-atlas-mood="shy"] { --atl-ar0: 5deg; --atl-al0: -40deg; --atl-chin0: 0; --atl-ar1: 10deg; --atl-al1: -40deg; --atl-chin1: 0; --atl-ar2: 0deg; --atl-al2: -30deg; --atl-chin2: 0; }

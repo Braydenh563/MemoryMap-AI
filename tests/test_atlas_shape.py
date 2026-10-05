@@ -439,7 +439,7 @@ def test_the_lie_down_and_curl_frames_are_hooks_with_the_stream_as_a_bed():
     assert '#nm-buddy[data-pose="lie"] :is(.atl-layer-neb, .atl-layer-neb-front) { rotate: calc(84deg - 168deg * var(--atl-v1)); scale:' in CSS
     # Per look: sprawled with an arm behind the head, or curled with hands
     # under the cheek and the skirt drawn up.
-    assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-r { transform: rotate(-150deg); }' in CSS
+    assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-r { transform: rotate(-172deg); }' in CSS
     assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-l' in CSS
     assert '#nm-buddy[data-pose="lie"] .atl-layer-lower { rotate: -42deg; }' in CSS
     # Variant 1 lies the other way round; the Zs and the rings stay upright.
@@ -699,9 +699,10 @@ def test_a_sleeping_atlas_keeps_its_arms_off_the_rings():
     # scratchpad/ui-sweeps/atlasarms.js (MOODS=sleepy, and POSE=lie, sit):
     # the eye-rub turned the arm out over the rings, and her held-out arm
     # stayed out along them when dozing, sitting or lying.
-    # INBOX 568: her right arm hangs at rest, so her angles are the old ones
-    # less a right angle (the eye-rub's -84 is -174).
-    for look, ar2 in (("masculine", "150deg"), ("feminine", "-174deg")):
+    # INBOX 568: her right arm hangs at rest, so the eye-rub turns it up and
+    # across the body to the face from there (atlasarms.js: the hand at 24.2,
+    # 25.6, 3% on the rings).
+    for look, ar2 in (("masculine", "150deg"), ("feminine", "140deg")):
         rule = re.search(rf'\[data-atlas-look="{look}"\]\[data-atlas-mood="sleepy"\] \{{([^}}]+)\}}', CSS).group(1)
         assert f"--atl-ar2: {ar2}" in rule, (look, "the eye-rub crosses the body to the face")
         angles = dict(re.findall(r"--atl-(a[rl]\d): (-?\d+)deg", rule))

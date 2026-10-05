@@ -160,7 +160,7 @@ async function marginAsk(judge) {
 function marginOffNote() {
   const p = document.createElement("p");
   p.className = "muted text-sm";
-  p.textContent = "The margin reader is switched off in Settings, What the notebook learned.";
+  p.textContent = "The margin reader is switched off in Settings, What it learned.";
   return p;
 }
 

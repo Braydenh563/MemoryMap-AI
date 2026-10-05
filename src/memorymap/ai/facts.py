@@ -111,7 +111,28 @@ PAIR_KINDS = ("tension", "answered")
 #: note that says the same sentence twice has two right answers and one of
 #: them is wrong). This regex is matched with `finditer` so every candidate
 #: carries the span it was cut from.
-_SENTENCE = re.compile(r"[^.!?\n]+(?:[.!?]+|(?=\n)|$)")
+#: What ends a sentence, and what a sentence may not contain.
+_ENDS = frozenset(".!?")
+_BREAKS = frozenset(".!?\n")
+
+
+def _sentence_spans(content: str):  # noqa: ANN202
+    """(start, end) of each run up to and including its closing marks, the
+    spans `[^.!?\n]+(?:[.!?]+|(?=\n)|$)` found, walked by hand: CodeQL reads
+    that pattern as polynomial on a long run of spaces, and a loop says the
+    same thing in one pass."""
+    at, size = 0, len(content)
+    while at < size:
+        if content[at] in _BREAKS:
+            at += 1
+            continue
+        end = at
+        while end < size and content[end] not in _BREAKS:
+            end += 1
+        while end < size and content[end] in _ENDS:
+            end += 1
+        yield at, end
+        at = end
 
 #: A sentence shorter than this is a fragment ("Yes.", a list bullet, a
 #: heading) and a sentence longer than this is a paragraph somebody forgot to
@@ -219,8 +240,7 @@ def sentences(content: str) -> list[tuple[str, int, int]]:
     sentence a fact came from.
     """
     out: list[tuple[str, int, int]] = []
-    for match in _SENTENCE.finditer(content):
-        start, end = match.start(), match.end()
+    for start, end in _sentence_spans(content):
         while start < end and content[start].isspace():
             start += 1
         while end > start and content[end - 1].isspace():

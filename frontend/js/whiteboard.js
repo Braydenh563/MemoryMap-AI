@@ -1154,6 +1154,10 @@ const WB_FILLABLE_SHAPES = new Set(["rect", "circle", "triangle", "diamond", "cu
 //: The Format panel's shadow (decision 19): one soft drop, the same on a
 //: shape, a line, a text box and a picture, and in the export.
 const WB_ITEM_SHADOW = "drop-shadow(0 2px 4px rgb(0 0 0 / 0.28))";
+//: The same shadow as an SVG filter, for the exported picture.
+const WB_EXPORT_SHADOW_DEF =
+  '<defs><filter id="wb-export-shadow" x="-20%" y="-20%" width="140%" height="140%">' +
+  '<feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.28"/></filter></defs>';
 
 //: SVG `stroke-dasharray` for each style, scaled to the actual stroke width
 //: so a thick dashed line doesn't look like a row of dots. `null` (solid)
@@ -8575,7 +8579,13 @@ function wbBuildExportSvg(scope, { transparent = false } = {}) {
     //: Drawn before the sketches, above.
     if (obj.kind === "frame") continue;
     const alpha = obj.data?.alpha != null && obj.data.alpha < 1 ? ` opacity="${obj.data.alpha}"` : "";
-    const shadow = obj.data?.shadow ? ` style="filter: ${WB_ITEM_SHADOW}"` : "";
+    //: An SVG filter, not a `style` attribute: the CSP refuses inline style
+    //: (tests/test_security_boundaries.py). Defined once, before its first use.
+    let shadow = "";
+    if (obj.data?.shadow) {
+      if (!parts.includes(WB_EXPORT_SHADOW_DEF)) parts.push(WB_EXPORT_SHADOW_DEF);
+      shadow = ' filter="url(#wb-export-shadow)"';
+    }
     parts.push(`<g transform="translate(${obj.x}, ${obj.y})"${alpha}${shadow}>`);
     if (obj.kind === "image" && obj.data.url) {
       // `mediaSrc`, not the bare url: rasterizing this SVG loads it through

@@ -154,5 +154,7 @@ async function runModelBench() {
 
 $("bench-run")?.addEventListener("click", runModelBench);
 $("bench-stop")?.addEventListener("click", () => {
-  apiJson("/models/bench/stop", { method: "POST" }).catch(() => {}).finally(renderModelBench);
+  apiJson("/models/bench/stop", { method: "POST" })
+    .catch((error) => toast(error.message || "Couldn't stop the bench.", true))
+    .finally(renderModelBench);
 });

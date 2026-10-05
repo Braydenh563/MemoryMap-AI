@@ -73,6 +73,16 @@ with its owner named in the entry.
      with Atlas, "74% similar", "#Sketches"; link chips beside a boxed "+3
      more links" in another shape). Placed: the icon alignment agent.
 
+595. **The owner, 2026-10-05, verbatim.** "why are new libraries off the
+     table?? should we bundle multiple packages together for bulk download if
+     various features need multiple libraries or dependencies in the packages
+     settings with the ability to install/uninstall/reinstall individual ones
+     or in bulk??" Decision taken (recommendation): yes. Optional extras
+     (`core/extras.py`) stay the way a feature takes a library; add named
+     bundles, bulk install/uninstall/reinstall with per-package progress,
+     reinstall per extra, version and size per row. With it: pictures in the
+     Word export on the existing `docx` extra (FEAT-18). Next agent slot.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 540, 554, 556, 564, 575 (Atlas motion and form) placed in

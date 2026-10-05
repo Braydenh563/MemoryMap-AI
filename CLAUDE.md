@@ -58,6 +58,11 @@ full text, with the reasons, is the block at the top of
    and verifiable (lints, copy moves, fixture edits, sweeps, bugs whose fix
    is named). Opus: anything with a design judgement in it (frontend layout
    and visual work, plan phases, backend moves against their spec tests).
+   **Mainly Opus; Sonnet for the well defined** (the owner, 2026-10-05:
+   "actually mainly use opus but just remember that sonnet is there for well
+   defined and labour tasks"). At most three agents at once once the
+   current four finish ("cut down to 3 agents, just a little tight on
+   usage").
    **Never Fable agents** (the owner, 2026-10-04: "NO FABLE AGENTS!! IT
    KILLS MY USAGE"): plans and specs go to Opus. Each agent commits at least every 20 minutes (the owner, 2026-10-04: "make sure all the agents are regularly committing"); own worktree cut from the branch, own port
    and data dir, commit per step, remaining list before stopping. The

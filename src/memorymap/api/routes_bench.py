@@ -27,7 +27,7 @@ logger = logging.getLogger("memorymap.api.bench")
 
 router = APIRouter(prefix="/models/bench", tags=["models"])
 
-OFF = "The model bench is switched off. Turn it on in Settings, What the notebook learned."
+OFF = "The model bench is switched off. Turn it on in Settings, What it learned."
 BUSY = "A bench is already running. Stop it or wait for it to finish."
 NO_MODELS = "Pick at least one installed model to test."
 NOT_RUNNING = "The model server isn't running. Start it and try again."

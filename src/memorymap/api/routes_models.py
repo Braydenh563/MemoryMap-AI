@@ -121,27 +121,10 @@ class _ListFlight:
         self.done = threading.Event()
         self.result: list[dict] | None = None  # None: the runner did not answer
         self.error: BaseException | None = None
-        self.problem: str | None = None  # why it did not answer, when it said
 
 
 _installed_lock = threading.Lock()
 _installed_known: dict[tuple[str, str], list[dict] | None] = {}
-#: Why the runner last did not answer, in the provider's own words (an
-#: OpenAI-dialect server says "Nothing answered at <url>. Check the address",
-#: which is not the same advice as "start the server"). WORLD_CLASS_PLAN
-#: section 21 row 12: the status line read the same for a wrong address and an
-#: absent server. Cleared by the next answer.
-_installed_problem: dict[tuple[str, str], str] = {}
-
-
-def _runner_key(client) -> tuple[str, str]:  # noqa: ANN001
-    return (type(client).__name__, str(getattr(client, "base_url", "")))
-
-
-def runner_problem(client) -> str | None:  # noqa: ANN001
-    """The last "it did not answer" sentence for this runner, or None."""
-    with _installed_lock:
-        return _installed_problem.get(_runner_key(client))
 _installed_flights: dict[tuple[str, str], _ListFlight] = {}
 
 
@@ -160,7 +143,7 @@ def _installed_or_last_known(client) -> list[dict] | None:  # noqa: ANN001
     runner that refuses the connection answers at once, and is reported down
     on that poll.
     """
-    key = _runner_key(client)
+    key = (type(client).__name__, str(getattr(client, "base_url", "")))
     with _installed_lock:
         flight = _installed_flights.get(key)
         if flight is None:
@@ -183,21 +166,14 @@ def _run_list_flight(client, key: tuple[str, str], flight: _ListFlight) -> None:
         flight.result = [
             {"name": m.get("name", ""), "size": m.get("size", 0)} for m in client.list_models()
         ]
-    except OllamaError as exc:
+    except OllamaError:
         flight.result = None
-        #: A sentence for people, never the exception's repr: the provider
-        #: writes these ("Nothing answered at <url>. Check the address ...").
-        flight.problem = " ".join(str(exc).split())[:240] or None
     except Exception as exc:  # noqa: BLE001 - handed to the poll that waits, as a direct call would
         flight.error = exc
     finally:
         with _installed_lock:
             if flight.error is None:
                 _installed_known[key] = flight.result
-                if flight.result is None and flight.problem:
-                    _installed_problem[key] = flight.problem
-                else:
-                    _installed_problem.pop(key, None)
             _installed_flights.pop(key, None)
         flight.done.set()
 
@@ -355,14 +331,23 @@ def status(session: Session = Depends(get_session)) -> dict:
     local_only = bool(config.get_preference("local_only_ai", True))
     _, privacy_note, is_local = security.check_backend_url(ollama.base_url)
 
+    #: Section 21 row 12: nothing answered, at an address the person set.
+    #: The default address unanswered is a server not started ("isn't
+    #: running"); a custom one is as likely a typo, so the line names it.
+    default_url = deps.DEFAULT_BASE_URLS.get(provider, "")
+    custom = (ollama.base_url or "").rstrip("/") != default_url.rstrip("/")
+    unreachable_hint = (
+        f"Nothing answered at {ollama.base_url}. Check the address, and that the server is running."
+        if not running and custom
+        else None
+    )
+
     return {
         # Named for Ollama because the whole UI is, and it means "the chat
         # backend is answering", which is the question the pill asks whoever
         # is answering it.
         "ollama_running": running,
-        #: Why it is not running, in the provider's words, so the status line
-        #: can say "check the address" when that is the advice (row 12).
-        "ollama_problem": None if running else runner_problem(ollama),
+        "unreachable_hint": unreachable_hint,
         # Which dialect is actually in use (§6), so the UI can say so rather
         # than claiming Ollama when the answers came from LM Studio.
         "provider": provider,

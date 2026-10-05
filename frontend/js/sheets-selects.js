@@ -1944,7 +1944,9 @@ async function openConversation(id) {
   }
   if (lastQuestionText) lastChatQuestion = lastQuestionText;
   loadConversationList();
-  chatScrollToEnd();
+  //: Where it was left, not always its end (Placed 2026-09-09 item 99 (b)).
+  if (isStreamingConversation(full.id)) chatScrollToEnd();
+  else restoreChatPosition(full.id);
 }
 
 async function loadChatSuggestions() {
@@ -2387,26 +2389,3 @@ function renderDashboardPersonaSelect(names) {
 document.addEventListener("change", (event) => {
   if (event.target?.id === "persona-select") paintDashboardPersonaMark();
 });
-
-async function addPersona() {
-  const name = $("persona-name").value.trim();
-  const promptText = $("persona-prompt").value.trim();
-  const status = $("persona-status");
-  if (!name || !promptText) {
-    status.textContent = "Both a name and a prompt are needed.";
-    return;
-  }
-  const custom = ((prefsCache && prefsCache.personas) || []).filter(
-    (p) => p.name !== name
-  );
-  custom.push({ name, prompt: promptText });
-  await apiJson("/preferences", {
-    method: "PUT",
-    body: JSON.stringify({ personas: custom }),
-  });
-  $("persona-name").value = "";
-  $("persona-prompt").value = "";
-  status.textContent = `Added “${name}”.`;
-  await renderPersonas();
-  personaOptions();
-}

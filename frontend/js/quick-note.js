@@ -248,61 +248,6 @@ function clearQuickNote() {
 
 let quickNoteSaving = false;
 
-//: What a saved note says for itself: where it was filed, the way to it, an Undo.
-//: Shared by Quick note and Paste as note.
-function announceNewNote(saved) {
-  toastAction(
-    saved.filing_state === "pending" ? "Saved. Filing it now." : `Filed under “${saved.category}”.`,
-    "Go to it",
-    () => flashEntry(saved.id),
-    { go: { open: "entry", id: saved.id } },
-  );
-  //: In the list now, not when filing settles: measured, 2 to 4 s later
-  //: on every tab but the dashboard when this waited on the watch.
-  refreshEntries([saved.id]).catch(() => {});
-  if (saved.filing_state === "pending") watchFiling(saved);
-  pushUndo(
-    "Created a note",
-    async () => {
-      await api(`/entries/${saved.id}`, { method: "DELETE" });
-      await refreshEntries([saved.id]);
-    },
-    async () => {
-      await api(`/entries/${saved.id}/restore`, { method: "POST" });
-      await refreshEntries([saved.id]);
-    },
-  );
-}
-
-//: **Paste as note** (WORLD_CLASS_PLAN row 31, item 99 (d)): the clipboard's text
-//: becomes a note in one step, from the palette. A browser that will not hand the
-//: clipboard over (it asks, or the window has no permission) opens Quick note
-//: instead, where a Ctrl+V does the same in two.
-async function pasteAsNote() {
-  let text = "";
-  try {
-    text = (await navigator.clipboard.readText()).trim();
-  } catch {
-    toast("MemoryMap can't read the clipboard here. Paste into Quick note instead.", true);
-    openQuickNote();
-    return;
-  }
-  if (!text) {
-    toast("The clipboard has no text to save.", true);
-    return;
-  }
-  try {
-    const result = await createNoteSafely({ content: text, tags: [] });
-    if (result.queued) {
-      toast("Saved on this device. It goes into your notebook as soon as the server answers.");
-      return;
-    }
-    announceNewNote(result.saved);
-  } catch (error) {
-    toast(error.message || "Couldn't save the note.", true);
-  }
-}
-
 async function saveQuickNote() {
   if (quickNoteSaving) return;
   const content = quickNoteBox().value.trim();
@@ -322,7 +267,28 @@ async function saveQuickNote() {
       toast("Saved on this device. It goes into your notebook as soon as the server answers.");
       return;
     }
-    announceNewNote(result.saved);
+    const saved = result.saved;
+    toastAction(
+      saved.filing_state === "pending" ? "Saved. Filing it now." : `Filed under “${saved.category}”.`,
+      "Go to it",
+      () => flashEntry(saved.id),
+      { go: { open: "entry", id: saved.id } },
+    );
+    //: In the list now, not when filing settles: measured, 2 to 4 s later
+    //: on every tab but the dashboard when this waited on the watch.
+    refreshEntries([saved.id]).catch(() => {});
+    if (saved.filing_state === "pending") watchFiling(saved);
+    pushUndo(
+      "Created a note",
+      async () => {
+        await api(`/entries/${saved.id}`, { method: "DELETE" });
+        await refreshEntries([saved.id]);
+      },
+      async () => {
+        await api(`/entries/${saved.id}/restore`, { method: "POST" });
+        await refreshEntries([saved.id]);
+      },
+    );
   } catch (error) {
     //: Refused or failed and not held: the words stay in the box (and in
     //: storage, from the last keystroke), with the reason under them.

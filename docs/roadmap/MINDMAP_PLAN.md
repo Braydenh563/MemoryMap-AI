@@ -531,7 +531,10 @@ the shift-drag sever).
    due date (a reminder can be created from it), a checkbox; filter the
    map by marker; the outline view shows them as columns. The checkbox and
    the count up the branch are built (decision 15; HISTORY.md, "Moved from
-   the plans, 2026-10-04"); the rest is open.
+   the plans, 2026-10-04"); priority, progress, the flag, icon markers and
+   the filter are built (decision 34; HISTORY.md, "Moved from the plans,
+   2026-10-05 (markers)"); due dates (with a reminder) and tags on a topic
+   are open.
 5. **Notes on nodes**: a node that is a notebook note shows the note's
    own text here, editable both ways. The text note behind a topic is
    built (decision 18; HISTORY.md, "Moved from the plans, 2026-10-04").
@@ -541,9 +544,8 @@ the shift-drag sever).
 7. **Multiple roots and floating topics**; **auto-colour by branch** as
    the default theme with eight curated palettes. Numbering is built
    (decision 17; HISTORY.md, "Moved from the plans, 2026-10-04").
-8. **Outline view** beside the map (a two-pane split): the same tree as
-   indented text, editable, Tab and Shift+Tab re-parent, every edit
-   mirrored live.
+8. **Outline view**: built (decision 33; HISTORY.md, "Moved from the plans,
+   2026-10-05 (the map's outline)"). Its markers as columns wait on item 4.
 9. **Presentation mode**: built (decision 21; HISTORY.md, "Moved from the
    plans, 2026-10-05 (a map presented by branch)").
 10. **Export**: PNG at 2x with the theme, PDF, SVG, FreeMind .mm, OPML,
@@ -1217,9 +1219,18 @@ topic: a control that wide has nowhere to go.
    what changed and moves what only moved (the paint key has no x or y).
    Three stylesheet rules whose `:has()` sat before a classless compound
    made every DOM insertion restyle the whole page; they are rewritten and
-   `tests/test_has_invalidation.py` holds the line. The 100ms gate at 300
-   topics is not yet met on this sandbox (see HISTORY, "Moved from the
-   plans, 2026-10-05 (the map's add path)").
+   `tests/test_has_invalidation.py` holds the line. Second pass, the same
+   day (HISTORY, "Moved from the plans, 2026-10-05 (the add path, second
+   pass)"): the editor opens in the add's own task, before the moved
+   topics' transforms and the lines are written (`wbRenderHold`), the
+   measure reads only what was repainted, the mid-line `+` buttons and the
+   edge handles are kept rather than rebuilt, the selection bar is placed
+   two frames on, and a `:has()` keyed on `.ph` (every icon) is rewritten
+   with a ratchet against its kind. The render of one add is 21 to 63ms at
+   301 topics against 118 to 421 before; the 100ms key-to-editable gate is
+   still not met on this sandbox under a load of 7 to 10 (medians 177 to
+   276ms against 265 to 351 for the base scripts on the same runs), and is
+   to be measured on a quiet machine.
 25. **The open map's commands are palette rows** (taken 2026-10-05, audit
    FEAT-11): add, rename, fold, focus, delete, tidy, open every branch,
    look, numbering, statistics, present, zoom to fit, the six layouts and
@@ -1251,8 +1262,61 @@ topic: a control that wide has nowhere to go.
    and the palette row make a new document titled after the central topic
    (or the map, with several trunks), branches as `##`, theirs as `###`,
    deeper topics as nested lists, notes as paragraphs, and the map's card
-   (`boardEmbedMarkdown`) at its head as the way back. "Map this document's
-   headings" (the other direction) and a back-link on the map are open.
+   (`boardEmbedMarkdown`) at its head as the way back. The other direction
+   is decision 35.
+32. **A concept map's topics are notes that stay on their map** (taken
+   2026-10-05, audit UX-06). A note made by a map gesture (a new concept
+   map's root, a card Tab or Enter adds) carries `map_topic`; Notes (All,
+   the categories, Favourites, Untagged) and Recently added leave it out,
+   and a search in Notes, Ctrl+K and Ask still find it. Old maps' topics
+   are marked by the upgrade (a short note placed on a board within ten
+   seconds of being written). The board picker counts a map's topics and a
+   board's items (not the links between them) and is kept current from the
+   board on screen; the Library and dashboard say "links" and "drawings",
+   never "sketches". After Enter names a card, a letter renames it (the
+   focus is not moved to the canvas, where Tab walks items).
+33. **A map's outline is a panel of fields in the tree's order** (taken
+   2026-10-05, §12.2 item 8, the audit's M3). View, Outline (and the
+   palette's row) opens it in the board sidebar's place (`#wb-map-outline`,
+   the `.whiteboard-sidebar` shell, one of the two at a time), on maps only,
+   remembered per device. One text field per topic, indented by depth; the
+   keys are an outliner's: Enter adds a topic after this one and types it in
+   the outline (not on the canvas), Tab makes it the last child of the topic
+   above, Shift+Tab puts it right after its old parent, Backspace on an
+   empty topic with no branch removes it, the arrows walk the rows, Escape
+   hands the keys to the canvas. Every change goes through the canvas's own
+   functions (the add, `wbMapTransplant`, `wbMapOutdent`, the rename's save
+   and its FEAT-15 fold), so Undo and the tidy are the canvas's. Typing
+   draws the label on the canvas as it goes, without a render; the name is
+   saved when the row is left. The outline follows every render, rebuilt only
+   when the tree's shape changed, never taking the field being typed in.
+34. **A topic's markers are content, from one icon set** (taken 2026-10-05,
+   §12.2 item 4, the audit's M4). `data.priority` (1 to 5), `data.progress`
+   (0 to 100; the menu offers None, 0, 25, 50, 75 and Done), `data.flag` and
+   `data.markers` (up to six names from `WB_MAP_MARKER_ICONS`, twelve glyphs
+   of the vendored Phosphor font; never emoji, which each system draws its
+   own way and an export does not draw at all). Drawn in one row before the
+   label, set in one popover from the topic's menu (Content, Markers) and
+   the palette, each press one Undo step. Content, not a look: a look reset
+   and a branch copy keep them; OPML and FreeMind carry them as private
+   `_priority`, `_progress`, `_flag` and `_markers` (a comma list), Markdown
+   not at all (decision 12's rule). View, Filter by marker lists the markers
+   in use with their counts and dims (never hides) every topic without the
+   chosen one, for this visit, with a bar in the focus bar's shell to end
+   it. Not built: due dates, tags, several filters at once, markers as the
+   outline's columns.
+35. **A document maps its own headings, one way** (taken 2026-10-05, the
+   audit's M5 second half). The document's menu, Map the headings (and the
+   palette's row) makes a new map through the Markdown import, so it opens
+   in tree-right and tidied (decision 23). The headings are read by
+   `wbMapHeadingsOutline` (node-tested): a heading inside a fenced code
+   block is code; one top-level heading, first, is the central topic,
+   otherwise the document's title is and every top-level heading a branch;
+   a skipped level hangs one level down, never two. The way back is a
+   document topic under the centre pointing at the document (it opens it, as
+   any document topic does), so it travels with the map into every export
+   that keeps references. A twin kept in step both ways is the audit's idea,
+   not built.
 
 ### Phases, each with the gate it is finished against
 

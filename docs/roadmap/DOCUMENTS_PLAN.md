@@ -1131,9 +1131,16 @@ documents phone pass)").
 
 From `scratchpad/audit1005/features.md` (FEAT-03, FEAT-04, FEAT-08, the
 documents briefs D1 to D5). Built work is in HISTORY.md ("Moved from the
+plans, 2026-10-05 (the feature audit's documents and map fixes)"). D3 and
+D4 are built (decisions 6 and 7), and D5's handles (decision 8). Open:
+pictures in the Word export (FEAT-18), which needs python-docx, an optional
+extra that is not in requirements.txt; not started, by the fully-local
+rule's "no new Python dependency".
+
 plans, 2026-10-05 (the feature audit's documents and map fixes)"). Open:
 D3 (a Mermaid flowchart parser), D4's page size, margins and page numbers,
-D5 (image handles in Live, pictures in the Word export).
+D5's image handles in Live (its pictures in the Word export are built, FEAT-18:
+HISTORY.md, the same section).
 
 **Decisions made.**
 
@@ -1164,8 +1171,62 @@ D5 (image handles in Live, pictures in the Word export).
    for any Markdown-to-PDF tool with its breaks intact. A labelled dashed
    line on screen, the break itself in a print and in the HTML export, the
    "/" menu's Page break in a document (not in a note, which is not
+   printed as pages). Page size, margins and page numbers are decision 7.
+6. **A flowchart fence draws as one, by a parser of our own** (2026-10-05,
+   the audit's D3, inside decision 3's terms). `mermaidFlowParse`,
+   `mermaidFlowLayout` and `mermaidFlowSvgTree` (documents.js, the
+   `DOC-MERMAID` region, node-tested): `flowchart` or `graph` in any of the
+   four directions, seven node shapes, six link kinds with labels, chains and
+   `&` fans, comments, and the styling lines read and ignored. Laid out in
+   layers (longest-path ranks with each cycle's return reversed, barycentre
+   ordering, each layer centred), a line that would lie on another (a
+   return, a second link between one pair, one that skips a rank) bowed
+   aside. Drawn in Read (so in a print and the HTML export), and in Live
+   while the caret is outside the fence (a state field, the columns block's
+   reason); pressing the figure opens its text. Anything else, a subgraph
+   and every other diagram type included, stays the code it is, so nothing
+   is drawn half right. Text is text (`createElementNS`, `textContent`).
+   Not drawn in a note (notes render through markdown.js at boot, and the
+   parser stays out of the boot scripts); "Open as a board" is the
+   whiteboard's W5.
+7. **The printed page is chosen in one step before the browser's dialog**
+   (2026-10-05, the audit's D4). Print or save as PDF opens a small dialog:
+   page size (A4 or Letter; Letter first where the locale is US or Canada),
+   orientation, margins (narrow 12mm, normal 20mm, wide 28mm) and a switch
+   for the page number ("n / N" at the foot) with the title at the head,
+   remembered on this computer; a plain Ctrl+P prints on the last choice.
+   Written as a constructed stylesheet (the CSP refuses a `<style>`), the
+   number and title as CSS page-margin boxes, which Chromium draws from 131
+   (the desktop window is Chromium); where `CSSMarginRule` is missing the
+   switch is off and says the print dialog's own headers can do it. Found
+   on the way: the print rule hid every child of `<body>` but the documents
+   page, and the page has sat inside `<main id="app-main">` since the shell
+   moved, so a print was one blank page; the main is kept now and the
+   shell's window-high boxes let go.
+8. **A picture is resized and aligned where it is shown** (2026-10-05, the
+   audit's D5). In Live, a picture (not one under its revealed source) sits
+   in a frame with DESIGN.md's grip on its lower right corner and an align
+   button at its top right, both shown on hover and on focus (always on a
+   touch screen, the grip at 24px). A drag sets the width between 40px and
+   the text column; the grip is a slider to the keys (the arrows 10px, Shift
+   50px, Home and End the bounds, Delete back to the picture's own size);
+   the align menu is Left, Centre, Right and Inline. Both write the options
+   into the alt text (`docImageAltWith`: the name, then the width, then the
+   alignment, then the caption's words), one Undo step each, so Read, a print
+   and every export draw the same picture.
+
    printed as pages). Page size, margins and page numbers (the rest of D4)
    are open.
+6. **A narrow sidebar puts its tab strip under the collapse toggle**
+   (2026-10-05, audit FE-19). "Documents" and "Outline" need 182px and the
+   toggle's lane 46px; at 1024 the sidebar is 192px, and "Outline" ran 7px
+   under the toggle. Below a 14rem content box (a 256px sidebar) the strip
+   starts one toggle-height down, full width, with `--space-2` of side room
+   per tab instead of `--space-5` (a container query on `#doc-sidebar`).
+   Not chosen: a wider sidebar at 1024 (the editor's width is the page),
+   shorter labels (the strip's words are its only labels). Measured by
+   `scratchpad/ui-sweeps/perf2-1005-docside.js`: fits, nothing under the
+   toggle, at 1024, 1440 and 390, light and dark.
 
 ## 18. The slash menus as one system: built 2026-09-21
 
@@ -1247,6 +1308,21 @@ Moved to HISTORY.md ("Moved from the plans, 2026-10-03 (the documents pass)", DO
     is open here.
 
 ## Placed from INBOX, 2026-10-05 (OPEN.md triage)
+
+- ~~Why `docRevealForSuggest` will not bring a table-cell word into view~~
+  Not reproduced, 2026-10-05 (`scratchpad/ui-sweeps/revealcell.js`, a
+  14-column table in the middle of a 60-paragraph document, at 1440): asked for
+  from a scroll of 0 and from the bottom, the mark is virtualised away before
+  (no element), and after `docOpenSuggestFor` its rect is inside
+  `.cm-scroller` on both axes (left 1082, right 1103, top 431, bottom 519 in a
+  526 to 1190 by 137 to 743 box) with the menu open beside it. Left: the same at
+  390, where the probe's document opens on the reader, not the editor (every
+  rect 0); a phone run needs the editor opened first.
+- **`scratchpad/ui-sweeps/editor.js` describes the retired editor** (1,058
+  lines, 89 checks; reads `docUndoStack`, `#doc-live .lp-src`, so it throws).
+  Brief: re-point its reads at `docSurface()` and its Live view at
+  `#doc-editor .cm-content`, drop the four retired checks, report how many of
+  the 89 survive. Sonnet, M.
 
 - ~~`docRevealForSuggest` will not bring a table-cell word into view~~ Not reproduced at 1440 or 390; the account is in HISTORY.md, "Moved from the plans, 2026-10-05 (small-1005: the small open items)" (`revealcell.js`).
 - ~~`editor.js` sweep describes the retired editor~~ Re-pointed at `docSurface()`: 78 of the old 89 checks remain and pass; the account is in HISTORY.md, "Moved from the plans, 2026-10-05 (small-1005)".

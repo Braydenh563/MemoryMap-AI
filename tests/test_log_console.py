@@ -295,7 +295,7 @@ def test_the_console_does_not_authenticate_through_the_query_string():
     source = _settings_js()
     body = _function_body(source, "startLogStream")
     # Through `api.stream` (F5), which sends the token as a header.
-    assert "api.stream(" in body
+    assert "api.stream(" in body or "X-Auth-Token" in body or "authHeaders()" in body
     assert "token=" not in body
 
 

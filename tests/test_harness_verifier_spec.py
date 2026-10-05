@@ -11,6 +11,7 @@ The behaviour around these lives in `tests/test_harness_verifier.py`, which
 also says what a fake transport cannot prove about any of it.
 """
 from __future__ import annotations
+from tests._skill_run import run_for_test
 
 
 def test_a_skill_may_declare_a_verify_block():
@@ -28,9 +29,7 @@ def test_a_skill_may_declare_a_verify_block():
 def test_a_step_pages_until_its_contract_is_met(fake_model_with_paged_list):
     """70 notes, list_notes pages 20 at a time: the step that must see every
     note calls the tool four times and the run's state holds 70 ids."""
-    from memorymap.ai import skill_runner
-
-    run = skill_runner.run_for_test(fake_model_with_paged_list, skill="find_loose_ends", notes=70)
+    run = run_for_test(fake_model_with_paged_list, skill="find_loose_ends", notes=70)
     step = run.steps[0]
     assert step.tool_calls >= 4
     assert len(run.state["seen_ids"]) == 70
@@ -38,9 +37,7 @@ def test_a_step_pages_until_its_contract_is_met(fake_model_with_paged_list):
 
 
 def test_the_budget_stops_a_runaway_run(fake_model_that_loops):
-    from memorymap.ai import skill_runner
-
-    run = skill_runner.run_for_test(fake_model_that_loops, skill="tidy_suggestions", budget={"tokens": 2000, "seconds": 5})
+    run = run_for_test(fake_model_that_loops, skill="tidy_suggestions", budget={"tokens": 2000, "seconds": 5})
     assert run.stopped_by == "budget"
     assert run.verification.ok is False
     assert run.undo_available
@@ -59,5 +56,7 @@ def test_a_moved_auto_filed_note_records_a_correction(session):
     cat_b = manager.get_or_create_category(session, "B")
     last = session.query(AuditLog).order_by(AuditLog.id.desc()).first()
     assert last.action == "correction"
-    prompt = librarian.filing_prompt_for_test(session, category=cat_b)
+    #: The prompt a note considered for B would get (the seam this read,
+    #: `filing_prompt_for_test`, was these three lines in the app, ARCH-21).
+    prompt = librarian.filing_prompt(session, "(a note being filed)", [cat_b.name])
     assert "x" in prompt and "A" in prompt, "the last corrections for the category ride in the prompt"

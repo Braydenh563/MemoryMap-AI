@@ -87,7 +87,7 @@ def test_an_already_installed_extra_is_not_reinstalled(client, monkeypatch):
 def test_only_one_install_runs_at_a_time(client, monkeypatch):
     """Two pips against one environment is a way to corrupt it."""
     monkeypatch.setattr(extras, "is_installed", lambda extra: False)
-    monkeypatch.setattr(extras.threading, "Thread", _NoThread)
+    monkeypatch.setattr(extras, "_dispatch", _no_dispatch)
     assert extras.start("voice")[0] is True
     started, message = extras.start("desktop")
     assert started is False
@@ -99,7 +99,7 @@ def test_a_running_install_appears_in_background_tasks(client, monkeypatch):
     which is what puts it in the status bar and the Tasks panel without either
     of them learning anything new."""
     monkeypatch.setattr(extras, "is_installed", lambda extra: False)
-    monkeypatch.setattr(extras.threading, "Thread", _NoThread)
+    monkeypatch.setattr(extras, "_dispatch", _no_dispatch)
     extras.start("voice")
 
     tasks = routes_tasks.collect()
@@ -111,15 +111,10 @@ def test_a_running_install_appears_in_background_tasks(client, monkeypatch):
     assert mine[0]["progress"] is None
 
 
-class _NoThread:
-    """Starts nothing. These tests are about the bookkeeping around pip, and
-    actually running pip in a test suite would download the internet."""
-
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def start(self):
-        pass
+def _no_dispatch(*args, **kwargs):
+    """Queues nothing on the pool. These tests are about the bookkeeping
+    around pip, and actually running pip in a test suite would download the
+    internet."""
 
 
 def test_reinstall_is_allowed_where_install_is_not(client, monkeypatch):
@@ -129,7 +124,7 @@ def test_reinstall_is_allowed_where_install_is_not(client, monkeypatch):
     this: and without a reinstall the app's answer would be "already
     installed" forever."""
     monkeypatch.setattr(extras, "is_installed", lambda extra: True)
-    monkeypatch.setattr(extras.threading, "Thread", _NoThread)
+    monkeypatch.setattr(extras, "_dispatch", _no_dispatch)
 
     assert extras.start("voice")[0] is False
     extras.reset_for_tests()
@@ -238,12 +233,10 @@ def test_removal_is_never_blocked(client, monkeypatch):
     """Somebody who installed llama-cpp-python by hand, or before it was
     marked, still needs the way out. Refusing removal would strand them."""
     started = {}
-    monkeypatch.setattr(
-        "memorymap.core.extras.threading.Thread",
-        lambda **kw: type("T", (), {"start": lambda self: started.setdefault("go", True)})(),
-    )
+    monkeypatch.setattr(extras, "_dispatch", lambda *a, **k: started.setdefault("go", True))
     body = client.post("/extras/localllm/uninstall").json()
     assert body["started"] is True
+    assert started == {"go": True}
 
 
 # --- reported: remove/reinstall of faster-whisper silently failed on Windows
@@ -275,7 +268,7 @@ def test_voice_actions_are_unblocked_once_nothing_is_loaded(client, monkeypatch)
     """The common case: nobody has recorded anything yet, or the process is
     fresh: must not be caught by the same guard.
 
-    `threading.Thread` is mocked like every other test that reaches `remove()`
+    `_dispatch` is mocked like every other test that reaches `remove()`
     - without it this spawns a *real* background thread that runs real pip
     uninstall against the live environment. Found live: it outlived this test,
     and a later, unrelated test in the OCR extra's own install path picked up
@@ -285,7 +278,7 @@ def test_voice_actions_are_unblocked_once_nothing_is_loaded(client, monkeypatch)
     from memorymap.ai import voice
 
     monkeypatch.setattr(voice, "_loaded", None)
-    monkeypatch.setattr(extras.threading, "Thread", _NoThread)
+    monkeypatch.setattr(extras, "_dispatch", _no_dispatch)
     started, message = extras.remove("voice")
     assert started is True
 
@@ -294,7 +287,7 @@ def test_the_guard_leaves_other_extras_alone(monkeypatch):
     """Only voice caches a loaded native model across requests; nothing about
     another extra should ever be refused for this reason.
 
-    `threading.Thread` is mocked like every other test that reaches `start()`
+    `_dispatch` is mocked like every other test that reaches `start()`
     - without it this spawns a *real* background thread that runs real pip
     against the real network (reported: it raced a later, unrelated test in
     `test_tasks.py` for control of the shared `taskhistory` singleton and
@@ -302,7 +295,7 @@ def test_the_guard_leaves_other_extras_alone(monkeypatch):
     from memorymap.ai import voice
 
     monkeypatch.setattr(voice, "_loaded", ("base", object()))
-    monkeypatch.setattr(extras.threading, "Thread", _NoThread)
+    monkeypatch.setattr(extras, "_dispatch", _no_dispatch)
     started, message = extras.start("desktop", reinstall=True)
     assert started is True
 
@@ -636,7 +629,7 @@ def test_the_word_export_501_points_at_the_settings_button(client):
         pytest.skip("python-docx is installed here, so there is no 501 to read")
     assert response.status_code == 501
     detail = response.json()["detail"]
-    assert "Settings" in detail and "extras" in detail.lower(), detail
+    assert "Settings, Packages" in detail and "Export to Word" in detail, detail
 
 
 # --- a packaged (frozen) build installs where it can import from ------------------

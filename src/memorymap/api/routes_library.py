@@ -40,6 +40,7 @@ from memorymap.core.database import (
 )
 from memorymap.core import events
 from memorymap.core.deps import get_session
+from memorymap.entry import highlights as note_highlights
 from memorymap.entry.manager import extract_title, join_blocks, remove_title, strip_inline_markdown
 from memorymap.entry.properties import strip as strip_properties
 
@@ -108,10 +109,22 @@ _MD_TABLE_PIPE = re.compile(r"\|")
 _MD_LOOSE_MARKER = re.compile(r"\*\*|__|~~|(?<!\w)\*(?=\w)|(?<=\w)\*(?!\w)")
 
 
+#: How much of a note `_clip` reads, in lines up to this many characters. A
+#: preview is 160 characters and every pass below only removes text, so the
+#: opening few thousand always hold it, and a long document no longer costs
+#: its whole length in eight regex passes per Library visit (audit
+#: 2026-10-05, ARCH-11). Cut at a line end so no marker is split.
+CLIP_WINDOW = 4000
+
+
 def _clip(text: str, limit: int = PREVIEW_CHARS) -> str:
     # A note's or document's `---` properties block is data about it, never
     # its opening words (GRAPH_PLAN, "Still open after KG1 to KG9").
-    text = _MD_TABLE_RULE.sub("", strip_properties(text or ""))
+    text = strip_properties(text or "")
+    if len(text) > CLIP_WINDOW:
+        end = text.rfind("\n", 0, CLIP_WINDOW)
+        text = text[: end if end > limit else CLIP_WINDOW]
+    text = _MD_TABLE_RULE.sub("", text)
     # Each line's own heading, quote or list marker goes as its kind is read,
     # and the blocks stay apart (`join_blocks`, INBOX 464): "oat milk · eggs",
     # not "oat milk eggs".
@@ -395,6 +408,7 @@ def _archive(session: Session) -> list[dict]:
         items.append(
             {
                 "kind": "archived",
+                "subtype": "note",
                 "id": entry.id,
                 "title": own_title or (_clip(content)[:60] or "Empty note"),
                 "preview": _clip(preview_source),
@@ -406,6 +420,47 @@ def _archive(session: Session) -> list[dict]:
                 "pinned": False,
                 "thumb_attachment_id": thumb_id,
                 "thumb_url": None if thumb_id else _first_inline_image_url(content),
+            }
+        )
+    #: Documents and reminders have a bin too (WORLD_CLASS_PLAN 5 item 10):
+    #: the same list, told apart by `subtype`, each with its own routes.
+    from memorymap.entry import bin as other_bin
+
+    documents, reminders = other_bin.binned(session)
+    for doc in documents[:PER_KIND_LIMIT]:
+        items.append(
+            {
+                "kind": "archived",
+                "subtype": "document",
+                "id": doc.id,
+                "title": doc.title or "Untitled",
+                "preview": _clip(doc.content or ""),
+                "updated_at": doc.deleted_at.isoformat(),
+                "detail": "a document, in the bin",
+                "size": len(doc.content or ""),
+                "entry_id": None,
+                "mime": None,
+                "pinned": False,
+                "thumb_attachment_id": None,
+                "thumb_url": None,
+            }
+        )
+    for reminder in reminders[:PER_KIND_LIMIT]:
+        items.append(
+            {
+                "kind": "archived",
+                "subtype": "reminder",
+                "id": reminder.id,
+                "title": reminder.text or "Reminder",
+                "preview": "",
+                "updated_at": reminder.deleted_at.isoformat(),
+                "detail": "a reminder, in the bin",
+                "size": len(reminder.text or ""),
+                "entry_id": None,
+                "mime": None,
+                "pinned": False,
+                "thumb_attachment_id": None,
+                "thumb_url": None,
             }
         )
     return items
@@ -645,6 +700,64 @@ def _notes(session: Session, q: str = "") -> list[dict]:
                 ),
             }
         )
+    return items
+
+
+#: How many notes are read for their highlights in one request. The marks are
+#: text (`entry/highlights.py`), so this is a scan of note bodies, bounded the
+#: way every other kind here is; newest first, so the passages a person marked
+#: lately are the ones that are always there.
+HIGHLIGHT_NOTES_SCANNED = 400
+#: How long a passage may be on its card. A highlight is one line by
+#: definition; this only guards against a mark wrapped round a paragraph.
+HIGHLIGHT_CLIP = 220
+
+
+def _highlights(session: Session, q: str = "") -> list[dict]:
+    """The passages you marked, each with the note it came from (BACKLOG 109.4).
+
+    No table: a highlight is `==words==` in a note's text, so this reads the
+    text of the notes whose text has one. A private note's text is ciphertext
+    and is never read; a draft or a binned note is not part of the notebook
+    here. One item per passage, `entry_id` pointing at its note, which is what
+    pressing the card opens.
+    """
+    rows = session.execute(
+        select(Entry)
+        .where(
+            *_LIVE_NOTE,
+            Entry.is_board == False,  # noqa: E712
+            Entry.is_private == False,  # noqa: E712
+            Entry.content.contains("=="),
+        )
+        .order_by(Entry.created_at.desc())
+        .limit(HIGHLIGHT_NOTES_SCANNED)
+    ).scalars()
+    wanted = q.lower()
+    items: list[dict] = []
+    for entry in rows:
+        text = entry.content or ""
+        own_title = extract_title(text)
+        source = own_title or (_clip(text)[:60] or "Untitled note")
+        for passage in note_highlights.passages(text):
+            if wanted and wanted not in passage.lower() and wanted not in (own_title or "").lower():
+                continue
+            items.append(
+                {
+                    "kind": "highlight",
+                    "id": len(items) + 1,
+                    "title": passage if len(passage) <= HIGHLIGHT_CLIP else passage[: HIGHLIGHT_CLIP - 1] + "…",
+                    "preview": "",
+                    "updated_at": entry.created_at.isoformat(),
+                    "detail": f"in {source}",
+                    "size": len(passage),
+                    "entry_id": entry.id,
+                    "mime": None,
+                    "pinned": False,
+                }
+            )
+            if len(items) >= PER_KIND_LIMIT:
+                return items
     return items
 
 
@@ -938,6 +1051,7 @@ def library(
     q = q.strip()
     items = (
         _notes(session, q)
+        + _highlights(session, q)
         + _documents(session, q)
         + _chats(session, q)
         + _images(session)

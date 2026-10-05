@@ -28,15 +28,15 @@ CATEGORY_TOOLS = {"create_category", "rename_category", "merge_categories", "del
 #: tool -> (file, a line that proves the manual path, where a person finds it)
 MANUAL = {
     "create_note": ("capture-ask.js", 'apiJson("/entries", {', "Notes, Capture box"),
-    "edit_note": ("notes-list.js", "base_hash: base", "a note's Edit form"),
-    "tag_note": ("notes-list.js", 'tagField.className = "tag-field note-edit-tags";', "a note's Edit form, Tags"),
+    "edit_note": ("note-edit-panels.js", "base_hash: base", "a note's Edit form"),
+    "tag_note": ("note-edit-panels.js", 'tagField.className = "tag-field note-edit-tags";', "a note's Edit form, Tags"),
     "pin_note": ("note-cards.js", 'button.classList.add("favourite-btn");', "a note's star"),
     "link_notes": ("graph-canvas.js", 'method: "POST", body: JSON.stringify({ target', "Graph, drag one note to another"),
     "unlink_notes": ("graph.js", '/links/${edge.id}`, { method: "DELETE" })', "Graph, click a link, Remove"),
     "audit_link_reasons": ("note-cards.js", "/reason`", "a note's links, Edit reason"),
     "delete_note": ("note-cards.js", "async function binNoteWithUndo(entry)", "a note's menu, Move to bin"),
     "restore_note": ("note-cards.js", '/restore`, { method: "POST"', "the recycle bin, Restore"),
-    "set_reminder": ("shell-reminders.js", 'const created = await apiJson("/reminders", {', "Reminders, New reminder"),
+    "set_reminder": ("shell-reminders.js", 'async function addReminder(text, dueValue', "Reminders, New reminder"),
     "complete_reminder": ("shell-reminders.js", "body: JSON.stringify({ done: checkbox.checked }),", "Reminders, the tick box"),
     "rename_tag": ("tag-manager.js", '"/tags/rename",', "Manage tags, Rename"),
     "delete_tag": ("tag-manager.js", '"/tags/delete", { names }', "Manage tags, Remove from all notes"),

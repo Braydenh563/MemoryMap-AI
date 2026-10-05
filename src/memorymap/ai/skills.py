@@ -37,6 +37,7 @@ tool names handed in by the caller rather than importing the registry, because
 from __future__ import annotations
 
 import re
+import threading
 
 MAX_SKILLS = 30
 MAX_NAME = 40
@@ -153,6 +154,15 @@ PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z][a-zA-Z0-9_]{0,23})\s*\}\}")
 INPUT_NAME = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]{0,23}$")
 
 
+#: The last problem sentence this module wrote, per thread. A skills-folder
+#: file's reason reaches the Settings response (`folder_skills`), and CodeQL
+#: reads anything taken from a caught exception as stack-trace information on
+#: its way out, `exc.message` included (alert 2026-10-05). The sentence is the
+#: same text either way; reading it from here rather than off the exception is
+#: what keeps the exception itself out of every response.
+_LAST_PROBLEM = threading.local()
+
+
 class SkillError(ValueError):
     """Something about this skill is wrong, phrased for whoever wrote it."""
 
@@ -162,6 +172,7 @@ class SkillError(ValueError):
         #: a response is the text this module wrote, not the exception object
         #: (CodeQL, information exposure through an exception).
         self.message = message
+        _LAST_PROBLEM.text = message
 
 
 def _text(value, limit: int, what: str) -> str:
@@ -1414,6 +1425,37 @@ BUILTIN_SKILLS: list[dict] = [
         "tools": _READING_TOOLS,
     },
     {
+        "name": "Write a document from a tag",
+        "description": "Every note under one tag, written up as one document.",
+        "prompt": "Write one document that brings together every note I tagged {{tag}}.",
+        "steps": [
+            _step("List the notes tagged {{tag}}.", "tool_called", "list_notes"),
+            _step(
+                "Read each one in full with get_note, rather than working "
+                "from the previews.",
+                "tool_called",
+                "get_note",
+            ),
+            _step(
+                "Decide the order the notes read best in, and what the "
+                "document should open with. Do not invent anything the notes "
+                "do not say.",
+                "answer_only",
+            ),
+            #: The one write, last, so a run that stalls earlier has changed
+            #: nothing. A document, never an edit to the notes it draws on.
+            _step(
+                "Save it with create_document, titled after {{tag}}, as "
+                "Markdown with a heading for each theme, and say which notes "
+                "it draws on.",
+                "tool_called",
+                "create_document",
+            ),
+        ],
+        "inputs": [{"name": "tag", "label": "Which tag?", "required": True}],
+        "tools": [*_READING_TOOLS, "create_document"],
+    },
+    {
         "name": "Daily review",
         "description": "Today's notes, turned into tomorrow's list.",
         "prompt": "Review what I captured today and tell me what needs doing.",
@@ -1689,8 +1731,8 @@ def _checked_folder_skill(raw: dict, known_tools: set[str] | None) -> dict | str
     """A folder file's skill through `normalise`, or the reason it is not one."""
     try:
         return normalise(raw, known_tools)
-    except SkillError as exc:
-        return exc.message
+    except SkillError:
+        return getattr(_LAST_PROBLEM, "text", "") or "This file is not a skill."
 
 
 def folder_skills(

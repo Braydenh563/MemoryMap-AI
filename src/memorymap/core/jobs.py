@@ -74,7 +74,12 @@ def _cpu_width() -> int:
 
 #: Lane -> how many workers it gets. `model` is 1 on purpose; see the module
 #: docstring. Read by `tests/test_jobs_pool.py`, which fails if it grows.
-LANE_WIDTHS: dict[str, int] = {"cpu": _cpu_width(), "model": 1, "batch": 1}
+#:
+#: `install` is one wide for the reason `model` is: two pips against one
+#: environment is a way to corrupt it (`core/extras.py`). Its own lane rather
+#: than the `cpu` one, because an install can take minutes and a laptop with
+#: one core would otherwise read no picture until pip had finished.
+LANE_WIDTHS: dict[str, int] = {"cpu": _cpu_width(), "model": 1, "batch": 1, "install": 1}
 
 #: The lane each job kind belongs on. A kind missing from here lands on
 #: `DEFAULT_LANE` with a debug line rather than raising.
@@ -85,6 +90,8 @@ KIND_LANES: dict[str, str] = {
     "vision": "model",
     "vision-pdf": "model",
     "file-entry": "model",
+    #: An edited note's new vector (routes_entries `_queue_embedding`).
+    "embed-entry": "model",
     "maintenance": "cpu",
     "bench": "model",
     "warm": "model",
@@ -95,6 +102,9 @@ KIND_LANES: dict[str, str] = {
     # Asking the model server what a model can do: a short HTTP call, no
     # model loaded, so it waits behind nothing on the I/O-shaped lane.
     "model-info": "cpu",
+    #: Installing, removing or reinstalling optional extras, one package or
+    #: a bundle (`core/extras.py`, INBOX 595).
+    "extras": "install",
 }
 
 DEFAULT_LANE = "cpu"
@@ -110,7 +120,11 @@ PENDING_ROWS_PER_KIND = 10
 #: for: the privacy ledger's flush (`core/egress.py`) queues one within a
 #: second of any connection that leaves this computer, and a row in the
 #: activity panel for it would be noise that says nothing they can act on.
-QUIET_KINDS = frozenset({"ledger", "maintenance", "warm", "model-info", "reindex"})
+#:
+#: `extras` is quiet for another reason: `routes_tasks.collect` already draws
+#: an install as its own row, with pip's step and log, and a second generic
+#: "Background job" row for the same install would say the same thing twice.
+QUIET_KINDS = frozenset({"ledger", "maintenance", "warm", "model-info", "reindex", "extras"})
 
 
 def _start_heartbeat(target):  # noqa: ANN001, ANN202

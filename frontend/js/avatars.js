@@ -2713,146 +2713,6 @@ function nameMarkSay(anchor, text) {
   setTimeout(() => bubble.remove(), 2600);
 }
 
-//: **The large view.** A click on a face that is not part of a control
-//: opens it big, animated, with what it was read as, so the joke can be
-//: seen at a size where it lands.
-//:
-//: **The companion comes into it itself** (INBOX 443, the owner: "if the
-//: companion is doing a specific action and i double click it to view it in
-//: the enlarged window, I want it to keep doing that action unless poked or
-//: something else happens"). Opened from the companion (`visit`), the large
-//: view is not a new drawing of it: the companion's own element moves into
-//: the card for as long as the card is open (`nameMarkBuddyVisit`), so its
-//: act, its face, its props, its sleep and its pose are the ones it had,
-//: and its own timer ends the act when the act ends. A poke is its own
-//: click handler; an app event its own cue. Closing sends it home to the
-//: perch it left.
-//:
-//: **And alive while you watch** (the owner: "needs more life and not just
-//: a statue"): its beat is every 2.5 to 6 seconds in here rather than 20 to
-//: 60 (`nameMarkBuddySchedule`), its eyes and head follow the pointer across
-//: the whole card (`nameMarkBuddyHeadAt`), a hover pets it, and it says one
-//: of its lines now and then (`nameMarkViewerChatter`). Any other face gets
-//: the same: the shared idle acts at the view's own quicker beat.
-//: Under reduced motion it only blinks, gently (`nameMarkViewerBlinks`).
-function openNameMarkViewer(seed, { visit = false } = {}) {
-  //: One at a time: a double-click opens it once.
-  if (document.querySelector(".nm-viewer")) return;
-  const opener = document.activeElement;
-  const openedAt = performance.now();
-  const buddy = visit ? document.getElementById("nm-buddy") : null;
-  const visiting = !!buddy && (buddy.dataset.seed || "") === (seed || "") && !buddy.classList.contains("nmb-away");
-  const overlay = document.createElement("div");
-  overlay.className = "modal-overlay nm-viewer";
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-label", `${seed || "Face"}, enlarged`);
-  const card = document.createElement("div");
-  card.className = "card modal-card nm-viewer-card";
-  //: The dialog-head recipe (DESIGN.md, "A dialog's head"): its name, then
-  //: the icon X. Close was a word button at the foot.
-  const head = document.createElement("div");
-  head.className = "dialog-head nm-viewer-head";
-  const name = document.createElement("h2");
-  name.className = "dialog-head-title nm-viewer-name";
-  name.textContent = seed || "Unnamed";
-  const actions = document.createElement("span");
-  actions.className = "dialog-head-actions";
-  //: The companion's own face is a button, so the stage around it is not
-  //: one; any other face is drawn inside a button that pokes it.
-  const stage = document.createElement(visiting ? "div" : "button");
-  stage.className = "nm-viewer-stage";
-  if (!visiting) {
-    stage.type = "button";
-    stage.title = "Poke it";
-  }
-  //: The whole character, as the companion draws it, at 2.2 times.
-  const figure = document.createElement("span");
-  figure.className = "nm-viewer-figure";
-  if (visiting) {
-    //: What it sits on, drawn only for that pose (the CSS).
-    const ledge = document.createElement("span");
-    ledge.className = "nm-viewer-ledge";
-    ledge.setAttribute("aria-hidden", "true");
-    figure.appendChild(ledge);
-  } else figure.appendChild(characterFor(seed).figure());
-  stage.appendChild(figure);
-  //: One line of description: what it is.
-  const reading = document.createElement("p");
-  reading.className = "muted nm-viewer-reading";
-  //: Atlas is not a face read from its name (its reading gave "Calm face
-  //: with shades", which describes nothing on the screen): it says who it is.
-  //: A face with nothing read from its name used to say "A face of its
-  //: own", which says nothing (the owner): now what it is.
-  reading.textContent = isAtlasSeed(seed) ? "The app's own guide" : nameMarkTitle(nameMood(seed)) || "Its own face, read from its name";
-  let home = null;
-  let chatter = 0;
-  let blinks = 0;
-  const shut = () => {
-    clearTimeout(chatter);
-    clearTimeout(blinks);
-    if (home) home();
-    home = null;
-    overlay.remove();
-    document.removeEventListener("keydown", onKey, true);
-    if (opener && typeof opener.focus === "function" && opener.isConnected) opener.focus();
-  };
-  const close = smallButton("ph:x", "Close", shut);
-  close.classList.add("icon-only", "dialog-head-btn");
-  actions.appendChild(close);
-  head.append(name, actions);
-  card.append(head, stage, reading);
-  overlay.appendChild(card);
-  const onKey = (event) => {
-    if (event.key === "Escape") {
-      event.stopPropagation();
-      shut();
-    }
-  };
-  if (!visiting) {
-    stage.addEventListener("click", () => {
-      nameMarkReact(stage.querySelector(".name-mark"));
-      nameMarkSay(stage, nameMarkLine(seed));
-    });
-  }
-  //: Not closed by the second click of the double-click that opened it:
-  //: a click on the ground within 400ms of opening is that click.
-  overlay.addEventListener("click", (event) => {
-    if (event.target === overlay && performance.now() - openedAt > 400) shut();
-  });
-  document.addEventListener("keydown", onKey, true);
-  document.body.appendChild(overlay);
-  if (visiting) home = nameMarkBuddyVisit(figure);
-  if (visiting && !home) figure.appendChild(characterFor(seed).figure());
-  nameMarkViewerFit(figure);
-  requestAnimationFrame(() => nameMarkViewerFit(figure));
-  close.focus();
-  //: Its lines, one every 7 to 13 seconds while the view is open; not
-  //: asleep, not under a line it has just been poked into saying.
-  const talk = () => {
-    chatter = setTimeout(() => {
-      if (!overlay.isConnected) return;
-      const asleep = !!home && nameMarkBuddyAsleep(document.getElementById("nm-buddy"));
-      const host = home ? document.getElementById("nm-buddy") : stage;
-      if (!asleep && host && !host.querySelector(":scope > .nm-say")) nameMarkSay(host, nameMarkLine(seed));
-      talk();
-    }, 7000 + Math.random() * 6000);
-  };
-  talk();
-  if (nameMarkIdleQuiet()) {
-    blinks = nameMarkViewerBlinks(figure);
-    return;
-  }
-  //: Alive while it is open: a first small act soon, then the view's beat,
-  //: and its eyes and head on the pointer (INBOX 591; its loops are the
-  //: CSS's, under `.nm-viewer-figure > .nm-figure.nm-live`).
-  if (!home) {
-    setTimeout(() => figure.isConnected && nameMarkIdleAct(figure, "glance"), 900);
-    nameMarkIdleWake();
-    nameMarkViewerFollow(overlay, figure);
-  }
-}
-
 //: **A face in its large view watches the pointer** (INBOX 591, the owner:
 //: the view "has no life to it like with atlas and the companion itself").
 //: Its face is not one of the faces on screen the page's follow listener
@@ -2921,9 +2781,42 @@ function nameMarkBuddyVisit(host) {
   //: own `data-pose`, a copy kept here (a `:has()` on the companion's made
   //: every pose change restyle 968 elements of the page).
   const mirror = () => { host.dataset.pose = buddy.dataset.pose || ""; };
+  //: **A face visiting its large view keeps moving between its beats**
+  //: (INBOX 600, the owner: "it might sway or do something for a couple
+  //: seconds but will then snap still"). Its acts come every 2.5 to 6
+  //: seconds and its breath is under a pixel, so between them it stood still
+  //: for over a second (atlas600-still.js: 1,083ms with no part moving
+  //: 0.75px). Its weight now shifts about its feet and it bobs, on two clocks
+  //: that never line up (6.7s, 4.3s), so one is under way while the other
+  //: turns; `rotate` and `translate` on the face's own box, which nothing
+  //: else moves, so an act plays over them. Each starts half a swing in, at
+  //: rest. Atlas too (INBOX 619): its layers' own loops are under a pixel
+  //: for over a second at a time (atlas619-viewer.js: still 1,051 to
+  //: 1,787ms in the view), so it floats on the same two clocks. Script, not
+  //: the stylesheet (the boot CSS is at its budget); gone with the visit,
+  //: and never under reduced motion or with the companion's actions off.
+  const face = buddy.querySelector(":scope > .nm-buddy-face");
+  const sway = [];
+  if (face && typeof face.animate === "function" && !nameMarkIdleQuiet()) {
+    const loop = (frames, ms) => face.animate(frames, { duration: ms, delay: -ms / 2, iterations: Infinity, direction: "alternate", easing: "ease-in-out" });
+    sway.push(loop([{ rotate: "-2deg" }, { rotate: "2deg" }], 6700), loop([{ translate: "0 1.2px" }, { translate: "0 -1.4px" }], 4300));
+  }
   const watch = new MutationObserver(mirror);
-  nmb.visit = { home: buddy.parentNode, next: buddy.nextSibling, watch };
+  nmb.visit = { home: buddy.parentNode, next: buddy.nextSibling, watch, sway, pose: nmb.pose, legs: nmb.legs };
   buddy.classList.remove("nmb-dodge");
+  //: **Free of its perch in there** (INBOX 619, the owner: "in the enlarged
+  //: preview atlas is still hanging, it should be slightly separate from the
+  //: companion but still have the same life"). It came in holding the pose
+  //: of its perch: hanging by its hands from the card's top edge, sitting on
+  //: a drawn ledge, leaning on nothing. In the view it floats, clear of the
+  //: card's edges, with its float's own loops and the view's beat; the
+  //: perch's pose and legs go back with it (`nameMarkBuddyHome`). Asleep
+  //: lying or curled, it stays so, and gets up into the float.
+  if (nmb.pose !== "stand") {
+    nmb.pose = "float";
+    buddy.dataset.legs = nmb.legs = "";
+    if (!/^(lie|curl)/.test(buddy.dataset.pose || "")) buddy.dataset.pose = "float";
+  }
   host.appendChild(buddy);
   mirror();
   watch.observe(buddy, { attributes: true, attributeFilter: ["data-pose"] });
@@ -2936,8 +2829,15 @@ function nameMarkBuddyHome() {
   if (!visit) return;
   nmb.visit = null;
   visit.watch?.disconnect();
+  for (const anim of visit.sway || []) anim.cancel();
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
+  //: Back to its perch's pose (the view floated it, `nameMarkBuddyVisit`).
+  if (visit.pose && nmb.pose !== visit.pose) {
+    nmb.pose = visit.pose;
+    buddy.dataset.legs = nmb.legs = visit.legs || "";
+    if (!/^(lie|curl)/.test(buddy.dataset.pose || "")) buddy.dataset.pose = visit.pose;
+  }
   buddy.querySelector(":scope > .nm-say")?.remove();
   if (visit.home?.isConnected) visit.home.insertBefore(buddy, visit.next?.parentNode === visit.home ? visit.next : null);
   nameMarkBuddyRelease();
@@ -3326,20 +3226,20 @@ function mountProfileLook() {
     nameMarkLookPickers(host, "profile-look-", "From your name", ownNameMarkStyle, (style) => {
       setOwnNameMarkStyle(style);
       repaintOwnFace();
-      if (typeof markPrefsDirty === "function") markPrefsDirty();
+      markPrefsDirty();
     });
     document.getElementById("profile-look-shuffle")?.addEventListener("click", () => {
       const style = ownNameMarkStyle();
       style.variant = ((Number(style.variant) || 0) + 1) % 10000;
       setOwnNameMarkStyle(style);
       repaintOwnFace();
-      if (typeof markPrefsDirty === "function") markPrefsDirty();
+      markPrefsDirty();
     });
     document.getElementById("profile-look-reset")?.addEventListener("click", () => {
       setOwnNameMarkStyle({});
       syncProfileLook();
       repaintOwnFace();
-      if (typeof markPrefsDirty === "function") markPrefsDirty();
+      markPrefsDirty();
     });
   }
   syncProfileLook();
@@ -3623,7 +3523,7 @@ function nameMarkBuddySavePreset() {
   const input = document.getElementById("avatar-buddy-preset-name");
   const name = (input?.value || "").trim().slice(0, 30);
   if (!name) {
-    if (typeof toast === "function") toast("Give the companion a name first.", true);
+    toast("Give the companion a name first.", true);
     input?.focus();
     return;
   }
@@ -3634,13 +3534,13 @@ function nameMarkBuddySavePreset() {
   }
   const others = nameMarkBuddyPresets().filter((p) => p.name !== name && p.name !== nmbPresetRenaming);
   if (others.length >= NMB_PRESET_MAX) {
-    if (typeof toast === "function") toast(`You can keep ${NMB_PRESET_MAX} saved companions: delete one first.`, true);
+    toast(`You can keep ${NMB_PRESET_MAX} saved companions: delete one first.`, true);
     return;
   }
   nmbPresetRenaming = "";
   input.value = "";
   nameMarkBuddyKeepPresets([...others, { name, values }]);
-  if (typeof toast === "function") toast(`Saved “${name}”.`);
+  toast(`Saved “${name}”.`);
 }
 function nameMarkBuddyApplyPreset(preset) {
   for (const key of NMB_PRESET_KEYS) {
@@ -3660,7 +3560,7 @@ function nameMarkBuddyApplyPreset(preset) {
   }
   syncNameMarkBuddy();
   mountBuddyActivities();
-  if (typeof toast === "function") toast(`Applied “${preset.name}”.`);
+  toast(`Applied “${preset.name}”.`);
 }
 function mountBuddyPresets() {
   const box = document.getElementById("avatar-buddy-presets");
@@ -3700,7 +3600,7 @@ function mountBuddyPresets() {
     remove.setAttribute("aria-label", `Delete the saved companion “${preset.name}”`);
     remove.addEventListener("click", () => {
       nameMarkBuddyKeepPresets(nameMarkBuddyPresets().filter((p) => p.name !== preset.name));
-      if (typeof toast === "function") toast(`Deleted “${preset.name}”.`);
+      toast(`Deleted “${preset.name}”.`);
     });
     row.append(apply, rename, remove);
     box.appendChild(row);
@@ -4127,6 +4027,15 @@ function nameMarkBuddySetSize(scale, keep = true) {
   //: its rings to it. Once per chosen size, not per frame of a handle drag.
   if (nmb.ride) nameMarkBuddyRideBox(nmb.x, nmb.y, true);
   queueNameMarkBuddyCheck();
+}
+//: Back to its own size (Medium) from the handle (INBOX 601: a double-click
+//: or double tap on it), eased as a fitted size is, and kept.
+function nameMarkBuddyResetSize(buddy = document.getElementById("nm-buddy")) {
+  if (!buddy) return;
+  buddy.classList.add("nmb-fitting");
+  clearTimeout(nmb.fitTimer);
+  nmb.fitTimer = setTimeout(() => buddy.classList.remove("nmb-fitting"), 900);
+  nameMarkBuddySetSize(NMB_SIZES.medium, true);
 }
 //: Appearance's select: the three sizes, and "As you sized it" for a size
 //: the handle gave it.
@@ -6876,7 +6785,12 @@ function nameMarkBuddyAct(act, ms) {
     buddy.dataset.variant = String(v);
   } else delete buddy.dataset.variant;
   if (act === "tilt") nameMarkBuddyTilt(Math.random() < 0.5 ? -0.7 : 0.7, (ms || spec.ms) - 400);
-  buddy.classList.add(`nmb-act-${act}`);
+  //: **Into an act eased, as out of one** (INBOX 619, the owner: "it still
+  //: snaps between behaviours and no behaviours"). An act's class takes
+  //: over parts whose idle loop was mid-swing, and its first frame put them
+  //: at the act's start in one frame; `nameMarkBuddyBlend` hands each such
+  //: part over from where it was, in `NMB_BLEND_IN_MS`.
+  nameMarkBuddyBlend(buddy, () => buddy.classList.add(`nmb-act-${act}`), NMB_BLEND_IN_MS);
   //: A new act starts with its arms (INBOX 469): a small lift and back.
   if (act !== was && !NMB_FACELESS_ACTS.includes(act) && !NMB_RESTING_ACTS.has(act) && !nameMarkBuddyStill()) nameMarkBuddyLimbs(buddy, "cue", 420);
   nmb.act = act;
@@ -7806,15 +7720,22 @@ function nameMarkBuddyAsleep(buddy) {
 //: out, so it neither lurches off nor stops dead. Only
 //: when something was moving, and never under reduced motion, where the
 //: change is made as it was.
+//: `buddy` may be a list of roots, and `ms` a longer hand-over: Atlas's
+//: mood loops (a giggle, a hop, a wag) going back to its idle use both
+//: (atlas.js, `setAtlasMood`, INBOX 600: "it might sway or do something for
+//: a couple seconds but will then snap still").
 const NMB_BLEND_MS = 480;
+//: Into an act: shorter, so a quick one (a hop, 800ms) still reads as itself.
+const NMB_BLEND_IN_MS = 300;
 const NMB_BLEND_PROPS = ["transform", "translate", "rotate", "scale", "opacity"];
-function nameMarkBuddyBlend(buddy, change) {
-  if (!buddy || typeof buddy.getAnimations !== "function" || nameMarkIdleQuiet()) {
+function nameMarkBuddyBlend(buddy, change, ms = NMB_BLEND_MS) {
+  const roots = (Array.isArray(buddy) ? buddy : [buddy]).filter((el) => el && typeof el.getAnimations === "function");
+  if (!roots.length || nameMarkIdleQuiet()) {
     change();
     return;
   }
   const held = [];
-  for (const anim of buddy.getAnimations({ subtree: true })) {
+  for (const anim of roots.flatMap((el) => el.getAnimations({ subtree: true }))) {
     //: Running, or held by the pacer (`nameMarkBuddyTempo` pauses what
     //: animates inside a drawing and steps it by hand).
     if (!(typeof CSSAnimation === "function" && anim instanceof CSSAnimation) || anim.playState === "finished" || anim.playState === "idle") continue;
@@ -7833,7 +7754,7 @@ function nameMarkBuddyBlend(buddy, change) {
   for (const { anim, el, from } of held) {
     if (el.getAnimations().includes(anim)) continue;
     //: `offset: 0`: a lone keyframe with none is the end, not the start.
-    el.animate([{ ...from, offset: 0 }], { duration: NMB_BLEND_MS, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
+    el.animate([{ ...from, offset: 0 }], { duration: ms, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
   }
 }
 
@@ -8440,7 +8361,7 @@ function nameMarkBuddyHide(buddy) {
   });
   //: The chord as it is bound now (it is rebindable), not as it shipped.
   const keys = typeof shortcuts === "object" ? shortcuts?.toggleCompanion?.keys : "";
-  if (typeof toast === "function") toast(keys ? `Companion hidden. ${keys} or Settings, Appearance brings it back.` : "Companion hidden. Settings, Appearance brings it back.");
+  toast(keys ? `Companion hidden. ${keys} or Settings, Appearance brings it back.` : "Companion hidden. Settings, Appearance brings it back.");
 }
 
 //: Whether it is out: chosen in Appearance, or still on the page.
@@ -8480,187 +8401,6 @@ function nameMarkBuddyToggle() {
   } else {
     syncNameMarkBuddy();
   }
-}
-
-//: **Its menu opens at it** (INBOX 426 p, the owner: "the right click
-//: companion dropdown menu doesnt appear where the companion is"). However
-//: it was opened (a right-click, a hold, the keyboard), the menu is placed
-//: from the companion's own box: beside it on the side with room, its top
-//: level with the companion's, kept inside the window. `openMenuAtPoint`
-//: builds it (the app's one menu), and it is then shifted by a `translate`
-//: to that place, which leaves how the menu was positioned alone. While it
-//: is open the companion does not go anywhere on its own.
-//:
-//: **Opened by the pointer, it opens at the pointer** (INBOX 426 x, 84.png,
-//: round 4): `at` is where a right-click or a long press was, and the menu
-//: opens there, the way every other context menu does; from the keyboard
-//: it opens beside the companion's box. And a move already under way stops
-//: where it is drawn: measured at 1.25 and 1.5 scale, a right-click mid-walk
-//: or mid-poof opened the menu at the companion and the move then carried
-//: the companion 69 to 136px away from it. Its next place is chosen on its
-//: own beat, once the menu has closed.
-function nameMarkBuddyMenu(buddy, at = null) {
-  if (typeof openMenuAtPoint !== "function") return;
-  const face = buddy.querySelector(".nm-buddy-face");
-  if (nmb.anim && nmb.anim.playState === "running") {
-    const drawn = buddy.getBoundingClientRect();
-    nmb.anim.cancel();
-    nmb.hopAnim?.cancel();
-    buddy.classList.remove("nmb-walking", "nmb-poofing");
-    nmb.glue = null;
-    nameMarkBuddyWatch();
-    nameMarkBuddyRide(null, Math.round(drawn.left), Math.round(drawn.top));
-    buddy.dataset.pose = nmb.pose = "float";
-    buddy.dataset.legs = nmb.legs = "";
-    nameMarkBuddyQueuePlace();
-  }
-  const tab = nameMarkBuddyTab();
-  const spots = nameMarkBuddySpots();
-  const items = [
-    { group: "say", label: "ph:hand-waving Say hello", run: () => face.click() },
-    { group: "say", label: "ph:arrows-out Enlarge", run: () => openNameMarkViewer(buddy.dataset.seed || "", { visit: true }) },
-    //: **Pinned means pinned** (INBOX 426 l, the owner: "when I press the
-    //: option to stay in the same spot across pages ... it still moves"):
-    //: the place on screen and the pose are kept, and nothing but you moves
-    //: it again (no perch, no errand, no beat) until you drag it or call it
-    //: back.
-    { group: "place", label: "ph:push-pin Stay here on every page", run: () => {
-      //: Where it is drawn now: mid-walk, `nmb.x` is where it was going,
-      //: and pinning there made it jump at the moment it was told to stay.
-      const box = buddy.getBoundingClientRect();
-      const x = Math.round(box.left);
-      const y = Math.round(box.top);
-      nmb.anim?.cancel();
-      nmb.hopAnim?.cancel();
-      nameMarkBuddyKeepSpots({ "*": { x, y, pose: nmb.pose, legs: nmb.legs, side: buddy.dataset.side || "", w: innerWidth, h: innerHeight, keep: 1 } });
-      nameMarkBuddyMoveTo(buddy, { kind: "pinned", x, y, pose: nmb.pose, legs: nmb.legs, side: buddy.dataset.side || "" }, true);
-    } },
-  ];
-  if (spots[tab]) {
-    items.push({ group: "place", label: "ph:sparkle Let it choose its spot here", run: () => {
-      const next = { ...spots };
-      delete next[tab];
-      nameMarkBuddyKeepSpots(next);
-      placeNameMarkBuddy(buddy, false, [nmb.x, nmb.y]);
-    } });
-  }
-  //: **Tuck it away for a while** (the owner at release: "a way to tuck it
-  //: away but still have it there"): it goes behind the status bar with
-  //: only its head showing, the bar perch's own `legs: "peek"`, and stays
-  //: there, on this page only and not saved, until it is clicked, dragged
-  //: or called back.
-  const { bottom } = nameMarkBuddyLedges();
-  if (bottom && !nmb.tucked) {
-    items.push({ group: "place", label: "ph:arrow-line-down Tuck behind the bar", run: () => {
-      const x = Math.max(NMB_GUTTER, Math.min(innerWidth - NMB_GUTTER - NMB_W, Math.round(buddy.getBoundingClientRect().left)));
-      nmb.tucked = true;
-      nameMarkBuddyMoveTo(buddy, { kind: "pinned", pose: "sit", legs: "peek", x, y: bottom.top - NMB_SEAT, edge: { el: document.getElementById("status-bar"), type: "top", kind: "bar", y: bottom.top } });
-    } });
-  }
-  items.push({ group: "place", label: "ph:arrow-counter-clockwise Call back and reset its place", run: nameMarkBuddyCallBack });
-  //: **Who it is, how Atlas looks, its size, and the settings behind them,
-  //: one flyout each** (the owner: "extend this menu a bit maybe with
-  //: sub-sections if necessary, for things such as a quick link to the
-  //: profile/personas/appearences tab, toggling various features such as
-  //: masculine/feminine, which companion is displayed etc."). Submenus
-  //: (`items`, the kebab recipe's flyout) so the menu stays eight rows; the
-  //: current choice in each is ticked. Each choice goes through its own
-  //: Appearance control's change, so the menu and Settings cannot disagree.
-  const tick = (on, label) => `${on ? "ph:check" : "ph:dot-outline"} ${label}`;
-  const choose = (id, value) => {
-    const select = document.getElementById(id);
-    if (!select) return;
-    select.value = value;
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-  };
-  let who = "off";
-  try {
-    who = prefs.get("avatar-buddy", null) || "off";
-  } catch (e) {
-    who = "off";
-  }
-  items.push({
-    group: "who",
-    label: "ph:user-switch Companion",
-    items: [
-      ...[["atlas", "Atlas"], ["me", "You"], ["persona", "The chat's persona"], ["custom", "Your own character"]]
-        .map(([value, label]) => ({
-          label: tick(who === value, label),
-          //: Your own character, never made: chosen, and its maker opened,
-          //: rather than a face quietly made up for it.
-          run: () => {
-            choose("avatar-buddy", value);
-            if (value === "custom" && !nameMarkBuddyMade("custom")) nameMarkBuddyMakeIt("custom");
-          },
-        })),
-      ...(nameMarkBuddyMade("me") ? [] : [{ label: "ph:user-circle-plus Create your avatar", run: () => nameMarkBuddyMakeIt("me") }]),
-    ],
-  });
-  const look = document.getElementById("atlas-look")?.value || "auto";
-  items.push({
-    group: "who",
-    label: "ph:star-four Atlas look",
-    items: [["masculine", "Masculine"], ["feminine", "Feminine"], ["auto", "Auto: match your faces"]]
-      .map(([value, label]) => ({ label: tick(look === value, label), run: () => choose("atlas-look", value) })),
-  });
-  const size = nmb.scale || 1;
-  items.push({
-    group: "who",
-    label: "ph:resize Size",
-    items: Object.entries(NMB_SIZES).map(([name, value]) => ({
-      label: tick(size === value, `${name[0].toUpperCase()}${name.slice(1)}`),
-      title: `Make it ${name}`,
-      run: () => nameMarkBuddySetSize(value),
-    })),
-  });
-  items.push({
-    group: "settings",
-    label: "ph:gear Settings",
-    items: [
-      { label: "ph:palette Appearance, the companion", run: () => openSettingsModal("appearance", "avatar-buddy-row") },
-      { label: "ph:user-circle Profile, your look", run: () => openSettingsModal("preferences") },
-      { label: "ph:mask-happy Personas", run: () => openSettingsModal("personas") },
-    ],
-  });
-  items.push({ group: "hide", label: "ph:eye-slash Hide", run: () => nameMarkBuddyHide(buddy) });
-  const box = face.getBoundingClientRect();
-  openMenuAtPoint(items, "Companion", at ? at[0] : box.left, at ? at[1] : box.top);
-  const menu = [...document.querySelectorAll(".pointer-menu-host .action-menu, .action-menu.action-menu-escaped")]
-    .find((el) => !el.classList.contains("hidden") && el.getBoundingClientRect().width);
-  nmb.menu = menu || null;
-  if (!menu) return;
-  //: At the pointer: only kept inside the window.
-  const inside = () => {
-    menu.style.translate = "";
-    const now = menu.getBoundingClientRect();
-    const margin = 8;
-    const dx = Math.min(0, innerWidth - margin - now.right) + Math.max(0, margin - now.left);
-    const dy = Math.min(0, innerHeight - margin - now.bottom) + Math.max(0, margin - now.top);
-    if (dx || dy) menu.style.translate = `${Math.round(dx)}px ${Math.round(dy)}px`;
-  };
-  //: Placed from the companion's box as it is each time: a panel moving
-  //: under it while the menu is open (a transform) carries both.
-  const beside = () => {
-    const box = face.getBoundingClientRect();
-    menu.style.translate = "";
-    const now = menu.getBoundingClientRect();
-    const gap = 6;
-    const margin = 8;
-    let left = box.right + gap;
-    if (left + now.width > innerWidth - margin) left = box.left - gap - now.width;
-    left = Math.min(Math.max(margin, left), innerWidth - margin - now.width);
-    const top = Math.min(Math.max(margin, box.top), innerHeight - margin - now.height);
-    menu.style.translate = `${Math.round(left - now.left)}px ${Math.round(top - now.top)}px`;
-  };
-  //: Placed now, and once more on the next frame: the menu's own opening
-  //: settles its box a frame later, which measured as the menu landing 13px
-  //: above the companion's top when placed only once.
-  const place = at ? inside : beside;
-  place();
-  nmb.menuPlace = place;
-  requestAnimationFrame(() => {
-    if (menu.isConnected && !menu.classList.contains("hidden")) place();
-  });
 }
 
 function nameMarkBuddyBuild() {
@@ -8729,25 +8469,51 @@ function nameMarkBuddyBuild() {
   const grip = document.createElement("span");
   grip.className = "nmb-size-grip";
   grip.setAttribute("aria-hidden", "true");
-  grip.title = "Drag to resize";
+  grip.title = "Drag to resize, double-click to reset";
   face.appendChild(grip);
   grip.addEventListener("click", (event) => event.stopPropagation());
+  //: **A double-click or a double tap puts it back to its own size** (INBOX
+  //: 601, the owner: "I want to be able to double tab the drag to resize
+  //: circle on the companion to reset it to default size"): Medium, kept
+  //: as a size from the handle is (`nameMarkBuddySetSize`), eased there
+  //: rather than jumped (`nmb-fitting`, the CSS's scale transition). The
+  //: second press is read here, not from `dblclick`: the press's
+  //: `preventDefault` (no text selected while sizing) and the pointer
+  //: capture keep a touch's taps from ever making one, and a press that
+  //: became a drag is not half of a double. Its own `dblclick` stops here
+  //: too, so it never opens the large view.
+  grip.addEventListener("dblclick", (event) => event.stopPropagation());
+  let lastPress = null;
   grip.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
     event.stopPropagation();
     event.preventDefault();
+    const at = performance.now();
+    if (lastPress && at - lastPress.at < 400 && Math.hypot(event.clientX - lastPress.x, event.clientY - lastPress.y) < 12 && !lastPress.moved) {
+      lastPress = null;
+      nameMarkBuddyResetSize(buddy);
+      return;
+    }
+    const press = { at, x: event.clientX, y: event.clientY, moved: false };
+    lastPress = press;
     const [ox, oy] = nameMarkBuddyOrigin(nmb.x, nmb.y, nmb.pose);
     const from = Math.max(8, Math.hypot(event.clientX - ox, event.clientY - oy));
     const was = nmb.scale || 1;
     grip.setPointerCapture(event.pointerId);
     buddy.classList.add("nmb-sizing");
-    const move = (e) => nameMarkBuddySetSize(was * Math.hypot(e.clientX - ox, e.clientY - oy) / from, false);
+    const move = (e) => {
+      if (!press.moved && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 4) return;
+      press.moved = true;
+      nameMarkBuddySetSize(was * Math.hypot(e.clientX - ox, e.clientY - oy) / from, false);
+    };
     const end = () => {
       grip.removeEventListener("pointermove", move);
       grip.removeEventListener("pointerup", end);
       grip.removeEventListener("pointercancel", end);
       buddy.classList.remove("nmb-sizing");
-      nameMarkBuddySetSize(nmb.scale, true);
+      //: A press that never pulled leaves the size as it was (it may be
+      //: the first of a double).
+      if (press.moved) nameMarkBuddySetSize(nmb.scale, true);
     };
     grip.addEventListener("pointermove", move);
     grip.addEventListener("pointerup", end);

@@ -13,7 +13,7 @@
 //  * the OCR workspace (`#ocr-engine`, mounted by library.js): can it read,
 //    which language, and when it cannot, one Install button that follows the
 //    install to the end;
-//  * the Packages row for "Search inside images" (status.js `renderExtras`):
+//  * the Packages row for "Search inside images" (settings-packages.js `renderExtras`):
 //    the language choice only, because that row already owns Install,
 //    Reinstall, Remove and the progress bar, and a second set would be the
 //    duplicate this was told not to build.

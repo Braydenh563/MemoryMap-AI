@@ -3128,9 +3128,17 @@ RICH_PICKERS = [
     ("editor.js", "editorRenderMenu"),
     ("app-palette.js", "renderPalette"),
     ("library.js", "openLibraryCreatePicker"),
-    ("settings-wiring.js", "chordGuideGroup"),
+    ("chord-guide.js", "chordGuideGroup"),
     ("selection.js", "pickerListbox"),
 ]
+
+
+def _notes_picker_body() -> str:
+    """`pickNotesDialog`, now at the end of whiteboard.js's moved block: it ends
+    where the next function, an `async` one, begins."""
+    text = frontend_text("whiteboard.js")
+    start = text.index("function pickNotesDialog(")
+    return text[start : text.index("\nasync function addBoardToNote(", start)]
 
 
 def test_every_notebook_picker_is_the_picker_dialog() -> None:
@@ -3143,11 +3151,12 @@ def test_every_notebook_picker_is_the_picker_dialog() -> None:
         assert part in shell, part
     head = _function_body(source, "dialogHead")
     assert '"dialog-head"' in head and '"dialog-head-btn"' in head and '"dialog-head-title"' in head
+    #: pickNotesDialog moved to whiteboard.js, its only caller (search-boot-1005).
     for picker in ("pickEntryDialog", "pickLibraryItemDialog", "pickNotesDialog", "pickMediaDialog"):
-        body = _function_body(source, picker)
+        body = _notes_picker_body() if picker == "pickNotesDialog" else _function_body(source, picker)
         assert "pickerDialog(" in body, picker
         assert "confirm-card" not in body and "confirm-text" not in body, picker
-    assert "notePickerRow(" in _function_body(source, "pickNotesDialog")
+    assert "notePickerRow(" in _notes_picker_body()
 
 
 def test_a_picker_row_never_shrinks_and_its_sources_span_the_dialog() -> None:
@@ -3773,7 +3782,7 @@ def test_one_builder_draws_a_thinking_fold() -> None:
     for name, call in (
         ("chat-agent.js", "const el = thinkingFold();"),
         ("palette.js", "thinkingBox = thinkingFold();"),
-        ("settings.js", "const think = thinkingFold();"),
+        ("help-chat.js", "const think = thinkingFold();"),
         ("capture-ask.js", 'thinkingFoldIn(thinkingHost)'),
         ("chat-agent.js", 'thinkingFoldIn(thinkingHost)'),
     ):
@@ -3835,7 +3844,7 @@ def test_an_assistant_head_asks_one_function_for_its_face() -> None:
     ):
         assert call in js[name], f"{name}'s reply head no longer asks paintPersonaAvatar"
     assert "paintAssistantAvatar(host, size)" in js["atlas.js"], "the guide and agent heads skip the setting"
-    assert "paintAssistantAvatar(mark," in js["settings.js"], "the guide sheet's head skips the setting"
+    assert "paintAssistantAvatar(mark," in js["help-chat.js"], "the guide sheet's head skips the setting"
     #: INBOX 471: Ask's answer, the writing room's draft and the guide's chat
     #: rows wear the same reply head (the face, then the name), painted through
     #: the same function, so the setting and its live repaint reach them.
@@ -3846,7 +3855,7 @@ def test_an_assistant_head_asks_one_function_for_its_face() -> None:
     assert "paintAssistantAvatar(holder, 20)" in chat[chat.index("function paintAssistantHeads") :][:200]
     assert "paintAssistantAvatar(avatar, 20)" in chat[chat.index("function assistantHeadRow") :][:600]
     assert "paintAssistantHeads()" in js["navigation.js"], "a section change fills the static heads"
-    guide = js["settings.js"]
+    guide = js["help-chat.js"]
     assert guide.count("assistantHeadRow(GUIDE_NAME)") == 4, "a guide row, its pending row, the streamed one and the revealed one each open with the head"
     #: The setting: a default, a control, a live repaint and a reset.
     settings = js["settings.js"]
@@ -3980,6 +3989,25 @@ def test_a_maps_boundaries_and_summaries_are_drawn_in_one_pass() -> None:
     assert ".wb-map-boundaries,\n.wb-map-summaries {\n  --wb-boundary: var(--accent);\n  pointer-events: none;" in css
     for key in ("boundary", "boundary_label", "summary", "summary_span"):
         assert f'"{key}"' in wm[wm.index("const WB_MAP_CONTENT_KEYS") :][:200]
+
+
+def test_a_topics_markers_are_one_row_from_one_icon_set() -> None:
+    """MINDMAP_PLAN decision 34 (DESIGN.md's marker row): the marks are drawn
+    by one function into one row from the paint pass, the icons come from a
+    fixed Phosphor set with no emoji in it, every change is the topic's one
+    undo step, and the markers are content (a branch copy keeps them)."""
+    wm = (ROOT / "frontend" / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
+    paint = wm[wm.index("function wbPaintMapNodeStyle(") :][:6000]
+    assert "wbMapPaintMarkers(markers, d.data || {});" in paint
+    painter = wm[wm.index("function wbMapPaintMarkers(") :]
+    painter = painter[: painter.index("\n}\n")]
+    assert painter.count("wb-map-mark") >= 3 and wm.count("wb-map-mark ") == painter.count("wb-map-mark ")
+    icons = wm[wm.index("const WB_MAP_MARKER_ICONS") :][:600]
+    assert all(ord(ch) < 0x2000 for ch in icons), "an emoji in the marker set"
+    assert "await wbMapSetNodeStyle(live, patch);" in wm[wm.index("function wbMapOpenMarkers(") :][:1500]
+    keys = wm[wm.index("const WB_MAP_CONTENT_KEYS") :][:200]
+    for key in ("priority", "progress", "flag", "markers"):
+        assert f'"{key}"' in keys
 
 
 def test_a_comment_thread_is_one_popover_reached_three_ways() -> None:

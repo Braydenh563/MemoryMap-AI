@@ -10,13 +10,17 @@
   const $ = (id) => document.getElementById(id);
   let saving = false;
 
-  function token() {
+  //: What the app saved in this browser: the session token, and the space
+  //: open there (`activeSpaceId`, spaces-find.js), so a capture lands where
+  //: the person is working rather than in the default space.
+  function stored(key) {
     try {
-      return localStorage.getItem("token") || "";
+      return localStorage.getItem(key) || "";
     } catch {
       return "";
     }
   }
+  const token = () => stored("token");
 
   function status(text, isError = false) {
     $("capture-status").textContent = text;
@@ -37,7 +41,7 @@
     try {
       const response = await fetch("/entries", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Auth-Token": token() },
+        headers: { "Content-Type": "application/json", "X-Auth-Token": token(), "X-Workspace-ID": stored("spaceId") || "all" },
         body: JSON.stringify({ content }),
       });
       if (!response.ok) {

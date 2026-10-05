@@ -107,10 +107,12 @@ def test_graph_endpoint_fetches_the_entries_table_once_not_twice(session):
     # Matched on a column only the full-row ORM fetch selects, the
     # notebook-fingerprint cache key also touches `entries` with its own
     # `count(...)`/`max(updated_at)` aggregates, which are unrelated,
-    # already-cheap queries this test isn't about.
+    # already-cheap queries this test isn't about. The build itself, not the
+    # route: the route's payload key reads the same small columns once more
+    # to decide whether to build at all (`_payload_key`).
     hits = _count_statements(
         session,
-        lambda: routes_graph.graph(similarity=False, session=session),
+        lambda: routes_graph._build_graph(similarity=False, session=session),
         "entries.access_count",
     )
     assert len(hits) == 1, f"expected one full `entries` row-fetch, got {len(hits)}: {hits}"

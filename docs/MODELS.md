@@ -1,6 +1,6 @@
 # Choosing an AI model
 
-MemoryMap works without any AI at all: you just get keyword search and
+MemoryMap works without any AI at all: you get full-text search and
 `Uncategorised` filing. For auto-filing and chat answers, install
 [Ollama](https://ollama.com) and pull a model:
 
@@ -8,10 +8,16 @@ MemoryMap works without any AI at all: you just get keyword search and
 ollama pull llama3.2
 ```
 
-Any Ollama model works, and you can switch between them in-app from
-**Settings → Models** without restarting: the same list is there, with a
-download button next to each, and each model's own metadata says whether
-it can use tools, think, or see images.
+Any Ollama model works. **Settings, Models** switches between them without a
+restart. Its Suggested downloads are grouped by job (chat, images, reading
+text, search), and each card says how much memory the model asks for and
+whether that fits this computer: Fits is under 60% of your memory, Tight is up
+to 85%, Too big is more. Download another model takes an Ollama name or a
+Hugging Face GGUF link. The model's own metadata says whether it can use
+tools, think or see images.
+
+The tables below cover a wider range than the in-app list, which is short on
+purpose.
 
 **Sorted by size, not by quality**, because the real question is what your
 machine can run. Start at the top of the tier that fits your RAM; if
@@ -32,7 +38,7 @@ contexts.
 | `granite4.1:3b` | 2.1 GB | Strong instruction-following at a small size |
 | `phi4-mini` | 2.5 GB | Compact, concise answers, decent at code |
 | `qwen3.5:2b` | 2.7 GB | The lightest one genuinely worth chatting to |
-| `qwen3.5:4b` | 3.4 GB | Follows instructions closely, good for agent mode |
+| `qwen3.5:4b` | 3.4 GB | Follows instructions closely, good for Agent mode |
 
 ## 8 GB of RAM, or any modern GPU: the real step up in answer quality
 
@@ -40,7 +46,7 @@ contexts.
 | :-- | :-- | :-- |
 | `deepseek-r1:7b` | 4.7 GB | Reasoning-heavy prompts, when slower answers are fine |
 | `qwen2.5-coder:7b` | 4.7 GB | Code and structured text. A specialist, not a chat model |
-| `llama3.1:8b` | 4.9 GB | Better reasoning, and reliable tool calls in agent mode |
+| `llama3.1:8b` | 4.9 GB | Better reasoning, and reliable tool calls in Agent mode |
 | `qwen3:8b` | 5.2 GB | The previous generation's thinking model, still solid |
 | `qwen3.5:9b` | 6.6 GB | Best tool use at this size. Thinks, so slower per answer |
 | `mistral-nemo` | 7.1 GB | Long-document work, a large context window |
@@ -104,9 +110,9 @@ and chat.
   agree, and a vision model usually ships as two files: the model and a
   separate `mmproj` projector.
 
-**For agent mode**, prefer a model Ollama reports as tool-capable. Settings →
-Models shows this under "Can use tools", read from the model rather than
-guessed. `qwen3.5:9b` and `llama3.1:8b` are the most reliable of the list
+**For Agent mode**, prefer a model that reports it can use tools. Settings,
+Models shows this under "Can use tools" beside the chat model, read from the
+model rather than guessed. `qwen3.5:9b` and `llama3.1:8b` are the most reliable of the list
 above; the smallest models can use tools but forget to.
 
 **A small model on a large notebook is fine.** MemoryMap never stuffs the
@@ -186,17 +192,26 @@ and need the projector supplied by hand.
 ## OCR models
 
 OCR models are not vision chat models: they are tuned to transcribe, keep
-layout, read tables, and emit Markdown or boxes. Run one as a separate
-extraction step and feed its text into MemoryMap the way you would any
-other note.
+layout, read tables, and emit Markdown. MemoryMap uses one to read scanned PDFs
+and text in images, and the OCR workspace lets you check and correct each
+region before it becomes a note.
+
+Settings, Models, **Reading text** picks the model. Left on Automatic, it
+prefers a dedicated reader (GLM-OCR, DeepSeek-OCR or PaddleOCR-VL) when you
+have one installed, then falls back to your vision model. Scanned PDFs also
+need the Read scanned PDFs package in Settings, Packages, which supplies the
+page images.
 
 | Model | Why |
 | :-- | :-- |
-| [`ggml-org/GLM-OCR-GGUF`](https://huggingface.co/ggml-org/GLM-OCR-GGUF) | Small, multilingual, good at tables. The easiest to run |
-| [`ggml-org/DeepSeek-OCR-GGUF`](https://huggingface.co/ggml-org/DeepSeek-OCR-GGUF) | Higher accuracy on documents and screenshots |
-| [`sahilchachra/Unlimited-OCR-GGUF`](https://huggingface.co/sahilchachra/Unlimited-OCR-GGUF) | Long documents to Markdown. Needs its fp16 projector |
+| [`ggml-org/GLM-OCR-GGUF`](https://huggingface.co/ggml-org/GLM-OCR-GGUF) | The app's starting pick: small, multilingual, good at tables (about 1.4 GB at Q8_0) |
+| [`PaddlePaddle/PaddleOCR-VL-1.6-GGUF`](https://huggingface.co/PaddlePaddle/PaddleOCR-VL-1.6-GGUF) | Layout, tables, formulas and charts |
+| [`ggml-org/DeepSeek-OCR-GGUF`](https://huggingface.co/ggml-org/DeepSeek-OCR-GGUF) | The most accurate on dense and handwritten pages; needs about 8 GB |
+| [`sahilchachra/Unlimited-OCR-GGUF`](https://huggingface.co/sahilchachra/Unlimited-OCR-GGUF) | Long documents to Markdown; needs its fp16 projector, so it is not in the app's list |
 
-GLM-OCR through llama.cpp is one line:
+The first three are in Settings, Models, Suggested downloads, in the reading
+text group, and pull through Ollama's `hf.co/` shape. With llama.cpp instead,
+GLM-OCR is one line:
 
 ```bash
 llama-server -hf ggml-org/GLM-OCR-GGUF
@@ -206,13 +221,26 @@ Use `--temp 0` for OCR: you want transcription, not invention.
 
 ## Not using Ollama?
 
-**Settings → Models → Model backend** points MemoryMap at anything that
-serves the OpenAI API instead: **LM Studio**, **llama.cpp**'s server,
-**Jan** and **vLLM** are all the same choice, differing only by address.
-Pick "LM Studio / llama.cpp / Jan / vLLM", leave the address blank for the
-usual one (`localhost:1234/v1`) or fill in your own port, and press
-Connect. It applies straight away, no restart, and nothing to put in
+**Settings, Models, Model backend** points MemoryMap at anything that serves
+the OpenAI API instead. **LM Studio**, **llama.cpp**'s `llama-server`, **Jan**
+and **vLLM** are all the same choice, differing only by address. Pick
+"LM Studio / llama.cpp / Jan / vLLM", enter the server's address, and press
+Connect. It applies straight away, with no restart and nothing to put in
 `.env`.
+
+The address ends in `/v1`. Leaving it blank means LM Studio's usual one, and
+the other servers listen elsewhere by default:
+
+| Server | Address |
+| :-- | :-- |
+| LM Studio | `http://localhost:1234/v1` (the blank default) |
+| llama.cpp `llama-server` | `http://localhost:8080/v1` |
+| vLLM | `http://localhost:8000/v1` |
+| Jan | the address its local API server shows |
+
+**Keep Atlas on this machine**, just below, is on by default and refuses an
+address that is not on this computer or your own network. A hosted API needs
+that switch turned off on purpose.
 
 Everything works the same on either backend: tool calls, streaming,
 thinking models, and the token counts on each message. Two differences
@@ -230,10 +258,14 @@ licence while you are there.
 
 ## Embeddings
 
-The **embedding** model for semantic search (`BAAI/bge-small-en-v1.5`)
-downloads itself the first time it's needed. Settings → Models names
-whichever one is actually loaded. No Ollama pull required, and you can
-switch to an Ollama embedding model later, with an automatic re-index.
+The **embedding** model for search by meaning (`BAAI/bge-small-en-v1.5`) runs
+inside MemoryMap and downloads itself the first time it is needed, along with
+the `sentence-transformers` package it needs (several hundred MB, and more on
+Windows, where it brings torch). Settings, Search and index, Search engine
+names whichever one is actually loaded. No Ollama pull is required, and you can
+switch to an Ollama embedding model (`nomic-embed-text` is the usual choice)
+later, with an automatic re-index. The built-in model holds about 650 MB in
+memory while the app is open; with Ollama it lives in Ollama instead.
 
 An embedding model is not a chat model, and changing one does not change
 the other. A bigger instruct model will not improve search.
@@ -242,11 +274,12 @@ the other. A bigger instruct model will not improve search.
 
 1. `ollama pull llama3.2`, and see whether it is already enough.
 2. Too weak: `qwen3.5:4b`, then `qwen3.5:9b` if you have the memory.
-3. For agent mode, check "Can use tools" in Settings, then test it on a
-   real multi-step task before trusting it.
+3. For Agent mode, check "Can use tools" in Settings, Models, then test it on
+   a real multi-step task before trusting it.
 4. For images on a laptop, Gemma 4 E4B with its `mmproj`, or LFM2.5-VL.
 5. At 24 to 32 GB, Gemma 4 26B-A4B or Qwen3.6 35B-A3B at Q4 or Q5.
-6. For OCR, run GLM-OCR separately and paste the text in.
+6. For scanned documents, pull GLM-OCR from Suggested downloads and leave
+   Reading text on Automatic.
 
 Tags and sizes move. Before relying on a number here, check the
 [Ollama library](https://ollama.com/library) or the model's own

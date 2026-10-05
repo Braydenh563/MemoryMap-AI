@@ -62,6 +62,11 @@ const DASH_WIDGETS = {
   //: WORLD_CLASS_PLAN I1's morning card over `GET /night/latest`.
   night: { title: "ph:moon-stars While you were away", description: "What Atlas worked out reading your notes on its own, with each finding to open or dismiss.", render: renderNightWidget },
   "most-used": { title: "ph:flame Most used", description: "The notes you open and ask about most often.", render: renderMostUsedWidget },
+  //: WORLD_CLASS_PLAN section 17 rows 5 and 1: the owner's "most-accessed
+  //: information" for this month (`GET /most-opened`, a day-by-day open log),
+  //: and the filings waiting for a person (`GET /review-queue`).
+  "most-opened": { title: "ph:eye Most opened this month", description: "The ten notes you opened most in the last thirty days.", render: renderMostOpenedWidget },
+  review: { title: "ph:checks Filings to check", description: "Notes Atlas was unsure where to file, and notes left Uncategorised, to accept or move.", render: renderReviewWidget },
   "most-linked": { title: "ph:link Most-linked notes", description: "The notes with the most connections, the hubs of your notebook.", render: renderMostLinkedWidget },
   "top-tags": { title: "ph:tag Top tags", description: "Your most-used tags, ranked by how many notes carry them.", render: renderTopTagsWidget },
   questions: { title: "ph:chat-circle Recent questions", description: "The questions you've recently asked the notebook's chat.", render: renderQuestionsWidget },
@@ -473,8 +478,8 @@ async function renderDashSubmessage() {
     //: (atlas.js, `atlasStreak`), and the companion cheers once when it grows
     //: (avatars.js). Here since INBOX 436 took the stat strip that used to
     //: carry both calls off the first screen: this line reads the same figure.
-    if (typeof atlasStreak === "function") atlasStreak(streak);
-    if (typeof nameMarkBuddyStreak === "function") nameMarkBuddyStreak(streak);
+    atlasStreak(streak);
+    nameMarkBuddyStreak(streak);
   }
   el.textContent = bits.join(" · ");
 }
@@ -631,7 +636,7 @@ function watchDashWidgets() {
 //: awaits the tab's module before its own focus handling, so a same-turn
 //: `focus()` could land on a page that is not drawn yet).
 async function openAskFromDashboard() {
-  const offline = typeof aiIsOff === "function" && aiIsOff();
+  const offline = aiIsOff();
   await switchTab(offline ? "notes" : "chat");
   if (offline) {
     showNotesSection("ask");
@@ -896,7 +901,7 @@ function paintDashEmblem() {
     return;
   }
   //: A face instead of the logo when Appearance asks (avatars.js).
-  const face = typeof dashboardMarkSeed === "function" ? dashboardMarkSeed() : null;
+  const face = dashboardMarkSeed();
   if (face) {
     //: The logo's sketch stops first: a p5 loop on a canvas that is no
     //: longer in the page still draws every frame.
@@ -954,7 +959,7 @@ function dashMarkMenu(x, y) {
       event.preventDefault();
       dashMarkMenu(event.clientX, event.clientY);
     });
-    if (typeof wireLongPress === "function") wireLongPress(holder, (event, point) => dashMarkMenu(point.x, point.y));
+    wireLongPress(holder, (event, point) => dashMarkMenu(point.x, point.y));
   }
 }
 
@@ -1299,7 +1304,7 @@ function featureCatalog() {
       { name: "Checklists", desc: "Tick items off inside a note; the dashboard tracks what is left.", reveal: "notes-checklist" },
       { name: "Private notes", desc: "Encrypt a note so it is readable only while the app is unlocked.", reveal: "notes-private" },
       { name: "Pins & tags", desc: "Pin important notes and organise with tags.", reveal: "notes-favourite" },
-      { name: "Bin", desc: "Deleted notes are recoverable until the bin is cleared.", reveal: "recycle-bin" },
+      { name: "Bin", desc: "Deleted notes, documents and reminders are recoverable until the bin is cleared.", reveal: "recycle-bin" },
     ]},
     { group: "Ask & chat", items: [
       { name: "Ask your notebook", desc: "Questions answered strictly from your own notes.", reveal: "notes-ask" },
@@ -2406,9 +2411,9 @@ async function startArt(holder) {
   //: setting people read as broken, whatever its help text says.
   const reduceMotion =
     window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
-    (typeof reducedMotionWanted === "function" && reducedMotionWanted()) ||
+    reducedMotionWanted() ||
     (typeof perfModeOn === "function" && perfModeOn()) ||
-    (typeof batteryModeOn === "function" && batteryModeOn());
+    batteryModeOn();
   // data-mode is always resolved to light or dark, including under "System",
   // so this no longer has to re-derive it from two sources.
   const dark = resolvedTheme() === "dark";
@@ -2763,49 +2768,35 @@ async function renderPinnedWidget(body) {
   miniEntryList(body, entries.slice(0, 5), "Star a note and it shows up here.", { label: "ph:note Open Notes", run: "tab", tab: "notes" });
 }
 
-//: **This month or all time** (WORLD_CLASS_PLAN section 17, row 5). The count
-//: cannot say when a note was opened, so "this month" reads the opens log
-//: (`core/opens.py`: the page's own opens through `noteOpened`, and the notes an
-//: Ask matched). The choice is remembered on this device; with none made, a
-//: month that has opens shows the month and an empty one shows all time, so a
-//: notebook from before the log is not an empty widget on the day it updates.
-const MOST_USED_PERIODS = [
-  ["month", "This month", "The ten notes you opened or asked about most this month"],
-  ["all", "All time", "The notes you have opened or asked about most, ever"],
-];
+async function renderMostOpenedWidget(body) {
+  const entries = await apiJson("/most-opened", { cacheMs: 30000 });
+  miniEntryList(body, entries, "Open a few notes and the ones you return to show here.", { label: "ph:note Open Notes", run: "tab", tab: "notes" });
+}
+
+async function renderReviewWidget(body) {
+  const queue = await apiJson("/review-queue?limit=5", { cacheMs: 30000 });
+  if (!queue.count) {
+    dashEmpty(body, "Nothing to check: every filing is settled.", { label: "ph:note Open Notes", run: "tab", tab: "notes" });
+    return;
+  }
+  const line = document.createElement("p");
+  line.className = "dash-review-count";
+  line.textContent = `${queue.count} note${queue.count === 1 ? "" : "s"} to check`;
+  const open = smallButton("ph:checks Review them", "Show them in Notes, filtered to is:review", async () => {
+    await switchTab("notes");
+    showNotesSection("browse");
+    const box = $("note-search");
+    if (box) {
+      box.value = "is:review";
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+  body.append(line, open);
+}
 
 async function renderMostUsedWidget(body) {
-  const stored = prefs.get("mostUsedPeriod", "");
-  let period = stored === "all" || stored === "month" ? stored : "month";
-  let entries = await apiJson(`/entries/most-accessed?period=${period}`, { cacheMs: 30000 });
-  if (!stored && period === "month" && !entries.length) {
-    period = "all";
-    entries = await apiJson("/entries/most-accessed?period=all", { cacheMs: 30000 });
-  }
-  const seg = document.createElement("div");
-  seg.className = "seg seg-compact dash-period";
-  seg.style.marginBottom = "var(--space-3)"; // not a boot-CSS rule: that sheet is at its byte cap
-  seg.setAttribute("role", "group");
-  seg.setAttribute("aria-label", "Period for the most used notes");
-  for (const [value, text, title] of MOST_USED_PERIODS) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = text;
-    button.title = title;
-    button.setAttribute("aria-pressed", String(value === period));
-    button.addEventListener("click", () => {
-      if (value === period) return;
-      prefs.set("mostUsedPeriod", value);
-      body.replaceChildren();
-      renderMostUsedWidget(body);
-    });
-    seg.appendChild(button);
-  }
-  body.appendChild(seg);
-  const empty = period === "month"
-    ? "Open or ask about your notes and the ones you use most this month appear here."
-    : "Ask questions and your most-used notes appear here.";
-  miniEntryList(body, entries, empty, { label: "ph:chat-circle Ask a question", run: "ask", tab: "chat" });
+  const entries = await apiJson("/entries/most-accessed", { cacheMs: 30000 });
+  miniEntryList(body, entries, "Ask questions and your most-used notes appear here.", { label: "ph:chat-circle Ask a question", run: "ask", tab: "chat" });
 }
 
 // The graph tab already knows how connected every note is (edges from
@@ -2834,7 +2825,8 @@ async function renderMostLinkedWidget(body) {
 }
 
 async function renderRecentNotesWidget(body) {
-  const entries = await dashEntries();
+  //: Not a map's topics (UX-06): a map of forty listed forty one-word rows.
+  const entries = (await dashEntries()).filter((e) => !e.map_topic);
   const newest = [...entries].sort(
     (a, b) => new Date(b.created_at) - new Date(a.created_at)
   );
@@ -3036,7 +3028,7 @@ async function renderDigestWidget(body) {
     offline.className = "ai-offline-note hidden";
     offline.dataset.offlineLine = "No model is connected, so the digest cannot be written yet.";
     body.append(generate, offline);
-    if (typeof syncModelGatedControls === "function") syncModelGatedControls();
+    syncModelGatedControls();
   }
 }
 
@@ -4161,7 +4153,7 @@ async function undoActorFrom(actor, since, byId, rerender) {
       body: JSON.stringify({ actor, since, dry_run: false }),
     });
     toast(`Put back ${done.undone} note${done.undone === 1 ? "" : "s"}.`);
-    if (typeof loadEntries === "function") await loadEntries().catch(() => {});
+    await loadEntries().catch(() => {});
     rerender();
   } catch (error) {
     toast(error.message || "Couldn't undo that.", true);
@@ -4351,7 +4343,7 @@ async function renderOrphanNotesWidget(body) {
   }
   // A board is a note by construction here, and an empty canvas is not a
   // stranded thought. Drafts have not been filed yet by definition.
-  const real = entries.filter((e) => !e.is_board && !e.is_draft);
+  const real = entries.filter((e) => !e.is_board && !e.is_draft && !e.map_topic);
   // **Category is deliberately not part of this test, and that is a measured
   // decision rather than an oversight.** The first cut of this widget counted
   // a note as stranded only if it had no links, no tags *and* no category, 

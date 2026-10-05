@@ -403,3 +403,29 @@ def test_a_note_in_another_space_is_not_a_reference_from_this_one(client):
     counts = client.get(f"/entries/reference-counts?ids={note['id']}", headers=home).json()["counts"]
     assert counts[str(note["id"])] == {"total": 0}
 
+
+def test_a_long_label_is_found_through_the_index_with_the_scan_semantics(client):
+    """ARCH-11 (audit 2026-10-05): a label with an interior word reads only
+    the notes the full-text index says hold that phrase, and still finds a
+    mention whose first and last words run on ("biweekly reviews") or whose
+    case differs, and still skips a note with the words apart."""
+    label = _note(client, "Weekly review of the garden plan")
+    _note(client, "notes from our biWEEKLY REVIEW OF THE GARDEN PLANS, kept")
+    _note(client, "weekly review, of the garden, plan")
+    _note(client, "the garden plan and a weekly review of it")
+    counts = _counts(client, [label["id"]])
+    assert counts[str(label["id"])] == {"note": 1, "total": 1}
+
+
+def test_interior_phrase_leaves_out_the_edges_and_short_labels():
+    from memorymap.api.routes_entries import _interior_phrase
+
+    assert _interior_phrase("Recipe") is None
+    assert _interior_phrase("Weekly review") is None
+    assert _interior_phrase("Weekly review of it") == '"review of"'
+    assert _interior_phrase('a "quoted" b') == '"quoted"'
+    assert _interior_phrase('one "two" three four') == '"two"" three"'
+    # No ASCII word inside: not sure the index sees a word there at all.
+    assert _interior_phrase("a " + chr(0x2014) + " b") is None
+    assert _interior_phrase("café crème brûlée") == '"crème"'
+

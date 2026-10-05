@@ -4056,6 +4056,8 @@ function gcRuleKey(rule, node) {
   if (rule === "space") return node.space_id || "default";
   if (rule === "tag") return (node.tags && node.tags[0]) || "No tag";
   if (rule === "file") return node.has_file ? "Has a file" : "No file";
+  //: WORLD_CLASS_PLAN D5: the note's type (KG4's `type:` property).
+  if (rule === "type") return node.note_type || "No type";
   if (rule === "age") {
     const days = node.created_at ? (Date.now() - Date.parse(node.created_at)) / 86400000 : Infinity;
     if (days <= 1) return GC_AGE_BUCKETS[0];

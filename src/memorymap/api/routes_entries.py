@@ -19,7 +19,7 @@ from types import SimpleNamespace
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete as sa_delete
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -39,13 +39,11 @@ from memorymap.api.schemas import (
     LinkOut,
     SimilarOut,
 )
-from memorymap.core import deps, events, jobruns, jobs, opens, vault
+from memorymap.core import deps, events, jobruns, jobs, vault
 from memorymap.core.events import ACTOR_USER_AND_AI
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
-    Attachment,
     AuditLog,
     Bookmark,
-    Category,
     DerivedTension,
     Document,
     DocumentLink,
@@ -57,12 +55,8 @@ from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_sugg
     EntryLink,
     EntryRevision,
     MediaUpload,
-    NoteScore,
-    Reminder,
-    Space,
     WhiteboardNode,
     WhiteboardObject,
-    WhiteboardSketch,
     like_escape,
     utcnow,
 )
@@ -148,6 +142,7 @@ def _to_out(
         source_title=getattr(entry, "source_title", None),
         source_path=getattr(entry, "source_path", "") or "",
         is_board=bool(getattr(entry, "is_board", False)),
+        map_topic=bool(getattr(entry, "map_topic", False)),
         workspace_id=getattr(entry, "workspace_id", "default") or "default",
         created_at=entry.created_at,
         deleted_at=entry.deleted_at if entry.is_deleted else None,
@@ -554,6 +549,46 @@ def retry_stand_ins() -> int:
     return len(waiting)
 
 
+def _embed_entry_in_background(entry_id: int, workspace_id: str) -> None:
+    """Embed an edited note's new text after its PUT has returned.
+
+    Its own session in the note's own space, as `_file_entry_in_background`.
+    A note deleted before this runs is left alone. An edit that lands while
+    this one embeds is folded into it (the queue's dedupe returns the running
+    job), so the text is read again after storing and embedded again if it
+    moved: the vector left behind is always the newest text's.
+    """
+    from memorymap.core.deps import impersonate_workspace
+
+    try:
+        with deps.get_db().session() as session:
+            with impersonate_workspace(session, workspace_id):
+                for _ in range(3):
+                    entry = session.get(Entry, entry_id)
+                    if entry is None or entry.is_deleted:
+                        return
+                    seen = entry.content
+                    deps.store_quietly(session, entry)
+                    session.expire_all()
+                    again = session.get(Entry, entry_id)
+                    if again is None or again.content == seen:
+                        return
+    except Exception:
+        logger.warning("couldn't embed edited entry %s", entry_id, exc_info=True)
+
+
+def _queue_embedding(entry) -> None:
+    """One embedding job per note in flight, on the model lane: a burst of
+    autosaves while the first job waits is one embed of the newest text."""
+    jobs.enqueue(
+        "embed-entry",
+        _embed_entry_in_background,
+        entry.id,
+        getattr(entry, "workspace_id", "default") or "default",
+        dedupe_key=("embed-entry", entry.id),
+    )
+
+
 def _queue_filing(entry) -> None:
     """One filing job per note in flight: the key makes a second call while
     the first is queued or running a no-op, so `filing_status` can ask again
@@ -636,7 +671,7 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     content = body.content
     if body.note_type:
         #: KG4: a new note of a type starts with the type's fields.
-        content = note_properties.with_type_fields(session, content, body.note_type)
+        content = note_properties.with_type_fields(session, content, body.note_type, deps.get_config())
     try:
         entry = manager.create_entry(
             session,
@@ -660,6 +695,8 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         entry.user_filed = True
     if body.is_draft:
         entry.is_draft = True
+    if body.map_topic:
+        entry.map_topic = True
     if body.source_url:
         entry.source_url = body.source_url
         entry.source_title = body.source_title
@@ -1459,6 +1496,29 @@ def query_entries(q: str = "", session: Session = Depends(get_session)) -> dict:
     }
 
 
+class _LazyNoteFacts:
+    """`relations.NoteFacts` whose label is read only when asked for.
+
+    `recognise` names a note only when it is a hub of shared neighbours, yet
+    every note's label was cleaned up front: at 5,000 notes 0.66 s of a
+    1.08 s warm `/entries/link-suggestions` (audit 2026-10-05, ARCH-11).
+    """
+
+    __slots__ = ("_content", "_label", "tags", "created_at")
+
+    def __init__(self, content: str, tags: frozenset[str], created_at) -> None:  # noqa: ANN001
+        self._content = content
+        self._label: str | None = None
+        self.tags = tags
+        self.created_at = created_at
+
+    @property
+    def label(self) -> str:
+        if self._label is None:
+            self._label = manager.plain_label(self._content, 40) or "Untitled note"
+        return self._label
+
+
 @router.get("/link-suggestions")
 def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
     """Pairs of notes that mean similar things but aren't linked yet: 
@@ -1519,11 +1579,7 @@ def link_suggestions(session: Session = Depends(get_session)) -> list[dict]:
         )
     ]
     notes = {
-        i: relations.NoteFacts(
-            label=manager.plain_label(e.content, 40) or "Untitled note",
-            tags=frozenset(t.lower() for t in manager.entry_tags(e)),
-            created_at=e.created_at,
-        )
+        i: _LazyNoteFacts(e.content, frozenset(t.lower() for t in manager.entry_tags(e)), e.created_at)
         for i, e in candidates.items()
     }
     found = relations.recognise(
@@ -2168,28 +2224,9 @@ def list_entries(
 
 # Declared before /{entry_id} so "most-accessed" isn't parsed as an id.
 @router.get("/most-accessed", response_model=list[EntryOut])
-def most_accessed(
-    period: str = Query(default="all", pattern="^(all|month)$"),
-    session: Session = Depends(get_session),
-) -> list[EntryOut]:
+def most_accessed(session: Session = Depends(get_session)) -> list[EntryOut]:
     """Top entries by how often they've been opened or matched a
-    question: the quick-access dashboard. `period=month` is the ten opened
-    most this month (WORLD_CLASS_PLAN section 17, row 5), from the opens log
-    (`core/opens.py`); a note binned, archived or in another space since is
-    left out, so the list is never a stale id."""
-    if period == "month":
-        ranked = opens.top(deps.get_config().data_dir, limit=30)
-        rows = {
-            e.id: e
-            for e in session.scalars(
-                select(Entry).where(
-                    Entry.id.in_([entry_id for entry_id, _ in ranked]),
-                    Entry.is_deleted == False,  # noqa: E712
-                    Entry.archived_at.is_(None),
-                )
-            )
-        }
-        return _to_out_bulk(session, [rows[i] for i, _ in ranked if i in rows][:10])
+    question: the quick-access dashboard."""
     entries = manager.most_accessed_entries(session, limit=5)
     return _to_out_bulk(session, entries)
 
@@ -2295,6 +2332,11 @@ def get_entry(
         raise HTTPException(status_code=404, detail="That note could not be found.")
     if not entry.is_deleted:
         entry.access_count += 1  # opening an entry counts as using it
+        #: And on which day (WORLD_CLASS_PLAN section 17 row 5): "most opened
+        #: this month" cannot be read off an all-time count.
+        from memorymap.entry import opens
+
+        opens.record_open(session, entry.id)
         # And *when*, which is the half the dashboard's Continue pill needs:
         # a count cannot answer "the note I was last in", and `updated_at`
         # only moves when the text changes, so reading an old note left the
@@ -2318,13 +2360,6 @@ def get_entry(
         if bool(getattr(entry, "is_private", False)) and vault.key() is not None:
             manager.log_action(session, "decrypted", "entry", entry.id)
         session.commit()
-        #: The month's opens (section 17, row 5): the count above cannot
-        #: say when. Best effort: the open has happened whether or not this
-        #: small file could be written (a read-only disk, a full one).
-        try:
-            opens.record(deps.get_config().data_dir, entry.id)
-        except OSError as exc:
-            logger.warning("Could not count this open: %s", type(exc).__name__)
     out = _to_out(session, entry)
     #: B7: the note's version as an HTTP entity tag, the same text hash the
     #: editor already sends back as `base_hash`, so a client that never reads
@@ -2463,7 +2498,12 @@ def update_entry(
             )
             session.rollback()
         else:
-            deps.store_quietly(session, entry)
+            #: Off the request (audit 2026-10-05, ARCH-02 step 5): an edit
+            #: used to embed here, a model call of 200 to 400 ms on a real
+            #: embedder before the editor's save returned. The stale vector
+            #: is already gone, so until the job runs the note is found by
+            #: its words, as a note saved with the embedder off is.
+            _queue_embedding(entry)
         # Editing a note can introduce new [[links]]; resolve those too.
         try:
             manager.sync_wiki_links(session, entry)
@@ -2524,81 +2564,6 @@ def delete_entry(
     if not entry.is_deleted:
         manager.soft_delete_entry(session, entry)
     return _to_out(session, entry)
-
-
-class MoveSpaceBody(BaseModel):
-    ids: list[int] = Field(min_length=1, max_length=500)
-    target: str = Field(min_length=1, max_length=64)
-
-
-@router.post("/move-space")
-def move_space(body: MoveSpaceBody, session: Session = Depends(get_session)) -> dict:
-    """A batch of notes, boards and maps into another space, in one
-    transaction (WORLD_CLASS_PLAN row 30, the selection bar's Move to space).
-
-    A note's category is a row *of its space*, so it follows by name: the
-    target's own category of that name when it has one, else a new one with
-    the same colour and description. What belongs to the note moves with it
-    (its reminders, files, fade score, and a board's cards, sketches and
-    objects); links to notes that stay behind are kept, and simply read as
-    absent from either side until both are in one space again. Ids that do not
-    exist and notes already in the target are `skipped`, not an error. The ids are
-    looked up in every space, whichever one the page is showing, so the Undo
-    works from the space the notes were moved to.
-
-    `previous` is the way back: moving those ids to that space is the Undo, and
-    the category goes back by name the same way. The search index follows
-    through the ORM flush, so `/search` in the target finds them at once.
-    """
-    target = body.target.strip()
-    if target == "all":
-        raise HTTPException(status_code=422, detail="Pick one space to move them to.")
-    if target != "default" and session.scalar(select(Space.id).where(Space.id == target)) is None:
-        raise HTTPException(status_code=404, detail="That space could not be found.")
-    ids = list(dict.fromkeys(body.ids))
-    #: Across every space, whichever one the page is showing: the Undo posts
-    #: from the space the notes were moved *to*, and "All spaces" asks for ids
-    #: from several at once. The ids are the person's own.
-    moved: list[int] = []
-    previous: list[dict] = []
-    with deps.impersonate_workspace(session, "all"):
-        rows = {row.id: row for row in session.scalars(select(Entry).where(Entry.id.in_(ids)))}
-        categories: dict[int, Category | None] = {}
-        for entry_id in ids:
-            entry = rows.get(entry_id)
-            if entry is None or manager.entry_space(entry) == target:
-                continue
-            source = manager.entry_space(entry)
-            old = session.scalar(select(Category).where(Category.id == entry.category_id)) if entry.category_id else None
-            previous.append({"id": entry.id, "space": source, "category": old.name if old is not None else None})
-            if old is not None:
-                if old.id not in categories:
-                    #: As the target: the session's own space filter would
-                    #: otherwise hide the target's category of that name and the
-                    #: insert would collide with it (UNIQUE on space and name).
-                    with deps.impersonate_workspace(session, target):
-                        found = manager.get_or_create_category(session, old.name, target)
-                    for field in ("colour", "description"):
-                        if not getattr(found, field, None) and getattr(old, field, None):
-                            setattr(found, field, getattr(old, field))
-                    categories[old.id] = found
-                entry.category_id = categories[old.id].id
-            entry.workspace_id = target
-            moved.append(entry.id)
-        if moved:
-            for model in (Reminder, Attachment, NoteScore):
-                for child in session.scalars(select(model).where(model.entry_id.in_(moved))):
-                    child.workspace_id = target
-            for model in (WhiteboardNode, WhiteboardSketch, WhiteboardObject):
-                for child in session.scalars(select(model).where(model.board_id.in_(moved))):
-                    child.workspace_id = target
-            manager.log_action(session, "moved", "entries", detail=f"{len(moved)} to {target}")
-            session.commit()
-            from memorymap.ai import lexical_filing
-
-            lexical_filing.forget_corpus()
-    skipped = [entry_id for entry_id in ids if entry_id not in moved]
-    return {"moved": moved, "skipped": skipped, "target": target, "previous": previous}
 
 
 @router.post("/{entry_id}/restore", response_model=EntryOut)
@@ -2898,10 +2863,23 @@ def _reference_rows_batch(session: Session, entries: list[Entry]) -> dict[int, l
             for i, label in enumerate(distinct):
                 if row[3 + i] and len(document_hits[label]) < REFERENCE_SOURCES_MAX:
                     document_hits[label].append((row[0], row[1] or "Untitled", row[2] or ""))
-        flags = [Entry.content.like(f"%{like_escape(label)}%", escape=LIKE_ESCAPE) for label in distinct]
-        for row in session.execute(
-            select(Entry.id, Entry.content, *[f.label(f"m{i}") for i, f in enumerate(flags)])
-            .where(
+        #: Two groups (audit 2026-10-05, ARCH-11: 1.1 s for sixty cards at
+        #: 5,000 notes, all of it SQLite running sixty LIKEs over every
+        #: note). A label with an interior word has a phrase the full-text
+        #: index can find, so its LIKE only reads the notes holding that
+        #: phrase; a short label still reads every note. Each label is in
+        #: one group, each group is read newest first, so a label's hits come
+        #: back in the order they always did.
+        narrowed = {label: _interior_phrase(label) for label in distinct}
+        groups = [
+            [label for label in distinct if narrowed[label] is None],
+            [label for label in distinct if narrowed[label] is not None],
+        ]
+        for group in groups:
+            if not group:
+                continue
+            flags = [Entry.content.like(f"%{like_escape(label)}%", escape=LIKE_ESCAPE) for label in group]
+            where = [
                 Entry.is_deleted.is_(False),
                 #: A private note is encrypted at rest, so its content could not
                 #: match the LIKE anyway; the filter is here so that stays true
@@ -2909,15 +2887,29 @@ def _reference_rows_batch(session: Session, entries: list[Entry]) -> dict[int, l
                 #: `routes_documents._backlinks` carries, for the same reason.
                 Entry.is_private.is_(False),
                 or_(*flags),
-            )
-            .order_by(Entry.id.desc())
-        ):
-            for i, label in enumerate(distinct):
-                #: One over the cap, because the note itself can be among its
-                #: own label's matches and is dropped per note below: the cap
-                #: is on sources other than the note, as it always was.
-                if row[2 + i] and len(note_hits[label]) <= REFERENCE_SOURCES_MAX:
-                    note_hits[label].append((row[0], row[1] or ""))
+            ]
+            if narrowed[group[0]] is not None:
+                where.append(
+                    Entry.id.in_(
+                        text(
+                            " UNION ".join(
+                                f"SELECT rowid FROM entries_fts WHERE entries_fts MATCH :p{i}"
+                                for i in range(len(group))
+                            )
+                        ).bindparams(**{f"p{i}": narrowed[label] for i, label in enumerate(group)})
+                    )
+                )
+            for row in session.execute(
+                select(Entry.id, Entry.content, *[f.label(f"m{i}") for i, f in enumerate(flags)])
+                .where(*where)
+                .order_by(Entry.id.desc())
+            ):
+                for i, label in enumerate(group):
+                    #: One over the cap, because the note itself can be among its
+                    #: own label's matches and is dropped per note below: the cap
+                    #: is on sources other than the note, as it always was.
+                    if row[2 + i] and len(note_hits[label]) <= REFERENCE_SOURCES_MAX:
+                        note_hits[label].append((row[0], row[1] or ""))
 
     for entry in entries:
         rows = list(result.get(entry.id, []))
@@ -2947,6 +2939,35 @@ def _reference_rows_batch(session: Session, entries: list[Entry]) -> dict[int, l
         rows.sort(key=lambda row: {"on it": 0, "links to it": 1, "mentions it": 2}[row["how"]])
         result[entry.id] = rows[:REFERENCE_ROWS_MAX]
     return result
+
+
+#: A run of characters the full-text tokenizer may treat as one word: ASCII
+#: letters and digits, and anything outside ASCII (whose class only the
+#: tokenizer knows, so it is never assumed to split a word).
+_FTS_WORDISH = re.compile(r"[A-Za-z0-9\u0080-\U0010ffff]+")
+
+
+def _interior_phrase(label: str) -> str | None:
+    """An `entries_fts` phrase every note containing `label` also contains.
+
+    A note that holds the label as a substring (the LIKE's question) holds
+    its interior words as whole words: the label's second word to its
+    second-last are bounded by ASCII separators inside the label, so they are
+    bounded the same way in the note, and the index (unicode61, which splits
+    on every ASCII non-alphanumeric) tokenizes that span exactly as it
+    tokenizes the phrase. The first and last words are left out because the
+    note may run on into them ("biweekly reviews" holds "weekly review"), and
+    no prefix query is used because porter stems a prefix too ("runn"* finds
+    nothing where "running" is). None when there is no interior word, or no
+    ASCII letter in it to be sure the phrase is not empty.
+    """
+    words = list(_FTS_WORDISH.finditer(label))
+    if len(words) < 3:
+        return None
+    interior = label[words[1].start() : words[-2].end()]
+    if not re.search(r"[A-Za-z0-9]", interior):
+        return None
+    return '"' + interior.replace('"', '""') + '"'
 
 
 def _links_to(content: str | None, wanted: str) -> bool:
@@ -3293,33 +3314,6 @@ def _connection_cue(session: Session, other: Entry) -> dict:
         "category": None if other.is_private else manager.category_name_for(session, other),
         "created_at": created.isoformat() if created else None,
     }
-
-
-@router.post("/{entry_id}/opened", status_code=204)
-def note_opened(entry_id: int, session: Session = Depends(get_session)) -> Response:
-    """The page opened this note without reading it: the Notes list already
-    holds every note, so a card flashed from a search result, the graph or a
-    link, or a note's own page, never GETs it (section 17, row 5). Counts one
-    open in this month's log only (`core/opens.py`): the all-time count and
-    `last_opened_at` stay what a real read makes them. A binned note is not
-    counted. 204 either way, so a stale id is not an error worth a toast."""
-    entry = session.get(Entry, entry_id)
-    if entry is not None and not entry.is_deleted:
-        try:
-            opens.record(deps.get_config().data_dir, entry.id)
-        except OSError as exc:
-            logger.warning("Could not count this open: %s", type(exc).__name__)
-    return Response(status_code=204)
-
-
-@router.get("/{entry_id}/explain")
-def explain_entry(entry_id: int, session: Session = Depends(get_session)) -> dict:
-    """The script the note's Explain action speaks: its words, where it is
-    filed, and every link with its direction and reason (section 17 row 6).
-    Built without a model (`entry/explain.py`)."""
-    from memorymap.entry import explain
-
-    return explain.explain(session, _existing_entry(session, entry_id))
 
 
 @router.get("/{entry_id}/connections")

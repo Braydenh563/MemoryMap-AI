@@ -1342,52 +1342,32 @@ def corrections_note(session, categories: list[str]) -> str:
     )
 
 
-#: Section 17 row 3, the filing style: how the person wants the notebook
-#: carved up. "topic" is the default and adds nothing to the prompt (the
-#: filing assistant's own instruction already files by topic), so a notebook
-#: that never opens the setting gets the prompt it always had. The other two
-#: add one line of rule and three examples; they steer the model's choice among
-#: existing categories and the name of a new one. The embedding paths that
-#: never ask a model (centroid, neighbours) follow the notebook's existing
-#: shape, which is the person's own style already.
+#: WORLD_CLASS_PLAN section 17 row 3, "preferences for how the database is
+#: structured": how a new category is named and an existing one chosen. By
+#: topic is the default and adds nothing, so the prompt every notebook had is
+#: unchanged unless the person picks another; each other style gives the
+#: model three examples, because a rule alone reads as a suggestion.
 FILING_STYLES = {
-    "topic": (),
+    "topic": "",
     "project": (
-        "Group notes by the project or goal they serve, not by subject. "
-        "Name a new category after the project (1-3 words).",
-        "Ran 5k in 24 minutes -> Marathon training (not Fitness)",
-        "Venue quote for the offsite -> Offsite planning (not Events)",
-        "Draft intro for the report -> Q3 report (not Writing)",
+        "File by project: put the note under the project, client, course or "
+        "goal it belongs to, not under a general subject. Examples: a quote "
+        "for new tiles goes in \"Kitchen renovation\", lecture notes on Kant go "
+        "in \"PHIL201\", an invoice question goes in \"Acme account\"."
     ),
     "time": (
-        "Group notes by when they belong: the month or the season of the "
-        "work. Name a new category with its period (for example 'October 2026').",
-        "Ran 5k in 24 minutes, noted 3 October 2026 -> October 2026",
-        "Plans for next spring -> Spring 2027",
-        "Ideas from the weekly review -> Weekly reviews",
+        "File by time: name categories by the period the note belongs to. "
+        "Examples: \"2026 Q4\", \"October 2026\", \"Week of 6 October\". Prefer "
+        "an existing period that fits over a new one."
     ),
 }
-FILING_STYLE_DEFAULT = "topic"
-
-
-def filing_style() -> str:
-    """The saved style, or the default for an unknown value."""
-    from memorymap.core import deps
-
-    try:
-        value = str(deps.get_config().get_preference("filing_style", FILING_STYLE_DEFAULT))
-    except Exception:  # noqa: BLE001 - no config in a bare unit test means the default style
-        return FILING_STYLE_DEFAULT
-    return value if value in FILING_STYLES else FILING_STYLE_DEFAULT
 
 
 def filing_style_note() -> str:
-    """The style block of a filing prompt, or "" for the default."""
-    lines = FILING_STYLES[filing_style()]
-    if not lines:
-        return ""
-    rule, *examples = lines
-    return "Filing style: " + rule + "\n" + "\n".join(f"- {example}" for example in examples)
+    from memorymap.core import deps
+
+    style = str(deps.get_config().get_preference("filing_style", "topic") or "topic")
+    return FILING_STYLES.get(style, "")
 
 
 def filing_prompt(session, content: str, categories: list[str]) -> str:
@@ -1408,15 +1388,3 @@ def filing_prompt(session, content: str, categories: list[str]) -> str:
         parts.append(note)
     parts.append(f"Note: {content}")
     return "\n".join(parts)
-
-
-def filing_prompt_for_test(session, category) -> str:
-    """The filing prompt a note being considered for `category` would get.
-
-    A seam, in the spirit of `core/events.exercise_for_test`: the property
-    worth pinning is *"a correction reaches the next prompt for that
-    category"*, and asserting it through a full janitor run would be asserting
-    the janitor's routing as well, which is a different test.
-    """
-    name = getattr(category, "name", category)
-    return filing_prompt(session, "(a note being filed)", [str(name)])

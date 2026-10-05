@@ -1528,7 +1528,7 @@ summary > .ph-lead,
   /* The Writing Room is a two-column layout, so at 1024 each column is about
      340px and four controls cannot fit on one line at any distribution of that
      space. The row is not the problem; the column count is. There is already a
-     `max-width: 900px` collapse in 04-chat-dock-appearance.css and this raises
+     `max-width: 819.98px` collapse in 04-chat-dock-appearance.css and this raises
      the point it happens, rather than adding a second, competing rule. */
   .draft-columns {
     grid-template-columns: 1fr;
@@ -3187,7 +3187,9 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .entry-meta.note-meta:not(.is-measuring) > :is(.when, .refs, .reminders, .review, .untagged, .untagged-ai, .source-path, .tag:not(.hashtag, .suggested-tag)) {
   flex-shrink: 5;
   min-width: 2.5em;
-  overflow: hidden;
+  /* Clipped across, open above and below: `hidden` clipped the chip's own
+     hit-target overhang (`.chip-interactive::after`, audit FE-14) too. */
+  overflow: clip visible;
 }
 
 /* The category gives way last, and keeps a word of itself. Its factor is
@@ -5368,8 +5370,6 @@ body .chip.item-label,
   place-items: center;
   flex: none;
   align-self: center;
-  width: 1rem;
-  height: 1rem;
   margin-inline-start: var(--space-1);
   border-radius: var(--radius-pill);
   font-size: 0.85em;
@@ -6477,7 +6477,6 @@ body .chip.item-label,
 #nm-buddy .nm-figure {
   transform-origin: 50% 100%;
   rotate: calc(var(--nmb-lean-pose) + var(--atl-lean-dir) * 3.5deg);
-  transition: transform var(--motion-slow) var(--ease-out), rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out);
 }
 #nm-buddy[data-pose="lean"][data-side="left"] .nm-figure { --nmb-lean-pose: 8deg; }
 #nm-buddy[data-pose="lean"][data-side="right"] .nm-figure { --nmb-lean-pose: -8deg; }
@@ -6568,13 +6567,13 @@ body .chip.item-label,
    (atlasarms.js POSE=lie; the owner: "no arm resting on the orbit rings"). */
 #nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-l { transform: rotate(-30deg); }
 #nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-r { transform: rotate(20deg); }
-#nm-buddy[data-pose="lie-2"] .atl-layer-lower { rotate: -16deg; }
-#nm-buddy[data-pose="lie"] .atl-layer-lower { rotate: -42deg; }
-#nm-buddy .atl-layer-lower { transition: rotate calc(var(--motion-slow) * 2) var(--ease-spring); }
-/* The body leads and the hem follows (INBOX 554, 564): the lower layer and
-   its group take a change of pose a beat after the torso does, and settle
-   past it on the spring, as cloth and hair do. */
-#nm-buddy :is(.atl-layer-lower, .atl-lower) { transition-delay: 70ms; }
+/* (Lying and curled, the lower layer turned 16 to 42 degrees off the torso;
+   it lies down with it now, one chain, INBOX 619.) */
+/* (The lower layer used to take a change of pose 70ms after the torso, its
+   follow-through; at the join that lag opened a step between the two
+   outlines through every change of pose, INBOX 615. The hem's own wind and the rig's
+   pose for the state, both about the join, carry the follow-through now.) */
+
 /* Curling up where it sits: hunched forward, arms round the knees, the
    stream drawn in close about it. */
 #nm-buddy[data-pose="curl-1"] .nm-figure { --nmb-lean-pose: 6deg; }
@@ -6585,16 +6584,13 @@ body .chip.item-label,
 #nm-buddy[data-pose="curl-1"] .atl-figure .nmb-arm-r { transform: rotate(30deg); }
 #nm-buddy[data-pose="curl"] .atl-figure .nmb-arm-l { transform: rotate(-58deg); }
 #nm-buddy[data-pose="curl"] .atl-figure .nmb-arm-r { transform: rotate(58deg); }
-#nm-buddy[data-pose="curl"] .atl-layer-lower { rotate: -24deg; }
+
 #nm-buddy[data-pose="curl-1"] :is(.atl-layer-neb, .atl-layer-neb-front) { scale: 0.9; }
 #nm-buddy[data-pose="curl"] :is(.atl-layer-neb, .atl-layer-neb-front) { scale: 0.78 0.7; }
 
 /* A three-quarter turn (`data-turn`, while it walks, glances or turns):
    the face slides towards that side and the body narrows a touch, which
    is how a flat mascot turns. */
-#nm-buddy .nm-char .nm-buddy-head {
-  transition: translate var(--motion-slow) var(--ease-out), rotate var(--motion-slow) var(--ease-out);
-}
 #nm-buddy[data-turn="l"] .nm-char .nm-buddy-head { translate: -3.5px 0; }
 #nm-buddy[data-turn="r"] .nm-char .nm-buddy-head { translate: 3.5px 0; }
 #nm-buddy[data-turn] .nm-figure { transform: scaleX(0.95); }
@@ -7045,6 +7041,8 @@ body .chip.item-label,
   #nm-buddy :is(.nm-buddy-char, .nm-figure, .nm-buddy-head, .nmp-lantern-glow, .nmb-leg-l, .nmb-leg-r, .nmb-arm-l, .nmb-arm-r, .nmb-hold-l, .nmb-hold-r, .nm-buddy-think i, .nm-buddy-z, .nm-buddy-z i) {
     animation-duration: 6s !important;
   }
+  /* A prop's own motion holds still (INBOX 623): the bell's ring too. */
+  #nm-buddy .nmp-bell { animation: none !important; }
 }
 
 @keyframes nmb-stir {
@@ -7556,7 +7554,7 @@ body .chip.item-label,
 /* The lower body's and the tail's pose for what it is doing (atlas.js,
    `atlasLowerState`, INBOX 575): set by the rig, on the compositor. */
 .atl-lw > .atl-lw-pose { position: absolute; left: 0; top: 0; width: 64px; height: 92px; will-change: transform; }
-.atl-lw-lower { transform-origin: 31px 57px; }
+.atl-lw-lower { transform-origin: 31px 55.5px; }
 /* The legs' limb gestures (`nameMarkBuddyLimbs`: rotate and scale) turn the box about the hip, the same two points the root's own `transform` uses. */
 .atl-lw-leg-l { transform-origin: 27.4px 60px; }
 .atl-lw-leg-r { transform-origin: 34.6px 60px; }
@@ -7606,9 +7604,9 @@ body .chip.item-label,
 /* Atlas's eyes on what it looks at, as the faces' are (`--nmb-ex`,
    `--nmb-ey`, avatars.js `nameMarkBuddyAim`): the iris inside its pupil, so
    the mood's own pupil placement (`--atl-px`) is kept and this adds to it. */
-#nm-buddy .nm-atlas .atl-iris { transition: translate var(--motion-fast) var(--ease-out); }
-#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate: calc(var(--nmb-ex) * 1.2px) calc(var(--nmb-ey) * 0.75px); transition: translate var(--motion-base) var(--ease-out); }
-#nm-buddy .nm-atlas .atl-iris { transition-duration: calc(var(--motion-slow) * 3); }
+#nm-buddy .nm-atlas .atl-iris { transition: translate var(--motion-fast) var(--ease-out), opacity calc(var(--motion-base) * 3) var(--ease-in-out); }
+#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate: calc(var(--nmb-ex) * 1.2px) calc(var(--nmb-ey) * 0.75px); transition: translate var(--motion-base) var(--ease-out), opacity calc(var(--motion-base) * 3) var(--ease-in-out); }
+#nm-buddy .nm-atlas .atl-iris { transition-duration: calc(var(--motion-slow) * 3), calc(var(--motion-base) * 3); }
 /* **The pupils stay in the eyes** (INBOX 497, the owner: "when I have my
    cursor to the top right of the companion or atlas, the pupils basically
    go off the head and you can only see white eyes"). Four offsets added up
@@ -7641,9 +7639,9 @@ body .chip.item-label,
 .atl-orbits, .atl-orbit, .atl-orbit-arm { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
 .atl-orbit, .atl-orbit-arm { transform-origin: 0 0; }
 .atl-orbit {
-  --atl-orbit-t: 70s;
-  &.atl-orbit-1 { --atl-orbit-t: 96s; }
-  &.atl-orbit-2 { --atl-orbit-t: 124s; }
+  --atl-orbit-t: 38s;
+  &.atl-orbit-1 { --atl-orbit-t: 52s; }
+  &.atl-orbit-2 { --atl-orbit-t: 68s; }
 }
 /* Where each planet starts, as a fraction of the turn: set by atlas.js. */
 .atl-orbit-arm {
@@ -8284,24 +8282,22 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-astral-back .atl-astral-edge { opacity: 0.3; }
 .nm-atlas:is(.atl-layer-glint-a, .atl-layer-glint-b) { will-change: opacity; }
 @keyframes atl-glint-twinkle { 0%, 100% { opacity: 0.4; } 45% { opacity: 1; } 60% { opacity: 0.85; } }
-/* The waist and tail wisps take the tail's pose: each pose's turn of the
-   lower layer (above, `.atl-layer-lower`) on their own group, about the same
-   point; the pose shapes (`.atl-lower`) reach them by class. */
-.nm-atlas .atl-astral-hips { transition: transform calc(var(--motion-slow) * 2) var(--ease-spring); }
-#nm-buddy[data-pose="lie-2"] .atl-astral-hips { transform: rotate(-16deg); }
-#nm-buddy[data-pose="lie"] .atl-astral-hips { transform: rotate(-42deg); }
-#nm-buddy[data-pose="curl"] .atl-astral-hips { transform: rotate(-24deg); }
+/* (The waist and tail wisps turned 16 to 42 degrees lying and curled, with
+   the lower layer; both lie down with the torso now, INBOX 619. The pose
+   shapes, `.atl-lower`, still reach them by class.) */
 /* Each pose shapes the skirt from the group inside the layer, about the
    waist (a static transform, which costs nothing): seated it pools and
    spreads over the ledge; floating it trails behind the tilted body;
    hanging it falls straight; leaning it swings the other way; sitting
-   cross-legged it spreads widest. */
+   cross-legged it spreads widest. Gently (INBOX 615, 619): a turn or a
+   spread here moves the outline where the torso fades into it, so each is
+   a few degrees or a few per cent, and the join stays one silhouette. */
 .nm-atlas .atl-lower { transition: transform var(--motion-slow) var(--ease-out); }
-#nm-buddy[data-pose="sit"] .atl-figure .atl-lower { transform: scale(1.18, 0.64); }
-#nm-buddy[data-pose="float"] .atl-figure .atl-lower { transform: rotate(12deg) scaleY(0.96); }
+#nm-buddy[data-pose="sit"] .atl-figure .atl-lower { transform: scaleY(0.82); }
+#nm-buddy[data-pose="float"] .atl-figure .atl-lower { transform: skewX(-4deg) scaleY(0.96); }
 #nm-buddy[data-pose="hang"] .atl-figure .atl-lower { transform: scaleY(1.04); }
-#nm-buddy[data-pose="lean"] .atl-figure .atl-lower { transform: rotate(-6deg); }
-#nm-buddy.nmb-act-meditate .atl-figure .atl-lower { transform: scale(1.32, 0.54); }
+#nm-buddy[data-pose="lean"] .atl-figure .atl-lower { transform: skewX(3deg); }
+#nm-buddy.nmb-act-meditate .atl-figure .atl-lower { transform: scaleY(0.8); }
 /* The sway is on the layer's root, not the group: a transform animated on
    a group inside an svg repaints the svg on the main thread every frame
    (57 paints a second and 15 ms/s for the sash this replaced,
@@ -8311,7 +8307,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    with the glide, the feminine look's walk, since it has no legs to step
    with; carried, kicked or dangling they flick. Still under Off and
    Reduce motion. */
-.nm-atlas.atl-layer-lower { transform-origin: 31px 57px; will-change: transform; }
+.nm-atlas.atl-layer-lower { transform-origin: 31px 55.5px; will-change: transform; }
 @media all {
   :root:not([data-avatar-motion="off"]):is(:not([data-motion="reduced"]), [data-buddy-motion="full"]) #nm-buddy {
     /* `.nm-live .nm-atlas` in each: the idle drift below is written in an
@@ -8378,8 +8374,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   to { transform: translateY(-1.5px) rotate(2deg); }
 }
 @keyframes atl-lower-sway-heavy {
-  from { transform: rotate(-2.4deg) skewX(1.2deg); }
-  to { transform: rotate(3deg) skewX(-1.2deg); }
+  from { transform: skewX(3.6deg); }
+  to { transform: skewX(-4.2deg); }
 }
 @keyframes atl-lower-trail {
   from { transform: rotate(calc(var(--nmb-lean) * -5deg - 1deg)) skewX(calc(var(--nmb-lean) * 3deg)); }
@@ -8412,25 +8408,30 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   from { translate: 0 0.5px; }
   to { translate: 0 -0.9px; }
 }
+/* A shear about the join, not a turn (INBOX 615): the hem swings and the
+   waist, where the torso fades into it, stays where the torso is. */
 @keyframes atl-hem-wind {
-  from { rotate: -1.3deg; translate: 0.35px 0; }
-  to { rotate: 1.5deg; translate: -0.5px 0; }
+  from { transform: skewX(1.3deg); }
+  to { transform: skewX(-1.5deg); }
 }
 @keyframes atl-wisp-drift {
   from { rotate: -2.2deg; translate: 0 0.6px; }
   to { rotate: 2deg; translate: 0 -1.2px; }
 }
 @keyframes atl-skirt-idle {
-  from { transform: rotate(-1.4deg) skewX(1.6deg); }
-  to { transform: rotate(1.6deg) skewX(-1.6deg); }
+  from { transform: skewX(1.6deg); }
+  to { transform: skewX(-1.8deg); }
 }
+/* The walk's, the carry's and the kick's swing of the lower body: shears
+   about the join (INBOX 615), the hem swinging and the waist staying under
+   the torso; a turn there stepped the outline 0.7px at 2.2x. */
 @keyframes atl-lower-sway {
-  from { transform: rotate(-4deg) skewX(3deg); }
-  to { transform: rotate(5deg) skewX(-3deg); }
+  from { transform: skewX(4deg); }
+  to { transform: skewX(-4.5deg); }
 }
 @keyframes atl-lower-flick {
-  from { transform: rotate(-3deg) scaleY(1); }
-  to { transform: rotate(11deg) scaleY(0.94) skewX(-4deg); }
+  from { transform: skewX(3deg) scaleY(1); }
+  to { transform: skewX(-12deg) scaleY(0.94); }
 }
 .nm-atlas .atl-eye-open { opacity: var(--atl-open); }
 .nm-atlas .atl-e-happy { opacity: var(--atl-happy); }
@@ -8500,7 +8501,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    a mood eased over seconds) or `nmb-easing` on the companion (avatars.js,
    its own sleep and wake), eyes, mouth and brows cross over 1.8s, not
    0.16s. Measured by scratchpad/ui-sweeps/atlassleepinput.js. */
-:is(.nm-atlas.atl-easing, #nm-buddy.nmb-easing .nm-atlas) :is(.atl-eye-open, .atl-e-happy, .atl-e-shut, .atl-e-doze, .atl-e-squeeze, .atl-iris, .atl-m, .atl-cheek) {
+:is(.nm-atlas.atl-easing, #nm-buddy.nmb-easing .nm-atlas) :is(.atl-eye-open, .atl-e-happy, .atl-e-shut, .atl-e-doze, .atl-e-squeeze, .atl-iris, .atl-heart-eye, .atl-m, .atl-cheek) {
   transition: opacity calc(var(--motion-slow) * 9) var(--ease-in-out);
 }
 :is(.nm-atlas.atl-easing, #nm-buddy.nmb-easing .nm-atlas) :is(.atl-lid, .atl-lid-low, .atl-brow) {
@@ -8907,7 +8908,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     & .atl-lw-body[data-atlas-look="feminine"] .atl-lw-breathe { animation-duration: 3.7s; }
     & .atl-layer-glint-a { animation: atl-glint-twinkle 3.4s ease-in-out infinite; }
     & .atl-layer-glint-b { animation: atl-glint-twinkle 4.7s ease-in-out -2.2s infinite; }
-    &:is([data-atlas-mood="happy"], [data-atlas-mood="delighted"], [data-atlas-mood="love"], [data-atlas-mood="laughing"]) .atl-lw-tail { animation: none; }
+    /* (The happy moods stopped this flow while the wag ran on the layer; the
+       living tail wags now, atlas.js, and the flow runs on: INBOX 600.) */
   }
 }
 
@@ -9844,7 +9846,7 @@ input[type="file"]:active::file-selector-button {
    the time and the title slid across to the right, x 1227 against 173 on
    the row above. The time keeps its 7rem at the start in both views, the
    title a fixed track, and the detail takes the rest. */
-@media (min-width: 720px) {
+@media (min-width: 600px) {
   .library-grid .library-card.library-activity > .library-card-meta {
     order: -1;
     flex: 0 0 7rem;

@@ -48,7 +48,7 @@ def test_every_raw_fetch_to_a_locked_route_sends_the_auth_token():
     missing = [
         f"{name}:{line} fetch({route!r})"
         for name, line, route, window in _raw_fetches()
-        if "X-Auth-Token" not in window
+        if "X-Auth-Token" not in window and "authHeaders()" not in window
     ]
     assert not missing, "raw fetch without X-Auth-Token (use api() or add the header):\n" + "\n".join(missing)
 
@@ -58,6 +58,6 @@ def test_the_lint_sees_the_fetches_it_is_for():
     routes = {route for _, _, route, _ in _raw_fetches()}
     # The two streams it was written for went through `api.stream` on
     # 2026-10-05 (F5, `tests/test_no_bare_fetch.py`); the raw fetches left
-    # are app.js's own sign-in call (the media-session ask went through
-    # `api()` with INBOX 597's boot check).
+    # are the sign-in calls (the media session went through `api()` too, in
+    # shell-reminders.js's `refreshMediaSession`).
     assert "/auth/auto-session" in routes

@@ -488,7 +488,7 @@ async function saveSketch() {
     form.append("file", blob, `sketch-${stamp}.png`);
     const uploaded = await apiJson("/media/upload", {
       method: "POST",
-      headers: { "X-Auth-Token": authToken() },
+      headers: authHeaders(),
       body: form,
     });
     // The caption stays the note's own first line, it is what the person

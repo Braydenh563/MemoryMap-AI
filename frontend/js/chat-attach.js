@@ -345,7 +345,7 @@ async function commitStagedImages() {
     // headers rather than merging.
     const uploaded = await apiJson("/media/upload", {
       method: "POST",
-      headers: { "X-Auth-Token": authToken() },
+      headers: authHeaders(),
       body: form,
     });
     image.id = uploaded.id;
@@ -403,7 +403,7 @@ async function keepUnreadableChatFile(file, error) {
   try {
     await apiJson("/media/upload", {
       method: "POST",
-      headers: { "X-Auth-Token": authToken() },
+      headers: authHeaders(),
       body: form,
     });
   } catch {
@@ -435,7 +435,7 @@ async function importChatDocuments(files) {
       // has to be overridden rather than merged.
       const document = await apiJson("/documents/import", {
         method: "POST",
-        headers: { "X-Auth-Token": authToken() },
+        headers: authHeaders(),
         body: form,
       });
       made.push(document);
@@ -1121,7 +1121,7 @@ function notePickerShape(source) {
       const cat = document.createElement("span");
       cat.className = "note-picker-category";
       cat.textContent = entry.category || "Unfiled";
-      if (typeof paintCategoryDot === "function") paintCategoryDot(cat, entry.category);
+      paintCategoryDot(cat, entry.category);
       const when = relativeTime(entry.updated_at || entry.created_at);
       return when ? [cat, ` · ${when}`] : [cat];
     },
@@ -1856,7 +1856,7 @@ async function sendChatMessage(preset, opts = {}) {
   //: persona that actually answered (the owner: "the avatars need to persist
   //: for what persona was used").
   const sentPersona = $("persona-select").value || aiNameNow();
-  const { bubble, stepsHolder, recordsHolder, groundingHolder, timeline } = addAssistantBubble(sentPersona);
+  const { bubble, stepsHolder, recordsHolder, groundingHolder, timeline, paintHooks } = addAssistantBubble(sentPersona);
   // The live counter rides in the bubble it is timing, and leaves with it.
   mountChatTimer(bubble);
   // A newer answer exists, so the previous one's chips stop being the end of
@@ -1918,6 +1918,25 @@ async function sendChatMessage(preset, opts = {}) {
   // raw_results/search_mode/match_info a few lines below, which got exactly
   // this treatment already for the same reported-missing-on-reload reason.
   let groundingSentences = null;
+  //: **Numbered while it streams, as the Ask tab is** (INBOX 320, the
+  //: askcite row): the backend sends the rows so far each time a sentence
+  //: completes (`grounding_live`), and the markers are put back after every
+  //: live paint, which rebuilds the step. The numbering is the final pass's
+  //: own (`chatSourcesFrom` over this turn's meta), so a digit that appears
+  //: mid-answer is the digit it keeps. The `grounding` event still replaces
+  //: these rows when the stream ends.
+  let liveSources = null;
+  const placeLiveCitations = () => {
+    if (groundingSentences?.length) {
+      addInlineCitations(
+        bubble.querySelectorAll(".bubble-answer"),
+        groundingSentences,
+        meta?.raw_results || [],
+        liveSources
+      );
+    }
+  };
+  paintHooks.afterAnswerPaint = placeLiveCitations;
   // INBOX 272 part 1: set when the model couldn't call tools and the turn
   // was silently answered as plain Q&A instead. Captured here, rendered
   // once the stream is over (same reason `groundingSentences` waits: a
@@ -2099,6 +2118,11 @@ async function sendChatMessage(preset, opts = {}) {
       },
       onUnsupported: (event) => {
         toolsUnsupportedEvent = event;
+      },
+      onGroundingLive: (event) => {
+        groundingSentences = event.sentences || [];
+        liveSources ??= chatSourcesFrom({ meta, toolEvents: [], touched: [] });
+        placeLiveCitations();
       },
       onGrounding: (event) => {
         groundingSentences = event.sentences;
@@ -2467,15 +2491,14 @@ async function sendChatMessage(preset, opts = {}) {
   }
   // What this answer cost: model, wall-clock time, tokens, speed.
   const elapsedMs = Math.round(performance.now() - startedAt);
+  //: For the status bar's AI dot (Placed 2026-09-09 item 99 (c)).
+  if (stats) {
+    lastAnswerFacts = { model: stats.model || (meta && meta.answered_by) || "", ms: elapsedMs, used: Number(stats.prompt_tokens) || 0, window: Number(stats.context_tokens) || 0 };
+    renderAiPill();
+  }
   // A turn that only ran tools still cost time and tokens, so it gets a meta
   // line too: previously an agent turn with no prose showed nothing at all.
   if (answerRaw || toolEvents.length) {
-    noteAiTurn({
-      model: (stats && stats.model) || (meta && meta.answered_by) || "",
-      elapsedMs,
-      prompt: (stats && stats.prompt_tokens) || 0,
-      context: (stats && stats.context_tokens) || 0,
-    });
     bubble.appendChild(
       messageMetaLine({
         model: (stats && stats.model) || (meta && meta.answered_by),

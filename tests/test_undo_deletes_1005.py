@@ -36,13 +36,17 @@ def test_a_detached_reference_comes_back_in_its_place(client):
 
 
 def test_a_deleted_note_type_comes_back_with_its_id_and_fields(client):
+    #: The types panel lists before it makes, which seeds the five built-in
+    #: types (Person, Project, Meeting, Book, Place) once; seeding after the
+    #: delete would hand the deleted id to Person.
+    seeded = {t["id"] for t in client.get("/note-types").json()}
     made = client.post(
         "/note-types",
-        json={"name": "Meeting", "icon": "ph-users", "colour": "teal", "fields": [{"name": "attendees", "kind": "list"}]},
+        json={"name": "Standup", "icon": "ph-users", "colour": "teal", "fields": [{"name": "attendees", "kind": "list"}]},
     ).json()
     gone = client.delete(f"/note-types/{made['id']}").json()
     assert gone["type"] == made
-    assert client.get("/note-types").json() == []
+    assert {t["id"] for t in client.get("/note-types").json()} == seeded
     back = client.post("/note-types", json={**gone["type"], "restore": True})
     assert back.status_code == 201, back.text
     assert back.json() == made

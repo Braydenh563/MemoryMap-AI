@@ -28,7 +28,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Select, and_, func, or_, select
+from sqlalchemy import Select, String, and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import Document, Entry, EntryDate, Reminder, Space, utcnow
@@ -74,19 +74,6 @@ def _clip(text: str, limit: int = PREVIEW_CHARS) -> str:
     genuinely had less text than the note, and nothing on screen said that.
     """
     return text if len(text) <= limit else text[: limit - 1] + "…"
-
-
-def _encode_cursor(at: datetime, entry_id: int) -> str:
-    """`created_at|id`, base64url.
-
-    Opaque on purpose, and URL-safe by construction rather than by everyone who
-    builds a link remembering to encode it: the plain form ends in a `+00:00`
-    offset for any row saved with a timezone, and a `+` in a query string is a
-    space by the time it reaches here. That is a 422 on the second page of a
-    notebook and on nothing else, which is exactly the kind of fault that gets
-    found in a week rather than in a test.
-    """
-    return base64.urlsafe_b64encode(f"{at.isoformat()}|{entry_id}".encode()).decode()
 
 
 def _decode_cursor(cursor: str) -> str:
@@ -565,30 +552,13 @@ def timeline(
         "scale": scale,
         "group": group,
         "kinds": list(kinds),
-        #: **The rows, under the name they deserve**, and under the old one
-        #: for one release. The key said `notes` from the days when the feed
-        #: held only notes; it has held boards since mind maps existed and
-        #: holds documents and reminders since Phase 4, so a reader of this
-        #: response had to know that `notes[3]` might be a reminder.
-        #:
-        #: Both keys, same list, because of the one caller that can be older
-        #: than this server: the app's own frontend, served from a cache. A
-        #: desktop window or a service worker holding a previous build's
-        #: `app.js` asks this endpoint the moment it opens the tab, and
-        #: `body.notes.map` on an undefined would empty the Timeline with no
-        #: error on screen (CLAUDE.md section 5 records what that class of bug
-        #: costs to diagnose). The duplicate is measured rather than assumed,
-        #: against a 2,000-note notebook with 600 documents and 600 reminders
-        #: in it: a full 300-row page is 263,828 bytes of JSON with both keys
-        #: against 140,096 with one, and 22,278 bytes against 13,764 over the
-        #: wire, the response being gzipped. Eight and a half kilobytes a page
-        #: to a server on the same machine, for one release, against a
-        #: Timeline that silently draws nothing.
-        #:
-        #: **Drop `notes` in the release after 0.3.0**, once no cached build
-        #: that reads it can still be talking to this server.
+        #: **The rows.** The key said `notes` from the days when the feed held
+        #: only notes, and both keys carried the same list for the releases
+        #: a cached build might still read `notes` (the plan was to drop it
+        #: after 0.3.0). Dropped on 0.3.32 (audit 2026-10-05, ARCH-11): at
+        #: 5,000 notes it was 175 KB of the 350 KB page, built and encoded
+        #: twice, for a frontend that reads `rows` only.
         "rows": placed,
-        "notes": placed,
         #: Bands are a property of notes (a category, a tag, a thread), so they
         #: are counted over the rows that have those and not over the feed.
         "bands": _bands([row for row in placed if row["kind"] in ("note", "board")], group),
@@ -630,26 +600,25 @@ def _density(session: Session, ranged: Select) -> dict[str, int]:
     stays affordable at a size where fetching every row would not, which is the
     whole reason the view is paged.
     """
-    dates = session.execute(
-        ranged.with_only_columns(Entry.id, Entry.created_at).order_by(None)
-    ).all()
-    if not dates:
-        return {}
-    mentioned: dict[int, datetime] = {}
-    rows = session.execute(
-        select(EntryDate.entry_id, EntryDate.at)
-        .where(EntryDate.entry_id.in_([entry_id for entry_id, _ in dates]))
+    #: Counted in SQL (audit 2026-10-05, ARCH-11): this read every note's id
+    #: and date and then sent all 5,000 ids back as `IN (...)` parameters for
+    #: the mentioned dates, 78 ms of a 179 ms page. A note's first mentioned
+    #: date (lowest id, as before) is a correlated read served by the
+    #: `entry_id` index; dates are stored as naive UTC text, so the day is its
+    #: first ten characters, which is what `.date()` gave on the row.
+    first_mentioned = (
+        select(EntryDate.at)
+        .where(EntryDate.entry_id == Entry.id)
         .order_by(EntryDate.id)
+        .limit(1)
+        .correlate(Entry)
+        .scalar_subquery()
+    )
+    day = func.substr(func.coalesce(first_mentioned, Entry.created_at), 1, 10, type_=String)
+    rows = session.execute(
+        ranged.with_only_columns(day.label("day"), func.count()).order_by(None).group_by("day")
     ).all()
-    for entry_id, at in rows:
-        mentioned.setdefault(entry_id, at)
-
-    counts: dict[str, int] = {}
-    for entry_id, created_at in dates:
-        when = mentioned.get(entry_id, created_at)
-        day = when.date().isoformat()
-        counts[day] = counts.get(day, 0) + 1
-    return counts
+    return {str(when): int(count) for when, count in rows if when}
 
 
 def _bands(notes: list[dict], group: str) -> list[dict]:

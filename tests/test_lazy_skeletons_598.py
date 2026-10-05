@@ -77,8 +77,8 @@ def test_a_return_to_the_dashboard_refreshes_in_place():
 #: lands. `scratchpad/ui-sweeps/settings-skeletons.js` holds the API 800ms and
 #: counts the lists left empty (8 panes before, none after).
 SETTINGS_LISTS = (
-    ("status.js", "async function renderExtras(", "extras-list"),
-    ("status.js", "async function renderEmbedModels(", "embed-models-list"),
+    ("settings-packages.js", "async function renderExtras(", "extras-list"),
+    ("settings-packages.js", "async function renderEmbedModels(", "embed-models-list"),
     ("skills.js", "async function renderSkillSettings(", "skill-list"),
     ("skills.js", "async function renderToolSettings(", "tool-list"),
     ("sheets-selects.js", "async function renderPersonas(", "persona-list"),

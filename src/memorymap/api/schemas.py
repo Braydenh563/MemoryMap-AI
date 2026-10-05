@@ -82,6 +82,9 @@ class EntryCreate(BaseModel):
     document_ids: list[int] = Field(default_factory=list, max_length=10)
     # A note captured from the text-selection popup, not yet reviewed.
     is_draft: bool = False
+    #: Made by a map gesture (`Entry.map_topic`): kept out of Notes and
+    #: Recently added, found by search like any note.
+    map_topic: bool = False
     # Where a web-reader clipping came from (BACKLOG §65): real metadata,
     # not parsed back out of the markdown blockquote `saveSelectionAsNote`
     # (app.js) still writes into `content` for portability. Both optional
@@ -260,6 +263,8 @@ class EntryOut(BaseModel):
     #: a note list, or labelled as what it is, every surface either treated
     #: it as a note or hard-coded a second fetch of `/whiteboard/boards`.
     is_board: bool = False
+    #: A topic a map gesture made (`Entry.map_topic`, audit UX-06).
+    map_topic: bool = False
     # Where a web-reader clipping came from, when it was one (BACKLOG §65).
     source_url: str | None = None
     source_title: str | None = None

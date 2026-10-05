@@ -29,7 +29,9 @@ def _body(text: str, signature: str) -> str:
 def test_both_panels_share_one_tool_row_and_one_set_of_helpers() -> None:
     for source in (TAGS, CATS):
         assert "...manageListControls({" in source
-        assert "drawManageSuggestions(state.suggestBox" in source
+        #: Categories draw the server's tidy proposals there (world-class row
+        #: 11, `drawCategoryTidy`), in the same box and the same row shape.
+        assert "drawManageSuggestions(state.suggestBox" in source or "drawCategoryTidy(state.suggestBox" in source
         assert "manageCountButton(" in source
         assert "manageSorted(" in source
     # The categories panel reads the helpers from the tag manager's module.

@@ -530,19 +530,10 @@ ten-second grep-first check as everything else in this document before
 anyone spends a session on them. (The other four of the original five were
 checked 2026-10-04 and are in HISTORY.md, "Moved from the backlog".)
 
-- **A note filed under the wrong category by a wide margin** — "I wrote 'ai
-  is cool' as a note and it was filed under Sketches". Sketches is a specific
-  category the janitor's cheap embedding-centroid path can match against
-  (§4 of `ARCHITECTURE.md`), so this smells like a centroid gone stale or too
-  few notes in the right category to out-vote it, rather than a one-off.
-  Worth checking what "Sketches" actually contains before assuming the AI is
-  at fault. **(needs Opus)**: checked 2026-10-04, no repro and no guard for
-  a three-word note: `janitor._semantic_category` files at a centroid
-  similarity of 0.60 (`CONFIDENT_MATCH`) or a kNN vote (`KNN_MIN_SIMILARITY`
-  0.42, `KNN_MIN_SHARE` 0.55) with no length floor, so a very short note's
-  vector can land anywhere. Whether a floor belongs there, and at what
-  length, is a filing-quality judgement to measure against a real notebook.
-  **Next:** a failing test in `tests/` seeding a two-category notebook and filing "ai is cool" through `janitor._semantic_category` (`ai/janitor.py`), then a word-count floor beside `CONFIDENT_MATCH` that falls through to `lexical_filing.py`; the floor's number needs a real notebook, so measure it before choosing it.
+- **A note filed under the wrong category by a wide margin** ("ai is cool" filed
+  under Sketches): **built 2026-10-05**, HISTORY.md ("backlog-1005"). A note under
+  four words files by meaning only when its nearest filed note is 0.72 close
+  (`janitor.SHORT_NOTE_MIN_NEIGHBOUR`), measured with the real embedding model.
 
 **The lesson worth keeping.** Four of these were "this control does nothing",
 and in three of the four the control was working perfectly — the write landed
@@ -1798,7 +1789,7 @@ thing anywhere in the app.
   mostly already exist. **(needs Opus)**: checked 2026-10-04, `GET /storage`
   still returns only `database_bytes`; the walk, the cache and the Settings
   line with its '?' are one design.
-  **Next:** `routes_backups.py:39` `storage_location` adds `uploads_bytes`, `backups_bytes` and `media_bytes` from a cached directory walk; the per-extra footprint is the second step (`core/extras.py`).
+  **Partly built 2026-10-05** (HISTORY.md, "backlog-1005"): `GET /storage` reports `uploads_bytes`, `media_bytes` and `backups_bytes` from a cached walk (`diskspace.dir_bytes`), and Settings, About, Health has a Files on disk row. **Next:** the per-extra footprint (`core/extras.py`: bytes of each installed extra's folder, beside its Remove button).
 - **One actual "your data" page, not the pieces scattered.** **Partly built:** Settings, Privacy, "Where your data went" (`frontend/index.html:11095`, `core/egress.py`) is the receipt. **Next:** a head line stating what is stored and where, with links to Export and the wipe above once it exists. The individual
   facts already exist — where the data lives and how big it is (README),
   what's in the audit log (Settings → Activity), what export and wipe do
@@ -1824,7 +1815,7 @@ thing anywhere in the app.
   likely solving a problem that doesn't exist yet at any realistic notebook
   size — worth measuring an actual `data/memorymap.db` before writing any
   compression code, not assuming it's needed. **(needs owner)**: see 79b.
-- **A synthesised export, not just a raw one.** **Next:** a built-in skill in `ai/skills.py` `BUILTIN_SKILLS` (steps: search a tag, read the notes, `create_document`) with `{{tag}}` as its input; a new skill moves `tests/test_readme_freshness.py`'s skill count. Same item as sections 102 item 10 and 109.3 item 5. Export today (JSON/CSV/MD)
+- **A synthesised export, not just a raw one.** **Skill built 2026-10-05** (HISTORY.md, "backlog-1005"): "Write a document from a tag" in `ai/skills.py`; the button on a graph or list selection is still open (it needs a place in the selection bar, a design call). Same item as sections 102 item 10 and 109.3 item 5. Export today (JSON/CSV/MD)
   is a dump of what's selected; Gemini's grounded suggestion was a step
   beyond that — pick a tag or a cluster and have the AI *compile* it into
   one coherent document (a project writeup, a portfolio piece, a README)
@@ -2175,31 +2166,10 @@ or Library page; a new surface, so a design call.
 
 ## 76. Keyword-only note filing while the AI is unavailable, flagged for later AI review
 
-**The filer is built** (checked 2026-10-04): `manager.WORDS_FILED` (`"words"`),
-returned by `janitor` when no model is available and reported as `filed_by:
-"words"` by `routes_entries`; a manual move of such a note counts as a
-correction. **What is open is the second half below: the autonomous review pass
-revisiting `words` notes once a model is back. (needs Opus)**
-**Next:** `ai/autonomous.py` has no reference to `WORDS_FILED` (checked 2026-10-05); add a query over `Entry.filing_state == WORDS_FILED` (`entry/manager.py:458`) to `_optimization_pass` (line 268), re-file each through `janitor` with the model and record a correction when it changes, behind the existing autonomous switch; a test seeds a `words` note with the fake transport and asserts one re-file.
-
-Asked for directly, and specifically **not** the same as `janitor.categorise`'s
-existing low-confidence path (routes_entries.py's `create_entry` already
-falls back to `UNCATEGORISED` when the AI call itself fails — that's a
-"give up" fallback, not a second opinion). What's being asked for is a real
-non-AI filer: while no local model is available at all, look at a new
-note's own words (keyword/term overlap against existing categories and
-tags — no embeddings, no model call) to make a real best-effort filing
-guess instead of dumping everything into Uncategorised, and tag every note
-filed this way so it's unmistakable later. Once the AI is available again —
-on its own schedule, not necessarily right away — the autonomous agent's
-existing stale/orphaned-note review pass (§17 in the session's
-completed-work list) checks that tag specifically: did the keyword guess
-get the filing and metadata right, and correct it if not. Scope: a
-keyword-overlap filer as a genuine alternative code path when
-`deps.get_ollama()`/the model manager reports unavailable (not merely a
-lower-confidence branch of the AI path), a `filed_by="keyword_fallback"` (or
-similar) marker distinct from the existing `"none"`/`"thread"`/`"user"`
-values, and a query added to the existing review pass rather than a new one.
+**Built, both halves** (2026-10-05, HISTORY.md "backlog-1005"). The filer is
+`manager.WORDS_FILED` and `lexical_filing`; the review is
+`janitor.review_words_filed`, called by the background pass in
+`ai/autonomous.py`. `tests/test_words_review.py`.
 
 ## 77. Notes-tab pagination and page-aware note links
 
@@ -2929,7 +2899,7 @@ laziness.
    itself carries a per-claim link back to its source note, versus only a
    list of sources alongside the answer. Verify against a real chat turn
    before scoping further — may already be partially there.
-7. **A dedicated, browsable highlights/clippings collection**, **Next:** see section 109.4's "Highlights as a queryable collection" (the marks are `==text==` in `content`, so a Library chip over a search for them, no new table). Distinct
+7. **A dedicated, browsable highlights/clippings collection**, **Built 2026-10-05** (HISTORY.md, "backlog-1005"): the Library's Highlights chip and `has:highlight`. Distinct
    from an ordinary note. Checked: `app.js`'s own comment names this "the
    capture surface half of BACKLOG.md §65 (highlight/web-clip capture)" —
    selecting text and capturing it as a note already works, but that
@@ -3623,7 +3593,7 @@ Genuinely open, ranked by value-per-effort:
   fixing whatever regressed, selecting text is the natural home for
   highlight-with-colour, "ask the AI about this", "extract to a new note"
   and "link this to…". Today selection offers nothing consistent.
-- **Highlights as a queryable collection.** **Next:** `search/query.py` gains a `has:highlight` operator over `content` (the marks are `==text==`), and a Library chip lists the passages with their note; no new table. Once `==highlight==` is in use,
+- **Highlights as a queryable collection.** **Built 2026-10-05** (HISTORY.md, "backlog-1005"): `has:highlight` (`search/engine.py`, answered from the row's own text) and a Library Highlights chip listing each passage with its note (`routes_library._highlights`, `entry/highlights.py`); no new table. Once `==highlight==` is in use,
   "show me everything I highlighted this month" is a search-index question,
   not a schema question — the marks are already in `content`. **(needs Opus)**
 - **Search-result grouping by category/tag**, with counts — **Next:** `GET /search` (`api/routes_search.py`) already returns each hit's kind and category; grouping is a client fold in `frontend/js/palette.js` and the Library's search with a count per group, no backend change. The result list
@@ -3730,7 +3700,7 @@ anything already built is named as such so nobody rebuilds it.
 2. ~~**Backlinks on the note itself.**~~ **Built, see `frontend/js/notes-list.js:3431` and `menus.js:1002` (`GET /entries/{id}/backlinks`).** The graph already knows what links *to*
    a note; the note never shows it. Cheap, and it is half of what people mean
    by a connected notebook.
-3. **Highlights as a queryable collection.** **Next:** see section 109.4. Now that `==highlight==` exists,
+3. **Highlights as a queryable collection.** **Built 2026-10-05**, section 109.4 (HISTORY.md, "backlog-1005"). Now that `==highlight==` exists,
    "show me everything I highlighted this month" is a search-index question,
    not a schema one — the marks are already in `content`. This is also the
    honest version of the "clippings library" competitor gap (§109.3 item 4).
@@ -3744,7 +3714,7 @@ anything already built is named as such so nobody rebuilds it.
    else has.
 7. ~~**A keyboard-shortcut sheet.**~~ **Built, see `frontend/js/settings-wiring.js:1514` (`openShortcuts`, built from `DEFAULT_SHORTCUTS`, rebindable, `?` opens it).** `Ctrl+K`, zoom, dictation and the "/" menu
    all exist and nothing lists them in one place.
-8. **Per-note pinned AI context** — **Next:** see section 109.4. A note that is always in scope for chat
+8. **Per-note pinned AI context** — **Built 2026-10-05**, section 109.4 (HISTORY.md, "backlog-1005"). A note that is always in scope for chat
    ("my current project"), instead of relying on retrieval to find it.
 9. **Speaker labelling on transcripts.** **Next:** the owner's call, section 102 item 8. Transcription is already local, so
    "Speaker 1/2/3" by voice is incremental; letting a user rename a label
@@ -3850,9 +3820,9 @@ Ranked by the gap between what it costs to build and what it would be worth.
 7. ~~**A keyboard-shortcut sheet.**~~ **Built (section 111.2 item 7).** `Ctrl+K`, zoom, dictation and the "/" menu all
    exist and nothing lists them anywhere. Ten minutes of work; it is the
    difference between "has shortcuts" and "feels professional".
-8. **Per-note pinned AI context** — **Next:** see section 109.4. "Always consider this note", instead of
+8. **Per-note pinned AI context** — **Built 2026-10-05**, section 109.4 (HISTORY.md, "backlog-1005"). "Always consider this note", instead of
    hoping retrieval finds it. One preference, one prompt slot.
-9. **Highlights as a queryable collection.** **Next:** see section 109.4. `==highlight==` already parses;
+9. **Highlights as a queryable collection.** **Built 2026-10-05**, section 109.4 (HISTORY.md, "backlog-1005"). `==highlight==` already parses;
    "everything I highlighted this month" is a search-index question.
 10. ~~**A conflict-safe editor.**~~ **Built (section 111.2 item 10).** Two windows on one note is last-write-wins.
     Rare, and infuriating exactly once.
@@ -3979,8 +3949,8 @@ a session or less and names its gate.
 | 7 | **Built apart from the timing gate:** `frontend/js/skills.js:1241-1377` and `tag-manager.js:674` (the Notes selection bar), `library.js` `bulkDelete*`/`bulkMove*` (the Library's own). Bulk operations in the Library: select many, tag, move, export, delete, with undo | a 500-row selection completes in under a second, measured |
 | 8 | **Built, see `frontend/js/settings-wiring.js` (`renderSavedSearches`, `persistSavedSearches`, `saveCurrentSearch`: the `saved_searches` preference as chips under the Notes filter, `#saved-searches`) and `tests/test_keyword_search.py` (`test_saved_searches_round_trip`).** Saved searches and smart folders (a query as a sidebar entry) | `search/query.py` round-trips every saved query |
 | 9 | **Built, see `frontend/index.html:798` (`#note-template-dialog`, DOCUMENTS_PLAN and CHANGELOG 2026-09-24: built-ins editable) and `BUILTIN_TEMPLATES`.** Templates for notes, not only documents and boards | one recipe shared with the document template chooser |
-| 10 | **Next:** `core/backup.py` writes plain zips today (`routes_backups.py`); an encrypted container reuses `core/crypto.py` (scrypt KDF) with a `.mmenc` wrapper around the same zip, a password prompt on export and import. Encrypted export and import of the whole notebook (one file, one password) | export, wipe, import, diff equals zero in a test |
-| 11 | **Next:** `GET /audit` exists (`DELETE /audit?entity_type=` too); add `GET /audit/export.csv` beside `routes_settings.py:2586` (`export_csv`) with every field, and an Export item in the Library's Activity view (`frontend/js/library.js`, the Activity chip; there is no Settings, Activity pane). The activity log as an audit trail a professional can hand over (who, what, when, export CSV) | every event kind exported with its fields |
+| 10 | **Built 2026-10-05** (HISTORY.md, "backlog-1005"): `POST /backups/bundle` (zip, or a `.mmenc` sealed with a password) and `POST /backups/bundle/restore`, `core/backup_bundle.py`, Settings, Import & export. Encrypted export and import of the whole notebook (one file, one password) | export, wipe, import, diff equals zero in a test |
+| 11 | **Built 2026-10-05**, HISTORY.md ("backlog-1005"): `GET /audit/export.csv` and the Activity chip's Export as CSV. The activity log as an audit trail a professional can hand over (who, what, when, export CSV) | every event kind exported with its fields |
 | 12 | Startup and boot under the speed budget on a five-year-old laptop | `boottime.js` numbers in the CHANGELOG per step |
 | 13 | The aurora background's residue (INBOX 210): trails on their own layer redrawn from a short position history, then a pass over the bubbles and mesh styles | `pngpixel.py` reads the ground colour where a ribbon passed two seconds earlier |
 

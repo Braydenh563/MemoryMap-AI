@@ -143,3 +143,15 @@ def test_every_shortcut_has_something_to_run():
     actions = source.split("function runShortcut(id) {")[1].split("\n  actions[id]")[0]
     for name in ids:
         assert re.search(rf"\b{name}[,:]", actions), f"{name} has no action"
+
+
+def test_a_question_box_does_not_offer_the_writing_popup():
+    """UX-09: Notes, Ask selects the question after asking, and the popup
+    offered Highlight and Bold for a query, drawn over the tab bar."""
+    source = app_js_text()
+    body = source.split("function fieldSelection() {")[1].split("\n}\n")[0]
+    assert "[data-no-selection-popup]" in body
+    html = (Path(__file__).resolve().parents[1] / "frontend" / "index.html").read_text(encoding="utf-8")
+    for ident in ("question", "help-chat-input"):
+        tag = re.search(rf'<input[^>]*\bid="{ident}"[^>]*>', html, re.S).group(0)
+        assert "data-no-selection-popup" in tag, ident

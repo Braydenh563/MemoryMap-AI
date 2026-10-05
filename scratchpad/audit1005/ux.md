@@ -165,7 +165,7 @@ Counts: High 4, Medium 9, Low 10.
   have I saved so far?" with a recency answer (`is_recency_ask` already
   exists in search_manager.py:903) or drop it. Effort S.
 
-**UX-08. Discoverability: the bin, Questions, backups and undo are not in Ctrl+K.** NEW (palette completeness KNOWN as a goal, WORLD_CLASS_PLAN gap table "make it complete")
+**UX-08. Discoverability: the bin, Questions, backups and undo are not in Ctrl+K.** NEW (palette completeness KNOWN as a goal, WORLD_CLASS_PLAN gap table "make it complete") FIXED ebd61cf (the Library "Bin" chip not added: the palette row opens the Library with Include the bin ticked)
 - Evidence: Ctrl+K "questions", "backup", "undo", "bin", "trash": "No
   matching command, note or document."; "theme": nothing (only "dark" finds
   "Toggle light/dark"). The recycle bin's only door is Library, Filter,

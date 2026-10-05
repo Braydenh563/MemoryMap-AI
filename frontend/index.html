@@ -392,7 +392,7 @@
            second action and a labelled button for it is what made the old head
            row two buttons wide. -->
       <form id="help-chat-form" class="row help-chat-form atlas-composer">
-        <input type="text" id="help-chat-input" placeholder="Ask about the app…" maxlength="1000" autocomplete="off" aria-label="Ask Atlas a question">
+        <input type="text" id="help-chat-input" data-no-selection-popup placeholder="Ask about the app…" maxlength="1000" autocomplete="off" aria-label="Ask Atlas a question">
         <button type="submit" id="help-chat-send" class="icon-only icon-primary" title="Ask Atlas" aria-label="Ask Atlas"><i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>
         <button type="button" class="icon-only ghost small graph-help-toggle"
           data-help-for="help-chat-help" aria-controls="help-chat-help" aria-expanded="false"
@@ -1705,7 +1705,7 @@ Link to another note with [[its first few words]]."></textarea>
           </p>
           <div class="row ask-query-row ask-composer">
             <i class="ph ph-sparkle ask-composer-icon" aria-hidden="true"></i>
-            <input id="question" type="text"
+            <input id="question" type="text" data-no-selection-popup
               placeholder="e.g. What jokes have I saved?"
               aria-label="Ask your notebook a question">
             <button type="button" id="ask-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>

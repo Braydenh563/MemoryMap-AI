@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Notes, Ask and the Guide: a selected question no longer brings up the writing popup (Highlight, Bold) over the tab bar after it is asked (audit 2026-10-05, UX-09).
 - Command palette (Ctrl+K): rows for the recycle bin (it opens the Library with Include the bin ticked), Questions, Ask, Undo and Redo, and each row answers to the words people type for it ("trash", "deleted", "backup", "restore", "theme"), where those found nothing (audit 2026-10-05, UX-08).
 - Ask and the agent: the status bar's wand says Agent, the name of the dialog it opens; with no model, Chat's suggestions say they open in Notes, Ask; the first starter is "What have I saved recently?", which Ask answers from the newest notes with no model (audit 2026-10-05, UX-07).
 - Library, Create: New mind map is a row of its own (it opens the board dialog on Mind map), and New concept map says what it makes, a board of note cards whose topics are saved as notes, instead of calling itself a mind map (audit 2026-10-05, UX-06, in part).

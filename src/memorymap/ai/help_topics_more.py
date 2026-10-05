@@ -167,10 +167,12 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "open questions", "questions view", "unanswered", "undecided", "still undecided",
             "answered by", "mark answered", "drop a question", "ask about these",
+            "find questions", "generate questions", "read notes now",
         ),
         "body": (
             "Notes, Questions lists the questions your notes ask in passing, "
-            "found when Atlas reads your notes on its own, newest note first: "
+            "found when Atlas reads your notes (Read notes now, or on its own "
+            "with background tasks on), newest note first: "
             "Open, Answered and Dropped, each with a count. A row says when and "
             "in which note it was asked; when a later note answers it, the row "
             "says so with the sentence, and pressing that line opens the note. "

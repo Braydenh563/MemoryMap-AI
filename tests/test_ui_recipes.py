@@ -3871,7 +3871,8 @@ def test_a_locked_item_is_out_of_reach_in_one_way() -> None:
     assert wb.count("if (parsed.locked) continue;") == 2
     assert wb.count("if (node.locked) continue;") == 2
     assert "!wbIsLocked(memberKind, candidate)" in wb
-    assert "if (wbIsLocked(kind, item)) continue;" in wb[wb.index("function wbFrameContents(") :][:800]
+    assert "if (!withLocked && wbIsLocked(kind, item)) continue;" in wb[wb.index("function wbFrameContents(") :][:800]
+    assert "function wbFrameContents(frame, { withLocked = false } = {})" in wb, "a drag passes locked items by; only Export this frame takes them"
     assert "wbPaintLocks();" in wb[wb.index("function renderWhiteboard()") :]
     assert "Unlock ${locked} locked item" in wb
 
@@ -3885,6 +3886,8 @@ def test_presenting_is_one_mode_with_one_bar() -> None:
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
     assert 'data-wb-fn="present" data-wb-surface="board"' in index
+    assert 'data-wb-fn="present" data-wb-surface="map"' in index, "a map presents by branch (MINDMAP_PLAN 21)"
+    assert "return wbMapPresentSteps();" in wb
     assert 'if (item.dataset.wbFn === "present") { wbStartPresenting(); return; }' in wb
     assert 'id="wb-present-count" class="wb-present-count" aria-live="polite"' in index
     assert "#library-view-whiteboard.wb-presenting .wb-topbar," in css
@@ -3894,6 +3897,54 @@ def test_presenting_is_one_mode_with_one_bar() -> None:
     assert ".wb-board-menu [data-wb-surface]" in (ROOT / "frontend" / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
     guide = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
     assert "Present frames: one frame" in guide
+
+
+def test_the_text_box_grip_stands_on_an_opaque_ground() -> None:
+    """The "⠿" tab on a text box or sticky's top edge: `--card-bg` is a glass
+    in most looks, so on a sticky's yellow the muted glyph measured 1.68:1 in
+    dark (`scratchpad/ui-sweeps/wbgripink.js`; 7.86:1 on the opaque ground)."""
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    rule = css[css.index(".wb-object-grip {") :][:900]
+    assert "background: var(--modal-bg-opaque);" in rule and "var(--card-bg)" not in rule.split("}")[0]
+
+
+def test_a_maps_boundaries_and_summaries_are_drawn_in_one_pass() -> None:
+    """MINDMAP_PLAN decisions 19 and 20 (DESIGN.md's row): one function draws
+    both from where the topics are, after the lines on every render and on the
+    selection bar's frame so a drag carries them; every change goes through
+    the topic's one undo step; both reach the image export; neither takes the
+    pointer; and a theme reset keeps them."""
+    wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
+    wm = (ROOT / "frontend" / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    render = wb[wb.index("function renderWhiteboard()") :]
+    assert render.index("wbRenderMapStructure();") > render.index("wbRenderMapEdges();")
+    assert "if (wbIsMap()) wbRenderMapStructure();" in wb[wb.index("function wbQueueSelectionBar()") :][:400]
+    setter = wm[wm.index("async function wbMapSetStructure(") :][:300]
+    assert "await wbMapSetNodeStyle(node, patch);" in setter
+    assert 'structure(".wb-map-boundaries > *")' in wb and 'structure(".wb-map-summaries > *")' in wb
+    assert ".wb-map-boundaries,\n.wb-map-summaries {\n  --wb-boundary: var(--accent);\n  pointer-events: none;" in css
+    for key in ("boundary", "boundary_label", "summary", "summary_span"):
+        assert f'"{key}"' in wm[wm.index("const WB_MAP_CONTENT_KEYS") :][:200]
+
+
+def test_a_comment_thread_is_one_popover_reached_three_ways() -> None:
+    """WHITEBOARD_PLAN decision 17 (DESIGN.md's comment row): the mark, the
+    item menu and a topic's menu open the one thread, in the help popover's
+    shell; every change goes through `wbSetComments`; the marks are painted
+    after every render and follow a drag on the selection bar's frame."""
+    wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    assert wb.count("wbOpenComments(") == 4, "the definition, the mark, the item menu, the topic menu"
+    assert 'panel.className = "help-popover wb-comments";' in wb
+    assert "placeHelpPopover(panel, target);" in wb[wb.index("function wbOpenComments(") :][:4000]
+    assert wb.count("await wbSetComments(") == 2, "a post and a delete"
+    assert "wbPaintCommentMarks();" in wb[wb.index("function renderWhiteboard()") :]
+    assert "wbPaintCommentMarks();" in wb[wb.index("function wbQueueSelectionBar()") :][:300]
+    assert '".wb-comment-pin",' in wb[wb.index("const WB_INV_ZOOM_GRIPS") :][:200]
+    assert "#library-view-whiteboard.wb-presenting .wb-comment-marks {\n  display: none;" in css
+    guide = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    assert "Right-click an item, Comment…" in guide and "Comment… starts a thread" in guide
 
 
 def test_the_sketch_pads_ink_dots_close_up_in_the_tablet_band() -> None:

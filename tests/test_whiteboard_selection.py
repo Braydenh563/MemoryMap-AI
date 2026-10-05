@@ -135,7 +135,8 @@ def test_the_board_owns_undo_while_it_is_open() -> None:
     map". Two listeners matched the chord and whichever stack was non-empty
     answered. The board's own binding is gone and app.js hands it over."""
     app = app_js_text()
-    assert "await window.wbUndo();" in app
+    assert 'return { where: "board", undo: () => window.wbUndo()' in app
+    assert "await surface.undo();" in app
     assert "window.wbUndo = wbUndo;" in WB
     assert "wbUndo();\n      return;" not in WB
 
@@ -147,9 +148,14 @@ def test_every_undo_door_leads_to_the_board_while_one_is_open() -> None:
     performUndo/performRedo, which is where the handoff lives."""
     app = app_js_text()
     assert "function boardHistoryActive()" in app
-    assert app.count("if (boardHistoryActive()) {") >= 2
-    assert "window.wbCanUndo?.()" in app and "window.wbCanRedo?.()" in app
-    assert "window.wbCanUndo = () => wbUndoStack.length > 0;" in WB
+    #: One decision for every door: the board's history, a document's, or
+    #: the app's (the owner, 2026-10-05: "local undos and redos").
+    assert app.count("const surface = surfaceHistory();") >= 3
+    assert "canUndo: window.wbCanUndo, canRedo: window.wbCanRedo" in app
+    assert "canUndo: window.docCanUndo, canRedo: window.docCanRedo" in app
+    assert "window.wbCanUndo = () => (wbHistoryFor(), wbUndoStack.length > 0);" in WB
+    #: Each board keeps its own pair of stacks for the session.
+    assert "const wbHistoryByBoard = new Map();" in WB
 
 
 def test_the_group_outline_follows_the_drag() -> None:

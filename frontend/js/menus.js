@@ -645,37 +645,13 @@ function escapeAndCapMenu(menu, opener) {
   //: clamped it to the top of the window, and a cap computed from the old top
   //: would be the wrong one for the new position.
   const box = menu.getBoundingClientRect();
-  //: **Anchor on the opener, not on the menu, and never on a rect that was
-  //: not laid out.** Measured while the whiteboard tab was hidden: every
-  //: `.wb-board-menu` reported `top: 0` and this wrote a 892px cap from it,
-  //: on a viewport of 900. A rect read from an element inside a
-  //: `display: none` ancestor is all zeroes, and the arithmetic below
-  //: cannot tell that from a menu genuinely sitting at the top of the
-  //: window: it just produces a number, which is how a cap ends up either
-  //: meaningless or, when the stale `top` is large, small enough to read as
-  //: the reported "overly short" menu.
-  //:
-  //: The opener is by definition laid out (it was just clicked), so its own
-  //: bottom edge is the honest answer to "where does this menu start".
-  //: The menu's own top is the fallback for a caller that has no opener,
-  //: and if neither is laid out the stylesheet's cap is left alone rather
-  //: than replaced with a number derived from zeroes.
-  //: **But where it was actually put beats where it would have gone.**
-  //: `placeEscapedMenu` measures the menu *uncapped* and, when that height
-  //: does not fit below the opener, pins the box higher up the window. The cap
-  //: was still being computed from the opener's bottom, so a menu that had
-  //: been moved up got the height of the room under the *opener* while sitting
-  //: in the larger room under its own top, and scrolled with empty window
-  //: below it. Measured on a board at 1440x700 (INBOX 107c, "the arrange
-  //: dropdown is also very short"): the View menu was placed at top 96 with
-  //: 604px of room under it and capped to 507, scrolling 594px of content
-  //: through a 505px port with 89px of window to spare; at 600 it wasted 137.
-  //:
-  //: `placeEscapedMenu` only ever writes `top` (never `bottom`, the
-  //: over-constraint note there says why), so the menu grows downward from
-  //: exactly this edge in every one of its branches, and the room under that
-  //: edge is the honest answer. The opener stays as the fallback for a menu
-  //: the stylesheet placed and for one whose own rect is not laid out.
+  //: **The cap is the room under where the menu was actually put.** A rect read
+  //: inside a hidden ancestor is all zeroes (measured on a hidden board: a
+  //: 892px cap from `top: 0`), so the opener's bottom, which is laid out, is the
+  //: fallback, and with neither laid out the stylesheet's cap stands. And
+  //: `placeEscapedMenu` may pin the menu higher than the opener (it only writes
+  //: `top`), so its own top beats the opener's bottom (INBOX 107c: a View menu
+  //: at top 96 capped to 507 with 604px of room).
   const anchor = opener ? opener.getBoundingClientRect() : null;
   const laidOut = (rect) => rect && (rect.width || rect.height || rect.top);
   const top = laidOut(box) ? box.top : laidOut(anchor) ? anchor.bottom + margin : null;
@@ -1362,6 +1338,7 @@ async function generateEntryTitle(entry) {
       exempt: true,
     });
     const updated = await apiJson(`/entries/${entry.id}/generate-title`, { method: "POST" });
+    if (updated?.content) pushEntryPutUndo(entry.id, "Titled a note", { content: entry.content }, { content: updated.content });
     await loadEntries();
     flashEntry(entry.id);
     const title = updated && updated.title;
@@ -1380,11 +1357,11 @@ async function generateEntryTitle(entry) {
 
 async function removeEntryTitle(entry) {
   try {
-    await apiJson(`/entries/${entry.id}/remove-title`, { method: "POST" });
+    const updated = await apiJson(`/entries/${entry.id}/remove-title`, { method: "POST" });
+    if (updated?.content) pushEntryPutUndo(entry.id, "Removed a title", { content: entry.content }, { content: updated.content });
     await loadEntries();
     flashEntry(entry.id);
-    // Said out loud for the same reason as above: it was silent, so the only
-    // feedback was noticing the title had gone.
+    // Said out loud: it was silent.
     toast("Title removed.", false, { exempt: true });
   } catch (error) {
     toast(error.message || "Couldn't remove the title.", true);

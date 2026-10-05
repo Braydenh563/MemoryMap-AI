@@ -34,15 +34,6 @@ with its owner named in the entry.
 
 ## Open items
 
-537. **The owner, 2026-10-05, verbatim.** "I accidentally clicked the + button
-     on a mindmap link. then it made an extra node. I didnt want that so I
-     pressed ctrl+z, it undid most of it, but the link from the parent node
-     to the rest of the branch disappeared. I was trying to figure out how to
-     reconnect them, then I moved the separated branch and it straight up
-     disappeared. I cant undo or redo anything and Ive lost that branch. the
-     undo and redo across the application needs to cover EVERYTHING" Data
-     loss: first.
-
 540. **The owner, 2026-10-05, verbatim.** "one of the feminine atlas blinking
      animations has MASSSSIVE eyebrows."
      Not reproduced (2026-10-05): the live companion drawn at 6x, feminine
@@ -59,6 +50,102 @@ with its owner named in the entry.
      restructure the document editor suggestions panel?? for both docks"
      (`#doc-prose-panel`, opened from the toolbar's Suggestions button and
      the focus dock's). Placed: the design agent after 548.
+
+550. **The owner, 2026-10-05, verbatim.** "on the feminine atlas. could you
+     somehow make it more feminine, attractive, cosmic lustrious and better??
+     and improve the whisps as well as the forehead hair as well on the
+     feminine atlas" (screenshots, scratchpad/inbox550-*.png: the ribbon
+     wisps round the body, flat lavender bands with dot sparkles; the fringe
+     close up, flat wedges with hard edges). Placed: the next free Opus.
+
+552. **The owner, 2026-10-05, verbatim.** "I also want a redesign of the
+     dictionary popup and to fix ugly line wraps" (screenshot: the document
+     Suggestions panel head, "Suggestions 5" on one line and its five icon
+     buttons wrapped onto a second, right-aligned). Placed: with 549, the
+     design agent.
+     Then (verbatim): "wrapping elements at the top of the dictionary"
+     (scratchpad/inbox552-dictionary-head.png: "Writing dictionary 3 words
+     (?)" on the first row, export, import and close wrapped onto a second).
+     The same head wrap as the Suggestions panel: one shared cause.
+
+553. **The owner's decisions, 2026-10-05** (asked, answered; binding):
+     (a) Entity merge gets Undo: snapshot both entities and their mentions
+     before a merge, and Undo in the toast splits them back exactly.
+     (b) The undo histories of each board, map and document survive a
+     reload (the last ~100 steps, stored; WHITEBOARD_PLAN decision 17 is
+     amended).
+     (c) Status labels app-wide are a tinted pill without an edge, matching
+     the meta chips.
+     (d) The dashboard's map widget is "dynamic depending on map size and
+     scale": the card's height and the map's scale follow the map's shape,
+     a small map at a readable size, a tall one in a taller card up to a
+     limit, then fitted whole.
+     Placed: the next free Opus, after the boot-JS split lands (budget).
+
+554. **The owner, 2026-10-05, verbatim.** "the feminine atlas whisps should
+     wrap the body a bit more instead of all of it sitting in front. also the
+     lower body still looks too sharp like a tooth. the whole avatar needs to
+     ahve dynamic and organic movement. think of it like an azur lane
+     character" Placed: with 550, the Atlas agent.
+
+555. **The owner, 2026-10-05, verbatim.** "also there's a wierd gap on the
+     fringe in the top right corner" (screenshot,
+     scratchpad/inbox555-fringe-gap.png: a jagged notch between two fringe
+     locks at the top right of the hair). Placed: with 550, the Atlas agent.
+
+556. **The owner, 2026-10-05, verbatim.** "and a bit more texture can be
+     added to the lower body as well. make it celestial and majestic and
+     magical and attractive and flowy" Placed: with 550, the Atlas agent.
+
+559. **The owner, 2026-10-05, verbatim.** "i dont like it, it looks old and
+     like a circus" (scratchpad/inbox559-gown.png: the lower body as drawn,
+     vertical pale stripes like a tent, a wavy outlined hem, dot stars in a
+     line). Placed: with 550, the Atlas agent.
+     Then (verbatim): "I prefered closer to the old tooth look, maybe work
+     from that then implement the othe rthings u suggested. maybe as a dress
+     or smth??" Direction: the original silhouette kept, refined into a
+     dress with a soft trailing hem, then the modern treatment (no outline,
+     the hem dissolving into light, soft sheen, nebula, rim light).
+
+557. **The owner, 2026-10-05, three asks, verbatim.** "should there be a popup
+     hover subtle faded lick icon on locked elements or smth on the
+     whiteboard or nah??"; "what about whiteboard layers and a layers
+     panel?"; "maybe an object library??"
+     Recommendations given:
+     - (a) A faded lock fades in at a locked item's corner on hover, found
+       by a board-level hit test since the item takes no pointer
+       (decision 15). A press on one pulses it and hints once:
+       "Locked. Right-click to unlock".
+     - (b) A Layers tab: the board as a tree (frames, then groups, then
+       items) in z-order, each row with show/hide, lock and rename; a press
+       selects and zooms, a drag restacks. One new field (`hidden`). Named
+       Draw.io layers are phase 2 (BACKLOG 29c). It also lifts ink's fixed
+       place under cards.
+     - (c) A Library tab beside it: built-in shapes, frames and the vendored
+       icon set, plus "Save to library" for any selection (items, relative
+       positions, links, a thumbnail) in a small table, usable on any
+       board. Board templates (BACKLOG 4b) become saving a whole board to
+       it. Mind maps get saved branches.
+     Placed: into the whiteboard briefs after the features audit
+     (scratchpad/audit1005/features.md).
+
+558. **The owner, 2026-10-05, verbatim.** "I think an object or elements
+     library would be really good like with what draw.io has. I want more
+     whiteboard features, take everything from draw.io as it is sooooo
+     useful and nifty. also improve the usability and reliablility of the
+     mindmap. make them features people can actually use and use well.
+     redesign the controls and how they can be used and accessed where
+     needed to maximise usability, utility, accessibility, and
+     learnability" Placed: the features audit is now writing the full
+     draw.io catalogue, the library spec, a controls redesign for board and
+     map, and a mind map usability pass, as phased briefs. Each phase then
+     goes to one Opus agent, its decisions entered in WHITEBOARD_PLAN and
+     MINDMAP_PLAN.
+     Then (verbatim): "also the ability to save custom elements and stuff as
+     well": saved selections, custom shapes drawn on the board, saved styles
+     and palettes, sticky/card/topic presets, saved branches, and whole
+     boards as templates, all in the library's "Yours", importable and
+     exportable.
 
 525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
      dark background behind the graph labels togglable??" Next Opus: the

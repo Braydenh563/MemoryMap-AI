@@ -9120,7 +9120,7 @@ async function bulkDeleteLibraryBoards() {
   // things about whether it comes back.
   if (
     !(await confirmDialog(
-      `Delete ${boards.length} board${boards.length === 1 ? "" : "s"}? This cannot be undone.`
+      `Delete ${boards.length} board${boards.length === 1 ? "" : "s"}? They go to the recycle bin.`
     ))
   ) {
     return;
@@ -9135,7 +9135,20 @@ async function bulkDeleteLibraryBoards() {
     }
   }
   libraryBoardsSelection.clear();
-  if (deleted) toast(`Deleted ${deleted} board${deleted === 1 ? "" : "s"}.`);
+  //: A board is a note, so this was always the bin; now it says so and has
+  //: Undo (INBOX 537).
+  const binned = boards.slice(0, deleted).map((board) => board.id);
+  const move = (bin) => async () => {
+    for (const id of binned) await apiJson(bin ? `/entries/${id}` : `/entries/${id}/restore`, { method: bin ? "DELETE" : "POST" });
+    if (typeof renderLibraryBoardsGallery === "function") renderLibraryBoardsGallery();
+  };
+  if (deleted) {
+    const action = pushUndo(`Deleted ${deleted} boards`, move(false), move(true));
+    toastAction(`Moved ${deleted} board${deleted === 1 ? "" : "s"} to the recycle bin.`, "Undo", async () => {
+      settleUndoFromToast(action);
+      await move(false)();
+    });
+  }
   const failed = boards.length - deleted;
   if (failed) toast(`${failed} board${failed === 1 ? "" : "s"} couldn't be deleted.`, true);
   if (typeof renderLibraryBoardsGallery === "function") renderLibraryBoardsGallery();

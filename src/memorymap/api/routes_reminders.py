@@ -32,6 +32,11 @@ class ReminderCreate(BaseModel):
     entry_id: int | None = None
     priority: Priority = "normal"
     recurring: Recurring = "none"
+    #: Undo's door (INBOX 537): a deleted reminder made again as it was, its
+    #: due time in the past and its done mark included, which the past-date
+    #: rule below otherwise refuses.
+    restore: bool = False
+    done: bool = False
 
 
 class MagicAddBody(BaseModel):
@@ -315,7 +320,8 @@ def list_reminders(
 
 @router.post("", status_code=201)
 def create_reminder(body: ReminderCreate, session: Session = Depends(get_session)) -> dict:
-    _reject_if_in_the_past(body.due_at)
+    if not body.restore:
+        _reject_if_in_the_past(body.due_at)
     if body.entry_id is not None:
         deps.get_or_404(session, Entry, body.entry_id, "That note could not be found.")
     reminder = Reminder(
@@ -324,6 +330,7 @@ def create_reminder(body: ReminderCreate, session: Session = Depends(get_session
         entry_id=body.entry_id,
         priority=body.priority,
         recurring=body.recurring,
+        done=body.restore and body.done,
     )
     session.add(reminder)
     session.flush()

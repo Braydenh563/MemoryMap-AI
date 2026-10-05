@@ -407,11 +407,16 @@ HELP_TOPICS: list[dict] = [
         "id": "undo-bin",
         "keywords": ("undo", "redo", "recycle bin", "restore", "deleted", "trash"),
         "body": (
-            "Deleting a note goes to the recycle bin, not gone for good, "
-            "restore it from the Library's Bin filter, or use the Undo toast "
-            "that appears right after deleting. Ctrl/Cmd+Z undoes the last "
-            "change generally; the status bar's own Undo/Redo buttons do the "
-            "same thing by click."
+            "Deleting a note or a board goes to the recycle bin, not gone for "
+            "good: restore it from the Library's Bin filter, or use the Undo "
+            "toast that appears right after deleting. Ctrl/Cmd+Z undoes and "
+            "Ctrl+Shift+Z or Ctrl+Y redoes; the status bar's Undo and Redo "
+            "buttons do the same by click. Which history they walk depends on "
+            "where you are: an open board or mind map has its own, an open "
+            "document has its own, and both are kept while you switch away "
+            "and back during the session; everywhere else it is the app's "
+            "(notes, tags, categories, links, reminders). Inside a text box "
+            "Ctrl+Z undoes your typing."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
@@ -964,6 +969,7 @@ HELP_TOPICS.extend(
                 "ungroup", "copy style", "paste style", "pan", "zoom", "zoom to fit",
                 "board overview", "find a card", "tool", "text in a shape", "label a shape",
                 "frame", "frames", "section", "region", "lock a shape", "lock an item", "unlock all", "locked item",
+                "comment on a card", "comment on an item", "comments on the board", "comment thread",
                 "present", "presentation", "slides", "slideshow",
             ),
             "body": (
@@ -976,24 +982,24 @@ HELP_TOPICS.extend(
                 "zooms, Space and drag pans with any tool, Ctrl+= and Ctrl+- zoom, "
                 "Ctrl+0 is 100%, Shift+1 fits everything, Shift+N shows the "
                 "overview, / or Ctrl+F finds a card, and Tab walks the board's "
-                "items from the keyboard, each one announced. Selection: Shift+click adds, "
+                "items from the keyboard. Selection: Shift+click adds, "
                 "Ctrl+A selects all, Ctrl+D duplicates, Alt and drag copies as you "
                 "drag, Ctrl+C, Ctrl+X and Ctrl+V paste at the pointer, the arrows "
                 "nudge (Shift for further), Shift and drag keeps to one axis, "
                 "Shift and a corner keeps proportions, [ and ] send back and bring "
                 "forward, Ctrl+G groups, Ctrl+Shift+G ungroups, Ctrl+Alt+C and "
                 "Ctrl+Alt+V copy and paste a style, Delete removes, Esc cancels a "
-                "drag or goes back to Select. Ctrl+Z undoes (up to 100 steps) and "
-                "Ctrl+Shift+Z redoes. Double-click empty board for a text box, double-click a "
-                "rectangle, ellipse, diamond or triangle (or select it and press Enter) to "
-                "write in it, right-click (or "
-                "press and hold on touch) for the menu, double-click a line to bend "
+                "drag or goes back to Select. Ctrl+Z undoes, Ctrl+Shift+Z redoes. "
+                "Double-click empty board for a text box, double-click a closed shape "
+                "(or select it and press Enter) to write in it, right-click (or hold on touch) "
+                "for the menu, double-click a line to bend "
                 "it, and select a connector and press Enter to label it. A frame's "
-                "title drags it and what is inside it (Ctrl: the frame alone). "
-                "Ctrl+Shift+L locks the selection (clicks pass through it); Unlock is "
-                "on the board's right-click menu. View, Present frames: one frame "
-                "at a time. The top bar's menus: Insert, Edit, Arrange (align, distribute "
-                "evenly, order), View (background colour or image, grid of lines, "
+                "title drags it and what is inside it (Ctrl: the frame alone); its menu exports it. "
+                "Ctrl+Shift+L locks the selection (clicks go through); Unlock is "
+                "on the board's right-click menu. Right-click an item, Comment…, starts a "
+                "thread; its count reopens it. View, Present frames: one frame "
+                "at a time. The top bar's menus: Insert, Edit, Arrange (align, distribute, "
+                "order), View (background colour or image, grid of lines, "
                 "dots or isometric, snap to grid, fit, 100%, full screen) and "
                 "Board (rename, new, export as PNG, SVG, PDF, the image library or "
                 "Markdown, switch to a mind map, clear, delete)."
@@ -1008,7 +1014,7 @@ HELP_TOPICS.extend(
                 "tidy", "layout of the map", "duplicate a topic", "copy a topic",
                 "undo steps", "how many undo", "topic before", "topic after",
                 "move a topic", "reorder topics", "checkbox on a topic", "topic a task",
-                "tick a topic", "number the branches", "numbered topics", "outline numbers", "note on a topic", "note behind a topic",
+                "tick a topic", "number the branches", "numbered topics", "outline numbers", "note on a topic", "note behind a topic", "comment on a topic", "boundary", "summary topic", "summarise topics",
             ),
             "body": (
                 "Mind map keys (a map lives in the Library under Boards and maps). "
@@ -1020,25 +1026,26 @@ HELP_TOPICS.extend(
                 "double-click renames, Delete removes the topic and everything "
                 "under it, C folds or unfolds its branch (or click the chevron), "
                 "Shift+C draws a cross-link to another topic, F shows only this "
-                "branch and its neighbours (F again shows all), and Shift+F10 or "
-                "the context menu key opens every action. Ctrl+Z undoes, up to 100 "
-                "steps (a deleted branch comes back with its styling and "
-                "cross-links), and Ctrl+Shift+Z redoes. Right-click a topic for "
+                "branch and its neighbours (F again: all), Shift+F10 "
+                "opens every action. Ctrl+Z undoes (100 steps; a deleted "
+                "branch comes back whole), Ctrl+Shift+Z redoes. Right-click a topic for "
                 "the ring: Add child, Add beside, Fold, Delete, Cross-link and "
                 "More; hold Alt on the ring to remove instead of add. Dragging a "
                 "topic onto another moves its whole branch; double-click a line to "
-                "label it. The layout picker lays the map out as a tree (right, "
-                "left, both sides or downward), radial or free, and Tidy lays "
+                "label it. The layout picker lays the map out as a tree, "
+                "radial or free, and Tidy lays "
                 "every unpinned topic out again. The View menu sets Colour by "
                 "(branch, category, age, or whether a note is behind it) and opens "
-                "every folded branch. A topic's menu makes it a task: press its box to "
+                "every folded branch; View, Present branches shows it branch by branch. A topic's menu makes it a task: press its box to "
                 "tick it, and every topic above counts the done ones (1/2); Markdown "
                 "exports write tasks as - [ ] and - [x]. View, Number the branches numbers "
                 "every topic by its place (1, 1.1, 1.2), and the Markdown and OPML exports keep "
                 "the numbers. A topic's menu adds a note behind it: its mark on the topic "
-                "opens it, and Markdown exports it as a paragraph under the topic. "
-                "Start from a template (brainstorm, decision, "
-                "project, cause and effect), import an OPML, FreeMind or Markdown "
+                "opens it, and Markdown keeps it. "
+                "Comment… starts a thread, counted on its corner; its Branch group draws a "
+                "boundary round the branch or summarises topics side by side. "
+                "Start from a template, "
+                "import an OPML, FreeMind or Markdown "
                 "outline, let the local AI propose a map from notes you pick, and "
                 "export it as OPML or Markdown as well as a picture."
             ),

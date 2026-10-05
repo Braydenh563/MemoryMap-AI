@@ -2134,3 +2134,59 @@ def test_resetting_a_maps_looks_keeps_its_notes(client):
     client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style")
     notes = _notes_by_text(client, board["id"])
     assert notes["Research"][0] == _NOTE and notes["Write"][0] == "One line."
+
+
+# --- boundaries and summaries (MINDMAP_PLAN.md decisions 19 and 20) ---------
+
+
+def _structure_map(client):
+    board = _map(client, name="Structure")
+    root = _node(client, board["id"], text="Plan")
+    a = _node(client, board["id"], parent_id=root["id"], text="Pack")
+    _node(client, board["id"], parent_id=a["id"], text="Passport")
+    b = _node(client, board["id"], parent_id=root["id"], text="Book")
+    _node(client, board["id"], parent_id=root["id"], text="Go")
+    assert _set_data(client, board, a, {"boundary": "cloud", "boundary_label": "Before"}).status_code == 200
+    assert _set_data(client, board, a, {"boundary": "cloud", "boundary_label": "Before", "summary": "Errands", "summary_span": 2}).status_code == 200
+    assert _set_data(client, board, b, {"boundary": "dashed"}).status_code == 200
+    return board
+
+
+def _styles_by_text(client, board_id):
+    out, stack = {}, list(client.get(f"/whiteboard/boards/{board_id}/tree").json()["roots"])
+    while stack:
+        node = stack.pop()
+        out[node["text"]] = node["style"]
+        stack.extend(node["children"])
+    return out
+
+
+def test_a_boundary_and_a_summary_are_checked_on_the_way_in(client):
+    board = _map(client)
+    node = _node(client, board["id"], text="Topic")
+    assert _set_data(client, board, node, {"boundary": "zigzag"}).status_code == 422
+    assert _set_data(client, board, node, {"boundary_label": "x" * 81}).status_code == 422
+    assert _set_data(client, board, node, {"summary": "x" * 81}).status_code == 422
+    assert _set_data(client, board, node, {"summary_span": 0}).status_code == 422
+    assert _set_data(client, board, node, {"summary_span": 101}).status_code == 422
+
+
+def test_boundaries_and_summaries_round_trip_through_both_xml_formats(client):
+    board = _structure_map(client)
+    want = {"boundary": "cloud", "boundary_label": "Before", "summary": "Errands", "summary_span": 2}
+    for fmt in ("opml", "freemind"):
+        text = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
+        assert '_summary_span="2"' in text and '_boundary="cloud"' in text, fmt
+        back = client.post("/whiteboard/boards/import", json={"format": fmt, "content": text, "name": fmt})
+        assert back.status_code == 201, back.text
+        styles = _styles_by_text(client, back.json()["id"])
+        assert {k: styles["Pack"].get(k) for k in want} == want, fmt
+        assert styles["Book"].get("boundary") == "dashed", fmt
+        assert "boundary" not in styles["Go"], fmt
+
+
+def test_resetting_a_maps_looks_keeps_its_boundaries_and_summaries(client):
+    board = _structure_map(client)
+    client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style")
+    styles = _styles_by_text(client, board["id"])
+    assert styles["Pack"]["boundary"] == "cloud" and styles["Pack"]["summary"] == "Errands"

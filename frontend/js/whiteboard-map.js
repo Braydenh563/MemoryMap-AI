@@ -3097,11 +3097,15 @@ function wbMapRibbonD(parent, child, layout) {
   const right = [];
   const halfAt = (t) => weight * (WB_MAP_RIBBON_THIN
     + (WB_MAP_RIBBON_WIDE - WB_MAP_RIBBON_THIN) * (1 - t) * (1 - t)) / 2;
-  for (let i = 0; i <= WB_MAP_RIBBON_STEPS; i += 1) {
+  //: More samples on a longer branch (INBOX 609): one per 40 units of chord
+  //: past the 24 a short branch has always had, so the spline below is never
+  //: asked to bridge a long stretch of a changing width on two points.
+  const steps = Math.min(96, Math.max(WB_MAP_RIBBON_STEPS, Math.ceil(Math.hypot(p1.x - p0.x, p1.y - p0.y) / 40)));
+  for (let i = 0; i <= steps; i += 1) {
     //: Eased rather than linear, so the branch keeps its weight for the first
     //: part of its run and tapers over the second, which is how a real branch
     //: (and Coggle's) looks; a straight ramp reads as a wedge.
-    const t = (i / WB_MAP_RIBBON_STEPS) * bodyEnd;
+    const t = (i / steps) * bodyEnd;
     const point = wbMapCubicAt(t, p0, c0, c1, p1);
     const length = Math.hypot(point.dx, point.dy) || 1;
     const nx = -point.dy / length;
@@ -3125,10 +3129,41 @@ function wbMapRibbonD(parent, child, layout) {
     tip = [end.x, end.y];
   }
   const at = ([x, y]) => `${Math.round(x * 10) / 10} ${Math.round(y * 10) / 10}`;
-  const forward = left.map((pt, i) => `${i ? "L" : "M"}${at(pt)}`).join("");
+  const forward = `M${at(left[0])}${wbMapSmoothThrough(left, at)}`;
   const point = tip ? `L${at(tip)}` : "";
-  const back = right.reverse().map((pt) => `L${at(pt)}`).join("");
+  right.reverse();
+  const back = `L${at(right[0])}${wbMapSmoothThrough(right, at)}`;
   return `${forward}${point}${back}Z`;
+}
+
+//: **Each side of a ribbon is a curve, not a polyline** (INBOX 609: "on
+//: longer mind map links, I can actually see the hard bends in the line and
+//: it isnt a smooth curve"). The sides used to be the samples joined by `L`,
+//: which is smooth while a segment is a few pixels long and shows every
+//: corner once a branch runs a thousand units and the view zooms in: the
+//: sweep (`bm1005-curve.js`) measured 4.5 to 8 degrees of turn inside one
+//: unit of outline, at every sample, on four long branches.
+//:
+//: A Catmull-Rom spline through the same samples, written as one cubic per
+//: span: each span's two controls sit a sixth of the way along the chord
+//: between its neighbours, so the tangent is shared at every sample and the
+//: outline has no corner anywhere along a side (only the three it means to
+//: have: the parent end, the barb and the tip). The ends reflect their
+//: neighbour rather than repeat themselves, so the first and last spans keep
+//: their slope instead of flattening into the node.
+function wbMapSmoothThrough(points, at) {
+  const n = points.length;
+  let d = "";
+  for (let i = 0; i + 1 < n; i += 1) {
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p0 = i > 0 ? points[i - 1] : [2 * p1[0] - p2[0], 2 * p1[1] - p2[1]];
+    const p3 = i + 2 < n ? points[i + 2] : [2 * p2[0] - p1[0], 2 * p2[1] - p1[1]];
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += `C${at(c1)} ${at(c2)} ${at(p2)}`;
+  }
+  return d;
 }
 
 //: Which of the two drawings this edge gets. One place, because the render,

@@ -7,6 +7,22 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)
+
+Rows of WORLD_CLASS_PLAN listed as open that are built on the head, each confirmed by grep. A partly built row keeps a short open line.
+
+- **Section 8's list, the duplicated rows.** The table had been merged from several branches and carried each of rows 11, 16, 17, 18 (twice), 19, 20, 21, 22, 23, 24, 25, 27 and 28 as an unstruck row beside its struck copy (and row 10 twice, struck, with different text). The struck copy is the current one in every case (each names its test or HISTORY block), so the unstruck copies were deleted and the table is one row per number, 1 to 38; row 10 keeps its first text and the second copy's "left: the Library grouping notes by type".
+- **Row 26, the 1 MB boot line.** Built: boot JS is 691,724 bytes as served (own code plus d3's 92,459), gated by `tests/test_boot_budget.py` (H7's 2026-10-05 correction); every list over 200 rows measured (chunk-on-scroll, `s2-1005.js` MODE=rows, scroll p95 19 to 25 ms). Left, in the row: first paint under 300 ms is not measured.
+- **261, `GET /resurface/near` and the vault re-key.** Built: `note-panels.js` calls `/resurface/near/{id}` (the notes rail, row 4); `settings-controls.js` calls `POST /auth/rotate-vault-key` (nbf1005).
+- **I7, "not wired".** Half: `learning.excluded_categories` is called by `janitor._semantic_category` (ARCH-08, fixed 2026-10-05). `filing_evidence` (`ai/learning.py`) still has no caller, so the row says so.
+- **Move a batch of notes to another space.** Built (row 30): `batch-space.js`, `POST /spaces/{id}/move-notes`, an Undo that moves them back, `tests/test_selection_actions_row30.py`.
+- **Briefs 484 to 496** (the 2026-10-04 design queue). Built, each with its "Built:" line in "INBOX resolved": 485 the Attach panel, 496 Contents and the Boards and maps load, 493 the graph's look, 484 the leader menu, 486 callouts, 490 the follow-up trail.
+- **425(j), Settings preferences autosave.** Built: the Save button is hidden and `#prefs-status` reports the autosave (`index.html`, INBOX 426 u).
+- **13, the whiteboard's five menus never driven.** Driven: `kebab-viewport.js` opens all five at three window sizes (15 cases OK) and `wbtopbar.js` gates their keyboard and ARIA (WHITEBOARD_PLAN 43).
+- **22.1 item 1, no URLs.** Built: `router.js` (hash routes, `popstate`, reload restores the view, the window title names it).
+- **22.1 item 7, no screen-reader pass.** Built apart from a real screen reader: one `<main id="app-main">`, the axe sweep with 0 findings at 1440 in both themes. Not verified: an actual screen reader.
+- **Found NOT built, left open: 423(g)**, `_desktop_port()` treats any MemoryMap on the port as ours whatever its data dir. `instance_lock.py` is per data directory and `_port_holder` reads only `/health`'s app name (no data dir in the answer), so the compare against `/instance` the item asks for does not exist.
+
 ## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WHITEBOARD_PLAN)
 
 Rows of WHITEBOARD_PLAN that were built and still sat in it, each confirmed on the head by a grep. The decisions 19 to 36 stay in the plan (decisions are not remade), with a status line; the placed blocks and the stale "open" lines moved here.

@@ -42307,6 +42307,54 @@ record.)
      middle in the middle. graphfit.js: base 200px off-centre after a panel
      closed, now 0.
 
+589. **The owner, 2026-10-05, verbatim.** "in the quick access, only the new
+     note link widget is a different colour. should the one in the first
+     position be highlighted by default with the option to highlight the
+     others other colours too??" Decision taken (recommendation): yes; the
+     first tile carries the accent by position, not by being New note, and
+     each tile's menu offers a tint from the note colour set. Placed: the
+     quick-access and gutter agent.
+     Fixed 2026-10-05: the first Quick access tile is highlighted by position;
+     each tile's menu offers the accent, one of twelve category colours or
+     none, label and description at 4.5:1 on every colour (5c14a59).
+590. **The owner, 2026-10-05, verbatim.** "can you redesign and make this
+     line numbers column cleaner and more modern and professional?? this is
+     the one in the capture a note subtab but also in the other similar
+     sections like the note edit form and others" (screenshot: a boxed gutter
+     with its own rounded card edge and a heavy "1" beside the composer).
+     Placed: the quick-access and gutter agent.
+     Fixed 2026-10-05: line numbers lose the boxed column in Capture, the note
+     edit form and documents: muted tabular figures a size under the text on
+     each line's baseline, the caret's line brighter (1568947).
+591. **The owner, 2026-10-05, verbatim.** "the regular companion enlarged
+     panel view has no life to it like with atlas and the companion itself"
+     (screenshot: Profile, the companion's enlarged dialog, a still figure
+     over "Its own face, read from its name"). Placed: the Atlas motion agent.
+     Fixed 2026-10-05: a face's large view moves like the companion (weight
+     shift, head sway, arms on clocks, eyes to the pointer), 7 of 40 parts
+     moving over 2s against 3 (d66b808).
+592. **The owner, 2026-10-05, verbatim.** "these badges and metadata dont
+     have their icons vertically aligned with their text, probably the case
+     elsewhere as well" and "same here as well" (screenshots: the Fits and
+     Installed badges, a note's meta row: category dot, 100%, Add tags, Tag
+     with Atlas, "74% similar", "#Sketches"; link chips beside a boxed "+3
+     more links" in another shape). Placed: the icon alignment agent.
+     Fixed 2026-10-05: an icon beside words sits on the words' cap-height
+     centre in the drawing font; on Windows icons were up to 1.7px off
+     (5afe089, 4111aa2).
+595. **The owner, 2026-10-05, verbatim.** "why are new libraries off the
+     table?? should we bundle multiple packages together for bulk download if
+     various features need multiple libraries or dependencies in the packages
+     settings with the ability to install/uninstall/reinstall individual ones
+     or in bulk??" Decision taken (recommendation): yes. Optional extras
+     (`core/extras.py`) stay the way a feature takes a library; add named
+     bundles, bulk install/uninstall/reinstall with per-package progress,
+     reinstall per extra, version and size per row. With it: pictures in the
+     Word export on the existing `docx` extra (FEAT-18). Next agent slot.
+     Fixed 2026-10-05: Packages has bundles (Documents, Vision, AI, Voice,
+     Desktop, Code), bulk install, reinstall and remove as one background job
+     with per-package progress, and pictures in the Word export (ec52214).
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

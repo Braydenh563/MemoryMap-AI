@@ -48,41 +48,6 @@ with its owner named in the entry.
      are one well to the dock's edge, one Tab stop, arrows walk them
      (daystrip.js 44/44). Waits on the owner's look before closing.
 
-589. **The owner, 2026-10-05, verbatim.** "in the quick access, only the new
-     note link widget is a different colour. should the one in the first
-     position be highlighted by default with the option to highlight the
-     others other colours too??" Decision taken (recommendation): yes; the
-     first tile carries the accent by position, not by being New note, and
-     each tile's menu offers a tint from the note colour set. Placed: the
-     quick-access and gutter agent.
-590. **The owner, 2026-10-05, verbatim.** "can you redesign and make this
-     line numbers column cleaner and more modern and professional?? this is
-     the one in the capture a note subtab but also in the other similar
-     sections like the note edit form and others" (screenshot: a boxed gutter
-     with its own rounded card edge and a heavy "1" beside the composer).
-     Placed: the quick-access and gutter agent.
-
-591. **The owner, 2026-10-05, verbatim.** "the regular companion enlarged
-     panel view has no life to it like with atlas and the companion itself"
-     (screenshot: Profile, the companion's enlarged dialog, a still figure
-     over "Its own face, read from its name"). Placed: the Atlas motion agent.
-592. **The owner, 2026-10-05, verbatim.** "these badges and metadata dont
-     have their icons vertically aligned with their text, probably the case
-     elsewhere as well" and "same here as well" (screenshots: the Fits and
-     Installed badges, a note's meta row: category dot, 100%, Add tags, Tag
-     with Atlas, "74% similar", "#Sketches"; link chips beside a boxed "+3
-     more links" in another shape). Placed: the icon alignment agent.
-
-595. **The owner, 2026-10-05, verbatim.** "why are new libraries off the
-     table?? should we bundle multiple packages together for bulk download if
-     various features need multiple libraries or dependencies in the packages
-     settings with the ability to install/uninstall/reinstall individual ones
-     or in bulk??" Decision taken (recommendation): yes. Optional extras
-     (`core/extras.py`) stay the way a feature takes a library; add named
-     bundles, bulk install/uninstall/reinstall with per-package progress,
-     reinstall per extra, version and size per row. With it: pictures in the
-     Word export on the existing `docx` extra (FEAT-18). Next agent slot.
-
 596. **The owner, 2026-10-05, verbatim.** "the dropdown menu from the
      library is a little off position. the side dock of the bottom toolbar
      in the whiteboard is ugly, poorly structured and designed and clashes

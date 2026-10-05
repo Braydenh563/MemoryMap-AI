@@ -74,7 +74,7 @@ use `el.style.x =` or a class).
 **Goal.** Zero em-dashes in `frontend/` and `src/`, with a lint that keeps
 it so, and no test broken by the change.
 
-**Done when.** `grep -rc '—' frontend src | grep -v ':0'` prints nothing;
+**Done when.** `grep -rc ', ' frontend src | grep -v ':0'` prints nothing;
 `tests/test_no_em_dashes.py` exists and passes; the full suite is green.
 
 **Decisions made.** The replacement rules are in `scratchpad/emdash.py`
@@ -94,7 +94,7 @@ owner's complaint is the app's own copy).
 5. Grep the results for lines that now read badly: `git diff | grep "^+" |
    grep -E ": [a-z]|, [A-Z]" | head -50` and fix by hand.
 6. Add `tests/test_no_em_dashes.py`: walk `frontend/` (excluding `vendor/`)
-   and `src/`, assert no file contains `—`, with the message "an
+   and `src/`, assert no file contains an em-dash, with the message "an
    em-dash in <path>:<line>; rewrite the sentence (colon, comma or full
    stop)".
 7. Commit: "No em-dashes in the app's own files, with the lint that keeps
@@ -896,7 +896,7 @@ uvicorn; CSP rejects `style=`; no em-dashes; commit trailers.
 ## Brief 20 (Opus agent): graph node panel, Library image cards, whiteboard panels
 
 Relaunch text, verbatim. Read CLAUDE.md, DESIGN.md, INBOX 59, 56, 52, 64,
-65 and GRAPH_PLAN "Phase 6 — the node panel". Own worktree, commit per
+65 and GRAPH_PLAN "Phase 6: the node panel". Own worktree, commit per
 item, never push, five-line report, `archive/agent-remaining/visual-c.md`. Do not
 touch documents.js or editor.js.
 

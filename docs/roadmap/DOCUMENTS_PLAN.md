@@ -1,4 +1,4 @@
-# The documents editor — a professional dev plan
+# The documents editor: a professional dev plan
 
 **Status: written by direct instruction; to be executed after the plans in
 [UI_MODERNISATION_PLAN.md](UI_MODERNISATION_PLAN.md),
@@ -48,7 +48,7 @@ plan fixes by *exposure* rather than by building again.
 
 **In flight as this is written:** D2 (a selection-driven floating toolbar)
 and D3 (a document-local undo stack across Live and Source) on a subagent
-branch — see HANDOVER.md. Both are absorbed by §5 Phase 1/2 rather than
+branch: see HANDOVER.md. Both are absorbed by §5 Phase 1/2 rather than
 redone.
 
 ## 3. The diagnosis
@@ -60,7 +60,7 @@ them is how the editor ended up "chucked together and then polished".
 
 A textarea's value is a string. It cannot carry a mark, so nothing in
 Source view can be underlined, which is why "click the underlined word" is
-answered today with "double-click and we look up the caret offset" — the
+answered today with "double-click and we look up the caret offset", the
 comment at documents.js ~4626 says so honestly. Live view works around it
 with one textarea per paragraph, which is why the caret is lost on a mode
 switch, why undo was two stacks (D3), why a selection cannot span two
@@ -96,7 +96,7 @@ Everything else is a menu, a palette or a setting.
 ### 3.3 Features that exist and do not show themselves
 
 - The findings menu exists and is reachable only by double-click or
-  right-click in Source — nothing on screen says so.
+  right-click in Source: nothing on screen says so.
 - The `/` menu, `[[` links, the connections dialog, revisions, templates,
   the word goal and the dictionary are all behind a key or a ⋯ item with no
   discoverable entry.
@@ -110,7 +110,7 @@ Everything else is a menu, a palette or a setting.
 Three options. The plan below is written for **B**; A is its first step
 either way; C is recorded so the next session does not re-derive it.
 
-**A — Keep the textarea, add a backdrop (one session).** The
+**A: Keep the textarea, add a backdrop (one session).** The
 "highlight-within-textarea" technique: a `div` behind a transparent-ink
 textarea, same font, same padding, same wrapping, holding the text with
 `<mark>`s where the findings are. Underlines appear in Source; a click
@@ -118,10 +118,10 @@ lands in the textarea, sets the caret, and the existing findings menu opens
 for the finding at that offset (`docFindingAtOffset` already does this).
 Cheap, offline, and it answers the sentence in the instruction directly.
 What it does not give: inline widgets, block handles, a single model for
-Live and Source, decent tables. **Do this first regardless** — it is the
+Live and Source, decent tables. **Do this first regardless**, it is the
 bridge, and it is measurable in a day.
 
-**B — CodeMirror 6, vendored (recommended).** MIT-licensed, no build step
+**B: CodeMirror 6, vendored (recommended).** MIT-licensed, no build step
 needed (a single prebuilt bundle under `frontend/vendor/`, ~350 KB, the
 licence file beside it, the same way `d3.v7.min.js` and `p5` are vendored
 today). It gives, natively and offline: decorations (underlines that are
@@ -129,21 +129,21 @@ clickable, widgets, block backgrounds), a real undo history, search and
 replace, folding, syntax highlighting for every file type this editor
 already opens, line numbers, IME and mobile input that a hand-rolled
 contenteditable never gets right, and a plugin API. **Live preview becomes
-decorations over the markdown source** — headings rendered as headings,
+decorations over the markdown source**, headings rendered as headings,
 `**bold**` shown bold with the markers hidden until the caret enters them,
-links as chips, images and embeds as widgets — which is exactly Obsidian's
+links as chips, images and embeds as widgets, which is exactly Obsidian's
 architecture and the one with the most published prior art. Markdown stays
 the single source of truth; every existing endpoint, revision, export and
 AI action keeps working unchanged. Source view is the same editor with the
 decoration set switched off. Split and Read stay as they are.
 Cost: the D2/D3 work in flight is partly superseded (CM6 has its own undo
-and selection API — D2's toolbar is kept as the *UI*, re-pointed at CM6's
+and selection API: D2's toolbar is kept as the *UI*, re-pointed at CM6's
 `dispatch`), and `EDITOR_SURFACES`' textarea assumptions in `editor.js`
 have to be re-pointed at one adapter (`docSurface()`: get/set text,
-selection, replace range) — which is also what finally lets the note
+selection, replace range): which is also what finally lets the note
 composer and the documents editor share one implementation.
 
-**C — A block editor over `contenteditable` (Notion's model).** Rejected
+**C: A block editor over `contenteditable` (Notion's model).** Rejected
 for this app. It needs a second document model (blocks) beside the
 markdown one, a serialiser both ways, and it makes every existing feature
 that reads offsets (selection → chat, revisions, the AI edit, exports)
@@ -154,7 +154,7 @@ as decorations and widgets in B.
 **Made in this document: B, with A as Phase 0.** The ROADMAP entry should
 not be started until a session has read CM6's licence into
 `frontend/vendor/` and confirmed the bundle loads under this app's CSP
-(no `eval`, no inline styles — CM6 injects a stylesheet through the CSSOM,
+(no `eval`, no inline styles: CM6 injects a stylesheet through the CSSOM,
 which the CSP allows; verify before building on it).
 
 ## 5. The phases
@@ -164,7 +164,7 @@ says what was not verified. Measurements use the Chromium sandbox; the
 editor sweep is `scratchpad/ui-sweeps/editor.js` (from the D2/D3 branch),
 extended per phase.
 
-### Phase 0 — the bridge: click an underline, see suggestions (1 session)
+### Phase 0: the bridge: click an underline, see suggestions (1 session)
 
 1. **Backdrop underlines in Source** (§4 A). Findings from `docProseFound`
    drawn as `<mark class="doc-finding doc-finding-{kind}">` behind the
@@ -178,7 +178,7 @@ extended per phase.
    dictionary" and "Ignore in this document". Keyboard: `Alt+Enter` on a
    finding opens the same menu (the VS Code gesture).
 3. **A findings count that is a control.** The status bar's "No
-   suggestions" becomes a chip — `3 suggestions` — that opens the panel;
+   suggestions" becomes a chip, `3 suggestions`, that opens the panel;
    `F8` / `Shift+F8` step through findings (VS Code again). The switches
    (Autocorrect, Suggestions) leave the status bar for Settings → Documents
    and the ⋯ menu; a status bar states, it does not configure.
@@ -189,7 +189,7 @@ extended per phase.
    appears within 300 ms → one click opens a menu whose first item replaces
    the word → `F8` moves to the next finding; the same in Live.
 
-### Phase 1 — chrome: three questions, three places (1 session)
+### Phase 1: chrome: three questions, three places (1 session)
 
 1. **Header = identity.** Left: a breadcrumb (`Documents › Design system
    notes`) that is also the title field; right: save state as one word
@@ -221,14 +221,14 @@ extended per phase.
    (PLAN D1's own gate), and at 820px the sidebar's labels are unclipped
    (scrollWidth = clientWidth on every sidebar label).
 
-### Phase 2 — the engine: CodeMirror 6 as the surface (2 sessions)
+### Phase 2: the engine: CodeMirror 6 as the surface (2 sessions)
 
 1. Vendor CM6 (`@codemirror/state`, `view`, `commands`, `search`,
    `language`, `lang-markdown`, the languages the file editor already
    detects) as one bundle under `frontend/vendor/codemirror/` with its
    `LICENSE`; a `tests/test_vendor_licences.py` that asserts the licence
    file exists beside every vendored bundle.
-2. `docSurface()` — the one adapter every existing feature talks to: text
+2. `docSurface()`, the one adapter every existing feature talks to: text
    get/set, selection get/set, `replaceRange`, `onChange`, `coordsAt`. Every
    `$("doc-content")` read in documents.js and editor.js goes through it.
 3. **Live preview as decorations**: headings, emphasis, code, links as
@@ -241,12 +241,12 @@ extended per phase.
    the app's field recipe, folding on headings, the gutters via CM6's line
    numbers. The existing `/` menu, `[[` autocomplete and selection → chat
    re-pointed at the adapter.
-   Acceptance: `editor.js` sweep — type in Live, switch to Source, Ctrl+Z
+   Acceptance: `editor.js` sweep: type in Live, switch to Source, Ctrl+Z
    undoes the Live edit (D3's own gate); a 20k-word document keeps keydown
    → paint < 30 ms (PLAN P4's gate, measurable now); every existing
    documents test passes; `node --check` and the DOM lints green.
 
-### Phase 3 — blocks and structure: built, 2026-09-12
+### Phase 3: blocks and structure: built, 2026-09-12
 
 All five items. The record, with every measurement and every decision, is in
 HISTORY.md ("From DOCUMENTS_PLAN.md Phase 3", items 1 to 3 and items 4 and 5);
@@ -258,7 +258,7 @@ closes; an image's options are pipe-separated and read by shape, so
 `![[river.jpg|300|center]]` and `![A river|300|center](/media/river.jpg)` mean
 the same thing.
 
-### Phase 4 — the connected document (1 session)
+### Phase 4: the connected document (1 session)
 
 1. **Backlinks with context**: built, 2026-09-12. `GET
    /documents/{id}/backlinks` answers for notes and documents at once, the
@@ -295,7 +295,7 @@ the same thing.
    its first line, 0 "start today's note" offers, 1 "Today's document" offer,
    and the calendar glyph on the row.
 
-### Phase 5 — review, history and AI (1 session)
+### Phase 5: review, history and AI (1 session)
 
 1. **Comments and annotations**: built 2026-09-13. Moved to HISTORY.md
    ("Moved from the plans, 2026-09-13", DOCUMENTS_PLAN.md); listed in the
@@ -311,7 +311,7 @@ the same thing.
    built. The record is in HISTORY.md ("Moved from the plans, 2026-09-20",
    DOCUMENTS_PLAN.md Phase 5 item 4).
 
-### Phase 6 — responsive by device (partly built; UI Phase 9 did the bands)
+### Phase 6: responsive by device (partly built; UI Phase 9 did the bands)
 
 **Measured first, 2026-09-13, `scratchpad/ui-sweeps/docnarrow.js` at 1440x900,
 1024x768, 800x1000 and 390x820**, because most of this phase turned out to be
@@ -393,7 +393,7 @@ the reasoning; `docnarrow.js` asserts it.
    width: the measure is at its cap there already. Left as a row here rather
    than built, so the next session does not build it twice.
 
-### Phase 8 — one editor everywhere (1 session, the owner's ask, 2026-09-09)
+### Phase 8: one editor everywhere (1 session, the owner's ask, 2026-09-09)
 
 The owner: "plan for the note capture and editors in the notes tab, making
 a new note from the graph, and anywhere there is a note related capture,
@@ -465,7 +465,7 @@ use", `tag: Which tag should I file?` yields `{{tag}}` and not the question,
 the gesture guard moved onto the surface first; see HISTORY.md ("From OPEN.md,
 2026-09-23 (askcite agent): Phase 8c, the board's note card").
 
-### Phase 7 — export and interchange: **built 2026-09-13**
+### Phase 7: export and interchange: **built 2026-09-13**
 
 PDF (the print stylesheet), markdown, self-contained HTML, the markdown bundle
 with its images, the Word export behind an optional extra, and import of
@@ -496,12 +496,12 @@ plans, 2026-09-13". The python-docx row is closed too: `core/extras.py` has
 | AI edit with diff | ✓ | – | ✓ | ✓ | replace in place | P5 |
 | Focus / typewriter | – | ✓ | – | ✓ | – | P5 |
 | Works with the plug pulled | – | ✓ | partial | – | ✓ | kept |
-| The AI reads *your* notes, locally | – | – | – | – | ✓ | kept — the thing that beats them |
+| The AI reads *your* notes, locally | – | – | – | – | ✓ | kept, the thing that beats them |
 
 ## 7. Files this will touch
 
 `frontend/js/documents.js` (split into `documents/{surface,chrome,findings,
-blocks,connections}.js` — served as-is, `test_frontend_load_order.py`
+blocks,connections}.js`, served as-is, `test_frontend_load_order.py`
 enforces order), `frontend/js/editor.js` (the adapter), `frontend/vendor/
 codemirror/`, `index.html` (`.doc-dock`), `05-sidebars-themes.css`,
 `07-whiteboard-misc.css`, `src/memorymap/api/routes_documents.py`
@@ -516,7 +516,7 @@ under `tests/test_documents_*.py`, `scratchpad/ui-sweeps/editor.js`.
   control height in every dock row; 0 `errors.js` findings at 390/820/1024.
 - Every row of §6's "Plan" column has a test or a sweep assertion.
 - `python -m pytest tests/` green; `ruff`; `node --check` on every file.
-- HANDOVER.md says what was not verified — a real vision model, a real
+- HANDOVER.md says what was not verified, a real vision model, a real
   on-screen keyboard and a real iPad are three things the sandbox cannot
   supply.
 
@@ -548,7 +548,7 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2026-09-09: a plan holds open work only. What is left open from this phase is in `archive/agent-remaining/documents-engine.md`.
 
-## Built — Phase 0
+## Built: Phase 0
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2026-09-09: a plan holds open work only.
 

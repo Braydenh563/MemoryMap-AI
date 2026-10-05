@@ -124,10 +124,10 @@ no new plan documents; every claim carries a number from a sweep.
 - `pytest tests/`: 6,700+ tests, fully offline, no Ollama needed
   (`pytest.ini` sets `pythonpath = src`); ten to fifteen minutes, so the
   routine local gate is `bash scripts/gate.sh --changed` and CI runs the rest.
-- `ruff check .` — matches CI.
-- `node --check frontend/js/<file>.js` — the frontend is plain JS with no bundler (61 files in `frontend/js/`); run it on each file you touch.
-- **Install non-ML deps by hand** (see root `CLAUDE.md`) — do not install
-  `torch` or `sentence-transformers`; both have failed to install cleanly in
+- `ruff check .`: matches CI.
+- `node --check frontend/js/<file>.js`: the frontend is plain JS with no bundler (61 files in `frontend/js/`), so run it on each file you touch.
+- **Install non-ML deps by hand** (see root `CLAUDE.md`); do not install
+  `torch` or `sentence-transformers`, since both have failed to install cleanly in
   past sessions and the suite passes without them (semantic search falls
   back to keywords; tests that care use a fake embedding backend).
 - **Drive the app in a browser before claiming a UI change works.** Chromium
@@ -135,17 +135,17 @@ no new plan documents; every claim carries a number from a sweep.
   `sw.js` serves a cached `app.js` and you'll be testing yesterday's code.
   Assert on measured geometry (`scrollWidth - clientWidth`), not screenshots.
 - **Collect the console while driving.** The app sends a strict CSP; a
-  refused style/script/fetch shows up *only* in the console — no failed
-  request, no thrown error, the thing just silently doesn't happen.
+  refused style/script/fetch shows up *only* in the console (no failed
+  request, no thrown error, the thing just silently doesn't happen).
 
 ### Traps that have each cost real time
 
-1. **Don't guess element ids** — check `index.html` or query generically.
+1. **Don't guess element ids.** Check `index.html` or query generically.
 2. **`git checkout <file>` discards uncommitted work in that file.** Commit
    before experimenting.
-3. **A POST response can lie about stored state** — SQLAlchemy returns the
+3. **A POST response can lie about stored state.** SQLAlchemy returns the
    in-memory object; assert on the next GET, not the create response.
-4. **`utcnow() + offset` is a lie with a timezone attached** — it tags UTC on
+4. **`utcnow() + offset` is a lie with a timezone attached.** It tags UTC on
    a value that actually holds local wall-clock. Build the user's clock as
    `utcnow().astimezone(timezone(offset))`.
 5. **The Notes tab is sub-tabbed.** Anything that scrolls to a note must call
@@ -160,16 +160,16 @@ no new plan documents; every claim carries a number from a sweep.
    `1fr` grid track or a flex item with default `min-width: auto` refuses to
    shrink below its content; `overflow-x: auto` on the child does nothing
    until every ancestor has an explicit floor.
-8. **A POSIX idiom can mean something else on Windows, silently** —
+8. **A POSIX idiom can mean something else on Windows, silently.**
    `os.kill(pid, 0)` terminates on Windows rather than probing; the sandbox
    is Linux, so this class of bug never reproduces here.
-9. **A control that "does nothing" is usually working** — check the
+9. **A control that "does nothing" is usually working.** Check the
    *computed* result. Most reported cases wrote correctly and were then
    overridden by CSS source order, a status poll repainting, or living in a
    hidden section.
 10. **This suite cannot see any of the above.** Every UI bug this project has
     found passed a fully green test run first.
 
-Full historical detail for every trap above — the original report, the
-diagnosis, the fix, and what verification could and couldn't cover — is in
+Full historical detail for every trap above (the original report, the
+diagnosis, the fix, and what verification could and couldn't cover) is in
 [roadmap/HISTORY.md](roadmap/HISTORY.md).

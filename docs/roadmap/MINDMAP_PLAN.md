@@ -1242,6 +1242,17 @@ topic: a control that wide has nowhere to go.
    deeper topics as nested lists, notes as paragraphs, and the map's card
    (`boardEmbedMarkdown`) at its head as the way back. "Map this document's
    headings" (the other direction) and a back-link on the map are open.
+32. **A concept map's topics are notes that stay on their map** (taken
+   2026-10-05, audit UX-06). A note made by a map gesture (a new concept
+   map's root, a card Tab or Enter adds) carries `map_topic`; Notes (All,
+   the categories, Favourites, Untagged) and Recently added leave it out,
+   and a search in Notes, Ctrl+K and Ask still find it. Old maps' topics
+   are marked by the upgrade (a short note placed on a board within ten
+   seconds of being written). The board picker counts a map's topics and a
+   board's items (not the links between them) and is kept current from the
+   board on screen; the Library and dashboard say "links" and "drawings",
+   never "sketches". After Enter names a card, a letter renames it (the
+   focus is not moved to the canvas, where Tab walks items).
 
 ### Phases, each with the gate it is finished against
 

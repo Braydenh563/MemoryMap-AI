@@ -25,6 +25,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Concept maps: a topic made with Tab or Enter (and a new map's root) is still a note that search and Ask find, but Notes and Recently added leave it out, so a forty-topic map no longer puts forty one-word rows at the top of both; the board picker counts what is on the board and keeps the count current as you add (a map counts topics), the Library and the dashboard say links rather than sketches for the lines between cards, and after Enter names a card, typing renames it instead of picking tools (UX-06, audit 2026-10-05).
 - Checks: an animated `filter` or backdrop blur now has to say why above it, as an animated layout property already did (it repaints everything under the surface each frame); the graph node's hover glow, the one there is, says so.
 - The '?' in the Suggestions, Manage tags and Manage categories sheets opens its explanation again (it did nothing: the sheet was built after the page's '?' buttons were wired). Escape closes an open explanation first and the sheet on the next press.
 - Whiteboard: a frame's title can be grabbed at any zoom. Zoomed out to fit a phone it was about 7px tall and a drag aimed at it moved nothing; its hit area now stays at least a touch target tall on screen (44px at the fitted zoom), and the frame, what is inside it and anything selected move together by one amount.

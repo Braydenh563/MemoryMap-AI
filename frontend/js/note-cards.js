@@ -858,11 +858,17 @@ function mapPreview(board, { size = "card" } = {}) {
 function mapCountLabel(board) {
   const isMap = board?.type === "map";
   const nodes = board?.node_count || 0;
-  const sketches = board?.sketch_count || 0;
+  //: **Links, not "sketches"** (audit 2026-10-05, UX-06): a concept map of
+  //: three cards and two lines read "3 cards · 2 sketches", the storage's
+  //: word for what a person drew as connections. `link_count` is how many of
+  //: the sketches are connectors; the rest are drawings.
+  const links = board?.link_count || 0;
+  const sketches = Math.max(0, (board?.sketch_count || 0) - links);
   const objects = board?.object_count || 0;
   const parts = [];
   if (nodes) parts.push(`${nodes} card${nodes === 1 ? "" : "s"}`);
-  if (sketches) parts.push(`${sketches} sketch${sketches === 1 ? "" : "es"}`);
+  if (links) parts.push(`${links} link${links === 1 ? "" : "s"}`);
+  if (sketches) parts.push(`${sketches} drawing${sketches === 1 ? "" : "s"}`);
   if (objects) {
     //: **"items", not "images", on a board.** `object_count` is
     //: `count(WhiteboardObject)` with no filter on `kind`
@@ -872,7 +878,7 @@ function mapCountLabel(board) {
     //: widget and in the Library, which is the same class of wrong noun §5
     //: item 12 fixed for a map's nodes and missed here.
     parts.push(isMap
-      ? `${objects} node${objects === 1 ? "" : "s"}`
+      ? `${objects} topic${objects === 1 ? "" : "s"}`
       : `${objects} item${objects === 1 ? "" : "s"}`);
   }
   return parts.length ? parts.join(" · ") : isMap ? "Empty map" : "Empty board";

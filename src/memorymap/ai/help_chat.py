@@ -154,7 +154,9 @@ HELP_TOPICS: list[dict] = [
             "drawn between them, plus optional AI similarity lines. Search "
             "highlights matches, dragging rearranges, and the legend toggles "
             "categories on and off. Concept maps (an authored mindmap, not the "
-            "automatic graph) are made and managed from the Library."
+            "automatic graph) are made and managed from the Library. A concept "
+            "map's topics are notes, kept out of Notes and Recently added; a "
+            "search finds them. After Enter names a topic, typing renames it."
         ),
         "badge": {"label": "Graph", "tab": "graph"},
     },

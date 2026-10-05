@@ -141,6 +141,7 @@ def _to_out(
         source_title=getattr(entry, "source_title", None),
         source_path=getattr(entry, "source_path", "") or "",
         is_board=bool(getattr(entry, "is_board", False)),
+        map_topic=bool(getattr(entry, "map_topic", False)),
         workspace_id=getattr(entry, "workspace_id", "default") or "default",
         created_at=entry.created_at,
         deleted_at=entry.deleted_at if entry.is_deleted else None,
@@ -653,6 +654,8 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
         entry.user_filed = True
     if body.is_draft:
         entry.is_draft = True
+    if body.map_topic:
+        entry.map_topic = True
     if body.source_url:
         entry.source_url = body.source_url
         entry.source_title = body.source_title

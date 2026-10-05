@@ -423,6 +423,14 @@ class Entry(Base, WorkspaceMixin):
     # stays visible regardless (its counts are still nonzero), so nothing
     # already in someone's board list disappears from this change.
     is_board: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: A note made by a map gesture: a concept map's root, or a card that Tab
+    #: or Enter added on a board (audit 2026-10-05, UX-06). It is a real note
+    #: (the card reads its text from it, search and Ask find it), but a map of
+    #: forty topics used to put forty one-word rows at the top of Notes and in
+    #: Recently added. Those two lists leave it out; nothing else changes.
+    #: Scalar default so the additive auto-migrator backfills every existing
+    #: row as an ordinary note; the Alembic step marks the old ones.
+    map_topic: Mapped[bool] = mapped_column(Boolean, default=False)
     #: Board-level settings, as a small JSON object, for a note being used as
     #: a board: `{"type": "board"|"map", "layout": "free"|"tree-right"|
     #: "tree-left"|"tree-both"|"tree-down"|"radial"}`. NULL: the overwhelmingly common case, since

@@ -129,7 +129,7 @@ Counts: High 4, Medium 9, Low 10.
 - Fix: `keydown` Enter (and ArrowDown at end) on `#doc-title` focuses the
   CodeMirror view at line 1. Effort S.
 
-**UX-06. Mind maps: two kinds under swapped names; topics flood the notebook; header count wrong.** KNOWN in part (MINDMAP_PLAN section 2: "mindmap and concept map become one feature, not two"; WORLD_CLASS_PLAN standout 4 "a map node is an entry" is a decision) FIXED in part 02989f8 (Create rows); counts, "sketches", hiding map topics and the focus after Enter left to the whiteboard and mind map agent
+**UX-06. Mind maps: two kinds under swapped names; topics flood the notebook; header count wrong.** KNOWN in part (MINDMAP_PLAN section 2: "mindmap and concept map become one feature, not two"; WORLD_CLASS_PLAN standout 4 "a map node is an entry" is a decision) FIXED in part 02989f8 (Create rows); counts, "sketches", hiding map topics and the focus after Enter left to the whiteboard and mind map agent; the rest FIXED PENDING_UX06
 - Evidence: the Create dialog row "New concept map: A mind map: a tree of
   topics you move and connect" (`library.js:1867`) makes a board of note
   cards; the mind map kind is only behind New board's "What kind of board:

@@ -2602,7 +2602,8 @@ async function renderMostLinkedWidget(body) {
 }
 
 async function renderRecentNotesWidget(body) {
-  const entries = await dashEntries();
+  //: Not a map's topics (UX-06): a map of forty listed forty one-word rows.
+  const entries = (await dashEntries()).filter((e) => !e.map_topic);
   const newest = [...entries].sort(
     (a, b) => new Date(b.created_at) - new Date(a.created_at)
   );
@@ -4106,7 +4107,7 @@ async function renderOrphanNotesWidget(body) {
   }
   // A board is a note by construction here, and an empty canvas is not a
   // stranded thought. Drafts have not been filed yet by definition.
-  const real = entries.filter((e) => !e.is_board && !e.is_draft);
+  const real = entries.filter((e) => !e.is_board && !e.is_draft && !e.map_topic);
   // **Category is deliberately not part of this test, and that is a measured
   // decision rather than an oversight.** The first cut of this widget counted
   // a note as stranded only if it had no links, no tags *and* no category, 

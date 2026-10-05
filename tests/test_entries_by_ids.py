@@ -43,7 +43,8 @@ def test_a_binned_or_archived_note_is_absent(client):
     a = _note(client, "to bin")
     b = _note(client, "to archive")
     keep = _note(client, "to keep")
-    assert client.delete(f"/entries/{a['id']}").status_code in (200, 204)
+    binned = client.delete(f"/entries/{a['id']}")
+    assert binned.status_code in (200, 204)
     archived = client.post(f"/entries/{b['id']}/archive")
     assert archived.status_code in (200, 204), archived.text
     response = client.get(f"/entries?ids={a['id']},{b['id']},{keep['id']}")

@@ -24,7 +24,7 @@ each with its reason:
   (a perf change that wants a measurement first).
 - F7's 13 thread sites (`tests/test_flaw_class_lints.py`): a WORLD_CLASS_PLAN
   flaw class, another agent's.
-- `scratchpad/ui-sweeps/quickaccess.js` is stale (it opens a row menu in
+- ~~`scratchpad/ui-sweeps/quickaccess.js` is stale~~ Fixed 2026-10-05 (small-1005), as is the `mappan.js` fixture below; the old text: it is stale (it opens a row menu in
   `.launch-head` that INBOX 488 moved to the dashboard dock's Customise); the
   dashboard dock is the docks agent's.
 - `mappan.js`'s `rect` sketch fixture logs "Expected moveto path command"

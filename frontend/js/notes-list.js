@@ -115,6 +115,27 @@ function noteEditToolbar(boxId) {
   return bar;
 }
 
+//: **Capture's strip is the shape it ends up in from its first paint.** The
+//: fold, the name and the tools group (More, layout, line numbers) are drawn
+//: by documents.js, which loads after the first paint: at 390 the strip drew
+//: expanded (two rows, 104px) and folded to the 54px collapsed bar when the
+//: bundle landed, a 50px shift. The markup says collapsed, which is the
+//: default (`docToolbarCollapsed`: collapsed unless the saved choice is "0");
+//: this undoes it for a saved "0" and keeps the key and the default in step
+//: with that reading (tests/test_capture_strip_first_paint.py).
+function foldNoteToolbarForFirstPaint() {
+  const bar = document.getElementById("note-toolbar");
+  if (!bar) return;
+  let collapsed = true;
+  try {
+    collapsed = (prefs.get("doc-toolbar-collapsed", null) ?? "1") === "1";
+  } catch {
+    collapsed = false; // private mode: the expanded shape is the safe default, as the bundle's
+  }
+  bar.classList.toggle("is-collapsed", collapsed);
+}
+foldNoteToolbarForFirstPaint();
+
 //: Read by navigation.js's `hasUnsavedWork` (WORLD_CLASS_PLAN 22.1 item 4).
 //: `editingId` alone says a form is *open*, not that anything in it has
 //: changed; comparing every field back to `entry` at guard time would need

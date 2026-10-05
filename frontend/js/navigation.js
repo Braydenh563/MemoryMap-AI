@@ -2698,7 +2698,12 @@ async function renderMemorySettings() {
   const budget = $("memory-budget");
   if (!list) return;
 
+  //: Placeholders while the first answer is on its way, so a slow disk never
+  //: reads as "nothing saved yet" (DESIGN.md's list recipe; only into an
+  //: empty list, so a refresh never covers rows already there).
+  showSkeletons(list, 3);
   const data = await apiJson("/memory").catch(() => null);
+  clearSkeletons(list);
   if (!data) {
     list.replaceChildren();
     budget.textContent = "Couldn't load what Atlas has remembered.";

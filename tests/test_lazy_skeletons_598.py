@@ -100,5 +100,5 @@ def test_a_settings_list_that_fetches_shows_skeleton_rows_while_it_waits():
 
 def test_the_model_lists_wait_with_skeletons_only_while_the_status_is_unanswered():
     status = _read("status.js")
-    assert 'if (!modelStatusProblem) showSkeletons($("feature-models-list"), 4);' in status
+    assert 'showSkeletons($("models-skeleton"), 2);' in status
     assert 'list.removeAttribute("aria-busy");' in _read("ai-tools.js")

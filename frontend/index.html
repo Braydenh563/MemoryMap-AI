@@ -1295,7 +1295,7 @@
                  than the document one on purpose: a note is a short thing, so
                  headings, tables and code blocks are left to the document
                  editor rather than crowding a three-row box. -->
-            <div class="doc-toolbar note-toolbar" id="note-toolbar" role="toolbar"
+            <div class="doc-toolbar note-toolbar is-collapsed" id="note-toolbar" role="toolbar"
               aria-label="Formatting" data-md-target="entry-content">
               <!-- Icons, not typed letters (INBOX 616: "one quiet icon-only
                    toolbar"): B, I, S and </> were glyphs in the page font
@@ -8326,6 +8326,9 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- Models -->
           <section class="settings-section" id="settings-models">
             <p id="ollama-status" class="status is-checking">Checking the models…</p>
+            <!-- The shape of what is coming while the first status is on its
+                 way (`renderSettings`: showSkeletons / clearSkeletons). -->
+            <div id="models-skeleton" class="models-skeleton"></div>
             <!-- One line, and the rest of what used to be here is in the
                  Model backend "?" below. Asked for directly: "areas with
                  excessive paragraph text… replace them with the circle

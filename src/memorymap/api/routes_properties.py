@@ -117,6 +117,7 @@ def list_note_types(
     limit: int = Query(default=500, ge=1, le=500),
     session: Session = Depends(get_session),
 ) -> list[dict]:
+    note_properties.ensure_builtin_types(session)
     rows = [_type_row(r) for r in session.scalars(select(NoteType).order_by(NoteType.name))]
     response.headers["X-Total-Count"] = str(len(rows))
     return rows[:limit]

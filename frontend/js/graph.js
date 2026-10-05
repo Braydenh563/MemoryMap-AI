@@ -1457,7 +1457,7 @@ let graphStructure = null;
 //: GRAPH_PLAN Phase 3. The rule the colours follow; anything the select
 //: does not offer collapses to category, so a stale saved view cannot ask
 //: for a rule that no longer exists.
-const GRAPH_COLOUR_RULES = ["category", "cluster", "topic", "kind", "age", "space", "tag", "file"];
+const GRAPH_COLOUR_RULES = ["category", "cluster", "topic", "kind", "type", "age", "space", "tag", "file"];
 
 //: INBOX 430, View > Size: what a node's size says. Connections (the default)
 //: is `4 + 2*sqrt(degree)`, GRAPH_PLAN §5 Phase 1; length is the note's words,

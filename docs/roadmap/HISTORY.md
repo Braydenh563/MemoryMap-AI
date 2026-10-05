@@ -40705,3 +40705,28 @@ plan's item 6 decided on, and it fits the budget as it is.
 
 
      Fixed (2026-10-05, Atlas merge): the fringe is drawn inside the hair cap's group; 0 of 468 hairline samples show the page (three moods, four phases).
+## Moved from the plans, 2026-10-05 (nbf1005)
+
+WORLD_CLASS_PLAN section 8's "What is left" rows 10, 15, 30, 31, 33, 34 and
+11, built or found built by the nbf1005 agent, one block per row.
+
+### Row 10, D5: typed properties on notes
+
+Found built for the most part: GRAPH_PLAN KG4 (2026-10-04, above) gave notes
+typed properties (a `---` block, `entry_properties` as its index, the
+property table under a note's title, note types with fields, `type:` on
+create). Search finds a property's value through the note's own text. Left
+by D5's gate and built 2026-10-05:
+
+- The built-in kinds: Person, Project, Meeting, Book and Place, each with an
+  icon, a colour and three fields (`entry/properties.BUILTIN_TYPES`), seeded
+  once per notebook by `ensure_builtin_types` on the first `/note-types` read
+  or typed create; the `note_types_seeded` preference keeps a deleted kind
+  deleted.
+- The graph colours by them: `/graph` carries each note's `note_type` and the
+  types' `type_colours`; View, Colour has Note type (`gcRuleKey`,
+  `gcRuleScale`: a type's own colour, the scheme for one without, untyped
+  muted). The Guide's graph-display topic says so.
+
+Measured: `tests/test_note_kinds_d5.py` 5 tests. Not verified in a browser:
+the legend's colours under the Note type rule.

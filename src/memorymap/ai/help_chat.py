@@ -1165,6 +1165,7 @@ HELP_TOPICS.extend(
                 "link thickness", "link force", "label background",
                 "topic", "topics", "subjects", "outline", "colour by topic",
                 "filter links", "kind of link", "hide links", "property chips",
+                "note type", "colour by type",
             ),
             "body": (
                 "More graph controls, in the gear. Show adds Tags (a node per tag), "
@@ -1188,7 +1189,9 @@ HELP_TOPICS.extend(
                 "no note's name is drawn over a topic's name. Filter holds a chip per "
                 "kind of link on the map (press one to take those links off, again "
                 "to bring them back) and per property value (press to light those "
-                "notes). In Trace, a step marked +2 has two more reasons "
+                "notes). Colour: Note type paints each note its type's colour "
+                "(Person, Project, Meeting, Book and Place come built in). "
+                "In Trace, a step marked +2 has two more reasons "
                 "its notes relate; point at it to read them."
             ),
             "badge": {"label": "Graph", "tab": "graph"},

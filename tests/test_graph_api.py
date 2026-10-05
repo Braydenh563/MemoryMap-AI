@@ -14,7 +14,7 @@ def _save(client, content, **extra):
 
 def test_graph_empty_notebook(client):
     body = client.get("/graph").json()
-    assert body == {"nodes": [], "edges": [], "categories": []}
+    assert body == {"nodes": [], "edges": [], "categories": [], "type_colours": {}}
 
 
 def test_graph_nodes_and_manual_link_edges(client):

@@ -39,7 +39,7 @@ const TAB_CLAIMS = {
   dashboard: ['Customise', 'View', 'Widgets', 'Edit layout', 'Edit quick access', 'Reset quick access', 'All skills', 'Tools & features', 'Commands', 'Ask AI', 'Sketch', 'Remind me', 'Meeting notes', 'New note'],
   notes: ['Capture a thought', 'Capture', 'Ask', 'Write with Atlas', 'Questions', 'Select', 'Manage tags', 'Manage categories', 'Sort notes', 'Filter notes', 'Split into notes', 'Suggest a title'],
   chat: ['Agent mode', 'Plan', 'Skills', 'Fork', 'Compress the earlier messages', 'Export as Markdown', 'New chat'],
-  graph: ['Concept maps', 'Display', 'Suggest links', 'Gravity', 'Spread', 'Link force', 'Length by similarity', 'Group by category', 'Labels', 'Label backgrounds', 'Curved links', 'Cluster glow', 'Arrows', 'Text fade', 'Link thickness', 'Minimap', 'Saved views', 'Export as PNG', 'Unpin all', 'Groups'],
+  graph: ['Concept maps', 'Display', 'Suggest links', 'Gravity', 'Spread', 'Link force', 'Length by similarity', 'Group by category', 'Labels', 'Label backgrounds', 'Curved links', 'Cluster glow', 'Arrows', 'Text fade', 'Link thickness', 'Minimap', 'Saved views', 'Export as PNG', 'Unpin all', 'Groups', 'Force', 'Tree', 'Radial', 'Arc', 'Colour', 'Size', 'Trace', 'Legend', 'Similarity', 'Entities', 'Documents', 'Boards', 'Tags', 'Attachments', 'Unwritten links', 'Hide unlinked', 'Strength', 'Time filter', 'Reset'],
   library: ['All', 'Documents', 'Boards & maps', 'Images', 'Files', 'AI skills', 'Bookmarks', 'Contents', 'Include the bin', 'Filter', 'Import a file as a document', 'Map from notes', 'Import outline', 'Expand all', 'Collapse all', 'Manage groups', 'New group'],
   timeline: ['Feed', 'Table', 'Kinds', 'Options', 'Group by', 'Show group', 'Time range', 'On this day', 'Jump to today', 'Select', 'Auto', 'Day', 'Week', 'Month', 'Year', 'Category', 'Tag', 'Thread', 'None', 'Everything', 'Last 3 months', 'Last year', 'Custom range'],
   reminders: ['Magic add', 'Add from this sentence', 'Quick set', 'Priority', 'Repeat', 'Add all to calendar (.ics)', 'Calendar', 'In 30 min', 'In 1 hour', 'In 3 hours', 'Tonight 7pm', 'Tomorrow 9am', 'Tomorrow 2pm', 'This weekend', 'Next week'],
@@ -119,6 +119,11 @@ async function corpus(page, rootSel) {
     const pool = norm(await corpus(page, `#tab-${tab}`));
     for (const label of labels) {
       if (!pool.includes(norm(label))) { console.log(`CLAIM tab ${tab}: "${label}" is not on the tab`); tabMiss++; }
+    }
+    // A check that cannot fail proves nothing: a label no tab has must be missed,
+    // and the old names this audit corrected must still be missed.
+    for (const gone of ['Whiteboards sub-tab', 'Writing Room', 'Files & Images gallery', 'Extract notes now']) {
+      if (pool.includes(norm(gone))) { console.log(`FAIL control: "${gone}" is found on ${tab}, so a name the UI dropped is back or the check is too loose`); fails++; }
     }
   }
   console.log(`tab claims: ${tabMiss} not found`);

@@ -304,3 +304,30 @@ def test_a_topic_badge_opens_the_pane_its_path_names():
         if pane and pane != section and " and " not in path:
             bad.append(f"{topic['id']}: path {path!r} is pane {pane!r} but the badge opens {section!r}")
     assert not bad, "\n  ".join(bad)
+
+
+def test_the_readme_names_real_panes_and_groups():
+    """The README is a help surface too: the audit found it sending a reader to
+    Settings, Models for the search engine (it is under Search and index) and
+    spelling a pane "Account and security"."""
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    # The screenshots' <summary> is a list of picture names ("Settings, Your
+    # look, the popup agent"), not a path; bold markers sit inside names.
+    readme = "\n".join(line for line in readme.splitlines() if not line.lstrip().startswith("<summary"))
+    text = " ".join(readme.replace("*", "").replace("\n", " ").split())
+    bad = []
+    checked = 0
+    for match in re.finditer(r"Settings(?:,| >) ([A-Z][^.:;()]{0,100})", text):
+        path = match.group(1).replace(" > ", ", ")
+        # "(Settings, then Help)" and "from Settings, ..." prose: a path starts at a pane.
+        section, segments = _resolve(path)
+        if section is None:
+            bad.append(f"Settings, {path[:60]}")
+            continue
+        checked += 1
+        known = SECTIONS.get(section, set())
+        for segment in segments:
+            if not any(name == segment or name.startswith(segment) or segment.startswith(name) for name in known):
+                bad.append(f"Settings, {path[:60]} ({segment!r} is not in that pane)")
+    assert checked >= 5, checked
+    assert not bad, "README paths that do not match the Settings nav:\n  " + "\n  ".join(bad)

@@ -535,7 +535,7 @@ MORE_TOPICS: list[dict] = [
         "body": (
             "Settings, General, Simple mode: Show only Dashboard, Notes, Chat and "
             "Library. It hides the Graph, Timeline and Reminders tabs, the "
-            "Library's Boards and maps, What it learned and the advanced response "
+            "Library's Boards & maps, What it learned and the advanced response "
             "settings until you want them. Nothing is turned off: every hidden "
             "place still opens from the command palette (Ctrl+K), and reminders "
             "still ring. It is remembered on this device; turn it off in the "
@@ -1038,7 +1038,7 @@ TOPIC_META: dict[str, dict] = {
     "dashboard": {"title": "The dashboard", "path": "Dashboard tab"},
     "library": {"title": "The Library", "path": "Library tab"},
     "documents": {"title": "Documents", "path": "Library tab, Documents"},
-    "whiteboard": {"title": "Whiteboards", "path": "Library tab, Whiteboards"},
+    "whiteboard": {"title": "Whiteboards", "path": "Library tab, Boards & maps"},
     "timeline": {"title": "The Timeline", "path": "Timeline tab"},
     "memory": {"title": "What it remembers", "path": "Settings, What it remembers"},
     "spaces": {"title": "Spaces", "path": "The picker at the top of the sidebar"},
@@ -1095,7 +1095,7 @@ TOPIC_META: dict[str, dict] = {
     "files-images": {"title": "Pictures, scans and PDFs", "path": "Library tab, Images and Files"},
     "archive": {"title": "Archiving", "path": "Each item's own menu, and the Library's Archived filter"},
     "voice": {"title": "Dictation, meetings and read aloud", "path": "Notes tab, the microphone"},
-    "extract-notes": {"title": "Extract notes and the Writing Room", "path": "Notes tab"},
+    "extract-notes": {"title": "Split text into notes", "path": "Notes tab, Write with Atlas, More, Split into notes"},
     "favourites": {"title": "Favourites", "path": "A note's star"},
     "ocr-workspace": {"title": "The OCR workspace", "path": "Read text, on any image or PDF"},
     "document-history": {"title": "A document's history", "path": "A document's ... menu, History"},
@@ -1109,14 +1109,14 @@ TOPIC_META: dict[str, dict] = {
     "translate": {"title": "Translating", "path": "Notes tab, Write with Atlas"},
     "tags-categories": {"title": "Tags and categories", "path": "A note's own row, or Capture's Filing menu"},
     "code-files": {"title": "Code documents", "path": "Library tab, Documents"},
-    "mind-maps": {"title": "Mind maps", "path": "Library tab, Boards and maps"},
-    "whiteboard-controls": {"title": "Whiteboard keys and controls", "path": "Library tab, Boards and maps"},
+    "mind-maps": {"title": "Mind maps", "path": "Library tab, Boards & maps"},
+    "whiteboard-controls": {"title": "Whiteboard keys and controls", "path": "Library tab, Boards & maps"},
     "board-library": {"title": "The board's library, layers and templates", "path": "A board, the Library button in its top bar"},
     "board-format": {"title": "The board's Format panel and connectors", "path": "A board, Ctrl+Shift+P or the selection's More menu"},
-    "mind-map-controls": {"title": "Mind map keys and controls", "path": "Library tab, Boards and maps"},
+    "mind-map-controls": {"title": "Mind map keys and controls", "path": "Library tab, Boards & maps"},
     "documents-controls": {"title": "Document editor keys and controls", "path": "Library tab, Documents"},
     "documents-features": {"title": "Document editor features", "path": "Library tab, Documents"},
-    "mind-map-features": {"title": "Mind map features", "path": "Library tab, Boards and maps"},
+    "mind-map-features": {"title": "Mind map features", "path": "Library tab, Boards & maps"},
     "callouts": {"title": "Callouts", "path": "Library tab, Documents"},
     "graph-controls": {"title": "Graph keys and controls", "path": "Graph tab"},
     "graph-display": {"title": "More graph controls", "path": "Graph tab, the gear"},

@@ -114,8 +114,9 @@ HELP_TOPICS: list[dict] = [
             "Notes tab: type into \"Capture a thought\" and Save. A local AI files "
             "it into a category and suggests tags; you can re-file or edit anytime. "
             "Use a template, dictate with the microphone icon, sketch with the "
-            "palette icon, or run \"Improve\" to proofread first. \"Extract notes\" "
-            "turns a block of pasted text into several AI-drafted, auto-linked notes."
+            "palette icon, or run \"Improve\" to proofread first. Write with Atlas has "
+            "\"Split into notes\", which turns a block of pasted text into several "
+            "AI-drafted, auto-linked notes."
         ),
         "badge": {"label": "Notes", "tab": "notes"},
     },
@@ -199,10 +200,10 @@ HELP_TOPICS: list[dict] = [
             "The Library is everything already made, in one searchable, "
             "filterable place: notes, documents, chats, files and tags, plus "
             "Bookmarks (a shelf for websites you visit often), Contents (a "
-            "hyperlinked outline of the whole notebook) and AI Skills. "
-            "Sub-tabs also hold Documents, Whiteboards, and the Files & "
-            "Images gallery. Each sub-tab's top bar ends with a ? that says "
-            "what it holds."
+            "hyperlinked outline of the whole notebook) and AI skills. "
+            "The other sub-tabs are Documents, Boards & maps (whiteboards "
+            "and mind maps), Images and Files. Each sub-tab's top bar ends "
+            "with a ? that says what it holds."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
@@ -223,7 +224,7 @@ HELP_TOPICS: list[dict] = [
         "id": "whiteboard",
         "keywords": ("whiteboard", "sketch pad", "canvas", "freehand"),
         "body": (
-            "The whiteboard (Library -> Whiteboards) is a pannable canvas for "
+            "The whiteboard (Library, Boards & maps) is a pannable canvas for "
             "freehand sketches and note cards together. Freehand sketches also "
             "appear in the Library's Images sub-tab. A board's background colour "
             "and image are kept with the board. Board, Export saves a PNG (1x, 2x "
@@ -526,10 +527,13 @@ HELP_TOPICS: list[dict] = [
         "id": "extract-notes",
         "keywords": ("extract notes", "rough thoughts", "writing room", "draft"),
         "body": (
-            "\"Extract notes\" (Notes tab) turns a block of pasted free text "
-            "into several AI-drafted, auto-linked notes instead of one long "
-            "one. The Writing Room sub-tab is for turning rough, unstructured "
-            "thoughts into a proper note before it's saved."
+            "Split into notes, in the More menu of Write with Atlas (Notes "
+            "tab), turns a block of pasted free text into several AI-drafted, "
+            "auto-linked notes instead of one long one. Write with Atlas is "
+            "for turning rough, unstructured thoughts into a proper note "
+            "before it's saved. A document's menu and a selection of cards on "
+            "a board have Extract notes, which does the same for a document "
+            "or for those cards."
         ),
         "badge": {"label": "Notes", "tab": "notes"},
     },
@@ -964,7 +968,7 @@ HELP_TOPICS.extend(
                 "from the library", "point a topic at a note", "link a note to a topic", "reference node",
             ),
             "body": (
-                "Mind maps live in the Library, under Boards and maps; New, then Mind "
+                "Mind maps live in the Library, under Boards & maps; New, then Mind "
                 "map, starts one. Tab adds a child, Enter a sibling, and dragging a topic "
                 "onto another moves its whole branch. Right-click a topic for the "
                 "ring of actions, where Cross-link joins any two topics. View, How this "
@@ -1013,7 +1017,7 @@ HELP_TOPICS.extend(
                 "present", "presentation", "slides", "slideshow",
             ),
             "body": (
-                "Whiteboard keys (Library, Boards and maps; Ctrl+Shift+B opens it). "
+                "Whiteboard keys (Library, Boards & maps; Ctrl+Shift+B opens it). "
                 "Tools: V or S select, H hand, K lasso, P pen, M highlighter, E "
                 "eraser, B fill, L line, A arrow, R rectangle, O circle, G "
                 "triangle, D diamond, T text, N sticky note, F frame, C connector (Shift+C "
@@ -1469,13 +1473,13 @@ HELP_TOPICS.extend(
             "keywords": ("sub-tab", "subtab", "sort the library", "select all", "boards and maps"),
             "body": (
                 "Library controls. The sub-tabs are plain words with a line under the one you are on (Notes and the document sidebar draw theirs the same way): All (everything you have made), "
-                "Documents, Boards and maps, Images, Files, AI skills, Bookmarks and "
+                "Documents, Boards & maps, Images, Files, AI skills, Bookmarks and "
                 "Contents. Search, then sort newest first, oldest first, A to Z or "
                 "biggest first, and set how many show per page. Tick a card's box "
                 "to select it: the bar that appears has Select all, Open, Restore "
                 "(for binned items), Delete and Done, and Documents and the gallery "
                 "have bars of their own. New (a whiteboard or a mind map), Map from "
-                "notes and Import outline sit on Boards and maps; Images takes "
+                "notes and Import outline sit on Boards & maps; Images takes "
                 "uploads of pictures and PDFs."
             ),
             "badge": {"label": "Library", "tab": "library"},

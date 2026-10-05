@@ -2247,7 +2247,7 @@ def _repair_install() -> None:
     purpose, so settings and theme survive between ordinary launches, and
     that is also the one thing CLAUDE.md's own trap note records as having
     cost a full session's worth of "my bugs are still there" reports before
-    the cache-busting fix (`RevalidatedStatic`, `_BOOT_TOKEN`) landed.
+    the cache-busting fix (`RevalidatedStatic`, now a content hash per asset URL) landed.
     Clearing it is the same safety net that fix already relies on working,
     just reachable without a terminal.
 

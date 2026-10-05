@@ -659,6 +659,14 @@ etc."
 Phase 5's phone work was reactive — each 390px finding fixed where it was
 found. This phase makes the breakpoints a design, stated once:
 
+(Corrected 2026-10-05, audit FE-11: built as a design but not held. The
+audit counted 58 distinct width queries, with `max-width: 600px` and
+`min-width: 600px` both matching a 600px window, and 720 the same.
+`tests/test_breakpoints.py` now fails on a width on both sides and on any
+new width outside the set below; the double matches are gone and the count
+is 48. Still open: the 720, 640 and 900 groups (26, 11 and 5 rules) move
+onto 600/820, each with a sweep at the widths it changes.)
+
 | Width | Device | What changes, app-wide |
 | --- | --- | --- |
 | ≥ 1100 | desktop, iPad landscape with a sidebar | the layout above; sidebars open |
@@ -1515,3 +1523,15 @@ inside a 4,000px section.
     (4,247px and 1,296px at desktop width) and are indexed rather than
     split; a background-job model is still chosen in Models and in Background
     tasks; the Installed models list is the old row list.
+
+## Placed from INBOX, 2026-10-05 (OPEN.md triage)
+
+- **The Files sub-tab's two kinds of row sit on two rhythms** (image-cards,
+  readings): a described row leaves 50.3px of slack under its last block, an
+  undescribed one 24.8px (1440, light). Brief: one bottom padding for both,
+  measured with `imagecardfoot.js SUBTAB=files`, `imagefold.js` as the
+  ratchet. Sonnet, S.
+- **The picker's other four sources have no thumbnail** (documents, files,
+  maps). `notePickerShape`'s `shape.thumb` is optional and per source; a first
+  page, the file's type glyph and `mapPreview` are all already drawn
+  elsewhere. Brief: one source per commit, the row height unchanged. Opus, M.

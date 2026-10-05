@@ -1113,7 +1113,15 @@ function renderCopyLogsLabel() {
 async function clearLogs() {
   const source = $("log-source").value;
   if (source !== "browser") {
-    await api("/logs", { method: "DELETE" }).catch(() => {});
+    //: Said when it fails (audit 2026-10-05, FE-12).
+    const cleared = await api("/logs", { method: "DELETE" }).then(
+      () => true,
+      (error) => {
+        toast(error.message || "Couldn't clear the server log.", true);
+        return false;
+      }
+    );
+    if (!cleared) return;
   }
   if (source !== "server") {
     browserLogs.length = 0;

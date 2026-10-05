@@ -2530,7 +2530,7 @@ async function renderMemorySettings() {
           await apiJson(`/memory/${pref.id}/answer`, {
             method: "POST",
             body: JSON.stringify({ accept }),
-          }).catch(() => {});
+          }).catch((error) => toast(error.message || "Couldn't save that answer.", true));
           renderMemorySettings();
         };
         const yes = document.createElement("button");
@@ -2558,7 +2558,7 @@ async function renderMemorySettings() {
         await apiJson(`/memory/${pref.id}`, {
           method: "PATCH",
           body: JSON.stringify({ active: !pref.active }),
-        }).catch(() => {});
+        }).catch((error) => toast(error.message || "Couldn't change that.", true));
         renderMemorySettings();
       });
 
@@ -2572,7 +2572,13 @@ async function renderMemorySettings() {
           { confirmLabel: "Forget it" }
         );
         if (!ok) return;
-        await apiJson(`/memory/${pref.id}`, { method: "DELETE" }).catch(() => {});
+        //: Said when it fails (audit 2026-10-05, FE-12): a silent catch
+        //: redrew the list with the memory still in it and no reason why.
+        try {
+          await apiJson(`/memory/${pref.id}`, { method: "DELETE" });
+        } catch (error) {
+          toast(error.message || "Couldn't forget that.", true);
+        }
         renderMemorySettings();
       });
 

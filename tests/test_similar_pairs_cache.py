@@ -31,9 +31,9 @@ def pair_calls(monkeypatch):
     calls: list[float] = []
     real = embeddings_module.similar_pairs
 
-    def counting(vectors, threshold):
+    def counting(vectors, threshold, per_node=None):
         calls.append(threshold)
-        return real(vectors, threshold)
+        return real(vectors, threshold, per_node=per_node)
 
     monkeypatch.setattr(embeddings_module, "similar_pairs", counting)
     return calls

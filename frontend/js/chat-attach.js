@@ -3110,19 +3110,44 @@ async function deleteCurrentChat() {
     return;
   }
   if (!(await confirmDialog("Delete this chat?"))) return;
+  let gone = null;
   if (chatConv.id !== null) {
     try {
-      await apiJson(`/conversations/${chatConv.id}`, { method: "DELETE" });
+      gone = await apiJson(`/conversations/${chatConv.id}`, { method: "DELETE" });
     } catch {
       toast("Couldn't delete this chat.", true);
       return;
     }
-    // Document delete already confirms this way; chat delete silently reset
-    // the pane instead, the same success-feedback gap in miniature.
-    toast("Chat deleted.");
   }
   newChatConversation();
   loadConversationList();
+  // Document delete already confirms this way; chat delete silently reset
+  // the pane instead, the same success-feedback gap in miniature.
+  if (gone) chatDeleteUndo(gone);
+}
+
+//: A deleted chat comes back with Undo (undo-1005), from all three of its
+//: Deletes: the DELETE answers with the whole row (a chat is one row), and
+//: `POST /conversations/restore` makes it again under its own id, pinned,
+//: archived and dated as it was. `after` repaints the list it was deleted from.
+function chatDeleteUndo(gone, after = () => {}) {
+  if (!gone?.restore) return;
+  const row = gone.restore;
+  const remake = async () => {
+    await apiJson("/conversations/restore", { method: "POST", body: JSON.stringify(row) });
+    loadConversationList();
+    after();
+  };
+  const action = pushUndo(`Deleted the chat “${row.title}”`, remake, async () => {
+    await apiJson(`/conversations/${row.id}`, { method: "DELETE" });
+    if (chatConv.id === row.id) newChatConversation();
+    loadConversationList();
+    after();
+  });
+  toastAction("Chat deleted.", "Undo", async () => {
+    settleUndoFromToast(action);
+    await remake().catch((e) => toast(e.message, true));
+  });
 }
 
 // Download the open conversation as clean Markdown (questions + answers).

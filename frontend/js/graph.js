@@ -1435,7 +1435,7 @@ async function linkByDrop(from, to) {
     async () => {
       if (!made) return;
       await api(`/entries/${from.id}/links/${made.link_id}`, { method: "DELETE" });
-      await loadEntries().catch(() => {});
+      await refreshEntries([from.id, to.id]).catch(() => {});
       renderGraph();
       toast("Link removed.");
     }
@@ -4110,11 +4110,11 @@ function renderGraphPopupActions(entry) {
       toast(e.message, true)
     );
     closeGraphPopup();
-    await loadEntries().catch(() => {});
+    await refreshEntries([entry.id]).catch(() => {});
     renderGraph();
     toastAction("Moved to the recycle bin.", "Undo", async () => {
       await api(`/entries/${entry.id}/restore`, { method: "POST" });
-      await loadEntries();
+      await refreshEntries([entry.id]);
       renderGraph();
       toast("Note restored.");
     });

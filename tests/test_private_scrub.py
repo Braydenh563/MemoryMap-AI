@@ -91,7 +91,10 @@ def test_a_backup_strips_what_an_older_version_left_behind(client, session):
     session.commit()  # no scrub: what an older version did
     made = client.post("/backups")
     assert made.status_code == 201
-    backup = sorted((deps.get_config().data_dir / "backups").glob("memorymap-*.db"))[-1]
+    # The one this request made, by the name it returned: two backups in the
+    # same second are `<stamp>.db` and `<stamp>-1.db`, and "-" sorts before
+    # ".", so the last name in the folder can be the older copy (seen on CI).
+    backup = deps.get_config().data_dir / "backups" / made.json()["name"]
     assert _leaks(backup.read_bytes()) == []
     # And the copy is a whole, searchable database.
     with sqlite3.connect(backup) as db:

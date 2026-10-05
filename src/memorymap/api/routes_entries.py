@@ -12,7 +12,7 @@ import json
 import logging
 import threading
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from collections import OrderedDict
 from types import SimpleNamespace
 
@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from memorymap.ai import extractor, janitor, learning, librarian, links, relations
@@ -562,13 +563,20 @@ _DELIVERED_MAX = 512
 
 
 def _already_delivered(session: Session, key: str | None):
-    if not key or key not in _DELIVERED:
+    """The note an earlier save with this `client_key` made, or None.
+
+    The column, not only the dict: the dict is the fast path inside one
+    process, the column is what a restart keeps (ARCH-23). The space hook
+    narrows the read, so a key from another space is not this space's note.
+    """
+    if not key:
         return None
-    workspace, entry_id = _DELIVERED[key]
-    entry = session.get(Entry, entry_id)
-    if entry is None or (getattr(entry, "workspace_id", "default") or "default") != workspace:
-        return None
-    return entry
+    if key in _DELIVERED:
+        workspace, entry_id = _DELIVERED[key]
+        entry = session.get(Entry, entry_id)
+        if entry is not None and (getattr(entry, "workspace_id", "default") or "default") == workspace:
+            return entry
+    return session.scalars(select(Entry).where(Entry.client_key == key)).first()
 
 
 def _remember_delivery(key: str | None, entry) -> None:
@@ -615,13 +623,23 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     if body.note_type:
         #: KG4: a new note of a type starts with the type's fields.
         content = note_properties.with_type_fields(session, content, body.note_type)
-    entry = manager.create_entry(
-        session,
-        content=content,
-        category_name=category,
-        tags=tags,
-        ai_confidence=confidence,
-    )
+    try:
+        entry = manager.create_entry(
+            session,
+            content=content,
+            category_name=category,
+            tags=tags,
+            ai_confidence=confidence,
+            client_key=body.client_key,
+        )
+    except IntegrityError:
+        # Two resends of one save at once: the other one won the unique
+        # index on `client_key`, so its note is this save's answer.
+        session.rollback()
+        earlier = _already_delivered(session, body.client_key) if body.client_key else None
+        if earlier is None:
+            raise
+        return _to_out(session, earlier, filed_by=None, similar=None)
     if parent is not None:
         entry.parent_id = parent.id
     if filed_by == "user":
@@ -1808,6 +1826,9 @@ def related_entries(entry_id: int, session: Session = Depends(get_session)) -> l
 
 class AttachBookmarkBody(BaseModel):
     bookmark_id: int
+    #: Undo's door (undo-1005): a detached reference re-attached where it was,
+    #: since References list in attach order. The DELETE answers with it.
+    created_at: datetime | None = None
 
 
 @router.get("/{entry_id}/bookmarks")
@@ -1843,7 +1864,10 @@ def attach_bookmark(
         .first()
     )
     if not already:
-        session.add(EntryBookmark(entry_id=entry_id, bookmark_id=body.bookmark_id))
+        row = EntryBookmark(entry_id=entry_id, bookmark_id=body.bookmark_id)
+        if body.created_at is not None:
+            row.created_at = body.created_at.replace(tzinfo=None)
+        session.add(row)
         session.commit()
     return {"attached": True}
 
@@ -1853,11 +1877,14 @@ def detach_bookmark(
     entry_id: int, bookmark_id: int, session: Session = Depends(get_session)
 ) -> dict:
     _existing_entry(session, entry_id)
+    row = session.query(EntryBookmark).filter_by(entry_id=entry_id, bookmark_id=bookmark_id).first()
+    # When it was attached, so Undo puts it back in its place in the list.
+    created_at = row.created_at.isoformat() if row is not None and row.created_at else None
     session.query(EntryBookmark).filter_by(
         entry_id=entry_id, bookmark_id=bookmark_id
     ).delete()
     session.commit()
-    return {"detached": True}
+    return {"detached": True, "created_at": created_at}
 
 
 #: A page of the plain list, not a hard ceiling on notebook size, the
@@ -1867,6 +1894,9 @@ def detach_bookmark(
 #: max just stops a client from asking for one absurdly large page.
 ENTRIES_PAGE_SIZE = 1000
 ENTRIES_PAGE_SIZE_MAX = 5000
+#: How many notes one `?ids=` read may name: more than any one change touches
+#: (a bulk action over more falls back to the paged list on the client).
+ENTRIES_BY_IDS_MAX = 200
 
 
 @router.get("", response_model=list[EntryOut])
@@ -1878,6 +1908,10 @@ def list_entries(
     q: str = "",
     limit: int = Query(default=ENTRIES_PAGE_SIZE, ge=1, le=ENTRIES_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    #: Keyset paging for the plain list: the `X-Next-Cursor` of the page
+    #: before. Offsets still work; see `manager.list_entries` for why a
+    #: cursor is the one to walk a list that changes during the walk.
+    after: str = Query(default="", max_length=120),
     # **This list is the notes list, so boards are not in it by default.**
     #
     # Reported: "I made a mindmap naming it test and I think it came up as a
@@ -1893,6 +1927,15 @@ def list_entries(
     # (the `[[wiki]]` resolver and the editor's `@` picker) ask for them, and
     # `boards=include` restores the old response for anything wanting both.
     boards: str = Query(default=manager.BOARDS_EXCLUDE),
+    # **Just these notes, of the same list** (audit 2026-10-05, FE-05). Every
+    # save used to re-read the whole notebook (27 requests and 5.3 MB at
+    # 5,010 notes); the client now asks for the notes a change touched and
+    # patches them in. An id outside the view (binned, archived, a board) is
+    # simply absent, which is how the client learns to drop it, and
+    # `X-Total-Count` stays the whole list's size so it can check its patched
+    # list against this one. No side effect: unlike `GET /entries/{id}`,
+    # this is not opening the note.
+    ids: str = Query(default="", description="Comma-separated note ids"),
     session: Session = Depends(get_session),
 ) -> list[EntryOut]:
     """Normal list, the recycle bin when ?deleted=true, the archive when
@@ -1951,6 +1994,22 @@ def list_entries(
         response.headers["X-Total-Count"] = str(len(matched))
         return _to_out_bulk(session, matched)
 
+    if ids:
+        parts = [part.strip() for part in ids.split(",") if part.strip()]
+        if not all(part.isdigit() for part in parts) or len(parts) > ENTRIES_BY_IDS_MAX:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Ask for up to {ENTRIES_BY_IDS_MAX} note ids, as numbers.",
+            )
+        if deleted or archived:
+            raise HTTPException(
+                status_code=422, detail="Note ids are read from the notes list only."
+            )
+        wanted = [int(part) for part in parts]
+        entries = manager.list_entries(session, boards=boards, ids=wanted)
+        response.headers["X-Total-Count"] = str(manager.count_entries(session, boards=boards))
+        return _to_out_bulk(session, entries)
+
     if deleted:
         entries = manager.list_deleted_entries(session, limit=limit, offset=offset)
         total = manager.count_deleted_entries(session)
@@ -1958,8 +2017,15 @@ def list_entries(
         entries = manager.list_archived_entries(session, limit=limit, offset=offset)
         total = manager.count_archived_entries(session)
     else:
-        entries = manager.list_entries(session, limit=limit, offset=offset, boards=boards)
+        cursor = None
+        if after:
+            cursor = manager.parse_entry_cursor(after)
+            if cursor is None:
+                raise HTTPException(status_code=422, detail="That page marker isn't one this list made.")
+        entries = manager.list_entries(session, limit=limit, offset=offset, boards=boards, after=cursor)
         total = manager.count_entries(session, boards=boards)
+        if len(entries) == limit:
+            response.headers["X-Next-Cursor"] = manager.entry_cursor(entries[-1])
     response.headers["X-Total-Count"] = str(total)
     return _to_out_bulk(session, entries)
 

@@ -215,7 +215,10 @@ async function viewAskHistoryTurn(id) {
 }
 
 async function toggleAskHistoryPin(id, pinned) {
-  await apiJson(`/ask-history/${id}/pin?pinned=${pinned}`, { method: "PUT" }).catch(() => null);
+  //: A failure is said, not swallowed (audit 2026-10-05, FE-12).
+  await apiJson(`/ask-history/${id}/pin?pinned=${pinned}`, { method: "PUT" }).catch((error) =>
+    toast(error.message || "Couldn't change the pin.", true)
+  );
   loadAskHistoryPage(true);
 }
 
@@ -224,7 +227,9 @@ async function deleteAskHistoryTurn(id) {
   // "Clear all" right next to this already confirms; a single turn deleted
   // by the same one-click miss deserves the same guard, not less.
   if (!(await confirmDialog("Delete this question and answer?"))) return;
-  await apiJson(`/ask-history/${id}`, { method: "DELETE" }).catch(() => null);
+  await apiJson(`/ask-history/${id}`, { method: "DELETE" }).catch((error) =>
+    toast(error.message || "Couldn't delete that question.", true)
+  );
   loadAskHistoryPage(true);
   loadAskHistoryBadge();
 }
@@ -235,7 +240,9 @@ async function clearAskHistory() {
     { confirmLabel: "Clear history", danger: true }
   );
   if (!ok) return;
-  await apiJson("/ask-history", { method: "DELETE" }).catch(() => null);
+  await apiJson("/ask-history", { method: "DELETE" }).catch((error) =>
+    toast(error.message || "Couldn't clear the history.", true)
+  );
   loadAskHistoryPage(true);
   loadAskHistoryBadge();
 }

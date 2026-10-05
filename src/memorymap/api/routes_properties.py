@@ -88,6 +88,10 @@ class NoteTypeIn(BaseModel):
     icon: str | None = Field(default=None, max_length=30)
     colour: str | None = Field(default=None, max_length=16)
     fields: list[FieldIn] = Field(default_factory=list, max_length=30)
+    #: Undo's door (undo-1005): a deleted type made again with its own id,
+    #: read only with `restore` and only while no other type holds it.
+    id: int | None = None
+    restore: bool = False
 
 
 class NoteTypePatch(BaseModel):
@@ -130,6 +134,8 @@ def create_note_type(body: NoteTypeIn, session: Session = Depends(get_session)) 
     if note_properties.find_type(session, name) is not None:
         raise HTTPException(status_code=409, detail="There is already a note type with that name.")
     row = NoteType(name=name, icon=body.icon, colour=body.colour, fields=_fields(body.fields) or None)
+    if body.restore and body.id is not None and session.get(NoteType, body.id) is None:
+        row.id = body.id
     session.add(row)
     session.commit()
     return _type_row(row)
@@ -168,6 +174,8 @@ def patch_note_type(type_id: int, body: NoteTypePatch, session: Session = Depend
 def delete_note_type(type_id: int, session: Session = Depends(get_session)) -> dict:
     """The type goes; every note keeps its properties, `type:` included."""
     row = _existing_type(session, type_id)
+    # What Undo sends back to `POST /note-types` with `restore`.
+    kept = _type_row(row)
     session.delete(row)
     session.commit()
-    return {"deleted": type_id}
+    return {"deleted": type_id, "type": kept}

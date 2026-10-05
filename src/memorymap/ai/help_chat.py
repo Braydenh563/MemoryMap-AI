@@ -417,7 +417,10 @@ HELP_TOPICS: list[dict] = [
             "where you are: an open board or mind map has its own, an open "
             "document has its own, and both are kept while you switch away "
             "and back during the session; everywhere else it is the app's "
-            "(notes, tags, categories, links, reminders). Inside a text box "
+            "(notes, tags, categories, links, reminders, deleted chats, note "
+            "types, kinds of link and a note's references). A deleted space "
+            "comes back with Undo when it was empty or its contents were "
+            "moved; deleting everything in it is final. Inside a text box "
             "Ctrl+Z undoes your typing."
         ),
         "badge": {"label": "Library", "tab": "library"},
@@ -928,6 +931,7 @@ HELP_TOPICS.extend(
             "keywords": (
                 "mind map", "mindmap", "mind-map", "branch", "child topic", "brainstorm",
                 "branch colours", "branch colors", "map font", "map theme", "palette",
+                "from the library", "point a topic at a note", "link a note to a topic", "reference node",
             ),
             "body": (
                 "Mind maps live in the Library, under Boards and maps; New, then Mind "
@@ -936,7 +940,11 @@ HELP_TOPICS.extend(
                 "ring of actions, where Cross-link joins any two topics. View, How this "
                 "map looks sets its branch colours (classic, deep, soft or vivid), its "
                 "font and the look every topic follows unless it was given its own; a "
-                "topic's pickers can still pull it back to the app's own default."
+                "topic's pickers can still pull it back to the app's own default. "
+                "A topic's Add, From the library… points a new topic at a note, "
+                "document, file or bookmark: a tab for each with its count (the "
+                "arrows move between them; it opens on the one you used last), "
+                "type to narrow the list, Down and Enter to choose."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1238,7 +1246,8 @@ HELP_TOPICS.extend(
                 "its page: every note that names it with the sentence, what it is "
                 "named with, and the dates its notes mention. Its ⋯ sets the Kind, "
                 "Renames it, edits Other names (the names it also goes by) and "
-                "Merges it into another, moving every mention. Suggestions, Names "
+                "Merges it into another, moving every mention; Undo in the toast, "
+                "or Ctrl+Z, splits the two back as they were. Suggestions, Names "
                 "offers the merges that look right (\"Sam\" and \"Sam Lee\")."
             ),
             "badge": {"label": "Graph", "tab": "graph"},

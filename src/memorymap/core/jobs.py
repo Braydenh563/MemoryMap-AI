@@ -57,7 +57,7 @@ import threading
 import time
 from collections.abc import Callable
 
-from memorymap.core import jobstore
+from memorymap.core import jobstore, model_gate
 
 logger = logging.getLogger("memorymap.jobs")
 
@@ -85,6 +85,7 @@ KIND_LANES: dict[str, str] = {
     "vision": "model",
     "vision-pdf": "model",
     "file-entry": "model",
+    "maintenance": "cpu",
 }
 
 DEFAULT_LANE = "cpu"
@@ -93,7 +94,7 @@ DEFAULT_LANE = "cpu"
 #: for: the privacy ledger's flush (`core/egress.py`) queues one within a
 #: second of any connection that leaves this computer, and a row in the
 #: activity panel for it would be noise that says nothing they can act on.
-QUIET_KINDS = frozenset({"ledger"})
+QUIET_KINDS = frozenset({"ledger", "maintenance"})
 
 
 def _start_heartbeat(target):  # noqa: ANN001, ANN202
@@ -310,6 +311,10 @@ class Pool:
             try:
                 if job is None:
                     return
+                if lane == "model":
+                    # A chat turn in flight goes first (`core/model_gate.py`,
+                    # ARCH-09): the job stays queued until it is done.
+                    model_gate.yield_to_interactive(stop=self._stopping)
                 with self._lock:
                     self._queued.pop(job.seq, None)
                     if self._stopping.is_set():

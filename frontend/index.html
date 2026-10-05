@@ -5263,11 +5263,24 @@ Link to another note with [[its first few words]]."></textarea>
               data-help-for="library-docs-help" aria-controls="library-docs-help" aria-expanded="false"
               title="About documents" aria-label="About documents"><i class="ph ph-question" aria-hidden="true"></i></button>
             <div class="help-body hidden" id="library-docs-help" role="dialog" aria-label="About documents">
-              <p>A document is a longer piece of writing with its own editor, outline and history. Open one to keep writing. The property menu narrows the list to documents that carry a given front matter value, and the more menu sets how many show per page.</p>
+              <p>A document is a longer piece of writing with its own editor, outline and history. Open one to keep writing. Import a file, in the more menu, turns a Word file, PDF, spreadsheet, Markdown or code file into a document you can edit. The property menu narrows the list to documents that carry a given front matter value, and the more menu sets how many show per page.</p>
             </div>
             <details class="doc-dock-menu dock-menu dock-more" id="library-docs-more-menu">
               <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
               <div class="doc-dock-menu-list dock-menu-list">
+                <div class="dock-menu-section">
+                  <!-- BACKLOG section 99: "an upload documents option in the
+                       documents tab in the library". `POST /documents/import`
+                       already turned a Word file, PDF, spreadsheet, Markdown
+                       or code file into a Document (the chat's paperclip
+                       uses it); the Library's own Documents list had no door
+                       to it. In the menu, not the dock: the dock sits at its
+                       control ceiling and an import is an occasional act. -->
+                  <button id="library-docs-import" class="doc-dock-menu-item" type="button"
+                    title="Turn a Word file, PDF, spreadsheet, Markdown or code file into a document you can edit"><i class="ph ph-file-arrow-up ph-lead" aria-hidden="true"></i> Import a file as a document</button>
+                  <input id="library-docs-import-input" type="file" multiple class="hidden"
+                    aria-label="Choose files to import as documents" title="Choose files to import as documents">
+                </div>
                 <div class="dock-menu-section">
                   <!-- BACKLOG §77's Notes pattern, extended (§89 item 1). Unlike
                        Reminders, a document list has no due/overdue framing to
@@ -9032,7 +9045,7 @@ Link to another note with [[its first few words]]."></textarea>
           <section class="settings-section hidden" id="settings-tools">
             <!-- One line (standing order 6, INBOX 464: it was three); turning
                  one off is said where the switches are. -->
-            <p class="muted">What Atlas may do in <strong>Agent mode</strong>; anything destructive asks first, and so does any change after it reads from outside.</p>
+            <p class="muted">What Atlas may do in <strong>Agent mode</strong>; risky changes ask you first.</p>
             <div class="settings-group">
               <div class="row help-head">
                 <h3>How many are offered at once</h3>
@@ -10243,6 +10256,19 @@ Link to another note with [[its first few words]]."></textarea>
                 off until you turn it on, and even then only your search
                 words leave this computer: never your notes.
               </p>
+              <ul>
+                <li>The request looks like an ordinary browser's and never
+                  names MemoryMap.</li>
+                <li>No cookies are kept between searches, so one search
+                  cannot be joined to the next.</li>
+                <li>Your words are sent in the body of the request, not in
+                  the web address, so they stay out of access logs.</li>
+                <li>Tracking parameters are stripped from every result
+                  address before you see it.</li>
+                <li>With your own SearXNG instance the words stay on your
+                  network and no third party sees them at all.</li>
+              </ul>
+              <p>The full model is in docs/PRIVACY.md.</p>
             </div>
 
             <div class="settings-group">

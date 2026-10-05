@@ -70,3 +70,15 @@ def test_escape_is_not_touched_and_the_piece_is_lazy() -> None:
 def test_the_capture_button_sits_in_the_boxs_own_foot() -> None:
     foot = re.search(r'<div class="note-composer-foot">(.*?)\n            </div>', HTML, re.S).group(1)
     assert 'id="capture-clear"' in foot and 'id="entry-count"' in foot
+
+
+def test_no_poll_a_value_written_by_code_still_shows_the_button() -> None:
+    """Audit 2026-10-05, FE-18: a one-second interval re-synced every button
+    for the whole session. Each box's `value` setter is wrapped instead, and
+    the staged-files list syncs when it redraws."""
+    code = "\n".join(line for line in JS.split("\n") if not line.lstrip().startswith("//"))
+    assert "setInterval" not in code
+    assert "fieldClearWatchValue(box, spec)" in code
+    wiring = (ROOT / "frontend" / "js" / "settings-wiring.js").read_text(encoding="utf-8")
+    start = wiring.index("function renderCaptureFiles(")
+    assert "fieldClearSyncAll()" in wiring[start : wiring.index("\n}\n", start)]

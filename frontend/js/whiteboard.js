@@ -671,6 +671,7 @@ function wbSyncGridToTransform(transform) {
 //: every rule in 07-whiteboard-misc.css that reads the property, and
 //: `tests/test_wb_navigator_cost.py` keeps the two lists the same.
 const WB_INV_ZOOM_GRIPS = [
+  ".wb-object-frame .wb-frame-title",
   ".wb-comment-pin",
   ".wb-resize-handle",
   ".wb-rotate-handle",

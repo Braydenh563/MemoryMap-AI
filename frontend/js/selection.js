@@ -51,7 +51,7 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
       draft ? "Saved a selection as a draft" : "Saved a selection as a note",
       async () => {
         await api(`/entries/${created.id}`, { method: "DELETE" });
-        await loadEntries();
+        await refreshEntries([created.id]);
       },
       async () => {
         await apiJson("/entries", {
@@ -63,7 +63,7 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
     );
     // Unconditional, as in saveChatAnswerAsNote(): the popup may not be on the
     // Notes tab, and `entries` must not go stale.
-    await loadEntries();
+    await refreshEntries([created.id]);
     progress.done(
       draft ? "Saved as a draft." : "Saved as a note, filing it now.",
       { actionLabel: "Open", onAction: () => flashEntry(created.id) }
@@ -88,7 +88,7 @@ async function appendSelectionToNote(text, { jump = true, message = null, what =
       body: JSON.stringify({ content: after }),
     });
     pushEntryPutUndo(entry.id, "Added text to a note", { content: before }, { content: after });
-    await loadEntries();
+    await refreshEntries([entry.id]);
     if (jump) {
       toast("Added to the note.");
       flashEntry(entry.id);
@@ -207,11 +207,33 @@ function pickerDialog({ title, about = "", placeholder, searchLabel = placeholde
 }
 
 //: A list's own state in its place (loading, nothing there, nothing
-//: matching): the Attach picker's, one sentence and at most one action.
-function pickerListState(list, text, action = null) {
+//: matching): the empty state recipe (`.empty-state`), an icon and a title
+//: over one sentence when it is a state worth explaining, the sentence alone
+//: while loading. It fills the list's fixed height, so nothing moves.
+function pickerListState(list, text, { icon = "", title = "" } = {}) {
   list.replaceChildren();
-  notePickerEmpty(list, text, action);
-  list.lastElementChild?.setAttribute("role", "presentation");
+  notePickerEmpty(list, text, null);
+  const li = list.lastElementChild;
+  li.setAttribute("role", "presentation");
+  if (title) {
+    const heading = document.createElement("p");
+    heading.className = "empty-title";
+    heading.textContent = title;
+    li.prepend(heading);
+  }
+  if (icon) {
+    const glyph = document.createElement("i");
+    glyph.className = `${richPickerIconClass(icon)} empty-icon`;
+    glyph.setAttribute("aria-hidden", "true");
+    li.prepend(glyph);
+  }
+}
+
+//: The empty state for a source: nothing matching the words, or nothing yet.
+function pickerEmpty(nouns, term, icon, hint) {
+  return term
+    ? { icon: "ph:magnifying-glass", title: `No ${nouns} match “${term}”`, text: "Try fewer or different words." }
+    : { icon, title: `No ${nouns} yet`, text: hint };
 }
 
 //: **One choice, picked by typing** (the "/" menu's keys, the rich picker's
@@ -251,13 +273,14 @@ function pickerListbox(shell, label) {
     }
   });
   return {
-    //: `items` are `{icon, label, about, value}`; `query` marks the letters.
-    fill(items, query, emptyText) {
+    //: `items` are `{icon, label, about, value}`; `query` marks the letters;
+    //: `empty` is `pickerEmpty`'s state for when there are none.
+    fill(items, query, empty) {
       if (!items.length) {
         rows = [];
         values = [];
         light(-1);
-        return pickerListState(list, emptyText);
+        return pickerListState(list, empty.text, empty);
       }
       list.replaceChildren();
       rows = items.map((item, i) => {
@@ -302,11 +325,11 @@ function pickEntryDialog(message) {
         .slice(0, 40)
         .map((entry) => ({
           icon: "ph:note",
-          label: entry.title || clipText(notePreviewText(entry.content), 90),
+          label: entry.title || clipText(notePreviewText(entry.content), 200),
           about: pickerNoteAbout(entry),
           value: entry,
         }));
-      box.fill(items, term, term ? `No notes match “${term}”.` : "No notes yet.");
+      box.fill(items, term, pickerEmpty("notes", term, "ph:note", LIBRARY_PICK_SOURCES[0].hint));
     };
     shell.search.addEventListener("input", paint);
     paint();
@@ -323,17 +346,35 @@ function pickEntryDialog(message) {
 //: **`optIn` keeps a source out of the default set**: a board is a fine thing
 //: to point at from a note (INBOX 309), but not from a map's reference node,
 //: so only a caller that names it in `sources` is shown it.
+//: `icon` is per row where the row says more than its source does: a file by
+//: its type (`attachmentIconClass`, the file surfaces' own table), a link by
+//: what it points at (`bookmarkKind`), a board by whether it is a map; then
+//: `empty` is the source's own glyph for its empty state. `hint` is that
+//: state's sentence: where this kind of thing comes from.
 const LIBRARY_PICK_SOURCES = [
-  { kind: "note", label: "Notes", icon: "ph:note", placeholder: "Search your notes…" },
-  { kind: "document", label: "Documents", icon: "ph:file-text", path: "/documents", placeholder: "Search your documents…" },
-  { kind: "file", label: "Files", icon: "ph:paperclip", path: "/files/gallery", placeholder: "Search your files…" },
-  { kind: "link", label: "Bookmarks", icon: "ph:link-simple", path: "/bookmarks", placeholder: "Search your bookmarks…" },
+  { kind: "note", label: "Notes", icon: "ph:note", placeholder: "Search your notes…", hint: "Notes you write show up here." },
+  {
+    kind: "document", label: "Documents", icon: "ph:file-text", path: "/documents",
+    placeholder: "Search your documents…", hint: "Documents you write in the Library show up here.",
+  },
+  {
+    kind: "file", label: "Files", path: "/files/gallery", placeholder: "Search your files…",
+    icon: (row) => `ph:${(attachmentIconClass("", row?.original_name || row?.filename || "file") || "ph-file").slice(3)}`,
+    empty: "ph:paperclip", hint: "Files you attach to notes show up here.",
+  },
+  {
+    kind: "link", label: "Bookmarks", path: "/bookmarks", placeholder: "Search your bookmarks…",
+    icon: (row) => bookmarkKind(row?.url).icon,
+    empty: "ph:link-simple", hint: "Links you save in the Library show up here.",
+  },
   {
     kind: "board",
     label: "Boards and maps",
     //: Per row: a whiteboard and a mind map sit in one list, and a list of
     //: bare titles gave no way to tell them apart.
     icon: (row) => (row?.type === "board" ? "ph:squares-four" : "ph:tree-structure"),
+    empty: "ph:tree-structure",
+    hint: "Boards and maps you make show up here.",
     path: "/whiteboard/boards",
     placeholder: "Search your boards and maps…",
     //: The unnamed scratch board (`id: null`) is where things land when nobody
@@ -343,9 +384,47 @@ const LIBRARY_PICK_SOURCES = [
   },
 ];
 
+//: What kind of thing a link points at, from its address alone: this app
+//: fetches nothing from the internet, so there is no favicon, but a tile that
+//: says "video", "code", "PDF" or "email" tells a list of links apart at a
+//: glance, which is what a favicon column is for. Hosts are matched at their
+//: tail so "m.youtube.com" and "www.youtube.com" are one kind. Here rather
+//: than in library.js (lazy) because the picker draws it before the Library
+//: has ever been opened (INBOX 572).
+const BOOKMARK_KINDS = [
+  { key: "email", icon: "ph:envelope-simple", label: "Email address", test: (u) => u.protocol === "mailto:" },
+  { key: "phone", icon: "ph:phone", label: "Phone number", test: (u) => u.protocol === "tel:" },
+  { key: "pdf", icon: "ph:file-pdf", label: "PDF", test: (u) => /\.pdf$/i.test(u.pathname) },
+  {
+    key: "video", icon: "ph:play-circle", label: "Video",
+    test: (u) => /(^|\.)(youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com)$/.test(u.hostname),
+  },
+  {
+    key: "code", icon: "ph:code", label: "Code",
+    test: (u) => /(^|\.)(github\.com|gitlab\.com|bitbucket\.org|codeberg\.org|stackoverflow\.com|developer\.mozilla\.org|docs\.python\.org)$/.test(u.hostname),
+  },
+  {
+    key: "reference", icon: "ph:book-open", label: "Reference",
+    test: (u) => /(^|\.)(wikipedia\.org|arxiv\.org|wikimedia\.org|britannica\.com)$/.test(u.hostname),
+  },
+];
+const BOOKMARK_KIND_DEFAULT = { key: "link", icon: "ph:globe", label: "Web page" };
+
+function bookmarkKind(url) {
+  const raw = String(url || "").trim();
+  try {
+    const parsed = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
+    return BOOKMARK_KINDS.find((kind) => kind.test(parsed)) || BOOKMARK_KIND_DEFAULT;
+  } catch {
+    return BOOKMARK_KIND_DEFAULT;
+  }
+}
+
 //: One row's label per source, in one table (`notePickerShape`'s reason).
+//: Long enough that the row's own width clips it (an ellipsis in CSS):
+//: clipped at 70 characters, a title stopped short with half the row empty.
 function libraryPickLabel(kind, row) {
-  if (kind === "note") return noteLabel(row, 70);
+  if (kind === "note") return noteLabel(row, 200);
   if (kind === "board") return row.title || (row.type === "board" ? "Untitled board" : "Untitled map");
   if (kind === "document") return row.title || "Untitled document";
   if (kind === "file") return row.original_name || row.filename || "File";
@@ -368,19 +447,33 @@ function libraryPickAbout(kind, row) {
   return notePickerFacts(host, row.group || "");
 }
 
-//: Fetched once per dialog and per source, not per keystroke and not all up
-//: front (three of these lists are never looked at by someone pointing at a
-//: note). A slow fetch that lands after the tab changed paints nothing.
+//: The source the person last chose, so the map's picker opens where they
+//: were (INBOX 572). A per-viewer convenience: storage that is blocked or
+//: empty just opens on the first source.
+const PICK_SOURCE_KEY = "libraryPickSource";
+function pickerRememberedSource(available) {
+  try {
+    const kind = localStorage.getItem(PICK_SOURCE_KEY);
+    return available.find((source) => source.kind === kind) || null;
+  } catch {
+    return null;
+  }
+}
+
+//: Fetched once per dialog and per source, not per keystroke. The shown
+//: source first; the others after it, one at a time, so each tab carries its
+//: count (what matches the words typed, or everything) and opens at once. A
+//: slow fetch that lands after the tab changed paints nothing.
 function pickLibraryItemDialog(message, { sources = null } = {}) {
   const available = LIBRARY_PICK_SOURCES.filter((source) =>
     sources ? sources.includes(source.kind) : !source.optIn
   );
   return new Promise((resolve) => {
-    let active = available[0];
+    let active = (available.length > 1 && pickerRememberedSource(available)) || available[0];
     const shell = pickerDialog({ title: message, placeholder: active.placeholder, searchLabel: message });
     const box = pickerListbox(shell, active.label);
     const seg = document.createElement("div");
-    seg.className = "seg seg-compact";
+    seg.className = "seg";
     seg.setAttribute("role", "tablist");
     seg.setAttribute("aria-label", "What to point at");
 
@@ -389,12 +482,12 @@ function pickLibraryItemDialog(message, { sources = null } = {}) {
     //: usually the very thing this picker was opened from).
     const cache = {};
     let token = 0;
+    const notes = () =>
+      (typeof allEntries !== "undefined" ? allEntries : []).filter(
+        (entry) => !entry.is_draft && !entry.is_deleted && !entry.is_board && !entry.is_private
+      );
     const rowsFor = async (kind) => {
-      if (kind === "note") {
-        return (typeof allEntries !== "undefined" ? allEntries : []).filter(
-          (entry) => !entry.is_draft && !entry.is_deleted && !entry.is_board && !entry.is_private
-        );
-      }
+      if (kind === "note") return notes();
       if (cache[kind]) return cache[kind];
       const source = available.find((s) => s.kind === kind);
       //: The gallery is paged (tests/test_gallery_paging.py); the rest answer once.
@@ -406,6 +499,21 @@ function pickLibraryItemDialog(message, { sources = null } = {}) {
       cache[kind] = source.keep ? list.filter(source.keep) : list;
       return cache[kind];
     };
+    const matching = (kind, rows, term) =>
+      rows
+        .map((row) => ({ row, label: libraryPickLabel(kind, row) }))
+        .filter(({ label }) => !term || label.toLowerCase().includes(term.toLowerCase()));
+
+    //: Each tab's count, for the sources already read; blank until then, so a
+    //: number is never a guess.
+    const counts = () => {
+      const term = shell.search.value.trim();
+      for (const tab of seg.children) {
+        const kind = tab.dataset.pickKind;
+        const rows = kind === "note" ? notes() : cache[kind];
+        tab.querySelector(".seg-count").textContent = rows ? String(matching(kind, rows, term).length) : "";
+      }
+    };
 
     const paint = async () => {
       const mine = (token += 1);
@@ -413,25 +521,25 @@ function pickLibraryItemDialog(message, { sources = null } = {}) {
       const term = shell.search.value.trim();
       if (source.kind !== "note" && !cache[source.kind]) box.loading(`Loading your ${source.label.toLowerCase()}…`);
       const rows = await rowsFor(source.kind);
+      counts();
       if (mine !== token || active !== source) return;
-      const nouns = source.label.toLowerCase();
-      const items = rows
-        .map((row) => ({ row, label: libraryPickLabel(source.kind, row) }))
-        .filter(({ label }) => !term || label.toLowerCase().includes(term.toLowerCase()))
+      const items = matching(source.kind, rows, term)
         .slice(0, 40)
         //: The row itself travels with the choice, so a caller that needs a
         //: fact the row carries (whether a board is a map) has it without a
-        //: second fetch.
+        //: second fetch. Its label is the short one a toast can carry.
         .map(({ row, label }) => ({
           icon: typeof source.icon === "function" ? source.icon(row) : source.icon,
           label,
           about: libraryPickAbout(source.kind, row),
-          value: { kind: source.kind, id: row.id, label, row },
+          value: { kind: source.kind, id: row.id, label: clipText(label, 70), row },
         }));
-      box.fill(items, term, term ? `No ${nouns} match “${term}”.` : `No ${nouns} yet.`);
+      const empty = typeof source.icon === "function" ? source.empty : source.icon;
+      box.fill(items, term, pickerEmpty(source.label.toLowerCase(), term, empty, source.hint));
     };
 
-    //: The tabs: one Tab stop, the arrows walk them (the Attach picker's keys).
+    //: The tabs: one Tab stop, the arrows (and Home and End) walk them, the
+    //: Attach picker's keys; a tab the person chose is remembered.
     const choose = (source, focus) => {
       active = source;
       for (const tab of seg.children) {
@@ -445,29 +553,54 @@ function pickLibraryItemDialog(message, { sources = null } = {}) {
       shell.list.setAttribute("aria-label", source.label);
       paint();
     };
+    const pick = (source, focus) => {
+      choose(source, focus);
+      try {
+        localStorage.setItem(PICK_SOURCE_KEY, source.kind);
+      } catch {
+        // A blocked store only means the next open starts on the first tab.
+      }
+    };
     for (const source of available) {
       const tab = document.createElement("button");
       tab.type = "button";
       tab.setAttribute("role", "tab");
       tab.setAttribute("aria-controls", shell.list.id);
       tab.dataset.pickKind = source.kind;
-      tab.textContent = source.label;
+      const name = document.createElement("span");
+      name.textContent = source.label;
+      const count = document.createElement("span");
+      count.className = "seg-count";
+      tab.append(name, count);
       tab.addEventListener("click", () => {
-        choose(source);
+        pick(source);
         shell.search.focus();
       });
       seg.appendChild(tab);
     }
     seg.addEventListener("keydown", (event) => {
-      const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
-      if (!step) return;
-      event.preventDefault();
       const at = available.indexOf(active);
-      choose(available[(at + step + available.length) % available.length], true);
+      const last = available.length - 1;
+      const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: last }[event.key];
+      if (to === undefined) return;
+      event.preventDefault();
+      pick(available[(to + available.length) % available.length], true);
     });
     shell.search.addEventListener("input", paint);
     choose(active);
     shell.open(resolve, { seg: available.length > 1 ? seg : null });
+    //: The other sources' counts, read after the dialog is up and one at a
+    //: time, so the first paint never waits on them.
+    if (available.length > 1) {
+      (async () => {
+        for (const source of available) {
+          if (source.kind === "note" || cache[source.kind]) continue;
+          await rowsFor(source.kind);
+          if (!shell.card.isConnected) return;
+          counts();
+        }
+      })();
+    }
   });
 }
 
@@ -503,7 +636,7 @@ function pickNotesDialog(message, { confirmLabel = "Continue", limit = 40 } = {}
       confirm.disabled = chosen.size === 0;
     };
     const shape = {
-      label: (row) => noteLabel(row, 70),
+      label: (row) => noteLabel(row, 200),
       icon: () => "ph:note",
       meta: notePickerShape("notes").meta,
       isOn: (row) => chosen.has(row.id),
@@ -518,9 +651,12 @@ function pickNotesDialog(message, { confirmLabel = "Continue", limit = 40 } = {}
       const term = shell.search.value.trim();
       const rows = (typeof allEntries !== "undefined" ? allEntries : [])
         .filter((entry) => !entry.is_draft && !entry.is_deleted && !entry.is_board && !entry.is_private)
-        .filter((entry) => !term || noteLabel(entry, 70).toLowerCase().includes(term.toLowerCase()))
+        .filter((entry) => !term || noteLabel(entry, 200).toLowerCase().includes(term.toLowerCase()))
         .slice(0, 60);
-      if (!rows.length) return pickerListState(list, term ? `No notes match “${term}”.` : "No notes yet.");
+      if (!rows.length) {
+        const empty = pickerEmpty("notes", term, "ph:note", LIBRARY_PICK_SOURCES[0].hint);
+        return pickerListState(list, empty.text, empty);
+      }
       list.replaceChildren(
         ...rows.map((row) => {
           const li = notePickerRow(shape, row);
@@ -575,17 +711,36 @@ function pickMediaDialog() {
       list: grid,
     });
     let uploads = [];
-    const say = (text) => {
+    //: The grid's states on the empty state recipe, as the lists' are
+    //: (`pickerListState`): an icon and a title over the sentence when
+    //: there is nothing to show, the sentence alone while loading.
+    const say = (text, { icon = "", title = "" } = {}) => {
+      const state = document.createElement("div");
+      state.className = "empty-state entry-pick-empty";
+      if (icon) {
+        const glyph = document.createElement("i");
+        glyph.className = `${richPickerIconClass(icon)} empty-icon`;
+        glyph.setAttribute("aria-hidden", "true");
+        state.appendChild(glyph);
+      }
+      if (title) {
+        const heading = document.createElement("p");
+        heading.className = "empty-title";
+        heading.textContent = title;
+        state.appendChild(heading);
+      }
       const line = document.createElement("p");
-      line.className = "muted entry-pick-empty";
       line.textContent = text;
-      grid.replaceChildren(line);
+      state.appendChild(line);
+      grid.replaceChildren(state);
     };
     const paint = () => {
       const term = shell.search.value.trim().toLowerCase();
       const matches = uploads.filter((u) => !term || u.original_name.toLowerCase().includes(term)).slice(0, 60);
       if (!matches.length) {
-        return say(uploads.length ? "No uploads match that." : "Nothing uploaded yet: attach a new file to start your library.");
+        return uploads.length
+          ? say("Try fewer or different words.", { icon: "ph:magnifying-glass", title: "No pictures match that" })
+          : say("Attach a new file to start your library.", { icon: "ph:image", title: "No pictures yet" });
       }
       grid.replaceChildren();
       for (const upload of matches) {

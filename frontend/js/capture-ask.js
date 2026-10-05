@@ -84,7 +84,7 @@ async function watchFiling(entry, { quiet = false } = {}) {
     filingWatches.delete(entry.id);
     // The card in the list still says "Filing…" and still shows the holding
     // category until something re-reads it.
-    await loadEntries();
+    await refreshEntries([entry.id]);
   }
 }
 
@@ -550,17 +550,17 @@ async function saveEntry() {
     }
     resetCaptureForm(contentBox, titleBox);
     focusCaptureBox();
-    await loadEntries();
+    await refreshEntries([saved.id]);
     loadSuggestions(); // new categories → fresher recommended questions
     pushUndo(
       "Created a note",
       async () => {
         await api(`/entries/${saved.id}`, { method: "DELETE" });
-        await loadEntries();
+        await refreshEntries([saved.id]);
       },
       async () => {
         await api(`/entries/${saved.id}/restore`, { method: "POST" });
-        await loadEntries();
+        await refreshEntries([saved.id]);
       }
     );
     // Saving from Capture leaves you on Capture, with the note you just wrote
@@ -634,7 +634,7 @@ async function saveEntryAsDraft() {
     // keeps that function from having to know which of its two callers has
     // already taken the list, see its own comment.
     uploadStagedFiles(saved.id);
-    await loadEntries();
+    await refreshEntries([saved.id]);
   } catch (error) {
     if (await heldOffline(error, { content, tags, document_ids: [...captureDocuments], is_draft: true }, contentBox, titleBox)) return;
     status.textContent = error.message;

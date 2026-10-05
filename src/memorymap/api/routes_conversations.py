@@ -7,6 +7,7 @@ turn here: keeping the streaming path simple and the history durable.
 from __future__ import annotations
 
 import json
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
@@ -873,7 +874,62 @@ def delete_conversation(
     conversation_id: int, session: Session = Depends(get_session)
 ) -> dict:
     conversation = _existing(session, conversation_id)
+    # The whole row, for Undo to send back to `POST /conversations/restore`
+    # (undo-1005): a chat is one row, so this is all of it.
+    kept = {
+        "id": conversation.id,
+        "title": conversation.title,
+        "messages": conversation.messages,
+        "pinned": bool(conversation.pinned),
+        "archived_at": conversation.archived_at.isoformat() if conversation.archived_at else None,
+        "created_at": conversation.created_at.isoformat() if conversation.created_at else None,
+        "updated_at": conversation.updated_at.isoformat() if conversation.updated_at else None,
+        "workspace_id": conversation.workspace_id,
+    }
     log_action(session, "deleted", "conversation", conversation.id)
     session.delete(conversation)
     session.commit()
-    return {"deleted": True}
+    return {"deleted": True, "restore": kept}
+
+
+class RestoreBody(BaseModel):
+    id: int
+    title: str = Field(max_length=120)
+    messages: str
+    pinned: bool = False
+    archived_at: datetime | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    workspace_id: str | None = Field(default=None, max_length=60)
+
+
+@router.post("/restore", status_code=201)
+def restore_conversation(body: RestoreBody, session: Session = Depends(get_session)) -> dict:
+    """Undo a chat's delete (undo-1005): the row its DELETE answered with,
+    under its own id and in its own space. Refused while that id is taken,
+    so a second Undo cannot make a copy."""
+    try:
+        messages = json.loads(body.messages)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail="That chat's turns could not be read.") from error
+    if not isinstance(messages, list):
+        raise HTTPException(status_code=422, detail="That chat's turns could not be read.")
+    table = Conversation.__table__
+    if session.execute(select(table.c.id).where(table.c.id == body.id)).first():
+        raise HTTPException(status_code=409, detail="That conversation is already here.")
+    def plain(when: datetime | None) -> datetime | None:
+        return when.replace(tzinfo=None) if when else None
+
+    conversation = Conversation(
+        id=body.id, title=body.title, messages=body.messages, pinned=body.pinned,
+        archived_at=plain(body.archived_at),
+        created_at=plain(body.created_at) or utcnow(),
+        updated_at=plain(body.updated_at) or utcnow(),
+    )
+    if body.workspace_id:
+        conversation.workspace_id = body.workspace_id
+    session.add(conversation)
+    session.flush()
+    log_action(session, "restored", "conversation", conversation.id)
+    session.commit()
+    return _summary(conversation)

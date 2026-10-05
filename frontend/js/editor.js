@@ -2103,7 +2103,7 @@ async function offerToCreateWikiTarget(name) {
         method: "POST",
         body: JSON.stringify({ content: `${wanted}\n\n` }),
       });
-      await loadEntries();
+      await refreshEntries([entry.id]);
       toast(`Created “${wanted}”.`);
       if (entry?.id) flashEntry(entry.id);
       return;

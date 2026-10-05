@@ -560,7 +560,7 @@
 /* **Below 600px the table is two columns** (decision 6). Eight columns on a
    phone is either a horizontal scrollbar or eight unreadable slivers; date and
    title are the two that answer "which note is this". */
-@media (max-width: 37.5rem) {
+@media (max-width: 599.98px) {
   .timeline-table .timeline-col-wide {
     display: none;
   }
@@ -588,14 +588,14 @@
    title, kind and category are what is left, and the title is never one of the
    ones that leaves. Measured after: the title is 375px at 1024, 176px at 820
    and 242px at 700, with no horizontal scroll at any width. */
-@media (min-width: 37.5rem) and (max-width: 64rem) {
+@media (min-width: 600px) and (max-width: 1023.98px) {
   .timeline-table .timeline-col-space,
   .timeline-table .timeline-col-number {
     display: none;
   }
 }
 
-@media (min-width: 37.5rem) and (max-width: 819.98px) {
+@media (min-width: 600px) and (max-width: 819.98px) {
   .timeline-table .timeline-col-tags {
     display: none;
   }
@@ -1601,7 +1601,7 @@
   margin-left: auto;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
 
   /* Wrapped onto several lines the dividers stop meaning anything, they would
      separate whatever happened to land beside them rather than the groups. */
@@ -4073,7 +4073,7 @@ aside[data-resizable="1"] {
 }
 
 /* On a phone the arrows take the row's two ends and the month the middle. */
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   .timeline-daystrip-head {
     flex: 1 1 100%;
     justify-content: space-between;

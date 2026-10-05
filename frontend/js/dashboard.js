@@ -4102,9 +4102,13 @@ async function renderBookmarksWidget(body) {
 }
 
 /** "3 days ago" from an ISO timestamp, with a plain date once it is old. */
+//: Read through `parseServerTime` (audit 2026-10-05, FE-16): a timestamp
+//: with no zone is the server's UTC, and `new Date` reads it as local time,
+//: so "3 hours ago" was off by the offset. The Library and the reminders
+//: read times the same way now.
 function dashRelativeTime(iso) {
-  const when = new Date(iso);
-  if (Number.isNaN(when.getTime())) return "";
+  const when = parseServerTime(iso);
+  if (!when) return "";
   const seconds = Math.max(0, (Date.now() - when.getTime()) / 1000);
   if (seconds < 90) return "just now";
   const minutes = Math.round(seconds / 60);

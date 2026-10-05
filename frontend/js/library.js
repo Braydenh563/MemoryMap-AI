@@ -774,12 +774,14 @@ function libraryActions(item) {
       }),
       makeMenuItem("ph:trash Delete", "Delete this chat", async () => {
         if (!(await confirmDialog("Delete this saved chat?"))) return;
-        await apiJson(`/conversations/${item.id}`, { method: "DELETE" }).catch((e) =>
-          toast(e.message, true)
-        );
+        const gone = await apiJson(`/conversations/${item.id}`, { method: "DELETE" }).catch((e) => {
+          toast(e.message, true);
+          return null;
+        });
         if (chatConv && chatConv.id === item.id) newChatConversation();
         reload();
         loadConversationList();
+        chatDeleteUndo(gone, reload);
       }),
     ];
   }
@@ -2330,7 +2332,7 @@ async function deleteSkillWithUndo(skill) {
     await renderSkillsDashboard();
   };
   const action = pushUndo(`Deleted the skill “${skill.name}”`, restore, async () => {
-    await saveSkillList(before.filter((s) => s.name !== skill.name)).catch(() => {});
+    await saveSkillList(before.filter((s) => s.name !== skill.name)).catch((e) => toast(e.message, true));
     await renderSkillsDashboard();
   });
   toastAction(`Deleted “${skill.name}”.`, "Undo", async () => {
@@ -2901,6 +2903,42 @@ onDomReady(() => {
     renderLibraryDocuments();
   });
 });
+
+//: Each file is its own request, so one that cannot be read does not take the
+//: others with it, and says so by name. The headers are written out in full:
+//: a FormData body needs the browser's own multipart boundary (so no
+//: `Content-Type`), and passing `headers` to `api()` replaces its defaults
+//: whole, which is why the workspace goes in by hand (without it the document
+//: lands in the default space whichever one is open).
+async function importLibraryDocuments(files) {
+  const made = [];
+  for (const file of files) {
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      const document_ = await apiJson("/documents/import", {
+        method: "POST",
+        headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
+        body: form,
+      });
+      made.push(document_);
+    } catch (error) {
+      toast(`Couldn't import “${file.name}”: ${error.message || "the file could not be read."}`, true);
+    }
+  }
+  if (!made.length) return;
+  await renderLibraryDocuments();
+  // The list is already on screen and redrawn, so "Show them" would be a
+  // button that does nothing; only a single import has somewhere to go.
+  if (made.length > 1) {
+    toast(`Added ${made.length} files to your documents.`);
+    return;
+  }
+  toastAction(`Added “${made[0].title}” to your documents.`, "Open it", () => {
+    switchTab("documents");
+    openDocument(made[0].id);
+  });
+}
 
 async function renderLibraryDocuments() {
   const list = document.getElementById("library-docs-list");
@@ -8747,6 +8785,23 @@ onDomReady(() => {
       openDocument(doc.id);
     }
   });
+  //: **Import a file as a document** (BACKLOG section 99, "an upload documents
+  //: option in the documents tab in the library"). `POST /documents/import`
+  //: extracts a Word file, PDF, spreadsheet, Markdown or code file to text
+  //: and stores it as an ordinary Document, so it opens in the same editor as
+  //: one written here; the original bytes are not kept, which the route's own
+  //: docstring explains. The menu closes first so the file picker is not
+  //: opening over an open menu.
+  $("library-docs-import")?.addEventListener("click", () => {
+    const menu = $("library-docs-more-menu");
+    if (menu) menu.open = false;
+    $("library-docs-import-input")?.click();
+  });
+  $("library-docs-import-input")?.addEventListener("change", (event) =>
+    importLibraryDocuments([...event.target.files]).finally(() => {
+      event.target.value = "";
+    })
+  );
   // Filter as you type. No debounce: the list is already in memory after the
   // first fetch and re-rendering it is cheap, unlike the semantic searches
   // elsewhere that a debounce exists to protect.
@@ -9303,7 +9358,7 @@ async function deleteBookmarksWithUndo(links) {
     // Redo finds the links again by address: their ids changed on restore.
     const urls = new Set(kept.map((b) => b.url));
     for (const live of bookmarksCache.filter((b) => urls.has(b.url))) {
-      await apiJson(`/bookmarks/${live.id}`, { method: "DELETE" }).catch(() => {});
+      await apiJson(`/bookmarks/${live.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
     }
     await renderBookmarks();
   });
@@ -9763,39 +9818,8 @@ function bookmarkSiteSection(host, total) {
   return { root, body };
 }
 
-//: What kind of thing a link points at, from its address alone: this app
-//: fetches nothing from the internet, so there is no favicon, but a tile that
-//: says "video", "code", "PDF" or "email" tells a list of links apart at a
-//: glance, which is what a favicon column is for. Hosts are matched at their
-//: tail so "m.youtube.com" and "www.youtube.com" are one kind.
-const BOOKMARK_KINDS = [
-  { key: "email", icon: "ph:envelope-simple", label: "Email address", test: (u) => u.protocol === "mailto:" },
-  { key: "phone", icon: "ph:phone", label: "Phone number", test: (u) => u.protocol === "tel:" },
-  { key: "pdf", icon: "ph:file-pdf", label: "PDF", test: (u) => /\.pdf$/i.test(u.pathname) },
-  {
-    key: "video", icon: "ph:play-circle", label: "Video",
-    test: (u) => /(^|\.)(youtube\.com|youtu\.be|vimeo\.com|twitch\.tv|dailymotion\.com)$/.test(u.hostname),
-  },
-  {
-    key: "code", icon: "ph:code", label: "Code",
-    test: (u) => /(^|\.)(github\.com|gitlab\.com|bitbucket\.org|codeberg\.org|stackoverflow\.com|developer\.mozilla\.org|docs\.python\.org)$/.test(u.hostname),
-  },
-  {
-    key: "reference", icon: "ph:book-open", label: "Reference",
-    test: (u) => /(^|\.)(wikipedia\.org|arxiv\.org|wikimedia\.org|britannica\.com)$/.test(u.hostname),
-  },
-];
-const BOOKMARK_KIND_DEFAULT = { key: "link", icon: "ph:globe", label: "Web page" };
-
-function bookmarkKind(url) {
-  const raw = String(url || "").trim();
-  try {
-    const parsed = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`);
-    return BOOKMARK_KINDS.find((kind) => kind.test(parsed)) || BOOKMARK_KIND_DEFAULT;
-  } catch {
-    return BOOKMARK_KIND_DEFAULT;
-  }
-}
+//: `bookmarkKind` (what a link points at, its tile) lives in selection.js,
+//: which is loaded at boot: the notebook picker draws it too (INBOX 572).
 
 function bookmarkRow(bookmark) {
   const row = document.createElement("div");

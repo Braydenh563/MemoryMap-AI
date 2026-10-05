@@ -1937,14 +1937,14 @@ async function mergeDuplicateGroup(ids, card) {
     const swap = (back) => async () => {
       if (keeper) await api(`/entries/${result.id}`, { method: "PUT", body: JSON.stringify(back ? { content: keeper.content, tags: keeper.tags } : { content: result.content }) });
       for (const id of binned) await api(back ? `/entries/${id}/restore` : `/entries/${id}`, { method: back ? "POST" : "DELETE" });
-      await loadEntries();
+      await refreshEntries([result.id, ...binned]);
     };
     const action = pushUndo(`Merged ${result.merged_count} notes`, swap(true), swap(false));
     toastAction(`Merged ${result.merged_count} notes${result.used_ai ? " with Atlas" : ""}.`, "Undo", async () => {
       settleUndoFromToast(action);
       await swap(true)();
     });
-    await loadEntries();
+    await refreshEntries([result.id, ...binned]);
   } catch (error) {
     status.classList.add("error");
     status.textContent = error.message;

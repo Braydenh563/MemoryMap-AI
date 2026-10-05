@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.ollama_client import OllamaClient
+from memorymap.core import model_gate
 from memorymap.core.database import (
     ENTITY_KINDS,
     LIKE_ESCAPE,
@@ -190,6 +191,122 @@ def merge_entities(session: Session, keep: Entity, gone: Entity) -> int:
     return moved
 
 
+#: The audit action a merge's snapshot is kept under, for its Undo.
+MERGE_ACTION = "entity_merge"
+
+
+def _entity_state(entity: Entity) -> dict:
+    return {
+        "id": entity.id,
+        "name": entity.name,
+        "kind": entity.kind,
+        "aliases": list(entity.aliases) if entity.aliases else None,
+        "merged_into": entity.merged_into,
+    }
+
+
+def merge_with_undo(session: Session, keep: Entity, gone: Entity) -> tuple[int, int]:
+    """`merge_entities`, keeping what Undo needs to split them back exactly
+    (INBOX 553(a), the owner's decision). Returns `(moved, undo_id)`.
+
+    The snapshot is both entities as they were, every mention `gone` had (by
+    row id, so the same rows go back), and the entities an earlier merge had
+    pointed at `gone`. `keep`'s own mentions are never touched by a merge,
+    so they need no record. Kept as an audit row: one store for "what
+    happened", and the row says in words what it was.
+    """
+    from memorymap.core.database import AuditLog
+
+    snapshot = {
+        "keep": _entity_state(keep),
+        "gone": _entity_state(gone),
+        "mentions": [
+            {
+                "id": row.id,
+                "entry_id": row.entry_id,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            }
+            for row in session.scalars(select(EntityMention).where(EntityMention.entity_id == gone.id)).all()
+        ],
+        "redirected": list(session.scalars(select(Entity.id).where(Entity.merged_into == gone.id))),
+    }
+    moved = merge_entities(session, keep, gone)
+    row = AuditLog(
+        action=MERGE_ACTION,
+        entity_type="entity",
+        entity_id=keep.id,
+        detail=f"merged {gone.name[:80]} into {keep.name[:80]}",
+        payload=snapshot,
+        actor="user",
+    )
+    session.add(row)
+    session.flush()
+    return moved, row.id
+
+
+class MergeUndoError(Exception):
+    """Why an Undo cannot run: `reason` is `missing`, `undone` or `changed`;
+    the route words each one."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+def undo_merge(session: Session, undo_id: int) -> Entity:
+    """Split a merge back exactly as it was. Returns the entity brought back.
+
+    Refused (`MergeUndoError`) when there is no such merge, when it was
+    already undone, or when the two have changed since in a way a split
+    would overwrite: the folded entity no longer points at the survivor.
+    Mentions are put back by row id; one the merge dropped as a duplicate
+    is written again with its own id and date, unless its note has gone.
+    """
+    from datetime import datetime
+
+    from memorymap.core.database import AuditLog
+
+    row = session.get(AuditLog, undo_id)
+    if row is None or row.action != MERGE_ACTION or not isinstance(row.payload, dict):
+        raise MergeUndoError("missing")
+    snapshot = dict(row.payload)
+    if snapshot.get("undone"):
+        raise MergeUndoError("undone")
+    keep = session.get(Entity, snapshot["keep"]["id"])
+    gone = session.get(Entity, snapshot["gone"]["id"])
+    if keep is None or gone is None or gone.merged_into != keep.id:
+        raise MergeUndoError("changed")
+    for entity, state in ((keep, snapshot["keep"]), (gone, snapshot["gone"])):
+        entity.name = state["name"]
+        entity.kind = state["kind"]
+        entity.aliases = list(state["aliases"]) if state["aliases"] else None
+        entity.merged_into = state["merged_into"]
+    for earlier_id in snapshot.get("redirected") or []:
+        earlier = session.get(Entity, earlier_id)
+        if earlier is not None and earlier.merged_into == keep.id:
+            earlier.merged_into = gone.id
+    for mention in snapshot.get("mentions") or []:
+        existing = session.get(EntityMention, mention["id"])
+        if existing is not None and existing.entry_id == mention["entry_id"]:
+            existing.entity_id = gone.id
+            continue
+        if session.get(Entry, mention["entry_id"]) is None:
+            continue
+        created = mention.get("created_at")
+        session.add(
+            EntityMention(
+                id=None if existing is not None else mention["id"],
+                entity_id=gone.id,
+                entry_id=mention["entry_id"],
+                created_at=datetime.fromisoformat(created) if created else utcnow(),
+            )
+        )
+    snapshot["undone"] = True
+    row.payload = snapshot
+    session.flush()
+    return gone
+
+
 def extract_entities_pass(
     session: Session,
     model_manager: ModelManager,
@@ -222,26 +339,40 @@ def extract_entities_pass(
 
     cache: dict[str, Entity] = {}
     processed = 0
-    for entry in candidates:
-        content = (entry.content or "").strip()
+    # Snapshot what the loop needs, then end the read: the model call below
+    # is seconds to minutes, and it must never run with a write pending
+    # (ARCH-01, measured: a flushed write held across a model call made every
+    # save in the meantime fail after the 5 s busy timeout). Each note is
+    # asked with nothing open, then written and committed on its own.
+    work = [(entry, (entry.content or "").strip()) for entry in candidates]
+    session.commit()
+    for entry, content in work:
         try:
+            found: list[tuple[str, str | None]] = []
             if len(content) >= MIN_CONTENT_LENGTH:
-                for name, kind in suggest_entities_with_kinds(content, model_manager, ollama):
-                    entity = _find_or_create_entity(session, name, cache)
-                    if kind and not entity.kind:
-                        entity.kind = kind
-                    already = session.scalars(
-                        select(EntityMention).where(
-                            EntityMention.entity_id == entity.id,
-                            EntityMention.entry_id == entry.id,
-                        )
-                    ).first()
-                    if not already:
-                        session.add(EntityMention(entity_id=entity.id, entry_id=entry.id))
+                # A chat turn in flight goes first (ARCH-09).
+                model_gate.yield_to_interactive()
+                found = suggest_entities_with_kinds(content, model_manager, ollama)
+            for name, kind in found:
+                entity = _find_or_create_entity(session, name, cache)
+                if kind and not entity.kind:
+                    entity.kind = kind
+                already = session.scalars(
+                    select(EntityMention).where(
+                        EntityMention.entity_id == entity.id,
+                        EntityMention.entry_id == entry.id,
+                    )
+                ).first()
+                if not already:
+                    session.add(EntityMention(entity_id=entity.id, entry_id=entry.id))
         except Exception:  # noqa: BLE001  # one bad note must not stop the pass
             logger.debug("entity extraction failed on entry %s", entry.id, exc_info=True)
+            # A write that failed half way leaves the session unusable; drop
+            # this note's partial rows so the stamp below can still commit.
+            session.rollback()
+            cache.clear()
         finally:
             entry.entities_extracted_at = utcnow()
             processed += 1
-    session.commit()
+            session.commit()
     return processed

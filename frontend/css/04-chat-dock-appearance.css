@@ -517,7 +517,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   display: none;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
   #graph-card {
     margin: 0 0 var(--space-5);
   }
@@ -558,7 +558,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 }
 
 /* Below 720px `.layout` stacks aside and main into two rows instead of one
-   row of two columns (the base rule's own `@media (max-width: 720px)`
+   row of two columns (the base rule's own `@media (max-width: 719.98px)`
    block), but this rule's `grid-template-rows: minmax(0, 1fr)` still names
    only one explicit row. The sidebar (row 1, the explicit `1fr` track) was
    losing almost all of it to `main`'s implicit auto row claiming its full
@@ -569,7 +569,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
    card background floating above `chat-main`'s real header, its own content
    rendered outside its box. Each row sizes to its own content when stacked,
    same as `#tab-notes` (which never set an explicit row template at all). */
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
   #tab-chat:not(.hidden)>.layout {
     grid-template-rows: none;
   }
@@ -623,7 +623,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 /* Below this the two columns are both too narrow to use, so the panel takes
    the whole of <main> and the conversation waits behind it. The ✕ is right
    there, which is what makes that acceptable, it is one click back. */
-@media (max-width: 1100px) {
+@media (max-width: 1099.98px) {
   #tab-chat .layout>.tab-main:has(#web-panel:not(.hidden))>#chat-main {
     display: none;
   }
@@ -1485,7 +1485,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   display: none;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
 
   /* Two rows of controls above a composer is most of a phone screen. They stay
      - hiding a control the user has to reach for is worse than scrolling, but
@@ -2702,7 +2702,7 @@ span > .chip {
   outline-offset: 2px;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
   .scroll-top {
     right: 1rem;
     bottom: calc(var(--status-bar-h) + var(--space-3));
@@ -3131,8 +3131,11 @@ span > .chip {
   }
 }
 
+/* The one focus ring's 2px (DESIGN.md): the accent edge and a 1px outline
+   flush on it. A 2px outline on top of the accent edge drew 3px, the
+   "thick" ring of the picker's report (INBOX 572). */
 .search-field:focus-within {
-  outline: 2px solid var(--accent);
+  outline: 1px solid var(--accent);
   border-color: var(--accent);
 }
 
@@ -4904,10 +4907,51 @@ span > .chip {
   overflow-y: auto;
 }
 
+/* One row height for every picker row (INBOX 572): 56px holds the 2rem tile
+   and the two lines with air above and below, so two rows never read as one. */
+.entry-pick-card {
+  --pick-row-h: 3.5rem;
+}
+
+/* **The sources are the in-dialog segmented control** (`.confirm-seg`, the
+   New board dialog's recipe): the track spans the dialog and the segments
+   share it equally, one height. It was `align-self: flex-start`, a well
+   wider than its pills on one side and empty on the other (INBOX 572). The
+   count after each name is the `.seg-count`, quiet text. */
 .entry-pick-card > .seg {
-  align-self: flex-start;
+  align-self: stretch;
+  flex-wrap: nowrap;
   max-width: 100%;
   margin: 0;
+}
+
+.entry-pick-card > .seg > button {
+  display: inline-flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: var(--control-h-lg);
+  padding-inline: var(--space-2);
+  white-space: nowrap;
+  font-size: var(--text-sm);
+}
+
+/* A phone's quarter of the track holds the name or the name and its count,
+   not both on one line: the count goes under the name, smaller, and every
+   segment keeps the one (touch) height. */
+@media (max-width: 599.98px) {
+  .entry-pick-card > .seg > button {
+    flex-direction: column;
+    height: var(--target-min);
+    padding-inline: var(--space-1);
+    line-height: 1.15;
+  }
+
+  .entry-pick-card > .seg .seg-count {
+    margin-left: 0;
+    font-size: var(--text-xs);
+  }
 }
 
 .entry-pick-about {
@@ -4915,19 +4959,83 @@ span > .chip {
   font-size: var(--text-sm);
 }
 
+/* One height for every source and every state (loading, nothing, a full
+   list), so filtering and switching tabs never move the dialog. */
 .entry-pick-card > .entry-pick-list {
   display: flex;
   flex: none;
   flex-direction: column;
-  gap: var(--space-1);
-  height: min(20rem, 46vh);
+  gap: var(--space-3);
+  height: min(22rem, 48vh);
   margin: 0 calc(var(--space-1) * -1);
+  padding: var(--space-1);
+}
+
+/* **A row never shrinks.** The list is a column flex box of a fixed
+   height, and a flex item shrinks by default: with 25 notes every row was
+   squeezed to the 28px target floor while its 32px tile stayed whole and
+   hung over the next row's title (INBOX 572, measured). */
+.entry-pick-card > .entry-pick-list > li {
+  flex: none;
+}
+
+/* The one-thing row: one height, the tile centred in it, the fill and the
+   corner on the whole row. */
+.entry-pick-list > .entry-pick-row {
+  height: var(--pick-row-h);
+  min-height: 0;
+  padding: 0 var(--space-3);
+  gap: var(--space-4);
+}
+
+.entry-pick-row > .rich-picker-text {
+  gap: calc(var(--space-1) / 2);
+}
+
+/* The lit row is where Enter goes: an accent edge as well as the tint, so
+   it reads on every ground (the tint alone is under 3:1, DESIGN.md's edge
+   row), whether the keys or the pointer lit it. */
+.entry-pick-list > .entry-pick-row.active {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-text) 55%, transparent);
+}
+
+/* The app's thin scrollbar with no arrow buttons: a rounded thumb in a
+   transparent track. Chromium ignores the `::-webkit-scrollbar` parts on
+   an element with `scrollbar-width` set, which the rich picker's list has,
+   so it is taken back to `auto` here and Firefox keeps its own thin one. */
+.entry-pick-card > .entry-pick-list,
+.entry-pick-card > .media-pick-grid {
+  scrollbar-width: auto;
+}
+
+.entry-pick-card > :is(.entry-pick-list, .media-pick-grid)::-webkit-scrollbar {
+  width: 10px;
+}
+
+.entry-pick-card > :is(.entry-pick-list, .media-pick-grid)::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.entry-pick-card > :is(.entry-pick-list, .media-pick-grid)::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--muted) 55%, transparent) padding-box;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .entry-pick-card > :is(.entry-pick-list, .media-pick-grid) {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--muted) 55%, transparent) transparent;
+  }
 }
 
 /* (0,3,1): `.space-dialog label` (a form label: block, muted, a top margin)
-   would win over the Attach row's own flex, as in Quick access. */
+   would win over the Attach row's own flex, as in Quick access. The several
+   notes picker's row is the same one height. */
 .entry-pick-list > li > label.note-picker-row {
   display: flex;
+  height: var(--pick-row-h);
+  min-height: 0;
   margin-top: 0;
   font-size: inherit;
   color: inherit;
@@ -4956,7 +5064,7 @@ span > .chip {
 }
 
 /* On a phone the count takes its own line over the buttons. */
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   .entry-pick-card > .space-dialog-actions {
     flex-wrap: wrap;
   }
@@ -4979,7 +5087,7 @@ span > .chip {
   grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
   align-content: start;
   gap: var(--space-2);
-  height: min(20rem, 46vh);
+  height: min(22rem, 48vh);
   overflow-y: auto;
   overscroll-behavior: contain;
 }

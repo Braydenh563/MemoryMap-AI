@@ -223,6 +223,38 @@ def test_keyframes_do_not_animate_layout(path: Path):
     )
 
 
+#: Not layout, but a repaint of the surface and everything behind it on every
+#: frame: a blur's cost is the area under it, and on this app's glass that is
+#: the whole window (anim.md, OPEN.md "Carried from the agent files"). One
+#: transition names `filter` today, a graph node's own hover glow, and says
+#: so above it; the next one has to say why too, and the shape of the
+#: measurement is `scratchpad/ui-sweeps/animcost.js`.
+REPAINT_UNDER = frozenset({"filter", "backdrop-filter", "-webkit-backdrop-filter"})
+
+
+@pytest.mark.parametrize("path", _css_files(), ids=lambda p: p.name)
+def test_nothing_animates_a_filter_without_a_reason(path: Path):
+    source = path.read_text(encoding="utf-8")
+    lines = source.splitlines()
+    code = _blank_comments(source)
+    offenders = []
+    for match in re.finditer(r"(?<![-\w])transition(?:-property)?\s*:([^;{}]*)", code):
+        n = code.count("\n", 0, match.start())
+        bad = sorted(_transition_properties(match.group(1)) & REPAINT_UNDER)
+        if bad and not _has_reason(lines, n):
+            offenders.append(f"{path.name}:{n + 1}: transition animates {', '.join(bad)}")
+    for start, name, body in _blocks(code):
+        named = {m.group(1).lower() for m in re.finditer(r"(?<![-\w])([a-z-]+)\s*:", _strip_comments(body))}
+        bad = sorted(named & REPAINT_UNDER)
+        if bad and not _has_reason(lines, start):
+            offenders.append(f"{path.name}:{start + 1}: @keyframes {name} animates {', '.join(bad)}")
+    assert not offenders, "\n".join(offenders) + (
+        "\n\nAnimating a filter or a backdrop blur repaints everything under the "
+        "surface on every frame. Fade the surface on `opacity` instead, or write "
+        "the reason (and the animcost.js number) in a /* ... */ comment above it."
+    )
+
+
 def test_the_rule_is_written_where_designers_read_it():
     """DESIGN.md carries the rule, because a lint nobody has read is a trap.
 

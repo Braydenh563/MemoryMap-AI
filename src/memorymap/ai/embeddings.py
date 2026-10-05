@@ -225,6 +225,14 @@ def start_warmup(service: "EmbeddingService", session_factory=None) -> None:  # 
 # minutes embedding on every launch; the next start picks up where this stopped.
 BACKFILL_LIMIT = 200
 
+#: How many notes one batched encode takes when a whole notebook is being
+#: embedded (the startup backfill and the Settings re-index). `embed_many`
+#: hands the list to sentence-transformers as one `encode` call, which is
+#: markedly cheaper per note than the same notes one at a time; the ceiling
+#: keeps a long note's tokens from making one batch spike memory and keeps the
+#: re-index's cancel check responsive (it looks between batches).
+EMBED_BATCH = 16
+
 # Enough to cover the repeated embeds within a single save, with headroom.
 _EMBED_CACHE_MAX = 32
 
@@ -314,9 +322,8 @@ def _backfill_missing(service, session_factory, limit: int, run) -> int:  # noqa
             )
             .limit(limit)
         ).all()
-        for entry in missing:
-            if service.store_for_entry(session, entry):
-                fixed += 1
+        for start in range(0, len(missing), EMBED_BATCH):
+            fixed += service.store_for_entries(session, missing[start : start + EMBED_BATCH])
         chunked = _backfill_chunks(service, session, limit)
         if fixed:
             session.commit()
@@ -748,6 +755,17 @@ class EmbeddingService:
         # call itself runs outside it.
         self._cache_lock = threading.Lock()
 
+    def use_client(self, ollama_client: OllamaClient) -> None:
+        """Talk to a new chat client (Settings switched backend), keeping a
+        loaded sentence-transformers model. Embeddings served by the chat
+        backend are forgotten and retried at once: the same text may now map
+        to a different server's vector, and a failure seen on the old one
+        says nothing about the new."""
+        self._ollama = ollama_client
+        if self._models is not None and self._models.embedding_backend() == "ollama":
+            self.clear_embed_cache()
+            self.reset_failure_state()
+
     def clear_embed_cache(self) -> None:
         """Drop cached vectors: used when the embedding backend changes,
         since the same text then maps to a different vector."""
@@ -1005,6 +1023,35 @@ class EmbeddingService:
         vector = self.embed_text(embedding_text(session, entry))
         if vector is None:
             return False
+        self._write_vector(session, entry, vector)
+        session.commit()
+        return True
+
+    def store_for_entries(self, session: Session, entries: list[Entry]) -> int:
+        """Embed several entries in one batched encode and store each vector.
+
+        The same rules as `store_for_entry`, for the loops that embed a whole
+        notebook: private notes are skipped, an entry the backend could not
+        embed is skipped and the rest of the batch still lands, and the number
+        stored is returned. One commit for the batch rather than one per note,
+        which is where the rest of the saving is. `embed_many` falls back to
+        one call each on a backend with no batched encode (Ollama), so this is
+        never slower than the loop it replaced.
+        """
+        eligible = [entry for entry in entries if not getattr(entry, "is_private", False)]
+        if not eligible:
+            return 0
+        vectors = self.embed_many([embedding_text(session, entry) for entry in eligible])
+        stored = 0
+        for entry, vector in zip(eligible, vectors):
+            if vector is None:
+                continue
+            self._write_vector(session, entry, vector)
+            stored += 1
+        session.commit()
+        return stored
+
+    def _write_vector(self, session: Session, entry: Entry, vector: np.ndarray) -> None:
         # **Storing is storing, not inserting.** `entry_id` is unique, so a
         # second call for the same note raised `UNIQUE constraint failed:
         # embeddings.entry_id` and took whatever was saving with it. Every
@@ -1026,8 +1073,6 @@ class EmbeddingService:
             self._store_chunks(session, entry, record)
         except Exception:  # noqa: BLE001  # chunks refine a search; the note vector is the save
             logger.warning("couldn't store paragraph vectors for entry %s", entry.id, exc_info=True)
-        session.commit()
-        return True
 
     def embed_many(self, texts: list[str]) -> list[np.ndarray | None]:
         """Vectors for several texts: one batched encode where the backend

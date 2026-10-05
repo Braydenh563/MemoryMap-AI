@@ -49,6 +49,7 @@ with its owner named in the entry.
 553. **The owner's decisions, 2026-10-05** (asked, answered; binding):
      (a) Entity merge gets Undo: snapshot both entities and their mentions
      before a merge, and Undo in the toast splits them back exactly.
+     Built 2026-10-05 (38debe1, `tests/test_entity_merge_undo.py`).
      (b) The undo histories of each board, map and document survive a
      reload (the last ~100 steps, stored; WHITEBOARD_PLAN decision 17 is
      amended).
@@ -82,11 +83,46 @@ with its owner named in the entry.
      Then (verbatim): "the arms for both the male and female atlas".
      Partly done (2026-10-05): his V-taper torso and both looks' hanging arms (upper arm 13.4 degrees off vertical, elbow 166 and 165, wrist 0.54 and 0.52 of shoulder width). Open: joint-angle blends and IK in avatars.js, counter-phase swing, head lag, his cloak, the travelling hair and tail motion. The follow-up Atlas agent.
 
+575. **The owner, 2026-10-05, verbatim.** "can you have the lower body of
+     both atlas avatars change around in position and and how it is sitting
+     ect with different variations and changes based off the current action
+     or behaviour??" Placed: the Atlas motion agent, with 564 (a lower-body
+     pose per state, small random variants, blended with follow-through).
+     Then (verbatim): "dont forget that both atlas avatars have a tail as
+     well, same with the hair, and the nebular stream. they all need to be
+     dynamically animated and changed": both looks' tails, hair and nebula
+     streams, per state, with secondary motion.
+
 566. **The owner, 2026-10-05, verbatim.** "the whiteboard help popup is still
      cooked and needs a redesign" (screenshot: the empty board's help card,
      the Move around column's key pills clipped at the right, long labels
      printed over their pills, the description cut off). Placed: the
      whiteboard agent, as the board's searchable shortcut sheet (was UX-03).
+
+569. **The owner, 2026-10-05, verbatim.** "it says the edge bar is solid even
+     though it is dashed" (screenshots: a map topic's Shape menu says Edge bar
+     "Solid bar" while the bar is drawn in dashes, like its dashed box).
+     Placed: the mind map agent.
+
+570. **The owner, 2026-10-05, verbatim.** "when I open comments on the
+     whiteboard, the new comment form is permanently showing below, there
+     should be a new comment option below for it to show" Placed: the
+     whiteboard agent.
+
+571. **The owner, 2026-10-05, verbatim.** "again, what constitutes opening a
+     note if I can see a whole note in the notes section, Id just scroll to it
+     and see it yk??" Decision taken: the connections rail follows the note
+     you are reading (the card clicked, or the card in view as you scroll),
+     marked on the card; the toggle says so. Placed: the UX agent.
+
+573. **The owner, 2026-10-05, verbatim.** "these anchor points appeared and
+     wont go away" (screenshot: a map topic keeping eight resize handles and
+     its Aa and arrow marks after deselecting). Placed: the mind map agent.
+
+574. **The owner, 2026-10-05, verbatim.** "I think there needs to be an easier
+     way to open the formatting toolbar in the documents editor if it is
+     closed in case the user accidentally closes it and cant figure out how
+     to open it back up again" Placed: the documents agent.
 
 561. **The owner, 2026-10-05, verbatim.** "I dont like this section in th
      timeline, it needs redesigning, restructuring, moving ro smth"

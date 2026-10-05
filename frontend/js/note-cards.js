@@ -140,7 +140,7 @@ function mapPreviewMeasurer() {
 async function answerSuggestedTags(entry, body) {
   try {
     await apiJson(`/entries/${entry.id}/suggested-tags`, { method: "POST", body: JSON.stringify(body) });
-    await loadEntries();
+    await refreshEntries([entry.id]);
     const tag = (body.take || body.discard || [])[0];
     toast(body.take ? `Tagged #${tag}.` : `Won't suggest #${tag} for this note again.`);
   } catch (error) {
@@ -1082,12 +1082,18 @@ const expandedNotes = new Set();
 function settleNoteClamps() {
   const list = $("entry-list");
   if (!list || !list.offsetParent) return;
-  for (const content of list.querySelectorAll(".entry-content.entry-clamped")) {
-    const toggle = content.parentElement?.querySelector(".entry-more");
-    if (content.scrollHeight <= content.clientHeight + 4) {
-      content.classList.remove("entry-clamped");
-      toggle?.remove();
-    }
+  //: **Every measurement first, then every change** (audit 2026-10-05,
+  //: FE-05). Reading `scrollHeight` after the previous note's clamp came off
+  //: forced a layout of the whole list per note: 143 ms of a 5,000-note save's
+  //: repaint, profiled. A note's own fit does not depend on whether another
+  //: note is clamped (the width is the list's, the clamp is the note's), so
+  //: one layout answers them all.
+  const fits = [...list.querySelectorAll(".entry-content.entry-clamped")].filter(
+    (content) => content.scrollHeight <= content.clientHeight + 4
+  );
+  for (const content of fits) {
+    content.classList.remove("entry-clamped");
+    content.parentElement?.querySelector(".entry-more")?.remove();
   }
 }
 
@@ -1185,14 +1191,14 @@ function favouriteButton(entry) {
 // so it survives past the toast's own timeout.
 async function binNoteWithUndo(entry) {
   await api(`/entries/${entry.id}`, { method: "DELETE" });
-  await loadEntries();
+  await refreshEntries([entry.id]);
   const restoreIt = async () => {
     await api(`/entries/${entry.id}/restore`, { method: "POST" });
-    await loadEntries();
+    await refreshEntries([entry.id]);
   };
   const binIt = async () => {
     await api(`/entries/${entry.id}`, { method: "DELETE" });
-    await loadEntries();
+    await refreshEntries([entry.id]);
   };
   const action = pushUndo("Moved a note to the bin", restoreIt, binIt);
   toastAction("Moved to the recycle bin.", "Undo", async () => {
@@ -1332,7 +1338,7 @@ async function publishDraft(entry) {
   try {
     await apiJson(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify({ is_draft: false }) });
     entry.is_draft = false;
-    await loadEntries();
+    await refreshEntries([entry.id]);
     toast("Published.");
   } catch (error) {
     toast(error.message || "Couldn't publish that draft.", true);
@@ -1527,7 +1533,7 @@ function entryItem(entry, options = {}) {
     entry.content = entry.content.replace(e.detail.originalText, "").replace(/\n{3,}/g, "\n\n").trim();
     try {
       await apiJson(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify({ content: entry.content }) });
-      await loadEntries();
+      await refreshEntries([entry.id]);
       flashEntry(entry.id);
       toast("Image removed.");
     } catch(err) {
@@ -2147,21 +2153,21 @@ function entryItem(entry, options = {}) {
           method: "PUT",
           body: JSON.stringify({ reason: next }),
         });
-        await loadEntries();
+        await refreshEntries([entry.id, link.entry_id]);
       };
       const clearReason = async () => {
         await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
           method: "PUT",
           body: JSON.stringify({ reason: null }),
         });
-        await loadEntries();
+        await refreshEntries([entry.id, link.entry_id]);
       };
       const unlink = async () => {
         const otherId = link.entry_id;
         const reason = link.reason;
         let liveLinkId = link.link_id;
         await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
-        await loadEntries();
+        await refreshEntries([entry.id, otherId]);
         pushUndo(
           "Removed a link between notes",
           async () => {
@@ -2170,11 +2176,11 @@ function entryItem(entry, options = {}) {
               body: JSON.stringify({ target_id: otherId, reason }),
             });
             liveLinkId = updated.links.find((l) => l.entry_id === otherId)?.link_id ?? liveLinkId;
-            await loadEntries();
+            await refreshEntries([entry.id, otherId]);
           },
           async () => {
             await api(`/entries/${entry.id}/links/${liveLinkId}`, { method: "DELETE" });
-            await loadEntries();
+            await refreshEntries([entry.id, otherId]);
           }
         );
       };

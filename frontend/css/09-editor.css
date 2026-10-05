@@ -85,7 +85,7 @@
    which wins at equal specificity: see the note at the top of this file) by
    specificity rather than by `!important`. Above 600 only: the phone's
    editor is UI_MODERNISATION_PLAN Phase 11's, not this plan's. */
-@media (min-width: 601px) {
+@media (min-width: 600px) {
   .doc-editor .cm-editor:not(.doc-content-code) {
     max-width: calc(var(--doc-measure) + 2 * var(--doc-gutter));
   }
@@ -225,7 +225,7 @@
 /* The same page as the text under it (17a): the fields start where the
    writing starts, on the margin `--doc-gutter` draws, rather than on the
    older inset the text has left. */
-@media (min-width: 601px) {
+@media (min-width: 600px) {
   .doc-props {
     max-width: calc(var(--doc-measure) + 2 * var(--doc-gutter));
     padding-inline: var(--doc-gutter);
@@ -395,7 +395,7 @@
 
 /* A phone has no room for a label column and a value side by side: the key
    goes above its value and the whole row reads as one block. */
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   .doc-prop-row {
     grid-template-columns: minmax(0, 1fr) auto;
   }
@@ -547,7 +547,7 @@
 
 /* A phone is one column wide, whatever the document says. Two 170px columns
    of prose are not two columns, they are two ragged strips. */
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   .doc-cols {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-5);
@@ -910,7 +910,7 @@
   margin-bottom: 0;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   .thumb-bar {
     display: flex;
   }

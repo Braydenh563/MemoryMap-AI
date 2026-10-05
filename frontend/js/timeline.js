@@ -1371,6 +1371,9 @@ function timelineRowElement(row, density) {
     const snippet = document.createElement("span");
     snippet.className = "timeline-row-snippet";
     snippet.textContent = typeof notePreviewText === "function" ? notePreviewText(row.snippet) : row.snippet;
+    //: Cut with an ellipsis like the title beside it, so it carries the same
+    //: tooltip (audit 2026-10-05, FE-19: 250 snippets truncated with none).
+    snippet.title = snippet.textContent;
     main.appendChild(snippet);
   }
 

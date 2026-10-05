@@ -44,7 +44,7 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import LIKE_ESCAPE, AuditLog, like_escape
@@ -235,9 +235,16 @@ def corrections(session: Session, kind: str | None = None, limit: int = 500) -> 
     """
     query = select(AuditLog).where(AuditLog.action == "correction")
     if kind is not None:
-        query = query.where(
-            AuditLog.detail.like(f"{like_escape(kind)}:%", escape=LIKE_ESCAPE)
-        )
+        narrowed = AuditLog.detail.like(f"{like_escape(kind)}:%", escape=LIKE_ESCAPE)
+        if kind == "refile":
+            # **The re-files the app actually records.** A move out of an
+            # auto-filed category is written by `manager.update_entry` with
+            # the detail "moved from A to B", not "refile: ...", so this
+            # narrowing used to drop every real one: `boosts` and
+            # `centroid_excluded` only ever saw the rows a test wrote through
+            # `record` (found wiring I7's consumer, audit 2026-10-05, ARCH-08).
+            narrowed = or_(narrowed, AuditLog.detail.like("moved from %"))
+        query = query.where(narrowed)
     rows = session.scalars(query.order_by(AuditLog.id.desc()).limit(limit)).all()
     found = [_as_correction(row) for row in rows]
     if kind is not None:
@@ -387,6 +394,40 @@ def centroid_excluded(session: Session, category: str, text: str) -> bool:
         if not excerpt or excerpt & wanted:
             moved_away += 1
     return moved_away >= EXCLUDE_AFTER
+
+
+def excluded_categories(session: Session, text: str) -> set[str]:
+    """Every category `centroid_excluded` would refuse for `text`, from one
+    read of the corrections rather than one per category.
+
+    What filing by meaning asks before it chooses (`janitor._semantic_category`):
+    the categories the person has moved notes like this one out of at least
+    `EXCLUDE_AFTER` times. Empty when the corrections runner is switched off,
+    which keeps the corrections and makes them inert, as `boosts` does.
+    """
+    from memorymap.ai.facts import runner_enabled
+
+    if not runner_enabled("corrections"):
+        return set()
+    wanted = _words(text)
+    if not wanted:
+        return set()
+    moved_away: dict[str, int] = {}
+    spelled: dict[str, str] = {}
+    for item in corrections(session, kind="refile"):
+        source = (item.from_value or "").strip()
+        if not source:
+            continue
+        excerpt = _words(item.excerpt)
+        if not excerpt or excerpt & wanted:
+            key = source.lower()
+            spelled.setdefault(key, source)
+            moved_away[key] = moved_away.get(key, 0) + 1
+    out: set[str] = set()
+    for key, count in moved_away.items():
+        if count >= EXCLUDE_AFTER:
+            out.add(spelled[key])
+    return out
 
 
 def filing_evidence(session: Session, text: str, limit: int = 5) -> list[dict]:

@@ -202,9 +202,13 @@ async function openNoteTypesSheet() {
           } },
           { label: "ph:trash Delete", title: "Delete this type; its notes keep their properties", group: "delete", run: async () => {
             if (!(await confirmDialog(`Delete the note type “${t.name}”?\n\nIts notes keep every property, type included.`))) return;
-            await apiJson(`/note-types/${t.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+            const gone = await apiJson(`/note-types/${t.id}`, { method: "DELETE" }).catch((e) => {
+              toast(e.message, true);
+              return null;
+            });
             close();
             openNoteTypesSheet();
+            if (gone?.type) noteTypeDeleteUndo(gone.type);
           } },
         ], `Actions for ${t.name}`));
         list.appendChild(row);
@@ -223,6 +227,22 @@ async function openNoteTypesSheet() {
       }));
       card.appendChild(list);
     },
+  });
+}
+
+//: A deleted note type comes back with Undo (undo-1005): the DELETE answers
+//: with the row, `restore` makes it again under its own id, and no note needs
+//: touching because a note names its type in its own text.
+function noteTypeDeleteUndo(row) {
+  const remake = async () => {
+    await apiJson("/note-types", { method: "POST", body: JSON.stringify({ ...row, restore: true }) });
+  };
+  const action = pushUndo(`Deleted the note type “${row.name}”`, remake, async () => {
+    await apiJson(`/note-types/${row.id}`, { method: "DELETE" });
+  });
+  toastAction(`Deleted “${row.name}”.`, "Undo", async () => {
+    settleUndoFromToast(action);
+    await remake().catch((e) => toast(e.message, true));
   });
 }
 

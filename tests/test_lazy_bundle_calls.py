@@ -107,6 +107,11 @@ REACHED_AFTER_LOAD = {
     #: showing, and only `openPalette`, whose stand-in loads the bundle, shows it.
     "closePalette": "appPalette, called only while the palette overlay is showing, and only openPalette shows it",
     "closeOnboarding": "onboarding, called on Escape only while the overlay is open, and only openOnboarding opens it",
+    #: Capture's staged-files list asks the clear button to re-sync when it
+    #: redraws (audit 2026-10-05, FE-18). Before the fieldClear bundle is in,
+    #: there is no button wiring to sync, and the bundle syncs every button
+    #: itself the moment it loads, so a no-op here loses nothing.
+    "fieldClearSyncAll": "fieldClear, which syncs every button itself when it loads",
     #: The settingsUi bundle (settings-find.js) is awaited by `openSettingsModal`
     #: before it shows any section, and every call below runs from a section
     #: that is on screen or a search field inside the open dialog. With the

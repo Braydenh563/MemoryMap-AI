@@ -1546,6 +1546,16 @@ header#top-bar select,
   overflow: hidden;
 }
 
+/* The words the search was for, marked in the snippet: the same quiet accent
+   wash a note card's search match and a chat source's passage use. */
+.web-result-snippet mark {
+  background: var(--accent-soft);
+  color: inherit;
+  border-radius: var(--radius-sm);
+  padding: 0 2px;
+  font-weight: 600;
+}
+
 .web-result-actions {
   grid-area: actions;
   align-self: start;
@@ -1905,7 +1915,7 @@ header#top-bar select,
   font-size: var(--text-h3);
 }
 
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
   .dash-quicklinks {
     gap: var(--space-4);
   }
@@ -2958,7 +2968,7 @@ button.answer-figure-open {
   margin-bottom: 0.8rem;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
   .reminders-card {
     /* The horizontal inset is `.tab-page`'s job (--page-gutter). Setting one
        here put the card 1rem inside a gutter that had already been applied,
@@ -4099,7 +4109,7 @@ button.answer-figure-open {
   row-gap: var(--space-1);
 }
 
-@media (max-width: 820px) {
+@media (max-width: 819.98px) {
   /* Below 820 the pointer is a finger and `--target-min` grows every row to
      44px (07-whiteboard-misc.css, "touch targets, one step, one block"); two
      of those side by side in a 22rem panel is a label and a knob fighting
@@ -4276,7 +4286,7 @@ button.answer-figure-open {
   display: contents;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   #graph-mobile-more-toggle {
     display: inline-flex;
   }

@@ -351,6 +351,12 @@ class Entry(Base, WorkspaceMixin):
     #: plain type reads back naive, so the PUT response and a later GET
     #: disagreed by the "Z" (measured while writing its test).
     edited_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    #: The offline queue's own name for the save that made this note
+    #: (`EntryCreate.client_key`), so a resend whose answer was lost is the
+    #: same note, after a restart too, and two resends at once cannot both
+    #: create: unique where set (`_UNIQUE_INDEXES`). Audit 2026-10-05,
+    #: ARCH-23; INBOX 434 named the restart half.
+    client_key: Mapped[str | None] = mapped_column(String(80), default=None)
     # Train-of-thought threads: a child continues its parent.
     # (Added by the auto-migrator as a plain column on old DBs, the FK
     # constraint only exists on freshly created databases.)
@@ -2221,6 +2227,52 @@ class DatabaseManager:
         ("ix_whiteboard_sketches_board", "whiteboard_sketches (board_id)"),
         ("ix_reminders_entry", "reminders (entry_id)"),
         ("ix_entry_bookmarks_entry", "entry_bookmarks (entry_id)"),
+        # **"All spaces", the default view, had none of the list indexes**
+        # (audit 2026-10-05, ARCH-05). Every composite above leads with
+        # `workspace_id`, and with "all" the space hook adds no
+        # `workspace_id = ?` (at most a `NOT IN` for hidden spaces), so
+        # SQLite cannot use the prefix: EXPLAIN on the real `/entries?limit=50`
+        # was "USE TEMP B-TREE FOR ORDER BY", every live note sorted with its
+        # `content`, 26 times per unlock at 5,000 notes. The same shapes
+        # without the space column serve the everything-view, and the space
+        # filter, when there is one, is checked along the walk.
+        (
+            "ix_entries_live_all",
+            "entries (is_deleted, archived_at, pinned DESC, created_at DESC, id DESC)",
+        ),
+        (
+            "ix_entries_live_nodraft_all",
+            "entries (is_deleted, is_draft, archived_at, created_at DESC, id DESC)",
+        ),
+        ("ix_entries_bin_all", "entries (is_deleted, deleted_at DESC, id DESC)"),
+        ("ix_entries_archive_all", "entries (is_deleted, archived_at DESC, id DESC)"),
+        ("ix_documents_live_updated_all", "documents (archived_at, updated_at DESC)"),
+        ("ix_media_uploads_created_all", "media_uploads (created_at DESC)"),
+        # The chat list orders pinned first (`pinned DESC, updated_at DESC,
+        # id DESC`) over the unarchived, which the older
+        # `(workspace_id, updated_at DESC)` above never matched, in a space
+        # or out of one: both shapes, the space-led one first.
+        (
+            "ix_conversations_live_pinned",
+            "conversations (workspace_id, archived_at, pinned DESC, updated_at DESC, id DESC)",
+        ),
+        (
+            "ix_conversations_live_pinned_all",
+            "conversations (archived_at, pinned DESC, updated_at DESC, id DESC)",
+        ),
+        ("ix_reminders_due_all", "reminders (due_at DESC)"),
+        # The audit log read by kind: `learning.corrections` (every filing
+        # prompt, `/suggestions`, link suggestions) asks `action = ?`, and
+        # Library's activity reads it newest first. Both were `SCAN
+        # audit_log`, a table that grows by a whole note per edit.
+        ("ix_audit_log_action", "audit_log (action, id DESC)"),
+        ("ix_audit_log_created", "audit_log (created_at DESC, id DESC)"),
+    )
+
+    #: Unique indexes, partial where the column is optional: the same
+    #: additive `IF NOT EXISTS` convention as `_INDEXES`.
+    _UNIQUE_INDEXES: tuple[tuple[str, str], ...] = (
+        ("uq_entries_client_key", "entries (client_key) WHERE client_key IS NOT NULL"),
     )
 
     def _ensure_indexes(self) -> None:
@@ -2240,6 +2292,10 @@ class DatabaseManager:
             for name, definition in self._INDEXES:
                 connection.exec_driver_sql(
                     f"CREATE INDEX IF NOT EXISTS {name} ON {definition}"
+                )
+            for name, definition in self._UNIQUE_INDEXES:
+                connection.exec_driver_sql(
+                    f"CREATE UNIQUE INDEX IF NOT EXISTS {name} ON {definition}"
                 )
 
     #: Rows whose space has to be *inherited* rather than defaulted, as

@@ -529,6 +529,10 @@ single monolithic step with no way to make any one screen faster.
 tab opens. Both are already `<script src>` tags in one place; both are used
 behind a single entry point. This is small work with a measurable result.
 
+(Not done, 2026-10-05, audit FE-07: d3 is still a synchronous boot script,
+92 KB gzipped, held by `tests/test_boot_budget.py`, and p5 is fetched after
+every boot for the emblem. Open.)
+
 ### C4 · Static assets are `no-cache`, and the version stamp cannot make them `immutable` — Medium
 
 **Evidence (measured, `curl -I`).** Every asset returns

@@ -275,17 +275,17 @@ async function saveQuickNote() {
     );
     //: In the list now, not when filing settles: measured, 2 to 4 s later
     //: on every tab but the dashboard when this waited on the watch.
-    loadEntries().catch(() => {});
+    refreshEntries([saved.id]).catch(() => {});
     if (saved.filing_state === "pending") watchFiling(saved);
     pushUndo(
       "Created a note",
       async () => {
         await api(`/entries/${saved.id}`, { method: "DELETE" });
-        await loadEntries();
+        await refreshEntries([saved.id]);
       },
       async () => {
         await api(`/entries/${saved.id}/restore`, { method: "POST" });
-        await loadEntries();
+        await refreshEntries([saved.id]);
       },
     );
   } catch (error) {

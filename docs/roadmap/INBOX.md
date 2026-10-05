@@ -105,6 +105,28 @@ with its owner named in the entry.
      added to the lower body as well. make it celestial and majestic and
      magical and attractive and flowy" Placed: with 550, the Atlas agent.
 
+557. **The owner, 2026-10-05, three asks, verbatim.** "should there be a popup
+     hover subtle faded lick icon on locked elements or smth on the
+     whiteboard or nah??"; "what about whiteboard layers and a layers
+     panel?"; "maybe an object library??"
+     Recommendations given:
+     - (a) A faded lock fades in at a locked item's corner on hover, found
+       by a board-level hit test since the item takes no pointer
+       (decision 15). A press on one pulses it and hints once:
+       "Locked. Right-click to unlock".
+     - (b) A Layers tab: the board as a tree (frames, then groups, then
+       items) in z-order, each row with show/hide, lock and rename; a press
+       selects and zooms, a drag restacks. One new field (`hidden`). Named
+       Draw.io layers are phase 2 (BACKLOG 29c). It also lifts ink's fixed
+       place under cards.
+     - (c) A Library tab beside it: built-in shapes, frames and the vendored
+       icon set, plus "Save to library" for any selection (items, relative
+       positions, links, a thumbnail) in a small table, usable on any
+       board. Board templates (BACKLOG 4b) become saving a whole board to
+       it. Mind maps get saved branches.
+     Placed: into the whiteboard briefs after the features audit
+     (scratchpad/audit1005/features.md).
+
 525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
      dark background behind the graph labels togglable??" Next Opus: the
      label plate switch in the graph's gear (Obsidian-parity brief).

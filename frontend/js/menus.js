@@ -74,7 +74,7 @@ function closeActionMenus() {
     //: can continue from.
     const held = menu.contains(document.activeElement);
     menu.classList.add("hidden");
-    restoreEscapedMenu(menu);
+    restoreEscapedMenuAfterExit(menu);
     // `menu._escapedOpener` (set by wireEscapedActionMenu) wins when
     // present: a menu reparented to <body> has no useful `.parentElement`
     // to search: `document.body.querySelector` would find the *first*
@@ -390,7 +390,7 @@ function openActionMenu(menu, opener) {
   //: same two-step `showSelectionPopupAt` uses, and for the same reason.
   const wasVisibility = menu.style.visibility;
   menu.style.visibility = "hidden";
-  menu.classList.remove("hidden", "action-menu-flip", "ui-snap");
+  menu.classList.remove("hidden", "action-menu-flip");
   opener.setAttribute("aria-expanded", "true");
   // Whichever ancestor is the stacking context this menu is trapped in. On a
   // note card that is `.entry-actions` (positioned, z-index 1); on a Library
@@ -583,6 +583,34 @@ function escapeMenuIfClipped(menu, opener) {
   placeEscapedMenu(menu, opener);
 }
 
+//: **A menu reparented to the body leaves after its exit, not before it**
+//: (perfpolish). `.action-menu.hidden` fades out over --motion-fast
+//: (10-responsive.css), but moving a node in the DOM cancels a transition, so
+//: an escaped menu (every kebab on a phone, and any menu a scroller clips)
+//: went home at once and vanished with no exit. It now goes home when the exit
+//: is over. A menu opened again inside that window is not hidden any more and
+//: is left where it is (an open escaped menu lives in the body anyway; the
+//: next close puts it back). No exit runs under reduced motion, where the
+//: transition is 0s, and then it goes home at once as it always did.
+function restoreEscapedMenuAfterExit(menu) {
+  if (menu._escapedHome) afterMenuExit(menu, () => menu.classList.contains("hidden") && restoreEscapedMenu(menu));
+}
+
+//: After the menu's exit fade (`menuExitMs`), or now when it has none.
+function afterMenuExit(menu, fn) {
+  const exit = menuExitMs(menu);
+  clearTimeout(menu._exitTimer);
+  if (exit) menu._exitTimer = setTimeout(fn, exit);
+  else fn();
+}
+
+function menuExitMs(menu) {
+  const style = getComputedStyle(menu);
+  if (!style.transitionProperty.split(",").some((name) => name.trim() === "display")) return 0;
+  const seconds = Math.max(0, ...style.transitionDuration.split(",").map(parseFloat).filter(Number.isFinite));
+  return seconds ? Math.round(seconds * 1000) + 40 : 0;
+}
+
 function restoreEscapedMenu(menu) {
   const home = menu._escapedHome;
   if (!home) return;
@@ -590,9 +618,6 @@ function restoreEscapedMenu(menu) {
   //: escaped menu accumulates stray fixed nodes forever, and the next
   //: `openActionMenu` expects to find it where it was built.
   home.parent.insertBefore(menu, home.next);
-  //: Gone home, so it closes at once rather than fading where it was built
-  //: (10-responsive.css, "a menu or popover grows from what opened it").
-  menu.classList.add("ui-snap");
   menu.classList.remove("action-menu-escaped");
   menu.style.left = "";
   menu.style.top = "";
@@ -912,19 +937,17 @@ function wireEscapedActionMenu(wrap) {
       //: nothing) would drop it to `body` on this move; the opener is where it
       //: belongs. Measured on every select: Escape left the focus on `body`.
       const held = menu.contains(document.activeElement);
-      homeParent.insertBefore(menu, homeNext);
+      //: **After the exit, not before it** (perfpolish; `restoreEscapedMenuAfterExit`
+      //: says why): moving the node home cancels the fade `.hidden` starts, so
+      //: every menu this wires left at once. The focus still goes to the opener
+      //: now; the node goes home when the fade is over, if it is still closed.
       if (held && opener.isConnected) opener.focus({ preventScroll: true });
-      menu.classList.add("ui-snap");
-      menu.classList.remove("action-menu-escaped");
-      menu.style.left = "";
-      menu.style.top = "";
-      menu.style.visibility = "";
-      // The height decisions are the escape's, not the menu's own: left
-      // behind they would cap it in its home position too. The same goes for
-      // the tier the escape may have lifted it to (INBOX 239).
-      menu.style.maxHeight = "";
-      menu.style.overflowY = "";
-      menu.style.zIndex = "";
+      afterMenuExit(menu, () => {
+        if (!menu.classList.contains("hidden") || menu.parentElement === homeParent || !homeParent) return;
+        homeParent.insertBefore(menu, homeNext);
+        menu.classList.remove("action-menu-escaped");
+        Object.assign(menu.style, { left: "", top: "", visibility: "", maxHeight: "", overflowY: "", zIndex: "" });
+      });
     }
   });
   observer.observe(menu, { attributes: true, attributeFilter: ["class"] });
@@ -1887,7 +1910,7 @@ function entryOverflowMenu(entry) {
       },
       {
         label: "ph:translate Translate",
-        title: "Open this note in Write with Atlas, set to translate",
+        title: "Open this note in the Writing room, set to translate",
         run: () => translateNoteInDesk(entry),
       },
     ];

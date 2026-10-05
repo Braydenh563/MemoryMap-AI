@@ -660,6 +660,40 @@ def test_a_frozen_build_installs_extras_into_its_own_folder(monkeypatch, tmp_pat
     assert sys.path.count(str(target)) == 1
 
 
+def test_a_packaged_linux_build_asks_pip_for_the_wheels_that_exist():
+    """`linux_x86_64` is no published wheel's tag, so pip found no lxml for
+    the packaged Linux app's `--install-extras docx`; the manylinux tags the
+    machine's glibc runs are asked for too. Windows' tag is used as it is."""
+    linux = extras._pip_platforms("linux_x86_64", glibc="2.31")
+    assert linux[0] == "manylinux_2_31_x86_64"
+    assert "manylinux_2_17_x86_64" in linux and "manylinux_2_16_x86_64" not in linux
+    assert {"manylinux2014_x86_64", "manylinux2010_x86_64", "manylinux1_x86_64"} <= set(linux)
+    assert linux[-1] == "linux_x86_64"
+    windows = extras._pip_platforms("win_amd64")
+    assert windows == ["win_amd64"]
+    odd = extras._pip_platforms("linux_aarch64", glibc="unknown")
+    assert odd == ["linux_aarch64"]
+
+
+def test_a_packaged_build_constrains_extras_with_its_bundled_requirements(tmp_path, monkeypatch):
+    """`parents[3]` is outside the bundle in a frozen build, so packaged
+    installs ran unconstrained; the specs bundle requirements.txt at the
+    root and this reads it from there."""
+    import sys
+
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+    frozen_path = extras._requirements_path()
+    assert frozen_path == tmp_path / "requirements.txt"
+    monkeypatch.delattr(sys, "frozen")
+    source_path = extras._requirements_path()
+    assert source_path.is_file()
+    root = extras.Path(extras.__file__).resolve().parents[3]
+    for spec in ("windows", "linux"):
+        text = (root / "packaging" / spec / "memorymap.spec").read_text(encoding="utf-8")
+        assert '(str(REPO_ROOT / "requirements.txt"), "."),' in text, spec
+
+
 def test_a_source_install_is_untouched(monkeypatch):
     import sys
 

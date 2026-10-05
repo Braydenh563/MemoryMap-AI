@@ -13832,6 +13832,11 @@ async function fetchWhiteboardState() {
     // thing on every single board open.
     await wbRefreshMapState();
     wbSyncMapChrome();
+    //: Here, the one fetch every way onto a board goes through, not only in
+    //: `openWhiteboardBoard`: a map reached from the board picker or made by
+    //: New board kept the board's rail (Notes, Layers, Pages), whose tabs a
+    //: map sends back to Library, so only Library answered (INBOX 657).
+    wbSyncSidebarKind();
     await refreshBoardList();
   } catch (err) {
     console.error("Whiteboard fetch error:", err);
@@ -15663,7 +15668,7 @@ function wbRenderMultiSelectionHandles() {
   stem = group.append("line")
     .attr("class", "wb-rotate-handle-stem")
     .attr("x1", centerX).attr("y1", bbox.minY).attr("x2", centerX).attr("y2", handleY);
-  let spin = null;
+  let spin = null, spinLinks = [];
   spinDot = group.append("circle")
     .attr("class", "wb-sketch-rotate-handle")
     .attr("cx", centerX).attr("cy", handleY).attr("r", 6)
@@ -15674,6 +15679,11 @@ function wbRenderMultiSelectionHandles() {
           event.sourceEvent.stopPropagation();
           spin = wbMultiSnapshot(boxes);
           const rows = spin;
+          //: Each link touching a turned card or box, once (a link between two
+          //: selected items is one path), so its ends follow the turn live.
+          const index = wbLinkSketchIndex();
+          spinLinks = [...new Set(rows.filter((r) => r.entry.kind !== "sketch")
+            .flatMap((r) => wbLinkedSketchesFor(r.entry.item.id, r.entry.kind, index)))];
           groupGesture = wbBeginGesture(() => {
             wbRestoreMultiSnapshot(rows);
             group.attr("transform", null);
@@ -15714,6 +15724,7 @@ function wbRenderMultiSelectionHandles() {
             const el = document.querySelector(WB_SELECTOR_BY_KIND[row.entry.kind](item.id));
             if (el) el.style.transform = wbItemTransform(item);
           }
+          if (spinLinks.length) wbUpdateLinkedSketches(null, spinLinks);
           //: The outline turns with what it contains rather than being
           //: recomputed as a new upright box: a box that stayed level while
           //: its contents turned is the "doesnt rotate with them" half of the
@@ -16595,6 +16606,10 @@ function renderWhiteboard() {
       .on("start", (event, d) => {
         event.sourceEvent.stopPropagation();
         d._rotateUndoBefore = WB_KIND_INFO.node.payload(d);
+        //: The links touching it, found once: a turn moves their endpoints
+        //: as much as a move does, and without this they stayed where the
+        //: unturned box had them until the next move (INBOX 647).
+        d._linkedSketches = wbLinkedSketchesFor(d.id, "node");
         d._gesture = wbBeginGesture(() => wbRestoreBox("node", d, d._rotateUndoBefore));
       })
       .on("drag", (event, d) => {
@@ -16608,10 +16623,12 @@ function renderWhiteboard() {
           event.sourceEvent.shiftKey
         );
         el.style.transform = wbItemTransform(d);
+        if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
       })
       .on("end", async (event, d) => {
         const before = d._rotateUndoBefore;
         delete d._rotateUndoBefore;
+        delete d._linkedSketches;
         const cancelled = wbEndGesture(d._gesture);
         delete d._gesture;
         //: A press that turned nothing (each half of a double-click is one)
@@ -17502,6 +17519,10 @@ function renderWbObjects(canvas) {
       .on("start", (event, d) => {
         event.sourceEvent.stopPropagation();
         d._rotateUndoBefore = WB_KIND_INFO.object.payload(d);
+        //: The links touching it, found once: a turn moves their endpoints
+        //: as much as a move does, and without this they stayed where the
+        //: unturned box had them until the next move (INBOX 647).
+        d._linkedSketches = wbLinkedSketchesFor(d.id, "object");
         d._gesture = wbBeginGesture(() => wbRestoreBox("object", d, d._rotateUndoBefore));
       })
       .on("drag", (event, d) => {
@@ -17515,10 +17536,12 @@ function renderWbObjects(canvas) {
           event.sourceEvent.shiftKey
         );
         el.style.transform = wbItemTransform(d);
+        if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
       })
       .on("end", async (event, d) => {
         const before = d._rotateUndoBefore;
         delete d._rotateUndoBefore;
+        delete d._linkedSketches;
         const cancelled = wbEndGesture(d._gesture);
         delete d._gesture;
         if (cancelled || (before && (before.rotation || 0) === (d.rotation || 0))) return;
@@ -17868,8 +17891,18 @@ function renderWbObjects(canvas) {
       //: A topic this pass did not repaint is the size it last measured (a
       //: move is not a resize), and a culled one was not repainted either.
       if (!repainted.has(this) || this.classList.contains("wb-culled")) {
-        if (d.width && d.height) {
-          wbMapNodeSizeCache.set(d.id, { w: d.width, h: d.height });
+        //: **The height it was last measured at, not the stored one.** A state
+        //: fetched from the server hands every topic back the server's
+        //: placeholder height (120), while the element on screen is what its
+        //: text needs (44 for one line): a topic this pass did not repaint
+        //: took the 120 into the cache, and `wbMapNodeSize` then put a pan,
+        //: a ring and an edge end 38px off the box (`mapstrip.js` at 1440, 12px
+        //: at 390: the "94px" row, 2 x 47). An element measured once keeps its
+        //: own number; one never measured and not culled is read now below.
+        const known = this._wbMeasuredH;
+        if (d.width && (known || (d.height && this.classList.contains("wb-culled")))) {
+          wbMapNodeSizeCache.set(d.id, { w: d.width, h: known || d.height });
+          if (known) d.height = known;
           return;
         }
         if (this.classList.contains("wb-culled")) return;
@@ -17877,6 +17910,7 @@ function renderWbObjects(canvas) {
       const h = this.offsetHeight;
       if (!h) return;
       wbMapNodeSizeCache.set(d.id, { w: this.offsetWidth, h });
+      this._wbMeasuredH = h;
       d.height = h;
     });
   }
@@ -18809,7 +18843,6 @@ async function openWhiteboardBoard(boardId) {
   wbScheduleRender();
   await wbMigrateBackground();
   wbApplyBackground();
-  wbSyncSidebarKind();
   renderWbGestureHints();
   //: Rendered now rather than on the next frame, because the framing below
   //: measures the nodes it is about to fit (a map node is `height: auto`, so

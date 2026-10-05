@@ -30,6 +30,27 @@ const { boot } = require('./lib.js');
   if (!after.capture) findings.push('the + did not open Capture');
   if (!after.focused) findings.push('the capture box is not focused, active is ' + after.active);
   if (after.fabShown) findings.push('the + still shows over the Capture box');
+  // The Writing Room at 390 (OPEN.md: "Writing Room and table full view at
+  // phone width: measure and fix overflow"). The page must not scroll
+  // sideways, and the desk's three selects (what to write, tone, length) must
+  // each show enough of their value to be read: they sat in one nowrap row
+  // at 62px each, the value cut to 16px ("D...", "M...", "M...").
+  await page.evaluate(() => showNotesSection('writing-room'));
+  await page.waitForTimeout(900);
+  const room = await page.evaluate(() => {
+    const de = document.documentElement;
+    const shown = ['draft-kind', 'draft-tone', 'draft-length'].map((id) => {
+      const sel = document.getElementById(id);
+      const v = sel.closest('.select-shell')?.querySelector('.select-value');
+      return { id, text: (v?.textContent || '').trim(), visible: Math.round(v?.clientWidth || 0), needs: Math.round(v?.scrollWidth || 0) };
+    });
+    const add = document.getElementById('draft-add-source').getBoundingClientRect();
+    return { overflow: de.scrollWidth - de.clientWidth, shown, addRight: Math.round(add.right) };
+  });
+  console.log('writing room', JSON.stringify(room));
+  if (room.overflow > 0) findings.push(`the Writing Room scrolls ${room.overflow}px sideways at 390`);
+  for (const s of room.shown) if (s.visible < 48) findings.push(`#${s.id} shows ${s.visible}px of "${s.text}" (needs ${s.needs}) at 390`);
+  if (room.addRight > 390) findings.push('Use notes hangs off the right edge at 390');
   await page.evaluate(() => showNotesSection('browse'));
   await page.waitForTimeout(300);
   await page.setViewportSize({ width: 1024, height: 800 });

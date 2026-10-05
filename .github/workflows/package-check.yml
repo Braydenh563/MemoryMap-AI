@@ -9,34 +9,45 @@
 # and on demand. It publishes nothing.
 #
 # What each step proves, in order (read the step names in the run):
-#   1. The page and every asset it references are in the bundle, served
-#      with a script type the window will run.
+#   1. packaging/frozen_smoke.py: the page, every asset it references and
+#      every lazily loaded one (read from app.js's LAZY_MODULES and the other
+#      scripts, so it cannot drift), each served with the type the window
+#      runs; then search, a stats question answered without a model, the
+#      backup exports (the sealed bundle's cryptography included) and the
+#      Alembic stamp on a fresh data dir. No traceback in the app's output,
+#      and nothing written inside the bundle.
 #   2. The wizard's optional-packages step works from the frozen exe:
-#      `--install-extras docx` borrows the runner's Python, installs into
-#      the data folder, and the running app then reports it installed and
-#      serves the About panel's release notes.
-#   3. installer.iss compiles. release.yml was the only thing that ran ISCC,
-#      so a Pascal syntax error in the wizard page shipped unnoticed until a
-#      tag was pushed.
-#   4. The installer installs silently into a path with a space and a
-#      non-ASCII letter, the installed app starts with *no* MEMORYMAP_DATA_DIR
-#      (the way the Start Menu starts it) and keeps its notes and log in
-#      %APPDATA%\MemoryMap AI, a silent install downloads no packages, and
-#      the uninstaller removes the program and leaves the notes.
+#      `--install-extras docx,pyodide` borrows the runner's Python for pip,
+#      downloads and unpacks Pyodide itself, installs both into the data
+#      folder, and the running app then reports them installed and serves
+#      the About panel's release notes.
+#   3. installer.iss compiles, and stamps itself with __version__.
+#   4. An upgrade: the latest published release is installed silently into
+#      a path with a space and a non-ASCII letter and writes a note; this
+#      build is installed over it with no /DIR (the updater's way); the
+#      upgraded app, started with *no* MEMORYMAP_DATA_DIR (the Start Menu's
+#      way), reports this version, finds the note, has the newest Alembic
+#      revision, keeps its notes and log in %APPDATA%\MemoryMap AI and its
+#      shortcuts right, holds no stale file, and downloaded no packages.
+#   5. The uninstaller removes the install folder whole and the Start Menu
+#      entries, and leaves the notes.
 
 name: Package check
 
 on:
   pull_request:
+    # Everything the bundle is made of, not a list of the files that once
+    # broke it: a new module imported by name, a script moved into a lazy
+    # bundle or a migration is as much a packaging change as the spec is,
+    # and each went unchecked until a tag while this listed eight files.
     paths:
       - "packaging/**"
       - "requirements*.txt"
       - "pyproject.toml"
-      - "src/memorymap/__main__.py"
-      - "src/memorymap/api/app.py"
-      - "src/memorymap/core/config.py"
-      - "src/memorymap/core/extras.py"
-      - "frontend/index.html"
+      - "src/memorymap/**"
+      - "frontend/**"
+      - "migrations/**"
+      - "alembic.ini"
       - ".github/workflows/package-check.yml"
   schedule:
     - cron: "0 3 * * 1"
@@ -49,7 +60,7 @@ jobs:
   windows:
     name: Build and smoke the frozen Windows app and its installer
     runs-on: windows-latest
-    timeout-minutes: 40
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v7
 
@@ -71,62 +82,42 @@ jobs:
         run: |
           pyinstaller packaging/windows/memorymap.spec --distpath dist --workpath build --noconfirm
 
-      - name: Smoke test, the page and every asset it references
+      # packaging/frozen_smoke.py does the checking, so it can be run against
+      # any server by hand and its asset list is read from the code: the page,
+      # every file index.html references, every file LAZY_MODULES in app.js
+      # and the other scripts name (the lazy bundles never appear in
+      # index.html), each with the type the window insists on; then the API
+      # paths only a frozen build gets wrong (search, a stats question
+      # answered without a model, the backup exports, the sealed bundle's
+      # cryptography, the Alembic stamp on this fresh data dir). Every
+      # failure is a line naming the URL or the endpoint.
+      - name: Smoke test, every asset and the API on a fresh data dir
         shell: bash
         env:
           MEMORYMAP_DATA_DIR: ${{ runner.temp }}/mm-smoke
           MEMORYMAP_PORT: "8765"
         run: |
-          "dist/MemoryMap AI/MemoryMap AI.exe" &
+          find "dist/MemoryMap AI" | sort > "$RUNNER_TEMP/bundle-before.txt"
+          "dist/MemoryMap AI/MemoryMap AI.exe" > "$RUNNER_TEMP/smoke-stdio.log" 2>&1 &
           pid=$!
-          up=0
-          for i in $(seq 1 60); do
-            if curl -sf -o index.html http://127.0.0.1:8765/; then up=1; echo "served after ${i}s"; break; fi
-            sleep 1
-          done
-          if [ "$up" != 1 ]; then
-            echo "the frozen app did not answer within 60 s"
-            cat "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log" 2>/dev/null || true
-            kill $pid || true
-            exit 1
-          fi
           failed=0
-          count=0
-          for url in $(grep -oE '(src|href)="/[^"]+\.(js|css)[^"]*"' index.html | sed -E 's/^(src|href)="//; s/"$//' | sort -u); do
-            count=$((count + 1))
-            if ! curl -sf -o /dev/null "http://127.0.0.1:8765${url}"; then
-              echo "missing from the bundle: ${url}"
-              failed=1
-            fi
-          done
-          # The lazy bundles (whiteboard, documents, graph...) are fetched
-          # on demand, not referenced by index.html; ask for each by name.
-          for f in frontend/js/*.js; do
-            count=$((count + 1))
-            if ! curl -sf -o /dev/null "http://127.0.0.1:8765/js/$(basename "$f")"; then
-              echo "missing from the bundle: /js/$(basename "$f")"
-              failed=1
-            fi
-          done
-          # The grammar checker's binary and the icon font, fetched by URL
-          # from inside other files rather than by the page.
-          for path in /vendor/harper/harper_wasm_slim_bg.wasm /vendor/phosphor/Phosphor.woff2 /vendor/emmet/emmet.min.js; do
-            count=$((count + 1))
-            curl -sf -o /dev/null "http://127.0.0.1:8765${path}" || { echo "missing from the bundle: ${path}"; failed=1; }
-          done
-          # The types the window insists on (api/app.py STATIC_MIME_TYPES):
-          # a script served as text/plain is refused under nosniff.
-          js_type=$(curl -sI http://127.0.0.1:8765/js/app.js | tr -d '\r' | grep -i '^content-type:' || true)
-          echo "app.js: ${js_type}"
-          echo "$js_type" | grep -qi 'text/javascript' || { echo "app.js is not served as JavaScript"; failed=1; }
-          wasm_type=$(curl -sI http://127.0.0.1:8765/vendor/harper/harper_wasm_slim_bg.wasm | tr -d '\r' | grep -i '^content-type:' || true)
-          echo "$wasm_type" | grep -qi 'application/wasm' || { echo "the grammar binary is not served as wasm"; failed=1; }
-          # The Run button's sandbox page, which is served before unlock.
-          curl -sf -o /dev/null http://127.0.0.1:8765/documents/run-sandbox || { echo "/documents/run-sandbox did not answer"; failed=1; }
-          echo "checked ${count} assets"
-          curl -sf http://127.0.0.1:8765/health || failed=1
+          python packaging/frozen_smoke.py --base http://127.0.0.1:8765 \
+            --data-dir "$MEMORYMAP_DATA_DIR" --log "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log" || failed=1
           kill $pid || true
-          [ "$count" -gt 10 ] || { echo "found only ${count} assets in index.html"; exit 1; }
+          sleep 2
+          # A traceback in the app's own output is a failure even when every
+          # request answered: it is what a support bundle would show first.
+          for log in "$RUNNER_TEMP/smoke-stdio.log" "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log"; do
+            if [ -f "$log" ] && grep -q "Traceback" "$log"; then
+              echo "FAIL a traceback in $log:"; grep -n -A12 "Traceback" "$log" | head -60; failed=1
+            fi
+          done
+          # The running app must not write inside its own bundle: the
+          # uninstaller removes only what it installed, and a per-machine
+          # install folder is read-only to the person anyway.
+          find "dist/MemoryMap AI" | sort > "$RUNNER_TEMP/bundle-after.txt"
+          written=$(comm -13 "$RUNNER_TEMP/bundle-before.txt" "$RUNNER_TEMP/bundle-after.txt" | head -10)
+          if [ -n "$written" ]; then echo "FAIL the app wrote into its own folder:"; echo "$written"; failed=1; fi
           exit $failed
 
       # What the wizard's optional-packages page runs after copying the app
@@ -134,20 +125,25 @@ jobs:
       # find the runner's Python (setup-python put one on PATH), install
       # wheels for its own interpreter into the data folder, and exit 0.
       # python-docx because it is small and pulls one compiled wheel (lxml).
-      - name: The frozen exe installs an optional package (--install-extras docx)
+      # Pyodide is the other kind of extra: no pip at all, a pinned download
+      # the app fetches, checks against its sha256 and unpacks (tar.bz2) by
+      # itself, which proves the frozen build's TLS certificates, bz2 and
+      # tarfile, and is 7 MB.
+      - name: The frozen exe installs two optional packages (--install-extras docx,pyodide)
         shell: pwsh
         env:
           MEMORYMAP_DATA_DIR: ${{ runner.temp }}\mm-extras
         run: |
           $exe = Join-Path $PWD "dist\MemoryMap AI\MemoryMap AI.exe"
-          $p = Start-Process -FilePath $exe -ArgumentList "--install-extras","docx" -Wait -PassThru
+          $p = Start-Process -FilePath $exe -ArgumentList "--install-extras","docx,pyodide" -Wait -PassThru
           Write-Host "exit code: $($p.ExitCode)"
           Get-ChildItem "$env:MEMORYMAP_DATA_DIR\python-extras" -Recurse -Depth 1 -ErrorAction SilentlyContinue | Select-Object -First 20 FullName
           $log = "$env:MEMORYMAP_DATA_DIR\logs\desktop-stdio.log"
           if (Test-Path $log) { Get-Content $log -Tail 40 }
-          if ($p.ExitCode -ne 0) { throw "--install-extras docx exited $($p.ExitCode)" }
+          if ($p.ExitCode -ne 0) { throw "--install-extras docx,pyodide exited $($p.ExitCode)" }
           $docx = Get-ChildItem "$env:MEMORYMAP_DATA_DIR\python-extras\*\docx\__init__.py" -ErrorAction SilentlyContinue
           if (-not $docx) { throw "python-docx is not in the data folder's python-extras" }
+          if (-not (Test-Path "$env:MEMORYMAP_DATA_DIR\extras\pyodide\pyodide.asm.wasm")) { throw "Pyodide is not in the data folder's extras" }
 
       - name: The running app sees the package and its release notes
         shell: bash
@@ -166,7 +162,7 @@ jobs:
             | python -c "import json,sys; print(json.load(sys.stdin)['token'])")
           failed=0
           curl -sf -H "X-Auth-Token: ${token}" http://127.0.0.1:8766/extras > extras.json || failed=1
-          python -c "import json; rows={r['id']: r for r in json.load(open('extras.json', encoding='utf-8'))['extras']}; assert rows['docx']['installed'], rows['docx']; print('docx installed:', rows['docx']['installed'])" || failed=1
+          python -c "import json; rows={r['id']: r for r in json.load(open('extras.json', encoding='utf-8'))['extras']}; assert rows['docx']['installed'], rows['docx']; assert rows['pyodide']['installed'], rows['pyodide']; print('docx and pyodide installed')" || failed=1
           curl -sf -H "X-Auth-Token: ${token}" http://127.0.0.1:8766/changelog > changelog.json || failed=1
           python -c "import json; md=json.load(open('changelog.json', encoding='utf-8'))['markdown']; assert len(md) > 1000, len(md); print('changelog chars:', len(md))" || failed=1
           # The Remove button on a packaged build (extras._remove_from_frozen_target).
@@ -184,51 +180,120 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
+      # No MEMORYMAP_VERSION: the version is read from __version__ here and
+      # passed in, and the file name proves installer.iss used it.
       - name: Build the .exe installer (Inno Setup)
         shell: pwsh
-        env:
-          MEMORYMAP_VERSION: "0.0.0"
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\installer.iss
+          $version = (Select-String -Path src\memorymap\__init__.py -Pattern '^__version__ = "([^"]+)"').Matches[0].Groups[1].Value
+          if (-not $version) { throw "no __version__ line in src\memorymap\__init__.py" }
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" packaging\windows\installer.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC exited $LASTEXITCODE" }
+          $want = "dist\installer\MemoryMap-AI-Setup-$version-windows-x86_64.exe"
+          if (-not (Test-Path $want)) {
+            Get-ChildItem dist\installer | Format-Table Name
+            throw "the installer is not stamped with __version__ $version (expected $want)"
+          }
 
-      # The way a person gets the app: the installer, silently here, into a
-      # folder whose path has a space and a non-ASCII letter (a username like
-      # "José" puts both in every per-user path). Then the installed app is
-      # started with no MEMORYMAP_DATA_DIR, as the Start Menu starts it.
-      - name: Install, start, uninstall, and the notes stay
+      # **An upgrade is how most people meet a new build**: the in-app updater
+      # runs this installer with /VERYSILENT over the one already there. So
+      # the latest published release goes in first, into a folder whose path
+      # has a space and a non-ASCII letter (a username like "José" puts both
+      # in every per-user path), and writes a note.
+      - name: Install the previous release and write a note in it
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          Remove-Item Env:MEMORYMAP_DATA_DIR -ErrorAction SilentlyContinue
+          gh release download --repo $env:GITHUB_REPOSITORY --pattern "MemoryMap-AI-Setup-*-windows-x86_64.exe" --dir previous
+          if ($LASTEXITCODE -ne 0) { throw "could not download the latest release's installer" }
+          $setup = Get-ChildItem "previous\MemoryMap-AI-Setup-*.exe" | Select-Object -First 1
+          Write-Host "previous release: $($setup.Name)"
+          $dir = Join-Path $env:RUNNER_TEMP "MemoryMap Jos$([char]0x00E9) test"
+          $p = Start-Process -FilePath $setup.FullName -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/DIR=`"$dir`"" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "the previous release's setup exited $($p.ExitCode)" }
+          $exe = Join-Path $dir "MemoryMap AI.exe"
+          if (-not (Test-Path $exe)) { throw "the previous release did not install into $dir" }
+          $env:MEMORYMAP_PORT = "8768"
+          $app = Start-Process -FilePath $exe -WorkingDirectory $env:RUNNER_TEMP -PassThru
+          python packaging/frozen_smoke.py --base http://127.0.0.1:8768 --seed
+          $seeded = $LASTEXITCODE
+          Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
+          Start-Sleep 3
+          if ($seeded -ne 0) { throw "could not write a note in the previous release" }
+
+      # This build over it, silently and with no /DIR, as the updater runs it:
+      # the installer has to find the previous install by itself. The
+      # upgraded app is started with no MEMORYMAP_DATA_DIR, as the Start Menu
+      # starts it, and must report this version, find the note, have brought
+      # the database to the newest Alembic revision, keep its notes and log
+      # in %APPDATA%\MemoryMap AI, and hold no file the previous release had
+      # and this build does not ([InstallDelete] in installer.iss).
+      - name: Upgrade over it, and the note, the version and the schema are right
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           Remove-Item Env:MEMORYMAP_DATA_DIR -ErrorAction SilentlyContinue
-          $setup = Get-ChildItem "dist\installer\MemoryMap-AI-Setup-*.exe" | Select-Object -First 1
+          $version = (Select-String -Path src\memorymap\__init__.py -Pattern '^__version__ = "([^"]+)"').Matches[0].Groups[1].Value
+          $setup = "dist\installer\MemoryMap-AI-Setup-$version-windows-x86_64.exe"
           $dir = Join-Path $env:RUNNER_TEMP "MemoryMap Jos$([char]0x00E9) test"
-          $p = Start-Process -FilePath $setup.FullName -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/DIR=`"$dir`"" -Wait -PassThru
+          $p = Start-Process -FilePath $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "setup exited $($p.ExitCode)" }
           $exe = Join-Path $dir "MemoryMap AI.exe"
-          if (-not (Test-Path $exe)) { throw "the installer did not put the app in $dir" }
+          if (-not (Test-Path $exe)) { throw "the upgrade did not go into the previous install folder $dir" }
+
+          $bundle = Join-Path $PWD "dist\MemoryMap AI"
+          $stale = Get-ChildItem $dir -Recurse -File | ForEach-Object { $_.FullName.Substring($dir.Length + 1) } |
+            Where-Object { $_ -notlike "unins000.*" -and -not (Test-Path -LiteralPath (Join-Path $bundle $_)) }
+          if ($stale) {
+            $stale | Select-Object -First 20 | ForEach-Object { Write-Host "stale: $_" }
+            throw "the upgrade left files from the previous release in $dir"
+          }
+
+          $programs = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
+          $shell = New-Object -ComObject WScript.Shell
+          foreach ($pair in @(@("MemoryMap AI.lnk", "--desktop"), @("MemoryMap AI\Repair MemoryMap AI.lnk", "--desktop --reinstall"))) {
+            $lnk = Join-Path $programs $pair[0]
+            if (-not (Test-Path $lnk)) { throw "no Start Menu shortcut $lnk" }
+            $link = $shell.CreateShortcut($lnk)
+            if ($link.TargetPath -ne $exe -or $link.Arguments -ne $pair[1]) {
+              throw "the shortcut $lnk runs '$($link.TargetPath)' '$($link.Arguments)', expected '$exe' '$($pair[1])'"
+            }
+          }
 
           $data = Join-Path $env:APPDATA "MemoryMap AI"
           $env:MEMORYMAP_PORT = "8767"
           $app = Start-Process -FilePath $exe -WorkingDirectory $env:RUNNER_TEMP -PassThru
-          $up = $false
-          foreach ($i in 1..60) {
-            try { Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8767/health | Out-Null; $up = $true; break } catch { Start-Sleep 1 }
-          }
+          python packaging/frozen_smoke.py --base http://127.0.0.1:8767 --only api --expect-note --data-dir "$data" --log (Join-Path $data "logs\desktop-stdio.log")
+          $smoke = $LASTEXITCODE
           Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
-          if (-not $up) { throw "the installed app did not answer within 60 s" }
-          if (-not (Test-Path (Join-Path $data "memorymap.db"))) { throw "no notebook in $data" }
+          if ($smoke -ne 0) { throw "the upgraded app failed the API smoke (the FAIL lines above name each endpoint)" }
           if (-not (Test-Path (Join-Path $data "logs\desktop-stdio.log"))) { throw "the windowed log is not beside the notes" }
           if (Test-Path (Join-Path $env:RUNNER_TEMP "data")) { throw "the app wrote a data folder into its working directory" }
           if (Get-ChildItem (Join-Path $data "python-extras") -Recurse -Filter "__init__.py" -ErrorAction SilentlyContinue) {
             throw "a silent install downloaded packages nobody asked for"
           }
 
+      - name: Uninstall, and the program goes whole and the notes stay
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $dir = Join-Path $env:RUNNER_TEMP "MemoryMap Jos$([char]0x00E9) test"
+          $data = Join-Path $env:APPDATA "MemoryMap AI"
           Start-Sleep 2
           Start-Process -FilePath (Join-Path $dir "unins000.exe") -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait
           # The uninstaller hands off to a copy of itself in %TEMP% and
-          # returns at once, so wait for the program to actually go.
-          foreach ($i in 1..60) { if (-not (Test-Path $exe)) { break }; Start-Sleep 1 }
-          if (Test-Path $exe) { throw "the uninstaller left the program behind" }
+          # returns at once, so wait for the folder to actually go.
+          foreach ($i in 1..60) { if (-not (Test-Path $dir)) { break }; Start-Sleep 1 }
+          if (Test-Path $dir) {
+            Get-ChildItem $dir -Recurse | Select-Object -First 30 | ForEach-Object { Write-Host "left: $($_.FullName)" }
+            throw "the uninstaller left the install folder $dir behind"
+          }
+          $programs = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
+          foreach ($left in @("MemoryMap AI.lnk", "MemoryMap AI")) {
+            if (Test-Path (Join-Path $programs $left)) { throw "the uninstaller left the Start Menu entry $left" }
+          }
           if (-not (Test-Path (Join-Path $data "memorymap.db"))) { throw "the uninstaller deleted the notebook" }
-          Write-Host "installed, started, uninstalled; the notebook in $data stayed"
+          Write-Host "uninstalled: $dir is gone, the notebook in $data stayed"

@@ -1419,7 +1419,6 @@ header#top-bar select,
   border-radius: var(--radius-md);
   min-width: 0;
   overflow-wrap: anywhere;
-  transition: background-color var(--ui-fast) var(--ease-out);
 }
 
 .web-result:hover,

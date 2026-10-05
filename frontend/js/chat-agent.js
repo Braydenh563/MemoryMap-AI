@@ -2403,7 +2403,7 @@ const DRAFT_QUICKSTARTS = [
   { label: "Translate", icon: "ph:translate", kind: "translate", title: "Translate what is in the box, into the language chosen in the menu" },
 ];
 
-//: **Translate a note from where it is read** (INBOX 405). Write with Atlas
+//: **Translate a note from where it is read** (INBOX 405). Writing room
 //: already translates; this takes the note there, loaded and set to the last
 //: language picked, rather than asking the reader to copy it across. Nothing
 //: runs until Draft is pressed, like every other starting point on the desk,
@@ -2411,7 +2411,7 @@ const DRAFT_QUICKSTARTS = [
 //: replaced.
 async function translateNoteInDesk(entry) {
   const busy = $("draft-thoughts").value.trim() || $("draft-text").value.trim();
-  if (busy && !(await confirmDialog("Replace what is in Write with Atlas with this note?"))) return;
+  if (busy && !(await confirmDialog("Replace what is in the Writing room with this note?"))) return;
   switchTab("notes");
   showNotesSection("writing-room");
   $("draft-thoughts").value = entry.content || "";

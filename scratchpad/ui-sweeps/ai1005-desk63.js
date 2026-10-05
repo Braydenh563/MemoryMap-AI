@@ -1,5 +1,5 @@
 // CHAT_PLAN, INBOX 63's open lines, measured: the Capture foot's word count
-// and reading time, a word count on each Write with Atlas pane, the draft
+// and reading time, a word count on each Writing room pane, the draft
 // pane in the body font, and Escape clearing the Ask question.
 const { boot } = require('./lib.js');
 (async () => {
@@ -23,7 +23,7 @@ const { boot } = require('./lib.js');
     return { text: c.textContent, h: Math.round(r.height), visible: r.width > 0 };
   });
   await page.evaluate(() => { const b = document.getElementById('entry-content'); b.value = ''; b.dispatchEvent(new Event('input')); });
-  await sub('Write with Atlas');
+  await sub('Writing room');
   await page.waitForTimeout(800);
   await page.click('#draft-thoughts');
   await page.keyboard.type('tent stove layers weekend');

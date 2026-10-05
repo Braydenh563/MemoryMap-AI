@@ -99,6 +99,20 @@ def test_every_topic_is_measured_after_the_writes_never_between_them() -> None:
     assert "wbMapNodeSizeCache.set(d.id" in body
 
 
+def test_a_topic_the_pass_did_not_repaint_keeps_its_own_measured_height() -> None:
+    """OPEN.md's "94px" row, reproduced: a state fetched from the server hands
+    every topic the server's placeholder height (120) while the element is what
+    its text needs (44), and a topic this pass did not repaint took the 120
+    into the size cache, so `wbMapNodeSize` was 38px out at 1440 and 12px at
+    390 (`mapstrip.js`'s "first pan lands within 4px", 0 now). The element keeps
+    the height it was last measured at and the cache takes that, not the
+    stored one."""
+    body = _code("renderWbObjects")
+    assert "this._wbMeasuredH = h;" in body, "the live read must record what it measured"
+    skip = body[body.index("const known = this._wbMeasuredH;") :][:500]
+    assert "h: known || d.height" in skip, "the cache takes the measured height before the stored one"
+
+
 def test_a_line_is_keyed_by_its_two_ends_and_updated_in_place() -> None:
     """Rebuilding the group made four SVG elements per edge and threw the
     previous four away: 499 edges is two thousand elements created and wired

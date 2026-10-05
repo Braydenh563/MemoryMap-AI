@@ -109,6 +109,8 @@ function showSettingsSection(name) {
   //: The companion's one-time nudge (avatars.js) may show when Appearance
   //: is first opened.
   if (name === "appearance") nameMarkBuddyHint(true);
+  //: Help's tour buttons are drawn by tour.js, a lazy bundle.
+  if (name === "help") renderTourReplay();
   //: Reported: reopening Settings lands on Models "but the scroll doesn't
   //: reset", so the first section opened halfway down. The section's own
   //: scrolling ancestor goes back to the top whenever the section changes.

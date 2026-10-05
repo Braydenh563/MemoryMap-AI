@@ -370,6 +370,11 @@ for (const button of document.querySelectorAll("#tab-bar button")) {
     switchTab(button.dataset.tab);
     if (event.detail > 0) focusTabPage(button);
   });
+  //: Double-click: back to the first sub-tab (INBOX 659).
+  button.addEventListener("dblclick", () => {
+    const first = $(`${button.dataset.tab}-subtabs`)?.querySelector('[role="tab"]:not([hidden])');
+    if (first && first.getAttribute("aria-selected") !== "true") first.click();
+  });
 }
 
 //: **A tab chosen with the pointer hands the reading keys to its page**

@@ -1,5 +1,5 @@
 """CHAT_PLAN, INBOX 63's open lines: the Capture foot counts words and
-reading time, each Write with Atlas pane counts its words, the draft is set
+reading time, each Writing room pane counts its words, the draft is set
 in the body font, and Escape clears the Ask question. The browser half is
 `scratchpad/ui-sweeps/ai1005-desk63.js`; this holds the wiring in place."""
 

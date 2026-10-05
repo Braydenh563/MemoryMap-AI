@@ -2164,7 +2164,7 @@ const NOTES_SECTION_STORE = "notesSection";
 // --- a new session starts at the front of every tab ----------------------------
 //
 // Reported directly: "Ive had times where I log into the app, click on the
-// notes tab, and the tab is selected on 'Write with Atlas' instead of 'Your
+// notes tab, and the tab is selected on 'Writing room' instead of 'Your
 // Notes' because that must have been what I was on last."
 //
 // **Which sub-tab you are on is not a preference; it is where you happen to

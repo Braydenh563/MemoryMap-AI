@@ -114,7 +114,7 @@ HELP_TOPICS: list[dict] = [
             "Notes tab: type into \"Capture a thought\" and Save. A local AI files "
             "it into a category and suggests tags; you can re-file or edit anytime. "
             "Use a template, dictate with the microphone icon, sketch with the "
-            "palette icon, or run \"Improve\" to proofread first. Write with Atlas has "
+            "palette icon, or run \"Improve\" to proofread first. The Writing room has "
             "\"Split into notes\", which turns a block of pasted text into several "
             "AI-drafted, auto-linked notes."
         ),
@@ -138,7 +138,14 @@ HELP_TOPICS: list[dict] = [
             "does every change and web request. "
             "Conversations save and rename in the sidebar. The same agent also "
             "pops open over any tab with Ctrl/Cmd+Shift+A, so you don't have to "
-            "switch to Chat first."
+            "switch to Chat first. While an answer is coming, the line under "
+            "it says what is happening: Reaching Atlas while it waits for the "
+            "first word, Reading your notes while it searches, Waking the "
+            "model when a model is slow to load, Atlas is thinking while it "
+            "reasons, Atlas is writing while the answer streams, and Atlas "
+            "is followed by the tool's name when it uses one (a persona's "
+            "name replaces Atlas). With Progress indicators set to Still it "
+            "is the same words, without the moving dots."
         ),
         "badge": {"label": "Chat", "tab": "chat"},
     },
@@ -366,7 +373,8 @@ HELP_TOPICS: list[dict] = [
             "the command palette, Ctrl+P find anything, Ctrl+F find on this "
             "page, / jump to search (the chat box on Chat), Ctrl+Z undo, "
             "Ctrl+Shift+Z redo (on a phone, More then Commands opens the "
-            "palette), Alt+Left and Alt+Right back and forward, Ctrl+, "
+            "palette), Alt+Left and Alt+Right back and forward, a double-click "
+            "on Notes or Library in the top bar back to its first sub-tab, Ctrl+, "
             "settings, Ctrl+Shift+L light or dark, Ctrl+Shift+Y show or hide the "
             "companion, Ctrl+Alt+R reload clearing "
             "cached files. Make: Ctrl+Shift+N a new note, Alt+N a quick note saved "
@@ -558,9 +566,9 @@ HELP_TOPICS: list[dict] = [
         "id": "extract-notes",
         "keywords": ("extract notes", "rough thoughts", "writing room", "draft"),
         "body": (
-            "Split into notes, in the More menu of Write with Atlas (Notes "
+            "Split into notes, in the More menu of the Writing room (Notes "
             "tab), turns a block of pasted free text into several AI-drafted, "
-            "auto-linked notes instead of one long one. Write with Atlas is "
+            "auto-linked notes instead of one long one. The Writing room is "
             "for turning rough, unstructured thoughts into a proper note "
             "before it's saved. A document's menu and a selection of cards on "
             "a board have Extract notes, which does the same for a document "
@@ -763,14 +771,14 @@ HELP_TOPICS.extend(
                 "write an essay", "write an email", "draft",
             ),
             "body": (
-                "Notes tab, Write with Atlas: pick what to write (draft a note, "
+                "Notes tab, Writing room: pick what to write (draft a note, "
                 "continue or rewrite the draft, bullets to prose, prose to bullets, "
                 "or translate), add notes as sources if you want it grounded in "
                 "them, and press Write. The draft stays in the box to edit; save it "
                 "as a note when it reads right. Which model writes is set on the "
                 "same row, or in Settings, Models."
             ),
-            "badge": {"label": "Write with Atlas", "tab": "notes"},
+            "badge": {"label": "Writing room", "tab": "notes"},
         },
         {
             "id": "security",
@@ -895,7 +903,7 @@ HELP_TOPICS.extend(
             "id": "translate",
             "keywords": ("translate", "translation", "translator", "language", "another language", "spanish", "french", "german", "chinese", "japanese"),
             "body": (
-                "Write with Atlas translates: put the text in the box and press "
+                "The Writing room translates: put the text in the box and press "
                 "Translate, or pick a language under Translate into in the menu "
                 "beside Draft. The local model keeps every fact, name, number and "
                 "the markdown, and leaves code and links alone. It needs a model "
@@ -1302,7 +1310,9 @@ HELP_TOPICS.extend(
                 "the arrows keep the column, Enter goes to the cell below, and "
                 "rows pasted from a spreadsheet fill the cells. Pasting from a "
                 "web page, Word or Google Docs keeps headings, bold, italics, "
-                "lists and links; Ctrl+Shift+V pastes plain text."
+                "lists and links; Ctrl+Shift+V pastes plain text. With nothing "
+                "selected, Ctrl+C and Ctrl+X copy and cut the whole line, and "
+                "pasting that line puts it above the one you are on."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

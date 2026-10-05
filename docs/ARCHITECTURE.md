@@ -1249,7 +1249,7 @@ focused element's `offsetParent`) catches far more than a screenshot.
 ### Invariants worth knowing
 
 1. **The Notes tab has sub-tabs** (`browse`, `capture`, `writing-room`, `ask` and
-   `questions`: Your notes, Capture, Write with Atlas, Ask and Questions) and
+   `questions`: Your notes, Capture, Writing room, Ask and Questions) and
    remembers the last one in `localStorage`. Anything that focuses or scrolls to an
    element there must call `showNotesSection(...)` first: focusing inside a
    `display: none` section silently does nothing, and the control reads as

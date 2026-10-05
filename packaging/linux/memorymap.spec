@@ -41,6 +41,94 @@ ALEMBIC_INI = REPO_ROOT / "alembic.ini"
 ENTRY_SCRIPT = REPO_ROOT / "src" / "memorymap" / "__main__.py"
 ICON = str(FRONTEND_DIR / "icon-512.png")
 
+# Every module of the app, by file: the same list, for the same reason, as
+# packaging/windows/memorymap.spec's APP_MODULES (an `importlib.import_module`
+# by name is invisible to the analysis; `ai/needle_provider.py` was missing).
+SRC_DIR = REPO_ROOT / "src"
+
+
+def _app_modules():
+    found = []
+    for path in sorted((SRC_DIR / "memorymap").rglob("*.py")):
+        parts = list(path.relative_to(SRC_DIR).with_suffix("").parts)
+        if parts[-1] == "__main__":
+            continue
+        if parts[-1] == "__init__":
+            parts.pop()
+        found.append(".".join(parts))
+    return found
+
+
+APP_MODULES = _app_modules()
+
+# **The whole standard library, for the optional packages.** A packaged build
+# carries only the standard-library modules the app itself imports, and the
+# extras (Settings > Packages, the installer's optional page) are installed
+# later, into the data folder, and run on the bundle's own interpreter. Any
+# standard module they import that the app never did is simply not there.
+# Measured on a build of this spec against what the extras import:
+# `transformers` imports `filecmp` at the top of a module its auto classes
+# load, so search by meaning (the recommended, ticked-by-default extra) could
+# not import; `pypdfium2` and `scipy` need `ctypes.util`, `lxml` and `numpy`
+# `optparse`, `huggingface_hub` `venv`. A list of those five would be the next
+# missing one waiting to happen, so every module of the standard library is
+# named, apart from the GUI toolkit, the test suite, the bundled pip wheels
+# and the IDE, which no extra uses and which would add megabytes (Tk alone
+# brings its own DLLs). Measured cost: 3 MB (183.3 to 186.2 MB, Linux build).
+_STDLIB_SKIP = {
+    "tkinter", "turtle", "turtledemo", "idlelib", "test", "ensurepip",
+    "lib2to3", "pydoc_data", "this", "antigravity", "__phello__", "_pyrepl",
+}
+
+
+def _stdlib_modules():
+    import importlib.util
+
+    found = []
+    for top in sorted(sys.stdlib_module_names):
+        if top in _STDLIB_SKIP or top.startswith("_"):
+            continue
+        try:
+            spec = importlib.util.find_spec(top)
+        except (ImportError, ValueError):
+            spec = None
+        if spec is None:
+            continue
+        found.append(top)
+        for location in spec.submodule_search_locations or []:
+            base = Path(location)
+            for path in sorted(base.rglob("*.py")):
+                parts = list(path.relative_to(base).with_suffix("").parts)
+                if any(p in ("test", "tests", "idle_test") or p.startswith("test_") for p in parts):
+                    continue
+                if parts[-1] == "__init__":
+                    parts.pop()
+                if not parts or any("-" in p for p in parts):
+                    continue
+                found.append(".".join([top, *parts]))
+    return found
+
+
+STDLIB_MODULES = _stdlib_modules()
+
+def _without_bytecode(datas):
+    """The data files minus any `__pycache__` folder (only folders: a package's
+    own data files are never touched). `(MIGRATIONS_DIR, "migrations")` copies the folder whole, so a
+    build machine that had ever imported a migration (a local run, a test)
+    shipped `migrations/__pycache__` too: stale bytecode for the build
+    machine's Python, in a bundle that must write none (`sys.dont_write_
+    bytecode` is set when frozen). CI's clean checkout has none, which is why
+    this only showed on a developer's own build. Entries are `(dest, src,
+    typecode)`; the destination is what carries the folder name."""
+    kept = []
+    for entry in datas:
+        parts = str(entry[0]).replace("\\", "/").split("/")
+        if "__pycache__" in parts:
+            continue
+        kept.append(entry)
+    return kept
+
+
 a = Analysis(
     [str(ENTRY_SCRIPT)],
     pathex=[str(REPO_ROOT / "src")],
@@ -58,6 +146,10 @@ a = Analysis(
         # every install stays on the pre-Alembic additive-only path.
         (str(MIGRATIONS_DIR), "migrations"),
         (str(ALEMBIC_INI), "."),
+        # The constraints an optional package is installed against
+        # (core/extras._requirements_path), so an extra cannot drag a shared
+        # library to a version the bundle was not built with.
+        (str(REPO_ROOT / "requirements.txt"), "."),
         # The About panel's release notes, read from the bundle root when
         # frozen (api/app.py `/changelog`); the Windows spec says more.
         (str(REPO_ROOT / "CHANGELOG.md"), "."),
@@ -97,6 +189,8 @@ a = Analysis(
         "memorymap.search.searxng_docker",
         "memorymap.search.searxng_install",
         "memorymap.search.searxng_process",
+        *APP_MODULES,
+        *STDLIB_MODULES,
     ],
     hookspath=[],
     hooksconfig={},
@@ -117,6 +211,8 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
+
+a.datas = _without_bytecode(a.datas)
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 

@@ -13,7 +13,7 @@
 // the bar has been visited, which is what a deferred loader has to pay back:
 // if the second reading is much larger than the pre-split boot figure, the
 // split moved the cost rather than removing it.
-const { boot } = require('./lib.js');
+const { boot, BASE } = require('./lib.js');
 
 const SNAP = () => {
   const res = performance.getEntriesByType('resource');
@@ -101,6 +101,52 @@ const JSLIST = () =>
   console.log('after js      ', JSON.stringify(afterJs));
   console.log('tabs visited  ', JSON.stringify(tabs));
   console.log('pageerrors    ', errors.length, JSON.stringify(errors.slice(0, 6)));
+
+  // First paint of the dashboard (WORLD_CLASS row 26: "first paint under 300 ms
+  // is not measured"). Run on a fresh data dir, signed in, at 1440. A cold
+  // reload with the dashboard as the saved tab: DOMContentLoaded and the
+  // browser's own first-contentful-paint from the navigation entry and the
+  // paint timeline, plus the moment the dashboard panel is visible with text in
+  // it and the boot splash is gone (the first paint a person reads as "the app
+  // is up"), polled once a frame from an init script so the reading is the
+  // page's own clock and not a Playwright round trip. FIRST_PAINT_RUNS (default
+  // 5) cold loads; the median is the number to record.
+  const runs = Number(process.env.FIRST_PAINT_RUNS || 5);
+  const rows = [];
+  for (let i = 0; i < runs; i += 1) {
+    const probe = await browser.newContext({ viewport: { width: 1440, height: 900 }, storageState: await page.context().storageState() });
+    await probe.addInitScript(() => {
+      try { localStorage.setItem('activeTab', 'dashboard'); } catch (e) {}
+      window.__dashReady = null;
+      const tick = () => {
+        const panel = document.getElementById('tab-dashboard');
+        const splash = document.getElementById('boot-splash');
+        const up = panel && !panel.classList.contains('hidden') && panel.checkVisibility && panel.checkVisibility()
+          && panel.innerText.trim().length > 20 && (!splash || splash.classList.contains('hidden') || splash.checkVisibility() === false);
+        if (up) window.__dashReady = Math.round(performance.now());
+        else requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    const p = await probe.newPage();
+    await p.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+    await p.waitForFunction(() => window.__dashReady !== null, null, { timeout: 20000, polling: 100 }).catch(() => {});
+    rows.push(await p.evaluate(() => {
+      const nav = performance.getEntriesByType('navigation')[0];
+      const fcp = performance.getEntriesByName('first-contentful-paint')[0];
+      return {
+        dcl: Math.round(nav.domContentLoadedEventEnd),
+        fcp: fcp ? Math.round(fcp.startTime) : null,
+        dashboard: window.__dashReady,
+      };
+    }));
+    await probe.close();
+  }
+  const median = (key) => {
+    const v = rows.map((r) => r[key]).filter((n) => n !== null).sort((a, b) => a - b);
+    return v.length ? v[Math.floor(v.length / 2)] : null;
+  };
+  console.log('first paint   ', JSON.stringify({ runs, rows, median: { dcl: median('dcl'), fcp: median('fcp'), dashboard: median('dashboard') } }));
   await browser.close();
 })().catch((e) => {
   console.error(e);

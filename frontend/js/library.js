@@ -8871,11 +8871,11 @@ onDomReady(() => {
             // Lands on the boards gallery, not straight onto a canvas, one
             // door onto the whiteboard, asked for directly, replacing the
             // old always-opens-the-last-board behaviour.
-            //: Placeholders now when the boards' own bundle (about 900 KB)
-            //: is still to come: its gallery draws them, but only once it has
-            //: arrived, and until then the sub-tab was blank (qa-1005,
-            //: skeletons.js at 390). The gallery clears them with its own.
-            if (typeof wbLeaveFullscreen !== "function") showSkeletons($("library-boards-grid"), 4);
+            //: Placeholders before the boards' own bundle (about 900 KB)
+            //: arrives: until then the sub-tab was blank (qa-1005). Drawn
+            //: every time, not behind a probe for the bundle: the gallery
+            //: replaces them with its own on its first paint either way.
+            showSkeletons($("library-boards-grid"), 4);
             wbShowBoardsLanding();
           } else if (targetId === "library-view-docs") {
             renderLibraryDocuments();

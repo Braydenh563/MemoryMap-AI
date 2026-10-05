@@ -2089,8 +2089,10 @@ body.graph-fullscreen-on .sidebar-panel {
    those sit above their rows and are all narrower than them. Between the
    phone band and 1024 the dots drop the gap between them: a dot's own 2px
    transparent ring already keeps the coloured discs 4px apart, so seven
-   colours stay seven distinct targets, 27px narrower at Large text. */
-@media (min-width: 600px) and (max-width: 1023px) {
+   colours stay seven distinct targets, 27px narrower at Large text. From 820
+   only: below it the dots are 2rem with a target a gap wider than the disc,
+   and with no gap the targets overlap (6 pairs at 700, Large and Spacious). */
+@media (min-width: 820px) and (max-width: 1023px) {
   /* The long-hand, for the axis this is about: `gap: 0` would be a fourth
      distinct row gap in the toolbar family (`test_ui_signatures.py`). */
   .sketch-toolbar .wb-tool-section-row.sketch-colors {
@@ -5635,7 +5637,6 @@ mark.lightbox-hit {
   text-align: left;
   text-decoration: none;
   cursor: pointer;
-  transition: background var(--ui-fast) var(--ease-out), border-color var(--ui-fast) var(--ease-out);
 }
 
 .chat-source-row:hover,
@@ -5709,7 +5710,6 @@ mark.lightbox-hit {
   background: var(--inner);
   color: var(--ink);
   text-decoration: none;
-  transition: border-color var(--ui-fast) var(--ease-out), background var(--ui-fast) var(--ease-out);
 }
 
 .link-card:hover,

@@ -21,6 +21,12 @@
 //
 // WIDTH=390 reads the phone shapes (default 1440). Exit code 1 when a view is
 // MISSING, EMPTY-TOO-SOON or BLANK without being expected.
+//
+// 2026-10-05 (WORLD_CLASS row 26, fresh data dir, API held 1500 ms): library/docs and
+// documents/list read BLANK at 1440 and 390 only from the checkVisibility opacity
+// artifact fixed in the read below (f3bb3d3, f30d795); measured with the artifact fixed,
+// both show placeholders at 1440, so the "Library and Documents read blank" finding was
+// the sweep, not the app.
 const { boot } = require('./lib.js');
 
 const DELAY = Number(process.env.DELAY || 1500);
@@ -101,7 +107,9 @@ const VIEWS = [
       r = await read(view.within);
     }
     let verdict = r.missing ? 'MISSING' : r.skeletons ? 'ok' : r.empty.length ? 'EMPTY-TOO-SOON' : 'BLANK';
-    const allowed = verdict === 'BLANK' && expectedBlank(view.name);
+    // An expected view may read BLANK or already say it is empty: chat/conversations
+    // does the second (its "No saved chats yet" is the boot answer, 2026-10-05).
+    const allowed = (verdict === 'BLANK' || verdict === 'EMPTY-TOO-SOON') && expectedBlank(view.name);
     if (allowed) verdict = 'ok (expected)';
     else if (verdict !== 'ok') failed += 1;
     out.push(`${verdict.padEnd(15)} ${view.name}${r.empty && r.empty.length ? `  "${r.empty[0]}"` : ''}${verdict === 'BLANK' ? `  [${r.text}]` : ''}${allowed ? `  (${allowed.reason})` : ''}`);

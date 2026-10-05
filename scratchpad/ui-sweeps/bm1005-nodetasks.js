@@ -9,14 +9,15 @@
 // Pass: every task done in at most 2 steps, every grip at least 20px and on
 // the topic's own edge or corner, the resize drag grows the box, the text
 // drag grows the text.
-const { boot } = require('./lib.js');
+const { boot, openBoardsTab } = require('./lib.js');
 (async () => {
   const W = +(process.env.W || 1440);
   const { page, browser } = await boot({ viewport: { width: W, height: W < 600 ? 844 : 900 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
-  await page.click('[data-tab="library"]');
-  await page.waitForFunction(() => ['initWhiteboard', 'wbFormatSyncSoon', 'wbMapTidyFresh', 'wbWireMapChoices'].every((f) => typeof window[f] === 'function'), null, { timeout: 15000 });
+  // The Boards sub-tab, picked and waited for (lib.js `openBoardsTab`): the Library
+  // reopens on its last sub-tab, and `wbFormatSyncSoon` is not loaded at open any more.
+  await openBoardsTab(page, ['initWhiteboard', 'wbMapTidyFresh', 'wbWireMapChoices']);
   const ids = await page.evaluate(async () => {
     await initWhiteboard();
     const board = await apiJson('/whiteboard/boards', { method: 'POST', body: JSON.stringify({ name: `tasks ${Date.now()}`, type: 'map', layout: 'tree-right' }) });

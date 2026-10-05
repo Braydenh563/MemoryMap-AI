@@ -2824,7 +2824,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    (INBOX 179: "'?' tooltip circle buttons are ovals again"). Measured
    across every tab, the Library's sub-tabs, the whiteboard, the documents
    editor and Settings: fourteen of fifteen were square, and `#draft-help`
-   in the Write with Atlas head came out 32x36, because
+   in the Writing room head came out 32x36, because
    `#writing-room > .row:has(> h2) button` (an id, a class and an element)
    outranks `.graph-help-toggle`'s own 2rem and sets only the height. An id
    plus a class ties that selector and wins on file order, which this file
@@ -10624,7 +10624,7 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
    own list (01-forms-settings.css, the press). */
 :where(li, .cat-row, .contents-row, .feature-row, .sheet-row, .space-option, .nav-history-item,
   .doc-comment-item, .doc-suggest-item, .quick-link, .outline-link, .legend-item, .link-connection,
-  .library-card, .notif-row, .ocr-rail-item, .bench-row) {
+  .library-card, .notif-row, .ocr-rail-item, .bench-row, .ask-history-item, .chat-source-row, .link-card, .web-result, .note-picker-row, .note-picker-cell, .manage-cat-row, .att-card, .doc-dictionary-row, .embed-card, .wb-library-item, .check-row, .wb-layer-row, .wb-lib-tile, label.setting-check, .setting-check, .start-step) {
   transition: background-color var(--ui-base) var(--ease-out), border-color var(--ui-base) var(--ease-out);
 }
 

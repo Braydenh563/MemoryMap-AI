@@ -20,10 +20,21 @@ Sweeps on port 8816, data `/tmp/mm-motion`; `scratchpad/ui-sweeps/motion1005.js`
 - docs: CHANGELOG, DESIGN.md (Motion, Interface animations, recipe rows),
   HISTORY (UI_MODERNISATION Phase 4 item 2), the Guide's Appearance topics.
 
+- cb89715 no nested sub-tab fade (it doubled a tab switch's missed frames),
+  chips press, docs.
+- merge of claude/notes-flow-rebuild at 2ad4baa: perfpolish's menu exit
+  kept (escaped menus go home after the exit) with the grow's path back on
+  `--ui-exit`; tour.js made a lazy bundle (`tour`, stand-ins `openTour` and
+  `renderTourReplay`) because the merged boot JS was 866 bytes over the cap
+  (the branch alone 344 over): 10,302 under after; boot CSS 23 under after
+  folding thirteen row hovers into the one hover rule.
+
 ## Left
 
 - A row added or removed after a list's first render does not fade: the
   lists redraw whole (DESIGN.md says why); needs keyed rendering first.
-- Escaped menus and help popovers close at once (they go home on close).
-- The tab page fade (INBOX 580, shortened to 120ms here) costs frames in
-  headless software compositing; see the report's frame numbers.
+- Help popovers and the phone's action sheets close at once (a popover goes
+  home and a sheet is removed on close, which cancels a transition).
+- A sub-tab's panel does not cross-fade (only its line slides): CSS cannot
+  tell a section switch from its page arriving; needs a class set by
+  `showNotesSection`.

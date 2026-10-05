@@ -279,7 +279,9 @@ function onboardingNext() {
     // without it must still close the welcome cleanly.
     //: Only if the tour is switched on: `TOUR_ENABLED` in tour.js is the one
     //: flag, and the welcome's primary is relabelled to match.
-    if (typeof openTour === "function" && typeof TOUR_ENABLED !== "undefined" && TOUR_ENABLED) {
+    //: Before tour.js has loaded (a lazy bundle) the flag is not defined
+    //: yet and `openTour` is the stand-in that fetches it.
+    if (typeof TOUR_ENABLED === "undefined" || TOUR_ENABLED) {
       openTour("basics");
     }
     return;

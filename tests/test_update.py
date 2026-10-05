@@ -276,6 +276,8 @@ def test_a_successful_apply_downloads_then_launches_the_official_installer_only(
     assert command[0].endswith("MemoryMap-AI-Setup-9.9.9.exe")
     assert "/VERYSILENT" in command
     assert "/NORESTART" in command
+    # The app exits for the installer, so the installer reopens it.
+    assert "/RELAUNCH=1" in command
     downloaded = tmp_path / "MemoryMap-AI-Setup-9.9.9.exe"
     assert downloaded.read_bytes() == b"MZ-fake-installer-bytes"
 

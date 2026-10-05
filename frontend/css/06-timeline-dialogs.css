@@ -56,8 +56,11 @@
      alone has the rows sliding visibly through the text. DESIGN.md's rule for
      a sticky row inside a tinted surface: composite the tint over something
      opaque, which here is the page. */
-  background-color: var(--bg);
-  background-image: linear-gradient(var(--card), var(--card));
+  /* One shorthand: `--bg` is a gradient in most themes, which
+     `background-color` cannot hold, so the old pair left the base
+     transparent and the rows showed through (INBOX 655). As the shorthand's
+     final layer it is valid whether a theme makes it a gradient or a colour. */
+  background: linear-gradient(var(--card), var(--card)), var(--bg);
   /* An accent underline rather than a grey rule: the headers are a scale, and
      a 2px grey border under each one reads as a spreadsheet. */
   border-bottom: 2px solid var(--accent-soft);
@@ -445,8 +448,11 @@
   /* Opaque base, then the card's own wash over it: `--card` is glass, and a
      sticky head painted in it alone has the rows sliding through the labels.
      Same composite the feed's bucket headers use. */
-  background-color: var(--bg);
-  background-image: linear-gradient(var(--card), var(--card));
+  /* One shorthand: `--bg` is a gradient in most themes, which
+     `background-color` cannot hold, so the old pair left the base
+     transparent and the rows showed through (INBOX 655). As the shorthand's
+     final layer it is valid whether a theme makes it a gradient or a colour. */
+  background: linear-gradient(var(--card), var(--card)), var(--bg);
   border-bottom: 2px solid var(--accent-soft);
   font-size: var(--text-sm);
   font-weight: 600;
@@ -1354,7 +1360,6 @@
   padding: var(--space-2) var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  transition: background var(--ui-base) var(--ease-out), border-color var(--ui-base) var(--ease-out);
   /* Contains the radio-hiding rule's own `position: absolute` below, so
      that 1px box stays inside this row instead of positioning against
      whatever ancestor happens to be positioned. */
@@ -3299,7 +3304,6 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  transition: background-color var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
 }
 
 /* A row you can pick up says so under the pointer (INBOX 463: "no hover
@@ -3996,8 +4000,16 @@ aside[data-resizable="1"] {
   }
 }
 
-/* On a phone the arrows take the row's two ends and the month the middle. */
+/* On a phone the arrows take the row's two ends and the month the middle. And
+   the strip's own spacing steps down a token (the head to the days, the strip
+   to the list): the list began at y=340 of 844, 2.4px past the first-screen
+   rule (40%, `phonechrome.js`), and 4.8px less puts it at 335. */
 @media (max-width: 599.98px) {
+  .timeline-daystrip {
+    gap: var(--space-2) var(--space-5);
+    margin-bottom: var(--space-2);
+  }
+
   .timeline-daystrip-head {
     flex: 1 1 100%;
     justify-content: space-between;

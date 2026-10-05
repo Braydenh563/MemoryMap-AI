@@ -174,3 +174,19 @@ def test_capabilities_says_what_is_installed(client):
     for feature in ("embeddings", "voice", "ocr", "office_import", "tts", "mcp", "lan"):
         assert feature in body["features"], feature
     assert isinstance(body["features"]["voice"]["installed"], bool)
+
+
+
+def test_the_packaged_app_does_not_offer_an_mcp_command_it_cannot_run(client, monkeypatch):
+    """`python -m memorymap.mcp_server` has no Python to run in behind a
+    frozen exe; the packaged app said "installed" with it anyway."""
+    import sys
+
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    r = client.get("/capabilities")
+    mcp = r.json()["features"]["mcp"]
+    assert mcp["installed"] is False and "command" not in mcp
+    monkeypatch.delattr(sys, "frozen")
+    r2 = client.get("/capabilities")
+    source = r2.json()["features"]["mcp"]
+    assert source == {"installed": True, "command": "python -m memorymap.mcp_server"}

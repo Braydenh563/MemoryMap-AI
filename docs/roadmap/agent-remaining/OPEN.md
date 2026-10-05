@@ -82,9 +82,10 @@ two decisions only the owner can take are INBOX 427.
   scroller runs under the status bar (each ends at or above its top, at 1440
   and 390), and the three were controls half scrolled out of their own box,
   whose centre the point test found the bar under; the sweep now checks the
-  centre against each scrolling ancestor first, 0 findings at 1440. At 390
-  one is left, the graph's `#graph-fullscreen` under a `button.small` (the
-  graph agent's). [ui-426]
+  centre against each scrolling ancestor first, 0 findings at 1440 and at 390
+  (the graph's `#graph-fullscreen` case is closed, HISTORY.md, "OPEN.md rows
+  closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)").
+  [ui-426]
   *Needs: a surface-by-surface design pass.*
 - **The README's OCR shot is the 0.3.2 capture, in dark**: `seed-ocr.js`
   needs a Tesseract binary this sandbox does not have, so it was not retaken
@@ -316,13 +317,7 @@ being written by running agents stay beside this one.
 ## Settings and help
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": INBOX 235, the Settings Help page and the Models order; INBOX 237, the built-in Librarian persona is Atlas; "Advanced response settings" sits 20.8px right of its siblings; `#settings-tools`'s intro; scratchpad/ui-sweeps/help-popovers.js is not built; "Not one of the seven tabs carries a `data-help-for` popover"; The learning loop's Settings section (I9's frontend) is not built.
-- **The OCR workspace head could not be measured.** `.ocr-toolbar` only exists
-  once a file is open in the OCR workspace and the seeded notebook has no path
-  to one without a real scan; `05-sidebars-themes.css:1269` names it beside
-  `.doc-toolbar` and `.library-head` as having had the same fault.
-  `wbtopbar.js` already has a probe pointed at it; the missing piece is a way
-  to get a scanned file into the sweep's notebook. [consistency.md]
-  *Needs: a scanned file in the sweep's notebook.*
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)": The OCR workspace head could not be measured.
 
 ## Backend
 
@@ -411,10 +406,9 @@ are named in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 the head, so they carry no row of their own.
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": anim.md.
-- **arch.md**: the Dashboard emblem is most of an idle window's cost (5.55% of
-  one core open, 2.09% parked); INBOX 266's usability and lightweight items
-  belong to nobody. [arch]
-  *Needs: the owner's call on the emblem's frame rate (they asked for "always rotating").*
+- **arch.md**: INBOX 266's usability and lightweight items belong to nobody.
+  [arch] (The emblem's idle cost is built: HISTORY.md, "OPEN.md rows closed,
+  2026-10-05 (docs hygiene before 0.4.0)".)
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": askcite.md.
 - **backend-0926.md**: F7's thread modules
   onto `core/jobs.py` (13 left, `tests/test_flaw_class_lints.py`'s ratchet).
@@ -437,10 +431,8 @@ the head, so they carry no row of their own.
   *Needs: a phone; the flake is load, not the test.*
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": featuremodels.md; guide.md.
 - **guideia.md**: the Guide is a modal sheet whose scrim dims the app, so
-  "Open the Reminders tab" cannot be read against the tab; the rows
-  WORLD_CLASS_PLAN 1.3 marks open (Remind me beyond notes, the Library note
-  card's Remind me and Link to). [guideia]
-  *Needs: a non-modal Guide changes `openSheet`'s focus and backdrop contract; Remind me beyond notes needs the reminder to point at other kinds first (a backend step).*
+  "Open the Reminders tab" cannot be read against the tab. [guideia]
+  *Needs: a non-modal Guide changes `openSheet`'s focus and backdrop contract.*
 - **libtl-0926.md**: the Timeline feed lays out about 39 times a second while
   scrolling (the rows' `content-visibility: auto`, INBOX 400's trade); the
   Library search keystroke was 17 to 191ms under load, not re-measured idle;
@@ -459,12 +451,10 @@ the head, so they carry no row of their own.
   gate should pass `SIZES=50`); the keyed render is invalidated by one list,
   `wbObjectPaintKey`, which a new paint input must join. [mapread, maprender]
   *Needs owner: 13g. Left: the rest are notes for whoever touches the paint.*
-- **maptheme.md**: the branch palette and font choice are map-level facts not
-  built (decision 8: `wbMapColors` and `MAP_BRANCH_PALETTE` must agree); a
-  topic cannot be pulled back to the app's own default for a themed field; the
-  theme is resolved into each node on export rather than carried; an
-  `<arrowlink>` written by FreeMind itself is untested. [maptheme]
-  *Needs: schema and export design.*
+- **maptheme.md**: the theme is resolved into each node on export rather than
+  carried; an `<arrowlink>` written by FreeMind itself is untested. [maptheme]
+  *Needs: schema and export design.* (The palette, the font and the pin back to
+  the app's default are built, MINDMAP_PLAN 13e.)
 - **mindmap2.md**: `mindmapimage.js` passes 12 of 12 at 390x844 (measured
   2026-10-04); a picture node does not resize to its picture; `mindmap3.js`
   times out at `#wb-boards-generate` (the AI half); `mindmapcurve.js` at
@@ -482,10 +472,9 @@ the head, so they carry no row of their own.
   order to drag; grey-scale text in composited scrollers on a 1x ClearType
   display was not seen. [pass2]
   *Needs: a Windows display; the rest is CodeMirror's own cost.*
-- **perfpolish.md**: menus leave instantly though they enter with a 160ms
-  reveal (an exit needs every close path to wait); the document gutter writes
-  a height and reads a layout per gutter. [perfpolish]
-  *Needs: every close path (`closeActionMenus`, Escape, outside click) at once.*
+- **perfpolish.md**: the document gutter writes a height and reads a layout
+  per gutter. The menu exit is closed, HISTORY.md, "OPEN.md rows closed,
+  2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)". [perfpolish]
 - **uipolish-0924.md**: the surface-by-surface pass (its item D) is already a
   row above. Triaged: `deadbtn.js`'s findings for Chat's `#chat-export` and
   `#chat-delete` are visually-hidden, `aria-hidden` proxies the ⋯ rows click
@@ -499,9 +488,9 @@ the head, so they carry no row of their own.
   belongs). INBOX 47's counting question no longer decides anything: the
   Notes and Library docks measure 6 controls each (`docks.js`). [wbtopbar]
   *Needs: the whiteboard agent (a sweep for `#wb-context-menu`).*
-- **whiteboard-tail.md**: INBOX 276, the sketch pad's toolbar wraps to two rows
-  at 820 on Large text; the AI half of the map needs a model. [whiteboard-tail]
-  *Needs: the entry's recommendation is the group labels, not the controls.*
+- **whiteboard-tail.md**: the AI half of the map needs a model. INBOX 276 (the
+  sketch pad's toolbar at 820) is closed, HISTORY.md, "OPEN.md rows closed,
+  2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)". [whiteboard-tail]
 - **world-class-rows-1-2-9.md**: two decisions taken differently from Brief 15
   (S1 is a cookie, S3 confines to home and the data folder) that the owner may
   want to confirm; the export-folder preference accepts any writable absolute
@@ -546,6 +535,8 @@ pane's name, the errors sweep's aside clipping at 390.
   (`whiteboard-library.js`, `wbLoadLibrary`) draw nothing while they load.
   [boardmap-1005, small-1005]
   *Left: the whiteboard's own rail, owned by the WHITEBOARD plan's agent.*
+
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)": Skeletons for a board's Library and Notes tabs (INBOX 596).
 - **Phone selection menus and the selection bar** (documents): iOS and Android
   draw Cut, Copy and Paste above a selection, where the bar also goes; if a
   report arrives the bar goes below the selection on `(pointer: coarse)` (one
@@ -570,13 +561,15 @@ pane's name, the errors sweep's aside clipping at 390.
 - **The Writing Room's stretch**: measured at 1440x900 light on the two
   `NOTE_SURFACES` boxes only, the graph's two note boxes not opened. (The table
   full view's X is built: 28x28 at 1440 and 44x44 at 390, each equal to
-  `--target-min`; `tablefullclose.js` asserts it.) [notes]
+  `--target-min`; `tablefullclose.js` asserts it. Its phone width and the Writing
+  Room's are closed, HISTORY.md, "OPEN.md rows closed, 2026-10-05 (the pre-0.4.0
+  buildable rows, sweeps on port 8815)".) [notes]
 
 ### Whiteboard, mind map and Atlas
 
-- **Board and map history**: a board's history does not survive a reload and an
-  agent's or another tab's change is not on its stack (decision 17 says the
-  event log is the long memory); redo of the board-level steps (theme,
+- **Board and map history**: an agent's or another tab's change is not on a
+  board's stack (decision 17 says the event log is the long memory; a board's
+  undo survives a reload since 2026-10-05, `undo-store.js`); redo of the board-level steps (theme,
   numbering, layout) is not swept; `wbMapCrossLinkToBranch`,
   `wbMapReverseCrossLink`, `wbMapCutCrossLink`, `wbMapAddReference`,
   `wbApplyMapTemplate`, `wbArrangeMindMap`, `wbMindMapAddCard`, bucket fill and
@@ -586,21 +579,21 @@ pane's name, the errors sweep's aside clipping at 390.
   Phase G's affinity sort (Group by theme proposes named frames, one Undo) and
   the claim check, both with faked-transport tests and
   `agent.PROSE_BUDGET_CHARS`; the time machine's plain-words "what changed";
-  expand from my notes and summarise this branch (MINDMAP_PLAN 12.3 item 2);
+  expand from my notes (MINDMAP_PLAN 12.3 item 2);
   ports are mouse and pen only (touch has no hover). Found: SQLite reuses a
   deleted row's id (no AUTOINCREMENT on the board item tables), so one id's log
   can hold two items; the board history starts a fresh state on each `created`
   but any other reader of an item's log (`events.replay`) would merge them;
   placements made before the history, a duplicated board's copies and a
   generated map's topics have no `created` event. [wb-phase2]
-- **Frames and the map plan's rest**: nested frames whose tops are close at a
-  phone's fitted zoom share the grown title area and the inner one wins it
-  (aim at the outer title's words); MINDMAP_PLAN 12.2's rest (a boundary round
+- **Frames and the map plan's rest**: MINDMAP_PLAN 12.2's rest (a boundary round
   a lassoed set that is not one branch, priority, progress, flags and due
-  dates, floating topics and palettes, an outline pane). [harness-wb-1004]
-- **Map render and persistence**: `wbMapNodeSize` and the rendered node
-  disagreed by 94px at 390x844 (found by `mapstrip.js`'s corner ring; not
-  reproduced since, reproduce before theorising); a map does not re-frame
+  dates, floating topics and palettes, an outline pane). The nested frames'
+  shared title area is measured, HISTORY.md, "OPEN.md rows closed, 2026-10-05
+  (the pre-0.4.0 buildable rows, sweeps on port 8815)". [harness-wb-1004]
+- **Map render and persistence**: (the `wbMapNodeSize` 94px row is closed,
+  HISTORY.md, "OPEN.md rows closed, 2026-10-05 (the pre-0.4.0 buildable rows,
+  sweeps on port 8815)"); a map does not re-frame
   after a tidy (a decision: frame after a tidy that pushed content off the
   canvas, or rely on Fit); tidy, copy branch and
   "open every folded branch" persist one node per request (a bulk endpoint if
@@ -627,13 +620,6 @@ pane's name, the errors sweep's aside clipping at 390.
 
 ### Settings, help and the shell
 
-- **The badge target**: `badgealign.js` measures against the x-height band
-  (INBOX 503) while the recipe's target is the capital centre (INBOX 592), so
-  it prints 1.0 to 1.8px "outliers" that are 0.5 to 1.0px from the painted ink
-  centre; `iconalign.js` prints 1.17px for the Installed badge and search chips
-  in the sandbox font (0.95px in Segoe; painted ink 0.5px). Decide the target
-  in one place and move the sweep. [iconalign-skel-1005, small-1005]
-  *Needs: a design call.*
 - **Help audit's remainder**: menus drawn on press (the chat "/" menu, a
   message's menu, the board menus, the notes list's menus) are checked by
   source grep only, and a sweep that presses each and lists its items would
@@ -648,16 +634,19 @@ pane's name, the errors sweep's aside clipping at 390.
   recipe disagree (taken: the label recipe, `META_EDGED`; if the owner wants
   statuses edgeless it is one rule, `.chip.item-label`'s border). [design-1004]
   *Needs: the owner's call on the chips.*
-- **The tour**: a first-run notebook (no notes, no boards) was only covered by
-  forcing `TOUR_NEEDS.map` false, not by a fresh data dir walk; the Timeline's
-  Options and the reminders' More were measured at 390 only. [tourdepth]
+- **The tour**: the Timeline's Options and the reminders' More were measured at
+  390 only. (The fresh data dir walk and widths 600 to 1100 are done, HISTORY.md,
+  "OPEN.md rows closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port
+  8815)".) [tourdepth]
 - **Tablet layouts**: the Documents dock is two rows at 1024 (its identity
   asks for 22rem beside the actions); the arc layout of a 430-note notebook
   framed whole is a line of dots until zoomed; the Notes sub-tabs do not fit the
   list dock's row at 1093 (on a window 700px tall or less the strip could take
   the identity slot as a compact seg, which changes the dock grammar: the
-  owner's or the plan's decision); the status bar folding into the top bar
-  under 680px is not built. [graph-wb-0926]
+  owner's or the plan's decision). The status bar's fold into the top bar under
+  680px is not built, and measured it overlaps nothing, HISTORY.md, "OPEN.md rows
+  closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)".
+  [graph-wb-0926]
 - **Dismissed reminder notifications**: a dismissed reminder notification never
   returns (`status.js` `notificationsDismissed`, keyed `reminder:<id>`), so a
   reminder snoozed and overdue again stays hidden from the bell. By design of
@@ -711,6 +700,12 @@ pane's name, the errors sweep's aside clipping at 390.
   /entries/most-accessed?period=month`, hooks on `flashEntry` and
   `openNotePage`, the Most used widget's seg, then the HISTORY block and a
   CHANGELOG line); the "wrong" correction on an evidence card (I7's second
+
+- **A flaky timing test**: `tests/test_relations_kg2.py`'s 10k timing is flaky
+  under load (the typo, message-wording, thread-ratchet and list-paging tests
+  perf2-1005 and worldclass-1004 recorded as red pass on the head, 2026-10-05).
+  [perf2-1005]
+- **Retrieval and the learned loop, plan rows**: the "wrong" correction on an evidence card (I7's second
   half) and I1 pass 2's kinds as derived facts (dates, duplicates, entities)
   are WORLD_CLASS_PLAN rows. [worldclass-1005b, worldclass-1004]
 - **Smaller backend and gate rows**: a note type made through `POST

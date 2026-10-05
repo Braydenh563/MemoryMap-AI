@@ -406,7 +406,6 @@ select.ai-unavailable {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--card);
-  transition: border-color var(--ui-fast) var(--ease-out), background-color var(--ui-fast) var(--ease-out);
 }
 
 /* A card on its own, outside a row of them: a file linked in a note's text,
@@ -4114,7 +4113,6 @@ button.is-on {
   box-shadow: none;
   cursor: pointer;
   text-align: left;
-  transition: background var(--ui-base) var(--ease-out);
 }
 
 .start-step:hover {
@@ -4357,7 +4355,7 @@ button.is-on {
    *under* it was the same pill in a card, so two levels of navigation read as
    one. A second level is text on the page: no box, no fill, a hairline under
    the strip and a 2px accent line under the chosen tab (Linear, GitHub,
-   Material's secondary tabs). Notes' "Your notes / Capture / Write with Atlas /
+   Material's secondary tabs). Notes' "Your notes / Capture / Writing room /
    Ask", Library's "All ... Contents" and the document sidebar's "Documents /
    Outline" are all this one recipe: one height, one gap, one padding, **no
    icons** (Library never had them, the labels are clear, and an icon on one
@@ -5728,7 +5726,6 @@ textarea.autogrow {
   min-height: var(--row-h);
   padding: 0 var(--space-1) 0 var(--space-3);
   border-radius: var(--radius-sm);
-  transition: background var(--ui-fast) var(--ease-out);
 }
 
 .doc-dictionary-row:hover,
@@ -6593,7 +6590,6 @@ button.ghost.doc-template-choice[aria-checked="true"] {
   text-align: left;
   font: inherit;
   cursor: pointer;
-  transition: background-color var(--ui-fast) var(--ease-out), border-color var(--ui-fast) var(--ease-out);
 }
 
 .embed-card:hover {

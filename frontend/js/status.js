@@ -2690,7 +2690,12 @@ function taskKey(task) {
 //: for work nobody asked for and nothing waits on; filing a note already has
 //: its own line under the composer. They still get a row in the run list and
 //: still say so when they fail.
-const QUIET_TASK_KINDS = new Set(["job-warm-filing", "job-file-entry", "filing-late"]);
+//: Start-up upkeep and Settings downloads too (INBOX 653).
+const QUIET_TASK_KINDS = new Set([
+  "job-warm-filing", "job-file-entry", "filing-late",
+  "embeddings", "embedding-model", "reindex", "searxng-start", "searxng",
+  "job-caption", "caption", "page-read", "pull", "extra",
+]);
 
 function noticeTaskTransitions(running, history) {
   const now = new Map(running.map((task) => [taskKey(task), task]));

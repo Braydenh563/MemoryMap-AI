@@ -285,9 +285,7 @@ header#top-bar[data-scrolled="1"],
    before). A 1ms delay with no backwards fill leaves the box at full size
    for every measure taken before the first frame, while the fade, which
    moves nothing, already has it at 0 opacity; the grow then runs from the
-   second frame. Closing: an escaped menu goes home on close, so it carries
-   `.ui-snap` there and closes at once rather than fading where it was
-   built. */
+   second frame. */
 @keyframes ui-fade {
   from {
     opacity: 0;
@@ -329,12 +327,22 @@ header#top-bar[data-scrolled="1"],
   --menu-origin-y: 100%;
 }
 
-.action-menu.hidden:not(.ui-snap) {
+/* **The way out** (perfpolish: "menus leave instantly though they enter
+   with a reveal"; the motion pass gave it the grow's path back). Every close
+   path (the opener again, Escape, a press outside, `closeActionMenus`) is
+   one class, `.hidden`, so the exit is CSS and none of them changed:
+   `display` is transitioned as a discrete property, so the menu stays drawn
+   for `--ui-exit` while it fades and shrinks back toward its opener, taking
+   no press. The transition is on the closed state only, so opening runs
+   none (the grow above is an animation that starts late on purpose). A menu
+   moved to the body goes home after the exit (`afterMenuExit`, menus.js),
+   because moving a node cancels a transition. */
+.action-menu.hidden {
   opacity: 0;
   scale: 0.96;
   pointer-events: none;
   transition: opacity var(--ui-exit) var(--ease-out), scale var(--ui-exit) var(--ease-out),
-    display var(--ui-exit) allow-discrete;
+    display var(--ui-exit) linear allow-discrete;
 }
 
 /* --- dark glass reads flatter, and here is which half of it does ----------
@@ -2414,6 +2422,15 @@ header#top-bar[data-scrolled="1"],
     min-width: var(--target-min);
   }
 
+  /* And the track grows round them: `.ocr-head .seg` is `height:
+     var(--control-h)` (32px), so the 44px segments stood 6px below their
+     neighbours and 12px past their own track (`wbtopbar.js`, the OCR head at
+     390). */
+  .sheet-card-page .ocr-toolbar .seg-compact {
+    height: auto;
+    min-height: var(--target-min);
+  }
+
   /* Find, over the reading: a 343x20 box at this width, the one control in
      the reader that is neither in the head nor in the toolbar. */
   .sheet-card-page .ocr-find-input {
@@ -2435,9 +2452,9 @@ header#top-bar[data-scrolled="1"],
 }
 
 /* --- The surface model pickers on a phone ---------------------------------
-   Write with Atlas and Ask carry their model picker in their header now (a
+   Writing room and Ask carry their model picker in their header now (a
    choice about the surface, not the request). On a phone the header has no
-   room for it beside its buttons: measured at 390, the Write with Atlas
+   room for it beside its buttons: measured at 390, the Writing room
    dock's picker and Ask's History button were pushed off screen. Below 600
    the picker takes its own full-width line under the header's buttons. */
 @media (max-width: 599.98px) {

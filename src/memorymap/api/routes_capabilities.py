@@ -34,6 +34,24 @@ API_PREFIX = "/api/v1"
 API_VERSION = 1
 
 
+def _mcp() -> dict:
+    """The stdio MCP server, as far as this install can run it.
+
+    `python -m memorymap.mcp_server` needs a Python that can import this
+    package: a source checkout has one, the packaged app does not (its exe
+    is the interpreter, and it takes only its own flags). The packaged app
+    said "installed" with that command anyway, and an outside client set up
+    from it failed to start."""
+    import sys
+
+    if getattr(sys, "frozen", False):
+        return {
+            "installed": False,
+            "reason": "The packaged app cannot start the MCP server; it runs from a source checkout.",
+        }
+    return {"installed": True, "command": "python -m memorymap.mcp_server"}
+
+
 def _installed(module: str) -> bool:
     try:
         return importlib.util.find_spec(module) is not None
@@ -84,7 +102,7 @@ def capabilities() -> dict:
             # Read aloud is the browser's speech synthesis: nothing to install
             # on this side, said so the page does not go looking for it.
             "tts": {"engine": "browser"},
-            "mcp": {"installed": True, "command": "python -m memorymap.mcp_server"},
+            "mcp": _mcp(),
             "lan": {"enabled": bool(netbind.lan_enabled(config))},
             "user_skills_folder": {"installed": True},
         },

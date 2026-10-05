@@ -64,7 +64,7 @@ def test_the_library_draws_its_view_switch_and_board_placeholders_before_data():
     src = (JS / "library.js").read_text(encoding="utf-8")
     load = src[src.index("async function loadLibrary()") :]
     assert load.index("renderLibraryView();") < load.index('apiJson("/library")')
-    assert 'if (typeof wbLeaveFullscreen !== "function") showSkeletons($("library-boards-grid"), 4);' in src
+    assert 'showSkeletons($("library-boards-grid"), 4);\n            wbShowBoardsLanding();' in src
 
 
 def test_the_notes_find_zone_is_never_narrower_than_its_controls():

@@ -3825,7 +3825,7 @@ dialog::backdrop {
 .ask-composer > #question,
 .ask-composer > #question:focus,
 .ask-composer > #question:focus-visible,
-/* The Write with Atlas panel's revision instruction, which is the same thing on
+/* The Writing room panel's revision instruction, which is the same thing on
    the same recipe: a field you type into with the button that acts on it at
    the end of the row. Written by id for the reason the paragraph below gives
    about `!important`, not because the two are different. */
@@ -3908,7 +3908,7 @@ dialog::backdrop {
 
 /* **One step between the blocks of this card, the step the other two sub-tabs
    use.** Brief 22 asked for the Ask panel to be brought to the same rhythm as
-   Capture and Write with Atlas rather than redesigned. Measured on :8895 at
+   Capture and Writing room rather than redesigned. Measured on :8895 at
    1440x900 dark, the gaps down the Ask card were 12.8 (composer), 8 ("Try
    asking"), 8 ("Ask again") and 13.6 (the empty state), four different steps
    in one card, against the single 9.6px step every row of the Capture card
@@ -14539,7 +14539,6 @@ button.finder-row:hover,
   border-radius: var(--radius-sm);
   color: var(--ink);
   cursor: grab;
-  transition: background-color var(--motion-fast) var(--ease-out);
 }
 
 .wb-lib-tile:hover {
@@ -14650,7 +14649,6 @@ button.finder-row:hover,
   border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   cursor: pointer;
-  transition: background-color var(--motion-fast) var(--ease-out);
 }
 
 .wb-layer-depth-1 {

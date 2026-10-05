@@ -16,9 +16,38 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
+
+#: How many times a rename that Windows refused is tried before giving up,
+#: with a growing pause between tries (about 2.7 s in all).
+_REPLACE_ATTEMPTS = 10
+
+
+def _replace(source: str, target: Path) -> None:
+    """`os.replace`, tried again for a moment when Windows says no.
+
+    **On Windows a rename over a file another process has open fails.**
+    `os.replace` there raises `PermissionError` (WinError 5 or 32) while
+    anything holds the target without FILE_SHARE_DELETE, and two things
+    routinely do for a few milliseconds: an antivirus or the search indexer
+    scanning the file that was just written, and another copy of this app
+    reading `instance.lock` (a second launch, `core/instance_lock.py`). Either
+    turned a preference save into a 500 or a launch into a crash, for
+    nothing a short wait would not have fixed. Elsewhere a rename never fails
+    that way, so the first error is the answer.
+    """
+    for attempt in range(_REPLACE_ATTEMPTS):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if sys.platform != "win32" or attempt == _REPLACE_ATTEMPTS - 1:
+                raise
+            time.sleep(0.05 * (attempt + 1))
 
 
 def atomic_write_text(path: str | os.PathLike[str], text: str) -> None:
@@ -28,11 +57,13 @@ def atomic_write_text(path: str | os.PathLike[str], text: str) -> None:
         dir=target.parent, prefix=f".{target.name}.", suffix=".tmp"
     )
     try:
-        with os.fdopen(fd, "w") as f:
+        # UTF-8 always: Windows' default is the ANSI code page, which cannot
+        # write every character and reads back differently on another locale.
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(text)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp_name, target)
+        _replace(tmp_name, target)
     except BaseException:
         # A failed write must not leave a stray temp file behind, and must
         # not touch the real file at all.

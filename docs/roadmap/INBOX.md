@@ -44,6 +44,82 @@ with its owner named in the entry.
      are one well to the dock's edge, one Tab stop, arrows walk them
      (daystrip.js 44/44). Waits on the owner's look before closing.
 
+640. **The owner, 2026-10-05, verbatim.** "Also like the smooth slide across
+     tabs." Placed: the motion agent (a sliding active indicator for tabs,
+     sub-tabs, segmented controls and the Settings sidebar, under the
+     Interface animations toggle).
+
+642. **The owner, 2026-10-05, verbatim.** "I want an emoji and icon widget
+     library which can be dragged and placed in the whiteboard and mindmap and
+     which are also available in text editors and formatting toolbars."
+     Placed: with 641. One picker (emoji plus the vendored Phosphor set, both
+     local), draggable onto boards and maps and insertable from the editors'
+     formatting toolbars.
+
+645. **The owner, 2026-10-05, verbatim.** "Once everything is done, update the
+     pr title and description, update the screenshots on the readme, can your
+     redesign and remake the GitHub pages landing site?? Make it professional
+     and in the image of MemoryMap AI. Make it detailed, and include key
+     links, it for some reason struggles to load the documents from the repo
+     so I think we should remove them and just have a solid landing site
+     which doesn't really have a problem with having to be kept up to date
+     yk?? Then once that is finished. Ensure all the documentation is
+     correct, make sure the release is ready for v0.4.0 and then lemme know
+     when it's ready to merge, before that do a final scan for bugs, security
+     flaws, codeql and ci issues you may have missed." Placed: the release
+     close-out, in this order once 640, 642 and the buildable items land
+     (641's remainder, 643, 644 and 646 went to the next PR, ROADMAP top):
+     fresh README screenshots (`docs/screenshots/`), an Opus agent rebuilding
+     `docs/index.html` as a static landing page (no fetch of repo docs, links
+     out to GitHub instead), a documentation correctness pass, version 0.4.0
+     and its CHANGELOG section, a final bug, security, CodeQL and CI scan,
+     then the PR title and description, then the owner is told it is ready.
+
+648. **The owner, 2026-10-05, verbatim.** "Make sure you finish everything that
+     is left except for the large backlog, work toast and token efficiently.
+     Polish all the small things that make the app feel more professional and
+     reliable. For ma the largest things that make me not want to use an app
+     are ui issues, loss of work to data with no way to retrieve or undo it,
+     poor usability and learnability, and features that don't work how they
+     should. The small things pile up and then I don't want to put my time and
+     effort into actually using the application. I don't want this to happen.
+     I want to be able to use it without worry like a professional
+     application, I want a satisfying experience and the same for my friends
+     who I try to get to use the program. Make sure it is the best thing to
+     ever grace the planet even if no ai model is available. And I was
+     wondering if we should rename the write with atlas/ai subtab to the
+     writing room or smth??" Placed: the end-to-end agent's brief now covers,
+     per flow, no unrecoverable loss (undo, trash or confirm; unsaved edits
+     survive a tab switch, reload and restart), every flow with no model
+     configured, and learnability (labels, tooltips, empty states). Decision
+     taken on the rename: the sub-tab is "Writing room" (built this commit;
+     the panel id was already `writing-room`, the Guide still answers to
+     "write with atlas").
+
+650. **The owner, 2026-10-05, verbatim.** "Can you also update the small
+     miniature atlas male and female avatar icons that go in the corner of
+     chat bubbles?? They aren't up to date and they look like aliens" Placed:
+     the next Opus slot (`assistantAvatar` in chat-agent.js draws
+     `atlasDraw(size)` under 28px, not the current `atlasAvatar` look).
+
+654. **The owner, 2026-10-05, verbatim, with a screenshot of the history list
+     (the status bar's back/forward popup).** "the nav history popup doesnt
+     have md or image etc rendering" Placed: next Sonnet slot (a note row's
+     title through the same plain-title and thumbnail helpers the note cards
+     use; markdown stripped, an image note shows its thumbnail).
+
+660. **The owner, 2026-10-05, verbatim.** "also I want to be able to drag
+     elements on the whiteboard and mindmap onto a popup delete button to
+     delete them" Placed: the next Opus slot, with 650 and 656: a delete
+     target that appears while an item is dragged (board and map), drop
+     deletes with Undo and a toast, Escape cancels.
+
+656. **The owner, 2026-10-05, verbatim, with a screenshot of the status bar's
+     hollow-circle AI dot and its "Notebook ready · chat AI off" card.** "can
+     the no ai available ai status icon be better??" Placed: the next Opus
+     slot, with 650 (the avatars): a glyph that says "AI off, notebook fine",
+     not an empty ring.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

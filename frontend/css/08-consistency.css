@@ -3251,7 +3251,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   margin-inline-end: 0;
 }
 
-/* The chip turns square round its icon (iconchip.js: was 30x24, 4.5px off). */
+/* Square round its icon (iconchip.js). */
 .entry-meta.note-meta:not(.is-measuring) > .chip.is-icon {
   aspect-ratio: 1;
   min-width: 0;
@@ -4986,11 +4986,6 @@ body .chip.item-label,
    line row is unchanged, since there the title's line is the row. */
 .timeline-feed .timeline-row {
   --timeline-title-line: calc(var(--text-md) * 1.25);
-  /* The track, not its items, is what centres in a row on `--row-h` (INBOX
-     542): the mark and the time start at the track's top and are offset to
-     the title line's centre, so the title has to start there too. Left to
-     `align-items: center`, a one-line row's title dropped by half the room
-     `--row-h` leaves (1.7px), and the mark sat 1.2px above it. */
   align-content: center;
 }
 

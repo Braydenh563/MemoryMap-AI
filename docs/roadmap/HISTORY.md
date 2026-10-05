@@ -40730,3 +40730,24 @@ by D5's gate and built 2026-10-05:
 
 Measured: `tests/test_note_kinds_d5.py` 5 tests. Not verified in a browser:
 the legend's colours under the Note type rule.
+
+### Row 15, section 1.3: the "act on this" rows left open
+
+- A reminder points at a document: `Reminder.document_id` (migration
+  a4c9e2f7b1d3), refused with a note's id in the same request, 404 for a
+  missing document, `GET /reminders?document_id=`; a deleted document leaves
+  its reminders about nothing. Every reminder says what it is about
+  (`target_kind`: note, board, map or document; `target_title`), so the row's
+  ⋯ says Open its note, Open its document, Open its board or Open its map and
+  opens that, and its chip carries the target's icon and name.
+- `remindAbout` (shell-reminders.js): a "Remind me" dialog (the text and In an
+  hour, Tonight, Tomorrow or Next week), on the Library's note and document
+  cards and the boards' card menu. Undo of a deleted reminder keeps the
+  document.
+- Show in graph on a document's card (`showDocumentInGraph`: turns the
+  graph's Documents switch on, then centres `document:<id>`).
+- The Library note card's Link to: a note picker, then the same
+  `POST /entries/{id}/links` the Notes list's link mode completes on.
+
+Measured: `tests/test_reminder_targets_row15.py`. Not verified in a browser:
+the reminder dialog's segment at 390.

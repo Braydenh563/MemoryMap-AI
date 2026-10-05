@@ -15,9 +15,9 @@ from sqlalchemy.orm import Session
 from typing import Literal
 
 from memorymap.core import deps
-from memorymap.core.database import Entry, Reminder, utcnow
+from memorymap.core.database import Document, Entry, Reminder, utcnow
 from memorymap.core.deps import get_session
-from memorymap.entry.manager import log_action, readable_content
+from memorymap.entry.manager import extract_title, log_action, plain_label, readable_content
 from memorymap.entry.properties import strip as strip_properties
 
 router = APIRouter(prefix="/reminders", tags=["reminders"])
@@ -30,6 +30,8 @@ class ReminderCreate(BaseModel):
     text: str = Field(min_length=1, max_length=500)
     due_at: datetime
     entry_id: int | None = None
+    #: A document instead of a note (row 15); never both.
+    document_id: int | None = None
     priority: Priority = "normal"
     recurring: Recurring = "none"
     #: Undo's door (INBOX 537): a deleted reminder made again as it was, its
@@ -70,8 +72,34 @@ def _reject_if_in_the_past(due_at: datetime) -> None:
         )
 
 
+def _target(session: Session, reminder: Reminder) -> tuple[str | None, str | None]:
+    """What the reminder is about, as (kind, title): "note", "board", "map"
+    or "document", so the row says "Open its board" rather than calling every
+    target a note (row 15). (None, None) when it is about nothing, or about
+    something since deleted."""
+    if reminder.document_id is not None:
+        document = session.get(Document, reminder.document_id)
+        if document is None or getattr(document, "deleted_at", None) is not None:
+            return None, None
+        return "document", document.title or "Untitled"
+    if reminder.entry_id is None:
+        return None, None
+    entry = session.get(Entry, reminder.entry_id)
+    if entry is None or entry.is_deleted:
+        return None, None
+    text = strip_properties(readable_content(entry))
+    title = extract_title(text) or plain_label(text, 60)
+    if entry.is_board:
+        from memorymap.api.routes_whiteboard import _board_settings
+
+        kind, _layout = _board_settings(entry)
+        return ("map" if kind == "map" else "board"), title
+    return "note", title
+
+
 def _to_out(session: Session, reminder: Reminder) -> dict:
     entry_preview = None
+    target_kind, target_title = _target(session, reminder)
     if reminder.entry_id is not None:
         entry = session.get(Entry, reminder.entry_id)
         if entry is not None and not entry.is_deleted:
@@ -90,6 +118,9 @@ def _to_out(session: Session, reminder: Reminder) -> dict:
         "done": reminder.done,
         "entry_id": reminder.entry_id,
         "entry_preview": entry_preview,
+        "document_id": reminder.document_id,
+        "target_kind": target_kind,
+        "target_title": target_title,
         "priority": reminder.priority,
         "recurring": reminder.recurring,
     }
@@ -285,6 +316,7 @@ def list_reminders(
     limit: int = Query(default=REMINDERS_PAGE_SIZE, ge=1, le=REMINDERS_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
     entry_id: int | None = Query(default=None, description="Only this note's reminders"),
+    document_id: int | None = Query(default=None, description="Only this document's reminders"),
     include_done: bool = True,
     session: Session = Depends(get_session),
 ) -> list[dict]:
@@ -304,6 +336,8 @@ def list_reminders(
     filters = []
     if entry_id is not None:
         filters.append(Reminder.entry_id == entry_id)
+    if document_id is not None:
+        filters.append(Reminder.document_id == document_id)
     if not include_done:
         filters.append(Reminder.done.is_(False))
     total = session.scalar(select(func.count(Reminder.id)).where(*filters)) or 0
@@ -322,12 +356,19 @@ def list_reminders(
 def create_reminder(body: ReminderCreate, session: Session = Depends(get_session)) -> dict:
     if not body.restore:
         _reject_if_in_the_past(body.due_at)
+    if body.entry_id is not None and body.document_id is not None:
+        raise HTTPException(status_code=422, detail="A reminder is about a note or a document, not both.")
     if body.entry_id is not None:
         deps.get_or_404(session, Entry, body.entry_id, "That note could not be found.")
+    if body.document_id is not None:
+        document = session.get(Document, body.document_id)
+        if document is None or getattr(document, "deleted_at", None) is not None:
+            raise HTTPException(status_code=404, detail="That document could not be found.")
     reminder = Reminder(
         text=body.text,
         due_at=body.due_at,
         entry_id=body.entry_id,
+        document_id=body.document_id,
         priority=body.priority,
         recurring=body.recurring,
         done=body.restore and body.done,

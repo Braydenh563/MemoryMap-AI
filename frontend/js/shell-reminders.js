@@ -1116,7 +1116,7 @@ async function clearDoneReminders() {
   const remake = async () => {
     live = await Promise.all(live.map((r) => apiJson("/reminders", {
       method: "POST",
-      body: JSON.stringify({ text: r.text, due_at: r.due_at, entry_id: r.entry_id, priority: r.priority || "normal", recurring: r.recurring || "none", restore: true, done: true }),
+      body: JSON.stringify({ text: r.text, due_at: r.due_at, entry_id: r.entry_id, document_id: r.document_id ?? null, priority: r.priority || "normal", recurring: r.recurring || "none", restore: true, done: true }),
     })));
     loadReminders();
   };
@@ -1232,6 +1232,7 @@ function reminderItem(reminder, label) {
             text: reminder.text,
             due_at: reminder.due_at,
             entry_id: reminder.entry_id,
+            document_id: reminder.document_id ?? null,
             priority: reminder.priority || "normal",
             recurring: reminder.recurring || "none",
             restore: true,
@@ -1253,9 +1254,8 @@ function reminderItem(reminder, label) {
       });
     };
   const menuItems = [];
-  if (reminder.entry_id) {
-    menuItems.push({ label: "ph:note-pencil Open its note", run: () => flashEntry(reminder.entry_id), group: "go" });
-  }
+  const target = reminderTarget(reminder);
+  if (target) menuItems.push({ label: target.label, run: target.open, group: "go" });
   menuItems.push(
     { label: "ph:chat-circle Ask Atlas about this", run: () => askAtlasAboutThing("reminder", reminder.text), group: "go" },
     {
@@ -1280,16 +1280,59 @@ function reminderItem(reminder, label) {
   row.appendChild(actions);
   li.appendChild(row);
 
-  if (reminder.entry_preview) {
+  if (target && (reminder.target_title || reminder.entry_preview)) {
     const linkRow = document.createElement("div");
     linkRow.className = "entry-links";
-    const noteChip = chip(`ph:note-pencil ${reminder.entry_preview}`, "link", () =>
-      flashEntry(reminder.entry_id)
-    );
+    const noteChip = chip(`${target.icon} ${reminder.target_title || reminder.entry_preview}`, "link", target.open);
+    noteChip.title = target.label.replace(/^ph:\S+ /, "");
     linkRow.appendChild(noteChip);
     li.appendChild(linkRow);
   }
   return li;
+}
+
+//: **What a reminder is about, and the way to it** (WORLD_CLASS_PLAN 1.3,
+//: row 15). A reminder used to point at a note only, so a board's said "Open
+//: its note" and flashed nothing in the Notes list; a document could not have
+//: one. `target_kind` comes from the server, which knows a board from a note.
+function reminderTarget(reminder) {
+  const kind = reminder.target_kind || (reminder.entry_id ? "note" : null);
+  if (kind === "document" && reminder.document_id) {
+    return { icon: "ph:file-text", label: "ph:file-text Open its document", open: () => openDocumentFromNote(reminder.document_id) };
+  }
+  if ((kind === "board" || kind === "map") && reminder.entry_id) {
+    const icon = kind === "map" ? "ph:tree-structure" : "ph:squares-four";
+    return { icon, label: `${icon} Open its ${kind}`, open: () => openWhiteboardBoard(reminder.entry_id) };
+  }
+  if (kind === "note" && reminder.entry_id) {
+    return { icon: "ph:note-pencil", label: "ph:note-pencil Open its note", open: () => flashEntry(reminder.entry_id) };
+  }
+  return null;
+}
+
+//: **Remind me, from any object's menu** (WORLD_CLASS_PLAN 1.3, row 15): a
+//: note in the Library, a document, a board or a map. The text and one of
+//: the presets the Reminders form has; the exact time is the tab's own form.
+async function remindAbout({ title, entryId = null, documentId = null }) {
+  const answer = await promptDialog("Remind me", `Follow up: ${String(title || "").trim()}`.slice(0, 200), {
+    confirmLabel: "Set reminder",
+    segment: {
+      label: "When",
+      value: "tomorrow",
+      options: [
+        { value: "1h", label: "In an hour" },
+        { value: "tonight", label: "Tonight" },
+        { value: "tomorrow", label: "Tomorrow" },
+        { value: "nextweek", label: "Next week" },
+      ],
+    },
+  });
+  const text = answer && typeof answer.text === "string" ? answer.text.trim() : "";
+  if (!text) return false;
+  return addReminder(text, presetDate(answer.choice || "tomorrow"), entryId, { documentId }).catch((error) => {
+    toast(error.message, true);
+    return false;
+  });
 }
 
 // Relative time that works both ways: "in 2 hours" (future) and "3 days ago"
@@ -1582,6 +1625,7 @@ async function addReminder(text, dueValue, entryId = null, opts = {}) {
       text,
       due_at: new Date(dueValue).toISOString(),
       entry_id: entryId,
+      document_id: opts.documentId ?? null,
       priority: opts.priority || "normal",
       recurring: opts.recurring || "none",
     }),

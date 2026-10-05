@@ -1028,6 +1028,10 @@ class Reminder(Base, WorkspaceMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     entry_id: Mapped[int | None] = mapped_column(ForeignKey("entries.id"), default=None)
+    #: WORLD_CLASS_PLAN 1.3 (row 15): a reminder about a document. A board or
+    #: a map is an `Entry`, so `entry_id` already covers those; a document is
+    #: its own table. At most one of the two is set (`routes_reminders`).
+    document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"), default=None, index=True)
     text: Mapped[str] = mapped_column(String(500))
     due_at: Mapped[datetime] = mapped_column(DateTime)
     done: Mapped[bool] = mapped_column(Boolean, default=False)

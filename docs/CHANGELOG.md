@@ -437,6 +437,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 
 ### Added
 
+- Remind me on a document's and a board's or map's ⋯ menu, and on the Library's note card with Link to (a note picker); a document's Library card has Show in graph. A reminder now says what it is about (a note, a document, a board or a map), and its row opens that (WORLD_CLASS_PLAN 1.3).
 - Note types: Person, Project, Meeting, Book and Place come built in, each with its own colour and fields (deleted ones stay deleted), and the graph's View, Colour has Note type, which paints each note its type's colour (WORLD_CLASS_PLAN D5).
 - Whiteboard: View, Present frames shows a board's frames one at a time, full screen, in reading order, each fitted to the screen. The arrow keys, Space, Home and End (or the small bar at the foot) move through them, and Escape puts the board back as it was (WHITEBOARD_PLAN decision 16; `scratchpad/ui-sweeps/wbpresent.js` 18/18 at 1440x900 and 390x844, light and dark).
 - Whiteboard: lock. Ctrl+Shift+L (or Lock on an item's right-click menu) holds what is selected in place: clicks pass through it to the board, and Select all, a box selection, the eraser and a frame's drag leave it alone. Right-click the board and choose Unlock (it says how many are locked), or press Ctrl+Shift+L with nothing selected, to free them (WHITEBOARD_PLAN decision 15; `scratchpad/ui-sweeps/wblock.js` 17/17 at 1440x900 and 390x844, light and dark). A box selection drawn inside a frame no longer selects the frame as well.

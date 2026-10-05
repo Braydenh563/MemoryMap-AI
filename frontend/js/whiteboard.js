@@ -16314,6 +16314,11 @@ function drawLibraryBoardsGallery(listed) {
           makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this board or map", () =>
             askAtlasAboutThing(board.type === "map" ? "map" : "board", board.title)
           ),
+          //: A board is an `Entry`, so its reminder is an `entry_id` one; the
+          //: row in Reminders opens the board (WORLD_CLASS_PLAN 1.3, row 15).
+          makeMenuItem("ph:alarm Remind me", "Set a reminder about this board or map", () =>
+            remindAbout({ title: board.title, entryId: board.id })
+          ),
           makeMenuItem("ph:pencil-simple Rename", "Rename this board", async () => {
             const next = await promptDialog("Rename this board:", board.title);
             if (!next) return;

@@ -802,6 +802,15 @@ function libraryActions(item) {
       makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this document", () =>
         askAtlasAboutThing("document", item.title)
       ),
+      //: The rest of the "act on this" vocabulary (WORLD_CLASS_PLAN 1.3,
+      //: row 15): the graph draws documents behind its Documents switch, and
+      //: a reminder can point at a document.
+      makeMenuItem("ph:graph Show in graph", "Open the graph with documents shown, centred on this one", () =>
+        showDocumentInGraph(item.id)
+      ),
+      makeMenuItem("ph:alarm Remind me", "Set a reminder about this document", () =>
+        remindAbout({ title: item.title, documentId: item.id })
+      ),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
         await apiJson(`/documents/${item.id}/archive`, { method: "PUT" }).catch((e) =>
           toast(e.message, true)
@@ -878,6 +887,13 @@ function libraryActions(item) {
       makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this note", () =>
         askAtlasAboutThing("note", item.title)
       ),
+      //: The two rows the Notes card's menu has and this twin did not
+      //: (WORLD_CLASS_PLAN 1.3, row 15). Link to is a picker here: the Notes
+      //: list's two-click link mode needs both notes on one screen.
+      makeMenuItem("ph:alarm Remind me", "Set a reminder about this note", () =>
+        remindAbout({ title: item.title, entryId: item.id })
+      ),
+      makeMenuItem("ph:link Link to…", "Connect this note to another one", () => linkNoteFromLibrary(item)),
       // BACKLOG.md §95 item D.14: "Full export exists. There is no way to
       // hand one note to someone." Same route shape and menu placement as
       // the Document kind's own "Download .md" a few lines up.
@@ -985,6 +1001,38 @@ function libraryActions(item) {
     ];
   }
   return [];
+}
+
+//: A document on the graph (WORLD_CLASS_PLAN 1.3, row 15). Documents are
+//: drawn only with the Show, Documents switch on, so this turns it on first;
+//: the node's id is `document:<id>` (`routes_graph._add_document_nodes`).
+async function showDocumentInGraph(id) {
+  await switchTab("graph");
+  const box = document.getElementById("graph-documents");
+  if (box && !box.checked) {
+    box.checked = true;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  await showNoteInGraph(`document:${id}`, "document");
+}
+
+//: Link a Library note to another, chosen from a picker. The same route the
+//: Notes list's Link mode completes on (`POST /entries/{id}/links`).
+async function linkNoteFromLibrary(item) {
+  const other = await pickEntryDialog("Link to which note?");
+  if (!other) return;
+  if (other.id === item.id) {
+    toast("A note can't be linked to itself.", true);
+    return;
+  }
+  try {
+    await apiJson(`/entries/${item.id}/links`, { method: "POST", body: JSON.stringify({ target_id: other.id }) });
+  } catch (error) {
+    toast(error.message, true);
+    return;
+  }
+  toast("Linked.");
+  loadEntries();
 }
 
 // The two strips that only appear when they have something to say.

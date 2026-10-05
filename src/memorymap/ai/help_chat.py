@@ -171,7 +171,8 @@ HELP_TOPICS: list[dict] = [
             "let the AI schedule it. In the chat, \"remind me two hours before "
             "midnight\" works too: Atlas passes your words and the app works "
             "out the time on your own clock. Notifications fire while the app "
-            "is open."
+            "is open. Remind me is on a note's, a document's and a board's ⋯ "
+            "menu too, and the reminder's row opens what it is about."
         ),
         "badge": {"label": "Reminders", "tab": "reminders"},
     },

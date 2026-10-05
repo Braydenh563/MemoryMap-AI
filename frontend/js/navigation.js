@@ -1755,6 +1755,10 @@ async function switchTab(name) {
   // old one was still running or already stopped.
   const leavingGraph = localStorage.getItem("activeTab") === "graph" && name !== "graph";
   recordTabVisit(name);
+  //: The next 400ms belong to the page arriving (INBOX 580): the companion's
+  //: paced animations hold still through them (`nameMarkBuddyTempo`), so the
+  //: main thread's frames go to the new page.
+  window.uiSettlingUntil = performance.now() + 400;
   revealTab(name);
   if (leavingGraph) {
     //: `typeof` first: leaving Graph before its bundle has arrived (a press on

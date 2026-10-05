@@ -5420,7 +5420,12 @@ function nameMarkBuddyTempo() {
   //: translate) is the compositor's. An act or a drag still runs at full
   //: rate: those are short and are the moment it is being looked at.
   const busy = (!!nmb.act && !NMB_RESTING_ACTS.has(nmb.act)) || buddy.classList.contains("nm-buddy-dragging");
-  const still = now - nmbFollow.scrollAt < 300;
+  //: Held, not stepped, while a scroll is under way and while a page or a
+  //: popup is arriving (`uiSettlingUntil`, set by `switchTab` and
+  //: `openSettingsModal`; INBOX 580, the owner: "the atlas companion and app
+  //: in general is ever so slightly laggy"): each step inside a drawing is a
+  //: layout and a repaint the arriving view's frames are waiting on.
+  const still = now - nmbFollow.scrollAt < 300 || now < (window.uiSettlingUntil || 0);
   const step = Math.min(now - (nmbTempo.at || now), 250);
   //: Every read first, then every write: reading an animation's state
   //: after one has been stepped makes the page lay itself out again, once

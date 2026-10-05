@@ -142,3 +142,12 @@ def test_late_parts_do_not_push_the_page():
     assert ".timeline-days:empty {" in CSS["06-timeline-dialogs.css"]
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert '<p id="ollama-status" class="status is-checking">Checking the models…</p>' in html
+
+
+def test_the_companion_holds_still_while_a_view_arrives():
+    nav = (ROOT / "frontend" / "js" / "navigation.js").read_text(encoding="utf-8")
+    switch = nav[nav.index("async function switchTab(") :]
+    assert switch.index("window.uiSettlingUntil = performance.now() + 400;") < switch.index("revealTab(name);")
+    settings = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+    assert "window.uiSettlingUntil = performance.now() + 400;" in _fn(settings, "openSettingsModal")
+    assert "now < (window.uiSettlingUntil || 0)" in _fn(AVATARS, "nameMarkBuddyTempo")

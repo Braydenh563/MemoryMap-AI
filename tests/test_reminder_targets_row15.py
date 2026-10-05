@@ -12,8 +12,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from tests._app_js import app_js_text
-
 ROOT = Path(__file__).resolve().parents[1]
 LIBRARY = (ROOT / "frontend" / "js" / "library.js").read_text(encoding="utf-8")
 BOARDS = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
@@ -65,5 +63,4 @@ def test_the_menus_offer_the_rows():
     #: The note's door takes a document too (note-cards.js, `{ document: true }`).
     assert "showNoteInGraph(item.id, { document: true })" in document
     assert "remindAbout(" in BOARDS
-    app = app_js_text()
-    assert "function remindAbout(" in app
+    assert "function remindAbout(" in LIBRARY

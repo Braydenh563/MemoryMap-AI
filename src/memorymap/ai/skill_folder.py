@@ -129,8 +129,11 @@ def parse(text: str, fallback_name: str) -> dict:
 def _load(path: Path, known_tools: set[str] | None, check: Callable) -> dict | str:
     try:
         stat = path.stat()
-    except OSError as exc:
-        return f"could not be read ({exc.strerror or exc})"
+    except OSError:
+        # A fixed sentence, never the OS error: it reaches the Settings
+        # response, and an OS error can carry a path (CodeQL, information
+        # exposure through an exception).
+        return "could not be read"
     key = str(path)
     stamp = (stat.st_mtime_ns, stat.st_size)
     with _lock:
@@ -142,8 +145,10 @@ def _load(path: Path, known_tools: set[str] | None, check: Callable) -> dict | s
     else:
         try:
             text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError) as exc:
-            result = f"could not be read as UTF-8 text ({exc})"
+        except UnicodeDecodeError:
+            result = "could not be read as UTF-8 text"
+        except OSError:
+            result = "could not be read"
         else:
             result = check(parse(text, path.stem), known_tools)
     with _lock:

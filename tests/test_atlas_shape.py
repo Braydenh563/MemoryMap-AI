@@ -496,7 +496,8 @@ def test_the_masculine_look_is_a_star_being_not_an_animatronic():
     # mittens, softer eyes and a gentle idle sway.
     masculine = _look("masculine")
     assert "legs: false," in masculine and "lowers: [" in masculine
-    assert "armWidth: [4.4, 1.8]," in masculine and "handScale: 0.9," in masculine
+    # INBOX 614 ("the masculine atlas kinda looks fat"): slimmer arms.
+    assert "armWidth: [3.8, 1.6]," in masculine and "handScale: 0.9," in masculine
     arms = re.search(r"    arm: \[(\[[^\]]+\]), (\[[^\]]+\])\],", masculine)
     assert arms, "the arm bends: two segments"
     assert '.nm-atlas[data-atlas-look="masculine"] .atl-eye { scale: 0.84; }' in CSS

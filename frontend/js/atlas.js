@@ -522,8 +522,8 @@ const ATLAS_LOOKS = {
     brow: "straight",
     lashes: false,
     tail: [[31.4, 56.6, 40.6, 61.8, 55, 59.8, 53.6, 71], [53.6, 71, 50.6, 80, 53, 89, 62, 90.4], [62, 90.4, 69.6, 91.4, 72.4, 84.4, 66.6, 80.4]],
-    tailWidth: (t) => 4.2 + 5.2 * Math.sin(Math.PI * Math.min(1, 0.25 + 0.85 * t)) - 2.6 * t * t,
-    tailJoin: [37, 59.6, 4.6],
+    tailWidth: (t) => 3.4 + 4.4 * Math.sin(Math.PI * Math.min(1, 0.25 + 0.85 * t)) - 2 * t * t,
+    tailJoin: [35.8, 58.8, 4.2],
     //: His tail waves as hers does (the owner: "both atlas avatars have a
     //: tail as well ... they all need to be dynamically animated").
     tailWave: { t: 0.5, zone: [0.42, 0.58] },
@@ -577,23 +577,33 @@ const ATLAS_LOOKS = {
     //: (atlasBuild), the sub-wisps its tatters. Its dust is [t, across, r]
     //: along the cloak, its glints [t, across, size], its motes [dx, dy, r,
     //: glint] about the hem's end.
-    cloak: [14.6, 18.4, 2.4],
+    cloak: [9.8, 12, 2],
     cloakDust: {
       dust: [[0.34, 0.2, 0.18], [0.4, -0.28, 0.14], [0.47, 0.05, 0.26], [0.53, 0.33, 0.12], [0.58, -0.14, 0.2], [0.64, 0.24, 0.13], [0.7, -0.3, 0.17], [0.77, 0.1, 0.22], [0.83, -0.2, 0.12], [0.9, 0.16, 0.15]],
       glints: [[0.49, -0.16, 0.8], [0.72, 0.2, 0.6]],
       motes: [[-3.4, 2.6, 0.3], [2.8, 3.4, 0.2], [-6.2, -1.2, 0.24], [5.4, -0.6, 0.16], [0.6, 5, 0.18], [-1.6, 4.6, 0.55, 1], [6.6, 2.4, 0.42, 1]],
     },
     lowers: [
-      { main: true, seg: [[31, 56, 31, 63.5, 26, 68, 26.4, 75], [26.4, 75, 26.8, 82, 35.6, 83, 35.8, 90], [35.8, 90, 36, 95, 32.4, 98.2, 30.2, 96.2]], w: 11, hip: 16, specks: [[0.3, 0.34], [0.52, 0.3], [0.7, 0.32], [0.86, 0.26]] },
-      { side: -1, seg: [[26.4, 71, 25.4, 77.4, 22.6, 82.6, 18.6, 84.4]], w: 3.8, specks: [[0.45, 0.24], [0.8, 0.2]] },
-      { side: 1, seg: [[31.6, 82, 34.4, 85.6, 38.4, 90.6, 42.4, 98.6]], w: 2.9, specks: [[0.55, 0.22]] },
+      { main: true, seg: [[31, 56, 31, 63.5, 26, 68, 26.4, 75], [26.4, 75, 26.8, 82, 35.6, 83, 35.8, 90], [35.8, 90, 36, 95, 32.4, 98.2, 30.2, 96.2]], w: 8, hip: 10, specks: [[0.3, 0.34], [0.52, 0.3], [0.7, 0.32], [0.86, 0.26]] },
+      { side: -1, seg: [[26.4, 71, 25.4, 77.4, 22.6, 82.6, 18.6, 84.4]], w: 3.2, specks: [[0.45, 0.24], [0.8, 0.2]] },
+      { side: 1, seg: [[31.6, 82, 34.4, 85.6, 38.4, 90.6, 42.4, 98.6]], w: 2.5, specks: [[0.55, 0.22]] },
     ],
     //: **A V, not an egg** (INBOX 564, the owner: "fix or redesign the male
     //: main body on the atlas avatar instead of just being an oval"): the
     //: torso is widest across the shoulders (18.4 at y 39, where the egg
     //: was widest at the belly) and tapers to the hips (14 at y 55), where
     //: the trail leaves it as wide as they are, like a cloak.
-    torso: "M25 35.4C21 37.2 21.2 42.4 22.6 47C23.6 50.4 23.6 55.2 26.2 60.4C28.6 63.6 33.4 63.6 35.8 60.4C38.4 55.2 38.4 50.4 39.4 47C40.8 42.4 41 37.2 37 35.4Z",
+    //: **Young and athletic, 19 to 21, as she is** (INBOX 614, the owner:
+    //: "the masculine atlas kinda looks fat", "make the masculine atlas look
+    //: hot and 19-21 like the feminine one"): the torso was 15.1 across the
+    //: belly at y 51 under 18.6 shoulders, a broad soft column, and the
+    //: cloak widened to 18.4 below it. Now defined shoulders 17 across taper
+    //: in a V to a 9.5 waist and 9.8 hips (1.8 : 1 : 1.03, where it was 1.5
+    //: : 1.2 : 0.8 against the belly; hers is 1.44 : 1 : 1.63), the arms are
+    //: slimmer (3.8 to 1.6), the cloak and its tatters narrower (9.8 at the
+    //: hips, 12 at its fullest) and the tail slimmer to match
+    //: (scratchpad/ui-sweeps/atlas614-build.js).
+    torso: "M25.6 35.4C22.2 36.4 21.8 40.4 23.4 43.6C25.8 47.6 26.8 55.4 26 61C28 63.4 34 63.4 36 61C35.2 55.4 36.2 47.6 38.6 43.6C40.2 40.4 39.8 36.4 36.4 35.4Z",
     //: **Arms that hang** (INBOX 564, 567, 568, the owner: "the arms still
     //: look separate and they stick straight out of the body and dont hang
     //: naturally"): from the shoulder the upper arm drops 13 degrees off
@@ -602,7 +612,7 @@ const ATLAS_LOOKS = {
     //: with a smaller mitten (0.9).
     armL: [[24.6, 40.4, 23.6, 43.4, 22.8, 46.6, 22.4, 49.6], [22.4, 49.6, 22, 52.6, 22.2, 55.4, 22.6, 57.8]],
     arm: [[37.4, 40.4, 38.4, 43.4, 39.2, 46.6, 39.6, 49.6], [39.6, 49.6, 40, 52.6, 39.8, 55.4, 39.4, 57.8]],
-    armWidth: [4.4, 1.8],
+    armWidth: [3.8, 1.6],
     armHands: [-1, 1],
     handScale: 0.9,
     //: Where the right mitten grips a bell or a lantern (`atlasHandProps`).

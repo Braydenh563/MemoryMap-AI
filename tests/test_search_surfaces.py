@@ -121,14 +121,18 @@ def test_the_notes_list_asks_the_engine_for_its_operators():
     assert "/search?q=" in ids
 
 
+def test_the_library_semantic_toggle_asks_the_engine():
+    body = _function(_read("library.js"), "refreshLibrarySemantic")
+    assert "/search?q=" in body
+    assert "kind=note" in body
+
+
 def test_no_surface_still_reads_the_second_ranking_path():
     """`/entries?...&semantic=true` is the second ranking path the engine
     replaced; nothing in the frontend asks for it any more."""
-    #: Surfaces not moved yet; each step of search-boot-1005 empties this.
-    pending = {"library.js"}
     offenders = [
         path.name
         for path in sorted(JS_DIR.glob("*.js"))
-        if path.name not in pending and "semantic=true" in path.read_text(encoding="utf-8")
+        if "semantic=true" in path.read_text(encoding="utf-8")
     ]
     assert not offenders, offenders

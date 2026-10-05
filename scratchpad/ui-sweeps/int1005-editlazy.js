@@ -36,7 +36,8 @@ const [vw, vh] = (process.env.VIEWPORT || "1440x900").split("x").map(Number);
       chips: li.querySelectorAll(".tag-field .chip").length,
       category: !!li.querySelector(".note-edit-category"),
       kids, counts: counts?.textContent, save,
-      countsBeforeActions: cr && ar ? (ar.top >= cr.bottom - 1 ? 0 : Math.round(ar.left - cr.right)) : null,
+      countsBeforeActions: cr && ar && cr.width ? Math.round(ar.left - cr.right) : null,
+      countsShown: !!(cr && cr.width),
       footRightGap: fr && ar ? Math.round(fr.right - ar.right) : null,
       real: !String(window.renderEditForm).includes("ensureModule"),
     };
@@ -46,8 +47,10 @@ const [vw, vh] = (process.env.VIEWPORT || "1440x900").split("x").map(Number);
     ok("one surface", m.surface);
     ok("tag chip", m.chips === 1, m.chips);
     ok("category chip", m.category);
-    ok("counts in the foot", /words?/.test(m.counts || ""), m.counts);
-    ok("counts left of the actions", m.countsBeforeActions !== null && m.countsBeforeActions >= 0, m.countsBeforeActions);
+    ok("counts in the foot", /words?/.test(m.counts || "") && /min read|under a min/.test(m.counts || ""), m.counts);
+    //: 616's foot: the count left of Cancel and Save, and hidden on a phone.
+    if (vw >= 600) ok("counts left of the actions", m.countsShown && m.countsBeforeActions >= 0, m.countsBeforeActions);
+    else ok("counts hidden on a phone", !m.countsShown, m.countsShown);
     ok("actions at the foot's right", m.footRightGap !== null && m.footRightGap <= 1, m.footRightGap);
     ok("Cancel then Save", m.save.length === 2 && /Cancel/.test(m.save[0]), m.save);
     ok("real function loaded", m.real);

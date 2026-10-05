@@ -1,13 +1,15 @@
 # integ-1005 (integration branch, resume after restart)
 
 Done:
-- WIP 1115e84 finished and amended (1251fba): the undo test lists before it makes (the seeded types took the deleted id).
-- Merged claude/notes-flow-rebuild 2290942 and 97923ca, worktree-agent-ad3584a6daa4a586d (backlog), worktree-agent-a5fc003aee83305a1 (search, boot slimming). One alembic head (b4e8d2a6f1c9).
-- Conflicts: one Show in graph row on a Library document (`showNoteInGraph(id, { document: true })`); the edit form's word count in the new foot; lazy tables unioned; showDetailDialog and addBoardToNote moved by both sides, one copy kept.
-- Boot under every cap without raising one: 63 same-bundle guards dropped; renderEditForm and eight one-caller helpers into the lazy files that call them. Measured and set: boot JS 590,758 (cap 590,800), app.js 14,207 (14,300), total 322,228 (322,300), guards 288, lets 705.
-- `scratchpad/ui-sweeps/int1005-editlazy.js` 12/12 at 1440 light and 390 dark (edit form via its stand-in, save, Settings handlers, no console errors).
+- WIP 1115e84 finished (1251fba). Merged: claude/notes-flow-rebuild up to 941ae1d (2290942, 97923ca, 143b240, 88227db, 6382169, f22bd43, 941ae1d), worktree-agent-ad3584a6daa4a586d (backlog), worktree-agent-a5fc003aee83305a1 (search, boot slimming). One alembic head (b4e8d2a6f1c9).
+- worktree-agent-a79a18324e9d9899e (292636f) recorded with `-s ours` (3732b05): it built world-class rows 3 to 6, 12, 13, 15, 21, 30, 31, 34 a second time, beside the integration's ae597ce (24 conflicted files, duplicate modules). The integration's implementation is kept; its one new behaviour, Undo for a snooze (2d867a1), is ported (bc9fe0a).
+- The note edit form: 616's redesign in note-edit-panels.js (lazy, a stand-in), its word count with the reading time; closeNoteForm with it.
+- Lazy moves for the boot budget: renderEditForm, closeNoteForm, the embedding models list, the full backup's handlers, deleteProfile, mergeNamedPrompts, addSkill, the Settings bar's New listener, the privacy tables, placeTemplateCaret, atlasStartersFor, refreshAfterCategoryChange; the companion's menu and enlarged view in a new companion-menu.js; Atlas's rig changes ported into atlas-motion.js. Caps lowered to the measure: boot JS 589,100, total 321,000, app.js 14,300, guards 279, lets 704.
+- A boot error the Atlas merge brought (atlasState read by setAtlasMood before atlas-motion.js loads) fixed: atlasState is at boot again.
+- Sweeps: noteedit616.js 0 findings at 1440 light and 390 dark; noteeditflow.js all passed (fresh data, one bookmark seeded); a session check of the companion menu, enlarged view, Atlas figure and atlas-life.js load at 1440 and 390, no page errors.
 
 Left:
-- INBOX 577 to 587 were already gone from INBOX.md; nothing deleted.
-- A note type made through `POST /note-types` before the types list was ever read, then deleted, loses its id on Undo (the seeding on the next list takes id 1).
-- `gate.sh --changed` selects 724 files on this branch (most of the suite) and timed out at 1700s; the targeted runs above stood in for it.
+- The world-class branch's "Link all above 70%" on a suggested link and its lazy-inbox.css move (a749b9d) were not ported; the integration's own suggested-link row (081b29d) stands.
+- A note type made through `POST /note-types` before the list was ever read, then deleted, loses its id on Undo.
+- autonomous.py's module-level stop flag leaks between tests in one process (fixed in test_words_review only).
+- `gate.sh --changed` selects most of the suite on this branch; the targeted runs stood in for it.

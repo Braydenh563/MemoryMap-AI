@@ -55,7 +55,12 @@ async function buildBoard(page) {
       method: "POST",
       body: JSON.stringify({
         board_id: board.id, x: 0, y: 0, z: 1,
-        data: JSON.stringify({ type: "rect", x: 140, y: 320, width: 200, height: 140, color: "#7dd3c8", strokeWidth: 3 }),
+        // A shape sketch is a path (`d`) the board draws, the rectangle tool's
+        // own `M x y h w v h h -w Z`, with the shape name beside it. The old
+        // fixture stored `{type: "rect", x, y, width, height}`, which is not a
+        // path, so the renderer set it as `d` and the browser logged "Expected
+        // moveto path command" on every draw.
+        data: JSON.stringify({ d: "M 140 320 h 200 v 140 h -200 Z", shape: "rect", color: "#7dd3c8", width: 3 }),
       }),
     });
     await apiJson("/whiteboard/sketches", {
@@ -104,6 +109,11 @@ function probe(page) {
 (async () => {
   const { browser, page } = await boot({ viewport: VIEWPORT });
   const read = () => probe(page);
+  // The fixture's own mistakes show up here, not as a pan failure: a sketch
+  // whose data was not a valid path logged "Expected moveto path command" twice
+  // for as long as this sweep existed, and nothing asserted on it.
+  const consoleErrors = [];
+  page.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text().slice(0, 140)); });
   const ids = await buildBoard(page);
   console.log("board", JSON.stringify(ids));
   const box = await page.evaluate(() => {
@@ -196,6 +206,8 @@ function probe(page) {
   const endGapX = end.card.x - end.shape.x;
   check("the shape lands where it started relative to the note", Math.abs(endGapX - baseGapX) < 0.5,
     `gap ${endGapX.toFixed(2)} vs ${baseGapX.toFixed(2)}`);
+
+  check("the board draws with no console errors", consoleErrors.length === 0, consoleErrors.join(" | "));
 
   const bad = results.filter((r) => !r.ok);
   console.log(`\n${results.length - bad.length}/${results.length} passed`);

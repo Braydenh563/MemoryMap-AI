@@ -66,3 +66,38 @@ def test_no_sweep_reads_the_retired_textarea_editor():
         if hits:
             offenders.append(f"{sweep.name}: {hits}")
     assert not offenders, "sweeps reading retired editor names: " + "; ".join(offenders)
+
+
+def test_quickaccess_sweep_uses_the_dashboard_docks_customise_menu():
+    """INBOX 488 moved Quick access's row menu to the dock's Customise; INBOX
+    524 made adding a checklist dialog. The sweep must not drive the old ones."""
+    code = (ROOT / "scratchpad" / "ui-sweeps" / "quickaccess.js").read_text(encoding="utf-8")
+    assert "#dash-quicklinks .launch-head', '" not in code
+    assert "#dash-customise" in code
+    assert "rich-picker-row" not in code
+    dashboard = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    # The two menu rows the sweep presses exist under those words.
+    for row in ("Edit quick access", "Reset quick access"):
+        assert row in code and row in dashboard
+
+
+def test_mappan_sketch_fixture_is_a_path_the_board_can_draw():
+    """The rect fixture stored `{type: "rect", x, y, width, height}`, which is
+    not a path, so the board set it as `d` and the browser logged "Expected
+    moveto path command" on every draw. A shape sketch is `{d, shape, ...}`."""
+    code = (ROOT / "scratchpad" / "ui-sweeps" / "mappan.js").read_text(encoding="utf-8")
+    assert 'stringify({ type: "rect"' not in code
+    match = re.search(r'd: "(M [^"]+)", shape: "rect"', code)
+    assert match, "the rect sketch fixture no longer carries a path"
+    assert match.group(1).startswith("M ") and match.group(1).rstrip().endswith("Z")
+    assert "no console errors" in code, "the sweep must assert on what the page logs"
+
+
+def test_skeletons_sweep_names_the_views_that_are_right_to_read_blank():
+    code = (ROOT / "scratchpad" / "ui-sweeps" / "skeletons.js").read_text(encoding="utf-8")
+    block = code.split("const EXPECTED_BLANK = [", 1)[1].split("];", 1)[0]
+    for view in ("chat/conversations", "documents/list", "graph"):
+        assert f"name: '{view}'" in block
+    # The phone-only exemption is bounded: documents/list is a drawer below 600.
+    assert re.search(r"documents/list.*maxWidth: 599", block)
+    assert "process.exit(failed ? 1 : 0)" in code

@@ -3085,27 +3085,26 @@ Link to another note with [[its first few words]]."></textarea>
         is next Friday" plots on that Friday, marked with a clock, and at when it was
         written otherwise. Arrow keys walk the rows, Enter opens one where it sits.
         The strip below shows the last seven days: a dot marks a day with a page,
-        and pressing a day opens its page or starts it. The month above the strip
-        opens a calendar, to jump to any earlier day.
+        and pressing a day opens its page or starts it. The arrows beside the
+        month walk a week, and the month opens a calendar to jump to any earlier day.
   </p>
 </div>
-      <!-- The calendar strip (WORLD_CLASS_PLAN D6): the last seven days, a dot
-           under each that has a page, one press to open or start it. Built by
-           `renderTimelineDayStrip`; outside the dock on purpose, the dock is
-           at its control ceiling. -->
+      <!-- The calendar strip (WORLD_CLASS_PLAN D6; INBOX 543 redesign): one
+           header row under the dock. The month and its two arrows are one
+           group (earlier, the month, later), and the seven days are one well
+           spanning the rest, a dot under a day with a page, today's number
+           filled. Built by `renderTimelineDayStrip`; outside the dock on
+           purpose, the dock is at its control ceiling. -->
       <div class="timeline-daystrip" id="timeline-daystrip" role="group" aria-label="Journal days">
         <div class="timeline-daystrip-head">
+          <button type="button" id="timeline-days-earlier" class="ghost small icon-only" title="Earlier days" aria-label="Earlier days"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
           <!-- The month: a button, because it is the way past the seven days.
-               It opens `#timeline-month-pop` (a month grid, built by
-               `renderTimelineMonthPop`) on the popover shell
-               (`wireHelpPopover`, DESIGN.md's popover tier). -->
+               It opens `#timeline-month-pop` (`renderTimelineMonthPop`) on the
+               popover shell (`wireHelpPopover`). -->
           <button type="button" id="timeline-month-btn" class="ghost small timeline-daystrip-label"
             aria-haspopup="dialog" aria-controls="timeline-month-pop" aria-expanded="false"
             title="Jump to another month"><span id="timeline-month-text"></span><i class="ph ph-caret-down" aria-hidden="true"></i></button>
-          <span class="timeline-daystrip-arrows">
-            <button type="button" id="timeline-days-earlier" class="ghost small icon-only" title="Earlier days" aria-label="Earlier days"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
-            <button type="button" id="timeline-days-later" class="ghost small icon-only" title="Later days" aria-label="Later days"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
-          </span>
+          <button type="button" id="timeline-days-later" class="ghost small icon-only" title="Later days" aria-label="Later days"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
         </div>
         <div class="timeline-days" id="timeline-daystrip-days"></div>
       </div>

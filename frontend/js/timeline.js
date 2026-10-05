@@ -1066,6 +1066,11 @@ async function renderTimelineDayStrip() {
       : `${firstDay.toLocaleDateString(undefined, { month: "short" })} to ${lastDay.toLocaleDateString(undefined, { month: "short", year: "numeric" })}`;
   $("timeline-days-later").disabled = end >= today;
 
+  //: One Tab stop for the seven (INBOX 543): the day the focus is on, else
+  //: today, else the last; the arrow keys walk them (`timelineDayKeys`).
+  const inView = (key) => key && key >= first && key <= end;
+  const held = host.contains(document.activeElement) ? document.activeElement.dataset.key : null;
+  const stop = [timelineStripFocus, held, today].find(inView) || end;
   host.replaceChildren();
   for (let offset = 1 - TIMELINE_STRIP_DAYS; offset <= 0; offset += 1) {
     const key = timelineDayShift(end, offset);
@@ -1077,6 +1082,7 @@ async function renderTimelineDayStrip() {
     button.dataset.key = key;
     button.classList.toggle("is-written", has);
     button.classList.toggle("is-today", key === today);
+    button.tabIndex = key === stop ? 0 : -1;
     if (key === today) button.setAttribute("aria-current", "date");
     const { long, label } = timelineDayLabel(key, has);
     button.setAttribute("aria-label", label);
@@ -1096,10 +1102,32 @@ async function renderTimelineDayStrip() {
   }
   //: A day picked in the month popover lands here with the focus on it, so a
   //: keyboard user who chose a day is on that day and Enter opens its page.
-  if (timelineStripFocus) {
-    host.querySelector(`[data-key="${timelineStripFocus}"]`)?.focus({ preventScroll: true });
+  if (timelineStripFocus || held) {
+    host.querySelector(`[data-key="${stop}"]`)?.focus({ preventScroll: true });
     timelineStripFocus = null;
   }
+}
+
+//: The strip's keys: left and right a day, Home and End the ends; past an end
+//: the window walks a day (never past today) and the focus stays on the edge.
+function timelineDayKeys(event) {
+  const current = event.target.closest?.(".timeline-day");
+  const moves = { ArrowLeft: -1, ArrowRight: 1, Home: -7, End: 7 };
+  if (!current || !(event.key in moves)) return;
+  event.preventDefault();
+  const days = [...$("timeline-daystrip-days").querySelectorAll(".timeline-day")];
+  const at = days.indexOf(current);
+  const to = event.key === "Home" ? 0 : event.key === "End" ? days.length - 1 : at + moves[event.key];
+  if (days[to]) {
+    for (const day of days) day.tabIndex = day === days[to] ? 0 : -1;
+    days[to].focus();
+    return;
+  }
+  const key = timelineDayShift(current.dataset.key, moves[event.key]);
+  if (key > timelineBucketKey(new Date(), "day")) return;
+  timelineStripEnd = timelineDayShift(timelineStripEnd, moves[event.key]);
+  timelineStripFocus = key;
+  renderTimelineDayStrip();
 }
 
 //: **The month popover** (WORLD_CLASS_PLAN D6, "overflow into a month
@@ -1249,6 +1277,7 @@ function timelineMonthKeys(event) {
     timelineStripEnd = timelineDayShift(timelineStripEnd, delta * TIMELINE_STRIP_DAYS);
     renderTimelineDayStrip();
   };
+  $("timeline-daystrip-days").addEventListener("keydown", timelineDayKeys);
   $("timeline-days-earlier").addEventListener("click", () => walk(-1));
   $("timeline-days-later").addEventListener("click", () => walk(1));
 })();

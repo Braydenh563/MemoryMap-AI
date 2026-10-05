@@ -63,10 +63,6 @@ with its owner named in the entry.
      arent aligned vertically." (screenshot: the Installed badge in Settings,
      Packages).
 
-543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs
-     moderna dn professional redesigning and restructuring." (screenshot: the
-     calendar strip under the dock).
-
 544. **The owner, 2026-10-05, verbatim.** "the graph arc view starts a little
      too close and too high up on the screen."
 

@@ -2,6 +2,8 @@
 // (WORLD_CLASS_PLAN D6). Seeds yesterday's and today's daily notes through
 // the API, then at 1440 and 390 asserts:
 //   - seven day buttons, one grid row, none off the window's edge;
+//   - INBOX 543: the arrows beside the month, the days' well ending at the
+//     dock's edge, one Tab stop (today), and the arrow keys walking the days;
 //   - today is aria-current and the written days carry a dot;
 //   - every day button is at least 44px at 390 (the phone's target);
 //   - pressing a written day opens that note (the Notes tab, its card);
@@ -51,7 +53,7 @@ const key = (d) =>
         current: days.filter((d) => d.getAttribute('aria-current') === 'date').length,
         written: days.filter((d) => d.classList.contains('is-written')).length,
         lastIsToday: days[days.length - 1]?.getAttribute('aria-current') === 'date',
-        laterDisabled: document.querySelector('.timeline-daystrip-arrows button:last-child').disabled,
+        laterDisabled: document.getElementById('timeline-days-later').disabled,
       };
     });
     const w = viewport.width;
@@ -59,6 +61,36 @@ const key = (d) =>
     check(`${w} today is current, last, and the later arrow is off`, strip.current === 1 && strip.lastIsToday && strip.laterDisabled, strip);
     check(`${w} the two seeded days carry a dot`, strip.written >= 2, strip);
     if (w === 390) check(`${w} each day is at least 44px`, strip.minH >= 44 && strip.minW >= 44, strip);
+
+    // INBOX 543: one header. The arrows sit beside the month (8px or less),
+    // the days' well ends at the dock's right edge, and one day is a Tab stop.
+    const head = await page.evaluate(() => {
+      const r = (id) => document.getElementById(id).getBoundingClientRect();
+      const dock = document.querySelector('#timeline-daystrip').parentElement.querySelector('.dock').getBoundingClientRect();
+      const [prev, month, next, days] = ['timeline-days-earlier', 'timeline-month-btn', 'timeline-days-later', 'timeline-daystrip-days'].map(r);
+      const stops = [...document.querySelectorAll('#timeline-daystrip-days .timeline-day')].filter((d) => d.tabIndex === 0);
+      return {
+        prevGap: Math.round(month.left - prev.right), nextGap: Math.round(next.left - month.right),
+        rightGap: Math.round(dock.right - days.right), leftGap: Math.round(days.left - dock.left),
+        stops: stops.length, stopIsToday: stops[0]?.classList.contains('is-today'),
+      };
+    });
+    check(`${w} the days end at the dock's edge, one Tab stop on today`, Math.abs(head.rightGap) <= 1 && head.stops === 1 && head.stopIsToday, head);
+    if (w > 600) check(`${w} the arrows sit beside the month`, head.prevGap >= 0 && head.prevGap <= 8 && head.nextGap >= 0 && head.nextGap <= 8, head);
+    // The arrow keys walk the days; past the first, the window walks a day.
+    await page.locator('#timeline-daystrip .timeline-day.is-today').focus();
+    await page.keyboard.press('ArrowLeft');
+    const walkedKey = await page.evaluate(() => ({ key: document.activeElement.dataset.key, stops: [...document.querySelectorAll('#timeline-daystrip-days .timeline-day')].filter((d) => d.tabIndex === 0).length }));
+    await page.keyboard.press('Home');
+    await page.keyboard.press('ArrowLeft');
+    await page.waitForTimeout(900);
+    const edge = await page.evaluate(() => {
+      const days = [...document.querySelectorAll('#timeline-daystrip-days .timeline-day')];
+      return { focus: document.activeElement.dataset.key, first: days[0]?.dataset.key, today: days.filter((d) => d.classList.contains('is-today')).length };
+    });
+    check(`${w} ArrowLeft walks a day, and past the first the window walks`, walkedKey.key === key(yesterday) && walkedKey.stops === 1 && edge.focus === edge.first && edge.today === 0, { walkedKey, edge });
+    await page.locator('#timeline-jump-today').click();
+    await page.waitForTimeout(900);
 
     // An unwritten day starts the composer and writes nothing.
     const before = await page.evaluate(async () => (await apiJson('/entries?limit=1000')).length ?? 0).catch(() => -1);
@@ -110,12 +142,12 @@ const key = (d) =>
     await page.evaluate(() => switchTab('timeline'));
     await page.waitForTimeout(1200);
     const labelBefore = await page.locator('.timeline-daystrip-label').textContent();
-    await page.locator('.timeline-daystrip-arrows button').first().click();
+    await page.locator('#timeline-days-earlier').click();
     await page.waitForTimeout(900);
     const walked = await page.evaluate(() => ({
       nums: [...document.querySelectorAll('.timeline-day-num')].map((e) => e.textContent),
       today: document.querySelectorAll('.timeline-day.is-today').length,
-      laterDisabled: document.querySelector('.timeline-daystrip-arrows button:last-child').disabled,
+      laterDisabled: document.getElementById('timeline-days-later').disabled,
     }));
     check(`${w} the earlier arrow moves a week back (no today, later arrow on)`, walked.today === 0 && !walked.laterDisabled, { walked, labelBefore });
     await page.locator('#timeline-jump-today').click();

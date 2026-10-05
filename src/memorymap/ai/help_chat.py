@@ -1335,8 +1335,9 @@ HELP_TOPICS.extend(
                 "much was written when: click or drag it to go there. Above the "
                 "feed, the calendar strip shows the last seven days with a dot "
                 "under each day that has a page: press a day to open its page or "
-                "start it (the arrows move a week, and the month above it opens a "
-                "calendar to jump to any earlier day). A note titled with its date "
+                "start it (the arrows beside the month move a week, the arrow keys "
+                "walk the days, and the month opens a calendar to jump to any "
+                "earlier day). A note titled with its date "
                 "has the day before and the day after as buttons under its title."
             ),
             "badge": {"label": "Timeline", "tab": "timeline"},

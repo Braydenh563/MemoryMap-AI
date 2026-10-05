@@ -40329,3 +40329,13 @@ border or answering hover). Both are strict now.
   every chip on a seeded note's line has a 0px edge; the facts (`when`) do
   not change under the pointer; the category, the "+N", the references and
   a hashtag tone; link chips change ink; heights 24px, unchanged.
+## INBOX resolved, 2026-10-05
+
+543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs
+     moderna dn professional redesigning and restructuring." (screenshot: the
+     calendar strip under the dock).
+     **Fixed 2026-10-05**: one header row, the month between its arrows (0px
+     gaps), the days one `--chip-bg` well ending at the dock's right edge
+     (1116px at 1440, 708 at 1024, 330 at 390, 46px a day), today filled,
+     one Tab stop with arrow keys; `daystrip.js` 44 of 44 at 1440 and 390.
+

@@ -98,3 +98,21 @@ def test_the_month_popover_is_the_popover_shell_with_a_roving_grid():
     keys = _function(TIMELINE, "function timelineMonthKeys(")
     for name in ("ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown", "Escape"):
         assert name in keys, name
+
+
+def test_the_strip_is_one_header_with_the_arrows_by_the_month():
+    """INBOX 543: the month sits between its arrows in one group, the days are
+    one well spanning the row, and the seven are one Tab stop the arrow keys
+    walk (the sweep measures the layout; this pins the shape)."""
+    head = HTML[HTML.index('class="timeline-daystrip-head"') : HTML.index('id="timeline-daystrip-days"')]
+    assert head.index('id="timeline-days-earlier"') < head.index('id="timeline-month-btn"') < head.index('id="timeline-days-later"')
+    css = (ROOT / "frontend" / "css" / "06-timeline-dialogs.css").read_text(encoding="utf-8")
+    days = css[css.index(".timeline-days {") : css.index("}", css.index(".timeline-days {"))]
+    assert "background: var(--chip-bg)" in days and "max-width" not in days
+    assert ".timeline-day.is-today .timeline-day-num" in css
+    body = _function(TIMELINE, "async function renderTimelineDayStrip(")
+    assert "button.tabIndex = key === stop ? 0 : -1" in body
+    keys = _function(TIMELINE, "function timelineDayKeys(")
+    for name in ("ArrowLeft", "ArrowRight", "Home", "End"):
+        assert name in keys, name
+    assert 'addEventListener("keydown", timelineDayKeys)' in TIMELINE

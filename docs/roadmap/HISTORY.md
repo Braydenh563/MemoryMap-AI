@@ -19,6 +19,22 @@ Each row was checked against the head before anything was built.
   New note (`#tab-graph:has(.dock-fab) .graph-zoom`) closed it. `graphphone.js`
   now asserts it every run: the four buttons are hit at their centres and clear
   of `.dock-fab`.
+- **`phonechrome.js` at 390: Timeline content at y=340 against a 338 limit, and the
+  transient status bar 0px tall**: two different faults, both reproduced
+  (`phonechrome.js` at 390x844: "content starts at y=340, below 338" and "the bar came
+  back 0px tall"). The Timeline's was real: its dock is 114px, the calendar strip
+  128px and the gaps 9.6px each, so the list began 2.4px past the first-screen rule
+  (40%). The strip's two spacings step down a token on a phone (the head to the days
+  `--space-3` to `--space-2`, the strip to the list `--space-4` to `--space-2`):
+  336 now, 4.8px less, nothing else moved (`daystrip.js` all ok at 1440 and 390;
+  `phonechrome.js` 0 findings, light and dark). The 0px was the sweep's: it
+  un-hid `#status-activity` to make the bar "come back", and the phone bar shows
+  only a running job, offline and power saver (INBOX 430 folded the agent's runs
+  and the activity into More, `10-responsive.css`, "one bar at the foot of a
+  phone"), so it correctly stayed at 0px. The probe now shows each of the three
+  (52px, standing on the tab bar, no pressable control under 44px: the offline and
+  power saver chips are `role="status"` labels, 21px, and are not counted as
+  controls) and asserts the activity alone leaves the bar at 0.
 - **The menu exit animation (perfpolish)**: built. Every way a menu closes is
   `.hidden`, so the exit is CSS, in the block that already holds the reveal
   (`10-responsive.css`): `.action-menu` transitions opacity and `display`

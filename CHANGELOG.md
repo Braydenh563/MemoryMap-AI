@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Gzip caps back down: the list drag-select edge scroll moved whole into drag-edge.js and the note edit form's formatting strip into note-edit-panels.js (both lazy, one caller each), boot JS cap 589,600 to 588,400 and the scripts total 321,500 to 320,300; the edge scroll loads three seconds after boot, so a drag in the first seconds does not scroll at the edge
 - Docs: the no-em-dash lint now covers docs/**/*.md, docs/index.html and the root *.md files, and the 5,900 em-dashes it found are reworded (comma, colon, parentheses or full stop); the two changelogs stay identical.
 - Docs: MODELS.md now says `qwen3.5:35b-a3b` is about 21 GB and needs about 24 GB, as the in-app catalogue does (it said 24 GB and 32 GB); `tests/test_models_doc_sizes.py` pins every catalogue model's size and stated memory in that file to the catalogue.
 - Suggested links: Link all above 70% asks first, says how many pairs actually linked (Linked 3 of 4), and a pair whose link failed stays in the list; the Links help line and the Guide name it.

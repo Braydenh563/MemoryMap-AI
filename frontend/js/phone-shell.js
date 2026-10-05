@@ -473,7 +473,6 @@ $("skip-link").addEventListener("click", (e) => {
   $(`tab-${prefs.get("activeTab", null) || "notes"}`).focus();
 });
 initSelectionPopup();
-initDragSelectEdgeScroll();
 initEntryListKeyboardNav();
 scrollTopUpdate = initScrollTopButton();
 // Reminder watching moved into startApp() (below `_active_tokens` note in

@@ -7,6 +7,19 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (pictures resized in Live)
+
+### From DOCUMENTS_PLAN.md section 20, the audit's D5 (decision 8)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A grip and an align menu on a picture in Live (`docWireImageEdit`), writing `![A river|260|center](…)` through `docImageAltWith` | the width and alignment could only be typed into the alt text | the grip on the image's corner (within 2px); a 150px drag left gives `|250` and a 250px picture; ArrowRight `|260` with the grip keeping focus and `aria-valuenow` 260; Centre gives `|260|center`, centred to 0px; Read draws 260px; Ctrl+Z takes the alignment back | `scratchpad/ui-sweeps/mmd2-1005-imagegrip.js` 6/6 at 1440x900 light and 390x844 dark; `tests/test_doc_image_options.py` |
+
+Help moved with it: the Guide's documents topic, the controls' own titles,
+DESIGN.md's grip row. Not built: pictures in the Word export (python-docx is
+not in requirements.txt). Not verified: a finger on the 24px grip, the
+desktop window.
+
 ## Moved from the plans, 2026-10-05 (the printed page)
 
 ### From DOCUMENTS_PLAN.md section 20, the audit's D4 (decision 7)

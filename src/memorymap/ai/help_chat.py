@@ -218,7 +218,9 @@ HELP_TOPICS: list[dict] = [
             "A --> B) draws as a diagram in Read and Live and in a print; press "
             "it to edit its text, and any other Mermaid stays as code. Print or "
             "save as PDF first asks for the page size, orientation, margins and "
-            "page numbers, and a plain Ctrl+P uses the last choice."
+            "page numbers, and a plain Ctrl+P uses the last choice. In Live, drag "
+            "the corner of a picture to resize it (or focus the corner and use the "
+            "arrow keys), and its align button puts it left, centre or right."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },

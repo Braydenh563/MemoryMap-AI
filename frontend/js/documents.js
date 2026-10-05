@@ -5806,6 +5806,23 @@ function docImageOptions(spec) {
   return options;
 }
 
+//: **An image's alt with its width or alignment changed** (DOCUMENTS_PLAN
+//: decision 8, the audit's D5): the name first, then the width, then the
+//: alignment, then the caption's words in the order they were written; an
+//: option set to null is taken out. Written back by the Live editor's grip
+//: and align menu, so the markdown stays the one place the size lives.
+function docImageAltWith(alt, change) {
+  const parts = String(alt == null ? "" : alt).split("|");
+  const name = parts.shift();
+  const now = docImageOptions(alt);
+  const kept = parts
+    .map((part) => part.trim())
+    .filter((part) => part && !/^\d{1,4}(x\d{1,4})?$/i.test(part) && !/^(left|centre|center|right)$/i.test(part));
+  const width = "width" in change ? change.width : now.width;
+  const align = "align" in change ? change.align : now.align;
+  return [name, ...(width ? [String(Math.round(width))] : []), ...(align ? [align] : []), ...kept].join("|");
+}
+
 // DOC-BLOCKS-END
 
 // =============================================================================
@@ -6902,7 +6919,7 @@ function docLivePlugin(CM) {
     eq(other) {
       return other.src === this.src && other.alt === this.alt && other.underSource === this.underSource;
     }
-    toDOM() {
+    toDOM(view) {
       const img = document.createElement("img");
       img.className = this.underSource ? "cm-md-image cm-md-image-under" : "cm-md-image";
       //: **Through `mediaSrc`, like every other image in this app.** An
@@ -6916,7 +6933,17 @@ function docLivePlugin(CM) {
       //: paths. The embed path below already did this; this one never did.
       img.src = typeof mediaSrc === "function" ? mediaSrc(this.src) : this.src;
       img.alt = this.options.caption || this.options.name || "";
-      return docApplyImageOptions(img, this.options);
+      if (this.underSource) return docApplyImageOptions(img, this.options);
+      //: **Resized and aligned where it is shown** (decision 8, the audit's
+      //: D5): a frame round the picture holding a grip on its lower right
+      //: corner and an align button, both writing the options back into the
+      //: alt text (`docImageAltWith`), so Read, a print and an export agree.
+      const frame = document.createElement("span");
+      frame.className = "cm-md-image-frame";
+      frame.appendChild(img);
+      if (this.options.width) frame.dataset.sized = "1";
+      docWireImageEdit(view, frame, this.options);
+      return docApplyImageOptions(frame, this.options);
     }
   }
 
@@ -9043,6 +9070,129 @@ function docApplyImageOptions(img, options) {
     figure.appendChild(caption);
   }
   return figure;
+}
+
+//: The grip and the align button on a picture in Live (decision 8). The
+//: picture's markdown is found from where its widget sits (`posAtDOM`), its
+//: alt rewritten in one change, one Undo step. The grip is a slider to a
+//: screen reader and to the keys (the arrows, 10px; with Shift, 50px), and a
+//: drag to the hand, held to between 40px and the text column's width.
+const DOC_IMAGE_MIN = 40;
+let docImageRefocus = null;
+
+function docWireImageEdit(view, frame, options) {
+  const grip = document.createElement("span");
+  grip.className = "cm-md-image-grip";
+  grip.tabIndex = 0;
+  grip.setAttribute("role", "slider");
+  grip.setAttribute("aria-label", "Picture width");
+  grip.title = "Drag to resize the picture, or use the arrow keys";
+  const align = document.createElement("button");
+  align.type = "button";
+  align.className = "ghost icon-only small cm-md-image-align";
+  align.setAttribute("aria-label", "Align the picture");
+  align.title = "Align the picture: left, centre or right";
+  const glyph = document.createElement("i");
+  glyph.className = `ph ph-text-align-${options.align || "left"}`;
+  glyph.setAttribute("aria-hidden", "true");
+  align.appendChild(glyph);
+  frame.append(grip, align);
+  const widest = () => Math.max(DOC_IMAGE_MIN, Math.floor(view.contentDOM.getBoundingClientRect().width - 48));
+  const shown = () => Math.round(frame.getBoundingClientRect().width);
+  const setValue = () => {
+    grip.setAttribute("aria-valuemin", String(DOC_IMAGE_MIN));
+    grip.setAttribute("aria-valuemax", String(widest()));
+    grip.setAttribute("aria-valuenow", String(options.width || shown() || DOC_IMAGE_MIN));
+    grip.setAttribute("aria-valuetext", `${options.width || shown()} pixels wide`);
+  };
+  requestAnimationFrame(setValue);
+  //: Where this picture's markdown starts, read at the moment of writing:
+  //: the document may have moved under it since it was drawn.
+  const write = (change) => {
+    const root = frame.closest(".cm-md-figure") || frame;
+    let at;
+    try {
+      at = view.posAtDOM(root);
+    } catch {
+      return false;
+    }
+    const head = view.state.doc.sliceString(at, Math.min(view.state.doc.length, at + 2000));
+    const m = /^!\[([^\]\n]*)\]\(/.exec(head);
+    if (!m) return false;
+    const alt = docImageAltWith(m[1], change);
+    if (alt === m[1]) return false;
+    docImageRefocus = change.align !== undefined ? null : at;
+    view.dispatch({ changes: { from: at + 2, to: at + 2 + m[1].length, insert: alt } });
+    return true;
+  };
+  grip.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    grip.setPointerCapture?.(event.pointerId);
+    const startX = event.clientX;
+    const start = shown();
+    const max = widest();
+    let width = start;
+    frame.classList.add("is-resizing");
+    const move = (e) => {
+      width = Math.max(DOC_IMAGE_MIN, Math.min(max, Math.round(start + e.clientX - startX)));
+      frame.style.width = `${width}px`;
+      frame.dataset.sized = "1";
+    };
+    const up = () => {
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", up);
+      grip.removeEventListener("pointercancel", up);
+      frame.classList.remove("is-resizing");
+      if (width !== start) write({ width });
+    };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", up);
+    grip.addEventListener("pointercancel", up);
+  });
+  grip.addEventListener("keydown", (event) => {
+    const step = event.shiftKey ? 50 : 10;
+    const now = options.width || shown();
+    let next = null;
+    if (event.key === "ArrowRight" || event.key === "ArrowUp") next = now + step;
+    else if (event.key === "ArrowLeft" || event.key === "ArrowDown") next = now - step;
+    else if (event.key === "Home") next = DOC_IMAGE_MIN;
+    else if (event.key === "End") next = widest();
+    else if (event.key === "Delete" || event.key === "Backspace") next = 0;
+    if (next == null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    write({ width: next ? Math.max(DOC_IMAGE_MIN, Math.min(widest(), next)) : null });
+  });
+  align.addEventListener("mousedown", (event) => event.preventDefault());
+  align.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const box = align.getBoundingClientRect();
+    const pick = (value) => () => write({ align: value });
+    openMenuAtPoint([
+      makeMenuItem("ph:text-align-left Left", "On the left, text below it", pick("left")),
+      makeMenuItem("ph:text-align-center Centre", "In the middle of the column", pick("center")),
+      makeMenuItem("ph:text-align-right Right", "On the right", pick("right")),
+      makeMenuItem("ph:x Inline", "In the line, as written", pick(null)),
+    ], "Align the picture", box.left, box.bottom + 4);
+  });
+  //: The grip that was being pressed keeps the keys after its write redraws
+  //: the picture.
+  if (docImageRefocus != null) {
+    requestAnimationFrame(() => {
+      if (docImageRefocus == null || !frame.isConnected) return;
+      let at = -1;
+      try {
+        at = view.posAtDOM(frame.closest(".cm-md-figure") || frame);
+      } catch {
+        at = -1;
+      }
+      if (at === docImageRefocus) {
+        docImageRefocus = null;
+        grip.focus({ preventScroll: true });
+      }
+    });
+  }
 }
 
 //: **A markdown image's alt text is its caption once it carries options.**

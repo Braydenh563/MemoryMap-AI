@@ -524,6 +524,71 @@
   max-width: 100%;
 }
 
+/* A picture in Live with its grip and align button (DOCUMENTS_PLAN decision
+   8). The grip is DESIGN.md's grip: a box in the accent, edged in the card,
+   on the lower right corner, shown on hover and on focus within. At least the
+   touch floor to a finger. */
+.cm-md-image-frame {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
+}
+
+/* A block, so no line-box gap under it puts the grip off the corner. */
+.cm-md-image-frame > img {
+  display: block;
+  max-width: 100%;
+}
+
+.cm-md-image-frame[data-sized] > img {
+  width: 100%;
+}
+
+.cm-md-image-grip {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  border: 2px solid var(--card);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  cursor: nwse-resize;
+  touch-action: none;
+  opacity: 0;
+}
+
+.cm-md-image-align {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  opacity: 0;
+}
+
+.cm-md-image-frame:hover > .cm-md-image-grip,
+.cm-md-image-frame:hover > .cm-md-image-align,
+.cm-md-image-frame:focus-within > .cm-md-image-grip,
+.cm-md-image-frame:focus-within > .cm-md-image-align,
+.cm-md-image-frame.is-resizing > .cm-md-image-grip {
+  opacity: 1;
+}
+
+@media (pointer: coarse) {
+  .cm-md-image-grip {
+    width: 24px;
+    height: 24px;
+    right: -12px;
+    bottom: -12px;
+    opacity: 1;
+  }
+
+  .cm-md-image-align {
+    opacity: 1;
+  }
+}
+
 .cm-md-figure-left,
 .cm-md-figure-center,
 .cm-md-figure-right {

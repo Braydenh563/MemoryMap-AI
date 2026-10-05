@@ -493,6 +493,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 
 ### Added
 
+- Documents: in Live, drag the corner of a picture to resize it, or focus the corner and use the arrow keys, and its align button puts it on the left, in the centre or on the right; the size and alignment are written into the picture's markdown, so Read, a print and the exports show the same picture (DOCUMENTS_PLAN decision 8, the audit's D5).
 - Documents: Print or save as PDF first asks for the page size (A4 or Letter), orientation, margins and whether to print page numbers with the title at the head of each page, and remembers it; a plain Ctrl+P prints on the same page (DOCUMENTS_PLAN decision 7, the audit's D4).
 - Documents: a ```mermaid flowchart (flowchart or graph, in any direction, with boxes, rounds, diamonds and circles, labelled and dotted or thick links) draws as a diagram in Read, in Live while the caret is elsewhere, in a print and in the HTML export, by the app's own parser with nothing downloaded; press it in Live to edit its text; any other Mermaid diagram stays as code (DOCUMENTS_PLAN decision 20.6, the audit's D3).
 - Documents: the menu's Map the headings (and the palette) makes a new mind map of the document's headings, laid out as a tree, with a topic that opens the document again; a heading inside a code block is left out (MINDMAP_PLAN decision 35, the audit's M5).

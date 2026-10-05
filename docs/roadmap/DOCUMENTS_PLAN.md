@@ -1132,8 +1132,10 @@ documents phone pass)").
 From `scratchpad/audit1005/features.md` (FEAT-03, FEAT-04, FEAT-08, the
 documents briefs D1 to D5). Built work is in HISTORY.md ("Moved from the
 plans, 2026-10-05 (the feature audit's documents and map fixes)"). D3 and
-D4 are built (decisions 6 and 7). Open: D5 (image handles in Live,
-pictures in the Word export).
+D4 are built (decisions 6 and 7), and D5's handles (decision 8). Open:
+pictures in the Word export (FEAT-18), which needs python-docx, an optional
+extra that is not in requirements.txt; not started, by the fully-local
+rule's "no new Python dependency".
 
 **Decisions made.**
 
@@ -1196,6 +1198,17 @@ pictures in the Word export).
    page, and the page has sat inside `<main id="app-main">` since the shell
    moved, so a print was one blank page; the main is kept now and the
    shell's window-high boxes let go.
+8. **A picture is resized and aligned where it is shown** (2026-10-05, the
+   audit's D5). In Live, a picture (not one under its revealed source) sits
+   in a frame with DESIGN.md's grip on its lower right corner and an align
+   button at its top right, both shown on hover and on focus (always on a
+   touch screen, the grip at 24px). A drag sets the width between 40px and
+   the text column; the grip is a slider to the keys (the arrows 10px, Shift
+   50px, Home and End the bounds, Delete back to the picture's own size);
+   the align menu is Left, Centre, Right and Inline. Both write the options
+   into the alt text (`docImageAltWith`: the name, then the width, then the
+   alignment, then the caption's words), one Undo step each, so Read, a print
+   and every export draw the same picture.
 
 ## 18. The slash menus as one system: built 2026-09-21
 

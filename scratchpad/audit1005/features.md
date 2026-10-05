@@ -819,7 +819,7 @@ Map (from §12.5 and `map1.js`):
 3. **D3, Mermaid and diagrams (FEAT-08).** FIXED a02d045 (flowcharts; Open as a board is W5)
    - Render a flowchart-subset fence as SVG in Read and Live (own parser, no vendor), falling back to code on anything unparsed.
    - "Open as a board" turns it into W5's board import.
-4. **D4, print and page setup.**
+4. **D4, print and page setup.** FIXED 0ae2e18 (page break) and 8f03f76 (page size, margins, page numbers; a blank print fixed)
    - Page size (A4, Letter), margins and orientation in the print dialog's pre-step.
    - Page numbers and a running title through `@page` margin boxes where supported, with a fallback note.
    - A "Page break" slash item (`<div class="md-page-break">`, `break-before: page`).

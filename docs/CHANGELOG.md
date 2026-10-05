@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Library, Create: New mind map is a row of its own (it opens the board dialog on Mind map), and New concept map says what it makes, a board of note cards whose topics are saved as notes, instead of calling itself a mind map (audit 2026-10-05, UX-06, in part).
 - Documents: Enter (or Down at the end) in the title moves to the start of the body, as other editors do, from Read view too; it used to type the first line into the title (audit 2026-10-05, UX-05).
 - Search: a one-letter typo that finds nothing is searched as the nearest word in your notes, in Find anything (Ctrl+P) and Filter notes alike, and each says "showing results for" the word; Find anything no longer tells a notebook with notes that nothing is indexed yet when a search has no hits (audit 2026-10-05, UX-04).
 - Timeline and note cards: a day a note mentions sits on that day in every timezone (it was served as UTC midnight, so "on Friday" sat under Thursday 8:00 PM in New York) and reads All day; a time said with the day ("on Friday at 3pm") is kept and shown as written (audit 2026-10-05, UX-02).

@@ -1873,6 +1873,18 @@ const LIBRARY_CREATE_BY_KIND = {
   //: Create to make one found no row for it and had to know to go to Boards
   //: & maps first. The run is that sub-tab's own New board, pressed, so a
   //: board made here is made exactly the way one made there is.
+  //: **The real mind map, by its own name** (audit 2026-10-05, UX-06). The
+  //: concept map row above described itself as "A mind map" while the mind
+  //: map kind sat behind New board's "What kind of board" toggle, so the row
+  //: named one thing and made the other. This is the boards dock's own New
+  //: mind map, pressed, so it is made the way one made there is.
+  mindmap: {
+    label: "ph:tree-structure New mind map",
+    run: () => {
+      document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
+      $("wb-boards-new-map")?.click();
+    },
+  },
   board: {
     label: "ph:plus New board",
     run: () => {
@@ -1918,7 +1930,8 @@ const LIBRARY_CREATE_BY_KIND = {
 const LIBRARY_CREATE_HINTS = {
   note: ["ph:note-pencil", "A quick thought. Atlas files it and links it for you."],
   document: ["ph:file-text", "A long page: headings, an outline, templates, export."],
-  map: ["ph:tree-structure", "A mind map: a tree of topics you move and connect."],
+  map: ["ph:graph", "A board of note cards you branch with Tab and Enter; each topic is saved as a note."],
+  mindmap: ["ph:tree-structure", "A tree of topics round one central idea, with branches you fold and colour."],
   board: ["ph:squares-four", "A canvas of cards, sketches and links you arrange freely."],
   chat: ["ph:chats", "A conversation grounded in your notes."],
   meeting: ["ph:microphone", "Record a meeting or a voice note and get a transcript."],
@@ -1929,7 +1942,7 @@ const LIBRARY_CREATE_HINTS = {
 //: then the things that arrive from elsewhere. The picker's sentence used to
 //: say "Five kinds of thing", which went stale the day a sixth row was
 //: added; it names no count now, so it cannot drift from the rows under it.
-const LIBRARY_CREATE_ORDER = ["note", "document", "map", "board", "chat", "meeting", "file"];
+const LIBRARY_CREATE_ORDER = ["note", "document", "mindmap", "map", "board", "chat", "meeting", "file"];
 
 //: The kinds that have a chord of their own, by its name in the shortcut
 //: registry: the keycap is read from the live table, so a rebinding shows.

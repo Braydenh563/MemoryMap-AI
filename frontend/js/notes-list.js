@@ -1015,7 +1015,7 @@ function appendInlineRun(element, text, terms, compact, options) {
         element.appendChild(document.createTextNode(chunk));
       } else {
         const before = document.createElement("span");
-        highlightInto(before, chunk, terms);
+        highlightIconsInto(before, chunk, terms);
         element.appendChild(before);
       }
     }
@@ -1214,7 +1214,7 @@ function appendInlineRun(element, text, terms, compact, options) {
       element.appendChild(document.createTextNode(rest));
     } else {
       const restSpan = document.createElement("span");
-      highlightInto(restSpan, rest, terms);
+      highlightIconsInto(restSpan, rest, terms);
       element.appendChild(restSpan);
     }
   }
@@ -1674,6 +1674,41 @@ function renderNoteInline(element, text, terms) {
 //:
 //: Normalised here, at the one place that reads it, rather than at each call
 //: site: the next caller to pass `null` should not have to know either.
+//: **`:ph-name:` is an icon in the reading view** (MINDMAP_PLAN.md decision
+//: 46): the token the icon and emoji picker inserts for a Phosphor icon,
+//: drawn as the glyph in prose (never inside code: only the plain runs of
+//: `appendInlineRun` come here) and left as its words for every other reader.
+//: The name is held to Phosphor's own character set, and it is only ever a
+//: class: nothing typed reaches the markup.
+const INLINE_ICON_RE = /:ph-([a-z0-9-]{1,40}):/g;
+
+function highlightIconsInto(element, text, terms) {
+  if (!text.includes(":ph-")) {
+    highlightInto(element, text, terms);
+    return;
+  }
+  element.replaceChildren();
+  let cursor = 0;
+  for (const match of text.matchAll(INLINE_ICON_RE)) {
+    if (match.index > cursor) {
+      const part = document.createElement("span");
+      highlightInto(part, text.slice(cursor, match.index), terms);
+      element.appendChild(part);
+    }
+    const icon = document.createElement("i");
+    icon.className = `ph ph-${match[1]} md-inline-icon`;
+    icon.setAttribute("role", "img");
+    icon.setAttribute("aria-label", match[1].replace(/-/g, " "));
+    element.appendChild(icon);
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < text.length) {
+    const part = document.createElement("span");
+    highlightInto(part, text.slice(cursor), terms);
+    element.appendChild(part);
+  }
+}
+
 function highlightInto(element, text, terms) {
   element.replaceChildren();
   if (!terms || !terms.length) {

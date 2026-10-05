@@ -596,6 +596,21 @@ function openIconPicker({ anchor = null, onPick = null, modes = ["emoji", "icon"
   if (rect && (rect.width || rect.height)) placeHelpPopover(panel, anchor);
   else panel.classList.add("icon-picker-centred");
   search.focus({ preventScroll: true });
+  //: **The focus stays put while the panel settles.** On a first use an
+  //: editor behind it can mount and take the focus a frame later (measured:
+  //: the note composer's CodeMirror, 127ms after the search field had it, so
+  //: the next letters typed went into the note). For a moment after opening,
+  //: focus that lands outside the open panel comes back; any press outside
+  //: closes the panel first, so nobody's own move is undone.
+  const openedAt = performance.now();
+  const keepFocus = (event) => {
+    if (!panel.isConnected || performance.now() - openedAt > 800) {
+      document.removeEventListener("focusin", keepFocus, true);
+      return;
+    }
+    if (!panel.contains(event.target)) search.focus({ preventScroll: true });
+  };
+  document.addEventListener("focusin", keepFocus, true);
   iconPickerOpen = { panel, close };
   return { close, panel };
 }

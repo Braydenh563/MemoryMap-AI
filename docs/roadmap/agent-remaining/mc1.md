@@ -8,4 +8,5 @@ Worktree agent, port 8798, data /tmp/mm-mc1. Plan: MINDMAP_PLAN §14
 - done: 14a levels (wbMapLevels, presets, solid fill, centre Enter): 08d5829.
 - done: 14b level looks in the dialog, Redefine, topic copy/paste style: 8eb7dc8.
 - done: 14c icon-picker.js, its css, the map icon slot (More icons and emoji): 94b8b70.
-- done: 14d stickers (drop, Insert, Emoji and icons). next: 14e editors (scratch ed_14e.py: notes-list.js highlightIconsInto, editor.js editorPickGlyph and the / row, documents.js MD_ACTIONS.emoji, index.html toolbar buttons).
+- done: 14d stickers (drop, Insert, Emoji and icons): bb806e8.
+- done: 14e editors (toolbars, / row, :ph-name: reading). next: step 4, docs hygiene (INBOX 641/642 marks, inbox_resolve 642, Built block to HISTORY).

@@ -1078,7 +1078,7 @@ MORE_TOPICS.extend(
             "id": "emoji-and-icons",
             "keywords": (
                 "emoji", "emojis", "icon", "icons", "sticker", "stickers", "emoji picker",
-                "icon picker", "insert an emoji", "insert an icon", "drag an icon",
+                "icon picker", "insert an emoji", "insert an icon", "drag an icon", ":ph-",
             ),
             "body": (
                 "Emoji and icons. One picker holds every Phosphor icon the app ships "
@@ -1088,7 +1088,10 @@ MORE_TOPICS.extend(
                 "in the middle of the view, or drag it where it goes. An emoji lands "
                 "as a sticker (no card, resize it like any item), an icon as a shape "
                 "you can recolour; dropped on a map topic, either becomes that "
-                "topic's icon. Each is one Undo step."
+                "topic's icon. Each is one Undo step. In a note or a document, the "
+                "smiley in the formatting toolbar (the document's Insert menu) or "
+                "Emoji or icon in the / menu puts one at the caret: an emoji as "
+                "itself, an icon as :ph-name:, which reading shows as the icon."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

@@ -3937,7 +3937,7 @@ def test_a_comment_thread_is_one_popover_reached_three_ways() -> None:
     css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
     assert wb.count("wbOpenComments(") == 4, "the definition, the mark, the item menu, the topic menu"
     assert 'panel.className = "help-popover wb-comments";' in wb
-    assert "placeHelpPopover(panel, target);" in wb[wb.index("function wbOpenComments(") :][:4000]
+    assert "placeHelpPopover(panel, target);" in wb[wb.index("function wbOpenComments(") :][:7000]
     assert wb.count("await wbSetComments(") == 2, "a post and a delete"
     assert "wbPaintCommentMarks();" in wb[wb.index("function renderWhiteboard()") :]
     assert "wbPaintCommentMarks();" in wb[wb.index("function wbQueueSelectionBar()") :][:300]

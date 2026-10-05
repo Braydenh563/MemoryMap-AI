@@ -119,14 +119,42 @@ const OY = VW < 600 ? 150 : 0;
   await page.waitForTimeout(400);
   let s = await look("object", ids.sticky);
   ok("the thread opens with the focus in its box", Boolean(s.panel?.focus), JSON.stringify(s.panel));
+  ok("an empty thread opens on the box, the button hidden", await page.evaluate(() => !document.querySelector("#wb-comments .wb-comments-composer").hidden && document.querySelector("#wb-comments .wb-comments-new").hidden));
   await page.keyboard.type("Is this the final date?");
   await page.keyboard.press("Enter");
   await page.waitForTimeout(700);
+  //: INBOX 570: after a post the box folds back behind "New comment".
+  const folded = await page.evaluate(() => ({
+    composer: document.querySelector("#wb-comments .wb-comments-composer").hidden,
+    focus: document.activeElement?.classList.contains("wb-comments-new"),
+    name: document.querySelector("#wb-comments .wb-comments-new").textContent.trim(),
+  }));
+  ok("a post folds the box back to a focused New comment", folded.composer && folded.focus && folded.name === "New comment", JSON.stringify(folded));
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(200);
+  ok("New comment opens the box, focused", await page.evaluate(() => document.activeElement?.classList.contains("wb-comments-box")));
+  await page.keyboard.type("Not this one");
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+  const escaped = await page.evaluate(() => ({
+    open: Boolean(document.getElementById("wb-comments")),
+    composer: document.querySelector("#wb-comments .wb-comments-composer")?.hidden,
+    focus: document.activeElement?.classList.contains("wb-comments-new"),
+  }));
+  ok("Escape in the box cancels it, the thread stays open", escaped.open && escaped.composer && escaped.focus, JSON.stringify(escaped));
+  await page.evaluate(() => document.querySelector("#wb-comments .wb-comments-new").click());
+  await page.waitForTimeout(150);
+  ok("a cancelled draft is gone", await page.evaluate(() => document.querySelector("#wb-comments .wb-comments-box").value === ""));
+  await page.evaluate(() => document.querySelector("#wb-comments .wb-comments-cancel").click());
+  await page.waitForTimeout(150);
+  ok("Cancel folds the box away", await page.evaluate(() => document.querySelector("#wb-comments .wb-comments-composer").hidden));
+  await page.evaluate(() => document.querySelector("#wb-comments .wb-comments-new").click());
+  await page.waitForTimeout(150);
   await page.keyboard.type("Second line");
-  await page.evaluate(() => document.querySelector("#wb-comments .wb-comments-foot button").click());
+  await page.evaluate(() => document.querySelector("#wb-comments .wb-comments-post").click());
   await page.waitForTimeout(700);
   s = await look("object", ids.sticky);
-  ok("Enter and the Comment button each post", s.count === 2 && s.panel?.rows === 2, JSON.stringify({ count: s.count, rows: s.panel?.rows }));
+  ok("Enter and the Post button each post", s.count === 2 && s.panel?.rows === 2, JSON.stringify({ count: s.count, rows: s.panel?.rows }));
   ok("the sticky wears a mark that says 2", s.mark?.text === "2", JSON.stringify(s.mark));
   const corner = s.mark && s.item ? { dx: s.mark.left - s.item.right, dy: s.item.top - s.mark.bottom } : null;
   ok("the mark sits up and right of the corner, clear of it", corner && corner.dx >= 0 && corner.dx <= 10 && corner.dy >= 0 && corner.dy <= 10, JSON.stringify(corner));
@@ -161,7 +189,7 @@ const OY = VW < 600 ? 150 : 0;
     wbOpenComments("node", id);
     const box = document.querySelector("#wb-comments .wb-comments-box");
     box.value = "Card note";
-    document.querySelector("#wb-comments .wb-comments-foot button").click();
+    document.querySelector("#wb-comments .wb-comments-post").click();
   }, ids.card);
   await page.waitForTimeout(800);
   await page.keyboard.press("Escape");
@@ -254,7 +282,7 @@ const OY = VW < 600 ? 150 : 0;
     wbCloseContextMenu();
     wbOpenComments("object", id);
     document.querySelector("#wb-comments .wb-comments-box").value = "Which bag?";
-    document.querySelector("#wb-comments .wb-comments-foot button").click();
+    document.querySelector("#wb-comments .wb-comments-post").click();
   }, topic);
   await page.waitForTimeout(800);
   await page.keyboard.press("Escape");

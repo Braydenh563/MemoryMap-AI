@@ -7130,27 +7130,76 @@ function wbOpenComments(kind, id, anchor = null) {
   const list = document.createElement("div");
   list.className = "wb-comments-list";
   list.setAttribute("role", "list");
+  //: **The composer waits behind "New comment"** (INBOX 570, the owner: "the
+  //: new comment form is permanently showing below, there should be a new
+  //: comment option below for it to show"). A thread is for reading first:
+  //: the comments, then one quiet button; the button reveals the box,
+  //: focused, with Post and Cancel; Escape cancels, a post folds it away
+  //: again. An empty thread has nothing to read, so it opens on the box.
+  const newButton = document.createElement("button");
+  newButton.type = "button";
+  newButton.className = "ghost small wb-comments-new";
+  newButton.setAttribute("aria-expanded", "false");
+  setLabel(newButton, "ph:plus New comment");
+  const composer = document.createElement("div");
+  composer.className = "wb-comments-composer";
+  composer.hidden = true;
+  composer.id = "wb-comments-composer";
+  newButton.setAttribute("aria-controls", composer.id);
   const box = document.createElement("textarea");
   box.className = "wb-comments-box";
   box.rows = 2;
   box.maxLength = 2000;
-  box.placeholder = "Add a comment";
-  box.setAttribute("aria-label", "Add a comment");
+  box.placeholder = "Write a comment";
+  box.setAttribute("aria-label", "New comment");
   const post = document.createElement("button");
   post.type = "button";
-  post.className = "small";
-  post.textContent = "Comment";
+  post.className = "small wb-comments-post";
+  post.textContent = "Post";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "ghost small wb-comments-cancel";
+  cancel.textContent = "Cancel";
   const foot = document.createElement("div");
   foot.className = "wb-comments-foot";
   const hint = document.createElement("span");
   hint.className = "muted";
-  hint.textContent = "Enter posts. Shift+Enter breaks the line.";
-  foot.append(hint, post);
-  panel.append(list, box, foot);
+  hint.textContent = "Enter posts, Shift+Enter breaks the line.";
+  const actions = document.createElement("span");
+  actions.className = "wb-comments-actions";
+  actions.append(cancel, post);
+  foot.append(hint, actions);
+  composer.append(box, foot);
+  panel.append(list, newButton, composer);
+  const hasThread = () => wbItemComments(kind, wbFindItem(kind, id)).length > 0;
+  const openComposer = () => {
+    composer.hidden = false;
+    newButton.hidden = true;
+    newButton.setAttribute("aria-expanded", "true");
+    box.focus({ preventScroll: true });
+  };
+  //: Back to the button; with nothing in the thread there is nothing to go
+  //: back to, so the popover closes instead.
+  const closeComposer = () => {
+    box.value = "";
+    if (!hasThread()) {
+      wbCloseComments({ restoreFocus: true });
+      return;
+    }
+    composer.hidden = true;
+    newButton.hidden = false;
+    newButton.setAttribute("aria-expanded", "false");
+    newButton.focus({ preventScroll: true });
+  };
+  newButton.addEventListener("click", openComposer);
+  cancel.addEventListener("click", closeComposer);
   const send = async () => {
     const text = box.value.trim();
     const now = wbFindItem(kind, id);
-    if (!text || !now) return;
+    if (!text || !now) {
+      box.focus({ preventScroll: true });
+      return;
+    }
     const thread = wbItemComments(kind, now);
     if (thread.length >= WB_COMMENTS_MAX) {
       toast(`A thread holds ${WB_COMMENTS_MAX} comments. Delete one first.`, true);
@@ -7161,6 +7210,7 @@ function wbOpenComments(kind, id, anchor = null) {
     await wbSetComments(kind, now, [...thread, made]);
     wbFillComments();
     list.lastElementChild?.scrollIntoView({ block: "nearest" });
+    closeComposer();
     wbAnnounce("Comment added.");
   };
   post.addEventListener("click", send);
@@ -7169,7 +7219,8 @@ function wbOpenComments(kind, id, anchor = null) {
     event.stopPropagation();
     if (event.key === "Escape") {
       event.preventDefault();
-      wbCloseComments({ restoreFocus: true });
+      if (!composer.hidden) closeComposer();
+      else wbCloseComments({ restoreFocus: true });
     } else if (event.key === "Enter" && !event.shiftKey && event.target === box) {
       event.preventDefault();
       send();
@@ -7184,8 +7235,15 @@ function wbOpenComments(kind, id, anchor = null) {
   wbCommentState = { key, kind, id, panel, anchor: target, outside };
   if (target.classList.contains("wb-comment-mark")) target.setAttribute("aria-expanded", "true");
   wbFillComments();
-  placeHelpPopover(panel, target);
-  box.focus({ preventScroll: true });
+  if (hasThread()) {
+    placeHelpPopover(panel, target);
+    newButton.focus({ preventScroll: true });
+  } else {
+    composer.hidden = false;
+    newButton.hidden = true;
+    placeHelpPopover(panel, target);
+    box.focus({ preventScroll: true });
+  }
 }
 
 //: The thread, oldest first, each with its time and a delete.
@@ -7230,7 +7288,17 @@ function wbFillComments() {
       if (!now) return;
       await wbSetComments(state.kind, now, wbItemComments(state.kind, now).filter((c) => c.id !== comment.id));
       wbFillComments();
-      state.panel.querySelector(".wb-comments-box")?.focus({ preventScroll: true });
+      //: The focus goes where the reader is: the button, or the box when
+      //: the last comment went and the thread is empty again.
+      const button = state.panel.querySelector(".wb-comments-new");
+      const composer = state.panel.querySelector(".wb-comments-composer");
+      if (!wbItemComments(state.kind, wbFindItem(state.kind, state.id)).length) {
+        composer.hidden = false;
+        button.hidden = true;
+        state.panel.querySelector(".wb-comments-box")?.focus({ preventScroll: true });
+      } else if (!button.hidden) {
+        button.focus({ preventScroll: true });
+      }
       wbAnnounce("Comment deleted. Ctrl+Z brings it back.");
     });
     meta.append(when, del);

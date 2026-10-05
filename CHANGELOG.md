@@ -8,6 +8,7 @@ below). Versioning is `0.x` while the app stabilises.
 ## [Unreleased]
 
 ### Changed
+- Whiteboard and mind map comments: a thread shows its comments and a quiet New comment button under them, which opens the box with Post and Cancel; Escape or Cancel folds it away, and it folds back after a post. A thread with no comments yet opens straight on the box (INBOX 570).
 - Whiteboard: paste text from any other app onto a board. A link becomes a link box, one line a text box, and several lines (a list, a column from a spreadsheet) a grid of stickies, selected and undone in one step; a picture pastes as before. Items copied on a board also reach the system clipboard as their words, so they paste into other apps (FEAT-09).
 - Whiteboard export: a PNG (or a copy to the image library) can be 1x, 2x or 3x the board's size, 2x by default, and can have a transparent background; the choice is remembered. Exported files are named after the board ("Launch plan.png", "Launch plan (selection).svg") instead of whiteboard-whole.png, and the PDF's print dialog offers the board's name (FEAT-14).
 - Whiteboard: a board's background colour and image are kept with the board, so they show the same in the desktop window, every browser and a backup, and Ctrl+Z undoes a change. Each board had shared one colour per browser, and the image was per browser too and was deleted by "clean up orphaned media"; a background set the old way moves onto its board the first time it is opened (FEAT-06).

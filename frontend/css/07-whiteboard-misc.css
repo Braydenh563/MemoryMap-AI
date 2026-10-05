@@ -227,8 +227,8 @@
   font-weight: 600;
 }
 
-/* The thread, in the help popover's shell:the comments, then one box and
-   its foot. */
+/* The thread, in the help popover's shell: the comments, then a quiet "New
+   comment" that opens the box with its Post and Cancel (INBOX 570). */
 .help-popover.wb-comments {
   display: flex;
   flex-direction: column;
@@ -264,6 +264,22 @@
   justify-content: space-between;
   gap: var(--space-2);
   font-size: var(--text-xs);
+}
+
+.wb-comments-new {
+  align-self: flex-start;
+}
+
+.wb-comments-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.wb-comments-actions {
+  display: inline-flex;
+  gap: var(--space-2);
+  flex: none;
 }
 
 .wb-comments-box {

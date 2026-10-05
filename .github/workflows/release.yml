@@ -154,21 +154,17 @@ jobs:
         env:
           MEMORYMAP_DATA_DIR: ${{ runner.temp }}/mm-smoke
           MEMORYMAP_PORT: "8765"
+        # The same smoke package-check.yml runs (packaging/frozen_smoke.py):
+        # every asset, the lazy bundles included, and the API on a fresh
+        # data dir. A release that cannot serve one of them does not happen.
         run: |
           "dist/MemoryMap AI/MemoryMap AI.exe" &
           pid=$!
-          for i in $(seq 1 60); do
-            if curl -sf -o /dev/null http://127.0.0.1:8765/; then
-              echo "the frozen app served its page after ${i}s"
-              kill $pid || true
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "the frozen app did not answer within 60 s"
-          cat "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log" 2>/dev/null || true
+          failed=0
+          python packaging/frozen_smoke.py --base http://127.0.0.1:8765 \
+            --data-dir "$MEMORYMAP_DATA_DIR" --log "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log" || failed=1
           kill $pid || true
-          exit 1
+          exit $failed
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y

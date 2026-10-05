@@ -151,3 +151,70 @@ def test_the_installer_reads_its_version_from_the_code():
     lines = [line for line in init.splitlines() if line.startswith("__version__ = ")]
     assert len(lines) == 1 and lines[0].count('"') == 2, lines
 
+
+def _smoke():
+    """packaging/frozen_smoke.py, the script CI runs against the frozen app."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("frozen_smoke", ROOT / "packaging" / "frozen_smoke.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_lazy_bundles_are_read_from_app_js():
+    """The smoke's asset list is parsed out of `LAZY_MODULES`, so a file that
+    moves into a lazy bundle is fetched from the frozen server the next run.
+    The table has to be found and full, or the smoke would check nothing."""
+    smoke = _smoke()
+    app_js = (ROOT / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
+    lazy = smoke.lazy_module_urls(app_js)
+    assert len(lazy) >= 40, lazy
+    for name in ("drag-edge.js", "companion-menu.js", "atlas-life.js", "atlas-motion.js",
+                 "note-edit-panels.js", "chord-guide.js", "library.js"):
+        assert f"/js/{name}" in lazy, name
+    assert "/css/library-lazy.css" in lazy
+    assert "/vendor/d3.v7.min.js" in lazy
+
+
+def test_every_asset_the_smoke_fetches_is_a_file_with_a_pinned_type():
+    """Cross-checks the derived list against the disk: a URL with no file is a
+    lazy load that 404s in every build, and one whose extension has no entry
+    in `STATIC_MIME_TYPES` would be typed by the Windows registry."""
+    smoke = _smoke()
+    types = smoke.static_mime_types()
+    urls = smoke.asset_urls()
+    missing = [url for url in urls if not (ROOT / "frontend" / url.lstrip("/")).is_file()]
+    assert not missing, f"named in the frontend's code but not on disk: {missing}"
+    untyped = [url for url in urls if smoke.expected_type(url, types) is None]
+    assert not untyped, f"no pinned type for {untyped}"
+
+
+def test_every_script_and_stylesheet_is_reached_by_something_the_smoke_reads():
+    """A script no page and no loader names is either dead or loaded in a way
+    the smoke's parser cannot see, and then a frozen build missing it would
+    pass. Either way the parser (or the file) needs a look."""
+    smoke = _smoke()
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    reached = set(smoke.page_urls(html)) | set(smoke.asset_urls())
+    on_disk = [f"/js/{p.name}" for p in (ROOT / "frontend" / "js").glob("*.js")]
+    on_disk += [f"/css/{p.name}" for p in (ROOT / "frontend" / "css").glob("*.css")]
+    unreached = sorted(url for url in on_disk if url not in reached)
+    assert not unreached, f"nothing the smoke reads loads {unreached}"
+
+
+def test_both_specs_ship_the_whole_frontend_tree():
+    """One `(frontend, "frontend")` pair copies the folder recursively, the
+    vendor files and the lazy bundles included; a per-file list would be the
+    drift this replaces."""
+    for spec in SPECS:
+        text = spec.read_text(encoding="utf-8")
+        assert '(str(FRONTEND_DIR), "frontend")' in text, spec
+        assert 'FRONTEND_DIR = REPO_ROOT / "frontend"' in text, spec
+    assert (ROOT / "frontend" / "vendor" / "harper" / "harper_wasm_slim_bg.wasm").is_file()
+
+
+def test_the_smoke_knows_the_alembic_head():
+    smoke = _smoke()
+    head = smoke.alembic_head()
+    assert re.fullmatch(r"[0-9a-f]{8,}", head)

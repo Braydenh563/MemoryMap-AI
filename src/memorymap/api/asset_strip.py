@@ -1,0 +1,398 @@
+"""Comments out of the frontend's CSS, JS and `index.html`, at serve time only.
+
+**Why** (audit 2026-10-05, FE-01): the files in `frontend/` are written to be
+read. 64% of the CSS, about 46% of the JS and 39% of `index.html` is comment
+text, and every byte of it went to the browser on every cold load, where it
+was downloaded, decompressed and (for the JS) scanned by the parser for
+nothing. The files on disk keep every comment: the tests read them, and so do
+the people editing them. Only what `RevalidatedStatic` hands out is stripped,
+and the result is cached per file version (`api/app.py`), so this runs once
+per edit, not once per request.
+
+**Why a lexer, not a regex.** A JS line that starts with `//` can sit inside a
+multi-line template literal (`` `...\n// not a comment\n...` ``), a `/*` can
+sit inside a string or a regex literal (`/[/*]/`), and a `<!--` can sit in an
+attribute value or a `<pre>`. A regex over the text cannot tell those apart;
+a scanner that knows where strings, templates, regex literals and comments
+begin and end can. Each scanner below jumps between the few characters that
+can change its state (`re.search` for the next one), so it costs a few
+hundred milliseconds over the whole frontend rather than seconds.
+
+**What is kept.** A `/*! ... */` comment, and any comment naming `@license`
+or `@preserve`, the conventional "keep me" markers. A `//# sourceMappingURL`
+line. **Every line number**: a comment's lines are left empty rather than
+removed, so an error's `file:line` in the console or a support bundle is the
+same line in the source, and ASI (a `return` before a multi-line comment)
+reads the same.
+
+`tests/test_asset_strip.py` holds the edge cases and, where `node` is on the
+path, runs `node --check` over every stripped script; the acorn token check in
+that file proves the stripped token stream equals the original's.
+"""
+
+from __future__ import annotations
+
+import re
+
+#: Bumped whenever the output for the same input changes, so a cached copy
+#: from an older stripper (memory, `<data dir>/cache/static-gz`, and the
+#: content-hash stamp the browser caches against) is never reused.
+STRIP_VERSION = "2"
+
+_IDENT_CHAR = re.compile(r"[\w$]")
+#: After these words a `/` starts a regex literal, not a division.
+_REGEX_AFTER_WORD = frozenset(
+    "return typeof instanceof in of new delete void throw case do else yield await".split()
+)
+
+
+def _keep(comment: str) -> bool:
+    return (
+        comment.startswith(("/*!", "//#", "//@")) or "@license" in comment or "@preserve" in comment
+    )
+
+
+def _rebuild(text: str, spans: list[tuple[int, int]], joiner: str = " ") -> str:
+    """The text with each comment span removed, **every line number kept**.
+
+    A comment alone on its line(s) leaves those lines empty: the newlines
+    stay, so a stack trace, a console error or a support bundle names the
+    same line in the served file as in the one on disk (an empty line costs
+    gzip next to nothing). A comment sharing a line with code becomes one
+    space, or the newlines it held (ASI reads a multi-line comment as a line
+    terminator). In HTML a comment separates nothing (`a<!-- -->b` reads
+    "ab"), so there the joiner is empty and an inline comment's newlines go
+    with it."""
+    out: list[str] = []
+    cursor = 0
+    n = len(text)
+    for start, end in spans:
+        if start < cursor:
+            continue
+        line_start = max(text.rfind("\n", 0, start), text.rfind("\r", 0, start)) + 1
+        line_end = end
+        while line_end < n and text[line_end] in " \t":
+            line_end += 1
+        alone_before = line_start >= cursor and not text[line_start:start].strip(" \t")
+        alone_after = line_end >= n or text[line_end] in "\r\n"
+        body = text[start:end]
+        if alone_before and alone_after:
+            out.append(text[cursor:line_start])
+            out.append("\n" * body.count("\n"))
+            cursor = line_end  # the line's own newline stays, as text
+            continue
+        before = text[cursor:start]
+        if alone_after:
+            # A trailing comment: drop it and the spaces before it.
+            out.append(before.rstrip(" \t"))
+            out.append("\n" * body.count("\n"))
+            cursor = end
+            continue
+        out.append(before)
+        if joiner and "\n" in body:
+            out.append("\n" * body.count("\n"))
+        elif not (before[-1:].isspace() or text[end : end + 1].isspace()):
+            out.append(joiner)
+        elif before[-1:] in (" ", "\t"):
+            # `a /* c */ + b` reads `a + b`, not `a  + b`.
+            while end < n and text[end] in " \t":
+                end += 1
+        cursor = end
+    out.append(text[cursor:])
+    return "".join(out)
+
+
+# ---------------------------------------------------------------- JavaScript
+
+_JS_NEXT = re.compile(r"[\"'`/{}]")
+_TEMPLATE_NEXT = re.compile(r"[`\\$]")
+
+
+def _js_regex_allowed(text: str, i: int, spans: list[tuple[int, int]]) -> bool:
+    """Whether a `/` at `i` begins a regex literal, from the token before it."""
+    j = i - 1
+    k = len(spans) - 1
+    while j >= 0:
+        ch = text[j]
+        if ch.isspace():
+            j -= 1
+            continue
+        # Skip back over a comment that ends here.
+        while k >= 0 and spans[k][1] > j + 1:
+            k -= 1
+        if k >= 0 and spans[k][1] == j + 1:
+            j = spans[k][0] - 1
+            k -= 1
+            continue
+        break
+    if j < 0:
+        return True
+    ch = text[j]
+    if _IDENT_CHAR.match(ch):
+        start = j
+        while start > 0 and _IDENT_CHAR.match(text[start - 1]):
+            start -= 1
+        word = text[start : j + 1]
+        if start > 0 and text[start - 1] == "." and not text[start - 2 : start] == "..":
+            return False  # a property name, `x.in / 2`
+        return word in _REGEX_AFTER_WORD
+    if ch in ")]}\"'`":
+        return False
+    if ch in "+-" and j > 0 and text[j - 1] == ch:
+        return False  # postfix `x++ / 2`
+    return True
+
+
+def _skip_string(text: str, i: int, quote: str) -> int:
+    """Index just past the string literal whose opening quote is at `i`."""
+    n = len(text)
+    j = i + 1
+    while j < n:
+        ch = text[j]
+        if ch == "\\":
+            j += 2
+            continue
+        if ch == quote:
+            return j + 1
+        if ch == "\n":
+            return j  # unterminated: stop at the line, as the parser would
+        j += 1
+    return n
+
+
+def _skip_regex(text: str, i: int) -> int | None:
+    """Index past the regex literal at `i`, or None when it is not one."""
+    n = len(text)
+    j = i + 1
+    in_class = False
+    while j < n:
+        ch = text[j]
+        if ch == "\\":
+            j += 2
+            continue
+        if ch in "\r\n":
+            return None
+        if in_class:
+            if ch == "]":
+                in_class = False
+        elif ch == "[":
+            in_class = True
+        elif ch == "/":
+            j += 1
+            while j < n and _IDENT_CHAR.match(text[j]):
+                j += 1
+            return j
+        j += 1
+    return None
+
+
+def js_comment_spans(text: str) -> list[tuple[int, int]]:
+    """Every comment's (start, end) in a script, kept ones excluded."""
+    spans: list[tuple[int, int]] = []
+    #: Every comment, kept ones too, in order: what the regex test skips over.
+    every: list[tuple[int, int]] = []
+    # One entry per open `${`: the `{` depth inside that substitution.
+    templates: list[int] = []
+    n = len(text)
+    i = 0
+    in_template = False
+    while i < n:
+        if in_template:
+            m = _TEMPLATE_NEXT.search(text, i)
+            if m is None:
+                return spans
+            i = m.start()
+            ch = text[i]
+            if ch == "\\":
+                i += 2
+            elif ch == "`":
+                in_template = False
+                i += 1
+            elif text[i + 1 : i + 2] == "{":
+                templates.append(0)
+                in_template = False
+                i += 2
+            else:
+                i += 1
+            continue
+        m = _JS_NEXT.search(text, i)
+        if m is None:
+            break
+        i = m.start()
+        ch = text[i]
+        if ch in "\"'":
+            i = _skip_string(text, i, ch)
+        elif ch == "`":
+            in_template = True
+            i += 1
+        elif ch == "{":
+            if templates:
+                templates[-1] += 1
+            i += 1
+        elif ch == "}":
+            if templates:
+                if templates[-1] == 0:
+                    templates.pop()
+                    in_template = True
+                else:
+                    templates[-1] -= 1
+            i += 1
+        else:  # "/"
+            nxt = text[i + 1 : i + 2]
+            if nxt == "/":
+                end = i + 2
+                while end < n and text[end] not in "\r\n":
+                    end += 1
+                every.append((i, end))
+                if not _keep(text[i:end]):
+                    spans.append((i, end))
+                i = end
+            elif nxt == "*":
+                end = text.find("*/", i + 2)
+                end = n if end == -1 else end + 2
+                every.append((i, end))
+                if not _keep(text[i:end]):
+                    spans.append((i, end))
+                i = end
+            elif _js_regex_allowed(text, i, every):
+                end = _skip_regex(text, i)
+                i = i + 1 if end is None else end
+            else:
+                i += 1
+    return spans
+
+
+def strip_js(text: str) -> str:
+    return _rebuild(text, js_comment_spans(text))
+
+
+# ----------------------------------------------------------------------- CSS
+
+_CSS_NEXT = re.compile(r"[\"'/]|url\(", re.IGNORECASE)
+
+
+def css_comment_spans(text: str) -> list[tuple[int, int]]:
+    spans: list[tuple[int, int]] = []
+    n = len(text)
+    i = 0
+    while i < n:
+        m = _CSS_NEXT.search(text, i)
+        if m is None:
+            break
+        i = m.start()
+        ch = text[i]
+        if ch in "\"'":
+            i = _skip_string(text, i, ch)
+        elif ch == "/":
+            if text[i + 1 : i + 2] == "*":
+                end = text.find("*/", i + 2)
+                end = n if end == -1 else end + 2
+                if not _keep(text[i:end]):
+                    spans.append((i, end))
+                i = end
+            else:
+                i += 1
+        else:  # url(
+            j = i + 4
+            while j < n and text[j] in " \t\r\n":
+                j += 1
+            if j < n and text[j] in "\"'":
+                i = j  # a quoted url is a string, read as one next round
+            else:
+                close = text.find(")", j)
+                i = n if close == -1 else close + 1
+    return spans
+
+
+def strip_css(text: str) -> str:
+    return _rebuild(text, css_comment_spans(text))
+
+
+# ---------------------------------------------------------------------- HTML
+
+_HTML_NEXT = re.compile(r"<(!--|/?[a-zA-Z])")
+#: Elements whose content is not markup (raw text) or must keep its comments
+#: as written: everything inside is passed over to the matching close tag.
+_HTML_OPAQUE = ("script", "style", "textarea", "title", "pre", "template", "xmp")
+_TAG_NAME = re.compile(r"[a-zA-Z][a-zA-Z0-9-]*")
+
+
+def _html_tag_end(text: str, i: int) -> int:
+    """Index past the `>` closing the tag that starts at `i` (quotes respected)."""
+    n = len(text)
+    j = i + 1
+    while j < n:
+        ch = text[j]
+        if ch in "\"'":
+            close = text.find(ch, j + 1)
+            j = n if close == -1 else close + 1
+            continue
+        if ch == ">":
+            return j + 1
+        j += 1
+    return n
+
+
+def html_comment_spans(text: str) -> list[tuple[int, int]]:
+    spans: list[tuple[int, int]] = []
+    n = len(text)
+    i = 0
+    lower = text.lower()
+    while i < n:
+        m = _HTML_NEXT.search(text, i)
+        if m is None:
+            break
+        i = m.start()
+        if m.group(1) == "!--":
+            end = text.find("-->", i + 4)
+            end = n if end == -1 else end + 3
+            spans.append((i, end))
+            i = end
+            continue
+        tag_end = _html_tag_end(text, i)
+        if text[i + 1] != "/":
+            name = _TAG_NAME.match(text, i + 1)
+            tag = name.group(0).lower() if name else ""
+            if tag in _HTML_OPAQUE and not text[i:tag_end].rstrip(">").endswith("/"):
+                # Past the matching close tag, counting nested ones of the same name.
+                depth = 1
+                j = tag_end
+                opener = re.compile(rf"<(/?){tag}(?=[\s/>])")
+                while depth and j < n:
+                    found = opener.search(lower, j)
+                    if found is None:
+                        j = n
+                        break
+                    if tag in ("script", "style", "textarea", "title", "xmp") and not found.group(
+                        1
+                    ):
+                        j = found.end()  # raw text: an opener inside is just text
+                        continue
+                    depth += -1 if found.group(1) else 1
+                    j = _html_tag_end(text, found.start())
+                i = j
+                continue
+        i = tag_end
+    return spans
+
+
+def strip_html(text: str) -> str:
+    return _rebuild(text, html_comment_spans(text), joiner="")
+
+
+def strip_for_path(name: str, body: bytes) -> bytes:
+    """The served bytes for a frontend file named `name` (a path or suffix)."""
+    lowered = name.lower()
+    if lowered.endswith(".js"):
+        fn = strip_js
+    elif lowered.endswith(".css"):
+        fn = strip_css
+    elif lowered.endswith(".html"):
+        fn = strip_html
+    else:
+        return body
+    try:
+        text = body.decode("utf-8")
+    except UnicodeDecodeError:
+        return body
+    return fn(text).encode("utf-8")

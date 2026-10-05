@@ -327,7 +327,7 @@ function renderEditForm(li, entry) {
         noteFormDraft = null;
         toast("Note saved.");
         offerWikiRename(entry.id, await saved?.json?.().catch(() => null));
-        await loadEntries();
+        await refreshEntries([entry.id]);
         pushEntryPutUndo(entry.id, "Edited a note", before, after);
       },
       false
@@ -497,7 +497,7 @@ function beginOrCompleteLink(entry) {
         async () => {
           if (liveLinkId == null) return;
           await api(`/entries/${source}/links/${liveLinkId}`, { method: "DELETE" });
-          await loadEntries();
+          await refreshEntries([source, target]);
         },
         async () => {
           const redone = await apiJson(`/entries/${source}/links`, {
@@ -505,10 +505,10 @@ function beginOrCompleteLink(entry) {
             body: JSON.stringify({ target_id: target }),
           });
           liveLinkId = redone.links.find((l) => l.entry_id === target)?.link_id ?? liveLinkId;
-          await loadEntries();
+          await refreshEntries([source, target]);
         }
       );
-      return loadEntries();
+      return refreshEntries([source, target]);
     })
     .catch((error) => {
       toast(error.message, true);
@@ -3017,6 +3017,7 @@ async function loadEntries() {
 
 async function _loadEntries() {
   const generation = ++_entriesLoadGeneration;
+  entriesComplete = false;
   referenceCountsCache.clear();
   reminderCountsCache.clear();
   showEntrySkeletons();
@@ -3094,7 +3095,74 @@ async function _loadEntries() {
     first = false;
     if (page.length === 0) break; // safety: never loop forever on a stale total
   }
+  if (generation === _entriesLoadGeneration) entriesComplete = true;
   nudgeUntaggedNotes();
+}
+
+//: **Re-read the notes a change touched, not the notebook** (audit
+//: 2026-10-05, FE-05). Every save, delete, undo, link and filing completion
+//: called `loadEntries()`, which pages through the whole notebook: measured at
+//: 5,010 notes, 27 sequential requests, 5.3 MB of JSON and up to 1.1 s of
+//: long tasks, per save. This asks for just these ids (`GET /entries?ids=`,
+//: one request) and patches them into `allEntries`: a note the answer leaves
+//: out has left the list (binned, archived, turned into a board), one it
+//: carries is replaced or added, and the list is put back in the server's
+//: order (pinned first, then newest). The answer's `X-Total-Count` is the
+//: whole list's size, so a patched list that disagrees with it (something
+//: else changed meanwhile) falls back to the full read. So does anything
+//: this cannot patch: a load still paging in, a semantic search's result
+//: list, more ids than one read takes. `loadEntries()` stays for unlock, the
+//: refresh button, a space switch and every change whose notes are unknown.
+const REFRESH_ENTRIES_MAX = 200; // `ENTRIES_BY_IDS_MAX` in routes_entries.py
+let entriesComplete = false;
+
+function entryListOrder(a, b) {
+  if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+  const ac = String(a.created_at || "");
+  const bc = String(b.created_at || "");
+  if (ac !== bc) return ac < bc ? 1 : -1;
+  return b.id - a.id;
+}
+
+async function refreshEntries(ids) {
+  const wanted = [...new Set((ids || []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+  const semantic = $("semantic-search-toggle")?.checked && noteSearch;
+  if (!wanted.length || wanted.length > REFRESH_ENTRIES_MAX || !entriesComplete || semantic) {
+    return loadEntries();
+  }
+  const generation = _entriesLoadGeneration;
+  let rows;
+  let total;
+  try {
+    const response = await api(`/entries?ids=${wanted.join(",")}`);
+    rows = await response.json();
+    total = Number(response.headers.get("X-Total-Count"));
+  } catch {
+    return loadEntries(); // which says what went wrong, where the list is
+  }
+  if (generation !== _entriesLoadGeneration || !entriesComplete) return; // a full read took over
+  const touched = new Set(wanted);
+  const next = allEntries.filter((entry) => !touched.has(entry.id));
+  next.push(...rows);
+  next.sort(entryListOrder);
+  if (Number.isFinite(total) && total !== next.length) return loadEntries();
+  allEntries = next;
+  for (const id of wanted) {
+    referenceCountsCache.delete(id);
+    reminderCountsCache.delete(id);
+  }
+  //: The side rail keys its answer on the load generation, which a patch does
+  //: not move: dropped so a changed link shows on the next paint.
+  notesRailCache.clear();
+  const railBody = $("notes-rail-body");
+  if (railBody) delete railBody.dataset.key;
+  ensureMapChipsFor(rows, generation);
+  renderStatusBar();
+  renderSidebar();
+  renderEntries();
+  //: Categories the AI filed into since the last read need their ids.
+  loadCategories();
+  fillCategoryOptions($("entry-category"), null);
 }
 
 //: **What the note list needs to draw a `[[map]]` as a map chip**, fetched

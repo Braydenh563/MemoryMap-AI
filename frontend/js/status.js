@@ -696,8 +696,17 @@ async function checkDueReminders() {
   loadReminders().catch(() => {});
 }
 
+//: **Once per page, however many unlocks** (audit 2026-10-05, FE-08). Every
+//: unlock runs `startApp()` again, and so does any 401 that routes through
+//: the lock screen, so this added another one-minute poll and two more
+//: listeners each time: after four lock and unlock cycles an idle minute
+//: asked `/reminders` five times. The first call wires everything; a later
+//: one only checks now, which is what an unlock wants.
+let reminderWatchStarted = false;
 function startReminderWatch() {
   checkDueReminders();
+  if (reminderWatchStarted) return;
+  reminderWatchStarted = true;
   setInterval(checkDueReminders, REMINDER_POLL_MS);
   // A machine that was asleep wakes up with reminders long past due, and the
   // interval will not have run. Checking on focus catches that immediately
@@ -1219,11 +1228,11 @@ function pushEntryPutUndo(entryId, label, beforeBody, afterBody) {
     label,
     async () => {
       await api(`/entries/${entryId}`, { method: "PUT", body: JSON.stringify(beforeBody) });
-      await loadEntries();
+      await refreshEntries([entryId]);
     },
     async () => {
       await api(`/entries/${entryId}`, { method: "PUT", body: JSON.stringify(afterBody) });
-      await loadEntries();
+      await refreshEntries([entryId]);
     }
   );
 }

@@ -44,7 +44,7 @@ async function openLinkTypeSheet(entryId, link) {
   const types = await linkTypesList();
   //: Each change has an app Undo (INBOX 537): the kind or properties it had.
   const send = (body) => apiJson(`/entries/${entryId}/links/${link.link_id}`, { method: "PATCH", body: JSON.stringify(body) })
-    .then((saved) => { loadEntries().catch(() => {}); return saved; });
+    .then((saved) => { refreshEntries([entryId, link.entry_id]).catch(() => {}); return saved; });
   const patch = async (body, done) => {
     const before = "props" in body ? { props: link.props || {} } : { link_type: link.link_type ?? null };
     const saved = await send(body).catch((e) => {

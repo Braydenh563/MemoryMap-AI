@@ -2330,7 +2330,7 @@ async function deleteSkillWithUndo(skill) {
     await renderSkillsDashboard();
   };
   const action = pushUndo(`Deleted the skill “${skill.name}”`, restore, async () => {
-    await saveSkillList(before.filter((s) => s.name !== skill.name)).catch(() => {});
+    await saveSkillList(before.filter((s) => s.name !== skill.name)).catch((e) => toast(e.message, true));
     await renderSkillsDashboard();
   });
   toastAction(`Deleted “${skill.name}”.`, "Undo", async () => {
@@ -9303,7 +9303,7 @@ async function deleteBookmarksWithUndo(links) {
     // Redo finds the links again by address: their ids changed on restore.
     const urls = new Set(kept.map((b) => b.url));
     for (const live of bookmarksCache.filter((b) => urls.has(b.url))) {
-      await apiJson(`/bookmarks/${live.id}`, { method: "DELETE" }).catch(() => {});
+      await apiJson(`/bookmarks/${live.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
     }
     await renderBookmarks();
   });

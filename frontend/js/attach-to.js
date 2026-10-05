@@ -83,7 +83,7 @@ async function renderAttachToBoard(entry, wrap) {
             body: JSON.stringify({ entry_id: entry.id, board_id: id, x: 80, y: 80, z: 1 }),
           });
           inlineAction = null;
-          await loadEntries();
+          await refreshEntries([entry.id]);
           toastAction(`Put on \u201c${title}\u201d.`, "Open", () => {
             if (typeof openWhiteboardBoard === "function") openWhiteboardBoard(id);
           });
@@ -168,7 +168,7 @@ async function renderAttachToDocument(entry, wrap) {
             body: JSON.stringify({ entry_id: entry.id }),
           });
           inlineAction = null;
-          await loadEntries();
+          await refreshEntries([entry.id]);
           toastAction(`Added to “${title}”.`, "Open", () =>
             openDocumentFromNote(Number(id))
           );

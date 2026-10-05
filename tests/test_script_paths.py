@@ -51,7 +51,7 @@ def test_worker_urls_resolve():
     """The workers are named by a URL in the file that starts them."""
     for name, pattern in (
         ("documents-prose.js", r'DOC_GRAMMAR_WORKER_URL = "(/[^"]+)"'),
-        ("graph-canvas.js", r"new Worker\(`(/[^?`]+)"),
+        ("graph-canvas.js", r"new Worker\(`(/[^?`$]+)"),
     ):
         text = (JS_DIR / name).read_text(encoding="utf-8")
         match = re.search(pattern, text)

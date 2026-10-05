@@ -15,9 +15,9 @@ import hashlib
 import hmac
 import logging
 import os
+import re
 import sys
 import threading
-import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -37,6 +37,7 @@ from memorymap import __version__
 from memorymap.ai import autonomous, embeddings
 from memorymap.search import searxng_manager
 from memorymap.api import (
+    asset_strip,
     routes_ask_history,
     routes_auth,
     routes_bookmarks,
@@ -154,20 +155,100 @@ def pin_static_mime_types() -> None:
 # tracks running/failed state for the status pill.)
 
 
-#: **One value, fixed the moment this module is imported, i.e. once per
-#: server process.** `start-desktop.bat`/`.sh` starts a fresh server every
-#: launch; a browser tab hitting an already-running dev server keeps
-#: whatever token that process picked at its own boot. Either way this
-#: answers exactly the question the `?v=` stamp exists to answer ("is this
-#: the same build the reader last cached?") one level more finely than
-#: `__version__` alone can between releases: not just "different version"
-#: but "different process start", which is what an unreleased branch full
-#: of same-version commits actually needs. See `RevalidatedStatic.
-#: get_response` below for where this gets spliced into `index.html`'s own
-#: asset URLs, never into the on-disk file (`test_asset_cache_busting.py`
-#: still reads that file literally, and still should: it is the contract
-#: for what a human edits, this is the contract for what a browser fetches).
-_BOOT_TOKEN = format(int(time.time()), "x")
+#: **Each asset URL is stamped with a hash of that file** (audit 2026-10-05,
+#: FE-02). This replaced `_BOOT_TOKEN`, one value per server process spliced
+#: onto every stamp: it fixed a real report (the desktop window's own cache
+#: running yesterday's scripts for days, "basically all my bugs are still
+#: there", CLAUDE.md section 5) by making every launch a *different* URL for
+#: every file, which also made every launch a cold load: 0 of 49 assets
+#: from cache, 2.1 MB fetched and every script parsed cold, measured after a
+#: restart. A hash of the file's bytes answers the same question exactly
+#: ("is this the file the browser last cached?"): an edited file gets a new
+#: URL on the very next page load, with or without a restart, and an
+#: unchanged one keeps its URL, so its HTTP cache and V8's code cache, across
+#: launches. `STRIP_VERSION` goes into the hash too, because what is served
+#: is the stripped file (`asset_strip.py`), and a changed stripper changes it.
+#:
+#: Keyed on (mtime, size) so a page load stats each file rather than reading
+#: it; the read and hash happen once per file version.
+_asset_hashes: dict[str, tuple[int, int, str]] = {}
+
+
+def asset_hash(path: Path) -> str | None:
+    """Ten hex characters of sha256 over a frontend file and the stripper's
+    version, or None when there is no such file."""
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    if not path.is_file():
+        return None
+    key = str(path)
+    cached = _asset_hashes.get(key)
+    if cached and cached[0] == stat.st_mtime_ns and cached[1] == stat.st_size:
+        return cached[2]
+    digest = hashlib.sha256(path.read_bytes())
+    digest.update(asset_strip.STRIP_VERSION.encode())
+    value = digest.hexdigest()[:10]
+    _asset_hashes[key] = (stat.st_mtime_ns, stat.st_size, value)
+    return value
+
+
+#: A local URL carrying the version stamp, in the page's markup.
+_STAMPED_URL = re.compile(rb"(/[A-Za-z0-9_./-]+)\?v=" + re.escape(__version__.encode()) + rb"(?![\w.-])")
+
+
+def _stamp_for(rel: str) -> str:
+    digest = asset_hash(FRONTEND_DIR / rel.lstrip("/"))
+    return f"{__version__}-{digest}" if digest else __version__
+
+
+def asset_stamps() -> dict[str, str]:
+    """Every script a page can load after boot, mapped to its stamp: what
+    `lazyAssetStamp` (frontend/js/app.js) reads for a lazy bundle or a
+    worker, so a file loaded on demand is stamped by its own bytes too."""
+    return {
+        f"/js/{p.name}": _stamp_for(f"/js/{p.name}")
+        for p in sorted((FRONTEND_DIR / "js").glob("*.js"))
+    }
+
+
+_index_cache: dict[str, object] = {}
+
+
+def served_index_html() -> bytes:
+    """`index.html` as served: comments stripped, every local `?v=<version>`
+    given its file's own hash, and the lazy scripts' stamps carried in a
+    `<meta name="asset-stamps" content="/js/a.js=<stamp>,...">` (a meta, not
+    a JSON `<script>`: the page holds no inline script at all,
+    `test_static_freshness.py`). Rebuilt only when the page or a stamp
+    moves."""
+    page = FRONTEND_DIR / "index.html"
+    stat = page.stat()
+    stamps = asset_stamps()
+    source = (stat.st_mtime_ns, stat.st_size)
+    if _index_cache.get("source") != source:
+        stripped = asset_strip.strip_for_path("index.html", page.read_bytes())
+        _index_cache["source"] = source
+        _index_cache["stripped"] = stripped
+        _index_cache["urls"] = sorted({m.group(1) for m in _STAMPED_URL.finditer(stripped)})
+    # Every stamped URL's stamp is part of the key: an edited stylesheet
+    # changes the page as surely as an edited page does.
+    referenced = tuple(_stamp_for(url.decode()) for url in _index_cache["urls"])  # type: ignore[union-attr]
+    signature = (source, referenced, tuple(stamps.values()))
+    if _index_cache.get("signature") == signature:
+        return _index_cache["body"]  # type: ignore[return-value]
+    body = _index_cache["stripped"]
+    body = _STAMPED_URL.sub(
+        lambda m: m.group(1) + b"?v=" + _stamp_for(m.group(1).decode()).encode(), body
+    )
+    data = ",".join(f"{path}={stamp}" for path, stamp in stamps.items()).encode()
+    block = b'<meta name="asset-stamps" content="' + data + b'">'
+    head_end = body.lower().find(b"</head>")
+    body = body[:head_end] + block + body[head_end:] if head_end != -1 else body + block
+    _index_cache["signature"] = signature
+    _index_cache["body"] = body
+    return body
 
 
 class RevalidatedStatic(StaticFiles):
@@ -205,26 +286,19 @@ class RevalidatedStatic(StaticFiles):
     Unstamped requests (`/vendor/*`, deliberately unstamped per that same
     test, and any bare path) keep the `no-cache` behaviour above unchanged.
 
-    **`index.html` itself gets one more thing: `_BOOT_TOKEN` spliced onto
-    every `?v={__version__}` it hands out.** The desktop shell restarts its
-    *server* on every launch (a fresh Python process, a fresh `_BOOT_TOKEN`)
-    but not necessarily its own on-disk cache, and this branch's whole day
-    sat on one unmoving `__version__` while dozens of real fixes landed:
-    reported directly as "basically all my bugs are still there" after a
-    long stretch of changes each individually verified against the running
-    server. `__version__` alone answers "which release" and is right to
-    keep doing that (a released build should cache its assets for a year,
-    which is what the `immutable` header above still means); splicing this
-    token in as well answers the question that matters *during*
-    development, "which time this server was started", with no manual step
-    and no change to what gets tagged at release.
+    **`index.html` itself is rewritten as it is served** (`served_index_html`):
+    every `?v={__version__}` becomes `?v={__version__}-<hash of that file>`,
+    so a file edited between two launches is a new URL the moment the page
+    is next loaded (the desktop window's own cache, which the old per-launch
+    `_BOOT_TOKEN` was there for, can never run yesterday's file), while an
+    unchanged file keeps its URL and its cache across launches (audit
+    2026-10-05, FE-02: the token had made every launch a cold load).
     """
 
-    #: `index.html`'s body needs to change per boot (it is the source of
-    #: every other URL's `?v=` stamp), and it needs to change *even when the
-    #: file on disk has not*, since the whole point is one server process's
-    #: stamp differing from the next one's. Handled before `super()` is ever
-    #: called, not after: `StaticFiles.get_response` answers a conditional
+    #: `index.html`'s body needs to change whenever any asset does (it is the
+    #: source of every other URL's `?v=` stamp), *even when the file on disk
+    #: has not*: an edited `app.js` changes the page's stamp for it. Handled
+    #: before `super()` is ever called, not after: `StaticFiles.get_response` answers a conditional
     #: `If-None-Match`/`If-Modified-Since` against the file's own constant
     #: etag/mtime with a 304 before this class sees a status code to check,
     #: and a 304 tells the browser to keep exactly the stale cached body
@@ -245,14 +319,20 @@ class RevalidatedStatic(StaticFiles):
         if path in self._INDEX_PATHS and scope["method"] not in ("GET", "HEAD"):
             raise StarletteHTTPException(status_code=405)
         if path in self._INDEX_PATHS:
-            body = (FRONTEND_DIR / "index.html").read_bytes()
-            stamp = f"?v={__version__}".encode()
-            replacement = f"?v={__version__}-{_BOOT_TOKEN}".encode()
-            response = HTMLResponse(content=body.replace(stamp, replacement))
+            body = await run_in_threadpool(served_index_html)
+            response = HTMLResponse(content=body)
             response.headers["Cache-Control"] = "no-cache"
             return response
+        strip = self._strippable(path)
+        if strip and "range" in Headers(scope=scope):
+            # A stripped file is one representation, served whole: a byte
+            # range of it would be a range of something no validator names.
+            scope = {
+                **scope,
+                "headers": [(k, v) for k, v in scope.get("headers", []) if k.lower() != b"range"],
+            }
         response = await super().get_response(path, scope)
-        response = await self._precompressed(response, scope)
+        response = await self._precompressed(response, scope, strip)
         query = scope.get("query_string", b"")
         if isinstance(query, bytes):
             query = query.decode("latin-1")
@@ -267,8 +347,8 @@ class RevalidatedStatic(StaticFiles):
     #: `GZipMiddleware` compressed a static file afresh on every request:
     #: measured on loopback, `08-consistency.css` (448 KB) took 22 to 46 ms
     #: gzipped against 5 ms sent as it is, `app.js` 10 ms against 4, and a
-    #: launch fetches every stylesheet and script again because `_BOOT_TOKEN`
-    #: gives each one a new URL. So every start paid the whole frontend's
+    #: launch used to fetch every stylesheet and script again (a per-process
+    #: stamp gave each one a new URL). So every start paid the whole frontend's
     #: compression on the server's one event loop while the boot's own API
     #: calls queued behind it. The bytes are kept per file, keyed on its
     #: mtime and size, so an edited file is compressed again on its next
@@ -285,46 +365,77 @@ class RevalidatedStatic(StaticFiles):
     #: rather than once per launch. Backups copy the database only, so the
     #: folder is never in one, and anything going wrong with it (a read-only
     #: data dir, a full disk) falls back to compressing in memory.
-    _GZIP_TYPES = ("text/", "application/javascript", "application/json", "image/svg+xml")
+    #: `application/wasm` (audit 2026-10-05, FE-03): the grammar checker's
+    #: 15.9 MB binary is 8 MB gzipped. It was left out because the middleware
+    #: compressed it on every fetch (755 ms); here that is paid once per
+    #: version and read from `<data dir>/cache/static-gz` after.
+    _GZIP_TYPES = (
+        "text/",
+        "application/javascript",
+        "application/json",
+        "image/svg+xml",
+        "application/wasm",
+    )
     _gzip_cache: dict[str, tuple[int, int, bytes]] = {}
 
-    async def _precompressed(self, response, scope):
+    #: **Comments are stripped from what is served** (audit 2026-10-05, FE-01):
+    #: the app's own `js/*.js` and `css/*.css` (and `index.html`, above), never
+    #: `vendor/`, never the files on disk. See `asset_strip.py` for why and how.
+    @staticmethod
+    def _strippable(path: str) -> bool:
+        path = path.replace("\\", "/")
+        return (path.startswith("js/") and path.endswith(".js")) or (
+            path.startswith("css/") and path.endswith(".css")
+        )
+
+    async def _precompressed(self, response, scope, strip: bool = False):
         if not isinstance(response, FileResponse) or response.status_code != 200:
             return response
-        if scope["method"] != "GET":
+        if scope["method"] not in ("GET", "HEAD"):
             return response
         request_headers = Headers(scope=scope)
-        if "gzip" not in request_headers.get("accept-encoding", "") or "range" in request_headers:
+        wants_gzip = "gzip" in request_headers.get("accept-encoding", "")
+        if not strip and (scope["method"] != "GET" or not wants_gzip or "range" in request_headers):
             return response
         media_type = (response.media_type or "").lower()
-        if not media_type.startswith(self._GZIP_TYPES):
+        if not strip and not media_type.startswith(self._GZIP_TYPES):
             return response
         stat = response.stat_result
-        if stat is None or stat.st_size < 500:
+        if stat is None or (not strip and stat.st_size < 500):
             return response
         key = str(response.path)
         cached = self._gzip_cache.get(key)
         if cached and cached[0] == stat.st_mtime_ns and cached[1] == stat.st_size:
             body = cached[2]
         else:
-            body = await run_in_threadpool(_static_gzip, key, stat.st_mtime_ns, stat.st_size)
+            body = await run_in_threadpool(_static_gzip, key, stat.st_mtime_ns, stat.st_size, strip)
             self._gzip_cache[key] = (stat.st_mtime_ns, stat.st_size, body)
         headers = {
             k: v
             for k, v in response.headers.items()
             if k.lower() not in ("content-length", "content-encoding")
         }
-        headers["Content-Encoding"] = "gzip"
         headers["Vary"] = "Accept-Encoding"
+        if wants_gzip:
+            headers["Content-Encoding"] = "gzip"
+        else:
+            body = gzip.decompress(body)
+        if scope["method"] == "HEAD":
+            headers["Content-Length"] = str(len(body))
+            return Response(content=b"", headers=headers, media_type=response.media_type)
         return Response(content=body, headers=headers, media_type=response.media_type)
 
 
-def _static_gzip(path: str, mtime_ns: int, size: int) -> bytes:
+def _static_gzip(path: str, mtime_ns: int, size: int, strip: bool = False) -> bytes:
     """A static file's gzip bytes, from the disk cache or compressed now.
 
     One file per path, named for its version, so an edited file's old copy is
-    replaced rather than accumulated (RevalidatedStatic._precompressed)."""
+    replaced rather than accumulated (RevalidatedStatic._precompressed). A
+    stripped file's name carries the stripper's version as well, so a new
+    stripper never reads an old one's output."""
     stem = hashlib.sha1(path.encode(), usedforsecurity=False).hexdigest()[:16]
+    if strip:
+        size = f"{size}-s{asset_strip.STRIP_VERSION}"  # type: ignore[assignment]
     try:
         folder = deps.get_config().data_dir / "cache" / "static-gz"
     except Exception:  # noqa: BLE001  # no data dir yet is no reason to fail a page
@@ -335,7 +446,13 @@ def _static_gzip(path: str, mtime_ns: int, size: int) -> bytes:
         except OSError:
             # Not cached yet (or unreadable): it is compressed below instead.
             pass
-    body = gzip.compress(Path(path).read_bytes(), 9, mtime=0)
+    raw = Path(path).read_bytes()
+    if strip:
+        raw = asset_strip.strip_for_path(path, raw)
+    # Level 9 for the app's own text (paid once per version); 6 for a large
+    # binary such as the grammar checker's 15.9 MB WASM, where 9 takes
+    # seconds longer for well under a percent.
+    body = gzip.compress(raw, 9 if len(raw) < 4_000_000 else 6, mtime=0)
     if folder is not None:
         try:
             folder.mkdir(parents=True, exist_ok=True)
@@ -996,8 +1113,9 @@ def create_app() -> FastAPI:
             # The grammar checker's 15.9 MB binary (INBOX 401). Measured on
             # loopback: 755 ms to gzip it on every cold fetch against 60 ms
             # to send it as it is, so compressing it made the first check
-            # slower by the whole difference. It is fetched once per launch
-            # and revalidated by its ETag after that.
+            # slower by the whole difference. Never compressed *here*: the
+            # precompressed cache (`RevalidatedStatic._precompressed`) gzips
+            # it once per version and this middleware passes that through.
             "application/wasm",
         ),
     )

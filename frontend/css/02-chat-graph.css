@@ -2299,7 +2299,7 @@ button.ghost.danger {
 /* Below the width this palette fits in, the sections wrap as sections (they
    are `flex-shrink: 0`), and the foot becomes two rows rather than squeezing
    a caption box to nothing. */
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
   .sketch-foot {
     flex-wrap: wrap;
   }
@@ -2310,7 +2310,7 @@ button.ghost.danger {
 }
 
 /* --- Wave F: mobile / PWA responsive pass --------------------------------------- */
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
   header {
     padding: 1rem 1rem 0.5rem;
   }
@@ -2784,7 +2784,7 @@ kbd {
   justify-content: space-between;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
   #note-sort {
     max-width: none;
   }
@@ -3113,7 +3113,7 @@ kbd {
 
 /* Bigger touch targets for the small action buttons on phones, a 44px
    min is the accessibility guideline for finger taps. */
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
 
   .entry-actions button,
   .entry-actions .unlink,
@@ -3594,7 +3594,7 @@ kbd {
    running off-screen: asked for directly ("compatible for small screen
    sizes like iPhones"). Drops the flyout positioning entirely and expands
    the group in place instead, indented to still read as nested. */
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
   .action-menu.submenu {
     position: static;
     min-width: 0;
@@ -3617,7 +3617,7 @@ html {
    specificity tie for anything loaded between here and there. */
 
 /* Inputs at 16px on touch screens so iOS doesn't zoom the page. */
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
 
   textarea,
   input,
@@ -3667,7 +3667,7 @@ html {
    (MODERNISATION_AUDIT.md Brief 2, measured): a head row with a collapse
    toggle that means nothing when the sidebar is stacked, then three wrapped
    rows of chips. One scrolling row, no head. */
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   #sidebar .sidebar-head,
   #sidebar .sidebar-collapse-toggle {
     display: none;
@@ -4912,7 +4912,7 @@ mark.lightbox-hit {
   pointer-events: none;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   /* A 168px box is a quarter of a phone screen's width and sits on top of the
      canvas it is summarising, on the one tab that already has the least room
      (see the agent-monitor note in 07-whiteboard-misc.css). Hidden by default
@@ -5313,7 +5313,7 @@ mark.lightbox-hit {
   line-clamp: 4;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   .answer-evidence-row {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-2);
@@ -6157,7 +6157,7 @@ button.ghost.danger:hover {
    New) and the list itself; sorting and browsing are the Library's job
    and are one tap away there. Same shape as the Notes category strip
    above, which already drops its head row at this width. */
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   #chat-sidebar {
     --card-pad-y: var(--space-3);
   }
@@ -6434,7 +6434,7 @@ button.ghost.danger:hover {
   top: var(--graph-chrome-top);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   /* The column keeps the phone's own gutter rather than the map's inset. */
   .graph-overlay {
     top: var(--space-2);
@@ -6636,7 +6636,7 @@ button.ghost.danger:hover {
    scrolled 825px inside 763 at 820 and 1010 inside 686 at 390 with the pane
    in it. `display: none` rather than `hidden`, because whether the reader has
    a column is not a fact the JS that follows what is open should have to know. */
-@media (max-width: 819px) {
+@media (max-width: 819.98px) {
   .graph-pane {
     display: none;
   }

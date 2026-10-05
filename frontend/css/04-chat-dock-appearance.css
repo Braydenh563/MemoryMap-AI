@@ -517,7 +517,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   display: none;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
   #graph-card {
     margin: 0 0 var(--space-5);
   }
@@ -558,7 +558,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 }
 
 /* Below 720px `.layout` stacks aside and main into two rows instead of one
-   row of two columns (the base rule's own `@media (max-width: 720px)`
+   row of two columns (the base rule's own `@media (max-width: 719.98px)`
    block), but this rule's `grid-template-rows: minmax(0, 1fr)` still names
    only one explicit row. The sidebar (row 1, the explicit `1fr` track) was
    losing almost all of it to `main`'s implicit auto row claiming its full
@@ -569,7 +569,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
    card background floating above `chat-main`'s real header, its own content
    rendered outside its box. Each row sizes to its own content when stacked,
    same as `#tab-notes` (which never set an explicit row template at all). */
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
   #tab-chat:not(.hidden)>.layout {
     grid-template-rows: none;
   }
@@ -623,7 +623,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 /* Below this the two columns are both too narrow to use, so the panel takes
    the whole of <main> and the conversation waits behind it. The ✕ is right
    there, which is what makes that acceptable, it is one click back. */
-@media (max-width: 1100px) {
+@media (max-width: 1099.98px) {
   #tab-chat .layout>.tab-main:has(#web-panel:not(.hidden))>#chat-main {
     display: none;
   }
@@ -1485,7 +1485,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   display: none;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
 
   /* Two rows of controls above a composer is most of a phone screen. They stay
      - hiding a control the user has to reach for is worse than scrolling, but
@@ -2702,7 +2702,7 @@ span > .chip {
   outline-offset: 2px;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
   .scroll-top {
     right: 1rem;
     bottom: calc(var(--status-bar-h) + var(--space-3));
@@ -4956,7 +4956,7 @@ span > .chip {
 }
 
 /* On a phone the count takes its own line over the buttons. */
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   .entry-pick-card > .space-dialog-actions {
     flex-wrap: wrap;
   }

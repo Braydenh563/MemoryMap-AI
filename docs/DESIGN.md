@@ -983,9 +983,22 @@ ratchets the counts so they cannot drift back.
 **Measured against native references** (`scratchpad/ui-sweeps/density.js`,
 1440x900): 36px was the commonest control on every tab, against 28 to 32px
 in Apple Notes, Things, Linear and Obsidian. The top bar's tabs and the
-Notes and Library sub-tab strips are segmented controls, so their segments
-take `--target-min` in a 2.4px or 4px well and their labels `--text-md`;
-the top bar is 48px (was 56).
+Notes and Library sub-tab strips are segmented controls with their labels at
+`--text-md`; the top bar is 48px (was 56). (Corrected 2026-10-05, audit
+FE-15: these segments measure 36px, not `--target-min`.)
+
+**The heights each role takes, measured** (audit 2026-10-05, FE-15,
+`census.js` at 1440 over every tab and Settings pane). This is the contract
+a new control is held to; a role gaining a height is a finding.
+
+| Role | Height | Where |
+| --- | --- | --- |
+| Icon-only button | 28 (`--target-min`) | everywhere outside a dock |
+| Any control in a dock | the dock's `--control-h`, 32 | one height per bar |
+| A dock's segment | 28, inset to the bar's 32 (FE-14) | view toggles, Edit and Read |
+| Ghost or filled button | 32 | dialogs, cards, panes |
+| Tab and sub-tab strip | 36 | the top bar, Notes and Library |
+| Chip | 24 | categories, tags; under the floor, open (FE-14) |
 
 One more thing has to match for a row of controls to read as a strip rather
 than as a pile: **their height.** The chat dock declares `--control-h` and

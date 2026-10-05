@@ -1110,7 +1110,13 @@ async function clearDoneReminders() {
   //: One Undo for the lot (INBOX 537), each made again as it was.
   let live = done;
   const drop = async () => {
-    await Promise.all(live.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).catch(() => {})));
+    //: Every delete is tried; how many failed is said once (audit
+    //: 2026-10-05, FE-12), where a silent catch let them come back unexplained.
+    const results = await Promise.all(
+      live.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).then(() => true, () => false))
+    );
+    const failed = results.filter((ok) => !ok).length;
+    if (failed) toast(`Couldn't delete ${failed} of the reminders.`, true);
     loadReminders();
   };
   const remake = async () => {
@@ -1294,8 +1300,12 @@ function reminderItem(reminder, label) {
 
 // Relative time that works both ways: "in 2 hours" (future) and "3 days ago"
 // (past). relativeTime() only handles the past, which is wrong for reminders.
+//: Through `parseServerTime`, like every other reader of a server time
+//: (audit 2026-10-05, FE-16): the server keeps a zone-less `due_at` as UTC.
 function relativeWhen(iso) {
-  const diff = new Date(iso).getTime() - Date.now();
+  const when = parseServerTime(iso);
+  if (!when) return "";
+  const diff = when.getTime() - Date.now();
   const future = diff >= 0;
   const mins = Math.abs(diff) / 60000;
   if (mins < 0.75) return future ? "now" : "just now";
@@ -1311,7 +1321,7 @@ function relativeWhen(iso) {
     value = Math.round(mins / 60 / 24);
     unit = "day";
   } else {
-    return new Date(iso).toLocaleDateString();
+    return when.toLocaleDateString();
   }
   const label = `${value} ${unit}${value === 1 ? "" : "s"}`;
   return future ? `in ${label}` : `${label} ago`;

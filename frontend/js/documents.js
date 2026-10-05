@@ -13939,8 +13939,11 @@ function docProseFindings(text) {
   const found = [];
   //: Kicked off here rather than at load: this is the first moment anything
   //: wants to know whether a word is a word. It returns immediately, and the
-  //: pass that arrives with it re-runs this one.
-  docLoadWordlist();
+  //: pass that arrives with it re-runs this one. Not for an empty editor
+  //: (audit 2026-10-05, FE-03): this file's last line paints the tools once
+  //: at load, when no document is open, and that pass fetched the 871 KB
+  //: word list on every first Library visit with nothing to check.
+  if (text.trim()) docLoadWordlist();
   const skip = docProseSkipMask(text);
   //: A span is skipped when it starts inside code or an address. Its start
   //: rather than every character of it: a rule whose match straddles the end

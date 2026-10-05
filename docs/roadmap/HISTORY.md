@@ -10836,7 +10836,11 @@ the reason.** The gate now measures the attribution directly (step 2b):
 - restarted: back to 2.9 fps.
 
 So the main thread is roughly 10% busy in both cases and the page still
-cannot get frames while the simulation runs. On a 200-note board the numbers
+cannot get frames while the simulation runs. (Retracted for large maps,
+2026-10-05, audit FE-04: at 5,000 notes the renderer was the largest single
+cost, `drawImage` 7.8 s of a 32 s profile, and the layout had not ended
+after 30 s, the tab idling at 44%. Small dots are now batched and a layout
+ends within 20 s of the last thing that moved it.) On a 200-note board the numbers
 are starker: the renderer draws in **0.6-0.8 ms** (worst 1.9-4.9 ms, inside
 the 16 ms budget by an order of magnitude) and a tick costs 1-12 ms, and the
 page still only reaches 6-9 fps *during* a drag while reaching 58.4 fps

@@ -109,6 +109,37 @@ const CHECKS = {
     console.log(`docks: ${total} overlapping or squeezed controls over ${widths.length} widths (look ${process.env.LOOK || 'stored'})`);
     return total;
   },
+  //: A Settings card's space under its last line matches the space over its
+  //: first: an empty status line (`p.status`, filled only when there is
+  //: something to say) stood 14px tall at the foot of Models' backend card,
+  //: 17px over the content and 31px under it.
+  async settingspad(page) {
+    const sections = await page.evaluate(() => [...document.querySelectorAll('#settings-modal [data-section]')].map((b) => b.dataset.section).filter((v, i, a) => a.indexOf(v) === i));
+    const bad = [];
+    let groups = 0;
+    for (const s of sections) {
+      await page.evaluate((x) => openSettingsModal(x), s);
+      await page.waitForTimeout(600);
+      const r = await page.evaluate(() => {
+        const out = [];
+        for (const g of document.querySelectorAll('#settings-modal .settings-section:not(.hidden) .settings-group')) {
+          const gb = g.getBoundingClientRect();
+          if (!gb.height || g.closest('details:not([open])')) continue;
+          const kids = [...g.children].filter((k) => getComputedStyle(k).display !== 'none');
+          if (!kids.length) continue;
+          const lastKid = kids[kids.length - 1];
+          const empty = lastKid.matches('p.status') && !lastKid.textContent.trim();
+          out.push({ id: g.id || g.className.slice(0, 40), empty, h: Math.round(lastKid.getBoundingClientRect().height + parseFloat(getComputedStyle(lastKid).marginTop) + parseFloat(getComputedStyle(lastKid).marginBottom)) });
+        }
+        return out;
+      });
+      groups += r.length;
+      for (const g of r) if (g.empty && g.h > 0) bad.push(`${s}/${g.id} ends in an empty status line ${g.h}px`);
+    }
+    await page.evaluate(() => closeSettingsModal?.());
+    console.log(`settings: ${groups} cards over ${sections.length} sections, ${bad.length} ending in an empty status line`, bad.length ? JSON.stringify(bad.slice(0, 8)) : '');
+    return bad.length;
+  },
   //: The empty states' "Ask Atlas" chip is set apart by space, not by a
   //: short hairline floating in the middle of a centred welcome.
   async emptyrule(page) {

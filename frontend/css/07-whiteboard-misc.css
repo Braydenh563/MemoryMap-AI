@@ -5098,6 +5098,16 @@ summary:not(.icon-only):not(.icon-button) {
   margin: 0;
 }
 
+/* The same for every Settings card: a status line waiting for something to
+   say kept its paragraph margins, 27px of nothing, and nine cards ended on
+   one (Models' backend card stood 17px over its content and 31px under it;
+   qa1005-polish.js `settingspad`, 9 to 0). Margin only, not `display: none`:
+   these are `role="status"` regions, which have to be in the tree before
+   their words arrive for a screen reader to announce them. */
+#settings-modal .settings-group > p.status:empty {
+  margin: 0;
+}
+
 /* The panel's own vertical rhythm. "Everything is squashed together" was
    also literally true: the card's children sat on 0.4rem margins, so a
    heading, three paragraphs, a button strip, a checkbox and a progress bar

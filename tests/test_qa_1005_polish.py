@@ -74,3 +74,13 @@ def test_the_notes_find_zone_is_never_narrower_than_its_controls():
     css = (CSS / "08-consistency.css").read_text(encoding="utf-8")
     rule = _rule(css, '[data-dock-name="notes"] .dock-find')
     assert "flex: 1 1 8rem" in rule and "min-width: min-content" in rule
+
+
+def test_an_empty_settings_status_line_takes_no_room():
+    """Nine Settings cards ended on an empty `p.status` that kept 27px of
+    paragraph margin (qa1005-polish.js `settingspad`: 9 to 0). The margin
+    goes, the element stays, so a live region is in the tree before it
+    speaks."""
+    css = (CSS / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    rule = _rule(css, "#settings-modal .settings-group > p.status:empty")
+    assert "margin: 0" in rule and "display" not in rule

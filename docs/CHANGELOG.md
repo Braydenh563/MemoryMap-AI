@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Graph topics can be renamed: the pencil on a topic's card gives it a name of your own, kept by its notes so it follows the topic through small changes, and the arrow brings the found name back (PUT /graph/topics/name). Library, Contents has By topic, a section per topic (INBOX 547).
 - Documents on a phone: in Read view the first line sits right under the head row (y=199 at 390x844, was 255): the document's name is not repeated as a heading under the row that already shows it, and the page's padding matches the card's. Desktop Read view still opens with the name.
 - Atlas, on a small model: "What tags and what categories am I using?" (two questions in one sentence) is read as a question, so the tag and category tools that change things are not offered for it; filing a note under a category that already exists no longer opens by offering to create the category; and when a request that must open with a tool call gets prose instead, the model is asked once more to call it (`tests/test_toolwords.py`, `tests/test_harness_tiers.py`, `tests/test_harness_robustness.py`).
 - Focus mode (the graph's local view): the neighbourhood of a note is drawn from an index of the notebook's connections that is kept until a note or link changes, instead of being rebuilt from every note on each open or refocus; measured on synthetic notebooks of 2,000 and 10,000 notes, a repeat call went from 129 ms and 1,032 ms to 13 ms and 23 ms (`tests/test_graph_local_scaling.py`).

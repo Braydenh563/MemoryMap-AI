@@ -1041,7 +1041,34 @@ def graph_structure(
         return structure
     #: GRAPH_PLAN KG6: named topics inside the islands, asked for separately
     #: so the colour rule "cluster" pays nothing for them.
-    return {**structure, **_cached("topics", fingerprint, lambda: _build_topics(session))}
+    found = _cached("topics", fingerprint, lambda: _build_topics(session))
+    #: INBOX 547: the names the person gave, laid over after the cache, so a
+    #: rename shows at once without recomputing a single topic.
+    named = topic_finder.apply_names(
+        found["topics"], deps.get_config().get_preference(TOPIC_NAMES_KEY, [])
+    )
+    return {**structure, **found, "topics": named}
+
+
+#: The preference holding renamed topics: `[{"ids": [...], "name": "..."}]`.
+TOPIC_NAMES_KEY = "graph_topic_names"
+
+
+class TopicNameBody(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=5000)
+    name: str = Field(default="", max_length=80)
+
+
+@router.put("/graph/topics/name")
+def name_topic(body: TopicNameBody) -> dict:
+    """Give a topic a name of your own, or clear it to get the found one back
+    (INBOX 547). Stored by the topic's notes, which are all a recomputed
+    topic can be recognised by (`topics.apply_names`)."""
+    name = " ".join(body.name.split())
+    config = deps.get_config()
+    stored = config.get_preference(TOPIC_NAMES_KEY, [])
+    config.set_preference(TOPIC_NAMES_KEY, topic_finder.store_name(stored, body.ids, name))
+    return {"name": name}
 
 
 class TopicSummaryBody(BaseModel):

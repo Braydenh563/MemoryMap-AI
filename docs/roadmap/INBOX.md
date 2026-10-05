@@ -43,15 +43,6 @@ with its owner named in the entry.
      undo and redo across the application needs to cover EVERYTHING" Data
      loss: first.
 
-538. **The owner, 2026-10-05, verbatim.** "Im using a thinking model that can
-     use toolcalling but it fails??" (screenshots: gemma-4-E2B, spec sheet
-     "Can use tools: yes", the answer card says it "can't call tools, so this
-     answered as a plain question instead of using Agent mode").
-
-539. **The owner, 2026-10-05, verbatim.** "when I switch between tabs in the
-     top bar, the pill element for the tabs shifts position slightly
-     horizontally."
-
 540. **The owner, 2026-10-05, verbatim.** "one of the feminine atlas blinking
      animations has MASSSSIVE eyebrows."
      Not reproduced (2026-10-05): the live companion drawn at 6x, feminine
@@ -60,10 +51,6 @@ with its owner named in the entry.
      size; mid-blink frames looked at. Needs the owner: a screenshot of the
      moment, or which pose/mood it was in (sitting, lying, drowsy, startled).
 
-541. **The owner, 2026-10-05, verbatim.** "some of the settings section
-     navigation rows are at the bottom and some dont have any at all??"
-     (screenshot: Quit MemoryMap with its sub-tab row under the title).
-
 542. **The owner, 2026-10-05, verbatim.** "some of the badge icons and text
      arent aligned vertically." (screenshot: the Installed badge in Settings,
      Packages).
@@ -71,28 +58,6 @@ with its owner named in the entry.
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs
      moderna dn professional redesigning and restructuring." (screenshot: the
      calendar strip under the dock).
-
-544. **The owner, 2026-10-05, verbatim.** "the graph arc view starts a little
-     too close and too high up on the screen."
-
-545. **The owner, 2026-10-05, verbatim.** "the clear button in the note
-     capture tab clashes with the text box."
-
-546. **The owner, 2026-10-05, verbatim.** "idk if the "connections beside an
-     open note" in the notes tab does anything."
-     Checked: it works at 1280px and wider, beside a note you have opened
-     (`notesRailWanted`); with no note open nothing changes, so pressing it
-     looked like nothing. It now says so in a toast when that is the case.
-
-547. **The owner, 2026-10-05, verbatim.** "also what are topics in the graph??
-     can i change or modify or see topics in the graph or elsewhere??"
-     Answer: a topic is a subject the app finds inside a cluster (GRAPH_PLAN
-     KG6): notes linked closely together, named by the tag, person or word
-     they share most. Seen via the graph's gear, Colour: Topic (an outline
-     per topic, a legend entry per topic, a card with Summarise). They are
-     computed, not editable. Recommendation (taken): rename a topic from its
-     card (a stored name that wins over the computed one), and list topics
-     in Library, Contents, so they are visible outside the graph. Next Opus.
 
 548. **The owner, 2026-10-05, verbatim.** "redesign old ui popups like this as
      well to be consistent, moderna and professional." (screenshot: the mind

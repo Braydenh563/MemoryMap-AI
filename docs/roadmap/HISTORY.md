@@ -40404,3 +40404,41 @@ reading pane pads `--space-6`. First line 255 to 199, light and dark; Live
 stays at 192. At 1440 the Read view's title heading is still drawn (block,
 33px). The dock's two rows stay: the Edit/Read row is the view switch the
 plan's item 6 decided on, and it fits the budget as it is.
+## INBOX resolved, 2026-10-05
+
+538. **The owner, 2026-10-05, verbatim.** "Im using a thinking model that can
+     use toolcalling but it fails??" (screenshots: gemma-4-E2B, spec sheet
+     "Can use tools: yes", the answer card says it "can't call tools, so this
+     answered as a plain question instead of using Agent mode").
+     Fixed (2026-10-05): Ollama's "error parsing tool call" 5xx is retried once, and a model that declares tools but fails twice says so instead of "can't call tools" (tests/test_ollama_tools_reliability.py; fake transport only).
+539. **The owner, 2026-10-05, verbatim.** "when I switch between tabs in the
+     top bar, the pill element for the tabs shifts position slightly
+     horizontally."
+     Fixed (2026-10-05): `tabContentWidth` skips the glide pill; 0px shift at five widths (tabpillshift.js, was 29px at 1024).
+541. **The owner, 2026-10-05, verbatim.** "some of the settings section
+     navigation rows are at the bottom and some dont have any at all??"
+     (screenshot: Quit MemoryMap with its sub-tab row under the title).
+     Fixed (2026-10-05): every pane with three or more heads gets its index under the title (settingsindex.js, 21/21).
+544. **The owner, 2026-10-05, verbatim.** "the graph arc view starts a little
+     too close and too high up on the screen."
+     Fixed (2026-10-05): the arc view frames its arcs and labels with a wider margin (graph.js `frameTree`).
+545. **The owner, 2026-10-05, verbatim.** "the clear button in the note
+     capture tab clashes with the text box."
+     Fixed (2026-10-05): Clear sits 2px below the box at 1440 and 390 (captureclear.js).
+546. **The owner, 2026-10-05, verbatim.** "idk if the "connections beside an
+     open note" in the notes tab does anything."
+     Checked: it works at 1280px and wider, beside a note you have opened
+     (`notesRailWanted`); with no note open nothing changes, so pressing it
+     looked like nothing. It now says so in a toast when that is the case.
+     Fixed (2026-10-05): the toast described above.
+547. **The owner, 2026-10-05, verbatim.** "also what are topics in the graph??
+     can i change or modify or see topics in the graph or elsewhere??"
+     Answer: a topic is a subject the app finds inside a cluster (GRAPH_PLAN
+     KG6): notes linked closely together, named by the tag, person or word
+     they share most. Seen via the graph's gear, Colour: Topic (an outline
+     per topic, a legend entry per topic, a card with Summarise). They are
+     computed, not editable. Recommendation (taken): rename a topic from its
+     card (a stored name that wins over the computed one), and list topics
+     in Library, Contents, so they are visible outside the graph. Next Opus.
+     Fixed (2026-10-05): the topic card's pencil renames a topic (PUT /graph/topics/name, stored by its notes, following it through small changes; the arrow brings the found name back), and Library, Contents has By topic (tests/test_topic_names.py, topicnames.js 9/9).
+

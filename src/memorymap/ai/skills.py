@@ -37,6 +37,7 @@ tool names handed in by the caller rather than importing the registry, because
 from __future__ import annotations
 
 import re
+import threading
 
 MAX_SKILLS = 30
 MAX_NAME = 40
@@ -153,6 +154,15 @@ PLACEHOLDER = re.compile(r"\{\{\s*([a-zA-Z][a-zA-Z0-9_]{0,23})\s*\}\}")
 INPUT_NAME = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]{0,23}$")
 
 
+#: The last problem sentence this module wrote, per thread. A skills-folder
+#: file's reason reaches the Settings response (`folder_skills`), and CodeQL
+#: reads anything taken from a caught exception as stack-trace information on
+#: its way out, `exc.message` included (alert 2026-10-05). The sentence is the
+#: same text either way; reading it from here rather than off the exception is
+#: what keeps the exception itself out of every response.
+_LAST_PROBLEM = threading.local()
+
+
 class SkillError(ValueError):
     """Something about this skill is wrong, phrased for whoever wrote it."""
 
@@ -162,6 +172,7 @@ class SkillError(ValueError):
         #: a response is the text this module wrote, not the exception object
         #: (CodeQL, information exposure through an exception).
         self.message = message
+        _LAST_PROBLEM.text = message
 
 
 def _text(value, limit: int, what: str) -> str:
@@ -1720,8 +1731,8 @@ def _checked_folder_skill(raw: dict, known_tools: set[str] | None) -> dict | str
     """A folder file's skill through `normalise`, or the reason it is not one."""
     try:
         return normalise(raw, known_tools)
-    except SkillError as exc:
-        return exc.message
+    except SkillError:
+        return getattr(_LAST_PROBLEM, "text", "") or "This file is not a skill."
 
 
 def folder_skills(

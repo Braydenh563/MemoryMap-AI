@@ -2899,7 +2899,7 @@ laziness.
    itself carries a per-claim link back to its source note, versus only a
    list of sources alongside the answer. Verify against a real chat turn
    before scoping further — may already be partially there.
-7. **A dedicated, browsable highlights/clippings collection**, **Next:** see section 109.4's "Highlights as a queryable collection" (the marks are `==text==` in `content`, so a Library chip over a search for them, no new table). Distinct
+7. **A dedicated, browsable highlights/clippings collection**, **Built 2026-10-05** (HISTORY.md, "backlog-1005"): the Library's Highlights chip and `has:highlight`. Distinct
    from an ordinary note. Checked: `app.js`'s own comment names this "the
    capture surface half of BACKLOG.md §65 (highlight/web-clip capture)" —
    selecting text and capturing it as a note already works, but that
@@ -3593,7 +3593,7 @@ Genuinely open, ranked by value-per-effort:
   fixing whatever regressed, selecting text is the natural home for
   highlight-with-colour, "ask the AI about this", "extract to a new note"
   and "link this to…". Today selection offers nothing consistent.
-- **Highlights as a queryable collection.** **Next:** `search/query.py` gains a `has:highlight` operator over `content` (the marks are `==text==`), and a Library chip lists the passages with their note; no new table. Once `==highlight==` is in use,
+- **Highlights as a queryable collection.** **Built 2026-10-05** (HISTORY.md, "backlog-1005"): `has:highlight` (`search/engine.py`, answered from the row's own text) and a Library Highlights chip listing each passage with its note (`routes_library._highlights`, `entry/highlights.py`); no new table. Once `==highlight==` is in use,
   "show me everything I highlighted this month" is a search-index question,
   not a schema question — the marks are already in `content`. **(needs Opus)**
 - **Search-result grouping by category/tag**, with counts — **Next:** `GET /search` (`api/routes_search.py`) already returns each hit's kind and category; grouping is a client fold in `frontend/js/palette.js` and the Library's search with a count per group, no backend change. The result list
@@ -3700,7 +3700,7 @@ anything already built is named as such so nobody rebuilds it.
 2. ~~**Backlinks on the note itself.**~~ **Built, see `frontend/js/notes-list.js:3431` and `menus.js:1002` (`GET /entries/{id}/backlinks`).** The graph already knows what links *to*
    a note; the note never shows it. Cheap, and it is half of what people mean
    by a connected notebook.
-3. **Highlights as a queryable collection.** **Next:** see section 109.4. Now that `==highlight==` exists,
+3. **Highlights as a queryable collection.** **Built 2026-10-05**, section 109.4 (HISTORY.md, "backlog-1005"). Now that `==highlight==` exists,
    "show me everything I highlighted this month" is a search-index question,
    not a schema one — the marks are already in `content`. This is also the
    honest version of the "clippings library" competitor gap (§109.3 item 4).
@@ -3714,7 +3714,7 @@ anything already built is named as such so nobody rebuilds it.
    else has.
 7. ~~**A keyboard-shortcut sheet.**~~ **Built, see `frontend/js/settings-wiring.js:1514` (`openShortcuts`, built from `DEFAULT_SHORTCUTS`, rebindable, `?` opens it).** `Ctrl+K`, zoom, dictation and the "/" menu
    all exist and nothing lists them in one place.
-8. **Per-note pinned AI context** — **Next:** see section 109.4. A note that is always in scope for chat
+8. **Per-note pinned AI context** — **Built 2026-10-05**, section 109.4 (HISTORY.md, "backlog-1005"). A note that is always in scope for chat
    ("my current project"), instead of relying on retrieval to find it.
 9. **Speaker labelling on transcripts.** **Next:** the owner's call, section 102 item 8. Transcription is already local, so
    "Speaker 1/2/3" by voice is incremental; letting a user rename a label
@@ -3820,9 +3820,9 @@ Ranked by the gap between what it costs to build and what it would be worth.
 7. ~~**A keyboard-shortcut sheet.**~~ **Built (section 111.2 item 7).** `Ctrl+K`, zoom, dictation and the "/" menu all
    exist and nothing lists them anywhere. Ten minutes of work; it is the
    difference between "has shortcuts" and "feels professional".
-8. **Per-note pinned AI context** — **Next:** see section 109.4. "Always consider this note", instead of
+8. **Per-note pinned AI context** — **Built 2026-10-05**, section 109.4 (HISTORY.md, "backlog-1005"). "Always consider this note", instead of
    hoping retrieval finds it. One preference, one prompt slot.
-9. **Highlights as a queryable collection.** **Next:** see section 109.4. `==highlight==` already parses;
+9. **Highlights as a queryable collection.** **Built 2026-10-05**, section 109.4 (HISTORY.md, "backlog-1005"). `==highlight==` already parses;
    "everything I highlighted this month" is a search-index question.
 10. ~~**A conflict-safe editor.**~~ **Built (section 111.2 item 10).** Two windows on one note is last-write-wins.
     Rare, and infuriating exactly once.

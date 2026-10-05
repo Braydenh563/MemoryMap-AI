@@ -50,6 +50,7 @@ from sqlalchemy import event, or_, select, text
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink, Reminder
+from memorymap.entry.highlights import has_highlight
 from memorymap.entry.properties import strip as strip_properties
 from memorymap.search import chunks as search_chunks
 from memorymap.search import index as search_index
@@ -1001,10 +1002,12 @@ def _has_attachment_ids(session: Session, entry_ids: list[int]) -> set[int]:
 #: left open: "decide each one's source ... and answer them over the
 #: candidates, never with a join on every save"). `file` and `image` read the
 #: attachment table, `link` a connection either way round, `reminder` a
-#: reminder pointing at the note. A word not in this table matches nothing,
+#: reminder pointing at the note, and `highlight` the text itself (the marks
+#: are `==words==`, there is no table). A word not in this table matches nothing,
 #: which is what an unknown `is:` does too: a filter nobody can satisfy must
 #: not silently become no filter.
-HAS_WORDS = ("file", "image", "link", "reminder")
+HAS_WORDS = ("file", "image", "link", "reminder", "highlight")
+
 
 #: Extensions a `/media/...` upload or an attachment name is a picture by,
 #: for a row whose mime was never recorded.
@@ -1062,6 +1065,10 @@ def _row_has(row, want: str, carriers: dict[str, set[int]]) -> bool:  # noqa: AN
         return row["ref_id"] in carriers["image"]
     if want == "reminder":
         return kind == "reminder" or row["ref_id"] in carriers["reminder"]
+    if want == "highlight":
+        # The marks live in the text, so the row's own body answers it
+        # (`entry/highlights.py`, shared with the Library's Highlights chip).
+        return has_highlight(row["body"])
     if want in carriers:
         return row["ref_id"] in carriers[want]
     return want in (row["flags"] or "").split()

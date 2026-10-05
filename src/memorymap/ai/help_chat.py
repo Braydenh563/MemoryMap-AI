@@ -202,7 +202,8 @@ HELP_TOPICS: list[dict] = [
             "hyperlinked outline of the whole notebook) and AI Skills. "
             "Sub-tabs also hold Documents, Whiteboards, and the Files & "
             "Images gallery. Each sub-tab's top bar ends with a ? that says "
-            "what it holds. The Activity chip lists everything you and Atlas "
+            "what it holds. The Highlights chip lists every passage you marked "
+            "in a note, each with its note. The Activity chip lists everything you and Atlas "
             "did, and its Export as CSV button saves that log as a "
             "spreadsheet (who, what, when) to hand over."
         ),
@@ -763,7 +764,7 @@ HELP_TOPICS.extend(
                 "through notes, documents, boards, files, links and reminders at "
                 "once, by your words and by meaning, and the chips narrow it to one "
                 "kind. You can type operators: tag:work, kind:document, before:2026-01, "
-                "has:image, and -word to leave something out. A small typo that "
+                "has:image, has:highlight, and -word to leave something out. A small typo that "
                 "finds nothing is searched as the nearest word your notes use, "
                 "and the line says \"showing results for\" it. To narrow only the "
                 "notes list, use Filter notes on the Your notes tab."

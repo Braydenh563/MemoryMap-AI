@@ -12,6 +12,14 @@ that answers "has this been done?" before anyone starts.
 One agent's pass over BACKLOG and the plans' open lines; each bullet says how it
 was verified. Items found already built are listed with the file that proves it.
 
+- **Highlights as a queryable collection** (BACKLOG 109.4, 102 item 7, 111.2
+  item 3): `has:highlight` in the search operators and a Library Highlights chip,
+  one card per `==passage==` with its note, no table (`entry/highlights.py` is the
+  one reader; `routes_library._highlights`; the colour words are pinned against
+  the toolbar's `MD_COLOURS`). `tests/test_highlights_collection.py` 7/7;
+  `scratchpad/ui-sweeps/libhighlights.js` PASS at 1440 and 390, light and dark
+  (the chip counts, Everything holds none, no ticks or menus, a card opens its
+  note, no sideways scroll).
 - **A short note and the meaning-based filer** (BACKLOG section 8, "ai is cool"):
   measured, not guessed, with the shipped embedding model (BAAI/bge-small-en-v1.5,
   cached locally) over `filing_eval.py`'s hundred-note, ten-category notebook

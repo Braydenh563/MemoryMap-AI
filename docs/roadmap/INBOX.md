@@ -83,6 +83,30 @@ with its owner named in the entry.
      reinstall per extra, version and size per row. With it: pictures in the
      Word export on the existing `docx` extra (FEAT-18). Next agent slot.
 
+596. **The owner, 2026-10-05, verbatim.** "the dropdown menu from the
+     library is a little off position. the side dock of the bottom toolbar
+     in the whiteboard is ugly, poorly structured and designed and clashes
+     with the side panel. some skeleton loaders are missing like on the
+     dashboard. the height of this side bar changes on the whiteboard and
+     mindmap and I want mind map specific stuff in that sidebar too as half
+     of it is empty when on the mind map as it isnt applicable like with
+     layers and the element library. can you add preset whiteboard and mind
+     map templates that are draggable fromt he library??" (screenshots: the
+     Library panel's kebab menu sits low and left of its button; the board's
+     sidebar rail (library, format, layers, present) overlaps the tool dock's
+     left column; on a map the rail is a tall empty column with four icons.)
+     Placed: the next whiteboard agent, after the integration merges the
+     whiteboard phase 2 branch (same files).
+
+598. **The owner, 2026-10-05, verbatim.** "the loading screen on features
+     like the graph tab and library is a blank screen with a horizontal line
+     in the middle which if it lasts as long as it did for me right after the
+     update (its faster now), then it might have people thinking it is
+     broken so needs a better loading screen and to be cleaner." With 596's
+     "some skeleton loaders are missing like on the dashboard". Placed: the
+     next agent slot (page skeletons for Graph, Library, Documents, the
+     dashboard's widgets; a named, moving loading state).
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 540, 554, 556, 564, 575 (Atlas motion and form) placed in

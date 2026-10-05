@@ -41953,6 +41953,15 @@ The two cheap additions the plan's research section named (decisions 11 to
      AI skills on a hidden dock), 0 of 29 now. A perch is asked of the page
      under it (`nameMarkBuddySupported`), canvas content is never one.
 
+597. **The owner, 2026-10-05, verbatim.** "when loading the app after
+     starting it up, after the loading screen, it goes to this blank
+     dashboard for a couple seconds the[n] goes to the lock screen".
+     Fixed 2026-10-05: a token kept from before a server restart was used to
+     draw the dashboard (every widget "Couldn't load") before a 401 called
+     the lock. `refreshMediaSession` now says whether the token is live and
+     `initAuth` goes to the lock screen first. stalelock.js: base saw failed
+     widgets and no lock in 6s; now straight to the lock.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

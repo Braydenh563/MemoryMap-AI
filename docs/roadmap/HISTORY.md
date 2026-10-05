@@ -7,6 +7,59 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (a frame as an export scope)
+
+### From WHITEBOARD_PLAN.md, decision 14's open edges (decision 18)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| Export this frame… on a frame's menu (`wbExportFrame`): the frame and everything wholly inside it, locked items too (`wbFrameContents(frame, { withLocked: true })`), as the selection, then the export dialog on Selection. Nesting by what a frame holds; nothing clipped | a frame could only be exported by selecting what it held by hand, and a locked item could not be selected at all | the export holds the sticky, the inner frame and the locked rectangle, not the card outside; its box is the frame plus the 40px margin (0 40 700 500); dragging the outer frame carries the inner one and its sticky by the same 60px | `scratchpad/ui-sweeps/wbframeexport.js` 7/7 at 1440x900 and 390x844 (at half zoom), light and dark; `wbframes.js` 24/24 |
+
+Found, not fixed: on a phone at the fitted zoom (k 0.24) the frame's title is
+about 7px tall, and a press-drag aimed at it moved nothing, or with a
+selection held moved the inner frame and the sticky by different amounts (570
+and 541 board units for a 60px drag). At half zoom it is right.
+
+## Moved from the plans, 2026-10-05 (a map presented by branch)
+
+### From MINDMAP_PLAN.md §12.2 item 9 (decision 21)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| View, Present branches on a map: the board's presentation (`wbStartPresenting`, bar, keys, Escape) over steps that answer their box live (`wbPresentSteps`; a map's from `wbMapPresentSteps`): the whole map, then each trunk's branches in sibling order, each fitted with what of it is showing | the board's Present frames was the only one, and not on maps | "1 of 4: Trip" then "2 of 4: Pack", Pack and Passport inside the screen and clear of the bar, 85% of the width; End is "4 of 4: Go"; Delete removed nothing; Escape put the camera back to the pixel, left full screen; a map's View menu shows Present branches and not Present frames | `scratchpad/ui-sweeps/mappresent.js` 6/6 at 1440x900 and 390x844, light and dark; `wbpresent.js` 18/18 unchanged; `test_ui_recipes.py::test_presenting_is_one_mode_with_one_bar` |
+
+Help moved with it: the Guide's mind-map topic, the map help sheet, DESIGN.md's
+presentation row. Not built: a branch's own branches as steps; speaker notes.
+
+## Moved from the plans, 2026-10-05 (boundaries and summaries)
+
+### From MINDMAP_PLAN.md §12.2 items 1 and 2 (decisions 19 and 20)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A boundary: `data.boundary` (rounded, dashed, cloud) and `boundary_label` on the topic whose branch it holds; `wbRenderMapStructure` draws it under the lines round the showing branch, in the branch colour, on every render and drag frame; the topic menu's Branch group draws, restyles, labels and removes it; one undo step; OPML and FreeMind carry `_boundary` and `_boundary_label`; a theme reset keeps it | no way to mark a branch as a region | holds Pack and Passport, not Go; cloud, dashed; label above the top edge (17.07:1 light); follows a drag of its topic (50px drag, 50px move); shrinks when the branch folds (500 to 224px); removed and brought back by Ctrl+Z | `scratchpad/ui-sweeps/mapstructure.js` 19/19 at 1440x900 and 390x844, light and dark; `test_mindmap.py` (`test_a_boundary_and_a_summary_are_checked_on_the_way_in`, `test_boundaries_and_summaries_round_trip_through_both_xml_formats`, `test_resetting_a_maps_looks_keeps_its_boundaries_and_summaries`) |
+| A summary: `data.summary` and `summary_span` on the first topic of a run of siblings; a brace beyond the run's branches, on the side away from the parent, the words past its tip; Summarise this topic… on the Branch group, Summarise these topics… on a multi-selection of siblings; changed and removed from the first topic; OPML and FreeMind carry `_summary` and `_summary_span` | none | Pack and Book summarised as one run of 2, kept on Pack; the brace right of both branches and clear of Go; the words past its tip; both in the image export | the same sweep; `test_ui_recipes.py::test_a_maps_boundaries_and_summaries_are_drawn_in_one_pass` |
+
+Help moved with it: the Guide's mind-map topic and the map help sheet. Not
+built: a boundary round a lasso'd set that is not one branch; a summary that
+is a topic of its own (decision 20 says why); Markdown carries neither. Not
+verified: the radial and free layouts' brace side by eye (the side is
+computed from where the run lies; the sweep is tree-right only), the
+desktop window (WebView2).
+
+## Moved from the plans, 2026-10-04 (comments)
+
+### From WHITEBOARD_PLAN.md, the open "comments" row, and MINDMAP_PLAN §12.2 item 6 (decision 17)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A comment thread per item: `comments` (`{id, text, at}`, 100 at most, 2,000 characters each) in a sketch's or an object's data and a card's `comments` column (migration `f3c7a9e1d5b8` on `e5a1c8f3b7d2`; a card PUT that leaves it out keeps it); `wbPaintCommentMarks` draws a count mark at each commented item's top-right corner, at screen size, following a drag; the mark, the item menu's Comment… and a topic's Topic group open `wbOpenComments` in the help popover's shell; Enter posts, a trash deletes, one undo step each; a board copy carries a card's thread | no way to leave a remark on an item or a topic | sticky, card, rectangle and topic each take a thread; the mark sits 4px up and right of the corner, says the count, keeps its size at 2x, follows a card's drag within 8px, still takes the press on a locked card; Ctrl+Z takes a post back; the thread survives a fresh read; the popover stays inside the window | `scratchpad/ui-sweeps/wbcomments.js` 20/20 at 1440x900 and 390x844, light and dark; mark ink 5.90:1; `test_whiteboard.py` (`test_a_card_and_an_object_keep_their_comment_thread`, `test_a_comment_thread_is_bounded`, `test_duplicating_a_board_copies_a_cards_thread`), `test_ui_recipes.py::test_a_comment_thread_is_one_popover_reached_three_ways` |
+
+Help moved with it: the Guide's whiteboard-keys and mind-map topics, the board
+help sheet's Selection list, DESIGN.md's recipe row. Not built: names,
+mentions and resolve (one author); comments in an export. Not verified: the
+desktop window (WebView2), a real finger on the 44px mark.
+
 ## Moved from the plans, 2026-10-05 (the first round, second pass)
 
 ### From AGENT_SKILLS_REFORM.md, H4's two misses left after the first pass

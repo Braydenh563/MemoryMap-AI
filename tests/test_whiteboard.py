@@ -425,6 +425,11 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "task": None,
         # And with a note behind a topic (decision 18).
         "note": None,
+        # And with a boundary and a summary (MINDMAP_PLAN decisions 19, 20).
+        "boundary": None,
+        "boundary_label": None,
+        "summary": None,
+        "summary_span": None,
         "spine": None,
         # And with a topic's fill (one topic, or its whole branch).
         "fill": None,
@@ -439,6 +444,8 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "order": None,
         # And with a board item held in place (WHITEBOARD_PLAN decision 15).
         "locked": None,
+        # And with an item's comment thread (decision 17).
+        "comments": None,
     }
 
     moved = board_client.put(
@@ -998,3 +1005,57 @@ def test_a_card_and_an_object_keep_their_lock(board_client, session):
     state = board_client.get("/whiteboard/").json()
     assert next(n for n in state["nodes"] if n["id"] == card["id"])["locked"] is True
     assert next(o for o in state["objects"] if o["id"] == made["id"])["data"]["locked"] is True
+
+
+def test_a_card_and_an_object_keep_their_comment_thread(board_client, session):
+    """WHITEBOARD_PLAN decision 17: a card's thread is a column, an object's
+    is in its data; a card PUT that leaves the thread out (every caller older
+    than it) keeps it, and an empty list clears it."""
+    note = _note(session)
+    card = board_client.post("/whiteboard/nodes", json={"entry_id": note.id, "x": 1, "y": 2}).json()
+    assert card["comments"] is None
+    thread = [{"id": "c1", "text": "Check this date", "at": "2026-10-04T10:00:00Z"}]
+    url = f"/whiteboard/nodes/{card['id']}"
+    put = board_client.put(url, json={"entry_id": note.id, "x": 1, "y": 2, "comments": thread})
+    assert put.status_code == 200 and put.json()["comments"] == thread
+    moved = board_client.put(url, json={"entry_id": note.id, "x": 9, "y": 9})
+    assert moved.json()["comments"] == thread
+    made = board_client.post(
+        "/whiteboard/objects",
+        json={"kind": "text", "data": {"content": "a sticky", "comments": thread}, "width": 200, "height": 80},
+    ).json()
+    state = board_client.get("/whiteboard/").json()
+    assert next(n for n in state["nodes"] if n["id"] == card["id"])["comments"] == thread
+    assert next(o for o in state["objects"] if o["id"] == made["id"])["data"]["comments"] == thread
+    cleared = board_client.put(url, json={"entry_id": note.id, "x": 9, "y": 9, "comments": []})
+    assert cleared.json()["comments"] is None
+
+
+def test_a_comment_thread_is_bounded(board_client, session):
+    """Decision 17's limits: 2,000 characters a comment, 100 a thread, no
+    empty comment."""
+    note = _note(session)
+    card = board_client.post("/whiteboard/nodes", json={"entry_id": note.id}).json()
+    url = f"/whiteboard/nodes/{card['id']}"
+    long = [{"id": "c1", "text": "x" * 2001, "at": ""}]
+    assert board_client.put(url, json={"entry_id": note.id, "comments": long}).status_code == 422
+    empty = [{"id": "c1", "text": "", "at": ""}]
+    assert board_client.put(url, json={"entry_id": note.id, "comments": empty}).status_code == 422
+    many = [{"id": f"c{i}", "text": "ok", "at": ""} for i in range(101)]
+    assert board_client.put(url, json={"entry_id": note.id, "comments": many}).status_code == 422
+    obj = board_client.post(
+        "/whiteboard/objects", json={"kind": "text", "data": {"content": "s", "comments": many}, "width": 9, "height": 9}
+    )
+    assert obj.status_code == 422
+
+
+def test_duplicating_a_board_copies_a_cards_thread(board_client, session):
+    made = board_client.post("/whiteboard/boards", json={"name": "Thread board"})
+    board_id = made.json()["id"]
+    note = _note(session)
+    thread = [{"id": "c1", "text": "Keep", "at": ""}]
+    board_client.post("/whiteboard/nodes", json={"entry_id": note.id, "board_id": board_id, "comments": thread})
+    copy = board_client.post(f"/whiteboard/boards/{board_id}/duplicate")
+    assert copy.status_code == 201, copy.text
+    state = board_client.get(f"/whiteboard/?board_id={copy.json()['id']}").json()
+    assert [n["comments"] for n in state["nodes"]] == [thread]

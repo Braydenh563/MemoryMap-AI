@@ -18,22 +18,22 @@ Sweeps added: `scratchpad/ui-sweeps/wbframes.js`, `wblock.js`,
 
 ## Still open, in the order to take them
 
-1. **Comments on board items and map topics** (WHITEBOARD_PLAN's open row;
-   MINDMAP_PLAN 12.2 item 6: "a thread per node, count marker"). Needs a
-   table (an item key across three tables, like `group_id`), routes, a
-   thread surface from DESIGN.md's recipes and a count mark. No decision
-   exists: write one first (standing order 3). Opus.
-2. **Boundaries** (MINDMAP_PLAN 12.2 item 1): a shaded shape around a branch
-   with a label, colour and style, moving with its nodes; drawn from the
-   map's own layout pass (`wbRenderMapEdges`), exported in FreeMind/OPML as
-   private attributes like the other 12.1 fields. Opus.
-3. **Summaries** (MINDMAP_PLAN 12.2 item 2): a bracket beside sibling
-   topics with a summary topic. Same layer as boundaries. Opus.
-4. **The map's own presentation by branch** (MINDMAP_PLAN 12.2 item 9): the
-   board's `wbStartPresenting` is frames only; a map would walk its trunk's
-   branches with the same bar and keys.
-5. **Frames, past decision 14**: nesting rules, clipping what overhangs, a
-   frame as an export scope ("Export this frame").
+All five rows of Part B are built (2026-10-04 and 05; HISTORY.md "Moved from
+the plans": comments, boundaries and summaries, a map presented by branch, a
+frame as an export scope; decisions WHITEBOARD_PLAN 17 and 18, MINDMAP_PLAN 19
+to 21). Sweeps added: `wbcomments.js`, `mapstructure.js`, `mappresent.js`,
+`wbframeexport.js`, `wbgripink.js` (each takes `VW`, `VH`, `THEME`), and
+`wbregress.sh` runs the whiteboard set in one go. What is left:
+
+1. **A frame's title at a phone's fitted zoom** (found 2026-10-05): about 7px
+   tall at k 0.24, and a press-drag aimed at it moved nothing, or with a
+   selection held moved the inner frame and its sticky by different amounts
+   (570 and 541 board units for a 60px drag). Right at half zoom. Measure the
+   hit target against `--target-min` and the bulk mover's start with a held
+   selection; `wbframeexport.js` at `VW=390` with the fit zoom reproduces it.
+2. MINDMAP_PLAN §12.2's rest: a boundary round a lasso'd set that is not one
+   branch (decision 19 left it out), item 4's priority, progress, flags and due
+   dates, item 7's floating topics and palettes, item 8's outline pane.
 
 ## Found, not fixed
 
@@ -51,6 +51,14 @@ Sweeps added: `scratchpad/ui-sweeps/wbframes.js`, `wblock.js`,
   first-round narrowing does it now, for small models only).
 
 ## Not verified
+
+- Comments, boundaries, summaries, the map presentation and frame export in
+  the desktop window (WebView2); a real finger on the 44px comment mark.
+- The summary brace's side on the radial and free layouts (computed from where
+  the run lies; `mapstructure.js` is tree-right only).
+- Undo of a comment, boundary or summary is a "move" entry on the item
+  (`wbSetComments`, `wbMapSetNodeStyle`), swept for one post and one boundary
+  removal; the app-wide undo audit (INBOX 537) has not read them.
 
 - A touch long-press on a locked item (the lock sweep right-clicks at
   390x844; the board's long-press menu is the same `openCanvasMenu`).

@@ -24,6 +24,7 @@ import logging
 import re
 from collections import OrderedDict
 from datetime import datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
@@ -61,6 +62,10 @@ MAX_OBJECT_TEXT_CHARS = 20_000
 #: A note is a paragraph or a few, not a document: a longer text belongs in a
 #: notebook note the topic points at, which the map already does.
 MAX_TOPIC_NOTE_CHARS = 10_000
+#: A comment thread on an item (WHITEBOARD_PLAN decision 17): a remark, not a
+#: note, and a thread a person reads in one popover.
+MAX_COMMENT_CHARS = 2_000
+MAX_COMMENTS_PER_ITEM = 100
 
 #: What a board *is*. A map is a board with tree semantics turned on
 #: (MINDMAP_PLAN.md §4, option B), the same rows, the same endpoints, one
@@ -187,6 +192,19 @@ VALID_OBJECT_KINDS = {"image", "text", FRAME_KIND, MAP_TOPIC_KIND} | MAP_REFEREN
 GROUP_ID_MAX_LEN = 40
 
 
+class WhiteboardComment(BaseModel):
+    """One comment in an item's thread (WHITEBOARD_PLAN decision 17). The id
+    and the time are the client's: a notebook has one author and one clock."""
+
+    id: str = Field(min_length=1, max_length=40)
+    text: str = Field(min_length=1, max_length=MAX_COMMENT_CHARS)
+    at: str = Field(default="", max_length=40)
+
+
+#: A thread: `None` (or empty) is no thread.
+CommentThread = Annotated[list[WhiteboardComment], Field(max_length=MAX_COMMENTS_PER_ITEM)]
+
+
 class WhiteboardNodeBase(BaseModel):
     entry_id: int
     board_id: int | None = None
@@ -203,6 +221,9 @@ class WhiteboardNodeBase(BaseModel):
     group_id: str | None = Field(default=None, max_length=GROUP_ID_MAX_LEN)
     #: Decision 15: locked in place. False on every card made before it.
     locked: bool = False
+    #: Decision 17: the card's thread. Left out of a PUT, the stored one stays
+    #: (`_apply_node`), so a client that predates it cannot wipe it.
+    comments: CommentThread | None = None
 
 
 class WhiteboardNodeOut(WhiteboardNodeBase):
@@ -237,6 +258,8 @@ class WhiteboardObjectData(BaseModel):
     #: Locked in place (WHITEBOARD_PLAN decision 15). View state on a row that
     #: already carries a blob, like `pinned` below, so it earns no column.
     locked: bool | None = None
+    #: The item's comment thread (WHITEBOARD_PLAN decision 17).
+    comments: CommentThread | None = None
     color: str | None = Field(default=None, max_length=20)
     #: 0 is a topic's pin to the app's own size against a map's theme
     #: (`MAP_APP_DEFAULT_PINS`); 1 to 7 stay refused (`_size_or_pin`).
@@ -321,6 +344,14 @@ class WhiteboardObjectData(BaseModel):
     #: plain text, shown on demand from a marker on the topic. Content, like
     #: `task`: no theme sets it and no reset clears it (`MAP_CONTENT_FIELDS`).
     note: str | None = Field(default=None, max_length=MAX_TOPIC_NOTE_CHARS)
+    #: **A boundary round this topic's branch** (MINDMAP_PLAN.md decision 19)
+    #: and the words over it. Content, like `note`.
+    boundary: str | None = Field(default=None, pattern="^(rounded|dashed|cloud)$")
+    boundary_label: str | None = Field(default=None, max_length=80)
+    #: **A summary of a run of siblings** starting here (decision 20): the
+    #: words, and how many siblings the run takes, this topic first.
+    summary: str | None = Field(default=None, max_length=80)
+    summary_span: int | None = Field(default=None, ge=1, le=100)
     #: **The bar down a topic's leading edge** (MINDMAP_PLAN.md item 177:
     #: "per-node left edge: solid, dashed or none"). Two values, because the
     #: third is the absence of the field: a map drawn before this existed and
@@ -2063,6 +2094,7 @@ def duplicate_board(board_id: int, db: Session = Depends(get_session)) -> BoardO
                 z=node.z,
                 width=node.width,
                 height=node.height,
+                comments=node.comments,
             )
         )
 
@@ -2237,6 +2269,13 @@ def rename_board(board_id: int, body: BoardRename, db: Session = Depends(get_ses
     )
 
 
+def _apply_comments(node: WhiteboardNode, node_in: WhiteboardNodeBase) -> None:
+    """A card's thread (decision 17), written only when the body names it: a
+    PUT that leaves it out keeps what is stored, and an empty list is none."""
+    if "comments" in node_in.model_fields_set:
+        node.comments = [c.model_dump() for c in node_in.comments or []] or None
+
+
 @router.post("/nodes", response_model=WhiteboardNodeOut)
 @events.writes("whiteboard_node", "placed")
 def create_node(
@@ -2260,6 +2299,7 @@ def create_node(
     node.width, node.height, node.group_id = node_in.width, node_in.height, node_in.group_id
     node.rotation = node_in.rotation
     node.locked = node_in.locked
+    _apply_comments(node, node_in)
     if existing is None:
         db.add(node)
         db.flush()  # so the event can name the card's id
@@ -2297,6 +2337,7 @@ def update_node(
     node.width, node.height, node.group_id = node_in.width, node_in.height, node_in.group_id
     node.rotation = node_in.rotation
     node.locked = node_in.locked
+    _apply_comments(node, node_in)
     events.record(
         db,
         "edited",
@@ -2785,6 +2826,10 @@ MAP_STYLE_FIELDS = (
     "image",
     "task",
     "note",
+    "boundary",
+    "boundary_label",
+    "summary",
+    "summary_span",
 )
 
 
@@ -3390,7 +3435,7 @@ class MapClearStyleOut(BaseModel):
 #: does. `MAP_STYLE_FIELDS` minus the content ones, plus the colour it does
 #: not list because a node has carried `color` as a key of its own since
 #: before any of this existed.
-MAP_CONTENT_FIELDS = frozenset({"image", "task", "note"})
+MAP_CONTENT_FIELDS = frozenset({"image", "task", "note", "boundary", "boundary_label", "summary", "summary_span"})
 MAP_CLEARABLE_FIELDS = frozenset(MAP_STYLE_FIELDS) - MAP_CONTENT_FIELDS | {"color"}
 
 
@@ -3716,6 +3761,9 @@ _FREEMIND_PRIVATE = {
     #: whose body is HTML, which this file neither writes nor reads (see
     #: `_parse_freemind`); the attribute keeps the text plain both ways.
     "note": "_note",
+    #: Decisions 19 and 20: FreeMind's own `<cloud>` is one shape with no
+    #: label, and it has no summary at all, so both ride as private ones.
+    **{f: f"_{f}" for f in ("boundary", "boundary_label", "summary", "summary_span")},
 }
 #: OPML 2.0 defines `text`, `type`, `url`, `isComment`, `isBreakpoint`,
 #: `created` and `category` and nothing else, so `url` is the only native
@@ -3744,6 +3792,7 @@ _OPML_PRIVATE = {
     #: `_note` is the spelling OmniOutliner and Workflowy already write, so
     #: this one reaches another outliner as a note rather than being dropped.
     "note": "_note",
+    **{f: f"_{f}" for f in ("boundary", "boundary_label", "summary", "summary_span")},
 }
 
 

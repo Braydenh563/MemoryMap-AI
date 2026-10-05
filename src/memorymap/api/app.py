@@ -88,6 +88,7 @@ from memorymap.api import (
     routes_board_library,
     routes_board_history,
     routes_map_suggest,
+    routes_map_from_notes,
 )
 from memorymap.api.routes_auth import require_unlock
 from memorymap.core import (
@@ -1228,6 +1229,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_board_library.router, dependencies=locked)
     app.include_router(routes_board_history.router, dependencies=locked)
     app.include_router(routes_map_suggest.router, dependencies=locked)
+    app.include_router(routes_map_from_notes.router, dependencies=locked)
     app.include_router(routes_debug.router, dependencies=locked)
     app.include_router(routes_privacy.router, dependencies=locked)
     app.include_router(routes_capabilities.router, dependencies=locked)

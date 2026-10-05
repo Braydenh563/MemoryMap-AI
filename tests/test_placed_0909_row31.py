@@ -57,10 +57,12 @@ def test_a_suggested_link_is_two_chips_a_bar_and_a_reason_on_request():
 
 
 def test_the_vault_rekey_has_a_button():
-    assert 'id="account-rekey"' in HTML and 'id="account-rekey-password"' in HTML
+    assert 'id="account-rekey"' in HTML and 'id="account-rekey-password"' not in HTML
     assert 'data-help-for="rekey-help"' in HTML
     controls = (JS / "settings-controls.js").read_text(encoding="utf-8")
     assert '"/auth/rotate-vault-key"' in controls
+    #: The password on the lock card's prompt, not a second password field.
+    assert "askPasswordPrompt({" in controls[controls.index('$("account-rekey")') :][:1200]
 
 
 def test_a_package_name_line_is_as_tall_as_its_buttons():

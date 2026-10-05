@@ -156,7 +156,7 @@
 
 .wb-map-marker-icons button[aria-pressed="true"] {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 /* The outline's and the markers popover's one line of help. */

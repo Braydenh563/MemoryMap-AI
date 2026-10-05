@@ -223,7 +223,7 @@ HELP_TOPICS: list[dict] = [
             "files get line numbers, Tab/Shift+Tab indenting and Ctrl+/ "
             "commenting. \"Check with AI\" reviews a document for wording issues "
             "a spellchecker can't catch. The menu's Map the headings turns its "
-            "headings into a new mind map. A ```mermaid flowchart (flowchart TD, "
+            "headings into a new mind map. A mermaid code block (flowchart TD, "
             "A --> B) draws as a diagram in Read and Live and in a print; press "
             "it to edit its text, and any other Mermaid stays as code. Print or "
             "save as PDF first asks for the page size, orientation, margins and "

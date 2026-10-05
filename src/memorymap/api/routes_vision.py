@@ -28,7 +28,6 @@ import difflib
 import re
 from datetime import date, datetime, timedelta, timezone
 
-import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, func, or_, select
@@ -177,6 +176,10 @@ def _meaning_alike(names: list[str]) -> dict[tuple[int, int], float]:
         vectors = embeddings.embed_many(names)
     except Exception:  # noqa: BLE001 - names alone still propose
         return {}
+    #: Here, not at the top: importing the app must not load numpy before a
+    #: request needs it (tests/test_lazy_heavy_imports.py).
+    import numpy as np
+
     out: dict[tuple[int, int], float] = {}
     for i in range(len(names)):
         for j in range(i + 1, len(names)):

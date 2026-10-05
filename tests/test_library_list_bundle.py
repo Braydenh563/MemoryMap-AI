@@ -28,7 +28,8 @@ def _table(name: str) -> str:
 def test_the_library_tab_takes_the_list_bundle():
     assert 'library: "libraryList"' in APP and 'documents: "library"' in APP
     modules = _table("LAZY_MODULES")
-    assert re.search(r'libraryList: \["/js/library\.js"\]', modules)
+    #: The list's own stylesheet rides with it (library-lazy.css's header).
+    assert re.search(r'libraryList: \[("/css/library-lazy\.css", )?"/js/library\.js"\]', modules)
     library = re.search(r"\n  library: \[(.*?)\]", modules, re.S).group(1)
     assert '"/js/library.js"' in library, "the whole surface still includes the list"
 

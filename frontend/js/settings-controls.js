@@ -161,31 +161,33 @@ $("account-change").addEventListener("click", changePassword);
 //: vault re-key, `POST /auth/rotate-vault-key`): a new key for every private
 //: note. Like Change password it ends every other session and hands this tab
 //: a fresh token, kept under the key `authToken()` reads.
+//: The password is asked on the lock card in prompt mode (DESIGN.md's recipe
+//: for one action's password; tests/test_lock_boundary.py), which carries the
+//: throttle, the error line under the field and the purge.
 $("account-rekey").addEventListener("click", async () => {
-  const box = $("account-rekey-password");
   const status = $("account-rekey-status");
   status.classList.remove("error");
-  if (!box.value) {
-    status.classList.add("error");
-    status.textContent = "Type your current password first.";
-    return;
-  }
+  status.textContent = "";
   if (!(await confirmDialog("Give every private note a new key? Other open sessions are signed out.", { confirmLabel: "Re-encrypt" }))) return;
-  status.textContent = "Re-encrypting…";
-  try {
-    const result = await apiJson("/auth/rotate-vault-key", {
-      method: "POST",
-      body: JSON.stringify({ current_password: box.value }),
-      ownsAuthErrors: true,
-    });
-    localStorage.setItem("token", result.token);
-    box.value = "";
-    const n = result.notes_reencrypted;
-    status.textContent = `Done: ${n} private note${n === 1 ? "" : "s"} on a new key.`;
-  } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
-  }
+  let result = null;
+  const done = await askPasswordPrompt({
+    title: "Re-encrypt private notes",
+    message: "Enter your current password or PIN to give every private note a new key.",
+    submitLabel: "Re-encrypt",
+    submit: async (password) => {
+      // 401 here is "wrong password", said beside the field.
+      result = await apiJson("/auth/rotate-vault-key", {
+        method: "POST",
+        body: JSON.stringify({ current_password: password }),
+        ownsAuthErrors: true,
+      });
+      return result;
+    },
+  });
+  if (!done || !result) return;
+  localStorage.setItem("token", result.token);
+  const n = result.notes_reencrypted;
+  status.textContent = `Done: ${n} private note${n === 1 ? "" : "s"} on a new key.`;
 });
 
 //: "Ask for a password when the app opens". Off needs the current password,

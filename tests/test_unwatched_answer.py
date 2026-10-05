@@ -20,7 +20,8 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = app_js_text() + "\n" + (
     ROOT / "frontend" / "js" / "palette.js"
 ).read_text(encoding="utf-8")
-SETTINGS = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+#: The Guide's chat moved from settings.js to help-chat.js (a lazy bundle).
+SETTINGS = "".join((ROOT / "frontend" / "js" / n).read_text(encoding="utf-8") for n in ("settings.js", "help-chat.js"))
 
 
 def _body(source: str, head: str) -> str:

@@ -268,12 +268,7 @@ being written by running agents stay beside this one.
   *Needs: a drawing change for the owner's call.*
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": A filled button is 2px shorter than every tonal button beside it, app wide.
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05 (op4-1005: four design rows)": the field and the segmented track; an empty line in a small panel; the dark shadow sliders; the Ask results grid's breakpoint.
-- **`--radius-inner` has four users.** DESIGN.md rule 3 and INBOX 101 declared
-  the token and the sketch pad's toolbar, canvas and foot plus the meeting
-  stage are the first to reach for it; every other surface inside a `.card`
-  still draws `--radius-lg`, which is the concentric rule half applied.
-  [popup-redesigns.md]
-  *Needs: the concentric rule's rollout is design. Count re-measured 2026-10-05: 13 `var(--radius-inner)` declarations in six stylesheets (02 six, 05 three, 03, 06, 07 and 08 one each) plus `documents.js`'s colour swatch; the row's "four" and the earlier "about seventeen" were both stale.*
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05 (op4-1005: the concentric rollout)": `--radius-inner` has four users.
 - **The meeting dialog's head row holds two heights**, a 28px `.ghost.small`
   Close beside the 32px `.graph-help-toggle`. Both are app-wide recipes, so
   this is a question about the two recipes rather than about the dialog.

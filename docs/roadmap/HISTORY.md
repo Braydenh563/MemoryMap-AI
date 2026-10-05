@@ -7,6 +7,17 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## OPEN.md rows closed, 2026-10-05 (op4-1005: the concentric rollout)
+
+Decided, recorded in DESIGN.md rule 3 ("The rollout, decided 2026-10-05"), built and linted by op4-1005: a painted surface nested inside a rounded container nearer its edge than the container's radius takes --radius-inner; controls and interactive rows (buttons, fields, chips, segments, summaries, check rows) keep their tier; a surface inset by the radius or more is its own shape. A probe at the 16px corner setting over six tabs and every Settings section: none inside a .card out of concentric; .theme-preview, .theme-swatch and .setup-snippet were, and are on the token (tests/test_style_scale.py, test_the_nested_surfaces_are_concentric). The row, verbatim:
+
+- **`--radius-inner` has four users.** DESIGN.md rule 3 and INBOX 101 declared
+  the token and the sketch pad's toolbar, canvas and foot plus the meeting
+  stage are the first to reach for it; every other surface inside a `.card`
+  still draws `--radius-lg`, which is the concentric rule half applied.
+  [popup-redesigns.md]
+  *Needs: the concentric rule's rollout is design. Count re-measured 2026-10-05: 13 `var(--radius-inner)` declarations in six stylesheets (02 six, 05 three, 03, 06, 07 and 08 one each) plus `documents.js`'s colour swatch; the row's "four" and the earlier "about seventeen" were both stale.*
+
 ## OPEN.md rows closed, 2026-10-05 (op4-1005: four design rows)
 
 Each decided, recorded in DESIGN.md, built and linted by op4-1005: the field and the track (DESIGN.md Colour, "A field and a track"; light --field-inset 0.07 to 0.10), the empty line (the recipe index's "An empty line in a small panel", nine lines on it, nine named for their owners), the shadow slider (Elevation, "What the shadow slider means"; every layer and all twenty palettes' --glass-shadow follow it, none opaque before 50%), and the Ask grid ("Two columns of reading"; one column below 1100). The rows, verbatim:

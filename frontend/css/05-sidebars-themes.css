@@ -4012,7 +4012,8 @@ button.is-on {
 
 .theme-preview {
   height: 3.1rem;
-  border-radius: calc(var(--radius) * 0.55);
+  /* Concentric: a surface inside its theme card (DESIGN.md rule 3, op4-1005). */
+  border-radius: var(--radius-inner);
   position: relative;
   overflow: hidden;
   border: 1px solid rgba(128, 128, 128, 0.18);

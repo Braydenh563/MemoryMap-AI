@@ -705,6 +705,20 @@ the slider thumb light up on drag, nothing else in a card blurs).
    containers": an inner radius is the outer radius minus the padding
    between them. Ours: `--radius-inner: calc(var(--radius) - var(--space-3))`
    and a lint that a `.card` child with its own radius uses it. INBOX 101.
+   **The rollout, decided 2026-10-05** (op4-1005, OPEN.md popup-redesigns):
+   it applies to a *surface* (a painted box: a well, a preview, a swatch, a
+   fold body) nested inside a rounded, painted container **closer to its
+   edge than the container's own radius**. A control (button, field, chip,
+   segment, stepper, or an interactive row: a summary, a check row) keeps its tier, since controls are sized by the control
+   recipe, not by what holds them; a surface inset by the container's radius
+   or more is a separate shape and keeps its tier; a popover is not nested.
+   Measured with a probe over the six tabs and every Settings section at the
+   largest corner setting (16px): no surface inside a `.card` was out of
+   concentric; outside cards, three kinds were (`.theme-preview` and
+   `.theme-swatch` in a theme card, `.setup-snippet` in an accordion, drawn at
+   8.8 to 9.6px inside a 12.8px corner 9px away) and take `--radius-inner`
+   now. Lint: `tests/test_style_scale.py`
+   (`test_the_nested_surfaces_are_concentric`).
 4. **Vibrant colour on glass.** "Use vibrant colors on top of materials";
    "Use color sparingly, especially on glass"; "Avoid applying a similar
    color to toolbar item labels and content layer backgrounds". Ours:

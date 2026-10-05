@@ -697,3 +697,27 @@ def test_a_field_is_deeper_than_a_track_in_both_themes():
     # Dark: the field recessed in black, the track raised in white.
     assert re.search(r"--field-inset:\s*rgba\(0, 0, 0,", css)
     assert re.search(r"--chip-bg:\s*rgba\(255, 255, 255,", css)
+
+
+#: Surfaces measured nested inside a rounded container closer than its radius
+#: (DESIGN.md rule 3's rollout, op4-1005), and the stylesheet that draws each.
+NESTED_SURFACES = {
+    ".theme-swatch": "01-forms-settings.css",
+    ".theme-preview": "05-sidebars-themes.css",
+    ".setup-snippet": "04-chat-dock-appearance.css",
+}
+
+
+def test_the_nested_surfaces_are_concentric():
+    """DESIGN.md, "Concentric corners", the rollout decided 2026-10-05: a
+    painted surface nested inside a rounded container, nearer its edge than
+    the container's radius, takes `--radius-inner`; controls keep their tier.
+    A probe over the six tabs and every Settings section at the 16px corner
+    setting found none out of concentric inside a `.card`, and these three
+    outside one (8.8 to 9.6px inside a 12.8px corner 9px away)."""
+    root = FRONTEND_DIR / "css"
+    for selector, name in NESTED_SURFACES.items():
+        text = re.sub(r"/\*.*?\*/", "", (root / name).read_text(encoding="utf-8"), flags=re.S)
+        block = re.search(re.escape(selector) + r"\s*\{([^}]*)\}", text)
+        assert block, f"{selector} is not in {name}"
+        assert "border-radius: var(--radius-inner)" in block.group(1), f"{selector} is not concentric"

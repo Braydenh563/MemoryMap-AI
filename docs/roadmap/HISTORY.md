@@ -7,6 +7,50 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (the map's add path)
+
+Audit FEAT-02, MINDMAP_PLAN decisions 24 to 28. Tab and Enter used to wait
+for the POST, tidy and render the whole map, wait for the tidy's save and
+render the whole map again. Now one render, the editor open before the
+server answers, and the id adopted in the background (`wbMapAddChild`,
+`wbMapAdoptProvisional`, `wbMapTidyOrigin`, `wbMapTidyBranchPlan`).
+
+Measured with `scratchpad/ui-sweeps/mmdoc1005-mapaddlatency.js` (key to an
+editable topic, six adds per size, headless Chromium on a shared 4-core box
+under a load average of 9 to 14, so the shape is the finding, not the
+milliseconds):
+
+| Topics | Before | After |
+| --- | --- | --- |
+| 6 | 249 to 803 (audit) | median 57 to 62 |
+| 101 | 521 to 1,642 (audit) | median 126 to 138 |
+| 301 | 827 to 1,371 (this session) | median 224 to 533 |
+| 301, back to back, load 12.6 | median **1,279** (the old scripts, `OVERRIDE_JS`) | median **320** |
+
+One render per add instead of two; renders at 301 topics 127 to 411ms
+against 262 to 644ms plus a second of 67 to 156ms.
+
+Profiled (`mmdoc1005-mapaddprofile.js`, `mmdoc1005-maplayoutprobe.js`): one
+DOM insertion inside the board restyled all 3,731 elements on the page,
+55 to 80ms, because three rules put a `:has()` before a compound with no
+class in it (`.entry-list.is-rows li:not(:has(textarea)) > *:not(...)`,
+`.doc-layout:has(...) > :not(#doc-sidebar)`, `#capture > .row:has(> h2)
+button`). Rewritten without changing what they style
+(`mmdoc1005-hasrewrite.js`); an insertion now costs about 20ms there, and
+`tests/test_has_invalidation.py` is the ratchet. Also: the render's paint
+key dropped x and y, so a tidy that shifts most of the map writes
+transforms rather than repainting every topic (409ms of `setAttribute`
+before). **Not met:** the 100ms gate at 300 topics; what is left is the
+one render's edge pass and the selection bar's layout read, and a few
+weaker `:has()` rules the ratchet lists.
+
+Same pass: FEAT-15 (a typed topic is one Undo step), FEAT-16 (focus back to
+the canvas and the name announced), FEAT-17 (no Order group on a laid-out
+map), FEAT-11 (the map's commands in the palette, `mapPaletteCommands`).
+Gates: `mmdoc1005-mapchecks.js` 13/13 at 1440 light and 390 dark;
+`boardundo.js` 43/43, `wbmapundo.js` 18/18, `mapstrip.js` 39/39,
+`maptheme.js` 24/24, `mapline.js` 13/13, `maprejoin.js` ok.
+
 ## Moved from the plans, 2026-10-05 (a frame as an export scope)
 
 ### From WHITEBOARD_PLAN.md, decision 14's open edges (decision 18)

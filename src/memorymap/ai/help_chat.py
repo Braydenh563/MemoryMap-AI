@@ -1046,8 +1046,12 @@ HELP_TOPICS.extend(
                 "boundary round the branch or summarises topics side by side. "
                 "Start from a template, "
                 "import an OPML, FreeMind or Markdown "
-                "outline, let the local AI propose a map from notes you pick, and "
-                "export it as OPML or Markdown as well as a picture."
+                "outline (an import opens laid out as a tree to the right), let the "
+                "local AI propose a map from notes you pick, and "
+                "export it as OPML, FreeMind or Markdown as well as a picture. "
+                "With a map open, the command palette (Ctrl+K) lists the map's "
+                "commands: add, rename, fold, focus, tidy, layout, look, numbering, "
+                "present and export."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

@@ -1195,6 +1195,35 @@ topic: a control that wide has nowhere to go.
    proposal took the board default, Free, while every other map door starts
    in tree-right (`DEFAULT_MAP_LAYOUT`); `wbMapTidyFresh` lays it out once,
    with no undo entry, when the import or proposal opens.
+24. **A new topic is drawn and open for typing before the server answers**
+   (taken 2026-10-05, audit FEAT-02). Tab and Enter make a provisional row
+   (negative id), lay the branch out by the tidy's positions applied as
+   transforms, render once, open the editor, and adopt the server's id in
+   the background (`wbMapAdoptProvisional`): the row, its element, the
+   selection and both Undo stacks take the real id; a save that reaches the
+   row first waits for it (`wbSaveObject`); a save's answer no longer takes
+   back a position or a text changed while it was out. A render repaints
+   what changed and moves what only moved (the paint key has no x or y).
+   Three stylesheet rules whose `:has()` sat before a classless compound
+   made every DOM insertion restyle the whole page; they are rewritten and
+   `tests/test_has_invalidation.py` holds the line. The 100ms gate at 300
+   topics is not yet met on this sandbox (see HISTORY, "Moved from the
+   plans, 2026-10-05 (the map's add path)").
+25. **The open map's commands are palette rows** (taken 2026-10-05, audit
+   FEAT-11): add, rename, fold, focus, delete, tidy, open every branch,
+   look, numbering, statistics, present, zoom to fit, the six layouts and
+   the three text exports, in groups "This topic", "This map", "Map
+   layout" and "Export the map", only while a map is on screen. The
+   board's own commands are the board's (WHITEBOARD_PLAN, section 8's one
+   command table).
+26. **A new topic and its first name are one Undo step** (taken 2026-10-05,
+   audit FEAT-15), as in XMind: the rename is folded while the add is still
+   the last step.
+27. **A committed name hands the keys back to the canvas and is said aloud**
+   (taken 2026-10-05, audit FEAT-16), unless the press that ended it went to
+   another field.
+28. **No front-and-back Order on a laid-out map** (taken 2026-10-05, audit
+   FEAT-17): a tidied tree never overlaps; a Free map keeps the group.
 
 ### Phases, each with the gate it is finished against
 
@@ -1215,6 +1244,8 @@ topic: a control that wide has nowhere to go.
   not be met by caching: `renderWhiteboard` is still a full d3 data-join over
   every node on the board, and making it proportional to what changed is a
   separate piece of work.
+- (Audit 2026-10-05: 13a-open's figures hold for a move; the add path was
+  never gated and cost two whole renders, see decision 24.)
 - ~~**13a-open. The render pass proper.**~~ **Built 2026-09-21**, and the
   record is in HISTORY.md ("Moved from the plans, 2026-09-21", "From
   MINDMAP_PLAN.md section 13a-open: the render pass"). Both gate figures are

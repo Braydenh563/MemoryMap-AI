@@ -5279,10 +5279,15 @@ function wbBuildContextMenu(kind) {
   if (!wbIsMap()) {
     item("Lock", "Ctrl+Shift+L. Right-click the board to unlock", () => wbLockSelection());
   }
-  subItem("Order", (sub) => {
-    sub("Bring to front", "Move above everything else in this layer", () => wbSendSelectionZOrder(true));
-    sub("Send to back", "Move below everything else in this layer", () => wbSendSelectionZOrder(false));
-  });
+  //: Not on a laid-out map (audit FEAT-17): a tidied tree never overlaps,
+  //: so front and back mean nothing there. A Free map can overlap, so it
+  //: keeps them.
+  if (!wbIsMap() || wbMapLayout() === "free") {
+    subItem("Order", (sub) => {
+      sub("Bring to front", "Move above everything else in this layer", () => wbSendSelectionZOrder(true));
+      sub("Send to back", "Move below everything else in this layer", () => wbSendSelectionZOrder(false));
+    });
+  }
   item("Delete", "Delete", () => {
     wbCloseMapRadial();
     deleteWbSelection();
@@ -14742,6 +14747,9 @@ async function wbSaveNode(node) {
 }
 
 async function wbSaveObject(d) {
+  //: A topic still on its way to the server (`wbMapAddChild`'s optimistic
+  //: add) is saved once it has its real id.
+  if (d._creating) return d._creating.then((ok) => (ok ? wbSaveObject(d) : undefined));
   const body = {
     kind: d.kind, data: d.data, board_id: d.board_id,
     x: d.x, y: d.y, z: d.z, width: d.width, height: d.height,
@@ -14753,7 +14761,14 @@ async function wbSaveObject(d) {
       method: "PUT",
       body: JSON.stringify(body),
     });
+    //: **What changed here while the save was out stays** (audit FEAT-02):
+    //: with the map's add no longer waiting for its saves, a tidy or a
+    //: rename can land between this request and its answer, and taking the
+    //: answer whole put the topic back where it was when the request left.
+    const now = { x: d.x, y: d.y, data: d.data };
     Object.assign(d, saved);
+    if (now.x !== body.x || now.y !== body.y) Object.assign(d, { x: now.x, y: now.y });
+    if (now.data !== body.data) d.data = now.data;
   } catch {
     // Same recoverable-stale-client shape every other whiteboard write here
     // already follows: a 404 means this object (or its board) is gone.
@@ -15430,7 +15445,15 @@ function renderWbObjects(canvas) {
   // (another item moving, say) can't overwrite what's being typed.
   objectUpdate.each(function (d) {
     const key = wbObjectPaintKey(d, paintCtx);
-    if (this._wbPaintKey === key) return;
+    //: **A move is a transform, not a repaint** (audit FEAT-02): the key left
+    //: out x and y so a tidy that shifts two hundred topics down for one new
+    //: one writes two hundred transforms, not two hundred full repaints
+    //: (measured: 409ms of `setAttribute` in one Tab at 301 topics).
+    if (this._wbPaintKey === key) {
+      const place = wbItemTransform(d);
+      if (this.style.transform !== place) this.style.transform = place;
+      return;
+    }
     this._wbPaintKey = key;
     //: Drawn live for this pass, so the measure below reads what the new
     //: content really needs rather than the size it was culled at. The next
@@ -15534,7 +15557,10 @@ function renderWbObjects(canvas) {
 //: exception is a topic somebody has resized by hand (`sized`), whose stored
 //: height is written back as a `min-height` and therefore is an input.
 function wbObjectPaintKey(d, ctx) {
-  const base = `${d.kind}|${d.x}|${d.y}|${d.z}|${d.width}|${d.rotation ?? ""}|${JSON.stringify(d.data ?? null)}`;
+  //: No x or y: a position is applied as a transform without a repaint (the
+  //: update pass above). The one paint that reads a topic's own x is the
+  //: both-sides spine, added below with its parent's.
+  const base = `${d.kind}|${d.z}|${d.width}|${d.rotation ?? ""}|${JSON.stringify(d.data ?? null)}`;
   if (!WB_MAP_KINDS.has(d.kind)) return `${base}|${d.height}`;
   const index = ctx.index;
   const children = index?.childrenOf.get(d.id)?.length || 0;
@@ -15545,7 +15571,7 @@ function wbObjectPaintKey(d, ctx) {
   let parentBox = "";
   if (ctx.layout === "tree-both" && index) {
     const parent = index.byId.get(d.parent_id);
-    if (parent) parentBox = `${parent.x}:${parent.width ?? ""}`;
+    if (parent) parentBox = `${parent.x}:${parent.width ?? ""}:${d.x}`;
   }
   return `${base}|${d.data?.sized ? d.height : ""}|${wbMapLabel(d)}|${ctx.colors?.get(d.id) || ""}` +
     `|${children}|${buried}|${d.parent_id ?? ""}|${parentBox}|${ctx.layout}|${ctx.theme}` +

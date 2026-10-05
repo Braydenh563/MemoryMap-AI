@@ -1548,8 +1548,15 @@ progress {
    16px horizontal jump between this row's collapsed (grid) and expanded
    (`display: block`) layouts, the exact "keeps its position" bug this
    button exists to not have. Leaving it with no grid placement at all
-   keeps its containing block the plain padding box in both layouts. */
-.entry-list.is-rows li:not(:has(textarea)) > *:not(.entry-title):not(.entry-content):not(.entry-meta):not(.row-expand) {
+   keeps its containing block the plain padding box in both layouts.
+
+   No `:not(:has(textarea))` here (audit FEAT-02, 2026-10-05): a `:has()`
+   followed by a rightmost compound with no class in it made every DOM
+   insertion anywhere in the app restyle every element on the page (3,731
+   elements, about 60ms, traced on a 301-topic map). It was not needed: a row
+   being edited is not a grid (the rule above), so `grid-column` does nothing
+   there. */
+.entry-list.is-rows li > *:not(.entry-title):not(.entry-content):not(.entry-meta):not(.row-expand) {
   grid-column: 1 / -1;
   min-width: 0;
 }

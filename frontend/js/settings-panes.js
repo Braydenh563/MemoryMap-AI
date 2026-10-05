@@ -2173,6 +2173,8 @@ function paletteCommands() {
   //: because that file is in the Library's lazy bundle and the palette opens
   //: from every tab, including before it has ever been fetched.
   const editor = typeof docPaletteCommands === "function" ? docPaletteCommands() : [];
+  //: And an open map's (whiteboard-map.js, lazy for the same reason).
+  if (typeof mapPaletteCommands === "function") editor.push(...mapPaletteCommands());
   //: Every row below declares where it goes (tests/test_catalogue_reveal.py)
   //: and `catalogueRun` makes its `run`; the editor's rows are commands on
   //: the document already open, so they keep their own.

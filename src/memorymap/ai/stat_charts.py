@@ -17,7 +17,7 @@ rows as `facts` (the page writes them as a table under it):
 
 No model: a regex matcher and SQL, like the rest of `notebook_stats`, so it
 works with Atlas off and cannot hallucinate. Private and binned notes are
-nobody's statistics (`notebook_stats._visible`).
+nobody's statistics (`stat_answer._visible`).
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import notebook_stats
+from memorymap.ai import stat_answer
 from memorymap.core.database import LIKE_ESCAPE, Category, Entry, like_escape, utcnow
 
 #: The most bars one chart draws: a dozen is a glance, thirty is a table.
@@ -92,7 +92,7 @@ def _format_value(value: float, fmt: str, unit: str) -> str:
 # --- the entry point --------------------------------------------------------------
 
 
-def answer(message: str, session: Session) -> "notebook_stats.StatAnswer | None":
+def answer(message: str, session: Session) -> "stat_answer.StatAnswer | None":
     """A charted answer, or None to let the ordinary matchers go on."""
     text = " ".join((message or "").lower().split())
     if not text:
@@ -127,12 +127,12 @@ def _period(text: str) -> tuple[datetime | None, str]:
     return None, ""
 
 
-def _per_dimension(session: Session, dimension: str, text: str) -> "notebook_stats.StatAnswer":
+def _per_dimension(session: Session, dimension: str, text: str) -> "stat_answer.StatAnswer":
     since, label = _period(text)
     kind = "line" if re.search(r"\bline\b", text) else "bar"
     where = f" ({label})" if label else ""
     if dimension == "categories":
-        query = notebook_stats._visible(
+        query = stat_answer._visible(
             select(Category.name, func.count(Entry.id)).join(Category, Category.id == Entry.category_id).group_by(Category.name)
         )
         if since is not None:
@@ -140,19 +140,19 @@ def _per_dimension(session: Session, dimension: str, text: str) -> "notebook_sta
         rows = session.execute(query.order_by(func.count(Entry.id).desc(), Category.name).limit(MAX_BARS)).all()
         title, noun, kind_name = f"Notes per category{where}", "category", "chart-categories"
     else:
-        query = notebook_stats._visible(select(Entry.tags))
+        query = stat_answer._visible(select(Entry.tags))
         if since is not None:
             query = query.where(Entry.created_at >= since)
-        counts = Counter(tag for raw in session.scalars(query).all() for tag in notebook_stats._tags_of(raw))
+        counts = Counter(tag for raw in session.scalars(query).all() for tag in stat_answer._tags_of(raw))
         rows = sorted(counts.items(), key=lambda pair: (-pair[1], pair[0]))[:MAX_BARS]
         title, noun, kind_name = f"Notes per tag{where}", "tag", "chart-tags"
     if not rows:
-        return notebook_stats.StatAnswer(kind_name, f"There are no notes with a {noun} to chart{where.replace(' (', ' for ').replace(')', '')}.")
+        return stat_answer.StatAnswer(kind_name, f"There are no notes with a {noun} to chart{where.replace(' (', ' for ').replace(')', '')}.")
     rows = [(str(name), int(n)) for name, n in rows]
     listed = ", ".join(f"{name} ({n})" for name, n in rows)
     chart = bar_chart(title, rows)
     chart["kind"] = kind
-    return notebook_stats.StatAnswer(
+    return stat_answer.StatAnswer(
         kind_name,
         f"{title}: {listed}.",
         _facts(chart["labels"], chart["values"]),
@@ -168,8 +168,8 @@ def _month_start(day: date, back: int) -> date:
     return date(index // 12, index % 12 + 1, 1)
 
 
-def _over_time(session: Session, grain: str, text: str) -> "notebook_stats.StatAnswer":
-    created = [value for value in session.scalars(notebook_stats._visible(select(Entry.created_at))).all() if value]
+def _over_time(session: Session, grain: str, text: str) -> "stat_answer.StatAnswer":
+    created = [value for value in session.scalars(stat_answer._visible(select(Entry.created_at))).all() if value]
     today = utcnow().date()
     if grain == "month":
         starts = [_month_start(today, back) for back in range(11, -1, -1)]
@@ -201,10 +201,10 @@ def _over_time(session: Session, grain: str, text: str) -> "notebook_stats.StatA
     title = f"Notes per {noun}"
     peak = max(range(len(values)), key=lambda i: values[i]) if values else 0
     sentence = (
-        f"You wrote {notebook_stats._plural(total, 'note')} in {span}."
+        f"You wrote {stat_answer._plural(total, 'note')} in {span}."
         + (f" The most was {values[peak]} in {labels[peak]}." if total else "")
     )
-    return notebook_stats.StatAnswer(
+    return stat_answer.StatAnswer(
         "chart-time", sentence, _facts(labels, values), chart_of(kind, title, labels, values, unit="notes")
     )
 
@@ -269,11 +269,11 @@ def _day_label(day: datetime, with_year: bool) -> str:
     return f"{day.day} {_MONTHS[day.month - 1]}" + (f" {day.year}" if with_year else "")
 
 
-def _numbers_over_time(session: Session, text: str) -> "notebook_stats.StatAnswer | None":
+def _numbers_over_time(session: Session, text: str) -> "stat_answer.StatAnswer | None":
     topic, measure = _topic(text)
     if not topic:
         return None
-    query = notebook_stats._visible(select(Entry.content, Entry.created_at))
+    query = stat_answer._visible(select(Entry.content, Entry.created_at))
     for word in topic[:4]:
         stem = word[:-1] if len(word) > 4 and word.endswith("s") else word
         query = query.where(Entry.content.ilike(f"%{like_escape(stem)}%", escape=LIKE_ESCAPE))
@@ -307,12 +307,12 @@ def _numbers_over_time(session: Session, text: str) -> "notebook_stats.StatAnswe
     shown = [_format_value(v, fmt, unit) for v in values]
     low, high = min(values), max(values)
     sentence = (
-        f"{title} across {notebook_stats._plural(len(points), 'note')}, {labels[0]} to {labels[-1]}: "
+        f"{title} across {stat_answer._plural(len(points), 'note')}, {labels[0]} to {labels[-1]}: "
         + ", ".join(shown[-8:])
         + f". Lowest {_format_value(low, fmt, unit)}, highest {_format_value(high, fmt, unit)}, "
         + f"latest {shown[-1]}."
     )
-    return notebook_stats.StatAnswer(
+    return stat_answer.StatAnswer(
         "chart-numbers",
         sentence,
         [{"label": label, "count": value} for label, value in zip(labels, values)],

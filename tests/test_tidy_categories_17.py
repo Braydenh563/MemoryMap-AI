@@ -163,7 +163,7 @@ def test_uncategorised_is_never_proposed(session, app_state):
 
 @pytest.fixture
 def directed(monkeypatch):
-    monkeypatch.setattr(deps, "get_embeddings", lambda: DirectedEmbeddings())
+    monkeypatch.setattr(deps, "get_embeddings", DirectedEmbeddings)
 
 
 def test_the_route_lists_proposals_and_declines_one(client, session, directed):

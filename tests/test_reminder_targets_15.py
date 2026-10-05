@@ -51,7 +51,8 @@ def test_a_document_that_is_not_there_is_a_404_and_one_target_only(client):
 def test_deleting_the_document_keeps_the_reminder_unattached(client):
     doc = _document(client)
     made = client.post("/reminders", json={"text": "Review it", "due_at": _due(), "document_id": doc}).json()
-    assert client.delete(f"/documents/{doc}").status_code == 200
+    deleted = client.delete(f"/documents/{doc}")
+    assert deleted.status_code == 200
     after = [r for r in client.get("/reminders").json() if r["id"] == made["id"]]
     assert after and after[0]["document_id"] is None and after[0]["document_title"] is None
 

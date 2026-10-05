@@ -3481,7 +3481,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   .rich-picker-group, .note-embed-head, .doc-prose-group,
   .wb-export-card .wb-export-label, .wb-tool-section-label,
   .dash-widgets-group-label, .wb-panel-group-label, .connection-heading,
-  .wb-help-grid h4, .finder-group, .chord-guide-title
+  .wb-help-section-head, .finder-group, .chord-guide-title
 ) {
   text-transform: none;
   letter-spacing: 0;

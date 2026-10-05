@@ -9061,13 +9061,10 @@ async function initWhiteboard() {
     wbHintForcedOpen = false;
     $("wb-empty-hint")?.classList.add("hidden");
   });
-  // Asked for directly: a way back after "Don't show this again". Overrides
-  // both the dismissed flag and the has-content check below, since without
-  // that override this button would do nothing on a board that isn't empty.
-  $("wb-help-btn")?.addEventListener("click", () => {
-    wbHintForcedOpen = true;
-    $("wb-empty-hint")?.classList.remove("hidden");
-  });
+  //: The board's help is its own sheet now (INBOX 566): the Board menu's row
+  //: and the empty board's card open it, as "?" does.
+  $("wb-help-btn")?.addEventListener("click", () => wbOpenHelpSheet());
+  $("wb-empty-hint-keys")?.addEventListener("click", () => wbOpenHelpSheet());
 
   // Board background colour, asked for directly, the ambient generative-art
   // canvas showed straight through the board before this (`--wb-board-bg`,

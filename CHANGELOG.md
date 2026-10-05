@@ -8,6 +8,7 @@ below). Versioning is `0.x` while the app stabilises.
 ## [Unreleased]
 
 ### Changed
+- Whiteboard help, redesigned (INBOX 566): "?" on a board, Board, Keys and controls, or the empty board's card opens one sheet of every key and gesture, in sections (Tools, Move around, Select and edit, Arrange, View, and Mind map on a map), with a search field; each row's words wrap beside a fixed column of key caps, so nothing overlaps or runs off the card at any width (measured at 1440, 1024 and 390, light and dark). The empty board's card is one line and a button instead of the key list that overflowed it.
 - Whiteboard: Bring forward and Send backward move one step (past the next item over or under it) instead of jumping to the front or back; Ctrl+] and Ctrl+[ bring to the front and send to the back, and a shape's order is now the order it is drawn in. The Arrange menu has all four, plus Same width, Same height, Group, Ungroup, Lock and Unlock all; Edit has Cut, Copy, Paste, Find, the item's text and Comment. Every board action is in the command palette (Ctrl+K, "This board") and in the shortcut sheet (?), from one table, so the words and keys agree everywhere (FEAT-07, FEAT-11, FEAT-19).
 
 - Notes, Capture: the composer is one box; the note editor inside no longer draws its own border and focus ring a hair inside the composer's, and the composer's edge carries the focus (INBOX 560).

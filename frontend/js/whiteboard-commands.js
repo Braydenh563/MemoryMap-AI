@@ -257,3 +257,189 @@ function wbSyncCommandRows(menu) {
     row.classList.toggle("is-muted", !applies);
   }
 }
+
+// --- The board's help and shortcut sheet (INBOX 566) ------------------------
+//
+// The owner: "the whiteboard help popup is still cooked and needs a redesign".
+// The old card was a three-column grid of `label · key` rows set `nowrap`, so
+// a long label ran under its keys and the right column ran out of the card
+// (UX-03, measured). This is the dialog recipe instead: a head with its X and
+// '?', one line, a search field, and sections of rows. A row is a grid of the
+// icon, the words (they wrap first) and a fixed key column whose caps wrap
+// inside it, so nothing can overlap. A row that names a `cmd` takes its words,
+// icon and key from `WB_COMMANDS`, so the sheet cannot drift from the menus.
+
+//: `cmd` rows read the table; the others are gestures the table has no row
+//: for. `keys` is a list of alternatives, each drawn as one cap.
+const WB_HELP_SECTIONS = [
+  { title: "Mind map", surface: "map", rows: [
+    { icon: "ph:plus", label: "Add a child, a topic beside it", keys: ["Tab", "Enter"] },
+    { icon: "ph:arrow-left", label: "Outdent a branch", keys: ["Shift+Tab"] },
+    { icon: "ph:arrows-out-cardinal", label: "Walk the tree", keys: ["arrows"] },
+    { icon: "ph:pencil-simple", label: "Rename a topic", keys: ["F2", "double-click"] },
+    { icon: "ph:trash", label: "Delete the topic and its branch", keys: ["Delete"] },
+    { icon: "ph:caret-down", label: "Fold or open a branch", keys: ["C"] },
+    { icon: "ph:crosshair", label: "Focus here, show all again", keys: ["F"] },
+    { icon: "ph:list", label: "The topic's whole menu", keys: ["Shift+F10"] },
+    { icon: "ph:text-aa", label: "Label a line", keys: ["double-click it"] },
+    { icon: "ph:line-segment", label: "Straighten a line", keys: ["double-click its grip"] },
+  ] },
+  { title: "Tools", surface: "both", rows: [
+    { cmd: "tool-select" }, { cmd: "tool-pan" }, { cmd: "tool-lasso" }, { cmd: "tool-pen" },
+    { cmd: "tool-highlighter" }, { cmd: "tool-eraser" }, { cmd: "tool-fill" }, { cmd: "tool-line" },
+    { cmd: "tool-arrow" }, { cmd: "tool-rect" }, { cmd: "tool-circle" }, { cmd: "tool-triangle" },
+    { cmd: "tool-diamond" }, { cmd: "insert-text" }, { cmd: "insert-sticky" }, { cmd: "insert-frame" },
+    { cmd: "insert-image" }, { cmd: "tool-connector" }, { cmd: "tool-connector-curved" }, { cmd: "tool-delete" },
+  ] },
+  { title: "Move around", surface: "both", rows: [
+    { icon: "ph:hand", label: "Pan", keys: ["wheel", "two fingers", "middle drag"] },
+    { icon: "ph:arrows-horizontal", label: "Pan sideways", keys: ["Shift+wheel"] },
+    { icon: "ph:hand-grabbing", label: "Pan with any tool", keys: ["Space+drag"] },
+    { icon: "ph:magnifying-glass-plus", label: "Zoom", keys: ["Ctrl+wheel", "pinch"] },
+    { cmd: "zoom-in" }, { cmd: "zoom-out" }, { cmd: "zoom-100" }, { cmd: "zoom-fit" },
+    { cmd: "overview" }, { cmd: "find" },
+    { icon: "ph:keyboard", label: "Walk the board's items", keys: ["Tab", "Shift+Tab"] },
+  ] },
+  { title: "Select and edit", surface: "both", rows: [
+    { icon: "ph:cursor-click", label: "Add to the selection", keys: ["Shift+click"] },
+    { cmd: "select-all" }, { cmd: "undo" }, { cmd: "redo" },
+    { icon: "ph:clipboard", label: "Copy, paste at the pointer", keys: ["Ctrl+C", "Ctrl+V"] },
+    { cmd: "cut" }, { cmd: "duplicate" },
+    { icon: "ph:copy", label: "Copy as you drag", keys: ["Alt+drag"] },
+    { cmd: "delete" },
+    { icon: "ph:arrows-out-cardinal", label: "Nudge, further", keys: ["arrows", "Shift+arrows"] },
+    { icon: "ph:x", label: "Cancel a drag, back to Select", keys: ["Esc"] },
+    { icon: "ph:text-t", label: "A text box on the empty board", keys: ["double-click"] },
+    { cmd: "text" },
+    { cmd: "copy-style" }, { cmd: "paste-style" },
+    { icon: "ph:list", label: "The item's or the board's menu", keys: ["right-click", "hold"] },
+  ] },
+  { title: "Arrange", surface: "board", rows: [
+    { cmd: "order-forward" }, { cmd: "order-backward" }, { cmd: "order-front" }, { cmd: "order-back" },
+    { cmd: "group" }, { cmd: "ungroup" }, { cmd: "lock" },
+    { icon: "ph:lock-simple-open", label: "Unlock everything", keys: ["Ctrl+Shift+L with nothing selected"] },
+    { icon: "ph:arrows-left-right", label: "Keep to one axis", keys: ["Shift+drag"] },
+    { icon: "ph:corners-out", label: "Keep proportions", keys: ["Shift+corner"] },
+    { icon: "ph:arrows-in-simple", label: "Fit the box to its text", keys: ["double-click a corner"] },
+    { icon: "ph:arrow-clockwise", label: "Rotate, upright again", keys: ["the handle above it", "double-click it"] },
+    { icon: "ph:bezier-curve", label: "Bend a line", keys: ["double-click it"] },
+    { icon: "ph:text-aa", label: "Label a line", keys: ["select it, Enter"] },
+  ] },
+  { title: "View", surface: "both", rows: [
+    { icon: "ph:presentation", label: "Present frames (View menu): next, end", keys: ["arrows", "Esc"] },
+    { icon: "ph:keyboard", label: "This sheet", keys: ["?"] },
+    { icon: "ph:command", label: "Find any action by name", keys: ["Ctrl+K"] },
+  ] },
+];
+
+//: The rows of one section as they read now: a `cmd` row from the table.
+function wbHelpRows(section) {
+  return section.rows
+    .map((row) => {
+      if (!row.cmd) return row;
+      const command = WB_COMMAND_BY_ID.get(row.cmd);
+      if (!command || !command.keys) return null;
+      return { icon: command.icon, label: command.label, keys: [command.keys] };
+    })
+    .filter(Boolean);
+}
+
+function wbHelpSections() {
+  const map = typeof wbIsMap === "function" && wbIsMap();
+  return WB_HELP_SECTIONS.filter((s) => s.surface === "both" || s.surface === (map ? "map" : "board"));
+}
+
+//: Draws the sheet, filtered by `query` (words or keys, any order).
+function wbRenderHelpSheet(query = "") {
+  const host = document.getElementById("wb-help-sections");
+  if (!host) return;
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const matches = (row) => {
+    const text = `${row.label} ${row.keys.join(" ")}`.toLowerCase();
+    return words.every((w) => text.includes(w));
+  };
+  host.replaceChildren();
+  let shown = 0;
+  for (const section of wbHelpSections()) {
+    const rows = wbHelpRows(section).filter(matches);
+    if (!rows.length) continue;
+    const box = document.createElement("section");
+    box.className = "wb-help-section";
+    const head = document.createElement("h3");
+    head.className = "wb-help-section-head";
+    head.textContent = section.title;
+    const list = document.createElement("ul");
+    list.className = "wb-help-list";
+    list.setAttribute("aria-label", section.title);
+    for (const row of rows) {
+      const li = document.createElement("li");
+      li.className = "wb-help-row";
+      const icon = document.createElement("i");
+      icon.className = `ph ${row.icon.replace(/^ph:/, "ph-")} wb-help-row-icon`;
+      icon.setAttribute("aria-hidden", "true");
+      const label = document.createElement("span");
+      label.className = "wb-help-row-label";
+      label.textContent = row.label;
+      const keys = document.createElement("span");
+      keys.className = "wb-help-row-keys";
+      for (const key of row.keys) {
+        const kbd = document.createElement("kbd");
+        kbd.textContent = key;
+        keys.append(kbd);
+      }
+      li.append(icon, label, keys);
+      list.append(li);
+      shown += 1;
+    }
+    box.append(head, list);
+    host.append(box);
+  }
+  document.getElementById("wb-help-none")?.classList.toggle("hidden", shown > 0);
+}
+
+let wbHelpReturnFocus = null;
+
+function wbOpenHelpSheet() {
+  const overlay = document.getElementById("wb-help-overlay");
+  if (!overlay) return;
+  wbHelpReturnFocus = document.activeElement;
+  const search = document.getElementById("wb-help-search");
+  if (search) search.value = "";
+  wbRenderHelpSheet("");
+  overlay.classList.remove("hidden");
+  document.getElementById("wb-help-sections")?.scrollTo?.(0, 0);
+  search?.focus();
+}
+
+function wbCloseHelpSheet() {
+  const overlay = document.getElementById("wb-help-overlay");
+  if (!overlay || overlay.classList.contains("hidden")) return;
+  overlay.classList.add("hidden");
+  const back = wbHelpReturnFocus;
+  wbHelpReturnFocus = null;
+  if (back && back.isConnected && typeof back.focus === "function") back.focus();
+}
+
+//: Wired once, when this file arrives with the Library bundle.
+onDomReady(() => {
+  const overlay = document.getElementById("wb-help-overlay");
+  if (!overlay) return;
+  document.getElementById("wb-help-close")?.addEventListener("click", wbCloseHelpSheet);
+  document.getElementById("wb-help-search")?.addEventListener("input", (e) => wbRenderHelpSheet(e.target.value));
+  wireBackdropClose(overlay, wbCloseHelpSheet);
+  //: Escape closes the sheet and nothing behind it (the board would drop its
+  //: selection on the same key otherwise); a first Escape in a typed search
+  //: clears the search instead.
+  overlay.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    e.stopPropagation();
+    const search = document.getElementById("wb-help-search");
+    if (search && search.value && document.activeElement === search) {
+      search.value = "";
+      wbRenderHelpSheet("");
+      return;
+    }
+    wbCloseHelpSheet();
+  });
+});

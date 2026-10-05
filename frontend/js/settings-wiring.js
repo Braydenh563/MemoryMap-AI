@@ -1754,7 +1754,12 @@ function runShortcut(id) {
         $("note-search").focus();
       }
     },
-    help: openShortcuts,
+    //: On a board, "?" is the board's own sheet (INBOX 566); everywhere else
+    //: the app's.
+    help: () => {
+      if (typeof wbCommandsLive === "function" && wbCommandsLive() && typeof wbOpenHelpSheet === "function") wbOpenHelpSheet();
+      else openShortcuts();
+    },
     newNote: () => startNewNote(),
     quickNote: () => openQuickNote(),
     newDocument: () => {

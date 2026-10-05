@@ -152,6 +152,7 @@ REACHED_AFTER_LOAD = {
     "wbPaletteCommands": "library, the palette's board group: with the bundle absent no board is open, so no board command applies and the guard's empty list is the right answer",
     "renderWbShortcutSheet": "library, the board's section of the sheet, which says to open a board once while the bundle is absent",
     "wbCommandsLive": "library, asks whether a board is on screen; with the bundle absent none is, so the guard's false is the right answer",
+    "wbOpenHelpSheet": "library, called by '?' only when wbCommandsLive() says a board is on screen, which needs the bundle in; otherwise the app's sheet opens",
     "wireMdFormatShortcuts": "library, wired when the document editor mounts",
     "hideDocComplete": "library, the document editor's word list; with the bundle absent there is no list on screen to hide, so the guard's no-op is the right answer",
     "docMathRender": "library; `mdMathElement` (app.js) shows the formula's source when it is absent and calls `ensureModule(\"library\")` to redraw the block once the bundle lands, so the guard is a first frame, not a silent no-op",

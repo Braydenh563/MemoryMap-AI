@@ -135,7 +135,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
   - Have `media_gc` read board settings.
   - Keep grid and snap as device preferences.
 
-**FEAT-07. "Bring forward" and "Send backward" go to the very front or back. No single-step z-order exists.**
+**FEAT-07. "Bring forward" and "Send backward" go to the very front or back. No single-step z-order exists.** FIXED 93bbb62
 - Evidence:
   - `wbSetZOrder` writes `max+1` or `min-1` (`whiteboard.js:4285-4288`).
   - The Arrange menu says "Bring forward ]" and "Send backward [" (`index.html:5914-5915`), and the context bar uses the same words (`:6558-6559`). The right-click menu calls the same function "Bring to front" and "Send to back" (`whiteboard.js:5283-5284`).
@@ -177,7 +177,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
 - Impact: there is no "the board as it was yesterday". Undo dies on reload (WHITEBOARD_PLAN "Open").
 - KNOWN (BACKLOG 29c, "needs a design decision"). The decision is now cheap: the change log already exists. Fix (M): brief W2.
 
-**FEAT-11. The command palette has no board or map commands.**
+**FEAT-11. The command palette has no board or map commands.** FIXED 93bbb62 (boards; map rows come with the map's own table)
 - Evidence:
   - `palette.js` mentions `wb` only to name the open board as the AI's subject (`:262-265`).
   - Documents have `DOC_COMMANDS`, 47 entries (`documents.js:2337`).
@@ -203,11 +203,11 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
 
 **FEAT-16.** After a topic label is committed, focus lands on `<body>` (`kb1.js`: `after type+Enter: BODY`). Keys still work because they are read on the document, but a screen reader loses its place and announces nothing. NEW. Fix (S): return focus to the canvas and call `wbAnnounce(label)`.
 
-**FEAT-17.** The map topic's menu has an "Order" group, "Bring to front" and "Send to back" (`map1.js`), which mean nothing in a tidied tree. NEW. Fix (S): hide it on map topics (keep it for free-layout maps only, or drop it).
+**FEAT-17.** The map topic's menu has an "Order" group, "Bring to front" and "Send to back" (`map1.js`), which mean nothing in a tidied tree. NEW. Fix (S): hide it on map topics (keep it for free-layout maps only, or drop it). FIXED 93bbb62
 
 **FEAT-18.** The Word export drops images: `docexport._inline` writes no picture (`core/docexport.py`, no `add_picture`). It also needs an optional extra that is absent here (`import docx` fails in `.venv`), so the default install gets a 501. The extra is KNOWN and decided; the images are NEW. Fix (S): `add_picture` for `/media` images, read from the media dir.
 
-**FEAT-19.** Surfaces disagree about what they offer.
+**FEAT-19.** Surfaces disagree about what they offer. FIXED 93bbb62 (the Arrange and Edit menus)
 - The Arrange menu has align, distribute and z-order but no Group, Ungroup, Same size or Lock. Those live only on the context bar, Ctrl+G or the right-click menu.
 - Lock, comment, shape text, connector label and "export this frame" have no menu entry at all; they are only on right-click, double-click or a key (section 8).
 - NEW. Fix: section 8's single command table.

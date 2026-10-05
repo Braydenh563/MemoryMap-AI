@@ -105,6 +105,21 @@ with its owner named in the entry.
      you are reading (the card clicked, or the card in view as you scroll),
      marked on the card; the toggle says so. Placed: the UX agent.
 
+572. **The owner, 2026-10-05, verbatim.** "this whole popup panel is cooked
+     ui/ux wise and needs another redesign for the pill bar and ui fix"
+     (screenshot: the mind map's "Point a new node at..." picker; the source
+     pills in a loose well, icon tiles overlapping the next row, rows running
+     together). Placed: a picker agent.
+
+573. **The owner, 2026-10-05, verbatim.** "these anchor points appeared and
+     wont go away" (screenshot: a map topic keeping eight resize handles and
+     its Aa and arrow marks after deselecting). Placed: the mind map agent.
+
+574. **The owner, 2026-10-05, verbatim.** "I think there needs to be an easier
+     way to open the formatting toolbar in the documents editor if it is
+     closed in case the user accidentally closes it and cant figure out how
+     to open it back up again" Placed: the documents agent.
+
 561. **The owner, 2026-10-05, verbatim.** "I dont like this section in th
      timeline, it needs redesigning, restructuring, moving ro smth"
      (screenshot: the "Sep to Oct 2026" month button over a row of seven

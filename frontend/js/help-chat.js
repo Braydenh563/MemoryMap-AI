@@ -252,7 +252,10 @@ async function submitHelpChatQuestion(question) {
   const pending = document.createElement("div");
   pending.className = "help-chat-msg is-assistant is-pending";
   pending.append(assistantHeadRow(GUIDE_NAME));
-  pending.appendChild(typeof typingDots === "function" ? typingDots("Thinking…") : document.createTextNode("Thinking…"));
+  //: The app's phase vocabulary (INBOX 649): "Reaching Atlas…" until the
+  //: first token, then "is thinking" and "is writing" as the stream says so.
+  const pendingLine = typeof progressLine === "function" ? progressLine(null, { persona: GUIDE_NAME }) : null;
+  pending.appendChild(pendingLine || document.createTextNode("Reaching Atlas…"));
   helpChatAppendRow(pending);
   if (input) input.value = "";
   try {
@@ -270,6 +273,7 @@ async function submitHelpChatQuestion(question) {
     //: build where the route is missing, still answers.
     const result = await helpChatStreamTurn({
       pending,
+      line: pendingLine,
       signal,
       //: **Where the question was asked from** (INBOX 190: "give it more
       //: knowledge"). The Guide opens over every tab now, so the tab is half
@@ -335,7 +339,7 @@ async function submitHelpChatQuestion(question) {
 //: the reader stopped the answer half way). Falls back to `/help/ask` and the
 //: timed reveal on any failure to open or read the stream, so the panel
 //: answers even where streaming does not survive the trip.
-async function helpChatStreamTurn({ pending, signal, body }) {
+async function helpChatStreamTurn({ pending, signal, body, line = null }) {
   let response;
   try {
     //: Through `api.stream` (F5). It was hand-rolled, and without
@@ -386,6 +390,9 @@ async function helpChatStreamTurn({ pending, signal, body }) {
   //: below not after the text being streamed"). The rule in
   //: 01-forms-settings.css walks one level further for this class.
   prose.className = "help-chat-prose";
+  //: The phase line stays under the head row for the whole turn, and goes
+  //: when the answer is complete (below).
+  if (line) pending.append(line);
   pending.append(think, prose);
   const list = $("help-chat-messages");
   const toBottom = () => keepAtBottom(list);
@@ -401,12 +408,14 @@ async function helpChatStreamTurn({ pending, signal, body }) {
     try { event = JSON.parse(line); } catch { return; }
     if (event.type === "thinking") {
       think.hidden = false;
+      line?.setPhase("thinking");
       thinkRaw += event.text || "";
       thinkingPaint(think, thinkRaw);
     } else if (event.type === "delta") {
       //: Folded the moment there is an answer to read, not when the turn
       //: ends: by then the reader has already had to scroll past it.
       if (think.open && !text) think.open = false;
+      line?.setPhase("writing");
       text += event.text || "";
       renderMarkdown(prose, text);
     } else if (event.type === "done") {
@@ -423,6 +432,7 @@ async function helpChatStreamTurn({ pending, signal, body }) {
     for (const line of lines) take(line);
   }
   take(buffered);
+  line?.remove();
   return {
     content: done?.content || text,
     badges: done?.badges || [],

@@ -138,7 +138,14 @@ HELP_TOPICS: list[dict] = [
             "does every change and web request. "
             "Conversations save and rename in the sidebar. The same agent also "
             "pops open over any tab with Ctrl/Cmd+Shift+A, so you don't have to "
-            "switch to Chat first."
+            "switch to Chat first. While an answer is coming, the line under "
+            "it says what is happening: Reaching Atlas while it waits for the "
+            "first word, Reading your notes while it searches, Waking the "
+            "model when a model is slow to load, Atlas is thinking while it "
+            "reasons, Atlas is writing while the answer streams, and Atlas "
+            "is followed by the tool's name when it uses one (a persona's "
+            "name replaces Atlas). With Progress indicators set to Still it "
+            "is the same words, without the moving dots."
         ),
         "badge": {"label": "Chat", "tab": "chat"},
     },
@@ -1299,7 +1306,9 @@ HELP_TOPICS.extend(
                 "the arrows keep the column, Enter goes to the cell below, and "
                 "rows pasted from a spreadsheet fill the cells. Pasting from a "
                 "web page, Word or Google Docs keeps headings, bold, italics, "
-                "lists and links; Ctrl+Shift+V pastes plain text."
+                "lists and links; Ctrl+Shift+V pastes plain text. With nothing "
+                "selected, Ctrl+C and Ctrl+X copy and cut the whole line, and "
+                "pasting that line puts it above the one you are on."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

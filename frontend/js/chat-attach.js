@@ -1775,7 +1775,7 @@ async function sendChatMessage(preset, opts = {}) {
   // A placeholder until the first event arrives; the first real step evicts it.
   const pending = document.createElement("div");
   pending.className = "agent-step step-pending";
-  const pendingLine = progressLine("Thinking…", { persona: sentPersona, words: true });
+  const pendingLine = progressLine(null, { persona: sentPersona, words: true });
   pending.appendChild(pendingLine);
   stepsHolder.appendChild(pending);
   // The placeholder trails the work rather than vanishing at the first event,
@@ -1792,12 +1792,9 @@ async function sendChatMessage(preset, opts = {}) {
     if (stepsHolder.lastElementChild === pending) return;
     stepsHolder.appendChild(pending);
   };
-  // Every string this is given comes from an event that really happened, 
-  // see `progressLine` on why it must never invent a stage.
-  const say = (text) => pendingLine.setStatus?.(text);
-  //: The indicator's shape follows the stage, not only its words: the chat
-  //: tab never called `setPhase`, so streaming text still showed three dots.
-  const phase = (name) => pendingLine.setPhase?.(name);
+  //: The line's words and shape are driven by `streamChat` itself (`progress:
+  //: pendingLine` below), from the events that really arrive (INBOX 649), so
+  //: no handler in this turn names a stage of its own.
   // **The turn is marked as generating for its whole length, not just until
   // the first event.** Reported as "none of the generating animations work",
   // and this is the mechanism: `clearPending` above runs on the first event
@@ -1993,6 +1990,7 @@ async function sendChatMessage(preset, opts = {}) {
       }
     }, 5000);
     await streamChat({
+      progress: pendingLine,
       question,
       history: chatHistoryToSend(),
       persona: sentPersona,
@@ -2020,8 +2018,6 @@ async function sendChatMessage(preset, opts = {}) {
       onMeta: (m) => {
         meta = m;
         status.textContent = "The model is writing…";
-        const found = m?.raw_results?.length || 0;
-        say(found ? `Read ${found} note${found === 1 ? "" : "s"}, writing…` : "Writing…");
       },
       onRelated: (event) => {
         renderRelatedElsewhere(groundingHolder, event.items);
@@ -2102,18 +2098,15 @@ async function sendChatMessage(preset, opts = {}) {
         clearPending();
         timeline.thinking(delta);
         //: Reasoning is still waiting, as far as the reader is concerned:
-        //: nothing of the answer exists yet. Set explicitly rather than left
-        //: alone, so a turn that thinks *after* writing goes back to dots.
-        phase("thinking");
+        //: `streamChat` sets the "thinking" phase (dots) before this runs, so
+        //: a turn that thinks *after* writing goes back to dots.
         status.textContent = "The model is thinking…";
         chatScrollToEnd();
       },
       onAnswer: (delta) => {
         clearPending();
         timeline.answer(delta);
-        phase("writing");
         status.textContent = "The model is writing…";
-        say("Writing the answer…");
         chatScrollToEnd();
       },
       onTool: (event) => {
@@ -2156,9 +2149,6 @@ async function sendChatMessage(preset, opts = {}) {
         }
         if (event.ok) toolsActed = true;
         status.textContent = "The model is making changes…";
-        // The tool's own label, so the line under the timeline names the
-        // step that is running rather than a generic "working".
-        say((event.label || "Working…").replace(/^ph:[\w-]+\s*/, ""));
         chatScrollToEnd();
       },
       onConfirm: (event) => {

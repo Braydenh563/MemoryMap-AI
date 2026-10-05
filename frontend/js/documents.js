@@ -10916,7 +10916,9 @@ async function runDocAiEdit() {
     return;
   }
   status.classList.remove("error");
-  setLabel(status, "ph:spin Thinking…");
+  //: The same first phase the chat surfaces open with (INBOX 649); this call is
+  //: one request with no stream, so it has no later phase to move to.
+  setLabel(status, `ph:spin ${progressPhaseText("reaching")}`);
   docAiController = new AbortController();
   $("doc-ai-run").classList.add("hidden");
   $("doc-ai-cancel-run").classList.remove("hidden");
@@ -12263,6 +12265,8 @@ function noteSurfaceExtensions(CM, host, options) {
   host.noteReadOnlySlot = new CM.state.Compartment();
   return [
     host.noteReadOnlySlot.of(host.noteReadOnlyExtensions(host.readOnly)),
+    //: The same whole-line copy and cut the document has (INBOX 652).
+    CM.state.Prec.high(docLineClipboardExtension(CM)),
     //: Grammar rides with the rendering: the note's own list (PROSE-TOOLS,
     //: `noteGrammarPlugin`).
     host.noteLiveSlot.of(noteSourceWanted() && NOTE_SOURCE_HOSTS.has(host.id) ? [] : live),
@@ -18419,7 +18423,17 @@ function docCmTheme(CM) {
       },
       ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--muted)" },
       "&.cm-focused .cm-activeLineGutter": { color: "var(--text)" },
+      //: **The caret's line is washed, only while the numbers show** (INBOX
+      //: 651, the owner: "subtle line highlighting in the document editor
+      //: when the line numbers are showing"). `highlightActiveLine()` is
+      //: added with the gutter (`docCmGutter`, `noteSurfaceGutter`), so with
+      //: numbers off no line carries the class at all. The wash is DESIGN.md's
+      //: `--hover-veil`, a translucent ink laid over whatever ground the line
+      //: has, so it reads in light and dark and never covers the selection
+      //: layer's tint; it shows only while the editor has the focus, the same
+      //: rule the number beside it follows.
       ".cm-activeLine": { backgroundColor: "transparent" },
+      "&.cm-focused .cm-activeLine": { backgroundColor: "var(--hover-veil)" },
       ".cm-selectionMatch": { backgroundColor: "var(--accent-soft)" },
       ".cm-searchMatch": { backgroundColor: "var(--accent-soft)" },
       ".cm-searchMatch.cm-searchMatch-selected": { outline: "1px solid var(--accent)" },
@@ -19413,6 +19427,8 @@ function docCmExtensions(CM) {
     //: is not a reason to stop being told.
     docCmParts.live.of(docView === "live" ? docLiveExtensions(CM) : []),
     CM.state.Prec.high(docFindingsPlugin(CM)),
+    //: Whole-line copy and cut with an empty selection (INBOX 652).
+    CM.state.Prec.high(docLineClipboardExtension(CM)),
     //: Suggestion mode and read aloud (PROSE-TOOLS), inert until asked for.
     docProseToolExtensions(CM),
     //: The dimming is a compartment because it is a preference that changes
@@ -19879,7 +19895,67 @@ function docCmGutter(CM) {
     icon.setAttribute("aria-hidden", "true");
     return icon;
   };
-  return [CM.view.lineNumbers(), CM.view.highlightActiveLineGutter(), CM.language.foldGutter({ markerDOM })];
+  return [CM.view.lineNumbers(), CM.view.highlightActiveLineGutter(), CM.view.highlightActiveLine(), CM.language.foldGutter({ markerDOM })];
+}
+
+//: **Copy and cut with nothing selected take the whole line, as VS Code
+//: does** (INBOX 652, the owner: "whole line copying or cutting ... quality
+//: of life stuff"). CodeMirror already does the same inside the view (a
+//: linewise copy is remembered and a paste of it goes above the current
+//: line), measured on :8797 with `scratchpad/ui-sweeps/linecopy.js`; what
+//: differed from VS Code was the clipboard text, `bravo` where VS Code puts
+//: `bravo\n`, so pasting into any other app joined the line onto whatever
+//: sat at the caret, and cutting the last line left an empty one behind.
+//: This handler writes the line with its newline, remembers that text, and
+//: pastes it as a whole line above the caret's own. One caret only: with
+//: several, or any selection, CodeMirror's own behaviour is untouched.
+let docLineClipboard = null;
+
+function docLineClipboardRange(state) {
+  const sel = state.selection;
+  if (sel.ranges.length !== 1 || !sel.main.empty) return null;
+  const line = state.doc.lineAt(sel.main.head);
+  //: The last line has no newline after it, so cutting it takes the one
+  //: before, which leaves the caret on the line above like VS Code.
+  const last = line.to >= state.doc.length;
+  const from = last && line.from > 0 ? line.from - 1 : line.from;
+  const to = last ? line.to : line.to + 1;
+  return { text: `${line.text}\n`, from, to };
+}
+
+function docLineClipboardEvent(event, view) {
+  const hit = docLineClipboardRange(view.state);
+  const data = event.clipboardData;
+  if (!hit || !data) return false;
+  data.clearData();
+  data.setData("text/plain", hit.text);
+  docLineClipboard = hit.text;
+  if (event.type === "cut" && !view.state.readOnly) {
+    view.dispatch({ changes: { from: hit.from, to: hit.to }, scrollIntoView: true, userEvent: "delete.cut" });
+  }
+  return true;
+}
+
+function docLinePasteEvent(event, view) {
+  const text = event.clipboardData?.getData("text/plain");
+  const sel = view.state.selection;
+  if (!docLineClipboard || text !== docLineClipboard || sel.ranges.length !== 1 || !sel.main.empty || view.state.readOnly) return false;
+  const line = view.state.doc.lineAt(sel.main.head);
+  view.dispatch({
+    changes: { from: line.from, insert: text },
+    selection: { anchor: sel.main.head + text.length },
+    scrollIntoView: true,
+    userEvent: "input.paste",
+  });
+  return true;
+}
+
+function docLineClipboardExtension(CM) {
+  return CM.view.EditorView.domEventHandlers({
+    copy: docLineClipboardEvent,
+    cut: docLineClipboardEvent,
+    paste: docLinePasteEvent,
+  });
 }
 
 //: **A note box's numbers are the view's own** (INBOX 590). The capture box
@@ -19892,7 +19968,7 @@ function docCmGutter(CM) {
 //: the editor mounts (`.gutter-wrap:has(.cm-editor)` hides it after).
 function noteSurfaceGutter(CM, host) {
   if (!host.closest?.(".gutter-wrap") || docGutterPref() !== "1") return [];
-  return [CM.view.lineNumbers(), CM.view.highlightActiveLineGutter()];
+  return [CM.view.lineNumbers(), CM.view.highlightActiveLineGutter(), CM.view.highlightActiveLine()];
 }
 
 //: **Folding on headings.** The markdown parser gives fold ranges for fenced

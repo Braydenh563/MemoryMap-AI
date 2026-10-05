@@ -44097,6 +44097,56 @@ record.)
      first subtab" Fixed: a double-click on Notes or Library (the two with
      sub-tabs) selects the first one; the Guide's shortcuts answer says so.
 
+651. **The owner, 2026-10-05, verbatim.** "Also like subtle line highlighting
+     in the document editor when the line numbers are showing??" Placed:
+     Sonnet agent, with 652 (DOCUMENTS_PLAN 21).
+     **Fixed 5725426.** `highlightActiveLine()` rides with the gutter in the
+     documents editor and the note surfaces, so with numbers off no line
+     carries `.cm-activeLine`; the wash is `--hover-veil`, shown while the
+     editor has the focus. Measured (`activeline.js`): numbers on, computed
+     background rgba(31, 36, 48, 0.07) light and rgba(255, 255, 255, 0.09)
+     dark, body ink over it 14.94:1 and 10.73:1; numbers off, 0 active lines.
+652. **The owner, 2026-10-05, verbatim.** "Whole line copying or cutting when
+     selected on the end of a line etc, quality of life stuff" Decision
+     taken: VS Code's rule, copy or cut with an empty selection takes the
+     whole line. Placed: Sonnet agent, with 651.
+     **Fixed 981cb66.** CodeMirror already took the whole line inside the
+     view; what differed from VS Code was the clipboard text (`bravo`, no
+     newline, measured before the change) and cutting the last line, which
+     left an empty one. One handler on both CM6 editors (documents, every
+     note surface) writes the line with its newline, pastes it above the
+     caret's line, and cuts the last line with the newline before it.
+     Measured (`linecopy.js`, real clipboard): 7 of 7 in the documents editor
+     and 7 of 7 in the capture box. The plain `<textarea>`s that never mount a
+     view (settings fields, the single-line inputs) keep the browser's own
+     behaviour; the note boxes mount CM6 on focus and are covered.
+
+649. **The owner, 2026-10-05, verbatim.** "Also in all the chat areas for the
+     "thinking..." text, I think it should change based on the state like for
+     if it is waiting for the first token, thinking, or writing etc. maybe the
+     wording can be more atlas themed or smth but just to help with
+     information architecture" Decision taken: one phase vocabulary for every
+     chat surface through `progressLine().setPhase`: waiting for the first
+     token "Reaching Atlas…", loading a model "Waking the model…", retrieval
+     "Reading your notes…", reasoning "Atlas is thinking…", streaming "Atlas is
+     writing…", a tool "Atlas is <verb>…"; a persona's name replaces Atlas.
+     Placed: Sonnet agent.
+     **Fixed 41da959.** `PROGRESS_PHASES` in chat.js is the one table;
+     `progressLine().setPhase(name, detail)` drives words and shape together,
+     and `streamChat` (capture-ask.js, `progress:` option) maps the real
+     events: request sent "Reaching Atlas…", the server's `status: searching`
+     (never read before) "Reading your notes…", `meta` with notes keeps it,
+     five quiet seconds after `meta` "Waking the model…", reasoning delta
+     "Atlas is thinking…", answer delta "Atlas is writing…", tool event "Atlas
+     is <verb>…" from the tool's label. Chat, Ask, the popup agent pass
+     `progress`; the Guide drives its own stream through the same line; the
+     document AI request opens on the same first phase. Measured against the
+     real Chat tab with a hand-fed stream (`phases.js`): 7 stages each read
+     their words and shape, motion on and off; motion off, the label is one
+     pulsing line (101px wide, opacity 0.92, the stepped word clipped to 1px).
+     Not run live: Ask, the popup agent, the Guide and the document AI each
+     on their own (the first two share `streamChat`).
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

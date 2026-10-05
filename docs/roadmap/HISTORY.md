@@ -12,6 +12,16 @@ that answers "has this been done?" before anyone starts.
 One agent's pass over BACKLOG and the plans' open lines; each bullet says how it
 was verified. Items found already built are listed with the file that proves it.
 
+- **The Chat tab numbers a grounded answer while it streams** (CHAT_PLAN placed
+  row "ignores `grounding_live`", INBOX 320): `sendChatMessage` reads the event,
+  `agentTimeline` takes an `afterAnswerPaint` hook (late-bound through the
+  bubble's `paintHooks`, since the bubble is built before the stream has rows)
+  and every live paint of a prose step puts the markers back, the numbering the
+  final pass's own (`chatSourcesFrom`). `tests/test_chat_live_citations.py` 2/2;
+  `scratchpad/ui-sweeps/chatlivecite.js` PASS at 1440 and 390 (first number
+  3.8 s into a 5.7 s answer; the base placed it at the last token, 6.0 s of 6.0 s
+  at 1440). Not run against a real model, and not in dark: the markers are the
+  Ask tab's existing `.answer-citation`.
 - **What the data folder weighs** (BACKLOG section 26, the first step): `GET
   /storage` adds `uploads_bytes`, `media_bytes`, `backups_bytes` from a cached
   walk (`diskspace.dir_bytes`: 60 s, links not followed, 200,000-entry bound);

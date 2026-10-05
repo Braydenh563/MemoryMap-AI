@@ -9417,24 +9417,10 @@ function exportDocumentDocx() {
   return downloadDocumentExport("export.docx", "document.docx");
 }
 
-async function exportDocumentMarkdown() {
-  if (!currentDoc) return;
-  // Fetched rather than navigated to. A plain link carries no X-Auth-Token, so
-  // the server answers 401 and the browser renders that error *in place of the
-  // app*: it navigates away instead of downloading.
-  try {
-    const response = await fetch(`/documents/${currentDoc.id}/export.md`, {
-      headers: authHeaders(),
-    });
-    if (!response.ok) throw new Error("The export did not work. Try again.");
-    // The filename is decided server-side, so read it back off the header.
-    const disposition = response.headers.get("content-disposition") || "";
-    const match = disposition.match(/filename="([^"]+)"/);
-    await saveFile(match ? match[1] : "document.md", await response.blob());
-  } catch (error) {
-    $("doc-status").classList.add("error");
-    $("doc-status").textContent = error.message;
-  }
+//: The same fetch, name and save as the zip and the Word file (audit FE-16:
+//: this was a second copy of `downloadDocumentExport`).
+function exportDocumentMarkdown() {
+  return downloadDocumentExport("export.md", "document.md");
 }
 
 // DOC-EXPORT-HTML-BEGIN
@@ -17261,15 +17247,9 @@ async function docDictionaryImport(file) {
 function docDictionaryExport() {
   const words = [...docDictionary()].sort((a, b) => a.localeCompare(b));
   if (!words.length) return toast("The dictionary is empty, so there is nothing to export.", true);
-  const blob = new Blob([`${words.join("\n")}\n`], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "writing-dictionary.txt";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  //: Through `saveFile`, so the desktop window (which swallows an anchor's
+  //: download) saves it too (audit FE-16).
+  return saveFile("writing-dictionary.txt", new Blob([`${words.join("\n")}\n`], { type: "text/plain" }));
 }
 
 //: Last line, deliberately: everything above has to exist before the first

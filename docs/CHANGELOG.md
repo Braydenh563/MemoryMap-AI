@@ -25,6 +25,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Suggested links: a note's name is read only for the notes a suggestion names (1.08 s to 371 ms warm at 5,000 notes).
+- Graph: opening the map again with nothing changed reuses the last picture instead of rebuilding it (737 to 149 ms at 5,000 notes); a pin, a visit count, an attachment, a note put on a map, a link's reason or locking the vault still rebuilds it.
 - Editing a note: the save returns before its new text is embedded for search by meaning; the vector is made a moment later on the model's own queue, from the newest text if you kept typing (a real embedding model took 200 to 400 ms of every autosave).
 - Speed at 5,000 notes: a page of reference counts reads only the notes the search index says hold a long label's words (1,112 to 214 ms); the Timeline sends its rows once, not twice, and counts its days in the database (323 to 163 KB, 132 to 100 ms); Find duplicates on a notebook of a few hundred common words compares notes by one matrix product instead of pair by pair (about 160 s to 4 to 7 s) and sends each note's first 1,000 characters rather than the whole text; Library previews read at most the first 4,000 characters of a note.
 - Checks: an animated `filter` or backdrop blur now has to say why above it, as an animated layout property already did (it repaints everything under the surface each frame); the graph node's hover glow, the one there is, says so.
@@ -540,6 +542,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - Speed: the foreign keys a note is looked up by now have indexes (a note's replies, the boards it is on and a board's cards and sketches, its reminders and bookmarks), added to existing notebooks at startup like the others. 900 lookups by them took 604 ms unindexed and 2.9 ms indexed on 5,000 notes with 4,000 board cards and 1,500 reminders; opening a note's connections or deleting one is within noise at that size, so this matters for big boards rather than ordinary use.
 ### Fixed
 
+- Exports: the writing dictionary's Export saves in the desktop window too (it used a browser-only download that the desktop window ignores); every download goes through one helper.
 - Chat: a document imported through the paperclip lands in the space that is open, not the default space. Every upload that sets its own headers (the chat, the Library, documents, the whiteboard, media, Settings) now sends the space with the token through one helper, and a lint fails on a header object that drops it.
 - Graph: a note's size in focus mode and the Local map is the whole map's (its PageRank), whichever view was opened first; before, the two shared one cached ranking of two different graphs (drafts and boards in one, not the other), so sizes depended on the order, and turning Maps on kept the ranking without boards. The graph also loads about four times faster when warm at 5,000 notes (3.3 to 4.1 s down to 0.7 to 1.0 s in process), reading columns rather than whole notes (GRAPH_PLAN, decision 2026-10-05).
 - The chat list's sort select is as wide as its words (144px) rather than the whole sidebar column (266px).

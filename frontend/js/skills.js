@@ -1111,6 +1111,25 @@ async function downloadFromApi(path, fallbackName) {
   }
 }
 
+//: The browser's own download of a Blob: the one copy of the hidden-anchor
+//: click (audit FE-16 found it written out in four files). `saveFile` is the
+//: caller to use for an export, since it also covers the desktop window,
+//: which swallows this click; this is for a file that is already in the
+//: desktop's exports folder (the Settings list) or a browser-only path.
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  // In the document, not detached: some engines ignore a click on an anchor
+  // that was never in the DOM.
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 // Save a Blob under `filename`. Resolves once the file is somewhere the user
 // can find it, and says where when that isn't the browser's own downloads.
 async function saveFile(filename, blob) {
@@ -1152,17 +1171,7 @@ async function saveFile(filename, blob) {
       return null;
     }
   }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  // In the document, not detached: some engines ignore a click on an anchor
-  // that was never in the DOM.
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  downloadBlob(blob, filename);
   //: UX-11: a download said nothing; Settings' list is the desktop's folder.
   toast(`Downloaded ${filename}, to your browser's downloads.`);
   //: The browser's own downloads shelf has the file; this is the record of

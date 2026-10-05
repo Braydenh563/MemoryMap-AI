@@ -390,6 +390,6 @@ def test_a_browser_download_says_so():
     skills = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "skills.js").read_text(encoding="utf-8")
     save = skills[skills.index("async function saveFile(") :]
     save = save[: save.index("\n}\n")]
-    browser_half = save[save.index("URL.createObjectURL") :]
+    browser_half = save[save.index("downloadBlob(blob, filename)") :]
     assert "toast(`Downloaded ${filename}" in browser_half
 

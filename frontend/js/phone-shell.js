@@ -2043,15 +2043,7 @@ async function renderExportsList() {
     const get = smallButton("ph:download-simple Download", `Download ${file.filename}`, async () => {
       try {
         const response = await api(`/files/exports/${encodeURIComponent(file.filename)}`);
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = file.filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
+        downloadBlob(await response.blob(), file.filename);
       } catch (error) {
         toast(error.message || `Couldn't fetch ${file.filename}.`, true);
       }

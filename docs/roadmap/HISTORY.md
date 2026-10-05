@@ -40479,6 +40479,18 @@ made") and the audit's leftovers, each with its test written first.
   nothing, an interrupted import finishes, a changed file comes in, a
   private note is not duplicated, one failure does not stop the rest.
 
+- **SEC-14, answers that quoted a note before it went private.**
+  `manager._redact_answers_quoting`, called by `set_private(True)` before the
+  text is sealed: an `AskTurn` whose results, connections or grounding name
+  the note, or whose answer repeats a run of six of its words, gets
+  `PRIVATE_ANSWER_REDACTED` and loses its grounding and match details; a
+  saved chat reply that cited it (its raw results, connections, sentence
+  marks, or a note attached to the question before it) or repeats a run of
+  its words anywhere in the message (steps, tools, thinking) is replaced
+  by `{content: PRIVATE_ANSWER_REDACTED, redacted: true}`. The question
+  stays. With SEC-03's scrub after the commit, none of the words stay in the
+  file. `tests/test_private_answer_scrub.py`.
+
 ## Moved from the plans, 2026-10-04 (design-1004)
 
 ### From WORLD_CLASS_PLAN.md 1.2: one primary per modal, meta without border or hover

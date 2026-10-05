@@ -248,6 +248,10 @@ def test_the_page_is_served_without_comments_and_stamped_by_content(client):
     stamps = dict(pair.split("=", 1) for pair in meta.split(","))
     for name in ("graph-worker.js", "harper-worker.js", "library.js"):
         assert stamps[f"/js/{name}"] == f"{__version__}-{asset_hash(FRONTEND_DIR / 'js' / name)}"
+    # A lazy bundle's stylesheet too: with app.js's stamp, an edit to it alone
+    # was the same immutable URL, and the desktop window kept the old rules.
+    lazy_css = stamps["/css/library-lazy.css"]
+    assert lazy_css == f"{__version__}-{asset_hash(FRONTEND_DIR / 'css' / 'library-lazy.css')}"
 
 
 def test_a_stamp_is_a_function_of_the_bytes_not_the_process(tmp_path, monkeypatch):

@@ -346,7 +346,7 @@ that drive the Library's grouping and the graph's colour rules. Brief:
 migration + `/entries/{id}/properties` + editor. Gate: a property
 round-trips through the API, FTS finds it, the graph colours by it.
 
-**State 2026-09-24:** (b) documents have typed properties (`tests/test_doc_properties.py`, the Library's property filter); notes do not: no `properties` column on `entries`, no editor in the note head, no kinds. M, Opus.
+Built (KG4, then row 10): HISTORY.md, "Moved from the plans, 2026-10-05 (D5)". Left: the Library grouping notes by type.
 
 ### D6 Daily notes and the journal (S, Sonnet)
 
@@ -809,7 +809,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 7 | ~~I3, H2~~ | ~~the questions view, `GET /questions`, the Ask scope, the answered-by link~~ built 2026-10-04 (`ai/questions.py`, `routes_questions.py`, Notes, Questions; `tests/test_questions_spec.py`, 500 questions listed under 100 ms) | done | HISTORY |
 | 8 | ~~Placed 2026-09-13~~ | ~~`/files/gallery`'s five callers onto `apiPagedList`, then its default to 200~~ built 2026-09-24 (`tests/test_gallery_paging.py`) | done | HISTORY |
 | 9 | ~~§16~~ | ~~cache `similar_pairs` for link suggestions and tensions~~ built 2026-09-24: keyed by the matrix's version; 5,000 notes 322 to 104 ms a repeat request (`tests/test_similar_pairs_cache.py`) | done | HISTORY |
-| 10 | D5 | typed properties on notes (documents have them) | M | `core/database.py`, the note head |
+| 10 | ~~D5~~ | ~~typed properties on notes~~ built: KG4 (2026-10-04) for the properties, the types and the note head; 2026-10-05 the gate's rest, the graph colouring by note type and a type's own colour (`tests/test_note_types_graph_d5.py`); left: the Library grouping notes by type | done | HISTORY |
 | 11 | §17 | review queue, filing style, explain this note, most opened this month (S each); tidy proposals, charts from questions (M each); `.ics` export built 2026-09-26 | S to M | §17 |
 | 12 | ~~D6~~ | ~~the calendar strip, the yesterday/tomorrow pair and the month popover~~ built 2026-10-04 (`timeline.js`, `note-cards.js`; HISTORY, "the consistency contract's missing lints") | done | HISTORY |
 | 13 | ~~§1, D14~~ | ~~the lints not written: surface budget, one primary per modal, meta without border or hover, a menu item's rest background, every `data-action` in the palette~~ built 2026-10-04 (`tests/test_consistency_contract.py`); left: the two ratchets (5 modals with 2 to 3 filled buttons, 13 chip rules) | done | HISTORY |

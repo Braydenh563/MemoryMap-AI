@@ -41341,6 +41341,43 @@ The two cheap additions the plan's research section named (decisions 11 to
   saved during a long load is not listed twice.
 - Not verified in a browser beyond the sweeps named in the commit.
 
+## Moved from the plans, 2026-10-05 (D5)
+
+### From WORLD_CLASS_PLAN.md D5: the state line it replaced
+
+**State 2026-09-24:** (b) documents have typed properties (`tests/test_doc_properties.py`, the Library's property filter); notes do not: no `properties` column on `entries`, no editor in the note head, no kinds. M, Opus.
+
+### Built 2026-10-05 (row 10)
+
+- **Most of D5 was already built** as GRAPH_PLAN KG4 (2026-10-04, recorded
+  above under "KG4, note properties and note types"): the properties live in
+  the note's `---` block, indexed in `entry_properties`, edited from the
+  note's ⋯, with note types and their fields. The state line was stale.
+- **The gate's rest.** FTS finds a property value (it is in the note's
+  text); the graph colours by it: View, Colour, **Note type**
+  (`GRAPH_COLOUR_RULES`, `gcRuleKey`/`gcRuleScale`). Each note node carries
+  `note_type` from the index (one query on `entry_properties`, the type's
+  own name when Note types has it, so "book" and "Book" are one colour and
+  one legend row) and the payload carries `type_colours`. A type's colour
+  is chosen in Note types, its ⋯, **Colour…**: DESIGN.md's swatch picker in
+  a sheet (`noteTypePickColour`, note-properties.js), with Undo; Automatic
+  is `categoryAutoDot(name)`, the colour the sheet's preview shows, so the
+  two never disagree. An untyped note is grey, "No type".
+- **Found and fixed on the way:** `PUT /entries/{id}/properties` and the
+  note half of `POST /entries/{id}/mentions/link` were 500s on the branch.
+  B7 added `response` and `If-Match` to `routes_entries.update_entry`, and
+  both callers passed `session` positionally, which landed in `response`
+  and left `session` the bare `Depends` marker. Both now call by keyword;
+  the properties PUT passes its own response through, so it answers with
+  the ETag too. `tests/test_note_properties_kg4.py` had been failing since.
+- Measured: `tests/test_note_types_graph_d5.py` 8 tests;
+  `scratchpad/ui-sweeps/d5types.js` 11/11 at 1440 and 390, light and dark
+  (legend, own colour, automatic colour equal to the preview's, the type's
+  own name, the Note types dot centred, the Colour sheet fitting, a swatch
+  saved, no page errors).
+- Left: the Library grouping notes by type (D5's target names it; the
+  Library lists documents and files, and groups none by a note's type).
+
 ## INBOX resolved, 2026-10-05
 
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs

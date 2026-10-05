@@ -1362,7 +1362,9 @@ HELP_TOPICS.extend(
                 "a bar over the list then shows the same notes as a Table, with "
                 "their properties as columns, or lit on the graph. The table's "
                 "last row rolls each column up over every match: Count, and Sum, "
-                "Min and Max for numbers, Earliest and Latest for dates."
+                "Min and Max for numbers, Earliest and Latest for dates. On the "
+                "graph, View, Colour, Note type paints each note by its type; a "
+                "type's ⋯ in Note types has Colour to choose which."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

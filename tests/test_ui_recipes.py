@@ -4082,6 +4082,28 @@ def test_the_writing_rooms_selects_get_their_own_line_on_a_phone() -> None:
     assert ".draft-desk-controls > .select-shell:first-child" in block and "flex-basis: 100%;" in block
 
 
+def test_a_menu_fades_out_through_the_one_class_every_close_path_sets() -> None:
+    """OPEN.md, perfpolish: menus left instantly though they entered with a
+    reveal. Every close path (the opener again, Escape, a press outside,
+    `closeActionMenus`) is `.hidden`, so the exit is CSS: opacity and a
+    discrete `display` transition, no press taken while it goes. A menu moved
+    to the body goes home after the fade, in both places that move one home
+    (`closeActionMenus` and `wireEscapedActionMenu`'s observer), because moving
+    a node cancels a transition. `scratchpad/ui-sweeps/kebabfirst.js` samples
+    the frames: 4 part way, gone by about 150ms, on all eight kebab and select
+    close paths."""
+    css = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    at = css.index("  .action-menu {\n    transition:")
+    block = css[at : css.index("\n  /* Flipped upward", at)]
+    assert "opacity var(--motion-fast) var(--ease-out)" in block
+    assert "display var(--motion-fast) linear allow-discrete" in block
+    assert ".action-menu.hidden {\n    opacity: 0;\n    pointer-events: none;" in block
+    menus = (ROOT / "frontend" / "js" / "menus.js").read_text(encoding="utf-8")
+    assert "restoreEscapedMenuAfterExit(menu);" in menus[menus.index("function closeActionMenus()") :][:900]
+    assert "const exit = menuExitMs(menu);" in menus, "the escape observer must wait for the exit too"
+    assert "function menuExitMs(menu)" in menus
+
+
 def test_a_locked_load_is_not_logged_as_a_failure() -> None:
     """The lock screen is the expected state at boot, not a failed load: the
     browser log used to open with `WARN browser: [notes] could not load:

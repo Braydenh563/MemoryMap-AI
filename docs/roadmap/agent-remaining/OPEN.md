@@ -483,10 +483,9 @@ the head, so they carry no row of their own.
   order to drag; grey-scale text in composited scrollers on a 1x ClearType
   display was not seen. [pass2]
   *Needs: a Windows display; the rest is CodeMirror's own cost.*
-- **perfpolish.md**: menus leave instantly though they enter with a 160ms
-  reveal (an exit needs every close path to wait); the document gutter writes
-  a height and reads a layout per gutter. [perfpolish]
-  *Needs: every close path (`closeActionMenus`, Escape, outside click) at once.*
+- **perfpolish.md**: the document gutter writes a height and reads a layout
+  per gutter. The menu exit is closed, HISTORY.md, "OPEN.md rows closed,
+  2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)". [perfpolish]
 - **uipolish-0924.md**: the surface-by-surface pass (its item D) is already a
   row above. Triaged: `deadbtn.js`'s findings for Chat's `#chat-export` and
   `#chat-delete` are visually-hidden, `aria-hidden` proxies the ⋯ rows click

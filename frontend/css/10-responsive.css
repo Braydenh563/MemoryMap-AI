@@ -339,6 +339,27 @@ header#top-bar,
     animation: menu-open-from-opener var(--motion-base) cubic-bezier(0.2, 0.9, 0.3, 1);
   }
 
+  /* **The way out** (perfpolish: "menus leave instantly though they enter
+     with a 160ms reveal"). Every close path (the opener again, Escape, a press
+     outside, `closeActionMenus`) is one class, `.hidden`, so the exit is CSS
+     and none of them changed: `.hidden` means `display: none !important`, and
+     `display` is transitioned as a discrete property, so the menu stays drawn
+     for --motion-fast while its opacity runs to 0. It takes no press on the
+     way out, as the instant hide never did. An engine without
+     `allow-discrete` hides at once, as before; a menu reparented to the body
+     by `restoreEscapedMenu` leaves at once too (a moved node does not
+     transition). The opacity is the only thing animated: no layout. */
+  .action-menu {
+    transition:
+      opacity var(--motion-fast) var(--ease-out),
+      display var(--motion-fast) linear allow-discrete;
+  }
+
+  .action-menu.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
   /* Flipped upward, so it grew out of the bottom of the button instead. */
   .action-menu.action-menu-flip:not(.hidden) {
     --menu-origin-y: 100%;

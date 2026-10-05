@@ -247,6 +247,13 @@ were deliberately left alone rather than mechanically swept, since a
 keyframe's duration is part of what makes that specific effect read right,
 not a value drifting for no reason.
 
+**A menu leaves the way it came** (perfpolish): `.action-menu.hidden` fades
+over `--motion-fast` (opacity, and `display` as a discrete transition, so every
+close path, which is one class, gets it with no JS), takes no press while it
+goes, and a menu moved to the body goes home after the fade
+(`restoreEscapedMenuAfterExit`, `menuExitMs` in menus.js). Reduced motion keeps
+the instant hide. `scratchpad/ui-sweeps/kebabfirst.js` samples every frame.
+
 **The curves, and the rule that holds all of this (INBOX 399 (4)).** Three
 curves beside the three durations: `--ease-out` (`cubic-bezier(0.2, 0.8, 0.2,
 1)`, the default: a control that answers the pointer arrives at once and

@@ -19,6 +19,25 @@ Each row was checked against the head before anything was built.
   New note (`#tab-graph:has(.dock-fab) .graph-zoom`) closed it. `graphphone.js`
   now asserts it every run: the four buttons are hit at their centres and clear
   of `.dock-fab`.
+- **The menu exit animation (perfpolish)**: built. Every way a menu closes is
+  `.hidden`, so the exit is CSS, in the block that already holds the reveal
+  (`10-responsive.css`): `.action-menu` transitions opacity and `display`
+  (`allow-discrete`, as `.wb-resize-handle` already does) over `--motion-fast`,
+  and `.action-menu.hidden` is `opacity: 0; pointer-events: none`, so no close
+  path changed. Moving a node cancels a transition, so the two places that take
+  an escaped menu home on close now wait for the fade (`restoreEscapedMenuAfterExit`
+  from `closeActionMenus`, and `wireEscapedActionMenu`'s observer, both through
+  `menuExitMs`: 0 under reduced motion, where it goes home at once as before).
+  `kebabfirst.js` samples every frame of a note card's kebab and an enhanced
+  select, each closed four ways (the opener, Escape, a press outside,
+  `closeActionMenus()`): before, 0 frames part way and display none by 7 to 27ms
+  on all four kebab paths; after, 4 frames part way on all eight (kebab and
+  select, which is escaped), none takes a press, gone by 138 to 195ms. Dark
+  passes too. 390: only `closeActionMenus` is asserted, because a kebab there is a
+  phone action sheet (`openKebabSheet`, `openSheet`). Found, not fixed: those
+  sheets have no exit at all (they leave instantly on Escape and a press
+  outside), a surface of its own. `tests/test_ui_recipes.py` pins the CSS and
+  both restore paths.
 - **Map export depth bound** (`_export_opml`, `_export_freemind`): already built,
   see the 2026-10-05 overnight pass above (the iterative `_export_tree`, nesting
   clamped at `MAX_MAP_DEPTH`, 200); `tests/test_mindmap.py`'s deep-chain and ring

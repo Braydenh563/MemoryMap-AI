@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Menus: every menu now fades out over 120ms instead of vanishing (one CSS transition on the hidden state, so the opener, Escape, a press outside and every other close path get it); a menu that was moved out of a clipping scroller goes home after the fade; reduced motion keeps the instant hide.
 - Maps: a topic the render pass did not repaint no longer takes the server's placeholder height into the size cache, so pans, rings and edge ends computed from a topic's size land on its box (they were 12px off at 390 and 38px at 1440 after a state fetch); mapstrip.js holds it to 4px.
 - Sweeps: left1005-frametitle.js measures nested frames at a phone's fitted zoom (the outer title's words always reach the outer frame) and resets its board before its last drag, which the edge auto-pan had been taking.
 - Write with Atlas on a phone: the what-to-write select takes its own line, so it and tone and length show their values (they were cut to 16px in one row of four controls); phonecapture.js and tablefullclose.js measure the Writing Room and the table full view at 390.

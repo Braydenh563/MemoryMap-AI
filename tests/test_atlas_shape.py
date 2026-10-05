@@ -1049,3 +1049,124 @@ def test_a_capped_stem_ends_in_a_round_tip_not_a_notch(tmp_path):
         nx, ny = (dy, -dx) if sweep == 1 else (-dy, dx)
         tip = (mx + nx * r, my + ny * r)
         assert tip[axis] > 10 + r * 0.9, (name, sweep, tip)
+
+
+
+_RIG_JS = r"""
+const vm = require("vm");
+const fs = require("fs");
+const noop = () => {};
+const el = () => ({ setAttribute: noop, appendChild: noop, style: { setProperty: noop }, classList: { add: noop } });
+const ctx = { console, setInterval: noop, setTimeout: noop, clearInterval: noop, clearTimeout: noop, document: { addEventListener: noop, createElementNS: el, createElement: el, querySelectorAll: () => [] }, window: {} };
+vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(process.argv[2], "utf8") + "\n;globalThis.__L = ATLAS_LOOKS; globalThis.__path = atlasArmPath; globalThis.__hand = atlasArmHand; globalThis.__stem = atlasStem; globalThis.__segs = atlasArmSegs;", ctx);
+const out = {};
+for (const look of ["masculine", "feminine"]) {
+  const spec = ctx.__L[look];
+  const r = spec.armRig.r;
+  const segs = ctx.__segs(r.segs, 40, 10);
+  out[look] = {
+    rest: ctx.__path(r, 0, 0) === ctx.__stem(spec.arm, r.width, { samples: 14, tip: r.hand }),
+    restHand: ctx.__hand(r, 0, 0),
+    bent: ctx.__path(r, 40, 10),
+    elbow: [segs[0].slice(4, 8), segs[1].slice(0, 4)],
+  };
+}
+console.log(JSON.stringify(out));
+"""
+
+
+def test_the_arm_is_a_jointed_chain_that_the_rig_eases(tmp_path):
+    # INBOX 564 (the owner: "fix how the arms connect to the atlas bodies and
+    # how they are used in transitions between places and positions ...
+    # smooth and boilogically lifelike"): each arm is shoulder, elbow and
+    # wrist. At rest it draws exactly the hanging arm INBOX 567 measured
+    # (13.4 degrees off vertical, a 166 degree elbow); bent, it is still one
+    # smooth outline, the elbow's two handles on one line through it.
+    import json
+    import math
+    import shutil
+    import subprocess
+
+    import pytest
+
+    node = shutil.which("node")
+    if not node:  # pragma: no cover - node is in the sandbox and in CI
+        pytest.skip("node is not available")
+    script = tmp_path / "rig.js"
+    script.write_text(_RIG_JS, encoding="utf-8")
+    run = subprocess.run([node, str(script), str(ROOT / "frontend" / "js" / "atlas.js")], capture_output=True, text=True, timeout=60, check=False)
+    assert run.returncode == 0, run.stderr
+    got = json.loads(run.stdout)
+    for look, arm in got.items():
+        assert arm["rest"], look
+        assert arm["restHand"].startswith("translate(0 0) rotate(0 "), arm["restHand"]
+        assert "L" not in arm["bent"] and arm["bent"].startswith("M"), look
+        (c2x, c2y, ex, ey), (ex2, ey2, c3x, c3y) = arm["elbow"]
+        assert (ex, ey) == (ex2, ey2)
+        a = math.atan2(ey - c2y, ex - c2x)
+        b = math.atan2(c3y - ey, c3x - ex)
+        assert abs(a - b) < 1e-6, (look, "a kink at the elbow")
+    rig = ATLAS[ATLAS.index("const ATLAS_RIG_DELAY") : ATLAS.index("let atlasFigureObserver")]
+    # The body leads and the limbs follow; a move's time is its size; limits.
+    assert "const ATLAS_RIG_DELAY = { sh: 30, el: 80, wr: 130 };" in rig
+    assert "j.w = 5 / Math.min(0.5, 0.25 + (0.25 * jump) / 120);" in rig
+    assert "Math.max(-14, Math.min(135, j.el.x))" in rig and "Math.max(-35, Math.min(35, j.wr.x))" in rig
+    # Counter-phase swing, anticipation, the head's lag, and no loop at rest
+    # or under reduced motion.
+    assert '(arm.side === "r" ? 0 : Math.PI)' in rig and "arm.antic = { until: now + 90" in rig
+    assert 'querySelectorAll(".atl-head-lag")' in rig
+    assert "if (live && rig.still < 6) rig.raf = requestAnimationFrame" in rig
+    assert ".nm-atlas .nmb-arm.atl-rigged { transition: opacity var(--motion-base) var(--ease-out) !important; animation-name: none !important; }" in CSS
+
+
+def test_the_hair_and_her_tail_move_on_the_compositor():
+    # INBOX 554: secondary motion without repainting the figure. The mane is
+    # a layer of its own whose box trails the body's sway; her tail is drawn
+    # as a root half and a tip half whose box sways a quarter behind (the
+    # wave runs tipward); none of it under reduced motion.
+    assert '"hair", "body", "lids",' in ATLAS and 'hairBox.className = "atl-lw atl-lw-hair";' in ATLAS
+    assert 'tip.className = "atl-lw atl-lw-tip";' in ATLAS and "tailWave: { t: 0.5, zone: [0.42, 0.58] }," in _look("feminine")
+    assert "& .atl-lw-tip { animation: atl-tail-wave 8.3s ease-in-out 2.1s infinite alternate; }" in CSS
+    assert "& .atl-lw-tail { animation: atl-tail-flow 8.3s ease-in-out infinite alternate; }" in CSS
+    assert '.atl-lw-hair[data-atlas-look="masculine"], .atl-lw-hair[data-atlas-look="feminine"], .atl-lw-tip { animation: none !important; }' in CSS
+    for name in ("atl-tail-wave", "atl-hair-trail"):
+        body = _keyframes(name).split("{", 1)[1]
+        assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"rotate"}, name
+
+
+
+def test_the_lower_body_takes_a_pose_for_what_it_is_doing():
+    # INBOX 575 (the owner: "have the lower body of both atlas avatars change
+    # around in position and how it is sitting ect with different variations
+    # and changes based off the current action or behaviour"): every state
+    # the brief names has a pose, at least two variants for each of the
+    # moving and resting ones, springs that overshoot and settle for a flick
+    # and ease for a curl, and reduced motion keeps the first variant.
+    table = ATLAS[ATLAS.index("const ATLAS_LOWER_STATES = {") : ATLAS.index("function atlasLowerState(")]
+    for state in ("idle", "walk", "sit", "lie", "gesture", "think", "happy", "sad", "startle"):
+        row = re.search(rf'  {state}: \{{ ms: ([0-9]+), ease: "([^"]+)", v: (\[\[.*\]\]) \}},', table)
+        assert row, state
+        variants = re.findall(r"\[(-?[0-9.]+), ([0-9.]+), ([0-9.]+), (-?[0-9.]+), (-?[0-9.]+)\]", row.group(3))
+        assert len(variants) >= 2, state
+        assert len(set(variants)) == len(variants), (state, "two variants alike")
+        if state not in ("idle", "think", "sad"):
+            assert 250 <= int(row.group(1)) <= 600, (state, "a change of state takes 300 to 600ms")
+    def curve(state):
+        found = re.search(rf'  {state}: \{{ ms: [0-9]+, ease: "cubic-bezier\(([^)]+)\)"', table)
+        return [float(v) for v in found.group(1).split(",")]
+
+    assert curve("happy")[1] > 1 and curve("startle")[1] > 1, "a bouncy flick and a snap overshoot, then settle"
+    assert curve("think")[1] <= 1, "a slow curl does not"
+    rig = ATLAS[ATLAS.index("function atlasRigLower(") : ATLAS.index("function atlasRigRead(")]
+    assert "const pick = live ? Math.floor(Math.random() * spec.v.length) : 0;" in rig
+    assert "low.at = now + 8000 + Math.random() * 6000;" in rig
+    # Each flowing part takes the state: the dress or cloak, her wisps, both
+    # tails, the hair and the nebula stream, as compositor transitions;
+    # reduced motion sets the pose with none.
+    for part in ("low.boxes", "low.wisps", "low.tails", "low.hair", "low.neb"):
+        assert f"for (const el of {part}) go(el," in rig, part
+    assert 'el.style.transition = live ? `transform ${spec.ms + lag * 2}ms ${spec.ease} ${lag}ms` : "none";' in rig
+    for state in ("idle", "walk", "sit", "lie", "gesture", "think", "happy", "sad", "startle"):
+        assert f"{state}: [" in ATLAS[ATLAS.index("const ATLAS_HAIR_STATES"):ATLAS.index("function atlasLowerState(")], state
+    assert ".atl-lw > .atl-lw-pose { position: absolute;" in CSS

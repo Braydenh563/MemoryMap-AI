@@ -5727,6 +5727,9 @@ function nameMarkBuddyLimbs(buddy, kind, ms = 0, delay = 0, way = 1) {
   //: atlas.js) take the gesture and the roots are left to the pose.
   part(".nmb-leg:not(.atl-layer), .atl-lw-leg-l, .atl-lw-leg-r", move.leg, (el) => (el.matches(".nmb-leg-r, .atl-lw-leg-r") ? -1 : 1));
   part(".atl-lw-lower", move.lower, () => way);
+  //: Atlas's arms follow a gesture through its rig (atlas.js, `atlasRig`),
+  //: which reads it off each arm's probe: wake the rig for it.
+  if (typeof atlasRigWake === "function") atlasRigWake(buddy);
   //: Atlas's arms are inside its body layer's drawing, where a moving part
   //: lays out and repaints the layer each frame (companionroutes.js: 80
   //: layouts over a float), so they are paced as the walk's steps are

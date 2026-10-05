@@ -108,7 +108,12 @@
 //:   the rings, a slow head sway and the glow pulsing. All of it is CSS
 //:   transform and opacity on this one SVG, runs only while the mark is on
 //:   screen and motion is on, slows under Reduce motion and stops under
-//:   Avatar animation Off.
+//:   Avatar animation Off. The companion's figure (INBOX 540, 554, 564,
+//:   575) adds a rig: jointed arms eased on springs between the poses the
+//:   CSS names (`atlasRig`), a lid that sweeps down for a blink
+//:   (`atlasBlink`), the lower body's pose for what it is doing
+//:   (`ATLAS_LOWER_STATES`), the hair on a layer that trails the sway and a
+//:   wave down her tail.
 //: - **Sizes.** `full` (a figure with margins, 96px and up: the welcome,
 //:   the large view), `figure` (the companion's 64 by 92 box, parts named
 //:   for the companion's behaviours), `head` (the head, its ears and a
@@ -515,6 +520,9 @@ const ATLAS_LOOKS = {
     lashes: false,
     tail: [[33, 60, 45, 57.6, 56, 62.6, 53.6, 71], [53.6, 71, 50.6, 80, 53, 89, 62, 90.4], [62, 90.4, 69.6, 91.4, 72.4, 84.4, 66.6, 80.4]],
     tailWidth: (t) => 3.6 + 5.8 * Math.sin(Math.PI * Math.min(1, t * 1.06)) - 1.8 * t * t,
+    //: His tail waves as hers does (the owner: "both atlas avatars have a
+    //: tail as well ... they all need to be dynamically animated").
+    tailWave: { t: 0.5, zone: [0.42, 0.58] },
     tailStars: [[46.6, 61.4, 0.45], [54.2, 68.6, 0.35], [51.4, 78.4, 0.5], [55.6, 88.4, 0.35], [65.4, 89.4, 0.45]],
     tailTip: [67, 80.2],
     //: **A star-being, not an animatronic** (round 9, the owner: "it still
@@ -2739,12 +2747,17 @@ function atlasDrawFigure(mood) {
       const [jx, jy] = atlasSegsAt(spec.tailSegsNow, spec.tailWave.t);
       tip.style.transformOrigin = `${atlasFix(jx)}px ${atlasFix(jy)}px`;
       tip.appendChild(svg);
-      frag.querySelector(".atl-lw-tail").appendChild(tip);
+      frag.querySelector(".atl-lw-pose-tail").appendChild(tip);
     } else if (name === "hair") {
       hairBox = document.createElement("span");
       hairBox.className = "atl-lw atl-lw-hair";
       hairBox.dataset.atlasLook = look;
-      hairBox.appendChild(svg);
+      //: The hair's pose for what it is doing (INBOX 575, the rig).
+      const pose = document.createElement("span");
+      pose.className = "atl-lw-pose atl-lw-pose-hair";
+      pose.style.transformOrigin = "32px 15px";
+      pose.appendChild(svg);
+      hairBox.appendChild(pose);
     } else if (name === "lids" && frag.querySelector(".atl-lw-breathe")) frag.querySelector(".atl-lw-breathe").appendChild(svg);
     else if (ATLAS_ROOT_BOXES.includes(name)) {
       const box = document.createElement("span");
@@ -2756,6 +2769,17 @@ function atlasDrawFigure(mood) {
         into.className = "atl-lw-breathe";
         box.appendChild(into);
         if (hairBox) into.appendChild(hairBox);
+      }
+      //: The lower body's and the tail's pose for what it is doing (INBOX
+      //: 575, `atlasLowerState`): a box inside each one's loop box, turned,
+      //: stretched and leaned by the rig, on the compositor; her wisps, which
+      //: wrap the dress, take most of the dress's pose so they stay round it.
+      if (["lower", "tail", "wisps", "wisps-back", "glint-a", "glint-b", "neb", "neb-front"].includes(name)) {
+        into = document.createElement("span");
+        into.className = `atl-lw-pose atl-lw-pose-${name}`;
+        const [ox, oy] = name === "tail" ? ATLAS_GEO.tail : name.startsWith("neb") ? [31, 52] : spec.lowerPivot || [31, 58];
+        into.style.transformOrigin = `${ox}px ${oy}px`;
+        box.appendChild(into);
       }
       into.appendChild(svg);
       frag.appendChild(box);
@@ -2934,7 +2958,7 @@ function atlasBlink(box, { close = 120, hold = 40, open = 160 } = {}) {
 }
 
 //: **When the figures blink.** One clock for every layered figure on the
-//: page: every 2.6 to 6.4 seconds each one that is on screen, has its eyes
+//: page: every 3.4 to 7.6 seconds each one that is on screen, has its eyes
 //: open and may move blinks once, now and then twice; a drowsy companion
 //: blinks slowly and stays shut a moment. Avatar animation Off, the app's
 //: Reduce motion or the system's (unless the companion is set to Always)
@@ -2960,10 +2984,10 @@ function atlasBlinkTick() {
     if (box.closest(".nmb-drowsy")) atlasBlink(box, { close: 380, hold: 520, open: 520 });
     else {
       atlasBlink(box);
-      if (Math.random() < 0.22) setTimeout(() => atlasBlinkMay(box) && atlasBlink(box), 420);
+      if (Math.random() < 0.15) setTimeout(() => atlasBlinkMay(box) && atlasBlink(box), 420);
     }
   }
-  if (boxes.length) atlasBlinkTimer = setTimeout(atlasBlinkTick, 2600 + Math.random() * 3800);
+  if (boxes.length) atlasBlinkTimer = setTimeout(atlasBlinkTick, 3400 + Math.random() * 4200);
 }
 function atlasBlinkStart() {
   if (!atlasBlinkTimer) atlasBlinkTimer = setTimeout(atlasBlinkTick, 1800);
@@ -3093,6 +3117,60 @@ function atlasFigure() {
 const ATLAS_RIG_DELAY = { sh: 30, el: 80, wr: 130 };
 const ATLAS_RIG_ZETA = { sh: 0.8, el: 0.74, wr: 0.62, sy: 0.9 };
 let atlasRigTrace = null;
+//: **The lower body by what it is doing** (INBOX 575, the owner: "have the
+//: lower body of both atlas avatars change around in position and how it
+//: is sitting ect with different variations and changes based off the
+//: current action or behaviour"). Her dress and his cloak (with her wisps,
+//: which wrap the dress) and both tails take a pose per state, on top of
+//: the pose's own CSS: each variant is [turn about the hips, width, length,
+//: lean (skew), the tail's turn], in degrees and scales; `ms` and `ease`
+//: are the change's time and curve (a curve past 1 overshoots and settles,
+//: a flick or a snap; an ease in and out is a slow curl). A walk's turns and lean take
+//: the way it goes (it trails behind and stretches). One variant is picked
+//: at random as a state begins, and at rest a new one every 8 to 14
+//: seconds, so no two repeats look alike.
+const ATLAS_LOWER_STATES = {
+  idle: { ms: 900, ease: "cubic-bezier(0.45, 0, 0.35, 1)", v: [[-2.5, 1, 1, 2, -5], [2, 1, 1.02, -2, 4], [3.5, 0.98, 1, 1, 7], [-1, 1.02, 0.99, -3, -2]] },
+  walk: { ms: 450, ease: "cubic-bezier(0.34, 1.3, 0.64, 1)", v: [[-9, 0.94, 1.08, 6, -12], [-7, 0.95, 1.1, 8, -9], [-11, 0.93, 1.06, 4, -15]] },
+  sit: { ms: 550, ease: "cubic-bezier(0.34, 1.25, 0.6, 1)", v: [[8, 1.1, 0.86, -6, -14], [-8, 1.08, 0.88, 6, 14], [5, 1.12, 0.84, -4, -10]] },
+  lie: { ms: 600, ease: "cubic-bezier(0.4, 1.15, 0.6, 1)", v: [[16, 1, 0.86, -8, 24], [12, 1.02, 0.9, -6, 30]] },
+  gesture: { ms: 350, ease: "cubic-bezier(0.3, 1.6, 0.6, 1)", v: [[-5, 0.98, 0.95, 4, 9], [-3, 1, 0.94, 6, 12], [-6, 0.97, 0.96, 3, 7]] },
+  think: { ms: 900, ease: "cubic-bezier(0.45, 0, 0.55, 1)", v: [[6, 1, 0.97, -4, 12], [4, 0.99, 0.96, -6, 16]] },
+  happy: { ms: 380, ease: "cubic-bezier(0.25, 1.8, 0.5, 1)", v: [[-6, 1.02, 0.94, 5, -10], [5, 1.02, 0.95, -5, -14], [-4, 1.03, 0.93, 3, -8]] },
+  sad: { ms: 800, ease: "cubic-bezier(0.5, 0, 0.6, 1)", v: [[1.5, 0.96, 1.07, -1, 16], [-1.5, 0.97, 1.06, 1, 20]] },
+  startle: { ms: 260, ease: "cubic-bezier(0.2, 2, 0.4, 1)", v: [[-10, 0.94, 0.9, 8, -18], [-8, 0.95, 0.92, 10, -22]] },
+};
+//: The hair's turn about the crown and the nebula stream's [turn, width,
+//: height] about the figure's middle, per state (INBOX 575, the owner:
+//: "both atlas avatars have a tail as well, same with the hair, and the
+//: nebular stream ... dynamically animated and changed"), a variant each
+//: as the lower body's; a walk's turn takes the way it goes.
+const ATLAS_HAIR_STATES = { idle: [0, 1.6, -1.4, 0.8], walk: [-5, -4, -6], sit: [2, 1], lie: [4, 5], gesture: [-3, -2], think: [2.5, 1.5], happy: [-3.5, -2.5, -4], sad: [4, 5], startle: [-6, -7] };
+const ATLAS_NEB_STATES = {
+  idle: [[0, 1, 1], [2, 1.02, 0.98], [-2, 0.98, 1.02], [1, 1.01, 1]],
+  walk: [[-4, 1.05, 0.95], [-3, 1.06, 0.94], [-5, 1.04, 0.96]],
+  sit: [[3, 1.06, 0.9], [-3, 1.08, 0.88]],
+  lie: [[6, 1.04, 0.86], [4, 1.06, 0.84]],
+  gesture: [[-2, 1.03, 1.03], [-3, 1.02, 1.04]],
+  think: [[5, 0.97, 1], [7, 0.96, 1.01]],
+  happy: [[-3, 1.04, 1.04], [3, 1.05, 1.03], [-2, 1.03, 1.05]],
+  sad: [[2, 0.97, 0.94], [-1, 0.96, 0.95]],
+  startle: [[-6, 1.08, 1.08], [-5, 1.1, 1.06]],
+};
+function atlasLowerState(buddy, box) {
+  const has = (c) => !!buddy && buddy.classList.contains(c);
+  const pose = buddy?.dataset.pose || "";
+  const mood = box.dataset.atlasMood || "calm";
+  if (has("nmb-act-startle") || mood === "surprised") return "startle";
+  if (/^(lie|curl)/.test(pose) || has("nmb-sleep") || has("nmb-act-nap") || has("nmb-act-lie")) return "lie";
+  if (has("nmb-walking") || has("nm-buddy-dragging") || buddy?.dataset.travel) return "walk";
+  if (pose === "sit" || has("nmb-act-chair") || has("nmb-act-beanbag") || has("nmb-act-meditate")) return "sit";
+  if (["wave", "map", "shrug", "bell", "lantern", "carry", "juggle", "scratch", "facepalm", "cheer"].some((a) => has(`nmb-act-${a}`))) return "gesture";
+  if (has("nmb-think") || mood === "thinking" || mood === "determined") return "think";
+  if (["happy", "delighted", "laughing", "love", "proud"].includes(mood)) return "happy";
+  if (["sad", "sleepy", "worried"].includes(mood) || has("nmb-drowsy")) return "sad";
+  return "idle";
+}
 function atlasMotionOK(box) {
   const root = document.documentElement;
   if (root.dataset.avatarMotion === "off") return false;
@@ -3128,8 +3206,61 @@ function atlasRigAttach(box) {
       antic: null,
     });
   }
+  rig.lower = {
+    boxes: [...box.querySelectorAll(".atl-lw-pose-lower")],
+    wisps: [...box.querySelectorAll(".atl-lw-pose-wisps, .atl-lw-pose-wisps-back, .atl-lw-pose-glint-a, .atl-lw-pose-glint-b")],
+    tails: [...box.querySelectorAll(".atl-lw-pose-tail")],
+    hair: [...box.querySelectorAll(".atl-lw-pose-hair")],
+    neb: [...box.querySelectorAll(".atl-lw-pose-neb, .atl-lw-pose-neb-front")],
+    state: "",
+    variant: 0,
+    at: 0,
+    shown: "",
+    timer: 0,
+  };
   box.atlasRig = rig;
   atlasRigWake(box);
+}
+//: The lower body's pose for the state: its variant (a new one as the
+//: state begins, and every 8 to 14 seconds at rest, on a timer), and the
+//: way a walk goes. Each part is a box of its own, and the change is a CSS
+//: transition on it, run by the compositor: the state's own time and
+//: curve, the tail and the hair a beat later and longer (follow-through).
+//: A change mid-way is taken up from where the part is, so nothing snaps.
+function atlasRigLower(rig, now, live, buddy) {
+  const low = rig.lower;
+  if (!low || !(low.boxes.length || low.tails.length || low.hair.length)) return;
+  const state = atlasLowerState(buddy, rig.box);
+  const spec = ATLAS_LOWER_STATES[state];
+  const fresh = state !== low.state;
+  if (fresh || (live && state === "idle" && now >= low.at)) {
+    //: Reduced motion keeps each state's first pose and no idle variation.
+    const pick = live ? Math.floor(Math.random() * spec.v.length) : 0;
+    low.variant = !fresh && spec.v.length > 1 && pick === low.variant ? (pick + 1) % spec.v.length : pick;
+    low.state = state;
+    low.at = now + 8000 + Math.random() * 6000;
+  }
+  clearTimeout(low.timer);
+  if (live && state === "idle") low.timer = setTimeout(() => rig.box.isConnected && atlasRigLower(rig, performance.now(), atlasMotionOK(rig.box) && !rig.box.classList.contains("atl-off"), buddy), low.at - now + 10);
+  const way = state === "walk" ? (parseFloat(buddy?.style.getPropertyValue("--nmb-lean")) < 0 ? -1 : 1) : 1;
+  const [rot, sx, sy, skew, tail] = spec.v[low.variant] || spec.v[0];
+  const hairs = ATLAS_HAIR_STATES[state];
+  const [neb, nsx, nsy] = ATLAS_NEB_STATES[state][low.variant % ATLAS_NEB_STATES[state].length];
+  const hair = hairs[low.variant % hairs.length] * way;
+  const pose = (k) => `rotate(${atlasFix(rot * way * k)}deg) skewX(${atlasFix(skew * way * k)}deg) scale(${(1 + (sx - 1) * k).toFixed(3)}, ${(1 + (sy - 1) * k).toFixed(3)})`;
+  const key = `${state} ${low.variant} ${way} ${live}`;
+  if (key === low.shown) return;
+  low.shown = key;
+  const go = (el, transform, lag = 0) => {
+    el.style.transition = live ? `transform ${spec.ms + lag * 2}ms ${spec.ease} ${lag}ms` : "none";
+    el.style.transform = transform;
+  };
+  for (const el of low.boxes) go(el, pose(1));
+  for (const el of low.wisps) go(el, pose(0.7), 40);
+  for (const el of low.tails) go(el, `rotate(${atlasFix(tail * way)}deg)`, 70);
+  for (const el of low.hair) go(el, `rotate(${atlasFix(hair)}deg)`, 90);
+  //: The stream's two halves move as one ribbon.
+  for (const el of low.neb) go(el, `rotate(${atlasFix(neb * way)}deg) scale(${nsx}, ${nsy})`, 120);
 }
 //: Where the CSS has the arm: the probe's turn (its transform's and any
 //: gesture's `rotate`) and its vertical scale (a meditating arm's).
@@ -3201,6 +3332,11 @@ function atlasRigFrame(rig, now) {
   const buddy = rig.host && rig.host.id === "nm-buddy" ? rig.host : null;
   const walking = live && !!buddy && buddy.classList.contains("nmb-walking");
   let busy = walking;
+  //: A walk's swing is drawn every other frame (30 a second), as the walk's
+  //: own steps are paced (`nameMarkBuddyTempo`): each one repaints the body
+  //: layer. A change of pose is drawn every frame; it is over in half a second.
+  rig.tick = (rig.tick || 0) + 1;
+  const write = !walking || rig.tick % 2 === 0;
   for (const arm of rig.arms) {
     const got = atlasRigRead(arm);
     //: Unwrap the angle against the last target so a turn past 180
@@ -3242,16 +3378,22 @@ function atlasRigFrame(rig, now) {
       j.el.x = Math.max(-14, Math.min(135, j.el.x));
       j.wr.x = Math.max(-35, Math.min(35, j.wr.x));
     }
-    for (const k of ["sh", "el", "wr"]) if (Math.abs(j[k].x - j[k].t) > 0.05 || Math.abs(j[k].v) > 1) busy = true;
+    //: Within 0.15 degrees and slower than 3 a second, a joint has
+    //: arrived: it is set on its mark (a step no eye sees at this size)
+    //: rather than drawn for another half second of spring tail.
+    let moving = false;
+    for (const k of ["sh", "el", "wr"]) if (Math.abs(j[k].x - j[k].t) > 0.15 || Math.abs(j[k].v) > 3) moving = true;
+    if (!moving && live) for (const k of ["sh", "el", "wr", "sy"]) Object.assign(j[k], { x: j[k].t, v: 0 });
+    if (moving) busy = true;
     if (live && (arm.probe.getAnimations().length || (arm.antic && now < arm.antic.until))) busy = true;
     const t = `rotate(${atlasFix(j.sh.x)}deg)${Math.abs(j.sy.x - 1) > 0.002 ? ` scale(1, ${j.sy.x.toFixed(3)})` : ""}`;
-    if (t !== arm.shown) {
+    if (write && t !== arm.shown) {
       for (const g of arm.groups) g.style.setProperty("transform", t, "important");
       arm.shown = t;
     }
     const bend = j.el.x * arm.sgn;
     const wrist = j.wr.x * arm.sgn;
-    if (Math.abs(bend - arm.drawn[0]) > 0.05 || Math.abs(wrist - arm.drawn[1]) > 0.05) {
+    if (write && (Math.abs(bend - arm.drawn[0]) > 0.1 || Math.abs(wrist - arm.drawn[1]) > 0.1 || (!moving && (bend !== arm.drawn[0] || wrist !== arm.drawn[1])))) {
       const d = atlasArmPath(arm.geo, bend, wrist);
       for (const p of arm.paths) p.setAttribute("d", d);
       arm.hand?.setAttribute("transform", atlasArmHand(arm.geo, bend, wrist));
@@ -3270,11 +3412,13 @@ function atlasRigFrame(rig, now) {
     //: The hair's layer swings a third further, its follow-through.
     for (const el of rig.heads) {
       const k = el.closest(".atl-layer-hair") ? 1.3 : 1;
-      el.style.rotate = Math.abs(off) > 0.05 ? `${atlasFix(off * k)}deg` : "";
+      const rot = Math.abs(off) > 0.05 ? `${atlasFix(off * k)}deg` : "";
+      if (el.style.rotate !== rot) el.style.rotate = rot;
     }
     if (Math.abs(off) > 0.05 || Math.abs(rig.lag.v) > 1) busy = true;
     if (atlasRigTrace) atlasRigTrace.push([now, rig.look, "head", +off.toFixed(2), +turn.toFixed(2), 0]);
   }
+  atlasRigLower(rig, now, live, buddy);
   box.toggleAttribute("data-atl-moving", busy);
   //: Six quiet frames in a row and it sleeps until the next change.
   rig.still = busy ? 0 : rig.still + 1;

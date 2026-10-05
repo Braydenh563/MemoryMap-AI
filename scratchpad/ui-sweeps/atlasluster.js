@@ -3,7 +3,9 @@
 //
 //   BASE=http://127.0.0.1:8823 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
 //     SCRATCH=/tmp/x REF_DIR=/tmp/x/base node scratchpad/ui-sweeps/atlasluster.js
-//   PART=fringe,wisps,dress,tail,hair,arms,body,gap,masc,motion,cost  (default: all)
+//   PART=blink,rig,wave,fringe,wisps,dress,tail,hair,arms,body,gap,masc,motion,cost  (default: all)
+//   POSES=, MOODS=  narrow the blink part (INBOX 540)
+// - blink, rig, wave (INBOX 540, 554, 564): see each part's own note below.
 //   RUNS=3        frame-cost runs (median)
 //   REF_DIR=dir   atlas.js and 08-consistency.css from before, served in
 //                 place of the app's (lib.js's OVERRIDE_*) for every "before"
@@ -35,8 +37,9 @@
 //   running loop: how many are the page's colour (none should be).
 // - masc: the masculine figure's layers, markup now and before: which
 //   differ (only the head may, INBOX 563), and 6x pixels.
-// - motion: her figure's loops (name and period) with motion on, and how
-//   many of the INBOX 550 and 554 loops run under reduced motion and Off.
+// - motion: each look's loops (name and period) with motion on, reduced and
+//   Off, how many of the INBOX 550 and 554 loops run, and the loops on each
+//   flowing part (hair, tail and its tip, lower body, stream, wisps).
 // - cost: main-thread time (CDP TaskDuration) over 8s with her companion
 //   figure, and separately a 208px full mark, minus the page without; now
 //   and before, interleaved.
@@ -44,7 +47,7 @@ const { boot } = require('./lib.js');
 const fs = require('fs');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
-const PARTS = (process.env.PART || 'blink,fringe,wisps,dress,tail,hair,arms,body,gap,masc,motion,cost').split(',');
+const PARTS = (process.env.PART || 'blink,rig,wave,lower,fringe,wisps,dress,tail,hair,arms,body,gap,masc,motion,cost').split(',');
 const RUNS = Number(process.env.RUNS || 3);
 const REF_DIR = process.env.REF_DIR || '';
 const SCRATCH = process.env.SCRATCH || '/tmp';
@@ -338,17 +341,29 @@ async function mascPart() {
 
 async function motionPart() {
   const out = {};
-  for (const [name, opts, attr] of [['on', {}, 'always'], ['reduced', { reducedMotion: 'reduce' }, 'always'], ['off', {}, 'off']]) {
+  for (const look of ['feminine', 'masculine']) for (const [state, opts, attr] of [['on', {}, 'always'], ['reduced', { reducedMotion: 'reduce' }, 'always'], ['off', {}, 'off']]) {
+    const name = `${look}-${state}`;
     const { browser, page } = await boot({ viewport: { width: 520, height: 700 }, ...opts });
     await page.evaluate((attr) => { document.documentElement.dataset.avatarMotion = attr; }, attr);
-    await mountFigure(page, 'feminine');
+    await mountFigure(page, look);
     await page.waitForTimeout(1200);
     out[name] = await page.evaluate(() => {
       const box = document.querySelector('#luster-box .atl-figure-box');
       const anims = [box, ...box.querySelectorAll('*')].flatMap((el) => el.getAnimations());
       const loops = [...new Set(anims.map((a) => `${a.animationName} ${+(a.effect.getComputedTiming().duration / 1000).toFixed(1)}s`))].sort();
-      const ours = anims.filter((a) => ['atl-float', 'atl-hem-wind', 'atl-glint-twinkle', 'atl-wisp-drift'].includes(a.animationName)).length;
-      return { loops, ours };
+      const ours = anims.filter((a) => ['atl-float', 'atl-hem-wind', 'atl-glint-twinkle', 'atl-wisp-drift', 'atl-hair-trail', 'atl-tail-wave'].includes(a.animationName)).length;
+      //: Per flowing part (the owner: "the tail ... the hair, and the nebular
+      //: stream ... all need to be dynamically animated"): the loops on it or
+      //: on any box or root it sits in.
+      const partOf = { hair: '.atl-layer-hair', tail: '.atl-layer-tail:not(.atl-layer-tail-tip)', tailTip: '.atl-layer-tail-tip', lower: '.atl-layer-lower', stream: '.atl-layer-neb-front', wisps: '.atl-layer-wisps' };
+      const parts = {};
+      for (const [part, sel] of Object.entries(partOf)) {
+        const el = box.querySelector(sel);
+        const chain = [];
+        for (let n = el; n && n !== box.parentNode; n = n.parentElement) chain.push(n);
+        parts[part] = el ? [...new Set(chain.flatMap((n) => n.getAnimations()).map((a) => a.animationName))].sort().join(' ') : 'none';
+      }
+      return { loops, ours, parts };
     });
     await page.evaluate(() => localStorage.removeItem('atlas-look'));
     await browser.close();
@@ -445,7 +460,7 @@ async function hairPart() {
   await page.waitForTimeout(1200);
   const pts = await page.evaluate(() => {
     const box = document.getElementById('luster-box');
-    const mane = box.querySelector('.atl-layer-body .atl-mane');
+    const mane = box.querySelector('.atl-layer-hair .atl-mane, .atl-layer-body .atl-mane');
     const m = mane.querySelector('path').getScreenCTM();
     const r = box.getBoundingClientRect();
     const locks = ATLAS_LOOKS.feminine.locks.filter((l) => !l.mass).slice(0, 4);
@@ -834,8 +849,121 @@ async function wavePart() {
   return { lagDeg: +(-lag).toFixed(1), amp: { root: +b.amp.toFixed(2), tip: +t.amp.toFixed(2) }, seam: +Math.max(...got.map((r) => r[3])).toFixed(2) };
 }
 
+//: INBOX 575: the lower body by state, both looks, motion on. Each state is
+//: set on the companion (its pose, an act class or the mood) and each of
+//: its variants forced in turn; once settled (1.3s), the silhouette of the
+//: dress or cloak, the tail, the hair and the nebula stream (each part's
+//: fill shapes through their own screen matrices, painted into a canvas)
+//: is kept. Per part, `between`: the largest IoU between two states' first
+//: variants, and how many state pairs differ (IoU under 0.97); `within`:
+//: the largest IoU between two variants of one state (repeats differ);
+//: `perFrame`, `jerk`: the lower joints through each change of state.
+const LOWER_STATES = [
+  ['idle', {}], ['walk', { cls: ['nmb-walking'] }], ['sit', { pose: 'sit' }], ['lie', { pose: 'lie' }],
+  ['gesture', { cls: ['nmb-act-wave'] }], ['think', { cls: ['nmb-think'] }], ['happy', { mood: 'happy' }],
+  ['sad', { mood: 'sad' }], ['startle', { cls: ['nmb-act-startle'] }],
+];
+async function lowerPart() {
+  const { browser, page } = await boot({ viewport: { width: 520, height: 700 } });
+  await page.evaluate(() => { document.documentElement.dataset.avatarMotion = 'always'; });
+  const res = {};
+  for (const look of ['feminine', 'masculine']) {
+    await mountFigure(page, look);
+    await page.waitForTimeout(700);
+    const masks = {};
+    let perFrame = 0;
+    let jerk = 0;
+    for (const [state, set] of LOWER_STATES) {
+      const n = await page.evaluate(([state, set]) => {
+        const buddy = document.getElementById('nm-buddy');
+        buddy.className = (set.cls || []).join(' ');
+        if (set.pose) buddy.dataset.pose = set.pose; else delete buddy.dataset.pose;
+        for (const svg of buddy.querySelectorAll('svg.atl-layer')) atlasApply(svg, set.mood || 'calm');
+        return ATLAS_LOWER_STATES[state].v.length;
+      }, [state, set]);
+      for (let k = 0; k < n; k += 1) {
+        const got = await page.evaluate(async ([state, k]) => {
+          const box = document.querySelector('#luster-box .atl-figure-box');
+          const rig = box.atlasRig;
+          rig.lower.state = state;
+          rig.lower.variant = k;
+          rig.lower.at = performance.now() + 60000;
+          atlasRigWake(box);
+          //: Every frame of the change: the dress's and the tail's turn, as
+          //: the compositor has them (their computed transform).
+          const ang = (el) => { const m = /matrix\(([^)]+)\)/.exec(getComputedStyle(el).transform); if (!m) return 0; const [a, b] = m[1].split(',').map(Number); return (Math.atan2(b, a) * 180) / Math.PI; };
+          const lowEl = box.querySelector('.atl-lw-pose-lower');
+          const tailEl = box.querySelector('.atl-lw-pose-tail');
+          const trace = [];
+          const t0 = performance.now();
+          while (performance.now() - t0 < 1300) {
+            await new Promise((r) => requestAnimationFrame(r));
+            trace.push([performance.now(), 0, 0, lowEl ? ang(lowEl) : 0, 0, tailEl ? ang(tailEl) : 0]);
+          }
+          const at = document.getElementById('luster-box').getBoundingClientRect();
+          //: Each flowing part's silhouette on its own canvas.
+          const parts = {
+            lower: '.atl-layer-lower .atl-fills :is(.atl-sower-fill, .atl-ribbon-veil)',
+            tail: '.atl-layer-tail .atl-fills .atl-tail-swish > .atl-skin',
+            hair: '.atl-layer-hair .atl-fills .atl-mane > .atl-lock, .atl-layer-hair .atl-mane > .atl-lock',
+            stream: ':is(.atl-layer-neb, .atl-layer-neb-front) .atl-band-fill',
+          };
+          const bits = {};
+          for (const [part, sel] of Object.entries(parts)) {
+            const c = document.createElement('canvas'); c.width = 160; c.height = 170;
+            const ctx = c.getContext('2d');
+            for (const el of box.querySelectorAll(sel)) {
+              const m = el.getScreenCTM();
+              ctx.setTransform(m.a, m.b, m.c, m.d, m.e - at.left, m.f - at.top);
+              ctx.fill(new Path2D(el.getAttribute('d')));
+            }
+            const data = ctx.getImageData(0, 0, 160, 170).data;
+            const row = [];
+            for (let i = 3; i < data.length; i += 4) row.push(data[i] > 128 ? 1 : 0);
+            bits[part] = row.join('');
+          }
+          return { trace, bits };
+        }, [state, k]);
+        masks[`${state}-${k}`] = got.bits;
+        let prev = null;
+        for (let i = 1; i < got.trace.length; i += 1) {
+          const dt = Math.max(1, got.trace[i][0] - got.trace[i - 1][0]);
+          const d = Math.max(Math.abs(got.trace[i][3] - got.trace[i - 1][3]), Math.abs(got.trace[i][5] - got.trace[i - 1][5])) * 16.7 / dt;
+          perFrame = Math.max(perFrame, d);
+          if (prev !== null && prev > 0.5) jerk = Math.max(jerk, d / prev);
+          prev = d;
+        }
+      }
+    }
+    const iou = (a, b) => { let i = 0; let u = 0; for (let k = 0; k < a.length; k += 1) { const x = a[k] === '1'; const y = b[k] === '1'; if (x && y) i += 1; if (x || y) u += 1; } return u ? i / u : 1; };
+    const keys = Object.keys(masks);
+    const out = { perFrame: +perFrame.toFixed(2), jerk: +jerk.toFixed(1) };
+    //: Per part: the largest IoU between two states (first variants) and
+    //: the share of state pairs it differs in (IoU under 0.97), and the
+    //: largest IoU between two variants of one state.
+    for (const part of ['lower', 'tail', 'hair', 'stream']) {
+      let between = 0; let within = 0; let pairs = 0; let differ = 0;
+      for (let a = 0; a < keys.length; a += 1) {
+        for (let b = a + 1; b < keys.length; b += 1) {
+          const [sa, va] = keys[a].split('-');
+          const [sb, vb] = keys[b].split('-');
+          const v = iou(masks[keys[a]][part], masks[keys[b]][part]);
+          if (sa === sb) within = Math.max(within, v);
+          else if (va === '0' && vb === '0') { between = Math.max(between, v); pairs += 1; if (v < 0.97) differ += 1; }
+        }
+      }
+      out[part] = { between: +between.toFixed(3), statePairsDiffer: `${differ}/${pairs}`, within: +within.toFixed(3) };
+    }
+    res[look] = out;
+  }
+  await page.evaluate(() => localStorage.removeItem('atlas-look'));
+  await browser.close();
+  return res;
+}
+
 (async () => {
   const out = {};
+  if (PARTS.includes('lower')) out.lower = await lowerPart();
   if (PARTS.includes('wave')) out.wave = await wavePart();
   if (PARTS.includes('rig')) out.rig = await rigPart();
   if (PARTS.includes('blink')) out.blink = await blinkPart();

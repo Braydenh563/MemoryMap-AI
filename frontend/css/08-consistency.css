@@ -7440,6 +7440,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 /* `.atl-lw` (atlas.js) is the box a root's second idle loop runs on. */
 .atl-figure-box > svg,
 .atl-lw > svg,
+.atl-lw-pose > svg,
 .atl-lw-breathe > svg {
   position: absolute;
   left: 0;
@@ -7505,7 +7506,10 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .atl-lw-tail { transform-origin: 34px 60px; will-change: rotate; }
 /* Her tail's tip half (atlas.js, `tailWave`, INBOX 554): a box in the
    tail's box, turned about the joint (its origin is set from the tail). */
-.atl-lw-tail > .atl-lw-tip { position: absolute; left: 0; top: 0; width: 64px; height: 92px; will-change: rotate; }
+.atl-lw-pose > .atl-lw-tip { position: absolute; left: 0; top: 0; width: 64px; height: 92px; will-change: rotate; }
+/* The lower body's and the tail's pose for what it is doing (atlas.js,
+   `atlasLowerState`, INBOX 575): set by the rig, on the compositor. */
+.atl-lw > .atl-lw-pose { position: absolute; left: 0; top: 0; width: 64px; height: 92px; will-change: transform; }
 .atl-lw-lower { transform-origin: 31px 57px; }
 /* The legs' limb gestures (`nameMarkBuddyLimbs`: rotate and scale) turn the box about the hip, the same two points the root's own `transform` uses. */
 .atl-lw-leg-l { transform-origin: 27.4px 60px; }
@@ -8709,6 +8713,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
        rules (they name #nm-buddy). */
     &.atl-layer-lower { animation: atl-skirt-idle 5.6s ease-in-out infinite alternate; }
     &:is(.atl-layer-neb, .atl-layer-neb-front) { animation: atl-neb-drift 13s ease-in-out infinite alternate; }
+    &.atl-layer-neb-front { animation-delay: 1.1s; }
     &[data-atlas-mood="happy"].atl-layer-tail, &[data-atlas-mood="delighted"].atl-layer-tail, &[data-atlas-mood="love"].atl-layer-tail, &[data-atlas-mood="laughing"].atl-layer-tail { animation: atl-wag 0.8s ease-in-out infinite alternate; }
     &.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-blink.nm-blinks .atl-lid, .atl-blink.nm-blinks > *, .atl-sway, .atl-mane, .atl-tail-swish, .atl-ring-drift, .atl-ring-glint, .atl-aura, .atl-core-glow, .atl-mood, .atl-float) { animation: none; }
     &[data-atlas-mood="love"].atl-layer-fx-1 { animation: atl-rise 2.6s ease-out infinite; }
@@ -8797,7 +8802,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   ) {
     & .atl-lw-body[data-atlas-look="masculine"] { animation: atl-idle-sway 7.2s ease-in-out infinite alternate; }
     & .atl-lw-body[data-atlas-look="feminine"] { animation: atl-idle-sway-soft 9.4s ease-in-out infinite alternate; }
-    & .atl-lw-breathe { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite; }
+    & .atl-lw-breathe { animation: atl-breathe 4.4s ease-in-out infinite; }
     /* The hair trails the body's sway: the same clock, a beat later and a
        little wider about the crown (INBOX 554, 564). */
     & .atl-lw-hair[data-atlas-look="masculine"] { animation: atl-hair-trail 7.2s ease-in-out 1.1s infinite alternate; }
@@ -8807,6 +8812,10 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
        (2.1s of 8.3s), and wider, so each sway runs down to the tip. */
     & .atl-lw-tip { animation: atl-tail-wave 8.3s ease-in-out 2.1s infinite alternate; }
     & .atl-lw-neb, & .atl-lw-neb-front { animation: atl-neb-flow 7.7s ease-in-out infinite alternate; }
+    /* The stream's near half follows its far half a beat behind, so each
+       drift runs along the ribbon (the owner, INBOX 575: "the nebular
+       stream ... dynamically animated"). */
+    & .atl-lw-neb-front { animation-delay: 0.9s; }
     /* Her astral wisps drift on their own slow clock (INBOX 535). */
     & .atl-lw-wisps { animation: atl-wisp-drift 6.8s ease-in-out -1.7s infinite alternate; }
     & :is(.atl-lw-glint-a, .atl-lw-glint-b, .atl-lw-wisps-back) { animation: atl-wisp-drift 6.8s ease-in-out -1.7s infinite alternate; }
@@ -8818,6 +8827,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
        quarter turn behind. */
     &.atl-figure-box[data-atlas-look="feminine"] { animation: atl-float 5.3s ease-in-out infinite alternate; }
     & .atl-lw-lower[data-atlas-look="feminine"] { animation: atl-hem-wind 7.1s ease-in-out -1.8s infinite alternate; }
+    /* His cloak catches the same wind on a clock of its own (INBOX 575). */
+    & .atl-lw-lower[data-atlas-look="masculine"] { animation: atl-hem-wind 6.3s ease-in-out -2.4s infinite alternate; }
     & .atl-lw-body[data-atlas-look="feminine"] .atl-lw-breathe { animation-duration: 3.7s; }
     & .atl-layer-glint-a { animation: atl-glint-twinkle 3.4s ease-in-out infinite; }
     & .atl-layer-glint-b { animation: atl-glint-twinkle 4.7s ease-in-out -2.2s infinite; }
@@ -8859,7 +8870,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   :is(.atl-lw-glint-a, .atl-lw-glint-b, .atl-lw-wisps-back), .nm-atlas:is(.atl-layer-glint-a, .atl-layer-glint-b) { animation: none !important; }
   /* Her float and the dress's wind (INBOX 554) stop; a mood's body move
      keeps its slowed loop (above). */
-  .atl-lw-lower[data-atlas-look="feminine"] { animation: none !important; }
+  .atl-lw-lower[data-atlas-look="feminine"], .atl-lw-lower[data-atlas-look="masculine"] { animation: none !important; }
   .nm-live {
     &.atl-figure-box[data-atlas-look="feminine"]:not([data-atlas-mood="delighted"], [data-atlas-mood="laughing"], [data-atlas-mood="sleepy"], [data-atlas-mood="love"], [data-atlas-mood="confused"]) { animation: none !important; }
   }

@@ -5,6 +5,7 @@
 // these specs (see playwright.config.js), so the helpers wait for the app to
 // be really up, not for a request to return.
 const { expect } = require("@playwright/test");
+const { E2E_PASSWORD: PASSWORD } = require("./playwright.config.js");
 
 // Every uncaught exception and console.error on the page, for the specs that
 // end with "and nothing threw". Attach before the first goto.
@@ -26,6 +27,24 @@ function watchErrors(page) {
 // tab bar answers. `networkidle` never settles here (the app polls).
 async function openApp(page, route = "/") {
   await page.goto(route, { waitUntil: "domcontentloaded" });
+  // A spec that locks the app (notes.spec.js) ends every saved session, so
+  // a later spec may meet the lock screen: sign in the way a person would.
+  const locked = await page
+    .waitForFunction(
+      () => {
+        const field = document.getElementById("lock-password");
+        const overlay = document.getElementById("lock-overlay");
+        if (field && overlay && !overlay.classList.contains("hidden") && field.offsetParent !== null) return "lock";
+        return overlay && overlay.classList.contains("hidden") && localStorage.getItem("token") ? "app" : false;
+      },
+      null,
+      { timeout: 20_000 }
+    )
+    .then((handle) => handle.jsonValue());
+  if (locked === "lock") {
+    await page.fill("#lock-password", PASSWORD);
+    await page.click("#lock-submit");
+  }
   await page.waitForFunction(
     () => {
       const splash = document.getElementById("boot-splash");

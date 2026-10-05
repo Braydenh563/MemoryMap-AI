@@ -78,7 +78,7 @@ module.exports = defineConfig({
   // "github" alone annotates the run but writes no report to disk; the CI
   // job uploads playwright-report/ on failure, which needs "html" too.
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
-  timeout: 45_000,
+  timeout: 90_000,
   expect: { timeout: 10_000 },
   globalSetup: require.resolve("./global-setup.js"),
   use: {

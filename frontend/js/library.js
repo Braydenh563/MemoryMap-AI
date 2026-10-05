@@ -113,6 +113,8 @@ let libraryTruncated = {};
 //: What the last draw showed, and when (see loadLibrary).
 let librarySignature = "";
 let libraryDrawnAt = 0;
+//: Which `renderLibrary` call is the newest (see its `updateDOM`).
+let libraryRenderGen = 0;
 let libraryBaseItems = [];
 let libraryServerQuery = "";
 
@@ -575,7 +577,14 @@ function renderLibrary(options) {
     $("library-page-next").disabled = libraryCurrentPage >= totalPages;
   }
 
+  //: **A render that was overtaken never draws** (tests/test_library_render_race.py).
+  //: A cross-fade runs `updateDOM` a frame later, with the `items` it
+  //: filtered now; Ctrl+K "Open the bin" ticked the bin before `/library`
+  //: answered, the load then drew 142 cards, and the late fade drew its
+  //: empty list over them ("Nothing of this kind yet.").
+  const generation = ++libraryRenderGen;
   const updateDOM = () => {
+    if (generation !== libraryRenderGen) return;
     //: Measured before the grid is emptied, never after: reading its width
     //: forces a layout, and a layout of an empty grid clamps the section's
     //: scroll to 0, which is how the Library came back from another tab at

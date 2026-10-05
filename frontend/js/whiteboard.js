@@ -5788,7 +5788,12 @@ function wbRemapUndoIds(objects, sketches = new Map()) {
   };
   wbUndoStack.forEach(walk);
   wbRedoStack.forEach(walk);
+  for (const list of wbHistoryInFlight) list.forEach(walk);
 }
+
+//: The steps of a batch being replayed right now, and the reverses it has made
+//: so far (`wbApplyHistoryEntry`), so an id remap reaches them too.
+const wbHistoryInFlight = [];
 
 // The shared half of undo and redo: pop one entry off `from`, apply its
 // inverse, and push what would undo *that* onto `to`. Undo and redo are
@@ -6069,13 +6074,24 @@ async function wbApplyHistoryEntry(from, to) {
     // Undo presses. Bundles N sub-entries and replays each through this same
     // function (recursively: none of the sub-actions are themselves
     // batches), re-bundling whatever came back as the one reverse entry.
+    //: **Replayed backwards the other way** (INBOX 537): a batch whose steps
+    //: depend on each other (put a child back, then delete the topic it hung
+    //: from) must redo them in the opposite order. The steps not yet run and
+    //: the reverses already made are visible to `wbRemapUndoIds`, so a topic
+    //: re-made mid-batch with a new id is followed by the steps that name it.
     const reverse = [];
-    for (const sub of entry.entries) {
-      const subTo = [];
-      await wbApplyHistoryEntry([sub], subTo);
-      if (subTo.length) reverse.push(subTo[0]);
+    const pending = [...entry.entries];
+    wbHistoryInFlight.push(pending, reverse);
+    try {
+      while (pending.length) {
+        const subTo = [];
+        await wbApplyHistoryEntry([pending.shift()], subTo);
+        if (subTo.length) reverse.push(subTo[0]);
+      }
+    } finally {
+      wbHistoryInFlight.splice(wbHistoryInFlight.indexOf(pending), 2);
     }
-    to.push({ action: "batch", entries: reverse });
+    to.push({ action: "batch", entries: reverse.reverse() });
     return true;
   }
   if (entry.action === "reparent") {
@@ -6127,6 +6143,18 @@ async function wbApplyHistoryEntry(from, to) {
     // the item; reversing *that* is deleting the newly-recreated one again.
     const restored = await apiJson(base, { method: "POST", body: JSON.stringify(entry.payload) });
     wbState[list].push(restored);
+    //: **A map topic comes back under its parent, and as itself** (INBOX
+    //: 537): the flat create cannot write `parent_id` (only `/move` can, with
+    //: its cycle check), so a redone topic came back loose; and the new id
+    //: is handed to every history step that still names the old one.
+    if (entry.parentId != null && restored.board_id != null) {
+      const placed = await apiJson(`/whiteboard/boards/${restored.board_id}/nodes/${restored.id}/move`, {
+        method: "PUT",
+        body: JSON.stringify({ parent_id: entry.parentId }),
+      });
+      Object.assign(restored, placed);
+    }
+    if (entry.kind === "object" && entry.oldId != null) wbRemapUndoIds(new Map([[entry.oldId, restored.id]]));
     to.push({ action: "create", kind: entry.kind, id: restored.id });
   } else if (entry.action === "move") {
     // A drag, resize, or nudge's own undo: asked for directly ("account
@@ -6158,7 +6186,9 @@ async function wbApplyHistoryEntry(from, to) {
     //: before they made the new one, and nothing selected would drop them off
     //: the keyboard path the map is built on.
     if (entry.kind === "object" && item && item.parent_id != null) wbUndoParents.push(item.parent_id);
-    if (payload) to.push({ action: "delete", kind: entry.kind, payload });
+    if (payload) {
+      to.push({ action: "delete", kind: entry.kind, payload, oldId: entry.id, parentId: item?.parent_id ?? null });
+    }
   }
   return true;
 }

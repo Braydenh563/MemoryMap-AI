@@ -956,6 +956,28 @@ async function saveRunBudget() {
 $("run-budget-tokens")?.addEventListener("change", saveRunBudget);
 $("run-budget-seconds")?.addEventListener("change", saveRunBudget);
 
+//: One tool's switch, saved. A refused save puts the switch back and says why:
+//: the handler used to `await` with nothing to catch it, so a 422 was an
+//: unhandled rejection and the switch stayed where the server disagreed (found
+//: by the deepflows sweep, which turned all the tools off).
+async function saveToolSwitch(check, name) {
+  const next = new Set(prefsCache.disabled_tools || []);
+  if (check.checked) next.delete(name);
+  else next.add(name);
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ disabled_tools: [...next] }),
+    });
+  } catch (error) {
+    check.checked = !check.checked;
+    toast(error.message || "Couldn't save that. Try again.", true);
+    return;
+  }
+  // The "N of 51 on" count is only true until someone flips one.
+  applyToolFilter();
+}
+
 async function renderToolSettings() {
   const list = $("tool-list");
   const [catalog, prefs] = await Promise.all([
@@ -984,17 +1006,7 @@ async function renderToolSettings() {
       check.disabled = true;
       check.title = "Enable web search in Preferences first";
     }
-    check.addEventListener("change", async () => {
-      const next = new Set(prefsCache.disabled_tools || []);
-      if (check.checked) next.delete(tool.name);
-      else next.add(tool.name);
-      prefsCache = await apiJson("/preferences", {
-        method: "PUT",
-        body: JSON.stringify({ disabled_tools: [...next] }),
-      });
-      // The "N of 51 on" count is only true until someone flips one.
-      applyToolFilter();
-    });
+    check.addEventListener("change", () => saveToolSwitch(check, tool.name));
     const text = document.createElement("span");
     const name = document.createElement("strong");
     name.textContent = tool.name.replace(/_/g, " ");

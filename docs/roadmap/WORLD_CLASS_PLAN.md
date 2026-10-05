@@ -121,7 +121,7 @@ All six share `--control-h-lg` (36px) on docks and `--control-h` in forms,
 most ONE primary per `[data-dock-name]` and per `.modal`, and that no
 `.chip`/`.meta` has a `border` or a `:hover` rule.
 
-**State 2026-10-04:** (a) built: one filled button per dock (`tests/test_dock_grammar.py`); one per modal and per settings pane, and the meta recipe's no border and no hover, in `tests/test_consistency_contract.py`, both as ratchets (5 places hold two or three filled buttons; 13 `.chip` rules draw a border or answer hover). Fixing them is a design call per dialog and per chip, listed in HISTORY.
+**State 2026-10-04:** (a) built: one filled button per dock (`tests/test_dock_grammar.py`); one per modal and per settings pane, and the meta recipe's no border and no hover, in `tests/test_consistency_contract.py`, both strict since 2026-10-04 (design-1004): the five dialogs and panes that held two or three filled buttons hand one fill over with `stagePrimary`, and the 13 chip rules are 0 (a pressable chip is styled through `.chip-interactive`; the label recipe and a suggested tag keep their edge by name, `META_EDGED`). The account is in HISTORY.
 
 ### 1.3 Menus (one recipe)
 

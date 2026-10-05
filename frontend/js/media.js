@@ -862,6 +862,7 @@ function resetMeetingUI() {
   $("meeting-transcript").value = "";
   $("meeting-transcript").classList.add("hidden");
   $("meeting-save-row").classList.add("hidden");
+  stagePrimary("meeting-record", "meeting-save", false);
   $("meeting-record").disabled = false;
   $("meeting-record").classList.remove("recording");
   setLabel($("meeting-record"), "ph:record Record");
@@ -952,6 +953,7 @@ async function toggleMeetingRecording() {
       $("meeting-transcript").value = body.text;
       $("meeting-transcript").classList.remove("hidden");
       $("meeting-save-row").classList.remove("hidden");
+      stagePrimary("meeting-record", "meeting-save", true);
       $("meeting-transcript").focus();
     } catch (error) {
       $("meeting-status").textContent = error.message;

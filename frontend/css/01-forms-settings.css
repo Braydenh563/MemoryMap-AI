@@ -1821,10 +1821,10 @@ progress {
 }
 
 /* What a note's own "tomorrow" resolved to. Quieter than a tag: it is a
-   reading of the text, not something the user typed. */
+   reading of the text, not something the user typed. Meta: no edge (a dash
+   means a slot to fill, DESIGN.md "Pills are rare"). */
 .chip.when {
   background: transparent;
-  border: 1px dashed var(--border);
   color: var(--muted);
   font-weight: 400;
 }
@@ -1840,22 +1840,19 @@ progress {
 }
 
 /* A note with no tags, on its card (INBOX 162). A gap rather than a
-   warning: dashed, muted, and a button, since the chip opens the edit form
-   at the tags field. */
+   warning: muted, no edge; where it opens the edit form it is a
+   `.chip-interactive` and answers the pointer as one. */
 .chip.untagged {
   background: transparent;
   color: var(--muted);
-  border: 1px dashed var(--border);
 }
 
 /* What points at this note (INBOX 246): documents, boards, maps, notes,
    counted. Quiet like the untagged chip, since it is information rather
-   than a warning, but solid rather than dashed: a fact, not a gap. A
-   button, since it opens Connections. */
+   than a warning; it opens Connections, so it is a `.chip-interactive`. */
 .chip.refs {
   background: transparent;
   color: var(--muted);
-  border: 1px solid var(--border);
 }
 
 /* What this note made you promise to do (INBOX 309). The same treatment as
@@ -1865,7 +1862,6 @@ progress {
 .chip.reminders {
   background: transparent;
   color: var(--muted);
-  border: 1px solid var(--border);
 }
 
 /* A note that is saved but not yet filed. Quiet on purpose: this is a
@@ -2905,7 +2901,6 @@ button:not(.ghost) > .spinner {
    rather than an aside, and quietening those would be the opposite fix. */
 #entry-list .chip.link {
   background: transparent;
-  border: 1px solid var(--border);
   color: var(--muted);
   font-weight: 400;
 }
@@ -3011,14 +3006,6 @@ li.link-source {
   flex-wrap: wrap;
   gap: 0.4rem;
   align-items: center;
-}
-
-.recent .chip {
-  cursor: pointer;
-}
-
-.recent .chip:hover {
-  background-image: linear-gradient(var(--hover-veil), var(--hover-veil));
 }
 
 /* The Capture form's pre-save tag-suggestion row (app.js's
@@ -5860,6 +5847,21 @@ select {
    every other mark moved to the column. It has to take the row to reach it. */
 #settings-modal summary > .help-head {
   flex: 1 1 auto;
+  /* The heading and the '?''s slot stay on one line: `.row` wraps, and at 390
+     the 44px slot did not fit beside "Advanced response settings", so it dropped
+     under the heading and the head stood 71px tall in a 44px summary, the
+     chevron and the '?' on different lines from the words (found by the
+     deepflows sweep). The heading gives way instead. */
+}
+
+#settings-modal .settings-section summary > .help-head {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+#settings-modal .settings-section summary > .help-head > h3 {
+  min-width: 0;
+  white-space: normal;
 }
 
 /* **A group's disclosure row is one pill: chevron, heading, '?'.** It used

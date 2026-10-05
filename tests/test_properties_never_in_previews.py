@@ -118,3 +118,16 @@ def test_a_contradictions_excerpt_has_no_block():
     from memorymap.ai import tensions
 
     _no_block(tensions._excerpt(UNTITLED))
+
+
+def test_the_dashboards_note_widgets_read_past_the_block():
+    """Recently added, the random note and the unfinished-checklists title each
+    cut a note's raw text; with a `---` block first they showed `---` and the
+    fields as the note's words (found by `scratchpad/ui-sweeps/deepflows.js`,
+    which opened the dashboard on a notebook with properties)."""
+    from pathlib import Path
+
+    text = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    assert "const raw = stripFrontmatter(entry.content || \"\")" in text
+    assert "truncateMarkdownSafe(stripFrontmatter(note.content), 239)" in text
+    assert "stripFrontmatter(row.entry.content || \"\").split(\"\\n\")" in text

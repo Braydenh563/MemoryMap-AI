@@ -497,7 +497,9 @@ def _run_server() -> None:
         try:
             uvicorn.Server(uvicorn.Config(app, host=bind, port=PORT, log_level="info")).run(sockets=[sock])
         except KeyboardInterrupt:
-            pass
+            # Ctrl+C is how a person stops the server: quiet, like uvicorn.run,
+            # and on to the shutdown below.
+            logger.debug("server stopped by Ctrl+C")
     else:
         uvicorn.run(app, host=bind, port=PORT, log_level="info")
     # **The process used to sit here for 5 to 9 seconds after "Finished

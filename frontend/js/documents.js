@@ -1107,7 +1107,7 @@ function docLinksTo(title) {
   const text = docText();
   let match;
   while ((match = pattern.exec(text)) !== null) {
-    if (match[1].trim().toLowerCase() === wanted) return true;
+    if (wikiLinkTarget(match[1]).trim().toLowerCase() === wanted) return true;
   }
   return false;
 }
@@ -7773,14 +7773,24 @@ function docLivePlugin(CM) {
         //: form.
         const marker = /^#{1,6}[ \t]*/.exec(name);
         const markerLength = marker ? marker[0].length : 0;
+        //: **`[[Target|Shown]]`: only the shown words are drawn** (the bar is
+        //: syntax, like the brackets; `wikiLinkTarget` says where the target
+        //: ends). A board reference (`board:12|Title`) keeps its bar: it is
+        //: read by `boardEmbedRef`, and its title is the chip's words already.
+        //: Offsets are taken from `match[1]`, which `name` is the trimmed copy
+        //: of, so leading space is counted.
+        const lead = name ? match[1].length - match[1].trimStart().length : 0;
+        const bar = wikiLinkTarget(name) === name ? -1 : name.indexOf("|");
+        const hasAlias = bar !== -1 && name.slice(bar + 1).trim() !== "";
+        const skip = hasAlias ? bar + 1 : markerLength;
         ranges.push(
           Decoration.mark({
             class: "cm-md-wiki",
-            attributes: { "data-doc-wiki": name, title: `Open “${name}”` },
-          }).range(from + 2 + markerLength, to - 2)
+            attributes: { "data-doc-wiki": name, title: `Open “${wikiLinkTarget(name) || name}”` },
+          }).range(from + 2 + lead + skip, to - 2)
         );
         if (rangeRevealed(from, to)) return;
-        hide(from, from + 2 + markerLength);
+        hide(from, from + 2 + lead + skip);
         hide(to - 2, to);
       });
     }
@@ -8529,7 +8539,7 @@ function docResolveWikiTarget(name) {
   //: document's own text by the command that copies the link, and a note has
   //: no editor here to put one in. `docBlockRefSplit` of a plain name returns
   //: a null id, so this costs every other link one comparison.
-  const ref = docBlockRefSplit(name);
+  const ref = docBlockRefSplit(wikiLinkTarget(name));
   if (ref.blockId) {
     const base = ref.name ? docResolveWikiTarget(ref.name) : { kind: "document", doc: currentDoc };
     if (base && base.kind === "document" && base.doc) {
@@ -8537,7 +8547,8 @@ function docResolveWikiTarget(name) {
     }
     return null;
   }
-  const wanted = String(name || "").trim().toLowerCase();
+  //: `[[Target|Shown]]` names its document by the part before the bar.
+  const wanted = String(wikiLinkTarget(name) || "").trim().toLowerCase();
   if (!wanted) return null;
   const asDoc = docs.find((doc) => (doc.title || "").trim().toLowerCase() === wanted);
   if (asDoc) return { kind: "document", doc: asDoc };
@@ -9774,6 +9785,7 @@ function showDocAiResult(text) {
   //: answer, and `acceptDocAiEdit` already treats that case as valid, so the
   //: block is shown for an empty string and hidden only for nothing at all.
   block.classList.toggle("hidden", text === null || text === undefined);
+  stagePrimary("doc-ai-run", "doc-ai-accept", !block.classList.contains("hidden"));
   setDocAiProposal(text === null || text === undefined ? null : result.value);
 }
 

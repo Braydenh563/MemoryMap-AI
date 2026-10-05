@@ -6,9 +6,8 @@
 //                  Pass: scrollTop moves at least 200px in a one second hold,
 //                  in both directions, at the edge, 40px inside it and past it
 //                  (Chromium's own autoscroll covers only the last ~20px).
-//   MODE=toolsgap  Settings, Tools it can use, at 390: the height of the gap
-//                  above "Tokens per step" (the field's top minus the bottom of
-//                  the last element before it). Pass: under 40px.
+//   MODE=toolsgap  Settings at 390: the empty space inside a row's label column
+//                  ("Tokens per step" first, then every row). Pass: under 20px.
 //   MODE=rows      Whether a reminder row shares the notes' row class, and the
 //                  render time and DOM node count of the Library, Reminders and
 //                  Timeline lists with 300 rows seeded (see SEED below).
@@ -65,12 +64,45 @@ async function listedge(page, W) {
   return fails;
 }
 
+// The empty space inside a settings row's label column. `.setting-label` is
+// `flex: 1 1 14rem`: a basis that is a width in a row and a HEIGHT once the row
+// stacks (<= 640px), so a one-line label stood 224px tall with its control at
+// the bottom (the gap above "Tokens per step"). Measured as the label's box
+// minus its content (last child's bottom), for the "Tokens per step" row and
+// then for every row in every section. Pass: under 20px each.
+async function toolsgap(page, W) {
+  await page.evaluate(() => openSettingsModal('tools'));
+  await page.waitForTimeout(800);
+  const tokens = await page.evaluate(() => {
+    const field = document.getElementById('run-budget-tokens');
+    const label = field.closest('.setting-row').querySelector('.setting-label');
+    const last = label.lastElementChild.getBoundingClientRect();
+    return { gap: Math.round(field.getBoundingClientRect().top - last.bottom), label: Math.round(label.getBoundingClientRect().height) };
+  });
+  console.log(`Tokens per step W${W}: ${tokens.gap}px between the label's text and the field (label box ${tokens.label}px) ${tokens.gap < 20 ? 'PASS' : 'FAIL'}`);
+  const bad = [];
+  let rows = 0;
+  for (const name of await page.evaluate(() => [...document.querySelectorAll('#settings-nav button[data-section]')].map((b) => b.dataset.section))) {
+    await page.evaluate((n) => openSettingsModal(n), name);
+    await page.waitForTimeout(350);
+    const found = await page.evaluate(() => [...document.querySelectorAll('#settings-modal .setting-row > .setting-label')]
+      .map((l) => ({ l, last: [...l.children].filter((c) => c.getClientRects().length).pop() }))
+      .filter(({ l, last }) => l.getClientRects().length && last)
+      .map(({ l, last }) => ({ id: l.parentElement.querySelector('[id]')?.id || l.textContent.trim().slice(0, 24), empty: Math.round(l.getBoundingClientRect().bottom - last.getBoundingClientRect().bottom) })));
+    rows += found.length;
+    for (const f of found) if (f.empty >= 20) bad.push(`${name}/${f.id} ${f.empty}px`);
+  }
+  console.log(`label columns with 20px or more of empty space, ${rows} rows W${W}: ${bad.length} ${bad.length ? 'FAIL ' + bad.slice(0, 10).join('; ') : 'PASS'}`);
+  return (tokens.gap < 20 ? 0 : 1) + (bad.length ? 1 : 0);
+}
+
 (async () => {
   const W = +(process.env.W || 1440);
   const MODE = process.env.MODE || 'listedge';
   const { page, browser } = await boot({ viewport: { width: W, height: W < 600 ? 844 : 900 } });
   let fails = 0;
   if (MODE === 'listedge') fails = await listedge(page, W);
+  if (MODE === 'toolsgap') fails = await toolsgap(page, W);
   await browser.close();
   process.exit(fails ? 1 : 0);
 })();

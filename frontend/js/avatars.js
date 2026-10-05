@@ -6350,9 +6350,27 @@ function nameMarkBuddyNextSpot(tab, near = null) {
 
 //: The person has stayed: it takes its place on this tab out of sight and
 //: then comes in.
+//: **Not behind the curtain** (INBOX 577): while the boot splash, the lock
+//: screen or the opening curtain (`revealShell`, app.js) is over the page,
+//: the page under it is still filling in and nobody can see it come in.
+//: It used to play its whole entrance there, under the lock screen, and
+//: then simply be there, full size, the moment the lock lifted. It waits,
+//: and comes in once the shell has risen, as one more beat of the same
+//: sequence rather than a second one racing it.
+function nameMarkBuddyCurtained() {
+  if (document.getElementById("boot-splash")) return true;
+  if (document.documentElement.classList.contains("shell-curtain")) return true;
+  const lock = document.getElementById("lock-overlay");
+  return Boolean(lock && !lock.classList.contains("hidden") && lock.dataset.mode !== "prompt");
+}
+
 function nameMarkBuddyArrive(buddy) {
   nmb.awayTimer = 0;
   if (!buddy.isConnected || !nmb.away) return;
+  if (nameMarkBuddyCurtained()) {
+    nmb.awayTimer = setTimeout(() => nameMarkBuddyArrive(buddy), 250);
+    return;
+  }
   if (document.hidden || nameMarkBuddyMenuOpen() || buddy.classList.contains("nm-buddy-dragging")) {
     nmb.awayTimer = setTimeout(() => nameMarkBuddyArrive(buddy), 800);
     return;
@@ -6436,8 +6454,18 @@ function nameMarkBuddySettle(tab, then) {
 //: 430: "walk on from the nearest screen edge, climb up from the bottom
 //: bar, climb down from the top bar to hang, or a soft materialise (a
 //: starlight shimmer resolving into it)"). Each is the host's `translate`
-//: and the character's `scale` and `opacity`, the compositor's. With
-//: Reduce motion it fades in where it is.
+//: and the character's `opacity`, the compositor's. With Reduce motion it
+//: fades in where it is.
+//:
+//: **It comes in at its own size** (INBOX 577, the owner: "when loading
+//: into the app, the companion or atlas's head goes large then small then
+//: large again then settles on the normal size"). That was the landing
+//: squash (`nameMarkBuddySquash`: 1.06, 0.97, 1, 1.07, 0.98, 1 across)
+//: played on every way in, and the materialise's growth from half size:
+//: the first thing anyone saw of it was its size changing. An entrance
+//: moves it and fades it; a squash belongs to a hop between two perches it
+//: was already seen on. `scratchpad/ui-sweeps/smooth1005-boot.js`: the
+//: head's box moved 46% after it first showed, now under 2%.
 function nameMarkBuddyEnter(buddy, spot) {
   if (typeof buddy.animate !== "function") return "";
   nmb.anim?.cancel();
@@ -6498,7 +6526,6 @@ function nameMarkBuddyEnter(buddy, spot) {
       { rotate: `${way * 10}deg`, translate: "0px -3px" }, { rotate: `${way * 10}deg`, translate: "0px -3px", offset: 0.6 },
       { rotate: `${-way * 3}deg`, translate: "0px 0px", offset: 0.88 }, { rotate: "0deg" },
     ], { duration, easing: "ease-in-out" }) || null;
-    nameMarkBuddySquash(char, duration, true);
     nameMarkBuddyLimbs(buddy, "glide", duration, 0, way);
     return how;
   }
@@ -6522,7 +6549,6 @@ function nameMarkBuddyEnter(buddy, spot) {
     };
     walk.onfinish = done;
     walk.oncancel = done;
-    nameMarkBuddySquash(char, duration);
     return how;
   }
   if (how === "down" || how === "up") {
@@ -6552,22 +6578,18 @@ function nameMarkBuddyEnter(buddy, spot) {
       at(how === "down" ? 4 : -5, { offset: 0.78 }),
       at(0, {}),
     ], { duration, easing: "ease-in-out" });
-    nameMarkBuddySquash(char, duration - NMB_SET_OFF_MS);
     //: Hand over hand (INBOX 469), until it is out and standing.
     nameMarkBuddyTravel(buddy, "climb", Math.round(duration * 0.78), "");
     return how;
   }
   //: Starlight gathering into it: the stars first, then the figure
-  //: resolving out of them, a touch large, settling to its size, and
-  //: drifting down the last few pixels onto its perch (the owner: it "came
-  //: back with barely an entrance"; a fade in place read as a pop).
+  //: resolving out of them and drifting down the last few pixels onto its
+  //: perch (the owner: it "came back with barely an entrance"; a fade in
+  //: place read as a pop). At its own size throughout: it used to grow from
+  //: half size past its own and back (0.5, 1.06, 1).
   nameMarkBuddyBurst(buddy, 0, 0, 0);
   nmb.anim = buddy.animate([{ opacity: 0, translate: "0px -14px" }, { opacity: 0, translate: "0px -14px", offset: 0.18 }, { opacity: 1, offset: 0.6 }, { opacity: 1, translate: "0px 0px" }], { duration: 820, easing: "ease-out" });
-  nmb.hopAnim = char?.animate([
-    { scale: "0.5", opacity: 0.2 },
-    { scale: "1.06", opacity: 1, offset: 0.7 },
-    { scale: "1" },
-  ], { duration: 820, easing: "ease-out" }) || null;
+  nmb.hopAnim = null;
   nameMarkBuddyLimbs(buddy, "float", 820);
   return how;
 }

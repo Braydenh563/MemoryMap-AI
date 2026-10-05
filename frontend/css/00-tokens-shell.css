@@ -3751,6 +3751,11 @@ header#top-bar.tabs-wrapped #tab-bar {
      hit target is a control's own size and must not move with density. */
   --status-h: 1.75rem;
   flex: 0 0 auto;
+  /* At the window's foot from the first frame (INBOX 577). Before any tab
+     page is shown the body's column has nothing to grow, and the bar was
+     laid out under the header (y 64) and then thrown to the bottom (y 863)
+     when the first page arrived: the boot's largest layout shift, 0.046. */
+  margin-top: auto;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -4751,7 +4756,10 @@ summary.small.icon-button {
   transition: opacity var(--motion-slow) var(--ease-out);
 }
 
-.boot-splash.hidden {
+/* Its own leaving class, not `.hidden`: that one is `display: none
+   !important` (02-chat-graph.css), which beat the opacity here, so the fade
+   never ran and the splash cut out (INBOX 577). */
+.boot-splash.boot-splash-leaving {
   opacity: 0;
   pointer-events: none;
 }

@@ -8976,9 +8976,19 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   30% { transform: translateY(-3px) scale(1.06, 0.95) rotate(-5deg); }
   60% { transform: scale(0.97, 1.04) rotate(4deg); }
 }
+/* **The nod keeps the head's own size** (INBOX 577, the owner: "the
+   companion or atlas's head goes large then small then large again"). A
+   keyframe `transform` replaces the head's resting one (`.nm-atlas
+   .atl-head`, above) for as long as it runs, and these frames were written
+   before INBOX 563 drew the head at 0.76 of its size: so the hello nod it
+   gives as it arrives drew the head at full size for 0.9s, a third larger,
+   and dropped it back. Measured by its screen matrix
+   (`scratchpad/ui-sweeps/smooth1005-boot.js`): 0.74 at rest, 0.96 through
+   the nod. Each frame now restates the resting transform, with the nod's
+   dip and turn added to it. */
 @keyframes atl-nod {
-  0%, 45%, 100% { transform: translateY(var(--atl-head-y)) rotate(var(--atl-tilt)); }
-  22%, 68% { transform: translateY(calc(var(--atl-head-y) + 1.6px)) rotate(calc(var(--atl-tilt) + 8deg)); }
+  0%, 45%, 100% { transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(calc(var(--atl-tune-head) * var(--atl-head-k))); }
+  22%, 68% { transform: translate(calc(var(--atl-lean-dir) * 0.9px), calc(var(--atl-head-y) + 1.6px)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg + 8deg)) scale(calc(var(--atl-tune-head) * var(--atl-head-k))); }
 }
 @keyframes atl-hop-once {
   0%, 100% { transform: none; }
@@ -10611,22 +10621,72 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   }
 }
 
-/* --- motion: a page arrives (INBOX 459 (2)) --------------------------------
+/* --- motion: a page arrives (INBOX 459 (2), 580) --------------------------
    Switching tabs replaced one page with the next between two frames, so the
-   only sign of the switch was everything changing at once. The page now
-   comes in over `--motion-fast` by `opacity` alone: short enough that
-   nothing waits on it, and the tab strip's glide (above) says where you
+   only sign of the switch was everything changing at once. The page comes
+   in by `opacity` alone, and the tab strip's glide (above) says where you
    went. The page leaving does not fade: it is gone with its `.hidden`, and
-   a cross-fade would mean two pages on screen at once. A page shown for
-   the first time fades too, which is the boot, under the lock screen. */
+   a cross-fade would mean two pages on screen at once.
+
+   **From 0.4, not from nothing** (INBOX 580, the owner: "opening pages and
+   between ui views like tabs ... need to be more smooth in transitions and
+   cheap to hide the ugly loading glitches"). From 0 the first frames of
+   every switch were the bare window: measured
+   (`scratchpad/ui-sweeps/smooth1005-tabs.js`, 1440), 3 or 4 blank frames on
+   13 of 14 switches, which is the flash that read as a glitch. From 0.4 the
+   new page is there on the first frame and settles in over `--motion-base`;
+   0 blank frames. */
 .tab-page:not(.hidden) {
-  transition: opacity var(--motion-fast) var(--ease-out);
+  transition: opacity var(--motion-base) var(--ease-out);
 }
 
 @starting-style {
   .tab-page:not(.hidden) {
+    opacity: 0.4;
+  }
+}
+
+/* --- motion: a popup arrives (INBOX 580) ------------------------------------
+   Every dialog opened between two frames: Settings, the palette, Find
+   anything, the agent palette, a confirm, all at full size and full scrim at
+   once. One way in for all of them: the scrim fades over `--motion-base`
+   and what stands on it rises a step (`--space-2`) from a touch smaller over
+   `--motion-slow`, both `--ease-out`, both the compositor's. Closing is
+   instant, as a page leaving is: the thing you dismissed should be gone.
+   `:where()` so the recipe is zero-weight: a dialog with motion of its own
+   (Settings' peek) keeps it. The lock screen is not in it: it is the boot's
+   curtain, which fades out (below) rather than in. Reduced motion zeroes
+   all of it (the two blankets in 02-chat-graph.css). */
+:where(.modal-overlay, .lock-overlay:not(#lock-overlay), #palette-overlay):not(.hidden) {
+  transition: opacity var(--motion-base) var(--ease-out);
+}
+
+:where(.modal-overlay, .lock-overlay:not(#lock-overlay), #palette-overlay):not(.hidden) > * {
+  transition:
+    translate var(--motion-slow) var(--ease-out),
+    scale var(--motion-slow) var(--ease-out);
+}
+
+@starting-style {
+  :where(.modal-overlay, .lock-overlay:not(#lock-overlay), #palette-overlay):not(.hidden) {
     opacity: 0;
   }
+
+  :where(.modal-overlay, .lock-overlay:not(#lock-overlay), #palette-overlay):not(.hidden) > * {
+    translate: 0 var(--space-2);
+    scale: 0.985;
+  }
+}
+
+/* --- motion: the opening curtain lifts (INBOX 577) --------------------------
+   After the password, the lock screen stays up while the first tab draws
+   (`curtainShell`, app.js) and then fades once over the finished page;
+   `liftLockScreen` gives it `hidden` when the fade is done. The splash's
+   own fade is `.boot-splash-leaving` (00-tokens-shell.css). */
+#lock-overlay.lock-leaving {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-slow) var(--ease-out);
 }
 /* --- the 464 round: Settings groups, switch rows, the phone's chrome --------
    1. Every Settings head is a group head (DESIGN.md "A group head in

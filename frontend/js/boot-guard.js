@@ -53,7 +53,7 @@
 
   function say(text) {
     var splash = document.getElementById("boot-splash");
-    if (!splash || splash.classList.contains("hidden")) return;
+    if (!splash || splash.classList.contains("boot-splash-leaving")) return;
     var line = document.getElementById("boot-splash-error");
     if (!line) {
       line = document.createElement("p");
@@ -156,7 +156,7 @@
   // deliberately different sentences.
   setTimeout(function () {
     var splash = document.getElementById("boot-splash");
-    if (!splash || splash.classList.contains("hidden")) return;
+    if (!splash || splash.classList.contains("boot-splash-leaving")) return;
     say("Still loading. Give it a moment, or reload.");
     offerReload(splash);
   }, 8000);
@@ -167,6 +167,6 @@
         "doesn't finish, close MemoryMap completely and start it again."
     );
     var splash = document.getElementById("boot-splash");
-    if (splash && !splash.classList.contains("hidden")) offerReload(splash);
+    if (splash && !splash.classList.contains("boot-splash-leaving")) offerReload(splash);
   }, 12000);
 })();

@@ -3293,6 +3293,11 @@ button.answer-figure-open {
   display: flex;
   justify-content: center;
   margin-bottom: 0.6rem;
+  /* The mark is drawn by script once the lock screen shows (76px,
+     phone-shell.js); the room is kept before it, or the card grew by it
+     under the reader's eyes (INBOX 577: the lock card's 0.003 layout shift,
+     `scratchpad/ui-sweeps/smooth1005-boot.js`). */
+  min-block-size: 76px;
 }
 
 #about-emblem {

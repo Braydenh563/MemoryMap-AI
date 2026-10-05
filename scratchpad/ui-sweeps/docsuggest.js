@@ -1,125 +1,148 @@
-// Click an underlined word, get a popover of suggestions, press one, see the
-// word change. DOCUMENTS_PLAN Phase 0 item 2, and the owner's report against
-// it: "i still cant click on a grammar or misspeled underlined word and see a
-// popup like in a realworld editor like obsidian, word, notion, vs code."
+// The document editor's suggestions panel (`#doc-prose-panel`, INBOX 549:
+// "better redesign and restructure the document editor suggestions panel??
+// for both docks"). Seeds a document with a typo, a repeated word, a double
+// space, a long sentence and an image with no description, opens the panel
+// from the status bar's chip, and measures it docked at the bottom and on the
+// right, and from focus mode's dock, at 1440 and 390 (THEME=dark for dark):
+//   - the head: one row (every button centred on the title's line, also at
+//     the right dock's narrowest 240px), a 16px title with the count, the
+//     tools all one size, the X last, the Dictionary and the side in the ⋯;
+//   - every finding row on one recipe: the kind mark, the words over the
+//     reason, its actions at the right, all rows' text on one left edge, no
+//     row wider than the panel;
+//   - opening a row shows its answers in place;
+//   - the empty state: one quiet line under the same head;
+//   - nothing scrolls sideways.
 //
-// This file exists because that report and the code disagreed, and the plan's
-// entry for it ("the click target and its suggestion popover never landed")
-// was written without a browser. It had landed. Every number below is read
-// out of a running app, so the next session gets a measurement instead of a
-// third reading of the same source.
-//
-// What it checks, per view (Live and Source, which are the two views with an
-// editing surface):
-//   - each finding kind draws a mark with a pointer cursor and an underline,
-//   - one plain click on a mark opens `.doc-suggest-menu`,
-//   - the menu is anchored to the word and stays inside the viewport, at a
-//     comfortable width and against the right edge, where a 240px menu
-//     hung off `anchor.left` would otherwise run off screen,
-//   - pressing the first suggestion changes the document text, and
-//   - Alt+Enter (VS Code's gesture) opens the same menu from the keyboard.
-//
-//   BASE=http://127.0.0.1:8830 node scratchpad/ui-sweeps/docsuggest.js
+//   BASE=http://127.0.0.1:8810 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
+//     node scratchpad/ui-sweeps/docsuggest.js
 const { boot } = require('./lib.js');
-const { openDoc } = require('./docopen.js');
 
-// One of each kind the underline draws: a repeat (dotted), a spelling (wavy
-// red) and a spacing slip (wavy blue). `long-sentence` is deliberately not
-// underlined (DOC_FINDING_SKIP) and so is not expected here.
-const BODY = 'The the cat sat teh mat , here.';
-// A word pushed to the right edge, so the menu has to flip rather than run off.
-const EDGE = '\n\n' + 'filler '.repeat(28) + 'recieve';
+const DOC = '# Suggestions\n\nThis sentance has a typo. It it repeats a word and has two  spaces.\n\n' +
+  'This is a very long sentence that keeps going on and on with clause after clause and word after word until it is far longer than any reader would like it to be in one breath without a pause.\n\n' +
+  '![](picture.png)\n\n' + 'A line of text to fill the page.\n'.repeat(12);
+
+let fails = 0;
+const check = (name, ok, detail) => {
+  if (!ok) fails += 1;
+  console.log(ok ? 'ok  ' : 'FAIL', name, ok ? '' : JSON.stringify(detail));
+};
+
+const measure = (page) => page.evaluate(() => {
+  const panel = document.getElementById('doc-prose-panel');
+  const r = (el) => { const b = el.getBoundingClientRect(); return [b.left, b.top, b.width, b.height].map(Math.round); };
+  const head = panel.querySelector('.doc-prose-head');
+  const title = head?.querySelector('.doc-prose-title');
+  const tools = head ? [...head.querySelectorAll('button')].filter((b) => b.getBoundingClientRect().height > 0) : [];
+  const rows = [...panel.querySelectorAll('.doc-prose-row')];
+  const textLeft = rows.map((row) => Math.round((row.querySelector('.doc-finding-words') || row.querySelector('.doc-prose-jump')).getBoundingClientRect().left));
+  return {
+    panel: r(panel),
+    side: panel.classList.contains('doc-prose-right') ? 'right' : 'bottom',
+    head: head && r(head),
+    headTops: (() => { if (!title) return 0; const c = (e) => e.getBoundingClientRect().top + e.getBoundingClientRect().height / 2; const t = c(title); return tools.every((b) => Math.abs(c(b) - t) <= 2) ? 1 : 2; })(),
+    titleSize: title && getComputedStyle(title).fontSize,
+    countClear: (() => { const c = head?.querySelector('.doc-prose-count'); const t = tools[0]; return !c || !c.textContent || !t || c.getBoundingClientRect().right <= t.getBoundingClientRect().left; })(),
+    title: title?.textContent,
+    tools: tools.map((b) => [b.getAttribute('aria-label') || b.textContent.trim(), Math.round(b.getBoundingClientRect().height)]),
+    lastTool: tools[tools.length - 1]?.getAttribute('aria-label'),
+    groups: [...panel.querySelectorAll('.doc-prose-group')].map((g) => g.textContent.trim()),
+    rows: rows.length,
+    rowHeights: rows.map((row) => Math.round(row.getBoundingClientRect().height)),
+    textLefts: [...new Set(textLeft)],
+    actions: rows.map((row) => row.querySelectorAll('.doc-prose-act').length),
+    lastAct: rows.map((row) => [...row.querySelectorAll('.doc-prose-act')].pop()?.getAttribute('aria-label')),
+    toolsW: tools.map((b) => Math.round(b.getBoundingClientRect().width)),
+    wide: rows.filter((row) => row.scrollWidth > row.clientWidth + 1).length,
+    panelOverflowX: panel.scrollWidth > panel.clientWidth + 1,
+    pageOverflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    empty: panel.querySelector('.doc-prose-empty')?.textContent || null,
+  };
+});
+
+async function openDoc(page, content, title) {
+  await page.evaluate(() => switchTab('documents'));
+  await page.waitForTimeout(1500);
+  await page.evaluate(async ([c, t]) => {
+    const list = await apiJson('/documents');
+    const found = (Array.isArray(list) ? list : list.items || list.documents || []).find((d) => d.title === t);
+    const id = found ? found.id : (await apiJson('/documents', { method: 'POST', body: JSON.stringify({ title: t, content: c, file_type: 'md' }) })).id;
+    await loadDocuments(id);
+  }, [content, title]);
+  await page.waitForTimeout(1500);
+}
+
+async function openPanel(page, from) {
+  await page.evaluate((id) => {
+    const p = document.getElementById('doc-prose-panel');
+    if (p.classList.contains('hidden')) document.getElementById(id).click();
+  }, from);
+  await page.waitForTimeout(500);
+}
 
 (async () => {
-  const { browser, page } = await boot();
-  const say = (k, v) => console.log(`${k}: ${JSON.stringify(v)}`);
-  let bad = 0;
-  const fail = (m) => { console.log('FAIL: ' + m); bad++; };
-
-  await openDoc(page, { title: 'Suggestions', content: BODY + EDGE });
-  await page.waitForTimeout(1200);
-
-  const menuState = () => page.evaluate(() => {
-    const p = document.querySelector('.doc-suggest-menu');
-    if (!p) return { present: false };
-    if (p.classList.contains('hidden')) return { present: true, open: false };
-    const r = p.getBoundingClientRect();
-    return {
-      present: true, open: true,
-      x: +r.x.toFixed(1), y: +r.y.toFixed(1), w: +r.width.toFixed(1), h: +r.height.toFixed(1),
-      right: +r.right.toFixed(1), bottom: +r.bottom.toFixed(1),
-      inViewport: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
-      items: [...p.querySelectorAll('.doc-suggest-item')].map((i) => i.textContent.trim().slice(0, 26)),
-    };
-  });
-
-  for (const view of ['live', 'source']) {
-    await page.evaluate((v) => setDocView(v), view);
-    await page.waitForTimeout(800);
-
-    const marks = await page.evaluate(() => [...document.querySelectorAll('#doc-editor [data-doc-finding]')].map((e) => {
-      const c = getComputedStyle(e);
-      return { kind: e.className.replace('cm-finding ', ''), text: e.textContent.slice(0, 12), cursor: c.cursor, underlined: c.textDecorationLine.includes('underline') };
-    }));
-    say(`${view}_marks`, marks);
-    if (marks.length < 3) fail(`${view}: expected at least three underlines, got ${marks.length}`);
-    for (const m of marks) {
-      if (m.cursor !== 'pointer') fail(`${view}: "${m.text}" does not say it is clickable (cursor ${m.cursor})`);
-      if (!m.underlined) fail(`${view}: "${m.text}" carries no underline`);
-    }
-
-    // One plain click on each mark opens the menu, anchored and on screen.
-    const n = marks.length;
-    for (let i = 0; i < n; i++) {
-      const at = await page.evaluate((i) => {
-        const e = document.querySelectorAll('#doc-editor [data-doc-finding]')[i];
-        if (!e) return null;
-        const r = e.getBoundingClientRect();
-        if (!r.width) return null;
-        return { x: r.x + Math.min(6, r.width / 2), y: r.y + r.height / 2, left: +r.left.toFixed(1), bottom: +r.bottom.toFixed(1), text: e.textContent.slice(0, 12) };
-      }, i);
-      if (!at) continue;
-      await page.mouse.click(at.x, at.y);
+  const theme = process.env.THEME || 'light';
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    const w = viewport.width;
+    const { browser, page, OUT } = await boot({ viewport });
+    await page.evaluate(() => { localStorage.removeItem('docProseDock'); localStorage.removeItem('docProseWidth'); });
+    await openDoc(page, DOC, 'Suggestions');
+    const sides = w > 720 ? ['bottom', 'right'] : ['bottom'];
+    for (const side of sides) {
+      await page.evaluate((s) => { localStorage.setItem('docProseDock', s); applyDocProseDock(); }, side);
+      await openPanel(page, 'doc-prose');
+      const m = await measure(page);
+      console.log(`     ${w} ${theme} ${side}:`, JSON.stringify(m));
+      await page.screenshot({ path: `${OUT}/docsuggest-${side}-${w}-${theme}.png` });
+      check(`${w} ${theme} ${side}: the head is one row, a 16px title, the X last`, m.headTops === 1 && m.titleSize === '16px' && /Close/.test(m.lastTool || ''), m);
+      check(`${w} ${theme} ${side}: the tools are one height`, new Set(m.tools.map((t) => t[1])).size === 1, m.tools);
+      check(`${w} ${theme} ${side}: rows on one left edge, none too wide, nothing sideways`, m.rows >= 4 && m.textLefts.length === 1 && m.wide === 0 && !m.panelOverflowX && !m.pageOverflowX, m);
+      check(`${w} ${theme} ${side}: every row ends with its way to put it away`, m.actions.every((n) => n >= 1) && m.lastAct.every((l) => /Ignore|Dismiss/.test(l || '')), m);
+      // A row opens its answers in place.
+      await page.click('#doc-prose-panel .doc-prose-jump');
       await page.waitForTimeout(400);
-      const menu = await menuState();
-      say(`${view}_click_${JSON.stringify(at.text)}`, menu);
-      if (!menu.open) { fail(`${view}: clicking "${at.text}" opened no menu`); continue; }
-      if (!menu.inViewport) fail(`${view}: the menu for "${at.text}" is outside the viewport`);
-      if (!menu.items.length) fail(`${view}: the menu for "${at.text}" offers nothing`);
-      await page.keyboard.press('Escape');
+      const open = await page.evaluate(() => {
+        const a = document.querySelector('#doc-prose-panel .doc-prose-answers:not(.hidden)');
+        return a ? { buttons: a.querySelectorAll('button').length, inside: a.getBoundingClientRect().right <= document.getElementById('doc-prose-panel').getBoundingClientRect().right + 1 } : null;
+      });
+      check(`${w} ${theme} ${side}: a row opens its answers in place`, open && open.buttons >= 1 && open.inside, open);
+      await page.screenshot({ path: `${OUT}/docsuggest-${side}-open-${w}-${theme}.png` });
+      if (side === 'right') {
+        // INBOX 552: the head is one row at the panel's narrowest (240px).
+        await page.evaluate(() => docProseApplyWidth(DOC_PROSE_WIDTH_MIN));
+        await page.waitForTimeout(300);
+        const n = await measure(page);
+        console.log(`     ${w} ${theme} right at 240:`, JSON.stringify({ panel: n.panel, head: n.head, tools: n.tools, toolsW: n.toolsW }));
+        await page.screenshot({ path: `${OUT}/docsuggest-right240-${w}-${theme}.png` });
+        check(`${w} ${theme} right at 240px: the head is one row, every button on the title's line`, n.panel[2] <= 241 && n.headTops === 1 && n.countClear && /Close/.test(n.lastTool || '') && !n.panelOverflowX, n);
+        await page.evaluate(() => docProseApplyWidth(DOC_PROSE_WIDTH_DEFAULT));
+        // The ⋯ holds the Dictionary and the side.
+        const items = await page.evaluate(() => document.querySelector('#doc-prose-panel .doc-prose-more')?.rowMenu?.items.map((i) => i.title));
+        check(`${w} ${theme} right: the ⋯ holds Check with AI, the Dictionary and the side`, items && items.length === 3, items);
+      }
+      await page.evaluate(() => closeDocProsePanel());
       await page.waitForTimeout(200);
     }
+    // Focus mode's dock opens the same panel.
+    await page.evaluate(() => { localStorage.setItem('docProseDock', 'bottom'); applyDocProseDock(); });
+    await page.evaluate(() => toggleDocFocus(true));
+    await page.waitForTimeout(700);
+    await openPanel(page, 'doc-focus-prose');
+    const f = await measure(page);
+    console.log(`     ${w} ${theme} focus:`, JSON.stringify(f));
+    await page.screenshot({ path: `${OUT}/docsuggest-focus-${w}-${theme}.png` });
+    check(`${w} ${theme} focus: the same head and rows`, f.headTops === 1 && f.titleSize === '16px' && f.rows >= 4 && f.textLefts.length === 1 && f.wide === 0 && !f.pageOverflowX, f);
+    await page.evaluate(() => { closeDocProsePanel(); toggleDocFocus(false); });
+    await page.waitForTimeout(400);
+    // The empty state.
+    await openDoc(page, '# Clean\n\nA short clean line.\n', 'Clean');
+    await openPanel(page, 'doc-prose');
+    const e = await measure(page);
+    console.log(`     ${w} ${theme} empty:`, JSON.stringify(e));
+    await page.screenshot({ path: `${OUT}/docsuggest-empty-${w}-${theme}.png` });
+    check(`${w} ${theme} empty: the same head, one quiet line`, e.headTops === 1 && e.titleSize === '16px' && e.rows === 0 && !!e.empty && !e.pageOverflowX, e);
+    await browser.close();
   }
-
-  // Pressing a suggestion changes the text.
-  await page.evaluate(() => setDocView('live'));
-  await page.waitForTimeout(700);
-  const before = await page.evaluate(() => docSurface().text.slice(0, 32));
-  await page.evaluate(() => {
-    const e = [...document.querySelectorAll('#doc-editor [data-doc-finding]')].find((x) => x.textContent === 'teh');
-    const r = e.getBoundingClientRect();
-    window.__at = { x: r.x + r.width / 2, y: r.y + r.height / 2 };
-  });
-  const at = await page.evaluate(() => window.__at);
-  await page.mouse.click(at.x, at.y);
-  await page.waitForTimeout(500);
-  await page.evaluate(() => document.querySelector('.doc-suggest-menu .doc-suggest-item')?.click());
-  await page.waitForTimeout(700);
-  const after = await page.evaluate(() => docSurface().text.slice(0, 32));
-  say('apply', { before, after });
-  if (before === after) fail('pressing the first suggestion changed nothing');
-  if (!after.includes('the mat')) fail(`the replacement did not land: ${JSON.stringify(after)}`);
-
-  // Alt+Enter opens the same menu with no pointer at all.
-  await page.evaluate(() => { const s = docSurface(); s.focus(); s.setSelection(1, 1); });
-  await page.waitForTimeout(300);
-  await page.keyboard.press('Alt+Enter');
-  await page.waitForTimeout(500);
-  const kb = await menuState();
-  say('alt_enter', kb);
-  if (!kb.open) fail('Alt+Enter opened no menu');
-
-  console.log(bad ? `docsuggest: ${bad} failures` : 'docsuggest: all checks pass');
-  await browser.close();
-  process.exit(bad ? 1 : 0);
+  console.log(fails ? `${fails} failing` : 'all ok');
+  process.exit(fails ? 1 : 0);
 })();

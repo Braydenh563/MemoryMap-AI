@@ -14149,68 +14149,78 @@ function docFindingKind(finding) {
 }
 
 
-//: One header for both states of the panel: what it is, what can be done to
-//: all of it at once, and the way out.
+//: **One head for both states of the panel** (INBOX 549 and 552, the
+//: panel-head recipe): the name and its count as quiet text, then one row of
+//: quiet icon buttons of one size, the X last, never wrapping: the panel is
+//: 240px at its narrowest. Fix N is the one worded tool (its number is what
+//: it says) and drops its words in a narrow panel; the Dictionary and the
+//: dock side are in the ⋯, which also holds Check with AI for the width
+//: where its own icon gives way.
 function docProseHeader() {
   const head = document.createElement("div");
   head.className = "row doc-prose-head";
-  const title = document.createElement("strong");
+  const title = document.createElement("span");
   title.className = "doc-prose-title";
-  title.textContent = docProseFound.length
-    ? `${docProseFound.length} suggestion${docProseFound.length === 1 ? "" : "s"}`
-    : "Writing suggestions";
+  //: The name gives way (an ellipsis); the count beside it never does.
+  const name = document.createElement("span");
+  name.className = "doc-prose-name";
+  name.textContent = "Suggestions";
+  title.appendChild(name);
+  const n = docProseFound.length;
+  const count = document.createElement("span");
+  count.className = "doc-prose-count";
+  count.textContent = n ? String(n) : "";
+  count.title = `${n} suggestion${n === 1 ? "" : "s"} in this document`;
+  title.appendChild(count);
   head.appendChild(title);
 
   const tools = document.createElement("span");
   tools.className = "row doc-prose-tools";
+  const tool = (label, title, run, extra) => {
+    const button = smallButton(label, title, run);
+    button.classList.add("doc-prose-tool", ...extra.split(" "));
+    button.setAttribute("aria-label", title);
+    return button;
+  };
   //: A model's fix is a judgement to read, never one of "every suggestion that
   //: has one clear answer", so Fix all leaves the `ai` kind alone.
   const fixable = docProseFound.filter((f) => f.replacement !== null && f.rule !== "ai");
   if (fixable.length) {
-    const all = document.createElement("button");
-    all.type = "button";
-    all.className = "ghost small doc-prose-fix-all";
-    setLabel(all, `ph:magic-wand Fix ${fixable.length}`);
-    all.title = "Apply every suggestion that has one clear answer";
-    all.addEventListener("click", () => docProseFixAll());
+    const all = tool(`ph:magic-wand Fix ${fixable.length}`, `Fix ${fixable.length}: apply every suggestion that has one clear answer`, () => docProseFixAll(), "doc-prose-fix-all");
     tools.appendChild(all);
   }
-  //: **The rules stop at the sentence's own shape: meaning needs a model.**
-  //: ROADMAP.md names the gap directly: no its/it's, no subject-verb
-  //: agreement, no tense consistency, because every one of those needs to
-  //: understand what the sentence is *saying*, not just how it is spelled or
-  //: spaced. That is exactly what the local model is for, and exactly why this
-  //: is a button rather than a background pass: judging meaning takes seconds,
-  //: not milliseconds, and a check that ran on every keystroke would turn this
-  //: editor into one that visibly stutters while you type. On request, it
-  //: costs nothing until asked for; as a pass, it would cost something on
-  //: every single character.
+  //: **Meaning needs a model** (ROADMAP: its/it's, agreement, tense), and
+  //: judging it takes seconds, so it is a button rather than a pass on every
+  //: keystroke: it costs nothing until asked for.
   const running = docAiCheck.state === "running";
-  const aiReview = smallButton(
-    running ? "ph:stop Stop" : "ph:sparkle Check with AI",
+  tools.appendChild(tool(
+    running ? "ph:stop" : "ph:sparkle",
     running
       ? "Stop checking; what it found so far stays"
-      : "Ask the model to read for what spelling and grammar rules can't catch: its/it's, agreement, tense, tone, clarity. Findings appear here",
-    () => docAiReview()
-  );
-  aiReview.classList.add("doc-prose-ai-run");
-  tools.appendChild(aiReview);
-  //: The dictionary is reachable from the thing that uses it. A word list you
-  //: can add to and never see again is a list nobody trusts.
-  const dict = smallButton("ph:book-open-text Dictionary", "Words you have told this to accept", () =>
-    openDocDictionary()
-  );
-  tools.appendChild(dict);
-  //: Where the panel sits, bottom or right (`applyDocProseDock`), beside the
-  //: way out: both are about the panel itself rather than its findings.
-  const dock = smallButton("ph:square-split-horizontal", "Dock the suggestions on the right", () => toggleDocProseDock());
-  dock.classList.add("icon-only", "doc-prose-dock");
-  docProseDockLabel(dock, docProseDockSide() === "right");
-  tools.appendChild(dock);
-  const close = smallButton("ph:x", "Close the suggestions", () => closeDocProsePanel());
-  close.classList.add("icon-only", "doc-prose-close");
-  close.setAttribute("aria-label", "Close the suggestions");
-  tools.appendChild(close);
+      : "Check with AI: read for what spelling and grammar rules can't catch (its/it's, agreement, tense, tone, clarity)",
+    () => docAiReview(),
+    "icon-only doc-prose-ai-run"
+  ));
+  const right = docProseDockSide() === "right";
+  const more = kebabMenu([
+    makeMenuItem("ph:sparkle Check with AI", "Read for what the rules can't catch", () => docAiReview()),
+    makeMenuItem("ph:book-open-text Dictionary", "The words you have told this to accept", () => openDocDictionary()),
+    //: Where the panel sits (`applyDocProseDock`); not offered where there is
+    //: no choice (a narrow window, focus mode's side panel).
+    ...(window.matchMedia(DOC_PROSE_NARROW).matches || docFocusOn() ? [] : [
+      makeMenuItem(
+        right ? "ph:square-split-vertical Dock at the bottom" : "ph:square-split-horizontal Dock on the right",
+        right ? "Dock the suggestions at the bottom" : "Dock the suggestions on the right",
+        () => toggleDocProseDock()
+      ),
+    ]),
+  ], "More for the suggestions");
+  more.classList.add("doc-prose-more");
+  const opener = more.querySelector("button");
+  opener.classList.add("doc-prose-tool");
+  opener.setAttribute("aria-label", "More for the suggestions");
+  tools.appendChild(more);
+  tools.appendChild(tool("ph:x", "Close the suggestions", () => closeDocProsePanel(), "icon-only doc-prose-close"));
   head.appendChild(tools);
   return head;
 }
@@ -14253,12 +14263,18 @@ function renderDocProsePanel() {
   if (!docProseFound.length) {
     panel.appendChild(docProseHeader());
     if (aiStatus) panel.appendChild(aiStatus);
-    const empty = document.createElement("p");
-    empty.className = "muted doc-prose-empty";
-    empty.textContent =
-      docGrammarEnabled()
-        ? "Nothing to flag. These checks are spelling, grammar, spacing, sentence length and accessibility, they read the text, not its meaning."
-        : "Nothing to flag. These checks are spelling, spacing, sentence length and accessibility, they read the text, not its meaning.";
+    //: Quiet: a mark, one line, and what was checked under it.
+    const empty = document.createElement("div");
+    empty.className = "doc-prose-empty";
+    const mark = document.createElement("i");
+    mark.className = "ph ph-check-circle doc-prose-empty-mark";
+    mark.setAttribute("aria-hidden", "true");
+    const said = document.createElement("p");
+    said.textContent = "Nothing to flag.";
+    const what = document.createElement("p");
+    what.className = "muted";
+    what.textContent = `Checked for spelling, ${docGrammarEnabled() ? "grammar, " : ""}spacing, sentence length and accessibility; these read the text, not its meaning.`;
+    empty.append(mark, said, what);
     panel.appendChild(empty);
     return;
   }
@@ -14286,6 +14302,15 @@ function renderDocProsePanel() {
     heading.append(name, count);
     panel.appendChild(heading);
     panel.appendChild(docProseGroupList(group));
+  }
+  if (!panel.dataset.keys) {
+    panel.dataset.keys = "1";
+    panel.addEventListener("keydown", docProseRowKeys);
+  }
+  if (docProseFocusAt >= 0) {
+    const jumps = panel.querySelectorAll(".doc-prose-jump");
+    (jumps[Math.min(docProseFocusAt, jumps.length - 1)] || panel.querySelector(".doc-prose-close"))?.focus({ preventScroll: true });
+    docProseFocusAt = -1;
   }
 }
 
@@ -14419,6 +14444,29 @@ function docProseRowAnswers(row, control, finding, opts = {}) {
   if (first) first.focus();
 }
 
+//: Stop flagging this wording in this document (until a restart).
+function docProseIgnore(finding) {
+  docProseIgnored.add(docProseKey(finding));
+  renderDocProse();
+  renderDocProsePanel();
+}
+
+//: **Next, without a key for it**: after a row's Accept or Ignore the focus
+//: lands on the row that took its place, so the keyboard walks the list
+//: answer by answer. Set by the row's action, spent by the next paint.
+let docProseFocusAt = -1;
+
+//: Up and Down walk the rows across the groups, Home and End the ends.
+function docProseRowKeys(event) {
+  const jump = event.target.closest?.(".doc-prose-jump");
+  const moves = { ArrowDown: 1, ArrowUp: -1, Home: -Infinity, End: Infinity };
+  if (!jump || !(event.key in moves)) return;
+  event.preventDefault();
+  const all = [...event.currentTarget.querySelectorAll(".doc-prose-jump")];
+  const to = Math.max(0, Math.min(all.length - 1, all.indexOf(jump) + moves[event.key]));
+  all[to]?.focus();
+}
+
 function docProseGroupList(findings) {
   const list = document.createElement("ul");
   list.className = "doc-prose-list";
@@ -14440,29 +14488,27 @@ function docProseGroupList(findings) {
     jump.addEventListener("click", (event) =>
       docProseRowAnswers(li, jump, finding, { keyboard: event.detail === 0 }));
     head.appendChild(jump);
+    //: **One action cell per row** (INBOX 549): accept when there is one clear
+    //: answer, then the way to put it away, last on every row: Ignore, or for
+    //: a model's finding, Dismiss. Quiet icons of one size, centred on the row.
+    const acts = document.createElement("span");
+    acts.className = "doc-prose-acts";
+    const act = (icon, title, run, extra = "") => {
+      const button = smallButton(icon, title, () => {
+        docProseFocusAt = [...$("doc-prose-panel").querySelectorAll(".doc-prose-jump")].indexOf(jump);
+        run();
+      });
+      button.classList.add("icon-only", "doc-prose-act", ...extra.split(" ").filter(Boolean));
+      button.setAttribute("aria-label", title);
+      return button;
+    };
     if (finding.replacement !== null) {
-      const fix = document.createElement("button");
-      fix.type = "button";
-      fix.className = "ghost small doc-prose-fix";
-      setLabel(fix, "ph:check");
-      fix.title = `Change it to \u201c${finding.replacement}\u201d`;
-      fix.setAttribute("aria-label", fix.title);
-      fix.addEventListener("click", () => docProseFix(finding));
-      head.appendChild(fix);
+      acts.appendChild(act("ph:check", `Change it to \u201c${finding.replacement}\u201d`, () => docProseFix(finding), "doc-prose-fix"));
     }
-    //: A model's finding can be wrong, so it can be put away: Dismiss takes it
-    //: out of this check's list (Ignore, in the answers, is the standing
-    //: "never flag this wording here").
-    if (finding.rule === "ai") {
-      const dismiss = document.createElement("button");
-      dismiss.type = "button";
-      dismiss.className = "ghost small doc-prose-fix doc-prose-dismiss";
-      setLabel(dismiss, "ph:x");
-      dismiss.title = "Dismiss this finding";
-      dismiss.setAttribute("aria-label", dismiss.title);
-      dismiss.addEventListener("click", () => docAiDismiss(finding));
-      head.appendChild(dismiss);
-    }
+    acts.appendChild(finding.rule === "ai"
+      ? act("ph:x", "Dismiss this finding", () => docAiDismiss(finding), "doc-prose-fix doc-prose-dismiss")
+      : act("ph:eye-slash", "Ignore in this document", () => docProseIgnore(finding), "doc-prose-ignore"));
+    head.appendChild(acts);
     li.appendChild(head);
     const answers = document.createElement("div");
     answers.className = "doc-prose-answers hidden";
@@ -15699,16 +15745,9 @@ function applyDocProseDock() {
   }
   panes.classList.toggle("doc-prose-right", right);
   panel.classList.toggle("doc-prose-right", right);
-  const toggle = panel.querySelector(".doc-prose-dock");
-  if (toggle) docProseDockLabel(toggle, right);
-}
-
-function docProseDockLabel(button, right) {
-  const words = right ? "Dock the suggestions at the bottom" : "Dock the suggestions on the right";
-  setLabel(button, right ? "ph:square-split-vertical" : "ph:square-split-horizontal");
-  button.title = words;
-  button.setAttribute("aria-label", words);
-  button.setAttribute("aria-pressed", String(right));
+  //: The ⋯ names the side it would move to, so its head is drawn again (the
+  //: head only: an open row and the scroll survive the move).
+  panel.querySelector(".doc-prose-head")?.replaceWith(docProseHeader());
 }
 
 function toggleDocProseDock() {
@@ -15719,9 +15758,9 @@ function toggleDocProseDock() {
     /* private mode: it moves for this session only */
   }
   applyDocProseDock();
-  //: Focus stays on the toggle, which moved with the panel: the press that
-  //: moved it should not lose the reader's place.
-  $("doc-prose-panel")?.querySelector(".doc-prose-dock")?.focus();
+  //: Focus goes to the ⋯ the move was chosen from, which moved with the
+  //: panel: the press that moved it should not lose the reader's place.
+  $("doc-prose-panel")?.querySelector(".doc-prose-more button")?.focus();
 }
 
 window.matchMedia(DOC_PROSE_NARROW).addEventListener("change", applyDocProseDock);
@@ -16245,7 +16284,10 @@ function docSuggestAnswers(finding, opts = {}) {
     const add = document.createElement("button");
     add.type = "button";
     add.className = "doc-suggest-item";
-    setLabel(add, `ph:book-open-text Add \u201c${finding.text}\u201d to dictionary`);
+    //: Short (INBOX 552): the word is the heading above it, and "Add
+    //: \u201cword\u201d to dictionary" wrapped onto two lines in a narrow panel.
+    setLabel(add, "ph:book-open-text Add to dictionary");
+    add.title = `Add \u201c${finding.text}\u201d to the dictionary`;
     add.addEventListener("click", async () => {
       close();
       await docDictionaryAdd(finding.text);
@@ -16258,10 +16300,8 @@ function docSuggestAnswers(finding, opts = {}) {
   setLabel(ignore, "ph:eye-slash Ignore in this document");
   ignore.title = "Stop flagging this wording in this document until MemoryMap is restarted";
   ignore.addEventListener("click", () => {
-    docProseIgnored.add(docProseKey(finding));
     close();
-    renderDocProse();
-    renderDocProsePanel();
+    docProseIgnore(finding);
   });
   actions.appendChild(ignore);
 

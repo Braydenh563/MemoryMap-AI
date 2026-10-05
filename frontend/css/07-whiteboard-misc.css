@@ -7712,8 +7712,7 @@ button.connection-row {
 
 /* Neither the grip nor the bottom/right choice means anything while the
    panel is this side panel, so neither is offered. */
-#tab-documents.doc-focus .doc-prose-resize,
-#tab-documents.doc-focus .doc-prose-panel .doc-prose-dock {
+#tab-documents.doc-focus .doc-prose-resize {
   display: none;
 }
 

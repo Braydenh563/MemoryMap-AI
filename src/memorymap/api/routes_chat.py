@@ -708,7 +708,17 @@ def _grounding_candidates(
     and a note id share a number space in the citation UI, which opens the
     *note* with that id.
     """
-    rows = [note for note in notes if note.get("id") is not None]
+    #: A note's attached files count as what it says (INBOX 604, the owner:
+    #: "it didnt intext number reference the referenced notes??"). Two of
+    #: three sketches are one word and a picture: the answer described them
+    #: from their captions, which the prompt carries (`_files_on`), and the
+    #: grounding, reading `content` alone, found no note saying it.
+    rows = [
+        {**note, "content": f"{note.get('content') or ''}\n\n" + "\n".join(note["files"])}
+        if note.get("files") else note
+        for note in notes
+        if note.get("id") is not None
+    ]
     seen = {note["id"] for note in rows}
     for note_id in dict.fromkeys(touched_note_ids):
         if note_id in seen:

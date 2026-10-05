@@ -393,3 +393,26 @@
   min-height: 3.5rem;
   padding: var(--space-4) var(--space-6);
 }
+
+/* --- a sticker (MINDMAP_PLAN decision 44, INBOX 642) ----------------------
+   An emoji placed from the icon and emoji picker: a text object with no
+   card, its glyph centred and sized to the box (`wbStickerSize`). */
+.wb-object.wb-sticker {
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.wb-object.wb-sticker .wb-text-content {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 0;
+  overflow: visible;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", var(--font-sans);
+  line-height: 1;
+}
+
+.wb-object.wb-sticker:not(:hover, .wb-selected) .wb-object-grip {
+  opacity: 0;
+}

@@ -3702,6 +3702,11 @@ function wbPickStyle(source, keys) {
   return out;
 }
 
+//: A sticker's glyph size: most of its box's shorter side (decision 44).
+function wbStickerSize(obj) {
+  return Math.max(12, Math.round(Math.min(obj.width || 96, obj.height || 96) * 0.72));
+}
+
 function wbCopySelectedStyle() {
   //: A map topic's look (MINDMAP_PLAN.md decision 42): pasted onto topics
   //: only, refused on a shape the way a shape's is refused on a text box.
@@ -9164,7 +9169,10 @@ function wbBuildExportSvg(scope, { transparent = false } = {}) {
       //: And its number on a numbered map (decision 17), as the canvas
       //: draws it: after the box, before the label.
       const place = wbMapNumberOf(exportMapIndex, obj.id);
-      const lines = wbSvgWrapLines(box + (place ? `${place} ` : "") + wbMapLabel(obj), size.w - 28, 4, 7.5);
+      //: An emoji icon is a character, so it travels (decision 46); a
+      //: Phosphor one is the icon font's, which does not.
+      const icon = obj.data?.icon && !/^[a-z0-9-]+$/.test(obj.data.icon) ? `${obj.data.icon} ` : "";
+      const lines = wbSvgWrapLines(box + (place ? `${place} ` : "") + icon + wbMapLabel(obj), size.w - 28, 4, 7.5);
       //: In the map's own face when it has one (§13e's remainder): the file is
       //: the second place a map's text is drawn, and a serif map exported in
       //: sans-serif is two pictures of one map.
@@ -9172,6 +9180,13 @@ function wbBuildExportSvg(scope, { transparent = false } = {}) {
         fontSize: 14, fill: topicPaint?.ink || "#1f2430", lineHeight: 17,
         fontFamily: wbMapFontStack() || "sans-serif",
       }));
+    } else if (obj.kind === "text" && obj.data.sticker) {
+      //: A sticker exports as its glyph, centred, at the size it is drawn.
+      const size = wbStickerSize(obj);
+      parts.push(
+        `<text x="${obj.width / 2}" y="${obj.height / 2}" font-size="${size}" text-anchor="middle" ` +
+          `dominant-baseline="central">${wbSvgEscape(obj.data.content || "")}</text>`
+      );
     } else if (obj.kind === "text") {
       const fontSize = obj.data.font_size || 16;
       const lines = wbSvgWrapLines(obj.data.content || "", obj.width - 20, 20, fontSize * 0.55);
@@ -17866,12 +17881,16 @@ function renderWbObjects(canvas) {
     } else {
       el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
       const textEl = el.select(".wb-text-content");
+      //: **A sticker** (MINDMAP_PLAN.md decision 44): an emoji with no card,
+      //: its glyph sized to its box, so resizing it is resizing the emoji.
+      const sticker = Boolean(d.data.sticker);
+      el.classed("wb-sticker", sticker);
       //: A card with a fill and no ink of its own takes the ink that reads
       //: on that fill (`wbCoreInkFor`), not the theme's: a dark blue card in
       //: the light theme drew dark text on it (the owner at release, the
       //: README's board shot).
       textEl.style("color", d.data.color || (d.data.bg && wbCoreInkFor(d.data.bg)) || "")
-        .style("font-size", d.data.font_size ? `${d.data.font_size}px` : "")
+        .style("font-size", sticker ? `${wbStickerSize(d)}px` : d.data.font_size ? `${d.data.font_size}px` : "")
         .style("text-align", d.data.align || "")
         .style("font-weight", d.data.bold ? "700" : "")
         .style("font-style", d.data.italic ? "italic" : "");

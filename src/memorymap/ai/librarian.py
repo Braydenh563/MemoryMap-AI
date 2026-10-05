@@ -1331,15 +1331,3 @@ def filing_prompt(session, content: str, categories: list[str]) -> str:
         parts.append(note)
     parts.append(f"Note: {content}")
     return "\n".join(parts)
-
-
-def filing_prompt_for_test(session, category) -> str:
-    """The filing prompt a note being considered for `category` would get.
-
-    A seam, in the spirit of `core/events.exercise_for_test`: the property
-    worth pinning is *"a correction reaches the next prompt for that
-    category"*, and asserting it through a full janitor run would be asserting
-    the janitor's routing as well, which is a different test.
-    """
-    name = getattr(category, "name", category)
-    return filing_prompt(session, "(a note being filed)", [str(name)])

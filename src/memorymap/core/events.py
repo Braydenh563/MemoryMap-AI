@@ -25,17 +25,14 @@ Three things live here and nothing else does:
 `payload`. No second `events` table: two half-histories, each missing what
 the other recorded, is worse than one.
 
-This module deliberately imports nothing from `entry/` or `api/` at module
-level, and reaches `entry.manager` through `importlib` in the one place it
-needs to (`exercise_for_test`), for the reason `manager.record_dates`
-already states: CodeQL's py/cyclic-import flags the import statement
-itself, not only module-level ones.
+This module deliberately imports nothing from `entry/` or `api/`. The
+spec's per-write drivers, which do, live in `tests/_event_drivers.py`
+(audit 2026-10-05, ARCH-21: 150 lines of them shipped here).
 """
 from __future__ import annotations
 
 import contextlib
 import functools
-import importlib
 import json
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -99,7 +96,7 @@ def acting_as(actor: str):
 def suppressed():
     """Record nothing inside this block.
 
-    Test support, and used by `exercise_for_test` only: the spec counts rows
+    Test support, used by `tests/_event_drivers.py` only: the spec counts rows
     around one call, so the scaffolding that call needs (a second note to
     link to, a binned note to purge) must not write events of its own. Not
     for production code: an unrecorded change is exactly what this module
@@ -842,163 +839,3 @@ def undo(
     if apply:
         session.flush()
     return {"actor": actor, "since": since_id, "dry_run": not apply, "undone": undone, "items": items}
-
-
-# --- the spec's driver -------------------------------------------------------
-#
-# `tests/test_events.py` enumerates every public write function in
-# `entry/manager.py` by name prefix and asks this module to exercise each one.
-# The point is the day someone adds a new write: the enumeration finds it, no
-# driver is registered, and the test fails here with a message saying what to
-# do. A write that quietly records nothing is exactly what this catches, so
-# this table is not test scaffolding that could live in the test file: it is
-# the registration that makes "you cannot add a write and forget" true.
-
-
-def _scratch_entry(session: Session, content: str = "driver note") -> Entry:
-    """A throwaway note for a driver to act on, recorded by nobody."""
-    manager = importlib.import_module("memorymap.entry.manager")
-    with suppressed():
-        entry = manager.create_entry(session, content, tags=["driver"])
-    return entry
-
-
-def _drive_archive_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    manager.archive_entry(session, _scratch_entry(session))
-
-
-def _drive_create_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    with suppressed():
-        # So the category this note lands in already exists: creating it is
-        # part of the same event, but the test counts rows, and a category
-        # created here would make the count depend on what ran before.
-        manager.get_or_create_category(session, manager.UNCATEGORISED)
-    manager.create_entry(session, "a note the driver made", tags=[])
-
-
-def _drive_create_link(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    manager.create_link(session, entry, _scratch_entry(session, "link target"))
-
-
-def _document_for(session: Session):
-    from memorymap.core.database import Document
-
-    document = Document(title="driver document", content="")
-    session.add(document)
-    session.flush()
-    return document
-
-
-def _drive_link_document(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    manager.link_document(session, _document_for(session).id, entry.id)
-
-
-def _drive_unlink_document(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    document = _document_for(session)
-    with suppressed():
-        manager.link_document(session, document.id, entry.id)
-    manager.unlink_document(session, document.id, entry.id)
-
-
-def _drive_purge_entries(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    doomed = [_scratch_entry(session, "purge me"), _scratch_entry(session, "purge me too")]
-    with suppressed():
-        for one in doomed:
-            manager.soft_delete_entry(session, one)
-    manager.purge_entries(session, doomed)
-
-
-def _drive_purge_expired_deleted(session: Session, entry: Entry) -> None:
-    from datetime import timedelta
-
-    from memorymap.core.database import utcnow
-
-    manager = importlib.import_module("memorymap.entry.manager")
-    expired = _scratch_entry(session, "binned long ago")
-    with suppressed():
-        manager.soft_delete_entry(session, expired)
-        expired.deleted_at = utcnow() - timedelta(days=90)
-        session.commit()
-    manager.purge_expired_deleted(session, days=30)
-
-
-def _drive_record_dates(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    manager.record_dates(session, _scratch_entry(session, "the deadline is tomorrow"))
-
-
-def _drive_record_revision(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    manager.record_revision(session, _scratch_entry(session, "a version worth keeping"))
-
-
-def _drive_restore_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    binned = _scratch_entry(session, "back from the bin")
-    with suppressed():
-        manager.soft_delete_entry(session, binned)
-    manager.restore_entry(session, binned)
-
-
-def _drive_soft_delete_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    manager.soft_delete_entry(session, _scratch_entry(session, "into the bin"))
-
-
-def _drive_unarchive_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    archived = _scratch_entry(session, "out of the archive")
-    with suppressed():
-        manager.archive_entry(session, archived)
-    manager.unarchive_entry(session, archived)
-
-
-def _drive_record_filing(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    manager.record_filing(session, _scratch_entry(session), "Filed by the driver")
-
-
-def _drive_update_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
-    manager.update_entry(session, _scratch_entry(session), content="edited by the driver")
-
-
-_DRIVERS = {
-    "archive_entry": _drive_archive_entry,
-    "create_entry": _drive_create_entry,
-    "create_link": _drive_create_link,
-    "link_document": _drive_link_document,
-    "purge_entries": _drive_purge_entries,
-    "purge_expired_deleted": _drive_purge_expired_deleted,
-    "record_dates": _drive_record_dates,
-    "record_filing": _drive_record_filing,
-    "record_revision": _drive_record_revision,
-    "restore_entry": _drive_restore_entry,
-    "soft_delete_entry": _drive_soft_delete_entry,
-    "unarchive_entry": _drive_unarchive_entry,
-    "unlink_document": _drive_unlink_document,
-    "update_entry": _drive_update_entry,
-}
-
-
-def exercise_for_test(session: Session, name: str, entry: Entry) -> None:
-    """Call one manager write the way the spec needs it called.
-
-    Each driver sets up whatever that write needs with events suppressed, so
-    the one event the test counts is the write's own.
-    """
-    driver = _DRIVERS.get(name)
-    if driver is None:
-        raise NotImplementedError(
-            f"{name} is a public write in entry/manager.py with no driver in "
-            "core/events.py. Make it record exactly one event (wrap it in "
-            "@events.writes and give its log_action a whole-field payload), "
-            "then register a driver for it in _DRIVERS."
-        )
-    driver(session, entry)

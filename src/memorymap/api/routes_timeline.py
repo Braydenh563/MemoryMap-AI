@@ -76,19 +76,6 @@ def _clip(text: str, limit: int = PREVIEW_CHARS) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
-def _encode_cursor(at: datetime, entry_id: int) -> str:
-    """`created_at|id`, base64url.
-
-    Opaque on purpose, and URL-safe by construction rather than by everyone who
-    builds a link remembering to encode it: the plain form ends in a `+00:00`
-    offset for any row saved with a timezone, and a `+` in a query string is a
-    space by the time it reaches here. That is a 422 on the second page of a
-    notebook and on nothing else, which is exactly the kind of fault that gets
-    found in a week rather than in a test.
-    """
-    return base64.urlsafe_b64encode(f"{at.isoformat()}|{entry_id}".encode()).decode()
-
-
 def _decode_cursor(cursor: str) -> str:
     return base64.urlsafe_b64decode(cursor.encode()).decode()
 

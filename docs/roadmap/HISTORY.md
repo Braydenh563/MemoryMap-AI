@@ -40520,3 +40520,17 @@ plan's item 6 decided on, and it fits the budget as it is.
      branch dropped on a folded topic went under the fold; the target now
      opens. `boardundo.js` 43/43, `docundo.js` 8/8.
 
+560. **The owner, 2026-10-05, verbatim.** "the borders and stufff look
+     awkward and wierd" (scratchpad/inbox560-composer.png: the capture
+     composer with the note box's own focus ring drawn a hair inside the
+     composer's border). Fixed (2026-10-05): the note surface inside the
+     composer gives up its own edge and ring, and the composer's edge takes
+     the focus in the accent (`:has`), as the Ask composer does.
+     composerring.js 8/8 (light, dark, 1440, 390).
+562. **The owner, 2026-10-05, verbatim.** "the x button on this isnt properly
+     spaced" (screenshot: the board's gesture hints strip, its X crammed at
+     the end). Fixed (2026-10-05): the hints are wider than the pill, so the
+     row scrolled and the X sat 1px past the edge; it is now pinned at the
+     end after a hairline, inset 10px against the first hint's 9px.
+     wbgestureclose.js 8/8.
+

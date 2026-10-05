@@ -9,6 +9,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Notes, Capture: the composer is one box; the note editor inside no longer draws its own border and focus ring a hair inside the composer's, and the composer's edge carries the focus (INBOX 560).
+- Boards: the gesture hints' close button is pinned at the strip's end after a divider, whole and evenly inset, instead of clipped past the edge (INBOX 562).
 - Notes, Questions: Read notes now finds the questions your notes ask at once (the night pass, which otherwise runs only with background tasks on); the empty line says so (INBOX 551).
 - Whiteboard: right-click a frame's title, Export this frame…, to export the frame and everything inside it (locked items too) as a picture, PDF or SVG. A frame inside another moves with it.
 - Mind maps: View, Present branches shows a map full screen one branch at a time: the whole map first, then each branch fitted to the screen, with the same bar and keys as a board's Present frames (arrows, Space, Home, End; Escape puts everything back).

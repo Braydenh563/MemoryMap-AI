@@ -3652,18 +3652,37 @@ dialog::backdrop {
   margin: 0;
 }
 
-/* **The ring stays, drawn one step inside.** `.ask-composer` moves the focus
-   ring onto the shell because it holds one field; this holds two, and a ring
-   on the shell could not say which of them has the caret. So each field keeps
-   the app's one `:focus-visible` ring and only its offset changes, from the
-   base rule's 2px outside (which would straddle the surface's own border) to
-   2px inside it. */
+/* **The ring is the surface's, not the field's** (INBOX 560, the owner:
+   "the borders and stufff look awkward and wierd"). Each field used to keep
+   its own ring 2px inside the surface's border, so a focused note box drew a
+   second rounded rectangle a hair inside the first, a box in a box. The
+   surface now takes the focus, as `.ask-composer` does: its edge turns the
+   accent and thickens by an inset pixel, and the caret says which field has
+   it. Only a field's own keyboard focus does this (`:focus-visible`), so a
+   press on a toolbar button inside keeps that button's own ring. */
 .note-composer > input:focus-visible,
 .note-composer > textarea:focus-visible,
 .note-composer > .gutter-wrap > textarea:focus-visible,
 .note-composer > .entry-preview:focus-visible {
-  outline-offset: -2px;
-  border-radius: var(--radius-md);
+  outline: none;
+}
+
+/* The rich editor (`.note-surface`, mounted over the note box) is the
+   field here, so it gives up its own edge and ring the same way. */
+.note-composer .note-surface {
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.note-composer .note-surface:focus-within {
+  outline: none;
+}
+
+.note-composer:has(.note-surface:focus-within),
+.note-composer:has(> input:focus-visible, > textarea:focus-visible, > .gutter-wrap > textarea:focus-visible, > .entry-preview:focus-visible) {
+  border-color: var(--accent-text);
+  box-shadow: inset 0 0 0 1px var(--accent-text);
 }
 
 /* The title line: a control height like every other field, with the strip's
@@ -7646,6 +7665,28 @@ button.connection-row {
 
 .wb-gestures kbd {
   font-family: var(--mono, ui-monospace, monospace);
+}
+
+/* **Close sits apart, pinned at the pill's end** (INBOX 562, the owner: "the
+   x button on this isnt properly spaced"). Measured at 1440: the four hints
+   are wider than the pill's 60rem, so the row scrolls and the button ended
+   1px past the pill's right edge, clipped against it with no end padding (a
+   scroller's end padding is not kept for a flex row). Sticky at the end with
+   the pill's own ground, it always shows whole, after a hairline that says
+   it is not a fifth hint, and the hints scroll under it. */
+.wb-gestures {
+  padding-inline-end: 0;
+}
+
+#wb-gestures-dismiss {
+  position: sticky;
+  right: 0;
+  flex: 0 0 auto;
+  margin-left: calc(var(--space-2) - var(--space-4));
+  padding-inline: var(--space-2) var(--space-3);
+  border-left: 1px solid var(--border);
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  background: var(--modal-bg);
 }
 
 

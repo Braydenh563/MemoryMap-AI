@@ -619,6 +619,18 @@ def _register_error_handlers(app: FastAPI) -> None:
     #: match is exactly the kind of thing that drifts.
     _is_out_of_space = diskspace.out_of_space
 
+    def _is_locked(exc: BaseException) -> bool:
+        """SQLite's "database is locked" (or "busy"), through SQLAlchemy or
+        the driver: the message is all `sqlite3` gives to tell it apart."""
+        import sqlite3
+
+        from sqlalchemy.exc import OperationalError as SAOperationalError
+
+        if not isinstance(exc, (SAOperationalError, sqlite3.OperationalError)):
+            return False
+        text = str(exc).lower()
+        return "database is locked" in text or "database is busy" in text
+
     @app.exception_handler(OSError)
     async def _os_error_handler(request, exc: OSError) -> JSONResponse:  # noqa: ANN001
         if not _is_out_of_space(exc):
@@ -633,6 +645,22 @@ def _register_error_handlers(app: FastAPI) -> None:
     async def _unhandled_exception_handler(_request, exc: Exception) -> JSONResponse:
         if _is_out_of_space(exc):
             return _out_of_space_response(exc)
+        if _is_locked(exc):
+            # **A busy notebook is a wait, not a bug.** SQLite has one write
+            # lock; a write that waited out the busy timeout behind another
+            # (a background pass, an import) used to answer "Something went
+            # wrong" with a ref number (ARCH-01). 503 with `busy` is a status
+            # a client can retry on and a sentence the person can act on.
+            error_logger.warning("database busy: %s", exc)
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "detail": "The notebook is busy for a moment. Try again.",
+                    "code": "busy",
+                    "hint": None,
+                },
+                headers={"Retry-After": "2"},
+            )
         # A fresh id per failure, logged next to the real traceback and
         # handed back to the user, "it broke" with no ref is unreportable;
         # this ref is the thing a bug report can actually be filed against.

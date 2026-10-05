@@ -222,26 +222,38 @@ def extract_entities_pass(
 
     cache: dict[str, Entity] = {}
     processed = 0
-    for entry in candidates:
-        content = (entry.content or "").strip()
+    # Snapshot what the loop needs, then end the read: the model call below
+    # is seconds to minutes, and it must never run with a write pending
+    # (ARCH-01, measured: a flushed write held across a model call made every
+    # save in the meantime fail after the 5 s busy timeout). Each note is
+    # asked with nothing open, then written and committed on its own.
+    work = [(entry, (entry.content or "").strip()) for entry in candidates]
+    session.commit()
+    for entry, content in work:
         try:
+            found: list[tuple[str, str | None]] = []
             if len(content) >= MIN_CONTENT_LENGTH:
-                for name, kind in suggest_entities_with_kinds(content, model_manager, ollama):
-                    entity = _find_or_create_entity(session, name, cache)
-                    if kind and not entity.kind:
-                        entity.kind = kind
-                    already = session.scalars(
-                        select(EntityMention).where(
-                            EntityMention.entity_id == entity.id,
-                            EntityMention.entry_id == entry.id,
-                        )
-                    ).first()
-                    if not already:
-                        session.add(EntityMention(entity_id=entity.id, entry_id=entry.id))
+                found = suggest_entities_with_kinds(content, model_manager, ollama)
+            for name, kind in found:
+                entity = _find_or_create_entity(session, name, cache)
+                if kind and not entity.kind:
+                    entity.kind = kind
+                already = session.scalars(
+                    select(EntityMention).where(
+                        EntityMention.entity_id == entity.id,
+                        EntityMention.entry_id == entry.id,
+                    )
+                ).first()
+                if not already:
+                    session.add(EntityMention(entity_id=entity.id, entry_id=entry.id))
         except Exception:  # noqa: BLE001  # one bad note must not stop the pass
             logger.debug("entity extraction failed on entry %s", entry.id, exc_info=True)
+            # A write that failed half way leaves the session unusable; drop
+            # this note's partial rows so the stamp below can still commit.
+            session.rollback()
+            cache.clear()
         finally:
             entry.entities_extracted_at = utcnow()
             processed += 1
-    session.commit()
+            session.commit()
     return processed

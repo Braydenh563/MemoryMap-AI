@@ -1567,6 +1567,30 @@ function renderNoteText(element, text, terms) {
       // exactly as it was written, rather than eating the "> " markers.
     }
 
+    //: **A task reads as a task** (qa-1005): "- [x] Beta invite list" was the
+    //: card's own text, dash and brackets included, where the note page and a
+    //: document draw the same line as a box (`.md-task`, navigation.js).
+    //: Inline, so the card stays one paragraph and its clamp and highlighting
+    //: work as before; the line breaks either side stay in the text, and the
+    //: empty buffer entry is the break after it (`flush` joins with "\n").
+    const task = line.match(/^\s*[-*+]\s+\[([ xX])\]\s+(.*)$/);
+    if (task) {
+      flush();
+      if (element.childNodes.length) element.append("\n");
+      const item = document.createElement("span");
+      item.className = "entry-task";
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.disabled = true;
+      box.checked = task[1].toLowerCase() === "x";
+      item.appendChild(box);
+      renderNoteInline(item, task[2], terms);
+      element.appendChild(item);
+      buffer.push("");
+      i++;
+      continue;
+    }
+
     buffer.push(line);
     i++;
   }

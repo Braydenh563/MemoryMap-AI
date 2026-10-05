@@ -35,6 +35,30 @@ const CHECKS = {
     console.log(`reminders: ${out.length} hovered rows, ${out.filter((m) => m.linked).length} linked, time showing past the strip on ${bad.length}`, bad.length ? JSON.stringify(bad) : '');
     return bad.length;
   },
+  //: A note card's task lines draw as boxes, not as the "- [x]" they are
+  //: written with (seed-showcase.py's "Harbor launch plan" has four).
+  async tasks(page) {
+    await page.evaluate(() => switchTab('notes'));
+    await page.waitForSelector('#entry-list > li .entry-content', { timeout: 15000 });
+    await page.evaluate(() => { const li = [...document.querySelectorAll('#entry-list > li')].find((l) => /Harbor launch plan/.test(l.textContent)); li?.querySelector('.entry-more')?.click(); });
+    await page.waitForTimeout(400);
+    const m = await page.evaluate(() => {
+      const cards = [...document.querySelectorAll('#entry-list > li .entry-content')];
+      return { raw: cards.filter((c) => /(^|\n)\s*[-*+]\s+\[[ xX]\]/.test(c.innerText)).length, boxes: document.querySelectorAll('#entry-list .entry-task > input[type=checkbox]').length, done: document.querySelectorAll('#entry-list .entry-task > input:checked').length };
+    });
+    console.log(`note cards: ${m.raw} showing "- [ ]" as text, ${m.boxes} task boxes (${m.done} ticked)`);
+    return m.raw + (m.boxes ? 0 : 1);
+  },
+  //: The empty states' "Ask Atlas" chip is set apart by space, not by a
+  //: short hairline floating in the middle of a centred welcome.
+  async emptyrule(page) {
+    await page.evaluate(() => switchTab('chat'));
+    await page.waitForSelector('.chat-empty > .help-atlas', { timeout: 15000 });
+    const rules = await page.evaluate(() => [...document.querySelectorAll(':is(.chat-empty, #empty-message, #library-empty) > .help-atlas')].map((e) => ({ id: e.parentElement.id || e.parentElement.className, top: parseFloat(getComputedStyle(e).borderTopWidth) })));
+    const bad = rules.filter((r) => r.top > 0);
+    console.log(`empty states: ${rules.length} Atlas offers, ${bad.length} with a rule over them`, bad.length ? JSON.stringify(bad) : '');
+    return bad.length;
+  },
 };
 
 (async () => {

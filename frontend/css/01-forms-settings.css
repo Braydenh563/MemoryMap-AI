@@ -1322,6 +1322,24 @@ progress {
   margin-block: 0;
 }
 
+/* The same box on a note card's task line (`renderNoteText`, qa-1005), inline
+   in the card's one paragraph, and a finished task in the muted ink struck
+   through, as a document's rendered view draws it (09-editor.css). */
+.entry-task > input:disabled {
+  width: 1.1em;
+  height: 1.1em;
+  min-width: 0;
+  min-height: 0;
+  margin: 0 var(--space-2) 0 0;
+  vertical-align: middle;
+}
+
+.entry-task:has(> input:checked) {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+
 /* The chat bubble reuses the same block treatments. */
 .bubble-answer h3,
 .bubble-answer h4,

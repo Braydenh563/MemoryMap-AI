@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Notes: a task line in a note card draws as a box (ticked ones muted and struck through), as the note page and documents draw it; before, the card showed the line as written, dash and brackets included (qa-1005, qa1005-polish.js).
 - Chat, Notes and Library empty states: the Ask Atlas offer is set apart by space, not by a short hairline floating in the middle of the centred welcome (qa-1005, qa1005-polish.js: 3 rules to 0).
 - Reminders: a hovered reminder's actions now cover its time whole; on a reminder linked to a note (two lines) the strip sat 11px low and the top half of the time showed above it (qa-1005, qa1005-polish.js: 6 rows to 0).
 - Notes and Library: a drag-selection begun in the first seconds after the app opens (or on a slow disk) now scrolls the list at its edge like every later one; before, the edge scroll's file had not arrived and the first drag scrolled 0px (qa-1005, measured 756px with the file held back 1.5s).

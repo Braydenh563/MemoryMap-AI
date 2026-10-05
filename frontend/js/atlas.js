@@ -3449,6 +3449,12 @@ function atlasRestingMood() {
   const hour = new Date().getHours();
   return Date.now() - atlasLastInput > 10 * 60 * 1000 || hour < 5 ? "sleepy" : "calm";
 }
+//: The blink's pending timer, the rig's trace when a sweep records one
+//: (`atlasluster.js` sets `rigTrace` to an array and reads it back), and the
+//: pending ease of an act (`setAtlasMood`). Here, at boot, because
+//: `setAtlasMood` runs before atlas-motion.js (the blink and the rig) loads.
+const atlasState = { blinkTimer: 0, rigTrace: null, easeTimer: 0 };
+
 
 //: `easeMs` turns a mood change into a slow cross-fade (`.atl-easing`, the
 //: face's custom properties transitioning over `--atl-ease`) rather than the

@@ -349,7 +349,7 @@ def test_a_blink_is_a_lid_sweeping_down_not_a_patch_fading_in():
     assert '"atl-lid-shut' not in ATLAS and "atl-blink-lids" not in CSS and "atl-blink-heavy" not in CSS
     assert "`atl-eye atl-eye-${s} atl-lid-eye`" in lids and '"clip-path": `url(#${id}-lid${s})`' in lids
     assert 'class: "atl-lid-sweep"' in lids and 'class: "atl-lid-edge"' in lids and "brow" not in lids.split("//:")[-1]
-    blink = ATLAS[ATLAS.index("function atlasBlink(") : ATLAS.index("const atlasState")]
+    blink = ATLAS[ATLAS.index("function atlasBlink(") : ATLAS.index("const atlasBlinkOpen")]
     assert 'const cls = slow ? "atl-blinking-slow" : "atl-blinking";' in blink
     for k in (1, 2, 3):
         for name in (f"atl-blink-f{k}", f"atl-blink-slow-f{k}"):

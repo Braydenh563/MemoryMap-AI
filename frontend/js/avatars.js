@@ -3226,20 +3226,20 @@ function mountProfileLook() {
     nameMarkLookPickers(host, "profile-look-", "From your name", ownNameMarkStyle, (style) => {
       setOwnNameMarkStyle(style);
       repaintOwnFace();
-      if (typeof markPrefsDirty === "function") markPrefsDirty();
+      markPrefsDirty();
     });
     document.getElementById("profile-look-shuffle")?.addEventListener("click", () => {
       const style = ownNameMarkStyle();
       style.variant = ((Number(style.variant) || 0) + 1) % 10000;
       setOwnNameMarkStyle(style);
       repaintOwnFace();
-      if (typeof markPrefsDirty === "function") markPrefsDirty();
+      markPrefsDirty();
     });
     document.getElementById("profile-look-reset")?.addEventListener("click", () => {
       setOwnNameMarkStyle({});
       syncProfileLook();
       repaintOwnFace();
-      if (typeof markPrefsDirty === "function") markPrefsDirty();
+      markPrefsDirty();
     });
   }
   syncProfileLook();
@@ -3523,7 +3523,7 @@ function nameMarkBuddySavePreset() {
   const input = document.getElementById("avatar-buddy-preset-name");
   const name = (input?.value || "").trim().slice(0, 30);
   if (!name) {
-    if (typeof toast === "function") toast("Give the companion a name first.", true);
+    toast("Give the companion a name first.", true);
     input?.focus();
     return;
   }
@@ -3534,13 +3534,13 @@ function nameMarkBuddySavePreset() {
   }
   const others = nameMarkBuddyPresets().filter((p) => p.name !== name && p.name !== nmbPresetRenaming);
   if (others.length >= NMB_PRESET_MAX) {
-    if (typeof toast === "function") toast(`You can keep ${NMB_PRESET_MAX} saved companions: delete one first.`, true);
+    toast(`You can keep ${NMB_PRESET_MAX} saved companions: delete one first.`, true);
     return;
   }
   nmbPresetRenaming = "";
   input.value = "";
   nameMarkBuddyKeepPresets([...others, { name, values }]);
-  if (typeof toast === "function") toast(`Saved “${name}”.`);
+  toast(`Saved “${name}”.`);
 }
 function nameMarkBuddyApplyPreset(preset) {
   for (const key of NMB_PRESET_KEYS) {
@@ -3560,7 +3560,7 @@ function nameMarkBuddyApplyPreset(preset) {
   }
   syncNameMarkBuddy();
   mountBuddyActivities();
-  if (typeof toast === "function") toast(`Applied “${preset.name}”.`);
+  toast(`Applied “${preset.name}”.`);
 }
 function mountBuddyPresets() {
   const box = document.getElementById("avatar-buddy-presets");
@@ -3600,7 +3600,7 @@ function mountBuddyPresets() {
     remove.setAttribute("aria-label", `Delete the saved companion “${preset.name}”`);
     remove.addEventListener("click", () => {
       nameMarkBuddyKeepPresets(nameMarkBuddyPresets().filter((p) => p.name !== preset.name));
-      if (typeof toast === "function") toast(`Deleted “${preset.name}”.`);
+      toast(`Deleted “${preset.name}”.`);
     });
     row.append(apply, rename, remove);
     box.appendChild(row);
@@ -8361,7 +8361,7 @@ function nameMarkBuddyHide(buddy) {
   });
   //: The chord as it is bound now (it is rebindable), not as it shipped.
   const keys = typeof shortcuts === "object" ? shortcuts?.toggleCompanion?.keys : "";
-  if (typeof toast === "function") toast(keys ? `Companion hidden. ${keys} or Settings, Appearance brings it back.` : "Companion hidden. Settings, Appearance brings it back.");
+  toast(keys ? `Companion hidden. ${keys} or Settings, Appearance brings it back.` : "Companion hidden. Settings, Appearance brings it back.");
 }
 
 //: Whether it is out: chosen in Appearance, or still on the page.

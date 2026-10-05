@@ -24,9 +24,8 @@ function atlasBlink(box, slow = false) {
 //: blinks slowly and stays shut a moment. Avatar animation Off, the app's
 //: Reduce motion or the system's (unless the companion is set to Always)
 //: and a hidden tab hold the eyes still: no idle loop runs there.
-//: The blink's pending timer, and the rig's trace when a sweep records one
-//: (`atlasluster.js` sets `rigTrace` to an array and reads it back).
-const atlasState = { blinkTimer: 0, rigTrace: null, easeTimer: 0 };
+//: `atlasState` (the blink's timer, the rig's trace, the act's ease) is
+//: atlas.js's: the boot's `setAtlasMood` writes it before this file loads.
 const atlasBlinkOpen = new Map();
 function atlasBlinkMay(box) {
   const root = document.documentElement;

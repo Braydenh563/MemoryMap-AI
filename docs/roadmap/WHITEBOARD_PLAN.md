@@ -344,6 +344,67 @@ accessibility, and learnability") are why.
     and delete tools, each one event and one undo step, through the same
     confirm the other destructive agent tools use.
 
+### Decisions made, 2026-10-05: draw.io phase 2 (wb-phase2)
+
+30. **Every connector style takes bends** (decision 13's single `bend`
+    retired for new edits). `points` (board units) is the one list: an elbow
+    routes through it, a straight line runs through each in turn, a curved
+    line is one Catmull-Rom curve through all of them leaving along its
+    shapes' edge normals. The same grips on every style (filled bend, hollow
+    ring to add); a double-click on the line adds a bend there; changing the
+    line shape keeps the bends. An old link's `bend` is drawn as before and
+    read as one waypoint, written as `points` on its first edit. A map's
+    cross-link keeps its own bend handle.
+31. **Line jumps are per connector** (`jumps`: arc, gap or sharp; none by
+    default, as draw.io), set in the Format panel's Style tab. A connector
+    hops on its straight runs over every line painted under it, so of two
+    crossing lines only the upper one hops; the hitbox and the label keep
+    the plain line.
+32. **A Mermaid subgraph is a frame** (decision 22: frames are the pages). A
+    node belongs to the first subgraph that names it; a subgraph is laid out
+    as one block inside its parent's rows, so its frame holds its members
+    and nothing else; an edge naming a subgraph joins its frame. The export
+    writes every frame that holds a joined item as a `subgraph` of its title
+    (the innermost frame; nested frames go out flat).
+33. **A board's history is its items' event log, read three ways**
+    (`routes_board_history.py`): moments (runs of at most two minutes,
+    newest first, paged), the board at any event (each item folded to it;
+    an item with no log was there from the start, one whose log begins with
+    an edit was there as that edit's `before` says), and a restore of the
+    board or the named items in one transaction, each row with its own event,
+    links and a topic's parent re-pointed at remade rows. A library
+    placement records each item's `created` beside its one board event
+    (decision 25's "one event" kept for the board). A compacted moment is
+    listed and not shown (410). The client draws the past with the board's
+    own render in the presenting mode (`.wb-presenting`) with its own bar, refuses
+    writes while it is shown, and records a restore as one Undo step.
+34. **Drawn shapes are guide targets, and a row's spacing continues**
+    (`wbGuideBoxes`, `wbSpacingSeries`): a sketch with a `shape` or a closed
+    path is lined up with like a card (a freehand stroke and a connector are
+    not); with no neighbour on the far side, the gap to the nearest item
+    snaps to the gap that item keeps to the next one out. Alt still bypasses
+    every guide; align and distribute stay the Arrange menu's (they existed).
+35. **Connection points are on the outline** (`wbPortsForPath`): a card, a
+    text box and a rectangle keep the eight; a drawn polygon has its corners
+    and side middles, a curve its eight compass points; each is a fraction
+    of the box, and a stored anchor is read from its fraction, so links made
+    before keep their ends. With Select, pointing at an item that is not
+    selected, locked or on a map shows them, and a drag from one makes an
+    elbow connector with an arrow (as clone-and-connect does), to the item
+    let go on or to a free end; a press that does not travel selects. A
+    connector whose two ends one drag carried has its waypoints carried too,
+    in the same Undo step.
+36. **Branches from my notes is grounded by construction** (FEAT-13,
+    `routes_map_suggest.py`): the search engine finds the notes (not private,
+    not a board, not already on the map), the model only names a topic for
+    one of them by number, and a line naming no listed note is dropped; with
+    no model, or prose, the notes' titles are the suggestions and the dialog
+    says so. Previewed in the picker dialog (the Attach picker's rows, all
+    ticked), never written until Add, which makes the ticked ones under the
+    topic in one transaction with "From your note ..." as each one's note,
+    one Undo step. Ghosts drawn on the canvas wait for boot CSS room (the
+    cap is full); the picker is the recipe the app already has.
+
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", WHITEBOARD_PLAN.md) on 2026-09-09: a plan holds open work only.

@@ -8007,3 +8007,123 @@ async function wbMapFromDocument(doc, text) {
   toast(`Mapped the headings of “${doc.title || "this document"}”.`);
   return board;
 }
+
+//: **Branches from my notes** (the features audit FEAT-13; WHITEBOARD_PLAN
+//: decision 36; MINDMAP_PLAN §12.3 item 2). Up to five children for a topic,
+//: each found in one of the person's notes and saying which
+//: (`routes_map_suggest.py`: the search engine finds the notes, the model only
+//: names a topic for one by number, and with no model the notes' titles are
+//: the suggestions). Shown in the picker dialog with the Attach picker's rows,
+//: all ticked; Add makes the ticked ones under the topic, each with its source
+//: in its note, as one Undo step, and tidies the branch as a paste does.
+async function wbMapSuggestBranches(node) {
+  const boardId = window.currentBoardId;
+  if (!node || !boardId) return;
+  wbAnnounce("Looking through your notes for branches.");
+  let got = null;
+  try {
+    got = await apiJson(`/whiteboard/boards/${boardId}/nodes/${node.id}/suggest`, { method: "POST" });
+  } catch (err) {
+    toast(err.message || "No branches could be suggested.", true);
+    return;
+  }
+  const rows = (got?.suggestions || []).map((s, i) => ({ id: i, ...s }));
+  if (!rows.length) {
+    toast("None of your notes match this topic's words yet, so there is nothing to suggest.");
+    return;
+  }
+  const chosen = await new Promise((resolve) => {
+    const list = document.createElement("ul");
+    list.className = "note-picker-list entry-pick-list";
+    list.setAttribute("aria-label", "Suggested branches");
+    const said = got.source === "model"
+      ? `Under "${got.topic}", from your notes. Tick the ones to add.`
+      : `Under "${got.topic}": your notes that match it${got.reason === "offline" ? " (no model is running, so these are their titles)" : ""}. Tick the ones to add.`;
+    const shell = pickerDialog({ title: "Branches from your notes", about: said, placeholder: "Filter the suggestions", list });
+    const on = new Set(rows.map((r) => r.id));
+    const count = document.createElement("span");
+    count.className = "muted";
+    const add = smallButton("Add", "Add the ticked branches", () => {
+      if (on.size) shell.close(rows.filter((r) => on.has(r.id)).map((r) => ({ text: r.text, note_id: r.note_id })));
+    }, false);
+    add.classList.add("accent");
+    const cancel = smallButton("Cancel", "Cancel", () => shell.close(null));
+    const foot = document.createElement("div");
+    foot.className = "row space-dialog-actions";
+    foot.append(count, cancel, add);
+    const refresh = () => {
+      count.textContent = on.size ? `${on.size} of ${rows.length} ticked` : "Tick a branch to add it.";
+      add.disabled = on.size === 0;
+    };
+    const shape = {
+      label: (row) => row.text,
+      icon: () => "ph:tree-structure",
+      meta: (row) => [`From your note "${row.note_title}"`],
+      isOn: (row) => on.has(row.id),
+      add: (row) => {
+        on.add(row.id);
+      },
+      remove: (row) => on.delete(row.id),
+    };
+    const paint = () => {
+      const term = shell.search.value.trim().toLowerCase();
+      const shown = rows.filter((r) => !term || `${r.text} ${r.note_title}`.toLowerCase().includes(term));
+      if (!shown.length) return pickerListState(list, "No suggestion has those words.");
+      list.replaceChildren(...shown.map((row) => {
+        const li = notePickerRow(shape, row);
+        li.classList.add("entry-pick-check");
+        li.querySelector(".note-picker-box").addEventListener("change", refresh);
+        return li;
+      }));
+      notePickerRoving(list, 0);
+    };
+    list.addEventListener("keydown", (event) => {
+      const boxes = [...list.querySelectorAll(".note-picker-box")];
+      const at = boxes.indexOf(document.activeElement);
+      if (at < 0) return;
+      if (event.key === "Enter") {
+        event.preventDefault();
+        add.click();
+        return;
+      }
+      const to = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: boxes.length - 1 }[event.key];
+      if (to === undefined) return;
+      event.preventDefault();
+      if (to < 0) return shell.search.focus();
+      notePickerRoving(list, Math.min(to, boxes.length - 1))[Math.min(to, boxes.length - 1)].focus();
+    });
+    shell.search.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowDown") return;
+      event.preventDefault();
+      list.querySelector(".note-picker-box")?.focus();
+    });
+    shell.search.addEventListener("input", paint);
+    paint();
+    refresh();
+    shell.open(resolve, { foot });
+    list.querySelector(".note-picker-box")?.focus();
+  });
+  if (!chosen?.length || window.currentBoardId !== boardId) return;
+  let made = [];
+  await wbRecordGesture(async () => {
+    try {
+      made = await apiJson(`/whiteboard/boards/${boardId}/nodes/${node.id}/branches`, {
+        method: "POST",
+        body: JSON.stringify({ items: chosen }),
+      });
+    } catch (err) {
+      toast(err.message || "The branches could not be added.", true);
+      return;
+    }
+    wbState.objects = [...(wbState.objects || []), ...made];
+    if (node.data?.collapsed) {
+      node.data = { ...node.data, collapsed: false };
+      await wbSaveObject(node);
+    }
+    renderWhiteboardNow();
+    if (wbMapLayout() !== "free") await wbMapTidy({ onlyBranch: wbMapTidyBranchScope(node.id), quiet: true });
+  });
+  if (!made.length) return;
+  selectWbItem("object", made[0].id);
+  wbAnnounce(`Added ${made.length} branch${made.length === 1 ? "" : "es"} from your notes. Ctrl+Z takes them back.`);
+}

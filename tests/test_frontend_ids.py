@@ -83,7 +83,7 @@ def _frontend_js() -> str:
     #: The board's command table and its sidebar (2026-10-05).
     whiteboard_extras = "\n".join(
         (INDEX.parent / "js" / name).read_text(encoding="utf-8")
-        for name in ("whiteboard-commands.js", "whiteboard-library.js", "whiteboard-format.js", "whiteboard-interchange.js")
+        for name in ("whiteboard-commands.js", "whiteboard-library.js", "whiteboard-format.js", "whiteboard-interchange.js", "whiteboard-history.js")
         if (INDEX.parent / "js" / name).exists()
     )
     return (

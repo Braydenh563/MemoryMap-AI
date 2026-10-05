@@ -1300,7 +1300,7 @@ def test_each_prop_has_a_small_motion_of_its_own_about_its_grip():
     # only; cancelled (not paused, which the companion's pacer would step)
     # when hidden or when motion is not live.
     table = ATLAS[ATLAS.index("const ATLAS_PROP_LOOPS = ["):ATLAS.index("function atlasPropLoops(")]
-    for sel in (".nmp-lantern", ".nmp-bell", ".nmp-cable .atl-prop-zap"):
+    for sel in (".nmp-lantern", ".nmp-bell", ".nmp-cable .atl-prop-zap", ".nmp-headphones .atl-prop-cup-glow", ".nmp-nightcap", ".nmp-glasses .atl-prop-lens"):
         assert f'[".{sel[1:]}' in table, sel
     for row in re.findall(r"^  \[(\".*?), \d+, [0-9.]+\],$", table, re.M):
         frames = re.findall(r"\{ ([^}]*) \}", row)

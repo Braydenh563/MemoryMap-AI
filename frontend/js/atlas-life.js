@@ -318,6 +318,11 @@ const ATLAS_PROP_LOOPS = [
   [".nmp-lantern .atl-sparkle", "box", [{ opacity: 1, scale: 1 }, { opacity: 0.55, scale: 0.86 }, { opacity: 0.95, scale: 1.08 }, { opacity: 0.7, scale: 0.94 }, { opacity: 1, scale: 1 }], 900, 0],
   [".nmp-bell", "top", [{ rotate: "0deg" }, { rotate: "4deg" }, { rotate: "0deg" }, { rotate: "-4deg" }, { rotate: "0deg" }], 2200, 0],
   [".nmp-cable .atl-prop-zap", null, [{ opacity: 1 }, { opacity: 0.15 }, { opacity: 1 }, { opacity: 0.4 }, { opacity: 1 }], 700, 0],
+  //: Head props: the cups' glow to a beat, the moon rocking from its top
+  //: (hung on the ear), the lenses' light.
+  [".nmp-headphones .atl-prop-cup-glow", "box", [{ opacity: 1, scale: 1 }, { opacity: 0.5, scale: 0.75 }, { opacity: 1, scale: 1 }], 1000, 0.5],
+  [".nmp-nightcap", "top", [{ rotate: "0deg" }, { rotate: "-7deg" }, { rotate: "0deg" }, { rotate: "5deg" }, { rotate: "0deg" }], 4200, 0],
+  [".nmp-glasses .atl-prop-lens", null, [{ opacity: 1 }, { opacity: 0.72 }, { opacity: 1 }], 3200, 0.4],
 ];
 function atlasPropLoops(box) {
   if (!box.animate) return [];

@@ -74,6 +74,56 @@ def _app_modules():
 
 APP_MODULES = _app_modules()
 
+# **The whole standard library, for the optional packages.** A packaged build
+# carries only the standard-library modules the app itself imports, and the
+# extras (Settings > Packages, the installer's optional page) are installed
+# later, into the data folder, and run on the bundle's own interpreter. Any
+# standard module they import that the app never did is simply not there.
+# Measured on a build of this spec against what the extras import:
+# `transformers` imports `filecmp` at the top of a module its auto classes
+# load, so search by meaning (the recommended, ticked-by-default extra) could
+# not import; `pypdfium2` and `scipy` need `ctypes.util`, `lxml` and `numpy`
+# `optparse`, `huggingface_hub` `venv`. A list of those five would be the next
+# missing one waiting to happen, so every module of the standard library is
+# named, apart from the GUI toolkit, the test suite, the bundled pip wheels
+# and the IDE, which no extra uses and which would add megabytes (Tk alone
+# brings its own DLLs). Measured cost: 3 MB (183.3 to 186.2 MB, Linux build).
+_STDLIB_SKIP = {
+    "tkinter", "turtle", "turtledemo", "idlelib", "test", "ensurepip",
+    "lib2to3", "pydoc_data", "this", "antigravity", "__phello__", "_pyrepl",
+}
+
+
+def _stdlib_modules():
+    import importlib.util
+
+    found = []
+    for top in sorted(sys.stdlib_module_names):
+        if top in _STDLIB_SKIP or top.startswith("_"):
+            continue
+        try:
+            spec = importlib.util.find_spec(top)
+        except (ImportError, ValueError):
+            spec = None
+        if spec is None:
+            continue
+        found.append(top)
+        for location in spec.submodule_search_locations or []:
+            base = Path(location)
+            for path in sorted(base.rglob("*.py")):
+                parts = list(path.relative_to(base).with_suffix("").parts)
+                if any(p in ("test", "tests", "idle_test") or p.startswith("test_") for p in parts):
+                    continue
+                if parts[-1] == "__init__":
+                    parts.pop()
+                if not parts or any("-" in p for p in parts):
+                    continue
+                found.append(".".join([top, *parts]))
+    return found
+
+
+STDLIB_MODULES = _stdlib_modules()
+
 a = Analysis(
     [str(ENTRY_SCRIPT)],
     pathex=[str(REPO_ROOT / "src")],
@@ -145,6 +195,7 @@ a = Analysis(
         "memorymap.search.searxng_install",
         "memorymap.search.searxng_process",
         *APP_MODULES,
+        *STDLIB_MODULES,
     ],
     hookspath=[],
     hooksconfig={},

@@ -109,3 +109,32 @@ def test_a_packaged_build_writes_no_bytecode_beside_itself():
     done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env, timeout=120)  # noqa: S603
     lines = done.stdout.strip().splitlines()
     assert lines and lines[-1] == "True", (done.stdout, done.stderr[-2000:])
+
+
+def test_both_specs_carry_the_standard_library_the_extras_import():
+    """An extra installed after the build runs on the bundle's interpreter,
+    which carried only the standard modules the app imports. Measured on a
+    build of the Windows spec: `transformers` (search by meaning) imports
+    `filecmp`, `pypdfium2` (scanned PDFs) `ctypes.util`, `lxml` `optparse`,
+    `huggingface_hub` `venv`, and none was in the bundle. The whole standard
+    library is named now, apart from Tk, the tests, pip's wheels and IDLE
+    (about 3 MB more on that build)."""
+    import sys
+
+    for spec in SPECS:
+        text = spec.read_text(encoding="utf-8")
+        assert "*STDLIB_MODULES," in text, spec.name
+        tree = ast.parse(text)
+        wanted = [
+            node for node in tree.body
+            if (isinstance(node, ast.FunctionDef) and node.name == "_stdlib_modules")
+            or (isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "_STDLIB_SKIP" for t in node.targets))
+        ]
+        assert len(wanted) == 2, spec.name
+        namespace: dict = {"sys": sys, "Path": Path}
+        exec(compile(ast.Module(body=wanted, type_ignores=[]), str(spec), "exec"), namespace)  # noqa: S102
+        modules = set(namespace["_stdlib_modules"]())
+        for needed in ("filecmp", "ctypes.util", "optparse", "venv", "unittest.mock", "cProfile", "pstats"):
+            assert needed in modules, (spec.name, needed)
+        assert not {"tkinter", "idlelib", "test", "ensurepip"} & modules
+        assert not [m for m in modules if ".test." in f"{m}." or ".tests." in f"{m}."]

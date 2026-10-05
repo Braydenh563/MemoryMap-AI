@@ -16929,7 +16929,7 @@ function renderDocDictionary() {
   const shown = query ? words.filter((word) => word.includes(query)) : words;
   const count = $("doc-dictionary-count");
   if (count) {
-    count.textContent = words.length ? `${words.length} word${words.length === 1 ? "" : "s"}` : "Empty";
+    count.textContent = words.length ? `${words.length} word${words.length === 1 ? "" : "s"}` : "";
   }
   //: Add is offered only when there is something new to add: a word typed
   //: that is not already in the list.

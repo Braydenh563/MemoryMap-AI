@@ -9715,6 +9715,32 @@ input[type="file"]:active::file-selector-button {
   min-height: var(--control-h-lg);
 }
 
+/* **One row, always** (INBOX 549 and 552, the owner: "wrapping elements at
+   the top of the dictionary", the Suggestions head the same). The shared
+   cause was `.card > .row.space-between { flex-wrap: wrap }` (01-forms-
+   settings.css), meant for a card's head row, catching every dialog head
+   written `row space-between dialog-head` in a card, with its `.help-head`
+   held at `flex: 0 0 auto`: at a phone's width the actions took a row of
+   their own. Here the actions never wrap or shrink, and the title gives way
+   with an ellipsis first; `scratchpad/ui-sweeps/headrow.js` measures every
+   head's buttons on the title's centre line. */
+.dialog-head,
+.card > .row.space-between.dialog-head {
+  flex-wrap: nowrap;
+}
+
+.dialog-head > .help-head,
+.card > .row.space-between.dialog-head > .row {
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.dialog-head > .dialog-head-actions,
+.dialog-head > .help-head > .dialog-head-btn {
+  flex: none;
+}
+
 /* **A head never gives up its height** (INBOX 498, and 475 before it). In
    a card capped to the window, a flex column's items shrink by default, so
    when Find anything's results arrived its head went from 52px to 32px and
@@ -9748,6 +9774,11 @@ input[type="file"]:active::file-selector-button {
   color: var(--ink);
   text-transform: none;
   letter-spacing: -0.005em;
+  /* One row (INBOX 552, above): the title is what gives way. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dialog-head-actions {

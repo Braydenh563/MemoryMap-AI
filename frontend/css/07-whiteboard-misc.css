@@ -3148,6 +3148,16 @@ dialog::backdrop {
   color: var(--muted);
 }
 
+/* An on/off row in a dialog is the switch row, not a form label (INBOX 552:
+   in the writing dictionary the rule above put each switch on a line of its
+   own over a small muted name). */
+.space-dialog label.setting-check {
+  display: grid;
+  margin-top: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
 .space-dialog input[type="text"] {
   width: 100%;
 }

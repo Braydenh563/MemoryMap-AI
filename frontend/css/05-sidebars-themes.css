@@ -5594,8 +5594,16 @@ textarea.autogrow {
   overflow-y: auto;
 }
 
-.doc-dictionary-head {
+/* One row at every width (INBOX 552: at 390 the X fell to a line of its
+   own): the name and its count give way, the icons never do. */
+.doc-dictionary-dialog .doc-dictionary-head {
+  flex-wrap: nowrap;
   align-items: center;
+}
+
+.doc-dictionary-head > .help-head {
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .doc-dictionary-head h2 {
@@ -5603,37 +5611,28 @@ textarea.autogrow {
 }
 
 .doc-dictionary-count {
-  font-size: var(--text-sm);
-  font-weight: 400;
+  font-weight: 600;
   white-space: nowrap;
+}
+
+.doc-dictionary-count:not(:empty)::after {
+  content: " · ";
+  font-weight: 400;
 }
 
 .doc-dictionary-lead {
   margin: var(--space-1) 0 var(--space-4);
 }
 
-/* The field: the magnifier inside its leading edge, Add at its trailing edge
-   only while what is typed is a new word. */
-.doc-dictionary-field {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+/* No line ends on one stranded word (INBOX 552's "ugly line wraps"). */
+.doc-dictionary-lead,
+.doc-dictionary-dialog small {
+  text-wrap: pretty;
 }
 
-.doc-dictionary-field-icon {
-  position: absolute;
-  left: var(--space-3);
-  color: var(--muted);
-  pointer-events: none;
-}
-
-.doc-dictionary-field input {
-  flex: 1 1 auto;
-  min-width: 0;
-  padding-left: var(--space-7);
-}
-
+/* The field is the `.search-field` well (INBOX 552: the glyph sat on the
+   placeholder), with Add at its trailing edge only while what is typed is a
+   new word. */
 .doc-dictionary-field #doc-dictionary-add {
   flex: none;
   white-space: nowrap;
@@ -5702,12 +5701,6 @@ textarea.autogrow {
   color: var(--muted);
 }
 
-.doc-dictionary-files {
-  justify-content: flex-end;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
 .doc-dictionary-section {
   margin: var(--space-5) 0 var(--space-2);
   color: var(--muted);
@@ -5732,6 +5725,23 @@ textarea.autogrow {
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+/* The setting's name at the switch rows' size and ink, not `.space-dialog
+   label`'s small muted form label. */
+.doc-dictionary-dialog .doc-dictionary-setting-text > label {
+  margin: 0;
+  color: var(--ink);
+  font-size: inherit;
+}
+
+/* A narrow dialog: the select goes under its name rather than squeezing the
+   hint onto three lines beside it. */
+@media (max-width: 600px) {
+  .doc-dictionary-setting {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-2);
+  }
 }
 
 .doc-dictionary-setting-text small,

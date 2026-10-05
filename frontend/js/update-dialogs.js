@@ -77,6 +77,16 @@ async function checkForUpdate(silent = false) {
 //: About holds the switch and the Check for updates button either way.
 //: start.sh may already have asked in the terminal, and then this never runs.
 async function askUpdateChoiceOnce() {
+  //: Never over the welcome: on a first start both open together and the
+  //: question took the welcome's Skip from under the pointer (the E2E smoke
+  //: run's first step timed out on it). It waits for the welcome to close.
+  let welcoming = false;
+  try {
+    welcoming = !localStorage.getItem("onboardingDone");
+  } catch {
+    welcoming = false;
+  }
+  if (welcoming) await new Promise((resolve) => document.addEventListener("onboarding-closed", resolve, { once: true }));
   const yes = await confirmDialog(
     "Check for updates automatically?\n\nMemoryMap AI can look for a newer version each time it starts. " +
       "Nothing about your notes is sent. You can change this in Settings, About.",

@@ -48,6 +48,13 @@ module.exports = async () => {
     }
     await page.waitForTimeout(300);
   }
+  //: A first start then asks once whether to check for updates; the smoke
+  //: suite answers "Don't check", which touches no network.
+  const dontCheck = page.locator(".confirm-overlay button", { hasText: "Don't check" });
+  if (await dontCheck.isVisible().catch(() => false)) {
+    await dontCheck.click();
+    await page.waitForTimeout(300);
+  }
 
   await page.context().storageState({
     path: path.join(__dirname, ".auth-state.json"),

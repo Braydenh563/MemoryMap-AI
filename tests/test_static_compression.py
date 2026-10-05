@@ -88,9 +88,10 @@ PIECE_CAP = 32_000
 #: And after 88227db (621, 622): 321,097.
 #: And after the Atlas merge, with addSkill in settings-controls.js: 320,986.
 #: And with the s2 agent's list drag-select edge scroll (+489) and Link all
-#: above 70% (+152): 321,487; raised to the measure rounded up (no function
-#: in the frontend is without a caller, so there was nothing to drop).
-TOTAL_CAP = 321_500
+#: above 70% (+152): 321,487, a raise the next agent undid by moving the edge
+#: scroll to drag-edge.js and `noteEditToolbar` to note-edit-panels.js (both
+#: lazy): 320,244.
+TOTAL_CAP = 320_300
 
 
 def _served_gzip_size(client, name: str) -> int:

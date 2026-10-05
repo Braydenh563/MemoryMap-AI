@@ -2246,6 +2246,9 @@ summary > .ph-lead,
 .help-atlas > .atlas-suggest {
   display: inline-flex;
   align-items: center;
+  /* A long question wraps inside the chip rather than widening what holds it
+     (the Models pane's utility-model help ran Settings 19px sideways at 390). */
+  max-width: 100%;
   height: auto;
   min-height: var(--target-min);
   padding: var(--space-1) var(--space-4);

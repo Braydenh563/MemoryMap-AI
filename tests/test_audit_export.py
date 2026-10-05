@@ -83,6 +83,44 @@ def test_events_about_private_notes_and_the_vault_are_left_out(client):
     assert shown == []
 
 
+def test_events_about_a_private_note_stay_out_after_it_is_purged(client):
+    """The id filter needs the note to still exist: once a private note is
+    purged its id matches nothing, and its events (a title, a clip) were
+    exported. A purge now seals them (detail dropped, payload `{"private":
+    true}`) and the export leaves sealed events out by that flag."""
+    from sqlalchemy import select
+
+    from memorymap.core.database import Entry
+
+    with deps.get_db().session() as session:
+        row = Entry(content="a private one", is_private=True, is_deleted=True)
+        public = Entry(content="an ordinary one", is_deleted=True)
+        session.add_all([row, public])
+        session.commit()
+        private_id, public_id = row.id, public.id
+    _add(action="edited", entity_type="entry", entity_id=private_id, detail="PRIVATE-TITLE", payload={"after": {"content": "PRIVATE-BODY"}})
+    _add(action="edited", entity_type="entry", entity_id=public_id, detail="PUBLIC-TITLE")
+    assert "PRIVATE-TITLE" not in client.get("/audit/export.csv").text  # by id, while the note exists
+    assert client.delete(f"/entries/{private_id}/purge").status_code == 200
+    assert client.delete(f"/entries/{public_id}/purge").status_code == 200
+    response = client.get("/audit/export.csv")
+    assert "PRIVATE-TITLE" not in response.text
+    assert [r for r in _rows(response) if r["entity id"] == str(private_id)] == []
+    # An ordinary note's events survive its purge; what was sealed lost its body.
+    assert "PUBLIC-TITLE" in response.text
+    with deps.get_db().session() as session:
+        sealed = session.scalars(select(AuditLog).where(AuditLog.entity_id == private_id)).all()
+        assert sealed and all(r.detail is None and r.payload == {"private": True} for r in sealed)
+
+
+def test_an_event_recorded_as_private_is_left_out_by_its_flag(client):
+    _add(action="edited", entity_type="entry", entity_id=987654, detail="FLAGGED-TITLE", payload={"private": True})
+    _add(action="edited", entity_type="entry", entity_id=987655, detail="UNFLAGGED-TITLE", payload={"after": {"title": "x"}})
+    text = client.get("/audit/export.csv").text
+    assert "FLAGGED-TITLE" not in text.replace("UNFLAGGED-TITLE", "")
+    assert "UNFLAGGED-TITLE" in text
+
+
 def test_limit_offset_and_the_total_follow_the_list_recipe(client):
     for n in range(5):
         _add(action="created", entity_type="note", detail=f"row {n}")

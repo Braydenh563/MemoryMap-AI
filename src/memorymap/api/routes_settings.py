@@ -1487,6 +1487,13 @@ def _not_private_events(query):
     what it says does. An event on one carries its title or a clip of it in
     `detail`; the vault's events (unlocking, re-keying) say that private notes
     exist and when they were opened. Neither is part of a hand-over file.
+
+    Two ways an event is about a private note: the note is still there and
+    private (looked up by id), or it was purged, and its id matches nothing
+    any more. A purge seals the events it leaves behind with a `private` flag
+    in their payload (`manager.seal_private_events`), and that flag is the
+    second test. `is_(True)` rather than `== True`, so an event with no
+    payload at all (SQL null) is kept rather than dropped by a null compare.
     """
     private_ids = select(Entry.id).where(Entry.is_private == True)  # noqa: E712
     return query.where(
@@ -1495,6 +1502,7 @@ def _not_private_events(query):
             AuditLog.entity_type.in_(("entry", "note", "entries"))
             & AuditLog.entity_id.in_(private_ids)
         ),
+        ~AuditLog.payload["private"].as_boolean().is_(True),
     )
 
 

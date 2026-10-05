@@ -3623,6 +3623,17 @@ mark.global-find-hit.global-find-current {
   overflow-wrap: anywhere;
 }
 
+/* A status or a note in Settings that names an address (the Models pane's
+   "Saved, but nothing is answering at <the server address you typed>") has a
+   word no line can break, and a flex item's minimum width is its longest word:
+   at 390 the saved address ran the pane to 581px in a 308px one. `anywhere`
+   (unlike `break-word`) also lowers that minimum, so the line wraps inside the
+   pane instead of widening it (INBOX 622: nothing in Settings scrolls
+   sideways). */
+#settings-modal :is(.status, .muted) {
+  overflow-wrap: anywhere;
+}
+
 .code-block code {
   background: none;
   padding: 0;

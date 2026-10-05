@@ -92,3 +92,16 @@ def test_the_pane_index_is_the_sidebars_second_level():
     assert 'button[data-section="${CSS.escape(name)}"]`)?.after(list)' in code
     assert ".settings-jump option[data-group]" in code and "row.dataset.group" in code
     assert "aria-current" in code and "scrollIntoView" not in code
+
+
+def test_a_status_naming_an_address_wraps_inside_the_pane():
+    """The Models pane at 390: "Saved, but nothing is answering at <address>"
+    holds a word no line can break, and the pane grew to 581px in a 308px
+    window (and a long question in a help popover's Ask Atlas chip to 327).
+    Settings' status and muted lines take `overflow-wrap: anywhere`, which also
+    lowers a flex item's minimum width, and the chip is capped at its parent."""
+    css = re.sub(r"/\*.*?\*/", "", "\n".join(p.read_text(encoding="utf-8") for p in sorted(CSS_DIR.glob("*.css"))), flags=re.S)
+    status = re.search(r"#settings-modal :is\(\.status, \.muted\) \{([^}]*)\}", css)
+    assert status and "overflow-wrap: anywhere" in status.group(1)
+    chip = re.search(r"\.help-atlas > \.atlas-suggest \{([^}]*)\}", css)
+    assert chip and "max-width: 100%" in chip.group(1)

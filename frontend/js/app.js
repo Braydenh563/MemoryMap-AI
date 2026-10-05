@@ -2023,6 +2023,8 @@ const LAZY_MODULES = {
   atlasLife: ["/js/atlas-life.js"],
   //: The companion's menu and a face's enlarged view (companion-menu.js's header).
   companionMenu: ["/js/companion-menu.js"],
+  //: A held drag-selection scrolling a list at its edge (drag-edge.js), preloaded below.
+  dragEdge: ["/js/drag-edge.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2409,4 +2411,4 @@ for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
 }
 //: Fetched soon after boot, not on first use: the outbox is for the moment
 //: the server is gone, when no script can be fetched (quick-note.js).
-setTimeout(() => ["quickNote", "fieldClear", "chordGuide", "notePanels"].forEach((name) => ensureModule(name)), 3000);
+setTimeout(() => ["quickNote", "fieldClear", "chordGuide", "notePanels", "dragEdge"].forEach((name) => ensureModule(name)), 3000);

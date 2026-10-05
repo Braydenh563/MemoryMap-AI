@@ -281,19 +281,6 @@ being written by running agents stay beside this one.
 
 ## Library
 
-- **The six descriptions start at six different heights** (1440, six seeded
-  cards: the picture runs 144 to 249.9px so the text under it starts wherever
-  the picture ends). The accepted cost of equal card heights with optional
-  rows, written into the plan's decision. If the owner reads the row as
-  ragged, the two other places to put the difference are a hole under the
-  short cards or reserved empty rows, both already reported. [image-cards.md]
-  *Opus: a layout call the owner may not want changed.*
-- **The fold chip is 128.8px of a 156.3px content column at 1440** (82%), so
-  on the narrowest tile it still reads as nearly a bar; at the owner's own
-  card width, about 330px, it is 39%. The label is the only place left to cut
-  and "Text in this image" is the shortest true thing it can say.
-  [image-cards.md]
-  *Opus: copy and layout judgement.*
 - ~~The Files sub-tab rows were never on screen~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - **An uploaded document cannot be given a reading from outside the app.**
   `POST /media/{id}/ocr` and `/media/{id}/vision-ocr` both answer 415 for a
@@ -303,14 +290,7 @@ being written by running agents stay beside this one.
   reading lives in `PageRead` rows instead (`/media/{id}/ocr-page-read`, which
   needs a model). Not a bug on its own; it is the reason the Files fold's filled
   state is still unmeasured. [readings.md]
-  *Left: not a bug; a PDF's reading needs a model.*
-- **Two pictures in a gallery row are still different sizes when one card has
-  nothing to say.** UI_MODERNISATION_PLAN's decision block records why a
-  subgrid was rejected (it equalises everything and puts 75px of hole under
-  the shortest card). The remaining variance is cards with no caption and no
-  facts, which take a taller photograph instead of a hole.
-  [logs-cards-links.md]
-  *Opus: the subgrid trade-off is already decided in the plan; revisit only on a report.*
+  *Needs: a local model (`/media/{id}/ocr-page-read`) to fill a PDF's reading; not a bug, and the only route to the Files fold's filled state.*
 - ~~A tile's Rename and Delete buttons are never in the DOM~~ Decided. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - ~~A caption for an image that has none~~ Decided. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - ~~The other four picker sources have no thumbnail~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".

@@ -962,3 +962,17 @@ function pickCategoryColour(meta) {
     },
   });
 }
+
+// ---- from notes-list.js (search-boot-1005): offerCategoryUndo ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+//: One toast and one undo-stack entry per change, so the toast's Undo and
+//: Ctrl+Z are the same act.
+function offerCategoryUndo(message, undo, redo) {
+  const action = pushUndo(message, async () => { await undo(); await refreshAfterCategoryChange(); }, async () => { await redo(); await refreshAfterCategoryChange(); });
+  toastAction(message, "Undo", async () => {
+    settleUndoFromToast(action);
+    await undo();
+    await refreshAfterCategoryChange();
+  });
+}

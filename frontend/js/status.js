@@ -2459,38 +2459,6 @@ function renderBackendPicker(status) {
   }
 }
 
-async function applyBackendChoice() {
-  const provider = $("llm-provider-select").value;
-  const baseUrl = $("llm-base-url").value.trim();
-  const note = $("llm-provider-status");
-  setLabel(note, "ph:spin Connecting…");
-  try {
-    const body = await apiJson("/models/provider", {
-      method: "POST",
-      body: JSON.stringify({ provider, base_url: baseUrl }),
-    });
-    backendFieldsDirty = false;
-    // The setting is saved either way, you set the address, then you start
-    // the server: so this reports what was found rather than treating an
-    // unreachable server as a rejected setting.
-    setLabel(
-      note,
-      body.reachable
-        ? `ph:plugs-connected Connected to ${body.base_url}: ${body.installed_models.length} model(s) available.`
-        : `ph:plugs Saved, but nothing is answering at ${body.base_url} yet. Start the server and this will light up.`
-    );
-    // This app's headline promise is that notes stay on the machine. A backend
-    // somewhere else is allowed, someone may want it, but never quietly, so
-    // the warning is loud and stays until the address changes.
-    const privacy = $("llm-privacy-warning");
-    privacy.textContent = body.privacy_note || "";
-    privacy.classList.toggle("hidden", !body.privacy_note);
-    await refreshModelStatus();
-  } catch (err) {
-    note.textContent = err.message;
-  }
-}
-
 function renderSettings() {
   const status = modelStatus;
   const ollamaLine = $("ollama-status");

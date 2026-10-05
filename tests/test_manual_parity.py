@@ -28,8 +28,8 @@ CATEGORY_TOOLS = {"create_category", "rename_category", "merge_categories", "del
 #: tool -> (file, a line that proves the manual path, where a person finds it)
 MANUAL = {
     "create_note": ("capture-ask.js", 'apiJson("/entries", {', "Notes, Capture box"),
-    "edit_note": ("notes-list.js", "base_hash: base", "a note's Edit form"),
-    "tag_note": ("notes-list.js", 'tagsInput.className = "note-edit-tags";', "a note's Edit form, Tags"),
+    "edit_note": ("note-edit-form.js", "base_hash: base", "a note's Edit form"),
+    "tag_note": ("note-edit-form.js", 'tagsInput.className = "note-edit-tags";', "a note's Edit form, Tags"),
     "pin_note": ("note-cards.js", 'button.classList.add("favourite-btn");', "a note's star"),
     "link_notes": ("graph-canvas.js", 'method: "POST", body: JSON.stringify({ target', "Graph, drag one note to another"),
     "unlink_notes": ("graph.js", '/links/${edge.id}`, { method: "DELETE" })', "Graph, click a link, Remove"),

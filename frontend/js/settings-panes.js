@@ -853,7 +853,9 @@ async function renderWebSearch() {
     row.append(radio, text);
     picker.appendChild(row);
   }
-  refreshSearxngHost().catch(() => {});
+  //: `refreshSearxngHost` is in settings-controls.js, already awaited by the
+  //: window that opened this pane; the await is for a pane drawn some other way.
+  ensureModule("settingsControls").then(() => refreshSearxngHost()).catch(() => {});
 }
 
 async function saveSearchProvider(provider) {

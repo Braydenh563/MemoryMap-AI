@@ -1765,20 +1765,6 @@ function makeUnlinkAccessible(span) {
   });
 }
 
-// A <select> from [value, label] pairs, with one option preselected.
-function buildSelect(options, selected) {
-  const select = document.createElement("select");
-  select.className = "small-select";
-  for (const [value, label] of options) {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = label;
-    if (value === selected) option.selected = true;
-    select.appendChild(option);
-  }
-  return select;
-}
-
 // --- asking before something irreversible (§35F) ----------------------------------
 //
 // `window.confirm` is not dependable in pywebview: a backend without it
@@ -2237,6 +2223,10 @@ const LAZY_MODULES = {
   webClip: ["/js/web-clip.js"],
   appImport: ["/js/app-import.js"],
   usageLedger: ["/js/usage-ledger.js"],
+  //: The panel the "m" chord opens: chord-guide.js says why it is preloaded.
+  chordGuide: ["/js/chord-guide.js"],
+  //: The note edit form, awaited by `openNoteEditor` before any row draws one.
+  noteEditForm: ["/js/note-edit-form.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2467,6 +2457,7 @@ const LAZY_ENTRY_POINTS = {
   noteHistory: ["openEntryHistory"],
   modelBench: ["renderModelBench"],
   usageLedger: ["renderUsage", "renderCaptureCommand"],
+  chordGuide: ["showTabJumpHint"],
   settingsData: [
     "renderPrivacyRange",
     "renderPrivacyReceipt",
@@ -2587,4 +2578,4 @@ for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
 }
 //: Fetched soon after boot, not on first use: the outbox is for the moment
 //: the server is gone, when no script can be fetched (quick-note.js).
-setTimeout(() => ["quickNote", "fieldClear"].forEach((name) => ensureModule(name)), 3000);
+setTimeout(() => ["quickNote", "fieldClear", "chordGuide"].forEach((name) => ensureModule(name)), 3000);

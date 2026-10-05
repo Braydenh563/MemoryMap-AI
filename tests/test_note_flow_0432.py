@@ -24,7 +24,12 @@ FRONTEND = ROOT / "frontend"
 
 
 def _read(name: str) -> str:
-    return (FRONTEND / ("js/" + name if name.endswith(".js") else name)).read_text(encoding="utf-8")
+    text = (FRONTEND / ("js/" + name if name.endswith(".js") else name)).read_text(encoding="utf-8")
+    if name == "notes-list.js":
+        #: The edit form moved to its own lazy file (search-boot-1005); a test
+        #: that means "the Notes list's code" reads both.
+        text += "\n" + (FRONTEND / "js" / "note-edit-form.js").read_text(encoding="utf-8")
+    return text
 
 
 def _function(source: str, name: str) -> str:

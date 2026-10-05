@@ -913,3 +913,221 @@ $("template-draft")?.addEventListener("click", async () => {
 });
 
 $("template-cancel")?.addEventListener("click", stopEditingTemplate);
+
+// ---- from settings-wiring.js (search-boot-1005) ----
+//
+// `refreshSearxngHost` paints Settings' managed-SearXNG block and polls an
+// install; its callers are this file's own buttons and `renderWebSearch`, a
+// Settings pane's render, which runs after the window has opened and so after
+// this file is in. app.js keeps a stand-in for it (`LAZY_ENTRY_POINTS`), so
+// the pane's `refreshSearxngHost().catch(...)` is one call either way.
+
+// Managed SearXNG: show what's there, and start/stop it on request.
+async function refreshSearxngHost() {
+  const badge = $("searxng-host-state");
+  const start = $("searxng-start");
+  const stop = $("searxng-stop");
+  const info = await apiJson("/websearch/searxng/status").catch(() => null);
+  if (!info) {
+    badge.textContent = "Unknown";
+    return;
+  }
+  // No usable backend: nothing we can drive, so say so plainly. "Docker is
+  // installed but not started" is a different problem from "Docker isn't
+  // installed", and the detail from the server distinguishes them.
+  if (!info.backend) {
+    badge.textContent = info.docker_installed ? "Docker not started" : "Not available";
+    badge.title = info.detail || "";
+    start.disabled = true;
+    stop.disabled = true;
+    $("searxng-host-status").classList.remove("error");
+    $("searxng-host-status").textContent = info.detail || "";
+    return;
+  }
+  // Which way it'll be run, so "a few minutes" isn't a surprise.
+  $("searxng-backend").textContent =
+    info.backend === "docker"
+      ? "Docker is installed, so it runs as a container."
+      : "Docker isn't installed, so it runs from its own virtualenv instead. " +
+        "The first start takes a few minutes to download and install.";
+
+  // An install is minutes long and runs in the background, poll it so the
+  // step text keeps moving instead of the screen looking stuck.
+  const bar = $("searxng-install-progress");
+  if (info.installing) {
+    const stage = info.install_stage || 1;
+    const stages = info.install_stages || 5;
+    badge.textContent = `Installing… ${stage}/${stages}`;
+    badge.className = "chip";
+    start.disabled = true;
+    stop.disabled = true;
+    $("searxng-host-status").classList.remove("error");
+    $("searxng-host-status").textContent =
+      info.install_step || "Setting SearXNG up…";
+    // Reported: "the searxng reinstall doesn't have a progress bar so idk if
+    // it has frozen or is working". The bar moves through the five stages;
+    // the line under it is what pip is printing right now, which is what
+    // actually distinguishes slow from stuck.
+    bar.classList.remove("hidden");
+    if (typeof info.install_progress === "number") {
+      bar.removeAttribute("data-indeterminate");
+      bar.value = info.install_progress;
+    } else {
+      bar.setAttribute("data-indeterminate", "1");
+      bar.removeAttribute("value");
+    }
+    const said = (info.install_log || []).at(-1);
+    $("searxng-install-line").textContent = said || "";
+    clearTimeout(refreshSearxngHost.timer);
+    refreshSearxngHost.timer = setTimeout(refreshSearxngHost, 2000);
+    return;
+  }
+  bar.classList.add("hidden");
+  $("searxng-install-line").textContent = "";
+  if (info.install_error) {
+    $("searxng-host-status").classList.add("error");
+    $("searxng-host-status").textContent = info.install_error;
+  } else if (info.detail) {
+    // e.g. "Docker isn't running, so it'll be set up in a virtualenv", an
+    // explanation of what will happen, not a failure.
+    $("searxng-host-status").classList.remove("error");
+    $("searxng-host-status").textContent = info.detail;
+  } else {
+    // Always say something current. This line used to keep whatever the last
+    // poll wrote, so a finished install left "Installing SearXNG…" sitting
+    // under a badge reading "Stopped", reported with a photo, and the
+    // install had in fact completed.
+    $("searxng-host-status").classList.remove("error");
+    $("searxng-host-status").textContent =
+      info.state === "stopped"
+        ? "Installed and ready: press Start SearXNG."
+        : info.state === "running"
+          ? "Running."
+          : "";
+  }
+  const running = info.state === "running" && info.responding;
+  badge.textContent = running
+    ? "Running"
+    : info.state === "running"
+      ? "Starting…"
+      : info.state === "stopped"
+        ? "Stopped"
+        : "Not installed";
+  badge.className = `chip item-label${running ? " is-ok" : ""}`;
+  start.disabled = running;
+  stop.disabled = info.state === "absent";
+  setLabel(start, info.state === "absent" ? "ph:play Install & start" : "ph:play Start SearXNG");
+  // Keep polling while it's starting, so "Starting…" can't stick forever with
+  // no way to tell whether anything is still happening.
+  if (info.state === "running" && !info.responding) {
+    clearTimeout(refreshSearxngHost.timer);
+    refreshSearxngHost.timer = setTimeout(refreshSearxngHost, 3000);
+  }
+  // What the instance itself printed. Only worth showing when it is not
+  // running happily: when it is, its own log is just noise.
+  const fold = $("searxng-output-fold");
+  const said = (info.output || "").trim();
+  fold.classList.toggle("hidden", !said || running);
+  if (said) $("searxng-output").textContent = said;
+
+  // The port, answered rather than suggested. Only three states matter, and
+  // only one of them is the user's problem to go and solve.
+  const port = info.port;
+  const portLine = $("searxng-port");
+  portLine.textContent = port ? port.detail : "";
+  portLine.classList.toggle("error", Boolean(port && !port.free && !port.held_by_searxng));
+}
+
+// ---- from status.js (search-boot-1005): applyBackendChoice ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+async function applyBackendChoice() {
+  const provider = $("llm-provider-select").value;
+  const baseUrl = $("llm-base-url").value.trim();
+  const note = $("llm-provider-status");
+  setLabel(note, "ph:spin Connecting…");
+  try {
+    const body = await apiJson("/models/provider", {
+      method: "POST",
+      body: JSON.stringify({ provider, base_url: baseUrl }),
+    });
+    backendFieldsDirty = false;
+    // The setting is saved either way, you set the address, then you start
+    // the server: so this reports what was found rather than treating an
+    // unreachable server as a rejected setting.
+    setLabel(
+      note,
+      body.reachable
+        ? `ph:plugs-connected Connected to ${body.base_url}: ${body.installed_models.length} model(s) available.`
+        : `ph:plugs Saved, but nothing is answering at ${body.base_url} yet. Start the server and this will light up.`
+    );
+    // This app's headline promise is that notes stay on the machine. A backend
+    // somewhere else is allowed, someone may want it, but never quietly, so
+    // the warning is loud and stays until the address changes.
+    const privacy = $("llm-privacy-warning");
+    privacy.textContent = body.privacy_note || "";
+    privacy.classList.toggle("hidden", !body.privacy_note);
+    await refreshModelStatus();
+  } catch (err) {
+    note.textContent = err.message;
+  }
+}
+
+// ---- from chat.js (search-boot-1005): saveModelContextWindow ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+async function saveModelContextWindow() {
+  const box = $("model-context-window");
+  if (!box || !modelContextModel) return;
+  const raw = box.value.trim();
+  const parsed = Number.parseInt(raw, 10);
+  //: Anything that is not a positive number is auto, including the empty box
+  //: this control is cleared with. `null` rather than deleting the key, so the
+  //: PUT says "this model is on auto" rather than saying nothing about it: the
+  //: whole map is replaced on save, and an omitted model would be indistinct
+  //: from one that was never set, which is the same thing here but would stop
+  //: being so the moment anything else wrote to the map.
+  const value = raw === "" || !Number.isFinite(parsed) || parsed <= 0 ? null : parsed;
+  const windows = { ...((prefsCache && prefsCache.model_context_windows) || {}) };
+  windows[modelContextModel] = value;
+  try {
+    await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ model_context_windows: windows }),
+    });
+    if (prefsCache) prefsCache.model_context_windows = windows;
+    //: Re-read the spec rather than trusting the number just typed: the
+    //: backend floors a window below its own minimum, so a 40 typed here comes
+    //: back as 4,096, and the note has to say what will actually run.
+    renderModelSpec(modelContextModel);
+    toast(value ? `${modelContextModel} will run at ${value.toLocaleString()} tokens.` : `${modelContextModel} is back on auto.`);
+  } catch (e) {
+    toast(e.message || "Couldn't save that window.", true);
+  }
+}
+
+// ---- from sheets-selects.js (search-boot-1005): addPersona ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+async function addPersona() {
+  const name = $("persona-name").value.trim();
+  const promptText = $("persona-prompt").value.trim();
+  const status = $("persona-status");
+  if (!name || !promptText) {
+    status.textContent = "Both a name and a prompt are needed.";
+    return;
+  }
+  const custom = ((prefsCache && prefsCache.personas) || []).filter(
+    (p) => p.name !== name
+  );
+  custom.push({ name, prompt: promptText });
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ personas: custom }),
+  });
+  $("persona-name").value = "";
+  $("persona-prompt").value = "";
+  status.textContent = `Added “${name}”.`;
+  await renderPersonas();
+  personaOptions();
+}

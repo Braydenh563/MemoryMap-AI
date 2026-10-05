@@ -1870,36 +1870,6 @@ function renderModelContextBox(modelName, spec) {
       : "Auto: the app uses the model's own window.";
 }
 
-async function saveModelContextWindow() {
-  const box = $("model-context-window");
-  if (!box || !modelContextModel) return;
-  const raw = box.value.trim();
-  const parsed = Number.parseInt(raw, 10);
-  //: Anything that is not a positive number is auto, including the empty box
-  //: this control is cleared with. `null` rather than deleting the key, so the
-  //: PUT says "this model is on auto" rather than saying nothing about it: the
-  //: whole map is replaced on save, and an omitted model would be indistinct
-  //: from one that was never set, which is the same thing here but would stop
-  //: being so the moment anything else wrote to the map.
-  const value = raw === "" || !Number.isFinite(parsed) || parsed <= 0 ? null : parsed;
-  const windows = { ...((prefsCache && prefsCache.model_context_windows) || {}) };
-  windows[modelContextModel] = value;
-  try {
-    await apiJson("/preferences", {
-      method: "PUT",
-      body: JSON.stringify({ model_context_windows: windows }),
-    });
-    if (prefsCache) prefsCache.model_context_windows = windows;
-    //: Re-read the spec rather than trusting the number just typed: the
-    //: backend floors a window below its own minimum, so a 40 typed here comes
-    //: back as 4,096, and the note has to say what will actually run.
-    renderModelSpec(modelContextModel);
-    toast(value ? `${modelContextModel} will run at ${value.toLocaleString()} tokens.` : `${modelContextModel} is back on auto.`);
-  } catch (e) {
-    toast(e.message || "Couldn't save that window.", true);
-  }
-}
-
 async function renderModelSpec(modelName) {
   const box = $("model-spec");
   if (!box) return;

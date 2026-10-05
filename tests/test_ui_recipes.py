@@ -3128,7 +3128,7 @@ RICH_PICKERS = [
     ("editor.js", "editorRenderMenu"),
     ("app-palette.js", "renderPalette"),
     ("library.js", "openLibraryCreatePicker"),
-    ("settings-wiring.js", "chordGuideGroup"),
+    ("chord-guide.js", "chordGuideGroup"),
     ("selection.js", "pickerListbox"),
 ]
 

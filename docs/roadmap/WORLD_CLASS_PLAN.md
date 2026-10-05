@@ -984,9 +984,8 @@ audit is open.
 Each of these was found by measuring and deferred with evidence; the
 `agent-remaining/*.md` file named carries the file, id and next step.
 
-- Whiteboard board-preview minimap writes NaN rects (20 console errors on
-  a notebook with boards; `app.js` `board-minimap-card`). Owner: mindmap
-  item F (previews), since the new miniature renderer replaces it.
+- Whiteboard board-preview minimap NaN rects: not reproduced 2026-10-05 (six
+  boards, 0 errors at 1440 and 390, `errors.js`); see worldclass-1005c.md.
 - 1024px still wraps the Writing Room controls and the capture attachment
   row. Owner: consistency.md.
 - Tab bar scrolls between 600 and 819px; short tab captions below 480 are

@@ -96,6 +96,87 @@ async function toolsgap(page, W) {
   return (tokens.gap < 20 ? 0 : 1) + (bad.length ? 1 : 0);
 }
 
+// Whether a reminder row shares the notes' row, and whether the Library, the
+// Reminders and the Timeline stay smooth past 200 rows. Seed 300 of each first
+// (notes, documents, reminders; scratchpad seeding is two curl loops), then:
+//   same row?  the list class, the row's computed look and the classes inside it,
+//              a note row beside a reminder row.
+//   per list   render ms (the call plus two frames, fetch included), DOM nodes in
+//              the list, a forced full style and layout (ms), and a 3 x 30 frame scroll
+//              (worst and 95th percentile frame, ms). Pass: no frame over 50ms,
+//              forced layout under 100ms.
+async function rows(page, W) {
+  await page.evaluate(() => switchTab('notes'));
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => switchTab('reminders'));
+  await page.waitForTimeout(1500);
+  const same = await page.evaluate(() => {
+    const look = (li) => {
+      const c = getComputedStyle(li);
+      return { list: li.parentElement.className, li: li.className, tag: li.tagName, pad: c.padding, radius: c.borderRadius, bg: c.backgroundColor, border: c.borderTopWidth + ' ' + c.borderLeftWidth, display: c.display, kids: [...li.children].map((k) => k.className).slice(0, 6) };
+    };
+    const note = document.querySelector('#entry-list > li:not(.skeleton)');
+    const rem = document.querySelector('#tab-reminders .entry-list > li');
+    return { note: note && look(note), reminder: rem && look(rem) };
+  });
+  console.log('same row?', JSON.stringify(same, null, 1));
+  // CV='css text' adds a candidate rule through an adopted sheet (the CSP refuses
+  // a style tag) to measure a fix before writing it into the stylesheets.
+  if (process.env.CV) await page.evaluate((css) => { const sheet = new CSSStyleSheet(); sheet.replaceSync(css); document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]; }, process.env.CV);
+  const lists = [
+    ['library docs', "switchTab('library'); document.querySelector('#library-subtabs [data-target=\"library-view-docs\"]').click()", () => renderLibraryDocuments(), '#library-view-docs'],
+    ['reminders', "switchTab('reminders')", () => loadReminders(), '#tab-reminders'],
+    ['timeline', "switchTab('timeline')", () => renderTimeline(), '.timeline-feed'],
+  ];
+  let fails = 0;
+  for (const [name, open, render, sel] of lists) {
+    // A sub-tab is pressed after its tab has settled (the tab restores the last
+    // sub-tab a moment later and would undo the press: skeletons.js says so too).
+    const [tab, sub] = open.split('; ');
+    await page.evaluate(tab);
+    await page.waitForTimeout(900);
+    if (sub) { await page.evaluate(sub); await page.waitForTimeout(900); }
+    const r = await page.evaluate(async ({ renderSrc, sel }) => {
+      const frame = () => new Promise((res) => requestAnimationFrame(() => res(performance.now())));
+      const t0 = performance.now();
+      await (0, eval)(renderSrc)();
+      await frame(); await frame();
+      const renderMs = performance.now() - t0;
+      const list = document.querySelector(sel);
+      let scroller = list;
+      while (scroller && !(['auto', 'scroll'].includes(getComputedStyle(scroller).overflowY) && scroller.scrollHeight > scroller.clientHeight + 4)) scroller = scroller.parentElement;
+      const rowsN = list.querySelectorAll('li, .timeline-row').length;
+      const nodes = list.querySelectorAll('*').length;
+      // A one pixel narrower box invalidates the subtree's layout; the read forces it.
+      const w0 = list.style.width;
+      list.style.width = list.offsetWidth - 1 + 'px';
+      const t1 = performance.now();
+      void list.offsetHeight;
+      const layoutMs = performance.now() - t1;
+      list.style.width = w0;
+      const times = [];
+      // Three passes down the list, so one slow frame is not the number.
+      for (let pass = 0; pass < 3 && scroller; pass++) {
+        scroller.scrollTop = 0;
+        let last = await frame();
+        for (let i = 0; i < 30; i++) {
+          scroller.scrollTop += 400;
+          const now = await frame();
+          times.push(now - last);
+          last = now;
+        }
+      }
+      times.sort((a, b) => a - b);
+      if (scroller) scroller.scrollTop = 0;
+      return { rowsN, nodes, renderMs: Math.round(renderMs), layoutMs: +layoutMs.toFixed(1), worst: Math.round(times[times.length - 1] || 0), p95: Math.round(times[Math.floor(times.length * 0.95)] || 0), scrolled: !!scroller, scroller: scroller && (scroller.id || scroller.className) };
+    }, { renderSrc: '(' + render.toString() + ')', sel });
+    const ok = r.scrolled && r.worst <= 50 && r.layoutMs < 100;
+    if (!ok) fails++;
+    console.log(`${name} W${W}: ${r.rowsN} rows, ${r.nodes} DOM nodes, render ${r.renderMs}ms, forced layout ${r.layoutMs}ms, scroll frames worst ${r.worst}ms p95 ${r.p95}ms (scroller ${r.scroller}) ${ok ? 'PASS' : 'FAIL'}`);
+  }
+  return fails;
+}
+
 (async () => {
   const W = +(process.env.W || 1440);
   const MODE = process.env.MODE || 'listedge';
@@ -103,6 +184,7 @@ async function toolsgap(page, W) {
   let fails = 0;
   if (MODE === 'listedge') fails = await listedge(page, W);
   if (MODE === 'toolsgap') fails = await toolsgap(page, W);
+  if (MODE === 'rows') fails = await rows(page, W);
   await browser.close();
   process.exit(fails ? 1 : 0);
 })();

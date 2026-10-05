@@ -306,6 +306,16 @@ PROJECTIONS: dict[str, tuple[_Where, ...]] = {
     "create_mindmap": (_B(),),
     "add_map_node": (_B(),),
     "link_map_nodes": (_B(),),
+    # The board-editing tools (FEAT-12) name an item on a board by its kind
+    # and row id, which opens nothing on its own; the change list shows each
+    # with its Undo, which is what a card for them would offer.
+    "move_board_item": (),
+    "edit_board_item": (),
+    "delete_board_item": (),
+    "restore_board_item": (),
+    "add_board_shape": (),
+    "list_library": (),  # library refs and names, which the board's Library lists
+    "place_library_item": (),
     # --- reminders --------------------------------------------------------
     "set_reminder": (_R(),),
     "list_reminders": (_R("reminders"),),

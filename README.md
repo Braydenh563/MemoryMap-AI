@@ -204,7 +204,7 @@ while the server is away is kept on this device, shown in the list as
 
 **Ask.** A question returns a conversational answer and the notes behind
 it, side by side, with each sentence linked to the note it came from. Chat
-is saved and resumable. In Agent mode the assistant has 58 tools to
+is saved and resumable. In Agent mode the assistant has 65 tools to
 search, link, organise and act on your notebook; anything destructive
 asks first, and every step it takes is shown.
 
@@ -230,7 +230,13 @@ you were reading.
 
 **Think on a canvas.** A board holds cards, sketches, images and shapes on
 a pannable surface. A shape holds text, and a connector can carry a label
-("yes", "no"), so a flowchart reads on its own. A board can be a **mind
+("yes", "no"), so a flowchart reads on its own. The board's sidebar holds a
+library of shapes, flowchart symbols, arrows, frames and 1,530 icons beside
+your own saved pieces, with Layers and Pages (the frames, in presentation
+order); a Format panel sets exact place, size, angle, opacity and shadow,
+and an elbow connector turns at right angles round the shapes it joins. In
+Agent mode the assistant can draw shapes, place library items, and move,
+edit or delete what is on a board, asking first. A board can be a **mind
 map**: a root topic with branches you grow by hand or from your notes (Tab
 adds a child, Enter a sibling, Ctrl+D copies, Ctrl+Z restores a deleted
 branch). A topic can be a task with a box to tick, and every topic above it

@@ -184,7 +184,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
 - Impact: on the two most control-dense surfaces, nothing can be found by typing its name, and a keyboard user has no index of what exists.
 - NEW. Fix (M): one `WB_COMMANDS` table feeding the palette, the menus, the shortcut sheet and the help (section 8).
 
-**FEAT-12. The AI can add to a board but cannot change, move, restyle or delete anything.**
+**FEAT-12. The AI can add to a board but cannot change, move, restyle or delete anything.** FIXED (Phase G: seven tools, test_ai_board_edit.py)
 - Evidence:
   - The board and map tools are `read_whiteboard`, `search_whiteboard`, `add_whiteboard_card`, `add_whiteboard_link`, `generate_diagram`, `read_mindmap`, `create_mindmap`, `add_map_node` and `link_map_nodes` (`ai/tools/__init__.py:2814-2998`).
   - None renames a topic, moves or reparents one, deletes, restyles, adds a sticky, shape, text or frame, or groups.
@@ -922,7 +922,7 @@ Every brief:
   - The drag restack writes z.
   - The screen reader names every row (axe).
 
-### Phase D, mind map usability (L, Opus)
+### Phase D, mind map usability (L, Opus): the Outline tab's first cut (read and walk) BUILT 2026-10-05; editing in it, M1, fold-to-level and the strip's doors are the mind map agent's
 
 - Goal: M1 (latency), M3 (Outline tab), FEAT-09 map paste, the strip's doors moved into the Format panel (9.5), saved branches from Phase A in the topic menu, fold-to-level (Alt+1 to 9).
 - Gate:
@@ -940,7 +940,7 @@ Every brief:
 
 - Goal: D2 rich paste, D4 page setup and page break, D5 image handles plus DOCX images, other-language word lists (install-time optional, like the docx extra).
 
-### Phase G, AI depth (M, Opus)
+### Phase G, AI depth (M, Opus): FEAT-12 tools BUILT 2026-10-05 (FEAT-13 ghosts, the affinity sort and the claim check open)
 
 - Goal:
   - FEAT-12 tools (edit, move, delete, add shape or frame, place library item).

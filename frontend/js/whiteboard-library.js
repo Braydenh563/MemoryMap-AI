@@ -106,6 +106,9 @@ function wbOpenSidebar(tab = null, { toggle = false, focus = true } = {}) {
   } else if (want === "pages") {
     wbRenderPages();
     if (focus) document.querySelector("#wb-pages-list [tabindex='0']")?.focus({ preventScroll: true });
+  } else if (want === "outline") {
+    wbRenderOutline();
+    if (focus) document.querySelector("#wb-outline-tree [tabindex='0']")?.focus({ preventScroll: true });
   }
 }
 
@@ -129,11 +132,13 @@ function wbSyncSidebarKind() {
   const pages = document.querySelector('#wb-sidebar [data-side-tab="pages"]');
   if (pages) pages.hidden = map;
   const state = wbSideState();
-  if (!map && state.tab === "outline") wbSaveSideState({ ...state, tab: "library" });
+  if ((!map && state.tab === "outline") || (map && state.tab === "pages")) wbSaveSideState({ ...state, tab: "library" });
   if (!document.getElementById("wb-sidebar-panel")?.classList.contains("hidden")) {
     const tab = wbSideState().tab;
     if (tab === "library") wbRenderLibrary();
     else if (tab === "layers" && typeof wbRenderLayers === "function") wbRenderLayers();
+    else if (tab === "pages") wbRenderPages();
+    else if (tab === "outline") wbRenderOutline();
   }
 }
 
@@ -1884,3 +1889,129 @@ onDomReady(() => {
     clearMarks();
   });
 });
+
+// --- Outline (MINDMAP §12.2 item 8, the minimal first cut) ------------------
+//
+// A mind map's sidebar has an Outline tab: the map's topics as an indented
+// tree in sibling order, the same order the map, its exports and the
+// assistant's outline use (`wbMapIndex`). This cut reads and walks: Enter or
+// a click selects the topic and brings it on screen, the arrows walk the
+// rows, Left goes to the parent and Right to the first child. Editing in the
+// outline (Tab and Shift+Tab to re-parent, typing to rename) is the mind map
+// agent's M3, built on these rows.
+
+function wbRenderOutline() {
+  const tree = document.getElementById("wb-outline-tree");
+  if (!tree || tree.closest("[hidden]")) return;
+  const active = tree.querySelector("[tabindex='0']")?.dataset.id;
+  tree.replaceChildren();
+  if (typeof wbIsMap !== "function" || !wbIsMap() || typeof wbMapIndex !== "function") return;
+  const { childrenOf, roots } = wbMapIndex();
+  const selected = wbSelectedItem?.kind === "object" ? wbSelectedItem.id : null;
+  const add = (obj, level, parentId) => {
+    const li = document.createElement("li");
+    li.className = "wb-layer-row wb-outline-row";
+    li.setAttribute("role", "treeitem");
+    li.setAttribute("aria-level", String(level));
+    li.dataset.id = String(obj.id);
+    if (parentId != null) li.dataset.parent = String(parentId);
+    li.tabIndex = -1;
+    li.style.paddingInlineStart = `calc(var(--space-1) + ${Math.min(level - 1, 8)} * var(--space-4))`;
+    li.setAttribute("aria-selected", obj.id === selected ? "true" : "false");
+    const kids = childrenOf.get(obj.id) || [];
+    const icon = document.createElement("i");
+    icon.className = `ph ${kids.length ? "ph-caret-down" : "ph-dot-outline"} wb-layer-icon`;
+    icon.setAttribute("aria-hidden", "true");
+    const name = document.createElement("span");
+    name.className = "wb-layer-name";
+    const label = (typeof wbMapLabel === "function" ? wbMapLabel(obj) : obj.data?.content || "").trim() || "Untitled topic";
+    name.textContent = label;
+    li.append(icon, name);
+    li.setAttribute("aria-label", label);
+    if (kids.length) li.setAttribute("aria-expanded", obj.data?.collapsed ? "false" : "true");
+    tree.append(li);
+    if (!obj.data?.collapsed) for (const kid of kids) add(kid, level + 1, obj.id);
+  };
+  for (const root of roots) add(root, 1, null);
+  const row = tree.querySelector(`[data-id="${active}"]`) || tree.querySelector(`[data-id="${selected}"]`) || tree.querySelector("[role='treeitem']");
+  if (row) row.tabIndex = 0;
+}
+
+function wbOutlineFocus(id) {
+  const tree = document.getElementById("wb-outline-tree");
+  const row = tree?.querySelector(`[data-id="${id}"]`);
+  if (!row) return;
+  for (const r of tree.querySelectorAll("[tabindex='0']")) r.tabIndex = -1;
+  row.tabIndex = 0;
+  row.focus({ preventScroll: false });
+}
+
+function wbOutlineGo(id) {
+  const obj = (wbState.objects || []).find((o) => o.id === id);
+  if (!obj) return;
+  clearWbSelection();
+  selectWbItem("object", id);
+  const box = wbItemBBox("object", obj);
+  if (box) wbCenterOn(box);
+  for (const r of document.querySelectorAll("#wb-outline-tree [role='treeitem']")) r.setAttribute("aria-selected", r.dataset.id === String(id) ? "true" : "false");
+}
+
+onDomReady(() => {
+  const tree = document.getElementById("wb-outline-tree");
+  if (!tree) return;
+  tree.addEventListener("click", (e) => {
+    const li = e.target.closest("[role='treeitem']");
+    if (li) wbOutlineGo(Number(li.dataset.id));
+  });
+  tree.addEventListener("keydown", (e) => {
+    const li = e.target.closest("[role='treeitem']");
+    if (!li) return;
+    const rows = [...tree.querySelectorAll("[role='treeitem']")];
+    const at = rows.indexOf(li);
+    const go = (i) => {
+      const next = rows[Math.max(0, Math.min(rows.length - 1, i))];
+      if (next) wbOutlineFocus(next.dataset.id);
+    };
+    if (e.key === "ArrowDown") go(at + 1);
+    else if (e.key === "ArrowUp") go(at - 1);
+    else if (e.key === "Home") go(0);
+    else if (e.key === "End") go(rows.length - 1);
+    else if (e.key === "ArrowLeft" && li.dataset.parent) wbOutlineFocus(li.dataset.parent);
+    else if (e.key === "ArrowRight" && li.getAttribute("aria-expanded") === "true") go(at + 1);
+    else if (e.key === "Enter" || e.key === " ") wbOutlineGo(Number(li.dataset.id));
+    else return;
+    e.preventDefault();
+  });
+});
+
+//: **An open tab follows the board** (found with the Pages tab): Layers,
+//: Pages and Outline were drawn when the tab opened and not again, so a shape
+//: drawn with the Layers tab open was missing from it. After every render,
+//: once things settle, the open tab is drawn again; a row that had the focus
+//: keeps it.
+let wbSideRefreshTimer = 0;
+
+function wbSideRefreshSoon() {
+  const panel = document.getElementById("wb-sidebar-panel");
+  if (!panel || panel.classList.contains("hidden")) return;
+  clearTimeout(wbSideRefreshTimer);
+  wbSideRefreshTimer = setTimeout(() => {
+    const tab = wbSideState().tab;
+    const list = { layers: "wb-layers-tree", pages: "wb-pages-list", outline: "wb-outline-tree" }[tab];
+    const host = list && document.getElementById(list);
+    if (!host || host.closest("[hidden]")) return;
+    const focused = host.contains(document.activeElement) ? document.activeElement : null;
+    const key = focused?.dataset.key || focused?.dataset.id;
+    if (tab === "layers") wbRenderLayers();
+    else if (tab === "pages") wbRenderPages();
+    else wbRenderOutline();
+    if (key) {
+      const row = host.querySelector(`[data-key="${key}"], [data-id="${key}"]`);
+      if (row) {
+        for (const r of host.querySelectorAll("[tabindex='0']")) r.tabIndex = -1;
+        row.tabIndex = 0;
+        row.focus({ preventScroll: true });
+      }
+    }
+  }, 250);
+}

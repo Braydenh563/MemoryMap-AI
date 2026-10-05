@@ -999,6 +999,15 @@ from .whiteboard import (  # noqa: E402
     _read_whiteboard,
     _search_whiteboard,
 )
+from .board_edit import (  # noqa: E402
+    _add_board_shape,
+    _delete_board_item,
+    _edit_board_item,
+    _list_library,
+    _move_board_item,
+    _place_library_item,
+    _restore_board_item,
+)
 
 def _search_chat_history(session: Session, args: dict) -> dict:
     """Past conversations. "What did we decide last week?" was unanswerable:
@@ -3012,6 +3021,124 @@ TOOLS: dict[str, ToolSpec] = {
             },
             _link_map_nodes,
         ),
+        #: Editing what is on a board (FEAT-12, WHITEBOARD_PLAN decision 29):
+        #: move, edit and delete ask the person first, like every other tool
+        #: that changes their own work; each returns an undo.
+        ToolSpec(
+            "move_board_item",
+            "Move one item on a board so its top-left corner is at x, y (board "
+            "units). kind is 'card', 'object' (text box, sticky or frame) or "
+            "'shape'; read_whiteboard gives each item's kind, id and corner.",
+            {
+                "type": "object",
+                "properties": {
+                    "kind": {"type": "string", "description": "'card', 'object' or 'shape'"},
+                    "item_id": {"type": "integer", "description": "The item's id from read_whiteboard"},
+                    "x": {"type": "number", "description": "New left edge"},
+                    "y": {"type": "number", "description": "New top edge"},
+                },
+                "required": ["kind", "item_id", "x", "y"],
+            },
+            _move_board_item,
+            destructive=True,
+        ),
+        ToolSpec(
+            "edit_board_item",
+            "Change a text box's, sticky's, frame's or shape's words, line "
+            "colour or fill, e.g. 'make the risks red'. A card shows its note: "
+            "edit the note instead.",
+            {
+                "type": "object",
+                "properties": {
+                    "kind": {"type": "string", "description": "'object' or 'shape'"},
+                    "item_id": {"type": "integer", "description": "The item's id from read_whiteboard"},
+                    "text": {"type": "string", "description": "New words (optional)"},
+                    "color": {"type": "string", "description": "Line or text colour, like #cc3333 (optional)"},
+                    "fill": {"type": "string", "description": "Fill colour, like #ffee99 (optional)"},
+                },
+                "required": ["kind", "item_id"],
+            },
+            _edit_board_item,
+            destructive=True,
+        ),
+        ToolSpec(
+            "delete_board_item",
+            "Take one item off a board (its connectors go with it). A card's "
+            "note stays in the notebook. The app asks the person first.",
+            {
+                "type": "object",
+                "properties": {
+                    "kind": {"type": "string", "description": "'card', 'object' or 'shape'"},
+                    "item_id": {"type": "integer", "description": "The item's id from read_whiteboard"},
+                },
+                "required": ["kind", "item_id"],
+            },
+            _delete_board_item,
+            destructive=True,
+        ),
+        ToolSpec(
+            "restore_board_item",
+            "Put back a board item delete_board_item took off: pass the item "
+            "text its undo gave. Only for undoing a delete.",
+            {
+                "type": "object",
+                "properties": {"item": {"type": "string", "description": "The undo's item text"}},
+                "required": ["item"],
+            },
+            _restore_board_item,
+        ),
+        ToolSpec(
+            "add_board_shape",
+            "Draw a rectangle, ellipse or diamond with words in it, or a frame "
+            "(a titled region), on a board at x, y with a width and height.",
+            {
+                "type": "object",
+                "properties": {
+                    "board_id": {"type": "integer", "description": "The board's id; omit for the default board"},
+                    "shape": {"type": "string", "description": "'rect', 'ellipse', 'diamond' or 'frame'"},
+                    "x": {"type": "number"},
+                    "y": {"type": "number"},
+                    "width": {"type": "number"},
+                    "height": {"type": "number"},
+                    "text": {"type": "string", "description": "Words in the shape, or the frame's title"},
+                    "color": {"type": "string", "description": "Line colour, like #335599 (optional)"},
+                    "fill": {"type": "string", "description": "Fill colour (optional)"},
+                },
+                "required": ["shape"],
+            },
+            _add_board_shape,
+        ),
+        ToolSpec(
+            "list_library",
+            "Find shapes, flowchart symbols, arrows, frames (Kanban, SWOT, "
+            "retrospective), icons and the person's own saved items in the "
+            "board's object library, by a word. Gives each a ref for "
+            "place_library_item.",
+            {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "A word, like decision, kanban or star"},
+                    "limit": {"type": "integer", "description": "How many (default 12, at most 30)"},
+                },
+            },
+            _list_library,
+        ),
+        ToolSpec(
+            "place_library_item",
+            "Place a library item (a ref from list_library) on a board, centred "
+            "at x, y. It becomes an ordinary copy on the board.",
+            {
+                "type": "object",
+                "properties": {
+                    "ref": {"type": "string", "description": "From list_library, like builtin:flowchart/decision"},
+                    "board_id": {"type": "integer", "description": "The board's id; omit for the default board"},
+                    "x": {"type": "number"},
+                    "y": {"type": "number"},
+                },
+                "required": ["ref"],
+            },
+            _place_library_item,
+        ),
         ToolSpec(
             "search_chat_history",
             "Look through earlier conversations with the user, including "
@@ -3570,6 +3697,12 @@ WRITE_TOOLS = {
     "create_mindmap",
     "add_map_node",
     "link_map_nodes",
+    "move_board_item",
+    "edit_board_item",
+    "delete_board_item",
+    "restore_board_item",
+    "add_board_shape",
+    "place_library_item",
     # The category tools write too (INBOX 431 (e)): left out, a turn that
     # merged two categories counted as having written nothing, so the
     # claimed-a-save net could fire on it, and a skill that only tidied
@@ -3756,6 +3889,8 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
             # tools and not the map tools is the worst of both, the model
             # answers by placing cards on a canvas instead.
             "read_mindmap", "create_mindmap", "add_map_node", "link_map_nodes",
+            "move_board_item", "edit_board_item", "delete_board_item", "add_board_shape",
+            "list_library", "place_library_item",
         ),
         (
             "whiteboard", "board", "canvas", "diagram", "mind map", "mindmap",
@@ -4300,6 +4435,12 @@ def confirm_label(name: str, arguments: dict) -> str:
         return f"Remove the tag “{arguments.get('name', '?')}” from every note"
     if name == "delete_skill":
         return f"Delete the saved skill “{arguments.get('name', '?')}”"
+    if name == "move_board_item":
+        return f"Move {arguments.get('kind', 'item')} #{arguments.get('item_id', '?')} on the board"
+    if name == "edit_board_item":
+        return f"Change {arguments.get('kind', 'item')} #{arguments.get('item_id', '?')} on the board"
+    if name == "delete_board_item":
+        return f"Take {arguments.get('kind', 'item')} #{arguments.get('item_id', '?')} off the board"
     return f"Run {name}"
 
 

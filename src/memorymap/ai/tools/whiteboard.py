@@ -200,7 +200,13 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
         for n in nodes
     ]
 
+    from .board_edit import _path_corner
+
     links = []
+    #: The drawn shapes with words in them, by id and corner (FEAT-12): what
+    #: `move_board_item`, `edit_board_item` and `delete_board_item` act on.
+    #: Pen strokes without words are left out; they are many and say nothing.
+    shapes = []
     for sketch in sketches:
         try:
             parsed = json.loads(sketch.data)
@@ -208,6 +214,12 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
             continue
         if isinstance(parsed, dict) and str(parsed.get("type", "")).startswith("link-"):
             links.append({"from_card_id": parsed.get("sourceId"), "to_card_id": parsed.get("targetId")})
+        elif isinstance(parsed, dict) and parsed.get("label") and isinstance(parsed.get("d"), str):
+            x, y = _path_corner(parsed["d"])
+            shapes.append({
+                "shape_id": sketch.id, "shape": parsed.get("shape") or "shape",
+                "text": _clip(str(parsed["label"]), PREVIEW_CHARS), "x": round(x), "y": round(y),
+            })
 
     text_boxes = []
     frames = []
@@ -243,6 +255,7 @@ def _read_whiteboard(session: Session, args: dict) -> dict:
         "board_title": board_title,
         "cards": cards,
         "text_boxes": text_boxes,
+        "shapes": shapes,
         "frames": frames,
         "image_count": image_count,
         "links": links,

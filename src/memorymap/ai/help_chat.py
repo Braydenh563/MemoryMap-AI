@@ -1036,7 +1036,8 @@ HELP_TOPICS.extend(
                 "Save this board as a template keeps the whole board. New board then offers your templates "
                 "beside the built-in ones. The library's ⋯ makes a new library, imports a library file and "
                 "exports one. A placed item is an ordinary copy: changing the library later never changes "
-                "a board."
+                "a board. In Agent mode the assistant can search the library and place from it, draw "
+                "shapes and frames, and move, edit or delete what is on a board, asking first."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

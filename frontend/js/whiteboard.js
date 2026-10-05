@@ -7425,6 +7425,8 @@ function wbSetHiddenKeys() {
 }
 
 function wbPaintHidden() {
+  //: After every render: an open Layers, Pages or Outline tab is drawn again.
+  if (typeof wbSideRefreshSoon === "function") wbSideRefreshSoon();
   const wanted = new Set();
   for (const key of wbSetHiddenKeys()) {
     const sep = key.indexOf(":");

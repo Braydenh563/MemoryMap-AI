@@ -2423,6 +2423,16 @@ summary > .ph-lead,
   font-size: var(--text-sm);
 }
 
+/* In a centred empty state the rule has no paragraph edge to run along: it
+   was a 215px hairline floating between the welcome's line and the chip
+   (Chat at 1440, qa-1005), which read as a stray border. The chip is set
+   apart there by space alone. */
+:is(.chat-empty, #empty-message, #library-empty) > .help-atlas {
+  margin-top: var(--space-3);
+  padding-top: 0;
+  border-top: 0;
+}
+
 /* The citation under an answer: where it came from, not somewhere to go. */
 .help-chat-source {
   margin: var(--space-1) 0 0;

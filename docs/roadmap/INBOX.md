@@ -66,6 +66,13 @@ with its owner named in the entry.
      a small map at a readable size, a tall one in a taller card up to a
      limit, then fitted whole.
      Placed: the next free Opus, after the boot-JS split lands (budget).
+     (c) built 2026-10-05 (the UX fix agent): `chip item-label` is the
+     `--chip-bg` tint at `--radius-pill` with `border: 0`, its tones tints
+     (accent, ok, warn); the Files tiles' "Read · N words" and a chat
+     attachment's reading badge joined it; DESIGN.md's row says so and
+     `tests/test_badge_recipe.py::test_a_status_label_is_a_tinted_pill_without_an_edge`
+     holds it. `badges.js`: 53 labels, one signature (11.2px/500, 19px tall,
+     8px padding, 999px radius, no border, a fill). (a), (b) and (d) are open.
 
 554. **The owner, 2026-10-05, verbatim.** "the feminine atlas whisps should
      wrap the body a bit more instead of all of it sitting in front. also the

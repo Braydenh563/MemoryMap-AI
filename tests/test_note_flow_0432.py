@@ -209,7 +209,7 @@ def test_the_rail_follows_the_note_being_read():
     assert 'ensureModule("notesRail")' in notes
     spy = _read("notes-rail-spy.js")
     assert "new IntersectionObserver(" in spy and "NOTES_SPY_SETTLE_MS = 150" in spy
-    assert "notesSpyPin" in spy and "window.innerHeight" in spy, "a hand-picked card holds for one viewport"
+    assert "notesSpyPin" in spy and "window.innerHeight" in spy, "a hand-picked card holds until a viewport out of sight"
     assert 'classList.add("rail-subject")' in spy
     toggle = notes[notes.index("function syncNotesRailToggle("):]
     assert "Connections beside the note you're reading" in toggle[: toggle.index("\n}\n")]

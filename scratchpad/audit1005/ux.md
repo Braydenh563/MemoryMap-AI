@@ -202,7 +202,7 @@ Counts: High 4, Medium 9, Low 10.
   ArrowRight/Left inside a card), the list as `role=listbox` or a grid.
   Effort M.
 
-**UX-11. Export gives no confirmation and contradicts itself; two backup concepts.** NEW
+**UX-11. Export gives no confirmation and contradicts itself; two backup concepts.** NEW FIXED 24c2a23
 - Evidence: Settings, Import & export, Export Markdown: a browser download
   `memorymap-markdown.zip`, no toast; the panel still reads "Recent exports /
   Nothing exported yet. Files land in /tmp/mm-audit-ux/exports." "Export
@@ -213,7 +213,7 @@ Counts: High 4, Medium 9, Low 10.
 - Fix: toast "Exported 29 notes as Markdown" and refresh Recent exports;
   one line under each backup kind saying what it is for. Effort S.
 
-**UX-12. With no model, AI features explain themselves only in a tooltip on a disabled button.** NEW
+**UX-12. With no model, AI features explain themselves only in a tooltip on a disabled button.** NEW FIXED 24c2a23
 - Evidence: Dashboard Weekly digest: `button.ai-unavailable`
   `disabled: true`, reason only in `title`; Chat Send the same. A disabled
   native button is not focusable and a `title` does not show on touch, so
@@ -223,7 +223,7 @@ Counts: High 4, Medium 9, Low 10.
   Settings" (the Ask and Chat recipe) on every AI-only widget; or an
   extractive digest (counts, top tags, notes written), per INBOX 269. Effort S.
 
-**UX-13. Phone: the category chip truncates to "Un..." on half the cards.** NEW
+**UX-13. Phone: the category chip truncates to "Un..." on half the cards.** NEW FIXED 9781258
 - Evidence: 390x844, Notes: `.chip.category` "Uncategorised", label
   `scrollWidth` 87 vs `clientWidth` 33 on 3 of 6 cards (chip 60px wide where
   the meta row also holds "edited"). The `aria-label` is whole.
@@ -232,14 +232,14 @@ Counts: High 4, Medium 9, Low 10.
 
 ### Low
 
-**UX-14. `title="undefined"` tooltips on menu items.** NEW
+**UX-14. `title="undefined"` tooltips on menu items.** NEW FIXED 9781258
 - Evidence: Chat's kebab: 5 items with `title="undefined"` (Rename this
   chat, Export as Markdown, Save this chat as a document, Copy the whole
   transcript, Delete this chat). `sheets-selects.js:642` and `:1137` set
   `button.title = item.title` unconditionally; `menus.js:1452` guards it.
 - Fix: `if (item.title) button.title = item.title;` in both. Effort S.
 
-**UX-15. The Guide's storage answer names a Settings section that does not exist.** NEW (standing order 13)
+**UX-15. The Guide's storage answer names a Settings section that does not exist.** NEW (standing order 13) FIXED 9781258
 - Evidence: Guide, "how do I back up my notes": "Settings -> Data shows
   exactly where it is on disk...", button "Open Settings, Data"
   (`ai/help_chat.py:363`, badge label "Data"); the nav says "Import &
@@ -247,12 +247,12 @@ Counts: High 4, Medium 9, Low 10.
 - Fix: the copy and badge label; a test that every help badge label equals
   the Settings nav text for its section. Effort S.
 
-**UX-16. Library "22 words written" on the All view counts documents only.** NEW
+**UX-16. Library "22 words written" on the All view counts documents only.** NEW FIXED 9781258
 - Evidence: Library, All, 29 notes and 2 documents: "22 words written";
   `routes_library.py:864` sums `kind == "document"`.
 - Fix: count notes too, or say "22 words in documents". Effort S.
 
-**UX-17. Status copy contradicts itself with no model.** NEW
+**UX-17. Status copy contradicts itself with no model.** NEW FIXED 9781258
 - Evidence: footer "AI status: Everything works · AI off" (phone: "chat AI
   off"); on the first save of a fresh install the toast said "Saved. Filing
   it in the background, keep writing." and the status bar "Filing a note · 1
@@ -261,18 +261,18 @@ Counts: High 4, Medium 9, Low 10.
 - Fix: "Notebook ready · AI off"; the first-save copy waits for the model
   status, or uses the no-model sentence when status is unknown. Effort S.
 
-**UX-18. The notes list toolbar scrolls away.** NEW
+**UX-18. The notes list toolbar scrolls away.** NEW FIXED 9781258 (600px and wider; a phone keeps the dock in the flow, where it would hold 234 of 844px)
 - Evidence: Notes, Your notes, wheel 1500px: `input[placeholder="Filter
   notes"]` top at -1244px; only the sub-tab strip is sticky. Filter, sort,
   Select and New note need "Back to top" first.
 - Fix: make `.notes-toolbar` sticky under the sub-tabs. Effort S.
 
-**UX-19. "Highlight in a colour..." asks the user to type a colour name.** NEW
+**UX-19. "Highlight in a colour..." asks the user to type a colour name.** NEW FIXED 9781258
 - Evidence: `selection.js:769-777`, a `promptDialog("Colour: green, blue,
   pink, purple or orange:")` with an error toast for anything else.
 - Fix: a swatch row (the existing chip-menu recipe). Effort S.
 
-**UX-20. Terminology drifts for the same object.** NEW
+**UX-20. Terminology drifts for the same object.** NEW FIXED 9781258
 - Evidence: "Move to bin" (menu), "Moved to the recycle bin." (toast),
   "Include the bin" (filter), "Recycle bin" (Settings, General); "concept
   map", "mind map", "map", and a map's header "Board · Garden"; "Ask AI",
@@ -280,7 +280,7 @@ Counts: High 4, Medium 9, Low 10.
 - Fix: one glossary in DESIGN.md and a lint over `index.html` and the JS
   string literals. Effort S.
 
-**UX-21. Shortcuts advertised that a browser tab cannot receive.** NEW, not verified in Chrome UI
+**UX-21. Shortcuts advertised that a browser tab cannot receive.** NEW, not verified in Chrome UI FIXED 9781258
 - Evidence: the Create dialog shows Ctrl+Shift+N (New note) and
   Ctrl+Shift+D (New document); in Chrome a page cannot intercept Ctrl+Shift+N
   (new incognito window). Fine in the pywebview window; wrong on the LAN or
@@ -288,13 +288,13 @@ Counts: High 4, Medium 9, Low 10.
 - Fix: show the hint only in the desktop window, or offer an alternative
   (Alt+N). Effort S.
 
-**UX-22. Reduced motion leaves the emblem turning.** KNOWN (owner decision, `03-dashboard-widgets.css:3226-3253`)
+**UX-22. Reduced motion leaves the emblem turning.** KNOWN (owner decision, `03-dashboard-widgets.css:3226-3253`) NO CHANGE (owner decision, recorded)
 - Evidence: with `reducedMotion: 'reduce'`, `emblem-spin` runs infinite on
   every tab (1 to 2 animations); the in-app Motion setting is the stop. Graph
   rAF is 0 per 3s after settling either way. Recorded so a future audit does
   not reopen it; WCAG 2.2.2 is met through the app setting.
 
-**UX-23. Table stakes still missing.** KNOWN (WORLD_CLASS_PLAN gap table, State 2026-09-24)
+**UX-23. Table stakes still missing.** KNOWN (WORLD_CLASS_PLAN gap table, State 2026-09-24) NOT IN SCOPE (plan items: importers, sync)
 - Importers beyond Markdown and Obsidian frontmatter (no Notion zip, ENEX,
   Apple Notes: `grep -i enex src/` finds nothing); sync (B6); reminders fire
   only "while the app is open, or hit Remind on any note" (Reminders tab

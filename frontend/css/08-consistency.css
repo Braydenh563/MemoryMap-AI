@@ -4123,8 +4123,11 @@ body .chip.item-label,
   color: var(--accent-text);
 }
 
+/* Muted type on the ok tint measured 4.44:1 in light ("Installed",
+   contrast.js), so the ready label takes the ink; the icon carries the ok. */
 :is(.entry-meta, .skill-card-header, .sampling-row, body) .chip.item-label.is-ok {
   background: color-mix(in srgb, var(--ok) 14%, transparent);
+  color: var(--ink);
 }
 
 :is(.entry-meta, .skill-card-header, .sampling-row, body) .chip.item-label.is-ok > .ph {

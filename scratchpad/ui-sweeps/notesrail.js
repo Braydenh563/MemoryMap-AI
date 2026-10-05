@@ -1,7 +1,7 @@
 // The note connections rail (WORLD_CLASS_PLAN D2), measured at four widths.
 //
 // At 1440 and 1280 (the rail's widths, NOTES_RAIL_MIN_WIDTH in notes-list.js):
-//   1. with no note open there is no rail;
+//   1. with notes in the list the rail is there, for the note in view (INBOX 571);
 //   2. opening a note (here: `flashEntry`, every route to a note) brings the
 //      rail, about that note, with its connection groups; a bare focus no
 //      longer opens it (INBOX 432), it only moves a rail already open;
@@ -127,7 +127,8 @@ async function focusLinkedNote(page) {
       await openNotes(page);
       const s0 = await state(page);
       const wide = width >= 1280;
-      if (wide) check(`${width}: no rail before a note is open`, !s0.shown, `shown ${s0.shown}`);
+      // INBOX 571: the rail follows the note being read, so with notes in the list it is there before any is opened.
+      if (wide) check(`${width}: the rail is there for the note in view before one is opened`, s0.shown, `shown ${s0.shown}`);
       const id = await focusLinkedNote(page);
       await page.waitForTimeout(1500);
       const s1 = await state(page);
@@ -244,7 +245,7 @@ async function focusLinkedNote(page) {
       await page.click('#notes-rail-toggle');
       await page.waitForTimeout(1200);
       const back = await state(page);
-      check(`${width}: the More menu brings it back`, /Connections beside an open note/.test(label) && back.shown, `menu said "${label}", shown ${back.shown}`);
+      check(`${width}: the More menu brings it back`, /Connections beside the note you're reading/.test(label) && back.shown, `menu said "${label}", shown ${back.shown}`);
     } finally {
       await browser.close();
     }

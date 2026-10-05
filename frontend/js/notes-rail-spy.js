@@ -22,8 +22,14 @@
 const NOTES_SPY_SETTLE_MS = 150;
 const notesSpyVisible = new Set();
 let notesSpyTimer = 0;
-//: The card chosen by hand, and where the list's top was when it was chosen.
+//: The card chosen by hand (a click, a focus, an edit, a jump to it), held
+//: until it is more than a viewport out of sight. Measured from the card, not
+//: from where the list was when it was chosen: a jump scrolls to its note
+//: after choosing it, and that scroll must not undo the choice.
 let notesSpyPin = null;
+//: The subject this file chose, so a subject chosen anywhere else (notes-list
+//: sets `notesRailId` for an edit, a jump and a focus) is known to be a pin.
+let notesSpyLast = null;
 
 function notesSpyActive() {
   return (
@@ -41,9 +47,13 @@ function notesSpyPick() {
   const list = $("entry-list");
   if (!list || !notesSpyActive()) return;
   const box = list.getBoundingClientRect();
+  if (notesRailId != null && notesRailId !== notesSpyLast && notesSpyPin?.id !== String(notesRailId)) {
+    notesSpyPin = { id: String(notesRailId) };
+  }
   if (notesSpyPin) {
-    const stillThere = list.querySelector(`:scope > li[data-id="${notesSpyPin.id}"]`);
-    if (stillThere && Math.abs(box.top - notesSpyPin.top) <= window.innerHeight) return;
+    const card = list.querySelector(`:scope > li[data-id="${notesSpyPin.id}"]`)?.getBoundingClientRect();
+    const far = window.innerHeight;
+    if (card && card.bottom > -far && card.top < 2 * far) return;
     notesSpyPin = null;
   }
   const top = Math.max(box.top, 0);
@@ -66,6 +76,7 @@ function notesSpyPick() {
   const id = best ? Number(best.dataset.id) : null;
   if (id !== notesRailId && (id == null || Number.isFinite(id))) {
     notesRailId = id;
+    notesSpyLast = id;
     scheduleNotesRail();
   }
 }
@@ -125,7 +136,7 @@ function notesRailMark(entry) {
   list.addEventListener("focusin", (event) => {
     const li = event.target.closest?.("li[data-id]");
     if (!li || li.parentElement !== list || event.target.closest?.(".menu-wrap, .action-menu")) return;
-    notesSpyPin = { id: li.dataset.id, top: list.getBoundingClientRect().top };
+    notesSpyPin = { id: li.dataset.id };
   });
   observeAll();
   notesSpyPick();

@@ -1,7 +1,7 @@
 # Graph and whiteboard, 2026-09-26: what is left
 
-> Companions: [GRAPH_PLAN.md](../GRAPH_PLAN.md) · [WHITEBOARD_PLAN.md](../WHITEBOARD_PLAN.md)
-> · [MINDMAP_PLAN.md](../MINDMAP_PLAN.md) · [INBOX.md](../INBOX.md) (424 (a))
+> Companions: [GRAPH_PLAN.md](../../GRAPH_PLAN.md) · [WHITEBOARD_PLAN.md](../../WHITEBOARD_PLAN.md)
+> · [MINDMAP_PLAN.md](../../MINDMAP_PLAN.md) · [INBOX.md](../../INBOX.md) (424 (a))
 >
 > One agent, its own worktree, port 8797, data dir `/tmp/mm-gw-8797` with the
 > 417-note, 1,105-link fixture (`scratchpad/graph-fixture.js 400 1200`) and a

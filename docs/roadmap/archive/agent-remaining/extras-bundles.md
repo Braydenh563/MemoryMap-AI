@@ -1,7 +1,7 @@
 # INBOX 595, package bundles and bulk actions (and FEAT-18): what is left
 
-> Companions: [INBOX.md](../INBOX.md) (595) · [DOCUMENTS_PLAN.md](../DOCUMENTS_PLAN.md)
-> (section 20, D5) · [HISTORY.md](../HISTORY.md) ("Moved from the plans,
+> Companions: [INBOX.md](../../INBOX.md) (595) · [DOCUMENTS_PLAN.md](../../DOCUMENTS_PLAN.md)
+> (section 20, D5) · [HISTORY.md](../../HISTORY.md) ("Moved from the plans,
 > 2026-10-05 (the feature audit's documents and map fixes)") ·
 > `tests/test_extras_bundles.py` · `tests/test_docexport_pictures.py` ·
 > `scratchpad/ui-sweeps/extras-bundles.js`

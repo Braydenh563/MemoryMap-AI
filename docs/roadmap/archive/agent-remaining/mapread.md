@@ -2,7 +2,7 @@
 
 > Companions: [MINDMAP_PLAN.md](../../MINDMAP_PLAN.md) **section 13** (the read
 > itself: the table, the decisions, the phases, the not-verified list) ·
-> [mindmap.md](../../agent-remaining/mindmap.md) (the ninth run's control audit, now largely
+> [mindmap.md](mindmap.md) (the ninth run's control audit, now largely
 > superseded: §12.5 landed and most of its counts have moved) ·
 > [DOCUMENTS_PLAN.md](../../DOCUMENTS_PLAN.md) section 17 (the shape this follows)
 >

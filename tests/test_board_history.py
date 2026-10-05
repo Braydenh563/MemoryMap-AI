@@ -118,7 +118,7 @@ def test_restore_makes_removes_and_writes_back_to_match(client):
     bid = board["id"]
     a = _sketch(client, bid, {"d": _rect(0, 0), "shape": "rect", "label": "A"})
     b = _sketch(client, bid, {"d": _rect(300, 0), "shape": "rect", "label": "B"})
-    link = _sketch(client, bid, {"type": "link-straight", "sourceId": a["id"], "sourceKind": "sketch", "targetId": b["id"], "targetKind": "sketch", "label": "go"})
+    _sketch(client, bid, {"type": "link-straight", "sourceId": a["id"], "sourceKind": "sketch", "targetId": b["id"], "targetKind": "sketch", "label": "go"})
     t = _text(client, bid, "keep me")
     moment = _last_event(client)
     # Then: B deleted (its link goes with it), A renamed, a new shape added,

@@ -7983,19 +7983,19 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 /* Round 9: the hair's cap (atlas.js, `atlasHairCap`), fuller than a lock
    so the crown reads as hair, not skin under a veil, and a faint parting. */
 .nm-atlas .atl-hair-cap .atl-cap-fill { opacity: 0.94; }
-/* The feminine front locks lie on the cap in its own paint (atlas.js,
-   `frontLocks`), a touch lighter so each lock's curve reads. */
-.nm-atlas .atl-front-lock { opacity: 0.9; }
-.nm-atlas .atl-wisps .atl-front-lock + .atl-hair-neb { opacity: 0.3; }
-.nm-atlas .atl-hair-cap .atl-hair-neb { opacity: 0.4; }
-/* The feminine fringe (atlas.js, `cap`, `fringeShade`, `browStar`; INBOX
-   480, "it still looks like she's wearing a night cap"): the hair parts off
-   centre and sweeps across the brow in three soft locks with the forehead
-   showing between them; a fine shade up each notch parts the locks, and a
-   small star is pinned at the parting. It replaces a smooth dome with a lit
-   (then shaded) arc for a hairline and parallel strand lines over it.
-   Static: it adds nothing to the motion budget. */
-.nm-atlas .atl-fringe-shade { fill: none; stroke: var(--atl-rim); stroke-width: 0.45; stroke-linecap: round; opacity: 0.32; }
+/* The feminine fringe in strands (atlas.js, `fringe`; INBOX 550, where
+   three wedges cut in the cap's edge read as flat and hard): each lock in
+   the cap's paint over its own shadow on the brow, the roots' shade, a
+   highlight in two bands (broad and soft, then narrow and bright inside
+   it), and fine flyaway strands. Static: nothing here animates. */
+.nm-atlas .atl-fringe-shadow { fill: var(--atl-rim); opacity: 0.34; }
+.nm-atlas .atl-fringe-lock { opacity: 0.94; }
+.nm-atlas .atl-fringe-neb { opacity: 0.3; }
+.nm-atlas .atl-fringe-sheen { fill: white; opacity: 0.16; }
+.nm-atlas .atl-fringe-sheen-hi { opacity: 0.42; }
+.nm-atlas .atl-flyaway { fill: none; stroke: var(--atl-hi); stroke-width: 0.3; stroke-linecap: round; opacity: 0.75; }
+/* The mane's lustre (INBOX 550): a highlight band along each of her locks. */
+.nm-atlas .atl-lock-sheen { fill: white; opacity: 0.2; }
 .nm-atlas .atl-brow-halo { fill: var(--atl-tip); opacity: 0.6; }
 .nm-atlas .atl-brow-star { opacity: 0.95; }
 .nm-atlas .atl-st-chest-clear { stop-color: white; stop-opacity: 0; }
@@ -8131,25 +8131,61 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .nm-atlas .atl-st-flow2 { stop-color: var(--atl-neb-c); stop-opacity: 0.9; }
 .nm-atlas .atl-st-flow3 { stop-color: var(--atl-neb2-c); stop-opacity: 0.9; }
 .nm-atlas .atl-sower-fill { fill: var(--atl-flow); }
-.nm-atlas .atl-sower-inner { fill: var(--atl-neb2-c); opacity: 0.5; }
-.nm-atlas .atl-sower-light { fill: white; opacity: 0.22; }
-.nm-atlas .atl-sower-sparkle { fill: white; opacity: 0.9; }
+/* The dress (atlas.js, `spec.sower`; INBOX 559, the owner of a striped
+   gown with an outlined, scalloped hem: "it looks old and like a circus").
+   No outline: a nebula's clouds in the flow's paint, two broad soft sweeps
+   of light for folds, a rim light on one side, star dust of uneven sizes
+   and two glints, the last third dissolving into light and motes. Low
+   strength throughout; still, it flows on its layer's root. */
+.nm-atlas .atl-dress-neb { fill: var(--atl-bneb); opacity: 0.55; }
+.nm-atlas .atl-dress-sheen { fill: white; opacity: 0.22; }
+.nm-atlas .atl-dress-rim { fill: white; opacity: 0.34; }
+.nm-atlas .atl-dress-star { fill: white; opacity: 0.6; }
+.nm-atlas .atl-dress-glint { fill: white; opacity: 0.9; }
+.nm-atlas .atl-dress-mote { fill: white; opacity: 0.75; }
 /* The body's edge glow carried down the tail (`atl-sower-glow`, the edge
    group under the tail): the torso's `.atl-edge` colour and strength, as a
    fill 1.3 wider than the tail, so 0.65 shows outside it as on the flank. */
 .nm-atlas .atl-sower-glow { fill: var(--atl-glow-c); opacity: 0.26; }
-/* Her astral wisps (atlas.js, `wisps`; INBOX 535): a soft glow of the
-   nebula's light under a brighter core, with a sparkle trail. Fills only.
-   On a light page a near-white core over a lilac glow was barely there
-   (median contrast 1.13 against what is behind it, atlaswisps.js), so the
-   light theme draws them in the nebula's deeper violet; the dark theme
-   keeps the starlight. */
-.nm-atlas .atl-astral-glow { fill: var(--atl-neb-c); opacity: 0.42; }
-.nm-atlas .atl-astral-core { fill: var(--atl-neb2-c); opacity: 0.8; }
-.nm-atlas .atl-astral-sparkle { fill: var(--atl-neb2-c); opacity: 0.95; }
-:root[data-theme="dark"] .nm-atlas .atl-astral-glow { opacity: 0.2; }
-:root[data-theme="dark"] .nm-atlas :is(.atl-astral-core, .atl-astral-sparkle) { fill: white; opacity: 0.5; }
-:root[data-theme="dark"] .nm-atlas .atl-astral-sparkle { opacity: 0.95; }
+/* Her astral wisps (atlas.js, `wisps`; INBOX 535, then 550: "flat lavender
+   bands with dot sparkles"). Each is a tapered ribbon over a glow 2.6 times
+   as wide, both painted along its run by its own gradient (`wisp<i>`: pink
+   nebula into violet into the accent-tinted glow) and faded out at both
+   ends, a lit edge on its outer side, and four-point glints of five sizes.
+   Fills only. On a light page a near-white core over a lilac glow was
+   barely there (median contrast 1.13, atlaswisps.js), so the light theme's
+   stops are the nebula's deeper violet and the dark theme's starlight. */
+.nm-atlas .atl-astral-glow { opacity: 0.3; }
+.nm-atlas .atl-astral-core { opacity: 0.85; }
+.nm-atlas .atl-astral-edge { fill: white; opacity: 0.6; }
+.nm-atlas .atl-st-wisp0 { stop-color: color-mix(in oklab, var(--atl-pink) 40%, var(--atl-neb2-c)); }
+.nm-atlas .atl-st-wisp1 { stop-color: var(--atl-neb2-c); }
+.nm-atlas .atl-st-wisp2 { stop-color: color-mix(in oklab, var(--atl-glow-c) 45%, var(--atl-neb2-c)); }
+:root[data-theme="dark"] .nm-atlas {
+  & .atl-st-wisp0 { stop-color: color-mix(in oklab, var(--atl-pink) 60%, white); }
+  & .atl-st-wisp1 { stop-color: color-mix(in oklab, var(--atl-lilac) 70%, white); }
+  & .atl-st-wisp2 { stop-color: color-mix(in oklab, var(--atl-glow-c) 85%, white); }
+  & .atl-astral-glow { opacity: 0.3; }
+  & .atl-astral-core { opacity: 0.7; }
+  & .atl-astral-edge { opacity: 0.6; }
+}
+/* The ends' fade (`wispends`): the mask's ink, gone by its rim. */
+.nm-atlas .atl-st-ink { stop-color: black; stop-opacity: 1; }
+.nm-atlas .atl-st-ink-mid { stop-color: black; stop-opacity: 0.8; }
+.nm-atlas .atl-st-ink-0 { stop-color: black; stop-opacity: 0; }
+.nm-atlas :is(.atl-wisp-glint, .atl-band-glint) { fill: white; }
+.nm-atlas .atl-glint-halo { fill: var(--atl-tip); opacity: 0.85; }
+/* The glints twinkle (atlas.js, `glint-a`, `glint-b`): an opacity loop on
+   each layer's root, the compositor's, on two clocks so neighbours are out
+   of step; their boxes drift with the wisps'. Still under Reduce motion,
+   the system's reduced motion and Avatar animation Off. */
+.atl-lw-glint-a, .atl-lw-glint-b, .atl-lw-wisps-back { transform-origin: 31px 60px; will-change: rotate; }
+/* The runs of her wisps behind the body (INBOX 554, `wisps-back`): dimmer,
+   the lit edge fainter, so they read as the far side of the sash. */
+.nm-atlas .atl-astral-back { opacity: 0.55; }
+.nm-atlas .atl-astral-back .atl-astral-edge { opacity: 0.3; }
+.nm-atlas:is(.atl-layer-glint-a, .atl-layer-glint-b) { will-change: opacity; }
+@keyframes atl-glint-twinkle { 0%, 100% { opacity: 0.4; } 45% { opacity: 1; } 60% { opacity: 0.85; } }
 /* The waist and tail wisps take the tail's pose: each pose's turn of the
    lower layer (above, `.atl-layer-lower`) on their own group, about the same
    point; the pose shapes (`.atl-lower`) reach them by class. */
@@ -8274,6 +8310,14 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   #nm-buddy:has(.atl-figure[data-atlas-look="masculine"]) .nm-buddy-char { animation-duration: 6s !important; }
 }
 /* A slow turn and lift about her middle, the compositor's (a box). */
+@keyframes atl-float {
+  from { translate: 0 0.5px; }
+  to { translate: 0 -0.9px; }
+}
+@keyframes atl-hem-wind {
+  from { rotate: -1.3deg; translate: 0.35px 0; }
+  to { rotate: 1.5deg; translate: -0.5px 0; }
+}
 @keyframes atl-wisp-drift {
   from { rotate: -2.2deg; translate: 0 0.6px; }
   to { rotate: 2deg; translate: 0 -1.2px; }
@@ -8730,6 +8774,18 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     & .atl-lw-neb, & .atl-lw-neb-front { animation: atl-neb-flow 7.7s ease-in-out infinite alternate; }
     /* Her astral wisps drift on their own slow clock (INBOX 535). */
     & .atl-lw-wisps { animation: atl-wisp-drift 6.8s ease-in-out -1.7s infinite alternate; }
+    & :is(.atl-lw-glint-a, .atl-lw-glint-b, .atl-lw-wisps-back) { animation: atl-wisp-drift 6.8s ease-in-out -1.7s infinite alternate; }
+    /* INBOX 554 (the owner: "dynamic and organic movement ... like an azur
+       lane character"): her idle in layers on clocks that never line up,
+       breath 3.7s, float 5.3s, wisps 6.8s, the dress's wind 7.1s, sway
+       9.4s, each on a box or a root, the compositor's. The dress trails
+       the body: its wind is a slower swing and a drift to one side, a
+       quarter turn behind. */
+    &.atl-figure-box[data-atlas-look="feminine"] { animation: atl-float 5.3s ease-in-out infinite alternate; }
+    & .atl-lw-lower[data-atlas-look="feminine"] { animation: atl-hem-wind 7.1s ease-in-out -1.8s infinite alternate; }
+    & .atl-layer-body[data-atlas-look="feminine"] { animation-duration: 3.7s; }
+    & .atl-layer-glint-a { animation: atl-glint-twinkle 3.4s ease-in-out infinite; }
+    & .atl-layer-glint-b { animation: atl-glint-twinkle 4.7s ease-in-out -2.2s infinite; }
     &:is([data-atlas-mood="happy"], [data-atlas-mood="delighted"], [data-atlas-mood="love"], [data-atlas-mood="laughing"]) .atl-lw-tail { animation: none; }
   }
 }
@@ -8763,6 +8819,13 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   .atl-lw-body[data-atlas-look="feminine"] { animation-duration: 16s !important; }
   .atl-lw-tail { animation-duration: 9s !important; }
   .atl-lw-neb, .atl-lw-neb-front, .atl-lw-wisps { animation: none !important; }
+  :is(.atl-lw-glint-a, .atl-lw-glint-b, .atl-lw-wisps-back), .nm-atlas:is(.atl-layer-glint-a, .atl-layer-glint-b) { animation: none !important; }
+  /* Her float and the dress's wind (INBOX 554) stop; a mood's body move
+     keeps its slowed loop (above). */
+  .atl-lw-lower[data-atlas-look="feminine"] { animation: none !important; }
+  .nm-live {
+    &.atl-figure-box[data-atlas-look="feminine"]:not([data-atlas-mood="delighted"], [data-atlas-mood="laughing"], [data-atlas-mood="sleepy"], [data-atlas-mood="love"], [data-atlas-mood="confused"]) { animation: none !important; }
+  }
   .nm-atlas {
     &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
     /* Round 6: the skirt drifts slower still; the nebula holds still. */

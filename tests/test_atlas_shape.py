@@ -26,14 +26,14 @@ def test_the_feminine_look_has_no_legs_and_one_spectral_tail():
     assert "legs: false," in feminine
     # INBOX 535 (the Galaxy Seed Sower): no gown, no ribbons, one tail.
     assert 'lowerTaper: "sower",' in feminine and "skirt" not in feminine
-    assert feminine.count("seg: [[") == 1 + 7 + 6 + 3  # the tail, the mane's locks, the head's locks, the astral wisps
+    assert feminine.count("seg: [[") == 1 + 7 + 6 + 3 + 5  # the tail, the mane's locks, the head's locks, the astral wisps, the fringe's locks
     # No leg layers are built for a look without legs, and none is drawn.
     assert 'const legs = spec.legs !== false;' in ATLAS
     assert '...(legs ? ["leg-l", "leg-r"] : [])' in ATLAS
     assert "if (spec.legs === false) spec.legPaths = [];" in ATLAS
     # The tail is the hips down to their widest, then eases to a round end.
     assert "tip + (w - tip) * ((1 - t) / (1 - tHip)) ** 1.15" in ATLAS
-    assert "fill: atlasStem(seg, width, { samples: 18, cap: true })," in ATLAS
+    assert "fill: atlasStem(seg, width, { samples: 18, round: true, tip: hemTip })," in ATLAS
 
 
 def test_the_skirt_sways_on_its_layer_root_only():
@@ -78,11 +78,11 @@ def test_the_nebula_is_one_orbit_split_into_a_far_and_a_near_half_that_drift_tog
     assert "ATLAS_BAND_FRONT" not in ATLAS
     assert "const ATLAS_BAND = atlasBandPaths();" in ATLAS
     assert 'const names = ["neb", "back",' in ATLAS
-    assert '"front", "neb-front", ...(spec.wisps ? ["wisps"] : []), "fx-1"' in ATLAS
-    assert 'atlasBand(layers["neb-front"].rig, id, "front");' in ATLAS
+    assert '"front", "neb-front", ...(spec.wisps ? ["wisps", "glint-a", "glint-b"] : []), "fx-1"' in ATLAS
+    assert 'atlasBand(layers["neb-front"].rig, id, "front", look);' in ATLAS
     # The single drawing puts the near half after the rings' near halves.
     single = ATLAS[ATLAS.index("function atlasDraw(size") :]
-    assert single.index("atlasRing(rig, id, ring, k, true)") < single.index('atlasBand(rig, id, "front")')
+    assert single.index("atlasRing(rig, id, ring, k, true)") < single.index('atlasBand(rig, id, "front", look)')
     # Both halves on the one drift, so the ribbon never parts at a seam.
     drift = re.findall(r"([^{}\n]+)\{[^{}]*animation: atl-neb-drift", CSS)
     assert drift and all(".atl-layer-neb, .atl-layer-neb-front" in rule for rule in drift)
@@ -205,7 +205,7 @@ def test_secondary_motion_is_compositor_only_and_still_under_reduced_motion():
     assert "& .atl-lw-tail { animation: atl-tail-flow 8.3s" in CSS
     assert "atl-idle-sway" in CSS.split("atl-lw-body[data-atlas-look=\"masculine\"]", 1)[1][:80]
     assert "&.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite; }" in CSS
-    assert 'ATLAS_ROOT_BOXES = ["body", "tail", "lower", "leg-l", "leg-r", "neb", "neb-front", "wisps"]' in ATLAS
+    assert 'ATLAS_ROOT_BOXES = ["body", "tail", "lower", "leg-l", "leg-r", "neb", "neb-front", "wisps", "wisps-back", "glint-a", "glint-b"]' in ATLAS
     for name in ("atl-idle-sway", "atl-idle-sway-soft", "atl-tail-flow", "atl-neb-flow"):
         assert not re.search(rf"&[^{{\n]*\.atl-layer[^{{\n]*\{{[^}}\n]*{name}", CSS), name
     assert "&.atl-full .atl-mane { animation: atl-hair-flow" in CSS
@@ -483,35 +483,42 @@ def test_both_looks_wear_a_hair_cap_so_the_crown_is_not_bald():
 
 def test_the_feminine_hair_is_a_side_swept_fringe_not_a_cap():
     # Round 9 swept the strands back off the brow after "school girl vibes"
-    # (a centre parting and two rounded curtains). INBOX 480 took away the
-    # lit hairline and circlet that read as a headband, and then the owner
-    # of the smooth dome left: "it still looks like she's wearing a night cap
-    # :(". The cap's lower edge is now a fringe: parted off centre and swept
-    # across the brow in three locks of different lengths, each ending in a
-    # point, with the forehead showing in the notches between them. No
-    # parallel strand lines, no arc for a hairline, and the star is small
-    # and off centre, at the parting.
+    # (a centre parting and two rounded curtains); INBOX 480, of a smooth
+    # dome: "it still looks like she's wearing a night cap :(", answered with
+    # three wedges cut in the cap's edge, parted off centre. INBOX 550, the
+    # owner: "improve ... the forehead hair"; atlasluster.js measured the
+    # wedges' tips turning 161.6 degrees in one 0.1 step. Now the cap stops
+    # at a smooth hairline and five locks lie over it, parted off centre and
+    # swept across the brow: each tapered from a broad root to a round tip
+    # half a unit across, over a shadow, with a highlight in two bands and
+    # fine flyaways. INBOX 555 ("a wierd gap on the fringe in the top right
+    # corner"): the fringe is drawn in the cap's own group, so nothing that
+    # lifts the crest or turns the head can part the two.
     feminine = _look("feminine")
-    cap = re.search(r'cap: "([^"]+)"', feminine).group(1)
-    nums = [float(v) for v in re.findall(r"-?[0-9.]+", cap)]
-    ys = nums[1::2]
-    # The lower edge dips and rises: lock tips at 17 and more, notches back
-    # up to 15 and less between them (a cap's arc never rises again).
-    edge = ys[ys.index(20.6) + 1:]
-    dips = [y for y in edge if y >= 17]
-    notches = [y for y in edge if y <= 15]
-    assert len(dips) >= 3 and len(notches) >= 3, edge
-    for gone in ("frontLocks:", "hairline:", "atl-strand-light", "atl-hairline-shade"):
-        assert gone not in feminine and gone not in CSS, gone
-    assert "fringeShade: \"M" in feminine and '"atl-fringe-shade"' in ATLAS
+    block = feminine[feminine.index("    fringe: [") : feminine.index("    flyaways:")]
+    locks = re.findall(r"\{ seg: \[\[([^\]]+)\][^}]*w: \[([0-9.]+), ([0-9.]+)\] \}", block)
+    assert len(locks) == 5, block
+    for start, root, tip in locks:
+        x = float(start.split(",")[0])
+        assert x >= 36, "every lock leaves the off-centre parting"
+        assert float(tip) <= 0.5 and float(tip) / float(root) <= 0.2, (root, tip)
+    ends = [float(v) for v in re.findall(r"-?[0-9.]+", block)]
+    assert min(ends) < 20, "the longest lock sweeps across the brow past the temple"
+    assert "fill: atlasStem(seg, width, { samples: 12, round: true })" in ATLAS
+    for cls in ("atl-fringe-shadow", "atl-fringe-lock", "atl-fringe-sheen", "atl-flyaway"):
+        assert f"atl-{cls[4:]}" in ATLAS and f".nm-atlas .{cls} " in CSS, cls
+    cap = ATLAS[ATLAS.index("function atlasHairCap(") : ATLAS.index("function atlasEars(")]
+    assert "spec.fringePaths" in cap and '"atl-skin atl-lock atl-fringe-lock"' in cap
+    for gone in ("fringeShade", "atl-fringe-shade", "frontLocks:", "hairline:", "atl-strand-light", "atl-hairline-shade"):
+        assert gone not in ATLAS and gone not in CSS, gone
     x, y, k = (float(v) for v in re.search(r"browStar: \[([^\]]+)\]", feminine).group(1).split(","))
     assert abs(x - 31) >= 6 and k <= 1.2, "a small star off centre, an ornament at the parting, not a badge"
     for gone in ("rootDust:", "circlet:", "spec.rootDust", "spec.circlet"):
         assert gone not in ATLAS, gone
-    # Static: the brow adds nothing to the motion budget.
-    assert not re.search(r"atl-(brow-star|brow-halo|fringe-shade)[^{]*\{[^}]*animation", CSS)
+    # Static: the fringe adds nothing to the motion budget.
+    assert not re.search(r"atl-(brow-star|brow-halo|fringe-[a-z]+|flyaway)[^{]*\{[^}]*animation", CSS)
     # The masculine look keeps its own crest.
-    assert "fringeShade" not in _look("masculine") and "browStar" not in _look("masculine")
+    assert "fringe:" not in _look("masculine") and "browStar" not in _look("masculine")
 
 
 def test_the_masculine_waist_has_no_seam():
@@ -825,7 +832,11 @@ def test_the_feminine_body_is_an_hourglass_that_flows_into_one_wide_tail(tmp_pat
     ys = [y for _, y, _ in built]
     assert min(xs) < 5 and ys[-1] < max(ys) - 4, "a big sweep to one side that lifts at its end"
     assert built[-1][2] >= 4.0, "the tail's end is round, radius 2 or more"
-    assert 'tail.setAttribute("mask", `url(#${id}-tailtip)`);' in ATLAS
+    # INBOX 559: the end is one soft lobe (`hemTip`), not `cap`'s arc, which
+    # bulges inward (two horns: "too sharp like a tooth"), and the last third
+    # dissolves into light under a round fade about the end.
+    assert "fill: atlasStem(seg, width, { samples: 18, round: true, tip: hemTip })," in ATLAS
+    assert 'tail.setAttribute("mask", `url(#${id}-hemfade)`);' in ATLAS
     # One outline from the waist: the tail is as wide as the torso's own
     # flank at each height down to the hips (no corner where they meet, no
     # box beside the waist), within 0.15 of a unit (this test's own sampling
@@ -852,9 +863,14 @@ def test_the_feminine_body_is_an_hourglass_that_flows_into_one_wide_tail(tmp_pat
     assert min(got["feminineTailW"]) >= 2.0
     assert "tail: [[36.4, 60," in feminine
     # Fills only along both tails: no stroke anywhere in the tail's paint.
-    for cls in ("atl-sower-fill", "atl-sower-inner", "atl-sower-light", "atl-sower-sparkle"):
+    for cls in ("atl-sower-fill", "atl-dress-neb", "atl-dress-sheen", "atl-dress-rim", "atl-dress-star", "atl-dress-mote"):
         rule = re.search(r"\.nm-atlas \." + cls + r" \{([^}]*)\}", CSS)
         assert rule and "stroke" not in rule.group(1), cls
+    # INBOX 559, the owner of a striped gown with an outlined, scalloped
+    # hem: "it looks old and like a circus". No stripes down its length, no
+    # outline round its end, no row of evenly spaced dots.
+    for gone in ("atl-sower-inner", "atl-sower-light", "atl-sower-sparkle", "atl-hem-edge", "atl-hem-glow", "sparkles: [[0.3, 0.32]"):
+        assert gone not in ATLAS and gone not in CSS, gone
     # The masculine look keeps its own torso and trail.
     assert "sower" not in _look("masculine") and "wisps:" not in _look("masculine")
 
@@ -867,7 +883,7 @@ def test_the_feminine_look_has_astral_wisps_that_drift_on_a_box():
     # on a box, never on an svg root), still under reduced motion.
     feminine = _look("feminine")
     assert feminine.count("sparkles: [0.") == 3
-    for cls in ("atl-astral-glow", "atl-astral-core", "atl-astral-sparkle"):
+    for cls in ("atl-astral-glow", "atl-astral-core", "atl-astral-edge"):
         rule = re.search(r"\.nm-atlas \." + cls + r" \{([^}]*)\}", CSS)
         assert rule and "stroke" not in rule.group(1), cls
     assert "& .atl-lw-wisps { animation: atl-wisp-drift" in CSS

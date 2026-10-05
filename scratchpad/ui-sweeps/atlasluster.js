@@ -5,7 +5,6 @@
 //   BASE=http://127.0.0.1:8823 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
 //     SCRATCH=/tmp/x node scratchpad/ui-sweeps/atlasluster.js
 //   PART=fringe,wisps,masc,motion,cost  (default: all)
-//   MASC_REF=/tmp/x/masc.json  first run writes it, later runs compare to it
 //   RUNS=3                     frame-cost runs (median)
 //   REF_DIR=/tmp/x/base        atlas.js and 08-consistency.css from before,
 //                              measured interleaved with the app's own
@@ -20,9 +19,10 @@
 // - wisps: every `.atl-astral-core`: widths at 3%, 30% and 97% along, the
 //   largest turn, its gradient's stop opacities (ends near 0, middle high),
 //   the glints' count and how many sizes they come in.
-// - masc: a hash of the masculine drawings' markup at four levels and of a
-//   6x screenshot of the masculine companion figure; with MASC_REF present,
-//   each compared to the reference.
+// - masc: the masculine drawings' markup at five levels and 6x screenshots
+//   of the companion figure (stand, sit, lie) and a full mark, from the
+//   app's files and from REF_DIR's: which markup differs and how many
+//   pixels differ in each shot (both should be none and 0).
 // - motion: the glint layers' running animations with motion on, with the
 //   system's reduced motion and with Avatar animation Off.
 // - cost: main-thread time (CDP TaskDuration) over 8s with the feminine
@@ -34,7 +34,12 @@ const fs = require('fs');
 const crypto = require('crypto');
 const PARTS = (process.env.PART || 'fringe,wisps,masc,motion,cost').split(',');
 const RUNS = Number(process.env.RUNS || 3);
-const MASC_REF = process.env.MASC_REF || '';
+const { execFileSync } = require('child_process');
+const PY = process.env.PY || '/home/user/MemoryMap-AI/.venv/bin/python';
+//: Pixels that differ between two PNGs of one size (the count), and the
+//: alpha at given device pixels, each the largest in a 3x3 patch.
+const DIFF = 'import sys\nfrom PIL import Image, ImageChops\na=Image.open(sys.argv[1]).convert("RGBA");b=Image.open(sys.argv[2]).convert("RGBA")\nprint(-1 if a.size!=b.size else sum(1 for p in ImageChops.difference(a,b).getdata() if max(p)>2))';
+const ALPHA = 'import sys,json\nfrom PIL import Image\nim=Image.open(sys.argv[1]).convert("RGBA");w,h=im.size\nout=[]\nfor t,x,y in json.loads(sys.argv[2]):\n  out.append([t,max(im.getpixel((min(w-1,max(0,x+dx)),min(h-1,max(0,y+dy))))[3] for dx in (-1,0,1) for dy in (-1,0,1))])\nprint(json.dumps(out))';
 const REF_DIR = process.env.REF_DIR || '';
 
 const GEOMETRY = () => {
@@ -66,6 +71,7 @@ async function mountFigure(page, look, extra = {}) {
     Object.assign(box.style, { position: 'fixed', left: '0', top: '0', width: '160px', height: '170px', zIndex: '9999', overflow: 'hidden', background: '#f3f4fa' });
     const holder = document.createElement('div'); holder.id = 'nm-buddy';
     Object.assign(holder.style, { position: 'absolute', left: '40px', top: '40px', width: '64px', height: '92px' });
+    if (extra.pose && extra.pose !== 'stand') holder.dataset.pose = extra.pose;
     try { atlasMoodNow = 'calm'; } catch (e) {}
     const fig = atlasFigure(); Object.assign(fig.style, { position: 'relative', display: 'block', width: '64px', height: '92px' });
     for (const svg of fig.querySelectorAll('svg')) atlasApply(svg, 'calm');
@@ -74,9 +80,52 @@ async function mountFigure(page, look, extra = {}) {
   }, { look, extra });
 }
 
+//: The masculine look, drawn by the app's files and (with REF_DIR) by the
+//: files from before, in the same run: a hash of each level's markup and a
+//: 6x screenshot of the companion figure in three poses and of a full mark.
+async function mascSnapshot(ref) {
+  if (ref) { process.env.OVERRIDE_JS = `atlas.js=${REF_DIR}/atlas.js`; process.env.OVERRIDE_CSS = `08-consistency.css=${REF_DIR}/08-consistency.css`; }
+  else { delete process.env.OVERRIDE_JS; delete process.env.OVERRIDE_CSS; }
+  const { browser, page } = await boot({ viewport: { width: 520, height: 700 }, scale: 6 });
+  await page.evaluate(() => { document.documentElement.dataset.avatarMotion = 'off'; });
+  const marks = await page.evaluate(() => {
+    localStorage.setItem('atlas-look', 'masculine');
+    const html = {};
+    for (const [size, level] of [[400, 'full'], [208, 'bust'], [64, 'head'], [20, 'tiny']]) html[level] = atlasDraw(size, 'calm', level).outerHTML;
+    const span = document.createElement('span'); span.append(atlasDraw(92, 'calm', 'figure'));
+    html.figure = span.innerHTML;
+    return html;
+  });
+  const hash = (s) => crypto.createHash('sha1').update(s).digest('hex').slice(0, 12);
+  const out = Object.fromEntries(Object.entries(marks).map(([k, v]) => [k, hash(v)]));
+  const files = {};
+  for (const pose of ['stand', 'sit', 'lie']) {
+    await mountFigure(page, 'masculine', { still: true, pose });
+    await page.waitForTimeout(1500);
+    files[pose] = `${process.env.SCRATCH || '/tmp'}/atlasluster-masc-${pose}-${ref ? 'ref' : 'now'}.png`;
+    await (await page.$('#luster-box')).screenshot({ path: files[pose] });
+  }
+  await page.evaluate(() => { document.getElementById('luster-box')?.remove(); const s = atlasDraw(400, 'calm', 'full'); s.id = 'luster-full'; Object.assign(s.style, { position: 'fixed', left: '0', top: '0', zIndex: '9999', background: '#f3f4fa' }); document.body.append(s); });
+  await page.waitForTimeout(800);
+  files.full = `${process.env.SCRATCH || '/tmp'}/atlasluster-masc-full-${ref ? 'ref' : 'now'}.png`;
+  await (await page.$('#luster-full')).screenshot({ path: files.full });
+  await page.evaluate(() => localStorage.removeItem('atlas-look'));
+  await browser.close();
+  return { hashes: out, files };
+}
+
 (async () => {
   const out = {};
-  if (PARTS.some((p) => ['fringe', 'wisps', 'masc'].includes(p))) {
+  if (PARTS.includes('masc')) {
+    const now = await mascSnapshot(false);
+    if (REF_DIR) {
+      const ref = await mascSnapshot(true);
+      const markup = Object.keys(now.hashes).filter((k) => now.hashes[k] !== ref.hashes[k]);
+      const pixels = Object.fromEntries(Object.keys(now.files).map((k) => [k, +execFileSync(PY, ['-c', DIFF, now.files[k], ref.files[k]]).toString()]));
+      out.masc = { markupDiffers: markup, pixelsDiffering: pixels };
+    } else out.masc = { hashes: now.hashes, note: 'set REF_DIR to compare' };
+  }
+  if (PARTS.some((p) => ['fringe', 'wisps'].includes(p))) {
     const { browser, page } = await boot({ viewport: { width: 520, height: 700 }, scale: 6 });
     await page.evaluate(GEOMETRY);
     await page.evaluate(() => { document.documentElement.dataset.avatarMotion = 'off'; });
@@ -113,43 +162,42 @@ async function mountFigure(page, look, extra = {}) {
           const { pts, turn } = window.__lusterOutline(p);
           const seg = spec.wisps[i].seg;
           const w = (t) => +window.__lusterWidth(pts, atlasSegsAt(seg, t)).toFixed(2);
-          const fill = getComputedStyle(p).fill;
-          const ref = (fill.match(/#([^")]+)/) || [])[1];
-          const grad = ref ? document.getElementById(ref) : null;
-          const stops = grad ? [...grad.querySelectorAll('stop')].map((s) => [+s.getAttribute('offset'), +(+getComputedStyle(s).stopOpacity).toFixed(2)]) : [];
-          return { turn, w03: w(0.03), w30: w(0.3), w97: w(0.97), stops };
+          return { turn, w03: w(0.03), w30: w(0.3), w97: w(0.97) };
         });
+        //: Each core alone on a clear page, its centre points in device
+        //: pixels, for the alpha read below.
+        window.__lusterCore = (i) => {
+          document.getElementById('luster-only')?.remove();
+          const st = document.createElement('style'); st.id = 'luster-only';
+          st.textContent = '#luster-svg, #luster-svg * { visibility: hidden; } #luster-svg .luster-on { visibility: visible; }';
+          document.head.append(st);
+          for (const el of svg.querySelectorAll('.luster-on')) el.classList.remove('luster-on');
+          const core = svg.querySelectorAll('.atl-astral-core')[i];
+          core.classList.add('luster-on');
+          const m = core.getScreenCTM();
+          const box = svg.getBoundingClientRect();
+          return [0.01, 0.04, 0.3, 0.5, 0.96, 0.99].map((t) => {
+            const [x, y] = atlasSegsAt(spec.wisps[i].seg, t);
+            const q = new DOMPoint(x, y).matrixTransform(m);
+            return [t, Math.round((q.x - box.left) * 6), Math.round((q.y - box.top) * 6)];
+          });
+        };
+        svg.id = 'luster-svg';
         const glints = [...svg.querySelectorAll('.atl-wisp-glint')];
         const sizes = new Set(glints.map((g) => g.dataset.k));
         const dots = svg.querySelectorAll('.atl-astral-sparkle').length;
-        svg.remove();
         return { count: each.length, glints: glints.length, glintSizes: sizes.size, oldDots: dots, each };
       });
-    }
-    if (PARTS.includes('masc')) {
-      const marks = await page.evaluate(() => {
-        localStorage.setItem('atlas-look', 'masculine');
-        const html = {};
-        for (const [size, level] of [[400, 'full'], [208, 'bust'], [64, 'head'], [20, 'tiny']]) html[level] = atlasDraw(size, 'calm', level).outerHTML;
-        const frag = atlasDraw(92, 'calm', 'figure');
-        const span = document.createElement('span'); span.append(frag);
-        html.figure = span.innerHTML;
-        return html;
-      });
-      const hash = (s) => crypto.createHash('sha1').update(s).digest('hex').slice(0, 12);
-      const now = Object.fromEntries(Object.entries(marks).map(([k, v]) => [k, hash(v)]));
-      await mountFigure(page, 'masculine', { still: true });
-      await page.waitForTimeout(1500);
-      const shot = await (await page.$('#luster-box')).screenshot();
-      now.pixels = hash(shot);
-      if (process.env.SCRATCH) fs.writeFileSync(`${process.env.SCRATCH}/atlasluster-masc.png`, shot);
-      if (MASC_REF && fs.existsSync(MASC_REF)) {
-        const ref = JSON.parse(fs.readFileSync(MASC_REF, 'utf8'));
-        out.masc = { same: Object.keys(ref).every((k) => ref[k] === now[k]), differs: Object.keys(ref).filter((k) => ref[k] !== now[k]) };
-      } else {
-        if (MASC_REF) fs.writeFileSync(MASC_REF, JSON.stringify(now));
-        out.masc = { written: MASC_REF || null, now };
+      Object.assign(await page.evaluate(() => { const s = document.getElementById('luster-svg'); Object.assign(s.style, { position: 'fixed', left: '0', top: '0', zIndex: '9999' }); return 0; }) || {}, {});
+      for (let i = 0; i < out.wisps.count; i += 1) {
+        const pts = await page.evaluate((i) => window.__lusterCore(i), i);
+        await page.waitForTimeout(300);
+        const file = `${process.env.SCRATCH || '/tmp'}/atlasluster-core${i}.png`;
+        await (await page.$('#luster-svg')).screenshot({ path: file, omitBackground: true });
+        const alpha = JSON.parse(execFileSync(PY, ['-c', ALPHA, file, JSON.stringify(pts)]).toString());
+        out.wisps.each[i].alpha = alpha;
       }
+      await page.evaluate(() => { document.getElementById('luster-svg')?.remove(); document.getElementById('luster-only')?.remove(); });
     }
     await page.evaluate(() => localStorage.removeItem('atlas-look'));
     await browser.close();

@@ -599,6 +599,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - Speed: the foreign keys a note is looked up by now have indexes (a note's replies, the boards it is on and a board's cards and sketches, its reminders and bookmarks), added to existing notebooks at startup like the others. 900 lookups by them took 604 ms unindexed and 2.9 ms indexed on 5,000 notes with 4,000 board cards and 1,500 reminders; opening a note's connections or deleting one is within noise at that size, so this matters for big boards rather than ordinary use.
 ### Fixed
 
+- Boards and maps: dragging a selection box, an item or a branch to the edge of the canvas pans the board to follow, faster the deeper into the edge, and the item stays under the pointer (INBOX 608).
 - Mind maps: a long branch is a smooth curve at every zoom; its two sides are drawn as a spline through more samples instead of straight pieces that showed their corners (INBOX 609).
 - Graph: the map stays framed when a panel opens or closes beside it (INBOX 613).
 - Appearance: the generative background stays off when it is switched off; the power saver, a theme change or the tour could draw it anyway (INBOX 611).

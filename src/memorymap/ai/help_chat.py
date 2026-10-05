@@ -143,9 +143,9 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "Skills are one-click requests shown above the chat box (e.g. "
             "\"Summarise my week\"). Built-in skills ship with the app; add your "
-            "own in Settings -> Skills. A skill can use the AI's tools, so it "
+            "own in Settings, Skills. A skill can use the AI's tools, so it "
             "does the work rather than just describing it. A skill can also be "
-            "a Markdown file saved in the skills folder that Settings -> Skills "
+            "a Markdown file saved in the skills folder that Settings, Skills "
             "names; it is listed without a restart."
         ),
         "badge": {"label": "Skills", "section": "skills"},
@@ -269,7 +269,7 @@ HELP_TOPICS: list[dict] = [
             "MemoryMap can pick up small facts and preferences as you write and "
             "chat, always asking first, never assumed. Accept or decline each "
             "suggestion right in the chat, and review or forget anything it has "
-            "learned in Settings -> What it remembers."
+            "learned in Settings, What it remembers."
         ),
         "badge": {"label": "What it remembers", "section": "memory"},
     },
@@ -294,7 +294,7 @@ HELP_TOPICS: list[dict] = [
             "slow", "laggy", "blur",
         ),
         "body": (
-            "Settings -> Appearance controls theme (light/dark/system), accent "
+            "Settings, Appearance controls theme (light/dark/system), accent "
             "colour, fonts, density, glass effects and the animated background. "
             "High-contrast and reduce-motion options are there for comfort and "
             "accessibility. Density's Auto, the default, is Compact on a window "
@@ -322,7 +322,7 @@ HELP_TOPICS: list[dict] = [
             "reminders, back and forward, undo and redo, the Ctrl/Cmd+K hint, "
             "Agent (the popup agent), Atlas the guide, and Find anything. The offline "
             "badge, the power-saver badge and the running-job slot appear only "
-            "when there is something to say. Settings -> Appearance -> Status "
+            "when there is something to say. Settings, Appearance, Status "
             "bar chooses which of the rest to show."
         ),
         "badge": {"label": "Appearance", "section": "appearance"},
@@ -336,7 +336,7 @@ HELP_TOPICS: list[dict] = [
         #: said "g then a letter" until INBOX 410: the chord had been "m" for
         #: months, and the guide was the one place still teaching the old key.
         "body": (
-            "Press ? for the full list; Settings -> Shortcuts rebinds any of "
+            "Press ? for the full list; Settings, Keyboard shortcuts rebinds any of "
             "them, and on a Mac Cmd works in place of Ctrl. Everywhere: Ctrl+K "
             "the command palette, Ctrl+P find anything, Ctrl+F find on this "
             "page, / jump to search (the chat box on Chat), Ctrl+Z undo, "
@@ -364,7 +364,7 @@ HELP_TOPICS: list[dict] = [
         "id": "models",
         "keywords": ("model", "ollama", "lm studio", "vllm", "llama.cpp", "utility model", "chat model", "sampling", "temperature"),
         "body": (
-            "Settings -> Models picks the chat model and an optional smaller "
+            "Settings, Models picks the chat model and an optional smaller "
             "utility model for background jobs. Any OpenAI-compatible server "
             "works, not just Ollama, LM Studio, llama-server, Jan, vLLM. "
             "Sampling parameters (temperature, top-p, top-k, min-p, repeat "
@@ -388,9 +388,9 @@ HELP_TOPICS: list[dict] = [
         "id": "websearch",
         "keywords": ("web search", "websearch", "internet search", "searxng", "search the web", "search online", "look it up online"),
         "body": (
-            "Web search is opt-in and off by default. When turned on in "
-            "Settings -> Web search, only your search words are sent out, "
-            "never your notes: so the assistant can look something up online "
+            "Web search is opt-in and off by default. Turn it on in Settings, Web "
+            "search: only your search words are sent out, "
+            "never your notes, so the assistant can look something up online "
             "when asked."
         ),
         "badge": {"label": "Web search", "section": "websearch"},
@@ -466,13 +466,13 @@ HELP_TOPICS: list[dict] = [
             "on its own", "by itself", "without me",
         ),
         "body": (
-            "Turned on in Settings -> Background tasks, the background librarian "
-            "tags, links and flags duplicate notes on an interval you choose "
-            ", off by default, since it writes to your notebook without "
-            "being asked each time. It never deletes anything and skips "
-            "itself on battery power."
+            "Autonomous background AI is turned on in Settings, Background "
+            "tasks. The background librarian then tags, links and flags "
+            "duplicate notes on an interval you choose. It is off by default, "
+            "since it writes to your notebook without being asked each time. "
+            "It never deletes anything and skips itself on battery power."
         ),
-        "badge": {"label": "Profile", "section": "preferences"},
+        "badge": {"label": "Background tasks", "section": "tasks"},
     },
     {
         #: **The guide's entry about itself** (INBOX 204: "improve its
@@ -498,14 +498,14 @@ HELP_TOPICS: list[dict] = [
             "Atlas is this app's in-app guide, named for a book of maps. It "
             "answers how-to questions about MemoryMap itself from the app's "
             "own help: where a feature lives, what a setting does, which tab "
-            "to be on. It answers on the utility model in Settings -> Models "
+            "to be on. It answers on the utility model in Settings, Models "
             "while smart model routing is on, on the chat model while that is "
-            "off, and Settings -> Models can give the guide a model of its "
+            "off, and Settings, Models can give the guide a model of its "
             "own. It cannot read your notes or documents (ask the "
             "Chat or Ask tab for those), and nothing said to it is saved: the "
             "conversation is gone on reload, and \"New chat\" clears it now. "
             "It is reachable from the status bar on every tab, from the head "
-            "of every Settings pane, and from Settings -> Help."
+            "of every Settings pane, and from Settings, Help."
         ),
         "badge": {"label": "Help", "section": "help"},
     },
@@ -565,7 +565,7 @@ HELP_TOPICS: list[dict] = [
             "needs no model, is about ten times faster and is the only reader "
             "that tells you where on the page each block sits. Read one page, a "
             "range like 1-5, or the whole document. A read keeps running if you "
-            "close the window: it shows in Settings -> Background tasks and can "
+            "close the window: it shows in Settings, Background tasks and can "
             "be stopped from there or from the workspace, and every page that "
             "has been read is remembered, so reopening the document shows the "
             "text again rather than starting over."
@@ -740,7 +740,7 @@ HELP_TOPICS.extend(
             "id": "security",
             "keywords": ("password", "lock", "locked", "lock screen", "security", "sign in", "log in", "private note", "encrypt", "forgot password", "idle"),
             "body": (
-                "Settings, Account and security: set a password and the notebook "
+                "Settings, Account & security: set a password and the notebook "
                 "asks for it when it opens. The lock button in the top bar locks it "
                 "now, and it locks itself after the idle time you choose there. "
                 "While it is locked, an open dialog or popover is put away, and "
@@ -1570,8 +1570,8 @@ HELP_TOPICS.extend(
             "body": (
                 "Hidden features and power keys. Ctrl+K is the command palette "
                 "(jump anywhere, run an action), Ctrl+P is Find anything (notes, "
-                "files and actions), and ? lists every shortcut, which Settings -> "
-                "Shortcuts rebinds. Press m then a letter to jump: d (Dashboard), n "
+                "files and actions), and ? lists every shortcut, which Settings, "
+                "Keyboard shortcuts rebinds. Press m then a letter to jump: d (Dashboard), n "
                 "(Notes), c (Chat), g (Graph), l (Library), t (Timeline), r "
                 "(Reminders); or to act: s (Settings), q (Quick sketch), v (Meeting "
                 "notes), a (Guide), p (Popup agent). A second m or Esc closes the panel. "

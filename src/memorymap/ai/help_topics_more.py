@@ -455,8 +455,8 @@ MORE_TOPICS: list[dict] = [
             "can check the recommendation. Use this one makes that model answer "
             "in chat. Stop ends a run, and a stopped run makes no "
             "recommendation. It needs at least six filed notes, runs entirely on "
-            "this computer, and can be switched off in Settings, What the "
-            "notebook learned, Model bench."
+            "this computer, and can be switched off in Settings, What it "
+            "learned, What may run, Model bench."
         ),
         "badge": {"label": "Test my models", "section": "models", "target": "bench-box"},
     },
@@ -478,7 +478,7 @@ MORE_TOPICS: list[dict] = [
             "reminder) and Related. Each card has Open and Not this; nothing is "
             "ever written into your text. It is off until you turn it on, "
             "remembered on this device, and can be switched off everywhere in "
-            "Settings, What it learned, Margin reader."
+            "Settings, What it learned, What may run, Margin reader."
         ),
         "badge": {"label": "What it learned", "section": "learned"},
     },

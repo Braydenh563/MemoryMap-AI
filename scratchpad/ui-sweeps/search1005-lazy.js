@@ -31,6 +31,12 @@ async function firstUse() {
       files: ['note-panels.js', 'note-edit-panels.js'],
       async gesture(page) {
         await page.click('[data-tab="notes"]');
+        //: A phone opens the note as a page first, and its Edit is there.
+        if (phone) {
+          await page.locator('#entry-list > li .entry-content').first().click({ timeout: 10000 });
+          await page.locator('.note-page-bar button[aria-label="Edit this entry"]').first().click({ timeout: 10000 });
+          return;
+        }
         const button = page.locator('#entry-list > li button[aria-label="Edit this entry"]').first();
         await button.click({ force: true, timeout: 4000 });
       },

@@ -75,7 +75,7 @@ const W = +(process.env.W || 1440);
       // On a phone the filled action floats out as the FAB (FAB_IDS); then the
       // rule is simply that none is left mid-row.
       const filledLast = filled.length === 0 || filled[filled.length - 1] === lastCtrl;
-      const icons = ctrls.filter((c) => c.matches('.icon-only, .icon-button') && !c.closest(WRAP) && !c.matches('.dock-nav'));
+      const icons = ctrls.filter((c) => c.matches('.icon-only, .icon-button') && !c.closest(WRAP) && !c.closest('.dock-nav'));
       const iconSizes = [...new Set(icons.map((c) => `${Math.round(c.getBoundingClientRect().width)}x${Math.round(c.getBoundingClientRect().height)}`))];
       const iconsGhost = icons.every((c) => clear(cs(c).backgroundColor) && !edge(c, 'Top'));
       // One trailing group: every icon button sits in the actions zone, and
@@ -91,7 +91,10 @@ const W = +(process.env.W || 1440);
         // positioning runs (08-consistency.css), else the option's own.
         const g = getComputedStyle(s, '::before');
         const fill = g.content !== 'none' && !clear(g.backgroundColor) ? g.backgroundColor : o.backgroundColor;
-        return { id: s.id || s.className.split(' ').slice(0, 2).join('.'), sig: [a.backgroundColor, a.borderTopWidth, fill, o.color, f.color].join(' | ') };
+        // Quantised, so a label still easing between two inks (the glide
+        // fades the chosen label's colour in) is not a second style.
+        const q = (c) => String(c).replace(/\d+(\.\d+)?/g, (n) => (+n > 1 ? Math.round(+n / 8) * 8 : Math.round(+n * 20) / 20));
+        return { id: s.id || s.className.split(' ').slice(0, 2).join('.'), sig: [a.backgroundColor, a.borderTopWidth, fill, o.color, f.color].map(q).join(' | ') };
       });
       const db = dock.getBoundingClientRect();
       return {

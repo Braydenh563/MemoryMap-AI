@@ -7,7 +7,7 @@ const tab = (t, sub) => async (page) => {
   await page.waitForTimeout(700);
   if (sub) {
     await page.evaluate((s) => document.querySelector(s)?.click(), sub);
-    await page.waitForTimeout(700);
+    await page.waitForTimeout(1200);
   }
 };
 const settings = (pane) => async (page) => {

@@ -121,7 +121,7 @@ SETTINGS = (FRONTEND / "js" / "settings.js").read_text(encoding="utf-8")
 # A summary that carries its one action (DESIGN.md's fold recipe allowed it)
 # is still a control inside a control; this is the one left, a ratchet that
 # may only shrink.
-SUMMARY_CONTROLS_ALLOWED = {"graph-unpin-all"}
+SUMMARY_CONTROLS_ALLOWED: set[str] = set()
 
 
 def _summaries() -> list[str]:

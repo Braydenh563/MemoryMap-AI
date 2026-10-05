@@ -11,7 +11,7 @@ const TAG = process.env.TAG || 'shot';
   if (W < 600) Object.assign(opts, { hasTouch: true, isMobile: true });
   const { browser, page, OUT } = await boot(opts);
   await page.evaluate(() => document.querySelector('[data-tab="graph"]')?.click());
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(3500);
   await page.evaluate(() => document.getElementById('graph-options-toggle')?.click());
   await page.waitForTimeout(500);
   await page.evaluate(() => document.querySelectorAll('#graph-options details').forEach((d) => { d.open = true; }));
@@ -44,6 +44,20 @@ const TAG = process.env.TAG || 'shot';
       const s = cs(h); return `${h.textContent.trim().slice(0, 12)}:${s.fontSize}/${s.fontWeight}/${s.textTransform}`;
     });
     const headStyles = new Set(heads.map((h) => h.split(':')[1]));
+    // Where each head's word starts: one left edge for one rank of head.
+    const headLefts = [...new Set([...pop.querySelectorAll('.dock-menu-label')].filter(vis).map((h) => Math.round(h.getBoundingClientRect().left - pb.left)))];
+    // The panel's actions: one shape (menu rows), no edge, no fill at rest.
+    const actions = [...pop.querySelectorAll('#graph-trace-toggle, #graph-legend-toggle, #graph-unpin-all, #link-suggest-btn, #graph-options-reset')].filter(vis).map((b) => { const s = cs(b); return `${b.id}:${s.borderTopWidth}/${s.backgroundColor}/${Math.round(b.getBoundingClientRect().left - pb.left)}`; });
+    const summaryControls = [...pop.querySelectorAll('summary button, summary input')].length;
+    // The Layout well against the dock's view segment: one segmented style.
+    const segSig = (well, chosen, fromBefore) => {
+      if (!well || !chosen) return null;
+      const w = cs(well); const c = fromBefore ? getComputedStyle(well, '::before') : cs(chosen);
+      return `well ${w.backgroundColor} ${w.borderTopWidth} | chosen ${c.backgroundColor} ${c.boxShadow}`;
+    };
+    const layoutSeg = segSig(document.getElementById('graph-layout'), document.querySelector('#graph-layout label:has(input:checked)'), false);
+    const notesSeg = document.querySelector('.notes-view-toggle');
+    const dockSeg = segSig(notesSeg, notesSeg?.querySelector('.active'), getComputedStyle(notesSeg, '::before').content !== 'none');
     const switches = [...pop.querySelectorAll('input[type=checkbox]')].filter(vis).map((i) => `${Math.round(i.getBoundingClientRect().width)}x${Math.round(i.getBoundingClientRect().height)}`);
     const segs = [...pop.querySelectorAll('.segmented-control, .seg')].filter(vis).map((s) => `${s.id}:${Math.round(s.getBoundingClientRect().height)}`);
     const selects = [...pop.querySelectorAll('.select-shell, select')].filter(vis).map((s) => Math.round(s.getBoundingClientRect().width));
@@ -53,7 +67,7 @@ const TAG = process.env.TAG || 'shot';
       scroll: `${pop.scrollHeight}/${pop.clientHeight}`,
       radius: cs(pop).borderRadius,
       rowHeights: heights, labelSizes, labelLefts, ctrlRights,
-      headStyles: [...headStyles], heads,
+      headStyles: [...headStyles], headLefts, actions, summaryControls, layoutSeg, dockSeg,
       switches: [...new Set(switches)], segs, selectWidths: [...new Set(selects)],
       hscroll: pop.scrollWidth > pop.clientWidth + 1,
     };

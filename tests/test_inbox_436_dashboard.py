@@ -70,7 +70,9 @@ def test_the_start_row_is_kept_whole_with_one_primary():
     start = start[: start.index("\n];\n")]
     labels = re.findall(r'label: "([^"]+)"', start)
     assert labels == ["New note", "Ask AI", "Sketch", "Remind me", "Meeting notes"]
-    assert len(re.findall(r'hint: "', start)) == 5 and start.count("primary: true") == 1
+    # One highlighted tile, the first by position (INBOX 589), not New note by name.
+    assert len(re.findall(r'hint: "', start)) == 5 and "primary" not in start
+    assert 'return index === 0 ? "accent" : "";' in _function("quickTintKey")
     assert "renderQuickLinks();" in _function("renderDashboard")
     assert "quick-link-hint" in _function("quickLinkButton")
 

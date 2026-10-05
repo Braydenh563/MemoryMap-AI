@@ -864,23 +864,27 @@ async function moveNotesToCategory(ids, category) {
 //: the check together (the radio pattern), so the preview above follows the
 //: keys; Enter, Space or a click commits, Escape leaves it unchanged. The
 //: swatch is painted through the CSSOM (`--swatch`), never an inline style.
-const categoryColourName = (key) => (key ? key[0].toUpperCase() + key.slice(1) : "Automatic");
+//: `palette` and `none` make it the one picker for every row of colours
+//: (DESIGN.md: "a new row of colours is this recipe with its own palette"):
+//: Quick access's tile highlight passes the accent ahead of the twelve and
+//: "No highlight" as the worded choice (INBOX 589).
+const categoryColourName = (key, none = "Automatic") => (key ? key[0].toUpperCase() + key.slice(1) : none);
 
-function swatchPicker({ label, value, onChange, onChoose }) {
+function swatchPicker({ label, value, onChange, onChoose, palette = CATEGORY_PALETTE, none = "Automatic" }) {
   const group = document.createElement("div");
   group.className = "swatch-picker";
   group.setAttribute("role", "radiogroup");
   group.setAttribute("aria-label", label);
-  const keys = [...Object.keys(CATEGORY_PALETTE), null];
+  const keys = [...Object.keys(palette), null];
   const radios = keys.map((key) => {
     const radio = document.createElement("button");
     radio.type = "button";
     radio.className = key ? "swatch-option" : "swatch-option swatch-auto";
     radio.setAttribute("role", "radio");
-    radio.setAttribute("aria-label", categoryColourName(key));
-    radio.title = categoryColourName(key);
-    if (key) radio.style.setProperty("--swatch", CATEGORY_PALETTE[key]);
-    else radio.textContent = "Automatic";
+    radio.setAttribute("aria-label", categoryColourName(key, none));
+    radio.title = categoryColourName(key, none);
+    if (key) radio.style.setProperty("--swatch", palette[key]);
+    else radio.textContent = none;
     radio.addEventListener("click", () => {
       mark(key);
       onChoose(key);

@@ -1901,25 +1901,52 @@ header#top-bar select,
   color: var(--muted);
 }
 
-.quick-link-primary {
-  /* Marked, not inverted. This tile used to be a solid accent block with
-     dark ink, which on the dark theme made it the one pale slab in a row of
-     dark tiles: the icon went dark, the hint went white on lavender (2.1:1)
-     and the whole thing read as a pressed state rather than a suggestion.
-     A tinted fill with an accent edge and an accent icon says "start here"
-     while keeping the ink, hint and hover of every other tile, in both
-     themes. */
-  background: var(--accent-soft);
-  border-color: color-mix(in oklab, var(--accent) 55%, transparent);
+.quick-link-tinted {
+  /* **A highlighted tile** (INBOX 589): the first tile by default, any tile
+     the person colours. Marked, not inverted. The first tile used to be a
+     solid accent block with dark ink, which on the dark theme made it the one
+     pale slab in a row of dark tiles: the icon went dark, the hint went white
+     on lavender (2.1:1) and the whole thing read as a pressed state rather
+     than a suggestion. A fill mixed from the tint into the card, an edge in
+     the tint and an icon in it say "start here" while keeping the ink, hint
+     and hover of every other tile, in both themes. `--quick-tint` (the fill
+     and edge) and `--quick-tint-ink` (the icon) are set through the CSSOM by
+     `quickLinkButton` (dashboard.js): the accent, or one of the twelve
+     category hues, each of which clears 3:1 as a mark on both grounds. */
+  --quick-tint: var(--accent);
+  --quick-tint-ink: var(--accent-text);
+  background: color-mix(in oklab, var(--quick-tint) 14%, var(--card));
+  border-color: color-mix(in oklab, var(--quick-tint) 55%, transparent);
 }
 
-.quick-link-primary .quick-link-icon {
-  color: var(--accent-text);
+.quick-link-tinted .quick-link-icon {
+  color: var(--quick-tint-ink);
 }
 
-.quick-link-primary:hover {
-  background: color-mix(in oklab, var(--accent) 22%, var(--card));
-  border-color: var(--accent);
+.quick-link-tinted:hover {
+  background: color-mix(in oklab, var(--quick-tint) 22%, var(--card));
+  border-color: var(--quick-tint);
+}
+
+/* The highlight sheet's preview is the tile itself (quick-access.js), drawn
+   at the width a row gives it and taking no presses. */
+.quick-tint-preview {
+  display: grid;
+  max-width: 18rem;
+  margin: 0 0 var(--space-4);
+  pointer-events: none;
+}
+
+/* Thirteen swatches (the accent and the twelve hues): seven to a row on a
+   wide screen and five on a phone, so no row is one swatch on its own. */
+.quick-tint-card .swatch-picker {
+  grid-template-columns: repeat(7, max-content);
+}
+
+@media (max-width: 599.98px) {
+  .quick-tint-card .swatch-picker {
+    grid-template-columns: repeat(5, max-content);
+  }
 }
 
 /* An action: a tile you read before you press. Vertical padding rather than a

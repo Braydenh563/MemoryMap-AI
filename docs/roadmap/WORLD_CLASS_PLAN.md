@@ -798,7 +798,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 19 | B5, §9 | per-tool pre and post conditions, grammar-forced JSON, evals at 3B and 4B, concurrent tool calls, Ollama's native dialect | M | `ai/tools/`, `tests/test_skills_evals.py` |
 | 20 | I7 | the "Learned from you" line with a filing accuracy number | S | `settings.js` |
 | 21 | ~~I8, H3~~ | ~~the model bench~~ built 2026-10-05: `ai/bench.py`, `/models/bench`, Settings, Models, Test my models (`tests/test_bench_spec.py`); left: a run against a real model for the 30-minute and rerun gates | done | HISTORY |
-| 22 | I2, H8 | the margin reader (after row 6's chunks) | M | `documents.js`, a new `/editor/read` |
+| 22 | ~~I2, H8~~ | ~~the margin reader~~ built 2026-10-05 for documents: `ai/margin.py`, `POST /editor/read`, `margin-reader.js` (`tests/test_margin_reader_spec.py`); left: the note editor, typing latency in Chromium | S | HISTORY; I2 |
 | 23 | I5, H8 | time travel: `as_of` on chat, then-and-now | M | `routes_chat.py` |
 | 24 | D9 | the web clipper | M | `routes_bookmarks.py`, `core/security.py` |
 | 25 | H6, §5.7 | Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete; a WCAG audit; multi-window; a first-run path timed to a first answer | M to L each | H6 |
@@ -1114,59 +1114,7 @@ recipes.
 
 ### I2 The margin reader: a second reader in the editor, from your own notes
 
-**What the person sees.** While writing a note or document, a quiet
-margin column (off by default per editor, one toggle in the toolbar's
-more menu) fills with at most three cards, each pinned to the paragraph
-it is about: "You wrote the opposite on 12 May: 'the batch size should
-stay at 32'" (open, or mark not a contradiction), "This repeats your
-note 'Why I left the project'" (open, link), "Answers your open question
-from March: 'is the API worth the cost?'" (link as answer), "A date:
-Thursday 3pm. Make a reminder?". Nothing is ever inserted into the text.
-Cards fade when the paragraph changes and re-run after a pause.
-
-**Why it is new.** Every editor's AI writes *for* you (autocomplete,
-rewrite). None reads *with* you against your own past thinking. Obsidian
-Copilot chats; Notion AI drafts; Mem surfaces similar notes as a list, not
-pinned to the sentence and not typed (contradiction, repeat, answer,
-commitment).
-
-**Builds on.** The Phase 0 backdrop and underline geometry in
-`documents.js` (a card is anchored the same way an underline is), the
-selection toolbar D2, the chunk vectors from §14 item 3, I1's
-`derived_facts` for claims and open questions, `EntryDate`.
-
-**Data.** None persisted except accepted links (typed `EntryLink`:
-contradicts, repeats, answers) and created reminders. Cards are computed.
-
-**Endpoints.** `POST /editor/read` with `{entry_id | document_id, paragraph:
-str, ordinal: int}` returns `[{kind, text, source_entry_id, source_span,
-reason, confidence}]`, at most three, in under 300ms without the model
-(similar chunk plus claim table lookups) and, when the model is up, a
-second event over SSE with the model-judged kinds. Debounced client-side at
-1.2s after typing stops in a paragraph; one in-flight request per editor;
-the reply is dropped if the paragraph text changed.
-
-**Algorithm.** Embed the paragraph (cached by text); top-5 chunks by
-cosine excluding the current note; for each, if I1 has a claim in that
-chunk, ask the model (small prompt) for the relation in {contradicts,
-repeats, answers, unrelated}; without a model, show "related" only. Dates
-through `reminder_parser` locally. Rank by confidence, cap three, never
-show the same source twice in one note session.
-
-**Tests first** (`tests/test_margin_reader_spec.py`): the endpoint
-returns at most three cards; a paragraph that repeats a fixture note
-verbatim yields `repeats` with that note; a paragraph that negates a
-fixture claim yields `contradicts` under the fake model; a date yields a
-`date` card with a parsed ISO timestamp; with the model down the endpoint
-still answers in under 300ms with `related` cards; `test_frontend_ids.py`
-and the CSP lint pass for the margin column.
-
-**Gate.** Measured in Chromium: typing latency in the editor unchanged
-(frame time p95 within 1ms of before, `scratchpad/ui-sweeps/editor.js`);
-a card appears within 2s of a pause. **Size** M. **Model** Opus (the
-frontend anchoring is design work).
-
-**State 2026-09-24:** (c) not built: no `/editor/read`. Waits on §14's chunk vectors. M, Opus.
+Built 2026-10-05 for documents: the spec and its record moved to HISTORY.md, "Moved from the plans, 2026-10-05 (the margin reader)". Left: the same column in the note editor; typing latency measured in Chromium.
 
 ### I3 Open questions: the notebook keeps a list of what you have not answered
 
@@ -1782,7 +1730,7 @@ as they write, from the same engine, with the link-strength explanation
 under each. Both reuse B3; both gate on the 150 ms budget for a
 keystroke-to-margin update.
 
-**State 2026-09-24:** (c), I5 and I2.
+**State 2026-10-05:** I2, the margin reader, built for documents (HISTORY, "the margin reader"); I5 open (row 23).
 
 ### H9 Polish in use (the owner's question, 2026-09-14; S to M each)
 

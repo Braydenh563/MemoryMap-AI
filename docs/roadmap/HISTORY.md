@@ -7,6 +7,66 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (the margin reader)
+
+**Built 2026-10-05 (WORLD_CLASS_PLAN row 22, I2; H8's margin half).** `ai/margin.py` reads one paragraph against the notebook and returns at most three typed cards, each pinned to a sentence of another note (`source_entry_id`, `source_span`, `source_text`): `repeats` (word overlap 0.7 or more), `contradicts` (the night shift's own local rule, `facts._local_disagreement`: the same sentence with a different number or a not), `answers` (an open question, `DerivedFact` kind `question`, that the paragraph holds most of: `facts._local_answer`), `date` (`timewords.find`, with the parsed time) and `related`. Candidates come from the keyword index and, when embeddings are up, `semantic_search` with row 6's chunk vectors naming each long note's best paragraph; the paragraph's vector is cached by text. Never the note being written, never one source twice. `judge` with a model up asks the model for the relation of each related or repeated card (contradicts, repeats, answers, unrelated) and drops the unrelated. Computed, never stored. `POST /editor/read` (`api/routes_editor.py`), gated by the `margin_reader` switch. In the document editor: the dock menu's While you write, Margin reader (off by default, remembered per device) shows `#doc-margin` beside the editor; `margin-reader.js` (in the Library bundle after documents.js) asks 1.2 s after typing stops, one request in flight, a reply for a paragraph that changed is dropped, and asks again with `judge` when the first reply had something to judge. Cards: the kind label, the sentence, the reason, Open, Not this, and for a date Make a reminder. DESIGN.md recipe row added. Tests: `tests/test_margin_reader_spec.py` (11). Deviation from the spec: the model's second reading is a second request rather than a second SSE event, and cards are offered on documents only (notes' editor not yet). Not verified: typing latency in Chromium (`scratchpad/ui-sweeps/editor.js`), the 150 ms keystroke-to-margin budget, a real model's judgements.
+
+### From WORLD_CLASS_PLAN.md, I2 The margin reader: a second reader in the editor, from your own notes
+
+**What the person sees.** While writing a note or document, a quiet
+margin column (off by default per editor, one toggle in the toolbar's
+more menu) fills with at most three cards, each pinned to the paragraph
+it is about: "You wrote the opposite on 12 May: 'the batch size should
+stay at 32'" (open, or mark not a contradiction), "This repeats your
+note 'Why I left the project'" (open, link), "Answers your open question
+from March: 'is the API worth the cost?'" (link as answer), "A date:
+Thursday 3pm. Make a reminder?". Nothing is ever inserted into the text.
+Cards fade when the paragraph changes and re-run after a pause.
+
+**Why it is new.** Every editor's AI writes *for* you (autocomplete,
+rewrite). None reads *with* you against your own past thinking. Obsidian
+Copilot chats; Notion AI drafts; Mem surfaces similar notes as a list, not
+pinned to the sentence and not typed (contradiction, repeat, answer,
+commitment).
+
+**Builds on.** The Phase 0 backdrop and underline geometry in
+`documents.js` (a card is anchored the same way an underline is), the
+selection toolbar D2, the chunk vectors from §14 item 3, I1's
+`derived_facts` for claims and open questions, `EntryDate`.
+
+**Data.** None persisted except accepted links (typed `EntryLink`:
+contradicts, repeats, answers) and created reminders. Cards are computed.
+
+**Endpoints.** `POST /editor/read` with `{entry_id | document_id, paragraph:
+str, ordinal: int}` returns `[{kind, text, source_entry_id, source_span,
+reason, confidence}]`, at most three, in under 300ms without the model
+(similar chunk plus claim table lookups) and, when the model is up, a
+second event over SSE with the model-judged kinds. Debounced client-side at
+1.2s after typing stops in a paragraph; one in-flight request per editor;
+the reply is dropped if the paragraph text changed.
+
+**Algorithm.** Embed the paragraph (cached by text); top-5 chunks by
+cosine excluding the current note; for each, if I1 has a claim in that
+chunk, ask the model (small prompt) for the relation in {contradicts,
+repeats, answers, unrelated}; without a model, show "related" only. Dates
+through `reminder_parser` locally. Rank by confidence, cap three, never
+show the same source twice in one note session.
+
+**Tests first** (`tests/test_margin_reader_spec.py`): the endpoint
+returns at most three cards; a paragraph that repeats a fixture note
+verbatim yields `repeats` with that note; a paragraph that negates a
+fixture claim yields `contradicts` under the fake model; a date yields a
+`date` card with a parsed ISO timestamp; with the model down the endpoint
+still answers in under 300ms with `related` cards; `test_frontend_ids.py`
+and the CSP lint pass for the margin column.
+
+**Gate.** Measured in Chromium: typing latency in the editor unchanged
+(frame time p95 within 1ms of before, `scratchpad/ui-sweeps/editor.js`);
+a card appears within 2s of a pause. **Size** M. **Model** Opus (the
+frontend anchoring is design work).
+
+**State 2026-09-24:** (c) not built: no `/editor/read`. Waits on §14's chunk vectors. M, Opus.
+
 ## Moved from the plans, 2026-10-05 (the model bench)
 
 **Built 2026-10-05 (WORLD_CLASS_PLAN row 21, I8 and H3).** `ai/bench.py` builds a held-out set from the notebook with no model (seeded sample of notes the person filed themselves; per note one sentence with two words no other sampled note uses), then per model: filing through the janitor's own `SYSTEM_PROMPT` and `librarian.filing_prompt`, a cited answer from three fenced notes, five `find_note` tool calls; reports filing, citation and tool accuracy, median answer time, tokens, failed calls and the first three failures per task, best first. `citation_score` moved out of `tests/eval/scoring.py` into `ai/bench.py`, which the harness now imports. `/models/bench` (`api/routes_bench.py`): start (one at a time, a thread, `wait` for scripts), state with the last report (kept in `bench.json` in the data folder), stop; a budget in minutes; the `model_bench` switch gates it; job kind `model-bench` on the last-run line. Settings, Models, Test my models (`model-bench.js`, lazy): the models as switches, Run the test and Stop, one row per model on the list-row recipe with a facts line, Recommended and In use for chat labels, Use this one through `POST /models/chat-model`. Tests: `tests/test_bench_spec.py` (7: the set is stable and from the notebook, two fakes that differ in one filing rank right, the report names the failing question, stop and budget, the shared citation score, the routes and Use this one, the too-small notebook). Not verified: a run against a real local model (the plan's 30-minute gate and the two-point rerun gate need one; `scratchpad/llama-dev.sh` is the way). Deviation from the spec: the five tool tasks call one offered tool rather than the app's registry, so a model's score does not depend on which tools the router narrows to.

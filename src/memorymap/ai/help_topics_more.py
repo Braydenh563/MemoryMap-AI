@@ -448,6 +448,28 @@ MORE_TOPICS: list[dict] = [
         ),
         "badge": {"label": "Test my models", "section": "models", "target": "bench-box"},
     },
+    {
+        "id": "margin-reader",
+        "keywords": (
+            "margin reader", "margin", "notes beside my writing", "related notes while writing",
+            "did I write this before", "contradiction while writing", "second reader",
+        ),
+        "body": (
+            "The margin reader reads with you while you write a document. Turn "
+            "it on from the document's menu, While you write, Margin reader. A "
+            "column to the right of the editor then shows at most three cards "
+            "about the paragraph the caret is in, a moment after you stop "
+            "typing: Repeats (you already wrote this in another note), Differs "
+            "(the same thing with a different number or a not, or what the "
+            "model judges a disagreement), Answers (it answers an open question "
+            "from your notes), Date (a time in the paragraph, with Make a "
+            "reminder) and Related. Each card has Open and Not this; nothing is "
+            "ever written into your text. It is off until you turn it on, "
+            "remembered on this device, and can be switched off everywhere in "
+            "Settings, What the notebook learned, Margin reader."
+        ),
+        "badge": {"label": "What the notebook learned", "section": "learned"},
+    },
 ]
 
 #: **Every feature since 0.3.0, large and small** (INBOX 448 (1), the owner:
@@ -905,6 +927,7 @@ TOPIC_META: dict[str, dict] = {
     "shortcuts": {"title": "Keyboard shortcuts", "path": "Settings, Keyboard shortcuts"},
     "models": {"title": "Models", "path": "Settings, Models"},
     "model-bench": {"title": "Test my models", "path": "Settings, Models, Test my models", "target": "bench-box"},
+    "margin-reader": {"title": "The margin reader", "path": "A document's menu, While you write, Margin reader"},
     "storage": {"title": "Where your data lives", "path": "Settings, Import & export"},
     "websearch": {"title": "Web search", "path": "Settings, Web search"},
     "privacy": {"title": "Privacy", "path": "Settings, Privacy"},
@@ -1024,6 +1047,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     )),
     ("Documents and code", (
         "documents", "documents-controls", "callouts", "document-history", "writing-checks", "code-files",
+        "margin-reader",
     )),
     ("Boards and maps", (
         "whiteboard", "whiteboard-controls", "mind-maps", "mind-map-controls",

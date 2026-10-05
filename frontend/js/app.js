@@ -2222,6 +2222,7 @@ const LAZY_MODULES = {
     "/js/documents-code.js",
     "/js/documents-prose.js",
     "/js/documents.js",
+    "/js/margin-reader.js",
     "/js/whiteboard-map.js",
     "/js/whiteboard.js",
     "/js/library.js",

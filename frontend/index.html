@@ -4412,6 +4412,10 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="doc-typewriter" class="menu-item doc-dock-menu-item" type="button"
                   aria-pressed="false"
                   title="Keep the line you are typing on in the middle of the pane"><i class="ph ph-arrows-down-up ph-lead" aria-hidden="true"></i> Keep this line centred</button>
+                <!-- The margin reader (WORLD_CLASS_PLAN I2): margin-reader.js. -->
+                <button id="doc-margin-reader" class="menu-item doc-dock-menu-item" type="button"
+                  aria-pressed="false"
+                  title="Show notes of yours about the paragraph you are writing, in the margin"><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i> Margin reader</button>
                 <button id="doc-serif" class="menu-item doc-dock-menu-item" type="button"
                   aria-pressed="false"
                   title="Read the rendered page in a serif"><i class="ph ph-text-aa ph-lead" aria-hidden="true"></i> Serif for reading</button>
@@ -4628,6 +4632,9 @@ Link to another note with [[its first few words]]."></textarea>
                  textarea above is the fallback, which is why it is still here
                  rather than replaced. -->
             <div id="doc-editor" class="doc-editor hidden"></div>
+            <!-- The margin reader's column (margin-reader.js): at most three
+                 cards about the paragraph under the caret, from your notes. -->
+            <aside id="doc-margin" class="doc-margin hidden" aria-label="Margin reader" aria-live="polite"></aside>
           </div>
           <div id="doc-preview" class="doc-preview markdown-body hidden" aria-live="off"></div>
         </div>

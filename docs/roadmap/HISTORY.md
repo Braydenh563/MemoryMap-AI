@@ -40536,3 +40536,32 @@ plan's item 6 decided on, and it fits the budget as it is.
      branch dropped on a folded topic went under the fold; the target now
      opens. `boardundo.js` 43/43, `docundo.js` 8/8.
 
+549. **The owner, 2026-10-05, verbatim.** "can you also better redesign and
+     restructure the document editor suggestions panel?? for both docks"
+     (`#doc-prose-panel`, opened from the toolbar's Suggestions button and
+     the focus dock's). Placed: the design agent after 548.
+     **Fixed 2026-10-05**: one head row (name and count, Fix N, Check with
+     AI, a ⋯ with the Dictionary and the dock side, the X), one row recipe
+     per finding with Accept and Ignore as quiet icons (Ignore last on every
+     row), answers under the row, Up/Down walk and focus moves on after an
+     action, a quiet empty state; the same panel docked bottom, right and in
+     focus mode. `docsuggest.js` all ok at 1440 and 390, light and dark
+     (head one row down to the 240px dock); `prosedock.js` 18 of 18.
+552. **The owner, 2026-10-05, verbatim.** "I also want a redesign of the
+     dictionary popup and to fix ugly line wraps" (screenshot: the document
+     Suggestions panel head, "Suggestions 5" on one line and its five icon
+     buttons wrapped onto a second, right-aligned). Placed: with 549, the
+     design agent.
+     Then (verbatim): "wrapping elements at the top of the dictionary"
+     (scratchpad/inbox552-dictionary-head.png: "Writing dictionary 3 words
+     (?)" on the first row, export, import and close wrapped onto a second).
+     The same head wrap as the Suggestions panel: one shared cause.
+     **Fixed 2026-10-05**: the cause was `.card > .row.space-between`'s wrap
+     catching every dialog head; now the actions never wrap and the title
+     gives way (08-consistency.css). `headrow.js`: 42 heads, every button on
+     the title's centre line at 390 and 1440 (the old shape fails it at
+     "Where are my documents kept?"). The dictionary: Import, Export and the
+     X in the head, the count under it, the search-field well, switch rows as
+     switch rows; `docdictionary.js` and `docwraps.js` (find bar, AI panel,
+     Earlier versions) all ok, no line of words broken onto two.
+

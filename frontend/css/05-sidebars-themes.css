@@ -6208,6 +6208,11 @@ button.ghost.doc-template-choice[aria-checked="true"] {
   margin-left: 0;
 }
 
+/* A narrow form wraps Cancel and Save under the counts: still at the right. */
+.note-edit-foot {
+  justify-content: flex-end;
+}
+
 .entry-list .note-composer > input.note-edit-title {
   margin: 0;
 }

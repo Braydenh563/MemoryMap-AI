@@ -155,11 +155,16 @@ def test_the_list_renders_under_100ms_for_500_questions(session):
     )
     session.commit()
     questions.listing(session, state="open", limit=50)
-    started = time.perf_counter()
-    page = questions.listing(session, state="open", limit=50)
-    took = (time.perf_counter() - started) * 1000
+    # The best of three: one stall on a shared CI runner (16.6s once, on a
+    # docs-only commit whose code had passed on every commit before it) is
+    # not the listing's cost, while a real regression is slow every time.
+    timings = []
+    for _ in range(3):
+        started = time.perf_counter()
+        page = questions.listing(session, state="open", limit=50)
+        timings.append((time.perf_counter() - started) * 1000)
     assert page["counts"]["open"] == 500
-    assert took < 100, f"{took:.1f} ms"
+    assert min(timings) < 100, f"{min(timings):.1f} ms (runs: {[round(t) for t in timings]})"
 
 
 # --- the view ---------------------------------------------------------------------

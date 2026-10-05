@@ -160,6 +160,9 @@ def test_cancelling_pip_terminates_the_child(monkeypatch):
             calls.append("terminate")
 
     monkeypatch.setattr(extras._state, "running", True)
+    #: A pip extra: a download one (left here by an earlier test's install of
+    #: needle or Pyodide) is stopped the cooperative way instead.
+    monkeypatch.setattr(extras._state, "extra_id", "voice")
     monkeypatch.setattr(extras._state, "process", FakeProcess())
     monkeypatch.setattr(extras._state, "cancelled", False)
     acted, _ = extras.cancel()

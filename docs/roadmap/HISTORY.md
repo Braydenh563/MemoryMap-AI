@@ -157,6 +157,12 @@ section 20 and MINDMAP_PLAN decisions 22 to 31.
   `mmdoc1005-pagebreak.js` 4/4.
 - **M5, first half** (`5fb59d3`): Write this map as a document.
   `mmdoc1005-maptodoc.js` 5/5 light and dark.
+- **D5, second half: pictures in the Word export (FEAT-18)** (`568ed51`,
+  with INBOX 595): `docexport.to_docx(..., media_dir=)` embeds `/media`
+  pictures with their alt text and the `|300|center` options
+  (`picture_options`, the editor's grammar), fitted to the text column; a
+  picture it cannot hold stays as its words. `tests/test_docexport_pictures.py`
+  (the writer's five skip without python-docx; not run here).
 
 ## Moved from the plans, 2026-10-05 (the map's add path)
 

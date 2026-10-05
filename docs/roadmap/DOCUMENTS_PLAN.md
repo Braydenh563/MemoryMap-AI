@@ -1137,6 +1137,11 @@ pictures in the Word export (FEAT-18), which needs python-docx, an optional
 extra that is not in requirements.txt; not started, by the fully-local
 rule's "no new Python dependency".
 
+plans, 2026-10-05 (the feature audit's documents and map fixes)"). Open:
+D3 (a Mermaid flowchart parser), D4's page size, margins and page numbers,
+D5's image handles in Live (its pictures in the Word export are built, FEAT-18:
+HISTORY.md, the same section).
+
 **Decisions made.**
 
 1. **Footnotes are drawn by the shared renderer, not by each view**

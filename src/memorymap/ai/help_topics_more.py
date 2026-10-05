@@ -273,12 +273,21 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "packages", "package", "pip", "install a feature", "optional feature",
             "extra", "extras", "dictation model", "embedding model", "markitdown",
+            "bundle", "bundles", "reinstall", "uninstall", "install several",
         ),
         "body": (
             "Settings, Packages lists what MemoryMap can do with one more "
             "package installed: nothing there is needed to write, search, tag "
             "or organise notes, each one switches on a feature that is "
-            "otherwise off, downloaded from PyPI to this machine. What pip is "
+            "otherwise off, downloaded from PyPI to this machine. Bundles "
+            "group the packages one kind of work needs (Documents, Vision, AI, "
+            "Voice, Desktop, Code): a bundle's Install fetches what is "
+            "missing, and its ⋯ reinstalls or removes them all. Tick packages "
+            "to install, reinstall or remove several at once from the bar "
+            "above the list; they run one after another and one that fails "
+            "does not stop the rest. An installed package's ⋯ has Reinstall "
+            "(for a feature that is on but not working) and Remove, and its "
+            "row shows its version and size on disk. What pip is "
             "doing shows an install as it runs. Dictation model size runs from "
             "Tiny (fastest) to Medium (most accurate). Embedding models chooses "
             "what search by meaning uses; it is downloaded once and kept."

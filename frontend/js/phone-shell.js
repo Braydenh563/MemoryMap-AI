@@ -1337,7 +1337,13 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
     const sheets = document.querySelectorAll(".sheet-overlay");
     if (sheets.length && sheets[sheets.length - 1] !== overlay) return;
     //: A ⋯ menu open over the sheet takes its own Escape (an entity page's).
-    if (document.querySelector(".action-menu:not(.hidden)")) return;
+    //: Not the menu this sheet *is* (`openKebabSheet` moves a ⋯ menu in,
+    //: unhidden): counting that one let every phone action sheet ignore
+    //: Escape, which then reached the page and closed what was under it,
+    //: Settings included (measured at 390 on Settings, Packages: the sheet
+    //: stayed up and the Settings window closed, INBOX 595's sweep).
+    const menus = document.querySelectorAll(".action-menu:not(.hidden)");
+    if ([...menus].some((menu) => !card.contains(menu))) return;
     event.stopPropagation();
     //: An open '?' popover takes the first Escape, the sheet the next.
     if (openHelpPopovers.size) {

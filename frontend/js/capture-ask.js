@@ -3278,7 +3278,7 @@ function questionRow(item) {
 }
 
 const QUESTIONS_EMPTY = {
-  open: "No open questions. A question a note asks shows up here after Atlas reads your notes.",
+  open: "No open questions. Read notes now finds the questions your notes ask.",
   answered: "Nothing answered yet. When a later note answers a question, it moves here.",
   dropped: "Nothing dropped.",
 };
@@ -3322,7 +3322,16 @@ function initQuestionsView() {
     }
     loadQuestions();
   });
-  $("questions-refresh").addEventListener("click", () => loadQuestions());
+  //: INBOX 551: the night pass, now (it runs unattended only with background
+  //: tasks on, which is off by default), then the list.
+  $("questions-refresh").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    setBusy(button, true, "Reading\u2026");
+    const reply = await apiJson("/night/run", { method: "POST", body: JSON.stringify({ budget: 20000 }) }).catch(() => null);
+    setBusy(button, false);
+    if (reply?.paused) toast("Reading is paused in Settings, What it learned.", true);
+    loadQuestions();
+  });
   $("questions-more").addEventListener("click", () => loadQuestions({ more: true }));
   $("questions-ask").addEventListener("click", () => {
     //: The Ask scope: the next answer reads the notes with open questions.

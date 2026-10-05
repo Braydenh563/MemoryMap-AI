@@ -40442,3 +40442,11 @@ plan's item 6 decided on, and it fits the budget as it is.
      in Library, Contents, so they are visible outside the graph. Next Opus.
      Fixed (2026-10-05): the topic card's pencil renames a topic (PUT /graph/topics/name, stored by its notes, following it through small changes; the arrow brings the found name back), and Library, Contents has By topic (tests/test_topic_names.py, topicnames.js 9/9).
 
+551. **The owner, 2026-10-05, verbatim.** "is there a way to get it to
+     generate questions now??" (screenshot: Notes, Questions, empty).
+     Fixed (2026-10-05): the dock's refresh is now Read notes now, which runs
+     the night pass (`POST /night/run`) and lists what it found; the pass
+     runs unattended only with background tasks on, which is off by default,
+     so the old empty line ("after Atlas reads your notes") promised a read
+     that never came. questionsfind.js 4/4 at 1440 and 390.
+

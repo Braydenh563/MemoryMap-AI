@@ -408,7 +408,10 @@ function fetchDashGraph() {
   const now = Date.now();
   if (dashGraphInflight && now - dashGraphAt < 2000) return dashGraphInflight;
   dashGraphAt = now;
-  dashGraphInflight = apiJson("/graph", { silent: true });
+  //: `slim=1`, the map's own read (GRAPH_PLAN, a slimmer node): the widgets
+  //: read only each link's two ends, and one shape means one cached build
+  //: after a change serves the dashboard and the map alike.
+  dashGraphInflight = apiJson("/graph?slim=1", { silent: true });
   return dashGraphInflight;
 }
 
@@ -2811,7 +2814,7 @@ async function renderMostLinkedWidget(body) {
     fetchDashGraph().catch(() => null),
   ]);
   const degree = new Map();
-  for (const edge of (data && data.edges) || []) {
+  for (const edge of data?.edges || []) {
     if (typeof edge.source === "number") degree.set(edge.source, (degree.get(edge.source) || 0) + 1);
     if (typeof edge.target === "number") degree.set(edge.target, (degree.get(edge.target) || 0) + 1);
   }
@@ -4337,7 +4340,7 @@ async function renderOrphanNotesWidget(body) {
   // The same degree map `renderMostLinkedWidget` builds, read for its zeroes
   // instead of its peaks.
   const linked = new Set();
-  for (const edge of (graph && graph.edges) || []) {
+  for (const edge of graph?.edges || []) {
     if (typeof edge.source === "number") linked.add(edge.source);
     if (typeof edge.target === "number") linked.add(edge.target);
   }

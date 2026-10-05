@@ -532,7 +532,9 @@ The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section
   notebook (`kg1005_graph_bench.py` seeding): 3,145 to 1,767 KB; the second
   cold build after a write 992 to 1,470 ms full against 696 to 736 ms slim;
   the first cold build 1.4 to 1.6 s either way. `graph514.js` passes on the
-  slim payload. `tests/test_graph_slim.py`.
+  slim payload. The dashboard's widgets read the slim payload too (only each
+  link's two ends), so one cached build after a change serves both; boot JS
+  paid for it with two optional chains. `tests/test_graph_slim.py`.
 
 - WHITEBOARD_PLAN, INBOX 596's side column. Built: the column is
   `--wb-w-tools` (176px) on a board and a map (173 and 225 before), each

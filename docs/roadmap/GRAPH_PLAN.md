@@ -535,9 +535,7 @@ block. What stays here is the standing decisions and what is still open.
 - `/graph` at 5,000 notes: the map's read is slim (`slim=1`, 1,767 KB from
   3,145; built, HISTORY.md "Moved from the plans, 2026-10-05 (op3-1005)").
   Open: the first build after a change is still 1.4 to 1.6 s on this
-  sandbox, shared work (texts, centrality) before any encoding; the
-  dashboard's three widgets still read the full shape (boot JS is at its
-  cap, and the fill lives in the lazy graph.js).
+  sandbox, shared work (texts, centrality) before any encoding.
 - The note field's picker and the query table's rollups are built
   (2026-10-05): moved to HISTORY.md ("Moved from the plans, 2026-10-05
   (GRAPH_PLAN, the last KG rows)").

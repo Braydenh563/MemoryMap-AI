@@ -7,8 +7,10 @@ of the bytes were values every note carries at its default (a null pin, a
 null type, no parent, `false`, `[]`, an unreasoned link's three nulls) and
 timestamps to the microsecond. The slim payload leaves those out and the map
 (graph.js, `graphFill`) puts them back on arrival, so every reader after the
-fetch sees the shape it always did. Without `slim` the payload is unchanged:
-the dashboard and every other caller still get the whole of it.
+fetch sees the shape it always did. The dashboard asks for the same slim
+payload (its widgets read only each link's two ends), so one cached build
+after a change serves both. Without `slim` the payload is unchanged for
+every other caller.
 """
 
 from __future__ import annotations
@@ -64,3 +66,10 @@ def test_the_map_asks_for_it_and_fills_it_back():
     canvas = (ROOT / "frontend" / "js" / "graph-canvas.js").read_text(encoding="utf-8")
     for body in (text, canvas):
         assert "apiJson(endpoint).then(graphFill)" in body
+
+
+def test_the_dashboard_shares_the_maps_payload():
+    dash = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    fetch = dash[dash.index("function fetchDashGraph()") :]
+    fetch = fetch[: fetch.index("\n}\n")]
+    assert 'apiJson("/graph?slim=1"' in fetch

@@ -27,7 +27,7 @@ words: "Everything visual I did this session is reasoned, not observed. A
 session that forgets this will report UI work as done when it's untested."
 Chromium and Playwright are in the sandbox (section 5); use them.
 
-## 2. Standing orders on branch `claude/epic-ramanujan-8xocc0`
+## 2. Standing orders (integration branch: `claude/notes-flow-rebuild`)
 
 These are the owner's rules, collected from this project's sessions. The
 full text, with the reasons, is the block at the top of
@@ -62,7 +62,10 @@ full text, with the reasons, is the block at the top of
    "actually mainly use opus but just remember that sonnet is there for well
    defined and labour tasks"). At most three agents at once once the
    current four finish ("cut down to 3 agents, just a little tight on
-   usage").
+   usage"). Raised again 2026-10-05: "You can use 3 opus and 3 sonnet
+   agents". A worktree agent's first step is `git merge --no-edit -q
+   <integration branch>`: a worktree can be cut from an old base, and a
+   reset is refused.
    **Never Fable agents** (the owner, 2026-10-04: "NO FABLE AGENTS!! IT
    KILLS MY USAGE"): plans and specs go to Opus. Each agent commits at least every 20 minutes (the owner, 2026-10-04: "make sure all the agents are regularly committing"); own worktree cut from the branch, own port
    and data dir, commit per step, remaining list before stopping. The

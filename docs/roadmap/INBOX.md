@@ -107,6 +107,32 @@ with its owner named in the entry.
      next agent slot (page skeletons for Graph, Library, Documents, the
      dashboard's widgets; a named, moving loading state).
 
+599. **The owner, 2026-10-05, verbatim.** "can you clean up and redesign
+     this top docks?? I love some of the stuff youve done to further
+     modernise the ui of the app. can you keep doing it for the settings
+     pages adn popups and in more places?? make sure all the design styles
+     across all pages and popups are consistent." (screenshot: Settings, AI
+     skills head: title, a long search box, divider, a filled New skill and
+     a '?' on one row; the All/Yours/Built-in segment with counts and a
+     "Yours first" select on a second row, the select a different height.)
+     Placed: next agent slot (Opus, design): Settings docks and popups onto
+     the modern dock recipe, one consistent style everywhere.
+600. **The owner, 2026-10-05, verbatim.** "when I click on atlas in the
+     enlarged view, it might sway or do something for a couple seconds but
+     will then snap still." Placed: the Atlas agent slot.
+601. **The owner, 2026-10-05, verbatim.** "on atlas can you make the tail
+     seem more integrated with the body instead of just coming out from the
+     butt?? make it smooth and biological. also add more movement and
+     variation to the tail position, behaviour, movement, same with the
+     celestial rings and planets on it which dont move or look different,
+     and the astral swirl around each could have a bit of movement or subtle
+     animation as well. also I want to be able to double tab the drag to
+     resize circle on the companion to reset it to default size." Placed:
+     the Atlas agent slot, with 600.
+602. **The owner, 2026-10-05, verbatim.** "every time I go off the dashboard
+     and go back on it, it is empty for a second then loads :(" Placed: with
+     598 (loading states), next agent slot.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 540, 554, 556, 564, 575 (Atlas motion and form) placed in

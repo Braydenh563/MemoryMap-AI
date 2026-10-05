@@ -51,3 +51,14 @@ def test_the_route_sends_them(session):
     mine = next(n for n in prepared["notes"] if n["id"] == entry.id)
     assert mine["tags"] == ["sketches"]
     assert mine["files"] == ["sketch.png (A blue bean drawn in pen)"]
+
+
+def test_grounding_reads_a_notes_files_too(session):
+    """INBOX 604: a sentence drawn from a picture's caption is grounded in the
+    note that holds the picture."""
+    from memorymap.api import routes_chat
+
+    rows = routes_chat._grounding_candidates(  # noqa: SLF001
+        session, [{"id": 7, "content": "whoaaahhh", "files": ["sketch.png (a blue oval face)"]}], []
+    )
+    assert "a blue oval face" in rows[0]["content"] and rows[0]["content"].startswith("whoaaahhh")

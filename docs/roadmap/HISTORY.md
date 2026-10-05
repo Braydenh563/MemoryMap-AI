@@ -41905,6 +41905,22 @@ The two cheap additions the plan's research section named (decisions 11 to
      `initAuth` goes to the lock screen first. stalelock.js: base saw failed
      widgets and no lock in 6s; now straight to the lock.
 
+603. **The owner, 2026-10-05, verbatim.** "also I want to be able to reset
+     the highlights on the quick access back to default or at least the
+     first one being auto highlighted". Fixed 2026-10-05: Customise has
+     Reset highlights once any colour is chosen (clears the colours, keeps the
+     tiles; the first is highlighted again); help names it.
+604. **The owner, 2026-10-05, verbatim.** "it didnt intext number reference
+     the referenced notes??" (Ask, the three sketches: only note 3 carried a
+     marker; notes 1 and 2 read "No note says this"). Fixed 2026-10-05: the
+     grounding read each note's text only, and those two are a word and a
+     picture; `_grounding_candidates` now reads the files and captions the
+     prompt carries (tests/test_ask_sees_tags_and_files.py). Not verified
+     against a real model's answer.
+605. **The owner, 2026-10-05, verbatim.** "the ask subtab is very thin in
+     width". Fixed 2026-10-05: a sub-tab is at least 4.5rem; Ask measured
+     50px beside 80 to 133px, now 72px (1440).
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

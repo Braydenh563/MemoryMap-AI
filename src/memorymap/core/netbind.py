@@ -134,6 +134,19 @@ def arrived_on_loopback(server) -> bool:  # noqa: ANN001  # an ASGI scope's `ser
     return (mapped or address).is_loopback
 
 
+def arrived_on_socket(server) -> bool:  # noqa: ANN001  # an ASGI scope's `server`, or None
+    """Whether the scope names a real listening address (a number), as every
+    request uvicorn accepts does. The in-process test client names its
+    server (`testserver`) instead, and so does nothing else."""
+    if not isinstance(server, (tuple, list)) or not server or not isinstance(server[0], str):
+        return False
+    try:
+        ipaddress.ip_address(server[0].strip().strip("[]").split("%", 1)[0])
+    except ValueError:
+        return False
+    return True
+
+
 def _own_names() -> set[str]:
     try:
         name = socket.gethostname().lower()

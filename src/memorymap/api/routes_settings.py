@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 from memorymap import __version__
 from memorymap.ai import budget as run_budget
 from memorymap.ai import librarian, presets, skills
-from memorymap.core import backup, deps, embedmodels, events, extras, jobruns, logbuffer
+from memorymap.core import backup, deps, embedmodels, events, extras, jobruns, logbuffer, security
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import importer, manager
@@ -1842,7 +1842,8 @@ def _redacted_preferences(preferences: dict) -> dict:
     withheld: dict = {}
     for key, value in sorted(preferences.items()):
         if key in DIAGNOSTIC_PREFERENCES:
-            kept[key] = value
+            # An address is kept, a password typed into it is not (SEC-12).
+            kept[key] = security.without_userinfo(value) if key.endswith("_url") and isinstance(value, str) else value
             continue
         shape = type(value).__name__
         if isinstance(value, str):
@@ -2060,6 +2061,9 @@ def export_json(session: Session = Depends(get_session)) -> Response:
             "category": category_names.get(e.category_id, manager.UNCATEGORISED),
             "tags": manager.entry_tags(e),
             "ai_confidence": e.ai_confidence,
+            # Said, so a note decrypted for the export is not mistaken for an
+            # ordinary one by whatever reads the file next (SEC-14).
+            "is_private": bool(e.is_private),
             "created_at": e.created_at.isoformat(),
             "updated_at": e.updated_at.isoformat(),
             # `is_deleted` is not decoration and not derivable from

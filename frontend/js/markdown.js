@@ -1109,7 +1109,7 @@ function linkCardPath(url) {
 function linkCard(url, text) {
   const card = document.createElement("a");
   card.className = "link-card";
-  card.href = url;
+  card.href = safeHref(url);
   card.target = "_blank";
   card.rel = "noopener noreferrer";
   card.title = url;

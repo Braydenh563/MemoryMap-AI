@@ -25,6 +25,7 @@ from pathlib import Path
 from urllib.parse import urlparse, urlsplit
 
 from starlette.datastructures import Headers, MutableHeaders
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 
 
@@ -76,16 +77,42 @@ def _is_same_site(candidate: str, host_header: str | None, scheme: str) -> bool:
     return False
 
 
-class HostCheckMiddleware:
-    """LAN mode's DNS-rebinding guard (see `core/netbind.host_allowed`).
+def without_userinfo(url: str) -> str:
+    """A URL with any `user:password@` taken out (SEC-12, security audit
+    2026-10-05): a model server address typed with credentials in it went
+    into the support bundle and the privacy receipt as typed."""
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return url
+    if "@" not in (parts.netloc or ""):
+        return url
+    return parts._replace(netloc=parts.netloc.rsplit("@", 1)[1]).geturl()
 
-    Only while the server listens beyond this computer: on loopback the lock
-    and the Origin check already cover a rebinding page, and every tool that
-    talks to the app locally (the test client's own `testserver` among them)
-    names it however it likes. Off loopback, a Host that is not this computer
-    is answered 421 before anything else runs, and before a password exists
-    every request is answered 403 (SEC-01). Pure ASGI, so it costs one
-    header scan per request and never wraps a response.
+
+class HostCheckMiddleware:
+    """The DNS-rebinding guard (see `core/netbind.host_allowed`), on every
+    real socket, loopback included.
+
+    It used to run only while the server listened beyond this computer, on
+    the reasoning that "on loopback the lock and the Origin check already
+    cover a rebinding page". They did not (SEC-05, security audit
+    2026-10-05): a page on evil.example re-pointed at 127.0.0.1 is
+    same-origin with itself, so the Origin check passes it; it shared the
+    owner's unlock-throttle bucket (every loopback client is 127.0.0.1) and
+    could keep the owner locked out, and with sign-in off it could close the
+    owner's vault. The Host it sends is still its own name, and loopback
+    names, this machine's own name and address literals are all a real
+    caller ever sends, so a Host that is not one of those is answered 421
+    before anything else runs.
+
+    Two differences remain between loopback and the network. Off loopback a
+    request with no Host at all is refused too (HTTP/1.1 requires one; a
+    local tool may omit it), and before a password exists every request from
+    the network is answered 403 (SEC-01). And a request whose scope names
+    its server rather than numbering it is the in-process test client
+    (`testserver`), never a socket, so it is not judged. Pure ASGI, so it
+    costs one header scan per request and never wraps a response.
     """
 
     def __init__(self, app) -> None:  # noqa: ANN001  # an ASGI app
@@ -94,26 +121,28 @@ class HostCheckMiddleware:
     async def __call__(self, scope, receive, send) -> None:  # noqa: ANN001  # ASGI
         from memorymap.core import netbind
 
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        server = scope.get("server")
         #: Off loopback by either fact: what the launcher bound, or the address
         #: this request actually arrived on (`netbind.arrived_on_loopback`),
-        #: since a server started outside the launcher never says. A request
-        #: with no Host at all is refused there too: HTTP/1.1 requires one, so
-        #: nothing legitimate on the network omits it (on loopback a tool may).
-        if scope.get("type") == "http" and (
-            not netbind.is_loopback_bind() or not netbind.arrived_on_loopback(scope.get("server"))
-        ):
+        #: since a server started outside the launcher never says.
+        off_loopback = not netbind.is_loopback_bind() or not netbind.arrived_on_loopback(server)
+        if off_loopback or netbind.arrived_on_socket(server):
             host = None
             for name, value in scope.get("headers") or ():
                 if name == b"host":
                     host = value.decode("latin-1")
                     break
-            if host is None or not netbind.host_allowed(host):
+            if (host is None and off_loopback) or (host is not None and not netbind.host_allowed(host)):
                 response = JSONResponse(
                     status_code=421,
                     content={"detail": "This address does not name this computer."},
                 )
                 await response(scope, receive, send)
                 return
+        if off_loopback:
             #: SEC-01 (audit 2026-10-05): before a password exists every route
             #: is open (there is nothing to unlock with), so the network gets
             #: nothing at all: not the notes, not the status, and not
@@ -135,15 +164,126 @@ class HostCheckMiddleware:
         await self.app(scope, receive, send)
 
 
+#: **How much a request may send** (SEC-06, security audit 2026-10-05). One
+#: unauthenticated `POST /auth/unlock` with a 300 MB password took the server
+#: up about 800 MB of RAM before anything said no. A request that has not
+#: shown a session gets `SMALL_BODY_BYTES`: plenty for a password, a setup, a
+#: client log line, and every route behind the lock answers such a request
+#: 401 anyway. A signed-in request gets `LARGE_BODY_BYTES`, above the largest
+#: upload any route takes (a 300 MB meeting recording, `routes_voice`), so
+#: the routes' own limits stay the ones a person meets.
+SMALL_BODY_BYTES = 1024 * 1024
+LARGE_BODY_BYTES = 320 * 1024 * 1024
+#: Open to everyone, so always the small cap, whatever token is sent.
+_ALWAYS_SMALL = ("/auth/", "/logs/client")
+
+
+class _BodyTooLarge(StarletteHTTPException):
+    """An HTTP 413 so that a route reading its body passes it on as one
+    (FastAPI re-raises an HTTPException met while parsing a body, and turns
+    anything else into a 400)."""
+
+    def __init__(self) -> None:
+        super().__init__(status_code=413, detail="That request is too large.")
+
+
+class BodyCapMiddleware:
+    """Refuse a body past its cap before it is read, or as soon as it passes.
+
+    A declared `Content-Length` over the cap is answered 413 without reading
+    a byte. A body with no length (chunked) is counted as it arrives, and the
+    read stops the moment it passes the cap: the route sees a 413 instead of
+    the rest. Pure ASGI, so nothing is buffered here either.
+    """
+
+    def __init__(self, app) -> None:  # noqa: ANN001  # an ASGI app
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:  # noqa: ANN001  # ASGI
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+        headers = Headers(scope=scope)
+        limit = _body_limit(scope.get("path") or "", headers)
+        declared = headers.get("content-length")
+        if declared is not None:
+            try:
+                too_big = int(declared) > limit
+            except ValueError:
+                too_big = False  # a malformed length is the server's to refuse
+            if too_big:
+                await _too_large(scope, receive, send)
+                return
+
+        seen = 0
+        started = False
+
+        async def counted_receive():
+            nonlocal seen
+            message = await receive()
+            if message.get("type") == "http.request":
+                seen += len(message.get("body") or b"")
+                if seen > limit:
+                    raise _BodyTooLarge
+            return message
+
+        async def tracked_send(message):
+            nonlocal started
+            if message.get("type") == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, counted_receive, tracked_send)
+        except _BodyTooLarge:
+            if not started:
+                await _too_large(scope, receive, send)
+
+
+async def _too_large(scope, receive, send) -> None:  # noqa: ANN001  # ASGI
+    response = JSONResponse(
+        status_code=413,
+        content={"detail": "That request is too large."},
+    )
+    await response(scope, receive, send)
+
+
+def _body_limit(path: str, headers: Headers) -> int:
+    if path.startswith(_ALWAYS_SMALL):
+        return SMALL_BODY_BYTES
+    token = headers.get("x-auth-token")
+    if token and _session_is_live(token):
+        return LARGE_BODY_BYTES
+    # No session shown. Before a password exists there is nothing to sign in
+    # with and every route is open on this computer (`require_unlock`), so the
+    # large cap; after, the small one.
+    return SMALL_BODY_BYTES if _notebook_has_password() else LARGE_BODY_BYTES
+
+
+def _session_is_live(token: str) -> bool:
+    import importlib
+
+    try:
+        return token in importlib.import_module("memorymap.api.routes_auth")._active_tokens
+    except Exception:  # noqa: BLE001  # cannot tell: the small cap
+        return False
+
+
 def _notebook_has_password() -> bool:
     """The unlock gate's own answer (cached when yes), or False when the
     database cannot be asked: refusing the network is the safe failure."""
+    # `importlib`, not import statements: `deps` imports this module and
+    # `routes_auth` imports `deps`, and the statements are what
+    # `tests/test_no_import_cycles.py` counts. Resolved at request time, when
+    # both are long loaded.
+    import importlib
+
     try:
-        from memorymap.api.routes_auth import _password_set
-        from memorymap.core import deps
+        password_set = importlib.import_module("memorymap.api.routes_auth")._password_set
+        deps = importlib.import_module("memorymap.core.deps")
 
         with deps.get_db().session() as session:
-            return _password_set(session)
+            return password_set(session)
     except Exception:  # noqa: BLE001  # any failure means "do not serve the network"
         return False
 
@@ -172,6 +312,23 @@ class OriginCheckMiddleware:
         if scope["type"] == "http" and scope["method"].upper() in _CHECKED_METHODS:
             headers = Headers(scope=scope)
             stated = headers.get("origin")
+            #: `Origin: null` is what a sandboxed iframe, a `data:` page or a
+            #: redirect chain sends, never this app's own page, which always
+            #: has a real origin. On the open `/auth/*` routes (setup, unlock,
+            #: lock) it is read as cross-site (SEC-05, audit 2026-10-05):
+            #: falling through to "no Origin" there let any site fire them.
+            if stated == "null" and scope.get("path", "").startswith("/auth/"):
+                refusal = JSONResponse(
+                    status_code=403,
+                    content={
+                        "detail": (
+                            "This request came from another site. MemoryMap "
+                            "only answers its own pages."
+                        )
+                    },
+                )
+                await refusal(scope, receive, send)
+                return
             # Referer is the fallback, not an equal: it is absent under a
             # strict referrer policy, so it can only ever be used to reject
             # something, never as the reason to trust something.

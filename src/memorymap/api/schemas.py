@@ -88,7 +88,9 @@ class EntryCreate(BaseModel):
     # and independent: a source without a title still renders (falls back
     # to the URL), the same as the frontend's own `clippingMarkdown` already
     # falls back.
-    source_url: str | None = Field(default=None, max_length=2000)
+    #: http(s) only (SEC-15, audit 2026-10-05): the card opens it, and a
+    #: `javascript:` address would be one click from running in the app.
+    source_url: str | None = Field(default=None, max_length=2000, pattern=r"^[Hh][Tt][Tt][Pp][Ss]?://")
     source_title: str | None = Field(default=None, max_length=300)
     #: Save now, decide the category later on a background thread.
     #:

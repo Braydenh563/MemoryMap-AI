@@ -161,7 +161,7 @@ async function renderBackups() {
             method: "POST",
             body: JSON.stringify({ name: item.name }),
           });
-          toast("Backup restored.");
+          toast("Backup restored. Unlock it to carry on.");
           loadEntries().catch(() => {});
           renderBackups();
         } catch (error) {

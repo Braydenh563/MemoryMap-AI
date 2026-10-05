@@ -654,7 +654,7 @@ function cmdPaletteSources({ meta, touched }) {
 function cmdSourceRow(source, icons) {
   const row = document.createElement(source.url ? "a" : source.open ? "button" : "div");
   if (source.url) {
-    row.href = source.url;
+    row.href = safeHref(source.url);
     row.target = "_blank";
     row.rel = "noopener noreferrer";
   } else if (source.open) {

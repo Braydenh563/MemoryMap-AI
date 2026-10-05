@@ -1860,7 +1860,7 @@ function entryItem(entry, options = {}) {
     const sourceChip = chip(
       `ph:globe ${entry.source_title || entry.source_url}`,
       "tag",
-      () => window.open(entry.source_url, "_blank", "noopener,noreferrer")
+      () => window.open(safeHref(entry.source_url), "_blank", "noopener,noreferrer")
     );
     sourceChip.title = `Open the source: ${entry.source_url}`;
     meta.appendChild(sourceChip);

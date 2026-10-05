@@ -207,11 +207,13 @@ def test_host_names_that_are_this_computer():
     assert not netbind.host_allowed("evil.example")
 
 
-def test_the_guard_runs_only_when_listening_beyond_this_computer(client):
-    """On loopback a rebinding page can reach only what the Origin check and
-    the lock already cover (and the test client's own Host is a name)."""
+def test_the_guard_judges_every_real_socket(client):
+    """The in-process test client (its scope names `testserver`, never a
+    number) is not judged; a request on a numbered address is, loopback
+    included (SEC-05)."""
     _setup(client)
     assert client.get("/health", headers={"Host": "evil.example"}).status_code == 200
+    assert _local(client).get("/health", headers={"Host": "evil.example"}).status_code == 421
     netbind.set_current("0.0.0.0")
     refused = client.get("/health", headers={"Host": "evil.example"})
     assert refused.status_code == 421
@@ -267,8 +269,13 @@ def test_the_guard_keys_on_the_address_the_request_arrived_at(monkeypatch):
     assert _through_host_check(lan, "LOCALHOST:8000") == (None, True)
     assert _through_host_check(lan, "evil.example.:8000") == (421, False)
     assert _through_host_check(lan, None) == (421, False)
-    assert _through_host_check(("127.0.0.1", 8000), "evil.example") == (None, True)
-    assert _through_host_check(("::1", 8000), "evil.example") == (None, True)
+    # On loopback too since SEC-05 (audit 2026-10-05): a rebinding page
+    # arrives on 127.0.0.1 naming its own domain. A local tool that sends no
+    # Host at all is still served.
+    assert _through_host_check(("127.0.0.1", 8000), "evil.example") == (421, False)
+    assert _through_host_check(("::1", 8000), "evil.example") == (421, False)
+    assert _through_host_check(("127.0.0.1", 8000), "localhost:8000") == (None, True)
+    assert _through_host_check(("127.0.0.1", 8000), None) == (None, True)
     # The test client's own scope names the server rather than numbering it.
     assert _through_host_check(("testserver", 80), "evil.example") == (None, True)
 

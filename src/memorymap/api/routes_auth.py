@@ -12,6 +12,8 @@ setup screen first.
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import ipaddress
 import logging
 import secrets
@@ -377,8 +379,43 @@ def _unlock_succeeded(client: str = "unknown") -> None:
     _failed_unlocks.clear()
 
 
+#: The longest password the routes accept (SEC-06/SEC-09, audit 2026-10-05).
+#: Far past any passphrase a person types, and short enough that a request
+#: cannot make the server hash a megabyte before it has said who it is.
+MAX_PASSWORD_CHARS = 1024
+
+#: bcrypt reads at most 72 bytes, and bcrypt 5 raises past that instead of
+#: truncating: a long passphrase (or 25 emoji) was a 500 at setup, unlock
+#: and change (SEC-09). A longer password is pre-hashed to a fixed 54 bytes
+#: first. No marker is stored: which form a hash took follows from the
+#: candidate's own length, and every hash made before this change was of a
+#: password of 72 bytes or fewer (bcrypt 5 refused anything longer), so
+#: those verify exactly as before.
+_BCRYPT_MAX_BYTES = 72
+
+
+def _bcrypt_input(password: str) -> bytes:
+    raw = password.encode()
+    if len(raw) <= _BCRYPT_MAX_BYTES:
+        return raw
+    return b"mm-sha256:" + base64.b64encode(hashlib.sha256(raw).digest())
+
+
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(_bcrypt_input(password), bcrypt.gensalt()).decode()
+
+
+def _password_matches(password: str, password_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(_bcrypt_input(password), password_hash.encode())
+    except ValueError:
+        return False  # a malformed stored hash opens nothing
+
+
 class PasswordBody(BaseModel):
-    password: str = Field(min_length=4, description="Password or PIN, 4+ characters")
+    password: str = Field(
+        min_length=4, max_length=MAX_PASSWORD_CHARS, description="Password or PIN, 4+ characters"
+    )
 
 
 def _get_user(session: Session) -> User | None:
@@ -451,6 +488,25 @@ def require_unlock_media(
         raise HTTPException(status_code=401, detail="The app is locked. Unlock it first.")
 
 
+def end_every_session() -> int:
+    """Sign every session out and forget the data key; the number ended.
+
+    For a change underneath every session at once: a restored backup
+    (SEC-07, security audit 2026-10-05) can carry a different wrapped key,
+    or a different password, or none, so the key in memory and every token
+    issued against the old database stop meaning anything. Left in place,
+    the post-rotation key went on encrypting new private notes that the
+    restored vault row could never unwrap again.
+    """
+    ended = len(_active_tokens)
+    _active_tokens.clear()
+    _media_tickets.clear()
+    _owner_seen.clear()
+    vault.revoke_all()
+    vault.close()
+    return ended
+
+
 def _issue_token() -> str:
     token = secrets.token_hex(32)
     now = time.time()
@@ -478,7 +534,7 @@ def setup(body: PasswordBody, request: Request, response: Response, session: Ses
     """First run: create the single user. Refuses to run twice."""
     if _get_user(session) is not None:
         raise HTTPException(status_code=400, detail="A password is already set.")
-    password_hash = bcrypt.hashpw(body.password.encode(), bcrypt.gensalt()).decode()
+    password_hash = _hash_password(body.password)
     session.add(User(username="owner", password_hash=password_hash))
     # Create the vault now, while the password is in hand. Deferring it would
     # mean a second prompt later, and a second chance to lose access.
@@ -503,7 +559,7 @@ def unlock(
     user = _get_user(session)
     if user is None:
         raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
-    if not bcrypt.checkpw(body.password.encode(), user.password_hash.encode()):
+    if not _password_matches(body.password, user.password_hash):
         _unlock_failed(client)
         raise HTTPException(status_code=401, detail="That password is wrong.")
     _unlock_succeeded(client)
@@ -617,7 +673,7 @@ def unlock_vault(
     user = _get_user(session)
     if user is None:
         raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
-    if not bcrypt.checkpw(body.password.encode(), user.password_hash.encode()):
+    if not _password_matches(body.password, user.password_hash):
         _unlock_failed(client)
         raise HTTPException(status_code=401, detail="That password is wrong.")
     _unlock_succeeded(client)
@@ -645,7 +701,7 @@ def unlock_vault(
 
 class PasswordOnOpenBody(BaseModel):
     enabled: bool
-    current_password: str | None = None
+    current_password: str | None = Field(default=None, max_length=MAX_PASSWORD_CHARS)
 
 
 @router.post("/password-on-open", dependencies=[Depends(require_unlock)])
@@ -669,8 +725,8 @@ def set_password_on_open(
     if not body.enabled:
         client = _client_key(request)
         _refuse_if_throttled(client)
-        if not body.current_password or not bcrypt.checkpw(
-            body.current_password.encode(), user.password_hash.encode()
+        if not body.current_password or not _password_matches(
+            body.current_password, user.password_hash
         ):
             if body.current_password:
                 _unlock_failed(client)
@@ -687,7 +743,7 @@ def set_password_on_open(
 
 class LanAccessBody(BaseModel):
     enabled: bool
-    current_password: str | None = None
+    current_password: str | None = Field(default=None, max_length=MAX_PASSWORD_CHARS)
 
 
 @router.get("/lan-access", dependencies=[Depends(require_unlock)])
@@ -718,8 +774,8 @@ def set_lan_access(
     if body.enabled:
         client = _client_key(request)
         _refuse_if_throttled(client)
-        if not body.current_password or not bcrypt.checkpw(
-            body.current_password.encode(), user.password_hash.encode()
+        if not body.current_password or not _password_matches(
+            body.current_password, user.password_hash
         ):
             if body.current_password:
                 _unlock_failed(client)
@@ -741,7 +797,16 @@ def lock(
     config: ConfigManager = Depends(get_config),
     x_auth_token: str | None = Header(default=None),
 ) -> dict:
-    """Log out: the token stops working immediately, and its media ticket too."""
+    """Log out: the token stops working immediately, and its media ticket too.
+
+    Only for a session that exists (SEC-05, security audit 2026-10-05). This
+    route is open and takes no body, so any web page could fire it as a
+    no-cors POST, and with sign-in off it closed the owner's vault for them.
+    A request without a live token has nothing to log out of, so nothing
+    happens; the answer is the same, so a page learns nothing from it.
+    """
+    if not x_auth_token or x_auth_token not in _active_tokens:
+        return {"locked": True}
     _active_tokens.pop(x_auth_token or "", None)
     _forget_dead_tickets()
     _revoke_media(request, response)
@@ -755,8 +820,10 @@ def lock(
 
 
 class ChangePasswordBody(BaseModel):
-    current_password: str = Field(min_length=1)
-    new_password: str = Field(min_length=4, description="Password or PIN, 4+ characters")
+    current_password: str = Field(min_length=1, max_length=MAX_PASSWORD_CHARS)
+    new_password: str = Field(
+        min_length=4, max_length=MAX_PASSWORD_CHARS, description="Password or PIN, 4+ characters"
+    )
 
 
 @router.get("/account", dependencies=[Depends(require_unlock)])
@@ -806,8 +873,14 @@ def change_password(
     user = _get_user(session)
     if user is None:
         raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
-    if not bcrypt.checkpw(body.current_password.encode(), user.password_hash.encode()):
+    # SEC-04 (audit 2026-10-05): the unlock throttle, or a session that never
+    # gave the password (sign-in off) could guess it here at bcrypt speed.
+    client = _client_key(request)
+    _refuse_if_throttled(client)
+    if not _password_matches(body.current_password, user.password_hash):
+        _unlock_failed(client)
         raise HTTPException(status_code=401, detail="That isn't your current password.")
+    _unlock_succeeded(client)
     if body.current_password == body.new_password:
         raise HTTPException(status_code=400, detail="That's already your password.")
 
@@ -830,7 +903,7 @@ def change_password(
             status_code=500, detail="Couldn't move your private notes to the new password."
         )
 
-    user.password_hash = bcrypt.hashpw(body.new_password.encode(), bcrypt.gensalt()).decode()
+    user.password_hash = _hash_password(body.new_password)
     log_action(session, "edited", "user", user.id, "password changed")
     session.commit()
 
@@ -849,7 +922,7 @@ def change_password(
 
 
 class RotateVaultKeyBody(BaseModel):
-    current_password: str = Field(min_length=1)
+    current_password: str = Field(min_length=1, max_length=MAX_PASSWORD_CHARS)
 
 
 @router.post("/rotate-vault-key", dependencies=[Depends(require_unlock)])
@@ -887,8 +960,14 @@ def rotate_vault_key(
     user = _get_user(session)
     if user is None:
         raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
-    if not bcrypt.checkpw(body.current_password.encode(), user.password_hash.encode()):
+    # SEC-04 (audit 2026-10-05): the unlock throttle, or a session that never
+    # gave the password (sign-in off) could guess it here at bcrypt speed.
+    client = _client_key(request)
+    _refuse_if_throttled(client)
+    if not _password_matches(body.current_password, user.password_hash):
+        _unlock_failed(client)
         raise HTTPException(status_code=401, detail="That isn't your current password.")
+    _unlock_succeeded(client)
 
     if not vault.exists(session):
         raise HTTPException(status_code=400, detail="There are no private notes to re-encrypt yet.")

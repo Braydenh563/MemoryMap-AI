@@ -1628,10 +1628,18 @@ function renderToolConfirm(holder, event) {
       const oldContent = res.content || "";
       const newContent = event.arguments.content;
       if (oldContent !== newContent) {
-        contentArea.innerHTML = `<div class="diff-viewer">
-          <div class="diff-removed">- ${escapeHtml(oldContent)}</div>
-          <div class="diff-added">+ ${escapeHtml(newContent)}</div>
-        </div>`;
+        //: DOM nodes, not an innerHTML template (SEC-16): a note's own text
+        //: goes in as text, so no escaping has to be remembered.
+        const viewer = document.createElement("div");
+        viewer.className = "diff-viewer";
+        const removed = document.createElement("div");
+        removed.className = "diff-removed";
+        removed.textContent = `- ${oldContent}`;
+        const added = document.createElement("div");
+        added.className = "diff-added";
+        added.textContent = `+ ${newContent}`;
+        viewer.append(removed, added);
+        contentArea.replaceChildren(viewer);
       }
     }).catch(() => {});
   }
@@ -2070,7 +2078,7 @@ function chatSourcesPanel(input) {
     let card;
     if (source.url) {
       card = document.createElement("a");
-      card.href = source.url;
+      card.href = safeHref(source.url);
       card.target = "_blank";
       //: `noopener` is not optional on a target=_blank link to a page this
       //: app did not write: without it the opened page gets a handle on this

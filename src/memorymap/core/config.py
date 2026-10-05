@@ -229,6 +229,23 @@ def resolved_data_dir() -> Path:
     return Path(os.getenv("MEMORYMAP_DATA_DIR") or _default_data_dir()).resolve()
 
 
+def _owner_only(folder: Path) -> None:
+    """The notebook folder readable by its owner alone (SEC-13, security audit
+    2026-10-05): the database, its WAL, backups and uploads were 0644 in a
+    0755 folder, so any account on a shared Unix machine could copy them.
+    0700 on the folder closes everything under it, whatever each file's own
+    mode. Only for a folder that is a notebook (new, or holding the
+    database), never one somebody pointed the app at that is something else.
+    Best effort: a filesystem without Unix modes just keeps its own rules."""
+    if os.name != "posix":
+        return
+    try:
+        if folder.stat().st_mode & 0o077:
+            folder.chmod(0o700)
+    except OSError:
+        pass  # not ours to change (another owner, a read-only mount)
+
+
 class ConfigManager:
     """Knows the app's folders, files, and saved preferences."""
 
@@ -238,7 +255,10 @@ class ConfigManager:
         self.data_dir = Path(
             data_dir or os.getenv("MEMORYMAP_DATA_DIR") or _default_data_dir()
         ).resolve()
+        notebook = not self.data_dir.exists() or (self.data_dir / "memorymap.db").exists()
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        if notebook:
+            _owner_only(self.data_dir)
 
         self.db_path = self.data_dir / "memorymap.db"
         self.preferences_path = self.data_dir / "preferences.json"

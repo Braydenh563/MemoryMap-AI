@@ -41001,6 +41001,10 @@ four bands. 35 of their 49 width queries moved; the counts in
   unchanged but for one timeline title at 620 (a 329px title column now).
   `errors.js` 0 at 1440, 1024, 860, 820, 760, 700, 620 and 390 (light) and
   760, 620 (dark); `touch.js` 0 findings at 700 and 390.
+- **Phase 8 re-measured** (`docks.js` at 1440): every dock one height, at
+  most six controls, one filled. The one row with two heights was the Notes
+  Connections column's head (`.notes-rail-actions`: the '?' 32px, the X 28,
+  2px out of line); both take `--control-h` now, 32 and 32 at y 97.
 
 ## INBOX resolved, 2026-10-05
 

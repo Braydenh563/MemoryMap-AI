@@ -387,6 +387,15 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   flex: none;
 }
 
+/* One height for the pair (Phase 8's rule 6). The '?' took
+   `.graph-help-toggle`'s 32px and the X `.ghost.small.icon-only`'s 28, so the
+   two stood side by side 2px out of line (`docks.js` at 1440: the only row
+   reporting two heights, 28/32). Both take the control height. */
+.notes-rail-actions > button {
+  height: var(--control-h);
+  min-width: var(--control-h);
+}
+
 /* The note the column is about, one line: the head says what the column is,
    this says which note, so a reader who has walked the list with the arrows
    can see the column has followed. */

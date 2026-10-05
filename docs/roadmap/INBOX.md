@@ -87,6 +87,15 @@ with its owner named in the entry.
      not be. can you smoothen it or do some ux shenanigans to make it
      cleaner??" Placed: a smoothness agent (boot choreography, the
      companion's mount) and the Atlas motion agent (the drawing at rest).
+     The drawing's part done (2026-10-05, the Atlas motion agent): the
+     figure's breath no longer stretches the head 1.8% tall every 4.4s (it
+     lifts the body 0.45px), every idle loop starts at its rest pose (no
+     loop starts after a positive delay and jumps), and the breathing box
+     pauses in a hidden tab. atlasluster.js `mount`: the head's scale
+     within the figure moves 0.00 to 0.02% over the first 2s, harness and
+     companion, both looks. Measured for the smoothness agent: the whole
+     companion figure's entrance scales 0.5 to 1.059 to 1.003 over about
+     1.1s (its pop-in), which is the large-small-large the owner saw.
 
 578. **The owner, 2026-10-05, verbatim.** "this section in the chat sidebar
      looks awkward" (screenshot: the Chats head, a large filled New button,

@@ -270,6 +270,17 @@ The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section
 - **The six descriptions start at six different heights** and **Two pictures in a gallery row are still different sizes when one card has nothing to say** (Library). Decided, not open: UI_MODERNISATION_PLAN's Phase 7 amendments record the trade (the picture takes the slack; a two-row subgrid was built, measured and taken out because it puts a 75px hole under the shortest card), so neither is work until the owner reports the row as ragged.
 - **Toggle rows onto one recipe (no lavender-filled bars)** (Settings and help). Mostly already built: the consistency pass (08-consistency.css) took the fill off every checked checkbox row of both classes and gave both the `--divider` hairline. Measured with the new `scratchpad/ui-sweeps/togglerows.js` (every Settings section's visible switches, grouped by shape): the one difference left was the gap, 15 checkbox `.check-row` rows at 6.4px against 8 `.setting-check` rows at 9.6px; both take `--space-4` now, and `#searxng-autostart` leads its row in the markup. After: one shape (32x18 switch at +9, 9.6px gap, no fill at rest) at 1440 and 390, light and dark. `tests/test_ui_recipes.py` holds it; DESIGN.md's on/off row names it.
 
+## Moved from the plans, 2026-10-05 (op3-1005)
+
+- WHITEBOARD_PLAN, INBOX 596's side column. Built: the column is
+  `--wb-w-tools` (176px) on a board and a map (173 and 225 before), each
+  row a four-cell grid across it, the layout select a whole row; below 600
+  a side dock is the bottom strip and the dock switch is hidden. Measured
+  with `bm1005-sidebar.js` (DOCK=side): cell columns [7,49,91,133] on a
+  board and [7,49,91] on a map, 0 past the padding; at 390 light and dark
+  the picker answers its own centre with the sidebar open (covered,
+  7,554px², before). `tests/test_board_sidebar_596.py`.
+
 ## INBOX resolved, 2026-10-05 (ledger-1005: OPEN.md rows)
 
 The third pass over `agent-remaining/OPEN.md` (Whiteboard and mind map and Atlas left to their agents). Each line says how the row was verified; every remaining open row now ends in a "Needs:" line.

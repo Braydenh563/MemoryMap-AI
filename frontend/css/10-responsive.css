@@ -2301,6 +2301,24 @@ header#top-bar,
     display: none;
   }
 
+  /* A phone has no side to dock to (INBOX 596): docked at the side, the
+     collapsed picker stood at the top left, where the open sidebar's sheet
+     is drawn over the board, and the sheet covered it (7,554px² at 390,
+     `elementFromPoint` at its centre hit the Library). Below 600 the dock is
+     the bottom strip whichever way it is docked, and the switch goes. */
+  .whiteboard-floating-panel.bottom-center[data-dock="side"] {
+    inset: auto 0 0;
+    width: auto;
+    max-height: none;
+    flex-direction: row;
+    border-radius: 0;
+    border-width: 1px 0 0;
+  }
+
+  #wb-dock-toggle {
+    display: none;
+  }
+
   #wb-tools-opener {
     display: inline-flex;
     align-items: center;

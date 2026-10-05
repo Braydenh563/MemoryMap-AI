@@ -24,6 +24,35 @@ function entityWhen(iso) {
 
 let entityPageClose = null;
 
+//: INBOX 553(a), the owner's decision: an entity merge has Undo, in its toast
+//: and on the app's stack. Undo splits the two back exactly (the server kept
+//: both as they were, with every mention, `POST /entities/merges/{id}/undo`);
+//: Redo merges again, and the next Undo takes that merge's own snapshot.
+//: `after(merged)` redraws whatever the caller shows. Also used by the
+//: suggestions inbox (loaded with this file).
+function toastEntityMerge(done, mergeId, intoId, after) {
+  let undoId = done.undo_id;
+  const undo = async () => {
+    await apiJson(`/entities/merges/${undoId}/undo`, { method: "POST" });
+    if (after) await after(false);
+  };
+  const redo = async () => {
+    const again = await apiJson(`/entities/${mergeId}/merge`, { method: "POST", body: JSON.stringify({ into_id: intoId }) });
+    undoId = again.undo_id;
+    if (after) await after(true);
+  };
+  const action = pushUndo(`Merged into “${done.name}”`, undo, redo);
+  toastAction(`Merged into “${done.name}”.`, "Undo", async () => {
+    settleUndoFromToast(action);
+    try {
+      await undo();
+      toast("Merge undone.");
+    } catch (error) {
+      toast(error.message, true);
+    }
+  });
+}
+
 async function openEntityPage(id) {
   const page = await apiJson(`/entities/${id}`).catch((e) => {
     toast(e.message, true);
@@ -194,7 +223,8 @@ async function openEntitiesSheet({ mergeFrom = null } = {}) {
             });
             if (!done) return;
             close();
-            toast(`Merged into “${done.name}”.`);
+            const from = mergeFrom.id;
+            toastEntityMerge(done, from, r.id, (merged) => openEntityPage(merged ? done.kept : from));
             openEntityPage(done.kept);
           });
           const count = document.createElement("span");

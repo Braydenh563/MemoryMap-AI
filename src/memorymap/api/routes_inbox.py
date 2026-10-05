@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import inbox, learning
-from memorymap.ai.entities import merge_entities
+from memorymap.ai.entities import merge_with_undo
 from memorymap.api.routes_mentions import note_names
 from memorymap.core.database import LINK_TYPES, Entity, EntityMention, Entry, EntryLink
 from memorymap.core.deps import get_session
@@ -35,16 +35,18 @@ TYPE_SCAN_MAX = 2000
 INBOX_PRIOR = 3.0
 
 
-def _visible(session: Session) -> dict[int, Entry]:
-    return {
-        e.id: e
-        for e in session.scalars(
-            select(Entry).where(Entry.is_deleted.is_(False), Entry.is_private.is_(False))
-        )
-    }
+def _visible(session: Session) -> set[int]:
+    """The ids of the notes a suggestion may name. **Ids, not rows**: this
+    loaded every note as a whole ORM object to test membership, 27% of a
+    1.2 s `/suggestions` at 5,000 notes that returned an empty list (audit
+    2026-10-05, ARCH-11). The few notes a link-type row shows are read by id
+    in `_types`."""
+    return set(
+        session.scalars(select(Entry.id).where(Entry.is_deleted.is_(False), Entry.is_private.is_(False)))
+    )
 
 
-def _merges(session: Session, visible: dict[int, Entry]) -> list[dict]:
+def _merges(session: Session, visible: set[int]) -> list[dict]:
     notes: dict[int, set[int]] = {}
     for entity_id, entry_id in session.execute(select(EntityMention.entity_id, EntityMention.entry_id)):
         if entry_id in visible:
@@ -78,11 +80,22 @@ def _sentence(source: Entry, target: Entry) -> str:
     return ""
 
 
-def _types(session: Session, visible: dict[int, Entry]) -> list[dict]:
+def _types(session: Session, visible_ids: set[int]) -> list[dict]:
     facts = []
-    for link in session.scalars(
-        select(EntryLink).where(EntryLink.link_type.is_(None)).order_by(EntryLink.id.desc()).limit(TYPE_SCAN_MAX)
-    ):
+    links = list(
+        session.scalars(
+            select(EntryLink).where(EntryLink.link_type.is_(None)).order_by(EntryLink.id.desc()).limit(TYPE_SCAN_MAX)
+        )
+    )
+    wanted = sorted(
+        {end for link in links for end in (link.source_entry_id, link.target_entry_id) if end in visible_ids}
+    )
+    visible: dict[int, Entry] = {}
+    for start in range(0, len(wanted), 500):
+        visible.update(
+            (e.id, e) for e in session.scalars(select(Entry).where(Entry.id.in_(wanted[start : start + 500])))
+        )
+    for link in links:
         source, target = visible.get(link.source_entry_id), visible.get(link.target_entry_id)
         if source is None or target is None:
             continue
@@ -135,10 +148,10 @@ def accept_merge(body: MergeAccept, session: Session = Depends(get_session)) -> 
         raise HTTPException(status_code=404, detail="That name could not be found. Refresh the list.")
     if keep.id == gone.id:
         raise HTTPException(status_code=400, detail="That is one name already.")
-    moved = merge_entities(session, keep, gone)
+    moved, undo_id = merge_with_undo(session, keep, gone)
     learning.record(session, kind="accept_merge", subject={"a": keep.id, "b": gone.id, "signals": body.signals})
     session.commit()
-    return {"kept": keep.id, "name": keep.name, "aliases": keep.aliases or [], "moved": moved}
+    return {"kept": keep.id, "name": keep.name, "aliases": keep.aliases or [], "moved": moved, "undo_id": undo_id}
 
 
 @router.post("/merges/dismiss")

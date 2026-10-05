@@ -1236,7 +1236,8 @@ HELP_TOPICS.extend(
                 "its page: every note that names it with the sentence, what it is "
                 "named with, and the dates its notes mention. Its ⋯ sets the Kind, "
                 "Renames it, edits Other names (the names it also goes by) and "
-                "Merges it into another, moving every mention. Suggestions, Names "
+                "Merges it into another, moving every mention; Undo in the toast, "
+                "or Ctrl+Z, splits the two back as they were. Suggestions, Names "
                 "offers the merges that look right (\"Sam\" and \"Sam Lee\")."
             ),
             "badge": {"label": "Graph", "tab": "graph"},

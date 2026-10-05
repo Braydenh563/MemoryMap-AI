@@ -230,7 +230,9 @@ function inboxMergeRow(m) {
     });
     merge.disabled = false;
     if (!done) return;
-    toast(`Merged into “${done.name}”.`);
+    //: Undo puts the pair back as two names; the row stays gone, since the
+    //: suggestion was answered.
+    toastEntityMerge(done, m.merge_id, m.keep_id);
     inboxDone("names", row);
   });
   const dismiss = smallButton("ph:x", "Not the same: never suggest this pair again", () => {

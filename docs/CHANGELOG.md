@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Graph: the zoom strip's four buttons (Full screen included) are checked to be what a finger hits at 390, clear of the New note button; the report of Full screen sitting under a small button no longer reproduces.
 - Empty lines: the last nine (Documents' list, outline and two histories, Chat's saved chats, Ask's history, the graph pane, the board's overview and Format panel) are the one empty-line recipe, so every short "nothing here yet" line is one size, ink and margin; the lint's waiting list is empty (`tests/test_ui_recipes.py`, `op5-1005.js` MODE=emptylines).
 - Mind maps: Branch colours offers eight palettes, four new (Bold, Paired, Bright, Earth), each colour at least 1.6:1 on white so a branch line never vanishes; MINDMAP_PLAN §12.1 closed (its open rows found built or superseded) and moved to HISTORY (`tests/test_map_theme_palette.py`).
 - Tests: the edit-embeds tests drain the shared job pool before and after each test (its dedupe key was shared by every test editing note 1), hold the embedder on its gate until released, and wait with 60 s ceilings.

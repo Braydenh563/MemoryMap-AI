@@ -7,6 +7,19 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## OPEN.md rows closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)
+
+Each row was checked against the head before anything was built.
+
+- **The graph's `#graph-fullscreen` under a `button.small` at 390** (`deadbtn.js`,
+  ui-426): no longer reproduces. `deadbtn.js` at W=390 on a 21-note seeded
+  notebook, 0 findings on all seven tabs; at 390x844, 390x700, 360x640 and
+  430x932 every one of the four zoom-strip buttons is what `elementFromPoint`
+  returns at its centre (44x44 each). INBOX 430's lift of the strip above the
+  New note (`#tab-graph:has(.dock-fab) .graph-zoom`) closed it. `graphphone.js`
+  now asserts it every run: the four buttons are hit at their centres and clear
+  of `.dock-fab`.
+
 ## OPEN.md rows closed, 2026-10-05 (the overnight pass on "Carried from the agent files archived 2026-10-05")
 
 Each row below was checked against the head before anything was built.

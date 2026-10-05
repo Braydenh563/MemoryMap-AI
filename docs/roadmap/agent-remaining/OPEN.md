@@ -82,9 +82,10 @@ two decisions only the owner can take are INBOX 427.
   scroller runs under the status bar (each ends at or above its top, at 1440
   and 390), and the three were controls half scrolled out of their own box,
   whose centre the point test found the bar under; the sweep now checks the
-  centre against each scrolling ancestor first, 0 findings at 1440. At 390
-  one is left, the graph's `#graph-fullscreen` under a `button.small` (the
-  graph agent's). [ui-426]
+  centre against each scrolling ancestor first, 0 findings at 1440 and at 390
+  (the graph's `#graph-fullscreen` case is closed, HISTORY.md, "OPEN.md rows
+  closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)").
+  [ui-426]
   *Needs: a surface-by-surface design pass.*
 - **The README's OCR shot is the 0.3.2 capture, in dark**: `seed-ocr.js`
   needs a Tesseract binary this sandbox does not have, so it was not retaken

@@ -925,8 +925,14 @@ exit /b 0
 REM  A real .lnk rather than a copy of this file: it carries the icon, the
 REM  working directory and the --desktop argument, which a copy cannot.
 REM  uninstall.bat --shortcuts removes this exact path.
-set "MM_LNK=%USERPROFILE%\Desktop\MemoryMap AI.lnk"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('!MM_LNK!'); $s.TargetPath='!MM_HOME!start.bat'; $s.Arguments='--desktop'; $s.WorkingDirectory='!MM_HOME!'; $s.IconLocation='!MM_HOME!frontend\icon.ico'; $s.Description='MemoryMap AI'; $s.Save()" >nul 2>nul
+REM  The paths go into PowerShell inside single quotes, where a quote is
+REM  written twice: a checkout under C:\Users\O'Brien ended the string at
+REM  the apostrophe and the shortcut was never made.
+call :desktop_dir
+set "MM_LNK=!MM_DESKTOP!\MemoryMap AI.lnk"
+set "MM_PS_LNK=!MM_LNK:'=''!"
+set "MM_PS_HOME=!MM_HOME:'=''!"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('!MM_PS_LNK!'); $s.TargetPath='!MM_PS_HOME!start.bat'; $s.Arguments='--desktop'; $s.WorkingDirectory='!MM_PS_HOME!'; $s.IconLocation='!MM_PS_HOME!frontend\icon.ico'; $s.Description='MemoryMap AI'; $s.Save()" >nul 2>nul
 if exist "!MM_LNK!" goto :do_shortcut_ok
 set "MM_FAIL_MSG=Could not create the shortcut on your Desktop."
 set "MM_FAIL_FIX=Check that your Desktop folder exists and that PowerShell is allowed to run."
@@ -934,6 +940,19 @@ goto :fail
 :do_shortcut_ok
 echo  !ESC![1;38;5;73m[done]!ESC![0m Shortcut created: !MM_LNK!
 endlocal
+exit /b 0
+
+REM  The Desktop the shell shows, asked of the shell. OneDrive's folder
+REM  backup, on by default on many new PCs, moves it to
+REM  %USERPROFILE%\OneDrive\Desktop, and %USERPROFILE%\Desktop is then a
+REM  folder nobody looks at, or none at all: --shortcut failed with "Could
+REM  not create the shortcut on your Desktop" there, or wrote one nobody saw.
+REM  start.bat and uninstall.bat carry the same lines, so --shortcuts
+REM  removes exactly the file --shortcut wrote.
+:desktop_dir
+set "MM_DESKTOP="
+for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "[Environment]::GetFolderPath('Desktop')" 2^>nul`) do set "MM_DESKTOP=%%D"
+if not defined MM_DESKTOP set "MM_DESKTOP=%USERPROFILE%\Desktop"
 exit /b 0
 
 REM ====================================================================

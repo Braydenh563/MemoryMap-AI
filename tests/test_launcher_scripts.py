@@ -1317,3 +1317,30 @@ mm_ask_update_choice
         text = _read(START_SH)
         assert 'MM_UPDATE_CHOICE="$(mm_ask_update_choice)"' in text
         assert "export MM_UPDATE_CHOICE" in text
+
+
+def test_the_windows_shortcut_lands_on_the_desktop_the_shell_shows():
+    """OneDrive's folder backup, on by default on many new PCs, moves the
+    Desktop to %USERPROFILE%\\OneDrive\\Desktop, so `start.bat --shortcut`
+    wrote into a folder nobody saw (or failed for want of one), and
+    `uninstall.bat --shortcuts` looked in the same wrong place. Both ask the
+    shell for the folder now, by the same lines."""
+    start_bat = _read(ROOT / "start.bat")
+    uninstall_bat = _read(ROOT / "uninstall.bat")
+    for name, text in (("start.bat", start_bat), ("uninstall.bat", uninstall_bat)):
+        assert "%USERPROFILE%\\Desktop\\MemoryMap AI.lnk" not in text, name
+        assert "[Environment]::GetFolderPath('Desktop')" in text, name
+        assert 'set "MM_LNK=!MM_DESKTOP!\\MemoryMap AI.lnk"' in text, name
+    sub = start_bat.split("\n:desktop_dir", 1)[1].split("exit /b 0", 1)[0]
+    assert "GetFolderPath" in sub
+    assert sub == uninstall_bat.split("\n:desktop_dir", 1)[1].split("exit /b 0", 1)[0]
+
+
+def test_a_path_with_an_apostrophe_survives_the_shortcut_powershell():
+    """The paths go into PowerShell inside single quotes; C:\\Users\\O'Brien
+    ended the string at the apostrophe and no shortcut was made."""
+    text = _read(ROOT / "start.bat")
+    line = next(line for line in text.splitlines() if "CreateShortcut(" in line)
+    assert "'!MM_PS_LNK!'" in line and "'!MM_PS_HOME!start.bat'" in line
+    assert "!MM_LNK!'" not in line and "'!MM_HOME!" not in line
+    assert 'set "MM_PS_HOME=!MM_HOME:\'=\'\'!"' in text

@@ -1,6 +1,6 @@
 // **Escape during a marquee or a lasso takes back the gesture, and only the
 // gesture** (WHITEBOARD_PLAN "Placed from INBOX, 2026-09-23", the last row
-// of the conventions checklist in agent-remaining/mapux2.md: "Escape during a
+// of the conventions checklist in archive/agent-remaining/mapux2.md: "Escape during a
 // lasso or marquee is the old behaviour ... not re-measured").
 //
 // What Figma, tldraw and Excalidraw do: a rectangle being dragged vanishes on

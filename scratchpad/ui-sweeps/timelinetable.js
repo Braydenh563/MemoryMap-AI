@@ -182,6 +182,29 @@ const check = (label, ok, detail) => {
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/timeline-table-1440.png` });
 
+  // Crossing the 599.98px mode breakpoint without a reload leaves one view's
+  // rows in the DOM, not two (found 2026-09-23: 113 rows read as 226, because
+  // the hidden mode kept its rows). No stored choice, so the width decides.
+  await page.evaluate(() => { try { localStorage.removeItem('timeline-view'); } catch {} });
+  const rowCount = () => page.evaluate(() => ({
+    rows: document.querySelectorAll('#timeline-scroll .timeline-row').length,
+    feed: document.querySelectorAll('#timeline-feed .timeline-row').length,
+    table: document.querySelectorAll('#timeline-table-body .timeline-row').length,
+  }));
+  const crossings = [];
+  for (const [width, height] of [[1440, 900], [1024, 768], [390, 844], [1440, 900], [390, 844]]) {
+    await page.setViewportSize({ width, height });
+    await page.waitForTimeout(300);
+    // switchTab, not a click: the phone's tab bar has no [data-tab] buttons.
+    await page.evaluate(() => switchTab('notes'));
+    await page.evaluate(() => switchTab('timeline'));
+    await page.waitForTimeout(700);
+    crossings.push({ width, ...(await rowCount()) });
+  }
+  check('crossing the feed/table breakpoint never doubles the rows',
+    crossings.every((c) => c.rows > 0 && c.rows === c.feed + c.table && (c.feed === 0 || c.table === 0)),
+    crossings.map((c) => `${c.width}:feed=${c.feed},table=${c.table}`).join(' '));
+
   await browser.close();
   console.log(failures ? `\n${failures} check(s) failed` : '\nall checks passed');
   process.exit(failures ? 1 : 0);

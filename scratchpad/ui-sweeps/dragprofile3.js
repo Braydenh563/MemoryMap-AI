@@ -1,6 +1,6 @@
 // Where a drag's main-thread time actually goes, from a real CPU profile.
 //
-// The three dead ends are recorded in `agent-remaining/mindmap.md`: frame rate
+// The three dead ends are recorded in `archive/agent-remaining/mindmap.md`: frame rate
 // is useless here (this sandbox is vsync-bound at about 16.7ms in every
 // condition anyone has tried), synthetic PointerEvents never reach d3's drag
 // behaviour, and `openWhiteboardBoard(id)` from `page.evaluate` leaves the

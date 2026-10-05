@@ -76,7 +76,13 @@ const VIEWS = [
       await page.evaluate((code) => { try { (0, eval)(code); } catch (e) { console.warn(e.message); } }, sub);
     }
     await page.waitForTimeout(300);
-    const r = await page.evaluate((sel) => {
+    // Read at 300ms, and again every 100ms until the held answer is due (DELAY
+    // minus what has passed): a view whose module is fetched on first open
+    // (the boards gallery's) paints its placeholders once the module is in,
+    // 200 to 450ms after the press depending on load, so one read at 300ms
+    // called it BLANK on a busy machine and ok on a quiet one (2026-10-05).
+    // The first read that shows placeholders or an empty state is the verdict.
+    const read = (sel) => page.evaluate((sel) => {
       const root = document.querySelector(sel);
       if (!root) return { missing: true };
       // Not `opacityProperty`: a sub-view fades in over about 300ms, and read at 300ms
@@ -88,7 +94,12 @@ const VIEWS = [
       const skeletons = [...root.querySelectorAll('.skeleton, [aria-busy="true"]')].filter(vis).length;
       const empty = [...root.querySelectorAll('.empty-state, .empty-title, [class*="empty"]')].filter(vis).map((e) => e.textContent.trim().slice(0, 60)).filter(Boolean);
       return { skeletons, empty: empty.slice(0, 2), text: root.innerText.trim().slice(0, 80).replace(/\s+/g, ' ') };
-    }, view.within);
+    }, sel);
+    let r = await read(view.within);
+    for (let waited = 300; waited < DELAY - 200 && !r.missing && !r.skeletons && !r.empty.length; waited += 100) {
+      await page.waitForTimeout(100);
+      r = await read(view.within);
+    }
     let verdict = r.missing ? 'MISSING' : r.skeletons ? 'ok' : r.empty.length ? 'EMPTY-TOO-SOON' : 'BLANK';
     const allowed = verdict === 'BLANK' && expectedBlank(view.name);
     if (allowed) verdict = 'ok (expected)';

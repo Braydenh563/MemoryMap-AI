@@ -7,6 +7,124 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## OPEN.md rows closed, 2026-10-05 (the overnight pass on "Carried from the agent files archived 2026-10-05")
+
+Each row below was checked against the head before anything was built.
+
+- **`_export_opml` and `_export_freemind` recurse with nothing bounding depth**:
+  already built. Both go through the iterative `_export_tree`
+  (`routes_whiteboard.py`: a seen set and nesting clamped at `MAX_MAP_DEPTH`,
+  200), and `tests/test_mindmap.py` holds a 1,200-deep chain and a ring through
+  all three export formats (both tests pass on this head).
+- **`phonechrome.js`'s fresh text box overflowing 5px**: not an overflow of its
+  content. The 5px was the box's eight resize grips, centred on its border by
+  design; the sweep's `drawnPast` ignores a grip since 2026-09-23. Measured
+  2026-10-05 at 390x844 on a text box made by `wbCreateTextBox`: `clientWidth`
+  198, `scrollWidth` 198, nothing drawn past its right edge. The sweep now
+  creates that box itself, so the board step measures it every run.
+- **The Timeline's feed and table duplicating on a breakpoint-crossing
+  re-entry**: fixed already (`paintTimeline` empties the mode it does not
+  draw). The only check was a one-off probe that is not in the repo;
+  `scratchpad/ui-sweeps/timelinetable.js` now crosses 1440, 1024, 390, 1440 and
+  390 with no stored view and asserts the rows are all in one view. Measured
+  75 rows each time (feed at 1440 and 1024, table at 390); with the two
+  `replaceChildren` lines removed it reads 75 and 75 at every width and fails.
+- **Lists have no edge auto-scroll for a drag selection** (INBOX 608's list
+  half): already built, `DRAG_EDGE` in `frontend/js/drag-edge.js`.
+  `s2-1005.js` with `MODE=listedge` at 1440 passes all ten cases (Notes and the
+  Library, top and bottom edge, near and past: 222 to 2,318 px moved in a
+  one-second hold).
+- **The sticky's grip in dark** (1.42:1): already fixed, `.wb-object-grip` has
+  an opaque `--modal-bg-opaque` ground. `wbgripink.js` in dark at 1440x900:
+  7.96:1 on a sticky, a text box and a dark box.
+- **The table full view's X is 28x28, "under `--target-min`"**: it is equal to
+  it. `--target-min` is 28px with a pointer and 44px on touch, and the X
+  measured 28x28 at 1440 and 44x44 at 390. `tablefullclose.js` now asserts
+  the X is at least the token's pixels (`WIDTH=390 PHONE=1` for the phone).
+- **Settings, Tools it can use at 390: a tall gap between "Tokens per step"'s
+  description and its field**: not reproduced. The gap is the row's own 16px
+  gap (`rowGap: 16px`, a column at 390 and a row at 1440), 16px at both widths;
+  the description is two lines at 390 (35px).
+- **Models pane first frame** ("Checking the models..." bare until the first
+  answer): built, with its placeholders (`#models-skeleton`, `settings.js`
+  paints them when `modelStatus` is null). `settingsskel.js` (it nulls
+  `modelStatus` first, `early: true`) passes every check at 1440, the models
+  pane's "keeps its words, above the placeholders" included.
+- **`skeletons.js` reading Library and Documents views BLANK**: a timing read,
+  not a missing skeleton. A view whose module loads on first open (the boards
+  gallery) paints its placeholders 200 to 450 ms after the press depending on
+  load, and the sweep read once at 300 ms. It now reads again every 100 ms
+  until the held answer is due; 11 views as expected at 1440 and at 390.
+- **`tests/test_relations_kg2.py`'s 10k timing flaking under load**: it
+  compared wall times, and a loaded machine stretched whichever run it landed
+  on. It now compares CPU time (`time.process_time`, best of three), which
+  showed the true ratio is 8 to 13 (59 to 82 ms at 2k, 510 to 770 ms at 10k),
+  so the ceiling is 18 times against all-pairs' 25 (it was 10).
+- **`gate.sh --staged` not running `tests/test_help_controls.py`**: it does now
+  (a help edit once put the Guide's whiteboard keys entry at 1,926 characters
+  against 1,920 and passed); `test_like_escaping.py` was already in the list.
+  `tests/test_gate_lint_set.py` pins both, with `test_scratchpad_size.py` and
+  `test_codeql_shapes.py`.
+- **The Word writer never having run**: its five tests ran in a scratch venv
+  with python-docx 1.2.0: `test_docexport_pictures.py` 13 of 13, none skipped;
+  `test_docexport_bundle.py`, `test_document_import.py`,
+  `test_docview_import.py` and `test_extras_bundles.py` 57 passed.
+- **`mappan.js`'s fixture posting a `rect` sketch with no path** ("Expected
+  moveto path command" twice): already fixed; the fixture posts a path
+  (`M 140 320 h 200 v 140 h -200 Z`, `shape: "rect"`), and its comment says
+  why.
+- **The tour between 600 and 1100 wide** (a tablet, a half window): walked
+  with `tour.js` at 700x900, 820x1180 and 1024x768, then 390x844 and 1440x900
+  again after the fixes. Found at 700x900: the chat section planned 4 steps and
+  showed 3 (the chat sidebar is a sheet parked at x -243 from 600 to 819.98 and
+  on any coarse pointer, `#conversation-list` had nothing to point at), and the
+  status section planned 4 and showed 3 (`#status-command` is hidden in that
+  band, `10-responsive.css`). Both steps now carry the media condition that
+  matches, so they are left out of the count; all four sizes then pass every
+  check but one stale one. At all three tablet widths the no-map card was 209
+  characters against the sweep's 140: shortened to 115. The stale check was a
+  regex for the words "New mind map" in a card that says "New, then Mind map";
+  it reads the card's words now. 5,981 checks passed at the four sizes with
+  that one check failing once at each; 700x900 alone with the regex fixed:
+  1,480 checks, 0 failures, 91 of 91 steps. Not walked: a fresh data dir with
+  no notes and no boards.
+- **Sweep comments naming `agent-remaining/mindmap.md` and `mapux2.md`**:
+  repointed to `archive/agent-remaining/` in the nine `scratchpad/ui-sweeps`
+  files that carried them (`canvasconventions`, `dragprofile3`, `mapstrip`,
+  `mindmap3`, `wbdrawloops`, `wbhandlezoom`, `wbmarqueeescape`, `whiteboard`,
+  `whiteboard3`).
+- **A board object in a note, three unmeasured places** (390x780, a chat
+  transcript, the inline id-form chip): measured by `noteobject.js`
+  (`W=390 H=780 PHONE=1`, 0 findings): the card is 320 wide and 104 tall with
+  its preview in a 390 note (the tombstone 86 tall), 259 wide and 109 tall in a
+  chat answer's bubble with no sideways scroll, 106 tall in a document; the
+  live inline chip opens its board at 390 and 1440. The run was under load 40
+  to 50, so the sweep waits for the cards to settle instead of a fixed three
+  seconds.
+- **Found while measuring the board object in a note at 390x780: a board made a
+  moment before its note was drawn read as "no longer in your notebook"**
+  (`noteobject.js` failed on the head at 1440 too). The note's second draw (a
+  second `loadEntries`) found the board's id already marked as asked, skipped
+  the wait and wrote the tombstone while the walk that would have found it was
+  in flight; the first card, the one waiting, had left the page. Fixed in
+  `boardEmbedElement` (`markdown.js`): the marker is the walk's promise until it
+  settles and a second card waits on it. `noteobject.js` passes at 1440 and
+  now also checks the card in a chat answer (813 wide in its bubble, drawn) and
+  a live inline `[[board:ID|label]]` chip (opens its board). A chat answer
+  draws `![[board:ID]]` as a card but `[[board:ID]]` as plain text: only the
+  note renderer draws wiki links.
+- **Found while running `noteobject.js` at 390x780: the Board menu stayed open
+  over what its action rows opened.** Export, Clear, Add to a note, Map to
+  document, Copy app link and Delete are a label and a button inside a
+  `.wb-menu-row`, which the delegated closer in `whiteboard.js` did not name
+  (Rename and New board had been fixed by taking the `wb-menu-item` class).
+  Measured at 390 with a fresh board per row: all six left the menu open
+  (z-index 1020 over the picker's and the dialogs' 1010, the menu covering
+  x 29 to 301 so the note picker's first row at x 41 to 349 could not be
+  pressed); after, the menu is closed for all six, Rename and New board as
+  before. The six carry `data-wb-closes`, the closer selects it, and
+  `tests/test_wb_menu_rows_close.py` pins both.
+
 ## Moved from the plans, 2026-10-05 (444 decision 10: the autonomous override's default)
 
 Decision 10 counted "a background-job model is still chosen in Models and in

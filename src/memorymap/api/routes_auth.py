@@ -412,6 +412,62 @@ def _password_matches(password: str, password_hash: str) -> bool:
         return False  # a malformed stored hash opens nothing
 
 
+#: **The floor for a new password** (SEC-17, audit 2026-10-05). The bcrypt
+#: hash and the scrypt-wrapped key both live in the database file, so a
+#: stolen copy or backup is guessed offline at whatever speed the thief's
+#: machine has, and the old four-character floor (a PIN) falls in minutes.
+#: Eight for every new password, at setup and change; one set before this
+#: keeps working, so the floor never locks anyone out of their own notes.
+NEW_PASSWORD_MIN_CHARS = 8
+
+_COMMON_PASSWORDS = frozenset({
+    "password", "password1", "password123", "passw0rd", "12345678", "123456789",
+    "1234567890", "87654321", "11111111", "00000000", "qwertyuiop", "qwerty123",
+    "iloveyou", "letmein1", "welcome1", "sunshine", "princess", "football",
+    "baseball", "dragon12", "monkey12", "trustno1", "abc12345", "admin123",
+    "memorymap", "notebook", "changeme",
+})
+_RUNS = ("abcdefghijklmnopqrstuvwxyz", "01234567890", "qwertyuiop", "asdfghjkl", "zxcvbnm")
+
+
+def _new_password_problem(password: str) -> str | None:
+    """Why a new password is refused, or None."""
+    if len(password) < NEW_PASSWORD_MIN_CHARS:
+        return f"Use at least {NEW_PASSWORD_MIN_CHARS} characters for a new password."
+    return None
+
+
+def password_warning(password: str) -> str | None:
+    """A sentence when an allowed password is still easy to guess, else None.
+
+    Deliberately small: common choices, one character repeated, a run along
+    the alphabet, the digits or a keyboard row, and short ones made of a
+    single kind of character. Not a rule, a warning: the person decides.
+    """
+    lowered = password.lower()
+    kinds = sum(
+        (
+            any(c.islower() for c in password),
+            any(c.isupper() for c in password),
+            any(c.isdigit() for c in password),
+            any(not c.isalnum() for c in password),
+        )
+    )
+    weak = (
+        lowered in _COMMON_PASSWORDS
+        or len(set(lowered)) <= 2
+        or any(lowered in run or lowered in run[::-1] for run in _RUNS)
+        or (len(password) < 12 and kinds <= 1)
+    )
+    if not weak:
+        return None
+    return (
+        "This password is easy to guess. Someone with a copy of your notebook "
+        "file could try guesses offline, so a longer one, or three or four "
+        "unrelated words, keeps private notes much safer."
+    )
+
+
 class PasswordBody(BaseModel):
     password: str = Field(
         min_length=4, max_length=MAX_PASSWORD_CHARS, description="Password or PIN, 4+ characters"
@@ -534,6 +590,9 @@ def setup(body: PasswordBody, request: Request, response: Response, session: Ses
     """First run: create the single user. Refuses to run twice."""
     if _get_user(session) is not None:
         raise HTTPException(status_code=400, detail="A password is already set.")
+    problem = _new_password_problem(body.password)
+    if problem:
+        raise HTTPException(status_code=400, detail=problem)
     password_hash = _hash_password(body.password)
     session.add(User(username="owner", password_hash=password_hash))
     # Create the vault now, while the password is in hand. Deferring it would
@@ -544,7 +603,7 @@ def setup(body: PasswordBody, request: Request, response: Response, session: Ses
     token = _issue_token()
     vault.grant(token)
     _grant_media(request, response, token)
-    return {"token": token}
+    return {"token": token, "warning": password_warning(body.password)}
 
 
 @router.post("/unlock")
@@ -921,6 +980,9 @@ def change_password(
     _unlock_succeeded(client)
     if body.current_password == body.new_password:
         raise HTTPException(status_code=400, detail="That's already your password.")
+    problem = _new_password_problem(body.new_password)
+    if problem:
+        raise HTTPException(status_code=400, detail=problem)
 
     if vault.exists(session) and vault.key() is None:
         # A session started without a password (sign-in off) has the vault
@@ -956,7 +1018,12 @@ def change_password(
     token = _issue_token()
     vault.grant(token)
     _grant_media(request, response, token)
-    return {"changed": True, "token": token, "other_sessions_ended": signed_out}
+    return {
+        "changed": True,
+        "token": token,
+        "other_sessions_ended": signed_out,
+        "warning": password_warning(body.new_password),
+    }
 
 
 class RotateVaultKeyBody(BaseModel):

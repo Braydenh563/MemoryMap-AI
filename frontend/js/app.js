@@ -843,7 +843,7 @@ function showLockScreen(setupMode) {
   const note = $("lock-setup-note");
   if (note) {
     note.textContent =
-      "Choose a password or PIN, at least four characters. The app asks for it " +
+      "Choose a password, at least eight characters; a few unrelated words are best. The app asks for it " +
       "when it opens, unless you turn that off in Settings. Ordinary notes are not encrypted and survive a reset, " +
       "but anything you later mark private is locked with this password and cannot " +
       "be recovered without it.";
@@ -864,11 +864,13 @@ async function submitLockForm() {
   const password = $("lock-password").value;
   const errorLine = $("lock-error");
   errorLine.textContent = "";
-  if (password.length < 4) {
-    errorLine.textContent = "Use at least 4 characters.";
+  const mode = $("lock-overlay").dataset.mode;
+  //: A new password needs 8 (SEC-17); one set before that still unlocks.
+  const floor = mode === "setup" ? 8 : 4;
+  if (password.length < floor) {
+    errorLine.textContent = `Use at least ${floor} characters.`;
     return;
   }
-  const mode = $("lock-overlay").dataset.mode;
   if (mode === "prompt") {
     const prompt = lockPrompt;
     if (!prompt) return;
@@ -887,6 +889,7 @@ async function submitLockForm() {
       body: JSON.stringify({ password }),
     });
     localStorage.setItem("token", body.token);
+    if (body.warning) toast(body.warning, true);
     vaultOpen = mode === "setup" ? true : Boolean(body.vault_open);
     lockedByHand = false;
     $("lock-password").value = "";
@@ -1180,7 +1183,8 @@ function startApp() {
   step("load ask history badge", loadAskHistoryBadge);
   step("load suggestions", loadSuggestions);
   step("load your most-used items", loadMostUsed);
-  step("load templates", loadTemplates).then(() =>
+  const templatesReady = step("load templates", loadTemplates);
+  templatesReady.then(() =>
     step("set up chat options", () => {
       personaOptions();
       // Wave G: skills chips + the agent-mode toggle read the
@@ -1205,10 +1209,12 @@ function startApp() {
   // Fires only if the user opted in (Settings -> About); the endpoint itself
   // also checks the preference server-side, but skipping the call here means
   // an opted-out install makes zero network attempts, not a wasted one.
-  step("check for an update", () => {
+  // After the templates, which is what fills `prefsCache`: run beside them it
+  // read null and neither asked nor checked (found 2026-10-05, measured).
+  templatesReady.then(() => step("check for an update", () => {
     if (prefsCache && prefsCache.update_choice_made === false) return askUpdateChoiceOnce();
     if (prefsCache && prefsCache.update_check_enabled) return checkForUpdate(true);
-  });
+  }));
   // Independent of update_check_enabled above, this isn't a network
   // check, it's reporting a fact: start.sh/start.bat already git-pulled a
   // real update before this process even started (their own step 0, no

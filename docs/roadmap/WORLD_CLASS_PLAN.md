@@ -914,8 +914,8 @@ and SEC-16 fixed (HISTORY.md, "Security audit fixes, 2026-10-05"); SEC-08's
 real fix, LAN mode over HTTPS with a certificate made on this computer, the
 same day, and SEC-10, a folder import safe to run again, and SEC-14, answers that quoted a note
 redacted when it goes private (HISTORY.md, "Security audit, second pass").
-Open: SEC-17's floor (warn or raise
-the minimum when a notebook has private notes); SEC-02's last step
+SEC-17, a floor of 8 for new passwords and a warning above it, the same
+day. Open: SEC-02's last step
 (`read_url` parks for a URL not in the question or this turn's results).
 
 **Decisions made** (the owner, 2026-10-05; do not remake):

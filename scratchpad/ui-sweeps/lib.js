@@ -115,6 +115,21 @@ async function boot(opts={}) {
   }
   await page.evaluate(()=>{ const o=document.getElementById('onboarding-overlay'); if(o) o.classList.add('hidden'); });
   await page.waitForTimeout(800);
+  //: **Updates ask once** (the owner, 2026-10-05): a fresh data dir is asked
+  //: "Check for updates automatically?" after unlock, a dialog that would sit
+  //: over every click a sweep makes. Answered "Don't check" here (nothing
+  //: touches the network either way); UPDATE_ASK=1 leaves it for a sweep
+  //: that measures the dialog itself.
+  if (!process.env.UPDATE_ASK) {
+    await page.waitForFunction(() => {
+      const card = [...document.querySelectorAll('.confirm-overlay')]
+        .find((o) => /Check for updates automatically/.test(o.textContent));
+      if (!card) return !!(window.prefsCache && window.prefsCache.update_choice_made !== false) || document.readyState === 'complete';
+      const no = [...card.querySelectorAll('button')].find((b) => /Don.t check/.test(b.textContent));
+      if (no) no.click();
+      return true;
+    }, null, {timeout: 4000, polling: 200}).catch(() => {});
+  }
   //: `signIn` says which way it came in: 'lock' or 'app' (sign-in off).
   return {browser, ctx, page, OUT, signIn: way};
 }

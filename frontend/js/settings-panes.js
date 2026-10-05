@@ -659,9 +659,9 @@ async function changePassword() {
     status.textContent = "The two new passwords don't match.";
     return;
   }
-  if (next.length < 4) {
+  if (next.length < 8) {
     status.classList.add("error");
-    status.textContent = "A password needs at least 4 characters.";
+    status.textContent = "A new password needs at least 8 characters.";
     return;
   }
 
@@ -680,7 +680,7 @@ async function changePassword() {
     $("account-current").value = "";
     $("account-new").value = "";
     $("account-confirm").value = "";
-    status.textContent = "Password changed.";
+    status.textContent = result.warning || "Password changed.";
     toast(
       result.other_sessions_ended
         ? `Password changed. ${result.other_sessions_ended} other session(s) were signed out.`

@@ -40491,6 +40491,20 @@ made") and the audit's leftovers, each with its test written first.
   stays. With SEC-03's scrub after the commit, none of the words stay in the
   file. `tests/test_private_answer_scrub.py`.
 
+- **SEC-17, a floor for new passwords.** `routes_auth.NEW_PASSWORD_MIN_CHARS`
+  (8) at setup and change password, said in a 400 sentence;
+  `password_warning` flags a common choice, one or two characters repeated, a
+  run along the alphabet, the digits or a keyboard row, and a short password
+  of one kind of character, and setup and change return it as `warning`
+  (the lock screen toasts it, Settings says it on the status line). Unlock
+  keeps its old floor, so a password set before this still opens the
+  notebook. The lock screen's own check is 8 for setup and 4 for unlock;
+  the setup note and the placeholder say 8. Also: the boot's update step
+  now runs after the templates load `prefsCache`, which it read as null
+  beside them, so neither the ask-once question nor the opted-in startup
+  check ever ran (measured in Chromium before and after;
+  `scratchpad/ui-sweeps/sec2-1005-sweep.js`). `tests/test_password_floor.py`.
+
 ## Moved from the plans, 2026-10-04 (design-1004)
 
 ### From WORLD_CLASS_PLAN.md 1.2: one primary per modal, meta without border or hover

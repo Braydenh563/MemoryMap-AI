@@ -390,8 +390,8 @@
     <button class="tab-pill" role="tab" data-tab="reminders">Reminders</button>
   </div>
   <div id="pane-dashboard" class="tab-pane on g tab-card" role="tabpanel"><h3>Dashboard</h3><p>Greeting, capture streak, at-a-glance counts, an AI digest of your week, an activity heatmap, on-this-day, a focus timer, and a layout you can rearrange.</p></div>
-  <div id="pane-notes" class="tab-pane g tab-card" role="tabpanel"><h3>Notes</h3><p>Capture, browse and ask: three sub-tabs. Auto-filing, tags, pins, threads, attachments, private notes encrypted at rest, a recycle bin, revision history, and a search box that understands <code>tag:work</code>, <code>cat:recipes</code>, <code>is:pinned</code>, <code>"exact phrase"</code> and <code>-exclude</code>.</p></div>
-  <div id="pane-chat" class="tab-pane g tab-card" role="tabpanel"><h3>Chat</h3><p>A conversation with your notebook, saved and resumable. Agent mode has 58 tools: search and read your notes, create, tag, link and organise, set reminders, open a web page, place and connect cards on a whiteboard, with destructive actions always confirmed. Personas change its voice; the run shows thinking, tool calls, and prose in the order they happened.</p></div>
+  <div id="pane-notes" class="tab-pane g tab-card" role="tabpanel"><h3>Notes</h3><p>Your notes, Capture, Write with Atlas, Ask and Questions: five sub-tabs. Auto-filing, tags, pins, threads, attachments, private notes encrypted at rest, a recycle bin, revision history, and a search box that understands <code>tag:work</code>, <code>cat:recipes</code>, <code>is:pinned</code>, <code>"exact phrase"</code> and <code>-exclude</code>.</p></div>
+  <div id="pane-chat" class="tab-pane g tab-card" role="tabpanel"><h3>Chat</h3><p>A conversation with your notebook, saved and resumable. Agent mode has 65 tools: search and read your notes, create, tag, link and organise, set reminders, open a web page, place and connect cards and shapes on a board, with destructive actions always confirmed. Personas change its voice; the run shows thinking, tool calls, and prose in the order they happened.</p></div>
   <div id="pane-graph" class="tab-pane g tab-card" role="tabpanel"><h3>Graph</h3><p>Your notes as a map: force-directed, or as a tree or radial tree. Click a node to edit it in place, see its images, or drop one note onto another to link them. <strong>Trace</strong> answers the question a graph is uniquely good at: pick any two notes and see the chain of links, replies and shared tags that connects them, named step by step. Colour by cluster to see which notes can actually reach each other, and how many are connected to nothing at all. The same traversal is what the AI uses: it can trace a path and read your notebook's structure, not just search it.</p></div>
   <div id="pane-library" class="tab-pane g tab-card" role="tabpanel"><h3>Library</h3><p>Everything you have made, in one place: notes, documents, chats, files, tags, the recycle bin and the activity log. Overview tiles that are also filters, search across titles and previews, bulk selection, grid or list. The long-form <strong>document editor</strong> opens from here, and so does the <strong>whiteboard</strong>: note cards and freehand sketches on a canvas you can pan and zoom, where a board is itself a note and so is searchable and filable like any other.</p></div>
   <div id="pane-timeline" class="tab-pane g tab-card" role="tabpanel"><h3>Timeline</h3><p>Every note plotted on a time axis, at what it is <em>about</em> when a phrase like "next week" resolves to a date, and at when it was written otherwise, in bands by category or tag, at a bucket size you pick.</p></div>
@@ -402,17 +402,17 @@
   <p class="section-label">Quick start</p>
   <div class="qs-card g">
     <h2>Running MemoryMap AI</h2>
-    <p style="font-size:.88rem;color:var(--muted);margin-bottom:1rem;">You need <strong>Python 3.11+</strong>. That's it to get started.</p>
+    <p style="font-size:.88rem;color:var(--muted);margin-bottom:1rem;">Windows and Linux have a ready-made download on the <a href="https://github.com/Braydenh563/MemoryMap-AI/releases/latest" target="_blank" rel="noopener">latest release</a>. From source you need <strong>Python 3.11+</strong>, and that is all.</p>
     <div class="platform-tabs">
       <button class="ptab on" data-p="win">Windows</button>
       <button class="ptab" data-p="mac">macOS / Linux</button>
       <button class="ptab" data-p="manual">Manual</button>
     </div>
     <div class="pcontent on" id="p-win">
-      <p style="font-size:.87rem;color:var(--muted);">Double-click <code>start.bat</code> in the repo root. The launcher builds the virtual environment, installs everything, starts the server and opens <code>http://localhost:8000</code>.</p>
+      <p style="font-size:.87rem;color:var(--muted);">Run <code>MemoryMap-AI-Setup-*.exe</code> from the latest release, or from source double-click <code>start.bat</code> in the repo root. The launcher builds the virtual environment, installs everything, starts the server and opens <code>http://localhost:8000</code>.</p>
       <p style="font-size:.87rem;color:var(--muted);margin-top:.5rem;">For a dedicated desktop window use <code>start-desktop.bat</code>.</p>
     </div>
-    <div class="pcontent" id="p-mac"><pre>./start.sh</pre><p style="font-size:.87rem;color:var(--muted);">For a desktop window: <code>./start.sh --desktop</code></p></div>
+    <div class="pcontent" id="p-mac"><p style="font-size:.87rem;color:var(--muted);">On Linux, unpack <code>MemoryMap-AI-*-linux-x86_64.tar.gz</code> from the latest release and run <code>MemoryMap AI</code>. From source on either:</p><pre>./start.sh</pre><p style="font-size:.87rem;color:var(--muted);">For a desktop window: <code>./start.sh --desktop</code></p></div>
     <div class="pcontent" id="p-manual"><pre>git clone https://github.com/Braydenh563/MemoryMap-AI.git
 cd MemoryMap-AI
 python3 -m venv .venv &amp;&amp; source .venv/bin/activate

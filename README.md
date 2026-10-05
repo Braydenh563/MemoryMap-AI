@@ -16,19 +16,112 @@
 
 ---
 
-Type a thought. A local model files it, tags it and links it to what you
-already wrote. Ask a question later and get an answer beside the notes it
-came from, sentence by sentence, so you can check it. Everything runs on
-your own computer: no account, no cloud, no telemetry. Your notes are one
-SQLite file in a folder you control, and the whole app works with no model
-running at all.
+## What it is
+
+MemoryMap AI is a notebook for people who think in fragments. You type a
+thought and a local model files it, tags it and links it to what you already
+wrote. Later you ask a question and get an answer beside the notes it came
+from, with each sentence linked to its source so you can check it. Around
+that loop sit a long-form document editor, whiteboards and mind maps, a graph
+of how your notes connect, a timeline, reminders, and an assistant called
+Atlas that can act on the notebook for you.
 
 ```
-capture a thought
-  -> Atlas files it
-  -> ask a question
-  -> an answer, with the notes behind it
+capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with the notes behind it
 ```
+
+## Why offline and local-first
+
+- **Your notes are one SQLite file** in a folder you choose. There is no
+  account, no cloud service and no telemetry.
+- **The AI runs on your machine**, through [Ollama](https://ollama.com) or any
+  OpenAI-compatible server on your own computer or network. A setting that is
+  on by default refuses a model address that is not local.
+- **Nothing goes online unless you switch it on.** Web search and the update
+  check are off until you turn them on, and Settings, Privacy records every
+  connection the app makes.
+- **It works with no model at all.** Without one, notes are filed as
+  Uncategorised, search uses full-text matching with stemming and spelling
+  correction, and every other feature keeps working.
+
+## What it does
+
+**Capture**
+- Type, paste, draw, or dictate and record meetings (transcribed on this machine
+  with Whisper). `Alt`+`N` opens a quick note over any tab. `#word` tags a note,
+  and Markdown works inline, including `[[wiki links]]` and `==highlights==`.
+- Bring notes in from a folder of Markdown files, a PDF, Word file or slide
+  deck, Notion, Obsidian, Evernote or Apple Notes, or clip a web page with a
+  bookmarklet. Importing the same thing twice adds only what is new.
+- Attach any file. Images are captioned, read by a vision model and run
+  through Tesseract OCR where each is available; scanned PDFs are read page
+  by page, and the OCR workspace lets you correct each region before it
+  becomes a note.
+- A note saved while the server is away waits on this device and is sent once
+  when the server is back.
+
+**Organise**
+- The AI picks a category by meaning (or asks, in guided mode), shows how sure
+  it was and suggests tags, one press to keep each. With no AI, tags come from
+  the notes most like it.
+- Manage categories and tags by hand: create, rename, merge, split, delete and
+  move, each step undoable. Spaces keep separate areas of life apart.
+- A background librarian can tag, link and flag duplicates on a schedule you
+  set. It never deletes anything.
+- Everything lives in the Library: notes, documents, chats, boards and maps,
+  images and files, bookmarks, the AI skills, a contents tree and an activity
+  log.
+
+**Ask**
+- A question returns a conversational answer and the notes behind it, with a
+  numbered citation after each sentence. Chat is saved and resumable.
+- Questions collects the questions your notes ask in passing, and marks one
+  answered when a later note answers it.
+- In Agent mode the assistant has 65 tools to search, link, organise and act on
+  your notebook. Anything destructive asks first, as does any change or web
+  request after it has read a web page or an imported note. Every step is
+  shown.
+- 21 built-in skills (and your own) run multi-step jobs as a visible
+  checklist. Small models are first-class: a small-model mode gives a 4B model
+  one step and one tool at a time.
+- A command palette (`Ctrl`/`Cmd`+`K`) reaches any command, note or document,
+  and a popup agent (`Ctrl`+`Shift`+`A`) does things from any tab. Reminders
+  take plain language: "call Sam tomorrow evening".
+
+**Write**
+- Documents is a long-form editor with Live, Source, Split and Read views,
+  spelling and grammar checks that run on your computer, version history,
+  focus mode, and code files with line numbers. A document reopens where you
+  left it.
+- Write with Atlas turns rough thoughts into a proper note, or a pasted block
+  into several linked notes, before anything is saved.
+- Export a document as Markdown, HTML, PDF or Word (Word is an optional
+  package), and your notes as JSON, CSV or Markdown.
+
+**Visualise**
+- The Graph draws your notes as a map coloured by category, with the reason
+  for each link written down.
+- The Timeline puts every note and reminder on a time axis.
+- Boards hold cards, sketches, images and shapes that contain text, joined by
+  connectors that carry a label, with a library of shapes, flowchart symbols
+  and 1,530 icons. A board can be a mind map, with tasks to tick, a note behind
+  any topic and numbered branches; maps export as Markdown, OPML or FreeMind,
+  and import XMind.
+- The Dashboard shows your capture streak, statistics, a weekly digest and the
+  widgets you choose.
+
+**Also**
+- Thirteen themes, each in light or dark, with your own accent, type, density
+  and corners. A drawn face for every person and persona, and an optional
+  corner companion.
+- Keyboard and screen reader support: named controls, 4.5:1 contrast, a layout
+  that holds at 400% zoom, and a switch for single-key shortcuts.
+- A guided tour, and errors written as plain sentences that say what to do.
+- Signing in is on by default and can be turned off on a computer only you use.
+
+## Screenshots
+
+Captured from the app in the dark theme at 1440 by 900.
 
 <p align="center">
   <img src="docs/screenshots/dashboard.png" alt="The dashboard in the dark theme: a greeting with the note count, reminders and capture streak, a search box, quick actions, and widgets for reminders, recently added notes, favourites, quick capture, boards and recent documents" width="850">
@@ -55,7 +148,7 @@ capture a thought
 </p>
 
 <details>
-<summary><b>Sixteen more screenshots</b>: the Library and its Activity view, Timeline, Reminders, Documents and focus mode, a board, a mind map, the command palette, Tools and features, Settings, Your look, the popup agent, the corner companion, light and dark side by side, and a phone</summary>
+<summary><b>Seventeen more</b>: the Library and its Activity view, Timeline, Reminders, Documents and focus mode, a board, a mind map, the command palette, Tools and features, Settings, Your look, the popup agent, the corner companion, Atlas, light and dark side by side, and a phone</summary>
 <br>
 
 <p align="center">
@@ -129,6 +222,11 @@ capture a thought
 </p>
 
 <p align="center">
+  <img src="docs/screenshots/atlas.png" alt="Atlas, delighted: a small astral figure on a night-sky tile, eyes closed in a wide smile with rosy cheeks and two sparkles, a ring of orbiting stars round its head and a nebula stream curling round its body" width="260">
+  <br><sub><b>Atlas</b>: the star spirit who keeps your notebook</sub>
+</p>
+
+<p align="center">
   <img src="docs/screenshots/theme-split.png" alt="The dashboard, the left half in the light theme and the right half in the dark theme, split down the middle" width="850">
   <br><sub><b>Light or dark</b>: every theme comes in both, or follows your system</sub>
 </p>
@@ -140,295 +238,130 @@ capture a thought
 
 </details>
 
-## Contents
+## Quick start
 
-- [Get started](#get-started)
-- [What it does](#what-it-does)
-- [Meet Atlas](#meet-atlas)
-- [The AI, and life without it](#the-ai-and-life-without-it)
-- [Your data](#your-data)
-- [Documentation](#documentation)
-- [Developing](#developing)
-- [Status](#status)
-- [Licence](#licence)
-
-## Get started
-
-Three ways in. None needs a terminal.
+Pick the way that suits you. Only the last needs a terminal.
 
 **Windows.** Download `MemoryMap-AI-Setup-*.exe` from the
 [latest release](https://github.com/Braydenh563/MemoryMap-AI/releases/latest)
-and run it. The app opens in its own window.
-[What the SmartScreen prompt means](docs/INSTALL.md#windows-installer).
+and run it. The app opens in its own window. Windows shows a "protected your
+PC" screen because the installer is not code-signed yet:
+[what to click](docs/INSTALL.md#windows-installer).
 
 **Linux.** Download `MemoryMap-AI-*-linux-x86_64.tar.gz` from the same page,
-`tar -xzf` it and run `MemoryMap AI`. Needs GTK and WebKit (`python3-gi` and
-`gir1.2-webkit2-4.1`, or your distribution's equivalent). A `.zip` of the
-same build is there too, but prefer the tarball: a zip does not reliably
-carry the executable bit, and some archive managers unpack the launcher
-without it, which leaves you with a file that will not start and no
-explanation.
+unpack it with `tar -xzf` and run `MemoryMap AI`. Use the tarball rather than
+the `.zip` beside it: a zip may drop the executable bit and leave a launcher
+that will not start. The window needs GTK and WebKit (`python3-gi` and
+`gir1.2-webkit2-4.1` on Debian and Ubuntu).
 
-**The first launch downloads the search model.** Search by meaning and
-filing by meaning use a built-in model that needs the `sentence-transformers`
-package. If it is not installed yet, the app installs it by itself the first
-time it needs it: a one-time download of several hundred MB (more on
-Windows, where it brings torch), which needs the internet and can take
-several minutes. Settings, Search and index, Search engine says when it is running.
-Offline, or rather not? Install [Ollama](https://ollama.com), run
-`ollama pull nomic-embed-text`, and pick it there instead.
+**macOS, or any platform from source.** Clone the repository and run
+`./start-desktop.sh` for the app's own window, or `./start.sh` for a browser
+tab (on Windows, `start-desktop.bat` or `start.bat`). The launcher builds a
+private Python environment, installs everything and opens
+<http://localhost:8000>. Add `--doctor` to check the machine and print a fix
+for each problem. [docs/INSTALL.md](docs/INSTALL.md) has a step-by-step
+version for first-time terminal users.
 
-**macOS, or from source on any platform.** Clone the repository and run
-`./start-desktop.sh` (on Windows, double-click `start-desktop.bat`), or
-`./start.sh` for a browser tab. The launcher builds a private Python
-environment, installs everything and opens the app. `--doctor` on either
-one checks the machine and prints a table with a fix per row. A
-step-by-step version for first-time terminal users is in
-[docs/INSTALL.md](docs/INSTALL.md).
+**Then:**
 
-Add the AI afterwards: install [Ollama](https://ollama.com) and pull a
-model that fits your machine. Which one, from "runs on a laptop with no
-GPU" upwards, is in [docs/MODELS.md](docs/MODELS.md). Any OpenAI-compatible
-server works too: LM Studio, llama.cpp's `llama-server`, Jan, vLLM.
+1. Choose a password when the app first opens.
+2. Add the AI. Install [Ollama](https://ollama.com) and pull a model that fits
+   your machine; `ollama pull llama3.2` is a safe start. Which model, from
+   "runs on a laptop with no GPU" upwards, is in [docs/MODELS.md](docs/MODELS.md).
+   LM Studio, llama.cpp's `llama-server`, Jan and vLLM work too, through
+   Settings, Models.
+3. Write a note, then ask about it in Notes, Ask.
 
-## What it does
+**The first launch downloads the search model.** Search and filing by meaning
+use a built-in model that needs the `sentence-transformers` package. If it is
+missing, the app installs it the first time it is needed: a one-time download
+of several hundred MB (more on Windows, where it brings torch) that needs the
+internet and can take several minutes. Settings, Search and index, Search
+engine says when it is running. To avoid the download, pull `nomic-embed-text`
+in Ollama and pick it in the same place.
 
-**Capture.** Type, paste, dictate (local Whisper) or draw. The AI picks a
-category by meaning, or asks you in guided mode, and says which. Free text
-can be split into separate, auto-linked notes. Notes take Markdown inline,
-including `[[wiki links]]`, `~~strikethrough~~` and `==highlights==` in
-six colours. Quick note (`Alt`+`N`, or the palette) opens over any tab and
-saves without leaving it; `#word` in the text tags the note. A note saved
-while the server is away is kept on this device, shown in the list as
-"Waiting to save" and sent by itself when the server is back, once.
+## Requirements and optional extras
 
-**Ask.** A question returns a conversational answer and the notes behind
-it, side by side, with each sentence linked to the note it came from. Chat
-is saved and resumable. In Agent mode the assistant has 65 tools to
-search, link, organise and act on your notebook; anything destructive
-asks first, any change or web request after it has read a web page or a
-clipped or imported note asks first too, and every step it takes is shown.
+- **To run it:** the Windows installer and the Linux tarball need nothing else.
+  From source you need Python 3.11 or newer (CI runs 3.11 to 3.13).
+- **For the AI:** [Ollama](https://ollama.com) or any OpenAI-compatible server.
+  The app is useful without one.
+- **Optional extras.** Settings, Packages installs each one from inside the
+  app, with no terminal. None is needed for the core.
 
-**Keep it tidy.** Each note shows how sure the filing was and the tags it
-suggested, one press to keep each (with no AI they come from your own tags
-on the notes most like it). Manage categories creates, renames, merges,
-splits and deletes categories and moves notes between them, each step
-undoable; a tag manager does the same for tags, and a category chip moves
-its note in one click. Anything the AI can change, you can change by hand.
+| Extra | What it adds |
+| --- | --- |
+| Search by meaning (sentence-transformers) | Matching ideas rather than words; about 2 GB with torch |
+| Voice notes (faster-whisper) | Local dictation for the microphone buttons |
+| Desktop window (pywebview) | The app in its own window, and a tray icon on Windows |
+| Import documents (markitdown) | PDF, Word and slide decks become notes |
+| Export to Word (python-docx) | A document's Word export |
+| Read scanned PDFs (pypdfium2) | Scanned pages become images a vision or OCR model can read |
+| Search inside images (Tesseract OCR) | Text in images becomes searchable; also needs the Tesseract program |
+| Run Python files (Pyodide) | Runs a `.py` document in a sandbox; a pinned download that works offline |
+| Tool calling without Ollama (needle) | A small built-in model that picks tools when no model server is running; a pinned download that works offline |
 
-**See the shape of it.** The Graph draws your notes as a map, coloured by
-category and linked by meaning, with the reason for each link written
-down; dense clusters, loose webs and notes on their own each keep the
-shape their links give them. The Timeline puts every note and reminder on
-a time axis. The Dashboard shows your capture streak, statistics, a weekly
-digest and whatever widgets you choose.
-
-**Write at length.** Documents is a long-form editor with Live, Source,
-Split and Read views, a formatting toolbar, spelling and style checks you
-can click on, version history, focus mode, and code files with line
-numbers. A document reopens where you left it: the caret and the place
-you were reading.
-
-**Think on a canvas.** A board holds cards, sketches, images and shapes on
-a pannable surface. A shape holds text, and a connector can carry a label
-("yes", "no"), so a flowchart reads on its own. The board's sidebar holds a
-library of shapes, flowchart symbols, arrows, frames and 1,530 icons beside
-your own saved pieces, with Layers and Pages (the frames, in presentation
-order); a Format panel sets exact place, size, angle, opacity and shadow,
-and an elbow connector turns at right angles round the shapes it joins. In
-Agent mode the assistant can draw shapes, place library items, and move,
-edit or delete what is on a board, asking first. A board can be a **mind
-map**: a root topic with branches you grow by hand or from your notes (Tab
-adds a child, Enter a sibling, Ctrl+D copies, Ctrl+Z restores a deleted
-branch). A topic can be a task with a box to tick, and every topic above it
-counts what is done; a topic can hold a note behind it; View, Number the
-branches numbers them 1, 1.1, 1.2. Maps export as Markdown, OPML or
-FreeMind, tasks and notes included.
-
-**Keep everything in one Library.** Notes, documents, chats, boards, files,
-tags, bookmarks (a reading list with Unread and Pinned filters), a Contents
-tree of documents and their headings, the AI skills page, the recycle bin
-and the activity log. Every image you add is read three ways where each is
-available (a caption, a vision-model transcription and Tesseract OCR), all
-editable, all searchable. Attach any file to a chat message: images go to a
-vision model, and documents, spreadsheets, PDFs and code are imported with
-their text extracted. Scanned PDFs are read page by page by an OCR model,
-and the OCR workspace lets you check and correct each region before it
-becomes a note.
-
-**Remember.** Reminders with priority, repeats and snooze, or type "call
-Sam tomorrow evening" and let the AI schedule it.
-
-**Automate.** 21 built-in skills (and your own) run multi-step jobs over
-the notebook as a visible checklist, one step at a time, with each tool
-call shown. An optional background librarian tags, links and flags
-duplicates on a schedule you set. It never deletes anything. Every
-background job shows when it last ran and how it went, beside its control
-and in Settings, Background tasks.
-
-**Faces for everyone.** Every person and persona gets a small drawn
-character read from their name (a mood word, an animal, a costume), and
-Settings, Profile, Your look lets you shuffle yours or choose every part:
-hair, skin, clothes, headwear, eyewear, what you hold.
-
-**Sign in, or don't.** The notebook asks for its password when it opens, by
-default. On a computer only you use, Settings, Account & security can turn
-that off: the app opens straight in on this computer, another device on your
-network still needs the password, and private notes stay encrypted until you
-unlock them.
-
-**Says what went wrong, plainly.** Every error is a sentence that says what
-happened and what to do ("No installed model can read images. Install or
-pick one in Settings"), never a status code or a field name; the raw text
-goes to Settings, Logs.
-
-**Quick to open.** Each stylesheet and script is compressed once per
-version and kept on disk, so a start fetches the app in a few milliseconds
-a file rather than compressing it again.
-
-Built to be reached by keyboard and screen reader: one main landmark per
-tab, named controls, 4.5:1 contrast, a layout that holds at 200% and 400%
-zoom, and a switch for single-key shortcuts (WCAG 2.1.4).
-
-Also: a command palette (`Ctrl`/`Cmd`+`K`), a popup agent, read-aloud,
-opt-in web search, thirteen themes, each in light or dark,
-interface zoom, a guided tour of the real controls, and daily local backups.
-
-## Meet Atlas
-
-<p align="center">
-  <img src="docs/screenshots/atlas.png" alt="Atlas, delighted: a small astral figure on a night-sky tile, eyes closed in a wide smile with rosy cheeks and two sparkles, a ring of orbiting stars round its head and a nebula stream curling round its body" width="260">
-</p>
-
-<p align="center"><b>The star spirit who keeps your notebook.</b></p>
-
-Atlas files every note you write, answers your questions from your own
-notes with the source behind each sentence, and answers "how do I" from the
-app's own help. Turn on the corner companion and it keeps you company on any
-page, reacting to what you do and dozing when you leave it alone.
-
-## The AI, and life without it
-
-MemoryMap is built around a local model, and built to work when there is
-none. With no model running, notes are filed as Uncategorised, search
-uses full-text matching with stemming and spelling correction, and every
-other feature keeps working. A dot in the header always says what the AI
-is doing.
-
-- **Any local model.** Ollama by default; any OpenAI-compatible server by
-  setting a URL. Settings > Models shows the sampling parameters and
-  starts each at the value the model's own file recommends.
-- **A model per feature, if you want one.** Chat, Write with Atlas, the
-  documents assistant and the Guide each run on the chat model until you
-  give one of them a model of its own, from Settings > Models or from that
-  surface's own menu. One button hands them all back.
-- **Small models are first-class.** Skills and tool use have a small-model
-  mode that gives a 4B model one step and one tool at a time, with
-  recovery when it skips a step.
-- **Search by meaning** is optional and off by default. Turn it on and
-  questions match ideas rather than words, using a local embedding model
-  through Ollama.
-- **Settings > Packages** installs the optional pieces from inside the app,
-  none of them needed for the core: dictation (faster-whisper), the desktop
-  window (pywebview), search by meaning (sentence-transformers), scanned PDFs
-  (pypdfium2), document import (markitdown), Word export (python-docx), text
-  in images (Tesseract OCR), running Python files (Pyodide), and tool calling
-  with no model server running (needle, telemetry forced off). The last two
-  are pinned downloads checked against a sha256, and work offline once
-  installed.
-
-## Your data
+## Privacy
 
 Everything lives in one folder: `memorymap.db` (your notes), `preferences.json`,
-`uploads/` (attachments and sketches) and `backups/` (daily local
-snapshots). Set `MEMORYMAP_DATA_DIR` to put it somewhere else. Export to
-JSON, CSV or Markdown from Settings at any time.
+`uploads/` and `backups/` (a snapshot once a day). Set `MEMORYMAP_DATA_DIR` to
+put it elsewhere. Settings, Import & export exports your notes as JSON, CSV or
+Markdown, or as a full backup that you can seal with a password.
 
-Nothing leaves your machine unless you ask it to. The server binds to
-localhost, the AI is confined to your own network, web search is off by
-default and sends only your search words, and private notes are encrypted
-at rest with a key derived from your password. The full model, including
-session expiry, the CSRF and CSP protections and what to do if you forget
-your password, is in [docs/PRIVACY.md](docs/PRIVACY.md). To report a
+- The server listens on this computer only. Letting a phone or another computer
+  on your network in is a switch in Settings, Account & security; it always
+  asks for your password, over HTTPS.
+- Private notes are encrypted at rest with a key derived from your password,
+  and kept out of search, the graph and every AI tool.
+- Web search and the update check are off by default. Web search sends only
+  your search words.
+- Settings, Privacy lists every connection the app has made.
+
+[docs/PRIVACY.md](docs/PRIVACY.md) has the full model, including sessions, the
+browser protections and what to do if you forget your password. To report a
 vulnerability, see [SECURITY.md](SECURITY.md).
 
 ## Documentation
 
 | Document | What it answers |
 | --- | --- |
-| [INSTALL](docs/INSTALL.md) | The Windows installer, the launcher script, manual setup, updating and uninstalling |
-| [MODELS](docs/MODELS.md) | Which model to pick for your machine, and using a backend other than Ollama |
-| [PRIVACY](docs/PRIVACY.md) | What touches the network and when, private-note encryption, session security |
-| [TROUBLESHOOTING](docs/TROUBLESHOOTING.md) | The common problems and their fixes |
-| [ARCHITECTURE](docs/ARCHITECTURE.md) | How the pieces fit: request lifecycle, data model, the AI stack, where to change any given thing |
+| [INSTALL](docs/INSTALL.md) | The Windows installer, the launcher, manual setup, updating and uninstalling |
+| [MODELS](docs/MODELS.md) | Which model suits your machine, and using a server other than Ollama |
+| [PRIVACY](docs/PRIVACY.md) | What touches the network, private-note encryption, sessions |
+| [TROUBLESHOOTING](docs/TROUBLESHOOTING.md) | Common problems and their fixes |
+| [ARCHITECTURE](docs/ARCHITECTURE.md) | How the pieces fit, and where to change any given thing |
 | [DESIGN](docs/DESIGN.md) | The design system every screen is written against |
-| [ROADMAP](docs/ROADMAP.md) | What is open, in order, with the reasoning |
+| [RELEASING](docs/RELEASING.md) | How a version is cut and published |
+| [ROADMAP](docs/ROADMAP.md) | What is open, and in what order |
 | [CHANGELOG](CHANGELOG.md) | What changed, release by release |
-| [CONTRIBUTING](CONTRIBUTING.md) | Setup, tests and opening a pull request |
 | [SECURITY](SECURITY.md) | How to report a vulnerability |
 
-## Developing
+**Status.** Version 0.3.32. This is a beta (`0.x`). Capture, chat with
+checkable answers, the graph, documents, boards and mind maps, the OCR
+workspace, private notes and themes are built and stable, with desktop builds
+for Windows and Linux. Settings, Help has a guided tour of the real controls.
+
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: the
+one rule is that every feature must work with no cloud service. In short:
 
 ```
-pytest                          # 6,700+ tests, about ten minutes on four cores (-n auto), fully offline
-bash scripts/gate.sh --changed  # the routine local gate: lints, node --check, ruff, the tests that name your files
+pytest -n auto                  # 7,200+ tests, fully offline, every AI call faked
+bash scripts/gate.sh --changed  # lints, node --check, ruff, and the tests that name your files
 ruff check .                    # what CI lints with
-node --check frontend/js/app.js    # the frontend has no build step: check each file you touch
 ```
 
-The frontend is 64 plain scripts in `frontend/js/` that share one global
-scope: 37 load at boot in the order `frontend/index.html` lists them, the
-rest on first use; the app's own boot code is `app.js` and the 24 files after
-it, one 50,000-line file until 0.3.3.
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) says how load order and the
-lazily loaded tabs work.
-
-Tests use a throwaway database and fake every AI call, so they need no
-GPU, no model and no network. They also cannot see the interface, so a
-frontend change is driven in a real browser before it is called done;
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) says how.
-
-```
-src/memorymap/
-  __main__.py     entry point: python -m memorymap [--desktop]
-  core/           config, database and migrations, backups, logs, crypto
-  entry/          notes: create, read, link, soft-delete, the audit log
-  ai/             model clients, filing, the agent and its tools, skills, embeddings, voice
-  search/         full-text and semantic search, opt-in web search
-  api/            the FastAPI app, one router per feature
-frontend/         plain HTML, CSS and JavaScript (scripts in js/), served as-is, no bundler
-tools/            developer tools for tuning the characters (source checkouts only)
-tests/            pytest, every AI call faked
-docs/             user documentation, architecture, design system, roadmap
-```
-
-Migrations are additive by default: a new column is added the next time
-the app opens an older database. Alembic is wired in behind that for the
-day a rename or drop is needed. CI runs ruff, CodeQL and the full suite on
-Python 3.11 to 3.13 on every push.
-
-## Status
-
-Version 0.3.32. Capture, chat with checkable answers, the graph, documents,
-boards and mind maps, the OCR workspace, private notes and themes are
-built and stable, with desktop builds for Windows and Linux. New in this
-release: Atlas has a body and a second look, a companion keeps you company
-on every page, and signing in is optional on your own computer. Since then,
-on the way to the next one: shapes that hold text and labelled connectors on
-boards, tasks, notes and numbered branches in mind maps, documents that
-reopen where you left them, faster starts, and error messages in plain
-sentences.
-
-A guided tour (Settings, then Help) walks through the basics one step at a
-time. What changed is in [CHANGELOG.md](CHANGELOG.md); what comes next is in
-[docs/ROADMAP.md](docs/ROADMAP.md).
+The frontend is plain HTML, CSS and JavaScript in `frontend/`, served as it is,
+with no build step. Run `node --check` on each script you edit.
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) maps the backend modules and the
+frontend's load order.
 
 ## Licence
 
 [GNU Affero General Public License v3.0](LICENSE).
 
-You may use, study, modify and share this, and anything built on it must
-stay under the same licence, including a modified copy run as a network
-service. That last clause is why the AGPL was chosen: MemoryMap is a
-local-first app, and the licence keeps a closed, hosted version of it from
-being offered back to the people it was written for.
+You may use, study, modify and share this, and anything built on it must stay
+under the same licence, including a modified copy run as a network service.
+MemoryMap is a local-first app, and the AGPL keeps a closed, hosted version of
+it from being offered back to the people it was written for.

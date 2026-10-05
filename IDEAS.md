@@ -1,99 +1,150 @@
 # Ideas parking lot
 
-Good ideas that are **out of scope right now** get written here instead of
-built (build plan §0: never expand scope mid-phase).
+Good ideas that are **out of scope right now** are written here instead of
+built (build plan section 0: never expand scope mid-phase). The list is the
+owner's own, tidied on 2026-10-05: grouped, spelling fixed, and checked against
+the app.
 
-- Update the readme and gh pages site to have up to date information.
-- I wrote "ai is cool" as a note and it was filed under sketches??
-- Expand and improve sketches board. Maybe a whiteboard tab??
-- Handle image and file uploads! + drag and drop features
-- Manually group notes together (this will be separate from the main sorting)
-- A note should be able to have multiple categories
-- A guided setup on first install (like setting your name, choosing a model if one isn't yet downloaded, a tour, making the first note etc)
-- Data and note compression (compress and store notes??)
-- Better agentic web search through chat
-- A mini bar at the bottom with various statuses and quick access to the command palatte
-- Allow for saving of custom appearances and themes. 
-- ~~Make notebook constelation regenerate on light/dark theme change.~~ **fixed** — it read light-or-dark once when built, and only the *background* art was rebuilt on a toggle. Now rebuilt on every mode, accent and palette change, keeping the same arrangement (a recolour, not a reshuffle).
-- Gravity and spread don't affect the othe rgraph configurations
-- A visual timeline like a branching line with off shoots
-- Better documents ui and utility/usability
-- Settings pages cant be accesses on narrow mobile view (check for other similar issues)
-- Clean up timeline and graph ui and fix spacing within the window
-- No MD renering in some of the widgets on the dashboard. 
-- More dashboard widgets! maybe some pi graphs??
-- ~~Chat message metadata disappears on reload or restart of app.~~ **fixed** — the whole stats block is stored per turn now, not just the token sum, so the line rebuilds on reopen. The token tracking half is also done: every message says how full the model's window got, and marks an estimate as one. What is left of this line is "better chat utility and learnability".
-- Need more tools for things (e.g. managing (creating, editing, deleting, and applying categories, and other things as well.)), more agentic capabilities and better handling and agentic workflow with said tools.
-- The Notes and documents are like a merge of onenote, obsidian, and notion. Improve the documents feature and expand/improve on the connectedness between the two features, they should basically be two halves of a whole.
-- An agent ask for permission dialogue in the chat and documents, document and note edit suggestions + before and after comparison before change?? maybe allow the agent to be accessed from anywhere in the program?? Allow the agent to control your screen within the application to navigate and make changes (with the user able to cancel it at any time - can have a cool animated border animation), these would also show in the logs and background processes.
-- Can select a quick, normal (maybe a different word), detailed/thought/expert or smth for agent and chats so basically the program will modify how it uses the ai to make it very fast for quick responses or smth, to be normal, to be detailed and have attention to detail and to make sure everything is accurate, or agent mode. The user might also be able to assign specific ai models to these modes or they can be automaticlaly selected. maybe on the quick response thinking is disabled and some system shenanigans can happen to make the response as accurate and fast as possible?? 
-- In built browser with mcp tool abilities to accompany the web search??
-- Full security sweep and analysis. Must be fully private, hack proof, and secure. user data must not be accessible, leaked or shown and web browsing should be as private, secure, and untrackable as possible. 
-- VS Code Extension??
-- Make memorymap-ai cross-platform and compatible with linux and if possible mac as well. 
-- Improve the console in settings, make sure all console messages are shown. 
-- Improve or expand on start.bat?? dont make a cmd prompt window show but make it accessible (maybe it can be accessible in the system tray if possible??)
-- Add a way to exit the app and close the program quitting the backend. Make the whole process for set up, fixes, updates etc and everything automated with the bat files
-- An interface for managing the application like for the backend, cmd prompt console, quit, update, install/fix/uninstall/reinstall packages and dependencies, faster-whistper, and more etc, close the application, restart the application, application health check, errors etc. (this will probably be a separate file - will ba accessible through system tray, a button in the main program and other ways I might not have thought of yet I want to make the experience for using the application as hands-off as possible).
-- A way to run the application on a mobile device like my iphone
-- Does the X status for the ai status in the top bar ever happen?? Ive never seen it...
-- The help area in settings has an ask ai feature where the ai has access to all the program documentation and can help answer your questions. 
-- A way to reduce token usage in all ai interactions to make them more efficient and usable??
-- Streamline, enhance, and optimise the processes of the backend and all ai interactions.
-- Gravity and Spread have no affect on other graph views
-- Package application, improve settings model page and functionality
-- Improve/expand on start.bat and similar files. maybe a background cli to manage the app or a developers console  for management in settings??
-- Dynamically change models based on complexity of task and compatibility?? Optional??
-- Collapsible sidebars
-- If possible, introduce a slight ai nudge for the semantic notes search, so if I ask “what notes did I save in the last two days” or “what note did I save on {this specific day}” or smth more specific that may make the semantic search less accurate with its retrievals more accurate.
-- Reduce the cap on semantic search outputs (is there a cap??) - maybe change how the cap works?? Potentially based on length and ai context length
-- Optimise outputs and how app features work based off what the currently used ai model can use
-- More skills and a way to generate new skills (I at least want a skill that can do a full audit and clean up of my notebook, such as linking notes, removing inaccurate links, analysing categores and tags, retagging notes, adding tags to notes, removing inaccurate tags from notes, changing categories (add/remove/rename categories), move notes around, combine notes to declutter etc.)
-- Different ways to sort chats (maybe group chats as well??) - could add an agent tool and skill for managing that as well
-- Have the agent able to control everything in the applicion, where the user can show a popup chat bar that can be moved around the screen or can anchor to the edges of the screen. agent workflow can show in a popup side chat like a twitch screen if automated things are happening in the background (remember all tasks are shown and logged in the background tasks page in settings), or in a collapsible side or bottom bar console or smth similar. 
+**Check the app before building anything here.** Most of this list has been built
+since it was written, and the common mistake in this project is rebuilding
+something that exists (CLAUDE.md, section 1). The built items stay, with where
+they live, because their wording is what a future session will search for.
 
----
+- [Built](#built)
+- [Partly built](#partly-built)
+- [Still open](#still-open)
+- [From the audits](#from-the-audits)
 
-## Delivered by the §40 branch — check before rebuilding
+## Built
 
-Five long-standing items on this list arrived with the `fix/Antigravity-Audit`
-work and are now in the app. Left written here rather than deleted, because the
-*wording* below is what a future session will search for:
+**Capture and the shell**
 
-- **"More skills and a way to generate new skills … a skill that can do a full
-  audit and clean up of my notebook, such as linking notes … retagging notes"**
-  → the background librarian (ROADMAP §39A). Runs on an interval, tags, links
-  and flags duplicates, off by default. It does **not** yet do the category
-  work in that sentence (rename/merge/move), which is the natural next step.
-- **"Have the agent able to control everything … a popup chat bar … agent
-  workflow can show in a popup side chat like a twitch screen"** → the command
-  palette (`Ctrl`/`Cmd`+`K`) and the agent activity monitor. The monitor is
-  fixed bottom-right rather than movable or dockable, so the "move it around
-  the screen or anchor it to an edge" half is still open.
-- **"Reduce the cap on semantic search outputs … maybe based on … ai context
-  length"** → `search_notes` now scales its *default* result count with the
-  model's real context window. The **ceiling** deliberately does not scale:
-  letting it do so meant a 128k model could pull 768 note previews into one
-  tool result, which is how that was first written.
-- **"Dynamically change models based on complexity of task"** → partly, as
-  `smart_model_routing_enabled`: background work uses the utility model so it
-  does not tie up the chat model. Routing by *complexity* rather than by
-  caller is still open.
-- **"Collapsible sidebars"** → done.
+- Handle image and file uploads, with drag and drop: attachments, the Library's
+  Images and Files views, captions, vision reads, Tesseract text and the OCR
+  workspace.
+- A guided setup on first install: the welcome card and the guided tour (Settings,
+  Help), which walks through the real controls.
+- A mini bar at the bottom with statuses and quick access to the command palette:
+  the status bar at the foot of the window, and the palette on `Ctrl`/`Cmd`+`K`.
+- Allow saving custom appearances and themes: thirteen themes and saved looks, in
+  Settings, Appearance.
+- Collapsible sidebars.
+- Make MemoryMap AI cross-platform: a Windows installer and a Linux package, and
+  macOS from source.
+- Package the application, and improve the Settings models page: the installers,
+  and Settings, Models with fit badges and a model per feature.
+- Improve start.bat: no console window to keep open, and a tray icon. The launcher
+  has `--doctor`, `--logs` and `--shortcut`, and the desktop window has a tray menu
+  with Open, View logs, Restart and Quit.
+- A way to exit the app and quit the backend: Quit in the header, and Settings,
+  Background tasks.
+- An interface for managing the application (backend, console, update, packages,
+  restart, health): Settings, Background tasks, Packages, Logs and About.
+- Improve the console in settings and show all console messages: Settings, Logs.
+- A way to run the application on a phone: a layout built for the phone, the
+  Share to MemoryMap action, and, for a phone on your own network, LAN mode over
+  HTTPS (Settings, Account & security).
+- The help area in settings has an ask-AI feature that knows the program's
+  documentation: the Guide, and Ask Atlas about the app (`Ctrl`+`Shift`+`H`).
+- A full security sweep: the audit of 2026-10-05 and its fixes are in the
+  changelog under Security, and [`SECURITY.md`](SECURITY.md) states the model.
+- Update the readme: rewritten on 2026-10-05, with every document in `docs/`.
 
-## New from the §40 audit
+**The AI**
 
-- **A dry-run for the background librarian.** It edits notes unattended and
-  there is no way to see what it *would* do first. `taskhistory` already
-  records each run; what is missing is "here is the diff, apply or discard".
-- ~~**A memory-stream screen.**~~ **Built** — Settings → The AI → *What it
-  remembers*. It lists everything the AI has saved, says how much of it is
-  actually reaching the model, and lets each one be edited, switched off or
-  forgotten.
-- ~~**Whiteboard cards should die with their note.**~~ **Done** — swept with
-  the orphaned vectors on the background pass.
-- **Sweep for orphans on a schedule, not just vectors.** `clean_orphaned_
-  vectors` is the right pattern; whiteboard nodes and attachments want it too.
+- More tools, including managing categories (create, rename, merge, delete), and
+  better agentic workflow: 65 tools, a visible plan, a confirm card for anything
+  that changes or deletes.
+- More skills, and a way to make new ones, including a full audit and clean-up of
+  the notebook: 20 built-in skills (Notebook health check, Clean up my tags,
+  Reorganise my categories, Fix my links, Find notes worth combining, Build a
+  skill), and your own as Markdown files.
+- Quick, normal and detailed modes for chat and agent: response presets.
+- Reduce token usage in every AI interaction: the per-turn context budget, the
+  small-model mode and schema compaction.
+- Optimise outputs for what the current model can do: the small-model mode, and
+  per-model sampling defaults.
+- A nudge for the semantic search so "what did I save in the last two days" works:
+  date-aware search operators and time travel over meaning.
+- Reduce the cap on semantic search results, based on the model's context:
+  `search_notes` scales its default result count with the model's window. The
+  ceiling deliberately does not scale, because letting it do so meant a 128k model
+  could pull 768 note previews into one tool result.
+- Have the agent reachable from anywhere in the program: the popup agent
+  (`Ctrl`+`Shift`+`A`) over every tab, and the agent activity monitor.
+- Dynamically change models based on the task: background work uses the utility
+  model so it does not tie up the chat model (`smart_model_routing_enabled`).
+- Chat message metadata that survives a reload: the whole stats block is stored
+  per turn, and every message says how full the model's window got.
+- Make the notebook constellation regenerate on a light or dark change: it is
+  rebuilt on every mode, accent and palette change, keeping the same arrangement.
+- The background librarian: runs on an interval, tags, links and flags
+  duplicates, off by default, never deletes. The category work (rename, merge,
+  move) is done by the skills above.
+
+**Notes, documents and boards**
+
+- Expand and improve the sketches board, maybe a whiteboard tab: boards and mind
+  maps in the Library's Boards & maps view, with shapes, connectors, an object
+  library and mind maps.
+- Better documents UI and usability, and make notes and documents two halves of a
+  whole: the long-form editor, document links, backlinks and the Contents tree.
+- A visual timeline: the Timeline tab with feed, table and scrubber.
+- More dashboard widgets: the dashboard's widget set, including Boards & maps.
+
+## Partly built
+
+- **Agent asks for permission in chat and documents, with before-and-after
+  comparison.** The confirm card exists for destructive and outside-text-triggered
+  changes. A before-and-after comparison for every edit does not.
+- **The agent controls the app on screen, with a visible border and a cancel.** The
+  popup agent and the activity monitor exist. The monitor is fixed bottom-right
+  rather than movable or dockable, and the agent does not drive the interface.
+- **Dynamic model choice by task complexity.** Routing is by caller, not by how
+  hard the task is.
+- **Better agentic web search through chat.** `web_search` and `read_url` exist,
+  with a SearXNG option. A research mode that plans several searches does not.
+
+## Still open
+
+- Manually group notes together, separate from the main sorting.
+- A note with more than one category.
+- Compress notes and data on disk.
+- Gravity and spread have no effect on the graph's other layouts.
+- A visual timeline drawn as a branching line with off-shoots.
+- Settings pages cannot be reached on a narrow phone view (check for other pages
+  with the same problem).
+- No Markdown rendering in some of the dashboard's widgets.
+- Pie charts for the dashboard (it has bar and line chart widgets).
+- Different ways to sort chats, and grouping chats, with an agent tool and a skill
+  to manage them.
+- An agent permission flow shown as a dialogue in chat and documents, with the
+  agent's edit proposed as a suggestion you can accept.
+- An in-built browser with MCP tool abilities beside web search. (A stdio MCP
+  server over the app's own tools exists, `python -m memorymap.mcp_server`; this
+  is the other direction.)
+- A VS Code extension.
+- The status dot's "X" state in the top bar: it was never seen, and the AI status
+  now lives in the status bar. Check that its error state can be reached.
+- Streamline, enhance and optimise the backend and every AI interaction (ongoing).
+- "I wrote 'ai is cool' as a note and it was filed under sketches": check that
+  filing against the notebook's categories.
+- Check `docs/index.html`'s own text against the README, so the documentation site
+  and the README say the same.
+
+## From the audits
+
+- **A dry run for the background librarian.** It edits notes unattended and there
+  is no way to see what it would do first. `taskhistory` already records each run;
+  what is missing is "here is the diff, apply or discard".
+- **Sweep for orphans on a schedule, not just vectors.** `clean_orphaned_vectors`
+  is the right pattern, and `clean_orphaned_board_cards` follows it; attachments
+  want it too.
 - **The sketch highlighter is at 5% opacity**, which is roughly twenty passes
-  before anything shows. Almost certainly a mistyped value — but it is a taste
-  call, so it was left alone rather than changed during an audit.
+  before anything shows. Almost certainly a mistyped value, but it is a taste call,
+  so it was left alone rather than changed during an audit.
+- **A memory-stream screen.** Built: Settings, What it remembers lists everything
+  the AI has saved, says how much of it reaches the model, and lets each one be
+  edited, switched off or forgotten.
+- **Whiteboard cards should die with their note.** Built: they are swept with the
+  orphaned vectors on the background pass.

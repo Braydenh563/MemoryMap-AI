@@ -886,6 +886,17 @@ input[type="checkbox"] {
   padding-block: 0;
 }
 
+/* **A text field in a Settings row is never squeezed below what it asks
+   for.** `.row input`'s `flex: 1` is a zero basis, so the row never wrapped
+   for a field: it shrank it instead. At 390 the server address was 62px
+   wide (34px of text for "http://localhost:11434"), the folder path 98px,
+   and five placeholders were cut off, one at 1440 too ("Optional, 8 or more
+   character"; qa1005-polish.js `placeholders`). 15rem or the whole row is
+   the floor, so a narrow row wraps the field onto a line of its own. */
+#settings-modal .settings-section .row > input:is([type="text"], [type="search"], [type="password"], [type="url"]) {
+  min-width: min(100%, 15rem);
+}
+
 /* **A button gets a floor, not a ceiling**, and the difference broke a
    real control. The first version of this rule gave buttons the same fixed
    `height` as the fields beside them, which is right until a label wraps:

@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Settings: a text field in a settings row wraps onto its own line rather than shrinking; on a phone the server address field was 62px wide and five hints were cut off, one at desktop width too ("Optional, 8 or more character"); a template's description hint is shorter (qa-1005, qa1005-polish.js placeholders: 6 to 0).
 - Settings: a status line with nothing to say takes no room; nine cards (Models' backend card, three in Tools, Web search, three in Import and export) ended on 27px of empty paragraph margin (qa-1005, qa1005-polish.js settingspad: 9 to 0).
 - Notes: between 1100 and 1170 wide the notes bar no longer lays its Filter menu under the sort picker ("FiNewest first"); it wraps its actions to a second row instead, and stays one row at 1184 and wider (qa-1005, qa1005-polish.js dockoverlap: 1 to 0).
 - Library: the Cards and Rows switch shows your choice the moment the tab opens, and Boards & maps shows placeholders while its editors load; before, the switch had neither pressed until the list answered and the sub-tab was blank until the boards' bundle arrived (qa-1005, qa1005-polish.js with both held 3s: 0 and 0, then 1 and 4).

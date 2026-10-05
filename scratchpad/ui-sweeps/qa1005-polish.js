@@ -140,6 +140,41 @@ const CHECKS = {
     console.log(`settings: ${groups} cards over ${sections.length} sections, ${bad.length} ending in an empty status line`, bad.length ? JSON.stringify(bad.slice(0, 8)) : '');
     return bad.length;
   },
+  //: No field's placeholder is cut off by its own box ("Optional, 8 or more
+  //: character" in Import & export), in any Settings section or main tab.
+  async placeholders(page) {
+    const measure = () => {
+      const c = document.createElement('canvas').getContext('2d');
+      const out = [];
+      for (const f of document.querySelectorAll('input[placeholder], textarea[placeholder]')) {
+        const b = f.getBoundingClientRect();
+        if (!b.width || !f.placeholder || f.value || f.closest('.hidden') || f.type === 'hidden') continue;
+        if (getComputedStyle(f).visibility === 'hidden' || !f.checkVisibility?.()) continue;
+        if (f.tagName === 'TEXTAREA') continue;
+        const s = getComputedStyle(f);
+        c.font = `${s.fontStyle} ${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;
+        const need = c.measureText(f.placeholder).width;
+        const room = f.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight);
+        if (need > room + 1) out.push(`${f.id || f.name || f.className}: "${f.placeholder}" needs ${Math.round(need)}px, has ${Math.round(room)}`);
+      }
+      return out;
+    };
+    const found = new Set();
+    for (const tab of ['dashboard', 'notes', 'chat', 'graph', 'library', 'timeline', 'reminders']) {
+      await page.evaluate((t) => switchTab(t), tab);
+      await page.waitForTimeout(700);
+      for (const x of await page.evaluate(measure)) found.add(`${tab}: ${x}`);
+    }
+    const sections = await page.evaluate(() => [...document.querySelectorAll('#settings-modal [data-section]')].map((b) => b.dataset.section).filter((v, i, a) => a.indexOf(v) === i));
+    for (const s of sections) {
+      await page.evaluate((x) => openSettingsModal(x), s);
+      await page.waitForTimeout(500);
+      for (const x of await page.evaluate(measure)) found.add(`settings/${s}: ${x}`);
+    }
+    await page.evaluate(() => closeSettingsModal?.());
+    console.log(`placeholders: ${found.size} cut off`, found.size ? JSON.stringify([...found].slice(0, 12)) : '');
+    return found.size;
+  },
   //: The empty states' "Ask Atlas" chip is set apart by space, not by a
   //: short hairline floating in the middle of a centred welcome.
   async emptyrule(page) {

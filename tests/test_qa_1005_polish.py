@@ -84,3 +84,14 @@ def test_an_empty_settings_status_line_takes_no_room():
     css = (CSS / "07-whiteboard-misc.css").read_text(encoding="utf-8")
     rule = _rule(css, "#settings-modal .settings-group > p.status:empty")
     assert "margin: 0" in rule and "display" not in rule
+
+
+def test_a_settings_text_field_wraps_rather_than_shrinks():
+    """`.row input`'s zero basis squeezed a field rather than wrapping it: the
+    server address was 62px wide at 390 and six placeholders were cut off
+    (qa1005-polish.js `placeholders`: 1 at 1440 and 5 at 390, then 0)."""
+    css = (CSS / "01-forms-settings.css").read_text(encoding="utf-8")
+    rule = _rule(css, '#settings-modal .settings-section .row > input:is([type="text"], [type="search"], [type="password"], [type="url"])')
+    assert "min-width: min(100%, 15rem)" in rule
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert 'placeholder="What it\'s for (optional)"' in html

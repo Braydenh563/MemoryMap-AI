@@ -1208,3 +1208,81 @@ function openSelectionMenuFromKeyboard() {
   openActionMenu(menu, opener);
   clampSelectionMenu(menu);
 }
+
+//: **A drag-selection near the top or bottom of a list scrolls it** (INBOX
+//: 608, the owner: "when I drag select off the screen ... it doesnt scroll
+//: down or up or the way I am dragging"; the boards and maps pan, see
+//: `wbEdgePan` in whiteboard.js, which is tied to the board's zoom and cannot
+//: be reused here, so this is the same shape for a plain scroller).
+//:
+//: Chromium already scrolls a text selection in the last ~20px of a scroller
+//: and past it (measured: 700 to 1,100px a second at the edge, 0 from 25px
+//: in), so a held drag 40px from the edge, where a hand naturally rests when
+//: it is not aiming at the very pixel, did nothing. This takes over the band
+//: from there (`native`) out to `band` and leaves the rest to the browser,
+//: so the two never add up. Faster the deeper in (linear, from 1px a frame
+//: at the band's outer edge to `max` where the browser takes over, about the
+//: same 700px a second), and the selection is extended to
+//: whatever is now under the pointer, because content that scrolls under a
+//: still mouse sends no `mousemove`.
+//:
+//: Opt-in by zone, not for every scroller: a code editor, a canvas and a
+//: textarea each scroll themselves. Mouse only: a touch selection scrolls by
+//: its own handles.
+const DRAG_EDGE = {
+  zones: "#entry-list, .library-view-section",
+  band: 56, native: 20, max: 12,
+  x: 0, y: 0, scroller: null, frame: 0,
+};
+function dragEdgeScroller(target) {
+  const zone = target?.closest?.(DRAG_EDGE.zones);
+  for (let el = zone; el && el !== document.documentElement; el = el.parentElement) {
+    const overflow = getComputedStyle(el).overflowY;
+    if ((overflow === "auto" || overflow === "scroll") && el.scrollHeight > el.clientHeight + 1) return el;
+  }
+  return null;
+}
+//: Pixels a frame, positive scrolling down, for a pointer `top` px below the
+//: scroller's top edge and `bottom` px above its bottom edge; 0 outside the band.
+function dragEdgeSpeed(top, bottom) {
+  const { band, native, max } = DRAG_EDGE;
+  const pick = (dist) => (dist > native && dist < band ? Math.max(1, Math.round(1 + (max - 1) * ((band - dist) / (band - native)))) : 0);
+  return pick(bottom) || -pick(top);
+}
+function dragEdgeTick() {
+  const d = DRAG_EDGE;
+  d.frame = 0;
+  const scroller = d.scroller;
+  const selection = window.getSelection();
+  if (!scroller?.isConnected || !selection || selection.isCollapsed || !scroller.contains(selection.anchorNode)) return;
+  const box = scroller.getBoundingClientRect();
+  const step = dragEdgeSpeed(d.y - box.top, box.bottom - d.y);
+  if (step) {
+    const before = scroller.scrollTop;
+    scroller.scrollTop = before + step;
+    if (scroller.scrollTop !== before) {
+      const at = document.caretPositionFromPoint?.(d.x, d.y);
+      const range = at ? null : document.caretRangeFromPoint?.(d.x, d.y);
+      const node = at ? at.offsetNode : range?.startContainer;
+      if (node && scroller.contains(node)) selection.extend(node, at ? at.offset : range.startOffset);
+    }
+  }
+  d.frame = requestAnimationFrame(dragEdgeTick);
+}
+function initDragSelectEdgeScroll() {
+  const d = DRAG_EDGE;
+  document.addEventListener("mousedown", (event) => {
+    d.scroller = event.button === 0 ? dragEdgeScroller(event.target) : null;
+  }, true);
+  document.addEventListener("mousemove", (event) => {
+    if (!d.scroller || !(event.buttons & 1)) return;
+    d.x = event.clientX;
+    d.y = event.clientY;
+    if (!d.frame) d.frame = requestAnimationFrame(dragEdgeTick);
+  }, true);
+  document.addEventListener("mouseup", () => {
+    d.scroller = null;
+    if (d.frame) cancelAnimationFrame(d.frame);
+    d.frame = 0;
+  }, true);
+}

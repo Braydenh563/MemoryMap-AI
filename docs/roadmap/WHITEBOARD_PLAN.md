@@ -986,5 +986,6 @@ Held by the boardmap-1005 agent; the built halves are in HISTORY.md
   and 225px on a map, where the layout select sets the width). At phone
   width the open sidebar is a sheet over the board and covers the side
   dock's collapsed picker (7,554px², the same on the base).
-- INBOX 608, the rest: edge auto-scroll for a drag selection in the lists
-  (Notes, Library) where a drag selects. Boards and maps are built.
+- INBOX 608, the lists: built (`DRAG_EDGE` in `frontend/js/selection.js`; the
+  browser's own autoscroll covers the last 20px, this the next 36;
+  `ui-sweeps/s2-1005.js` MODE=listedge).

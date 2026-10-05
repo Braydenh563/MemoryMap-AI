@@ -5803,7 +5803,9 @@ Link to another note with [[its first few words]]."></textarea>
                 <li><span>Lock · unlock all (or right-click the board)</span><kbd>Ctrl + Shift + L</kbd></li>
                 <li><span>Comment on an item · open its thread</span><kbd>right-click, Comment… · its count</kbd></li>
                 <li><span>Export a frame and what it holds</span><kbd>right-click its title, Export this frame…</kbd></li>
-                <li><span>Back · Forward</span><kbd>[ · ]</kbd></li>
+                <li><span>Backward · forward one step</span><kbd>[ · ]</kbd></li>
+                <li><span>To the back · to the front</span><kbd>Ctrl + [ · ]</kbd></li>
+                <li><span>Every key · every action by name</span><kbd>? · Ctrl + K</kbd></li>
                 <li><span>Copy · paste style</span><kbd>Ctrl+Alt+C · V</kbd></li>
                 <li><span>Add to selection</span><kbd>Shift + click</kbd></li>
                 <li><span>Rotate · upright again</span><kbd>handle above it · double-click it</kbd></li>
@@ -5876,42 +5878,67 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="wb-board-menu-wrap">
           <button class="ghost small wb-menu-toggle" type="button" data-wb-menu-toggle title="Undo, select, duplicate, delete" aria-haspopup="true" aria-expanded="false" aria-controls="wb-edit-menu"><i class="ph ph-pencil-simple wb-menu-icon" aria-hidden="true"></i><span class="wb-menu-label">Edit</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
           <div id="wb-edit-menu" class="wb-board-menu hidden" role="menu" aria-label="Edit">
-            <div class="wb-menu-section">
-              <button type="button" class="wb-menu-item" data-wb-click="wb-undo"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i><span>Undo</span><kbd>Ctrl+Z</kbd></button>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-redo"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i><span>Redo</span><kbd>Ctrl+Y</kbd></button>
+            <!-- Every row names its command in `WB_COMMANDS`
+                 (whiteboard-commands.js); tests/test_wb_commands.py holds
+                 the words and the key to the table's. -->
+            <div class="wb-menu-section" role="group" aria-label="History">
+              <button type="button" class="wb-menu-item" data-wb-cmd="undo"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i><span>Undo</span><kbd>Ctrl+Z</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="redo"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i><span>Redo</span><kbd>Ctrl+Y</kbd></button>
             </div>
-            <div class="wb-menu-section">
-              <button type="button" class="wb-menu-item" data-wb-fn="select-all"><i class="ph ph-selection-all ph-lead" aria-hidden="true"></i><span>Select all</span><kbd>Ctrl+A</kbd></button>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-selbar-duplicate"><i class="ph ph-copy ph-lead" aria-hidden="true"></i><span>Duplicate</span><kbd>Ctrl+D</kbd></button>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-selbar-delete"><i class="ph ph-trash ph-lead" aria-hidden="true"></i><span>Delete</span><kbd>Del</kbd></button>
+            <div class="wb-menu-section" role="group" aria-label="Clipboard">
+              <button type="button" class="wb-menu-item" data-wb-cmd="cut" data-wb-surface="board"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i><span>Cut</span><kbd>Ctrl+X</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="copy" data-wb-surface="board"><i class="ph ph-copy-simple ph-lead" aria-hidden="true"></i><span>Copy</span><kbd>Ctrl+C</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="paste" data-wb-surface="board"><i class="ph ph-clipboard ph-lead" aria-hidden="true"></i><span>Paste</span><kbd>Ctrl+V</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="duplicate"><i class="ph ph-copy ph-lead" aria-hidden="true"></i><span>Duplicate</span><kbd>Ctrl+D</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="delete"><i class="ph ph-trash ph-lead" aria-hidden="true"></i><span>Delete</span><kbd>Del</kbd></button>
             </div>
-            <div class="wb-menu-section">
-              <button type="button" class="wb-menu-item" data-wb-click="wb-copy-style"><i class="ph ph-eyedropper ph-lead" aria-hidden="true"></i><span>Copy style</span><kbd>Ctrl+Alt+C</kbd></button>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-paste-style"><i class="ph ph-paint-bucket ph-lead" aria-hidden="true"></i><span>Paste style</span><kbd>Ctrl+Alt+V</kbd></button>
+            <div class="wb-menu-section" role="group" aria-label="Select">
+              <button type="button" class="wb-menu-item" data-wb-cmd="select-all"><i class="ph ph-selection-all ph-lead" aria-hidden="true"></i><span>Select all</span><kbd>Ctrl+A</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="find"><i class="ph ph-magnifying-glass ph-lead" aria-hidden="true"></i><span>Find on this board</span><kbd>Ctrl+F</kbd></button>
+            </div>
+            <div class="wb-menu-section" role="group" aria-label="The item" data-wb-surface="board">
+              <button type="button" class="wb-menu-item" data-wb-cmd="text"><i class="ph ph-text-aa ph-lead" aria-hidden="true"></i><span>Write in the shape or label the connector</span><kbd>Enter</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="comment"><i class="ph ph-chat-teardrop-text ph-lead" aria-hidden="true"></i><span>Comment on the item</span></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="copy-style"><i class="ph ph-eyedropper ph-lead" aria-hidden="true"></i><span>Copy style</span><kbd>Ctrl+Alt+C</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="paste-style"><i class="ph ph-paint-bucket ph-lead" aria-hidden="true"></i><span>Paste style</span><kbd>Ctrl+Alt+V</kbd></button>
             </div>
           </div>
         </div>
         <div class="wb-board-menu-wrap">
           <button class="ghost small wb-menu-toggle" type="button" data-wb-menu-toggle title="Align, distribute, order" aria-haspopup="true" aria-expanded="false" aria-controls="wb-arrange-menu"><i class="ph ph-stack wb-menu-icon" aria-hidden="true"></i><span class="wb-menu-label">Arrange</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
           <div id="wb-arrange-menu" class="wb-board-menu hidden" role="menu" aria-label="Arrange">
+            <!-- Built against `WB_COMMANDS` like the Edit menu. Group, the
+                 same sizes and Lock live here too (FEAT-19: they were only
+                 on the context bar, a chord or the right-click menu). -->
             <div class="wb-menu-section">
               <span class="wb-panel-group-label">Align (2+ selected)</span>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-align-left"><i class="ph ph-align-left ph-lead" aria-hidden="true"></i><span>Left edges</span></button>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-align-hcenter"><i class="ph ph-align-center-horizontal ph-lead" aria-hidden="true"></i><span>Centres, horizontally</span></button>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-align-right"><i class="ph ph-align-right ph-lead" aria-hidden="true"></i><span>Right edges</span></button>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-align-top"><i class="ph ph-align-top ph-lead" aria-hidden="true"></i><span>Top edges</span></button>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-align-vcenter"><i class="ph ph-align-center-vertical ph-lead" aria-hidden="true"></i><span>Centres, vertically</span></button>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-align-bottom"><i class="ph ph-align-bottom ph-lead" aria-hidden="true"></i><span>Bottom edges</span></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="align-left"><i class="ph ph-align-left ph-lead" aria-hidden="true"></i><span>Left edges</span></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="align-hcenter"><i class="ph ph-align-center-horizontal ph-lead" aria-hidden="true"></i><span>Centres, horizontally</span></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="align-right"><i class="ph ph-align-right ph-lead" aria-hidden="true"></i><span>Right edges</span></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="align-top"><i class="ph ph-align-top ph-lead" aria-hidden="true"></i><span>Top edges</span></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="align-vcenter"><i class="ph ph-align-center-vertical ph-lead" aria-hidden="true"></i><span>Centres, vertically</span></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="align-bottom"><i class="ph ph-align-bottom ph-lead" aria-hidden="true"></i><span>Bottom edges</span></button>
             </div>
             <div class="wb-menu-section">
-              <span class="wb-panel-group-label">Distribute (3+ selected)</span>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-distribute-h"><i class="ph ph-columns ph-lead" aria-hidden="true"></i><span>Evenly, left to right</span></button>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-distribute-v"><i class="ph ph-rows ph-lead" aria-hidden="true"></i><span>Evenly, top to bottom</span></button>
+              <span class="wb-panel-group-label">Distribute and size</span>
+              <button type="button" class="wb-menu-item" data-wb-cmd="distribute-h"><i class="ph ph-columns ph-lead" aria-hidden="true"></i><span>Evenly, left to right</span></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="distribute-v"><i class="ph ph-rows ph-lead" aria-hidden="true"></i><span>Evenly, top to bottom</span></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="same-width"><i class="ph ph-arrows-out-line-horizontal ph-lead" aria-hidden="true"></i><span>Same width</span></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="same-height"><i class="ph ph-arrows-out-line-vertical ph-lead" aria-hidden="true"></i><span>Same height</span></button>
             </div>
             <div class="wb-menu-section">
               <span class="wb-panel-group-label">Order</span>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-selbar-forward"><i class="ph ph-arrow-line-up ph-lead" aria-hidden="true"></i><span>Bring forward</span><kbd>]</kbd></button>
-              <button type="button" class="wb-menu-item" data-wb-click="wb-selbar-back"><i class="ph ph-arrow-line-down ph-lead" aria-hidden="true"></i><span>Send backward</span><kbd>[</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="order-forward"><i class="ph ph-arrow-up ph-lead" aria-hidden="true"></i><span>Bring forward</span><kbd>]</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="order-backward"><i class="ph ph-arrow-down ph-lead" aria-hidden="true"></i><span>Send backward</span><kbd>[</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="order-front"><i class="ph ph-arrow-line-up ph-lead" aria-hidden="true"></i><span>Bring to front</span><kbd>Ctrl+]</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="order-back"><i class="ph ph-arrow-line-down ph-lead" aria-hidden="true"></i><span>Send to back</span><kbd>Ctrl+[</kbd></button>
+            </div>
+            <div class="wb-menu-section">
+              <span class="wb-panel-group-label">Group and lock</span>
+              <button type="button" class="wb-menu-item" data-wb-cmd="group"><i class="ph ph-link ph-lead" aria-hidden="true"></i><span>Group</span><kbd>Ctrl+G</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="ungroup"><i class="ph ph-link-break ph-lead" aria-hidden="true"></i><span>Ungroup</span><kbd>Ctrl+Shift+G</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="lock"><i class="ph ph-lock-simple ph-lead" aria-hidden="true"></i><span>Lock</span><kbd>Ctrl+Shift+L</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="unlock-all"><i class="ph ph-lock-simple-open ph-lead" aria-hidden="true"></i><span>Unlock all</span></button>
             </div>
           </div>
         </div>
@@ -11831,6 +11858,15 @@ Link to another note with [[its first few words]]."></textarea>
       <ul class="shortcut-list" id="shortcut-list-documents"></ul>
       <p class="muted hidden" id="shortcut-list-documents-note">
         Open a document once and these appear here.
+      </p>
+      <h3 id="shortcut-head-whiteboard">On a whiteboard</h3>
+      <p class="muted">These work while a board is open; the command palette lists every board action.</p>
+      <!-- Built from `WB_COMMANDS` (whiteboard-commands.js) by
+           `renderWbShortcutSheet`, the table the palette's "This board" group
+           and the board's menus are built against. -->
+      <ul class="shortcut-list" id="shortcut-list-whiteboard"></ul>
+      <p class="muted hidden" id="shortcut-list-whiteboard-note">
+        Open a board once and these appear here.
       </p>
       <p class="muted">Tip: most actions also live in the command palette.</p>
     </div>

@@ -4283,7 +4283,12 @@ function wbZOrderPeers(kind) {
 //: undo entry) so it plugs into the same undo/redo stack without a new
 //: action type.
 async function wbSetZOrder(kind, item, toFront) {
-  const zs = wbZOrderPeers(kind).map((p) => p.z || 0);
+  //: Within its band: a frame to the front of the frames, never over the
+  //: cards it holds (decision 14 stacks frames below everything).
+  const isFrame = kind === "object" && item.kind === "frame";
+  const zs = wbZOrderPeers(kind)
+    .filter((p) => kind === "sketch" || (p.kind === "frame") === isFrame)
+    .map((p) => p.z || 0);
   const next = toFront ? Math.max(0, ...zs) + 1 : Math.min(0, ...zs) - 1;
   if ((item.z || 0) === next) return null;
   const before = WB_KIND_INFO[kind].payload(item);
@@ -4303,10 +4308,136 @@ async function wbSetZOrder(kind, item, toFront) {
   return { action: "move", kind, id: item.id, before };
 }
 
-//: The context menu's own entry point, single selection or a whole
-//: multi-selection at once, same iteration shape `deleteWbSelection` above
-//: already uses.
-async function wbSendSelectionZOrder(toFront) {
+//: **One step, not the whole way** (FEAT-07, the features audit 2026-10-05:
+//: "Bring forward" wrote `max + 1`, so one press took the bottom item over
+//: everything). draw.io, Figma, Miro and PowerPoint all mean one step by
+//: `]` and `[`, and to the front or back by a modified key, so this is the
+//: step and `wbSetZOrder` above stays the front and back.
+//:
+//: The step passes the next peer that actually overlaps the item, because a
+//: step past something on the far side of the board changes nothing anyone
+//: can see; with nothing overlapping it passes the adjacent peer. Peers
+//: marked `skip` (hidden ones) are passed over rather than stepped past.
+//: Ties are real (a fresh board has every item at z 0, painted in array
+//: order), so the plan orders by z then by array index, places the item
+//: beside its target and writes the fewest rows that keep the order strict.
+function wbBoxesOverlap(a, b) {
+  return Boolean(a && b) && a.minX < b.maxX && b.minX < a.maxX && a.minY < b.maxY && b.minY < a.maxY;
+}
+
+function wbZOrderStepPlan(peers, key, dir) {
+  const order = peers
+    .map((p, i) => ({ key: p.key, z: Number(p.z) || 0, box: p.box, skip: Boolean(p.skip), i }))
+    .sort((a, b) => a.z - b.z || a.i - b.i);
+  const at = order.findIndex((p) => p.key === key);
+  if (at < 0) return [];
+  const me = order[at];
+  let target = -1;
+  for (let j = at + dir; j >= 0 && j < order.length; j += dir) {
+    if (!order[j].skip && wbBoxesOverlap(me.box, order[j].box)) { target = j; break; }
+  }
+  if (target < 0) {
+    for (let j = at + dir; j >= 0 && j < order.length; j += dir) {
+      if (!order[j].skip) { target = j; break; }
+    }
+  }
+  if (target < 0) return [];
+  const before = new Map(order.map((p) => [p.key, p.z]));
+  const seq = order.filter((p) => p !== me);
+  const pos = seq.indexOf(order[target]) + (dir > 0 ? 1 : 0);
+  seq.splice(pos, 0, me);
+  if (dir > 0) {
+    me.z = seq[pos - 1].z + 1;
+    let floor = me.z + 1;
+    for (let k = pos + 1; k < seq.length && seq[k].z < floor; k += 1) {
+      seq[k].z = floor;
+      floor += 1;
+    }
+  } else {
+    me.z = seq[pos + 1].z - 1;
+    let ceil = me.z - 1;
+    for (let k = pos - 1; k >= 0 && seq[k].z > ceil; k -= 1) {
+      seq[k].z = ceil;
+      ceil -= 1;
+    }
+  }
+  return seq.filter((p) => p.z !== before.get(p.key)).map((p) => [p.key, p.z]);
+}
+
+//: The peers of one item for a step, with the boxes the overlap test reads.
+//: A frame is stacked below everything (decision 14), so a frame steps
+//: among frames and nothing else steps past one.
+function wbZOrderStepPeers(kind, item) {
+  const isFrame = kind === "object" && item.kind === "frame";
+  const nodes = new Set(wbState.nodes || []);
+  return wbZOrderPeers(kind)
+    .filter((p) => kind === "sketch" || (p.kind === "frame") === isFrame)
+    .map((p) => {
+      const pk = kind === "sketch" ? "sketch" : nodes.has(p) ? "node" : "object";
+      return {
+        key: wbMultiKey(pk, p.id), z: p.z || 0, box: wbItemBBox(pk, p),
+        skip: wbItemHidden(pk, p), row: p, kind: pk,
+      };
+    });
+}
+
+//: Whether an item is hidden from the board (the Layers tab's eye). A card
+//: has no data blob, so its flag is a field of its own.
+function wbItemHidden(kind, item) {
+  if (!item) return false;
+  if (kind === "node") return Boolean(item.hidden);
+  const data = kind === "sketch" ? wbSketchData(item) : item.data;
+  return Boolean(data && data.hidden);
+}
+
+//: One step for every selected item, one undo step for the lot. Forward
+//: walks the selection from the top down (backward from the bottom up) so
+//: two selected items never leapfrog each other.
+async function wbStepSelectionZOrder(dir) {
+  const targets = wbZOrderTargets();
+  if (!targets.length) return;
+  targets.sort((a, b) => ((b.item.z || 0) - (a.item.z || 0)) * dir);
+  const entries = [];
+  for (const { kind, item } of targets) {
+    const peers = wbZOrderStepPeers(kind, item);
+    const byKey = new Map(peers.map((p) => [p.key, p]));
+    for (const [key, z] of wbZOrderStepPlan(peers, wbMultiKey(kind, item.id), dir)) {
+      const peer = byKey.get(key);
+      const entry = peer && await wbWriteZ(peer.kind, peer.row, z);
+      if (entry) entries.push(entry);
+    }
+  }
+  if (entries.length === 1) wbPushUndo(entries[0]);
+  else if (entries.length > 1) wbPushUndo({ action: "batch", entries });
+  if (entries.length) wbScheduleRender();
+  wbAnnounce(entries.length
+    ? (dir > 0 ? "Brought forward one step." : "Sent backward one step.")
+    : (dir > 0 ? "Already in front of what it overlaps." : "Already behind what it overlaps."));
+}
+
+//: One z write with its undo entry: `wbSetZOrder`'s save, for a value
+//: chosen elsewhere.
+async function wbWriteZ(kind, item, z) {
+  if ((item.z || 0) === z) return null;
+  const before = WB_KIND_INFO[kind].payload(item);
+  item.z = z;
+  try {
+    const saved = await apiJson(`${WB_KIND_INFO[kind].base}/${item.id}`, {
+      method: "PUT",
+      body: JSON.stringify(WB_KIND_INFO[kind].payload(item)),
+    });
+    Object.assign(item, saved);
+  } catch {
+    recordBrowserLog("WARN", [`[Whiteboard] ${kind} ${item.id} is stale: reloading the board`]);
+    await fetchWhiteboardState();
+    wbScheduleRender();
+    return null;
+  }
+  return { action: "move", kind, id: item.id, before };
+}
+
+//: What the order commands act on: the multi-selection, or the one item.
+function wbZOrderTargets() {
   const targets = [];
   if (wbMultiSelection.size > 0) {
     for (const key of wbMultiSelection) {
@@ -4320,6 +4451,12 @@ async function wbSendSelectionZOrder(toFront) {
     const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
     if (item) targets.push({ kind, item });
   }
+  return targets;
+}
+
+//: To the front or the back (Ctrl+] and Ctrl+[), one item or several.
+async function wbSendSelectionZOrder(toFront) {
+  const targets = wbZOrderTargets();
   if (!targets.length) return;
   const entries = [];
   for (const { kind, item } of targets) {
@@ -4329,6 +4466,7 @@ async function wbSendSelectionZOrder(toFront) {
   if (entries.length === 1) wbPushUndo(entries[0]);
   else if (entries.length > 1) wbPushUndo({ action: "batch", entries });
   if (entries.length) wbScheduleRender();
+  wbAnnounce(toFront ? "Brought to the front." : "Sent to the back.");
 }
 
 // --- Bulk move: dragging one member of a multi-selection moves all of them
@@ -5276,13 +5414,24 @@ function wbBuildContextMenu(kind) {
   //: A frame is an export scope (WHITEBOARD_PLAN decision 18).
   const frameOn = commentOn?.kind === "object" && commentItem?.kind === "frame" ? commentItem : null;
   if (frameOn) item("Export this frame…", "The frame and what is inside it, as a picture, PDF or SVG", () => wbExportFrame(frameOn));
+  //: The rows the Arrange menu also has come from `WB_COMMANDS`, so the two
+  //: say the same words and keys (FEAT-07: this menu called the front "Bring
+  //: to front" while the bar's "Bring forward" did the same thing). Not on a
+  //: map: a topic's place in a tree is its order (FEAT-17).
   if (!wbIsMap()) {
-    item("Lock", "Ctrl+Shift+L. Right-click the board to unlock", () => wbLockSelection());
+    subItem("Arrange", (sub) => {
+      for (const id of ["group", "ungroup", "lock"]) {
+        const row = wbCommandMenuRow(id);
+        if (row) sub(...row);
+      }
+    });
+    subItem("Order", (sub) => {
+      for (const id of ["order-forward", "order-backward", "order-front", "order-back"]) {
+        const row = wbCommandMenuRow(id);
+        if (row) sub(...row);
+      }
+    });
   }
-  subItem("Order", (sub) => {
-    sub("Bring to front", "Move above everything else in this layer", () => wbSendSelectionZOrder(true));
-    sub("Send to back", "Move below everything else in this layer", () => wbSendSelectionZOrder(false));
-  });
   item("Delete", "Delete", () => {
     wbCloseMapRadial();
     deleteWbSelection();
@@ -9404,21 +9553,16 @@ async function initWhiteboard() {
       if (e.target.closest("input, select, textarea, [contenteditable=true]")) return;
       e.preventDefault();
     });
-    const zOrder = (toFront) => {
-      const sel = wbSelectedItem;
-      const item = sel && (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
-      if (!item) return;
-      wbSetZOrder(sel.kind, item, toFront).then((undo) => {
-        if (undo) wbPushUndo(undo);
-        wbScheduleRender();
-      });
-    };
+    //: One step each (FEAT-07); the bar's two are the step pair, and the
+    //: Arrange menu and the right-click menu add the front and back.
     const actions = {
       "wb-selbar-duplicate": () => {
         wbDuplicateSelection();
       },
-      "wb-selbar-back": () => zOrder(false),
-      "wb-selbar-forward": () => zOrder(true),
+      "wb-selbar-back": () => wbStepSelectionZOrder(-1),
+      "wb-selbar-forward": () => wbStepSelectionZOrder(1),
+      "wb-selbar-to-back": () => wbSendSelectionZOrder(false),
+      "wb-selbar-to-front": () => wbSendSelectionZOrder(true),
       "wb-selbar-delete": () => deleteWbSelection(),
       "wb-selbar-export": () => wbExportBoard(document.getElementById("wb-selbar-export")),
     };
@@ -9978,6 +10122,7 @@ async function initWhiteboard() {
       // Before the measurement: a switch's own state can change how tall
       // the list is.
       syncPanelSwitches();
+      wbSyncCommandRows(menu);
       menu.classList.remove("wb-menu-one-col");
       escapeAndCapMenu(menu, toggle);
       //: **Hung from what opened it, every one of them** (INBOX 396). A
@@ -10054,10 +10199,12 @@ async function initWhiteboard() {
     //: owns its own listener (Rename, New board, the two map rows) used to
     //: leave the menu standing open behind the dialog it had just opened,
     //: because only the forwarding items closed it.
-    const item = e.target.closest(".wb-board-menu [data-wb-click], .wb-board-menu [data-wb-fn], .wb-board-menu .wb-menu-item");
+    const item = e.target.closest(".wb-board-menu [data-wb-click], .wb-board-menu [data-wb-fn], .wb-board-menu [data-wb-cmd], .wb-board-menu .wb-menu-item");
     if (!item) return;
     e.stopPropagation();
     closeAllWbMenus();
+    //: A row named after a command in `WB_COMMANDS` (whiteboard-commands.js).
+    if (item.dataset.wbCmd) { wbRunCommand(item.dataset.wbCmd); return; }
     if (item.dataset.wbFn === "select-all") { wbSelectAllItems(); return; }
     if (item.dataset.wbFn === "present") { wbStartPresenting(); return; }
     if (item.dataset.wbClick) document.getElementById(item.dataset.wbClick)?.click();
@@ -10688,22 +10835,17 @@ async function initWhiteboard() {
       wbDuplicateSelection();
       return;
     }
-    if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/OS shortcuts alone
-    // `[` sends the selected item back, `]` brings it forward (PLAN.md W6).
-    // Same keys as Figma/Sketch; the z helpers already existed for the
-    // context menu, this only gives them a key.
-    if ((e.key === "[" || e.key === "]") && wbSelectedItem) {
-      const sel = wbSelectedItem;
-      const item = (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
-      if (item) {
-        e.preventDefault();
-        wbSetZOrder(sel.kind, item, e.key === "]").then((undo) => {
-          if (undo) wbPushUndo(undo);
-          wbScheduleRender();
-        });
-        return;
-      }
+    //: `]` and `[` are one step; Ctrl+] and Ctrl+[ go to the front and the
+    //: back (FEAT-07: draw.io's, Figma's and PowerPoint's split). `e.code`
+    //: as well, because Ctrl changes what some layouts report as the key.
+    const bracket = e.key === "]" || e.code === "BracketRight" ? 1 : e.key === "[" || e.code === "BracketLeft" ? -1 : 0;
+    if (bracket && !e.altKey && !e.shiftKey && !wbIsMap() && (wbSelectedItem || wbMultiSelection.size)) {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) wbSendSelectionZOrder(bracket > 0);
+      else wbStepSelectionZOrder(bracket);
+      return;
     }
+    if (e.ctrlKey || e.metaKey || e.altKey) return; // leave browser/OS shortcuts alone
     const letter = e.key.toLowerCase();
     // Shift first: `e.key` for Shift+C is "C", which lower-cases onto the
     // unshifted tool, so reading the shift table second would make the two
@@ -14152,6 +14294,13 @@ function renderWhiteboard() {
   });
 
   sketchSelection.exit().remove();
+  //: **A shape's z is its paint order** (found with FEAT-07). SVG paints in
+  //: document order, and a new sketch was appended last whatever its z, so
+  //: Bring forward on a shape wrote a number nothing read. `sort` reorders
+  //: the groups by z (ties by id, the order they were appended in before);
+  //: d3 moves only the groups that are out of place. Not on a map, whose
+  //: lines have no order to keep.
+  if (!wbIsMap()) sketchUpdate.sort((a, b) => (a.z || 0) - (b.z || 0) || a.id - b.id);
 
   // Render Nodes (Cards)
   const canvas = d3.select("#wb-html-layer");

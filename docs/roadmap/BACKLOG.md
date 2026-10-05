@@ -324,6 +324,10 @@ the gallery. Boards can already be copied whole through
 `preview_items`, `preview_edges` and `preview_aspect`, which is what draws the
 board cards in the Library, so the gallery's thumbnails are solved.
 
+**Answered 2026-10-05 (WHITEBOARD_PLAN decision 25):** a board or map
+template is a board library item of kind `template` (the object library's
+"Yours"), not a mark in `board_settings`. Documents keep their own templates.
+
 So the feature is one idea: a board, map or document *marked* as a template,
 shown in a gallery with a preview, copied on use. The full brief, including the
 decision to record first (where the mark lives: `board_settings` on the board's

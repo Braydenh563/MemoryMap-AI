@@ -277,6 +277,64 @@ kind. Every tool has a key and every key is in the tooltip and the help.
    itself. New gestures go in `WB_RECORDED`; a gesture that knows something
    the snapshot cannot (a drag's start, `wbMapTransplant`) keeps its own.
 
+### Decisions made, 2026-10-05: the draw.io pass (INBOX 557, 558)
+
+Taken from the features audit's section 9.5 recommendations
+(`scratchpad/audit1005/features.md`), under standing order 3. Where one
+revises an earlier decision the owner's newer words ("take everything from
+draw.io", "redesign the controls ... to maximise usability, utility,
+accessibility, and learnability") are why.
+
+19. **Decision 2, revised: the context bar stays the quick bar; its "..."
+    opens a docked Format panel.** At most seven controls per kind on the bar
+    (decision 11). The long tail goes to a Format panel on the right (Style,
+    Text, Arrange tabs; Ctrl+Shift+P, which the board takes while it is on
+    screen as it takes Ctrl+Shift+G), hidden by default, never a second
+    floating popover.
+20. **Decision 12, revised: a shape's text takes size, font and alignment in
+    the Format panel's Text tab only.** The bar keeps its seven.
+21. **Decision 13, revised: one label per connector, and it slides.** `label_t`
+    (0 to 1 along the line, 0.5 the middle) in the link's data; a drag on the
+    label moves it along. Several labels stay out.
+22. **Decision 14, revised: frames are the pages.** The sidebar lists the
+    board's frames as its pages (reorder is the presentation order); no second
+    concept of a page.
+23. **One command table** (`WB_COMMANDS`, whiteboard-commands.js). The Edit
+    and Arrange menus' rows name a command (`data-wb-cmd`) and say its words
+    and key (lint: `tests/test_wb_commands.py`); the right-click menu, the
+    command palette's "This board" group and the shortcut sheet's whiteboard
+    section are built from it. `]` and `[` are one step (past the next item
+    that overlaps, ties broken by paint order, the fewest rows written);
+    Ctrl+] and Ctrl+[ are the front and the back (FEAT-07). A shape's z is its
+    paint order. No Order on a map (FEAT-17).
+24. **A board's look lives on the board** (FEAT-06): `background {color,
+    image}` in the board's settings beside type and layout, migrated once from
+    the old per-browser keys on open; media cleanup counts the image. Grid and
+    snap stay per device.
+25. **The object library is independent copies** (section 8.4): a placed item
+    becomes ordinary rows that remember `library_ref {id, version}` and never
+    follow later edits. Built-in sets are static JSON shipped with the app,
+    drawn fresh (no draw.io stencils; Apache-2.0 features, not code); "Yours"
+    holds six kinds (a selection, a custom shape, a style or palette, a
+    preset, a branch, a whole board as a template). **BACKLOG 4b is answered
+    here:** a template is a library item of kind `template`, not a mark on
+    the board.
+26. **One left sidebar** (MINDMAP §12.5 and decision 5 revised, below): tabs
+    Library, Notes (the note library moved in from the right), Layers, and on
+    a map Outline; collapsible to a 44px rail, remembered per device; on a
+    phone it is the edge sheet.
+27. **Layers, phase 1**: the board as a tree in paint order, each row with
+    show/hide (a `hidden` flag), lock (decision 15's flag) and rename; a drag
+    restacks (writes z). A hidden item is drawn nowhere, exported nowhere,
+    skipped by search and the Tab walk. Named layers stay phase 2 (BACKLOG
+    29c).
+28. **A locked item shows a faded lock on hover** (INBOX 557a), found by a
+    board-level hit test since the item takes no pointer (decision 15); a
+    press on it hints once, "Locked. Right-click to unlock".
+29. **The AI edits boards with confirmation** (FEAT-12): move, edit, restyle
+    and delete tools, each one event and one undo step, through the same
+    confirm the other destructive agent tools use.
+
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", WHITEBOARD_PLAN.md) on 2026-09-09: a plan holds open work only.

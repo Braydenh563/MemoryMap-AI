@@ -596,6 +596,11 @@ right-click opens the ring and returns before the menu is built).
 
 #### Decisions made, 2026-09-13 night (do not remake)
 
+*Revised 2026-10-05* (WHITEBOARD_PLAN decisions 19 and 26, the features
+audit 9.5): the sidebar and the Format panel are new surfaces, off the canvas.
+The ring keeps the topic; the strip's three doors move into the Format panel's
+tabs when the panel reaches maps, so one place per action is kept.
+
 - **One place per action, and three surfaces with one job each.** The **ring**
   is what you do to *this topic from here*; the **strip** is how the topic and
   its line *look*; the **dock** is what you do to the *map*. An action that
@@ -966,6 +971,10 @@ topic: a control that wide has nowhere to go.
 5. **Nothing is added to the canvas.** Per standing order 11, any new
    affordance comes from DESIGN.md's recipe index or arrives with its own
    recipe and lint in the same commit.
+   *Revised 2026-10-05* (WHITEBOARD_PLAN decision 26, the features audit
+   9.5): the board's left sidebar (Library: saved branches and map templates;
+   Outline) and the Format panel sit off the canvas, beside it, so this
+   decision holds; neither draws on the map.
 6. **A cross-link has no colour of its own** (taken 2026-09-21, building
    13c). It is drawn in `--muted`, dashed, whatever the rail's ink well held
    when it was drawn. The alternative was to keep the stored colour and give

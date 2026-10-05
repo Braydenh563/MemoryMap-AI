@@ -9391,13 +9391,17 @@ button.connection-row {
    said so through the button ramp's own disabled state; as a menu row it had
    no rule at all, so a row that does nothing looked exactly like the row above
    it. */
-.wb-menu-item:disabled {
+.wb-menu-item:disabled,
+.wb-menu-item[aria-disabled="true"] {
   color: var(--muted);
   cursor: default;
   opacity: 0.6;
 }
 
-.wb-menu-item:disabled:hover {
+/* A command row that does not apply yet (`wbSyncCommandRows`) stays
+   pressable so its toast can say why; it reads as the disabled row does. */
+.wb-menu-item:disabled:hover,
+.wb-menu-item[aria-disabled="true"]:hover {
   background: transparent;
 }
 

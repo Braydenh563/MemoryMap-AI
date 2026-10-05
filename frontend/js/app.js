@@ -2213,6 +2213,7 @@ const LAZY_MODULES = {
     "/js/documents.js",
     "/js/whiteboard-map.js",
     "/js/whiteboard.js",
+    "/js/whiteboard-commands.js",
     "/js/library.js",
   ],
 };

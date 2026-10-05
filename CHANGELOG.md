@@ -8,6 +8,7 @@ below). Versioning is `0.x` while the app stabilises.
 ## [Unreleased]
 
 ### Changed
+- Whiteboard: Bring forward and Send backward move one step (past the next item over or under it) instead of jumping to the front or back; Ctrl+] and Ctrl+[ bring to the front and send to the back, and a shape's order is now the order it is drawn in. The Arrange menu has all four, plus Same width, Same height, Group, Ungroup, Lock and Unlock all; Edit has Cut, Copy, Paste, Find, the item's text and Comment. Every board action is in the command palette (Ctrl+K, "This board") and in the shortcut sheet (?), from one table, so the words and keys agree everywhere (FEAT-07, FEAT-11, FEAT-19).
 
 - Notes, Capture: the composer is one box; the note editor inside no longer draws its own border and focus ring a hair inside the composer's, and the composer's edge carries the focus (INBOX 560).
 - Boards: the gesture hints' close button is pinned at the strip's end after a divider, whole and evenly inset, instead of clipped past the edge (INBOX 562).

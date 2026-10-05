@@ -796,7 +796,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 17 | B8, H4 | a user skills folder picked up without a restart; `/api/v1`; the agent named on an external write | M | `ai/skills.py`, `mcp_server.py` |
 | 18 | B4 | typed links, a derived tensions table, rebuild determinism, the Tensions widget | M to L | `ai/tensions.py`, `ai/entities.py` |
 | 19 | B5, §9 | ~~per-tool pre and post conditions, grammar-forced JSON, concurrent tool calls, Ollama's native dialect~~ built 2026-10-05 (`ai/tools/contracts.py`, `OllamaClient.forced_call_format`, `tests/test_tool_contracts.py`, `tests/test_provider_sockets.py` over a real socket); left: evals at 3B and 4B on a real model, and a real Ollama | M | HISTORY; `tests/test_skills_evals.py` |
-| 20 | I7 | the "Learned from you" line with a filing accuracy number | S | `settings.js` |
+| 20 | ~~I7~~ | ~~the "Learned from you" line with a filing accuracy number~~ built 2026-10-05 (`learning.filing_accuracy`, `GET /learned/summary`, `tests/test_learned_accuracy.py`); 24 notes, 5 moved: 67% to 92% | done | HISTORY |
 | 21 | I8, H3 | the model bench | M | a new `ai/bench.py` |
 | 22 | I2, H8 | the margin reader (after row 6's chunks) | M | `documents.js`, a new `/editor/read` |
 | 23 | I5, H8 | time travel: `as_of` on chat, then-and-now | M | `routes_chat.py` |
@@ -1268,7 +1268,7 @@ accuracy number equals the fixture's computed value.
 corrections improves by at least 10 points; search p95 unchanged. **Size**
 M. **Model** Opus for the prompt and fusion changes, Sonnet for the panel.
 
-**State 2026-09-24:** (b) the loop is built (`ai/learning.py`: corrections as `AuditLog` rows by decision, boosts with decay, the centroid exclusion, `open_after_ask`); the "Learned from you" line with a filing accuracy number is not in Settings. S.
+**State 2026-10-05:** (a) the loop is built (`ai/learning.py`: corrections as `AuditLog` rows by decision, boosts with decay, the centroid exclusion, `open_after_ask`), and the "Learned from you" line with a filing accuracy number is in Settings (row 20): HISTORY.md, "Moved from the plans, 2026-10-05 (row 20)". Left: the gate's eval (filing accuracy with 20 synthetic corrections up 10 points) needs a real model, and "wrong" on an evidence card as a correction.
 
 ### I8 The model bench: which local model is best on *your* notebook
 

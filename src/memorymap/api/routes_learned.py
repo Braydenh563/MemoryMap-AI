@@ -178,6 +178,14 @@ def export_learned(session: Session = Depends(get_session)) -> dict:
     }
 
 
+@router.get("/summary")
+def learned_summary(session: Session = Depends(get_session)) -> dict:
+    """The "Learned from you" line (WORLD_CLASS_PLAN row 20, I7): how many
+    corrections, and filing accuracy over the notes the AI filed last
+    (`learning.filing_accuracy`). Declared before `/{fact_id}`."""
+    return learning.filing_accuracy(session)
+
+
 @router.get("/switches")
 def get_switches() -> dict:
     """Every switch, as the runners see it (the master wins)."""

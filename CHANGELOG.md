@@ -340,6 +340,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Dashboard: the first screen is calmer. Under the greeting is one row, the search box and a "..." menu holding Continue, your recent skills, Tools & features, Commands, View, Widgets and Edit layout; then the Start something tiles and your widgets. The Jump to and Run a skill rows, the four number tiles and the Your dashboard bar are gone from the page (the numbers are in the greeting, the status bar and the Stats, Streak and Writing pace widgets), and Edit layout shows a line above the widgets with its own Done.
 
 ### Fixed
+- Moving a note the AI filed to another category now teaches the next filing: the move was recorded but never read back, so the same note kept being filed in the same wrong place.
 - Phone: More has a Commands row that opens the command palette, which a phone had no way to reach.
 - Notes: switching on "Connections beside an open note" with no note open says that the column shows beside a note once you open one (INBOX 546).
 - Settings: every section with three or more groups opens with its "In this section" strip under its title; Tasks had it at the bottom (after Quit MemoryMap) and short sections had none (INBOX 541).
@@ -438,6 +439,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 
 ### Added
 
+- Settings, What it learned: a "Learned from you" line counts your corrections and gives filing accuracy, the share of the notes Atlas filed that you left where it put them, older half of the last 200 against the newer half (row 20).
 - Whiteboard: View, Present frames shows a board's frames one at a time, full screen, in reading order, each fitted to the screen. The arrow keys, Space, Home and End (or the small bar at the foot) move through them, and Escape puts the board back as it was (WHITEBOARD_PLAN decision 16; `scratchpad/ui-sweeps/wbpresent.js` 18/18 at 1440x900 and 390x844, light and dark).
 - Whiteboard: lock. Ctrl+Shift+L (or Lock on an item's right-click menu) holds what is selected in place: clicks pass through it to the board, and Select all, a box selection, the eraser and a frame's drag leave it alone. Right-click the board and choose Unlock (it says how many are locked), or press Ctrl+Shift+L with nothing selected, to free them (WHITEBOARD_PLAN decision 15; `scratchpad/ui-sweeps/wblock.js` 17/17 at 1440x900 and 390x844, light and dark). A box selection drawn inside a frame no longer selects the frame as well.
 - Whiteboard: frames. F (or Add in the rail, or Insert, Frame) places a titled region on a board; a click drops one, a drag draws it. Dragging its title moves everything inside it with it (Ctrl and drag moves the frame alone), double-click the title to rename it, and deleting it leaves what it held. Its inside lets clicks through, so you select and draw inside it as on the board; it exports with the board, and the board's AI read names each frame and the cards under it (WHITEBOARD_PLAN decision 14; `scratchpad/ui-sweeps/wbframes.js` 24/24 at 1440x900 and 4/4 at 390x844, light and dark).

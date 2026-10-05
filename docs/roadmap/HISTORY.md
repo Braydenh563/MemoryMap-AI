@@ -7,6 +7,17 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (row 20)
+
+### From WORLD_CLASS_PLAN.md, I7: the "Learned from you" line
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| Settings, What it learned: "Learned from you: N corrections. Filing accuracy A% to B% over the last K notes it filed." (`#learned-from-you`, `renderLearnedFromYou`), from `GET /learned/summary` (`learning.filing_accuracy`): a note the AI filed is one whose `filing_state` says so or one the person refiled; right if never moved; older half of the last 200 against the newer half, one number under 10 a half, hidden with nothing to say | no line; the number existed nowhere | 24 notes filed by the app, 5 moved by hand (4 older, 1 newer): "5 corrections. Filing accuracy 67% to 92% over the last 24 notes it filed", the fixture's own 8 of 12 and 11 of 12 | `tests/test_learned_accuracy.py` (5); `scratchpad/ui-sweeps/ai1005-learned.js` at 1440 and 390, light and dark: shown, 15px under the description, left edges equal, no page scroll, 0 errors |
+| Found on the way: every refile made in the app was invisible to the filing prompt and the centroid exclusion. `manager.update_entry` writes "moved from X to Y" in `detail`, and `learning.corrections(kind="refile")` narrowed its SQL on a "refile:" prefix | a refile by hand reached `corrections(kind="refile")` 0 of 1 times | 1 of 1 | `test_a_move_by_hand_out_of_an_auto_filed_category_reaches_the_refile_reader` |
+
+Help moved with it: the section's '?' popover and the Guide's "learned" topic.
+
 ## Moved from the plans, 2026-10-05 (row 19)
 
 ### From WORLD_CLASS_PLAN.md, B5 and section 9: contracts, forced JSON, the two caveat shapes

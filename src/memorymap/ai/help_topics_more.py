@@ -144,6 +144,7 @@ MORE_TOPICS: list[dict] = [
         "id": "learned",
         "keywords": (
             "what it learned", "learned", "worked out", "derived", "forget everything learned",
+            "learned from you", "filing accuracy",
             "read my notes now", "export what it learned",
             "while you were away", "disagree", "contradict", "answered later",
         ),
@@ -160,7 +161,10 @@ MORE_TOPICS: list[dict] = [
             "it was. Edit a row and no later run overwrites it; delete one and "
             "it is never worked out again. What may run switches each kind off; "
             "Read my notes now runs it; Export what it learned and Forget "
-            "everything learned act on all of it and never touch your notes."
+            "everything learned act on all of it and never touch your notes. "
+            "The Learned from you line under the title counts your corrections "
+            "and gives filing accuracy, the share of the notes Atlas filed that "
+            "you left where it put them, older half of the last 200 against newer."
         ),
         "badge": {"label": "What it learned", "section": "learned"},
     },

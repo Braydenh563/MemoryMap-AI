@@ -114,6 +114,18 @@ with its owner named in the entry.
      tail a little longer and flowy, maybe a subtle texture to match the
      angel ears??" Placed: with 550, the Atlas agent.
 
+566. **The owner, 2026-10-05, verbatim.** "the whiteboard help popup is still
+     cooked and needs a redesign" (screenshot: the empty board's help card,
+     the Move around column's key pills clipped at the right, long labels
+     printed over their pills, the description cut off). Placed: the
+     whiteboard agent, as the board's searchable shortcut sheet (was UX-03).
+
+567. **The owner, 2026-10-05, verbatim.** "the arm on the rigght of the
+     female atlas still looks disconnected. also can the female long hair be
+     better redesigned to be more attractive and beautiful and flowy and
+     stuff?? the hair right now makes her look a little like a punk"
+     Placed: with 550, the Atlas agent.
+
 561. **The owner, 2026-10-05, verbatim.** "I dont like this section in th
      timeline, it needs redesigning, restructuring, moving ro smth"
      (screenshot: the "Sep to Oct 2026" month button over a row of seven

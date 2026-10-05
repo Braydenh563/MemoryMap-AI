@@ -567,7 +567,26 @@ header#top-bar,
   }
 
   #tab-documents #doc-view-seg button {
-    min-height: 2.75rem;
+    min-height: calc(2.75rem - 0.5rem);
+  }
+}
+
+/* **The segment grows with its buttons, not past them** (INBOX 568, the
+   owner: "the document editor edit/read pill is overflowing at the bottom
+   and those elements arent aligned"). Under 720px every `button.small` takes
+   a 44px floor for a finger, and `.doc-dock .seg` kept its desktop
+   `height: var(--control-h)` (32px), so Edit and Read stood 44px tall in a
+   32px well and hung 16px out of its foot, centred 10px below the chevron,
+   AI and focus buttons beside them. The well is now the finger's 44px and
+   its buttons that less its 0.25rem padding each side, so the pill sits in
+   it and shares the row's centre line. */
+@media (max-width: 720px) {
+  #tab-documents #doc-view-seg {
+    height: 2.75rem;
+  }
+
+  #tab-documents #doc-view-seg > button {
+    min-height: calc(2.75rem - 0.5rem);
   }
 }
 

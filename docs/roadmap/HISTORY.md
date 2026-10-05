@@ -40579,3 +40579,11 @@ plan's item 6 decided on, and it fits the budget as it is.
      switch rows; `docdictionary.js` and `docwraps.js` (find bar, AI panel,
      Earlier versions) all ok, no line of words broken onto two.
 
+568. **The owner, 2026-10-05, verbatim.** "the document editor edit/read pill
+     is overflowing at the bottom and those elements arent aligned"
+     (screenshot, dark: Edit and Read standing below their well). Fixed
+     (2026-10-05): under 720px `button.small` takes a 44px floor while
+     `.doc-dock .seg` kept 32px, so the buttons hung 16px out of the well;
+     the well is 44px there and its buttons fit inside it. docviewseg.js
+     12/12 (1440, 1024, 390; light and dark): 0px overflow, one centre line.
+

@@ -15,7 +15,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.core import deps
+from memorymap.core import deps, jobs
 from memorymap.core.database import EmbeddingRecord
 from tests.fakes import FakeEmbeddingService, FakeOllama
 
@@ -33,17 +33,41 @@ class GatedEmbeddings(FakeEmbeddingService):
     def embed_text(self, text):  # noqa: ANN001, ANN201
         self.texts.append(text)
         self.threads.append(threading.current_thread().name)
-        self.gate.wait(10)
+        #: Held until the test releases it, not for a fixed few seconds: a gate
+        #: that lets itself go after N s is a wall-clock promise that the test
+        #: thread gets to its next line inside N s, which a loaded machine breaks.
+        self.gate.wait(120)
         return super().embed_text(text)
+
+
+def _embed_jobs_in_flight() -> bool:
+    """Is a note's embed job still queued or running in the process-global pool?
+
+    The pool outlives every test and dedupes by `("embed-entry", note id)`, and
+    every test here edits note 1 of a fresh database. A job left over from an
+    earlier test (its last assertion passes once the vector row exists, a few
+    statements before the job returns) is therefore still "the job in flight"
+    for the next test's edit, which then folds into it and is never embedded:
+    the wait for its vector times out. Draining before and after each test
+    keeps the pool's state the test's own."""
+    pool = jobs.pool()
+    with pool._lock:
+        return any(
+            isinstance(job.dedupe_key, tuple) and job.dedupe_key[:1] == ("embed-entry",)
+            for job in (*pool._running.values(), *pool._queued.values())
+        )
 
 
 @pytest.fixture()
 def gated(app_state):
     from memorymap.api.app import create_app
 
+    assert _wait(lambda: not _embed_jobs_in_flight(), 60), "an earlier embed job never finished"
     fake = GatedEmbeddings()
     deps.override_ai(ollama=FakeOllama(running=False), embeddings=fake)
-    return TestClient(create_app()), fake
+    yield TestClient(create_app()), fake
+    fake.gate.set()  # never leave a job parked on the gate for the next test
+    _wait(lambda: not _embed_jobs_in_flight(), 60)
 
 
 def _vector_count(entry_id: int) -> int:
@@ -51,7 +75,7 @@ def _vector_count(entry_id: int) -> int:
         return session.query(EmbeddingRecord).filter(EmbeddingRecord.entry_id == entry_id).count()
 
 
-def _wait(predicate, timeout: float = 10.0) -> bool:  # noqa: ANN001
+def _wait(predicate, timeout: float = 60.0) -> bool:  # noqa: ANN001
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if predicate():
@@ -75,7 +99,10 @@ def test_an_edit_returns_before_its_text_is_embedded(gated):
     started = time.monotonic()
     response = client.put(f"/entries/{note['id']}", json={"content": "the work budget for spring"})
     assert response.status_code == 200
-    assert time.monotonic() - started < 5, "the PUT waited for the embedder"
+    #: The embedder is parked on the gate for up to 120 s, so a PUT that
+    #: embedded on the request could not return in anything like this time; the
+    #: bound is far above a loaded machine's slowest honest request.
+    assert time.monotonic() - started < 60, "the PUT waited for the embedder"
     # The old meaning is gone at once; the new one arrives from the job.
     assert _vector_count(note["id"]) == 0
     fake.gate.set()

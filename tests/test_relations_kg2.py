@@ -106,28 +106,33 @@ def test_cost_at_2k_and_10k_notes():
     and two entity mentions each, one similar pair per note. 2026-10-04:
     162 ms and 802 ms in the sandbox. A wall-clock budget failed on a busy
     CI runner (9.6 s at 10k), so this pins the *shape*: five times the notes
-    may cost at most eighteen times the CPU time (linear is five, all-pairs
-    would be twenty-five), with one generous ceiling for a disaster."""
-    took = {}
-    for n in (2000, 10000):
-        data = _synthetic(n)
-        runs = []
-        #: Best of three, in CPU time rather than wall time: `recognise` is
-        #: single-threaded, so the process's own CPU seconds are its cost, and
-        #: a loaded machine (six agents on four cores, load over 100) stretches
-        #: the wall clock of whichever run it lands on without touching them.
-        #: That stretch is what made the ratio below flake.
-        for _ in range(3):
+    may cost at most fifteen times the time (linear is five, all-pairs would be
+    twenty-five), with one generous ceiling for a disaster."""
+    sizes = (2000, 10000)
+    data = {n: _synthetic(n) for n in sizes}
+    runs: dict[int, list[float]] = {n: [] for n in sizes}
+    #: Measured in this process's CPU time rather than the wall clock (the
+    #: ratio below is about how much work the pass does, and the wall clock
+    #: also counts every moment the scheduler gave the core to someone else),
+    #: and interleaved, 2k then 10k, five rounds, best of each: with the sizes
+    #: timed one after the other, a stall that lasted through the 2k rounds and
+    #: lifted for the 10k ones (or the reverse) skewed the ratio by itself.
+    for _ in range(5):
+        for n in sizes:
             started = time.process_time()
-            found = recognise(*data, exclude=set())
-            runs.append(time.process_time() - started)
-        took[n] = min(runs)
-        print(f"recognise n={n}: {took[n] * 1000:.0f} ms, {len(found)} pairs")
-        assert found
-    #: CPU time shows what wall time hid under load: 59 to 82 ms at 2k and 510
-    #: to 770 ms at 10k (2026-10-05), a ratio of 8 to 13, so the ceiling is 18:
-    #: still under all-pairs' twenty-five, over the spread the measure has.
-    assert took[10000] < 18 * took[2000], took
+            found = recognise(*data[n], exclude=set())
+            runs[n].append(time.process_time() - started)
+            assert found
+    took = {n: min(runs[n]) for n in sizes}
+    for n in sizes:
+        print(f"recognise n={n}: {took[n] * 1000:.0f} ms")
+    #: Fifteen, the midpoint between linear (five) and all-pairs (twenty-five).
+    #: It was ten, and on a machine with a dozen busy processes the CPU-time
+    #: ratio itself reached 10.8 and 11.0 (70 ms at 2k, 760 ms at 10k): the
+    #: 10k pass's larger working set misses the shared cache more when other
+    #: processes are thrashing it. Quadratic work (twenty-five) is still well
+    #: over this line.
+    assert took[10000] < 15 * took[2000], took
     assert took[10000] < 30.0, took
 
 

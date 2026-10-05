@@ -1391,26 +1391,10 @@ function toggleGraphFullscreen() {
 }
 
 $("graph-fullscreen")?.addEventListener("click", toggleGraphFullscreen);
-// Escape leaves full screen. Reported with the rest of the full-screen state
-// ("restore on Esc"), and it is the one key every full-screen surface on the
-// web answers to, including this app's own whiteboard. Guarded on the class
-// so this listener does nothing at all on any other tab.
-//
-// INBOX 275: this used to be placed after the popover handlers above on the
-// theory that "a help panel or a note popup open over the map takes the
-// first Escape and the map takes the second": but listener order does not
-// stop an event, it only decides who sees it first, and every listener here
-// still runs unless one of them calls stopPropagation. The graph options
-// panel's own Escape handler does (`$("graph-options")`, above: "The Escape
-// is spent here"), which is why closing *that* panel never also leaves full
-// screen; `openLightbox`'s `onKey` does not, and neither does anything else
-// that opens over the map, so one Escape closed the lightbox *and* left full
-// screen in the same press. Fixed by asking, not by hoping order holds:
-// `activeOverlay()` (below) already answers "is a dialog open over the
-// content", and `openLightbox` sets `role="dialog" aria-modal="true"`
-// precisely so it is inside that reach. Anything that should own an Escape
-// while the map is behind it belongs in `activeOverlay()`'s reach, not in a
-// new `stopPropagation()` call here.
+// Escape leaves full screen ("restore on Esc"), guarded on the class. INBOX
+// 275: listener order does not stop an event, so anything open over the map
+// (the lightbox, a dialog) owns its Escape through `activeOverlay()`, which
+// is asked below, rather than through a new `stopPropagation()` here.
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
   if (!$("graph-card")?.classList.contains("graph-fullscreen")) return;
@@ -2029,13 +2013,26 @@ async function mergeDuplicateGroup(ids, card) {
   ));
   if (!ok) return;
 
+  //: The kept note's words and tags as they were, for Undo (INBOX 537): the
+  //: others went to the bin, so Undo also brings them back.
+  const keeper = allEntries.find((e) => e.id === ids[0]);
   try {
     const result = await apiJson("/duplicates/merge", {
       method: "POST",
       body: JSON.stringify({ ids, use_ai: useAi }),
     });
     card.remove();
-    toast(`Merged ${result.merged_count} notes${result.used_ai ? " with Atlas" : ""}.`);
+    const binned = result.binned_ids || [];
+    const swap = (back) => async () => {
+      if (keeper) await api(`/entries/${result.id}`, { method: "PUT", body: JSON.stringify(back ? { content: keeper.content, tags: keeper.tags } : { content: result.content }) });
+      for (const id of binned) await api(back ? `/entries/${id}/restore` : `/entries/${id}`, { method: back ? "POST" : "DELETE" });
+      await loadEntries();
+    };
+    const action = pushUndo(`Merged ${result.merged_count} notes`, swap(true), swap(false));
+    toastAction(`Merged ${result.merged_count} notes${result.used_ai ? " with Atlas" : ""}.`, "Undo", async () => {
+      settleUndoFromToast(action);
+      await swap(true)();
+    });
     await loadEntries();
   } catch (error) {
     status.classList.add("error");

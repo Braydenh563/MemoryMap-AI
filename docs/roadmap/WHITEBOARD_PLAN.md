@@ -225,9 +225,75 @@ kind. Every tool has a key and every key is in the tooltip and the help.
    on maps (MINDMAP_PLAN 12.2 item 9 is the map's own, by branch). Speaker
    notes, transitions and a presenter view are not in this decision.
 
+17. **Which history Ctrl+Z walks** (taken 2026-10-05, the owner: "the undo
+   and redo across the application needs to cover EVERYTHING" and "shouldnt
+   there also be local undos and redos ... for specific documents,
+   whiteboards, mindmaps"). An open board or map: its own stacks
+   (`wbHistoryFor`, one pair per board id, 100 steps, kept for the session
+   while you visit others). An open document: its own CodeMirror history,
+   kept per document id for the session (`docResetDocument`, restored only
+   over the same text, purged on lock). Everywhere else, including the
+   boards list: the app's stack (`pushUndo`, 50 steps). Inside a text field:
+   the field's own. The status bar's pair says which ("on this board", "in
+   this document", or the app step's name) and is repainted on a tab, board
+   or document change. Not kept across a reload: the server's event log is
+   the long memory (History sheet, Recent activity), not Ctrl+Z.
+18. **A board gesture's Undo is read off what it changed** (taken
+   2026-10-05). `wbRecordGesture` snapshots every row and the map's settings,
+   runs, and pushes the difference as one batch (lost rows back, a map's
+   topics as one branch parents first; reparents, via the root when several
+   moved so no step makes a ring; made rows removed, links first, children
+   first; changed rows written back whole), replacing what the gesture pushed
+   itself. New gestures go in `WB_RECORDED`; a gesture that knows something
+   the snapshot cannot (a drag's start, `wbMapTransplant`) keeps its own.
+
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", WHITEBOARD_PLAN.md) on 2026-09-09: a plan holds open work only.
+
+## Undo coverage, audited 2026-10-05 (INBOX 537)
+
+Every mutating action on a board or a map, and whether Undo puts all of it
+back (server side effects included). "Recorded" means `WB_RECORDED`
+(decision 18). Measured with `scratchpad/ui-sweeps/boardundo.js` (43/43),
+`mapinsertundo.js` (8/8), `wbmapundo.js`, `maprelink.js`.
+
+| Action | Undo before | Now |
+| --- | --- | --- |
+| Delete a topic (Delete key, tool, menu, X) | one row back, loose; its branch lost | the branch, under its parent |
+| Undo of a create whose topic gained a branch since | branch deleted for good | branch kept, Redo brings both |
+| Delete a card, box or shape | item back, its links lost | item and links, ends re-pointed |
+| Delete a selection | one step per item; parallel deletes popped the wrong entry | one step, in order |
+| Clear board | one step per item; 404 on cascaded links stopped it | one step |
+| Image object deleted | file unlinked, Undo drew a broken picture | file kept (media cleanup reclaims) |
+| Fold, Expand all, Tidy, layout, numbering, theme, reset every topic's style | none | recorded |
+| Add child, sibling, root, reference, duplicate, copy branch, template | the create only (unfold and tidy left) | recorded |
+| Detach, remove keeping branch, turn a line around, cross-link reverse, to branch, cut | none | recorded |
+| Insert between, outdent, move among siblings | own entries | recorded |
+| Group, ungroup, paste style, bucket fill, fit to text, arrange cards | none | recorded |
+| Card text edit (the note's words) | none | `note` step |
+| Branch card on a board (makes a note) | none | recorded, the note to the bin and back |
+| Drop a branch on a topic | own entry | own entry; a folded target opens (the "disappeared" report) |
+| Rename a topic left open across an Undo | wrote onto another topic | the live row by id; an open edit is committed first |
+| Delete a board (board menu, gallery, bulk) | "cannot be undone" (it was the bin) | bin, toast Undo and app Undo |
+| Rename or duplicate a board (gallery) | none | app Undo |
+| Move, resize, rotate, nudge, align, z-order, lock, frame title, properties panel, link handles | own entries | unchanged |
+
+Open: a board's undo does not survive a reload; an agent's or another tab's
+change to the open board is not on its stack (the History sheet has it).
+
+### The app's stack (outside boards and documents)
+
+| Action | Undo |
+| --- | --- |
+| Note bin, archive, edit, attach, link, unlink, tags, categories (move, rename, merge, delete, split, colour), reminders delete, skills batch | already had one |
+| Category delete from the keyboard | added |
+| Merge duplicate notes | added (words, tags, the binned notes back) |
+| Generate or remove a note's title | added |
+| A link's kind or properties | added |
+| Clear completed reminders; delete an overdue or done reminder | added (`POST /reminders` `restore`; the past-date rule refused them) |
+| Empty the bin, purge a note | none by design: confirmed, permanent |
+| Detach a bookmark from a note being edited, entity merge, delete a note type, relation type, space or conversation | none yet (open; `notes-list.js` is at its gzip piece cap) |
 
 ## 5. Phases
 

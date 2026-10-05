@@ -833,23 +833,20 @@ function libraryActions(item) {
     ];
   }
   if (item.kind === "archived") {
+    const bin = binRoutes(item);
     return [
-      makeMenuItem("ph:arrow-u-up-left Restore", "Put this note back in your notebook", async () => {
-        await apiJson(`/entries/${item.id}/restore`, { method: "POST" }).catch((e) =>
-          toast(e.message, true)
-        );
+      makeMenuItem("ph:arrow-u-up-left Restore", `Put this ${bin.noun} back`, async () => {
+        await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
         toast("Restored.");
         reload();
-        loadEntries();
+        bin.reload();
       }),
       // The bin's other half. Without it the Library can show you a binned
       // note and take you back to the old panel to get rid of it, which is the
       // two-places problem the move was for.
-      makeMenuItem("ph:trash Delete for good", "Permanently delete this note", async () => {
-        if (!(await confirmDialog("Delete this note permanently?\n\nThis cannot be undone."))) return;
-        await apiJson(`/entries/${item.id}/purge`, { method: "DELETE" }).catch((e) =>
-          toast(e.message, true)
-        );
+      makeMenuItem("ph:trash Delete for good", `Permanently delete this ${bin.noun}`, async () => {
+        if (!(await confirmDialog(`Delete this ${bin.noun} permanently?\n\nThis cannot be undone.`))) return;
+        await apiJson(bin.purge, { method: "DELETE" }).catch((e) => toast(e.message, true));
         reload();
       }),
     ];
@@ -1001,6 +998,19 @@ function libraryActions(item) {
     ];
   }
   return [];
+}
+
+//: **The bin holds three kinds** (WORLD_CLASS_PLAN 5 item 10): notes (with
+//: boards and maps), documents and reminders, told apart by `subtype`
+//: (`routes_library._archive`). Each has its own restore and purge route.
+function binRoutes(item) {
+  if (item.subtype === "document") {
+    return { noun: "document", restore: `/documents/${item.id}/restore`, purge: `/documents/${item.id}/purge`, reload: () => {} };
+  }
+  if (item.subtype === "reminder") {
+    return { noun: "reminder", restore: `/reminders/${item.id}/restore`, purge: `/reminders/${item.id}/purge`, reload: () => loadReminders() };
+  }
+  return { noun: "note", restore: `/entries/${item.id}/restore`, purge: `/entries/${item.id}/purge`, reload: () => loadEntries() };
 }
 
 //: A document on the graph (WORLD_CLASS_PLAN 1.3, row 15). Documents are
@@ -1523,8 +1533,21 @@ function openLibraryItem(item) {
     // Restore and permanent delete are both on this card's own ⋯ menu, and
     // reading the note in full is the one thing a card cannot do, so that is
     // all this opens. It used to send the user to #bin-panel, which is the
-    // only reason that panel outlived the Library's Bin chip.
-    openBinnedNote(item.id);
+    // only reason that panel outlived the Library's Bin chip. A binned
+    // document or reminder has nothing to read that its card does not show,
+    // so opening one offers to bring it back (WORLD_CLASS_PLAN 5 item 10).
+    if (item.subtype === "document" || item.subtype === "reminder") {
+      const bin = binRoutes(item);
+      confirmDialog(`“${item.title}” is in the bin. Restore it?`, { confirmLabel: "Restore" }).then(async (yes) => {
+        if (!yes) return;
+        await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
+        loadLibrary();
+        bin.reload();
+        if (item.subtype === "document") openDocumentFromNote(item.id);
+      });
+    } else {
+      openBinnedNote(item.id);
+    }
   }
 }
 
@@ -1792,17 +1815,18 @@ $("library-bulk-restore").addEventListener("click", async () => {
   let restored = 0;
   for (const item of chosen) {
     try {
-      await apiJson(`/entries/${item.id}/restore`, { method: "POST" });
+      await apiJson(binRoutes(item).restore, { method: "POST" });
       restored++;
     } catch {
       // counted below
     }
   }
-  if (restored) toast(`Restored ${restored} note${restored === 1 ? "" : "s"}.`);
+  if (restored) toast(`Restored ${restored} item${restored === 1 ? "" : "s"}.`);
   const failed = chosen.length - restored;
-  if (failed) toast(`${failed} note${failed === 1 ? "" : "s"} couldn't be restored.`, true);
+  if (failed) toast(`${failed} item${failed === 1 ? "" : "s"} couldn't be restored.`, true);
   loadLibrary();
   loadEntries();
+  loadReminders();
 });
 $("library-bulk-delete").addEventListener("click", async () => {
   const chosen = librarySelectedItems();
@@ -1815,7 +1839,7 @@ $("library-bulk-delete").addEventListener("click", async () => {
     `Delete ${chosen.length} item${chosen.length === 1 ? "" : "s"}?\n\n` +
       (permanent
         ? `${permanent} of them ${permanent === 1 ? "is" : "are"} already in the bin and will be destroyed permanently.`
-        : "Notes go to the bin; documents and chats are deleted for good.")
+        : "Notes and documents go to the bin; chats are deleted for good.")
   );
   if (!ok) return;
   // Same fix as library-bulk-restore just above: a per-item failure used to
@@ -1825,7 +1849,7 @@ $("library-bulk-delete").addEventListener("click", async () => {
   for (const item of chosen) {
     const route =
       item.kind === "archived"
-        ? [`/entries/${item.id}/purge`, "DELETE"]
+        ? [binRoutes(item).purge, "DELETE"]
         : item.kind === "note"
           ? [`/entries/${item.id}`, "DELETE"]
           : item.kind === "document"

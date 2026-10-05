@@ -1107,17 +1107,14 @@ async function clearDoneReminders() {
   if (!(await confirmDialog(`Delete ${done.length} completed reminder${done.length === 1 ? "" : "s"}?`))) {
     return;
   }
-  //: One Undo for the lot (INBOX 537), each made again as it was.
-  let live = done;
+  //: One Undo for the lot (INBOX 537): they go to the recycle bin and come
+  //: back from it (WORLD_CLASS_PLAN 5 item 10).
   const drop = async () => {
-    await Promise.all(live.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).catch(() => {})));
+    await Promise.all(done.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).catch(() => {})));
     loadReminders();
   };
   const remake = async () => {
-    live = await Promise.all(live.map((r) => apiJson("/reminders", {
-      method: "POST",
-      body: JSON.stringify({ text: r.text, due_at: r.due_at, entry_id: r.entry_id, document_id: r.document_id ?? null, priority: r.priority || "normal", recurring: r.recurring || "none", restore: true, done: true }),
-    })));
+    await Promise.all(done.map((r) => api(`/reminders/${r.id}/restore`, { method: "POST" }).catch(() => {})));
     loadReminders();
   };
   await drop();
@@ -1217,42 +1214,26 @@ function reminderItem(reminder, label) {
   //: integration vocabulary every object already speaks: its note, Atlas,
   //: copy). The two snoozes and Edit stay on the row, being what a reminder
   //: is touched for; four same-sized icons were one more than a row reads.
+  //: A deleted reminder goes to the recycle bin (WORLD_CLASS_PLAN 5 item
+  //: 10); Undo restores the same reminder, its id and its target kept.
   const deleteReminder = async () => {
+    await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
+    loadReminders();
+    const restore = async () => {
+      await apiJson(`/reminders/${reminder.id}/restore`, { method: "POST" });
+      loadReminders();
+    };
+    const rebin = async () => {
       await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
       loadReminders();
-      // Deleting a reminder is as undo-able as binning a note. There's no
-      // restore endpoint here (unlike entries): undo recreates it, which
-      // means a redo's own delete target has to track the *new* id, not the
-      // one this closure started with.
-      let liveId = reminder.id;
-      const recreate = async () => {
-        const created = await apiJson("/reminders", {
-          method: "POST",
-          body: JSON.stringify({
-            text: reminder.text,
-            due_at: reminder.due_at,
-            entry_id: reminder.entry_id,
-            document_id: reminder.document_id ?? null,
-            priority: reminder.priority || "normal",
-            recurring: reminder.recurring || "none",
-            restore: true,
-            done: Boolean(reminder.done),
-          }),
-        });
-        liveId = created.id;
-        loadReminders();
-      };
-      const redelete = async () => {
-        await apiJson(`/reminders/${liveId}`, { method: "DELETE" });
-        loadReminders();
-      };
-      const action = pushUndo("Deleted a reminder", recreate, redelete);
-      toastAction("Reminder deleted.", "Undo", async () => {
-        settleUndoFromToast(action);
-        await recreate().catch((e) => toast(e.message, true));
-        toast("Reminder restored.");
-      });
     };
+    const action = pushUndo("Moved a reminder to the bin", restore, rebin);
+    toastAction("Reminder moved to the recycle bin.", "Undo", async () => {
+      settleUndoFromToast(action);
+      await restore().catch((e) => toast(e.message, true));
+      toast("Reminder restored.");
+    });
+  };
   const menuItems = [];
   const target = reminderTarget(reminder);
   if (target) menuItems.push({ label: target.label, run: target.open, group: "go" });

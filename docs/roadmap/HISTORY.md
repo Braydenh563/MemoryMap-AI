@@ -40751,3 +40751,36 @@ the legend's colours under the Note type rule.
 
 Measured: `tests/test_reminder_targets_row15.py`. Not verified in a browser:
 the reminder dialog's segment at 390.
+
+### Row 30, section 5: abilities without AI
+
+- Notes' unlinked mentions: found built (GRAPH_PLAN KG1, `routes_mentions`).
+- Word count and reading time on a note: the edit form's meta row
+  (`.note-edit-counts`), live as you type, the properties block left out, at
+  the documents' 220 words a minute.
+- Template variables, for the note templates a person writes (Settings,
+  Templates): `{date}` or `{{date}}`, `{{time}}`, `{{clipboard}}` (read when
+  the template is used; an unreadable clipboard is filled as nothing and
+  said) and `{{cursor}}` (where the caret lands), in the Capture picker and
+  the "/" menu alike (`noteTemplateText`, `noteTemplateForUse`,
+  capture-ask.js).
+- From a selection: Move to space (`POST /spaces/{id}/move-notes`: the
+  target's category of the same name, made when missing; the notes' files,
+  reminders and fade scores and the links between moved notes move with
+  them; Undo sends each back where it was) and Export as Markdown
+  (`GET /export/markdown?ids=`, the whole export's files for those notes).
+- The bin for documents and reminders: `deleted_at` on both (migration
+  b7e3d1a9c5f2); `DELETE` bins, `POST .../restore` brings back the same row,
+  `DELETE .../purge` (a binned one only, 409 otherwise) destroys it with what
+  points at it (`entry/bin.purge_document`). One rule hides a binned row from
+  every ORM read (`core/database._hide_binned`); the bin's own routes, a
+  space's delete and the bin listing read them with `including_binned`. The
+  Library's bin lists them by `subtype`, its menus, Open and bulk Restore and
+  Delete use `binRoutes`; Empty the bin and the auto-clear take them too. The
+  documents' and reminders' Undo restores rather than re-creating (a new id
+  and a lost history, before). Search drops a binned one until restored.
+
+Measured: `tests/test_selection_actions_row30.py`,
+`tests/test_bin_documents_reminders_row30.py`. Not verified: reading the
+clipboard inside the desktop window (pywebview), where the browser's
+permission prompt may differ.

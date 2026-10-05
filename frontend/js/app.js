@@ -1415,7 +1415,7 @@ let noteTemplateMade = false;
 //: and the fill, so the preview cannot show something the button would not
 //: write (the recipe's rule, `docTemplateFill`'s for documents).
 function noteTemplateFill(template) {
-  return String(template?.content || "").replace("{date}", new Date().toLocaleDateString());
+  return noteTemplateText(template?.content).replaceAll(NOTE_TEMPLATE_CURSOR, "");
 }
 
 //: Yours first, then the built-in ones, as the old dropdown's groups were:
@@ -1472,9 +1472,10 @@ async function useNoteTemplate() {
     );
     if (!replace) return;
   }
-  box.value = noteTemplateFill(template);
+  const filled = await noteTemplateForUse(template);
+  box.value = filled.text;
   box.dispatchEvent(new Event("input", { bubbles: true }));
-  box.focus();
+  placeTemplateCaret(box, filled.caret);
 }
 
 function noteTemplateListKeys(event) {

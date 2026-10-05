@@ -379,6 +379,10 @@ def _purge_expired_bin_entries() -> None:
             days = int(config.get_preference("recycle_bin_days", 30))
             with events.acting_as("system:recycle-bin"):
                 manager.purge_expired_deleted(session, days, uploads_dir=config.uploads_dir)
+                # The bin's documents and reminders, on the same rule.
+                from memorymap.entry import bin as other_bin
+
+                other_bin.purge_expired(session, days)
         finally:
             session.close()
     except Exception:  # noqa: BLE001  # a failed purge must never block startup

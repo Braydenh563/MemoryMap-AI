@@ -410,7 +410,8 @@ HELP_TOPICS: list[dict] = [
         "id": "undo-bin",
         "keywords": ("undo", "redo", "recycle bin", "restore", "deleted", "trash"),
         "body": (
-            "Deleting a note or a board goes to the recycle bin, not gone for "
+            "Deleting a note, a board, a document or a reminder goes to the "
+            "recycle bin, not gone for "
             "good: restore it from the Library's Bin filter, or use the Undo "
             "toast that appears right after deleting. Ctrl/Cmd+Z undoes and "
             "Ctrl+Shift+Z or Ctrl+Y redoes; the status bar's Undo and Redo "
@@ -1314,7 +1315,9 @@ HELP_TOPICS.extend(
                 "delete together, and Select all ticks the whole page; the "
                 "selection bar's Tags adds or removes tags on every selected note, "
                 "and its ... menu adds to or removes from Favourites, archives, "
-                "publishes drafts or removes a tag, each undoable."
+                "publishes drafts, removes a tag, moves them to another space or "
+                "exports them as Markdown, each undoable. Editing a note shows "
+                "its words and reading time beside Save."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

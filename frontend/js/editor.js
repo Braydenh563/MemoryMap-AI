@@ -928,7 +928,6 @@ function editorCommands(context) {
   // before ours" ordering loadTemplates() already uses for the dropdown.
   const custom = (typeof prefsCache !== "undefined" && prefsCache?.custom_templates) || [];
   const builtin = typeof BUILTIN_TEMPLATES !== "undefined" ? BUILTIN_TEMPLATES : [];
-  const today = new Date().toLocaleDateString();
   for (const template of [...custom, ...builtin]) {
     if (!template?.name || !template?.content) continue;
     commands.push({
@@ -938,13 +937,18 @@ function editorCommands(context) {
       label: `${template.name}`,
       about: "Insert this template",
       keywords: ["template", template.name],
-      sample: template.content.replace("{date}", today).split("\n").slice(0, 8).join("\n"),
-      run: (textarea) =>
-        editorApplyAction(textarea, {
-          // Same {date} substitution applyTemplate() does, so a template
-          // behaves identically whichever way it was reached.
-          insert: template.content.replace("{date}", today),
-        }),
+      sample: noteTemplateFill(template).split("\n").slice(0, 8).join("\n"),
+      //: The variables the Capture box's picker fills (`noteTemplateForUse`,
+      //: WORLD_CLASS_PLAN 5 item 4), so a template behaves the same whichever
+      //: way it was reached; the caret lands on its `{{cursor}}`. The range is
+      //: read before the clipboard is, which can take a moment.
+      run: async (textarea) => {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const filled = await noteTemplateForUse(template);
+        const at = filled.caret >= 0 ? filled.caret : filled.text.length;
+        editorSplice(textarea, start, end, filled.text, { from: at, to: at });
+      },
     });
   }
 

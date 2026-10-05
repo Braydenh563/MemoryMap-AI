@@ -670,18 +670,20 @@ too much routes through the model. Each of these is pure code:
    (app.js ~9894) and `search/engine.py` answers the same operators;
    whether the Library, Timeline and palette share the parser was not checked.
 2. (a) built (saved searches, `routes_settings.py` and app.js).
-3. (b) documents have unlinked mentions (`routes_documents.py`); notes do not. S.
-4. (b) document templates fill `{{title}}` and `{{date}}`; `{{clipboard}}`
-   and a cursor mark are not built, and note templates were not checked. S.
-5. (b) merge, delete, add to a board or map and make a map exist; move to a
-   space and export from a selection were not found. S.
+3. (a) built: notes have unlinked mentions too (GRAPH_PLAN KG1, 2026-10-04).
+4. (a) built 2026-10-05 for note templates (the user-editable ones):
+   `{{clipboard}}`, `{{cursor}}`, `{{time}}`; the document templates are
+   built-in and use none of them.
+5. (a) built 2026-10-05: Move to space and Export as Markdown on the
+   selection bar's ⋯.
 6. (a) built: JSON, CSV, Markdown and zip export, OPML for maps, the print
    stylesheet for documents.
 7. (c) Notion, Evernote and Apple Notes importers are not built (H6). M.
 8. (a) built: `DEFAULT_SHORTCUTS` and the shortcut sheet.
-9. (b) documents have word count and reading time; notes were not found to. S.
-10. (b) the bin restores entries (notes, boards, maps: `POST /entries/{id}/restore`);
-    documents and reminders were not traced. S.
+9. (a) built 2026-10-05: a note's edit form shows its words and reading time.
+10. (a) built 2026-10-05: documents and reminders go to the bin too.
+
+Rows 3, 4, 5, 9 and 10 moved to HISTORY.md, "Moved from the plans, 2026-10-05 (nbf1005)".
 
 ---
 
@@ -804,7 +806,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 27 | H9 | usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval | S to M each | H9 |
 | 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure; the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
 | 29 | §10 | F1 a `prefs` module, F5 `api.stream`/`api.upload` and the no-bare-fetch lint, F7's threads onto the pool (the ratchet is built), F10 a `readings` table, F12 a store (F4 built 2026-09-26) | S to L | §10 |
-| 30 | §5 | notes' unlinked mentions, word count and reading time; `{{clipboard}}` and a cursor mark; move to a space and export from a selection; the bin for documents and reminders | S each | §5 |
+| 30 | ~~§5~~ | ~~notes' unlinked mentions, word count and reading time; `{{clipboard}}` and a cursor mark; move to a space and export from a selection; the bin for documents and reminders~~ built: unlinked mentions with KG1 (2026-10-04); the rest 2026-10-05 (`tests/test_selection_actions_row30.py`, `tests/test_bin_documents_reminders_row30.py`) | done | HISTORY |
 | 31 | Placed 2026-09-09 | 1 capture into the selected space and a bulk move; 99 (b) scroll restore, (c) the AI dot's latency tooltip, (d) Paste as note; 92's row redesign; 97 RapidOCR; 79 and 22 to 23 not re-checked; 261's vault re-key (`POST /auth/rotate-vault-key`) has no UI | S to M | those sections |
 | 32 | 301 | the navigation and undo audit table, then the fixes | M | every surface |
 | 33 | §21 | rows 1 and 2 on the notice recipe, row 12's "check the address" in the status line, row 13's update size in the About page | S | app.js, `routes_models.py`, settings.js |

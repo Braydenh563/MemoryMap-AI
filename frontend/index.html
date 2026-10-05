@@ -8872,8 +8872,9 @@ Link to another note with [[its first few words]]."></textarea>
             <textarea id="template-body" rows="4" maxlength="2000" aria-label="Template text"
               placeholder="Book: &#10;Author: &#10;Started: &#10;Thoughts:"></textarea>
             <p class="muted">
-              Tip: write <code>{date}</code> anywhere in the template and it's
-              replaced with today's date when the template is applied.
+              Tip: <code>{date}</code> and <code>{{time}}</code> become today's
+              date and the time, <code>{{clipboard}}</code> what you copied, and
+              <code>{{cursor}}</code> is where you start typing.
             </p>
             <div class="row">
               <button id="template-add" class="small">Add template</button>
@@ -10180,7 +10181,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="settings-group">
               <h3>Recycle bin</h3>
               <div class="row">
-                <label for="pref-bin-days" class="muted">Auto-clear binned notes after</label>
+                <label for="pref-bin-days" class="muted">Auto-clear binned notes, documents and reminders after</label>
                 <input id="pref-bin-days" type="number" min="1" max="365">
                 <span class="muted">days</span>
               </div>

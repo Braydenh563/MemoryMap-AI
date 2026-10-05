@@ -363,7 +363,20 @@ function renderEditForm(li, entry) {
   const meta = document.createElement("div");
   meta.className = "note-edit-meta";
   row.classList.add("note-edit-actions");
-  meta.append(tagsInput, categorySelect, row);
+  //: Words and reading time while the note is open (WORLD_CLASS_PLAN 5 item
+  //: 9): the count a document's head carries, for a note, at the documents'
+  //: 220 words a minute; the properties block is not prose, so not counted.
+  const counts = document.createElement("span");
+  counts.className = "muted text-sm note-edit-counts";
+  const recount = () => {
+    const words = (stripFrontmatter(`${titleInput.value}\n${textarea.value}`).match(/\S+/g) || []).length;
+    const minutes = words / 220;
+    const read = !words ? "" : minutes < 1 ? " · under a min" : ` · ${Math.round(minutes)} min read`;
+    counts.textContent = `${words.toLocaleString()} word${words === 1 ? "" : "s"}${read}`;
+  };
+  recount();
+  for (const field of [titleInput, textarea]) field.addEventListener("input", recount);
+  meta.append(tagsInput, categorySelect, counts, row);
   const toolbarEl = noteEditToolbar(textarea.id);
   //: Preview: reported: "there is no preview", then, once there was one,
   //: "if the formatting bar was the same, the preview button would be in

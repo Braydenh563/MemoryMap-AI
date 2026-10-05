@@ -395,6 +395,7 @@ def _archive(session: Session) -> list[dict]:
         items.append(
             {
                 "kind": "archived",
+                "subtype": "note",
                 "id": entry.id,
                 "title": own_title or (_clip(content)[:60] or "Empty note"),
                 "preview": _clip(preview_source),
@@ -406,6 +407,47 @@ def _archive(session: Session) -> list[dict]:
                 "pinned": False,
                 "thumb_attachment_id": thumb_id,
                 "thumb_url": None if thumb_id else _first_inline_image_url(content),
+            }
+        )
+    #: Documents and reminders have a bin too (WORLD_CLASS_PLAN 5 item 10):
+    #: the same list, told apart by `subtype`, each with its own routes.
+    from memorymap.entry import bin as other_bin
+
+    documents, reminders = other_bin.binned(session)
+    for doc in documents[:PER_KIND_LIMIT]:
+        items.append(
+            {
+                "kind": "archived",
+                "subtype": "document",
+                "id": doc.id,
+                "title": doc.title or "Untitled",
+                "preview": _clip(doc.content or ""),
+                "updated_at": doc.deleted_at.isoformat(),
+                "detail": "a document, in the bin",
+                "size": len(doc.content or ""),
+                "entry_id": None,
+                "mime": None,
+                "pinned": False,
+                "thumb_attachment_id": None,
+                "thumb_url": None,
+            }
+        )
+    for reminder in reminders[:PER_KIND_LIMIT]:
+        items.append(
+            {
+                "kind": "archived",
+                "subtype": "reminder",
+                "id": reminder.id,
+                "title": reminder.text or "Reminder",
+                "preview": "",
+                "updated_at": reminder.deleted_at.isoformat(),
+                "detail": "a reminder, in the bin",
+                "size": len(reminder.text or ""),
+                "entry_id": None,
+                "mime": None,
+                "pinned": False,
+                "thumb_attachment_id": None,
+                "thumb_url": None,
             }
         )
     return items

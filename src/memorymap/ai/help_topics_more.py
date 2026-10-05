@@ -194,7 +194,7 @@ MORE_TOPICS: list[dict] = [
             "general settings",
         ),
         "body": (
-            "Settings, General. Recycle bin: auto-clear binned notes after a "
+            "Settings, General. Recycle bin: auto-clear binned notes, documents and reminders after a "
             "number of days. Chat history: delete saved chats after a number "
             "of days (0 keeps every chat; pinned chats are never deleted). "
             "Notifications: mute everything except reminders. Writing: smart "

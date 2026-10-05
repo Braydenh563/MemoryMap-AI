@@ -469,8 +469,42 @@ def update_reminder(
 
 @router.delete("/{reminder_id}")
 def delete_reminder(reminder_id: int, session: Session = Depends(get_session)) -> dict:
+    """To the recycle bin (WORLD_CLASS_PLAN 5 item 10): hidden, not fired,
+    restorable with its id and its target until purged."""
     reminder = _existing(session, reminder_id)
     log_action(session, "deleted", "reminder", reminder.id)
+    reminder.deleted_at = utcnow()
+    session.commit()
+    return {"deleted": True, "binned": True}
+
+
+def _binned(session: Session, reminder_id: int) -> Reminder:
+    from memorymap.entry import bin as other_bin
+
+    with other_bin.including_binned(session):
+        reminder = session.get(Reminder, reminder_id)
+    if reminder is None:
+        raise HTTPException(status_code=404, detail="That reminder could not be found.")
+    return reminder
+
+
+@router.post("/{reminder_id}/restore")
+def restore_reminder(reminder_id: int, session: Session = Depends(get_session)) -> dict:
+    reminder = _binned(session, reminder_id)
+    if reminder.deleted_at is not None:
+        reminder.deleted_at = None
+        log_action(session, "restored", "reminder", reminder.id)
+        session.commit()
+    return _to_out(session, reminder)
+
+
+@router.delete("/{reminder_id}/purge")
+def purge_reminder(reminder_id: int, session: Session = Depends(get_session)) -> dict:
+    """For good; only a binned reminder."""
+    reminder = _binned(session, reminder_id)
+    if reminder.deleted_at is None:
+        raise HTTPException(status_code=409, detail="Only a reminder in the bin can be deleted for good.")
+    log_action(session, "purged", "reminder", reminder.id)
     session.delete(reminder)
     session.commit()
-    return {"deleted": True}
+    return {"purged": reminder_id}

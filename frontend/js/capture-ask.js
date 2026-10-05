@@ -303,6 +303,56 @@ function renderCaptureDocumentAdder() {
   slot.replaceChildren(adder);
 }
 
+//: **Template variables** (WORLD_CLASS_PLAN 5 item 4). `{date}` was the one
+//: a note template had; `{{date}}` and `{{time}}` read the same way (one or
+//: two braces), `{{clipboard}}` is what is on the clipboard when the template
+//: is used, and `{{cursor}}` is where the caret lands. The preview shows the
+//: clipboard as a placeholder rather than reading it before anything is chosen.
+const NOTE_TEMPLATE_CURSOR = "{{cursor}}";
+
+function noteTemplateText(raw, clipboard = "[clipboard]") {
+  const now = new Date();
+  return String(raw || "")
+    .replace(/\{\{?date\}\}?/g, now.toLocaleDateString())
+    .replace(/\{\{?time\}\}?/g, now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))
+    .replaceAll("{{clipboard}}", clipboard);
+}
+
+//: The text and the caret for Use this template: the clipboard read only
+//: when the template asks for it, an unreadable one (refused, empty, no
+//: permission) filled as nothing and said once.
+async function noteTemplateForUse(template) {
+  const raw = String(template?.content || "");
+  let clipboard = "";
+  if (raw.includes("{{clipboard}}")) {
+    try {
+      clipboard = (await navigator.clipboard.readText()) || "";
+    } catch {
+      toast("Couldn't read the clipboard, so that part of the template is empty.", true);
+    }
+  }
+  const full = noteTemplateText(raw, clipboard);
+  const caret = full.indexOf(NOTE_TEMPLATE_CURSOR);
+  return { text: full.replaceAll(NOTE_TEMPLATE_CURSOR, ""), caret };
+}
+
+//: The caret at the template's `{{cursor}}`, in the editor when one is
+//: mounted (it mirrors the textarea a frame later), else in the textarea;
+//: at the end when the template has no mark.
+function placeTemplateCaret(box, caret) {
+  requestAnimationFrame(() => {
+    const at = caret >= 0 ? caret : box.value.length;
+    const surface = typeof noteSurfaceFor === "function" ? noteSurfaceFor(box) : null;
+    if (surface) {
+      surface.focus();
+      surface.setSelection?.(at, at);
+    } else {
+      box.focus();
+      box.setSelectionRange(at, at);
+    }
+  });
+}
+
 function openDocumentFromNote(documentId) {
   switchTab("documents");
   // The tab's own loader races us otherwise, and opens the last document.

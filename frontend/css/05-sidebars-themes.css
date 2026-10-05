@@ -6153,6 +6153,17 @@ button.ghost.doc-template-choice[aria-checked="true"] {
   margin-left: auto;
 }
 
+/* The word count and reading time (WORLD_CLASS_PLAN 5 item 9) sit at the
+   right with Save and Cancel, the slack before them. */
+.note-edit-meta > .note-edit-counts {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.note-edit-meta > .note-edit-counts + .note-edit-actions {
+  margin-left: 0;
+}
+
 /* One height for everything on the meta row, reported: "the ui elements
    aren't the same height and are out of alignment". */
 .note-edit-meta > input,

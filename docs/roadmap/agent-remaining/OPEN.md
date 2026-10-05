@@ -573,9 +573,9 @@ pane's name, the errors sweep's aside clipping at 390.
 
 ### Whiteboard, mind map and Atlas
 
-- **Board and map history**: a board's history does not survive a reload and an
-  agent's or another tab's change is not on its stack (decision 17 says the
-  event log is the long memory); redo of the board-level steps (theme,
+- **Board and map history**: an agent's or another tab's change is not on a
+  board's stack (decision 17 says the event log is the long memory; a board's
+  undo survives a reload since 2026-10-05, `undo-store.js`); redo of the board-level steps (theme,
   numbering, layout) is not swept; `wbMapCrossLinkToBranch`,
   `wbMapReverseCrossLink`, `wbMapCutCrossLink`, `wbMapAddReference`,
   `wbApplyMapTemplate`, `wbArrangeMindMap`, `wbMindMapAddCard`, bucket fill and

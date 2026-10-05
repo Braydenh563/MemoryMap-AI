@@ -7,6 +7,143 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WHITEBOARD_PLAN)
+
+Rows of WHITEBOARD_PLAN that were built and still sat in it, each confirmed on the head by a grep. The decisions 19 to 36 stay in the plan (decisions are not remade), with a status line; the placed blocks and the stale "open" lines moved here.
+
+### Placed items 25, 43 and 47 (INBOX, 2026-09-09)
+
+25 is built (HISTORY.md, "one handle recipe": the note card's own edge stands down while it is selected, and a link can start from and land on every kind, `wbLinkCandidates`). 43 is built: the top bar's menus were fixed in e1e395b (`kebab-viewport.js`, 15 cases OK) and the tool rail and the properties panel are Phases 1 to 3 (BUILT 2026-09-12; `whiteboard.js` 24 checks, `whiteboard3.js` 12). 47 is built: `docks.js` at 1440 re-measured on 2026-10-05, Notes 6 controls and Library 6, both under the ceiling. The text as it stood:
+
+25. **Whiteboard: the edge anchor outline on note objects differs from
+    every other object kind.** Decision: one anchor recipe for all kinds
+    (the shape one; the note one goes). Owner: WHITEBOARD_PLAN Phase 1.
+43. **(the top bar's menus: fixed, e1e395b; the rest is Phase 1)**
+    **Whiteboard bottom tool rail and the properties panel** are not on
+    the refined recipes (the top bar is). Owner: WHITEBOARD_PLAN Phase 1.
+    **Done, one part:** the five top-bar menus (Insert, Edit, Arrange, View,
+    Board) clipped at the bottom of the panel, the View menu screenshot in
+    31. They were already capped to the window, which was not the bug:
+    measured at 1280x640, View and Arrange ended at y=628 inside a 640px
+    window while `#library-view-whiteboard` (`overflow: hidden`) ends at
+    y=579, so the last 49px was cut off by an ancestor. Now on 31's recipe
+    (escape the clipper, then cap, then scroll). kebab-viewport.js sweeps
+    all five at 1440x900, 1280x640 and 1280x420: 15 cases, all OK. The tool
+    rail and the properties panel are still open.
+47. **Notes (10) and Library (9) still count over the seven-control
+    ceiling** (`scratchpad/ui-sweeps/docks.js`), same as Graph did before
+    this batch. Graph's fix (moving `#graph-view-picker` into its More menu)
+    is not a decision this item can reuse for these two: graph.md section 3
+    named its own two candidates for graph specifically, and named nothing
+    for Notes or Library beyond the counts, so guessing which of their
+    controls moves where is a design call, not a mechanical one (CLAUDE.md
+    §2 rule 3 -- a missing decision is recorded, not remade). Both docks'
+    inflated counts are partly an artefact of how `docks.js` counts, worth
+    knowing before picking a fix: a native `<select>` is auto-enhanced into
+    three counted elements (the select, its `.select-shell`, its
+    `.select-opener`), and a `.seg` segmented control counts as one plus one
+    per visible option, so Library's sort select and its two-button
+    Cards/Rows segment alone are 6 of its 9, and Notes' sort select and its
+    two-button Rows/Cards segment are 7 of its 10. Recommendation: before
+    moving anything, decide in UI_MODERNISATION_PLAN Phase 8 whether the
+    ceiling counts *controls a person reasons about* (a segmented view
+    toggle is one decision, not three) or literal DOM elements as `docks.js`
+    does today; if the latter stands, the same "into an existing menu"
+    treatment graph got is available for Library's `#library-sort` (into
+    Filter or More) and Notes' `#note-sort` (into a menu of its own), which
+    would need one new decision line each rather than either being moved on
+    a solo guess. Owner: UI_MODERNISATION_PLAN Phase 8.
+
+### Placed items 48, 52, 56, 64 and 65 (INBOX, 2026-09-09)
+
+48 is built: `LAZY_MODULES` in `app.js` loads whiteboard.js, documents.js, library.js and graph.js on first use of their tab (`tests/test_frontend_load_order.py`). 52, 64 and 65 are built by Phases 1 and 2 (one surface per panel, hairline dividers, the Arrange section; HISTORY.md, "Built, 2026-09-09: one surface per panel, and the Arrange section", and the INBOX 52, 64, 65 record). 56 is built: the picture card's bottom recipe ("Decided, 2026-09-12: what the bottom of a picture card is", UI_MODERNISATION_PLAN Phase 7). The text as it stood:
+
+48. **Every module parses at boot, whichever tab opens.** Decision: load
+    whiteboard.js, documents.js, library.js and graph.js on first use of
+    their tab (a small loader in app.js, `tests/test_frontend_load_order.py`
+    updated for the split; boot stays synchronous for app.js and the
+    guards). Expected: the parse cost of about 1.3 MB of JavaScript leaves
+    the startup path. Owner: Opus. Size M.
+64. **Whiteboard properties panel, "needs a massive redesign and fix"**
+    (three screenshots, 01:30): Copy style row, Guide colours (three swatch
+    rows), then Group / Ungroup overlapping each other, an arrow button, the
+    three align icons, two Space buttons and Extract notes "just chucked at
+    the bottom". Owner: WHITEBOARD Phase 1 (properties panel), Opus.
+    Decision: sections with a heading each (Style, Guides, Arrange, Notes);
+    Arrange as one icon toolbar row on the dock recipe (align x3, distribute
+    x2, group/ungroup as a pair) with tooltips, never label buttons that
+    overlap; Extract notes as the section's one text button; measure that
+    no two controls' rects intersect and the panel scrolls inside.
+65. **Whiteboard panels "feel unrefined": the buttons look separate from
+    the panels** (bottom tool bar, zoom pill, properties). Same fix as
+    INBOX 52: one surface per panel, hairline dividers, no per-control
+    background except the active tool. Owner: WHITEBOARD Phase 1.
+56. **Library image cards, "really ugly"** (screenshot): thumbnail, file
+    name, "Used in" chip, a Description bullet with Show more, a model chip,
+    a "Text in this image" bullet with Show more, a "Read by ..." chip: six
+    ranks of information at one weight, chips for provenance that read as
+    actions. Owner: Opus, next slot, with INBOX 52 (whiteboard bottom bar).
+    Recommendation: thumbnail with the file name on it; one line "Used in
+    <chip>"; the description as one paragraph with a "More" toggle; the OCR
+    text folded under a single "Text in this image" disclosure; provenance
+    as one muted line at the foot ("Described by X, read by Y"), no chips.
+52. **Whiteboard bottom bar: the tool groups "feel separate from the
+    panels and not integrated"** (screenshot: seven pill groups with their
+    own backgrounds and dividers inside one bar, and the zoom pill on the
+    right in a different style). Owner: WHITEBOARD Phase 1 (bottom rail),
+    with the mind map agent's whiteboard work merged first. Recommendation:
+    one bar surface, groups separated by a hairline divider only, no
+    per-group background; the zoom pill on the same recipe. Size S.
+
+### INBOX 557 and 558, the draw.io pass
+
+Built across decisions 19 to 36 (WHITEBOARD_PLAN's "Decisions made, 2026-10-05"): the locked item's hover lock (28), the Layers tab (27), the object library with "Yours" (25), the Format panel (19, 20), one command table (23, `tests/test_wb_commands.py`), a board's look on the board (24), the AI's board tools (29, `_edit_board_item` and its three siblings), bends and line jumps (30, 31), a Mermaid subgraph as a frame (32), the board's time machine (33, `tests/test_board_history.py`), guides on drawn shapes (34), connection points on the outline (35, `wbPortsForPath`) and Branches from my notes (36). Not built: ghost topics drawn on the canvas (boot CSS room), named layers. The text as it stood:
+
+557. **The owner, 2026-10-05, three asks, verbatim.** "should there be a popup
+     hover subtle faded lick icon on locked elements or smth on the
+     whiteboard or nah??"; "what about whiteboard layers and a layers
+     panel?"; "maybe an object library??"
+     Recommendations given:
+     - (a) A faded lock fades in at a locked item's corner on hover, found
+       by a board-level hit test since the item takes no pointer
+       (decision 15). A press on one pulses it and hints once:
+       "Locked. Right-click to unlock".
+     - (b) A Layers tab: the board as a tree (frames, then groups, then
+       items) in z-order, each row with show/hide, lock and rename; a press
+       selects and zooms, a drag restacks. One new field (`hidden`). Named
+       Draw.io layers are phase 2 (BACKLOG 29c). It also lifts ink's fixed
+       place under cards.
+     - (c) A Library tab beside it: built-in shapes, frames and the vendored
+       icon set, plus "Save to library" for any selection (items, relative
+       positions, links, a thumbnail) in a small table, usable on any
+       board. Board templates (BACKLOG 4b) become saving a whole board to
+       it. Mind maps get saved branches.
+     Placed: into the whiteboard briefs after the features audit
+     (scratchpad/audit1005/features.md).
+
+558. **The owner, 2026-10-05, verbatim.** "I think an object or elements
+     library would be really good like with what draw.io has. I want more
+     whiteboard features, take everything from draw.io as it is sooooo
+     useful and nifty. also improve the usability and reliablility of the
+     mindmap. make them features people can actually use and use well.
+     redesign the controls and how they can be used and accessed where
+     needed to maximise usability, utility, accessibility, and
+     learnability" Placed: the features audit is now writing the full
+     draw.io catalogue, the library spec, a controls redesign for board and
+     map, and a mind map usability pass, as phased briefs. Each phase then
+     goes to one Opus agent, its decisions entered in WHITEBOARD_PLAN and
+     MINDMAP_PLAN.
+     Then (verbatim): "also the ability to save custom elements and stuff as
+     well": saved selections, custom shapes drawn on the board, saved styles
+     and palettes, sticky/card/topic presets, saved branches, and whole
+     boards as templates, all in the library's "Yours", importable and
+     exportable.
+
+### Two stale "open" lines in the undo audit
+
+- **Entity merge**: the audit's table said "none yet (open; another agent's)". Built (INBOX 553(a)): `merge_with_undo` and `POST /merges/{undo_id}/undo` (`routes_entities.py`, `ai/entities.py`), the Undo in the merge's toast (`entity-page.js`). The table row now says so.
+- **A board's undo across a reload**: the audit's "Open: a board's undo does not survive a reload" was answered by the amendment to decision 2 (the last 100 steps per board in IndexedDB, `undo-store.js`). The plan line and `agent-remaining/OPEN.md`'s history row now say so; what stays open is an agent's or another tab's change, which is not on the stack (the History sheet has it).
+
 ## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: UI_MODERNISATION_PLAN)
 
 Three blocks of UI_MODERNISATION_PLAN that were built and still sat in the plan, moved whole with the evidence found on the head. The plan's own record already said "Phases 0 to 11 built" (ROADMAP.md).

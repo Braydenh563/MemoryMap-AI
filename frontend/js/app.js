@@ -2198,6 +2198,7 @@ const LAZY_MODULES = {
   assistantAvatar: ["/js/assistant-avatar.js"],
   //: Arranging the dashboard's Quick access row (INBOX 461): quick-access.js.
   quickAccess: ["/js/quick-access.js"],
+  notesRail: ["/js/notes-rail-spy.js"],
   //: The suggestions inbox (GRAPH_PLAN KG9): see suggestions-inbox.js.
   inbox: ["/js/suggestions-inbox.js", "/js/entity-page.js", "/js/link-types.js", "/js/note-properties.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between

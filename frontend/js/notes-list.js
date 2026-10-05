@@ -3836,7 +3836,7 @@ function syncNotesRailToggle() {
   //: A setting, said as one (INBOX 432): "Hide connections" read as an
   //: action on a column that was not there when no note was open.
   const on = !notesRailHiddenByChoice();
-  setLabel(toggle, `${on ? "ph:check-square" : "ph:square"} Connections beside an open note`);
+  setLabel(toggle, `${on ? "ph:check-square" : "ph:square"} Connections beside the note you're reading`);
   toggle.setAttribute("aria-pressed", String(on));
 }
 
@@ -3844,10 +3844,14 @@ async function renderNotesRail() {
   const rail = $("notes-rail");
   if (!rail) return;
   syncNotesRailToggle();
+  //: INBOX 571: the rail follows the note in view (notes-rail-spy.js).
+  if (notesRailWide.matches) ensureModule("notesRail");
+  const mark = typeof notesRailMark === "function" ? notesRailMark : () => {};
   const entry = notesRailWanted();
   if (!entry) {
     if (rail.contains(document.activeElement)) notesRailFocusSubject();
     rail.hidden = true;
+    mark(null);
     return;
   }
   rail.hidden = false;
@@ -3862,12 +3866,14 @@ async function renderNotesRail() {
   if (list && list.getBoundingClientRect().width < NOTES_RAIL_MIN_READING) {
     rail.hidden = true;
     rail.dataset.cramped = "1";
+    mark(null);
     return;
   }
   delete rail.dataset.cramped;
   const subject = $("notes-rail-subject");
   subject.textContent = entry.is_private ? "Private note" : entry.title || notePreviewText(entry.content);
   subject.title = subject.textContent;
+  mark(entry);
   const body = $("notes-rail-body");
   const key = `${entry.id}:${_entriesLoadGeneration}`;
   if (body.dataset.key === key) return;
@@ -3989,12 +3995,8 @@ function setNotesRailHidden(hidden) {
     //: opener at 1440x600, over the rail). A menu acts on a note; it does not
     //: choose one to read.
     if (event.target.closest?.(".menu-wrap, .action-menu")) return;
-    //: **Focus follows an open rail; it does not open one** (INBOX 432).
-    //: Any click in a card (a star, a tag, the text) is focus in its row,
-    //: and the column appeared under the pointer: the list went from 1066
-    //: to 747px and the first note dropped 44px. Opening a note, expanding
-    //: a row or editing one opens the rail; walking the list then moves it.
-    if (notesRailId == null) return;
+    //: INBOX 571: a card chosen by hand is the subject (it is pinned in
+    //: notes-rail-spy.js); the rail is already drawn, so nothing moves.
     const id = Number(li.dataset.id);
     if (!Number.isFinite(id) || id === notesRailId) return;
     notesRailId = id;
@@ -4008,11 +4010,6 @@ function setNotesRailHidden(hidden) {
   $("notes-rail-toggle")?.addEventListener("click", () => {
     setNotesRailHidden(!notesRailHiddenByChoice());
     $("notes-more-menu")?.removeAttribute("open");
-    //: Said when nothing would change on screen (INBOX 546, the owner: "idk
-    //: if [it] does anything"): the column only shows beside an open note.
-    if (!notesRailHiddenByChoice() && notesRailId == null) {
-      toast("Connections show beside a note when you open one.");
-    }
   });
   //: The keys every list here keeps (WORLD_CLASS_PLAN 1.6): arrows walk the
   //: rows, Enter opens one (they are buttons), Escape goes back to the list.

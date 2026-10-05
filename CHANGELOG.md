@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Notes: the Connections column follows the note you are reading: the card you click, or else the one in view as you scroll, which wears a thin accent line at its left; the More menu's switch reads "Connections beside the note you're reading" (INBOX 571).
 - Notes list: Tab walks the controls of one card, the one the arrow keys are on, and then leaves the list; 27 notes were 281 Tab stops, now the card's own five to seven (audit 2026-10-05, UX-10).
 - Notes, Ask and the Guide: a selected question no longer brings up the writing popup (Highlight, Bold) over the tab bar after it is asked (audit 2026-10-05, UX-09).
 - Command palette (Ctrl+K): rows for the recycle bin (it opens the Library with Include the bin ticked), Questions, Ask, Undo and Redo, and each row answers to the words people type for it ("trash", "deleted", "backup", "restore", "theme"), where those found nothing (audit 2026-10-05, UX-08).

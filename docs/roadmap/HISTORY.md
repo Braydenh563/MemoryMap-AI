@@ -41408,6 +41408,47 @@ The two cheap additions the plan's research section named (decisions 11 to
   model-less notebook the queue is every note the person has not filed by
   hand; that is the row as written ("anything filed Uncategorised").
 
+## Built 2026-10-05: INBOX 598, 602 and 596's skeleton part (loading states)
+
+(The INBOX entries themselves are moved by the orchestrator; this is the
+record.)
+
+- **598, the "horizontal line in the middle", found.** The first-visit
+  placeholder of Graph, Library and Documents (`tabPlaceholder`,
+  navigation.js) was one `.skeleton` meant to fill the page, absolutely
+  placed with both insets. The page is a flex column that centres its
+  children, and an absolutely placed flex child takes `align-self` from it:
+  it shrank to its content, 49px (the skeleton's two bars), centred 439px
+  down a 799px page and wider than it (measured at 1440). Stretched now.
+- **598, the page's shape and its name.** `TAB_SKELETONS`: a dock (name bar
+  and actions), then the graph's canvas with a scatter of dots, the
+  library's chips and twelve tiles, the documents list beside the open page
+  (the list alone on a phone); all `.skeleton` pieces through the CSSOM, the
+  boot CSS being at its cap. Past 400ms a `role="status"` line with the ring
+  in the dock's middle: "Opening the graph…", "Opening the library…",
+  "Opening documents…".
+- **596, the dashboard.** A widget mounts with two skeleton rows
+  (`showSkeletons`), gone the moment it draws its own; the
+  `.dash-body:empty::after { content: "Loading…" }` rule is deleted. While
+  a full draw fills the grid unseen (`.dash-filling`), `dashFillingSkeleton`
+  lays skeleton cards in the grid's own columns over its box. Found on the
+  way: a brand-new notebook's getting-started card was added after
+  `.dash-filling` and returned early, so it stayed hidden for good.
+- **602, back to the dashboard.** `switchTab` asks `renderDashboard({
+  refresh: true })`; when the layout is the one drawn (`dashGridShape`),
+  `refreshDashWidgets` draws each widget again into a body laid out beside
+  the old one at its width, unseen, and swaps it in when done.
+- Measured (`scratchpad/ui-sweeps/loading598.js`, CPU 4x by CDP, lazy
+  bundles held 1.5s): before, the placeholder was one piece for 2.4 to
+  3.3s with no name, the dashboard's return had 10 frames with no
+  dashboard (491 to 998ms), and widgets said "Loading…". After: 11 to 26
+  pieces per surface, the name at the first frame past 400ms, 0 blank
+  frames, 0 empty frames on the return with every card swapped, 0 "Loading…",
+  the grid's outline 0px off its box; at 1440 and 390, light and dark.
+  `tests/test_lazy_skeletons_598.py` (5), with DESIGN.md's new recipe row.
+- Not verified: the desktop window (pywebview) itself; a real slow disk
+  rather than a held route.
+
 ## INBOX resolved, 2026-10-05
 
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs

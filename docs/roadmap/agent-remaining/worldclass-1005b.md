@@ -15,6 +15,14 @@ WORLD_CLASS_PLAN section 8's open rows, in the plan's order, from `a4f7aac`.
   HISTORY.md, "Moved from the plans, 2026-10-05 (section 17)". Decision
   taken (recommended, not confirmed): the card's 50, not 60.
 
+- **INBOX 598, 602, 596's skeleton part: done** (the coordinator's switch).
+  Page-shaped outlines and a named state for Graph, Library, Documents; the
+  dashboard's skeleton rows, its filling outline and its in-place refresh on
+  a return. Record: HISTORY.md, "Built 2026-10-05: INBOX 598, 602 and 596's
+  skeleton part". The INBOX entries are left for the orchestrator to move
+  (this brief did not edit INBOX.md). 596's other parts (the library menu
+  position, the board sidebar, templates) are the whiteboard agent's.
+
 ## Stopped here (switched to INBOX 598, 602, 596 by the coordinator)
 
 - **Row 11, section 17 row 5 (most opened this month): half built, not

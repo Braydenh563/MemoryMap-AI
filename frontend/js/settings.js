@@ -1393,6 +1393,9 @@ const APPEARANCE_DEFAULTS = {
   // turning it back off restores exactly the look that was chosen.
   perf: "auto", // auto | on | off
   motion: "auto", // "auto" = follow the OS; "reduced" = force-still
+  // Interface animations (the polish set): on plays them whatever reduced
+  // motion says; off makes them instant (00-tokens-shell.css, `--ui-*`).
+  "ui-motion": "on",
   // Background movement, separate from the interface-wide motion setting.
   // "auto" follows reduced-motion; "moving" is an explicit request that
   // overrides it; "still" never moves. This key was missing entirely, which
@@ -2233,6 +2236,7 @@ function applyAppearance() {
   root.style.setProperty("--glass-sheen-strength", Number(appearancePref("glass-sheen-strength")) / 100);
   root.dataset.themePreset = activeThemePreset();
   root.dataset.motion = perf ? "reduced" : appearancePref("motion");
+  root.dataset.uiMotion = appearancePref("ui-motion");
   root.dataset.progressMotion = appearancePref("progress-motion");
   root.dataset.avatarMotion = appearancePref("avatar-motion");
   root.dataset.avatarFollow = appearancePref("avatar-follow");
@@ -2441,6 +2445,7 @@ function renderAppearance() {
   if (/^#[0-9a-f]{6}$/i.test(showing)) $("harmony-base").value = showing;
   $("contrast-toggle").checked = contrastOn();
   $("reduce-motion-toggle").checked = appearancePref("motion") === "reduced";
+  $("ui-motion-toggle").checked = appearancePref("ui-motion") !== "off";
   $("bg-art-toggle").checked = bgArtOn();
   $("bg-style-row").classList.toggle("hidden", !bgArtOn());
   $("bg-intensity-row").classList.toggle("hidden", !bgArtOn());
@@ -2720,7 +2725,7 @@ function renderPaletteGrid() {
 
 function resetAppearance() {
   for (const key of [
-    "fontsize", "font", "density", "glass", "perf", "motion", "progress-motion", "avatar-motion", "avatar-follow", "avatar-buddy", "avatar-buddy-size", "avatar-buddy-actions", "atlas-style", "assistant-avatar", "atlas-look", "face-look", "dash-mark", "bg-intensity", "accent",
+    "fontsize", "font", "density", "glass", "perf", "motion", "ui-motion", "progress-motion", "avatar-motion", "avatar-follow", "avatar-buddy", "avatar-buddy-size", "avatar-buddy-actions", "atlas-style", "assistant-avatar", "atlas-look", "face-look", "dash-mark", "bg-intensity", "accent",
     "contrast", "bgArt", "theme", "radius", "glass-blur", "glass-opacity",
     "glass-sheen", "glass-sheen-strength", "page-wash", "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
@@ -2938,6 +2943,10 @@ $("reduce-motion-toggle").addEventListener("change", (e) => {
   if (e.target.checked) stopBgArt(); // a still UI shouldn't keep the art running
   else if (bgArtOn()) startBgArt();
   renderBrandLogo(); // start/stop the emblem's rotation to match
+});
+$("ui-motion-toggle").addEventListener("change", (e) => {
+  localStorage.setItem("ui-motion", e.target.checked ? "on" : "off");
+  applyAppearance();
 });
 $("bg-intensity").addEventListener("input", (e) => {
   localStorage.setItem("bg-intensity", e.target.value);

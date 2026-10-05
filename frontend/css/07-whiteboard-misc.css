@@ -7799,6 +7799,8 @@ button.connection-row {
   pointer-events: none;
 }
 
+/* Not the polish set: an idle fade of a whole bar, which keeps reduced
+   motion (DESIGN.md, the whole-window mode). */
 @media (prefers-reduced-motion: reduce) {
   #tab-documents.doc-focus > .doc-focus-bar {
     transition: none;
@@ -12426,19 +12428,6 @@ header#top-bar {
    4px, before the fix. */
 .doc-toolbar {
   padding-bottom: calc(var(--space-2) + var(--dock-bottom-inset));
-}
-
-/* --- 4. reduced motion ---------------------------------------------------
-   Declared here with the motion it belongs to. The sidebar sheet slides and
-   the floating action button fades in; with this preference set, both simply
-   are where they are going to be. */
-@media (prefers-reduced-motion: reduce) {
-
-  #sidebar,
-  #chat-sidebar,
-  #doc-sidebar {
-    transition: none;
-  }
 }
 
 /* --- band 2: 820-1100, iPad landscape and small laptops -------------------

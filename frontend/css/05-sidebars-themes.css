@@ -1925,12 +1925,6 @@ body.resizing-sidebar {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .sidebar-resize {
-    transition: none;
-  }
-}
-
 /* The reduced-motion stand-in for the typing dots: a word, not a gesture. */
 .typing-label {
   display: inline-block;
@@ -4063,15 +4057,6 @@ button.is-on {
   line-height: 1.35;
 }
 
-@media (prefers-reduced-motion: reduce) {
-
-  .theme-card,
-  .theme-card:hover {
-    transition: none;
-    transform: none;
-  }
-}
-
 /* --- the day-one dashboard ------------------------------------------------------
    A dozen widgets each saying "nothing here yet" made a working app look
    broken on the day someone starts using it. One card, a few real actions,
@@ -4160,15 +4145,6 @@ button.is-on {
   font-size: 0.8rem;
   max-width: 46rem;
   margin: 0.4rem auto 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-
-  .start-step,
-  .start-step:hover {
-    transition: none;
-    transform: none;
-  }
 }
 
 /* Keyboard focus on the map. The graph takes one tab stop and the arrows move
@@ -4507,13 +4483,6 @@ button.is-on {
 .tabs-line > button:not(.active):not([aria-selected="true"]):hover {
   background: var(--hover-veil);
   color: var(--ink);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tabs-line > button,
-  .tabs-line > button::after {
-    transition: none;
-  }
 }
 
 /* Agent mode reads as a mode you switch into, not a checkbox you tick, so the
@@ -5844,13 +5813,6 @@ textarea.autogrow {
 .doc-dictionary-setting-text small,
 .doc-dictionary-dialog .setting-check small {
   display: block;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .doc-dictionary-row,
-  .doc-dictionary-remove {
-    transition: none;
-  }
 }
 
 /* **The suggestions panel's head** (INBOX 549, the panel-head recipe): the

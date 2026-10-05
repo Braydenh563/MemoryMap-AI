@@ -184,6 +184,25 @@ select optgroup {
   --motion-fast: 0.12s;   /* hover/press feedback, checkbox/toggle state */
   --motion-base: 0.16s;   /* the default: colour, background, border, opacity */
   --motion-slow: 0.2s;    /* a bigger move: panel/sidebar open, card lift */
+  --motion-exit: 0.1s;    /* a thing leaving: faster than it came */
+  --motion-step: 30ms;    /* one step of a list's first-render stagger */
+  /* **The interface's own motion has its own switch** (the owner,
+     2026-10-05: "make them happen even with reduced motion but with a
+     separate toggle in the appearance settings with it automatically on").
+     The polish set (a press, a menu or dialog opening and closing, a tab's
+     indicator and panel, a list settling, a toast, a focus ring, a hover)
+     reads these, never the `--motion-*` scale directly, and they resolve
+     against `data-ui-motion` on the root (Appearance, Interface
+     animations; theme-boot.js and settings.js), not against
+     `prefers-reduced-motion`: on, they play whatever the system says; off,
+     they are zero and the polish is instant. The large decorative motion
+     (Atlas, the background art, the graph, the whiteboard) keeps the
+     reduced-motion switches. `tests/test_motion_tokens.py` holds it. */
+  --ui-fast: var(--motion-fast);
+  --ui-base: var(--motion-base);
+  --ui-slow: var(--motion-slow);
+  --ui-exit: var(--motion-exit);
+  --ui-step: var(--motion-step);
   /* The curves (INBOX 399 (4)). `ease` was the curve of 125 of the app's
      transitions and `ease-out` or a hand-written cubic-bezier of the rest,
      five curves for one kind of motion. A control that answers the pointer
@@ -849,6 +868,15 @@ select optgroup {
   --fallback-input: #ffffff;
   --fallback-inner: #f8f9fa;
   --fallback-modal: #ffffff;
+}
+
+/* Interface animations off: the polish is instant (the tokens above). */
+:root[data-ui-motion="off"] {
+  --ui-fast: 0s;
+  --ui-base: 0s;
+  --ui-slow: 0s;
+  --ui-exit: 0s;
+  --ui-step: 0s;
 }
 
 /* Base application of Appearance settings.
@@ -1689,12 +1717,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   visibility: visible;
   opacity: 1;
   pointer-events: auto;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ai-status-popup {
-    transition: none;
-  }
 }
 
 .ai-status-popup strong {
@@ -3100,13 +3122,6 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .library-image-reading[open] > summary::before {
   transform: rotate(90deg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-
-  .library-image-reading > summary::before {
-    transition: none;
-  }
 }
 
 .library-image-reading:not([open]) > .library-image-reading-body {

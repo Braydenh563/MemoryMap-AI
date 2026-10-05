@@ -181,14 +181,135 @@ def test_the_reduced_motion_blankets_stop_transitions_outright():
     it off screen (`scratchpad/ui-sweeps/companionmenulow.js`, 12 of 12
     openings under the hint, 0 of 24 without). A zero duration and a zero
     delay start no transition at all, which is what the blanket means."""
+    # Every rule that switches transitions off, in whichever blanket it sits
+    # (the system hint's, Reduce motion's, Interface animations off).
     blankets = []
     for path in sorted(CSS_DIR.glob("*.css")):
         text = _blank_comments(path.read_text(encoding="utf-8"))
-        for m in re.finditer(r"\{([^{}]*animation-iteration-count:\s*1\s*!important[^{}]*)\}", text):
+        for m in re.finditer(r"\{([^{}]*transition-duration:[^;]*!important[^{}]*)\}", text):
             blankets.append((path.name, m.group(1)))
-    assert len(blankets) >= 2, "the reduced-motion blankets moved; point this lint at them"
+    assert len(blankets) >= 3, "the motion blankets moved; point this lint at them"
     for name, body in blankets:
         duration = re.search(r"transition-duration:\s*([^;]+);", body)
         delay = re.search(r"transition-delay:\s*([^;]+);", body)
         assert duration and duration.group(1).strip() == "0s !important", f"{name}: {duration and duration.group(1)}"
         assert delay and delay.group(1).strip() == "0s !important", f"{name}: a delay starts a transition too"
+
+
+# --- Interface animations: the polish set's own switch (the owner, 2026-10-05)
+#
+# "make them happen even with reduced motion but with a separate toggle in the
+# appearance settings with it automatically on ... just make sure they are
+# cheap". The polish set (press, menus, dialogs, tab indicators and panels,
+# lists settling, toasts, focus rings, hovers) reads `--ui-*`, which resolves
+# against `data-ui-motion` on the root and never against the media query; the
+# decorative motion (Atlas, background art, graph, whiteboard) keeps reduced
+# motion. These hold the shape; `scratchpad/ui-sweeps/motion1005.js` measures
+# it in a browser.
+
+UI_TOKENS = ("--ui-fast", "--ui-base", "--ui-slow", "--ui-exit", "--ui-step")
+JS_DIR = CSS_DIR.parent / "js"
+#: The recipes the switch governs. A reduced-motion block that names one of
+#: them would be gating the polish by the media query again.
+POLISH = (
+    "button", ".chip", ".seg", ".tabs-line", "#tab-bar", "#settings-nav",
+    ".ui-glide", ".action-menu", ".dock-menu", ".help-popover", ".modal-overlay",
+    ".toast", ".tab-page", ".skeleton", ".ui-settle", ".scroll-top",
+    "summary", "#sidebar", ".theme-card", ".start-step", "header#top-bar",
+)
+#: Not polish, though they sit on a polish recipe: an indicator that something
+#: is happening (the recording pulse, the skeleton's shimmer) keeps its own
+#: reduced-motion branch, which DESIGN.md asks of every indefinite animation.
+INDICATORS = (".recording", ".skeleton")
+
+
+def _reduced_motion_blocks():
+    """(file, selector, body) of every rule inside a reduced-motion query."""
+    for path in sorted(CSS_DIR.glob("*.css")):
+        text = _blank_comments(path.read_text(encoding="utf-8"))
+        for m in re.finditer(r"@media[^{]*prefers-reduced-motion[^{]*\{", text):
+            depth, i = 1, m.end()
+            while depth and i < len(text):
+                depth += {"{": 1, "}": -1}.get(text[i], 0)
+                i += 1
+            for r in re.finditer(r"([^{};]+)\{([^{}]*)\}", text[m.end():i - 1]):
+                yield path.name, " ".join(r.group(1).split()), r.group(2)
+
+
+def test_the_interface_tokens_resolve_against_the_switch():
+    text = _blank_comments((CSS_DIR / "00-tokens-shell.css").read_text(encoding="utf-8"))
+    off = re.search(r':root\[data-ui-motion="off"\]\s*\{([^}]*)\}', text)
+    assert off, "no `:root[data-ui-motion=\"off\"]` block: the switch resolves nothing"
+    for token in UI_TOKENS:
+        assert re.search(rf"{token}:\s*var\(--motion-[a-z]+\)", text), f"{token} is not a motion token when on"
+        assert re.search(rf"{token}:\s*0s;", off.group(1)), f"{token} is not zero when off"
+
+
+def test_the_motion_sections_run_on_the_switch():
+    """Every duration in a `/* --- motion:` section is an `--ui-*` token: the
+    polish set is what the switch turns off, so it may not read the plain
+    scale, which nothing turns off."""
+    offenders = []
+    for path in sorted(CSS_DIR.glob("*.css")):
+        raw = path.read_text(encoding="utf-8")
+        heads = [m.start() for m in re.finditer(r"/\* ---", raw)]
+        for n, start in enumerate(heads):
+            if not raw.startswith("/* --- motion:", start):
+                continue
+            end = heads[n + 1] if n + 1 < len(heads) else len(raw)
+            section = _blank_comments(raw[start:end])
+            for m in re.finditer(r"(?<![-\w])(transition|animation)(?:-duration|-delay)?\s*:([^;{}]*)", section):
+                if "var(--motion-" in m.group(2):
+                    line = raw.count("\n", 0, start + m.start()) + 1
+                    offenders.append(f"{path.name}:{line}: {' '.join(m.group(0).split())[:90]}")
+    assert not offenders, "A motion section reads `--motion-*` rather than `--ui-*`:\n" + "\n".join(offenders)
+
+
+def test_the_polish_is_never_gated_by_the_media_query_alone():
+    offenders = [
+        f"{name}: `{selector}`"
+        for name, selector, body in _reduced_motion_blocks()
+        if re.search(r"(?<![-\w])(transition|animation)(-[a-z]+)?\s*:", body)
+        and any(re.search(rf"(^|[\s,>(]){re.escape(p)}(?![-\w])", selector) for p in POLISH)
+        and not all(any(i in part for i in INDICATORS) for part in selector.split(","))
+    ]
+    assert not offenders, (
+        "A reduced-motion block stops part of the polish set, which the "
+        "Interface animations switch governs (on plays it even under reduced "
+        "motion; off makes it instant through `--ui-*`):\n" + "\n".join(offenders)
+    )
+    for path in sorted(CSS_DIR.glob("*.css")):
+        text = _blank_comments(path.read_text(encoding="utf-8"))
+        assert "prefers-reduced-motion: no-preference" not in text, (
+            f"{path.name}: motion opted in by the media query; the switch decides"
+        )
+
+
+def test_the_blankets_leave_transitions_to_the_switch():
+    """Both reduced-motion blankets still the animations; their transition half
+    applies only while Interface animations is not on (or to the decorative
+    surfaces), and an off blanket exists of its own."""
+    text = _blank_comments((CSS_DIR / "02-chat-graph.css").read_text(encoding="utf-8"))
+    rules = [(" ".join(m.group(1).split()), m.group(2))
+             for m in re.finditer(r"([^{};]+)\{([^{}]*transition-duration:\s*0s !important[^{}]*)\}", text)]
+    assert rules, "no transition blanket found"
+    decorative = ("#graph-svg", "#whiteboard-container", "#nm-buddy")
+    for selector, _ in rules:
+        for part in [p.strip() for p in re.split(r",(?![^()]*\))", selector)]:
+            assert ('data-ui-motion="on"' in part and ":not(" in part) or 'data-ui-motion="off"' in part or any(
+                d in part.split(")")[0] for d in decorative
+            ), f"a transition blanket stops the polish without asking the switch: {part}"
+    assert any('[data-ui-motion="off"]' in s for s, _ in rules), "no blanket for Interface animations off"
+
+
+def test_the_switch_is_wired_from_boot_to_settings():
+    boot = (JS_DIR / "theme-boot.js").read_text(encoding="utf-8")
+    assert 'dataset.uiMotion = pref("ui-motion", "on")' in boot, "theme-boot.js does not set data-ui-motion before first paint"
+    prefs = (JS_DIR / "prefs.js").read_text(encoding="utf-8")
+    assert re.search(r'"ui-motion":\s*\{\s*default:\s*"on"', prefs), "prefs.js has no default for ui-motion"
+    settings = (JS_DIR / "settings.js").read_text(encoding="utf-8")
+    assert 'root.dataset.uiMotion = appearancePref("ui-motion")' in settings
+    assert '$("ui-motion-toggle").addEventListener("change"' in settings
+    html = (CSS_DIR.parents[0] / "index.html").read_text(encoding="utf-8")
+    assert re.search(r'<input type="checkbox" id="ui-motion-toggle" checked>', html), "the toggle is not on by default"
+    assert 'data-help-for="motion-help"' in html, "the switch has no help popover"

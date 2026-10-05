@@ -24,6 +24,9 @@ const PREFS_SCHEMA = {
   zoom: { default: "100", version: 1 },
   "graph-spread": { default: "50", version: 1 },
   "graph-gravity": { default: "50", version: 1 },
+  //: Interface animations: "on" (the default) or "off". Its absence must
+  //: read as on, which theme-boot.js and every reader of the attribute rely on.
+  "ui-motion": { default: "on", version: 1 },
 };
 
 function prefsStore() {

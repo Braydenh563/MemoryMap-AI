@@ -2733,12 +2733,6 @@ span > .chip {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .scroll-top {
-    transition: none;
-  }
-}
-
 /* --- screen-reader-only announcements --------------------------------------- */
 /* Present to assistive tech, invisible on screen. Clipped rather than
    display:none, which would take it out of the accessibility tree entirely. */
@@ -2858,12 +2852,6 @@ span > .chip {
   #category-list li:has(.category-actions) .category-actions {
     position: static;
     opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .category-actions {
-    transition: none;
   }
 }
 

@@ -1302,6 +1302,7 @@ function clearEmbeddingBackendLatch() {
 const MIRRORED_UI_EXTRAS = [
   "themePreset",
   "motion",
+  "ui-motion",
   "custom-css",
   "onboardingDone",
   // The guided tour's own flag, for the same reason `onboardingDone` is here:

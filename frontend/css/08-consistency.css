@@ -454,18 +454,6 @@ details[open] > .about-whats-new::before,
   transform: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .help-accordion summary::before,
-  .about-whats-new::before,
-  .settings-section summary::before,
-  .settings-group > summary::before,
-  .settings-fold > summary::before,
-  .advanced-css > summary::before,
-  .task-log > summary::before {
-    transition: none;
-  }
-}
-
 /* Hover is the only state that fills. Restated because the flat rule above
    outranks 07-whiteboard-misc.css's `summary:…:hover` and would otherwise
    take the pointer feedback away with the resting fill. */
@@ -10580,8 +10568,8 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
       /* The one inset transition in the app (the trade is written at the
          head of this block): a box of its own, out of flow, so a frame of
          it lays out nothing but itself. */
-      transition: top var(--motion-slow) var(--ease-in-out), right var(--motion-slow) var(--ease-in-out),
-        bottom var(--motion-slow) var(--ease-in-out), left var(--motion-slow) var(--ease-in-out);
+      transition: top var(--ui-slow) var(--ease-in-out), right var(--ui-slow) var(--ease-in-out),
+        bottom var(--ui-slow) var(--ease-in-out), left var(--ui-slow) var(--ease-in-out);
     }
 
     /* The chosen option is the indicator's now; a fill of its own as well
@@ -10600,8 +10588,8 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
        because a `transition` replaces the whole list. */
     :root .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg) > button,
     :root #settings-nav [data-section] {
-      transition: color var(--motion-slow) var(--ease-in-out), background-color var(--motion-fast) var(--ease-out),
-        translate var(--motion-fast) var(--ease-out), scale var(--motion-fast) var(--ease-out);
+      transition: color var(--ui-slow) var(--ease-in-out), background-color var(--ui-fast) var(--ease-out),
+        translate var(--ui-fast) var(--ease-out), scale var(--ui-fast) var(--ease-out);
     }
   }
 }
@@ -10672,8 +10660,8 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
   }
 
   :root #tab-bar.has-glide > button {
-    transition: color var(--motion-slow) var(--ease-in-out), background-color var(--motion-fast) var(--ease-out),
-      translate var(--motion-fast) var(--ease-out), scale var(--motion-fast) var(--ease-out);
+    transition: color var(--ui-slow) var(--ease-in-out), background-color var(--ui-fast) var(--ease-out),
+      translate var(--ui-fast) var(--ease-out), scale var(--ui-fast) var(--ease-out);
   }
 }
 
@@ -10691,14 +10679,14 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
    The phone's edge sheet already slides and is untouched (those widths take
    these classes off the aside). */
 aside[data-resizable] > :not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name) {
-  transition: opacity var(--motion-slow) var(--ease-out), transform var(--motion-slow) var(--ease-out),
-    translate var(--motion-fast) var(--ease-out), scale var(--motion-fast) var(--ease-out),
-    background-color var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-slow) var(--ease-out), transform var(--ui-slow) var(--ease-out),
+    translate var(--ui-fast) var(--ease-out), scale var(--ui-fast) var(--ease-out),
+    background-color var(--ui-fast) var(--ease-out);
 }
 
 aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.sidebar-resize):not(.sidebar-rail-name) {
   transform: translateX(calc(var(--space-3) * -1));
-  transition: opacity var(--motion-fast) var(--ease-out), transform var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-fast) var(--ease-out), transform var(--ui-fast) var(--ease-out);
 }
 
 /* Skill logs folds to the right (RIGHT_SIDE_SIDEBARS). */
@@ -10712,8 +10700,8 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
      8px toward its edge while peeked, under the toggle (INBOX 495): the
      second selector matches it. */
   transform: none;
-  transition: opacity var(--motion-slow) var(--ease-out) var(--motion-fast),
-    transform var(--motion-slow) var(--ease-out) var(--motion-fast);
+  transition: opacity var(--ui-slow) var(--ease-out) var(--ui-fast),
+    transform var(--ui-slow) var(--ease-out) var(--ui-fast);
 }
 
 /* Focus mode opens the documents sidebar whole as its own panel, folded on
@@ -10725,9 +10713,9 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 /* The rail's sideways name is what the sidebar folded into: it comes in as
    the contents go, rather than being there before they have left. */
 .sidebar-collapsed > .sidebar-rail-name {
-  transition: opacity var(--motion-slow) var(--ease-out) var(--motion-fast),
-    translate var(--motion-fast) var(--ease-out), scale var(--motion-fast) var(--ease-out),
-    background-color var(--motion-fast) var(--ease-out);
+  transition: opacity var(--ui-slow) var(--ease-out) var(--ui-fast),
+    translate var(--ui-fast) var(--ease-out), scale var(--ui-fast) var(--ease-out),
+    background-color var(--ui-fast) var(--ease-out);
 }
 
 @starting-style {
@@ -10741,7 +10729,7 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
    leaves with the class that gave it, so there is nothing to fade out. */
 #tab-documents.doc-focus #doc-prose-panel:not(.hidden),
 #tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar {
-  transition: opacity var(--motion-slow) var(--ease-out), translate var(--motion-slow) var(--ease-out);
+  transition: opacity var(--ui-slow) var(--ease-out), translate var(--ui-slow) var(--ease-out);
 }
 
 @starting-style {
@@ -10772,7 +10760,7 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
    new page is there on the first frame and settles in over `--motion-base`;
    0 blank frames. */
 .tab-page:not(.hidden) {
-  transition: opacity var(--motion-base) var(--ease-out);
+  transition: opacity var(--ui-base) var(--ease-out);
 }
 
 @starting-style {
@@ -10796,7 +10784,7 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 }
 
 .tab-page.tab-revealing > :not(.tab-placeholder) {
-  transition: opacity var(--motion-base) var(--ease-out);
+  transition: opacity var(--ui-base) var(--ease-out);
 }
 
 .tab-page > .tab-placeholder {
@@ -10807,7 +10795,7 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   margin: 0;
   z-index: 1;
   pointer-events: none;
-  transition: opacity var(--motion-base) var(--ease-out);
+  transition: opacity var(--ui-base) var(--ease-out);
 }
 
 .tab-page > .tab-placeholder.tab-placeholder-leaving {
@@ -10820,7 +10808,7 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
    opacity, so nothing under it is clickable and nothing it does is a
    layout shift anyone sees; the fade back is opacity alone. */
 #dash-grid {
-  transition: opacity var(--motion-base) var(--ease-out);
+  transition: opacity var(--ui-base) var(--ease-out);
 }
 
 #dash-grid.dash-filling {
@@ -10831,7 +10819,7 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 /* Chat's empty card waits unseen for its starters, then fades in whole
    (`renderChatEmptyState`, chat.js): it used to grow round them in view. */
 .chat-empty {
-  transition: opacity var(--motion-base) var(--ease-out);
+  transition: opacity var(--ui-base) var(--ease-out);
 }
 
 .chat-empty.chat-empty-waiting {
@@ -10850,10 +10838,10 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
    curtain, which fades out (below) rather than in. Reduced motion zeroes
    all of it (the two blankets in 02-chat-graph.css). */
 :where(.modal-overlay, .lock-overlay:not(#lock-overlay), #palette-overlay):not(.hidden) {
-  transition: opacity var(--motion-base) var(--ease-out);
+  transition: opacity var(--ui-base) var(--ease-out);
 
   & > * {
-    transition: translate var(--motion-slow) var(--ease-out), scale var(--motion-slow) var(--ease-out);
+    transition: translate var(--ui-slow) var(--ease-out), scale var(--ui-slow) var(--ease-out);
   }
 
   @starting-style {
@@ -10874,7 +10862,7 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
 #lock-overlay.lock-leaving {
   opacity: 0;
   pointer-events: none;
-  transition: opacity var(--motion-slow) var(--ease-out);
+  transition: opacity var(--ui-slow) var(--ease-out);
 }
 /* --- the 464 round: Settings groups, switch rows, the phone's chrome --------
    1. Every Settings head is a group head (DESIGN.md "A group head in

@@ -7,6 +7,19 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-04 (comments)
+
+### From WHITEBOARD_PLAN.md, the open "comments" row, and MINDMAP_PLAN §12.2 item 6 (decision 17)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A comment thread per item: `comments` (`{id, text, at}`, 100 at most, 2,000 characters each) in a sketch's or an object's data and a card's `comments` column (migration `f3c7a9e1d5b8` on `e5a1c8f3b7d2`; a card PUT that leaves it out keeps it); `wbPaintCommentMarks` draws a count mark at each commented item's top-right corner, at screen size, following a drag; the mark, the item menu's Comment… and a topic's Topic group open `wbOpenComments` in the help popover's shell; Enter posts, a trash deletes, one undo step each; a board copy carries a card's thread | no way to leave a remark on an item or a topic | sticky, card, rectangle and topic each take a thread; the mark sits 4px up and right of the corner, says the count, keeps its size at 2x, follows a card's drag within 8px, still takes the press on a locked card; Ctrl+Z takes a post back; the thread survives a fresh read; the popover stays inside the window | `scratchpad/ui-sweeps/wbcomments.js` 20/20 at 1440x900 and 390x844, light and dark; mark ink 5.90:1; `test_whiteboard.py` (`test_a_card_and_an_object_keep_their_comment_thread`, `test_a_comment_thread_is_bounded`, `test_duplicating_a_board_copies_a_cards_thread`), `test_ui_recipes.py::test_a_comment_thread_is_one_popover_reached_three_ways` |
+
+Help moved with it: the Guide's whiteboard-keys and mind-map topics, the board
+help sheet's Selection list, DESIGN.md's recipe row. Not built: names,
+mentions and resolve (one author); comments in an export. Not verified: the
+desktop window (WebView2), a real finger on the 44px mark.
+
 ## Moved from the plans, 2026-10-04 (the first round)
 
 ### From AGENT_SKILLS_REFORM.md, H4's found-not-fixed: what a small model's first round is offered

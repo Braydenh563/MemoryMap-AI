@@ -1463,6 +1463,9 @@ class WhiteboardNode(Base, WorkspaceMixin):
     #: pointer through it until it is unlocked. A column here because a card
     #: has no data blob; a sketch and an object keep the flag in theirs.
     locked: Mapped[bool] = mapped_column(Boolean, default=False)
+    #: A comment thread on the card (WHITEBOARD_PLAN decision 17), a JSON list
+    #: of `{id, text, at}`; a sketch and an object keep theirs in their data.
+    comments: Mapped[list | None] = mapped_column(JSON(none_as_null=True), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
 

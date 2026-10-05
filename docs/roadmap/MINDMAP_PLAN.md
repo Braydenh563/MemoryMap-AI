@@ -534,7 +534,9 @@ the shift-drag sever).
 5. **Notes on nodes**: a node that is a notebook note shows the note's
    own text here, editable both ways. The text note behind a topic is
    built (decision 18; HISTORY.md, "Moved from the plans, 2026-10-04").
-6. **Comments** (MindMeister): a thread per node, count marker.
+6. **Comments** (MindMeister): a thread per node, count marker. Built for
+   topics and board items alike (WHITEBOARD_PLAN decision 17; HISTORY.md,
+   "Moved from the plans, 2026-10-04 (comments)").
 7. **Multiple roots and floating topics**; **auto-colour by branch** as
    the default theme with eight curated palettes. Numbering is built
    (decision 17; HISTORY.md, "Moved from the plans, 2026-10-04").
@@ -1135,6 +1137,37 @@ topic: a control that wide has nowhere to go.
    spelling OmniOutliner and Workflowy write; FreeMind a private `_note`,
    because its own `<richcontent TYPE="NOTE">` is HTML this file does not
    read.
+19. **A boundary is a branch's, drawn round the topics it holds** (taken
+   2026-10-04, §12.2 item 1, under standing order 3; XMind's shape).
+   `data.boundary` on the topic whose branch it encloses (`rounded`, `dashed`
+   or `cloud`) and `data.boundary_label` (up to 80 characters). Drawn by the
+   map's own render pass as one SVG shape under the lines
+   (`.wb-map-boundaries`): the box of that topic and of every topic under it
+   that is showing, padded by 12, so it grows, folds and moves with them,
+   redrawn on every drag frame. Its colour is the branch's (a tint inside, the
+   colour on the edge), so the branch colour well is its colour control and
+   there is no second one. The label sits above its top edge in the line
+   label's recipe. Made, restyled, labelled and removed from the topic menu's
+   Branch group. A lasso'd set that is not one branch is not in this decision
+   (a run of siblings is what a summary is for). Content, not a look: no theme
+   sets it and Reset branch styling keeps it. The image exports draw it as
+   drawn; OPML and FreeMind carry `_boundary` and `_boundary_label`; Markdown
+   does not (a list has no word for a region).
+20. **A summary is words beside a run of siblings, not a topic** (taken
+   2026-10-04, §12.2 item 2). `data.summary` (up to 80 characters) and
+   `data.summary_span` (1 to 100) on the first topic of the run: the run is
+   that topic and the siblings after it in sibling order, `summary_span` in
+   all, clipped to the siblings there are, so it survives a reorder and an
+   export by place rather than by id. A brace on the run's outer side (away
+   from the parent, found from where the run lies, so every layout gets one)
+   spans the run's showing branches, and the words sit beyond its tip in the
+   line label's recipe one size up. Not a topic: a topic outside the tree is a
+   root to every walk of the tree (Tidy, the exports, numbering, the outline)
+   and none of the formats this map writes has a word for one. Made from the
+   topic menu (one topic) or from the menu of a multi-selection of siblings
+   (the run from the first of them to the last); changed and removed from the
+   first topic's menu. A root takes none. Content, exported as boundaries are
+   (`_summary`, `_summary_span`).
 
 ### Phases, each with the gate it is finished against
 

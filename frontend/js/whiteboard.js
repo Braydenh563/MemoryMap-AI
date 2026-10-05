@@ -722,6 +722,7 @@ function wbSyncGridToTransform(transform) {
 //: every rule in 07-whiteboard-misc.css that reads the property, and
 //: `tests/test_wb_navigator_cost.py` keeps the two lists the same.
 const WB_INV_ZOOM_GRIPS = [
+  ".wb-comment-pin",
   ".wb-resize-handle",
   ".wb-rotate-handle",
   ".wb-sketch-resize-handle",
@@ -4001,6 +4002,7 @@ function wbQueueSelectionBar() {
   wbSelectionBarFrame = requestAnimationFrame(() => {
     wbSelectionBarFrame = 0;
     wbUpdateSelectionBar();
+    wbPaintCommentMarks();
   });
 }
 
@@ -5194,6 +5196,10 @@ function wbBuildContextMenu(kind) {
           });
         }
       }
+      const comments = wbItemComments("object", mapNode).length;
+      sub(comments ? `Comments (${comments})…` : "Comment…", "A thread on this topic, behind the mark on its corner", () =>
+        wbOpenComments("object", mapNode.id)
+      );
       sub(mapNode.data?.link ? "Change where this topic points…" : "Link this topic to a page…",
         "An http, https or mailto address", () => wbMapEditLink(mapNode));
       if (!WB_MAP_REFERENCE_KINDS.has(mapNode.kind)) {
@@ -5303,6 +5309,15 @@ function wbBuildContextMenu(kind) {
   // against other sketches, a card/object against both (wbZOrderPeers'
   // own comment has the full reasoning for that split).
   //: Decision 15: held in place until unlocked from the board's own menu.
+  //: Decision 17: one item's thread, from its menu as from its mark.
+  const commentOn = !mapNode && wbMultiSelection.size <= 1 && wbSelectedItem ? wbSelectedItem : null;
+  const commentItem = commentOn && wbFindItem(commentOn.kind, commentOn.id);
+  if (wbTakesComments(commentOn?.kind, commentItem)) {
+    const count = wbItemComments(commentOn.kind, commentItem).length;
+    item(count ? `Comments (${count})…` : "Comment…", "A thread on this item, behind the mark on its corner", () =>
+      wbOpenComments(commentOn.kind, commentOn.id)
+    );
+  }
   if (!wbIsMap()) {
     item("Lock", "Ctrl+Shift+L. Right-click the board to unlock", () => wbLockSelection());
   }
@@ -5812,7 +5827,7 @@ const WB_KIND_INFO = {
     payload: (d) => ({
       entry_id: d.entry_id, board_id: d.board_id, x: d.x, y: d.y, z: d.z,
       width: d.width ?? null, height: d.height ?? null, rotation: d.rotation ?? null,
-      group_id: d.group_id ?? null, locked: Boolean(d.locked),
+      group_id: d.group_id ?? null, locked: Boolean(d.locked), comments: d.comments ?? null,
     }),
   },
   object: {
@@ -6371,6 +6386,267 @@ function wbPaintLocks() {
     if (!wanted.has(el)) el.classList.remove("wb-locked");
   });
   for (const el of wanted) if (!el.classList.contains("wb-locked")) el.classList.add("wb-locked");
+}
+
+//: --- Comments (WHITEBOARD_PLAN decision 17) --------------------------------
+//:
+//: A thread per item, in the item's own data (a card's `comments` column), so
+//: it moves, copies, undoes and goes with its item. A count mark at the top
+//: right of every commented item, in one layer for all three kinds; the mark,
+//: the item menu and a topic's menu open the thread in the help popover's
+//: shell. A connector takes none (`wbSketchParsedData` is null for a link).
+
+const WB_COMMENTS_MAX = 100;
+
+function wbTakesComments(kind, item) {
+  if (!item) return false;
+  return kind === "sketch" ? Boolean(wbSketchParsedData(item)) : kind === "node" || kind === "object";
+}
+
+function wbItemComments(kind, item) {
+  if (!item) return [];
+  const list = kind === "node" ? item.comments : kind === "object" ? item.data?.comments : wbSketchParsedData(item)?.comments;
+  return Array.isArray(list) ? list : [];
+}
+
+function wbFindItem(kind, id) {
+  return (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id) || null;
+}
+
+//: One undo step: the item's whole state before, the lock's "move" entry.
+async function wbSetComments(kind, item, list) {
+  const next = list.length ? list : null;
+  wbPushUndo({ action: "move", kind, id: item.id, before: WB_KIND_INFO[kind].payload(item) });
+  if (kind === "node") {
+    item.comments = next;
+    await wbSaveNode(item);
+  } else if (kind === "object") {
+    const data = { ...item.data };
+    if (next) data.comments = next;
+    else delete data.comments;
+    item.data = data;
+    await wbSaveObject(item);
+  } else {
+    await wbSaveSketchProps(item, { comments: next || undefined });
+  }
+  wbPaintCommentMarks();
+}
+
+//: The marks, from state, after every render and every drag frame (the
+//: selection bar's frame, `wbQueueSelectionBar`). A zero-size pin at the
+//: item's top-right corner, scaled back to screen size like a grip, holds
+//: the button up and to the right of the corner, clear of the resize handle.
+function wbPaintCommentMarks() {
+  const layer = document.getElementById("wb-html-layer");
+  if (!layer) return;
+  //: A thread open on an item that is gone (deleted, another board) goes too.
+  if (wbCommentState && !wbFindItem(wbCommentState.kind, wbCommentState.id)) wbCloseComments();
+  let host = document.getElementById("wb-comment-marks");
+  const wanted = [];
+  for (const kind of ["node", "object", "sketch"]) {
+    for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) {
+      const count = wbItemComments(kind, item).length;
+      if (count) wanted.push([kind, item, count]);
+    }
+  }
+  if (!wanted.length) {
+    host?.replaceChildren();
+    return;
+  }
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "wb-comment-marks";
+    host.className = "wb-comment-marks";
+    layer.appendChild(host);
+  }
+  let top = 1;
+  for (const list of [wbState.nodes, wbState.objects]) for (const i of list || []) if (Number.isFinite(i.z)) top = Math.max(top, i.z);
+  host.style.zIndex = String(top + 1);
+  const old = new Map([...host.children].map((pin) => [pin.dataset.commentKey, pin]));
+  for (const [kind, item, count] of wanted) {
+    const key = wbMultiKey(kind, item.id);
+    const box = typeof item._liveD === "string" ? wbPathBBox(item._liveD) : wbItemBBox(kind, item);
+    if (!box) continue;
+    let pin = old.get(key);
+    old.delete(key);
+    if (!pin) {
+      pin = document.createElement("div");
+      pin.className = "wb-comment-pin";
+      pin.dataset.commentKey = key;
+      const mark = document.createElement("button");
+      mark.type = "button";
+      mark.className = "wb-comment-mark";
+      mark.setAttribute("aria-haspopup", "dialog");
+      mark.setAttribute("aria-expanded", "false");
+      const icon = document.createElement("i");
+      icon.className = "ph ph-chat-circle";
+      icon.setAttribute("aria-hidden", "true");
+      mark.append(icon, document.createElement("span"));
+      mark.addEventListener("pointerdown", (event) => event.stopPropagation());
+      mark.addEventListener("dblclick", (event) => event.stopPropagation());
+      mark.addEventListener("click", (event) => {
+        event.stopPropagation();
+        wbOpenComments(kind, item.id, mark);
+      });
+      pin.appendChild(mark);
+      host.appendChild(pin);
+    }
+    const mark = pin.firstElementChild;
+    mark.lastElementChild.textContent = String(count);
+    const words = `${count} comment${count === 1 ? "" : "s"}`;
+    mark.setAttribute("aria-label", `${words}. Open the thread`);
+    mark.title = words;
+    pin.style.left = `${box.maxX}px`;
+    pin.style.top = `${box.minY}px`;
+  }
+  for (const pin of old.values()) pin.remove();
+}
+
+let wbCommentState = null;
+
+function wbOpenComments(kind, id, anchor = null) {
+  const item = wbFindItem(kind, id);
+  if (!wbTakesComments(kind, item)) return;
+  const key = wbMultiKey(kind, id);
+  //: The mark is a toggle, as the help popover's own '?' is.
+  if (wbCommentState?.key === key) {
+    wbCloseComments();
+    return;
+  }
+  wbCloseComments();
+  const target = anchor?.isConnected
+    ? anchor
+    : document.querySelector(`.wb-comment-pin[data-comment-key="${key}"] .wb-comment-mark`) ||
+      document.querySelector(WB_SELECTOR_BY_KIND[kind](id));
+  if (!target) return;
+  const panel = document.createElement("div");
+  panel.className = "help-popover wb-comments";
+  panel.id = "wb-comments";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "Comments");
+  const list = document.createElement("div");
+  list.className = "wb-comments-list";
+  list.setAttribute("role", "list");
+  const box = document.createElement("textarea");
+  box.className = "wb-comments-box";
+  box.rows = 2;
+  box.maxLength = 2000;
+  box.placeholder = "Add a comment";
+  box.setAttribute("aria-label", "Add a comment");
+  const post = document.createElement("button");
+  post.type = "button";
+  post.className = "small";
+  post.textContent = "Comment";
+  const foot = document.createElement("div");
+  foot.className = "wb-comments-foot";
+  const hint = document.createElement("span");
+  hint.className = "muted";
+  hint.textContent = "Enter posts. Shift+Enter breaks the line.";
+  foot.append(hint, post);
+  panel.append(list, box, foot);
+  const send = async () => {
+    const text = box.value.trim();
+    const now = wbFindItem(kind, id);
+    if (!text || !now) return;
+    const thread = wbItemComments(kind, now);
+    if (thread.length >= WB_COMMENTS_MAX) {
+      toast(`A thread holds ${WB_COMMENTS_MAX} comments. Delete one first.`, true);
+      return;
+    }
+    box.value = "";
+    const made = { id: crypto.randomUUID ? crypto.randomUUID() : `c${Date.now()}${Math.random().toString(36).slice(2, 12)}`, text, at: new Date().toISOString() };
+    await wbSetComments(kind, now, [...thread, made]);
+    wbFillComments();
+    list.lastElementChild?.scrollIntoView({ block: "nearest" });
+    wbAnnounce("Comment added.");
+  };
+  post.addEventListener("click", send);
+  //: Every key typed here is the thread's: the board's keys stay out.
+  panel.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+    if (event.key === "Escape") {
+      event.preventDefault();
+      wbCloseComments({ restoreFocus: true });
+    } else if (event.key === "Enter" && !event.shiftKey && event.target === box) {
+      event.preventDefault();
+      send();
+    }
+  });
+  const outside = (event) => {
+    if (panel.contains(event.target) || target.contains(event.target)) return;
+    wbCloseComments();
+  };
+  document.addEventListener("pointerdown", outside, true);
+  document.body.appendChild(panel);
+  wbCommentState = { key, kind, id, panel, anchor: target, outside };
+  if (target.classList.contains("wb-comment-mark")) target.setAttribute("aria-expanded", "true");
+  wbFillComments();
+  placeHelpPopover(panel, target);
+  box.focus({ preventScroll: true });
+}
+
+//: The thread, oldest first, each with its time and a delete.
+function wbFillComments() {
+  const state = wbCommentState;
+  if (!state) return;
+  const item = wbFindItem(state.kind, state.id);
+  const list = state.panel.querySelector(".wb-comments-list");
+  list.replaceChildren();
+  const thread = wbItemComments(state.kind, item);
+  if (!thread.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted wb-comments-empty";
+    empty.textContent = "No comments yet.";
+    list.appendChild(empty);
+    return;
+  }
+  for (const comment of thread) {
+    const row = document.createElement("div");
+    row.className = "wb-comment";
+    row.setAttribute("role", "listitem");
+    const text = document.createElement("p");
+    text.className = "wb-comment-text";
+    text.textContent = comment.text;
+    const meta = document.createElement("div");
+    meta.className = "wb-comment-meta";
+    const when = document.createElement("time");
+    when.className = "muted";
+    when.dateTime = comment.at || "";
+    when.textContent = comment.at ? relativeTime(comment.at) : "";
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "ghost icon-only small";
+    del.setAttribute("aria-label", "Delete this comment");
+    del.title = "Delete this comment";
+    const glyph = document.createElement("i");
+    glyph.className = "ph ph-trash";
+    glyph.setAttribute("aria-hidden", "true");
+    del.appendChild(glyph);
+    del.addEventListener("click", async () => {
+      const now = wbFindItem(state.kind, state.id);
+      if (!now) return;
+      await wbSetComments(state.kind, now, wbItemComments(state.kind, now).filter((c) => c.id !== comment.id));
+      wbFillComments();
+      state.panel.querySelector(".wb-comments-box")?.focus({ preventScroll: true });
+      wbAnnounce("Comment deleted. Ctrl+Z brings it back.");
+    });
+    meta.append(when, del);
+    row.append(text, meta);
+    list.appendChild(row);
+  }
+}
+
+function wbCloseComments({ restoreFocus = false } = {}) {
+  const state = wbCommentState;
+  if (!state) return;
+  wbCommentState = null;
+  document.removeEventListener("pointerdown", state.outside, true);
+  state.panel.remove();
+  if (state.anchor.classList.contains("wb-comment-mark")) state.anchor.setAttribute("aria-expanded", "false");
+  if (restoreFocus) {
+    const mark = document.querySelector(`.wb-comment-pin[data-comment-key="${state.key}"] .wb-comment-mark`);
+    (mark || document.getElementById("whiteboard-container"))?.focus({ preventScroll: true });
+  }
 }
 
 //: --- Frames (WHITEBOARD_PLAN decision 14) ----------------------------------
@@ -13628,7 +13904,7 @@ function renderWhiteboard() {
     wbPushUndo({
       action: "delete",
       kind: "node",
-      payload: { entry_id: d.entry_id, board_id: d.board_id, x: d.x, y: d.y, z: d.z },
+      payload: WB_KIND_INFO.node.payload(d),
     });
     try {
       await apiJson(`/whiteboard/nodes/${d.id}`, { method: "DELETE" });
@@ -13991,6 +14267,7 @@ function renderWhiteboard() {
   // actually persists (`wbSelectedItem`), not the DOM.
   wbApplySelectionHighlight();
   wbPaintLocks();
+  wbPaintCommentMarks();
 
   //: A frame later, not now: a fresh element has to be drawn once before it
   //: is culled, which is what gives `contain-intrinsic-size: auto` a size to
@@ -14190,6 +14467,7 @@ async function wbSaveNode(node) {
         rotation: node.rotation ?? null,
         group_id: node.group_id ?? null,
         locked: Boolean(node.locked),
+        comments: node.comments ?? null,
       }),
     });
     Object.assign(node, saved);

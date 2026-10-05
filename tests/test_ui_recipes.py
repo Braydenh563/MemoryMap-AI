@@ -3864,6 +3864,25 @@ def test_presenting_is_one_mode_with_one_bar() -> None:
     assert "Present frames: one frame" in guide
 
 
+def test_a_comment_thread_is_one_popover_reached_three_ways() -> None:
+    """WHITEBOARD_PLAN decision 17 (DESIGN.md's comment row): the mark, the
+    item menu and a topic's menu open the one thread, in the help popover's
+    shell; every change goes through `wbSetComments`; the marks are painted
+    after every render and follow a drag on the selection bar's frame."""
+    wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    assert wb.count("wbOpenComments(") == 4, "the definition, the mark, the item menu, the topic menu"
+    assert 'panel.className = "help-popover wb-comments";' in wb
+    assert "placeHelpPopover(panel, target);" in wb[wb.index("function wbOpenComments(") :][:4000]
+    assert wb.count("await wbSetComments(") == 2, "a post and a delete"
+    assert "wbPaintCommentMarks();" in wb[wb.index("function renderWhiteboard()") :]
+    assert "wbPaintCommentMarks();" in wb[wb.index("function wbQueueSelectionBar()") :][:300]
+    assert '".wb-comment-pin",' in wb[wb.index("const WB_INV_ZOOM_GRIPS") :][:200]
+    assert "#library-view-whiteboard.wb-presenting .wb-comment-marks {\n  display: none;" in css
+    guide = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    assert "Right-click an item, Comment…" in guide and "Comment… starts a thread" in guide
+
+
 def test_the_sketch_pads_ink_dots_close_up_in_the_tablet_band() -> None:
     """INBOX 276: the pad's bar wrapped at 820 on Large text, 19px short, and
     the width was in the rows (the group labels sit above them and are all

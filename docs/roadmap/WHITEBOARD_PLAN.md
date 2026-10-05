@@ -224,6 +224,26 @@ kind. Every tool has a key and every key is in the tooltip and the help.
    edits the board while it runs. No frames: a toast says to add one. Not
    on maps (MINDMAP_PLAN 12.2 item 9 is the map's own, by branch). Speaker
    notes, transitions and a presenter view are not in this decision.
+17. **A comment thread lives in the item it is about** (taken 2026-10-04, the
+   open "comments" row and MINDMAP_PLAN §12.2 item 6, under standing order 3;
+   MindMeister's and Miro's shape: a thread per item, a count on it).
+   `comments`, a list of `{id, text, at}` (at most 100, each at most 2,000
+   characters of plain text), in a sketch's or an object's own data and in a
+   card's own `comments` column (migration on `e5a1c8f3b7d2`). Not a table
+   keyed across the three tables: in the item's own data a thread moves,
+   copies, undoes and is deleted with its item and needs no cascade. A
+   commented item wears a count mark at its top-right corner
+   (`.wb-comment-mark`, a speech bubble and the number, at screen size like a
+   grip), one layer for every kind so a shape has one too, and outside the
+   item, so a locked item's thread still opens. The mark, the item's
+   right-click menu ("Comment…", "Comments (3)…") and a map topic's Topic
+   group open the thread in the help popover's shell (MINDMAP_PLAN decision
+   18's): the comments oldest first with their time, a delete on each, one box
+   at the foot; Enter posts, Shift+Enter breaks the line, Escape closes. Each
+   post and each delete is one undo step. A notebook has one author, so no
+   names, mentions or resolve (deleting the last comment is resolving). A
+   connector takes no thread (its label is what a line says). Not in any
+   export: a thread is talk about the board, not the board.
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 

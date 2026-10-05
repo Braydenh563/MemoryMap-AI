@@ -620,6 +620,7 @@ def node_state(node: WhiteboardNode) -> dict:
         "rotation": node.rotation,
         "group_id": node.group_id,
         "locked": bool(node.locked),
+        "comments": node.comments,
     }
 
 

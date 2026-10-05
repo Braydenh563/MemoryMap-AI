@@ -79,10 +79,61 @@ function followBottom(element) {
       //:, see `syncChatJumpLatest`. Guarded by id rather than wired at the
       //: chat's own call site because `followBottom` is what owns the flag,
       //: and a second listener would have to duplicate the same maths.
-      if (element.id === "chat-messages") syncChatJumpLatest();
+      if (element.id === "chat-messages") {
+        syncChatJumpLatest();
+        noteChatPosition(element, distance <= SCROLL_STICK_SLACK);
+      }
     },
     { passive: true }
   );
+}
+
+//: **A saved chat reopens where you left it** (WORLD_CLASS_PLAN, Placed
+//: 2026-09-09 item 99 (b); documents have had it since `docRestorePosition`).
+//: A long thread read halfway reopened at its end. Per conversation, in this
+//: browser only (how a person reads, not a fact about the chat), the forty
+//: most recent; a thread left at its end stores nothing and opens at its end.
+const CHAT_POSITIONS_KEY = "chat-positions";
+let chatPositionTimer = 0;
+
+function chatPositions() {
+  try {
+    const map = JSON.parse(localStorage.getItem(CHAT_POSITIONS_KEY) || "{}");
+    return map && typeof map === "object" && !Array.isArray(map) ? map : {};
+  } catch {
+    return {};
+  }
+}
+
+function noteChatPosition(element, atEnd) {
+  const id = typeof chatConv !== "undefined" && chatConv && chatConv.id;
+  if (!id || (typeof chatStreaming !== "undefined" && chatStreaming)) return;
+  clearTimeout(chatPositionTimer);
+  chatPositionTimer = setTimeout(() => {
+    const map = chatPositions();
+    if (atEnd) delete map[id];
+    else map[id] = { top: Math.round(element.scrollTop), at: Date.now() };
+    const keys = Object.keys(map).sort((a, b) => map[b].at - map[a].at);
+    for (const stale of keys.slice(40)) delete map[stale];
+    try {
+      localStorage.setItem(CHAT_POSITIONS_KEY, JSON.stringify(map));
+    } catch {
+      // Storage full or refused: the thread opens at its end, as before.
+    }
+  }, 250);
+}
+
+//: Called where a saved conversation finishes drawing: back to the place it
+//: was left, or to its end when there is none.
+function restoreChatPosition(id) {
+  const saved = chatPositions()[id];
+  const pane = $("chat-messages");
+  if (!saved || !pane) return chatScrollToEnd();
+  requestAnimationFrame(() => {
+    pane.dataset.stuck = "0";
+    pane.scrollTop = Math.min(saved.top, pane.scrollHeight);
+    syncChatJumpLatest();
+  });
 }
 
 // Scroll to the bottom, unless the reader has scrolled away from it.

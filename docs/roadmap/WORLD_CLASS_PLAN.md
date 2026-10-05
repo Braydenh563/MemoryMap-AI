@@ -807,7 +807,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure; the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
 | 29 | §10 | F1 a `prefs` module, F5 `api.stream`/`api.upload` and the no-bare-fetch lint, F7's threads onto the pool (the ratchet is built), F10 a `readings` table, F12 a store (F4 built 2026-09-26) | S to L | §10 |
 | 30 | ~~§5~~ | ~~notes' unlinked mentions, word count and reading time; `{{clipboard}}` and a cursor mark; move to a space and export from a selection; the bin for documents and reminders~~ built: unlinked mentions with KG1 (2026-10-04); the rest 2026-10-05 (`tests/test_selection_actions_row30.py`, `tests/test_bin_documents_reminders_row30.py`) | done | HISTORY |
-| 31 | Placed 2026-09-09 | 1 capture into the selected space and a bulk move; 99 (b) scroll restore, (c) the AI dot's latency tooltip, (d) Paste as note; 92's row redesign; 97 RapidOCR; 79 and 22 to 23 not re-checked; 261's vault re-key (`POST /auth/rotate-vault-key`) has no UI | S to M | those sections |
+| 31 | ~~Placed 2026-09-09~~ | ~~1 capture into the selected space and a bulk move; 99 (b) scroll restore, (c) the AI dot's latency tooltip, (d) Paste as note; 92's row redesign; 97 RapidOCR; 79 and 22 to 23 not re-checked; 261's vault re-key (`POST /auth/rotate-vault-key`) has no UI~~ built or found built 2026-10-05 (`tests/test_placed_0909_row31.py`, `scratchpad/ui-sweeps/nbf1005-recheck.js`); 97 decided not to build (a new Python dependency) | done | HISTORY |
 | 32 | 301 | the navigation and undo audit table, then the fixes | M | every surface |
 | 33 | §21 | rows 1 and 2 on the notice recipe, row 12's "check the address" in the status line, row 13's update size in the About page | S | app.js, `routes_models.py`, settings.js |
 | 34 | D1, D8, §13 | drag on the grid; the reminder row recipe and a 10m snooze; the minimap's NaN rects, the tab bar at 600 to 819px, a whiteboard menu sweep, the tidy layout past five nodes (all not re-checked) | S each | their plans |
@@ -1555,6 +1555,15 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
     the reader named on the row. Owner: next session, Sonnet (backend
     adapter with a fake in tests) plus the Packages row.
 98. The same decision as 62; moved with it.
+
+**State 2026-10-05:** every item below is built or decided; the list stays
+as the record of what was placed. Built 2026-10-05 (HISTORY.md, "Moved from
+the plans, 2026-10-05 (nbf1005)"): 1's Move to space (row 30), 99 (b), (c)
+and (d), 92's row, 22's last 5px and 261's re-key button; found built: 1's
+capture into the selected space (`updateCaptureSpaceLabel`), 23 and 79. 97
+is decided not to build: RapidOCR is a new Python dependency, which the
+owner ruled out on 2026-10-05 ("make sure it is fully local and doesnt use
+any external libraries that arent vendored"); Tesseract stays the reader.
 
 **State 2026-09-24:** 1 (b): a space chip is drawn on
 note cards; capture into the selected space and a "Move to space" bulk action

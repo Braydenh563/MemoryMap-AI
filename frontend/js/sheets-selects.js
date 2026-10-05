@@ -1943,7 +1943,9 @@ async function openConversation(id) {
   }
   if (lastQuestionText) lastChatQuestion = lastQuestionText;
   loadConversationList();
-  chatScrollToEnd();
+  //: Where it was left, not always its end (Placed 2026-09-09 item 99 (b)).
+  if (isStreamingConversation(full.id)) chatScrollToEnd();
+  else restoreChatPosition(full.id);
 }
 
 async function loadChatSuggestions() {

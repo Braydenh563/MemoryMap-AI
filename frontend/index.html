@@ -11006,6 +11006,37 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
             </div>
 
+            <!-- WORLD_CLASS_PLAN, Placed 2026-09-09 (261): the vault re-key had
+                 a route (`POST /auth/rotate-vault-key`) and no way to press it. -->
+            <div class="settings-group">
+              <div class="row help-head">
+                <h3>Re-encrypt private notes</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="rekey-help" aria-controls="rekey-help" aria-expanded="false"
+                  title="When to re-encrypt" aria-label="When to re-encrypt">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">A new key for every private note, so an old backup or copy can't open today's.</p>
+              <div class="help-body hidden" id="rekey-help" role="dialog" aria-label="When to re-encrypt">
+                <p>
+                  Changing your password keeps the key that encrypts private
+                  notes and only re-locks it. If a backup or a copy of the
+                  notebook may have reached someone, re-encrypting gives every
+                  private note a new key, so what they have no longer opens
+                  them. It is all or nothing: a note that fails leaves every
+                  note as it was.
+                </p>
+              </div>
+              <label class="stacked-label" for="account-rekey-password">Current password</label>
+              <input id="account-rekey-password" type="password" autocomplete="current-password"
+                placeholder="Your current password or PIN">
+              <div class="row">
+                <button id="account-rekey" class="ghost" type="button">Re-encrypt private notes</button>
+                <span id="account-rekey-status" class="status" role="status"></span>
+              </div>
+            </div>
+
             <div class="settings-group">
               <div class="row help-head">
                 <h3>Sessions</h3>

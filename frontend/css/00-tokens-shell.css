@@ -1748,6 +1748,10 @@ header#top-bar.tabs-wrapped #tab-bar {
 .extras-row .entry-title {
   flex: 1 1 0;
   min-width: 0;
+  /* The name line as tall as the buttons beside it (INBOX 22, re-measured
+     2026-10-05): the head is top-aligned so a long name can wrap, and a
+     one-line name sat 5px above the centre of Install. */
+  min-height: var(--control-h-lg);
   display: flex;
   flex-wrap: wrap;
   align-items: center;

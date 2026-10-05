@@ -36,7 +36,7 @@ MANUAL = {
     "audit_link_reasons": ("note-cards.js", "/reason`", "a note's links, Edit reason"),
     "delete_note": ("note-cards.js", "async function binNoteWithUndo(entry)", "a note's menu, Move to bin"),
     "restore_note": ("note-cards.js", '/restore`, { method: "POST"', "the recycle bin, Restore"),
-    "set_reminder": ("shell-reminders.js", 'const created = await apiJson("/reminders", {', "Reminders, New reminder"),
+    "set_reminder": ("shell-reminders.js", 'async function addReminder(text, dueValue', "Reminders, New reminder"),
     "complete_reminder": ("shell-reminders.js", "body: JSON.stringify({ done: checkbox.checked }),", "Reminders, the tick box"),
     "rename_tag": ("tag-manager.js", '"/tags/rename",', "Manage tags, Rename"),
     "delete_tag": ("tag-manager.js", '"/tags/delete", { names }', "Manage tags, Remove from all notes"),

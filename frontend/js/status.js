@@ -1909,6 +1909,19 @@ function aiStatusState() {
 // rendering fault. The ellipsis says "waiting" while perfectly still.
 const AI_STATUS_GLYPH = { idle: "…", ok: "✓", warn: "!", error: "✕", off: "" };
 
+//: **How the last answer went, on the AI dot** (WORLD_CLASS_PLAN, Placed
+//: 2026-09-09 item 99 (c)): the model, the time it took and how much of its
+//: window the question filled, set by the chat when a turn ends.
+let lastAnswerFacts = null;
+
+function lastAnswerLine() {
+  const facts = lastAnswerFacts;
+  if (!facts || !facts.ms) return "";
+  const parts = [facts.model, `${(facts.ms / 1000).toFixed(1)} s`];
+  if (facts.used && facts.window) parts.push(`${Math.min(100, Math.round((facts.used / facts.window) * 100))}% of its window`);
+  return `Last answer: ${parts.filter(Boolean).join(", ")}.`;
+}
+
 function renderAiPill() {
   const button = $("ai-status");
   if (!button) return;
@@ -1925,7 +1938,8 @@ function renderAiPill() {
   $("ai-status-label").textContent = summary;
   // button.title = `${state.title}\n\n${state.detail}`;
   $("ai-status-title").textContent = state.title;
-  $("ai-status-detail").textContent = state.detail;
+  const last = lastAnswerLine();
+  $("ai-status-detail").textContent = last ? `${state.detail} ${last}` : state.detail;
   renderChatActiveModelBadge();
   nudgeEmbeddingProblem();
 }

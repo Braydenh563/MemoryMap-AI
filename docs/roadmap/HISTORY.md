@@ -40784,3 +40784,40 @@ Measured: `tests/test_selection_actions_row30.py`,
 `tests/test_bin_documents_reminders_row30.py`. Not verified: reading the
 clipboard inside the desktop window (pywebview), where the browser's
 permission prompt may differ.
+
+### Row 31, Placed from INBOX 2026-09-09
+
+- 1, capture into the selected space: found built (`updateCaptureSpaceLabel`
+  says where Capture files, "Filing into Work."); the bulk Move to space is
+  row 30's.
+- 99 (b), reopen where you left off: documents had it
+  (`docRestorePosition`); a saved chat now reopens at the place it was
+  scrolled to (`noteChatPosition`, `restoreChatPosition`, the forty most
+  recent, this browser only), and at its end when it was left there.
+- 99 (c), the AI dot: its popup adds "Last answer: <model>, 2.1 s, 39% of
+  its window." after a chat turn (`lastAnswerFacts`, `lastAnswerLine`).
+- 99 (d), Paste as note: Ctrl+Shift+V outside a text box (inside one it stays
+  the browser's paste as plain text), through the quick note's
+  `createNoteSafely` (the outbox when the server is gone), with Undo; in the
+  shortcuts sheet and the palette.
+- 92, the suggested-link row: the two notes as chips joined by an arrow, the
+  score as a short bar with its number, the reason field behind "Add a
+  reason" (shown when Atlas fills one), and "Link all above 70%" in the
+  head. Link stays a quiet button: the consistency contract's one filled
+  button per surface outranks the 2026-09-09 sketch's filled Link per row.
+- 22, Packages rows: re-measured, the install button sat 5px below the
+  centre of a one-line name (the head is top-aligned so a long name can
+  wrap); the name line is now as tall as the buttons, 0px.
+- 23, Help rows: re-measured, 102 topics as a divided list, none touching
+  or overlapping (`nbf1005-recheck.js`); nothing to fix.
+- 79, Files rows: found built: full-width rows (thumbnail, name, facts, the
+  reading state), the name opens the reader, a kebab holds the rest.
+- 97, RapidOCR: not built, by the 2026-10-05 rule against new Python
+  dependencies; Tesseract stays.
+- 261, the vault re-key: Settings, Account & security, Re-encrypt private
+  notes (the current password, a confirm, `POST /auth/rotate-vault-key`,
+  this tab's token replaced), with its '?' and the Guide's lock topic.
+
+Measured: `tests/test_placed_0909_row31.py`;
+`scratchpad/ui-sweeps/nbf1005-recheck.js`. Not verified: reading the
+clipboard inside the desktop window.

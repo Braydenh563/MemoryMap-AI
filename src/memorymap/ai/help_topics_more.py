@@ -409,7 +409,7 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "auto-lock", "auto lock", "change my password", "reset password",
             "other devices", "on my phone", "another computer", "sessions",
-            "lock everywhere",
+            "lock everywhere", "re-encrypt", "new key", "rotate key",
         ),
         "body": (
             "Settings, Account & security. Signing in: ask for a password when "
@@ -417,7 +417,8 @@ MORE_TOPICS: list[dict] = [
             "devices: let a phone or computer on your network open the app, "
             "always with your password; the traffic is plain http, not "
             "encrypted, so only on a network you trust. Change your password or PIN (private "
-            "notes move across). Sessions: Auto-lock when idle, from 5 minutes "
+            "notes move across). Re-encrypt private notes gives each a new key, "
+            "so an old backup can't open them. Sessions: Auto-lock when idle, from 5 minutes "
             "to 12 hours, and Lock everywhere now; the lock in the top bar "
             "locks at once. There is no reset link: run python -m memorymap "
             "--reset-password in a terminal, which keeps ordinary notes, "

@@ -106,8 +106,11 @@ REACHED_AFTER_LOAD = {
     #: toggle, a chord that closes overlays) only while `#palette-overlay` is
     #: showing, and only `openPalette`, whose stand-in loads the bundle, shows it.
     #: The chart under an Ask answer (section 17 row 4) is drawn only inside
-    #: the `.then` of `ensureModule("answerChart")`, and only when that said it loaded.
-    "drawAnswerChart": "answerChart, called only after ensureModule(\"answerChart\") resolved true",
+    #: the `.then` of `ensureModule("chart")`, and only when that said it loaded.
+    #: Paste as note (row 31) is called from the palette row only inside the
+    #: `.then` of `ensureModule("quickNote")`, and only when that said it loaded.
+    "pasteAsNote": "quickNote, called only after ensureModule(\"quickNote\") resolved true",
+    "drawAnswerChart": "chart, called only after ensureModule(\"chart\") resolved true",
     "closePalette": "appPalette, called only while the palette overlay is showing, and only openPalette shows it",
     "closeOnboarding": "onboarding, called on Escape only while the overlay is open, and only openOnboarding opens it",
     #: Capture's staged-files list asks the clear button to re-sync when it

@@ -882,8 +882,13 @@ HELP_TOPICS.extend(
                 "the note starts with its outline. Save your own from Settings, "
                 "Templates, where Draft with Atlas writes a template from its name "
                 "and one line (press it again for another version; nothing is saved "
-                "until you add it). The picker's Manage templates opens that page. A "
-                "new document offers its own gallery of templates too."
+                "until you add it). The picker's Manage templates opens that page. In a "
+                "template, {date} becomes today's date, {clipboard} what you last "
+                "copied, and {cursor} marks where the cursor lands. A "
+                "new document offers its own gallery of templates too, and its "
+                "templates take {{clipboard}} and {{cursor}} the same way. While you "
+                "edit a note, its word count and reading time sit at the end of the "
+                "tags row."
             ),
             "badge": {"label": "Templates", "section": "templates"},
         },
@@ -1531,7 +1536,7 @@ HELP_TOPICS.extend(
                 "high) and a repeat (once, daily, weekly or monthly), and use Quick "
                 "set: in 30 min, in 1 hour, in 3 hours, tonight 7pm, tomorrow 9am, "
                 "tomorrow 2pm, this weekend or next week. A due reminder can be "
-                "snoozed one hour or to tomorrow 9am, edited in place, or ticked "
+                "snoozed one hour, ten minutes (its menu) or to tomorrow 9am, edited in place, or ticked "
                 "done; completed ones page at the foot. Add to calendar (.ics), on "
                 "a reminder's menu, saves it as a calendar file, and Add all to "
                 "calendar (.ics) in the More menu saves every upcoming one. A note, a "

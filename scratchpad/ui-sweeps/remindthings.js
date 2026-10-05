@@ -107,6 +107,27 @@ const { boot } = require('./lib.js');
   }, s);
   console.log('reminder rows:', JSON.stringify(tab));
   check('the document reminder shows its document as a chip, nothing overflowing', tab.some((r) => r.chip.some((c) => c.includes(`Remind doc ${s}`))) && tab.every((r) => !r.overflow));
+  // Row 34: the ten-minute snooze in the row's menu.
+  const snoozeId = await page.evaluate(async (s) => (await apiJson('/reminders', { method: 'POST', body: JSON.stringify({ text: `Snooze probe ${s}`, due_at: new Date(Date.now() + 2 * 86400000).toISOString() }) })).id, s);
+  await page.evaluate(() => { switchTab('reminders'); loadReminders(); });
+  await page.waitForTimeout(1200);
+  const opened = await page.evaluate((s) => {
+    const li = [...document.querySelectorAll('li[data-id]')].find((l) => l.textContent.includes(`Snooze probe ${s}`));
+    const btn = li && li.querySelector('.entry-actions button[aria-haspopup="menu"], .entry-actions summary, .entry-actions .kebab-btn');
+    if (btn) btn.click();
+    return !!btn;
+  }, s);
+  await page.waitForTimeout(300);
+  const snoozeRow = await page.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].filter((e) => e.getClientRects().length).map((e) => e.textContent.trim()));
+  check('the reminder menu has Snooze 10 minutes', opened && snoozeRow.some((t) => /Snooze 10 minutes/.test(t)), JSON.stringify(snoozeRow));
+  if (opened) {
+    await page.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].find((e) => /Snooze 10 minutes/.test(e.textContent) && e.getClientRects().length).click());
+    await page.waitForTimeout(1500);
+    console.log('toasts:', JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('.toast')].map((t) => t.textContent.trim()))));
+    const due = await page.evaluate(async (id) => (await apiJson('/reminders?limit=200&_=' + Date.now())).find((r) => r.id === id).due_at, snoozeId);
+    const minutes = (new Date(due.endsWith('Z') || /[+-]\d\d:\d\d$/.test(due) ? due : due + 'Z').getTime() - Date.now()) / 60000;
+    check('it moved the reminder to about ten minutes from now', minutes > 8.5 && minutes < 11.5, minutes.toFixed(1) + ' min');
+  }
   check('no page errors', errors.length === 0, errors.join(' | '));
   await browser.close();
   const failed = results.filter((ok) => !ok).length;

@@ -1271,6 +1271,15 @@ function reminderItem(reminder, label) {
   if (reminder.document_id) {
     menuItems.push({ label: "ph:file-text Open its document", run: () => openDocumentFromNote(reminder.document_id), group: "go" });
   }
+  //: The third snooze D8 asked for (10 minutes, 1 hour, tomorrow): the two longer
+  //: ones are buttons on the row, this is the one for "not now, in a minute".
+  if (!reminder.done) {
+    menuItems.push({
+      label: "ph:clock Snooze 10 minutes",
+      run: () => snoozeReminderTo(reminder, new Date(Date.now() + 10 * 60 * 1000)),
+      group: "go",
+    });
+  }
   menuItems.push(
     { label: "ph:chat-circle Ask Atlas about this", run: () => askAtlasAboutThing("reminder", reminder.text), group: "go" },
     {

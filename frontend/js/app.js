@@ -1495,9 +1495,7 @@ async function useNoteTemplate() {
     );
     if (!replace) return;
   }
-  box.value = noteTemplateFill(template);
-  box.dispatchEvent(new Event("input", { bubbles: true }));
-  box.focus();
+  await fillNoteBox(box, template);
 }
 
 function noteTemplateListKeys(event) {
@@ -2238,7 +2236,7 @@ const LAZY_MODULES = {
   appImport: ["/js/app-import.js"],
   usageLedger: ["/js/usage-ledger.js"],
   //: The bar or line under a counting answer (section 17 row 4): see answer-chart.js.
-  answerChart: ["/js/answer-chart.js"],
+  chart: ["/js/answer-chart.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.

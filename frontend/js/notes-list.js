@@ -453,7 +453,18 @@ function renderEditForm(li, entry) {
   const meta = document.createElement("div");
   meta.className = "note-edit-meta";
   row.classList.add("note-edit-actions");
+  //: Words and reading time while writing (WORLD_CLASS_PLAN row 30, section
+  //: 5 item 9: documents had them, notes did not). Quiet text at the row's end;
+  //: a margin set here because the boot stylesheet is at its byte cap.
+  const count = document.createElement("span");
+  count.className = "muted text-sm note-edit-count";
+  count.style.marginLeft = "auto";
+  count.textContent = noteReadingFacts(textarea.value);
+  textarea.addEventListener("input", () => {
+    count.textContent = noteReadingFacts(textarea.value);
+  });
   meta.append(tagField, categoryChip);
+  meta.append(count);
   const foot = document.createElement("div");
   foot.className = "note-edit-foot";
   foot.append(row);
@@ -544,6 +555,55 @@ async function resolveCategoryChoice(select) {
   // both, so there is no null to check the way window.prompt needed.
   const name = await promptDialog("Name for the new category:", "", { confirmLabel: "Create" });
   return name || undefined;
+}
+
+//: **Template variables that need the page** (WORLD_CLASS_PLAN row 30, section
+//: 5 item 4): `{{clipboard}}` is what is on the clipboard when the template is
+//: used (nothing when the browser will not say), and `{{cursor}}` marks where the
+//: caret lands. Both spellings, `{{x}}` and the note templates' older `{x}`.
+//: Shared by the Capture box's templates (`useNoteTemplate`, app.js) and the documents' (documents.js); here, in a file with room, because app.js is at its byte cap.
+const TEMPLATE_CLIPBOARD = /\{\{clipboard\}\}|\{clipboard\}/g;
+const TEMPLATE_CURSOR = /\{\{cursor\}\}|\{cursor\}/;
+
+async function templateClipboard(text) {
+  if (!/\{\{?clipboard\}\}?/.test(String(text || ""))) return "";
+  try {
+    return await navigator.clipboard.readText();
+  } catch {
+    return ""; // refused, or not allowed here: the variable fills with nothing
+  }
+}
+
+//: `{ text, cursor }`: the text with the variables filled, and the caret's offset in
+//: it (null when there was no marker). The marker is found before the clipboard is
+//: put in, so pasted text that happens to say `{{cursor}}` is only text.
+function templateVariables(text, clipboard) {
+  const source = String(text || "");
+  //: Stray second markers go first, so only the template's own are ever read.
+  const fill = (part) => part.replace(new RegExp(TEMPLATE_CURSOR, "g"), "").replace(TEMPLATE_CLIPBOARD, () => clipboard);
+  const marker = TEMPLATE_CURSOR.exec(source);
+  if (!marker) return { text: fill(source), cursor: null };
+  const before = fill(source.slice(0, marker.index));
+  return { text: before + fill(source.slice(marker.index + marker[0].length)), cursor: before.length };
+}
+
+//: The Capture box, filled from a template: variables in, the box told, the caret
+//: where the template said (`useNoteTemplate`, app.js, does the asking first); the preview's own text is `noteTemplateFill`.
+async function fillNoteBox(box, template) {
+  const filled = templateVariables(noteTemplateFill(template), await templateClipboard(template.content));
+  box.value = filled.text;
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+  box.focus();
+  if (filled.cursor !== null) box.setSelectionRange(filled.cursor, filled.cursor);
+}
+
+//: "412 words · 2 min read" for a note's text; empty for none. The same 220 words
+//: a minute the document editor uses (`DOC_READING_WPM`), and never less than one.
+function noteReadingFacts(text) {
+  const words = (String(text).match(/\S+/g) || []).length;
+  if (!words) return "";
+  const minutes = Math.max(1, Math.round(words / 220));
+  return `${words.toLocaleString()} ${words === 1 ? "word" : "words"} · ${minutes} min read`;
 }
 
 function beginOrCompleteLink(entry) {

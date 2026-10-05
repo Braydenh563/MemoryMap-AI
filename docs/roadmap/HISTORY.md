@@ -41594,7 +41594,7 @@ are probably one name, was already built.)
   ordinary retrieval; private and binned notes are nobody's statistics. The
   existing top-tags and top-categories answers carry a bar too. `/chat/stream`'s
   `meta` carries `chart` (None for a plain answer). The page: `answer-chart.js`
-  (lazy, `ensureModule("answerChart")`, called from `placeAnswerFigures`) draws
+  (lazy, `ensureModule("chart")`, called from `placeAnswerFigures`) draws
   horizontal bars or a line as SVG from tokens (its stylesheet is `css/lazy-answer-chart.css`, linked by the bundle: the boot CSS was 158 bytes over its cap with the rules in it, so `lazy-*.css` is the first lazy stylesheet, stamped through `asset_stamps`), `Data` opens the table, Save as
   PNG clones the SVG with computed paint and saves through `saveFile`. Help:
   the Guide's notebook-questions topic.
@@ -41711,6 +41711,66 @@ Undo that moves them back, a "Move to space" row in the selection bar.
 - Not verified: moving a board with many cards (the cards move by `board_id`,
   tested only by the table list); a note being filed by Atlas at the moment of
   the move (the background filer holds the space it started in).
+
+### From WORLD_CLASS_PLAN.md section 5, row 30: words and templates
+
+**State 2026-09-24:** item 4 (`{{clipboard}}` and a cursor mark not built, note
+templates not checked) and item 9 (a note's word count and reading time not
+found).
+
+- **Built 2026-10-05 (worldclass-1005c).** `noteReadingFacts` (notes-list.js)
+  gives "412 words · 2 min read" at 220 words a minute, the document editor's own
+  rate and never under a minute; the note edit form draws it live at the end of
+  its tags row (`.note-edit-count`, quiet text, its margin set from JS because
+  the boot stylesheet is at its cap). `templateVariables(text, clipboard)` and
+  `templateClipboard(text)` (app.js, boot, shared): `{{clipboard}}` or
+  `{clipboard}` is the clipboard's text (nothing when the browser refuses; read
+  only when the template says so), `{{cursor}}` or `{cursor}` marks the caret,
+  found before the clipboard goes in so pasted text saying `{{cursor}}` is only
+  text. Capture's note templates (`useNoteTemplate`) and the document templates
+  (`createDocument`) both use them; a document puts the caret in its body at the
+  mark (`docSurface().setSelection`) and otherwise selects the title as before.
+  Help: the Guide's templates topic and the Settings, Templates tip.
+- Measured: `tests/test_note_words_templates_30.py` (4 tests; the two pure
+  functions run in node from their own source); `scratchpad/ui-sweeps/notewords.js`
+  6/6 at 1440 light and 390 dark (the form says "220 words · 1 min read", follows
+  typing to 450 words and 2 min, sits inside its row with nothing sideways, wrapping
+  under the tags at 390; a template with `{{clipboard}}` and `{cursor}` fills, drops
+  the marker and leaves the caret at offset 22 of 22 in the focused box).
+- Not verified: the clipboard read in the desktop window (permission is the
+  webview's), and the caret landing in a CodeMirror document body (the textarea
+  surface is the one the function was read against).
+
+### From WORLD_CLASS_PLAN.md rows 31 and 34: Paste as note, the ten minute snooze, and the re-checks
+
+- **Built 2026-10-05 (worldclass-1005c).** Row 31, item 99 (d): `pasteAsNote`
+  (quick-note.js, lazy) reads the clipboard and saves it through
+  `createNoteSafely`, the same door as Quick note, and `announceNewNote` (lifted
+  out of `saveQuickNote`, shared) says where it was filed, offers Go to it and an
+  Undo. A refused clipboard opens Quick note with a toast; an empty one says so.
+  The palette row (`ph:clipboard-text Paste as note`) calls it only after
+  `ensureModule("quickNote")` resolved (`tests/test_lazy_bundle_calls.py`
+  `REACHED_AFTER_LOAD`). Row 34 (D8): the reminder row's menu has Snooze 10
+  minutes for a reminder that is not done (`snoozeReminderTo`, the row's +1h and
+  tomorrow stay buttons). Help: Guide's quick-note and reminders topics.
+- **Re-checked, row 34, measured 2026-10-05.** Drag on the dashboard grid: built
+  (`dragstart`, `dragover`, `dashDragOverCard` in edit mode, persisted on
+  `dragend`). The tab bar between 600 and 819 px: `scrollWidth` equals
+  `clientWidth` at 600, 640, 700, 768, 819, 820, 900 and 1100, seven tabs with
+  labels, the last tab's right edge 529 to 802 inside the window. The five
+  whiteboard menus, `wbmenus.js`: 0 filled rows at rest, one shell recipe, row
+  heights 34.5 (32 and 56 for a row with a description). The tidy layout past five
+  nodes, `maptidy.js`: 12 nodes, one `move-many` request, `wbMapNodeSize` 0 px off,
+  the map framed, 5/5. `errors.js` at 1440 on a notebook with boards: 0 errors.
+  Not re-checked: the minimap's NaN rects on a notebook with many boards (only the
+  Library visit above), and whether a reminder row and a note row share one class
+  (the reminder row uses the notes' `.entry-meta`, `.entry-actions` and
+  `.entry-links`, not `.entry`).
+- Measured: `tests/test_paste_as_note_31.py`, `tests/test_reminder_snooze_34.py`;
+  `scratchpad/ui-sweeps/remindthings.js` 12/12 (the Snooze row moves a reminder to
+  10.0 minutes from now).
+- Not verified: Paste as note against a real clipboard permission prompt (the
+  sweep for it does not exist; the function is covered by source tests).
 
 ## Built 2026-10-05: INBOX 598, 602 and 596's skeleton part (loading states)
 

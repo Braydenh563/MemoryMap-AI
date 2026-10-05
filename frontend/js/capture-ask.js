@@ -1874,7 +1874,7 @@ function placeAnswerFigures(answerEl, meta, question) {
   //: A counting or trend question's chart (ai/stat_charts.py), drawn once under
   //: the answer; answer-chart.js loads the first time one arrives.
   if (meta?.chart && targets.length && !targets[0].querySelector(".answer-chart")) {
-    ensureModule("answerChart").then((loaded) => {
+    ensureModule("chart").then((loaded) => {
       const figure = loaded ? drawAnswerChart(meta.chart) : null;
       if (figure && !targets[0].querySelector(".answer-chart")) targets[0].append(figure);
     });

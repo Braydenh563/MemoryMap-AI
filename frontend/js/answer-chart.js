@@ -1,5 +1,5 @@
 // A chart under an Ask answer (WORLD_CLASS_PLAN section 17, row 4). Loaded the
-// first time an answer carries one (`ensureModule("answerChart")`, app.js).
+// first time an answer carries one (`ensureModule("chart")`, app.js).
 //
 // The server counted the numbers (ai/stat_charts.py), so this file only draws
 // them: `{kind: "bar" | "line", title, labels, values, unit, format}` where

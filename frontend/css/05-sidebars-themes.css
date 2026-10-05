@@ -4615,10 +4615,13 @@ textarea.autogrow {
   padding-inline: 0.8rem;
 }
 
+/* **A smaller tile** (INBOX 618): 28px, under the bar's 44px controls
+   rather than one of them, so the mark sits beside the bar's controls
+   instead of competing with them. */
 #top-bar #brand-logo {
   flex: 0 0 auto;
-  width: var(--header-control-h);
-  height: var(--header-control-h);
+  width: 1.75rem;
+  height: 1.75rem;
 }
 
 /* The bar's icon buttons are squares of the bar's one height. */

@@ -319,8 +319,10 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "The status bar is the strip along the bottom of every screen. It "
             "shows what the local model is doing, your note count, open and due "
-            "reminders, back and forward, undo and redo, the Ctrl/Cmd+K hint, "
-            "Agent (the popup agent), Atlas the guide, and Find anything. The offline "
+            "reminders, back and forward, undo and redo, Commands with its "
+            "Ctrl/Cmd+K hint, and three icons: the wand for the popup agent, the "
+            "compass for Atlas the guide, and the magnifying glass for Find "
+            "anything (hover one for its name and keys). The offline "
             "badge, the power-saver badge and the running-job slot appear only "
             "when there is something to say. Settings -> Appearance -> Status "
             "bar chooses which of the rest to show."

@@ -332,7 +332,7 @@ MORE_TOPICS: list[dict] = [
             "jump to a note",
         ),
         "body": (
-            "Find anything (Ctrl+P, or Find in the status bar) searches notes, "
+            "Find anything (Ctrl+P, or the magnifying glass in the status bar) searches notes, "
             "files, documents and actions in one box as you type: Enter opens "
             "the top result, the arrows move, Esc closes. It lists the command "
             "palette's actions too, so \"dark\" finds Toggle light/dark."
@@ -1061,7 +1061,7 @@ TOPIC_META: dict[str, dict] = {
     "privacy": {"title": "Privacy", "path": "Settings, Privacy"},
     "undo-bin": {"title": "Undo and the bin", "path": "Ctrl+Z, and the Library's Include the bin"},
     "autonomous": {"title": "Autonomous background AI", "path": "Settings, Background tasks"},
-    "guide": {"title": "Atlas, the guide", "path": "Status bar, Guide (Ctrl+Shift+H)"},
+    "guide": {"title": "Atlas, the guide", "path": "Status bar, the compass (Ctrl+Shift+H)"},
     "command-palette": {"title": "The command palette", "path": "Ctrl+K"},
     "security": {"title": "Account and security", "path": "Settings, Account & security"},
     "troubleshooting": {"title": "When something does not work", "path": "Settings, Models, then Settings, Logs", "steps": (
@@ -1087,7 +1087,7 @@ TOPIC_META: dict[str, dict] = {
     "import-export": {"title": "Import and export", "path": "Settings, Import & export"},
     "logs": {"title": "Logs and reporting a problem", "path": "Settings, Logs", "steps": (
         "Open Settings, Logs.", "Press Email it under the support bundle.", "Attach the bundle the app saved and send.")},
-    "find-anything": {"title": "Find anything", "path": "Ctrl+P, or Find in the status bar"},
+    "find-anything": {"title": "Find anything", "path": "Ctrl+P, or the magnifying glass in the status bar"},
     "background-art": {"title": "The animated background", "path": "Settings, Appearance, Animated background"},
     "themes": {"title": "Themes, colour and type", "path": "Settings, Appearance"},
     "tabs-overview": {"title": "The app at a glance", "path": "The tabs along the top"},

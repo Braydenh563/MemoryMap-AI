@@ -17549,6 +17549,9 @@ function renderWbObjects(canvas) {
   // node: `wbMapColors` walks the whole tree by design (see its own comment),
   // and calling it from inside a per-node callback would walk it once per node.
   const mapIndex = wbIsMap() ? wbMapIndex() : null;
+  //: Each topic's level (MINDMAP_PLAN.md decision 38), before anything is
+  //: painted or measured: its look, and so its size, depend on it.
+  if (mapIndex) wbMapLevels(mapIndex);
   const mapColors = mapIndex ? wbMapNodeColors(mapIndex) : null;
   const mapFills = mapIndex ? wbMapFills(mapIndex) : null;
   const mapHidden = mapIndex ? wbMapConcealed(mapIndex) : null;
@@ -17938,7 +17941,7 @@ function wbObjectPaintKey(d, ctx) {
   }
   return `${base}|${d.data?.sized ? d.height : ""}|${wbMapLabel(d)}|${ctx.colors?.get(d.id) || ""}` +
     `|${children}|${buried}|${d.parent_id ?? ""}|${parentBox}|${ctx.layout}|${ctx.theme}` +
-    `|${ctx.fills?.get(d.id) ? "filled" : ""}` +
+    `|${ctx.fills?.get(d.id) ?? ""}|${wbMapLevelOf(d) ?? ""}` +
     //: The tasks under it (MINDMAP_PLAN.md decision 15): a child ticked
     //: changes this topic's "1/2" without changing anything of its own.
     `|${wbMapTaskTallyKey(index, d.id)}` +

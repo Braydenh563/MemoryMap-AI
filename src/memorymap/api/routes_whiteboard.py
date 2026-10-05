@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import unicodedata
 from collections import OrderedDict
 from datetime import datetime
 from typing import Annotated
@@ -137,13 +138,36 @@ MAP_THEME_FIELDS: dict[str, frozenset | type] = {
     "edge_arrow": frozenset({"on", "off"}),
     "palette": frozenset({"deep", "soft", "vivid", "bold", "paired", "bright", "earth"}),
     "font": frozenset({"serif", "mono", "wide"}),
+    #: **The hierarchy preset** (MINDMAP_PLAN.md decision 39): how the centre,
+    #: the main branches and everything deeper draw. Classic is the default
+    #: and is stored as no value; the frontend holds what each one draws
+    #: (`WB_MAP_HIERARCHIES`), as it holds the fonts' stacks.
+    "hierarchy": frozenset({"outline", "boxed", "flat"}),
+    #: **A look per level** (decision 40): `{"0": {...}, "1": {...}, "2":
+    #: {...}}`, each holding `MAP_LEVEL_FIELDS`. Cleaned by `_clean_levels`,
+    #: and replaced whole by a patch, so Undo puts the whole set back.
+    "levels": dict,
 }
+
+#: The fields one level of a map can set (decision 40), and their values.
+#: `fill` is a level's own word set: `solid`, `tint` or `none`. A `False` is
+#: kept: a level saying "not bold" against a preset that says bold is a choice.
+MAP_LEVEL_FIELDS: dict[str, frozenset | type] = {
+    "font_size": int,
+    "bold": bool,
+    "italic": bool,
+    "shape": frozenset({"pill", "rect", "ellipse", "none", "rounded"}),
+    "spine": frozenset({"dashed", "none", "solid"}),
+    "fill": frozenset({"solid", "tint", "none"}),
+    "edge_width": frozenset({"thin", "thick", "normal"}),
+}
+MAP_LEVELS = ("0", "1", "2")
 
 #: The theme fields that describe the map as a whole rather than how it draws
 #: one topic: never filled in under a topic's style (`_themed_style`), so an
 #: export never writes them onto a node and a re-import never reads them back
 #: as a topic's own choice.
-MAP_LEVEL_THEME_FIELDS = frozenset({"palette", "font"})
+MAP_LEVEL_THEME_FIELDS = frozenset({"palette", "font", "hierarchy", "levels"})
 
 #: **A stored name for the app's own default, per themed select** (decision
 #: 9's narrow case, built). Every select in the topic strip stores the app's
@@ -177,6 +201,34 @@ MAP_THEME_FONT_RANGE = (8, 96)
 #: §5.4). `image` is deliberately not in here, an image object owns its file
 #: and `delete_object` unlinks it, which is the opposite rule.
 MAP_REFERENCE_KINDS = {"note", "document", "file", "link"}
+
+#: A Phosphor glyph's name, the pattern `data.icon` had before it also took an
+#: emoji (MINDMAP_PLAN.md decision 45).
+ICON_NAME_RE = re.compile(r"^[a-z0-9-]{1,40}$")
+
+#: The joiners and selectors an emoji sequence is made of beside its
+#: pictographs: the zero-width joiner, the variation selectors and the keycap.
+_EMOJI_JOINERS = {0x200D, 0xFE0E, 0xFE0F, 0x20E3}
+
+
+def _is_one_emoji(value: str) -> bool:
+    """Whether `value` is one emoji (pictographs and what joins them), not text.
+
+    Short (16 code points covers the longest family or flag sequence), with no
+    ASCII and no control, format or private character but the joiners an
+    emoji uses: so a label, markup or an invisible run cannot ride in as an
+    "icon". The glyph is drawn with `textContent`, so this guards meaning
+    rather than being the only thing between a value and the page."""
+    if not value or len(value) > 16:
+        return False
+    for char in value:
+        point = ord(char)
+        if point in _EMOJI_JOINERS or 0x1F3FB <= point <= 0x1F3FF or 0xE0020 <= point <= 0xE007F:
+            continue
+        pictograph = 0x2100 <= point <= 0x2BFF or 0x1F000 <= point <= 0x1FAFF or point in (0x3030, 0x303D, 0x3297, 0x3299)
+        if not pictograph or unicodedata.category(char) in {"Cc", "Cf", "Co", "Cn"}:
+            return False
+    return True
 
 #: A topic is text that exists only in the map. It is the one node kind with
 #: nothing behind it, which is why deleting the map deletes it.
@@ -325,11 +377,15 @@ class WhiteboardObjectData(BaseModel):
     #: units, rather than adding a second way to say the same thing.
     bold: bool | None = None
     italic: bool | None = None
-    #: A Phosphor icon name without the `ph-` prefix. The pattern is the
-    #: whole guard: this string is written straight into a class attribute on
-    #: the node, so anything but the character set Phosphor's own names use
-    #: has no business arriving here.
-    icon: str | None = Field(default=None, max_length=40, pattern=r"^[a-z0-9-]+$")
+    #: A Phosphor icon name without the `ph-` prefix, or one emoji
+    #: (MINDMAP_PLAN.md decision 45). `_icon_name_or_emoji` is the whole
+    #: guard: a name is written straight into a class attribute on the node,
+    #: so anything but the character set Phosphor's own names use has no
+    #: business arriving as one, and an emoji is drawn as text, never markup.
+    icon: str | None = Field(default=None, max_length=40)
+    #: **An emoji placed on the canvas as a sticker** (decision 44): a text
+    #: object drawn as its glyph alone, sized to its box, with no card.
+    sticker: bool | None = None
     #: How a topic is drawn (MINDMAP_PLAN.md §12.1 item 3, decided in §12.0).
     #: Five values and not the plan's eight: `None` is the rounded card this
     #: map has always drawn, and `pill`, `rect`, `ellipse` and `none` are the
@@ -397,7 +453,9 @@ class WhiteboardObjectData(BaseModel):
     #: branch; unfilled is the absence of the field. The cascade is worked out
     #: when the map is drawn (`wbMapFills`), the way branch colour is, so a
     #: topic added to a filled branch later is filled too.
-    fill: str | None = Field(default=None, pattern="^(self|branch|none)$")
+    #: `solid` (MINDMAP_PLAN.md §14) is this topic filled in its branch
+    #: colour with the ink that reads on it, the look a centre has by default.
+    fill: str | None = Field(default=None, pattern="^(self|branch|none|solid)$")
     #: Where a topic points. Held to the three schemes a link on a page may
     #: safely have: `javascript:` and `data:` are the two this rejects by
     #: existing, and the frontend's own `wbMapOpenLink` refuses anything else
@@ -486,6 +544,15 @@ class WhiteboardObjectData(BaseModel):
         if isinstance(value, str):
             return [part.strip() for part in value.split(",") if part.strip()]
         return value
+
+    @field_validator("icon")
+    @classmethod
+    def _icon_name_or_emoji(cls, value: str | None) -> str | None:
+        if not value:
+            return value
+        if ICON_NAME_RE.match(value) or _is_one_emoji(value):
+            return value
+        raise ValueError("An icon is a Phosphor name or one emoji")
 
     @field_validator("font_size")
     @classmethod
@@ -894,6 +961,11 @@ def _clean_theme(raw: object) -> dict:
         value = raw.get(field)
         if value is None or value is False or value == "":
             continue
+        if allowed is dict:
+            levels = _clean_levels(value)
+            if levels:
+                theme[field] = levels
+            continue
         if allowed is bool:
             theme[field] = True
             continue
@@ -909,6 +981,40 @@ def _clean_theme(raw: object) -> dict:
         if isinstance(value, str) and value in allowed:
             theme[field] = value
     return theme
+
+
+def _clean_levels(raw: object) -> dict:
+    """A map's per-level looks, reduced to `MAP_LEVELS` and `MAP_LEVEL_FIELDS`.
+    Dropped rather than refused, for `_clean_theme`'s reason; a level left
+    with nothing is left out."""
+    if not isinstance(raw, dict):
+        return {}
+    levels: dict = {}
+    for level in MAP_LEVELS:
+        look = raw.get(level)
+        if not isinstance(look, dict):
+            continue
+        clean: dict = {}
+        for field, allowed in MAP_LEVEL_FIELDS.items():
+            value = look.get(field)
+            if value is None or value == "":
+                continue
+            if allowed is bool:
+                if isinstance(value, bool):
+                    clean[field] = value
+            elif allowed is int:
+                try:
+                    number = int(value)
+                except (TypeError, ValueError):
+                    continue
+                low, high = MAP_THEME_FONT_RANGE
+                if low <= number <= high:
+                    clean[field] = number
+            elif isinstance(value, str) and value in allowed:
+                clean[field] = value
+        if clean:
+            levels[level] = clean
+    return levels
 
 
 def _board_theme(entry: Entry | None) -> dict:

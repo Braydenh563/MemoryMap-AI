@@ -359,3 +359,29 @@
   font-weight: 600;
   color: var(--muted);
 }
+
+/* --- a map's levels and a solid fill (MINDMAP_PLAN §14, decisions 38, 39) --
+   Here rather than beside `.wb-map-core` in 07-whiteboard-misc.css: the boot
+   budget is full, and a level is only ever drawn inside a board. Linked after
+   the boot files, so these win a tie with the card's own rules; the plain
+   shape (`data-shape="none"`) is excluded by name, so a topic someone made
+   plain stays plain whatever its level fills it with. */
+
+/* A topic filled in its branch colour: the centre by default, a main branch
+   in Boxed, any topic whose Fill says Solid. The core idea's ground and ink,
+   without its star, its size or its shape. */
+.wb-map-node.wb-map-solid:not([data-shape="none"]) {
+  background: var(--wb-branch);
+  color: var(--wb-core-ink);
+  border-color: color-mix(in srgb, var(--wb-branch-edge) 70%, transparent);
+}
+
+.wb-map-node.wb-map-solid:not([data-shape="none"]) :is(.wb-map-node-icon, .wb-map-count, .wb-map-number) {
+  color: var(--wb-core-ink);
+}
+
+/* The centre takes more room round its words, the way a title does. */
+.wb-map-node[data-level="0"]:not([data-shape="none"]) {
+  min-height: 3.5rem;
+  padding: var(--space-4) var(--space-6);
+}

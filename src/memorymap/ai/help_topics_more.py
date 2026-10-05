@@ -1074,6 +1074,23 @@ MORE_TOPICS.extend(
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
+        {
+            "id": "mind-map-look",
+            "keywords": (
+                "central topic", "centre topic", "center topic", "main branch", "map levels",
+                "hierarchy", "level style", "map style", "bigger centre", "core nodes",
+                "solid fill", "topic style",
+            ),
+            "body": (
+                "How a map's topics look. A map draws as a hierarchy: the centre "
+                "large, bold and filled, each main branch bold on a tinted card "
+                "with a thick line, deeper topics plain. Enter on the centre adds "
+                "a main branch. A topic's own size, shape or fill always beats "
+                "its level's: the Text and Shape menus over a selected topic set "
+                "them, and Fill offers Solid colour."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
     ]
 )
 
@@ -1172,6 +1189,7 @@ TOPIC_META: dict[str, dict] = {
     "documents-features": {"title": "Document editor features", "path": "Library tab, Documents"},
     "mind-map-features": {"title": "Mind map features", "path": "Library tab, Boards & maps"},
     "mind-map-study": {"title": "Study the map", "path": "Library tab, Boards & maps, a map's board menu"},
+    "mind-map-look": {"title": "How a map's topics look", "path": "Library tab, Boards & maps, a map"},
     "callouts": {"title": "Callouts", "path": "Library tab, Documents"},
     "graph-controls": {"title": "Graph keys and controls", "path": "Graph tab"},
     "graph-display": {"title": "More graph controls", "path": "Graph tab, the gear"},
@@ -1234,7 +1252,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "margin-reader",
     )),
     ("Boards and maps", (
-        "whiteboard", "whiteboard-controls", "board-history", "board-library", "board-format", "mind-maps", "mind-map-controls", "mind-map-features", "mind-map-study",
+        "whiteboard", "whiteboard-controls", "board-history", "board-library", "board-format", "mind-maps", "mind-map-controls", "mind-map-features", "mind-map-study", "mind-map-look",
     )),
     ("Library and files", (
         "library", "library-controls", "bookmarks", "web-clipper-bookmark", "contents", "library-skills",

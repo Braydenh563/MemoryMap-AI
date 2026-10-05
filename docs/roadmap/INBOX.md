@@ -147,6 +147,12 @@ with its owner named in the entry.
      before 569's fix was pushed; to verify on the new head). Placed: the
      graph and sidebar agent.
 
+582. **The owner, 2026-10-05, verbatim.** "bro's just perched on nothing in
+     the mindmap. the companion keeps being left floating in places on
+     various pages and sub tabs and tabs" (screenshot: the companion sitting
+     in the air on a map's canvas). Placed: the smoothness agent (a perch is
+     re-checked on every view change, pan, zoom and popup; never in the air).
+
 561. **The owner, 2026-10-05, verbatim.** "I dont like this section in th
      timeline, it needs redesigning, restructuring, moving ro smth"
      (screenshot: the "Sep to Oct 2026" month button over a row of seven

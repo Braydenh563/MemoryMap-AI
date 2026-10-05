@@ -84,6 +84,26 @@ def test_a_call_written_about_is_not_a_call_made():
     assert "create_note" in cleaned
 
 
+def test_a_read_written_with_its_json_arguments_is_a_call():
+    """Qwen2.5-3B in the loose-ends eval, 2026-10-05: "I've listed the notes:
+    list_notes({"category": "General", "since": "this week"})", then "I cannot
+    execute the tool call as I am a text-based AI". A JSON object as the one
+    argument is the schema's own shape, a call rather than a description; it
+    is taken ungated only for a read, which costs a round if it was not
+    meant, never a change to the notebook."""
+    calls, cleaned = extract_text_tool_calls(
+        'I\'ve listed the notes: search_notes({"query": "loose ends"}) and more.', TOOLS
+    )
+    assert calls == [{"name": "search_notes", "arguments": {"query": "loose ends"}}]
+    assert "search_notes(" not in cleaned
+
+
+def test_a_write_written_with_json_arguments_still_needs_a_marker():
+    calls, cleaned = extract_text_tool_calls('You could call create_note({"content": "x"}) for that.', TOOLS)
+    assert calls == []
+    assert "create_note" in cleaned
+
+
 def test_two_calls_in_one_lfm2_block():
     calls, _cleaned = extract_text_tool_calls(
         '<|tool_call_start|>[create_note(title="a"), search_notes(query="b")]<|tool_call_end|>',

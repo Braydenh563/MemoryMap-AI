@@ -319,10 +319,12 @@ retry were not looked at in a browser (no UI changed: they are answer text).
     a right first tool 6 of 7 and a turn that ended telling the truth 5 of 7.
     The three faults it showed are fixed: HISTORY.md, "Moved from the plans,
     2026-10-05 (H4, the 3B pass)". Not re-run after those fixes.
-  - **Built for the next pass**: `tests/test_skill_evals.py` (`evals`) holds
-    Brief 13's done-when, the seventy-note loose-ends fixture with eight
-    planted (`tests/fixtures/chat/loose_ends.json`) and the zero-invalid-calls
-    count over the built-in skills; a fixture check runs without a model.
+  - **Brief 13's evals, built and run once**: `tests/test_skill_evals.py`
+    (`evals`), the seventy-note loose-ends fixture with eight planted and the
+    zero-invalid-calls count over the built-in skills. The 3B named 2 of 8
+    loose ends in 55 minutes, having written `list_notes({...})` into prose
+    instead of calling it; that shape is recovered for a read now (CHAT_PLAN
+    Phase 4 has the run). Not re-run after the fix.
   - **Still open**: 4B (none on disk); Ollama's native dialect on a real
     Ollama (no binary; the dialect now runs over a socket against
     `scratchpad/fake_ollama_server.py`, WORLD_CLASS_PLAN row 19); the

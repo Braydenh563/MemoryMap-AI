@@ -343,6 +343,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Dashboard: the first screen is calmer. Under the greeting is one row, the search box and a "..." menu holding Continue, your recent skills, Tools & features, Commands, View, Widgets and Edit layout; then the Start something tiles and your widgets. The Jump to and Run a skill rows, the four number tiles and the Your dashboard bar are gone from the page (the numbers are in the greeting, the status bar and the Stats, Streak and Writing pace widgets), and Edit layout shows a line above the widgets with its own Done.
 
 ### Fixed
+- Agent mode and skills: a small model that writes a lookup into its reply as text, like list_notes({...}), now has the lookup run instead of stopping with "I cannot execute the tool call"; changes written the same way still are not run.
 - Notes, Ask: the text-selection menu no longer pops up over an answer's sources when the answer selects your question for re-typing.
 - Moving a note the AI filed to another category now teaches the next filing: the move was recorded but never read back, so the same note kept being filed in the same wrong place.
 - Phone: More has a Commands row that opens the command palette, which a phone had no way to reach.

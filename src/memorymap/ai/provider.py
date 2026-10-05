@@ -1165,6 +1165,37 @@ def extract_text_tool_calls(
             calls.append(call)
             cleaned = cleaned.replace(content[begin:end], "")
 
+    # 5) a read written with its JSON arguments in prose, `list_notes({...})`
+    # (Qwen2.5-3B, the loose-ends eval, 2026-10-05: it wrote the call, then
+    # "I cannot execute the tool call as I am a text-based AI"). A JSON object
+    # as the one argument is the schema's own shape, which a model describing
+    # a tool rarely writes; still, a description taken as a call must cost a
+    # round and never a change, so only the reads are taken without a
+    # marker. The write list is the tools module's, read lazily: it imports
+    # this one.
+    if not calls:
+        from memorymap.ai.tools import WRITE_TOOLS
+
+        reads = {name for name in tool_names if name not in WRITE_TOOLS}
+        for match in re.finditer(r"\b([a-z_]{3,40})\s*\(\s*(?=\{)", content):
+            name = match.group(1)
+            if name not in reads:
+                continue
+            nearby = _first_json_object_after(content, match.end() - 1, window=2000)
+            if nearby is None or nearby[0] != match.end():
+                continue
+            begin, end, blob = nearby
+            close = re.match(r"\s*\)", content[end:])
+            if not close:
+                continue
+            try:
+                arguments = loads_lenient(blob)
+            except ValueError:
+                continue
+            if isinstance(arguments, dict):
+                calls.append({"name": name, "arguments": arguments})
+                cleaned = cleaned.replace(content[match.start() : end + close.end()], "")
+
     # The markers themselves are special tokens, never prose, so once a call
     # has been lifted out they are noise in the answer: `<|python_tag|>` or a
     # fence left empty by the removal above is exactly the debris a user

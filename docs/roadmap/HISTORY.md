@@ -50,6 +50,7 @@ three faults, fixed with a test each (fake transport; the 3B not re-run):
 | A forced filing round under a category that exists is offered no tool that reshapes the category tree (`agent._CATEGORY_TREE_TOOLS`), only `create_category` before | `tests/test_harness_tiers.py::test_filing_under_a_category_that_exists_is_offered_no_category_tool` |
 | `edit_note` says what changed and the category the note is still in: "Updated note #1: tags now Home; still in Work" (`result["changed"]`), "Updated note #1" before | `tests/test_tool_contracts.py::test_an_edit_says_what_changed_and_what_did_not` |
 | "Added" is read by what it was added to (`agent._ADDED_TO`): to Favourites is a pin, a tag is a tag, to a note is an edit; the same words with nothing run are still claims | `tests/test_claimed_work.py` (6 cases) |
+| From the loose-ends eval (CHAT_PLAN Phase 4, 2 of 8 found): a read written in prose with its JSON arguments, `list_notes({"category": "General"})`, is recovered as the call (`provider.extract_text_tool_calls`, pass 5); a write in the same shape still needs a marker, so a description costs a round at most | `tests/test_tool_call_dialects.py` (2) |
 
 ## Moved from the plans, 2026-10-05 (the harness does the arithmetic)
 

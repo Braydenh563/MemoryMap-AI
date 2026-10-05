@@ -299,15 +299,18 @@ of 2026-09-20 (the `verify` control in the editor, the two audit skills that
 had no check, `count_notes`'s filters, and the page-cap question, now decision
 10h): see HISTORY.md, "Moved from the plans, 2026-09-20".
 
-**What is left, and why it is still left: the `evals` marker and its fixture
-set** (the loose-ends fixture with eight planted loose ends, the
-zero-invalid-calls count over the built-in skills). It wants the dev model
-script (WORLD_CLASS_PLAN 9) to be worth more than a restatement of the unit
-tests: a fake transport calls whatever its script says, so "80% of the skills
-complete with no invalid tool call" measured against one would be a
-measurement of the script. Nothing was built towards it this time, deliberately:
-a test module that can never run in CI is a feature that never ran once.
-See `docs/roadmap/archive/agent-remaining/brief-13-harness.md`.
+**The `evals` marker and its fixture set: built 2026-10-05**
+(`tests/test_skill_evals.py`, the seventy-note loose-ends fixture with eight
+planted in `tests/fixtures/chat/loose_ends.json`, and the zero-invalid-calls
+count over the built-in skills; a fixture check runs in every suite). Run
+once against Qwen2.5-3B-Instruct Q4_K_M (llama-server `-t 2`, four cores at
+load 13 to 22, 55 minutes): "Find loose ends" named **2 of 8** (the dentist,
+Priya) and one note that is not a loose end. Read from the run: the model
+wrote `list_notes({...})` into its prose and then "I cannot execute the tool
+call", so the paging never happened; that shape is now recovered as a call
+for a read (`provider.extract_text_tool_calls`, pass 5). **Still open**: the
+gate itself (8 of 8, and 80% of the skills with no invalid call) on a 3B
+after that fix, and the built-in skills pass, which is hours on these cores.
 
 ## 6. Consistency rules
 

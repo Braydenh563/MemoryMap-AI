@@ -111,6 +111,24 @@ def _stdlib_modules():
 
 STDLIB_MODULES = _stdlib_modules()
 
+def _without_bytecode(datas):
+    """The data files minus any `__pycache__` folder (only folders: a package's
+    own data files are never touched). `(MIGRATIONS_DIR, "migrations")` copies the folder whole, so a
+    build machine that had ever imported a migration (a local run, a test)
+    shipped `migrations/__pycache__` too: stale bytecode for the build
+    machine's Python, in a bundle that must write none (`sys.dont_write_
+    bytecode` is set when frozen). CI's clean checkout has none, which is why
+    this only showed on a developer's own build. Entries are `(dest, src,
+    typecode)`; the destination is what carries the folder name."""
+    kept = []
+    for entry in datas:
+        parts = str(entry[0]).replace("\\", "/").split("/")
+        if "__pycache__" in parts:
+            continue
+        kept.append(entry)
+    return kept
+
+
 a = Analysis(
     [str(ENTRY_SCRIPT)],
     pathex=[str(REPO_ROOT / "src")],
@@ -193,6 +211,8 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
+
+a.datas = _without_bytecode(a.datas)
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 

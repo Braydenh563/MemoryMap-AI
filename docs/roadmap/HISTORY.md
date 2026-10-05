@@ -7,6 +7,21 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN Phase 9, the status bar and quick access widths)
+
+The last two non-whiteboard rules of the 720 group (`agent-remaining/uimod-89.md`
+items 1 and 2) moved to 599.98: `00-tokens-shell.css`'s status bar trim
+(tighter padding and gap; its hiding of `#status-notes` and `#status-command`
+was already done from 600 to 819 by `10-responsive.css`'s tablet band) and
+`03-dashboard-widgets.css`'s quick access (`.dash-quicklinks`, `.launch-row`,
+`.quick-action`). The 900 group was already empty and its row is gone from
+`tests/test_breakpoints.py`; 719.98 is allowed 3, all the whiteboard's.
+Measured (a status bar probe at 390, 600, 620, 660, 700, 719, 760, 1440):
+the bar's `scrollWidth` equals its width at every one, page overflow 0, the
+only clipped item `#ai-status-label` (ellipsised by design) before and after;
+a quick action is 79px at 14.72px type from 600 to 760 (it was 78 or 60 at
+13.6px from 600 to 719, a step inside the band), 60px at 390 unchanged.
+
 ## Moved from the plans, 2026-10-05 (the add path, second pass)
 
 Audit FEAT-02's 100ms gate, MINDMAP_PLAN decision 24. Traced with

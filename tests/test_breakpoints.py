@@ -42,14 +42,13 @@ PHASE_9 = {
 #: Lower a number (or drop a row) when a group moves onto Phase 9's set.
 ALLOWED = {
     # The three groups the audit named. 2026-10-05 (uimod-89) moved 35 of
-    # their 49 rules onto Phase 9's set; what is left belongs to work in
-    # flight elsewhere: the status bar (00's trimmed items, 03's AI mark),
-    # the dashboard's quick access (03), and the whiteboard (06's floating
-    # panel, and every one of these in 07-whiteboard-misc.css).
-    ("max", 719.98): 5,
+    # their 49 rules onto Phase 9's set, and op4-1005 the status bar's and the
+    # dashboard quick access's (both to 599.98; the 900 group is empty). What
+    # is left is the whiteboard's (06's floating panel, and every one of these
+    # in 07-whiteboard-misc.css), owned by the whiteboard agent.
+    ("max", 719.98): 3,
     ("min", 720.0): 2,
     ("max", 640.0): 5,  # px and 40rem
-    ("max", 900.0): 2,
     # Components' own widths (rem at 16px: dialogs, panels, the timeline).
     ("max", 400.0): 4,
     ("min", 1024.0): 4,

@@ -1266,7 +1266,7 @@ header#top-bar,
    where a tablet app keeps these), but as a touch bar: items at the band's
    44px floor, the three doorways as icons (their words are on hover, which a
    finger does not have, and in their titles), and the notebook count and the
-   palette's keyboard hint gone, as they already are below 720. At 768 that
+   palette's keyboard hint gone, as they already are below 600. At 768 that
    is about 520px of controls in 742. */
 @media (min-width: 600px) and (max-width: 819.98px), (min-width: 600px) and (pointer: coarse) {
 

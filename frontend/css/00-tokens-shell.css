@@ -3711,7 +3711,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   }
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
 
   /* A phone's scarce dimension is height, and two of these five are the two a
      phone can least use: the keyboard hint needs a keyboard, and the notebook

@@ -1047,8 +1047,12 @@ layer; each loads in the Library bundle *before* the file it came out of
 (`documents.js`, `whiteboard.js`), because its own top level reads nothing from
 that file while that file's top-level wiring names its functions (`LAZY_MODULES` in
 `app.js`). Every local CSS and JS URL carries
-`?v=<version>` plus a per-process boot token, so no browser or desktop
-window can keep a stale file (`RevalidatedStatic` in `api/app.py`).
+`?v=<version>-<hash of that file>`, spliced into the served page, so no
+browser or desktop window can keep a stale file and an unchanged one stays
+cached across launches; lazy scripts and workers read their stamps from the
+page's `<meta name="asset-stamps">`. What is served has its comments
+stripped (`api/asset_strip.py`); the files on disk keep them
+(`RevalidatedStatic` in `api/app.py`).
 
 ### The scripts, their order, and the one scope they share
 

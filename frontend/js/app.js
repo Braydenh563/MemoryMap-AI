@@ -2232,14 +2232,27 @@ const lazyModuleLoads = new Map();
 
 //: **The stamp is read off the page, never rebuilt from `__version__`.** Every
 //: local URL carries `?v=<version>`, and `RevalidatedStatic`
-//: (src/memorymap/api/app.py) splices a per-process boot token onto the stamps
-//: *inside index.html's served body* so a fresh launch of the desktop window
-//: can never reuse the last launch's cache. That token exists only in the
-//: markup, so a script this file inserts has to copy the stamp a real tag is
-//: already wearing; a hard-coded `?v=0.3.0` here would be a second, staler
-//: cache key for the same file, which is the exact bug that splice exists to
-//: prevent.
-function lazyAssetStamp() {
+//: (src/memorymap/api/app.py) rewrites it in index.html's served body to
+//: `?v=<version>-<hash of that file>`, so an edited file is a new URL and an
+//: unchanged one keeps its cache across launches (audit 2026-10-05, FE-02).
+//: A script inserted later (a lazy bundle, a worker) takes its own file's
+//: stamp from the map the page carries (`<meta name="asset-stamps">`);
+//: a hard-coded `?v=0.3.0` here would be a second, staler cache key for the
+//: same file, which is the exact bug those stamps exist to prevent.
+let assetStampMap = null;
+function lazyAssetStamp(file) {
+  if (assetStampMap === null) {
+    assetStampMap = {};
+    const listed = document.querySelector('meta[name="asset-stamps"]')?.getAttribute("content") || "";
+    for (const pair of listed.split(",")) {
+      const at = pair.indexOf("=");
+      if (at > 0) assetStampMap[pair.slice(0, at)] = pair.slice(at + 1);
+    }
+  }
+  const own = file && assetStampMap[file];
+  if (own) return `?v=${own}`;
+  //: Not in the map (a file the server did not list, or a page served
+  //: without the map): app.js's stamp, the closest thing the page has.
   const src = document.querySelector('script[src*="/js/app.js?"]')?.getAttribute("src") || "";
   const query = src.indexOf("?");
   return query === -1 ? "" : src.slice(query);
@@ -2269,14 +2282,13 @@ function ensureModule(name) {
   if (!files) return Promise.resolve(false);
   const pending = lazyModuleLoads.get(name);
   if (pending) return pending;
-  const stamp = lazyAssetStamp();
   const loaded = Promise.all(
     files.map(
       (file) =>
         new Promise((resolve) => {
           const script = document.createElement("script");
           script.async = false; // document order, not network order
-          script.src = file + stamp;
+          script.src = file + lazyAssetStamp(file);
           script.onload = () => resolve(true);
           script.onerror = () => resolve(false);
           document.head.appendChild(script);

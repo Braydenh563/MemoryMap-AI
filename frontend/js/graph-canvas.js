@@ -3304,11 +3304,9 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
     // (tests/test_asset_cache_busting.py): a desktop wrapper with its own
     // cache can otherwise go on running yesterday's worker forever, and a
     // stale worker is invisible, nothing logs, the map just behaves like the
-    // build before last. The stamp is lifted off this file's own <script>
-    // tag rather than kept in a second place that can drift from it.
-    const own = document.querySelector('script[src*="graph-canvas.js"]');
-    const stamp = ((own && own.getAttribute("src")) || "").split("?v=")[1] || "0";
-    s.worker = new Worker(`/js/graph-worker.js?v=${stamp}`);
+    // build before last. The stamp is the worker file's own, from the map
+    // the served page carries (`lazyAssetStamp`, app.js).
+    s.worker = new Worker(`/js/graph-worker.js${lazyAssetStamp("/js/graph-worker.js")}`);
     s.worker.onmessage = (event) => {
       const message = event.data || {};
       //: A message from a simulation that no longer matches what is on screen

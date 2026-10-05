@@ -2,10 +2,11 @@
 
 `RevalidatedStatic._precompressed` in `api/app.py`: measured on loopback, the
 448 KB stylesheet cost 22 to 46 ms gzipped on every request against 5 ms sent
-as it is, and a launch fetches every file again because `_BOOT_TOKEN` gives
-each one a new URL. These pin that the bytes are the file's, that the cache
-is per version (an edited file is compressed again), and that what the cache
-does not cover is left exactly as it was.
+as it is. These pin that the bytes are the file's (for the app's own scripts
+and stylesheets, the file's with its comments stripped, audit 2026-10-05
+FE-01, `tests/test_asset_strip.py`), that the cache is per version (an
+edited file is compressed again), and that what the cache does not cover is
+left exactly as it was.
 """
 
 from __future__ import annotations
@@ -17,12 +18,17 @@ import pytest
 
 from memorymap.api import app as app_module
 from memorymap.api.app import FRONTEND_DIR, RevalidatedStatic
+from memorymap.api.asset_strip import strip_css, strip_js
 
 
 @pytest.fixture()
 def cold(monkeypatch):
     """No in-memory copy from an earlier test in this process."""
     monkeypatch.setattr(RevalidatedStatic, "_gzip_cache", {})
+
+
+def _app_js() -> bytes:
+    return strip_js((FRONTEND_DIR / "js" / "app.js").read_text(encoding="utf-8")).encode()
 
 
 def _raw(client, url, **headers):
@@ -38,7 +44,8 @@ def test_a_stylesheet_comes_back_as_its_own_bytes_gzipped(client, cold):
     assert response.headers.get("etag")
     # The security headers are stamped on it like on every other response.
     assert "content-security-policy" in response.headers
-    assert gzip.decompress(raw) == (FRONTEND_DIR / "css" / "08-consistency.css").read_bytes()
+    css = (FRONTEND_DIR / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    assert gzip.decompress(raw) == strip_css(css).encode()
 
 
 def test_the_second_fetch_does_not_compress_again(client, cold, monkeypatch):
@@ -58,7 +65,7 @@ def test_a_new_process_reads_the_copy_on_disk(client, cold, monkeypatch, app_sta
     monkeypatch.setattr(RevalidatedStatic, "_gzip_cache", {})
     monkeypatch.setattr(app_module.gzip, "compress", lambda *a, **k: pytest.fail("compressed again"))
     response, raw = _raw(client, "/js/app.js", **{"Accept-Encoding": "gzip"})
-    assert gzip.decompress(raw) == (FRONTEND_DIR / "js" / "app.js").read_bytes()
+    assert gzip.decompress(raw) == _app_js()
 
 
 def test_an_edited_file_is_compressed_again_and_its_old_copy_dropped(client, cold, app_state):
@@ -68,7 +75,7 @@ def test_an_edited_file_is_compressed_again_and_its_old_copy_dropped(client, col
     try:
         os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns + 1_000_000_000))
         response, raw = _raw(client, "/js/app.js", **{"Accept-Encoding": "gzip"})
-        assert gzip.decompress(raw) == path.read_bytes()
+        assert gzip.decompress(raw) == _app_js()
         folder = app_state.data_dir / "cache" / "static-gz"
         names = [p.name for p in folder.glob("*.gz")]
         assert len(names) == 1 and str(before.st_mtime_ns + 1_000_000_000) in names[0]
@@ -77,14 +84,23 @@ def test_an_edited_file_is_compressed_again_and_its_old_copy_dropped(client, col
 
 
 def test_what_the_cache_does_not_cover_is_unchanged(client, cold):
-    # No gzip asked for: the file as it is.
+    # No gzip asked for: the served bytes, not compressed.
     response, raw = _raw(client, "/js/app.js", **{"Accept-Encoding": "identity"})
     assert "content-encoding" not in response.headers
-    assert raw == (FRONTEND_DIR / "js" / "app.js").read_bytes()
-    # A range request is the file's own bytes, never a slice of the gzip.
+    assert raw == _app_js()
+    # A stripped file is one representation, served whole: a range request
+    # for it gets all of it (a server may ignore Range), never a slice of
+    # bytes no validator names.
     response, raw = _raw(client, "/js/app.js", **{"Accept-Encoding": "gzip", "Range": "bytes=0-9"})
+    assert response.status_code == 200
+    assert gzip.decompress(raw) == _app_js()
+    # A file that is not stripped keeps its byte ranges.
+    vendor = FRONTEND_DIR / "vendor" / "d3.v7.min.js"
+    response, raw = _raw(
+        client, "/vendor/d3.v7.min.js", **{"Accept-Encoding": "gzip", "Range": "bytes=0-9"}
+    )
     assert response.status_code == 206
-    assert raw == (FRONTEND_DIR / "js" / "app.js").read_bytes()[:10]
+    assert raw == vendor.read_bytes()[:10]
 
 
 def test_clearing_the_static_cache_empties_the_folder_and_the_memory_copy(
@@ -112,7 +128,7 @@ def test_clearing_the_static_cache_empties_the_folder_and_the_memory_copy(
     assert sorted(p.name for p in app_state.data_dir.iterdir()) == notebook
     # The next fetch compresses again and still answers.
     response, raw = _raw(client, "/js/app.js", **{"Accept-Encoding": "gzip"})
-    assert gzip.decompress(raw) == (FRONTEND_DIR / "js" / "app.js").read_bytes()
+    assert gzip.decompress(raw) == _app_js()
 
 
 def test_clearing_with_no_cache_folder_is_not_an_error(client, cold):

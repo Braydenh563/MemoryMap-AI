@@ -2195,6 +2195,181 @@ def _round_stream(ollama, model, messages, offered, mode, required):
     return ollama.chat_tools_stream(model, messages, offered, mode=mode)
 
 
+def _tool_event(name: str, arguments: dict, result: dict) -> dict:
+    """The `tool` event for one finished call: what the chat's chip, the
+    Sources panel, the live action line and `skill_runner` read. Lifted
+    from `_run_and_record` (ARCH-22)."""
+    return {
+        "type": "tool",
+        #: **The tool's own name.** The front end has always tried
+        #: to read it (`SOURCE_TOOLS[event.tool || event.name]`,
+        #: app.js) and it was never sent, so every web page and
+        #: every file this app read was silently missing from the
+        #: answer's Sources panel: a feature that could not have
+        #: worked once.
+        "tool": name,
+        "label": result.get("label") or name,
+        "ok": "error" not in result,
+        "error": result.get("error"),
+        "arguments": arguments,
+        #: Titles, addresses and one line each of what was read, 
+        #: see `_tool_sources`. This is what the Sources panel
+        #: draws its cards, previews and links from.
+        "sources": _tool_sources(name, result),
+        # UI display only: the version fed back to the model as
+        # conversation context is `payload` below, with its own
+        # separate, real token budget (`result_cap`). This is just
+        # what the chat transcript's tool-call disclosure shows,
+        # and that box already scrolls (.tool-chip-result, 12rem
+        # max-height): 300 chars cut it down to a couple of
+        # lines for no reason tied to cost. Reported live: "make
+        # the tool call output view a scrollable text box rather
+        # than it being truncated", the box already was one;
+        # this is what was starving it. 4000 is generous enough
+        # that raw JSON from a typical note/search/fetch result
+        # reads in full, while still bounding a pathological
+        # single result (a huge page fetch) from bloating the
+        # SSE event.
+        "result_summary": _result_summary(result),
+        # What this call actually touched, for the chat's live
+        # action line: see `_touched_items`.
+        "touched": _touched_items(result),
+        #: **The ids this read returned, and whether there are
+        #: more pages of them** (Brief 13; CHAT_PLAN decision 10).
+        #: A paging read already tells the *model* there is more
+        #: (`note_to_model`, `next_offset`); nothing told the
+        #: *app*, so `skill_runner` could only see that a tool had
+        #: been called once and ticked the step off with four
+        #: fifths of the notebook unread. Read off the result here
+        #: rather than parsed back out of `result_summary` in the
+        #: runner: the shape is this module's to know, and a
+        #: regex over a truncated JSON blob is the version of this
+        #: that breaks silently.
+        "seen": _seen_ids(result),
+        "more": bool(result.get("has_more")),
+        "next_offset": result.get("next_offset"),
+        #: **The same call, as things with actions** (PLAN.md §4
+        #: A1). `touched` is notes and documents; this is all five
+        #: kinds: a file, a board and a reminder are equally
+        #: openable and had no representation at all. Kept beside
+        #: `touched` rather than replacing it because a saved
+        #: transcript from before this existed has only `touched`,
+        #: and `skill_runner._absorb` reads it to carry ids across
+        #: a run's steps.
+        "cards": cards.result_cards(name, result),
+    }
+
+
+def _run_and_record(
+    session: Session, plan: _TurnPlan, state: _TurnState, name: str, arguments: dict
+) -> Iterator[dict]:
+    """Run a call every guard let through, record what it did on the turn's
+    state, yield its tool event, and return the result for the model.
+
+    `_dispatch_call`'s last branch, lifted with no behaviour change (audit
+    2026-10-05, ARCH-22: the function was 455 lines). The order inside is
+    the branch's own: the taint, the ledgers, the write's change, the advice
+    on an error, then the event.
+    """
+    result = tools.execute_tool(
+        session, name, arguments, context_tokens=plan.window, model=plan.agent_model
+    )
+    # SEC-02: the result carries a clipped or imported note's words (or an
+    # imported document's): from here on the turn is tainted, exactly as
+    # after a web read. Popped: the flag is for this loop, not the model.
+    if isinstance(result, dict) and result.pop("from_outside", False):
+        state.outside = True
+    # What changed, and the call that would put it back. Popped
+    # rather than read: `undo` is for the user, and every field
+    # left in the result is resent to the model on every later
+    # round of the turn.
+    undo = result.pop("undo", None)
+    change = None
+    signature = (name, json.dumps(arguments, sort_keys=True))
+    if "error" not in result and signature not in state.done_calls:
+        # Something new worked. That is what buys another round, 
+        # see EARNED_ROUNDS. Reads and writes both count: paging
+        # through a notebook to find the right note is the work,
+        # not a preamble to it.
+        state.done_calls.add(signature)
+        state.progressed = True
+    if "error" not in result and name not in _WRITE_TOOLS:
+        # Its result is now in the messages above, and stays valid
+        # until something writes.
+        state.fresh_reads.add(signature)
+    if "error" not in result and name in _OUTSIDE_TOOLS:
+        state.outside = True
+    if "error" not in result and name == "web_search":
+        state.result_pages |= _result_urls(result)
+    if "error" not in result and name in _WRITE_TOOLS:
+        state.did_write = True
+        state.ran_writes.add(name)
+        if name == "create_note" and arguments.get("tags"):
+            state.implied.add("tag_note")
+        # The notebook just changed, so every read taken before now
+        # may be out of date. Clearing this is what keeps the
+        # repeat-suppression above from ever serving a stale
+        # answer: after a write, re-reading is legitimate work
+        # rather than a loop, and it has to be allowed through.
+        #
+        # Deliberately *not* `done_calls`, which is the earned-round
+        # ledger: clearing that would let a model repeating one
+        # identical write buy a fresh round every time it did so,
+        # which is the exact loop EARNED_ROUNDS exists to starve.
+        #
+        # Deliberately not `failed_calls` either, for the same
+        # reason one step removed. A write briefly cleared it here,
+        # which sounds symmetrical and is not: a call that failed on
+        # its own arguments, a bad note id, a malformed date, fails
+        # again for exactly the same reason after an unrelated note
+        # is written, and forgetting it hands the model back the
+        # infinite retry that `_RECOVERY_HINTS` and the repeat
+        # interception exist to break. Only a read can go stale.
+        state.fresh_reads.clear()
+        change = {
+            "tool": name,
+            "label": result.get("label") or name,
+            "note_id": _change_note_id(name, result),
+            "document_id": _change_document_id(name, result),
+            "reminder_id": _change_reminder_id(name, result),
+            "category_name": _change_category_name(name, result),
+            "undo": undo,
+        }
+    if "error" in result:
+        # Hand back advice with the error, not just the error.
+        repeated = signature in state.failed_calls
+        state.failed_calls.add(signature)
+        exhausted = state.count_failure(name) >= MAX_TOOL_FAILURES
+        result = {
+            **result,
+            "what_to_do": (
+                # Said on the failure that *reaches* the cap, not
+                # only on the blocked call after it, otherwise the
+                # model spends one more round discovering a rule it
+                # could have been told here.
+                TOOL_EXHAUSTED_NOTE
+                if exhausted
+                else REPEATED_CALL_NOTE
+                if repeated
+                else _recovery_hint(name, str(result["error"]))
+            ),
+        }
+    event = _tool_event(name, arguments, result)
+    if change:
+        event["change"] = change
+    if result.get("proposal"):
+        # `save_user_preference` no longer saves anything: it asks.
+        # The row exists but is inactive and flagged `proposed`, and
+        # it stays out of every system prompt until somebody says
+        # yes. Carrying the id and the text on the event is what
+        # lets the chat draw the accept/decline card next to the
+        # tool chip, so the answer is given where the suggestion was
+        # made rather than three clicks away in Settings.
+        event["proposal"] = result["proposal"]
+    yield event
+    return result
+
+
 def _dispatch_call(
     session: Session,
     plan: _TurnPlan,
@@ -2474,160 +2649,7 @@ def _dispatch_call(
             "ok": True,
         }
     else:
-        result = tools.execute_tool(
-            session, name, arguments, context_tokens=plan.window, model=plan.agent_model
-        )
-        # SEC-02: the result carries a clipped or imported note's words (or an
-        # imported document's): from here on the turn is tainted, exactly as
-        # after a web read. Popped: the flag is for this loop, not the model.
-        if isinstance(result, dict) and result.pop("from_outside", False):
-            state.outside = True
-        # What changed, and the call that would put it back. Popped
-        # rather than read: `undo` is for the user, and every field
-        # left in the result is resent to the model on every later
-        # round of the turn.
-        undo = result.pop("undo", None)
-        change = None
-        signature = (name, json.dumps(arguments, sort_keys=True))
-        if "error" not in result and signature not in state.done_calls:
-            # Something new worked. That is what buys another round, 
-            # see EARNED_ROUNDS. Reads and writes both count: paging
-            # through a notebook to find the right note is the work,
-            # not a preamble to it.
-            state.done_calls.add(signature)
-            state.progressed = True
-        if "error" not in result and name not in _WRITE_TOOLS:
-            # Its result is now in the messages above, and stays valid
-            # until something writes.
-            state.fresh_reads.add(signature)
-        if "error" not in result and name in _OUTSIDE_TOOLS:
-            state.outside = True
-        if "error" not in result and name == "web_search":
-            state.result_pages |= _result_urls(result)
-        if "error" not in result and name in _WRITE_TOOLS:
-            state.did_write = True
-            state.ran_writes.add(name)
-            if name == "create_note" and arguments.get("tags"):
-                state.implied.add("tag_note")
-            # The notebook just changed, so every read taken before now
-            # may be out of date. Clearing this is what keeps the
-            # repeat-suppression above from ever serving a stale
-            # answer: after a write, re-reading is legitimate work
-            # rather than a loop, and it has to be allowed through.
-            #
-            # Deliberately *not* `done_calls`, which is the earned-round
-            # ledger: clearing that would let a model repeating one
-            # identical write buy a fresh round every time it did so,
-            # which is the exact loop EARNED_ROUNDS exists to starve.
-            #
-            # Deliberately not `failed_calls` either, for the same
-            # reason one step removed. A write briefly cleared it here,
-            # which sounds symmetrical and is not: a call that failed on
-            # its own arguments, a bad note id, a malformed date, fails
-            # again for exactly the same reason after an unrelated note
-            # is written, and forgetting it hands the model back the
-            # infinite retry that `_RECOVERY_HINTS` and the repeat
-            # interception exist to break. Only a read can go stale.
-            state.fresh_reads.clear()
-            change = {
-                "tool": name,
-                "label": result.get("label") or name,
-                "note_id": _change_note_id(name, result),
-                "document_id": _change_document_id(name, result),
-                "reminder_id": _change_reminder_id(name, result),
-                "category_name": _change_category_name(name, result),
-                "undo": undo,
-            }
-        if "error" in result:
-            # Hand back advice with the error, not just the error.
-            repeated = signature in state.failed_calls
-            state.failed_calls.add(signature)
-            exhausted = state.count_failure(name) >= MAX_TOOL_FAILURES
-            result = {
-                **result,
-                "what_to_do": (
-                    # Said on the failure that *reaches* the cap, not
-                    # only on the blocked call after it, otherwise the
-                    # model spends one more round discovering a rule it
-                    # could have been told here.
-                    TOOL_EXHAUSTED_NOTE
-                    if exhausted
-                    else REPEATED_CALL_NOTE
-                    if repeated
-                    else _recovery_hint(name, str(result["error"]))
-                ),
-            }
-        event = {
-            "type": "tool",
-            #: **The tool's own name.** The front end has always tried
-            #: to read it (`SOURCE_TOOLS[event.tool || event.name]`,
-            #: app.js) and it was never sent, so every web page and
-            #: every file this app read was silently missing from the
-            #: answer's Sources panel: a feature that could not have
-            #: worked once.
-            "tool": name,
-            "label": result.get("label") or name,
-            "ok": "error" not in result,
-            "error": result.get("error"),
-            "arguments": arguments,
-            #: Titles, addresses and one line each of what was read, 
-            #: see `_tool_sources`. This is what the Sources panel
-            #: draws its cards, previews and links from.
-            "sources": _tool_sources(name, result),
-            # UI display only: the version fed back to the model as
-            # conversation context is `payload` below, with its own
-            # separate, real token budget (`result_cap`). This is just
-            # what the chat transcript's tool-call disclosure shows,
-            # and that box already scrolls (.tool-chip-result, 12rem
-            # max-height): 300 chars cut it down to a couple of
-            # lines for no reason tied to cost. Reported live: "make
-            # the tool call output view a scrollable text box rather
-            # than it being truncated", the box already was one;
-            # this is what was starving it. 4000 is generous enough
-            # that raw JSON from a typical note/search/fetch result
-            # reads in full, while still bounding a pathological
-            # single result (a huge page fetch) from bloating the
-            # SSE event.
-            "result_summary": _result_summary(result),
-            # What this call actually touched, for the chat's live
-            # action line: see `_touched_items`.
-            "touched": _touched_items(result),
-            #: **The ids this read returned, and whether there are
-            #: more pages of them** (Brief 13; CHAT_PLAN decision 10).
-            #: A paging read already tells the *model* there is more
-            #: (`note_to_model`, `next_offset`); nothing told the
-            #: *app*, so `skill_runner` could only see that a tool had
-            #: been called once and ticked the step off with four
-            #: fifths of the notebook unread. Read off the result here
-            #: rather than parsed back out of `result_summary` in the
-            #: runner: the shape is this module's to know, and a
-            #: regex over a truncated JSON blob is the version of this
-            #: that breaks silently.
-            "seen": _seen_ids(result),
-            "more": bool(result.get("has_more")),
-            "next_offset": result.get("next_offset"),
-            #: **The same call, as things with actions** (PLAN.md §4
-            #: A1). `touched` is notes and documents; this is all five
-            #: kinds: a file, a board and a reminder are equally
-            #: openable and had no representation at all. Kept beside
-            #: `touched` rather than replacing it because a saved
-            #: transcript from before this existed has only `touched`,
-            #: and `skill_runner._absorb` reads it to carry ids across
-            #: a run's steps.
-            "cards": cards.result_cards(name, result),
-        }
-        if change:
-            event["change"] = change
-        if result.get("proposal"):
-            # `save_user_preference` no longer saves anything: it asks.
-            # The row exists but is inactive and flagged `proposed`, and
-            # it stays out of every system prompt until somebody says
-            # yes. Carrying the id and the text on the event is what
-            # lets the chat draw the accept/decline card next to the
-            # tool chip, so the answer is given where the suggestion was
-            # made rather than three clicks away in Settings.
-            event["proposal"] = result["proposal"]
-        yield event
+        result = yield from _run_and_record(session, plan, state, name, arguments)
     #: Someone else's words in the result (a note's body, a page's text, a
     #: snippet) go to the model fenced as quoted data (`fence`, INBOX 430);
     #: the app's own fields (`what_to_do`, labels, ids) do not.
@@ -2650,6 +2672,43 @@ def _dispatch_call(
     )
 
     return False
+
+
+def _wrap_up_round(ollama, agent_model: str, mode, state: _TurnState, card: _TurnCard, show_plan: bool) -> Iterator[dict]:  # noqa: ANN001
+    """One more round with the tools withdrawn, for an answer, when a turn
+    runs out of rounds; yields the answer as it streams and returns its
+    text. Lifted from `run_agent` with no behaviour change (audit
+    2026-10-05, ARCH-22)."""
+    wrapped = ""
+    # **One more round, with the tools withdrawn, for an answer** (INBOX
+    # 527). Before, a turn that ran out handed the user only "I stopped
+    # after 4 rounds", however much it had found: a small model capped at
+    # four rounds that had read the right note gave no answer from it.
+    # A skill step passes its own note and is left alone: the runner
+    # reads the stop, not prose, to mark the step stalled.
+    state.messages.append({"role": "user", "content": WRAP_UP_NUDGE})
+    try:
+        for piece in ollama.chat_tools_stream(agent_model, state.messages, [], mode=mode):
+            if "content_delta" in piece:
+                wrapped += piece["content_delta"]
+                yield {"type": "answer", "delta": piece["content_delta"]}
+            elif "final" in piece and not piece["final"].get("streamed"):
+                late = (piece["final"].get("content") or "").strip()
+                if late and not wrapped:
+                    wrapped = late
+                    yield {"type": "answer", "delta": late}
+    except (OllamaError, ToolsUnsupportedError) as exc:
+        logging.getLogger("memorymap.agent").info("wrap-up round failed: %s", exc)
+    if card.drawn:
+        yield from card.end_round(TURN_ROW_WRAP_UP)
+    yield from _check_sources(wrapped, state.messages, show_plan)
+    unsupported = unsupported_claims(wrapped, state.ran_writes | state.implied)
+    if unsupported:
+        yield {
+            "type": "answer",
+            "delta": f"\n\nHeads up: I said I {', '.join(unsupported)}, but that tool never ran, so it did not happen.",
+        }
+    return wrapped
 
 
 def run_agent(
@@ -3057,34 +3116,7 @@ def run_agent(
     }
     wrapped = ""
     if exhausted_note is None and not (spend is not None and spend.exceeded()):
-        # **One more round, with the tools withdrawn, for an answer** (INBOX
-        # 527). Before, a turn that ran out handed the user only "I stopped
-        # after 4 rounds", however much it had found: a small model capped at
-        # four rounds that had read the right note gave no answer from it.
-        # A skill step passes its own note and is left alone: the runner
-        # reads the stop, not prose, to mark the step stalled.
-        state.messages.append({"role": "user", "content": WRAP_UP_NUDGE})
-        try:
-            for piece in ollama.chat_tools_stream(agent_model, state.messages, [], mode=mode):
-                if "content_delta" in piece:
-                    wrapped += piece["content_delta"]
-                    yield {"type": "answer", "delta": piece["content_delta"]}
-                elif "final" in piece and not piece["final"].get("streamed"):
-                    late = (piece["final"].get("content") or "").strip()
-                    if late and not wrapped:
-                        wrapped = late
-                        yield {"type": "answer", "delta": late}
-        except (OllamaError, ToolsUnsupportedError) as exc:
-            logging.getLogger("memorymap.agent").info("wrap-up round failed: %s", exc)
-        if card.drawn:
-            yield from card.end_round(TURN_ROW_WRAP_UP)
-        yield from _check_sources(wrapped, state.messages, show_plan)
-        unsupported = unsupported_claims(wrapped, state.ran_writes | state.implied)
-        if unsupported:
-            yield {
-                "type": "answer",
-                "delta": f"\n\nHeads up: I said I {', '.join(unsupported)}, but that tool never ran, so it did not happen.",
-            }
+        wrapped = yield from _wrap_up_round(ollama, agent_model, mode, state, card, show_plan)
     yield {
         "type": "answer",
         "delta": exhausted_note

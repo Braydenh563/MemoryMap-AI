@@ -3242,8 +3242,9 @@ function atlasFigure() {
   //: shape, which is the shape the tail and the rings rest in.
   ensureModule("atlasLife").then((ok) => {
     if (!ok) return;
-    atlasTailAttach(figure);
     figure.atlasLoops = atlasRingLoops(figure);
+    figure.atlasPropLoops = atlasPropLoops(figure);
+    atlasTailAttach(figure);
   });
   const settle = (tries) => (figure.isConnected ? atlasRigWake(figure) : tries && requestAnimationFrame(() => settle(tries - 1)));
   requestAnimationFrame(() => settle(30));

@@ -1290,3 +1290,25 @@ def test_an_act_is_eased_into_as_well_as_out_of():
     assert "if (was) nameMarkBuddyBlend(buddy, () => buddy.classList.remove(`nmb-act-${was}`));" in AVATARS
     ms = int(re.search(r"const NMB_BLEND_IN_MS = (\d+);", AVATARS).group(1))
     assert 250 <= ms <= 500
+
+
+def test_each_prop_has_a_small_motion_of_its_own_about_its_grip():
+    # INBOX 623 (the owner: "can the atlas agent also animate the props and
+    # icons as well for various actions and behaviours??"): each prop shown
+    # loops on its own while it shows, about its grip, starting and ending at
+    # its drawn pose; Web Animations of transform properties and opacity
+    # only; cancelled (not paused, which the companion's pacer would step)
+    # when hidden or when motion is not live.
+    table = ATLAS[ATLAS.index("const ATLAS_PROP_LOOPS = ["):ATLAS.index("function atlasPropLoops(")]
+    for sel in (".nmp-lantern", ".nmp-bell", ".nmp-cable .atl-prop-zap"):
+        assert f'[".{sel[1:]}' in table, sel
+    for row in re.findall(r"^  \[(\".*?), \d+, [0-9.]+\],$", table, re.M):
+        frames = re.findall(r"\{ ([^}]*) \}", row)
+        assert frames[0] == frames[-1], row
+        assert set(re.findall(r"(\w+):", " ".join(frames))) <= {"rotate", "scale", "opacity"}, row
+    frame = ATLAS[ATLAS.index("function atlasPropsFrame("):]
+    assert "loop.anim.cancel();" in frame and ".pause()" not in frame.split("\n}\n", 1)[0]
+    assert "figure.atlasPropLoops = atlasPropLoops(figure);" in ATLAS
+    assert "atlasPropsFrame(box, live, tail.tick);" in ATLAS
+    # Under the system's reduced motion the bell's ring holds still too.
+    assert "#nm-buddy .nmp-bell { animation: none !important; }" in CSS

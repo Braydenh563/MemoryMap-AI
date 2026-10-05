@@ -7028,6 +7028,8 @@ body .chip.item-label,
   #nm-buddy :is(.nm-buddy-char, .nm-figure, .nm-buddy-head, .nmp-lantern-glow, .nmb-leg-l, .nmb-leg-r, .nmb-arm-l, .nmb-arm-r, .nmb-hold-l, .nmb-hold-r, .nm-buddy-think i, .nm-buddy-z, .nm-buddy-z i) {
     animation-duration: 6s !important;
   }
+  /* A prop's own motion holds still (INBOX 623): the bell's ring too. */
+  #nm-buddy .nmp-bell { animation: none !important; }
 }
 
 @keyframes nmb-stir {

@@ -1,9 +1,11 @@
-// atlas-life.js: Atlas's living tail and its rings' loops. Moved out of
+// atlas-life.js: Atlas's living tail, its rings' loops and its props' own
+// motion (INBOX 623). The tail and the rings moved out of
 // atlas.js on 2026-10-05 (the boot-script gzip budget, tests/test_boot_budget.py):
 // the figure draws whole without either, its tail in its drawn shape and its
 // rings at rest, so nothing here is needed for the first frame. Loaded by
 // `LAZY_MODULES.atlasLife` (app.js) when a layered figure is first made
-// (`atlasFigure`, which then calls `atlasTailAttach` and `atlasRingLoops`);
+// (`atlasFigure`, which then calls `atlasRingLoops`, `atlasPropLoops` and
+// `atlasTailAttach`);
 // `atlasTailWake` stays in atlas.js, since the rig calls it on every wake and
 // a figure only has a tail to wake once this file has attached one.
 
@@ -228,6 +230,8 @@ function atlasTailFrame(tail, now) {
   for (const anim of box.atlasLoops || []) if (live !== (anim.playState === "running")) live ? anim.play() : anim.pause();
   //: Thirty a second: each draw repaints the tail's layer.
   tail.tick += 1;
+  //: The props' own loops, while each is shown (`atlasPropsFrame`).
+  atlasPropsFrame(box, live, tail.tick);
   if (live && tail.tick % 2 && tail.drawn) {
     tail.raf = requestAnimationFrame((t) => atlasTailFrame(tail, t));
     return;
@@ -286,4 +290,71 @@ function atlasTailDraw(tail, bend) {
     tail.tipG.setAttribute("transform", `translate(${f(ex - tx)} ${f(ey - ty)}) rotate(${f((turn[turn.length - 1] * 180) / Math.PI)} ${f(tx)} ${f(ty)})`);
   }
   tail.shape = { pts, turn };
+}
+
+//: **The props and icons have a life of their own** (INBOX 623, the owner:
+//: "can the atlas agent also animate the props and icons as well for
+//: various actions and behaviours??"). Each prop Atlas holds or shows is
+//: drawn in the arm, the head or the body it belongs to, so it already
+//: moves with the hand and the body (and the rig's and the act's hand-overs
+//: ease it, 250 to 500ms); here each gets a small motion of its own while it
+//: is shown: the lantern swings on its string and its star flickers, the
+//: bell sways from its top, the offline link sparks, the music's cups pulse,
+//: the moon on its ear rocks, the reading lenses catch the light, the book's
+//: pages lift and its constellation twinkles, the map's stars twinkle and
+//: the map rocks on its corner, the coil breathes, the startle's bubble
+//: wobbles and its "!" pops. Every turn is about the prop's grip (its
+//: string's top, its hinge, its corner, the ear), so the grip never leaves
+//: what holds it (atlas623-props.js). Each loop starts and ends at rest, so
+//: a still frame is the drawn pose: with Avatar animation off, under reduce
+//: motion, off screen or on a hidden tab they rest there (`atlasPropsFrame`).
+//: Web Animations of transform, rotate, scale and opacity only (the boot
+//: stylesheets are at their budget), run only while the prop is shown.
+//: [selector, grip [x, y] in the drawing's units (null: the element's own
+//: box, `box` its centre, `top` its top middle), frames, ms, stagger]
+const ATLAS_PROP_LOOPS = [
+  //: Hand props: the lantern on its string (48.2, 61), the bell from its top.
+  [".nmp-lantern", [48.2, 61], [{ rotate: "0deg" }, { rotate: "6deg" }, { rotate: "0deg" }, { rotate: "-5deg" }, { rotate: "0deg" }], 2600, 0],
+  [".nmp-lantern .atl-sparkle", "box", [{ opacity: 1, scale: 1 }, { opacity: 0.55, scale: 0.86 }, { opacity: 0.95, scale: 1.08 }, { opacity: 0.7, scale: 0.94 }, { opacity: 1, scale: 1 }], 900, 0],
+  [".nmp-bell", "top", [{ rotate: "0deg" }, { rotate: "4deg" }, { rotate: "0deg" }, { rotate: "-4deg" }, { rotate: "0deg" }], 2200, 0],
+  [".nmp-cable .atl-prop-zap", null, [{ opacity: 1 }, { opacity: 0.15 }, { opacity: 1 }, { opacity: 0.4 }, { opacity: 1 }], 700, 0],
+];
+function atlasPropLoops(box) {
+  if (!box.animate) return [];
+  const loops = [];
+  for (const [sel, grip, frames, ms, stagger] of ATLAS_PROP_LOOPS) {
+    box.querySelectorAll(sel).forEach((el, k) => {
+      if (grip === "box" || grip === "top") {
+        el.style.transformBox = "fill-box";
+        el.style.transformOrigin = grip === "box" ? "50% 50%" : "50% 0";
+      } else if (grip) el.style.transformOrigin = `${grip[0]}px ${grip[1]}px`;
+      const anim = el.animate(frames, { duration: ms, iterations: Infinity, easing: "ease-in-out", id: "atl-prop" });
+      anim.cancel();
+      //: Staggered rows (a constellation's stars) start a step apart.
+      loops.push({ anim, el, root: el.closest(".nmp, .atl-fx-bang") || el, lag: (k * stagger * ms) % ms, on: false });
+    });
+  }
+  return loops;
+}
+//: Each loop runs while its prop shows and motion is live, and is cancelled
+//: (its drawn pose) otherwise, not paused: the companion's pacer
+//: (`nameMarkBuddyTempo`) holds and steps by hand whatever animates inside
+//: its drawing while it idles, so a paused loop would still be stepped, and
+//: playing state is the pacer's to set while one runs. Read every eighth
+//: frame of the tail's loop: a prop's own fade-in is 0.16s, so it is moving
+//: by the time it is whole.
+function atlasPropsFrame(box, live, tick) {
+  const loops = box.atlasPropLoops;
+  if (!loops?.length || (live && tick % 8)) return;
+  const shown = new Map();
+  for (const loop of loops) {
+    if (!shown.has(loop.root)) shown.set(loop.root, live && +getComputedStyle(loop.root).opacity > 0.05);
+    const on = shown.get(loop.root);
+    if (on === loop.on) continue;
+    loop.on = on;
+    if (on) {
+      loop.anim.play();
+      loop.anim.currentTime = loop.lag;
+    } else loop.anim.cancel();
+  }
 }

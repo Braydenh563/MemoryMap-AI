@@ -6140,11 +6140,73 @@ function placeNameMarkBuddy(buddy = document.getElementById("nm-buddy"), instant
   nameMarkBuddyMoveTo(buddy, nameMarkBuddyNextSpot(tab, near), instant);
 }
 
+//: **Something under it** (INBOX 582, the owner: "bro's just perched on
+//: nothing in the mindmap. the companion keeps being left floating in
+//: places on various pages and sub tabs and tabs"). Its perch was chosen
+//: once and then only checked for controls coming up under it, so a perch
+//: that went (a sub-tab's dock hidden with its view, a card re-drawn, a
+//: board's content panned away) left it sitting on the air where the edge
+//: had been: measured (`scratchpad/ui-sweeps/smooth1005-perch.js`) on the
+//: Library's AI skills, seated on a dock its view had hidden. Asked of the
+//: page itself, not of the perch it remembers: under the middle of its
+//: seat, soles or hands, is there a visible element whose top edge (bottom,
+//: hanging) is within 2px of that line? Floating, peeking over the bar,
+//: leaning on a side or pinned where you put it is not a perch to check;
+//: what is drawn on a board, a map or the graph is never one.
+const NMB_CANVAS = "#whiteboard-container, #graph-canvas, #graph-svg, #graph-pane-canvas, canvas";
+function nameMarkBuddySupported() {
+  if (!["sit", "stand", "hang"].includes(nmb.pose) || nmb.legs === "peek" || nmb.spot?.side || nmb.pinned) return true;
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy) return true;
+  //: Where it is drawn: the host is not scaled (its face is, about this
+  //: same line), and a ride or a translate is in its box.
+  const at = buddy.getBoundingClientRect();
+  const hang = nmb.pose === "hang";
+  const line = at.top + (hang ? NMB_GRIP : nmb.pose === "sit" ? NMB_SEAT : NMB_FEET - 1);
+  const mid = at.left + NMB_W / 2;
+  //: The edge it chose, where it still is and still shows (a surface that
+  //: takes no pointer is missed by a hit test).
+  const el = nmb.spot?.edge?.el || nmb.spot?.anchor;
+  const box = el?.isConnected && !el.closest(NMB_CANVAS) ? nameMarkBuddyPerchShown(el) : null;
+  if (box && Math.abs((hang ? box.bottom : box.top) - line) <= 2 && box.left <= mid && box.right >= mid) return true;
+  const band = document.getElementById("nm-buddy-band");
+  for (const f of [0.3, 0.5, 0.7]) {
+    const px = at.left + NMB_W * f;
+    const py = hang ? line - 1 : line + 1;
+    if (px < 0 || px >= innerWidth || py < 0 || py >= innerHeight) continue;
+    for (const el of document.elementsFromPoint(px, py)) {
+      if (band?.contains(el)) continue;
+      if (el === document.documentElement || el === document.body || el.classList.contains("tab-page")) break;
+      if (el.closest(NMB_CANVAS) && !el.matches("#whiteboard-container")) continue;
+      const r = el.getBoundingClientRect();
+      if (Math.abs((hang ? r.bottom : r.top) - line) <= 2 && !el.matches("#whiteboard-container")) return true;
+    }
+  }
+  return false;
+}
+
+//: Asked again whenever the page under it may have changed without a
+//: scroll: a pan or a zoom on a canvas (a wheel there scrolls nothing), a
+//: press that let go, and every 1.5s while it rests in view (three hit
+//: tests). Gone from under it, it chooses again, now: a walk, a glide or a
+//: float to the nearest good perch, or the window's bar.
+let nmbSupportTimer = 0;
+function nameMarkBuddySupportSoon() {
+  clearTimeout(nmbSupportTimer);
+  nmbSupportTimer = setTimeout(queueNameMarkBuddyCheck, 400);
+}
+document.addEventListener("wheel", nameMarkBuddySupportSoon, { passive: true, capture: true });
+document.addEventListener("pointerup", nameMarkBuddySupportSoon, { passive: true, capture: true });
+setInterval(() => {
+  if (!document.hidden && !nmb.away && document.getElementById("nm-buddy")) queueNameMarkBuddyCheck();
+}, 1500);
+
 //: Where it is now still does: on screen, not lost, not held off its
-//: panel, and not over a control.
+//: panel, not over a control, and on something.
 function nameMarkBuddyStillGood(obstacles) {
   if (!Number.isFinite(nmb.x) || nmb.perch === "errand" || nmb.outOfSight) return false;
   if (nmb.glue && (nmb.glue.lost || nmb.glue.held)) return false;
+  if (!nameMarkBuddySupported()) return false;
   if (nmb.x < 0 || nmb.y < 0 || nmb.x > innerWidth - NMB_W || nmb.y > innerHeight - NMB_H) return false;
   return !nameMarkBuddyHits(nmb.x, nmb.y, nmb.pose, nmb.perch === "yours" ? nameMarkBuddyYoursObstacles(obstacles, nmb.spot) : obstacles, nmb.legs);
 }
@@ -6178,6 +6240,19 @@ function nameMarkBuddyCheck() {
   if (performance.now() - nmbFollow.scrollAt < 400) {
     clearTimeout(nmbFollow.recheck);
     nmbFollow.recheck = setTimeout(queueNameMarkBuddyCheck, 450);
+    return;
+  }
+  //: Its perch gone from under it (INBOX 582): never left sitting on the
+  //: air until its next beat. Not mid-move: where it is drawn then is on
+  //: the way, not a perch.
+  //: Once in three seconds at most, so a perch this cannot see from here is
+  //: never a loop.
+  if (Date.now() - (nmb.unheldAt || 0) > 3000 && ![nmb.anim, nmb.hopAnim, nmb.glideAnim].some((a) => a?.playState === "running") && !nameMarkBuddySupported()) {
+    nmb.unheldAt = Date.now();
+    nmb.moves = (nmb.moves || 0) + 1;
+    nmb.moveWhy = "its perch went";
+    nameMarkBuddyIndexReset();
+    placeNameMarkBuddy(buddy, false, [nmb.x, nmb.y]);
     return;
   }
   const all = nameMarkBuddyObstacles(tab);

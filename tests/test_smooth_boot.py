@@ -151,3 +151,17 @@ def test_the_companion_holds_still_while_a_view_arrives():
     settings = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
     assert "window.uiSettlingUntil = performance.now() + 400;" in _fn(settings, "openSettingsModal")
     assert "now < (window.uiSettlingUntil || 0)" in _fn(AVATARS, "nameMarkBuddyTempo")
+
+
+def test_the_companion_never_sits_on_the_air():
+    # INBOX 582: a perch is asked of the page under it, not remembered.
+    supported = _fn(AVATARS, "nameMarkBuddySupported")
+    assert "document.elementsFromPoint(" in supported and "<= 2" in supported
+    assert "el.closest(NMB_CANVAS)" in supported, "what is drawn on a canvas is never a perch"
+    check = _fn(AVATARS, "nameMarkBuddyCheck")
+    assert check.index("!nameMarkBuddySupported()") < check.index("nameMarkBuddyObstacles(tab)")
+    assert "placeNameMarkBuddy(buddy, false, [nmb.x, nmb.y]);" in check
+    assert "if (!nameMarkBuddySupported()) return false;" in _fn(AVATARS, "nameMarkBuddyStillGood")
+    # Asked again after a pan or zoom on a canvas, a release, and while it rests.
+    assert 'document.addEventListener("wheel", nameMarkBuddySupportSoon' in AVATARS
+    assert 'document.addEventListener("pointerup", nameMarkBuddySupportSoon' in AVATARS

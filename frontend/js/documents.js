@@ -3151,6 +3151,9 @@ function renderDocPreview() {
   docPreviewLineShift =
     (lead ? 2 : 0) - (text.split("\n").length - stripped.split("\n").length);
   docRenderBody(preview, lead ? `# ${title}\n\n${body}` : body);
+  //: Named, so a phone can leave it to the head row that already shows it
+  //: (10-responsive.css, "The first line under the chrome").
+  if (lead) preview.querySelector(":scope > .md-h1")?.classList.add("doc-preview-title");
   if (fm) {
     //: After the title, which is the document's name rather than part of its
     //: text, and before the first thing its author wrote.

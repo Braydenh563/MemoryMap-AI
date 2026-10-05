@@ -463,6 +463,10 @@ $("pref-filing-wait-reset").addEventListener("click", () => {
   setPreference("filing_wait_seconds", 15);
 });
 
+$("pref-filing-style").addEventListener("change", (e) =>
+  setPreference("filing_style", e.target.value)
+);
+
 $("pref-ai-first-filing").addEventListener("change", (e) =>
   setPreference("ai_first_filing", e.target.checked)
 );

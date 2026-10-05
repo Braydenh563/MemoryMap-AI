@@ -496,6 +496,9 @@ class PreferencesBody(BaseModel):
     autonomous_tasks_interval_hours: int | None = Field(default=None, ge=1, le=168)
     autonomous_tasks_model: str | None = Field(default=None, max_length=100)
     filing_wait_seconds: int | None = Field(default=None, ge=5, le=60)
+    #: Section 17 row 3: how the filing prompt carves notes up
+    #: (`librarian.FILING_STYLES`).
+    filing_style: Literal["topic", "project", "time"] | None = None
     #: **Four filing and image switches Settings has always shown and never
     #: saved** (found 2026-10-04 with INBOX 509): they were missing here, so
     #: pydantic dropped them on the way in and the checkbox snapped back on
@@ -706,6 +709,7 @@ def get_preferences() -> dict:
         "auto_caption_images": config.get_preference("auto_caption_images", True),
         "auto_read_image_text": config.get_preference("auto_read_image_text", True),
         "filing_wait_seconds": config.get_preference("filing_wait_seconds", None),
+        "filing_style": config.get_preference("filing_style", "topic"),
         "warm_search_model_at_launch": config.get_preference("warm_search_model_at_launch", True),
         "conversation_retention_days": config.get_preference("conversation_retention_days", 0),
         "export_save_dir": config.get_preference("export_save_dir", ""),

@@ -1622,8 +1622,8 @@ not a widget of its own. Split is Extract notes over the whole note.
 
 **State 2026-09-24:** the seven rows: 1 review queue: built 2026-10-05
 (HISTORY.md, "Moved from the plans, 2026-10-05 (section 17)"). 2 tidy categories (b): the agent has `merge_categories`
-(`ai/tools/categories.py`); the proposal list is not built, M. 3 filing style
-(c), S. 4 charts from questions (c), M. 5 most opened (b): the Most used
+(`ai/tools/categories.py`); the proposal list is not built, M. 3 filing style:
+built 2026-10-05 (HISTORY.md, same heading). 4 charts from questions (c), M. 5 most opened (b): the Most used
 widget lists the notes opened or matched most, all time
 (`/entries/most-accessed`); "this month" needs an open log, S (its picker
 line was wrong and was fixed 2026-09-24). 6 explain this note (c), S. 7

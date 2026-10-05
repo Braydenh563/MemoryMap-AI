@@ -805,6 +805,7 @@ function renderAutonomousSettings() {
   $("pref-background-filing").checked = prefsCache.background_filing ?? true;
   $("pref-warm-search-model").checked = prefsCache.warm_search_model_at_launch ?? true;
   $("pref-filing-wait").value = prefsCache.filing_wait_seconds || 15;
+  $("pref-filing-style").value = prefsCache.filing_style || "topic";
   $("pref-auto-caption-images").checked = prefsCache.auto_caption_images ?? true;
   $("pref-auto-read-image-text").checked = prefsCache.auto_read_image_text ?? true;
   $("pref-auto-tag").checked = prefsCache.auto_tag_enabled ?? true;

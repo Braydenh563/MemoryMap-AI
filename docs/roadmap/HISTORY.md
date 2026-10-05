@@ -41408,6 +41408,31 @@ The two cheap additions the plan's research section named (decisions 11 to
   model-less notebook the queue is every note the person has not filed by
   hand; that is the row as written ("anything filed Uncategorised").
 
+### From WORLD_CLASS_PLAN.md section 17, row 3: the filing style
+
+**State 2026-09-24:** 3 filing style (c), S.
+
+- **Built 2026-10-05 (worldclass-1005c).** `filing_style` preference
+  (`topic` default, `project`, `time`; a `Literal` in `PreferencesBody`, so
+  `mood` is a 422). `librarian.filing_style_note` adds "Filing style: <rule>"
+  and three "- example" lines to the user half of the filing prompt
+  (`filing_prompt`); `topic` adds nothing, so the default prompt is byte for
+  byte the old one. An unknown stored value reads as `topic`. Settings,
+  Background tasks, Filing style (`#pref-filing-style`, a `setting-row`
+  select); the Guide's "How a note is filed" names it.
+- Decided (recommended, not confirmed): one prompt block rather than a
+  second category-namer prompt, because the namer is the same model call
+  ("invent a short new category name only if none fit"); the centroid and
+  neighbour paths, which never ask a model, are left alone because they
+  already follow the shape of the notebook.
+- Measured: `tests/test_filing_style_17.py` 5 tests;
+  `scratchpad/ui-sweeps/filingstyle.js` 7/7 at 1440 and 390, light and dark
+  (the select inside its row and pane, 32px at 1440 and 44px at 390, the
+  same as the Manage categories button, nothing sideways, saved and read
+  back, no page errors).
+- Not verified: how a real small model responds to the three examples (the
+  suite's transports are fake, CLAUDE.md section 4).
+
 ## Built 2026-10-05: INBOX 598, 602 and 596's skeleton part (loading states)
 
 (The INBOX entries themselves are moved by the orchestrator; this is the

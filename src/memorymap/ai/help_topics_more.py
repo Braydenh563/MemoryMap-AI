@@ -678,7 +678,10 @@ MORE_TOPICS.extend(
                 "hand teaches the filing where things go. In Settings, Background tasks, Load "
                 "the search model when the app starts chooses when filing by "
                 "meaning gets ready: at launch, or on the first note, which then "
-                "waits a few seconds."
+                "waits a few seconds. Filing style, in the same place, tells Atlas how "
+                "to carve notes up: by topic (the default), by the project they serve, "
+                "or by when they belong; it steers the model's choice and the name of "
+                "a new category, and your existing categories still count first."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

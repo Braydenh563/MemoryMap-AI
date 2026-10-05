@@ -10876,6 +10876,19 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
                 <button type="button" id="settings-manage-tags" class="ghost small setting-control">Manage tags</button>
               </div>
+              <!-- Section 17 row 3: how Atlas carves notes up when it files
+                   (librarian.FILING_STYLES). By topic adds nothing to the prompt. -->
+              <div class="setting-row" id="filing-style-row">
+                <div class="setting-label">
+                  <span>Filing style</span>
+                  <small class="muted">How Atlas groups notes: by topic, by the project they serve, or by when they belong.</small>
+                </div>
+                <select id="pref-filing-style" class="small-select setting-control" aria-label="Filing style">
+                  <option value="topic">By topic</option>
+                  <option value="project">By project</option>
+                  <option value="time">By time</option>
+                </select>
+              </div>
               <label class="check-row">
                 <input type="checkbox" id="pref-ai-first-filing">
                 <span>Ask Atlas where each note belongs (more accurate, slower to save)</span>

@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 from memorymap import __version__
 from memorymap.ai import budget as run_budget
 from memorymap.ai import librarian, presets, skills
+from memorymap.api.routes_categories import CATEGORY_PALETTE_KEYS
 from memorymap.core import backup, deps, embedmodels, events, extras, jobruns, logbuffer, security
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
@@ -363,6 +364,11 @@ class PreferencesBody(BaseModel):
     #: frontend falls back to its default five. Declared here because a field
     #: Pydantic does not know about is silently dropped.
     dashboard_quick_access: list[str] | None = Field(default=None, max_length=32)
+    #: A highlight per Quick access tile, tile id to a key (INBOX 589): one of
+    #: the category palette's twelve, "accent", or "none". A tile with no entry
+    #: takes its position's default (the first is the accent, the rest plain),
+    #: so `{}` is "never chosen". Cleaned by `_validated_quick_tints`.
+    dashboard_quick_tints: dict[str, object] | None = None
     # User-defined skills, and whether the chat AI may use tools.
     skills: list[SkillItem] | None = Field(default=None, max_length=30)
     tools_enabled: bool | None = None
@@ -662,6 +668,32 @@ def _validated_quick_access(value: object) -> list[str]:
     return cleaned[:QUICK_ACCESS_MAX]
 
 
+#: The keys a tile's highlight may be: the category swatches (one palette for
+#: every colour a person picks), the theme's accent, and an explicit "none"
+#: (which is how the first tile turns its default accent off).
+QUICK_TINT_KEYS = frozenset(("accent", "none")) | frozenset(CATEGORY_PALETTE_KEYS)
+
+
+def _validated_quick_tints(value: object) -> dict[str, str]:
+    """Known keys only, short ids, and a bounded map.
+
+    The value ends up in a CSS custom property (`--quick-tint`, through a
+    lookup in the frontend), so nothing but a palette key is ever stored. The
+    frontend prunes ids that left the row; the cap only keeps a stale map from
+    growing without end.
+    """
+    if not isinstance(value, dict):
+        return {}
+    cleaned: dict[str, str] = {}
+    for raw_id, tint in value.items():
+        tile = raw_id.strip() if isinstance(raw_id, str) else ""
+        if tile and len(tile) <= 80 and isinstance(tint, str) and tint in QUICK_TINT_KEYS:
+            cleaned[tile] = tint
+        if len(cleaned) >= 32:
+            break
+    return cleaned
+
+
 @router.get("/preferences")
 def get_preferences() -> dict:
     config = deps.get_config()
@@ -706,6 +738,7 @@ def get_preferences() -> dict:
             "dashboard_layout", {"order": [], "hidden": []}
         ),
         "dashboard_quick_access": config.get_preference("dashboard_quick_access", []),
+        "dashboard_quick_tints": config.get_preference("dashboard_quick_tints", {}),
         "skills": config.get_preference("skills", []),
         "tools_enabled": config.get_preference("tools_enabled", True),
         "local_only_ai": config.get_preference("local_only_ai", True),
@@ -918,6 +951,8 @@ def update_preferences(
             value = _validated_export_dir(value)
         if key == "dashboard_quick_access":
             value = _validated_quick_access(value)
+        if key == "dashboard_quick_tints":
+            value = _validated_quick_tints(value)
         if key == "model_context_windows":
             value = _validated_context_windows(value)
         config.set_preference(key, value)

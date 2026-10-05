@@ -1519,7 +1519,7 @@ HELP_TOPICS.extend(
         },
         {
             "id": "dashboard-controls",
-            "keywords": ("quick access", "customise quick access", "quick start", "focused view", "full view", "tools & features", "tools and features", "dashboard menu", "continue where i left off"),
+            "keywords": ("quick access", "customise quick access", "highlight a tile", "tile colour", "quick start", "focused view", "full view", "tools & features", "tools and features", "dashboard menu", "continue where i left off"),
             "body": (
                 "Dashboard controls. Under the greeting is the search box (Ctrl+P), "
                 "then Customise and a ... menu. The ... menu is for doing: "
@@ -1533,9 +1533,12 @@ HELP_TOPICS.extend(
                 "checked and first. Check or uncheck as many as you like (up to "
                 "eight), drag a row or press Alt with Up or Down to reorder, "
                 "search to narrow it, then Done saves them all at once; a tile's "
-                "menu still has Move left, Move right and Remove. Reset quick "
-                "access goes back to the defaults. Quick access starts as New note, Ask "
-                "AI, Sketch, Remind me and Meeting notes. All of it is "
+                "menu still has Move left, Move right, Highlight and Remove. "
+                "The first tile is highlighted in the accent; Highlight gives "
+                "any tile the accent, one of twelve colours or No highlight. "
+                "Reset quick access goes back to the defaults. Quick access "
+                "starts as New note, Ask AI, Sketch, Remind me and Meeting "
+                "notes. All of it is "
                 "remembered per user. Press m then d to come back here from "
                 "anywhere."
             ),

@@ -2770,24 +2770,6 @@
   left: 1rem;
 }
 
-.whiteboard-floating-panel.top-right {
-  top: 1rem;
-  right: 1rem;
-  /* Eight controls (library toggle, colour, grid, snap, background image,
-     reset, clear, export) in one un-wrapped row reached ~666px wide, which
-     at any viewport under ~1330px overlapped #wb-back-to-boards's own
-     centred position: reported directly ("top right panel clashes with
-     the boards back button"). Wrapping to a second row instead of growing
-     further left is a smaller change than redesigning the toolbar, and
-     right-aligning the wrap keeps it flush with the panel's own `right`
-     anchor instead of drifting toward centre. */
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  /* Live-measured, not guessed: 26rem still overlapped the centred back
-     button down to ~950px wide. 18rem clears it down to ~700px. */
-  max-width: min(18rem, 34vw);
-}
-
 /* Asked for directly: "the main tool panel sits right up against the
    [gesture hint] popup notification", both bottom-docked panels shared
    `bottom: 1rem` with `#wb-gestures` fixed at `bottom: 5.25rem` above them,

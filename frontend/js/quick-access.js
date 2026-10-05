@@ -38,7 +38,7 @@ function quickAccessTile(link, index, ids, row) {
   wrap.className = "quick-edit-tile";
   wrap.dataset.id = link.id;
   wrap.draggable = true;
-  const tile = quickLinkButton({ ...link, run: () => {} });
+  const tile = quickLinkButton({ ...link, run: () => {} }, quickTintKey(link.id, index, quickTints()));
   tile.tabIndex = -1;
   tile.setAttribute("aria-disabled", "true");
   const move = (by) => {
@@ -49,8 +49,9 @@ function quickAccessTile(link, index, ids, row) {
   };
   const menu = kebabMenu(
     [
-      { label: "ph:arrow-left Move left", title: `Move ${link.label} one place left`, disabled: index === 0, run: () => index > 0 && move(-1) },
-      { label: "ph:arrow-right Move right", title: `Move ${link.label} one place right`, disabled: index === ids.length - 1, run: () => index < ids.length - 1 && move(1) },
+      { label: "ph:arrow-left Move left", title: `Move ${link.label} one place left`, group: "move", disabled: index === 0, run: () => index > 0 && move(-1) },
+      { label: "ph:arrow-right Move right", title: `Move ${link.label} one place right`, group: "move", disabled: index === ids.length - 1, run: () => index < ids.length - 1 && move(1) },
+      { label: "ph:palette Highlight", title: `Choose a colour for ${link.label}, or none`, group: "look", run: () => quickAccessPickTint(link, index) },
       { label: "ph:trash Remove", title: `Take ${link.label} off this row`, group: "remove", disabled: ids.length < 2, run: () => ids.length > 1 && quickAccessCommit(ids.filter((id) => id !== link.id)) },
     ],
     `${link.label}: arrange`,
@@ -68,6 +69,51 @@ function quickAccessTile(link, index, ids, row) {
     if (dragged && dragged !== wrap) dashDragOverCard(event, wrap, dragged, row);
   });
   return wrap;
+}
+
+//: **A tile's highlight** (INBOX 589): DESIGN.md's swatch picker in a sheet,
+//: under a preview that is the tile itself, repainted as the arrows move the
+//: check. The accent first, then the twelve category hues, then "No
+//: highlight". Checked is what the tile shows now, a stored choice or its
+//: position's default; whatever is picked is stored, so the first tile set to
+//: "No highlight" stays plain wherever it goes.
+async function quickAccessPickTint(link, index) {
+  //: The picker lives with the Manage categories panel (lazy).
+  if (typeof swatchPicker !== "function" && !(await ensureModule("categories"))) return;
+  const before = quickTintKey(link.id, index, quickTints());
+  const palette = { accent: "var(--accent)", ...CATEGORY_PALETTE };
+  openSheet({
+    label: `Highlight for ${link.label}`,
+    sub: "A colour for this tile. The first tile has the accent until you choose.",
+    name: "quick-tint",
+    build: (card, close) => {
+      card.classList.add("swatch-card", "quick-tint-card");
+      const slot = document.createElement("div");
+      slot.className = "quick-tint-preview";
+      const show = (key) => {
+        const tile = quickLinkButton({ ...link, run: () => {} }, key || "");
+        tile.tabIndex = -1;
+        tile.setAttribute("aria-hidden", "true");
+        slot.replaceChildren(tile);
+      };
+      const picker = swatchPicker({
+        label: `Highlight for ${link.label}`,
+        value: before || null,
+        palette,
+        none: "No highlight",
+        onChange: show,
+        onChoose: async (key) => {
+          close();
+          if ((key || "") === before) return;
+          await saveQuickTint(link.id, key || "none");
+          await quickAccessEdit();
+          $("dash-quicklinks")?.querySelector(`[data-id="${CSS.escape(link.id)}"] .menu-wrap button`)?.focus();
+        },
+      });
+      card.append(slot, picker);
+      requestAnimationFrame(() => picker.querySelector('[tabindex="0"]')?.focus());
+    },
+  });
 }
 
 async function quickAccessEdit() {

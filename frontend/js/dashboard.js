@@ -637,7 +637,7 @@ async function openAskFromDashboard() {
 
 //: **Quick access's default five** (they were the "Start something" tiles):
 //: what you can begin from here, each a verb with a line saying what happens.
-//: New note is the page's one primary. The `id`s are what the stored list
+//: The first of them carries the highlight (`quickTintKey`). The `id`s are what the stored list
 //: (`dashboard_quick_access`) holds; the person's own choices are added from
 //: the command palette's catalogue (`quickCatalogue`), never typed in here.
 const QUICK_ACCESS_MAX = 8;
@@ -647,7 +647,6 @@ const QUICK_START = [
     icon: "ph:pencil-simple",
     label: "New note",
     hint: "Atlas files it for you",
-    primary: true,
     run: () => startNewNote(),
   },
   {
@@ -988,9 +987,42 @@ function wireDashDensity() {
   applyDashDensity(dashDensity(), { persist: false });
 }
 
-function quickLinkButton(link) {
+//: **A tile's highlight** (INBOX 589, the owner: "only the new note link
+//: widget is a different colour. should the one in the first position be
+//: highlighted by default with the option to highlight the others other
+//: colours too??"). The key a tile is painted with: a choice the person made
+//: (`dashboard_quick_tints`, tile id to "accent", "none" or a
+//: `CATEGORY_PALETTE` key; set from the tile's menu while arranging) wins;
+//: without one, the first tile is the accent and the rest are plain. By
+//: position, not by name: whatever is put first is where the eye starts, so
+//: New note moved to third is no longer the row's suggestion. "" is plain.
+function quickTintKey(id, index, tints) {
+  const chosen = tints && typeof tints === "object" ? tints[id] : undefined;
+  if (chosen === "none") return "";
+  if (chosen === "accent" || Object.hasOwn(CATEGORY_PALETTE, chosen ?? "")) return chosen;
+  return index === 0 ? "accent" : "";
+}
+
+//: A tint key as the colour CSS mixes from, and the colour its icon takes:
+//: the accent's icon is `--accent-text` (the accent itself is a fill colour
+//: and can sit under 3:1 on the card), a palette hue is its own icon, since
+//: each of the twelve clears 3:1 as a mark on both themes' grounds.
+function quickTintColours(key) {
+  if (key === "accent") return ["var(--accent)", "var(--accent-text)"];
+  const hex = CATEGORY_PALETTE[key];
+  return [hex, hex];
+}
+
+function quickLinkButton(link, tint = "") {
   const button = document.createElement("button");
-  button.className = "quick-link quick-action" + (link.primary ? " quick-link-primary" : "");
+  button.className = "quick-link quick-action";
+  if (tint) {
+    const [fill, ink] = quickTintColours(tint);
+    button.classList.add("quick-link-tinted");
+    button.dataset.tint = tint;
+    button.style.setProperty("--quick-tint", fill);
+    button.style.setProperty("--quick-tint-ink", ink);
+  }
   button.type = "button";
   // The label truncates in a narrow tile, so hovering finishes the sentence.
   button.title = link.hint || link.label;
@@ -1051,6 +1083,25 @@ async function saveQuickAccess(ids) {
   prefsCache = await apiJson("/preferences", { method: "PUT", body: JSON.stringify({ dashboard_quick_access: ids }) }).catch(() => prefsCache);
 }
 
+function quickTints() {
+  const tints = prefsCache?.dashboard_quick_tints;
+  return tints && typeof tints === "object" ? tints : {};
+}
+
+//: One tile's highlight, saved; `""` forgets the choice (the position's
+//: default again). Ids no longer on the row are pruned on the way, so the
+//: stored map never outlives the tiles it was for.
+async function saveQuickTint(id, key) {
+  const on = new Set(quickAccessCurrent().map((link) => link.id));
+  const next = Object.fromEntries(Object.entries(quickTints()).filter(([tile]) => on.has(tile) && tile !== id));
+  if (key) next[id] = key;
+  await saveQuickTints(next);
+}
+
+async function saveQuickTints(tints) {
+  prefsCache = await apiJson("/preferences", { method: "PUT", body: JSON.stringify({ dashboard_quick_tints: tints }) }).catch(() => prefsCache);
+}
+
 //: True while the row is being arranged: the editing view and its picker are
 //: quick-access.js (lazy: only a person who customises pays for it).
 let quickEditing = false;
@@ -1071,7 +1122,8 @@ function renderQuickLinks() {
   head.append(heading);
   const row = document.createElement("div");
   row.className = "launch-row launch-row-start";
-  for (const link of quickAccessCurrent()) row.appendChild(quickLinkButton(link));
+  const tints = quickTints();
+  quickAccessCurrent().forEach((link, index) => row.appendChild(quickLinkButton(link, quickTintKey(link.id, index, tints))));
   const group = document.createElement("div");
   group.className = "launch-group";
   group.append(head, row);
@@ -1164,9 +1216,9 @@ function dashCustomiseItems() {
   items.push({ label: "ph:pencil-simple Edit quick access", title: "Add, remove and reorder the Quick access tiles", group: "quick", run: () => { quickEditing = true; renderQuickLinks(); } });
   items.push({
     label: "ph:arrow-counter-clockwise Reset quick access",
-    title: "Back to New note, Ask AI, Sketch, Remind me and Meeting notes",
+    title: "Back to New note, Ask AI, Sketch, Remind me and Meeting notes, the first highlighted",
     group: "quick",
-    run: async () => { await saveQuickAccess([]); renderQuickLinks(); },
+    run: async () => { await saveQuickAccess([]); await saveQuickTints({}); renderQuickLinks(); },
   });
   return items;
 }

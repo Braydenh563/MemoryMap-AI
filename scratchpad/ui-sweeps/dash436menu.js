@@ -78,7 +78,7 @@ const check = (label, ok, detail = '') => {
   // New note lands on Capture with the box focused.
   await page.evaluate(() => switchTab('dashboard'));
   await page.waitForTimeout(400);
-  await page.click('#dash-quicklinks .quick-link-primary');
+  await page.click('#dash-quicklinks .quick-link-tinted');
   await page.waitForTimeout(1200);
   const landed = await page.evaluate(() => ({
     tab: localStorage.getItem('activeTab'),

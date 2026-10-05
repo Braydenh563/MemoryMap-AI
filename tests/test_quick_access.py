@@ -238,4 +238,75 @@ def test_the_section_is_named_quick_access():
     page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert 'id="dash-quicklinks" role="group" aria-label="Quick access"' in page
     assert 'heading.textContent = "Quick access"' in DASH
+
+
+# --- highlights (INBOX 589) ---------------------------------------------------
+#
+# The owner: "only the new note link widget is a different colour. should the
+# one in the first position be highlighted by default with the option to
+# highlight the others other colours too??" The first tile carries the accent
+# by its position, whatever it is; any tile can be given one of the category
+# hues, the accent, or no highlight, and an explicit choice wins.
+
+
+def test_highlights_round_trip_and_default_to_none_stored(client):
+    assert client.get("/preferences").json()["dashboard_quick_tints"] == {}
+    tints = {"ask-ai": "teal", "new-note": "none", "tab:graph": "accent"}
+    assert client.put("/preferences", json={"dashboard_quick_tints": tints}).json()["dashboard_quick_tints"] == tints
+    assert client.get("/preferences").json()["dashboard_quick_tints"] == tints
+
+
+def test_the_server_keeps_only_known_highlights(client):
+    """A tint ends up in a CSS custom property, so only the palette's keys, the
+    accent and "none" are stored: no hex, no named CSS colour, nothing else."""
+    dirty = {"a": "teal", "b": "#ff0000", "c": "red; x: y", "": "teal", "x" * 81: "teal", "d": 3, "e": "accent"}
+    saved = client.put("/preferences", json={"dashboard_quick_tints": dirty}).json()["dashboard_quick_tints"]
+    assert saved == {"a": "teal", "e": "accent"}
+    many = {f"k{i}": "blue" for i in range(40)}
+    assert len(client.put("/preferences", json={"dashboard_quick_tints": many}).json()["dashboard_quick_tints"]) <= 32
+
+
+def _tint(expr: str):
+    node = shutil.which("node")
+    if not node:  # pragma: no cover - node is in the sandbox and in CI
+        pytest.skip("node is not available")
+    script = (
+        'const CATEGORY_PALETTE = { teal: "#159172", blue: "#387fe3" };\n'
+        + _block(DASH, "function quickTintKey(", "\n}\n")
+        + f"\nprocess.stdout.write(JSON.stringify({expr}));\n"
+    )
+    out = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=60, check=False)
+    assert out.returncode == 0, out.stderr
+    return json.loads(out.stdout)
+
+
+def test_the_first_tile_is_highlighted_by_position_not_by_name():
+    # Whatever is first carries the accent; nothing else does by default.
+    assert _tint('["sketch", "new-note", "ask-ai"].map((id, i) => quickTintKey(id, i, {}))') == ["accent", "", ""]
+    assert _tint('["new-note", "ask-ai"].map((id, i) => quickTintKey(id, i, null))') == ["accent", ""]
+
+
+def test_an_explicit_highlight_wins_over_the_position():
+    tints = '{"sketch": "none", "ask-ai": "teal", "remind-me": "accent", "x": "nonsense"}'
+    got = _tint(f'["sketch", "ask-ai", "remind-me", "x"].map((id, i) => quickTintKey(id, i, {tints}))')
+    assert got == ["", "teal", "accent", ""]
+    # An unknown stored value falls back to the position's default.
+    assert _tint('quickTintKey("x", 0, {"x": "nonsense"})') == "accent"
+
+
+def test_the_tile_is_painted_through_the_cssom_and_new_note_is_not_special():
+    start = _block(DASH, "const QUICK_START = [", "\n];\n")
+    assert "primary" not in start, "the highlight is the first position's, not New note's"
+    button = _block(DASH, "function quickLinkButton(", "\n}\n")
+    assert "quick-link-primary" not in button and "link.primary" not in button
+    assert 'setProperty("--quick-tint"' in button and "quick-link-tinted" in button
+    assert "quickTintKey(" in _block(DASH, "function renderQuickLinks()", "\n}\n")
+
+
+def test_the_highlight_is_chosen_with_the_swatch_picker_from_the_tile_menu():
+    tile = _block(EDIT, "function quickAccessTile(", "\n}\n")
+    assert "Highlight" in tile
+    assert "swatchPicker(" in EDIT and "swatch-option" not in EDIT
+    assert "dashboard_quick_tints" in DASH
+    assert "No highlight" in EDIT
     assert "Start something" not in _block(DASH, "function renderQuickLinks()", "\n}\n")

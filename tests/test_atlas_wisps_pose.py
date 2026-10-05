@@ -19,7 +19,9 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ATLAS = (ROOT / "frontend" / "js" / "atlas.js").read_text(encoding="utf-8")
+#: atlas.js and its lazy half, atlas-life.js (the living tail and the
+#: rings' loops, out of the boot for the gzip budget), read as one.
+ATLAS = "\n".join((ROOT / "frontend" / "js" / name).read_text(encoding="utf-8") for name in ("atlas.js", "atlas-life.js"))
 CSS = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
 
 

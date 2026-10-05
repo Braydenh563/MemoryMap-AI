@@ -44,6 +44,31 @@ with its owner named in the entry.
      are one well to the dock's edge, one Tab stop, arrows walk them
      (daystrip.js 44/44). Waits on the owner's look before closing.
 
+640. **The owner, 2026-10-05, verbatim.** "Also like the smooth slide across
+     tabs." Placed: the motion agent (a sliding active indicator for tabs,
+     sub-tabs, segmented controls and the Settings sidebar, under the
+     Interface animations toggle).
+
+641. **The owner, 2026-10-05, verbatim.** "can we take anything more from
+     applications like coggle.it, adobe illustrator, adobe photoshop, and miro
+     for the whiteboard and mind map?? I'm still not happy on the mindmap with
+     how the core nodes work and can be customised as well as with the icons
+     in them." Placed: an Opus research and design pass. It compares those
+     four apps against the board and the map, then redesigns the map's core
+     nodes and node icons, and writes the result into MINDMAP_PLAN and
+     WHITEBOARD_PLAN with decisions, before anything is built.
+
+642. **The owner, 2026-10-05, verbatim.** "I want an emoji and icon widget
+     library which can be dragged and placed in the whiteboard and mindmap and
+     which are also available in text editors and formatting toolbars."
+     Placed: with 641. One picker (emoji plus the vendored Phosphor set, both
+     local), draggable onto boards and maps and insertable from the editors'
+     formatting toolbars.
+
+643. **The owner, 2026-10-05, verbatim.** "Can we take anything from
+     Microsoft onenote??" Placed: with 641, as a research pass over notes,
+     pages, sections, ink and tags, compared with what MemoryMap has.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

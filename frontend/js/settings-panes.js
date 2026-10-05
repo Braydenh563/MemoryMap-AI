@@ -1780,6 +1780,21 @@ const REVEAL_TARGETS = {
   },
   "writing-room": { tab: "notes", open: () => showNotesSection("writing-room"), el: "draft-thoughts", focus: true },
   "notes-ask": { tab: "notes", open: () => showNotesSection("ask"), el: "question", focus: true },
+  //: UX-08 (audit 2026-10-05): a Notes sub-tab and a Library filter that the
+  //: palette could not reach. The bin is shown by ticking the Library's own
+  //: "Include the bin", the one place binned things are listed.
+  "notes-questions": { tab: "notes", open: () => showNotesSection("questions"), el: "questions", flash: false },
+  "library-bin": {
+    tab: "library",
+    open: () => {
+      const box = $("library-show-binned");
+      if (box && !box.checked) {
+        box.checked = true;
+        box.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    },
+    el: "library-filter-menu",
+  },
   "notes-thread": {
     open: async () => {
       await revealEntryMenu();
@@ -2334,6 +2349,13 @@ function paletteCommands() {
       about: `The notes list, filtered to ${query}.`,
       act: () => showNotesFilter(query),
     })),
+    //: The places Ctrl+K could not reach (audit 2026-10-05, UX-08): the bin,
+    //: Questions, Ask by name, and undo, each under the words people type.
+    { label: "ph:trash Open the recycle bin", reveal: "library-bin", keywords: "bin trash deleted binned restore recover", about: "Everything you threw away, in the Library, ready to restore." },
+    { label: "ph:question Questions your notes ask", reveal: "notes-questions", keywords: "questions open questions", about: "The open questions found in your notes." },
+    { label: "ph:chat-text Ask your notes", reveal: "notes-ask", keywords: "ask question answer search my notes", about: "An answer quoted from your own notes, with or without a model." },
+    { label: "ph:arrow-u-up-left Undo", keywords: "undo take back revert", about: "Undo the last change, wherever it was made.", act: () => performUndo() },
+    { label: "ph:arrow-u-up-right Redo", keywords: "redo", about: "Do again what Undo took back.", act: () => performRedo() },
     {
       label: "ph:magnifying-glass What can I type in the filter?",
       reveal: "notes-filter-help",
@@ -2343,10 +2365,10 @@ function paletteCommands() {
     { label: "ph:mask-happy Settings → Personas", reveal: "settings:personas" },
     { label: "ph:lightning Settings → Skills", reveal: "settings:skills" },
     { label: "ph:toolbox Settings → Tools it can use", reveal: "settings:tools" },
-    { label: "ph:palette Settings → Appearance", reveal: "settings:appearance", about: "The look, the accent colour, the glass and the text size." },
+    { label: "ph:palette Settings → Appearance", reveal: "settings:appearance", keywords: "theme colour color accent font text size look", about: "The look, the accent colour, the glass and the text size." },
     { label: "ph:user-circle Settings → Profile", reveal: "settings:preferences", about: "Your name, and what the app knows to call you." },
-    { label: "ph:sliders Settings → General", reveal: "settings:general", chord: "settings" },
-    { label: "ph:floppy-disk Settings → Import & export", reveal: "settings:data", about: "Bring notes in, take everything out, and back up." },
+    { label: "ph:sliders Settings → General", reveal: "settings:general", keywords: "recycle bin auto-clear chat history notifications", chord: "settings" },
+    { label: "ph:floppy-disk Settings → Import & export", reveal: "settings:data", keywords: "backup backups restore import export data", about: "Bring notes in, take everything out, and back up." },
     { label: "ph:brain Settings → What it remembers", reveal: "settings:memory" },
     { label: "ph:note-blank Settings → Templates", reveal: "settings:templates", about: "The shapes a new note or document can start from." },
     { label: "ph:shield-check Settings → Account & security", reveal: "settings:account", about: "The password, the lock and when it asks for it." },
@@ -2356,9 +2378,9 @@ function paletteCommands() {
     { label: "ph:tree-evergreen Settings → Logs", reveal: "settings:logs", about: "What happened, for when something did not work." },
     { label: "ph:question Settings → Help", reveal: "settings:help", about: "How the app works, a section at a time." },
     { label: "ph:info Settings → About & updates", reveal: "settings:about", about: "The version you have and whether a newer one exists." },
-    { label: "ph:archive Back up now", about: "Save a copy of the whole notebook, now.", act: () => { openSettingsModal("data"); backupNow(); } },
+    { label: "ph:archive Back up now", keywords: "backup snapshot save a copy", about: "Save a copy of the whole notebook, now.", act: () => { openSettingsModal("data"); backupNow(); } },
     { label: "ph:export Export markdown", about: "Every note as a Markdown file, in one download.", act: () => downloadExport("markdown") },
-    { label: "ph:circle-half Toggle light/dark", chord: "toggleTheme", act: toggleTheme },
+    { label: "ph:circle-half Toggle light/dark", keywords: "theme dark mode light mode night", chord: "toggleTheme", act: toggleTheme },
     //: INBOX 430: also in Find anything, which lists these same commands;
     //: the row says which it will do, since this list is built per query.
     { label: nameMarkBuddyShowing() ? "ph:eye-slash Hide companion" : "ph:person-simple Show companion", chord: "toggleCompanion", act: () => nameMarkBuddyToggle() },
@@ -2440,7 +2462,9 @@ function paletteMatches(query) {
   //: The notes rows (palette.js `notesPaletteCommands`, INBOX 432): a
   //: category to go to, a #tag to show, Move for the note in hand.
   const commands = [...paletteCommands(), ...(typeof notesPaletteCommands === "function" ? notesPaletteCommands(lowered) : [])]
-    .filter((c) => paletteText(c.label).includes(lowered))
+    //: `keywords`: the other words people type for a row ("trash" for the
+    //: bin, "theme" for light and dark), matched with its label (UX-08).
+    .filter((c) => paletteText(`${c.label} ${c.keywords || ""}`).includes(lowered))
     .map((c) => (c.group ? c : { ...c, group: "Everywhere" }));
   if (!lowered) return commands;
 

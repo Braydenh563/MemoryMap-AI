@@ -118,7 +118,7 @@ Counts: High 4, Medium 9, Low 10.
 
 ### Medium
 
-**UX-05. Enter in a document's title does not move to the body.** NEW
+**UX-05. Enter in a document's title does not move to the body.** NEW FIXED dd836b1
 - Evidence: Library, Create, New document: focus `#doc-title`; typing "Trip
   plan", Enter, "Day one: arrive in Lisbon." left focus in the title and
   saved the title "Trip planDay one: arrive in Lisbon./"; body empty
@@ -129,7 +129,7 @@ Counts: High 4, Medium 9, Low 10.
 - Fix: `keydown` Enter (and ArrowDown at end) on `#doc-title` focuses the
   CodeMirror view at line 1. Effort S.
 
-**UX-06. Mind maps: two kinds under swapped names; topics flood the notebook; header count wrong.** KNOWN in part (MINDMAP_PLAN section 2: "mindmap and concept map become one feature, not two"; WORLD_CLASS_PLAN standout 4 "a map node is an entry" is a decision)
+**UX-06. Mind maps: two kinds under swapped names; topics flood the notebook; header count wrong.** KNOWN in part (MINDMAP_PLAN section 2: "mindmap and concept map become one feature, not two"; WORLD_CLASS_PLAN standout 4 "a map node is an entry" is a decision) FIXED in part 02989f8 (Create rows); counts, "sketches", hiding map topics and the focus after Enter left to the whiteboard and mind map agent
 - Evidence: the Create dialog row "New concept map: A mind map: a tree of
   topics you move and connect" (`library.js:1867`) makes a board of note
   cards; the mind map kind is only behind New board's "What kind of board:
@@ -149,7 +149,7 @@ Counts: High 4, Medium 9, Low 10.
   after Enter commits a topic, keep focus on the canvas item so letters start
   a rename rather than switching tools. Effort M.
 
-**UX-07. "Ask" names four destinations; Chat offers starters it cannot answer.** KNOWN in part (CHAT_PLAN: "one composer, an agent you reach for")
+**UX-07. "Ask" names four destinations; Chat offers starters it cannot answer.** KNOWN in part (CHAT_PLAN: "one composer, an agent you reach for") FIXED 66789c4
 - Evidence: Dashboard "Ask AI" and "Ask your notebook" open Notes, Ask;
   footer `#status-agent` labelled "Ask" opens a dialog headed "Agent" ("No
   model is connected, so the agent cannot run."); Chat has an Ask/Agent

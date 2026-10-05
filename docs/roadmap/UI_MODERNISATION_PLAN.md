@@ -1523,3 +1523,15 @@ inside a 4,000px section.
     (4,247px and 1,296px at desktop width) and are indexed rather than
     split; a background-job model is still chosen in Models and in Background
     tasks; the Installed models list is the old row list.
+
+## Placed from INBOX, 2026-10-05 (OPEN.md triage)
+
+- **The Files sub-tab's two kinds of row sit on two rhythms** (image-cards,
+  readings): a described row leaves 50.3px of slack under its last block, an
+  undescribed one 24.8px (1440, light). Brief: one bottom padding for both,
+  measured with `imagecardfoot.js SUBTAB=files`, `imagefold.js` as the
+  ratchet. Sonnet, S.
+- **The picker's other four sources have no thumbnail** (documents, files,
+  maps). `notePickerShape`'s `shape.thumb` is optional and per source; a first
+  page, the file's type glyph and `mapPreview` are all already drawn
+  elsewhere. Brief: one source per commit, the row height unchanged. Opus, M.

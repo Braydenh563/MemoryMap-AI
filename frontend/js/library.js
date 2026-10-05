@@ -774,12 +774,14 @@ function libraryActions(item) {
       }),
       makeMenuItem("ph:trash Delete", "Delete this chat", async () => {
         if (!(await confirmDialog("Delete this saved chat?"))) return;
-        await apiJson(`/conversations/${item.id}`, { method: "DELETE" }).catch((e) =>
-          toast(e.message, true)
-        );
+        const gone = await apiJson(`/conversations/${item.id}`, { method: "DELETE" }).catch((e) => {
+          toast(e.message, true);
+          return null;
+        });
         if (chatConv && chatConv.id === item.id) newChatConversation();
         reload();
         loadConversationList();
+        chatDeleteUndo(gone, reload);
       }),
     ];
   }

@@ -1680,6 +1680,8 @@ button.ghost.danger {
   stroke-width: 2px;
   transform-box: fill-box;
   transform-origin: center;
+  /* The filter is one node's hover glow: it repaints that circle's own box,
+     not a blurred surface and what lies behind it. */
   transition:
     r var(--motion-fast) var(--ease-out),
     stroke-width var(--motion-fast) var(--ease-out),

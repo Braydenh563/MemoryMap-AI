@@ -1202,3 +1202,17 @@ Moved to HISTORY.md ("Moved from the plans, 2026-10-03 (the documents pass)", DO
     is closed: the owner's later line (INBOX 431 (f), 2026-09-27) says they
     like that dialog's design and the edit/write/remove pill, so nothing
     is open here.
+
+## Placed from INBOX, 2026-10-05 (OPEN.md triage)
+
+- **Why `docRevealForSuggest` will not bring a table-cell word into view**
+  (OPEN.md, editor-intelligence). The overlap half did not reproduce
+  (`spellwide2.js`, 0 overlap in five cases); left: a table cell's mark may
+  measure outside the scroller the reveal scrolls. Brief: in `spellwide2.js`'s
+  table case, log the mark rect against `#doc-editor .cm-scroller` before and
+  after the reveal, then scroll the cell's own row in. Opus, S.
+- **`scratchpad/ui-sweeps/editor.js` describes the retired editor** (1,058
+  lines, 89 checks; reads `docUndoStack`, `#doc-live .lp-src`, so it throws).
+  Brief: re-point its reads at `docSurface()` and its Live view at
+  `#doc-editor .cm-content`, drop the four retired checks, report how many of
+  the 89 survive. Sonnet, M.

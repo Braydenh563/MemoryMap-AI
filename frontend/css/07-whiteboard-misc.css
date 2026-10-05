@@ -73,6 +73,22 @@
   touch-action: none;
 }
 
+/* **The title's hit area never shrinks below a target** (harness-wb-1004
+   item 1). The title is board text, so at a phone's fitted zoom (k 0.24) it
+   was 7px tall and a press aimed at it landed on the board. Its box grows
+   upward from the frame's edge to `--target-min` on screen, the words kept
+   at its foot: a transparent top border makes up the difference (a border
+   is hit like the box; a pseudo-element is clipped by the title's own
+   overflow, and a flex box loses the ellipsis). At k 1 it is a few pixels. */
+.wb-object-frame .wb-frame-title {
+  min-width: min(100%, calc(var(--target-min) * var(--wb-inv-zoom)));
+  border-top: max(0px, calc(var(--target-min) * var(--wb-inv-zoom) - var(--text-sm) * 1.4 - var(--space-1))) solid transparent;
+}
+
+.wb-object-frame.wb-text-editing .wb-frame-title {
+  border-top-width: 0;
+}
+
 .wb-object-frame.wb-text-editing .wb-frame-title {
   color: var(--text);
   cursor: text;

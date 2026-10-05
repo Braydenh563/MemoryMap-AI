@@ -363,3 +363,10 @@ retry were not looked at in a browser (no UI changed: they are answer text).
     3B re-measure yet): HISTORY.md, "Moved from the plans, 2026-10-05 (the
     first round, second pass)". Open: a real 3B pass over them.
 
+
+## Placed from INBOX, 2026-10-05 (OPEN.md triage)
+
+- **A skill run's own Undo** (brief7-event-log; Brief 13). `POST /events/undo`
+  and the Recent activity widget's "Undo what Atlas did" are built. Brief: the
+  run's stop line in Chat gets an Undo that calls it with the run's actor and
+  first event id; board items stay "not undoable", said in the row. Opus, S.

@@ -3063,3 +3063,16 @@ breadcrumbs).
      map. Help '?' on the Library's All, Documents and Bookmarks sub-tabs.
      Reminders: one "Add" per card. The documents dock onto the shared dock
      recipe (DOCUMENTS_PLAN). Sonnet-sized except the zoom unification.
+
+## Placed from INBOX, 2026-10-05 (OPEN.md triage)
+
+- **Move a batch of notes to another space** (INBOX 38's own D2 line; the
+  chip and label that show which space a note is in are built). Brief: a
+  `POST /entries/move-space` with ids and a target (one transaction, the
+  search index rebuilt, an Undo that moves them back), and a "Move to space"
+  row in the selection bar. Opus, M.
+- **The Guide's corpus and the Help accordion are kept in step by hand**
+  (guide; the synonym column it asked for exists, `help_chat.py`'s keyword
+  table). Brief: give the accordion's thirteen `<details>` ids, convert them
+  to the named family under `test_ui_recipes.py`'s ratchet, then a lint that
+  every accordion id has a Guide topic. Sonnet, M.

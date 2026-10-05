@@ -523,3 +523,15 @@ twenty). Open until the owner's next run reports it gone or not.
     at most one flip per 500ms (`o-webpanel.js`: 0 loop errors, 1 flip across
     a 300 to 700px drag, 0 while still). Open until the owner's next run; the skill match being "not entirely accurate" is placed with
     the documents' Check with AI rework (INBOX 410).
+
+## Placed from INBOX, 2026-10-05 (OPEN.md triage)
+
+- **The Chat tab's Ask mode ignores `grounding_live`** (askcite): its inline
+  numbers arrive with the finished answer. Brief: route the event into the
+  same mark renderer the Ask sub-tab uses, measured with
+  `scratchpad/fake_openai_server.py` streaming a grounded answer. Opus, S.
+- **This plan's own "Placed from INBOX" lists want one triage pass**
+  (chat-0926: 72 the popup agent panel, 63 Ask/Write/Capture, 71's Tools table
+  look open), with the question hover row that overlaps the answer under it by
+  13px at 1280 and 1024 while it shows. Brief: read each row against the
+  head, move the built ones to HISTORY, measure the hover row. Opus, S.

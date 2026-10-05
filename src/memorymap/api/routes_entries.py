@@ -12,7 +12,7 @@ import json
 import logging
 import threading
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from collections import OrderedDict
 from types import SimpleNamespace
 
@@ -1826,6 +1826,9 @@ def related_entries(entry_id: int, session: Session = Depends(get_session)) -> l
 
 class AttachBookmarkBody(BaseModel):
     bookmark_id: int
+    #: Undo's door (undo-1005): a detached reference re-attached where it was,
+    #: since References list in attach order. The DELETE answers with it.
+    created_at: datetime | None = None
 
 
 @router.get("/{entry_id}/bookmarks")
@@ -1861,7 +1864,10 @@ def attach_bookmark(
         .first()
     )
     if not already:
-        session.add(EntryBookmark(entry_id=entry_id, bookmark_id=body.bookmark_id))
+        row = EntryBookmark(entry_id=entry_id, bookmark_id=body.bookmark_id)
+        if body.created_at is not None:
+            row.created_at = body.created_at.replace(tzinfo=None)
+        session.add(row)
         session.commit()
     return {"attached": True}
 
@@ -1871,11 +1877,14 @@ def detach_bookmark(
     entry_id: int, bookmark_id: int, session: Session = Depends(get_session)
 ) -> dict:
     _existing_entry(session, entry_id)
+    row = session.query(EntryBookmark).filter_by(entry_id=entry_id, bookmark_id=bookmark_id).first()
+    # When it was attached, so Undo puts it back in its place in the list.
+    created_at = row.created_at.isoformat() if row is not None and row.created_at else None
     session.query(EntryBookmark).filter_by(
         entry_id=entry_id, bookmark_id=bookmark_id
     ).delete()
     session.commit()
-    return {"detached": True}
+    return {"detached": True, "created_at": created_at}
 
 
 #: A page of the plain list, not a hard ceiling on notebook size, the

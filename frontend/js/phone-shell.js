@@ -1316,6 +1316,11 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
     //: A ⋯ menu open over the sheet takes its own Escape (an entity page's).
     if (document.querySelector(".action-menu:not(.hidden)")) return;
     event.stopPropagation();
+    //: An open '?' popover takes the first Escape, the sheet the next.
+    if (openHelpPopovers.size) {
+      closeHelpPopovers();
+      return;
+    }
     close();
   };
 
@@ -1326,6 +1331,12 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
   wireBackdropClose(overlay, close);
   document.addEventListener("keydown", onKey, true);
   document.body.appendChild(overlay);
+  //: A '?' a sheet builds is wired here, once, for every sheet: the
+  //: boot-time pass over the page ran before it existed, and the Suggestions
+  //: sheet's '?' did nothing for that reason (chrome2, OPEN.md). After the
+  //: append, because the pass finds each panel by id in the document. A
+  //: second pass over a wired pair is a no-op (`wireHelpPopover`'s guard).
+  initHelpToggles(card);
   //: Focus starts in a field, else on the current row, else the first row: on
   //: the X, Enter closed a fresh chooser.
   const field = card.querySelector("input:not([type=hidden]), select, textarea");

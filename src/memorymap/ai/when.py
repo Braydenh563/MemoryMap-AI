@@ -138,7 +138,9 @@ def _clock(text: str) -> tuple[int, int, str | None] | None:
         # "at 9", "9:30", "9pm". "in 3 days" has numbers that are not hours.
         if meridiem is None and found.group(2) is None:
             before = text[: found.start()]
-            if not re.search(r"\b(?:at|by|around|about)\s*$", before):
+            #: The last word before the number, not a `\s*$` search, which
+            #: backtracks over a long run of spaces (CodeQL).
+            if before.rstrip().rpartition(" ")[2] not in {"at", "by", "around", "about"}:
                 continue
         if hour > 23 or minute > 59 or (meridiem and not 1 <= hour <= 12):
             continue

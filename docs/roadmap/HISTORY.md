@@ -7,6 +7,16 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## OPEN.md rows closed, 2026-10-05 (the open-ledger pass)
+
+The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section: each open row checked against the head and the running app; a row found built, or built here, is deleted from the ledger and named below with how it was verified. The pass's own account is `agent-remaining/open-ledger-pass.md`.
+
+- **The word menu measures its own width before it is placed** (Documents). Built: reproduced at 390x844 (a short menu at the right edge, then a long candidate: 256 of 316px, right edge on the window's), fixed by parking the menu with `docPlaceFixed` at the edge before `placeDocSuggest` reads `offsetWidth`; `tests/test_ui_recipes.py` holds the order, `scratchpad/ui-sweeps/wordmenuwidth.js` 5 of 5 at 1440 and 390, light and dark.
+- **A Files row asks for a PDF first page that this sandbox cannot render** (Library). Built: `GET /media` rows carry `has_pages` (a PDF and `pdfpages.available()`), the attachment gallery's `has_pages` now needs the extra too, and `renderLibraryImagesGallery` asks for a page on `has_pages` alone (the `.pdf$` name guess removed). `tests/test_pdf_first_page_only_when_renderable.py` (3); `scratchpad/ui-sweeps/pdfpagereq.js` at 1440 and 390, light and dark, against a server with `pypdfium2` hidden (0 requests, glyph on both rows) and one with it (2 requests, 0 404s).
+- **The fold chip is 128.8px of a 156.3px content column at 1440** (Library). Already built: INBOX 279 replaced the card's fold with a one-word `.library-image-text-chip` ("Text") that opens the lightbox at the reading. Measured with the new `scratchpad/ui-sweeps/foldchip.js`: 60px of a 179.4px column at 1440 (33%) and of 328.4px at 390 (18%), light and dark.
+- **The six descriptions start at six different heights** and **Two pictures in a gallery row are still different sizes when one card has nothing to say** (Library). Decided, not open: UI_MODERNISATION_PLAN's Phase 7 amendments record the trade (the picture takes the slack; a two-row subgrid was built, measured and taken out because it puts a 75px hole under the shortest card), so neither is work until the owner reports the row as ragged.
+- **Toggle rows onto one recipe (no lavender-filled bars)** (Settings and help). Mostly already built: the consistency pass (08-consistency.css) took the fill off every checked checkbox row of both classes and gave both the `--divider` hairline. Measured with the new `scratchpad/ui-sweeps/togglerows.js` (every Settings section's visible switches, grouped by shape): the one difference left was the gap, 15 checkbox `.check-row` rows at 6.4px against 8 `.setting-check` rows at 9.6px; both take `--space-4` now, and `#searxng-autostart` leads its row in the markup. After: one shape (32x18 switch at +9, 9.6px gap, no fill at rest) at 1440 and 390, light and dark. `tests/test_ui_recipes.py` holds it; DESIGN.md's on/off row names it.
+
 ## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
 
 From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN

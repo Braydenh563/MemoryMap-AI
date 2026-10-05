@@ -925,8 +925,9 @@ MORE_TOPICS.extend(
             "body": (
                 "Library, AI skills lists every skill: Yours and Built-in switch "
                 "between your own and the ones that ship with the app (each with "
-                "a count), and the sort is Yours first, Name A to Z or Recently "
-                "run. Each card says whether the skill Reads only or Changes "
+                "a count; on a narrow window each shows its icon and count), and "
+                "the sort button (the arrows beside them) orders by Yours first, "
+                "Name A to Z or Recently run. Each card says whether the skill Reads only or Changes "
                 "notes, and how its last run went. Duplicate makes a copy of any "
                 "skill, a built-in one included, to edit as your own; Delete has "
                 "Undo. Settings, Skills is where a skill is written and edited."

@@ -165,13 +165,6 @@ being written by running agents stay beside this one.
 - ~~Outline rows are 24 to 25.2px, under the app's own 28px floor~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~The rest of the app's viewport popups have not been measured with the background art on~~ Closed: measured clean, no change needed. The account is in HISTORY.md, "Moved from the plans, 2026-10-04 (design-1004)".
 - ~~clampToolbarMenu's comment says the trigger cannot be reproduced here, and that is now out of date~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- **The word menu measures its own width before it is placed.** A
-  `position: fixed` box with `left` set and no `right` is shrink-to-fit, so a
-  menu with long candidates opened near the right of a narrow card can render
-  narrower than the width the placement was computed from. Not observed (every
-  case measured sat at the 15rem minimum). Next step if a report arrives:
-  measure at `left: 8px` first, then place. [editor-intelligence.md]
-  *Left: not observed; measure at `left: 8px` first only if a report arrives.*
 - ~~A finding below the editor's visible box gets a menu drawn over its own word~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - ~~The writing-suggestion underline is the only surface with no hover affordance~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~docFindingAtPoint walks every mark on every pointer event~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
@@ -288,19 +281,6 @@ being written by running agents stay beside this one.
 
 ## Library
 
-- **The six descriptions start at six different heights** (1440, six seeded
-  cards: the picture runs 144 to 249.9px so the text under it starts wherever
-  the picture ends). The accepted cost of equal card heights with optional
-  rows, written into the plan's decision. If the owner reads the row as
-  ragged, the two other places to put the difference are a hole under the
-  short cards or reserved empty rows, both already reported. [image-cards.md]
-  *Opus: a layout call the owner may not want changed.*
-- **The fold chip is 128.8px of a 156.3px content column at 1440** (82%), so
-  on the narrowest tile it still reads as nearly a bar; at the owner's own
-  card width, about 330px, it is 39%. The label is the only place left to cut
-  and "Text in this image" is the shortest true thing it can say.
-  [image-cards.md]
-  *Opus: copy and layout judgement.*
 - ~~The Files sub-tab rows were never on screen~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - **An uploaded document cannot be given a reading from outside the app.**
   `POST /media/{id}/ocr` and `/media/{id}/vision-ocr` both answer 415 for a
@@ -310,23 +290,7 @@ being written by running agents stay beside this one.
   reading lives in `PageRead` rows instead (`/media/{id}/ocr-page-read`, which
   needs a model). Not a bug on its own; it is the reason the Files fold's filled
   state is still unmeasured. [readings.md]
-  *Left: not a bug; a PDF's reading needs a model.*
-- **A Files row asks for a PDF first page that this sandbox cannot render.**
-  Four `GET /media/pdf-page/<name>/0` 404s per render, one per document row,
-  because `pdfpages.render_page` returns None with no rasteriser installed.
-  Deliberate: the `<img>` carries an `error` handler that removes itself and
-  leaves the type glyph underneath (`renderLibraryImagesGallery`, library.js),
-  which is how the fallback is discovered. Recorded so the next agent does not
-  chase the console errors `errors.js` would report on that sub-tab.
-  [readings.md]
-  *Left: deliberate (the glyph fallback); no rasteriser here.*
-- **Two pictures in a gallery row are still different sizes when one card has
-  nothing to say.** UI_MODERNISATION_PLAN's decision block records why a
-  subgrid was rejected (it equalises everything and puts 75px of hole under
-  the shortest card). The remaining variance is cards with no caption and no
-  facts, which take a taller photograph instead of a hole.
-  [logs-cards-links.md]
-  *Opus: the subgrid trade-off is already decided in the plan; revisit only on a report.*
+  *Needs: a local model (`/media/{id}/ocr-page-read`) to fill a PDF's reading; not a bug, and the only route to the Files fold's filled state.*
 - ~~A tile's Rename and Delete buttons are never in the DOM~~ Decided. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - ~~A caption for an image that has none~~ Decided. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - ~~The other four picker sources have no thumbnail~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
@@ -456,9 +420,6 @@ being written by running agents stay beside this one.
 - ~~INBOX 237, the built-in Librarian persona is Atlas~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~"Advanced response settings" sits 20.8px right of its siblings~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~`#settings-tools`'s intro~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- **Toggle rows onto one recipe (no lavender-filled bars): not started.**
-  [help-popovers.md]
-  *Opus: a recipe to design.*
 - ~~scratchpad/ui-sweeps/help-popovers.js is not built~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~"Not one of the seven tabs carries a `data-help-for` popover"~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 - ~~The learning loop's Settings section (I9's frontend) is not built~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".

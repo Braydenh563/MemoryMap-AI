@@ -96,6 +96,28 @@ const MEASURE = ([cardSel, scrimSel, headSel, closeSel]) => {
     out.scrim = ss.backgroundColor;
     out.scrimBlur = ss.backdropFilter === 'none' || !ss.backdropFilter ? 'none' : short(ss.backdropFilter);
   } else out.scrim = 'none';
+  // The foot (INBOX 599's "head, body, foot spacing ... button order"): the
+  // last row in the card, outside the head, that holds two or more visible
+  // buttons. Its buttons' heights, how many are filled and where the filled
+  // one stands (the recipe: Cancel then the one filled action, last), how far
+  // the last button ends from the card's inner right edge, and the gap above.
+  const vis = (e) => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().height > 0;
+  const rows = [...card.querySelectorAll('div, footer, menu, form > p, p')].filter((e) => vis(e) && (!head || !head.contains(e))
+    && [...e.children].filter((c) => c.tagName === 'BUTTON' && vis(c)).length >= 2);
+  const foot = rows.sort((a, b) => b.getBoundingClientRect().bottom - a.getBoundingClientRect().bottom)[0];
+  if (foot) {
+    const fb = [...foot.children].filter((c) => c.tagName === 'BUTTON' && vis(c));
+    const filled = (b) => !/\b(ghost|icon-only|link|linklike|danger-ghost)\b/.test(b.className) && getComputedStyle(b).backgroundColor !== 'rgba(0, 0, 0, 0)';
+    const fr = foot.getBoundingClientRect();
+    const last = fb[fb.length - 1].getBoundingClientRect();
+    const prev = foot.previousElementSibling && vis(foot.previousElementSibling) ? foot.previousElementSibling.getBoundingClientRect() : null;
+    out.foot = foot.tagName.toLowerCase() + '.' + [...foot.classList].join('.');
+    out.footBtnH = [...new Set(fb.map((b) => Math.round(b.getBoundingClientRect().height)))].join('/');
+    out.footFilled = fb.filter(filled).length;
+    out.footOrder = fb.map((b) => (filled(b) ? 'F' : 'g')).join('');
+    out.footRight = Math.round(r.right - parseFloat(cs.paddingRight) - parseFloat(cs.borderRightWidth) - last.right);
+    out.footGap = prev ? Math.round(fr.top - prev.bottom) : null;
+  }
   out.z = cs.zIndex;
   out.pos = cs.position;
   return out;

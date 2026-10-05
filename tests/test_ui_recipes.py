@@ -1399,6 +1399,20 @@ def test_a_viewport_popup_leaves_the_surfaces_that_can_blur() -> None:
         "checks the menu landed where it was put (DESIGN.md, the recipe index)"
     )
 
+    # The size is read with the menu parked at the band's left edge, never
+    # where the last open left it. A `position: fixed` box with `left` set and
+    # no `right` is shrink-to-fit against the room to its right, so a menu
+    # still standing near the window's right edge measures narrower than it
+    # will draw once moved, and the placement is computed from the wrong
+    # width (OPEN.md, "The word menu measures its own width before it is
+    # placed").
+    parked = place.index("docPlaceFixed(")
+    assert parked < place.index("offsetWidth"), (
+        "placeDocSuggest must park the menu (docPlaceFixed at the edge) "
+        "before it reads its width, or a long candidate near the right edge "
+        "measures shrunk"
+    )
+
     # Both of the app's viewport popups measure after placing. Compared by
     # position rather than by name: what matters is that the rect is read
     # *after* the first write, which is the whole of the correction.
@@ -3622,8 +3636,11 @@ def test_a_settings_index_is_a_sticky_strip_on_the_opaque_ground() -> None:
     translucent strip becomes a window once the pane scrolls under it), its
     links are the Quiet tier (no fill at rest) and the one you are in is painted
     from `aria-current`, not a class."""
-    strip = _css_block(".settings-index")
-    assert "position: sticky" in strip and "var(--modal-bg-opaque)" in strip
+    # Since INBOX 599 the strip is in the pane's dock and the dock is what
+    # sticks, on the opaque ground.
+    bar = _css_block("#settings-modal .settings-section > .dock")
+    assert "position: sticky" in bar and "var(--modal-bg-opaque)" in bar
+    assert "overflow-x: auto" in _css_block(".settings-index")
     link = _css_block(".settings-index-link")
     assert "background: transparent" in link and "box-shadow: none" in link
     current = _css_block('.settings-index-link[aria-current="location"]')
@@ -4190,3 +4207,89 @@ def test_no_help_panel_is_hand_wired():
     for button in re.finditer(r"<button[^>]*\bgraph-help-toggle\b[^>]*>", html):
         tag = button.group(0)
         assert "data-help-for=" in tag, f"a '?' with no data-help-for: {tag[:120]}"
+
+
+def test_an_on_off_row_is_one_recipe_whichever_class_it_carries() -> None:
+    """DESIGN.md's recipe index, "An on/off setting": a checkbox `.check-row`
+    and a `.setting-check` draw the same row (OPEN.md, Settings and help,
+    "Toggle rows onto one recipe (no lavender-filled bars)").
+
+    The fill was unified by the consistency pass (08-consistency.css: a checked
+    checkbox row has no fill, only a hairline between rows), but the gap from
+    the switch to its label was not: measured in Settings at 1440,
+    `togglerows.js`, 15 `.check-row` switch rows at 6.4px against 8
+    `.setting-check` rows at 9.6px, two shapes of one control a scroll apart.
+    Both now take `--space-4`, and the switch comes first in the markup as it
+    does on screen, so a screen reader meets it in the order the eye does.
+    """
+    text = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    assert re.search(
+        r'\n\.check-row \{[^}]*\bgap:\s*var\(--space-4\)', text
+    ), "a .check-row must take the same --space-4 gap as .setting-check"
+    block = text[text.index("label.setting-check,\n.setting-check {"):]
+    block = block[: block.index("}")]
+    assert "column-gap: var(--space-4)" in block, "the .setting-check gap is --space-4"
+
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    for match in re.finditer(r'<label class="setting-check[^"]*"[^>]*>(.*?)</label>', html, re.S):
+        inner = match.group(1)
+        if 'type="checkbox"' not in inner:
+            continue
+        assert inner.strip().startswith("<input"), (
+            "a .setting-check row leads with its switch: " + inner.strip()[:80]
+        )
+
+
+def test_the_ai_skills_dock_holds_one_row() -> None:
+    """INBOX 599, the owner, with the AI skills dock in two rows: "can you
+    clean up and redesign this top docks??". Measured with `settingsheads.js`:
+    90px and two rows at 1100 and 820 before, one row (50px) at 1440, 1280 and
+    1100 after. Three parts, any of which a later session could undo:
+
+    1. the sort is an icon-and-caret picker (`data-select-icon`) and an icon
+       picker in a dock is not held to a worded select's 9rem floor;
+    2. the segment's words are `.toolbar-word`s that leave the row when the
+       dock (a container, so the logs column counts) is under 58rem, above
+       the phone band only, where the segment has a row of its own;
+    3. the planned two-line break (INBOX 450) waits for a dock under 700px.
+    """
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    sort = re.search(r'<select id="skills-sort"[^>]*>', html).group(0)
+    assert 'data-select-icon="ph-' in sort
+    kind = html[html.index('id="skills-kind"'):]
+    kind = kind[: kind.index("</div>")]
+    assert kind.count('class="toolbar-word"') == 3
+    css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    assert ".dock:has(.toolbar-word) {\n  container: dock / inline-size;" in css
+    assert ".dock .select-shell:has(.select-opener-icon) {\n  min-width: 0;" in css
+    assert "@container dock (max-width: 700px)" in css
+    assert "skills-page" not in css
+
+
+def test_every_settings_pane_opens_on_its_dock() -> None:
+    """DESIGN.md, "A Settings pane's head" (INBOX 599, the owner: "keep doing
+    it for the settings pages ... make sure all the design styles across all
+    pages and popups are consistent"). Measured with `settingsheads.js` before:
+    21 panes opened on a bare 18.4px title row with the '?' at the far right
+    and the section index as a second strip under it, Logs on a `.dock` with a
+    12px title. After: every pane's head is a `.dock` (title 16px 600, the index
+    inside it, the '?' last), one row and one control height at 1440.
+
+    A pane written in the markup opens on `.dock.settings-pane-title`; a pane
+    without one gets the same shape from `ensureSettingsPaneTitle`; the index
+    goes inside the dock (`settingsIndexBuild`), and the dock is what sticks.
+    """
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    html = re.sub(r"<!--.*?-->", "", html, flags=re.S)
+    for match in re.finditer(r'<section class="settings-section[^"]*" id="(settings-[a-z]+)">\s*<([a-z]+)([^>]*)>', html):
+        pane, tag, attrs = match.groups()
+        assert "help-head" not in attrs, f"{pane} opens on a bare help-head row: make it the pane's dock"
+        if "dock" in attrs:
+            assert tag == "div" and re.search(r'class="dock\b', attrs), pane
+    settings = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+    body = _function_body(settings, "ensureSettingsPaneTitle")
+    assert '"dock settings-pane-title"' in body and '"dock-identity"' in body
+    find = (ROOT / "frontend" / "js" / "settings-find.js").read_text(encoding="utf-8")
+    assert 'anchor?.matches(".dock")' in _function_body(find, "settingsIndexBuild")
+    title = _css_block("#settings-modal .settings-section > .dock h3")
+    assert "var(--text-body)" in title and "600" in title

@@ -59,9 +59,14 @@ def test_merge_candidates_at_five_thousand_entities_is_quick():
     word = lambda: "".join(rng.choice(syll) for _ in range(rng.randint(2, 3))).title()  # noqa: E731
     surnames = [word() for _ in range(60)]
     rows = [(f"{word()} {rng.choice(surnames)}", {i}) for i in range(5000)]
-    started = time.perf_counter()
+    #: CPU time of this process, not the wall clock: the claim is that the pass
+    #: does little work on 5,000 names (blocking, not all pairs), and the wall
+    #: clock also counts every slice the scheduler gives to other processes
+    #: (1.57 s on a busy CI runner for a pass that takes a fraction of that).
+    started = time.process_time()
     merge_candidates(_ents(*rows))
-    assert time.perf_counter() - started < 1.0
+    took = time.process_time() - started
+    assert took < 1.0, took
 
 
 def test_a_cue_in_the_sentence_or_the_reason_suggests_a_type():

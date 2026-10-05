@@ -269,30 +269,33 @@ def _body_limit(path: str, headers: Headers) -> int:
     return SMALL_BODY_BYTES if _notebook_has_password() else LARGE_BODY_BYTES
 
 
-def _session_is_live(token: str) -> bool:
-    import importlib
+#: The unlock gate's two answers, registered by `api/routes_auth.py` when it
+#: loads (`register_auth`). A hook rather than an import: `deps` imports this
+#: module and `routes_auth` imports `deps`, so importing `routes_auth` from
+#: here, even through `importlib`, closed a 17-module cycle
+#: (`tests/test_import_module_cycles.py`). Unregistered means "cannot tell",
+#: which is the safe answer in both: the small body cap, no network.
+_auth_hooks: dict = {}
 
-    try:
-        return token in importlib.import_module("memorymap.api.routes_auth")._active_tokens
-    except Exception:  # noqa: BLE001  # cannot tell: the small cap
-        return False
+
+def register_auth(active_tokens, has_password) -> None:  # noqa: ANN001  # a dict and a callable
+    _auth_hooks["tokens"] = active_tokens
+    _auth_hooks["has_password"] = has_password
+
+
+def _session_is_live(token: str) -> bool:
+    tokens = _auth_hooks.get("tokens")
+    return tokens is not None and token in tokens
 
 
 def _notebook_has_password() -> bool:
     """The unlock gate's own answer (cached when yes), or False when the
     database cannot be asked: refusing the network is the safe failure."""
-    # `importlib`, not import statements: `deps` imports this module and
-    # `routes_auth` imports `deps`, and the statements are what
-    # `tests/test_no_import_cycles.py` counts. Resolved at request time, when
-    # both are long loaded.
-    import importlib
-
+    has_password = _auth_hooks.get("has_password")
+    if has_password is None:
+        return False
     try:
-        password_set = importlib.import_module("memorymap.api.routes_auth")._password_set
-        deps = importlib.import_module("memorymap.core.deps")
-
-        with deps.get_db().session() as session:
-            return password_set(session)
+        return bool(has_password())
     except Exception:  # noqa: BLE001  # any failure means "do not serve the network"
         return False
 

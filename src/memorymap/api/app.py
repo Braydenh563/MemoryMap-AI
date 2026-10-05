@@ -902,7 +902,10 @@ def create_app() -> FastAPI:
     # caller of `create_app()`, tests included.
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
-        threading.Thread(target=_startup_maintenance, name="mm-startup-maintenance", daemon=True).start()
+        # On the pool, not a thread of its own (the THREAD_SITES ratchet in
+        # tests/test_flaw_class_lints.py): it is the app's housekeeping, a
+        # quiet kind, after the server is up (ARCH-19).
+        jobs.enqueue("maintenance", _startup_maintenance, name="startup maintenance")
         yield
         # Never raises: `stop_all` swallows per-job failures itself, and a
         # shutdown that fails to shut down is worse than one that leaves a

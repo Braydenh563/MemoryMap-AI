@@ -85,6 +85,7 @@ KIND_LANES: dict[str, str] = {
     "vision": "model",
     "vision-pdf": "model",
     "file-entry": "model",
+    "maintenance": "cpu",
 }
 
 DEFAULT_LANE = "cpu"
@@ -93,7 +94,7 @@ DEFAULT_LANE = "cpu"
 #: for: the privacy ledger's flush (`core/egress.py`) queues one within a
 #: second of any connection that leaves this computer, and a row in the
 #: activity panel for it would be noise that says nothing they can act on.
-QUIET_KINDS = frozenset({"ledger"})
+QUIET_KINDS = frozenset({"ledger", "maintenance"})
 
 
 def _start_heartbeat(target):  # noqa: ANN001, ANN202

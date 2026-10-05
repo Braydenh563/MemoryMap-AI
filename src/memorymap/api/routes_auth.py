@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.core import crypto, diskspace, netbind, vault
+from memorymap.core import crypto, diskspace, netbind, security, vault
 from memorymap.core.config import ConfigManager
 from memorymap.core.deps import get_config, get_session, register_cache_reset
 from memorymap.core.database import Entry, User, Vault
@@ -1069,3 +1069,14 @@ def lock_all(request: Request, response: Response) -> dict:
     _revoke_media(request, response)
     vault.close()
     return {"locked": True, "sessions_ended": ended}
+
+
+def _notebook_has_password_now() -> bool:
+    from memorymap.core import deps
+
+    with deps.get_db().session() as session:
+        return _password_set(session)
+
+
+# The body-size cap and the LAN gate (core/security.py) ask these two.
+security.register_auth(_active_tokens, _notebook_has_password_now)

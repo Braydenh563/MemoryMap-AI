@@ -188,7 +188,9 @@ HELP_TOPICS: list[dict] = [
             "and widgets such as reminders, recent notes, the weekly AI digest, "
             "stats and your streak. Customise, beside the search box, has Edit "
             "layout and Widgets to show, hide and rearrange them; the layout is "
-            "remembered per user."
+            "remembered per user. The Most used widget lists the ten notes you "
+            "opened or asked about most, with This month and All time buttons "
+            "above it; the choice is remembered on this device."
         ),
         "badge": {"label": "Dashboard", "tab": "dashboard"},
     },

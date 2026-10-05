@@ -41464,6 +41464,40 @@ The two cheap additions the plan's research section named (decisions 11 to
 - Not verified: a real voice (headless Chromium has none); how the sentence
   sounds read by a real engine.
 
+### From WORLD_CLASS_PLAN.md section 17, row 5: most opened this month
+
+**State 2026-09-24:** 5 most opened (b), S: "this month" needs an open log.
+
+- **Built 2026-10-05 (worldclass-1005c, from worldclass-1005b's parked
+  half).** `core/opens.py`: `opens.json` in the data dir, one bucket per
+  month (this one and the last kept), note id to opens, ids only, 5,000 notes
+  a month at most, written atomically; `record_many` is one read and one write
+  however many notes an Ask matched. Counted from three places: a real read
+  (`GET /entries/{id}`), the notes an Ask matched (`routes_chat._prepare`),
+  and the page's own opens, which never GET the note (the Notes list holds
+  every note): `POST /entries/{id}/opened` (204, the log only; a binned or
+  missing note counts nothing), called by `noteOpened` (capture-ask.js) from
+  `flashEntry` and `openNotePage`, once per note per 30 seconds.
+  `GET /entries/most-accessed?period=month|all`: the month's ten, a binned or
+  archived note left out. The Most used widget (`renderMostUsedWidget`,
+  dashboard.js) has a `.seg` of This month and All time (`aria-pressed`, kept in
+  `localStorage` `mostUsedPeriod`); with no choice made, a month with opens
+  shows the month and an empty one shows all time.
+- Decided (recommended, not confirmed): a file beside the database, not a
+  table (the reasons of `core/usage.py`: a few hundred counters, no query, no
+  migration); the page's opens count in the month only, the all-time count and
+  `last_opened_at` stay what a real read makes them.
+- Measured: `tests/test_most_opened_month_17.py` 10 tests;
+  `scratchpad/ui-sweeps/mostopened.js` 11/11 at 1440 and 390, light and dark
+  (two jumps inside 30 seconds are one open in the file, the widget's two
+  choices with the month pressed, the month listing the note only the page
+  opened and not the one nobody did, the seg inside its card with no sideways
+  scroll and 28px (44 at 390) buttons, All time pressed and different after a
+  click, the choice kept and surviving a redraw, no page errors).
+- Not verified: the dashboard's in-place refresh path with the seg clicked
+  mid-refresh; a notebook across a month boundary (tested on `date`s in
+  `opens`, not on a live clock).
+
 ## Built 2026-10-05: INBOX 598, 602 and 596's skeleton part (loading states)
 
 (The INBOX entries themselves are moved by the orchestrator; this is the

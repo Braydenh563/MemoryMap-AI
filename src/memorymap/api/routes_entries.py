@@ -39,7 +39,7 @@ from memorymap.api.schemas import (
     LinkOut,
     SimilarOut,
 )
-from memorymap.core import deps, events, jobruns, jobs, vault
+from memorymap.core import deps, events, jobruns, jobs, opens, vault
 from memorymap.core.events import ACTOR_USER_AND_AI
 from memorymap.core.database import (  # noqa: F401 (EntryLink used in link_suggestions)
     AuditLog,
@@ -2162,9 +2162,28 @@ def list_entries(
 
 # Declared before /{entry_id} so "most-accessed" isn't parsed as an id.
 @router.get("/most-accessed", response_model=list[EntryOut])
-def most_accessed(session: Session = Depends(get_session)) -> list[EntryOut]:
+def most_accessed(
+    period: str = Query(default="all", pattern="^(all|month)$"),
+    session: Session = Depends(get_session),
+) -> list[EntryOut]:
     """Top entries by how often they've been opened or matched a
-    question: the quick-access dashboard."""
+    question: the quick-access dashboard. `period=month` is the ten opened
+    most this month (WORLD_CLASS_PLAN section 17, row 5), from the opens log
+    (`core/opens.py`); a note binned, archived or in another space since is
+    left out, so the list is never a stale id."""
+    if period == "month":
+        ranked = opens.top(deps.get_config().data_dir, limit=30)
+        rows = {
+            e.id: e
+            for e in session.scalars(
+                select(Entry).where(
+                    Entry.id.in_([entry_id for entry_id, _ in ranked]),
+                    Entry.is_deleted == False,  # noqa: E712
+                    Entry.archived_at.is_(None),
+                )
+            )
+        }
+        return _to_out_bulk(session, [rows[i] for i, _ in ranked if i in rows][:10])
     entries = manager.most_accessed_entries(session, limit=5)
     return _to_out_bulk(session, entries)
 
@@ -2293,6 +2312,13 @@ def get_entry(
         if bool(getattr(entry, "is_private", False)) and vault.key() is not None:
             manager.log_action(session, "decrypted", "entry", entry.id)
         session.commit()
+        #: The month's opens (section 17, row 5): the count above cannot
+        #: say when. Best effort: the open has happened whether or not this
+        #: small file could be written (a read-only disk, a full one).
+        try:
+            opens.record(deps.get_config().data_dir, entry.id)
+        except OSError as exc:
+            logger.warning("Could not count this open: %s", type(exc).__name__)
     out = _to_out(session, entry)
     #: B7: the note's version as an HTTP entity tag, the same text hash the
     #: editor already sends back as `base_hash`, so a client that never reads
@@ -3186,6 +3212,23 @@ def _connection_cue(session: Session, other: Entry) -> dict:
         "category": None if other.is_private else manager.category_name_for(session, other),
         "created_at": created.isoformat() if created else None,
     }
+
+
+@router.post("/{entry_id}/opened", status_code=204)
+def note_opened(entry_id: int, session: Session = Depends(get_session)) -> Response:
+    """The page opened this note without reading it: the Notes list already
+    holds every note, so a card flashed from a search result, the graph or a
+    link, or a note's own page, never GETs it (section 17, row 5). Counts one
+    open in this month's log only (`core/opens.py`): the all-time count and
+    `last_opened_at` stay what a real read makes them. A binned note is not
+    counted. 204 either way, so a stale id is not an error worth a toast."""
+    entry = session.get(Entry, entry_id)
+    if entry is not None and not entry.is_deleted:
+        try:
+            opens.record(deps.get_config().data_dir, entry.id)
+        except OSError as exc:
+            logger.warning("Could not count this open: %s", type(exc).__name__)
+    return Response(status_code=204)
 
 
 @router.get("/{entry_id}/explain")

@@ -5051,3 +5051,8 @@ button.answer-figure-open {
     pointer-events: auto;
   }
 }
+
+/* Most used: This month / All time (section 17, row 5), a .seg above the list. */
+.dash-period {
+  margin-bottom: var(--space-3);
+}

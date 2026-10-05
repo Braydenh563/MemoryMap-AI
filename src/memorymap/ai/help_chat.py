@@ -138,7 +138,14 @@ HELP_TOPICS: list[dict] = [
             "does every change and web request. "
             "Conversations save and rename in the sidebar. The same agent also "
             "pops open over any tab with Ctrl/Cmd+Shift+A, so you don't have to "
-            "switch to Chat first."
+            "switch to Chat first. While an answer is coming, the line under "
+            "it says what is happening: Reaching Atlas while it waits for the "
+            "first word, Reading your notes while it searches, Waking the "
+            "model when a model is slow to load, Atlas is thinking while it "
+            "reasons, Atlas is writing while the answer streams, and Atlas "
+            "is followed by the tool's name when it uses one (a persona's "
+            "name replaces Atlas). With Progress indicators set to Still it "
+            "is the same words, without the moving dots."
         ),
         "badge": {"label": "Chat", "tab": "chat"},
     },

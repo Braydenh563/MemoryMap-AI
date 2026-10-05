@@ -5257,6 +5257,31 @@ select {
   grid-column: 1 / -1;
 }
 
+/* **Motion off: the label is the line** (INBOX 649). `progressLine` clips the
+   stepped indicator's own word (it would repeat the label) and gives the grid
+   one column; the label takes over the slow opacity pulse that word had, so a
+   reduced-motion reader still sees that the app is working (INBOX 36). */
+.progress-line-still {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.progress-line-still > .progress-musing,
+:is(.msg, .help-chat-msg) .progress-line-still > .progress-musing {
+  grid-column: 1;
+}
+
+.progress-line-still > .progress-line-label {
+  animation: typing-word-pulse 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Declared, not exempted, for the reason `.typing-dots-stepped .typing-word`
+     gives: this class exists only when motion is already off. */
+  .progress-line-still > .progress-line-label {
+    animation: typing-word-pulse 2.4s ease-in-out infinite;
+  }
+}
+
 
 /* The exact-value box beside each sampling slider. Narrow, because every knob
    here is a short decimal or a small integer, and `width: 100%` (the base

@@ -107,7 +107,7 @@ def _typing_dots_body() -> str:
 
 def test_typing_dots_takes_persona_and_words_options_defaulted_off() -> None:
     body = _typing_dots_body()
-    assert 'function typingDots(label = "Thinking…", { persona = null, words = false } = {})' in body
+    assert 'function typingDots(label = null, { persona = null, words = false } = {})' in body
 
 
 def test_the_rotation_only_starts_in_the_enhanced_motion_branch() -> None:
@@ -176,7 +176,7 @@ def test_the_crossfade_reuses_the_progress_musings_own_technique() -> None:
 
 def test_chat_passes_the_persona_that_was_actually_sent() -> None:
     text = (ROOT / "frontend" / "js" / "chat-attach.js").read_text(encoding="utf-8")
-    assert 'progressLine("Thinking…", { persona: sentPersona, words: true })' in text
+    assert 'progressLine(null, { persona: sentPersona, words: true })' in text
 
 
 def test_capture_ask_opts_in_with_no_persona_picker_of_its_own() -> None:
@@ -186,7 +186,7 @@ def test_capture_ask_opts_in_with_no_persona_picker_of_its_own() -> None:
 
 def test_the_popup_agent_passes_the_persona_it_asked_with() -> None:
     text = (ROOT / "frontend" / "js" / "palette.js").read_text(encoding="utf-8")
-    assert 'progressLine("Thinking…", { persona: askedPersona, words: true })' in text
+    assert 'progressLine(null, { persona: askedPersona, words: true })' in text
 
 
 # --- CSS ---------------------------------------------------------------------

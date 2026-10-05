@@ -10916,7 +10916,9 @@ async function runDocAiEdit() {
     return;
   }
   status.classList.remove("error");
-  setLabel(status, "ph:spin Thinking…");
+  //: The same first phase the chat surfaces open with (INBOX 649); this call is
+  //: one request with no stream, so it has no later phase to move to.
+  setLabel(status, `ph:spin ${progressPhaseText("reaching")}`);
   docAiController = new AbortController();
   $("doc-ai-run").classList.add("hidden");
   $("doc-ai-cancel-run").classList.remove("hidden");

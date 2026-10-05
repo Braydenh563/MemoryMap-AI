@@ -323,7 +323,7 @@ without knowing which:
 | ≥ 1100 | sidebar 260px, editor 794px, measure at its 78ch cap | as the plan asks |
 | 820–1100 | sidebar 192px, editor 741px (the cap is ~700px, so the measure is already full) | **the icons rail would buy the measure nothing**; the selection toolbar is Phase 8's, not this phase's |
 | 600–820 | one column (`0px 764.8px`), the sidebar parked at `translateX(rail - 100%)` with a 52px rail, nothing past the window's right edge, first line at y=316 | built, by Phase 9 |
-| < 600 | one column, sheet parked, rail 60px, editor 270px, first line at y=318, 0 targets under 44px, 0 console errors | targets built 2026-09-13; **the bottom formatting bar is not built** |
+| < 600 | one column, sheet parked, rail 60px, editor 270px, first line at y=318, 0 targets under 44px, 0 console errors | targets built 2026-09-13; the bottom formatting bar built 2026-09-13 (item 1 below) |
 
 The phase's own acceptance line, `errors.js` at 390/820/1024: **0 errors and 0
 layout findings at all three**, 2026-09-13, with the band-4 targets in place.
@@ -1130,17 +1130,13 @@ documents phone pass)").
 ## 20. The 2026-10-05 feature audit: decisions
 
 From `scratchpad/audit1005/features.md` (FEAT-03, FEAT-04, FEAT-08, the
-documents briefs D1 to D5). Built work is in HISTORY.md ("Moved from the
-plans, 2026-10-05 (the feature audit's documents and map fixes)"). D3 and
-D4 are built (decisions 6 and 7), and D5's handles (decision 8). Open:
-pictures in the Word export (FEAT-18), which needs python-docx, an optional
-extra that is not in requirements.txt; not started, by the fully-local
-rule's "no new Python dependency".
-
-plans, 2026-10-05 (the feature audit's documents and map fixes)"). Open:
-D3 (a Mermaid flowchart parser), D4's page size, margins and page numbers,
-D5's image handles in Live (its pictures in the Word export are built, FEAT-18:
-HISTORY.md, the same section).
+documents briefs D1 to D5). Every brief is built: D3 and D4 (decisions 6
+and 7), D5's handles (decision 8) and its pictures in the Word export
+(FEAT-18, on the existing `docx` extra). The record is in HISTORY.md ("Moved
+from the plans, 2026-10-05 (the feature audit's documents and map fixes)");
+checked at head 2026-10-05 (op3-1005): `mermaidFlowParse`, the print dialog's
+`CSSMarginRule` test and `docImageAltWith` in documents.js. Nothing here is
+open; the decisions stay.
 
 **Decisions made.**
 
@@ -1214,10 +1210,7 @@ HISTORY.md, the same section).
    into the alt text (`docImageAltWith`: the name, then the width, then the
    alignment, then the caption's words), one Undo step each, so Read, a print
    and every export draw the same picture.
-
-   printed as pages). Page size, margins and page numbers (the rest of D4)
-   are open.
-6. **A narrow sidebar puts its tab strip under the collapse toggle**
+9. **A narrow sidebar puts its tab strip under the collapse toggle**
    (2026-10-05, audit FE-19). "Documents" and "Outline" need 182px and the
    toggle's lane 46px; at 1024 the sidebar is 192px, and "Outline" ran 7px
    under the toggle. Below a 14rem content box (a 256px sidebar) the strip
@@ -1308,21 +1301,6 @@ Moved to HISTORY.md ("Moved from the plans, 2026-10-03 (the documents pass)", DO
     is open here.
 
 ## Placed from INBOX, 2026-10-05 (OPEN.md triage)
-
-- ~~Why `docRevealForSuggest` will not bring a table-cell word into view~~
-  Not reproduced, 2026-10-05 (`scratchpad/ui-sweeps/revealcell.js`, a
-  14-column table in the middle of a 60-paragraph document, at 1440): asked for
-  from a scroll of 0 and from the bottom, the mark is virtualised away before
-  (no element), and after `docOpenSuggestFor` its rect is inside
-  `.cm-scroller` on both axes (left 1082, right 1103, top 431, bottom 519 in a
-  526 to 1190 by 137 to 743 box) with the menu open beside it. Left: the same at
-  390, where the probe's document opens on the reader, not the editor (every
-  rect 0); a phone run needs the editor opened first.
-- **`scratchpad/ui-sweeps/editor.js` describes the retired editor** (1,058
-  lines, 89 checks; reads `docUndoStack`, `#doc-live .lp-src`, so it throws).
-  Brief: re-point its reads at `docSurface()` and its Live view at
-  `#doc-editor .cm-content`, drop the four retired checks, report how many of
-  the 89 survive. Sonnet, M.
 
 - ~~`docRevealForSuggest` will not bring a table-cell word into view~~ Not reproduced at 1440 or 390; the account is in HISTORY.md, "Moved from the plans, 2026-10-05 (small-1005: the small open items)" (`revealcell.js`).
 - ~~`editor.js` sweep describes the retired editor~~ Re-pointed at `docSurface()`: 78 of the old 89 checks remain and pass; the account is in HISTORY.md, "Moved from the plans, 2026-10-05 (small-1005)".

@@ -37,8 +37,13 @@ from memorymap.api.asset_strip import strip_css, strip_html, strip_js
 # ------------------------------------------------------------ JS edge cases
 
 
-def test_a_whole_line_comment_goes_with_its_line():
-    assert strip_js("a();\n// note\n  //: more\nb();\n") == "a();\nb();\n"
+def test_a_whole_line_comment_leaves_its_line_empty():
+    """Emptied, not removed: an error's file:line names the same line in the
+    served file as in the source."""
+    assert strip_js("a();\n// note\n  //: more\nb();\n") == "a();\n\n\nb();\n"
+    src = "a();\n/* one\n   two */\nb();\n"
+    assert strip_js(src) == "a();\n\n\nb();\n"
+    assert strip_js(src).count("\n") == src.count("\n")
 
 
 def test_a_trailing_comment_goes_and_the_code_stays():
@@ -78,7 +83,7 @@ def test_a_multi_line_comment_inside_code_keeps_a_line_break_for_asi():
 
 def test_licence_comments_are_kept():
     src = "/*! keep me */\n/* @license MIT */\n// drop\nx();\n"
-    assert strip_js(src) == "/*! keep me */\n/* @license MIT */\nx();\n"
+    assert strip_js(src) == "/*! keep me */\n/* @license MIT */\n\nx();\n"
 
 
 def test_tokens_are_never_joined():
@@ -95,7 +100,7 @@ def test_css_comments_go_and_strings_and_urls_stay():
         ".c { margin: 1px/**/2px; }\n"
     )
     assert strip_css(src) == (
-        '.a { content: "/* x */"; }\n'
+        '\n.a { content: "/* x */"; }\n'
         ".b { background: url(data:image/svg+xml;utf8,<svg/*x*/>); }\n"
         ".c { margin: 1px 2px; }\n"
     )
@@ -109,7 +114,7 @@ def test_html_comments_go_but_not_inside_text_elements_or_attributes():
         "<script src=\"/a.js\"></script><!-- gone --></div>\n"
     )
     assert strip_html(src) == (
-        "<div>\n  <p title=\"<!-- not -->\">ab</p>\n"
+        "<div>\n\n  <p title=\"<!-- not -->\">ab</p>\n"
         "<pre><!-- kept --></pre><textarea><!-- kept --></textarea>"
         "<template><!-- kept --><template><!-- kept --></template></template>"
         "<script src=\"/a.js\"></script></div>\n"

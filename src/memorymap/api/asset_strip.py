@@ -20,9 +20,10 @@ hundred milliseconds over the whole frontend rather than seconds.
 
 **What is kept.** A `/*! ... */` comment, and any comment naming `@license`
 or `@preserve`, the conventional "keep me" markers. A `//# sourceMappingURL`
-line. Every line terminator a comment held, so ASI (a `return` followed by a
-multi-line comment) reads the same, and every line a comment shared with
-code, so an error's column is still that line's code.
+line. **Every line number**: a comment's lines are left empty rather than
+removed, so an error's `file:line` in the console or a support bundle is the
+same line in the source, and ASI (a `return` before a multi-line comment)
+reads the same.
 
 `tests/test_asset_strip.py` holds the edge cases and, where `node` is on the
 path, runs `node --check` over every stripped script; the acorn token check in
@@ -36,7 +37,7 @@ import re
 #: Bumped whenever the output for the same input changes, so a cached copy
 #: from an older stripper (memory, `<data dir>/cache/static-gz`, and the
 #: content-hash stamp the browser caches against) is never reused.
-STRIP_VERSION = "1"
+STRIP_VERSION = "2"
 
 _IDENT_CHAR = re.compile(r"[\w$]")
 #: After these words a `/` starts a regex literal, not a division.
@@ -52,14 +53,16 @@ def _keep(comment: str) -> bool:
 
 
 def _rebuild(text: str, spans: list[tuple[int, int]], joiner: str = " ") -> str:
-    """The text with each comment span removed.
+    """The text with each comment span removed, **every line number kept**.
 
-    A comment alone on its line(s) takes the whole line with it, newline
-    included (the previous line's own newline is still there, so no two
-    lines join). A comment sharing a line with code becomes one space, or one
-    newline when it held a line break (ASI reads a multi-line comment as a
-    line terminator). In HTML a comment separates nothing (`a<!-- -->b` reads
-    "ab"), so there the joiner is empty."""
+    A comment alone on its line(s) leaves those lines empty: the newlines
+    stay, so a stack trace, a console error or a support bundle names the
+    same line in the served file as in the one on disk (an empty line costs
+    gzip next to nothing). A comment sharing a line with code becomes one
+    space, or the newlines it held (ASI reads a multi-line comment as a line
+    terminator). In HTML a comment separates nothing (`a<!-- -->b` reads
+    "ab"), so there the joiner is empty and an inline comment's newlines go
+    with it."""
     out: list[str] = []
     cursor = 0
     n = len(text)
@@ -72,26 +75,22 @@ def _rebuild(text: str, spans: list[tuple[int, int]], joiner: str = " ") -> str:
             line_end += 1
         alone_before = line_start >= cursor and not text[line_start:start].strip(" \t")
         alone_after = line_end >= n or text[line_end] in "\r\n"
+        body = text[start:end]
         if alone_before and alone_after:
             out.append(text[cursor:line_start])
-            if (
-                line_end < n
-                and text[line_end] == "\r"
-                and text[line_end + 1 : line_end + 2] == "\n"
-            ):
-                line_end += 1
-            cursor = min(n, line_end + 1)
+            out.append("\n" * body.count("\n"))
+            cursor = line_end  # the line's own newline stays, as text
             continue
         before = text[cursor:start]
         if alone_after:
             # A trailing comment: drop it and the spaces before it.
             out.append(before.rstrip(" \t"))
+            out.append("\n" * body.count("\n"))
             cursor = end
             continue
         out.append(before)
-        body = text[start:end]
-        if joiner and ("\n" in body or "\r" in body):
-            out.append("\n")
+        if joiner and "\n" in body:
+            out.append("\n" * body.count("\n"))
         elif not (before[-1:].isspace() or text[end : end + 1].isspace()):
             out.append(joiner)
         elif before[-1:] in (" ", "\t"):

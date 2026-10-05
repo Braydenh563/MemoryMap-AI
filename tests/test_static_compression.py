@@ -59,13 +59,15 @@ def test_a_stamped_asset_is_immutable_and_gzipped(client):
 #:
 #: **2026-10-05, comments stripped at serve time** (audit FE-01,
 #: `api/asset_strip.py`): the same 25 files went from 792,475 bytes to
-#: 329,121 on the wire, app.js from 42,710 to 14,441, the largest piece
-#: (notes-list.js) to 26,581. The caps are those numbers plus 2%; the
-#: per-piece bound is the plan's 64 KB scaled by the same strip, rounded.
-#: What is measured is code now, not prose: a comment costs nothing here.
-APP_JS_CAP = 14_730
+#: 335,400 on the wire, app.js from 42,710 to 14,778, the largest piece
+#: (notes-list.js) to 27,423 (a comment's lines are left empty, so line
+#: numbers match the source; that costs about 2% over removing them). The
+#: caps are those numbers plus 2%; the per-piece bound is the plan's 64 KB
+#: scaled by the same strip, rounded. What is measured is code now, not
+#: prose: a comment costs nothing here.
+APP_JS_CAP = 15_070
 PIECE_CAP = 32_000
-TOTAL_CAP = 335_700
+TOTAL_CAP = 342_100
 
 
 def _served_gzip_size(client, name: str) -> int:

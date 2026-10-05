@@ -7589,9 +7589,9 @@ body .chip.item-label,
 /* Atlas's eyes on what it looks at, as the faces' are (`--nmb-ex`,
    `--nmb-ey`, avatars.js `nameMarkBuddyAim`): the iris inside its pupil, so
    the mood's own pupil placement (`--atl-px`) is kept and this adds to it. */
-#nm-buddy .nm-atlas .atl-iris { transition: translate var(--motion-fast) var(--ease-out); }
-#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate: calc(var(--nmb-ex) * 1.2px) calc(var(--nmb-ey) * 0.75px); transition: translate var(--motion-base) var(--ease-out); }
-#nm-buddy .nm-atlas .atl-iris { transition-duration: calc(var(--motion-slow) * 3); }
+#nm-buddy .nm-atlas .atl-iris { transition: translate var(--motion-fast) var(--ease-out), opacity calc(var(--motion-base) * 3) var(--ease-in-out); }
+#nm-buddy:is(.nmb-attend, .nmb-watch) .nm-atlas .atl-iris { translate: calc(var(--nmb-ex) * 1.2px) calc(var(--nmb-ey) * 0.75px); transition: translate var(--motion-base) var(--ease-out), opacity calc(var(--motion-base) * 3) var(--ease-in-out); }
+#nm-buddy .nm-atlas .atl-iris { transition-duration: calc(var(--motion-slow) * 3), calc(var(--motion-base) * 3); }
 /* **The pupils stay in the eyes** (INBOX 497, the owner: "when I have my
    cursor to the top right of the companion or atlas, the pupils basically
    go off the head and you can only see white eyes"). Four offsets added up
@@ -8483,7 +8483,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    a mood eased over seconds) or `nmb-easing` on the companion (avatars.js,
    its own sleep and wake), eyes, mouth and brows cross over 1.8s, not
    0.16s. Measured by scratchpad/ui-sweeps/atlassleepinput.js. */
-:is(.nm-atlas.atl-easing, #nm-buddy.nmb-easing .nm-atlas) :is(.atl-eye-open, .atl-e-happy, .atl-e-shut, .atl-e-doze, .atl-e-squeeze, .atl-iris, .atl-m, .atl-cheek) {
+:is(.nm-atlas.atl-easing, #nm-buddy.nmb-easing .nm-atlas) :is(.atl-eye-open, .atl-e-happy, .atl-e-shut, .atl-e-doze, .atl-e-squeeze, .atl-iris, .atl-heart-eye, .atl-m, .atl-cheek) {
   transition: opacity calc(var(--motion-slow) * 9) var(--ease-in-out);
 }
 :is(.nm-atlas.atl-easing, #nm-buddy.nmb-easing .nm-atlas) :is(.atl-lid, .atl-lid-low, .atl-brow) {

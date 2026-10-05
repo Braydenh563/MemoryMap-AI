@@ -1218,3 +1218,20 @@ def test_the_figure_head_never_pulses_and_its_loops_start_at_rest():
         for delay in re.findall(rf"animation: {name} [0-9.]+s ease-in-out (-?[0-9.]+)s", CSS):
             assert float(delay) < 0, (name, delay)
     assert ":root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *, .atl-lw, .atl-lw-breathe)" in CSS
+
+
+def test_an_eye_never_shows_its_white_without_its_iris_or_its_heart():
+    # INBOX 619 (the owner: "female atlas's eyes went blank white for a sec
+    # and it looked creepy"). The heart eyes and the iris cross over (the
+    # iris at 1 - --atl-hearteye): on the companion the iris's transition
+    # named only `translate`, so its opacity cut in a frame while the heart
+    # faded over 0.48s, and eased (a wake, a doze) the iris crossed over 1.8s
+    # and the heart over 0.48s. Both now cross over on the same clock, so
+    # their sum stays whole (atlas619-eyes.js: blank 464ms before, 0 after).
+    for rule in (
+        "#nm-buddy .nm-atlas .atl-iris { transition: translate var(--motion-fast) var(--ease-out), opacity calc(var(--motion-base) * 3) var(--ease-in-out); }",
+        "transition: translate var(--motion-base) var(--ease-out), opacity calc(var(--motion-base) * 3) var(--ease-in-out); }",
+    ):
+        assert rule in CSS, rule
+    eased = re.search(r":is\(\.nm-atlas\.atl-easing, #nm-buddy\.nmb-easing \.nm-atlas\) :is\(([^)]*)\) \{\s*transition: opacity", CSS).group(1)
+    assert ".atl-iris" in eased and ".atl-heart-eye" in eased, eased

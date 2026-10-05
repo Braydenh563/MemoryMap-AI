@@ -80,3 +80,13 @@ def test_the_editor_views_number_themselves_with_the_same_look():
 
 def test_one_column_of_numbers_once_the_editor_mounts():
     assert ".gutter-wrap:has(> .note-surface > .cm-editor) > .doc-gutter" in CSS
+
+
+def test_the_caret_line_is_washed_only_while_the_numbers_show():
+    """INBOX 651: `highlightActiveLine()` rides with the gutter, never alone."""
+    assert "highlightActiveLine()" in _function("docCmGutter")
+    assert "highlightActiveLine()" in _function("noteSurfaceGutter")
+    theme = _function("docCmTheme")
+    assert '"&.cm-focused .cm-activeLine": { backgroundColor: "var(--hover-veil)" }' in theme
+    # Nowhere else adds the extension, so numbers off means no line carries the class.
+    assert DOCS.count("CM.view.highlightActiveLine()") == 2

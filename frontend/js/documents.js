@@ -18419,7 +18419,17 @@ function docCmTheme(CM) {
       },
       ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--muted)" },
       "&.cm-focused .cm-activeLineGutter": { color: "var(--text)" },
+      //: **The caret's line is washed, only while the numbers show** (INBOX
+      //: 651, the owner: "subtle line highlighting in the document editor
+      //: when the line numbers are showing"). `highlightActiveLine()` is
+      //: added with the gutter (`docCmGutter`, `noteSurfaceGutter`), so with
+      //: numbers off no line carries the class at all. The wash is DESIGN.md's
+      //: `--hover-veil`, a translucent ink laid over whatever ground the line
+      //: has, so it reads in light and dark and never covers the selection
+      //: layer's tint; it shows only while the editor has the focus, the same
+      //: rule the number beside it follows.
       ".cm-activeLine": { backgroundColor: "transparent" },
+      "&.cm-focused .cm-activeLine": { backgroundColor: "var(--hover-veil)" },
       ".cm-selectionMatch": { backgroundColor: "var(--accent-soft)" },
       ".cm-searchMatch": { backgroundColor: "var(--accent-soft)" },
       ".cm-searchMatch.cm-searchMatch-selected": { outline: "1px solid var(--accent)" },
@@ -19879,7 +19889,7 @@ function docCmGutter(CM) {
     icon.setAttribute("aria-hidden", "true");
     return icon;
   };
-  return [CM.view.lineNumbers(), CM.view.highlightActiveLineGutter(), CM.language.foldGutter({ markerDOM })];
+  return [CM.view.lineNumbers(), CM.view.highlightActiveLineGutter(), CM.view.highlightActiveLine(), CM.language.foldGutter({ markerDOM })];
 }
 
 //: **A note box's numbers are the view's own** (INBOX 590). The capture box
@@ -19892,7 +19902,7 @@ function docCmGutter(CM) {
 //: the editor mounts (`.gutter-wrap:has(.cm-editor)` hides it after).
 function noteSurfaceGutter(CM, host) {
   if (!host.closest?.(".gutter-wrap") || docGutterPref() !== "1") return [];
-  return [CM.view.lineNumbers(), CM.view.highlightActiveLineGutter()];
+  return [CM.view.lineNumbers(), CM.view.highlightActiveLineGutter(), CM.view.highlightActiveLine()];
 }
 
 //: **Folding on headings.** The markdown parser gives fold ranges for fenced

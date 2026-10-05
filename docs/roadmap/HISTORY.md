@@ -7,6 +7,15 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: DOCUMENTS_PLAN)
+
+DOCUMENTS_PLAN section 13 ended "**Not decided here, and deliberately still open**: DOCX both ways, Markdown with its assets, and import of `.html`. The first needs a dependency decision this session did not have a reason to force." All three are built (Phase 7, "built 2026-09-13" in the plan; the decision on the dependency was `python-docx` as an optional extra), confirmed by grep on the head:
+
+- **DOCX out**: `GET /documents/{id}/export.docx` (`routes_documents.py`) over `docexport.to_docx` (pictures included, FEAT-18), behind `docexport.docx_available()` and `core/extras.py`'s "Export to Word (python-docx)".
+- **DOCX in**: `POST /documents/import` stores a `.docx`, `.pdf`, `.csv`, `.md` or source file as its extracted text (`core/docview.py`, the converter in `entry/importer.py`); `tests/test_document_import.py`.
+- **Markdown with its assets**: `GET /documents/{id}/export.zip` (`docexport.bundle`, the markdown and its images in one zip) beside `export.md`.
+- **`.html` in**: `docview.html_to_markdown` is what an imported `.html` file goes through (`routes_documents.py`, the `.html` branch of the import).
+
 ## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)
 
 Stale rows of `BACKLOG.md` found built on the head, each confirmed by grep before it was struck; the original asks are kept here. Genuinely open rows were left alone, and a partly built row keeps a short open line.

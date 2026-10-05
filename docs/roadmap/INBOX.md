@@ -72,6 +72,20 @@ with its owner named in the entry.
      buttons wrapped onto a second, right-aligned). Placed: with 549, the
      design agent.
 
+553. **The owner's decisions, 2026-10-05** (asked, answered; binding):
+     (a) Entity merge gets Undo: snapshot both entities and their mentions
+     before a merge, and Undo in the toast splits them back exactly.
+     (b) The undo histories of each board, map and document survive a
+     reload (the last ~100 steps, stored; WHITEBOARD_PLAN decision 17 is
+     amended).
+     (c) Status labels app-wide are a tinted pill without an edge, matching
+     the meta chips.
+     (d) The dashboard's map widget is "dynamic depending on map size and
+     scale": the card's height and the map's scale follow the map's shape,
+     a small map at a readable size, a tall one in a taller card up to a
+     limit, then fitted whole.
+     Placed: the next free Opus, after the boot-JS split lands (budget).
+
 525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
      dark background behind the graph labels togglable??" Next Opus: the
      label plate switch in the graph's gear (Obsidian-parity brief).

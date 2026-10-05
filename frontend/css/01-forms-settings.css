@@ -5701,8 +5701,7 @@ select {
    heading -- Search relevance is the one the report names -- needs the gap on
    the wrapper, since its heading is a grandchild and the rule above cannot
    reach across the row it sits in. */
-#settings-modal .settings-group > .flash-target,
-#settings-modal .settings-group > .settings-subgroup {
+#settings-modal .settings-group > .flash-target {
   margin-top: var(--space-6);
 }
 

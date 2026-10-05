@@ -1237,10 +1237,6 @@
   color: var(--muted);
 }
 
-.skill-card-when-plain {
-  margin: 0;
-}
-
 /* Background workers: this page's own copy of three Settings preferences,
    using this app's pill toggles rather than the one-off `.switch`/`.slider`
    markup that used to be here and appears nowhere else. */
@@ -2289,19 +2285,12 @@ body.has-agent-monitor #timeline-scroll {
    toolbar and was a bare checkbox with muted text next to a pill. Two controls
    doing the same kind of job should not look like different components, so
    they share one rule. */
-.semantic-toggle,
-.library-sort-check {
+.semantic-toggle {
   display: flex;
   align-items: center;
   gap: var(--space-1);
   font-size: var(--text-md);
   cursor: pointer;
-}
-
-.library-sort-check>span {
-  /* The label is the control's name, not a caption for it, muted made it read
-     as secondary to a switch that is the same size as the words. */
-  color: inherit;
 }
 
 /* A flexible gap that pushes what follows it to the far end of a row. */
@@ -2439,13 +2428,6 @@ body.scroll-top-visible .skills-split > .tab-main {
      screens rather than a toolbar over its list. One step down keeps them
      visibly separate without the chasm. */
   margin-bottom: var(--space-7);
-}
-
-.library-sort-check {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
 }
 
 .accent-check {
@@ -2811,23 +2793,6 @@ body.scroll-top-visible .skills-split > .tab-main {
    1rem + panel padding clear of it and reading as unanchored. */
 .whiteboard-floating-panel.bottom-center {
   bottom: var(--space-3);
-}
-
-/* Reported directly, with a screenshot, after the toggle-visibility fix
-   above: the sidebar itself still tied every OTHER floating panel (all
-   z-index 10 except top-right's own 20 bump) at the same z-index-10 the base
-   `.whiteboard-floating-panel` rule gives it: a tie that fell back to DOM
-   order, so a panel dragged over the sidebar's own screen area could still
-   paint on top of it and "appear behind again." Above every panel,
-   including top-right's 20: the sidebar is a primary, full-height surface
-   while it's open, not another draggable toolbar competing for the same
-   layer, and it already has its own close control (see the comment above
-   `.whiteboard-floating-panel.top-right`). */
-.whiteboard-sidebar {
-  top: 4.5rem;
-  height: calc(100% - 5.5rem);
-  max-height: calc(100% - 5.5rem);
-  z-index: 25;
 }
 
 .wb-sidebar-head {
@@ -5046,7 +5011,6 @@ summary:not(.icon-only):not(.icon-button) {
      button that keeps its size. The input is the only thing here that
      *should* absorb the width, and `min-width: 0` is what lets it actually
      shrink instead of forcing overflow onto its neighbours. */
-.settings-panel .row.button-row,
 .row.button-row {
   flex-wrap: wrap;
   align-items: center;
@@ -9044,16 +9008,6 @@ button.connection-row {
   margin: 0;
 }
 
-/* The note library sidebar, the board search and the overview all clear
-   the same two bars by the same measurements. */
-.whiteboard-sidebar {
-  top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
-  right: 0.5rem;
-  height: auto;
-  bottom: calc(var(--space-2) + var(--wb-h-tools) + var(--space-3));
-  max-height: none;
-}
-
 .wb-search-bar {
   top: calc(0.5rem + var(--wb-h-topbar) + var(--space-3));
 }
@@ -9746,7 +9700,6 @@ button.connection-row {
    bar). Zeroed once, for all of them. */
 .wb-board-menu,
 .wb-search-bar,
-.whiteboard-sidebar,
 .wb-navigator,
 .wb-context,
 .whiteboard-floating-panel {
@@ -10204,7 +10157,6 @@ header#top-bar > #tab-bar {
    the pill returned the label; after, the input. */
 .checkbox-label>input[type="checkbox"]:not(.sr-only)::before,
 .semantic-toggle input[type="checkbox"]::before,
-.library-sort-check input[type="checkbox"]::before,
 .wb-snap-label input[type="checkbox"]::before {
   content: "";
   position: absolute;
@@ -11876,8 +11828,7 @@ input[type="file"] {
     flex-wrap: wrap;
   }
 
-  .library-head .library-search,
-  #library-view-documents .library-toolbar > .library-search {
+  .library-head .library-search {
     flex: 1 1 100%;
   }
 }

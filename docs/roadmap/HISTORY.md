@@ -41334,6 +41334,130 @@ The two cheap additions the plan's research section named (decisions 11 to
      banner's Retry are not recorded (Settings, Logs has the Support
      bundle; the banner stays up while it is true).
 
+540. **The owner, 2026-10-05, verbatim.** "one of the feminine atlas blinking
+     animations has MASSSSIVE eyebrows."
+     Not reproduced (2026-10-05): the live companion drawn at 6x, feminine
+     and masculine, six poses by nine moods/acts, the blink lids sit within
+     2px of the eyes and the closed-eye stroke and lashes are their usual
+     size; mid-blink frames looked at. Needs the owner: a screenshot of the
+     moment, or which pose/mood it was in (sitting, lying, drowsy, startled).
+     Then (verbatim): "can you fix the female atlas blinking animation??"
+     Fixed (2026-10-05, the Atlas motion agent): found at 6x frame by frame
+     (scratchpad/ui-sweeps/atlasmo1005-blinkshots.js): the companion's blink
+     faded in a skin patch 1.3 times the eye's size with a 1.8-wide ink arc
+     across the eye's middle and two lashes flicked up, never at the eye's
+     own scale (0.9 hers, 0.84 his), and the lids layer did not breathe or
+     sway with the face (0.9px off the eye at 1x); halfway through the fade
+     the ink arc sat over the open eye as a dark band, a heavy brow. Now a
+     lid in the eye's own group, clipped to the eye, comes down a third, two
+     thirds and shut over 120ms, holds 40ms and goes back up over 160ms,
+     three frames each a root of its own whose opacity alone changes (the
+     compositor's: no paint), its edge the eye's own lower curve with a 1.1
+     lash line, her lashes pointing down once it is shut; the lids breathe
+     and sway with the face (the same matrix to the pixel); a drowsy blink
+     is slow (380, 520, 520ms); the drawings' blink is the lid sliding down,
+     not a squash. atlasluster.js `blink`: 144 cases (both
+     looks, six poses, every open-eyed mood and drowsy), 3,840 frames: brow
+     movement 0, stroke-width spread 0, the shut lid covers the eye in every
+     case, 1.7% of liner points (88 of 5,184) still differ from bare skin
+     when shut.
+554. **The owner, 2026-10-05, verbatim.** "the feminine atlas whisps should
+     wrap the body a bit more instead of all of it sitting in front. also the
+     lower body still looks too sharp like a tooth. the whole avatar needs to
+     ahve dynamic and organic movement. think of it like an azur lane
+     character" Placed: with 550, the Atlas agent.
+     Partly done (2026-10-05): the wisps wrap behind the body and the hem is soft; the layered lifelike motion is the follow-up agent's, with 564.
+     Fixed (2026-10-05, the Atlas motion agent), with 564: secondary motion
+     on the compositor on clocks that never line up (breath 3.7 and 4.4s,
+     float 5.3, wisps 6.8, the dress's wind 7.1, sway 7.2 and 9.4, tail 8.3):
+     the hair is a layer of its own that trails the body's sway a beat
+     behind; her tail is drawn in two halves and the tip half sways a
+     quarter behind the root (atlasluster.js `wave`: the tip's heading lags
+     the root's by 36.5 degrees of the cycle and swings 4.49 degrees to the
+     root's 1.38, the halves 0.15px apart at the joint); the hem follows a
+     change of pose 70ms behind the body on the spring.
+556. **The owner, 2026-10-05, verbatim.** "and a bit more texture can be
+     added to the lower body as well. make it celestial and majestic and
+     magical and attractive and flowy" Placed: with 550, the Atlas agent.
+     Partly done (2026-10-05): the gown's nebula, sheen and glowing hem; the flowing motion is with 564.
+     Fixed (2026-10-05, the Atlas motion agent), with 554 and 564: the dress
+     flows (the hem follows each change of pose a beat behind and settles on
+     the spring, the wave down her tail, the hair's trail), and his lower
+     body wears the same celestial material as a cloak.
+564. **The owner, 2026-10-05, verbatim.** "can you fix or redesign the male
+     main body on the atlas avatar instead of just being an oval?? also fix
+     how the arms connect to the atlas bodies and how they are used in
+     transitions between places and positions, same with the lower body,
+     animate everything to be smooth and boilogically lifelike." Placed:
+     with 550, the Atlas agent (masculine torso, jointed arms from the
+     shoulder line, joint-angle blends with follow-through, lifelike idle).
+     Then (verbatim): "the arms for both the male and female atlas".
+     Partly done (2026-10-05): his V-taper torso and both looks' hanging arms (upper arm 13.4 degrees off vertical, elbow 166 and 165, wrist 0.54 and 0.52 of shoulder width). Open: joint-angle blends and IK in avatars.js, counter-phase swing, head lag, his cloak, the travelling hair and tail motion. The follow-up Atlas agent.
+     Fixed (2026-10-05, the Atlas motion agent): each arm is a chain,
+     shoulder, elbow, wrist (atlas.js `atlasArmPath`, the rig): the elbow
+     and wrist bend the outline itself, so the arm is one smooth stem at any
+     bend (the elbow's two handles on one line, tests/test_atlas_shape.py);
+     where an arm should be is still every CSS pose, act, mood and gesture,
+     read off an empty probe, and the rig eases there on springs timed by
+     the move (250 to 500ms), drawing back first on a move over 40 degrees
+     and settling past it, the shoulder 30ms after the body, the elbow 80,
+     the wrist 130, the hand trailing a fast swing; a wave lifts the forearm,
+     the bell and the star map straighten the arm, folded and clasped arms
+     bend at the elbow; the arms swing in counter-phase while it travels;
+     the head (and the hair a third further) lags a change of pose and
+     catches up. atlasluster.js `rig`, 16 transitions each look: largest
+     change of a joint in one frame 11.5 degrees (hers) and 12.8 (his, a
+     half turn and more in all), limb flicker 0, swing correlation -1, head
+     lag up to 4.6 degrees; the rest pose is unchanged (`arms`: 13.4
+     degrees off vertical, elbow 166.6 and 165.2, shoulder seam step 12.9
+     and 9.2 of 255). His lower body is a cloak: the main wisp as wide as
+     the torso where it leaves it, swelling to 18.4 a third of the way down
+     and tapering along its S to a soft hem, the sub-wisps its tatters, in
+     her dress's material (the flow's paint, nebula, two sweeps of light, a
+     rim light, star dust, glints, the hem dissolving into motes). `cap`
+     fixed: its arc now bulges outward (it notched every capped tip).
+     Reduced motion or Off: a pose is set at once in one frame, no blink and
+     none of the new loops. Frame cost (atlasluster.js `cost`, five runs
+     interleaved with the version before, on a box at load 12 to 25 from
+     other agents): her idle companion 184ms of main thread per 8s against
+     137 (runs 56 to 536 against 53 to 379, overlapping), the 208px mark
+     6,570 against 6,376 (+3%). Not shown within 10% for the figure at this
+     noise; the blink as first built (a lid repainted every frame, about
+     90ms per 6s, atlasmo1005-costdbg.js) was rebuilt as compositor frames,
+     after which the figure with blinks and the rig off measures 10 to 17ms
+     per 6s.
+575. **The owner, 2026-10-05, verbatim.** "can you have the lower body of
+     both atlas avatars change around in position and and how it is sitting
+     ect with different variations and changes based off the current action
+     or behaviour??" Placed: the Atlas motion agent, with 564 (a lower-body
+     pose per state, small random variants, blended with follow-through).
+     Then (verbatim): "dont forget that both atlas avatars have a tail as
+     well, same with the hair, and the nebular stream. they all need to be
+     dynamically animated and changed": both looks' tails, hair and nebula
+     streams, per state, with secondary motion.
+     Fixed (2026-10-05, the Atlas motion agent): every flowing part of both
+     looks (the dress or cloak with her wisps, the tails, the hair, the
+     nebula stream) is a box of its own that takes a pose per state, set by
+     the rig as a compositor transition (atlas.js `ATLAS_LOWER_STATES`,
+     `ATLAS_HAIR_STATES`, `ATLAS_NEB_STATES`): idle (a new variant every 8
+     to 14 seconds), moving (trails against the way it goes and stretches),
+     sitting (pools and drapes to one side), lying or asleep (curls round),
+     a gesture (a lift with a flick), thinking (a slow curl), happy (a
+     bouncy flick), sad or drowsy (droops), startled (a snap, then settles);
+     2 to 4 variants per state picked at random, 250 to 600ms with curves
+     that overshoot and settle (a slow curl or droop 800 to 900ms), the
+     tail and the hair a beat behind. Both tails carry the travelling wave,
+     the stream's near half drifts a beat behind its far half, the hair
+     trails the sway, his cloak catches the hem's wind on its own 6.3s
+     clock. atlasluster.js `lower`, both looks, nine states: every part
+     differs between all 36 pairs of states (IoU under 0.97; the closest
+     pair 0.84 dress, 0.80 tail, 0.95 hair, 0.54 stream for her, 0.88,
+     0.83, 0.88, 0.64 for him), variants of one state differ (largest IoU
+     0.96), a change of state moves the dress or the tail at most 5.8 and
+     12.3 degrees a frame (the startle's snap); `motion`: each part runs a
+     loop with motion on, both looks, and none of the new ones under
+     reduced motion or Off, where each state's first pose is set at once.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

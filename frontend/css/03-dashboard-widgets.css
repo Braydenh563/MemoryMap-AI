@@ -3131,21 +3131,6 @@ button.answer-figure-open {
   color: var(--warn);
 }
 
-.reminder-listbar {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.6rem;
-  padding-bottom: 0.6rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.reminder-listbar h2 {
-  margin: 0;
-  margin-right: auto;
-}
-
 /* **A stray bottom margin reads as a misalignment, and this one was
    reported.** `.seg` carries `margin-bottom: 0.5rem` for the case it was
    written for: a segmented control standing on its own above the content
@@ -3163,20 +3148,6 @@ button.answer-figure-open {
    control that really is standing alone keeps the gap under it. */
 :is(.row, .reminder-listbar, .ask-history-toolbar) > .seg {
   margin-bottom: 0;
-}
-
-/* One height across the bar, the same way `.ask-query-row` and
-   `.capture-field-row` do it. Before: segments 40px, the page-size select
-   35.59px, the heading 24px. */
-.reminder-listbar {
-  --control-h: var(--control-h-body);
-}
-
-.reminder-listbar > .seg,
-.reminder-listbar > .select-shell > .select-opener,
-.reminder-listbar > select,
-.reminder-listbar > button:not(.menu-item) {
-  min-height: var(--control-h);
 }
 
 /* Group headings read as section labels with their count beside them. */

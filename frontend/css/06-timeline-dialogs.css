@@ -1114,7 +1114,6 @@
    opacity: opacity fades the text, the swatches and the controls too, which
    makes the thing you are trying to judge harder to see rather than easier.
    The panel gets see-through; everything on it stays sharp. */
-.settings-peeking .modal-overlay,
 .modal-overlay.peeking {
   background: transparent !important;
 }
@@ -1295,14 +1294,6 @@
 .confirm-actions button.danger:hover {
   background: color-mix(in oklab, var(--error) 86%, #000);
   border-color: color-mix(in oklab, var(--error) 86%, #000);
-}
-
-/* The library create-picker's actions row has five buttons where every
-   other .confirm-actions row has two, needs to wrap on a narrow card
-   instead of overflowing it. */
-.library-create-picker-actions {
-  flex-wrap: wrap;
-  justify-content: center;
 }
 
 /* The picker is five short rows and one line of help, and `.modal-card`'s
@@ -2412,10 +2403,8 @@
 .setting-check input[type="checkbox"]::after,
 .tools-toggle input[type="checkbox"]::after,
 #tool-list input[type="checkbox"]::after,
-.library-toolbar label>input[type="checkbox"]::after,
 .check-row input[type="checkbox"]::after,
 .semantic-toggle input[type="checkbox"]::after,
-.library-sort-check input[type="checkbox"]::after,
 .checkbox-label>input[type="checkbox"]:not(.sr-only)::after,
 .wb-snap-label input[type="checkbox"]::after {
   content: "";
@@ -2438,10 +2427,8 @@
 .setting-check input[type="checkbox"]:hover,
 .tools-toggle input[type="checkbox"]:hover,
 #tool-list input[type="checkbox"]:hover,
-.library-toolbar label>input[type="checkbox"]:hover,
 .check-row input[type="checkbox"]:hover,
 .semantic-toggle input[type="checkbox"]:hover,
-.library-sort-check input[type="checkbox"]:hover,
 .checkbox-label>input[type="checkbox"]:not(.sr-only):hover,
 .wb-snap-label input[type="checkbox"]:hover {
   border-color: var(--ink);
@@ -2451,10 +2438,8 @@
 .setting-check input[type="checkbox"]:checked,
 .tools-toggle input[type="checkbox"]:checked,
 #tool-list input[type="checkbox"]:checked,
-.library-toolbar label>input[type="checkbox"]:checked,
 .check-row input[type="checkbox"]:checked,
 .semantic-toggle input[type="checkbox"]:checked,
-.library-sort-check input[type="checkbox"]:checked,
 .checkbox-label>input[type="checkbox"]:not(.sr-only):checked,
 .wb-snap-label input[type="checkbox"]:checked {
   background: var(--accent);
@@ -2465,10 +2450,8 @@
 .setting-check input[type="checkbox"]:checked::after,
 .tools-toggle input[type="checkbox"]:checked::after,
 #tool-list input[type="checkbox"]:checked::after,
-.library-toolbar label>input[type="checkbox"]:checked::after,
 .check-row input[type="checkbox"]:checked::after,
 .semantic-toggle input[type="checkbox"]:checked::after,
-.library-sort-check input[type="checkbox"]:checked::after,
 .checkbox-label>input[type="checkbox"]:not(.sr-only):checked::after,
 .wb-snap-label input[type="checkbox"]:checked::after {
   transform: translateY(-50%) translateX(0.85rem);
@@ -3319,21 +3302,6 @@
   border-radius: 50%;
 }
 
-.whiteboard-sidebar {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  width: 300px;
-  height: calc(100% - 2rem);
-  max-height: calc(100% - 2rem);
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  padding: 1rem;
-  gap: 1rem;
-  overflow: hidden;
-}
-
 .wb-library-list {
   list-style: none;
   padding: 0;
@@ -3543,8 +3511,7 @@ aside[data-resizable="1"] {
    to re-derive: it named these as "13x13 unstyled native checkboxes", which
    describes the input rather than the target, and listed three `#skills-auto-*`
    controls that a live sweep across every tab found already passing. */
-.checkbox-label,
-.library-sort-check {
+.checkbox-label {
   min-height: 1.5rem;
 }
 

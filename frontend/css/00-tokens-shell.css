@@ -2038,19 +2038,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   padding-block: 0;
 }
 
-.library-toolbar {
-  display: flex;
-  align-items: center;
-  /* --space-6, not --space-3. The row holds four *separate* controls, and at
-     a small-gap step "Include bin" and "Sort" sat close enough to read as one
-     phrase, "Include bin Sort", with the switch apparently belonging to the
-     select. The gap between unrelated controls has to be larger than the gap
-     inside one, which is the whole of what `.library-sort` sets below. */
-  gap: var(--space-4);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-4);
-}
-
 /* A label and the control it names are one thing, so they sit closer to each
    other than to anything else in the row. */
 .library-sort {
@@ -2058,99 +2045,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   align-items: center;
   gap: var(--space-3);
   margin: 0;
-}
-
-/* **One height for everything in the row**, declared once, the same rule the
-   chat dock's `--control-h` states and for the same reason. The search box,
-   the sort select and the grid/list segment each arrived from a different base
-   rule and each sized itself: measured, they were three different heights on
-   one line, with the switch beside them on a fourth. A row of controls that
-   do not share a height cannot be aligned by any amount of `align-items`.
-
-   Not a spacing token: a hit target is a control's own size and must not move
-   with the density setting. */
-.library-toolbar {
-  --control-h: var(--control-h-lg);
-}
-
-/* **Every control on a toolbar row, not the four that were remembered.**
-   Reported: the Links sub-tab's filter and sort "aren't aligned". Measured:
-   `#bookmark-search` sat 3px above `#bookmark-sort`, same height, same row,
-   `align-items: center`. The cause is the base `input` rule's
-   `margin-bottom: 6px`, which this rule zeroes for `.library-search` and for
-   nothing else: centring aligns *margin* boxes, so a 6px bottom margin lifts
-   the input by 3px inside a row whose other items have none.
-
-   Checkboxes and radios are excluded: they are not row-height controls, and
-   stretching one to 2.3rem is how a tick box becomes an oval. */
-.library-toolbar .library-search,
-.library-toolbar input:not([type="checkbox"]):not([type="radio"]),
-.library-toolbar select,
-.library-toolbar .seg,
-.library-toolbar button {
-  height: var(--control-h);
-  padding-block: 0;
-  margin: 0;
-  font-size: var(--text-md);
-}
-
-/* Reported live: #search-help rendered as an oval (32px x 36.8px), measured
-   via getComputedStyle. `.graph-help-toggle`'s own `height: 2rem` (a single
-   class, specificity 0,1,0) loses to `.library-toolbar button` right above
-   (class+element, 0,1,1) the moment this circular button sits inside a
-   library toolbar: the rule wins on specificity regardless of source
-   order, so height snaps back to `--control-h` (2.3rem) while nothing here
-   touches width, which stays the 2rem `.graph-help-toggle` set. Two classes
-   beats one class-plus-element, so this reasserts the circle without
-   touching `.graph-help-toggle` itself (still correct everywhere it isn't
-   inside a toolbar that redeclares button height). */
-.library-toolbar .graph-help-toggle {
-  width: 2rem;
-  height: 2rem;
-}
-
-/* The global `select { width: 100% }` base rule (01-forms-settings.css) is
-   right for a form field and wrong here: a <select> that shrinks correctly
-   while sharing a flex line with its toolbar siblings (note-sort measured
-   correctly at ~160px) stretches to the *entire row's width* the moment it
-   is alone on a wrapped line, nothing left to shrink it against. Caught
-   adding the Notes-tab page-size select (BACKLOG §77): at common widths it
-   wraps under Sort and, without this, fills the full toolbar. `.library-search`
-   is deliberately not included, that one *should* fill the remaining row. */
-.library-toolbar select {
-  width: auto;
-}
-
-.library-toolbar .seg {
-  display: inline-flex;
-  align-items: center;
-}
-
-/* The Notes toolbar overflowed its row by ~155px and wrapped, which put a
-   lone "All notes" select on a second line, 53px of chrome carrying one
-   control, in the middle of a change made specifically to remove chrome.
-   Measured: 1192px of controls in a 1037px row.
-
-   The search field absorbs the slack instead of being the widest fixed
-   thing in the row (it was 371px), and the two selects are capped at the
-   width their longest option actually needs. Nothing is hidden or moved, 
-   the row simply stops asking for more space than it has. */
-.library-toolbar input[type="search"],
-.library-toolbar .library-search {
-  /* 12rem, and the exact number is load-bearing. A wrapping flex row places
-     items at their *basis* and only shrinks the ones already on a line, so
-     the row wraps as soon as the bases plus gaps exceed it, no amount of
-     `flex-shrink` prevents that. Measured: 16rem of basis put the total at
-     1045px against a 1037px row, so one select fell to a second line by
-     8px. At 12rem the bases total 1013px and the search still *grows* into
-     whatever is left, which is how it ends up wider than its basis on a
-     roomy window. */
-  flex: 1 1 12rem;
-  min-width: 8rem;
-}
-
-.library-toolbar select {
-  max-width: 9rem;
 }
 
 .library-search {
@@ -2825,25 +2719,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   transition: opacity var(--motion-base) var(--ease-out);
 }
 
-/* **The row above now holds exactly one control, and that is the point.**
-   Five icon buttons over an 11rem tile is what the wrapping rule above was
-   written to survive; a kebab is what stops it from being five. It also
-   settles a separate report, two of those five were both "read the text in
-   this image" and looked like different features, because a menu row can
-   carry the words an icon cannot. */
-.library-image-menu {
-  position: relative;
-}
-
-.library-image-menu > summary {
-  list-style: none; /* Firefox draws a marker triangle otherwise */
-  cursor: pointer;
-}
-
-.library-image-menu > summary::-webkit-details-marker {
-  display: none;
-}
-
 .library-image-menu-list {
   /* **Fixed, not absolute**: see the long note above `placeMenu` in
      library.js. Two ancestors of this menu clip horizontally
@@ -2878,24 +2753,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   text-align: left;
   width: 100%;
   white-space: nowrap;
-}
-
-.library-image-tile .library-image-menu-btn {
-  background: var(--modal-bg);
-  border: 1px solid var(--glass-border);
-  /* Reported live: this kebab reads as a plain square next to every other
-     icon button in the app. The base `button { border-radius: var(--radius-lg) }`
-     rule (01-forms-settings.css) never reaches it, this is a <summary>,
-     not a <button>, since it is a <details> disclosure rather than a popup
-     menu, and `summary.icon-button` (the rule that gives it the rest of an
-     icon-only button's shape) sets padding/aspect-ratio/centering but not
-     corners. Every other kebab in the app is a real <button> (smallButton(),
-     used by kebabMenu()) and gets this for free; this is the one place that
-     still needed it named explicitly. */
-  border-radius: var(--radius-lg);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  box-shadow: var(--glass-shadow);
 }
 
 /* **Visible before you hover it.** Reported: "there is no elipse button on
@@ -3629,9 +3486,6 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 
 @media (max-width: 719.98px) {
-  .library-toolbar {
-    gap: var(--space-3);
-  }
 
   .library-grid {
     gap: var(--space-4);
@@ -4844,8 +4698,7 @@ summary.small.icon-button {
    relied on over unknown content. */
 .library-card-menu > button[aria-haspopup="menu"],
 .library-list .library-card-menu > button[aria-haspopup="menu"],
-.library-image-actions > .menu-wrap > button[aria-haspopup="menu"],
-.library-image-tile .library-image-menu-btn {
+.library-image-actions > .menu-wrap > button[aria-haspopup="menu"] {
   background: var(--modal-bg-opaque);
   border: 1px solid var(--border);
   color: var(--ink);
@@ -4857,8 +4710,7 @@ summary.small.icon-button {
 }
 
 .library-card-menu > button[aria-haspopup="menu"]:hover,
-.library-image-actions > .menu-wrap > button[aria-haspopup="menu"]:hover,
-.library-image-tile .library-image-menu-btn:hover {
+.library-image-actions > .menu-wrap > button[aria-haspopup="menu"]:hover {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   color: var(--accent-text);
 }

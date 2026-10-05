@@ -3339,11 +3339,6 @@ button.outline-twist:focus-visible {
   overflow-y: auto;
 }
 
-.doc-stats {
-  font-size: 0.8rem;
-  white-space: nowrap;
-}
-
 /* Replaces what used to be an open-by-default <details> disclosure in the
    sidebar: its body was tall enough to push the document list down. Same
    content, now behind #doc-storage-dialog; this is just the door to it.
@@ -5970,7 +5965,6 @@ textarea.autogrow {
    *inside* the button as a background layer rather than as a child element, so
    the control stays one box with one hit area, a meter beside a button is two
    things to aim at for one idea. */
-.doc-word-goal-progress,
 #doc-word-goal.has-goal {
   --doc-goal-pct: 0%;
   background-image: linear-gradient(
@@ -6232,17 +6226,6 @@ button.ghost.doc-template-choice[aria-checked="true"] {
 .note-edit-meta .note-edit-actions > * {
   margin: 0;
   align-self: center;
-}
-
-.note-edit-preview {
-  min-height: 6rem;
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--inner);
-  /* The same gap below as the writing box it replaces, so toggling does
-     not move the row under it. */
-  margin-bottom: var(--space-2);
 }
 
 /* The edit form's strip wraps instead of scrolling: a horizontal scrollbar

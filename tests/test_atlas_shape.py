@@ -209,7 +209,7 @@ def test_secondary_motion_is_compositor_only_and_still_under_reduced_motion():
     for name in ("atl-idle-sway", "atl-idle-sway-soft", "atl-tail-flow", "atl-neb-flow"):
         assert not re.search(rf"&[^{{\n]*\.atl-layer[^{{\n]*\{{[^}}\n]*{name}", CSS), name
     assert "&.atl-full .atl-mane { animation: atl-hair-flow" in CSS
-    assert "&.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-mane," in CSS
+    assert "&.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-blink.nm-blinks .atl-lid, .atl-blink.nm-blinks > *, .atl-sway, .atl-mane," in CSS
     assert "&:is(.atl-layer-neb, .atl-layer-neb-front), & .atl-mane, " in CSS
 
 
@@ -320,9 +320,42 @@ def test_drowsy_droops_softly_rather_than_staring():
     assert "--atl-softlid: 1" in drowsy and "--atl-m-rest: 1" in drowsy and "--atl-m-grin: 0" in drowsy
     assert "--atl-ps: 0.8" in drowsy and "--atl-py: 1.6px" in drowsy
     assert '"atl-skin atl-lid-soft"' in ATLAS and ".nm-atlas .atl-lid-soft { opacity: var(--atl-softlid); }" in CSS
-    assert "#nm-buddy.nmb-drowsy .nm-atlas.atl-layer-lids { animation: atl-blink-heavy 7s" in CSS
-    body = _keyframes("atl-blink-heavy").split("{", 1)[1]
-    assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"opacity"}
+    # INBOX 540: the slow blink is the lid's own sweep, driven with the rest.
+    assert 'box.closest(".nmb-drowsy")) atlasBlink(box, true)' in ATLAS
+    assert ".nm-atlas.atl-layer-lidf-1.atl-blinking-slow { animation: atl-blink-slow-f1 1420ms linear; }" in CSS
+
+
+def test_a_blink_is_a_lid_sweeping_down_not_a_patch_fading_in():
+    # INBOX 540 (the owner: "one of the feminine atlas blinking animations
+    # has MASSSSIVE eyebrows", then "can you fix the female atlas blinking
+    # animation??"): the lids layer faded in a 1.3x skin patch with a 1.8
+    # ink arc across the eye's middle. Now a lid in the eye's own group,
+    # clipped to the eye, comes down (120ms), holds, and goes back up
+    # (160ms) through two in-between frames, each a root of its own whose
+    # opacity alone changes (the compositor's), so no stroke changes width,
+    # nothing is repainted, and nothing in the layer is a brow.
+    lids = ATLAS[ATLAS.index("function atlasLids(") : ATLAS.index("function atlasBlink(")]
+    assert '"atl-lid-shut' not in ATLAS and "atl-blink-lids" not in CSS and "atl-blink-heavy" not in CSS
+    assert "`atl-eye atl-eye-${s} atl-lid-eye`" in lids and '"clip-path": `url(#${id}-lid${s})`' in lids
+    assert 'class: "atl-lid-sweep"' in lids and 'class: "atl-lid-edge"' in lids and "brow" not in lids.split("//:")[-1]
+    blink = ATLAS[ATLAS.index("function atlasBlink(") : ATLAS.index("const atlasState")]
+    assert 'const cls = slow ? "atl-blinking-slow" : "atl-blinking";' in blink
+    for k in (1, 2, 3):
+        for name in (f"atl-blink-f{k}", f"atl-blink-slow-f{k}"):
+            body = _keyframes(name).split("{", 1)[1]
+            assert set(re.findall(r"([a-z-]+)\s*:", body)) == {"opacity"}, name
+    assert ".nm-atlas.atl-layer-lidf-1.atl-blinking { animation: atl-blink-f1 320ms linear; }" in CSS
+    assert '"hair", "body", "lidf-1", "lidf-2", "lids",' in ATLAS
+    assert "atlasLids(layers[\"lidf-1\"].rig, look, 0.38);" in ATLAS and "atlasLids(layers[\"lidf-2\"].rig, look, 0.72);" in ATLAS
+    body = _keyframes("atl-lid-blink").split("{", 1)[1]
+    assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"translate", "animation-timing-function"}
+    assert "& .atl-blink.nm-blinks .atl-lid { animation: atl-lid-blink 9s" in CSS
+    # No idle loop under Off or Reduce: the clock checks both.
+    # The clock asks `atlasMotionOK`, the one reading every idle loop shares.
+    may = ATLAS[ATLAS.index("function atlasBlinkMay(") : ATLAS.index("function atlasBlinkTick(")]
+    assert "if (!atlasMotionOK(box)) return false;" in may
+    may = ATLAS[ATLAS.index("function atlasMotionOK(") : ATLAS.index("function atlasRigAttach(")]
+    assert 'avatarMotion === "off"' in may and "prefers-reduced-motion: reduce" in may and 'dataset.motion === "reduced"' in may
 
 
 
@@ -623,7 +656,7 @@ def test_the_masculine_wisps_measure_as_drawn(tmp_path):
 
     def points(d):
         # Every coordinate pair but the arc's radii and flags.
-        d = re.sub(r"A[0-9.]+ [0-9.]+ 0 0 1 ", "M", d)
+        d = re.sub(r"A[0-9.]+ [0-9.]+ 0 0 [01] ", "M", d)
         nums = [float(n) for n in re.findall(r"-?[0-9.]+", d)]
         return nums[0::2], nums[1::2]
 
@@ -644,8 +677,13 @@ def test_the_masculine_wisps_measure_as_drawn(tmp_path):
     hips = right[0] - left[0]
     top = min(main["built"], key=lambda q: abs(q[1] - 56))[2]
     assert abs(top - hips) <= 1.5, (top, hips)
-    # Then it narrows: never wider below the waist than at it.
-    assert max(q[2] for q in main["built"] if q[1] > 62) < top
+    # INBOX 564: the main wisp is his cloak. It falls away from the hips, at
+    # its fullest a fifth to a third wider than they are and only below
+    # y 62, then narrows to its hem.
+    below = [q for q in main["built"] if q[1] > 62]
+    fullest = max(below, key=lambda q: q[2])
+    assert 1.15 * top <= fullest[2] <= 1.35 * top, (fullest, top)
+    assert below[-1][2] < 0.25 * top, "it narrows to a hem"
 
     # An S: the centreline's sideways heading turns at least twice.
     dx = [b[0] - a[0] for a, b in zip(main["pts"], main["pts"][1:])]
@@ -653,8 +691,10 @@ def test_the_masculine_wisps_measure_as_drawn(tmp_path):
 
     main_len = length(main["pts"])
     for p in parts:
+        # A rounded tip, not a point: the cap's arc, or the cloak's soft hem lobe
+        # (the same `atlasHemTip` as her dress's, all curves).
+        assert "A" in p["fill"] or p["main"], "a rounded tip, not a point"
         assert "L" not in p["fill"] and p["fill"].count("C") >= 20, "smooth, no straight spike"
-        assert "A" in p["fill"], "a rounded tip, not a point"
         xs, ys = points(p["fill"])
         assert min(xs) >= 9 and max(xs) <= 53 and max(ys) <= 102, (min(xs), max(xs), max(ys))
     # Every stem is walked the same way round, so the joined path's nonzero
@@ -967,3 +1007,198 @@ def test_both_looks_hang_their_arms_at_rest_with_a_soft_elbow():
             ang = lambda a, b: math.degrees(math.atan2(b[0] - a[0], b[1] - a[1]))  # noqa: E731
             assert abs(ang(p0, p1)) <= 15, (look, key, ang(p0, p1))
             assert 160 <= 180 - abs(ang(p0, p1) - ang(p1, p2)) <= 170, (look, key)
+
+
+_CAP_JS = r"""
+const vm = require("vm");
+const fs = require("fs");
+const noop = () => {};
+const el = () => ({ setAttribute: noop, appendChild: noop, style: { setProperty: noop }, classList: { add: noop } });
+const ctx = { console, setInterval: noop, setTimeout: noop, clearInterval: noop, clearTimeout: noop, document: { addEventListener: noop, createElementNS: el, createElement: el, querySelectorAll: () => [] }, window: {} };
+vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(process.argv[2], "utf8") + "\n;globalThis.__stem = atlasStem;", ctx);
+// A straight stem pointing down, 4 wide at its tip; and one pointing right.
+console.log(JSON.stringify({
+  down: ctx.__stem([[0, 0, 0, 3, 0, 6, 0, 10]], () => 4, { samples: 4 }),
+  right: ctx.__stem([[0, 0, 3, 0, 6, 0, 10, 0]], () => 4, { samples: 4 }),
+}));
+"""
+
+
+def test_a_capped_stem_ends_in_a_round_tip_not_a_notch(tmp_path):
+    # The cap's arc had the other sweep from `round`'s, so it bulged back
+    # into the stem: a notch half the tip's width deep on every capped part
+    # (the chin hand, the tails and their streams, his trail). The arc from
+    # the tip's left edge to its right goes round the far side of the tip:
+    # its midpoint is beyond the end, not short of it.
+    import json
+    import shutil
+    import subprocess
+
+    import pytest
+
+    node = shutil.which("node")
+    if not node:  # pragma: no cover - node is in the sandbox and in CI
+        pytest.skip("node is not available")
+    script = tmp_path / "cap.js"
+    script.write_text(_CAP_JS, encoding="utf-8")
+    run = subprocess.run([node, str(script), str(ROOT / "frontend" / "js" / "atlas.js")], capture_output=True, text=True, timeout=60, check=False)
+    assert run.returncode == 0, run.stderr
+    got = json.loads(run.stdout)
+    for name, axis in (("down", 1), ("right", 0)):
+        arc = re.search(r"A([0-9.]+) [0-9.]+ 0 0 ([01]) (-?[0-9.]+) (-?[0-9.]+)", got[name])
+        assert arc, got[name]
+        start = re.findall(r"(-?[0-9.]+) (-?[0-9.]+)A", got[name])[0]
+        r, sweep = float(arc.group(1)), int(arc.group(2))
+        x0, y0 = float(start[0]), float(start[1])
+        x1, y1 = float(arc.group(3)), float(arc.group(4))
+        # The arc's midpoint, on the side the sweep flag picks (SVG's y is
+        # down, so sweep 1 turns clockwise on screen: from the left edge of a
+        # stem pointing down, over the top).
+        mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+        dx, dy = (x1 - x0) / (2 * r), (y1 - y0) / (2 * r)
+        nx, ny = (dy, -dx) if sweep == 1 else (-dy, dx)
+        tip = (mx + nx * r, my + ny * r)
+        assert tip[axis] > 10 + r * 0.9, (name, sweep, tip)
+
+
+
+_RIG_JS = r"""
+const vm = require("vm");
+const fs = require("fs");
+const noop = () => {};
+const el = () => ({ setAttribute: noop, appendChild: noop, style: { setProperty: noop }, classList: { add: noop } });
+const ctx = { console, setInterval: noop, setTimeout: noop, clearInterval: noop, clearTimeout: noop, document: { addEventListener: noop, createElementNS: el, createElement: el, querySelectorAll: () => [] }, window: {} };
+vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(process.argv[2], "utf8") + "\n;globalThis.__L = ATLAS_LOOKS; globalThis.__path = atlasArmPath; globalThis.__hand = atlasArmHand; globalThis.__stem = atlasStem; globalThis.__segs = atlasArmSegs;", ctx);
+const out = {};
+for (const look of ["masculine", "feminine"]) {
+  const spec = ctx.__L[look];
+  const r = spec.armRig.r;
+  const segs = ctx.__segs(r.segs, 40, 10);
+  out[look] = {
+    rest: ctx.__path(r, 0, 0) === ctx.__stem(spec.arm, r.width, { samples: 14, tip: r.hand }),
+    restHand: ctx.__hand(r, 0, 0),
+    bent: ctx.__path(r, 40, 10),
+    elbow: [segs[0].slice(4, 8), segs[1].slice(0, 4)],
+  };
+}
+console.log(JSON.stringify(out));
+"""
+
+
+def test_the_arm_is_a_jointed_chain_that_the_rig_eases(tmp_path):
+    # INBOX 564 (the owner: "fix how the arms connect to the atlas bodies and
+    # how they are used in transitions between places and positions ...
+    # smooth and boilogically lifelike"): each arm is shoulder, elbow and
+    # wrist. At rest it draws exactly the hanging arm INBOX 567 measured
+    # (13.4 degrees off vertical, a 166 degree elbow); bent, it is still one
+    # smooth outline, the elbow's two handles on one line through it.
+    import json
+    import math
+    import shutil
+    import subprocess
+
+    import pytest
+
+    node = shutil.which("node")
+    if not node:  # pragma: no cover - node is in the sandbox and in CI
+        pytest.skip("node is not available")
+    script = tmp_path / "rig.js"
+    script.write_text(_RIG_JS, encoding="utf-8")
+    run = subprocess.run([node, str(script), str(ROOT / "frontend" / "js" / "atlas.js")], capture_output=True, text=True, timeout=60, check=False)
+    assert run.returncode == 0, run.stderr
+    got = json.loads(run.stdout)
+    for look, arm in got.items():
+        assert arm["rest"], look
+        assert arm["restHand"].startswith("translate(0 0) rotate(0 "), arm["restHand"]
+        assert "L" not in arm["bent"] and arm["bent"].startswith("M"), look
+        (c2x, c2y, ex, ey), (ex2, ey2, c3x, c3y) = arm["elbow"]
+        assert (ex, ey) == (ex2, ey2)
+        a = math.atan2(ey - c2y, ex - c2x)
+        b = math.atan2(c3y - ey, c3x - ex)
+        assert abs(a - b) < 1e-6, (look, "a kink at the elbow")
+    rig = ATLAS[ATLAS.index("const ATLAS_RIG_DELAY") : ATLAS.index("let atlasFigureObserver")]
+    # The body leads and the limbs follow; a move's time is its size; limits.
+    assert "const ATLAS_RIG_DELAY = { sh: 30, el: 80, wr: 130 };" in rig
+    assert "j.w = 5 / Math.min(0.5, 0.25 + (0.25 * jump) / 120);" in rig
+    assert "Math.max(-14, Math.min(135, j.el.x))" in rig and "Math.max(-35, Math.min(35, j.wr.x))" in rig
+    # Counter-phase swing, anticipation, the head's lag, and no loop at rest
+    # or under reduced motion.
+    assert '(arm.side === "r" ? 0 : Math.PI)' in rig and "arm.antic = { until: now + 90" in rig
+    assert 'querySelectorAll(".atl-head-lag")' in rig
+    assert "if (live && rig.still < 6) rig.raf = requestAnimationFrame" in rig
+    assert ".nm-atlas .nmb-arm.atl-rigged { transition: opacity var(--motion-base) var(--ease-out) !important; animation-name: none !important; }" in CSS
+
+
+def test_the_hair_and_her_tail_move_on_the_compositor():
+    # INBOX 554: secondary motion without repainting the figure. The mane is
+    # a layer of its own whose box trails the body's sway; her tail is drawn
+    # as a root half and a tip half whose box sways a quarter behind (the
+    # wave runs tipward); none of it under reduced motion.
+    assert '"hair", "body", "lidf-1", "lidf-2", "lids",' in ATLAS and 'hairBox.className = "atl-lw atl-lw-hair";' in ATLAS
+    assert 'tip.className = "atl-lw atl-lw-tip";' in ATLAS and "tailWave: { t: 0.5, zone: [0.42, 0.58] }," in _look("feminine")
+    assert "& .atl-lw-tip { animation: atl-tail-wave 8.3s ease-in-out -2.05s infinite alternate; }" in CSS
+    assert "& .atl-lw-tail { animation-delay: -4.15s; }" in CSS
+    assert "& .atl-lw-tail { animation: atl-tail-flow 8.3s ease-in-out infinite alternate; }" in CSS
+    assert '.atl-lw-hair[data-atlas-look="masculine"], .atl-lw-hair[data-atlas-look="feminine"], .atl-lw-tip { animation: none !important; }' in CSS
+    for name in ("atl-tail-wave", "atl-hair-trail"):
+        body = _keyframes(name).split("{", 1)[1]
+        assert set(re.findall(r"([a-z-]+)\s*:", body)) <= {"rotate"}, name
+
+
+
+def test_the_lower_body_takes_a_pose_for_what_it_is_doing():
+    # INBOX 575 (the owner: "have the lower body of both atlas avatars change
+    # around in position and how it is sitting ect with different variations
+    # and changes based off the current action or behaviour"): every state
+    # the brief names has a pose, at least two variants for each of the
+    # moving and resting ones, springs that overshoot and settle for a flick
+    # and ease for a curl, and reduced motion keeps the first variant.
+    table = ATLAS[ATLAS.index("const ATLAS_LOWER_STATES = {") : ATLAS.index("function atlasLowerState(")]
+    for state in ("idle", "walk", "sit", "lie", "gesture", "think", "happy", "sad", "startle"):
+        row = re.search(rf'  {state}: \{{ ms: ([0-9]+), ease: "([^"]+)", v: (\[\[.*\]\]) \}},', table)
+        assert row, state
+        variants = re.findall(r"\[(-?[0-9.]+), ([0-9.]+), ([0-9.]+), (-?[0-9.]+), (-?[0-9.]+)\]", row.group(3))
+        assert len(variants) >= 2, state
+        assert len(set(variants)) == len(variants), (state, "two variants alike")
+        if state not in ("idle", "think", "sad"):
+            assert 250 <= int(row.group(1)) <= 600, (state, "a change of state takes 300 to 600ms")
+    def curve(state):
+        found = re.search(rf'  {state}: \{{ ms: [0-9]+, ease: "cubic-bezier\(([^)]+)\)"', table)
+        return [float(v) for v in found.group(1).split(",")]
+
+    assert curve("happy")[1] > 1 and curve("startle")[1] > 1, "a bouncy flick and a snap overshoot, then settle"
+    assert curve("think")[1] <= 1, "a slow curl does not"
+    rig = ATLAS[ATLAS.index("function atlasRigLower(") : ATLAS.index("function atlasRigRead(")]
+    assert "const pick = live ? Math.floor(Math.random() * spec.v.length) : 0;" in rig
+    assert "low.at = now + 8000 + Math.random() * 6000;" in rig
+    # Each flowing part takes the state: the dress or cloak, her wisps, both
+    # tails, the hair and the nebula stream, as compositor transitions;
+    # reduced motion sets the pose with none.
+    for part in ("low.boxes", "low.wisps", "low.tails", "low.hair", "low.neb"):
+        assert f"for (const el of {part}) go(el," in rig, part
+    assert 'el.style.transition = live ? `transform ${spec.ms + lag * 2}ms ${spec.ease} ${lag}ms` : "none";' in rig
+    for state in ("idle", "walk", "sit", "lie", "gesture", "think", "happy", "sad", "startle"):
+        assert f"{state}: [" in ATLAS[ATLAS.index("const ATLAS_HAIR_STATES"):ATLAS.index("function atlasLowerState(")], state
+    assert ".atl-lw > .atl-lw-pose { position: absolute;" in CSS
+
+
+
+def test_the_figure_head_never_pulses_and_its_loops_start_at_rest():
+    # INBOX 577 (the owner: "the companion or atlas's head goes large then
+    # small then large again then settles"): the figure's breath lifts the
+    # body and never stretches it tall (the old breath scaled the head 1.8%
+    # every 4.4s); each alternating idle loop starts half a swing in, at its
+    # middle, and none starts after a positive delay (a jump from rest to
+    # one end of the swing); every loop of the figure pauses in a hidden tab.
+    body = _keyframes("atl-breathe-rise").split("{", 1)[1]
+    scale = re.search(r"scale\(([0-9.]+), ([0-9.]+)\)", body)
+    assert scale and float(scale.group(2)) == 1, body
+    assert "& .atl-lw-breathe { animation: atl-breathe-rise 4.4s" in CSS
+    for rule in ('& .atl-lw-body[data-atlas-look="masculine"] { animation-delay: -3.6s; }', '& .atl-lw-tail { animation-delay: -4.15s; }', "& .atl-lw-neb-front { animation-delay: -2.95s; }"):
+        assert rule in CSS, rule
+    for name in ("atl-hair-trail", "atl-tail-wave", "atl-hem-wind", "atl-wisp-drift", "atl-float"):
+        for delay in re.findall(rf"animation: {name} [0-9.]+s ease-in-out (-?[0-9.]+)s", CSS):
+            assert float(delay) < 0, (name, delay)
+    assert ":root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *, .atl-lw, .atl-lw-breathe)" in CSS

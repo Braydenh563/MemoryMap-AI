@@ -1157,15 +1157,6 @@
     color: #444;
     word-break: break-all;
   }
-
-  /* The remarks are the reader's own margin notes, and the export turns them
-     into footnotes when it is asked to (`docPrintComments`). A plain print
-     does not ask, so the marks they leave behind must not paint a highlight
-     across a printed sentence. */
-  body.printing-doc #doc-preview .doc-comment-mark {
-    background: none;
-    color: inherit;
-  }
 }
 
 /* --- the formatting strip says what the caret is already in -----------------

@@ -183,36 +183,6 @@ with its owner named in the entry.
      fine, maybe a bit more of a gap below the top row title and close
      button". Placed: the design-rows agent, after 618.
 
-621. **The owner, 2026-10-05, verbatim.** "also idk but I feel like al lot of
-     these top header bars need  a better ui/ux restructuring or redesign as
-     they still dont feel professional or modern and more demo/vibe coded. as
-     well as the settings dropdown in the graph tab. it is not limited to the
-     attached screen shots, all of those bars across the application or
-     majority fo them need fixing up. idk you are teh expert" (screenshots:
-     the All notes, Questions, Graph, AI skills and Timeline docks.)
-     Decision taken (recommendation): one `.dock` redesign at the recipe,
-     not per surface. The title loses its divider and sits as the page head.
-     Counts become quiet muted text, not boxed pills. Search is a borderless
-     field with a leading icon. Icon buttons are 32px ghosts in one trailing
-     group. The single filled action stays last. Segmented controls are
-     drawn in one style. The graph settings popover is rebuilt from the
-     DESIGN.md popover recipe. DESIGN.md's dock section is updated and the
-     dock lint (`test_dock_grammar.py`) holds the new grammar. Placed: an
-     Opus design agent, after 616.
-622. **The owner, 2026-10-05, verbatim.** "also in settings idk if this
-     navigation is the right way to go about it. should it be redesigned
-     better??" (screenshot: Settings, Tools it can use: a horizontally
-     scrolling sub-tab strip with a visible scrollbar and a clipped last
-     label.)
-     Decision taken (recommendation): yes. A horizontally scrolling strip
-     hides options and shows a scrollbar. Replace the in-pane sub-tabs with
-     the pane's groups stacked under their group heads, and nest the active
-     pane's group links under it in the Settings sidebar (two levels, as in
-     VS Code and Linear settings). A click scrolls to the group, and the
-     active group is tracked on scroll. On a phone the sidebar's pane select
-     gains the groups. No horizontal scroll anywhere in Settings, held by a
-     lint. Placed: with 621.
-
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 540, 554, 556, 564, 575 (Atlas motion and form) placed in

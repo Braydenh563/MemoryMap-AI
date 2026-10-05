@@ -128,6 +128,8 @@ REACHED_AFTER_LOAD = {
     "atlasTailAttach": "atlasLife, called in the .then of ensureModule('atlasLife') when it loaded",
     "atlasRingLoops": "atlasLife, called in the .then of ensureModule('atlasLife') when it loaded",
     "atlasPropLoops": "atlasLife, called in the .then of ensureModule('atlasLife') when it loaded",
+    "atlasRigLowerAttach": "atlasLife, called in the .then of ensureModule('atlasLife') when it loaded",
+    "atlasRigLower": "atlasLife, called by the rig only once rig.lower exists, which atlasRigLowerAttach (same bundle) makes",
     "atlasTailFrame": "atlasLife, reached only through a tail atlasTailAttach (same bundle) made",
     #: The settingsUi bundle (settings-find.js) is awaited by `openSettingsModal`
     #: before it shows any section, and every call below runs from a section

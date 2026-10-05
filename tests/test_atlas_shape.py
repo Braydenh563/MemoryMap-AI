@@ -1174,7 +1174,7 @@ def test_the_lower_body_takes_a_pose_for_what_it_is_doing():
     # the brief names has a pose, at least two variants for each of the
     # moving and resting ones, springs that overshoot and settle for a flick
     # and ease for a curl, and reduced motion keeps the first variant.
-    table = ATLAS[ATLAS.index("const ATLAS_LOWER_STATES = {") : ATLAS.index("function atlasLowerState(")]
+    table = ATLAS[ATLAS.index("const ATLAS_LOWER_STATES = {") : ATLAS.index("const ATLAS_HAIR_STATES")]
     for state in ("idle", "walk", "sit", "lie", "gesture", "think", "happy", "sad", "startle"):
         row = re.search(rf'  {state}: \{{ ms: ([0-9]+), ease: "([^"]+)", v: (\[\[.*\]\]) \}},', table)
         assert row, state
@@ -1189,7 +1189,7 @@ def test_the_lower_body_takes_a_pose_for_what_it_is_doing():
 
     assert curve("happy")[1] > 1 and curve("startle")[1] > 1, "a bouncy flick and a snap overshoot, then settle"
     assert curve("think")[1] <= 1, "a slow curl does not"
-    rig = ATLAS[ATLAS.index("function atlasRigLower(") : ATLAS.index("function atlasRigRead(")]
+    rig = ATLAS[ATLAS.index("function atlasRigLower(") :]
     assert "const pick = live ? Math.floor(Math.random() * spec.v.length) : 0;" in rig
     assert "low.at = now + 8000 + Math.random() * 6000;" in rig
     # Each flowing part takes the state: the dress or cloak, her wisps, both
@@ -1199,7 +1199,7 @@ def test_the_lower_body_takes_a_pose_for_what_it_is_doing():
         assert f"for (const el of {part}) go(el," in rig, part
     assert 'el.style.transition = live ? `transform ${spec.ms + lag * 2}ms ${spec.ease} ${lag}ms` : "none";' in rig
     for state in ("idle", "walk", "sit", "lie", "gesture", "think", "happy", "sad", "startle"):
-        assert f"{state}: [" in ATLAS[ATLAS.index("const ATLAS_HAIR_STATES"):ATLAS.index("function atlasLowerState(")], state
+        assert f"{state}: [" in ATLAS[ATLAS.index("const ATLAS_HAIR_STATES"):ATLAS.index("function atlasRigLowerAttach(")], state
     assert ".atl-lw > .atl-lw-pose { position: absolute;" in CSS
 
 

@@ -4,8 +4,9 @@
 // the figure draws whole without either, its tail in its drawn shape and its
 // rings at rest, so nothing here is needed for the first frame. Loaded by
 // `LAZY_MODULES.atlasLife` (app.js) when a layered figure is first made
-// (`atlasFigure`, which then calls `atlasRingLoops`, `atlasPropLoops` and
-// `atlasTailAttach`);
+// (`atlasFigure`, which then calls `atlasRigLowerAttach`, `atlasRingLoops`,
+// `atlasPropLoops` and `atlasTailAttach`); the lower body's pose for the
+// state (`atlasRigLower`) came with them the same day, for the same budget;
 // `atlasTailWake` stays in atlas.js, since the rig calls it on every wake and
 // a figure only has a tail to wake once this file has attached one.
 
@@ -374,4 +375,126 @@ function atlasPropsFrame(box, live, tick) {
       loop.anim.currentTime = loop.lag;
     } else loop.anim.cancel();
   }
+}
+
+//: **The lower body by what it is doing** (INBOX 575, the owner: "have the
+//: lower body of both atlas avatars change around in position and how it
+//: is sitting ect with different variations and changes based off the
+//: current action or behaviour"). Her dress and his cloak (with her wisps,
+//: which wrap the dress) and both tails take a pose per state, on top of
+//: the pose's own CSS: each variant is [turn about the hips, width, length,
+//: lean (skew), the tail's turn], in degrees and scales; `ms` and `ease`
+//: are the change's time and curve (a curve past 1 overshoots and settles,
+//: a flick or a snap; an ease in and out is a slow curl). A walk's turns and lean take
+//: the way it goes (it trails behind and stretches). One variant is picked
+//: at random as a state begins, and at rest a new one every 8 to 14
+//: seconds, so no two repeats look alike.
+//: INBOX 615 and 619 (the owner: "the lower body ... slightly misaligned",
+//: "her lower body actually rotates halfway off her upperbody"): sitting,
+//: lying and startled, the lower body turned 8 to 16 degrees off the torso
+//: (and the CSS 42 more lying down); it turns at most 4 now, about the join,
+//: and takes its width from the torso there, so the two read as one chain.
+const ATLAS_LOWER_STATES = {
+  idle: { ms: 900, ease: "cubic-bezier(0.45, 0, 0.35, 1)", v: [[-2.5, 1, 1, 2, -5], [2, 1, 1.02, -2, 4], [3.5, 0.98, 1, 1, 7], [-1, 1.02, 0.99, -3, -2]] },
+  walk: { ms: 450, ease: "cubic-bezier(0.34, 1.3, 0.64, 1)", v: [[-9, 0.94, 1.08, 6, -12], [-7, 0.95, 1.1, 8, -9], [-11, 0.93, 1.06, 4, -15]] },
+  sit: { ms: 550, ease: "cubic-bezier(0.34, 1.25, 0.6, 1)", v: [[3, 1.1, 0.86, -3, -14], [-3, 1.08, 0.88, 3, 14], [2, 1.12, 0.84, -2, -10]] },
+  lie: { ms: 600, ease: "cubic-bezier(0.4, 1.15, 0.6, 1)", v: [[3, 1, 0.86, -3, 24], [2, 1.02, 0.9, -2, 30]] },
+  gesture: { ms: 350, ease: "cubic-bezier(0.3, 1.6, 0.6, 1)", v: [[-5, 0.98, 0.95, 4, 9], [-3, 1, 0.94, 6, 12], [-6, 0.97, 0.96, 3, 7]] },
+  think: { ms: 900, ease: "cubic-bezier(0.45, 0, 0.55, 1)", v: [[6, 1, 0.97, -4, 12], [4, 0.99, 0.96, -6, 16]] },
+  happy: { ms: 380, ease: "cubic-bezier(0.25, 1.8, 0.5, 1)", v: [[-6, 1.02, 0.94, 5, -10], [5, 1.02, 0.95, -5, -14], [-4, 1.03, 0.93, 3, -8]] },
+  sad: { ms: 800, ease: "cubic-bezier(0.5, 0, 0.6, 1)", v: [[1.5, 0.96, 1.07, -1, 16], [-1.5, 0.97, 1.06, 1, 20]] },
+  startle: { ms: 260, ease: "cubic-bezier(0.2, 2, 0.4, 1)", v: [[-4, 0.94, 0.9, 4, -18], [-3, 0.95, 0.92, 5, -22]] },
+};
+//: The hair's turn about the crown and the nebula stream's [turn, width,
+//: height] about the figure's middle, per state (INBOX 575, the owner:
+//: "both atlas avatars have a tail as well, same with the hair, and the
+//: nebular stream ... dynamically animated and changed"), a variant each
+//: as the lower body's; a walk's turn takes the way it goes.
+const ATLAS_HAIR_STATES = { idle: [0, 1.6, -1.4, 0.8], walk: [-5, -4, -6], sit: [2, 1], lie: [4, 5], gesture: [-3, -2], think: [2.5, 1.5], happy: [-3.5, -2.5, -4], sad: [4, 5], startle: [-6, -7] };
+const ATLAS_NEB_STATES = {
+  idle: [[0, 1, 1], [2, 1.02, 0.98], [-2, 0.98, 1.02], [1, 1.01, 1]],
+  walk: [[-4, 1.05, 0.95], [-3, 1.06, 0.94], [-5, 1.04, 0.96]],
+  sit: [[3, 1.06, 0.9], [-3, 1.08, 0.88]],
+  lie: [[6, 1.04, 0.86], [4, 1.06, 0.84]],
+  gesture: [[-2, 1.03, 1.03], [-3, 1.02, 1.04]],
+  think: [[5, 0.97, 1], [7, 0.96, 1.01]],
+  happy: [[-3, 1.04, 1.04], [3, 1.05, 1.03], [-2, 1.03, 1.05]],
+  sad: [[2, 0.97, 0.94], [-1, 0.96, 0.95]],
+  startle: [[-6, 1.08, 1.08], [-5, 1.1, 1.06]],
+};
+//: The rig's lower body (atlas.js, `atlasRigAttach`, which makes the rest of
+//: the rig at once): the boxes the state's pose turns, attached when this
+//: file arrives; until then the lower body stands in its drawn pose.
+function atlasRigLowerAttach(box) {
+  const rig = box.atlasRig;
+  if (!rig || rig.lower) return;
+  rig.lower = {
+    boxes: [...box.querySelectorAll(".atl-lw-pose-lower")],
+    wisps: [...box.querySelectorAll(".atl-lw-pose-wisps, .atl-lw-pose-wisps-back, .atl-lw-pose-glint-a, .atl-lw-pose-glint-b")],
+    tails: [...box.querySelectorAll(".atl-lw-pose-tail")],
+    hair: [...box.querySelectorAll(".atl-lw-pose-hair")],
+    neb: [...box.querySelectorAll(".atl-lw-pose-neb, .atl-lw-pose-neb-front")],
+    state: "",
+    variant: 0,
+    at: 0,
+    shown: "",
+    timer: 0,
+  };
+  atlasRigWake(box);
+}
+//: The lower body's pose for the state: its variant (a new one as the
+//: state begins, and every 8 to 14 seconds at rest, on a timer), and the
+//: way a walk goes. Each part is a box of its own, and the change is a CSS
+//: transition on it, run by the compositor: the state's own time and
+//: curve, the tail and the hair a beat later and longer (follow-through).
+//: A change mid-way is taken up from where the part is, so nothing snaps.
+function atlasRigLower(rig, now, live, buddy) {
+  const low = rig.lower;
+  if (!low || !(low.boxes.length || low.tails.length || low.hair.length)) return;
+  const state = atlasLowerState(buddy, rig.box);
+  const spec = ATLAS_LOWER_STATES[state];
+  const fresh = state !== low.state;
+  if (fresh || (live && state === "idle" && now >= low.at)) {
+    //: Reduced motion keeps each state's first pose and no idle variation.
+    const pick = live ? Math.floor(Math.random() * spec.v.length) : 0;
+    low.variant = !fresh && spec.v.length > 1 && pick === low.variant ? (pick + 1) % spec.v.length : pick;
+    low.state = state;
+    low.at = now + 8000 + Math.random() * 6000;
+  }
+  clearTimeout(low.timer);
+  //: The next idle variant, unless the tab is hidden or the figure gone or
+  //: off screen then (it waits, and does nothing meanwhile).
+  const next = () => {
+    if (!rig.box.isConnected) return;
+    if (document.hidden || rig.box.classList.contains("atl-off")) low.timer = setTimeout(next, 4000);
+    else atlasRigLower(rig, performance.now(), atlasMotionOK(rig.box), buddy);
+  };
+  if (live && state === "idle") low.timer = setTimeout(next, low.at - now + 10);
+  const way = state === "walk" ? (parseFloat(buddy?.style.getPropertyValue("--nmb-lean")) < 0 ? -1 : 1) : 1;
+  const [rot, sx, sy, skew, tail] = spec.v[low.variant] || spec.v[0];
+  const hairs = ATLAS_HAIR_STATES[state];
+  const [neb, nsx, nsy] = ATLAS_NEB_STATES[state][low.variant % ATLAS_NEB_STATES[state].length];
+  const hair = hairs[low.variant % hairs.length] * way;
+  const pose = (k) => `rotate(${atlasFix(rot * way * k)}deg) skewX(${atlasFix(skew * way * k)}deg) scale(${(1 + (sx - 1) * k).toFixed(3)}, ${(1 + (sy - 1) * k).toFixed(3)})`;
+  const key = `${state} ${low.variant} ${way} ${live}`;
+  if (key === low.shown) return;
+  low.shown = key;
+  const go = (el, transform, lag = 0) => {
+    el.style.transition = live ? `transform ${spec.ms + lag * 2}ms ${spec.ease} ${lag}ms` : "none";
+    el.style.transform = transform;
+  };
+  //: The lower body's own box shears about the join rather than turning
+  //: (INBOX 615): a turn, even about the join, moves the outline's sides up
+  //: and down there, and where they slope that is a step against the torso
+  //: (atlas615-join.js: 1.07 to 1.49px at 2.2x at rest); a shear leaves
+  //: the join's row where it is and swings the hem. At 0.4 of the pose's
+  //: lean and half its stretch: the torso's fade is three units deep, and a
+  //: startle's full 8 degrees still opened 1.8px there. The tails and her
+  //: wisps, which leave the body, take the whole pose.
+  for (const el of low.boxes) go(el, `skewX(${atlasFix((skew - rot) * way * 0.4)}deg) scale(1, ${(1 + (sy - 1) * 0.5).toFixed(3)})`);
+  for (const el of low.wisps) go(el, pose(0.7), 40);
+  for (const el of low.tails) go(el, `rotate(${atlasFix(tail * way)}deg)`, 70);
+  for (const el of low.hair) go(el, `rotate(${atlasFix(hair)}deg)`, 90);
+  //: The stream's two halves move as one ribbon.
+  for (const el of low.neb) go(el, `rotate(${atlasFix(neb * way)}deg) scale(${nsx}, ${nsy})`, 120);
 }

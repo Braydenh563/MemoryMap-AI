@@ -138,3 +138,16 @@ def test_both_specs_carry_the_standard_library_the_extras_import():
             assert needed in modules, (spec.name, needed)
         assert not {"tkinter", "idlelib", "test", "ensurepip"} & modules
         assert not [m for m in modules if ".test." in f"{m}." or ".tests." in f"{m}."]
+
+
+def test_the_installer_reads_its_version_from_the_code():
+    """No version number typed into installer.iss: it reads `__version__`
+    from src/memorymap/__init__.py (and refuses a tag that differs)."""
+    text = (ROOT / "packaging" / "windows" / "installer.iss").read_text(encoding="utf-8")
+    assert re.search(r'#define\s+MyAppVersion\s+"\d', text) is None
+    assert "src\\memorymap\\__init__.py" in text
+    assert 'Pos("__version__ = ", VersionLine) == 1' in text
+    init = (ROOT / "src" / "memorymap" / "__init__.py").read_text(encoding="utf-8")
+    lines = [line for line in init.splitlines() if line.startswith("__version__ = ")]
+    assert len(lines) == 1 and lines[0].count('"') == 2, lines
+

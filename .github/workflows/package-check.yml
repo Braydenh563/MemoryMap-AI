@@ -184,10 +184,9 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
+      # No MEMORYMAP_VERSION: installer.iss reads __version__ itself.
       - name: Build the .exe installer (Inno Setup)
         shell: pwsh
-        env:
-          MEMORYMAP_VERSION: "0.0.0"
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\installer.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC exited $LASTEXITCODE" }

@@ -16,9 +16,37 @@
 ;   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\installer.iss
 
 #define MyAppName "MemoryMap AI"
-#define MyAppVersion GetEnv("MEMORYMAP_VERSION")
+
+; **The version is read from src\memorymap\__init__.py, never typed here.**
+; It used to come from MEMORYMAP_VERSION with a hard-coded "0.1.0" fallback,
+; so a local build, or any build whose environment forgot the variable, was
+; an installer that called itself 0.1.0 in Add/Remove Programs and in its
+; own file name, whatever it held; and package-check.yml stamped every test
+; build "0.0.0". The app's own `__version__` is the one number the About
+; panel, /health and the updater compare against, so it is the installer's.
+; release.yml still passes MEMORYMAP_VERSION from the tag, and a tag that
+; disagrees with the code stops the build here instead of shipping a
+; mislabelled installer.
+#define VersionFile AddBackslash(SourcePath) + "..\..\src\memorymap\__init__.py"
+#define VersionHandle FileOpen(VersionFile)
+#if !VersionHandle
+  #error Cannot open src\memorymap\__init__.py to read __version__
+#endif
+#define MyAppVersion ""
+#define VersionLine ""
+#sub ReadVersionLine
+  #define VersionLine FileRead(VersionHandle)
+  #if Pos("__version__ = ", VersionLine) == 1
+    #define MyAppVersion Copy(VersionLine, Pos('"', VersionLine) + 1, RPos('"', VersionLine) - Pos('"', VersionLine) - 1)
+  #endif
+#endsub
+#for {0; MyAppVersion == "" && !FileEof(VersionHandle); 0} ReadVersionLine
+#expr FileClose(VersionHandle)
 #if MyAppVersion == ""
-  #define MyAppVersion "0.1.0"
+  #error No __version__ line in src\memorymap\__init__.py
+#endif
+#if GetEnv("MEMORYMAP_VERSION") != "" && GetEnv("MEMORYMAP_VERSION") != MyAppVersion
+  #error MEMORYMAP_VERSION (the release tag) does not match __version__ in src\memorymap\__init__.py
 #endif
 #define MyAppPublisher "MemoryMap AI"
 #define MyAppURL "https://github.com/Braydenh563/MemoryMap-AI"
@@ -69,6 +97,17 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
+
+[InstallDelete]
+; **An upgrade replaces the bundle, it does not merge into it.** [Files]
+; only adds and overwrites, so every file an older build had and this one
+; does not (a module that moved, a DLL from a different PyInstaller or
+; Python, a frontend file that was renamed) stayed in the install folder
+; for good. Windows searches the program's own folder for DLLs, so a stale
+; one there can be loaded in place of the bundle's. _internal is
+; PyInstaller's folder and holds nothing of the person's (the notes are in
+; %APPDATA%), so it goes whole before the new one is copied in.
+Type: filesandordirs; Name: "{app}\_internal"
 
 [Files]
 ; Everything PyInstaller's COLLECT step produced, recursively — the exe
@@ -126,6 +165,10 @@ Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Description: "Launch
 ; database always went to AppData. Only the two folders by name, so anything
 ; else someone put there stays.
 Type: filesandordirs; Name: "{app}\data\webview"
+; Anything the running app wrote inside its own bundle (a bytecode cache, a
+; file an extra unpacked) is not in the uninstall log; the folder is ours
+; whole, so it goes whole, and the install folder is left empty.
+Type: filesandordirs; Name: "{app}\_internal"
 Type: filesandordirs; Name: "{app}\data\logs"
 Type: dirifempty; Name: "{app}\data"
 

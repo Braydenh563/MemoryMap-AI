@@ -63,8 +63,10 @@ does not set them for you.
 `__version__` in `src/memorymap/__init__.py` is the source of truth. It shows in
 **Settings, About**, in the Windows installer's file properties, and is what the
 in-app update check (`GET /update/check`) compares against GitHub's latest
-release tag. **If you tag `v0.4.0` without bumping it, the app will call itself
-by the old number everywhere except the installer's filename.**
+release tag. **A tag that disagrees with it stops the release**: the first job
+of `release.yml` compares the two and fails before anything is built, and
+`installer.iss` reads the installer's own version from this file too (it refuses
+a `MEMORYMAP_VERSION` that says otherwise).
 
 The same number is written in four more places. Two have a lint that fails the
 build if they are missed, and two you must remember:
@@ -161,7 +163,8 @@ after the release exists:
 - **Smoke-tests the frozen app.** It starts the built executable on a scratch data
   folder and fails the release unless the app serves its page within a minute.
 - Runs Inno Setup against `packaging/windows/installer.iss`, which reads the
-  version from the `MEMORYMAP_VERSION` environment variable.
+  version from `src/memorymap/__init__.py` and refuses a `MEMORYMAP_VERSION` (the
+  tag) that differs.
 - Uploads `MemoryMap-AI-Setup-<version>-windows-x86_64.exe` to the release. The
   WiX `.msi` steps are present but switched off: its toolkit's licence terms
   stopped the release build.
@@ -204,8 +207,9 @@ not as something you `pip install`; the reason is in the comment at the top of
 
 **A build job fails.** Read its log on the Actions tab. PyInstaller failures
 usually name a missing hidden import: add it to the matching spec file's
-`hiddenimports` list. Inno Setup failures usually name a bad path or a missing
-`MEMORYMAP_VERSION`. Fix the file, commit, and re-tag (next section). There is no
+`hiddenimports` list (the app's own modules are all listed already, by file).
+Inno Setup failures usually name a bad path, or a tag that does not match
+`__version__`. Fix the file, commit, and re-tag (next section). There is no
 way to re-run just the failed job against the same tag with a fix, because the fix
 has to be in the tagged commit.
 

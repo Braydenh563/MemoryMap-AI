@@ -46,6 +46,8 @@ jobs:
       tag: ${{ steps.resolve.outputs.tag }}
       version: ${{ steps.resolve.outputs.version }}
     steps:
+      - uses: actions/checkout@v7
+
       - name: Resolve from the tag push or the manual input
         id: resolve
         run: |
@@ -53,6 +55,17 @@ jobs:
             VERSION="${{ inputs.version }}"
           else
             VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          # The tag must say what the code says: the app reports
+          # src/memorymap/__init__.py's __version__ (About, /health, the
+          # updater's comparison), and installer.iss stamps the installer
+          # with it. A tag that disagrees stops the release here, before
+          # anything is built or published, rather than shipping v0.4.0
+          # that calls itself 0.3.32 and offers itself as an update forever.
+          CODE=$(sed -nE 's/^__version__ = "([^"]+)"/\1/p' src/memorymap/__init__.py)
+          if [ "$VERSION" != "$CODE" ]; then
+            echo "::error::release version $VERSION does not match __version__ $CODE in src/memorymap/__init__.py"
+            exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"

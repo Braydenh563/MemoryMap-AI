@@ -26,7 +26,7 @@ WORLD_CLASS_PLAN section 8's open rows, in the plan's order, from `a4f7aac`.
 ## Stopped here (switched to INBOX 598, 602, 596 by the coordinator)
 
 - **Row 11, section 17 row 5 (most opened this month): half built, not
-  committed to the app.** Parked in `scratchpad/wc1005b-most-opened/`:
+  committed to the app.** Parked in `scratchpad/wc1005b-most-opened.md` (three sections):
   `opens.py.txt` (a month-bucketed opens file, `core/opens.py`),
   `routes_entries.patch` (`GET /entries/most-accessed?period=month`, and
   `opens.record` on `GET /entries/{id}`), the test file. Left: count the

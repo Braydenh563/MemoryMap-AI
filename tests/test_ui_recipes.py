@@ -4496,7 +4496,8 @@ def test_the_installed_models_are_model_cards():
     boot = (ROOT / "frontend" / "js" / "ai-tools.js").read_text(encoding="utf-8")
     assert "function renderInstalledModels" not in boot
     status = (ROOT / "frontend" / "js" / "status.js").read_text(encoding="utf-8")
-    assert 'if (typeof renderInstalledModels === "function") renderInstalledModels(status);' in status
+    #: Drawn under the one check that the lazy settingsUi file has loaded.
+    assert 'if (typeof renderSuggested === "function") {\n      renderInstalledModels(status);' in status
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert '<div id="installed-list" class="model-grid"></div>' in html
     css = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")

@@ -70,7 +70,7 @@ def test_every_status_badge_is_the_label_recipe():
     # The fit words live in a table, not a chip() call.
     fit = js[js.index("const FIT_WORDS = {"):][:400]
     assert fit.count('tone: "item-label') == 3, fit
-    assert {"Installed", "Not ready yet", "confirms first", "online", "in use"} <= seen
+    assert {"Installed", "Not ready yet", "confirms first", "online", "In use for"} <= seen
 
 
 def test_status_badges_are_never_a_fill_again():

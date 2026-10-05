@@ -2010,7 +2010,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="dock-group dock-find">
               <input id="note-search" class="library-search" type="search"
                 placeholder="Filter notes"
-                aria-label="Filter notes. Supports tag: or #tag, cat:, title:, before:, after:, is:favourite, -exclude and quoted phrases"
+                aria-label="Filter notes. Supports tag: or #tag, cat:, title:, before:, after:, is:favourite, has:, space:, -exclude and quoted phrases"
                 aria-describedby="search-help-hint">
               <details class="doc-dock-menu dock-menu" id="notes-filter-menu">
                 <summary class="ghost small doc-dock-menu-btn" title="Match by meaning, save this filter"><i class="ph ph-funnel-simple ph-lead" aria-hidden="true"></i> <span class="dock-word">Filter</span> <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
@@ -2140,6 +2140,7 @@ Link to another note with [[its first few words]]."></textarea>
               <li><code>before:2026-09-01</code>, <code>after:2026-08</code>, by the day it was written</li>
               <li><code>is:favourite</code>, your starred notes (<code>is:pinned</code> still works); also <code>is:private</code>, <code>is:linked</code>, <code>is:untagged</code>, <code>is:draft</code>, and <code>is:review</code>, the filings to check (Atlas was unsure, or left it in Uncategorised), each with Accept, Refile and Split</li>
               <li><code>tags:&lt;2</code>, fewer than 2 tags (also <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code>, or a bare number for exactly that many)</li>
+              <li><code>has:link</code>, <code>has:file</code>, <code>has:image</code> or <code>has:reminder</code>, notes that carry one; <code>space:work</code>, only that space; <code>kind:note</code>, asked of the search engine</li>
               <li><code>-picnic</code>, notes that do <em>not</em> mention it</li>
               <li><code>type:meeting</code>, <code>prop:status=open</code>, <code>prop:effort&gt;2</code>, a note's properties; <code>links:[[Kiln plan]]</code>, <code>rel:supports</code>, <code>entity:"Sam Lee"</code>, its links and the people and things it names (a <code>-</code> before any leaves those out). A bar then offers the same notes as a Table or on the graph</li>
             </ul>

@@ -100,6 +100,11 @@ def _looks_like_tools_rejection(status: int, body: str) -> bool:
 _OPENAI_SAMPLING = frozenset({"temperature", "top_p"})
 
 
+
+#: How long a model request may take to *connect* (ARCH-17): a reachable
+#: server accepts in milliseconds; past this it is off or unreachable.
+CONNECT_TIMEOUT_SECONDS = 5.0
+
 class OpenAICompatClient(Provider):
     """Anything that serves `/v1/chat/completions`.
 
@@ -141,6 +146,17 @@ class OpenAICompatClient(Provider):
 
     # --- plumbing -----------------------------------------------------------
 
+
+    def _request_timeout(self, read: float | None = None) -> tuple[float, float]:
+        """`(connect, read)` for a model request (audit 2026-10-05, ARCH-17).
+
+        One float, as this was, is what `requests` applies to the connect as
+        well as to each read: a model host on the LAN that is switched off
+        and drops packets held a chat turn, a filing job or a night-pass
+        step for the whole ten minutes before saying anything. Connecting is
+        quick or it is not happening; only the answer may take long.
+        """
+        return (CONNECT_TIMEOUT_SECONDS, self.timeout if read is None else read)
     def _headers(self) -> dict:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
@@ -665,7 +681,7 @@ class OpenAICompatClient(Provider):
             json=payload,
             headers=self._headers(),
             stream=stream,
-            timeout=self.timeout,
+            timeout=self._request_timeout(),
         )
 
     # --- the four generation paths ------------------------------------------
@@ -969,7 +985,7 @@ class OpenAICompatClient(Provider):
                 f"{self.base_url}/embeddings",
                 json={"model": model, "input": text},
                 headers=self._headers(),
-                timeout=self.timeout,
+                timeout=self._request_timeout(),
             )
             response.raise_for_status()
             return response.json()["data"][0]["embedding"]

@@ -59,6 +59,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from memorymap.core import model_gate
 from memorymap.core.database import DerivedFact, Entry, utcnow
 from memorymap.core.logbuffer import safe_value
 
@@ -312,6 +313,21 @@ def _narrow(provider, model: str, content: str, proposed: list[Candidate]) -> se
     return numbers
 
 
+def _release(session: Session) -> None:
+    """Commit what this pass has written so far, before a model call.
+
+    A model call is seconds to minutes on a local runner, and SQLite has one
+    write lock per database: any INSERT flushed and not committed holds it
+    for the whole call, and every save the person makes meanwhile waits out
+    the busy timeout and fails (ARCH-01). Committing here makes each note's
+    rows their own short transaction. Facts are keyed by fingerprint and
+    pairs by key, so a pass stopped half way leaves rows the next pass skips
+    rather than duplicates. The session's factory does not expire on commit,
+    so nothing already loaded is read again.
+    """
+    session.commit()
+
+
 def _entries_to_read(session: Session, force: bool) -> list[Entry]:
     """The notes this run should look at, newest first.
 
@@ -375,7 +391,14 @@ def run(
 
     night = NightRun(trigger=trigger, budget=budget, started_at=utcnow())
     session.add(night)
-    session.flush()
+    # **Committed, not flushed.** A flushed INSERT leaves this connection
+    # holding SQLite's one write lock until the caller's commit, and the loop
+    # below asks the model once per note while it waits: measured on
+    # 2026-10-05 (ARCH-01), every save made during "Run now" failed with a
+    # 500 after the 5 s busy timeout. The rule for the whole pass is read,
+    # release, ask the model, then write in a short transaction of its own
+    # (`_release` before every model call).
+    session.commit()
     counts: dict[str, int] = {}
     models_used: set[str] = set()
 
@@ -383,92 +406,102 @@ def run(
     scanned = 0
     derived = 0
     stopped = "done"
-    # **One query for what is already known, not one per note.** This read
-    # asks "has this note already produced this fact", and asking it inside
-    # the loop is a query per note: invisible on a fixture, and a thousand
-    # round trips on a real notebook every time the pass runs. Tombstones are
-    # included, because "already known" has to mean a deleted fact too or the
-    # next pass brings back everything the person threw away.
-    known_by_entry: dict[int, set[str]] = {}
-    for row in session.scalars(select(DerivedFact)).all():
-        known_by_entry.setdefault(row.entry_id, set()).add(fingerprint_of(row))
-    for entry in _entries_to_read(session, force):
-        if spent + TOKENS_PER_NOTE > budget:
-            stopped = "budget"
-            break
-        content = entry.content or ""
-        spent += TOKENS_PER_NOTE
-        scanned += 1
-        proposed = candidates(content)
-        if not proposed:
-            continue
-
-        known = known_by_entry.setdefault(entry.id, set())
-        # `known` grows as this note's candidates are taken, not only from what
-        # was already stored: a note that says the same sentence twice has two
-        # spans and one fact, and without this it would get a row per
-        # occurrence on the first run and none on any run after (the stored
-        # row would then match both).
-        kept: list[Candidate] = []
-        for item in proposed:
-            mark = _fingerprint(item.kind, item.text)
-            if mark in known:
+    try:
+        # **One query for what is already known, not one per note.** This read
+        # asks "has this note already produced this fact", and asking it inside
+        # the loop is a query per note: invisible on a fixture, and a thousand
+        # round trips on a real notebook every time the pass runs. Tombstones are
+        # included, because "already known" has to mean a deleted fact too or the
+        # next pass brings back everything the person threw away.
+        known_by_entry: dict[int, set[str]] = {}
+        for row in session.scalars(select(DerivedFact)).all():
+            known_by_entry.setdefault(row.entry_id, set()).add(fingerprint_of(row))
+        for entry in _entries_to_read(session, force):
+            if spent + TOKENS_PER_NOTE > budget:
+                stopped = "budget"
+                break
+            content = entry.content or ""
+            spent += TOKENS_PER_NOTE
+            scanned += 1
+            proposed = candidates(content)
+            if not proposed:
                 continue
-            known.add(mark)
-            kept.append(item)
-        proposed = kept
-        if not proposed:
-            continue
 
-        decided_by = "local"
-        cost = int(len(content) * TOKENS_PER_CHAR)
-        if provider is not None and model and spent + cost <= budget:
-            spent += cost
-            kept = _narrow(provider, model, content, proposed)
-            if kept is not None:
-                proposed = [item for i, item in enumerate(proposed) if i in kept]
-                decided_by = model
+            known = known_by_entry.setdefault(entry.id, set())
+            # `known` grows as this note's candidates are taken, not only from what
+            # was already stored: a note that says the same sentence twice has two
+            # spans and one fact, and without this it would get a row per
+            # occurrence on the first run and none on any run after (the stored
+            # row would then match both).
+            kept: list[Candidate] = []
+            for item in proposed:
+                mark = _fingerprint(item.kind, item.text)
+                if mark in known:
+                    continue
+                known.add(mark)
+                kept.append(item)
+            proposed = kept
+            if not proposed:
+                continue
 
-        for item in proposed:
-            session.add(
-                DerivedFact(
-                    entry_id=entry.id,
-                    kind=item.kind,
-                    text=item.text,
-                    span_start=item.start,
-                    span_end=item.end,
-                    model=decided_by,
-                    confidence=item.confidence,
-                    computed_at=utcnow(),
-                    run_id=night.id,
+            decided_by = "local"
+            cost = int(len(content) * TOKENS_PER_CHAR)
+            if provider is not None and model and spent + cost <= budget:
+                spent += cost
+                _release(session)
+                model_gate.yield_to_interactive()
+                kept = _narrow(provider, model, content, proposed)
+                if kept is not None:
+                    proposed = [item for i, item in enumerate(proposed) if i in kept]
+                    decided_by = model
+
+            for item in proposed:
+                session.add(
+                    DerivedFact(
+                        entry_id=entry.id,
+                        kind=item.kind,
+                        text=item.text,
+                        span_start=item.start,
+                        span_end=item.end,
+                        model=decided_by,
+                        confidence=item.confidence,
+                        computed_at=utcnow(),
+                        run_id=night.id,
+                    )
                 )
+                derived += 1
+                counts[item.kind] = counts.get(item.kind, 0) + 1
+                models_used.add(decided_by)
+        if stopped == "done":
+            # Passes 4 and 5 read the rows pass 3 just added, by id.
+            session.flush()
+            spent, paired, stopped = _pair_passes(
+                session,
+                night,
+                spent=spent,
+                budget=budget,
+                provider=provider,
+                model=model,
+                embeddings=embeddings,
+                counts=counts,
+                models_used=models_used,
             )
-            derived += 1
-            counts[item.kind] = counts.get(item.kind, 0) + 1
-            models_used.add(decided_by)
-    if stopped == "done":
-        # Passes 4 and 5 read the rows pass 3 just added, by id.
+            derived += paired
+    except BaseException:
+        stopped = "error"
+        raise
+    finally:
+        # In a `finally`: a pass that dies half way (the model server
+        # dropped, the app quit) has already committed its earlier notes
+        # (`_release`), so its row must still say when it stopped and why.
+        night.finished_at = utcnow()
+        night.scanned = scanned
+        night.derived = derived
+        night.tokens_spent = spent
+        night.stopped_reason = stopped
+        night.counts = counts
+        night.model = ", ".join(sorted(models_used)) or "local"
         session.flush()
-        spent, paired, stopped = _pair_passes(
-            session,
-            night,
-            spent=spent,
-            budget=budget,
-            provider=provider,
-            model=model,
-            embeddings=embeddings,
-            counts=counts,
-            models_used=models_used,
-        )
-        derived += paired
-    night.finished_at = utcnow()
-    night.scanned = scanned
-    night.derived = derived
-    night.tokens_spent = spent
-    night.stopped_reason = stopped
-    night.counts = counts
-    night.model = ", ".join(sorted(models_used)) or "local"
-    session.flush()
     return {
         "paused": False,
         "run_id": night.id,
@@ -799,6 +832,8 @@ def _pair_passes(
                 later, earlier = other, claim
             found: tuple[str, str, float] | None = None
             if provider is not None and model:
+                _release(session)
+                model_gate.yield_to_interactive()
                 judged = _judge(provider, model, _JUDGE_TENSION, earlier.text, later.text)
                 if judged and judged[0] == "incompatible":
                     found = (model, judged[1], 0.7)
@@ -846,6 +881,8 @@ def _pair_passes(
             known.add(pair)
             found = None
             if provider is not None and model:
+                _release(session)
+                model_gate.yield_to_interactive()
                 judged = _judge(provider, model, _JUDGE_ANSWER, question.text, claim.text)
                 if judged and judged[0] == "yes":
                     found = (model, judged[1], 0.7)

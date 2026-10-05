@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.ai.entities import merge_entities
+from memorymap.ai.entities import MergeUndoError, merge_with_undo, undo_merge
 from memorymap.core.database import ENTITY_KINDS, Entity, EntityMention, Entry, EntryDate
 from memorymap.core.deps import get_session
 from memorymap.entry.manager import plain_label
@@ -219,6 +219,24 @@ def merge_into(entity_id: int, body: MergeInto, session: Session = Depends(get_s
     gone, keep = _live(session, entity_id), _live(session, body.into_id)
     if gone.id == keep.id:
         raise HTTPException(status_code=400, detail="That is one name already.")
-    moved = merge_entities(session, keep, gone)
+    moved, undo_id = merge_with_undo(session, keep, gone)
     session.commit()
-    return {"kept": keep.id, "name": keep.name, "aliases": keep.aliases or [], "moved": moved}
+    return {"kept": keep.id, "name": keep.name, "aliases": keep.aliases or [], "moved": moved, "undo_id": undo_id}
+
+
+@router.post("/merges/{undo_id}/undo")
+def undo_merge_route(undo_id: int, session: Session = Depends(get_session)) -> dict:
+    """Split a merge back as it was (INBOX 553(a)): both names, their
+    aliases and kinds, and every mention on the side it came from."""
+    try:
+        back = undo_merge(session, undo_id)
+    except MergeUndoError as exc:
+        if exc.reason == "missing":
+            raise HTTPException(status_code=404, detail="That merge could not be found.") from exc
+        if exc.reason == "undone":
+            raise HTTPException(status_code=409, detail="That merge was already undone.") from exc
+        raise HTTPException(
+            status_code=409, detail="These names have changed since the merge, so it can't be undone."
+        ) from exc
+    session.commit()
+    return {"restored": back.id, "name": back.name}

@@ -129,6 +129,11 @@ def _move_space_contents(session: Session, source: str, target: str) -> None:
         session.execute(
             sa_update(table).where(table.c.workspace_id == source).values(workspace_id=target)
         )
+    # These statements move notes round the ORM, so `updated_at` stays put
+    # and the filing corpus's diff would not see them (`lexical_filing`).
+    from memorymap.ai import lexical_filing
+
+    lexical_filing.forget_corpus()
 
 
 def _detach_references(session: Session, table, ids: list, depth: int = 0) -> None:  # noqa: ANN001

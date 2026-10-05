@@ -1366,7 +1366,9 @@ not an import string, and uvicorn cannot fork that); running `uvicorn` against
 the factory directly can, and is the case the check exists for.
 
 More workers is also not the lever for speed here. The slow paths are Ollama
-and embedding, and both already run off the request thread.
+and embedding. A deferred filing (`defer_filing`) runs both off the request
+thread; a plain save and an edit still embed on the request (corrected
+2026-10-05, audit ARCH-02: this line said both were always off it).
 
 ## 14. Where to look when you want to…
 

@@ -144,6 +144,11 @@ def describe_http_error(exc: requests.HTTPError, model: str) -> str:
     return f"Chat with '{model}' failed: Ollama said: {detail}.{advice}"
 
 
+
+#: How long a model request may take to *connect* (ARCH-17): a reachable
+#: server accepts in milliseconds; past this it is off or unreachable.
+CONNECT_TIMEOUT_SECONDS = 5.0
+
 class OllamaClient(Provider):
     name = "ollama"
 
@@ -183,6 +188,17 @@ class OllamaClient(Provider):
         # round trips on the path that already feels slowest.
         self._shown: dict[str, dict] = {}
 
+
+    def _request_timeout(self, read: float | None = None) -> tuple[float, float]:
+        """`(connect, read)` for a model request (audit 2026-10-05, ARCH-17).
+
+        One float, as this was, is what `requests` applies to the connect as
+        well as to each read: a model host on the LAN that is switched off
+        and drops packets held a chat turn, a filing job or a night-pass
+        step for the whole ten minutes before saying anything. Connecting is
+        quick or it is not happening; only the answer may take long.
+        """
+        return (CONNECT_TIMEOUT_SECONDS, self.timeout if read is None else read)
     def supports_pull(self) -> bool:
         """Ollama is the only backend that can fetch a model it doesn't have."""
         return True
@@ -461,7 +477,7 @@ class OllamaClient(Provider):
                         "options": self.runtime_options(model, mode=mode),
                         **self.request_extras(mode, model),
                     },
-                    timeout=self.timeout,
+                    timeout=self._request_timeout(),
                 )
                 response.raise_for_status()
                 message = response.json()["message"]
@@ -508,7 +524,7 @@ class OllamaClient(Provider):
                         **self.request_extras(mode, model),
                     },
                     stream=True,
-                    timeout=self.timeout,
+                    timeout=self._request_timeout(),
                 ) as response:
                     response.raise_for_status()
                     for line in response.iter_lines():
@@ -600,7 +616,7 @@ class OllamaClient(Provider):
                         "num_predict": 1,
                     },
                 },
-                timeout=min(self.timeout, 60),
+                timeout=self._request_timeout(min(self.timeout, 60)),
             )
             return bool(response.ok)
         except requests.RequestException:
@@ -626,7 +642,7 @@ class OllamaClient(Provider):
                     **self.request_extras(mode, model),
                 },
                 stream=stream,
-                timeout=self.timeout,
+                timeout=self._request_timeout(),
             )
             if attempt == 0 and response.status_code >= 500 and UNREADABLE_CALL_PHRASE in response.text.lower():
                 response.close()
@@ -864,7 +880,7 @@ class OllamaClient(Provider):
             response = requests.post(
                 f"{self.base_url}/api/embed",
                 json={"model": model, "input": text},
-                timeout=self.timeout,
+                timeout=self._request_timeout(),
             )
             response.raise_for_status()
             return response.json()["embeddings"][0]

@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete as sa_delete
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from memorymap.ai import extractor, janitor, learning, librarian, links, relations
@@ -562,13 +563,20 @@ _DELIVERED_MAX = 512
 
 
 def _already_delivered(session: Session, key: str | None):
-    if not key or key not in _DELIVERED:
+    """The note an earlier save with this `client_key` made, or None.
+
+    The column, not only the dict: the dict is the fast path inside one
+    process, the column is what a restart keeps (ARCH-23). The space hook
+    narrows the read, so a key from another space is not this space's note.
+    """
+    if not key:
         return None
-    workspace, entry_id = _DELIVERED[key]
-    entry = session.get(Entry, entry_id)
-    if entry is None or (getattr(entry, "workspace_id", "default") or "default") != workspace:
-        return None
-    return entry
+    if key in _DELIVERED:
+        workspace, entry_id = _DELIVERED[key]
+        entry = session.get(Entry, entry_id)
+        if entry is not None and (getattr(entry, "workspace_id", "default") or "default") == workspace:
+            return entry
+    return session.scalars(select(Entry).where(Entry.client_key == key)).first()
 
 
 def _remember_delivery(key: str | None, entry) -> None:
@@ -615,13 +623,23 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     if body.note_type:
         #: KG4: a new note of a type starts with the type's fields.
         content = note_properties.with_type_fields(session, content, body.note_type)
-    entry = manager.create_entry(
-        session,
-        content=content,
-        category_name=category,
-        tags=tags,
-        ai_confidence=confidence,
-    )
+    try:
+        entry = manager.create_entry(
+            session,
+            content=content,
+            category_name=category,
+            tags=tags,
+            ai_confidence=confidence,
+            client_key=body.client_key,
+        )
+    except IntegrityError:
+        # Two resends of one save at once: the other one won the unique
+        # index on `client_key`, so its note is this save's answer.
+        session.rollback()
+        earlier = _already_delivered(session, body.client_key) if body.client_key else None
+        if earlier is None:
+            raise
+        return _to_out(session, earlier, filed_by=None, similar=None)
     if parent is not None:
         entry.parent_id = parent.id
     if filed_by == "user":
@@ -1878,6 +1896,10 @@ def list_entries(
     q: str = "",
     limit: int = Query(default=ENTRIES_PAGE_SIZE, ge=1, le=ENTRIES_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    #: Keyset paging for the plain list: the `X-Next-Cursor` of the page
+    #: before. Offsets still work; see `manager.list_entries` for why a
+    #: cursor is the one to walk a list that changes during the walk.
+    after: str = Query(default="", max_length=120),
     # **This list is the notes list, so boards are not in it by default.**
     #
     # Reported: "I made a mindmap naming it test and I think it came up as a
@@ -1958,8 +1980,15 @@ def list_entries(
         entries = manager.list_archived_entries(session, limit=limit, offset=offset)
         total = manager.count_archived_entries(session)
     else:
-        entries = manager.list_entries(session, limit=limit, offset=offset, boards=boards)
+        cursor = None
+        if after:
+            cursor = manager.parse_entry_cursor(after)
+            if cursor is None:
+                raise HTTPException(status_code=422, detail="That page marker isn't one this list made.")
+        entries = manager.list_entries(session, limit=limit, offset=offset, boards=boards, after=cursor)
         total = manager.count_entries(session, boards=boards)
+        if len(entries) == limit:
+            response.headers["X-Next-Cursor"] = manager.entry_cursor(entries[-1])
     response.headers["X-Total-Count"] = str(total)
     return _to_out_bulk(session, entries)
 

@@ -395,6 +395,32 @@ def current_matrix(session: Session, backend_id: str) -> _Matrix | None:
     return matrix
 
 
+def rows_for(matrix: _Matrix, ids: list[int]) -> tuple[list[int], np.ndarray] | None:
+    """`(positions in ids, rows)` for the ids the matrix holds, copied under
+    its lock: a caller's own read of the vectors it needs, without the scan
+    of the table this matrix exists to replace (the janitor's filing by
+    meaning, ARCH-02). None when it holds none of them."""
+    import numpy as np
+
+    wanted = np.fromiter(ids, dtype=np.int64, count=len(ids))
+    with _matrix_lock:
+        if not matrix.ids or not len(wanted):
+            return None
+        held = np.asarray(matrix.ids, dtype=np.int64)
+        # Sorted lookup in C: the dict walk this replaces was 200 ms of a
+        # save at 5,000 notes. A dead row holds id -1, which no caller asks for.
+        order = np.argsort(held, kind="stable")
+        at = np.searchsorted(held[order], wanted)
+        at[at >= len(held)] = 0
+        hit = held[order][at] == wanted
+        if not hit.any():
+            return None
+        positions = order[at[hit]]
+        # Fancy indexing copies, so the caller holds its own rows.
+        rows = matrix.rows[positions]
+    return np.flatnonzero(hit).tolist(), rows
+
+
 def _reconcile(session: Session, matrix: _Matrix, backend_id: str, fingerprint: tuple) -> bool:
     """Apply the writes the hook missed. False means "rebuild instead"."""
     import numpy as np
@@ -681,11 +707,49 @@ def _match_expression(terms: list[str], phrases: list[str], excluded: list[str],
     return expression
 
 
+def _space_clause(space, params: dict) -> list[str]:  # noqa: ANN001
+    """The space part of a raw index query.
+
+    `space` is a space id (that space only), a tuple of ids (every space but
+    those: "All spaces" leaving out the ones marked hidden from it), or
+    empty (no narrowing). Raw SQL never meets the ORM's space hook, which is
+    why `search` resolves this from the session itself (ARCH-03).
+    """
+    if isinstance(space, tuple):
+        if not space:
+            return []
+        names = {f"hidden{i}": value for i, value in enumerate(space)}
+        params.update(names)
+        return ["AND space NOT IN (" + ", ".join(f":{name}" for name in names) + ")"]
+    if space:
+        params["space"] = space
+        return ["AND space = :space"]
+    return []
+
+
+def _session_space(session: Session):  # noqa: ANN202
+    """The space this session reads, as `_space_clause` takes it.
+
+    **The search index is raw SQL, so the space hook never sees it.** Measured
+    (audit 2026-10-05, ARCH-03): a note written in "work" came back from
+    `/search` asked in "personal", while `/entries/query`, the graph, the
+    timeline and chat retrieval all returned nothing. The finder and the
+    palette call `/search` with no `space`, so they crossed spaces, titles
+    and snippets included, and spaces hidden from "All spaces" too.
+    """
+    workspace = session.info.get("workspace_id")
+    if workspace and workspace != "all":
+        return workspace
+    if workspace == "all":
+        return tuple(session.info.get("hidden_workspaces") or ())
+    return None
+
+
 def _candidates(
     session: Session,
     expression: str,
     kinds: list[str],
-    space: str | None,
+    space: str | tuple[str, ...] | None,
     since,
     until,
     depth: int,
@@ -707,9 +771,7 @@ def _candidates(
         names = {f"kind{i}": kind for i, kind in enumerate(kinds)}
         sql.append("AND kind IN (" + ", ".join(f":{name}" for name in names) + ")")
         params.update(names)
-    if space:
-        sql.append("AND space = :space")
-        params["space"] = space
+    sql.extend(_space_clause(space, params))
     # ISO dates sort as text, which is the whole reason the column holds them
     # that way; a row with no date is kept, the same choice `search_manager`
     # makes, since dropping it would be filtering on an absence.
@@ -727,7 +789,7 @@ def _candidates(
 def _filter_only(
     session: Session,
     kinds: list[str],
-    space: str | None,
+    space: str | tuple[str, ...] | None,
     since,
     until,
     depth: int,
@@ -749,9 +811,7 @@ def _filter_only(
         names = {f"kind{i}": kind for i, kind in enumerate(kinds)}
         sql.append("AND kind IN (" + ", ".join(f":{name}" for name in names) + ")")
         params.update(names)
-    if space:
-        sql.append("AND space = :space")
-        params["space"] = space
+    sql.extend(_space_clause(space, params))
     if since is not None:
         sql.append("AND (written = '' OR written >= :since)")
         params["since"] = since.isoformat()
@@ -776,7 +836,7 @@ def _keyword_pass(
     terms: list[str],
     asked,
     kinds: list[str],
-    space: str | None,
+    space: str | tuple[str, ...] | None,
     depth: int,
 ) -> list[dict]:
     for mode in ("all", "prefix", "any"):
@@ -1042,6 +1102,8 @@ def search(
         )
     context = ctx or {}
     space = context.get("space") or (asked.filters["space"][0] if asked.filters["space"] else None)
+    if not space:
+        space = _session_space(session)
     wanted_kinds = [kind for kind in (kinds or asked.filters["kind"]) if kind in search_index.KINDS]
 
     # Something has to be *asked for*. An empty box, or a query that is only
@@ -1057,6 +1119,17 @@ def search(
 
     if terms or asked.phrases:
         rows = _keyword_pass(session, terms, asked, wanted_kinds, space, depth)
+        if not rows and terms:
+            # **A typo is still a question** (ARCH-07). The vocabulary fix the
+            # older path had (`search_manager._corrected_terms`: a word the
+            # notes never use, replaced by the closest one they do) was never
+            # reached from here, so "gardn" found nothing in the finder.
+            fixed = search_manager._corrected_terms(session, terms)
+            if fixed != terms:
+                rows = _keyword_pass(session, fixed, asked, wanted_kinds, space, depth)
+                terms = fixed
+        if hybrid and terms:
+            rows = _with_meaning(session, subject or q, rows, wanted_kinds, space, asked, limit)
     else:
         # Nothing to match on, but something to filter by: `kind:document`,
         # `is:pinned`, `after:2026-01-01`. Answering those with an empty page
@@ -1091,13 +1164,11 @@ def search(
         return []
 
     best_raw = min(row["score"] for row in rows)  # bm25: more negative is better
-    filters_only = best_raw == 0
+    filters_only = best_raw == 0 and not any(row.get("by_meaning") for row in rows)
     cosines: dict[int, float] = {}
     if hybrid:
         cosines = _cosine_scores(session, subject or q, rows)
     # Settings' "last search" line reads one record for both search paths.
-    from memorymap.search import search_manager
-
     search_manager.note_search_mode("hybrid" if cosines else "keyword")
     hops: dict[int, int] = {}
     open_entry = context.get("entry_id")
@@ -1141,6 +1212,110 @@ def search(
         )
     hits.sort(key=lambda hit: (-hit.score, hit.kind, -hit.ref_id))
     return hits[:limit]
+
+
+#: Notes meaning alone may add to a search: a handful at the end of the
+#: words' answers, not a second list.
+MEANING_EXTRA = 5
+#: How far above this query's mean score (in standard deviations) a note
+#: only meaning found must be, and the notebook size that spread needs.
+MEANING_Z = 2.0
+MEANING_MIN_NOTES = 20
+#: The cosine a note must reach in a notebook too small for a spread.
+MEANING_SMALL_NOTEBOOK = 0.65
+
+
+def _with_meaning(
+    session: Session, subject: str, rows: list[dict], kinds: list[str], space, asked, limit: int  # noqa: ANN001
+) -> list[dict]:
+    """The keyword candidates, and the notes nearest the query in meaning.
+
+    **Cosine used to only re-rank keyword hits** (audit 2026-10-05, ARCH-07):
+    candidates came from the FTS pass alone, so "horticulture" or "vegetable
+    patch" found nothing in a notebook of garden notes, and "one index, three
+    signals" was one signal deciding and two re-ordering. The matrix's top-k
+    for the query vector joins the candidates here (index rows, so every
+    filter below still applies); a row only meaning brought has a bm25 of
+    zero and is ranked by its cosine. Nothing changes with no embedding
+    backend: no vector, no extra rows.
+    """
+    if kinds and not set(kinds) & set(search_index.ENTRY_KINDS):
+        return rows
+    matrix = _live_matrix(session)
+    if matrix is None:
+        backend = _backend_id()
+        if backend is None:
+            return rows
+        warm_vectors(session, backend)
+        matrix = _live_matrix(session)
+        if matrix is None:
+            return rows
+    try:
+        deps = importlib.import_module("memorymap.core.deps")
+        vector = deps.get_embeddings().embed_text(subject)
+        floor, _margin = search_manager.configured_thresholds()
+    except Exception:  # noqa: BLE001  # an embedding failure must not fail a search
+        return rows
+    if vector is None:
+        return rows
+    import numpy as np
+
+    query = np.asarray(vector, dtype="float32")
+    norm = float(np.linalg.norm(query))
+    if norm == 0:
+        return rows
+    with _matrix_lock:
+        if not matrix.ids:
+            return rows
+        scores = matrix.rows @ (query / norm)
+        ids = np.asarray(matrix.ids)
+        live = matrix.live() & (ids >= 0)
+    # **A source of candidates has to be surer than a re-ranker.** BGE-family
+    # vectors sit in a narrow cone, so an unrelated note scores 0.4 to 0.6
+    # (`search_manager.semantic_search` says the same at length): measured in
+    # the finder here, "gardn" brought three notes about a meeting with Sam
+    # at the absolute floor alone. A note only meaning found must stand
+    # `MEANING_Z` deviations above this query's own scores over the notebook,
+    # or past `MEANING_SMALL_NOTEBOOK` when there are too few notes for a
+    # spread to mean anything.
+    valid = scores[live]
+    if valid.size >= MEANING_MIN_NOTES:
+        relative = float(np.mean(valid) + MEANING_Z * np.std(valid))
+    else:
+        relative = MEANING_SMALL_NOTEBOOK
+    floor = max(floor, relative)
+    have = {row["ref_id"] for row in rows if row["kind"] in search_index.ENTRY_KINDS}
+    order = np.argsort(-np.where(live, scores, -np.inf))[: MEANING_EXTRA + len(have)]
+    nearest = [
+        int(ids[i]) for i in order if live[i] and float(scores[i]) >= floor and int(ids[i]) not in have
+    ][:MEANING_EXTRA]
+    if not nearest:
+        return rows
+    wanted = [kind for kind in (kinds or search_index.ENTRY_KINDS) if kind in search_index.ENTRY_KINDS]
+    params: dict = {}
+    names = {f"id{i}": entry_id for i, entry_id in enumerate(nearest)}
+    params.update(names)
+    kind_names = {f"kind{i}": kind for i, kind in enumerate(wanted)}
+    params.update(kind_names)
+    sql = [
+        "SELECT rowid, kind, ref_id, source, title, body, tags, space, flags, written, "
+        "0.0 AS score FROM search_index WHERE kind IN ("
+        + ", ".join(f":{name}" for name in kind_names)
+        + ") AND ref_id IN ("
+        + ", ".join(f":{name}" for name in names)
+        + ")"
+    ]
+    sql.extend(_space_clause(space, params))
+    if asked.since is not None:
+        sql.append("AND (written = '' OR written >= :since)")
+        params["since"] = asked.since.isoformat()
+    if asked.until is not None:
+        sql.append("AND (written = '' OR written <= :until)")
+        params["until"] = asked.until.isoformat()
+    extra = [dict(row) | {"by_meaning": True} for row in session.execute(text(" ".join(sql)), params).mappings().all()]
+    if asked.excluded:
+        extra = [row for row in extra if not _mentions(row, asked.excluded)]
+    return rows + extra
 
 
 def _cosine_scores(session: Session, subject: str, rows: list[dict]) -> dict[int, float]:
@@ -1211,16 +1386,6 @@ def related(session: Session, entry_id: int, k: int = 10) -> list[tuple[int, flo
     return matrix.top_k(matrix.rows[position], k, exclude=int(entry_id))
 
 
-def similar_to_vector(session: Session, vector, k: int = 10) -> list[tuple[int, float]]:
-    """Top-k for a vector somebody else computed. Same no-scan contract."""
-    matrix = _live_matrix(session)
-    if matrix is None:
-        return []
-    import numpy as np
-
-    return matrix.top_k(np.asarray(vector, dtype="float32"), k)
-
-
 def vectors_by_id(session: Session, only: set[int] | None = None) -> dict[int, "np.ndarray"]:
     """Every vector the matrix holds, as `{entry_id: unit vector}`.
 
@@ -1257,6 +1422,14 @@ def vectors_by_id(session: Session, only: set[int] | None = None) -> dict[int, "
 #: suggestions at 0.55, tensions at 0.45), so this holds two lists.
 _pairs_cache: dict[float, tuple[tuple[str, int], list[tuple[int, int, float]]]] = {}
 _pairs_lock = threading.Lock()
+
+
+#: Each note's best partners kept, at most (a pair stays if it is in either
+#: end's). Uncapped, the pair list was every pair over the threshold: on the
+#: audit's 5,000-note notebook 90% of pairs passed 0.55 and
+#: `/entries/link-suggestions` did not finish in minutes (audit 2026-10-05,
+#: ARCH-11). Link suggestions and tensions read the best few per note anyway.
+PAIRS_PER_NOTE = 12
 
 
 def cached_similar_pairs(
@@ -1297,7 +1470,7 @@ def cached_similar_pairs(
         # Looked up on the module at call time, not imported by name, so a
         # test counting the comparisons sees this call.
         embeddings_module = importlib.import_module("memorymap.ai.embeddings")
-        pairs = embeddings_module.similar_pairs(vectors, threshold)
+        pairs = embeddings_module.similar_pairs(vectors, threshold, per_node=PAIRS_PER_NOTE)
         with _pairs_lock:
             _pairs_cache[float(threshold)] = (version, pairs)
     if only is None:

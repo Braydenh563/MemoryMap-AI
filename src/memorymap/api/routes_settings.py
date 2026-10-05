@@ -2009,29 +2009,39 @@ def export_backup(background_tasks: BackgroundTasks):
             
     background_tasks.add_task(cleanup)
     
-    with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
+    # **A snapshot, not the live file** (audit 2026-10-05, ARCH-18). The
+    # database runs in WAL mode, so what was saved last sits in
+    # `memorymap.db-wal` until a checkpoint, and zipping the main file alone
+    # lost it: measured, three notes saved and none of them in the zip, with
+    # `integrity_check` passing, so nothing said so. SQLite's backup API
+    # copies a consistent whole, log included, the way `core/backup.py`'s
+    # daily copies already do. `uploads/` (every attachment) joins `media/`.
+    snapshot_fd, snapshot_path = tempfile.mkstemp(suffix=".db", prefix="memorymap_snapshot_")
+    os.close(snapshot_fd)
+    try:
         if db_path.exists():
-            # A cleaned snapshot, never the live file (SEC-03): the file alone
-            # misses whatever is still in the WAL, and can carry a private
-            # note's old words in its search segments.
-            fd, snap = tempfile.mkstemp(suffix=".db", prefix="memorymap_snapshot_")
-            os.close(fd)
+            # A cleaned snapshot, never the live file: the file alone misses
+            # whatever is still in the WAL (ARCH-18), and can carry a private
+            # note's old words in its search segments (SEC-03).
+            backup.snapshot(db_path, Path(snapshot_path))
+        with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            if db_path.exists():
+                zf.write(snapshot_path, "memorymap.db")
+            for folder in (media_dir, config.data_dir / "uploads"):
+                if not folder.is_dir():
+                    continue
+                for root, _, files in os.walk(folder):
+                    for f in files:
+                        file_path = Path(root) / f
+                        arcname = file_path.relative_to(config.data_dir)
+                        zf.write(file_path, str(arcname))
+    finally:
+        for stray in (snapshot_path, f"{snapshot_path}-wal", f"{snapshot_path}-shm"):
             try:
-                backup.snapshot(db_path, Path(snap))
-                zf.write(snap, "memorymap.db")
-            finally:
-                for stray in (snap, f"{snap}-wal", f"{snap}-shm"):
-                    try:
-                        os.remove(stray)
-                    except OSError:
-                        pass  # never made, or already gone
-        if media_dir.exists() and media_dir.is_dir():
-            for root, _, files in os.walk(media_dir):
-                for f in files:
-                    file_path = Path(root) / f
-                    arcname = file_path.relative_to(config.data_dir)
-                    zf.write(file_path, str(arcname))
-                    
+                os.remove(stray)
+            except OSError:
+                pass  # never written, or already gone
+
     return FileResponse(tmp_path, media_type="application/zip", filename="memorymap_backup.zip", background=background_tasks)
 
 @router.get("/export/json")

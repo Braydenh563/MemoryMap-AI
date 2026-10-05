@@ -24,6 +24,7 @@ from pathlib import Path
 from urllib.parse import parse_qs
 
 from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
@@ -428,6 +429,18 @@ def _compact_event_log() -> None:
         )
 
 
+def _startup_maintenance() -> None:
+    """The once-per-launch housekeeping, off the path to the first byte
+    (ARCH-19). Looked up on the module at call time, so a test can stand in
+    for each. Each step already logs and swallows its own failure."""
+    module = sys.modules[__name__]
+    for step in ("_purge_expired_bin_entries", "_compact_event_log", "_backup_if_due"):
+        try:
+            getattr(module, step)()
+        except Exception:  # noqa: BLE001  # one step must not stop the next
+            logging.getLogger("memorymap.startup").warning("startup maintenance step %s failed", step, exc_info=True)
+
+
 def _backup_if_due() -> None:
     """Scheduled local backups: one consistent snapshot per day,
     taken at startup. Failure must never stop the app."""
@@ -619,6 +632,18 @@ def _register_error_handlers(app: FastAPI) -> None:
     #: match is exactly the kind of thing that drifts.
     _is_out_of_space = diskspace.out_of_space
 
+    def _is_locked(exc: BaseException) -> bool:
+        """SQLite's "database is locked" (or "busy"), through SQLAlchemy or
+        the driver: the message is all `sqlite3` gives to tell it apart."""
+        import sqlite3
+
+        from sqlalchemy.exc import OperationalError as SAOperationalError
+
+        if not isinstance(exc, (SAOperationalError, sqlite3.OperationalError)):
+            return False
+        text = str(exc).lower()
+        return "database is locked" in text or "database is busy" in text
+
     @app.exception_handler(OSError)
     async def _os_error_handler(request, exc: OSError) -> JSONResponse:  # noqa: ANN001
         if not _is_out_of_space(exc):
@@ -629,10 +654,47 @@ def _register_error_handlers(app: FastAPI) -> None:
         error_logger.error("out of disk space", exc_info=exc)
         return JSONResponse(status_code=507, content=out_of_space_body())
 
+    @app.exception_handler(RequestValidationError)
+    async def _validation_handler(_request, exc: RequestValidationError) -> JSONResponse:
+        """**One error shape for a request that did not validate** (audit
+        2026-10-05, ARCH-12). FastAPI's own answer was `{"detail": [{type,
+        loc, msg, input}]}`: no `code`, a list where every other error has a
+        sentence, and `input` echoed back, so `POST /auth/unlock` with a
+        password sent as a list returned the password in the response body.
+        Now the sentence the frontend already built from that list
+        (`plainHttpError`), `code: "invalid"`, and the fields, never the input.
+        """
+        fields = []
+        for error in exc.errors():
+            loc = [str(part) for part in error.get("loc", ()) if part not in ("body", "query", "path")]
+            fields.append({"field": ".".join(loc), "message": str(error.get("msg", ""))[:200]})
+        named = fields[0]["field"].rsplit(".", 1)[-1].replace("_", " ") if fields and fields[0]["field"] else ""
+        detail = f"Check the {named} and try again." if named else "That was not accepted. Check what you entered and try again."
+        return JSONResponse(
+            status_code=422,
+            content={"detail": detail, "code": "invalid", "hint": None, "fields": fields},
+        )
+
     @app.exception_handler(Exception)
     async def _unhandled_exception_handler(_request, exc: Exception) -> JSONResponse:
         if _is_out_of_space(exc):
             return _out_of_space_response(exc)
+        if _is_locked(exc):
+            # **A busy notebook is a wait, not a bug.** SQLite has one write
+            # lock; a write that waited out the busy timeout behind another
+            # (a background pass, an import) used to answer "Something went
+            # wrong" with a ref number (ARCH-01). 503 with `busy` is a status
+            # a client can retry on and a sentence the person can act on.
+            error_logger.warning("database busy: %s", exc)
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "detail": "The notebook is busy for a moment. Try again.",
+                    "code": "busy",
+                    "hint": None,
+                },
+                headers={"Retry-After": "2"},
+            )
         # A fresh id per failure, logged next to the real traceback and
         # handed back to the user, "it broke" with no ref is unreportable;
         # this ref is the thing a bug report can actually be filed against.
@@ -801,9 +863,13 @@ def create_app() -> FastAPI:
     # read and at a clean shutdown, so a killed process loses at most
     # `egress.FLUSH_DELAY` of what it saw.
     egress.configure(ledger_path)
-    _purge_expired_bin_entries()
-    _compact_event_log()
-    _backup_if_due()
+    # The bin purge, the event-log compaction and the daily backup used to
+    # run here, before the port opened: measured 4.45 s from launch to first
+    # byte at 5,000 notes, the day's first launch copying the whole database
+    # first (audit 2026-10-05, ARCH-19). They start from `lifespan` below, on
+    # a thread, once the server is answering; each is safe beside requests
+    # (a backup is SQLite's online backup, the purge and the compaction are
+    # ordinary transactions).
     startup_status.set_phase("Starting local services…")
     _start_searxng_if_asked()
     _start_autonomous_loop()
@@ -836,6 +902,7 @@ def create_app() -> FastAPI:
     # caller of `create_app()`, tests included.
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
+        threading.Thread(target=_startup_maintenance, name="mm-startup-maintenance", daemon=True).start()
         yield
         # Never raises: `stop_all` swallows per-job failures itself, and a
         # shutdown that fails to shut down is worse than one that leaves a
@@ -1090,7 +1157,10 @@ def create_app() -> FastAPI:
         # file there, so the About panel's notes are not empty on Windows.
         path = BUNDLE_ROOT / "CHANGELOG.md"
         try:
-            return {"markdown": path.read_text(encoding="utf-8")}
+            # A response built here is encoded on the worker thread; a returned
+            # dict would be encoded on the event loop, and this one is 750 KB
+            # (audit 2026-10-05, ARCH-25: 132 ms p50 a call).
+            return JSONResponse({"markdown": path.read_text(encoding="utf-8")})
         except OSError:
             # A packaged build may not ship it. Missing notes are not an error
             # worth a 500: the About panel just doesn't offer them.

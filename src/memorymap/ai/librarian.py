@@ -538,7 +538,7 @@ def plan_budget(
     window = report(model) if callable(report) else None
     return context.plan(
         window or OllamaClient.DEFAULT_CONTEXT_TOKENS,
-        len(system_content(style, profile, persona_prompt, mode)),
+        context.weighted_len(system_content(style, profile, persona_prompt, mode)),
     )
 
 

@@ -9275,7 +9275,6 @@ button.connection-row {
 
 #wb-prop-fontsize {
   width: 4rem;
-  margin: 0;
   padding: 0 var(--space-1);
   text-align: center;
 }
@@ -9305,8 +9304,17 @@ button.connection-row {
   min-height: var(--target-min);
 }
 
+/* **No margin of its own** (INBOX 576, the owner: "this menu's elements
+   arent aligned vertically"). The app's base field rule gives an input a
+   bottom margin, and `align-items: center` centres the margin box, so the
+   Width box sat 4.8px above every other control on the bar (measured on the
+   shape, ink, line and connector bars, 1440 and 390); Size had a margin of
+   0 on its id and so looked right, which is how one field came to differ.
+   Stated for every number field on the bar, not per id, so the next one
+   cannot. `wb1005-barline.js` holds every control to its line's centre. */
 .wb-context input[type="number"] {
   width: 3.5rem;
+  margin: 0;
   padding-block: 0;
 }
 
@@ -14932,6 +14940,7 @@ button.finder-row:hover,
    the select beside it. */
 .wb-format input[type="number"] {
   height: var(--control-h-body);
+  margin: 0;
 }
 
 .wb-fmt-out {

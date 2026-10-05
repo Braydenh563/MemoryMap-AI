@@ -48,7 +48,7 @@ async function checkForUpdate(silent = false) {
   // post-login dialog's "Update automatically" makes.
   applyBtn?.classList.toggle("hidden", !(result.update_available && result.can_auto_apply));
   if (result.update_available) {
-    const msg = `Version ${result.latest} is available (you have ${result.current}).`;
+    const msg = `Version ${result.latest} is available (you have ${result.current}).${updateSizeNote(result)}`;
     if (status) status.textContent = msg;
     // The silent startup check is the one that runs on every login, asked
     // for directly: a popup after login, but "only if... not every time
@@ -68,6 +68,17 @@ async function checkForUpdate(silent = false) {
   } else if (!silent && status) {
     status.textContent = `You're on the latest version (${result.current}).`;
   }
+}
+
+//: How big the download is, said before anything is pressed (section 21 row
+//: 13). The release names its installer's size; the check only returns the
+//: asset where an in-place update is possible, so a source checkout says
+//: nothing rather than guessing.
+function updateSizeNote(result) {
+  const bytes = Number(result && result.asset && result.asset.size);
+  if (!Number.isFinite(bytes) || bytes <= 0) return "";
+  const mb = bytes / (1024 * 1024);
+  return ` The download is about ${mb >= 10 ? Math.round(mb) : mb.toFixed(1)} MB.`;
 }
 
 //: **Ask once** (the owner, 2026-10-05, WORLD_CLASS_PLAN 12 "Decisions
@@ -151,7 +162,7 @@ function showUpdateAvailableDialog(result) {
   const text = document.createElement("p");
   text.className = "confirm-text";
   text.textContent = result.can_auto_apply
-    ? `MemoryMap AI ${result.latest} is out: you're on ${result.current}. ` +
+    ? `MemoryMap AI ${result.latest} is out: you're on ${result.current}.${updateSizeNote(result)} ` +
       "Update automatically (downloads and installs it, then closes MemoryMap " +
       "AI: reopen it in a minute or two to start using the new version), or " +
       "download it yourself from the release page."

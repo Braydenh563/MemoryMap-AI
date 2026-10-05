@@ -41648,6 +41648,32 @@ Remind me and Link to.
   browser (the row and the openers are wired and tested by source, not
   clicked); a document reminder on the phone's Reminders tab.
 
+### From WORLD_CLASS_PLAN.md section 21, rows 1, 2, 12 and 13
+
+**State 2026-09-24:** the embedding-model messages drew with `.status.error`;
+the status line read the same for a wrong address and an absent server; whether
+About showed the update's size was never traced.
+
+- **Built 2026-10-05 (worldclass-1005c).** Rows 1 and 2: `#embedding-error` is
+  `.notice.notice-warn`, its text set through `setLabel` with the warning icon
+  as the first child (DESIGN.md's notice recipe). Row 12: `routes_models`
+  keeps the provider's sentence when the model list fails (`_installed_problem`,
+  cleared by the next answer) and `GET /models/status` returns it as
+  `ollama_problem` (None while running); the Models status line shows it when
+  present, so an OpenAI-dialect server at a wrong address reads "Nothing
+  answered at <url>. Check the address in Settings, Models, and that the server
+  is running". Row 13: the update check already returned `asset.size` (only where
+  an in-place update is possible); `updateSizeNote` puts "The download is about
+  N MB." on Settings, About's message and the update dialog, and says nothing
+  where there is no asset.
+- Measured: `tests/test_failure_remedies_21.py` (6 tests);
+  `scratchpad/ui-sweeps/embnotice.js` 5/5 at 1440 light and 390 dark: the notice
+  is `display: flex` with an icon child, fits its column with nothing
+  overflowing, and the status line shows the address sentence.
+- Not verified: a real wrong address against LM Studio (the sweep edits the
+  status answer in flight, the unit test uses a client that raises the
+  provider's sentence); the update size against a real GitHub release.
+
 ## Built 2026-10-05: INBOX 598, 602 and 596's skeleton part (loading states)
 
 (The INBOX entries themselves are moved by the orchestrator; this is the

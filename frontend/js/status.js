@@ -2517,9 +2517,11 @@ function renderSettings() {
   const backend = backendLabel(status);
   //: The dot is the line's class, as on the search engine line under it,
   //: not a typed "●"/"○" beside a CSS dot: two alphabets for one signal.
+  //: Not running says why when the provider said (section 21 row 12): a wrong
+  //: address and an absent server are different advice.
   ollamaLine.textContent = status.ollama_running
     ? `${backend} is running`
-    : `${backend} isn't running`;
+    : status.ollama_problem || `${backend} isn't running`;
   ollamaLine.className = `status ${status.ollama_running ? "ok" : "off"}`;
   renderBackendPicker(status);
   const embeddingError = $("embedding-error");
@@ -2531,17 +2533,22 @@ function renderSettings() {
   //: the owner's report was exactly that case ("no nomic-embed-text
   //: suggested") and the button below only exists while it is.
   if (status.embedding_error && /^Search by meaning/.test(status.embedding_error)) {
-    embeddingError.textContent =
-      `${status.embedding_error}. ` +
-      (status.ollama_running
-        ? `Or switch the search engine to ${EMBEDDING_FALLBACK_MODEL} below: smaller, and offline.`
-        : `Or start Ollama and pick ${EMBEDDING_FALLBACK_MODEL} as the search engine: smaller, and offline.`);
+    setLabel(
+      embeddingError,
+      `ph:warning ${status.embedding_error}. ` +
+        (status.ollama_running
+          ? `Or switch the search engine to ${EMBEDDING_FALLBACK_MODEL} below: smaller, and offline.`
+          : `Or start Ollama and pick ${EMBEDDING_FALLBACK_MODEL} as the search engine: smaller, and offline.`)
+    );
   } else if (status.embedding_error) {
-    embeddingError.textContent =
-      `Search engine problem: ${status.embedding_error}: semantic search is ` +
-      "falling back to keywords. Quick fix: switch the search engine below to " +
-      "an Ollama embedding model (download nomic-embed-text from the list), " +
-      "it runs fully offline. Full details in Settings → Logs.";
+    //: Through `setLabel`: `.notice` carries its icon as a child element.
+    setLabel(
+      embeddingError,
+      `ph:warning Search engine problem: ${status.embedding_error}: semantic search is ` +
+        "falling back to keywords. Quick fix: switch the search engine below to " +
+        "an Ollama embedding model (download nomic-embed-text from the list), " +
+        "it runs fully offline. Full details in Settings → Logs."
+    );
   }
   // The one-click version of the "quick fix" sentence above: only offered
   // when it can actually be carried out (Ollama has to be running to either

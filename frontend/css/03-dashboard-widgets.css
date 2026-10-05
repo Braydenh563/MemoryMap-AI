@@ -386,6 +386,27 @@
   white-space: nowrap;
 }
 
+/* Rollups: the footer stays in view under a long table, the kind of
+   rollup quiet beside its value. */
+.query-table tfoot td,
+.query-table tfoot th {
+  position: sticky;
+  bottom: 0;
+  background: var(--modal-bg-opaque);
+  border-top: 1px solid var(--border);
+  border-bottom: 0;
+  vertical-align: middle;
+}
+
+.query-rollup {
+  white-space: nowrap;
+}
+
+.query-rollup-value {
+  margin-inline-start: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+
 /* The kind's name from the other end, quiet, giving way before the name. */
 .relation-type-hint {
   flex: 0 1 auto;

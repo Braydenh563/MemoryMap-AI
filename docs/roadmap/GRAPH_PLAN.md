@@ -500,11 +500,9 @@ block. What stays here is the standing decisions and what is still open.
 
 - A real local model's `name|kind` entity extraction and a topic's sentence
   were never run here (no model in the sandbox); both fall back cleanly.
-- A note type's "note" field is a `[[link]]` written into the block (a text
-  box in the note sheet and the document panel), not a picker that searches
-  (KG4).
-- Rollups over a live query's table (count, sum, min, max, earliest,
-  latest) are not built.
+- The note field's picker and the query table's rollups are built
+  (2026-10-05): moved to HISTORY.md ("Moved from the plans, 2026-10-05
+  (GRAPH_PLAN, the last KG rows)").
 
 **Decisions made (recommendations taken):** a suggestion never links by
 itself; every inferred relation carries a reason and a confidence, and the

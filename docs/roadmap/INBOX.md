@@ -98,10 +98,6 @@ with its owner named in the entry.
      are one well to the dock's edge, one Tab stop, arrows walk them
      (daystrip.js 44/44). Waits on the owner's look before closing.
 
-525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
-     dark background behind the graph labels togglable??" Next Opus: the
-     label plate switch in the graph's gear (Obsidian-parity brief).
-
 460. **The owner, 2026-10-03 night, verbatim.** "I keep experiencing scroll
      jump when scrolling with two fingers on my trackpad?? idk". Placed: the
      orchestrator (reproduce with synthetic wheel streams; suspects: a

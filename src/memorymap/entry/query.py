@@ -185,3 +185,48 @@ def run(session: Session, raw: str) -> list[int]:
         hits = _ids_for(session, term, everyone)
         ids = ids - hits if term.negate else ids & hits
     return sorted(ids, reverse=True)
+
+
+#: What a table footer can say about one column (GRAPH_PLAN, rollups):
+#: count always; sum, min and max when a value reads as a number; earliest
+#: and latest when one reads as a date. Nothing more, by decision (formulas
+#: beyond these six are on the plan's "not to build" list).
+ROLLUPS = ("count", "sum", "min", "max", "earliest", "latest")
+
+
+def rollups(session: Session, ids: list[int], keys: list[str]) -> dict[str, dict]:
+    """`{key: {count, sum?, min?, max?, earliest?, latest?}}` over every one of
+    `ids`, read from the property index rather than the drawn rows, so a
+    footer speaks for the whole match and not the first page of it.
+
+    `count` is the notes carrying the property (a list property's values on
+    one note count once); the number and date blocks are present only when
+    at least one value reads as one, so the footer never offers a sum of
+    words. A private note has no index rows, so it is never in a rollup."""
+    if not ids or not keys:
+        return {}
+    holders: dict[str, set[int]] = {k: set() for k in keys}
+    numbers: dict[str, list[float]] = {k: [] for k in keys}
+    dates: dict[str, list] = {k: [] for k in keys}
+    wanted = list(ids)
+    for start in range(0, len(wanted), 500):
+        rows = session.execute(
+            select(EntryProperty.entry_id, EntryProperty.key, EntryProperty.number, EntryProperty.date).where(
+                EntryProperty.entry_id.in_(wanted[start : start + 500]), EntryProperty.key.in_(keys)
+            )
+        )
+        for entry_id, key, number, when in rows:
+            holders[key].add(entry_id)
+            if number is not None:
+                numbers[key].append(number)
+            if when is not None:
+                dates[key].append(when.date())
+    out: dict[str, dict] = {}
+    for key in keys:
+        block: dict = {"count": len(holders[key])}
+        if numbers[key]:
+            block.update(sum=round(sum(numbers[key]), 6), min=min(numbers[key]), max=max(numbers[key]))
+        if dates[key]:
+            block.update(earliest=min(dates[key]).isoformat(), latest=max(dates[key]).isoformat())
+        out[key] = block
+    return out

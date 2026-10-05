@@ -40513,6 +40513,28 @@ reading pane pads `--space-6`. First line 255 to 199, light and dark; Live
 stays at 192. At 1440 the Read view's title heading is still drawn (block,
 33px). The dock's two rows stay: the Edit/Read row is the view switch the
 plan's item 6 decided on, and it fits the budget as it is.
+## Moved from the plans, 2026-10-05 (GRAPH_PLAN, the last KG rows)
+
+- **Rollups on a live query's table** (the six the plan allows: count, sum,
+  min, max, earliest, latest). `entry/query.rollups` reads the property index
+  (`EntryProperty.number` and `.date`) over every note the query matched, not
+  the 500 rows drawn; `GET /entries/query` returns `rollups` per column. The
+  table's footer (`queryTableRollupFoot`, note-properties.js) is sticky, a
+  `<select>` per column offering only what the values read as (a column of
+  words says Count with no select), its choice kept on this device; default
+  sum, else latest, else count. `tests/test_query_rollups_kg7.py` (4);
+  `scratchpad/ui-sweeps/kg1005-rollups.js` 8/8 at 1440 light and 390 dark
+  (Sum 200.5 over 120, 80.5 and "soon"; Latest 2026-03-02; Max 120 after a
+  change).
+- **A note field searches** (KG4): `noteFieldPickButton` (selection.js) puts
+  the notebook picker (`pickEntryDialog`, the INBOX 548 recipe) beside a
+  note-kind field in the note's Properties sheet and the document's
+  properties panel; the chosen note's name fills the box and fires its
+  change, so the document panel writes the `[[link]]` at once. Before, the
+  only help was a datalist of the first 300 titles. Same sweep: the button is
+  square in its row (28px desktop, 44px touch), and choosing "Lisbon" fills
+  the field.
+
 ## INBOX resolved, 2026-10-05
 
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs
@@ -40705,3 +40727,13 @@ plan's item 6 decided on, and it fits the budget as it is.
 
 
      Fixed (2026-10-05, Atlas merge): the fringe is drawn inside the hair cap's group; 0 of 468 hairline samples show the page (three moods, four phases).
+
+525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
+     dark background behind the graph labels togglable??" Next Opus: the
+     label plate switch in the graph's gear (Obsidian-parity brief).
+     **Fixed** (verified 2026-10-05): Graph, gear, Display, Label
+     backgrounds; `scratchpad/ui-sweeps/graphplates.js` counts 72 plates on,
+     0 off, and still 0 after a reload (kept on this device). With it the
+     spec's last open KG rows: rollups on the query table and a searching
+     picker for a note field (GRAPH_PLAN, "Still open after KG1 to KG9").
+

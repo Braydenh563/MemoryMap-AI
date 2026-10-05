@@ -1370,7 +1370,7 @@ def query_entries(q: str = "", session: Session = Depends(get_session)) -> dict:
 
     terms = live_query.parse(q)
     if not terms:
-        return {"ids": [], "columns": [], "rows": [], "structural": False}
+        return {"ids": [], "columns": [], "rows": [], "structural": False, "rollups": {}}
     ids = live_query.run(session, q)
     rows = []
     counts: dict[str, int] = {}
@@ -1388,7 +1388,15 @@ def query_entries(q: str = "", session: Session = Depends(get_session)) -> dict:
             "properties": found,
         })
     columns = sorted(counts, key=lambda k: (k != "type", -counts[k], k))[:QUERY_COLUMNS_MAX]
-    return {"ids": ids, "columns": columns, "rows": rows, "structural": live_query.is_structural(terms)}
+    return {
+        "ids": ids,
+        "columns": columns,
+        "rows": rows,
+        "structural": live_query.is_structural(terms),
+        #: The footer's count, sum, min, max, earliest and latest, over every
+        #: match (not only the rows drawn), per column.
+        "rollups": live_query.rollups(session, ids, columns),
+    }
 
 
 @router.get("/link-suggestions")

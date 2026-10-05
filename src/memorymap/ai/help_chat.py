@@ -1200,6 +1200,7 @@ HELP_TOPICS.extend(
                 "property", "properties", "frontmatter", "yaml", "note type",
                 "note types", "fields", "field", "status", "metadata",
                 "query", "live query", "type:", "prop:", "table view",
+                "rollup", "rollups", "roll up",
             ),
             "body": (
                 "A note can carry properties (status: open, owner: Priya), kept "
@@ -1210,7 +1211,8 @@ HELP_TOPICS.extend(
                 "one, or pick a Type, and Save rewrites only those lines. Note "
                 "types in the command palette makes a kind of note (Meeting: "
                 "attendees, date) with fields that are text, a number, a date, a "
-                "list, yes/no or another note; its New note starts with them. A "
+                "list, yes/no or another note (the magnifier beside a note field "
+                "searches your notes for it); its New note starts with them. A "
                 "document's properties panel does the same: with type: Meeting "
                 "in its properties, the type's fields it has not written yet "
                 "show as empty rows, and a value you enter is written as one "
@@ -1218,7 +1220,9 @@ HELP_TOPICS.extend(
                 "(or prop:effort>2), links:[[Kiln plan]], rel:supports, "
                 "entity:\"Sam Lee\", with - before any of them to leave those out; "
                 "a bar over the list then shows the same notes as a Table, with "
-                "their properties as columns, or lit on the graph."
+                "their properties as columns, or lit on the graph. The table's "
+                "last row rolls each column up over every match: Count, and Sum, "
+                "Min and Max for numbers, Earliest and Latest for dates."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

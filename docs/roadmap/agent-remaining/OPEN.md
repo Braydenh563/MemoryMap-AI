@@ -536,10 +536,7 @@ pane's name, the errors sweep's aside clipping at 390.
 
 ### Notes, Documents and Library
 
-- **Skeletons for a board's Library and Notes tabs** (INBOX 596): the tabs
-  (`whiteboard-library.js`, `wbLoadLibrary`) draw nothing while they load.
-  [boardmap-1005, small-1005]
-  *Left: the whiteboard's own rail, owned by the WHITEBOARD plan's agent.*
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)": Skeletons for a board's Library and Notes tabs (INBOX 596).
 - **Phone selection menus and the selection bar** (documents): iOS and Android
   draw Cut, Copy and Paste above a selection, where the bar also goes; if a
   report arrives the bar goes below the selection on `(pointer: coarse)` (one

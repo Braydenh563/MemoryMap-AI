@@ -19,6 +19,15 @@ Each row was checked against the head before anything was built.
   New note (`#tab-graph:has(.dock-fab) .graph-zoom`) closed it. `graphphone.js`
   now asserts it every run: the four buttons are hit at their centres and clear
   of `.dock-fab`.
+- **Skeletons for the whiteboard rail's Library and Notes tabs (INBOX 596)**: already
+  built, and both halves are now measured (the Notes half had only been read, "the boot
+  loads the notebook before a board can open"). `wbLoadLibrary` draws 6 skeletons into an
+  empty list, `renderWbLibrary` draws 5 before the notebook's first page and re-renders
+  when it lands. `bm1005-sidebar.js` check (7) holds the library index back 1.5s, and
+  the new (7b) puts the board back in the unloaded state (`entriesEverLoaded` false) and
+  holds `/entries`: at 300ms 6 and 5 skeletons, 51px each, `aria-busy`; after, 51 tiles
+  and 264 notes with 0 skeletons left, at 1440 and 390, light and dark, 0 page errors.
+  `tests/test_board_sidebar_596.py` is the source pin. Nothing to add.
 - **The OCR workspace head could not be measured**: it can, and it had the fault.
   `wbtopbar.js` seeds the scan itself now (a page of text drawn in a second browser
   context, uploaded as the app uploads, opened with `openOcrWorkspace`; the head

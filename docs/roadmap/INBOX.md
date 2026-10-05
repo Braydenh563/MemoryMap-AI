@@ -83,21 +83,6 @@ with its owner named in the entry.
      reinstall per extra, version and size per row. With it: pictures in the
      Word export on the existing `docx` extra (FEAT-18). Next agent slot.
 
-596. **The owner, 2026-10-05, verbatim.** "the dropdown menu from the
-     library is a little off position. the side dock of the bottom toolbar
-     in the whiteboard is ugly, poorly structured and designed and clashes
-     with the side panel. some skeleton loaders are missing like on the
-     dashboard. the height of this side bar changes on the whiteboard and
-     mindmap and I want mind map specific stuff in that sidebar too as half
-     of it is empty when on the mind map as it isnt applicable like with
-     layers and the element library. can you add preset whiteboard and mind
-     map templates that are draggable fromt he library??" (screenshots: the
-     Library panel's kebab menu sits low and left of its button; the board's
-     sidebar rail (library, format, layers, present) overlaps the tool dock's
-     left column; on a map the rail is a tall empty column with four icons.)
-     Placed: the next whiteboard agent, after the integration merges the
-     whiteboard phase 2 branch (same files).
-
 599. **The owner, 2026-10-05, verbatim.** "can you clean up and redesign
      this top docks?? I love some of the stuff youve done to further
      modernise the ui of the app. can you keep doing it for the settings
@@ -128,44 +113,12 @@ with its owner named in the entry.
      and Cancel; a Related row of "≈ title" texts each with a boxed Link
      button; a separate boxed "Attach a link" button.) Placed: the Settings
      and popups design agent's queue (599), as the same recipe pass.
-607. **The owner, 2026-10-05, verbatim.** "I made a mind map from the graph
-     but the notification included no link to it" (toast: "Mind map "test"
-     made from 33 notes. It is in Library, Boards." with no action) and "this
-     is how it made the map, surely there's a better and more dynamic way it
-     can build the map based off the connections and links and relevancy
-     etc??" (screenshot: one root with 33 children in a single column).
-     Placed: next agent slot (Opus): an Open action on the toast and the
-     bell row; the map built from the graph's structure: clusters
-     (categories or link communities) as branches, linked notes as children
-     of the note they link to, a central note (most connected or the one
-     picked) as the root, a balanced radial/tree layout, cross-links for
-     links that do not fit the tree.
-
-608. **The owner, 2026-10-05, verbatim.** "when I drag select off the
-     screen on the whiteboard and mind map and probably on other tabs, it
-     doesnt scroll down or up or the way I am dragging etc" (screenshot: a
-     marquee on a map running under the bottom toolbar). Placed: the board
-     and map agent (with 596, 607): edge auto-pan for marquee and item drags
-     on boards and maps, and edge auto-scroll for drag selection in lists
-     (Notes, Library) where a drag selects.
-609. **The owner, 2026-10-05, verbatim.** "on longer mind map links, I can
-     actually see the hard bends in the line and it isnt a smooth curve"
-     (screenshot: a map branch line drawn as four straight segments). Placed:
-     the board and map agent: the tapered branch path sampled finely enough
-     (or drawn as true curves) that no corner shows at any zoom.
-
-610. **The owner, 2026-10-05, verbatim.** "also utility and usability for
-     the mindmap is unintuitive like with resizing the mindmap nodes,
-     resizing the text, changing various features and other things about
-     the mindmap nodes with the individual nodes themselves adn the popup
-     tool menus (not the radials)". Placed: the board and map agent (with
-     596, 607-609): direct manipulation on the node (resize grips that
-     appear on select, text size on the node's bar, inline edit), one clear
-     node toolbar instead of nested popup menus, every node property
-     reachable in at most two steps, measured by a task sweep.
-
 ## Placed (last 20, newest first)
 
+- 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in
+  WHITEBOARD_PLAN.md and 607, 609, 610 (map from the graph, smooth
+  branches, node toolbar) in MINDMAP_PLAN.md, "Placed from INBOX,
+  2026-10-05 (boardmap-1005)"; the boardmap-1005 agent holds them.
 - 2026-10-05: 540, 554, 556, 564, 575 (Atlas motion and form) placed in
   agent-remaining/OPEN.md, "Atlas, placed from INBOX 2026-10-05"; the Atlas
   agent holds them.

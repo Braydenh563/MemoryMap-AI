@@ -1635,3 +1635,36 @@ Built; moved whole to HISTORY.md ("Moved from the plans, 2026-10-03", "From MIND
      (whiteboard and mind map, measured frame times); (5) companion stacking
      by perch; (6) graph default forces; (7) the two small visual ones
      (button gap, Plan/Web pill contrast) with contrast.js.
+
+## Placed from INBOX, 2026-10-05 (boardmap-1005)
+
+Held by the boardmap-1005 agent; the owner's words verbatim.
+
+- INBOX 609. **The owner, 2026-10-05, verbatim.** "on longer mind map links, I can
+  actually see the hard bends in the line and it isnt a smooth curve"
+  (screenshot: a map branch line drawn as four straight segments). Placed:
+  the board and map agent: the tapered branch path sampled finely enough
+  (or drawn as true curves) that no corner shows at any zoom.
+
+- INBOX 607. **The owner, 2026-10-05, verbatim.** "I made a mind map from the graph
+  but the notification included no link to it" (toast: "Mind map "test"
+  made from 33 notes. It is in Library, Boards." with no action) and "this
+  is how it made the map, surely there's a better and more dynamic way it
+  can build the map based off the connections and links and relevancy
+  etc??" (screenshot: one root with 33 children in a single column).
+  Placed: next agent slot (Opus): an Open action on the toast and the
+  bell row; the map built from the graph's structure: clusters
+  (categories or link communities) as branches, linked notes as children
+  of the note they link to, a central note (most connected or the one
+  picked) as the root, a balanced radial/tree layout, cross-links for
+  links that do not fit the tree.
+
+- INBOX 610. **The owner, 2026-10-05, verbatim.** "also utility and usability for
+  the mindmap is unintuitive like with resizing the mindmap nodes,
+  resizing the text, changing various features and other things about
+  the mindmap nodes with the individual nodes themselves adn the popup
+  tool menus (not the radials)". Placed: the board and map agent (with
+  596, 607-609): direct manipulation on the node (resize grips that
+  appear on select, text size on the node's bar, inline edit), one clear
+  node toolbar instead of nested popup menus, every node property
+  reachable in at most two steps, measured by a task sweep.

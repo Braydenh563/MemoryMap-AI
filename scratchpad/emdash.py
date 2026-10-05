@@ -8,7 +8,7 @@ vibe-coded feel." Rules, applied per line:
 - A single " — " after a short lead (three words or fewer since the last
   sentence end) is a label and gets ": "; after a longer clause it gets ", ".
 - A bare "—" with no spaces becomes ", ".
-Run: python scratchpad/emdash.py [paths...]  (defaults to frontend src tests)
+Run: python scratchpad/emdash.py [paths...]  (defaults to frontend src tests; the docs: docs *.md)
 """
 import re
 import sys
@@ -18,6 +18,16 @@ EXTS = {".js", ".html", ".css", ".py", ".md", ".txt", ".json"}
 def fix_line(line: str) -> str:
     if "—" not in line:
         return line
+    # A table cell holding only a dash is an empty cell: say so in words.
+    line = re.sub(r"\|\s*—\s*(?=\|)", "| n/a ", line)
+    if "—" not in line:
+        return line
+    ended = line.rstrip().endswith("—")
+    out = _fix(line)
+    return out.rstrip() if ended else out
+
+
+def _fix(line: str) -> str:
     if line.lstrip().startswith("— "):
         indent = line[: len(line) - len(line.lstrip())]
         line = indent + "- " + line.lstrip()[2:]

@@ -19,11 +19,11 @@
 | Sweep | Was | Now | Verified |
 | --- | --- | --- | --- |
 | `maptwokinds.js` | Expected a cross-link stroked in `--muted`, dashed | Expected what `wbMapCrossLinkLook` (frontend/js/whiteboard.js) now draws: filled like a branch, in the source topic's own branch colour, no stroke (a ribbon fills), no dash | 17/17 |
-| `phonemore.js` | Expected 4 rows in the phone More sheet | Expected 6 (`PHONE_MORE_TABS`: Dashboard, Timeline, Reminders, plus Ask the agent, Guide, Settings — INBOX 190) | PASS: 0 findings at 390/360/320 |
+| `phonemore.js` | Expected 4 rows in the phone More sheet | Expected 6 (`PHONE_MORE_TABS`: Dashboard, Timeline, Reminders, plus Ask the agent, Guide, Settings, INBOX 190) | PASS: 0 findings at 390/360/320 |
 | `wbgroupguides.js` | Read the default board; a leftover card under the pointer showed its own grip and misread as a group-guide failure | Creates and opens its own board before the setup runs | PASS: 0 findings |
-| `mindmap.js` | Reports A/B section used `rows.find(r => r.type === "map")`, whichever map board the API listed first; on a data dir with history that was not this sweep's own board, and its root/text selectors landed on a leftover layout | Creates and opens its own map board (with an explicit root — this route does not seed one the way the New-board dialog does) | 75/76 (the one failure is H1, below, an app bug, not this fix) |
+| `mindmap.js` | Reports A/B section used `rows.find(r => r.type === "map")`, whichever map board the API listed first; on a data dir with history that was not this sweep's own board, and its root/text selectors landed on a leftover layout | Creates and opens its own map board (with an explicit root, this route does not seed one the way the New-board dialog does) | 75/76 (the one failure is H1, below, an app bug, not this fix) |
 
-## mindmap.js H1: edges during a drag on a 200-topic map — app bug, not fixed
+## mindmap.js H1: edges during a drag on a 200-topic map, app bug, not fixed
 
 The brief's question: does the check or the app disagree with reality? Measured,
 not guessed:
@@ -31,21 +31,21 @@ not guessed:
 - **The dragged node's own edge follows correctly**, live, every frame
   (`sw-h1probe.js`: its `d` attribute changes smoothly in step with the drag).
 - **A different, untouched pair's edge does not.** `EDGE_PROBE`'s worst
-  reading during the drag is a *bystander* pair (e.g. parent 243, child 261 —
+  reading during the drag is a *bystander* pair (e.g. parent 243, child 261,
   nowhere near the dragged node), 8.3px off, rising to 12.2px after one more
   pointer move, and it does not improve by waiting (sampled at +0, 16, 50,
   150, 400ms held with no further input: stays exactly 8.3px). It resolves
   to 0px the instant the mouse is released and a full render runs.
 - Root cause, read from the drag handler (not fixed, not this file's owner
   today): `objDragMove` (frontend/js/whiteboard.js ~17121) collects
-  `d._mapEdges = wbMapEdgesFor(d.id)` — only the edges touching the dragged
+  `d._mapEdges = wbMapEdgesFor(d.id)`, only the edges touching the dragged
   node itself. A map node's drag also moves its whole branch
   (`wbMapBranchDragOrigin` / `wbApplyBulkMove`, MINDMAP_PLAN §12.1 item 8),
   but the **descendants** it carries along are never added to `_mapEdges`,
   so their own edges to *their* children are repositioned as DOM elements
   but not redrawn as SVG paths until the final full render on drop. This is
   the same class of bug the (G) check above it in this file already covers
-  and fixed for plain bulk-selection drags (link sketches) — it was never
+  and fixed for plain bulk-selection drags (link sketches): it was never
   extended to a map's branch-drag path specifically.
 - The check's own threshold (`< 2px`) is correct and unchanged; it is doing
   its job. Left as a genuine, measured, found-not-fixed app bug for the
@@ -59,7 +59,7 @@ moved into the phone's More sheet, so the tab-bar button is not visible
 there. Fixed to `window.switchTab('timeline')`, which gets there regardless
 of which chrome currently shows the tab (`phonemore.js` already covers the
 tab-bar/More mechanics). Also needed seeding it had documented and I had
-skipped first time round (`seed-timeline.js` then `seed-timeline.py`) — an
+skipped first time round (`seed-timeline.js` then `seed-timeline.py`), an
 unseeded "kyoto" search is the difference between "search reduces the row
 count 68 -> 0 -> 68" (looks like a real failure) and "113 -> 1 -> 113"
 (passes).
@@ -85,7 +85,7 @@ started. It no longer does, on purpose: INBOX 187 ("the writing caret shows
 ... when it is waiting for a model response which it shouldnt") moved
 `is-streaming` onto the answer box's *first delta* (`onAnswer`, app.js
 ~49630), not before the request. A sandbox with no model behind it never
-produces a delta, so the class correctly never appears — the old check was
+produces a delta, so the class correctly never appears, the old check was
 asserting the bug back in. Rewritten to check what INBOX 187 actually
 guarantees: no caret while merely waiting, none left over once the turn
 errors out. PASS.
@@ -96,12 +96,12 @@ errors out. PASS.
 | --- | --- | --- | --- |
 | `errors.js` | 1440/1024/820/390 (own loop) | light | 0 errors, 0 layout findings at all four |
 | `errors.js` | 1440/1024/820/390 | dark | 0 errors, 0 layout findings at all four |
-| `docks.js` | 1440, plus 820/390 for documents (own loop) | light | Measurement/inventory only — no assertions in this file (dumps each dock's control count, heights, kinds); ran clean, no errors |
+| `docks.js` | 1440, plus 820/390 for documents (own loop) | light | Measurement/inventory only, no assertions in this file (dumps each dock's control count, heights, kinds); ran clean, no errors |
 | `contrast.js` | 1440 | light, dark | All surfaces `ok`, no empty-text findings |
 | `contrast.js` | 390 | light, dark | All surfaces `ok` |
 | `touch.js` | 390 | light | PASS: 0 findings (every control >=44px, nothing covered, no overlapping taps, tab bar pinned, no sideways scroll) |
-| `chrome.js` | 1440/1024/820/390 (own loop, `WIDTHS=`) | light, dark | Measurement only (chrome %, first-content-y, stack) — no assertions in this file; both runs clean, no errors |
-| `phonechrome.js` | 390 | light | 1 finding after seeding a reminder (was 2 unseeded — "no content found for #reminder-groups" was a fresh-data-dir artifact, resolved by seeding one reminder). Remaining: **app bug**, see below |
+| `chrome.js` | 1440/1024/820/390 (own loop, `WIDTHS=`) | light, dark | Measurement only (chrome %, first-content-y, stack): no assertions in this file; both runs clean, no errors |
+| `phonechrome.js` | 390 | light | 1 finding after seeding a reminder (was 2 unseeded: "no content found for #reminder-groups" was a fresh-data-dir artifact, resolved by seeding one reminder). Remaining: **app bug**, see below |
 | `tour.js` | 1440x900, 1184x760, 390x844 (own loop) | light | 1581/1581 checks pass ("all checks passed") |
 | `canvasconventions.js` | 1440 (default) | light | 54/54 |
 | `doccodeedit.js` | 1440 (default) | light | 48/48, 0 page errors |
@@ -110,11 +110,11 @@ errors out. PASS.
 on a brand-new board with one text box):** a freshly created text box
 (`wbCreateTextBox`, `.wb-object-text.wb-text-editing`) is 200px wide by its
 own inline style, `clientWidth` 198px (the 2px border), but `scrollWidth`
-203px — its own content overflows its content box by 5px in its initial
+203px: its own content overflows its content box by 5px in its initial
 editing state, at 390 width. Reproducible on a clean board with no other
 content, so not the "Default board" pollution I first suspected (that board
-does carry leftover content from earlier sweep runs in this same session —
-`canvasconventions.js` and others share it — but the overflow reproduces
+does carry leftover content from earlier sweep runs in this same session,
+`canvasconventions.js` and others share it, but the overflow reproduces
 without any of that). Not fixed here (frontend/js/whiteboard.js or its CSS, not
 this task's file); a small, measured app-level finding for the orchestrator.
 
@@ -133,16 +133,16 @@ One canonical file per major surface, beyond the four fixed above:
 | Sweep | Result |
 | --- | --- |
 | `whiteboard.js` | 24/24 at 1440x900 (light) |
-| `graph.js` | 1 finding, **data-dependent, not an app bug**: "no link or thread edge on the map to trace along" — this notebook has no connection between two notes to trace, which the sweep says plainly rather than failing silently. Everything else (first frame 41.7ms, drag 56.2fps, hover, all 20 layout/perspective/filter redraws, minimap, saved views, PNG export) passed |
+| `graph.js` | 1 finding, **data-dependent, not an app bug**: "no link or thread edge on the map to trace along", this notebook has no connection between two notes to trace, which the sweep says plainly rather than failing silently. Everything else (first frame 41.7ms, drag 56.2fps, hover, all 20 layout/perspective/filter redraws, minimap, saved views, PNG export) passed |
 | `timeline.js` | See above: crash fixed, one app bug found and left open |
-| `settings.js` | Measurement only (label widths, row gaps per pane) — no assertions in this file; ran clean |
+| `settings.js` | Measurement only (label widths, row gaps per pane), no assertions in this file; ran clean |
 | `notesurface.js` | ALL PASS (25 checks: capture, the CodeMirror engine mount, live decorations, Ctrl+B, the `/` menu, edit form, draft-text/thoughts, graph popup/new-content surfaces) |
 | `chatsurface.js` | PASS after the 161 fix above (badge alignment/ellipsis, shadow blur, jump pill, link labelling ×3, Continue pill) |
 | `libgrid.js` | Ran clean, 0 errors; **not verified**: no image or file library items exist in this data dir to measure the grid against |
 | `docviews.js` | "docviews: all checks pass" (live/source/plain view switching, line numbers, code round-trip, 5 language modes' token colours; PHP and CSV show 0 styled tokens each, which this sweep does not gate on) |
 
 Not run this session (for time, not because anything is known wrong with
-them): every other per-surface file — the remaining doc*/note*/dash*/mind*/
+them): every other per-surface file, the remaining doc*/note*/dash*/mind*/
 graph*/timeline*/wb*/chat* variants, and the ~400 one-off probes
 (`libprobe1-9`, `chrome202-224`, `e1-e13`, `m1-m11`, `o-*`, `oi_edit_*`, and
 similar investigation scripts from earlier sessions).
@@ -152,7 +152,7 @@ similar investigation scripts from earlier sessions).
 Mid-session `df` on the shared container's `/` filesystem went to 0 bytes
 free (every Bash call failed, including `echo hi`, and the Write tool
 failed with ENOSPC) with 17G still nominally free by `df`'s own earlier
-reading — `/tmp/pytest-of-root` had grown to 11G, almost certainly test
+reading: `/tmp/pytest-of-root` had grown to 11G, almost certainly test
 fixture directories from a `gate.sh --full`/`--changed` run (mine or a
 concurrent agent's own worktree, sharing this same container) that were
 never cleaned up between runs. `rm -rf /tmp/pytest-of-root` recovered it (28G
@@ -162,10 +162,10 @@ namespaced per agent or cleaned up automatically.
 
 ## Numbers, for the five-line report
 
-- Sweeps fixed (stale, now correct): 6 — `maptwokinds.js`, `phonemore.js`,
+- Sweeps fixed (stale, now correct): 6: `maptwokinds.js`, `phonemore.js`,
   `wbgroupguides.js`, `mindmap.js`, `timeline.js`, `chatsurface.js`.
 - App bugs found, not fixed (belong to the orchestrator / another agent's
-  file today): 3 — mindmap.js H1 (branch-drag descendants' edges lag during
+  file today): 3: mindmap.js H1 (branch-drag descendants' edges lag during
   the drag, whiteboard.js), timeline.js's feed/table duplication on a
   breakpoint-crossing re-entry (app.js), phonechrome.js's fresh-text-box 5px
   overflow (whiteboard.js/CSS).
@@ -182,19 +182,19 @@ namespaced per agent or cleaned up automatically.
 
 Own worktree, own server (`:8822`, `/tmp/mm-sweep`). Stopped by the owner's
 usage check-in mid-run (71%), before the last item (the full suite) finished
-or the remaining ~540 one-off probe files were touched — this is the honest
+or the remaining ~540 one-off probe files were touched, this is the honest
 state, not a completed sweep of the directory.
 
 **Ran and green, no findings:** `errors.js` (1440+390, background), `docks.js`
-(inventory only, `dashboard []` is correct — the dashboard has no `.dock`,
+(inventory only, `dashboard []` is correct: the dashboard has no `.dock`,
 only widgets), `contrast.js` (light + `THEME=dark`, every surface `ok`),
 `touch.js` (`PASS: 0 findings`, but needs >170s wall time to finish all 16
-surfaces — `timeout 180` cuts it off mid-run with an uncaught
+surfaces: `timeout 180` cuts it off mid-run with an uncaught
 `page.waitForTimeout: ... closed` after the last surface it reaches; give it
 `timeout 300` or drop the artificial timeout), `chrome.js` (1440/1024/820/390,
 `notes first content y=null` at every width is correct on an empty notebook,
-not a bug — `#entry-list` has no `<li>` with nothing captured), the `all.sh`
-seven (`space`, `rows`, `heads`, `buttons`, `borders`, `caps`, `segs` —
+not a bug: `#entry-list` has no `<li>` with nothing captured), the `all.sh`
+seven (`space`, `rows`, `heads`, `buttons`, `borders`, `caps`, `segs`,
 descriptive only, no assertions, nothing anomalous; `caps.js` finding zero
 uppercase text app-wide is correct too: `DEFAULT_THEME_PRESET` is
 `"utilitarian"` (settings.js ~1482), "Quiet utilitarian", whose whole point is
@@ -202,7 +202,7 @@ uppercase text app-wide is correct too: `DEFAULT_THEME_PRESET` is
 otherwise shout).
 
 **Per-surface (one canonical file per surface, per this file's existing
-convention — the six named in CLAUDE.md's table):**
+convention: the six named in CLAUDE.md's table):**
 
 | Sweep | Result |
 | --- | --- |
@@ -210,8 +210,8 @@ convention — the six named in CLAUDE.md's table):**
 | `graph4b.js` | `errors: []`, all fields present |
 | `mindmap3.js` | 57/57 |
 | `whiteboard3.js` | 12/12 (the one `CONSOLE-ERR 404` is the sweep's own deliberate `/media/none.png` fixture, not a bug) |
-| `timeline-audit3.js` | **Fixed, stale** — see below |
-| `chatphase3.js` | **Fixed, stale** — see below |
+| `timeline-audit3.js` | **Fixed, stale**: see below |
+| `chatphase3.js` | **Fixed, stale**: see below |
 
 **Two stale sweeps fixed, both from the last two days' Ask/Timeline work, not
 app regressions:**
@@ -227,7 +227,7 @@ app regressions:**
   a regression in either: (1) `b4b401a` ("Ask history keeps its numbered
   records and no Sources box...") correctly empties the Sources box under the
   answer once every source is already a row in Matching records (the owner,
-  2026-09-20: a second copy of the same notes is furniture) — the fixture's
+  2026-09-20: a second copy of the same notes is furniture), the fixture's
   three notes are always on the right, so 0 source cards is right now, not a
   miss; (2) `73786b1` ("Ask: place every citation marker...") writes inline
   citation digits straight into `#ai-answer`, and multi-paragraph answers'
@@ -246,7 +246,7 @@ note's excerpt twice. Both traced to running the same fixture-seeding sweeps and
 my own manual `curl … /entries` probes against one accumulating data directory
 in one sitting, not to any backend or frontend bug: a genuinely fresh,
 single-purpose server (`:8824`, one run, nothing else touching it) reproduces
-neither — `/chat/stream`'s own `raw_results` already carried all three matches,
+neither: `/chat/stream`'s own `raw_results` already carried all three matches,
 and there is no duplication. Recorded because it cost real time to run down and
 the shape (one shared server across many sweeps in one session) will produce
 the same false trail again for any check whose assertion depends on a small,
@@ -256,7 +256,7 @@ fixed fixture rather than a count relationship.
 the remaining ~540 one-off probe files, and every non-canonical per-surface
 variant (whiteboard.js/whiteboard2.js's older siblings, graph.js/graph2/graph3,
 timeline.js/timeline-audit/timeline-audit2, mindmap.js/mindmap2, chatsurface.js/
-chatphase2/chatbadge/etc.) — `all.sh`'s own curated list is still the standing
+chatphase2/chatbadge/etc.): `all.sh`'s own curated list is still the standing
 evidence that most of this directory is investigation history, not a suite
 meant to run in full each time.
 
@@ -265,7 +265,7 @@ pytest -n auto -q tests/` was still running (last seen ~53%, every batch so
 far `.`/`s`, no `F` or `E`) when the usage check-in arrived; killed rather
 than left running unattended past the stop instruction. **Next session:
 re-run it to completion** (`scripts/gate.sh --full` or the bare command above)
-before anything on this branch is called done — nothing in it had failed up
+before anything on this branch is called done, nothing in it had failed up
 to 53%, but that is not the same as green.
 
 **No app-code regression found this session.** Both fixes above are to

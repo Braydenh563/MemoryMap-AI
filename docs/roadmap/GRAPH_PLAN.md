@@ -1,4 +1,4 @@
-# The graph — a full redesign, front and back
+# The graph: a full redesign, front and back
 
 **Status: written by direct instruction; executed in ROADMAP.md order after
 the plans already listed (row 13).** The instruction, verbatim:
@@ -21,10 +21,10 @@ a minimap; search highlight; a trace (path between two notes); focus mode
 (`/graph/local/{id}` at depth 2); saved views; entity, document and map
 nodes as opt-ins; physics sliders (gravity, spread); a time slider; drag
 that pins a node. `routes_graph.py` (850 lines) serves `/graph`,
-`/graph/local`, `/graph/structure` (clusters, hubs, orphans — a real
+`/graph/local`, `/graph/structure` (clusters, hubs, orphans: a real
 community pass) and `/graph/path`. The dock is on the Phase 8 grammar.
 
-## 2. Why it disappoints — measured and read
+## 2. Why it disappoints: measured and read
 
 1. **SVG per node does not scale, and it is why dragging is glitchy.** Every
    tick rewrites `transform` on N groups and `x1..y2` on E lines through
@@ -46,7 +46,7 @@ community pass) and `/graph/path`. The dock is on the Phase 8 grammar.
    node is one radius, every label is drawn, and hover changes one halo.
 4. **Colour has no semantics a reader can learn.** Category colours are
    the graph's own palette; clusters use the same. There is no colour by
-   tag, by age, by folder/space, and no way to *save* a colour rule — the
+   tag, by age, by folder/space, and no way to *save* a colour rule, the
    thing Obsidian's "groups" do and the thing that makes a graph a lens.
 5. **The view is awkward.** The graph sits in a card under a dock with a
    stats line and a legend row, in a page that scrolls; the canvas is a
@@ -84,7 +84,7 @@ the map's node graph, so the three cannot disagree.
   what makes drag smooth regardless of N.
 - **Layout persistence.** Positions are saved per view (the saved-views
   feature already stores layout/colour) so a notebook opens where it was
-  left rather than re-exploding — `/graph/views` gets `positions` (a
+  left rather than re-exploding, `/graph/views` gets `positions` (a
   compact `{id: [x, y]}`), written on settle and on drag end.
 - **Backend computes what the client should not.** Degree, cluster id,
   and age bucket come from `/graph` per node (cheap, one pass); community
@@ -94,7 +94,7 @@ the map's node graph, so the three cannot disagree.
 
 ## 5. Phases
 
-### Phase 1 — the canvas renderer and physical drag (1–2 sessions)
+### Phase 1: the canvas renderer and physical drag (1–2 sessions)
 Canvas 2D renderer behind the same `renderGraph()` entry; d3-force in a
 Worker; quadtree hit-testing; drag with `alphaTarget(0.3)` on start and
 decay on end, `forceCollide` from radius, `velocityDecay 0.4`, a weak
@@ -107,18 +107,18 @@ fixture.js`) paints its first frame < 300 ms and holds ≥ 55 fps during a
 2 s drag (Playwright `requestAnimationFrame` counter); no frame > 16 ms
 on a 200-note board; `errors.js` 0.
 
-### Phase 2 — the space (½ session)
+### Phase 2: the space (½ session)
 The graph fills the tab; the dock, legend, minimap and zoom strip float
 over it on the popover shell; the page does not scroll on Graph; the
 stats line becomes a chip in the dock's identity zone; fullscreen is
 just "hide the app chrome". Dark theme measured with `contrast.js`.
 
-### Phase 3 — colour rules and groups (½ session)
+### Phase 3: colour rules and groups (½ session)
 "Colour by" becomes a rule picker (category, tag, space, age, cluster,
 has a map, has a file) plus **groups**: a saved search → a colour, listed
 in the legend, stored with the view. Legend entries toggle visibility.
 
-### Phase 6 — the node panel (½ session, INBOX 59)
+### Phase 6: the node panel (½ session, INBOX 59)
 The popup that opens on a node is a form with nine equal buttons under it.
 Target: a header (title, category chip, the confidence as a small mark
 beside it, not a chip), one muted meta line (date, links, views), the
@@ -132,7 +132,7 @@ panel scrolls inside, never the page; measured at 1440 and 1024 and on
 390 as a sheet. Gate: `scratchpad/ui-sweeps/graph4b.js` plus a node-panel
 probe that counts buttons per row and the panel's own scrollHeight.
 
-### Phase 5 — backend (built; one row deliberately deferred, see below)
+### Phase 5: backend (built; one row deliberately deferred, see below)
 Built 2026-09-09 (HISTORY.md, "Built, Phase 5 (backend)"): the per-node
 fields, `/graph/structure` cached per notebook version, and the payload
 gate. Two more rows of the original phase were re-read against the code on
@@ -164,7 +164,7 @@ The graph uses the app's tokens for every colour; the dock is the Phase 8
 dock; the legend is `.library-chip`s; the right-click menu is
 `.action-menu`; the zoom strip is the whiteboard's `.graph-zoom` recipe
 (they are the same control and must look it); keyboard: `+`/`-` zoom,
-`0` fit, `F` focus selection, `Esc` clears — the same keys the whiteboard
+`0` fit, `F` focus selection, `Esc` clears: the same keys the whiteboard
 uses.
 
 ## 7. Not verified until built
@@ -195,7 +195,7 @@ Moved to HISTORY.md ("Moved from the plans, 2026-09-13", GRAPH_PLAN.md) on 2026-
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", GRAPH_PLAN.md) on 2026-09-09: a plan holds open work only.
 
-## Built — Phase 1 (the canvas renderer and physical drag)
+## Built: Phase 1 (the canvas renderer and physical drag)
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", GRAPH_PLAN.md) on 2026-09-09: a plan holds open work only.
 

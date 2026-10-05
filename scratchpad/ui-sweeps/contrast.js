@@ -141,23 +141,45 @@ for(const t of (process.env.ONLY==='settings'?[]:TABS)){
     await run(`${t}/${sub}`);
   }
 }
-// A board, opened from the Boards & maps section the way a person opens one.
-// Nothing is created here: a sweep that made a board on every run would fill
-// the data directory it shares with every other sweep. If there is no board
-// to open it says so rather than passing quietly.
+// A board and a map, each opened from the Boards & maps section the way a
+// person opens one (there is no tab page for either, so they cannot join TABS).
+// A board is also measured with every object selected, because the drag grip
+// on a sticky or text box (`.wb-object-grip`), the resize handles and the
+// selection bar only exist selected: the surfaces this sweep never read, where
+// the small contrast rows lived (OPEN.md: "the sticky's grip and other small
+// contrast rows"). Nothing is created here: a sweep that made a board on every
+// run would fill the data directory it shares with every other sweep. If the
+// notebook has no board or map to open it says so rather than passing quietly.
 if(process.env.ONLY!=='settings'){
-  await go('library');
-  const opened=await page.evaluate(async()=>{
-    document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
-    await new Promise(r=>setTimeout(r,900));
-    const card=document.querySelector('.library-board-card');
-    if(!card)return 'no board in this notebook';
-    card.click();
-    await new Promise(r=>setTimeout(r,1800));
-    return document.getElementById('wb-topbar')?.offsetParent?'open':'it would not open';
-  });
-  if(opened==='open'){await page.waitForTimeout(600);await run('whiteboard (a board open)');await page.keyboard.press('Escape').catch(()=>{});await page.waitForTimeout(400);}
-  else console.log(`== whiteboard: SKIPPED, ${opened}`);
+  for(const kind of ['board','map']){
+    await go('library');
+    const opened=await page.evaluate(async(kind)=>{
+      document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
+      await new Promise(r=>setTimeout(r,900));
+      const card=[...document.querySelectorAll('.library-board-card')].find(c=>c.wbBoard&&(kind==='map'?c.wbBoard.type==='map':c.wbBoard.type!=='map'));
+      if(!card)return 'no '+kind+' in this notebook';
+      card.click();
+      await new Promise(r=>setTimeout(r,1800));
+      return document.getElementById('wb-topbar')?.offsetParent?'open':'it would not open';
+    },kind);
+    if(opened!=='open'){console.log(`== whiteboard (${kind}): SKIPPED, ${opened}`);continue;}
+    await page.waitForTimeout(600);await run(`whiteboard (${kind} open)`);
+    // Everything selected: the grips and handles are drawn for a selection.
+    const sel=await page.evaluate(()=>{try{wbSelectAllItems();return true;}catch(e){return false;}});
+    if(sel){await page.waitForTimeout(500);await run(`whiteboard (${kind}, all selected)`);
+      // How many of the small selection-only marks were on screen to be read:
+      // an "ok" over a board with none of them proves nothing about them.
+      const marks=await page.evaluate(()=>({grips:[...document.querySelectorAll('.wb-object-grip')].filter(g=>g.checkVisibility()).length,handles:[...document.querySelectorAll('.wb-handle, .wb-resize-handle')].filter(g=>g.checkVisibility()).length}));
+      console.log(`   selection marks on screen: ${marks.grips} grips, ${marks.handles} handles`);}
+    // The board's own sidebar, one tab at a time (a board has Library, Notes,
+    // Layers and Pages; a map has Library, This map and Outline).
+    for(const side of (kind==='map'?['library','map','outline']:['library','notes','layers','pages'])){
+      const ok=await page.evaluate((s)=>{try{wbOpenSidebar(s,{focus:false});return true;}catch(e){return false;}},side);
+      if(!ok)continue;await page.waitForTimeout(700);await run(`whiteboard (${kind}) sidebar/${side}`);
+    }
+    await page.evaluate(()=>{try{wbCloseSidebar();}catch(e){}});
+    await page.keyboard.press('Escape').catch(()=>{});await page.waitForTimeout(400);
+  }
 }
 
 // `openSettingsModal`, not a click on `#settings-btn`: below 600 that button

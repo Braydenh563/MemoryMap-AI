@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Sweeps: contrast.js now reads a board and a map (open, every item selected, each sidebar tab) at 1440 and 390 in both themes; none fails, the sticky's drag grip included.
 - Gate: scripts/gate.sh --staged lints the staged index once instead of the working tree and then the index (the same lint set twice); with nothing staged it lints the working tree, so it never runs zero lints (tests/test_gate_staged_once.py).
 - Graph: the zoom strip's four buttons (Full screen included) are checked to be what a finger hits at 390, clear of the New note button; the report of Full screen sitting under a small button no longer reproduces.
 - Empty lines: the last nine (Documents' list, outline and two histories, Chat's saved chats, Ask's history, the graph pane, the board's overview and Format panel) are the one empty-line recipe, so every short "nothing here yet" line is one size, ink and margin; the lint's waiting list is empty (`tests/test_ui_recipes.py`, `op5-1005.js` MODE=emptylines).

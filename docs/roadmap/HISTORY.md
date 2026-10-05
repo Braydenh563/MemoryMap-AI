@@ -19,6 +19,14 @@ Each row was checked against the head before anything was built.
   New note (`#tab-graph:has(.dock-fab) .graph-zoom`) closed it. `graphphone.js`
   now asserts it every run: the four buttons are hit at their centres and clear
   of `.dock-fab`.
+- **The sticky's grip and the other small contrast rows**: measured, nothing
+  failed. `contrast.js` now reads a board and a map the way a person opens them
+  (Library, Boards & maps, a card), each open and with every item selected (11
+  `.wb-object-grip` on screen on the board, 0 on the map, which draws none), and
+  each board sidebar tab (a board: Library, Notes, Layers, Pages; a map: Library,
+  This map, Outline). 1440x900 and 390x844, light and dark: every surface "ok"
+  (board 37 and 25 text elements, map 19 and 10; sidebar tabs 28 to 117), no
+  finding. The grip itself is `wbgripink.js`'s: 7.96:1 in dark, above.
 - **`gate.sh --staged` ran the lint set twice** (over 25 minutes under load):
   the plain `lints` step (working tree) and then `staged-lints` (a checkout of
   the index), the same `LINTS` array both times. Under `--staged` with

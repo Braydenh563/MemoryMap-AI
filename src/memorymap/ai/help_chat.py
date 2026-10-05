@@ -240,9 +240,14 @@ HELP_TOPICS: list[dict] = [
         "id": "timeline",
         "keywords": ("timeline",),
         "body": (
-            "The Timeline tab lays notes out chronologically in day/week/month "
-            "buckets, grid or line view, with an optional band (category, tag "
-            "or space) to see how things cluster over time."
+            "The Timeline tab lists what you wrote newest first, grouped by day, "
+            "week, month or year (Auto picks the finest that reads well), as a "
+            "feed or as a sortable table. Kinds chooses notes, boards, documents "
+            "and reminders; Options sets the grouping, Group by (category, tag "
+            "or thread) and Show group, and the Time range, where On this day "
+            "shows today's date in earlier months and years. In the feed, Ctrl and "
+            "the mouse wheel, or a pinch, makes the date groups finer or coarser, "
+            "as do + and - on a row. The strip under the bar walks your daily pages."
         ),
         "badge": {"label": "Timeline", "tab": "timeline"},
     },

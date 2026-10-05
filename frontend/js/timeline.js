@@ -511,6 +511,13 @@ function timelineQuery() {
     } else {
       url += `&days=365`; // Fallback if they haven't picked both dates yet
     }
+  } else if (daysVal === "onthisday") {
+    //: The reader's own date and day: the server shifts each stored instant
+    //: by `tz` before comparing, so a note written at 23:30 UTC lands on the
+    //: day it was here.
+    const now = new Date();
+    const md = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    url += `&days=0&on=${md}&tz=${-now.getTimezoneOffset()}`;
   } else {
     url += `&days=${daysVal}`;
   }
@@ -1675,8 +1682,78 @@ $("timeline-scroll").addEventListener("keydown", (event) => {
   if (event.key === "Escape" && row.getAttribute("aria-expanded") === "true") {
     event.preventDefault();
     closeTimelineRow(row);
+    return;
+  }
+  //: + and - are the keyboard's way to the same steps as Ctrl and the wheel.
+  if ((event.key === "+" || event.key === "=" || event.key === "-") && timelineViewMode() === "feed") {
+    event.preventDefault();
+    timelineStepScale(event.key === "-" ? 1 : -1);
   }
 });
+
+//: **Zoom the dates, not the page** (TIMELINE_PLAN section 8, Apple and
+//: Google Photos): Ctrl and the wheel, or a trackpad pinch (which Chromium
+//: and the desktop window report as a wheel with `ctrlKey`), steps the bucket,
+//: in to a finer one and out to a coarser. One step per gesture: the deltas
+//: add up to TIMELINE_ZOOM_STEP before the scale moves and the sum starts
+//: again, and a pause of TIMELINE_ZOOM_GAP ends a gesture, so one notch of a
+//: wheel is one step and a pinch's stream of small deltas is not four.
+const TIMELINE_ZOOM_STEP = 50;
+const TIMELINE_ZOOM_GAP = 350;
+let timelineZoom = { sum: 0, at: 0, stepped: false };
+
+$("timeline-scroll").addEventListener(
+  "wheel",
+  (event) => {
+    //: The feed only: the table has no date groups to change, and there the
+    //: gesture stays the browser's.
+    if (!event.ctrlKey || timelineViewMode() !== "feed") return;
+    //: The browser's own page zoom would otherwise take the gesture.
+    event.preventDefault();
+    const now = performance.now();
+    if (now - timelineZoom.at > TIMELINE_ZOOM_GAP) timelineZoom = { sum: 0, at: now, stepped: false };
+    timelineZoom.at = now;
+    if (timelineZoom.stepped) return;
+    timelineZoom.sum += event.deltaY;
+    if (Math.abs(timelineZoom.sum) < TIMELINE_ZOOM_STEP) return;
+    timelineZoom.stepped = true;
+    timelineStepScale(timelineZoom.sum < 0 ? -1 : 1);
+  },
+  { passive: false },
+);
+
+//: One step finer (-1) or coarser (+1) from the scale on screen (Auto resolves
+//: to the one it chose first). The row at the top of the list stays at the
+//: top: a zoom that throws the reader to the newest day loses their place.
+function timelineStepScale(delta) {
+  const from = timelineResolvedScale();
+  const at = TIMELINE_SCALES.indexOf(from);
+  const to = TIMELINE_SCALES[Math.max(0, Math.min(TIMELINE_SCALES.length - 1, at + delta))];
+  if (to === from) {
+    announce(delta < 0 ? "Already grouped by day." : "Already grouped by year.");
+    return false;
+  }
+  const box = $("timeline-scroll");
+  const top = box.getBoundingClientRect().top;
+  //: The row with focus when there is one (a + pressed on it), else the first
+  //: row in view; it keeps its place on screen through the repaint.
+  const focused = document.activeElement?.closest?.(".timeline-row");
+  const anchor = focused && box.contains(focused)
+    ? focused
+    : [...box.querySelectorAll(".timeline-row")].find((el) => el.getBoundingClientRect().bottom > top);
+  const key = anchor?.dataset.key;
+  const was = anchor ? anchor.getBoundingClientRect().top : top;
+  const select = $("timeline-scale");
+  select.value = to;
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+  const again = key ? box.querySelector(`.timeline-row[data-key="${CSS.escape(key)}"]`) : null;
+  if (again) {
+    box.scrollTop += again.getBoundingClientRect().top - was;
+    if (focused) again.focus({ preventScroll: true });
+  }
+  announce(`Grouped by ${to}.`);
+  return true;
+}
 // A date with no time, in the reader's locale. Used where a full timestamp is
 // noise: a card header, a tooltip's second line.
 function shortDate(iso) {

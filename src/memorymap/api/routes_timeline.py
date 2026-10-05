@@ -28,7 +28,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Select, and_, or_, select
+from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import Document, Entry, EntryDate, Reminder, Space, utcnow
@@ -339,6 +339,12 @@ def timeline(
     #: Which kinds of thing the feed holds (TIMELINE_PLAN decision 9). Comma
     #: separated, omitted for all four.
     kind: str | None = None,
+    #: "On this day" (TIMELINE_PLAN section 8): `MM-DD`, what was written on
+    #: that calendar day in an earlier month or year, in the reader's own day
+    #: (`tz`, minutes east of UTC), today itself left out. The Dashboard's On
+    #: this day widget's rule, so the two never disagree.
+    on: str | None = Query(default=None, pattern=r"^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$"),
+    tz: int = Query(default=0, ge=-840, le=840),
     session: Session = Depends(get_session),
 ) -> dict:
     """The notebook on a time axis, in bands.
@@ -386,11 +392,21 @@ def timeline(
     elif days > 0:
         since = utcnow() - timedelta(days=days)
 
+    shift = f"{tz:+d} minutes"
+    today_here = (utcnow() + timedelta(minutes=tz)).date().isoformat()
+
     def in_range(statement: Select, column) -> Select:
         if since is not None:
             statement = statement.where(column >= since)
         if until is not None:
             statement = statement.where(column <= until)
+        if on:
+            #: The stored instant moved into the reader's day, then compared
+            #: by month and day; today's own rows are not a memory.
+            statement = statement.where(
+                func.strftime("%m-%d", column, shift) == on,
+                func.strftime("%Y-%m-%d", column, shift) != today_here,
+            )
         return statement
 
     query = in_range(query, Entry.created_at)

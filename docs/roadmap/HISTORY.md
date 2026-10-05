@@ -40573,6 +40573,33 @@ WORLD_CLASS_PLAN B4, row 18. Typed links were already KG3 (`LINK_TYPES` plus
 - Not verified: a real local model's verdicts (the scan's judge is faked, the
   night pass ran on its no-model rule).
 
+## Moved from the plans, 2026-10-05 (TIMELINE_PLAN, zoom and On this day)
+
+The two cheap additions the plan's research section named (decisions 11 to
+13 stay in the plan).
+
+- **Zoom the dates** (`timelineStepScale`, timeline.js): Ctrl and the wheel
+  on the list, or a trackpad pinch (a wheel with `ctrlKey`), steps the bucket
+  one scale per gesture (deltas summed to 50, a 350 ms pause ends a gesture),
+  `preventDefault` so the page itself does not zoom; + and - on a focused row
+  do the same. The focused row, else the topmost, keeps its place; the step
+  is written into Bucket by and announced.
+- **On this day** (Options, Time range): `GET /timeline?on=MM-DD&tz=` keeps
+  rows whose date, shifted into the reader's day, is today's month and day,
+  today itself left out; applied to notes, documents and reminders and to
+  the density strip through the one `in_range`.
+  `tests/test_timeline_on_this_day.py` (4: earlier years, an earlier month,
+  the reader's day not UTC's, a bad day refused).
+- The feed only: in the table (a phone's default view) there are no date
+  groups, so the gesture stays the browser's and + and - do nothing.
+- Sweep: `scratchpad/ui-sweeps/kg1005-timelinezoom.js` 10/10 at 1440 light
+  and 390 dark with the feed chosen (one notch day to week, a twelve-delta
+  pinch one step, in again, page zoom unchanged, - and + on a focused row
+  with focus kept, the table left alone, the request carrying `on=` and
+  `tz=`, today's notes absent).
+- Help: the '?' popover and the Guide's timeline topic (which still described
+  the grid and line views of 2026-09) say both.
+
 ## INBOX resolved, 2026-10-05
 
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs

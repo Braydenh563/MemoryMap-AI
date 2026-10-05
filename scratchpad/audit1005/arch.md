@@ -289,7 +289,7 @@ stated)**
 - Fix (M): response models for the 20 busiest routes; one paging helper; the
   lint keyed on "returns a list, or a dict holding one".
 
-**ARCH-14. `/graph` is 1.4 s and 2.4 MB at 5,000 notes (KNOWN H7, worse)**
+**ARCH-14. `/graph` is 1.4 s and 2.4 MB at 5,000 notes (KNOWN H7, worse)** PARTLY FIXED d5754d4 (warm 3.3-4.1 s to 0.7-1.0 s in process; the payload cache left, GRAPH_PLAN "Still open")
 - p50 1,444 ms, p95 3,508 ms in-process; 667 ms and 234 KB gzipped in the
   browser. The plan recorded 600 ms. FastAPI serialises a sync route's dict on
   the event loop thread (py-spy: `serialize_response` under gzip), so a big

@@ -996,6 +996,16 @@ The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section
 
 ## Moved from the plans, 2026-10-05 (op3-1005)
 
+- GRAPH_PLAN, the first build after a change. `jsonable_encoder` walked
+  the whole payload (213,459 calls, 0.96 s of a 1.95 s cold build at 5,000
+  notes, cProfile) to return the plain values it was given; `_build_graph`
+  hands the payload to `JSONResponse` as it is and falls back to the encoder
+  only on a value JSON cannot take. Same bytes (a test compares them).
+  Measured on the bench notebook, alternating which shape goes first, load
+  about 7: the first cold build 1,519 to 1,541 ms before, 1,197 to 1,212 ms
+  after; the second 696 to 1,470 ms before, 466 to 532 ms after.
+  `tests/test_graph_encoded_off_loop.py`.
+
 - The features audit's Phase G, Summarise this branch. Built:
   `POST /whiteboard/boards/{b}/nodes/{n}/summary` (routes_map_suggest.py)
   reads the branch as an indented outline (120 topics, 6,000 characters at

@@ -1081,11 +1081,18 @@ def _build_graph(
     #: gave it; a type without one falls to the calm scheme in the page.
     if slim:
         _slim(nodes, edges)
-    return JSONResponse(
-        jsonable_encoder(
-            {"nodes": nodes, "edges": edges, "categories": categories, "type_colours": type_colours}
-        )
-    )
+    payload = {"nodes": nodes, "edges": edges, "categories": categories, "type_colours": type_colours}
+    #: **As it is first** (GRAPH_PLAN, the first build after a change). The
+    #: payload is plain dicts, lists, strings and numbers, which
+    #: `jsonable_encoder` walked value by value only to hand back unchanged:
+    #: 213,459 calls, 0.96 s of a 1.95 s cold build at 5,000 notes (cProfile).
+    #: `JSONResponse` encodes it as it stands, the same bytes; a value JSON
+    #: cannot take (a date an optional layer left as an object) falls back to
+    #: the encoder, as before.
+    try:
+        return JSONResponse(payload)
+    except (TypeError, ValueError):
+        return JSONResponse(jsonable_encoder(payload))
 
 
 #: **The slim payload** (`/graph?slim=1`, the map's own read; GRAPH_PLAN

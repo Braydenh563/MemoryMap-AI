@@ -2778,11 +2778,19 @@ span > .chip {
    glyph Drafts and Favourites lead with, so every name in the list starts on
    one edge (INBOX 437 (4): All and the categories began 23px left of Drafts,
    Favourites and Tags). */
-.category-row-dot {
+/* Its middle on the name's capitals (INBOX 592): the box is 1em of the
+   glyph size (1.15 of the name's), so -0.19em puts its centre 0.36 of the
+   name's em above the baseline, where `.ph`'s -0.12em puts a glyph's. An
+   inline-block takes `translate`, so the label recipe's move is off: this is
+   placed from the baseline, like any icon in running text. `.ph.` because
+   `.ph` and `.ph-lead` come later at the same weight (it never had its own
+   -0.125em). */
+.ph.category-row-dot {
   display: inline-block;
   width: 1em;
   height: 1em;
-  vertical-align: -0.125em;
+  vertical-align: -0.19em;
+  translate: none;
   border-radius: 50%;
   background: radial-gradient(circle, var(--category-dot) 0 30%, transparent calc(30% + 0.5px));
 }

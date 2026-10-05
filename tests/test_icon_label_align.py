@@ -70,7 +70,7 @@ def test_no_hand_set_translate_on_a_label_icon():
     css = _css()
     offenders = []
     for selector, body in _rules(css):
-        if "@" in selector or not re.search(r"(?:^|\s)translate:", body):
+        if "@" in selector or not re.search(r"(?:^|\s)translate:\s*(?!none\b)[^\s;]", body):
             continue
         for part in selector.split(","):
             part = part.strip()

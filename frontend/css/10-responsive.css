@@ -2770,6 +2770,12 @@ header#top-bar,
     white-space: nowrap;
   }
 
+  /* Its words are hidden here, so its icon is alone: centred in its
+     control rather than moved onto words (INBOX 592). */
+  .dash-customise .ph-lead:has(~ .dock-word) {
+    translate: none;
+  }
+
   .dash-customise .menu-wrap > button {
     width: var(--control-h);
     padding-inline: 0;

@@ -1694,6 +1694,12 @@ header#top-bar select,
     border: 0;
   }
 
+  /* Its words are hidden here, so its icon is alone: centred in its
+     control rather than moved onto words (INBOX 592). */
+  .web-reader #web-reader-ask .ph-lead:has(~ .toolbar-word) {
+    translate: none;
+  }
+
   .web-reader .web-reader-title {
     font-size: var(--text-body);
   }

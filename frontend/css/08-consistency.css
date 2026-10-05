@@ -863,6 +863,12 @@ details[open] > .about-whats-new::before,
     clip-path: inset(50%);
     white-space: nowrap;
   }
+
+  /* Its words are hidden here, so its icon is alone: centred in its
+     control rather than moved onto words (INBOX 592). */
+  [data-dock-name="notes"] .ph-lead:has(~ .dock-word) {
+    translate: none;
+  }
 }
 
 /* The documents editor's head already *is* a bar - `.doc-toolbar`
@@ -4687,6 +4693,12 @@ body .chip.item-label,
     clip-path: inset(50%);
     white-space: nowrap;
     border: 0;
+  }
+
+  /* Its words are hidden here, so its icon is alone: centred in its
+     control rather than moved onto words (INBOX 592). */
+  #wb-boards-new-menu .ph-lead:has(~ .toolbar-word) {
+    translate: none;
   }
 
   #wb-boards-new-menu > summary {

@@ -7366,6 +7366,7 @@ button.connection-row {
 
 .ocr-phone-bar button:has(> .toolbar-word) > .ph-lead {
   margin-inline-end: 0;
+  translate: none;
 }
 
 /* The reading as editable text, in place of the sections while it is open. */
@@ -11989,6 +11990,12 @@ input[type="file"] {
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
+  }
+
+  /* Its words are hidden here, so its icon is alone: centred in its
+     control rather than moved onto words (INBOX 592). */
+  .dock-chip-row .ph-lead:has(~ .dock-chip-label) {
+    translate: none;
   }
 
   .dock-chip-row .library-chip {

@@ -119,6 +119,9 @@ const PROBE = (tol) => {
         if (!n.textContent.trim() || icon.contains(n)) continue;
         const pe = n.parentElement;
         if (!pe || !visible(pe) || pe.closest('kbd, .sr-only, .visually-hidden')) continue;
+        // Words hidden at this width (a dock's word on a phone, clipped to
+        // nothing) leave the icon alone in its control.
+        if (getComputedStyle(pe).clipPath !== 'none' || pe.getBoundingClientRect().width <= 1) continue;
         const c = textCentres(n);
         if (!c) continue;
         const q = c.rect;
@@ -127,7 +130,7 @@ const PROBE = (tol) => {
         if (overlap < Math.min(q.height, ir.height) / 2) continue;
         const dist = q.left >= ir.right ? q.left - ir.right : ir.left >= q.right ? ir.left - q.right : 0;
         if (dist > 24) continue;
-        if (!best || dist < best.dist) best = { c, dist, host };
+        if (!best || dist < best.dist) best = { c, dist, host, node: n.textContent.trim().slice(0, 16) };
       }
     }
     if (!best) continue;
@@ -154,9 +157,10 @@ const PROBE = (tol) => {
     const host = icon.closest('button, a, summary, label, li, .chip, .menu-item, [role="menuitem"], .status-item') || best.host;
     out.push({
       cap: Math.round(d.cap * 100) / 100, x: Math.round(d.x * 100) / 100, box: Math.round(d.box * 100) / 100,
-      who: label(host), icon: [...icon.classList].find((k) => k.startsWith('ph-') && !['ph-lead', 'ph-trail'].includes(k)) || '',
+      who: label(host), icon: [...icon.classList].find((k) => k.startsWith('ph-') && !['ph-lead', 'ph-trail'].includes(k)) || String(icon.className),
       txt: (best.c.rect && host.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 26),
       disp: getComputedStyle(icon.parentElement).display, idisp: ics.display,
+      dbg: `icon ${ir.top.toFixed(2)}+${ir.height.toFixed(2)} words ${best.c.rect.top.toFixed(2)}+${best.c.rect.height.toFixed(2)} "${best.node}"`,
     });
   }
   // Meta rows: every fact's words on one centre line.
@@ -223,7 +227,7 @@ const PROBE = (tol) => {
     const wb = out.reduce((a, o) => Math.max(a, Math.abs(o.box)), 0);
     console.log(`[${name}] ${off.length} of ${seen} icon+label pairs off the cap centre by more than ${TOL}px; worst cap ${w.cap}px, worst box ${Math.round(wb * 100) / 100}px`);
     for (const o of (VERBOSE ? off : off.sort((a, b) => Math.abs(b.cap) - Math.abs(a.cap)).slice(0, 8)))
-      console.log(`    cap ${String(o.cap).padStart(6)}  x ${String(o.x).padStart(6)}  box ${String(o.box).padStart(6)}  ${o.who} ${o.icon} [${o.disp}/${o.idisp}] :: ${o.txt}`);
+      console.log(`    cap ${String(o.cap).padStart(6)}  x ${String(o.x).padStart(6)}  box ${String(o.box).padStart(6)}  ${o.who} ${o.icon} [${o.disp}/${o.idisp}] :: ${o.txt}${process.env.DEBUG ? '  ' + o.dbg : ''}`);
     const badRows = rows.filter((r) => r.spread > TOL);
     const wr = rows.reduce((a, r) => (r.spread > a.spread ? r : a), { spread: 0 });
     if (wr.spread > worstRow.spread) worstRow = { ...wr, view: name };

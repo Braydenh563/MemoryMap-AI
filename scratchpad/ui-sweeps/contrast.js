@@ -168,7 +168,10 @@ if(process.env.ONLY!=='settings'){
 // puts it in scope; it only had to be opened. Empty, then with a conversation,
 // because the welcome and the bubbles are different text on different grounds.
 if(process.env.ONLY!=='settings'){
-  const opened=await page.evaluate(()=>{try{openHelpChat();return true;}catch(e){return false;}});
+  // The Guide is a lazy bundle (helpChat): awaited before its first call, or
+  // on a slow machine `renderHelpChatMessage` was not there yet and the throw
+  // ended the run before Settings (qa-1005, every LOOK run at 1440).
+  const opened=await page.evaluate(async()=>{try{await ensureModule('helpChat');openHelpChat();return true;}catch(e){return false;}});
   if(opened){
     await page.waitForTimeout(500);await run('guide (empty)');
     await page.evaluate(()=>{renderHelpChatMessage('user','How do I add a reminder?');renderHelpChatMessage('assistant','Open the **Reminders** tab.',[{label:'Open Reminders',tab:'reminders'}],['Reminders']);});

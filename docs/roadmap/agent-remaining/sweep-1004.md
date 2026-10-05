@@ -43,4 +43,4 @@ S608 hits are constant placeholders.
 6. **Not verified in a browser:** nothing here changed the UI; the notification
    dismissal was read, not run.
 
-7. **FIXED (tests/test_reevaluate_private.py, orchestrator add-on): `reevaluate` sent a private note's text to the model and the search index.** It now refuses a private note with a 400, like generate-title. Found-not-fixed: the note menu still offers "Tag and file with Atlas" on a private note (the toast shows the refusal); hiding it is a frontend change not made here.
+7. **FIXED (tests/test_reevaluate_private.py, orchestrator add-on): `reevaluate` sent a private note's text to the model and the search index.** It now refuses a private note with a 400, like generate-title. The note menu's AI actions group was already left out for a private note, and the card's "Tag with Atlas" chip is now too (`tests/test_private_note_no_ai_offer.py`, `open-privatechip.js`: private 1 chip before, 0 after).

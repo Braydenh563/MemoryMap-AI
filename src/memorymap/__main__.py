@@ -474,7 +474,16 @@ def _run_server() -> None:
     # this network" was turned on with the password; 127.0.0.1 otherwise.
     # Everything else in this file keeps talking to the server on HOST, which
     # a 0.0.0.0 bind answers too.
-    bind = netbind.bind_host(deps.get_config())
+    config = deps.get_config()
+    has_password = _password_exists(deps.get_db())
+    bind = netbind.bind_host(config, has_password=has_password)
+    if netbind.lan_enabled(config) and not has_password:
+        # SEC-01: never an open notebook on the network. The switch stays as
+        # it is; it takes effect once a password is set and the app restarts.
+        logger.warning(
+            "Other devices on this network are not let in until a password is set: "
+            "listening on this computer only."
+        )
     #: LAN mode over IPv6 (WORLD_CLASS_PLAN §12, row 2): "::" is one
     #: dual-stack socket made here, since uvicorn's own bind of "::" is IPv6
     #: only on Windows. If it cannot be made, LAN mode binds IPv4 as before.
@@ -2130,6 +2139,19 @@ def _export_markdown(destination: str) -> int:
     return 0
 
 
+def _password_exists(db) -> bool:  # noqa: ANN001  # a DatabaseManager
+    """Whether the notebook has a password (a user row). Read at launch so
+    LAN mode never binds beyond loopback without one (SEC-01)."""
+    from memorymap.core.database import User
+    from sqlalchemy import select
+
+    try:
+        with db.session() as session:
+            return session.scalar(select(User.id).limit(1)) is not None
+    except Exception:  # noqa: BLE001  # an unreadable DB: the safe answer is "no"
+        return False
+
+
 def _reset_password() -> int:
     """Forgotten password: clear the credential so setup runs again.
 
@@ -2146,7 +2168,7 @@ def _reset_password() -> int:
       password, so without it they cannot be decrypted by anyone, including
       this command. Clearing the credential strands them permanently.
     """
-    from memorymap.core import deps
+    from memorymap.core import deps, netbind
     from memorymap.core.database import Entry, User, Vault
     from sqlalchemy import func, select
 
@@ -2185,6 +2207,13 @@ def _reset_password() -> int:
                 return 1
 
         session.delete(user)
+        # SEC-01: with no password the notebook must not stay reachable from
+        # the network, so the reset turns "Allow other devices" off. The
+        # launcher refuses to bind beyond loopback without a password anyway;
+        # this makes the switch say what the server does.
+        lan_was_on = netbind.lan_enabled(config)
+        if lan_was_on:
+            config.set_preference(netbind.LAN_PREF, False)
         # The wrapped key is useless once its password is gone; leaving it
         # would make the next setup silently reuse a vault it cannot open.
         for row in session.scalars(select(Vault)):
@@ -2192,6 +2221,11 @@ def _reset_password() -> int:
         session.commit()
 
     print("\nPassword cleared. Start the app and it will ask you to set a new one.")
+    if lan_was_on:
+        print(
+            "Other devices on this network can no longer open this notebook. "
+            "Turn that back on in Settings once a new password is set."
+        )
     if private_count:
         print("The private notes that were encrypted with the old password are gone.")
     return 0

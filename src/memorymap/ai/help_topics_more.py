@@ -413,12 +413,14 @@ MORE_TOPICS: list[dict] = [
             "Settings, Account & security. Signing in: ask for a password when "
             "the app opens (private notes and other devices always ask). Other "
             "devices: let a phone or computer on your network open the app, "
-            "always with your password. Change your password or PIN (private "
+            "always with your password; the traffic is plain http, not "
+            "encrypted, so only on a network you trust. Change your password or PIN (private "
             "notes move across). Sessions: Auto-lock when idle, from 5 minutes "
             "to 12 hours, and Lock everywhere now; the lock in the top bar "
             "locks at once. There is no reset link: run python -m memorymap "
-            "--reset-password in a terminal, which keeps ordinary notes and "
-            "loses private ones, whose key is your password."
+            "--reset-password in a terminal, which keeps ordinary notes, "
+            "loses private ones, whose key is your password, and turns other "
+            "devices off."
         ),
         "badge": {"label": "Account & security", "section": "account"},
     },

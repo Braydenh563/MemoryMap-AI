@@ -83,7 +83,8 @@ class HostCheckMiddleware:
     and the Origin check already cover a rebinding page, and every tool that
     talks to the app locally (the test client's own `testserver` among them)
     names it however it likes. Off loopback, a Host that is not this computer
-    is answered 421 before anything else runs. Pure ASGI, so it costs one
+    is answered 421 before anything else runs, and before a password exists
+    every request is answered 403 (SEC-01). Pure ASGI, so it costs one
     header scan per request and never wraps a response.
     """
 
@@ -113,7 +114,38 @@ class HostCheckMiddleware:
                 )
                 await response(scope, receive, send)
                 return
+            #: SEC-01 (audit 2026-10-05): before a password exists every route
+            #: is open (there is nothing to unlock with), so the network gets
+            #: nothing at all: not the notes, not the status, and not
+            #: `/auth/setup`, which would let any device claim the notebook.
+            #: The launcher already binds loopback without a password; this
+            #: covers a server started any other way.
+            if not _notebook_has_password():
+                response = JSONResponse(
+                    status_code=403,
+                    content={
+                        "detail": (
+                            "This notebook has no password yet. Set one on the "
+                            "computer it runs on first."
+                        )
+                    },
+                )
+                await response(scope, receive, send)
+                return
         await self.app(scope, receive, send)
+
+
+def _notebook_has_password() -> bool:
+    """The unlock gate's own answer (cached when yes), or False when the
+    database cannot be asked: refusing the network is the safe failure."""
+    try:
+        from memorymap.api.routes_auth import _password_set
+        from memorymap.core import deps
+
+        with deps.get_db().session() as session:
+            return _password_set(session)
+    except Exception:  # noqa: BLE001  # any failure means "do not serve the network"
+        return False
 
 
 class OriginCheckMiddleware:

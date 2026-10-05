@@ -9,8 +9,8 @@ network can open the notebook with the password.
 Three things live here because the launcher, the auth routes and the privacy
 receipt all need the same answer:
 
-- `bind_host(config)`: the address the launcher binds, from the one
-  preference. The preference is written only by `POST /auth/lan-access`,
+- `bind_host(config, has_password=...)`: the address the launcher binds,
+  from the one preference, and never beyond loopback without a password. The preference is written only by `POST /auth/lan-access`,
   which asks for the password to turn it on, never by `PUT /preferences`.
 - `set_current` / `current`: the address the launcher *did* bind, so the
   receipt reports what happened rather than what the default is.
@@ -62,8 +62,13 @@ def dual_stack() -> bool:
         return False
 
 
-def bind_host(config: ConfigManager) -> str:
-    if not lan_enabled(config):
+def bind_host(config: ConfigManager, *, has_password: bool) -> str:
+    """The address to listen on. Loopback unless the switch is on *and* a
+    password exists (SEC-01, audit 2026-10-05): `--reset-password` deletes the
+    password and used to leave the switch on, so the next launch put a
+    notebook with nothing to ask for on the network. `has_password` has no
+    default so no caller can forget to say."""
+    if not has_password or not lan_enabled(config):
         return LOOPBACK
     return ALL_INTERFACES_V6 if dual_stack() else ALL_INTERFACES
 

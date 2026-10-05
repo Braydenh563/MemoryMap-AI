@@ -143,4 +143,8 @@ tells you which before you commit:
   without it nobody can decrypt them, including this command. The reset
   loses them, and it tells you how many you have first.
 
+The reset also turns off "Allow other devices on this network", and the
+app never listens beyond this computer while no password is set, so a
+reset notebook is never open to the network.
+
 No backdoor was added, on purpose.

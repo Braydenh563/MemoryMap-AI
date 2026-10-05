@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Security
+
+- Other devices: `--reset-password` turns "Allow other devices on this network" off, the launcher listens on this computer only while no password is set, and a request that arrives from the network before a password exists is refused (403), however the server was started; before, a reset with the switch on reopened the whole notebook to the network with no password (SEC-01, audit 2026-10-05). The help says the traffic is plain http, for networks you trust (SEC-08).
+
 ### Changed
 
 - Notes, Capture: the composer is one box; the note editor inside no longer draws its own border and focus ring a hair inside the composer's, and the composer's edge carries the focus (INBOX 560).

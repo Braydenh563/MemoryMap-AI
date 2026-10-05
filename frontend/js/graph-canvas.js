@@ -797,7 +797,18 @@ function gcEnsureCanvas(s = gcTab) {
   // thing that sees all of them (§5 Phase 1 asks for one by name).
   if (!s.observer && typeof ResizeObserver !== "undefined") {
     s.observer = new ResizeObserver(() => {
-      if (gcResize(s)) gcRequestDraw(s);
+      const before = { ...s.dims };
+      if (!gcResize(s)) return;
+      //: **The map stays framed when its card changes size** (INBOX 613, the
+      //: owner: "the graph doesn properly fit to the area and showing or not
+      //: showing panels"). A camera nobody has moved is framed again; one the
+      //: person moved keeps its middle in the middle, so a panel opening or
+      //: closing beside it never leaves the map off to one side.
+      if (s.zoom && s.svg && before.w && before.h && s.nodes?.length) {
+        if (!s.userZoomed) fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h);
+        else s.svg.call(s.zoom.translateBy, (s.dims.w - before.w) / 2 / s.transform.k, (s.dims.h - before.h) / 2 / s.transform.k);
+      }
+      gcRequestDraw(s);
     });
     const box = document.getElementById(s.boxId);
     if (box) s.observer.observe(box);

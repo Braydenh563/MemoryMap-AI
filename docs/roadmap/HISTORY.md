@@ -42042,6 +42042,13 @@ record.)
      saver, a theme, a resize restart the pictures); it now stops when the
      art is off. bgartoff.js: base 1 canvas with the setting off, now 0.
 
+613. **The owner, 2026-10-05, verbatim.** "the graph doesn properly fit to
+     the area and showing or not showing panels" (screenshot: the map off to
+     one side of its card). Fixed 2026-10-05: the card's ResizeObserver only
+     redrew; it now frames an untouched camera again and keeps a moved one's
+     middle in the middle. graphfit.js: base 200px off-centre after a panel
+     closed, now 0.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

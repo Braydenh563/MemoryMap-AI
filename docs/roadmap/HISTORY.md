@@ -42078,6 +42078,27 @@ record.)
      middle in the middle. graphfit.js: base 200px off-centre after a panel
      closed, now 0.
 
+599. **The owner, 2026-10-05, verbatim.** "can you clean up and redesign
+     this top docks?? I love some of the stuff youve done to further
+     modernise the ui of the app. can you keep doing it for the settings
+     pages adn popups and in more places?? make sure all the design styles
+     across all pages and popups are consistent." (screenshot: Settings, AI
+     skills head: title, a long search box, divider, a filled New skill and
+     a '?' on one row; the All/Yours/Built-in segment with counts and a
+     "Yours first" select on a second row, the select a different height.)
+     Placed: next agent slot (Opus, design): Settings docks and popups onto
+     the modern dock recipe, one consistent style everywhere.
+     Fixed 2026-10-05: every Settings pane head is one 50px sticky bar (title, section links, '?'), the AI skills dock one row at 1100+, every dialog's button row 32px with ghosts first and the filled action last at the right (settingsheads.js, popupinv.js).
+606. **The owner, 2026-10-05, verbatim.** "something about the design,
+     ui/ux of the note edit form still feels off..." (screenshot: the edit
+     form: a full-width Title field; a "Formatting" label row with three
+     icons and a boxed Source toggle; the body with a line number; one row
+     of a long tags field, a "Core Concepts" select, a filled Save changes
+     and Cancel; a Related row of "≈ title" texts each with a boxed Link
+     button; a separate boxed "Attach a link" button.) Placed: the Settings
+     and popups design agent's queue (599), as the same recipe pass.
+     Fixed 2026-10-05: the note edit form is one composition: one writing surface, tag chips, a category chip, a foot of Attach a link, Cancel and Save; boxed buttons 3 to 0, 554 to 507px tall at 390 (noteeditflow.js 6/6).
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

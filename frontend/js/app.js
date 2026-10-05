@@ -2021,6 +2021,8 @@ const LAZY_MODULES = {
   chordGuide: ["/js/chord-guide.js"],
   //: Atlas's living tail and its rings' loops (the gzip budget): see atlas-life.js.
   atlasLife: ["/js/atlas-life.js"],
+  //: The companion's menu and a face's enlarged view (companion-menu.js's header).
+  companionMenu: ["/js/companion-menu.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2285,6 +2287,7 @@ const LAZY_ENTRY_POINTS = {
   tagSuggest: ["openTagSuggest"],
   //: Each called for its effect when a figure mounts or moves; nothing reads a result.
   atlasMotion: ["atlasBlinkStart", "atlasRigAttach", "atlasRigWake"],
+  companionMenu: ["nameMarkBuddyMenu", "openNameMarkViewer"],
   //: Opened, asked or drawn for their effect; `openHelpChat`'s close is read by no caller.
   helpChat: ["openHelpChat", "askAtlas", "renderAtlasStarters"],
   batchSpace: ["batchMoveToSpace"],

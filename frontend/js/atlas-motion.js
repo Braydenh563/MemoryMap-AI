@@ -141,11 +141,6 @@ function atlasRigAttach(box) {
   box.atlasRig = rig;
   atlasRigWake(box);
 }
-
-function atlasTailWake(box) {
-  const tail = box?.atlasTail;
-  if (tail && !tail.raf) tail.raf = requestAnimationFrame((now) => atlasTailFrame(tail, now));
-}
 //: Where the CSS has the arm: the probe's turn (its transform's and any
 //: gesture's `rotate`) and its vertical scale (a meditating arm's).
 function atlasRigRead(arm) {

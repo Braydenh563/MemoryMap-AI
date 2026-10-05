@@ -3161,6 +3161,13 @@ function atlasDressMarks(root = document) {
     else host.replaceChildren(atlasAvatar(size));
   }
 }
+//: The tail's own clock, woken with the rig (atlas-life.js attaches the tail;
+//: a figure has no tail to wake before then, so this stays at boot).
+function atlasTailWake(box) {
+  const tail = box?.atlasTail;
+  if (tail && !tail.raf) tail.raf = requestAnimationFrame((now) => atlasTailFrame(tail, now));
+}
+
 
 //: The companion's figure: the same drawing in its 64 by 92 box.
 function atlasFigure() {

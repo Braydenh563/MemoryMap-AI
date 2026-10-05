@@ -45,7 +45,9 @@ STYLE = re.compile(r'<link[^>]*rel="stylesheet"[^>]*href="(/[^"?]+)(?:\?[^"]*)?"
 #: 589,955, with the embedding models list, the edit form's close and the
 #: Settings bar's New listener moved to their lazy files.
 #: And after 88227db (621, 622): 589,719.
-BOOT_JS_CAP = 589_800
+#: And after the Atlas merge (f22bd43), with the companion's menu and
+#: enlarged view in companion-menu.js (lazy): 589,093.
+BOOT_JS_CAP = 589_100
 BOOT_CSS_CAP = 183_300
 
 

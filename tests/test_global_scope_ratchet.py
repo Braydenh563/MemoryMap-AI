@@ -30,7 +30,7 @@ JS = Path(__file__).resolve().parents[1] / "frontend" / "js"
 #: guards (63 same-bundle ones in boot files dropped to bring boot JS under its
 #: cap) and 705 lets.
 GUARDS_CAP = 288
-TOP_LEVEL_LETS_CAP = 705
+TOP_LEVEL_LETS_CAP = 704
 
 
 def _code() -> dict[str, str]:

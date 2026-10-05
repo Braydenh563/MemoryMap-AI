@@ -1747,3 +1747,42 @@ document.getElementById("settings-modal")?.addEventListener("click", (event) => 
   field.scrollIntoView({ block: "center" });
   field.focus({ preventScroll: true });
 });
+
+// Moved from skills.js (boot gzip): Settings, Skills' Add is its only caller.
+async function addSkill() {
+  const name = $("skill-name").value.trim();
+  const promptText = $("skill-prompt").value.trim();
+  const status = $("skill-status");
+  status.classList.remove("error");
+  if (!name || !promptText) {
+    status.textContent = "Both a name and a request are needed.";
+    return;
+  }
+  // Drop any skill with the new name AND (when editing) the one being edited,
+  // so saving updates in place and even a rename doesn't leave a duplicate.
+  const custom = customSkills().filter(
+    (s) => s.name !== name && s.name !== editingSkillName
+  );
+  const verify = chosenSkillVerify();
+  custom.push({
+    name,
+    prompt: promptText,
+    description: $("skill-description").value.trim(),
+    steps: textToSteps($("skill-steps").value),
+    tools: chosenSkillTools(),
+    inputs: textToInputs($("skill-inputs").value),
+    ...(verify ? { verify } : {}),
+  });
+  const wasEditing = editingSkillName;
+  try {
+    await saveSkillList(custom);
+  } catch (error) {
+    // The server validates both ways in, so this is the same message the AI
+    // would get for the same mistake, an undeclared {{placeholder}}, say.
+    status.classList.add("error");
+    status.textContent = error.message;
+    return;
+  }
+  stopEditingSkill();
+  status.textContent = wasEditing ? `Updated “${name}”.` : `Saved “${name}”.`;
+}

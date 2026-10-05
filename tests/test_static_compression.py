@@ -86,7 +86,8 @@ PIECE_CAP = 32_000
 #: After claude/notes-flow-rebuild 143b240 merged: total 321,331 (the
 #: embedding models list into settings-packages.js), app.js unchanged.
 #: And after 88227db (621, 622): 321,097.
-TOTAL_CAP = 321_100
+#: And after the Atlas merge, with addSkill in settings-controls.js: 320,986.
+TOTAL_CAP = 321_000
 
 
 def _served_gzip_size(client, name: str) -> int:

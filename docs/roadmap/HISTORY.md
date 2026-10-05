@@ -7,6 +7,92 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (wb-phase2: draw.io phase 2)
+
+From WHITEBOARD_PLAN (decisions 30 on) and the features audit's
+remaining whiteboard rows; the open rest is in
+`docs/roadmap/agent-remaining/wb-phase2.md`.
+
+- **Step 1, bends on straight and curved connectors, and line jumps**
+  (decisions 30, 31). `points` drives every style (`wbLinkShape`,
+  `wbCurveThroughSegs`, `wbCurvePathD`); one grip set,
+  `wbRenderWaypointHandles`; floating ends aim at the nearest waypoint;
+  `wbLineJumpsD` hops over lines painted under (read off the sorted
+  selection: d3's `sort` returns a new one). Found and fixed on the way: a
+  click or double-click on an add ring saved one or two bends at the ring
+  (elbows too), and a bend's double-click never took it out (a save on the
+  first click re-rendered the grip). `tests/test_wb_waypoints.py` 14;
+  `wbwaypoints.js` 20/20 at 1440 and 390, light and dark; `wb1005-elbow.js`
+  18/18, `wb1005-format.js` 17/17, `wblinklabel.js` 12/12 (two checks
+  updated: the bend is `points`, and the right-click point avoids the bar,
+  which covered it on the base too).
+
+- **Step 2, Mermaid subgraphs as frames** (decision 32).
+  `wbMermaidParse` reads `subgraph` and `end` (three title forms, nesting);
+  `wbMermaidLayout` lays each subgraph out as a block in its parent's rows
+  and returns `frames`; `wbImportMermaid` makes them innermost first under
+  everything (`wbFrameZ`); `wbBoardToMermaid` takes `frameOf`
+  (`wbMermaidFrameOf`) and writes subgraphs. `tests/test_wb_interchange.py`
+  10 (5 new); `wbmermaidframes.js` 11/11 at 1440 and 390, light and dark;
+  `wb1005-interchange.js` 8/8. The brief's other half, FreeMind keeping its
+  root, was already built (FEAT-01, `cc89dcb`,
+  `test_freemind_imports_its_single_root_as_the_central_topic`): not rebuilt.
+
+- **Step 3, W2, the board time machine** (decision 33). Server
+  `routes_board_history.py` (`GET /whiteboard/history`,
+  `GET /whiteboard/history/{event}`, `POST .../restore`); library placements
+  record per-item `created` events (`test_board_library.py`'s one-event test
+  rewritten to say so). Client `whiteboard-history.js` (lazy, Library
+  bundle): the slider bar on the present bar's recipe, the past drawn by the
+  board's render, writes refused (`wbHistGuard`), a restore recorded as one
+  Undo step. Found on the way: SQLite reuses a deleted row's id (no
+  AUTOINCREMENT), so one item id's log can hold two items; a `created`
+  starts a fresh state. `tests/test_board_history.py` 10;
+  `wbhistory.js` 14/14 at 1440 and 390, light and dark (the sweep ages the
+  log in its own data dir to make three moments).
+
+- **Step 4, smart guides** (decision 34). Checked first: edge and centre
+  guides, equal spacing between two neighbours, Alt to bypass, group drags,
+  and the Arrange menu's align and distribute (`WB_COMMANDS`) all existed;
+  not rebuilt. Added: drawn shapes as targets (`wbGuideBoxes`, hidden items
+  left out) and a row's or column's spacing continued past its end
+  (`wbSpacingSeries`). `tests/test_wb_guides.py` 5; `wbguides.js` 6/6 at
+  1440 and 390, light and dark; `wbgroupguides.js` 0 findings.
+
+- **Step 5, connection points and waypoint consistency** (decision 35).
+  Checked first: eight fixed anchors and their hover hints with a link
+  tool existed (bbox fractions, so off a diamond's or an ellipse's outline);
+  waypoints on every style came with step 1. Added: `wbPortsForPath` (a
+  polygon's corners and side middles, a curve's compass points, cached per
+  path), `wbAnchorPoint` read from the fraction, ports on hover with Select
+  and a drag from one to connect (initWhiteboard's "Connection points with
+  Select"), and `wbCarryWaypoints` in `wbFinishDrag`.
+  `tests/test_wb_ports.py` 7; `wbports.js` 9/9 and `wbwaypoints.js` 22/22
+  at 1440 and 390, light and dark.
+
+- **Step 6, FEAT-13 first part: Branches from my notes** (decision 36).
+  `routes_map_suggest.py` (`POST .../nodes/{id}/suggest`, writes nothing;
+  `POST .../nodes/{id}/branches`, one transaction, a created event each);
+  `wbMapSuggestBranches` (whiteboard-map.js) on the picker dialog with the
+  Attach picker's rows, from the topic menu's Add group and the command
+  table (`suggest-branches`). `tests/test_map_suggest.py` 6 (fake transport:
+  the prompt's parse, both fallbacks, no invented note); `mapsuggest.js` 8/8
+  at 1440 and 390, light and dark (no model on the sweep's server, so the
+  notebook fallback). Open: ghosts on the canvas, Expand from my notes,
+  Summarise this branch, the affinity sort, the claim check.
+
+- **Found by the regression sweeps after steps 5 and 6.** A press on a
+  port with Select released a click on the container, which cleared the
+  selection it had just made (`wblock.js` 6/17 on step 5, 17/17 after the
+  release's click is swallowed for that task); and the search engine joins
+  the nearest notes by meaning to every keyword search, so a topic was
+  offered notes that shared nothing with it: a note found by meaning alone
+  now needs a cosine of 0.5 (`MIN_MEANING`).
+  And on a data dir other sweeps had used, a new board's first moment
+  counted "4 added, 2 removed" for two shapes: a reused id's log held another
+  board's item, so each event is now placed by the board its payload names
+  (`_board_events`; `test_a_reused_id_brings_no_other_boards_history`).
+
 ## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
 
 From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN

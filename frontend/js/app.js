@@ -2260,6 +2260,7 @@ const LAZY_MODULES = {
     "/js/whiteboard-library.js",
     "/js/whiteboard-format.js",
     "/js/whiteboard-interchange.js",
+    "/js/whiteboard-history.js",
     "/js/library.js",
   ],
 };

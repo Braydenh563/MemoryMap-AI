@@ -81,18 +81,28 @@ def test_save_list_and_place_a_selection_twice(ai_client):
     assert used["recent"][0] == f"item:{item['id']}"
 
 
-def test_one_placement_is_one_event(ai_client):
+def test_one_placement_is_one_board_event_and_each_item_replays(ai_client):
+    """One board event names the placement and its rows; each row has its own
+    `created` too, so a placed item replays like one drawn by hand (the
+    board's time machine, WHITEBOARD_PLAN decision 33). It was one event in
+    all, the rows' folded in with their values dropped."""
     board = _board(ai_client)
     item = _save(ai_client)
     def count(kind):
         return len(ai_client.get(f"/audit?entity_type={kind}&limit=500").json())
 
     before = {k: count(k) for k in ("board", "whiteboard_sketch", "whiteboard_object")}
-    ai_client.post(f"/whiteboard/boards/{board['id']}/place", json={"item_id": item["id"], "x": 0, "y": 0})
+    placed = ai_client.post(f"/whiteboard/boards/{board['id']}/place", json={"item_id": item["id"], "x": 0, "y": 0}).json()
     after = {k: count(k) for k in before}
     assert after["board"] == before["board"] + 1
-    assert after["whiteboard_sketch"] == before["whiteboard_sketch"]
-    assert after["whiteboard_object"] == before["whiteboard_object"]
+    assert after["whiteboard_sketch"] == before["whiteboard_sketch"] + len(placed["sketches"])
+    assert after["whiteboard_object"] == before["whiteboard_object"] + len(placed["objects"])
+    event = ai_client.get("/audit?entity_type=board&limit=1").json()[0]
+    assert event["action"] == "placed"
+    moment = ai_client.get("/whiteboard/history", params={"board_id": board["id"]}).json()["moments"][0]
+    shown = ai_client.get(f"/whiteboard/history/{moment['id']}", params={"board_id": board["id"]}).json()
+    assert {s["id"] for s in shown["sketches"]} == {s["id"] for s in placed["sketches"]}
+    assert {o["id"] for o in shown["objects"]} == {o["id"] for o in placed["objects"]}
 
 
 def test_a_builtin_places_and_takes_the_pen_colour(ai_client):

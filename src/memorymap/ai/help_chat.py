@@ -1046,6 +1046,24 @@ HELP_TOPICS.extend(
             "badge": {"label": "Library", "tab": "library"},
         },
         {
+            "id": "board-history",
+            "keywords": (
+                "board history", "history of the board", "time machine", "earlier version of the board",
+                "go back in time", "put the board back", "restore the board", "what did the board look like",
+            ),
+            "body": (
+                "Board, History… (or Ctrl+K, History) puts a slider at the foot of the board. Drag it "
+                "back, or press Left, Home and End, and the board is drawn as it was at each moment, a "
+                "moment being a run of changes up to two minutes long; the bar says when and what it "
+                "added, changed and removed. Nothing can be changed while the past is shown. Put back "
+                "restores the whole board as it was then, and the second button only what was selected "
+                "when History opened; either is one Undo step and is in the history too. Esc, or the "
+                "slider's right end, comes back to now. Changes older than ninety days may be kept only "
+                "in summary, and such a moment cannot be shown."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
             "id": "board-library",
             "keywords": (
                 "object library", "shape library", "shapes", "flowchart", "flow chart", "icons", "stencil",
@@ -1084,24 +1102,34 @@ HELP_TOPICS.extend(
                 "angle", "rotate by", "flip", "mirror", "opacity", "transparency", "see through", "shadow",
                 "text size in a shape", "align text", "elbow", "right angle", "orthogonal", "connector shape",
                 "line shape", "bend", "waypoint", "label position", "crow's foot", "crows foot", "er diagram",
-                "entity relationship", "mermaid", "import a flowchart", "clone and connect", "copy and connect", "next shape", "copy a shape",
+                "connection point", "connection points", "port", "ports", "anchor point",
+                "line jumps", "line jump", "crossing lines", "lines cross", "hop over",
+                "entity relationship", "mermaid", "subgraph", "import a flowchart", "clone and connect", "copy and connect", "next shape", "copy a shape",
                 "connect it to the copy", "connect the copy",
             ),
             "body": (
                 "Ctrl+Shift+P on a board (or Format panel in the selection's More menu, or View) opens "
                 "the Format panel on the right, with three tabs. Style: line colour, width and pattern, "
                 "fill, opacity, shadow, and for a connector its line shape (curved, straight or elbow), "
-                "its two ends and where its label sits along it. Text: the size, colour, weight and "
+                "its line jumps (where it crosses a line under it, it hops over with an arc, a gap or a "
+                "sharp peak), its two ends and where its label sits along it. Text: the size, colour, weight and "
                 "alignment of a text box or of the words in a shape. Arrange: X, Y, width, height and "
                 "angle as numbers, flip, and the order, align, spacing, group and lock buttons. Every "
-                "change is one undo step. An elbow connector turns at right angles and goes round the "
-                "shapes it joins: drag the small ring in the middle of a run to add a bend, drag a bend to "
-                "move it, double-click it to take it out. Drag the square on a connector's label to slide "
+                "change is one undo step. Every connector takes bends: drag the small ring in the middle "
+                "of a run (or double-click the line) to add one, drag a bend to move it, double-click it to "
+                "take it out. A straight line runs through its bends, a curved one curves smoothly through "
+                "them, and an elbow turns at right angles and goes round the shapes it joins; changing the "
+                "line shape keeps the bends; moving both things a connector joins moves its bends too. "
+                "With Select, pointing at a shape, card or text box shows its connection points (a "
+                "diamond's tips and side middles, an ellipse's compass points); drag from one to draw an "
+                "elbow connector to whatever you let go on, or to a free end. "
+                "Drag the square on a connector's label to slide "
                 "it along the line. The ends include the entity-relationship marks (one, zero or one, many, "
                 "one or many, zero or many). With one shape or text box selected, the four arrows round it "
                 "(or Alt+Shift and an arrow key) copy it that way and join the two with an elbow. "
                 "Insert, Mermaid or board SVG brings in a Mermaid flowchart or an SVG a board here "
-                "exported, as shapes and connectors; Export also writes an Outline and a Mermaid flowchart."
+                "exported, as shapes and connectors, each Mermaid subgraph as a titled frame round its "
+                "shapes; Export also writes an Outline and a Mermaid flowchart, frames as subgraphs."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1143,7 +1171,8 @@ HELP_TOPICS.extend(
                 "numbered topics", "outline numbers", "note on a topic", "note behind a topic",
                 "comment on a topic", "boundary", "summary topic", "summarise topics",
                 "opml", "freemind", "xmind", "import a map", "export a map", "present branches",
-                "map template", "map as a document",
+                "map template", "map as a document", "suggest branches", "branches from my notes",
+                "grow the map", "expand from my notes", "children from notes",
             ),
             "body": (
                 "Mind map features. The layout picker lays the map out as a tree, "
@@ -1162,7 +1191,10 @@ HELP_TOPICS.extend(
                 "template, import an OPML, FreeMind, XMind or Markdown outline (an "
                 "import opens laid out as a tree to the right), paste an indented "
                 "list onto a topic to add it as that topic's branch, let the "
-                "local AI propose a map from notes you pick, and export it as "
+                "local AI propose a map from notes you pick, or on a topic choose "
+                "Add, Branches from my notes… for up to five children found in your "
+                "notes, each saying which note it came from (tick the ones to keep; "
+                "one Undo takes them back), and export it as "
                 "OPML, FreeMind or Markdown as well as a picture, or write it as "
                 "a document (the board menu's Write as a document: branches "
                 "become headings, deeper topics lists, notes paragraphs). With a "

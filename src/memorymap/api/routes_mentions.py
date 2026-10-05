@@ -22,7 +22,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -198,7 +198,7 @@ def link_mention(entry_id: int, body: MentionLinkIn, session: Session = Depends(
         raise HTTPException(status_code=400, detail=LINK_UNSAFE_WHY)
     rewritten = f"{text[:start]}[[{words}]]{text[end:]}"
     if body.kind == "note":
-        routes_entries.update_entry(body.id, EntryUpdate(content=rewritten), session)
+        routes_entries.update_entry(body.id, EntryUpdate(content=rewritten), Response(), session=session, if_match=None)
     else:
         routes_documents.update_document(body.id, routes_documents.DocumentPatch(content=rewritten), session)
     return {"linked": True, "kind": body.kind, "id": body.id}

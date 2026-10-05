@@ -75,7 +75,9 @@ def put_properties(entry_id: int, body: PropertiesIn, session: Session = Depends
             clean[name] = value
     entry = routes_entries._existing_entry(session, entry_id)
     text = note_properties.write(manager.readable_content(entry), clean)
-    return routes_entries.update_entry(entry_id, EntryUpdate(content=text, base_hash=body.base_hash), session)
+    return routes_entries.update_entry(
+        entry_id, EntryUpdate(content=text, base_hash=body.base_hash), Response(), session=session, if_match=None
+    )
 
 
 class FieldIn(BaseModel):

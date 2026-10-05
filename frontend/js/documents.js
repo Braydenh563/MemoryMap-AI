@@ -2384,6 +2384,8 @@ const DOC_COMMANDS = [
     run: () => docRunControl("doc-ai", "AI editing") },
   { id: "extract", icon: "ph:scissors", label: "Extract notes from this document", keys: "",
     run: () => docRunControl("doc-extract", "Extracting notes") },
+  { id: "map-headings", icon: "ph:tree-structure", label: "Map this document's headings", keys: "",
+    run: () => docRunControl("doc-map-headings", "Mapping the headings") },
   { id: "history", icon: "ph:clock-counter-clockwise", label: "Every version this document has had", keys: "",
     run: () => docRunControl("doc-history", "Version history") },
   { id: "connections", icon: "ph:graph", label: "What this document is joined to", keys: "",
@@ -12666,6 +12668,12 @@ for (const radio of document.querySelectorAll('input[name="doc-ai-verb"]')) {
 }
 $("doc-ai-history").addEventListener("click", openDocAiHistory);
 $("doc-extract").addEventListener("click", openDocExtractPreview);
+//: **A document's headings as a new mind map** (MINDMAP_PLAN decision 35):
+//: the map side does the work (`wbMapFromDocument`, whiteboard-map.js), from
+//: the text as it stands in the editor, saved or not.
+$("doc-map-headings")?.addEventListener("click", () => {
+  if (currentDoc) wbMapFromDocument(currentDoc, docText());
+});
 docBoxEl().addEventListener("keydown", (event) => {
   // The fallback textarea's half of the Escape-then-Tab hatch, the same rule
   // the engine's keymap states (`docTabEscapes`), because which of the two

@@ -213,7 +213,8 @@ HELP_TOPICS: list[dict] = [
             "in the title moves to the body. Code "
             "files get line numbers, Tab/Shift+Tab indenting and Ctrl+/ "
             "commenting. \"Check with AI\" reviews a document for wording issues "
-            "a spellchecker can't catch."
+            "a spellchecker can't catch. The menu's Map the headings turns its "
+            "headings into a new mind map."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
@@ -1090,7 +1091,9 @@ HELP_TOPICS.extend(
                 "local AI propose a map from notes you pick, and "
                 "export it as OPML, FreeMind or Markdown as well as a picture, "
                 "or write it as a document (the board menu's Write as a document: "
-                "branches become headings, deeper topics lists, notes paragraphs). "
+                "branches become headings, deeper topics lists, notes paragraphs); "
+                "the other way, a document's menu, Map the headings, makes a map of its "
+                "headings with a topic that leads back to it. "
                 "With a map open, the command palette (Ctrl+K) lists the map's "
                 "commands: add, rename, fold, focus, tidy, layout, look, numbering, "
                 "present and export."

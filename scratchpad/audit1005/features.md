@@ -786,7 +786,7 @@ Map (from §12.5 and `map1.js`):
    - The tree as an editable indented list, sharing `wbMapBySiblingOrder`.
    - Tab and Shift+Tab re-parent, Enter adds a sibling, edits are live both ways.
    - Gate: 50 topics edited from the outline show on the canvas within a frame.
-4. **M4, markers and filter** (§12.2 item 4).
+4. **M4, markers and filter** (§12.2 item 4). FIXED 9e20ef2
    - Priority 1 to 5, progress, flag, due date (offering a reminder), tags.
    - Several markers per topic.
    - A View "Filter by marker" that dims the rest.

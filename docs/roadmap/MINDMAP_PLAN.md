@@ -1242,8 +1242,8 @@ topic: a control that wide has nowhere to go.
    and the palette row make a new document titled after the central topic
    (or the map, with several trunks), branches as `##`, theirs as `###`,
    deeper topics as nested lists, notes as paragraphs, and the map's card
-   (`boardEmbedMarkdown`) at its head as the way back. "Map this document's
-   headings" (the other direction) and a back-link on the map are open.
+   (`boardEmbedMarkdown`) at its head as the way back. The other direction
+   is decision 35.
 32. **A concept map's topics are notes that stay on their map** (taken
    2026-10-05, audit UX-06). A note made by a map gesture (a new concept
    map's root, a card Tab or Enter adds) carries `map_topic`; Notes (All,
@@ -1285,6 +1285,18 @@ topic: a control that wide has nowhere to go.
    chosen one, for this visit, with a bar in the focus bar's shell to end
    it. Not built: due dates, tags, several filters at once, markers as the
    outline's columns.
+35. **A document maps its own headings, one way** (taken 2026-10-05, the
+   audit's M5 second half). The document's menu, Map the headings (and the
+   palette's row) makes a new map through the Markdown import, so it opens
+   in tree-right and tidied (decision 23). The headings are read by
+   `wbMapHeadingsOutline` (node-tested): a heading inside a fenced code
+   block is code; one top-level heading, first, is the central topic,
+   otherwise the document's title is and every top-level heading a branch;
+   a skipped level hangs one level down, never two. The way back is a
+   document topic under the centre pointing at the document (it opens it, as
+   any document topic does), so it travels with the map into every export
+   that keeps references. A twin kept in step both ways is the audit's idea,
+   not built.
 
 ### Phases, each with the gate it is finished against
 

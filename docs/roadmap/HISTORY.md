@@ -7,6 +7,17 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (a document's headings as a map)
+
+### From MINDMAP_PLAN.md decision 31's open half (decision 35), the audit's M5
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A document's menu, Map the headings (`#doc-map-headings`, `DOC_COMMANDS` "map-headings"): `wbMapHeadingsOutline` reads the headings, the Markdown import makes the map, a document topic under the centre leads back | a map could be written as a document, not the other way | "Field guide(Birds(Owls,Finches),Trees,document)" in tree-right; the `#` inside a code fence left out; the document topic named "Field guide" and pointing at it; a document with no headings says so and makes nothing | `scratchpad/ui-sweeps/mmd2-1005-maptodochead.js` 4/4 at 1440x900 light and 390x844 dark; `tests/test_map_from_headings.py` 4/4 |
+
+Help moved with it: the Guide's documents topic, the menu row's title, the
+palette row. Not built: a twin kept in step both ways.
+
 ## Moved from the plans, 2026-10-05 (markers)
 
 ### From MINDMAP_PLAN.md §12.2 item 4 (decision 34), the audit's M4

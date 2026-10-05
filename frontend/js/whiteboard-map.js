@@ -7860,3 +7860,86 @@ function wbMapAfterRender() {
 document.getElementById("wb-map-filter-clear")?.addEventListener("click", () => wbMapSetMarkerFilter(null));
 document.getElementById("wb-map-filter-item")?.addEventListener("click", () => wbMapChooseMarkerFilter());
 
+// --- A document's headings as a map (the audit's M5, second half) ---------
+//
+//: **"Map this document's headings"** (decision 35), the other direction of
+//: decision 31's Write as a document. One-shot, as that one is: a new map,
+//: not a twin kept in step.
+// WB-MAP-HEADINGS-BEGIN
+//: The headings as the indented list the Markdown import reads. Pure (no
+//: DOM), so node runs it (`tests/test_map_from_headings.py`). Headings inside
+//: a fenced code block are code, not headings. A document whose top level has
+//: one heading, first, makes that heading the central topic; otherwise the
+//: title is the centre and every top-level heading a branch. A skipped level
+//: (a `####` under a `##`) hangs one level down, never two, so no topic is
+//: drawn under a parent that is not there.
+function wbMapHeadingsOutline(text, title) {
+  const heads = [];
+  let fence = null;
+  for (const line of String(text || "").split("\n")) {
+    const opener = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+    if (opener) {
+      if (!fence) fence = opener[1][0];
+      else if (opener[1][0] === fence) fence = null;
+      continue;
+    }
+    if (fence) continue;
+    const m = /^ {0,3}(#{1,6})[ \t]+(.+)$/.exec(line);
+    if (!m) continue;
+    const words = m[2].replace(/[ \t]+#+[ \t]*$/, "").trim();
+    if (words) heads.push({ level: m[1].length, words });
+  }
+  if (!heads.length) return null;
+  const top = Math.min(...heads.map((h) => h.level));
+  const single = heads[0].level === top && heads.filter((h) => h.level === top).length === 1;
+  const lines = [];
+  let prev = 0;
+  if (!single) lines.push(`- ${String(title || "").trim() || "Untitled document"}`);
+  heads.forEach((h, i) => {
+    const raw = h.level - top + (single ? 0 : 1);
+    const depth = single && i === 0 ? 0 : Math.max(1, Math.min(raw, prev + 1));
+    prev = depth;
+    lines.push(`${"  ".repeat(depth)}- ${h.words}`);
+  });
+  return lines.join("\n");
+}
+// WB-MAP-HEADINGS-END
+
+//: Made through the Markdown import (tree-right, tidied once as it opens,
+//: decision 23), with the way back as a document topic under the centre: a
+//: reference to the document, which opens it, as any document topic does.
+async function wbMapFromDocument(doc, text) {
+  if (!doc?.id) return null;
+  const outline = wbMapHeadingsOutline(text, doc.title);
+  if (!outline) {
+    toast("This document has no headings to map. Give each part a heading first.");
+    return null;
+  }
+  let board;
+  try {
+    board = await apiJson("/whiteboard/boards/import", {
+      method: "POST",
+      body: JSON.stringify({ format: "markdown", content: outline, name: (doc.title || "Untitled document").slice(0, 100) }),
+    });
+  } catch (err) {
+    toast(err.message || "Couldn't make that map.", true);
+    return null;
+  }
+  try {
+    const tree = await apiJson(`/whiteboard/boards/${board.id}/tree`);
+    const root = tree.roots?.[0];
+    if (root) {
+      await apiJson(`/whiteboard/boards/${board.id}/nodes`, {
+        method: "POST",
+        body: JSON.stringify({ kind: "document", parent_id: root.id, ref_id: doc.id, text: "" }),
+      });
+    }
+  } catch {
+    //: The map stands without its way back; the toast below still names
+    //: the document it came from.
+  }
+  await openWhiteboardBoard(board.id);
+  await wbMapTidyFresh();
+  toast(`Mapped the headings of “${doc.title || "this document"}”.`);
+  return board;
+}

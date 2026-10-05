@@ -493,6 +493,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 
 ### Added
 
+- Documents: the menu's Map the headings (and the palette) makes a new mind map of the document's headings, laid out as a tree, with a topic that opens the document again; a heading inside a code block is left out (MINDMAP_PLAN decision 35, the audit's M5).
 - Mind maps: markers on a topic, a priority from 1 to 5, how far along it is, a flag and up to six icons (from the app's own icon set, never emoji), drawn before its name and set from the topic's menu (Content, Markers) or the palette; View, Filter by marker dims every topic without the one you pick; OPML and FreeMind exports carry them (MINDMAP_PLAN decision 34, the audit's M4).
 - Mind maps: View, Outline shows the map as an indented list beside it, edited in place: type to rename (the canvas follows as you type), Enter adds a topic, Tab and Shift+Tab move it in and out a level, Backspace on an empty topic removes it, Escape goes back to the map; the palette has the same row (MINDMAP_PLAN decision 33, the audit's M3).
 - Timeline: in the feed, Ctrl and the mouse wheel, or a trackpad pinch, makes the date groups finer or coarser (day, week, month, year), one step per gesture, keeping your place; + and - on a row do the same. Options, Time range has On this day: what you wrote on today's date in earlier months and years, in your own time zone (TIMELINE_PLAN decisions 11 and 12).

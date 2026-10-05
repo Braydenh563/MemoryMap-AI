@@ -2921,8 +2921,27 @@ function nameMarkBuddyVisit(host) {
   //: own `data-pose`, a copy kept here (a `:has()` on the companion's made
   //: every pose change restyle 968 elements of the page).
   const mirror = () => { host.dataset.pose = buddy.dataset.pose || ""; };
+  //: **A face visiting its large view keeps moving between its beats**
+  //: (INBOX 600, the owner: "it might sway or do something for a couple
+  //: seconds but will then snap still"). Its acts come every 2.5 to 6
+  //: seconds and its breath is under a pixel, so between them it stood still
+  //: for over a second (atlas600-still.js: 1,083ms with no part moving
+  //: 0.75px). Its weight now shifts about its feet and it bobs, on two clocks
+  //: that never line up (6.7s, 4.3s), so one is under way while the other
+  //: turns; `rotate` and `translate` on the face's own box, which nothing
+  //: else moves, so an act plays over them. Each starts half a swing in, at
+  //: rest. A face drawn from a name only: Atlas's layers have their own
+  //: loops. Script, not the stylesheet (the boot CSS is at its budget);
+  //: gone with the visit, and never under reduced motion or with the
+  //: companion's actions off.
+  const face = buddy.querySelector(":scope > .nm-buddy-face");
+  const sway = [];
+  if (face && typeof face.animate === "function" && !nameMarkIdleQuiet() && !buddy.querySelector(".atl-figure-box, .atl-classic-box")) {
+    const loop = (frames, ms) => face.animate(frames, { duration: ms, delay: -ms / 2, iterations: Infinity, direction: "alternate", easing: "ease-in-out" });
+    sway.push(loop([{ rotate: "-2deg" }, { rotate: "2deg" }], 6700), loop([{ translate: "0 1.2px" }, { translate: "0 -1.4px" }], 4300));
+  }
   const watch = new MutationObserver(mirror);
-  nmb.visit = { home: buddy.parentNode, next: buddy.nextSibling, watch };
+  nmb.visit = { home: buddy.parentNode, next: buddy.nextSibling, watch, sway };
   buddy.classList.remove("nmb-dodge");
   host.appendChild(buddy);
   mirror();
@@ -2936,6 +2955,7 @@ function nameMarkBuddyHome() {
   if (!visit) return;
   nmb.visit = null;
   visit.watch?.disconnect();
+  for (const anim of visit.sway || []) anim.cancel();
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
   buddy.querySelector(":scope > .nm-say")?.remove();
@@ -4127,6 +4147,15 @@ function nameMarkBuddySetSize(scale, keep = true) {
   //: its rings to it. Once per chosen size, not per frame of a handle drag.
   if (nmb.ride) nameMarkBuddyRideBox(nmb.x, nmb.y, true);
   queueNameMarkBuddyCheck();
+}
+//: Back to its own size (Medium) from the handle (INBOX 601: a double-click
+//: or double tap on it), eased as a fitted size is, and kept.
+function nameMarkBuddyResetSize(buddy = document.getElementById("nm-buddy")) {
+  if (!buddy) return;
+  buddy.classList.add("nmb-fitting");
+  clearTimeout(nmb.fitTimer);
+  nmb.fitTimer = setTimeout(() => buddy.classList.remove("nmb-fitting"), 900);
+  nameMarkBuddySetSize(NMB_SIZES.medium, true);
 }
 //: Appearance's select: the three sizes, and "As you sized it" for a size
 //: the handle gave it.
@@ -7806,15 +7835,20 @@ function nameMarkBuddyAsleep(buddy) {
 //: out, so it neither lurches off nor stops dead. Only
 //: when something was moving, and never under reduced motion, where the
 //: change is made as it was.
+//: `buddy` may be a list of roots, and `ms` a longer hand-over: Atlas's
+//: mood loops (a giggle, a hop, a wag) going back to its idle use both
+//: (atlas.js, `setAtlasMood`, INBOX 600: "it might sway or do something for
+//: a couple seconds but will then snap still").
 const NMB_BLEND_MS = 480;
 const NMB_BLEND_PROPS = ["transform", "translate", "rotate", "scale", "opacity"];
-function nameMarkBuddyBlend(buddy, change) {
-  if (!buddy || typeof buddy.getAnimations !== "function" || nameMarkIdleQuiet()) {
+function nameMarkBuddyBlend(buddy, change, ms = NMB_BLEND_MS) {
+  const roots = (Array.isArray(buddy) ? buddy : [buddy]).filter((el) => el && typeof el.getAnimations === "function");
+  if (!roots.length || nameMarkIdleQuiet()) {
     change();
     return;
   }
   const held = [];
-  for (const anim of buddy.getAnimations({ subtree: true })) {
+  for (const anim of roots.flatMap((el) => el.getAnimations({ subtree: true }))) {
     //: Running, or held by the pacer (`nameMarkBuddyTempo` pauses what
     //: animates inside a drawing and steps it by hand).
     if (!(typeof CSSAnimation === "function" && anim instanceof CSSAnimation) || anim.playState === "finished" || anim.playState === "idle") continue;
@@ -7833,7 +7867,7 @@ function nameMarkBuddyBlend(buddy, change) {
   for (const { anim, el, from } of held) {
     if (el.getAnimations().includes(anim)) continue;
     //: `offset: 0`: a lone keyframe with none is the end, not the start.
-    el.animate([{ ...from, offset: 0 }], { duration: NMB_BLEND_MS, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
+    el.animate([{ ...from, offset: 0 }], { duration: ms, easing: "cubic-bezier(0.4, 0, 0.2, 1)", id: "nmb-blend" });
   }
 }
 
@@ -8729,25 +8763,51 @@ function nameMarkBuddyBuild() {
   const grip = document.createElement("span");
   grip.className = "nmb-size-grip";
   grip.setAttribute("aria-hidden", "true");
-  grip.title = "Drag to resize";
+  grip.title = "Drag to resize, double-click to reset";
   face.appendChild(grip);
   grip.addEventListener("click", (event) => event.stopPropagation());
+  //: **A double-click or a double tap puts it back to its own size** (INBOX
+  //: 601, the owner: "I want to be able to double tab the drag to resize
+  //: circle on the companion to reset it to default size"): Medium, kept
+  //: as a size from the handle is (`nameMarkBuddySetSize`), eased there
+  //: rather than jumped (`nmb-fitting`, the CSS's scale transition). The
+  //: second press is read here, not from `dblclick`: the press's
+  //: `preventDefault` (no text selected while sizing) and the pointer
+  //: capture keep a touch's taps from ever making one, and a press that
+  //: became a drag is not half of a double. Its own `dblclick` stops here
+  //: too, so it never opens the large view.
+  grip.addEventListener("dblclick", (event) => event.stopPropagation());
+  let lastPress = null;
   grip.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
     event.stopPropagation();
     event.preventDefault();
+    const at = performance.now();
+    if (lastPress && at - lastPress.at < 400 && Math.hypot(event.clientX - lastPress.x, event.clientY - lastPress.y) < 12 && !lastPress.moved) {
+      lastPress = null;
+      nameMarkBuddyResetSize(buddy);
+      return;
+    }
+    const press = { at, x: event.clientX, y: event.clientY, moved: false };
+    lastPress = press;
     const [ox, oy] = nameMarkBuddyOrigin(nmb.x, nmb.y, nmb.pose);
     const from = Math.max(8, Math.hypot(event.clientX - ox, event.clientY - oy));
     const was = nmb.scale || 1;
     grip.setPointerCapture(event.pointerId);
     buddy.classList.add("nmb-sizing");
-    const move = (e) => nameMarkBuddySetSize(was * Math.hypot(e.clientX - ox, e.clientY - oy) / from, false);
+    const move = (e) => {
+      if (!press.moved && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 4) return;
+      press.moved = true;
+      nameMarkBuddySetSize(was * Math.hypot(e.clientX - ox, e.clientY - oy) / from, false);
+    };
     const end = () => {
       grip.removeEventListener("pointermove", move);
       grip.removeEventListener("pointerup", end);
       grip.removeEventListener("pointercancel", end);
       buddy.classList.remove("nmb-sizing");
-      nameMarkBuddySetSize(nmb.scale, true);
+      //: A press that never pulled leaves the size as it was (it may be
+      //: the first of a double).
+      if (press.moved) nameMarkBuddySetSize(nmb.scale, true);
     };
     grip.addEventListener("pointermove", move);
     grip.addEventListener("pointerup", end);

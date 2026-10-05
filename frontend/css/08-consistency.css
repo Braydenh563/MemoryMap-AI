@@ -7623,9 +7623,9 @@ body .chip.item-label,
 .atl-orbits, .atl-orbit, .atl-orbit-arm { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
 .atl-orbit, .atl-orbit-arm { transform-origin: 0 0; }
 .atl-orbit {
-  --atl-orbit-t: 70s;
-  &.atl-orbit-1 { --atl-orbit-t: 96s; }
-  &.atl-orbit-2 { --atl-orbit-t: 124s; }
+  --atl-orbit-t: 38s;
+  &.atl-orbit-1 { --atl-orbit-t: 52s; }
+  &.atl-orbit-2 { --atl-orbit-t: 68s; }
 }
 /* Where each planet starts, as a fraction of the turn: set by atlas.js. */
 .atl-orbit-arm {
@@ -8889,7 +8889,8 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     & .atl-lw-body[data-atlas-look="feminine"] .atl-lw-breathe { animation-duration: 3.7s; }
     & .atl-layer-glint-a { animation: atl-glint-twinkle 3.4s ease-in-out infinite; }
     & .atl-layer-glint-b { animation: atl-glint-twinkle 4.7s ease-in-out -2.2s infinite; }
-    &:is([data-atlas-mood="happy"], [data-atlas-mood="delighted"], [data-atlas-mood="love"], [data-atlas-mood="laughing"]) .atl-lw-tail { animation: none; }
+    /* (The happy moods stopped this flow while the wag ran on the layer; the
+       living tail wags now, atlas.js, and the flow runs on: INBOX 600.) */
   }
 }
 

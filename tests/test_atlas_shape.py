@@ -141,8 +141,17 @@ def test_the_planets_orbit_on_the_compositor():
     # nothing its animations touch lays anything out.
     assert "ringFrame: { cx: 31, cy: 31, flat: 0.34, tilt: -11 }" in ATLAS
     assert "frag.appendChild(atlasOrbits());" in ATLAS
-    assert "atlasRing(layers.front.rig, id, ring, k, true, true)" in ATLAS
     assert "if (orbit) return;" in ATLAS
+    # INBOX 601 ("the celestial rings and planets on it which dont move"):
+    # in the layered figure the rings are boxes of their own, far half under
+    # the figure and near half over it, and their sway, the dust's turn and
+    # each planet's glow and swirl are Web Animations of transform, rotate,
+    # scale and opacity only, paused with the tail's loop.
+    assert "layers.back.svg.after(atlasRings(look, false));" in ATLAS
+    assert "layers.front.svg.after(atlasRings(look, true));" in ATLAS
+    loops = re.search(r"function atlasRingLoops\(box\) \{(.*?)\n\}", ATLAS, re.S).group(1)
+    assert set(re.findall(r"\{ (rotate|transform|scale|opacity|translate):", loops)) <= {"rotate", "transform", "scale", "opacity"}
+    assert "for (const anim of box.atlasLoops || [])" in ATLAS
     for name in ("atl-orbit", "atl-orbit-back", "atl-orbit-depth"):
         body = _keyframes(name).split("{", 1)[1]
         props = set(re.findall(r"([a-z-]+)\s*:", body))
@@ -907,10 +916,14 @@ def test_the_feminine_body_is_an_hourglass_that_flows_into_one_wide_tail(tmp_pat
         p0 = p1
     # The second ribbon tail (the comet tail, from the other hip) is never
     # under 2 across until its last tenth, where it thins to a fine round
-    # tip (INBOX 565), and is rooted at the hip, not the middle.
+    # tip (INBOX 565). INBOX 601 (the owner: "more integrated with the body
+    # instead of just coming out from the butt"): its root is inside the
+    # lower body, right of the middle, and it is widest where it leaves.
     assert min(got["feminineTailW"][:46]) >= 2.0
     assert 0.5 <= got["feminineTailW"][-1] <= 1.0
-    assert "tail: [[36.4, 60," in feminine and feminine.count("], [") >= 3
+    assert got["feminineTailW"][0] >= 6.5
+    assert "tail: [[33.4, 57.4," in feminine and feminine.count("], [") >= 3
+    assert "tailJoin: [" in feminine and "tailJoin: [" in _look("masculine")
     # INBOX 565: 23% longer (a fourth curve curling in), feathered
     # like the wings (their pale lines along it, their glow at its tip).
     tail = re.search(r"    tail: (\[\[.*\]\]),\n", feminine).group(1)

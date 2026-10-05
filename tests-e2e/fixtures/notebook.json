@@ -1,0 +1,1057 @@
+{
+ "notes": [
+  {
+   "key": "w_plan",
+   "category": "Work",
+   "tags": [
+    "harbor",
+    "launch"
+   ],
+   "content": "# Harbor launch plan\n\nShip the mobile app to the public on the 14th of next month. Three gates before then: beta feedback closed, the onboarding rewrite merged, and the pricing page signed off.\n\n- [x] Beta invite list\n- [x] Crash reporting\n- [ ] Store listing copy\n- [ ] Launch email"
+  },
+  {
+   "key": "w_roadmap",
+   "category": "Work",
+   "tags": [
+    "roadmap",
+    "planning"
+   ],
+   "content": "# Q4 roadmap\n\nThree workstreams: Harbor launch, the sync rewrite and the support backlog. Harbor gets two thirds of the team until launch week, then the sync rewrite takes over."
+  },
+  {
+   "key": "w_beta",
+   "category": "Work",
+   "tags": [
+    "harbor",
+    "beta"
+   ],
+   "content": "# Beta feedback, week 2\n\n41 testers active. The top complaint is the sign-up flow (nine fields). Second is that offline mode is hard to find. Nobody mentioned speed, which is the first time."
+  },
+  {
+   "key": "w_onboard",
+   "category": "Work",
+   "tags": [
+    "harbor",
+    "design"
+   ],
+   "content": "# Onboarding rewrite\n\nCut sign-up from nine fields to four. Ask for the name later, on the first share. Draft screens are on the launch board."
+  },
+  {
+   "key": "w_pricing",
+   "category": "Work",
+   "tags": [
+    "harbor",
+    "pricing"
+   ],
+   "content": "# Pricing page\n\nOne free tier and one paid. The comparison table moves above the fold; the FAQ answers the refund question in its first line."
+  },
+  {
+   "key": "w_retro",
+   "category": "Work",
+   "tags": [
+    "retro",
+    "team"
+   ],
+   "content": "# Sprint 14 retro\n\nWhat helped: measuring before changing anything. What did not: two days lost reading code instead of running it. Keep the Thursday demo."
+  },
+  {
+   "key": "w_sync",
+   "category": "Work",
+   "tags": [
+    "sync",
+    "engineering"
+   ],
+   "content": "# Sync rewrite, first notes\n\nThe conflict rule is last-writer-wins today, which silently drops edits. Proposal: keep both versions and ask, the way a document merge does."
+  },
+  {
+   "key": "w_perf",
+   "category": "Work",
+   "tags": [
+    "engineering",
+    "performance"
+   ],
+   "content": "# Why the list felt slow\n\nIt was not the database. Every row re-measured its own height on scroll. Caching the height per row took a long list from 40ms a frame to 6."
+  },
+  {
+   "key": "w_store",
+   "category": "Work",
+   "tags": [
+    "harbor",
+    "launch"
+   ],
+   "content": "# Store listing\n\nFive screenshots, dark and light. The first line has to say what it does in under ten words: notes that sort themselves, offline."
+  },
+  {
+   "key": "w_email",
+   "category": "Work",
+   "tags": [
+    "harbor",
+    "marketing"
+   ],
+   "content": "# Launch email draft\n\nSubject: Harbor is out. One paragraph, one screenshot, one button. Send at 9 in each time zone, not all at once."
+  },
+  {
+   "key": "w_support",
+   "category": "Work",
+   "tags": [
+    "support"
+   ],
+   "content": "# Support backlog triage\n\n63 open tickets. 20 are the same export question; one help article closes them. Billing questions go to the new form."
+  },
+  {
+   "key": "w_hiring",
+   "category": "Work",
+   "tags": [
+    "team",
+    "hiring"
+   ],
+   "content": "# Hiring a designer\n\nPortfolio review on Tuesday. Looking for someone who has shipped a product end to end, not only screens."
+  },
+  {
+   "key": "w_metrics",
+   "category": "Work",
+   "tags": [
+    "harbor",
+    "metrics"
+   ],
+   "content": "# Launch metrics\n\nDay-one installs matter less than week-two retention. Track: notes created in the first week, and whether people come back on day 8."
+  },
+  {
+   "key": "w_risks",
+   "category": "Work",
+   "tags": [
+    "harbor",
+    "risks"
+   ],
+   "content": "# Launch risks\n\n1. The store review takes longer than a week.\n2. Sync conflicts surface under real load.\n3. The pricing page is not signed off in time."
+  },
+  {
+   "key": "w_standup",
+   "category": "Work",
+   "tags": [
+    "meetings"
+   ],
+   "content": "# Thursday demo notes\n\nShowed the new onboarding to the whole team. Feedback: the progress dots read as a carousel. Replace them with a step count."
+  },
+  {
+   "key": "w_offsite",
+   "category": "Work",
+   "tags": [
+    "team"
+   ],
+   "content": "# Team offsite ideas\n\nOne day, no laptops. A walk in the morning, the roadmap in the afternoon, dinner somewhere with a long table."
+  },
+  {
+   "key": "w_api",
+   "category": "Work",
+   "tags": [
+    "engineering",
+    "api"
+   ],
+   "content": "# Public API, maybe\n\nThree people in the beta asked for one. Not before launch. Write down the read-only version so the idea is not lost."
+  },
+  {
+   "key": "t_over",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "planning"
+   ],
+   "content": "# Portugal trip, overview\n\nTen days in May: four in Lisbon, a day in Sintra, three in Porto, two in the Douro valley. Train between the cities, a car only for the valley."
+  },
+  {
+   "key": "t_lisbon",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "lisbon"
+   ],
+   "content": "# Lisbon, where to stay\n\nAlfama for the walk-everywhere feel, but the hills are steep with luggage. Príncipe Real is quieter and close to the metro."
+  },
+  {
+   "key": "t_sintra",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "sintra"
+   ],
+   "content": "# Sintra day trip\n\nTrain from Rossio, 40 minutes. Pena Palace first thing, timed ticket. Quinta da Regaleira in the afternoon when the tour buses leave."
+  },
+  {
+   "key": "t_porto",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "porto"
+   ],
+   "content": "# Porto, three days\n\nRibeira at sunset, the Livraria Lello early or not at all, and a port lodge tour across the bridge in Gaia."
+  },
+  {
+   "key": "t_douro",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "douro"
+   ],
+   "content": "# Douro valley\n\nHire a car in Porto. Stay one night at a quinta near Pinhão; the river road from Régua to Pinhão is the drive to do."
+  },
+  {
+   "key": "t_flights",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "bookings"
+   ],
+   "content": "# Flights\n\nOut to Lisbon, back from Porto, so no day is lost going back. Booked, seats 14A and 14B."
+  },
+  {
+   "key": "t_trains",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "bookings"
+   ],
+   "content": "# Trains\n\nLisbon to Porto on the Alfa Pendular, 2h50. Tickets open 60 days ahead and are half price if booked early."
+  },
+  {
+   "key": "t_food",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "food"
+   ],
+   "content": "# Things to eat\n\nPastéis de nata at the Belém bakery, bifana from a counter, francesinha in Porto once, grilled sardines anywhere with a queue."
+  },
+  {
+   "key": "t_pack",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "packing"
+   ],
+   "content": "# Packing list\n\n- Walking shoes with grip (the pavements are polished stone)\n- A light jacket for the evenings\n- Plug adapter\n- The rail pass printout"
+  },
+  {
+   "key": "t_budget",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "budget"
+   ],
+   "content": "# Trip budget\n\nRoughly 1,900 for two, flights included. The quinta night is the splurge; everything else is mid-range."
+  },
+  {
+   "key": "t_phrases",
+   "category": "Travel",
+   "tags": [
+    "portugal",
+    "language"
+   ],
+   "content": "# Useful phrases\n\nObrigado or obrigada, depending on who is speaking. Uma bica is an espresso in Lisbon and um cimbalino in Porto."
+  },
+  {
+   "key": "t_photos",
+   "category": "Travel",
+   "tags": [
+    "photography"
+   ],
+   "content": "# Photo spots\n\nMiradouro da Senhora do Monte at golden hour. The Dom Luís I bridge from the upper deck. Arrive early, leave the tripod."
+  },
+  {
+   "key": "c_sour",
+   "category": "Cooking",
+   "tags": [
+    "baking",
+    "sourdough"
+   ],
+   "content": "# Sourdough log\n\nLoaf 6: 78% hydration, 20 hour cold proof. Best crumb yet, still pale underneath. Next time the stone goes one shelf lower."
+  },
+  {
+   "key": "c_starter",
+   "category": "Cooking",
+   "tags": [
+    "baking",
+    "sourdough"
+   ],
+   "content": "# Starter feeding\n\n1:5:5 at night, ready by morning in a warm kitchen. In winter it needs the oven with only the light on."
+  },
+  {
+   "key": "c_week",
+   "category": "Cooking",
+   "tags": [
+    "recipes",
+    "weeknight"
+   ],
+   "content": "# Weeknight dinners\n\nFive that take under 30 minutes: miso salmon, chickpea curry, lemon orzo, egg fried rice, and the tomato soup below."
+  },
+  {
+   "key": "c_soup",
+   "category": "Cooking",
+   "tags": [
+    "recipes"
+   ],
+   "content": "# Roast tomato soup\n\nRoast the tomatoes and garlic first, add a little smoked paprika, blend half and leave the rest chunky."
+  },
+  {
+   "key": "c_curry",
+   "category": "Cooking",
+   "tags": [
+    "recipes",
+    "weeknight"
+   ],
+   "content": "# Chickpea curry\n\nOnion, garlic, ginger, a spoon of curry paste, a tin of chickpeas and a tin of coconut milk. Spinach at the end."
+  },
+  {
+   "key": "c_pizza",
+   "category": "Cooking",
+   "tags": [
+    "baking"
+   ],
+   "content": "# Pizza night\n\nThe sourdough discard makes a good thin base. 48 hour dough, hottest oven, steel on the top shelf."
+  },
+  {
+   "key": "c_meal",
+   "category": "Cooking",
+   "tags": [
+    "planning"
+   ],
+   "content": "# Meal prep Sundays\n\nCook grains and one sauce for the week. Freeze half the soup. Saves about four evenings."
+  },
+  {
+   "key": "c_nata",
+   "category": "Cooking",
+   "tags": [
+    "baking",
+    "portugal"
+   ],
+   "content": "# Trying pastéis de nata at home\n\nShop-bought puff pastry, rolled tight into a log. The custard needs the hottest oven the kitchen has; mine scorched at 250."
+  },
+  {
+   "key": "c_knife",
+   "category": "Cooking",
+   "tags": [
+    "kitchen"
+   ],
+   "content": "# Knife sharpening\n\nWhetstone at 15 degrees, 1000 then 6000 grit. Every two months, or when the tomato test fails."
+  },
+  {
+   "key": "c_spice",
+   "category": "Cooking",
+   "tags": [
+    "kitchen"
+   ],
+   "content": "# Spice drawer\n\nToast whole spices before grinding. Buy small, label with the month."
+  },
+  {
+   "key": "h_plan",
+   "category": "Health",
+   "tags": [
+    "running",
+    "half-marathon"
+   ],
+   "content": "# Half marathon plan\n\nTwelve weeks to the October race. Three runs a week: one easy, one tempo, one long. The long run grows by a kilometre a week."
+  },
+  {
+   "key": "h_week4",
+   "category": "Health",
+   "tags": [
+    "running"
+   ],
+   "content": "# Week 4\n\nEasy pace is still too fast. Slow the Tuesday run down until it is boring, then hold it for three weeks."
+  },
+  {
+   "key": "h_knee",
+   "category": "Health",
+   "tags": [
+    "running",
+    "physio"
+   ],
+   "content": "# Physio, left knee\n\nFoam roll the IT band after every long run. Single-leg squats twice a week, three sets of ten."
+  },
+  {
+   "key": "h_shoes",
+   "category": "Health",
+   "tags": [
+    "running",
+    "gear"
+   ],
+   "content": "# New running shoes\n\nThe old pair has 700 km on it. Try two in the shop, run on the treadmill in both."
+  },
+  {
+   "key": "h_sleep",
+   "category": "Health",
+   "tags": [
+    "sleep"
+   ],
+   "content": "# Sleep notes\n\nScreens off at 10:30 helps more than anything else tried. Coffee after 2pm costs about forty minutes."
+  },
+  {
+   "key": "h_fuel",
+   "category": "Health",
+   "tags": [
+    "running",
+    "nutrition"
+   ],
+   "content": "# Fuel on long runs\n\nA gel every 40 minutes past the first hour. Practise it in training, never new on race day."
+  },
+  {
+   "key": "h_stretch",
+   "category": "Health",
+   "tags": [
+    "mobility"
+   ],
+   "content": "# Morning mobility\n\nTen minutes: hips, hamstrings, thoracic rotation. Done before coffee or it does not happen."
+  },
+  {
+   "key": "h_dentist",
+   "category": "Health",
+   "tags": [
+    "admin"
+   ],
+   "content": "# Dentist\n\nCheck-up booked for the 21st. Ask about the night guard."
+  },
+  {
+   "key": "h_race",
+   "category": "Health",
+   "tags": [
+    "running",
+    "half-marathon"
+   ],
+   "content": "# Race day checklist\n\n- Bib and pins the night before\n- Same breakfast as the long runs\n- Start slower than feels right"
+  },
+  {
+   "key": "r_systems",
+   "category": "Reading",
+   "tags": [
+    "books",
+    "systems"
+   ],
+   "content": "# Thinking in Systems\n\nStocks and flows, and why a delay inside a feedback loop makes a system oscillate instead of settle. The bathtub example finally made it click."
+  },
+  {
+   "key": "r_weeks",
+   "category": "Reading",
+   "tags": [
+    "books",
+    "time"
+   ],
+   "content": "# Four Thousand Weeks\n\nThe point is not to get everything done; it is to choose what to neglect on purpose. Pairs well with the systems book."
+  },
+  {
+   "key": "r_design",
+   "category": "Reading",
+   "tags": [
+    "books",
+    "design"
+   ],
+   "content": "# The Design of Everyday Things\n\nA door that needs a sign has failed. Affordances, signifiers and feedback: the three words I now use in every design review."
+  },
+  {
+   "key": "r_habits",
+   "category": "Reading",
+   "tags": [
+    "books",
+    "habits"
+   ],
+   "content": "# Atomic habits, the useful bits\n\nMake the good thing the easy thing. Lay the running kit out the night before; it works better than willpower."
+  },
+  {
+   "key": "r_essay",
+   "category": "Reading",
+   "tags": [
+    "essays",
+    "writing"
+   ],
+   "content": "# On writing short\n\nAn essay about cutting: every sentence should earn its place, and the first draft is for finding out what you think."
+  },
+  {
+   "key": "r_pod",
+   "category": "Reading",
+   "tags": [
+    "podcasts"
+   ],
+   "content": "# Podcast: slow productivity\n\nDo fewer things, work at a natural pace, obsess over quality. Fewer open loops means less time spent switching."
+  },
+  {
+   "key": "r_list",
+   "category": "Reading",
+   "tags": [
+    "books"
+   ],
+   "content": "# Reading list\n\n- Designing Data-Intensive Applications\n- The Mom Test\n- A Pattern Language\n- Ways of Seeing"
+  },
+  {
+   "key": "r_data",
+   "category": "Reading",
+   "tags": [
+    "books",
+    "engineering"
+   ],
+   "content": "# Designing Data-Intensive Applications\n\nChapter 5 on replication is the one to reread before the sync rewrite. Leaderless replication and read repair."
+  },
+  {
+   "key": "r_mom",
+   "category": "Reading",
+   "tags": [
+    "books",
+    "research"
+   ],
+   "content": "# The Mom Test\n\nAsk about their life, not your idea. Specifics in the past beat opinions about the future."
+  },
+  {
+   "key": "r_poem",
+   "category": "Reading",
+   "tags": [
+    "poetry"
+   ],
+   "content": "# A line worth keeping\n\nFrom a poem read on the train: attention is the beginning of devotion."
+  },
+  {
+   "key": "r_pattern",
+   "category": "Reading",
+   "tags": [
+    "books",
+    "architecture"
+   ],
+   "content": "# A Pattern Language\n\nA window place: people are drawn to light. True of rooms, and oddly true of app screens too."
+  },
+  {
+   "key": "o_garden",
+   "category": "Home",
+   "tags": [
+    "garden"
+   ],
+   "content": "# Garden, spring jobs\n\nCut back the lavender after the last frost. Move the rosemary into the sun. Sow the beans in the second week of April."
+  },
+  {
+   "key": "o_boiler",
+   "category": "Home",
+   "tags": [
+    "maintenance"
+   ],
+   "content": "# Boiler service\n\nDue in March. The pressure keeps dropping to 0.8; mention it. The engineer last time said the valve was worn."
+  },
+  {
+   "key": "o_paint",
+   "category": "Home",
+   "tags": [
+    "decorating"
+   ],
+   "content": "# Paint for the study\n\nTwo samples on the wall: a warm white and a pale green. The green wins in the afternoon light."
+  },
+  {
+   "key": "o_insur",
+   "category": "Home",
+   "tags": [
+    "admin"
+   ],
+   "content": "# Home insurance renewal\n\nThe renewal quote went up 30%. Compare three before the 1st; the old policy covers accidental damage, keep that."
+  },
+  {
+   "key": "o_plants",
+   "category": "Home",
+   "tags": [
+    "garden",
+    "plants"
+   ],
+   "content": "# Houseplants\n\nThe fiddle leaf wants the east window and less water. Repot the monstera in spring."
+  },
+  {
+   "key": "o_shelf",
+   "category": "Home",
+   "tags": [
+    "diy"
+   ],
+   "content": "# Shelves in the hall\n\nStud finder first. Two brackets per metre, 6mm plugs. The oak board needs a coat of oil before it goes up."
+  },
+  {
+   "key": "o_bins",
+   "category": "Home",
+   "tags": [
+    "admin"
+   ],
+   "content": "# Bin days\n\nRecycling is every other Tuesday; food waste every week. The calendar is on the fridge."
+  },
+  {
+   "key": "o_bike",
+   "category": "Home",
+   "tags": [
+    "maintenance"
+   ],
+   "content": "# Bike service\n\nThe gears skip under load. New chain and a cassette check before the summer."
+  },
+  {
+   "key": "o_wifi",
+   "category": "Home",
+   "tags": [
+    "tech"
+   ],
+   "content": "# Wi-fi in the back room\n\nOne mesh point on the landing fixed it. Speed in the study went from 4 to 180."
+  },
+  {
+   "key": "i_offline",
+   "category": "Ideas",
+   "tags": [
+    "harbor",
+    "product"
+   ],
+   "content": "# Offline as the headline\n\nBeta testers did not know Harbor works offline. What if that is the first thing the store page says, not the fifth?"
+  },
+  {
+   "key": "i_maps",
+   "category": "Ideas",
+   "tags": [
+    "product",
+    "maps"
+   ],
+   "content": "# Notes as a map\n\nA node on a board could be a real note, so the map and the notebook stay one thing."
+  },
+  {
+   "key": "i_journal",
+   "category": "Ideas",
+   "tags": [
+    "writing",
+    "habits"
+   ],
+   "content": "# A five-line journal\n\nOne line each: what happened, what I learned, what I am grateful for, what tomorrow needs, one word for the day."
+  },
+  {
+   "key": "i_trip",
+   "category": "Ideas",
+   "tags": [
+    "portugal",
+    "photography"
+   ],
+   "content": "# A photo book of the trip\n\nTwenty pictures, one per page, with a line from these notes under each."
+  },
+  {
+   "key": "i_garden",
+   "category": "Ideas",
+   "tags": [
+    "garden",
+    "systems"
+   ],
+   "content": "# The garden as a system\n\nCompost is the stock, kitchen scraps the inflow. The delay is about six months, which is why it never feels like it is working."
+  },
+  {
+   "key": "i_teach",
+   "category": "Ideas",
+   "tags": [
+    "writing"
+   ],
+   "content": "# Teach what I just learned\n\nWrite a short post after each book: the one idea I would keep. It forces the reading to be active."
+  },
+  {
+   "key": "i_bread",
+   "category": "Ideas",
+   "tags": [
+    "baking",
+    "habits"
+   ],
+   "content": "# A bread habit\n\nBake every Saturday for twelve weeks and log each loaf. Same habit rule as running: make the start easy."
+  }
+ ],
+ "links": [
+  {
+   "from": "w_plan",
+   "to": "w_roadmap",
+   "reason": "The launch is the first of the quarter's three workstreams"
+  },
+  {
+   "from": "w_plan",
+   "to": "w_beta",
+   "reason": "Beta feedback closing is the first launch gate"
+  },
+  {
+   "from": "w_plan",
+   "to": "w_onboard",
+   "reason": "The onboarding rewrite is the second gate"
+  },
+  {
+   "from": "w_plan",
+   "to": "w_pricing",
+   "reason": "Pricing sign-off is the third gate"
+  },
+  {
+   "from": "w_plan",
+   "to": "w_store"
+  },
+  {
+   "from": "w_plan",
+   "to": "w_email"
+  },
+  {
+   "from": "w_plan",
+   "to": "w_metrics",
+   "reason": "What success means for the launch"
+  },
+  {
+   "from": "w_plan",
+   "to": "w_risks",
+   "reason": "What could move the launch date"
+  },
+  {
+   "from": "w_beta",
+   "to": "w_onboard",
+   "reason": "The top beta complaint is the nine-field sign-up"
+  },
+  {
+   "from": "w_beta",
+   "to": "i_offline",
+   "reason": "Testers could not find offline mode"
+  },
+  {
+   "from": "w_onboard",
+   "to": "w_standup"
+  },
+  {
+   "from": "w_pricing",
+   "to": "w_risks",
+   "reason": "Pricing sign-off is one of the three risks"
+  },
+  {
+   "from": "w_roadmap",
+   "to": "w_sync",
+   "reason": "The second workstream"
+  },
+  {
+   "from": "w_roadmap",
+   "to": "w_support",
+   "reason": "The third workstream"
+  },
+  {
+   "from": "w_roadmap",
+   "to": "w_hiring"
+  },
+  {
+   "from": "w_sync",
+   "to": "w_risks",
+   "reason": "Sync conflicts under load are a launch risk"
+  },
+  {
+   "from": "w_sync",
+   "to": "w_perf"
+  },
+  {
+   "from": "w_retro",
+   "to": "w_perf",
+   "reason": "Measuring first is what found the slow list"
+  },
+  {
+   "from": "w_retro",
+   "to": "w_standup"
+  },
+  {
+   "from": "w_store",
+   "to": "w_email"
+  },
+  {
+   "from": "w_store",
+   "to": "i_offline",
+   "reason": "Lead the store page with offline"
+  },
+  {
+   "from": "w_metrics",
+   "to": "w_beta"
+  },
+  {
+   "from": "w_support",
+   "to": "w_api"
+  },
+  {
+   "from": "w_api",
+   "to": "w_sync"
+  },
+  {
+   "from": "w_hiring",
+   "to": "w_onboard"
+  },
+  {
+   "from": "t_over",
+   "to": "t_lisbon",
+   "reason": "Four days of the ten"
+  },
+  {
+   "from": "t_over",
+   "to": "t_sintra",
+   "reason": "The day trip from Lisbon"
+  },
+  {
+   "from": "t_over",
+   "to": "t_porto",
+   "reason": "Three days of the ten"
+  },
+  {
+   "from": "t_over",
+   "to": "t_douro",
+   "reason": "The last two days"
+  },
+  {
+   "from": "t_over",
+   "to": "t_flights"
+  },
+  {
+   "from": "t_over",
+   "to": "t_trains"
+  },
+  {
+   "from": "t_over",
+   "to": "t_budget",
+   "reason": "What the ten days cost"
+  },
+  {
+   "from": "t_over",
+   "to": "t_pack"
+  },
+  {
+   "from": "t_lisbon",
+   "to": "t_sintra",
+   "reason": "The Sintra train leaves from Rossio in Lisbon"
+  },
+  {
+   "from": "t_lisbon",
+   "to": "t_trains"
+  },
+  {
+   "from": "t_porto",
+   "to": "t_trains",
+   "reason": "The Alfa Pendular runs Lisbon to Porto"
+  },
+  {
+   "from": "t_porto",
+   "to": "t_douro",
+   "reason": "The hire car is collected in Porto"
+  },
+  {
+   "from": "t_lisbon",
+   "to": "t_food"
+  },
+  {
+   "from": "t_porto",
+   "to": "t_food"
+  },
+  {
+   "from": "t_flights",
+   "to": "t_budget"
+  },
+  {
+   "from": "t_lisbon",
+   "to": "t_photos"
+  },
+  {
+   "from": "t_porto",
+   "to": "t_photos",
+   "reason": "The bridge from the upper deck"
+  },
+  {
+   "from": "t_phrases",
+   "to": "t_food"
+  },
+  {
+   "from": "t_pack",
+   "to": "t_trains"
+  },
+  {
+   "from": "c_sour",
+   "to": "c_starter",
+   "reason": "The log depends on the starter's timing"
+  },
+  {
+   "from": "c_sour",
+   "to": "c_pizza",
+   "reason": "Pizza uses the sourdough discard"
+  },
+  {
+   "from": "c_week",
+   "to": "c_soup"
+  },
+  {
+   "from": "c_week",
+   "to": "c_curry"
+  },
+  {
+   "from": "c_week",
+   "to": "c_meal",
+   "reason": "Meal prep is how the weeknights stay under 30 minutes"
+  },
+  {
+   "from": "c_meal",
+   "to": "c_soup"
+  },
+  {
+   "from": "c_knife",
+   "to": "c_spice"
+  },
+  {
+   "from": "c_nata",
+   "to": "t_food",
+   "reason": "Trying the Belém tart at home"
+  },
+  {
+   "from": "c_nata",
+   "to": "c_sour"
+  },
+  {
+   "from": "c_starter",
+   "to": "c_pizza",
+   "reason": "Discard from the feed goes into the dough"
+  },
+  {
+   "from": "c_curry",
+   "to": "c_meal"
+  },
+  {
+   "from": "c_soup",
+   "to": "c_curry"
+  },
+  {
+   "from": "c_spice",
+   "to": "c_curry",
+   "reason": "Toast the whole spices first"
+  },
+  {
+   "from": "c_knife",
+   "to": "c_week"
+  },
+  {
+   "from": "c_pizza",
+   "to": "c_week"
+  },
+  {
+   "from": "h_plan",
+   "to": "h_week4"
+  },
+  {
+   "from": "h_plan",
+   "to": "h_knee",
+   "reason": "The knee work keeps the plan on track"
+  },
+  {
+   "from": "h_plan",
+   "to": "h_shoes"
+  },
+  {
+   "from": "h_plan",
+   "to": "h_fuel"
+  },
+  {
+   "from": "h_plan",
+   "to": "h_race",
+   "reason": "The race the twelve weeks lead to"
+  },
+  {
+   "from": "h_knee",
+   "to": "h_stretch"
+  },
+  {
+   "from": "h_sleep",
+   "to": "h_week4"
+  },
+  {
+   "from": "r_systems",
+   "to": "r_weeks"
+  },
+  {
+   "from": "r_weeks",
+   "to": "r_pod"
+  },
+  {
+   "from": "r_pod",
+   "to": "r_habits"
+  },
+  {
+   "from": "r_design",
+   "to": "r_pattern",
+   "reason": "Both are about what people are drawn to"
+  },
+  {
+   "from": "r_list",
+   "to": "r_data"
+  },
+  {
+   "from": "r_list",
+   "to": "r_mom"
+  },
+  {
+   "from": "r_data",
+   "to": "w_sync",
+   "reason": "Chapter 5 before the sync rewrite"
+  },
+  {
+   "from": "r_mom",
+   "to": "w_beta",
+   "reason": "How to ask the beta testers better questions"
+  },
+  {
+   "from": "r_design",
+   "to": "w_onboard"
+  },
+  {
+   "from": "i_maps",
+   "to": "r_design"
+  },
+  {
+   "from": "i_journal",
+   "to": "r_habits"
+  },
+  {
+   "from": "i_journal",
+   "to": "r_essay"
+  },
+  {
+   "from": "i_trip",
+   "to": "t_photos",
+   "reason": "The pictures for the book"
+  },
+  {
+   "from": "i_trip",
+   "to": "t_over"
+  },
+  {
+   "from": "i_garden",
+   "to": "r_systems",
+   "reason": "Stocks, flows and a delay"
+  },
+  {
+   "from": "i_garden",
+   "to": "o_garden"
+  },
+  {
+   "from": "i_teach",
+   "to": "r_essay"
+  },
+  {
+   "from": "i_bread",
+   "to": "c_sour",
+   "reason": "Log each loaf"
+  },
+  {
+   "from": "i_bread",
+   "to": "r_habits",
+   "reason": "The same make-it-easy rule"
+  },
+  {
+   "from": "r_habits",
+   "to": "h_plan",
+   "reason": "Lay the running kit out the night before"
+  },
+  {
+   "from": "o_garden",
+   "to": "o_plants"
+  }
+ ],
+ "documents": [
+  {
+   "title": "Harbor launch brief",
+   "content": "# Harbor launch brief\n\nHarbor is a notes app that sorts itself and works with no connection. This brief is the one page everyone on the launch works from: what we are shipping, to whom, and how we will know it worked.\n\n## What ships on the 14th\n\n- The mobile app on both stores, free tier and paid tier\n- The four-field sign-up, with the name asked for on the first share\n- Offline mode on by default, and said so on the first screen\n\n## Who it is for\n\nPeople who write a lot of short notes and never go back to them. The beta told us they want to find things again more than they want features, so the launch leads with search and offline, not with the long feature list.\n\n## How we will know\n\n| Measure | Target | Why |\n| --- | --- | --- |\n| Week-two retention | 35% | People came back after the novelty |\n| Notes in week one | 12 per person | The habit started |\n| Support tickets per 100 installs | under 3 | The sign-up is clear |\n\n## Open questions\n\nThe store review could take longer than a week, so the date has one week of slack in it. The pricing page still needs sign-off, and the launch email waits on it.\n\n## After launch\n\nTwo weeks of fixes only, then the sync rewrite starts. Nothing new ships in those two weeks unless it fixes something a person reported."
+  },
+  {
+   "title": "Portugal itinerary",
+   "content": "# Portugal itinerary\n\n## Lisbon, days 1 to 4\n\nAlfama walk, Belém, the LX Factory market on Sunday.\n\n## Sintra, day 5\n\nPena Palace at opening time, Regaleira after lunch.\n\n## Porto, days 6 to 8\n\nRibeira, Gaia port lodges, the Serralves gardens.\n\n## Douro, days 9 and 10\n\nThe river road to Pinhão, one night at a quinta."
+  },
+  {
+   "title": "Sourdough method",
+   "content": "# Sourdough method\n\n1. Feed the starter 1:5:5 the night before.\n2. Mix 500g flour, 390g water, 100g starter, 10g salt.\n3. Four sets of folds, thirty minutes apart.\n4. Shape, then 20 hours in the fridge.\n5. Bake at 250 with the lid on for 20 minutes, 230 with it off for 25."
+  }
+ ]
+}

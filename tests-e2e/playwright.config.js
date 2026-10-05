@@ -1,78 +1,119 @@
-// Headless Playwright smoke suite (roadmap ANALYSIS.md §31, ROADMAP.md §38.2).
+// Headless Playwright suite (roadmap ANALYSIS.md §31, ROADMAP.md §38.2).
 //
-// The point named in the roadmap: "every layout bug found by hand has
-// passed a fully green run" — the Python suite fakes every AI call and
-// never opens a browser, so a clipped tab, an overlapping z-index or a
-// console error has never once failed CI. This doesn't replace that
-// suite; it catches the class of bug it structurally cannot.
+// Two notebooks, two servers, two projects:
 //
-// PLAYWRIGHT_BROWSERS_PATH, if set, is respected automatically by
-// Playwright itself — no code here needs to know about it. In this sandbox
-// that points at the pre-installed Chromium; in real CI, `npx playwright
-// install --with-deps chromium` downloads one to the default cache location
-// and this config works unchanged either way.
+//   * "first-run" is a brand-new data dir: the account is made, nothing else.
+//     Only `first-run.spec.js` runs there, because a fresh install is the one
+//     state the other specs cannot leave alone (they all write notes).
+//   * "notebook" is a realistic one, seeded by global-setup.js from
+//     `fixtures/notebook.json` (75 notes in seven categories, 87 links, three
+//     documents). Every other spec runs there. A notebook with filed notes is
+//     what lets the no-model filing path (`ai/lexical_filing.py`) file a new
+//     note at all, so capture and filing can be asserted end to end with no
+//     model and no network.
+//
+// Why this suite grew from one smoke file (2026-10-05): the Python suite has
+// thousands of tests and fakes every AI call and every browser, and the core
+// flow, writing a note and having it filed, was broken for an unknown time
+// without one of them failing. These specs drive the real UI against a real
+// server and assert what a person would see after a reload.
+//
+// PLAYWRIGHT_BROWSERS_PATH, if set, is respected by Playwright itself. In CI,
+// `npx playwright install --with-deps chromium` puts a browser in the default
+// cache and this config works unchanged.
+//
+// Local knobs (all optional):
+//   MEMORYMAP_E2E_PORT      the notebook server's port (first-run uses +1)
+//   MEMORYMAP_E2E_DATA_DIR  where the two data dirs go (wiped at start)
+//   MEMORYMAP_PYTHON        the interpreter that runs the app
 const { defineConfig, devices } = require("@playwright/test");
 const os = require("os");
 const path = require("path");
 
-const PORT = process.env.MEMORYMAP_E2E_PORT || 8799;
+const PORT = Number(process.env.MEMORYMAP_E2E_PORT || 8799);
+const FRESH_PORT = PORT + 1;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
-const DATA_DIR = path.join(os.tmpdir(), `memorymap-e2e-${PORT}`);
+const FRESH_URL = `http://127.0.0.1:${FRESH_PORT}`;
+const DATA_ROOT = process.env.MEMORYMAP_E2E_DATA_DIR || path.join(os.tmpdir(), `memorymap-e2e-${PORT}`);
+const PYTHON = process.env.MEMORYMAP_PYTHON || "python";
 
-module.exports = defineConfig({
-  testDir: "./specs",
-  // One shared app instance (see webServer below), so tests run serially
-  // against one notebook rather than each spinning up its own server.
-  fullyParallel: false,
-  workers: 1,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
-  // "github" alone annotates the run but writes no report to disk — the CI
-  // job uploads playwright-report/ on failure, which needs "html" too.
-  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
-  timeout: 30_000,
-  globalSetup: require.resolve("./global-setup.js"),
-  use: {
-    baseURL: BASE_URL,
-    headless: true,
-    screenshot: "only-on-failure",
-    trace: "retain-on-failure",
-    // Written by global-setup.js: first-run password, unlock and the
-    // onboarding overlay dismissed once, reused by every spec so each one
-    // isn't repeating the same slow setup dance.
-    storageState: path.join(__dirname, ".auth-state.json"),
-  },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    // MEMORYMAP_PYTHON lets this run against the sandbox's .venv locally;
-    // real CI has `python` on PATH after `pip install -e .`, same as the
-    // Python suite's own CI job.
+// The data dir is wiped in the server's own command, not here: this file is
+// loaded again in every worker process, and a wipe at load would delete the
+// notebook under a running server.
+function server(port, dir) {
+  return {
     command:
-      `${process.env.MEMORYMAP_PYTHON || "python"} -m uvicorn ` +
-      `memorymap.api.app:create_app --factory --port ${PORT}`,
-    url: BASE_URL,
+      `rm -rf "${dir}" && mkdir -p "${dir}" && ` +
+      `${PYTHON} -m uvicorn memorymap.api.app:create_app --factory --port ${port}`,
+    url: `http://127.0.0.1:${port}/auth/status`,
     reuseExistingServer: false,
-    timeout: 30_000,
+    timeout: 60_000,
     cwd: path.join(__dirname, ".."),
     env: {
       ...process.env,
       PYTHONPATH: "src",
-      MEMORYMAP_DATA_DIR: DATA_DIR,
-      // This suite never asserts on semantic search, so the embedding
-      // model doesn't need to be real — only fast and offline. Without
-      // this, a CI runner with no cached model tries to download it from
-      // HuggingFace on the first note save, and HF's 429 rate limiting on
-      // shared CI IPs can stall that single request for a minute-plus
-      // (`huggingface_hub`'s own retry/backoff), well past this suite's
-      // assertion timeouts. The app's embedding path is already best-effort
-      // (a failed embed never fails the save) — offline mode just makes it
-      // fail fast instead of hanging, same degraded mode CLAUDE.md already
-      // documents ("semantic search falls back to keywords").
+      MEMORYMAP_DATA_DIR: dir,
+      // Settings, Packages must not start installing extras mid-run.
+      MEMORYMAP_NO_AUTO_INSTALL: "1",
+      // No spec asserts on a real embedding model, so it need only be fast
+      // and offline: without these a runner with no cached model tries to
+      // download one on the first save and HuggingFace's rate limit stalls
+      // that request past every timeout here. The embed path is best effort
+      // (a failed embed never fails a save), and meaning search falls back
+      // to keywords, which is the no-model behaviour these specs assert.
       HF_HUB_OFFLINE: "1",
       TRANSFORMERS_OFFLINE: "1",
     },
+  };
+}
+
+module.exports = defineConfig({
+  testDir: "./specs",
+  // One app instance per project, so tests run serially against one
+  // notebook rather than each spinning up its own server.
+  fullyParallel: false,
+  workers: 1,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 1 : 0,
+  // "github" alone annotates the run but writes no report to disk; the CI
+  // job uploads playwright-report/ on failure, which needs "html" too.
+  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
+  timeout: 45_000,
+  expect: { timeout: 10_000 },
+  globalSetup: require.resolve("./global-setup.js"),
+  use: {
+    headless: true,
+    screenshot: "only-on-failure",
+    trace: "retain-on-failure",
+    // Clipboard access for the paste spec; harmless everywhere else.
+    permissions: ["clipboard-read", "clipboard-write"],
   },
+  projects: [
+    {
+      name: "first-run",
+      testMatch: /first-run\.spec\.js/,
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL: FRESH_URL,
+        storageState: path.join(__dirname, ".auth-fresh.json"),
+      },
+    },
+    {
+      name: "notebook",
+      testIgnore: /first-run\.spec\.js/,
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL: BASE_URL,
+        // Written by global-setup.js: the account made, unlocked, the
+        // welcome and the updates question answered once, reused by every
+        // spec so none repeats that setup.
+        storageState: path.join(__dirname, ".auth-state.json"),
+      },
+    },
+  ],
+  webServer: [server(PORT, path.join(DATA_ROOT, "notebook")), server(FRESH_PORT, path.join(DATA_ROOT, "fresh"))],
 });
 
 module.exports.BASE_URL = BASE_URL;
+module.exports.FRESH_URL = FRESH_URL;
 module.exports.E2E_PASSWORD = "e2e-smoke-test-password";

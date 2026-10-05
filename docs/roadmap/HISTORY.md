@@ -42033,6 +42033,15 @@ record.)
      598 (loading states), next agent slot.
      Fixed 2026-10-05: returning to the dashboard keeps the old widgets and swaps each in when redrawn: 10 empty frames to 0.
 
+611. **The owner, 2026-10-05, verbatim.** "I started the tour from the
+     settings and it turned my generative bg art on except the setting is
+     off?? i think it was the tour that did it??" (screenshots: Settings,
+     Animated background off; the dashboard showing the generative
+     background anyway.)
+     Fixed 2026-10-05: `startBgArt` drew whatever its caller asked (the power
+     saver, a theme, a resize restart the pictures); it now stops when the
+     art is off. bgartoff.js: base 1 canvas with the setting off, now 0.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

@@ -164,12 +164,6 @@ with its owner named in the entry.
      node toolbar instead of nested popup menus, every node property
      reachable in at most two steps, measured by a task sweep.
 
-611. **The owner, 2026-10-05, verbatim.** "I started the tour from the
-     settings and it turned my generative bg art on except the setting is
-     off?? i think it was the tour that did it??" (screenshots: Settings,
-     Animated background off; the dashboard showing the generative
-     background anyway.)
-
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 540, 554, 556, 564, 575 (Atlas motion and form) placed in

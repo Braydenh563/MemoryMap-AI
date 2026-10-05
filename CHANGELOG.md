@@ -307,6 +307,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Dashboard: the first screen is calmer. Under the greeting is one row, the search box and a "..." menu holding Continue, your recent skills, Tools & features, Commands, View, Widgets and Edit layout; then the Start something tiles and your widgets. The Jump to and Run a skill rows, the four number tiles and the Your dashboard bar are gone from the page (the numbers are in the greeting, the status bar and the Stats, Streak and Writing pace widgets), and Edit layout shows a line above the widgets with its own Done.
 
 ### Fixed
+- Agent mode: a model that can call tools is no longer reported as unable to after one tool call Ollama could not read; the request is made once more, only Ollama's own "does not support tools" counts as no tools, an error mid-answer is said instead of ending empty, and a model that claims tools but keeps failing gets its own message (INBOX 538).
 
 - Mind maps: the + on a map line is one Undo step that puts the branch back under its parent; Redo brings the new topic back between them; any topic taken back by Undo comes back under its parent on Redo, and a batch redoes in the right order (INBOX 537).
 Graph: a topic summary request's shared terms are capped at 200 characters each.

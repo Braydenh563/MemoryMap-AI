@@ -2662,7 +2662,7 @@ def run_agent(
                         break
                 elif "final" in piece:
                     reply = piece["final"]
-        except ToolsUnsupportedError:
+        except ToolsUnsupportedError as exc:
             # INBOX 272 part 1: named here, once, so every caller that
             # forwards this event (routes_chat.py, skill_runner.py) shows
             # the same remedy instead of dropping the event on the floor,
@@ -2672,7 +2672,7 @@ def run_agent(
             yield {
                 "type": "unsupported",
                 "model": agent_model,
-                "message": tools_unsupported_message(agent_model),
+                "message": tools_unsupported_message(agent_model, getattr(exc, "declared", True)),
             }
             return
         except OllamaError as exc:

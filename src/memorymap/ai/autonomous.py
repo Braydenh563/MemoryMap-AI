@@ -230,6 +230,22 @@ def clear_snooze() -> None:
     _snooze_frozen = None
 
 
+def reset_state() -> None:
+    """Forget the Quit flag and any hold: the state a new app, or a new test,
+    starts from.
+
+    `_cancel`, `_snooze_until` and `_snooze_frozen` are module level because
+    there is one scheduler per process, which is true of the app and false of
+    a test run, where one process builds hundreds of apps: a Quit pressed in
+    one left the flag set and a six hour hold armed for every later one, and
+    which later ones depended on the order. `create_app` calls this when it
+    starts the scheduler and `conftest` calls it around every test. A pass
+    that is executing (`_working`) is left alone: it clears its own flag.
+    """
+    _cancel.clear()
+    clear_snooze()
+
+
 def scheduler_alive() -> bool:
     """Is the interval loop running? (For diagnostics, not the task list.)"""
     with _lock:

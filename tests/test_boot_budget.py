@@ -47,7 +47,11 @@ STYLE = re.compile(r'<link[^>]*rel="stylesheet"[^>]*href="(/[^"?]+)(?:\?[^"]*)?"
 #: And after 88227db (621, 622): 589,719.
 #: And after the Atlas merge (f22bd43), with the companion's menu and
 #: enlarged view in companion-menu.js (lazy): 589,093.
-BOOT_JS_CAP = 589_100
+#: And with the s2 agent's list drag-select edge scroll (selection.js, +489,
+#: boot): 589,597. Raised to the measure rounded up, because the code is the
+#: feature and nothing in the boot is dead (a scan for functions with no
+#: caller found none); the next agent to move a boot helper lazy lowers it.
+BOOT_JS_CAP = 589_600
 BOOT_CSS_CAP = 183_300
 
 

@@ -9,7 +9,7 @@ Done:
 - Sweeps: noteedit616.js 0 findings at 1440 light and 390 dark; noteeditflow.js all passed (fresh data, one bookmark seeded); a session check of the companion menu, enlarged view, Atlas figure and atlas-life.js load at 1440 and 390, no page errors.
 
 Left:
-- The world-class branch's "Link all above 70%" on a suggested link and its lazy-inbox.css move (a749b9d) were not ported; the integration's own suggested-link row (081b29d) stands.
-- A note type made through `POST /note-types` before the list was ever read, then deleted, loses its id on Undo.
-- autonomous.py's module-level stop flag leaks between tests in one process (fixed in test_words_review only).
+- "Link all above 70%" (a749b9d): the control already existed on the kept row (`linkSure`); ported what it lacked (the confirm, an honest "Linked n of m", a failed link stays listed, the help line), s2 agent, `tests/test_link_all_sure.py`. The lazy-inbox.css move was not ported.
+- A note type made through `POST /note-types` before the list was read, then deleted, loses its id on Undo: not reproduced (nothing seeds note types), pinned by a test, s2 agent.
+- autonomous.py's module-level stop flag: `reset_state()`, called by `create_app` and by a conftest autouse fixture (s2 agent).
 - `gate.sh --changed` selects most of the suite on this branch; the targeted runs stood in for it.

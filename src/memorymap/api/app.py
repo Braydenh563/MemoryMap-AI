@@ -648,6 +648,7 @@ def _start_autonomous_loop() -> None:
     safe: a disabled notebook just sleeps.
     """
     try:
+        autonomous.reset_state()  # a new app is a new notebook: not the last one's Quit
         autonomous.start()
     except Exception:  # noqa: BLE001  # same rule as the three above
         logging.getLogger("memorymap.startup").warning(

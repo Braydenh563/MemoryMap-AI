@@ -987,9 +987,8 @@ audit is open.
 Each of these was found by measuring and deferred with evidence; the
 `agent-remaining/*.md` file named carries the file, id and next step.
 
-- Whiteboard board-preview minimap writes NaN rects (20 console errors on
-  a notebook with boards; `app.js` `board-minimap-card`). Owner: mindmap
-  item F (previews), since the new miniature renderer replaces it.
+- Whiteboard board-preview minimap NaN rects: not reproduced 2026-10-05 (six
+  boards, 0 errors at 1440 and 390, `errors.js`); see worldclass-1005c.md.
 - 1024px still wraps the Writing Room controls and the capture attachment
   row. Owner: consistency.md.
 - Tab bar scrolls between 600 and 819px; short tab captions below 480 are
@@ -1799,7 +1798,7 @@ the reference laptop, every list over 200 rows virtualised, `/entries`
 paged everywhere. `scratchpad/ui-sweeps/boottime.js` is the gate and its
 numbers go in the CHANGELOG with each step.
 
-**State 2026-09-24:** (b) boot JS went 1,699 to 1,072 KB (A1, in HISTORY) against the 1 MB line; first paint under 300 ms and virtualising every list over 200 rows were not measured here. S each.
+**State 2026-09-24:** (b) boot JS went 1,699 to 1,072 KB (A1, in HISTORY) against the 1 MB line; first paint under 300 ms and virtualising every list over 200 rows were not measured here. S each. Lists past 200 measured 2026-10-05 (`ui-sweeps/s2-1005.js` MODE=rows, 300 rows, 1440, under load): Reminders 9,756 nodes, scroll p95 24 to 25ms; Timeline 2,148 nodes, p95 19 to 22ms; Library docs 12,090 nodes (40 a card), p95 32 to 42ms, worst 57 to 66ms; a `content-visibility` row for the Library was inconclusive (41 and 128ms worst), not applied.
 
 **Corrected 2026-10-05 (audit FE-06).** The 1,072 KB did not hold: nine days later boot JS was 1,384 KB gzipped (own 1,294 plus d3), and `boottime.js` was never in `gate.sh`, so nothing stopped it. The gate is now `tests/test_boot_budget.py`, which gzips every boot script and stylesheet as served and fails over its caps (measured plus 2%, only lowered). With comments stripped at serve time (`api/asset_strip.py`, FE-01) boot JS measured 691,724 bytes (d3 92,459 of it) and boot CSS 179,712. p5 was still fetched after load and d3 was a boot script (FE-07): both off the boot since 2026-10-05, d3 with the graph and library bundles, the emblem a 2D canvas.
 

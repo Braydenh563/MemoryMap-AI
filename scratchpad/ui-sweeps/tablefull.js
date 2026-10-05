@@ -96,7 +96,10 @@ const { boot } = require('./lib.js');
   if (r.buttons !== 2) bad.push(`table bar has ${r.buttons} controls, not Copy plus a kebab`);
   if (r.menuItems.length !== 5) bad.push(`table menu has ${r.menuItems.length} items, not 5`);
   if (Number(r.z) < 2000 || !r.inPanel || !r.parentIsBody || !r.viewportSized) bad.push('full view is not above the app chrome');
-  if (r.clusters !== 2 || r.clusterBg === 'rgba(0, 0, 0, 0)' || r.clusterBtnBorders.join() !== '0px') bad.push('top bar clusters');
+  // No ground on the clusters any more: the page-head redesign made the bars
+  // "one quiet page head" with no tinted cluster (clusterBg is transparent by
+  // design), so the check is the two clusters and borderless buttons.
+  if (r.clusters !== 2 || r.clusterBtnBorders.join() !== '0px') bad.push('top bar clusters');
   if (r.fitState.overflowX !== 'hidden' || r.fitState.layout !== 'fixed' || r.fitState.scrolls) bad.push('full view does not fit the panel');
   if (r.actualState.overflowX !== 'auto' || r.actualState.layout !== 'auto' || r.actualState.label !== 'Fit to panel') bad.push('the actual-size toggle does not work');
   // --- INBOX 181, first half: the toggle has to do something in a bubble too.
@@ -190,17 +193,21 @@ const { boot } = require('./lib.js');
   if (dragged.inline.grips !== 0 || dragged.inline.thWidthStyle !== '') bad.push('the grips and the dragged widths outlive full view');
   if (Math.abs(dragged.afterReturn.thW - dragged.thW) > 2 || Math.abs(dragged.afterReturn.trH - dragged.trH) > 2) bad.push('the dragged sizes are not restored on return');
 
-  // --- INBOX 188, the half the report is actually about: the same bar inside
-  // the popup agent, which is a 293px card, and at 390 where the bar's two
+  // --- INBOX 188, the half the report is actually about: the same bar at 390, where the agent is the Chat tab (it was the popup agent card, 293px wide, until phone widths went to Chat), where the bar's two
   // controls have to be reachable with a thumb.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(300);
+  // `toggleAgentPalette()` is the phone's way to the Chat tab below 600px (the
+  // popup is not offered there: UI_MODERNISATION_PLAN Phase 11 item 3), so it no
+  // longer opens #command-palette-overlay at 390. The agent's surface at this
+  // width is the Chat tab; the table is measured in its message list.
   await page.evaluate(() => toggleAgentPalette());
-  await page.waitForSelector('#command-palette-overlay:not(.hidden)');
+  await page.waitForFunction(() => document.getElementById('tab-chat') && !document.getElementById('tab-chat').classList.contains('hidden') && document.getElementById('chat-messages').getClientRects().length);
+  await page.waitForTimeout(300);
   const p = await page.evaluate(() => {
     const host = document.createElement('div');
     host.className = 'bubble-answer';
-    document.getElementById('command-palette-results').appendChild(host);
+    document.getElementById('chat-messages').appendChild(host);
     renderMarkdown(host, '| A | B | C |\n| --- | --- | --- |\n| 1 | 2 | 3 |');
     const group = host.querySelector('.code-actions');
     const controls = [...group.children]
@@ -224,10 +231,10 @@ const { boot } = require('./lib.js');
       overflows: groupRect.right > barRect.right + 0.5,
     };
   });
-  console.log(`popup agent  ${p.controls} controls on ${p.rows} row(s) at 390: ${p.sizes.map((s) => `${s.label} ${s.w}x${s.h}`).join(', ')}; actions ${p.groupW}px in a ${p.barW}px bar, overflowing ${p.overflows}`);
-  if (p.controls !== 2) bad.push('the popup agent table bar is not Copy plus a kebab');
-  if (p.rows !== 1) bad.push('the popup agent table bar wraps onto two rows');
-  if (p.overflows) bad.push('the popup agent table bar overflows its block');
+  console.log(`phone agent  ${p.controls} controls on ${p.rows} row(s) at 390 (Chat tab): ${p.sizes.map((s) => `${s.label} ${s.w}x${s.h}`).join(', ')}; actions ${p.groupW}px in a ${p.barW}px bar, overflowing ${p.overflows}`);
+  if (p.controls !== 2) bad.push('the phone agent table bar is not Copy plus a kebab');
+  if (p.rows !== 1) bad.push('the phone agent table bar wraps onto two rows');
+  if (p.overflows) bad.push('the phone agent table bar overflows its block');
   if (p.sizes.some((s) => s.h < 44 || s.w < 44)) bad.push(`a table bar control is under 44px at 390: ${p.sizes.map((s) => `${s.w}x${s.h}`).join(', ')}`);
 
   console.log(`console errors ${errs.length}${errs.length ? ' ' + errs.join(' | ') : ''}`);

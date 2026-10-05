@@ -2319,6 +2319,16 @@ label.setting-check,
   .setting-row .row {
     width: 100%;
   }
+
+  /* Stacked, the row is a column, and `flex: 1 1 14rem` on the label (the
+     "words wrap before the control" rule further down) is then a HEIGHT: every
+     one-line label stood 224px tall with its control pushed to the bottom
+     (measured at 390: 39 rows, 114 to 202px of empty space, the tall gap above
+     "Tokens per step" in Tools it can use). The extra class outranks that
+     later rule without a second 640px query (test_breakpoints). */
+  .settings-group > .setting-row > .setting-label {
+    flex: 0 0 auto;
+  }
 }
 
 /* --- first-run onboarding tour ------------------------------------------------- */

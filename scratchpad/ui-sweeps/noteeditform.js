@@ -75,7 +75,7 @@ const theme = process.env.THEME || "light";
       h: rel.length ? Math.round(rel[rel.length - 1].getBoundingClientRect().bottom - rel[0].getBoundingClientRect().top) : 0,
     };
     const attach = [...li.querySelectorAll("button")].find((b) => /attach a link/i.test(b.textContent + " " + (b.getAttribute("aria-label") || "")));
-    out.attach = attach ? { inFoot: !!attach.closest(".note-edit-actions"), edge: edge(attach), h: Math.round(attach.getBoundingClientRect().height) } : null;
+    out.attach = attach ? { inFoot: !!attach.closest(".note-edit-foot"), edge: edge(attach), h: Math.round(attach.getBoundingClientRect().height) } : null;
     out.formH = Math.round(li.getBoundingClientRect().height);
     return out;
   });

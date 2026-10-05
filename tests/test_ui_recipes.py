@@ -4292,4 +4292,29 @@ def test_every_settings_pane_opens_on_its_dock() -> None:
     find = (ROOT / "frontend" / "js" / "settings-find.js").read_text(encoding="utf-8")
     assert 'anchor?.matches(".dock")' in _function_body(find, "settingsIndexBuild")
     title = _css_block("#settings-modal .settings-section > .dock h3")
-    assert "var(--text-body)" in title and "600" in title
+    # 600 is `.card h3`'s own weight; the size and the ink are this rule's.
+    assert "var(--text-body)" in title and "var(--ink)" in title
+
+
+def test_the_note_edit_form_is_one_composition() -> None:
+    """INBOX 606, the owner: "something about the design, ui/ux of the note
+    edit form still feels off...". Measured with `noteeditform.js` at 1440,
+    before: title, strip and body as three frames; a 36px comma field and a
+    select; Save then Cancel mid-row; two boxed "Link" buttons; a lone boxed
+    "Attach a link" (28px, 1px edge) under everything. After: one
+    `.note-composer` surface; tags as chips in the search field's well; the
+    category as its chip; a foot of Attach a link (an icon, no edge) at the
+    left and Cancel then the one filled Save at the right; a quiet + per
+    related note (0 boxed buttons)."""
+    form = _function_body(app_js_text(), "renderEditForm")
+    assert 'surface.className = "note-composer note-edit-surface"' in form
+    assert 'tagField.className = "search-field tag-field note-edit-tags"' in form
+    assert 'chip("", "category note-edit-category"' in form
+    assert "meta.append(tagField, categoryChip)" in form
+    assert form.index('smallButton("Cancel"') < form.index("    saveButton\n  );")
+    assert "li.append(surface, chipsHost, meta, foot)" in form
+    panels = (ROOT / "frontend" / "js" / "note-edit-panels.js").read_text(encoding="utf-8")
+    assert panels.count('li.insertBefore(panel, li.querySelector(":scope > .note-edit-foot"))') == 2
+    assert "foot.prepend(attachButton)" in panels
+    rows = (ROOT / "frontend" / "js" / "note-panels.js").read_text(encoding="utf-8")
+    assert 'smallButton("ph:plus", `Link this note to' in rows

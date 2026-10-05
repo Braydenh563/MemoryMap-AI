@@ -2787,6 +2787,11 @@ header#top-bar,
     display: contents;
   }
 
+  /* New note floats over the edit form's Save otherwise (INBOX 606). */
+  .tab-page:has(.note-edit-surface) > .dock-fab {
+    display: none;
+  }
+
   /* An icon picker since INBOX 599: its square, not a stretched field. */
   .dock[data-dock-name="library-skills"] .select-shell:has(> #skills-sort) {
     flex: 0 0 auto;

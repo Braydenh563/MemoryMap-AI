@@ -1326,6 +1326,17 @@ function historyActorLabel(actor) {
   return actor;
 }
 
+//: True when the vault's key is loaded, asking for the password if not.
+async function ensureVaultOpen() {
+  if (vaultOpen === true) return true;
+  const info = await apiJson("/auth/account").catch(() => null);
+  if (info && info.vault_open) {
+    vaultOpen = true;
+    return true;
+  }
+  return unlockPrivateNotes();
+}
+
 async function toggleEntryPrivacy(entry) {
   const makingPrivate = !entry.is_private;
   if (makingPrivate) {

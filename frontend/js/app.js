@@ -789,17 +789,6 @@ async function unlockPrivateNotes() {
   return true;
 }
 
-//: True when the vault's key is loaded, asking for the password if not.
-async function ensureVaultOpen() {
-  if (vaultOpen === true) return true;
-  const info = await apiJson("/auth/account").catch(() => null);
-  if (info && info.vault_open) {
-    vaultOpen = true;
-    return true;
-  }
-  return unlockPrivateNotes();
-}
-
 //: Modal dialogs and popovers sit in the top layer, above the lock screen,
 //: and make it inert: a lock left them readable and the password field
 //: untypeable. They are put away while it shows and back, as they were,
@@ -2025,6 +2014,8 @@ const LAZY_MODULES = {
   companionMenu: ["/js/companion-menu.js"],
   //: A held drag-selection scrolling a list at its edge (drag-edge.js), preloaded below.
   dragEdge: ["/js/drag-edge.js"],
+  //: The back/forward list's rows (INBOX 654): see nav-history.js.
+  navHistory: ["/css/nav-history-lazy.css", "/js/nav-history.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.

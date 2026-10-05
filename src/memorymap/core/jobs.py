@@ -74,7 +74,12 @@ def _cpu_width() -> int:
 
 #: Lane -> how many workers it gets. `model` is 1 on purpose; see the module
 #: docstring. Read by `tests/test_jobs_pool.py`, which fails if it grows.
-LANE_WIDTHS: dict[str, int] = {"cpu": _cpu_width(), "model": 1}
+#:
+#: `install` is one wide for the reason `model` is: two pips against one
+#: environment is a way to corrupt it (`core/extras.py`). Its own lane rather
+#: than the `cpu` one, because an install can take minutes and a laptop with
+#: one core would otherwise read no picture until pip had finished.
+LANE_WIDTHS: dict[str, int] = {"cpu": _cpu_width(), "model": 1, "install": 1}
 
 #: The lane each job kind belongs on. A kind missing from here lands on
 #: `DEFAULT_LANE` with a debug line rather than raising.
@@ -88,6 +93,9 @@ KIND_LANES: dict[str, str] = {
     "maintenance": "cpu",
     "bench": "model",
     "warm": "model",
+    #: Installing, removing or reinstalling optional extras, one package or
+    #: a bundle (`core/extras.py`, INBOX 595).
+    "extras": "install",
 }
 
 DEFAULT_LANE = "cpu"
@@ -96,7 +104,11 @@ DEFAULT_LANE = "cpu"
 #: for: the privacy ledger's flush (`core/egress.py`) queues one within a
 #: second of any connection that leaves this computer, and a row in the
 #: activity panel for it would be noise that says nothing they can act on.
-QUIET_KINDS = frozenset({"ledger", "maintenance", "warm"})
+#:
+#: `extras` is quiet for another reason: `routes_tasks.collect` already draws
+#: an install as its own row, with pip's step and log, and a second generic
+#: "Background job" row for the same install would say the same thing twice.
+QUIET_KINDS = frozenset({"ledger", "maintenance", "warm", "extras"})
 
 
 def _start_heartbeat(target):  # noqa: ANN001, ANN202

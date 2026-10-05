@@ -110,7 +110,7 @@ def test_an_extra_already_installed_is_not_a_failure(monkeypatch):
     def boom(*a, **k):
         raise AssertionError("nothing should be installed")
 
-    monkeypatch.setattr(extras.threading, "Thread", boom)
+    monkeypatch.setattr(extras, "_dispatch", boom)
     assert extras.install_blocking(["voice", "docx"]) == 0
 
 

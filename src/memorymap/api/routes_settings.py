@@ -1552,14 +1552,37 @@ def list_extras() -> dict:
     so this is only the catalogue and the current state.
     """
     state = extras.current()
+    bulk = extras.bulk_status()
     return {
         "extras": extras.status(),
-        "running": state.running,
+        "bundles": extras.bundles(),
+        #: A bulk action is running between two of its packages too, when
+        #: `state` is idle for a moment: the screen keeps polling through it.
+        "running": state.running or bulk["running"],
         "installing": state.extra_id if state.running else "",
         "step": state.step,
         "outcome": state.outcome,
         "log": list(state.log),
+        "bulk": bulk,
     }
+
+
+class ExtrasBulkBody(BaseModel):
+    """A bulk action: ids from the allowlist, or one bundle's id. Never a
+    package spec: `core/extras.start_bulk` refuses any id it does not hold."""
+
+    action: str = Field(max_length=20)
+    ids: list[str] = Field(default_factory=list, max_length=50)
+    bundle: str = Field(default="", max_length=40)
+
+
+@router.post("/extras/bulk")
+def bulk_extras(body: ExtrasBulkBody) -> dict:
+    """Install, remove or reinstall several extras, one after another, as one
+    background job (INBOX 595). Each package reports its own outcome in
+    `GET /extras`'s `bulk.items`; one failing does not stop the rest."""
+    started, message = extras.start_bulk(body.action, body.ids, bundle=body.bundle)
+    return {"started": started, "message": message}
 
 
 @router.post("/extras/{extra_id}/install")

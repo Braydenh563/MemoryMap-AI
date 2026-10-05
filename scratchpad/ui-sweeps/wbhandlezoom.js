@@ -36,8 +36,8 @@ async function newBoard(page, name) {
   await page.waitForTimeout(700);
   await page.evaluate(() => document.getElementById("wb-boards-new").click());
   await page.waitForTimeout(700);
-  await page.fill(".confirm-overlay input[type=text]", name);
-  await page.click(".confirm-overlay .confirm-actions button:last-child");
+  await page.fill("#wb-template-name", name);
+  await page.click("#wb-template-create");
   await page.waitForTimeout(2500);
   await page.keyboard.press("Escape");
 }

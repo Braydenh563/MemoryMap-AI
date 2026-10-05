@@ -4314,7 +4314,9 @@ function wbLinkSelectionBox(sketch) {
   } catch {
     return null;
   }
-  if (!String(parsed?.type || "").startsWith("link-")) return null;
+  //: A map's cross-link has the map's ring, never the board's bar
+  //: (`maptwokinds.js`): only a board connector (`wbLinkTakesLabel`) earns one.
+  if (!String(parsed?.type || "").startsWith("link-") || !wbLinkTakesLabel(sketch, parsed)) return null;
   const ends = wbResolveLinkEndpoints(parsed);
   if (!ends) return null;
   const pts = [ends.source, ends.target, ...(Array.isArray(parsed.points) ? parsed.points : [])];

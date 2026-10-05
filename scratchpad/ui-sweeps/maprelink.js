@@ -26,9 +26,9 @@ async function newMap(page, name) {
   await page.waitForTimeout(700);
   await page.evaluate(() => document.getElementById("wb-boards-new")?.click());
   await page.waitForTimeout(700);
-  await page.fill(".confirm-overlay input[type=text]", name);
-  await page.click('.confirm-overlay .seg button[data-value="map"]');
-  await page.click(".confirm-overlay .confirm-actions button:last-child");
+  await page.fill("#wb-template-name", name);
+  await page.click('#wb-template-kind button[data-value="map"]');
+  await page.click("#wb-template-create");
   await page.waitForFunction(() => wbIsMap() && wbMapIndex().roots.length > 0, null, { timeout: 90000 });
   await page.waitForTimeout(1500);
   await page.keyboard.press("Escape");

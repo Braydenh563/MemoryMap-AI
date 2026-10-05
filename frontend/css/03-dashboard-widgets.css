@@ -1915,7 +1915,7 @@ header#top-bar select,
   font-size: var(--text-h3);
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   .dash-quicklinks {
     gap: var(--space-4);
   }

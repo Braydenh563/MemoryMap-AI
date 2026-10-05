@@ -18,7 +18,7 @@ const INBOX_KINDS = [
 ];
 
 const INBOX_HELP = [
-  "Links: pairs worth connecting, with every reason: similar wording, people or things both name, a note both link with, a rare tag both carry. Type a reason before Link, or leave it to Atlas.",
+  "Links: pairs worth connecting, with every reason: similar wording, people or things both name, a note both link with, a rare tag both carry. Type a reason before Link, or leave it to Atlas; Link all above 70% links every pair at least that sure.",
   "Tensions: Start the review reads likely pairs with your local model and shows the two sides with their dates. Nothing runs until you start it.",
   "Names: \"Sam\" and \"Sam Lee\", or one name spelled two ways. Merge keeps the fuller name and moves every mention; the other name is kept as an alias, so it is never found twice.",
   "Link types: a link whose sentence says \"for example\", \"continues\", \"evidence\", \"contradicts\" or \"background\". Accepting gives the link that type; the graph draws it.",
@@ -26,6 +26,10 @@ const INBOX_HELP = [
 ];
 
 let inboxState = null;
+
+//: "Link all above 70%": the confidence over every reason (`confidence`, or the
+//: similarity where a pair has no other signal) at which one click links the lot.
+const LINK_ALL_AT = 0.7;
 
 async function openSuggestionsInbox(kind = "links") {
   if (inboxState) {
@@ -559,16 +563,19 @@ function inboxLinksPane(suggestions) {
   //: typed reason and the learning go with each as they would one by one.
   const linkSure = smallButton(
     "ph:link Link all above 70%",
-    "Link every suggestion below that is at least 70% sure, each with its reason",
+    "Link every suggestion below that is at least 70% sure, each with its reason; a link can be removed from either note.",
     async () => {
-      const sure = rowReasons.filter((r) => r.input.isConnected && (r.s.confidence ?? r.s.similarity ?? 0) >= 0.7);
+      const sure = rowReasons.filter((r) => r.input.isConnected && (r.s.confidence ?? r.s.similarity ?? 0) >= LINK_ALL_AT);
       if (!sure.length) return toast("None of these is 70% sure or more.");
+      const many = `${sure.length} pair${sure.length === 1 ? "" : "s"}`;
+      if (!(await confirmDialog(`Link ${many} of notes? Each is linked with its reason; a link can be removed from either note.`, { confirmLabel: "Link them" }))) return;
       setBusy(linkSure, true, "Linking…");
       //: Quiet per row: one toast and one reload for the lot, not one each.
-      for (const r of sure) await r.link({ quiet: true });
+      let linked = 0;
+      for (const r of sure) if (await r.link({ quiet: true })) linked++;
       setBusy(linkSure, false);
       refreshEntries(sure.flatMap((r) => [r.s.source_id, r.s.target_id])).catch(() => {});
-      toast(`Linked ${sure.length} pair${sure.length === 1 ? "" : "s"}.`);
+      toast(`Linked ${linked} of ${many}.`, linked < sure.length);
     },
   );
   const tools = document.createElement("div");
@@ -645,13 +652,20 @@ function inboxLinkRow(s, rowReasons) {
     const body = { target_id: s.target_id };
     if (given) body.reason = given;
     if (!typed && structural) body.reason_confidence = s.confidence;
-    await apiJson(`/entries/${s.source_id}/links`, { method: "POST", body: JSON.stringify(body) }).catch((e) => toast(e.message, true));
+    //: A link that failed stays in the list, and says so to whoever asked
+    //: (`linkSure` counts the ones that worked).
+    const made = await apiJson(`/entries/${s.source_id}/links`, { method: "POST", body: JSON.stringify(body) }).catch((e) => {
+      toast(e.message, true);
+      return null;
+    });
+    if (!made) return false;
     inboxCorrection("accept_link", { a: s.source_id, b: s.target_id, signals });
     if (!quiet) {
       toast(typed ? "Linked, with your reason." : "Linked.");
       refreshEntries([s.source_id, s.target_id]).catch(() => {});
     }
     inboxDone("links", row);
+    return true;
   };
   rowState.link = linkIt;
   reason.addEventListener("keydown", (event) => {

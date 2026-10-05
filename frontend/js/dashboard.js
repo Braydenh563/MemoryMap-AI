@@ -4121,7 +4121,7 @@ function activityUndoPlanText(plan, byId, name) {
   });
   const more = undo.length > titled.length ? ` and ${undo.length - titled.length} more` : "";
   const lines = [
-    `${undo.length} note${undo.length === 1 ? "" : "s"} go back to how ${undo.length === 1 ? "it was" : "they were"} before ${name} changed ${undo.length === 1 ? "it" : "them"}: ${titled.join(", ")}${more}.`,
+    `${undo.length} note${undo.length === 1 ? " goes" : "s go"} back to how ${undo.length === 1 ? "it was" : "they were"} before ${name} changed ${undo.length === 1 ? "it" : "them"}: ${titled.join(", ")}${more}.`,
   ];
   const since = plan.items.filter((item) => item.status === "changed since").length;
   if (since) lines.push(`${since} you changed since stay${since === 1 ? "s" : ""} as ${since === 1 ? "it is" : "they are"}.`);

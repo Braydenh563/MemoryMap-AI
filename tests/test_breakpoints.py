@@ -42,14 +42,13 @@ PHASE_9 = {
 #: Lower a number (or drop a row) when a group moves onto Phase 9's set.
 ALLOWED = {
     # The three groups the audit named. 2026-10-05 (uimod-89) moved 35 of
-    # their 49 rules onto Phase 9's set; what is left belongs to work in
-    # flight elsewhere: the status bar (00's trimmed items, 03's AI mark),
-    # the dashboard's quick access (03), and the whiteboard (06's floating
-    # panel, and every one of these in 07-whiteboard-misc.css).
-    ("max", 719.98): 5,
+    # their 49 rules onto Phase 9's set, and op4-1005 the status bar's and the
+    # dashboard quick access's (both to 599.98; the 900 group is empty). What
+    # is left is the whiteboard's (06's floating panel, and every one of these
+    # in 07-whiteboard-misc.css), owned by the whiteboard agent.
+    ("max", 719.98): 3,
     ("min", 720.0): 2,
     ("max", 640.0): 5,  # px and 40rem
-    ("max", 900.0): 2,
     # Components' own widths (rem at 16px: dialogs, panels, the timeline).
     ("max", 400.0): 4,
     ("min", 1024.0): 4,
@@ -123,3 +122,11 @@ def test_the_breakpoints_only_shrink():
         "a width query outside UI_MODERNISATION_PLAN Phase 9's set "
         f"(599.98/600, 819.98/820, 1099.98/1100): {extra}"
     )
+
+
+def test_the_ask_results_grid_is_one_column_below_1100():
+    """DESIGN.md, "Two columns of reading" (op4-1005): two columns gave each
+    half 262px at 820 and 397 at 1099; from 1100 a half is 363 to 529px."""
+    text = (CSS / "01-forms-settings.css").read_text(encoding="utf-8")
+    rule = re.search(r"@media \(max-width: ([0-9.]+)px\) \{\s*\.chat-grid \{\s*grid-template-columns: 1fr;", text)
+    assert rule and rule.group(1) == "1099.98", "the Ask results grid's one-column width moved off 1099.98"

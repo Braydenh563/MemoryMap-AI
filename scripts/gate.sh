@@ -126,6 +126,8 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # and no changed source file selects it (2026-10-05: an Atlas merge took the
   # count 14 over and the gate passed).
   tests/test_scratchpad_size.py
+  # A request inside an assert: CodeQL flags each new one on push.
+  tests/test_codeql_shapes.py
   tests/test_plan_hygiene.py tests/test_readme_freshness.py tests/test_vendor_licences.py
   # Mirror drift (docs/CHANGELOG.md and friends) belongs here rather than in
   # --changed: the file that goes stale is a `.md` at the repo root, and the

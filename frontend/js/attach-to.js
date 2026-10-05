@@ -192,3 +192,126 @@ async function renderAttachToDocument(entry, wrap) {
   //: later of the two events and the one that actually matters.
   focusSelect(picker);
 }
+
+//: **The Attach panel's list** (Chat's Attach, `openNotePicker`), moved here
+//: from chat-attach.js on 2026-10-05 (op4-1005, the boot-script gzip budget):
+//: it draws only once a person opens the panel. `LAZY_MODULES.attachTo`'s
+//: stand-in for `renderNotePickerList` fetches this file on that first open;
+//: every caller fires it and forgets (none reads its result), so the list
+//: appears a moment late on the first open of a session. The row itself
+//: (`notePickerRow`) and each source's shape stay at boot: the whiteboard's
+//: pickers draw the same row synchronously.
+
+async function notePickerRows(source) {
+  if (source === "notes") return allEntries; // already in memory
+  if (notePickerCache[source]) return notePickerCache[source];
+  //: **Maps come from `/whiteboard/boards?type=map`**: a map is an Entry, but
+  //: its node count, the fact its row adds over its title, lives only on
+  //: `BoardOut`. Read to the end: the filter is server-side, the list a page.
+  if (source === "maps") {
+    const boards = await apiPagedList("/whiteboard/boards?type=map", 200, { silent: true }).catch(() => null);
+    if (!Array.isArray(boards)) return null;
+    notePickerCache.maps = boards.filter((b) => b.id != null);
+    return notePickerCache.maps;
+  }
+  const path = source === "documents" ? "/documents" : source === "files" ? "/files/gallery" : "/media";
+  //: All three are paged, and `apiPagedList` reads each to the end: a picker
+  //: that silently cannot reach half the library is worse than a slow one.
+  const rows = await apiPagedList(path, 200).catch(() => null);
+  if (rows == null) return null;
+  let list = Array.isArray(rows) ? rows : rows.documents || [];
+  //: **Files means files, and a sketch is a picture** ("sketches show in the
+  //: files section"). `/files/gallery` is every note attachment whatever its
+  //: type; the Library splits it on the mime the same way.
+  if (source === "files") list = list.filter((row) => !(row.mime || "").startsWith("image/"));
+  //: Images reach both tables, each row marked with the one it came from.
+  //: **The two tables number their rows separately**, so an id alone is not a
+  //: picture: a note's picture (an Attachment) was pushed onto the images sent
+  //: as `image_media_ids` and the server read that id as a different upload,
+  //: and ticking one row lit every row in the other table with the same id.
+  //: A note's picture now travels as the file it is (`file_ids`).
+  if (source === "images") {
+    const attachments = await apiPagedList("/files/gallery", 200).catch(() => []);
+    list = [
+      ...list
+        .filter((row) => NOTE_PICKER_IMAGE_EXT.test(row.original_name || row.url || ""))
+        .map((row) => ({ ...row, store: "media" })),
+      ...(Array.isArray(attachments) ? attachments : [])
+        .filter((row) => (row.mime || "").startsWith("image/"))
+        .map((row) => ({ ...row, store: "file" })),
+    ];
+  }
+  notePickerCache[source] = list;
+  return list;
+}
+
+//: How many rows one source draws. Search reaches the rest, and the list says
+//: so rather than ending as if that were everything.
+const NOTE_PICKER_LIMIT = 60;
+
+//: **One renderer for every source** (INBOX 485, the owner: "that whole panel
+//: needs to be better redesigned"). A row is a leading tile (the source's
+//: icon, the file's own glyph, or the picture), the name over one muted line
+//: of facts, and a check at the right edge that fills when the row is on;
+//: the real checkbox inside is visually hidden, so Space toggles it and a
+//: screen reader hears a checkbox. Images are a grid of the pictures, since a
+//: picture is what tells two of them apart. The list is one tab stop and the
+//: arrows walk it (`notePickerKeydown`).
+async function renderNotePickerList() {
+  const search = $("note-picker-search");
+  const query = search.value.trim().toLowerCase();
+  const list = $("note-picker-list");
+  const source = notePickerSource;
+  const shape = notePickerShape(source);
+  list.classList.toggle("is-grid", Boolean(shape.grid));
+  list.setAttribute("aria-label", `Your ${shape.nouns}`);
+  if (source !== "notes" && !notePickerCache[source]) {
+    const wait = document.createElement("li");
+    wait.className = "note-picker-state";
+    setLabel(wait, `ph:spin Loading your ${shape.nouns}…`);
+    list.replaceChildren(wait);
+  }
+  const rows = await notePickerRows(source);
+  // The source can have been switched while the fetch was in flight.
+  if (notePickerSource !== source) return;
+  list.replaceChildren();
+  if (rows == null) {
+    notePickerEmpty(list, `Couldn't load your ${shape.nouns}.`, {
+      label: "ph:arrow-clockwise Try again",
+      run: () => renderNotePickerList(),
+    });
+    updateNotePickerCount();
+    return;
+  }
+  // Attached rows stay on top even when the search would not match them, so
+  // ticking one never makes it vanish from under the pointer.
+  const matches = rows.filter(
+    (row) => shape.isOn(row) || !query || shape.search(row).toLowerCase().includes(query)
+  );
+  matches.sort((a, b) => (shape.isOn(a) ? 0 : 1) - (shape.isOn(b) ? 0 : 1));
+  if (!matches.length) {
+    if (query) {
+      notePickerEmpty(list, `Nothing in your ${shape.nouns} matches “${search.value.trim()}”.`, {
+        label: "ph:x Clear search",
+        run: () => {
+          search.value = "";
+          renderNotePickerList();
+          search.focus();
+        },
+      });
+    } else {
+      notePickerEmpty(list, shape.empty, shape.upload
+        ? { label: "ph:upload-simple Upload one", run: () => $("attach-image")?.click() }
+        : null);
+    }
+  }
+  for (const row of matches.slice(0, NOTE_PICKER_LIMIT)) list.appendChild(notePickerRow(shape, row));
+  if (matches.length > NOTE_PICKER_LIMIT) {
+    const more = document.createElement("li");
+    more.className = "note-picker-state note-picker-more";
+    more.textContent = `Showing ${NOTE_PICKER_LIMIT} of ${matches.length}. Search to find the rest.`;
+    list.appendChild(more);
+  }
+  notePickerRoving(list, 0);
+  updateNotePickerCount();
+}

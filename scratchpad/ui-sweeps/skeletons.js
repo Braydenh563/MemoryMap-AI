@@ -79,7 +79,12 @@ const VIEWS = [
     const r = await page.evaluate((sel) => {
       const root = document.querySelector(sel);
       if (!root) return { missing: true };
-      const vis = (e) => e.checkVisibility && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+      // Not `opacityProperty`: a sub-view fades in over about 300ms, and read at 300ms
+      // its skeletons were "invisible" (an ancestor mid-fade at opacity 0 to 0.1)
+      // while the app had drawn them 18ms after the press. library/docs read BLANK
+      // at 1440 and 390 for exactly that (measured s2-1005: skeletons present at
+      // 18ms, checkVisibility with opacity false until about 400ms).
+      const vis = (e) => e.checkVisibility && e.checkVisibility({ visibilityProperty: true });
       const skeletons = [...root.querySelectorAll('.skeleton, [aria-busy="true"]')].filter(vis).length;
       const empty = [...root.querySelectorAll('.empty-state, .empty-title, [class*="empty"]')].filter(vis).map((e) => e.textContent.trim().slice(0, 60)).filter(Boolean);
       return { skeletons, empty: empty.slice(0, 2), text: root.innerText.trim().slice(0, 80).replace(/\s+/g, ' ') };

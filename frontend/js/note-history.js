@@ -287,3 +287,45 @@ async function toggleThenAndNow(entry, thenText, row, button) {
     block.append(note);
   }
 }
+
+//: **A skill run's own Undo** (AGENT_SKILLS_REFORM, placed 2026-10-05 from
+//: brief7-event-log; Brief 13). The run's result carries `undo_span`: the
+//: AI's actors and the event ids its writes fall between
+//: (`skill_runner._undo_span`), which `POST /events/undo` takes as one. The
+//: Recent activity widget's "Undo what Atlas did" grammar, the same plan
+//: sentence (`activityUndoPlanText`): always the dry run first, shown in the
+//: confirm, then that plan applied. A board item stays "can't be undone",
+//: said in the plan rather than skipped silently. Lives here, beside the
+//: note's own History, because both are about putting a note back; reached
+//: through `LAZY_ENTRY_POINTS.noteHistory`.
+async function undoSkillRun(span, button) {
+  const body = { actors: span.actors || [], since: span.since || 0, until: span.until || 0 };
+  let plan;
+  try {
+    plan = await apiJson("/events/undo", { method: "POST", body: JSON.stringify(body) });
+  } catch (error) {
+    toast(error.message || "Couldn't read what would be undone.", true);
+    return;
+  }
+  const undoable = plan.items.filter((item) => item.status === "undo").length;
+  if (!undoable) {
+    const already = plan.items.length && plan.items.every((item) => item.status === "already undone");
+    toast(already ? "Already undone: nothing this run changed is left to put back." : "Nothing this run changed can be put back from here.");
+    if (already) button?.remove();
+    return;
+  }
+  const byId = new Map((allEntries || []).map((entry) => [entry.id, entry]));
+  const ok = await confirmDialog(`Undo this run?\n\n${activityUndoPlanText(plan, byId, "this run")}`, {
+    confirmLabel: "Undo",
+    danger: false,
+  });
+  if (!ok) return;
+  try {
+    const done = await apiJson("/events/undo", { method: "POST", body: JSON.stringify({ ...body, dry_run: false }) });
+    toast(`Put back ${done.undone} note${done.undone === 1 ? "" : "s"}.`);
+    button?.remove();
+    await loadEntries().catch(() => {});
+  } catch (error) {
+    toast(error.message || "Couldn't undo that.", true);
+  }
+}

@@ -47,7 +47,13 @@ STYLE = re.compile(r'<link[^>]*rel="stylesheet"[^>]*href="(/[^"?]+)(?:\?[^"]*)?"
 #: And after 88227db (621, 622): 589,719.
 #: And after the Atlas merge (f22bd43), with the companion's menu and
 #: enlarged view in companion-menu.js (lazy): 589,093.
-BOOT_JS_CAP = 589_100
+#: And with the s2 agent's list drag-select edge scroll (selection.js, +489,
+#: boot): 589,597, a raise the next agent undid: the edge scroll moved whole
+#: into drag-edge.js (lazy, preloaded three seconds after boot, like
+#: quick-note.js) and the note edit form's formatting strip
+#: (`noteEditToolbar`, only `renderEditForm` calls it) into
+#: note-edit-panels.js: 588,354, so the cap is back below 589,100.
+BOOT_JS_CAP = 588_400
 BOOT_CSS_CAP = 183_300
 
 
@@ -80,3 +86,15 @@ def test_boot_stylesheets_stay_under_the_budget():
     assert len(sizes) >= 5, "the stylesheets were not found: has index.html moved?"
     total = sum(sizes.values())
     assert total <= BOOT_CSS_CAP, f"boot CSS is {total} bytes gzipped (cap {BOOT_CSS_CAP})"
+
+
+def test_the_list_edge_scroll_is_a_lazy_file_not_boot_code():
+    """The drag-select edge scroll is a held mouse drag's alone, so selection.js
+    and phone-shell.js carry none of it; `LAZY_MODULES.dragEdge` fetches
+    drag-edge.js after boot and the file wires its own listeners."""
+    boot = "\n".join((FRONTEND / "js" / name).read_text(encoding="utf-8") for name in ("selection.js", "phone-shell.js"))
+    assert "DragSelectEdgeScroll" not in boot and "DRAG_EDGE" not in boot
+    lazy = (FRONTEND / "js" / "drag-edge.js").read_text(encoding="utf-8")
+    assert lazy.rstrip().endswith("initDragSelectEdgeScroll();")
+    app = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
+    assert 'dragEdge: ["/js/drag-edge.js"]' in app and '"notePanels", "dragEdge"' in app

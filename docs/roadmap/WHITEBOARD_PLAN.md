@@ -982,5 +982,6 @@ Held by the boardmap-1005 agent; the built halves are in HISTORY.md
 - INBOX 596, the rest: built (the side column, the phone overlap and the
   sidebar's skeletons; HISTORY.md, "Moved from the plans, 2026-10-05
   (op3-1005)").
-- INBOX 608, the rest: closed, nothing to build (HISTORY.md, "Moved from
-  the plans, 2026-10-05 (op3-1005)").
+- INBOX 608, the lists: built (`DRAG_EDGE` in `frontend/js/selection.js`; the
+  browser's own autoscroll covers the last 20px, this the next 36;
+  `ui-sweeps/s2-1005.js` MODE=listedge).

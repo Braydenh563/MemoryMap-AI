@@ -2246,6 +2246,9 @@ summary > .ph-lead,
 .help-atlas > .atlas-suggest {
   display: inline-flex;
   align-items: center;
+  /* A long question wraps inside the chip rather than widening what holds it
+     (the Models pane's utility-model help ran Settings 19px sideways at 390). */
+  max-width: 100%;
   height: auto;
   min-height: var(--target-min);
   padding: var(--space-1) var(--space-4);
@@ -4090,6 +4093,14 @@ body .chip.item-label,
 :is(.entry-meta, .skill-card-header, .sampling-row, body) .chip.item-label.is-yours {
   background: var(--accent-soft);
   color: var(--accent-text);
+}
+
+/* A label in a Settings list row sits on three tints (the fold's, the row's
+   and its own): "Built-in" in Settings, Skills measured 4.27:1 in light
+   (contrast.js, op4-1005), muted on rgb(219, 219, 221). It takes the ink,
+   the same answer the ok label below took for the same reason. */
+.entry-list > li > :is(.skill-row, .persona-row) .chip.item-label:not(.is-yours):not(.is-ok) {
+  color: var(--ink);
 }
 
 /* Muted type on the ok tint measured 4.44:1 in light ("Installed",

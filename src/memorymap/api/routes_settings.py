@@ -1487,6 +1487,13 @@ def _not_private_events(query):
     what it says does. An event on one carries its title or a clip of it in
     `detail`; the vault's events (unlocking, re-keying) say that private notes
     exist and when they were opened. Neither is part of a hand-over file.
+
+    Two ways an event is about a private note: the note is still there and
+    private (looked up by id), or it was purged, and its id matches nothing
+    any more. A purge seals the events it leaves behind with a `private` flag
+    in their payload (`manager.seal_private_events`), and that flag is the
+    second test. `is_(True)` rather than `== True`, so an event with no
+    payload at all (SQL null) is kept rather than dropped by a null compare.
     """
     private_ids = select(Entry.id).where(Entry.is_private == True)  # noqa: E712
     return query.where(
@@ -1495,6 +1502,7 @@ def _not_private_events(query):
             AuditLog.entity_type.in_(("entry", "note", "entries"))
             & AuditLog.entity_id.in_(private_ids)
         ),
+        ~AuditLog.payload["private"].as_boolean().is_(True),
     )
 
 
@@ -1502,6 +1510,7 @@ def _not_private_events(query):
 def audit_export_csv(
     limit: int = Query(default=AUDIT_EXPORT_MAX_ROWS, ge=1, le=AUDIT_EXPORT_MAX_ROWS),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     entity_type: str = Query(default="", max_length=40),
     session: Session = Depends(get_session),
 ) -> Response:
@@ -1515,6 +1524,7 @@ def audit_export_csv(
     `X-Total-Count` is the size of the same filtered set. The export is itself
     logged, so the trail records who took it.
     """
+    offset = paging.start(cursor, offset)
     query = _not_private_events(select(AuditLog))
     if entity_type:
         query = query.where(AuditLog.entity_type == entity_type)
@@ -1539,7 +1549,7 @@ def audit_export_csv(
         )
     manager.log_action(session, "exported", "data", detail="audit csv")
     session.commit()
-    return Response(
+    exported = Response(
         content=buffer.getvalue(),
         media_type="text/csv",
         headers={
@@ -1547,6 +1557,9 @@ def audit_export_csv(
             "X-Total-Count": str(total),
         },
     )
+    #: The list recipe's next-page cursor, beside `X-Total-Count`.
+    paging.finish(exported, offset, limit, total)
+    return exported
 
 
 def _feed_item(row: AuditLog) -> dict:
@@ -1578,9 +1591,13 @@ def _feed_item(row: AuditLog) -> dict:
 
 class UndoBody(BaseModel):
     #: Whose changes: `system:librarian`, `ai:<tool>`, `system:<job>`.
-    actor: str = Field(min_length=1, max_length=80)
+    actor: str = Field(default="", max_length=80)
+    #: Or several, as one: a skill run's tools (its result's `undo_span`).
+    actors: list[str] = Field(default_factory=list, max_length=40)
     #: Undo what they did after this event id (the feed's cursor).
     since: int = Field(default=0, ge=0)
+    #: And up to this one, inclusive (a run's last event); 0 for no bound.
+    until: int = Field(default=0, ge=0)
     #: On by default: the first answer is always the plan, never the change.
     dry_run: bool = True
     #: Put back the actor's fields even on a note changed since by someone else.
@@ -1598,9 +1615,19 @@ def undo_actor(body: UndoBody, session: Session = Depends(get_session)) -> dict:
     undoes: their own history is the per-note History sheet, one change at a
     time, where they can see what they are putting back.
     """
-    if body.actor == events.ACTOR_USER:
+    names = [a for a in body.actors if a] or ([body.actor] if body.actor else [])
+    if not names or any(len(a) > 80 for a in names):
+        raise HTTPException(status_code=422, detail="Say whose changes to undo.")
+    if events.ACTOR_USER in names:
         raise HTTPException(status_code=400, detail="Undo works on the AI's changes, not yours.")
-    result = events.undo(session, body.actor, body.since, apply=not body.dry_run, force=body.force)
+    result = events.undo(
+        session,
+        body.actor if not body.actors else names,
+        body.since,
+        until_id=body.until or None,
+        apply=not body.dry_run,
+        force=body.force,
+    )
     if not body.dry_run:
         session.commit()
     return result

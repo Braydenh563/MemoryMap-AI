@@ -7,17 +7,9 @@ plans, 2026-10-05 (UI_MODERNISATION_PLAN Phase 9, the off-band widths)".
 
 ## Still open, in the order to take them
 
-1. **The status bar's two off-band rules**, for whoever owns
-   notifications/status.js: `00-tokens-shell.css` `@media (max-width:
-   719.98px)` (hides `#status-notes` and `#status-command`, tighter padding)
-   and `03-dashboard-widgets.css` `@media (max-width: 900px)` (hides
-   `.emblem-mark`). Recommendation: 599.98 and 819.98, then `bands.js` at
-   620, 700 and 860 for the status bar's clipped count (it is 2 to 5 today,
-   `#ai-status-label` and `#status-reminders` ellipsised by design).
-2. **The dashboard's quick access**: `03-dashboard-widgets.css` `@media
-   (max-width: 719.98px)` on `.dash-quicklinks`, `.launch-row`,
-   `.quick-action`. Recommendation: 599.98 (the rest of the dashboard's 720
-   rules went there).
+1. Items 1 and 2 (the status bar's and the dashboard quick access's 720
+   rules) are built: HISTORY.md, "Moved from the plans, 2026-10-05
+   (UI_MODERNISATION_PLAN Phase 9, the status bar and quick access widths)".
 3. **The whiteboard's**: `06-timeline-dialogs.css` `@media (max-width:
    40rem)` on `.whiteboard-floating-panel.bottom-center/right`, and in
    `07-whiteboard-misc.css` three `max-width: 719.98px`, two `min-width:

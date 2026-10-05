@@ -174,3 +174,19 @@ def test_a_deleted_conversation_comes_back_whole(client):
     assert client.get(f"/conversations/{made['id']}").json() == before
     # Twice is refused, not duplicated.
     assert client.post("/conversations/restore", json=gone["restore"]).status_code == 409
+
+
+def test_a_note_type_made_before_the_list_was_read_keeps_its_id_through_delete_and_undo(client):
+    """A type made by POST /note-types before the types list was ever read
+    keeps its id through delete and Undo. The list's first read seeds the
+    built-in types, so the list holds them too; only the two made here are
+    pinned. Still open (integ-1005.md): when the deleted type was the only
+    one and the list is read before the Undo, the seed takes its id."""
+    first = client.post("/note-types", json={"name": "Meeting log"}).json()
+    second = client.post("/note-types", json={"name": "Reading list"}).json()
+    gone = client.delete(f"/note-types/{first['id']}").json()
+    back = client.post("/note-types", json={**gone["type"], "restore": True})
+    assert back.status_code == 201, back.text
+    assert back.json()["id"] == first["id"]
+    ids = {t["id"] for t in client.get("/note-types").json()}
+    assert {first["id"], second["id"]} <= ids

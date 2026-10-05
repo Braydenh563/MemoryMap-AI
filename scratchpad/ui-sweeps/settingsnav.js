@@ -112,18 +112,24 @@ const check = (name, ok, detail) => {
   await page.fill('#settings-search', '');
 
   // 4. Focus after a switch: Enter hands it to the heading, arrows keep it in the list.
-  await page.focus('#settings-nav [data-section="tools"]');
-  await page.keyboard.press('Enter');
-  await page.waitForTimeout(500);
-  check('Enter on a nav entry lands focus on the section heading',
-    await page.evaluate(() => document.activeElement?.tagName === 'H3' && !!document.activeElement.closest('#settings-tools')));
-  await page.focus('#settings-nav [data-section="tools"]');
-  await page.keyboard.press('ArrowDown');
-  await page.waitForTimeout(300);
-  check('an arrow key walks the list and keeps the focus in it',
-    await page.evaluate(() => currentSettingsSection === 'memory' && document.activeElement?.dataset.section === 'memory'));
-  const cur = await page.evaluate(() => [...document.querySelectorAll('#settings-nav [aria-current="page"]')].map((b) => b.dataset.section));
-  check('exactly one nav entry is aria-current=page', cur.length === 1 && cur[0] === 'memory', cur);
+  //    Below 640px the sidebar buttons are hidden behind the section picker
+  //    (`#settings-jump`'s sibling), so there is nothing to focus: skipped, not failed.
+  if (W < 640) {
+    console.log('skip the three sidebar-button keyboard checks below 640px (the buttons are hidden behind the picker)');
+  } else {
+    await page.focus('#settings-nav [data-section="tools"]');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(500);
+    check('Enter on a nav entry lands focus on the section heading',
+      await page.evaluate(() => document.activeElement?.tagName === 'H3' && !!document.activeElement.closest('#settings-tools')));
+    await page.focus('#settings-nav [data-section="tools"]');
+    await page.keyboard.press('ArrowDown');
+    await page.waitForTimeout(300);
+    check('an arrow key walks the list and keeps the focus in it',
+      await page.evaluate(() => currentSettingsSection === 'memory' && document.activeElement?.dataset.section === 'memory'));
+    const cur = await page.evaluate(() => [...document.querySelectorAll('#settings-nav [aria-current="page"]')].map((b) => b.dataset.section));
+    check('exactly one nav entry is aria-current=page', cur.length === 1 && cur[0] === 'memory', cur);
+  }
 
   // 5. A short section has no index.
   await page.evaluate(() => openSettingsModal('templates'));

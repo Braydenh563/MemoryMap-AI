@@ -20,11 +20,24 @@ const [vw, vh] = (process.env.VIEWPORT || "1440x900").split("x").map(Number);
   const pts = await page.evaluate(() => {
     const li = document.querySelector("#entry-edit-content").closest("li");
     li.scrollIntoView({ block: "center" });
-    const strip = li.querySelector(".note-edit-toolbar").getBoundingClientRect();
+    const stripEl = li.querySelector(".note-edit-toolbar");
+    const strip = stripEl.getBoundingClientRect();
     const title = li.querySelector(".note-edit-title").getBoundingClientRect();
-    const tools = li.querySelector(".doc-toolbar-tools")?.getBoundingClientRect();
-    const sx = tools ? tools.left - 20 : strip.right - 60;
-    return { strip: [Math.round(sx), Math.round(strip.top + strip.height / 2)], title: [Math.round(title.right - 20), Math.round(title.top + title.height / 2)] };
+    // An empty spot is one where the strip itself is the element under the
+    // point: at 390 the strip is full of controls and a fixed offset from its
+    // tools landed on an icon (diff 44 against the title row). The middle of
+    // the widest run of such points along the strip's centre line is sampled.
+    const y = Math.round(strip.top + strip.height / 2);
+    let best = null, run = null;
+    for (let x = Math.ceil(strip.left) + 2; x < strip.right - 2; x += 2) {
+      const bare = document.elementFromPoint(x, y) === stripEl;
+      if (bare && !run) run = { from: x, to: x };
+      if (bare && run) run.to = x;
+      if (!bare && run) { if (!best || run.to - run.from > best.to - best.from) best = run; run = null; }
+    }
+    if (run && (!best || run.to - run.from > best.to - best.from)) best = run;
+    const sx = best ? Math.round((best.from + best.to) / 2) : Math.round(strip.right - 60);
+    return { strip: [sx, y], bare: best ? best.to - best.from : 0, title: [Math.round(title.right - 20), Math.round(title.top + title.height / 2)] };
   });
   // Decoded in the page: no PNG library in the sandbox, and the browser has one.
   const buf = await page.screenshot();
@@ -37,7 +50,7 @@ const [vw, vh] = (process.env.VIEWPORT || "1440x900").split("x").map(Number);
     g.drawImage(img, 0, 0);
     return [pts.strip, pts.title].map(([x, y]) => [...g.getImageData(x, y, 1, 1).data.slice(0, 3)]);
   }, { src: "data:image/png;base64," + buf.toString("base64"), pts });
-  const out = { strip: a, title: b, diff: Math.max(...a.map((v, i) => Math.abs(v - b[i]))) };
+  const out = { strip: a, title: b, bareRun: pts.bare, diff: Math.max(...a.map((v, i) => Math.abs(v - b[i]))) };
   console.log(`stripground ${vw} ${process.env.THEME || "light"}: ${JSON.stringify(out)}`);
   await browser.close();
   process.exit(out.diff > 6 ? 1 : 0);

@@ -230,3 +230,17 @@ def _forget_the_docker_probe():
     searxng_docker.forget_docker_daemon_state()
     yield
     searxng_docker.forget_docker_daemon_state()
+
+
+@pytest.fixture(autouse=True)
+def _reset_the_librarian():
+    """The librarian's Quit flag and hold are module level (one scheduler per
+    process), so a test that pressed Quit left them set for every test after
+    it in the same process, in whatever order that run happened to have.
+    Cleared on both sides, like `_forget_the_docker_probe` above. See
+    tests/test_autonomous_state_isolation.py."""
+    from memorymap.ai import autonomous
+
+    autonomous.reset_state()
+    yield
+    autonomous.reset_state()

@@ -72,10 +72,13 @@ def capabilities() -> dict:
             },
             "voice": {"installed": voice.whisper_available()},
             "ocr": {
-                # Tesseract on the server. The browser's own reader and a
+                # A local engine on the server (Tesseract, or RapidOCR where
+                # Tesseract is not ready; the key keeps its old name, which is
+                # the local reader's id). The browser's own reader and a
                 # vision model are the fallbacks, which is why `ocr` alone is
                 # never a reason to hide "read the text".
-                "tesseract": ocr.packages_available() and ocr.tesseract_available(),
+                "tesseract": ocr.local_available(),
+                "engine": ocr.engine(),
             },
             "office_import": {"installed": importer.markitdown_available()},
             # Read aloud is the browser's speech synthesis: nothing to install

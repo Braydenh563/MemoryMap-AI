@@ -164,6 +164,17 @@ select optgroup {
   --wb-bg-image-repeat: no-repeat;
   --border-style: solid;
   --shadow-intensity: 0.05;
+  /* **What the shadow slider means** (DESIGN.md, "Elevation", op4-1005):
+     strength from none (0%) through the look as it ships (5%, the default)
+     to the strongest each theme's ink usefully draws (50%), every 5% step
+     moving every layer and none of them clamping before the top. Two
+     halves, each 0 to 1: `--shadow-low` from 0% to the default, `--shadow-t`
+     from the default to 50%. A layer is `base * low + (ceiling - base) * t`,
+     so at the default it is exactly the value it always had. Before this,
+     dark's layers were 7 to 11 times the slider and went opaque at 9 to 14%
+     (light's `--shadow-lg` at 35%), so most of the slider did nothing. */
+  --shadow-low: calc(min(var(--shadow-intensity), 0.05) / 0.05);
+  --shadow-t: calc(max(0, var(--shadow-intensity) - 0.05) / 0.45);
   /* Motion scale: extracted the same way the spacing/type scales were
      (ROADMAP §35L): ten distinct transition durations (80ms-250ms, plus a
      stray 120ms written in ms instead of s) collapsed to the three that were
@@ -280,7 +291,7 @@ select optgroup {
     inset 1px 0 0 var(--glass-edge),
     inset 0 -1px 0 var(--glass-underline);
   --glass-shadow:
-    0 1px 2px rgba(31, 36, 48, 0.06),
+    0 1px 2px rgba(31, 36, 48, calc(0.06 * var(--shadow-low) + 0.44 * var(--shadow-t))),
     0 12px 32px rgba(31, 36, 48, var(--shadow-intensity));
   /* INBOX 89: "sheen strength ... doesn't do anything" -- true. The comment
      on the sheen's own `.card` rule (further down this file) already
@@ -379,8 +390,15 @@ select optgroup {
   /* The inner top edge that makes a text field read as recessed, against a
      button's raised --shadow-sm. Deliberately lighter than it would be on
      an opaque field: --input-bg is translucent and sits over a busy
-     gradient, so a heavier inset reads as dirt on the glass. */
-  --field-inset: rgba(31, 36, 48, 0.07);
+     gradient, so a heavier inset reads as dirt on the glass.
+     **Deeper than a track, in both themes** (DESIGN.md, "A field and a
+     track", op4-1005): light had it at 0.07, the same tone as `--chip-bg`,
+     which is the `.seg` track, so a search field and the segment beside it
+     in a dock read as one material; dark draws them as two (a field recessed
+     in black, a track raised in white). 0.10 is the light `--border`'s
+     weight: one step deeper than every light palette's chip tint (0.05 to
+     0.08), still a tint and not an edge. */
+  --field-inset: rgba(31, 36, 48, 0.1);
   /* ============ SURFACE TIERS, and the border budget ========================
      Three depths, and a rule about which of them may draw a line. Measured
      before this existed (Settings → Tools it can use): the modal drew a
@@ -776,7 +794,7 @@ select optgroup {
      one-off box-shadow values (0.05-0.5 opacity, six different blur radii,
      both the purple-tinted and flat-black families) existed before this,
      none dark-mode-aware unless they happened to reuse --glass-shadow. */
-  --shadow-lg: 0 16px 40px rgba(31, 36, 48, calc(var(--shadow-intensity) * 3));
+  --shadow-lg: 0 16px 40px rgba(31, 36, 48, calc(0.15 * var(--shadow-low) + 0.6 * var(--shadow-t)));
   /* The sketch/whiteboard surface set. */
   --sw-card: var(--card);
   --sw-border: var(--border);
@@ -909,12 +927,12 @@ select,
      ground and an alpha over a light one are not comparable numbers, which is
      the reasoning already written out for the rim in 10-responsive.css. */
   --glass-shadow:
-    0 1px 2px rgba(0, 0, 0, calc(var(--shadow-intensity) * 7)),
-    0 12px 32px rgba(0, 0, 0, calc(var(--shadow-intensity) * 8.4));
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, calc(var(--shadow-intensity) * 7));
+    0 1px 2px rgba(0, 0, 0, calc(0.35 * var(--shadow-low) + 0.55 * var(--shadow-t))),
+    0 12px 32px rgba(0, 0, 0, calc(0.42 * var(--shadow-low) + 0.48 * var(--shadow-t)));
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, calc(0.35 * var(--shadow-low) + 0.55 * var(--shadow-t)));
   /* Same fix as the light value above: color-mix so --glass-sheen-strength (unwired here before) actually scales it. */
   --glass-catch: radial-gradient(70% 90px at 22% -30px, color-mix(in srgb, rgba(255, 255, 255, 0.075) calc(var(--glass-sheen-strength) * 100%), transparent), transparent 65%);
-  --shadow-lg: 0 20px 48px rgba(0, 0, 0, calc(var(--shadow-intensity) * 11));
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, calc(0.55 * var(--shadow-low) + 0.35 * var(--shadow-t)));
   --modal-bg: rgba(24, 27, 37, 0.97);
   --modal-bg-opaque: rgb(24, 27, 37);
   --wb-fill-strength: 32%;
@@ -991,12 +1009,12 @@ select,
        ground and an alpha over a light one are not comparable numbers, which is
        the reasoning already written out for the rim in 10-responsive.css. */
     --glass-shadow:
-      0 1px 2px rgba(0, 0, 0, calc(var(--shadow-intensity) * 7)),
-      0 12px 32px rgba(0, 0, 0, calc(var(--shadow-intensity) * 8.4));
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, calc(var(--shadow-intensity) * 7));
+      0 1px 2px rgba(0, 0, 0, calc(0.35 * var(--shadow-low) + 0.55 * var(--shadow-t))),
+      0 12px 32px rgba(0, 0, 0, calc(0.42 * var(--shadow-low) + 0.48 * var(--shadow-t)));
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, calc(0.35 * var(--shadow-low) + 0.55 * var(--shadow-t)));
     /* Same fix as the light value above: color-mix so --glass-sheen-strength (unwired here before) actually scales it. */
     --glass-catch: radial-gradient(70% 90px at 22% -30px, color-mix(in srgb, rgba(255, 255, 255, 0.075) calc(var(--glass-sheen-strength) * 100%), transparent), transparent 65%);
-    --shadow-lg: 0 20px 48px rgba(0, 0, 0, calc(var(--shadow-intensity) * 11));
+    --shadow-lg: 0 20px 48px rgba(0, 0, 0, calc(0.55 * var(--shadow-low) + 0.35 * var(--shadow-t)));
     --modal-bg: rgba(24, 27, 37, 0.97);
     --modal-bg-opaque: rgb(24, 27, 37);
     --wb-fill-strength: 32%;
@@ -3711,7 +3729,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   }
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
 
   /* A phone's scarce dimension is height, and two of these five are the two a
      phone can least use: the keyboard hint needs a keyboard, and the notebook

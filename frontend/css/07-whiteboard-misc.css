@@ -1989,9 +1989,19 @@ body.has-agent-monitor #timeline-scroll {
   overflow-y: auto;
 }
 
-.monitor-empty {
-  margin: var(--space-3) 0 0;
+/* **An empty line in a small panel** (DESIGN.md's recipe index, op4-1005):
+   one sentence where a short list has nothing in it, in a glance panel, a
+   Settings section or a sidebar group. `.empty-state` (a centred block with
+   2rem of padding) is for a surface whose whole content area is empty; in a
+   384px panel it would push the panel's own controls apart. Measured before
+   (empties probe): fourteen such lines drew in four sizes (11.2 to 14.72px)
+   and five margins; this is the agent panel's own line, which was the
+   one already on `--text-md`, made the recipe. */
+.empty-line {
+  margin: var(--space-3) 0;
+  color: var(--muted);
   font-size: var(--text-md);
+  text-align: start;
 }
 
 /* **A run row is a grid of four columns** (owner report, 2026-09-23: "not

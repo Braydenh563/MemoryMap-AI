@@ -1,5 +1,5 @@
-// INBOX 621: every dock in the app and how to reach it, shared by
-// dockshots621.js and dockgrammar621.js. Each stop is [name, go(page), selector].
+// INBOX 621: every dock in the app and how to reach it, for
+// dockgrammar621.js. Each stop is [name, go(page), selector].
 const tab = (t, sub) => async (page) => {
   // On a phone the tab strip is the bottom dock; a click by evaluate reaches
   // the button wherever the shell has put it.

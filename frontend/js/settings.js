@@ -351,6 +351,13 @@ async function openSettingsModal(section = "models", scrollToId = null) {
     suggestedCatalog = await apiJson("/models/suggested").catch(() => null);
   }
   loadChangelog();
+  //: The Models pane opens on the page's own "Checking the models…" and
+  //: `renderSettings` only ran once the refresh below answered, so a status
+  //: already known (the poll has run since boot) is painted at once, and one
+  //: not yet known gets the pane's placeholders, which `renderSettings` takes
+  //: off when it has an answer.
+  if (modelStatus) renderSettings();
+  else showSkeletons($("models-skeleton"), 2);
   refreshModelStatus();
   if (scrollToId) {
     requestAnimationFrame(() => {
@@ -1087,10 +1094,14 @@ async function renderLogs() {
   logErrorsSinceOpened = 0;
   renderLogErrorBadge();
 
+  //: The first open has an empty list and a fetch ahead of it; a reopen finds
+  //: its rows already there and `showSkeletons` leaves them alone.
+  showSkeletons($("log-list"), 4, "li");
   const [records, stats] = await Promise.all([
     apiJson("/logs?limit=500").catch(() => []),
     apiJson("/logs/stats?limit=500").catch(() => null),
   ]);
+  clearSkeletons($("log-list"));
   logStreamCursor = records.length ? records[records.length - 1].seq || 0 : 0;
   logRecords = [...records.map(serverLogRecord), ...browserLogRecords()];
   sortLogRecords();
@@ -4425,7 +4436,9 @@ async function renderLearnedSwitches() {
   const host = $("learned-switches");
   const banner = $("learned-paused-banner");
   if (!host) return;
+  showSkeletons(host, 2);
   const switches = await apiJson("/learned/switches").catch(() => null);
+  clearSkeletons(host);
   if (!switches) {
     host.replaceChildren();
     return;
@@ -4665,7 +4678,9 @@ async function renderLearnedList() {
   const query = new URLSearchParams({ limit: String(LEARNED_PAGE), offset: String(learnedOffset) });
   if (kind) query.set("kind", kind);
   if (q) query.set("q", q);
+  showSkeletons(list, 3, "li");
   const data = await apiJson(`/learned?${query}`).catch(() => null);
+  clearSkeletons(list);
   if (!data) {
     list.replaceChildren();
     if (count) count.textContent = "Couldn't load what it learned.";

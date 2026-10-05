@@ -2222,6 +2222,21 @@ body.resizing-sidebar {
   margin-right: auto;
 }
 
+/* Before documents.js has mounted the cluster (the markup says collapsed, so
+   the first paint is the folded bar and not a two-row strip that folds when
+   the bundle lands), the name is drawn here, in the same place and the same
+   words, and goes the moment the real one exists. */
+.doc-toolbar.is-collapsed:not(:has(.doc-toolbar-tools))::before {
+  content: "Formatting";
+  /* One line the height the mounted cluster's icon buttons give the row (2rem,
+     the touch floor under a coarse pointer), so the bar does not grow when
+     they arrive; the line-height centres the words in it. */
+  line-height: max(2rem, var(--target-min));
+  margin-right: auto;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
 /* Collapsed, the cluster is the whole strip, so it must sit at the left with
    the label rather than floating in from the right. */
 .doc-toolbar.is-collapsed .doc-toolbar-tools {

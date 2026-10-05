@@ -892,6 +892,12 @@ function wbShowMapStats() {
     return;
   }
   const stats = wbMapStats(wbMapIndex());
+  wbInfoDialog("What this map is made of", wbMapStatsList(stats));
+}
+
+//: The facts as a list: the dialog's body, and the sidebar's This map tab
+//: (INBOX 596), one builder so the two never say different things.
+function wbMapStatsList(stats) {
   const rows = [
     ["Nodes", `${stats.nodes} (${stats.references} from the library, ${stats.topics} topics of their own)`],
     ["Depth", `${stats.depth} level${stats.depth === 1 ? "" : "s"}`],
@@ -916,7 +922,7 @@ function wbShowMapStats() {
     said.textContent = value;
     body.append(name, said);
   }
-  wbInfoDialog("What this map is made of", body);
+  return body;
 }
 
 //: A read-only dialog: a title, a block of content, one way out.
@@ -1650,6 +1656,43 @@ function wbBuildMapNode(el, d) {
       wbMapToggleCollapse(d.id);
     })
     .append("i").attr("class", "ph ph-caret-down").attr("aria-hidden", "true");
+  //: **One resize grip, on the topic's own corner** (INBOX 610, the owner:
+  //: "utility and usability for the mindmap is unintuitive like with
+  //: resizing the mindmap nodes, resizing the text"). There were two 16px
+  //: glyphs floating above the topic's top left, "Aa" and an arrow pointing
+  //: down and right, each a drag: one for the box, one for the words, and the
+  //: words grew as the pointer went *down*. Measured in
+  //: `scratchpad/ui-sweeps/bm1005-nodetasks.js`: neither was on the corner it
+  //: resized from, and dragging "Aa" upwards made the text smaller.
+  //:
+  //: Now the board's own grip (DESIGN.md, "a grip you drag on a canvas"): a
+  //: small filled square on the bottom right corner, shown when the topic is
+  //: selected or pointed at, which grows the box the way a card on a board
+  //: grows. Held with Shift it scales the words with the box, which keeps
+  //: the old grip's "a little bigger than that" without a second control;
+  //: the four named sizes are on the topic's bar now, one press each.
+  //:
+  //: One corner, not the board's eight: the chevron and its count own the
+  //: middle of the edge the branch leaves from, and the add buttons hang off
+  //: the bottom left. The bottom right is the corner none of them reach on
+  //: either layout, measured by the same sweep. It writes width and height
+  //: and never x or y (`wbMapStartResizeDrag` says why).
+  //:
+  //: Plain pointer events with capture, not a d3 drag: `preventDefault` on
+  //: `pointerdown` suppresses the compatibility `mousedown` that `objDrag`
+  //: listens for, so grabbing the grip cannot also be the first frame of a
+  //: node drag. The class is in `objDrag`'s own filter as well.
+  el.append("button")
+    .attr("type", "button")
+    .attr("class", "wb-map-resize-grip")
+    .attr("title", "Drag to resize this topic. Hold Shift to scale its text with it")
+    .attr("aria-label", "Resize this topic")
+    .on("pointerdown", function (event) {
+      event.stopPropagation();
+      event.preventDefault();
+      wbMapStartResizeDrag(this, event, d);
+    });
+
   //: **Two ways to grow the map, in one row.** `+` makes a topic; the second
   //: button makes a node that *points at* a real note, document, file or link
   //: (§5 item 11: the half §10.4 recorded as missing: "a reference node was
@@ -1667,62 +1710,6 @@ function wbBuildMapNode(el, d) {
   //: hand-placed off the same corner is how they come to overlap by a few
   //: pixels that a screenshot does not show, which this file has already had
   //: to fix twice for the count badge (see `.wb-map-count`'s own comment).
-  //: **The text-size grip** (MINDMAP_PLAN.md §12.1 item 6): drag the node's
-  //: own corner and the words get bigger. The strip has four sizes, which is
-  //: the right control for "make this a heading"; this is the one for
-  //: "a little bigger than that", and mind-mapping tools all have it because
-  //: a map's hierarchy is carried as much by size as by position.
-  //:
-  //: Plain pointer events with capture, not a d3 drag: `preventDefault` on
-  //: `pointerdown` suppresses the compatibility `mousedown` that `objDrag`
-  //: listens for, so grabbing the grip cannot also be the first frame of a
-  //: node drag. The class is in `objDrag`'s own filter as well, because one
-  //: guard for this is what the resize handles already learned is not enough.
-  //: **Both grips in one row**, rather than each hand-placed off the same
-  //: corner. That is the lesson `.wb-map-actions` already carries a paragraph
-  //: about, and this is the second time it has been paid for: the size grip
-  //: was first put at the node's *other* bottom corner and landed underneath
-  //: the add buttons' own row, which hangs off that corner from outside and
-  //: takes the pointer first, so the drag never started at all. Measured
-  //: before this row existed: pointerdown on the grip was never received.
-  const grips = el.append("div").attr("class", "wb-map-grips");
-  grips.append("button")
-    .attr("type", "button")
-    .attr("class", "wb-map-size-grip")
-    .attr("title", "Drag to change the text size")
-    .attr("aria-label", "Drag to change the text size")
-    .on("pointerdown", function (event) {
-      event.stopPropagation();
-      event.preventDefault();
-      wbMapStartSizeDrag(this, event, d);
-    })
-    .append("i").attr("class", "ph ph-text-aa").attr("aria-hidden", "true");
-
-  //: **The size grip** (MINDMAP_PLAN.md's item 177, the owner's fourth, asked
-  //: for twice): drag the topic's own corner and the topic gets bigger, the
-  //: same gesture a card on a board already has. It is a grip rather than one
-  //: of the board's eight `.wb-resize-handle`s for the reason `renderWbObjects`
-  //: gives for not giving a map node those: eight handles and a rotate grip
-  //: sit exactly where the chevron, the count badge and the two add buttons
-  //: already are, and would swallow all four. One corner is enough here
-  //: because a resize on a map may not move the node: the layout owns x and y.
-  //:
-  //: Pointer events with capture rather than a d3 drag, for the same reason
-  //: the text-size grip beside it uses them: `preventDefault` on `pointerdown`
-  //: suppresses the compatibility `mousedown` that `objDrag` listens for, so
-  //: grabbing the grip cannot also be the first frame of a node drag.
-  grips.append("button")
-    .attr("type", "button")
-    .attr("class", "wb-map-resize-grip")
-    .attr("title", "Drag to resize this topic")
-    .attr("aria-label", "Drag to resize this topic")
-    .on("pointerdown", function (event) {
-      event.stopPropagation();
-      event.preventDefault();
-      wbMapStartResizeDrag(this, event, d);
-    })
-    .append("i").attr("class", "ph ph-arrow-down-right" ).attr("aria-hidden", "true");
-
   const actions = el.append("div").attr("class", "wb-map-actions");
   actions.append("button")
     .attr("type", "button")
@@ -2245,41 +2232,6 @@ function wbMapOpenLink(d) {
   window.open(String(href).trim(), "_blank", "noopener,noreferrer");
 }
 
-//: The grip's drag, from pointerdown to drop.
-//:
-//: Live on the element and stored once, at the end: a PUT per pixel of drag
-//: is the flood `wbBeginTextEdit`'s own blur-save comment warns about, and the
-//: node is already showing the new size, so there is nothing to see for it.
-//: Divided by the zoom, so the gesture means the same amount of text at every
-//: scale rather than four times as much when zoomed out.
-function wbMapStartSizeDrag(grip, event, d) {
-  const node = grip.closest(".wb-object");
-  if (!node) return;
-  const container = document.getElementById("whiteboard-container");
-  const k = container ? d3.zoomTransform(container).k : 1;
-  const startY = event.clientY;
-  const startSize = d.data?.font_size || WB_MAP_TEXT_DEFAULT;
-  let size = startSize;
-  grip.setPointerCapture?.(event.pointerId);
-  const move = (moveEvent) => {
-    // Four pixels of drag to one of type: the whole useful range (10 to 44)
-    // is then about 140px of travel, which is a gesture rather than a twitch.
-    const next = startSize + ((moveEvent.clientY - startY) / k) / 4;
-    size = Math.round(Math.min(WB_MAP_TEXT_MAX, Math.max(WB_MAP_TEXT_MIN, next)));
-    node.style.fontSize = `${size}px`;
-  };
-  const done = async () => {
-    grip.removeEventListener("pointermove", move);
-    grip.removeEventListener("pointerup", done);
-    grip.removeEventListener("pointercancel", done);
-    if (size === startSize) return;
-    await wbMapSetNodeStyle(d, { font_size: size });
-  };
-  grip.addEventListener("pointermove", move);
-  grip.addEventListener("pointerup", done);
-  grip.addEventListener("pointercancel", done);
-}
-
 //: How small a topic may be dragged. Narrower than this is a box too small to
 //: hold the grip that is resizing it, which is a node you cannot get back.
 const WB_MAP_NODE_MIN_W = 72;
@@ -2325,12 +2277,21 @@ function wbMapStartResizeDrag(grip, event, d) {
   const edges = wbMapEdgesFor(d.id);
   let width = startW;
   let height = startH;
+  //: **Shift scales the words with the box** (INBOX 610), by the width's
+  //: ratio, inside the same bounds the four named sizes sit in. Read on every
+  //: move, so pressing or letting go of Shift mid-drag does what it says.
+  const startFont = d.data?.font_size || WB_MAP_TEXT_DEFAULT;
+  let font = startFont;
   grip.setPointerCapture?.(event.pointerId);
   const move = (moveEvent) => {
     width = Math.max(WB_MAP_NODE_MIN_W, startW + (moveEvent.clientX - startX) / k);
     height = Math.max(WB_MAP_NODE_MIN_H, startH + (moveEvent.clientY - startY) / k);
     width = Math.round(width);
     height = Math.round(height);
+    font = moveEvent.shiftKey
+      ? Math.round(Math.min(WB_MAP_TEXT_MAX, Math.max(WB_MAP_TEXT_MIN, startFont * (width / startW))))
+      : startFont;
+    node.style.fontSize = font === startFont && !d.data?.font_size ? "" : `${font}px`;
     node.style.width = `${width}px`;
     node.style.minHeight = `${height}px`;
     d.width = width;
@@ -2351,7 +2312,7 @@ function wbMapStartResizeDrag(grip, event, d) {
     // and `width`/`height` are already on it.
     // `undo: false`: the size was already live on `d`, so the helper's own
     // snapshot would hold the new size; `before` below is the true one.
-    await wbMapSetNodeStyle(d, { sized: true }, { undo: false });
+    await wbMapSetNodeStyle(d, font === startFont ? { sized: true } : { sized: true, font_size: font }, { undo: false });
     wbPushUndo({ action: "move", kind: "object", id: d.id, before });
     wbScheduleRender();
   };
@@ -3097,11 +3058,15 @@ function wbMapRibbonD(parent, child, layout) {
   const right = [];
   const halfAt = (t) => weight * (WB_MAP_RIBBON_THIN
     + (WB_MAP_RIBBON_WIDE - WB_MAP_RIBBON_THIN) * (1 - t) * (1 - t)) / 2;
-  for (let i = 0; i <= WB_MAP_RIBBON_STEPS; i += 1) {
+  //: More samples on a longer branch (INBOX 609): one per 40 units of chord
+  //: past the 24 a short branch has always had, so the spline below is never
+  //: asked to bridge a long stretch of a changing width on two points.
+  const steps = Math.min(96, Math.max(WB_MAP_RIBBON_STEPS, Math.ceil(Math.hypot(p1.x - p0.x, p1.y - p0.y) / 40)));
+  for (let i = 0; i <= steps; i += 1) {
     //: Eased rather than linear, so the branch keeps its weight for the first
     //: part of its run and tapers over the second, which is how a real branch
     //: (and Coggle's) looks; a straight ramp reads as a wedge.
-    const t = (i / WB_MAP_RIBBON_STEPS) * bodyEnd;
+    const t = (i / steps) * bodyEnd;
     const point = wbMapCubicAt(t, p0, c0, c1, p1);
     const length = Math.hypot(point.dx, point.dy) || 1;
     const nx = -point.dy / length;
@@ -3125,10 +3090,41 @@ function wbMapRibbonD(parent, child, layout) {
     tip = [end.x, end.y];
   }
   const at = ([x, y]) => `${Math.round(x * 10) / 10} ${Math.round(y * 10) / 10}`;
-  const forward = left.map((pt, i) => `${i ? "L" : "M"}${at(pt)}`).join("");
+  const forward = `M${at(left[0])}${wbMapSmoothThrough(left, at)}`;
   const point = tip ? `L${at(tip)}` : "";
-  const back = right.reverse().map((pt) => `L${at(pt)}`).join("");
+  right.reverse();
+  const back = `L${at(right[0])}${wbMapSmoothThrough(right, at)}`;
   return `${forward}${point}${back}Z`;
+}
+
+//: **Each side of a ribbon is a curve, not a polyline** (INBOX 609: "on
+//: longer mind map links, I can actually see the hard bends in the line and
+//: it isnt a smooth curve"). The sides used to be the samples joined by `L`,
+//: which is smooth while a segment is a few pixels long and shows every
+//: corner once a branch runs a thousand units and the view zooms in: the
+//: sweep (`bm1005-curve.js`) measured 4.5 to 8 degrees of turn inside one
+//: unit of outline, at every sample, on four long branches.
+//:
+//: A Catmull-Rom spline through the same samples, written as one cubic per
+//: span: each span's two controls sit a sixth of the way along the chord
+//: between its neighbours, so the tangent is shared at every sample and the
+//: outline has no corner anywhere along a side (only the three it means to
+//: have: the parent end, the barb and the tip). The ends reflect their
+//: neighbour rather than repeat themselves, so the first and last spans keep
+//: their slope instead of flattening into the node.
+function wbMapSmoothThrough(points, at) {
+  const n = points.length;
+  let d = "";
+  for (let i = 0; i + 1 < n; i += 1) {
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p0 = i > 0 ? points[i - 1] : [2 * p1[0] - p2[0], 2 * p1[1] - p2[1]];
+    const p3 = i + 2 < n ? points[i + 2] : [2 * p2[0] - p1[0], 2 * p2[1] - p1[1]];
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += `C${at(c1)} ${at(c2)} ${at(p2)}`;
+  }
+  return d;
 }
 
 //: Which of the two drawings this edge gets. One place, because the render,
@@ -5375,6 +5371,240 @@ function wbSyncMapToolState() {
 //: what tells them the change came from the sync rather than from a person.
 let wbMapStripSyncing = false;
 
+//: **Every choice in the topic's bar is one press** (INBOX 610, the owner:
+//: "changing various features ... the popup tool menus (not the radials)"
+//: was "unintuitive"). Each of the bar's settings was a `<select>` inside a
+//: door: open the door, open the list, pick a row, three steps and a popup
+//: inside a popup, measured by `scratchpad/ui-sweeps/bm1005-nodetasks.js`
+//: (eight of eleven tasks took three). Each select is now drawn as the
+//: choice-control recipe (DESIGN.md, `.seg[role="group"]`) beside it, so a
+//: door and one press is the most anything takes, and the text size, on the
+//: bar itself, is one.
+//:
+//: **The select is still the control.** Every listener in whiteboard.js
+//: reads it, `wbSyncMapStrip` sets it and renames its blank row on a themed
+//: map, `wbSyncMapFill` rewrites its rows; the segments only press it. They
+//: are redrawn from it on its own `change` and on any change to its rows, so
+//: nothing that writes the select has to know they exist.
+const WB_MAP_CHOICE_REDRAWS = [];
+
+function wbMapChoiceRow(select) {
+  const seg = document.createElement("div");
+  seg.className = "seg wb-map-choices";
+  seg.setAttribute("role", "group");
+  seg.setAttribute("aria-label", select.getAttribute("aria-label") || "");
+  const icons = select.id === "wb-map-strip-icon";
+  //: **The buttons are kept, not rebuilt**, while the select's rows are the
+  //: same rows: the chosen segment's fill is the strip's own gliding
+  //: indicator (08-consistency.css, anchored to `.active`), which can only
+  //: glide from one button to another that both still exist, and a rebuilt
+  //: row would also drop the keyboard focus from under the person pressing.
+  //: Rebuilt only when the rows themselves change (a themed map's pin row,
+  //: the fill's "No fill" row), which is a different set of choices.
+  const press = (value) => {
+    if (select.value === value) return;
+    select.value = value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    draw();
+  };
+  const draw = () => {
+    const options = [...select.options];
+    const same = seg.children.length === options.length
+      && options.every((option, i) => seg.children[i].dataset.value === option.value);
+    if (!same) {
+      seg.replaceChildren(...options.map((option) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.value = option.value;
+        button.addEventListener("click", () => press(option.value));
+        return button;
+      }));
+    }
+    options.forEach((option, i) => {
+      const button = seg.children[i];
+      const words = option.textContent.trim();
+      //: A themed map's blank row reads "As the map draws (bold)", which is
+      //: right in a list and a paragraph in a segment: the segment says
+      //: "Map" and keeps the sentence as its name.
+      const themed = /^As the map draws/.test(words);
+      if (icons && option.value) {
+        if (!button.querySelector("i")) {
+          const glyph = document.createElement("i");
+          glyph.className = `ph ph-${option.value}`;
+          glyph.setAttribute("aria-hidden", "true");
+          button.replaceChildren(glyph);
+        }
+        button.setAttribute("aria-label", words);
+      } else {
+        //: `data-short` is the segment's word where the list's says the
+        //: row's name again ("Thick line" under Thickness): the list needs
+        //: the whole phrase, a row of segments under its name does not, and
+        //: the full phrase stays the segment's name and tooltip.
+        const short = option.dataset.short;
+        const text = themed ? "Map" : (icons ? "None" : (short || words));
+        if (button.textContent !== text) button.textContent = text;
+        if (themed || icons || short) button.setAttribute("aria-label", words);
+        else button.removeAttribute("aria-label");
+      }
+      button.title = words;
+      const on = option.value === select.value;
+      button.classList.toggle("active", on);
+      button.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  };
+  select.addEventListener("change", draw);
+  new MutationObserver(draw).observe(select, { childList: true, subtree: true, characterData: true });
+  WB_MAP_CHOICE_REDRAWS.push(draw);
+  draw();
+  select.hidden = true;
+  select.parentElement.append(seg);
+  return seg;
+}
+
+function wbWireMapChoices() {
+  for (const select of document.querySelectorAll("#wb-map-strip select")) wbMapChoiceRow(select);
+}
+
+// --- several topics at once (INBOX 617) --------------------------------------
+//
+//: **A marquee round topics is a map selection, not a board one** (INBOX 617,
+//: the owner: "on the mind map when selecting a group of nodes, it defaults
+//: to the whiteboard selection and popup menus and right click menus"). With
+//: two or more topics picked, every surface fell back to the board's: the
+//: group box with its eight resize handles and rotate knob (a tidied tree
+//: owns where a topic sits and how it turns, so all nine were grips that
+//: could only fight the layout), the bar's group, align, distribute,
+//: same-size and order rows, and a right-click menu with nothing a mind
+//: mapper does to several topics at once. Measured by
+//: `scratchpad/ui-sweeps/bm1005-mapmulti.js` on the base: a group box with
+//: ten handles, five board groups on the bar, one map row in the menu.
+//:
+//: Now a selection that is only topics, on a map, reads this: no group box
+//: (each topic keeps its own outline), the bar's `mapmulti` group (colour,
+//: bold, task, fold, summarise and delete) and the same five as words in the
+//: right-click menu. A selection that mixes a topic with a card or a drawing
+//: is still the board's, because the board's verbs are the ones that apply
+//: to all of it.
+function wbMapMultiTopics() {
+  if (!wbIsMap() || wbMultiSelection.size < 2) return null;
+  const topics = [];
+  for (const key of wbMultiSelection) {
+    const sep = key.indexOf(":");
+    if (key.slice(0, sep) !== "object") return null;
+    const obj = wbFindItem("object", Number(key.slice(sep + 1)));
+    if (!obj || !WB_MAP_KINDS.has(obj.kind)) return null;
+    topics.push(obj);
+  }
+  return topics;
+}
+
+//: One change to several topics: one undo step for all of them, each saved
+//: in turn (a burst of simultaneous writes races the board's stale-client
+//: recovery, `wbSaveMultiSnapshot` says why), one render at the end.
+//: `patchOf` returns null for a topic the change leaves as it is.
+async function wbMapStyleMany(topics, patchOf) {
+  const entries = [];
+  const changed = [];
+  for (const node of topics) {
+    const patch = patchOf(node);
+    if (!patch) continue;
+    entries.push({ action: "move", kind: "object", id: node.id, before: WB_KIND_INFO.object.payload(node) });
+    node.data = { ...node.data, ...patch };
+    changed.push(node);
+  }
+  if (!changed.length) return 0;
+  wbPushDragUndo(entries);
+  for (const node of changed) await wbSaveObject(node);
+  renderWhiteboardNow();
+  return changed.length;
+}
+
+//: What each of the five does, from the bar and from the menu alike. Each is
+//: a toggle that reads the whole selection: if any picked topic is not yet
+//: bold, Bold makes them all bold; only when every one is does it take bold
+//: off, which is how a word processor's Bold treats a mixed run.
+function wbMapMultiState(topics) {
+  const index = wbMapIndex();
+  const branches = topics.filter((n) => (index.childrenOf.get(n.id) || []).length);
+  const parent = topics[0].parent_id;
+  return {
+    branches,
+    folded: branches.length > 0 && branches.every((n) => n.data?.collapsed),
+    bold: topics.every((n) => wbMapThemedData(n).bold),
+    tasks: topics.every((n) => n.data?.task === "open" || n.data?.task === "done"),
+    siblings: parent != null && index.byId.has(parent) && topics.every((n) => n.parent_id === parent),
+  };
+}
+
+const WB_MAP_MULTI_ACTIONS = {
+  async fold(topics) {
+    const state = wbMapMultiState(topics);
+    if (!state.branches.length) {
+      toast("None of these topics has anything under it to fold.");
+      return;
+    }
+    const fold = !state.folded;
+    await wbMapStyleMany(state.branches, (n) => (Boolean(n.data?.collapsed) === fold ? null : { collapsed: fold }));
+    wbAnnounce(fold ? "Folded." : "Opened.");
+  },
+  async bold(topics) {
+    const want = !wbMapMultiState(topics).bold;
+    const fallback = Boolean(wbMapThemeDefault("bold"));
+    await wbMapStyleMany(topics, (n) =>
+      Boolean(wbMapThemedData(n).bold) === want ? null : { bold: want === fallback ? null : want });
+  },
+  async task(topics) {
+    const make = !wbMapMultiState(topics).tasks;
+    await wbMapStyleMany(topics, (n) => {
+      const is = n.data?.task === "open" || n.data?.task === "done";
+      if (make) return is ? null : { task: "open" };
+      return is ? { task: null } : null;
+    });
+    wbAnnounce(make ? "Tasks, not done yet." : "No longer tasks.");
+  },
+  async color(topics, value) {
+    await wbMapStyleMany(topics, (n) => (n.data?.color === value ? null : { color: value }));
+  },
+  summary(topics) {
+    if (wbMapMultiState(topics).siblings) wbMapSummarise(topics);
+    else toast("A summary goes beside topics under one parent: pick siblings to summarise them together.");
+  },
+};
+
+//: The bar's group, set from the selection each time it changes: pressed
+//: states, and Fold and Summarise only when they have something to act on.
+function wbSyncMapMulti(topics) {
+  const state = wbMapMultiState(topics);
+  const set = (id, fn) => {
+    const el = document.getElementById(id);
+    if (el) fn(el);
+  };
+  set("wb-mapmulti-bold", (el) => el.setAttribute("aria-pressed", String(state.bold)));
+  set("wb-mapmulti-task", (el) => el.setAttribute("aria-pressed", String(state.tasks)));
+  set("wb-mapmulti-fold", (el) => {
+    el.classList.toggle("hidden", !state.branches.length);
+    el.setAttribute("aria-pressed", String(state.folded));
+  });
+  set("wb-mapmulti-summary", (el) => el.classList.toggle("hidden", !state.siblings));
+  const color = topics.map((n) => n.data?.color).find((c) => /^#[0-9a-f]{6}$/i.test(c || ""));
+  set("wb-mapmulti-color", (el) => {
+    if (color) el.value = color;
+  });
+}
+
+//: Wired once, from `initWhiteboard`. Each reads the selection when it is
+//: pressed rather than holding one, as the strip's controls do.
+function wbWireMapMulti() {
+  const run = (name, ...args) => {
+    const topics = wbMapMultiTopics();
+    if (topics) WB_MAP_MULTI_ACTIONS[name](topics, ...args);
+  };
+  for (const name of ["fold", "bold", "task", "summary"]) {
+    document.getElementById(`wb-mapmulti-${name}`)?.addEventListener("click", () => run(name));
+  }
+  document.getElementById("wb-mapmulti-color")?.addEventListener("change", (e) => run("color", e.target.value));
+}
+
 function wbSyncMapStrip(node) {
   //: **The effective state, not the stored one** (§13e). The arrow button has
   //: always worked this way and says why below; a theme makes it true of the
@@ -5466,6 +5696,7 @@ function wbSyncMapStrip(node) {
     setSelect("wb-map-shape", shown("shape"));
     setSelect("wb-map-spine", shown("spine"));
     wbSyncMapFill(node);
+    for (const draw of WB_MAP_CHOICE_REDRAWS) draw();
     //: The line into this topic (item 177). A trunk has none, so the group is
     //: put away rather than shown as three controls that write a field
     //: nothing draws: `wbMapEdgeHasArrow` and the rest all read the *child*
@@ -5579,8 +5810,8 @@ function wbSyncMapFill(node) {
   }
 }
 
-//: The size the text grip starts from when a node has never been sized, and
-//: the bounds it may drag between (§12.1 item 6). Measured rather than
+//: The size a Shift-drag of the resize grip scales from when a node has never
+//: been sized, and the bounds it may scale between (§12.1 item 6, INBOX 610). Measured rather than
 //: assumed: `.wb-map-node` reads at `--text-md`, which computes to 13.6px at
 //: the default root size, so 14 is that rounded to a whole pixel. The strip's
 //: own "M" stores nothing at all instead, see `wbSyncMapStrip`.
@@ -7217,4 +7448,124 @@ function wbMapPresentSteps() {
     }
   }
   return steps;
+}
+
+//: **Branches from my notes** (the features audit FEAT-13; WHITEBOARD_PLAN
+//: decision 36; MINDMAP_PLAN §12.3 item 2). Up to five children for a topic,
+//: each found in one of the person's notes and saying which
+//: (`routes_map_suggest.py`: the search engine finds the notes, the model only
+//: names a topic for one by number, and with no model the notes' titles are
+//: the suggestions). Shown in the picker dialog with the Attach picker's rows,
+//: all ticked; Add makes the ticked ones under the topic, each with its source
+//: in its note, as one Undo step, and tidies the branch as a paste does.
+async function wbMapSuggestBranches(node) {
+  const boardId = window.currentBoardId;
+  if (!node || !boardId) return;
+  wbAnnounce("Looking through your notes for branches.");
+  let got = null;
+  try {
+    got = await apiJson(`/whiteboard/boards/${boardId}/nodes/${node.id}/suggest`, { method: "POST" });
+  } catch (err) {
+    toast(err.message || "No branches could be suggested.", true);
+    return;
+  }
+  const rows = (got?.suggestions || []).map((s, i) => ({ id: i, ...s }));
+  if (!rows.length) {
+    toast("None of your notes match this topic's words yet, so there is nothing to suggest.");
+    return;
+  }
+  const chosen = await new Promise((resolve) => {
+    const list = document.createElement("ul");
+    list.className = "note-picker-list entry-pick-list";
+    list.setAttribute("aria-label", "Suggested branches");
+    const said = got.source === "model"
+      ? `Under "${got.topic}", from your notes. Tick the ones to add.`
+      : `Under "${got.topic}": your notes that match it${got.reason === "offline" ? " (no model is running, so these are their titles)" : ""}. Tick the ones to add.`;
+    const shell = pickerDialog({ title: "Branches from your notes", about: said, placeholder: "Filter the suggestions", list });
+    const on = new Set(rows.map((r) => r.id));
+    const count = document.createElement("span");
+    count.className = "muted";
+    const add = smallButton("Add", "Add the ticked branches", () => {
+      if (on.size) shell.close(rows.filter((r) => on.has(r.id)).map((r) => ({ text: r.text, note_id: r.note_id })));
+    }, false);
+    add.classList.add("accent");
+    const cancel = smallButton("Cancel", "Cancel", () => shell.close(null));
+    const foot = document.createElement("div");
+    foot.className = "row space-dialog-actions";
+    foot.append(count, cancel, add);
+    const refresh = () => {
+      count.textContent = on.size ? `${on.size} of ${rows.length} ticked` : "Tick a branch to add it.";
+      add.disabled = on.size === 0;
+    };
+    const shape = {
+      label: (row) => row.text,
+      icon: () => "ph:tree-structure",
+      meta: (row) => [`From your note "${row.note_title}"`],
+      isOn: (row) => on.has(row.id),
+      add: (row) => {
+        on.add(row.id);
+      },
+      remove: (row) => on.delete(row.id),
+    };
+    const paint = () => {
+      const term = shell.search.value.trim().toLowerCase();
+      const shown = rows.filter((r) => !term || `${r.text} ${r.note_title}`.toLowerCase().includes(term));
+      if (!shown.length) return pickerListState(list, "No suggestion has those words.");
+      list.replaceChildren(...shown.map((row) => {
+        const li = notePickerRow(shape, row);
+        li.classList.add("entry-pick-check");
+        li.querySelector(".note-picker-box").addEventListener("change", refresh);
+        return li;
+      }));
+      notePickerRoving(list, 0);
+    };
+    list.addEventListener("keydown", (event) => {
+      const boxes = [...list.querySelectorAll(".note-picker-box")];
+      const at = boxes.indexOf(document.activeElement);
+      if (at < 0) return;
+      if (event.key === "Enter") {
+        event.preventDefault();
+        add.click();
+        return;
+      }
+      const to = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: boxes.length - 1 }[event.key];
+      if (to === undefined) return;
+      event.preventDefault();
+      if (to < 0) return shell.search.focus();
+      notePickerRoving(list, Math.min(to, boxes.length - 1))[Math.min(to, boxes.length - 1)].focus();
+    });
+    shell.search.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowDown") return;
+      event.preventDefault();
+      list.querySelector(".note-picker-box")?.focus();
+    });
+    shell.search.addEventListener("input", paint);
+    paint();
+    refresh();
+    shell.open(resolve, { foot });
+    list.querySelector(".note-picker-box")?.focus();
+  });
+  if (!chosen?.length || window.currentBoardId !== boardId) return;
+  let made = [];
+  await wbRecordGesture(async () => {
+    try {
+      made = await apiJson(`/whiteboard/boards/${boardId}/nodes/${node.id}/branches`, {
+        method: "POST",
+        body: JSON.stringify({ items: chosen }),
+      });
+    } catch (err) {
+      toast(err.message || "The branches could not be added.", true);
+      return;
+    }
+    wbState.objects = [...(wbState.objects || []), ...made];
+    if (node.data?.collapsed) {
+      node.data = { ...node.data, collapsed: false };
+      await wbSaveObject(node);
+    }
+    renderWhiteboardNow();
+    if (wbMapLayout() !== "free") await wbMapTidy({ onlyBranch: wbMapTidyBranchScope(node.id), quiet: true });
+  });
+  if (!made.length) return;
+  selectWbItem("object", made[0].id);
+  wbAnnounce(`Added ${made.length} branch${made.length === 1 ? "" : "es"} from your notes. Ctrl+Z takes them back.`);
 }

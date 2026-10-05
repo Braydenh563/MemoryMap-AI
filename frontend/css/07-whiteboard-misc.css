@@ -98,9 +98,10 @@
 }
 
 /* Presenting the frames (WHITEBOARD_PLAN decision 16): every control but
-   the presentation's own bar steps aside, and the board is a view. */
+   the presentation's own bar steps aside, and the board is a view. A
+   board's History (decision 33) is this mode with its own `.wb-present-bar`. */
 #library-view-whiteboard.wb-presenting .wb-topbar,
-#library-view-whiteboard.wb-presenting .whiteboard-floating-panel:not(#wb-present-bar),
+#library-view-whiteboard.wb-presenting .whiteboard-floating-panel:not(.wb-present-bar),
 #library-view-whiteboard.wb-presenting .wb-context,
 #library-view-whiteboard.wb-presenting .wb-map-strip,
 #library-view-whiteboard.wb-presenting .wb-navigator,
@@ -5169,8 +5170,7 @@ summary:not(.icon-only):not(.icon-button) {
    the ugliest available outcome. A new list that forgets to enrol gets no
    warning, no log and no failing test; it just looks broken. */
 .doc-list-tick,
-.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only),
-.reminder-item input[type="checkbox"]:not(.sr-only) {
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only) {
   appearance: none;
   -webkit-appearance: none;
   width: var(--target-min);
@@ -5203,8 +5203,7 @@ summary:not(.icon-only):not(.icon-button) {
 .library-tile-tick:hover,
 .select-check:hover,
 .doc-list-tick:hover,
-.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):hover,
-.reminder-item input[type="checkbox"]:not(.sr-only):hover {
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):hover {
   border-color: var(--accent);
 }
 
@@ -5212,8 +5211,7 @@ summary:not(.icon-only):not(.icon-button) {
 .library-tile-tick:checked,
 .select-check:checked,
 .doc-list-tick:checked,
-.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked,
-.reminder-item input[type="checkbox"]:not(.sr-only):checked {
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked {
   background: var(--accent);
   border-color: var(--accent);
 }
@@ -5224,8 +5222,7 @@ summary:not(.icon-only):not(.icon-button) {
 .library-tile-tick:checked::after,
 .select-check:checked::after,
 .doc-list-tick:checked::after,
-.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked::after,
-.reminder-item input[type="checkbox"]:not(.sr-only):checked::after {
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked::after {
   content: "";
   position: absolute;
   left: 50%;
@@ -10807,105 +10804,48 @@ input[type="file"] {
   pointer-events: none;
 }
 
-/* **The node's two grips, in one row**: text size (MINDMAP_PLAN.md §12.1
-   item 6) and the node's own size (item 177). Inside the node, at the corner,
-   and shown by the same rule the two add buttons are: they belong to the node
-   you are pointing at, and a grip on every node of a two-hundred-node map
-   would be two hundred more marks on the canvas.
+/* **The topic's resize grip, on its own bottom right corner** (INBOX 610:
+   "resizing the mindmap nodes, resizing the text" was "unintuitive"). It was
+   a row of two 16px glyphs floating outside the top left, "Aa" and an arrow,
+   neither on the corner it resized from. Now the board's grip recipe
+   (DESIGN.md, "a grip you drag on a canvas", `.wb-resize-handle`): a small
+   square filled in the branch's colour and stroked in the card colour, kept
+   one size to the hand at every zoom, revealed by selecting the topic or
+   pointing at it, in the Select tool only, and absent otherwise so it never
+   takes a press meant for the topic.
 
-   Not `button.ghost`: these are grips, the same kind of thing as
-   `.wb-object-grip` above, and a grip is a texture to grab rather than a
-   control to press. Giving them the button ramp's fill and lift would make
-   them look like two more add buttons parked in the corner.
-
-   **Bottom left, not bottom right** (INBOX 177: "the 'Aa' font size button
-   placement clashes with the popup buttons"). `.wb-map-actions` hangs off
-   the node's bottom right corner from outside it and reaches back over that
-   corner, so a grip there drew under the add/link buttons the moment a node
-   was selected, and never received a pointerdown at all.
-
-   One row rather than a second grip hand-placed off another corner: that is
-   how two controls come to overlap by a few pixels a screenshot does not
-   show, which this file has already had to fix twice (see `.wb-map-count`). */
-.wb-map-grips {
-  position: absolute;
-  /* **Above the node's top left corner, not inside its bottom left one**
-     (the owner, with a screenshot of the Aa sitting under the add button:
-     "the mind map text size 'Aa' thing clashes with the popups buttons, can
-     they be moved to the top left or right or smth"). `.wb-map-actions` was
-     itself moved to hang off the *bottom left* from outside the node, which
-     put it straight back over the grips this rule had moved there to avoid
-     it. Outside the top edge is the one corner of the four with nothing on
-     it: the count and the chevron own the right hand side, the actions own
-     the bottom. Outside rather than inset, so the row never covers the label
-     on a small topic. */
-  left: 0;
-  bottom: auto;
-  top: calc(var(--space-7) * -1);
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  z-index: 4;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.wb-map-node:hover .wb-map-grips,
-.wb-map-node.wb-selected .wb-map-grips,
-.wb-map-grips:focus-within {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.wb-map-size-grip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1rem;
-  height: 1rem;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font-size: var(--text-xs);
-  line-height: 1;
-  cursor: ns-resize;
-  touch-action: none;
-}
-
-.wb-map-size-grip:hover,
-.wb-map-size-grip:focus-visible {
-  color: var(--ink);
-}
-
-/* The size grip (MINDMAP_PLAN.md item 177, "resize a topic as a card resizes
-   on the whiteboard"): the second grip in the row above, beside the one that
-   sets the text size. Its own cursor is the whole difference between them at
-   the pointer: `ns-resize` says "this one only goes up and down" (the text
-   scale), `nwse-resize` says "this one grows the box".
-
-   The row, and not this corner or that one, because `.wb-map-actions` hangs
-   off the node's bottom right from *outside* it and reaches back over the
-   corner: measured, a grip placed there never received a pointerdown at all. */
+   The bottom right because nothing else reaches it: `.wb-map-actions` hangs
+   off the bottom left, the chevron and its count sit on the middle of an
+   edge. The visible square is 10px; the button is 24px, so the hand gets a
+   target the eye does not have to see. */
 .wb-map-resize-grip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1rem;
-  height: 1rem;
+  position: absolute;
+  inset: auto -12px -12px auto;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: 0;
   background: none;
-  color: var(--muted);
-  font-size: var(--text-xs);
-  line-height: 1;
   cursor: nwse-resize;
   touch-action: none;
+  z-index: 5;
+  transform: scale(var(--wb-inv-zoom));
+  display: none;
 }
 
-.wb-map-resize-grip:hover,
+.wb-map-resize-grip::before {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  background: var(--wb-branch);
+  border: 1px solid var(--card-bg);
+  border-radius: var(--radius-sm);
+}
+
+/* The focus ring is the app's own (every button has it). */
+#whiteboard-container[data-current-tool="select"] .wb-map-node:is(:hover, .wb-selected):not(.wb-in-group) .wb-map-resize-grip,
 .wb-map-resize-grip:focus-visible {
-  color: var(--ink);
+  display: block;
 }
 
 /* How much a collapsed branch is holding. On the node, in the branch's own
@@ -11044,17 +10984,6 @@ input[type="file"] {
   border-radius: 50%;
 }
 
-/* A select that is still on the bar itself rather than behind one of §13b's
-   three doors stays small enough that the strip does not out-measure the node
-   it belongs to: one or two characters of value plus the caret. Inside a
-   door, a select is a menu row's control and takes the board menus' own
-   sizing, which is the same in place and escaped. */
-.wb-map-strip > .select-shell > .select-opener {
-  height: 1.75rem;
-  min-width: 0;
-  padding-inline: var(--space-2);
-}
-
 /* --- the strip's three doors (MINDMAP_PLAN.md §13b) ------------------------
    Text, Shape and Branch line. The bar held fourteen glyphs in one run and
    measured 959.4px against a 95px topic; these three say in a word what they
@@ -11076,7 +11005,7 @@ input[type="file"] {
    well off to one side of the thing it is about. `escapeAndCapMenu` still
    takes over whenever the canvas would clip it. */
 .wb-map-strip-menu {
-  width: 14rem;
+  width: 20rem;
   right: auto;
   left: 50%;
   transform: translateX(-50%);
@@ -11088,6 +11017,44 @@ input[type="file"] {
    which would put it half its own width to the left of where it was placed. */
 .wb-map-strip-menu.action-menu-escaped {
   transform: none;
+}
+
+/* **A door's choices are pressed, not picked from a list** (INBOX 610). Each
+   select in the topic's bar is drawn as the choice-control recipe beside it
+   (`wbMapChoiceRow`, DESIGN.md's `.seg[role="group"]`) and is itself put
+   away: it stays in the DOM because every listener reads it. A row holding
+   segments stacks its name over them, so a run of three or five words has
+   the door's full width and wraps there rather than widening the door; the
+   door is 20rem for the same reason (the longest run, the five shapes, fits
+   one line at 1440, measured by `bm1005-nodetasks.js`). The select is put
+   away with `hidden`, and the strip is `data-no-select-enhance`, so no
+   `.select-shell` opener is drawn for a select nobody sees. */
+.wb-map-strip-menu .wb-menu-row:has(> .wb-map-choices) {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+  padding-bottom: var(--space-1);
+}
+
+.wb-map-choices.seg {
+  margin: 0;
+}
+
+.wb-map-choices.seg button {
+  padding: var(--space-1) var(--space-2);
+}
+
+/* The text size on the bar: the same four segments, at the bar's own
+   control height so the well does not stand taller than the round buttons
+   beside it. */
+.wb-map-bar-size .wb-map-choices.seg {
+  flex-wrap: nowrap;
+  padding: 2px;
+}
+
+.wb-map-bar-size .wb-map-choices.seg button {
+  min-height: 0;
+  height: 1.5rem;
+  padding-block: 0;
 }
 
 /* --- the node radial (MINDMAP_PLAN.md §12.1 item 3) -------------------------
@@ -11832,12 +11799,6 @@ input[type="file"] {
 
   .library-head .library-search {
     flex: 1 1 100%;
-  }
-}
-
-@media (max-width: 599.98px) {
-  #library-sort-seg {
-    display: none;
   }
 }
 
@@ -14420,6 +14381,20 @@ button.finder-row:hover,
   padding: var(--space-1);
   max-width: calc(100% - 1rem);
   max-height: none;
+}
+
+/* **Beside a side dock, not over it** (INBOX 596: the dock "clashes with
+   the side panel"). Docked at the side, the tools are a column at the left
+   edge where the sidebar stands, and the sidebar was drawn over it
+   (58,854px² at 1440, `bm1005-sidebar.js`). It moves to the column's right;
+   its foot is the board's, not one tool dock's height above it, which made
+   it 341px tall on a board and 443px on a map. Below 600 the open sidebar
+   is a sheet across the board and keeps its own placement. */
+@media (min-width: 600px) {
+  [data-wb-dock="side"] .wb-sidebar {
+    left: calc(1rem + var(--wb-w-tools));
+    bottom: var(--space-2);
+  }
 }
 
 .wb-sidebar-rail {

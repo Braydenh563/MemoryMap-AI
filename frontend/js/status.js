@@ -2514,13 +2514,15 @@ function renderSettings() {
         down: "Can't reach the MemoryMap server.",
       }[modelStatusProblem] || "Checking the models…";
     ollamaLine.className = `status ${modelStatusProblem === "down" ? "off" : "is-checking"}`;
-    //: Rows on their way while the first answer is, never after a failure
-    //: (the line above says what went wrong); `renderFeatureModels` redraws
-    //: the list and takes them out.
-    if (!modelStatusProblem) showSkeletons($("feature-models-list"), 4);
+    //: The pane's shape under the line while it waits, never the line alone
+    //: (DESIGN.md's list recipe). Not when the answer is a fault: a skeleton
+    //: says "on its way", and "can't reach" is not that.
+    if (modelStatusProblem === "down") clearSkeletons($("models-skeleton"));
+    else showSkeletons($("models-skeleton"), 2);
     if (!modelStatusProblem) refreshModelStatus().then(() => settingsOpen() && renderSettings());
     return;
   }
+  clearSkeletons($("models-skeleton"));
 
   // Name the backend that actually answered. Saying "Ollama not detected"
   // when the app was pointed at LM Studio sends people to install the wrong

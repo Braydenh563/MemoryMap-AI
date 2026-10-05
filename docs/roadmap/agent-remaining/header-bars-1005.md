@@ -16,7 +16,7 @@ the base measured from an archive of `68b53a1` on 8814.
 2. **INBOX 621, the graph's display options** (`graphpop621.js`): one column,
    one control width, one head style, menu-row actions, no control in a
    summary.
-3. **INBOX 622, Settings navigation** (`settingsnav.js`, `settingsgroups622.js`):
+3. **INBOX 622, Settings navigation** (`settingsnav.js`):
    the pane's groups are the sidebar's second level and the phone's jump
    list's; nothing in Settings scrolls sideways at 1440 or 390;
    `test_settings_no_sideways.py`.
@@ -30,5 +30,7 @@ the base measured from an archive of `68b53a1` on 8814.
 - Settings, Tools it can use at 390: a tall empty gap between "Tokens per
   step"'s description and its field (seen in a screenshot, not measured, not
   checked against the base).
-- `scratchpad/ui-sweeps/dockseams.js` measured the wrapped-line hairlines that
-  no longer exist; it is obsolete.
+- Retired with this work: `dockseams.js` (it measured the wrapped-line
+  hairlines that no longer exist) and the one-off probes. Kept:
+  `scratchpad/ui-sweeps/dockgrammar621.js` (with `dockstops621.js`) and
+  `scratchpad/ui-sweeps/graphpop621.js`, the measurements for 621.

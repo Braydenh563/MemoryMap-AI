@@ -125,6 +125,7 @@ const WB_COMMANDS = [
   { id: "open-library", group: "Library", icon: "ph:shapes", label: "Open the library", menu: "Shapes, icons and frames…", keys: "", surface: "both", run: () => wbOpenSidebar("library") },
   { id: "save-selection", group: "Library", icon: "ph:bookmark-simple", label: "Save to the library…", keys: "Ctrl+Shift+S", surface: "board", needs: "selection", run: () => wbSaveSelectionToLibrary() },
   { id: "save-branch", group: "Library", icon: "ph:tree-structure", label: "Save this branch to the library…", keys: "Ctrl+Shift+S", surface: "map", needs: "topic", run: () => wbSaveBranchToLibrary() },
+  { id: "suggest-branches", group: "Item", icon: "ph:lightbulb", label: "Branches from my notes…", keys: "", surface: "map", needs: "topic", run: () => wbMapSuggestBranches(wbSelectedMapNode()) },
   { id: "save-shape", group: "Library", icon: "ph:polygon", label: "Save as a shape…", keys: "", surface: "board", needs: "drawing", run: () => wbSaveShapeToLibrary() },
   { id: "save-style", group: "Library", icon: "ph:paint-brush", label: "Save this style…", keys: "", surface: "board", needs: "styled", run: () => wbSaveStyleToLibrary() },
   { id: "save-preset", group: "Library", icon: "ph:note", label: "Save as a preset…", keys: "", surface: "board", needs: "textbox", run: () => wbSavePresetToLibrary() },
@@ -188,6 +189,7 @@ const WB_COMMANDS = [
   { id: "new-board", group: "Board", icon: "ph:plus", label: "New board", keys: "", surface: "both", run: wbClickId("wb-new-board") },
   { id: "switch-kind", group: "Board", icon: "ph:tree-structure", label: "Switch between a whiteboard and a mind map", keys: "", surface: "both", run: wbClickId("wb-board-kind") },
   { id: "clear", group: "Board", icon: "ph:eraser", label: "Clear this board", keys: "", surface: "both", run: wbClickId("wb-clear-board") },
+  { id: "history", group: "Board", icon: "ph:clock-counter-clockwise", label: "History: see the board as it was, and put it back", menu: "History…", keys: "", surface: "both", run: () => wbOpenHistory() },
 ];
 
 const WB_COMMAND_BY_ID = new Map(WB_COMMANDS.map((c) => [c.id, c]));

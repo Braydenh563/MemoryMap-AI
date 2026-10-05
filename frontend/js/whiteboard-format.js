@@ -64,7 +64,7 @@ function wbFmtKind(entry) {
 const WB_FMT_FIELDS = {
   shape: ["stroke", "width", "dash", "fill", "alpha", "shadow", "text", "geometry", "flip", "style-lib"],
   line: ["stroke", "width", "dash", "alpha", "shadow", "geometry", "flip", "style-lib"],
-  link: ["stroke", "width", "dash", "alpha", "route", "caps", "label-t"],
+  link: ["stroke", "width", "dash", "alpha", "route", "jumps", "caps", "label-t"],
   text: ["stroke", "fill", "alpha", "shadow", "text", "geometry", "angle", "style-lib"],
   image: ["alpha", "shadow", "geometry", "angle"],
   frame: ["geometry"],
@@ -93,6 +93,7 @@ function wbFmtValue(entry, field) {
     case "alpha": return Math.round(((s ? s.alpha : o?.alpha) ?? 1) * 100);
     case "shadow": return Boolean(s ? s.shadow : o?.shadow);
     case "route": return wbLinkRouteName(s);
+    case "jumps": return WB_JUMP_STYLES.includes(s?.jumps) ? s.jumps : "none";
     case "startcap": return wbLinkCaps(s).startCap;
     case "endcap": return wbLinkCaps(s).endCap;
     case "label-t": return Math.round(wbLinkLabelT(s) * 100);
@@ -205,16 +206,18 @@ async function wbFmtFlip(axis) {
 }
 
 //: A connector's line shape: curved, straight, or elbow (a straight link
-//: with `route: "elbow"`, see `wbLinkRouteName`). Leaving elbow drops its
-//: bends; going to elbow drops a curve's bend handle offset.
+//: with `route: "elbow"`, see `wbLinkRouteName`). Its bends go with it, as
+//: draw.io keeps an edge's waypoints across styles: every style takes them
+//: (wb-phase2 step 1), and an old link's single `bend` becomes one.
 async function wbSetLinkRoute(value) {
   await wbFmtApply("route", (entry) => {
     const parsed = wbFmtSketch(entry);
     if (wbLinkRouteName(parsed) === value) return null;
+    const points = wbLinkWaypoints(parsed, wbResolveLinkEndpoints(parsed));
     return {
       type: value === "curved" ? "link-curved" : "link-straight",
       route: value === "elbow" ? "elbow" : undefined,
-      points: undefined,
+      points: points.length ? points.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) })) : undefined,
       bend: undefined,
     };
   }, `Line shape: ${value}.`);
@@ -317,7 +320,7 @@ function wbFormatSync() {
   const takes = new Set(WB_FMT_FIELDS[wbFmtKind(first)] || []);
   for (const [id, field, row] of [
     ["wb-fmt-stroke", "stroke", "stroke"], ["wb-fmt-width", "width", "width"], ["wb-fmt-dash", "dash", "dash"],
-    ["wb-fmt-fill", "fill", "fill"], ["wb-fmt-route", "route", "route"], ["wb-fmt-startcap", "startcap", "caps"],
+    ["wb-fmt-fill", "fill", "fill"], ["wb-fmt-route", "route", "route"], ["wb-fmt-jumps", "jumps", "jumps"], ["wb-fmt-startcap", "startcap", "caps"],
     ["wb-fmt-endcap", "endcap", "caps"], ["wb-fmt-label-t", "label-t", "label-t"], ["wb-fmt-size", "size", "text"],
     ["wb-fmt-ink", "ink", "text"], ["wb-fmt-alpha", "alpha", "alpha"],
   ]) {
@@ -467,6 +470,10 @@ onDomReady(() => {
   });
   on("wb-fmt-shadow", "change", (e) => wbFmtApply("shadow", () => ({ shadow: e.target.checked || undefined }), e.target.checked ? "Shadow on." : "Shadow off."));
   on("wb-fmt-route", "change", (e) => wbSetLinkRoute(e.target.value));
+  on("wb-fmt-jumps", "change", (e) => {
+    const style = WB_JUMP_STYLES.includes(e.target.value) ? e.target.value : "none";
+    wbFmtApply("jumps", () => ({ jumps: style === "none" ? undefined : style }), `Line jumps: ${e.target.selectedOptions[0]?.textContent || style}.`);
+  });
   for (const which of ["start", "end"]) {
     on(`wb-fmt-${which}cap`, "change", (e) => wbFmtApply("caps", (entry) => {
       const caps = wbLinkCaps(wbFmtSketch(entry));

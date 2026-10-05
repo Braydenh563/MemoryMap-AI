@@ -44,10 +44,10 @@ const CHECKS = {
     await page.waitForTimeout(400);
     const m = await page.evaluate(() => {
       const cards = [...document.querySelectorAll('#entry-list > li .entry-content')];
-      return { raw: cards.filter((c) => /(^|\n)\s*[-*+]\s+\[[ xX]\]/.test(c.innerText)).length, boxes: document.querySelectorAll('#entry-list .entry-task > input[type=checkbox]').length, done: document.querySelectorAll('#entry-list .entry-task > input:checked').length };
+      return { raw: cards.filter((c) => /(^|\n)\s*[-*+]\s+\[[ xX]\]/.test(c.innerText)).length, boxes: document.querySelectorAll('#entry-list .entry-task > input[type=checkbox]').length, done: document.querySelectorAll('#entry-list .entry-task > input:checked').length, big: [...document.querySelectorAll('#entry-list .entry-task > input[type=checkbox]')].filter((i) => i.getBoundingClientRect().height > 20).length };
     });
-    console.log(`note cards: ${m.raw} showing "- [ ]" as text, ${m.boxes} task boxes (${m.done} ticked)`);
-    return m.raw + (m.boxes ? 0 : 1);
+    console.log(`note cards: ${m.raw} showing "- [ ]" as text, ${m.boxes} task boxes (${m.done} ticked), ${m.big} taller than 20px`);
+    return m.raw + m.big + (m.boxes ? 0 : 1);
   },
   //: Library with `/library` and the boards' bundle each held 3s (a loaded
   //: machine): the Cards/Rows well shows the stored choice at once, and the

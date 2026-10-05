@@ -78,6 +78,24 @@ with its owner named in the entry.
      Decision taken: release 0.4.0 waits for 640 to 644 and every buildable
      non-backlog open item.
 
+645. **The owner, 2026-10-05, verbatim.** "Once everything is done, update the
+     pr title and description, update the screenshots on the readme, can your
+     redesign and remake the GitHub pages landing site?? Make it professional
+     and in the image of MemoryMap AI. Make it detailed, and include key
+     links, it for some reason struggles to load the documents from the repo
+     so I think we should remove them and just have a solid landing site
+     which doesn't really have a problem with having to be kept up to date
+     yk?? Then once that is finished. Ensure all the documentation is
+     correct, make sure the release is ready for v0.4.0 and then lemme know
+     when it's ready to merge, before that do a final scan for bugs, security
+     flaws, codeql and ci issues you may have missed." Placed: the release
+     close-out, in this order once 640 to 644 and the buildable items land:
+     fresh README screenshots (`docs/screenshots/`), an Opus agent rebuilding
+     `docs/index.html` as a static landing page (no fetch of repo docs, links
+     out to GitHub instead), a documentation correctness pass, version 0.4.0
+     and its CHANGELOG section, a final bug, security, CodeQL and CI scan,
+     then the PR title and description, then the owner is told it is ready.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

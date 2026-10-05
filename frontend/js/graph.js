@@ -289,14 +289,30 @@ function layoutHierarchy(nodes, kind, width, height) {
   const root = { id: "root", isGroup: true, preview: "Notebook", category: "", access_count: 0 };
   const children = new Map([[root.id, [...groups.values()]]]);
   for (const group of groups.values()) children.set(group.id, []);
+  //: **Every list exists before anything is pushed into one** (INBOX 579,
+  //: "switching the graph layout does nothing"). This loop used to create a
+  //: note's list as it reached the note, so it assumed a note came after the
+  //: note it answers. `/graph` now reads newest first (the ARCH-05 index the
+  //: query is planned on), so every reply came first, `children.get(parent)`
+  //: was undefined, and Tree, Radial and Arc threw before drawing anything on
+  //: any notebook with a thread: the picker changed, the map did not.
+  for (const node of nodes) children.set(node.id, []);
+  //: A reply whose chain of parents loops (itself, or two notes answering
+  //: each other) would hang from nothing reachable and vanish from the
+  //: layout; it is filed under its category instead.
+  const threaded = (node) => {
+    const seen = new Set([node.id]);
+    for (let at = node; at.parent_id != null && byId.has(at.parent_id); ) {
+      if (seen.has(at.parent_id)) return false;
+      seen.add(at.parent_id);
+      at = byId.get(at.parent_id);
+    }
+    return node.parent_id != null && byId.has(node.parent_id);
+  };
   for (const node of nodes) {
-    // A reply hangs off the note it answers, wherever that note is filed, 
+    // A reply hangs off the note it answers, wherever that note is filed,
     // splitting a thread across categories would lose the thing it is.
-    const parent =
-      node.parent_id != null && byId.has(node.parent_id)
-        ? byId.get(node.parent_id)
-        : groups.get(node.category);
-    if (!children.has(node.id)) children.set(node.id, []);
+    const parent = threaded(node) ? byId.get(node.parent_id) : groups.get(node.category);
     children.get(parent.id).push(node);
   }
 
@@ -392,7 +408,9 @@ function layoutHierarchy(nodes, kind, width, height) {
       links.push({
         source: point.parent.data,
         target: node,
-        kind: node.parent_id != null ? "thread" : "filing",
+        // By what it hangs from, not by `parent_id`: a reply whose thread
+        // loops, or whose parent is filtered off the map, is filed.
+        kind: point.parent.data.isGroup ? "filing" : "thread",
       });
     }
   });

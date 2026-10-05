@@ -40954,6 +40954,18 @@ The two cheap additions the plan's research section named (decisions 11 to
 
      Fixed (2026-10-05, Atlas merge): the fringe is drawn inside the hair cap's group; 0 of 468 hairline samples show the page (three moods, four phases).
 
+579. **The owner, 2026-10-05, verbatim.** "switching the graph layout does
+     nothing" (the gear's Layout: Force, Tree, Radial, Arc).
+     **Fixed 2026-10-05**: `layoutHierarchy` (graph.js) built a note's
+     child list only on reaching it, so it assumed a reply came after the
+     note it answers; `/graph` now reads newest first (the ARCH-05 index the
+     query is planned on), so on any notebook with a thread Tree, Radial and
+     Arc threw before drawing. Every list is made first; a looping reply
+     chain is filed under its category. `gl1005-graphlayout.js` on 142 notes:
+     before, every pair of layouts 0 apart and three TypeErrors; after,
+     21 to 110 apart (axis-normalised, of 100), no errors, canvas and SVG,
+     light and dark, 1440 and 390. `tests/test_graph_layout_order.py`.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

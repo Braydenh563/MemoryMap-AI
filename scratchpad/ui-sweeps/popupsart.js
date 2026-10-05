@@ -41,19 +41,19 @@ async function measure(page, sel) {
         if (hit) { const o = hit.closest('[id]'); hits.push((hit.className && String(hit.className).split(' ')[0]) + (o ? ' in #' + o.id : '')); }
       }
     }
-    // The ground actually painted under the rows: the popup's own, or the
-    // first ancestor's that has one.
-    // `color-mix()` computes to `color(srgb r g b / a)` in 0..1, not rgb().
-    const rgba = (s) => {
-      const n = (s.match(/[\d.]+/g) || []).map(Number);
-      if (!s.startsWith('color(srgb')) return n;
-      return [n[0] * 255, n[1] * 255, n[2] * 255, n.length > 3 ? n[3] : 1];
+    // Any computed colour (rgb, `color(srgb ...)` from color-mix, oklch from
+    // the accent ramp) read back through a canvas as 0..255 RGBA. Parsing
+    // the string by hand read oklch's lightness as red and color()'s 0..1 as
+    // 0..255, and reported 1.22:1 and 2.01:1 that were the sweep's own.
+    const ctx2 = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
+    const rgba = (css) => {
+      ctx2.clearRect(0, 0, 1, 1);
+      ctx2.fillStyle = '#000';
+      ctx2.fillStyle = css;
+      ctx2.fillRect(0, 0, 1, 1);
+      const d = ctx2.getImageData(0, 0, 1, 1).data;
+      return [d[0], d[1], d[2], d[3] / 255];
     };
-    let ground = null;
-    for (let n = pop; n && !ground; n = n.parentElement) {
-      const c = rgba(getComputedStyle(n).backgroundColor);
-      if (c.length && (c.length < 4 || c[3] > 0)) ground = { c, from: n === pop ? 'self' : (n.id || n.className || n.tagName).toString().slice(0, 30) };
-    }
     const lum = ([r, g, b]) => {
       const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
       return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
@@ -70,15 +70,28 @@ async function measure(page, sel) {
       const er = el.getBoundingClientRect();
       if (er.width > 0 && getComputedStyle(el).visibility !== 'hidden') { textEl = el; break; }
     }
+    // The ground under the words: every background from the words up to the
+    // first opaque one, composited; the body's colour under a translucent
+    // stack (the floor, since the art behind it varies).
+    const layers = [];
+    let ground = null;
+    let groundAlpha = null;
+    for (let n = textEl || pop; n; n = n.parentElement) {
+      const c = rgba(getComputedStyle(n).backgroundColor);
+      if (c[3] > 0) {
+        layers.push(c);
+        if (groundAlpha === null && (n === pop || n.contains(pop))) groundAlpha = Math.round(c[3] * 100) / 100;
+        if (!ground) ground = n === pop ? 'self' : (n.id || n.className || n.tagName).toString().slice(0, 30);
+      }
+      if (c[3] >= 1) break;
+    }
+    let g = rgba(getComputedStyle(document.body).backgroundColor);
+    for (const c of layers.reverse()) g = [0, 1, 2].map((i) => c[i] * c[3] + g[i] * (1 - c[3]));
     let contrast = null;
-    if (textEl && ground) {
+    if (textEl) {
       const ink = rgba(getComputedStyle(textEl).color);
-      // Composite a translucent ground over the page's own ground, the
-      // honest floor: what is behind it varies with the art.
-      const page = rgba(getComputedStyle(document.body).backgroundColor);
-      const a = ground.c.length > 3 ? ground.c[3] : 1;
-      const g = [0, 1, 2].map((i) => ground.c[i] * a + (page[i] ?? 255) * (1 - a));
-      const L1 = lum(ink), L2 = lum(g);
+      const inkOn = [0, 1, 2].map((i) => ink[i] * ink[3] + g[i] * (1 - ink[3]));
+      const L1 = lum(inkOn), L2 = lum(g);
       contrast = Math.round(((Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05)) * 100) / 100;
     }
     const cs = getComputedStyle(pop);
@@ -88,7 +101,7 @@ async function measure(page, sel) {
       rect: [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)],
       inView: r.left >= -0.5 && r.top >= -0.5 && r.right <= innerWidth + 0.5 && r.bottom <= innerHeight + 0.5,
       covered, hits: [...new Set(hits)].slice(0, 3),
-      groundAlpha: ground ? (ground.c[3] ?? 1) : null, groundFrom: ground && ground.from,
+      groundAlpha, groundFrom: ground,
       blur: cs.backdropFilter, contrast,
     };
   }, sel);

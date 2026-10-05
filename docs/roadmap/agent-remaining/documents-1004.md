@@ -13,19 +13,12 @@ Sweeps added: `scratchpad/ui-sweeps/docphonebar.js` (390x844, THEME) and
 
 ## Still open, in the order to take them
 
-1. **The viewport popups with the background art on** (OPEN.md, Documents).
-   Four openers and four selectors to find in the page first (the chat dock's
-   popovers, the selection popup over rendered text, the whiteboard's context
-   menu, `.wb-board-menu`); then assert the parent and the trap as
-   `spellwide.js` does. Opus.
+1. ~~The viewport popups with the background art on~~ Done by design-1004: measured clean (HISTORY.md, "Moved from the plans, 2026-10-04 (design-1004)").
 2. **The selection bar and a phone's own selection menu.** iOS and Android
    draw Cut, Copy and Paste above a selection, where this bar also goes. Not
    observable here; if a report arrives, the bar goes below the selection
    on `(pointer: coarse)` (one line in `selectionBarShow`).
-3. **The phone's chrome above the first line.** At 390x844 the first line of
-   a document sits at y=244: the app bar, the title row, the Edit/Read row and
-   the breadcrumb. UI_MODERNISATION_PLAN Phase 11's territory, not this
-   plan's (section 17 says so); measured, not changed.
+3. ~~The phone's chrome above the first line~~ Done by design-1004: Read view's first line 255 to 199 at 390x844 (HISTORY.md, same section).
 4. **Section 18's chat context** on a phone: its commands press controls in
    the chat dock, so measure against that dock (not done here).
 5. Left deliberately (OPEN.md): the word menu's shrink-to-fit width (not

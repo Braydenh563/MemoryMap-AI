@@ -40329,3 +40329,50 @@ border or answering hover). Both are strict now.
   every chip on a seeded note's line has a 0px edge; the facts (`when`) do
   not change under the pointer; the category, the "+N", the references and
   a hashtag tone; link chips change ink; heights 24px, unchanged.
+
+### From OPEN.md (Documents): the viewport popups with the background art on
+
+Measured, not changed: nothing failed. `scratchpad/ui-sweeps/popupsart.js`
+opens each popup through its own opener with `bgArt` on and `GLASS=on` (the
+default look has glass off, and then no `.card` carries a backdrop-filter at
+all, so a run without it measures nothing), and reports the parent, the first
+trapping ancestor, whether it is in the window, how many of 9 points inside
+it something else covers (`elementFromPoint`), its ground's alpha and its
+first enabled row's contrast. At 1440 light and dark and 390 light and dark:
+
+- 0 failures in all four runs; the lowest first-row contrast is 5.91:1 (the
+  How it answers panel, 1440 light), every ground alpha is 1, and 0 of 9
+  points are covered anywhere.
+- The chat dock's How it answers panel: absolute inside `.chat-dock`, which
+  blurs, so it sits in that stacking context (an absolute box is not moved
+  by it as a fixed one would be); at 390 it is a sheet. The dock's select
+  menu: a child of body, fixed, 6.66:1 light, 6.59:1 dark (at 390 the selects
+  are in that sheet, not measured from it). The model panel needs a
+  configured chat model to open (`openChatModelPanel` returns without one);
+  it is a child of body, so no card can trap it.
+- The selection popup over rendered Notes text: its button and its menu are
+  children of body, fixed, untrapped, 13.44:1 light, 8.42:1 dark; at 390 the
+  menu is the action sheet.
+- The board's context menu: a child of body, fixed, z 200. The five
+  `.wb-board-menu`s: absolute inside `#wb-topbar` (which blurs) at 1440; at
+  390 four are escaped to body and the Board menu stays in the bar; all in
+  the window, 17.07:1 light, 14.01:1 dark.
+- The sweep's first drafts read 1.22:1 and 2.01:1: `color-mix()` computes to
+  `color(srgb r g b)` in 0..1 and the accent ramp to `oklch()`, and both were
+  parsed as rgb numbers. Colours are now read back through a canvas, and a
+  row's own tint is composited under its words. A sweep fault, not the app's.
+
+### From documents-1004 item 3 (UI_MODERNISATION_PLAN Phase 11 item 12's budget): the first line on a phone
+
+At 390x844 in Read, the phone's default view, the first line was at y=255
+(`scratchpad/ui-sweeps/docphonetop.js` names every band above it): the top
+bar 0 to 58, the dock's two rows 80 to 174, the pane's 24px pad, and the
+document's name again as a heading (207 to 248) under a head row that already
+shows it. Phase 11's gate is chrome at most 25% of the height (211px). Now,
+below 600 only: the prepended name heading is marked `.doc-preview-title`
+(`renderDocPreview`, only when the title was added, never a heading the
+author wrote) and is not drawn, the next block loses its top margin, and the
+reading pane pads `--space-6`. First line 255 to 199, light and dark; Live
+stays at 192. At 1440 the Read view's title heading is still drawn (block,
+33px). The dock's two rows stay: the Edit/Read row is the view switch the
+plan's item 6 decided on, and it fits the budget as it is.

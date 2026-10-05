@@ -943,6 +943,14 @@ let finderKind = "";       // "" is everything
 let finderQuery = "";
 let finderHits = [];
 let finderCounts = {};
+//: What the index holds per kind (`body.counts`), kept apart from the chips'
+//: per-query counts: the empty state's "nothing is indexed yet" is a fact
+//: about the index, and reading it off the chips told a 22-note notebook it
+//: was empty on any search with no hits (audit 2026-10-05, UX-04).
+let finderIndexTotals = {};
+//: The query the hits are for when the route corrected a typo ("dentist"
+//: for "dentst"), said in the summary so a typo never looks matched.
+let finderCorrected = "";
 let finderTimer = null;
 let finderRun = 0;         // so a slow answer cannot paint over a newer one
 let finderActive = -1;     // which row the keyboard is on
@@ -1040,6 +1048,8 @@ async function finderSearch() {
     return;
   }
   surfaceRecovered(results);
+  finderIndexTotals = body.counts || {};
+  finderCorrected = body.corrected || "";
   const actions = finderKind && finderKind !== "action" ? [] : finderActions(query);
   const hits = finderKind === "action" ? [] : body.hits || [];
   //: **A chip counts what this search found, not what the index holds.**
@@ -1204,7 +1214,7 @@ function finderRender() {
     //: Says *why* it is empty, which the counts make possible: nothing
     //: matched and nothing of that kind exists yet are different answers and
     //: a bare empty list renders them identically.
-    const indexed = Object.values(finderCounts).reduce((sum, n) => sum + (n || 0), 0);
+    const indexed = Object.values(finderIndexTotals).reduce((sum, n) => sum + (n || 0), 0);
     body.textContent = indexed
       ? "Try fewer words, or take a filter off."
       : "Nothing is indexed yet. Save a note and it will appear here.";
@@ -1214,7 +1224,9 @@ function finderRender() {
     return;
   }
   if (summary) {
-    summary.textContent = `${rows.length} result${rows.length === 1 ? "" : "s"}`;
+    summary.textContent = `${rows.length} result${rows.length === 1 ? "" : "s"}${
+      finderCorrected ? `, showing results for “${finderCorrected}”` : ""
+    }`;
   }
   const icons = Object.fromEntries(FINDER_KINDS.map((k) => [k.key, k.icon]));
   const names = Object.fromEntries(FINDER_KINDS.map((k) => [k.key, k]));

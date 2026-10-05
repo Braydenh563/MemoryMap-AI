@@ -56,7 +56,7 @@ Counts: High 4, Medium 9, Low 10.
   `reminder_parser._tidy`; model only when both fail. Tests: the four phrases
   above with `ollama.is_running() == False` return 201. Effort S.
 
-**UX-02. Day-precision dates in notes are stored as naive midnight and shown as UTC instants.** NEW
+**UX-02. Day-precision dates in notes are stored as naive midnight and shown as UTC instants.** NEW FIXED 79bc2f8
 - Evidence: `entry/manager.py:702-707` stores
   `datetime(at.year, at.month, at.day)`; `/timeline` serialises it as
   `2026-10-09T00:00:00+00:00` (`placed_by: "mentioned"`, phrase "on Friday").
@@ -76,7 +76,7 @@ Counts: High 4, Medium 9, Low 10.
   timeline API test asserting no `+00:00` midnight on day rows; a Playwright
   check under `America/New_York`. Effort M.
 
-**UX-03. Whiteboard help card: text drawn over keycaps, card overflows.** NEW
+**UX-03. Whiteboard help card: text drawn over keycaps, card overflows.** NEW MOVED to the whiteboard agent (full redesign, owner request)
 - Evidence: Library, Create, New board, name it: `.wb-empty-hint-inner`
   opens on every new board. Per `li`, text range right edge vs `kbd` left
   edge: 14 of 46 rows overlap, worst "Text box · canvas menu" text to 747px

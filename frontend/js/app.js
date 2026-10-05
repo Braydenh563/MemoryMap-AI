@@ -151,6 +151,9 @@ let noteSearch = ""; // Notes-tab text filter (Wave J)
 // signals (meaning, and distance over the links) only exist on the server.
 // Cleared whenever the box is, so a stale reason can never outlive its query.
 const noteSearchWhy = new Map();
+//: `/search`'s typo correction for the Notes box (UX-04): {asked, corrected, ids}.
+let noteSearchCorrection = null;
+let noteSearchCorrectionShown = false;
 let noteSort = "newest"; // newest | oldest | az | most-used (Wave J)
 // BACKLOG §77 item 1. "all" (the default) keeps the existing continuous
 // scroll (§86's renderIncrementally) untouched; a numeric size switches

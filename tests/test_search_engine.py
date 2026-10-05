@@ -626,3 +626,47 @@ def test_an_exclusion_narrows_a_filter_only_query(session):
     session.commit()
     hits = engine.search(session, "kind:document -rice", ctx=None)
     assert [hit.title for hit in hits] == ["Kept"]
+
+
+# --- a one-letter typo (audit 2026-10-05, UX-04) -----------------------------
+#
+# `keyword_search` (Ask) corrected "dentst" to "dentist"; the Finder and the
+# Notes filter, which read `/search`, found nothing and the Finder then said
+# the index was empty. The route corrects a query that found nothing against
+# the words the notes actually hold, and says so.
+
+
+def test_a_one_letter_typo_finds_the_note_and_says_what_it_searched(client):
+    client.post("/entries", json={"content": "Dentist appointment on Friday"})
+    client.post("/entries", json={"content": "Ring the dentist about the filling"})
+    client.post("/entries", json={"content": "Groceries for the week"})
+    body = client.get("/search", params={"q": "dentst"}).json()
+    assert body["corrected"] == "dentist"
+    assert len(body["hits"]) == 2, body["hits"]
+
+
+def test_a_word_that_exists_is_never_corrected(client):
+    client.post("/entries", json={"content": "Dentist appointment on Friday"})
+    body = client.get("/search", params={"q": "dentist"}).json()
+    assert body["hits"]
+    assert body.get("corrected") in (None, "")
+
+
+def test_nothing_close_is_still_nothing(client):
+    client.post("/entries", json={"content": "Dentist appointment on Friday"})
+    body = client.get("/search", params={"q": "xylophone"}).json()
+    assert body["hits"] == []
+    assert not body.get("corrected")
+    assert body["counts"]["note"] == 1, "the index size is still said, for the empty state"
+
+
+def test_the_finders_empty_state_reads_the_index_not_the_chips():
+    """The chips count this query's hits, so summing them for "nothing is
+    indexed yet" told every empty search the notebook was empty (UX-04)."""
+    from pathlib import Path
+
+    source = Path("frontend/js/spaces-find.js").read_text(encoding="utf-8")
+    empty = source[source.index("const indexed = "):]
+    empty = empty[: empty.index(";")]
+    assert "finderIndexTotals" in empty and "finderCounts" not in empty
+    assert "finderIndexTotals = body.counts" in source

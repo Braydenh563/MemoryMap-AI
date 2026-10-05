@@ -734,7 +734,9 @@ HELP_TOPICS.extend(
                 "through notes, documents, boards, files, links and reminders at "
                 "once, by your words and by meaning, and the chips narrow it to one "
                 "kind. You can type operators: tag:work, kind:document, before:2026-01, "
-                "has:image, and -word to leave something out. To narrow only the "
+                "has:image, and -word to leave something out. A small typo that "
+                "finds nothing is searched as the nearest word your notes use, "
+                "and the line says \"showing results for\" it. To narrow only the "
                 "notes list, use Filter notes on the Your notes tab."
             ),
             "badge": {"label": "Notes", "tab": "notes"},

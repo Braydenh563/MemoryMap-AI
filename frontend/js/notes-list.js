@@ -2431,6 +2431,9 @@ async function refreshNoteSearchWhy() {
   if (noteSearch !== asked) return;
   noteSearchWhy.clear();
   for (const hit of body?.hits || []) noteSearchWhy.set(hit.id, hit);
+  noteSearchCorrection = body?.corrected
+    ? { asked, corrected: body.corrected, ids: new Set((body.hits || []).map((hit) => hit.id)) }
+    : null;
   renderEntries();
 }
 
@@ -2832,7 +2835,18 @@ function libraryVisibleRows() {
       : activeCategory
         ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
         : allEntries.filter((e) => !e.is_draft);
-  return visible.filter(matchesSearch);
+  const matched = visible.filter(matchesSearch);
+  //: **A typo finds what it meant** (audit 2026-10-05, UX-04). When the box
+  //: matches nothing and `/search` corrected the query to a word the notes
+  //: hold ("dentst" to "dentist"), the list shows those notes and the heading
+  //: says what it searched for. Never when the typed words match something.
+  noteSearchCorrectionShown = false;
+  const fix = noteSearchCorrection;
+  if (!matched.length && fix && fix.asked === noteSearch && fix.ids.size) {
+    noteSearchCorrectionShown = true;
+    return visible.filter((e) => fix.ids.has(e.id));
+  }
+  return matched;
 }
 
 function renderEntries() {
@@ -2891,9 +2905,11 @@ function renderEntries() {
         ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft).length
         : allEntries.filter((e) => !e.is_draft).length;
   $("entries-heading-label").textContent =
-    noteSearch && visible.length !== total
-      ? `${scope}: ${visible.length} of ${total}`
-      : scope;
+    noteSearchCorrectionShown
+      ? `${scope}: showing results for “${noteSearchCorrection.corrected}”`
+      : noteSearch && visible.length !== total
+        ? `${scope}: ${visible.length} of ${total}`
+        : scope;
   liveQueryBar(visible);
   // Distinguish "empty notebook" from "filter matched nothing".
   const notebookEmpty = allEntries.length === 0;

@@ -235,7 +235,7 @@ Other commands:
 | `python -m memorymap --export PATH` | Write your notes to PATH as a Markdown zip, then exit |
 | `python -m memorymap --reset-password` | Clear a forgotten password so you can set a new one; private notes are lost |
 | `python -m memorymap --capture` | Open a one-line capture window on the running app: bind it to a key in your system settings |
-| `python -m memorymap.mcp_server` | A stdio MCP server over the app's own non-destructive tools, for another program on this computer |
+| `python -m memorymap.mcp_server` | A stdio MCP server over the app's own non-destructive tools, for another program on this computer (a source checkout only: the packaged app has no Python to run it with) |
 
 ### Environment variables
 

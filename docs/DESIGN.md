@@ -932,6 +932,15 @@ isolation; checked across all five call sites before touching any of them,
 it is the app's actual (if quiet) convention for this one action family,
 not drift, leave it alone rather than "fixing" it to Phosphor.
 
+**Deliberately not taken: a per-glyph optical offset** (decided 2026-10-05,
+op4-1005, OPEN.md holepoke). An icon is centred by its box (the one ink
+nudge every icon-only control shares, `ee6289d`: mean glyph ink -0.19px).
+A few glyphs still draw high in their em box (the status bar's back and
+history carets 1.0px, the chat header's, the Timeline view switch's and the
+lock's 0.63px, `inkcentre.js`): that is the glyph's own shape, and a table
+of offsets per glyph would be a second icon set to keep in step with every
+Phosphor update, for under a pixel at the app's own zoom.
+
 ---
 
 ## Hierarchy

@@ -269,11 +269,7 @@ being written by running agents stay beside this one.
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": A filled button is 2px shorter than every tonal button beside it, app wide.
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05 (op4-1005: four design rows)": the field and the segmented track; an empty line in a small panel; the dark shadow sliders; the Ask results grid's breakpoint.
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05 (op4-1005: the concentric rollout)": `--radius-inner` has four users.
-- **The meeting dialog's head row holds two heights**, a 28px `.ghost.small`
-  Close beside the 32px `.graph-help-toggle`. Both are app-wide recipes, so
-  this is a question about the two recipes rather than about the dialog.
-  [popup-redesigns.md]
-  *Needs: a question about two app-wide recipes.*
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05 (op4-1005: the meeting head and holepoke's seven)": The meeting dialog's head row holds two heights; holepoke.md.
 - **`.sidebar-head` is off the dock grammar, deliberately.** It carries
   `min-height: var(--sidebar-toggle-size)`, a negative `margin-top` that meets
   the absolutely positioned collapse toggle, and `padding-right` reserving
@@ -445,12 +441,6 @@ the head, so they carry no row of their own.
   WORLD_CLASS_PLAN 1.3 marks open (Remind me beyond notes, the Library note
   card's Remind me and Link to). [guideia]
   *Needs: a non-modal Guide changes `openSheet`'s focus and backdrop contract; Remind me beyond notes needs the reminder to point at other kinds first (a backend step).*
-- **holepoke.md**: seven findings, each with its "why not" in the file's table
-  (per-glyph ink offsets for carets, the toast over the phone Notes tabs, a
-  ghost select's caret ink, mixed button weights in the reminder row cluster,
-  arrow keys in radio groups, one unexplained 404 in the contrast sweep).
-  [holepoke]
-  *Needs: design decisions, each recorded with its reason.*
 - **libtl-0926.md**: the Timeline feed lays out about 39 times a second while
   scrolling (the rows' `content-visibility: auto`, INBOX 400's trade); the
   Library search keystroke was 17 to 191ms under load, not re-measured idle;

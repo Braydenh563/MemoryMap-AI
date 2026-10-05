@@ -1244,26 +1244,9 @@ glass. What is left is below.
 ## Placed from INBOX, 2026-10-03 (INBOX 393)
 
 Moved whole from INBOX when INBOX 434 arrived (the tray holds under
-twenty); open, owned by this plan.
+twenty); both halves found built 2026-10-05.
 
-393. **The owner, 2026-09-23, verbatim:** "research more ui and ux
-    improvements, remove any trace of vibe coded stuff in elements, designs,
-    aesthetics styles, form, function, layout, structure. vendor and use skills
-    to help with ui and ux design. find bugs in usability. improve and expand
-    learnability and information architecture. further modernise and
-    professionalise the app. I lose trust in and refuse to use applications
-    with poor ui design and ui/ux issues as they make me feel like the app is
-    unreliable ... there needs to be more integration between all the main
-    features. and there needs to be more optimisiation." Placed: the identity
-    half is a decision in UI_MODERNISATION_PLAN ("The default look is Quiet
-    utilitarian"), built by a theme agent with the vendored design skills and
-    unslop-ui. Recommendation for the integration half, taken: one "act on
-    this" vocabulary for every object (note, document, board, map, file,
-    reminder): Open, Ask about it, Add to a map, Show in graph, Remind me,
-    Link to, reached the same way from its card menu, the command palette and
-    a right-click, audited surface by surface against a table in
-    WORLD_CLASS_PLAN's consistency contract, with a lint that every object
-    menu carries the shared rows.
+393. Built; the block is in HISTORY.md ("Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN 393, both halves found built)").
 
 ## Settings information architecture (INBOX 444)
 
@@ -1347,10 +1330,11 @@ inside a 4,000px section.
    accepted; a name carrying another registry's address is refused.
 10. **Not done, left open:** the Tools and Appearance panes are still long
     (4,247px and 1,296px at desktop width) and are indexed rather than
-    split; a background-job model is still chosen in Models and in Background
-    tasks. (The Installed models list is model cards now: HISTORY.md, "Moved
-    from the plans, 2026-10-05 (444 decision 10: the installed models as
-    model cards)".)
+    split. (The Installed models list is model cards now, and the
+    background-job "duplicate" was two settings, the utility model and the
+    autonomous pass's own override, whose default now names the model it
+    falls back to: HISTORY.md, "Moved from the plans, 2026-10-05 (444
+    decision 10: the installed models as model cards)".)
 
 ## Placed from INBOX, 2026-10-05 (OPEN.md triage)
 

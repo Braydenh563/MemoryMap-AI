@@ -7,6 +7,70 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (444 decision 10: the autonomous override's default)
+
+Decision 10 counted "a background-job model is still chosen in Models and in
+Background tasks" as one setting in two places. Read from the code
+(op4-1005): they are two. Models sets the utility model
+(`#utility-model-select`); Background tasks sets the autonomous pass's own
+override (`#pref-autonomous-model`, `autonomous_tasks_model`), which stays
+beside the job it overrides (decision 4). What made them read as one was the
+override's default, "Same as utility model", naming no model. It now says
+which one, in the per-feature pickers' own words (INBOX 430): measured with
+the fake Ollama, "Same as utility model (currently llama3.2) | llama3.2:latest
+| nomic-embed-text:latest". `tests/test_ui_recipes.py`
+(`test_the_autonomous_override_names_what_it_falls_back_to`).
+
+## Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN 393, both halves found built)
+
+Found built in UI_MODERNISATION_PLAN.md and still standing there whole; moved
+verbatim (op4-1005): a plan holds open work only.
+
+393. **The owner, 2026-09-23, verbatim:** "research more ui and ux
+    improvements, remove any trace of vibe coded stuff in elements, designs,
+    aesthetics styles, form, function, layout, structure. vendor and use skills
+    to help with ui and ux design. find bugs in usability. improve and expand
+    learnability and information architecture. further modernise and
+    professionalise the app. I lose trust in and refuse to use applications
+    with poor ui design and ui/ux issues as they make me feel like the app is
+    unreliable ... there needs to be more integration between all the main
+    features. and there needs to be more optimisiation." Placed: the identity
+    half is a decision in UI_MODERNISATION_PLAN ("The default look is Quiet
+    utilitarian"), built by a theme agent with the vendored design skills and
+    unslop-ui. Recommendation for the integration half, taken: one "act on
+    this" vocabulary for every object (note, document, board, map, file,
+    reminder): Open, Ask about it, Add to a map, Show in graph, Remind me,
+    Link to, reached the same way from its card menu, the command palette and
+    a right-click, audited surface by surface against a table in
+    WORLD_CLASS_PLAN's consistency contract, with a lint that every object
+    menu carries the shared rows.
+
+**Found built, checked 2026-10-05 (op4-1005).** The identity half: the
+decision "The default look is Quiet utilitarian" (this plan's Decisions
+made) is the shipped default, `DEFAULT_THEME_PRESET = "utilitarian"`
+(settings.js) and the boot preset (theme-boot.js: the utilitarian palette,
+glass off, radius 8). The integration half: WORLD_CLASS_PLAN 1.3's "act on
+this" table, with `tests/test_object_actions.py` holding every "yes" in it
+and the one wording; its open cells were built 2026-10-05 (HISTORY.md,
+"Moved from the plans, 2026-10-05 (nbf1005)"), and the "no" cells left are
+recorded there as not planned.
+
+## OPEN.md rows closed, 2026-10-05 (op4-1005: the meeting head and holepoke's seven)
+
+Decided or found built by op4-1005. The meeting dialog's head: both controls are the dialog-head recipe's .dialog-head-btn now, measured 32x32 and 32x32 at 1440 and 43x43 and 43x43 at 390 (a meeting-head probe), so the two-recipes question is answered by the recipe. holepoke's seven, each decided with its reason: the carets' ink drawn high (1.0px and 0.63px) is the glyph's shape, and a per-glyph offset table is deliberately not taken (DESIGN.md, Icons); the phone toast over the Notes sub-tabs is INBOX 392's recorded decision (toasts at the top below 1100), kept; the board View menu's caret edge is the whiteboard owner's (WHITEBOARD_PLAN), left to them; the reminder row's mixed weights are gone (+1h, tmrw and Edit are smallButton's ghost default, shell-reminders.js, and Delete is in the row's menu); radio groups in a menu change the choice on ArrowDown by native radio semantics, kept; the one unexplained 404 did not reproduce in a request-logging run and is not a finding. The rows, verbatim:
+
+- **The meeting dialog's head row holds two heights**, a 28px `.ghost.small`
+  Close beside the 32px `.graph-help-toggle`. Both are app-wide recipes, so
+  this is a question about the two recipes rather than about the dialog.
+  [popup-redesigns.md]
+  *Needs: a question about two app-wide recipes.*
+- **holepoke.md**: seven findings, each with its "why not" in the file's table
+  (per-glyph ink offsets for carets, the toast over the phone Notes tabs, a
+  ghost select's caret ink, mixed button weights in the reminder row cluster,
+  arrow keys in radio groups, one unexplained 404 in the contrast sweep).
+  [holepoke]
+  *Needs: design decisions, each recorded with its reason.*
+
 ## Moved from the plans, 2026-10-05 (444 decision 10: the installed models as model cards)
 
 UI_MODERNISATION_PLAN, Settings information architecture, decision 10 left

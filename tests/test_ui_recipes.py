@@ -4509,3 +4509,15 @@ def test_the_installed_models_are_model_cards():
     assert '<div id="installed-list" class="model-grid"></div>' in html
     css = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
     assert "#installed-list li" not in css
+
+
+def test_the_autonomous_override_names_what_it_falls_back_to():
+    """444 decision 10 counted "a background-job model chosen in Models and in
+    Background tasks" as one setting in two places. They are two (the utility
+    model, and the autonomous pass's own override), and the override's
+    default now says which model it means, in the per-feature pickers' words
+    (INBOX 430): "Same as utility model (currently llama3.2)" (op4-1005)."""
+    js = (ROOT / "frontend" / "js" / "ai-tools.js").read_text(encoding="utf-8")
+    body = _function_body(js, "renderAutonomousModelPicker")
+    assert "Same as utility model (currently ${fallback})" in body
+    assert "status.utility_model || status.chat_model" in body

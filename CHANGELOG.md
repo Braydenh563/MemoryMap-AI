@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Settings, Background tasks: the optimisation pass's model override says which model its default means ("Same as utility model (currently ...)").
 - Settings, Models, Installed models: each model you have is a card like the suggested downloads, with its size on this computer and what it is in use for; its menu puts it to use, copies its name or removes it.
 - Appearance: a theme card's preview and swatch, and a setup snippet in Settings, round their corners inside their card's corner (concentric) at every corner setting.
 - Appearance and layout: the shadow strength slider now changes every shadow at every step in light and dark, every palette included, from none to the strongest, with 5% looking as before; in light, a text field is a shade deeper than a segmented control beside it, as in dark; the Ask results sit in one column below 1100px wide instead of two narrow ones; and a short "nothing here" line in the agent panel and Settings lists is one size and spacing everywhere.

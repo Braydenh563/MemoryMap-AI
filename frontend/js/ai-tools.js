@@ -889,10 +889,15 @@ function renderOcrModelPicker(status) {
 
 function renderAutonomousModelPicker(status) {
   const names = status.installed_models.map((m) => m.name);
+  //: The default names the model it falls back to, in the per-feature
+  //: pickers' own words (INBOX 430, line 550; 444 decision 10, op4-1005): this
+  //: is the pass's own override, not a second copy of Models' utility model,
+  //: and naming the one in use shows the difference.
+  const fallback = status.utility_model || status.chat_model;
   fillModelSelect(
     $("pref-autonomous-model"),
     names,
-    { value: "", label: "Same as utility model" },
+    { value: "", label: fallback ? `Same as utility model (currently ${fallback})` : "Same as utility model" },
     (window.prefsCache && window.prefsCache.autonomous_tasks_model) || ""
   );
 }

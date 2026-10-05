@@ -69,6 +69,15 @@ with its owner named in the entry.
      Microsoft onenote??" Placed: with 641, as a research pass over notes,
      pages, sections, ink and tags, compared with what MemoryMap has.
 
+644. **The owner, 2026-10-05, verbatim.** "Can you also redesign and expand
+     and improve the meeting notes feature?? I feel like it is neglected and a
+     bit left behind and tucked away." With it: "Hold the release until these
+     things are done. Just make sure all the open items are completed as well,
+     that there are no bugs, and that everything is polished." Placed: the
+     Opus research and design pass with 641 to 643, then a build agent.
+     Decision taken: release 0.4.0 waits for 640 to 644 and every buildable
+     non-backlog open item.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

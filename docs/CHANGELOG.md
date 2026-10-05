@@ -498,6 +498,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 - Settings, Skills and Personas: the "Built-in" label on a list row is readable in light (4.27:1 before, three tints stacked under muted type); it takes the ink, as the "Installed" label already did.
+- Test suite: each pytest-xdist worker no longer climbs to 2 to 2.7 GB (four of them filled a 16 GB CI runner, which shut down at 96 to 99%). FastAPI's callable caches kept every test's app alive (about 8 MB each) and are now cleared after each test, and the 145 test modules that read a frontend file at import now share one copy of it (collection RSS 490 to 341 MB). Measured per worker at the end of the suite: about 1 GB before the second change, down from 2 to 2.7 GB.
 - Alignment and loading: a Timeline row's kind mark, title and time sit on one line (the mark was 1.2px above the title in a one-line row), and the Settings lists that fill from a request (Packages and its embedding models, Skills, Tools, Personas, Backups, Privacy, Account) show skeleton rows while they load instead of a blank space (INBOX 542, 596).
 - Settings: Models, What it remembers, What it learned and the Logs list show placeholder rows while their first answer is on its way, instead of a bare "Checking the models…" line or an empty pane; Models paints the last known status the moment Settings opens.
 - Capture: the formatting strip is the one-row folded bar from its first paint on a phone (it drew two rows, 104px, and folded to 54px when the Library code loaded, a jump under the thumb).

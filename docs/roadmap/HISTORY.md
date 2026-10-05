@@ -7,6 +7,20 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## OPEN.md rows closed, 2026-10-05 (docs hygiene before 0.4.0)
+
+Rows of `agent-remaining/OPEN.md` (and one of `op4-1005.md`) that were listed as open and are built on the head; each was confirmed by grep before it was closed. A partly built row keeps a short open line for the rest.
+
+- **Lists have no edge auto-scroll for a drag selection** (INBOX 608's list half). Built: `frontend/js/drag-edge.js` (`DRAG_EDGE`, a lazy module in `app.js`'s `LAZY_MODULES.dragEdge`) scrolls `#entry-list` and `.library-view-section` for a held mouse drag from 56px out to the edge; boards and maps were built before (`wbEdgePan`).
+- **Skeletons for a board's Library and Notes tabs** (INBOX 596). Built, 5c1389d: `wbLoadLibrary` draws six skeletons and `renderWbLibrary` five before the data lands (`whiteboard-library.js`, `whiteboard.js`); `bm1005-sidebar.js` check 7 measured 0 skeletons before, 6 after, then 51 tiles; `tests/test_board_sidebar_596.py`. Open, and kept in OPEN.md: the Library and Documents views read blank at 1440 and 390.
+- **The badge target** (INBOX 503 and 592). Built, 4a2dfaf: `badgealign.js` and `.py` measure the words' cap-height centre, the recipe's one target (DESIGN.md records it); `inkalign.js` retired; `tests/test_badge_recipe.py`.
+- **"Most opened this month"** (retrieval row). Built: `GET /most-opened` (`routes_vision.py`, over `EntryOpen`, written by `entry/opens.py`), the Dashboard's "Most opened this month" widget (`dashboard.js`, `renderMostOpenedWidget`), `tests/test_vision_rows_row11.py`; WORLD_CLASS_PLAN row 11 is struck. The scratchpad's parked design (`wc1005b-most-opened.md`) was not used and is superseded. Open, kept: the "wrong" correction on an evidence card (I7's second half) and I1 pass 2's derived-fact kinds.
+- **arch.md: the Dashboard emblem's idle cost** (5.55% of a core). Built, b944d2c (WORLD_CLASS_PLAN 424(j)): the emblem is drawn once and turned by CSS, 0ms of script idle on Dashboard and Chat, `perf5/idleprof.js`; the frame-rate question no longer exists. INBOX 266's other items stay as a row.
+- **guideia.md: Remind me beyond notes, the Library note card's Remind me and Link to.** Built (WORLD_CLASS_PLAN row 15): `remindAbout` (`shell-reminders.js`) is called from `library.js` (document and note menus, "Link to..." beside it via `linkNoteFromLibrary`) and `whiteboard.js` (a board's menu); the reminder carries `target_kind` (`routes_reminders.py`) and `Reminder.document_id`; `tests/test_reminder_targets_row15.py`. The non-modal Guide stays open.
+- **maptheme.md: the branch palette and font are map-level facts; a topic cannot be pulled back to the app's default** (MINDMAP_PLAN 13e). Built 2026-10-04: `MAP_BRANCH_PALETTES` server-side with `wbMapColors` reading it, `font`, and the per-field app-default pins (`MAP_APP_DEFAULT_PINS`); `mappalette.js` 13/13; the record is "Moved from the plans, 2026-10-04 (the map's palette, font and the app's own default)". Open, kept: the theme resolved into each node on export, an untested FreeMind `<arrowlink>`.
+- **Summarise this branch** (Draw.io phase 2's tail; MINDMAP_PLAN 12.3 item 2's half). Built, 3a27c00: `POST /whiteboard/boards/{b}/nodes/{n}/summary` (`routes_map_suggest.py`), `wbMapSummariseBranch`, `tests/test_map_summary.py`, `bm1005-mapmulti.js` check 6. Expand from my notes stays open.
+- **op4-1005: `test_every_route_that_pages_by_offset_takes_a_cursor` red** (found, not fixed). Fixed on the head: `routes_settings.py` takes `cursor` through `paging.cursor_param()`; `tests/test_api_contract_b7.py` passes 10 of 10 (run alone, this pass).
+
 ## Moved from the plans, 2026-10-05 (444 decision 10: the autonomous override's default)
 
 Decision 10 counted "a background-job model is still chosen in Models and in

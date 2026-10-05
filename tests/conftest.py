@@ -6,11 +6,49 @@ real database, and singletons are rebuilt between tests.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
 from memorymap.ai import model_manager
 from memorymap.core import deps, taskhistory, vault
+
+
+# --- one copy of each frontend file, however many test modules read it --------
+#
+# About 145 test modules read a frontend file into a module-level constant
+# (`SRC = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(...)`: 36 of
+# them index.html, 24 whiteboard.js, and so on). Every call decoded a fresh
+# copy, and the module keeps it for the whole session, so collection alone held
+# 180 MB of identical strings in every pytest-xdist worker (measured with
+# tracemalloc: 181 MB under `codecs`, of 437 MB traced; about 650 MB RSS before
+# the first test ran). Strings are immutable, so handing every caller the same
+# object is invisible to the tests and drops that to the 11 MB the files
+# really are. Keyed by size and mtime so a test that writes one of these files
+# still reads what it wrote; only paths under `frontend/` are shared.
+
+_FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
+_real_read_text = Path.read_text
+_shared_texts: dict[tuple, str] = {}
+
+
+def _read_text_once(self, encoding=None, errors=None):
+    if errors is None:
+        try:
+            if _FRONTEND_DIR in self.resolve().parents:
+                st = self.stat()
+                key = (str(self), encoding, st.st_mtime_ns, st.st_size)
+                text = _shared_texts.get(key)
+                if text is None:
+                    text = _shared_texts[key] = _real_read_text(self, encoding)
+                return text
+        except OSError:
+            pass  # let the real call raise the error the test expects
+    return _real_read_text(self, encoding, errors)
+
+
+Path.read_text = _read_text_once
 
 
 @pytest.fixture()

@@ -672,6 +672,7 @@ function wbSyncGridToTransform(transform) {
 //: `tests/test_wb_navigator_cost.py` keeps the two lists the same.
 const WB_INV_ZOOM_GRIPS = [
   ".wb-comment-pin",
+  ".wb-lock-pin",
   ".wb-resize-handle",
   ".wb-rotate-handle",
   ".wb-sketch-resize-handle",
@@ -7471,6 +7472,108 @@ function wbPaintLocks() {
     if (!wanted.has(el)) el.classList.remove("wb-locked");
   });
   for (const el of wanted) if (!el.classList.contains("wb-locked")) el.classList.add("wb-locked");
+  //: A render may have moved, unlocked or removed what the lock was shown
+  //: on: it goes, and the next pointer move puts it back if it still holds.
+  if (wbLockHoverKey) wbPaintLockHover(null);
+}
+
+//: --- A locked item answers the pointer (decision 28, INBOX 557a) ----------
+//:
+//: A locked item lets the pointer through (decision 15), so nothing on it
+//: changed under the pointer and a press did nothing visible: the owner, "I
+//: couldn't tell it was locked". A board-level hit test finds the locked item
+//: under the pointer; a faded lock shows at its top right while the pointer
+//: is on it, and the first press on one in a session says how to unlock it.
+
+let wbLockHoverKey = null;
+let wbLockHoverFrame = 0;
+let wbLockHintSaid = false;
+
+//: The front-most locked item whose box holds the board point, or null.
+function wbLockedItemAt(x, y) {
+  let best = null;
+  for (const [kind, item] of wbLockedItems()) {
+    if (wbItemHidden(kind, item)) continue;
+    const box = wbItemBBox(kind, item);
+    if (!box || x < box.minX || x > box.maxX || y < box.minY || y > box.maxY) continue;
+    //: Cards and text over drawings, then z, as they are painted.
+    const rank = [kind === "sketch" ? 0 : 1, item.z || 0];
+    if (!best || rank[0] > best.rank[0] || (rank[0] === best.rank[0] && rank[1] >= best.rank[1])) best = { kind, item, box, rank };
+  }
+  return best;
+}
+
+function wbBoardPointOf(e) {
+  const container = document.getElementById("whiteboard-container");
+  const t = d3.zoomTransform(container);
+  const o = wbCanvasOriginRect();
+  return [(e.clientX - o.left - t.x) / t.k, (e.clientY - o.top - t.y) / t.k];
+}
+
+function wbPaintLockHover(hit) {
+  const layer = document.getElementById("wb-html-layer");
+  let pin = document.getElementById("wb-lock-hover");
+  const key = hit ? wbMultiKey(hit.kind, hit.item.id) : null;
+  if (!hit) {
+    pin?.classList.add("hidden");
+    wbLockHoverKey = null;
+    return;
+  }
+  if (!pin && layer) {
+    pin = document.createElement("div");
+    pin.id = "wb-lock-hover";
+    pin.className = "wb-lock-pin";
+    pin.setAttribute("aria-hidden", "true");
+    const mark = document.createElement("span");
+    mark.className = "wb-lock-mark";
+    const icon = document.createElement("i");
+    icon.className = "ph ph-lock-simple";
+    mark.append(icon);
+    pin.append(mark);
+    layer.append(pin);
+  }
+  if (!pin) return;
+  pin.classList.remove("hidden");
+  if (wbLockHoverKey === key) return;
+  wbLockHoverKey = key;
+  pin.style.left = `${hit.box.maxX}px`;
+  pin.style.top = `${hit.box.minY}px`;
+  let top = 1;
+  for (const list of [wbState.nodes, wbState.objects]) for (const i of list || []) if (Number.isFinite(i.z)) top = Math.max(top, i.z);
+  pin.style.zIndex = String(top + 2);
+}
+
+//: Only where nothing else answers: over the canvas itself, or over the
+//: locked item that the pointer passes through to it.
+function wbLockHoverWanted(e) {
+  if (wbIsMap() || window.currentTool !== "select" || e.buttons) return false;
+  const target = e.target;
+  if (!target?.closest) return false;
+  return !target.closest("button, input, textarea, select, [contenteditable='true'], .wb-context, .wb-sidebar, .wb-format, .wb-comment-pin")
+    && (wbIsBareCanvas(target) || Boolean(target.closest(".wb-locked")));
+}
+
+function wbOnLockHoverMove(e) {
+  if (wbLockHoverFrame) return;
+  const { clientX, clientY, target, buttons } = e;
+  wbLockHoverFrame = requestAnimationFrame(() => {
+    wbLockHoverFrame = 0;
+    if (!wbLockedItems().length) return wbPaintLockHover(null);
+    const ev = { clientX, clientY, target, buttons };
+    if (!wbLockHoverWanted(ev)) return wbPaintLockHover(null);
+    const [x, y] = wbBoardPointOf(ev);
+    wbPaintLockHover(wbLockedItemAt(x, y));
+  });
+}
+
+//: The first press on a locked item in a session says how to unlock it.
+function wbOnLockPress(e) {
+  if (wbLockHintSaid || e.button !== 0 || !wbLockHoverWanted({ target: e.target, buttons: 0 })) return;
+  const [x, y] = wbBoardPointOf(e);
+  const hit = wbLockedItemAt(x, y);
+  if (!hit) return;
+  wbLockHintSaid = true;
+  toast("Locked. Right-click to unlock it.");
 }
 
 //: --- Comments (WHITEBOARD_PLAN decision 17) --------------------------------
@@ -12166,6 +12269,14 @@ async function initWhiteboard() {
     );
     //: The way back to a locked item (decision 15): it lets the pointer
     //: through, so a right-click on it lands here, on the board.
+    //: Right-click on the locked item itself unlocks that one, first.
+    const lockedHere = wbLockedItemAt(x, y);
+    if (lockedHere) {
+      items.unshift(makeMenuItem(
+        "ph:lock-simple-open Unlock this item", "It is locked, so the pointer passes through it",
+        () => wbSetLocked([[lockedHere.kind, lockedHere.item]], false)
+      ));
+    }
     const locked = wbLockedItems().length;
     if (locked) {
       items.push(makeMenuItem(
@@ -12175,6 +12286,12 @@ async function initWhiteboard() {
     }
     openMenuAtPoint(items, "This board", clientX, clientY);
   };
+
+  //: The hover lock (decision 28): the pointer over a locked item, which it
+  //: passes through, shows a lock; the first press says how to unlock it.
+  containerEl.addEventListener("pointermove", wbOnLockHoverMove, { passive: true });
+  containerEl.addEventListener("pointerleave", () => wbPaintLockHover(null));
+  containerEl.addEventListener("pointerdown", wbOnLockPress, true);
 
   const wbCanvasMenuWanted = (target) =>
     wbIsEmptyCanvasTarget(target) && !wbIsEditingTarget(target)
@@ -17940,7 +18057,14 @@ function wbFramesInOrder() {
     if (row && Math.abs(frame.y - row[0].y) < Math.min(frame.height, row[0].height) / 2) row.push(frame);
     else rows.push([frame]);
   }
-  return rows.flatMap((row) => row.sort((a, b) => a.x - b.x));
+  const reading = rows.flatMap((row) => row.sort((a, b) => a.x - b.x));
+  //: **A page number wins** (decision 22): the sidebar's Pages tab writes
+  //: `page` on every frame when it reorders them; a frame without one (made
+  //: since) follows the numbered ones in reading order.
+  if (!reading.some((f) => Number.isFinite(f.data?.page))) return reading;
+  const at = new Map(reading.map((f, i) => [f, i]));
+  const page = (f) => (Number.isFinite(f.data?.page) ? f.data.page : Infinity);
+  return reading.slice().sort((a, b) => page(a) - page(b) || at.get(a) - at.get(b));
 }
 
 //: The steps: a board's frames, or a map's branches (MINDMAP_PLAN decision

@@ -71,6 +71,8 @@ function wbOpenSidebar(tab = null, { toggle = false, focus = true } = {}) {
   const state = wbSideState();
   const want = tab || state.tab || "library";
   const isMapTab = want === "outline";
+  //: A map has no frames, so no pages.
+  if (want === "pages" && typeof wbIsMap === "function" && wbIsMap()) return wbOpenSidebar("library", { focus });
   const showing = !panel.classList.contains("hidden");
   if (toggle && showing && state.tab === want) {
     wbCloseSidebar();
@@ -89,7 +91,7 @@ function wbOpenSidebar(tab = null, { toggle = false, focus = true } = {}) {
   }
   for (const only of panel.querySelectorAll("[data-side-only]")) only.hidden = only.dataset.sideOnly !== want;
   const title = document.getElementById("wb-sidebar-title");
-  if (title) title.textContent = { library: "Library", notes: "Notes", layers: "Layers", outline: "Outline" }[want] || "Library";
+  if (title) title.textContent = { library: "Library", notes: "Notes", layers: "Layers", pages: "Pages", outline: "Outline" }[want] || "Library";
   document.getElementById("wb-add-note")?.classList.add("is-on");
   wbSaveSideState({ open: true, tab: want });
   if (want === "library") {
@@ -101,6 +103,9 @@ function wbOpenSidebar(tab = null, { toggle = false, focus = true } = {}) {
   } else if (want === "layers") {
     if (typeof wbRenderLayers === "function") wbRenderLayers();
     if (focus) document.querySelector("#wb-layers-tree [tabindex='0']")?.focus({ preventScroll: true });
+  } else if (want === "pages") {
+    wbRenderPages();
+    if (focus) document.querySelector("#wb-pages-list [tabindex='0']")?.focus({ preventScroll: true });
   }
 }
 
@@ -121,6 +126,8 @@ function wbSyncSidebarKind() {
   const map = typeof wbIsMap === "function" && wbIsMap();
   const outline = document.querySelector('#wb-sidebar [data-side-tab="outline"]');
   if (outline) outline.hidden = !map;
+  const pages = document.querySelector('#wb-sidebar [data-side-tab="pages"]');
+  if (pages) pages.hidden = map;
   const state = wbSideState();
   if (!map && state.tab === "outline") wbSaveSideState({ ...state, tab: "library" });
   if (!document.getElementById("wb-sidebar-panel")?.classList.contains("hidden")) {
@@ -1708,6 +1715,172 @@ onDomReady(() => {
   });
   tree.addEventListener("dragend", () => {
     wbLayersDrag = null;
+    clearMarks();
+  });
+});
+
+// --- Pages (WHITEBOARD_PLAN decision 22: frames are the pages) --------------
+//
+// draw.io has pages; a board here has frames, and decision 22 keeps one
+// concept: the sidebar's Pages tab lists the board's frames in presentation
+// order, and changing that order is changing the presentation. A frame's
+// place is `page` in its data (1, 2, ...); a board whose frames have none is
+// in reading order, top to bottom and left to right (`wbFramesInOrder`), and
+// the first reorder writes every frame's number, one undo step.
+
+let wbPagesDrag = null;
+
+function wbRenderPages() {
+  const list = document.getElementById("wb-pages-list");
+  if (!list || list.closest("[hidden]")) return;
+  const active = list.querySelector("[tabindex='0']")?.dataset.id;
+  list.replaceChildren();
+  const frames = wbFramesInOrder();
+  if (!frames.length) {
+    const li = document.createElement("li");
+    li.className = "muted wb-lib-note";
+    li.setAttribute("role", "none");
+    li.textContent = "No frames yet. Add one (F) and it becomes a page.";
+    list.append(li);
+    return;
+  }
+  const selected = wbSelectedItem?.kind === "object" ? wbSelectedItem.id : null;
+  frames.forEach((frame, i) => {
+    const li = document.createElement("li");
+    li.className = "wb-layer-row wb-page-row";
+    li.setAttribute("role", "treeitem");
+    li.setAttribute("aria-level", "1");
+    li.dataset.id = String(frame.id);
+    li.tabIndex = -1;
+    li.draggable = true;
+    li.setAttribute("aria-selected", frame.id === selected ? "true" : "false");
+    const number = document.createElement("span");
+    number.className = "wb-page-number";
+    number.textContent = String(i + 1);
+    number.setAttribute("aria-hidden", "true");
+    const name = document.createElement("span");
+    name.className = "wb-layer-name";
+    name.textContent = wbFrameTitle(frame);
+    const present = wbLayerButton("wb-page-present", "ph-presentation", "Present from this page (P)");
+    li.append(number, name, present);
+    li.setAttribute("aria-label", `Page ${i + 1}: ${wbFrameTitle(frame)}`);
+    list.append(li);
+  });
+  const focusRow = list.querySelector(`[data-id="${active}"]`) || list.querySelector("[role='treeitem']");
+  if (focusRow) focusRow.tabIndex = 0;
+}
+
+function wbPageFocus(id) {
+  const list = document.getElementById("wb-pages-list");
+  const row = list?.querySelector(`[data-id="${id}"]`);
+  if (!row) return;
+  for (const r of list.querySelectorAll("[tabindex='0']")) r.tabIndex = -1;
+  row.tabIndex = 0;
+  row.focus({ preventScroll: false });
+}
+
+//: Brings the frame on screen and selects it.
+function wbPageGo(id) {
+  const frame = (wbState.objects || []).find((o) => o.id === id);
+  if (!frame) return;
+  clearWbSelection();
+  selectWbItem("object", id);
+  wbCenterOn({ minX: frame.x, minY: frame.y - 28, maxX: frame.x + frame.width, maxY: frame.y + frame.height });
+  wbRenderPages();
+  wbPageFocus(id);
+}
+
+//: Moves page `id` to `to` (0-based) and writes every frame's number, one
+//: undo step.
+async function wbPageMove(id, to) {
+  const frames = wbFramesInOrder();
+  const from = frames.findIndex((f) => f.id === id);
+  if (from < 0 || to < 0 || to >= frames.length || from === to) return;
+  const [moved] = frames.splice(from, 1);
+  frames.splice(to, 0, moved);
+  await wbRecordGesture(async () => {
+    for (const [i, frame] of frames.entries()) {
+      if (frame.data?.page === i + 1) continue;
+      frame.data = { ...frame.data, page: i + 1 };
+      await wbSaveObject(frame);
+    }
+  });
+  wbRenderPages();
+  wbPageFocus(id);
+  wbAnnounce(`${wbFrameTitle(moved)} is page ${to + 1} of ${frames.length}.`);
+}
+
+function wbPagePresent(id) {
+  const at = wbFramesInOrder().findIndex((f) => f.id === id);
+  wbStartPresenting();
+  if (at > 0 && typeof wbPresentShow === "function" && wbPresent) requestAnimationFrame(() => requestAnimationFrame(() => wbPresentShow(at)));
+}
+
+onDomReady(() => {
+  const list = document.getElementById("wb-pages-list");
+  if (!list) return;
+  const rowOf = (e) => e.target.closest("[role='treeitem']");
+  list.addEventListener("click", (e) => {
+    const li = rowOf(e);
+    if (!li) return;
+    if (e.target.closest(".wb-page-present")) return wbPagePresent(Number(li.dataset.id));
+    wbPageGo(Number(li.dataset.id));
+  });
+  list.addEventListener("keydown", (e) => {
+    const li = rowOf(e);
+    if (!li) return;
+    const rows = [...list.querySelectorAll("[role='treeitem']")];
+    const at = rows.indexOf(li);
+    const id = Number(li.dataset.id);
+    const go = (i) => {
+      const next = rows[Math.max(0, Math.min(rows.length - 1, i))];
+      if (next) wbPageFocus(next.dataset.id);
+    };
+    const plain = !e.ctrlKey && !e.metaKey && !e.altKey;
+    if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) wbPageMove(id, at + (e.key === "ArrowUp" ? -1 : 1));
+    else if (e.key === "ArrowDown") go(at + 1);
+    else if (e.key === "ArrowUp") go(at - 1);
+    else if (e.key === "Home") go(0);
+    else if (e.key === "End") go(rows.length - 1);
+    else if (e.key === "Enter" || e.key === " ") wbPageGo(id);
+    else if (plain && e.key.toLowerCase() === "p") wbPagePresent(id);
+    else return;
+    e.preventDefault();
+  });
+  list.addEventListener("dragstart", (e) => {
+    const li = rowOf(e);
+    if (!li) return;
+    wbPagesDrag = li;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/x-memorymap-page", li.dataset.id);
+  });
+  const clearMarks = () => {
+    for (const x of list.querySelectorAll(".drop-above, .drop-below")) x.classList.remove("drop-above", "drop-below");
+  };
+  list.addEventListener("dragover", (e) => {
+    if (!wbPagesDrag) return;
+    const over = rowOf(e);
+    if (!over || over === wbPagesDrag) return;
+    e.preventDefault();
+    const r = over.getBoundingClientRect();
+    clearMarks();
+    over.classList.add(e.clientY < r.top + r.height / 2 ? "drop-above" : "drop-below");
+  });
+  list.addEventListener("drop", (e) => {
+    const over = rowOf(e);
+    const dragged = wbPagesDrag;
+    wbPagesDrag = null;
+    if (!over || !dragged || over === dragged) return clearMarks();
+    e.preventDefault();
+    const rows = [...list.querySelectorAll("[role='treeitem']")];
+    const from = rows.indexOf(dragged);
+    let to = rows.indexOf(over) + (over.classList.contains("drop-below") ? 1 : 0);
+    if (from < to) to -= 1;
+    clearMarks();
+    wbPageMove(Number(dragged.dataset.id), to);
+  });
+  list.addEventListener("dragend", () => {
+    wbPagesDrag = null;
     clearMarks();
   });
 });

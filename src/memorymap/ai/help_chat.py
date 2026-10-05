@@ -1015,11 +1015,16 @@ HELP_TOPICS.extend(
                 "object library", "shape library", "shapes", "flowchart", "flow chart", "icons", "stencil",
                 "save to library", "save to the library", "my shapes", "custom shape", "saved style", "palette",
                 "preset", "template", "board template", "save as template", "saved branch", "import library",
-                "export library", "favourite shapes", "recent shapes", "sidebar", "layers",
+                "export library", "favourite shapes", "recent shapes", "sidebar", "layers", "pages",
+                "page order", "presentation order", "reorder frames", "order of frames", "frame order",
+                "frames in the presentation", "locked item", "unlock",
             ),
             "body": (
                 "A board's sidebar (the Library button in its top bar, or the rail on its left edge) has "
-                "three tabs: Library, Notes and Layers, and an Outline on a mind map. The Library holds "
+                "four tabs: Library, Notes, Layers and Pages, and an Outline on a mind map. Pages lists the "
+                "board's frames in presentation order: drag a row or press Alt+Up and Alt+Down to reorder, "
+                "Enter goes to the frame, P presents from it. A locked item shows a lock when the pointer "
+                "is on it; right-click it to unlock it. The Library holds "
                 "built-in sets (General shapes, Flowchart, Arrows, Frames such as Kanban, a retrospective "
                 "and SWOT, and 1,530 icons drawn as shapes), then Favourites, Recent and your own "
                 "libraries; the search field finds any of them by name or tag. Click a tile or press Enter "

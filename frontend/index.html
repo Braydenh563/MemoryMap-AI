@@ -6906,6 +6906,7 @@ Link to another note with [[its first few words]]."></textarea>
         <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="library" id="wb-side-tab-library" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="0" title="Library: shapes, icons, frames and what you saved" aria-label="Library"><i class="ph ph-shapes" aria-hidden="true"></i></button>
         <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="notes" id="wb-side-tab-notes" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="-1" title="Notes: drag one onto the board as a card" aria-label="Notes"><i class="ph ph-note-pencil" aria-hidden="true"></i></button>
         <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="layers" id="wb-side-tab-layers" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="-1" title="Layers: everything on the board, in order" aria-label="Layers"><i class="ph ph-stack" aria-hidden="true"></i></button>
+        <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="pages" id="wb-side-tab-pages" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="-1" title="Pages: the frames, in presentation order" aria-label="Pages"><i class="ph ph-presentation" aria-hidden="true"></i></button>
         <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="outline" id="wb-side-tab-outline" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="-1" title="Outline: the map as an indented list" aria-label="Outline" hidden><i class="ph ph-list-bullets" aria-hidden="true"></i></button>
       </div>
       <div id="wb-sidebar-panel" class="wb-sidebar-panel hidden" role="tabpanel" aria-labelledby="wb-sidebar-title">
@@ -6931,6 +6932,10 @@ Link to another note with [[its first few words]]."></textarea>
         <section class="wb-side-section" data-side-panel="layers" aria-label="Layers" hidden>
           <ul id="wb-layers-tree" class="wb-layers-tree" role="tree" aria-label="Layers"></ul>
           <p class="muted wb-lib-keys">Top of the list is in front. Drag a row, or Alt+Up and Alt+Down, to restack.</p>
+        </section>
+        <section class="wb-side-section" data-side-panel="pages" aria-label="Pages" hidden>
+          <ol id="wb-pages-list" class="wb-pages-list" role="tree" aria-label="Pages, in presentation order" aria-describedby="wb-pages-keys"></ol>
+          <p id="wb-pages-keys" class="muted wb-lib-keys">Each frame is a page. Drag a row, or Alt+Up and Alt+Down, to change the presentation's order; P presents from it.</p>
         </section>
         <section class="wb-side-section" data-side-panel="outline" aria-label="Outline" hidden>
           <ul id="wb-outline-tree" class="wb-outline-tree" role="tree" aria-label="Outline"></ul>

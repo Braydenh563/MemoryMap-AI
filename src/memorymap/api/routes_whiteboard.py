@@ -264,6 +264,8 @@ class WhiteboardObjectData(BaseModel):
     #: Where a placed library item came from (decision 25): `{id, version}`
     #: or `{builtin}`. Kept, never followed.
     library_ref: dict | None = None
+    #: A frame's place in the presentation (decision 22, the Pages tab).
+    page: int | None = Field(default=None, ge=1, le=100000)
     #: The Format panel's opacity and shadow (WHITEBOARD_PLAN decision 19).
     alpha: float | None = Field(default=None, ge=0.05, le=1)
     shadow: bool | None = None

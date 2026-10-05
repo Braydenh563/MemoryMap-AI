@@ -913,7 +913,7 @@ Every brief:
 - Tests first: the command table drives every menu (a lint); elbow route avoids the endpoints' boxes (pure function tests); numeric X, Y, W, H round-trip.
 - Acceptance: `wbformat.js` (each tab changes the selection, one undo each); `wbelbow.js`; palette lists at least 40 board commands; "?" sheet equals the table.
 
-### Phase C, layers and pages (M, Opus)
+### Phase C, layers and pages (M, Opus): BUILT 2026-10-05 (Layers in 5e84253; Pages and the hover lock after it; named layers stay C2)
 
 - Goal: 9.3 Phase 1 (`hidden`, tree, restack, accessible tree), then Pages view (frames listed, reorder equals presentation order).
 - Named layers stay in Phase C2 only if the owner confirms (BACKLOG 29c).

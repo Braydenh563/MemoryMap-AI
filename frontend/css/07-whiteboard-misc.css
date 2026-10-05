@@ -15063,3 +15063,62 @@ button.finder-row:hover,
   transform-origin: center;
   transform: scale(var(--wb-inv-zoom));
 }
+
+/* Pages (decision 22): the frames in presentation order, on the Layers
+   tab's row recipe with the page's number in front. */
+.wb-pages-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--row-gap);
+}
+
+.wb-page-number {
+  min-width: 1.5rem;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.wb-page-row[aria-selected="true"] {
+  background: var(--accent-soft);
+}
+
+/* The hover lock (decision 28): a quiet lock at a locked item's top right
+   while the pointer is on it, one size at any zoom like the comment mark
+   beside it. It takes no pointer: the item lets the pointer through, and so
+   does its mark. */
+.wb-lock-pin {
+  position: absolute;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+  transform: scale(var(--wb-inv-zoom));
+  pointer-events: none;
+}
+
+.wb-lock-pin.hidden {
+  display: none;
+}
+
+.wb-lock-mark {
+  position: absolute;
+  left: var(--space-1);
+  bottom: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  color: var(--muted);
+  border: 1px solid var(--divider);
+  opacity: 0.9;
+}

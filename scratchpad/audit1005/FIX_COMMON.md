@@ -10,7 +10,7 @@
    - A new frontend library is vendored under `frontend/vendor/` with its
      licence file; it must be AGPL-compatible.
    - No new Python dependency unless it is already in requirements.txt.
-   - Never torch or sentence-transformers.
+   - Never torch or sentence-transformers, and never press an "Install" on an extra in a sweep: one did, at 03:51 on 2026-10-05, and put torch into the shared .venv.
 3. **Tests first** from the audit's reproduction: the failing test, then the
    fix, then the test passing.
    - Targeted tests only, run SERIALLY (`-p no:cacheprovider`, a private

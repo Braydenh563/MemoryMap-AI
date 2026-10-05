@@ -443,6 +443,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 
 ### Added
 
+- Time travel: in Notes, Ask, the clock button answers from your notes as they were on a day you pick, and a note's History shows Then and now for an earlier version, what it said then against what it says today, sentence by sentence (row 23).
 - Settings, What it learned: a "Learned from you" line counts your corrections and gives filing accuracy, the share of the notes Atlas filed that you left where it put them, older half of the last 200 against the newer half (row 20).
 - Whiteboard: View, Present frames shows a board's frames one at a time, full screen, in reading order, each fitted to the screen. The arrow keys, Space, Home and End (or the small bar at the foot) move through them, and Escape puts the board back as it was (WHITEBOARD_PLAN decision 16; `scratchpad/ui-sweeps/wbpresent.js` 18/18 at 1440x900 and 390x844, light and dark).
 - Whiteboard: lock. Ctrl+Shift+L (or Lock on an item's right-click menu) holds what is selected in place: clicks pass through it to the board, and Select all, a box selection, the eraser and a frame's drag leave it alone. Right-click the board and choose Unlock (it says how many are locked), or press Ctrl+Shift+L with nothing selected, to free them (WHITEBOARD_PLAN decision 15; `scratchpad/ui-sweeps/wblock.js` 17/17 at 1440x900 and 390x844, light and dark). A box selection drawn inside a frame no longer selects the frame as well.

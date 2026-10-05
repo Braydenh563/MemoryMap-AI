@@ -7,6 +7,23 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (row 23: time travel)
+
+### From WORLD_CLASS_PLAN.md, I5 and H8: "what did I think about X in March?"
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A note's text at an instant (`timetravel.text_as_of`): the content of the first revision stamped after it, else the note now; a note written later did not exist; private and binned notes are not read; `exact=False` when every kept revision (`MAX_REVISIONS`) is newer, so older edits may have been pruned | no reader of the past | a note edited on three dates reads as each version on a day inside each span | `tests/test_time_travel_spec.py` (8) |
+| `POST /chat/stream` takes `as_of` (a day): candidates are today's matches (20) and every note whose kept revisions match the question, each read as at the end of that day in the user's time zone, ranked by shared words; records and the prompt carry the text then ("written ..., as it read on 15 March 2026"); the turn runs without tools, which read the notebook now; `meta` carries `as_of` and each record's revision | no `as_of` | the March answer reads 32 where today's note says 64, record and answer alike; before the first note, "There are no notes from on or before 1 January 2025 to answer from", with no model | same file; 200 candidates rewound in under 1 s (the spec's gate) |
+| `GET /entries/{id}/then-and-now?as_of=` and `POST` with a version's text: the sentences then against now, paired by shared distinctive words (Jaccard 0.2: the fixture's revised pair shares 2 of 9, the unrelated pair 0) as revised, dropped or new | none | the fixture: one revised, one dropped, one new; a day before the note existed is a 404 that says so | same file |
+| Ask: a clock button in the box opens the Ask scope's own line, "Answer from my notes as they were on [day]" with Back to now (`showAskAsOf`, `askAsOf`), no day after today; History: Then and now on an earlier version, under the row, "Changed" (then above now), "No longer says", "Says now" | | at 1440 and 390, light and dark: the line inside the box's width, no page scroll; the records and the answer from the version then; Back to now clears it; the block inside the sheet, 0 errors | `scratchpad/ui-sweeps/ai1005-timetravel.js` |
+
+Help moved with it: the Guide's note-history and ask-chat topics. Not built,
+from the spec: a model's judgement over the claim pairs; past texts
+re-embedded for retrieval (ranked by words instead); `GET
+/entries/{id}/claims?as_of=` (derived claims carry no `revision_id`); H8's
+month grouping and a slider rather than a day picker.
+
 ## Moved from the plans, 2026-10-05 (H4, the 3B pass)
 
 ### From AGENT_SKILLS_REFORM.md, H4: the first real 3B pass after the first-round fixes

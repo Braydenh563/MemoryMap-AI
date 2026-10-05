@@ -612,12 +612,18 @@ MORE_TOPICS.extend(
                 "note history", "who changed", "who edited", "changed my note",
                 "edited by atlas", "you and atlas", "two windows", "two tabs",
                 "edited twice", "conflict", "keep your version",
+                "then and now", "what did it say", "time travel", "as of",
             ),
             "body": (
                 "A note's History (in its menu) lists every change and whose it "
                 "was: You, Atlas, or You and Atlas (a save that took an Improve "
                 "writing suggestion), with the exact time on hover, and any "
-                "earlier version can be put back. It also says who filed the note "
+                "earlier version can be put back; Then and now on an earlier "
+                "version sets what it said against what the note says today, "
+                "sentence by sentence (Changed, No longer says, Says now). In Ask, "
+                "the clock button answers from your notes as they were on a day "
+                "you pick, and Back to now returns to today. It also says who "
+                "filed the note "
                 "and how sure, and a change made by an AI tool names the model "
                 "that made it. When the same note or document is edited in two "
                 "windows, a save over text changed elsewhere is refused and you "

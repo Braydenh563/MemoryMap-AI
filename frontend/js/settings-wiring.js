@@ -381,6 +381,15 @@ $("question").addEventListener("keydown", (e) => {
     e.target.value = "";
   }
 });
+//: Time travel on Ask (row 23): the clock opens the "as of" line, Back to
+//: now closes it (`showAskAsOf`, capture-ask.js).
+$("ask-time-travel").addEventListener("click", () => {
+  showAskAsOf($("ask-as-of-row").classList.contains("hidden"));
+});
+$("ask-as-of-clear").addEventListener("click", () => {
+  showAskAsOf(false);
+  $("question").focus();
+});
 $("entry-content").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
     e.preventDefault();

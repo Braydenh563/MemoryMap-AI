@@ -18,7 +18,7 @@ import mimetypes
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import timezone
+from datetime import date, timezone
 from itertools import chain
 from pathlib import Path
 from typing import Literal
@@ -297,6 +297,10 @@ class PlanRun(BaseModel):
 
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1)
+    #: Answer from the notebook as it stood at the end of this day
+    #: (WORLD_CLASS_PLAN I5, row 23). Read, never act: the turn runs without
+    #: tools, which would read and change the notebook as it is now.
+    as_of: date | None = None
     # Prior turns for follow-up context (Round 1); the server clips this.
     history: list[ChatTurn] = Field(default_factory=list)
     # Persona name; None → the active persona preference.
@@ -1096,6 +1100,7 @@ def _prepare(
     file_ids: list[int] | None = None,
     board_ids: list[int] | None = None,
     surface: str = ASK_SURFACE,
+    as_of: "date | None" = None,
 ) -> dict:
     """The shared first half of both chat endpoints: retrieve entries,
     bump their usage counters, log the question, gather AI settings.
@@ -1139,7 +1144,7 @@ def _prepare(
     #: truth below), which means the phrasing is natural and the numbers cannot
     #: be invented: and with the model stopped the computed sentence is
     #: already a complete answer on its own.
-    stats = notebook_stats.answer(question, session) if detected == intent.NOTES else None
+    stats = notebook_stats.answer(question, session) if detected == intent.NOTES and as_of is None else None
     connected_ids: set[int] = set()
     match_info: dict = {}
     when_phrase = ""
@@ -1170,6 +1175,32 @@ def _prepare(
     else:
         entries, mode = [], "none"
 
+    #: **As of a date** (WORLD_CLASS_PLAN I5, row 23; `ai/timetravel.py`):
+    #: the candidates are today's matches and every note whose past text
+    #: matches, each read as it stood at the end of that day, those that did
+    #: not exist then dropped. With none left the answer is the honest empty
+    #: one, said without a model, never today's notebook.
+    as_of_then: dict = {}
+    if as_of is not None and intent.needs_retrieval(detected):
+        from memorymap.ai import timetravel
+
+        found = search_manager.retrieve_detailed(session, question, deps.get_embeddings(), limit=20)
+        candidates = found.entries + timetravel.revision_candidates(session, question)
+        zone = user_now(deps.get_config()).tzinfo
+        rewound = timetravel.rewind(session, question, timetravel.end_of_day(as_of, zone), candidates, limit=5)
+        entries, mode = [then.entry for then in rewound], "as of"
+        connected_ids, match_info = set(), {}
+        as_of_then = {then.entry.id: then for then in rewound}
+        if not rewound:
+            stats = notebook_stats.StatAnswer(
+                kind="as_of_empty",
+                text=(
+                    f"There are no notes from on or before {timetravel.day_words(as_of)} to answer "
+                    "from, so there is nothing to say about how things stood then."
+                ),
+                facts=[],
+            )
+
     # Attached notes come first and are never dropped by the retrieval limit.
     # Anything retrieval also found is de-duplicated against them.
     attached_ids = {entry.id for entry in attached}
@@ -1178,7 +1209,7 @@ def _prepare(
         mode = "attached" if mode == "none" else f"attached + {mode}"
 
     def as_note(entry) -> dict:
-        content = entry.content
+        content = as_of_then[entry.id].text if entry.id in as_of_then else entry.content
         if entry.id in attached_ids:
             # Only for notes the user picked by hand. A retrieved note is a
             # candidate; an attached one is the subject of the question, and
@@ -1217,7 +1248,8 @@ def _prepare(
             #: The day it was written, and edited if since (wrapup-0927 10 n):
             #: with no dates a model guessed "your last entry" from the order
             #: the notes were listed in.
-            "written": _note_dates(entry, zone),
+            "written": _note_dates(entry, zone)
+            + (f", as it read on {as_of.day} {as_of:%B %Y}" if entry.id in as_of_then else ""),
             "dates": _time_words(time_words.get(entry.id, []), today),
         }
 
@@ -1282,7 +1314,16 @@ def _prepare(
             if stats is not None
             else None
         ),
-        "raw_results": [_to_out(session, entry) for entry in entries],
+        "raw_results": [
+            _to_out(session, entry).model_copy(update={"content": as_of_then[entry.id].text})
+            if entry.id in as_of_then
+            else _to_out(session, entry)
+            for entry in entries
+        ],
+        #: The day asked about and, per note, the revision its text came from
+        #: (None for a note that read the same then as now).
+        "as_of": as_of.isoformat() if as_of is not None else None,
+        "as_of_revisions": {str(i): then.revision_id for i, then in as_of_then.items()},
         #: Words for each retrieved note's pictures, for the thumbnails an
         #: answer draws beside a citation (INBOX 502, `_picture_alts`).
         "picture_alts": _picture_alts(session, entries),
@@ -1808,6 +1849,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
         # preference is accounted for and an unset flag cannot land a
         # Request turn in the chip row.
         surface=ASK_SURFACE if (req.body.notes_only or not req.use_tools) else AGENT_SURFACE,
+        as_of=None if req.skill else req.body.as_of,
     )
     ollama_running = req.ollama.is_running()
     #: INBOX 302 (the owner, 2026-09-24: needle "Yes, as an extra"): with no
@@ -1840,6 +1882,8 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             "connected_ids": prepared["connected_ids"],
             "match_info": prepared["match_info"],
             "when_phrase": prepared["when_phrase"],
+            "as_of": prepared.get("as_of"),
+            "as_of_revisions": prepared.get("as_of_revisions") or {},
             "answered_by": (
                 "needle (tools only)"
                 if tools_only and will_answer
@@ -2157,6 +2201,8 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     # cannot tell them apart, which is what gives a plan the ticked steps, the
     # change list and the Undo on each without a second implementation.
     skill = _resolve_skill(body) or _resolve_plan(body)
+    if body.as_of is not None and not skill:
+        use_tools = False
     question = skill["question"] if skill else body.question
     allowed_tools = skill["tools"] if skill else None
     if skill and skill["acts"]:

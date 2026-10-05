@@ -799,7 +799,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 20 | ~~I7~~ | ~~the "Learned from you" line with a filing accuracy number~~ built 2026-10-05 (`learning.filing_accuracy`, `GET /learned/summary`, `tests/test_learned_accuracy.py`); 24 notes, 5 moved: 67% to 92% | done | HISTORY |
 | 21 | I8, H3 | the model bench | M | a new `ai/bench.py` |
 | 22 | I2, H8 | the margin reader (after row 6's chunks) | M | `documents.js`, a new `/editor/read` |
-| 23 | I5, H8 | time travel: `as_of` on chat, then-and-now | M | `routes_chat.py` |
+| 23 | ~~I5, H8~~ | ~~time travel: `as_of` on chat, then-and-now~~ built 2026-10-05 (`ai/timetravel.py`; 200 candidates rewound in under a second); left: a model's judgement over the pairs, past texts re-embedded, cards grouped by month | done | HISTORY |
 | 24 | D9 | the web clipper | M | `routes_bookmarks.py`, `core/security.py` |
 | 25 | H6, §5.7 | Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete; a WCAG audit; multi-window; a first-run path timed to a first answer | M to L each | H6 |
 | 26 | H7 | boot JS under 1 MB (1,072 KB now), first paint under 300 ms, every list over 200 rows virtualised | S each | `boottime.js` |
@@ -1214,7 +1214,7 @@ empty, honest answer rather than today's.
 **Gate.** As-of retrieval under 1s at 5k notes for a 200-candidate set.
 **Size** M. **Model** Opus.
 
-**State 2026-09-24:** (c) not built: no `as_of` on `/chat/stream`, no then-and-now. M, Opus.
+**State 2026-10-05:** (b) built (row 23): `as_of` on `/chat/stream`, `GET` and `POST /entries/{id}/then-and-now`, the clock on Ask and Then and now in a note's History (`ai/timetravel.py`, `tests/test_time_travel_spec.py`): HISTORY.md, "Moved from the plans, 2026-10-05 (row 23: time travel)". Not built: the model's judgement over the claim pairs (the pairing is by shared words), re-embedding past texts (as-of retrieval ranks then-texts by words), `GET /entries/{id}/claims?as_of=` (claims carry no `revision_id`), and the answer's cards grouped by month (H8).
 
 ### I6 Evidence cards: answers you can audit sentence by sentence
 
@@ -1268,7 +1268,7 @@ accuracy number equals the fixture's computed value.
 corrections improves by at least 10 points; search p95 unchanged. **Size**
 M. **Model** Opus for the prompt and fusion changes, Sonnet for the panel.
 
-**State 2026-10-05:** (a) the loop is built (`ai/learning.py`: corrections as `AuditLog` rows by decision, boosts with decay, the centroid exclusion, `open_after_ask`), and the "Learned from you" line with a filing accuracy number is in Settings (row 20): HISTORY.md, "Moved from the plans, 2026-10-05 (row 20)". Left: the gate's eval (filing accuracy with 20 synthetic corrections up 10 points) needs a real model, and "wrong" on an evidence card as a correction.
+**State 2026-10-05:** (b) the loop's store is built (`ai/learning.py`: corrections as `AuditLog` rows by decision, boosts with decay, `open_after_ask`), but the filing consumer is not wired: `centroid_excluded` and `filing_evidence` have no caller (audit ARCH-08, Brief B's), and until 2026-10-05 a refile made in the app never reached them anyway (`corrections(kind="refile")` missed it, fixed in row 20). The "Learned from you" line with a filing accuracy number is in Settings (row 20): HISTORY.md, "Moved from the plans, 2026-10-05 (row 20)". Left: the gate's eval (filing accuracy with 20 synthetic corrections up 10 points) needs a real model, and "wrong" on an evidence card as a correction.
 
 ### I8 The model bench: which local model is best on *your* notebook
 
@@ -1823,7 +1823,7 @@ as they write, from the same engine, with the link-strength explanation
 under each. Both reuse B3; both gate on the 150 ms budget for a
 keystroke-to-margin update.
 
-**State 2026-09-24:** (c), I5 and I2.
+**State 2026-10-05:** I5 (b), built as row 23 (HISTORY.md, "Moved from the plans, 2026-10-05 (row 23: time travel)"), without the month grouping or a date slider (a day picker); I2 (c).
 
 ### H9 Polish in use (the owner's question, 2026-09-14; S to M each)
 

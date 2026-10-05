@@ -1708,6 +1708,17 @@ Link to another note with [[its first few words]]."></textarea>
             <span id="ask-scope-text">Answers come from the notes with open questions.</span>
             <button type="button" id="ask-scope-clear" class="ghost small">Ask all notes</button>
           </p>
+          <!-- Time travel (WORLD_CLASS_PLAN I5, row 23): the next answer reads
+               your notes as they stood at the end of the day picked here.
+               The Ask scope's own line, because it is the same kind of fact:
+               what the next answer is drawn from. Opened by the clock button
+               in the box; "Back to now" closes it. -->
+          <p class="muted ask-scope hidden" id="ask-as-of-row" role="status">
+            <i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i>
+            <label for="ask-as-of">Answer from my notes as they were on</label>
+            <input type="date" id="ask-as-of" class="ask-as-of-date">
+            <button type="button" id="ask-as-of-clear" class="ghost small">Back to now</button>
+          </p>
           <div class="row ask-query-row ask-composer">
             <i class="ph ph-sparkle ask-composer-icon" aria-hidden="true"></i>
             <!-- `data-query`: a question, not writing, so the selection menu
@@ -1731,6 +1742,9 @@ Link to another note with [[its first few words]]."></textarea>
                  which is `hidden` until an answer exists, so the control that
                  changes how a search behaves could only be reached *after*
                  running one. -->
+            <button type="button" id="ask-time-travel" class="ghost small icon-only"
+              title="Answer from your notes as they were on a day you pick"
+              aria-label="Answer as of a date" aria-pressed="false" aria-controls="ask-as-of-row"><i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="ask-search-tune" class="ghost small icon-only"
               title="Tune how strict semantic search is (Settings → Search and index)"
               aria-label="Tune search sensitivity"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i></button>

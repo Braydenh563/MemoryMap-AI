@@ -2271,6 +2271,7 @@ async function streamChat({
   notesOnly,
   attachedNotesOnly,
   scope,
+  asOf,
   answeringAgent,
   signal,
   onMeta,
@@ -2306,6 +2307,8 @@ async function streamChat({
   if (attachedNotesOnly) body.attached_notes_only = true;
   //: Row 7: the notes holding open questions only (`_apply_scope`).
   if (scope) body.scope = scope;
+  //: Row 23: the notebook as it stood at the end of that day (`as_of`).
+  if (asOf) body.as_of = asOf;
   // A reply to the agent's own question ("yes", "ok") reads as small talk to
   // intent.classify, correctly, in isolation, which would otherwise route
   // it to the tool-less conversational path and strand whatever the model
@@ -2785,6 +2788,7 @@ async function askQuestion(preset) {
       // being small talk: it is this surface that doesn't want small talk.
       notesOnly: true,
       scope: askScope || null,
+      asOf: askAsOf(),
       signal: askController.signal,
       onMeta: (meta) => {
         renderChatMeta(meta);
@@ -3049,6 +3053,32 @@ let askScope = null;
 function setAskScope(scope) {
   askScope = scope || null;
   $("ask-scope")?.classList.toggle("hidden", !askScope);
+}
+
+//: Time travel on Ask (WORLD_CLASS_PLAN I5, row 23): the day the next answer
+//: reads the notebook as of, or null. Only while the line is showing, so
+//: "Back to now" needs nothing else to undo.
+function askAsOf() {
+  const row = $("ask-as-of-row");
+  const value = $("ask-as-of")?.value || "";
+  return row && !row.classList.contains("hidden") && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
+function showAskAsOf(on) {
+  const row = $("ask-as-of-row");
+  const box = $("ask-as-of");
+  if (!row || !box) return;
+  row.classList.toggle("hidden", !on);
+  $("ask-time-travel")?.setAttribute("aria-pressed", on ? "true" : "false");
+  if (on) {
+    //: Nothing after today: the future has no notes to read.
+    const today = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    box.max = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+    box.focus();
+  } else {
+    box.value = "";
+  }
 }
 
 function questionWhen(iso) {

@@ -3900,6 +3900,55 @@ async function wbMapAddChild(parentId, { order = null } = {}) {
   return (await created._creating) ? created : null;
 }
 
+//: **Text pasted onto a map becomes a branch** (audit FEAT-09, 2026-10-05:
+//: a nested list pasted onto a selected topic did nothing, 4 topics before
+//: and after). XMind, MindNode and SimpleMind all take an indented list this
+//: way. Under the selected topic, or as new trunks with none; one line per
+//: topic, nested by indentation, read by the server's outline reader (the
+//: Markdown import's), made in one transaction and recorded as one Undo
+//: step. Ctrl+V reaches here only when nothing was copied on the board
+//: itself (the board's key handler lets the browser's paste through then).
+async function wbMapPasteText(text) {
+  const boardId = window.currentBoardId;
+  if (!boardId || !text.trim()) return 0;
+  const node = wbSelectedMapNode();
+  let made;
+  try {
+    made = await apiJson(`/whiteboard/boards/${boardId}/nodes/outline`, {
+      method: "POST",
+      body: JSON.stringify({ parent_id: node ? node.id : null, text: text.slice(0, 200000) }),
+    });
+  } catch (err) {
+    toast(err.message || "Couldn't paste that onto the map.", true);
+    return 0;
+  }
+  wbState.objects = [...(wbState.objects || []), ...made];
+  if (node?.data?.collapsed) {
+    node.data = { ...node.data, collapsed: false };
+    await wbSaveObject(node);
+  }
+  renderWhiteboardNow();
+  if (wbMapLayout() !== "free") await wbMapTidy({ onlyBranch: wbMapTidyBranchScope(node ? node.id : null), quiet: true });
+  if (made[0]) selectWbItem("object", made[0].id);
+  const n = made.length;
+  wbAnnounce(`Pasted ${n} topic${n === 1 ? "" : "s"}`);
+  return n;
+}
+
+document.addEventListener("paste", (event) => {
+  if (event.defaultPrevented || typeof wbIsMap !== "function" || !wbIsMap()) return;
+  const canvas = document.getElementById("whiteboard-container");
+  if (!canvas?.getClientRects().length) return;
+  const target = event.target;
+  if (target?.closest?.("input, textarea, select, [contenteditable='true'], [contenteditable='plaintext-only'], dialog, .modal-overlay")) return;
+  const data = event.clipboardData;
+  if (!data || [...(data.items || [])].some((item) => item.kind === "file")) return;
+  const text = data.getData("text/plain") || "";
+  if (!text.trim()) return;
+  event.preventDefault();
+  wbRecordGesture(wbMapPasteText, [text]);
+});
+
 //: **The open map's commands in the command palette** (audit FEAT-11,
 //: 2026-10-05: the palette mentioned the board only as the AI's subject, so
 //: on the most control-dense surface nothing could be found by typing its

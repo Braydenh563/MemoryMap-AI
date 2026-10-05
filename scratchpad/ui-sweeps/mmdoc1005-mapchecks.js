@@ -84,6 +84,28 @@ const VIEWPORT = (() => {
   const redone = await page.evaluate(() => wbState.objects.some((o) => o.data?.content === "First new"));
   check("Redo brings the topic back with its name", redone);
 
+  // FEAT-09: a nested list pasted onto a selected topic becomes its branch,
+  // one Undo step.
+  const pasted = await page.evaluate(async () => {
+    const pick = wbState.objects.find((o) => o.data?.content === "Branch 4");
+    selectWbItem("object", pick.id);
+    const before = wbState.objects.length;
+    const dt = new DataTransfer();
+    dt.setData("text/plain", "- one\n  - one a\n- two");
+    document.getElementById("whiteboard-container").dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+    await new Promise((r) => setTimeout(r, 1800));
+    const tree = await apiJson(`/whiteboard/boards/${window.currentBoardId}/tree`);
+    const find = (nodes) => nodes.flatMap((n) => (n.text === "Branch 4" ? [n] : find(n.children)));
+    const branch = find(tree.roots)[0];
+    return { before, after: wbState.objects.length, kids: branch.children.map((c) => `${c.text}(${c.children.map((g) => g.text).join(",")})`) };
+  });
+  check("a pasted list becomes the selected topic's branch", pasted.after === pasted.before + 3 && pasted.kids.join() .includes("one(one a)") && pasted.kids.join().includes("two()"), JSON.stringify(pasted));
+  await page.evaluate(() => document.getElementById("whiteboard-container").focus());
+  await page.keyboard.press("Control+z");
+  await page.waitForTimeout(1500);
+  const unpasted = await page.evaluate(() => wbState.objects.length);
+  check("and one Ctrl+Z takes the whole paste back", unpasted === pasted.before, `${pasted.after} -> ${unpasted}`);
+
   // The topic menu on a laid-out map: no Order group.
   const menu = await page.evaluate(() => {
     const pick = wbState.objects.find((o) => o.data?.content === "Branch 1");

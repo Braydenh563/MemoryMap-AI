@@ -1224,6 +1224,12 @@ topic: a control that wide has nowhere to go.
    another field.
 28. **No front-and-back Order on a laid-out map** (taken 2026-10-05, audit
    FEAT-17): a tidied tree never overlaps; a Free map keeps the group.
+29. **Text pasted onto a map is a branch** (taken 2026-10-05, audit FEAT-09):
+   one topic per line, nested by indentation, a numbered or heading line
+   read as a topic, under the selected topic (or as trunks), made by
+   `POST /boards/{id}/nodes/outline` in one transaction and recorded as one
+   Undo step. Ctrl+V on a map with nothing copied on the board lets the
+   browser's paste through to it; an in-app copy still pastes as before.
 
 ### Phases, each with the gate it is finished against
 

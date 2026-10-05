@@ -3118,6 +3118,77 @@ def create_map_node(
     return _object_to_out(obj)
 
 
+class MapOutlinePaste(BaseModel):
+    #: The topic the outline goes under, or None for new trunks.
+    parent_id: int | None = None
+    text: str = Field(min_length=1, max_length=MAX_IMPORT_CHARS)
+
+
+#: A numbered line's number, taken off so it reads as a bullet.
+_PASTE_NUMBERED = re.compile(r"^(\s*)\d+[.)]\s+")
+
+
+def _outline_from_paste(text: str) -> str:
+    """Plain pasted text as the bullet outline `_parse_markdown_outline`
+    reads: a line keeps its indentation and becomes a bullet, a numbered
+    line loses its number, and a heading line becomes a bullet too (pasted
+    text names no map, so a heading is a topic like any other)."""
+    out = []
+    for raw in text.replace("\r\n", "\n").split("\n"):
+        if not raw.strip():
+            continue
+        line = _PASTE_NUMBERED.sub(r"\1- ", raw.rstrip())
+        stripped = line.lstrip()
+        indent = line[: len(line) - len(stripped)]
+        if stripped.startswith("#"):
+            stripped = "- " + stripped.lstrip("#").strip()
+        elif stripped[0] not in "-*+" or not stripped[1:2].isspace():
+            stripped = "- " + stripped
+        out.append(indent + stripped)
+    return "\n".join(out)
+
+
+@router.post(
+    "/boards/{board_id}/nodes/outline",
+    response_model=list[WhiteboardObjectOut],
+    status_code=201,
+)
+def paste_map_outline(
+    board_id: int, body: MapOutlinePaste, db: Session = Depends(get_session)
+) -> list[WhiteboardObjectOut]:
+    """**Text pasted onto a map becomes a branch** (audit FEAT-09,
+    2026-10-05). An indented list from anywhere (a note, a document, another
+    mind mapper's outline) comes in under the selected topic as topics, one
+    per line and nested by indentation, in one transaction, so the client
+    records it as one Undo step. The same outline reader the Markdown import
+    uses, so a paste and an import cannot disagree about what a line means.
+    """
+    _require_board(db, board_id)
+    parent = None
+    if body.parent_id is not None:
+        parent = db.get(WhiteboardObject, body.parent_id)
+        if parent is None or parent.board_id != board_id:
+            raise HTTPException(status_code=404, detail="That node is not on this board.")
+    _, parsed = _parse_markdown_outline(_outline_from_paste(body.text))
+    if not parsed:
+        raise HTTPException(status_code=422, detail="There is nothing to add: the text has no lines.")
+    # The top lines hang off the topic they were pasted onto (`under`).
+    created = _place_map_nodes(db, board_id, parsed, under=parent)
+    for obj in created:
+        events.record(
+            db,
+            "created",
+            "whiteboard_object",
+            obj.id,
+            f"{obj.kind} on map {board_id}",
+            payload={"after": _object_state(obj)},
+        )
+    db.commit()
+    for obj in created:
+        db.refresh(obj)
+    return [_object_to_out(obj) for obj in created]
+
+
 class MapNodeMove(BaseModel):
     #: The new parent, or None to promote the node to a root. The node keeps
     #: its own children either way, moving a node moves its branch.
@@ -4437,6 +4508,7 @@ def _place_map_nodes(
     board_id: int,
     parsed: list[dict],
     reference_for=None,
+    under: WhiteboardObject | None = None,
 ) -> list[WhiteboardObject]:
     """Write a parsed outline onto a board as map nodes, returning them.
 
@@ -4473,12 +4545,16 @@ def _place_map_nodes(
             # by `_clean_import_style`. A Markdown outline and an AI proposal
             # carry no style at all, which is why this is a `get`.
             data.update(node.get("style") or {})
+            #: Under an existing topic (a pasted outline), the ladder starts
+            #: beside it; the client's tidy lays it out properly after.
+            ox = float(under.x) + MAP_COL if under is not None else 0.0
+            oy = float(under.y) if under is not None else 0.0
             obj = WhiteboardObject(
                 board_id=board_id,
                 kind=kind,
                 data=json.dumps(data),
-                x=float(depth) * MAP_COL,
-                y=float(row[0]) * MAP_ROW,
+                x=ox + float(depth) * MAP_COL,
+                y=oy + float(row[0]) * MAP_ROW,
                 z=1,
                 parent_id=parent.id if parent is not None else None,
             )
@@ -4488,7 +4564,7 @@ def _place_map_nodes(
             created.append(obj)
             place(node["children"], obj, depth + 1)
 
-    place(parsed, None, 0)
+    place(parsed, under, 0)
     return created
 
 

@@ -10560,6 +10560,10 @@ async function initWhiteboard() {
       return;
     }
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "v") {
+      //: On a map with nothing copied here, the browser's own paste goes
+      //: ahead, so text from another app can come in as a branch
+      //: (`wbMapPasteText`, audit FEAT-09).
+      if (!wbClipboard && wbIsMap()) return;
       e.preventDefault();
       wbPasteClipboard();
       return;

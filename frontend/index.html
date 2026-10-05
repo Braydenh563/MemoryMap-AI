@@ -392,7 +392,7 @@
            second action and a labelled button for it is what made the old head
            row two buttons wide. -->
       <form id="help-chat-form" class="row help-chat-form atlas-composer">
-        <input type="text" id="help-chat-input" placeholder="Ask about the app…" maxlength="1000" autocomplete="off" aria-label="Ask Atlas a question">
+        <input type="text" id="help-chat-input" data-no-selection-popup placeholder="Ask about the app…" maxlength="1000" autocomplete="off" aria-label="Ask Atlas a question">
         <button type="submit" id="help-chat-send" class="icon-only icon-primary" title="Ask Atlas" aria-label="Ask Atlas"><i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>
         <button type="button" class="icon-only ghost small graph-help-toggle"
           data-help-for="help-chat-help" aria-controls="help-chat-help" aria-expanded="false"
@@ -1705,7 +1705,7 @@ Link to another note with [[its first few words]]."></textarea>
           </p>
           <div class="row ask-query-row ask-composer">
             <i class="ph ph-sparkle ask-composer-icon" aria-hidden="true"></i>
-            <input id="question" type="text"
+            <input id="question" type="text" data-no-selection-popup
               placeholder="e.g. What jokes have I saved?"
               aria-label="Ask your notebook a question">
             <button type="button" id="ask-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>
@@ -2028,7 +2028,7 @@ Link to another note with [[its first few words]]."></textarea>
                        narrow for the rail, where the note's own Connections
                        sheet is the way in instead. -->
                   <button type="button" id="notes-rail-toggle" class="doc-dock-menu-item"
-                    title="Show or hide the column of the open note's connections"><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i> Hide connections</button>
+                    title="Show or hide the column of connections for the note you are reading"><i class="ph ph-sidebar-simple ph-lead" aria-hidden="true"></i> Connections beside the note you're reading</button>
                   <div class="dock-menu-section">
                     <label class="muted dock-menu-label" for="notes-page-size">Notes per page</label>
                     <select id="notes-page-size" aria-label="Notes per page" title="Notes per page">
@@ -2122,7 +2122,9 @@ Link to another note with [[its first few words]]."></textarea>
         </h3>
         <div class="help-body hidden" id="notes-rail-help" role="dialog" aria-label="What this column shows">
           <p>
-            Everything joined to the note you have open: the notes it links
+            Everything joined to the note you are reading (the one you
+            clicked, or the one in view as you scroll, marked with a line at
+            its left edge): the notes it links
             to, the notes that link to it, the documents, boards and maps it
             is used in, and the files it shows. Under them, notes you have not
             opened in a while that are close to this one.
@@ -4829,7 +4831,7 @@ Link to another note with [[its first few words]]."></textarea>
           <span class="clock-date muted"></span>
         </div>
       </div>
-      <!-- Magic Add: type natural language, the AI turns it into a reminder -->
+      <!-- Magic Add: type natural language; rules read the time (ai/when), the AI only what they cannot -->
       <div class="row" id="reminder-magic-row">
         <!-- A textarea, not an input: "remind me about the three things from
              today's meeting…" is a perfectly ordinary thing to type here, and
@@ -4841,7 +4843,7 @@ Link to another note with [[its first few words]]."></textarea>
         <!-- The wand alone (WORLD_CLASS_PLAN 507): the form below has the
              card's one worded "Add", so this reads as "add from the sentence"
              by its name and tooltip, not as a second "Add". -->
-        <button id="reminder-magic-add" data-needs-model="Reading a reminder from a sentence needs the local AI" class="ghost icon-only" type="button" title="Add from this sentence" aria-label="Add from this sentence"><i class="ph ph-magic-wand" aria-hidden="true"></i></button>
+        <button id="reminder-magic-add" class="ghost icon-only" type="button" title="Add from this sentence" aria-label="Add from this sentence"><i class="ph ph-magic-wand" aria-hidden="true"></i></button>
       </div>
       <p id="reminder-magic-status" class="status" role="status"></p>
       <div class="reminder-form">
@@ -10190,7 +10192,7 @@ Link to another note with [[its first few words]]."></textarea>
                linked to Web search is gone, since Web search is in the nav. -->
           <section class="settings-section hidden" id="settings-general">
             <div class="settings-group">
-              <h3>Recycle bin</h3>
+              <h3>Bin</h3>
               <div class="row">
                 <label for="pref-bin-days" class="muted">Auto-clear binned notes after</label>
                 <input id="pref-bin-days" type="number" min="1" max="365">
@@ -10687,7 +10689,7 @@ Link to another note with [[its first few words]]."></textarea>
                    the help keeps only what the line does not say (INBOX 437
                    (4): the help repeated the line word for word). The four
                    exports are one row, wrapping on a phone. -->
-              <p class="muted">JSON/CSV/Markdown exports include everything, even binned notes.</p>
+              <p class="muted">Copies to take away, binned notes included. Full backup is the one to move to another computer.</p>
               <div class="help-body hidden" id="export-help" role="dialog" aria-label="About exports">
                 <p>
                   Full backup is a portable zip of the raw database and media
@@ -10757,7 +10759,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <p>
                   Finds notes that say much the same thing, by comparing
                   their words: no AI needed. Merging keeps every tag, and
-                  the notes it replaces go to the recycle bin, so nothing is
+                  the notes it replaces go to the bin, so nothing is
                   destroyed.
                 </p>
               </div>
@@ -10862,7 +10864,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <input id="backup-retention" type="number" class="small-select backup-retention-input">
                 <span id="backup-retention-status" class="status" role="status"></span>
               </div>
-              <p class="muted">Backups live in your data folder, they never leave this computer.</p>
+              <p class="muted">Snapshots kept on this computer, to restore this notebook here. Backups live in your data folder.</p>
               <div class="help-body hidden" id="backups-help" role="dialog" aria-label="About backups">
                 <p>
                   A backup is also taken automatically once a day when the

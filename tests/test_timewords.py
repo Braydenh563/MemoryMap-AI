@@ -175,3 +175,52 @@ def test_the_stored_phrase_survives_a_round_trip_through_the_database(client, se
     entry = manager.list_entries(session)[0]
     stored = manager.entry_dates(session, entry)
     assert [d.phrase for d in stored] == ["in 2 weeks"]
+
+
+# --- a time said with the day (audit 2026-10-05, UX-02) ----------------------
+#
+# "Dentist appointment on Friday at 3pm" was stored as Friday at midnight with
+# precision "day": the 3pm was dropped and the timeline drew a 12:00 AM nobody
+# wrote. A clock beside the day phrase is now read with it.
+
+
+@pytest.mark.parametrize(
+    "text,phrase,clock",
+    [
+        ("Dentist appointment on Friday at 3pm", "on Friday at 3pm", (15, 0)),
+        ("call Sam tomorrow at 9:30", "tomorrow at 9:30", (9, 30)),
+        ("standup at 10am tomorrow", "at 10am tomorrow", (10, 0)),
+        ("dinner next friday 7pm", "next friday 7pm", (19, 0)),
+        ("lunch tomorrow at noon", "tomorrow at noon", (12, 0)),
+    ],
+)
+def test_a_clock_beside_a_day_is_kept(text, phrase, clock):
+    found = _first(text)
+    assert found is not None
+    assert found.phrase == phrase
+    assert found.precision == timewords.MINUTE
+    assert (found.time.hour, found.time.minute) == clock
+
+
+@pytest.mark.parametrize("text", ["on Friday we had 3 meetings", "tomorrow, 4 people", "next week at 3pm"])
+def test_a_number_that_is_not_a_clock_leaves_the_day_alone(text):
+    found = _first(text)
+    assert found is not None
+    assert found.time is None
+    assert found.precision != timewords.MINUTE
+
+
+def test_a_minute_mention_is_stored_with_its_clock(client, session):
+    client.post("/entries", json={"content": "Dentist appointment on Friday at 3pm"})
+    entry = manager.list_entries(session)[0]
+    stored = manager.entry_dates(session, entry)
+    assert stored[0].precision == "minute"
+    assert (stored[0].at.hour, stored[0].at.minute) == (15, 0)
+
+
+def test_a_minute_mention_reads_as_a_day_and_a_time_to_the_note(client):
+    created = client.post("/entries", json={"content": "Dentist appointment on Friday at 3pm"}).json()
+    dates = client.get(f"/entries/{created['id']}").json()["dates"]
+    assert dates[0]["precision"] == "minute"
+    assert dates[0]["time"] == "15:00"
+    assert len(dates[0]["at"]) == 10

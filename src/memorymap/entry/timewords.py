@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 # How exact the phrase was. A note saying "last week" did not mean a day, and
 # showing it as one would be inventing precision the writer did not use.
@@ -32,6 +32,10 @@ DAY = "day"
 WEEK = "week"
 MONTH = "month"
 YEAR = "year"
+# A day with a clock said beside it: "on Friday at 3pm" (audit 2026-10-05,
+# UX-02). Before, the 3pm was dropped and the day stored as a midnight that a
+# browser west of UTC then drew on the evening before.
+MINUTE = "minute"
 
 MAX_MENTIONS = 8  # a note is not a calendar; this only guards runaway text
 
@@ -61,6 +65,9 @@ class Mention:
     phrase: str
     at: date
     precision: str
+    #: The clock said beside a day phrase, as written (the writer's own wall
+    #: clock, no zone): set only with precision MINUTE.
+    time: time | None = None
 
 
 def _monday(day: date) -> date:
@@ -159,6 +166,69 @@ def _weekday(match: re.Match, today: date):
     return (today + timedelta(days=ahead), DAY)  # "this"/"on": the coming one
 
 
+# A clock beside a day phrase. A bare number counts only with "at" before it or
+# a colon or am/pm in it, the rule `ai/when._clock` uses, so "on Friday we had 3
+# meetings" and "tomorrow, 4 people" keep their day alone.
+_MERIDIEM = r"(?:am|pm|a\.m\.|p\.m\.)"
+_CLOCK_WORDS = r"(?:noon|midday|midnight)"
+_CLOCK_AFTER = re.compile(
+    rf"^,?\s*(?:(?:at|@|by|around|from)\s*)?(?:{_CLOCK_WORDS}\b|"
+    rf"(?P<h>\d{{1,2}})(?::(?P<m>\d{{2}}))?\s*(?P<ap>{_MERIDIEM})?(?![\w:]))",
+    re.IGNORECASE,
+)
+_CLOCK_BEFORE = re.compile(
+    rf"(?:\b(?:at|by|around|from)\s*|@\s*)?(?:\b{_CLOCK_WORDS}|\b"
+    rf"(?P<h>\d{{1,2}})(?::(?P<m>\d{{2}}))?\s*(?P<ap>{_MERIDIEM})?)\s+$",
+    re.IGNORECASE,
+)
+
+
+def _clock(found: re.Match, evening: bool) -> time | None:
+    """The time a `_CLOCK_*` match says, or None if it is not one."""
+    said = found.group(0).strip(" ,").lower()
+    if found.group("h") is None:
+        if "midnight" in said:
+            return time(0, 0)
+        return time(12, 0)  # noon, midday
+    hour, minute = int(found.group("h")), int(found.group("m") or 0)
+    meridiem = (found.group("ap") or "").replace(".", "").lower()
+    leading = said.split()[0] if said.split() else ""
+    if not meridiem and found.group("m") is None and leading not in ("at", "@", "by", "around", "from"):
+        return None  # a bare number with nothing saying it is a time
+    if hour > 23 or minute > 59 or (meridiem and not 1 <= hour <= 12):
+        return None
+    if meridiem == "am":
+        hour = 0 if hour == 12 else hour
+    elif meridiem == "pm":
+        hour = hour if hour == 12 else hour + 12
+    elif 1 <= hour <= 11 and (evening or hour <= 6):
+        # The rule `ai/when` writes down: a bare 1 to 6 is afternoon, 7 to 11
+        # morning, unless the phrase says evening or tonight.
+        hour += 12
+    return time(hour, minute)
+
+
+def _with_clock(text: str, span: tuple[int, int], mention: Mention) -> tuple[tuple[int, int], Mention]:
+    """The mention widened to a clock said right after or right before it."""
+    if mention.precision != DAY:
+        return span, mention
+    evening = bool(re.search(r"evening|night|tonight", mention.phrase, re.IGNORECASE))
+    start, end = span
+    after = _CLOCK_AFTER.match(text[end:])
+    if after and after.group(0).strip(" ,"):
+        at = _clock(after, evening)
+        if at is not None:
+            end += len(after.group(0).rstrip())
+            return (start, end), Mention(text[start:end].strip(), mention.at, MINUTE, at)
+    before = _CLOCK_BEFORE.search(text[max(0, start - 16):start])
+    if before and before.group(0).strip():
+        at = _clock(before, evening)
+        if at is not None:
+            start -= len(before.group(0))
+            return (start, end), Mention(text[start:end].strip(), mention.at, MINUTE, at)
+    return span, mention
+
+
 def find(text: str, now: datetime | date) -> list[Mention]:
     """Every temporal phrase in `text`, resolved against `now`.
 
@@ -180,7 +250,8 @@ def find(text: str, now: datetime | date) -> list[Mention]:
             if answer is None:
                 continue
             at, precision = answer
+            span, mention = _with_clock(text or "", span, Mention(match.group(0), at, precision))
             claimed.append(span)
-            found.append((span[0], Mention(match.group(0), at, precision)))
+            found.append((span[0], mention))
     found.sort(key=lambda pair: pair[0])
     return [mention for _, mention in found[:MAX_MENTIONS]]

@@ -41061,3 +41061,18 @@ loading page.
      `scratchpad/ui-sweeps/pickers.js` 88 checks green at 1440 and 390,
      light and dark (18 fail on the old code).
 
+571. **The owner, 2026-10-05, verbatim (a follow-up to 546).** "again, what
+     constitutes opening a note if I can see a whole note in the notes
+     section, Id just scroll to it and see it yk??" Decision taken: the
+     Connections rail follows the note being read. A card clicked, focused or
+     keyed on is the subject and holds until the list scrolls more than one
+     viewport; otherwise the card whose top is nearest the upper third of
+     the list's visible part (an IntersectionObserver, settled 150ms;
+     `frontend/js/notes-rail-spy.js`, a lazy piece). The subject card wears a
+     left accent hairline; the column cross-fades. The toggle reads
+     "Connections beside the note you're reading"; 546's toast is gone.
+     Phones keep the Connections sheet. Fixed (2026-10-05):
+     `ux1005-railspy.js` at 1440 and 1280: subject 29, then 23 and 16 as the
+     list scrolled 1,200px twice; a clicked card (14) held through a 300px
+     scroll and gave way after 1,500px; one card marked at every step; the
+     list 755px wide at 1440 and 628 at 1280 with the rail beside it.

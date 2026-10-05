@@ -7093,7 +7093,7 @@ async function wbDeleteBoard(id, title) {
     return false;
   }
   const action = pushUndo(`Deleted "${title}"`, () => wbBinBoard(id, false), () => wbBinBoard(id, true));
-  toastAction(`Moved "${title}" to the recycle bin.`, "Undo", async () => {
+  toastAction(`Moved "${title}" to the bin.`, "Undo", async () => {
     await wbBinBoard(id, false);
     settleUndoFromToast(action);
   });

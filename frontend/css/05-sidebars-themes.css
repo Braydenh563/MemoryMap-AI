@@ -4326,6 +4326,26 @@ button.is-on {
   backdrop-filter: blur(16px);
 }
 
+/* UX-18 (audit 2026-10-05): the notes list's dock (filter, sort, Select, New
+   note) scrolled away with the list, 1,244px up after one long scroll, so
+   every one of them needed "Back to top" first. It sticks under the sub-tab
+   strip (`--notes-sticky-top`, the strip's measured height), a layer below
+   it, bare at rest and on the opaque ground once notes pass under it, the
+   sticky-bar rule (DESIGN.md: never a tint alone). Not on a phone: there the
+   dock wraps to 114px and, with the strip, would hold 234 of 844px. */
+@media (min-width: 600px) {
+  #tab-notes .dock[data-dock-name="notes"] {
+    position: sticky;
+    top: var(--notes-sticky-top);
+    z-index: 19;
+  }
+
+  #tab-notes .dock[data-dock-name="notes"][data-scrolled="1"] {
+    background: var(--modal-bg-opaque);
+    box-shadow: inset 0 -1px 0 var(--border);
+  }
+}
+
 /* **Nothing the keyboard reaches scrolls in under the strip** (WCAG 2.4.11,
    INBOX 433: zoom.js at 320x256, a Tab into the dock or a note's chip put
    it behind the sticky sub-tabs). Scrolling a focused control into view

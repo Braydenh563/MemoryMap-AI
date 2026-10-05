@@ -99,7 +99,7 @@ def test_the_model_is_told_a_clock_that_is_actually_true(ai_client, monkeypatch)
     monkeypatch.setattr(reminder_parser, "parse_reminder", _capture)
     ai_client.post(
         "/reminders/parse",
-        json={"text": "something at 8pm", "tz_offset_minutes": BRISBANE},
+        json={"text": "something at some point", "tz_offset_minutes": BRISBANE},
     )
     now = seen["now"]
     assert now.tzinfo is not None
@@ -211,11 +211,83 @@ def test_a_relative_reminder_works_with_ollama_off(client):
 
 
 def test_a_phrase_needing_the_model_still_says_so_when_it_is_off(client):
-    """Degrading gracefully is not the same as pretending, a wall-clock
-    phrase with no model behind it has to be refused, and usefully."""
+    """Degrading gracefully is not the same as pretending: a phrase neither
+    reader understands, with no model behind it, has to be refused, and
+    usefully."""
     response = client.post(
         "/reminders/parse",
-        json={"text": "call the dentist at 3pm on thursday", "tz_offset_minutes": BRISBANE},
+        json={"text": "call the dentist when the kettle boils", "tz_offset_minutes": BRISBANE},
     )
     assert response.status_code == 503
-    assert "in 20 minutes" in response.json()["detail"], "the error should show a form that works"
+    detail = response.json()["detail"]
+    assert "in 20 minutes" in detail, "the error should show a form that works"
+    assert "tomorrow at 5pm" in detail, "and a wall-clock form that works too"
+
+
+# --- wall-clock phrases with no model (audit 2026-10-05, UX-01) -------------
+#
+# `ai/when.resolve` reads these with no model, but Magic Add only tried the
+# "in N units" rule before demanding one, so the dashboard's "Remind me: say
+# when, in plain words" was a dead end on the default install.
+
+UTC = 0
+
+
+@pytest.mark.parametrize(
+    ("text", "kept", "gone", "day_offset", "hour"),
+    [
+        ("call mum tomorrow at 5pm", "call mum", "tomorrow", 1, 17),
+        ("dentist next Friday at 3pm", "dentist", "friday", None, 15),
+        ("pay rent on 1 November", "pay rent", "november", None, 9),
+        ("water plants tonight", "water plants", "tonight", None, 20),
+        ("call the dentist at 3pm on thursday", "call the dentist", "thursday", None, 15),
+        ("Remind me to stretch this evening", "stretch", "evening", None, 18),
+    ],
+)
+def test_wall_clock_phrases_work_with_the_ai_off(client, text, kept, gone, day_offset, hour):
+    response = client.post("/reminders/parse", json={"text": text, "tz_offset_minutes": UTC})
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["text"].lower() == kept, body["text"]
+    assert gone not in body["text"].lower()
+    due = datetime.fromisoformat(body["due_at"]).astimezone(timezone.utc)
+    assert due.hour == hour and due.minute == 0
+    if day_offset is not None:
+        assert due.date() == (datetime.now(timezone.utc) + timedelta(days=day_offset)).date()
+
+
+def test_a_wall_clock_phrase_is_read_on_the_users_clock(client):
+    """5pm in Brisbane is 07:00 UTC, not 17:00 UTC."""
+    due = _due(client, "call mum tomorrow at 5pm", offset=BRISBANE)
+    assert due.astimezone(timezone.utc).hour == 7
+
+
+def test_the_rules_are_tried_before_the_model(ai_client, monkeypatch):
+    """Arithmetic should not vary with the installed model, wall-clock or not."""
+
+    def _never(*a, **k):
+        raise AssertionError("the model was asked for a time the rules read")
+
+    monkeypatch.setattr(reminder_parser, "parse_reminder", _never)
+    response = ai_client.post(
+        "/reminders/parse", json={"text": "call mum tomorrow at 5pm", "tz_offset_minutes": UTC}
+    )
+    assert response.status_code == 201
+
+
+def test_a_reminder_that_is_only_a_time_keeps_a_name():
+    from memorymap.ai import when
+
+    now = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
+    parsed = when.parse_reminder_text("tomorrow at 5pm", now)
+    assert parsed is not None and parsed["text"]
+
+
+def test_the_placeholder_example_reads_its_priority_too():
+    from memorymap.ai import when
+
+    now = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
+    parsed = when.parse_reminder_text("Call mum tomorrow evening, high priority", now)
+    assert parsed["text"] == "Call mum"
+    assert parsed["priority"] == "high"
+    assert parsed["due_at"] == datetime(2026, 10, 6, 18, 0, tzinfo=timezone.utc)

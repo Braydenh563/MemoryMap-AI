@@ -290,7 +290,7 @@ function undoImport(result, status) {
       );
       binned += settled.filter((s) => s.status === "fulfilled").length;
     }
-    status.textContent = `Undone: ${binned} imported note${binned === 1 ? "" : "s"} moved to the recycle bin.`;
+    status.textContent = `Undone: ${binned} imported note${binned === 1 ? "" : "s"} moved to the bin.`;
     loadEntries().catch(() => {});
   });
 }

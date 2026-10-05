@@ -267,7 +267,7 @@ function renderLibraryOverview() {
   if (libraryOverview.attachment_bytes) {
     parts.push(`${libraryOverview.attachment_size} of attachments`);
   }
-  if (libraryOverview.words) parts.push(`${libraryOverview.words.toLocaleString()} words written`);
+  if (libraryOverview.words) parts.push(`${libraryOverview.words.toLocaleString()} words in documents`);
   if (libraryOverview.private_notes) {
     parts.push(`${libraryOverview.private_notes} private (locked, never previewed here)`);
   }
@@ -917,7 +917,7 @@ function libraryActions(item) {
           loadEntries();
         };
         const action = pushUndo("Moved a note to the bin", restoreIt, binIt);
-        toastAction("Moved to the recycle bin.", "Undo", async () => {
+        toastAction("Moved to the bin.", "Undo", async () => {
           settleUndoFromToast(action);
           await restoreIt();
           toast("Note restored.");
@@ -1875,6 +1875,18 @@ const LIBRARY_CREATE_BY_KIND = {
   //: Create to make one found no row for it and had to know to go to Boards
   //: & maps first. The run is that sub-tab's own New board, pressed, so a
   //: board made here is made exactly the way one made there is.
+  //: **The real mind map, by its own name** (audit 2026-10-05, UX-06). The
+  //: concept map row above described itself as "A mind map" while the mind
+  //: map kind sat behind New board's "What kind of board" toggle, so the row
+  //: named one thing and made the other. This is the boards dock's own New
+  //: mind map, pressed, so it is made the way one made there is.
+  mindmap: {
+    label: "ph:tree-structure New mind map",
+    run: () => {
+      document.querySelector('#library-subtabs button[data-target="library-view-whiteboard"]')?.click();
+      $("wb-boards-new-map")?.click();
+    },
+  },
   board: {
     label: "ph:plus New board",
     run: () => {
@@ -1920,7 +1932,8 @@ const LIBRARY_CREATE_BY_KIND = {
 const LIBRARY_CREATE_HINTS = {
   note: ["ph:note-pencil", "A quick thought. Atlas files it and links it for you."],
   document: ["ph:file-text", "A long page: headings, an outline, templates, export."],
-  map: ["ph:tree-structure", "A mind map: a tree of topics you move and connect."],
+  map: ["ph:graph", "A board of note cards you branch with Tab and Enter; each topic is saved as a note."],
+  mindmap: ["ph:tree-structure", "A tree of topics round one central idea, with branches you fold and colour."],
   board: ["ph:squares-four", "A canvas of cards, sketches and links you arrange freely."],
   chat: ["ph:chats", "A conversation grounded in your notes."],
   meeting: ["ph:microphone", "Record a meeting or a voice note and get a transcript."],
@@ -1931,7 +1944,7 @@ const LIBRARY_CREATE_HINTS = {
 //: then the things that arrive from elsewhere. The picker's sentence used to
 //: say "Five kinds of thing", which went stale the day a sixth row was
 //: added; it names no count now, so it cannot drift from the rows under it.
-const LIBRARY_CREATE_ORDER = ["note", "document", "map", "board", "chat", "meeting", "file"];
+const LIBRARY_CREATE_ORDER = ["note", "document", "mindmap", "map", "board", "chat", "meeting", "file"];
 
 //: The kinds that have a chord of their own, by its name in the shortcut
 //: registry: the keycap is read from the live table, so a rebinding shows.
@@ -1995,7 +2008,10 @@ function openLibraryCreatePicker() {
       icon,
       label: entry.label.replace(/^ph:\S+\s*/, ""),
       about: hint,
-      keys: chord && typeof shortcuts !== "undefined" ? shortcuts[chord]?.keys || "" : "",
+      //: UX-21 (audit 2026-10-05): Ctrl+Shift+N, D, O and R belong to a
+      //: browser tab (incognito, bookmarks, reload) and never reach the page,
+      //: so the chord is shown only in the desktop window, where they work.
+      keys: chord && typeof shortcuts !== "undefined" && window.pywebview ? shortcuts[chord]?.keys || "" : "",
     });
     button.dataset.kind = kind;
     button.addEventListener("click", () => {
@@ -6633,13 +6649,13 @@ function mediaReadingBadge(row) {
   const badge = document.createElement("span");
   const reading = mediaReading(row);
   if (!reading) {
-    badge.className = "chip library-read-badge is-unread";
+    badge.className = "chip item-label library-read-badge is-unread";
     chipWords(badge, "Not read");
     badge.title = "Nothing has been transcribed from this yet";
     return badge;
   }
   const words = reading.split(/\s+/).length;
-  badge.className = "chip library-read-badge is-read";
+  badge.className = "chip item-label library-read-badge is-read is-ok";
   chipWords(badge, `Read · ${words.toLocaleString()} words`);
   badge.title = "Open the reader to see it beside the page";
   return badge;
@@ -9175,7 +9191,7 @@ async function bulkDeleteLibraryBoards() {
   // things about whether it comes back.
   if (
     !(await confirmDialog(
-      `Delete ${boards.length} board${boards.length === 1 ? "" : "s"}? They go to the recycle bin.`
+      `Delete ${boards.length} board${boards.length === 1 ? "" : "s"}? They go to the bin.`
     ))
   ) {
     return;
@@ -9199,7 +9215,7 @@ async function bulkDeleteLibraryBoards() {
   };
   if (deleted) {
     const action = pushUndo(`Deleted ${deleted} boards`, move(false), move(true));
-    toastAction(`Moved ${deleted} board${deleted === 1 ? "" : "s"} to the recycle bin.`, "Undo", async () => {
+    toastAction(`Moved ${deleted} board${deleted === 1 ? "" : "s"} to the bin.`, "Undo", async () => {
       settleUndoFromToast(action);
       await move(false)();
     });

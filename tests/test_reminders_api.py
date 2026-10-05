@@ -166,7 +166,7 @@ def test_magic_add_parses_and_creates(ai_client, fake_ollama):
     fake_ollama.librarian_reply = (
         '{"text": "call mum", "due_at": "2030-01-02T18:00", "priority": "high"}'
     )
-    created = ai_client.post("/reminders/parse", json={"text": "call mum tomorrow evening"}).json()
+    created = ai_client.post("/reminders/parse", json={"text": "call mum after the game"}).json()
     assert created["text"] == "call mum"
     assert created["priority"] == "high"
     assert created["due_at"].startswith("2030-01-02T18:00")
@@ -189,7 +189,7 @@ def test_magic_add_resolves_times_on_the_users_clock(ai_client, fake_ollama):
     # UTC+13 (New Zealand in summer): 6pm local is 05:00 UTC the same day.
     created = ai_client.post(
         "/reminders/parse",
-        json={"text": "call mum tomorrow evening", "tz_offset_minutes": 780},
+        json={"text": "call mum after the game", "tz_offset_minutes": 780},
     ).json()
     assert created["due_at"].startswith("2030-01-02T05:00")
 

@@ -97,6 +97,21 @@
 //: are (decision 6) and `/timeline` does not send them yet: they read as
 //: absent rather than as zero, so a column can say "not known" instead of
 //: claiming a note has no links. The endpoint grows them with the table.
+//: UX-02: a mentioned day (`date`, maybe `time`, no zone) as a local moment,
+//: so it groups under its own day everywhere (routes_timeline.py says why).
+function timelineRowMoment(entry) {
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(entry.date || "");
+  if (day) {
+    const [hour, minute] = /^\d{2}:\d{2}$/.test(entry.time || "")
+      ? entry.time.split(":").map(Number)
+      : [0, 0];
+    return new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3]), hour, minute);
+  }
+  return parseServerTime(entry.at) || new Date(entry.at);
+}
+
+const TIMELINE_ROW_FULL_DATE = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" });
+
 function timelineRow(entry) {
   // A board *is* an `Entry` (MINDMAP_PLAN.md §2) and `/timeline` has always
   // returned one, so without this a mind map reads as a note titled
@@ -132,8 +147,9 @@ function timelineRow(entry) {
     // The first line of a note is what a person calls it, heading or not.
     title,
     snippet,
-    when: parseServerTime(entry.at) || new Date(entry.at),
+    when: timelineRowMoment(entry),
     whenIso: entry.at,
+    allDay: Boolean(entry.all_day),
     writtenAt: entry.written_at,
     //: Said out loud, because the alternative is a timeline that looks like it
     //: has quietly moved someone's notes: "mentioned" means the row sits on a
@@ -1406,11 +1422,11 @@ function timelineRowElement(row, density) {
   // header no longer says.
   when.textContent =
     density === "full"
-      ? TIMELINE_ROW_TIME.format(row.when)
+      ? row.allDay ? "All day" : TIMELINE_ROW_TIME.format(row.when)
       : TIMELINE_ROW_DAY.format(row.when);
   when.title =
     row.placedBy === "mentioned"
-      ? `“${row.phrase}” in this note meant ${shortDate(row.whenIso)}. Written ${shortDate(row.writtenAt)}.`
+      ? `“${row.phrase}” in this note meant ${TIMELINE_ROW_FULL_DATE.format(row.when)}. Written ${shortDate(row.writtenAt)}.`
       : `Written ${TIMELINE_ROW_WRITTEN.format(new Date(row.writtenAt))}`;
   meta.appendChild(when);
 
@@ -2075,10 +2091,10 @@ function timelineTableRow(row) {
   const when = document.createElement("td");
   const time = document.createElement("time");
   time.dateTime = row.whenIso;
-  time.textContent = shortDate(row.whenIso);
+  time.textContent = TIMELINE_ROW_FULL_DATE.format(row.when);
   time.title =
     row.placedBy === "mentioned"
-      ? `“${row.phrase}” in this note meant ${shortDate(row.whenIso)}. Written ${shortDate(row.writtenAt)}.`
+      ? `“${row.phrase}” in this note meant ${TIMELINE_ROW_FULL_DATE.format(row.when)}. Written ${shortDate(row.writtenAt)}.`
       : `Written ${TIMELINE_ROW_WRITTEN.format(new Date(row.writtenAt))}`;
   when.appendChild(time);
   tr.appendChild(when);

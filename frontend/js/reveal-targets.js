@@ -197,6 +197,19 @@ const REVEAL_TARGETS = {
   },
   "writing-room": { tab: "notes", open: () => showNotesSection("writing-room"), el: "draft-thoughts", focus: true },
   "notes-ask": { tab: "notes", open: () => showNotesSection("ask"), el: "question", focus: true },
+  //: UX-08: the bin is the Library with its own "Include the bin" ticked.
+  "notes-questions": { tab: "notes", open: () => showNotesSection("questions"), el: "questions", flash: false },
+  "library-bin": {
+    tab: "library",
+    open: () => {
+      const box = $("library-show-binned");
+      if (box && !box.checked) {
+        box.checked = true;
+        box.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    },
+    el: "library-filter-menu",
+  },
   "notes-thread": {
     open: async () => {
       await revealEntryMenu();

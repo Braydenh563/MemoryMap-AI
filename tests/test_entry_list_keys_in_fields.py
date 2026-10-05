@@ -39,6 +39,11 @@ const allEntries = [];
 let editingId = null;
 function openNoteEditor() { calls.push('edit'); }
 function binNoteWithUndo() { calls.push('bin'); return Promise.resolve(); }
+// The roving stop (UX-10, note-cards.js), its tab-index half: the controls
+// half needs a DOM, and is measured by scratchpad/ui-sweeps/ux1005-tabstops.js
+// (27 notes were 281 Tab stops; now the stop card's own, 5 to 7).
+function entryListSetStop(items, stop) { items.forEach((li) => { li.tabIndex = li === stop ? 0 : -1; }); }
+function entryListFocusStop() {}
 initEntryListKeyboardNav();
 
 // A node that answers `closest` for the simple selectors the handler uses:

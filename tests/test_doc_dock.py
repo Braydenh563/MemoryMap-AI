@@ -145,3 +145,15 @@ def test_every_kebab_uses_the_same_icon():
     assert "ph:dots-three" not in sources["library.js"], (
         "library.js is drawing its own kebab again, use kebabMenu() from app.js"
     )
+
+
+def test_enter_in_the_title_starts_the_body():
+    """UX-05: "Trip plan", Enter, "Day one" typed on into the title. The
+    behaviour is measured by scratchpad/ui-sweeps/ux1005-doctitle.js at 1440
+    and 390; this pins the handler's shape so it is not lost."""
+    source = Path("frontend/js/documents.js").read_text(encoding="utf-8")
+    start = source.index('$("doc-title").addEventListener("keydown"')
+    handler = source[start : source.index("\n});", start)]
+    assert "event.isComposing" in handler, "Enter that ends an IME composition is not a line break"
+    assert '"Enter"' in handler and "preventDefault" in handler
+    assert "docCmView.focus()" in handler and 'setDocView(' in handler

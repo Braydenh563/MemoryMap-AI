@@ -197,11 +197,23 @@ def test_tags_filter_from_a_chip_and_from_the_box():
     assert "filterNotesByTag(tag)" in _read("dashboard.js")
 
 
-def test_the_rail_opens_on_an_open_not_on_any_click():
+def test_the_rail_follows_the_note_being_read():
+    """INBOX 432 kept the rail shut until a note was opened; INBOX 571 (the
+    owner: "what constitutes opening a note if I can see a whole note in the
+    notes section") replaced that: a card chosen by hand is the subject, and
+    otherwise the card in view as the list scrolls (notes-rail-spy.js)."""
     notes = _read("notes-list.js")
-    focus = notes[notes.index('list.addEventListener("focusin"'):]
+    focus = notes[notes.index('list.addEventListener("focusin", (event) =>'):]
     focus = focus[: focus.index("\n  });\n")]
-    assert "if (notesRailId == null) return;" in focus
+    assert "if (notesRailId == null) return;" not in focus
+    assert 'ensureModule("notesRail")' in notes
+    spy = _read("notes-rail-spy.js")
+    assert "new IntersectionObserver(" in spy and "NOTES_SPY_SETTLE_MS = 150" in spy
+    assert "notesSpyPin" in spy and "window.innerHeight" in spy, "a hand-picked card holds until a viewport out of sight"
+    assert 'classList.add("rail-subject")' in spy
+    toggle = notes[notes.index("function syncNotesRailToggle("):]
+    assert "Connections beside the note you're reading" in toggle[: toggle.index("\n}\n")]
+    assert "when you open one" not in notes, "546's toast goes: there is always a subject"
 
 
 def test_category_rename_and_merge_can_be_undone_and_redraw_the_panel():

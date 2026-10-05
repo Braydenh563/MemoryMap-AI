@@ -36,7 +36,7 @@ Counts: High 4, Medium 9, Low 10.
 
 ### High
 
-**UX-01. Plain-words reminders 503 without a model, though a model-free reader exists.** NEW
+**UX-01. Plain-words reminders 503 without a model, though a model-free reader exists.** NEW FIXED 67f52f1
 - Evidence: Reminders tab, `#reminder-magic` = "call mum tomorrow at 5pm",
   Enter: `POST /reminders/parse` 503, toast "The local AI isn't running, and I
   couldn't read a time from that. Try “in 20 minutes”, or use the form."
@@ -56,7 +56,7 @@ Counts: High 4, Medium 9, Low 10.
   `reminder_parser._tidy`; model only when both fail. Tests: the four phrases
   above with `ollama.is_running() == False` return 201. Effort S.
 
-**UX-02. Day-precision dates in notes are stored as naive midnight and shown as UTC instants.** NEW
+**UX-02. Day-precision dates in notes are stored as naive midnight and shown as UTC instants.** NEW FIXED 79bc2f8
 - Evidence: `entry/manager.py:702-707` stores
   `datetime(at.year, at.month, at.day)`; `/timeline` serialises it as
   `2026-10-09T00:00:00+00:00` (`placed_by: "mentioned"`, phrase "on Friday").
@@ -76,7 +76,7 @@ Counts: High 4, Medium 9, Low 10.
   timeline API test asserting no `+00:00` midnight on day rows; a Playwright
   check under `America/New_York`. Effort M.
 
-**UX-03. Whiteboard help card: text drawn over keycaps, card overflows.** NEW
+**UX-03. Whiteboard help card: text drawn over keycaps, card overflows.** NEW MOVED to the whiteboard agent (full redesign, owner request)
 - Evidence: Library, Create, New board, name it: `.wb-empty-hint-inner`
   opens on every new board. Per `li`, text range right edge vs `kbd` left
   edge: 14 of 46 rows overlap, worst "Text box · canvas menu" text to 747px
@@ -95,7 +95,7 @@ Counts: High 4, Medium 9, Low 10.
   asserts no `li` text range crosses its `kbd`, and `scrollWidth <=
   clientWidth`. Effort S.
 
-**UX-04. Finder says "Nothing is indexed yet" on a full notebook; no typo tolerance in either search box.** NEW
+**UX-04. Finder says "Nothing is indexed yet" on a full notebook; no typo tolerance in either search box.** NEW FIXED ae69431
 - Evidence: Ctrl+P, "dentst": chips all 0, "Nothing matched / Nothing is
   indexed yet. Save a note and it will appear here." with 22 notes. Cause:
   `frontend/js/spaces-find.js:1207` sums `finderCounts`, which since the
@@ -118,7 +118,7 @@ Counts: High 4, Medium 9, Low 10.
 
 ### Medium
 
-**UX-05. Enter in a document's title does not move to the body.** NEW
+**UX-05. Enter in a document's title does not move to the body.** NEW FIXED dd836b1
 - Evidence: Library, Create, New document: focus `#doc-title`; typing "Trip
   plan", Enter, "Day one: arrive in Lisbon." left focus in the title and
   saved the title "Trip planDay one: arrive in Lisbon./"; body empty
@@ -129,7 +129,7 @@ Counts: High 4, Medium 9, Low 10.
 - Fix: `keydown` Enter (and ArrowDown at end) on `#doc-title` focuses the
   CodeMirror view at line 1. Effort S.
 
-**UX-06. Mind maps: two kinds under swapped names; topics flood the notebook; header count wrong.** KNOWN in part (MINDMAP_PLAN section 2: "mindmap and concept map become one feature, not two"; WORLD_CLASS_PLAN standout 4 "a map node is an entry" is a decision)
+**UX-06. Mind maps: two kinds under swapped names; topics flood the notebook; header count wrong.** KNOWN in part (MINDMAP_PLAN section 2: "mindmap and concept map become one feature, not two"; WORLD_CLASS_PLAN standout 4 "a map node is an entry" is a decision) FIXED in part 02989f8 (Create rows); counts, "sketches", hiding map topics and the focus after Enter left to the whiteboard and mind map agent
 - Evidence: the Create dialog row "New concept map: A mind map: a tree of
   topics you move and connect" (`library.js:1867`) makes a board of note
   cards; the mind map kind is only behind New board's "What kind of board:
@@ -149,7 +149,7 @@ Counts: High 4, Medium 9, Low 10.
   after Enter commits a topic, keep focus on the canvas item so letters start
   a rename rather than switching tools. Effort M.
 
-**UX-07. "Ask" names four destinations; Chat offers starters it cannot answer.** KNOWN in part (CHAT_PLAN: "one composer, an agent you reach for")
+**UX-07. "Ask" names four destinations; Chat offers starters it cannot answer.** KNOWN in part (CHAT_PLAN: "one composer, an agent you reach for") FIXED 66789c4
 - Evidence: Dashboard "Ask AI" and "Ask your notebook" open Notes, Ask;
   footer `#status-agent` labelled "Ask" opens a dialog headed "Agent" ("No
   model is connected, so the agent cannot run."); Chat has an Ask/Agent
@@ -165,7 +165,7 @@ Counts: High 4, Medium 9, Low 10.
   have I saved so far?" with a recency answer (`is_recency_ask` already
   exists in search_manager.py:903) or drop it. Effort S.
 
-**UX-08. Discoverability: the bin, Questions, backups and undo are not in Ctrl+K.** NEW (palette completeness KNOWN as a goal, WORLD_CLASS_PLAN gap table "make it complete")
+**UX-08. Discoverability: the bin, Questions, backups and undo are not in Ctrl+K.** NEW (palette completeness KNOWN as a goal, WORLD_CLASS_PLAN gap table "make it complete") FIXED ebd61cf (the Library "Bin" chip not added: the palette row opens the Library with Include the bin ticked)
 - Evidence: Ctrl+K "questions", "backup", "undo", "bin", "trash": "No
   matching command, note or document."; "theme": nothing (only "dark" finds
   "Toggle light/dark"). The recycle bin's only door is Library, Filter,
@@ -179,7 +179,7 @@ Counts: High 4, Medium 9, Low 10.
   trash, deleted; backup, restore; theme, appearance); add a "Bin" entry to
   the Library filter chips (Everything, Notes, ..., Bin). Effort S to M.
 
-**UX-09. The text-selection popup floats over the tab bar after every Ask.** NEW
+**UX-09. The text-selection popup floats over the tab bar after every Ask.** NEW FIXED 77af034
 - Evidence: Notes, Ask, ask anything: the query is auto-selected
   (`#question` selectionStart 0, end 19) and `fieldSelection()`
   (`selection.js:727-741`) offers the writing popup; `elementFromPoint(662,
@@ -190,7 +190,7 @@ Counts: High 4, Medium 9, Low 10.
   a sent query, any `[data-no-selection-popup]`) as `type=search` already is.
   Effort S.
 
-**UX-10. The notes list is 281 Tab stops for 27 notes.** NEW
+**UX-10. The notes list is 281 Tab stops for 27 notes.** NEW FIXED f5b77d0
 - Evidence: each card exposes 9 to 11 tabbable controls (category chip, tag
   chips, tag suggestions, favourite, copy, edit, more); `li` elements use a
   roving tabindex (ArrowDown moves card to card) but their children do not,
@@ -202,7 +202,7 @@ Counts: High 4, Medium 9, Low 10.
   ArrowRight/Left inside a card), the list as `role=listbox` or a grid.
   Effort M.
 
-**UX-11. Export gives no confirmation and contradicts itself; two backup concepts.** NEW
+**UX-11. Export gives no confirmation and contradicts itself; two backup concepts.** NEW FIXED 24c2a23
 - Evidence: Settings, Import & export, Export Markdown: a browser download
   `memorymap-markdown.zip`, no toast; the panel still reads "Recent exports /
   Nothing exported yet. Files land in /tmp/mm-audit-ux/exports." "Export
@@ -213,7 +213,7 @@ Counts: High 4, Medium 9, Low 10.
 - Fix: toast "Exported 29 notes as Markdown" and refresh Recent exports;
   one line under each backup kind saying what it is for. Effort S.
 
-**UX-12. With no model, AI features explain themselves only in a tooltip on a disabled button.** NEW
+**UX-12. With no model, AI features explain themselves only in a tooltip on a disabled button.** NEW FIXED 24c2a23
 - Evidence: Dashboard Weekly digest: `button.ai-unavailable`
   `disabled: true`, reason only in `title`; Chat Send the same. A disabled
   native button is not focusable and a `title` does not show on touch, so
@@ -223,7 +223,7 @@ Counts: High 4, Medium 9, Low 10.
   Settings" (the Ask and Chat recipe) on every AI-only widget; or an
   extractive digest (counts, top tags, notes written), per INBOX 269. Effort S.
 
-**UX-13. Phone: the category chip truncates to "Un..." on half the cards.** NEW
+**UX-13. Phone: the category chip truncates to "Un..." on half the cards.** NEW FIXED 9781258
 - Evidence: 390x844, Notes: `.chip.category` "Uncategorised", label
   `scrollWidth` 87 vs `clientWidth` 33 on 3 of 6 cards (chip 60px wide where
   the meta row also holds "edited"). The `aria-label` is whole.
@@ -232,14 +232,14 @@ Counts: High 4, Medium 9, Low 10.
 
 ### Low
 
-**UX-14. `title="undefined"` tooltips on menu items.** NEW
+**UX-14. `title="undefined"` tooltips on menu items.** NEW FIXED 9781258
 - Evidence: Chat's kebab: 5 items with `title="undefined"` (Rename this
   chat, Export as Markdown, Save this chat as a document, Copy the whole
   transcript, Delete this chat). `sheets-selects.js:642` and `:1137` set
   `button.title = item.title` unconditionally; `menus.js:1452` guards it.
 - Fix: `if (item.title) button.title = item.title;` in both. Effort S.
 
-**UX-15. The Guide's storage answer names a Settings section that does not exist.** NEW (standing order 13)
+**UX-15. The Guide's storage answer names a Settings section that does not exist.** NEW (standing order 13) FIXED 9781258
 - Evidence: Guide, "how do I back up my notes": "Settings -> Data shows
   exactly where it is on disk...", button "Open Settings, Data"
   (`ai/help_chat.py:363`, badge label "Data"); the nav says "Import &
@@ -247,12 +247,12 @@ Counts: High 4, Medium 9, Low 10.
 - Fix: the copy and badge label; a test that every help badge label equals
   the Settings nav text for its section. Effort S.
 
-**UX-16. Library "22 words written" on the All view counts documents only.** NEW
+**UX-16. Library "22 words written" on the All view counts documents only.** NEW FIXED 9781258
 - Evidence: Library, All, 29 notes and 2 documents: "22 words written";
   `routes_library.py:864` sums `kind == "document"`.
 - Fix: count notes too, or say "22 words in documents". Effort S.
 
-**UX-17. Status copy contradicts itself with no model.** NEW
+**UX-17. Status copy contradicts itself with no model.** NEW FIXED 9781258
 - Evidence: footer "AI status: Everything works · AI off" (phone: "chat AI
   off"); on the first save of a fresh install the toast said "Saved. Filing
   it in the background, keep writing." and the status bar "Filing a note · 1
@@ -261,18 +261,18 @@ Counts: High 4, Medium 9, Low 10.
 - Fix: "Notebook ready · AI off"; the first-save copy waits for the model
   status, or uses the no-model sentence when status is unknown. Effort S.
 
-**UX-18. The notes list toolbar scrolls away.** NEW
+**UX-18. The notes list toolbar scrolls away.** NEW FIXED 9781258 (600px and wider; a phone keeps the dock in the flow, where it would hold 234 of 844px)
 - Evidence: Notes, Your notes, wheel 1500px: `input[placeholder="Filter
   notes"]` top at -1244px; only the sub-tab strip is sticky. Filter, sort,
   Select and New note need "Back to top" first.
 - Fix: make `.notes-toolbar` sticky under the sub-tabs. Effort S.
 
-**UX-19. "Highlight in a colour..." asks the user to type a colour name.** NEW
+**UX-19. "Highlight in a colour..." asks the user to type a colour name.** NEW FIXED 9781258
 - Evidence: `selection.js:769-777`, a `promptDialog("Colour: green, blue,
   pink, purple or orange:")` with an error toast for anything else.
 - Fix: a swatch row (the existing chip-menu recipe). Effort S.
 
-**UX-20. Terminology drifts for the same object.** NEW
+**UX-20. Terminology drifts for the same object.** NEW FIXED 9781258
 - Evidence: "Move to bin" (menu), "Moved to the recycle bin." (toast),
   "Include the bin" (filter), "Recycle bin" (Settings, General); "concept
   map", "mind map", "map", and a map's header "Board · Garden"; "Ask AI",
@@ -280,7 +280,7 @@ Counts: High 4, Medium 9, Low 10.
 - Fix: one glossary in DESIGN.md and a lint over `index.html` and the JS
   string literals. Effort S.
 
-**UX-21. Shortcuts advertised that a browser tab cannot receive.** NEW, not verified in Chrome UI
+**UX-21. Shortcuts advertised that a browser tab cannot receive.** NEW, not verified in Chrome UI FIXED 9781258
 - Evidence: the Create dialog shows Ctrl+Shift+N (New note) and
   Ctrl+Shift+D (New document); in Chrome a page cannot intercept Ctrl+Shift+N
   (new incognito window). Fine in the pywebview window; wrong on the LAN or
@@ -288,13 +288,13 @@ Counts: High 4, Medium 9, Low 10.
 - Fix: show the hint only in the desktop window, or offer an alternative
   (Alt+N). Effort S.
 
-**UX-22. Reduced motion leaves the emblem turning.** KNOWN (owner decision, `03-dashboard-widgets.css:3226-3253`)
+**UX-22. Reduced motion leaves the emblem turning.** KNOWN (owner decision, `03-dashboard-widgets.css:3226-3253`) NO CHANGE (owner decision, recorded)
 - Evidence: with `reducedMotion: 'reduce'`, `emblem-spin` runs infinite on
   every tab (1 to 2 animations); the in-app Motion setting is the stop. Graph
   rAF is 0 per 3s after settling either way. Recorded so a future audit does
   not reopen it; WCAG 2.2.2 is met through the app setting.
 
-**UX-23. Table stakes still missing.** KNOWN (WORLD_CLASS_PLAN gap table, State 2026-09-24)
+**UX-23. Table stakes still missing.** KNOWN (WORLD_CLASS_PLAN gap table, State 2026-09-24) NOT IN SCOPE (plan items: importers, sync)
 - Importers beyond Markdown and Obsidian frontmatter (no Notion zip, ENEX,
   Apple Notes: `grep -i enex src/` finds nothing); sync (B6); reminders fire
   only "while the app is open, or hit Remind on any note" (Reminders tab

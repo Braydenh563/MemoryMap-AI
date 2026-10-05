@@ -1133,6 +1133,7 @@ async function saveFile(filename, blob) {
           toast(error.message || "Couldn't open the exports folder.", true);
         });
       });
+      if (typeof renderExportsList === "function") renderExportsList();
       //: **A saved file is a notification, not only a toast.** Asked for
       //: (INBOX 159): "exported or downloaded files and images etc should
       //: appear in the notifications to be accessible". A toast is gone in
@@ -1162,6 +1163,8 @@ async function saveFile(filename, blob) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+  //: UX-11: a download said nothing; Settings' list is the desktop's folder.
+  toast(`Downloaded ${filename}, to your browser's downloads.`);
   //: The browser's own downloads shelf has the file; this is the record of
   //: it inside the app, so the notifications list says the same thing on a
   //: browser tab as it does on the desktop (INBOX 159).
@@ -1400,7 +1403,7 @@ async function batchDelete() {
     await loadEntries();
   };
   const action = pushUndo(`Moved ${ids.length} note${ids.length === 1 ? "" : "s"} to the bin`, restoreAll, binAll);
-  toastAction(`Moved ${ids.length} to the recycle bin.`, "Undo", async () => {
+  toastAction(`Moved ${ids.length} to the bin.`, "Undo", async () => {
     settleUndoFromToast(action);
     await restoreAll();
     toast("Notes restored.");

@@ -301,6 +301,10 @@ Dashboard ≤ 8 (audit script), all 24 widgets in the frame, 390px chrome ratio
 
 **Built** (`[[` autocomplete, and the connections rail 2026-09-27). Moved to HISTORY.md, "Moved from the plans, 2026-10-04 (D2 connections rail)", with the 2026-10-04 re-measure. Nothing of D2 is open here.
 
+**Decision (INBOX 571, 2026-10-05):** the rail follows the note being read,
+not a note "opened": the card chosen by hand, else the card in view as the
+list scrolls; the subject card is marked with a left accent hairline.
+
 ### D3 Chat (M, Opus)
 
 Exists: streaming answers, sources list, scope chips (backend), personas,

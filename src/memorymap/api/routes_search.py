@@ -15,6 +15,8 @@ this file knowing any of them exist.
 """
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -55,11 +57,53 @@ def search(
     if space:
         ctx["space"] = space
     hits = engine.search(session, q, ctx=ctx or None, limit=limit, hybrid=hybrid, kinds=kinds or None)
+    #: **A typo gets the word it meant** (audit 2026-10-05, UX-04). Ask's
+    #: `keyword_search` corrected "dentst" to "dentist" and these two boxes
+    #: did not, so the same notebook answered a typo differently depending on
+    #: where it was typed. Only when the query found nothing, and only to a
+    #: word the notes actually hold, so a word that exists is never "fixed".
+    corrected = ""
+    if not hits:
+        retry = _corrected_query(session, q)
+        if retry and retry != q:
+            hits = engine.search(
+                session, retry, ctx=ctx or None, limit=limit, hybrid=hybrid, kinds=kinds or None
+            )
+            if hits:
+                corrected = retry
     return {
         "query": q,
+        #: The query the hits are for when it is not `query`: the view says
+        #: "Showing results for ..." rather than letting a typo look matched.
+        "corrected": corrected,
         "hits": [hit.as_dict() for hit in hits],
         "counts": engine.index_counts(session),
     }
+
+
+_PLAIN_WORD = re.compile(r"[^\W\d_][\w'-]*")
+
+
+def _corrected_query(session: Session, q: str) -> str:
+    """`q` with each plain word swapped for the nearest word in the notes.
+
+    Operators (`tag:x`, `-word`, quoted phrases) are left as typed: a filter
+    is a statement, not a guess, and correcting one would change what it
+    says. The correction itself is `search_manager._corrected_terms`, the
+    one Ask uses, so the three boxes agree on what a typo finds.
+    """
+    from memorymap.search import search_manager
+
+    if '"' in q:
+        return q
+    tokens = q.split()
+    words = [token.lower() for token in tokens if _PLAIN_WORD.fullmatch(token)]
+    if not words:
+        return q
+    fixed = dict(zip(words, search_manager._corrected_terms(session, words), strict=True))  # noqa: SLF001
+    return " ".join(
+        fixed.get(token.lower(), token) if _PLAIN_WORD.fullmatch(token) else token for token in tokens
+    )
 
 
 @router.get("/stats")

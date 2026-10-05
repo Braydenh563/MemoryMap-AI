@@ -207,7 +207,8 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("document", "editor", "markdown", "code file", "live view", "source view"),
         "body": (
             "The document editor (opened from Library -> Documents) has four "
-            "views: Live (renders as you write), Source, Split and Read. Code "
+            "views: Live (renders as you write), Source, Split and Read. Enter "
+            "in the title moves to the body. Code "
             "files get line numbers, Tab/Shift+Tab indenting and Ctrl+/ "
             "commenting. \"Check with AI\" reviews a document for wording issues "
             "a spellchecker can't catch."
@@ -242,7 +243,9 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "The Timeline tab lays notes out chronologically in day/week/month "
             "buckets, grid or line view, with an optional band (category, tag "
-            "or space) to see how things cluster over time."
+            "or space) to see how things cluster over time. A note that names a "
+            "day (\"on Friday\") sits on that day and says All day; one that "
+            "names a time too (\"on Friday at 3pm\") shows that time."
         ),
         "badge": {"label": "Timeline", "tab": "timeline"},
     },
@@ -268,7 +271,7 @@ HELP_TOPICS: list[dict] = [
             "happens to its contents: delete everything in it, or move "
             "everything to another space (a category both have is merged)."
         ),
-        "badge": {"label": "Spaces", "section": "account"},
+        "badge": {"label": "Account & security", "section": "account"},
     },
     {
         "id": "appearance",
@@ -304,7 +307,7 @@ HELP_TOPICS: list[dict] = [
             "The status bar is the strip along the bottom of every screen. It "
             "shows what the local model is doing, your note count, open and due "
             "reminders, back and forward, undo and redo, the Ctrl/Cmd+K hint, "
-            "Ask the agent, Atlas the guide, and Find anything. The offline "
+            "Agent (the popup agent), Atlas the guide, and Find anything. The offline "
             "badge, the power-saver badge and the running-job slot appear only "
             "when there is something to say. Settings -> Appearance -> Status "
             "bar chooses which of the rest to show."
@@ -342,7 +345,7 @@ HELP_TOPICS: list[dict] = [
             "Go to and Do with each letter beside its name, marks the tab you are "
             "on, and takes a click as well."
         ),
-        "badge": {"label": "Shortcuts", "section": "shortcuts"},
+        "badge": {"label": "Keyboard shortcuts", "section": "shortcuts"},
     },
     {
         "id": "models",
@@ -362,11 +365,11 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("backup", "storage", "data dir", "where is my", "export", "data folder", "import", "obsidian", "vault", "migrate", "restore"),
         "body": (
             "Everything lives in a data folder you control: the notebook "
-            "database, uploads, and daily local backups. Settings -> Data shows "
+            "database, uploads, and daily local backups. Settings, Import & export shows "
             "exactly where it is on disk, and lets you export as JSON, CSV or "
             "Markdown, and manage or restore backups."
         ),
-        "badge": {"label": "Data", "section": "data"},
+        "badge": {"label": "Import & export", "section": "data"},
     },
     {
         "id": "websearch",
@@ -409,8 +412,9 @@ HELP_TOPICS: list[dict] = [
         "id": "undo-bin",
         "keywords": ("undo", "redo", "recycle bin", "restore", "deleted", "trash"),
         "body": (
-            "Deleting a note or a board goes to the recycle bin, not gone for "
-            "good: restore it from the Library's Bin filter, or use the Undo "
+            "Deleting a note or a board goes to the bin, not gone for "
+            "good: restore it from the Library (Filter, Include the bin, or "
+            "Open the bin from Ctrl+K), or use the Undo "
             "toast that appears right after deleting. Ctrl/Cmd+Z undoes and "
             "Ctrl+Shift+Z or Ctrl+Y redoes; the status bar's Undo and Redo "
             "buttons do the same by click. Which history they walk depends on "
@@ -455,7 +459,7 @@ HELP_TOPICS: list[dict] = [
             "being asked each time. It never deletes anything and skips "
             "itself on battery power."
         ),
-        "badge": {"label": "Preferences", "section": "preferences"},
+        "badge": {"label": "Profile", "section": "preferences"},
     },
     {
         #: **The guide's entry about itself** (INBOX 204: "improve its
@@ -503,7 +507,7 @@ HELP_TOPICS: list[dict] = [
             "(Ctrl/Cmd+Shift+A): this one runs fixed commands, that one "
             "answers and acts on an open-ended request."
         ),
-        "badge": {"label": "Shortcuts", "section": "shortcuts"},
+        "badge": {"label": "Keyboard shortcuts", "section": "shortcuts"},
     },
     {
         "id": "extract-notes",
@@ -737,7 +741,9 @@ HELP_TOPICS.extend(
                 "through notes, documents, boards, files, links and reminders at "
                 "once, by your words and by meaning, and the chips narrow it to one "
                 "kind. You can type operators: tag:work, kind:document, before:2026-01, "
-                "has:image, and -word to leave something out. To narrow only the "
+                "has:image, and -word to leave something out. A small typo that "
+                "finds nothing is searched as the nearest word your notes use, "
+                "and the line says \"showing results for\" it. To narrow only the "
                 "notes list, use Filter notes on the Your notes tab."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
@@ -1310,7 +1316,8 @@ HELP_TOPICS.extend(
                 "Atlas to write at the cursor, and selecting text shows an actions "
                 "menu (Ctrl+Shift+E from the keyboard). From anywhere, Ctrl+Shift+N "
                 "starts a note, Ctrl+D opens today's note and Ctrl+Shift+R records a "
-                "meeting. The filter box understands, with no AI: two words (both, "
+                "meeting. In the list, Up and Down move note to note and Tab walks "
+                "that note's buttons. The filter box understands, with no AI: two words (both, "
                 "in any order), \"a quoted phrase\", tag:work, cat:recipes, "
                 "#tag, title:, in:, before: and after: (a date such as 2026-09), "
                 "is:favourite, is:pinned, is:private, is:linked, is:untagged, "
@@ -1373,7 +1380,9 @@ HELP_TOPICS.extend(
                 "Reminders controls. Magic add takes a sentence (\"Call mum "
                 "tomorrow evening, high priority\"), then Enter or the wand button "
                 "(Add from this sentence) works out the time and the "
-                "priority. Or type the reminder, pick a priority (normal, low or "
+                "priority. Times like \"tomorrow at 5pm\", \"next Friday\", "
+                "\"tonight\" or \"in 20 minutes\" are read with no AI; the AI is "
+                "asked only for a phrasing those rules miss. Or type the reminder, pick a priority (normal, low or "
                 "high) and a repeat (once, daily, weekly or monthly), and use Quick "
                 "set: in 30 min, in 1 hour, in 3 hours, tonight 7pm, tomorrow 9am, "
                 "tomorrow 2pm, this weekend or next week. A due reminder can be "
@@ -1437,7 +1446,7 @@ HELP_TOPICS.extend(
                 "operators, the dashboard's ... menu has Tools & features, which lists everything the "
                 "app can do, and each section's ? explains itself."
             ),
-            "badge": {"label": "Shortcuts", "section": "shortcuts"},
+            "badge": {"label": "Keyboard shortcuts", "section": "shortcuts"},
         },
     ]
 )

@@ -1992,6 +1992,9 @@ async function refreshNoteSearchWhy() {
   if (noteSearch !== asked) return;
   noteSearchWhy.clear();
   for (const hit of body?.hits || []) noteSearchWhy.set(hit.id, hit);
+  noteSearchCorrection = body?.corrected
+    ? { asked, corrected: body.corrected, ids: new Set((body.hits || []).map((hit) => hit.id)) }
+    : null;
   renderEntries();
 }
 
@@ -2393,7 +2396,15 @@ function libraryVisibleRows() {
       : activeCategory
         ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft)
         : allEntries.filter((e) => !e.is_draft);
-  return visible.filter(matchesSearch);
+  const matched = visible.filter(matchesSearch);
+  //: UX-04: no match, and /search corrected a typo: show what it found.
+  noteSearchCorrectionShown = false;
+  const fix = noteSearchCorrection;
+  if (!matched.length && fix && fix.asked === noteSearch && fix.ids.size) {
+    noteSearchCorrectionShown = true;
+    return visible.filter((e) => fix.ids.has(e.id));
+  }
+  return matched;
 }
 
 function renderEntries() {
@@ -2452,9 +2463,11 @@ function renderEntries() {
         ? allEntries.filter((e) => e.category === activeCategory && !e.is_draft).length
         : allEntries.filter((e) => !e.is_draft).length;
   $("entries-heading-label").textContent =
-    noteSearch && visible.length !== total
-      ? `${scope}: ${visible.length} of ${total}`
-      : scope;
+    noteSearchCorrectionShown
+      ? `${scope}: showing results for “${noteSearchCorrection.corrected}”`
+      : noteSearch && visible.length !== total
+        ? `${scope}: ${visible.length} of ${total}`
+        : scope;
   liveQueryBar(visible);
   // Distinguish "empty notebook" from "filter matched nothing".
   const notebookEmpty = allEntries.length === 0;
@@ -2558,15 +2571,13 @@ function applyEntryListTabOrder(list) {
   // Re-renders happen constantly (search-as-you-type, sort, edits): if the
   // previously-focused note is still present, keep it as the one Tab stop
   // instead of silently resetting focus back to the top of the list.
-  const keepId = items.some((li) => li === current) ? current.dataset.id : null;
-  items.forEach((li) => {
-    li.tabIndex = keepId ? (li.dataset.id === keepId ? 0 : -1) : -1;
-  });
-  if (!keepId && items.length > 0) items[0].tabIndex = 0;
+  const holder = current && items.find((li) => li === current || li.contains(current));
+  entryListSetStop(items, holder || items[0] || null);
 }
 
 function initEntryListKeyboardNav() {
   const list = $("entry-list");
+  list.addEventListener("focusin", entryListFocusStop);
   list.addEventListener("keydown", (event) => {
     //: Home/End, Delete (to the bin, with Undo) and F2 (edit) on a focused
     //: row, as a notes list answers them everywhere else (INBOX 432: only
@@ -2607,7 +2618,7 @@ function initEntryListKeyboardNav() {
         event.key === "Home" ? 0
           : event.key === "End" ? items.length - 1
             : Math.min(Math.max(index + (event.key === "ArrowDown" ? 1 : -1), 0), items.length - 1);
-      items.forEach((li, i) => { li.tabIndex = i === nextIndex ? 0 : -1; });
+      entryListSetStop(items, items[nextIndex]);
       items[nextIndex].focus();
       // .focus() alone scrolls in most browsers, but not predictably, 
       // explicit and consistent with the same fix on the command palette's
@@ -3454,7 +3465,7 @@ function syncNotesRailToggle() {
   //: A setting, said as one (INBOX 432): "Hide connections" read as an
   //: action on a column that was not there when no note was open.
   const on = !notesRailHiddenByChoice();
-  setLabel(toggle, `${on ? "ph:check-square" : "ph:square"} Connections beside an open note`);
+  setLabel(toggle, `${on ? "ph:check-square" : "ph:square"} Connections beside the note you're reading`);
   toggle.setAttribute("aria-pressed", String(on));
 }
 
@@ -3462,10 +3473,14 @@ async function renderNotesRail() {
   const rail = $("notes-rail");
   if (!rail) return;
   syncNotesRailToggle();
+  //: INBOX 571: the rail follows the note in view (notes-rail-spy.js).
+  if (notesRailWide.matches) ensureModule("notesRail");
+  const mark = typeof notesRailMark === "function" ? notesRailMark : () => {};
   const entry = notesRailWanted();
   if (!entry) {
     if (rail.contains(document.activeElement)) notesRailFocusSubject();
     rail.hidden = true;
+    mark(null);
     return;
   }
   rail.hidden = false;
@@ -3480,12 +3495,14 @@ async function renderNotesRail() {
   if (list && list.getBoundingClientRect().width < NOTES_RAIL_MIN_READING) {
     rail.hidden = true;
     rail.dataset.cramped = "1";
+    mark(null);
     return;
   }
   delete rail.dataset.cramped;
   const subject = $("notes-rail-subject");
   subject.textContent = entry.is_private ? "Private note" : entry.title || notePreviewText(entry.content);
   subject.title = subject.textContent;
+  mark(entry);
   const body = $("notes-rail-body");
   const key = `${entry.id}:${_entriesLoadGeneration}`;
   if (body.dataset.key === key) return;
@@ -3607,12 +3624,8 @@ function setNotesRailHidden(hidden) {
     //: opener at 1440x600, over the rail). A menu acts on a note; it does not
     //: choose one to read.
     if (event.target.closest?.(".menu-wrap, .action-menu")) return;
-    //: **Focus follows an open rail; it does not open one** (INBOX 432).
-    //: Any click in a card (a star, a tag, the text) is focus in its row,
-    //: and the column appeared under the pointer: the list went from 1066
-    //: to 747px and the first note dropped 44px. Opening a note, expanding
-    //: a row or editing one opens the rail; walking the list then moves it.
-    if (notesRailId == null) return;
+    //: INBOX 571: a card chosen by hand is the subject (it is pinned in
+    //: notes-rail-spy.js); the rail is already drawn, so nothing moves.
     const id = Number(li.dataset.id);
     if (!Number.isFinite(id) || id === notesRailId) return;
     notesRailId = id;
@@ -3626,11 +3639,6 @@ function setNotesRailHidden(hidden) {
   $("notes-rail-toggle")?.addEventListener("click", () => {
     setNotesRailHidden(!notesRailHiddenByChoice());
     $("notes-more-menu")?.removeAttribute("open");
-    //: Said when nothing would change on screen (INBOX 546, the owner: "idk
-    //: if [it] does anything"): the column only shows beside an open note.
-    if (!notesRailHiddenByChoice() && notesRailId == null) {
-      toast("Connections show beside a note when you open one.");
-    }
   });
   //: The keys every list here keeps (WORLD_CLASS_PLAN 1.6): arrows walk the
   //: rows, Enter opens one (they are buttons), Escape goes back to the list.

@@ -151,6 +151,9 @@ let noteSearch = ""; // Notes-tab text filter (Wave J)
 // signals (meaning, and distance over the links) only exist on the server.
 // Cleared whenever the box is, so a stale reason can never outlive its query.
 const noteSearchWhy = new Map();
+//: UX-04: /search's typo correction for the Notes box.
+let noteSearchCorrection = null;
+let noteSearchCorrectionShown = false;
 let noteSort = "newest"; // newest | oldest | az | most-used (Wave J)
 // BACKLOG §77 item 1. "all" (the default) keeps the existing continuous
 // scroll (§86's renderIncrementally) untouched; a numeric size switches
@@ -2195,6 +2198,7 @@ const LAZY_MODULES = {
   assistantAvatar: ["/js/assistant-avatar.js"],
   //: Arranging the dashboard's Quick access row (INBOX 461): quick-access.js.
   quickAccess: ["/js/quick-access.js"],
+  notesRail: ["/js/notes-rail-spy.js"],
   //: The suggestions inbox (GRAPH_PLAN KG9): see suggestions-inbox.js.
   inbox: ["/js/suggestions-inbox.js", "/js/entity-page.js", "/js/link-types.js", "/js/note-properties.js"],
   //: 2026-10-05 (gzip budget), the next seven: each file's header says why.

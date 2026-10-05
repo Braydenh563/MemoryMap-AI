@@ -206,6 +206,24 @@ def _place_notes(
         mention = resolved.get(entry.id)
         at = mention.at if mention else entry.created_at
         text = manager.readable_content(entry)
+        #: **A mentioned day is a day, not an instant** (audit 2026-10-05,
+        #: UX-02). `EntryDate.at` is the writer's own calendar day (and the
+        #: clock they said with it, if any), with no zone. Served as
+        #: `...T00:00:00+00:00` it was read as UTC midnight, which a browser
+        #: west of UTC draws on the evening before: the dentist "on Friday"
+        #: sat under Thursday 8:00 PM in New York. So a day row carries the
+        #: date alone, and a row whose note said "at 3pm" carries that clock
+        #: with no offset; the view groups and draws both as written.
+        timed = bool(mention) and mention.precision == "minute"
+        if mention:
+            when = {
+                "at": at.strftime("%Y-%m-%dT%H:%M:%S") if timed else at.date().isoformat(),
+                "date": at.date().isoformat(),
+                "time": at.strftime("%H:%M") if timed else None,
+                "all_day": not timed,
+            }
+        else:
+            when = {"at": at.isoformat()}
         placed.append(
             {
                 "id": entry.id,
@@ -217,7 +235,7 @@ def _place_notes(
                 "kind": "board" if entry.is_board else "note",
                 "key": f"{'board' if entry.is_board else 'note'}:{entry.id}",
                 "_at": _naive(at),
-                "at": at.isoformat(),
+                **when,
                 "bucket": _bucket_start(at, scale),
                 # Said out loud so the view can be honest: this note is here
                 # because of what it talks about, not when it was typed.

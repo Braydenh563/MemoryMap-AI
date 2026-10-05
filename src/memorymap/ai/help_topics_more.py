@@ -194,7 +194,7 @@ MORE_TOPICS: list[dict] = [
             "general settings",
         ),
         "body": (
-            "Settings, General. Recycle bin: auto-clear binned notes after a "
+            "Settings, General. Bin: auto-clear binned notes after a "
             "number of days. Chat history: delete saved chats after a number "
             "of days (0 keeps every chat; pinned chats are never deleted). "
             "Notifications: mute everything except reminders. Writing: smart "
@@ -331,7 +331,7 @@ MORE_TOPICS: list[dict] = [
             "the top result, the arrows move, Esc closes. It lists the command "
             "palette's actions too, so \"dark\" finds Toggle light/dark."
         ),
-        "badge": {"label": "Shortcuts", "section": "shortcuts"},
+        "badge": {"label": "Keyboard shortcuts", "section": "shortcuts"},
     },
     {
         "id": "background-art",
@@ -405,7 +405,7 @@ MORE_TOPICS: list[dict] = [
             "under it, each opening where it sits, and a long section has an "
             "index of its groups along its top."
         ),
-        "badge": {"label": "Settings", "section": "general"},
+        "badge": {"label": "General", "section": "general"},
     },
     {
         "id": "lock",
@@ -639,7 +639,8 @@ MORE_TOPICS.extend(
                 "an address that opens it in the app. Editing a note has a title "
                 "field. On a focused note, F2 edits it, Delete deletes it, and "
                 "Home and End jump to the ends of the list. In a window 1280 wide "
-                "or more, the note you open has a Connections column beside the "
+                "or more, the note you are reading (the one you clicked, else the "
+                "one in view as you scroll) has a Connections column beside the "
                 "list: the notes it links to, the notes that link to it with the "
                 "sentence each says it in, \"Mentioned, not linked\" (notes and "
                 "documents that name it without a link; Link turns those words "
@@ -888,7 +889,7 @@ TOPIC_META: dict[str, dict] = {
     "storage": {"title": "Where your data lives", "path": "Settings, Import & export"},
     "websearch": {"title": "Web search", "path": "Settings, Web search"},
     "privacy": {"title": "Privacy", "path": "Settings, Privacy"},
-    "undo-bin": {"title": "Undo and the recycle bin", "path": "Ctrl+Z, and the Library's Recycle bin"},
+    "undo-bin": {"title": "Undo and the bin", "path": "Ctrl+Z, and the Library's Include the bin"},
     "autonomous": {"title": "Autonomous background AI", "path": "Settings, Background tasks"},
     "guide": {"title": "Atlas, the guide", "path": "Status bar, Guide (Ctrl+Shift+H)"},
     "command-palette": {"title": "The command palette", "path": "Ctrl+K"},

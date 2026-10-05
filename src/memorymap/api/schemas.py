@@ -216,6 +216,9 @@ class EntryDateOut(BaseModel):
     phrase: str
     at: date
     precision: str = "day"
+    #: "15:00" when the note said a time beside the day ("on Friday at 3pm",
+    #: precision "minute"), the writer's own clock with no zone; None for a day.
+    time: str | None = None
 
 
 class EntryOut(BaseModel):

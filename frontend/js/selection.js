@@ -810,7 +810,8 @@ function fieldSelection() {
   //: palette open with their query selected so typing replaces it), and a
   //: field inside an overlay belongs to that overlay: the popup drew its
   //: menu over the Finder's own results. Writing fields only.
-  if (el.type === "search" || el.closest(".lock-overlay, .modal-overlay, .command-palette, [role='combobox']")) {
+  //: UX-09: `data-no-selection-popup` marks a query box that is not type=search.
+  if (el.type === "search" || el.closest("[data-no-selection-popup], .lock-overlay, .modal-overlay, .command-palette, [role='combobox']")) {
     return null;
   }
   const text = el.value.slice(el.selectionStart, el.selectionEnd);
@@ -842,16 +843,13 @@ function selectionMenuItems() {
       makeMenuItem("ph:highlighter Highlight", "Mark this passage (yellow)", () =>
         wrapFieldSelection(field, "==", "==")
       ),
-      makeMenuItem("ph:palette Highlight in a colour…", "Green, blue, pink, purple or orange", async () => {
-        const colour = (await promptDialog(
-          "Colour: green, blue, pink, purple or orange:", "green"
-        )).trim().toLowerCase();
-        if (!colour) return;
-        if (!["yellow", "green", "blue", "pink", "purple", "orange"].includes(colour)) {
-          toast("Pick one of: yellow, green, blue, pink, purple, orange.", true);
-          return;
-        }
-        wrapFieldSelection(field, colour === "yellow" ? "==" : `==${colour}|`, "==");
+      //: UX-19: the colours are a menu to pick from, not a name to type.
+      makeMenuItem("ph:palette Highlight in a colour…", "Green, blue, pink, purple or orange", () => {
+        const at = document.querySelector(".selection-popup")?.getBoundingClientRect() || { left: 80, bottom: 80 };
+        openMenuAtPoint(["green", "blue", "pink", "purple", "orange"].map((c) => ({
+          label: `ph:highlighter ${c[0].toUpperCase()}${c.slice(1)}`,
+          run: () => wrapFieldSelection(field, `==${c}|`, "=="),
+        })), "Highlight colour", at.left, at.bottom);
       }),
       makeMenuItem("ph:text-b Bold", "Wrap this in **bold**", () =>
         wrapFieldSelection(field, "**", "**")

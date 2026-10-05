@@ -1760,6 +1760,8 @@ function syncModelGatedControls(status = modelStatus) {
     $("draft-offline"),
     "No model is connected, so nothing can be drafted here yet. Everything else on this tab still works."
   );
+  //: UX-12: any other AI-only widget names its own line.
+  for (const line of document.querySelectorAll("[data-offline-line]")) renderAiOfflineNotice(line, line.dataset.offlineLine);
   syncAgentPaletteAvailability();
 }
 
@@ -1885,7 +1887,7 @@ function aiStatusState() {
   if (!chatReady && searchReady) {
     return {
       level: "off",
-      title: "Everything works · chat AI off",
+      title: "Notebook ready · chat AI off",
       detail:
         "Notes, search, tags, reminders and the graph all work. Connect a " +
         "model in Settings, Models to add chat and auto-filing.",
@@ -1902,7 +1904,7 @@ function aiStatusState() {
   }
   return {
     level: "off",
-    title: "Everything works · AI off",
+    title: "Notebook ready · AI off",
     detail:
       "Writing, searching, tagging, reminders, documents and the graph all " +
       "work without any AI. Connect a model in Settings, Models to add chat, " +
@@ -2117,7 +2119,8 @@ function renderStatusBar() {
     glyph.className = "ph ph-magic-wand";
     glyph.setAttribute("aria-hidden", "true");
     const word = document.createElement("span");
-    word.textContent = "Ask";
+    //: UX-07: the name of the dialog it opens; "Ask" is Notes' and Chat's.
+    word.textContent = "Agent";
     agent.append(glyph, word);
     //: `STATUS_META_KEY` is the whole "Ctrl K"/"⌘K" hint, not a bare
     //: modifier: appending "+Shift+A" to it produced "Ctrl K+Shift+A", which

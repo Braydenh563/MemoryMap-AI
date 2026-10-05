@@ -754,7 +754,11 @@ def record_dates(session: Session, entry: Entry) -> None:
                 EntryDate(
                     entry_id=entry.id,
                     phrase=mention.phrase[:60],
-                    at=datetime(mention.at.year, mention.at.month, mention.at.day),
+                    # A date, or a date and the clock the note said beside it,
+                    # both the writer's own wall clock with no zone: a day is
+                    # not an instant, and storing one as UTC midnight put
+                    # every mention a day early west of UTC (UX-02).
+                    at=datetime.combine(mention.at, mention.time or datetime.min.time()),
                     precision=mention.precision,
                 )
             )
@@ -762,6 +766,7 @@ def record_dates(session: Session, entry: Entry) -> None:
                 {
                     "phrase": mention.phrase[:60],
                     "at": mention.at.isoformat(),
+                    "time": mention.time.strftime("%H:%M") if mention.time else None,
                     "precision": mention.precision,
                 }
             )
@@ -1707,7 +1712,7 @@ def _shares_a_date(session: Session, source_id: int, target_id: int) -> bool:
     """
     dates_by_entry = entry_dates_bulk(session, [source_id, target_id])
     day_sets = {
-        entry_id: {d.at.date() for d in dates if d.precision == "day"}
+        entry_id: {d.at.date() for d in dates if d.precision in ("day", "minute")}
         for entry_id, dates in dates_by_entry.items()
     }
     if day_sets.get(source_id, set()) & day_sets.get(target_id, set()):

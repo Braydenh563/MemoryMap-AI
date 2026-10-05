@@ -929,6 +929,11 @@ let finderKind = "";       // "" is everything
 let finderQuery = "";
 let finderHits = [];
 let finderCounts = {};
+//: UX-04: the index's size per kind, for "nothing is indexed yet"; the
+//: chips count this query's hits, so they cannot say it.
+let finderIndexTotals = {};
+//: The corrected query the hits are for, if the route fixed a typo.
+let finderCorrected = "";
 let finderTimer = null;
 let finderRun = 0;         // so a slow answer cannot paint over a newer one
 let finderActive = -1;     // which row the keyboard is on
@@ -1026,6 +1031,8 @@ async function finderSearch() {
     return;
   }
   surfaceRecovered(results);
+  finderIndexTotals = body.counts || {};
+  finderCorrected = body.corrected || "";
   const actions = finderKind && finderKind !== "action" ? [] : finderActions(query);
   const hits = finderKind === "action" ? [] : body.hits || [];
   //: **A chip counts what this search found, not what the index holds.**
@@ -1190,7 +1197,7 @@ function finderRender() {
     //: Says *why* it is empty, which the counts make possible: nothing
     //: matched and nothing of that kind exists yet are different answers and
     //: a bare empty list renders them identically.
-    const indexed = Object.values(finderCounts).reduce((sum, n) => sum + (n || 0), 0);
+    const indexed = Object.values(finderIndexTotals).reduce((sum, n) => sum + (n || 0), 0);
     body.textContent = indexed
       ? "Try fewer words, or take a filter off."
       : "Nothing is indexed yet. Save a note and it will appear here.";
@@ -1200,7 +1207,9 @@ function finderRender() {
     return;
   }
   if (summary) {
-    summary.textContent = `${rows.length} result${rows.length === 1 ? "" : "s"}`;
+    summary.textContent = `${rows.length} result${rows.length === 1 ? "" : "s"}${
+      finderCorrected ? `, showing results for “${finderCorrected}”` : ""
+    }`;
   }
   const icons = Object.fromEntries(FINDER_KINDS.map((k) => [k.key, k.icon]));
   const names = Object.fromEntries(FINDER_KINDS.map((k) => [k.key, k]));

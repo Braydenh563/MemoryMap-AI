@@ -434,3 +434,36 @@ def test_starting_todays_note_opens_the_composer_rather_than_writing_it():
     assert '/entries/daily/' not in body, "the press must not write a note"
     assert 'showNotesSection("capture")' in body
     assert '$("entry-title")' in body and '$("entry-content")' in body
+
+
+# --- a mentioned day is a day, not a UTC midnight (audit 2026-10-05, UX-02) --
+#
+# A day mention was served as "2026-10-09T00:00:00+00:00", which a browser west
+# of UTC draws on Thursday evening: the dentist on Friday showed under "Thu,
+# Oct 8, 8:00 PM" in New York. A day row now carries the day as a date and no
+# instant, and a row whose note said a time carries that time, floating.
+
+
+def test_a_day_mention_is_served_as_a_date_not_an_instant(client):
+    note = _save(client, "the deadline is next friday")
+    row = next(r for r in client.get("/timeline?scale=day").json()["rows"] if r["id"] == note["id"])
+    assert row["all_day"] is True
+    assert len(row["date"]) == 10 and row["date"].count("-") == 2
+    assert row["at"] == row["date"], "a day row must not carry a clock or an offset"
+    assert row["time"] is None
+
+
+def test_a_time_said_with_the_day_is_kept_and_floats(client):
+    note = _save(client, "Dentist appointment on Friday at 3pm")
+    row = next(r for r in client.get("/timeline?scale=day").json()["rows"] if r["id"] == note["id"])
+    assert row["all_day"] is False
+    assert row["time"] == "15:00"
+    assert row["at"] == f"{row['date']}T15:00:00", "the note's own clock, with no offset to shift it"
+    assert row["phrase"] == "on Friday at 3pm"
+
+
+def test_a_written_row_keeps_its_instant(client):
+    note = _save(client, "no dates in this one")
+    row = next(r for r in client.get("/timeline?scale=day").json()["rows"] if r["id"] == note["id"])
+    assert not row.get("all_day")
+    assert "T" in row["at"]

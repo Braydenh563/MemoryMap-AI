@@ -4104,15 +4104,15 @@ function renderGraphPopupActions(entry) {
   favourite.classList.toggle("is-favourite", Boolean(entry.pinned));
   favourite.setAttribute("aria-pressed", String(Boolean(entry.pinned)));
   keep.appendChild(favourite);
-  const bin = smallButton("ph:trash", "Move this note to the recycle bin", async () => {
-    if (!(await confirmDialog("Move this note to the recycle bin?"))) return;
+  const bin = smallButton("ph:trash", "Move this note to the bin", async () => {
+    if (!(await confirmDialog("Move this note to the bin?"))) return;
     await api(`/entries/${entry.id}`, { method: "DELETE" }).catch((e) =>
       toast(e.message, true)
     );
     closeGraphPopup();
     await refreshEntries([entry.id]).catch(() => {});
     renderGraph();
-    toastAction("Moved to the recycle bin.", "Undo", async () => {
+    toastAction("Moved to the bin.", "Undo", async () => {
       await api(`/entries/${entry.id}/restore`, { method: "POST" });
       await refreshEntries([entry.id]);
       renderGraph();

@@ -1230,7 +1230,7 @@ function featureCatalog() {
       { name: "Checklists", desc: "Tick items off inside a note; the dashboard tracks what is left.", reveal: "notes-checklist" },
       { name: "Private notes", desc: "Encrypt a note so it is readable only while the app is unlocked.", reveal: "notes-private" },
       { name: "Pins & tags", desc: "Pin important notes and organise with tags.", reveal: "notes-favourite" },
-      { name: "Recycle bin", desc: "Deleted notes are recoverable until the bin is cleared.", reveal: "recycle-bin" },
+      { name: "Bin", desc: "Deleted notes are recoverable until the bin is cleared.", reveal: "recycle-bin" },
     ]},
     { group: "Ask & chat", items: [
       { name: "Ask your notebook", desc: "Questions answered strictly from your own notes.", reveal: "notes-ask" },
@@ -2797,7 +2797,13 @@ async function renderDigestWidget(body) {
     //: Ollama" to somebody running llama.cpp; `syncModelGatedControls` owns
     //: that wording for every AI control in the app, this one included.
     generate.dataset.needsModel = "The weekly digest is written by the local AI";
-    body.appendChild(generate);
+    //: UX-12 (audit 2026-10-05): the reason was only a `title` on a disabled
+    //: button, which a keyboard cannot focus and a phone cannot hover. The
+    //: same line and Settings link as Ask and Chat, kept by the status poll.
+    const offline = document.createElement("div");
+    offline.className = "ai-offline-note hidden";
+    offline.dataset.offlineLine = "No model is connected, so the digest cannot be written yet.";
+    body.append(generate, offline);
     if (typeof syncModelGatedControls === "function") syncModelGatedControls();
   }
 }

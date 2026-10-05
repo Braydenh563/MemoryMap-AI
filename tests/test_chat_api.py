@@ -113,6 +113,15 @@ def test_suggestions_starters_for_empty_notebook(client):
     assert client.get("/chat/suggestions").json() == _starters()
 
 
+def test_the_first_starter_is_one_ask_answers_without_a_model():
+    """UX-07: "What have I saved so far?" was the first suggested question, and
+    with no model it answered that no note shared enough with it to quote. A
+    recency question is answered from the newest notes, by rule."""
+    from memorymap.search.search_manager import is_recency_ask
+
+    assert is_recency_ask(_starters()[0]), _starters()[0]
+
+
 def test_suggestions_are_content_aware(client):
     # Guided mode files these under real categories, skipping the AI.
     _save(client, "a joke", category="Jokes")

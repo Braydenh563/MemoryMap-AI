@@ -1856,7 +1856,7 @@ async function sendChatMessage(preset, opts = {}) {
   //: persona that actually answered (the owner: "the avatars need to persist
   //: for what persona was used").
   const sentPersona = $("persona-select").value || aiNameNow();
-  const { bubble, stepsHolder, recordsHolder, groundingHolder, timeline } = addAssistantBubble(sentPersona);
+  const { bubble, stepsHolder, recordsHolder, groundingHolder, timeline, paintHooks } = addAssistantBubble(sentPersona);
   // The live counter rides in the bubble it is timing, and leaves with it.
   mountChatTimer(bubble);
   // A newer answer exists, so the previous one's chips stop being the end of
@@ -1918,6 +1918,25 @@ async function sendChatMessage(preset, opts = {}) {
   // raw_results/search_mode/match_info a few lines below, which got exactly
   // this treatment already for the same reported-missing-on-reload reason.
   let groundingSentences = null;
+  //: **Numbered while it streams, as the Ask tab is** (INBOX 320, the
+  //: askcite row): the backend sends the rows so far each time a sentence
+  //: completes (`grounding_live`), and the markers are put back after every
+  //: live paint, which rebuilds the step. The numbering is the final pass's
+  //: own (`chatSourcesFrom` over this turn's meta), so a digit that appears
+  //: mid-answer is the digit it keeps. The `grounding` event still replaces
+  //: these rows when the stream ends.
+  let liveSources = null;
+  const placeLiveCitations = () => {
+    if (groundingSentences?.length) {
+      addInlineCitations(
+        bubble.querySelectorAll(".bubble-answer"),
+        groundingSentences,
+        meta?.raw_results || [],
+        liveSources
+      );
+    }
+  };
+  paintHooks.afterAnswerPaint = placeLiveCitations;
   // INBOX 272 part 1: set when the model couldn't call tools and the turn
   // was silently answered as plain Q&A instead. Captured here, rendered
   // once the stream is over (same reason `groundingSentences` waits: a
@@ -2099,6 +2118,11 @@ async function sendChatMessage(preset, opts = {}) {
       },
       onUnsupported: (event) => {
         toolsUnsupportedEvent = event;
+      },
+      onGroundingLive: (event) => {
+        groundingSentences = event.sentences || [];
+        liveSources ??= chatSourcesFrom({ meta, toolEvents: [], touched: [] });
+        placeLiveCitations();
       },
       onGrounding: (event) => {
         groundingSentences = event.sentences;

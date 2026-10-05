@@ -98,6 +98,21 @@ _ASKING_ABOUT = re.compile(
     re.I,
 )
 
+#: The wh-words a question opens on, for the compound shape below.
+_WH = r"(?:what|which|who|whom|whose|when|where|how (?:many|much))"
+
+#: "What tags and what categories am I using?": two wh-clauses joined by a
+#: conjunction, one sentence, one question mark at its end. `_ASKING_ABOUT`
+#: reads "what is/are/does" and misses it, and then the tag group and the
+#: category group cued `tag_note` and `create_category` (H4: a 3B opened with
+#: `tag_note`). Anchored on the whole message, so "Which note is about my
+#: dentist? Pin it" (a question with a job after it) and "what tags do I use
+#: and tag these" (no second wh-clause) do not match.
+_COMPOUND_QUESTION = re.compile(
+    r"^\s*" + _WH + r"\b[^?]*?(?:,|\band\b|\bor\b|\balso\b)\s+" + _WH + r"\b[^?]*\?\s*$",
+    re.I,
+)
+
 
 @dataclass(frozen=True)
 class Focus:
@@ -231,7 +246,7 @@ def looks_like_a_question_about(text: str) -> bool:
     text = (text or "").strip()
     if not text:
         return False
-    if not _ASKING_ABOUT.match(text):
+    if not (_ASKING_ABOUT.match(text) or _COMPOUND_QUESTION.match(text)):
         return False
     # The question opener is only half of it. A sentence that also *asks* for
     # something is a request with a question-shaped preamble. Searched over the

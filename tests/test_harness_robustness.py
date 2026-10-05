@@ -402,3 +402,64 @@ def test_a_server_that_refuses_tool_choice_is_asked_again_without_it(openai_clie
     final = [p["final"] for p in openai_client.chat_tools_stream("m", [], offered, tool_choice="required") if "final" in p][0]
     assert final["content"] == "ok"
     assert "tool_choice" not in capture_post.sent[1]["json"]
+
+
+# --- a forced round that comes back as prose (H4: the server's grammar did not hold)
+
+
+def _prose(text):
+    from fakes_http import FakeResponse, sse
+
+    return FakeResponse(lines=sse({"choices": [{"delta": {"content": text}}]}))
+
+
+def _call(name, arguments):
+    from fakes_http import FakeResponse, sse
+
+    return FakeResponse(lines=sse({"choices": [{"delta": {"tool_calls": [
+        {"index": 0, "id": "a", "function": {"name": name, "arguments": arguments}}
+    ]}}]}))
+
+
+def test_a_forced_round_that_comes_back_as_prose_is_asked_once_more(monkeypatch, app_state, openai_client, capture_post):
+    """Measured on Qwen2.5-3B (H4): one forced round answered in prose with
+    `tool_choice: "required"` on the request. A reply that neither claims nor
+    announces anything was the turn's answer; now it is asked once more, with
+    the call required again, and the call it then makes is run."""
+    capture_post.queue.extend([
+        _prose("Oat milk and eggs, noted."),
+        _call("create_note", '{"content": "buy oat milk and eggs"}'),
+        _prose("Saved."),
+    ])
+    ran = []
+    monkeypatch.setattr(agent.tools, "execute_tool", lambda s, n, a, **k: ran.append(n) or {"id": 1, "label": "made"})
+    events = list(agent.run_agent(_Session(), "Make a note: buy oat milk and eggs", [], _SmallModels(), openai_client))
+    sent = [request["json"] for request in capture_post.sent]
+    assert ran == ["create_note"]
+    assert sent[0].get("tool_choice") == "required"
+    assert sent[1].get("tool_choice") == "required", "the retry is forced again"
+    assert "tool_choice" not in sent[2], "and only the retry"
+    assert agent.FORCED_PROSE_NUDGE in [m.get("content") for m in sent[1]["messages"]]
+    assert "Saved." in "".join(e.get("delta", "") for e in events if e.get("type") == "answer")
+
+
+def test_the_forced_re_prompt_is_made_once_not_in_a_loop(monkeypatch, app_state, openai_client, capture_post):
+    capture_post.queue.extend([_prose("Noted."), _prose("Noted again."), _prose("Still prose.")])
+    monkeypatch.setattr(agent.tools, "execute_tool", lambda *a, **k: {"id": 1})
+    events = list(agent.run_agent(_Session(), "Make a note: buy oat milk", [], _SmallModels(), openai_client))
+    assert len(capture_post.sent) == 2
+    assert "Noted again." in "".join(e.get("delta", "") for e in events if e.get("type") == "answer")
+
+
+def test_a_large_model_is_not_re_prompted_for_prose(monkeypatch, app_state, openai_client, capture_post):
+    class _Large:
+        def chat_model(self):
+            return "qwen3:14b"
+
+        def utility_model(self):
+            return "qwen3:14b"
+
+    capture_post.queue.extend([_prose("Noted."), _prose("never asked")])
+    monkeypatch.setattr(agent.tools, "execute_tool", lambda *a, **k: {"id": 1})
+    list(agent.run_agent(_Session(), "Make a note: buy oat milk", [], _Large(), openai_client))
+    assert len(capture_post.sent) == 1

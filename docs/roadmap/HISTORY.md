@@ -7,6 +7,19 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (the first round, second pass)
+
+### From AGENT_SKILLS_REFORM.md, H4's two misses left after the first pass
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A compound question ("What tags and what categories am I using?": two wh-clauses, one sentence, one question mark) is a question about the notebook (`toolwords._COMPOUND_QUESTION`) | `looks_like_a_question_about` only knew "what is/are/does", so the tag and category groups handed the turn `tag_note` and `create_category` | no write tool from either group; a question followed by a job ("Which note is about my dentist? Pin it") and a question with a request in it are still jobs | `tests/test_toolwords.py` |
+| A forced "File the note under Health" is not offered `create_category` when the notebook already has "Health" (`agent._names_an_existing_category`) | 3B opened once with `create_category` | `edit_note` and the finders only; a category that does not exist keeps the write; the round after has the whole toolbox | `tests/test_harness_tiers.py` |
+| A forced first round that comes back as prose is asked once more with the call required again (`agent.FORCED_PROSE_NUDGE`) | the prose was the turn's answer unless it claimed or announced an act | one re-prompt per turn (it replaces the intent and claim nudges, so a miss costs one extra round, not three); never on a large model, never on a question | `tests/test_harness_robustness.py` |
+
+Fake transport only: the 3B was not run again, so the numbers in the first
+pass's table are from before these three.
+
 ## Moved from the plans, 2026-10-04 (the first round)
 
 ### From AGENT_SKILLS_REFORM.md, H4's found-not-fixed: what a small model's first round is offered

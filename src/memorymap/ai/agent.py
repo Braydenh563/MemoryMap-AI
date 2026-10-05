@@ -18,6 +18,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import NamedTuple
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import budget as run_budget, cards, context, fence, librarian, memory, source_check, tools
@@ -133,6 +134,15 @@ THINKING_CARRIED_CHARS = 700
 EMPTY_ROUND_NUDGE = (
     "Your last reply was empty. Answer my previous message now, in plain words, "
     "or call the one tool that does what I asked."
+)
+
+#: Sent after a forced first round (`tool_choice: "required"`) that still came
+#: back as prose. Measured at 3B (H4): the server's grammar did not always
+#: hold, and a reply that neither claimed nor announced an act was taken as
+#: the turn's answer, so the request was never done.
+FORCED_PROSE_NUDGE = (
+    "That request needs a tool call, and your reply made none. Call the one "
+    "tool that does what I asked now."
 )
 
 #: Sent, with the tools withdrawn, when a turn runs out of rounds (see the end
@@ -2013,7 +2023,35 @@ _INFORMATION_QUESTION = re.compile(
 )
 
 
-def _first_round_tools(question: str, plan: "_TurnPlan", offered: list[dict], required: bool) -> list[dict]:
+#: "File the dentist note under Health", "move the plumber note to Home".
+_FILING_REQUEST = re.compile(r"\b(?:file|filed|move|moved|recategori[sz]e|categori[sz]e)\b", re.IGNORECASE)
+
+
+def _names_an_existing_category(session: Session, question: str) -> bool:
+    """Whether a filing request names a category the notebook already has.
+
+    Qwen2.5-3B, forced: "File the dentist note under Health" opened once with
+    `create_category` although "Health" existed; the note then stayed where it
+    was. A narrowing is a hint and never a reason to fail a turn, so any
+    trouble reading the categories (a test's stub session, a locked database)
+    answers no and leaves the round as it was.
+    """
+    if not _FILING_REQUEST.search(question or ""):
+        return False
+    try:
+        from memorymap.core.database import Category
+
+        names = list(session.scalars(select(Category.name)))
+    except Exception:  # noqa: BLE001
+        return False
+    return any(
+        name and re.search(r"\b" + re.escape(name) + r"\b", question, re.IGNORECASE) for name in names
+    )
+
+
+def _first_round_tools(
+    question: str, plan: "_TurnPlan", offered: list[dict], required: bool, session: Session | None = None
+) -> list[dict]:
     """The tools a small model's first round is offered (H4, measured on
     Qwen2.5-3B through llama-server).
 
@@ -2041,6 +2079,10 @@ def _first_round_tools(question: str, plan: "_TurnPlan", offered: list[dict], re
         #: finders stay; a new note is not what was asked.
         if tools.adds_to_a_named_note(question):
             keep = keep - {"create_note"}
+        #: Filing under a category that exists is an edit of the note: leave
+        #: out the creation of the category the model would otherwise pick.
+        if session is not None and _names_an_existing_category(session, question):
+            keep = keep - {"create_category"}
         narrowed = [t for t in offered if t["function"]["name"] in keep]
     elif _INFORMATION_QUESTION.match(question or ""):
         narrowed = [t for t in offered if t["function"]["name"] not in _WRITE_TOOLS]
@@ -2594,6 +2636,10 @@ def run_agent(
     spend = run_budget.current()
     #: One nudge per turn for a round that came back with nothing at all.
     nudged_empty = False
+    #: A forced first round that came back without a call is asked once more
+    #: with the call required again (`FORCED_PROSE_NUDGE`); set when that
+    #: second round is owed, so the retry is forced and the turn gets one.
+    retry_forced = False
     #: And one for a round that only said what it would do.
     nudged_intent = False
     #: And one for a reply that claimed an act no tool performed.
@@ -2640,8 +2686,13 @@ def run_agent(
         cap = plan.tier.reply_chars if state.offered else None
         said = ""
         try:
-            required = round_number == 0 and plan.tier.force_first_call and _requires_a_call(question, plan)
-            this_round = _first_round_tools(question, plan, state.offered, required) if round_number == 0 else state.offered
+            required = (round_number == 0 or retry_forced) and plan.tier.force_first_call and _requires_a_call(question, plan)
+            this_round = (
+                _first_round_tools(question, plan, state.offered, required, session)
+                if round_number == 0 or (retry_forced and required)
+                else state.offered
+            )
+            retry_forced = False
             stream = _round_stream(ollama, agent_model, state.messages, this_round, mode, required)
             for piece in stream:
                 if "thinking_delta" in piece:
@@ -2735,11 +2786,24 @@ def run_agent(
             #: and the client says the model wrote nothing.
             if not answer and not reply.get("streamed") and not nudged_empty and not called_any:
                 nudged_empty = True
+                retry_forced = required
                 state.messages.append({"role": "user", "content": EMPTY_ROUND_NUDGE})
                 yield from card.end_round(TURN_ROW_RECHECK)
                 continue
             if not reply.get("streamed") and answer:
                 yield {"type": "answer", "delta": answer}
+            #: **A forced round that came back as prose is asked once more**,
+            #: with the call required again. One re-prompt per turn: it takes
+            #: the place of the intent and claim nudges below, which would
+            #: otherwise stack a second and third round onto the same miss.
+            if required and answer and not called_any and not nudged_empty and not nudged_intent and round_number + 1 < allowance:
+                nudged_intent = nudged_claim = True
+                retry_forced = True
+                state.messages.append({"role": "assistant", "content": answer})
+                state.messages.append({"role": "user", "content": FORCED_PROSE_NUDGE})
+                yield {"type": "answer", "delta": "\n\n"}
+                yield from card.end_round(TURN_ROW_RECHECK)
+                continue
             #: **Said it would act, and did not.** Asked once to do it; the
             #: sentence already shown stays as the turn's opening line, and
             #: what the tool finds follows it. A second such round ends the

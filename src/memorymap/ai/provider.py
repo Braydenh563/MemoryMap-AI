@@ -1061,6 +1061,15 @@ def _python_style_calls(content: str, tool_names: set[str]) -> list[tuple[int, i
     return found
 
 
+
+#: The write tools' names, set by `memorymap.ai.tools` as it loads; read by
+#: the prose-call recovery below, which takes only reads without a marker.
+_WRITE_TOOLS: dict[str, frozenset[str] | None] = {"names": None}
+
+
+def set_write_tools(names) -> None:  # noqa: ANN001
+    _WRITE_TOOLS["names"] = frozenset(names)
+
 def extract_text_tool_calls(
     content: str, tool_names: set[str]
 ) -> tuple[list[dict], str]:
@@ -1164,6 +1173,38 @@ def extract_text_tool_calls(
         for begin, end, call in _python_style_calls(content, tool_names):
             calls.append(call)
             cleaned = cleaned.replace(content[begin:end], "")
+
+    # 5) a read written with its JSON arguments in prose, `list_notes({...})`
+    # (Qwen2.5-3B, the loose-ends eval, 2026-10-05: it wrote the call, then
+    # "I cannot execute the tool call as I am a text-based AI"). A JSON object
+    # as the one argument is the schema's own shape, which a model describing
+    # a tool rarely writes; still, a description taken as a call must cost a
+    # round and never a change, so only the reads are taken without a
+    # marker. The write list is the tools module's, which registers it here
+    # when it loads (`set_write_tools`): importing it from here closed an
+    # import cycle through the whole tools package (ARCH-10's ratchet). Not
+    # registered, nothing is taken, since a write must never pass as a read.
+    if not calls:
+        writes = _WRITE_TOOLS["names"]
+        reads = set() if writes is None else {name for name in tool_names if name not in writes}
+        for match in re.finditer(r"\b([a-z_]{3,40})\s*\(\s*(?=\{)", content):
+            name = match.group(1)
+            if name not in reads:
+                continue
+            nearby = _first_json_object_after(content, match.end() - 1, window=2000)
+            if nearby is None or nearby[0] != match.end():
+                continue
+            begin, end, blob = nearby
+            close = re.match(r"\s*\)", content[end:])
+            if not close:
+                continue
+            try:
+                arguments = loads_lenient(blob)
+            except ValueError:
+                continue
+            if isinstance(arguments, dict):
+                calls.append({"name": name, "arguments": arguments})
+                cleaned = cleaned.replace(content[match.start() : end + close.end()], "")
 
     # The markers themselves are special tokens, never prose, so once a call
     # has been lifted out they are noise in the answer: `<|python_tag|>` or a

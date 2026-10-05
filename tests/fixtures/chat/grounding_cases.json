@@ -1,6 +1,6 @@
 {
   "about": [
-    "CHAT_PLAN Phase 1's gate set (Brief 12's fixture questions in tests/fixtures/chat), sixteen cases.",
+    "CHAT_PLAN Phase 1's gate set (Brief 12's fixture questions in tests/fixtures/chat), twenty cases (four added 2026-10-05 for the precision and recall count, INBOX 76).",
     "Each case is a question, the notes that would have been retrieved for it, an answer written the way a",
     "model paraphrases (never by copying a note's sentence), and which notes every sentence of that answer",
     "actually came from. note_ids empty means the sentence must carry no mark at all: either the model went",
@@ -403,6 +403,112 @@
           "text": "That backfill script now exists and ran over four million rows in eleven minutes on a copy.",
           "note_ids": [1602],
           "passage_contains": "eleven minutes"
+        }
+      ]
+    },
+    {
+      "id": "bike-service",
+      "question": "when is the bike due a service and what tyre pressure do I run?",
+      "notes": [
+        {
+          "id": 1701,
+          "content": "Bike log. Chain waxed on the first of the month, every 300 kilometres after that. The shop on Mill Lane does the full service each spring, booked for the second week of April this year. Rear brake pads are getting thin."
+        },
+        {
+          "id": 1702,
+          "content": "Tyres: 28mm tubeless, 60 psi front and 65 psi rear for the commute. Lower on gravel, around 45 psi. Sealant topped up in March."
+        }
+      ],
+      "answer": "The full service is booked at the shop on Mill Lane for the second week of April. You run the tubeless tyres at 60 psi front and 65 psi rear on the commute.",
+      "sentences": [
+        {
+          "text": "The full service is booked at the shop on Mill Lane for the second week of April.",
+          "note_ids": [1701],
+          "passage_contains": "Mill Lane"
+        },
+        {
+          "text": "You run the tubeless tyres at 60 psi front and 65 psi rear on the commute.",
+          "note_ids": [1702],
+          "passage_contains": "65 psi rear"
+        }
+      ]
+    },
+    {
+      "id": "garden-two-notes-one-sentence",
+      "question": "what did I plant and where?",
+      "notes": [
+        {
+          "id": 1801,
+          "content": "Planted the garlic in the raised bed by the shed, twelve cloves, pointy end up, five centimetres deep."
+        },
+        {
+          "id": 1802,
+          "content": "Tulip bulbs went into the pots on the patio, thirty of them, the dark purple ones from the market."
+        }
+      ],
+      "answer": "You planted twelve garlic cloves in the raised bed by the shed and thirty purple tulip bulbs in the patio pots. Spring should be colourful.",
+      "sentences": [
+        {
+          "text": "You planted twelve garlic cloves in the raised bed by the shed and thirty purple tulip bulbs in the patio pots.",
+          "note_ids": [1801, 1802],
+          "passage_contains": "garlic"
+        },
+        {
+          "text": "Spring should be colourful.",
+          "note_ids": []
+        }
+      ]
+    },
+    {
+      "id": "passport-renewal",
+      "question": "what do I need for the passport renewal?",
+      "notes": [
+        {
+          "id": 1901,
+          "content": "Passport renewal: the old passport, two new photos signed on the back by someone who has known me two years, and the fee of 88 pounds. The form is the blue one, not the green one for first applications."
+        },
+        {
+          "id": 1902,
+          "content": "Holiday in Lisbon booked for the twelfth of July. Flights leave at six in the morning from the north terminal."
+        }
+      ],
+      "answer": "You need the old passport, two new photos signed on the back, and the 88 pound fee. Use the blue form rather than the green one.",
+      "sentences": [
+        {
+          "text": "You need the old passport, two new photos signed on the back, and the 88 pound fee.",
+          "note_ids": [1901],
+          "passage_contains": "two new photos"
+        },
+        {
+          "text": "Use the blue form rather than the green one.",
+          "note_ids": [1901],
+          "passage_contains": "blue one"
+        }
+      ]
+    },
+    {
+      "id": "meeting-no-source",
+      "question": "what did we decide about the office move?",
+      "notes": [
+        {
+          "id": 2001,
+          "content": "Office move meeting: we agreed to move in the last week of November, the landlord gives us the keys on the twentieth. Desks go first, servers last."
+        },
+        {
+          "id": 2002,
+          "content": "Team lunch moved to Thursday because of the dentist."
+        }
+      ],
+      "answer": "You agreed to move in the last week of November, with the keys arriving on the twentieth. I would double check the parking arrangements before then.",
+      "sentences": [
+        {
+          "text": "You agreed to move in the last week of November, with the keys arriving on the twentieth.",
+          "note_ids": [2001],
+          "passage_contains": "last week of November"
+        },
+        {
+          "text": "I would double check the parking arrangements before then.",
+          "note_ids": []
         }
       ]
     }

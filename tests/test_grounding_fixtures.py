@@ -188,3 +188,51 @@ def test_no_mark_ever_names_a_note_outside_the_candidate_set(case):
     ids = {note["id"] for note in case["notes"]}
     for row in ground_answer_sentences(case["answer"], case["notes"]):
         assert row["note_id"] in ids
+
+
+def _pairs() -> tuple[int, int, int, list[str]]:
+    """(marks drawn, marks right, expected pairs, the misses), over every
+    sentence a word scorer can reach. A pair is one sentence and one note."""
+    drawn = right = expected = 0
+    misses = []
+    for case in CASES:
+        marks = _marks(case)
+        for sentence in case["sentences"]:
+            if not _reachable(sentence):
+                continue
+            want = set(sentence["note_ids"])
+            got = {row["note_id"] for row in marks.get(sentence["text"], [])}
+            drawn += len(got)
+            right += len(got & want)
+            expected += len(want)
+            if got != want:
+                misses.append(f"{case['id']}: want {sorted(want)}, got {sorted(got)}")
+    return drawn, right, expected, misses
+
+
+#: INBOX 76's numbers, over the twenty cases: precision is the share of the
+#: marks drawn that name a note the sentence came from, recall the share of
+#: the hand-marked sentence-to-note pairs that got their mark. Both gate at
+#: the plan's Phase 1 figure.
+PAIR_GATE = 0.95
+
+
+def test_precision_and_recall_over_the_twenty_answers():
+    """INBOX 76: precision and recall over twenty hand-marked answers."""
+    assert len(CASES) >= 20, "INBOX 76 asks for twenty answers"
+    drawn, right, expected, misses = _pairs()
+    precision = right / drawn if drawn else 0.0
+    recall = right / expected if expected else 0.0
+    assert precision >= PAIR_GATE and recall >= PAIR_GATE, (
+        f"precision {right}/{drawn}, recall {right}/{expected}:\n" + "\n".join(misses)
+    )
+
+
+def test_a_mark_names_the_words_it_matched_on():
+    """The popover shows the matched terms (INBOX 76), so a wrong number is
+    visible: every mark carries the sentence's words its passage holds."""
+    case = next(c for c in CASES if c["id"] == "bike-service")
+    rows = ground_answer_sentences(case["answer"], case["notes"])
+    tyres = next(r for r in rows if r["note_id"] == 1702)
+    assert "psi" in tyres["terms"] and "tubeless" in tyres["terms"]
+    assert all(row.get("terms") for row in rows)

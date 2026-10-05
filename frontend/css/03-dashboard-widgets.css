@@ -4802,6 +4802,17 @@ button.answer-figure-open {
   gap: var(--space-1) var(--space-5);
 }
 
+/* A group's head (INBOX 71) spans both columns; the space above it is what
+   separates one group from the last, so the first has none. */
+#tool-list > li.tool-group-head {
+  grid-column: 1 / -1;
+  margin-top: var(--space-3);
+}
+
+#tool-list > li.tool-group-head:first-child {
+  margin-top: 0;
+}
+
 #tool-list .tool-desc {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -4957,6 +4968,35 @@ button.answer-figure-open {
   gap: var(--space-2);
   margin: 0 0 var(--space-2);
   font-size: var(--text-sm);
+}
+
+/* Then and now under a History row (row 23): one row per change, its kind
+   as a chip, the sentence then in muted ink above the sentence now. */
+.then-now {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--divider);
+}
+
+.then-now-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.then-now-row p {
+  margin: 0;
+}
+
+/* Time travel's day (row 23): a field on the line's own control height. */
+.ask-scope .ask-as-of-date {
+  width: auto;
+  height: var(--control-h);
+  padding-block: 0;
 }
 
 /* Recent activity's "Undo what Atlas did" under its list (activityUndoControl,

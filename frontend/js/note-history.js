@@ -105,6 +105,13 @@ async function openEntryHistory(entry) {
             restoreTo(`/entries/${entry.id}/restore/${item.id}`, "Earlier version restored.")
           )
         );
+        //: Then and now (WORLD_CLASS_PLAN I5, row 23): what this note
+        //: claimed at the end of that day against what it claims today.
+        row.appendChild(
+          smallButton("ph:arrows-left-right Then and now", "Compare what this note said then with what it says now", (event) =>
+            toggleThenAndNow(entry, item.content, row, event.currentTarget)
+          )
+        );
       }
     }
     return row;
@@ -208,5 +215,75 @@ async function openEntryHistory(entry) {
     );
     item.append(head, body, restore);
     list.appendChild(item);
+  }
+}
+
+
+const THEN_NOW_WORDS = { revised: "Changed", dropped: "No longer says", new: "Says now" };
+
+//: One row's then-and-now block, opened under the row and closed by the same
+//: button. The row's own version against the note now (`POST
+//: /entries/{id}/then-and-now`, by text, so two edits on one day are still
+//: two versions): sentences paired by their words, so "Changed" shows the
+//: sentence then above the sentence now.
+async function toggleThenAndNow(entry, thenText, row, button) {
+  const open = row.querySelector(".then-now");
+  if (open) {
+    open.remove();
+    button?.setAttribute("aria-expanded", "false");
+    return;
+  }
+  const block = document.createElement("div");
+  block.className = "then-now";
+  block.setAttribute("role", "region");
+  block.setAttribute("aria-label", "Then and now");
+  row.appendChild(block);
+  button?.setAttribute("aria-expanded", "true");
+  let body;
+  try {
+    body = await apiJson(`/entries/${entry.id}/then-and-now`, {
+      method: "POST",
+      readOnly: true,
+      body: JSON.stringify({ then: thenText || "" }),
+    });
+  } catch (error) {
+    block.textContent = error.message;
+    block.classList.add("muted");
+    return;
+  }
+  const changes = body.changed || [];
+  if (!changes.length) {
+    const same = document.createElement("p");
+    same.className = "muted";
+    same.textContent = "It says the same things now as it did then.";
+    block.append(same);
+    return;
+  }
+  for (const change of changes) {
+    const item = document.createElement("div");
+    item.className = `then-now-row then-now-${change.kind}`;
+    const kind = document.createElement("span");
+    kind.className = "chip";
+    kind.textContent = THEN_NOW_WORDS[change.kind] || change.kind;
+    item.append(kind);
+    if (change.then !== null && change.then !== undefined) {
+      const then = document.createElement("p");
+      then.className = "muted then-now-then";
+      then.textContent = body.then[change.then];
+      item.append(then);
+    }
+    if (change.now !== null && change.now !== undefined) {
+      const now = document.createElement("p");
+      now.className = "then-now-now";
+      now.textContent = body.now[change.now];
+      item.append(now);
+    }
+    block.append(item);
+  }
+  if (body.exact === false) {
+    const note = document.createElement("p");
+    note.className = "muted small";
+    note.textContent = "Older edits to this note are no longer kept, so the version then may be later than that day.";
+    block.append(note);
   }
 }

@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai import librarian, skills, toolwords
 from memorymap.ai.ollama_client import OllamaError
+from memorymap.ai.provider import set_write_tools
 from memorymap.core import deps, events
 from memorymap.core.database import LIKE_ESCAPE, Category, Entry, Reminder, like_escape
 from memorymap.core.logbuffer import safe_value
@@ -37,7 +38,7 @@ from memorymap.search import search_manager
 # external use (tools.MAX_LIST_LIMIT, tools._require_note, ...), and an
 # explicit list is what lets ruff (and a reader) tell a real name from a
 # typo instead of flagging all ~220 uses below as "may be undefined".
-from . import _common
+from . import _common, contracts
 from ._common import (  # noqa: F401
     DEFAULT_CONTEXT_TOKENS,
     DEFAULT_LIST_LIMIT,
@@ -1272,6 +1273,8 @@ def _edit_note(session: Session, args: dict) -> dict:
     undo = _undo_edit(session, entry)  # before the write, or it undoes nothing
     content = args.get("content")
     content_changed = content is not None and str(content) != entry.content
+    before_category = manager.category_name_for(session, entry)
+    before_tags = manager.entry_tags(entry)
     manager.update_entry(
         session,
         entry,
@@ -1282,7 +1285,31 @@ def _edit_note(session: Session, args: dict) -> dict:
     if content_changed:
         _refresh_embedding(session, entry)
     result = _note_summary(session, entry)
-    result["label"] = f"ph:note-pencil Updated note #{entry.id}"
+    #: What changed, and the category it is still in when that did not
+    #: (Qwen2.5-3B, 2026-10-05: "Move the plumber note to Home" sent the
+    #: name as a tag and then answered "moved from Work to Home" off a label
+    #: that said only "Updated note #1"). The truth goes back with the call.
+    after_category = result["category"]
+    changed = [
+        name
+        for name, moved in (
+            ("content", content_changed),
+            ("category", after_category != before_category),
+            ("tags", result["tags"] != before_tags),
+        )
+        if moved
+    ]
+    result["changed"] = changed
+    parts = []
+    if "category" in changed:
+        parts.append(f"moved from {before_category} to {after_category}")
+    if "tags" in changed:
+        parts.append(f"tags now {', '.join(result['tags']) or 'none'}")
+    if "content" in changed:
+        parts.append("text rewritten")
+    if "category" not in changed:
+        parts.append(f"still in {after_category}")
+    result["label"] = f"ph:note-pencil Updated note #{entry.id}: {'; '.join(parts)}"
     result["undo"] = undo
     return result
 
@@ -1319,7 +1346,10 @@ def _tag_note(session: Session, args: dict) -> dict:
         raise ToolError("Must provide at least one note_id")
 
     add_tags = args.get("add") or []
-    remove_tags = {str(r) for r in args.get("remove") or []}
+    #: Folded: a tag is one tag to the person whatever its case (as in the
+    #: manager's `edit_tags_on_notes`); "remove urgent" left "Urgent" on the
+    #: note while the label said it was gone (caught by the B5 postcondition).
+    remove_tags = {str(r).casefold() for r in args.get("remove") or []}
 
     results = []
     undos = []
@@ -1340,10 +1370,10 @@ def _tag_note(session: Session, args: dict) -> dict:
 
         undos.append(_undo_edit(session, entry))
         tags = manager.entry_tags(entry)
+        tags = [t for t in tags if t.casefold() not in remove_tags]
         for tag in add_tags:
-            if str(tag) not in tags:
+            if str(tag).casefold() not in {t.casefold() for t in tags}:
                 tags.append(str(tag))
-        tags = [t for t in tags if t not in remove_tags]
         manager.update_entry(session, entry, tags=tags)
 
         tagged.append(entry.id)
@@ -2634,8 +2664,9 @@ TOOLS: dict[str, ToolSpec] = {
                     },
                     "since": {
                         "type": "string",
-                        "description": "Only notes from the last N days, or since "
-                        "an ISO date like 2026-07-01 (optional)",
+                        "description": "Only notes from a window in the user's "
+                        "words: 'this week', 'since Friday', 'last month', or "
+                        "a number of days (optional)",
                     },
                     "limit": {
                         "type": "integer",
@@ -2675,8 +2706,9 @@ TOOLS: dict[str, ToolSpec] = {
                     },
                     "since": {
                         "type": "string",
-                        "description": "Only count notes from the last N days, "
-                        "or since an ISO date like 2026-07-01 (optional)",
+                        "description": "Only count notes from a window in the "
+                        "user's words: 'this week', 'since Friday', 'last "
+                        "month', or a number of days (optional)",
                     },
                 },
             },
@@ -3713,6 +3745,7 @@ WRITE_TOOLS = {
     "merge_categories",
     "delete_category",
 }
+set_write_tools(WRITE_TOOLS)
 
 
 # --- which tools a turn is offered (roadmap §11a) --------------------------------
@@ -4423,6 +4456,18 @@ def tool_catalog() -> list[dict]:
             "enabled": tool_enabled(spec.name),
             "online": spec.name in ("web_search", "read_url"),
             "counts": spec.name in COUNTING_TOOLS,
+            #: The Settings list's group (CHAT_PLAN, INBOX 71): what a tool
+            #: does to the notebook, the one question a person switching it
+            #: off is asking.
+            "group": (
+                "online"
+                if spec.name in ("web_search", "read_url")
+                else "confirm"
+                if spec.destructive
+                else "write"
+                if spec.name in WRITE_TOOLS
+                else "read"
+            ),
         }
         for spec in TOOLS.values()
     ]
@@ -4689,6 +4734,12 @@ def execute_tool(
         # what the model sent; the text is the app's own, safe to hand back.
         logging.getLogger("memorymap.tools").warning("tool %s refused: %s", safe_value(name, 40), safe_value(problem, 200))
         return {"error": problem}
+    # WORLD_CLASS_PLAN B5: what must be true of the notebook first, checked
+    # here rather than trusted to the model (`contracts.py` says which).
+    problem = contracts.precondition(session, name, args)
+    if problem:
+        logging.getLogger("memorymap.tools").info("tool %s refused: %s", safe_value(name, 40), safe_value(problem, 200))
+        return {"error": problem}
     try:
         if context_tokens is not None:
             args["__context_tokens__"] = context_tokens
@@ -4745,6 +4796,14 @@ def execute_tool(
             exc_info=True,
         )
         return {"error": f"{name}: something went wrong running this tool. Try a different approach."}
+    # ...and what the call claimed, re-read from the rows. A label is not a
+    # change: a claim that did not hold goes back as an error, so neither the
+    # model nor the skill verifier reports it as done.
+    if isinstance(result, dict) and "error" not in result:
+        broken = contracts.postcondition(session, name, args, result)
+        if broken:
+            logging.getLogger("memorymap.tools").warning("tool %s: %s", safe_value(name, 40), safe_value(broken, 200))
+            return {"error": broken}
     manager.log_action(
         session,
         "ai_tool",

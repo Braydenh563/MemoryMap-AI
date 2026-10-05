@@ -110,3 +110,55 @@ def test_a_time_already_past_or_unreadable_is_refused_with_a_reason(app_state, s
     assert "already passed" in _tool(session, due_at="2026-09-20T09:00")["error"]
     assert "Couldn't read 'whenever'" in _tool(session, when="whenever")["error"]
     assert "`when`" in _tool(session)["error"]
+
+
+# --- a window in the past, in the user's words (AGENT_SKILLS_REFORM, the audit) ---
+#
+# `list_notes`, `count_notes` and `summarize_notes` took "the last N days, or
+# an ISO date": a model asked about "this week" had to work out the date,
+# which is the arithmetic the 2026-09-21 decision took away from it. NOW is
+# Monday 21 September 2026.
+
+
+@pytest.mark.parametrize(
+    "phrase, days",
+    [
+        ("today", 0),
+        ("yesterday", 1),
+        ("this week", 0),
+        ("last week", 7),
+        ("the past week", 7),
+        ("since Friday", 3),
+        ("since last Monday", 7),
+        ("this month", 20),
+        ("last month", 51),
+        ("this year", 263),
+        ("3 days ago", 3),
+        ("the last 30 days", 30),
+        ("past two weeks", 14),
+        ("last 2 months", 62),
+        ("1 September", 20),
+        ("since September 1st", 20),
+        ("2026-09-01", 20),
+        ("14", 14),
+    ],
+)
+def test_a_window_in_the_users_words_is_counted_in_days(phrase, days):
+    assert when.days_since(phrase, NOW) == days
+
+
+@pytest.mark.parametrize("phrase", ["", "whenever", "next week", "tomorrow"])
+def test_a_phrase_that_names_no_past_window_reads_as_none(phrase):
+    assert when.days_since(phrase, NOW) is None
+
+
+def test_the_list_tools_take_since_in_words(app_state, session, monkeypatch):
+    from memorymap.ai import tools
+    from memorymap.ai.tools import _common
+
+    monkeypatch.setattr("memorymap.core.config.user_now", lambda config: NOW)
+    assert _common._since_days("this month") == 20
+    assert _common._since_days("7") == 7
+    assert _common._since_days("whenever") is None
+    spec = tools.TOOLS["list_notes"].parameters["properties"]["since"]["description"]
+    assert "this week" in spec

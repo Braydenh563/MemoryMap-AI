@@ -2786,6 +2786,44 @@ def entry_references(entry_id: int, session: Session = Depends(get_session)) -> 
     return {"items": items, "total": len(items)}
 
 
+@router.get("/{entry_id}/then-and-now")
+def then_and_now(entry_id: int, as_of: date = Query(...), session: Session = Depends(get_session)) -> dict:
+    """This note's claims as they stood at the end of `as_of` against its
+    claims now (WORLD_CLASS_PLAN I5, row 23; `ai/timetravel.py`): `then` and
+    `now` are its sentences, `changed` pairs them as revised, dropped or new."""
+    from memorymap.ai import timetravel
+    from memorymap.core.config import user_now
+
+    entry = _existing_entry(session, entry_id)
+    if entry.is_private:
+        raise HTTPException(status_code=403, detail="This note is private, so its history is not compared.")
+    zone = user_now(deps.get_config()).tzinfo
+    then = timetravel.text_as_of(session, entry, timetravel.end_of_day(as_of, zone))
+    if then is None:
+        raise HTTPException(status_code=404, detail=f"This note did not exist on {timetravel.day_words(as_of)}.")
+    out = timetravel.then_and_now(then.text, entry.content or "")
+    out.update({"as_of": as_of.isoformat(), "revision_id": then.revision_id, "exact": then.exact})
+    return out
+
+
+class ThenTextBody(BaseModel):
+    #: A version of the note the reader is looking at (a History row's text).
+    then: str = Field(max_length=200_000)
+
+
+@router.post("/{entry_id}/then-and-now")
+def then_and_now_of_text(entry_id: int, body: ThenTextBody, session: Session = Depends(get_session)) -> dict:
+    """The same comparison for one version the reader already has on screen,
+    a History row: by its text rather than by a day, so two edits made the
+    same day are still two versions. Reads nothing but the note now."""
+    from memorymap.ai import timetravel
+
+    entry = _existing_entry(session, entry_id)
+    if entry.is_private:
+        raise HTTPException(status_code=403, detail="This note is private, so its history is not compared.")
+    return timetravel.then_and_now(body.then, entry.content or "")
+
+
 @router.get("/{entry_id}/history")
 def entry_history(
     entry_id: int,

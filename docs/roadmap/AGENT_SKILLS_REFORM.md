@@ -133,62 +133,10 @@ same run at 3B and 4B, which is the size Phase B was written about.
 
 ## The harness does the work the model is worst at: decided 2026-09-21
 
-The owner, after being shown a prompt patched to teach a model what day it
-is: "that's bad harness design. the harness and skills need to be flawless.
-for all ai features, they need to be lightweight and insanely good, fast,
-good quality, not too context heavy and more."
-
-He is right, and the codebase convicts itself. **This app already owns a
-deterministic time resolver and does not use it where it matters most.**
-`entry/timewords.py` turns "tonight", "next Friday" and "in three days" into
-real instants with regular expressions and arithmetic against the user's own
-clock, and its own docstring explains why it is deterministic: it runs on
-every note saved, including with no model running. `ai/reminder_parser.py`
-does the same job for a typed reminder. And yet `set_reminder`, the tool the
-model calls, takes a raw `due_at` and does `datetime.fromisoformat` on it, so
-the single place where a small model is weakest, date arithmetic, is the one
-place the harness insists the model do it alone.
-
-The result is in the owner's transcript: asked for a reminder two hours
-before midnight, the model reasoned "midnight for today, September 21st, is
-2026-09-22T00:00, two hours before midnight is 2026-09-22T22:00", keeping the
-midnight's date and changing only the time, and set the reminder for the
-wrong night.
-
-**The rule, which is what this section exists to state.** A tool argument is
-either something only the model can supply, which is intent, or something the
-app can compute, which is a fact. Intent belongs in the schema. A fact the
-app can compute does not, and asking for it converts a deterministic answer
-into a probabilistic one. "Remind me two hours before midnight" is intent;
-`2026-09-22T22:00` is a computation, and the app is better at it than any
-model it will ever run, for free, offline, every time.
-
-Three consequences, each of which also makes the prompt lighter, which is the
-owner's other point:
-
-1. `set_reminder` takes a phrase and resolves it with `timewords`, keeping
-   the ISO field as an escape hatch for a model that genuinely has one. Every
-   other tool taking a computed value is found and given the same treatment;
-   two take an ISO date-time today.
-2. The prompt stops teaching arithmetic. The weekday and week-ahead lines
-   added on 2026-09-21 are **interim**, worth their 245 characters only until
-   the tool stops needing them, and they come out in the same commit that
-   lands 1. A prompt that grows every time a model gets something wrong is a
-   prompt that will keep growing.
-3. A skill's steps get the same audit. A step that asks the model to compute
-   something the app knows is the same fault at a larger scale, and skills
-   run unattended, where a wrong answer is not caught by the person reading
-   it.
-
-**Gate.** A test that asks for a reminder in the shapes people actually use,
-"two hours before midnight", "Friday night", "tomorrow morning", with a fake
-model that returns only the phrase, and asserts the resolved instant. It must
-pass with no model reachable at all, which is the proof that the arithmetic
-left the model.
-
-**Not verified.** How many other tool arguments are computations rather than
-intent: two take an ISO date-time, and the rest of the surface has not been
-read with this question in mind. That audit is the first step.
+Built, the audit included, 2026-10-05: moved to HISTORY.md, "Moved from the
+plans, 2026-10-05 (the harness does the arithmetic)". The rule stands as the
+decision: a tool argument is intent (the model's) or a fact the app can
+compute (never asked of the model).
 
 ## Decisions made
 
@@ -211,8 +159,11 @@ has. One decision, recorded on 2026-09-20 so it is not remade:
   its contract met.~~ **Gated 2026-09-20** by
   `tests/test_skills_evals.py::test_no_step_is_ticked_without_its_contract`,
   green against Qwen2.5-1.5B-Instruct Q4_K_M. Still to run at 3B and 4B.
-- The activity panel opens on a run list, not a wall of text.
-- Tool calls are visible in the chat transcript for all three paths.
+- ~~The activity panel opens on a run list, not a wall of text.~~ Built in
+  Phase C (HISTORY.md, "Built — Phase C").
+- ~~Tool calls are visible in the chat transcript for all three paths.~~
+  Built in Phase C: plain chat, agent mode and a skill run each draw their
+  chips (HISTORY.md, "The three paths, verified for real").
 
 ## Built — Phases A and B, backend only
 
@@ -359,9 +310,30 @@ retry were not looked at in a browser (no UI changed: they are answer text).
     plans, 2026-10-04 (the first round)". 3B, forced first rounds of the
     eleven note-targeting imperatives, two tries each: a right first tool
     17 of 22 before, 20 of 22 after.
-  - **The two misses that were left, fixed 2026-10-05** (fake transport; no
-    3B re-measure yet): HISTORY.md, "Moved from the plans, 2026-10-05 (the
-    first round, second pass)". Open: a real 3B pass over them.
+  - **The two misses that were left, fixed 2026-10-05** (fake transport):
+    HISTORY.md, "Moved from the plans, 2026-10-05 (the first round, second
+    pass)".
+  - **A real 3B pass over them, 2026-10-05** (whole turns through
+    `/chat/stream`, `scratchpad/harness_probe.py`, llama-server `-t 2` on
+    four cores at load 14 to 22, 2 to 12 minutes a round): seven imperatives,
+    a right first tool 6 of 7 and a turn that ended telling the truth 5 of 7.
+    The three faults it showed are fixed: HISTORY.md, "Moved from the plans,
+    2026-10-05 (H4, the 3B pass)". Re-run on those three after the fixes:
+    filing right and said right; the move read the notes and asked before
+    editing (no false claim); the pin right first, then the server was
+    killed by the sandbox's memory limit mid-answer, so its ending was not
+    measured.
+  - **Brief 13's evals, built and run once**: `tests/test_skill_evals.py`
+    (`evals`), the seventy-note loose-ends fixture with eight planted and the
+    zero-invalid-calls count over the built-in skills. The 3B named 2 of 8
+    loose ends in 55 minutes, having written `list_notes({...})` into prose
+    instead of calling it; that shape is recovered for a read now (CHAT_PLAN
+    Phase 4 has the run). The re-run after the fix did not start: the model
+    server had been killed by the sandbox's memory limit (eight agents).
+  - **Still open**: 4B (none on disk); Ollama's native dialect on a real
+    Ollama (no binary; the dialect now runs over a socket against
+    `scratchpad/fake_ollama_server.py`, WORLD_CLASS_PLAN row 19); the
+    built-in skills pass, hours on these cores.
 
 
 ## Placed from INBOX, 2026-10-05 (OPEN.md triage)

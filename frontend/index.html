@@ -1338,7 +1338,7 @@ Link to another note with [[its first few words]]."></textarea>
             <!-- The box's own foot: Clear (field-clear.js, INBOX 466) at the left, the count at the right. -->
             <div class="note-composer-foot">
               <button type="button" id="capture-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>
-              <div class="char-count muted" id="entry-count" aria-live="polite">0 characters</div>
+              <div class="char-count muted" id="entry-count" aria-live="polite">0 words</div>
             </div>
           </div>
           <!-- The files this note's text points at, one attachment card each
@@ -1582,7 +1582,12 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="draft-column">
               <div class="row space-between draft-column-head">
                 <label for="draft-thoughts" class="muted">Your thoughts</label>
-                <span id="draft-sources-count" class="muted"></span>
+                <!-- A word count per pane (CHAT_PLAN, INBOX 63), beside the
+                     notes it is written from, as the draft's own is. -->
+                <span class="row draft-head-facts">
+                  <span id="draft-sources-count" class="muted"></span>
+                  <span id="draft-thoughts-count" class="muted"></span>
+                </span>
               </div>
               <textarea id="draft-thoughts" rows="7"
                 placeholder="Just get it down, order doesn't matter…"></textarea>
@@ -1748,8 +1753,21 @@ Link to another note with [[its first few words]]."></textarea>
             <span id="ask-scope-text">Answers come from the notes with open questions.</span>
             <button type="button" id="ask-scope-clear" class="ghost small">Ask all notes</button>
           </p>
+          <!-- Time travel (WORLD_CLASS_PLAN I5, row 23): the next answer reads
+               your notes as they stood at the end of the day picked here.
+               The Ask scope's own line, because it is the same kind of fact:
+               what the next answer is drawn from. Opened by the clock button
+               in the box; "Back to now" closes it. -->
+          <p class="muted ask-scope hidden" id="ask-as-of-row" role="status">
+            <i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i>
+            <label for="ask-as-of">Answer from my notes as they were on</label>
+            <input type="date" id="ask-as-of" class="ask-as-of-date">
+            <button type="button" id="ask-as-of-clear" class="ghost small">Back to now</button>
+          </p>
           <div class="row ask-query-row ask-composer">
             <i class="ph ph-sparkle ask-composer-icon" aria-hidden="true"></i>
+            <!-- `data-no-selection-popup`: a question, not writing, so the
+                 selection menu leaves it alone (`fieldSelection`, selection.js). -->
             <input id="question" type="text" data-no-selection-popup
               placeholder="e.g. What jokes have I saved?"
               aria-label="Ask your notebook a question">
@@ -1769,6 +1787,9 @@ Link to another note with [[its first few words]]."></textarea>
                  which is `hidden` until an answer exists, so the control that
                  changes how a search behaves could only be reached *after*
                  running one. -->
+            <button type="button" id="ask-time-travel" class="ghost small icon-only"
+              title="Answer from your notes as they were on a day you pick"
+              aria-label="Answer as of a date" aria-pressed="false" aria-controls="ask-as-of-row"><i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="ask-search-tune" class="ghost small icon-only"
               title="Tune how strict semantic search is (Settings → Search and index)"
               aria-label="Tune search sensitivity"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i></button>
@@ -9197,6 +9218,7 @@ Link to another note with [[its first few words]]."></textarea>
               </button>
             </div>
             <p class="muted">Everything Atlas worked out on its own, yours to correct, delete or switch off.</p>
+            <p class="muted hidden" id="learned-from-you" role="status"></p>
             <div class="help-body hidden" id="learned-help" role="dialog" aria-label="About what it learned">
               <p>
                 "What it remembers" is what you told it. This is what it
@@ -9211,6 +9233,13 @@ Link to another note with [[its first few words]]."></textarea>
                 delete one and the same thing is never worked out again, or
                 switch the whole thing off and keep your notes exactly as
                 they are.
+              </p>
+              <p>
+                "Learned from you" counts your corrections (a note moved to
+                another category, a suggestion dismissed) and how many of the
+                notes it filed itself you left where it put them: the older
+                half of the last 200 against the newer half, so you can see
+                whether your moves taught it anything.
               </p>
             </div>
 

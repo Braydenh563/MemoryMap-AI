@@ -372,6 +372,23 @@ $("lock-cancel").addEventListener("click", () => settleLockPrompt(false));
 // Enter in the question box asks; Ctrl+Enter in the note box saves.
 $("question").addEventListener("keydown", (e) => {
   if (e.key === "Enter") askQuestion();
+  //: Escape clears the question (CHAT_PLAN, INBOX 63: "Esc clears"); an
+  //: empty box lets it through to whatever else it closes. The box is
+  //: disabled while an answer streams, so this never races a stop.
+  if (e.key === "Escape" && e.target.value) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.target.value = "";
+  }
+});
+//: Time travel on Ask (row 23): the clock opens the "as of" line, Back to
+//: now closes it (`showAskAsOf`, capture-ask.js).
+$("ask-time-travel").addEventListener("click", () => {
+  showAskAsOf($("ask-as-of-row").classList.contains("hidden"));
+});
+$("ask-as-of-clear").addEventListener("click", () => {
+  showAskAsOf(false);
+  $("question").focus();
 });
 $("entry-content").addEventListener("keydown", (e) => {
   if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
@@ -1713,9 +1730,23 @@ function renderCaptureFiles() {
   if (typeof fieldClearSyncAll === "function") fieldClearSyncAll();
 }
 
+//: The Capture foot's count (CHAT_PLAN, INBOX 63: "a live N words · reading
+//: time in the foot"), in the words a document's own count line uses
+//: (`renderDocCounts`, documents.js) and at its 220 words a minute, so one
+//: piece of writing reads the same length in both places.
+const CAPTURE_READING_WPM = 220;
+
+function captureCountText(text) {
+  const words = (String(text || "").match(/\S+/g) || []).length;
+  const head = `${words.toLocaleString()} word${words === 1 ? "" : "s"}`;
+  if (!words) return head;
+  const minutes = words / CAPTURE_READING_WPM;
+  const read = minutes < 1 ? "under a min read" : `${Math.round(minutes)} min read`;
+  return `${head} · ${read}`;
+}
+
 $("entry-content").addEventListener("input", (e) => {
-  const n = e.target.value.length;
-  $("entry-count").textContent = `${n} character${n === 1 ? "" : "s"}`;
+  $("entry-count").textContent = captureCountText(e.target.value);
   // Keep a draft so a half-typed thought survives a reload or a stray tab
   // switch: losing one is the most annoying thing this app could do.
   //: Whitespace alone is not a draft (INBOX 431 follow-up: the box came
@@ -1759,7 +1790,7 @@ const STAGED_IN_DRAFT = /!\[[^\]\n]{0,200}\]\(staged:[^)\n]{1,120}\)\n?/g;
   const box = $("entry-content");
   box.value = draft;
   autoGrow(box); // a long restored draft shouldn't arrive in a one-line box
-  $("entry-count").textContent = `${draft.length} character${draft.length === 1 ? "" : "s"}`;
+  $("entry-count").textContent = captureCountText(draft);
   renderEntryAttachmentChips();
   const status = $("save-status");
   if (status) status.textContent = "Restored your unsaved draft.";

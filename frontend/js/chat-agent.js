@@ -2513,10 +2513,18 @@ function setDraftStatus(text, isError = false) {
   status.textContent = text;
 }
 
-function updateDraftCount() {
-  const text = $("draft-text").value.trim();
+//: Both panes' counts (CHAT_PLAN, INBOX 63: "a word count per pane"), from
+//: one function so every place that changes either box keeps both honest.
+function paneWordCount(id) {
+  const text = ($(id)?.value || "").trim();
   const words = text ? text.split(/\s+/).length : 0;
-  $("draft-count").textContent = words ? `${words} word${words === 1 ? "" : "s"}` : "";
+  return words ? `${words} word${words === 1 ? "" : "s"}` : "";
+}
+
+function updateDraftCount() {
+  $("draft-count").textContent = paneWordCount("draft-text");
+  const thoughts = $("draft-thoughts-count");
+  if (thoughts) thoughts.textContent = paneWordCount("draft-thoughts");
 }
 
 // Every AI pass is undoable. "Draft it" replaces the draft AND clears the

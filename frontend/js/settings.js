@@ -4831,10 +4831,36 @@ function wireLearnedSection() {
   });
 }
 
+//: The "Learned from you" line (WORLD_CLASS_PLAN row 20, I7), from
+//: `GET /learned/summary`: corrections counted and filing accuracy read off
+//: the rows (`learning.filing_accuracy`), never estimated. Hidden while there
+//: is nothing to say, so a new notebook does not open on "0 corrections".
+function learnedFromYouText(sum) {
+  if (!sum || (!sum.corrections && !sum.notes)) return "";
+  const n = Number(sum.corrections) || 0;
+  const head = `Learned from you: ${n} correction${n === 1 ? "" : "s"}.`;
+  if (!sum.notes || sum.accuracy == null) return `${head} No notes filed by Atlas yet.`;
+  const over = `over the last ${sum.notes} note${sum.notes === 1 ? "" : "s"} it filed`;
+  if (sum.earlier != null && sum.later != null) {
+    return `${head} Filing accuracy ${sum.earlier}% to ${sum.later}% ${over}.`;
+  }
+  return `${head} Filing accuracy ${sum.accuracy}% ${over}.`;
+}
+
+async function renderLearnedFromYou() {
+  const line = $("learned-from-you");
+  if (!line) return;
+  const sum = await apiJson("/learned/summary").catch(() => null);
+  const text = learnedFromYouText(sum);
+  line.textContent = text;
+  line.classList.toggle("hidden", !text);
+}
+
 async function renderLearned() {
   //: The list first, so the switches' "N things kept" line has a number.
   await renderLearnedList();
   await renderLearnedSwitches();
+  await renderLearnedFromYou();
 }
 
 wireLearnedSection();

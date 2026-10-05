@@ -44,7 +44,7 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from memorymap.core.database import LIKE_ESCAPE, AuditLog, like_escape
@@ -250,6 +250,74 @@ def corrections(session: Session, kind: str | None = None, limit: int = 500) -> 
     if kind is not None:
         found = [item for item in found if item.kind == kind]
     return list(reversed(found))
+
+
+#: How many of the notes the AI filed most recently the accuracy line reads
+#: (I7: "Filing accuracy 71% to 89% over the last 200 notes").
+ACCURACY_WINDOW = 200
+#: The fewest notes in each half before the line compares them. Under it, one
+#: refile moves a half by ten points or more, which is noise said as a trend.
+ACCURACY_MIN_HALF = 10
+
+
+def filing_accuracy(session: Session, window: int = ACCURACY_WINDOW) -> dict:
+    """The "Learned from you" line's numbers (WORLD_CLASS_PLAN row 20, I7).
+
+    A note the AI filed is one whose `filing_state` says so (auto, stand-in,
+    words) or one the person has refiled (the move sets it to `done`); it was
+    filed right if the person never moved it. Over the last `window` of them,
+    by id: `accuracy` for all of them, and `earlier`/`later` for the older and
+    newer halves, so the line can say whether learning from the moves helped.
+    Percentages are whole numbers; None where there is nothing to divide.
+    """
+    from memorymap.core.database import Entry
+    from memorymap.entry import manager
+
+    refiled = {
+        row.entity_id
+        for row in session.scalars(
+            select(AuditLog).where(
+                AuditLog.action == "correction",
+                AuditLog.entity_type == "entry",
+                AuditLog.entity_id.is_not(None),
+                or_(AuditLog.detail.like("moved from %"), AuditLog.detail.like("refile:%")),
+            )
+        )
+    }
+    auto_states = (manager.AUTO_FILED, manager.STAND_IN, manager.WORDS_FILED)
+    filters = [Entry.filing_state.in_(auto_states)]
+    if refiled:
+        filters.append(Entry.id.in_(refiled))
+    ids = list(
+        reversed(
+            session.scalars(
+                select(Entry.id)
+                .where(Entry.is_deleted.is_(False), or_(*filters))
+                .order_by(Entry.id.desc())
+                .limit(max(1, window))
+            ).all()
+        )
+    )
+
+    def share(part: list[int]) -> int | None:
+        if not part:
+            return None
+        return round(100 * sum(1 for i in part if i not in refiled) / len(part))
+
+    half = len(ids) // 2
+    split = half >= ACCURACY_MIN_HALF
+    total = session.scalar(
+        select(func.count(AuditLog.id)).where(AuditLog.action == "correction")
+    ) or 0
+    return {
+        "corrections": int(total),
+        "refiles": sum(1 for i in ids if i in refiled),
+        "notes": len(ids),
+        "window": window,
+        "accuracy": share(ids),
+        "earlier": share(ids[: len(ids) - half]) if split else None,
+        "later": share(ids[len(ids) - half :]) if split else None,
+    }
 
 
 def decayed(weight: float, days: float) -> float:

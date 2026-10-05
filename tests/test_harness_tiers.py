@@ -433,6 +433,20 @@ def test_filing_a_note_under_a_category_that_exists_is_not_offered_a_new_categor
     assert "create_category" not in first, first
 
 
+def test_filing_under_a_category_that_exists_is_offered_no_category_tool(monkeypatch, app_state, session):
+    """Qwen2.5-3B, forced, 2026-10-05 (`harness_probe.py`): the same request
+    opened once with `rename_category {"old": "note 2", "new": "Health"}`.
+    Filing is an edit of the note; no tool that reshapes the category tree
+    is the right first call when the category is already there."""
+    from memorymap.entry import manager
+
+    manager.get_or_create_category(session, "Health")
+    session.commit()
+    first, forced = _rounds(monkeypatch, "File the dentist note under Health", session=session)[0]
+    assert forced and "edit_note" in first
+    assert not {"create_category", "rename_category", "merge_categories", "delete_category"} & set(first), first
+
+
 def test_filing_under_a_category_that_does_not_exist_may_still_create_it(monkeypatch, app_state, session):
     first, forced = _rounds(monkeypatch, "File the dentist note under Health", session=session)[0]
     assert forced and "edit_note" in first

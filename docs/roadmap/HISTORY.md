@@ -281,6 +281,210 @@ click, resumable. Gate: fake-transport tests for scoring and resume;
 
 **State 2026-09-24:** (c), I8.
 
+## Moved from the plans, 2026-10-05 (row 23: time travel)
+
+### From WORLD_CLASS_PLAN.md, I5 and H8: "what did I think about X in March?"
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A note's text at an instant (`timetravel.text_as_of`): the content of the first revision stamped after it, else the note now; a note written later did not exist; private and binned notes are not read; `exact=False` when every kept revision (`MAX_REVISIONS`) is newer, so older edits may have been pruned | no reader of the past | a note edited on three dates reads as each version on a day inside each span | `tests/test_time_travel_spec.py` (8) |
+| `POST /chat/stream` takes `as_of` (a day): candidates are today's matches (20) and every note whose kept revisions match the question, each read as at the end of that day in the user's time zone, ranked by shared words; records and the prompt carry the text then ("written ..., as it read on 15 March 2026"); the turn runs without tools, which read the notebook now; `meta` carries `as_of` and each record's revision | no `as_of` | the March answer reads 32 where today's note says 64, record and answer alike; before the first note, "There are no notes from on or before 1 January 2025 to answer from", with no model | same file; 200 candidates rewound in under 1 s (the spec's gate) |
+| `GET /entries/{id}/then-and-now?as_of=` and `POST` with a version's text: the sentences then against now, paired by shared distinctive words (Jaccard 0.2: the fixture's revised pair shares 2 of 9, the unrelated pair 0) as revised, dropped or new | none | the fixture: one revised, one dropped, one new; a day before the note existed is a 404 that says so | same file |
+| Ask: a clock button in the box opens the Ask scope's own line, "Answer from my notes as they were on [day]" with Back to now (`showAskAsOf`, `askAsOf`), no day after today; History: Then and now on an earlier version, under the row, "Changed" (then above now), "No longer says", "Says now" | | at 1440 and 390, light and dark: the line inside the box's width, no page scroll; the records and the answer from the version then; Back to now clears it; the block inside the sheet, 0 errors | `scratchpad/ui-sweeps/ai1005-timetravel.js` |
+
+Help moved with it: the Guide's note-history and ask-chat topics. Not built,
+from the spec: a model's judgement over the claim pairs; past texts
+re-embedded for retrieval (ranked by words instead); `GET
+/entries/{id}/claims?as_of=` (derived claims carry no `revision_id`); H8's
+month grouping and a slider rather than a day picker.
+
+## Moved from the plans, 2026-10-05 (H4, the 3B pass)
+
+### From AGENT_SKILLS_REFORM.md, H4: the first real 3B pass after the first-round fixes
+
+Qwen2.5-3B-Instruct Q4_K_M, llama-server `--jinja -t 2`, whole turns through
+`/chat/stream` (`scratchpad/harness_probe.py`, four notes in Work, Health
+and Travel), four cores at load 14 to 22, 2 to 12 minutes a round.
+
+| Request | First call | Turn ended |
+| --- | --- | --- |
+| File the dentist note under Health (1) | `rename_category {"old": "note 2", "new": "Health"}`, refused | truthfully: "already categorised under Health" |
+| File the dentist note under Health (2) | `edit_note {"note_id": 2, "category": "Health"}` | "filed under Health" |
+| Move the plumber note to Home | `edit_note {"note_id": 1, "tags": ["Home"]}` | **falsely**: "moved from Work to Home" |
+| Pin my dentist note | `pin_note {"note_id": 2, "pinned": true}` | **contradicting itself**: the claim net read "added to Favourites" as a saved note, nudged, a duplicate pin was intercepted, and a heads-up went on the end |
+| Tag my plumber note with urgent | `tag_note {"note_id": 1, "add": ["urgent"]}` | right |
+| Add 'bring a rain jacket' to my Snowdon trip note | `edit_note` with the old text kept and the line added | right |
+| Make a note: buy oat milk and eggs | `create_note` | right (filed by the app under Work) |
+
+A right first tool 6 of 7; a turn that ended telling the truth 5 of 7. The
+three faults, fixed with a test each, then re-run on the 3B: "File ... under
+Health" `edit_note` first and said right; "Move ... to Home" read the notes
+and asked before editing, no claim; "Pin ..." `pin_note` first, then the
+model server was OOM-killed mid-answer (the sandbox's memory limit), so that
+ending is unmeasured:
+
+| What | Gate |
+| --- | --- |
+| A forced filing round under a category that exists is offered no tool that reshapes the category tree (`agent._CATEGORY_TREE_TOOLS`), only `create_category` before | `tests/test_harness_tiers.py::test_filing_under_a_category_that_exists_is_offered_no_category_tool` |
+| `edit_note` says what changed and the category the note is still in: "Updated note #1: tags now Home; still in Work" (`result["changed"]`), "Updated note #1" before | `tests/test_tool_contracts.py::test_an_edit_says_what_changed_and_what_did_not` |
+| "Added" is read by what it was added to (`agent._ADDED_TO`): to Favourites is a pin, a tag is a tag, to a note is an edit; the same words with nothing run are still claims | `tests/test_claimed_work.py` (6 cases) |
+| From the loose-ends eval (CHAT_PLAN Phase 4, 2 of 8 found): a read written in prose with its JSON arguments, `list_notes({"category": "General"})`, is recovered as the call (`provider.extract_text_tool_calls`, pass 5); a write in the same shape still needs a marker, so a description costs a round at most | `tests/test_tool_call_dialects.py` (2) |
+
+## Moved from the plans, 2026-10-05 (the harness does the arithmetic)
+
+### From AGENT_SKILLS_REFORM.md, "The harness does the work the model is worst at" (decided 2026-09-21)
+
+| Consequence | State | Gate |
+| --- | --- | --- |
+| 1. `set_reminder` takes a phrase, resolved by the app (`ai/when.py`), the ISO field kept as an escape hatch | built (INBOX 527, defect 3) | `tests/test_when.py` with no model reachable |
+| 1. Every other tool taking a computed value: the audit | **done 2026-10-05**: one ISO date-time is left (`set_reminder.due_at`, the escape hatch); `since` on `list_notes` and `count_notes` took "the last N days or an ISO date", so "this week" was the model's arithmetic. It now takes the user's words (`when.days_since`: today, yesterday, this week, last week, since Friday, this month, last month, this year, the last 30 days, 3 days ago, 1 September, an ISO date, a number), counted on the user's calendar. `summarize_notes.days` is a number the user says, intent | `tests/test_when.py` (22 cases) |
+| 2. The prompt stops teaching arithmetic | built: the "still today" sentence went with 1 (INBOX 527); the week ahead stays by a later reasoned decision (`agent.py`): placing a note's "due Friday" is reading, not a tool argument | `tests/test_prompt_prefix_stability.py` |
+| 3. The skills' steps get the same audit | **done 2026-10-05**: "Daily review" fetched the clock "so any reminder lands on the right date" before setting reminders; the step is gone and the reminder step says to put the time in `when` in the user's own words. "Plan with reminders" keeps its clock step: laying a plan out between now and a deadline is the model's plan, not a tool argument | `tests/test_skills.py::test_no_built_in_step_asks_the_model_for_the_time_to_set_a_reminder` |
+
+The section's text as it stood, for the record:
+
+#### The decision, 2026-09-21
+
+The owner, after being shown a prompt patched to teach a model what day it
+is: "that's bad harness design. the harness and skills need to be flawless.
+for all ai features, they need to be lightweight and insanely good, fast,
+good quality, not too context heavy and more."
+
+He is right, and the codebase convicts itself. **This app already owns a
+deterministic time resolver and does not use it where it matters most.**
+`entry/timewords.py` turns "tonight", "next Friday" and "in three days" into
+real instants with regular expressions and arithmetic against the user's own
+clock, and its own docstring explains why it is deterministic: it runs on
+every note saved, including with no model running. `ai/reminder_parser.py`
+does the same job for a typed reminder. And yet `set_reminder`, the tool the
+model calls, takes a raw `due_at` and does `datetime.fromisoformat` on it, so
+the single place where a small model is weakest, date arithmetic, is the one
+place the harness insists the model do it alone.
+
+The result is in the owner's transcript: asked for a reminder two hours
+before midnight, the model reasoned "midnight for today, September 21st, is
+2026-09-22T00:00, two hours before midnight is 2026-09-22T22:00", keeping the
+midnight's date and changing only the time, and set the reminder for the
+wrong night.
+
+**The rule, which is what this section exists to state.** A tool argument is
+either something only the model can supply, which is intent, or something the
+app can compute, which is a fact. Intent belongs in the schema. A fact the
+app can compute does not, and asking for it converts a deterministic answer
+into a probabilistic one. "Remind me two hours before midnight" is intent;
+`2026-09-22T22:00` is a computation, and the app is better at it than any
+model it will ever run, for free, offline, every time.
+
+Three consequences, each of which also makes the prompt lighter, which is the
+owner's other point:
+
+1. `set_reminder` takes a phrase and resolves it with `timewords`, keeping
+   the ISO field as an escape hatch for a model that genuinely has one. Every
+   other tool taking a computed value is found and given the same treatment;
+   two take an ISO date-time today.
+2. The prompt stops teaching arithmetic. The weekday and week-ahead lines
+   added on 2026-09-21 are **interim**, worth their 245 characters only until
+   the tool stops needing them, and they come out in the same commit that
+   lands 1. A prompt that grows every time a model gets something wrong is a
+   prompt that will keep growing.
+3. A skill's steps get the same audit. A step that asks the model to compute
+   something the app knows is the same fault at a larger scale, and skills
+   run unattended, where a wrong answer is not caught by the person reading
+   it.
+
+**Gate.** A test that asks for a reminder in the shapes people actually use,
+"two hours before midnight", "Friday night", "tomorrow morning", with a fake
+model that returns only the phrase, and asserts the resolved instant. It must
+pass with no model reachable at all, which is the proof that the arithmetic
+left the model.
+
+**Not verified.** How many other tool arguments are computations rather than
+intent: two take an ISO date-time, and the rest of the surface has not been
+read with this question in mind. That audit is the first step.
+
+
+## Moved from the plans, 2026-10-05 (INBOX 63 and 45)
+
+### From CHAT_PLAN.md, the Ask sub-tab, Write with the AI and Capture
+
+Every decision line of 63 read against the app at head
+(`scratchpad/ui-sweeps/ai1005-capture63.js`, `ai1005-desk63.js`,
+`ai1005-asklayout.js`, 1440 and 390, light and dark, 0 errors).
+
+| Line | State | Evidence |
+| --- | --- | --- |
+| Capture: title, strip and box one framed field | built (INBOX 560) | the composer is one box |
+| Capture: six buttons collapse to Attach, Dictate, Improve | superseded by INBOX 395 (the owner, 2026-09-23, on the same row): a toolbar of four that add and Improve set apart by a hairline | five unframed controls on one 8.5rem label column |
+| Capture: the selects on one settings row with the space note | built | "Filing" row with Add to document; the space note under it |
+| Capture: Save primary, Save as draft ghost; Ctrl+Enter saves | built (INBOX 432) | |
+| Capture: a live "N words · reading time" in the foot | **built now** | "12 words · under a min read" for a twelve-word note (was "61 characters"), at the documents' 220 words a minute |
+| Write: two panes, one shared toolbar, Draft primary, Undo; Extract and Discard ghost | built (Extract and Discard behind the head's menu) | |
+| Write: tone and length a segment | superseded: three selects, the shapes the chat dock uses (WORLD_CLASS_PLAN D16) | |
+| Write: the draft pane in the body font | **built now** | system-ui at 16px, as the thoughts box (was the mono stack at 13.6px) |
+| Write: a word count per pane | **built now** | "4 words" over the thoughts beside "6 words" over the draft, the two heads level at 1440 |
+| Write: the tag field beside Save | built (a Tags row over Copy, Insert, Save) | |
+| Ask: answer and records as two columns | built (INBOX 297 to 300) | 529px each at 1440 |
+| Ask: answer unframed | superseded by consistency rule 6: the answer renderer is one component in three places | |
+| Ask: "Ask again" as a row | built | |
+| Ask: a Sources foot with every grounded note | built (INBOX 300) | "4 of 4 from your notes" |
+| Ask: an Answer style segment (Brief, Detailed, Bullets) | superseded by §11: the presets are served (`/chat/modes`) and the Ask select is one of two pickers of the one preference | |
+| Ask: Enter asks, Esc clears | **Esc built now** | a typed question cleared by Escape; an empty box lets Escape through |
+
+Found on the way and fixed: an answer selects its question so typing
+replaces it, and the selection menu read that as writing and opened over the
+answer's sources wherever the pointer last was (1 of 1 answers before, 0
+after, at 1440 and 390). The Ask box carries `data-query` and
+`fieldSelection` leaves it alone, as it does a search box.
+`tests/test_desk_counts_63.py`.
+
+## Moved from the plans, 2026-10-05 (CHAT_PLAN's placed items)
+
+### From CHAT_PLAN.md, INBOX 71, 72 and 76 and the owner's 2026-09-09 evening batch
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| 76: precision and recall over twenty hand-marked answers (four cases added: a two-note sentence, two unsupported sentences, a two-sentence single source, a bike log), and the citation peek names the words the mark matched on (`grounding._mark` carries `terms`, at most six in the sentence's order; "Matched on" under the passage, one line, cut with an ellipsis) | sixteen cases, an attribution rate only; a wrong number looked as right as any other | precision 26 of 26, recall 26 of 26; the line drawn at 1440 and 390, light and dark, 17px tall, inside the card, 0 errors | `tests/test_grounding_fixtures.py::test_precision_and_recall_over_the_twenty_answers`, `::test_a_mark_names_the_words_it_matched_on`; `scratchpad/ui-sweeps/ai1005-citeterms.js` |
+| 71 (c): Settings, Tools it can use, grouped by what a tool does: Reads your notebook (29), Changes your notebook (21), Asks you first (6), Reaches the web (2), each under an `h4.setting-subhead` spanning both columns; the filter hides a group's head with its last row (`tool_catalog` carries `group`) | one flat list of 58 | four groups; "delete" leaves one head and 5 rows; no page scroll at 1440 or 390 | `tests/test_tool_catalog_groups.py`; `scratchpad/ui-sweeps/ai1005-toolgroups.js` |
+| 71 (a) and (b), checked built: the Web panel's result rows (a letter tile for the site, the domain above the title, the snippet, Read here and Open; a read page saves as a note), and Extract notes' review list (a Keep checkbox, title, text and tags editable per note, links kept or dropped, nothing saved before Save notes) | | as decided | `chat.js` `buildWebResultRow`; `chat-attach.js` `renderExtractPreview` |
+| 72, checked built: the popup agent's redesign | | `7002cd9` (INBOX 126) | HISTORY, INBOX 126 |
+| The evening batch, checked at head: the answer head ("ANSWERED BY" and Retry, Copy, Read aloud on two rows) | 55.6 to 91.6px over two lines | 32px, one line, three centres equal, at 1440, 1024 and 820 with a short and a long model name, 0 errors | `scratchpad/ui-sweeps/askhead.js` |
+| The bottom row of the chat dock and the Skills button beside the buttons around it | Skills on a row of its own above two buttons; the mode pair and gear pinned right across a long gap | the owner's own later layout (Skills, Web and Plan on the left, the mode pair and settings on the right): one strip, gaps of 8px between groups, every button 32px, at 2000 and 1440 | `scratchpad/ui-sweeps/ai1005-chatstrip.js` |
+| The chat panel's shadow reaching down into the gap under it | | `0 2px 8px` at 5% against a 52.8px gap to the window's foot | `scratchpad/ui-sweeps/chatshadow.js` |
+
+Found on the way: `scratchpad/fake_answer_server.py` answered every
+question "I could not find anything in your notes" since SEC-02 fenced a
+note's words onto the lines after its header; it folds the fence back now.
+
+## Moved from the plans, 2026-10-05 (row 20)
+
+### From WORLD_CLASS_PLAN.md, I7: the "Learned from you" line
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| Settings, What it learned: "Learned from you: N corrections. Filing accuracy A% to B% over the last K notes it filed." (`#learned-from-you`, `renderLearnedFromYou`), from `GET /learned/summary` (`learning.filing_accuracy`): a note the AI filed is one whose `filing_state` says so or one the person refiled; right if never moved; older half of the last 200 against the newer half, one number under 10 a half, hidden with nothing to say | no line; the number existed nowhere | 24 notes filed by the app, 5 moved by hand (4 older, 1 newer): "5 corrections. Filing accuracy 67% to 92% over the last 24 notes it filed", the fixture's own 8 of 12 and 11 of 12 | `tests/test_learned_accuracy.py` (5); `scratchpad/ui-sweeps/ai1005-learned.js` at 1440 and 390, light and dark: shown, 15px under the description, left edges equal, no page scroll, 0 errors |
+| Found on the way: every refile made in the app was invisible to the filing prompt and the centroid exclusion. `manager.update_entry` writes "moved from X to Y" in `detail`, and `learning.corrections(kind="refile")` narrowed its SQL on a "refile:" prefix | a refile by hand reached `corrections(kind="refile")` 0 of 1 times | 1 of 1 | `test_a_move_by_hand_out_of_an_auto_filed_category_reaches_the_refile_reader` |
+
+Help moved with it: the section's '?' popover and the Guide's "learned" topic.
+
+## Moved from the plans, 2026-10-05 (row 19)
+
+### From WORLD_CLASS_PLAN.md, B5 and section 9: contracts, forced JSON, the two caveat shapes
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| Pre and post conditions per tool, checked in Python (`ai/tools/contracts.py`, run by `execute_tool` after `check_arguments`): sixteen write tools; a precondition refuses with one line naming what to do, a postcondition re-reads the rows and turns a claim that did not hold into an error; a checker's own fault is skipped, never the write | `link_notes` to #4 and a missing #99 linked #4 and said done; `tag_note` with nothing to change was a success; `edit_note {"category": "Heath"}` beside "Health" made a second category; nothing re-read a row after a write | refused before any write, naming #99 and "Health"; a case spelling ("health") files under the existing one; a new name is still allowed (B5's "refuses a category that does not exist" taken as "refuses a near miss": a new category is a real request, the duplicate is the harm) | `tests/test_tool_contracts.py` (12) |
+| A bug the postcondition found on its first run: `tag_note` removed tags case-sensitively, so "remove urgent" left "Urgent" while the label said it was gone | 1 of 1 left | folded, as `manager.edit_tags_on_notes` already was | `test_every_postcondition_passes_on_the_real_handlers` |
+| Grammar-forced JSON on Ollama: the forced first round (`agent._requires_a_call`) carries `format`, a schema of the call (`OllamaClient.forced_call_format`: a name out of the offered ones, an arguments object); the JSON comes back as content and the text-dialect recovery reads it as the call; an Ollama that refuses the schema gets the round again unforced | Ollama's `chat_tools_stream` took no `tool_choice`, so the forced round fell back to unforced on Ollama (a `TypeError` caught in `_round_stream`); llama.cpp had it through `tool_choice: "required"` | forced on both backends | `tests/test_provider_sockets.py` |
+| Concurrent calls at index 1, streamed interleaved over a real socket (`scratchpad/fake_openai_server.py --calls 2`: index 1 announced in index 0's first argument delta, pieces alternating) | only one call at index 0 had met a socket | both calls whole, through the client and the unstreamed path | same file |
+| Ollama's native tool-call dialect over a real socket (`scratchpad/fake_ollama_server.py`: calls as objects with `function.index`, two in one message, NDJSON) and one whole `/chat/stream` turn on it | no Ollama tool path had met a socket | both calls dispatched, both results sent back, the turn answered | same file |
+
+**Not verified.** Every shape above is written from each API's
+documentation and the llama-server captures in AGENT_SKILLS_REFORM H4; no
+real Ollama has run in this sandbox (no binary), so whether a real Ollama
+accepts the call schema in `format` beside `tools`, and whether its own
+parser or the text recovery takes the call, is reasoned. The 3B and 4B evals
+are still to run.
+
 ## Moved from the plans, 2026-10-05 (a frame as an export scope)
 
 ### From WHITEBOARD_PLAN.md, decision 14's open edges (decision 18)

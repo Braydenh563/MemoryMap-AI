@@ -628,7 +628,7 @@ Gate: on the eval fixtures, a 3B model completes ≥ 80% of built-in skills
 with zero invalid tool calls; every run shows plan, steps, verification and
 an undo button.
 
-**State 2026-09-24:** (b) built: the verifier and budget (Brief 13, `tests/test_harness_verifier.py`), small-model mode in `run_agent` (audit A4), learning from filing corrections (`ai/learning.py`). Open: pre and post conditions per tool checked in Python, grammar-forced JSON, and the 3B gate (evals at 80%), which is section 9's breadth. M.
+**State 2026-10-05:** (b) built: the verifier and budget (Brief 13, `tests/test_harness_verifier.py`), small-model mode in `run_agent` (audit A4), learning from filing corrections (`ai/learning.py`), and (row 19) pre and post conditions per tool (`ai/tools/contracts.py`) and the forced round decoded under a call schema on Ollama (llama.cpp already had it through `tool_choice`): HISTORY.md, "Moved from the plans, 2026-10-05 (row 19)". Open: the 3B gate (evals at 80%) and a 4B pass, which is section 9's breadth and needs a real model.
 
 ### B6 Local-first sync (L, later; design now)
 
@@ -825,6 +825,15 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 23 | I5, H8 | time travel: `as_of` on chat, then-and-now | M | `routes_chat.py` |
 | 24 | ~~D9~~ | ~~the web clipper~~ built 2026-10-05: `POST /links/clip-page` from the browser, the Clip to MemoryMap bookmark and `clip.html` (`tests/test_webclip_page.py`) | done | HISTORY |
 | 25 | H6, §5.7 | ~~Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete; a WCAG audit; a first-run path timed to a first answer~~ built 2026-10-05 (HISTORY); left: multi-window | M | H6 |
+
+| 18 | B4 | typed links, a derived tensions table, rebuild determinism, the Tensions widget | M to L | `ai/tensions.py`, `ai/entities.py` |
+| 19 | B5, §9 | ~~per-tool pre and post conditions, grammar-forced JSON, concurrent tool calls, Ollama's native dialect~~ built 2026-10-05 (`ai/tools/contracts.py`, `OllamaClient.forced_call_format`, `tests/test_tool_contracts.py`, `tests/test_provider_sockets.py` over a real socket); left: evals at 3B and 4B on a real model, and a real Ollama | M | HISTORY; `tests/test_skills_evals.py` |
+| 20 | ~~I7~~ | ~~the "Learned from you" line with a filing accuracy number~~ built 2026-10-05 (`learning.filing_accuracy`, `GET /learned/summary`, `tests/test_learned_accuracy.py`); 24 notes, 5 moved: 67% to 92% | done | HISTORY |
+| 21 | I8, H3 | the model bench | M | a new `ai/bench.py` |
+| 22 | I2, H8 | the margin reader (after row 6's chunks) | M | `documents.js`, a new `/editor/read` |
+| 23 | ~~I5, H8~~ | ~~time travel: `as_of` on chat, then-and-now~~ built 2026-10-05 (`ai/timetravel.py`; 200 candidates rewound in under a second); left: a model's judgement over the pairs, past texts re-embedded, cards grouped by month | done | HISTORY |
+| 24 | D9 | the web clipper | M | `routes_bookmarks.py`, `core/security.py` |
+| 25 | H6, §5.7 | Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete; a WCAG audit; multi-window; a first-run path timed to a first answer | M to L each | H6 |
 | 26 | H7 | boot JS under 1 MB (1,072 KB now), first paint under 300 ms, every list over 200 rows virtualised | S each | `boottime.js` |
 | 27 | ~~H9~~ | ~~usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval~~ built 2026-10-05 (HISTORY); left: `boottime.js` in the CI workflow | S | HISTORY |
 | 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure; the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
@@ -1202,7 +1211,7 @@ empty, honest answer rather than today's.
 **Gate.** As-of retrieval under 1s at 5k notes for a 200-candidate set.
 **Size** M. **Model** Opus.
 
-**State 2026-09-24:** (c) not built: no `as_of` on `/chat/stream`, no then-and-now. M, Opus.
+**State 2026-10-05:** (b) built (row 23): `as_of` on `/chat/stream`, `GET` and `POST /entries/{id}/then-and-now`, the clock on Ask and Then and now in a note's History (`ai/timetravel.py`, `tests/test_time_travel_spec.py`): HISTORY.md, "Moved from the plans, 2026-10-05 (row 23: time travel)". Not built: the model's judgement over the claim pairs (the pairing is by shared words), re-embedding past texts (as-of retrieval ranks then-texts by words), `GET /entries/{id}/claims?as_of=` (claims carry no `revision_id`), and the answer's cards grouped by month (H8).
 
 ### I6 Evidence cards: answers you can audit sentence by sentence
 
@@ -1257,6 +1266,8 @@ corrections improves by at least 10 points; search p95 unchanged. **Size**
 M. **Model** Opus for the prompt and fusion changes, Sonnet for the panel.
 
 **State 2026-09-24:** (b) the loop is built (`ai/learning.py`: corrections as `AuditLog` rows by decision, boosts with decay, the centroid exclusion, `open_after_ask`). Corrected 2026-10-05 (audit ARCH-08): the centroid exclusion had no caller and the corrections query could not see the re-files `update_entry` records; both are wired now (`janitor._semantic_category`, `tests/test_save_cost_flat.py`); the "Learned from you" line with a filing accuracy number is not in Settings. S.
+
+**State 2026-10-05:** (b) the loop's store is built (`ai/learning.py`: corrections as `AuditLog` rows by decision, boosts with decay, `open_after_ask`), but the filing consumer is not wired: `centroid_excluded` and `filing_evidence` have no caller (audit ARCH-08, Brief B's), and until 2026-10-05 a refile made in the app never reached them anyway (`corrections(kind="refile")` missed it, fixed in row 20). The "Learned from you" line with a filing accuracy number is in Settings (row 20): HISTORY.md, "Moved from the plans, 2026-10-05 (row 20)". Left: the gate's eval (filing accuracy with 20 synthetic corrections up 10 points) needs a real model, and "wrong" on an evidence card as a correction.
 
 ### I8 The model bench: which local model is best on *your* notebook
 
@@ -1782,6 +1793,8 @@ under each. Both reuse B3; both gate on the 150 ms budget for a
 keystroke-to-margin update.
 
 **State 2026-10-05:** I2, the margin reader, built for documents (HISTORY, "the margin reader"); I5 open (row 23).
+
+**State 2026-10-05:** I5 (b), built as row 23 (HISTORY.md, "Moved from the plans, 2026-10-05 (row 23: time travel)"), without the month grouping or a date slider (a day picker); I2 (c).
 
 ### H9 Polish in use (the owner's question, 2026-09-14; S to M each)
 

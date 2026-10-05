@@ -377,7 +377,14 @@ def _since_days(value) -> int | None:
     try:
         when = datetime.fromisoformat(str(value))
     except ValueError:
-        return None
+        #: The user's own words ("this week", "since Friday", "last month"),
+        #: counted on their calendar by `ai/when.py` (AGENT_SKILLS_REFORM, the
+        #: audit of arguments the app can compute): the model no longer has
+        #: to work out which date "this week" began on.
+        from memorymap.ai import when as when_words
+        from memorymap.core.config import user_now as now_for
+
+        return when_words.days_since(str(value), now_for(deps.get_config()))
     days = (datetime.now(tz=when.tzinfo) - when).days
     return max(0, days)
 

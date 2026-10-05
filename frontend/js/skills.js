@@ -961,58 +961,85 @@ async function renderToolSettings() {
   renderRunBudget(prefs);
   const disabled = new Set(prefs.disabled_tools || []);
   list.replaceChildren();
-  for (const tool of catalog) {
-    const li = document.createElement("li");
-    //: What a Tools and features row for this tool lands on (`ai-tool` in
-    //: REVEAL_TARGETS).
-    li.dataset.tool = tool.name;
-    const label = document.createElement("label");
-    label.className = "tool-row setting-check";
-    const check = document.createElement("input");
-    check.type = "checkbox";
-    check.checked = !disabled.has(tool.name);
-    // web_search is gated by the separate online opt-in, show why it's off.
-    if (tool.online && !tool.enabled && !disabled.has(tool.name)) {
-      check.checked = false;
-      check.disabled = true;
-      check.title = "Enable web search in Preferences first";
-    }
-    check.addEventListener("change", () => saveToolSwitch(check, tool.name));
-    const text = document.createElement("span");
-    const name = document.createElement("strong");
-    name.textContent = tool.name.replace(/_/g, " ");
-    text.append(name);
-    // The chips sit on their own line under the name, not after it on the
-    // same one: the switch is centred on the name's line (the grid in
-    // 03-dashboard-widgets.css), and a chip that wrapped would have made
-    // that line two lines tall and pulled the switch off the name again.
-    if (tool.destructive || tool.online) {
-      const tags = document.createElement("span");
-      tags.className = "tool-tags";
-      if (tool.destructive) tags.append(chip("confirms first", "item-label is-warn"));
-      if (tool.online) tags.append(chip("online", "item-label"));
-      text.append(tags);
-    }
-    const desc = document.createElement("span");
-    desc.className = "muted tool-desc";
-    desc.textContent = tool.description;
-    desc.title = tool.description || ""; // clamped to two lines; the whole of it on hover
-    // The description goes *inside* the label's text column, not beside the
-    // label in the <li>. That is what lets this row be `.setting-check`'s
-    // grid, name and description stacked in column one, switch hard right , 
-    // instead of a flex row whose switch tracked the length of each name.
-    // It also makes the description part of the control's own hit area, the
-    // way the hint under every other setting already is.
-    text.append(desc);
-    label.append(check, text);
-    li.append(label);
-    // Matched against by the filter below. Stored on the row rather than
-    // re-read from the DOM on every keystroke, and lower-cased once here
-    // instead of once per row per keystroke.
-    li.dataset.search = `${tool.name} ${tool.description || ""}`.toLowerCase().replace(/_/g, " ");
-    list.appendChild(li);
+  //: Grouped by what a tool does to the notebook (CHAT_PLAN, INBOX 71: "a
+  //: grouped table (read, write, destructive)"), each group under an
+  //: `h4.setting-subhead` (DESIGN.md: a subdivision inside a group) that
+  //: spans both columns. Within a group, the catalog's own order.
+  for (const [key, title] of TOOL_GROUPS) {
+    const members = catalog.filter((t) => (t.group || "read") === key);
+    if (!members.length) continue;
+    const head = document.createElement("li");
+    head.className = "tool-group-head";
+    head.dataset.group = key;
+    const h4 = document.createElement("h4");
+    h4.className = "setting-subhead";
+    h4.textContent = title;
+    head.append(h4);
+    list.append(head);
+    for (const tool of members) appendToolRow(list, tool, disabled, key);
   }
   applyToolFilter();
+}
+
+//: The four groups, in the order a person scanning for risk reads them.
+const TOOL_GROUPS = [
+  ["read", "Reads your notebook"],
+  ["write", "Changes your notebook"],
+  ["confirm", "Asks you first"],
+  ["online", "Reaches the web"],
+];
+
+function appendToolRow(list, tool, disabled, group) {
+  const li = document.createElement("li");
+  li.dataset.group = group;
+  //: What a Tools and features row for this tool lands on (`ai-tool` in
+  //: REVEAL_TARGETS).
+  li.dataset.tool = tool.name;
+  const label = document.createElement("label");
+  label.className = "tool-row setting-check";
+  const check = document.createElement("input");
+  check.type = "checkbox";
+  check.checked = !disabled.has(tool.name);
+  // web_search is gated by the separate online opt-in, show why it's off.
+  if (tool.online && !tool.enabled && !disabled.has(tool.name)) {
+    check.checked = false;
+    check.disabled = true;
+    check.title = "Enable web search in Preferences first";
+  }
+  check.addEventListener("change", () => saveToolSwitch(check, tool.name));
+  const text = document.createElement("span");
+  const name = document.createElement("strong");
+  name.textContent = tool.name.replace(/_/g, " ");
+  text.append(name);
+  // The chips sit on their own line under the name, not after it on the
+  // same one: the switch is centred on the name's line (the grid in
+  // 03-dashboard-widgets.css), and a chip that wrapped would have made
+  // that line two lines tall and pulled the switch off the name again.
+  if (tool.destructive || tool.online) {
+    const tags = document.createElement("span");
+    tags.className = "tool-tags";
+    if (tool.destructive) tags.append(chip("confirms first", "item-label is-warn"));
+    if (tool.online) tags.append(chip("online", "item-label"));
+    text.append(tags);
+  }
+  const desc = document.createElement("span");
+  desc.className = "muted tool-desc";
+  desc.textContent = tool.description;
+  desc.title = tool.description || ""; // clamped to two lines; the whole of it on hover
+  // The description goes *inside* the label's text column, not beside the
+  // label in the <li>. That is what lets this row be `.setting-check`'s
+  // grid, name and description stacked in column one, switch hard right , 
+  // instead of a flex row whose switch tracked the length of each name.
+  // It also makes the description part of the control's own hit area, the
+  // way the hint under every other setting already is.
+  text.append(desc);
+  label.append(check, text);
+  li.append(label);
+  // Matched against by the filter below. Stored on the row rather than
+  // re-read from the DOM on every keystroke, and lower-cased once here
+  // instead of once per row per keystroke.
+  li.dataset.search = `${tool.name} ${tool.description || ""}`.toLowerCase().replace(/_/g, " ");
+  list.appendChild(li);
 }
 
 //: Narrow a fifty-one item list, and say how many are on.
@@ -1033,12 +1060,20 @@ function applyToolFilter() {
   const empty = $("tool-filter-empty");
   if (!list) return;
   const needle = (box?.value || "").trim().toLowerCase();
-  const rows = [...list.children];
+  const rows = [...list.querySelectorAll(":scope > li[data-tool]")];
   let shown = 0;
+  const groupsShown = new Set();
   for (const row of rows) {
     const hit = !needle || (row.dataset.search || "").includes(needle);
     row.classList.toggle("hidden", !hit);
-    if (hit) shown++;
+    if (hit) {
+      shown++;
+      groupsShown.add(row.dataset.group);
+    }
+  }
+  //: A group's head goes with its last matching row.
+  for (const head of list.querySelectorAll(":scope > li.tool-group-head")) {
+    head.classList.toggle("hidden", !groupsShown.has(head.dataset.group));
   }
   empty?.classList.toggle("hidden", shown > 0 || !rows.length);
   if (count) {

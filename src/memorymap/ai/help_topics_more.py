@@ -124,7 +124,9 @@ MORE_TOPICS: list[dict] = [
         ),
         "body": (
             "Settings, Tools it can use lists the actions Atlas may take in "
-            "Agent mode; turn one off and it is never offered. Destructive "
+            "Agent mode, grouped as Reads your notebook, Changes your notebook, "
+            "Asks you first and Reaches the web; turn one off and it is never "
+            "offered. Destructive "
             "actions always ask you first, and once Atlas has read a web page, "
             "a file, or a note clipped or imported from outside, every change "
             "and every web request asks too. How many are offered at once: Only "
@@ -144,6 +146,7 @@ MORE_TOPICS: list[dict] = [
         "id": "learned",
         "keywords": (
             "what it learned", "learned", "worked out", "derived", "forget everything learned",
+            "learned from you", "filing accuracy",
             "read my notes now", "export what it learned",
             "while you were away", "disagree", "contradict", "answered later",
         ),
@@ -160,7 +163,10 @@ MORE_TOPICS: list[dict] = [
             "it was. Edit a row and no later run overwrites it; delete one and "
             "it is never worked out again. What may run switches each kind off; "
             "Read my notes now runs it; Export what it learned and Forget "
-            "everything learned act on all of it and never touch your notes."
+            "everything learned act on all of it and never touch your notes. "
+            "The Learned from you line under the title counts your corrections "
+            "and gives filing accuracy, the share of the notes Atlas filed that "
+            "you left where it put them, older half of the last 200 against newer."
         ),
         "badge": {"label": "What it learned", "section": "learned"},
     },
@@ -753,12 +759,18 @@ MORE_TOPICS.extend(
                 "note history", "who changed", "who edited", "changed my note",
                 "edited by atlas", "you and atlas", "two windows", "two tabs",
                 "edited twice", "conflict", "keep your version",
+                "then and now", "what did it say", "time travel", "as of",
             ),
             "body": (
                 "A note's History (in its menu) lists every change and whose it "
                 "was: You, Atlas, or You and Atlas (a save that took an Improve "
                 "writing suggestion), with the exact time on hover, and any "
-                "earlier version can be put back. It also says who filed the note "
+                "earlier version can be put back; Then and now on an earlier "
+                "version sets what it said against what the note says today, "
+                "sentence by sentence (Changed, No longer says, Says now). In Ask, "
+                "the clock button answers from your notes as they were on a day "
+                "you pick, and Back to now returns to today. It also says who "
+                "filed the note "
                 "and how sure, and a change made by an AI tool names the model "
                 "that made it. When the same note or document is edited in two "
                 "windows, a save over text changed elsewhere is refused and you "

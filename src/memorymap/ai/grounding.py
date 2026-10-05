@@ -700,7 +700,23 @@ def _mark(sentence: str, note_id: int, contents: dict[int, str]) -> dict:
     naming; the frontend already reads a missing span as "no highlight".
     """
     row = {"sentence": sentence, "note_id": note_id}
-    passage = best_passage(sentence, contents.get(note_id, ""))
+    content = contents.get(note_id, "")
+    passage = best_passage(sentence, content)
     if passage:
         row["start"], row["end"], row["score"] = passage
+    #: The sentence's words the mark matched on, in the sentence's order
+    #: (INBOX 76): the citation popover shows them, so a mark on the wrong
+    #: note is visible as the wrong words. From the passage when there is
+    #: one, the whole note otherwise; at most `MATCHED_TERMS_SHOWN`.
+    where = _word_set(content[row["start"] : row["end"]] if passage else content)
+    shown: list[str] = []
+    for term in _meaningful_terms(sentence):
+        if term in where and term not in shown:
+            shown.append(term)
+    row["terms"] = shown[:MATCHED_TERMS_SHOWN]
     return row
+
+
+#: How many matched words a mark carries to its popover: enough to tell two
+#: notes apart, few enough to stay one line.
+MATCHED_TERMS_SHOWN = 6

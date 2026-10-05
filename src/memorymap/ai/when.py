@@ -277,3 +277,103 @@ def parse_reminder_text(text: str, now: datetime) -> dict | None:
         "priority": priority,
         "source": "rule",
     }
+
+
+# --- a window in the past (AGENT_SKILLS_REFORM, the audit of computed arguments) ---
+#
+# `resolve` reads a time to come. The list tools' `since` asks the other way,
+# "notes from this week", and used to take only a number of days or an ISO
+# date, so a model asked about "this week" had to work out which date that
+# was: the arithmetic the 2026-09-21 decision took away from it everywhere.
+
+_UNIT_DAYS = {"day": 1, "week": 7, "month": None, "year": None}
+_SPAN = re.compile(
+    r"^(?:the\s+)?(?:last|past|previous)\s+(?:(\d{1,3}|[a-z-]+)\s+)?(days?|weeks?|months?|years?)$"
+)
+_AGO = re.compile(r"^(\d{1,3}|[a-z-]+)\s+(days?|weeks?|months?|years?)\s+ago$")
+
+
+def _months_back(today: date, months: int) -> date:
+    year, month = today.year, today.month - months
+    while month < 1:
+        month += 12
+        year -= 1
+    return date(year, month, min(today.day, 28))
+
+
+def _count(word: str | None) -> int | None:
+    if word is None:
+        return 1
+    if word.isdigit():
+        return int(word)
+    value = _NUMBERS.get(word)
+    return int(value) if value and value >= 1 else None
+
+
+def _span_days(amount: int, unit: str, today: date) -> int:
+    unit = unit.rstrip("s")
+    if unit == "day":
+        return amount
+    if unit == "week":
+        return 7 * amount
+    if unit == "month":
+        return (today - _months_back(today, amount)).days
+    return (today - today.replace(year=today.year - amount)).days
+
+
+def days_since(phrase: str, now: datetime) -> int | None:
+    """How many days back a window in the user's words starts, on `now`'s
+    calendar: "this week" 0 on a Monday, "since Friday", "last month" (from
+    the first of the month before), "the last 30 days", "3 days ago", "1
+    September" (the last one that has passed), an ISO date, or a bare
+    number of days. None for anything that names no past window, never a
+    guess, so a caller can say it did not understand rather than filter on a
+    wrong date."""
+    text = " ".join(str(phrase or "").lower().replace(",", " ").split()).strip(" .")
+    if not text:
+        return None
+    if text.isdigit():
+        return int(text)
+    today = now.date()
+    text = re.sub(r"^(?:since|from|after)\s+", "", text)
+    fixed = {
+        "today": 0,
+        "yesterday": 1,
+        "this week": today.weekday(),
+        "last week": 7,
+        "the past week": 7,
+        "past week": 7,
+        "this month": today.day - 1,
+        "last month": (today - _months_back(today, 1).replace(day=1)).days,
+        "this year": (today - date(today.year, 1, 1)).days,
+        "last year": (today - date(today.year - 1, 1, 1)).days,
+    }
+    if text in fixed:
+        return fixed[text]
+    found = _SPAN.match(text) or _AGO.match(text)
+    if found:
+        amount = _count(found.group(1))
+        return None if amount is None else _span_days(amount, found.group(2), today)
+    found = re.fullmatch(r"(?:last\s+)?(" + "|".join(_WEEKDAYS) + r")", text)
+    if found:
+        back = (today.weekday() - _WEEKDAYS[found.group(1)]) % 7
+        return back or 7
+    found = _ISO_DATE.fullmatch(text)
+    if found:
+        try:
+            day = date(*(int(g) for g in found.groups()))
+        except ValueError:
+            return None
+        return (today - day).days if day <= today else None
+    for pattern, day_group, month_group in ((_DAY_MONTH, 1, 2), (_MONTH_DAY, 2, 1)):
+        found = pattern.fullmatch(text)
+        if not found or _MONTHS.get(found.group(month_group)) is None:
+            continue
+        try:
+            day = date(today.year, _MONTHS[found.group(month_group)], int(found.group(day_group)))
+        except ValueError:
+            return None
+        if day > today:
+            day = day.replace(year=today.year - 1)
+        return (today - day).days
+    return None

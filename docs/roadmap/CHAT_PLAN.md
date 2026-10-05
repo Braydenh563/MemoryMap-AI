@@ -299,15 +299,18 @@ of 2026-09-20 (the `verify` control in the editor, the two audit skills that
 had no check, `count_notes`'s filters, and the page-cap question, now decision
 10h): see HISTORY.md, "Moved from the plans, 2026-09-20".
 
-**What is left, and why it is still left: the `evals` marker and its fixture
-set** (the loose-ends fixture with eight planted loose ends, the
-zero-invalid-calls count over the built-in skills). It wants the dev model
-script (WORLD_CLASS_PLAN 9) to be worth more than a restatement of the unit
-tests: a fake transport calls whatever its script says, so "80% of the skills
-complete with no invalid tool call" measured against one would be a
-measurement of the script. Nothing was built towards it this time, deliberately:
-a test module that can never run in CI is a feature that never ran once.
-See `docs/roadmap/archive/agent-remaining/brief-13-harness.md`.
+**The `evals` marker and its fixture set: built 2026-10-05**
+(`tests/test_skill_evals.py`, the seventy-note loose-ends fixture with eight
+planted in `tests/fixtures/chat/loose_ends.json`, and the zero-invalid-calls
+count over the built-in skills; a fixture check runs in every suite). Run
+once against Qwen2.5-3B-Instruct Q4_K_M (llama-server `-t 2`, four cores at
+load 13 to 22, 55 minutes): "Find loose ends" named **2 of 8** (the dentist,
+Priya) and one note that is not a loose end. Read from the run: the model
+wrote `list_notes({...})` into its prose and then "I cannot execute the tool
+call", so the paging never happened; that shape is now recovered as a call
+for a read (`provider.extract_text_tool_calls`, pass 5). **Still open**: the
+gate itself (8 of 8, and 80% of the skills with no invalid call) on a 3B
+after that fix, and the built-in skills pass, which is hours on these cores.
 
 ## 6. Consistency rules
 
@@ -373,79 +376,37 @@ the link sits.
 
 The owner's reports this plan owns, moved whole from INBOX.md with their numbers (never reused). Each becomes a phase row when its phase is written; until then this list is the phase.
 
-45. **The Ask sub-tab**: extra scroll, overflow, and the owner wants a
-    redesign with an integrated advanced search and more utility. Owner:
-    CHAT_PLAN Phase 1 (Ask) plus WORLD_CLASS 5.1 operators; the scroll
-    part is 33.
+~~45. The Ask sub-tab.~~ **Folded into 63 and closed with it, 2026-10-05.**
 
 ### Found by an agent while measuring something else (2026-09-08, graph)
 
-71. **Web search panel, function extraction UI, agent tools: "redesign
-    them and make them better, more utility and abilities"**. Owner:
-    CHAT_PLAN (next session, Opus): web search results as a source list
-    with favicon, domain, title and a one-line snippet, "Open" and "Save as
-    note" per result, persistent in the turn; the extraction UI (Extract
-    notes) as a review list with checkboxes and per-item edit before
-    saving; the Tools settings as a grouped table (read, write, destructive)
-    with a search box, per-tool on/off and a "why" popover.
-72. **Popup agent panel "still hasn't had its modern redesign"**. Owner:
-    CHAT_PLAN (next session, Opus), with INBOX 45's Ask redesign.
-76. **Inline citations must be accurate to the specific notes referenced
-    where they are referenced.** Owner: WORLD_CLASS §14 grounding (Fable):
-    the distinctive-terms rule already places numbers per sentence; add
-    the evaluation: a fixture of 20 answers with hand-marked sentence to
-    note pairs, precision and recall reported by `tests/test_grounding.py`,
-    and the popover (INBOX 80) shows the matched terms so a wrong number
-    is visible.
+~~71. Web search panel, extraction UI, agent tools.~~ **Built; checked and
+    finished 2026-10-05.** Moved to HISTORY.md, "Moved from the plans,
+    2026-10-05 (CHAT_PLAN's placed items)".
+~~72. Popup agent panel redesign.~~ **Built 2026-09-13** (`7002cd9`, INBOX
+    126); moved to the same HISTORY block.
+~~76. Inline citations accurate per sentence.~~ **Built 2026-10-05**:
+    twenty answers, precision 26 of 26 and recall 26 of 26, and the popover
+    names the matched words. Moved to the same HISTORY block.
 ~~80. Citation hover/click preview.~~ **Built 2026-09-26.** Moved to
     HISTORY.md, "Moved from the plans, 2026-09-26 (the Chat pass)".
 ~~90. User chat bubbles.~~ **Built; checked 2026-09-26.** Moved to
     HISTORY.md, "Moved from the plans, 2026-09-26 (the Chat pass)".
-63. **Redesign the Ask sub-tab, Write with the AI and Capture** (three
-    screenshots, 01:12; the owner: "modernise them and bring them up to
-    standard with features, function and ui ux"). Owner: Opus, next slot,
-    one brief (CHAT_PLAN's INBOX 45 folds in). Decisions: Capture keeps
-    its one-column form but the title, the formatting strip and the box
-    become one framed field (title as the first line, strip inside the
-    frame's top edge, no separate rounded strip), the six action buttons
-    collapse to Attach + Dictate + Improve with From library and Sketch
-    under Attach, the "Add to document" and "File under" selects move to
-    one settings row under the box with the space note, Save primary and
-    "Save as draft" ghost; a live "N words · reading time" in the foot;
-    Ctrl+Enter saves. Write with the AI becomes a two-pane editor with
-    one shared toolbar (Draft it primary; Undo, Extract notes, Discard
-    ghost; tone and length as a segmented control instead of a free
-    text hint, with the hint field behind it), the draft pane in the
-    body font not monospace, a word count per pane, and the tag field
-    beside Save. Ask keeps its layout and gets: the AI answer and the
-    matching records as two equal-height columns with their own scroll,
-    the answer box unframed (one panel, not a card in a card), the
-    "Ask again" chips as a scrolling row, a "Sources" foot listing every
-    grounded note with confidence, an Answer style segment (Brief,
-    Detailed, Bullets) replacing the select, keyboard: Enter asks,
-    Shift+Enter newline, Esc clears; the settings popover keeps its id.
+~~63. Redesign the Ask sub-tab, Write with the AI and Capture.~~ **Closed
+    2026-10-05**, line by line against what renders: the last four lines
+    built (a word count and reading time in Capture's foot, a word count on
+    each Write pane, the draft in the body font, Escape clearing the Ask
+    question), the rest built by earlier passes or superseded by a later
+    decision of the owner's, each named. Moved to HISTORY.md, "Moved from
+    the plans, 2026-10-05 (INBOX 63 and 45)".
 
 ## Placed from INBOX, 2026-09-09 (the owner's evening batch)
 
-- "at 100% and 95% zoom on my laptop, the ai answer with the ai model badge
-  and the retry, copy and dictate read out loud buttons are misalligned
-  because of wrap" (screenshot: the ANSWERED BY badge on the first line and
-  Retry / Copy / speak dropping to a second, overlapping row). The answer
-  header is one flex row that wraps without a reflow rule; measure it at
-  1440, 1366 and 1280 and at 95% and 100% zoom.
-- "can you make the skills button the width of the two buttons above it so
-  it looks neat and symmetrical?? is that a good design choice??" Yes, with
-  a caveat worth stating: matching the pair's combined width plus their gap
-  is the symmetry the eye reads, and it only holds while the row above has
-  exactly two buttons. Bind it to the row rather than to a fixed number.
-- "Im wondering if the elements in the bottom row of the chat dock should
-  be rearranged better??" (screenshot at full width: Skills, a divider, Web
-  and Plan, then a long gap, then Ask / Agent and a gear). The gap is the
-  problem, not the order: the mode pair and the gear are pinned right by
-  `margin-left: auto` while the left group sits at the far left of a 2000px
-  bar.
-- "in the chat tab, the main chat panel shadow actually reaches all the way
-  down on the gap."
+**All four checked built, 2026-10-05**, measured at head and moved to
+HISTORY.md, "Moved from the plans, 2026-10-05 (CHAT_PLAN's placed items)":
+the answer head on one 32px line, the Skills button inside the arranged
+strip, the strip's two ends by the owner's own later layout, the panel's
+shadow 2px by 8px against a 52.8px gap.
 
 ## Placed from INBOX, 2026-09-21 (the Ask sub-tab, four reports in one pass)
 

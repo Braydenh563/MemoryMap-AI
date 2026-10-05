@@ -7,6 +7,19 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (markers)
+
+### From MINDMAP_PLAN.md §12.2 item 4 (decision 34), the audit's M4
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A topic's markers: priority 1 to 5, progress, a flag, up to six Phosphor icons (`wbMapPaintMarkers`, `wbMapOpenMarkers`); View, Filter by marker (`wbMapChooseMarkerFilter`, `#wb-map-filter`); `priority`, `progress`, `flag`, `markers` validated in `WhiteboardObjectData`, carried by OPML and FreeMind as private attributes, kept by a look reset | a task box and one chosen icon were the only marks a topic could carry | five marks drawn before the label inside the topic's box, said as "Priority 2, 50% done, flagged, star, warning"; saved; Ctrl+Z takes back the last; the filter lists "Priority 2 (1)", "Flagged (1)", "Under way (1)", "Star (1)" and dims four of five topics to 0.28; Show all ends it | `scratchpad/ui-sweeps/mmd2-1005-markers.js` 9/9 at 1440x900 light and 390x844 dark; `test_mindmap.py` (`test_markers_are_checked_on_the_way_in`, `test_markers_round_trip_through_both_xml_formats_and_survive_a_look_reset`); `test_ui_recipes.py::test_a_topics_markers_are_one_row_from_one_icon_set` |
+
+Help moved with it: the Guide's mind-map topic, the topic menu's row, the
+palette's two rows, DESIGN.md's marker row. Not built: due dates and tags on
+a topic, several filters at once, the outline's marker columns. Not verified:
+whether the PNG and SVG exports draw the marks; the desktop window.
+
 ## Moved from the plans, 2026-10-05 (the map's outline)
 
 ### From MINDMAP_PLAN.md §12.2 item 8 (decision 33), the audit's M3

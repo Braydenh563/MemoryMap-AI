@@ -3952,6 +3952,25 @@ def test_a_maps_boundaries_and_summaries_are_drawn_in_one_pass() -> None:
         assert f'"{key}"' in wm[wm.index("const WB_MAP_CONTENT_KEYS") :][:200]
 
 
+def test_a_topics_markers_are_one_row_from_one_icon_set() -> None:
+    """MINDMAP_PLAN decision 34 (DESIGN.md's marker row): the marks are drawn
+    by one function into one row from the paint pass, the icons come from a
+    fixed Phosphor set with no emoji in it, every change is the topic's one
+    undo step, and the markers are content (a branch copy keeps them)."""
+    wm = (ROOT / "frontend" / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
+    paint = wm[wm.index("function wbPaintMapNodeStyle(") :][:6000]
+    assert "wbMapPaintMarkers(markers, d.data || {});" in paint
+    painter = wm[wm.index("function wbMapPaintMarkers(") :]
+    painter = painter[: painter.index("\n}\n")]
+    assert painter.count("wb-map-mark") >= 3 and wm.count("wb-map-mark ") == painter.count("wb-map-mark ")
+    icons = wm[wm.index("const WB_MAP_MARKER_ICONS") :][:600]
+    assert all(ord(ch) < 0x2000 for ch in icons), "an emoji in the marker set"
+    assert "await wbMapSetNodeStyle(live, patch);" in wm[wm.index("function wbMapOpenMarkers(") :][:1500]
+    keys = wm[wm.index("const WB_MAP_CONTENT_KEYS") :][:200]
+    for key in ("priority", "progress", "flag", "markers"):
+        assert f'"{key}"' in keys
+
+
 def test_a_comment_thread_is_one_popover_reached_three_ways() -> None:
     """WHITEBOARD_PLAN decision 17 (DESIGN.md's comment row): the mark, the
     item menu and a topic's menu open the one thread, in the help popover's

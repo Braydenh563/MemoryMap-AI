@@ -782,7 +782,7 @@ Map (from §12.5 and `map1.js`):
    - FEAT-16 (focus and announce).
    - Paste of an outline (FEAT-09).
    - Tests first: a single-root `.mm` round trip; a pasted 3-level list makes 4 topics under the selection.
-3. **M3, Outline tab** (§12.2 item 8) in the board sidebar.
+3. **M3, Outline tab** (§12.2 item 8) in the board sidebar. FIXED 0ae92b5
    - The tree as an editable indented list, sharing `wbMapBySiblingOrder`.
    - Tab and Shift+Tab re-parent, Enter adds a sibling, edits are live both ways.
    - Gate: 50 topics edited from the outline show on the canvas within a frame.

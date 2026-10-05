@@ -5659,6 +5659,13 @@ Link to another note with [[its first few words]]."></textarea>
         <button type="button" id="wb-map-focus-more" class="ghost small icon-only" title="Show one step more" aria-label="Show one step more"><i class="ph ph-plus" aria-hidden="true"></i></button>
         <button type="button" id="wb-map-focus-clear" class="ghost small" title="Show the whole map again">Show all</button>
       </div>
+      <!-- Filter by marker (MINDMAP_PLAN decision 34): the focus bar's shell,
+           saying which marker the lit topics carry, with the way out. -->
+      <div id="wb-map-filter" class="wb-map-focus wb-map-filter card glass" role="note" aria-label="Filter by marker" hidden>
+        <i class="ph ph-funnel ph-lead" aria-hidden="true"></i>
+        <span class="wb-map-focus-name" id="wb-map-filter-label"></span>
+        <button type="button" id="wb-map-filter-clear" class="ghost small" title="Show every topic at full strength">Show all</button>
+      </div>
       <!-- **What the colours mean** (§5 item 19), drawn only when they mean
            something other than the branch they are on. -->
       <div id="wb-map-legend" class="wb-map-legend card glass" role="note" aria-label="What the colours mean" hidden></div>
@@ -6000,6 +6007,7 @@ Link to another note with [[its first few words]]."></textarea>
               <label class="wb-menu-row wb-snap-label" hidden title="Number every topic by its place in the outline: 1, 1.1, 1.2"><span>Number the branches</span><input type="checkbox" id="wb-map-numbered"></label>
               <button type="button" class="wb-menu-item" id="wb-map-theme-item" hidden><i class="ph ph-palette ph-lead" aria-hidden="true"></i><span>How this map looks</span></button>
               <button type="button" class="wb-menu-item" id="wb-map-expand-all" hidden><i class="ph ph-arrows-out-line-vertical ph-lead" aria-hidden="true"></i><span>Open every folded branch</span></button>
+              <button type="button" class="wb-menu-item" id="wb-map-filter-item" data-wb-surface="map" hidden title="Dim every topic that does not carry one marker"><i class="ph ph-funnel ph-lead" aria-hidden="true"></i><span>Filter by marker…</span></button>
               <button type="button" class="wb-menu-item" id="wb-map-stats-item" hidden><i class="ph ph-chart-bar ph-lead" aria-hidden="true"></i><span>What this map is made of</span></button>
             </div>
             <div class="wb-menu-section" role="group" aria-label="Panels">

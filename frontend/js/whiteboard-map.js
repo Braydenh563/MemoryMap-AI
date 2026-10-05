@@ -1462,6 +1462,9 @@ function wbBuildMapNode(el, d) {
       wbMapToggleTaskDone(d.id);
     })
     .append("i").attr("class", "ph ph-square").attr("aria-hidden", "true");
+  //: Markers (decision 34): a row before the icon and the label, filled by
+  //: the paint pass and hidden while the topic carries none.
+  body.append("span").attr("class", "wb-map-markers").property("hidden", true);
   body.append("i").attr("class", "wb-map-node-icon").attr("aria-hidden", "true");
   //: **A topic whose body is a picture** (MINDMAP_PLAN.md §12.1 item 2's
   //: fourth, Coggle's text/link/image/icon). Built for every node and hidden
@@ -2148,6 +2151,9 @@ function wbPaintMapNodeStyle(node, d) {
       if (glyph) glyph.className = task === "done" ? "ph ph-check-square" : "ph ph-square";
     }
   }
+  //: Its markers (decision 34): content, read off the node's own data.
+  const markers = node.querySelector(".wb-map-markers");
+  if (markers) wbMapPaintMarkers(markers, d.data || {});
   // Px through CSSOM, which is what a text box's own `font_size` already
   // does (`renderWbObjects`): the value is per node and arbitrary, so it
   // cannot be a token, and the stylesheet's own `var(--text-md)` is the
@@ -4045,6 +4051,7 @@ function mapPaletteCommands() {
     if (node.kind === "topic") row("This topic", "ph:pencil-simple Rename the topic", () => wbMapEditNode(node.id), "F2");
     row("This topic", "ph:caret-down Fold or unfold the branch", () => wbMapToggleCollapse(node.id), "C");
     row("This topic", "ph:crosshair Focus on this branch", () => wbMapSetFocus(node.id));
+    row("This topic", "ph:flag Markers on this topic…", () => wbMapOpenMarkers(node.id));
     row("This topic", "ph:trash Delete the topic and its branch", () => wbMapDeleteSubtree(node.id), "Delete");
   }
   row("This map", "ph:plus-circle Add a top-level topic", () => wbMapAddChild(null));
@@ -4058,6 +4065,8 @@ function mapPaletteCommands() {
   row("This map", numbered ? "ph:list-bullets Stop numbering the topics" : "ph:list-numbers Number the topics", () => wbMapSetNumbered(!numbered));
   row("This map", "ph:chart-bar What this map is made of", () => wbShowMapStats());
   row("This map", "ph:presentation Present branches", () => wbStartPresenting());
+  row("This map", "ph:funnel Filter by marker…", () => wbMapChooseMarkerFilter());
+  if (wbMapMarkerFilter) row("This map", "ph:x-circle Stop filtering by marker", () => wbMapSetMarkerFilter(null));
   row("This map", wbOutlineOpen ? "ph:list-dashes Hide the outline" : "ph:list-dashes Show the map as an outline", () => wbOutlineToggle());
   row("This map", "ph:frame-corners Zoom to fit the map", () => wbZoomToFit());
   for (const [value, name] of [["tree-right", "Tree, to the right"], ["tree-left", "Tree, to the left"], ["tree-both", "Tree, both sides"], ["tree-down", "Tree, downward"], ["radial", "Radial"], ["free", "Free"]]) {
@@ -6306,7 +6315,10 @@ const WB_MAP_STYLE_KEYS = [
 //: look" must not untick or un-task anything.
 //: And a note (decision 18): a reset is about looks, never about words.
 //: And a boundary and a summary (decisions 19, 20): what the map says.
-const WB_MAP_CONTENT_KEYS = ["image", "task", "note", "boundary", "boundary_label", "summary", "summary_span"];
+const WB_MAP_CONTENT_KEYS = [
+  "image", "task", "note", "boundary", "boundary_label", "summary", "summary_span",
+  "priority", "progress", "flag", "markers",
+];
 
 //: Remove this topic and keep its branch: the children move up to its parent
 //: first, then the node goes. Through `/move`, which is the only endpoint
@@ -7537,3 +7549,314 @@ document.getElementById("wb-outline-tree")?.addEventListener("keydown", (event) 
 
 document.getElementById("wb-outline-close")?.addEventListener("click", () => wbOutlineToggle(false));
 document.getElementById("wb-panel-outline")?.addEventListener("change", (event) => wbOutlineToggle(event.target.checked));
+
+// --- Markers (MINDMAP_PLAN §12.2 item 4, the audit's M4) --------------------
+//
+//: **A topic's markers** (decision 34): a priority 1 to 5, how far along it
+//: is, a flag, and up to six icons, drawn in a row before the label
+//: (`wbMapPaintMarkers`), set in one popover from the topic's menu
+//: (`wbMapOpenMarkers`), and used to dim every topic that does not carry one
+//: (`wbMapSetMarkerFilter`). The icons are a fixed set from the vendored
+//: Phosphor font, never emoji: an emoji is drawn by the operating system,
+//: differently on each, and not at all in an SVG or PNG export.
+const WB_MAP_MARKER_ICONS = [
+  ["star", "Star"], ["heart", "Heart"], ["lightbulb", "Idea"], ["question", "Question"],
+  ["warning", "Warning"], ["check-circle", "Yes"], ["x-circle", "No"], ["thumbs-up", "For"],
+  ["thumbs-down", "Against"], ["lightning", "Urgent"], ["target", "Goal"], ["clock", "Waiting"],
+];
+const WB_MAP_MARKER_ICON_NAMES = new Map(WB_MAP_MARKER_ICONS);
+const WB_MAP_MARKERS_MAX = 6;
+
+function wbMapMarkerParts(data) {
+  const priority = Number.isInteger(data?.priority) && data.priority >= 1 && data.priority <= 5 ? data.priority : null;
+  const progress = Number.isInteger(data?.progress) && data.progress >= 0 && data.progress <= 100 ? data.progress : null;
+  const flag = data?.flag === true;
+  const icons = Array.isArray(data?.markers)
+    ? data.markers.filter((name) => typeof name === "string" && /^[a-z0-9-]{1,40}$/.test(name)).slice(0, WB_MAP_MARKERS_MAX)
+    : [];
+  return { priority, progress, flag, icons };
+}
+
+function wbMapProgressWords(progress) {
+  if (progress === 100) return "done";
+  if (progress === 0) return "not started";
+  return `${progress}% done`;
+}
+
+//: What the row says to a screen reader and in its tooltip, in the order it
+//: is drawn.
+function wbMapMarkerWords(parts) {
+  const words = [];
+  if (parts.priority) words.push(`priority ${parts.priority}`);
+  if (parts.progress != null) words.push(wbMapProgressWords(parts.progress));
+  if (parts.flag) words.push("flagged");
+  for (const icon of parts.icons) words.push((WB_MAP_MARKER_ICON_NAMES.get(icon) || icon).toLowerCase());
+  const text = words.join(", ");
+  return text ? text[0].toUpperCase() + text.slice(1) : "";
+}
+
+//: The row before the label. Rebuilt only when what it shows changed, so a
+//: render of an unchanged map writes nothing here.
+function wbMapPaintMarkers(host, data) {
+  const parts = wbMapMarkerParts(data);
+  const key = `${parts.priority}|${parts.progress}|${parts.flag}|${parts.icons.join(",")}`;
+  if (host.dataset.key === key) return;
+  host.dataset.key = key;
+  host.replaceChildren();
+  const words = wbMapMarkerWords(parts);
+  host.hidden = !words;
+  if (!words) {
+    host.removeAttribute("role");
+    host.removeAttribute("aria-label");
+    host.removeAttribute("title");
+    return;
+  }
+  host.setAttribute("role", "img");
+  host.setAttribute("aria-label", words);
+  host.title = words;
+  if (parts.priority) {
+    const badge = document.createElement("span");
+    badge.className = "wb-map-mark wb-map-mark-priority";
+    badge.dataset.priority = String(parts.priority);
+    badge.textContent = String(parts.priority);
+    host.appendChild(badge);
+  }
+  if (parts.progress != null) {
+    const pie = document.createElement("span");
+    pie.className = "wb-map-mark wb-map-mark-progress";
+    pie.style.setProperty("--progress", `${parts.progress}%`);
+    host.appendChild(pie);
+  }
+  const glyph = (name, extra = "") => {
+    const i = document.createElement("i");
+    i.className = `ph ph-${name} wb-map-mark${extra}`;
+    host.appendChild(i);
+  };
+  if (parts.flag) glyph("flag", " wb-map-mark-flag");
+  for (const icon of parts.icons) glyph(icon);
+}
+
+let wbMapMarkersState = null;
+
+function wbMapCloseMarkers({ restoreFocus = false } = {}) {
+  const state = wbMapMarkersState;
+  if (!state) return;
+  wbMapMarkersState = null;
+  document.removeEventListener("pointerdown", state.outside, true);
+  state.panel.remove();
+  if (restoreFocus) document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
+}
+
+//: A segmented row: one pressed at a time, the app's `.seg`.
+function wbMapMarkerSeg(label, options, current, choose) {
+  const wrap = document.createElement("div");
+  wrap.className = "wb-map-markers-row";
+  const name = document.createElement("span");
+  name.className = "wb-map-markers-label";
+  name.textContent = label;
+  const seg = document.createElement("div");
+  seg.className = "seg";
+  seg.setAttribute("role", "group");
+  seg.setAttribute("aria-label", label);
+  for (const [value, text, title] of options) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = text;
+    if (title) b.title = title;
+    b.setAttribute("aria-pressed", String(value === current));
+    b.addEventListener("click", () => choose(value));
+    seg.appendChild(b);
+  }
+  wrap.append(name, seg);
+  return wrap;
+}
+
+function wbMapOpenMarkers(id, anchor = null) {
+  const node = (wbState.objects || []).find((o) => o.id === id);
+  if (!node) return;
+  if (wbMapMarkersState?.id === id) {
+    wbMapCloseMarkers();
+    return;
+  }
+  wbMapCloseMarkers();
+  const target = anchor?.isConnected ? anchor : document.querySelector(`.wb-object[data-id="${id}"]`);
+  if (!target) return;
+  const panel = document.createElement("div");
+  panel.className = "help-popover wb-map-markers-pop";
+  panel.id = "wb-map-markers";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", `Markers on ${wbMapLabel(node) || "this topic"}`);
+  const set = async (patch) => {
+    const live = (wbState.objects || []).find((o) => o.id === id);
+    if (!live) return;
+    await wbMapSetNodeStyle(live, patch);
+    fill();
+    wbMapPaintMarkerFilter();
+    wbAnnounce(wbMapMarkerWords(wbMapMarkerParts(live.data)) || "No markers.");
+  };
+  const fill = () => {
+    const live = (wbState.objects || []).find((o) => o.id === id) || node;
+    const parts = wbMapMarkerParts(live.data);
+    const focusedLabel = panel.contains(document.activeElement) ? document.activeElement.getAttribute("aria-label") || document.activeElement.textContent : null;
+    const icons = document.createElement("div");
+    icons.className = "wb-map-marker-icons";
+    icons.setAttribute("role", "group");
+    icons.setAttribute("aria-label", "Icons");
+    for (const [icon, label] of WB_MAP_MARKER_ICONS) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "ghost icon-only small";
+      const on = parts.icons.includes(icon);
+      b.setAttribute("aria-pressed", String(on));
+      b.setAttribute("aria-label", label);
+      b.title = label;
+      const i = document.createElement("i");
+      i.className = `ph ph-${icon}`;
+      i.setAttribute("aria-hidden", "true");
+      b.appendChild(i);
+      b.addEventListener("click", () => {
+        if (!on && parts.icons.length >= WB_MAP_MARKERS_MAX) {
+          toast(`A topic takes ${WB_MAP_MARKERS_MAX} icons at most.`);
+          return;
+        }
+        const next = on ? parts.icons.filter((x) => x !== icon) : [...parts.icons, icon];
+        set({ markers: next.length ? next : null });
+      });
+      icons.appendChild(b);
+    }
+    const iconRow = document.createElement("div");
+    iconRow.className = "wb-map-markers-row";
+    const iconLabel = document.createElement("span");
+    iconLabel.className = "wb-map-markers-label";
+    iconLabel.textContent = "Icons";
+    iconRow.append(iconLabel, icons);
+    const hint = document.createElement("p");
+    hint.className = "muted wb-map-markers-hint";
+    hint.textContent = "View, Filter by marker shows the topics that carry one. Esc closes.";
+    panel.replaceChildren(
+      wbMapMarkerSeg("Priority", [[null, "None"], [1, "1", "Highest"], [2, "2"], [3, "3"], [4, "4"], [5, "5", "Lowest"]],
+        parts.priority, (value) => set({ priority: value })),
+      wbMapMarkerSeg("Progress", [[null, "None"], [0, "0%"], [25, "25%"], [50, "50%"], [75, "75%"], [100, "Done"]],
+        parts.progress, (value) => set({ progress: value })),
+      wbMapMarkerSeg("Flag", [[false, "Off"], [true, "On"]], parts.flag, (value) => set({ flag: value || null })),
+      iconRow,
+      hint,
+    );
+    //: The press that rebuilt the panel keeps its place.
+    const again = focusedLabel
+      ? [...panel.querySelectorAll("button")].find((b) => (b.getAttribute("aria-label") || b.textContent) === focusedLabel)
+      : null;
+    (again || panel.querySelector("button[aria-pressed='true']") || panel.querySelector("button"))?.focus({ preventScroll: true });
+  };
+  panel.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+    if (event.key === "Escape") {
+      event.preventDefault();
+      wbMapCloseMarkers({ restoreFocus: true });
+    }
+  });
+  const outside = (event) => {
+    if (panel.contains(event.target) || target.contains(event.target)) return;
+    wbMapCloseMarkers();
+  };
+  document.addEventListener("pointerdown", outside, true);
+  document.body.appendChild(panel);
+  wbMapMarkersState = { id, panel, outside };
+  fill();
+  placeHelpPopover(panel, target);
+}
+
+//: --- Filter by marker ---------------------------------------------------
+//: One marker at a time; every topic without it is dimmed, never hidden, so
+//: the tree stays readable around what is lit. For this visit only.
+let wbMapMarkerFilter = null;
+
+function wbMapMarkerKeys(data) {
+  const parts = wbMapMarkerParts(data);
+  const keys = [];
+  if (parts.priority) keys.push(`p${parts.priority}`);
+  if (parts.progress != null) keys.push(parts.progress === 100 ? "done" : "going");
+  if (parts.flag) keys.push("flag");
+  for (const icon of parts.icons) keys.push(`i:${icon}`);
+  return keys;
+}
+
+function wbMapMarkerKeyWords(key) {
+  if (key.startsWith("p")) return [`Priority ${key.slice(1)}`, "ph:number-circle-one"];
+  if (key === "done") return ["Done", "ph:check-circle"];
+  if (key === "going") return ["Under way", "ph:circle-half"];
+  if (key === "flag") return ["Flagged", "ph:flag"];
+  const icon = key.slice(2);
+  return [WB_MAP_MARKER_ICON_NAMES.get(icon) || icon, `ph:${icon}`];
+}
+
+function wbMapMarkersInUse() {
+  const used = new Map();
+  for (const node of wbMapIndex().nodes) {
+    for (const key of wbMapMarkerKeys(node.data)) used.set(key, (used.get(key) || 0) + 1);
+  }
+  const rank = (k) => (k.startsWith("p") ? 0 : k === "flag" ? 1 : k === "going" || k === "done" ? 2 : 3);
+  return [...used].sort((a, b) => rank(a[0]) - rank(b[0]) || a[0].localeCompare(b[0]));
+}
+
+function wbMapChooseMarkerFilter(anchor = null) {
+  const used = wbMapMarkersInUse();
+  if (!used.length) {
+    toast("No topic on this map has a marker yet. A topic's menu, Content, Markers adds one.");
+    return;
+  }
+  const items = used.map(([key, count]) => {
+    const [words, icon] = wbMapMarkerKeyWords(key);
+    return makeMenuItem(`${icon} ${words} (${count})`, `Dim every topic that is not marked ${words.toLowerCase()}`, () => wbMapSetMarkerFilter(key));
+  });
+  if (wbMapMarkerFilter) items.unshift(makeMenuItem("ph:x-circle Show every topic", "Stop filtering", () => wbMapSetMarkerFilter(null)));
+  const box = (anchor || document.querySelector('[aria-controls="wb-view-menu"]') || document.getElementById("whiteboard-container"))?.getBoundingClientRect();
+  openMenuAtPoint(items, "Filter by marker", box ? box.left : 80, box ? box.bottom + 4 : 80);
+}
+
+function wbMapSetMarkerFilter(key) {
+  wbMapMarkerFilter = key;
+  wbMapPaintMarkerFilter();
+  const bar = document.getElementById("wb-map-filter");
+  if (key) wbAnnounce(`Showing the topics marked ${wbMapMarkerKeyWords(key)[0].toLowerCase()}.`);
+  else wbAnnounce("Showing every topic.");
+  if (bar && !key) document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
+}
+
+//: After every render (`wbMapAfterRender`): a class on each topic the filter
+//: leaves out, and the bar that says a filter is on.
+function wbMapPaintMarkerFilter() {
+  const bar = document.getElementById("wb-map-filter");
+  const on = Boolean(wbMapMarkerFilter) && wbIsMap();
+  if (bar) {
+    bar.hidden = !on;
+    if (on) {
+      const [words] = wbMapMarkerKeyWords(wbMapMarkerFilter);
+      const label = document.getElementById("wb-map-filter-label");
+      if (label) label.textContent = `Marked: ${words}`;
+    }
+  }
+  const container = document.getElementById("whiteboard-container");
+  if (!container) return;
+  container.classList.toggle("wb-map-filtering", on);
+  if (!on) {
+    for (const el of container.querySelectorAll(".wb-map-filtered-out")) el.classList.remove("wb-map-filtered-out");
+    return;
+  }
+  for (const node of wbMapIndex().nodes) {
+    const el = container.querySelector(`.wb-object[data-id="${node.id}"]`);
+    if (el) el.classList.toggle("wb-map-filtered-out", !wbMapMarkerKeys(node.data).includes(wbMapMarkerFilter));
+  }
+}
+
+//: What follows every render of a map: the outline and the marker filter.
+function wbMapAfterRender() {
+  wbOutlineSync();
+  if (wbMapMarkerFilter || document.getElementById("whiteboard-container")?.classList.contains("wb-map-filtering")) {
+    wbMapPaintMarkerFilter();
+  }
+}
+
+document.getElementById("wb-map-filter-clear")?.addEventListener("click", () => wbMapSetMarkerFilter(null));
+document.getElementById("wb-map-filter-item")?.addEventListener("click", () => wbMapChooseMarkerFilter());
+

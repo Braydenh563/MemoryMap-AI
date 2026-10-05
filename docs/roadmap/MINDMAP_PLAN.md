@@ -531,7 +531,10 @@ the shift-drag sever).
    due date (a reminder can be created from it), a checkbox; filter the
    map by marker; the outline view shows them as columns. The checkbox and
    the count up the branch are built (decision 15; HISTORY.md, "Moved from
-   the plans, 2026-10-04"); the rest is open.
+   the plans, 2026-10-04"); priority, progress, the flag, icon markers and
+   the filter are built (decision 34; HISTORY.md, "Moved from the plans,
+   2026-10-05 (markers)"); due dates (with a reminder) and tags on a topic
+   are open.
 5. **Notes on nodes**: a node that is a notebook note shows the note's
    own text here, editable both ways. The text note behind a topic is
    built (decision 18; HISTORY.md, "Moved from the plans, 2026-10-04").
@@ -1267,6 +1270,21 @@ topic: a control that wide has nowhere to go.
    draws the label on the canvas as it goes, without a render; the name is
    saved when the row is left. The outline follows every render, rebuilt only
    when the tree's shape changed, never taking the field being typed in.
+34. **A topic's markers are content, from one icon set** (taken 2026-10-05,
+   §12.2 item 4, the audit's M4). `data.priority` (1 to 5), `data.progress`
+   (0 to 100; the menu offers None, 0, 25, 50, 75 and Done), `data.flag` and
+   `data.markers` (up to six names from `WB_MAP_MARKER_ICONS`, twelve glyphs
+   of the vendored Phosphor font; never emoji, which each system draws its
+   own way and an export does not draw at all). Drawn in one row before the
+   label, set in one popover from the topic's menu (Content, Markers) and
+   the palette, each press one Undo step. Content, not a look: a look reset
+   and a branch copy keep them; OPML and FreeMind carry them as private
+   `_priority`, `_progress`, `_flag` and `_markers` (a comma list), Markdown
+   not at all (decision 12's rule). View, Filter by marker lists the markers
+   in use with their counts and dims (never hides) every topic without the
+   chosen one, for this visit, with a bar in the focus bar's shell to end
+   it. Not built: due dates, tags, several filters at once, markers as the
+   outline's columns.
 
 ### Phases, each with the gate it is finished against
 

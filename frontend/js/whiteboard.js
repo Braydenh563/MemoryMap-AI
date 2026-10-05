@@ -5136,6 +5136,9 @@ function wbBuildContextMenu(kind) {
           });
         }
       }
+      //: Markers (MINDMAP_PLAN decision 34): priority, progress, a flag, icons.
+      sub(wbMapMarkerWords(wbMapMarkerParts(mapNode.data)) ? "Change the markers…" : "Markers…",
+        "A priority, how far along it is, a flag and icons", () => wbMapOpenMarkers(mapNode.id));
       const comments = wbItemComments("object", mapNode).length;
       sub(comments ? `Comments (${comments})…` : "Comment…", "A thread on this topic, behind the mark on its corner", () =>
         wbOpenComments("object", mapNode.id)
@@ -13775,7 +13778,7 @@ function wbScheduleRender() {
     renderWhiteboard();
     wbUpdateSelectionBar();
     wbSyncBoardCount();
-    wbOutlineSync();
+    wbMapAfterRender();
   });
 }
 
@@ -13800,7 +13803,7 @@ function renderWhiteboardNow() {
   wbApplySearchHighlight();
   wbRenderNavigator();
   wbSyncBoardCount();
-  wbOutlineSync();
+  wbMapAfterRender();
 }
 
 function renderWhiteboard() {

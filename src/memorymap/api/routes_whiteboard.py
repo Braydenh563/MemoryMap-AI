@@ -27,7 +27,7 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError, field_validator
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
@@ -355,6 +355,16 @@ class WhiteboardObjectData(BaseModel):
     #: words, and how many siblings the run takes, this topic first.
     summary: str | None = Field(default=None, max_length=80)
     summary_span: int | None = Field(default=None, ge=1, le=100)
+    #: **Markers** (MINDMAP_PLAN decision 34): a priority 1 to 5, how far
+    #: along it is (0 to 100, the menu offers quarters), a flag, and up to six
+    #: Phosphor glyph names drawn before the label. Content, not a look: a
+    #: reset of the map's looks keeps them.
+    priority: int | None = Field(default=None, ge=1, le=5)
+    progress: int | None = Field(default=None, ge=0, le=100)
+    flag: bool | None = None
+    markers: list[Annotated[str, StringConstraints(pattern=r"^[a-z0-9-]{1,40}$")]] | None = Field(
+        default=None, max_length=6
+    )
     #: **The bar down a topic's leading edge** (MINDMAP_PLAN.md item 177:
     #: "per-node left edge: solid, dashed or none"). Two values, because the
     #: third is the absence of the field: a map drawn before this existed and
@@ -448,6 +458,15 @@ class WhiteboardObjectData(BaseModel):
     #: between its neighbours' keys. A key, not a rank, so one move writes one
     #: or two rows rather than renumbering the whole branch.
     order: float | None = Field(default=None, ge=-1e12, le=1e12)
+
+    @field_validator("markers", mode="before")
+    @classmethod
+    def _markers_from_attribute(cls, value):
+        """An export writes the list as one comma-joined attribute
+        (`_markers="star,warning"`); read back, it is a list again."""
+        if isinstance(value, str):
+            return [part.strip() for part in value.split(",") if part.strip()]
+        return value
 
     @field_validator("font_size")
     @classmethod
@@ -2826,6 +2845,10 @@ MAP_STYLE_FIELDS = (
     "boundary_label",
     "summary",
     "summary_span",
+    "priority",
+    "progress",
+    "flag",
+    "markers",
 )
 
 
@@ -3502,7 +3525,10 @@ class MapClearStyleOut(BaseModel):
 #: does. `MAP_STYLE_FIELDS` minus the content ones, plus the colour it does
 #: not list because a node has carried `color` as a key of its own since
 #: before any of this existed.
-MAP_CONTENT_FIELDS = frozenset({"image", "task", "note", "boundary", "boundary_label", "summary", "summary_span"})
+MAP_CONTENT_FIELDS = frozenset({
+    "image", "task", "note", "boundary", "boundary_label", "summary", "summary_span",
+    "priority", "progress", "flag", "markers",
+})
 MAP_CLEARABLE_FIELDS = frozenset(MAP_STYLE_FIELDS) - MAP_CONTENT_FIELDS | {"color"}
 
 
@@ -3831,6 +3857,9 @@ _FREEMIND_PRIVATE = {
     #: Decisions 19 and 20: FreeMind's own `<cloud>` is one shape with no
     #: label, and it has no summary at all, so both ride as private ones.
     **{f: f"_{f}" for f in ("boundary", "boundary_label", "summary", "summary_span")},
+    #: Markers (decision 34): neither format has a place for them that the
+    #: other reads, so all four ride as private attributes.
+    **{f: f"_{f}" for f in ("priority", "progress", "flag", "markers")},
 }
 #: OPML 2.0 defines `text`, `type`, `url`, `isComment`, `isBreakpoint`,
 #: `created` and `category` and nothing else, so `url` is the only native
@@ -3860,6 +3889,9 @@ _OPML_PRIVATE = {
     #: this one reaches another outliner as a note rather than being dropped.
     "note": "_note",
     **{f: f"_{f}" for f in ("boundary", "boundary_label", "summary", "summary_span")},
+    #: Markers (decision 34): neither format has a place for them that the
+    #: other reads, so all four ride as private attributes.
+    **{f: f"_{f}" for f in ("priority", "progress", "flag", "markers")},
 }
 
 
@@ -3871,6 +3903,8 @@ def _xml_attribute(value) -> str:
         return "true"
     if value is False:
         return "false"
+    if isinstance(value, (list, tuple)):
+        return ",".join(str(part) for part in value)
     return str(value)
 
 

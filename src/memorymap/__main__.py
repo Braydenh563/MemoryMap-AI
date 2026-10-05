@@ -975,6 +975,27 @@ def _wait_for_server_with_progress(window, timeout: float = 45.0) -> bool:
     return False
 
 
+def _claim_notebook() -> None:
+    """Choose the server's port and write `instance.lock`, before any window.
+
+    **Why here.** The claim used to be made in `_boot_and_swap`, after the
+    window was on screen and the server thread was about to start: a second
+    double-click inside that gap read "no lock" and started a second server
+    on the same SQLite file (the very thing the lock exists to stop). The
+    check in `_run_desktop` and this claim now have only the relaunch
+    decision and the WebView2 probe between them, both without a window or
+    an import of the app. A copy that arrives in the remaining gap sees the
+    lock as "starting" (live pid, silent port) and waits for it.
+    """
+    global PORT
+    from memorymap.core import instance_lock
+    from memorymap.core.config import resolved_data_dir
+
+    PORT = _desktop_port()
+    os.environ["MEMORYMAP_PORT"] = str(PORT)
+    instance_lock.claim(resolved_data_dir(), PORT)
+
+
 def _boot_and_swap(window) -> None:
     """Runs on pywebview's own post-start background thread (`func=` below)
     once the loading window is already on screen. Starts the real server,
@@ -987,19 +1008,14 @@ def _boot_and_swap(window) -> None:
     window's whole lifecycle rather than opening a second one and tearing
     down the first: simpler, and no flicker from a close/reopen.
     """
-    global PORT
     os.environ["MEMORYMAP_DESKTOP"] = "1"
-    PORT = _desktop_port()
-    os.environ["MEMORYMAP_PORT"] = str(PORT)
-    # **This process now holds the notebook** (core/instance_lock.py): the
-    # port is final, so a second launch can find this server, and the focus
-    # handler is how that launch brings this window forward instead of
-    # starting a second server on the same data directory. Released by
-    # `_run_desktop` once the window is really gone.
+    # The port was chosen and the lock claimed by `_claim_notebook`, before
+    # this window existed; the focus handler is how a second launch brings
+    # *this* window forward instead of starting a second server on the same
+    # data directory. Released by `_run_desktop` once the window is really
+    # gone.
     from memorymap.core import instance_lock
-    from memorymap.core.config import resolved_data_dir
 
-    instance_lock.claim(resolved_data_dir(), PORT)
     instance_lock.set_focus_handler(lambda: _bring_forward(window))
     server = threading.Thread(target=_run_server, daemon=True)
     server.start()
@@ -1724,6 +1740,7 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
         _warn_webview2_missing()
         return
 
+    _claim_notebook()
     _splash_status("Opening the window...")
     window = webview.create_window(
         "MemoryMap AI",

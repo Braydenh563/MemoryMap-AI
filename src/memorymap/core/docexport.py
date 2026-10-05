@@ -265,9 +265,21 @@ _TABLE_RULE = re.compile(
     r"^\s*+\|?+\s*+:?+-{3,}+:?+\s*+(?:\|\s*+:?+-{3,}+:?+\s*+)*+\|?+\s*+$"
 )
 _INLINE = re.compile(
-    r"(\{\+\+.+?\+\+\}|\{--.+?--\}|\[[^\]\n]+\]\([^)\s]+\)|\*\*\*[^*\n]+\*\*\*|\*\*[^*\n]+\*\*"
+    r"(\{\+\+.+?\+\+\}|\{--.+?--\}|!\[[^\]\n]*\]\([^)\s]+\)|\[[^\]\n]+\]\([^)\s]+\)|\*\*\*[^*\n]+\*\*\*|\*\*[^*\n]+\*\*"
     r"|\*[^*\n]+\*|~~[^~\n]+~~|`[^`\n]+`)"
 )
+#: A picture: `![alt|options](src)`, the alt carrying the document's own
+#: width, alignment and caption (`picture_options`).
+_PICTURE = re.compile(r"^!\[([^\]\n]*)\]\(([^)\s]+)\)$")
+#: A picture alone on its line, optionally with a quoted title after the
+#: address: a block of its own in Word, aligned and captioned as the editor
+#: draws it, rather than a picture in a sentence.
+_PICTURE_LINE = re.compile(r'^\s*!\[([^\]\n]*)\]\(([^)\s]+)(?:\s+"[^"\n]*")?\)\s*$')
+#: The names `media_gc` reads out of a document (`/media/<name>`), so the
+#: export embeds exactly the files the bundle export would carry.
+_MEDIA_SRC = re.compile(r"^/media/([A-Za-z0-9][A-Za-z0-9._-]{0,119})$")
+#: One CSS pixel in EMU, Word's unit: 914400 per inch, 96 pixels per inch.
+_EMU_PER_PX = 9525
 _LINK = re.compile(r"^\[([^\]\n]+)\]\(([^)\s]+)\)$")
 #: The only addresses a link in a handed-over file may point at. A relative
 #: path means something inside this notebook and nothing in Word; anything
@@ -277,12 +289,69 @@ _SAFE_LINK = re.compile(r"^(https?://|mailto:)", re.IGNORECASE)
 REVISION_AUTHOR = "MemoryMap"
 
 
-def to_docx(title: str, text: str) -> bytes:
+def picture_options(alt: str) -> dict:
+    """A picture's `|`-separated options, read by shape as the editor reads
+    them (documents.js `docImageOptions` and `docImageOptionsFromAlt`): a
+    number of pixels is the width (`300x200` keeps the width and drops the
+    height, as there), left, center, centre or right the alignment, and
+    anything else the caption. **The alt text is a caption once it carries
+    an option**: `![A river|400](...)` is a figure captioned "A river", and
+    plain `![A river](...)` is a picture with alt text and no caption."""
+    text = alt or ""
+    parts = text.split("|")
+    name = parts[0].strip()
+    width: int | None = None
+    align: str | None = None
+    caption: list[str] = []
+    for raw in parts[1:]:
+        part = raw.strip()
+        if not part:
+            continue
+        sized = re.fullmatch(r"(\d{1,4})(?:x\d{1,4})?", part, re.IGNORECASE)
+        if sized:
+            width = int(sized.group(1))
+            continue
+        placed = re.fullmatch(r"left|centre|center|right", part, re.IGNORECASE)
+        if placed:
+            align = "center" if part.lower() == "centre" else part.lower()
+            continue
+        caption.append(part)
+    words = " ".join(caption)
+    if "|" in text and not words:
+        words = name
+    return {"name": name, "width": width, "align": align, "caption": words, "alt": words or name}
+
+
+def media_path(media_dir: Path | None, src: str) -> Path | None:
+    """The file a `/media/<name>` address names, or None: only a name of the
+    shape `media_gc` reads, only inside the media folder, only a file that
+    is there. A document's text is user input, so the containment check is
+    the same belt and braces `bundle` wears."""
+    if media_dir is None:
+        return None
+    found = _MEDIA_SRC.match(src or "")
+    if not found:
+        return None
+    root = Path(media_dir).resolve()
+    path = (root / found.group(1)).resolve()
+    try:
+        inside = path.is_relative_to(root)
+    except (OSError, ValueError):
+        return None
+    return path if inside and path.is_file() else None
+
+
+def to_docx(title: str, text: str, media_dir: Path | None = None) -> bytes:
     """The document as a .docx. Raises RuntimeError when the extra is absent.
 
     The caller checks `docx_available()` first and answers 501 rather than
     500: "this install does not have the Word exporter" is a state of the
     install, not a failure of the request.
+
+    `media_dir` is where `/media/...` pictures are read from (FEAT-18): each
+    is embedded with its alt text and the document's width and alignment
+    options; one that is missing, remote or not a picture Word can hold
+    stays as its words.
     """
     try:
         import docx
@@ -291,7 +360,16 @@ def to_docx(title: str, text: str) -> bytes:
 
     document = docx.Document()
     document.add_heading(title or "Document", level=0)
-    state = {"revision": 0}
+    section = document.sections[0]
+    state = {
+        "revision": 0,
+        "media_dir": media_dir,
+        #: The width a picture may take: the page less its margins.
+        #: A template that leaves one unset reads as Letter with inch margins.
+        "text_width": int(
+            (section.page_width or 7772400) - (section.left_margin or 914400) - (section.right_margin or 914400)
+        ),
+    }
     lines = (comments_to_footnotes(text or "")).split("\n")
     index = 0
     while index < len(lines):
@@ -315,6 +393,9 @@ def to_docx(title: str, text: str) -> bytes:
                 rows.append(_cells(lines[index]))
                 index += 1
             _table(document, rows, state)
+            continue
+        picture = _PICTURE_LINE.match(line)
+        if picture and _block_picture(document, picture.group(1), picture.group(2), state):
             continue
         heading = _HEADING.match(line)
         if heading:
@@ -342,6 +423,63 @@ def to_docx(title: str, text: str) -> bytes:
     buffer = io.BytesIO()
     document.save(buffer)
     return buffer.getvalue()
+
+
+#: The editor's alignments as Word's paragraph alignment names.
+_ALIGN = {"left": "LEFT", "center": "CENTER", "right": "RIGHT"}
+
+
+def _embed(run, path: Path, options: dict, state: dict) -> bool:
+    """Put the picture at `path` into `run`, sized and described. False when
+    Word cannot hold it (an SVG, a WebP, a file that is not a picture), with
+    nothing left behind in the run."""
+    text_width = state["text_width"]
+    width = min(options["width"] * _EMU_PER_PX, text_width) if options["width"] else None
+    try:
+        shape = run.add_picture(str(path), width=width)
+    except Exception:  # noqa: BLE001  # python-docx raises its own types and OSError; any of them means "keep the words"
+        for child in list(run._r):
+            if child.tag.endswith("}drawing"):
+                run._r.remove(child)
+        return False
+    if shape.width > text_width:
+        #: No width asked for, and the picture's own size is wider than the
+        #: page: fitted to the text column, its proportions kept.
+        shape.height = int(shape.height * text_width / shape.width)
+        shape.width = text_width
+    #: The alt text Word reads aloud and shows in its Alt Text pane.
+    for properties in run._r.xpath(".//wp:docPr"):
+        properties.set("descr", options["alt"])
+    return True
+
+
+def _block_picture(document, alt: str, src: str, state: dict) -> bool:
+    """A picture on a line of its own: a paragraph aligned as the document
+    asks, and its caption under it when it has one. False (and nothing
+    written) when the picture cannot be embedded, so the line is written as
+    its words instead."""
+    path = media_path(state.get("media_dir"), src)
+    if path is None:
+        return False
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    options = picture_options(alt)
+    paragraph = document.add_paragraph()
+    if not _embed(paragraph.add_run(), path, options, state):
+        paragraph._p.getparent().remove(paragraph._p)
+        return False
+    align = getattr(WD_ALIGN_PARAGRAPH, _ALIGN.get(options["align"] or "", ""), None)
+    if align is not None:
+        paragraph.alignment = align
+    if options["caption"]:
+        try:
+            caption = document.add_paragraph(options["caption"], style="Caption")
+        except KeyError:  # a template without Word's Caption style
+            caption = document.add_paragraph()
+            caption.add_run(options["caption"]).italic = True
+        if align is not None:
+            caption.alignment = align
+    return True
 
 
 def _cells(line: str) -> list[str]:
@@ -406,6 +544,16 @@ def _inline(paragraph, text: str, state: dict, bold: bool = False, holder=None, 
             revision.set(qn("w:author"), REVISION_AUTHOR)
             (holder if holder is not None else paragraph._p).append(revision)
             _inline(paragraph, piece[3:-3], state, bold=bold, holder=revision, deleted=piece.startswith("{--"))
+            continue
+        picture = _PICTURE.match(piece)
+        if picture:
+            #: A picture in a sentence rides in its line, at its own width
+            #: or the column's. Inside a tracked change, or when it cannot be
+            #: embedded, it is its words: a revision holds runs of text.
+            path = media_path(state.get("media_dir"), picture.group(2)) if holder is None else None
+            options = picture_options(picture.group(1))
+            if path is None or not _embed(paragraph.add_run(), path, options, state):
+                add(options["alt"] or options["name"])
             continue
         link = _LINK.match(piece)
         if link and _SAFE_LINK.match(link.group(2)) and holder is None:

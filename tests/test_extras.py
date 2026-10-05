@@ -629,7 +629,7 @@ def test_the_word_export_501_points_at_the_settings_button(client):
         pytest.skip("python-docx is installed here, so there is no 501 to read")
     assert response.status_code == 501
     detail = response.json()["detail"]
-    assert "Settings" in detail and "extras" in detail.lower(), detail
+    assert "Settings, Packages" in detail and "Export to Word" in detail, detail
 
 
 # --- a packaged (frozen) build installs where it can import from ------------------

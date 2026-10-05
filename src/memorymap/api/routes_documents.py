@@ -1015,11 +1015,13 @@ def export_docx(document_id: int, session: Session = Depends(get_session)) -> Re
         raise HTTPException(
             status_code=501,
             detail="This install has no Word exporter yet. Turn it on in "
-            "Settings, optional extras, "
+            "Settings, Packages, "
             "\u201cExport to Word\u201d. Markdown, the zip bundle and HTML "
             "are available now.",
         )
-    data = docexport.to_docx(document.title, document.content or "")
+    #: Its pictures come from the media folder (FEAT-18), as the bundle's do.
+    media_dir = deps.get_config().data_dir / "media"
+    data = docexport.to_docx(document.title, document.content or "", media_dir=media_dir)
     return Response(
         content=data,
         media_type=(

@@ -205,7 +205,8 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("document", "editor", "markdown", "code file", "live view", "source view"),
         "body": (
             "The document editor (opened from Library -> Documents) has four "
-            "views: Live (renders as you write), Source, Split and Read. Code "
+            "views: Live (renders as you write), Source, Split and Read. Enter "
+            "in the title moves to the body. Code "
             "files get line numbers, Tab/Shift+Tab indenting and Ctrl+/ "
             "commenting. \"Check with AI\" reviews a document for wording issues "
             "a spellchecker can't catch."
@@ -1067,8 +1068,7 @@ HELP_TOPICS.extend(
             "body": (
                 "Document editor keys (Library, Documents; Ctrl+Shift+D starts "
                 "one). While a document is open, Ctrl+K lists every document "
-                "command and ? shows the ones with keys. Enter in the title starts "
-                "the body. Ctrl+S saves, Ctrl+B bold, "
+                "command and ? shows the ones with keys. Ctrl+S saves, Ctrl+B bold, "
                 "Ctrl+I italic, Ctrl+E inline code, Ctrl+Shift+S strike through, "
                 "Ctrl+1, Ctrl+2 and Ctrl+3 headings, Tab and Shift+Tab indent and "
                 "outdent, Ctrl+/ comments the selection, Alt+Up / Alt+Down moves a "
@@ -1304,11 +1304,8 @@ HELP_TOPICS.extend(
                 "Atlas to write at the cursor, and selecting text shows an actions "
                 "menu (Ctrl+Shift+E from the keyboard). From anywhere, Ctrl+Shift+N "
                 "starts a note, Ctrl+D opens today's note and Ctrl+Shift+R records a "
-                "meeting. In the list, Up and Down move from note to note, Tab "
-                "walks the buttons of the note you are on and then leaves the list, "
-                "Enter or F2 edits and Delete bins it. A one-letter typo in the "
-                "filter shows the notes for the nearest word your notes use. "
-                "The filter box understands, with no AI: two words (both, "
+                "meeting. In the list, Up and Down move note to note and Tab walks "
+                "that note's buttons. The filter box understands, with no AI: two words (both, "
                 "in any order), \"a quoted phrase\", tag:work, cat:recipes, "
                 "#tag, title:, in:, before: and after: (a date such as 2026-09), "
                 "is:favourite, is:pinned, is:private, is:linked, is:untagged, "

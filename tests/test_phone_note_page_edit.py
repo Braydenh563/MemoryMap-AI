@@ -36,8 +36,6 @@ const requestAnimationFrame = (fn) => fn();
 const scrollEditingEntryIntoView = () => order.push('scroll');
 const renderEntries = () => order.push('render');
 const noteFormMayClose = async () => {str(may_close).lower()};
-const ensureModule = async () => true; // the edit form's lazy file (note-edit-form.js)
-const toast = () => order.push('toast');
 {setup}
 {match.group(0)}
 (async () => {{

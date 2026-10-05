@@ -3133,6 +3133,14 @@ RICH_PICKERS = [
 ]
 
 
+def _notes_picker_body() -> str:
+    """`pickNotesDialog`, now at the end of whiteboard.js's moved block: it ends
+    where the next function, an `async` one, begins."""
+    text = frontend_text("whiteboard.js")
+    start = text.index("function pickNotesDialog(")
+    return text[start : text.index("\nasync function addBoardToNote(", start)]
+
+
 def test_every_notebook_picker_is_the_picker_dialog() -> None:
     """INBOX 548: the "choose from your notebook" dialogs share one shell on
     the dialog recipes (`pickerDialog`: the head with its X, the search field
@@ -3143,11 +3151,12 @@ def test_every_notebook_picker_is_the_picker_dialog() -> None:
         assert part in shell, part
     head = _function_body(source, "dialogHead")
     assert '"dialog-head"' in head and '"dialog-head-btn"' in head and '"dialog-head-title"' in head
+    #: pickNotesDialog moved to whiteboard.js, its only caller (search-boot-1005).
     for picker in ("pickEntryDialog", "pickLibraryItemDialog", "pickNotesDialog", "pickMediaDialog"):
-        body = _function_body(source, picker)
+        body = _notes_picker_body() if picker == "pickNotesDialog" else _function_body(source, picker)
         assert "pickerDialog(" in body, picker
         assert "confirm-card" not in body and "confirm-text" not in body, picker
-    assert "notePickerRow(" in _function_body(source, "pickNotesDialog")
+    assert "notePickerRow(" in _notes_picker_body()
 
 
 def test_a_picker_row_never_shrinks_and_its_sources_span_the_dialog() -> None:

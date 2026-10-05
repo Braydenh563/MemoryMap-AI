@@ -24,12 +24,7 @@ FRONTEND = ROOT / "frontend"
 
 
 def _read(name: str) -> str:
-    text = (FRONTEND / ("js/" + name if name.endswith(".js") else name)).read_text(encoding="utf-8")
-    if name == "notes-list.js":
-        #: The edit form moved to its own lazy file (search-boot-1005); a test
-        #: that means "the Notes list's code" reads both.
-        text += "\n" + (FRONTEND / "js" / "note-edit-form.js").read_text(encoding="utf-8")
-    return text
+    return (FRONTEND / ("js/" + name if name.endswith(".js") else name)).read_text(encoding="utf-8")
 
 
 def _function(source: str, name: str) -> str:
@@ -325,7 +320,7 @@ def test_a_filter_still_being_typed_narrows_nothing():
         pytest.skip("node not installed")
     notes = _read("notes-list.js")
     regex = ""
-    for name in ("const TAG_COUNT_RE", "const LIVE_QUERY_RE"):
+    for name in ("const TAG_COUNT_RE", "const LIVE_QUERY_RE", "const ENGINE_QUERY_RE"):
         line = notes[notes.index(name):]
         regex += line[: line.index("\n") + 1]
     parse = "function parseNoteQuery(" + _function(notes, "parseNoteQuery") + "}\n"

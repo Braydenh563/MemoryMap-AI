@@ -19428,7 +19428,7 @@ $("doc-preview")?.addEventListener("scroll", docBlockBarClose);
 
 function docCalloutKindMenu(at, x, y) {
   const box = docSurface();
-  if (!box || typeof calloutMenuItems !== "function" || typeof openMenuAtPoint !== "function") return;
+  if (!box || typeof openMenuAtPoint !== "function") return;
   const head = typeof mdCalloutHead === "function"
     ? mdCalloutHead(box.lineAt(Math.max(0, at)).text.replace(/^\s*>\s?/, ""))
     : null;
@@ -19644,3 +19644,38 @@ function docWatchLock() {
   }).observe(overlay, { attributes: true, attributeFilter: ["class", "data-mode"] });
 }
 docWatchLock();
+
+// ---- from editor.js (search-boot-1005): calloutMenuItems ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+//: **The menu that changes a callout from where it is drawn** (INBOX 421 b).
+//: One list for both places a rendered callout offers it (the icon in the
+//: Live view, the block bar in the Read view), so the two cannot offer
+//: different kinds. `apply(kind, fold)` writes the change; the rows are the
+//: app's own menu rows (`kebabMenu` groups), with the current kind and fold
+//: marked by a check glyph rather than by colour alone.
+function calloutMenuItems(current, fold, apply) {
+  const items = [];
+  for (const [kind, meta] of Object.entries(CALLOUT_KINDS)) {
+    items.push({
+      group: "Kind",
+      label: `${kind === current ? "ph:check" : meta.icon} ${meta.label}`,
+      title: meta.about,
+      run: () => apply(kind, fold),
+    });
+  }
+  const folds = [
+    ["", "ph:rows", "Always open"],
+    ["-", "ph:caret-right", "Folded until clicked"],
+    ["+", "ph:caret-down", "Foldable, starts open"],
+  ];
+  for (const [flag, icon, label] of folds) {
+    items.push({
+      group: "Folding",
+      label: `${flag === fold ? "ph:check" : icon} ${label}`,
+      title: label,
+      run: () => apply(current, flag),
+    });
+  }
+  return items;
+}

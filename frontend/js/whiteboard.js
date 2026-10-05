@@ -8132,7 +8132,7 @@ async function wbAddBoardToNote() {
   const title =
     row?.title || select?.options?.[select.selectedIndex]?.textContent?.trim() || "This board";
   const type = row?.type || (wbIsMap() ? "map" : "board");
-  if (typeof addBoardToNote === "function") await addBoardToNote({ id: boardId, title, type });
+  await addBoardToNote({ id: boardId, title, type });
 }
 
 async function wbDeleteCurrentBoard() {
@@ -8809,7 +8809,6 @@ async function wbExportMapText(format) {
 //: was not would make the model look better than it is, which is exactly the
 //: kind of thing this app does not do.
 async function wbGenerateMapFromNotes() {
-  if (typeof pickNotesDialog !== "function") return;
   const chosen = await pickNotesDialog("Which notes should the map be built from?", {
     confirmLabel: "Propose a map",
   });
@@ -17835,7 +17834,7 @@ function drawLibraryBoardsGallery(listed) {
           //: one you want in a note is usually one you are looking at in a
           //: list rather than one you have opened.
           makeMenuItem("ph:note-pencil Add to a note", "Put this board in a note as an object", async () => {
-            if (typeof addBoardToNote === "function") await addBoardToNote(board);
+            await addBoardToNote(board);
           }),
           appLinkMenuItem(board.type === "map" ? "map" : "board", board.id),
           makeMenuItem("ph:trash Delete", "Delete this board", () => wbDeleteBoard(board.id, board.title)),
@@ -18322,4 +18321,116 @@ for (const name of WB_RECORDED) {
       wbRecordDepth -= 1;
     }
   };
+}
+
+// ---- from selection.js (search-boot-1005): pickNotesDialog, addBoardToNote ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+//: **Several notes at once**, which `pickLibraryItemDialog` deliberately
+//: cannot do: "make a map of these notes" is a list you assemble, so the rows
+//: are the Attach picker's (`notePickerRow`: tile, name over its facts, a
+//: check ring) and the dialog closes on its one filled button. The ticks live
+//: in `chosen`, not the DOM, so a note stays chosen when a search hides its
+//: row. Resolves with `{id, label}`s in the order they were ticked, or null
+//: when dismissed; the button stays off until one row is on.
+function pickNotesDialog(message, { confirmLabel = "Continue", limit = 40 } = {}) {
+  return new Promise((resolve) => {
+    const list = document.createElement("ul");
+    list.className = "note-picker-list entry-pick-list";
+    list.setAttribute("aria-label", "Your notes");
+    const shell = pickerDialog({ title: message, placeholder: "Search your notes…", searchLabel: message, list });
+    const chosen = new Map();
+    const count = document.createElement("span");
+    count.className = "muted";
+    const confirm = smallButton(confirmLabel, confirmLabel, () => {
+      if (chosen.size) shell.close([...chosen.entries()].map(([id, label]) => ({ id, label })));
+    }, false);
+    confirm.classList.add("accent");
+    const cancel = smallButton("Cancel", "Cancel", () => shell.close(null));
+    const foot = document.createElement("div");
+    foot.className = "row space-dialog-actions";
+    foot.append(count, cancel, confirm);
+
+    const refreshCount = () => {
+      count.textContent = chosen.size
+        ? `${chosen.size} note${chosen.size === 1 ? "" : "s"} chosen${chosen.size >= limit ? ` (the most is ${limit})` : ""}`
+        : "Pick the notes to build from.";
+      confirm.disabled = chosen.size === 0;
+    };
+    const shape = {
+      label: (row) => noteLabel(row, 200),
+      icon: () => "ph:note",
+      meta: notePickerShape("notes").meta,
+      isOn: (row) => chosen.has(row.id),
+      add: (row) => {
+        if (chosen.size >= limit) return false;
+        chosen.set(row.id, noteLabel(row, 70));
+      },
+      remove: (row) => chosen.delete(row.id),
+      full: `That is the most this can use at once: ${limit} notes.`,
+    };
+    const paint = () => {
+      const term = shell.search.value.trim();
+      const rows = (typeof allEntries !== "undefined" ? allEntries : [])
+        .filter((entry) => !entry.is_draft && !entry.is_deleted && !entry.is_board && !entry.is_private)
+        .filter((entry) => !term || noteLabel(entry, 200).toLowerCase().includes(term.toLowerCase()))
+        .slice(0, 60);
+      if (!rows.length) {
+        const empty = pickerEmpty("notes", term, "ph:note", LIBRARY_PICK_SOURCES[0].hint);
+        return pickerListState(list, empty.text, empty);
+      }
+      list.replaceChildren(
+        ...rows.map((row) => {
+          const li = notePickerRow(shape, row);
+          li.classList.add("entry-pick-check");
+          li.querySelector(".note-picker-box").addEventListener("change", refreshCount);
+          return li;
+        })
+      );
+      notePickerRoving(list, 0);
+    };
+    //: The keys: Down from the field enters the list, Up and Down walk it
+    //: (Up from the first row goes back), Space ticks, Enter confirms.
+    shell.search.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowDown") return;
+      event.preventDefault();
+      list.querySelector(".note-picker-box")?.focus();
+    });
+    list.addEventListener("keydown", (event) => {
+      const boxes = [...list.querySelectorAll(".note-picker-box")];
+      const at = boxes.indexOf(document.activeElement);
+      if (at < 0) return;
+      if (event.key === "Enter") {
+        event.preventDefault();
+        return confirm.click();
+      }
+      const to = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: boxes.length - 1 }[event.key];
+      if (to === undefined) return;
+      event.preventDefault();
+      if (to < 0) return shell.search.focus();
+      notePickerRoving(list, Math.min(to, boxes.length - 1))[Math.min(to, boxes.length - 1)].focus();
+    });
+    shell.search.addEventListener("input", paint);
+    paint();
+    refreshCount();
+    shell.open(resolve, { foot });
+  });
+}
+
+//: **The board's own way into a note** (INBOX 309), through
+//: `appendSelectionToNote` rather than a second write path (one undo). The
+//: index is invalidated first: a board made in the last eight seconds would
+//: otherwise paint as a tombstone (`loadMapBoardIndex`'s `force`).
+async function addBoardToNote(board) {
+  if (!board || board.id == null) {
+    toast("The default board has no name to put in a note. Make a board first.");
+    return;
+  }
+  const isMap = board.type !== "board";
+  await appendSelectionToNote(boardEmbedMarkdown(board), {
+    jump: false,
+    what: isMap ? "that map" : "that board",
+    message: `Add \u201c${board.title || (isMap ? "this map" : "this board")}\u201d to which note?`,
+  });
+  if (typeof loadMapBoardIndex === "function") loadMapBoardIndex(true);
 }

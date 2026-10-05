@@ -571,35 +571,6 @@ function renderLanState(state) {
   }
 }
 
-//: **Shared with the About panel's own "Restart MemoryMap" button**
-//: (`#about-restart`, phone-shell.js): one restart mechanism, `/system/restart`
-//: (Windows desktop only; everywhere else it answers `restarting: false` and
-//: this says so), so the LAN switch's own restart offer below reuses it
-//: rather than re-implementing "ask, restart, or say why not" a second time.
-//: `confirm` is skipped for a `toastAction` call: the person already made an
-//: explicit choice by pressing that button's own label, the same reasoning
-//: every other `toastAction` in the app (Undo, and the rest) already follows.
-async function restartMemoryMap({ confirm = true } = {}) {
-  if (
-    confirm &&
-    !(await confirmDialog(
-      "Restart MemoryMap?\n\nThe app closes and reopens. Your notes are already saved."
-    ))
-  ) {
-    return;
-  }
-  try {
-    const result = await apiJson("/system/restart", { method: "POST" });
-    if (result.restarting) {
-      toast("Restarting…");
-    } else {
-      toast("Restart isn't available in this build, close and reopen MemoryMap by hand.", true);
-    }
-  } catch (error) {
-    toast(error.message || "Couldn't restart.", true);
-  }
-}
-
 async function renderLanAccess() {
   if (!$("account-allow-lan")) return;
   try {
@@ -853,9 +824,9 @@ async function renderWebSearch() {
     row.append(radio, text);
     picker.appendChild(row);
   }
-  //: `refreshSearxngHost` is in settings-controls.js, already awaited by the
-  //: window that opened this pane; the await is for a pane drawn some other way.
-  ensureModule("settingsControls").then(() => refreshSearxngHost()).catch(() => {});
+  //: `refreshSearxngHost` is in settings-controls.js; the stand-in
+  //: (LAZY_ENTRY_POINTS) loads it for a pane drawn before the window's await.
+  refreshSearxngHost().catch(() => {});
 }
 
 async function saveSearchProvider(provider) {
@@ -865,31 +836,6 @@ async function saveSearchProvider(provider) {
       method: "PUT",
       body: JSON.stringify({ search_provider: provider }),
     });
-    status.classList.remove("error");
-    status.textContent = "Saved.";
-  } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
-  }
-}
-
-async function saveWebSearchSettings() {
-  const status = $("search-provider-status");
-  try {
-    prefsCache = await apiJson("/preferences", {
-      method: "PUT",
-      body: JSON.stringify({
-        web_search_enabled: $("pref-web-search").checked,
-        searxng_url: $("pref-searxng").value.trim(),
-      }),
-    });
-    // Reported: "the web search button is visibly disabled in the chat
-    // dock instead of inactive when I have web search enabled in the
-    // settings", the chat dock's own click handler keeps this Settings
-    // checkbox in sync going the other way, but this save handler never
-    // synced the chat dock button back, so it stayed on whatever look it
-    // had at page load until clicked directly or the page reloaded.
-    renderWebSearchToggle();
     status.classList.remove("error");
     status.textContent = "Saved.";
   } catch (error) {

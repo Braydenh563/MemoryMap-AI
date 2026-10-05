@@ -71,9 +71,15 @@ def test_a_stamped_asset_is_immutable_and_gzipped(client):
 #: moved seven surfaces out of app.js and registered them in its lazy table;
 #: together app.js measured 15,132 bytes. The cap is that plus 2%, the rule
 #: this comment states, and it only goes down from here.
-APP_JS_CAP = 15_435
+#:
+#: **2026-10-05, search-boot-1005.** The Settings window's handlers that only
+#: its listeners call, the "m" chord's guide, and the pickers, menus and
+#: checkers that one lazy file alone uses moved into that file: app.js
+#: 15,221 (cap was 15,435), total 323,086 (cap was 342,100),
+#: both measured by this test's client. Caps are the measure rounded up.
+APP_JS_CAP = 15_300
 PIECE_CAP = 32_000
-TOTAL_CAP = 342_100
+TOTAL_CAP = 323_500
 
 
 def _served_gzip_size(client, name: str) -> int:

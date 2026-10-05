@@ -348,38 +348,6 @@ function editorFuzzyRank(rows, query) {
 }
 // EDITOR-BLOCKS-END
 
-//: **The menu that changes a callout from where it is drawn** (INBOX 421 b).
-//: One list for both places a rendered callout offers it (the icon in the
-//: Live view, the block bar in the Read view), so the two cannot offer
-//: different kinds. `apply(kind, fold)` writes the change; the rows are the
-//: app's own menu rows (`kebabMenu` groups), with the current kind and fold
-//: marked by a check glyph rather than by colour alone.
-function calloutMenuItems(current, fold, apply) {
-  const items = [];
-  for (const [kind, meta] of Object.entries(CALLOUT_KINDS)) {
-    items.push({
-      group: "Kind",
-      label: `${kind === current ? "ph:check" : meta.icon} ${meta.label}`,
-      title: meta.about,
-      run: () => apply(kind, fold),
-    });
-  }
-  const folds = [
-    ["", "ph:rows", "Always open"],
-    ["-", "ph:caret-right", "Folded until clicked"],
-    ["+", "ph:caret-down", "Foldable, starts open"],
-  ];
-  for (const [flag, icon, label] of folds) {
-    items.push({
-      group: "Folding",
-      label: `${flag === fold ? "ph:check" : icon} ${label}`,
-      title: label,
-      run: () => apply(current, flag),
-    });
-  }
-  return items;
-}
-
 // ---------------------------------------------------------------------------
 // Inserting text into an arbitrary textarea
 //
@@ -2179,56 +2147,12 @@ const CODE_KEYWORDS = {
 //: word `if` inside a comment is not re-coloured as something else.
 const codeScanners = new Map();
 
-function codeScanner(family) {
-  if (codeScanners.has(family)) return codeScanners.get(family);
-  const lineComment =
-    family === "hash" ? "#[^\\n]*" : family === "sql" ? "--[^\\n]*" : "\\/\\/[^\\n]*";
-  const parts = [];
-  if (family === "markup") parts.push("(?<comment><!--[\\s\\S]*?-->)");
-  else parts.push(`(?<comment>\\/\\*[\\s\\S]*?\\*\\/|${lineComment})`);
-  parts.push('(?<string>"(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\'|`(?:[^`\\\\]|\\\\.)*`)');
-  parts.push("(?<number>\\b\\d[\\d_]*(?:\\.\\d+)?(?:[eE][+-]?\\d+)?\\b)");
-  const words = (CODE_KEYWORDS[family] || CODE_KEYWORDS.generic).trim().split(/\s+/);
-  if (words.length && words[0]) parts.push(`(?<keyword>\\b(?:${words.join("|")})\\b)`);
-  const scanner = new RegExp(parts.join("|"), "g");
-  codeScanners.set(family, scanner);
-  return scanner;
-}
-
 //: Which family a filename is in. Extension only: content sniffing guesses
 //: wrong on short files and there is nothing to gain: a file this app can
 //: view arrived with a suffix it recognised (`docview.CODE_SUFFIXES`).
 function codeFamilyFor(filename) {
   const suffix = /\.([a-z0-9]+)$/i.exec(String(filename || ""));
   return CODE_LANGUAGES[(suffix?.[1] || "").toLowerCase()] || "generic";
-}
-
-//: Fills `target` with the highlighted source. Text nodes and `<span>`s
-//: built with `textContent`, never `innerHTML`, a file's own text is exactly
-//: the untrusted input a markup-assembling highlighter turns into an
-//: injection, and this app's CSP would not save a same-origin one.
-function highlightCodeInto(target, text, filename) {
-  const scanner = codeScanner(codeFamilyFor(filename));
-  scanner.lastIndex = 0;
-  const source = String(text ?? "");
-  let at = 0;
-  let match;
-  while ((match = scanner.exec(source)) !== null) {
-    //: A zero-length match would loop forever. None of the patterns above can
-    //: produce one, and this costs nothing to be certain of.
-    if (match.index === scanner.lastIndex) {
-      scanner.lastIndex++;
-      continue;
-    }
-    if (match.index > at) target.appendChild(document.createTextNode(source.slice(at, match.index)));
-    const kind = Object.keys(match.groups).find((name) => match.groups[name] !== undefined);
-    const span = document.createElement("span");
-    span.className = `tok-${kind}`;
-    span.textContent = match[0];
-    target.appendChild(span);
-    at = match.index + match[0].length;
-  }
-  if (at < source.length) target.appendChild(document.createTextNode(source.slice(at)));
 }
 
 // ---------------------------------------------------------------------------

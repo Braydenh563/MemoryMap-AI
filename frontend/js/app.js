@@ -1878,58 +1878,6 @@ function confirmDialog(message, options = {}) {
   });
 }
 
-// `confirmDialog`'s other missing sibling: show a whole piece of text with
-// no decision to make, just a way to close it. Asked for directly: "longer
-// logs get truncated with no way to expand or collapse and view the whole
-// log", the Library's Activity cards show a clipped preview (server-side,
-// `ACTIVITY_DETAIL_CHARS`) so the grid stays scannable, and this is what a
-// click on one opens instead of doing nothing.
-function showDetailDialog(title, text) {
-  return new Promise((resolve) => {
-    const overlay = document.createElement("div");
-    overlay.className = "modal-overlay confirm-overlay";
-    overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-modal", "true");
-    overlay.setAttribute("aria-label", title);
-
-    const card = document.createElement("div");
-    card.className = "card modal-card confirm-card detail-dialog-card";
-    const heading = document.createElement("h3");
-    heading.textContent = title;
-    const body = document.createElement("p");
-    body.className = "confirm-text detail-dialog-text";
-    body.textContent = text;
-    const row = document.createElement("div");
-    row.className = "row confirm-actions";
-
-    let settled = false;
-    const close = () => {
-      if (settled) return;
-      settled = true;
-      document.removeEventListener("keydown", onKey, true);
-      overlay.remove();
-      returnFocus?.focus?.();
-      resolve();
-    };
-    const onKey = (event) => {
-      if (event.key === "Escape" || event.key === "Enter") {
-        event.stopPropagation();
-        close();
-      }
-    };
-
-    const returnFocus = document.activeElement;
-    const ok = smallButton("Close", "Close", close, false);
-    row.append(ok);
-    card.append(heading, body, row);
-    overlay.appendChild(card);
-    wireBackdropClose(overlay, () => close());
-    document.addEventListener("keydown", onKey, true);
-    document.body.appendChild(overlay);
-    ok.focus();
-  });
-}
-
 // `confirmDialog`'s missing sibling: ask for a line of text.
 //
 // DESIGN.md bans `window.confirm` because the desktop shell does not reliably
@@ -2225,8 +2173,6 @@ const LAZY_MODULES = {
   usageLedger: ["/js/usage-ledger.js"],
   //: The panel the "m" chord opens: chord-guide.js says why it is preloaded.
   chordGuide: ["/js/chord-guide.js"],
-  //: The note edit form, awaited by `openNoteEditor` before any row draws one.
-  noteEditForm: ["/js/note-edit-form.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2458,6 +2404,8 @@ const LAZY_ENTRY_POINTS = {
   modelBench: ["renderModelBench"],
   usageLedger: ["renderUsage", "renderCaptureCommand"],
   chordGuide: ["showTabJumpHint"],
+  //: Async, and reached from a Settings pane drawn before the window's own await.
+  settingsControls: ["refreshSearxngHost"],
   settingsData: [
     "renderPrivacyRange",
     "renderPrivacyReceipt",

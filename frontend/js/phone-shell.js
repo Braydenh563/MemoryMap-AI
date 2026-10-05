@@ -2065,26 +2065,6 @@ async function renderExportsList() {
   }
 }
 
-// Saved on blur/Enter, not on every keystroke, a half-typed path is not a
-// preference worth validating server-side yet. Reverts the field on a
-// rejected value rather than leaving a bad path sitting there looking saved.
-async function saveExportSaveDir() {
-  const input = $("pref-export-dir");
-  const value = input.value.trim();
-  if (value === (prefsCache?.export_save_dir || "")) return; // nothing changed
-  try {
-    prefsCache = await apiJson("/preferences", {
-      method: "PUT",
-      body: JSON.stringify({ export_save_dir: value }),
-    });
-    input.value = prefsCache.export_save_dir;
-    toast(value ? `Exports will now be saved to ${prefsCache.export_save_dir}` : "Exports will save to the default location.");
-  } catch (error) {
-    input.value = prefsCache?.export_save_dir || "";
-    toast(error.message || "Couldn't save that folder.", true);
-  }
-}
-
 function toggleAutonomousPanel() {
   const panel = $("autonomous-settings-panel");
   if (panel) panel.classList.toggle("hidden", !$("pref-autonomous-tasks").checked);
@@ -2124,24 +2104,6 @@ async function renderAutonomousReview() {
   $("autonomous-review-title").textContent =
     `What the last run changed, ${changes.length} thing(s)` + (when ? `, ${when}` : "");
   list.replaceChildren(...changes.map((change) => changeRow(change)));
-}
-
-async function addMemoryByHand() {
-  const input = $("memory-new");
-  const status = $("memory-status");
-  const text = (input?.value || "").trim();
-  status.classList.add("hidden");
-  status.classList.remove("error");
-  if (!text) return;
-  try {
-    await apiJson("/memory", { method: "POST", body: JSON.stringify({ content: text }) });
-    input.value = "";
-    renderMemorySettings();
-  } catch (error) {
-    status.textContent = error.message || "Couldn't save that.";
-    status.classList.remove("hidden");
-    status.classList.add("error");
-  }
 }
 
 // There is no Tags / Recycle bin / Activity shortcut in the notes sidebar, and

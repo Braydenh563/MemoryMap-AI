@@ -1,6 +1,4 @@
 // What search-boot-1005 moved out of the boot scripts still works when asked for:
-//   - the note edit form (note-edit-form.js): not loaded at boot, loaded by the
-//     first Edit, and the form draws with its toolbar and fields;
 //   - the "m" chord's guide (chord-guide.js): preloaded after boot, draws its 12
 //     rows, a second "m" closes it, and a guide that loads AFTER the chord was
 //     answered draws nothing (the race the lazy file adds);
@@ -16,30 +14,6 @@ const W = Number(process.env.W || 1440);
   const { browser, ctx, page } = await boot({ viewport: { width: W, height: W < 600 ? 800 : 900 } });
   page.on('pageerror', (e) => errors.push(e.message));
   const checks = {};
-
-  // --- the edit form --------------------------------------------------------
-  const before = await page.evaluate(() => ({
-    form: typeof renderEditForm,
-    toolbar: typeof noteEditToolbar,
-  }));
-  checks['edit form code is not loaded at boot'] = before.form === 'undefined' && before.toolbar === 'undefined';
-  const id = await page.evaluate(async () => {
-    const note = await apiJson('/entries', { method: 'POST', body: JSON.stringify({ content: 'A note to edit, boot sweep' }) });
-    await loadEntries();
-    return note.id;
-  });
-  await page.waitForTimeout(800);
-  await page.evaluate((noteId) => { switchTab('notes'); return openNoteEditor(noteId); }, id);
-  await page.waitForTimeout(1200);
-  const form = await page.evaluate(() => ({
-    loaded: typeof renderEditForm,
-    textarea: Boolean(document.getElementById('entry-edit-content')),
-    toolbar: document.querySelectorAll('.note-edit-toolbar [data-md]').length,
-    save: [...document.querySelectorAll('#entry-list button')].some((b) => /^\s*Save/.test(b.textContent)),
-  }));
-  console.log('edit form', JSON.stringify(form));
-  checks['the first Edit loads the form and it draws'] = form.loaded === 'function' && form.textarea && form.toolbar > 5 && form.save;
-  await page.evaluate(() => closeNoteForm());
 
   // --- the chord guide --------------------------------------------------------
   await page.waitForTimeout(3500); // app.js preloads it three seconds after boot

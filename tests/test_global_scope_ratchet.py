@@ -25,7 +25,7 @@ JS = Path(__file__).resolve().parents[1] / "frontend" / "js"
 #: tree the same day, 2026-10-05: six branches written in parallel added lazy
 #: bundles and their guards without knowing this ratchet existed. These are
 #: that tree's exact counts; they only go down (the perf2 follow-up owns it).
-GUARDS_CAP = 371
+GUARDS_CAP = 368
 TOP_LEVEL_LETS_CAP = 718
 
 

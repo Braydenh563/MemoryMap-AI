@@ -147,9 +147,9 @@ function paletteMatches(query) {
   //: ahead of them, an unlabelled run reads as more of "This document", which
   //: is the one thing it is not. `group` is only set where the row has not
   //: already claimed one, so the editor's stays its own.
-  //: The notes rows (palette.js `notesPaletteCommands`, INBOX 432): a
+  //: The notes rows (`notesPaletteCommands`, below, INBOX 432): a
   //: category to go to, a #tag to show, Move for the note in hand.
-  const commands = [...paletteCommands(), ...(typeof notesPaletteCommands === "function" ? notesPaletteCommands(lowered) : [])]
+  const commands = [...paletteCommands(), ...notesPaletteCommands(lowered)]
     //: UX-08: `keywords`, other words for a row ("trash", "theme").
     .filter((c) => paletteText(`${c.label} ${c.keywords || ""}`).includes(lowered))
     .map((c) => (c.group ? c : { ...c, group: "Everywhere" }));
@@ -401,3 +401,61 @@ $("palette-input").addEventListener("input", () => {
 });
 $("palette-input").addEventListener("keydown", paletteKeydown);
 wireBackdropClose($("palette-overlay"), () => closePalette());
+
+// ---- from palette.js (search-boot-1005): notesPaletteCommands ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+function notesPaletteCommands(query = "") {
+  const rows = [];
+  const ids = paletteNotesInHand();
+  if (ids.length) {
+    const one = ids.length === 1 ? allEntries.find((e) => e.id === ids[0]) : null;
+    rows.push({
+      group: "This note",
+      label: `ph:folder-open Move ${one ? "note" : "notes"} to category`,
+      about: one ? `Now in ${one.category}.` : `${ids.length} selected notes.`,
+      run: paletteLater(() => chooseNoteCategory(ids, one?.category || "")),
+    });
+    rows.push({
+      group: "This note",
+      label: `ph:tag Add or remove tags on ${one ? "this note" : "these notes"}`,
+      about: one ? `${one.tags.length ? one.tags.map((t) => `#${t}`).join(" ") : "No tags yet."}` : `${ids.length} selected notes.`,
+      run: paletteLater(() => openBulkTags(ids)),
+    });
+  }
+  rows.push({
+    group: "Tags",
+    label: "ph:hash Manage tags",
+    about: "Rename, merge or remove tags across every note.",
+    run: paletteLater(() => openTagsSheet()),
+  });
+  rows.push({
+    group: "Categories",
+    label: "ph:sliders-horizontal Manage categories",
+    about: "Rename, merge, split or delete categories.",
+    run: paletteLater(() => openManageCategories()),
+  });
+  if (!query) return rows;
+  const counts = new Map();
+  for (const e of allEntries) if (!e.is_draft) counts.set(e.category, (counts.get(e.category) || 0) + 1);
+  for (const [name, n] of [...counts].sort((a, b) => a[0].localeCompare(b[0]))) {
+    rows.push({
+      group: "Categories",
+      label: `ph:folder Go to category: ${name}`,
+      about: `${n} ${n === 1 ? "note" : "notes"}`,
+      run: paletteLater(() => paletteGoToCategory(name)),
+    });
+  }
+  if (query.startsWith("#")) {
+    const typed = query.slice(1).trim();
+    const tags = [...new Set(allEntries.flatMap((e) => e.tags || []))]
+      .filter((t) => !/\s/.test(t) && t.toLowerCase().startsWith(typed))
+      .sort()
+      .slice(0, 6);
+    if (typed && !/\s/.test(typed) && !tags.some((t) => t.toLowerCase() === typed)) tags.push(typed);
+    for (const tag of tags) {
+      rows.push({ group: "Tags", label: `ph:tag Show notes tagged #${tag}`, run: paletteLater(() => filterNotesByTag(tag)) });
+    }
+  }
+  return rows;
+}

@@ -34,7 +34,12 @@ STYLE = re.compile(r'<link[^>]*rel="stylesheet"[^>]*href="(/[^"?]+)(?:\?[^"]*)?"
 #: the largest of the app's, avatars.js, 91,517), 12 stylesheets 179,712.
 #: Before the strip the audit measured 1,384 KB of boot JS and 810 KB of CSS.
 #: Plus 2%.
-BOOT_JS_CAP = 705_600
+#:
+#: 2026-10-05, search-boot-1005: 692,894 (40 scripts; was 700,825 on the same
+#: tree before the move of the Settings handlers, the chord guide and the
+#: pickers, menus and checkers that one lazy file alone uses). The cap is that
+#: rounded up to the next 100, no headroom: it only goes down.
+BOOT_JS_CAP = 693_000
 BOOT_CSS_CAP = 183_300
 
 

@@ -19,3 +19,22 @@ def test_the_reminder_row_is_the_notes_row_recipe():
     assert 'ul.className = "entry-list";' in groups
     row = JS[JS.index("function reminderItem(") :]
     assert 'row.className = "entry-meta";' in row
+
+
+def test_a_snooze_has_an_undo_that_may_restore_a_past_time(client):
+    """Undo of a snooze puts back the old time, usually already past (an
+    overdue reminder is the one snoozed), so `restore` skips the past-date rule."""
+    from datetime import datetime, timedelta, timezone
+
+    soon = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    made = client.post("/reminders", json={"text": "x", "due_at": soon}).json()
+    past = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    assert client.put(f"/reminders/{made['id']}", json={"due_at": past}).status_code == 422
+    restored = client.put(f"/reminders/{made['id']}", json={"due_at": past, "restore": True})
+    assert restored.status_code == 200
+    assert restored.json()["due_at"][:10] == past[:10]
+
+
+def test_the_snooze_function_pushes_an_undo():
+    body = JS.split("async function snoozeReminderTo(", 1)[1].split("\n}\n", 1)[0]
+    assert "pushUndo(" in body and "restore: true" in body and '"Undo"' in body

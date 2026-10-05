@@ -57,6 +57,10 @@ class ReminderUpdate(BaseModel):
     done: bool | None = None
     priority: Priority | None = None
     recurring: Recurring | None = None
+    #: Undo's door for a snooze (WORLD_CLASS_PLAN row 32): the time it goes
+    #: back to is the old one, which is usually already past (an overdue
+    #: reminder is what gets snoozed), so the past-date rule must not refuse it.
+    restore: bool = False
 
 
 def _reject_if_in_the_past(due_at: datetime) -> None:
@@ -461,7 +465,8 @@ def update_reminder(
     if body.text is not None:
         reminder.text = body.text
     if body.due_at is not None:
-        _reject_if_in_the_past(body.due_at)
+        if not body.restore:
+            _reject_if_in_the_past(body.due_at)
         reminder.due_at = body.due_at
     if body.priority is not None:
         reminder.priority = body.priority

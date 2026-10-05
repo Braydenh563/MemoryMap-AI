@@ -166,6 +166,7 @@ function showSettingsSection(name) {
       })
       .catch(() => {});
   }
+  if (name === "models") renderModelBench();
   if (name === "appearance") renderAppearance();
   if (name === "shortcuts") renderShortcutList();
   if (name === "account") renderAccount().catch(() => {});

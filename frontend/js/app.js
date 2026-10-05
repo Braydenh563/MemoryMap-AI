@@ -2206,6 +2206,8 @@ const LAZY_MODULES = {
   //: Every listener inside the Settings window, awaited on first open: settings-controls.js.
   settingsControls: ["/js/settings-controls.js"],
   attachTo: ["/js/attach-to.js"],
+  //: The model bench in Settings, Models (WORLD_CLASS_PLAN I8): model-bench.js.
+  modelBench: ["/js/model-bench.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2415,6 +2417,7 @@ const LAZY_ENTRY_POINTS = {
   lightbox: ["openLightbox"],
   editConflict: ["editConflictPrompt"],
   noteHistory: ["openEntryHistory"],
+  modelBench: ["renderModelBench"],
   settingsData: [
     "renderPrivacyRange",
     "renderPrivacyReceipt",

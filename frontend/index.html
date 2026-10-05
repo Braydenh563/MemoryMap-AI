@@ -8413,6 +8413,46 @@ Link to another note with [[its first few words]]."></textarea>
               <p class="muted">Remove a model you no longer use to free up disk. The models in use can't be removed.</p>
               <ul id="installed-list"></ul>
             </div>
+            <!-- The model bench (WORLD_CLASS_PLAN I8, H3): ai/bench.py runs the
+                 installed models on the person's own notes, model-bench.js
+                 (lazy) fills this group. -->
+            <div id="bench-box" class="hidden settings-group">
+              <div class="row help-head">
+                <h3>Test my models</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="bench-help" aria-controls="bench-help" aria-expanded="false"
+                  title="About the model bench" aria-label="About the model bench">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Runs your installed models on your own notes and recommends one.</p>
+              <div class="help-body hidden" id="bench-help" role="dialog" aria-label="About the model bench">
+                <p>
+                  Each model files a sample of your notes, answers a question
+                  about each one from three notes shown to it, and calls a
+                  search tool five times. Filing is right when it picks the
+                  category you chose; an answer is right when it names the note
+                  the question came from.
+                </p>
+                <p>
+                  Everything runs on this computer, against the model server
+                  you set above. Forty notes over two models takes a few
+                  minutes to half an hour. Stop ends the run; a stopped run
+                  makes no recommendation.
+                </p>
+              </div>
+              <div id="bench-models" class="bench-models" role="group" aria-label="Models to test"></div>
+              <div class="row gap">
+                <button id="bench-run" class="ghost small" type="button">
+                  <i class="ph ph-play ph-lead" aria-hidden="true"></i>
+                  Run the test
+                </button>
+                <button id="bench-stop" class="ghost small hidden" type="button">Stop</button>
+              </div>
+              <p class="status job-line" role="status" data-job-line="model-bench"></p>
+              <p id="bench-status" class="status" role="status" aria-live="polite"></p>
+              <ul id="bench-results" class="bench-results"></ul>
+            </div>
             <!-- Suggested downloads as model cards (INBOX 444): grouped by what
                  the model is for, one starting pick per group, each card saying
                  what it needs and whether it fits this computer, with its own

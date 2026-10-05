@@ -797,7 +797,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 18 | B4 | typed links, a derived tensions table, rebuild determinism, the Tensions widget | M to L | `ai/tensions.py`, `ai/entities.py` |
 | 19 | B5, §9 | per-tool pre and post conditions, grammar-forced JSON, evals at 3B and 4B, concurrent tool calls, Ollama's native dialect | M | `ai/tools/`, `tests/test_skills_evals.py` |
 | 20 | I7 | the "Learned from you" line with a filing accuracy number | S | `settings.js` |
-| 21 | I8, H3 | the model bench | M | a new `ai/bench.py` |
+| 21 | ~~I8, H3~~ | ~~the model bench~~ built 2026-10-05: `ai/bench.py`, `/models/bench`, Settings, Models, Test my models (`tests/test_bench_spec.py`); left: a run against a real model for the 30-minute and rerun gates | done | HISTORY |
 | 22 | I2, H8 | the margin reader (after row 6's chunks) | M | `documents.js`, a new `/editor/read` |
 | 23 | I5, H8 | time travel: `as_of` on chat, then-and-now | M | `routes_chat.py` |
 | 24 | D9 | the web clipper | M | `routes_bookmarks.py`, `core/security.py` |
@@ -1272,39 +1272,7 @@ M. **Model** Opus for the prompt and fusion changes, Sonnet for the panel.
 
 ### I8 The model bench: which local model is best on *your* notebook
 
-**What the person sees.** Settings > Models > "Test my models": pick two
-or more installed models, press Run; twenty minutes later a table: filing
-accuracy, citation accuracy, tool-call success, answer latency, tokens per
-answer, each with a number and a one-line example of a failure. "Use this
-one" applies it. Runs on the night shift budget if left overnight.
-
-**Why it is new.** Every local-AI app tells you to "try a model". None
-measures one against your own notes, offline, and shows the failures.
-
-**Builds on.** `tests/eval/` (fixture, golden, scoring for tool choice and
-citation), `ai/model_manager.py`, `routes_models.py`, I1's scheduler.
-
-**Algorithm.** Build a held-out set from the owner's notebook: sample 40
-notes, generate one question per note whose answer is a sentence in it
-(no model needed: pick a claim from I1, or a sentence with two
-distinctive terms), plus the note's own category. For each model: file the
-40 notes cold, answer the 40 questions, run five scripted tool tasks;
-score with `tests/eval/scoring.py`'s functions moved into `ai/bench.py`
-(the tests then import from there, so the harness and the feature cannot
-drift). Report per model.
-
-**Tests first** (`tests/test_bench_spec.py`): a bench over the fixture
-with two fake models that differ in one scripted answer ranks them in the
-right order; the report names the failing question; a bench respects the
-budget and can be stopped; "Use this one" switches the chat model
-preference.
-
-**Gate.** The bench over two models on 40 notes completes under 30 minutes
-on the reference small model; the numbers reproduce within 2 points on a
-second run. **Size** M. **Model** Sonnet (the scoring exists; this is
-plumbing and a table).
-
-**State 2026-09-24:** (c) only its switch exists (`model_bench` in settings.js); no `ai/bench.py`, no route, no table. H3 is the same row. M.
+Built 2026-10-05: the spec and its record moved to HISTORY.md, "Moved from the plans, 2026-10-05 (the model bench)".
 
 ### I9 What the notebook learned: one place to see, edit, delete and switch it all off
 
@@ -1704,16 +1672,7 @@ answer's ranking (asserted, not eyeballed).
 
 ### H3 The model bench (I8; M, Opus)
 
-The one question every local-AI user asks and no product answers: which
-model is best on my notes, on my machine. Build: Settings, Models, "Try
-on my notebook": the app runs a fixed set of twelve tasks (file, link,
-answer, summarise, plan a skill) against each installed model over a
-sample of the person's own notes, scores them with the verifier from B5,
-times them, and shows a table with a recommendation. Everything local, one
-click, resumable. Gate: fake-transport tests for scoring and resume;
-`docs/MODELS.md` cites the bench instead of guessing.
-
-**State 2026-09-24:** (c), I8.
+Built 2026-10-05 with I8: moved to HISTORY.md, "Moved from the plans, 2026-10-05 (the model bench)".
 
 ### H4 The notebook as a local service for other agents (B7 and B8; M, Opus)
 

@@ -7,6 +7,59 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (the model bench)
+
+**Built 2026-10-05 (WORLD_CLASS_PLAN row 21, I8 and H3).** `ai/bench.py` builds a held-out set from the notebook with no model (seeded sample of notes the person filed themselves; per note one sentence with two words no other sampled note uses), then per model: filing through the janitor's own `SYSTEM_PROMPT` and `librarian.filing_prompt`, a cited answer from three fenced notes, five `find_note` tool calls; reports filing, citation and tool accuracy, median answer time, tokens, failed calls and the first three failures per task, best first. `citation_score` moved out of `tests/eval/scoring.py` into `ai/bench.py`, which the harness now imports. `/models/bench` (`api/routes_bench.py`): start (one at a time, a thread, `wait` for scripts), state with the last report (kept in `bench.json` in the data folder), stop; a budget in minutes; the `model_bench` switch gates it; job kind `model-bench` on the last-run line. Settings, Models, Test my models (`model-bench.js`, lazy): the models as switches, Run the test and Stop, one row per model on the list-row recipe with a facts line, Recommended and In use for chat labels, Use this one through `POST /models/chat-model`. Tests: `tests/test_bench_spec.py` (7: the set is stable and from the notebook, two fakes that differ in one filing rank right, the report names the failing question, stop and budget, the shared citation score, the routes and Use this one, the too-small notebook). Not verified: a run against a real local model (the plan's 30-minute gate and the two-point rerun gate need one; `scratchpad/llama-dev.sh` is the way). Deviation from the spec: the five tool tasks call one offered tool rather than the app's registry, so a model's score does not depend on which tools the router narrows to.
+
+### From WORLD_CLASS_PLAN.md, I8 The model bench: which local model is best on *your* notebook
+
+**What the person sees.** Settings > Models > "Test my models": pick two
+or more installed models, press Run; twenty minutes later a table: filing
+accuracy, citation accuracy, tool-call success, answer latency, tokens per
+answer, each with a number and a one-line example of a failure. "Use this
+one" applies it. Runs on the night shift budget if left overnight.
+
+**Why it is new.** Every local-AI app tells you to "try a model". None
+measures one against your own notes, offline, and shows the failures.
+
+**Builds on.** `tests/eval/` (fixture, golden, scoring for tool choice and
+citation), `ai/model_manager.py`, `routes_models.py`, I1's scheduler.
+
+**Algorithm.** Build a held-out set from the owner's notebook: sample 40
+notes, generate one question per note whose answer is a sentence in it
+(no model needed: pick a claim from I1, or a sentence with two
+distinctive terms), plus the note's own category. For each model: file the
+40 notes cold, answer the 40 questions, run five scripted tool tasks;
+score with `tests/eval/scoring.py`'s functions moved into `ai/bench.py`
+(the tests then import from there, so the harness and the feature cannot
+drift). Report per model.
+
+**Tests first** (`tests/test_bench_spec.py`): a bench over the fixture
+with two fake models that differ in one scripted answer ranks them in the
+right order; the report names the failing question; a bench respects the
+budget and can be stopped; "Use this one" switches the chat model
+preference.
+
+**Gate.** The bench over two models on 40 notes completes under 30 minutes
+on the reference small model; the numbers reproduce within 2 points on a
+second run. **Size** M. **Model** Sonnet (the scoring exists; this is
+plumbing and a table).
+
+**State 2026-09-24:** (c) only its switch exists (`model_bench` in settings.js); no `ai/bench.py`, no route, no table. H3 is the same row. M.
+
+### From WORLD_CLASS_PLAN.md, H3 The model bench (I8; M, Opus)
+
+The one question every local-AI user asks and no product answers: which
+model is best on my notes, on my machine. Build: Settings, Models, "Try
+on my notebook": the app runs a fixed set of twelve tasks (file, link,
+answer, summarise, plan a skill) against each installed model over a
+sample of the person's own notes, scores them with the verifier from B5,
+times them, and shows a table with a recommendation. Everything local, one
+click, resumable. Gate: fake-transport tests for scoring and resume;
+`docs/MODELS.md` cites the bench instead of guessing.
+
+**State 2026-09-24:** (c), I8.
+
 ## Moved from the plans, 2026-10-05 (a frame as an export scope)
 
 ### From WHITEBOARD_PLAN.md, decision 14's open edges (decision 18)

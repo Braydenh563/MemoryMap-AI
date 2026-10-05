@@ -426,6 +426,28 @@ MORE_TOPICS: list[dict] = [
         ),
         "badge": {"label": "Account & security", "section": "account"},
     },
+    {
+        "id": "model-bench",
+        "keywords": (
+            "model bench", "test my models", "which model is best", "compare models",
+            "best model for my notes", "benchmark", "try my models",
+        ),
+        "body": (
+            "Settings, Models, Test my models runs your installed models on your "
+            "own notes and recommends one. Tick the models to compare and press "
+            "Run the test: each model files a sample of the notes you filed "
+            "yourself, answers a question about each one from three notes shown "
+            "to it, and calls a search tool five times. Every row shows Filing, "
+            "Answers and Tools as a percentage, how long an answer took and how "
+            "many tokens it used, with the first few things it got wrong, so you "
+            "can check the recommendation. Use this one makes that model answer "
+            "in chat. Stop ends a run, and a stopped run makes no "
+            "recommendation. It needs at least six filed notes, runs entirely on "
+            "this computer, and can be switched off in Settings, What the "
+            "notebook learned, Model bench."
+        ),
+        "badge": {"label": "Test my models", "section": "models", "target": "bench-box"},
+    },
 ]
 
 #: **Every feature since 0.3.0, large and small** (INBOX 448 (1), the owner:
@@ -882,6 +904,7 @@ TOPIC_META: dict[str, dict] = {
     "statusbar": {"title": "The status bar", "path": "Settings, Appearance, Status bar"},
     "shortcuts": {"title": "Keyboard shortcuts", "path": "Settings, Keyboard shortcuts"},
     "models": {"title": "Models", "path": "Settings, Models"},
+    "model-bench": {"title": "Test my models", "path": "Settings, Models, Test my models", "target": "bench-box"},
     "storage": {"title": "Where your data lives", "path": "Settings, Import & export"},
     "websearch": {"title": "Web search", "path": "Settings, Web search"},
     "privacy": {"title": "Privacy", "path": "Settings, Privacy"},
@@ -1018,7 +1041,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "statusbar", "companion", "atlas-look", "faces",
     )),
     ("Models and the AI", (
-        "models", "model-downloads", "tools-setting", "autonomous", "websearch",
+        "models", "model-downloads", "model-bench", "tools-setting", "autonomous", "websearch",
         "search-index", "packages",
     )),
     ("Privacy and your data", (

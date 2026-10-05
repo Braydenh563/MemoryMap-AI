@@ -549,11 +549,10 @@ the head, so they carry no row of their own.
 - ~~featuremodels.md~~ Verified. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - ~~guide.md~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
 - **guideia.md**: the Guide is a modal sheet whose scrim dims the app, so
-  "Open the Reminders tab" cannot be read against the tab; the Chat empty
-  state's "Try asking" chips stay pressable with no model; the rows
-  WORLD_CLASS_PLAN 1.3 marks open (Remind me beyond notes, Show in graph for a
-  document, the Library note card's Remind me and Link to). [guideia]
-  *Needs: non-modal changes `openSheet`'s focus and backdrop contract.*
+  "Open the Reminders tab" cannot be read against the tab; the rows
+  WORLD_CLASS_PLAN 1.3 marks open (Remind me beyond notes, the Library note
+  card's Remind me and Link to). [guideia]
+  *Needs: a non-modal Guide changes `openSheet`'s focus and backdrop contract; Remind me beyond notes needs the reminder to point at other kinds first (a backend step).*
 - **holepoke.md**: seven findings, each with its "why not" in the file's table
   (per-glyph ink offsets for carets, the toast over the phone Notes tabs, a
   ghost select's caret ink, mixed button weights in the reminder row cluster,

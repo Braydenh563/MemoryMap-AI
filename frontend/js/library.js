@@ -801,6 +801,9 @@ function libraryActions(item) {
       }),
       //: The shared "act on this" rows (INBOX 393): every object can be taken
       //: to the chat that answers about it.
+      makeMenuItem("ph:graph Show in graph", "Open the graph centred on this document", () =>
+        showNoteInGraph(item.id, { document: true })
+      ),
       makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this document", () =>
         askAtlasAboutThing("document", item.title)
       ),

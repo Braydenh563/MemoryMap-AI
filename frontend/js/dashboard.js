@@ -62,6 +62,11 @@ const DASH_WIDGETS = {
   //: WORLD_CLASS_PLAN I1's morning card over `GET /night/latest`.
   night: { title: "ph:moon-stars While you were away", description: "What Atlas worked out reading your notes on its own, with each finding to open or dismiss.", render: renderNightWidget },
   "most-used": { title: "ph:flame Most used", description: "The notes you open and ask about most often.", render: renderMostUsedWidget },
+  //: WORLD_CLASS_PLAN section 17 rows 5 and 1: the owner's "most-accessed
+  //: information" for this month (`GET /most-opened`, a day-by-day open log),
+  //: and the filings waiting for a person (`GET /review-queue`).
+  "most-opened": { title: "ph:eye Most opened this month", description: "The ten notes you opened most in the last thirty days.", render: renderMostOpenedWidget },
+  review: { title: "ph:checks Filings to check", description: "Notes Atlas was unsure where to file, and notes left Uncategorised, to accept or move.", render: renderReviewWidget },
   "most-linked": { title: "ph:link Most-linked notes", description: "The notes with the most connections, the hubs of your notebook.", render: renderMostLinkedWidget },
   "top-tags": { title: "ph:tag Top tags", description: "Your most-used tags, ranked by how many notes carry them.", render: renderTopTagsWidget },
   questions: { title: "ph:chat-circle Recent questions", description: "The questions you've recently asked the notebook's chat.", render: renderQuestionsWidget },
@@ -2569,6 +2574,32 @@ function miniEntryList(body, entries, emptyText, emptyAction = null) {
 async function renderPinnedWidget(body) {
   const entries = (await dashEntries()).filter((e) => e.pinned);
   miniEntryList(body, entries.slice(0, 5), "Star a note and it shows up here.", { label: "ph:note Open Notes", run: "tab", tab: "notes" });
+}
+
+async function renderMostOpenedWidget(body) {
+  const entries = await apiJson("/most-opened", { cacheMs: 30000 });
+  miniEntryList(body, entries, "Open a few notes and the ones you return to show here.", { label: "ph:note Open Notes", run: "tab", tab: "notes" });
+}
+
+async function renderReviewWidget(body) {
+  const queue = await apiJson("/review-queue?limit=5", { cacheMs: 30000 });
+  if (!queue.count) {
+    dashEmpty(body, "Nothing to check: every filing is settled.", { label: "ph:note Open Notes", run: "tab", tab: "notes" });
+    return;
+  }
+  const line = document.createElement("p");
+  line.className = "dash-review-count";
+  line.textContent = `${queue.count} note${queue.count === 1 ? "" : "s"} to check`;
+  const open = smallButton("ph:checks Review them", "Show them in Notes, filtered to is:review", async () => {
+    await switchTab("notes");
+    showNotesSection("browse");
+    const box = $("note-search");
+    if (box) {
+      box.value = "is:review";
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+  body.append(line, open);
 }
 
 async function renderMostUsedWidget(body) {

@@ -40857,3 +40857,46 @@ line against a real release (GitHub is not reachable from the sandbox).
   already measured past five nodes (maplayouts.js, 12 and 200 topics, 0
   overlapping pairs). The whiteboard menu sweep is left with the whiteboard
   agent.
+
+### Row 11, section 17: the original vision's open rows
+
+`api/routes_vision.py` holds the server half of all of them.
+
+1. **Review queue.** A note waits when nobody has settled its filing and
+   Atlas was under 60% sure or it is in Uncategorised (`review_filter`; the
+   page's `noteNeedsReview` is the same rule). `GET /review-queue` gives the
+   count and the ids; `POST /review-queue/{id}/accept` makes the filing the
+   person's. The Notes box takes `is:review`; a note's ⋯ has Accept the
+   filing when it is waiting; the dashboard's Filings to check widget counts
+   them and opens the filter; the bell says so once a week past five. Split
+   per row was not built: no note has a split action anywhere.
+2. **Tidy proposals.** `GET /tidy-proposals`: merges for category names
+   alike (a 0.84 ratio over the names with plurals folded) or alike in
+   meaning (0.92 cosine of the names, when the search engine is ready), the
+   busier keeping its notes, a category a person renamed never merged away,
+   a pair answered "Not these" never proposed again
+   (`POST /tidy-proposals/dismiss`, the `category_tidy_dismissed`
+   preference); removals for categories empty and older than thirty days. In
+   the Manage categories panel, where the look-alike merges already were
+   (INBOX 504), not Settings: Merge and Remove are the panel's own actions.
+3. **Filing style.** Settings, AI: by topic (the default, the prompt
+   unchanged), by project or by time, each with three examples, added to the
+   filing prompt (`librarian.FILING_STYLES`, the `filing_style` preference).
+4. **Charts from questions.** `POST /charts/question` reads a counting or
+   trend question with no model (`parse_chart_question`: per category, tag,
+   day, week, month or year; today, this or last week, month or year, the
+   last N days, a named month, a year) and counts live notes from the
+   records. The Ask box draws it above the answer (`renderAskChart`,
+   ask-chart.js, in the Ask history's lazy bundle): bars or a line from the
+   theme's tokens, the numbers in a table under it, Save as PNG. DESIGN.md
+   has the recipe.
+5. **Most opened this month.** `EntryOpen`, a row per note per day
+   (migration c2f8a6d4e9b1), counted on every open of a note;
+   `GET /most-opened` gives the ten opened most in thirty days; the
+   dashboard's Most opened this month widget.
+6. **Explain this note.** A note's ⋯: its words, then each note it links to
+   with the link's reason (or that none was given), read aloud with the
+   browser's voices and shown in a sheet; works with the model off.
+
+Measured: `tests/test_vision_rows_row11.py`. Not verified: a real local
+model filing under each style; the chart's PNG opened outside the app.

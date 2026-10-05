@@ -2071,6 +2071,11 @@ def get_entry(
         raise HTTPException(status_code=404, detail="That note could not be found.")
     if not entry.is_deleted:
         entry.access_count += 1  # opening an entry counts as using it
+        #: And on which day (WORLD_CLASS_PLAN section 17 row 5): "most opened
+        #: this month" cannot be read off an all-time count.
+        from memorymap.api.routes_vision import record_open
+
+        record_open(session, entry.id)
         # And *when*, which is the half the dashboard's Continue pill needs:
         # a count cannot answer "the note I was last in", and `updated_at`
         # only moves when the text changes, so reading an old note left the

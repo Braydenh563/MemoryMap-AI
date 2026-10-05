@@ -19,7 +19,14 @@
 async function openManageCategories(focusName = null) {
   //: The sort, the look-alike merges and the count button are the tag
   //: manager's (INBOX 504), so its module comes first.
-  await Promise.all([loadCategories(), ensureModule("tagManager")]);
+  //: The librarian's tidy proposals (WORLD_CLASS_PLAN section 17 row 2),
+  //: asked once per opening: merges by name or meaning, and categories empty
+  //: for thirty days.
+  const [, , tidy] = await Promise.all([
+    loadCategories(),
+    ensureModule("tagManager"),
+    apiJson("/tidy-proposals", { silent: true }).catch(() => null),
+  ]);
   openSheet({
     label: "Manage categories",
     name: "categories",
@@ -79,6 +86,7 @@ async function openManageCategories(focusName = null) {
         sort: manageStored("manage-categories-sort", "name"),
         rare: false,
         hideSuggest: false,
+        tidy: tidy || { merges: [], empty: [] },
       };
       tools.append(search, ...manageListControls({
         sortKey: "manage-categories-sort",
@@ -177,14 +185,7 @@ function drawManageCategoryRows(list, footer, state) {
     recent
   ).map((name) => categoryMeta.get(name));
   for (const name of [...state.selected]) if (!categoryMeta.has(name)) state.selected.delete(name);
-  if (state.suggestBox) {
-    drawManageSuggestions(state.suggestBox, {
-      groups: manageLookAlikes([...categoryMeta.keys()].filter((name) => name !== "Uncategorised"), countOf),
-      nouns: "categories",
-      state,
-      onMerge: (into, names) => mergeCategoriesFromPanel(names.map((name) => categoryMeta.get(name)).filter(Boolean), categoryMeta.get(into)),
-    });
-  }
+  if (state.suggestBox) drawCategoryTidy(state.suggestBox, state);
   if (!shown.length) {
     const none = document.createElement("li");
     none.className = "muted manage-cat-empty";
@@ -265,6 +266,59 @@ function drawManageCategoryRows(list, footer, state) {
 //: the panel's Enter and the category chip's "Show notes in" (INBOX 447 (5)).
 //: `clearSearch` empties the box first: from a card that is showing a search
 //: or a tag, "show this category" means this category, not its overlap.
+//: **The librarian's tidy proposals** (WORLD_CLASS_PLAN section 17 row 2):
+//: from `GET /tidy-proposals`, which finds names alike or alike in meaning,
+//: never merges away a name the person chose by renaming, and drops a pair
+//: someone answered "Not these" to, for good; and categories empty for thirty
+//: days. Nothing moves until Merge or Remove is pressed. In this panel rather
+//: than Settings, where the look-alike merges already were (INBOX 504).
+function drawCategoryTidy(box, state) {
+  box.replaceChildren();
+  const merges = (state.tidy.merges || []).filter((m) => categoryMeta.has(m.keep.name) && categoryMeta.has(m.merge.name));
+  const empty = (state.tidy.empty || []).filter((c) => categoryMeta.has(c.name) && !(categoryMeta.get(c.name).count > 0));
+  const show = (merges.length || empty.length) && !state.hideSuggest;
+  box.classList.toggle("hidden", !show);
+  if (!show) return;
+  const head = document.createElement("p");
+  head.className = "manage-suggest-head";
+  setLabel(head, `ph:broom Tidy suggestions (${merges.length + empty.length})`);
+  const later = smallButton("Not now", "Hide these suggestions until the panel is opened again", () => {
+    state.hideSuggest = true;
+    box.classList.add("hidden");
+  });
+  later.classList.add("manage-suggest-later");
+  head.appendChild(later);
+  box.appendChild(head);
+  const row = (text, title, ...buttons) => {
+    const el = document.createElement("div");
+    el.className = "manage-suggest-row";
+    const names = document.createElement("span");
+    names.className = "manage-suggest-names";
+    names.textContent = text;
+    names.title = title;
+    el.append(names, ...buttons);
+    box.appendChild(el);
+  };
+  for (const m of merges.slice(0, 4)) {
+    const text = `${m.merge.name} into ${m.keep.name}`;
+    const merge = smallButton("ph:arrows-merge Merge", `Fold ${text}`, () =>
+      mergeCategoriesFromPanel([categoryMeta.get(m.merge.name)], categoryMeta.get(m.keep.name))
+    );
+    merge.setAttribute("aria-label", `Merge ${text}`);
+    const no = smallButton("Not these", "Never suggest this pair again", async () => {
+      await apiJson("/tidy-proposals/dismiss", { method: "POST", body: JSON.stringify({ a: m.keep.name, b: m.merge.name }) }).catch(() => {});
+      state.tidy.merges = state.tidy.merges.filter((x) => x !== m);
+      drawCategoryTidy(box, state);
+    });
+    row(text, `${text}: ${m.why}`, merge, no);
+  }
+  for (const c of empty.slice(0, 4)) {
+    const remove = smallButton("ph:trash Remove", `Remove the empty category ${c.name}`, () => deleteCategoryFromPanel(categoryMeta.get(c.name)));
+    remove.setAttribute("aria-label", `Remove ${c.name}`);
+    row(`${c.name} has been empty for ${state.tidy.empty_days || 30} days`, c.name, remove);
+  }
+}
+
 function showCategoryNotes(name, { clearSearch = false } = {}) {
   //: The notes are behind the panel, so the panel gets out of their way
   //: (INBOX 432: the list filtered under an open modal).

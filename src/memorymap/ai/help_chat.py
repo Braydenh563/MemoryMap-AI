@@ -124,7 +124,11 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("ask", "chat", "agent", "conversation", "tool", "question", "popup agent", "everywhere"),
         "body": (
             "\"Ask your notebook\" (Notes tab) and the Chat tab both answer from "
-            "saved notes, with the raw notes shown beside the answer. Agent mode "
+            "saved notes, with the raw notes shown beside the answer. A counting "
+            "question in Ask (how many notes per category this month) also gets "
+            "a chart from your notes, with its numbers and Save as PNG. A note's "
+            "... menu has Explain this note: read aloud, then what it links to "
+            "and why. Agent mode "
             "(a toggle in Chat) lets the assistant use its tools to search, link, "
             "tag, organise and create, destructive actions always ask first, "
             "and after it reads a web page or a clipped or imported note, so "
@@ -183,7 +187,7 @@ HELP_TOPICS: list[dict] = [
             "The Dashboard is the at-a-glance home: a greeting with your note "
             "count and what is due, a search box, the Quick access tiles, "
             "and widgets such as reminders, recent notes, the weekly AI digest, "
-            "stats and your streak. Customise, beside the search box, has Edit "
+            "stats, your streak, Most opened this month and Filings to check. Customise, beside the search box, has Edit "
             "layout and Widgets to show, hide and rearrange them; the layout is "
             "remembered per user."
         ),
@@ -1310,7 +1314,7 @@ HELP_TOPICS.extend(
                 "in any order), \"a quoted phrase\", tag:work, cat:recipes, "
                 "#tag, title:, in:, before: and after: (a date such as 2026-09), "
                 "is:favourite, is:pinned, is:private, is:linked, is:untagged, "
-                "is:draft, tags:<2 (also <=, > and >=), and -word to leave a word "
+                "is:draft, is:review (filings to check), tags:<2 (also <=, > and >=), and -word to leave a word "
                 "out. Select ticks several notes to move to a category, tag or "
                 "delete together, and Select all ticks the whole page; the "
                 "selection bar's Tags adds or removes tags on every selected note, "

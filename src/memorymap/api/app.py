@@ -57,6 +57,7 @@ from memorymap.api import (
     routes_night,
     routes_questions,
     routes_privacy,
+    routes_vision,
     routes_resurface,
     routes_entries,
     routes_files,
@@ -1011,6 +1012,8 @@ def create_app() -> FastAPI:
     app.include_router(routes_whiteboard.router, dependencies=locked)
     app.include_router(routes_debug.router, dependencies=locked)
     app.include_router(routes_privacy.router, dependencies=locked)
+    #: WORLD_CLASS_PLAN section 17: the review queue, most opened, tidy proposals, charts.
+    app.include_router(routes_vision.router, dependencies=locked)
 
     @app.get("/openapi.json", include_in_schema=False, dependencies=locked)
     def openapi_schema() -> JSONResponse:

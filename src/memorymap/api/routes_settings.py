@@ -493,6 +493,8 @@ class PreferencesBody(BaseModel):
     #: the next load. `tests/test_preferences_roundtrip.py` now compares
     #: every key the frontend sends with this body.
     ai_first_filing: bool | None = None
+    #: WORLD_CLASS_PLAN section 17 row 3 (`librarian.FILING_STYLES`).
+    filing_style: Literal["topic", "project", "time"] | None = None
     background_filing: bool | None = None
     auto_caption_images: bool | None = None
     auto_read_image_text: bool | None = None
@@ -667,6 +669,7 @@ def get_preferences() -> dict:
     return {
         "recycle_bin_days": config.get_preference("recycle_bin_days", 30),
         "ai_first_filing": config.get_preference("ai_first_filing", True),
+        "filing_style": config.get_preference("filing_style", "topic"),
         "background_filing": config.get_preference("background_filing", True),
         "auto_caption_images": config.get_preference("auto_caption_images", True),
         "auto_read_image_text": config.get_preference("auto_read_image_text", True),

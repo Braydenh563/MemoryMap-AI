@@ -2754,6 +2754,17 @@ async function askQuestion(preset) {
   const thinkingText = thinkingBox.querySelector(".thinking");
   renderAskedQuestion(question);
   answerBox.textContent = "";
+  //: A counting or trend question gets its chart beside the answer
+  //: (WORLD_CLASS_PLAN section 17 row 4): asked in parallel, from the
+  //: records, so it lands whether or not the model answers.
+  const chartHost = $("ask-chart");
+  if (chartHost) {
+    chartHost.replaceChildren();
+    chartHost.classList.add("hidden");
+    ensureModule("askHistory")
+      .then(() => renderAskChart(question, chartHost, () => lastQuestion === question))
+      .catch(() => {});
+  }
   //: After the reset, not before it: the progress line lives inside the
   //: answer box now, so creating it first would only have it wiped.
   const progress = askStatusBusy(

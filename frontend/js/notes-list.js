@@ -755,6 +755,8 @@ function matchesSearch(entry) {
     if (flag === "linked" && !(entry.links || []).length && !/\[\[[^\]\n]{1,120}\]\]/.test(entry.content || "")) return false;
     if ((flag === "draft" || flag === "drafts") && !entry.is_draft) return false;
     if (flag === "untagged" && tags.length) return false;
+    //: WORLD_CLASS_PLAN section 17 row 1: the review queue as a filter.
+    if (flag === "review" && !noteNeedsReview(entry)) return false;
   }
   if (query.tagCount && !matchesTagCount(query.tagCount, tags.length)) return false;
   if (query.exclude.some((word) => haystack.includes(word))) return false;
@@ -3108,6 +3110,7 @@ async function _loadEntries() {
     if (page.length === 0) break; // safety: never loop forever on a stale total
   }
   nudgeUntaggedNotes();
+  nudgeReviewQueue();
 }
 
 //: **What the note list needs to draw a `[[map]]` as a map chip**, fetched
@@ -3292,6 +3295,30 @@ function ensureMapChipsFor(page, generation) {
       if (generation === _entriesLoadGeneration) renderEntries();
     })
     .catch(() => {});
+}
+
+//: **The review queue** (WORLD_CLASS_PLAN section 17 row 1): a filing Atlas
+//: was unsure of (under 60%) or a note left Uncategorised, that nobody has
+//: settled. The same rule as `routes_vision.review_filter`, so the filter and
+//: the dashboard's count agree.
+function noteNeedsReview(entry) {
+  if (entry.user_filed || entry.is_board || entry.is_draft || entry.filing_state === "pending") return false;
+  return entry.category === "Uncategorised" || (entry.ai_confidence > 0 && entry.ai_confidence < 60);
+}
+
+//: The bell says so once a week, past a handful, as it does for untagged.
+async function nudgeReviewQueue() {
+  const queue = await apiJson("/review-queue?limit=1", { silent: true, cacheMs: 60000 }).catch(() => null);
+  if (!queue || queue.count < UNTAGGED_NUDGE_MIN) return;
+  const now = new Date();
+  const week = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / (7 * 86400000));
+  recordNotification({
+    kind: "assist",
+    title: `${queue.count} filings to check`,
+    detail: "Atlas was unsure where these belong. Accept each, or move it.",
+    key: `review:${now.getFullYear()}-${week}`,
+    action: { tab: "notes", filter: "is:review" },
+  });
 }
 
 //: **The app notices what the person has not got round to** (INBOX 162).

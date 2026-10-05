@@ -1206,6 +1206,27 @@ class EntryRevision(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class EntryOpen(Base):
+    """How often a note was opened on one day (WORLD_CLASS_PLAN section 17
+    row 5, "most opened this month").
+
+    `Entry.access_count` is all time, and "this month" cannot be read off a
+    running total, so each open adds one to its day's row (`routes_vision.
+    record_open`). A row per note per day, not per open: the dashboard asks
+    for thirty days at a time, and a year of daily reading is a few thousand
+    rows rather than a few hundred thousand.
+    """
+
+    __tablename__ = "entry_opens"
+    __table_args__ = (UniqueConstraint("entry_id", "day", name="uq_entry_opens_entry_day"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
+    #: The UTC day, as `YYYY-MM-DD`, so a range is a string comparison.
+    day: Mapped[str] = mapped_column(String(10), index=True)
+    count: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class EntryDate(Base):
     """What a relative time phrase in a note meant, on the day it was written.
 

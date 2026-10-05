@@ -5174,3 +5174,95 @@ button.answer-figure-open {
     pointer-events: auto;
   }
 }
+
+/* A chart answering a question (WORLD_CLASS_PLAN section 17 row 4,
+   ask-chart.js; DESIGN.md "A chart answering a question"): one card above the
+   answer, its marks in the theme's tokens so both themes hold, the numbers
+   in a table under it. */
+.ask-chart {
+  margin-block: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.ask-chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.ask-chart-head > button {
+  margin-left: auto;
+}
+
+.ask-chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-block: var(--space-2);
+}
+
+.ask-chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.ask-chart-axis {
+  fill: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.ask-chart-bar,
+.ask-chart-dot {
+  fill: var(--accent);
+}
+
+.ask-chart-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.ask-chart-numbers > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.ask-chart-table {
+  margin-top: var(--space-2);
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.ask-chart-table th,
+.ask-chart-table td {
+  padding: var(--space-1) var(--space-3) var(--space-1) 0;
+  text-align: left;
+  border-bottom: 1px solid var(--divider);
+}
+
+/* Explain this note (section 17 row 6): the words, then each link and why. */
+.explain-note-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.explain-note-text {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.explain-note-links {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.dash-review-count {
+  margin: 0 0 var(--space-2);
+}

@@ -616,7 +616,7 @@ document.addEventListener("keydown", (e) => {
       return;
     }
     for (const [id, def] of Object.entries(shortcuts)) {
-      if ((id === "undo" || id === "redo") && inTextField) continue;
+      if ((id === "undo" || id === "redo" || id === "pasteNote") && inTextField) continue;
       //: INBOX 321: on an open board the same chord duplicates the selection.
       //: And an editor that already answered it keeps it: the documents
       //: editor binds Ctrl+D to "select the next match" (CodeMirror's search
@@ -938,6 +938,10 @@ const DEFAULT_SHORTCUTS = {
   help: { keys: "?", label: "Show this shortcuts list" },
   newNote: { keys: "Ctrl+Shift+N", label: "Start a new note" },
   quickNote: { keys: "Alt+N", label: "Quick note, saved without leaving the page" },
+  //: WORLD_CLASS_PLAN, Placed 2026-09-09 item 99 (d): the fastest capture on
+  //: a desktop. Not in a text box, where the chord is the browser's own
+  //: "paste as plain text" and is left to it.
+  pasteNote: { keys: "Ctrl+Shift+V", label: "Save what you copied as a new note" },
   newDocument: { keys: "Ctrl+Shift+D", label: "Start a new document" },
   //: WORLD_CLASS_PLAN D6. Opens today's page wherever it is (a note or a
   //: document titled with the day), or starts one in the composer. Not while a
@@ -1346,6 +1350,7 @@ function runShortcut(id) {
     },
     newNote: () => startNewNote(),
     quickNote: () => openQuickNote(),
+    pasteNote: () => pasteClipboardAsNote(),
     newDocument: () => {
       switchTab("documents");
       createDocument();
@@ -1418,6 +1423,41 @@ function runShortcut(id) {
     navigateForward: () => stepTabHistory(1),
   };
   actions[id]?.();
+}
+
+//: The clipboard's text as a new note, filed by Atlas like any capture
+//: (`createNoteSafely`, the quick note's path, so a note pasted while the
+//: server is gone waits in the outbox rather than being lost). Undo bins it.
+async function pasteClipboardAsNote() {
+  let text = "";
+  try {
+    text = ((await navigator.clipboard.readText()) || "").trim();
+  } catch {
+    toast("Couldn't read the clipboard here. Paste into Capture instead.", true);
+    return;
+  }
+  if (!text) return toast("There is no text on the clipboard to save.", true);
+  const result = await createNoteSafely({ content: text }).catch((error) => {
+    toast(error.message, true);
+    return null;
+  });
+  if (!result) return;
+  if (result.queued) return toast("Saved here; it is sent when the app's server is back.");
+  const id = result.saved.id;
+  refreshEntries([id]);
+  const bin = async () => {
+    await apiJson(`/entries/${id}`, { method: "DELETE" });
+    refreshEntries([id]);
+  };
+  const back = async () => {
+    await apiJson(`/entries/${id}/restore`, { method: "POST" });
+    refreshEntries([id]);
+  };
+  const action = pushUndo("Pasted a note", bin, back);
+  toastAction("Saved what you copied as a new note.", "Undo", async () => {
+    settleUndoFromToast(action);
+    await bin();
+  });
 }
 
 function resetShortcuts() {

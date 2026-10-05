@@ -65,6 +65,7 @@ from memorymap.api import (
     routes_night,
     routes_questions,
     routes_privacy,
+    routes_vision,
     routes_resurface,
     routes_entries,
     routes_files,
@@ -516,6 +517,10 @@ def _purge_expired_bin_entries() -> None:
             days = int(config.get_preference("recycle_bin_days", 30))
             with events.acting_as("system:recycle-bin"):
                 manager.purge_expired_deleted(session, days, uploads_dir=config.uploads_dir)
+                # The bin's documents and reminders, on the same rule.
+                from memorymap.entry import bin as other_bin
+
+                other_bin.purge_expired(session, days)
         finally:
             session.close()
     except Exception:  # noqa: BLE001  # a failed purge must never block startup
@@ -1227,6 +1232,8 @@ def create_app() -> FastAPI:
     app.include_router(routes_debug.router, dependencies=locked)
     app.include_router(routes_privacy.router, dependencies=locked)
     app.include_router(routes_capabilities.router, dependencies=locked)
+    #: WORLD_CLASS_PLAN section 17: the review queue, most opened, tidy proposals, charts.
+    app.include_router(routes_vision.router, dependencies=locked)
 
     @app.get("/openapi.json", include_in_schema=False, dependencies=locked)
     def openapi_schema() -> JSONResponse:

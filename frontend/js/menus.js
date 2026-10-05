@@ -1920,6 +1920,20 @@ function entryOverflowMenu(entry) {
           }
         },
       },
+      //: Section 17 row 1: settle a filing from the note itself.
+      ...(noteNeedsReview(entry)
+        ? [{
+          label: "ph:check-circle Accept the filing",
+          title: `Keep it in ${entry.category}; it leaves the review queue`,
+          run: async () => {
+            await apiJson(`/review-queue/${entry.id}/accept`, { method: "POST" }).catch((e) => toast(e.message, true));
+            await refreshEntries([entry.id]);
+            toast(`Kept in ${entry.category}.`);
+          },
+        }]
+        : []),
+      //: Section 17 row 6: the note read aloud, then what it links to and why.
+      { label: "ph:speaker-high Explain this note", title: "Read it aloud, then what it links to and why", run: () => explainNote(entry) },
       {
         label: "ph:plus Add context",
         title: "Append detail: Atlas may refile it",
@@ -2038,4 +2052,54 @@ function entryOverflowMenu(entry) {
 //: Answers "mine", "theirs" or null.
 function isEditConflict(error) {
   return error?.status === 409 && error?.detail?.code === "edit_conflict";
+}
+
+//: **Explain this note** (WORLD_CLASS_PLAN section 17 row 6, from the owner's
+//: first notes: "the AI reads answers aloud; explains what you entered"). The
+//: note's words, then each note it links to with the reason the link carries,
+//: read with the browser's own voices (`speakText`, which a second press stops)
+//: and shown in a sheet as it is read. From the links' reasons, so it works
+//: with the model off; a link nobody gave a reason says so.
+async function explainNote(entry) {
+  const full = await apiJson(`/entries/${entry.id}`).catch(() => null);
+  if (!full) return toast("Couldn't read this note.", true);
+  const words = stripFrontmatter(full.content || "").replace(/^#+\s*/gm, "").trim();
+  const links = full.links || [];
+  const name = (link) => notePreviewText(link.preview || "").split("\n")[0].slice(0, 80) || "a note";
+  const lines = links.map((link) => `“${name(link)}”: ${link.reason ? link.reason : "no reason was given for this link"}.`);
+  const about = links.length
+    ? `It links to ${links.length} note${links.length === 1 ? "" : "s"}. ${lines.join(" ")}`
+    : "It links to no other notes yet.";
+  speakText(`${words}\n\n${about}`);
+  openSheet({
+    label: "Explain this note",
+    name: "explain-note",
+    onClose: () => {
+      if ("speechSynthesis" in window) speechSynthesis.cancel();
+    },
+    build: (card) => {
+      const body = document.createElement("div");
+      body.className = "explain-note-body";
+      const text = document.createElement("p");
+      text.className = "explain-note-text";
+      text.textContent = words || "This note has no words of its own.";
+      const head = document.createElement("p");
+      head.className = "muted text-sm";
+      head.textContent = links.length ? `It links to ${links.length} note${links.length === 1 ? "" : "s"}:` : "It links to no other notes yet.";
+      body.append(text, head);
+      if (links.length) {
+        const list = document.createElement("ul");
+        list.className = "explain-note-links";
+        for (const [i, link] of links.entries()) {
+          const li = document.createElement("li");
+          li.textContent = lines[i];
+          list.appendChild(li);
+        }
+        body.appendChild(list);
+      }
+      const again = smallButton("ph:speaker-high Read again", "Read it aloud again, or stop", () => speakText(`${words}\n\n${about}`));
+      body.appendChild(again);
+      card.appendChild(body);
+    },
+  });
 }

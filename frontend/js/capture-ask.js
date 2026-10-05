@@ -308,6 +308,204 @@ function renderCaptureDocumentAdder() {
   slot.replaceChildren(adder);
 }
 
+//: **Template variables** (WORLD_CLASS_PLAN 5 item 4). `{date}` was the one
+//: a note template had; `{{date}}` and `{{time}}` read the same way (one or
+//: two braces), `{{clipboard}}` is what is on the clipboard when the template
+//: is used, and `{{cursor}}` is where the caret lands. The preview shows the
+//: clipboard as a placeholder rather than reading it before anything is chosen.
+const NOTE_TEMPLATE_CURSOR = "{{cursor}}";
+
+function noteTemplateText(raw, clipboard = "[clipboard]") {
+  const now = new Date();
+  return String(raw || "")
+    .replace(/\{\{?date\}\}?/g, now.toLocaleDateString())
+    .replace(/\{\{?time\}\}?/g, now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))
+    .replaceAll("{{clipboard}}", clipboard);
+}
+
+//: The text and the caret for Use this template: the clipboard read only
+//: when the template asks for it, an unreadable one (refused, empty, no
+//: permission) filled as nothing and said once.
+async function noteTemplateForUse(template) {
+  const raw = String(template?.content || "");
+  let clipboard = "";
+  if (raw.includes("{{clipboard}}")) {
+    try {
+      clipboard = (await navigator.clipboard.readText()) || "";
+    } catch {
+      toast("Couldn't read the clipboard, so that part of the template is empty.", true);
+    }
+  }
+  const full = noteTemplateText(raw, clipboard);
+  const caret = full.indexOf(NOTE_TEMPLATE_CURSOR);
+  return { text: full.replaceAll(NOTE_TEMPLATE_CURSOR, ""), caret };
+}
+
+//: The rich editor mounted over `box`, or null: `noteSurfaceFor` lives in
+//: the documents bundle, which may not have arrived, and its answer is
+//: read, so it cannot be a stand-in. The one guard for every caller.
+function noteSurfaceIfAny(box) {
+  return typeof noteSurfaceFor === "function" ? noteSurfaceFor(box) : null;
+}
+
+//: The caret at the template's `{{cursor}}`, in the editor when one is
+//: mounted (it mirrors the textarea a frame later), else in the textarea;
+//: at the end when the template has no mark.
+function placeTemplateCaret(box, caret) {
+  requestAnimationFrame(() => {
+    const at = caret >= 0 ? caret : box.value.length;
+    const surface = noteSurfaceIfAny(box);
+    if (surface) {
+      surface.focus();
+      surface.setSelection?.(at, at);
+    } else {
+      box.focus();
+      box.setSelectionRange(at, at);
+    }
+  });
+}
+
+// --- the Capture box's template picker (INBOX 410) ---------------------------
+//
+// **Choosing is not making**, for notes as for documents. The owner decided it
+// on 2026-09-24: the Capture box's templates get the confirm step the
+// documents' New from a template has (`openDocTemplateDialog` in documents.js).
+// The picker was a native `<select>` whose `change` filled the box the moment
+// a name was touched, so arrowing down the list to read the names wrote the
+// note once per name, and a template picked by mistake asked "replace what
+// you've written?" before you had seen what it was. Now it is DESIGN.md's
+// recipe for a dialog of choices that each make something: radio rows (yours
+// first, then the built-in ones), the chosen row's text beside them, and one
+// filled button, Use this template, that fills the box. Enter on the list and a
+// double click also make it; the first row is chosen on open so one Enter still
+// works. This file, not documents.js, because the Capture box is always loaded
+// and the documents bundle is not; beside the template helpers above it.
+const noteTemplateState = { choice: null, made: false };
+
+//: The text a template puts in the Capture box. One function for the preview
+//: and the fill, so the preview cannot show something the button would not
+//: write (the recipe's rule, `docTemplateFill`'s for documents).
+function noteTemplateFill(template) {
+  return noteTemplateText(template?.content).replaceAll(NOTE_TEMPLATE_CURSOR, "");
+}
+
+//: Yours first, then the built-in ones, as the old dropdown's groups were:
+//: one recognisable shape for "your stuff first, then what shipped".
+function noteTemplateRows() {
+  const { builtin, custom } = templateCatalogue();
+  return [...custom, ...builtin];
+}
+
+function chooseNoteTemplate(template, { focus = false } = {}) {
+  if (!template) return;
+  noteTemplateState.choice = template;
+  for (const row of document.querySelectorAll("#note-template-list .doc-template-choice")) {
+    const on = row.dataset.template === template.name;
+    row.setAttribute("aria-checked", String(on));
+    //: The radio pattern's roving tab stop, as in the documents' dialog.
+    row.tabIndex = on ? 0 : -1;
+    if (on && focus) row.focus();
+  }
+  showNoteTemplatePreview(template);
+}
+
+//: The chosen template's text as it will land in the box, inert and hidden
+//: from a screen reader (each row already says what it is). A note is plain
+//: text in the box, so the preview is the text itself, wrapped as it would be.
+function showNoteTemplatePreview(template) {
+  const pane = $("note-template-preview");
+  if (!pane || !template) return;
+  const page = document.createElement("div");
+  page.className = "doc-template-page note-template-page";
+  const text = document.createElement("p");
+  text.className = "note-template-text";
+  text.textContent = noteTemplateFill(template);
+  page.appendChild(text);
+  pane.replaceChildren(page);
+}
+
+async function useNoteTemplate() {
+  //: A double click is a click and then a dblclick, and Enter can follow
+  //: either: one fill per opening, whichever way it was confirmed.
+  if (noteTemplateState.made || !noteTemplateState.choice) return;
+  noteTemplateState.made = true;
+  const template = noteTemplateState.choice;
+  $("note-template-dialog")?.close();
+  const box = $("entry-content");
+  if (!box) return;
+  //: Never silently overwrite what has already been typed: asked after the
+  //: choice is confirmed, so the question names a template the writer has
+  //: seen rather than one the list happened to land on.
+  if (box.value.trim()) {
+    const replace = await confirmDialog(
+      `Replace what you've already written with the “${template.name}” template?`,
+      { confirmLabel: "Replace", cancelLabel: "Keep my text" }
+    );
+    if (!replace) return;
+  }
+  const filled = await noteTemplateForUse(template);
+  box.value = filled.text;
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+  placeTemplateCaret(box, filled.caret);
+}
+
+function noteTemplateListKeys(event) {
+  const rows = [...event.currentTarget.querySelectorAll(".doc-template-choice")];
+  if (!rows.length) return;
+  const index = rows.findIndex((row) => row.getAttribute("aria-checked") === "true");
+  const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
+  let next = null;
+  if (step) next = rows[(index + step + rows.length) % rows.length];
+  else if (event.key === "Home") next = rows[0];
+  else if (event.key === "End") next = rows[rows.length - 1];
+  const find = (row) => noteTemplateRows().find((t) => t.name === row.dataset.template);
+  if (next) {
+    event.preventDefault();
+    chooseNoteTemplate(find(next), { focus: true });
+  } else if (event.key === "Enter") {
+    //: Enter on a focused row would fire its click, which only chooses; on
+    //: this list Enter is the confirmation, as it is on a form.
+    event.preventDefault();
+    useNoteTemplate();
+  }
+}
+
+function openNoteTemplateDialog() {
+  const dialog = $("note-template-dialog");
+  const list = $("note-template-list");
+  if (!dialog || !list) return;
+  noteTemplateState.made = false;
+  const templates = noteTemplateRows();
+  list.replaceChildren();
+  for (const template of templates) {
+    const li = document.createElement("li");
+    li.setAttribute("role", "presentation");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost doc-template-choice";
+    button.setAttribute("role", "radio");
+    button.setAttribute("aria-checked", "false");
+    button.dataset.template = template.name;
+    const name = document.createElement("strong");
+    name.textContent = template.name;
+    //: The row's one line: the template's own description when it has one,
+    //: else which group it is in, so a row never repeats its preview.
+    const hint = document.createElement("span");
+    hint.className = "muted text-sm";
+    hint.textContent = template.description || (template.builtin ? (template.overridden ? "Built-in, edited" : "Built-in") : "Yours");
+    const check = document.createElement("i");
+    check.className = "ph ph-check doc-template-check";
+    check.setAttribute("aria-hidden", "true");
+    button.append(name, hint, check);
+    button.addEventListener("click", () => chooseNoteTemplate(template));
+    button.addEventListener("dblclick", useNoteTemplate);
+    li.appendChild(button);
+    list.appendChild(li);
+  }
+  dialog.showModal();
+  chooseNoteTemplate(templates[0], { focus: true });
+}
+
 function openDocumentFromNote(documentId) {
   switchTab("documents");
   // The tab's own loader races us otherwise, and opens the last document.
@@ -336,7 +534,7 @@ function withTitle(content, title) {
 //: The editor view when one is mounted, the textarea otherwise.
 function focusCaptureBox() {
   const box = $("entry-content");
-  const surface = typeof noteSurfaceFor === "function" ? noteSurfaceFor(box) : null;
+  const surface = noteSurfaceIfAny(box);
   if (surface) surface.focus();
   else box?.focus();
 }
@@ -2708,6 +2906,17 @@ async function askQuestion(preset) {
   const thinkingText = thinkingBox.querySelector(".thinking");
   renderAskedQuestion(question);
   answerBox.textContent = "";
+  //: A counting or trend question gets its chart beside the answer
+  //: (WORLD_CLASS_PLAN section 17 row 4): asked in parallel, from the
+  //: records, so it lands whether or not the model answers.
+  const chartHost = $("ask-chart");
+  if (chartHost) {
+    chartHost.replaceChildren();
+    chartHost.classList.add("hidden");
+    ensureModule("askHistory")
+      .then(() => renderAskChart(question, chartHost, () => lastQuestion === question))
+      .catch(() => {});
+  }
   //: After the reset, not before it: the progress line lives inside the
   //: answer box now, so creating it first would only have it wiped.
   const progress = askStatusBusy(

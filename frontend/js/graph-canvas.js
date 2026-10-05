@@ -4023,6 +4023,8 @@ function gcRuleKey(rule, node) {
   if (rule === "space") return node.space_id || "default";
   if (rule === "tag") return (node.tags && node.tags[0]) || "No tag";
   if (rule === "file") return node.has_file ? "Has a file" : "No file";
+  //: WORLD_CLASS_PLAN D5: the note's type (KG4's `type:` property).
+  if (rule === "type") return node.note_type || "No type";
   if (rule === "age") {
     const days = node.created_at ? (Date.now() - Date.parse(node.created_at)) / 86400000 : Infinity;
     if (days <= 1) return GC_AGE_BUCKETS[0];
@@ -4042,6 +4044,13 @@ function gcRuleDomain(rule, data) {
 function gcRuleScale(rule, data) {
   if (rule === "age") return d3.scaleOrdinal(GC_AGE_BUCKETS, ["#2f80ed", "#56a3f5", "#8ec2f7", "#c3dcf7", "#9aa1ad"]);
   if (rule === "file") return d3.scaleOrdinal(["Has a file", "No file"], ["#17bebb", "#9aa1ad"]);
+  if (rule === "type") {
+    //: A type paints its own colour (Settings' note types); a type with
+    //: none takes the scheme's next, and an untyped note is muted.
+    const own = data.type_colours || {};
+    const scheme = d3.scaleOrdinal(gcRuleDomain(rule, data), graphCalmScheme());
+    return (key) => (key === "No type" ? "#9aa1ad" : own[key] || scheme(key));
+  }
   return d3.scaleOrdinal(gcRuleDomain(rule, data), graphCalmScheme());
 }
 

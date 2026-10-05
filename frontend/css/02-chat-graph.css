@@ -1,12 +1,8 @@
 /* --- chat tab (Wave C) -------------------------------------------------------- */
 #chat-messages {
-  min-height: 300px;
-  max-height: 56vh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  padding: 0.5rem 0.25rem;
   min-width: 0;
 }
 
@@ -41,13 +37,11 @@
 .msg.user {
   align-self: flex-end;
   background: var(--accent-surface);
-  color: var(--on-accent);
   border-bottom-right-radius: 4px;
 }
 
 .msg.assistant {
   align-self: flex-start;
-  background: var(--inner);
   border: 1px solid var(--border);
   border-bottom-left-radius: 4px;
   white-space: normal;
@@ -167,7 +161,6 @@
 }
 
 .msg.user .msg-role {
-  color: rgba(255, 255, 255, 0.85);
   /* The right-hand alignment is `flex-direction: row-reverse` in
      03-dashboard-widgets.css, not `text-align`, this is a flex container,
      and `text-align: right` sat here doing nothing while the label rendered
@@ -345,8 +338,6 @@
 .chat-empty {
   margin: auto;
   text-align: center;
-  max-width: 52ch;
-  padding: var(--space-7) var(--space-6);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -395,11 +386,7 @@
 
 
 #conversation-list li {
-  display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.4rem 0.5rem;
   border-radius: var(--radius-md);
   font-size: 0.92rem;
 }
@@ -465,26 +452,14 @@
   margin-bottom: 0.4rem;
 }
 
-.reminder-group-head {
-  margin: 1rem 0 0.4rem;
-  font-size: 0.92rem;
-}
 
-.reminder-group-head:first-child {
-  margin-top: 0.25rem;
-}
 
-.reminder-text {
-  flex: 1 1 auto;
-  min-width: 8rem;
-}
 
 #reminder-presets {
   gap: var(--space-3);
   /* Was 0.1rem top: visually zero, so the quick-set row read as touching
      the form above it. Reported live. */
   margin: var(--space-5) 0 var(--space-4);
-  flex-wrap: wrap;
 }
 
 .inline-action p {
@@ -1084,8 +1059,6 @@ details.tool-chip[open] > .tool-chip-body {
   position: relative;
   height: min(65vh, 620px);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
   /* A soft radial wash gives the map depth without competing with nodes. */
   background:
     radial-gradient(120% 120% at 50% 0%, var(--accent-soft), transparent 60%),
@@ -1242,9 +1215,6 @@ body.graph-fullscreen-on .sidebar-panel {
   position: absolute;
   right: 12px;
   bottom: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
   z-index: 2;
 }
 
@@ -1466,9 +1436,6 @@ body.graph-fullscreen-on .sidebar-panel {
   font-size: 0.75rem;
 }
 
-button.ghost.danger {
-  color: var(--error);
-}
 
 /* --- a traced path (§9) -----------------------------------------------------
    Drawn as its own layer rather than by highlighting the edges underneath.
@@ -1793,11 +1760,6 @@ button.ghost.danger {
 }
 
 .legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.8rem;
-  color: var(--muted);
   margin-right: 0.8rem;
 }
 
@@ -3327,11 +3289,6 @@ kbd {
   width: max-content;
   display: flex;
   flex-direction: column;
-  padding: 0.4rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--modal-bg);
-  box-shadow: var(--glass-shadow);
 }
 
 .action-menu.hidden {
@@ -3372,16 +3329,12 @@ kbd {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  padding: var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
   /* Fully opaque, not `--modal-bg`'s 96%: see that token's own comment in
      00-tokens-shell.css. This popup opens over the note editor, whose form
      is the densest block of small text in the app, and 4% see-through was
      enough there for the labels underneath to read as ghosted text through
      the menu. */
   background: var(--modal-bg-opaque);
-  box-shadow: var(--glass-shadow);
 }
 
 .nav-history-menu.hidden {
@@ -3416,7 +3369,6 @@ kbd {
   min-height: 0;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
   text-overflow: ellipsis;
 }
 
@@ -3750,9 +3702,6 @@ html {
   text-decoration: line-through;
 }
 
-.graph-node.graph-dim {
-  opacity: 0.15;
-}
 
 .graph-edge.graph-dim {
   opacity: 0.06;
@@ -3830,11 +3779,6 @@ html {
   position: absolute;
   top: 0.2rem;
   right: 0.2rem;
-  background: var(--modal-bg);
-  border-radius: 50%;
-  width: 1.3rem;
-  height: 1.3rem;
-  display: grid;
   place-content: center;
   cursor: pointer;
   background: var(--page);
@@ -3847,9 +3791,6 @@ html {
   opacity: 0.8;
 }
 
-.thumb-wrap .unlink:hover {
-  opacity: 1;
-}
 
 /* **Scrollable, and centred only when it fits.** Reported with a screenshot:
    the caption and OCR panel ran off the bottom of the screen with its own
@@ -4433,24 +4374,13 @@ mark.lightbox-hit {
   color: #fff;
 }
 
-.msg.user .msg-attachment-image figcaption {
-  color: rgba(255, 255, 255, 0.88);
-}
 
-.msg.user .msg-attachment-actions button {
-  border-color: rgba(255, 255, 255, 0.34);
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
-}
 
 .msg.user .msg-attachment-actions button:hover,
 .msg.user .msg-attachment-actions button:focus-visible {
   background: rgba(255, 255, 255, 0.26);
 }
 
-.msg.user .msg-attachment-missing p {
-  color: rgba(255, 255, 255, 0.8);
-}
 
 .lightbox-info {
   /* Reported directly: hovering this panel still showed the zoom-out cursor
@@ -4763,9 +4693,6 @@ mark.lightbox-hit {
 }
 
 .select-check {
-  width: 1.15rem;
-  height: 1.15rem;
-  margin: 0 0 0.4rem;
   accent-color: var(--accent);
 }
 
@@ -4857,14 +4784,12 @@ mark.lightbox-hit {
    relying on defaults, so switching corners cannot leave a stale offset from
    the previous one pinning it to two edges at once. */
 .graph-minimap-tl {
-  top: var(--space-3);
   left: var(--space-3);
   right: auto;
   bottom: auto;
 }
 
 .graph-minimap-tr {
-  top: var(--space-3);
   right: var(--space-3);
   left: auto;
   bottom: auto;
@@ -6031,10 +5956,6 @@ mark.lightbox-hit {
   min-width: 18rem;
   max-width: min(26rem, 90vw);
   padding: var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--modal-bg-opaque);
-  box-shadow: var(--shadow-lg);
   font-size: var(--text-sm);
 }
 
@@ -6527,7 +6448,6 @@ button.ghost.danger:hover {
 .graph-group-add-row {
   display: flex;
   gap: var(--space-2);
-  align-items: center;
   min-height: max(var(--control-h), var(--target-min));
 }
 .graph-group-add-row > input {

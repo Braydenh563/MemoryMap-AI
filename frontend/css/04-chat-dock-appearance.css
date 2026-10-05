@@ -945,8 +945,6 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
    The hairline is what makes it read as one block rather than as two rows that
    happen to be adjacent. */
 .chat-dock {
-  flex: 0 0 auto;
-  border-top: 1px solid var(--border);
   padding-top: var(--space-3);
   margin-top: var(--space-3);
   /* Declared here, not on `.chat-composer` below, so the *other* row of the
@@ -1408,7 +1406,6 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 .chat-dock .chat-composer #chat-input {
   min-height: var(--composer-h);
   resize: vertical;
-  padding: 0.4rem 1rem;
 }
 
 /* The picker wraps its button and the popup panel; without this it stretches
@@ -1522,7 +1519,6 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
    chosen originally: while the list scrolls inside it. */
 #chat-sidebar {
   align-self: start;
-  position: sticky;
   /* Was calc(var(--header-h) + 0.75rem), from when the window scrolled and the
      header floated over it. The scroll container is the page now (§36A), and
      the header sits outside it, so there is nothing to clear, and offsetting
@@ -1827,7 +1823,6 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   z-index: 1010;
   display: flex;
   gap: var(--space-2);
-  padding: var(--space-2);
   background: var(--modal-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
@@ -2271,7 +2266,6 @@ label.setting-check,
    a different shape and a hair lower than every other switch (reported,
    with a screenshot). */
 .setting-check input[type="checkbox"] {
-  flex: 0 0 auto;
   accent-color: var(--accent);
 }
 
@@ -2454,7 +2448,6 @@ label.setting-check,
 .help-chat-msg.is-user {
   align-self: flex-end;
   background: var(--accent-surface);
-  color: var(--on-accent);
   border-bottom-right-radius: var(--radius-sm);
 }
 
@@ -2523,12 +2516,10 @@ label.setting-check,
 .searxng-host {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 0.8rem 0.8rem;
   margin-bottom: 0.6rem;
 }
 
 .searxng-host .row {
-  margin: 0.4rem 0 0;
   align-items: center;
 }
 
@@ -2709,7 +2700,6 @@ span > .chip {
 
 .scroll-top:hover {
   background: var(--accent-soft);
-  border-color: var(--accent);
 }
 
 .scroll-top:focus-visible {
@@ -2886,7 +2876,6 @@ span > .chip {
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--panel-pad);
-  border-radius: var(--radius);
   border: 1px solid var(--glass-border);
   background: var(--modal-bg);
   box-shadow: var(--glass-shadow);
@@ -3465,8 +3454,6 @@ span > .chip {
    instruction/tags inputs (45.19px, the global form-field rule) measured as
    three different heights on one row. */
 .draft-controls {
-  gap: 0.4rem;
-  flex-wrap: wrap;
   --control-h: var(--control-h-body);
 }
 
@@ -3755,7 +3742,6 @@ span > .chip {
   flex-direction: column;
   gap: 0.25rem;
   flex: 1 1 auto;
-  min-height: 0;
   overflow-y: auto;
 }
 
@@ -3898,10 +3884,6 @@ span > .chip {
   flex: 0 0 auto;
 }
 
-.doc-list-tick {
-  flex: 0 0 auto;
-  margin: 0;
-}
 
 /* Same hover/focus reveal as `.menu-wrap.library-card-menu`
    (00-tokens-shell.css) - a permanent ⋯ on every row in a long list is a
@@ -4311,10 +4293,6 @@ span > .chip {
      survives as legible ghost text. The kebab menus float over cards and
      list rows, where 96% is fine. */
   padding: 0.4rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--modal-bg-opaque);
-  box-shadow: var(--glass-shadow);
 }
 
 /* **Hidden until placed, and only that.** Reported: "when opening dropdown
@@ -4357,7 +4335,6 @@ span > .chip {
 }
 
 .doc-dock-menu-item {
-  justify-content: flex-start;
   text-align: left;
   width: 100%;
   white-space: nowrap;
@@ -4762,7 +4739,6 @@ span > .chip {
      decides the strip and nothing restates it. */
   display: inline-flex;
   align-items: center;
-  height: 100%;
   padding-block: 0;
 }
 
@@ -4851,7 +4827,6 @@ span > .chip {
 .doc-ai-card > #doc-ai-verb label {
   flex: 1 1 0;
   min-width: 0;
-  justify-content: center;
   color: var(--ink);
 }
 

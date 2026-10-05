@@ -98,6 +98,49 @@
   min-width: 12rem;
 }
 
+/* Two note chips joined by an arrow (WORLD_CLASS_PLAN, Placed 2026-09-09
+   item 92). A chip keeps its own line clamp; the pair wraps whole. */
+.link-suggestion-pair {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+}
+
+.link-suggestion-pair > .chip {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.link-suggestion-join {
+  color: var(--muted);
+}
+
+/* The score as a short bar with its number beside it. */
+.link-suggestion-score {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.link-suggestion-bar {
+  display: inline-block;
+  width: 3rem;
+  height: 0.375rem;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.link-suggestion-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
 /* Each reason the pair was found for, with its own confidence, on a line of
    its own under the row (GRAPH_PLAN KG2). */
 .link-suggestion-why {
@@ -579,7 +622,6 @@
   color: var(--muted);
   font-weight: 500;
   padding: 0.25rem 0.8rem;
-  border-radius: var(--radius-md);
 }
 
 /* **One label size for a choice control, and it was three.** `.seg button`
@@ -733,7 +775,6 @@
   background: var(--card);
   backdrop-filter: var(--glass-filter);
   -webkit-backdrop-filter: var(--glass-filter);
-  box-shadow: var(--glass-shadow), var(--glass-rim);
 }
 
 :root[data-glass="off"] .glass {
@@ -924,10 +965,6 @@ header#top-bar select,
   overflow-wrap: anywhere;
 }
 
-.task-detail {
-  margin: 0.15rem 0 0;
-  font-size: 0.8rem;
-}
 
 /* Full width, on its own line: inline after the label it ran off the right
    edge of the card as soon as the job name got long. */
@@ -1041,7 +1078,6 @@ header#top-bar select,
 
 .check-row {
   display: flex;
-  align-items: center;
   gap: 0.4rem;
   min-width: 0;
   font-size: 0.85rem;
@@ -1701,12 +1737,9 @@ header#top-bar select,
    `ch` so it counts characters of the face on screen). */
 .web-reader-text {
   flex: 0 0 auto;
-  min-width: 0;
-  max-width: var(--doc-measure);
   font-size: var(--text-lg);
   line-height: 1.65;
   color: var(--ink);
-  overflow-wrap: anywhere;
 }
 
 .web-reader-text p {
@@ -1759,7 +1792,6 @@ header#top-bar select,
   background: var(--chip-bg);
   border-radius: var(--radius-md);
   font-size: var(--text-md);
-  overflow-x: auto;
 }
 
 /* --- dashboard quick links ------------------------------------------------- */
@@ -1840,7 +1872,6 @@ header#top-bar select,
   padding: var(--space-3) var(--space-5);
   justify-content: flex-start;
   align-items: center;
-  gap: var(--space-3);
   /* **The tile recipe**: shared with `.start-step`: a card
      fill, the glass edge, the button radius, no shadow, accent-soft on
      hover. The three used to differ in edge colour (glass-border vs
@@ -2267,7 +2298,6 @@ header#top-bar select,
   grid-auto-flow: column;
   grid-template-rows: repeat(7, auto);
   grid-auto-columns: var(--heat-cell-max);
-  gap: var(--heat-gap);
   overflow-x: auto;
   overflow-y: hidden;
   padding-bottom: 0.25rem;
@@ -2313,9 +2343,6 @@ header#top-bar select,
 }
 
 .heat-legend {
-  display: flex;
-  align-items: center;
-  gap: 3px;
   font-size: 0.75rem;
   margin-top: 0.4rem;
 }
@@ -2350,7 +2377,6 @@ header#top-bar select,
   background: none;
   border: none;
   box-shadow: none;
-  border-radius: calc(var(--radius) * 0.5);
   color: var(--ink);
   font-weight: 500;
   font-size: 0.85rem;
@@ -3115,7 +3141,6 @@ button.answer-figure-open {
    steppers floated across when they followed it. */
 #reminder-due-readout {
   font-variant-numeric: tabular-nums;
-  font-weight: 600;
 }
 
 #reminder-due-readout.error {
@@ -3597,10 +3622,6 @@ button.answer-figure-open {
   opacity: 1;
 }
 
-.chat-toolbar {
-  padding-bottom: 0.6rem;
-  border-bottom: 1px solid var(--border);
-}
 
 .chat-empty {
   padding: 1.5rem 1rem;
@@ -3608,7 +3629,6 @@ button.answer-figure-open {
 
 /* --- graph polish ----------------------------------------------------------- */
 #graph-box {
-  border-radius: var(--radius);
   overflow: hidden;
   background:
     radial-gradient(120% 90% at 50% 0%, var(--accent-soft), transparent 60%),
@@ -4217,17 +4237,8 @@ button.answer-figure-open {
    affordance an unanchored rectangle is missing. */
 .help-popover {
   position: fixed;
-  z-index: 1020;
   width: min(26rem, calc(100vw - var(--space-8)));
-  max-height: min(24rem, 70vh);
-  overflow-y: auto;
   padding: var(--space-4);
-  background: var(--modal-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--glass-shadow);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
   /* Beats `.setting-hint.is-collapsed`'s own max-height:0 for a Settings
      hint being shown through this component rather than inline. */
   margin: 0;
@@ -4276,12 +4287,10 @@ button.answer-figure-open {
 
 .help-popover::before {
   top: -6px;
-  background: var(--glass-border);
 }
 
 .help-popover::after {
   top: -5px;
-  background: var(--modal-bg);
 }
 
 .help-popover.help-popover-above::before {
@@ -5050,4 +5059,96 @@ button.answer-figure-open {
   .quick-manage-item:focus-within .quick-manage-moves {
     pointer-events: auto;
   }
+}
+
+/* A chart answering a question (WORLD_CLASS_PLAN section 17 row 4,
+   ask-chart.js; DESIGN.md "A chart answering a question"): one card above the
+   answer, its marks in the theme's tokens so both themes hold, the numbers
+   in a table under it. */
+.ask-chart {
+  margin-block: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.ask-chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.ask-chart-head > button {
+  margin-left: auto;
+}
+
+.ask-chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-block: var(--space-2);
+}
+
+.ask-chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.ask-chart-axis {
+  fill: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.ask-chart-bar,
+.ask-chart-dot {
+  fill: var(--accent);
+}
+
+.ask-chart-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.ask-chart-numbers > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.ask-chart-table {
+  margin-top: var(--space-2);
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.ask-chart-table th,
+.ask-chart-table td {
+  padding: var(--space-1) var(--space-3) var(--space-1) 0;
+  text-align: left;
+  border-bottom: 1px solid var(--divider);
+}
+
+/* Explain this note (section 17 row 6): the words, then each link and why. */
+.explain-note-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.explain-note-text {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.explain-note-links {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.dash-review-count {
+  margin: 0 0 var(--space-2);
 }

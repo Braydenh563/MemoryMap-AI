@@ -2467,6 +2467,11 @@ async function sendChatMessage(preset, opts = {}) {
   }
   // What this answer cost: model, wall-clock time, tokens, speed.
   const elapsedMs = Math.round(performance.now() - startedAt);
+  //: For the status bar's AI dot (Placed 2026-09-09 item 99 (c)).
+  if (stats) {
+    lastAnswerFacts = { model: stats.model || (meta && meta.answered_by) || "", ms: elapsedMs, used: Number(stats.prompt_tokens) || 0, window: Number(stats.context_tokens) || 0 };
+    renderAiPill();
+  }
   // A turn that only ran tools still cost time and tokens, so it gets a meta
   // line too: previously an agent turn with no prose showed nothing at all.
   if (answerRaw || toolEvents.length) {

@@ -126,7 +126,11 @@ HELP_TOPICS: list[dict] = [
             "\"Ask your notebook\" (Notes tab) and the Chat tab both answer from "
             "saved notes, with the raw notes shown beside the answer; in Ask, "
             "Enter asks and Escape clears the question, and the clock button "
-            "answers from your notes as they were on a day you pick. Agent mode "
+            "answers from your notes as they were on a day you pick. A counting "
+            "question in Ask (how many notes per category this month) also gets "
+            "a chart from your notes, with its numbers and Save as PNG. A note's "
+            "... menu has Explain this note: read aloud, then what it links to "
+            "and why. Agent mode "
             "(a toggle in Chat) lets the assistant use its tools to search, link, "
             "tag, organise and create, destructive actions always ask first, "
             "and after it reads a web page or a clipped or imported note, so "
@@ -175,7 +179,8 @@ HELP_TOPICS: list[dict] = [
             "let the AI schedule it. In the chat, \"remind me two hours before "
             "midnight\" works too: Atlas passes your words and the app works "
             "out the time on your own clock. Notifications fire while the app "
-            "is open."
+            "is open. Remind me is on a note's, a document's and a board's ⋯ "
+            "menu too, and the reminder's row opens what it is about."
         ),
         "badge": {"label": "Reminders", "tab": "reminders"},
     },
@@ -186,7 +191,7 @@ HELP_TOPICS: list[dict] = [
             "The Dashboard is the at-a-glance home: a greeting with your note "
             "count and what is due, a search box, the Quick access tiles, "
             "and widgets such as reminders, recent notes, the weekly AI digest, "
-            "stats and your streak. Customise, beside the search box, has Edit "
+            "stats, your streak, Most opened this month and Filings to check. Customise, beside the search box, has Edit "
             "layout and Widgets to show, hide and rearrange them; the layout is "
             "remembered per user."
         ),
@@ -425,9 +430,9 @@ HELP_TOPICS: list[dict] = [
         "id": "undo-bin",
         "keywords": ("undo", "redo", "recycle bin", "restore", "deleted", "trash"),
         "body": (
-            "Deleting a note or a board goes to the bin, not gone for "
-            "good: restore it from the Library (Filter, Include the bin, or "
-            "Open the bin from Ctrl+K), or use the Undo "
+            "Deleting a note, a board, a document or a reminder goes to the "
+            "bin, not gone for good: restore it from the Library (Filter, "
+            "Include the bin, or Open the bin from Ctrl+K), or use the Undo "
             "toast that appears right after deleting. Ctrl/Cmd+Z undoes and "
             "Ctrl+Shift+Z or Ctrl+Y redoes; the status bar's Undo and Redo "
             "buttons do the same by click. Which history they walk depends on "
@@ -1305,6 +1310,7 @@ HELP_TOPICS.extend(
                 "link thickness", "link force", "label background",
                 "topic", "topics", "subjects", "outline", "colour by topic",
                 "filter links", "kind of link", "hide links", "property chips",
+                "note type", "colour by type",
             ),
             "body": (
                 "More graph controls, in the gear. Show adds Tags (a node per tag), "
@@ -1328,7 +1334,9 @@ HELP_TOPICS.extend(
                 "no note's name is drawn over a topic's name. Filter holds a chip per "
                 "kind of link on the map (press one to take those links off, again "
                 "to bring them back) and per property value (press to light those "
-                "notes). In Trace, a step marked +2 has two more reasons "
+                "notes). Colour: Note type paints each note its type's colour "
+                "(Person, Project, Meeting, Book and Place come built in). "
+                "In Trace, a step marked +2 has two more reasons "
                 "its notes relate; point at it to read them."
             ),
             "badge": {"label": "Graph", "tab": "graph"},
@@ -1451,12 +1459,14 @@ HELP_TOPICS.extend(
                 "in any order), \"a quoted phrase\", tag:work, cat:recipes, "
                 "#tag, title:, in:, before: and after: (a date such as 2026-09), "
                 "is:favourite, is:pinned, is:private, is:linked, is:untagged, "
-                "is:draft, tags:<2 (also <=, > and >=), and -word to leave a word "
+                "is:draft, is:review (filings to check), tags:<2 (also <=, > and >=), and -word to leave a word "
                 "out. Select ticks several notes to move to a category, tag or "
                 "delete together, and Select all ticks the whole page; the "
                 "selection bar's Tags adds or removes tags on every selected note, "
                 "and its ... menu adds to or removes from Favourites, archives, "
-                "publishes drafts or removes a tag, each undoable."
+                "publishes drafts, removes a tag, moves them to another space or "
+                "exports them as Markdown, each undoable. Editing a note shows "
+                "its words and reading time beside Save."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1516,7 +1526,8 @@ HELP_TOPICS.extend(
                 "high) and a repeat (once, daily, weekly or monthly), and use Quick "
                 "set: in 30 min, in 1 hour, in 3 hours, tonight 7pm, tomorrow 9am, "
                 "tomorrow 2pm, this weekend or next week. A due reminder can be "
-                "snoozed one hour or to tomorrow 9am, edited in place, or ticked "
+                "snoozed one hour or to tomorrow 9am (ten minutes is on its menu), "
+                "edited in place, or ticked "
                 "done; completed ones page at the foot. Add to calendar (.ics), on "
                 "a reminder's menu, saves it as a calendar file, and Add all to "
                 "calendar (.ics) in the More menu saves every upcoming one. Press m "

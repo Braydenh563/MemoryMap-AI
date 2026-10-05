@@ -804,6 +804,15 @@ function libraryActions(item) {
       makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this document", () =>
         askAtlasAboutThing("document", item.title)
       ),
+      //: The rest of the "act on this" vocabulary (WORLD_CLASS_PLAN 1.3,
+      //: row 15): the graph draws documents behind its Documents switch, and
+      //: a reminder can point at a document.
+      makeMenuItem("ph:graph Show in graph", "Open the graph with documents shown, centred on this one", () =>
+        showDocumentInGraph(item.id)
+      ),
+      makeMenuItem("ph:alarm Remind me", "Set a reminder about this document", () =>
+        remindAbout({ title: item.title, documentId: item.id })
+      ),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
         await apiJson(`/documents/${item.id}/archive`, { method: "PUT" }).catch((e) =>
           toast(e.message, true)
@@ -826,23 +835,20 @@ function libraryActions(item) {
     ];
   }
   if (item.kind === "archived") {
+    const bin = binRoutes(item);
     return [
-      makeMenuItem("ph:arrow-u-up-left Restore", "Put this note back in your notebook", async () => {
-        await apiJson(`/entries/${item.id}/restore`, { method: "POST" }).catch((e) =>
-          toast(e.message, true)
-        );
+      makeMenuItem("ph:arrow-u-up-left Restore", `Put this ${bin.noun} back`, async () => {
+        await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
         toast("Restored.");
         reload();
-        loadEntries();
+        bin.reload();
       }),
       // The bin's other half. Without it the Library can show you a binned
       // note and take you back to the old panel to get rid of it, which is the
       // two-places problem the move was for.
-      makeMenuItem("ph:trash Delete for good", "Permanently delete this note", async () => {
-        if (!(await confirmDialog("Delete this note permanently?\n\nThis cannot be undone."))) return;
-        await apiJson(`/entries/${item.id}/purge`, { method: "DELETE" }).catch((e) =>
-          toast(e.message, true)
-        );
+      makeMenuItem("ph:trash Delete for good", `Permanently delete this ${bin.noun}`, async () => {
+        if (!(await confirmDialog(`Delete this ${bin.noun} permanently?\n\nThis cannot be undone.`))) return;
+        await apiJson(bin.purge, { method: "DELETE" }).catch((e) => toast(e.message, true));
         reload();
       }),
     ];
@@ -880,6 +886,13 @@ function libraryActions(item) {
       makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this note", () =>
         askAtlasAboutThing("note", item.title)
       ),
+      //: The two rows the Notes card's menu has and this twin did not
+      //: (WORLD_CLASS_PLAN 1.3, row 15). Link to is a picker here: the Notes
+      //: list's two-click link mode needs both notes on one screen.
+      makeMenuItem("ph:alarm Remind me", "Set a reminder about this note", () =>
+        remindAbout({ title: item.title, entryId: item.id })
+      ),
+      makeMenuItem("ph:link Link to…", "Connect this note to another one", () => linkNoteFromLibrary(item)),
       // BACKLOG.md §95 item D.14: "Full export exists. There is no way to
       // hand one note to someone." Same route shape and menu placement as
       // the Document kind's own "Download .md" a few lines up.
@@ -987,6 +1000,51 @@ function libraryActions(item) {
     ];
   }
   return [];
+}
+
+//: **The bin holds three kinds** (WORLD_CLASS_PLAN 5 item 10): notes (with
+//: boards and maps), documents and reminders, told apart by `subtype`
+//: (`routes_library._archive`). Each has its own restore and purge route.
+function binRoutes(item) {
+  if (item.subtype === "document") {
+    return { noun: "document", restore: `/documents/${item.id}/restore`, purge: `/documents/${item.id}/purge`, reload: () => {} };
+  }
+  if (item.subtype === "reminder") {
+    return { noun: "reminder", restore: `/reminders/${item.id}/restore`, purge: `/reminders/${item.id}/purge`, reload: () => loadReminders() };
+  }
+  return { noun: "note", restore: `/entries/${item.id}/restore`, purge: `/entries/${item.id}/purge`, reload: () => refreshEntries([item.id]) };
+}
+
+//: A document on the graph (WORLD_CLASS_PLAN 1.3, row 15). Documents are
+//: drawn only with the Show, Documents switch on, so this turns it on first;
+//: the node's id is `document:<id>` (`routes_graph._add_document_nodes`).
+async function showDocumentInGraph(id) {
+  await switchTab("graph");
+  const box = document.getElementById("graph-documents");
+  if (box && !box.checked) {
+    box.checked = true;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  await showNoteInGraph(`document:${id}`, "document");
+}
+
+//: Link a Library note to another, chosen from a picker. The same route the
+//: Notes list's Link mode completes on (`POST /entries/{id}/links`).
+async function linkNoteFromLibrary(item) {
+  const other = await pickEntryDialog("Link to which note?");
+  if (!other) return;
+  if (other.id === item.id) {
+    toast("A note can't be linked to itself.", true);
+    return;
+  }
+  try {
+    await apiJson(`/entries/${item.id}/links`, { method: "POST", body: JSON.stringify({ target_id: other.id }) });
+  } catch (error) {
+    toast(error.message, true);
+    return;
+  }
+  toast("Linked.");
+  loadEntries();
 }
 
 // The two strips that only appear when they have something to say.
@@ -1477,8 +1535,21 @@ function openLibraryItem(item) {
     // Restore and permanent delete are both on this card's own ⋯ menu, and
     // reading the note in full is the one thing a card cannot do, so that is
     // all this opens. It used to send the user to #bin-panel, which is the
-    // only reason that panel outlived the Library's Bin chip.
-    openBinnedNote(item.id);
+    // only reason that panel outlived the Library's Bin chip. A binned
+    // document or reminder has nothing to read that its card does not show,
+    // so opening one offers to bring it back (WORLD_CLASS_PLAN 5 item 10).
+    if (item.subtype === "document" || item.subtype === "reminder") {
+      const bin = binRoutes(item);
+      confirmDialog(`“${item.title}” is in the bin. Restore it?`, { confirmLabel: "Restore" }).then(async (yes) => {
+        if (!yes) return;
+        await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
+        loadLibrary();
+        bin.reload();
+        if (item.subtype === "document") openDocumentFromNote(item.id);
+      });
+    } else {
+      openBinnedNote(item.id);
+    }
   }
 }
 
@@ -1746,17 +1817,18 @@ $("library-bulk-restore").addEventListener("click", async () => {
   let restored = 0;
   for (const item of chosen) {
     try {
-      await apiJson(`/entries/${item.id}/restore`, { method: "POST" });
+      await apiJson(binRoutes(item).restore, { method: "POST" });
       restored++;
     } catch {
       // counted below
     }
   }
-  if (restored) toast(`Restored ${restored} note${restored === 1 ? "" : "s"}.`);
+  if (restored) toast(`Restored ${restored} item${restored === 1 ? "" : "s"}.`);
   const failed = chosen.length - restored;
-  if (failed) toast(`${failed} note${failed === 1 ? "" : "s"} couldn't be restored.`, true);
+  if (failed) toast(`${failed} item${failed === 1 ? "" : "s"} couldn't be restored.`, true);
   loadLibrary();
   loadEntries();
+  loadReminders();
 });
 $("library-bulk-delete").addEventListener("click", async () => {
   const chosen = librarySelectedItems();
@@ -1769,7 +1841,7 @@ $("library-bulk-delete").addEventListener("click", async () => {
     `Delete ${chosen.length} item${chosen.length === 1 ? "" : "s"}?\n\n` +
       (permanent
         ? `${permanent} of them ${permanent === 1 ? "is" : "are"} already in the bin and will be destroyed permanently.`
-        : "Notes go to the bin; documents and chats are deleted for good.")
+        : "Notes and documents go to the bin; chats are deleted for good.")
   );
   if (!ok) return;
   // Same fix as library-bulk-restore just above: a per-item failure used to
@@ -1779,7 +1851,7 @@ $("library-bulk-delete").addEventListener("click", async () => {
   for (const item of chosen) {
     const route =
       item.kind === "archived"
-        ? [`/entries/${item.id}/purge`, "DELETE"]
+        ? [binRoutes(item).purge, "DELETE"]
         : item.kind === "note"
           ? [`/entries/${item.id}`, "DELETE"]
           : item.kind === "document"

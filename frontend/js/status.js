@@ -2049,6 +2049,19 @@ function aiStatusState() {
 // rendering fault. The ellipsis says "waiting" while perfectly still.
 const AI_STATUS_GLYPH = { idle: "…", ok: "✓", warn: "!", error: "✕", off: "" };
 
+//: **How the last answer went, on the AI dot** (WORLD_CLASS_PLAN, Placed
+//: 2026-09-09 item 99 (c)): the model, the time it took and how much of its
+//: window the question filled, set by the chat when a turn ends.
+let lastAnswerFacts = null;
+
+function lastAnswerLine() {
+  const facts = lastAnswerFacts;
+  if (!facts || !facts.ms) return "";
+  const parts = [facts.model, `${(facts.ms / 1000).toFixed(1)} s`];
+  if (facts.used && facts.window) parts.push(`${Math.min(100, Math.round((facts.used / facts.window) * 100))}% of its window`);
+  return `Last answer: ${parts.filter(Boolean).join(", ")}.`;
+}
+
 function renderAiPill() {
   const button = $("ai-status");
   if (!button) return;
@@ -2065,7 +2078,8 @@ function renderAiPill() {
   $("ai-status-label").textContent = summary;
   // button.title = `${state.title}\n\n${state.detail}`;
   $("ai-status-title").textContent = state.title;
-  $("ai-status-detail").textContent = state.detail;
+  const last = lastAnswerLine();
+  $("ai-status-detail").textContent = last ? `${state.detail} ${last}` : state.detail;
   renderChatActiveModelBadge();
   nudgeEmbeddingProblem();
 }
@@ -2517,9 +2531,11 @@ function renderSettings() {
   const backend = backendLabel(status);
   //: The dot is the line's class, as on the search engine line under it,
   //: not a typed "●"/"○" beside a CSS dot: two alphabets for one signal.
+  //: Section 21 row 12: an address the person typed that nothing answers is
+  //: a different problem from a server that is not started, and says so.
   ollamaLine.textContent = status.ollama_running
     ? `${backend} is running`
-    : `${backend} isn't running`;
+    : status.unreachable_hint || `${backend} isn't running`;
   ollamaLine.className = `status ${status.ollama_running ? "ok" : "off"}`;
   renderBackendPicker(status);
   const embeddingError = $("embedding-error");
@@ -2530,18 +2546,22 @@ function renderSettings() {
   //: Ollama embedding model. Said even when Ollama is not running, because
   //: the owner's report was exactly that case ("no nomic-embed-text
   //: suggested") and the button below only exists while it is.
+  //: The notice recipe's icon first (section 21 rows 1 and 2), then the line.
+  const say = (text) => setLabel(embeddingError, `ph:warning ${text}`);
   if (status.embedding_error && /^Search by meaning/.test(status.embedding_error)) {
-    embeddingError.textContent =
+    say(
       `${status.embedding_error}. ` +
       (status.ollama_running
         ? `Or switch the search engine to ${EMBEDDING_FALLBACK_MODEL} below: smaller, and offline.`
-        : `Or start Ollama and pick ${EMBEDDING_FALLBACK_MODEL} as the search engine: smaller, and offline.`);
+        : `Or start Ollama and pick ${EMBEDDING_FALLBACK_MODEL} as the search engine: smaller, and offline.`)
+    );
   } else if (status.embedding_error) {
-    embeddingError.textContent =
+    say(
       `Search engine problem: ${status.embedding_error}: semantic search is ` +
       "falling back to keywords. Quick fix: switch the search engine below to " +
       "an Ollama embedding model (download nomic-embed-text from the list), " +
-      "it runs fully offline. Full details in Settings → Logs.";
+      "it runs fully offline. Full details in Settings → Logs."
+    );
   }
   // The one-click version of the "quick fix" sentence above: only offered
   // when it can actually be carried out (Ollama has to be running to either

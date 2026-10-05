@@ -630,7 +630,7 @@ def create_entry(body: EntryCreate, session: Session = Depends(get_session)) -> 
     content = body.content
     if body.note_type:
         #: KG4: a new note of a type starts with the type's fields.
-        content = note_properties.with_type_fields(session, content, body.note_type)
+        content = note_properties.with_type_fields(session, content, body.note_type, deps.get_config())
     try:
         entry = manager.create_entry(
             session,
@@ -2242,6 +2242,9 @@ def get_entry(
         raise HTTPException(status_code=404, detail="That note could not be found.")
     if not entry.is_deleted:
         entry.access_count += 1  # opening an entry counts as using it
+        #: And on which day (WORLD_CLASS_PLAN section 17 row 5): "most opened
+        #: this month" cannot be read off an all-time count.
+        manager.record_open(session, entry.id)
         # And *when*, which is the half the dashboard's Continue pill needs:
         # a count cannot answer "the note I was last in", and `updated_at`
         # only moves when the text changes, so reading an old note left the

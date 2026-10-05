@@ -48,7 +48,9 @@ async function checkForUpdate(silent = false) {
   // post-login dialog's "Update automatically" makes.
   applyBtn?.classList.toggle("hidden", !(result.update_available && result.can_auto_apply));
   if (result.update_available) {
-    const msg = `Version ${result.latest} is available (you have ${result.current}).`;
+    //: Section 21 row 13: how big the download is, before it is asked for.
+    const size = result.asset && result.asset.size ? `, a ${formatFileSize(result.asset.size)} download` : "";
+    const msg = `Version ${result.latest} is available (you have ${result.current})${size}.`;
     if (status) status.textContent = msg;
     // The silent startup check is the one that runs on every login, asked
     // for directly: a popup after login, but "only if... not every time

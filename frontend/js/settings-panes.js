@@ -802,6 +802,7 @@ async function renderPrefs() {
 function renderAutonomousSettings() {
   $("pref-autonomous-tasks").checked = Boolean(prefsCache.autonomous_tasks_enabled);
   $("pref-ai-first-filing").checked = prefsCache.ai_first_filing ?? true;
+  $("pref-filing-style").value = prefsCache.filing_style || "topic";
   $("pref-background-filing").checked = prefsCache.background_filing ?? true;
   $("pref-warm-search-model").checked = prefsCache.warm_search_model_at_launch ?? true;
   $("pref-filing-wait").value = prefsCache.filing_wait_seconds || 15;
@@ -1384,6 +1385,7 @@ function paletteCommands() {
     //: chord is in the palette or says why it cannot be).
     { label: "ph:calendar-check Open today's note", reveal: "todays-note", chord: "todaysNote", about: "Today's page, or a new one titled with the day." },
     { label: "ph:lightning Quick note", about: "A note saved without leaving this page.", chord: "quickNote", act: () => openQuickNote() },
+    { label: "ph:clipboard-text Paste as a note", about: "What you copied, saved as a new note.", chord: "pasteNote", act: () => pasteClipboardAsNote() },
     { label: "ph:file-text New document", reveal: "doc-new", chord: "newDocument" },
     { label: "ph:magic-wand Write a note from rough thoughts", reveal: "writing-room" },
     { label: "ph:sparkle New chat", reveal: "chat-new", chord: "newChat" },

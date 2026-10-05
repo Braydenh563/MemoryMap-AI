@@ -99,6 +99,10 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: WORLD_CLASS_PLAN section 17 row 4: called inside
+    #: `ensureModule("askHistory").then(...)` in `askQuestion`, so the bundle
+    #: has loaded by the time the call runs.
+    "renderAskChart": "askHistory, called from ensureModule('askHistory').then in askQuestion",
     #: The Escape handler (settings-wiring.js) closes the welcome card only
     #: when `#onboarding-overlay` is showing, and the only thing that shows it
     #: is `openOnboarding`, whose stand-in loads the bundle first.

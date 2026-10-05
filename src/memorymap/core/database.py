@@ -204,6 +204,25 @@ def _add_workspace_filter(execute_state):
                     )
                 )
 
+#: `session.info` key that lets a block read binned documents and reminders
+#: (`entry/bin.including_binned`).
+INCLUDE_BINNED = "include_binned"
+
+
+@event.listens_for(Session, "do_orm_execute")
+def _hide_binned(execute_state):
+    """A binned document or reminder is out of every read (WORLD_CLASS_PLAN
+    5 item 10): the bin's own routes ask for them with `including_binned`.
+    Selects only: a bulk UPDATE or DELETE that names them by id still reaches
+    them, which is what a purge's clean-up needs."""
+    if not execute_state.is_select or execute_state.session.info.get(INCLUDE_BINNED):
+        return
+    execute_state.statement = execute_state.statement.options(
+        with_loader_criteria(Document, lambda cls: cls.deleted_at.is_(None), include_aliases=True),
+        with_loader_criteria(Reminder, lambda cls: cls.deleted_at.is_(None), include_aliases=True),
+    )
+
+
 @event.listens_for(Session, "before_flush")
 def _set_workspace(session, flush_context, instances):
     workspace_id = session.info.get("workspace_id")
@@ -1034,6 +1053,10 @@ class Reminder(Base, WorkspaceMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     entry_id: Mapped[int | None] = mapped_column(ForeignKey("entries.id"), default=None)
+    #: WORLD_CLASS_PLAN 1.3 (row 15): a reminder about a document. A board or
+    #: a map is an `Entry`, so `entry_id` already covers those; a document is
+    #: its own table. At most one of the two is set (`routes_reminders`).
+    document_id: Mapped[int | None] = mapped_column(ForeignKey("documents.id"), default=None, index=True)
     text: Mapped[str] = mapped_column(String(500))
     due_at: Mapped[datetime] = mapped_column(DateTime)
     done: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -1041,6 +1064,9 @@ class Reminder(Base, WorkspaceMixin):
     priority: Mapped[str] = mapped_column(String(10), default="normal")  # low|normal|high
     recurring: Mapped[str] = mapped_column(String(10), default="none")  # none|daily|weekly|monthly
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    #: In the recycle bin since then (WORLD_CLASS_PLAN 5 item 10); null is live.
+    #: Hidden from every read by `_hide_binned`.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
 
 
 class NoteScore(Base, WorkspaceMixin):
@@ -1229,6 +1255,27 @@ class EntryRevision(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+class EntryOpen(Base):
+    """How often a note was opened on one day (WORLD_CLASS_PLAN section 17
+    row 5, "most opened this month").
+
+    `Entry.access_count` is all time, and "this month" cannot be read off a
+    running total, so each open adds one to its day's row (`manager.
+    record_open`). A row per note per day, not per open: the dashboard asks
+    for thirty days at a time, and a year of daily reading is a few thousand
+    rows rather than a few hundred thousand.
+    """
+
+    __tablename__ = "entry_opens"
+    __table_args__ = (UniqueConstraint("entry_id", "day", name="uq_entry_opens_entry_day"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entry_id: Mapped[int] = mapped_column(ForeignKey("entries.id"), index=True)
+    #: The UTC day, as `YYYY-MM-DD`, so a range is a string comparison.
+    day: Mapped[str] = mapped_column(String(10), index=True)
+    count: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class EntryDate(Base):
     """What a relative time phrase in a note meant, on the day it was written.
 
@@ -1275,6 +1322,9 @@ class Document(Base, WorkspaceMixin):
     # Same "kept, out of the way" column as Entry.archived_at/
     # Conversation.archived_at (BACKLOG §30b): never implies deletion.
     archived_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    #: In the recycle bin since then (WORLD_CLASS_PLAN 5 item 10); null is live.
+    #: Hidden from every read by `_hide_binned`; a purge is the hard delete.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 

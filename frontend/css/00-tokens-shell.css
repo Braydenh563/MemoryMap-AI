@@ -1650,10 +1650,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   flex-direction: column;
   gap: 0.25rem;
   padding: 0.6rem 0.8rem;
-  border-radius: var(--radius-lg);
-  background: var(--modal-bg);
-  border: 1px solid var(--border);
-  box-shadow: var(--glass-shadow);
   font-size: 0.8rem;
   font-weight: 400;
   text-align: left;
@@ -1746,19 +1742,13 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .extras-row .entry-title {
-  flex: 1 1 0;
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
+  /* The name line as tall as the buttons beside it (INBOX 22, re-measured
+     2026-10-05): the head is top-aligned so a long name can wrap, and a
+     one-line name sat 5px above the centre of Install. */
+  min-height: var(--control-h-lg);
   margin: 0;
 }
 
-.extras-row .entry-actions {
-  flex: 0 0 auto;
-  margin-left: auto;
-}
 
 /* The name and its "Installed"/"Not ready yet" chip are one flex item, not
    two. Reported: "there are also still wrapping issues in the packages tab
@@ -1793,7 +1783,6 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .extras-row .entry-actions {
-  margin-left: auto;
   align-items: center;
   /* INBOX 273: `flex: 0 0 auto` above never shrinks this column, and a row
      whose title has shrunk to its own minimum (a long name plus the
@@ -2041,9 +2030,6 @@ header#top-bar.tabs-wrapped #tab-bar {
 /* A label and the control it names are one thing, so they sit closer to each
    other than to anything else in the row. */
 .library-sort {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
   margin: 0;
 }
 
@@ -2186,7 +2172,6 @@ header#top-bar.tabs-wrapped #tab-bar {
   box-shadow: none;
   color: var(--ink);
   font-weight: 400;
-  backdrop-filter: var(--glass-filter-clear);
 }
 
 .library-card:hover,
@@ -2200,11 +2185,8 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-card-thumb {
-  width: calc(100% + var(--space-6) * 2);
   margin: calc(var(--space-6) * -1) calc(var(--space-6) * -1) 0;
   max-height: 240px;
-  object-fit: cover;
-  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
   border-bottom: 1px solid var(--border);
   display: block;
 }
@@ -2279,7 +2261,6 @@ header#top-bar.tabs-wrapped #tab-bar {
      -webkit-line-clamp already ellipsizes without it, reported live as
      missing, not reproduced here, cheap enough to harden regardless. */
   font-size: var(--text-lg);
-  font-weight: 600;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2393,9 +2374,6 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-card-tick {
-  width: auto;
-  margin: 0;
-  flex: 0 0 auto;
   align-self: center;
 }
 
@@ -2548,7 +2526,6 @@ header#top-bar.tabs-wrapped #tab-bar {
 }
 
 .library-image-tile {
-  position: relative;
   margin: 0;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
@@ -2654,7 +2631,6 @@ header#top-bar.tabs-wrapped #tab-bar {
    setter.) */
 
 .library-image-menu-item {
-  justify-content: flex-start;
   text-align: left;
   width: 100%;
   white-space: nowrap;
@@ -3279,7 +3255,6 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .library-image-caption-empty {
   font-style: italic;
-  opacity: 0.7;
 }
 
 
@@ -3333,7 +3308,6 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 .library-image-ocr-empty {
   font-style: italic;
-  opacity: 0.7;
 }
 
 /* Same clamp/toggle shape as .library-image-caption above, asked for
@@ -3596,7 +3570,6 @@ header#top-bar.tabs-wrapped #tab-bar {
 .status-item {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
   height: var(--status-h);
   /* Padding horizontal only, margin zeroed: a row of controls neutralises the
      spacing its controls arrive with and lets the declared height decide. */
@@ -4273,7 +4246,6 @@ button.icon-only,
 button.icon-button,
 summary.icon-only,
 summary.icon-button {
-  padding-inline: 0.5em;
   aspect-ratio: 1;
   display: inline-flex;
   align-items: center;
@@ -4322,7 +4294,6 @@ summary.icon-button {
   align-self: center;
   justify-self: center;
   flex: 0 0 auto;
-  width: auto;
 }
 
 /* **A glyph that is the whole control is centred by layout, not by baseline.**

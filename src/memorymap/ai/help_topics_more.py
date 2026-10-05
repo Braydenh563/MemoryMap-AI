@@ -200,7 +200,7 @@ MORE_TOPICS: list[dict] = [
             "general settings",
         ),
         "body": (
-            "Settings, General. Bin: auto-clear binned notes after a "
+            "Settings, General. Bin: auto-clear binned notes, documents and reminders after a "
             "number of days. Chat history: delete saved chats after a number "
             "of days (0 keeps every chat; pinned chats are never deleted). "
             "Notifications: mute everything except reminders. Writing: smart "
@@ -418,7 +418,7 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "auto-lock", "auto lock", "change my password", "reset password",
             "other devices", "on my phone", "another computer", "sessions",
-            "lock everywhere",
+            "lock everywhere", "re-encrypt", "new key", "rotate key",
         ),
         "body": (
             "Settings, Account & security. Signing in: ask for a password when "
@@ -429,7 +429,8 @@ MORE_TOPICS: list[dict] = [
             "SHA-256 fingerprint with the one under the switch before you "
             "continue, and Regenerate certificate makes a new one. Change your password or PIN (private "
             "notes move across; a new one needs at least 8 characters, and an "
-            "easy one gets a warning). Sessions: Auto-lock when idle, from 5 minutes "
+            "easy one gets a warning). Re-encrypt private notes gives each a new key, "
+            "so an old backup can't open them. Sessions: Auto-lock when idle, from 5 minutes "
             "to 12 hours, and Lock everywhere now; the lock in the top bar "
             "locks at once. There is no reset link: run python -m memorymap "
             "--reset-password in a terminal, which keeps ordinary notes, "
@@ -661,6 +662,7 @@ MORE_TOPICS.extend(
                 "percentage", "percent", "how sure", "confidence", "filed", "filed without ai",
                 "stuck on filing", "still filing", "file by meaning", "file it myself",
                 "wrong category", "uncategorised", "uncategorized", "choose category",
+                "filing style", "review queue", "is:review", "accept the filing",
             ),
             "body": (
                 "Each new note is filed into a category in the background. Its "
@@ -678,7 +680,9 @@ MORE_TOPICS.extend(
                 "hand teaches the filing where things go. In Settings, Background tasks, Load "
                 "the search model when the app starts chooses when filing by "
                 "meaning gets ready: at launch, or on the first note, which then "
-                "waits a few seconds."
+                "waits a few seconds. Filing style (Settings, AI) files by topic, "
+                "by project or by time. Filings Atlas was unsure of wait in "
+                "is:review, with Accept the filing on the note's menu."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -745,7 +749,9 @@ MORE_TOPICS.extend(
                 "the Timeline and the Dashboard; select several to colour, merge "
                 "or delete them together, with one question and one Undo. Sort by "
                 "name, notes or the one used most recently, Empty lists the ones "
-                "with no notes, look-alike names are offered as one Merge, and the "
+                "with no notes, Tidy suggestions offer names alike (in spelling or "
+                "meaning) as one Merge and categories empty for thirty days to "
+                "Remove, Not these never asks about a pair again, and the "
                 "count after a name shows its notes. A category chip on a note opens "
                 "Show notes in the category, Move to another category and Manage "
                 "categories; dragging a note's category label onto another "

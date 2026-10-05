@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai.embeddings import bytes_to_vector, similar_pairs
 from memorymap.core import deps
-from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink
+from memorymap.core.database import Attachment, EmbeddingRecord, Entry, EntryLink, EntryProperty, NoteType
 from memorymap.core.deps import get_session
 from memorymap.entry import manager, paths
 from memorymap.entry import topics as topic_finder
@@ -738,10 +738,20 @@ def graph(
     now = datetime.now(timezone.utc)
     #: Each note's label and word count, read once per version (`_note_texts`).
     labels = _note_texts(entries)
+    #: WORLD_CLASS_PLAN D5: each note's type (`type:` in its properties, KG4),
+    #: what the "Note type" colour rule paints by. One query off the index;
+    #: a private note has no rows there, so it reads as untyped.
+    type_of: dict[int, str] = {}
+    for entry_id, value in session.execute(
+        select(EntryProperty.entry_id, EntryProperty.value).where(EntryProperty.key == "type")
+    ):
+        if entry_id in node_ids and value:
+            type_of.setdefault(entry_id, value)
     nodes = [
         {
             "id": e.id,
             "kind": "note",
+            "note_type": type_of.get(e.id),
             "tags": _tags_of(e),
             "space_id": e.workspace_id,
             "has_file": e.id in with_files,
@@ -932,13 +942,17 @@ def graph(
     if include_attachments:
         _add_attachment_nodes(session, nodes, edges, node_ids)
 
+    #: A type's own colour, so "Note type" paints a Person the colour the
+    #: person gave Person rather than the next one in the scheme.
+    type_colours = {row.name: row.colour for row in session.scalars(select(NoteType)) if row.colour}
     # **Encoded here, on the worker thread** (audit 2026-10-05, ARCH-14).
     # A sync route's returned dict is encoded by FastAPI on the event loop
     # (py-spy: `serialize_response`), so a 2.4 MB graph at 5,000 notes held
     # every other request while it was turned into JSON. A response built
     # in the route is encoded where the route runs; `jsonable_encoder` is
     # what FastAPI would have applied, so the body is byte for byte the same.
-    return JSONResponse(jsonable_encoder({"nodes": nodes, "edges": edges, "categories": categories}))
+    return JSONResponse(jsonable_encoder({"nodes": nodes, "edges": edges, "categories": categories, "type_colours": type_colours}))
+
 
 def _load_entries(session: Session, ids) -> dict[int, Entry]:  # noqa: ANN001
     """The live notes with these ids, read in chunks (SQLite's variable cap)."""

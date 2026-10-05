@@ -144,20 +144,18 @@ column and the one wording.
 | Object, its menu | Open | Ask Atlas about this | Show in graph | Remind me | Link to |
 | --- | --- | --- | --- | --- | --- |
 | Note, Notes card ⋯ | the card | yes | yes | yes | yes |
-| Note, Library card ⋯ | Open in Notes | yes | yes | no | no |
-| Document, Library card ⋯ | the card | yes | no | no | no |
-| Board or map, Boards card ⋯ | the card | yes | no | no | no |
-| Reminder, row ⋯ | Open its note (when it has one) | yes | no | n/a | no |
+| Note, Library card ⋯ | Open in Notes | yes | yes | yes | yes |
+| Document, Library card ⋯ | the card | yes | yes | yes | no |
+| Board or map, Boards card ⋯ | the card | yes | no | yes | no |
+| Reminder, row ⋯ | Open its note, document, board or map | yes | no | n/a | no |
 | File, Library card ⋯ | the card | yes (2026-09-23) | no | no | no |
 
-Open next, in impact order: Remind me on a document and a board (a
-reminder carries an `entry_id` only, so this needs the reminder to point at
-other kinds first, a backend step); Show in graph for a document, now the
-graph has a Documents switch; the Library note card's Remind me and Link to,
-which the Notes card already has, so the Library one is two rows short of
-its twin.
+The open rows named here on 2026-09-23 (Remind me on a document and a
+board, Show in graph for a document, the Library note card's Remind me and
+Link to) were built 2026-10-05; moved to HISTORY.md, "Moved from the plans,
+2026-10-05 (nbf1005)". The "no" cells left are not planned.
 
-**State 2026-10-04:** (b) the recipe is held by `tests/test_ui_recipes.py` (hand-built menus may not multiply, a pointer-anchored menu is the recipe, a long kebab is grouped); the rule that a menu item has no rest background is `tests/test_consistency_contract.py` (0 offences). The act-on-this rows marked open in the table above are open. S each.
+**State 2026-10-04:** (b) the recipe is held by `tests/test_ui_recipes.py` (hand-built menus may not multiply, a pointer-anchored menu is the recipe, a long kebab is grouped); the rule that a menu item has no rest background is `tests/test_consistency_contract.py` (0 offences).
 
 ### 1.4 Bars (docks, heads, toolbars, footers)
 
@@ -293,7 +291,7 @@ toggle; the widgets dialog keeps only add/remove. Gate: recipe count on
 Dashboard ≤ 8 (audit script), all 24 widgets in the frame, 390px chrome ratio
 < 35%.
 
-**State 2026-09-24:** (b) every widget renders into one frame (`render(body)` over the `DASH_WIDGETS` table) and the layout editor exists (`dash-edit`, `moveDashWidget`); drag-to-reorder on the grid itself was not found. The recipe-count gate was not re-run. S, `dashboard.js`.
+**State 2026-10-05:** (b) every widget renders into one frame (`render(body)` over the `DASH_WIDGETS` table); drag-to-reorder on the grid itself is built (Edit layout makes each card `draggable`, `dashDragOverCard` moves it live, the drop saves the order; dashboard.js, found 2026-10-05, HISTORY.md "Moved from the plans, 2026-10-05 (nbf1005)"). Open: the recipe-count gate was not re-run. S, `dashboard.js`.
 
 **The first screen, INBOX 436 (2026-10-03):** built; the diagnosis, the target and the before and after numbers are in HISTORY.md ("Moved from the plans, 2026-10-03").
 
@@ -346,7 +344,7 @@ that drive the Library's grouping and the graph's colour rules. Brief:
 migration + `/entries/{id}/properties` + editor. Gate: a property
 round-trips through the API, FTS finds it, the graph colours by it.
 
-**State 2026-09-24:** (b) documents have typed properties (`tests/test_doc_properties.py`, the Library's property filter); notes do not: no `properties` column on `entries`, no editor in the note head, no kinds. M, Opus.
+**State 2026-10-05:** built. Typed properties on notes came with GRAPH_PLAN KG4 (2026-10-04); the built-in kinds and the graph's Note type colour on 2026-10-05. Moved to HISTORY.md, "Moved from the plans, 2026-10-05 (nbf1005)".
 
 ### D6 Daily notes and the journal (S, Sonnet)
 
@@ -386,7 +384,7 @@ notes, snooze (10m, 1h, tomorrow) in the row menu, done rows strike
 through and fade, a "today" band at the top. Gate: row recipe shared
 (one class), snooze round-trips.
 
-**State 2026-09-24:** (b) snooze is built (+1h and tomorrow on the row), the list groups Overdue, Today, Upcoming and Done, and a month view exists (`#reminder-calendar`). Not checked: whether the reminder row shares the notes' row recipe (one class), and the 10m snooze. S.
+**State 2026-10-05:** built. The reminder row is the notes' row recipe (`ul.entry-list` > `li` > `.entry-meta`, measured by `nbf1005-recheck.js`), done rows strike through, and the 10 minute snooze is on the row's menu beside +1h and tomorrow on the row. Moved to HISTORY.md, "Moved from the plans, 2026-10-05 (nbf1005)".
 
 ### D9 Links and the web clipper (M, Opus)
 
@@ -695,18 +693,20 @@ too much routes through the model. Each of these is pure code:
    (app.js ~9894) and `search/engine.py` answers the same operators;
    whether the Library, Timeline and palette share the parser was not checked.
 2. (a) built (saved searches, `routes_settings.py` and app.js).
-3. (b) documents have unlinked mentions (`routes_documents.py`); notes do not. S.
-4. (b) document templates fill `{{title}}` and `{{date}}`; `{{clipboard}}`
-   and a cursor mark are not built, and note templates were not checked. S.
-5. (b) merge, delete, add to a board or map and make a map exist; move to a
-   space and export from a selection were not found. S.
+3. (a) built: notes have unlinked mentions too (GRAPH_PLAN KG1, 2026-10-04).
+4. (a) built 2026-10-05 for note templates (the user-editable ones):
+   `{{clipboard}}`, `{{cursor}}`, `{{time}}`; the document templates are
+   built-in and use none of them.
+5. (a) built 2026-10-05: Move to space and Export as Markdown on the
+   selection bar's ⋯.
 6. (a) built: JSON, CSV, Markdown and zip export, OPML for maps, the print
    stylesheet for documents.
 7. (a) built 2026-10-05: Notion, Obsidian, Evernote and Apple Notes import, idempotent by source (HISTORY, "row 25, the importers and the keyboard").
 8. (a) built: `DEFAULT_SHORTCUTS` and the shortcut sheet.
-9. (b) documents have word count and reading time; notes were not found to. S.
-10. (b) the bin restores entries (notes, boards, maps: `POST /entries/{id}/restore`);
-    documents and reminders were not traced. S.
+9. (a) built 2026-10-05: a note's edit form shows its words and reading time.
+10. (a) built 2026-10-05: documents and reminders go to the bin too.
+
+Rows 3, 4, 5, 9 and 10 moved to HISTORY.md, "Moved from the plans, 2026-10-05 (nbf1005)".
 
 ---
 
@@ -809,12 +809,12 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 7 | ~~I3, H2~~ | ~~the questions view, `GET /questions`, the Ask scope, the answered-by link~~ built 2026-10-04 (`ai/questions.py`, `routes_questions.py`, Notes, Questions; `tests/test_questions_spec.py`, 500 questions listed under 100 ms) | done | HISTORY |
 | 8 | ~~Placed 2026-09-13~~ | ~~`/files/gallery`'s five callers onto `apiPagedList`, then its default to 200~~ built 2026-09-24 (`tests/test_gallery_paging.py`) | done | HISTORY |
 | 9 | ~~§16~~ | ~~cache `similar_pairs` for link suggestions and tensions~~ built 2026-09-24: keyed by the matrix's version; 5,000 notes 322 to 104 ms a repeat request (`tests/test_similar_pairs_cache.py`) | done | HISTORY |
-| 10 | D5 | typed properties on notes (documents have them) | M | `core/database.py`, the note head |
-| 11 | §17 | review queue, filing style, explain this note, most opened this month (S each); tidy proposals, charts from questions (M each); `.ics` export built 2026-09-26 | S to M | §17 |
+| 10 | ~~D5~~ | ~~typed properties on notes (documents have them)~~ built: the properties, the table under a note's title and note types with KG4 (2026-10-04); the five built-in kinds and the graph's Note type colour 2026-10-05 (`tests/test_note_kinds_d5.py`) | done | HISTORY |
+| 11 | ~~§17~~ | ~~review queue, filing style, explain this note, most opened this month (S each); tidy proposals, charts from questions (M each); `.ics` export built 2026-09-26~~ built 2026-10-05 (`routes_vision.py`, `ask-chart.js`; `tests/test_vision_rows_row11.py`) | done | HISTORY |
 | 12 | ~~D6~~ | ~~the calendar strip, the yesterday/tomorrow pair and the month popover~~ built 2026-10-04 (`timeline.js`, `note-cards.js`; HISTORY, "the consistency contract's missing lints") | done | HISTORY |
 | 13 | ~~§1, D14~~ | ~~the lints not written: surface budget, one primary per modal, meta without border or hover, a menu item's rest background, every `data-action` in the palette~~ built 2026-10-04 (`tests/test_consistency_contract.py`); left: the two ratchets (5 modals with 2 to 3 filled buttons, 13 chip rules) | done | HISTORY |
 | 14 | ~~A8~~ | ~~the '?' help on every tab's dock (Chat and Graph have it)~~ built 2026-10-04: Dashboard and Reminders were the two docks without one (`tests/test_dock_help_507.py` fails on a dock with none) | done | HISTORY |
-| 15 | §1.3 | Remind me on documents and boards (the reminder must point at other kinds first), Show in graph for a document, the Library note card's Remind me and Link to | S to M | app.js, library.js, `routes_reminders.py` |
+| 15 | ~~§1.3~~ | ~~Remind me on documents and boards (the reminder must point at other kinds first), Show in graph for a document, the Library note card's Remind me and Link to~~ built 2026-10-05 (`Reminder.document_id`, `target_kind`; `tests/test_reminder_targets_row15.py`) | done | HISTORY |
 | 16 | B7 | cursor pagination, ETags and `If-Match` on entries, `/capabilities` | M | `api/` |
 | 17 | B8, H4 | a user skills folder picked up without a restart; `/api/v1`; the agent named on an external write | M | `ai/skills.py`, `mcp_server.py` |
 | 18 | ~~B4~~ | ~~typed links, a derived tensions table, rebuild determinism, the Tensions widget~~ built 2026-10-05 (`tensions` table rebuilt from events, night facts and links, `tests/test_tensions_table_b4.py`; typed links were KG3); left: derived person and project pages, per-claim citations, "what changed about X" | done | HISTORY |
@@ -845,11 +845,11 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 27 | H9 | usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval | S to M each | H9 |
 | 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; ~~the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure~~ built 2026-10-05 (HISTORY, "Moved from the plans, 2026-10-05 (19.3, 19.5)"); the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
 | 29 | §10 | F1 a `prefs` module, F5 `api.stream`/`api.upload` and the no-bare-fetch lint, F7's threads onto the pool (the ratchet is built), F10 a `readings` table, F12 a store (F4 built 2026-09-26) | S to L | §10 |
-| 30 | §5 | notes' unlinked mentions, word count and reading time; `{{clipboard}}` and a cursor mark; move to a space and export from a selection; the bin for documents and reminders | S each | §5 |
-| 31 | Placed 2026-09-09 | 1 capture into the selected space and a bulk move; 99 (b) scroll restore, (c) the AI dot's latency tooltip, (d) Paste as note; 92's row redesign; 97 RapidOCR; 79 and 22 to 23 not re-checked; 261's vault re-key (`POST /auth/rotate-vault-key`) has no UI | S to M | those sections |
+| 30 | ~~§5~~ | ~~notes' unlinked mentions, word count and reading time; `{{clipboard}}` and a cursor mark; move to a space and export from a selection; the bin for documents and reminders~~ built: unlinked mentions with KG1 (2026-10-04); the rest 2026-10-05 (`tests/test_selection_actions_row30.py`, `tests/test_bin_documents_reminders_row30.py`) | done | HISTORY |
+| 31 | ~~Placed 2026-09-09~~ | ~~1 capture into the selected space and a bulk move; 99 (b) scroll restore, (c) the AI dot's latency tooltip, (d) Paste as note; 92's row redesign; 97 RapidOCR; 79 and 22 to 23 not re-checked; 261's vault re-key (`POST /auth/rotate-vault-key`) has no UI~~ built or found built 2026-10-05 (`tests/test_placed_0909_row31.py`, `scratchpad/ui-sweeps/nbf1005-recheck.js`); 97 decided not to build (a new Python dependency) | done | HISTORY |
 | 32 | 301 | the navigation and undo audit table, then the fixes | M | every surface |
-| 33 | §21 | rows 1 and 2 on the notice recipe, row 12's "check the address" in the status line, row 13's update size in the About page | S | app.js, `routes_models.py`, settings.js |
-| 34 | D1, D8, §13 | drag on the grid; the reminder row recipe and a 10m snooze; the minimap's NaN rects, the tab bar at 600 to 819px, a whiteboard menu sweep, the tidy layout past five nodes (all not re-checked) | S each | their plans |
+| 33 | ~~§21~~ | ~~rows 1 and 2 on the notice recipe, row 12's "check the address" in the status line, row 13's update size in the About page~~ built 2026-10-05 (`tests/test_failure_ways_out_row33.py`) | done | HISTORY |
+| 34 | ~~D1, D8, §13~~ | ~~drag on the grid; the reminder row recipe and a 10m snooze; the minimap's NaN rects, the tab bar at 600 to 819px, a whiteboard menu sweep, the tidy layout past five nodes (all not re-checked)~~ built or measured 2026-10-05: drag on the grid found built, the 10m snooze built, the rest measured clean (`nbf1005-recheck.js`); left with its owner: the whiteboard menu sweep (WHITEBOARD_PLAN) | done | HISTORY |
 | 35 | §2 | the offline studio (the privacy receipt, its record, API and Settings page, built 2026-09-26) | L | new |
 | 36 | B6, H5 | sync without a server | L | design first |
 | 37 | Audio | deferred until the owner says go | L | the audio section |
@@ -1003,6 +1003,8 @@ Each of these was found by measuring and deferred with evidence; the
   Owner: docks.md.
 - Tidy layout never measured past five nodes; a newly opened map leaves
   its root under the top bar. Owner: mindmap.md item H.
+
+**State 2026-10-05:** measured (`scratchpad/ui-sweeps/nbf1005-recheck.js`): a board's preview draws its blocks with no NaN rect and no console error (the renderer was replaced, `mapPreview` in note-cards.js); the tab bar fits at 600, 640, 700, 760 and 819px (scrollWidth equals clientWidth); the tidy layout is measured past five nodes (maplayouts.js at 12 and 200 topics, 0 overlapping pairs, HISTORY.md). Still open with their owners: the whiteboard's menus driven by a sweep (the whiteboard agent), the SVG graph flag (GRAPH_PLAN Phase 2), a new map's root under the top bar (WHITEBOARD_PLAN 7).
 
 **State 2026-09-24:** re-read against OPEN.md and the code: the
 Notes and Graph docks are at 6 controls (OPEN.md B, 2026-09-20);
@@ -1540,6 +1542,15 @@ The owner's reports this plan owns, moved whole from INBOX.md with their numbers
     adapter with a fake in tests) plus the Packages row.
 98. The same decision as 62; moved with it.
 
+**State 2026-10-05:** every item below is built or decided; the list stays
+as the record of what was placed. Built 2026-10-05 (HISTORY.md, "Moved from
+the plans, 2026-10-05 (nbf1005)"): 1's Move to space (row 30), 99 (b), (c)
+and (d), 92's row, 22's last 5px and 261's re-key button; found built: 1's
+capture into the selected space (`updateCaptureSpaceLabel`), 23 and 79. 97
+is decided not to build: RapidOCR is a new Python dependency, which the
+owner ruled out on 2026-10-05 ("make sure it is fully local and doesnt use
+any external libraries that arent vendored"); Tesseract stays the reader.
+
 **State 2026-09-24:** 1 (b): a space chip is drawn on
 note cards; capture into the selected space and a "Move to space" bulk action
 were not found. 22 and 23 were not re-checked (their agent files are
@@ -1612,6 +1623,11 @@ after Brief 18 section A):**
 The principle the first notes state and the app keeps: the AI is a
 servant, not a gatekeeper; everything it does can be seen, edited and
 undone.
+
+**State 2026-10-05:** all seven built; the six that were open moved to
+HISTORY.md, "Moved from the plans, 2026-10-05 (nbf1005)". Not built from row
+1's sketch: Split per row (no note has a split action anywhere in the app;
+Accept and moving the category are the row's two answers).
 
 **State 2026-09-24:** the seven rows: 1 review queue (c),
 S. 2 tidy categories (b): the agent has `merge_categories`
@@ -2206,17 +2222,8 @@ suggests it. and same for many other instances." INBOX 272 called this a class; 
 record of rows 9 to 11 built on 2026-09-21 moved to HISTORY.md, "Moved from the plans, 2026-09-24". The lint
 that holds it is `tests/test_failure_remedies.py`.
 
-State 2026-09-24, what the survey left open:
-
-- Row 1 and 2: the embedding-model messages still draw with `.status.error`
-  rather than the `.notice.notice-warn` recipe (DESIGN.md). S, `frontend/js/app.js`
-  `embedding-error-fix-row`.
-- Row 12: a wrong custom `base_url` and an absent server now differ in the
-  provider (`list_models` raises "Nothing answered at <url>. Check the
-  address", 283, 2026-09-24), but the status line still reads "not
-  detected" for both. S, `api/routes_models.py` status route.
-- Row 13: whether the About page shows `candidate.size` before the update
-  button is pressed was never traced in the frontend. S, `settings.js`.
+State 2026-10-05: what the survey left open (rows 1, 2, 12 and 13) is
+built; moved to HISTORY.md, "Moved from the plans, 2026-10-05 (nbf1005)".
 
 ## 22. The professional baseline and the devibecode programme (2026-09-27)
 

@@ -5350,8 +5350,6 @@ body .chip.item-label,
   place-items: center;
   flex: none;
   align-self: center;
-  width: 1rem;
-  height: 1rem;
   margin-inline-start: var(--space-1);
   border-radius: var(--radius-pill);
   font-size: 0.85em;
@@ -6459,7 +6457,6 @@ body .chip.item-label,
 #nm-buddy .nm-figure {
   transform-origin: 50% 100%;
   rotate: calc(var(--nmb-lean-pose) + var(--atl-lean-dir) * 3.5deg);
-  transition: transform var(--motion-slow) var(--ease-out), rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out);
 }
 #nm-buddy[data-pose="lean"][data-side="left"] .nm-figure { --nmb-lean-pose: 8deg; }
 #nm-buddy[data-pose="lean"][data-side="right"] .nm-figure { --nmb-lean-pose: -8deg; }
@@ -6574,9 +6571,6 @@ body .chip.item-label,
 /* A three-quarter turn (`data-turn`, while it walks, glances or turns):
    the face slides towards that side and the body narrows a touch, which
    is how a flat mascot turns. */
-#nm-buddy .nm-char .nm-buddy-head {
-  transition: translate var(--motion-slow) var(--ease-out), rotate var(--motion-slow) var(--ease-out);
-}
 #nm-buddy[data-turn="l"] .nm-char .nm-buddy-head { translate: -3.5px 0; }
 #nm-buddy[data-turn="r"] .nm-char .nm-buddy-head { translate: 3.5px 0; }
 #nm-buddy[data-turn] .nm-figure { transform: scaleX(0.95); }

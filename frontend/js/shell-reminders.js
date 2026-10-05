@@ -1107,23 +1107,24 @@ async function clearDoneReminders() {
   if (!(await confirmDialog(`Delete ${done.length} completed reminder${done.length === 1 ? "" : "s"}?`))) {
     return;
   }
-  //: One Undo for the lot (INBOX 537), each made again as it was.
-  let live = done;
+  //: One Undo for the lot (INBOX 537): they go to the recycle bin and come
+  //: back from it (WORLD_CLASS_PLAN 5 item 10).
   const drop = async () => {
     //: Every delete is tried; how many failed is said once (audit
     //: 2026-10-05, FE-12), where a silent catch let them come back unexplained.
     const results = await Promise.all(
-      live.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).then(() => true, () => false))
+      done.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).then(() => true, () => false))
     );
     const failed = results.filter((ok) => !ok).length;
     if (failed) toast(`Couldn't delete ${failed} of the reminders.`, true);
     loadReminders();
   };
   const remake = async () => {
-    live = await Promise.all(live.map((r) => apiJson("/reminders", {
-      method: "POST",
-      body: JSON.stringify({ text: r.text, due_at: r.due_at, entry_id: r.entry_id, priority: r.priority || "normal", recurring: r.recurring || "none", restore: true, done: true }),
-    })));
+    const results = await Promise.all(
+      done.map((r) => api(`/reminders/${r.id}/restore`, { method: "POST" }).then(() => true, () => false))
+    );
+    const failed = results.filter((ok) => !ok).length;
+    if (failed) toast(`Couldn't bring back ${failed} of the reminders.`, true);
     loadReminders();
   };
   await drop();
@@ -1223,44 +1224,37 @@ function reminderItem(reminder, label) {
   //: integration vocabulary every object already speaks: its note, Atlas,
   //: copy). The two snoozes and Edit stay on the row, being what a reminder
   //: is touched for; four same-sized icons were one more than a row reads.
+  //: A deleted reminder goes to the recycle bin (WORLD_CLASS_PLAN 5 item
+  //: 10); Undo restores the same reminder, its id and its target kept.
   const deleteReminder = async () => {
+    await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
+    loadReminders();
+    const restore = async () => {
+      await apiJson(`/reminders/${reminder.id}/restore`, { method: "POST" });
+      loadReminders();
+    };
+    const rebin = async () => {
       await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
       loadReminders();
-      // Deleting a reminder is as undo-able as binning a note. There's no
-      // restore endpoint here (unlike entries): undo recreates it, which
-      // means a redo's own delete target has to track the *new* id, not the
-      // one this closure started with.
-      let liveId = reminder.id;
-      const recreate = async () => {
-        const created = await apiJson("/reminders", {
-          method: "POST",
-          body: JSON.stringify({
-            text: reminder.text,
-            due_at: reminder.due_at,
-            entry_id: reminder.entry_id,
-            priority: reminder.priority || "normal",
-            recurring: reminder.recurring || "none",
-            restore: true,
-            done: Boolean(reminder.done),
-          }),
-        });
-        liveId = created.id;
-        loadReminders();
-      };
-      const redelete = async () => {
-        await apiJson(`/reminders/${liveId}`, { method: "DELETE" });
-        loadReminders();
-      };
-      const action = pushUndo("Deleted a reminder", recreate, redelete);
-      toastAction("Reminder deleted.", "Undo", async () => {
-        settleUndoFromToast(action);
-        await recreate().catch((e) => toast(e.message, true));
-        toast("Reminder restored.");
-      });
     };
+    const action = pushUndo("Moved a reminder to the bin", restore, rebin);
+    toastAction("Reminder moved to the bin.", "Undo", async () => {
+      settleUndoFromToast(action);
+      await restore().catch((e) => toast(e.message, true));
+      toast("Reminder restored.");
+    });
+  };
   const menuItems = [];
-  if (reminder.entry_id) {
-    menuItems.push({ label: "ph:note-pencil Open its note", run: () => flashEntry(reminder.entry_id), group: "go" });
+  const target = reminderTarget(reminder);
+  if (target) menuItems.push({ label: target.label, run: target.open, group: "go" });
+  //: D8's third snooze (WORLD_CLASS_PLAN: "10m, 1h, tomorrow"): in the menu,
+  //: since the row already holds the two it is touched for most.
+  if (!reminder.done) {
+    menuItems.push({
+      label: "ph:clock-countdown Snooze 10 minutes",
+      run: () => snoozeReminderTo(reminder, new Date(Date.now() + 10 * 60 * 1000)),
+      group: "snooze",
+    });
   }
   menuItems.push(
     { label: "ph:chat-circle Ask Atlas about this", run: () => askAtlasAboutThing("reminder", reminder.text), group: "go" },
@@ -1286,16 +1280,59 @@ function reminderItem(reminder, label) {
   row.appendChild(actions);
   li.appendChild(row);
 
-  if (reminder.entry_preview) {
+  if (target && (reminder.target_title || reminder.entry_preview)) {
     const linkRow = document.createElement("div");
     linkRow.className = "entry-links";
-    const noteChip = chip(`ph:note-pencil ${reminder.entry_preview}`, "link", () =>
-      flashEntry(reminder.entry_id)
-    );
+    const noteChip = chip(`${target.icon} ${reminder.target_title || reminder.entry_preview}`, "link", target.open);
+    noteChip.title = target.label.replace(/^ph:\S+ /, "");
     linkRow.appendChild(noteChip);
     li.appendChild(linkRow);
   }
   return li;
+}
+
+//: **What a reminder is about, and the way to it** (WORLD_CLASS_PLAN 1.3,
+//: row 15). A reminder used to point at a note only, so a board's said "Open
+//: its note" and flashed nothing in the Notes list; a document could not have
+//: one. `target_kind` comes from the server, which knows a board from a note.
+function reminderTarget(reminder) {
+  const kind = reminder.target_kind || (reminder.entry_id ? "note" : null);
+  if (kind === "document" && reminder.document_id) {
+    return { icon: "ph:file-text", label: "ph:file-text Open its document", open: () => openDocumentFromNote(reminder.document_id) };
+  }
+  if ((kind === "board" || kind === "map") && reminder.entry_id) {
+    const icon = kind === "map" ? "ph:tree-structure" : "ph:squares-four";
+    return { icon, label: `${icon} Open its ${kind}`, open: () => openWhiteboardBoard(reminder.entry_id) };
+  }
+  if (kind === "note" && reminder.entry_id) {
+    return { icon: "ph:note-pencil", label: "ph:note-pencil Open its note", open: () => flashEntry(reminder.entry_id) };
+  }
+  return null;
+}
+
+//: **Remind me, from any object's menu** (WORLD_CLASS_PLAN 1.3, row 15): a
+//: note in the Library, a document, a board or a map. The text and one of
+//: the presets the Reminders form has; the exact time is the tab's own form.
+async function remindAbout({ title, entryId = null, documentId = null }) {
+  const answer = await promptDialog("Remind me", `Follow up: ${String(title || "").trim()}`.slice(0, 200), {
+    confirmLabel: "Set reminder",
+    segment: {
+      label: "When",
+      value: "tomorrow",
+      options: [
+        { value: "1h", label: "In an hour" },
+        { value: "tonight", label: "Tonight" },
+        { value: "tomorrow", label: "Tomorrow" },
+        { value: "nextweek", label: "Next week" },
+      ],
+    },
+  });
+  const text = answer && typeof answer.text === "string" ? answer.text.trim() : "";
+  if (!text) return false;
+  return addReminder(text, presetDate(answer.choice || "tomorrow"), entryId, { documentId }).catch((error) => {
+    toast(error.message, true);
+    return false;
+  });
 }
 
 // Relative time that works both ways: "in 2 hours" (future) and "3 days ago"
@@ -1592,6 +1629,7 @@ async function addReminder(text, dueValue, entryId = null, opts = {}) {
       text,
       due_at: new Date(dueValue).toISOString(),
       entry_id: entryId,
+      document_id: opts.documentId ?? null,
       priority: opts.priority || "normal",
       recurring: opts.recurring || "none",
     }),

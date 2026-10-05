@@ -201,6 +201,26 @@ function inboxWhy(signals) {
   return why;
 }
 
+//: The score as a small bar with its number (item 92): how sure reads at a
+//: glance down a column of rows, where a column of percent chips had to be
+//: read one by one.
+function inboxScoreBar(confidence) {
+  const pct = Math.round((confidence || 0) * 100);
+  const score = document.createElement("span");
+  score.className = "link-suggestion-score";
+  score.title = "How sure, over every reason";
+  const bar = document.createElement("span");
+  bar.className = "link-suggestion-bar";
+  bar.setAttribute("aria-hidden", "true");
+  const fill = document.createElement("span");
+  fill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  bar.appendChild(fill);
+  const number = document.createElement("span");
+  number.textContent = `${pct}%`;
+  score.append(bar, number);
+  return score;
+}
+
 function inboxScore(confidence) {
   const score = chip(`${Math.round((confidence || 0) * 100)}%`, "confidence");
   score.title = "How sure, over every reason";
@@ -510,6 +530,7 @@ function inboxLinksPane(suggestions) {
       const reason = byPair.get(`${r.s.source_id}:${r.s.target_id}`);
       if (reason) {
         r.input.value = reason;
+        r.reveal?.();
         filled++;
       }
     }
@@ -533,9 +554,26 @@ function inboxLinksPane(suggestions) {
       else toast("Couldn't guess a reason for any of these.");
     },
   );
+  //: **Every sure one at once** (WORLD_CLASS_PLAN, Placed 2026-09-09 item
+  //: 92): the rows at 70% or more, linked through each row's own Link, so a
+  //: typed reason and the learning go with each as they would one by one.
+  const linkSure = smallButton(
+    "ph:link Link all above 70%",
+    "Link every suggestion below that is at least 70% sure, each with its reason",
+    async () => {
+      const sure = rowReasons.filter((r) => r.input.isConnected && (r.s.confidence ?? r.s.similarity ?? 0) >= 0.7);
+      if (!sure.length) return toast("None of these is 70% sure or more.");
+      setBusy(linkSure, true, "Linking…");
+      //: Quiet per row: one toast and one reload for the lot, not one each.
+      for (const r of sure) await r.link({ quiet: true });
+      setBusy(linkSure, false);
+      refreshEntries(sure.flatMap((r) => [r.s.source_id, r.s.target_id])).catch(() => {});
+      toast(`Linked ${sure.length} pair${sure.length === 1 ? "" : "s"}.`);
+    },
+  );
   const tools = document.createElement("div");
   tools.className = "row inbox-tools";
-  tools.append(backfill, suggestReasons);
+  tools.append(linkSure, backfill, suggestReasons);
   list.appendChild(tools);
   //: When "Explain your existing links" last ran (INBOX 438); settings.js.
   if (typeof jobLineEl === "function") list.appendChild(jobLineEl("link-reasons"));
@@ -551,15 +589,27 @@ function inboxLinksPane(suggestions) {
 function inboxLinkRow(s, rowReasons) {
   const row = document.createElement("div");
   row.className = "link-suggestion";
+  //: **Two notes and the join between them** (WORLD_CLASS_PLAN, Placed
+  //: 2026-09-09 item 92): each note a chip, an arrow between, where the row
+  //: was a quoted "A ↔ B" string; the full text of each is its chip's title.
   const text = document.createElement("span");
-  text.className = "link-suggestion-text";
+  text.className = "link-suggestion-text link-suggestion-pair";
   //: The note's name, not its markdown (`notePreviewText`, as everywhere).
   const name = (raw) => {
     const clean = notePreviewText(raw || "").replace(/\s+/g, " ").trim();
     return clean.length > 70 ? `${clean.slice(0, 69)}…` : clean || "Untitled note";
   };
-  text.textContent = `${name(s.source_preview)} ↔ ${name(s.target_preview)}`;
-  text.title = `${notePreviewText(s.source_preview || "")}\n↔\n${notePreviewText(s.target_preview || "")}`;
+  const noteChip = (raw) => {
+    const made = chip(`ph:note ${name(raw)}`, "link-suggestion-note");
+    made.title = notePreviewText(raw || "");
+    return made;
+  };
+  const join = document.createElement("i");
+  join.className = "ph ph-arrows-left-right link-suggestion-join";
+  join.setAttribute("aria-hidden", "true");
+  text.append(noteChip(s.source_preview), join, noteChip(s.target_preview));
+  text.setAttribute("role", "group");
+  text.setAttribute("aria-label", `${name(s.source_preview)} and ${name(s.target_preview)}`);
   //: A reason you can type before you link; left blank, the server deduces.
   const reason = document.createElement("input");
   reason.type = "text";
@@ -570,10 +620,23 @@ function inboxLinkRow(s, rowReasons) {
   reason.addEventListener("input", () => {
     reason.dataset.userEdited = "1";
   });
-  rowReasons.push({ s, input: reason });
+  //: The field waits behind "Add a reason" (item 92): most links need none,
+  //: and a field on every row was the row's widest thing. A reason Atlas
+  //: fills in shows it.
+  reason.classList.add("hidden");
+  const addReason = smallButton("ph:text-t Add a reason", "Say why these two belong together", () => reveal());
+  addReason.classList.add("link-suggestion-add-reason");
+  const reveal = () => {
+    reason.classList.remove("hidden");
+    addReason.classList.add("hidden");
+    if (document.activeElement === addReason) reason.focus();
+  };
+  const rowState = { s, input: reason, reveal, link: null };
+  rowReasons.push(rowState);
   const sigs = s.signals || [];
   const signals = sigs.map((g) => g.signal);
-  const link = smallButton("ph:link Link", "Connect these two notes", async () => {
+  const link = smallButton("ph:link Link", "Connect these two notes", () => linkIt());
+  const linkIt = async ({ quiet = false } = {}) => {
     //: Left empty, a pair found by structure keeps its reasons and their
     //: confidence (KG9); one found by wording alone lets the server deduce.
     const typed = reason.value.trim();
@@ -584,10 +647,13 @@ function inboxLinkRow(s, rowReasons) {
     if (!typed && structural) body.reason_confidence = s.confidence;
     await apiJson(`/entries/${s.source_id}/links`, { method: "POST", body: JSON.stringify(body) }).catch((e) => toast(e.message, true));
     inboxCorrection("accept_link", { a: s.source_id, b: s.target_id, signals });
-    toast(typed ? "Linked, with your reason." : "Linked.");
-    loadEntries().catch(() => {});
+    if (!quiet) {
+      toast(typed ? "Linked, with your reason." : "Linked.");
+      refreshEntries([s.source_id, s.target_id]).catch(() => {});
+    }
     inboxDone("links", row);
-  });
+  };
+  rowState.link = linkIt;
   reason.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
@@ -598,7 +664,7 @@ function inboxLinkRow(s, rowReasons) {
     inboxCorrection("dismiss_link", { a: s.source_id, b: s.target_id, signals });
     inboxDone("links", row);
   });
-  row.append(text, reason, inboxScore(s.confidence ?? s.similarity), link, dismiss);
+  row.append(text, addReason, reason, inboxScoreBar(s.confidence ?? s.similarity), link, dismiss);
   if (sigs.length) row.appendChild(inboxWhy(sigs));
   return row;
 }

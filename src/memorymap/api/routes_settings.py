@@ -502,6 +502,8 @@ class PreferencesBody(BaseModel):
     #: the next load. `tests/test_preferences_roundtrip.py` now compares
     #: every key the frontend sends with this body.
     ai_first_filing: bool | None = None
+    #: WORLD_CLASS_PLAN section 17 row 3 (`librarian.FILING_STYLES`).
+    filing_style: Literal["topic", "project", "time"] | None = None
     background_filing: bool | None = None
     auto_caption_images: bool | None = None
     auto_read_image_text: bool | None = None
@@ -702,6 +704,7 @@ def get_preferences() -> dict:
     return {
         "recycle_bin_days": config.get_preference("recycle_bin_days", 30),
         "ai_first_filing": config.get_preference("ai_first_filing", True),
+        "filing_style": config.get_preference("filing_style", "topic"),
         "background_filing": config.get_preference("background_filing", True),
         "auto_caption_images": config.get_preference("auto_caption_images", True),
         "auto_read_image_text": config.get_preference("auto_read_image_text", True),
@@ -1588,9 +1591,13 @@ def clear_audit_log(
 
 @router.post("/recycle-bin/empty")
 def empty_recycle_bin(session: Session = Depends(get_session)) -> dict:
+    from memorymap.entry import bin as other_bin
+
     removed = manager.empty_recycle_bin(
         session, uploads_dir=deps.get_config().uploads_dir
     )
+    #: The bin's documents and reminders go with its notes (5 item 10).
+    removed += other_bin.empty(session)
     return {"removed": removed}
 
 
@@ -2174,7 +2181,7 @@ def _slug(text: str, length: int = 30) -> str:
     return re.sub(r"[\s]+", "-", cleaned) or "note"
 
 
-def build_markdown_export(session: Session) -> bytes:
+def build_markdown_export(session: Session, ids: list[int] | None = None) -> bytes:
     """The zip itself, as bytes, with nothing HTTP about it.
 
     Lifted out of the route below so `python -m memorymap --export PATH`
@@ -2189,6 +2196,11 @@ def build_markdown_export(session: Session) -> bytes:
     either way.
     """
     _categories, entries, _links = _export_rows(session)
+    #: A selection (WORLD_CLASS_PLAN 5 item 6, section 8 row 30): the same
+    #: files the whole export writes, for these notes only.
+    if ids is not None:
+        wanted = set(ids)
+        entries = [entry for entry in entries if entry.id in wanted]
     category_names = manager.bulk_category_names(session, entries)
     
     buffer = io.BytesIO()
@@ -2221,18 +2233,24 @@ def build_markdown_export(session: Session) -> bytes:
             front.append("---")
             body = "\n".join(front) + f"\n\n{readable}\n"
             archive.writestr(f"{folder}/{entry.id}-{_slug(readable)}.md", body)
-    manager.log_action(session, "exported", "data", detail="markdown")
+    detail = "markdown" if ids is None else f"markdown, {len(entries)} selected"
+    manager.log_action(session, "exported", "data", detail=detail)
     session.commit()
     return buffer.getvalue()
 
 
 @router.get("/export/markdown")
-def export_markdown(session: Session = Depends(get_session)) -> Response:
+def export_markdown(
+    session: Session = Depends(get_session),
+    ids: str = Query(default="", max_length=6000, description="Comma-separated note ids; empty for every note"),
+) -> Response:
     """A zip of Obsidian-friendly .md files: one file per note, one
     folder per category, YAML frontmatter carrying the metadata. Binned
-    notes go under _recycle-bin/, exports never silently drop data."""
+    notes go under _recycle-bin/, exports never silently drop data. With
+    `ids`, only those notes (the Notes selection's Export)."""
+    chosen = [int(part) for part in ids.split(",") if part.strip().isdigit()] if ids.strip() else None
     return Response(
-        content=build_markdown_export(session),
+        content=build_markdown_export(session, chosen),
         media_type="application/zip",
         headers={"Content-Disposition": "attachment; filename=memorymap-markdown.zip"},
     )

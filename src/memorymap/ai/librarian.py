@@ -1342,6 +1342,34 @@ def corrections_note(session, categories: list[str]) -> str:
     )
 
 
+#: WORLD_CLASS_PLAN section 17 row 3, "preferences for how the database is
+#: structured": how a new category is named and an existing one chosen. By
+#: topic is the default and adds nothing, so the prompt every notebook had is
+#: unchanged unless the person picks another; each other style gives the
+#: model three examples, because a rule alone reads as a suggestion.
+FILING_STYLES = {
+    "topic": "",
+    "project": (
+        "File by project: put the note under the project, client, course or "
+        "goal it belongs to, not under a general subject. Examples: a quote "
+        "for new tiles goes in \"Kitchen renovation\", lecture notes on Kant go "
+        "in \"PHIL201\", an invoice question goes in \"Acme account\"."
+    ),
+    "time": (
+        "File by time: name categories by the period the note belongs to. "
+        "Examples: \"2026 Q4\", \"October 2026\", \"Week of 6 October\". Prefer "
+        "an existing period that fits over a new one."
+    ),
+}
+
+
+def filing_style_note() -> str:
+    from memorymap.core import deps
+
+    style = str(deps.get_config().get_preference("filing_style", "topic") or "topic")
+    return FILING_STYLES.get(style, "")
+
+
 def filing_prompt(session, content: str, categories: list[str]) -> str:
     """The user half of the filing prompt: the choices, what the person has
     already corrected about them, and the note itself.
@@ -1352,6 +1380,9 @@ def filing_prompt(session, content: str, categories: list[str]) -> str:
     to put them in.
     """
     parts = [f"Existing categories: {', '.join(categories) if categories else '(none yet)'}"]
+    style = filing_style_note()
+    if style:
+        parts.append(style)
     note = corrections_note(session, categories)
     if note:
         parts.append(note)

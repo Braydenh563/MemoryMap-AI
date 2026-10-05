@@ -42306,3 +42306,199 @@ loading page.
      0 off, and still 0 after a reload (kept on this device). With it the
      spec's last open KG rows: rollups on the query table and a searching
      picker for a note field (GRAPH_PLAN, "Still open after KG1 to KG9").
+
+## Moved from the plans, 2026-10-05 (nbf1005)
+
+WORLD_CLASS_PLAN section 8's "What is left" rows 10, 15, 30, 31, 33, 34 and
+11, built or found built by the nbf1005 agent, one block per row.
+
+### Row 10, D5: typed properties on notes
+
+Found built for the most part: GRAPH_PLAN KG4 (2026-10-04, above) gave notes
+typed properties (a `---` block, `entry_properties` as its index, the
+property table under a note's title, note types with fields, `type:` on
+create). Search finds a property's value through the note's own text. Left
+by D5's gate and built 2026-10-05:
+
+- The built-in kinds: Person, Project, Meeting, Book and Place, each with an
+  icon, a colour and three fields (`entry/properties.BUILTIN_TYPES`), seeded
+  once per notebook by `ensure_builtin_types` on the first `/note-types` read
+  or typed create; the `note_types_seeded` preference keeps a deleted kind
+  deleted.
+- The graph colours by them: `/graph` carries each note's `note_type` and the
+  types' `type_colours`; View, Colour has Note type (`gcRuleKey`,
+  `gcRuleScale`: a type's own colour, the scheme for one without, untyped
+  muted). The Guide's graph-display topic says so.
+
+Measured: `tests/test_note_kinds_d5.py` 5 tests. Not verified in a browser:
+the legend's colours under the Note type rule.
+
+### Row 15, section 1.3: the "act on this" rows left open
+
+- A reminder points at a document: `Reminder.document_id` (migration
+  a4c9e2f7b1d3), refused with a note's id in the same request, 404 for a
+  missing document, `GET /reminders?document_id=`; a deleted document leaves
+  its reminders about nothing. Every reminder says what it is about
+  (`target_kind`: note, board, map or document; `target_title`), so the row's
+  ⋯ says Open its note, Open its document, Open its board or Open its map and
+  opens that, and its chip carries the target's icon and name.
+- `remindAbout` (shell-reminders.js): a "Remind me" dialog (the text and In an
+  hour, Tonight, Tomorrow or Next week), on the Library's note and document
+  cards and the boards' card menu. Undo of a deleted reminder keeps the
+  document.
+- Show in graph on a document's card (`showDocumentInGraph`: turns the
+  graph's Documents switch on, then centres `document:<id>`).
+- The Library note card's Link to: a note picker, then the same
+  `POST /entries/{id}/links` the Notes list's link mode completes on.
+
+Measured: `tests/test_reminder_targets_row15.py`. Not verified in a browser:
+the reminder dialog's segment at 390.
+
+### Row 30, section 5: abilities without AI
+
+- Notes' unlinked mentions: found built (GRAPH_PLAN KG1, `routes_mentions`).
+- Word count and reading time on a note: the edit form's meta row
+  (`.note-edit-counts`), live as you type, the properties block left out, at
+  the documents' 220 words a minute.
+- Template variables, for the note templates a person writes (Settings,
+  Templates): `{date}` or `{{date}}`, `{{time}}`, `{{clipboard}}` (read when
+  the template is used; an unreadable clipboard is filled as nothing and
+  said) and `{{cursor}}` (where the caret lands), in the Capture picker and
+  the "/" menu alike (`noteTemplateText`, `noteTemplateForUse`,
+  capture-ask.js).
+- From a selection: Move to space (`POST /spaces/{id}/move-notes`: the
+  target's category of the same name, made when missing; the notes' files,
+  reminders and fade scores and the links between moved notes move with
+  them; Undo sends each back where it was) and Export as Markdown
+  (`GET /export/markdown?ids=`, the whole export's files for those notes).
+- The bin for documents and reminders: `deleted_at` on both (migration
+  b7e3d1a9c5f2); `DELETE` bins, `POST .../restore` brings back the same row,
+  `DELETE .../purge` (a binned one only, 409 otherwise) destroys it with what
+  points at it (`entry/bin.purge_document`). One rule hides a binned row from
+  every ORM read (`core/database._hide_binned`); the bin's own routes, a
+  space's delete and the bin listing read them with `including_binned`. The
+  Library's bin lists them by `subtype`, its menus, Open and bulk Restore and
+  Delete use `binRoutes`; Empty the bin and the auto-clear take them too. The
+  documents' and reminders' Undo restores rather than re-creating (a new id
+  and a lost history, before). Search drops a binned one until restored.
+
+Measured: `tests/test_selection_actions_row30.py`,
+`tests/test_bin_documents_reminders_row30.py`. Not verified: reading the
+clipboard inside the desktop window (pywebview), where the browser's
+permission prompt may differ.
+
+### Row 31, Placed from INBOX 2026-09-09
+
+- 1, capture into the selected space: found built (`updateCaptureSpaceLabel`
+  says where Capture files, "Filing into Work."); the bulk Move to space is
+  row 30's.
+- 99 (b), reopen where you left off: documents had it
+  (`docRestorePosition`); a saved chat now reopens at the place it was
+  scrolled to (`noteChatPosition`, `restoreChatPosition`, the forty most
+  recent, this browser only), and at its end when it was left there.
+- 99 (c), the AI dot: its popup adds "Last answer: <model>, 2.1 s, 39% of
+  its window." after a chat turn (`lastAnswerFacts`, `lastAnswerLine`).
+- 99 (d), Paste as note: Ctrl+Shift+V outside a text box (inside one it stays
+  the browser's paste as plain text), through the quick note's
+  `createNoteSafely` (the outbox when the server is gone), with Undo; in the
+  shortcuts sheet and the palette.
+- 92, the suggested-link row: the two notes as chips joined by an arrow, the
+  score as a short bar with its number, the reason field behind "Add a
+  reason" (shown when Atlas fills one), and "Link all above 70%" in the
+  head. Link stays a quiet button: the consistency contract's one filled
+  button per surface outranks the 2026-09-09 sketch's filled Link per row.
+- 22, Packages rows: re-measured, the install button sat 5px below the
+  centre of a one-line name (the head is top-aligned so a long name can
+  wrap); the name line is now as tall as the buttons, 0px.
+- 23, Help rows: re-measured, 102 topics as a divided list, none touching
+  or overlapping (`nbf1005-recheck.js`); nothing to fix.
+- 79, Files rows: found built: full-width rows (thumbnail, name, facts, the
+  reading state), the name opens the reader, a kebab holds the rest.
+- 97, RapidOCR: not built, by the 2026-10-05 rule against new Python
+  dependencies; Tesseract stays.
+- 261, the vault re-key: Settings, Account & security, Re-encrypt private
+  notes (the current password, a confirm, `POST /auth/rotate-vault-key`,
+  this tab's token replaced), with its '?' and the Guide's lock topic.
+
+Measured: `tests/test_placed_0909_row31.py`;
+`scratchpad/ui-sweeps/nbf1005-recheck.js`. Not verified: reading the
+clipboard inside the desktop window.
+
+### Row 33, section 21: every failure names its way out, the rest
+
+- Rows 1 and 2: the search engine's problem line (`#embedding-error`,
+  Settings, Search index) is DESIGN.md's notice: `.notice.notice-warn`, a
+  warning glyph through `setLabel`, then the line; it was `.status.error`.
+- Row 12: `/models/status` carries `unreachable_hint` when nothing answered
+  at an address the person set (not the provider's default): "Nothing
+  answered at <url>. Check the address, and that the server is running.";
+  Settings, Models says that in place of "isn't running".
+- Row 13: the update check says the download's size before the button is
+  pressed ("Version 0.4.0 is available (you have 0.3.32), a 48 MB
+  download.") in Settings, About and its toast.
+- With it, a follow-up to row 31's Link all above 70%: one toast and one
+  reload for the lot rather than one per row, and the pair's label sits on a
+  `role="group"`.
+
+Measured: `tests/test_failure_ways_out_row33.py`. Not verified: the update
+line against a real release (GitHub is not reachable from the sandbox).
+
+### Row 34, D1, D8 and section 13's not re-checked items
+
+- D1, drag on the grid: found built. Edit layout makes every card
+  `draggable`; `dashDragOverCard` moves the dragged card under the pointer as
+  it goes, and the drop saves the grid's order (`saveDashLayout`); the
+  widgets dialog keeps move up and down for the keyboard.
+- D8: the reminder row is the notes' row recipe (`ul.entry-list`, each row an
+  `.entry-meta`), done rows strike through; the third snooze, 10 minutes, is
+  on the row's menu ("Snooze 10 minutes"), the row keeping +1h and tomorrow.
+- Section 13, measured with `scratchpad/ui-sweeps/nbf1005-recheck.js` at
+  1440: a board's preview (six text blocks) draws six rects and no NaN
+  attribute, no console error; the tab bar at 600, 640, 700, 760 and 819px
+  has scrollWidth equal to clientWidth (490 and 466px); the tidy layout was
+  already measured past five nodes (maplayouts.js, 12 and 200 topics, 0
+  overlapping pairs). The whiteboard menu sweep is left with the whiteboard
+  agent.
+
+### Row 11, section 17: the original vision's open rows
+
+`api/routes_vision.py` holds the server half of all of them.
+
+1. **Review queue.** A note waits when nobody has settled its filing and
+   Atlas was under 60% sure or it is in Uncategorised (`review_filter`; the
+   page's `noteNeedsReview` is the same rule). `GET /review-queue` gives the
+   count and the ids; `POST /review-queue/{id}/accept` makes the filing the
+   person's. The Notes box takes `is:review`; a note's ⋯ has Accept the
+   filing when it is waiting; the dashboard's Filings to check widget counts
+   them and opens the filter; the bell says so once a week past five. Split
+   per row was not built: no note has a split action anywhere.
+2. **Tidy proposals.** `GET /tidy-proposals`: merges for category names
+   alike (a 0.84 ratio over the names with plurals folded) or alike in
+   meaning (0.92 cosine of the names, when the search engine is ready), the
+   busier keeping its notes, a category a person renamed never merged away,
+   a pair answered "Not these" never proposed again
+   (`POST /tidy-proposals/dismiss`, the `category_tidy_dismissed`
+   preference); removals for categories empty and older than thirty days. In
+   the Manage categories panel, where the look-alike merges already were
+   (INBOX 504), not Settings: Merge and Remove are the panel's own actions.
+3. **Filing style.** Settings, AI: by topic (the default, the prompt
+   unchanged), by project or by time, each with three examples, added to the
+   filing prompt (`librarian.FILING_STYLES`, the `filing_style` preference).
+4. **Charts from questions.** `POST /charts/question` reads a counting or
+   trend question with no model (`parse_chart_question`: per category, tag,
+   day, week, month or year; today, this or last week, month or year, the
+   last N days, a named month, a year) and counts live notes from the
+   records. The Ask box draws it above the answer (`renderAskChart`,
+   ask-chart.js, in the Ask history's lazy bundle): bars or a line from the
+   theme's tokens, the numbers in a table under it, Save as PNG. DESIGN.md
+   has the recipe.
+5. **Most opened this month.** `EntryOpen`, a row per note per day
+   (migration c2f8a6d4e9b1), counted on every open of a note;
+   `GET /most-opened` gives the ten opened most in thirty days; the
+   dashboard's Most opened this month widget.
+6. **Explain this note.** A note's ⋯: its words, then each note it links to
+   with the link's reason (or that none was given), read aloud with the
+   browser's voices and shown in a sheet; works with the model off.
+
+Measured: `tests/test_vision_rows_row11.py`. Not verified: a real local
+model filing under each style; the chart's PNG opened outside the app.

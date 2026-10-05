@@ -32,6 +32,7 @@ from memorymap.core.database import (
     DocumentLink,
     EntryBookmark,
     EntryDate,
+    EntryOpen,
     EntryLink,
     EntryProperty,
     EntryRevision,
@@ -347,6 +348,18 @@ def list_entries(
 def list_sort_key(entry: Entry) -> tuple:
     """What `list_entries(after=...)` takes: the row's own ORDER BY values."""
     return (bool(entry.pinned), entry.created_at, entry.id)
+
+
+#: Read by routes_vision's "most opened" (WORLD_CLASS_PLAN section 17 row 5);
+#: here, not there, so opening a note does not import a route module.
+def record_open(session: Session, entry_id: int) -> None:
+    """Count one open of a note today, in the caller's transaction."""
+    today = utcnow().date().isoformat()
+    row = session.scalar(select(EntryOpen).where(EntryOpen.entry_id == entry_id, EntryOpen.day == today))
+    if row is None:
+        session.add(EntryOpen(entry_id=entry_id, day=today, count=1))
+    else:
+        row.count = (row.count or 0) + 1
 
 
 def count_entries(
@@ -1083,6 +1096,8 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
     session.execute(delete(NoteScore).where(NoteScore.entry_id.in_(ids)))
     # KG4: a note's property index is about the note.
     session.execute(delete(EntryProperty).where(EntryProperty.entry_id.in_(ids)))
+    # Section 17 row 5: the day-by-day open counts are about the note.
+    session.execute(delete(EntryOpen).where(EntryOpen.entry_id.in_(ids)))
     # An eighth, added with the derived facts table (I9): what the app
     # worked out about a note is about the note, so it goes when the note
     # does. Keeping it would also leave the "what the notebook learned"

@@ -607,9 +607,7 @@ button.ghost.danger {
   align-items: center;
   gap: var(--space-1);
 }
-button.ghost.danger > .ph-lead {
-  color: inherit;
-}
+
 
 /* Not on a destructive one: Stop's square was accent blue beside red text
    (release). A danger button's icon takes its own colour. */
@@ -936,15 +934,10 @@ input[type="checkbox"] {
 }
 
 .shortcut-list {
-  list-style: none;
   margin: 0.4rem 0;
-  padding: 0;
 }
 
 .shortcut-list li {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
   padding: 0.4rem 0;
   border-bottom: 1px solid var(--border);
 }
@@ -959,13 +952,6 @@ input[type="checkbox"] {
 }
 
 kbd {
-  font-family: ui-monospace, Consolas, monospace;
-  font-size: 0.8rem;
-  padding: 0.1rem 0.4rem;
-  border: 1px solid var(--glass-border);
-  border-bottom-width: 2px;
-  border-radius: var(--radius-md);
-  background: var(--chip-bg);
   color: var(--ink);
   white-space: nowrap;
 }
@@ -1106,7 +1092,6 @@ progress {
 .answer-title {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
   /* Not `1 1 auto`: the label is two words and they are never the thing that
      should give way. The badge beside it is. */
   flex: 0 0 auto;
@@ -1272,19 +1257,7 @@ progress {
   word-break: normal;
 }
 
-.md-table {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 0.88em;
-}
 
-.md-table th,
-.md-table td {
-  border: 1px solid var(--border);
-  padding: 0.4rem 0.6rem;
-  text-align: left;
-  vertical-align: top;
-}
 
 .md-table thead th {
   background: var(--chip-bg);
@@ -1422,7 +1395,6 @@ progress {
      lets high-contrast mode put the line back. */
   background: var(--surface-2);
   border: 1px solid transparent;
-  border-radius: var(--radius-lg);
   padding: 0.6rem 0.8rem;
   margin-bottom: 0.6rem;
 }
@@ -1585,7 +1557,6 @@ progress {
      content column keeps the rest. */
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
 }
 
 /* Nothing in the lane shrinks, it scrolls instead. `.entry-meta-end` is
@@ -1798,12 +1769,10 @@ progress {
      gap replaces the icon's margin-inline-end for precise, density-independent spacing. */
   display: inline-flex;
   align-items: center;
-  gap: 0.3em;
   padding: 0.1rem 0.6rem;
   border-radius: var(--radius-sm);
   font-size: 0.75rem;
   background: var(--accent-soft);
-  color: var(--accent-text);
   font-weight: 600;
 }
 
@@ -1836,10 +1805,6 @@ progress {
   font-weight: 400;
 }
 
-.chip.confidence {
-  background: var(--ok-soft);
-  color: var(--ok);
-}
 
 .chip.review {
   background: var(--warn-soft);
@@ -1913,9 +1878,6 @@ progress {
 
 .entry-date {
   color: var(--muted);
-  font-size: 0.8rem;
-  min-width: 7ch;
-  text-align: right;
   white-space: nowrap;
 }
 
@@ -2305,7 +2267,6 @@ button:not(.ghost) > .spinner {
 
 /* Library -> Links (§30): a plain list of saved websites, one row each. */
 #bookmark-form {
-  align-items: center;
   gap: var(--space-3);
   margin: var(--space-4) 0;
 }
@@ -2908,7 +2869,6 @@ button:not(.ghost) > .spinner {
    rather than an aside, and quietening those would be the opposite fix. */
 #entry-list .chip.link {
   background: transparent;
-  color: var(--muted);
   font-weight: 400;
 }
 
@@ -3633,11 +3593,7 @@ mark.global-find-hit.global-find-current {
 }
 
 .code-block {
-  margin: 0.4rem 0;
   padding: 0.6rem 0.8rem;
-  border-radius: var(--radius-md);
-  background: var(--chip-bg);
-  border: 1px solid var(--border);
   font-family: ui-monospace, Consolas, monospace;
   font-size: 0.8rem;
   overflow-x: auto;

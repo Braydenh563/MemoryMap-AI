@@ -248,7 +248,7 @@ function renderEditForm(li, entry) {
   if (focusBodyAfterRender === entry.id) {
     focusBodyAfterRender = null;
     requestAnimationFrame(() => {
-      const surface = typeof noteSurfaceFor === "function" ? noteSurfaceFor(textarea) : null;
+      const surface = noteSurfaceIfAny(textarea);
       if (surface) surface.focus();
       else textarea.focus();
     });
@@ -363,7 +363,20 @@ function renderEditForm(li, entry) {
   const meta = document.createElement("div");
   meta.className = "note-edit-meta";
   row.classList.add("note-edit-actions");
-  meta.append(tagsInput, categorySelect, row);
+  //: Words and reading time while the note is open (WORLD_CLASS_PLAN 5 item
+  //: 9): the count a document's head carries, for a note, at the documents'
+  //: 220 words a minute; the properties block is not prose, so not counted.
+  const counts = document.createElement("span");
+  counts.className = "muted text-sm note-edit-counts";
+  const recount = () => {
+    const words = (stripFrontmatter(`${titleInput.value}\n${textarea.value}`).match(/\S+/g) || []).length;
+    const minutes = words / 220;
+    const read = !words ? "" : minutes < 1 ? " · under a min" : ` · ${Math.round(minutes)} min read`;
+    counts.textContent = `${words.toLocaleString()} word${words === 1 ? "" : "s"}${read}`;
+  };
+  recount();
+  for (const field of [titleInput, textarea]) field.addEventListener("input", recount);
+  meta.append(tagsInput, categorySelect, counts, row);
   const toolbarEl = noteEditToolbar(textarea.id);
   //: Preview: reported: "there is no preview", then, once there was one,
   //: "if the formatting bar was the same, the preview button would be in
@@ -742,6 +755,8 @@ function matchesSearch(entry) {
     if (flag === "linked" && !(entry.links || []).length && !/\[\[[^\]\n]{1,120}\]\]/.test(entry.content || "")) return false;
     if ((flag === "draft" || flag === "drafts") && !entry.is_draft) return false;
     if (flag === "untagged" && tags.length) return false;
+    //: WORLD_CLASS_PLAN section 17 row 1: the review queue as a filter.
+    if (flag === "review" && !noteNeedsReview(entry)) return false;
   }
   if (query.tagCount && !matchesTagCount(query.tagCount, tags.length)) return false;
   if (query.exclude.some((word) => haystack.includes(word))) return false;
@@ -3116,6 +3131,7 @@ async function _loadEntries() {
   }
   if (generation === _entriesLoadGeneration) entriesComplete = true;
   nudgeUntaggedNotes();
+  nudgeReviewQueue();
 }
 
 //: **Re-read the notes a change touched, not the notebook** (audit
@@ -3367,6 +3383,30 @@ function ensureMapChipsFor(page, generation) {
       if (generation === _entriesLoadGeneration) renderEntries();
     })
     .catch(() => {});
+}
+
+//: **The review queue** (WORLD_CLASS_PLAN section 17 row 1): a filing Atlas
+//: was unsure of (under 60%) or a note left Uncategorised, that nobody has
+//: settled. The same rule as `routes_vision.review_filter`, so the filter and
+//: the dashboard's count agree.
+function noteNeedsReview(entry) {
+  if (entry.user_filed || entry.is_board || entry.is_draft || entry.filing_state === "pending") return false;
+  return entry.category === "Uncategorised" || (entry.ai_confidence > 0 && entry.ai_confidence < 60);
+}
+
+//: The bell says so once a week, past a handful, as it does for untagged.
+async function nudgeReviewQueue() {
+  const queue = await apiJson("/review-queue?limit=1", { silent: true, cacheMs: 60000 }).catch(() => null);
+  if (!queue || queue.count < UNTAGGED_NUDGE_MIN) return;
+  const now = new Date();
+  const week = Math.floor((now - new Date(now.getFullYear(), 0, 1)) / (7 * 86400000));
+  recordNotification({
+    kind: "assist",
+    title: `${queue.count} filings to check`,
+    detail: "Atlas was unsure where these belong. Accept each, or move it.",
+    key: `review:${now.getFullYear()}-${week}`,
+    action: { tab: "notes", filter: "is:review" },
+  });
 }
 
 //: **The app notices what the person has not got round to** (INBOX 162).

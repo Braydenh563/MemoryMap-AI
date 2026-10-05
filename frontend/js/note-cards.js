@@ -2247,7 +2247,7 @@ function entryItem(entry, options = {}) {
 //: Take a note to the graph and put it in the middle, lit. The graph is its
 //: own lazy bundle and lays itself out after the tab opens, so this waits for
 //: the node to exist and to have a position rather than guessing a delay.
-async function showNoteInGraph(id) {
+async function showNoteInGraph(id, noun = "note") {
   await switchTab("graph");
   const deadline = Date.now() + 4000;
   let node = null;
@@ -2257,7 +2257,7 @@ async function showNoteInGraph(id) {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   if (!node || !Number.isFinite(node.x)) {
-    toast("That note is not on the graph right now: a filter or the view may be hiding it.", true);
+    toast(`That ${noun} is not on the graph right now: a filter or the view may be hiding it.`, true);
     return;
   }
   focusGraphNode(node);

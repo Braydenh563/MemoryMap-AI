@@ -157,6 +157,37 @@ $("embedding-error-fix").addEventListener("click", runEmbeddingFallback);
 
 $("account-change").addEventListener("click", changePassword);
 
+//: Re-encrypt private notes (WORLD_CLASS_PLAN, Placed 2026-09-09, 261's
+//: vault re-key, `POST /auth/rotate-vault-key`): a new key for every private
+//: note. Like Change password it ends every other session and hands this tab
+//: a fresh token, kept under the key `authToken()` reads.
+$("account-rekey").addEventListener("click", async () => {
+  const box = $("account-rekey-password");
+  const status = $("account-rekey-status");
+  status.classList.remove("error");
+  if (!box.value) {
+    status.classList.add("error");
+    status.textContent = "Type your current password first.";
+    return;
+  }
+  if (!(await confirmDialog("Give every private note a new key? Other open sessions are signed out.", { confirmLabel: "Re-encrypt" }))) return;
+  status.textContent = "Re-encrypting…";
+  try {
+    const result = await apiJson("/auth/rotate-vault-key", {
+      method: "POST",
+      body: JSON.stringify({ current_password: box.value }),
+      ownsAuthErrors: true,
+    });
+    localStorage.setItem("token", result.token);
+    box.value = "";
+    const n = result.notes_reencrypted;
+    status.textContent = `Done: ${n} private note${n === 1 ? "" : "s"} on a new key.`;
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+});
+
 //: "Ask for a password when the app opens". Off needs the current password,
 //: asked through the lock screen's card; on needs nothing.
 $("account-password-on-open").addEventListener("change", async (e) => {
@@ -462,6 +493,9 @@ $("pref-filing-wait-reset").addEventListener("click", () => {
   $("pref-filing-wait").value = 15;
   setPreference("filing_wait_seconds", 15);
 });
+
+//: Section 17 row 3: the filing style reaches the filing prompt.
+$("pref-filing-style").addEventListener("change", (e) => setPreference("filing_style", e.target.value));
 
 $("pref-ai-first-filing").addEventListener("change", (e) =>
   setPreference("ai_first_filing", e.target.checked)

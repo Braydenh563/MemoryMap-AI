@@ -32,7 +32,6 @@ from memorymap.core.database import (
     Entry,
     DocumentAiEdit,
     DocumentBookmark,
-    DocumentLink,
     DocumentRevision,
     utcnow,
     like_escape,
@@ -705,45 +704,52 @@ def _record_document_revision(session: Session, document: Document, source: str 
 
 @router.delete("/{document_id}")
 def delete_document(document_id: int, session: Session = Depends(get_session)) -> dict:
+    """To the recycle bin (WORLD_CLASS_PLAN 5 item 10), as a note goes: the
+    document, its history, its notes and its reminders all stay, hidden, until
+    it is restored or purged (`entry/bin.py`). It used to be the one thing in
+    the app deleted outright, and its Undo made a new document with a new id."""
     document = _existing(session, document_id)
+    document.deleted_at = utcnow()
     log_action(session, "deleted", "document", document.id, document.title[:80])
-    #: **The history goes with the document.** `DocumentRevision` and
-    #: `DocumentAiEdit` both hold a real foreign key to `documents.id`, and
-    #: there is no ORM cascade on either, deleting a document that had been
-    #: edited raised `FOREIGN KEY constraint failed` and the delete failed
-    #: outright. Caught by `test_documents_api.py::test_create_read_update_delete`
-    #: the moment revisions started being written, which is the argument for
-    #: running the whole suite rather than the tests for the thing you touched.
-    #:
-    #: Deleted rather than orphaned deliberately: a document's history is
-    #: about *that document*, and keeping the text of something the user asked
-    #: to delete would be the app quietly retaining what it was told to
-    #: destroy. The bin covers "I did not mean that" for the document itself.
-    #: **All four tables that point at a document, not two.** The comment
-    #: above was written when revisions and AI edits were the only ones, and
-    #: two more have been added since: `DocumentLink` (the notes attached to
-    #: this document, the "documents and notes need to be more integrated"
-    #: feature) and `DocumentBookmark` (its saved links). Both hold a real
-    #: foreign key with no cascade, so a document with a note attached to it
-    #: could not be deleted **at all**: the delete raised `FOREIGN KEY
-    #: constraint failed` and the document stayed. Measured on a fresh
-    #: notebook: attach one note, press delete, 500 and the document is still
-    #: there. The feature the owner asked for was what made a document
-    #: undeletable.
-    #:
-    #: This list is the whole of `grep 'ForeignKey("documents.id")'` in
-    #: `core/database.py`, checked rather than remembered, which is the only
-    #: way it stops going stale a third time.
-    for model, column in (
-        (DocumentRevision, DocumentRevision.document_id),
-        (DocumentAiEdit, DocumentAiEdit.document_id),
-        (DocumentLink, DocumentLink.document_id),
-        (DocumentBookmark, DocumentBookmark.document_id),
-    ):
-        session.query(model).filter(column == document.id).delete(synchronize_session=False)
-    session.delete(document)
     session.commit()
-    return {"deleted": True}
+    return {"deleted": True, "binned": True}
+
+
+def _binned(session: Session, document_id: int) -> Document:
+    from memorymap.entry import bin as other_bin
+
+    with other_bin.including_binned(session):
+        document = session.get(Document, document_id)
+    if document is None:
+        raise HTTPException(status_code=404, detail="That document could not be found.")
+    return document
+
+
+@router.post("/{document_id}/restore")
+def restore_document(document_id: int, session: Session = Depends(get_session)) -> dict:
+    """Out of the bin, with its id and everything that pointed at it."""
+    document = _binned(session, document_id)
+    if document.deleted_at is not None:
+        document.deleted_at = None
+        log_action(session, "restored", "document", document.id, document.title[:80])
+        session.commit()
+    return _summary(document)
+
+
+@router.delete("/{document_id}/purge")
+def purge_document(document_id: int, session: Session = Depends(get_session)) -> dict:
+    """For good. Only a binned document, as only a binned note: a live one
+    goes to the bin first, so no single press destroys a document."""
+    from memorymap.entry import bin as other_bin
+
+    document = _binned(session, document_id)
+    if document.deleted_at is None:
+        raise HTTPException(status_code=409, detail="Only a document in the bin can be deleted for good.")
+    log_action(session, "purged", "document", document.id, document.title[:80])
+    with other_bin.including_binned(session):
+        other_bin.purge_document(session, document)
+        session.commit()
+    return {"purged": document_id}
 
 
 @router.put("/{document_id}/archive")

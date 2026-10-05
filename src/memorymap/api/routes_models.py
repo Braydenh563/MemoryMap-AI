@@ -331,11 +331,23 @@ def status(session: Session = Depends(get_session)) -> dict:
     local_only = bool(config.get_preference("local_only_ai", True))
     _, privacy_note, is_local = security.check_backend_url(ollama.base_url)
 
+    #: Section 21 row 12: nothing answered, at an address the person set.
+    #: The default address unanswered is a server not started ("isn't
+    #: running"); a custom one is as likely a typo, so the line names it.
+    default_url = deps.DEFAULT_BASE_URLS.get(provider, "")
+    custom = (ollama.base_url or "").rstrip("/") != default_url.rstrip("/")
+    unreachable_hint = (
+        f"Nothing answered at {ollama.base_url}. Check the address, and that the server is running."
+        if not running and custom
+        else None
+    )
+
     return {
         # Named for Ollama because the whole UI is, and it means "the chat
         # backend is answering", which is the question the pill asks whoever
         # is answering it.
         "ollama_running": running,
+        "unreachable_hint": unreachable_hint,
         # Which dialect is actually in use (§6), so the UI can say so rather
         # than claiming Ollama when the answers came from LM Studio.
         "provider": provider,

@@ -325,7 +325,6 @@ select.ai-unavailable {
 }
 
 .chip .thumb-wrap .unlink {
-  display: none;
   background: var(--page);
   border-radius: 50%;
   width: 20px;
@@ -1860,8 +1859,6 @@ body.resizing-sidebar {
 /* Long titles get room now, so let them wrap to two lines instead of clipping. */
 .conv-title {
   flex: 1 1 auto;
-  min-width: 0;
-  display: -webkit-box;
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
@@ -1870,8 +1867,6 @@ body.resizing-sidebar {
 
 #conversation-list li {
   display: flex;
-  align-items: flex-start;
-  gap: 0.4rem;
 }
 
 /* No dragging on a stacked single-column layout, there's no column to size. */
@@ -1963,13 +1958,10 @@ body.resizing-sidebar {
      other's for a reason nothing on screen explains. */
   --control-h: var(--control-h-lg);
   display: flex;
-  flex-wrap: nowrap;
   align-items: center;
   gap: 0.25rem;
   padding: 0.4rem 0.4rem;
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius);
-  background: var(--card);
   position: sticky;
   top: 0;
   z-index: 3;
@@ -3921,7 +3913,6 @@ button.outline-twist:focus-visible {
      24px, measured). Every swatch now starts on one line and every name under
      it on another. */
   justify-content: flex-start;
-  align-items: stretch;
 }
 
 .theme-card > span,
@@ -4825,9 +4816,6 @@ textarea.autogrow {
    target left in the notes list. The glyph stays its size; the box around it
    grows to something a trackpad can actually land on. */
 .unlink {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   min-width: var(--target-min);
   min-height: var(--target-min);
   /* **Zero the inherited line box.** Reported with a screenshot right after
@@ -4888,7 +4876,6 @@ textarea.autogrow {
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  background: var(--inner);
   color: var(--muted);
   font-size: var(--text-xs);
 }
@@ -4908,7 +4895,6 @@ textarea.autogrow {
   gap: var(--space-1);
   padding: 0 var(--space-2);
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
   background: none;
   color: inherit;
   font: inherit;
@@ -6191,6 +6177,17 @@ button.ghost.doc-template-choice[aria-checked="true"] {
 
 .note-edit-meta > .note-edit-actions {
   margin-left: auto;
+}
+
+/* The word count and reading time (WORLD_CLASS_PLAN 5 item 9) sit at the
+   right with Save and Cancel, the slack before them. */
+.note-edit-meta > .note-edit-counts {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.note-edit-meta > .note-edit-counts + .note-edit-actions {
+  margin-left: 0;
 }
 
 /* One height for everything on the meta row, reported: "the ui elements

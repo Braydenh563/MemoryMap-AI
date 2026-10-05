@@ -41,6 +41,7 @@ CSS_FILES = [
     #: Loaded by its own lazy bundle, not linked in index.html (`lazy-*.css`,
     #: `asset_stamps` in api/app.py): last, so a lint reads it with the rest.
     CSS_DIR / "lazy-answer-chart.css",
+    CSS_DIR / "lazy-inbox.css",
 ]
 
 

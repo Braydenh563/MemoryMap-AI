@@ -41851,6 +41851,71 @@ toast's Undo) plus a history of its own where the surface has text or geometry:
   hard reload on each address (`routerRestore`'s own sweep covers notes, docs,
   chats and boards).
 
+### From WORLD_CLASS_PLAN.md rows 26 and 28: what was checked, and the Phosphor decision
+
+- **Row 28, torch at launch.** Already built after the plan's state line was
+  written: `warm_search_model_at_launch` (INBOX 509), off loads the model on first
+  use (`app.py` start-up, `search_manager.warm`, the Settings checkbox
+  `#pref-warm-search-model`, `tests/test_preferences_roundtrip.py`). An empty
+  notebook skips the launch load regardless.
+- **Row 28, lazy stylesheets.** The mechanism is built (`css/lazy-*.css`,
+  `asset_stamps` stamps them, a bundle links its own); used once, for the Ask
+  chart. The eleven surface sheets are not moved: a tab shown before its sheet
+  arrived would flash unstyled, so `ensureModule` would have to await the sheet,
+  and `app.js` is at its gzip cap (`tests/test_static_compression.py`). Boot CSS
+  is 183,294 bytes gzipped against a cap of 183,300, which is why two rules of
+  this session's went into `el.style` assignments.
+- **Row 28, the Phosphor subset: decided against.** The icon font is 147 KB
+  woff2 and loopback makes that cost nothing measurable; the subset would be
+  built from the names the source mentions, and the app takes icon names that no
+  source mentions: a mind map topic's own icon (`data.icon`,
+  `whiteboard-map.js`), the `ph:name` marker in rendered text and chat replies
+  (`chat-attach.js`), a space's icon, an entity or skill icon from the server.
+  A missing glyph draws nothing and logs nothing (`tests/test_icon_names.py`'s
+  own warning), so the failure would be silent and user-visible. If the font
+  becomes worth shrinking, the way is a closed list those pickers offer first.
+- **Row 28, the Windows frozen startup**: not runnable in this sandbox; left.
+- **Row 26.** Boot JS is under 1 MB by `tests/test_boot_budget.py` (702,053
+  bytes gzipped). `boottime.js` at 2026-10-05, load average near 12: DOMContentLoaded
+  1,130 ms, 46 scripts and 12 stylesheets, 29 boot fetches (`/auth/unlock`
+  991 ms the slowest), 18 MB heap, 0 page errors; after every tab, 61 scripts. A
+  first paint under 300 ms cannot be claimed or refuted at that load. Lists over
+  200 rows: the notes list pages (`#notes-pagination`); the other lists were not
+  measured past 200 rows.
+
+### From WORLD_CLASS_PLAN.md row 31, item 92: the Suggested links row
+
+**State 2026-09-24:** "Add a reason" sat behind a menu row; the chips-and-arrow
+row and "Link all above 70%" were not found.
+
+- **Built 2026-10-05 (worldclass-1005c).** `inboxLinkRow` (suggestions-inbox.js)
+  draws a pair as two note chips joined by an arrow (a chip closes the sheet and
+  opens its note, `flashEntry`), a `role="meter"` bar and the percent for how sure
+  it is, **Add a reason** (the reason field is hidden until asked for, and opens by
+  itself when Atlas's guess fills it, `reveal`), Link and a dismiss, the reasons
+  under it; one `link(quiet)` function is the row's Link and what the head calls.
+  The head has **Link all above 70%** (`LINK_ALL_AT`): it counts the visible pairs
+  at least that sure, asks once ("Link 2 pairs of notes?"), links them one by one
+  with their own reasons and says how many went. The row's CSS left the boot sheet
+  (`03-dashboard-widgets.css` lost its `.link-suggestion*` rules, about 2.3 KB) for
+  `css/lazy-inbox.css`, linked by the bundle and awaited by `openSuggestionsInbox`;
+  `CSS_FILES` in `tests/_css_paths.py` lists it so the style lints read it. Help:
+  the Guide's links topic and the sheet's '?' (`INBOX_HELP`).
+- Measured: `tests/test_link_suggestion_row_92.py` (4 tests);
+  `scratchpad/ui-sweeps/linkrow92.js` 12/12 at 1440 light and 390 dark (three
+  suggestions at 92, 78 and 51 percent answered in flight, real Link calls): two
+  chips and an arrow and a meter per row, the meter fill 92, 78 and 51 percent,
+  the reason hidden until Add a reason (then shown and focused), rows 104 px tall
+  at 1440 and 196 at 390 (the actions on their own lines), nothing clipped or
+  sideways, Link all above 70% asks for 2 pairs and links exactly those two (the
+  links read back), the 51 percent one stays.
+- Decided (recommended, not confirmed): Link stays a ghost button on every row
+  ("Link primary per row" would put a filled button on each of up to a dozen rows,
+  against the one-primary rule); Link all has no Undo, its confirm says a link can
+  be removed from either note.
+- Not verified: the row against a real model's suggestions (the sweep answers the
+  endpoint in flight); the screen-reader reading of the meter.
+
 ## Built 2026-10-05: INBOX 598, 602 and 596's skeleton part (loading states)
 
 (The INBOX entries themselves are moved by the orchestrator; this is the

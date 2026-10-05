@@ -15122,3 +15122,17 @@ button.finder-row:hover,
   border: 1px solid var(--divider);
   opacity: 0.9;
 }
+
+/* Bring in a diagram (W5): the dialog head, one line, the source in a code
+   well, the foot. */
+.wb-import-text {
+  width: 100%;
+  min-height: 10rem;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: var(--text-sm);
+  resize: vertical;
+}
+
+.wb-import-about {
+  margin: 0 0 var(--space-2);
+}

@@ -8967,7 +8967,11 @@ async function wbImportOutlineFile(event) {
 }
 
 async function wbExportSvg(scope) {
-  const { svg } = wbBuildExportSvg(scope);
+  let { svg } = wbBuildExportSvg(scope);
+  //: **The board rides inside the picture** (W5, draw.io's re-editable SVG):
+  //: its rows in `<metadata>`, which Insert, Mermaid or board SVG brings back
+  //: as shapes and connectors. A map's topics are a tree, not rows to drop.
+  if (!wbIsMap()) svg = svg.replace(/(<svg[^>]*>)/, `$1${wbBoardSvgMetadata(wbExportRows(scope))}`);
   await saveFile(wbExportFileName(scope, "svg"), new Blob([await wbInlineSvgImages(svg)], { type: "image/svg+xml" }));
   toast("Board exported as SVG.");
 }
@@ -9195,6 +9199,18 @@ const WB_EXPORT_FORMATS = [
     run: (scope) => wbExportSvg(scope),
   },
   {
+    //: A free board's own text formats (W5). `board: true`, the mirror of
+    //: `map`: a map has its own outline below.
+    value: "outline", label: "Outline", scopes: ["whole"], board: true, drawsCards: false,
+    note: "Markdown: each frame a heading over what is in it, in reading order.",
+    run: () => wbExportOutline(),
+  },
+  {
+    value: "mermaid", label: "Mermaid", scopes: ["whole"], board: true, drawsCards: false,
+    note: "A flowchart of what the connectors join, for docs and other diagram apps.",
+    run: () => wbExportMermaid(),
+  },
+  {
     value: "pdf", label: "PDF", scopes: ["selection", "visible", "whole"],
     note: "Opens Print: choose “Save as PDF” as the destination.",
     run: (scope) => wbExportPdf(scope),
@@ -9292,7 +9308,7 @@ function wbExportFrame(frame) {
 function wbExportBoard() {
   const hasSelection = wbMultiSelection.size > 0 || Boolean(wbSelectedItem);
   const isMap = wbIsMap();
-  const formats = WB_EXPORT_FORMATS.filter((f) => !f.map || isMap);
+  const formats = WB_EXPORT_FORMATS.filter((f) => (!f.map || isMap) && (!f.board || !isMap));
   let format = formats[0];
   let scope = hasSelection ? "selection" : "visible";
 

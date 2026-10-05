@@ -818,6 +818,24 @@
        decision 25): the documents' template dialog recipe, its rows built by
        `wbOpenTemplateGallery` (whiteboard-library.js), its preview the same
        thumbnail the library's tile draws. -->
+  <!-- Insert, Mermaid or board SVG (W5; whiteboard-interchange.js). -->
+  <dialog id="wb-import-dialog" class="card space-dialog wb-import-dialog" aria-labelledby="wb-import-title">
+    <div class="dialog-head">
+      <h2 id="wb-import-title" class="dialog-head-title">Bring in a diagram</h2>
+      <span class="dialog-head-actions">
+        <button type="button" class="icon-only ghost small dialog-head-btn" data-close-dialog="wb-import-dialog" title="Close (Esc)" aria-label="Close"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </span>
+    </div>
+    <p class="muted wb-import-about" id="wb-import-about">Paste a Mermaid flowchart, or choose a .mmd file or an SVG a board here exported.</p>
+    <textarea id="wb-import-text" class="wb-import-text" rows="8" spellcheck="false" aria-label="Mermaid flowchart" aria-describedby="wb-import-about" placeholder="flowchart TD&#10;  A[Start] --> B{Ready?}&#10;  B -->|yes| C[Ship it]"></textarea>
+    <input type="file" id="wb-import-file" accept=".mmd,.mermaid,.txt,.md,.svg,text/plain,image/svg+xml" class="hidden" aria-hidden="true" tabindex="-1" aria-label="Choose a diagram file" title="Choose a diagram file">
+    <div class="row right space-dialog-actions">
+      <button type="button" class="ghost" id="wb-import-choose">Choose a file…</button>
+      <button type="button" class="ghost" data-close-dialog="wb-import-dialog">Cancel</button>
+      <button type="button" class="accent" id="wb-import-go">Bring in</button>
+    </div>
+  </dialog>
+
   <dialog id="wb-template-dialog" class="card space-dialog doc-ai-history-dialog doc-template-dialog"
     aria-labelledby="wb-template-title">
     <div class="dialog-head">
@@ -5820,6 +5838,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button type="button" class="wb-menu-item" data-wb-insert="image"><i class="ph ph-image ph-lead" aria-hidden="true"></i><span>Image from a file…</span></button>
               <button type="button" class="wb-menu-item" data-wb-insert="note"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i><span>A note from the library</span></button>
               <button type="button" class="wb-menu-item" data-wb-cmd="open-library"><i class="ph ph-shapes ph-lead" aria-hidden="true"></i><span>Shapes, icons and frames…</span></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="import-diagram" data-wb-surface="board"><i class="ph ph-flow-arrow ph-lead" aria-hidden="true"></i><span>Mermaid or board SVG…</span></button>
             </div>
             <div class="wb-menu-section">
               <span class="wb-panel-group-label">Draw</span>

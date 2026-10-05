@@ -173,6 +173,7 @@ const WB_COMMANDS = [
   { id: "tool-connector-curved", group: "Tools", icon: "ph:bezier-curve", label: "Curved connector", keys: "Shift+C", surface: "both", run: wbTool("link-curved") },
   { id: "tool-delete", group: "Tools", icon: "ph:trash", label: "Delete tool", keys: "X", surface: "board", run: wbTool("delete") },
   // View
+  { id: "import-diagram", group: "Insert", icon: "ph:flow-arrow", label: "Import a Mermaid flowchart or board SVG", menu: "Mermaid or board SVG…", keys: "", surface: "board", run: () => wbOpenImportDialog() },
   { id: "format-panel", group: "View", icon: "ph:sliders-horizontal", label: "Format panel", keys: "Ctrl+Shift+P", surface: "board", run: () => wbFormatToggle() },
   { id: "zoom-in", group: "View", icon: "ph:magnifying-glass-plus", label: "Zoom in", keys: "Ctrl+=", surface: "both", run: wbClickId("wb-zoom-in") },
   { id: "zoom-out", group: "View", icon: "ph:magnifying-glass-minus", label: "Zoom out", keys: "Ctrl+-", surface: "both", run: wbClickId("wb-zoom-out") },

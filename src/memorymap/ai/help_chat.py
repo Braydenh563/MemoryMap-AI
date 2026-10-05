@@ -1048,7 +1048,7 @@ HELP_TOPICS.extend(
                 "angle", "rotate by", "flip", "mirror", "opacity", "transparency", "see through", "shadow",
                 "text size in a shape", "align text", "elbow", "right angle", "orthogonal", "connector shape",
                 "line shape", "bend", "waypoint", "label position", "crow's foot", "crows foot", "er diagram",
-                "entity relationship", "clone and connect", "copy and connect", "next shape", "copy a shape",
+                "entity relationship", "mermaid", "import a flowchart", "clone and connect", "copy and connect", "next shape", "copy a shape",
                 "connect it to the copy", "connect the copy",
             ),
             "body": (
@@ -1063,7 +1063,9 @@ HELP_TOPICS.extend(
                 "move it, double-click it to take it out. Drag the square on a connector's label to slide "
                 "it along the line. The ends include the entity-relationship marks (one, zero or one, many, "
                 "one or many, zero or many). With one shape or text box selected, the four arrows round it "
-                "(or Alt+Shift and an arrow key) copy it that way and join the two with an elbow."
+                "(or Alt+Shift and an arrow key) copy it that way and join the two with an elbow. "
+                "Insert, Mermaid or board SVG brings in a Mermaid flowchart or an SVG a board here "
+                "exported, as shapes and connectors; Export also writes an Outline and a Mermaid flowchart."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

@@ -44,7 +44,7 @@ DOCUMENTS_PROSE = Path(__file__).resolve().parents[1] / "frontend" / "js" / "doc
 WHITEBOARD_MAP = Path(__file__).resolve().parents[1] / "frontend" / "js" / "whiteboard-map.js"
 WHITEBOARD_EXTRAS = [
     Path(__file__).resolve().parents[1] / "frontend" / "js" / name
-    for name in ("whiteboard-commands.js", "whiteboard-library.js", "whiteboard-format.js")
+    for name in ("whiteboard-commands.js", "whiteboard-library.js", "whiteboard-format.js", "whiteboard-interchange.js")
 ]
 
 #: Two listeners on one element for one event is fine when they do different

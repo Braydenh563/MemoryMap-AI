@@ -61,6 +61,7 @@ FEATURES: list[tuple[str, tuple[str, ...], str]] = [
     ("board-format", ("Ctrl+Shift+P", "Arrange"), "how do I type the exact position of a shape on the whiteboard"),
     ("board-elbow", ("elbow", "bend"), "right angle connectors with bends on the whiteboard"),
     ("board-clone", ("Alt+Shift",), "copy a shape and connect it to the copy"),
+    ("board-mermaid", ("Mermaid",), "import a mermaid flowchart onto the whiteboard"),
     # Library
     ("bookmarks", ("Unread", "Pinned", "By site"), "where are my bookmarks"),
     ("bookmark-link", ("Bookmark link",), "insert a bookmark into a note"),

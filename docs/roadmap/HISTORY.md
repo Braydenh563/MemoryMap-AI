@@ -44100,3 +44100,29 @@ imported and opened; the drop fails on the base, which has no handler).
 Not verified: a real file dragged from a desktop file manager (the sweep
 dispatches the DragEvent).
 
+## Moved from the plans, 2026-10-05 (the whiteboard file's off-band widths, op5)
+
+UI_MODERNISATION_PLAN Phase 9's last ten off-band queries, all in
+07-whiteboard-misc.css and 06-timeline-dialogs.css, moved to 819.98/820 and
+their allowances taken out of `tests/test_breakpoints.py` (the 720, 640 and
+900 groups are empty):
+
+- The full-screen document's prose and sidebar panels (719.98 x2, 720 x2):
+  over the page below 820, beside it from 820 (the sidebar is an edge sheet
+  below 820 anyway).
+- The board's navigator hidden (719.98): below 820.
+- Settings' label row and section select (640 x2): below 820; no section
+  scrolls sideways at 600, 640, 700 or 819 (General, Models, Appearance,
+  Tasks).
+- The board's tool dock taking the bottom edge and the top bar's search and
+  overview toggles (40rem x3): below 820. **This fixed a bug on the way**:
+  between 641 and 819 the tool dock and the zoom cluster overlapped,
+  6,841px² at 680, 719, 760 and 819 on the base, 0 after; the top bar is one
+  row (54px) from 680 where it was two (104px) up to 760.
+
+Measured: `scratchpad/ui-sweeps/op5-1005.js` MODE=bands, 25/25 light and
+dark (a map at 600, 640, 680, 719, 760, 819, 820, 900; Settings at four
+widths), against 17/24 on the base. Not verified: documents' focus mode
+between 720 and 819 (reasoned from the rules: the panels now cover the page
+there, as they did below 720).
+

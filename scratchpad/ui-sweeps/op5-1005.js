@@ -201,6 +201,45 @@ async function models(page) {
   }
 }
 
+//: The whiteboard file's off-band widths moved onto Phase 9's bands: at
+//: each width across the moved ranges, the board's top bar is one or two
+//: rows and runs past nothing, the tool dock and the zoom cluster do not
+//: overlap, and no Settings section scrolls sideways.
+async function bands(page) {
+  const out = [];
+  for (const w of [600, 640, 680, 719, 760, 819, 820, 900]) {
+    await page.setViewportSize({ width: w, height: 800 });
+    await page.waitForTimeout(500);
+    const m = await page.evaluate(() => {
+      const bar = document.querySelector(".wb-topbar");
+      const br = bar.getBoundingClientRect();
+      const dock = document.getElementById("wb-tools-panel").getBoundingClientRect();
+      const zoom = document.querySelector(".whiteboard-floating-panel.bottom-right")?.getBoundingClientRect();
+      const ov = zoom ? Math.max(0, Math.min(dock.right, zoom.right) - Math.max(dock.left, zoom.left)) * Math.max(0, Math.min(dock.bottom, zoom.bottom) - Math.max(dock.top, zoom.top)) : 0;
+      const ctrls = [...bar.querySelectorAll("button, summary")].filter((b) => b.getBoundingClientRect().width);
+      const outside = ctrls.filter((b) => { const r = b.getBoundingClientRect(); return r.right > br.right + 1 || r.left < br.left - 1; }).length;
+      return { bar: Math.round(br.height), sideways: bar.scrollWidth - bar.clientWidth, outside, overlap: Math.round(ov) };
+    });
+    out.push({ w, ...m });
+    check(`board at ${w}: top bar whole, dock clear of zoom`, m.outside === 0 && m.overlap === 0 && m.bar <= 110, m);
+  }
+  await page.evaluate(() => openSettingsModal("general"));
+  await page.waitForTimeout(1200);
+  for (const w of [600, 640, 700, 819]) {
+    await page.setViewportSize({ width: w, height: 800 });
+    for (const section of ["general", "models", "appearance", "tasks"]) {
+      await page.evaluate((s) => openSettingsModal(s), section);
+      await page.waitForTimeout(500);
+      const m = await page.evaluate(() => {
+        const pane = [...document.querySelectorAll("#settings-modal .settings-section")].find((s) => s.getBoundingClientRect().width);
+        const body = pane?.closest(".modal-body, .settings-body, .modal-content") || pane;
+        return { sideways: body ? body.scrollWidth - body.clientWidth : -1 };
+      });
+      check(`settings ${section} at ${w}: nothing sideways`, m.sideways <= 0, m);
+    }
+  }
+}
+
 (async () => {
   const { browser, page } = await boot({ viewport: { width: W, height: H } });
   const errors = [];
@@ -209,6 +248,7 @@ async function models(page) {
   if (MODE === "mapio") await mapio(page);
   if (MODE === "sidedock") await sidedock(page);
   if (MODE === "models") await models(page);
+  if (MODE === "bands") { await importMap(page, ["# B", "- C", "  - D"], "Bands"); await bands(page); }
   check("no page errors", errors.length === 0, errors.slice(0, 3));
   console.log(`\n${results.filter(Boolean).length}/${results.length} passed (${MODE}, ${W}, ${process.env.THEME || "light"})`);
   await browser.close();

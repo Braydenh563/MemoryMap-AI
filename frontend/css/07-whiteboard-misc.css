@@ -7897,14 +7897,14 @@ button.connection-row {
 /* On a phone the page has no room to give up: the panel is the width of the
    window less its gutters, over the page, whatever the grip set on a wider
    screen (half of a 360 window is a 180px column of wrapped words). */
-@media (max-width: 719.98px) {
+@media (max-width: 819.98px) {
   #tab-documents.doc-focus #doc-prose-panel:not(.hidden) {
     left: var(--space-4);
     width: auto;
   }
 }
 
-@media (min-width: 720px) {
+@media (min-width: 820px) {
   #tab-documents.doc-focus:has(#doc-prose-panel:not(.hidden)) .doc-main {
     padding-right: calc(var(--doc-focus-prose-w) + var(--space-4) * 2);
   }
@@ -7968,14 +7968,14 @@ button.connection-row {
   display: none;
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 819.98px) {
   #tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar {
     right: var(--space-4);
     width: auto !important;
   }
 }
 
-@media (min-width: 720px) {
+@media (min-width: 820px) {
   #tab-documents.doc-focus.doc-focus-sidebar .doc-main {
     padding-left: calc(var(--doc-focus-sidebar-w) + var(--space-4) * 2);
   }
@@ -8169,7 +8169,7 @@ button.connection-row {
 /* A board is a canvas; the panels over it are the only stacking that matters,
    so at narrow widths the navigator steps aside rather than covering the
    tools it is meant to help you reach. */
-@media (max-width: 719.98px) {
+@media (max-width: 819.98px) {
   .wb-navigator {
     display: none;
   }
@@ -9034,7 +9034,7 @@ button.connection-row {
   }
 }
 
-@media (max-width: 40rem) {
+@media (max-width: 819.98px) {
   .whiteboard-floating-panel.bottom-center {
     max-width: calc(100% - 1rem);
   }
@@ -9605,7 +9605,7 @@ button.connection-row {
   margin: 0;
 }
 
-@media (max-width: 40rem) {
+@media (max-width: 819.98px) {
   /* Search and Overview are also switches in the View menu; the two icons
      and their divider are what pushed the bar onto a third row. */
   .wb-topbar #wb-search-toggle,
@@ -10272,7 +10272,7 @@ input[type="file"] {
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 819.98px) {
   #settings-modal .settings-section .row > label:first-child:not(.setting-check):not(.check-row):not(.checkbox-label) {
     flex: 1 1 100%;
   }
@@ -13195,7 +13195,7 @@ header#top-bar {
   display: none;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 819.98px) {
   /* Beside the search field, not under it. Given its own row the nav grew
      from 61px to 111px and took 50px off the content pane, which is half of
      what the strip's removal just bought back. */

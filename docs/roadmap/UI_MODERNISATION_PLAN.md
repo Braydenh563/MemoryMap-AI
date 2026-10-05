@@ -666,8 +666,9 @@ audit counted 58 distinct width queries, with `max-width: 600px` and
 new width outside the set below; the double matches are gone and the count
 is 48. The 720, 640 and 900 groups were moved onto the bands on 2026-10-05:
 HISTORY.md, "Moved from the plans, 2026-10-05 (UI_MODERNISATION_PLAN Phase 9,
-the off-band widths)". What is left of them is listed in
-`archive/agent-remaining/uimod-89.md`.)
+the off-band widths)"; the whiteboard file's last ten followed (HISTORY.md,
+"Moved from the plans, 2026-10-05 (the whiteboard file's off-band widths,
+op5)"), and the three groups are empty.)
 
 | Width | Device | What changes, app-wide |
 | --- | --- | --- |

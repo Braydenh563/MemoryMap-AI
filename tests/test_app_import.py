@@ -17,7 +17,9 @@ def _zip(members: dict[str, str]) -> bytes:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
         for name, text in members.items():
-            archive.writestr(name, text)
+            #: A fixed date: the bytes are a parametrize value, and xdist
+            #: workers must collect the same test ids.
+            archive.writestr(zipfile.ZipInfo(name, date_time=(2026, 10, 1, 12, 0, 0)), text)
     return buffer.getvalue()
 
 
@@ -68,6 +70,7 @@ def _post(client, source: str, name: str, data: bytes):
         ("evernote", "Home.enex", ENEX, 2),
         ("apple", "notes.zip", APPLE, 2),
     ],
+    ids=["notion", "obsidian", "evernote", "apple"],
 )
 def test_each_format_imports_once_and_only_once(client, source, name, data, expected):
     first = _post(client, source, name, data)

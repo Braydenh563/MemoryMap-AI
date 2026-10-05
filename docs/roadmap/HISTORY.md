@@ -43841,6 +43841,15 @@ record.)
      400ms (masculine), 650 to 150ms (feminine); real time 588 and 474ms at
      8 to 11fps (850 and 501ms before on a quiet run).
 
+647. **The owner, 2026-10-05, verbatim.** "Also when rotating objects on the
+     whiteboard the connections and links don't automatically update in their
+     connection position until I move the object I rotated" Fixed: the card,
+     box and selection turns now redraw the links touching what turns, every
+     frame, the way a move does (`wbUpdateLinkedSketches`);
+     `scratchpad/ui-sweeps/wbrotatelinks.js` FAIL before, PASS after (the
+     link stayed on the unturned box even after release);
+     `tests/test_wb_rotate_links.py`.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.
@@ -44756,4 +44765,3 @@ look reset keeps it); `scratchpad/ui-sweeps/op5-1005.js` MODE=due, 5/5 at
 the glyphs take read 3.67:1 on the dark board, so the words do not take it),
 Remind me on a day gone makes nothing, on a day to come one reminder at 9:00.
 Not verified: the date field's own picker on a touch keyboard.
-

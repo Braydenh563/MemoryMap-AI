@@ -96,6 +96,18 @@ with its owner named in the entry.
      and its CHANGELOG section, a final bug, security, CodeQL and CI scan,
      then the PR title and description, then the owner is told it is ready.
 
+646. **The owner, 2026-10-05, verbatim.** "Can you also make sure the code
+     editor and and grammar checker etc are really good and used across the
+     app and also cover a large range of code languages?? I want the code
+     editor to be on par with and even surpass vs code. With also styling and
+     formatting options, small things the user takes for granted and expects
+     to be there but aren't, code suggested prefills, shortcuts, key binds,
+     options for specific code elements like for example what css options are
+     available for a specific css feature, python, java, js, c#, c, c++,
+     Visual Basic, p5.js, and more" Placed: DOCUMENTS_PLAN section 21, an
+     Opus audit-then-build agent after the 641 to 644 design pass. Release
+     0.4.0 waits for it.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 596, 608 (board rail and dock, edge auto-pan) placed in

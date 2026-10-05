@@ -15663,7 +15663,7 @@ function wbRenderMultiSelectionHandles() {
   stem = group.append("line")
     .attr("class", "wb-rotate-handle-stem")
     .attr("x1", centerX).attr("y1", bbox.minY).attr("x2", centerX).attr("y2", handleY);
-  let spin = null;
+  let spin = null, spinLinks = [];
   spinDot = group.append("circle")
     .attr("class", "wb-sketch-rotate-handle")
     .attr("cx", centerX).attr("cy", handleY).attr("r", 6)
@@ -15674,6 +15674,11 @@ function wbRenderMultiSelectionHandles() {
           event.sourceEvent.stopPropagation();
           spin = wbMultiSnapshot(boxes);
           const rows = spin;
+          //: Each link touching a turned card or box, once (a link between two
+          //: selected items is one path), so its ends follow the turn live.
+          const index = wbLinkSketchIndex();
+          spinLinks = [...new Set(rows.filter((r) => r.entry.kind !== "sketch")
+            .flatMap((r) => wbLinkedSketchesFor(r.entry.item.id, r.entry.kind, index)))];
           groupGesture = wbBeginGesture(() => {
             wbRestoreMultiSnapshot(rows);
             group.attr("transform", null);
@@ -15714,6 +15719,7 @@ function wbRenderMultiSelectionHandles() {
             const el = document.querySelector(WB_SELECTOR_BY_KIND[row.entry.kind](item.id));
             if (el) el.style.transform = wbItemTransform(item);
           }
+          if (spinLinks.length) wbUpdateLinkedSketches(null, spinLinks);
           //: The outline turns with what it contains rather than being
           //: recomputed as a new upright box: a box that stayed level while
           //: its contents turned is the "doesnt rotate with them" half of the
@@ -16595,6 +16601,10 @@ function renderWhiteboard() {
       .on("start", (event, d) => {
         event.sourceEvent.stopPropagation();
         d._rotateUndoBefore = WB_KIND_INFO.node.payload(d);
+        //: The links touching it, found once: a turn moves their endpoints
+        //: as much as a move does, and without this they stayed where the
+        //: unturned box had them until the next move (INBOX 647).
+        d._linkedSketches = wbLinkedSketchesFor(d.id, "node");
         d._gesture = wbBeginGesture(() => wbRestoreBox("node", d, d._rotateUndoBefore));
       })
       .on("drag", (event, d) => {
@@ -16608,10 +16618,12 @@ function renderWhiteboard() {
           event.sourceEvent.shiftKey
         );
         el.style.transform = wbItemTransform(d);
+        if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
       })
       .on("end", async (event, d) => {
         const before = d._rotateUndoBefore;
         delete d._rotateUndoBefore;
+        delete d._linkedSketches;
         const cancelled = wbEndGesture(d._gesture);
         delete d._gesture;
         //: A press that turned nothing (each half of a double-click is one)
@@ -17502,6 +17514,10 @@ function renderWbObjects(canvas) {
       .on("start", (event, d) => {
         event.sourceEvent.stopPropagation();
         d._rotateUndoBefore = WB_KIND_INFO.object.payload(d);
+        //: The links touching it, found once: a turn moves their endpoints
+        //: as much as a move does, and without this they stayed where the
+        //: unturned box had them until the next move (INBOX 647).
+        d._linkedSketches = wbLinkedSketchesFor(d.id, "object");
         d._gesture = wbBeginGesture(() => wbRestoreBox("object", d, d._rotateUndoBefore));
       })
       .on("drag", (event, d) => {
@@ -17515,10 +17531,12 @@ function renderWbObjects(canvas) {
           event.sourceEvent.shiftKey
         );
         el.style.transform = wbItemTransform(d);
+        if (d._linkedSketches?.length) wbUpdateLinkedSketches(d.id, d._linkedSketches);
       })
       .on("end", async (event, d) => {
         const before = d._rotateUndoBefore;
         delete d._rotateUndoBefore;
+        delete d._linkedSketches;
         const cancelled = wbEndGesture(d._gesture);
         delete d._gesture;
         if (cancelled || (before && (before.rotation || 0) === (d.rotation || 0))) return;

@@ -11523,6 +11523,35 @@ Link to another note with [[its first few words]]."></textarea>
 
             <div class="settings-group">
               <div class="row help-head">
+                <h3>Re-encrypt private notes</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="rekey-help" aria-controls="rekey-help" aria-expanded="false"
+                  title="What re-encrypting does" aria-label="What re-encrypting does">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Moves every private note onto a new encryption key.</p>
+              <div class="help-body hidden" id="rekey-help" role="dialog" aria-label="What re-encrypting does">
+                <p>
+                  Changing your password keeps the key that encrypts your private
+                  notes, so a backup made before the change still opens them.
+                  Re-encrypting makes a new key and moves every private note
+                  onto it, so an old backup or a copied database file stops
+                  opening today's notes. Every other session is signed out, and
+                  nothing is changed unless every note checks out.
+                </p>
+              </div>
+              <label class="stacked-label" for="account-rekey-password">Current password</label>
+              <input id="account-rekey-password" type="password" autocomplete="current-password"
+                placeholder="Your current password or PIN">
+              <div class="row">
+                <button id="account-rekey" class="ghost small" type="button">Re-encrypt</button>
+                <span id="account-rekey-status" class="status" role="status"></span>
+              </div>
+            </div>
+
+            <div class="settings-group">
+              <div class="row help-head">
                 <h3>Sessions</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="sessions-help" aria-controls="sessions-help" aria-expanded="false"

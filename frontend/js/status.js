@@ -2049,6 +2049,24 @@ function aiStatusState() {
 // rendering fault. The ellipsis says "waiting" while perfectly still.
 const AI_STATUS_GLYPH = { idle: "…", ok: "✓", warn: "!", error: "✕", off: "" };
 
+//: What the last answer cost, in the dot's popup (WORLD_CLASS_PLAN row 31, item
+//: 99 (c)): the time, the model, and how much of its context window the prompt
+//: used. Set by a finished chat turn (`noteAiTurn`); nothing is invented before one.
+let lastAiTurn = null;
+
+function noteAiTurn(turn) {
+  lastAiTurn = turn;
+  renderAiPill();
+}
+
+function aiTurnLine(turn) {
+  if (!turn) return "";
+  const used = turn.prompt > 0 && turn.context > 0
+    ? `, using ${turn.prompt.toLocaleString("en-US")} of ${turn.context.toLocaleString("en-US")} tokens of context (${Math.round((turn.prompt / turn.context) * 100)}%)`
+    : "";
+  return `Last answer: ${(turn.elapsedMs / 1000).toFixed(1)} s${turn.model ? ` on ${turn.model}` : ""}${used}.`;
+}
+
 function renderAiPill() {
   const button = $("ai-status");
   if (!button) return;
@@ -2065,7 +2083,8 @@ function renderAiPill() {
   $("ai-status-label").textContent = summary;
   // button.title = `${state.title}\n\n${state.detail}`;
   $("ai-status-title").textContent = state.title;
-  $("ai-status-detail").textContent = state.detail;
+  const lastTurn = aiTurnLine(lastAiTurn);
+  $("ai-status-detail").textContent = lastTurn ? `${state.detail}\n\n${lastTurn}` : state.detail;
   renderChatActiveModelBadge();
   nudgeEmbeddingProblem();
 }
@@ -2318,6 +2337,15 @@ function toggleAiStatusPopup(force) {
   // the CSS hover rule would then have to fight. The stylesheet owns whether
   // the popup is shown; this only records that it has been pinned open.
   popup.classList.toggle("pinned", open);
+  //: In the phone's header the popup hangs from a dot that is not at the window's
+  //: left, and a message wider than the room ran off its edge (93 px at 390, found
+  //: measuring the last-answer line): nudged back inside by `translate`.
+  popup.style.translate = "";
+  if (open) {
+    const box = popup.getBoundingClientRect();
+    const shift = box.left < 8 ? 8 - box.left : box.right > innerWidth - 8 ? innerWidth - 8 - box.right : 0;
+    if (shift) popup.style.translate = `${shift}px`;
+  }
 }
 
 // One plain-English line: which search engine is active and whether it works.

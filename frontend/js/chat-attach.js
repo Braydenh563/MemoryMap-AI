@@ -2470,6 +2470,12 @@ async function sendChatMessage(preset, opts = {}) {
   // A turn that only ran tools still cost time and tokens, so it gets a meta
   // line too: previously an agent turn with no prose showed nothing at all.
   if (answerRaw || toolEvents.length) {
+    noteAiTurn({
+      model: (stats && stats.model) || (meta && meta.answered_by) || "",
+      elapsedMs,
+      prompt: (stats && stats.prompt_tokens) || 0,
+      context: (stats && stats.context_tokens) || 0,
+    });
     bubble.appendChild(
       messageMetaLine({
         model: (stats && stats.model) || (meta && meta.answered_by),

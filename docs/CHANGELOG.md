@@ -24,6 +24,8 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- AI status dot: its popup says what the last answer cost, "Last answer: 2.4 s on llama3.2, using 3,100 of 8,192 tokens of context (38%)", once a chat turn has finished. On a phone the popup also stays inside the window (it ran 93 px off the left edge at 390 wide) (WORLD_CLASS_PLAN row 31, item 99).
+- Settings, Account: Re-encrypt private notes, under Change your password. Changing your password keeps the key that encrypts your private notes, so a backup made earlier still opens them; Re-encrypt asks for your password, then moves every private note onto a new key and signs the other sessions out, all or nothing. It could only be reached through the API before (WORLD_CLASS_PLAN row 31, item 261).
 - Command palette: Paste as note saves what is on the clipboard as a note in one step, filed in the background, with Go to it and Undo; when the browser will not share the clipboard it opens Quick note instead (WORLD_CLASS_PLAN row 31, item 99).
 - Reminders: a reminder's menu has Snooze 10 minutes, beside the +1h and tomorrow buttons on its row (WORLD_CLASS_PLAN row 34, D8).
 - Notes: editing a note shows its word count and reading time at the end of the tags row, as a document's header does ("412 words · 2 min read"), live as you type. Templates, in Capture and for new documents, take `{clipboard}` (what you last copied; nothing when the browser will not say) and `{cursor}` (where the cursor lands), alongside `{date}` (WORLD_CLASS_PLAN row 30).

@@ -41772,6 +41772,32 @@ found).
 - Not verified: Paste as note against a real clipboard permission prompt (the
   sweep for it does not exist; the function is covered by source tests).
 
+### From WORLD_CLASS_PLAN.md row 31: the AI dot's line and the vault re-key
+
+- **Built 2026-10-05 (worldclass-1005c).** Item 99 (c): `noteAiTurn` (status.js)
+  keeps the last finished chat turn (`chat-attach.js` reports it: model, wall
+  time, prompt tokens, context window) and `aiTurnLine` puts "Last answer: 2.4 s
+  on llama3.2, using 3,100 of 8,192 tokens of context (38%)." under the dot's
+  detail, on its own paragraph; before a turn there is no line. Found measuring
+  it: the dot's popup in the phone header ran off the window's left edge by 93 px
+  at 390 (its box is anchored to the dot's right, 312 px wide); the pinned-open
+  popup is now nudged inside by `translate` (left edge 8 px). Item 261: Settings,
+  Account has Re-encrypt private notes under Change your password (current
+  password, a confirm that says what happens, the fresh token kept as Change
+  password does, the result as "Done: N private notes re-encrypted."); the
+  endpoint, `POST /auth/rotate-vault-key`, was unchanged. Help: the Guide's
+  account topic and the pane's '?' (`#rekey-help`).
+- Measured: `tests/test_ai_dot_tooltip_31.py` (the line from node, 4 cases),
+  `tests/test_vault_rekey_ui_31.py`; `scratchpad/ui-sweeps/aidot.js` 5/5 at 1440
+  light and 390 dark (popup inside the window both times; 390 was -93 to 219
+  before the nudge, 8 to 320 after); `scratchpad/ui-sweeps/rekeyui.js` 7/7 at
+  1440 and 390 dark on a real private note (group fits the pane, button 32 px,
+  empty password said, confirm says what happens, "Done: 1 private note
+  re-encrypted.", this tab's new token works and the note still reads).
+- Not verified: the AI dot line after a real model's turn (the sweep reports a
+  turn through `noteAiTurn`); Ask's answers do not report to the dot (only the
+  Chat tab does).
+
 ## Built 2026-10-05: INBOX 598, 602 and 596's skeleton part (loading states)
 
 (The INBOX entries themselves are moved by the orchestrator; this is the

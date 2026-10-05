@@ -283,7 +283,7 @@ function renderLibraryOverview() {
   }
   note.textContent = parts.length
     ? parts.join(" · ")
-    : "Everything you make, notes, documents, chats, files, is managed from here.";
+    : "Everything you make is managed from here: notes, documents, chats and files.";
   box.appendChild(note);
 }
 

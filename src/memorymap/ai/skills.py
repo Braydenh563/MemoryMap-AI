@@ -156,6 +156,13 @@ INPUT_NAME = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]{0,23}$")
 class SkillError(ValueError):
     """Something about this skill is wrong, phrased for whoever wrote it."""
 
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        #: The sentence itself, kept apart from the exception so what reaches
+        #: a response is the text this module wrote, not the exception object
+        #: (CodeQL, information exposure through an exception).
+        self.message = message
+
 
 def _text(value, limit: int, what: str) -> str:
     text = str(value or "").strip()
@@ -1683,7 +1690,7 @@ def _checked_folder_skill(raw: dict, known_tools: set[str] | None) -> dict | str
     try:
         return normalise(raw, known_tools)
     except SkillError as exc:
-        return str(exc)
+        return exc.message
 
 
 def folder_skills(

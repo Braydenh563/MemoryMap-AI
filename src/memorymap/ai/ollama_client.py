@@ -658,7 +658,7 @@ class OllamaClient(Provider):
         response = None
         fmt = self.forced_call_format(tools) if forced and tools else None
         retried = False
-        for _attempt in (0, 1, 2):
+        for _ in range(3):
             payload = {
                 "model": model,
                 "messages": self._to_ollama_messages(messages),

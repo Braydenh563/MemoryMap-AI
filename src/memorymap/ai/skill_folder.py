@@ -82,7 +82,9 @@ def folder(config) -> Path | None:
     try:
         path.mkdir(parents=True, exist_ok=True)
     except OSError:
-        pass
+        #: A read-only data dir: the path is still where a skill would go,
+        #: and `scan` reports an unreadable folder as having no skills.
+        return path
     return path
 
 

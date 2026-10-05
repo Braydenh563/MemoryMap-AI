@@ -3939,61 +3939,107 @@ aside[data-resizable="1"] {
   }
 }
 
-/* The calendar strip above the Timeline's feed (WORLD_CLASS_PLAN D6): a month
-   label with two arrows, then seven day buttons on one grid so they share the
-   width at any window size (about 45px each at 390, over the phone's target).
-   Flat on the page: no box around it, the buttons are the only surfaces. A
-   dot under a day means the day has a page; today wears the accent. */
+/* The calendar strip under the Timeline's dock (WORLD_CLASS_PLAN D6; INBOX
+   543). One header row: the month between its two arrows (one group, so
+   the arrows sit by what they move), then the seven days as one well
+   spanning the rest: the `.seg` well (`--chip-bg`, `--radius-choice`) with
+   flat segments. It was a 28rem column of seven bordered boxes, the arrows
+   230px from the month and 950px of empty row at 1440. No card around it.
+   Below the well's 34rem the days stack (weekday over number), so a day
+   keeps 44px at 390. Today's number is filled; a dot means a page. */
 .timeline-daystrip {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
   margin: 0 0 var(--space-4);
-  /* A strip you scan, not a bar that spans: seven 190px boxes across a
-     desktop window read as a table of buttons (measured in a screenshot at
-     1440). Capped, it is ~60px a day there and the full width on a phone. */
-  max-width: 28rem;
 }
 
 .timeline-daystrip-head {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  font-size: var(--text-sm);
+  gap: var(--space-1);
 }
 
-.timeline-daystrip-arrows {
-  display: flex;
+/* A fixed width: walking from "September 2026" to "Sep to Oct 2026" never
+   moves the later arrow from under the pointer. */
+.timeline-daystrip-label.ghost.small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   gap: var(--space-2);
+  min-width: 9.5rem;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+/* Quiet at rest, so it reads as the row's heading; the ground on hover and
+   while its calendar is open, as the days' own segments do. */
+.timeline-daystrip-label.ghost.small:hover,
+.timeline-daystrip-label.ghost.small[aria-expanded="true"] {
+  background: var(--ghost-btn-bg);
+}
+
+.timeline-daystrip-label .ph {
+  color: var(--muted);
 }
 
 .timeline-days {
+  container-type: inline-size;
+  container-name: timeline-days;
   display: grid;
+  flex: 1 1 26rem;
+  min-width: 0;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: var(--space-2);
+  gap: 0;
+  padding: var(--space-1);
+  border-radius: var(--radius-choice);
+  background: var(--chip-bg);
 }
 
 .timeline-days .timeline-day.ghost.small {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: var(--space-1);
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 0;
   height: auto;
-  padding: var(--space-2) var(--space-1);
+  min-height: max(var(--control-h-body), var(--target-min));
+  padding: var(--space-1);
+  border-color: transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+}
+
+.timeline-days .timeline-day.ghost.small:hover {
+  background: var(--ghost-btn-bg);
 }
 
 .timeline-day-name {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--muted);
 }
 
 .timeline-day-num {
+  display: inline-grid;
+  place-items: center;
+  min-width: var(--space-8);
+  height: var(--space-8);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
   font-size: var(--text-md);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .timeline-day-dot {
+  flex: none;
   width: var(--space-2);
   height: var(--space-2);
   border-radius: 50%;
@@ -4004,9 +4050,34 @@ aside[data-resizable="1"] {
   background: var(--accent);
 }
 
-.timeline-day.is-today .timeline-day-num {
+.timeline-day.is-today .timeline-day-name {
   color: var(--accent-text);
   font-weight: 600;
+}
+
+.timeline-day.is-today .timeline-day-num {
+  background: var(--accent-surface);
+  color: var(--on-accent);
+}
+
+@container timeline-days (max-width: 34rem) {
+  .timeline-days .timeline-day.ghost.small {
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-2) 0 var(--space-1);
+  }
+
+  .timeline-day-name {
+    font-size: var(--text-xs);
+  }
+}
+
+/* On a phone the arrows take the row's two ends and the month the middle. */
+@media (max-width: 600px) {
+  .timeline-daystrip-head {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
 }
 
 /* A daily note's head: the day before and the day after, under its title
@@ -4016,14 +4087,6 @@ aside[data-resizable="1"] {
   flex-wrap: wrap;
   gap: var(--space-2);
   margin: 0 0 var(--space-3);
-}
-
-/* The strip's month label is a button now: the way past the seven days. */
-.timeline-daystrip-label.ghost.small {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-sm);
 }
 
 /* The month popover (timeline.js `renderTimelineMonthPop`). The shell, caret,

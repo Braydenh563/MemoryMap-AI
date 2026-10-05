@@ -668,7 +668,7 @@ function ok(name, condition, detail) {
     JSON.stringify(clicked.why));
   ok("P0 a plain click leaves the caret in the text", clicked.focusIsMenu === false);
   ok("P0 the menu offers 'Add to dictionary' and 'Ignore in this document'",
-    clicked.items.some((t) => /Add .* to dictionary/.test(t)) &&
+    clicked.items.some((t) => /Add .*to dictionary/.test(t)) &&
       clicked.items.some((t) => /Ignore in this document/.test(t)),
     JSON.stringify(clicked.items));
 

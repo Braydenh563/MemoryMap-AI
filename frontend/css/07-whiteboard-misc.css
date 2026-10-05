@@ -3300,6 +3300,16 @@ dialog::backdrop {
   color: var(--muted);
 }
 
+/* An on/off row in a dialog is the switch row, not a form label (INBOX 552:
+   in the writing dictionary the rule above put each switch on a line of its
+   own over a small muted name). */
+.space-dialog label.setting-check {
+  display: grid;
+  margin-top: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
 .space-dialog input[type="text"] {
   width: 100%;
 }
@@ -7905,8 +7915,7 @@ button.connection-row {
 
 /* Neither the grip nor the bottom/right choice means anything while the
    panel is this side panel, so neither is offered. */
-#tab-documents.doc-focus .doc-prose-resize,
-#tab-documents.doc-focus .doc-prose-panel .doc-prose-dock {
+#tab-documents.doc-focus .doc-prose-resize {
   display: none;
 }
 

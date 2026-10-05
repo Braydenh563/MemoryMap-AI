@@ -7773,12 +7773,6 @@ function wbReviewMapProposal(proposal) {
 
     const card = document.createElement("div");
     card.className = "card modal-card confirm-card wb-proposal-card";
-    const head = document.createElement("div");
-    head.className = "row confirm-head";
-    const title = document.createElement("h3");
-    title.className = "confirm-title";
-    title.textContent = "Review the map before it is made";
-    head.appendChild(title);
 
     const said = document.createElement("p");
     said.className = "muted";
@@ -7840,7 +7834,7 @@ function wbReviewMapProposal(proposal) {
         close({ name: name.value.trim() || proposal.name || "Generated map", outline: text });
       }, false)
     );
-    card.append(head, said, name, outline, row);
+    card.append(dialogHead("Review the map before it is made", () => close(null)), said, name, outline, row);
     overlay.appendChild(card);
     wireBackdropClose(overlay, () => close(null));
     document.addEventListener("keydown", onKey, true);
@@ -8219,12 +8213,6 @@ function wbExportBoard() {
 
   const card = document.createElement("div");
   card.className = "card modal-card confirm-card wb-export-card";
-  const head = document.createElement("div");
-  head.className = "row confirm-head";
-  const title = document.createElement("h3");
-  title.className = "confirm-title";
-  title.textContent = "Export this board";
-  head.appendChild(title);
 
   const formatLabel = document.createElement("span");
   formatLabel.className = "wb-export-label";
@@ -8307,7 +8295,7 @@ function wbExportBoard() {
   const exportBtn = smallButton("Export", "Export", go, false);
   exportBtn.id = "wb-export-go";
   row.append(smallButton("Cancel", "Cancel", close), exportBtn);
-  card.append(head, formatLabel, formatSeg, scopeLabel, scopeSeg, note, warning, row);
+  card.append(dialogHead("Export this board", close), formatLabel, formatSeg, scopeLabel, scopeSeg, note, warning, row);
   overlay.appendChild(card);
   wireBackdropClose(overlay, close);
   document.addEventListener("keydown", onKey, true);

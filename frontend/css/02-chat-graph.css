@@ -4948,9 +4948,12 @@ mark.lightbox-hit {
   align-items: flex-start;
   gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border);
+  /* Quiet rows (INBOX 548): no edge at rest, the ground with the pointer,
+     the chosen one on `--accent-soft` with its name in the accent's ink. */
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: transparent;
+  box-shadow: none;
   /* The global `button` rule (01-forms-settings.css) sets color to
      --on-accent, meant to sit on that same rule's solid --accent-surface
      fill. This overrides the background to transparent but never touched
@@ -4967,9 +4970,16 @@ mark.lightbox-hit {
   cursor: pointer;
 }
 
+.link-kind-option:not(.active):hover {
+  background: var(--ghost-btn-bg);
+}
+
 .link-kind-option.active {
-  border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+.link-kind-option.active .link-kind-name {
+  color: var(--accent-text);
 }
 
 .link-kind-name {
@@ -4978,6 +4988,7 @@ mark.lightbox-hit {
 
 .link-kind-hint {
   font-size: var(--text-xs);
+  font-weight: 400;
   color: var(--muted);
 }
 

@@ -1243,7 +1243,7 @@ function notePickerRow(shape, row) {
       // tick that comes straight back off reads as a broken control.
       if (shape.add(row) === false) {
         box.checked = false;
-        toast("That's as many as one message can carry.", true);
+        toast(shape.full || "That's as many as one message can carry.", true);
       }
     } else {
       shape.remove(row);

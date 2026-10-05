@@ -5056,19 +5056,6 @@ textarea.autogrow {
 
 /* Where there is no room beside the editor the panel is under it whatever was
    chosen (`DOC_PROSE_NARROW`), so the toggle that chooses is not offered. */
-@media (max-width: 720px) {
-  .doc-prose-panel .doc-prose-tools .doc-prose-dock {
-    display: none;
-  }
-}
-
-.doc-prose-head {
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-2);
-}
-
 .doc-prose-list {
   list-style: none;
   margin: 0;
@@ -5078,15 +5065,16 @@ textarea.autogrow {
   gap: var(--space-1);
 }
 
-/* The group headings. Small, muted and with the count pushed to the far edge,
-   so the panel reads as "Spelling 3 / Style 11" at a glance without the
-   headings competing with the rows they organise. */
+/* The group headings: the eyebrow, its count beside it as quiet text (INBOX
+   549: pushed to the far edge it read as a second column of numbers), so the
+   panel reads "Spelling 3, Style 11" at a glance. */
 .doc-prose-group {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
+  justify-content: flex-start;
+  gap: var(--space-2);
   margin: var(--space-4) 0 var(--space-1);
+  padding-inline: var(--space-2);
   color: var(--muted);
   font-size: var(--text-xs);
   text-transform: uppercase;
@@ -5101,12 +5089,15 @@ textarea.autogrow {
 
 .doc-prose-group-count {
   font-variant-numeric: tabular-nums;
+  font-weight: 400;
 }
 
+/* **A row is its head over its answers** (INBOX 549). It was a flex row, so
+   an opened row's answers sat beside it and squeezed the finding to "s…" in
+   the right dock. */
 .doc-prose-row {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  flex-direction: column;
   min-width: 0;
 }
 
@@ -5127,10 +5118,12 @@ textarea.autogrow {
      same trap `.doc-dock-menu-item` already carries an override for. */
   justify-content: flex-start;
   gap: var(--space-2);
+  min-height: var(--target-min);
   padding: var(--space-1) var(--space-2);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border: 0;
+  border-radius: var(--radius-md);
   background: none;
+  box-shadow: none;
   color: var(--ink);
   font: inherit;
   font-size: var(--text-sm);
@@ -5138,17 +5131,50 @@ textarea.autogrow {
   cursor: pointer;
 }
 
-.doc-prose-jump:hover,
 .doc-prose-jump:focus-visible {
-  border-color: var(--accent);
-  background: var(--chip-bg);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
-/* The row's own line: the jump, and the one-press fix beside it. */
+/* The row's own line: the jump, then one cell of actions centred on it. The
+   ground arrives with the pointer, with no edge (the list-row recipe). */
 .doc-prose-rowhead {
+  flex-wrap: nowrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
   min-width: 0;
+  padding-right: var(--space-1);
+  border-radius: var(--radius-md);
+}
+
+.doc-prose-rowhead:hover {
+  background: var(--hover-veil);
+}
+
+.doc-prose-acts {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* Accept and Ignore: quiet squares of one size, the ink arriving with the
+   pointer. */
+.doc-prose-rowhead .doc-prose-act.ghost.small {
+  width: var(--control-h-lg);
+  height: var(--control-h-lg);
+  min-height: 0;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+}
+
+.doc-prose-rowhead .doc-prose-act.ghost.small:hover,
+.doc-prose-rowhead .doc-prose-act.ghost.small:focus-visible {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
 }
 
 /* **One drawing of a finding** (DOCUMENTS_PLAN 12 D1), used by the panel row
@@ -5159,6 +5185,24 @@ textarea.autogrow {
   align-items: baseline;
   gap: var(--space-2);
   min-width: 0;
+}
+
+/* A narrow panel (the right dock, focus mode, a phone) stacks the row the
+   same way, the words over the reason, rather than ellipsising both. */
+@container doc-prose (max-width: 34rem) {
+  .doc-finding-line-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: var(--space-2);
+  }
+
+  .doc-finding-line-row > .doc-finding-dot {
+    grid-row: 1;
+  }
+
+  .doc-finding-line-row > .doc-finding-why {
+    grid-column: 2;
+  }
 }
 
 /* The head of the menu says the same three things stacked, because the menu is
@@ -5269,9 +5313,8 @@ textarea.autogrow {
 /* **The open row is where you are**, painted from `aria-current` so the mark
    and its announcement are one thing (DESIGN.md's recipe index), a fill plus a
    weight step and never an accent edge as well. */
-.doc-prose-row[aria-current] > .doc-prose-rowhead > .doc-prose-jump {
+.doc-prose-row[aria-current] > .doc-prose-rowhead {
   background: var(--accent-soft);
-  border-color: transparent;
 }
 
 .doc-prose-row[aria-current] .doc-finding-words {
@@ -5469,16 +5512,34 @@ textarea.autogrow {
 .doc-suggest-list-inline > .doc-suggest-item,
 .doc-suggest-actions-inline > .doc-suggest-item {
   width: auto;
-  background: var(--ghost-btn-bg);
-  border-color: var(--ghost-btn-border);
+  border-color: transparent;
+  background: var(--chip-bg);
+}
+
+/* INBOX 549: the candidates are quiet pills, the first (Enter's) on the
+   accent's soft ground; the actions under them are quiet text. */
+.doc-suggest-list-inline > .doc-suggest-item {
+  border-radius: var(--radius-pill);
+  padding-inline: var(--space-3);
+}
+
+.doc-suggest-list-inline > .doc-suggest-best {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.doc-suggest-actions-inline > .doc-suggest-item {
+  background: transparent;
+  color: var(--muted);
 }
 
 .doc-suggest-list-inline > .doc-suggest-item:hover,
 .doc-suggest-actions-inline > .doc-suggest-item:hover,
 .doc-suggest-list-inline > .doc-suggest-item:focus-visible,
 .doc-suggest-actions-inline > .doc-suggest-item:focus-visible {
-  background: var(--ghost-btn-bg-hover);
-  border-color: var(--accent);
+  border-color: transparent;
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
 }
 
 .doc-suggest-item {
@@ -5533,8 +5594,16 @@ textarea.autogrow {
   overflow-y: auto;
 }
 
-.doc-dictionary-head {
+/* One row at every width (INBOX 552: at 390 the X fell to a line of its
+   own): the name and its count give way, the icons never do. */
+.doc-dictionary-dialog .doc-dictionary-head {
+  flex-wrap: nowrap;
   align-items: center;
+}
+
+.doc-dictionary-head > .help-head {
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .doc-dictionary-head h2 {
@@ -5542,37 +5611,28 @@ textarea.autogrow {
 }
 
 .doc-dictionary-count {
-  font-size: var(--text-sm);
-  font-weight: 400;
+  font-weight: 600;
   white-space: nowrap;
+}
+
+.doc-dictionary-count:not(:empty)::after {
+  content: " · ";
+  font-weight: 400;
 }
 
 .doc-dictionary-lead {
   margin: var(--space-1) 0 var(--space-4);
 }
 
-/* The field: the magnifier inside its leading edge, Add at its trailing edge
-   only while what is typed is a new word. */
-.doc-dictionary-field {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+/* No line ends on one stranded word (INBOX 552's "ugly line wraps"). */
+.doc-dictionary-lead,
+.doc-dictionary-dialog small {
+  text-wrap: pretty;
 }
 
-.doc-dictionary-field-icon {
-  position: absolute;
-  left: var(--space-3);
-  color: var(--muted);
-  pointer-events: none;
-}
-
-.doc-dictionary-field input {
-  flex: 1 1 auto;
-  min-width: 0;
-  padding-left: var(--space-7);
-}
-
+/* The field is the `.search-field` well (INBOX 552: the glyph sat on the
+   placeholder), with Add at its trailing edge only while what is typed is a
+   new word. */
 .doc-dictionary-field #doc-dictionary-add {
   flex: none;
   white-space: nowrap;
@@ -5641,12 +5701,6 @@ textarea.autogrow {
   color: var(--muted);
 }
 
-.doc-dictionary-files {
-  justify-content: flex-end;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
 .doc-dictionary-section {
   margin: var(--space-5) 0 var(--space-2);
   color: var(--muted);
@@ -5673,6 +5727,23 @@ textarea.autogrow {
   min-width: 0;
 }
 
+/* The setting's name at the switch rows' size and ink, not `.space-dialog
+   label`'s small muted form label. */
+.doc-dictionary-dialog .doc-dictionary-setting-text > label {
+  margin: 0;
+  color: var(--ink);
+  font-size: inherit;
+}
+
+/* A narrow dialog: the select goes under its name rather than squeezing the
+   hint onto three lines beside it. */
+@media (max-width: 600px) {
+  .doc-dictionary-setting {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-2);
+  }
+}
+
 .doc-dictionary-setting-text small,
 .doc-dictionary-dialog .setting-check small {
   display: block;
@@ -5685,94 +5756,141 @@ textarea.autogrow {
   }
 }
 
-/* The suggestions panel: a real panel now, with room for its list. Reported:
-   "the suggestion texbox is waaayy too small and there's no close x button." */
+/* **The suggestions panel's head** (INBOX 549, the panel-head recipe): the
+   name at 16px with its count as quiet text, then one group of quiet icon
+   buttons of one size, the X last. It was a 14.7px count, three tonal worded
+   buttons at 32px and two bordered icons at 28, wrapping to two rows in the
+   right dock and at 390 (INBOX 552, the owner's screenshot: "Suggestions 5"
+   over its icons on a second line). **One row at every width the panel
+   takes**, down to the 240px dock: the buttons never wrap and never shrink,
+   and the name is what gives way (an ellipsis, its whole text on a title),
+   which at 240 it does not need to. */
 .doc-prose-head {
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-3);
+  flex-wrap: nowrap;
+  gap: var(--space-2);
   margin-bottom: var(--space-2);
   padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--divider);
 }
 
-/* The count is one line: "5 / suggestions" stacked over two, beside a row of
-   buttons running out of the panel, was the reported shape (INBOX 426 b). */
 .doc-prose-title {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
   white-space: nowrap;
+  font-size: var(--text-body);
+  font-weight: 600;
 }
 
-/* **The head's buttons wrap; they never leave the panel.** This was
-   `flex: none`, a row that refused to be narrower than its five buttons:
-   measured in the 320px right dock, 415px of buttons, Dictionary and the
-   close cut off at the panel's edge and the panel scrolling 222px sideways.
-   Each button keeps its own width and its words; the row wraps between
-   them and hugs the far edge while it fits beside the count. */
+.doc-prose-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.doc-prose-count {
+  flex: none;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
 .doc-prose-tools {
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
-  gap: var(--space-1);
-  flex: 0 1 auto;
-  min-width: 0;
+  /* Quiet squares side by side need no gap; one more step of it wrapped the
+     group under the name in the 320px dock. */
+  gap: 0;
+  flex: 0 0 auto;
+  margin-inline-start: auto;
 }
 
-.doc-prose-tools > button {
+.doc-prose-panel .doc-prose-tools .doc-prose-tool.ghost.small {
   flex: none;
+  height: var(--dialog-head-btn-size);
+  min-height: 0;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
   white-space: nowrap;
 }
 
-/* A narrow panel (the right dock, a phone, focus mode's side panel): the
-   count has the first line to itself and the buttons start under it at the
-   same left edge, rather than a ragged right-aligned block beside a word. */
-/* **A narrow panel's head is one row: the count, then a group of icon
-   buttons** (INBOX 426 z, image 92: "the docked Suggestions header buttons
-   wrap badly"). Worded, the four buttons took two rows of their own under
-   the count in the 320px right dock, the close alone on the second. Below
-   26rem their words go, the `.toolbar-word` recipe's way (hidden, not
-   dropped: each button's title and aria-label name it, and the word is
-   still read out), and each takes the icon-only square, so Check with AI,
-   Dictionary, the dock and the close sit beside the count in one group.
-   Fix N keeps its words: its number is the thing it says. */
-@container doc-prose (max-width: 26rem) {
-  /* The count is never cut ("7 sugg…" beside Fix 2 was measured): when the
-     group does not fit beside it, the whole group moves to the next line,
-     at the right, still one row. */
-  .doc-prose-tools {
-    flex: 0 1 auto;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    max-width: 100%;
-    margin-inline-start: auto;
-  }
+.doc-prose-panel .doc-prose-tools .doc-prose-tool.ghost.small.icon-only {
+  width: var(--dialog-head-btn-size);
+  padding: 0;
+}
 
-  .doc-prose-tools > button:not(.doc-prose-fix-all) .ph-text {
+.doc-prose-panel .doc-prose-tools .doc-prose-tool.ghost.small:hover,
+.doc-prose-panel .doc-prose-tools .doc-prose-tool.ghost.small[aria-pressed="true"] {
+  background: var(--ghost-btn-bg);
+}
+
+.doc-prose-more {
+  display: inline-flex;
+}
+
+/* The narrowest panel (the 240px right dock): Check with AI's icon gives
+   way to the ⋯, which holds it too, so the head stays one row. */
+@container doc-prose (max-width: 17rem) {
+  .doc-prose-tools > .doc-prose-ai-run {
+    display: none;
+  }
+}
+
+/* A narrow panel: Fix N gives up its words too (the `.toolbar-word` way,
+   clipped, not dropped: its title and label say the number). */
+@container doc-prose (max-width: 26rem) {
+  .doc-prose-tools > .doc-prose-fix-all .ph-text {
     position: absolute;
     width: 1px;
     height: 1px;
     margin: -1px;
-    padding: 0;
     overflow: hidden;
-    clip: rect(0 0 0 0);
     clip-path: inset(50%);
     white-space: nowrap;
-    border: 0;
   }
 
-  .doc-prose-tools > button:not(.doc-prose-fix-all):has(.ph-text) {
-    aspect-ratio: 1;
-    padding-inline: 0;
+  .doc-prose-panel .doc-prose-tools > .doc-prose-fix-all.ghost.small {
+    width: var(--dialog-head-btn-size);
+    padding: 0;
     justify-content: center;
   }
 
-  .doc-prose-tools > button:not(.doc-prose-fix-all) > .ph-lead {
+  .doc-prose-tools > .doc-prose-fix-all > .ph-lead {
     margin-inline-end: 0;
   }
 }
 
+/* Nothing to flag: a mark, one line, and what was checked, quiet. */
 .doc-prose-empty {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--space-2);
+  align-items: baseline;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.doc-prose-empty p {
   margin: 0;
+}
+
+.doc-prose-empty .muted {
+  grid-column: 2;
+  font-size: var(--text-xs);
+}
+
+.doc-prose-empty-mark {
+  align-self: center;
+  color: var(--ok);
+  font-size: var(--text-lg);
 }
 
 /* Check with AI's own line (INBOX 410): what it is doing or did, then the ways

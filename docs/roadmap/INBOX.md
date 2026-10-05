@@ -46,35 +46,12 @@ with its owner named in the entry.
      arent aligned vertically." (screenshot: the Installed badge in Settings,
      Packages).
 
-543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs
-     moderna dn professional redesigning and restructuring." (screenshot: the
-     calendar strip under the dock).
-
-548. **The owner, 2026-10-05, verbatim.** "redesign old ui popups like this as
-     well to be consistent, moderna and professional." (screenshot: the mind
-     map's "Point a new node at..." picker).
-
-549. **The owner, 2026-10-05, verbatim.** "can you also better redesign and
-     restructure the document editor suggestions panel?? for both docks"
-     (`#doc-prose-panel`, opened from the toolbar's Suggestions button and
-     the focus dock's). Placed: the design agent after 548.
-
 550. **The owner, 2026-10-05, verbatim.** "on the feminine atlas. could you
      somehow make it more feminine, attractive, cosmic lustrious and better??
      and improve the whisps as well as the forehead hair as well on the
      feminine atlas" (screenshots, scratchpad/inbox550-*.png: the ribbon
      wisps round the body, flat lavender bands with dot sparkles; the fringe
      close up, flat wedges with hard edges). Placed: the next free Opus.
-
-552. **The owner, 2026-10-05, verbatim.** "I also want a redesign of the
-     dictionary popup and to fix ugly line wraps" (screenshot: the document
-     Suggestions panel head, "Suggestions 5" on one line and its five icon
-     buttons wrapped onto a second, right-aligned). Placed: with 549, the
-     design agent.
-     Then (verbatim): "wrapping elements at the top of the dictionary"
-     (scratchpad/inbox552-dictionary-head.png: "Writing dictionary 3 words
-     (?)" on the first row, export, import and close wrapped onto a second).
-     The same head wrap as the Suggestions panel: one shared cause.
 
 553. **The owner's decisions, 2026-10-05** (asked, answered; binding):
      (a) Entity merge gets Undo: snapshot both entities and their mentions

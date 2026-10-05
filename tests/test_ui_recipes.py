@@ -3104,7 +3104,43 @@ RICH_PICKERS = [
     ("settings-panes.js", "renderPalette"),
     ("library.js", "openLibraryCreatePicker"),
     ("settings-wiring.js", "chordGuideGroup"),
+    ("selection.js", "pickerListbox"),
 ]
+
+
+def test_every_notebook_picker_is_the_picker_dialog() -> None:
+    """INBOX 548: the "choose from your notebook" dialogs share one shell on
+    the dialog recipes (`pickerDialog`: the head with its X, the search field
+    well, the dialog foot), never the confirm alert's card and a bare input."""
+    source = frontend_text("selection.js")
+    shell = _function_body(source, "pickerDialog")
+    for part in ("dialogHead(", '"search-field"', "space-dialog"):
+        assert part in shell, part
+    head = _function_body(source, "dialogHead")
+    assert '"dialog-head"' in head and '"dialog-head-btn"' in head and '"dialog-head-title"' in head
+    for picker in ("pickEntryDialog", "pickLibraryItemDialog", "pickNotesDialog", "pickMediaDialog"):
+        body = _function_body(source, picker)
+        assert "pickerDialog(" in body, picker
+        assert "confirm-card" not in body and "confirm-text" not in body, picker
+    assert "notePickerRow(" in _function_body(source, "pickNotesDialog")
+
+
+#: Script-built dialogs that still open on the confirm alert's `confirm-head`
+#: (a question and its answers, which DESIGN.md exempts): may only fall. A
+#: dialog that is not a question takes `dialogHead` (selection.js; INBOX 548).
+CONFIRM_HEAD_DIALOGS = {"app.js": 1}
+
+
+def test_a_script_built_dialog_opens_with_the_dialog_head() -> None:
+    counts = {}
+    for path in JS:
+        n = path.read_text(encoding="utf-8").count('"row confirm-head"')
+        if n:
+            counts[path.name] = n
+    assert counts == CONFIRM_HEAD_DIALOGS, (
+        f"confirm-head dialogs are now {counts}: a new dialog takes dialogHead(title, close); "
+        "a converted one lowers CONFIRM_HEAD_DIALOGS"
+    )
 
 #: Lists that still build their own `role="option"` rows. May only fall:
 #: convert one to `richPickerRow` and lower its count here (the test fails

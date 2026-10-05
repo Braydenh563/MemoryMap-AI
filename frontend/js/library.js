@@ -9468,8 +9468,6 @@ function manageBookmarkGroups() {
 
   const card = document.createElement("div");
   card.className = "card modal-card confirm-card bookmark-groups-card";
-  const heading = document.createElement("h3");
-  heading.textContent = "Manage groups";
   const blurb = document.createElement("p");
   blurb.className = "muted text-sm";
   blurb.textContent =
@@ -9557,7 +9555,7 @@ function manageBookmarkGroups() {
     smallButton("Done", "Close", close, false)
   );
 
-  card.append(heading, blurb, list, footer);
+  card.append(dialogHead("Manage groups", close), blurb, list, footer);
   overlay.appendChild(card);
   wireBackdropClose(overlay, close);
   document.addEventListener("keydown", onKey, true);

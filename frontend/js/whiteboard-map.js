@@ -932,15 +932,7 @@ function wbInfoDialog(title, body) {
   overlay.setAttribute("aria-modal", "true");
   overlay.setAttribute("aria-label", title);
   const card = document.createElement("div");
-  card.className = "card modal-card confirm-card";
-  const head = document.createElement("div");
-  head.className = "row confirm-head";
-  const heading = document.createElement("h3");
-  heading.className = "confirm-title";
-  heading.textContent = title;
-  head.appendChild(heading);
-  const row = document.createElement("div");
-  row.className = "row confirm-actions";
+  card.className = "card modal-card space-dialog wb-info-card";
   const returnFocus = document.activeElement;
   const close = () => {
     document.removeEventListener("keydown", onKey, true);
@@ -952,8 +944,9 @@ function wbInfoDialog(title, body) {
     event.stopPropagation();
     close();
   };
-  row.append(smallButton("Close", "Close", close, false));
-  card.append(head, body, row);
+  //: The head's X is the one way out (INBOX 548): a filled Close under a
+  //: table of facts was a second, louder one.
+  card.append(dialogHead(title, close), body);
   overlay.appendChild(card);
   wireBackdropClose(overlay, close);
   document.addEventListener("keydown", onKey, true);

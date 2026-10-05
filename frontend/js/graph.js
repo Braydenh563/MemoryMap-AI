@@ -1301,9 +1301,8 @@ function askLinkDetails(from, to) {
     const card = document.createElement("div");
     card.className = "card modal-card link-kind-card";
 
-    const heading = document.createElement("h3");
-    heading.textContent = "How are these connected?";
-    card.appendChild(heading);
+    //: The dialog head (INBOX 548): it was a bare `h3`, the 12px eyebrow.
+    card.appendChild(dialogHead("How are these connected?", () => close(null)));
 
     const pair = document.createElement("p");
     pair.className = "muted link-kind-pair";
@@ -3673,6 +3672,7 @@ function openGraphLinkPanel(edge, nodes) {
   // Two notes on their own lines, not one run-on sentence joined by an
   // arrow: reported as unreadable once both previews ran long enough to
   // wrap, since nothing showed which half belonged to which note.
+  card.appendChild(dialogHead("Manage this connection", () => close()));
   const title = document.createElement("div");
   title.className = "confirm-text graph-link-panel-title";
   const sourceLine = document.createElement("div");

@@ -40410,7 +40410,6 @@ border or answering hover). Both are strict now.
   every chip on a seeded note's line has a 0px edge; the facts (`when`) do
   not change under the pointer; the category, the "+N", the references and
   a hashtag tone; link chips change ink; heights 24px, unchanged.
-
 ### From OPEN.md (Documents): the viewport popups with the background art on
 
 Measured, not changed: nothing failed. `scratchpad/ui-sweeps/popupsart.js`
@@ -40458,6 +40457,23 @@ stays at 192. At 1440 the Read view's title heading is still drawn (block,
 33px). The dock's two rows stay: the Edit/Read row is the view switch the
 plan's item 6 decided on, and it fits the budget as it is.
 ## INBOX resolved, 2026-10-05
+
+543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs
+     moderna dn professional redesigning and restructuring." (screenshot: the
+     calendar strip under the dock).
+     **Fixed 2026-10-05**: one header row, the month between its arrows (0px
+     gaps), the days one `--chip-bg` well ending at the dock's right edge
+     (1116px at 1440, 708 at 1024, 330 at 390, 46px a day), today filled,
+     one Tab stop with arrow keys; `daystrip.js` 44 of 44 at 1440 and 390.
+
+548. **The owner, 2026-10-05, verbatim.** "redesign old ui popups like this as
+     well to be consistent, moderna and professional." (screenshot: the mind
+     map's "Point a new node at..." picker).
+     **Fixed 2026-10-05**: `pickerDialog` (selection.js) for the four
+     notebook pickers (head with X, search-field well, rich rows with a facts
+     line, combobox keys; `pickers.js` 22 of 22 at 1440 and 390, light and
+     dark) and `dialogHead` for six script-built dialogs (`dialogheads.js`
+     20 of 20); `CONFIRM_HEAD_DIALOGS` ratchet in test_ui_recipes.py.
 
 538. **The owner, 2026-10-05, verbatim.** "Im using a thinking model that can
      use toolcalling but it fails??" (screenshots: gemma-4-E2B, spec sheet
@@ -40533,4 +40549,33 @@ plan's item 6 decided on, and it fits the budget as it is.
      row scrolled and the X sat 1px past the edge; it is now pinned at the
      end after a hairline, inset 10px against the first hint's 9px.
      wbgestureclose.js 8/8.
+
+549. **The owner, 2026-10-05, verbatim.** "can you also better redesign and
+     restructure the document editor suggestions panel?? for both docks"
+     (`#doc-prose-panel`, opened from the toolbar's Suggestions button and
+     the focus dock's). Placed: the design agent after 548.
+     **Fixed 2026-10-05**: one head row (name and count, Fix N, Check with
+     AI, a ⋯ with the Dictionary and the dock side, the X), one row recipe
+     per finding with Accept and Ignore as quiet icons (Ignore last on every
+     row), answers under the row, Up/Down walk and focus moves on after an
+     action, a quiet empty state; the same panel docked bottom, right and in
+     focus mode. `docsuggest.js` all ok at 1440 and 390, light and dark
+     (head one row down to the 240px dock); `prosedock.js` 18 of 18.
+552. **The owner, 2026-10-05, verbatim.** "I also want a redesign of the
+     dictionary popup and to fix ugly line wraps" (screenshot: the document
+     Suggestions panel head, "Suggestions 5" on one line and its five icon
+     buttons wrapped onto a second, right-aligned). Placed: with 549, the
+     design agent.
+     Then (verbatim): "wrapping elements at the top of the dictionary"
+     (scratchpad/inbox552-dictionary-head.png: "Writing dictionary 3 words
+     (?)" on the first row, export, import and close wrapped onto a second).
+     The same head wrap as the Suggestions panel: one shared cause.
+     **Fixed 2026-10-05**: the cause was `.card > .row.space-between`'s wrap
+     catching every dialog head; now the actions never wrap and the title
+     gives way (08-consistency.css). `headrow.js`: 42 heads, every button on
+     the title's centre line at 390 and 1440 (the old shape fails it at
+     "Where are my documents kept?"). The dictionary: Import, Export and the
+     X in the head, the count under it, the search-field well, switch rows as
+     switch rows; `docdictionary.js` and `docwraps.js` (find bar, AI panel,
+     Earlier versions) all ok, no line of words broken onto two.
 

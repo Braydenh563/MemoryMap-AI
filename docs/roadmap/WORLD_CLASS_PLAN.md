@@ -849,7 +849,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 29 | §10 | F1 a `prefs` module, F5 `api.stream`/`api.upload` and the no-bare-fetch lint, F7's threads onto the pool (the ratchet is built), F10 a `readings` table, F12 a store (F4 built 2026-09-26) | S to L | §10 |
 | 30 | §5 | ~~notes' unlinked mentions (KG1), word count and reading time, `{{clipboard}}` and a cursor mark, move to a space and export from a selection~~ built 2026-10-05 (`tests/test_selection_move_export_30.py`, `tests/test_note_words_templates_30.py`); open: the bin for documents and reminders (a document's delete has an Undo, a visible bin does not exist) | S each | §5 |
 | 31 | Placed 2026-09-09 | 1 capture into the selected space (built: the space hint, INBOX 38) and a bulk move (built 2026-10-05, row 30); 99 (c) the AI dot's latency and context line (`tests/test_ai_dot_tooltip_31.py`), (d) Paste as note (`tests/test_paste_as_note_31.py`); 261's vault re-key button (`tests/test_vault_rekey_ui_31.py`), all built 2026-10-05; open: 99 (b) scroll restore, 92's row redesign, 97 RapidOCR, 79 and 22 to 23 not re-checked | S to M | those sections |
-| 32 | 301 | the navigation and undo audit table, then the fixes | M | every surface |
+| 32 | 301 | ~~the navigation and undo audit table, then the fixes~~ built 2026-10-05 (HISTORY, "From WORLD_CLASS_PLAN.md row 32 (INBOX 301)"): the table, read from the code and the existing sweeps; no inconsistent twin found; open and not planned: a board's history across a reload | done | HISTORY |
 | 33 | §21 | ~~rows 1 and 2 on the notice recipe, row 12's "check the address" in the status line, row 13's update size in the About page~~ built 2026-10-05 (HISTORY, "From WORLD_CLASS_PLAN.md section 21"; `tests/test_failure_remedies_21.py`) | done | HISTORY |
 | 34 | D1, D8, §13 | re-checked 2026-10-05 (HISTORY, "From WORLD_CLASS_PLAN.md rows 34 and 33"): drag on the dashboard grid is built (edit mode, `dashDragOverCard`), the tab bar fits at 600 to 819 (no scroll, 7 labelled tabs), the whiteboard menus (`wbmenus.js`: 0 filled rows, one shell recipe) and the tidy layout past five nodes (`maptidy.js`, 12 nodes, 5/5) pass, the 10 minute snooze is built (`tests/test_reminder_snooze_34.py`); not re-checked: the board-preview minimap's NaN rects, and whether a reminder row shares the notes' row class | S each | their plans |
 | 35 | §2 | the offline studio (the privacy receipt, its record, API and Settings page, built 2026-09-26) | L | new |
@@ -2055,7 +2055,7 @@ HISTORY.md, "Moved from the plans, 2026-09-24".
     an audit before any fix: every surface, what it pushes to history and
     what it makes undoable, as a table. Placed into WORLD_CLASS_PLAN.
 
-**State 2026-09-24:** (c) the audit table (every surface, what it pushes to history, what it makes undoable) does not exist yet. M.
+**State 2026-10-05:** built: the audit table is in HISTORY.md, "From WORLD_CLASS_PLAN.md row 32 (INBOX 301)"; no fix was left that the table named.
 
 ## Audio in the notebook: the architecture decided 2026-09-21, the build deferred
 

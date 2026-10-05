@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Reminders: snoozing one (+1h, tomorrow, 10 minutes) has an Undo in its toast and in the status bar's pair, which puts the old time back even when it was already past; `PUT /reminders/{id}` takes `restore` for that (WORLD_CLASS_PLAN row 32).
 - AI status dot: its popup says what the last answer cost, "Last answer: 2.4 s on llama3.2, using 3,100 of 8,192 tokens of context (38%)", once a chat turn has finished. On a phone the popup also stays inside the window (it ran 93 px off the left edge at 390 wide) (WORLD_CLASS_PLAN row 31, item 99).
 - Settings, Account: Re-encrypt private notes, under Change your password. Changing your password keeps the key that encrypts your private notes, so a backup made earlier still opens them; Re-encrypt asks for your password, then moves every private note onto a new key and signs the other sessions out, all or nothing. It could only be reached through the API before (WORLD_CLASS_PLAN row 31, item 261).
 - Command palette: Paste as note saves what is on the clipboard as a note in one step, filed in the background, with Go to it and Undo; when the browser will not share the clipboard it opens Quick note instead (WORLD_CLASS_PLAN row 31, item 99).

@@ -127,6 +127,11 @@ const { boot } = require('./lib.js');
     const due = await page.evaluate(async (id) => (await apiJson('/reminders?limit=200&_=' + Date.now())).find((r) => r.id === id).due_at, snoozeId);
     const minutes = (new Date(due.endsWith('Z') || /[+-]\d\d:\d\d$/.test(due) ? due : due + 'Z').getTime() - Date.now()) / 60000;
     check('it moved the reminder to about ten minutes from now', minutes > 8.5 && minutes < 11.5, minutes.toFixed(1) + ' min');
+    await page.evaluate(() => [...document.querySelectorAll('.toast .toast-action')].find((b) => /Undo/.test(b.textContent)).click());
+    await page.waitForTimeout(1500);
+    const back = await page.evaluate(async (id) => (await apiJson('/reminders?limit=200&_=' + Date.now())).find((r) => r.id === id).due_at, snoozeId);
+    const backMin = (new Date(back.endsWith('Z') || /[+-]\d\d:\d\d$/.test(back) ? back : back + 'Z').getTime() - Date.now()) / 60000;
+    check('the toast Undo puts the old time back', backMin > 2870 && backMin < 2890, backMin.toFixed(0) + ' min');
   }
   check('no page errors', errors.length === 0, errors.join(' | '));
   await browser.close();

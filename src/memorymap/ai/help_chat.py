@@ -1536,7 +1536,7 @@ HELP_TOPICS.extend(
                 "high) and a repeat (once, daily, weekly or monthly), and use Quick "
                 "set: in 30 min, in 1 hour, in 3 hours, tonight 7pm, tomorrow 9am, "
                 "tomorrow 2pm, this weekend or next week. A due reminder can be "
-                "snoozed one hour, ten minutes (its menu) or to tomorrow 9am, edited in place, or ticked "
+                "snoozed one hour, ten minutes (its menu) or to tomorrow 9am (Undo in the toast puts the time back), edited in place, or ticked "
                 "done; completed ones page at the foot. Add to calendar (.ics), on "
                 "a reminder's menu, saves it as a calendar file, and Add all to "
                 "calendar (.ics) in the More menu saves every upcoming one. A note, a "

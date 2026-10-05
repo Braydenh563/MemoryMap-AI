@@ -41798,6 +41798,59 @@ found).
   turn through `noteAiTurn`); Ask's answers do not report to the dot (only the
   Chat tab does).
 
+### From WORLD_CLASS_PLAN.md row 32 (INBOX 301): the navigation and undo audit
+
+**State 2026-09-24:** "the application wide forward/backward navigation and
+undo/redo dont work for everything everywhere": the audit table (every surface,
+what it pushes to history, what it makes undoable) did not exist.
+
+Read from the code on 2026-10-05 (`router.js`, `navigation.js`'s
+`openHistoryEntry`, every `pushUndo` site) and against the sweeps that drive
+them; not driven again here except the rows marked "driven".
+
+**Back and forward** (`recordTabVisit`, the hash router, `popstate`): a step is
+`{tab, section}` and every one has an address.
+
+| Surface | Recorded as | Address | Restored by |
+| --- | --- | --- | --- |
+| Dashboard, Timeline, Reminders, Graph | the tab | `#/dashboard`, `#/timeline`, `#/reminders`, `#/graph` | `switchTab` |
+| Notes sub-tabs (Capture, Writing room, Ask, Questions) | `section` | `#/notes/<section>` | `showNotesSection` |
+| A note | `note:<id>` | `#/notes/<id>` | `flashEntry` |
+| A chat | `conv:<id>` | `#/chat/<id>` | `openConversation` (awaited) |
+| A document | `doc:<id>` | `#/docs/<id>` | `openDocument` (awaited) |
+| Library sub-tabs (All, Documents, Boards, Images, Files, Links, Skills, Contents) | the view, and the kind for Images and Files | `#/library/<word>` | the sub-tab's own click handler |
+| A board or a map | `board:<id>` | `#/library/board/<id>` | `openWhiteboardBoard` (awaited) |
+| The graph centred on a note or document | `focus:<id>` | `#/graph/focus/<id>` | `graphFocusModeId` |
+| Settings (a modal) | `settings`, the section | `#/settings/<section>` | `openSettingsModal` |
+| Not recorded | an Ask answer shown from History, the lightbox, a graph filter, a Timeline day, an open Quick note | | |
+
+**Undo and redo**, one stack for the app (`pushUndo`, the status bar's pair, the
+toast's Undo) plus a history of its own where the surface has text or geometry:
+
+| Surface | What is undoable | Evidence |
+| --- | --- | --- |
+| Notes | edit, bin, archive, create (Quick note, Paste as note, Capture), generate or remove a title, a link's kind or properties, tags and categories (move, rename, merge, delete, split, colour), duplicate merge, attach or detach a bookmark | `appundo.js` 3/3, `tests/test_undo_deletes_1005.py` |
+| The selection bar | tags, category, favourite, publish, archive, delete, Move to space (back to each note's own space) | code read; Move to space driven (`selectmove.js` 8/8) |
+| Reminders | delete (any state), clear completed, snooze (added 2026-10-05: the toast's Undo and the app's pair put the old time back, `PUT /reminders/{id}` `restore`); done is its own checkbox | `appundo.js`; snooze driven (`remindthings.js`) |
+| Documents | every edit in the editor's own history (per document, by id); delete and restore | `docundo.js` 8/8; `deleteDocumentWithUndo` |
+| Boards and maps | every gesture, each board its own history; delete (the bin), rename, duplicate | `boardundo.js` 43/43 (WHITEBOARD_PLAN, "Undo coverage") |
+| Library | bookmarks, board deletes, a conversation, a skill, a space, a note type, a kind of link; a binned note restores | `left1005-undodeletes.js` 7/7 |
+| Entities | merge (`merge_with_undo`, `undo_merge`; `undo-1005.md` still listed it as open) | code read |
+| Settings | not undoable, by design: a setting is the current state, changed back by changing it | |
+| Permanent, with a confirm that says "cannot be undone" | an uploaded file, a media item, one Ask question, Clear history, a note purged from the bin, Delete for good | code read |
+
+- **What the audit found.** Nothing that is "undoable on one surface and not on
+  its twin" remains in the surfaces read; the two conventions are consistent
+  (taking something out of view is undoable, destroying its bytes asks first).
+  Open and not planned: a board's history does not survive a reload (the event
+  log is the long memory, decision 17), and an agent's or another tab's change
+  to the open board is not on its stack. Redo for the board-level steps (theme,
+  numbering, layout), the link kind and duplicate-merge Undos and the AI-edit
+  Undo were read, not driven.
+- Not verified: any of this in the desktop window; Back and Forward after a
+  hard reload on each address (`routerRestore`'s own sweep covers notes, docs,
+  chats and boards).
+
 ## Built 2026-10-05: INBOX 598, 602 and 596's skeleton part (loading states)
 
 (The INBOX entries themselves are moved by the orchestrator; this is the

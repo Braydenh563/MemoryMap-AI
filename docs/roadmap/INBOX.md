@@ -141,6 +141,12 @@ with its owner named in the entry.
      title through the same plain-title and thumbnail helpers the note cards
      use; markdown stripped, an image note shows its thumbnail).
 
+660. **The owner, 2026-10-05, verbatim.** "also I want to be able to drag
+     elements on the whiteboard and mindmap onto a popup delete button to
+     delete them" Placed: the next Opus slot, with 650 and 656: a delete
+     target that appears while an item is dragged (board and map), drop
+     deletes with Undo and a toast, Escape cancels.
+
 656. **The owner, 2026-10-05, verbatim, with a screenshot of the status bar's
      hollow-circle AI dot and its "Notebook ready · chat AI off" card.** "can
      the no ai available ai status icon be better??" Placed: the next Opus

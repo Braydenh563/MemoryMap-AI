@@ -5047,14 +5047,20 @@ body .chip.item-label,
    strip lay over the tick box too, so the box Tab had just reached sat under
    the strip its own focus called up. */
 @media (hover: hover) and (min-width: 600px) {
-  #reminder-groups li {
+  /* The strip is centred on the row's first line, the one the time is on,
+     not on the whole row: a reminder linked to a note has a second line
+     (its note chip), and centred on both the strip sat 11px low and the top
+     half of "in 18 hours" showed above it (qa-1005, 1440: the time's box
+     511 to 535, the strip's 522 to 554). */
+  #reminder-groups li .entry-meta {
     position: relative;
   }
 
   #reminder-groups li .entry-meta > .entry-actions {
     position: absolute;
     top: 50%;
-    right: var(--space-3);
+    /* The line's own end, where the time ends. */
+    right: 0;
     transform: translateY(-50%);
     padding-left: var(--space-2);
     /* Opaque, so the time under it does not show through: the row's own

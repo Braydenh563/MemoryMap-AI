@@ -8082,7 +8082,6 @@ button.connection-row {
   cursor: grabbing;
 }
 
-.wb-navigator-empty,
 .wb-navigator-hint {
   margin: 0;
   font-size: var(--text-xs);

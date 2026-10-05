@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Empty lines: the last nine (Documents' list, outline and two histories, Chat's saved chats, Ask's history, the graph pane, the board's overview and Format panel) are the one empty-line recipe, so every short "nothing here yet" line is one size, ink and margin; the lint's waiting list is empty (`tests/test_ui_recipes.py`, `op5-1005.js` MODE=emptylines).
 - Mind maps: Branch colours offers eight palettes, four new (Bold, Paired, Bright, Earth), each colour at least 1.6:1 on white so a branch line never vanishes; MINDMAP_PLAN §12.1 closed (its open rows found built or superseded) and moved to HISTORY (`tests/test_map_theme_palette.py`).
 - Sweeps and docs: `errors.js` runs a browser per width with `--disable-dev-shm-usage` and reports a renderer crash as a finding; `noteeditflow.js` and `noteedit616.js` seed their own bookmark and note so they pass on a fresh data dir; thirty-eight finished agent files left `docs/roadmap/agent-remaining/` for the archive, their open rows carried into `OPEN.md`.
 - Export activity: events about a private note stay out of the file after the note is purged too (a purge seals its events, dropping their text and flagging them private, and the export leaves flagged events out)

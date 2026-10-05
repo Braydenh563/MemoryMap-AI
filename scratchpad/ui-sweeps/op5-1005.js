@@ -240,11 +240,29 @@ async function bands(page) {
   }
 }
 
+//: The nine empty lines moved onto `.empty-line` compute one look: the
+//: recipe's size, ink, margin and alignment, read from a probe line.
+async function emptylines(page) {
+  const ids = ["doc-history-empty", "doc-ai-history-empty", "doc-empty", "doc-outline-empty", "conv-empty",
+    "ask-history-empty", "graph-pane-empty", "wb-navigator-empty", "wb-format-empty"];
+  const got = await page.evaluate((ids) => {
+    const look = (el) => { const s = getComputedStyle(el); return [s.fontSize, s.color, s.marginTop, s.marginBottom, s.textAlign, s.paddingTop].join(" "); };
+    const probe = document.createElement("p");
+    probe.className = "empty-line";
+    document.body.appendChild(probe);
+    const want = look(probe);
+    probe.remove();
+    return { want, rows: ids.map((id) => ({ id, look: document.getElementById(id) ? look(document.getElementById(id)) : "missing" })) };
+  }, ids);
+  for (const row of got.rows) check(`${row.id} is the recipe`, row.look === got.want, row.look === got.want ? "" : `${row.look} vs ${got.want}`);
+}
+
 (async () => {
   const { browser, page } = await boot({ viewport: { width: W, height: H } });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  if (MODE !== "models") await openBoards(page);
+  if (MODE !== "models" && MODE !== "emptylines") await openBoards(page);
+  if (MODE === "emptylines") await emptylines(page);
   if (MODE === "mapio") await mapio(page);
   if (MODE === "sidedock") await sidedock(page);
   if (MODE === "models") await models(page);

@@ -4436,19 +4436,9 @@ def test_a_dialog_foot_is_one_height_with_its_filled_action_last() -> None:
         assert '.className = "ghost small";' in code and '.className = "accent small";' in code, name
 
 
-#: `p.muted` empty lines not yet on the recipe, each in a surface another plan
-#: owns (Documents, Chat and Ask, the graph, the whiteboard). Only shrinks.
-EMPTY_LINES_NOT_YET = {
-    "doc-history-empty",
-    "doc-ai-history-empty",
-    "doc-empty",
-    "doc-outline-empty",
-    "conv-empty",
-    "ask-history-empty",
-    "graph-pane-empty",
-    "wb-navigator-empty",
-    "wb-format-empty",
-}
+#: `p.muted` empty lines not yet on the recipe. Empty since op5-1005 moved the
+#: last nine (Documents', Chat's, Ask's, the graph's and the whiteboard's).
+EMPTY_LINES_NOT_YET: set[str] = set()
 
 
 def test_an_empty_line_in_a_small_panel_is_the_recipe():

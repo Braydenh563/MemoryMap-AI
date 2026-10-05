@@ -939,7 +939,7 @@
           title="Only the versions an AI edit replaced">AI edits</button>
       </div>
       <ul id="doc-history-list" class="doc-ai-history-list"></ul>
-      <p id="doc-history-empty" class="muted hidden">Nothing yet: this document
+      <p id="doc-history-empty" class="muted empty-line hidden">Nothing yet: this document
         has not been changed since it was made.</p>
       <div class="row right space-dialog-actions">
         <button type="button" class="ghost small" data-close-dialog="doc-history-dialog">Close</button>
@@ -954,7 +954,7 @@
     </div>
       <p class="muted">Every AI edit accepted into this document. Revert any of them, it's recorded too, so nothing here is ever lost.</p>
       <ul id="doc-ai-history-list" class="doc-ai-history-list"></ul>
-      <p id="doc-ai-history-empty" class="muted hidden">No AI edits yet.</p>
+      <p id="doc-ai-history-empty" class="muted empty-line hidden">No AI edits yet.</p>
       <div class="row right space-dialog-actions">
         <button type="button" class="ghost small" data-close-dialog="doc-ai-history-dialog">Close</button>
       </div>
@@ -1148,7 +1148,7 @@
             <div id="graph-pane-box" class="graph-pane-box">
               <canvas id="graph-pane-canvas" class="graph-canvas graph-pane-canvas"></canvas>
             </div>
-            <p class="muted graph-pane-empty" id="graph-pane-empty" hidden>
+            <p class="muted empty-line" id="graph-pane-empty" hidden>
               This note is not linked to anything yet.
             </p>
             <details class="settings-fold graph-pane-fold" id="graph-pane-options">
@@ -1835,7 +1835,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <i class="ph ph-x" aria-hidden="true"></i></button>
             </div>
             <ul id="ask-history-list" class="ask-history-list" role="group" aria-label="Earlier questions"></ul>
-            <p id="ask-history-empty" class="muted hidden">
+            <p id="ask-history-empty" class="muted empty-line hidden">
               Questions you ask will be saved here so you can browse back
               through them later, the way you'd browse your notes.</p>
             <button id="ask-history-more" class="ghost small hidden" type="button">Load more</button>
@@ -2260,7 +2260,7 @@ Link to another note with [[its first few words]]."></textarea>
           </span>
         </div>
         <ul id="conversation-list"></ul>
-        <p id="conv-empty" class="muted">No saved chats yet, ask your notebook something.</p>
+        <p id="conv-empty" class="muted empty-line">No saved chats yet, ask your notebook something.</p>
         <button id="conv-browse-all" class="ghost small conv-browse-all" type="button"
           title="Search and sort everything you have ever asked"><i class="ph ph-books ph-lead" aria-hidden="true"></i> All in Library <i class="ph ph-arrow-right ph-trail" aria-hidden="true"></i></button>
       </aside>
@@ -4124,7 +4124,7 @@ Link to another note with [[its first few words]]."></textarea>
             </span>
           </div>
           <ul id="doc-list" class="doc-list"></ul>
-          <p id="doc-empty" class="muted hidden">No documents yet: start typing on the right, or press ＋ New.</p>
+          <p id="doc-empty" class="muted empty-line hidden">No documents yet: start typing on the right, or press ＋ New.</p>
           <button id="doc-browse-all" class="ghost small conv-browse-all" type="button"
             title="Search, sort and manage every document"><i class="ph ph-books ph-lead" aria-hidden="true"></i> All in Library <i class="ph ph-arrow-right ph-trail" aria-hidden="true"></i></button>
         </div>
@@ -4139,7 +4139,7 @@ Link to another note with [[its first few words]]."></textarea>
                  itself below two headings, which left "References" as the
                  first heading on the panel: "the empty state is a bare
                  heading with nothing under it". -->
-            <p class="muted doc-outline-empty hidden" id="doc-outline-empty"></p>
+            <p class="muted empty-line hidden" id="doc-outline-empty"></p>
             <!-- **The filter box** (DOCUMENTS_PLAN Phase 4 item 3, and
                  OPEN.md: "past two screens of headings it is how you use it at
                  all"). Hidden until there are enough headings to hunt through,
@@ -7034,7 +7034,7 @@ Link to another note with [[its first few words]]."></textarea>
         <button id="wb-navigator-close" class="icon-only ghost small dialog-head-btn" type="button" title="Close the overview" aria-label="Close the overview"><i class="ph ph-x" aria-hidden="true"></i></button>
       </div>
       <svg id="wb-navigator-map" class="wb-navigator-map" viewBox="0 0 208 132" width="208" height="132" role="img" aria-label="A map of everything on this board, with the part you are looking at outlined"></svg>
-      <p id="wb-navigator-empty" class="wb-navigator-empty muted hidden">Nothing on this board yet.</p>
+      <p id="wb-navigator-empty" class="muted empty-line hidden">Nothing on this board yet.</p>
       <p class="wb-navigator-hint muted">Click or drag the map to move around.</p>
     </div>
 
@@ -7131,7 +7131,7 @@ Link to another note with [[its first few words]]."></textarea>
         <button type="button" role="tab" id="wb-format-tab-arrange" data-format-tab="arrange" aria-controls="wb-format-body" aria-selected="false" tabindex="-1">Arrange</button>
       </div>
       <div id="wb-format-body" class="wb-format-body" role="tabpanel" aria-labelledby="wb-format-tab-style">
-        <p id="wb-format-empty" class="muted wb-lib-keys">Select something on the board to format it.</p>
+        <p id="wb-format-empty" class="muted empty-line">Select something on the board to format it.</p>
         <p id="wb-format-none" class="muted wb-lib-keys" hidden>Nothing on this tab for what is selected.</p>
         <section class="wb-fmt-section" data-format-panel="style" aria-label="Style">
           <label class="wb-fmt-row" data-fmt="stroke"><span class="wb-fmt-label">Line</span><input type="color" id="wb-fmt-stroke" class="wb-color-picker" aria-label="Line colour" title="Line colour"></label>

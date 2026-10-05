@@ -6148,10 +6148,6 @@ button.ghost.danger:hover {
     display: none;
   }
 
-  #chat-sidebar #conv-empty {
-    margin: 0;
-  }
-
   #chat-sidebar #conversation-list {
     max-height: calc(3 * var(--control-h-lg));
     overflow-y: auto;
@@ -6590,11 +6586,6 @@ button.ghost.danger:hover {
 .graph-pane-canvas {
   width: 100%;
   height: 100%;
-}
-
-.graph-pane-empty {
-  margin-top: var(--space-2);
-  font-size: var(--text-xs);
 }
 
 /* Collapsed is display:none on the body, not a height of 0: a canvas in a box

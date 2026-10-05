@@ -40821,3 +40821,22 @@ permission prompt may differ.
 Measured: `tests/test_placed_0909_row31.py`;
 `scratchpad/ui-sweeps/nbf1005-recheck.js`. Not verified: reading the
 clipboard inside the desktop window.
+
+### Row 33, section 21: every failure names its way out, the rest
+
+- Rows 1 and 2: the search engine's problem line (`#embedding-error`,
+  Settings, Search index) is DESIGN.md's notice: `.notice.notice-warn`, a
+  warning glyph through `setLabel`, then the line; it was `.status.error`.
+- Row 12: `/models/status` carries `unreachable_hint` when nothing answered
+  at an address the person set (not the provider's default): "Nothing
+  answered at <url>. Check the address, and that the server is running.";
+  Settings, Models says that in place of "isn't running".
+- Row 13: the update check says the download's size before the button is
+  pressed ("Version 0.4.0 is available (you have 0.3.32), a 48 MB
+  download.") in Settings, About and its toast.
+- With it, a follow-up to row 31's Link all above 70%: one toast and one
+  reload for the lot rather than one per row, and the pair's label sits on a
+  `role="group"`.
+
+Measured: `tests/test_failure_ways_out_row33.py`. Not verified: the update
+line against a real release (GitHub is not reachable from the sandbox).

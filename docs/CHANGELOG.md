@@ -19,6 +19,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Settings, Search index: the search engine's problem line is a warning notice with its icon. Settings, Models: an address you set that nothing answers says so (Nothing answered at the address, check it) instead of the server isn't running. An available update says how big its download is before you press Update. Suggested links: Link all above 70% says one thing for the lot.
 - Documents on a narrow window: the Edit/Read segment's well grows to the 44px touch height its buttons take, so they no longer hang out of its foot and sit on the row's centre line (INBOX 568).
 - Notes, Capture: the composer is one box; the note editor inside no longer draws its own border and focus ring a hair inside the composer's, and the composer's edge carries the focus (INBOX 560).
 - Boards: the gesture hints' close button is pinned at the strip's end after a divider, whole and evenly inset, instead of clipped past the edge (INBOX 562).

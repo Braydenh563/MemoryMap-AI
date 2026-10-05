@@ -2390,9 +2390,11 @@ function renderSettings() {
   const backend = backendLabel(status);
   //: The dot is the line's class, as on the search engine line under it,
   //: not a typed "●"/"○" beside a CSS dot: two alphabets for one signal.
+  //: Section 21 row 12: an address the person typed that nothing answers is
+  //: a different problem from a server that is not started, and says so.
   ollamaLine.textContent = status.ollama_running
     ? `${backend} is running`
-    : `${backend} isn't running`;
+    : status.unreachable_hint || `${backend} isn't running`;
   ollamaLine.className = `status ${status.ollama_running ? "ok" : "off"}`;
   renderBackendPicker(status);
   const embeddingError = $("embedding-error");
@@ -2403,18 +2405,22 @@ function renderSettings() {
   //: Ollama embedding model. Said even when Ollama is not running, because
   //: the owner's report was exactly that case ("no nomic-embed-text
   //: suggested") and the button below only exists while it is.
+  //: The notice recipe's icon first (section 21 rows 1 and 2), then the line.
+  const say = (text) => setLabel(embeddingError, `ph:warning ${text}`);
   if (status.embedding_error && /^Search by meaning/.test(status.embedding_error)) {
-    embeddingError.textContent =
+    say(
       `${status.embedding_error}. ` +
       (status.ollama_running
         ? `Or switch the search engine to ${EMBEDDING_FALLBACK_MODEL} below: smaller, and offline.`
-        : `Or start Ollama and pick ${EMBEDDING_FALLBACK_MODEL} as the search engine: smaller, and offline.`);
+        : `Or start Ollama and pick ${EMBEDDING_FALLBACK_MODEL} as the search engine: smaller, and offline.`)
+    );
   } else if (status.embedding_error) {
-    embeddingError.textContent =
+    say(
       `Search engine problem: ${status.embedding_error}: semantic search is ` +
       "falling back to keywords. Quick fix: switch the search engine below to " +
       "an Ollama embedding model (download nomic-embed-text from the list), " +
-      "it runs fully offline. Full details in Settings → Logs.";
+      "it runs fully offline. Full details in Settings → Logs."
+    );
   }
   // The one-click version of the "quick fix" sentence above: only offered
   // when it can actually be carried out (Ollama has to be running to either

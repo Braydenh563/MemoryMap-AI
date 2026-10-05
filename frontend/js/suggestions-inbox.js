@@ -538,8 +538,10 @@ function inboxLinksPane(suggestions) {
       const sure = rowReasons.filter((r) => r.input.isConnected && (r.s.confidence ?? r.s.similarity ?? 0) >= 0.7);
       if (!sure.length) return toast("None of these is 70% sure or more.");
       setBusy(linkSure, true, "Linking…");
-      for (const r of sure) await r.link();
+      //: Quiet per row: one toast and one reload for the lot, not one each.
+      for (const r of sure) await r.link({ quiet: true });
       setBusy(linkSure, false);
+      loadEntries().catch(() => {});
       toast(`Linked ${sure.length} pair${sure.length === 1 ? "" : "s"}.`);
     },
   );
@@ -580,6 +582,7 @@ function inboxLinkRow(s, rowReasons) {
   join.className = "ph ph-arrows-left-right link-suggestion-join";
   join.setAttribute("aria-hidden", "true");
   text.append(noteChip(s.source_preview), join, noteChip(s.target_preview));
+  text.setAttribute("role", "group");
   text.setAttribute("aria-label", `${name(s.source_preview)} and ${name(s.target_preview)}`);
   //: A reason you can type before you link; left blank, the server deduces.
   const reason = document.createElement("input");
@@ -607,7 +610,7 @@ function inboxLinkRow(s, rowReasons) {
   const sigs = s.signals || [];
   const signals = sigs.map((g) => g.signal);
   const link = smallButton("ph:link Link", "Connect these two notes", () => linkIt());
-  const linkIt = async () => {
+  const linkIt = async ({ quiet = false } = {}) => {
     //: Left empty, a pair found by structure keeps its reasons and their
     //: confidence (KG9); one found by wording alone lets the server deduce.
     const typed = reason.value.trim();
@@ -618,8 +621,10 @@ function inboxLinkRow(s, rowReasons) {
     if (!typed && structural) body.reason_confidence = s.confidence;
     await apiJson(`/entries/${s.source_id}/links`, { method: "POST", body: JSON.stringify(body) }).catch((e) => toast(e.message, true));
     inboxCorrection("accept_link", { a: s.source_id, b: s.target_id, signals });
-    toast(typed ? "Linked, with your reason." : "Linked.");
-    loadEntries().catch(() => {});
+    if (!quiet) {
+      toast(typed ? "Linked, with your reason." : "Linked.");
+      loadEntries().catch(() => {});
+    }
     inboxDone("links", row);
   };
   rowState.link = linkIt;

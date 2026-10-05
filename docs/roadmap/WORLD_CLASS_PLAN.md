@@ -809,7 +809,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 30 | ~~§5~~ | ~~notes' unlinked mentions, word count and reading time; `{{clipboard}}` and a cursor mark; move to a space and export from a selection; the bin for documents and reminders~~ built: unlinked mentions with KG1 (2026-10-04); the rest 2026-10-05 (`tests/test_selection_actions_row30.py`, `tests/test_bin_documents_reminders_row30.py`) | done | HISTORY |
 | 31 | ~~Placed 2026-09-09~~ | ~~1 capture into the selected space and a bulk move; 99 (b) scroll restore, (c) the AI dot's latency tooltip, (d) Paste as note; 92's row redesign; 97 RapidOCR; 79 and 22 to 23 not re-checked; 261's vault re-key (`POST /auth/rotate-vault-key`) has no UI~~ built or found built 2026-10-05 (`tests/test_placed_0909_row31.py`, `scratchpad/ui-sweeps/nbf1005-recheck.js`); 97 decided not to build (a new Python dependency) | done | HISTORY |
 | 32 | 301 | the navigation and undo audit table, then the fixes | M | every surface |
-| 33 | §21 | rows 1 and 2 on the notice recipe, row 12's "check the address" in the status line, row 13's update size in the About page | S | app.js, `routes_models.py`, settings.js |
+| 33 | ~~§21~~ | ~~rows 1 and 2 on the notice recipe, row 12's "check the address" in the status line, row 13's update size in the About page~~ built 2026-10-05 (`tests/test_failure_ways_out_row33.py`) | done | HISTORY |
 | 34 | D1, D8, §13 | drag on the grid; the reminder row recipe and a 10m snooze; the minimap's NaN rects, the tab bar at 600 to 819px, a whiteboard menu sweep, the tidy layout past five nodes (all not re-checked) | S each | their plans |
 | 35 | §2 | the offline studio (the privacy receipt, its record, API and Settings page, built 2026-09-26) | L | new |
 | 36 | B6, H5 | sync without a server | L | design first |
@@ -2279,17 +2279,8 @@ suggests it. and same for many other instances." INBOX 272 called this a class; 
 record of rows 9 to 11 built on 2026-09-21 moved to HISTORY.md, "Moved from the plans, 2026-09-24". The lint
 that holds it is `tests/test_failure_remedies.py`.
 
-State 2026-09-24, what the survey left open:
-
-- Row 1 and 2: the embedding-model messages still draw with `.status.error`
-  rather than the `.notice.notice-warn` recipe (DESIGN.md). S, `frontend/js/app.js`
-  `embedding-error-fix-row`.
-- Row 12: a wrong custom `base_url` and an absent server now differ in the
-  provider (`list_models` raises "Nothing answered at <url>. Check the
-  address", 283, 2026-09-24), but the status line still reads "not
-  detected" for both. S, `api/routes_models.py` status route.
-- Row 13: whether the About page shows `candidate.size` before the update
-  button is pressed was never traced in the frontend. S, `settings.js`.
+State 2026-10-05: what the survey left open (rows 1, 2, 12 and 13) is
+built; moved to HISTORY.md, "Moved from the plans, 2026-10-05 (nbf1005)".
 
 ## 22. The professional baseline and the devibecode programme (2026-09-27)
 

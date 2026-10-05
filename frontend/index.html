@@ -8471,7 +8471,9 @@ Link to another note with [[its first few words]]."></textarea>
                scratchpad/ui-sweeps/settingsia.js. -->
           <section class="settings-section hidden" id="settings-searchindex">
             <p id="search-engine-health" class="status"></p>
-            <p id="embedding-error" class="status error hidden"></p>
+            <!-- WORLD_CLASS_PLAN section 21 rows 1 and 2: DESIGN.md's notice
+                 recipe (an icon, one line, the warn tone), not an error line. -->
+            <p id="embedding-error" class="notice notice-warn hidden" role="status"></p>
             <!-- The text above already told people the fix ("switch to an
                  Ollama embedding model, download nomic-embed-text"), this
                  is that fix as a button instead of a set of instructions to

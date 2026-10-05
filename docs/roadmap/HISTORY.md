@@ -19,6 +19,24 @@ Each row was checked against the head before anything was built.
   New note (`#tab-graph:has(.dock-fab) .graph-zoom`) closed it. `graphphone.js`
   now asserts it every run: the four buttons are hit at their centres and clear
   of `.dock-fab`.
+- **The tour on a fresh data dir, and at widths 600 to 1100**: run, and it had a
+  fault between 641 and 819. `tour.js` at 700x900 failed twice ("the count's total
+  never changes and is the cards shown", 5 planned, 2 shown) because the Settings
+  steps said the section strip shows from 640.02px and the picker (`.settings-jump`)
+  at 640 and below, while the CSS hides the strip and shows the picker below 820
+  (measured: strip hidden and picker 300x44 at 700, strip 212x32 from 820). So from
+  641 to 819 three strip steps were planned and not shown, and the picker step was
+  left out. The four `media` values in `tour.js` are 820 now (`(min-width: 820px)`
+  for Appearance, Models and Help, `(max-width: 819.98px)` for "Every section").
+  After: `tour.js` (FULL=0, nothing else running) 87 of 87 steps at 600x900, 640x900,
+  700x900 and 760x1000, 95 of 95 at 820x1180 and 1024x768, 99 of 99 at 1100x800, all
+  checks passed. A fresh data dir (a server on an empty directory: no notes, boards
+  or maps) at 1440x900, 390x844 and 700x900: 245 of 245 steps; the notebook-shaped
+  cards drop and the counts follow (Library 4 of 5 with no card to open a menu on,
+  Maps one card that says there is no map, at 390 the status section 0 of 4 because
+  the phone bar is folded away). One caveat found on the way: another sweep that
+  makes a board or a note while a tour walk runs fails "the tours made nothing", so
+  the walks were run alone. `tests/test_tour_follow.py` pins the 820.
 - **`gate.sh --sweeps` named fifteen sweeps that do not exist** (found with the
   `--staged` row): `requests`, `previewclash`, `wbfitanchor`, `helpstream`,
   `writingroom`, `dashdensity`, `timelinetablewidth`, `tourtile`, `findinghover`,

@@ -696,6 +696,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - The Manage categories list no longer puts each row's menu button inside the row a screen reader selects: the rows are a grid, the menu is its own cell (Right reaches it, Left comes back), and every key and click works as before.
 ### Changed
 
+- Tour: between 641 and 819px wide the Settings steps now point at the section picker instead of three strip buttons that are hidden there, so the count matches the cards shown; walked at 600 to 1100 and on an empty notebook.
 - Gate: scripts/gate.sh --sweeps no longer names fifteen sweeps whose files were deleted (each could only fail); a test keeps the list and the folder in step.
 - Sweeps: lib.js gains openBoardsTab and waitForBoardOpen (the Boards sub-tab picked and the board code waited for, not a Library press and a sleep); seven board sweeps use them, two of which used to time out.
 - Sweeps: bm1005-sidebar.js measures the whiteboard rail's Notes tab skeletons (5 at 300ms, 264 notes after) as well as the Library's; both were already built.

@@ -497,7 +497,7 @@ const TOUR_SECTIONS = [
       {
         target: "#settings-nav-appearance",
         side: "right",
-        media: "(min-width: 640.02px)",
+        media: "(min-width: 820px)",
         settings: "appearance",
         title: "Appearance",
         text: "Themes, colours, fonts and the look of every surface.",
@@ -512,7 +512,7 @@ const TOUR_SECTIONS = [
       {
         target: "#settings-nav-models",
         side: "right",
-        media: "(min-width: 640.02px)",
+        media: "(min-width: 820px)",
         settings: "models",
         title: "Models",
         text: "Which local model Atlas runs on, and how to connect one.",
@@ -520,17 +520,17 @@ const TOUR_SECTIONS = [
       {
         target: "#settings-nav-help",
         side: "right",
-        media: "(min-width: 640.02px)",
+        media: "(min-width: 820px)",
         settings: "help",
         title: "Help and this tour",
         text: "Guides, the welcome and every part of this tour, whenever you want them again.",
       },
       {
-        // At 640 and below the section list is this one picker.
+        // Below 820 the section list is this one picker (the strip is hidden).
         target: "#settings-nav .settings-jump",
         side: "bottom",
         settings: "appearance",
-        media: "(max-width: 640px)",
+        media: "(max-width: 819.98px)",
         title: "Every section",
         text: "Pick a section here: Appearance for the look, Models for Atlas, Help for this tour again.",
       },

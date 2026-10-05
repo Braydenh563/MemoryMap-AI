@@ -7,6 +7,12 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## OPEN.md rows closed, 2026-10-05 (the open-rows agent)
+
+The well-defined rows of `agent-remaining/OPEN.md` taken by one agent; each line says how it was verified.
+
+- **The note card's "Tag with Atlas" chip was drawn on a private note** (sweep 1004 item 7, found-not-fixed in `agent-remaining/sweep-1004.md`). Built: the chip's gate in `note-cards.js` carries `!entry.is_private`, as the note menu's AI actions group already did (`menus.js`); `POST /entries/{id}/reevaluate` refuses a private note, so the chip's only answer was a toast. Measured at 1440 with `scratchpad/ui-sweeps/open-privatechip.js` (a plain and a private untagged note, a model reported running): base plain 1, private 1; fixed plain 1, private 0. `tests/test_private_note_no_ai_offer.py`.
+
 ## OPEN.md rows closed, 2026-10-05 (the open-ledger pass)
 
 The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section: each open row checked against the head and the running app; a row found built, or built here, is deleted from the ledger and named below with how it was verified. The pass's own account is `agent-remaining/open-ledger-pass.md`.

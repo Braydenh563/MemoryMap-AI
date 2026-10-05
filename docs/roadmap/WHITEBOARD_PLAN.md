@@ -187,6 +187,43 @@ kind. Every tool has a key and every key is in the tooltip and the help.
    Enter on the selected connector and "Add a label" on its right-click menu.
    A cross-link on a map is the map's and keeps its ring; this is the
    board's links. Shares decision 12's one editor (`wbOpenSketchLabelEditor`).
+14. **A frame is a titled region that carries what is in it** (taken
+   2026-10-04: no decision existed for the open "board frames" row, and the
+   recommendation was taken under standing order 3). tldraw's and
+   Excalidraw's shape: an edge and a title, no fill, so shapes on the
+   drawing layer show through; F, the rail's Add section and the Insert
+   menu; click drops one (480x320, fitted to the screen), a drag draws it.
+   An object of kind `frame`, its title in `content`, stacked below
+   everything. Its inside lets the pointer through (a press inside selects
+   or draws as on bare board); the title takes the pointer. Dragging the
+   title carries whatever lies wholly inside, decided when the drag starts;
+   Ctrl moves the frame alone (the map topic's rule). Double-click the title
+   to rename. Delete leaves what it held. No rotation, no style or order
+   controls. Not on maps. Nesting, clipping and a frame as an export or
+   presentation unit are not in this decision.
+15. **A locked item lets the pointer through** (taken 2026-10-04, the open
+   "lock" row, recommendation taken under standing order 3). Excalidraw's
+   shape rather than tldraw's selectable-but-frozen one: a locked item
+   cannot be selected, dragged, resized, erased or typed into, and Select
+   all, a marquee, the lasso, a group's click and a frame's drag pass it
+   by, so no gesture needs a guard of its own. Lock: the item's right-click
+   menu and Ctrl+Shift+L. Unlock: the board's right-click menu ("Unlock 3
+   locked items"; a right-click on the item goes through to it) and
+   Ctrl+Shift+L with nothing selected. One undo step per lock or unlock. A
+   card's flag is a column (`whiteboard_nodes.locked`, migration
+   `e5a1c8f3b7d2`); a sketch's and an object's are in their data. Not on
+   maps. No lock mark is drawn.
+16. **Presentation steps through the frames** (taken 2026-10-04, the open
+   "presentation mode" row, under standing order 3; tldraw's and Miro's
+   shape, now that decision 14 gives a board its slides). View, Present
+   frames: full screen, every control hidden but one bar at the foot
+   (Previous, "2 of 5: title", Next, End), the frames in reading order
+   (rows from the top, left to right), each fitted with its title above the
+   bar's strip. Arrows, Space, Page Up and Down, Home and End walk; Escape
+   ends and restores the camera and the window. A view: no key or press
+   edits the board while it runs. No frames: a toast says to add one. Not
+   on maps (MINDMAP_PLAN 12.2 item 9 is the map's own, by branch). Speaker
+   notes, transitions and a presenter view are not in this decision.
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 

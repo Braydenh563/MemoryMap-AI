@@ -321,3 +321,19 @@ def test_generate_diagram_is_idempotent_with_add_whiteboard_card_on_a_shared_boa
     )
     assert result["cards"][0]["card_id"] == first["card_id"]
     assert session.query(WhiteboardNode).count() == 1
+
+
+def test_read_whiteboard_names_its_frames_and_the_cards_under_them(session):
+    """WHITEBOARD_PLAN decision 14: a frame's title is how a board is divided
+    up, so the agent reading the board is told it, with the cards inside."""
+    inside = _note(session, "Inside")
+    outside = _note(session, "Outside")
+    node_in = WhiteboardNode(entry_id=inside.id, x=50, y=60)
+    node_out = WhiteboardNode(entry_id=outside.id, x=900, y=900)
+    frame = WhiteboardObject(kind="frame", data=json.dumps({"content": "Ideas"}), x=0, y=0, width=400, height=300, z=-1)
+    session.add_all([node_in, node_out, frame])
+    session.commit()
+
+    result = tools.TOOLS["read_whiteboard"].handler(session, {})
+    assert result["frames"] == [{"object_id": frame.id, "title": "Ideas", "card_ids": [node_in.id]}]
+    assert result["text_boxes"] == []

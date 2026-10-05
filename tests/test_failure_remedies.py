@@ -147,7 +147,7 @@ def test_ollama_client_forwards_a_message_not_a_bare_event():
     one survived until the 2026-09-21 survey.
     """
     agent_src = _read("src/memorymap/ai/agent.py")
-    assert '"message": tools_unsupported_message(agent_model)' in agent_src
+    assert '"message": tools_unsupported_message(agent_model, getattr(exc, "declared", True))' in agent_src
     routes_src = _read("src/memorymap/api/routes_chat.py")
     # The branch that used to be `pass` must now yield the enriched event
     # before falling through to the plain-answer stream.

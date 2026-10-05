@@ -7,6 +7,227 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-04 (the first round)
+
+### From AGENT_SKILLS_REFORM.md, H4's found-not-fixed: what a small model's first round is offered
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A forced first round (`agent._first_round_tools`) is offered the writes and the reads that find a note or a reminder (`_LOCATING_TOOLS`: `search_notes`, `get_note`, `list_notes`, `list_reminders`), nothing else; the next round has the whole toolbox again | 3B, forced: "Add X to my note" opened with `get_current_time`, "Pin my dentist note" with `count_notes` | harmless read first 2 of 22 before, 0 of 22 after | `test_harness_tiers.py` (`test_a_forced_first_round_is_offered_the_writes_and_the_finders`, `test_the_round_after_a_forced_one_has_the_whole_toolbox_again`) |
+| A forced edit of a named note ("put X in my Y note", `tools.adds_to_a_named_note`) is not offered `create_note` | "Put 'buy stamps' in my shopping note" made a new note, 2 of 2 | 0 of 2; `search_notes` both times | `test_a_forced_edit_of_a_named_note_is_not_offered_a_new_note` |
+| Filing a note cues `edit_note` ("file ", "filed ", "move " in its group): the category goes on the note | "File the dentist note under Health" was offered only the category tree's four tools | `edit_note` offered | same file |
+| A question's first round (`_INFORMATION_QUESTION`: a wh-word, or an auxiliary with its subject) is offered no write; "can you pin it?" keeps its writes; the writes come back on the next round | "What tags and what categories am I using?" opened with `tag_note` (the H4 report) | no write can be first; in this sample 0 of 13 questions opened with a write before and after (the `tag_note` case did not reproduce: 3 of 3 `notebook_overview` before, 3 of 3 `list_tags` after) | `test_a_question_s_first_round_is_offered_no_write`, `test_a_request_said_as_a_question_keeps_its_writes`, `test_a_question_that_becomes_a_job_gets_its_writes_after_reading`, `test_a_large_model_s_first_round_is_not_narrowed` |
+
+Measured on Qwen2.5-3B-Instruct Q4_K_M under llama-server `--jinja -t 2`,
+the app's own system prompt and toolbox (`scratchpad/harness_firstcall.py`,
+whose probe now sends the first round's own tools), four contended cores, a
+median 80 to 94 s a round. Forced, the eleven note-targeting imperatives
+twice each: a right first tool 17 of 22 before, 20 of 22 after. The two
+misses after: one prose answer with `tool_choice: "required"` on the request
+(the server's grammar did not hold), and one `create_category` before
+`edit_note` for "File ... under Health". Unforced, ten questions and the
+tags-and-categories question three times: right 10 of 13 before, 12 of 13
+after. Small and tiny tiers only; a large model's first round is unchanged.
+
+## Moved from the plans, 2026-10-04 (presenting a board's frames)
+
+### From WHITEBOARD_PLAN.md, the open "presentation mode" row (decision 16)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| View, Present frames (`wbStartPresenting`, `wbPresentShow`, `wbStopPresenting`, `wbFramesInOrder`): full screen, `.wb-presenting` hides the chrome and makes the board a view, `#wb-present-bar` (Previous, count, Next, End), keys on the window in capture; board only (the top bar's `data-wb-surface` rows now follow the map switch too) | no way to show a board a part at a time | three frames walked in reading order by arrows, Space, Home, End and the bar; each frame 70 to 90% of the screen, clear of the bar; a tool letter and Delete do nothing; Escape restores camera (to the pixel), window and chrome; no frames: a toast; a map shows neither Present frames nor Frame | `scratchpad/ui-sweeps/wbpresent.js` 18/18 at 1440x900 and 390x844, light and dark; count text 17.07:1 light, 14.01:1 dark; `test_ui_recipes.py::test_presenting_is_one_mode_with_one_bar` |
+
+Help moved with it: the Guide's whiteboard-keys topic, the board help sheet's
+Move around list, DESIGN.md's recipe row. Not built: speaker notes,
+transitions, a presenter view; the map's own presentation by branch
+(MINDMAP_PLAN 12.2 item 9) is still open.
+
+## Moved from the plans, 2026-10-04 (board lock)
+
+### From WHITEBOARD_PLAN.md, the open "lock" row (decision 15)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| Lock: `.wb-locked` from state (`wbPaintLocks`), one CSS rule takes the pointer away from the item and its parts; `wbIsLocked` in Select all, marquee, lasso, a group's click and `wbFrameContents`; Lock on the item menu and Ctrl+Shift+L, Unlock on the board's menu and Ctrl+Shift+L with nothing selected; one undo step; card flag in `whiteboard_nodes.locked` (migration `e5a1c8f3b7d2`), sketch and object flags in their data | nothing on a board could be held in place | sticky, rectangle and card locked; presses reach the board; a drag moves nothing; Select all, a marquee and the eraser pass them by; the frame's drag leaves them; saved; undo and redo; "Unlock 3 locked items" frees all three | `scratchpad/ui-sweeps/wblock.js` 17/17 at 1440x900 and 390x844, light and dark; `test_ui_recipes.py::test_a_locked_item_is_out_of_reach_in_one_way`, `test_whiteboard.py::test_a_card_and_an_object_keep_their_lock` |
+| Found on the way, frames: a marquee drawn inside a frame took the frame too, so the next drag carried the frame and everything in it | `rectsIntersect` for every object | a frame joins a marquee only when the sweep holds all of it | the same sweep's marquee row |
+
+Not verified: a touch long-press on a locked item (the sweep right-clicks at
+390x844; the board's long-press menu is the same `openCanvasMenu`). Help moved
+with it: the Guide's whiteboard-keys topic, the board help sheet's Selection
+list, the item menu's tooltip and DESIGN.md's recipe row.
+
+## Moved from the plans, 2026-10-04 (board frames)
+
+### From WHITEBOARD_PLAN.md, the open "board frames" row (decision 14)
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A frame: an object of kind `frame` (`routes_whiteboard.FRAME_KIND`), title in `content`, drawn as `.wb-object-frame` (an edge in the muted ink, a `.wb-frame-title` above, no fill, inside `pointer-events: none`), stacked below everything (`wbFrameZ`) | no way to divide a board into titled regions; ROADMAP listed it open | F, the rail's Add section, Insert, Frame; click drops 480x320 fitted to the screen (291x194 at 390), a drag draws it; title drag carries what lies wholly inside (`wbFrameContents`, `wbFrameDragOrigin` into `wbCaptureBulkMoveOrigin`), one undo for all, Ctrl moves it alone; rename in place through `wbBeginTextEdit`; Delete leaves the contents; no rotate grip, no style or order controls; export draws it first; `read_whiteboard` lists `frames` with the cards under each; not on maps | `scratchpad/ui-sweeps/wbframes.js` 24/24 at 1440x900 light and dark, 4/4 at 390x844 light and dark; edge 3.78:1 light and 5.57:1 dark (3:1 needed), title 5.91 light and 7.96 dark (4.5 needed); `test_ui_recipes.py::test_a_frame_is_one_kind_reached_three_ways`, `test_whiteboard.py::test_a_frame_round_trips_behind_everything`, `test_ai_whiteboard_tools.py::test_read_whiteboard_names_its_frames_and_the_cards_under_them` |
+
+Not in decision 14 and not built: nesting rules, clipping what overhangs a
+frame, a frame as an export scope or a presentation step (presentation is its
+own open row). Help moved with it: the Guide's whiteboard-keys topic, the
+board's help sheet (Frame, F), the rail tooltip and DESIGN.md's recipe row.
+
+## Moved from the backlog, 2026-10-04 (an audit of BACKLOG.md by grep)
+
+Each item was checked against the code before it was moved; "already built"
+means the entry was stale, found by reading the call site, not assumed.
+
+### From section 8 (the ideas parking lot)
+
+- **Settings on a narrow viewport.** Already built: below 600px the top bar's
+  theme, settings, lock and quit squares become the rows of `#header-more`
+  (`initPhoneHeaderMore`, `phone-shell.js`; the bottom sheet's last row is
+  Settings too). Measured at 320 and 390: `#settings-btn` is `display: none`
+  there on purpose and the menu row opens `openSettingsModal()`.
+- **Dashboard widgets and markdown.** Already built: the dashboard's note
+  lists run `renderInlineMarkdown` in compact mode (`dashboard.js`, around
+  2428 to 2530), and `notePreviewText` covers the label-sized ones.
+- **The constellation widget on a theme change.** Already built:
+  `applyPalette` (`ai-tools.js`) and the theme toggle (`settings.js`) both call
+  `refreshArtForTheme()` (`dashboard.js`), guarded for load order.
+- **Gravity and Spread under tree and radial layouts.** Already built:
+  `setGraphPhysicsEnabled` (`graph.js`) disables the three sliders and puts
+  the reason on hover.
+- **The extracted page's visual rendering.** Already built: `.web-reader-text`
+  (`03-dashboard-widgets.css`) has the document measure, a heading scale,
+  blockquotes, lists and code.
+
+### From section 8b
+
+- **A start and an install in flight at once.** Fixed. A start waiting on
+  SearXNG now stops waiting the moment an install begins (the wait's
+  `still_starting` also asks `_install_state["running"]`), stops the process
+  and says "SearXNG was being reinstalled while it started" instead of
+  blaming SearXNG for writing no output. Test:
+  `test_a_start_waiting_on_searxng_gives_up_when_a_reinstall_begins`.
+
+### From section 19 and 22
+
+- **Colour contrast "never measured".** `scratchpad/ui-sweeps/contrast.js`
+  measures it in both themes (HISTORY has the numbers); `all.sh` now also runs
+  it with `THEME=dark` at 1440 and 390.
+- **`prefers-reduced-motion`.** Covered by the two blankets in
+  `02-chat-graph.css` (`test_motion_tokens.py`) and `test_motion_endings.py`.
+- **Chat, Agent and Browse selector.** Done as the Ask/Agent toggle plus the web
+  panel (section 3's audit).
+- **README drift.** `tests/test_readme_freshness.py` holds the numbers and
+  names against the code.
+
+### From section 79b
+
+- **A splash window at launch.** Built: `scripts/splash.ps1` and the launch
+  splash in `__main__.py` (`launch_status`).
+- **Agent-mode and skill auto-detect nudges, start and finish notices for
+  sub-processes, AI follow-up chips, the minimap's drag, wheel and keyboard
+  zoom, and the token-efficiency pass.** All six built in section 93.
+- **Scanned PDFs through the vision model rather than Tesseract.** Built:
+  `pdfpages` rasterises, `vision_ocr.py` reads, `routes_files.py` falls back to
+  it for a PDF with no text layer.
+- **Contrast measured** (see above).
+
+### From sections 64, 65 and 76
+
+- **Documents: a slash menu and focus mode (64).** Built: the slash menu is
+  `editor.js`'s, focus mode is `toggleDocFocus` with `#doc-focus-bar`.
+- **A clipping's source as metadata (65).** Built: `Entry.source_url` and
+  `source_title`, drawn as a "from the web" badge in `note-cards.js`.
+- **Keyword-only filing with no model (76), first half.** Built:
+  `manager.WORDS_FILED`, set by the janitor, reported as `filed_by: "words"`;
+  moving such a note by hand is logged as a correction.
+
+### From sections 16, 17 and 18
+
+- **Keyboard-only navigation of the note list (16).** Built: the list is a
+  roving-tabindex walk with ArrowDown, ArrowUp, Enter, Home, End, Delete and F2
+  (`notes-list.js`, around 2983 to 3010).
+- **The agent only in the Chat tab (18).** Built as the popup agent
+  (`agent-activity.js`, `capture-ask.js`): available from every tab.
+- **Journalling (17).** Built: a daily note is a convention
+  (`dailyNoteTitle`, `timeline.js`, TIMELINE_PLAN phase 4).
+
+### From sections 27 and 109.4
+
+- **The onboarding's model-pull offer and the writable-folder line (27).**
+  Built: `renderOnboardingActions` and `GET /storage`'s `data_dir_writable`.
+- **A backlinks panel, a conflict-safe editor, a shortcut sheet, single-note
+  and single-document export, bulk tag editing and "why is this here?" on a
+  graph edge (109.4).** All built: `/entries/{id}/backlinks`
+  (`notes-list.js`), the 409 dialog (`edit-conflict.js`), Settings, Shortcuts,
+  `/entries/{id}/export.md` and `/documents/{id}/export.md|zip|docx`, the bulk
+  dialog in `tag-manager.js`, and the edge reason in `graph.js`.
+
+### From sections 21, 28 and 29
+
+- **Skills: undo for a link change (21).** `unlink_notes` exists, so a link
+  change has an inverse; a reminder still has none.
+- **In-app help that knows the docs (28).** Built: `ai/help_chat.py`,
+  `help_topics_more.py` and the Guide.
+- **MCP, the expose half (29).** Built: `src/memorymap/mcp_server.py`.
+
+### From section 29b
+
+- **A dry-run for the background librarian (item 2).** Answered by review-after
+  rather than a true dry-run: the pass keeps what it did and every write carries
+  its undo (`autonomous.py`, ROADMAP section 40 item 2; a stubbed pass stops
+  resembling the real one, so a preview would lie).
+
+### From sections 4 and 7
+
+- **Archive (4, item 3).** Built for notes, chats and documents: each model carries
+  `archived_at` (`core/database.py`).
+- **Single instance (7).** Built in `__main__.py`: one server per data directory.
+
+### From sections 9, 10, 13 and 14
+
+- **Performance (11).** Warm model: `OllamaClient` sets `keep_alive` to 30 minutes
+  and `embeddings.start_warmup` loads the embedder; the frontend split is done
+  (`app.js` is 25 files, CLAUDE.md section 7).
+
+- **Graph utility (9).** Built: paths between two notes (`path_between`, the trace
+  in `graph.js`), orphans and hubs, drag-to-link, the timeline scrub, PNG export,
+  filters and `related_notes`.
+- **Reminders as points on the timeline (10).** Built: the `reminder` kind in
+  `timeline.js`.
+
+- **No favicon fetched per search result (13).** Held: `chat.js` draws the
+  site's first letter on a tile, because a real favicon is a request to the
+  site from inside the app for every result.
+- **Tools (14).** Built: `create_document`, `related_notes`,
+  `find_similar_notes`, `notebook_overview` and `count_notes`,
+  `save_user_preference`, `unlink_notes` and the four category tools.
+
+### From section 98
+
+- **The lightbox's actions that need an id (3b).** Built: `buildMoreMenu` in
+  `lightbox-view.js` (describe with AI, read text with AI, rename, delete),
+  shown when the item carries an id.
+
+### From section 116
+
+- **Unlink uploads when a map's entry is purged (116.1 item 1).** Built in
+  `entry/manager.py` (`_hard_delete`: a map's image objects lose their files,
+  confined to `<data>/media`; a plain board keeps its files). It had no test;
+  `test_purging_a_map_removes_its_image_files_but_a_plain_board_keeps_them`
+  in `tests/test_recycle_bin.py` now holds both halves.
+- **The Health block's latency row (116.1 item 2).** Built: `renderHealthBlock`
+  in `settings.js` draws `latency_ms_by_kind` as "kind: 1.2s typical, 3.4s slow".
+- **Mindmaps 116.2 items 6 to 10.** Built: the FreeMind `.mm` importer
+  (`whiteboard.js`), "make a map of these notes" (`POST /whiteboard/boards/propose`
+  with `_outline_covering`, called from `whiteboard.js`), focus mode,
+  perspectives, metrics and templates (`whiteboard-map.js`), the 500-node
+  measurement (HISTORY, the whiteboard topics table), and the cross-link tool.
+- **The phone and dark passes (116.1 items 3 and 4).** Measured 2026-10-04 on
+  a fresh notebook: `errors.js` at 390 over every tab, every Settings section
+  and the Library sub-tabs, 0 errors and 0 layout findings; `contrast.js` with
+  `THEME=dark` at 1440, every surface ok (the whiteboard was skipped, a fresh
+  notebook has no board). Not measured: a notebook with content on those
+  surfaces, and the dark pass at 390 (`all.sh` now runs it).
+- **Tooling 116.4.** `serve.sh` is the per-agent launcher; `all.sh` runs the
+  phone widths (`chrome.js` at 1440, 1024, 820, 390) and now a dark contrast
+  pass at 1440 and 390.
+
 ## Moved from the plans, 2026-10-04 (the consistency contract's missing lints)
 
 ### From WORLD_CLASS_PLAN.md rows 13 (section 1, D14)

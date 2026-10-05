@@ -437,6 +437,8 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "image": None,
         # And with a topic's place among its siblings (INBOX 445).
         "order": None,
+        # And with a board item held in place (WHITEBOARD_PLAN decision 15).
+        "locked": None,
     }
 
     moved = board_client.put(
@@ -964,3 +966,35 @@ def test_one_node_twice_in_a_batch_is_refused(board_client):
         json={"moves": [{"id": root["id"], "x": 1.0}, {"id": root["id"], "x": 2.0}]},
     )
     assert refused.status_code == 422, refused.text
+
+
+def test_a_frame_round_trips_behind_everything(board_client):
+    """WHITEBOARD_PLAN decision 14: a frame is an object of its own kind, its
+    title in `content`, stacked below the items it holds."""
+    made = board_client.post(
+        "/whiteboard/objects",
+        json={"kind": "frame", "data": {"content": "Ideas"}, "x": 0, "y": 0, "z": -3, "width": 480, "height": 320},
+    )
+    assert made.status_code == 201, made.text
+    frame = board_client.get("/whiteboard/").json()["objects"][0]
+    assert frame["kind"] == "frame" and frame["data"]["content"] == "Ideas" and frame["z"] == -3
+    refused = board_client.post("/whiteboard/objects", json={"kind": "frame", "data": {}, "width": 480, "height": 320})
+    assert refused.status_code == 422
+
+
+def test_a_card_and_an_object_keep_their_lock(board_client, session):
+    """WHITEBOARD_PLAN decision 15: a card's lock is a column (it has no data
+    blob), an object's is in its data; both come back as they were saved, and
+    a card made before the flag existed reads unlocked."""
+    note = _note(session)
+    card = board_client.post("/whiteboard/nodes", json={"entry_id": note.id, "x": 1, "y": 2}).json()
+    assert card["locked"] is False
+    put = board_client.put(f"/whiteboard/nodes/{card['id']}", json={"entry_id": note.id, "x": 1, "y": 2, "locked": True})
+    assert put.status_code == 200 and put.json()["locked"] is True
+    made = board_client.post(
+        "/whiteboard/objects",
+        json={"kind": "text", "data": {"content": "pinned down", "locked": True}, "width": 200, "height": 80},
+    ).json()
+    state = board_client.get("/whiteboard/").json()
+    assert next(n for n in state["nodes"] if n["id"] == card["id"])["locked"] is True
+    assert next(o for o in state["objects"] if o["id"] == made["id"])["data"]["locked"] is True

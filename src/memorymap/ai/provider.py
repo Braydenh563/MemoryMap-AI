@@ -68,10 +68,26 @@ class ProviderError(RuntimeError):
 
 class ToolsUnsupportedError(ProviderError):
     """The active model can't do tool calls, the caller should fall
-    back to plain Q&A, never fail the whole chat."""
+    back to plain Q&A, never fail the whole chat. `declared` is True when
+    the backend said so itself ("does not support tools"); False when the
+    model claims tools but its tool requests failed (INBOX 538), which
+    calls for different words."""
+
+    def __init__(self, message: str = "", declared: bool = True) -> None:
+        super().__init__(message)
+        self.declared = declared
 
 
-def tools_unsupported_message(model: str) -> str:
+#: Ollama's own words for a model whose template declares no tools. Matched
+#: exactly: a 400 that merely mentions "tool" (a bad argument, a thinking
+#: option) is a different problem and must not relabel the model (INBOX 538).
+NO_TOOLS_PHRASE = "does not support tools"
+#: Ollama's 500 when the model wrote a tool call it could not parse: the model
+#: *can* call tools and slipped once, so the request is worth one more try.
+UNREADABLE_CALL_PHRASE = "error parsing tool call"
+
+
+def tools_unsupported_message(model: str, declared: bool = True) -> str:
     """INBOX 272 part 1: a failure with a known remedy names it where it
     happened, not two screens away. Agent mode was requested and silently
     downgraded to a plain answer because `model` can't call tools, one
@@ -82,6 +98,13 @@ def tools_unsupported_message(model: str) -> str:
     fix is one setting (Settings, Models has the "Can call tools" fact
     beside every installed model), never a download: some small models
     genuinely cannot do this at any size the app would suggest pulling."""
+    if not declared:
+        return (
+            f"'{model}' says it can call tools, but its tool requests failed "
+            "twice with this backend, so this answered as a plain question "
+            "instead of using Agent mode. Asking again often works; if it "
+            "keeps happening, pick another model in Settings, Models."
+        )
     return (
         f"'{model}' can't call tools, so this answered as a plain question "
         "instead of using Agent mode. Pick a model whose spec sheet says "

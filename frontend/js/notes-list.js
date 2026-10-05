@@ -472,6 +472,12 @@ async function openNoteEditor(id, { focusTags = false } = {}) {
     noteFormDraft = null;
   }
   editingId = id;
+  //: **On a phone the note page is put away first.** Tapping a note opens it
+  //: as a full-page sheet (`openNotePage`, phone-shell.js) and its Edit button
+  //: lands here, but the form is drawn into the list, which is behind that
+  //: sheet: Edit did nothing anyone could see (found by the deepflows sweep at
+  //: 390 wide). The page closes, and the form is there to type in.
+  if (typeof notePageClose === "function") notePageClose();
   //: The caret goes into the form (WCAG 2.4.3); it was left on <body>.
   if (focusTags) focusTagsAfterRender = id;
   else focusBodyAfterRender = id;
@@ -2057,7 +2063,8 @@ function resolveWikiTarget(name) {
     const board = boardEmbedTarget(ref);
     return board ? { kind: "board", entry: board } : null;
   }
-  const needle = String(name || "").trim().toLowerCase();
+  //: `[[Target|Shown]]` finds the note by its target (`wikiLinkTarget`).
+  const needle = String(wikiLinkTarget(name) || "").trim().toLowerCase();
   if (!needle) return null;
   const entries = typeof allEntries !== "undefined" ? allEntries : [];
   //: **A vault's links name the file.** An imported note carries the path it
@@ -3009,6 +3016,13 @@ function initEntryListKeyboardNav() {
     //: here too: ArrowDown in the menu moved to the next item and then this
     //: moved the focus out of the menu onto the row (measured, menus.js).
     if (event.target.closest('.action-menu, [role="menu"], [role="listbox"]')) return;
+    //: **A text field keeps its own keys.** A note's edit form lives inside
+    //: its row, so the title box, the tags box and the body editor sent their
+    //: Home, End and arrow keys here: the caret never moved, the focus jumped
+    //: to another row, and what was typed next went nowhere (found by the
+    //: deepflows sweep: click into the editor, press End, type). Checkboxes
+    //: and buttons are not fields, so the row's arrows still work from them.
+    if (event.target.closest('textarea, select, [contenteditable], .cm-editor, input:not([type="checkbox"]):not([type="radio"]):not([type="button"])')) return;
     const items = entryListItems(list);
     const current = event.target.closest("li");
     const index = current ? items.indexOf(current) : -1;

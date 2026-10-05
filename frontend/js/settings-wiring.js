@@ -964,45 +964,13 @@ document.addEventListener("pointerdown", (e) => {
   if (!e.target.closest(".menu-wrap, .action-menu, .action-menu-escaped")) closeActionMenus();
 }, true);
 
-// Focus trapping (Wave L): while a dialog is open, Tab cycles inside it
-// instead of wandering into the page behind, a WCAG dialog basic.
-//
-// **This was a hard-coded list of eight ids, and the list was the bug.** An
-// audit counted the dialogs it did not name: `confirmDialog`, `promptDialog`,
-// the image lightbox, the note-history overlay, the recycle-bin overlay, the
-// skill-run overlay, the agent command palette, and the graph's
-// connection dialog: eight trapped, eight not, and nothing anywhere to say
-// which half a new dialog would land in. Every one of those was added by
-// somebody who had no reason to know this list existed, which is the whole
-// failure: a registry you must remember to update is a registry that goes
-// stale, and it goes stale silently, because a dialog with no focus trap
-// looks completely normal until somebody presses Tab.
-//
-// So: ask the DOM instead, and ask it the question that actually matters, 
-// **`aria-modal="true"`, not merely `role="dialog"`.** That distinction is the
-// whole correctness of this function. Of the 27 `role="dialog"` elements in
-// `index.html`, 13 are anchored *popovers* rather than modals: the
-// notifications panel, the note picker, the chat dock's disclosure, the graph
-// and timeline popups, and the six `*-intro` help panels. The page behind
-// those stays live and interactive by design, so trapping Tab inside one
-// would strand the user in a dropdown, and telling a screen reader they are
-// modal would be a straight lie about the page. `aria-modal` is exactly the
-// declaration of "everything else is inert", so a dialog that wants a focus
-// trap says so in the one attribute that already means it, and a new modal is
-// trapped from the moment it exists.
-//
-// Topmost wins, and "topmost" is document order: the static overlays sit in
-// `index.html` in a fixed sequence, and the dynamic ones (`confirmDialog` and
-// friends) are appended to `<body>`, so the last match is always the one
-// stacked on top. That matters for the real case of a confirm dialog opened
-// from inside Settings: Tab has to cycle within the confirm, not the modal
-// behind it.
-//
-// Visibility is `.hidden` plus `getClientRects()`, deliberately not
-// `offsetParent !== null`: `.modal-overlay` is `position: fixed`, and a fixed
-// element's `offsetParent` is null even when it is plainly on screen. The
-// filter below uses `offsetParent` on the *children*, which are not fixed, so
-// it is correct there and would have been wrong here.
+// Focus trapping (Wave L): while a modal is open, Tab cycles inside it.
+// The DOM is asked, not a list of ids (a hard-coded list of eight missed
+// eight more): a dialog that is `aria-modal="true"` is trapped, a popover
+// that is only `role="dialog"` is not (the page behind it stays live).
+// Topmost is the last match in document order, so a confirm opened from
+// Settings traps Tab, not Settings. Visibility is `.hidden` plus
+// `getClientRects()`, because a fixed overlay's `offsetParent` is null.
 function activeOverlay() {
   const open = [
     ...document.querySelectorAll('[role="dialog"][aria-modal="true"]'),

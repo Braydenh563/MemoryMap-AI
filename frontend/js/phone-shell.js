@@ -1021,6 +1021,11 @@ function initNotePage() {
   if (!list) return;
   list.addEventListener("click", (event) => {
     if (!window.matchMedia(PHONE_TABS).matches) return;
+    //: **In Select mode a tap is a tick, not an opening.** The whole card is
+    //: the checkbox (note-cards.js), and this handler did not know the mode:
+    //: the first tap selected the note and opened its page over the list too
+    //: (found by the deepflows sweep).
+    if (typeof selectMode !== "undefined" && selectMode) return;
     const li = event.target.closest("li[data-id]");
     if (!li || li.querySelector("textarea")) return;
     if (event.target.closest("button, a, input, select, [contenteditable], .chip-interactive, summary")) return;

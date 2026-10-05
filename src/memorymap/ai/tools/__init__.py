@@ -3699,6 +3699,11 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
             "edit", "change", "update", "rewrite", "fix", "correct", "amend",
             "append",
             "pin", "unpin", "reword", "shorten", "expand",
+            # Filing one note is `edit_note`'s `category`, not a category
+            # tool (H4, Qwen2.5-3B): "File the dentist note under Health" was
+            # offered only the category tree's four tools and called
+            # `count_notes`, the one thing on offer that seemed near it.
+            "file ", "filed ", "move ",
         ),
     ),
     (
@@ -3844,6 +3849,12 @@ _ADD_TO_NOTE = re.compile(
     r"\b(?:add|put|write|stick|include)\b[^.?!\n]{1,80}?\b(?:to|in|into|onto)\s+(?:my|the|that|this)\b[^.?!\n]{0,40}?\bnote\b",
     re.IGNORECASE,
 )
+
+
+def adds_to_a_named_note(question: str) -> bool:
+    """Whether a request adds to a note it names ("put X in my Y note"), so
+    the write it wants is an edit, never a new note."""
+    return bool(_ADD_TO_NOTE.search(question or ""))
 
 
 def focus_for(question: str, recent: str = "") -> list[str] | None:

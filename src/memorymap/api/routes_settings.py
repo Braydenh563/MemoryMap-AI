@@ -516,7 +516,9 @@ class PreferencesBody(BaseModel):
     #: *where* an activity notice lands, not whether it happens.
     agent_activity_notices: str | None = Field(default=None, pattern="^(toasts|centre)$")
     # Agent tools the user has switched off (by tool name).
-    disabled_tools: list[str] | None = Field(default=None, max_length=50)
+    #: Room for every tool and the ones still to come: the cap was 50 while the
+    #: catalogue was already 58, so the 51st switch in Settings was refused.
+    disabled_tools: list[str] | None = Field(default=None, max_length=300)
     # Which faster-whisper model size the dictation buttons load. Read by
     # `routes_voice.py` since the feature shipped; nothing ever let a user set
     # it, so every install has silently run "base" regardless of the box's

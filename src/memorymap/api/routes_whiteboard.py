@@ -172,7 +172,12 @@ MAP_REFERENCE_KINDS = {"note", "document", "file", "link"}
 #: nothing behind it, which is why deleting the map deletes it.
 MAP_TOPIC_KIND = "topic"
 
-VALID_OBJECT_KINDS = {"image", "text", MAP_TOPIC_KIND} | MAP_REFERENCE_KINDS
+#: A frame (WHITEBOARD_PLAN decision 14): a titled region of a board that
+#: carries what lies inside it when it moves. Its title is `content`; it owns
+#: nothing, so deleting it leaves what it held where it is.
+FRAME_KIND = "frame"
+
+VALID_OBJECT_KINDS = {"image", "text", FRAME_KIND, MAP_TOPIC_KIND} | MAP_REFERENCE_KINDS
 
 
 #: A card/sketch/object's own persisted group, asked for directly (Ctrl+G).
@@ -196,6 +201,8 @@ class WhiteboardNodeBase(BaseModel):
     #: ("rotations"); `None` renders identically to 0.
     rotation: float | None = Field(default=None, ge=-360, le=360)
     group_id: str | None = Field(default=None, max_length=GROUP_ID_MAX_LEN)
+    #: Decision 15: locked in place. False on every card made before it.
+    locked: bool = False
 
 
 class WhiteboardNodeOut(WhiteboardNodeBase):
@@ -227,6 +234,9 @@ class WhiteboardObjectData(BaseModel):
 
     url: str | None = Field(default=None, max_length=300)
     content: str | None = Field(default=None, max_length=MAX_OBJECT_TEXT_CHARS)
+    #: Locked in place (WHITEBOARD_PLAN decision 15). View state on a row that
+    #: already carries a blob, like `pinned` below, so it earns no column.
+    locked: bool | None = None
     color: str | None = Field(default=None, max_length=20)
     #: 0 is a topic's pin to the app's own size against a map's theme
     #: (`MAP_APP_DEFAULT_PINS`); 1 to 7 stay refused (`_size_or_pin`).
@@ -553,7 +563,7 @@ def _require_object_data(body: WhiteboardObjectBase) -> None:
                 status_code=422,
                 detail="An image has to be one that was uploaded to MemoryMap first.",
             )
-    elif body.kind in ("text", MAP_TOPIC_KIND) and body.data.content is None:
+    elif body.kind in ("text", FRAME_KIND, MAP_TOPIC_KIND) and body.data.content is None:
         raise HTTPException(
             status_code=422, detail=f"A {body.kind} item needs some content."
         )
@@ -2249,6 +2259,7 @@ def create_node(
     node.x, node.y, node.z = node_in.x, node_in.y, node_in.z
     node.width, node.height, node.group_id = node_in.width, node_in.height, node_in.group_id
     node.rotation = node_in.rotation
+    node.locked = node_in.locked
     if existing is None:
         db.add(node)
         db.flush()  # so the event can name the card's id
@@ -2285,6 +2296,7 @@ def update_node(
     node.x, node.y, node.z = node_in.x, node_in.y, node_in.z
     node.width, node.height, node.group_id = node_in.width, node_in.height, node_in.group_id
     node.rotation = node_in.rotation
+    node.locked = node_in.locked
     events.record(
         db,
         "edited",

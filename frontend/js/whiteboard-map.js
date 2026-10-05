@@ -3656,25 +3656,46 @@ function wbRenderMapEdgePluses(index, hidden, layout) {
 //: because the child already exists and `parent_id` is only writable through
 //: the endpoint that runs the cycle check. The new topic opens for typing
 //: like every other add on this map.
+//:
+//: **One Undo step that puts the child back** (INBOX 537: the create was in
+//: history and the move was not, so Ctrl+Z deleted the new topic and left
+//: the child's branch with no parent, cut off from the map). The batch
+//: replays in order: the child goes back under its parent, then the new
+//: topic goes, then every topic the tidy moved returns to where it was.
 async function wbMapInsertBetween(parentId, childId) {
   const boardId = window.currentBoardId;
   if (!boardId) return;
+  const payload = WB_KIND_INFO.object.payload;
+  const rows = new Map(wbMapIndex().nodes.map((n) => [n.id, payload(n)]));
   const created = await wbMapCreateNode({ parentId });
   if (!created) return;
+  //: `wbMapCreateNode` pushed its own create entry; this gesture is one step.
+  const top = wbUndoStack[wbUndoStack.length - 1];
+  if (top?.action === "create" && top.id === created.id) wbUndoStack.pop();
+  const history = [];
   const child = (wbState.objects || []).find((o) => o.id === childId);
-  if (!child) return;
-  try {
-    const moved = await apiJson(`/whiteboard/boards/${boardId}/nodes/${childId}/move`, {
-      method: "PUT",
-      body: JSON.stringify({ parent_id: created.id }),
-    });
-    Object.assign(child, moved);
-  } catch (err) {
-    toast(err.message || "Couldn't move that topic under the new one.", true);
-    return;
+  if (child) {
+    try {
+      const moved = await apiJson(`/whiteboard/boards/${boardId}/nodes/${childId}/move`, {
+        method: "PUT",
+        body: JSON.stringify({ parent_id: created.id }),
+      });
+      Object.assign(child, moved);
+      history.push({ action: "reparent", kind: "object", id: childId, parentId });
+    } catch (err) {
+      toast(err.message || "Couldn't move that topic under the new one.", true);
+    }
   }
+  history.push({ action: "create", kind: "object", id: created.id });
   selectWbItem("object", created.id);
   await wbMapTidyBranch(parentId);
+  for (const node of wbMapIndex().nodes) {
+    const row = rows.get(node.id);
+    if (row && (row.x !== node.x || row.y !== node.y)) {
+      history.push({ action: "move", kind: "object", id: node.id, before: row });
+    }
+  }
+  wbPushUndo({ action: "batch", entries: history });
   renderWhiteboardNow();
   wbMapEditNode(created.id);
 }
@@ -4738,7 +4759,7 @@ async function wbMapTidyBranch(parentId) {
 const WB_BOARD_ONLY_TOOLS = new Set([
   "draw", "highlighter", "eraser", "bucket",
   "line", "arrow", "rect", "circle", "triangle", "diamond",
-  "sticky", "text",
+  "sticky", "text", "frame",
 ]);
 
 //: Which dock sections a map shows (MINDMAP_PLAN.md §12.0).
@@ -4921,7 +4942,9 @@ function wbSyncConnectWords(isMap) {
 }
 
 function wbSyncToolSurfaces(isMap) {
-  for (const section of document.querySelectorAll("#wb-tool-group [data-wb-surface]")) {
+  //: And the top bar's rows that only a board has (Insert, Frame; View,
+  //: Present frames): a map has no frames (decisions 14 and 16).
+  for (const section of document.querySelectorAll("#wb-tool-group [data-wb-surface], .wb-board-menu [data-wb-surface]")) {
     section.hidden = section.dataset.wbSurface === (isMap ? "board" : "map");
   }
   wbSyncConnectWords(isMap);

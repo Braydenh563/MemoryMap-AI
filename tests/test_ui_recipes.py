@@ -3796,6 +3796,70 @@ def test_board_text_is_made_editable_in_one_place() -> None:
         assert "wbOpenSketchLabelEditor(" in wb[wb.index(f"function {caller}(") :][:1500], caller
 
 
+def test_a_frame_is_one_kind_reached_three_ways() -> None:
+    """WHITEBOARD_PLAN decision 14 (DESIGN.md's frame row): one object kind,
+    reached by the F key, the rail's Add section and the Insert menu, board
+    only; its title typed through the board's one editor; its drag carrying
+    what it holds through the bulk mover; its inside letting the pointer
+    through; the Guide naming it."""
+    wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
+    wbmap = (ROOT / "frontend" / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
+    index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    assert 'f: "frame",' in wb
+    assert '"sticky", "text", "frame",' in wbmap, "a map's F never picks the frame"
+    assert 'data-tool="frame"' in index and 'data-wb-insert="frame"' in index
+    assert "Frame (F)" in index
+    edit = wb[wb.index("function wbEditFrameTitle(") :][:2000]
+    assert "wbBeginTextEdit(titleEl)" in edit and "wbEndTextEdit(titleEl)" in edit
+    assert "|| wbFrameDragOrigin(d, d._dragAlone)" in wb
+    assert "wbCaptureBulkMoveOrigin(null, keys)" in wb[wb.index("function wbFrameDragOrigin(") :][:400]
+    frame_rule = css[css.index(".wb-object-frame {") :][:600]
+    assert "pointer-events: none;" in frame_rule and "background: transparent;" in frame_rule
+    guide = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    assert "F frame" in guide and "title drags it and what is inside it" in guide
+    assert "Ctrl+Shift+L locks the selection" in guide
+
+
+def test_a_locked_item_is_out_of_reach_in_one_way() -> None:
+    """WHITEBOARD_PLAN decision 15 (DESIGN.md's lock row): a locked item lets
+    the pointer through (one CSS rule, children named, above every per-part
+    rule), and the selections that do not go through the pointer pass it by
+    by asking `wbIsLocked`: Select all, the marquee, the lasso, a group's
+    click and a frame's drag. The way back is on the board's own menu."""
+    wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    assert "#whiteboard-container .wb-locked,\n#whiteboard-container .wb-locked * {\n  pointer-events: none;" in css
+    assert "return out.filter(([kind, item]) => !wbIsLocked(kind, item));" in wb
+    assert wb.count('if (wbIsLocked("object", obj)) continue;') == 2, "the marquee and the lasso"
+    assert wb.count("if (parsed.locked) continue;") == 2
+    assert wb.count("if (node.locked) continue;") == 2
+    assert "!wbIsLocked(memberKind, candidate)" in wb
+    assert "if (wbIsLocked(kind, item)) continue;" in wb[wb.index("function wbFrameContents(") :][:800]
+    assert "wbPaintLocks();" in wb[wb.index("function renderWhiteboard()") :]
+    assert "Unlock ${locked} locked item" in wb
+
+
+def test_presenting_is_one_mode_with_one_bar() -> None:
+    """WHITEBOARD_PLAN decision 16 (DESIGN.md's presentation row): the View
+    menu's row starts it, board only; one host class hides the chrome and
+    makes the board a view; the keys are taken on the window in the capture
+    phase so no board key acts; the bar's text is a polite live region."""
+    wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
+    index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    assert 'data-wb-fn="present" data-wb-surface="board"' in index
+    assert 'if (item.dataset.wbFn === "present") { wbStartPresenting(); return; }' in wb
+    assert 'id="wb-present-count" class="wb-present-count" aria-live="polite"' in index
+    assert "#library-view-whiteboard.wb-presenting .wb-topbar," in css
+    assert "#library-view-whiteboard.wb-presenting #wb-html-layer," in css
+    keys = wb[wb.index("let wbPresent = null;") :]
+    assert "event.stopImmediatePropagation();" in keys and "}, true);" in keys
+    assert ".wb-board-menu [data-wb-surface]" in (ROOT / "frontend" / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
+    guide = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    assert "Present frames: one frame" in guide
+
+
 def test_the_sketch_pads_ink_dots_close_up_in_the_tablet_band() -> None:
     """INBOX 276: the pad's bar wrapped at 820 on Large text, 19px short, and
     the width was in the rows (the group labels sit above them and are all

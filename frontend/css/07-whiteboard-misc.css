@@ -38,6 +38,92 @@
   text-align: center;
 }
 
+/* A frame (WHITEBOARD_PLAN decision 14): an edge and a title with nothing in
+   between, so the shapes on the drawing layer below the card layer show
+   through it. Its inside lets the pointer through to the board, so a press
+   inside a frame selects or draws as it would on bare board; the title and
+   a selected frame's handles take the pointer. */
+.wb-object-frame {
+  /* `--border` is a 10% hairline, drawn for a box that has a fill to stand
+     on; a frame is nothing but its edge, so the edge takes the muted ink. */
+  border: 1.5px solid color-mix(in srgb, var(--muted) 80%, transparent);
+  background: transparent;
+  pointer-events: none;
+}
+
+.wb-object-frame .wb-frame-title,
+.wb-object-frame .wb-resize-handle {
+  pointer-events: auto;
+}
+
+.wb-object-frame .wb-frame-title {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  max-width: 100%;
+  padding-bottom: var(--space-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.wb-object-frame.wb-text-editing .wb-frame-title {
+  color: var(--text);
+  cursor: text;
+  user-select: text;
+  text-overflow: clip;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Presenting the frames (WHITEBOARD_PLAN decision 16): every control but
+   the presentation's own bar steps aside, and the board is a view. */
+#library-view-whiteboard.wb-presenting .wb-topbar,
+#library-view-whiteboard.wb-presenting .whiteboard-floating-panel:not(#wb-present-bar),
+#library-view-whiteboard.wb-presenting .wb-context,
+#library-view-whiteboard.wb-presenting .wb-map-strip,
+#library-view-whiteboard.wb-presenting .wb-navigator,
+#library-view-whiteboard.wb-presenting .wb-tools-opener {
+  display: none;
+}
+
+#library-view-whiteboard.wb-presenting #wb-html-layer,
+#library-view-whiteboard.wb-presenting #wb-svg-layer {
+  pointer-events: none;
+}
+
+.wb-present-bar {
+  left: 50%;
+  bottom: var(--space-5);
+  transform: translateX(-50%);
+  max-width: calc(100% - 2 * var(--space-4));
+}
+
+.wb-present-count {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A locked item (WHITEBOARD_PLAN decision 15) lets the pointer through, all
+   of it: a sketch's hit path and a frame's title set their own
+   `pointer-events`, so the children are named too, and the id keeps this
+   above every per-part rule. The board's right-click menu unlocks. */
+#whiteboard-container .wb-locked,
+#whiteboard-container .wb-locked * {
+  pointer-events: none;
+}
+
 .wb-object-text {
   /* Reported directly: a text box was hard to tell apart from the board
      behind it. Two real gaps, not one, a 1px *dashed* `--glass-border`
@@ -3488,9 +3574,16 @@ dialog::backdrop {
   padding: 0;
 }
 
-/* Clear in the foot takes no height of its own: the row is the counter's. */
+/* Clear in the foot sits below the text box, never on it (INBOX 545, the
+   owner: it "clashes with the text box"; measured 6px over the box at 1440
+   and 14px at 390 when it was pulled up to take no height). The row is as
+   tall as the button and the counter is centred on it. */
+.note-composer-foot {
+  padding-top: var(--space-1);
+}
+
 .note-composer-foot .field-clear {
-  margin-block: -1.1rem;
+  margin-block: 0;
 }
 
 /* Notes tab → Ask: the question input, the answer-length select and the Ask

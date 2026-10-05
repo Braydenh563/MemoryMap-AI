@@ -1243,7 +1243,7 @@ function wbCursorForTool(tool, strokeColor, strokeWidth) {
   // cursors that already mean exactly this ("this click makes a new thing"
   // and "text goes here"), and a system cursor is the one that stays legible
   // over any board colour on any platform.
-  if (tool === "sticky") return "copy";
+  if (tool === "sticky" || tool === "frame") return "copy";
   if (tool === "text") return "text";
   // Reported directly: "the cursor on the selection tool is wrong, it should
   // be a mouse pointer." Select had no case here, so it fell through to the
@@ -3194,6 +3194,9 @@ function wbContextKindOf(sel, item) {
     return WB_FILLABLE_SHAPES.has(parsed.shape) ? "shape" : "line";
   }
   if (sel.kind === "node") return "note";
+  //: A frame has no style to set and no order to change: it stays below
+  //: what it holds (decision 14), so the bar has nothing to offer it.
+  if (sel.kind === "object" && item.kind === "frame") return null;
   if (sel.kind === "object") return item.kind === "text" ? "text" : "image";
   return null;
 }
@@ -3831,8 +3834,10 @@ function wbSelectAllItems() {
 //: picture on the board (INBOX 445).
 function wbSelectableItems() {
   const out = wbLinkCandidates();
-  for (const o of wbState.objects || []) if (o.kind === "image") out.push(["object", o]);
-  return out;
+  for (const o of wbState.objects || []) if (o.kind === "image" || o.kind === "frame") out.push(["object", o]);
+  //: A locked item is out of reach until it is unlocked (decision 15): not
+  //: in Select all, not in the Tab walk.
+  return out.filter(([kind, item]) => !wbIsLocked(kind, item));
 }
 
 //: **Tab walks the board's items, and the board says which one** (INBOX
@@ -3860,6 +3865,7 @@ function wbItemSpokenName(kind, item) {
     return title ? `Note card: ${title}` : "Note card";
   }
   if (item.kind === "image") return "Picture";
+  if (item.kind === "frame") return `Frame: ${wbFrameTitle(item)}`;
   const isTopic = WB_MAP_KINDS.has(item.kind);
   const raw = isTopic ? wbMapLabel(item) : item.data?.content;
   const text = String(raw || "").trim().split("\n")[0].slice(0, 60);
@@ -4280,7 +4286,10 @@ function wbHandleItemClick(kind, id, event) {
   if (item && item.group_id) {
     for (const [memberKind, listName] of Object.entries(WB_LIST_BY_KIND)) {
       for (const candidate of wbState[listName] || []) {
-        if (candidate.group_id === item.group_id) wbMultiSelection.add(wbMultiKey(memberKind, candidate.id));
+        //: A locked member stays put while its group moves (decision 15).
+        if (candidate.group_id === item.group_id && !wbIsLocked(memberKind, candidate)) {
+          wbMultiSelection.add(wbMultiKey(memberKind, candidate.id));
+        }
       }
     }
     wbSelectedItem = null;
@@ -5293,6 +5302,10 @@ function wbBuildContextMenu(kind) {
   // Asked for directly. Available for every kind, a sketch reorders
   // against other sketches, a card/object against both (wbZOrderPeers'
   // own comment has the full reasoning for that split).
+  //: Decision 15: held in place until unlocked from the board's own menu.
+  if (!wbIsMap()) {
+    item("Lock", "Ctrl+Shift+L. Right-click the board to unlock", () => wbLockSelection());
+  }
   subItem("Order", (sub) => {
     sub("Bring to front", "Move above everything else in this layer", () => wbSendSelectionZOrder(true));
     sub("Send to back", "Move below everything else in this layer", () => wbSendSelectionZOrder(false));
@@ -5775,7 +5788,12 @@ function wbRemapUndoIds(objects, sketches = new Map()) {
   };
   wbUndoStack.forEach(walk);
   wbRedoStack.forEach(walk);
+  for (const list of wbHistoryInFlight) list.forEach(walk);
 }
+
+//: The steps of a batch being replayed right now, and the reverses it has made
+//: so far (`wbApplyHistoryEntry`), so an id remap reaches them too.
+const wbHistoryInFlight = [];
 
 // The shared half of undo and redo: pop one entry off `from`, apply its
 // inverse, and push what would undo *that* onto `to`. Undo and redo are
@@ -5799,7 +5817,7 @@ const WB_KIND_INFO = {
     payload: (d) => ({
       entry_id: d.entry_id, board_id: d.board_id, x: d.x, y: d.y, z: d.z,
       width: d.width ?? null, height: d.height ?? null, rotation: d.rotation ?? null,
-      group_id: d.group_id ?? null,
+      group_id: d.group_id ?? null, locked: Boolean(d.locked),
     }),
   },
   object: {
@@ -6056,13 +6074,24 @@ async function wbApplyHistoryEntry(from, to) {
     // Undo presses. Bundles N sub-entries and replays each through this same
     // function (recursively: none of the sub-actions are themselves
     // batches), re-bundling whatever came back as the one reverse entry.
+    //: **Replayed backwards the other way** (INBOX 537): a batch whose steps
+    //: depend on each other (put a child back, then delete the topic it hung
+    //: from) must redo them in the opposite order. The steps not yet run and
+    //: the reverses already made are visible to `wbRemapUndoIds`, so a topic
+    //: re-made mid-batch with a new id is followed by the steps that name it.
     const reverse = [];
-    for (const sub of entry.entries) {
-      const subTo = [];
-      await wbApplyHistoryEntry([sub], subTo);
-      if (subTo.length) reverse.push(subTo[0]);
+    const pending = [...entry.entries];
+    wbHistoryInFlight.push(pending, reverse);
+    try {
+      while (pending.length) {
+        const subTo = [];
+        await wbApplyHistoryEntry([pending.shift()], subTo);
+        if (subTo.length) reverse.push(subTo[0]);
+      }
+    } finally {
+      wbHistoryInFlight.splice(wbHistoryInFlight.indexOf(pending), 2);
     }
-    to.push({ action: "batch", entries: reverse });
+    to.push({ action: "batch", entries: reverse.reverse() });
     return true;
   }
   if (entry.action === "reparent") {
@@ -6114,6 +6143,18 @@ async function wbApplyHistoryEntry(from, to) {
     // the item; reversing *that* is deleting the newly-recreated one again.
     const restored = await apiJson(base, { method: "POST", body: JSON.stringify(entry.payload) });
     wbState[list].push(restored);
+    //: **A map topic comes back under its parent, and as itself** (INBOX
+    //: 537): the flat create cannot write `parent_id` (only `/move` can, with
+    //: its cycle check), so a redone topic came back loose; and the new id
+    //: is handed to every history step that still names the old one.
+    if (entry.parentId != null && restored.board_id != null) {
+      const placed = await apiJson(`/whiteboard/boards/${restored.board_id}/nodes/${restored.id}/move`, {
+        method: "PUT",
+        body: JSON.stringify({ parent_id: entry.parentId }),
+      });
+      Object.assign(restored, placed);
+    }
+    if (entry.kind === "object" && entry.oldId != null) wbRemapUndoIds(new Map([[entry.oldId, restored.id]]));
     to.push({ action: "create", kind: entry.kind, id: restored.id });
   } else if (entry.action === "move") {
     // A drag, resize, or nudge's own undo: asked for directly ("account
@@ -6145,7 +6186,9 @@ async function wbApplyHistoryEntry(from, to) {
     //: before they made the new one, and nothing selected would drop them off
     //: the keyboard path the map is built on.
     if (entry.kind === "object" && item && item.parent_id != null) wbUndoParents.push(item.parent_id);
-    if (payload) to.push({ action: "delete", kind: entry.kind, payload });
+    if (payload) {
+      to.push({ action: "delete", kind: entry.kind, payload, oldId: entry.id, parentId: item?.parent_id ?? null });
+    }
   }
   return true;
 }
@@ -6202,8 +6245,8 @@ async function wbRedo() {
 // rendered by `renderWbObjects`. One shared creator (a POST plus the usual
 // create-undo-entry dance every other whiteboard item already does) rather
 // than a copy per kind, since only the `kind`/`data` differ.
-async function wbCreateObject(kind, data, x, y, width, height) {
-  const body = { kind, data, board_id: window.currentBoardId, x, y, z: 1, width, height };
+async function wbCreateObject(kind, data, x, y, width, height, z = 1) {
+  const body = { kind, data, board_id: window.currentBoardId, x, y, z, width, height };
   try {
     const created = await apiJson("/whiteboard/objects", { method: "POST", body: JSON.stringify(body) });
     wbState.objects = wbState.objects || [];
@@ -6261,13 +6304,229 @@ async function wbCreateTextBox(x, y, box = null) {
   });
 }
 
+//: --- Lock (WHITEBOARD_PLAN decision 15) ------------------------------------
+//:
+//: Excalidraw's shape: a locked item lets the pointer through, so it cannot
+//: be selected, dragged, resized, erased or typed into, and a marquee, Select
+//: all, the Tab walk and a frame's drag all pass it by. Nothing about it needs
+//: guarding one gesture at a time, because no gesture can reach it. The way
+//: back is the board's own right-click menu ("Unlock 3 locked items"), or
+//: Ctrl+Shift+L with nothing selected. A card keeps the flag in a column; a
+//: sketch and an object in their data.
+
+function wbSketchData(sketch) {
+  try {
+    const parsed = JSON.parse(sketch?.data);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function wbIsLocked(kind, item) {
+  if (!item) return false;
+  if (kind === "node") return Boolean(item.locked);
+  if (kind === "object") return Boolean(item.data?.locked);
+  if (kind === "sketch") return Boolean(wbSketchData(item)?.locked);
+  return false;
+}
+
+function wbLockedItems() {
+  const out = [];
+  for (const kind of ["node", "object", "sketch"]) {
+    for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) if (wbIsLocked(kind, item)) out.push([kind, item]);
+  }
+  return out;
+}
+
+//: One undo step for the lot: each item's whole state before, which the
+//: "move" entry restores (its payload carries the flag).
+async function wbSetLocked(entries, on) {
+  const undo = [];
+  for (const [kind, item] of entries) {
+    if (wbIsLocked(kind, item) === on) continue;
+    undo.push({ action: "move", kind, id: item.id, before: WB_KIND_INFO[kind].payload(item) });
+    if (kind === "node") {
+      item.locked = on;
+      await wbSaveNode(item);
+    } else if (kind === "object") {
+      const data = { ...item.data };
+      if (on) data.locked = true;
+      else delete data.locked;
+      item.data = data;
+      await wbSaveObject(item);
+    } else {
+      await wbSaveSketchProps(item, { locked: on || undefined });
+    }
+  }
+  wbPushMoveBatch(undo);
+  return undo.length;
+}
+
+async function wbLockSelection() {
+  const keys = wbMultiSelection.size
+    ? [...wbMultiSelection]
+    : wbSelectedItem ? [wbMultiKey(wbSelectedItem.kind, wbSelectedItem.id)] : [];
+  const entries = keys.map((key) => {
+    const sep = key.indexOf(":");
+    const kind = key.slice(0, sep), id = Number(key.slice(sep + 1));
+    const item = (wbState[WB_LIST_BY_KIND[kind]] || []).find((i) => i.id === id);
+    return item ? [kind, item] : null;
+  }).filter(Boolean);
+  if (!entries.length) return;
+  const count = await wbSetLocked(entries, true);
+  clearWbSelection();
+  wbScheduleRender();
+  if (count) toast(`Locked ${count === 1 ? "it" : `${count} items`}. Right-click the board to unlock.`);
+}
+
+async function wbUnlockAll() {
+  const count = await wbSetLocked(wbLockedItems(), false);
+  wbScheduleRender();
+  toast(count ? `Unlocked ${count} item${count === 1 ? "" : "s"}.` : "Nothing on this board is locked.");
+}
+
+//: The class that lets the pointer through, from state, after every render
+//: (an element rebuilt by the render has lost it). Only what changed is
+//: touched, the selection highlight's own rule.
+function wbPaintLocks() {
+  const wanted = new Set();
+  if (!wbIsMap()) {
+    for (const [kind, item] of wbLockedItems()) {
+      const el = document.querySelector(WB_SELECTOR_BY_KIND[kind](item.id));
+      if (el) wanted.add(el);
+    }
+  }
+  document.querySelectorAll("#whiteboard-container .wb-locked").forEach((el) => {
+    if (!wanted.has(el)) el.classList.remove("wb-locked");
+  });
+  for (const el of wanted) if (!el.classList.contains("wb-locked")) el.classList.add("wb-locked");
+}
+
+//: --- Frames (WHITEBOARD_PLAN decision 14) ----------------------------------
+//:
+//: A titled region of the board, the way tldraw, Excalidraw, Miro and FigJam
+//: divide one up ("Ideas", "Doing", "Done"). An object of its own kind, its
+//: title in `content`, drawn as an edge and a title with nothing in between,
+//: so the shapes under the card layer still show through it, and stacked
+//: below everything already on the board. Its inside lets the pointer
+//: through: a press inside a frame selects and draws as it would on bare
+//: board, and the frame is taken by its title or its edge handles. Moving it
+//: carries whatever lies wholly inside it (`wbFrameDragOrigin`), Ctrl held
+//: moves it alone, as Ctrl does a map topic; deleting it leaves what it held.
+
+//: The default size: a third of a 1440 board, room for a handful of cards.
+const WB_FRAME_SIZE = { w: 480, h: 320 };
+
+function wbFrameTitle(frame) {
+  return String(frame?.data?.content || "").trim() || "Frame";
+}
+
+//: Below the lowest item on the board, so a new frame never covers what was
+//: there before it, whatever order things were made in.
+function wbFrameZ() {
+  let low = 1;
+  for (const o of wbState.objects || []) if (Number.isFinite(o.z)) low = Math.min(low, o.z);
+  for (const n of wbState.nodes || []) if (Number.isFinite(n.z)) low = Math.min(low, n.z);
+  return low - 1;
+}
+
+async function wbCreateFrame(x, y, box = null) {
+  //: Never wider than most of what is on screen: on a phone the default is a
+  //: frame whose edges are off both sides, which reads as no frame at all.
+  const container = document.getElementById("whiteboard-container");
+  const k = container ? d3.zoomTransform(container).k : 1;
+  const fit = container
+    ? Math.min(1, (0.8 * container.clientWidth) / k / WB_FRAME_SIZE.w, (0.6 * container.clientHeight) / k / WB_FRAME_SIZE.h)
+    : 1;
+  const w = Math.round(WB_FRAME_SIZE.w * fit), h = Math.round(WB_FRAME_SIZE.h * fit);
+  const at = box || { x: x - w / 2, y: y - h / 2, w, h };
+  const count = (wbState.objects || []).filter((o) => o.kind === "frame").length;
+  const created = await wbCreateObject("frame", { content: `Frame ${count + 1}` }, at.x, at.y, at.w, at.h, wbFrameZ());
+  if (!created) return;
+  wbSelectToolRef?.("select");
+  selectWbItem("object", created.id);
+}
+
+//: Everything lying wholly inside a frame, as selection keys: what a drag of
+//: the frame carries. Read at the start of the drag, from where things are,
+//: so an item dragged out of a frame stops belonging to it with no bookkeeping.
+function wbFrameContents(frame) {
+  const fx = frame.x, fy = frame.y, fr = frame.x + frame.width, fb = frame.y + frame.height;
+  const keys = [];
+  for (const kind of ["node", "object", "sketch"]) {
+    for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) {
+      if (kind === "object" && item.id === frame.id) continue;
+      //: A locked item stays where it was put, frame or no frame.
+      if (wbIsLocked(kind, item)) continue;
+      const box = wbItemBBox(kind, item);
+      if (box && box.minX >= fx && box.minY >= fy && box.maxX <= fr && box.maxY <= fb) keys.push(wbMultiKey(kind, item.id));
+    }
+  }
+  return keys;
+}
+
+function wbFrameDragOrigin(d, alone) {
+  if (alone || d.kind !== "frame") return null;
+  const keys = wbFrameContents(d);
+  return keys.length ? wbCaptureBulkMoveOrigin(null, keys) : null;
+}
+
+//: The title, renamed in place: double-click it, Enter or a click away keeps
+//: the new name, Escape puts the old one back.
+function wbEditFrameTitle(titleEl, frame) {
+  if (titleEl.isContentEditable) return;
+  const before = wbFrameTitle(frame);
+  //: The board's one way into an edit (DESIGN.md: `wbBeginTextEdit`).
+  wbBeginTextEdit(titleEl);
+  const range = document.createRange();
+  range.selectNodeContents(titleEl);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  let cancelled = false;
+  const onKey = (event) => {
+    event.stopPropagation();
+    if (event.key === "Enter") { event.preventDefault(); titleEl.blur(); }
+    if (event.key === "Escape") { event.preventDefault(); cancelled = true; titleEl.blur(); }
+  };
+  titleEl.addEventListener("keydown", onKey);
+  titleEl.addEventListener("blur", () => {
+    titleEl.removeEventListener("keydown", onKey);
+    wbEndTextEdit(titleEl);
+    const name = wbEditedText(titleEl).replace(/\s+/g, " ").trim().slice(0, 80);
+    if (cancelled || !name || name === before) {
+      titleEl.textContent = before;
+      return;
+    }
+    wbPushUndo({ action: "move", kind: "object", id: frame.id, before: WB_KIND_INFO.object.payload(frame) });
+    frame.data = { ...frame.data, content: name };
+    titleEl.textContent = name;
+    wbSaveObject(frame);
+  }, { once: true });
+}
+
+function wbBuildFrame(el, d) {
+  el.append("div")
+    .attr("class", "wb-frame-title")
+    .attr("title", "Drag to move the frame and what is in it; double-click to rename")
+    .text(wbFrameTitle(d))
+    .on("dblclick", function (event) {
+      event.stopPropagation();
+      wbEditFrameTitle(this, d);
+    })
+    .on("pointerdown", function (event) {
+      if (this.isContentEditable) event.stopPropagation();
+    });
+}
+
 //: **The box a text or sticky drag draws** (the owner, 2026-09-24: a drag
 //: with either tool should make a box that size). From the press to the
 //: pointer, in board units, never smaller than `WB_PLACE_MIN` for its kind:
 //: a box smaller than one line of its own text is a box nobody can type into,
 //: so a short drag grows the box away from the press, in the direction the
 //: drag went, rather than refusing it.
-const WB_PLACE_MIN = { text: { w: 60, h: 32 }, sticky: { w: 80, h: 60 } };
+const WB_PLACE_MIN = { text: { w: 60, h: 32 }, sticky: { w: 80, h: 60 }, frame: { w: 120, h: 80 } };
 
 function wbPlaceBox(start, x, y) {
   const min = WB_PLACE_MIN[start.place] || WB_PLACE_MIN.text;
@@ -6602,6 +6861,23 @@ function wbBuildExportSvg(scope) {
     `<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="${bgColor}" />`,
   ];
 
+  //: Frames first (decision 14): they sit under everything they hold, in the
+  //: file as on the board. The edge and title ink are read off the frame as
+  //: drawn, since the stylesheet does not travel into a standalone SVG.
+  for (const frame of wbState.objects || []) {
+    if (frame.kind !== "frame") continue;
+    if (onlyKeys && !onlyKeys.has(wbMultiKey("object", frame.id))) continue;
+    const frameEl = document.querySelector(`#wb-html-layer .wb-object[data-id="${frame.id}"]`);
+    const edge = frameEl ? wbExportColour(getComputedStyle(frameEl).borderTopColor) : null;
+    const titleEl = frameEl?.querySelector(".wb-frame-title");
+    const ink = titleEl ? wbExportColour(getComputedStyle(titleEl).color) : null;
+    parts.push(
+      `<rect x="${frame.x}" y="${frame.y}" width="${frame.width}" height="${frame.height}" rx="6" fill="none" ` +
+        `stroke="${wbSvgEscape(edge || "#8a90a0")}" stroke-width="1.5" />`
+    );
+    parts.push(wbSvgText([wbFrameTitle(frame)], frame.x, frame.y - 6, { fontSize: 12, fill: ink || "#8a90a0" }));
+  }
+
   // A map's branch colours, and its tree edges, both computed once for the
   // whole export. The edges are cloned out of the live DOM rather than
   // recomputed: they are already real SVG paths in board coordinates (that is
@@ -6716,6 +6992,8 @@ function wbBuildExportSvg(scope) {
   // look, since those are the whole point of a text box.
   for (const obj of wbState.objects || []) {
     if (onlyKeys && !onlyKeys.has(wbMultiKey("object", obj.id))) continue;
+    //: Drawn before the sketches, above.
+    if (obj.kind === "frame") continue;
     parts.push(`<g transform="translate(${obj.x}, ${obj.y})">`);
     if (obj.kind === "image" && obj.data.url) {
       // `mediaSrc`, not the bare url: rasterizing this SVG loads it through
@@ -9276,6 +9554,7 @@ async function initWhiteboard() {
     e.stopPropagation();
     closeAllWbMenus();
     if (item.dataset.wbFn === "select-all") { wbSelectAllItems(); return; }
+    if (item.dataset.wbFn === "present") { wbStartPresenting(); return; }
     if (item.dataset.wbClick) document.getElementById(item.dataset.wbClick)?.click();
   });
   //: **A board can change its mind.** Reported: "when I press the boards
@@ -9449,6 +9728,9 @@ async function initWhiteboard() {
     // than decided here; see `WB_TOOL_SHIFT_KEYS` below).
     n: "sticky",
     c: "link-straight",
+    // tldraw's key for the same tool (decision 14). A selected map topic
+    // keeps F for its focus: that handler runs first and returns.
+    f: "frame",
   };
   // Shift + the same letter, for the second tool of a pair. One table rather
   // than an `if` beside the dispatch, so a third pair cannot be added in a
@@ -9806,6 +10088,14 @@ async function initWhiteboard() {
       wbUngroupSelection();
       return;
     }
+    //: Lock what is selected; with nothing selected, unlock everything
+    //: (decision 15). Not on a map, whose topics have their own keys.
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "l" && !wbIsMap()) {
+      e.preventDefault();
+      if (wbMultiSelection.size || wbSelectedItem) wbLockSelection();
+      else wbUnlockAll();
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "g") {
       e.preventDefault();
       wbGroupSelection();
@@ -10054,6 +10344,10 @@ async function initWhiteboard() {
       const [x, y] = getLogicalMouse(e);
       wbCreateSticky(x, y);
     }
+    if (window.currentTool === "frame") {
+      const [x, y] = getLogicalMouse(e);
+      wbCreateFrame(x, y);
+    }
   });
 
   // Rectangle marquee select: reported directly ("area select... missing").
@@ -10126,7 +10420,8 @@ async function initWhiteboard() {
     //: marquee's own dashed rectangle and the same 4-unit threshold, so the
     //: two gestures cannot disagree about where a click ends and a drag
     //: begins.
-    const place = window.currentTool === "text" || window.currentTool === "sticky" ? window.currentTool : null;
+    //: And the frame tool (decision 14), the same two gestures.
+    const place = ["text", "sticky", "frame"].includes(window.currentTool) ? window.currentTool : null;
     if ((window.currentTool !== "select" && !place) || !wbIsEmptyCanvasTarget(e.target)) return;
     //: A finger on bare canvas with Select pans (`wbZoomFilter`), so it is
     //: not also the start of an area select.
@@ -10356,10 +10651,20 @@ async function initWhiteboard() {
     items.push(
       makeMenuItem("ph:text-t Add a text box here", "Or double-click the canvas", () => wbCreateTextBox(x, y)),
       makeMenuItem("ph:note Add a sticky note here", "N", () => wbCreateSticky(x, y)),
+      makeMenuItem("ph:frame-corners Add a frame here", "F", () => wbCreateFrame(x, y)),
       makeMenuItem("ph:selection-all Select all", "Ctrl+A", () => wbSelectAllItems()),
       makeMenuItem("ph:magnifying-glass Zoom to 100%", "Ctrl+0", () => camera.transition().duration(160).call(wbZoom.scaleTo, 1)),
       makeMenuItem("ph:frame-corners Fit everything", "Shift+1", () => wbZoomToFit()),
     );
+    //: The way back to a locked item (decision 15): it lets the pointer
+    //: through, so a right-click on it lands here, on the board.
+    const locked = wbLockedItems().length;
+    if (locked) {
+      items.push(makeMenuItem(
+        `ph:lock-simple-open Unlock ${locked} locked item${locked === 1 ? "" : "s"}`,
+        "Ctrl+Shift+L with nothing selected", () => wbUnlockAll()
+      ));
+    }
     openMenuAtPoint(items, "This board", clientX, clientY);
   };
 
@@ -10427,11 +10732,13 @@ async function initWhiteboard() {
       wbPlaceJustDrawn = true;
       const box = wbPlaceBox(start, x, y);
       if (start.place === "sticky") wbCreateSticky(x, y, box);
+      else if (start.place === "frame") wbCreateFrame(x, y, box);
       else wbCreateTextBox(x, y, box);
       return;
     }
     if (!shiftKey) wbMultiSelection.clear();
     for (const node of wbState.nodes) {
+      if (node.locked) continue; // decision 15: out of reach until unlocked
       const el = document.querySelector(WB_SELECTOR_BY_KIND.node(node.id));
       const w = el?.offsetWidth || 250, h = el?.offsetHeight || 150;
       if (rectsIntersect(mx, my, mw, mh, node.x, node.y, w, h)) {
@@ -10439,13 +10746,21 @@ async function initWhiteboard() {
       }
     }
     for (const obj of wbState.objects || []) {
-      if (rectsIntersect(mx, my, mw, mh, obj.x, obj.y, obj.width, obj.height)) {
+      if (wbIsLocked("object", obj)) continue;
+      //: A frame only when the sweep holds all of it (decision 14): a sweep
+      //: drawn inside a frame is about what is in it, and taking the frame
+      //: along would make the next drag carry the frame and everything else.
+      const hit = obj.kind === "frame"
+        ? mx <= obj.x && my <= obj.y && mx + mw >= obj.x + obj.width && my + mh >= obj.y + obj.height
+        : rectsIntersect(mx, my, mw, mh, obj.x, obj.y, obj.width, obj.height);
+      if (hit) {
         wbMultiSelection.add(wbMultiKey("object", obj.id));
       }
     }
     for (const sketch of wbState.sketches) {
       const parsed = wbSketchParsedData(sketch);
       if (!parsed) continue; // a link sketch: nothing here to select as a shape
+      if (parsed.locked) continue;
       const bbox = wbPathBBox(parsed.d);
       if (bbox && rectsIntersect(mx, my, mw, mh, bbox.minX, bbox.minY, bbox.width, bbox.height)) {
         wbMultiSelection.add(wbMultiKey("sketch", sketch.id));
@@ -10564,6 +10879,7 @@ async function initWhiteboard() {
     if (points.length < 3) return; // a tap, not a loop, nothing to select
     if (!shiftKey) wbMultiSelection.clear();
     for (const node of wbState.nodes) {
+      if (node.locked) continue; // decision 15: out of reach until unlocked
       const el = document.querySelector(WB_SELECTOR_BY_KIND.node(node.id));
       const w = el?.offsetWidth || 250, h = el?.offsetHeight || 150;
       if (wbPointInPolygon(node.x + w / 2, node.y + h / 2, points)) {
@@ -10571,6 +10887,7 @@ async function initWhiteboard() {
       }
     }
     for (const obj of wbState.objects || []) {
+      if (wbIsLocked("object", obj)) continue;
       if (wbPointInPolygon(obj.x + obj.width / 2, obj.y + obj.height / 2, points)) {
         wbMultiSelection.add(wbMultiKey("object", obj.id));
       }
@@ -10578,6 +10895,7 @@ async function initWhiteboard() {
     for (const sketch of wbState.sketches) {
       const parsed = wbSketchParsedData(sketch);
       if (!parsed) continue; // a link sketch: nothing here to select as a shape
+      if (parsed.locked) continue;
       const bbox = wbPathBBox(parsed.d);
       if (bbox && wbPointInPolygon(bbox.minX + bbox.width / 2, bbox.minY + bbox.height / 2, points)) {
         wbMultiSelection.add(wbMultiKey("sketch", sketch.id));
@@ -13702,6 +14020,7 @@ function renderWhiteboard() {
   // before this render is gone with it, re-apply from the state that
   // actually persists (`wbSelectedItem`), not the DOM.
   wbApplySelectionHighlight();
+  wbPaintLocks();
 
   //: A frame later, not now: a fresh element has to be drawn once before it
   //: is culled, which is what gives `contain-intrinsic-size: auto` a size to
@@ -13900,6 +14219,7 @@ async function wbSaveNode(node) {
         width: node.width ?? null, height: node.height ?? null,
         rotation: node.rotation ?? null,
         group_id: node.group_id ?? null,
+        locked: Boolean(node.locked),
       }),
     });
     Object.assign(node, saved);
@@ -14050,7 +14370,7 @@ function renderWbObjects(canvas) {
       d._dragAlone = Boolean(event.sourceEvent?.ctrlKey || event.sourceEvent?.metaKey);
       d._bulkOrigin = wbDragIsBulkMove("object", d.id)
         ? wbCaptureBulkMoveOrigin(wbMultiKey("object", d.id))
-        : wbMapBranchDragOrigin(d, d._dragAlone);
+        : wbMapBranchDragOrigin(d, d._dragAlone) || wbFrameDragOrigin(d, d._dragAlone);
     }
     //: Once per gesture, not once per move: the card drag beside this one
     //: took the same fix (INBOX 114, and see its own comment). `raise()`
@@ -14441,6 +14761,8 @@ function renderWbObjects(canvas) {
               .on("click", (event) => { event.stopPropagation(); deleteObject(d); });
           }
         });
+    } else if (d.kind === "frame") {
+      wbBuildFrame(el, d);
     } else if (WB_MAP_KINDS.has(d.kind)) {
       // A map node, not a text box. Checked before the `else` below because
       // that branch is "everything that isn't an image", which is what drew a
@@ -14545,6 +14867,9 @@ function renderWbObjects(canvas) {
         .attr("title", "Drag to resize: Shift keeps the proportions, double-click fits the text")
         .call(resizeDrag(handle));
     }
+    //: A frame is a region of the board, and a turned region holds nothing
+    //: square (decision 14).
+    if (d.kind === "frame") return;
     el.append("div")
       .attr("class", "wb-rotate-handle")
       .attr("title", "Drag to rotate: Shift snaps to 15°, double-click stands it upright")
@@ -14607,6 +14932,9 @@ function renderWbObjects(canvas) {
       el.select("img").attr("src", mediaSrc(d.data.url) || "");
     } else if (WB_MAP_KINDS.has(d.kind)) {
       wbPaintMapNode(el, d, mapIndex, mapColors, mapFills);
+    } else if (d.kind === "frame") {
+      const title = this.querySelector(".wb-frame-title");
+      if (title && !title.isContentEditable) title.textContent = wbFrameTitle(d);
     } else {
       el.style("background", d.data.bg || "").style("border-color", d.data.border_color || "");
       const textEl = el.select(".wb-text-content");
@@ -15797,4 +16125,141 @@ document.addEventListener("keydown", (event) => {
   if (!host || !host.classList.contains("wb-fullscreen")) return;
   if (document.querySelector(".modal-overlay:not(.hidden), .lightbox")) return;
   toggleWhiteboardFullscreen(false);
+});
+
+//: --- Presenting a board's frames (WHITEBOARD_PLAN decision 16) -------------
+//:
+//: tldraw's and Miro's shape: the frames are the slides. View, Present frames
+//: fills the window with the board, hides every control but one small bar, and
+//: shows the frames one at a time in reading order (rows from the top, left to
+//: right in a row: the Tab walk's order), each zoomed to fill the screen with
+//: its title. The arrow keys, Space, Page Up and Page Down, Home and End walk;
+//: Escape or the bar's X ends it and puts the board back as it was. It is a
+//: view: no key edits the board while it runs. A board with no frame says how
+//: to make one rather than presenting nothing.
+
+let wbPresent = null;
+
+//: Rows first: two frames whose tops are closer than half the shorter one's
+//: height sit in one row, read left to right; rows are read top to bottom.
+function wbFramesInOrder() {
+  const frames = (wbState.objects || []).filter((o) => o.kind === "frame").sort((a, b) => a.y - b.y);
+  const rows = [];
+  for (const frame of frames) {
+    const row = rows[rows.length - 1];
+    if (row && Math.abs(frame.y - row[0].y) < Math.min(frame.height, row[0].height) / 2) row.push(frame);
+    else rows.push([frame]);
+  }
+  return rows.flatMap((row) => row.sort((a, b) => a.x - b.x));
+}
+
+function wbStartPresenting() {
+  if (wbIsMap()) return;
+  const frames = wbFramesInOrder();
+  if (!frames.length) {
+    toast("Add a frame first (F): each frame is one step of the presentation.");
+    return;
+  }
+  const host = document.getElementById("library-view-whiteboard");
+  const container = document.getElementById("whiteboard-container");
+  if (!host || !container) return;
+  clearWbSelection();
+  wbPresent = {
+    ids: frames.map((f) => f.id),
+    at: 0,
+    wasFull: host.classList.contains("wb-fullscreen"),
+    camera: d3.zoomTransform(container),
+    focus: document.activeElement,
+  };
+  toggleWhiteboardFullscreen(true);
+  host.classList.add("wb-presenting");
+  document.getElementById("wb-present-bar")?.classList.remove("hidden");
+  //: After the chrome has gone, so the frame is fitted to the room it has.
+  requestAnimationFrame(() => {
+    wbPresentShow(0);
+    document.getElementById("wb-present-next")?.focus({ preventScroll: true });
+  });
+}
+
+function wbPresentShow(index) {
+  if (!wbPresent) return;
+  const ids = wbPresent.ids.filter((id) => (wbState.objects || []).some((o) => o.id === id));
+  if (!ids.length) {
+    wbStopPresenting();
+    return;
+  }
+  wbPresent.ids = ids;
+  const at = Math.max(0, Math.min(ids.length - 1, index));
+  wbPresent.at = at;
+  const frame = wbState.objects.find((o) => o.id === ids[at]);
+  const container = document.getElementById("whiteboard-container");
+  const rect = container.getBoundingClientRect();
+  //: The title sits above the frame, so the box shown takes it in.
+  const title = 28;
+  const pad = Math.min(48, rect.width * 0.05);
+  //: And the bar keeps its own strip at the foot, so it never sits on the frame.
+  const bar = document.getElementById("wb-present-bar");
+  const foot = bar ? bar.offsetHeight + 16 : 0;
+  const w = frame.width, h = frame.height + title;
+  const room = rect.height - pad * 2 - foot;
+  const k = Math.max(0.1, Math.min(4, (rect.width - pad * 2) / w, room / h));
+  const cx = frame.x + w / 2, cy = frame.y - title + h / 2;
+  const target = d3.zoomIdentity.translate(rect.width / 2 - k * cx, pad + room / 2 - k * cy).scale(k);
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const sel = d3.select(container);
+  (reduce ? sel : sel.transition().duration(320)).call(wbZoom.transform, target);
+  const count = document.getElementById("wb-present-count");
+  if (count) count.textContent = `${at + 1} of ${ids.length}: ${wbFrameTitle(frame)}`;
+  const prev = document.getElementById("wb-present-prev");
+  const next = document.getElementById("wb-present-next");
+  if (prev) prev.disabled = at === 0;
+  if (next) next.disabled = at === ids.length - 1;
+}
+
+function wbStopPresenting() {
+  if (!wbPresent) return;
+  const { wasFull, camera, focus } = wbPresent;
+  wbPresent = null;
+  document.getElementById("library-view-whiteboard")?.classList.remove("wb-presenting");
+  document.getElementById("wb-present-bar")?.classList.add("hidden");
+  if (!wasFull) toggleWhiteboardFullscreen(false);
+  //: Back to where the board was looked at from before.
+  const container = document.getElementById("whiteboard-container");
+  if (container && camera) d3.select(container).call(wbZoom.transform, camera);
+  (focus && document.contains(focus) ? focus : container)?.focus?.({ preventScroll: true });
+}
+
+//: While it runs the keys are the presentation's, ahead of the board's own
+//: (capture, on the window): an arrow walks the slides rather than nudging,
+//: and a tool letter does nothing at all rather than changing a hidden tool.
+window.addEventListener("keydown", (event) => {
+  if (!wbPresent) return;
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  const step = {
+    ArrowRight: 1, ArrowDown: 1, PageDown: 1, " ": 1, Enter: 1,
+    ArrowLeft: -1, ArrowUp: -1, PageUp: -1,
+  }[event.key];
+  if (event.key === "Tab") return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  //: Enter and Space on a focused bar button press that button, here rather
+  //: than by the browser: the board's own Space (pan) would cancel it.
+  const button = (event.key === "Enter" || event.key === " ") && event.target.closest?.("#wb-present-bar button");
+  if (button) {
+    if (!button.disabled) button.click();
+    return;
+  }
+  if (event.key === "Escape") wbStopPresenting();
+  else if (event.key === "Home") wbPresentShow(0);
+  else if (event.key === "End") wbPresentShow(wbPresent.ids.length - 1);
+  else if (step) wbPresentShow(wbPresent.at + step);
+}, true);
+
+//: The bar's three, by delegation: the script can run before the bar is parsed.
+document.addEventListener("click", (event) => {
+  const button = event.target.closest?.("#wb-present-bar button");
+  if (!button || !wbPresent) return;
+  if (button.id === "wb-present-prev") wbPresentShow(wbPresent.at - 1);
+  else if (button.id === "wb-present-next") wbPresentShow(wbPresent.at + 1);
+  else if (button.id === "wb-present-end") wbStopPresenting();
 });

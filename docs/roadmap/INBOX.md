@@ -65,7 +65,10 @@ with its owner named in the entry.
      (d) The dashboard's map widget is "dynamic depending on map size and
      scale": the card's height and the map's scale follow the map's shape,
      a small map at a readable size, a tall one in a taller card up to a
-     limit, then fitted whole.
+     limit, then fitted whole. Built 2026-10-05: the Boards & maps widget
+     draws its busiest board large (`dashMapFeature`, dash-boards.js, lazy),
+     96px to 168px for six topics or fewer, up to 320px otherwise, fitted
+     whole past that; `mmdoc1005-dashmap.js` 5/5 at 1440 and 390.
      Placed: the next free Opus, after the boot-JS split lands (budget).
 
 554. **The owner, 2026-10-05, verbatim.** "the feminine atlas whisps should

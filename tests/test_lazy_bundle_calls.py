@@ -99,6 +99,9 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: dash-boards.js (INBOX 553(d)): `renderBoardsWidget` awaits
+    #: `ensureModule("dashBoards")` on the line and calls only when it loaded.
+    "dashRenderBoards": "dashBoards, awaited by renderBoardsWidget on the same line",
     #: The settingsUi bundle (settings-find.js) is awaited by `openSettingsModal`
     #: before it shows any section, and every call below runs from a section
     #: that is on screen or a search field inside the open dialog. With the

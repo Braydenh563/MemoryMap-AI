@@ -1230,6 +1230,11 @@ topic: a control that wide has nowhere to go.
    `POST /boards/{id}/nodes/outline` in one transaction and recorded as one
    Undo step. Ctrl+V on a map with nothing copied on the board lets the
    browser's paste through to it; an in-app copy still pastes as before.
+30. **The dashboard draws a map at its own shape** (taken 2026-10-05, INBOX
+   553(d), the owner's decision): the Boards & maps widget's busiest board
+   at the widget's width and its natural height, at least 96px, at most
+   168px for six topics or fewer and 320px otherwise, then fitted whole;
+   the rest as rows. DESIGN.md's recipe row names the numbers.
 
 ### Phases, each with the gate it is finished against
 

@@ -4578,6 +4578,42 @@ button.answer-figure-open {
   border-radius: 0;
 }
 
+/* **The busiest map, large, at its own shape** (INBOX 553(d)). One button,
+   the board embed's recipe: the whole picture is the press. Its height is
+   set by `dashMapFeature` (dash-boards.js) from the map's aspect, between
+   the floor and the caps there; 96px until then. */
+.dash-board-feature {
+  display: block;
+  width: 100%;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dash-board-feature:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.dash-board-feature .dash-board-feature-map {
+  width: 100%;
+  height: 96px;
+  margin: 0;
+}
+
+.dash-board-feature-caption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  text-align: start;
+}
+
 /* `.dash-board-thumb-card` / `-sketch` lived here and are gone with the copy
    of the drawing they belonged to. The widget's thumbnail is now produced by
    `mapPreview` (note-cards.js) exactly like the Library card's, so it carries

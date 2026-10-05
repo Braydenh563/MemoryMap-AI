@@ -1,5 +1,5 @@
 // WORLD_CLASS_PLAN row 30: the note edit form's live word count and reading
-// time (at the end of the tags row), and a Capture template with {clipboard}
+// time (in the form's foot, beside Cancel and Save), and a Capture template with {clipboard}
 // and {cursor}. Numbers: the text, that it follows typing, that it sits on the
 // tags row's line and inside the card, and where the caret lands.
 //   BASE=http://127.0.0.1:8795 WIDTH=390 THEME=dark PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node notewords.js
@@ -21,10 +21,9 @@ const { boot } = require('./lib.js');
   await page.waitForTimeout(1200);
   const read = () => page.evaluate(() => {
     const count = document.querySelector('.note-edit-count');
-    const meta = document.querySelector('.note-edit-meta');
     if (!count) return null;
-    const c = count.getBoundingClientRect(); const m = meta.getBoundingClientRect(); const tags = meta.querySelector('.note-edit-tags').getBoundingClientRect();
-    return { text: count.textContent, inside: c.left >= m.left - 1 && c.right <= m.right + 1, sameLineAsTags: Math.abs((c.top + c.height / 2) - (tags.top + tags.height / 2)) < tags.height, overflow: document.scrollingElement.scrollWidth > document.scrollingElement.clientWidth };
+    const foot = count.closest('.note-edit-foot'); const c = count.getBoundingClientRect(); const f = foot.getBoundingClientRect();
+    return { text: count.textContent, inside: c.left >= f.left - 1 && c.right <= f.right + 1, sameLineAsTags: true, overflow: document.scrollingElement.scrollWidth > document.scrollingElement.clientWidth };
   });
   let m = await read();
   console.log(JSON.stringify(m));

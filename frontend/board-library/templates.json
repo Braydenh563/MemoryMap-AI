@@ -1,0 +1,648 @@
+{
+ "format": "memorymap-library-set",
+ "version": 1,
+ "key": "templates",
+ "name": "Templates",
+ "items": [
+  {
+   "key": "kanban",
+   "kind": "element",
+   "name": "Kanban with cards",
+   "tags": [
+    "template",
+    "tasks",
+    "to do",
+    "doing",
+    "done"
+   ],
+   "payload": {
+    "box": {
+     "w": 1040,
+     "h": 520
+    },
+    "items": [
+     {
+      "key": "f0",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "To do"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 320,
+      "h": 520,
+      "z": -1
+     },
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Doing"
+      },
+      "x": 360,
+      "y": 0,
+      "w": 320,
+      "h": 520,
+      "z": -1
+     },
+     {
+      "key": "f2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Done"
+      },
+      "x": 720,
+      "y": 0,
+      "w": 320,
+      "h": 520,
+      "z": -1
+     },
+     {
+      "key": "s0",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "First task",
+       "bg": "#fff4a3",
+       "border_color": "#e8d56a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 60,
+      "y": 80,
+      "w": 200,
+      "h": 120,
+      "z": 1
+     },
+     {
+      "key": "s1",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Second task",
+       "bg": "#fff4a3",
+       "border_color": "#e8d56a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 60,
+      "y": 230,
+      "w": 200,
+      "h": 120,
+      "z": 1
+     },
+     {
+      "key": "s2",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "In progress",
+       "bg": "#cfe8ff",
+       "border_color": "#94bfe8",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 420,
+      "y": 80,
+      "w": 200,
+      "h": 120,
+      "z": 1
+     },
+     {
+      "key": "s3",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Finished",
+       "bg": "#d6f5c9",
+       "border_color": "#9dd18a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 780,
+      "y": 80,
+      "w": 200,
+      "h": 120,
+      "z": 1
+     }
+    ],
+    "links": []
+   },
+   "template": "board"
+  },
+  {
+   "key": "retro",
+   "kind": "element",
+   "name": "Retrospective",
+   "tags": [
+    "template",
+    "retro",
+    "review",
+    "went well"
+   ],
+   "payload": {
+    "box": {
+     "w": 1320,
+     "h": 440
+    },
+    "items": [
+     {
+      "key": "f0",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Went well"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 300,
+      "h": 440,
+      "z": -1
+     },
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "To improve"
+      },
+      "x": 340,
+      "y": 0,
+      "w": 300,
+      "h": 440,
+      "z": -1
+     },
+     {
+      "key": "f2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Ideas"
+      },
+      "x": 680,
+      "y": 0,
+      "w": 300,
+      "h": 440,
+      "z": -1
+     },
+     {
+      "key": "f3",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Actions"
+      },
+      "x": 1020,
+      "y": 0,
+      "w": 300,
+      "h": 440,
+      "z": -1
+     },
+     {
+      "key": "s0",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Add a note",
+       "bg": "#d6f5c9",
+       "border_color": "#9dd18a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 50,
+      "y": 80,
+      "w": 200,
+      "h": 120,
+      "z": 1
+     },
+     {
+      "key": "s1",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Add a note",
+       "bg": "#ffd1dc",
+       "border_color": "#e8a3b4",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 390,
+      "y": 80,
+      "w": 200,
+      "h": 120,
+      "z": 1
+     },
+     {
+      "key": "s2",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Add a note",
+       "bg": "#fff4a3",
+       "border_color": "#e8d56a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 730,
+      "y": 80,
+      "w": 200,
+      "h": 120,
+      "z": 1
+     },
+     {
+      "key": "s3",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Add a note",
+       "bg": "#cfe8ff",
+       "border_color": "#94bfe8",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 1070,
+      "y": 80,
+      "w": 200,
+      "h": 120,
+      "z": 1
+     }
+    ],
+    "links": []
+   },
+   "template": "board"
+  },
+  {
+   "key": "flow",
+   "kind": "element",
+   "name": "Flowchart, a loop",
+   "tags": [
+    "template",
+    "flowchart",
+    "process",
+    "decision"
+   ],
+   "payload": {
+    "box": {
+     "w": 440,
+     "h": 580
+    },
+    "items": [
+     {
+      "key": "start",
+      "kind": "sketch",
+      "data": {
+       "d": "M 40 0 L 120 0 A 40 40 0 0 1 120 80 L 40 80 A 40 40 0 0 1 40 0 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.15,
+        "y": 0,
+        "w": 0.7,
+        "h": 1
+       },
+       "label": "Start"
+      },
+      "z": 5
+     },
+     {
+      "key": "step",
+      "kind": "sketch",
+      "data": {
+       "d": "M 0 160 L 160 160 L 160 240 L 0 240 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label": "Do the first step"
+      },
+      "z": 5
+     },
+     {
+      "key": "ask",
+      "kind": "sketch",
+      "data": {
+       "d": "M 80 320 L 160 370 L 80 420 L 0 370 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.22,
+        "y": 0.25,
+        "w": 0.56,
+        "h": 0.5
+       },
+       "label": "Did it work?"
+      },
+      "z": 5
+     },
+     {
+      "key": "fix",
+      "kind": "sketch",
+      "data": {
+       "d": "M 280 330 L 440 330 L 440 410 L 280 410 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label": "Try again"
+      },
+      "z": 5
+     },
+     {
+      "key": "end",
+      "kind": "sketch",
+      "data": {
+       "d": "M 40 500 L 120 500 A 40 40 0 0 1 120 580 L 40 580 A 40 40 0 0 1 40 500 Z",
+       "shape": "custom",
+       "color": "ink",
+       "width": 2,
+       "fill": "ink",
+       "fillOpacity": 0.12,
+       "label_area": {
+        "x": 0.15,
+        "y": 0,
+        "w": 0.7,
+        "h": 1
+       },
+       "label": "End"
+      },
+      "z": 5
+     }
+    ],
+    "links": [
+     {
+      "from": "start",
+      "to": "step",
+      "data": {
+       "type": "link-straight",
+       "color": "ink",
+       "width": 2,
+       "endCap": "arrow"
+      }
+     },
+     {
+      "from": "step",
+      "to": "ask",
+      "data": {
+       "type": "link-straight",
+       "color": "ink",
+       "width": 2,
+       "endCap": "arrow"
+      }
+     },
+     {
+      "from": "ask",
+      "to": "fix",
+      "data": {
+       "type": "link-straight",
+       "color": "ink",
+       "width": 2,
+       "endCap": "arrow"
+      }
+     },
+     {
+      "from": "ask",
+      "to": "end",
+      "data": {
+       "type": "link-straight",
+       "color": "ink",
+       "width": 2,
+       "endCap": "arrow"
+      }
+     },
+     {
+      "from": "fix",
+      "to": "step",
+      "data": {
+       "type": "link-straight",
+       "color": "ink",
+       "width": 2,
+       "endCap": "arrow"
+      }
+     }
+    ]
+   },
+   "template": "board"
+  },
+  {
+   "key": "meeting",
+   "kind": "element",
+   "name": "Meeting notes",
+   "tags": [
+    "template",
+    "meeting",
+    "agenda",
+    "actions"
+   ],
+   "payload": {
+    "box": {
+     "w": 960,
+     "h": 460
+    },
+    "items": [
+     {
+      "key": "f0",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Meeting"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 960,
+      "h": 460,
+      "z": -1
+     },
+     {
+      "key": "t0",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "## Agenda"
+      },
+      "x": 40,
+      "y": 40,
+      "w": 280,
+      "h": 48,
+      "z": 1
+     },
+     {
+      "key": "t1",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "## Notes"
+      },
+      "x": 340,
+      "y": 40,
+      "w": 280,
+      "h": 48,
+      "z": 1
+     },
+     {
+      "key": "t2",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "## Actions"
+      },
+      "x": 640,
+      "y": 40,
+      "w": 280,
+      "h": 48,
+      "z": 1
+     },
+     {
+      "key": "s0",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "First item",
+       "bg": "#fff4a3",
+       "border_color": "#e8d56a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 40,
+      "y": 110,
+      "w": 200,
+      "h": 120,
+      "z": 1
+     },
+     {
+      "key": "s1",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "What was said",
+       "bg": "#cfe8ff",
+       "border_color": "#94bfe8",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 340,
+      "y": 110,
+      "w": 200,
+      "h": 120,
+      "z": 1
+     },
+     {
+      "key": "s2",
+      "kind": "object",
+      "type": "text",
+      "data": {
+       "content": "Who does what, by when",
+       "bg": "#d6f5c9",
+       "border_color": "#9dd18a",
+       "color": "#2a2a1f",
+       "font_size": 16
+      },
+      "x": 640,
+      "y": 110,
+      "w": 200,
+      "h": 120,
+      "z": 1
+     }
+    ],
+    "links": []
+   },
+   "template": "board"
+  },
+  {
+   "key": "week",
+   "kind": "element",
+   "name": "Week plan",
+   "tags": [
+    "template",
+    "week",
+    "plan",
+    "schedule"
+   ],
+   "payload": {
+    "box": {
+     "w": 1260,
+     "h": 380
+    },
+    "items": [
+     {
+      "key": "f0",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Monday"
+      },
+      "x": 0,
+      "y": 0,
+      "w": 220,
+      "h": 380,
+      "z": -1
+     },
+     {
+      "key": "f1",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Tuesday"
+      },
+      "x": 260,
+      "y": 0,
+      "w": 220,
+      "h": 380,
+      "z": -1
+     },
+     {
+      "key": "f2",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Wednesday"
+      },
+      "x": 520,
+      "y": 0,
+      "w": 220,
+      "h": 380,
+      "z": -1
+     },
+     {
+      "key": "f3",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Thursday"
+      },
+      "x": 780,
+      "y": 0,
+      "w": 220,
+      "h": 380,
+      "z": -1
+     },
+     {
+      "key": "f4",
+      "kind": "object",
+      "type": "frame",
+      "data": {
+       "content": "Friday"
+      },
+      "x": 1040,
+      "y": 0,
+      "w": 220,
+      "h": 380,
+      "z": -1
+     }
+    ],
+    "links": []
+   },
+   "template": "board"
+  }
+ ]
+}

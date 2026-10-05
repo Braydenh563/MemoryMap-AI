@@ -115,6 +115,27 @@ function noteEditToolbar(boxId) {
   return bar;
 }
 
+//: **Capture's strip is the shape it ends up in from its first paint.** The
+//: fold, the name and the tools group (More, layout, line numbers) are drawn
+//: by documents.js, which loads after the first paint: at 390 the strip drew
+//: expanded (two rows, 104px) and folded to the 54px collapsed bar when the
+//: bundle landed, a 50px shift. The markup says collapsed, which is the
+//: default (`docToolbarCollapsed`: collapsed unless the saved choice is "0");
+//: this undoes it for a saved "0" and keeps the key and the default in step
+//: with that reading (tests/test_capture_strip_first_paint.py).
+function foldNoteToolbarForFirstPaint() {
+  const bar = document.getElementById("note-toolbar");
+  if (!bar) return;
+  let collapsed = true;
+  try {
+    collapsed = (prefs.get("doc-toolbar-collapsed", null) ?? "1") === "1";
+  } catch {
+    collapsed = false; // private mode: the expanded shape is the safe default, as the bundle's
+  }
+  bar.classList.toggle("is-collapsed", collapsed);
+}
+foldNoteToolbarForFirstPaint();
+
 //: Read by navigation.js's `hasUnsavedWork` (WORLD_CLASS_PLAN 22.1 item 4).
 //: `editingId` alone says a form is *open*, not that anything in it has
 //: changed; comparing every field back to `entry` at guard time would need
@@ -237,18 +258,21 @@ function renderEditForm(li, entry) {
   //: string the save reads stays in a hidden input; each tag is a `.chip.tag`
   //: that removes itself on a press, and Enter, a comma or leaving the field
   //: makes a chip of what was typed; Backspace in an empty field takes the last.
+  //: **No well, no leading '#'** (INBOX 616: a boxed field with a '#' icon
+  //: beside chips that each say '#', and no room inside it): the chips and the
+  //: input sit on the properties line under the title, one chip height.
   const tagsInput = document.createElement("input");
   tagsInput.type = "hidden";
   tagsInput.value = draft ? draft.tags : entry.tags.join(", ");
   const tagField = document.createElement("div");
-  tagField.className = "search-field tag-field note-edit-tags";
+  tagField.className = "tag-field note-edit-tags";
   const tagEntry = document.createElement("input");
   tagEntry.type = "text";
-  tagEntry.className = "search-field-input";
-  tagEntry.placeholder = "Add a tag";
+  tagEntry.className = "note-edit-tag-input";
+  tagEntry.placeholder = "Add tag";
   tagEntry.setAttribute("aria-label", "Add a tag");
   tagEntry.autocomplete = "off";
-  tagField.append(Object.assign(document.createElement("i"), { className: "ph ph-hash search-field-icon" }), tagsInput, tagEntry);
+  tagField.append(tagsInput, tagEntry);
   const tagList = () => tagsInput.value.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean);
   const setTags = (tags) => {
     tagsInput.value = [...new Set(tags)].join(", ");
@@ -289,7 +313,6 @@ function renderEditForm(li, entry) {
     if (tagEntry.value.includes(",")) commitTag();
   });
   tagEntry.addEventListener("blur", commitTag);
-  tagField.addEventListener("click", (event) => { if (event.target === tagField) tagEntry.focus(); });
   if (focusTagsAfterRender === entry.id) {
     focusTagsAfterRender = null;
     // The form is not in the document yet; focus once it is.
@@ -446,28 +469,30 @@ function renderEditForm(li, entry) {
     saveButton
   );
 
-  //: One meta row, tags then the category (reported with a screenshot:
-  //: "better ui structure"), and the form's foot under everything: Cancel and
-  //: the one filled Save at the right, the panels' Attach a link at its left
-  //: (INBOX 606: Save sat mid-row between the fields and Cancel).
+  //: **The properties line**, under the title inside the surface (INBOX 616,
+  //: the owner: "the core concepts dropdown is completely out of place"): the
+  //: category chip, then the tags, then the add-tag input, one chip height,
+  //: wrapping as one line. The foot under everything: the panels' Attach a
+  //: link at its left, the word count, then Cancel and the one filled Save at
+  //: its right (INBOX 606: Save sat mid-row between the fields and Cancel).
   const meta = document.createElement("div");
   meta.className = "note-edit-meta";
   row.classList.add("note-edit-actions");
-  //: Words and reading time while writing (WORLD_CLASS_PLAN row 30, section
-  //: 5 item 9: documents had them, notes did not). Quiet text at the row's end;
-  //: a margin set here because the boot stylesheet is at its byte cap.
+  meta.append(categoryChip, tagField);
+  //: Words and reading time while writing, at the foot beside Cancel and Save
+  //: (INBOX 616 put the count there; WORLD_CLASS_PLAN row 30 added the reading
+  //: time, as a document's header has it).
   const count = document.createElement("span");
-  count.className = "muted text-sm note-edit-count";
-  count.style.marginLeft = "auto";
-  count.textContent = noteReadingFacts(textarea.value);
-  textarea.addEventListener("input", () => {
+  count.className = "char-count muted note-edit-count";
+  count.setAttribute("aria-live", "polite");
+  const countWords = () => {
     count.textContent = noteReadingFacts(textarea.value);
-  });
-  meta.append(tagField, categoryChip);
-  meta.append(count);
+  };
+  countWords();
+  textarea.addEventListener("input", countWords);
   const foot = document.createElement("div");
   foot.className = "note-edit-foot";
-  foot.append(row);
+  foot.append(count, row);
   const toolbarEl = noteEditToolbar(textarea.id);
   //: Preview: reported: "there is no preview", then, once there was one,
   //: "if the formatting bar was the same, the preview button would be in
@@ -491,13 +516,13 @@ function renderEditForm(li, entry) {
   chipsHost.id = "entry-edit-attachment-chips";
   chipsHost.setAttribute("role", "group");
   chipsHost.setAttribute("aria-label", "Files in this note");
-  //: **One writing surface** (INBOX 606): the title, the strip and the text
-  //: in the capture box's own `.note-composer`, which carries the edge, the
-  //: ground and the focus ring for all three; they were three boxes.
+  //: **One writing surface** (INBOX 606): the title, the properties line, the
+  //: strip and the text in the capture box's own `.note-composer`, which
+  //: carries the edge, the ground and the focus ring for all of them.
   const surface = document.createElement("div");
   surface.className = "note-composer note-edit-surface";
-  surface.append(titleInput, toolbarEl, textarea);
-  li.append(surface, chipsHost, meta, foot);
+  surface.append(titleInput, meta, toolbarEl, textarea);
+  li.append(surface, chipsHost, foot);
   // The same line-number gutter the capture box and the documents editor
   // carry (documents.js `mountGutterFor`); it follows the one remembered
   // choice, so a person who turned numbers on in Capture sees them here too.

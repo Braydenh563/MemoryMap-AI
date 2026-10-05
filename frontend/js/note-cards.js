@@ -1775,7 +1775,9 @@ function entryItem(entry, options = {}) {
     //: **And the offer to have them written** (INBOX 292). Left out rather
     //: than gated with no model answering: `disabled` does nothing to a
     //: span, and an offer that cannot be honoured is worse than none.
-    if (options.actions && (!modelStatus || modelStatus.ollama_running !== false)) {
+    //: Not on a private note: the route refuses it (sweep 1004 item 7), so the
+    //: chip's only answer would be a refusal toast.
+    if (options.actions && !entry.is_private && (!modelStatus || modelStatus.ollama_running !== false)) {
       const askAtlas = chip("ph:sparkle Tag with Atlas", "untagged-ai", (event) => {
         event.stopPropagation();
         reevaluateEntry(entry);

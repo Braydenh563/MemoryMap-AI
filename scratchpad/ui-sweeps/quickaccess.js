@@ -3,7 +3,8 @@
 //   BASE=http://127.0.0.1:8824 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
 //     SCRATCH=. WIDTH=1440 THEME=dark node quickaccess.js
 //
-// Default five, Customise, add from the picker, move by keyboard, remove,
+// Default five, Customise (the dashboard dock's own menu since INBOX 488, no
+// longer a menu in the row's head), add from the picker, move by keyboard, remove,
 // reset, and a reload that keeps the arrangement (stored in preferences).
 const { boot } = require('./lib.js');
 
@@ -54,27 +55,37 @@ const check = (label, ok, detail = '') => {
   await shot('default');
 
   // Customise.
-  await clickMenu('#dash-quicklinks .launch-head', 'Customise');
+  await clickMenu('#dash-customise', 'Edit quick access');
   check('editing: five wrapped tiles + add', (await page.locator('.quick-edit-tile').count()) === 5 && (await page.locator('.quick-edit-add').count()) === 1);
   check('count shown', (await page.textContent('.launch-count')) === '5 of 8');
   await shot('editing');
 
-  // Add from the picker.
+  // Add from the manager (INBOX 524: a checklist dialog with one Done, no
+  // longer a one-pick list that closes on the row it was given).
   await page.locator('.quick-edit-add').click();
   await page.waitForTimeout(400);
-  const rows = await page.locator('.quick-pick .rich-picker-row').count();
-  check('picker lists commands', rows > 20, `${rows} rows`);
-  check('picker leaves out existing tiles', (await page.locator('.quick-pick .rich-picker-label', { hasText: /^New note$/ }).count()) === 0);
+  const rows = await page.locator('.quick-pick .quick-manage-item').count();
+  check('manager lists commands', rows > 20, `${rows} rows`);
+  check('manager shows the five on the dashboard, checked',
+    (await page.locator('ul[aria-label="On your dashboard"] .quick-manage-item').count()) === 5);
+  check('manager leaves out existing tiles from More commands',
+    (await page.locator('ul[aria-label="More commands"] .note-picker-text', { hasText: /^New note$/ }).count()) === 0);
   await shot('picker');
   await page.fill('.quick-pick-search', 'graph');
   await page.waitForTimeout(200);
-  const first = await page.locator('.quick-pick .rich-picker-row').first().locator('.rich-picker-label').textContent();
-  await page.locator('.quick-pick .rich-picker-row').first().click();
+  const first = await page.locator('ul[aria-label="More commands"] .note-picker-text').first().textContent();
+  await page.locator('ul[aria-label="More commands"] .note-picker-row').first().click();
+  await page.waitForTimeout(200);
+  check('manager still open after a pick', (await page.locator('.quick-pick').count()) === 1);
+  await page.locator('.quick-manage-foot .accent').click();
   await page.waitForTimeout(700);
-  check('picker closed', (await page.locator('.quick-pick').count()) === 0);
+  check('manager closed on Done', (await page.locator('.quick-pick').count()) === 0);
   let now = await labels();
   check('added at the end', now.length === 6 && now[5] === first, now.join('|'));
-  check('focus returns to the new tile menu', await page.evaluate(() => document.activeElement?.closest('.quick-edit-tile')?.dataset.id?.length > 0));
+  //: Focus returns to where the manager was opened from (the add tile), or to
+  //: a tile of the redrawn row; either is a control inside the editing view.
+  check('focus returns inside the editing row', await page.evaluate(() => Boolean(document.activeElement?.closest('#dash-quicklinks'))));
+  await page.locator('.quick-edit-tile[data-id]').last().locator('.menu-wrap > button').focus();
 
   // Move by keyboard: the new tile's menu, Move left.
   await page.keyboard.press('Enter');
@@ -123,15 +134,26 @@ const check = (label, ok, detail = '') => {
   await go();
 
   // Reset.
-  await clickMenu('#dash-quicklinks .launch-head', 'Reset to default');
+  await clickMenu('#dash-customise', 'Reset quick access');
   check('reset', (await labels()).join('|') === 'New note|Ask AI|Sketch|Remind me|Meeting notes', (await labels()).join('|'));
 
   // Eight at most.
   await page.evaluate(async () => { prefsCache = await apiJson('/preferences', { method: 'PUT', body: JSON.stringify({ dashboard_quick_access: ['new-note', 'ask-ai', 'sketch', 'remind-me', 'meeting-notes', 'tab:graph', 'tab:timeline', 'tab:library'] }) }); });
   await go();
   check('eight tiles', (await labels()).length === 8, (await labels()).join('|'));
-  await clickMenu('#dash-quicklinks .launch-head', 'Customise');
-  check('no add tile at eight', (await page.locator('.quick-edit-add').count()) === 0);
+  await clickMenu('#dash-customise', 'Edit quick access');
+  //: The add tile stays at eight (it opens the manager, which is also where a
+  //: tile is taken off), and the manager refuses a ninth in its own words.
+  await page.locator('.quick-edit-add').click();
+  await page.waitForTimeout(300);
+  await page.locator('ul[aria-label="More commands"] .note-picker-row').first().click();
+  await page.waitForTimeout(200);
+  check('a ninth is refused in the manager',
+    (await page.locator('ul[aria-label="On your dashboard"] .quick-manage-item').count()) === 8
+      && !(await page.locator('.quick-manage-warn').first().isHidden()),
+    await page.locator('.quick-manage-warn').first().textContent());
+  await page.locator('.quick-manage-foot .ghost').click();
+  await page.waitForTimeout(300);
   check('no horizontal overflow', await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
   await shot('eight');
   await page.locator('.launch-done').click();

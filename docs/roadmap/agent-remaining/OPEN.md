@@ -23,7 +23,7 @@ two decisions only the owner can take are INBOX 427.
   it synchronously and reads the card it fills, so it needs `openNoteEditor`
   to load the file first and every other way into `editingId` checked).
   [split1005]
-- ~~Stray Atlas heads under the status bar (INBOX 429)~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Stray Atlas heads under the status bar (INBOX 429).
 - **`tests/test_name_mood.py` asserts `oklch(from var(--accent)` in the
   CSS**: it holds (the accent tints the glow), but a test for the fixed
   palette would be the honest one. [atlas-fable]
@@ -108,28 +108,11 @@ then the plan tails by surface, then the horizon.
 
 | # | What is left | Where |
 | --- | --- | --- |
-| ~~238~~ | **Done 2026-09-19** (5a9c909, 128a731, 7e8d902). All three parts, with measurements in INBOX 238: the card clips its own text (`min-height: 0` plus `overflow: hidden` on `.wb-card-content`, and the "Show more" decided by the box rather than by a character count); the expanded set is in `localStorage`; and the export's line budget comes from the card's measured height (7 lines collapsed, 22 expanded, both were 6) with a `--warn` line in the dialog naming how many notes are collapsed. | done |
-| ~~246~~ | **Done 2026-09-20.** Maps' own reference nodes counted (`_board_reference_rows`, both tables, one reader), `GET /entries/reference-counts` and the chip row on the card measured in Chromium (`refchips.js`), Connections telling maps from boards and listing every reference the chip counts. Record in HISTORY's INBOX 246. | done |
-| ~~232~~ | **Mostly already built; measure before building any of it.** Checked on the branch head 2026-09-19 (`scratchpad` sweep, one document holding all of them): tables render as 6 `.cm-md-td` cells with **0 pipes on screen**, callouts as 2 `.cm-md-callout` lines with a label and **0 `[!note]` markers**, task lists as 2 real `<input type="checkbox">` with **0 `- [ ]` brackets**, and an image as a drawn `.cm-md-image` with **0 `![...]` syntax**; strikethrough, highlight, footnotes and maths all carry their marks too. The two things that were genuinely wrong are fixed: the code fence's empty rows (706e2af) and the chips that broke in half when they wrapped (2b94271). This row was stale, and rebuilding from it would have been the fourth time this project rebuilt something that existed. **Closed 2026-09-20.** The one line of the brief nobody had checked, "a header row with the language and a copy button", was measured before being written and is built: `renderMarkdown`'s `.code-bar` has carried the language, Copy and Save since INBOX 172, and a document with a `python` fence and an unlabelled one draws 2 bars, 4 buttons and the labels `python` and `code`. The live view keeps the corner label and no button, by the decision now in DOCUMENTS_PLAN section 15 (a control inside a contenteditable is a caret trap; the row it would hang from is 8px tall against a 36px line, measured, and that smallness is the 2026-09-19 fix). What the measurement found instead was the glyph in those labels, a typed `⧉` on a Copy button in an app that ships `ph:copy`: fixed at both call sites and added to `tests/test_no_glyph_icons.py`. `scratchpad/ui-sweeps/doccodecopy.js`, 11 of 11. | done |
-| ~~253~~ | **Done 2026-09-20** (b062d0d, f0d478b, f24d8a5, 1f018d6). `start.sh`/`start.bat` self-repair a failed start once with no prompt; the venv health check imports the app itself; a Repair MemoryMap AI shortcut in the .exe installer and the MSI runs `--desktop --reinstall`. Record in HISTORY's INBOX 253. | done |
-| ~~225~~ | **Done 2026-09-21.** The row was half right: the "the AI" half was swept and linted a week earlier, and the lint has held it since. "The assistant" was never covered, and eight pieces of copy still said it, five of them the Tools and features descriptions a person reads while learning the app. Reworded to name Atlas, and `tests/test_ai_name.py` now carries the second phrase, proved against a reintroduction. "The guide" is deliberately left out: that is a surface with a name. | done |
 | 226 | A flicker above the bottom bar on the dashboard, never reproduced here; needs the owner's theme, art setting and zoom. (needs owner: their preferences; HISTORY holds the entry as "not reproduced") | HISTORY, INBOX 226 |
 
+Rows 238, 246, 232, 253 and 225 are done; their accounts moved whole to HISTORY.md, "Moved from the plans, 2026-10-05 (small-1005: the small open items)".
+
 **B. Plan tails, by surface.** Moved to HISTORY.md, "OPEN.md rows closed, 2026-10-05", 2026-10-05: every row was built or held by its plan. Two stay open: MINDMAP_PLAN's mapux leftover list (this file's Mind map section, the mind map agent's) and UI_MODERNISATION_PLAN Phase 11 item 11's screenshot set for the owner. Section C, the horizon, is WORLD_CLASS_PLAN section 8's own ranked list.
-
-**B. Plan tails, by surface**
-
-| Plan | Still open |
-| --- | --- |
-| DOCUMENTS_PLAN | ~~Phase 4~~ closed 2026-09-20: the templates gallery was verified by `scratchpad/ui-sweeps/doctemplates.js` (six templates, each with a description), and item 5's daily notes were built from the decision in DOCUMENTS_PLAN section 14 and measured by `docdaily.js`, 11 of 11 (7 templates with Daily, the document titled with the ISO day, 0 "start today's note" offers beside a day already written as a document). What is left: the Phase 2, 6 and 8 tails and the engine's three deliberate omissions, in this file's Documents section. Everything else this row used to list was built or already existed: the Library's property filter, outline reorder with folding and a filter box, the command palette and shortcut sheet from one table, version history with its diff and its AI filter, the per-hunk AI diff, reading typography and the print stylesheet (all 2026-09-20 or earlier, each with its probe named in HISTORY.md). |
-| UI_MODERNISATION_PLAN | ~~Phase 8's docks over the seven-control ceiling~~: re-measured 2026-09-20 (`docks.js` at 1440): notes 6, graph 6, library 5, chat 4, timeline 4, reminders 4, and only `#wb-topbar` at 13, which the plan names as the menu-bar exception (Insert, Edit, Arrange, View, Board on the dock's zones). Done. Phase 11, the phone done properly: items 1, 2, 3, 5 (its share sheet half), 6, 8 and 9 were built on 2026-09-20, and items 4 (the graph: the hold that opens the node menu and arms the lasso, the controls as one sheet) and 7 (the whiteboard and the map: two fingers for the camera, the tools as a sheet, the board bar at the touch floor) on the same day, each with its own gate in `scratchpad/ui-sweeps/` (`graphphone.js`, `wbphone.js`). Item 5's reader full screen with a bottom bar was built on 2026-09-20 (`scratchpad/ui-sweeps/libreader.js`, the sheet recipe's `page` variant, and a pane-grid bug it found that was wrong at every width under 1100). Item 9's hover-only half was swept properly on 2026-09-20 (`scratchpad/ui-sweeps/hoveronly.js`: 45 reveal rules, eleven stops, `hover: none` emulated and each candidate tapped) and the two it found were both a `hover: none` override written a class short of the rule it had to beat, so neither had ever applied. Item 11's two open gates were closed on 2026-09-20: errors.js was already clean at 390, and contrast.js, which took no viewport and had only ever run at 1440x900, now takes one, reaches Settings the way a phone reaches it, reports how many text elements it measured (which caught the whiteboard being in its tab list with no tab page to open, so it had been measuring an empty window at every width) and comes back 0 low-contrast over 33 surfaces at 390, 820 and 1440 in light and dark. Item 7's leftovers at 820 were measured and fixed in the same pass. What is left of the phase: item 11's screenshot set for the owner. |
-| GRAPH_PLAN | ~~All four~~ **stale, checked 2026-09-23**: Phase 5's real gap (a saved view restoring unpinned positions) was built 2026-09-21 and the `?since=` cursor is left until something polls, both on the plan's Phase 5 row; Phase 6 was measured built on 2026-09-20 (this file's Graph section); the local pane's switches are left by the 2026-09-13 decision; 6b the minimap was built 2026-09-13 (`minimap6b.js`). The one line the plan still held, a lasso selection dragging as one, was built 2026-09-23 (`oi-groupdrag.js`). |
-| WHITEBOARD_PLAN | Decision 7's other half; the phone context bar comparison; sketch handles at zoom; the arrange panel items. |
-| MINDMAP_PLAN | The mapux agent's leftover list (this file's Mind map section). |
-| CHAT_PLAN | ~~Phase 1's other half, which note grounds a sentence~~ built 2026-09-20 (the fixtures exist, 18 of 18 attributed, was 17 of 18); ~~Phase 1's fourth gate line~~ built 2026-09-21 and its replay tail 2026-09-23, so Phase 1 is closed; Phase 4's harness items were closed 2026-09-20, and what is left is its `evals` breadth (WORLD_CLASS_PLAN 9). |
-| TIMELINE_PLAN | ~~Section 7's two measurements~~ taken 2026-09-20, and both found a bug: the density strip hid on a note count (it hid a profile of 150 notes and showed a comb of 200) and the table drew no title column at all between 600 and 1024. Both fixed and re-measured. The third line, the "auto" scale thresholds, was tuned 2026-10-04 (HISTORY, "the auto scale"). |
-| AGENT_SKILLS_REFORM | ~~Phase D verified against a real model, which needs WORLD_CLASS_PLAN section 9's dev-only runner first.~~ **Done 2026-09-20.** The runner is `scratchpad/llama-dev.sh` and the gate is `tests/test_skills_evals.py`, four `evals` tests that skip at collection without a model: 3 passed and 1 skipped against Qwen2.5-1.5B-Instruct Q4_K_M through llama.cpp, with the skip itself the finding (the run stalled on step 1's `list_tags` contract and said so, rather than ticking it). Record in HISTORY's "Moved from the plans, 2026-09-20". What is left is breadth, and it sits in WORLD_CLASS_PLAN 9: the same gate at 3B and 4B, and an eval each for the rest of CLAUDE.md section 4's unproven list. |
-| WORLD_CLASS_PLAN | **Row check done 2026-09-24 (INBOX 399).** Every row read against the code; the built ones moved to HISTORY's "Moved from the plans, 2026-09-24", each open row carries a "State 2026-09-24" line, and the ranked list of 38 is at the top of the plan's section 8. The top ten, by impact: F3 `semantic_search` reading every vector per request; Brief 15's LAN hardening (S1 to S3, S5, S6); B2 durable jobs; D2's connections rail (and 261's `/resurface/near`); I1's night runs and morning card; chunk vectors then I6's evidence cards; I3's questions view; `similar_pairs` cached for link suggestions and tensions; D5 typed properties on notes; the S-sized section 1 lints. Fixed during the check: 283, 285, the Most used widget's picker line, Download .md on a locked notebook, and `/files/gallery`'s paging (F2's frontend half). Built 2026-09-24 after it: row 1 (F3, `semantic_search` on the matrix), row 9 (`similar_pairs` cached) and row 2 (S1, S2, S3, the rest of S5, S6's redirect half, `/debug/health` paths; left `tests/test_lan_mode.py` and the LAN offer). Built 2026-10-04: row 3, B2's durable jobs for the pool's six kinds (`core/jobstore.py`; left: the other kinds onto the table, the panel on `/jobs/stream`). Built 2026-10-05: row 21 (the model bench), row 22 (the margin reader, documents; left: the note editor), row 24 (the web clipper from the browser), row 25 (the importers, keyboard reach, the WCAG pass, the timed first run; left: multi-window), row 27 (H9 whole; left: `boottime.js` in the workflow). |
 
 **C. The horizon (WORLD_CLASS_PLAN, one item per PR, in its own stated order)**
 
@@ -157,43 +140,24 @@ being written by running agents stay beside this one.
 
 ## Documents
 
-- ~~DOCUMENTS_PLAN Phase 4 item 5's daily notes, and only that~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~Found, not fixed: scratchpad/ui-sweeps/docexports.js fails on a click timeout~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~The document surface's aliases have no lint~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~The table cell menu is a kebabMenu with ten items and no grouping~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~Atomic ranges, the Mod+click affordance and the toolbar's own state~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~Outline rows are 24 to 25.2px, under the app's own 28px floor~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~The rest of the app's viewport popups have not been measured with the background art on~~ Closed: measured clean, no change needed. The account is in HISTORY.md, "Moved from the plans, 2026-10-04 (design-1004)".
-- ~~clampToolbarMenu's comment says the trigger cannot be reproduced here, and that is now out of date~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~A finding below the editor's visible box gets a menu drawn over its own word~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
-- ~~The writing-suggestion underline is the only surface with no hover affordance~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~docFindingAtPoint walks every mark on every pointer event~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~The three finding kinds are named in two places~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": DOCUMENTS_PLAN Phase 4 item 5's daily notes, and only that; Found, not fixed: scratchpad/ui-sweeps/docexports.js fails on a click timeout; The document surface's aliases have no lint; The table cell menu is a kebabMenu with ten items and no grouping; Atomic ranges, the Mod+click affordance and the toolbar's own state; Outline rows are 24 to 25.2px, under the app's own 28px floor; clampToolbarMenu's comment says the trigger cannot be reproduced here, and that is now out of date; The writing-suggestion underline is the only surface with no hover affordance; docFindingAtPoint walks every mark on every pointer event; The three finding kinds are named in two places.
+- Closed here, accounts in HISTORY.md, "Moved from the plans, 2026-10-04 (design-1004)": The rest of the app's viewport popups have not been measured with the background art on.
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": A finding below the editor's visible box gets a menu drawn over its own word.
 
 ## Graph
 
-- ~~The graph export's style attributes under the CSP~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~The options panel scrolls again at 1440x900~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~/graph/local has no Show switches~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~GRAPH_PLAN Phase 5~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~The node popup redesign the owner names~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~graph.js's step 5 still fails: "clear trace (a route was drawn: false): NO CHANGE"~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~`graph.js` interrupted by a confirm dialog~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~scratchpad/ui-sweeps/selectfocus.js fails twice on a notebook with content~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~INBOX 66: the lightbox the node panel opens is unreachable while the graph is fullscreen~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": The graph export's style attributes under the CSP; The options panel scrolls again at 1440x900; /graph/local has no Show switches; GRAPH_PLAN Phase 5; The node popup redesign the owner names; graph.js's step 5 still fails: "clear trace (a route was drawn: false): NO CHANGE"; `graph.js` interrupted by a confirm dialog; scratchpad/ui-sweeps/selectfocus.js fails twice on a notebook with content; INBOX 66: the lightbox the node panel opens is unreachable while the graph is fullscreen.
 
 ## Chat and popup agent
 
-- ~~Review of the chat pass and the Library and Timeline pass (2026-09-27)~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Review of the chat pass and the Library and Timeline pass (2026-09-27).
 - **The citation mark's touch box overlaps the lines above and below** (a
   decision to note, not a bug): the `::after` box is 44px tall around a
   13px glyph, so on a phone a tap within 14px above or below a mark opens
   the peek rather than acting on that line's text. By design (6df7310);
   worth a look on an answer dense with marks.
   *Left: by design (6df7310); look only if an answer dense with marks is reported.*
-- ~~A pinned citation peek outlived a Tab past Open note~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~The chat welcome's blurb wrapping at 1280~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~CHAT_PLAN Phase 1, which note grounds a sentence~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": A pinned citation peek outlived a Tab past Open note; The chat welcome's blurb wrapping at 1280; CHAT_PLAN Phase 1, which note grounds a sentence.
 - **Ask's answer object was measured on the offline branch only.** The sweep
   runs against a server with no model, so `sentences` was empty in every
   measurement and the grounding chips and inline marks under an Ask answer
@@ -222,8 +186,7 @@ being written by running agents stay beside this one.
   and the module skipped unless the dev model is reachable. Next step:
   WORLD_CLASS_PLAN 9's runner first. [brief-13-harness.md]
   *Partly built since: the marker and four evals exist (`tests/test_skills_evals.py`); the 80% built-in-skills run and the 70-note loose-ends fixture still need a model.*
-- ~~A skill's `verify` block~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~The page cap and a large notebook~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": A skill's `verify` block; The page cap and a large notebook.
 - **The follow-up chips were stubbed at the route in the sweep**, because
   `/chat/followups` answers `[]` with no model. What is measured is the
   request a chip causes, not the model's choice of question. Worth knowing
@@ -233,12 +196,7 @@ being written by running agents stay beside this one.
 
 ## Whiteboard and mind map
 
-- ~~Decision 7's other half: the quick-sketch pad still has its own copy of the tool code~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~Multiply is worth 3 luminance units on a dark board and 20 on a light one~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~A sketch's handles scale with the zoom; a card's do not~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~The context bar at phone width, and the plan's half-answered question~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~#wb-topbar is 13 controls at 1440 against the dock grammar's ceiling of seven~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~The old export popover's CSS still names it in grouped selectors~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Decision 7's other half: the quick-sketch pad still has its own copy of the tool code; Multiply is worth 3 luminance units on a dark board and 20 on a light one; A sketch's handles scale with the zoom; a card's do not; The context bar at phone width, and the plan's half-answered question; #wb-topbar is 13 controls at 1440 against the dock grammar's ceiling of seven; The old export popover's CSS still names it in grouped selectors.
 - **The View menu is 714px of content on a map.** Under about a 730px-tall
   window it still scrolls, which is correct and may still read as the report.
   If it comes back the fix is the menu's own length (four groups, sixteen
@@ -267,21 +225,17 @@ being written by running agents stay beside this one.
   family INBOX 31's fix targeted. Worth a Chromium check in its own right if
   it is still reported. [batch-a.md]
   *Left: measure in Chromium only if it is reported again.*
-- ~~INBOX 12's remainder, owner WHITEBOARD_PLAN~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~A colour swatch is 1rem and never grows for a finger~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": INBOX 12's remainder, owner WHITEBOARD_PLAN; A colour swatch is 1rem and never grows for a finger.
 
 ## Timeline
 
-- ~~WORLD_CLASS D6, the daily journal: the backend is built, the frontend is not~~ Verified built. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
-- ~~The timeline strip's threshold~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~The timeline table at 820~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~The "auto" scale thresholds~~ Closed. The account is in HISTORY.md, "Moved from the plans, 2026-10-04 (the auto scale)".
-- ~~The band label sits over the cards scrolled under it~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~Timeline Phases 1 to 4~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": WORLD_CLASS D6, the daily journal: the backend is built, the frontend is not.
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": The timeline strip's threshold; The timeline table at 820; The band label sits over the cards scrolled under it; Timeline Phases 1 to 4.
+- Closed here, accounts in HISTORY.md, "Moved from the plans, 2026-10-04 (the auto scale)": The "auto" scale thresholds.
 
 ## Library
 
-- ~~The Files sub-tab rows were never on screen~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": The Files sub-tab rows were never on screen.
 - **An uploaded document cannot be given a reading from outside the app.**
   `POST /media/{id}/ocr` and `/media/{id}/vision-ocr` both answer 415 for a
   PDF, because `ocr.OCR_SUFFIXES` and `vision_ocr.VISION_OCR_SUFFIXES` are the
@@ -291,22 +245,16 @@ being written by running agents stay beside this one.
   needs a model). Not a bug on its own; it is the reason the Files fold's filled
   state is still unmeasured. [readings.md]
   *Needs: a local model (`/media/{id}/ocr-page-read`) to fill a PDF's reading; not a bug, and the only route to the Files fold's filled state.*
-- ~~A tile's Rename and Delete buttons are never in the DOM~~ Decided. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
-- ~~A caption for an image that has none~~ Decided. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
-- ~~The other four picker sources have no thumbnail~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
-- ~~The Notes (10) and Library (9) docks are still over the seven-control ceiling~~ Verified. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": A tile's Rename and Delete buttons are never in the DOM; A caption for an image that has none; The other four picker sources have no thumbnail; The Notes (10) and Library (9) docks are still over the seven-control ceiling.
 
 ## Notes and capture
 
-- ~~The Notes categories sidebar overflows at 390px, on every sub-tab~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~`textarea.autogrow`'s shared `min-height`~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~The note edit form's strip is a clone~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~INBOX 38's bulk-move action is still to build~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
-- ~~Boards and maps on a note (INBOX 246)~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": The Notes categories sidebar overflows at 390px, on every sub-tab; `textarea.autogrow`'s shared `min-height`; The note edit form's strip is a clone; Boards and maps on a note (INBOX 246).
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": INBOX 38's bulk-move action is still to build.
 
 ## App wide: shell, phone and the shared recipes
 
-- ~~Review of the companion's round 5 (3ecadd4 to 69ac76b), 2026-09-26~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Review of the companion's round 5 (3ecadd4 to 69ac76b), 2026-09-26.
 - **Atlas's `hide` act shows shut eyes and nothing of its hands.** The
   companion's new act (a private note opened) raises both arms over the
   face; Atlas draws its arms under its head in the body layer, so at the
@@ -318,7 +266,7 @@ being written by running agents stay beside this one.
   over the face would need the arms drawn in the front layer for this act,
   a drawing change for the owner's call (atlas-r6-hide-mid.png).
   *Needs: a drawing change for the owner's call.*
-- ~~A filled button is 2px shorter than every tonal button beside it, app wide~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": A filled button is 2px shorter than every tonal button beside it, app wide.
 - **`--field-inset` and the segmented track are one tone in light and two in
   dark.** Light has both at `rgba(31, 36, 48, 0.07)`; dark has
   `rgba(0, 0, 0, 0.28)` and `rgba(255, 255, 255, 0.08)`. Light flattens a
@@ -330,7 +278,7 @@ being written by running agents stay beside this one.
   stage are the first to reach for it; every other surface inside a `.card`
   still draws `--radius-lg`, which is the concentric rule half applied.
   [popup-redesigns.md]
-  *Needs: stale count (about seventeen declarations now); the concentric rule's rollout is design.*
+  *Needs: the concentric rule's rollout is design. Count re-measured 2026-10-05: 13 `var(--radius-inner)` declarations in six stylesheets (02 six, 05 three, 03, 06, 07 and 08 one each) plus `documents.js`'s colour swatch; the row's "four" and the earlier "about seventeen" were both stale.*
 - **The meeting dialog's head row holds two heights**, a 28px `.ghost.small`
   Close beside the 32px `.graph-help-toggle`. Both are app-wide recipes, so
   this is a question about the two recipes rather than about the dialog.
@@ -358,7 +306,7 @@ being written by running agents stay beside this one.
   with `.dock` gaining the three properties behind a `.dock.is-sidebar`
   modifier and `heads.js` run before and after. [docks.md]
   *Left: deliberate; all three properties or none.*
-- ~~Phase 11 item 1's last bullet: the top bar's own reduction at 320~~ Measured. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": Phase 11 item 1's last bullet: the top bar's own reduction at 320.
 - **Band 3 (600 to 820): the header is two rows, 128px at 819.** The band's
   recorded design (the strip cannot fit beside the wordmark at any width in
   the band, and the wordmark is what was reported twice when it was hidden),
@@ -396,17 +344,11 @@ being written by running agents stay beside this one.
   to insist on. [ask-head-ocr.md]
   *Left: a rule for the next head that wants a control.*
 
-- ~~Settings → Extras scrolls sideways by 4px at 820~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
 ## Settings and help
 
-- ~~INBOX 235, the Settings Help page and the Models order~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~INBOX 237, the built-in Librarian persona is Atlas~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~"Advanced response settings" sits 20.8px right of its siblings~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~`#settings-tools`'s intro~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~scratchpad/ui-sweeps/help-popovers.js is not built~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~"Not one of the seven tabs carries a `data-help-for` popover"~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~The learning loop's Settings section (I9's frontend) is not built~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": INBOX 235, the Settings Help page and the Models order; INBOX 237, the built-in Librarian persona is Atlas; "Advanced response settings" sits 20.8px right of its siblings; `#settings-tools`'s intro; scratchpad/ui-sweeps/help-popovers.js is not built; "Not one of the seven tabs carries a `data-help-for` popover"; The learning loop's Settings section (I9's frontend) is not built.
 - **The OCR workspace head could not be measured.** `.ocr-toolbar` only exists
   once a file is open in the OCR workspace and the seeded notebook has no path
   to one without a real scan; `05-sidebars-themes.css:1269` names it beside
@@ -417,7 +359,7 @@ being written by running agents stay beside this one.
 
 ## Backend
 
-- ~~Security review of the backend batch (2026-09-26)~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Security review of the backend batch (2026-09-26).
 - **`netbind.host_allowed("localhost.")` and a trailing-dot own name are
   refused** (fail closed, as intended; noted so nobody reads a 421 on
   `localhost.` as a bug). `_own_names()` calls `gethostname` per request
@@ -435,26 +377,20 @@ being written by running agents stay beside this one.
   the command palette. One surface per commit, each with a sweep.
   [brief11-retrieval-engine.md]
   *Needs: one surface per commit, each with a sweep.*
-- ~~No FTS index rebuild job~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~A bulk write can leave the index stale~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~The vector matrix forgets by zeroing a row~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~has: only knows file~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": No FTS index rebuild job; A bulk write can leave the index stale; The vector matrix forgets by zeroing a row; has: only knows file.
 - **The graph signal needs an open note, and the Notes list rarely has one.**
   `file: frontend/js/app.js`, `id: search-open-note`. The list passes `entry_id`
   only in rows view or while editing; in card view the third signal is zero.
   Next step: decide what "open" means on that surface, per the app's own focus
   model. [brief11-retrieval-engine.md]
   *Needs: what "open" means on the card view is a decision.*
-- ~~Global undo of an AI action: a skill run's Undo~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
-- ~~The Timeline and Dashboard activity strips~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": Global undo of an AI action: a skill run's Undo.
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": The Timeline and Dashboard activity strips.
 - **Sync (B6) as log shipping.** `id: events-sync`. Unstarted and no longer
   blocked: it needed the retention rule, which now exists. A compacted
   snapshot ships as a snapshot. [brief7-event-log.md]
   *Needs: a large unstarted feature.*
-- ~~filing_state = "auto" is set on the two create paths only~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~The Reminders tab still reads one page~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~Other first-page-only callers, one call each~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~POST /learned/bulk~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": filing_state = "auto" is set on the two create paths only; The Reminders tab still reads one page; Other first-page-only callers, one call each; POST /learned/bulk.
 - **I1's later passes**: duplicates, entities and dates as kinds in the same
   table (tensions are built: pass 4 of the night run, `ai/facts.py`
   `_pair_passes`). `ai/entities.py` already produces entities in its own
@@ -479,10 +415,8 @@ being written by running agents stay beside this one.
 
 ## Sweeps and tooling
 
-- ~~`scratchpad/ui-sweeps/editor.js` still describes the retired editor~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
-- ~~`contrast.js` never visits the Documents tab~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
-- ~~`menus.js` timing out at its last step~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~`notessubtabs.js` counting the hidden native selects~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": `scratchpad/ui-sweeps/editor.js` still describes the retired editor; `contrast.js` never visits the Documents tab.
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": `menus.js` timing out at its last step; `notessubtabs.js` counting the hidden native selects.
 - **A check that cannot tell "nothing matched" from "labels are broken" cries
   wolf on every small fixture.** Two of `graph2.js`'s five failures were
   exactly that, measured on a scratch profile holding a single note. The
@@ -495,7 +429,7 @@ being written by running agents stay beside this one.
   this sandbox has neither. Files: `scratchpad/ui-sweeps/readmeshots.js`, the
   `chat` entry. [picker-catalog-readme.md]
   *Needs: Ollama and a Tesseract binary.*
-- ~~"`app.js` is 1.93 MB of source"~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": "`app.js` is 1.93 MB of source".
 - **The launchers want one run on a real Windows machine**: `start.bat`,
   `start.bat --doctor`, `start.bat --shortcut` and `uninstall.bat --dry-run`,
   watching the splash through a first-run install. Everything else in Brief 17
@@ -506,7 +440,7 @@ being written by running agents stay beside this one.
   figure counts `.venv` only on Windows, which is 300 MB of a 305 MB answer.
   [launcher.md]
   *Needs: Windows.*
-- ~~A changelog edit breaking `test_docs_site.py`~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": A changelog edit breaking `test_docs_site.py`.
 
 ## Carried from the agent files archived 2026-10-04
 
@@ -520,20 +454,19 @@ are named in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 `readings` hold nothing that is not already a row in this ledger or built on
 the head, so they carry no row of their own.
 
-- ~~anim.md~~ Fixed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": anim.md.
 - **arch.md**: the Dashboard emblem is most of an idle window's cost (5.55% of
   one core open, 2.09% parked); INBOX 266's usability and lightweight items
   belong to nobody. [arch]
   *Needs: the owner's call on the emblem's frame rate (they asked for "always rotating").*
-- ~~askcite.md~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": askcite.md.
 - **backend-0926.md**: F7's thread modules
   onto `core/jobs.py` (13 left, `tests/test_flaw_class_lints.py`'s ratchet).
   Not verified: the receipt against a real outbound call, the five UIs in the
   desktop window, LAN from a second device, the `.ics` in a real calendar app.
   [backend-0926]
   *Needs: a second device, the desktop window and a calendar app, for the unverified list. The Undo row, the night card's scroll and the ledger's flush are closed, HISTORY.md, "OPEN.md rows closed, 2026-10-04".*
-- ~~chat-0926.md~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
-- ~~chrome2.md~~ Fixed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": chat-0926.md; chrome2.md.
 - **codecomplete.md**: Python Run via a Pyodide download extra (INBOX 404's
   recommendation, needs the owner's yes to a download kind of extra) and
   TypeScript Run via a vendored type-stripper; SCSS, Less and SVG are not file
@@ -546,8 +479,7 @@ the head, so they carry no row of their own.
   tosses it) was not tried on a device; `test_unlock_throttle_per_client.py`
   failed once under load and passes alone. [companion-r5]
   *Needs: a phone; the flake is load, not the test.*
-- ~~featuremodels.md~~ Verified. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
-- ~~guide.md~~ Placed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": featuremodels.md; guide.md.
 - **guideia.md**: the Guide is a modal sheet whose scrim dims the app, so
   "Open the Reminders tab" cannot be read against the tab; the rows
   WORLD_CLASS_PLAN 1.3 marks open (Remind me beyond notes, the Library note
@@ -686,8 +618,7 @@ Held by the Atlas motion agent; each closes when its sweep measures it.
 
 ## Not verified
 
-- ~~The feminine sash sways on an inner <g>~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
-- ~~The companion's walk lays out and recalculates style 59 times a second~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": The feminine sash sways on an inner <g>; The companion's walk lays out and recalculates style 59 times a second.
 - **Every provider test runs against a fake transport** (CLAUDE.md section 4),
   and that covers more open work than any other single line here: no real
   model has run a skill, the night pass, the Guide's tab context, the paging
@@ -760,7 +691,7 @@ Held by the Atlas motion agent; each closes when its sweep measures it.
   long-press flyout have never been driven by a touch device; the
   highlighter's Shift-straight branch is exercised by hand, not by the gate.
   [whiteboard-phases.md]
-- ~~The whiteboard's align and distribute actions were not driven~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": The whiteboard's align and distribute actions were not driven.
 - **The popup agent's results pane with a conversation in it.** Everything was
   measured on the empty state, since this sandbox has no model;
   `.command-palette-results` keeps its own `--card-pad-x` inset, and that is

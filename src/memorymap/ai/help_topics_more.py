@@ -332,7 +332,7 @@ MORE_TOPICS: list[dict] = [
             "jump to a note",
         ),
         "body": (
-            "Find anything (Ctrl+P, or Find in the status bar) searches notes, "
+            "Find anything (Ctrl+P, or the magnifying glass in the status bar) searches notes, "
             "files, documents and actions in one box as you type: Enter opens "
             "the top result, the arrows move, Esc closes. It lists the command "
             "palette's actions too, so \"dark\" finds Toggle light/dark."
@@ -457,8 +457,8 @@ MORE_TOPICS: list[dict] = [
             "can check the recommendation. Use this one makes that model answer "
             "in chat. Stop ends a run, and a stopped run makes no "
             "recommendation. It needs at least six filed notes, runs entirely on "
-            "this computer, and can be switched off in Settings, What the "
-            "notebook learned, Model bench."
+            "this computer, and can be switched off in Settings, What it "
+            "learned, What may run, Model bench."
         ),
         "badge": {"label": "Test my models", "section": "models", "target": "bench-box"},
     },
@@ -480,7 +480,7 @@ MORE_TOPICS: list[dict] = [
             "reminder) and Related. Each card has Open and Not this; nothing is "
             "ever written into your text. It is off until you turn it on, "
             "remembered on this device, and can be switched off everywhere in "
-            "Settings, What it learned, Margin reader."
+            "Settings, What it learned, What may run, Margin reader."
         ),
         "badge": {"label": "What it learned", "section": "learned"},
     },
@@ -537,7 +537,7 @@ MORE_TOPICS: list[dict] = [
         "body": (
             "Settings, General, Simple mode: Show only Dashboard, Notes, Chat and "
             "Library. It hides the Graph, Timeline and Reminders tabs, the "
-            "Library's Boards and maps, What it learned and the advanced response "
+            "Library's Boards & maps, What it learned and the advanced response "
             "settings until you want them. Nothing is turned off: every hidden "
             "place still opens from the command palette (Ctrl+K), and reminders "
             "still ring. It is remembered on this device; turn it off in the "
@@ -805,11 +805,14 @@ MORE_TOPICS.extend(
                 "(\"note 2\" before \"note 10\"), Most used or Forgotten first; "
                 "the choice is remembered. A note's menu has Copy wiki link to "
                 "paste a [[link]] to it into another note, and Copy app link for "
-                "an address that opens it in the app. Editing a note has a title "
-                "over the text in one box; tags are chips (Enter or a comma adds "
-                "one, pressing one removes it), the category is its chip with a "
-                "menu, and the foot has Attach a link at the left and Cancel and "
-                "Save at the right. On a focused note, F2 edits it, Delete deletes it, and "
+                "an address that opens it in the app. Editing a note has the title, "
+                "a line of properties and the text in one box: the category is its "
+                "chip with a menu, tags are chips after it (Add tag: Enter or a "
+                "comma adds one, pressing one removes it), and the formatting "
+                "icons sit above the text, the rest behind More. Related notes "
+                "fold into one \"suggested links\" line until you open it. The foot "
+                "has Attach a link (pick a saved bookmark) and the word count at "
+                "the left and Cancel and Save at the right. On a focused note, F2 edits it, Delete deletes it, and "
                 "Home and End jump to the ends of the list. In a window 1280 wide "
                 "or more, the note you are reading (the one you clicked, else the "
                 "one in view as you scroll) has a Connections column beside the "
@@ -1051,7 +1054,7 @@ TOPIC_META: dict[str, dict] = {
     "dashboard": {"title": "The dashboard", "path": "Dashboard tab"},
     "library": {"title": "The Library", "path": "Library tab"},
     "documents": {"title": "Documents", "path": "Library tab, Documents"},
-    "whiteboard": {"title": "Whiteboards", "path": "Library tab, Whiteboards"},
+    "whiteboard": {"title": "Whiteboards", "path": "Library tab, Boards & maps"},
     "timeline": {"title": "The Timeline", "path": "Timeline tab"},
     "memory": {"title": "What it remembers", "path": "Settings, What it remembers"},
     "spaces": {"title": "Spaces", "path": "The picker at the top of the sidebar"},
@@ -1071,7 +1074,7 @@ TOPIC_META: dict[str, dict] = {
     "privacy": {"title": "Privacy", "path": "Settings, Privacy"},
     "undo-bin": {"title": "Undo and the bin", "path": "Ctrl+Z, and the Library's Include the bin"},
     "autonomous": {"title": "Autonomous background AI", "path": "Settings, Background tasks"},
-    "guide": {"title": "Atlas, the guide", "path": "Status bar, Guide (Ctrl+Shift+H)"},
+    "guide": {"title": "Atlas, the guide", "path": "Status bar, the compass (Ctrl+Shift+H)"},
     "command-palette": {"title": "The command palette", "path": "Ctrl+K"},
     "security": {"title": "Account and security", "path": "Settings, Account & security"},
     "troubleshooting": {"title": "When something does not work", "path": "Settings, Models, then Settings, Logs", "steps": (
@@ -1097,7 +1100,7 @@ TOPIC_META: dict[str, dict] = {
     "import-export": {"title": "Import and export", "path": "Settings, Import & export"},
     "logs": {"title": "Logs and reporting a problem", "path": "Settings, Logs", "steps": (
         "Open Settings, Logs.", "Press Email it under the support bundle.", "Attach the bundle the app saved and send.")},
-    "find-anything": {"title": "Find anything", "path": "Ctrl+P, or Find in the status bar"},
+    "find-anything": {"title": "Find anything", "path": "Ctrl+P, or the magnifying glass in the status bar"},
     "background-art": {"title": "The animated background", "path": "Settings, Appearance, Animated background"},
     "themes": {"title": "Themes, colour and type", "path": "Settings, Appearance"},
     "tabs-overview": {"title": "The app at a glance", "path": "The tabs along the top"},
@@ -1108,7 +1111,7 @@ TOPIC_META: dict[str, dict] = {
     "files-images": {"title": "Pictures, scans and PDFs", "path": "Library tab, Images and Files"},
     "archive": {"title": "Archiving", "path": "Each item's own menu, and the Library's Archived filter"},
     "voice": {"title": "Dictation, meetings and read aloud", "path": "Notes tab, the microphone"},
-    "extract-notes": {"title": "Extract notes and the Writing Room", "path": "Notes tab"},
+    "extract-notes": {"title": "Split text into notes", "path": "Notes tab, Write with Atlas, More, Split into notes"},
     "favourites": {"title": "Favourites", "path": "A note's star"},
     "ocr-workspace": {"title": "The OCR workspace", "path": "Read text, on any image or PDF"},
     "document-history": {"title": "A document's history", "path": "A document's ... menu, History"},
@@ -1122,14 +1125,15 @@ TOPIC_META: dict[str, dict] = {
     "translate": {"title": "Translating", "path": "Notes tab, Write with Atlas"},
     "tags-categories": {"title": "Tags and categories", "path": "A note's own row, or Capture's Filing menu"},
     "code-files": {"title": "Code documents", "path": "Library tab, Documents"},
-    "mind-maps": {"title": "Mind maps", "path": "Library tab, Boards and maps"},
-    "whiteboard-controls": {"title": "Whiteboard keys and controls", "path": "Library tab, Boards and maps"},
+    "mind-maps": {"title": "Mind maps", "path": "Library tab, Boards & maps"},
+    "whiteboard-controls": {"title": "Whiteboard keys and controls", "path": "Library tab, Boards & maps"},
+    "board-history": {"title": "A board's history, and putting it back", "path": "A board, Board, History…"},
     "board-library": {"title": "The board's library, layers and templates", "path": "A board, the Library button in its top bar"},
     "board-format": {"title": "The board's Format panel and connectors", "path": "A board, Ctrl+Shift+P or the selection's More menu"},
-    "mind-map-controls": {"title": "Mind map keys and controls", "path": "Library tab, Boards and maps"},
+    "mind-map-controls": {"title": "Mind map keys and controls", "path": "Library tab, Boards & maps"},
     "documents-controls": {"title": "Document editor keys and controls", "path": "Library tab, Documents"},
     "documents-features": {"title": "Document editor features", "path": "Library tab, Documents"},
-    "mind-map-features": {"title": "Mind map features", "path": "Library tab, Boards and maps"},
+    "mind-map-features": {"title": "Mind map features", "path": "Library tab, Boards & maps"},
     "callouts": {"title": "Callouts", "path": "Library tab, Documents"},
     "graph-controls": {"title": "Graph keys and controls", "path": "Graph tab"},
     "graph-display": {"title": "More graph controls", "path": "Graph tab, the gear"},
@@ -1192,7 +1196,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "margin-reader",
     )),
     ("Boards and maps", (
-        "whiteboard", "whiteboard-controls", "board-library", "board-format", "mind-maps", "mind-map-controls", "mind-map-features",
+        "whiteboard", "whiteboard-controls", "board-history", "board-library", "board-format", "mind-maps", "mind-map-controls", "mind-map-features",
     )),
     ("Library and files", (
         "library", "library-controls", "bookmarks", "web-clipper-bookmark", "contents", "library-skills",

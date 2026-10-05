@@ -70,3 +70,35 @@ def test_a_return_to_the_dashboard_refreshes_in_place():
     refresh = _block(dash, "function refreshDashWidgets(grid) {")
     # Drawn beside the old body, unseen, and swapped in only once it is done.
     assert 'visibility: "hidden"' in refresh and "old.replaceWith(next)" in refresh
+
+
+#: Settings panes whose lists fill from a request (INBOX 596, "some skeleton
+#: loaders are missing"): the render holds `.skeleton` rows until the answer
+#: lands. `scratchpad/ui-sweeps/settings-skeletons.js` holds the API 800ms and
+#: counts the lists left empty (8 panes before, none after).
+SETTINGS_LISTS = (
+    ("status.js", "async function renderExtras(", "extras-list"),
+    ("status.js", "async function renderEmbedModels(", "embed-models-list"),
+    ("skills.js", "async function renderSkillSettings(", "skill-list"),
+    ("skills.js", "async function renderToolSettings(", "tool-list"),
+    ("sheets-selects.js", "async function renderPersonas(", "persona-list"),
+    ("settings-data.js", "async function renderBackups(", "backup-list"),
+    ("settings-data.js", "async function renderPrivacyReceipt(", "privacy-switches"),
+    ("settings-panes.js", "async function renderAccount(", "account-facts"),
+)
+
+
+def test_a_settings_list_that_fetches_shows_skeleton_rows_while_it_waits():
+    for name, start, list_id in SETTINGS_LISTS:
+        body = _block(_read(name), start)
+        assert "showSkeletons(" in body, f"{start} draws {list_id} blank until its request answers"
+        assert "clearSkeletons(" in body, f"{start} never takes its skeletons out on a failed request"
+        shown = body.index("showSkeletons(")
+        assert shown < body.index("await "), f"{start} shows its skeletons after the wait, not before it"
+        assert "li" in body[shown : shown + 120] or "switchRows" in body[shown : shown + 120], start
+
+
+def test_the_model_lists_wait_with_skeletons_only_while_the_status_is_unanswered():
+    status = _read("status.js")
+    assert 'showSkeletons($("models-skeleton"), 2);' in status
+    assert 'list.removeAttribute("aria-busy");' in _read("ai-tools.js")

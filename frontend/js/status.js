@@ -2270,6 +2270,9 @@ function renderStatusBar() {
     //: UX-07: the name of the dialog it opens; "Ask" is Notes' and Chat's.
     word.textContent = "Agent";
     agent.append(glyph, word);
+    //: Icon-only at every width (INBOX 618): the word is clipped by CSS, and
+    //: names the button here so a screen reader and voice control keep it.
+    agent.setAttribute("aria-label", "Agent");
     //: `STATUS_META_KEY` is the whole "Ctrl K"/"⌘K" hint, not a bare
     //: modifier: appending "+Shift+A" to it produced "Ctrl K+Shift+A", which
     //: names no shortcut at all. Caught by reading the rendered title
@@ -2295,6 +2298,9 @@ function renderStatusBar() {
     const word = document.createElement("span");
     word.textContent = "Find";
     find.append(glyph, word);
+    //: Icon-only at every width (INBOX 618): the word is clipped by CSS, and
+    //: names the button here so a screen reader and voice control keep it.
+    find.setAttribute("aria-label", "Find");
     //: Built the same way the agent's hint two controls up is, and for the
     //: same reason it records: `STATUS_META_KEY` is the whole hint, so
     //: appending to it names no shortcut at all.
@@ -2320,6 +2326,7 @@ function renderStatusBar() {
     word.textContent = "Guide";
     const guideName = typeof GUIDE_NAME === "string" ? GUIDE_NAME : "Atlas";
     guide.append(glyph, word);
+    guide.setAttribute("aria-label", "Guide");
     guide.title = `Ask ${guideName} how this app works, from any tab`;
   }
 }
@@ -2535,9 +2542,15 @@ function renderSettings() {
         down: "Can't reach the MemoryMap server.",
       }[modelStatusProblem] || "Checking the models…";
     ollamaLine.className = `status ${modelStatusProblem === "down" ? "off" : "is-checking"}`;
+    //: The pane's shape under the line while it waits, never the line alone
+    //: (DESIGN.md's list recipe). Not when the answer is a fault: a skeleton
+    //: says "on its way", and "can't reach" is not that.
+    if (modelStatusProblem === "down") clearSkeletons($("models-skeleton"));
+    else showSkeletons($("models-skeleton"), 2);
     if (!modelStatusProblem) refreshModelStatus().then(() => settingsOpen() && renderSettings());
     return;
   }
+  clearSkeletons($("models-skeleton"));
 
   // Name the backend that actually answered. Saying "Ollama not detected"
   // when the app was pointed at LM Studio sends people to install the wrong
@@ -2791,8 +2804,18 @@ let extrasPollTimer = null;
 async function renderExtras() {
   const list = $("extras-list");
   if (!list) return;
+  //: Skeleton rows until the catalogue answers (INBOX 596, the owner: "some
+  //: skeleton loaders are missing"): only into an empty list, so the poll
+  //: that redraws it while a package installs never covers its rows.
+  const embedList = $("embed-models-list");
+  showSkeletons(list, 3, "li");
+  showSkeletons(embedList, 2, "li");
   const body = await apiJson("/extras", { silent: true }).catch(() => null);
-  if (!body) return;
+  clearSkeletons(list);
+  if (!body) {
+    clearSkeletons(embedList);
+    return;
+  }
 
   list.replaceChildren();
   for (const extra of body.extras) {
@@ -2995,7 +3018,9 @@ let embedPollTimer = null;
 async function renderEmbedModels() {
   const list = $("embed-models-list");
   if (!list) return;
+  showSkeletons(list, 2, "li");
   const body = await apiJson("/embedding-models", { silent: true }).catch(() => null);
+  clearSkeletons(list);
   if (!body) return;
 
   list.replaceChildren();

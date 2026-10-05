@@ -80,6 +80,8 @@ ON_THE_GRAMMAR = {
     "settings-account",
     "settings-learned",
     "settings-memory",
+    # Personas, in the markup since its dock carries New persona.
+    "settings-personas",
     "settings-privacy",
     "settings-skills",
     "settings-templates",

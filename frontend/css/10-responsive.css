@@ -1531,10 +1531,10 @@ header#top-bar,
      that was left 34px for 148px of text when they first did is two lines,
      the name over the model, and ellipsises (item 12's block below). */
 
-  .dock .dock-find > input[type="search"],
-  .dock .dock-find > .library-search {
+  .dock .dock-find > .dock-search {
     flex: 1 1 0;
     min-width: 0;
+    max-width: none;
     width: auto;
   }
 
@@ -1741,23 +1741,19 @@ header#top-bar,
    390: 166px for an opener, a title, a search box and three icons), because
    the actions zone was sent to a row of its own and its hairline divider
    was drawn at the start of every row it wrapped to. Now the actions share
-   the title's row and the find zone takes the second; a zone divider is a
-   boundary on one line, so on a phone, where the zones stack, there is
-   none. */
+   the title's row and the find zone takes the second. No zone draws a
+   divider at any width now (INBOX 621); on a phone, where the zones stack,
+   the gap between them is the tighter `--space-4` the phone docks were
+   measured at. */
 @media (max-width: 599.98px) {
 
-  .dock > * + * {
-    border-left: 0;
-    padding-left: 0;
+  .dock {
+    column-gap: var(--space-4);
   }
 
   /* Never wider than the dock: a zone of many actions (the Writing room's,
      515px of them) takes a row of its own and wraps inside it, right
      aligned, rather than running off the window (errors.js at 390). */
-  /* `padding-left: 0` here too: the rule above is (0,1,0) and the desktop
-     hairline's padding (`.dock > .dock-actions`, 08-consistency.css) is
-     (0,2,0), so the padding outlived its divider and the Dashboard's ⋯ sat
-     19.2px from the field before it, the dock's gap twice (INBOX 464 (20)). */
   .dock > .dock-actions {
     flex: 0 1 auto;
     max-width: 100%;
@@ -1765,7 +1761,6 @@ header#top-bar,
     flex-wrap: wrap;
     justify-content: flex-end;
     margin-left: auto;
-    padding-left: 0;
   }
 
   .dock > .dock-find {

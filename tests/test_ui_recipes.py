@@ -3639,24 +3639,24 @@ def _css_block(selector: str) -> str:
     return match.group(1)
 
 
-def test_a_settings_index_is_a_sticky_strip_on_the_opaque_ground() -> None:
-    """DESIGN.md, "A long Settings section's index". The strip stays with the
-    pane (`position: sticky`), on `--modal-bg-opaque` and never a tint alone (a
-    translucent strip becomes a window once the pane scrolls under it), its
-    links are the Quiet tier (no fill at rest) and the one you are in is painted
-    from `aria-current`, not a class."""
-    # Since INBOX 599 the strip is in the pane's dock and the dock is what
-    # sticks, on the opaque ground.
+def test_a_settings_pane_lists_its_groups_in_the_sidebar() -> None:
+    """DESIGN.md, "A long Settings section's index" (INBOX 622). The pane's
+    group links are the sidebar's second level under the pane's own link, not
+    a strip in the pane that scrolls sideways. The pane's dock still sticks
+    (`position: sticky`) on `--modal-bg-opaque`, never a tint alone; the links
+    are the Quiet tier (no fill at rest) and the one you are in is painted from
+    `aria-current` with a weight step and an accent rail, not a class and not a
+    second fill beside the pane's own."""
     bar = _css_block("#settings-modal .settings-section > .dock")
     assert "position: sticky" in bar and "var(--modal-bg-opaque)" in bar
-    assert "overflow-x: auto" in _css_block(".settings-index")
-    link = _css_block(".settings-index-link")
+    link = _css_block("#settings-nav .settings-nav-group")
     assert "background: transparent" in link and "box-shadow: none" in link
-    current = _css_block('.settings-index-link[aria-current="location"]')
-    assert "var(--accent-soft)" in current and "--accent-surface" not in current
+    current = _css_block('#settings-nav .settings-nav-group[aria-current="location"]')
+    assert "var(--accent)" in current and "font-weight: 650" in current
+    assert "--accent-surface" not in current and "background" not in current
     code = (ROOT / "frontend" / "js" / "settings-find.js").read_text(encoding="utf-8")
     assert "scrollIntoView" not in re.sub(r"//.*", "", code), "scroll the pane's own scrollTop"
-    assert code.count('"settings-index"') >= 1 and "aria-current" in code
+    assert code.count('"settings-nav-groups"') >= 1 and "aria-current" in code
 
 
 def test_the_setting_search_results_are_quiet_rows() -> None:
@@ -4304,8 +4304,9 @@ def test_every_settings_pane_opens_on_its_dock() -> None:
     inside it, the '?' last), one row and one control height at 1440.
 
     A pane written in the markup opens on `.dock.settings-pane-title`; a pane
-    without one gets the same shape from `ensureSettingsPaneTitle`; the index
-    goes inside the dock (`settingsIndexBuild`), and the dock is what sticks.
+    without one gets the same shape from `ensureSettingsPaneTitle`, and the
+    dock is what sticks. The index went from inside the dock to the sidebar's
+    second level (INBOX 622, `settingsIndexBuild`).
     """
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     html = re.sub(r"<!--.*?-->", "", html, flags=re.S)
@@ -4318,7 +4319,9 @@ def test_every_settings_pane_opens_on_its_dock() -> None:
     body = _function_body(settings, "ensureSettingsPaneTitle")
     assert '"dock settings-pane-title"' in body and '"dock-identity"' in body
     find = (ROOT / "frontend" / "js" / "settings-find.js").read_text(encoding="utf-8")
-    assert 'anchor?.matches(".dock")' in _function_body(find, "settingsIndexBuild")
+    # The index is the sidebar's second level now (INBOX 622), not a strip in
+    # this dock.
+    assert '$("settings-nav")' in _function_body(find, "settingsIndexBuild")
     title = _css_block("#settings-modal .settings-section > .dock h3")
     # 600 is `.card h3`'s own weight; the size and the ink are this rule's.
     assert "var(--text-body)" in title and "var(--ink)" in title

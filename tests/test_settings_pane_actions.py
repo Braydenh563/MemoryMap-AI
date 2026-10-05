@@ -55,6 +55,8 @@ def test_on_a_phone_new_is_its_plus_on_the_titles_row():
     block = css[css.index("**On a phone the pane's New sits on the title's row**") :]
     block = block[: block.index("\n}\n")]
     assert "@media (max-width: 599.98px)" in block
-    assert "order: 3;" in block and "flex-basis: 100%;" in block
+    # The jump links that took a row of their own under both (`order: 3`) are
+    # the sidebar's second level now (INBOX 622), so the dock is one row.
+    assert "order: 2;" in block and "settings-index" not in block
     hidden = block[block.index(".settings-pane-new > .pane-new-word {") :]
     assert "clip-path: inset(50%);" in hidden and "display: none" not in hidden

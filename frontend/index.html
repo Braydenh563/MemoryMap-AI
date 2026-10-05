@@ -1494,7 +1494,6 @@ Link to another note with [[its first few words]]."></textarea>
               <select id="draft-feature-model" class="small-select feature-model-select"
                 aria-label="Model for Write with Atlas"
                 title="The model that writes here, the same choice as the Write with Atlas row in Settings, Models"><option value="">Inherited</option></select>
-              <button id="draft-compose" data-needs-model="Drafting needs a model connected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Draft</button>
               <button id="draft-cancel" class="ghost hidden" type="button"
                 title="Stop Atlas: nothing you've written is changed"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
               <button id="draft-undo" class="ghost small" type="button" disabled
@@ -1538,6 +1537,7 @@ Link to another note with [[its first few words]]."></textarea>
                     title="Clear the desk: the thoughts, the draft and its earlier versions"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Discard this draft</button>
                 </div>
               </details>
+              <button id="draft-compose" data-needs-model="Drafting needs a model connected"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> Draft</button>
             </div>
           </div>
           <div class="help-body hidden" id="draft-help-body" role="dialog" aria-label="What is this?">
@@ -2014,10 +2014,13 @@ Link to another note with [[its first few words]]."></textarea>
               <h2 id="entries-heading" class="entries-heading"><span id="entries-heading-label">All notes</span></h2>
             </div>
             <div class="dock-group dock-find">
-              <input id="note-search" class="library-search" type="search"
-                placeholder="Filter notes"
-                aria-label="Filter notes. Supports tag: or #tag, cat:, title:, before:, after:, is:favourite, has:, space:, -exclude and quoted phrases"
-                aria-describedby="search-help-hint">
+              <div class="search-field dock-search">
+                <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+                <input id="note-search" class="library-search search-field-input" type="search"
+                  placeholder="Filter notes"
+                  aria-label="Filter notes. Supports tag: or #tag, cat:, title:, before:, after:, is:favourite, has:, space:, -exclude and quoted phrases"
+                  aria-describedby="search-help-hint">
+              </div>
               <details class="doc-dock-menu dock-menu" id="notes-filter-menu">
                 <summary class="ghost small doc-dock-menu-btn" title="Match by meaning, save this filter"><i class="ph ph-funnel-simple ph-lead" aria-hidden="true"></i> <span class="dock-word">Filter</span> <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
                 <div class="doc-dock-menu-list dock-menu-list">
@@ -2052,16 +2055,6 @@ Link to another note with [[its first few words]]."></textarea>
             </div>
             <div class="dock-actions">
               <button id="select-btn" class="ghost small" title="Select several notes to move, tag, or delete together"><i class="ph ph-check-square ph-lead" aria-hidden="true"></i> <span class="dock-word">Select</span></button>
-              <!-- The dock's one primary, which this dock never had: Capture is
-                   a sub-tab, so "new note" was a tab press away and looked
-                   like navigation rather than the thing the Notes tab is for.
-                   Filled, at the right, before the utilities, the grammar's
-                   own order; on a phone `FAB_IDS` floats it as the + above
-                   the tab bar (UI Phase 11 item 2), where it opens Capture
-                   with the box focused, and it hides while Capture is the
-                   section showing. -->
-              <button id="notes-new-note" class="small" type="button"
-                title="Start a new note (opens Capture)"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</button>
               <button id="search-help" data-help-for="search-help-hint" class="icon-only ghost small graph-help-toggle" type="button"
                 aria-expanded="false" aria-controls="search-help-hint"
                 title="What can I type here?" aria-label="What can I type here?">
@@ -2112,6 +2105,16 @@ Link to another note with [[its first few words]]."></textarea>
                   </div>
                 </div>
               </details>
+              <!-- The dock's one primary, which this dock never had: Capture is
+                   a sub-tab, so "new note" was a tab press away and looked
+                   like navigation rather than the thing the Notes tab is for.
+                   Filled, and last: after the utilities (INBOX 621), the grammar's
+                   own order; on a phone `FAB_IDS` floats it as the + above
+                   the tab bar (UI Phase 11 item 2), where it opens Capture
+                   with the box focused, and it hides while Capture is the
+                   section showing. -->
+              <button id="notes-new-note" class="small" type="button"
+                title="Start a new note (opens Capture)"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</button>
             </div>
           </div>
           <!-- Batch actions bar: appears in select mode -->
@@ -3043,7 +3046,10 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="dock-group dock-find">
           <!-- "Find", not "highlight": it filters the rows now rather than
                dimming them in place (TIMELINE_PLAN decision 2). -->
-          <input type="search" id="timeline-search" class="timeline-search" placeholder="Find notes…" aria-label="Find matching notes">
+          <div class="search-field dock-search">
+            <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+            <input type="search" id="timeline-search" class="timeline-search search-field-input" placeholder="Find notes…" aria-label="Find matching notes">
+          </div>
           <!-- Which kinds of thing the journal holds (TIMELINE_PLAN.md Phase 4,
                decision 9), as one control rather than four loose ones. It was
                four `.library-chip`s (INBOX 186), then a `.seg.seg-multi` well
@@ -3157,13 +3163,13 @@ Link to another note with [[its first few words]]."></textarea>
           </details>
         </div>
         <div class="dock-actions">
-          <button id="timeline-jump-today" class="small" type="button" title="Jump to today">
-            <i class="ph ph-calendar-blank ph-lead" aria-hidden="true"></i> Today
-          </button>
           <button type="button" id="timeline-help" data-help-for="timeline-intro" class="icon-only ghost small graph-help-toggle"
             title="How to read this" aria-label="How to read this"
             aria-controls="timeline-intro" aria-expanded="false">
             <i class="ph ph-question" aria-hidden="true"></i>
+          </button>
+          <button id="timeline-jump-today" class="small" type="button" title="Jump to today">
+            <i class="ph ph-calendar-blank ph-lead" aria-hidden="true"></i> Today
           </button>
         </div>
       </div>
@@ -3353,8 +3359,11 @@ Link to another note with [[its first few words]]."></textarea>
               title="A concept map is one you draw yourself: your own cards, your own links, your own arrangement, where this map is built for you from what your notes already say."><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> <span class="dock-link-label">Concept maps</span></button>
           </div>
           <div class="dock-group dock-find">
-            <input id="graph-search" type="search" placeholder="Highlight notes…"
-              aria-label="Highlight matching notes in the graph">
+            <div class="search-field dock-search">
+              <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+              <input id="graph-search" class="search-field-input" type="search" placeholder="Highlight notes…"
+                aria-label="Highlight matching notes in the graph">
+            </div>
             <button id="graph-highlight-clear" class="ghost small hidden" title="Clear the similar-notes highlight"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear highlight</button>
             <button id="graph-focus-clear" class="ghost small hidden" title="Exit focus mode and return to the global map"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Exit focus</button>
           </div>
@@ -3364,7 +3373,6 @@ Link to another note with [[its first few words]]."></textarea>
                already folded them into the gear's sheet). A zone a surface
                does not have simply is not there. -->
           <div class="dock-actions">
-            <button id="graph-add-node" class="small" title="Add a new note straight onto the map"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</button>
             <button id="graph-refresh" class="ghost small icon-only" type="button" title="Reload the map from your notes" aria-label="Reload the map from your notes"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="graph-help-toggle" data-help-for="graph-help-panel" class="icon-only ghost small graph-help-toggle"
               title="How to use this map" aria-label="How to use this map"
@@ -3416,6 +3424,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="graph-export-png" class="doc-dock-menu-item" type="button" title="Save what's currently on screen as a PNG image"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export as PNG</button>
               </div>
             </details>
+            <button id="graph-add-node" class="small" title="Add a new note straight onto the map"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New note</button>
           </div>
         </div>
         <!-- GRAPH_PLAN Phase 4: the selection dock. Hidden until a lasso
@@ -3541,9 +3550,9 @@ Link to another note with [[its first few words]]."></textarea>
               </select>
             </div>
             <div class="graph-view-tools">
-              <button id="graph-trace-toggle" class="ghost small" type="button" aria-expanded="false"
+              <button id="graph-trace-toggle" class="doc-dock-menu-item" type="button" aria-expanded="false"
                 title="Find how two notes connect"><i class="ph ph-path ph-lead" aria-hidden="true"></i> Trace</button>
-              <button id="graph-legend-toggle" class="ghost small" type="button"
+              <button id="graph-legend-toggle" class="doc-dock-menu-item" type="button"
                 title="Hide the legend" aria-label="Hide the legend" aria-expanded="true"><i class="ph ph-list-bullets ph-lead" aria-hidden="true"></i> Legend</button>
             </div>
           </div>
@@ -3580,31 +3589,14 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
           <details class="dock-menu-section settings-fold graph-options-fold graph-physics"
             id="graph-physics">
-            <!-- Unpin all rides the section's own header row now (graph.md
-                 section 2: "the 'Pinned notes' row's label -- the button
-                 could be the row"). It had its own row with a "Pinned notes"
-                 label that said nothing the button's own text didn't already
-                 say; removing that row (and the gap it cost) is one of the
-                 candidates that gets the panel back under its cap without
-                 shrinking anything. Still stays with the physics it undoes
-                 (releasing what you pinned hands the layout back to Gravity
-                 and Spread), just beside the section name instead of under
-                 it. -->
-            <!-- The section head is the fold's summary now, and "Unpin all"
-                 rides it the way it rode the head: a button inside a
-                 `<summary>` is phrasing content and therefore valid, and
-                 `graph-unpin-all`'s own handler calls preventDefault so
-                 pressing it releases the pins without also opening or
-                 closing the fold it sits on. The alternative was a row of
-                 its own inside the fold, which is the row this header
-                 replaced in the first place. -->
-            <summary>
-              <span class="muted dock-menu-label" id="graph-physics-label">Physics</span>
-              <button id="graph-unpin-all" class="ghost small" type="button"
-                title="Release every note you have pinned in place, so the layout can move freely again">
-                <i class="ph ph-arrows-out-cardinal ph-lead" aria-hidden="true"></i> Unpin all
-              </button>
-            </summary>
+            <!-- Every section head is the same now (INBOX 621, the owner: "the
+                 settings dropdown in the graph tab" reads as vibe coded): the
+                 name alone, the fold's chevron at the far right. Unpin all
+                 rode this summary as a bordered button, a control inside a
+                 control and the one head of eight that held one; it is the
+                 section's last row now, a menu row like the panel's other
+                 actions (Trace, Legend, Suggest links, Reset). -->
+            <summary><span class="muted dock-menu-label" id="graph-physics-label">Physics</span></summary>
             <div class="graph-option-row">
               <label for="graph-gravity">Gravity</label>
               <input id="graph-gravity" type="range" min="0" max="100" value="50"
@@ -3632,6 +3624,10 @@ Link to another note with [[its first few words]]."></textarea>
                 <input type="checkbox" id="graph-group" checked>
               </label>
             </div>
+            <button id="graph-unpin-all" class="doc-dock-menu-item" type="button"
+              title="Release every note you have pinned in place, so the layout can move freely again">
+              <i class="ph ph-arrows-out-cardinal ph-lead" aria-hidden="true"></i> Unpin all
+            </button>
           </details>
           <div class="dock-menu-section" id="graph-toggle-group"
             role="group" aria-labelledby="graph-show-label">
@@ -3871,9 +3867,9 @@ Link to another note with [[its first few words]]."></textarea>
                saved views), and its toast carries the Undo. -->
           <div class="dock-menu-section graph-options-foot" role="group"
             aria-label="Map actions">
-            <button id="link-suggest-btn" class="ghost small" type="button"
+            <button id="link-suggest-btn" class="doc-dock-menu-item" type="button"
               title="Let Atlas suggest links between notes that mean similar things"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Suggest links</button>
-            <button id="graph-options-reset" class="ghost small" type="button"
+            <button id="graph-options-reset" class="doc-dock-menu-item" type="button"
               title="Put the layout, colours, physics, Show switches, time filter and minimap back to how they start. Groups and saved views are kept">
               <i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i> Reset to defaults
             </button>
@@ -5071,13 +5067,6 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
         </div>
         <div class="dock-actions">
-          <!-- The dock's one filled action (INBOX 392): above 600 it takes the
-               caret to the add box above; below 600 it is the floating +
-               (FAB_IDS) and opens that box as a sheet, since on a phone the
-               list is the page and the form that filled its first screen is
-               one press away instead. -->
-          <button id="reminders-new" class="small" type="button"
-            title="Add a reminder"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New reminder</button>
           <button id="reminder-clear-done" class="ghost small"
             title="Delete every completed reminder"><i class="ph ph-broom ph-lead" aria-hidden="true"></i> Clear done</button>
           <!-- The '?' every other tab's dock ends with (WORLD_CLASS_PLAN A8):
@@ -5108,6 +5097,13 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
             </div>
           </details>
+          <!-- The dock's one filled action (INBOX 392): above 600 it takes the
+               caret to the add box above; below 600 it is the floating +
+               (FAB_IDS) and opens that box as a sheet, since on a phone the
+               list is the page and the form that filled its first screen is
+               one press away instead. -->
+          <button id="reminders-new" class="small" type="button"
+            title="Add a reminder"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New reminder</button>
         </div>
       </div>
       <div class="library-filters" id="reminder-filter" role="group" aria-label="Filter reminders">
@@ -5199,9 +5195,12 @@ Link to another note with [[its first few words]]."></textarea>
               <h2>Library</h2>
             </div>
             <div class="dock-group dock-find">
-              <input id="library-search" type="search" class="library-search"
-                placeholder="Search titles and previews…"
-                aria-label="Search the library">
+              <div class="search-field dock-search">
+                <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+                <input id="library-search" type="search" class="library-search search-field-input"
+                  placeholder="Search titles and previews…"
+                  aria-label="Search the library">
+              </div>
               <details class="doc-dock-menu dock-menu" id="library-filter-menu">
                 <summary class="ghost small doc-dock-menu-btn" title="Match by meaning, include the bin"><i class="ph ph-funnel-simple ph-lead" aria-hidden="true"></i> Filter <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
                 <div class="doc-dock-menu-list dock-menu-list">
@@ -5231,8 +5230,6 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
             </div>
             <div class="dock-actions">
-              <button id="library-new-doc" class="small" type="button"
-                title="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New document</button>
               <button id="library-refresh" class="ghost small icon-only" type="button"
                 title="Reload the list" aria-label="Reload the list"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
               <button type="button" id="library-help-toggle" class="icon-only ghost small graph-help-toggle"
@@ -5255,6 +5252,8 @@ Link to another note with [[its first few words]]."></textarea>
                   </div>
                 </div>
               </details>
+              <button id="library-new-doc" class="small" type="button"
+                title="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New document</button>
             </div>
           </div>
           <div id="library-overview" class="library-overview" role="group"
@@ -5342,8 +5341,11 @@ Link to another note with [[its first few words]]."></textarea>
             <h2>Documents</h2>
           </div>
           <div class="dock-group dock-find">
-            <input id="library-docs-search" type="search" placeholder="Search documents…"
-              aria-label="Search documents by title or content">
+            <div class="search-field dock-search">
+              <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+              <input id="library-docs-search" class="search-field-input" type="search" placeholder="Search documents…"
+                aria-label="Search documents by title or content">
+            </div>
           </div>
           <div class="dock-group dock-arrange">
             <!-- **Filter by a property the document declares about itself**
@@ -5372,8 +5374,6 @@ Link to another note with [[its first few words]]."></textarea>
             </select>
           </div>
           <div class="dock-actions">
-            <button id="library-docs-new" class="small" type="button"
-              title="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New document</button>
             <button id="library-docs-refresh" class="ghost small icon-only" type="button" data-fold-narrow
               title="Reload the list" aria-label="Reload the list"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
             <button type="button" id="library-docs-help-toggle" class="icon-only ghost small graph-help-toggle"
@@ -5414,6 +5414,8 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
               </div>
             </details>
+            <button id="library-docs-new" class="small" type="button"
+              title="Start a new document"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New document</button>
           </div>
         </div>
         <p class="muted library-lede">
@@ -5481,8 +5483,11 @@ Link to another note with [[its first few words]]."></textarea>
               <h2>AI skills</h2>
             </div>
             <div class="dock-group dock-find">
-              <input id="skills-search" class="skills-search" type="search"
-                placeholder="Search skills…" aria-label="Search your skills">
+              <div class="search-field dock-search">
+                <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+                <input id="skills-search" class="skills-search search-field-input" type="search"
+                  placeholder="Search skills…" aria-label="Search your skills">
+              </div>
             </div>
             <!-- The arrange zone the comment above said a skill library did not
                  have. It has one now: 24 built-in skills drown the handful
@@ -5505,14 +5510,14 @@ Link to another note with [[its first few words]]."></textarea>
               </select>
             </div>
             <div class="dock-actions">
-              <button id="skills-add-new" class="small" type="button"
-                title="Write a new skill"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New skill</button>
               <button type="button" id="skills-help" data-help-for="skills-intro" class="icon-only ghost small graph-help-toggle"
                 aria-expanded="false" aria-controls="skills-intro"
                 title="Manage the capabilities of your AI agent. Enable, configure, and review execution logs."
                 aria-label="What is this?">
                 <i class="ph ph-question" aria-hidden="true"></i>
               </button>
+              <button id="skills-add-new" class="small" type="button"
+                title="Write a new skill"><i class="ph ph-plus ph-lead" aria-hidden="true"></i> New skill</button>
             </div>
           </div>
           <div class="help-body hidden" id="skills-intro" role="dialog" aria-label="What is this?">
@@ -5606,8 +5611,11 @@ Link to another note with [[its first few words]]."></textarea>
                  by name). Filters client-side against the already-loaded
                  board list rather than a new endpoint, GET /whiteboard/boards
                  already returns every board in one small array. -->
-            <input id="library-boards-search" type="search" placeholder="Search boards…"
-              aria-label="Search boards by title">
+            <div class="search-field dock-search">
+              <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+              <input id="library-boards-search" class="search-field-input" type="search" placeholder="Search boards…"
+                aria-label="Search boards by title">
+            </div>
           </div>
           <div class="dock-group dock-arrange">
             <!-- The fifth and last sub-tab to get the sort control they were
@@ -5638,30 +5646,6 @@ Link to another note with [[its first few words]]."></textarea>
                  word (the `.toolbar-word` recipe), and the action marked
                  `data-fold-narrow` moves into the ⋯ (`foldDockActions`), so
                  the title, New, help and the ⋯ share one row. -->
-            <!-- **One New, with the two kinds inside** (WORLD_CLASS_PLAN 507,
-                 the dock audit: eight controls at 1440, one over the grammar's
-                 seven). It was a filled New board and a ghost New mind map
-                 side by side; the filled control is now this menu's summary,
-                 which hides its word at a phone's width like every dock
-                 primary (the `.toolbar-word` recipe; its `aria-label` is the
-                 name). A map is a
-                 board with a `type` (MINDMAP_PLAN.md §4 option B), so the two
-                 rows are the same dialog with the Mind map segment already
-                 chosen, not two creation paths. The two rows keep the ids the
-                 buttons had (`wb-boards-new`, `wb-boards-new-map`), so
-                 whiteboard.js, the Library's and the Dashboard's "New board"
-                 and the tour reach them as before. Each row says what it
-                 makes in a muted second line (`.dock-menu-item-hint`), the
-                 "one-line hint" MINDMAP_PLAN INBOX 24's decision asked for:
-                 a tooltip alone is never seen on a touch screen. -->
-            <details class="doc-dock-menu dock-menu dock-menu-flip" id="wb-boards-new-menu">
-              <summary class="small dock-menu-primary" title="Start a new whiteboard or mind map" aria-label="New">
-                <i class="ph ph-plus ph-lead" aria-hidden="true"></i> <span class="toolbar-word">New</span> <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
-              <div class="doc-dock-menu-list dock-menu-list">
-                <button id="wb-boards-new" class="doc-dock-menu-item" type="button" title="Start an empty canvas you arrange by hand"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> <span class="dock-menu-item-text">Whiteboard <span class="dock-menu-item-hint">An empty canvas you arrange by hand</span></span></button>
-                <button id="wb-boards-new-map" class="doc-dock-menu-item" type="button" title="Start a mind map from one central idea"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> <span class="dock-menu-item-text">Mind map <span class="dock-menu-item-hint">Topics branching from one central idea</span></span></button>
-              </div>
-            </details>
             <!-- MINDMAP_PLAN.md §5 item 17. `POST /whiteboard/boards/import`
                  has existed since Phase 1 and §10.4 recorded it as having no
                  UI at all, so a map written anywhere else could not come in.
@@ -5705,6 +5689,30 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="doc-dock-menu-list dock-menu-list">
                 <button id="wb-boards-generate" class="doc-dock-menu-item" type="button" title="Pick some notes and let the app propose a map of them"><i class="ph ph-sparkle ph-lead" aria-hidden="true"></i> Map from notes…</button>
                 <button id="wb-boards-import" class="doc-dock-menu-item" type="button" title="Import a mind map from an OPML, FreeMind, XMind or Markdown outline"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Import outline…</button>
+              </div>
+            </details>
+            <!-- **One New, with the two kinds inside** (WORLD_CLASS_PLAN 507,
+                 the dock audit: eight controls at 1440, one over the grammar's
+                 seven). It was a filled New board and a ghost New mind map
+                 side by side; the filled control is now this menu's summary,
+                 which hides its word at a phone's width like every dock
+                 primary (the `.toolbar-word` recipe; its `aria-label` is the
+                 name). A map is a
+                 board with a `type` (MINDMAP_PLAN.md §4 option B), so the two
+                 rows are the same dialog with the Mind map segment already
+                 chosen, not two creation paths. The two rows keep the ids the
+                 buttons had (`wb-boards-new`, `wb-boards-new-map`), so
+                 whiteboard.js, the Library's and the Dashboard's "New board"
+                 and the tour reach them as before. Each row says what it
+                 makes in a muted second line (`.dock-menu-item-hint`), the
+                 "one-line hint" MINDMAP_PLAN INBOX 24's decision asked for:
+                 a tooltip alone is never seen on a touch screen. -->
+            <details class="doc-dock-menu dock-menu dock-menu-flip" id="wb-boards-new-menu">
+              <summary class="small dock-menu-primary" title="Start a new whiteboard or mind map" aria-label="New">
+                <i class="ph ph-plus ph-lead" aria-hidden="true"></i> <span class="toolbar-word">New</span> <i class="ph ph-caret-down dock-menu-caret" aria-hidden="true"></i></summary>
+              <div class="doc-dock-menu-list dock-menu-list">
+                <button id="wb-boards-new" class="doc-dock-menu-item" type="button" title="Start an empty canvas you arrange by hand"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> <span class="dock-menu-item-text">Whiteboard <span class="dock-menu-item-hint">An empty canvas you arrange by hand</span></span></button>
+                <button id="wb-boards-new-map" class="doc-dock-menu-item" type="button" title="Start a mind map from one central idea"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> <span class="dock-menu-item-text">Mind map <span class="dock-menu-item-hint">Topics branching from one central idea</span></span></button>
               </div>
             </details>
           </div>
@@ -7244,9 +7252,12 @@ Link to another note with [[its first few words]]."></textarea>
                text (ROADMAP.md item 30d), the same pattern as the main Library
                search box above, not a server round-trip, since a gallery is
                small enough that a plain substring pass costs nothing. -->
-          <input id="library-images-search" type="search" class="library-search"
-            placeholder="Search filenames, captions and text found in files…"
-            aria-label="Search the images">
+          <div class="search-field dock-search">
+            <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+            <input id="library-images-search" type="search" class="library-search search-field-input"
+              placeholder="Search filenames, captions and text found in files…"
+              aria-label="Search the images">
+          </div>
           <!-- **Files is a reading list now, so it filters by whether a thing
                has been read.** Asked for directly: "because the ocr worspace
                exists, redesign the files library subtab and its capabilities."
@@ -7307,7 +7318,6 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
         </div>
         <div class="dock-actions">
-          <button id="library-images-upload" class="small" type="button"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Upload</button>
           <input id="library-images-upload-input" aria-label="Choose images or PDFs to upload" title="Choose images or PDFs to upload" type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif,image/bmp,image/x-icon,application/pdf" multiple class="hidden">
           <button id="library-images-refresh" class="ghost small icon-only" type="button" title="Reload" aria-label="Reload"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
           <button type="button" id="library-images-help" data-help-for="library-images-intro" class="icon-only ghost small graph-help-toggle"
@@ -7325,6 +7335,7 @@ Link to another note with [[its first few words]]."></textarea>
             <summary class="ghost small icon-only doc-dock-menu-btn" title="Sort and view" aria-label="Sort and view"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
             <div class="doc-dock-menu-list dock-menu-list"></div>
           </details>
+          <button id="library-images-upload" class="small" type="button"><i class="ph ph-upload-simple ph-lead" aria-hidden="true"></i> Upload</button>
         </div>
       </div>
       <div class="help-body hidden" id="library-images-intro" role="dialog" aria-label="What is this?">
@@ -7395,8 +7406,11 @@ Link to another note with [[its first few words]]."></textarea>
           <h2>Bookmarks</h2>
         </div>
         <div class="dock-group dock-find">
-          <input id="bookmark-search" type="search" class="library-search"
-            placeholder="Search saved bookmarks…" aria-label="Search saved bookmarks">
+          <div class="search-field dock-search">
+            <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+            <input id="bookmark-search" type="search" class="library-search search-field-input"
+              placeholder="Search saved bookmarks…" aria-label="Search saved bookmarks">
+          </div>
         </div>
         <div class="dock-group dock-arrange">
           <!-- Same shape and same place as the Notes and Files sort controls.
@@ -7411,9 +7425,6 @@ Link to another note with [[its first few words]]."></textarea>
           </select>
         </div>
         <div class="dock-actions">
-          <button id="bookmark-add" class="small" type="button"
-            data-empty-action="add-link" title="Save a new bookmark">
-            <i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add bookmark</button>
           <button type="button" id="bookmark-help-toggle" class="icon-only ghost small graph-help-toggle"
             data-help-for="bookmark-help" aria-controls="bookmark-help" aria-expanded="false"
             title="About bookmarks" aria-label="About bookmarks"><i class="ph ph-question" aria-hidden="true"></i></button>
@@ -7433,6 +7444,9 @@ Link to another note with [[its first few words]]."></textarea>
                 <i class="ph ph-folders ph-lead" aria-hidden="true"></i> Manage groups</button>
             </div>
           </details>
+          <button id="bookmark-add" class="small" type="button"
+            data-empty-action="add-link" title="Save a new bookmark">
+            <i class="ph ph-plus ph-lead" aria-hidden="true"></i> Add bookmark</button>
         </div>
       </div>
       <p class="muted library-lede">Save links to websites you visit often: a bookmark
@@ -7492,8 +7506,11 @@ Link to another note with [[its first few words]]."></textarea>
           <h2>Contents</h2>
         </div>
         <div class="dock-group dock-find">
-          <input id="contents-filter" type="search" placeholder="Filter this index…"
-            aria-label="Filter the index by title">
+          <div class="search-field dock-search">
+            <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+            <input id="contents-filter" class="search-field-input" type="search" placeholder="Filter this index…"
+              aria-label="Filter the index by title">
+          </div>
         </div>
         <div class="dock-group dock-arrange">
           <!-- By folder groups by the folders of an imported vault; a note
@@ -11869,8 +11886,11 @@ Link to another note with [[its first few words]]."></textarea>
                 <span id="log-live" class="log-live" role="status">connecting…</span>
               </div>
               <div class="dock-group dock-find">
-                <input id="log-filter" type="search" class="library-search" placeholder="Filter records…"
-                  aria-label="Only show records containing this text">
+                <div class="search-field dock-search">
+                  <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+                  <input id="log-filter" type="search" class="library-search search-field-input" placeholder="Filter records…"
+                    aria-label="Only show records containing this text">
+                </div>
               </div>
               <div class="dock-group dock-arrange">
                 <div class="seg" id="log-view-toggle" role="group" aria-label="List or terminal view">
@@ -11881,8 +11901,6 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
               </div>
               <div class="dock-actions">
-                <button id="logs-bundle" class="small" type="button"
-                  title="Save a zip with the log, your settings and app status, for a bug report"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Support bundle</button>
                 <button type="button" id="logs-help-toggle" class="icon-only ghost small graph-help-toggle"
                   data-help-for="logs-help" aria-controls="logs-help" aria-expanded="false"
                   title="About the log" aria-label="About the log"><i class="ph ph-question" aria-hidden="true"></i></button>
@@ -11946,6 +11964,8 @@ Link to another note with [[its first few words]]."></textarea>
                     <button id="logs-clear" class="doc-dock-menu-item" type="button"><i class="ph ph-eraser ph-lead" aria-hidden="true"></i> Clear</button>
                   </div>
                 </details>
+                <button id="logs-bundle" class="small" type="button"
+                  title="Save a zip with the log, your settings and app status, for a bug report"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Support bundle</button>
               </div>
             </div>
             <!-- Terminal view: the same records the List view shows, formatted

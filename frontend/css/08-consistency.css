@@ -607,20 +607,37 @@ details[open] > .about-whats-new::before,
   flex: 1 1 14rem;
 }
 
-.dock .dock-find input[type="search"] {
+/* **The quiet field** (INBOX 621, the owner's "the search fields are heavy
+   and bordered"). Every dock's search box is the `.search-field` recipe with
+   its leading magnifier, drawn as a subtle fill with no edge at rest: the
+   bar already frames it, and a 1px box inside a 1px bar is the "box in a
+   box" the report describes. The edge arrives with focus, as the one focus
+   ring (`.search-field:focus-within`), so where you are typing is still
+   unmistakable. */
+.dock .dock-search {
   flex: 1 1 12rem;
   min-width: 8rem;
   max-width: 28rem;
+  border-color: transparent;
+  background: var(--field-inset);
+  box-shadow: none;
 }
 
-/* One inset for anything that takes input: one fill, one edge, one radius,
-   one height. Three of these (search, the select opener, the native select
-   behind it) drew three radii while sitting side by side. */
-.dock input:not([type="checkbox"]):not([type="radio"]),
+.dock .dock-search:focus-within {
+  border-color: var(--accent);
+  background: var(--input-bg);
+}
+
+/* One inset for anything that takes input: one fill, one radius, one
+   height, and the same quiet edge as the search field beside it (INBOX 621:
+   a bordered sort select next to an edgeless field was two answers again).
+   Three of these (search, the select opener, the native select behind it)
+   drew three radii while sitting side by side. */
+.dock input:not([type="checkbox"]):not([type="radio"]):not(.search-field-input),
 .dock select:not(.select-native-hidden):not(.dock-native-hidden),
 .dock .select-shell > .select-opener {
   height: var(--control-h);
-  border: 1px solid var(--control-edge);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: var(--field-inset);
 }
@@ -649,6 +666,16 @@ details[open] > .about-whats-new::before,
   background: none;
   box-shadow: none;
   color: var(--ink);
+  /* One weight for every worded ghost (INBOX 621): Select and Concept maps
+     were 600 beside Filter and Options at 400, so the quiet controls read
+     as two kinds. 600 is the filled action's, the one thing that is loud. */
+  font-weight: 500;
+}
+
+/* The field's words at the bar's control size, not the 12px a picker's
+   search uses: a placeholder smaller than the buttons beside it. */
+.dock .dock-search > .search-field-input {
+  font-size: var(--text-md);
 }
 
 .dock > * > button.ghost:hover,
@@ -763,38 +790,14 @@ details[open] > .about-whats-new::before,
   height: var(--control-h);
 }
 
-/* Zones are separated by a hairline, not by guessing at a gap. The gap alone
-   was the Phase 8 decision and it is not enough once the bar has a surface:
-   `--space-4` between groups against `--space-3` inside one is a 3.2px
-   difference, which no eye reads as a boundary. */
-.dock > * + * {
-  border-left: 1px solid var(--divider);
-  padding-left: var(--space-4);
-}
-
-/* `.dock-actions` carries `margin-left: auto`, so without this its hairline
-   would float in the middle of the empty space rather than sitting against
-   the cluster it introduces. */
-.dock > .dock-actions {
-  padding-left: var(--space-4);
-}
-
-/* A zone that wrapped opens its line with no hairline (`markDockLineStarts`,
-   phone-shell.js; INBOX 479). A line at the dock's edge also gives up the
-   hairline's padding, and takes the same width back as a right margin, so
-   its outer width, which is what decides the wrap, does not move. Below 600
-   the phone rule already drops every hairline. */
-@media (min-width: 600px) {
-  .dock > [data-line-start] {
-    border-left-color: transparent;
-  }
-
-  .dock > [data-line-start="flush"] {
-    border-left-width: 0;
-    padding-left: 0;
-    margin-right: calc(var(--space-4) + 1px);
-  }
-}
+/* **No hairline between zones** (INBOX 621). A `border-left` before every
+   zone after the first was this file's answer to a 3.2px gap step nobody
+   could read; it boxed the title off from its own page and put a line
+   between every two icons the owner saw ("icon buttons are scattered among
+   dividers"). The zones are parted by `--space-6` now (07-whiteboard-misc.css,
+   `.dock`), twice the gap inside one, which reads as a boundary without
+   drawing one, and the wrapped-line marks (`markDockLineStarts`, INBOX 479)
+   that kept a hairline off the start of a wrapped line went with them. */
 
 /* Icon-only utilities are one cluster at the far end (refresh · help · more),
    not three separately-spaced buttons. The negative margin is written from
@@ -3006,30 +3009,6 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   color: var(--warn);
 }
 
-/* **A divider needs something on both sides of it.** `.dock > * + *` draws
-   one before every zone after the first, which is right until the first
-   child is a zone that is not drawn: the Chat header's phone sidebar opener
-   is `display: none` on a desktop, so the rule put a hairline between
-   nothing and the thread mark, and it read as a line floating to the left of
-   the chat icon (the owner, 2026-09-21, with a screenshot; reported again,
-   INBOX 430, "the icon tile already separates"). Measured: the line is
-   `.dock-identity`'s own `border-left` from that rule. On a phone, where the
-   opener is drawn, a divider immediately after it is equally wrong: it is a
-   control, not a zone.
-
-   **The regression, and why this needed measuring twice.** The first fix
-   targeted `.phone-sidebar-open`, the opener's class name at the time; the
-   opener was rebuilt since as `mountPhoneSidebarOpeners`'s `.dock-nav`
-   wrapper (DESIGN.md's own recipe index entry for "a sidebar on a phone"),
-   and nothing renamed this selector to match. Grepped rather than guessed:
-   `.phone-sidebar-open` does not appear anywhere else in the frontend, so
-   this rule had matched nothing since the rebuild and the divider had
-   nothing left undoing it. */
-.dock > .dock-nav + * {
-  border-left: 0;
-  padding-left: 0;
-}
-
 /* --- glass reaches the floating chrome that sat outside it ------------------
    Owner, with four screenshots: "some elements dont use the glass styles if
    they are active". Measured with glass on in Classic dark: the graph's
@@ -3755,6 +3734,30 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #graph-options .graph-options-fold > summary {
   padding-inline: var(--space-3);
   border-radius: var(--radius-sm);
+}
+
+/* **One head for every section** (INBOX 621). The fold's chevron led its
+   name, so Physics, Display, Filter, Groups and Minimap began 20px right of
+   View, Show and Time: two left edges for one rank of head. The chevron
+   goes to the far end, where a disclosure's state reads without moving the
+   word, and the summary gives its inset back so every name stands on the
+   section's own edge. */
+#graph-options .graph-options-fold > summary:not(.icon-only):not(.icon-button) {
+  padding-inline: 0;
+  border: 0;
+}
+
+#graph-options .graph-options-fold > summary:not(.icon-only):not(.icon-button)::before {
+  order: 1;
+  margin-left: auto;
+  color: var(--muted);
+}
+
+/* With no inset a hover fill would hug the word; the head and the panel's
+   menu rows answer the pointer in ink instead. */
+#graph-options .graph-options-fold > summary:not(.icon-only):not(.icon-button):hover {
+  background: none;
+  color: var(--accent-text);
 }
 
 .graph-group-add-row {
@@ -10353,8 +10356,6 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
     order: 1;
     flex: 1 1 100%;
     justify-content: space-between;
-    border-left: 0;
-    padding-left: 0;
   }
 }
 
@@ -10498,9 +10499,12 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
       --glide-radius: var(--radius-md);
     }
 
+    /* The control edge, as `.seg button.active` and the radio form's
+       chosen option draw it (INBOX 464, 621): one chosen state for every
+       segmented control, where the glide's 8% ink ring was a third. */
     :root:is([data-palette="utilitarian"], [data-palette="paper"], [data-palette="mono"]) .seg {
       --glide-fill: color-mix(in srgb, var(--ink) 11%, transparent);
-      --glide-ring: inset 0 0 0 1px color-mix(in srgb, var(--ink) 8%, transparent);
+      --glide-ring: inset 0 0 0 1px var(--control-edge);
     }
 
     .seg:not(.seg-multi):not(.doc-sidebar-tabs):not(.wb-export-seg) > .active,

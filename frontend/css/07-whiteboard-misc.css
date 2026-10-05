@@ -2288,13 +2288,6 @@ body.has-agent-monitor #timeline-scroll {
 
 /* A flexible gap that pushes what follows it to the far end of a row. */
 
-/* The Timeline's find box. The popup's own rules went with the popup: a row
-   opens where it sits now (TIMELINE_PLAN decision 8). */
-.timeline-search {
-  max-width: 12rem;
-  margin-bottom: 0;
-}
-
 /* The graph's "slide back in time" control.
 
    It was a group in a wrapping strip, and the rules that used to be here
@@ -10278,8 +10271,10 @@ input[type="file"] {
 /* A fold's summary is a sentence, not a control label: the section-wide
    `summary { white-space: nowrap }` (added for two-word button labels in
    36px boxes) ran "Tools this skill may use (optional)" 26px past the
-   column at 390px. */
-#settings-modal .settings-section .settings-fold summary {
+   column at 390px. Help's topics too (INBOX 622): "Hidden features and power
+   keys" ran 79px past a 308px pane at 390, and the pane scrolled sideways. */
+#settings-modal .settings-section .settings-fold summary,
+#settings-modal .settings-section .help-accordion summary {
   white-space: normal;
 }
 
@@ -11786,20 +11781,24 @@ input[type="file"] {
      .dock-find       search first, then anything that narrows what is shown
      .dock-arrange    order and view, a select, a segmented control, a View
                       menu; never two controls for the same choice
-     .dock-actions    the one filled control, then the utilities in a fixed
-                      order: refresh · help · more
+     .dock-actions    worded ghosts, then the icon utilities in a fixed
+                      order (refresh · help · more), then the one filled
+                      control, last (INBOX 621)
 
    One height (`--control-h-lg`, the same the library toolbar and the chat
    dock already fix), one baseline, and two gaps: `--space-3` inside a group,
-   `--space-4` between groups: the group boundary is the gap alone, never a
-   rule. Measured on the Graph before this existed: 28 controls at four
-   heights (1/24/25/32) in one strip with a second row of options under it. */
+   `--space-6` between groups: the group boundary is the gap alone, never a
+   rule. INBOX 621 took the hairlines back out ("the title is boxed off by a
+   divider", "icon buttons scattered among dividers"): a zone drew one
+   before it at every width, four lines in a bar of nine controls. Measured
+   on the Graph before this existed: 28 controls at four heights
+   (1/24/25/32) in one strip with a second row of options under it. */
 .dock {
   --control-h: var(--control-h-lg);
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-3) var(--space-4);
+  gap: var(--space-3) var(--space-6);
   margin-bottom: var(--space-4);
 }
 
@@ -11845,19 +11844,22 @@ input[type="file"] {
    is deliberately not clickable and deliberately not control height: the
    dock's height rule reaches `.dock > * > button` and leaves a chip alone,
    which is the same split the Chat header's model badge already relies on.
-   It truncates rather than wrapping the dock onto a second row. */
+   It truncates rather than wrapping the dock onto a second row.
+
+   **Quiet muted text, not a pill** (INBOX 621, the owner's "counts sit in
+   bordered pills"): a 1px edge round "8 notes" made a fact look like a
+   control you could press, the same shape as the buttons beside it. The
+   words are the fact; tabular figures keep a count that changes from
+   jiggling the title. */
 .dock-chip {
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  padding: 0.1rem var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
   color: var(--muted);
   font-size: var(--text-sm);
-  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Search grows into what is left of the row and never drops below a
@@ -11870,11 +11872,6 @@ input[type="file"] {
   flex: 1 1 14rem;
 }
 
-.dock-find input[type="search"] {
-  flex: 1 1 10rem;
-  min-width: 8rem;
-}
-
 .dock-actions {
   margin-left: auto;
   flex: 0 0 auto;
@@ -11884,7 +11881,7 @@ input[type="file"] {
    library toolbar states, repeated here because a dock may hold controls
    that never sat in one. Checkboxes and radios are excluded for the reason
    that rule gives: stretching a tick box makes an oval. */
-.dock input:not([type="checkbox"]):not([type="radio"]),
+.dock input:not([type="checkbox"]):not([type="radio"]):not(.search-field-input),
 .dock select,
 .dock .seg,
 .dock .segmented-control,
@@ -13208,12 +13205,9 @@ header#top-bar {
     display: none;
   }
 
-  /* With the strip gone the nav is one row of two controls, so it stops
-     being a sideways scroller and stops drawing the rule that separated the
-     strip from the content under it. */
+  /* With the strip gone the nav is one row of two controls, which wraps. */
   .modal-nav {
     flex-wrap: wrap;
-    overflow-x: visible;
   }
 }
 

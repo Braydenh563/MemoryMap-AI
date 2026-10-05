@@ -2691,11 +2691,6 @@ kbd {
   flex-shrink: 0;
 }
 
-#note-search {
-  margin-bottom: 0;
-  min-width: 8rem;
-}
-
 #note-sort {
   margin-bottom: 0;
   max-width: 10rem;
@@ -3742,9 +3737,10 @@ html {
   stroke-dasharray: 3 2;
 }
 
-#graph-search {
-  max-width: 13rem;
-  margin-bottom: 0;
+/* A highlight box, not a filter: it stays short beside the map's name. The
+   field is the dock's `.search-field` now (INBOX 621), so the cap is on it. */
+.dock[data-dock-name="graph"] .dock-search {
+  max-width: 15rem;
 }
 
 .thumb-wrap {
@@ -6299,7 +6295,10 @@ button.ghost.danger:hover {
 /* GRAPH_PLAN KG8: the graph's Filter fold, two rows of toggle chips. */
 .graph-filter-head {
   margin: var(--space-2) 0 var(--space-1);
-  font-size: var(--text-xs);
+  /* A row's label, at a row label's size and ink (INBOX 621): it was the
+     one 11px label in a panel of 13.6px ones. */
+  font-size: var(--text-md);
+  color: var(--ink);
 }
 
 /* Wrapped, whatever the panel's rows do: a long value never runs past the

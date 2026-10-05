@@ -79,7 +79,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
   - Run the branch tidy without a full `renderWhiteboard`, using the 13a-view culled join.
   - Gate: key to editable at or under 100ms at 300 topics, in a new `mapaddlatency.js`.
 
-**FEAT-03. Markdown footnotes render only in Live. Read, Print/PDF and HTML export show them raw.** FIXED COMMIT_FEAT03
+**FEAT-03. Markdown footnotes render only in Live. Read, Print/PDF and HTML export show them raw.** FIXED 7b5547e
 - Evidence:
   - `md1.js`: `renderMarkdown(d, "Text[^1].\n\n[^1]: A footnote.")` gives `<p>Text[^1].</p><p>[^1]: A footnote.</p>`. `markdown.js` has no footnote handling at all.
   - `doc2.js`: the render a print triggers (`docPrintComments = true`) reads `A claim[^1] and this phrase[^c1] here. … [^1]: The footnote text. [^c1]: check the source`.
@@ -96,7 +96,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
 
 ### Medium
 
-**FEAT-04. Rich paste into a document loses all formatting, including link URLs.**
+**FEAT-04. Rich paste into a document loses all formatting, including link URLs.** FIXED COMMIT_FEAT04
 - Evidence:
   - `doc1.js` pastes `text/html` `<h2>Pasted title</h2><p><b>bold</b> and a <a href=…/x>link</a></p><ul><li>item one</li></ul>`.
   - The document receives the plain text `Pasted title\nbold and a link\nitem one`, and the URL is lost.
@@ -148,7 +148,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
   - Map `]`/`[` to one step and Ctrl+]/Ctrl+[ to front and back, with four labelled items in Arrange and the right-click menu.
   - Update the board help and the `wb-empty-hint` key list in the same commit (order 13).
 
-**FEAT-08. Mermaid fences render as code. BACKLOG 29c assumes they render.**
+**FEAT-08. Mermaid fences render as code. BACKLOG 29c assumes they render.** FIXED COMMIT_FEAT04 (claim corrected: fences stay code, no Mermaid vendored)
 - Evidence:
   - `md1.js`: a ```mermaid fence renders as `<div class="code-block">…<code data-lang="mermaid">`.
   - "Mermaid diagram" exists only as a language label (`documents-code.js`).

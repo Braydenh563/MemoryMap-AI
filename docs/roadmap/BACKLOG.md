@@ -1907,9 +1907,10 @@ session that only reads ROADMAP.md's live list.
   generation already built (item 11), appealing to anyone who already
   thinks in Mermaid rather than prose. Export the other way (a board →
   Mermaid markdown) makes a diagram portable into a note, a doc, or a
-  GitHub README — this app already renders Mermaid fences in note/doc
-  markdown (grep `mermaid` in app.js) if that's still true by the time
-  this is picked up, worth checking first rather than assuming.
+  GitHub README. (Checked 2026-10-05, audit FEAT-08: this app does *not*
+  render Mermaid fences; a ` ```mermaid ` fence is a code block with its
+  language label, and no Mermaid is vendored. DOCUMENTS_PLAN decision 20.3:
+  a flowchart-subset parser, not a vendored bundle, if it is built.)
 - **Frames/swimlanes** — a named, resizable container a card can be
   dropped into (Draw.io/Miro's own primitive), for process diagrams and
   Kanban-shaped boards. Distinct from grouping (§55, `group_id`): a group

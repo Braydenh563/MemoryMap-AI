@@ -4624,6 +4624,169 @@ function docTablePasteEvent(event, view) {
   return true;
 }
 
+// --- rich paste: HTML from a web page, Word or Google Docs, as Markdown -------
+//
+// **A paste keeps its headings, emphasis, lists and links** (audit FEAT-04,
+// 2026-10-05). The only HTML paste handler was the table's, so copying from a
+// web page, Word or Google Docs (the commonest way text arrives in a writing
+// app) put plain text in: headings, bold, lists and every link's address
+// were gone. This walks the clipboard's HTML through `DOMParser` (which runs
+// no script and loads nothing) over an allowlist, and writes Markdown, the
+// document's own format, so what lands is ordinary text the editor already
+// draws. Anything not on the list contributes its text and nothing else.
+// Ctrl+Shift+V pastes plain text, as everywhere else.
+//
+// It takes the paste only when the HTML carries something plain text cannot
+// (a heading, emphasis, a list, a link, a quote, code, a picture, a table):
+// a code editor's copy is coloured spans and divs, and turning those into
+// paragraphs would break the code it was copying.
+const DOC_RICH_TAGS = /<(h[1-6]|strong|b|em|i|a\s[^>]*href|ul|ol|blockquote|pre|code|img|table|del|s)[\s>]/i;
+let docPastePlain = false;
+
+function docHtmlToMarkdown(html) {
+  //: `style` renamed before parsing: the page's CSP refuses an inline style
+  //: even in a parsed, inert document (a console error per attribute, and
+  //: the value never reaches `el.style`), and the two it matters for are
+  //: read from the text below.
+  const source = String(html || "").replace(/(<[^>]*?\s)style\s*=/gi, "$1data-mm-style=");
+  const doc = new DOMParser().parseFromString(source, "text/html");
+  const safeUrl = (url) => {
+    const value = String(url || "").trim();
+    return /^(https?:|mailto:)/i.test(value) || (value.startsWith("/") && !value.startsWith("//")) ? value : "";
+  };
+  //: Google Docs wraps a whole copy in `<b style="font-weight:normal">`, and
+  //: marks real bold and italic on spans by style rather than by tag.
+  const styleOf = (el, prop) => {
+    const m = new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`, "i").exec(el.getAttribute("data-mm-style") || "");
+    return m ? m[1].trim().toLowerCase() : "";
+  };
+  const isBold = (el) => {
+    const tag = el.nodeName;
+    const weight = styleOf(el, "font-weight");
+    if (tag === "STRONG" || tag === "B") return !/^(normal|[1-5]00)$/.test(weight);
+    return /^(bold|bolder|[6-9]00)$/.test(weight);
+  };
+  const isItalic = (el) => el.nodeName === "EM" || el.nodeName === "I" || styleOf(el, "font-style") === "italic";
+  const inline = (node) => {
+    if (node.nodeType === 3) return node.nodeValue.replace(/\s+/g, " ");
+    if (node.nodeType !== 1) return "";
+    const tag = node.nodeName;
+    if (/^(SCRIPT|STYLE|META|TITLE|HEAD|TEMPLATE)$/.test(tag)) return "";
+    if (tag === "BR") return "\n";
+    if (tag === "IMG") {
+      const src = safeUrl(node.getAttribute("src"));
+      return src ? `![${(node.getAttribute("alt") || "").replace(/[[\]]/g, "")}](${src})` : "";
+    }
+    let text = [...node.childNodes].map(inline).join("");
+    if (tag === "CODE") return text.trim() ? `\`${text.replace(/`/g, "")}\`` : "";
+    const wrap = (mark) => {
+      const lead = text.match(/^\s*/)[0];
+      const tail = text.match(/\s*$/)[0];
+      const core = text.trim();
+      return core ? `${lead}${mark}${core}${mark}${tail}` : text;
+    };
+    if (isBold(node)) text = wrap("**");
+    if (isItalic(node)) text = wrap("*");
+    if (tag === "DEL" || tag === "S" || tag === "STRIKE") text = wrap("~~");
+    if (tag === "A") {
+      const href = safeUrl(node.getAttribute("href"));
+      const label = text.trim();
+      if (href && label) return `[${label.replace(/[[\]]/g, "")}](${href})`;
+    }
+    return text;
+  };
+  const out = [];
+  const para = (text) => {
+    const clean = text.replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim();
+    if (clean) out.push(clean);
+  };
+  const BLOCK = /^(P|DIV|H[1-6]|UL|OL|LI|BLOCKQUOTE|PRE|TABLE|SECTION|ARTICLE|HEADER|FOOTER|MAIN|ASIDE|FIGURE|FIGCAPTION|HR|DL|DT|DD|BODY|HTML)$/;
+  const list = (el, depth) => {
+    let n = 0;
+    for (const li of el.children) {
+      if (li.nodeName !== "LI") continue;
+      n += 1;
+      const marker = el.nodeName === "OL" ? `${n}.` : "-";
+      const own = [...li.childNodes].filter((c) => !(c.nodeType === 1 && /^(UL|OL)$/.test(c.nodeName)));
+      const text = own.map(inline).join("").replace(/\s+/g, " ").trim();
+      out.push(`${"  ".repeat(depth)}${marker} ${text}`);
+      for (const sub of li.children) if (/^(UL|OL)$/.test(sub.nodeName)) list(sub, depth + 1);
+    }
+  };
+  const block = (el) => {
+    let run = "";
+    const flush = () => {
+      para(run);
+      run = "";
+    };
+    for (const child of el.childNodes) {
+      const tag = child.nodeType === 1 ? child.nodeName : "";
+      //: An inline wrapper round whole blocks (Google Docs' outer `<b>`) is
+      //: walked as a container, or its paragraphs and lists would run together.
+      if (tag && !BLOCK.test(tag) && child.querySelector("p, div, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre, table")) {
+        flush();
+        block(child);
+        continue;
+      }
+      if (!tag || !BLOCK.test(tag)) {
+        run += inline(child);
+        continue;
+      }
+      flush();
+      const heading = /^H([1-6])$/.exec(tag);
+      if (heading) {
+        const text = inline(child).replace(/\s+/g, " ").trim();
+        if (text) out.push(`${"#".repeat(Number(heading[1]))} ${text}`);
+      } else if (tag === "UL" || tag === "OL") {
+        const start = out.length;
+        list(child, 0);
+        //: A list is one block: its items are joined without blank lines.
+        out.splice(start, out.length - start, out.slice(start).join("\n"));
+      } else if (tag === "BLOCKQUOTE") {
+        const inner = docHtmlToMarkdown(child.innerHTML);
+        if (inner) out.push(inner.split("\n").map((line) => `> ${line}`.trimEnd()).join("\n"));
+      } else if (tag === "PRE") {
+        const code = child.textContent.replace(/\n$/, "");
+        out.push("```\n" + code + "\n```");
+      } else if (tag === "TABLE") {
+        const grid = [...child.querySelectorAll("tr")].map((tr) =>
+          [...tr.children].map((cell) => inline(cell).replace(/\s+/g, " ").replace(/\|/g, "\\|").trim())
+        ).filter((row) => row.length);
+        if (grid.length) out.push(docTableFromGrid(grid));
+      } else if (tag === "HR") {
+        out.push("---");
+      } else {
+        block(child);
+      }
+    }
+    flush();
+  };
+  block(doc.body);
+  return out.join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+//: The paste handler: after the table's own (which keeps a grid pasted into
+//: a table's cells), before CodeMirror's plain-text default.
+function docRichPasteEvent(event, view) {
+  const plain = docPastePlain;
+  docPastePlain = false;
+  if (plain || view.dom.classList.contains("doc-content-code")) return false;
+  const html = event.clipboardData?.getData("text/html") || "";
+  if (!html || !DOC_RICH_TAGS.test(html)) return false;
+  const markdown = docHtmlToMarkdown(html);
+  if (!markdown) return false;
+  event.preventDefault();
+  const sel = view.state.selection.main;
+  docUndoBreak();
+  view.dispatch({
+    changes: { from: sel.from, to: sel.to, insert: markdown },
+    selection: { anchor: sel.from + markdown.length },
+    userEvent: "input.paste",
+    scrollIntoView: true,
+  });
+  return true;
+}
+
 //: The whole table, for the one command that is not an edit inside it. The
 //: newline after it goes too, or deleting a table leaves the blank line it was
 //: separated from the next paragraph by.
@@ -18460,13 +18623,15 @@ function docCmExtensions(CM) {
         if (event.key !== "Tab" && event.key !== "Shift" && event.key !== "Escape") {
           docTabEscapes = false;
         }
+        //: Ctrl+Shift+V: the paste that follows is plain text (FEAT-04).
+        docPastePlain = (event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "v";
         return false;
       },
       mousedown: (event, view) => {
         docTabEscapes = false;
         return docTableCellClick(event, view);
       },
-      paste: (event, view) => docTablePasteEvent(event, view),
+      paste: (event, view) => docTablePasteEvent(event, view) || docRichPasteEvent(event, view),
     }),
     CM.view.EditorView.updateListener.of(docCmUpdate),
     //: **The browser's own spellcheck, and the one condition it stays on

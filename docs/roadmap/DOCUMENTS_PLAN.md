@@ -1127,6 +1127,33 @@ the foot bar, the selection bar off the window, the task box at the target
 floor's size); see HISTORY.md ("Moved from the plans, 2026-10-04 (the
 documents phone pass)").
 
+## 20. The 2026-10-05 feature audit: decisions
+
+From `scratchpad/audit1005/features.md` (FEAT-03, FEAT-04, FEAT-08, the
+documents briefs D1 to D5). Built work is in HISTORY.md ("Moved from the
+plans, 2026-10-05").
+
+**Decisions made.**
+
+1. **Footnotes are drawn by the shared renderer, not by each view**
+   (FEAT-03). `mdFootnotePrepare` in markdown.js is pure (node-tested) and
+   `mdFootnotesFinish` draws the raised numbers and the notes at the foot;
+   a document runs the pass over the whole text before it is cut into
+   pieces. Numbered in citing order; an uncited note is still printed, last.
+   The back link is the word "Back", not an icon, because an icon is
+   stripped from the HTML export.
+2. **Rich paste is an allowlist walker, no library** (FEAT-04). HTML goes
+   through `DOMParser` (`style` renamed first, which the CSP would refuse)
+   and only headings, emphasis, strike, links with http, https, mailto or
+   app paths, lists, quotes, code, pictures and tables become Markdown.
+   It takes a paste only when the HTML carries one of those, so a code
+   editor's coloured copy stays plain. Ctrl+Shift+V is plain text.
+3. **Mermaid fences stay code blocks** (FEAT-08). No Mermaid is vendored
+   (the fully-local rule: nothing that is not already in `frontend/vendor/`),
+   so a ` ```mermaid ` fence renders as code with its language label;
+   BACKLOG 29c's "already renders" is corrected. A flowchart-subset parser
+   (the audit's D3) is the way in if it is built, not a vendored bundle.
+
 ## 18. The slash menus as one system: built 2026-09-21
 
 Moved to HISTORY.md ("Moved from the plans, 2026-10-03 (the documents pass)", DOCUMENTS_PLAN.md section 18) on

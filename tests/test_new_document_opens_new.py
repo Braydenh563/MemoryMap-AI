@@ -141,3 +141,31 @@ def test_new_board_and_new_mind_map_wait_for_the_boards_code(kind, button):
     wait = row.find('await ensureModule("library")')
     press = row.find(f'$("{button}")')
     assert 0 <= wait < press, row
+
+
+def test_a_door_into_a_library_sub_tab_waits_for_the_library():
+    """Graph's Concept maps button (wiring.js, always loaded) switched to the
+    Library and pressed its Boards sub-tab at once; the sub-tab's handler is
+    library.js's, fetched on the Library's first visit, so the press landed
+    on nothing and the button arrived at the Library's All view (measured:
+    `library-view-documents` showing, not `library-view-whiteboard`). Any
+    file outside the Library's own bundle that presses a Library sub-tab
+    must await the tab first."""
+    bundle = {
+        "library.js", "documents.js", "documents-code.js", "documents-prose.js",
+        "margin-reader.js", "undo-store.js", "whiteboard.js", "whiteboard-map.js",
+        "whiteboard-library.js", "whiteboard-commands.js", "whiteboard-format.js",
+        "whiteboard-history.js", "whiteboard-interchange.js",
+    }
+    offenders = []
+    for path in sorted(JS.glob("*.js")):
+        if path.name in bundle:
+            continue
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines):
+            if "#library-subtabs" in line and ".click()" in line:
+                before = "\n".join(lines[max(0, i - 3) : i])
+                waited = 'await switchTab("library")' in before or 'switchTab("library").then(' in before
+                if 'switchTab("library")' in before and not waited:
+                    offenders.append(f"{path.name}:{i + 1}")
+    assert not offenders, offenders

@@ -359,4 +359,7 @@ retry were not looked at in a browser (no UI changed: they are answer text).
     plans, 2026-10-04 (the first round)". 3B, forced first rounds of the
     eleven note-targeting imperatives, two tries each: a right first tool
     17 of 22 before, 20 of 22 after.
+  - **The two misses that were left, fixed 2026-10-05** (fake transport; no
+    3B re-measure yet): HISTORY.md, "Moved from the plans, 2026-10-05 (the
+    first round, second pass)". Open: a real 3B pass over them.
 

@@ -841,6 +841,62 @@ def graph(
 
     return {"nodes": nodes, "edges": edges, "categories": categories}
 
+def _load_entries(session: Session, ids) -> dict[int, Entry]:  # noqa: ANN001
+    """The live notes with these ids, read in chunks (SQLite's variable cap)."""
+    wanted = list(ids)
+    found: dict[int, Entry] = {}
+    for start in range(0, len(wanted), 500):
+        rows = session.scalars(
+            select(Entry).where(Entry.id.in_(wanted[start : start + 500]), Entry.is_deleted == False)  # noqa: E712
+        )
+        found.update((e.id, e) for e in rows)
+    return found
+
+
+def _local_topology(session: Session, similarity: bool) -> tuple[paths.Connections, dict, bool]:
+    """Who is joined to whom, and which way each line runs, once per version.
+
+    BACKLOG 29b item 4: focus mode loaded every note as an ORM object, built
+    the whole notebook's index and walked every link again for direction, on
+    every call, to draw a dozen notes. This is the same index built from
+    columns only (`paths.build_light`) and kept like centrality and the
+    similarity sweep are: one slot per `similarity` setting, keyed by the
+    notebook fingerprint (and the embedding model when similarity is on, its
+    edges being a function of both). A call then reads only the notes it draws.
+
+    Neither the index nor the direction map is touched after it is built, so
+    one value can be handed to concurrent requests.
+    """
+    use_similarity = similarity and not deps.get_config().get_preference("battery_efficient_mode")
+    key = (*_graph_fingerprint(session), use_similarity)
+    if use_similarity:
+        key = (*key, deps.get_embeddings().backend_id())
+
+    def build() -> tuple[paths.Connections, dict, bool]:
+        extra_edges: list[dict] = []
+        if use_similarity:
+            node_ids = set(
+                session.scalars(select(Entry.id).where(Entry.is_deleted == False))  # noqa: E712
+            )
+            extra_edges = _similarity_edges(session, node_ids, set())
+        index = paths.build_light(session, extra_edges=extra_edges)
+        #: Which way each link and thread runs. The index keeps one step per
+        #: direction, so the stored row says which end wrote it (a thread runs
+        #: from the note to its reply, as on `/graph`); tags and similarity
+        #: have no direction and pass either switch.
+        directed: dict[frozenset, tuple[int, int]] = {}
+        for source, target in session.execute(
+            select(EntryLink.source_entry_id, EntryLink.target_entry_id)
+        ):
+            directed.setdefault(frozenset((source, target)), (source, target))
+        for entry in index.entries.values():
+            if entry.parent_id in index.entries and entry.parent_id != entry.id:
+                directed.setdefault(frozenset((entry.parent_id, entry.id)), (entry.parent_id, entry.id))
+        return index, directed, bool(extra_edges)
+
+    return _cached(f"local_topology_{use_similarity}", key, build)
+
+
 @router.get("/graph/local/{entry_id}")
 def graph_local(
     entry_id: int,
@@ -861,32 +917,10 @@ def graph_local(
     session: Session = Depends(get_session)
 ) -> dict:
     """Focus Mode API: Gets the local neighborhood up to N degrees."""
-    config = deps.get_config()
-    extra_edges = []
-
-    if similarity and not config.get_preference("battery_efficient_mode"):
-        node_ids = set(
-            session.scalars(
-                select(Entry.id).where(Entry.is_deleted == False)  # noqa: E712
-            )
-        )
-        extra_edges = _similarity_edges(session, node_ids, set())
-
-    index = paths.build(session, extra_edges=extra_edges)
+    index, directed, with_similarity = _local_topology(session, similarity)
 
     if entry_id not in index.entries:
         return {"nodes": [], "edges": [], "categories": []}
-
-    #: Which way each link and thread runs. The index keeps one step per
-    #: direction, so the stored row says which end wrote it (a thread runs
-    #: from the note to its reply, as on `/graph`); tags and similarity have
-    #: no direction and pass either switch.
-    directed: dict[frozenset, tuple[int, int]] = {}
-    for source, target in session.execute(select(EntryLink.source_entry_id, EntryLink.target_entry_id)):
-        directed.setdefault(frozenset((source, target)), (source, target))
-    for entry in index.entries.values():
-        if entry.parent_id in index.entries and entry.parent_id != entry.id:
-            directed.setdefault(frozenset((entry.parent_id, entry.id)), (entry.parent_id, entry.id))
 
     def oriented(a: int, b: int, kind: str) -> tuple[int, int]:
         if kind not in ("link", "thread"):
@@ -936,34 +970,38 @@ def graph_local(
     else:
         edges = [e for e in edges if distance[e["source"]] != distance[e["target"]]]
 
-    category_names = manager.bulk_category_names(session, [index.entries[n] for n in visited])
+    # The only notes read in full: the ones drawn (the index holds columns,
+    # not text).
+    drawn = _load_entries(session, visited)
+    category_names = manager.bulk_category_names(session, list(drawn.values()))
     nodes = [
         {
             "id": e_id,
-            "preview": _preview(manager.readable_content(index.entries[e_id])),
-            "category": category_names.get(index.entries[e_id].category_id, manager.UNCATEGORISED),
-            "access_count": index.entries[e_id].access_count,
-            "pinned": index.entries[e_id].pinned,
+            "preview": _preview(manager.readable_content(drawn[e_id])),
+            "category": category_names.get(drawn[e_id].category_id, manager.UNCATEGORISED),
+            "access_count": drawn[e_id].access_count,
+            "pinned": drawn[e_id].pinned,
             # Same pin-restore field as the top-level /graph, see that
             # endpoint's own comment. Focus Mode is the other real place a
             # double-click pin can be made or seen, so it needs the same
             # persistence, not just the top-level map.
-            "graph_pin_x": index.entries[e_id].graph_pin_x,
-            "graph_pin_y": index.entries[e_id].graph_pin_y,
-            "parent_id": index.entries[e_id].parent_id if index.entries[e_id].parent_id in visited else None,
+            "graph_pin_x": drawn[e_id].graph_pin_x,
+            "graph_pin_y": drawn[e_id].graph_pin_y,
+            "parent_id": drawn[e_id].parent_id if drawn[e_id].parent_id in visited else None,
             # See the other node-list above: `created_at` is already
             # timezone-aware (`core/database.DateTime` guarantees it), so
             # `+ "Z"` on top of `.isoformat()`'s own `+00:00` produced an
             # unparseable double-suffixed string in JavaScript.
-            "created_at": index.entries[e_id].created_at.isoformat(),
+            "created_at": drawn[e_id].created_at.isoformat(),
             # The size rule's numbers, as on the whole map (see `graph`).
-            "words": _word_count(manager.readable_content(index.entries[e_id])),
-            "updated_at": (index.entries[e_id].updated_at or index.entries[e_id].created_at).isoformat(),
+            "words": _word_count(manager.readable_content(drawn[e_id])),
+            "updated_at": (drawn[e_id].updated_at or drawn[e_id].created_at).isoformat(),
         }
         for e_id in visited
+        if e_id in drawn
     ]
     
-    centrality_scores = _centrality(session, index, bool(extra_edges))
+    centrality_scores = _centrality(session, index, with_similarity)
     for n in nodes:
         n["centrality"] = centrality_scores.get(n["id"], 0)
         

@@ -88,10 +88,28 @@ def test_an_inflected_cue_still_matches(question):
         ("please tag these", False),
         ("what's the best way to do this - please tag them all", False),
         ("can you explain how to tag, and tag these for me", False),
+        # A compound question: two wh-clauses, one sentence, one question mark.
+        ("What tags and what categories am I using?", True),
+        ("which notes are pinned, and which have tags?", True),
+        ("How many tags do I have and what categories?", True),
+        # A question followed by a job is a job.
+        ("Which note is about my dentist? Pin it", False),
+        ("What tags do I use and tag these for me", False),
+        ("what tags and what categories, please add them", False),
     ],
 )
 def test_a_question_about_a_capability_is_told_apart_from_a_request(question, asking):
     assert toolwords.looks_like_a_question_about(question) is asking
+
+
+def test_a_compound_question_is_offered_no_write_from_the_groups_it_names():
+    """"What tags and what categories am I using?" cued the tag group and the
+    category group and was offered `tag_note` and `create_category` (the H4
+    report: it opened with `tag_note` on a 3B)."""
+    got = extras("What tags and what categories am I using?")
+    writes = {name for name in got if name in tools.WRITE_TOOLS}
+    assert not writes, writes
+    assert "list_tags" in tools.focus_for("What tags and what categories am I using?", "")
 
 
 def test_asking_how_tagging_works_does_not_hand_over_delete_tag():

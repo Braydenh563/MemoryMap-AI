@@ -7,6 +7,19 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (the first round, second pass)
+
+### From AGENT_SKILLS_REFORM.md, H4's two misses left after the first pass
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| A compound question ("What tags and what categories am I using?": two wh-clauses, one sentence, one question mark) is a question about the notebook (`toolwords._COMPOUND_QUESTION`) | `looks_like_a_question_about` only knew "what is/are/does", so the tag and category groups handed the turn `tag_note` and `create_category` | no write tool from either group; a question followed by a job ("Which note is about my dentist? Pin it") and a question with a request in it are still jobs | `tests/test_toolwords.py` |
+| A forced "File the note under Health" is not offered `create_category` when the notebook already has "Health" (`agent._names_an_existing_category`) | 3B opened once with `create_category` | `edit_note` and the finders only; a category that does not exist keeps the write; the round after has the whole toolbox | `tests/test_harness_tiers.py` |
+| A forced first round that comes back as prose is asked once more with the call required again (`agent.FORCED_PROSE_NUDGE`) | the prose was the turn's answer unless it claimed or announced an act | one re-prompt per turn (it replaces the intent and claim nudges, so a miss costs one extra round, not three); never on a large model, never on a question | `tests/test_harness_robustness.py` |
+
+Fake transport only: the 3B was not run again, so the numbers in the first
+pass's table are from before these three.
+
 ## Moved from the plans, 2026-10-04 (the first round)
 
 ### From AGENT_SKILLS_REFORM.md, H4's found-not-fixed: what a small model's first round is offered
@@ -167,6 +180,21 @@ means the entry was stale, found by reading the call site, not assumed.
 - **MCP, the expose half (29).** Built: `src/memorymap/mcp_server.py`.
 
 ### From section 29b
+
+- **`graph_local` costs a full notebook scan (item 4).** Built:
+  `routes_graph._local_topology` keeps the index and the direction map once per
+  notebook fingerprint (and per similarity setting and embedding model), built
+  by `paths.build_light` from the `id`, `parent_id` and `tags` columns instead of
+  every note as an ORM object; a call reads only the notes it draws
+  (`_load_entries`). A cold call (after any write) still builds the whole
+  topology, because PageRank is global; a warm call no longer touches it.
+  Measured 2026-10-04 (synthetic notebooks of 2,000 and 10,000 notes, two links
+  and two tags a note, depth 2, `tests/test_graph_local_scaling.py`): a warm call
+  129 ms and 1,032 ms before, 13 ms and 23 ms after; cold 0.8 s and 1.6 s (the
+  old cold call was the old warm call plus the sweep). The test pins the shape:
+  five times the notes may cost a warm call at most three times the time, a warm
+  call builds the topology zero times, a write is seen by the next call, and
+  `build_light` agrees with `build` on every note's neighbours.
 
 - **A dry-run for the background librarian (item 2).** Answered by review-after
   rather than a true dry-run: the pass keeps what it did and every write carries

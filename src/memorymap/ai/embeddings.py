@@ -748,6 +748,17 @@ class EmbeddingService:
         # call itself runs outside it.
         self._cache_lock = threading.Lock()
 
+    def use_client(self, ollama_client: OllamaClient) -> None:
+        """Talk to a new chat client (Settings switched backend), keeping a
+        loaded sentence-transformers model. Embeddings served by the chat
+        backend are forgotten and retried at once: the same text may now map
+        to a different server's vector, and a failure seen on the old one
+        says nothing about the new."""
+        self._ollama = ollama_client
+        if self._models is not None and self._models.embedding_backend() == "ollama":
+            self.clear_embed_cache()
+            self.reset_failure_state()
+
     def clear_embed_cache(self) -> None:
         """Drop cached vectors: used when the embedding backend changes,
         since the same text then maps to a different vector."""

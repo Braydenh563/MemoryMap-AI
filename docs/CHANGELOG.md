@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Settings, Models: switching the chat backend keeps semantic search. The embedding service is re-pointed at the new client instead of rebuilt, so a loaded embedding model stays loaded (measured before: `embedding_ready` false and search keyword only until the next save, which then paid the 5 s cold load; audit ARCH-06, `tests/test_backend_switch_keeps_embeddings.py`).
 - Saving while the night pass or the entity pass is asking the model no longer fails: both passes commit before every model call and write each note in a short transaction of its own (measured before: every save during Run now answered 500 after 5.1 s, the busy timeout). A write that does lose the race answers 503 "The notebook is busy for a moment. Try again." instead of Something went wrong (audit ARCH-01, `tests/test_write_lock_during_passes.py`).
 - Notes, Capture: the composer is one box; the note editor inside no longer draws its own border and focus ring a hair inside the composer's, and the composer's edge carries the focus (INBOX 560).
 - Boards: the gesture hints' close button is pinned at the strip's end after a divider, whole and evenly inset, instead of clipped past the edge (INBOX 562).

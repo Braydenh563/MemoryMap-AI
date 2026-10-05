@@ -16,6 +16,8 @@ const { boot } = require('./lib.js');
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.click('[data-tab="library"]');
+  await page.waitForSelector('#library-subtabs [data-target="library-view-whiteboard"]', { state: 'attached' }).catch(() => {});
+  await page.waitForTimeout(400);
   await page.evaluate(() => document.querySelector('#library-subtabs [data-target="library-view-whiteboard"]')?.click());
   await page.waitForFunction(() => ['initWhiteboard', 'wbOpenSidebar', 'wbMapTidyFresh'].every((f) => typeof window[f] === 'function'), null, { timeout: 15000 });
   const ids = await page.evaluate(async () => {
@@ -127,6 +129,31 @@ const { boot } = require('./lib.js');
     const undone = await folded();
     const [one, two, three] = read.map((r) => +r.split(' ')[1]);
     console.log(`fold to a level: all ${all}; ${read.join('; ')}; Alt+1 then Ctrl+Z ${undone} folded ${one === 1 && two === 5 && three === all && undone === 0 ? 'PASS' : 'FAIL'}`);
+  }
+  // (6) Summarise this branch (the features audit, Phase G), the topic menu's
+  // action: the summary lands in the topic's open note, inside the window, and
+  // is kept when the note closes (no model on a sweep's server: the branch
+  // said from its own topics).
+  {
+    await page.keyboard.press('Alt+3');
+    await page.waitForTimeout(700);
+    const el = await page.$(`.wb-object[data-id="${ids.root}"]`);
+    const bb = await el.boundingBox();
+    await page.mouse.click(bb.x + bb.width / 2, bb.y + bb.height / 2);
+    await page.waitForTimeout(300);
+    await page.evaluate((id) => wbMapSummariseBranch(wbMapIndex().nodes.find((n) => n.id === id)), ids.root);
+    await page.waitForTimeout(1200);
+    const open = await page.evaluate(() => {
+      const p = document.getElementById('wb-map-note-peek');
+      if (!p) return null;
+      const r = p.getBoundingClientRect();
+      return { text: p.querySelector('textarea').value, hint: p.querySelector('.wb-map-note-hint').textContent, inside: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, focus: document.activeElement === p.querySelector('textarea') };
+    });
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(1200);
+    const kept = await page.evaluate((id) => wbMapIndex().nodes.find((n) => n.id === id)?.data?.note || '', ids.root);
+    const want = 'Centre: One, Two, Three and Four (6 topics in all).';
+    console.log(`summarise this branch: ${JSON.stringify(open)}; kept "${kept}" ${open && open.text === want && open.inside && open.focus && kept === want ? 'PASS' : 'FAIL'}`);
   }
   await page.screenshot({ path: `${process.env.SCRATCH || '.'}/bm1005-mapmulti-${W}.png` });
   console.log(`page errors: ${errors.length}${errors.length ? ' ' + errors.slice(0, 3).join(' | ') : ''}`);

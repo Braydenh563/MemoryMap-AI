@@ -4133,6 +4133,7 @@ function mapPaletteCommands() {
     row("This topic", "ph:caret-down Fold or unfold the branch", () => wbMapToggleCollapse(node.id), "C");
     row("This topic", "ph:crosshair Focus on this branch", () => wbMapSetFocus(node.id));
     row("This topic", "ph:flag Markers on this topic…", () => wbMapOpenMarkers(node.id));
+    row("This topic", "ph:text-align-left Summarise this branch", () => wbMapSummariseBranch(node));
     row("This topic", "ph:trash Delete the topic and its branch", () => wbMapDeleteSubtree(node.id), "Delete");
   }
   row("This map", "ph:plus-circle Add a top-level topic", () => wbMapAddChild(null));
@@ -8283,6 +8284,39 @@ async function wbMapFromDocument(doc, text) {
 //: the suggestions). Shown in the picker dialog with the Attach picker's rows,
 //: all ticked; Add makes the ticked ones under the topic, each with its source
 //: in its note, as one Undo step, and tidies the branch as a paste does.
+//: **Summarise this branch** (the features audit, Phase G). The server reads
+//: the branch as an outline and answers with a few sentences (the model's, or
+//: the branch said plainly from its own topics when no model is running);
+//: they go into the topic's own note, open for reading and changing, and are
+//: kept when the note closes (one Undo step, `wbMapCloseNote`). Nothing is
+//: written until then, so closing it unchanged after emptying it keeps nothing.
+async function wbMapSummariseBranch(node) {
+  const boardId = window.currentBoardId;
+  if (!node || !boardId) return;
+  wbAnnounce("Reading this branch.");
+  let got = null;
+  try {
+    got = await apiJson(`/whiteboard/boards/${boardId}/nodes/${node.id}/summary`, { method: "POST" });
+  } catch (err) {
+    toast(err.message || "This branch could not be summarised.", true);
+    return;
+  }
+  if (wbMapNoteState?.id !== node.id) wbMapOpenNote(node.id);
+  const panel = wbMapNoteState?.id === node.id ? wbMapNoteState.panel : null;
+  const box = panel?.querySelector("textarea");
+  if (!box || !got?.summary) return;
+  const had = box.value.trim();
+  box.value = had ? `${had}\n\n${got.summary}` : got.summary;
+  box.setSelectionRange(box.value.length, box.value.length);
+  const hint = panel.querySelector(".wb-map-note-hint");
+  if (hint) {
+    hint.textContent = got.source === "model"
+      ? "A summary of this branch, added to its note. Change it as you like; saved when you close it."
+      : `This branch from its own topics${got.reason === "offline" ? " (no model is running)" : ""}. Saved when you close it.`;
+  }
+  wbAnnounce("The branch's summary is in the topic's note.");
+}
+
 async function wbMapSuggestBranches(node) {
   const boardId = window.currentBoardId;
   if (!node || !boardId) return;

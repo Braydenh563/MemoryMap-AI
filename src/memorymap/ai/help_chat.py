@@ -1182,6 +1182,7 @@ HELP_TOPICS.extend(
                 "resize a topic", "topic size", "bigger topic", "text size on a topic", "topic bar", "topic toolbar",
                 "several topics", "select several topics", "many topics at once", "bold several topics", "fold several branches",
                 "show levels", "fold to a level", "only the first levels", "collapse to level",
+                "summarise this branch", "summarize this branch", "summary of a branch",
             ),
             "body": (
                 "Mind map keys (a map lives in the Library under Boards and "
@@ -1207,7 +1208,9 @@ HELP_TOPICS.extend(
                 "hold Shift as you drag to scale its text with it. Pick several "
                 "topics (drag a box round them, or Shift-click) and the bar and "
                 "the right-click menu act on all of them: colour, bold, tasks, "
-                "fold, and a summary when they share a parent."
+                "fold, and a summary when they share a parent. A topic's menu "
+                "has Summarise this branch: a few sentences about everything "
+                "under it go into the topic's note, yours to change or keep."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

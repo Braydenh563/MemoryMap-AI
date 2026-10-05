@@ -26,6 +26,8 @@ const { boot } = require('./lib.js');
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.click('[data-tab="library"]');
   // The Library opens on its last sub-tab, which another sweep may have moved.
+  await page.waitForSelector('#library-subtabs [data-target="library-view-whiteboard"]', { state: 'attached' }).catch(() => {});
+  await page.waitForTimeout(400);
   await page.evaluate(() => document.querySelector('#library-subtabs [data-target="library-view-whiteboard"]')?.click());
   await page.waitForFunction(() => ['initWhiteboard', 'wbOpenSidebar', 'wbMapTidyFresh'].every((f) => typeof window[f] === 'function'), null, { timeout: 15000 });
   const made = await page.evaluate(async () => {

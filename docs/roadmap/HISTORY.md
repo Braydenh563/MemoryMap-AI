@@ -362,8 +362,8 @@ remaining whiteboard rows; the open rest is in
   table (`suggest-branches`). `tests/test_map_suggest.py` 6 (fake transport:
   the prompt's parse, both fallbacks, no invented note); `mapsuggest.js` 8/8
   at 1440 and 390, light and dark (no model on the sweep's server, so the
-  notebook fallback). Open: ghosts on the canvas, Expand from my notes,
-  Summarise this branch, the affinity sort, the claim check.
+  notebook fallback). Open: placed in MINDMAP_PLAN, "The features audit's
+  Phase G, what is left" (Summarise this branch is built, op3-1005).
 
 - **Found by the regression sweeps after steps 5 and 6.** A press on a
   port with Select released a click on the container, which cleared the
@@ -482,6 +482,19 @@ The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section
 - **Toggle rows onto one recipe (no lavender-filled bars)** (Settings and help). Mostly already built: the consistency pass (08-consistency.css) took the fill off every checked checkbox row of both classes and gave both the `--divider` hairline. Measured with the new `scratchpad/ui-sweeps/togglerows.js` (every Settings section's visible switches, grouped by shape): the one difference left was the gap, 15 checkbox `.check-row` rows at 6.4px against 8 `.setting-check` rows at 9.6px; both take `--space-4` now, and `#searxng-autostart` leads its row in the markup. After: one shape (32x18 switch at +9, 9.6px gap, no fill at rest) at 1440 and 390, light and dark. `tests/test_ui_recipes.py` holds it; DESIGN.md's on/off row names it.
 
 ## Moved from the plans, 2026-10-05 (op3-1005)
+
+- The features audit's Phase G, Summarise this branch. Built:
+  `POST /whiteboard/boards/{b}/nodes/{n}/summary` (routes_map_suggest.py)
+  reads the branch as an indented outline (120 topics, 6,000 characters at
+  most) and writes nothing; the model's two to four sentences when it
+  answers in prose, else the branch said plainly ("Centre: One, Two, Three
+  and Four (6 topics in all).", `source: "outline"`, with why). The map's
+  `wbMapSummariseBranch` puts it into the topic's own note, open and
+  focused, kept on close as one Undo step; the topic menu, the palette and
+  the Guide's mind map keys name it. `tests/test_map_summary.py` 5 (fake
+  transport: the outline sent, a list reply refused, the fallback);
+  `bm1005-mapmulti.js` check 6 at 1440 light and 390 dark (no model on the
+  sweep's server: the plain form, the note inside the window, kept).
 
 - The features audit's Phase D, fold-to-level (Alt+1 to 9). Built:
   `wbMapFoldToLevel` (whiteboard-map.js) folds every topic at the level

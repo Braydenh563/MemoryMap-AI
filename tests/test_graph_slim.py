@@ -27,7 +27,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_slim_leaves_out_the_defaults_and_full_is_unchanged(client):
     a = client.post("/entries", json={"content": "alpha note"}).json()
     b = client.post("/entries", json={"content": "beta note"}).json()
-    assert client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]}).status_code == 200
+    linked = client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
+    assert linked.status_code == 200
     with deps.get_db().session() as session:
         row = session.get(Entry, b["id"])
         row.graph_pin_x, row.graph_pin_y, row.pinned = 1.5, 2.5, True

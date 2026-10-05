@@ -5397,7 +5397,9 @@ function nameMarkBuddyTempo() {
     //: Nor a transition (round 7: a limb easing into a new pose, 420ms,
     //: which stepped at 10Hz juddered; it is over before it costs much),
     //: nor a move let go (`nameMarkBuddyBlend`, 480ms), for the same reason.
-    nmbTempo.anims = buddy.getAnimations({ subtree: true }).filter((a) => a.effect?.target instanceof SVGElement && !(a.effect.target instanceof SVGSVGElement) && !(typeof CSSTransition === "function" && a instanceof CSSTransition) && a.id !== "nmb-blend" && a.playState !== "finished");
+    //: Nor Atlas's blink (atlas.js, `atlasBlink`, 320ms): stepped at
+    //: 10Hz its lid jumped in three steps.
+    nmbTempo.anims = buddy.getAnimations({ subtree: true }).filter((a) => a.effect?.target instanceof SVGElement && !(a.effect.target instanceof SVGSVGElement) && !(typeof CSSTransition === "function" && a instanceof CSSTransition) && a.id !== "nmb-blend" && a.id !== "atl-blink" && a.playState !== "finished");
     //: **What animates inside one of Atlas's layers goes at half that**
     //: (libtl-0926, from the Atlas agent's report): a mood's small effects
     //: (sparkles, the thinking dots, a drop), each step of which is a

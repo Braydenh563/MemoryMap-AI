@@ -44,7 +44,7 @@ const { boot } = require('./lib.js');
 const fs = require('fs');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
-const PARTS = (process.env.PART || 'fringe,wisps,dress,tail,hair,arms,body,gap,masc,motion,cost').split(',');
+const PARTS = (process.env.PART || 'blink,fringe,wisps,dress,tail,hair,arms,body,gap,masc,motion,cost').split(',');
 const RUNS = Number(process.env.RUNS || 3);
 const REF_DIR = process.env.REF_DIR || '';
 const SCRATCH = process.env.SCRATCH || '/tmp';
@@ -173,7 +173,7 @@ async function wispsPart(page) {
   await mountFigure(page, 'feminine', { still: true });
   out.backLayerUnderBody = await page.evaluate(() => {
     const kids = [...document.querySelector('#luster-box .atl-figure-box').children];
-    const at = (cls) => kids.findIndex((k) => k.classList.contains(cls) || k.querySelector(`:scope > .${cls}`));
+    const at = (cls) => kids.findIndex((k) => k.classList.contains(cls) || k.querySelector(`.${cls}`));
     return at('atl-layer-wisps-back') >= 0 && at('atl-layer-wisps-back') < at('atl-layer-body');
   });
   return out;
@@ -517,8 +517,328 @@ async function armsPart(ref) {
   return out;
 }
 
+//: INBOX 540: the blink (`atlasBlink`), both looks, six poses, every mood
+//: whose eyes are open, and drowsy. Each blink is stepped 16ms at a time
+//: and read off the drawing in screen px, against the open eye's white
+//: (`.atl-sclera`, the body layer) and the brow:
+//: - outside: the largest distance the lid's edge line or her lashes reach
+//:   past the eye's box plus a margin of a third of its width, where the
+//:   clip lets them show (none should);
+//: - cover: the shut lid's clip covers the eye's box, to 0.3px (every case);
+//: - foot: the shut edge's lowest point less the eye's, over its height;
+//: - brow: the largest move of a brow's box over the blink (0);
+//: - strokes: the spread of each stroke's width (its stroke-width times
+//:   the drawing's scale) over the blink (0);
+//: - liner: at 6x on the shut frame, points on the upper liner and 1.4
+//:   inside it whose luminance differs by over 20 from the same frame with
+//:   the open eyes hidden (the face's skin): the eye showing round a lid.
+async function blinkPart() {
+  const { browser, page } = await boot({ viewport: { width: 520, height: 700 }, scale: 6 });
+  await page.evaluate(() => { document.documentElement.dataset.avatarMotion = 'always'; clearTimeout(atlasBlinkTimer); atlasBlinkTick = () => {}; });
+  const res = { cases: 0, frames: 0, outside: 0, uncovered: [], footMax: 0, browMove: 0, strokeSpread: 0, linerShowing: 0, linerSamples: 0, worst: [] };
+  for (const look of ['feminine', 'masculine']) {
+    for (const pose of (process.env.POSES || 'stand,sit,hang,float,lie,curl').split(',')) {
+      for (const mood of process.env.MOODS ? process.env.MOODS.split(',') : [...Object.keys(await page.evaluate(() => ATLAS_MOODS)), 'drowsy']) {
+        const got = await page.evaluate(async ([look, pose, mood]) => {
+          localStorage.setItem('atlas-look', look);
+          document.getElementById('luster-box')?.remove();
+          document.getElementById('nm-buddy')?.remove();
+          const box = document.createElement('div'); box.id = 'luster-box';
+          Object.assign(box.style, { position: 'fixed', left: '0', top: '0', width: '160px', height: '170px', zIndex: '9999', overflow: 'hidden', background: '#f3f4fa' });
+          const holder = document.createElement('div'); holder.id = 'nm-buddy';
+          Object.assign(holder.style, { position: 'absolute', left: '40px', top: '40px', width: '64px', height: '92px' });
+          if (pose !== 'stand') holder.dataset.pose = pose;
+          if (mood === 'drowsy') holder.classList.add('nmb-drowsy');
+          const fig = atlasFigure(); Object.assign(fig.style, { position: 'relative', display: 'block', width: '64px', height: '92px' });
+          for (const svg of fig.querySelectorAll('svg')) atlasApply(svg, mood === 'drowsy' ? 'calm' : mood);
+          holder.append(fig); box.append(holder); document.body.append(box);
+          for (const a of box.getAnimations({ subtree: true })) { a.pause(); a.currentTime = 0; }
+          await new Promise((r) => setTimeout(r, 700));
+          for (const a of box.getAnimations({ subtree: true })) { a.pause(); a.currentTime = 0; }
+          const lids = fig.querySelector('.atl-layer-lids');
+          if (getComputedStyle(lids).scale === '0') return null;
+          const ms = mood === 'drowsy' ? 1420 : 320;
+          atlasBlink(fig, mood === 'drowsy' ? { close: 380, hold: 520, open: 520 } : {});
+          const anims = box.getAnimations({ subtree: true }).filter((a) => a.id === 'atl-blink');
+          for (const a of anims) a.pause();
+          const rect = (el) => { const b = el.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; };
+          const width = (el) => parseFloat(getComputedStyle(el).strokeWidth) * Math.hypot(el.getScreenCTM().a, el.getScreenCTM().b);
+          const out = { frames: 0, outside: 0, browMove: 0, strokeSpread: 0, foot: 0, covered: true };
+          const sides = ['l', 'r'];
+          const brow0 = sides.map((s) => rect(fig.querySelector(`.atl-layer-body .atl-brow-${s}`)));
+          const widths = {};
+          for (let t = 0; t <= ms; t += 16) {
+            for (const a of anims) a.currentTime = t;
+            out.frames += 1;
+            for (const [k, s] of sides.entries()) {
+              const eye = rect(fig.querySelector(`.atl-layer-body .atl-eye-${s} .atl-sclera`));
+              const m = (eye[2] - eye[0]) / 3;
+              const lidEye = lids.querySelector(`.atl-eye-${s}`);
+              const clipEl = document.querySelector(`#atl-${look}-lid${s}`);
+              //: The clip's box in screen px: its shapes through the lid eye
+              //: group's own matrix.
+              const cm = lidEye.getScreenCTM();
+              const cb = [...clipEl.children].map((c) => c.getBBox()).reduce((a, b) => [Math.min(a[0], b.x), Math.min(a[1], b.y), Math.max(a[2], b.x + b.width), Math.max(a[3], b.y + b.height)], [1e9, 1e9, -1e9, -1e9]);
+              const corners = [[cb[0], cb[1]], [cb[2], cb[1]], [cb[0], cb[3]], [cb[2], cb[3]]].map(([x, y]) => new DOMPoint(x, y).matrixTransform(cm));
+              const clip = [Math.min(...corners.map((p) => p.x)), Math.min(...corners.map((p) => p.y)), Math.max(...corners.map((p) => p.x)), Math.max(...corners.map((p) => p.y))];
+              const parts = [lidEye.querySelector('.atl-lid-edge'), lidEye.querySelector('.atl-lid-lashes path')].filter(Boolean);
+              for (const el of parts) {
+                const r = rect(el);
+                const vis = [Math.max(r[0], clip[0]), Math.max(r[1], clip[1]), Math.min(r[2], clip[2]), Math.min(r[3], clip[3])];
+                const shown = el.closest('.atl-lid-lashes') ? +getComputedStyle(el.closest('.atl-lid-lashes')).opacity > 0.05 : true;
+                if (shown && vis[2] > vis[0] && vis[3] > vis[1]) {
+                  const past = Math.max(eye[0] - m - vis[0], vis[2] - (eye[2] + m), eye[1] - m - vis[1], vis[3] - (eye[3] + m), 0);
+                  out.outside = Math.max(out.outside, past);
+                }
+                const key = `${s}-${el.getAttribute('class')}`;
+                (widths[key] ||= []).push(width(el));
+              }
+              (widths[`${s}-brow`] ||= []).push(width(fig.querySelector(`.atl-layer-body .atl-brow-${s} path`)));
+              const b = rect(fig.querySelector(`.atl-layer-body .atl-brow-${s}`));
+              out.browMove = Math.max(out.browMove, ...b.map((v, i) => Math.abs(v - brow0[k][i])));
+              const shutAt = mood === 'drowsy' ? 380 : 120;
+              if (Math.abs(t - shutAt) < 8) {
+                if (!(clip[0] <= eye[0] + 0.3 && clip[1] <= eye[1] + 0.3 && clip[2] >= eye[2] - 0.3 && clip[3] >= eye[3] - 0.3)) { out.covered = false; out.cov = [s, ...eye, ...clip].map((v) => (typeof v === "number" ? +v.toFixed(1) : v)).join(" "); }
+                const edge = rect(lidEye.querySelector('.atl-lid-edge'));
+                out.foot = Math.max(out.foot, Math.abs(edge[3] - eye[3]) / (eye[3] - eye[1]));
+              }
+            }
+          }
+          out.strokeSpread = Math.max(...Object.values(widths).map((v) => Math.max(...v) - Math.min(...v)));
+          //: The shut frame, for the pixels: the upper liner's points, and
+          //: points 1.2 units further from the eye's middle (the lid's skin).
+          for (const a of anims) a.currentTime = mood === 'drowsy' ? 600 : 140;
+          out.dbg = [getComputedStyle(lids).opacity, getComputedStyle(lids.querySelector('.atl-lid-sweep')).translate, anims.map((a) => a.playState + a.currentTime).join(',')].join(' | ');
+          const bx = box.getBoundingClientRect();
+          const pts = [];
+          for (const s of sides) {
+            const liner = fig.querySelector(`.atl-layer-body .atl-eye-${s} .atl-liner:not(.atl-liner-low)`);
+            const m = liner.getScreenCTM();
+            const n = liner.getTotalLength();
+            const sclera = fig.querySelector(`.atl-layer-body .atl-eye-${s} .atl-sclera`).getBBox();
+            const c = [sclera.x + sclera.width / 2, sclera.y + sclera.height / 2];
+            for (let i = 2; i <= 10; i += 1) {
+              const q = liner.getPointAtLength((n * i) / 12);
+              const d = Math.hypot(q.x - c[0], q.y - c[1]) || 1;
+              const p = new DOMPoint(q.x, q.y).matrixTransform(m);
+              const o = new DOMPoint(q.x + ((c[0] - q.x) / d) * 1.4, q.y + ((c[1] - q.y) / d) * 1.4).matrixTransform(m);
+              pts.push([Math.round((p.x - bx.left) * 6), Math.round((p.y - bx.top) * 6)], [Math.round((o.x - bx.left) * 6), Math.round((o.y - bx.top) * 6)]);
+            }
+          }
+          out.pts = pts;
+          return out;
+        }, [look, pose, mood]);
+        if (!got) continue;
+        if (process.env.DBG) console.log(look, pose, mood, got.dbg);
+        const file = `${SCRATCH}/atlasluster-blink.png`;
+        await (await page.$('#luster-box')).screenshot({ path: file });
+        //: The same frame with the open eyes taken out of the body layer:
+        //: what a shut eye should look like there (the face's own skin),
+        //: and the points that differ by more than 20 in luminance.
+        await page.evaluate(() => { for (const el of document.querySelectorAll('#luster-box .atl-layer-body .atl-eye')) el.style.visibility = 'hidden'; });
+        const bare = `${SCRATCH}/atlasluster-blink-bare.png`;
+        await (await page.$('#luster-box')).screenshot({ path: bare });
+        const lumOf = (f) => JSON.parse(execFileSync(PY, ['-c', RGB, f, JSON.stringify(got.pts)]).toString()).map(([r, g, b]) => 0.2126 * r + 0.7152 * g + 0.0722 * b);
+        const lum = lumOf(file);
+        const ref = lumOf(bare);
+        let showing = 0;
+        for (let i = 0; i < lum.length; i += 1) if (Math.abs(lum[i] - ref[i]) > 20) showing += 1;
+        res.cases += 1;
+        res.frames += got.frames;
+        if (got.outside > res.outside) res.outsideAt = `${look} ${pose} ${mood}`;
+        res.outside = Math.max(res.outside, +got.outside.toFixed(2));
+        if (!got.covered) res.uncovered.push(`${look} ${pose} ${mood} ${got.cov}`);
+        res.footMax = Math.max(res.footMax, +got.foot.toFixed(2));
+        res.browMove = Math.max(res.browMove, +got.browMove.toFixed(3));
+        res.strokeSpread = Math.max(res.strokeSpread, +got.strokeSpread.toFixed(3));
+        res.linerShowing += showing;
+        res.linerSamples += lum.length;
+        if ((showing || got.outside > 0.05) && res.worst.length < 8) res.worst.push({ look, pose, mood, showing, outside: +got.outside.toFixed(2) });
+      }
+    }
+  }
+  await page.evaluate(() => localStorage.removeItem('atlas-look'));
+  await browser.close();
+  return res;
+}
+
+//: INBOX 554, 564: the rig through a run of transitions, both looks, in
+//: the companion (motion on), each step held 1.1s while every frame is
+//: recorded (`atlasRigTrace`, and the arms' and held arms' opacity):
+//: - perFrame: the largest change of any joint in one frame (deg, scaled
+//:   to 16.7ms), and `jerk`, the largest ratio of a frame's change to the
+//:   frame before's where that one moved over 0.5 (a pop is a spike);
+//: - settle: the longest time from a change to the rig going quiet;
+//: - flicker: limbs whose shown state (opacity over 0.5) changed more than
+//:   once in a step (0);
+//: - head: the largest lag of the head behind a change of pose (deg);
+//: - swing: while travelling, the correlation of the two shoulders' swing
+//:   (near -1 is counter-phase).
+const RIG_STEPS = [
+  ['sit', 'sit', []], ['stand', 'stand', []], ['float', 'float', []], ['hang', 'hang', []], ['stand2', 'stand', []],
+  ['wave', 'stand', ['nmb-act-wave']], ['rest', 'stand', []], ['fold', 'stand', ['nmb-act-fold']], ['clasp', 'stand', ['nmb-act-clasp']],
+  ['map', 'stand', ['nmb-act-map']], ['shrug', 'stand', ['nmb-act-shrug']], ['bell', 'stand', ['nmb-act-bell']], ['lie', 'lie', []],
+  ['stand3', 'stand', []], ['walk', 'stand', ['nmb-walking']], ['stop', 'stand', []],
+];
+async function rigPart() {
+  const { browser, page } = await boot({ viewport: { width: 520, height: 700 } });
+  await page.evaluate(() => { document.documentElement.dataset.avatarMotion = 'always'; });
+  const res = {};
+  for (const look of ['feminine', 'masculine']) {
+    await mountFigure(page, look);
+    await page.waitForTimeout(800);
+    const steps = [];
+    for (const [label, pose, classes] of RIG_STEPS) {
+      const got = await page.evaluate(async ([pose, classes]) => {
+        const buddy = document.getElementById('nm-buddy');
+        atlasRigTrace = [];
+        const shown = [];
+        let on = true;
+        const sample = () => {
+          if (!on) return;
+          const row = {};
+          for (const s of ['l', 'r']) {
+            row[`arm-${s}`] = +getComputedStyle(buddy.querySelector(`.atl-layer-body .nmb-arm-${s}.atl-rigged`)).opacity;
+            row[`hold-${s}`] = +getComputedStyle(buddy.querySelector(`.atl-layer-body .nmb-hold-${s}`)).opacity;
+          }
+          shown.push(row);
+          requestAnimationFrame(sample);
+        };
+        requestAnimationFrame(sample);
+        const t0 = performance.now();
+        buddy.className = classes.join(' ');
+        if (pose === 'stand') delete buddy.dataset.pose; else buddy.dataset.pose = pose;
+        let quietAt = 0;
+        const box = buddy.querySelector('.atl-figure-box');
+        for (let i = 0; i < 66; i += 1) {
+          await new Promise((r) => requestAnimationFrame(r));
+          if (!box.hasAttribute('data-atl-moving') && !quietAt && performance.now() - t0 > 60) quietAt = performance.now() - t0;
+          if (box.hasAttribute('data-atl-moving')) quietAt = 0;
+        }
+        on = false;
+        const trace = atlasRigTrace;
+        atlasRigTrace = null;
+        return { trace, shown, settle: quietAt || 1100 };
+      }, [pose, classes]);
+      //: Per joint, per frame.
+      let perFrame = 0;
+      let jerk = 0;
+      let head = 0;
+      const series = {};
+      for (const [t, , side, sh, el, wr] of got.trace) {
+        if (side === 'head') { head = Math.max(head, Math.abs(sh)); continue; }
+        (series[side] ||= []).push([t, sh, el, wr]);
+      }
+      for (const rows of Object.values(series)) {
+        for (let k = 1; k <= 3; k += 1) {
+          let prev = null;
+          for (let i = 1; i < rows.length; i += 1) {
+            const dt = Math.max(1, rows[i][0] - rows[i - 1][0]);
+            const d = (Math.abs(rows[i][k] - rows[i - 1][k]) * 16.7) / dt;
+            perFrame = Math.max(perFrame, d);
+            if (prev !== null && prev > 0.5) jerk = Math.max(jerk, d / prev);
+            prev = d;
+          }
+        }
+      }
+      let flicker = 0;
+      for (const key of ['arm-l', 'arm-r', 'hold-l', 'hold-r']) {
+        let flips = 0;
+        for (let i = 1; i < got.shown.length; i += 1) if ((got.shown[i][key] > 0.5) !== (got.shown[i - 1][key] > 0.5)) flips += 1;
+        if (flips > 1) flicker += 1;
+      }
+      const step = { label, frames: got.trace.length, perFrame: +perFrame.toFixed(1), jerk: +jerk.toFixed(1), settle: Math.round(got.settle), flicker, head: +head.toFixed(1) };
+      if (label === 'walk') {
+        const l = (series.l || []).map((r) => r[1]);
+        const r = (series.r || []).map((r) => r[1]);
+        const n = Math.min(l.length, r.length);
+        const mean = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+        const ml = mean(l.slice(0, n));
+        const mr = mean(r.slice(0, n));
+        let sxy = 0; let sxx = 0; let syy = 0;
+        for (let i = Math.floor(n / 3); i < n; i += 1) { sxy += (l[i] - ml) * (r[i] - mr); sxx += (l[i] - ml) ** 2; syy += (r[i] - mr) ** 2; }
+        //: The shoulders' screen angles: one arm swinging forward (one
+        //: way round) as the other swings back (the other way) is -1.
+        step.swing = +(sxy / Math.sqrt(sxx * syy || 1)).toFixed(2);
+      }
+      steps.push(step);
+    }
+    res[look] = {
+      perFrameMax: Math.max(...steps.map((s) => s.perFrame)),
+      jerkMax: Math.max(...steps.map((s) => s.jerk)),
+      settleMax: Math.max(...steps.map((s) => s.settle)),
+      flicker: steps.reduce((a, s) => a + s.flicker, 0),
+      headMax: Math.max(...steps.map((s) => s.head)),
+      steps,
+    };
+  }
+  await page.evaluate(() => localStorage.removeItem('atlas-look'));
+  await browser.close();
+  return res;
+}
+
+//: INBOX 554: the wave down her tail, in the companion standing, motion on.
+//: Every animation is stepped together over one whole cycle of the tail's
+//: sway (16.6s, the 8.3s alternate), 0.2s at a time; at each step a point
+//: on the root half (t 0.3) and one on the tip half (t 0.85) are read off
+//: their own layers in screen px: each half's heading (root to joint,
+//: joint to tip point). Each
+//: angle's phase at the cycle's fundamental (a one-bin DFT): `lagDeg` is
+//: how far the tip's phase is behind the root's (positive: the sway runs
+//: tipward), `amp` each one's swing in degrees. `seam` is the largest gap
+//: between the two halves' centrelines at the joint over the cycle, px.
+async function wavePart() {
+  const { browser, page } = await boot({ viewport: { width: 520, height: 700 } });
+  await page.evaluate(() => { document.documentElement.dataset.avatarMotion = 'always'; });
+  await mountFigure(page, 'feminine');
+  await page.waitForTimeout(600);
+  const got = await page.evaluate(() => {
+    const box = document.querySelector('#luster-box .atl-figure-box');
+    const anims = [box, ...box.querySelectorAll('*')].flatMap((el) => el.getAnimations());
+    for (const a of anims) a.pause();
+    const base = box.querySelector('svg.atl-layer-tail:not(.atl-layer-tail-tip) .atl-fills .atl-tail-swish > .atl-skin');
+    const tip = box.querySelector('svg.atl-layer-tail-tip .atl-fills .atl-tail-swish > .atl-skin');
+    if (!tip) return null;
+    const segs = ATLAS_LOOKS.feminine.tailSegsNow;
+    const at = (el, t) => { const [x, y] = atlasSegsAt(segs, t); const p = new DOMPoint(x, y).matrixTransform(el.getScreenCTM()); return [p.x, p.y]; };
+    const rows = [];
+    for (let ms = 2200; ms <= 18800; ms += 200) {
+      for (const a of anims) a.currentTime = ms;
+      const root = at(base, 0);
+      const b = at(base, 0.3);
+      const t = at(tip, 0.85);
+      const jb = at(base, ATLAS_LOOKS.feminine.tailWave.t);
+      const jt = at(tip, ATLAS_LOOKS.feminine.tailWave.t);
+      const ang = (p) => (Math.atan2(p[1] - root[1], p[0] - root[0]) * 180) / Math.PI;
+      //: Each half's heading: the root half from the root to the joint, the
+      //: tip half from the joint to its point (both read off their own layer).
+      const dir = (p, q) => (Math.atan2(q[1] - p[1], q[0] - p[0]) * 180) / Math.PI;
+      rows.push([ms, dir(root, jb), dir(jt, t), Math.hypot(jb[0] - jt[0], jb[1] - jt[1])]);
+    }
+    return rows;
+  });
+  await browser.close();
+  if (!got) return { note: 'no tip layer' };
+  const fit = (k) => {
+    const n = got.length - 1;
+    let c = 0; let s = 0;
+    const mean = got.slice(0, n).reduce((a, r) => a + r[k], 0) / n;
+    for (let i = 0; i < n; i += 1) { const w = (2 * Math.PI * got[i][0]) / 16600; c += (got[i][k] - mean) * Math.cos(w); s += (got[i][k] - mean) * Math.sin(w); }
+    return { phase: (Math.atan2(s, c) * 180) / Math.PI, amp: (2 * Math.hypot(c, s)) / n };
+  };
+  const b = fit(1);
+  const t = fit(2);
+  let lag = b.phase - t.phase;
+  while (lag < -180) lag += 360;
+  while (lag > 180) lag -= 360;
+  return { lagDeg: +(-lag).toFixed(1), amp: { root: +b.amp.toFixed(2), tip: +t.amp.toFixed(2) }, seam: +Math.max(...got.map((r) => r[3])).toFixed(2) };
+}
+
 (async () => {
   const out = {};
+  if (PARTS.includes('wave')) out.wave = await wavePart();
+  if (PARTS.includes('rig')) out.rig = await rigPart();
+  if (PARTS.includes('blink')) out.blink = await blinkPart();
   if (PARTS.includes('arms')) out.arms = { now: await armsPart(false), ...(REF_DIR ? { before: await armsPart(true) } : {}) };
   if (PARTS.includes('hair')) out.hair = await hairPart();
   if (PARTS.includes('tail')) {

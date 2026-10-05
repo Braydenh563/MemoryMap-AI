@@ -6524,6 +6524,10 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 #nm-buddy[data-pose="lie-2"] .atl-layer-lower { rotate: -16deg; }
 #nm-buddy[data-pose="lie"] .atl-layer-lower { rotate: -42deg; }
 #nm-buddy .atl-layer-lower { transition: rotate calc(var(--motion-slow) * 2) var(--ease-spring); }
+/* The body leads and the hem follows (INBOX 554, 564): the lower layer and
+   its group take a change of pose a beat after the torso does, and settle
+   past it on the spring, as cloth and hair do. */
+#nm-buddy :is(.atl-layer-lower, .atl-lower) { transition-delay: 70ms; }
 /* Curling up where it sits: hunched forward, arms round the knees, the
    stream drawn in close about it. */
 #nm-buddy[data-pose="curl-1"] .nm-figure { --nmb-lean-pose: 6deg; }
@@ -7435,7 +7439,8 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    and the companion's head turn, the front shimmers. */
 /* `.atl-lw` (atlas.js) is the box a root's second idle loop runs on. */
 .atl-figure-box > svg,
-.atl-lw > svg {
+.atl-lw > svg,
+.atl-lw-breathe > svg {
   position: absolute;
   left: 0;
   top: 0;
@@ -7491,7 +7496,16 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 /* The second idle loops' boxes: the same 64 by 92 and the same pivots. */
 .atl-figure-box > .atl-lw { position: absolute; left: 0; top: 0; width: 64px; height: 92px; }
 .atl-lw-body { transform-origin: 31px 90px; will-change: rotate; }
+/* The body's breath, on a box inside its sway box that holds the body's
+   root and the lids' (atlas.js, INBOX 540): the lids breathe with the face. */
+.atl-lw-breathe { position: absolute; left: 0; top: 0; width: 64px; height: 92px; transform-origin: 31px 90px; will-change: transform; }
+/* The hair's own layer (INBOX 554, 564), in the breathing box under the
+   body's root; its box sways it about the crown, a beat behind the body. */
+.atl-lw-breathe > .atl-lw-hair { position: absolute; left: 0; top: 0; width: 64px; height: 92px; transform-origin: 32px 15px; will-change: rotate; }
 .atl-lw-tail { transform-origin: 34px 60px; will-change: rotate; }
+/* Her tail's tip half (atlas.js, `tailWave`, INBOX 554): a box in the
+   tail's box, turned about the joint (its origin is set from the tail). */
+.atl-lw-tail > .atl-lw-tip { position: absolute; left: 0; top: 0; width: 64px; height: 92px; will-change: rotate; }
 .atl-lw-lower { transform-origin: 31px 57px; }
 /* The legs' limb gestures (`nameMarkBuddyLimbs`: rotate and scale) turn the box about the hip, the same two points the root's own `transform` uses. */
 .atl-lw-leg-l { transform-origin: 27.4px 60px; }
@@ -7501,7 +7515,10 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .nm-atlas.atl-layer-front { will-change: opacity; }
 .nm-atlas.atl-layer-lids { transform-origin: 31px 37px; opacity: 0; will-change: opacity; transform: translate(calc(var(--atl-lean-dir) * 0.9px), var(--atl-head-y)) rotate(calc(var(--atl-tilt) + var(--atl-lean-dir) * 4deg)) scale(calc(var(--atl-tune-head) * var(--atl-head-k))); scale: var(--atl-open); transition: rotate var(--motion-slow) var(--ease-out); }
 .nm-atlas.atl-layer-lids .atl-head { transform: none; }
-.nm-atlas .atl-lid-shut { opacity: 1; }
+/* The blink's lids (atlas.js, `atlasLids`, INBOX 540): skin swept down
+   over each eye, its lower edge the eye's own lower curve with a fine lash
+   line on it, the closed eye's line once it is down. */
+.nm-atlas .atl-lid-edge { fill: none; stroke: var(--atl-line); stroke-width: 1.1; stroke-linecap: round; }
 #nm-buddy.nmb-think .atl-layer-lids { rotate: 8deg; }
 /* An act that moves the head (a look, a yawn, the music bob) would leave
    a blink a few px off it; the lids sit the act out. */
@@ -7629,6 +7646,12 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    the pose changes). A walk's steps and an act's moves are animations,
    which a transition does not touch. */
 #nm-buddy :is(.nmb-leg, .nmb-arm, .nmb-hold, .atl-lower) { transition: transform calc(var(--motion-slow) * 2) var(--ease-spring), opacity var(--motion-base) var(--ease-out); }
+/* The rig (atlas.js, `atlasRig`, INBOX 564): a layered figure's arms are
+   turned by the rig every frame of a move, so they take no transition and
+   no keyframes of their own; each arm's empty probe takes every rule and
+   gesture at once (no transition) for the rig to read. */
+.nm-atlas .nmb-arm.atl-rigged { transition: opacity var(--motion-base) var(--ease-out) !important; animation-name: none !important; }
+.nm-atlas .atl-arm-probe { transition: none !important; }
 :root:is([data-avatar-motion="off"], [data-motion="reduced"]) #nm-buddy :is(.nmb-leg, .nmb-arm, .nmb-hold, .atl-lower) { transition: opacity var(--motion-base) var(--ease-out); }
 @media (prefers-reduced-motion: reduce) {
   #nm-buddy :is(.nmb-leg, .nmb-arm, .nmb-hold, .atl-lower) { transition: opacity var(--motion-base) var(--ease-out); }
@@ -8617,7 +8640,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    creepy"): the lids droop in soft arcs (`--atl-softlid`), the pupils are
    small and look down and away, the brows soften with their inner ends a
    little raised, the mouth relaxes whatever the mood was, and a blink is
-   slow and lingers closed (`atl-blink-heavy`). Its occasional yawn is the
+   slow and lingers closed (atlas.js, `atlasBlinkTick`). Its occasional yawn is the
    companion's own `yawn` act. */
 #nm-buddy.nmb-drowsy .nm-atlas {
   --atl-halo-o: 0.75; --atl-glow: 0.85; --atl-crest: 5deg;
@@ -8628,14 +8651,6 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   --atl-m-smile: 0; --atl-m-grin: 0; --atl-m-big: 0; --atl-m-laugh: 0; --atl-m-o: 0; --atl-m-hmm: 0;
   --atl-m-wavy: 0; --atl-m-frown: 0; --atl-m-smug: 0; --atl-m-cat: 0; --atl-m-set: 0; --atl-m-tinyo: 0; --atl-m-rest: 1;
   --atl-cheek: 0.3;
-}
-:root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy.nmb-drowsy .nm-atlas.atl-layer-lids { animation: atl-blink-heavy 7s ease-in-out var(--nm-delay) infinite; }
-@media (prefers-reduced-motion: reduce) {
-  :root:not([data-avatar-motion="off"]):not([data-motion="reduced"]) #nm-buddy.nmb-drowsy .nm-atlas.atl-layer-lids { animation-duration: 12s; }
-}
-@keyframes atl-blink-heavy {
-  0%, 30%, 52%, 100% { opacity: 0; }
-  35%, 45% { opacity: 1; }
 }
 #nm-buddy.nmb-night .nm-atlas { --atl-crest: 8deg; --atl-lid: 0.28; }
 #nm-buddy.nmb-reading .nm-atlas { --atl-py: 1.4px; --atl-lid: 0.18; --atl-brow-y: -0.6px; }
@@ -8673,7 +8688,11 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     :root[data-avatar-motion="hover"]:not([data-motion="reduced"]) .nm-atlas:hover
   ) {
     & .atl-rig { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite; }
-    & .atl-blink.nm-blinks { animation: atl-blink 9s linear var(--nm-delay) infinite; }
+    /* INBOX 540: a blink is the lid sweeping down over the eye and back,
+       not the eye squashed flat: 120ms down, held, 160ms up, the upper
+       liner and the lashes fading while it is shut. */
+    & .atl-blink.nm-blinks .atl-lid { animation: atl-lid-blink 9s linear var(--nm-delay) infinite; }
+    & .atl-blink.nm-blinks > :is(.atl-lashes,.atl-liner:not(.atl-liner-low)) { animation: atl-liner-blink 9s linear var(--nm-delay) infinite; }
     & .atl-sway { animation: atl-sway 9.6s ease-in-out var(--nm-delay) infinite; }
     & .atl-tail-swish { animation: atl-swish 4.2s ease-in-out var(--nm-delay) infinite; }
     /* Round 9 (the owner: "secondary motion", the hair flowing): in the
@@ -8682,9 +8701,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     &.atl-full .atl-mane { animation: atl-hair-flow 7.3s ease-in-out var(--nm-delay) infinite alternate; }
     /* The layered figure: the same loops on the layer roots, and none of
        them inside (each would lay the drawing out every frame). */
-    &.atl-layer-body { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite; }
     &.atl-layer-tail { animation: atl-swish 5.4s ease-in-out var(--nm-delay) infinite; }
-    &.atl-layer-lids { animation: atl-blink-lids 9s linear var(--nm-delay) infinite; }
     &.atl-layer-front { animation: atl-shimmer 5.6s ease-in-out infinite; }
     /* Round 6: the feminine skirt's slow drift and the nebula's, wherever
        the layered figure is drawn (the companion and the large view); the
@@ -8693,7 +8710,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     &.atl-layer-lower { animation: atl-skirt-idle 5.6s ease-in-out infinite alternate; }
     &:is(.atl-layer-neb, .atl-layer-neb-front) { animation: atl-neb-drift 13s ease-in-out infinite alternate; }
     &[data-atlas-mood="happy"].atl-layer-tail, &[data-atlas-mood="delighted"].atl-layer-tail, &[data-atlas-mood="love"].atl-layer-tail, &[data-atlas-mood="laughing"].atl-layer-tail { animation: atl-wag 0.8s ease-in-out infinite alternate; }
-    &.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-mane, .atl-tail-swish, .atl-ring-drift, .atl-ring-glint, .atl-aura, .atl-core-glow, .atl-mood, .atl-float) { animation: none; }
+    &.atl-layer :is(.atl-rig, .atl-blink.nm-blinks, .atl-blink.nm-blinks .atl-lid, .atl-blink.nm-blinks > *, .atl-sway, .atl-mane, .atl-tail-swish, .atl-ring-drift, .atl-ring-glint, .atl-aura, .atl-core-glow, .atl-mood, .atl-float) { animation: none; }
     &[data-atlas-mood="love"].atl-layer-fx-1 { animation: atl-rise 2.6s ease-out infinite; }
     &[data-atlas-mood="love"].atl-layer-fx-2 { animation: atl-rise 2.6s ease-out -1.3s infinite; }
     &[data-atlas-mood="sleepy"].atl-layer-fx-1 { animation: atl-z-drift 4.2s ease-in-out infinite; }
@@ -8780,7 +8797,15 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   ) {
     & .atl-lw-body[data-atlas-look="masculine"] { animation: atl-idle-sway 7.2s ease-in-out infinite alternate; }
     & .atl-lw-body[data-atlas-look="feminine"] { animation: atl-idle-sway-soft 9.4s ease-in-out infinite alternate; }
+    & .atl-lw-breathe { animation: atl-breathe 4.4s ease-in-out var(--nm-delay) infinite; }
+    /* The hair trails the body's sway: the same clock, a beat later and a
+       little wider about the crown (INBOX 554, 564). */
+    & .atl-lw-hair[data-atlas-look="masculine"] { animation: atl-hair-trail 7.2s ease-in-out 1.1s infinite alternate; }
+    & .atl-lw-hair[data-atlas-look="feminine"] { animation: atl-hair-trail 9.4s ease-in-out 1.4s infinite alternate; }
     & .atl-lw-tail { animation: atl-tail-flow 8.3s ease-in-out infinite alternate; }
+    /* The wave: the tip half sways on the root's clock a quarter behind
+       (2.1s of 8.3s), and wider, so each sway runs down to the tip. */
+    & .atl-lw-tip { animation: atl-tail-wave 8.3s ease-in-out 2.1s infinite alternate; }
     & .atl-lw-neb, & .atl-lw-neb-front { animation: atl-neb-flow 7.7s ease-in-out infinite alternate; }
     /* Her astral wisps drift on their own slow clock (INBOX 535). */
     & .atl-lw-wisps { animation: atl-wisp-drift 6.8s ease-in-out -1.7s infinite alternate; }
@@ -8793,7 +8818,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
        quarter turn behind. */
     &.atl-figure-box[data-atlas-look="feminine"] { animation: atl-float 5.3s ease-in-out infinite alternate; }
     & .atl-lw-lower[data-atlas-look="feminine"] { animation: atl-hem-wind 7.1s ease-in-out -1.8s infinite alternate; }
-    & .atl-layer-body[data-atlas-look="feminine"] { animation-duration: 3.7s; }
+    & .atl-lw-body[data-atlas-look="feminine"] .atl-lw-breathe { animation-duration: 3.7s; }
     & .atl-layer-glint-a { animation: atl-glint-twinkle 3.4s ease-in-out infinite; }
     & .atl-layer-glint-b { animation: atl-glint-twinkle 4.7s ease-in-out -2.2s infinite; }
     &:is([data-atlas-mood="happy"], [data-atlas-mood="delighted"], [data-atlas-mood="love"], [data-atlas-mood="laughing"]) .atl-lw-tail { animation: none; }
@@ -8821,12 +8846,14 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   .nm-live.atl-figure-box {
     &[data-atlas-mood="delighted"], &[data-atlas-mood="laughing"], &[data-atlas-mood="sleepy"], &[data-atlas-mood="love"], &[data-atlas-mood="confused"] { animation-duration: 9s !important; }
   }
-  .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-sway, .atl-tail-swish, .atl-juggle-0, .atl-juggle-1, .atl-juggle-2, .atl-star, .atl-ring-drift, .atl-ring-glint, .atl-core-glow, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
+  .nm-atlas :is(.atl-rig, .atl-blink.nm-blinks, .atl-blink.nm-blinks .atl-lid, .atl-blink.nm-blinks > :is(.atl-lashes,.atl-liner:not(.atl-liner-low)), .atl-sway, .atl-tail-swish, .atl-juggle-0, .atl-juggle-1, .atl-juggle-2, .atl-star, .atl-ring-drift, .atl-ring-glint, .atl-core-glow, .nm-buddy-head, .atl-prop-note, .atl-aura, .atl-core, .atl-mood, .atl-node-dot, .atl-dot, .atl-sparkle, .atl-float, .atl-fall, .atl-fx-q) {
     animation-duration: 9s !important;
   }
   /* The layered figure's loops (atlas.js, `atlasDrawFigure`) slow the same way. */
   .atl-lw-body[data-atlas-look="masculine"] { animation-duration: 14s !important; }
   .atl-lw-body[data-atlas-look="feminine"] { animation-duration: 16s !important; }
+  .atl-lw-breathe { animation-duration: 9s !important; }
+  .atl-lw-hair[data-atlas-look="masculine"], .atl-lw-hair[data-atlas-look="feminine"], .atl-lw-tip { animation: none !important; }
   .atl-lw-tail { animation-duration: 9s !important; }
   .atl-lw-neb, .atl-lw-neb-front, .atl-lw-wisps { animation: none !important; }
   :is(.atl-lw-glint-a, .atl-lw-glint-b, .atl-lw-wisps-back), .nm-atlas:is(.atl-layer-glint-a, .atl-layer-glint-b) { animation: none !important; }
@@ -8837,7 +8864,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
     &.atl-figure-box[data-atlas-look="feminine"]:not([data-atlas-mood="delighted"], [data-atlas-mood="laughing"], [data-atlas-mood="sleepy"], [data-atlas-mood="love"], [data-atlas-mood="confused"]) { animation: none !important; }
   }
   .nm-atlas {
-    &.atl-layer-body, &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
+    &.atl-layer-tail, &.atl-layer-lids, &.atl-layer-front, &[data-atlas-mood="laughing"].atl-layer-tail { animation-duration: 9s !important; }
     /* Round 6: the skirt drifts slower still; the nebula holds still. */
     &.atl-layer-lower { animation-duration: 12s !important; }
     /* Round 9: the hair's flow holds still with it; the tail's second
@@ -8848,18 +8875,30 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 }
 
 @keyframes atl-breathe { 50% { transform: scale(0.99, 1.018); } }
+@keyframes atl-hair-trail { from { rotate: -1.6deg; } to { rotate: 1.6deg; } }
+@keyframes atl-tail-wave { from { rotate: -3.4deg; } to { rotate: 3.4deg; } }
+/* A pose or a move that bends the tail far from rest (it hangs, lies,
+   curls, sits, is carried or walks) holds the wave still: the joint it
+   turns about is the resting tail's. */
+#nm-buddy:is([data-pose]:not([data-pose="stand"]), .nmb-sleep, .nm-buddy-dragging, .nmb-walking) .atl-lw-tip { animation: none !important; }
 /* Round 7 (INBOX 430, "be less visually distracting"): the rings'
    shimmer half as deep and half as fast (0.82 every 2.8s was a flicker in
    the corner of the eye), the tail's idle swish smaller and slower, the
    happy wag slower and narrower, the float's bob shallower. */
 @keyframes atl-shimmer { 50% { opacity: 0.91; } }
-@keyframes atl-blink-lids {
-  0%, 36.4%, 39.6%, 90.4%, 92%, 92.8%, 94.4%, 100% { opacity: 0; }
-  37.4%, 38.6%, 91%, 91.4%, 93.4%, 93.8% { opacity: 1; }
+/* INBOX 540: the drawings' blink (above), a double at the end of the
+   loop. 1% of 9s is 90ms: down in 1.3%, held 0.5%, up in 1.8%, the down
+   strokes eased in and the up strokes eased out. The lid travels 8 units,
+   from its open edge to the eye's foot. */
+@keyframes atl-lid-blink {
+  0%, 36%, 90%, 94% { translate: 0 0; animation-timing-function: cubic-bezier(0.45, 0, 0.75, 0.9); }
+  37.3%, 91.3%, 95.3% { translate: 0 8px; animation-timing-function: linear; }
+  37.8%, 91.8%, 95.8% { translate: 0 8px; animation-timing-function: cubic-bezier(0.2, 0.6, 0.35, 1); }
+  39.6%, 93.6%, 97.6%, 100% { translate: 0 0; }
 }
-@keyframes atl-blink {
-  0%, 36%, 40%, 90%, 92.4%, 93.6%, 96%, 100% { transform: scaleY(1); }
-  38%, 91.2%, 94.8% { transform: scaleY(0.08); }
+@keyframes atl-liner-blink {
+  0%, 36.8%, 39%, 90.8%, 93%, 94.8%, 97%, 100% { stroke-opacity: 1; }
+  37.3%, 37.8%, 91.3%, 91.8%, 95.3%, 95.8% { stroke-opacity: 0; }
 }
 @keyframes atl-sway {
   30% { transform: rotate(2.2deg); }

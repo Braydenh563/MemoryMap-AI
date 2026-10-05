@@ -195,7 +195,7 @@ number is NEW)** PARTLY FIXED 73fcd97 (server cursor; client switch is FE-05)
   the chat backend (Ollama embeddings); otherwise keep it, or re-warm it.
 
 **ARCH-07. The unified search only re-ranks keyword hits (NEW detail of
-KNOWN `search-one-surface`)**
+KNOWN `search-one-surface`)** FIXED 535ae2e
 - Evidence: `engine.py:1058-1066`: candidates come only from the FTS pass;
   `if not rows: return []`. Measured: `/search?q=horticulture` 0 hits,
   `vegetable patch` 0, `gardn` 0. The vocabulary typo fix lives only in the
@@ -220,7 +220,7 @@ CLOSED)** FIXED f7aa175
   no model is not filed to X).
 
 **ARCH-09. Model calls have no shared gate; filing waits behind captions
-(NEW)**
+(NEW)** FIXED 535ae2e
 - Evidence: `core/jobs.py` lane `model` is width 1 and carries `caption`,
   `vision`, `vision-pdf` and `file-entry`; 20 other call sites call the
   provider directly (chat, `/chat/followups`, greeting, category and title
@@ -232,7 +232,7 @@ CLOSED)** FIXED f7aa175
 - Fix (M): one process-wide model gate with interactive priority (background
   yields between calls); `file-entry` on its own lane.
 
-**ARCH-10. Import cycles are hidden from the lint, not removed (NEW)**
+**ARCH-10. Import cycles are hidden from the lint, not removed (NEW)** PARTLY FIXED 535ae2e (ratchet lint at 15 and 3; cycles not cut)
 - Evidence: 46 `importlib.import_module("memorymap...")` calls, commented as
   the way around the lint: "`importlib`, not an `import` statement: naming it
   here closes `core.database -> search.index -> core.database`"
@@ -251,7 +251,7 @@ CLOSED)** FIXED f7aa175
 
 ### Medium
 
-**ARCH-11. Whole-notebook loads on routine endpoints (NEW)** PARTLY FIXED 38debe1 (`/suggestions` only)
+**ARCH-11. Whole-notebook loads on routine endpoints (NEW)** PARTLY FIXED 38debe1 (`/suggestions`; pairs capped per note in 535ae2e)
 - 5,000 notes, p50/p95: `/suggestions` **1,234 / 2,377 ms** returning an
   empty list: `routes_inbox._visible` loads every note as a full ORM object to
   test membership (py-spy: 27% in that comprehension). `/library` 703 / 1,112
@@ -297,7 +297,7 @@ stated)**
 - Fix: the fingerprint-keyed payload cache the plan names; build the JSON
   bytes in the worker thread.
 
-**ARCH-15. Token budgeting assumes 4 characters per token (NEW, read)**
+**ARCH-15. Token budgeting assumes 4 characters per token (NEW, read)** FIXED 535ae2e
 - `ai/context.py:40` `CHARS_PER_TOKEN = 4` sets every share, and `num_ctx`
   comes from the same window. CJK text is about 1 char per token, code about
   3. A CJK notebook overfills the window up to 4x; Ollama then truncates from
@@ -305,13 +305,13 @@ stated)**
 - Fix (S): per-script estimate (CJK code points count 1); shrink the next
   turn when the backend's `prompt_eval_count` exceeds the plan.
 
-**ARCH-16. A second model call after every answer, always on (NEW)**
+**ARCH-16. A second model call after every answer, always on (NEW)** PARTLY FIXED 535ae2e (skipped while a turn streams; no preference)
 - `capture-ask.js:2220`, `chat-attach.js:2744` call `/chat/followups` after
   each answer; no preference gates it. With one slot, the next question waits.
 - Fix (S): off by default on CPU-only machines (the hardware probe exists), or
   emit follow-ups from the answer stream.
 
-**ARCH-17. Connect timeout is 600 s, no connection reuse (NEW, read)**
+**ARCH-17. Connect timeout is 600 s, no connection reuse (NEW, read)** FIXED 535ae2e
 - `ollama_client.py:153`, `openai_client.py:117`: one float, which `requests`
   applies to connect too; each call opens a new connection.
 - Impact: a LAN model host that is off and drops packets hangs a chat turn,

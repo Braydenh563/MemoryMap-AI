@@ -35,12 +35,11 @@ def test_an_escaped_select_list_is_floored_at_its_trigger_width():
 
 def test_a_chip_leading_icon_is_dropped_onto_its_words():
     """10c(2): icon ink centre minus the words' ink centre, Ask again chips:
-    -1.84, -2.00, -0.84px before; -0.50, -0.66, +0.50 after (dark within 0.67)."""
-    css = _read("css/08-consistency.css")
-    # INBOX 503 replaced the drop with the chip recipe (words trimmed to the
-    # x-height band); the 0.1em drop stays only where `text-box` is missing.
-    fallback = css[css.index("@supports not (text-box: trim-both ex alphabetic)") :]
-    assert "translate: 0 0.1em;" in fallback[: fallback.index("\n}\n")]
+    -1.84, -2.00, -0.84px before; -0.50, -0.66, +0.50 after (dark within 0.67).
+    INBOX 592 replaced every per-family drop with the label recipe: the
+    chip's icon moves by the live font's own gap (`--ph-cap-dy`)."""
+    css = _read("css/07-whiteboard-misc.css")
+    assert "translate: 0 calc(var(--ph-cap-dy) * 1em / 1.15 - var(--ph-ink-dy));" in css
 
 
 def test_the_web_panel_draws_its_menu_before_the_status_call():

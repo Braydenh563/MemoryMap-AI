@@ -156,6 +156,9 @@ ROOT_CUSTOM_PROPERTIES = {
     "--accent", "--accent-soft", "--blob-a", "--page", "--glass-sheen-strength",
     "--bg-art-opacity", "--radius", "--glass-blur", "--glass-opacity", "--zoom",
     "--border-style", "--shadow-intensity",
+    # settings.js, `measureLabelOptics`: at boot, when the fonts are ready and
+    # when Appearance changes the font (INBOX 592), never per frame.
+    "--ph-cap-dy",
     # app.js: a ResizeObserver on the top bar, and the on-screen keyboard.
     "--header-h", "--keyboard-inset",
 }

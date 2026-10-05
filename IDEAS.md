@@ -56,7 +56,7 @@ they live, because their wording is what a future session will search for.
   better agentic workflow: 65 tools, a visible plan, a confirm card for anything
   that changes or deletes.
 - More skills, and a way to make new ones, including a full audit and clean-up of
-  the notebook: 20 built-in skills (Notebook health check, Clean up my tags,
+  the notebook: 21 built-in skills (Notebook health check, Clean up my tags,
   Reorganise my categories, Fix my links, Find notes worth combining, Build a
   skill), and your own as Markdown files.
 - Quick, normal and detailed modes for chat and agent: response presets.

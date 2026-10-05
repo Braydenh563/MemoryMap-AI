@@ -156,7 +156,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
 - Impact: the Markdown world's diagram lingua franca (GitHub, Obsidian, Notion import) shows as code in notes and documents, and boards cannot take it in either.
 - NEW (corrects a BACKLOG assumption). Fix (M/L): see brief W5. Vendor mermaid (MIT, about 3 MB, lazy) or write a flowchart-subset parser into board objects. Recommend the parser, for the CSP and size reasons the math renderer gave (`documents.js:6362`).
 
-**FEAT-09. Pasting text onto a board or a map does nothing.** FIXED COMMIT_PASTE (the map half: POST /boards/{id}/nodes/outline; the board half is the whiteboard agent's)
+**FEAT-09. Pasting text onto a board or a map does nothing.** FIXED 595db03 (the map half: POST /boards/{id}/nodes/outline; the board half is the whiteboard agent's)
 - Evidence:
   - The canvas paste listener takes files only (`whiteboard.js:11485-11488`).
   - There is no `navigator.clipboard` read (`:4829` comment).

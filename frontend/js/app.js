@@ -2208,6 +2208,8 @@ const LAZY_MODULES = {
   //: whiteboard-map.js (the mind map layer, split out of whiteboard.js the
   //: same day) goes before whiteboard.js on the same terms.
   library: [
+    //: First: the stored undo histories both editors read (undo-store.js).
+    "/js/undo-store.js",
     "/js/documents-code.js",
     "/js/documents-prose.js",
     "/js/documents.js",

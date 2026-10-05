@@ -58,7 +58,8 @@ with its owner named in the entry.
      before a merge, and Undo in the toast splits them back exactly.
      (b) The undo histories of each board, map and document survive a
      reload (the last ~100 steps, stored; WHITEBOARD_PLAN decision 17 is
-     amended).
+     amended). Built 2026-10-05: IndexedDB, `undo-store.js`; decision 17
+     as amended; `mmdoc1005-undoreload.js` 4/4.
      (c) Status labels app-wide are a tinted pill without an edge, matching
      the meta chips.
      (d) The dashboard's map widget is "dynamic depending on map size and

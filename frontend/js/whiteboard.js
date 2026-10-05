@@ -5705,14 +5705,39 @@ function wbHistoryFor() {
   const key = String(window.currentBoardId ?? "default");
   if (key === wbHistoryBoard) return;
   if (wbHistoryBoard !== null) wbHistoryByBoard.set(wbHistoryBoard, { undo: wbUndoStack, redo: wbRedoStack });
-  const kept = wbHistoryByBoard.get(key) || { undo: [], redo: [] };
-  wbUndoStack = kept.undo;
-  wbRedoStack = kept.redo;
+  const kept = wbHistoryByBoard.get(key);
+  wbUndoStack = kept ? kept.undo : [];
+  wbRedoStack = kept ? kept.redo : [];
   wbHistoryBoard = key;
+  if (!kept) wbHistoryRestore(key);
+}
+
+//: **And across a reload** (INBOX 553(b), decision 17 as amended): a board
+//: met for the first time this session takes back what was stored for it
+//: (undo-store.js), unless a step has been taken on it in the meantime.
+//: Nothing is written for a board until its stored history has been read,
+//: so an open that is quicker than the read cannot overwrite it with nothing.
+const wbHistoryRead = new Set();
+
+function wbHistoryRestore(key) {
+  if (key === "default" || typeof undoStoreGet !== "function") {
+    wbHistoryRead.add(key);
+    return;
+  }
+  undoStoreGet(`board:${key}`).then((stored) => {
+    wbHistoryRead.add(key);
+    if (wbHistoryBoard !== key || !stored || wbUndoStack.length || wbRedoStack.length) return;
+    wbUndoStack = Array.isArray(stored.undo) ? stored.undo : [];
+    wbRedoStack = Array.isArray(stored.redo) ? stored.redo : [];
+    wbUpdateUndoRedoButtons();
+  });
 }
 
 function wbUpdateUndoRedoButtons() {
   wbHistoryFor();
+  if (typeof undoStorePut === "function" && wbHistoryRead.has(wbHistoryBoard) && wbHistoryBoard !== "default") {
+    undoStorePut(`board:${wbHistoryBoard}`, undoStoreBoardValue(wbUndoStack, wbRedoStack));
+  }
   const undoBtn = document.getElementById("wb-undo");
   const redoBtn = document.getElementById("wb-redo");
   if (undoBtn) undoBtn.disabled = wbUndoStack.length === 0;

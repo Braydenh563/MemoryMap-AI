@@ -18681,6 +18681,7 @@ function docCmApplySpellcheck() {
 function docCmUpdate(update) {
   if (update.docChanged) {
     docSurfaceChanged();
+    docHistoryPersist();
     //: **Autocorrect, which never ran once under the engine.** The delegated
     //: `input` listener that calls it returns early for anything inside the
     //: view (`docEventFromCm`), because the engine reports its changes here
@@ -19409,6 +19410,8 @@ function docResetDocument(text, id = null) {
     } catch { /* nothing to keep */ }
   }
   const kept = id != null ? docHistories.get(id) : null;
+  //: Not kept this session: the stored one, once it is read (INBOX 553(b)).
+  if (id != null && !kept) docHistoryRestore(id, text);
   let state = null;
   if (kept && kept.doc === text && field) {
     try {
@@ -19426,6 +19429,41 @@ function docResetDocument(text, id = null) {
   //: The `[!kind]-` callouts, folded as their markers ask, on the one event
   //: that means "a different document is on screen now".
   docFoldMarkedCallouts();
+}
+
+//: **A document's history survives a reload** (INBOX 553(b), the owner's
+//: decision; WHITEBOARD_PLAN decision 17 as amended). Written a moment after
+//: each edit (`docHistoryPersist`, from `docCmUpdate`), read back when the
+//: document opens and nothing was kept this session, and given back only
+//: over the very text it was taken against and only if no edit has been made
+//: since the open. CodeMirror's history holds its last hundred events
+//: (its own `minDepth`), which is the owner's "~100 steps".
+function docHistoryRestore(id, text) {
+  if (typeof undoStoreGet !== "function") return;
+  undoStoreGet(`doc:${id}`).then((stored) => {
+    const CM = window.CM6;
+    const field = CM?.commands?.historyField;
+    if (!stored || !field || !docCmView || docHistoryOwner !== id || stored.doc !== text) return;
+    if (docCmView.state.doc.toString() !== text) return;
+    try {
+      docCmView.setState(CM.state.EditorState.fromJSON(stored, { extensions: docCmExtensions(CM) }, { history: field }));
+      docSetLiveDecorations(docView === "live");
+      docCmRepaintFindings();
+    } catch {
+      /* a history this version cannot read is no history */
+    }
+  });
+}
+
+function docHistoryPersist() {
+  const CM = window.CM6;
+  const field = CM?.commands?.historyField;
+  if (typeof undoStorePut !== "function" || !field || !docCmView || docHistoryOwner == null) return;
+  try {
+    undoStorePut(`doc:${docHistoryOwner}`, docCmView.state.toJSON({ history: field }));
+  } catch {
+    /* nothing to keep */
+  }
 }
 
 //: **Source view has to be measured after it is shown.** CodeMirror caches
@@ -19467,6 +19505,9 @@ function docWatchLock() {
     //: would make this purge decorative. The kept histories go with it.
     docHistoryOwner = null;
     docHistories.clear();
+    //: The stored ones too (undo-store.js): a document's history holds its
+    //: text, and so does a board step's payload.
+    if (typeof undoStoreClear === "function") undoStoreClear();
     docResetDocument("");
   }).observe(overlay, { attributes: true, attributeFilter: ["class", "data-mode"] });
 }

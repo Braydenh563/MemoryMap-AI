@@ -1386,7 +1386,18 @@ function entryItem(entry, options = {}) {
   if (expandedRows.has(entry.id)) li.classList.add("row-expanded");
 
   if (editingId === entry.id && options.actions) {
-    renderEditForm(li, entry);
+    //: **Placeholders while the form's own file arrives** (qa-1005). Before
+    //: app.js's preload, or on a slow disk, `renderEditForm` is the lazy
+    //: stand-in, which answers with a promise and draws later: the card fell
+    //: to a 15px empty strip and the notes under it jumped up and back
+    //: (188px, then 15, then 277, with note-edit-panels.js held 3s). The
+    //: real function draws at once and answers nothing, so only the
+    //: stand-in's promise puts placeholders up.
+    const drawn = renderEditForm(li, entry);
+    if (drawn instanceof Promise) {
+      showSkeletons(li, 2);
+      drawn.finally(() => clearSkeletons(li));
+    }
     return li;
   }
 

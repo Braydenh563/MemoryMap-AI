@@ -106,3 +106,14 @@ def test_a_note_cards_connection_pill_is_one_line():
     chip = _rule(css, "#entry-list .link-connection > .chip.link")
     assert "white-space: nowrap" in chip and "overflow: hidden" in chip
     assert "text-overflow: ellipsis" in _rule(css, "#entry-list .link-connection > .chip.link > .ph-text")
+
+
+def test_a_note_being_opened_for_editing_holds_its_place_while_the_form_loads():
+    """With note-edit-panels.js held 3s the card fell from 188px to a 15px
+    empty strip, then rose to the form: every note under it jumped twice.
+    The stand-in's promise now puts placeholders up (133px, aria-busy)."""
+    src = (JS / "note-cards.js").read_text(encoding="utf-8")
+    block = src[src.index("if (editingId === entry.id && options.actions) {") :][:900]
+    assert "const drawn = renderEditForm(li, entry);" in block
+    assert "if (drawn instanceof Promise)" in block and "showSkeletons(li, 2)" in block
+    assert "drawn.finally(() => clearSkeletons(li))" in block

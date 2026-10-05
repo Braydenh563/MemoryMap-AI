@@ -307,6 +307,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Dashboard: the first screen is calmer. Under the greeting is one row, the search box and a "..." menu holding Continue, your recent skills, Tools & features, Commands, View, Widgets and Edit layout; then the Start something tiles and your widgets. The Jump to and Run a skill rows, the four number tiles and the Your dashboard bar are gone from the page (the numbers are in the greeting, the status bar and the Stats, Streak and Writing pace widgets), and Edit layout shows a line above the widgets with its own Done.
 
 ### Fixed
+- Settings: every section with three or more groups opens with its "In this section" strip under its title; Tasks had it at the bottom (after Quit MemoryMap) and short sections had none (INBOX 541).
 - Graph, Arc view: it opens framed whole, its arcs and end labels inside the window with a margin, instead of zoomed in on the bare baseline near the top (INBOX 544).
 - Notes, Capture: the Clear button sits below the text box instead of over its bottom edge (6px over at desktop width, 14px on a phone) (INBOX 545).
 - Top bar: the tabs no longer jump sideways when you switch tab; the strip was measured with its sliding highlight counted as a tab, so whether it was centred depended on which tab was selected (INBOX 539).

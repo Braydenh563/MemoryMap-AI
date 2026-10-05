@@ -52,13 +52,17 @@ with its owner named in the entry.
      Built 2026-10-05 (38debe1, `tests/test_entity_merge_undo.py`).
      (b) The undo histories of each board, map and document survive a
      reload (the last ~100 steps, stored; WHITEBOARD_PLAN decision 17 is
-     amended).
+     amended). Built 2026-10-05: IndexedDB, `undo-store.js`; decision 17
+     as amended; `mmdoc1005-undoreload.js` 4/4.
      (c) Status labels app-wide are a tinted pill without an edge, matching
      the meta chips.
      (d) The dashboard's map widget is "dynamic depending on map size and
      scale": the card's height and the map's scale follow the map's shape,
      a small map at a readable size, a tall one in a taller card up to a
-     limit, then fitted whole.
+     limit, then fitted whole. Built 2026-10-05: the Boards & maps widget
+     draws its busiest board large (`dashMapFeature`, dash-boards.js, lazy),
+     96px to 168px for six topics or fewer, up to 320px otherwise, fitted
+     whole past that; `mmdoc1005-dashmap.js` 5/5 at 1440 and 390.
      Placed: the next free Opus, after the boot-JS split lands (budget).
      (c) built 2026-10-05 (the UX fix agent): `chip item-label` is the
      `--chip-bg` tint at `--radius-pill` with `border: 0`, its tones tints

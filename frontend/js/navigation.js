@@ -354,7 +354,9 @@ document.addEventListener("keydown", (event) => {
 
 function renderMarkdown(container, text, depth = 0) {
   container.replaceChildren();
-  const lines = unlatex(text).replace(/\r\n/g, "\n").split("\n");
+  let lines = unlatex(text).replace(/\r\n/g, "\n").split("\n");
+  const footnotes = depth === 0 ? mdFootnotePrepare(lines) : null;
+  if (footnotes) lines = footnotes.lines;
   //: The text before `unlatex` swapped its symbols, line for line (it never
   //: crosses a newline): a `$$` block is handed to the maths renderer as it
   //: was written, not with `\alpha` already turned into a letter.
@@ -562,6 +564,12 @@ function renderMarkdown(container, text, depth = 0) {
     // Horizontal rule: ---, ***, or ___ on their own line. The three draw
     // differently here (a hairline, a three-dot section break, a strong
     // rule) and are one `<hr>` to every other reader.
+    if (MD_PAGE_BREAK.test(line)) {
+      closeList();
+      container.appendChild(mdPageBreakElement());
+      i++;
+      continue;
+    }
     const rule = mdDividerKind(line);
     if (rule) {
       closeList();
@@ -712,6 +720,7 @@ function renderMarkdown(container, text, depth = 0) {
       !/^\s*([-*_])(\s*\1){2,}\s*$/.test(lines[i]) &&
       !MD_COLS_OPEN.test(lines[i]) &&
       !MD_TOC_LINE.test(lines[i]) &&
+      !MD_PAGE_BREAK.test(lines[i]) &&
       lines[i].trim() !== "$$" &&
       !lines[i].match(/^\s*[-*+]\s+/) &&
       !lines[i].match(/^\s*\d+\.\s+/) &&
@@ -748,6 +757,7 @@ function renderMarkdown(container, text, depth = 0) {
   //: and then the list the document may have ended in the middle of.
   stampNewBlocks();
   closeList();
+  if (footnotes) mdFootnotesFinish(container, footnotes.notes);
   if (depth === 0) mdFillTocs(container);
 }
 

@@ -2199,6 +2199,8 @@ const LAZY_MODULES = {
   //: Arranging the dashboard's Quick access row (INBOX 461): quick-access.js.
   quickAccess: ["/js/quick-access.js"],
   notesRail: ["/js/notes-rail-spy.js"],
+  //: The dashboard's Boards & maps widget (INBOX 553(d)): see dash-boards.js.
+  dashBoards: ["/js/dash-boards.js"],
   //: The suggestions inbox (GRAPH_PLAN KG9): see suggestions-inbox.js.
   inbox: ["/js/suggestions-inbox.js", "/js/entity-page.js", "/js/link-types.js", "/js/note-properties.js"],
   //: 2026-10-05 (gzip budget), the next seven: each file's header says why.
@@ -2221,6 +2223,8 @@ const LAZY_MODULES = {
   //: whiteboard-map.js (the mind map layer, split out of whiteboard.js the
   //: same day) goes before whiteboard.js on the same terms.
   library: [
+    //: First: the stored undo histories both editors read (undo-store.js).
+    "/js/undo-store.js",
     "/js/documents-code.js",
     "/js/documents-prose.js",
     "/js/documents.js",

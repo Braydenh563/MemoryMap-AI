@@ -4262,6 +4262,12 @@ Link to another note with [[its first few words]]."></textarea>
                  its own ("Formatting ▾" and three icons) under this row, 
                  measured, 139px of chrome above the first line at 1440. One
                  button here, one strip that appears below only while on. -->
+            <!-- **The way back to a hidden formatting strip, where it was**
+                 (INBOX 574, the owner: "an easier way to open the formatting
+                 toolbar ... in case the user accidentally closes it"). Shown
+                 only while the strip is hidden (`applyDocToolbarCollapsed`). -->
+            <button id="doc-format-show" class="ghost small doc-format-show hidden" type="button"
+              title="Show the formatting toolbar (Ctrl+Shift+X)" aria-label="Show the formatting toolbar (Ctrl+Shift+X)"><i class="ph ph-text-aa ph-lead" aria-hidden="true"></i> <span>Formatting</span></button>
             <button id="doc-ai" data-needs-model="AI editing needs the local AI" class="ghost small" type="button"
               title="Ask Atlas to rewrite this document, or the text you've selected" aria-label="AI edit"><i class="ph ph-magic-wand ph-lead" aria-hidden="true"></i> <span class="doc-ai-label">AI edit</span></button>
             <!-- A code document's Format (the owner, 2026-09-23: "a button
@@ -4306,7 +4312,7 @@ Link to another note with [[its first few words]]."></textarea>
                     aria-labelledby="doc-file-type-label" title="What kind of file this document is"></select>
                 </div>
                 <button id="doc-format-toggle" class="menu-item doc-dock-menu-item" type="button" aria-pressed="false"
-                  title="Show the formatting strip above the editor"><i class="ph ph-text-aa ph-lead" aria-hidden="true"></i> Always show formatting</button>
+                  title="Show the formatting toolbar above the editor (Ctrl+Shift+X)"><i class="ph ph-text-aa ph-lead" aria-hidden="true"></i> <span id="doc-format-toggle-label">Show formatting toolbar</span></button>
 
                 <!-- The same Connections dialog a note's own ⋯ menu opens
                      (REDESIGN.md §R7.3). A document's joins were split three
@@ -6070,6 +6076,13 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="wb-menu-row">
                 <span>A note</span>
                 <button id="wb-add-to-note" class="ghost small" type="button" title="Put this board in a note as an object"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Add to a note…</button>
+              </div>
+              <!-- A map's outline as a document (audit brief M5): headings by
+                   depth, then lists, notes as paragraphs, the map's card at
+                   the head. Maps only. -->
+              <div class="wb-menu-row" data-wb-surface="map">
+                <span>A document</span>
+                <button id="wb-map-to-doc" class="ghost small" type="button" title="Write this map as a new document: its branches as headings, the rest as lists"><i class="ph ph-file-text ph-lead" aria-hidden="true"></i> Write as a document</button>
               </div>
               <div class="wb-menu-row">
                 <span>Its address</span>

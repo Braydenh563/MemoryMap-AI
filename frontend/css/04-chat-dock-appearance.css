@@ -3667,9 +3667,13 @@ span > .chip {
   min-width: 0;
 }
 
-.doc-layout:has(> #doc-sidebar.hidden) > :not(#doc-sidebar),
-.doc-layout:has(> #doc-sidebar[hidden]) > :not(#doc-sidebar),
-.doc-layout:not(:has(> #doc-sidebar)) > :not(#doc-sidebar) {
+/* `.doc-main`, the one other child, rather than `:not(#doc-sidebar)`: a
+   `:has()` followed by a compound with no class in it restyled the whole page
+   on every DOM insertion anywhere (audit FEAT-02; the belt above keeps the
+   general case). */
+.doc-layout:has(> #doc-sidebar.hidden) > .doc-main,
+.doc-layout:has(> #doc-sidebar[hidden]) > .doc-main,
+.doc-layout:not(:has(> #doc-sidebar)) > .doc-main {
   grid-column: 1;
 }
 

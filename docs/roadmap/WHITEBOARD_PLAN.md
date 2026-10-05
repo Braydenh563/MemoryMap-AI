@@ -266,8 +266,17 @@ kind. Every tool has a key and every key is in the tooltip and the help.
    boards list: the app's stack (`pushUndo`, 50 steps). Inside a text field:
    the field's own. The status bar's pair says which ("on this board", "in
    this document", or the app step's name) and is repainted on a tab, board
-   or document change. Not kept across a reload: the server's event log is
-   the long memory (History sheet, Recent activity), not Ctrl+Z.
+   or document change. **Amended 2026-10-05 (INBOX 553(b), the owner):
+   kept across a reload**, the last 100 steps of each board and map and the
+   last 100 of each document's history, in IndexedDB on this device
+   (`undo-store.js`, keys `board:<id>` and `doc:<id>`), written a moment
+   after each change and read back when the board or document is first
+   opened in a session. IndexedDB rather than the server: a step is an
+   instruction against what this device last saw, so it is not carried to
+   another device, and it needs no schema or network. A document's history
+   comes back only over the very text it was taken against; the lock
+   empties the store. The server's event log stays the long memory
+   (History sheet, Recent activity).
 18. **A board gesture's Undo is read off what it changed** (taken
    2026-10-05). `wbRecordGesture` snapshots every row and the map's settings,
    runs, and pushes the difference as one batch (lost rows back, a map's

@@ -76,8 +76,9 @@ async function boot(opts={}) {
   // OVERRIDE_JS="whiteboard.js=/tmp/base/whiteboard.js" serves that file in
   // place of the app's own, so a "before" can be measured against a base
   // commit's script on the same server and data dir as the "after".
-  if (process.env.OVERRIDE_JS) {
-    const [name, file] = process.env.OVERRIDE_JS.split('=');
+  // Several at once, comma separated: "a.js=/p/a.js,b.js=/p/b.js".
+  for (const pair of (process.env.OVERRIDE_JS || '').split(',').filter(Boolean)) {
+    const [name, file] = pair.split('=');
     const body = require('fs').readFileSync(file, 'utf8');
     await ctx.route(`**/${name}*`, (route) => route.fulfill({ body, contentType: 'application/javascript' }));
   }

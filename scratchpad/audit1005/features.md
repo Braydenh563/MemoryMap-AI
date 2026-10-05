@@ -41,7 +41,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
 
 ### High
 
-**FEAT-01. FreeMind import drops the root topic, so a single-root map does not round-trip.**
+**FEAT-01. FreeMind import drops the root topic, so a single-root map does not round-trip.** FIXED cc89dcb
 - Evidence:
   - `fm.js` exports Root>{A>{A1}, B} as `<map><node TEXT="Root">…`.
   - Re-imported, it comes back as roots `[A>{A1}, B]` and Root is gone.
@@ -58,7 +58,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
   - Replace `test_freemind_imports_with_its_root_as_the_maps_name` (it pins the wrong behaviour; flag to the owner as a decision change).
   - Add a test: a map made in the app with one root survives export and import.
 
-**FEAT-02. Add-topic latency grows with the map. The whole map is re-rendered on every Tab.**
+**FEAT-02. Add-topic latency grows with the map. The whole map is re-rendered on every Tab.** FIXED 46a5fa0 (100ms gate not met here: median 224ms at 301 under load 9-14)
 - Evidence:
   - `lat.js`, tree-right, time from key to `document.activeElement.wb-map-text`:
 
@@ -79,7 +79,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
   - Run the branch tidy without a full `renderWhiteboard`, using the 13a-view culled join.
   - Gate: key to editable at or under 100ms at 300 topics, in a new `mapaddlatency.js`.
 
-**FEAT-03. Markdown footnotes render only in Live. Read, Print/PDF and HTML export show them raw.**
+**FEAT-03. Markdown footnotes render only in Live. Read, Print/PDF and HTML export show them raw.** FIXED 7b5547e
 - Evidence:
   - `md1.js`: `renderMarkdown(d, "Text[^1].\n\n[^1]: A footnote.")` gives `<p>Text[^1].</p><p>[^1]: A footnote.</p>`. `markdown.js` has no footnote handling at all.
   - `doc2.js`: the render a print triggers (`docPrintComments = true`) reads `A claim[^1] and this phrase[^c1] here. … [^1]: The footnote text. [^c1]: check the source`.
@@ -96,7 +96,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
 
 ### Medium
 
-**FEAT-04. Rich paste into a document loses all formatting, including link URLs.**
+**FEAT-04. Rich paste into a document loses all formatting, including link URLs.** FIXED ad14b76
 - Evidence:
   - `doc1.js` pastes `text/html` `<h2>Pasted title</h2><p><b>bold</b> and a <a href=…/x>link</a></p><ul><li>item one</li></ul>`.
   - The document receives the plain text `Pasted title\nbold and a link\nitem one`, and the URL is lost.
@@ -107,7 +107,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
   - Shift+Ctrl+V keeps plain text.
   - No library needed; tests in node.
 
-**FEAT-05. Imported and generated maps open in the Free layout, so keyboard adds pile up.**
+**FEAT-05. Imported and generated maps open in the Free layout, so keyboard adds pile up.** FIXED cc89dcb
 - Evidence:
   - `import_board` passes `layout=DEFAULT_BOARD_LAYOUT` ("free") (`routes_whiteboard.py`, import route), while `createNewBoard` makes `tree-right` (`whiteboard.js:12048`).
   - `kb100.js` on an imported map: 101 topics with **240 overlapping on-screen pairs**. The same run on tree-right: **0**.
@@ -148,7 +148,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
   - Map `]`/`[` to one step and Ctrl+]/Ctrl+[ to front and back, with four labelled items in Arrange and the right-click menu.
   - Update the board help and the `wb-empty-hint` key list in the same commit (order 13).
 
-**FEAT-08. Mermaid fences render as code. BACKLOG 29c assumes they render.**
+**FEAT-08. Mermaid fences render as code. BACKLOG 29c assumes they render.** FIXED ad14b76 (claim corrected: fences stay code, no Mermaid vendored)
 - Evidence:
   - `md1.js`: a ```mermaid fence renders as `<div class="code-block">…<code data-lang="mermaid">`.
   - "Mermaid diagram" exists only as a language label (`documents-code.js`).
@@ -156,7 +156,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
 - Impact: the Markdown world's diagram lingua franca (GitHub, Obsidian, Notion import) shows as code in notes and documents, and boards cannot take it in either.
 - NEW (corrects a BACKLOG assumption). Fix (M/L): see brief W5. Vendor mermaid (MIT, about 3 MB, lazy) or write a flowchart-subset parser into board objects. Recommend the parser, for the CSP and size reasons the math renderer gave (`documents.js:6362`).
 
-**FEAT-09. Pasting text onto a board or a map does nothing.**
+**FEAT-09. Pasting text onto a board or a map does nothing.** FIXED 595db03 (the map half: POST /boards/{id}/nodes/outline; the board half is the whiteboard agent's)
 - Evidence:
   - The canvas paste listener takes files only (`whiteboard.js:11485-11488`).
   - There is no `navigator.clipboard` read (`:4829` comment).
@@ -177,7 +177,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
 - Impact: there is no "the board as it was yesterday". Undo dies on reload (WHITEBOARD_PLAN "Open").
 - KNOWN (BACKLOG 29c, "needs a design decision"). The decision is now cheap: the change log already exists. Fix (M): brief W2.
 
-**FEAT-11. The command palette has no board or map commands.**
+**FEAT-11. The command palette has no board or map commands.** FIXED 46a5fa0 (map rows; the board's are the whiteboard agent's)
 - Evidence:
   - `palette.js` mentions `wb` only to name the open board as the AI's subject (`:262-265`).
   - Documents have `DOC_COMMANDS`, 47 entries (`documents.js:2337`).
@@ -199,11 +199,11 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
 
 **FEAT-14.** PNG export is 1x. Board units become pixels (`wbRasterizeSvg(svg, width, height)`, `whiteboard.js:8016`). There is no scale or transparent-background option, and the file is always `whiteboard-whole.png` or `whiteboard-selection.png`, never the board's name (`:8017`). Plan §12.2 item 10 asks for "PNG at 2x". NEW. Fix (S): add scale (1x, 2x, 3x), a transparent switch and a title-based name to the export dialog's PNG row.
 
-**FEAT-15.** A typed topic takes two undo steps (one create, one rename). `kb100.js`: 5 Ctrl+Z took 101 topics to 99. XMind treats add-and-type as one. NEW. Fix (S): fold the first label commit into the create's undo entry when it follows within the same edit session.
+**FEAT-15.** FIXED 46a5fa0 A typed topic takes two undo steps (one create, one rename). `kb100.js`: 5 Ctrl+Z took 101 topics to 99. XMind treats add-and-type as one. NEW. Fix (S): fold the first label commit into the create's undo entry when it follows within the same edit session.
 
-**FEAT-16.** After a topic label is committed, focus lands on `<body>` (`kb1.js`: `after type+Enter: BODY`). Keys still work because they are read on the document, but a screen reader loses its place and announces nothing. NEW. Fix (S): return focus to the canvas and call `wbAnnounce(label)`.
+**FEAT-16.** FIXED 46a5fa0 After a topic label is committed, focus lands on `<body>` (`kb1.js`: `after type+Enter: BODY`). Keys still work because they are read on the document, but a screen reader loses its place and announces nothing. NEW. Fix (S): return focus to the canvas and call `wbAnnounce(label)`.
 
-**FEAT-17.** The map topic's menu has an "Order" group, "Bring to front" and "Send to back" (`map1.js`), which mean nothing in a tidied tree. NEW. Fix (S): hide it on map topics (keep it for free-layout maps only, or drop it).
+**FEAT-17.** FIXED 46a5fa0 The map topic's menu has an "Order" group, "Bring to front" and "Send to back" (`map1.js`), which mean nothing in a tidied tree. NEW. Fix (S): hide it on map topics (keep it for free-layout maps only, or drop it).
 
 **FEAT-18.** The Word export drops images: `docexport._inline` writes no picture (`core/docexport.py`, no `add_picture`). It also needs an optional extra that is absent here (`import docx` fails in `.venv`), so the default install gets a 501. The extra is KNOWN and decided; the images are NEW. Fix (S): `add_picture` for `/media` images, read from the media dir.
 

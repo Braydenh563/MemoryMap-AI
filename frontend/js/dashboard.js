@@ -89,7 +89,7 @@ const DASH_WIDGETS = {
   //: the tab bar rather than brainstormed: Boards & maps, Documents, and the
   //: two things about notes that nothing surfaced (which ones still have work
   //: left in them, and which ones are stranded).
-  boards: { title: "ph:squares-four Boards & maps", description: "Your most recent whiteboards and concept maps, with a miniature of each.", render: renderBoardsWidget },
+  boards: { title: "ph:squares-four Boards & maps", description: "The board or map with the most on it, drawn large at its own shape, then the next four.", render: renderBoardsWidget },
   documents: { title: "ph:file-text Recent documents", description: "The documents you last edited, newest first.", render: renderDocumentsWidget },
   //: The Library sub-tab this reads was renamed Links -> Bookmarks (INBOX
   //: 430: "links" read as note-to-note links to anyone who hadn't opened
@@ -3499,88 +3499,10 @@ function dashEmpty(body, text, action) {
   body.appendChild(box);
 }
 
+//: The Boards & maps widget lives in dash-boards.js, loaded on its first
+//: draw (moved 2026-10-05 for the boot budget, INBOX 553(d)).
 async function renderBoardsWidget(body) {
-  // Every board, not the first page: the widget ranks them by how much is on
-  // them, and the busiest board is not necessarily on page one. That is the
-  // same walk `loadMapBoardIndex` (note-cards.js) makes for the note list's map
-  // chips, with the same page size, and at boot the two ran within a tick of
-  // each other: two walks of every board before the first tab had finished
-  // drawing (WORLD_CLASS_PLAN A2). Sharing it means the widget can read
-  // counts up to the index's eight seconds old, which is the age at which a
-  // board's node count changes the order of a five-row list and nothing more.
-  await loadMapBoardIndex().catch(() => null);
-  const boards = mapBoardRows().filter(libraryListsBoard);
-  const usable = boards.filter((b) => (b.node_count + b.sketch_count + (b.object_count || 0)) > 0);
-  if (!usable.length) {
-    //: An empty board is left out of the ranking, so a notebook with only
-    //: empty boards used to be told to draw one (INBOX 446 (5), seen with a
-    //: board called "Launch plan" sitting in the Library).
-    dashEmpty(
-      body,
-      boards.length
-        ? "Nothing on your boards yet. Add a card or a sketch to one and it shows up here."
-        : "Draw a board or build a concept map and it will show up here.",
-      boards.length
-        ? { label: "ph:squares-four Open boards", run: "tab", tab: "library", sub: "library-view-whiteboard" }
-        : { label: "ph:plus New board", run: "new-board", tab: "library", sub: "library-view-whiteboard" },
-    );
-    return;
-  }
-  // Busiest first. `GET /whiteboard/boards` has no updated_at to sort on, and
-  // "the board with the most on it" is a better answer than "whichever row
-  // the database returned first", which is what an unsorted list would be.
-  const ranked = [...usable]
-    .sort(
-      (a, b) =>
-        b.node_count + b.sketch_count + (b.object_count || 0) -
-        (a.node_count + a.sketch_count + (a.object_count || 0)),
-    )
-    .slice(0, 5);
-  const ul = document.createElement("ul");
-  ul.className = "dash-list";
-  for (const board of ranked) {
-    dashActionRow(ul, {
-      title: board.title,
-      // `mapCountLabel` (note-cards.js) rather than three lines here. The three lines
-      // it replaces called a map's objects "images", which is the wrong noun
-      // for the only thing on a map, the Library card had already been fixed
-      // and this copy had not, which is precisely what §5 item 12 is about.
-      meta: mapCountLabel(board),
-      hint: board.type === "map" ? "Open this map" : "Open this board",
-      thumb: dashBoardThumb(board),
-      // `openWhiteboardBoard` handles the tab and sub-tab switch itself.
-      onOpen: () => openWhiteboardBoard(board.id),
-      // **A map says it is one, in the row.** The row's title is a bare
-      // string, so before this a map and a whiteboard were the same row with
-      // different words in it. `mapChip` is the app's one map chip, so this
-      // reads identically to a map in a note, on the timeline and in the chat.
-      chip: board.type === "map" ? mapChip(board, { count: false, interactive: false }) : null,
-    });
-  }
-  body.appendChild(ul);
-}
-
-/**
- * The same miniature the Library's board cards draw, at widget-row size.
- *
- * **One renderer, not two.** This used to be its own 20-line copy that drew
- * `preview_items` and nothing else, no `preview_edges`, so a map in the
- * dashboard previewed as a scatter of dots while the identical map in the
- * Library previewed as a tree. Structure is the entire difference between a
- * map and a board, so the one place it was missing was the one place it
- * mattered. `mapPreview` (note-cards.js) is now the only place this picture exists;
- * MINDMAP_PLAN.md §5 item 12 asked for exactly that.
- */
-function dashBoardThumb(board) {
-  // Never null now: an empty board draws the designed empty state rather than
-  // leaving the row without its left rail (see mapPreview). The guard stays
-  // for a caller that hands this a board object it does not have yet.
-  const svg = mapPreview(board, { size: "row" });
-  if (!svg) return null;
-  // The row's own thumbnail classes, on top of the shared `.board-minimap`
-  // ones: sizing belongs to the row, the drawing belongs to the map.
-  svg.classList.add("dash-list-thumb", "dash-board-thumb");
-  return svg;
+  if (await ensureModule("dashBoards")) await dashRenderBoards(body);
 }
 
 // --- While you were away: the night shift's morning card ---------------------

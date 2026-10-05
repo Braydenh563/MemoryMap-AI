@@ -133,6 +133,7 @@ function syncDocFileType() {
   // The formatting toolbar is markdown syntax. In a .py file every button on
   // it inserts something wrong.
   $("doc-toolbar")?.classList.toggle("hidden", !type.previewable);
+  if (typeof docSyncFormatShow === "function") docSyncFormatShow();
   //: And the other way round: Format lays out code, and has nothing to say
   //: to prose, plain text or a CSV. The pair swap in one place, so a
   //: document never shows both or neither.
@@ -2367,8 +2368,8 @@ const DOC_COMMANDS = [
     run: () => setDocView(lastEditView) },
   { id: "view-read", icon: "ph:book-open", label: "Read this document", keys: "",
     run: () => setDocView("rendered") },
-  { id: "formatting", icon: "ph:text-aa", label: "Show or hide the formatting tools", keys: "",
-    run: () => docRunControl("doc-format-toggle", "The formatting strip") },
+  { id: "formatting", icon: "ph:text-aa", label: "Show or hide the formatting toolbar", keys: "Ctrl+Shift+X",
+    run: () => toggleDocToolbar() },
   { id: "focus", icon: "ph:corners-out", label: "Focus mode: only the page, the whole window", keys: "F11",
     run: () => docRunControl("doc-focus-toggle", "Focus mode") },
   { id: "typewriter", icon: "ph:arrows-in-line-horizontal", label: "Typewriter scrolling", keys: "",
@@ -3171,11 +3172,17 @@ function renderDocPreview() {
 //: blocks the model finds, and each column is rendered by that same renderer
 //: into its own element. The result is one pass over the document either way,
 //: and a document with no columns in it takes exactly the path it always did.
-function docRenderBody(container, text) {
+function docRenderBody(container, raw) {
+  //: Footnotes over the whole document, before it is cut into pieces (audit
+  //: FEAT-03): a note defined at the foot is cited from every piece above it,
+  //: and each piece's own `renderMarkdown` would see only its half.
+  const footnotes = mdFootnotePrepare(String(raw ?? "").split("\n"));
+  const text = footnotes.lines.join("\n");
   const blocks = docColumnsBlocks(text);
   if (!blocks.length) {
     container.replaceChildren();
     docRenderFlow(container, text);
+    mdFootnotesFinish(container, footnotes.notes);
     //: Once more over the whole page: the flow is rendered in pieces (around
     //: block embeds and columns), and a `[TOC]` has to list every heading,
     //: not only the ones in its own piece.
@@ -3206,6 +3213,7 @@ function docRenderBody(container, text) {
     at = block.to;
   }
   if (at < text.length) docRenderFlow(container, text.slice(at), lineOf(at));
+  mdFootnotesFinish(container, footnotes.notes);
   mdFillTocs(container);
 }
 
@@ -4611,6 +4619,169 @@ function docTablePasteEvent(event, view) {
   view.dispatch({
     changes: { from: sel.from, to: sel.to, insert: before + table + after },
     selection: { anchor: sel.from + before.length + table.length },
+    userEvent: "input.paste",
+    scrollIntoView: true,
+  });
+  return true;
+}
+
+// --- rich paste: HTML from a web page, Word or Google Docs, as Markdown -------
+//
+// **A paste keeps its headings, emphasis, lists and links** (audit FEAT-04,
+// 2026-10-05). The only HTML paste handler was the table's, so copying from a
+// web page, Word or Google Docs (the commonest way text arrives in a writing
+// app) put plain text in: headings, bold, lists and every link's address
+// were gone. This walks the clipboard's HTML through `DOMParser` (which runs
+// no script and loads nothing) over an allowlist, and writes Markdown, the
+// document's own format, so what lands is ordinary text the editor already
+// draws. Anything not on the list contributes its text and nothing else.
+// Ctrl+Shift+V pastes plain text, as everywhere else.
+//
+// It takes the paste only when the HTML carries something plain text cannot
+// (a heading, emphasis, a list, a link, a quote, code, a picture, a table):
+// a code editor's copy is coloured spans and divs, and turning those into
+// paragraphs would break the code it was copying.
+const DOC_RICH_TAGS = /<(h[1-6]|strong|b|em|i|a\s[^>]*href|ul|ol|blockquote|pre|code|img|table|del|s)[\s>]/i;
+let docPastePlain = false;
+
+function docHtmlToMarkdown(html) {
+  //: `style` renamed before parsing: the page's CSP refuses an inline style
+  //: even in a parsed, inert document (a console error per attribute, and
+  //: the value never reaches `el.style`), and the two it matters for are
+  //: read from the text below.
+  const source = String(html || "").replace(/(<[^>]*?\s)style\s*=/gi, "$1data-mm-style=");
+  const doc = new DOMParser().parseFromString(source, "text/html");
+  const safeUrl = (url) => {
+    const value = String(url || "").trim();
+    return /^(https?:|mailto:)/i.test(value) || (value.startsWith("/") && !value.startsWith("//")) ? value : "";
+  };
+  //: Google Docs wraps a whole copy in `<b style="font-weight:normal">`, and
+  //: marks real bold and italic on spans by style rather than by tag.
+  const styleOf = (el, prop) => {
+    const m = new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`, "i").exec(el.getAttribute("data-mm-style") || "");
+    return m ? m[1].trim().toLowerCase() : "";
+  };
+  const isBold = (el) => {
+    const tag = el.nodeName;
+    const weight = styleOf(el, "font-weight");
+    if (tag === "STRONG" || tag === "B") return !/^(normal|[1-5]00)$/.test(weight);
+    return /^(bold|bolder|[6-9]00)$/.test(weight);
+  };
+  const isItalic = (el) => el.nodeName === "EM" || el.nodeName === "I" || styleOf(el, "font-style") === "italic";
+  const inline = (node) => {
+    if (node.nodeType === 3) return node.nodeValue.replace(/\s+/g, " ");
+    if (node.nodeType !== 1) return "";
+    const tag = node.nodeName;
+    if (/^(SCRIPT|STYLE|META|TITLE|HEAD|TEMPLATE)$/.test(tag)) return "";
+    if (tag === "BR") return "\n";
+    if (tag === "IMG") {
+      const src = safeUrl(node.getAttribute("src"));
+      return src ? `![${(node.getAttribute("alt") || "").replace(/[[\]]/g, "")}](${src})` : "";
+    }
+    let text = [...node.childNodes].map(inline).join("");
+    if (tag === "CODE") return text.trim() ? `\`${text.replace(/`/g, "")}\`` : "";
+    const wrap = (mark) => {
+      const lead = text.match(/^\s*/)[0];
+      const tail = text.match(/\s*$/)[0];
+      const core = text.trim();
+      return core ? `${lead}${mark}${core}${mark}${tail}` : text;
+    };
+    if (isBold(node)) text = wrap("**");
+    if (isItalic(node)) text = wrap("*");
+    if (tag === "DEL" || tag === "S" || tag === "STRIKE") text = wrap("~~");
+    if (tag === "A") {
+      const href = safeUrl(node.getAttribute("href"));
+      const label = text.trim();
+      if (href && label) return `[${label.replace(/[[\]]/g, "")}](${href})`;
+    }
+    return text;
+  };
+  const out = [];
+  const para = (text) => {
+    const clean = text.replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").trim();
+    if (clean) out.push(clean);
+  };
+  const BLOCK = /^(P|DIV|H[1-6]|UL|OL|LI|BLOCKQUOTE|PRE|TABLE|SECTION|ARTICLE|HEADER|FOOTER|MAIN|ASIDE|FIGURE|FIGCAPTION|HR|DL|DT|DD|BODY|HTML)$/;
+  const list = (el, depth) => {
+    let n = 0;
+    for (const li of el.children) {
+      if (li.nodeName !== "LI") continue;
+      n += 1;
+      const marker = el.nodeName === "OL" ? `${n}.` : "-";
+      const own = [...li.childNodes].filter((c) => !(c.nodeType === 1 && /^(UL|OL)$/.test(c.nodeName)));
+      const text = own.map(inline).join("").replace(/\s+/g, " ").trim();
+      out.push(`${"  ".repeat(depth)}${marker} ${text}`);
+      for (const sub of li.children) if (/^(UL|OL)$/.test(sub.nodeName)) list(sub, depth + 1);
+    }
+  };
+  const block = (el) => {
+    let run = "";
+    const flush = () => {
+      para(run);
+      run = "";
+    };
+    for (const child of el.childNodes) {
+      const tag = child.nodeType === 1 ? child.nodeName : "";
+      //: An inline wrapper round whole blocks (Google Docs' outer `<b>`) is
+      //: walked as a container, or its paragraphs and lists would run together.
+      if (tag && !BLOCK.test(tag) && child.querySelector("p, div, h1, h2, h3, h4, h5, h6, ul, ol, blockquote, pre, table")) {
+        flush();
+        block(child);
+        continue;
+      }
+      if (!tag || !BLOCK.test(tag)) {
+        run += inline(child);
+        continue;
+      }
+      flush();
+      const heading = /^H([1-6])$/.exec(tag);
+      if (heading) {
+        const text = inline(child).replace(/\s+/g, " ").trim();
+        if (text) out.push(`${"#".repeat(Number(heading[1]))} ${text}`);
+      } else if (tag === "UL" || tag === "OL") {
+        const start = out.length;
+        list(child, 0);
+        //: A list is one block: its items are joined without blank lines.
+        out.splice(start, out.length - start, out.slice(start).join("\n"));
+      } else if (tag === "BLOCKQUOTE") {
+        const inner = docHtmlToMarkdown(child.innerHTML);
+        if (inner) out.push(inner.split("\n").map((line) => `> ${line}`.trimEnd()).join("\n"));
+      } else if (tag === "PRE") {
+        const code = child.textContent.replace(/\n$/, "");
+        out.push("```\n" + code + "\n```");
+      } else if (tag === "TABLE") {
+        const grid = [...child.querySelectorAll("tr")].map((tr) =>
+          [...tr.children].map((cell) => inline(cell).replace(/\s+/g, " ").replace(/\|/g, "\\|").trim())
+        ).filter((row) => row.length);
+        if (grid.length) out.push(docTableFromGrid(grid));
+      } else if (tag === "HR") {
+        out.push("---");
+      } else {
+        block(child);
+      }
+    }
+    flush();
+  };
+  block(doc.body);
+  return out.join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+//: The paste handler: after the table's own (which keeps a grid pasted into
+//: a table's cells), before CodeMirror's plain-text default.
+function docRichPasteEvent(event, view) {
+  const plain = docPastePlain;
+  docPastePlain = false;
+  if (plain || view.dom.classList.contains("doc-content-code")) return false;
+  const html = event.clipboardData?.getData("text/html") || "";
+  if (!html || !DOC_RICH_TAGS.test(html)) return false;
+  const markdown = docHtmlToMarkdown(html);
+  if (!markdown) return false;
+  event.preventDefault();
+  const sel = view.state.selection.main;
+  docUndoBreak();
+  view.dispatch({
+    changes: { from: sel.from, to: sel.to, insert: markdown },
+    selection: { anchor: sel.from + markdown.length },
     userEvent: "input.paste",
     scrollIntoView: true,
   });
@@ -9386,7 +9557,9 @@ details.callout[open] > .callout-head::before { content: "\\25BE\\2002"; }
 .md-toc-depth-2 { padding-left: 2.4em; }
 .md-toc-depth-3 { padding-left: 3.6em; }
 .md-math-block { margin: 1.5em 0; text-align: center; overflow-x: auto; }
-.doc-footnotes {
+.md-page-break { break-before: page; height: 0; overflow: hidden; }
+.md-page-break > span { display: none; }
+.md-footnotes {
   margin-top: 3em;
   padding-top: 1em;
   border-top: 1px solid var(--rule);
@@ -12782,9 +12955,12 @@ function applyDocToolbarCollapsed(collapsed, only = null) {
   if (headerToggle && (!only || only.id === "doc-toolbar")) {
     headerToggle.setAttribute("aria-pressed", collapsed ? "false" : "true");
     headerToggle.title = collapsed
-      ? "Show the formatting tools"
-      : "Hide the formatting tools";
+      ? "Show the formatting toolbar above the editor (Ctrl+Shift+X)"
+      : "Hide the formatting toolbar (Ctrl+Shift+X)";
     headerToggle.setAttribute("aria-label", headerToggle.title);
+    const label = $("doc-format-toggle-label");
+    if (label) label.textContent = collapsed ? "Show formatting toolbar" : "Hide formatting toolbar";
+    docSyncFormatShow();
   }
   for (const bar of only ? [only] : document.querySelectorAll(".doc-toolbar")) {
     bar.classList.toggle("is-collapsed", collapsed);
@@ -12805,6 +12981,37 @@ function setDocToolbarCollapsed(collapsed) {
     /* private mode: it just won't be remembered */
   }
   applyDocToolbarCollapsed(collapsed);
+  //: **Said once, the first time it is hidden** (INBOX 574): where it went
+  //: and the two ways back, so a strip closed by accident is not lost.
+  if (collapsed) {
+    let told = false;
+    try {
+      told = localStorage.getItem(DOC_TOOLBAR_HINT_KEY) === "1";
+      localStorage.setItem(DOC_TOOLBAR_HINT_KEY, "1");
+    } catch {
+      /* private mode: said every time, which is the safe side */
+    }
+    if (!told) toast("Formatting hidden. Bring it back from the Formatting button or Ctrl+Shift+X.");
+  }
+}
+
+const DOC_TOOLBAR_HINT_KEY = "doc-toolbar-hidden-hint";
+
+//: The dock's Formatting button (INBOX 574): there while the strip is hidden
+//: on a document that has one (a code file has no markdown strip at all, so
+//: no way back to it either).
+function docSyncFormatShow() {
+  const show = $("doc-format-show");
+  if (!show) return;
+  const strip = $("doc-toolbar");
+  const stripless = !strip || strip.classList.contains("hidden");
+  show.classList.toggle("hidden", !docToolbarCollapsed() || stripless || !currentDoc);
+}
+
+function toggleDocToolbar() {
+  const collapsed = !docToolbarCollapsed();
+  setDocToolbarCollapsed(collapsed);
+  if (!collapsed) $("doc-toolbar")?.querySelector("button:not([hidden])")?.focus({ preventScroll: true });
 }
 
 //: One strip's wrap/collapse group. Split out of the loop below so a bar that
@@ -12892,6 +13099,16 @@ function mountDocToolbarControls() {
   $("doc-format-toggle")?.addEventListener("click", () =>
     setDocToolbarCollapsed(!docToolbarCollapsed())
   );
+  $("doc-format-show")?.addEventListener("click", () => toggleDocToolbar());
+  //: Ctrl+Shift+X anywhere on the Documents tab, not only inside the text
+  //: (the editor's own keymap has it too): with the strip hidden, the focus
+  //: is as likely to be on the dock as in the page.
+  document.addEventListener("keydown", (event) => {
+    if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.altKey || event.key.toLowerCase() !== "x") return;
+    if (event.defaultPrevented || $("tab-documents")?.classList.contains("hidden") || !currentDoc) return;
+    event.preventDefault();
+    toggleDocToolbar();
+  });
   // The capture box gets its gutter here, once, with the strip that toggles it.
   mountGutterFor($("entry-content"));
   for (const bar of document.querySelectorAll(".doc-toolbar")) mountDocToolbarControlsFor(bar);
@@ -18352,6 +18569,8 @@ function docCmKeymap(CM) {
     { key: "Mod-f", run: () => { toggleDocFindBar(true); return true; } },
     //: Find in every document (INBOX 404), VS Code's search across files.
     { key: "Mod-Shift-f", run: () => docFindInDocuments() },
+    //: The formatting toolbar, shown or hidden (INBOX 574).
+    { key: "Mod-Shift-x", run: () => { toggleDocToolbar(); return true; } },
   ];
 }
 
@@ -18480,13 +18699,15 @@ function docCmExtensions(CM) {
         if (event.key !== "Tab" && event.key !== "Shift" && event.key !== "Escape") {
           docTabEscapes = false;
         }
+        //: Ctrl+Shift+V: the paste that follows is plain text (FEAT-04).
+        docPastePlain = (event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "v";
         return false;
       },
       mousedown: (event, view) => {
         docTabEscapes = false;
         return docTableCellClick(event, view);
       },
-      paste: (event, view) => docTablePasteEvent(event, view),
+      paste: (event, view) => docTablePasteEvent(event, view) || docRichPasteEvent(event, view),
     }),
     CM.view.EditorView.updateListener.of(docCmUpdate),
     //: **The browser's own spellcheck, and the one condition it stays on
@@ -18536,6 +18757,7 @@ function docCmApplySpellcheck() {
 function docCmUpdate(update) {
   if (update.docChanged) {
     docSurfaceChanged();
+    docHistoryPersist();
     //: **Autocorrect, which never ran once under the engine.** The delegated
     //: `input` listener that calls it returns early for anything inside the
     //: view (`docEventFromCm`), because the engine reports its changes here
@@ -19264,6 +19486,8 @@ function docResetDocument(text, id = null) {
     } catch { /* nothing to keep */ }
   }
   const kept = id != null ? docHistories.get(id) : null;
+  //: Not kept this session: the stored one, once it is read (INBOX 553(b)).
+  if (id != null && !kept) docHistoryRestore(id, text);
   let state = null;
   if (kept && kept.doc === text && field) {
     try {
@@ -19281,6 +19505,41 @@ function docResetDocument(text, id = null) {
   //: The `[!kind]-` callouts, folded as their markers ask, on the one event
   //: that means "a different document is on screen now".
   docFoldMarkedCallouts();
+}
+
+//: **A document's history survives a reload** (INBOX 553(b), the owner's
+//: decision; WHITEBOARD_PLAN decision 17 as amended). Written a moment after
+//: each edit (`docHistoryPersist`, from `docCmUpdate`), read back when the
+//: document opens and nothing was kept this session, and given back only
+//: over the very text it was taken against and only if no edit has been made
+//: since the open. CodeMirror's history holds its last hundred events
+//: (its own `minDepth`), which is the owner's "~100 steps".
+function docHistoryRestore(id, text) {
+  if (typeof undoStoreGet !== "function") return;
+  undoStoreGet(`doc:${id}`).then((stored) => {
+    const CM = window.CM6;
+    const field = CM?.commands?.historyField;
+    if (!stored || !field || !docCmView || docHistoryOwner !== id || stored.doc !== text) return;
+    if (docCmView.state.doc.toString() !== text) return;
+    try {
+      docCmView.setState(CM.state.EditorState.fromJSON(stored, { extensions: docCmExtensions(CM) }, { history: field }));
+      docSetLiveDecorations(docView === "live");
+      docCmRepaintFindings();
+    } catch {
+      /* a history this version cannot read is no history */
+    }
+  });
+}
+
+function docHistoryPersist() {
+  const CM = window.CM6;
+  const field = CM?.commands?.historyField;
+  if (typeof undoStorePut !== "function" || !field || !docCmView || docHistoryOwner == null) return;
+  try {
+    undoStorePut(`doc:${docHistoryOwner}`, docCmView.state.toJSON({ history: field }));
+  } catch {
+    /* nothing to keep */
+  }
 }
 
 //: **Source view has to be measured after it is shown.** CodeMirror caches
@@ -19322,6 +19581,9 @@ function docWatchLock() {
     //: would make this purge decorative. The kept histories go with it.
     docHistoryOwner = null;
     docHistories.clear();
+    //: The stored ones too (undo-store.js): a document's history holds its
+    //: text, and so does a board step's payload.
+    if (typeof undoStoreClear === "function") undoStoreClear();
     docResetDocument("");
   }).observe(overlay, { attributes: true, attributeFilter: ["class", "data-mode"] });
 }

@@ -1561,14 +1561,38 @@ function wbBuildMapNode(el, d) {
       //: A rename is undoable like every other change to a topic, and only a
       //: real change is saved or recorded.
       if (live.data.content !== edited) {
-        wbPushUndo({ action: "move", kind: "object", id: live.id, before: WB_KIND_INFO.object.payload(live) });
+        //: **A new topic's first name is part of making it** (audit FEAT-15):
+        //: one Undo takes the topic away, as in XMind, rather than first
+        //: renaming it back to "New topic". Only while its create is still
+        //: the last step: anything done in between keeps the rename its own.
+        //: The add is a recorded gesture, so its create is usually inside a
+        //: batch with the tidy's moves.
+        wbHistoryFor();
+        const top = wbUndoStack[wbUndoStack.length - 1];
+        const madeIt = (e) => e?.action === "create" && e.kind === "object" && e.id === live.id;
+        if (!(live._fresh && (madeIt(top) || (top?.action === "batch" && top.entries.some(madeIt))))) {
+          wbPushUndo({ action: "move", kind: "object", id: live.id, before: WB_KIND_INFO.object.payload(live) });
+        }
         live.data = { ...live.data, content: edited };
         wbSaveObject(live);
       }
+      delete live._fresh;
       // Back to the formatted view: `wbBeginTextEdit` put the raw source in
       // for editing, and without this the markers stay on screen as literal
       // asterisks until something else triggers a render.
       wbMapInlineText(this, live.data.content);
+      //: **The keys stay on the map after a name is committed** (audit
+      //: FEAT-16): the blur left focus on `<body>`, so a screen reader lost
+      //: its place and announced nothing. Back to the canvas, which is where
+      //: Tab and Enter already acted, and the name said. Only when nothing
+      //: else took the focus: a press on another field keeps it.
+      const label = wbMapLabel(live);
+      setTimeout(() => {
+        const at = document.activeElement;
+        if (at && at !== document.body) return;
+        document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
+        wbAnnounce(label || "Untitled topic");
+      }, 0);
     });
     text.on("keydown", function (event) {
       if (!this.isContentEditable) return;
@@ -3808,34 +3832,317 @@ function wbMapCatchTypeahead(e) {
   return true;
 }
 
+//: **A new topic is on the canvas and open for typing before the server has
+//: answered** (audit FEAT-02, 2026-10-05). Tab used to wait for the POST,
+//: then tidy and render the whole map, then wait for the tidy's save, then
+//: render the whole map again: 830 to 2,000ms from the key to an editable
+//: topic at 300 topics, measured, and growing with the map. Now the topic is
+//: made here as a provisional row with a negative id, laid out by the same
+//: tidy (positions only, applied as transforms), drawn by one render, and
+//: opened for typing; the POST, the order, the tidy's save and the Undo step
+//: follow in the background (`wbMapAdoptProvisional`). A save that reaches
+//: the topic first waits for its real id (`wbSaveObject`), and a child added
+//: under it waits for the same thing here.
+let wbMapProvisionalSeq = 0;
+
 async function wbMapAddChild(parentId, { order = null } = {}) {
+  const boardId = window.currentBoardId;
+  if (!boardId) return null;
   wbMapTypeahead = { text: "", at: performance.now() };
-  const created = await wbMapCreateNode({ parentId });
-  if (!created) {
-    wbMapTypeahead = null;
-    return null;
+  let parent = parentId != null ? (wbState.objects || []).find((o) => o.id === parentId) : null;
+  if (parent?._creating) {
+    if (!(await parent._creating)) {
+      wbMapTypeahead = null;
+      return null;
+    }
+    parentId = parent.id;
   }
-  //: A place among the siblings, when the caller chose one (Enter puts the
-  //: new topic right after the one it was pressed on, Shift+Enter right
-  //: before). One more write, and only then: a plain Tab adds at the end,
-  //: which is where the id already sorts it.
-  if (order != null) {
-    created.data = { ...created.data, order };
-    await wbSaveObject(created);
-  }
+  if (parentId != null && !parent) parent = (wbState.objects || []).find((o) => o.id === parentId) || null;
+  const created = {
+    id: -(++wbMapProvisionalSeq),
+    board_id: boardId,
+    kind: "topic",
+    parent_id: parent ? parent.id : null,
+    x: 0,
+    y: 0,
+    z: 1,
+    //: The server's own default width; the height is the text's, measured by
+    //: the render.
+    width: WB_MAP_NODE_W,
+    height: null,
+    rotation: null,
+    data: { content: WB_MAP_NEW_TOPIC, ...(order != null ? { order } : {}) },
+    //: The first rename is part of making it: one Undo step, not two
+    //: (audit FEAT-15). Cleared by the label's first commit.
+    _fresh: true,
+  };
+  wbState.objects = wbState.objects || [];
+  wbMapFreshPlace(created, parent);
+  wbState.objects.push(created);
   // Expanding first: adding a child to a collapsed node would otherwise put
   // the new node straight into the hidden set, so the gesture would appear to
   // do nothing at all.
-  const parent = (wbState.objects || []).find((o) => o.id === parentId);
-  if (parent?.data?.collapsed) {
-    parent.data = { ...parent.data, collapsed: false };
-    await wbSaveObject(parent);
-  }
-  selectWbItem("object", created.id);
-  await wbMapTidyBranch(parentId);
+  const expand = Boolean(parent?.data?.collapsed);
+  if (expand) parent.data = { ...parent.data, collapsed: false };
+  //: The branch laid out without a render or a save of its own: the one
+  //: render below draws it, and the save goes after the create.
+  const origin = wbMapTidyBranchPlan(parentId, created);
+  if (origin) wbApplyBulkMove(origin, 0, 0);
+  const undo = { action: "create", kind: "object", id: created.id };
+  wbPushUndo(undo);
   renderWhiteboardNow();
+  selectWbItem("object", created.id);
   wbMapEditNode(created.id);
-  return created;
+  created._creating = wbMapAdoptProvisional(created, { expand: expand ? parent : null, origin, order });
+  //: The editor is already open; what waits here is the caller, so a caller
+  //: that uses the topic it gets back (a script, the recorded gesture's
+  //: after-snapshot) gets it with its real id, or null when it was refused.
+  return (await created._creating) ? created : null;
+}
+
+//: **Text pasted onto a map becomes a branch** (audit FEAT-09, 2026-10-05:
+//: a nested list pasted onto a selected topic did nothing, 4 topics before
+//: and after). XMind, MindNode and SimpleMind all take an indented list this
+//: way. Under the selected topic, or as new trunks with none; one line per
+//: topic, nested by indentation, read by the server's outline reader (the
+//: Markdown import's), made in one transaction and recorded as one Undo
+//: step. Ctrl+V reaches here only when nothing was copied on the board
+//: itself (the board's key handler lets the browser's paste through then).
+async function wbMapPasteText(text) {
+  const boardId = window.currentBoardId;
+  if (!boardId || !text.trim()) return 0;
+  const node = wbSelectedMapNode();
+  let made;
+  try {
+    made = await apiJson(`/whiteboard/boards/${boardId}/nodes/outline`, {
+      method: "POST",
+      body: JSON.stringify({ parent_id: node ? node.id : null, text: text.slice(0, 200000) }),
+    });
+  } catch (err) {
+    toast(err.message || "Couldn't paste that onto the map.", true);
+    return 0;
+  }
+  wbState.objects = [...(wbState.objects || []), ...made];
+  if (node?.data?.collapsed) {
+    node.data = { ...node.data, collapsed: false };
+    await wbSaveObject(node);
+  }
+  renderWhiteboardNow();
+  if (wbMapLayout() !== "free") await wbMapTidy({ onlyBranch: wbMapTidyBranchScope(node ? node.id : null), quiet: true });
+  if (made[0]) selectWbItem("object", made[0].id);
+  const n = made.length;
+  wbAnnounce(`Pasted ${n} topic${n === 1 ? "" : "s"}`);
+  return n;
+}
+
+document.addEventListener("paste", (event) => {
+  if (event.defaultPrevented || typeof wbIsMap !== "function" || !wbIsMap()) return;
+  const canvas = document.getElementById("whiteboard-container");
+  if (!canvas?.getClientRects().length) return;
+  const target = event.target;
+  if (target?.closest?.("input, textarea, select, [contenteditable='true'], [contenteditable='plaintext-only'], dialog, .modal-overlay")) return;
+  const data = event.clipboardData;
+  if (!data || [...(data.items || [])].some((item) => item.kind === "file")) return;
+  const text = data.getData("text/plain") || "";
+  if (!text.trim()) return;
+  event.preventDefault();
+  wbRecordGesture(wbMapPasteText, [text]);
+});
+
+// MAP-DOC-BEGIN
+//: **A map written as a document** (audit brief M5, the first half: "Write
+//: this map as a document"). The tree as the document's outline: one central
+//: topic is the title, its branches are `##` headings and theirs `###`
+//: (the document's own heading levels below its title), everything deeper is
+//: a nested list, and a topic's note is the paragraph under it (decision 18:
+//: a note is plain text, so it goes in as written). Several trunks keep the
+//: map's name as the title and each trunk is a `##`. Pure, so node tests it
+//: (tests/test_map_to_document.py).
+function wbMapTreeMarkdown(roots, mapTitle) {
+  const nodes = Array.isArray(roots) ? roots : [];
+  const one = nodes.length === 1 ? nodes[0] : null;
+  const title = ((one ? one.text : mapTitle) || "Untitled map").replace(/\s+/g, " ").trim();
+  const out = [];
+  const note = (n) => String(n?.style?.note || "").trim();
+  if (one && note(one)) out.push(note(one), "");
+  const walk = (list, depth) => {
+    for (const n of list) {
+      const text = String(n.text || "Untitled").replace(/\s+/g, " ").trim();
+      const kids = n.children || [];
+      if (depth < 2) {
+        out.push(`${"#".repeat(depth + 2)} ${text}`, "");
+        if (note(n)) out.push(note(n), "");
+        walk(kids, depth + 1);
+        if (depth === 1 && kids.length) out.push("");
+      } else {
+        const pad = "  ".repeat(depth - 2);
+        out.push(`${pad}- ${text}`);
+        for (const line of note(n) ? note(n).split("\n") : []) out.push(line.trim() ? `${pad}  ${line}` : "");
+        walk(kids, depth + 1);
+      }
+    }
+  };
+  walk(one ? one.children || [] : nodes, 0);
+  return { title, body: out.join("\n").replace(/\n{3,}/g, "\n\n").trim() };
+}
+// MAP-DOC-END
+
+//: The menu row and the palette row: written, saved as a new document that
+//: opens with a card of the map at its head (the board embed, so the
+//: document leads back to its map), and opened.
+async function wbMapWriteDocument() {
+  const boardId = window.currentBoardId;
+  if (!boardId || !wbIsMap()) return null;
+  let tree;
+  try {
+    tree = await apiJson(`/whiteboard/boards/${boardId}/tree`);
+  } catch (err) {
+    toast(err.message || "Couldn't read this map.", true);
+    return null;
+  }
+  //: The index may predate a map made a moment ago; it is refreshed once.
+  if (typeof mapBoardById === "function" && !mapBoardById(boardId) && typeof loadMapBoardIndex === "function") {
+    await loadMapBoardIndex(true).catch(() => null);
+  }
+  const board = (typeof mapBoardById === "function" && mapBoardById(boardId)) || { id: boardId, type: "map", title: "" };
+  const { title, body } = wbMapTreeMarkdown(tree.roots, board.title);
+  let doc;
+  try {
+    doc = await apiJson("/documents", {
+      method: "POST",
+      body: JSON.stringify({ title: title.slice(0, 200), content: `${boardEmbedMarkdown(board)}\n\n${body}\n` }),
+    });
+  } catch (err) {
+    toast(err.message || "Couldn't make that document.", true);
+    return null;
+  }
+  switchTab("documents");
+  await openDocument(doc.id);
+  toast(`Wrote “${title}” as a document.`);
+  return doc;
+}
+
+//: **The open map's commands in the command palette** (audit FEAT-11,
+//: 2026-10-05: the palette mentioned the board only as the AI's subject, so
+//: on the most control-dense surface nothing could be found by typing its
+//: name). Rows in the editor group's shape (`docPaletteCommands`): a group,
+//: a label with its icon, the key when there is one, a `run`. Only while a
+//: map is open on the canvas; the topic rows only with a topic selected.
+//: Each `run` waits a task, for the reason `paletteLater` gives: the palette
+//: runs a row on Enter's keydown.
+function mapPaletteCommands() {
+  const canvas = document.getElementById("library-view-whiteboard");
+  //: Showing, not merely present: another tab hides the Library, not this.
+  if (typeof wbIsMap !== "function" || !wbIsMap() || !canvas?.getClientRects().length) return [];
+  const later = (fn) => () => setTimeout(fn);
+  const rows = [];
+  const node = wbSelectedMapNode();
+  const row = (group, label, run, keys, about) => rows.push({ group, label, run: later(run), keys, about });
+  if (node) {
+    row("This topic", "ph:arrow-elbow-down-right Add a child topic", () => wbMapAddChild(node.id), "Tab");
+    row("This topic", "ph:arrow-down Add a sibling topic", () => wbMapAddSibling(node.id), "Enter");
+    if (node.kind === "topic") row("This topic", "ph:pencil-simple Rename the topic", () => wbMapEditNode(node.id), "F2");
+    row("This topic", "ph:caret-down Fold or unfold the branch", () => wbMapToggleCollapse(node.id), "C");
+    row("This topic", "ph:crosshair Focus on this branch", () => wbMapSetFocus(node.id));
+    row("This topic", "ph:trash Delete the topic and its branch", () => wbMapDeleteSubtree(node.id), "Delete");
+  }
+  row("This map", "ph:plus-circle Add a top-level topic", () => wbMapAddChild(null));
+  row("This map", "ph:broom Tidy the map", () => wbMapTidy());
+  row("This map", "ph:arrows-out-simple Open every folded branch", () => wbMapExpandAll());
+  if (wbMapFocusState) {
+    row("This map", "ph:x-circle Show the whole map again", () => wbMapClearFocus());
+  }
+  row("This map", "ph:palette Change the map's look", () => wbMapThemeDialog());
+  const numbered = Boolean(window.wbMapState?.numbered);
+  row("This map", numbered ? "ph:list-bullets Stop numbering the topics" : "ph:list-numbers Number the topics", () => wbMapSetNumbered(!numbered));
+  row("This map", "ph:chart-bar What this map is made of", () => wbShowMapStats());
+  row("This map", "ph:presentation Present branches", () => wbStartPresenting());
+  row("This map", "ph:frame-corners Zoom to fit the map", () => wbZoomToFit());
+  for (const [value, name] of [["tree-right", "Tree, to the right"], ["tree-left", "Tree, to the left"], ["tree-both", "Tree, both sides"], ["tree-down", "Tree, downward"], ["radial", "Radial"], ["free", "Free"]]) {
+    if (value !== wbMapLayout()) row("Map layout", `ph:tree-structure Layout: ${name}`, () => wbMapSetLayout(value));
+  }
+  row("This map", "ph:file-text Write this map as a document", () => wbMapWriteDocument());
+  for (const [format, name] of [["markdown", "Markdown outline"], ["opml", "OPML"], ["freemind", "FreeMind (.mm)"]]) {
+    row("Export the map", `ph:export Export as ${name}`, () => wbExportMapText(format));
+  }
+  return rows;
+}
+
+//: Where a new topic starts, before any tidy: beside its parent and under
+//: its last sibling's whole branch (`wbMapPlaceAsChild`'s rule and the
+//: server's `_next_position`), or under everything for a new trunk. On a
+//: Free map this is where it stays.
+function wbMapFreshPlace(row, parent) {
+  const index = wbMapIndex();
+  const size = (node) => wbMapNodeSize(node);
+  const below = (nodes) => {
+    let bottom = -Infinity;
+    for (const top of nodes) {
+      for (const node of wbMapSubtree(index, top.id)) bottom = Math.max(bottom, node.y + size(node).h);
+    }
+    return bottom;
+  };
+  //: Its height before it has an element to measure: a sibling's, or any
+  //: branch topic's, so the tidy centres it as it will be drawn rather than
+  //: at the default box and 6px off once measured.
+  const like = (parent && (index.childrenOf.get(parent.id) || [])[0]) || index.nodes.find((n) => n.parent_id != null && n !== row);
+  if (like && !row.height) row.height = size(like).h;
+  if (!parent) {
+    row.x = index.roots.length ? Math.min(...index.roots.map((r) => r.x)) : 0;
+    row.y = index.roots.length ? below(index.roots) + WB_MAP_GAP_DEPTH : 0;
+    return;
+  }
+  const siblings = index.childrenOf.get(parent.id) || [];
+  row.x = siblings.length ? Math.min(...siblings.map((n) => n.x)) : parent.x + size(parent).w + WB_MAP_GAP_DEPTH;
+  row.y = siblings.length ? below(siblings) + WB_MAP_GAP_BREADTH : parent.y;
+}
+
+//: The provisional topic made real: POST it where the tidy put it, swap its
+//: id for the server's everywhere it is held (the row, its element, the
+//: selection, the Undo stacks), then write what the POST could not carry
+//: (its place among its siblings, the text typed so far) and the tidy's
+//: moves. Resolves true once it has its id, false when the server refused
+//: it, in which case the topic is taken back off the canvas.
+async function wbMapAdoptProvisional(row, { expand = null, origin = null, order = null } = {}) {
+  const tempId = row.id;
+  let made;
+  try {
+    made = await apiJson(`/whiteboard/boards/${row.board_id}/nodes`, {
+      method: "POST",
+      body: JSON.stringify({ kind: "topic", parent_id: row.parent_id, text: WB_MAP_NEW_TOPIC, x: row.x, y: row.y }),
+    });
+  } catch (err) {
+    delete row._creating;
+    wbState.objects = (wbState.objects || []).filter((o) => o !== row);
+    const step = wbUndoStack.find((e) => e.action === "create" && e.id === tempId);
+    if (step) wbDropUndoEntry(step);
+    toast(err.message || "Couldn't add that node.", true);
+    wbScheduleRender();
+    return false;
+  }
+  row.id = made.id;
+  const el = document.querySelector(`.wb-object[data-id="${tempId}"]`);
+  if (el) el.dataset.id = String(made.id);
+  if (wbSelectedItem?.kind === "object" && wbSelectedItem.id === tempId) wbSelectedItem.id = made.id;
+  const size = wbMapNodeSizeCache?.get(tempId);
+  if (size) wbMapNodeSizeCache.set(made.id, size);
+  wbRemapUndoIds(new Map([[tempId, made.id]]));
+  delete row._creating;
+  //: What the server knows that this row does not (its timestamps), without
+  //: taking back what has happened here since: the place the tidy gave it
+  //: and whatever has been typed.
+  for (const key of Object.keys(made)) {
+    if (!["x", "y", "data", "id", "width", "height"].includes(key)) row[key] = made[key];
+  }
+  if (!row.width) row.width = made.width;
+  if (!row.height) row.height = made.height;
+  const typed = row.data?.content !== WB_MAP_NEW_TOPIC;
+  if (order != null || typed) wbSaveObject(row);
+  if (expand) wbSaveObject(expand);
+  if (origin?.size) wbSaveBulkMove(origin);
+  //: The edge and anything keyed by the old id are drawn again under the new.
+  wbScheduleRender();
+  return true;
 }
 
 //: **A new trunk where the person pointed** (MINDMAP_PLAN §13, the owner:
@@ -4670,31 +4977,7 @@ async function wbMapTidy({ onlyBranch = null, quiet = false } = {}) {
     if (!quiet) toast("This map's layout is Free, pick a layout to tidy it.");
     return 0;
   }
-  const index = wbMapIndex();
-  const positions = wbMapTidyPositions(index, layout);
-  if (!positions.size) return 0;
-
-  // Which nodes this run is allowed to move. A branch tidy (after adding a
-  // child) touches only that branch, so the rest of the map does not jump
-  // under you while you are typing into a new node.
-  const scope = onlyBranch != null
-    ? new Set(wbMapSubtree(index, onlyBranch).map((o) => o.id))
-    : null;
-
-  const origin = new Map();
-  for (const [id, pos] of positions) {
-    const obj = index.byId.get(id);
-    if (!obj) continue;
-    if (scope && !scope.has(id)) continue;
-    // **A dragged node is pinned, and a pinned node keeps its place.** That is
-    // Coggle's bargain: tidy is on demand, and anything you positioned by hand
-    // is a decision, not a thing to be undone by the next tidy. Its children
-    // still take their tidy positions, the fold is in the branch, not the
-    // whole map.
-    if (obj.data?.pinned) continue;
-    if (Math.abs(obj.x - pos.x) < 0.5 && Math.abs(obj.y - pos.y) < 0.5) continue;
-    origin.set(wbMultiKey("object", id), { kind: "object", id, item: obj, x: pos.x, y: pos.y });
-  }
+  const origin = wbMapTidyOrigin(onlyBranch, layout);
   if (!origin.size) return 0;
   // Zero delta, because each entry already carries its own target, the
   // bulk-move helper adds `dx`/`dy` to the origin it was given, so handing it
@@ -4716,6 +4999,58 @@ async function wbMapTidy({ onlyBranch = null, quiet = false } = {}) {
   if (onlyBranch == null && wbMapSpillsOffCanvas()) wbZoomToFit({ animate: false });
   await wbSaveBulkMove(origin);
   return origin.size;
+}
+
+//: The moves a tidy would make, as a bulk-move origin, touching nothing
+//: (`wbMapTidy` applies, paints and saves them; the optimistic add applies
+//: them and leaves the paint to its one render).
+function wbMapTidyOrigin(onlyBranch, layout = wbMapLayout()) {
+  const index = wbMapIndex();
+  const positions = wbMapTidyPositions(index, layout);
+  const origin = new Map();
+  if (!positions.size) return origin;
+
+  // Which nodes this run is allowed to move. A branch tidy (after adding a
+  // child) touches only that branch, so the rest of the map does not jump
+  // under you while you are typing into a new node.
+  const scope = onlyBranch != null
+    ? new Set(wbMapSubtree(index, onlyBranch).map((o) => o.id))
+    : null;
+
+  for (const [id, pos] of positions) {
+    const obj = index.byId.get(id);
+    if (!obj) continue;
+    if (scope && !scope.has(id)) continue;
+    // **A dragged node is pinned, and a pinned node keeps its place.** That is
+    // Coggle's bargain: tidy is on demand, and anything you positioned by hand
+    // is a decision, not a thing to be undone by the next tidy. Its children
+    // still take their tidy positions, the fold is in the branch, not the
+    // whole map.
+    if (obj.data?.pinned) continue;
+    if (Math.abs(obj.x - pos.x) < 0.5 && Math.abs(obj.y - pos.y) < 0.5) continue;
+    origin.set(wbMultiKey("object", id), { kind: "object", id, item: obj, x: pos.x, y: pos.y });
+  }
+  return origin;
+}
+
+//: **A map that arrived from a file or a proposal is laid out once, as it
+//: opens** (audit FEAT-05, 2026-10-05). The server places an import as a
+//: ladder, one row per topic, which is readable but is not the layout the
+//: map names; the first Tab then tidied one branch against a ladder and the
+//: branches overlapped. One whole-map tidy at open, no undo entry (a tidy
+//: never records one), then the view is framed again.
+async function wbMapTidyFresh() {
+  if (!wbIsMap() || wbMapLayout() === "free") return;
+  //: Run as plain rather than as a recorded gesture (`wbRecordGesture`): the
+  //: map arrived this way, and an Undo that un-tidied it would be a step
+  //: nobody took.
+  wbRecordDepth += 1;
+  try {
+    await wbMapTidy({ quiet: true });
+  } finally {
+    wbRecordDepth -= 1;
+  }
+  if (typeof wbFrameMapOnOpen === "function") wbFrameMapOnOpen();
 }
 
 //: Is any part of the map outside the canvas right now? Read off the rendered
@@ -4742,13 +5077,40 @@ function wbMapSpillsOffCanvas() {
 //: while building a map out is noise, not feedback.
 async function wbMapTidyBranch(parentId) {
   if (!wbIsMap() || wbMapLayout() === "free") return;
-  // Whole-map when a root gained a child: a new top-level branch changes where
-  // every other branch has to sit, so tidying only the new one would leave it
-  // sitting on top of its neighbour.
+  await wbMapTidy({ onlyBranch: wbMapTidyBranchScope(parentId), quiet: true });
+}
+
+// Whole-map when a root gained a child: a new top-level branch changes where
+// every other branch has to sit, so tidying only the new one would leave it
+// sitting on top of its neighbour.
+function wbMapTidyBranchScope(parentId) {
   const index = wbMapIndex();
   const parent = parentId != null ? index.byId.get(parentId) : null;
-  const scope = parent && parent.parent_id != null ? parent.parent_id : null;
-  await wbMapTidy({ onlyBranch: scope, quiet: true });
+  return parent && parent.parent_id != null ? parent.parent_id : null;
+}
+
+//: The add's tidy (`wbMapAddChild`): the branch's moves, with the new topic
+//: placed directly (it has no element yet for a move to carry), or null on a
+//: Free map, where a new topic stays where it was put.
+function wbMapTidyBranchPlan(parentId, fresh) {
+  if (!wbIsMap()) return null;
+  const layout = wbMapLayout();
+  if (layout === "free") return null;
+  const origin = wbMapTidyOrigin(wbMapTidyBranchScope(parentId), layout);
+  const own = origin.get(wbMultiKey("object", fresh.id));
+  if (own) {
+    fresh.x = own.x;
+    fresh.y = own.y;
+    origin.delete(wbMultiKey("object", fresh.id));
+  }
+  //: Every moved topic's element from one walk of the layer, not one
+  //: document-wide query each (93ms of a Tab at 301 topics, profiled).
+  if (origin.size) {
+    const byId = new Map();
+    for (const el of document.querySelectorAll("#wb-html-layer .wb-object[data-id]")) byId.set(el.dataset.id, el);
+    for (const entry of origin.values()) entry.el = byId.get(String(entry.id)) || null;
+  }
+  return origin;
 }
 
 //: The board top bar's map controls: a "Map" chip that says what this board

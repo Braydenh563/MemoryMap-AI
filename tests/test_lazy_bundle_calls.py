@@ -112,6 +112,9 @@ REACHED_AFTER_LOAD = {
     #: there is no button wiring to sync, and the bundle syncs every button
     #: itself the moment it loads, so a no-op here loses nothing.
     "fieldClearSyncAll": "fieldClear, which syncs every button itself when it loads",
+    #: dash-boards.js (INBOX 553(d)): `renderBoardsWidget` awaits
+    #: `ensureModule("dashBoards")` on the line and calls only when it loaded.
+    "dashRenderBoards": "dashBoards, awaited by renderBoardsWidget on the same line",
     #: The settingsUi bundle (settings-find.js) is awaited by `openSettingsModal`
     #: before it shows any section, and every call below runs from a section
     #: that is on screen or a search field inside the open dialog. With the

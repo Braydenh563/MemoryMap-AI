@@ -2592,6 +2592,13 @@ header#top-bar,
     white-space: nowrap;
   }
 
+  /* A phone's formatting is the bar at the thumb (below), always there in
+     Edit, so the dock's way back to the desktop strip (INBOX 574) would be a
+     second row of chrome for nothing. */
+  #doc-format-show {
+    display: none;
+  }
+
   #tab-documents .doc-phone-bar {
     bottom: max(
       calc(var(--bottom-tabs-h) + env(safe-area-inset-bottom, 0px)),

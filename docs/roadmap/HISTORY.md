@@ -7,6 +7,78 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
+
+From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN
+section 20 and MINDMAP_PLAN decisions 22 to 31.
+
+- **FEAT-01 and FEAT-05** (`cc89dcb`): a FreeMind file's single root is the
+  central topic; OPML, FreeMind and Markdown each round-trip a 101-topic map
+  made here; imports and generated maps open in tree-right, tidied once.
+- **FEAT-03** (`7b5547e`): footnotes in Read, print/PDF and the HTML export
+  (`mdFootnotePrepare`, node-tested; `mdFootnotesFinish`).
+  `mmdoc1005-footnotes.js` PASS at 1440 light and 390 dark.
+- **FEAT-04 and FEAT-08** (`ad14b76`): rich paste as Markdown through an
+  allowlist; Mermaid fences stay code, BACKLOG 29c corrected.
+  `mmdoc1005-richpaste.js` 5/5.
+- **FEAT-09, the map half** (`595db03`): a pasted list is a branch,
+  `POST /boards/{id}/nodes/outline`, one Undo step.
+- **INBOX 553(b)** (`b36cc19`): undo histories survive a reload
+  (`undo-store.js`, IndexedDB). `mmdoc1005-undoreload.js` 4/4.
+- **INBOX 553(d)** (`d873a3f`): the dashboard draws its busiest map at its
+  own shape (`dash-boards.js`). `mmdoc1005-dashmap.js` 5/5.
+- **INBOX 569, 573, 574** (`e94190c`, `23009a4`, `ba6d28d`): a pinned
+  topic's Edge bar, the cross-link tool's dots, the formatting toolbar's way
+  back; each moved to "INBOX resolved" with its numbers.
+- **D4, first part** (`0ae2e18`): `\newpage` page breaks.
+  `mmdoc1005-pagebreak.js` 4/4.
+- **M5, first half** (`5fb59d3`): Write this map as a document.
+  `mmdoc1005-maptodoc.js` 5/5 light and dark.
+
+## Moved from the plans, 2026-10-05 (the map's add path)
+
+Audit FEAT-02, MINDMAP_PLAN decisions 24 to 28. Tab and Enter used to wait
+for the POST, tidy and render the whole map, wait for the tidy's save and
+render the whole map again. Now one render, the editor open before the
+server answers, and the id adopted in the background (`wbMapAddChild`,
+`wbMapAdoptProvisional`, `wbMapTidyOrigin`, `wbMapTidyBranchPlan`).
+
+Measured with `scratchpad/ui-sweeps/mmdoc1005-mapaddlatency.js` (key to an
+editable topic, six adds per size, headless Chromium on a shared 4-core box
+under a load average of 9 to 14, so the shape is the finding, not the
+milliseconds):
+
+| Topics | Before | After |
+| --- | --- | --- |
+| 6 | 249 to 803 (audit) | median 57 to 62 |
+| 101 | 521 to 1,642 (audit) | median 126 to 138 |
+| 301 | 827 to 1,371 (this session) | median 224 to 533 |
+| 301, back to back, load 12.6 | median **1,279** (the old scripts, `OVERRIDE_JS`) | median **320** |
+
+One render per add instead of two; renders at 301 topics 127 to 411ms
+against 262 to 644ms plus a second of 67 to 156ms.
+
+Profiled (`mmdoc1005-mapaddprofile.js`, `mmdoc1005-maplayoutprobe.js`): one
+DOM insertion inside the board restyled all 3,731 elements on the page,
+55 to 80ms, because three rules put a `:has()` before a compound with no
+class in it (`.entry-list.is-rows li:not(:has(textarea)) > *:not(...)`,
+`.doc-layout:has(...) > :not(#doc-sidebar)`, `#capture > .row:has(> h2)
+button`). Rewritten without changing what they style
+(`mmdoc1005-hasrewrite.js`); an insertion now costs about 20ms there, and
+`tests/test_has_invalidation.py` is the ratchet. Also: the render's paint
+key dropped x and y, so a tidy that shifts most of the map writes
+transforms rather than repainting every topic (409ms of `setAttribute`
+before). **Not met:** the 100ms gate at 300 topics; what is left is the
+one render's edge pass and the selection bar's layout read, and a few
+weaker `:has()` rules the ratchet lists.
+
+Same pass: FEAT-15 (a typed topic is one Undo step), FEAT-16 (focus back to
+the canvas and the name announced), FEAT-17 (no Order group on a laid-out
+map), FEAT-11 (the map's commands in the palette, `mapPaletteCommands`).
+Gates: `mmdoc1005-mapchecks.js` 13/13 at 1440 light and 390 dark;
+`boardundo.js` 43/43, `wbmapundo.js` 18/18, `mapstrip.js` 39/39,
+`maptheme.js` 24/24, `mapline.js` 13/13, `maprejoin.js` ok.
+
 ## Moved from the plans, 2026-10-05 (a frame as an export scope)
 
 ### From WHITEBOARD_PLAN.md, decision 14's open edges (decision 18)
@@ -27043,7 +27115,8 @@ Footnotes: `[^1]` and its `[^1]: text` definition render as the identifier
 alone, raised, with the brackets hidden like every other marker in Live, and
 a click on the reference goes to the text. Drawn by a scan rather than from
 the tree because the lezer grammar here has no footnote extension, which is
-also why nothing was drawing them before.
+also why nothing was drawing them before. (Live only: Read, print and the
+HTML export drew them raw until audit FEAT-03, 2026-10-05.)
 
 **Math, with no KaTeX, as the plan asks.** A TeX subset to MathML in about
 200 lines of documents.js (`DOC-MATH-BEGIN` to `DOC-MATH-END`): fractions,
@@ -41076,3 +41149,49 @@ loading page.
      list scrolled 1,200px twice; a clicked card (14) held through a 300px
      scroll and gave way after 1,500px; one card marked at every step; the
      list 755px wide at 1440 and 628 at 1280 with the rail beside it.
+
+569. **Fixed 2026-10-05.** The owner, verbatim: "it says the edge bar is solid
+     even though it is dashed" (dark screenshots: a topic's Shape menu reads
+     Box Rounded, Edge bar Solid bar, Fill No fill, and on the canvas the
+     topic has a dashed border and a dashed left bar). The menu was right:
+     the topic was pinned (dragged), and `.wb-map-pinned { border-style:
+     dashed }`, later in 07-whiteboard-misc.css and of equal weight, beat the
+     bar's own `border-left: 4px solid`. 44% of the bar's pixels were gaps
+     (tree-right, pinned, Solid bar). Now the pin dashes the hairline sides
+     only and the bar's side keeps what the Edge bar says; the left hairline
+     of a downward or mirrored pinned topic takes the dash too.
+     `scratchpad/ui-sweeps/mmdoc1005-spinebar.js`: every Box (solid, pinned)
+     by Edge bar (solid, dashed, none) in tree-right, tree-down and both
+     sides, menu text, computed style and the bar's pixels sampled for gaps:
+     31/36 before, 36/36 after, light and dark; a solid bar has 0 gaps, a
+     dashed one 39% to 67%.
+
+573. **Fixed 2026-10-05.** The owner, verbatim: "these anchor points appeared
+     and wont go away" (dark screenshot: a map's "New topic" ringed by eight
+     round accent dots that stayed after deselecting). They were the
+     cross-link tool's anchor hints, not resize handles (a map topic has
+     none: its size is its text's and its own grips', MINDMAP_PLAN). The
+     hover listener drew them under a link tool and returned early under
+     every other one, so after Select (V or Escape) nothing took them away.
+     Now a tool switch, a deselect, the overlay clear and any pointer move
+     off a link tool clear them. `scratchpad/ui-sweeps/mmdoc1005-handlesleft.js`
+     deselects five ways (Escape, a press on empty canvas, Undo and Redo, a
+     tab switch and back, the Shape menu opened and closed) and counts dots,
+     handles and selection marks left: 8 dots left every time before (0/5),
+     0 after (5/5), light and dark.
+
+574. **Fixed 2026-10-05.** The owner, verbatim: "I think there needs to be an
+     easier way to open the formatting toolbar in the documents editor if it
+     is closed in case the user accidentally closes it and cant figure out
+     how to open it back up again". The only way back was the ⋯ menu's
+     "Always show formatting". Now, while the strip is hidden, the dock
+     carries a labelled Formatting button where the strip's toggle sat
+     (desktop; a phone formats from the bar at the thumb); Ctrl+Shift+X
+     toggles it in and out of the text (Ctrl+Shift+F was taken by Find in
+     every document); the ⋯ row reads "Show formatting toolbar" or "Hide
+     formatting toolbar"; the palette row and the shortcut sheet carry the
+     key; the first hide says "Formatting hidden. Bring it back from the
+     Formatting button or Ctrl+Shift+X." once; the help says so.
+     `scratchpad/ui-sweeps/mmdoc1005-formatback.js` 13/13 at 1440 light and
+     dark, 2/2 at 390.
+

@@ -21,6 +21,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from memorymap.api.routes_whiteboard import MAP_BRANCH_PALETTE
 from memorymap.core.database import Entry, WhiteboardObject
 
@@ -551,10 +553,13 @@ FREEMIND = """<?xml version="1.0" encoding="UTF-8"?>
 </map>"""
 
 
-def test_freemind_imports_with_its_root_as_the_maps_name(client):
-    """A `.mm` file's single root node *is* its title, which is the shape
-    FreeMind, Freeplane and Coggle all write: taking it as a node instead
-    would leave every imported map one level deeper than it was drawn."""
+def test_freemind_imports_its_single_root_as_the_central_topic(client):
+    """**Reversed 2026-10-05** (audit FEAT-01, features.md 9.5; the owner's
+    newer words win). A `.mm` file's single root node is the map's central
+    topic, the way FreeMind, Freeplane and XMind draw it: reading it as the
+    board's title instead left every imported map as loose trunks with its
+    centre gone. The title still comes from the root's text when the file
+    names nothing else."""
     imported = client.post(
         "/whiteboard/boards/import", json={"format": "freemind", "content": FREEMIND}
     )
@@ -565,9 +570,63 @@ def test_freemind_imports_with_its_root_as_the_maps_name(client):
 
     roots = _structure(client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"])
     assert roots == [
-        {"text": "Method", "children": [{"text": "Interviews", "children": []}]},
-        {"text": "Results", "children": []},
+        {
+            "text": "Thesis",
+            "children": [
+                {"text": "Method", "children": [{"text": "Interviews", "children": []}]},
+                {"text": "Results", "children": []},
+            ],
+        }
     ]
+
+
+def _big_map(client, name="Hundred"):
+    """A map made in the app, one root, ten branches of nine: 101 topics,
+    the `kb100.js` shape the audit measured the round trips at."""
+    board = _map(client, name=name)
+    root = _node(client, board["id"], text="Centre")
+    for b in range(10):
+        branch = _node(client, board["id"], parent_id=root["id"], text=f"Branch {b}")
+        for leaf in range(9):
+            _node(client, board["id"], parent_id=branch["id"], text=f"Leaf {b}.{leaf}")
+    return board
+
+
+@pytest.mark.parametrize("fmt", ["freemind", "opml", "markdown"])
+def test_a_101_topic_map_made_here_round_trips_losslessly(client, fmt):
+    """FEAT-01's own test: start from a map made in the app, not from an
+    import that had already dropped its root, so the export and the import
+    are each tested against the other. All 101 topics, every parent edge,
+    the central topic and the map's name come back."""
+    board = _big_map(client, name="Hundred topics")
+    first = _structure(client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"])
+    assert len(first) == 1 and first[0]["text"] == "Centre"
+
+    exported = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}")
+    assert exported.status_code == 200, exported.text
+    back = client.post(
+        "/whiteboard/boards/import", json={"format": fmt, "content": exported.text}
+    )
+    assert back.status_code == 201, back.text
+    assert back.json()["title"] == "Hundred topics"
+    assert back.json()["object_count"] == 101
+    second = _structure(client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()["roots"])
+    assert second == first
+
+
+@pytest.mark.parametrize("fmt", ["freemind", "opml", "markdown"])
+def test_an_imported_map_opens_in_the_tree_right_layout(client, fmt):
+    """Audit FEAT-05: an import landed in the Free layout, so the first Tab
+    piled new topics on top of old ones (240 overlapping pairs over 101
+    topics, measured). A map made here starts in tree-right, and so does
+    one brought in."""
+    board = _big_map(client, name="Laid out")
+    exported = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
+    back = client.post("/whiteboard/boards/import", json={"format": fmt, "content": exported})
+    assert back.status_code == 201, back.text
+    assert back.json()["layout"] == "tree-right"
+    listed = {b["id"]: b for b in client.get("/whiteboard/boards").json()}
+    assert listed[back.json()["id"]]["layout"] == "tree-right"
 
 
 def test_freemind_round_trips_through_the_export(client):
@@ -957,7 +1016,9 @@ def test_a_topic_with_no_box_is_freeminds_own_fork_node(client):
     back = client.post(
         "/whiteboard/boards/import", json={"format": "freemind", "content": foreign}
     ).json()
-    roots = client.get(f"/whiteboard/boards/{back['id']}/tree").json()["roots"]
+    # The single root is the central topic (FEAT-01), so the two styled
+    # topics are its children.
+    roots = client.get(f"/whiteboard/boards/{back['id']}/tree").json()["roots"][0]["children"]
     shapes = {node["text"]: node["style"].get("shape") for node in roots}
     # `bubble` is this map's own default, so it stays unset rather than
     # putting a field on every node of every imported file.
@@ -1742,10 +1803,10 @@ def test_a_cross_link_round_trips_through_freemind(client):
     )
     assert back.status_code == 201, back.text
     tree = client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()
-    # A single-root map's `.mm` file names the map with its one root node, so
-    # the import brings "Left" and "Right" back as the roots: that is the
-    # format's own shape, documented on `_parse_freemind`, not this link's.
-    names = {node["id"]: node["text"] for node in tree["roots"]}
+    # The single root comes back as the central topic (FEAT-01), with
+    # "Left" and "Right" under it, still linked.
+    assert [node["text"] for node in tree["roots"]] == ["Trunk"]
+    names = {node["id"]: node["text"] for node in tree["roots"][0]["children"]}
     assert sorted(names.values()) == ["Left", "Right"]
     assert len(tree["cross_links"]) == 1
     link = tree["cross_links"][0]

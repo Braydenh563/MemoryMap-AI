@@ -776,41 +776,6 @@ async function saveTemplateList(templates) {
   renderTemplateSettings();
 }
 
-async function addTemplate() {
-  const name = $("template-name").value.trim();
-  const body = $("template-body").value.trim();
-  const status = $("template-status");
-  status.classList.remove("error");
-  if (!name || !body) {
-    status.classList.add("error");
-    status.textContent = "Both a name and a template body are needed.";
-    return;
-  }
-  // Only the entry being edited is dropped before the push, a genuine
-  // rename (or, for a built-in, the previous edit of it). A name that
-  // instead collides with a DIFFERENT saved template is left in place and
-  // the save is rejected server-side (§_validated_templates) rather than
-  // silently replacing someone else's saved text the way a same-named skill
-  // would. A new template given a built-in's name becomes that built-in's
-  // edit, which is what the name means now.
-  const custom = customTemplates().filter((t) => t.name !== editingTemplateName);
-  custom.push({
-    name,
-    description: $("template-description").value.trim(),
-    content: body,
-  });
-  const wasEditing = editingTemplateName;
-  try {
-    await saveTemplateList(custom);
-  } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
-    return;
-  }
-  stopEditingTemplate();
-  status.textContent = wasEditing ? `Updated “${name}”.` : `Saved “${name}”.`;
-}
-
 // One row in the Settings list, deliberately the same shape as `skillRow`
 // (same classes, same chip-then-blurb-then-actions layout) so the two panes
 // that manage a "named, user-editable list of markdown" read as one pattern

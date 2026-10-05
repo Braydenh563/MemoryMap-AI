@@ -672,6 +672,42 @@ function liveQueryIds(q) {
   return null;
 }
 
+//: **The operators the engine owns** (`kind:`, `has:`, `space:`): the Notes
+//: parser had no meaning for them (each was a plain word that matched
+//: nothing), and `GET /search` (`search/query.py`) has all three. They are
+//: asked of the engine, the way `type:` and `prop:` are asked of
+//: `/entries/query`, and the list keeps its own order and its own look.
+const ENGINE_QUERY_RE = /(^|\s)((?:kind|has|space):(?:"[^"]{1,200}"|[^\s"]+))/gi;
+//: One object for this file's engine state (the global-scope ratchet counts
+//: top-level `let`s): `ids` answers `q`, `pending` is the question in the air,
+//: `capped` says the engine's page (50) was full, `semanticFor` is the box text
+//: the Semantic toggle's results were loaded for, and `rank` their order.
+const noteEngine = { q: "", ids: null, pending: "", capped: false, semanticFor: "", rank: new Map() };
+
+//: The ids the engine gives for these operators, or null while it is asked.
+//: Notes only (`kind=note`) unless the terms name a kind themselves.
+function engineQueryIds(q) {
+  if (noteEngine.q === q && noteEngine.ids) return noteEngine.ids;
+  if (noteEngine.pending !== q) {
+    noteEngine.pending = q;
+    const kind = /(^|\s)kind:/i.test(q) ? "" : "&kind=note";
+    apiJson(`/search?q=${encodeURIComponent(q)}${kind}&limit=50`, { silent: true })
+      .then((body) => {
+        if (noteEngine.pending !== q) return;
+        const hits = (body.hits || []).filter((hit) => hit.kind === "note");
+        noteEngine.q = q;
+        noteEngine.ids = new Set(hits.map((hit) => hit.id));
+        noteEngine.capped = (body.hits || []).length >= 50;
+        noteEngine.pending = "";
+        renderEntries();
+      })
+      .catch(() => {
+        if (noteEngine.pending === q) Object.assign(noteEngine, { q, ids: new Set(), capped: false, pending: "" });
+      });
+  }
+  return null;
+}
+
 // `tags:<2`, `tags:<=1`, `tags:0` and so on: "how many tags", not "which
 // ones" (that's plain `tag:`). Asked for directly: a way to find the notes
 // that only ever got the janitor's default filing and never a second look,
@@ -713,9 +749,14 @@ function parseNoteQuery(raw) {
     before: null,
     after: null,
     structural: [],
+    engine: [],
   };
   raw = (raw || "").replace(LIVE_QUERY_RE, (_, lead, term) => {
     query.structural.push(term);
+    return lead || " ";
+  });
+  raw = raw.replace(ENGINE_QUERY_RE, (_, lead, term) => {
+    query.engine.push(term);
     return lead || " ";
   });
   //: `tag:"two words"` and `cat:"Home office"` first, then bare quoted
@@ -740,7 +781,7 @@ function parseNoteQuery(raw) {
     //: `#trip` is how a card shows a tag, so it is how people type one
     //: (INBOX 432: it matched nothing); `tag:#trip` the same.
     //: A bare `tag:` is still being typed: it narrows nothing yet.
-    if (/^(tag:#?|#|category:|cat:|in:|title:|is:)$/.test(lower)) continue;
+    if (/^(tag:#?|#|category:|cat:|in:|title:|is:|kind:|has:|space:)$/.test(lower)) continue;
     if (lower.startsWith("tag:")) query.tags.push(lower.slice(4).replace(/^#/, ""));
     else if (lower.startsWith("#") && lower.length > 1) query.tags.push(lower.slice(1));
     else if (lower.startsWith("category:")) query.categories.push(lower.slice(9));
@@ -765,7 +806,8 @@ function parseNoteQuery(raw) {
 function liveQueryBar(visible) {
   const list = $("entry-list");
   let bar = list.parentElement?.querySelector(":scope > .note-query-bar");
-  const live = Boolean(noteSearch) && parseNoteQuery(noteSearch).structural.length > 0;
+  const parsed = noteSearch ? parseNoteQuery(noteSearch) : null;
+  const live = Boolean(parsed) && (parsed.structural.length > 0 || parsed.engine.length > 0);
   if (!live) {
     bar?.remove();
     return;
@@ -778,7 +820,11 @@ function liveQueryBar(visible) {
   const ids = visible.map((e) => e.id);
   const count = document.createElement("span");
   count.className = "muted";
-  count.textContent = `${ids.length} note${ids.length === 1 ? "" : "s"} match this query`;
+  //: The engine answers one page (50); a full page says so rather than
+  //: letting the count pass for the whole of a larger answer.
+  count.textContent = parsed.engine.length > 0 && noteEngine.capped
+    ? `The first ${ids.length} notes that match this query`
+    : `${ids.length} note${ids.length === 1 ? "" : "s"} match this query`;
   bar.replaceChildren(
     count,
     smallButton("ph:table Table", "These notes as a table, their properties as columns", () => openQueryTable(ids)),
@@ -798,7 +844,8 @@ function noteQueryIsEmpty(query) {
     !query.titles.length &&
     !query.before &&
     !query.after &&
-    !query.structural.length
+    !query.structural.length &&
+    !query.engine.length
   );
 }
 
@@ -817,6 +864,12 @@ function matchesTagCount(tagCount, n) {
   }
 }
 
+//: True while the list on screen is the engine's answer to the box (the
+//: Semantic toggle is on and its results were loaded for this very text).
+function noteSemanticLoaded() {
+  return Boolean(noteSearch) && noteEngine.semanticFor === noteSearch && Boolean($("semantic-search-toggle")?.checked);
+}
+
 function matchesSearch(entry) {
   if (!noteSearch) return true;
   const query = parseNoteQuery(noteSearch);
@@ -824,6 +877,10 @@ function matchesSearch(entry) {
 
   if (query.structural.length) {
     const ids = liveQueryIds(query.structural.join(" "));
+    if (!ids || !ids.has(entry.id)) return false;
+  }
+  if (query.engine.length) {
+    const ids = engineQueryIds(query.engine.join(" "));
     if (!ids || !ids.has(entry.id)) return false;
   }
   const content = (entry.content || "").toLowerCase();
@@ -871,6 +928,10 @@ function matchesSearch(entry) {
   }
   if (query.tagCount && !matchesTagCount(query.tagCount, tags.length)) return false;
   if (query.exclude.some((word) => haystack.includes(word))) return false;
+  //: With Semantic on, the list *is* the engine's answer for these words, which
+  //: includes notes that share none of them; testing the words again here
+  //: would drop exactly the notes the toggle exists to find.
+  if (noteSemanticLoaded()) return true;
   if (!query.phrases.every((phrase) => content.includes(phrase))) return false;
   // Every word must appear somewhere, in any order.
   return query.words.every((word) => haystack.includes(word));
@@ -2158,7 +2219,13 @@ function sortEntries(entries) {
       return (forgottenOrder.get(a.id) ?? far) - (forgottenOrder.get(b.id) ?? far) || b.id - a.id;
     },
   };
-  const cmp = modes[noteSort] || modes.newest;
+  //: A Semantic search under the default order is a ranking, so it is shown
+  //: ranked (best first); it used to be re-sorted newest first here, which
+  //: threw away the only thing the toggle computes. Any other sort the person
+  //: chose is still theirs.
+  const ranked = noteSort === "newest" && noteSemanticLoaded() && noteEngine.rank.size;
+  const place = (e) => noteEngine.rank.get(e.id) ?? noteEngine.rank.size;
+  const cmp = ranked ? (a, b) => place(a) - place(b) : modes[noteSort] || modes.newest;
   return [...entries].sort((a, b) => byPinned(a, b) || cmp(a, b));
 }
 
@@ -3039,17 +3106,6 @@ async function refreshAfterCategoryChange() {
   manageCategoriesRedraw?.();
 }
 
-//: One toast and one undo-stack entry per change, so the toast's Undo and
-//: Ctrl+Z are the same act.
-function offerCategoryUndo(message, undo, redo) {
-  const action = pushUndo(message, async () => { await undo(); await refreshAfterCategoryChange(); }, async () => { await redo(); await refreshAfterCategoryChange(); });
-  toastAction(message, "Undo", async () => {
-    settleUndoFromToast(action);
-    await undo();
-    await refreshAfterCategoryChange();
-  });
-}
-
 let manageCategoriesRedraw = null;
 
 function categoryMenuItems(meta, { inPanel = false } = {}) {
@@ -3170,12 +3226,21 @@ async function _loadEntries() {
 
   const isSemantic = $("semantic-search-toggle")?.checked;
   if (isSemantic && noteSearch) {
-    // Semantic search is already bounded server-side (SEMANTIC_LIST_LIMIT)
-    //, nothing here needs paging.
-    const results = await apiJson(
-      `/entries?q=${encodeURIComponent(noteSearch)}&semantic=true`
-    );
+    //: **The Semantic toggle asks the engine** (`GET /search`), the one place
+    //: words, meaning and the links are ranked together, rather than a second
+    //: cosine-only list path (retired). The engine's page
+    //: is at most 50 hits, so nothing here needs paging; the list is then read
+    //: by id, which is also what keeps the bin, the archive and the boards out
+    //: of it (the index holds them, flagged), and put in the engine's order.
+    const asked = noteSearch;
+    const found = await apiJson(`/search?q=${encodeURIComponent(asked)}&kind=note&limit=50`);
+    const order = (found.hits || []).map((hit) => hit.id);
+    const rows = order.length ? await apiJson(`/entries?ids=${order.join(",")}`) : [];
     if (generation !== _entriesLoadGeneration) return; // a newer load took over
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const results = order.filter((id) => byId.has(id)).map((id) => byId.get(id));
+    noteEngine.semanticFor = asked;
+    noteEngine.rank = new Map(results.map((row, place) => [row.id, place]));
     allEntries = results;
     entriesEverLoaded = true;
     publishNotes(allEntries);

@@ -955,3 +955,699 @@ $("template-draft")?.addEventListener("click", async () => {
 });
 
 $("template-cancel")?.addEventListener("click", stopEditingTemplate);
+
+// ---- from settings-wiring.js (search-boot-1005) ----
+//
+// `refreshSearxngHost` paints Settings' managed-SearXNG block and polls an
+// install; its callers are this file's own buttons and `renderWebSearch`, a
+// Settings pane's render, which runs after the window has opened and so after
+// this file is in. app.js keeps a stand-in for it (`LAZY_ENTRY_POINTS`), so
+// the pane's `refreshSearxngHost().catch(...)` is one call either way.
+
+// Managed SearXNG: show what's there, and start/stop it on request.
+async function refreshSearxngHost() {
+  const badge = $("searxng-host-state");
+  const start = $("searxng-start");
+  const stop = $("searxng-stop");
+  const info = await apiJson("/websearch/searxng/status").catch(() => null);
+  if (!info) {
+    badge.textContent = "Unknown";
+    return;
+  }
+  // No usable backend: nothing we can drive, so say so plainly. "Docker is
+  // installed but not started" is a different problem from "Docker isn't
+  // installed", and the detail from the server distinguishes them.
+  if (!info.backend) {
+    badge.textContent = info.docker_installed ? "Docker not started" : "Not available";
+    badge.title = info.detail || "";
+    start.disabled = true;
+    stop.disabled = true;
+    $("searxng-host-status").classList.remove("error");
+    $("searxng-host-status").textContent = info.detail || "";
+    return;
+  }
+  // Which way it'll be run, so "a few minutes" isn't a surprise.
+  $("searxng-backend").textContent =
+    info.backend === "docker"
+      ? "Docker is installed, so it runs as a container."
+      : "Docker isn't installed, so it runs from its own virtualenv instead. " +
+        "The first start takes a few minutes to download and install.";
+
+  // An install is minutes long and runs in the background, poll it so the
+  // step text keeps moving instead of the screen looking stuck.
+  const bar = $("searxng-install-progress");
+  if (info.installing) {
+    const stage = info.install_stage || 1;
+    const stages = info.install_stages || 5;
+    badge.textContent = `Installing… ${stage}/${stages}`;
+    badge.className = "chip";
+    start.disabled = true;
+    stop.disabled = true;
+    $("searxng-host-status").classList.remove("error");
+    $("searxng-host-status").textContent =
+      info.install_step || "Setting SearXNG up…";
+    // Reported: "the searxng reinstall doesn't have a progress bar so idk if
+    // it has frozen or is working". The bar moves through the five stages;
+    // the line under it is what pip is printing right now, which is what
+    // actually distinguishes slow from stuck.
+    bar.classList.remove("hidden");
+    if (typeof info.install_progress === "number") {
+      bar.removeAttribute("data-indeterminate");
+      bar.value = info.install_progress;
+    } else {
+      bar.setAttribute("data-indeterminate", "1");
+      bar.removeAttribute("value");
+    }
+    const said = (info.install_log || []).at(-1);
+    $("searxng-install-line").textContent = said || "";
+    clearTimeout(refreshSearxngHost.timer);
+    refreshSearxngHost.timer = setTimeout(refreshSearxngHost, 2000);
+    return;
+  }
+  bar.classList.add("hidden");
+  $("searxng-install-line").textContent = "";
+  if (info.install_error) {
+    $("searxng-host-status").classList.add("error");
+    $("searxng-host-status").textContent = info.install_error;
+  } else if (info.detail) {
+    // e.g. "Docker isn't running, so it'll be set up in a virtualenv", an
+    // explanation of what will happen, not a failure.
+    $("searxng-host-status").classList.remove("error");
+    $("searxng-host-status").textContent = info.detail;
+  } else {
+    // Always say something current. This line used to keep whatever the last
+    // poll wrote, so a finished install left "Installing SearXNG…" sitting
+    // under a badge reading "Stopped", reported with a photo, and the
+    // install had in fact completed.
+    $("searxng-host-status").classList.remove("error");
+    $("searxng-host-status").textContent =
+      info.state === "stopped"
+        ? "Installed and ready: press Start SearXNG."
+        : info.state === "running"
+          ? "Running."
+          : "";
+  }
+  const running = info.state === "running" && info.responding;
+  badge.textContent = running
+    ? "Running"
+    : info.state === "running"
+      ? "Starting…"
+      : info.state === "stopped"
+        ? "Stopped"
+        : "Not installed";
+  badge.className = `chip item-label${running ? " is-ok" : ""}`;
+  start.disabled = running;
+  stop.disabled = info.state === "absent";
+  setLabel(start, info.state === "absent" ? "ph:play Install & start" : "ph:play Start SearXNG");
+  // Keep polling while it's starting, so "Starting…" can't stick forever with
+  // no way to tell whether anything is still happening.
+  if (info.state === "running" && !info.responding) {
+    clearTimeout(refreshSearxngHost.timer);
+    refreshSearxngHost.timer = setTimeout(refreshSearxngHost, 3000);
+  }
+  // What the instance itself printed. Only worth showing when it is not
+  // running happily: when it is, its own log is just noise.
+  const fold = $("searxng-output-fold");
+  const said = (info.output || "").trim();
+  fold.classList.toggle("hidden", !said || running);
+  if (said) $("searxng-output").textContent = said;
+
+  // The port, answered rather than suggested. Only three states matter, and
+  // only one of them is the user's problem to go and solve.
+  const port = info.port;
+  const portLine = $("searxng-port");
+  portLine.textContent = port ? port.detail : "";
+  portLine.classList.toggle("error", Boolean(port && !port.free && !port.held_by_searxng));
+}
+
+// ---- from status.js (search-boot-1005): applyBackendChoice ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+async function applyBackendChoice() {
+  const provider = $("llm-provider-select").value;
+  const baseUrl = $("llm-base-url").value.trim();
+  const note = $("llm-provider-status");
+  setLabel(note, "ph:spin Connecting…");
+  try {
+    const body = await apiJson("/models/provider", {
+      method: "POST",
+      body: JSON.stringify({ provider, base_url: baseUrl }),
+    });
+    backendFieldsDirty = false;
+    // The setting is saved either way, you set the address, then you start
+    // the server: so this reports what was found rather than treating an
+    // unreachable server as a rejected setting.
+    setLabel(
+      note,
+      body.reachable
+        ? `ph:plugs-connected Connected to ${body.base_url}: ${body.installed_models.length} model(s) available.`
+        : `ph:plugs Saved, but nothing is answering at ${body.base_url} yet. Start the server and this will light up.`
+    );
+    // This app's headline promise is that notes stay on the machine. A backend
+    // somewhere else is allowed, someone may want it, but never quietly, so
+    // the warning is loud and stays until the address changes.
+    const privacy = $("llm-privacy-warning");
+    privacy.textContent = body.privacy_note || "";
+    privacy.classList.toggle("hidden", !body.privacy_note);
+    await refreshModelStatus();
+  } catch (err) {
+    note.textContent = err.message;
+  }
+}
+
+// ---- from chat.js (search-boot-1005): saveModelContextWindow ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+async function saveModelContextWindow() {
+  const box = $("model-context-window");
+  if (!box || !modelContextModel) return;
+  const raw = box.value.trim();
+  const parsed = Number.parseInt(raw, 10);
+  //: Anything that is not a positive number is auto, including the empty box
+  //: this control is cleared with. `null` rather than deleting the key, so the
+  //: PUT says "this model is on auto" rather than saying nothing about it: the
+  //: whole map is replaced on save, and an omitted model would be indistinct
+  //: from one that was never set, which is the same thing here but would stop
+  //: being so the moment anything else wrote to the map.
+  const value = raw === "" || !Number.isFinite(parsed) || parsed <= 0 ? null : parsed;
+  const windows = { ...((prefsCache && prefsCache.model_context_windows) || {}) };
+  windows[modelContextModel] = value;
+  try {
+    await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ model_context_windows: windows }),
+    });
+    if (prefsCache) prefsCache.model_context_windows = windows;
+    //: Re-read the spec rather than trusting the number just typed: the
+    //: backend floors a window below its own minimum, so a 40 typed here comes
+    //: back as 4,096, and the note has to say what will actually run.
+    renderModelSpec(modelContextModel);
+    toast(value ? `${modelContextModel} will run at ${value.toLocaleString()} tokens.` : `${modelContextModel} is back on auto.`);
+  } catch (e) {
+    toast(e.message || "Couldn't save that window.", true);
+  }
+}
+
+// ---- from sheets-selects.js (search-boot-1005): addPersona ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+async function addPersona() {
+  const name = $("persona-name").value.trim();
+  const promptText = $("persona-prompt").value.trim();
+  const status = $("persona-status");
+  if (!name || !promptText) {
+    status.textContent = "Both a name and a prompt are needed.";
+    return;
+  }
+  const custom = ((prefsCache && prefsCache.personas) || []).filter(
+    (p) => p.name !== name
+  );
+  custom.push({ name, prompt: promptText });
+  await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify({ personas: custom }),
+  });
+  $("persona-name").value = "";
+  $("persona-prompt").value = "";
+  status.textContent = `Added “${name}”.`;
+  await renderPersonas();
+  personaOptions();
+}
+
+// ---- from ai-tools.js (search-boot-1005): runEmbeddingFallback, resetAllFeatureModels, applyChatModel, applyOcrModel, applyUtilityModel, applyVisionModel ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+// One click for the sentence #embedding-error already prints: download
+// nomic-embed-text (skipped if it's already installed), then switch the
+// search engine to it and re-index. Self-contained polling rather than
+// riding the shared `modelStatus` refresh loop: that loop backs off to a
+// slow cadence when nothing else is running, which would make a fresh
+// download look stalled for up to 20s at a time; this polls every second
+// for exactly as long as this one operation is in flight.
+async function runEmbeddingFallback() {
+  if (embeddingFallbackRunning) return;
+  embeddingFallbackRunning = true;
+  const button = $("embedding-error-fix");
+  const status = $("embedding-error-fix-status");
+  button.disabled = true;
+  const setStatus = (text) => {
+    status.textContent = text;
+  };
+  try {
+    const already = (modelStatus?.installed_models || []).some(
+      (m) => m.name === EMBEDDING_FALLBACK_MODEL || m.name.split(":")[0] === EMBEDDING_FALLBACK_MODEL
+    );
+    if (!already) {
+      setStatus(`Downloading ${EMBEDDING_FALLBACK_MODEL}…`);
+      try {
+        await api("/models/pull", {
+          method: "POST",
+          body: JSON.stringify({ name: EMBEDDING_FALLBACK_MODEL }),
+        });
+      } catch (error) {
+        // 409 "Already downloading" means someone else (or a previous
+        // click) already started this exact pull, fall through to the
+        // same wait loop rather than treating it as a failure.
+        if (!/already downloading/i.test(error.message || "")) throw error;
+      }
+      // Poll until the pull leaves "running", succeeded (it drops out of
+      // `pulls` once installed) or failed (status "error").
+      for (;;) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const poll = await apiJson("/models/status", { silent: true }).catch(() => null);
+        if (!poll) continue; // a transient miss mid-download isn't a failure
+        const pull = (poll.pulls || {})[EMBEDDING_FALLBACK_MODEL];
+        if (pull && pull.status === "error") {
+          throw new Error(pull.error || `Couldn't download ${EMBEDDING_FALLBACK_MODEL}.`);
+        }
+        const nowInstalled = (poll.installed_models || []).some(
+          (m) => m.name === EMBEDDING_FALLBACK_MODEL || m.name.split(":")[0] === EMBEDDING_FALLBACK_MODEL
+        );
+        if (nowInstalled || !pull) break;
+        setStatus(
+          pull.total
+            ? `Downloading ${EMBEDDING_FALLBACK_MODEL}… ${Math.round((pull.done / pull.total) * 100)}%`
+            : `Downloading ${EMBEDDING_FALLBACK_MODEL}…`
+        );
+      }
+    }
+    setStatus("Switching search engine and re-indexing…");
+    await api("/models/embedding-backend", {
+      method: "POST",
+      body: JSON.stringify({ backend: "ollama", model: EMBEDDING_FALLBACK_MODEL }),
+    });
+    toast(`Switched to ${EMBEDDING_FALLBACK_MODEL}: re-indexing your notes now.`);
+    setStatus("");
+  } catch (error) {
+    toast(error.message || `Couldn't switch to ${EMBEDDING_FALLBACK_MODEL}.`, true);
+    setStatus("");
+  } finally {
+    embeddingFallbackRunning = false;
+    button.disabled = false;
+    refreshModelStatus();
+  }
+}
+
+async function resetAllFeatureModels() {
+  try {
+    const body = await api("/models/feature-models/reset", { method: "POST" });
+    const cleared = Number(body.cleared || 0);
+    toast(
+      cleared === 0
+        ? "Nothing to reset: every feature was already on its default model."
+        : cleared === 1
+          ? "One feature is back on its default model."
+          : `${cleared} features are back on their default models.`
+    );
+    refreshModelStatus();
+  } catch (error) {
+    toast(error.message || "Couldn't reset those models.", true);
+  }
+}
+
+async function applyChatModel() {
+  const select = $("chat-model-select");
+  const note = $("chat-model-note");
+  try {
+    await api("/models/chat-model", {
+      method: "POST",
+      body: JSON.stringify({ name: select.value }),
+    });
+    delete select.dataset.userChosen; // applied: polling may reflect it now
+    note.textContent = `${aiNameNow()}, running ${select.value}: switched instantly, no re-index needed.`;
+    refreshModelStatus();
+  } catch (error) {
+    note.textContent = error.message;
+  }
+}
+
+async function applyOcrModel() {
+  const select = $("ocr-model-select");
+  try {
+    await api("/models/ocr-model", {
+      method: "POST",
+      body: JSON.stringify({ name: select.value }),
+    });
+    delete select.dataset.userChosen;
+    toast(
+      select.value
+        ? `Text will be read with ${select.value}.`
+        : "Reading text is automatic again."
+    );
+    refreshModelStatus();
+  } catch (error) {
+    toast(error.message || "Couldn't set that model.", true);
+  }
+}
+
+async function applyUtilityModel() {
+  const select = $("utility-model-select");
+  try {
+    await api("/models/utility-model", {
+      method: "POST",
+      body: JSON.stringify({ name: select.value }),
+    });
+    delete select.dataset.userChosen;
+    toast(
+      select.value
+        ? `Background jobs now use ${select.value}.`
+        : "Background jobs now use the chat model."
+    );
+    refreshModelStatus();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+async function applyVisionModel() {
+  const select = $("vision-model-select");
+  try {
+    await api("/models/vision-model", {
+      method: "POST",
+      body: JSON.stringify({ name: select.value }),
+    });
+    delete select.dataset.userChosen;
+    toast(
+      select.value
+        ? `Images now go to ${select.value}.`
+        : "Images now use auto-detect."
+    );
+    refreshModelStatus();
+  } catch (error) {
+    toast(error.message, true);
+  }
+}
+
+// ---- from spaces-find.js (search-boot-1005): addTemplate ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+async function addTemplate() {
+  const name = $("template-name").value.trim();
+  const body = $("template-body").value.trim();
+  const status = $("template-status");
+  status.classList.remove("error");
+  if (!name || !body) {
+    status.classList.add("error");
+    status.textContent = "Both a name and a template body are needed.";
+    return;
+  }
+  // Only the entry being edited is dropped before the push, a genuine
+  // rename (or, for a built-in, the previous edit of it). A name that
+  // instead collides with a DIFFERENT saved template is left in place and
+  // the save is rejected server-side (§_validated_templates) rather than
+  // silently replacing someone else's saved text the way a same-named skill
+  // would. A new template given a built-in's name becomes that built-in's
+  // edit, which is what the name means now.
+  const custom = customTemplates().filter((t) => t.name !== editingTemplateName);
+  custom.push({
+    name,
+    description: $("template-description").value.trim(),
+    content: body,
+  });
+  const wasEditing = editingTemplateName;
+  try {
+    await saveTemplateList(custom);
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+    return;
+  }
+  stopEditingTemplate();
+  status.textContent = wasEditing ? `Updated “${name}”.` : `Saved “${name}”.`;
+}
+
+// ---- from skills.js (search-boot-1005): saveRunBudget ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+async function saveRunBudget() {
+  const tokens = $("run-budget-tokens");
+  const seconds = $("run-budget-seconds");
+  const status = $("run-budget-status");
+  if (!tokens || !seconds) return;
+  //: Clamped here as well as by the server: a negative number in a number
+  //: input is one keystroke away, and the failure it causes (a budget that is
+  //: exceeded before the first round) would look like the feature being
+  //: broken rather than like a typo.
+  const body = {
+    run_budget_tokens: Math.max(0, Math.round(Number(tokens.value) || 0)),
+    run_budget_seconds: Math.max(0, Math.round(Number(seconds.value) || 0)),
+  };
+  if (status) status.textContent = "Saving…";
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    if (status) {
+      status.classList.add("error");
+      status.textContent = error.message;
+    }
+    return;
+  }
+  if (!status) return;
+  status.classList.remove("error");
+  const parts = [];
+  parts.push(body.run_budget_tokens ? `${body.run_budget_tokens} tokens` : "no token limit");
+  parts.push(body.run_budget_seconds ? `${body.run_budget_seconds}s` : "no time limit");
+  status.textContent = `A run may spend ${parts.join(" and ")}.`;
+}
+
+// ---- from settings-panes.js (search-boot-1005): saveWebSearchSettings, restartMemoryMap ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+async function saveWebSearchSettings() {
+  const status = $("search-provider-status");
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({
+        web_search_enabled: $("pref-web-search").checked,
+        searxng_url: $("pref-searxng").value.trim(),
+      }),
+    });
+    // Reported: "the web search button is visibly disabled in the chat
+    // dock instead of inactive when I have web search enabled in the
+    // settings", the chat dock's own click handler keeps this Settings
+    // checkbox in sync going the other way, but this save handler never
+    // synced the chat dock button back, so it stayed on whatever look it
+    // had at page load until clicked directly or the page reloaded.
+    renderWebSearchToggle();
+    status.classList.remove("error");
+    status.textContent = "Saved.";
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+}
+
+//: **Shared with the About panel's own "Restart MemoryMap" button**
+//: (`#about-restart`, phone-shell.js): one restart mechanism, `/system/restart`
+//: (Windows desktop only; everywhere else it answers `restarting: false` and
+//: this says so), so the LAN switch's own restart offer below reuses it
+//: rather than re-implementing "ask, restart, or say why not" a second time.
+//: `confirm` is skipped for a `toastAction` call: the person already made an
+//: explicit choice by pressing that button's own label, the same reasoning
+//: every other `toastAction` in the app (Undo, and the rest) already follows.
+async function restartMemoryMap({ confirm = true } = {}) {
+  if (
+    confirm &&
+    !(await confirmDialog(
+      "Restart MemoryMap?\n\nThe app closes and reopens. Your notes are already saved."
+    ))
+  ) {
+    return;
+  }
+  try {
+    const result = await apiJson("/system/restart", { method: "POST" });
+    if (result.restarting) {
+      toast("Restarting…");
+    } else {
+      toast("Restart isn't available in this build, close and reopen MemoryMap by hand.", true);
+    }
+  } catch (error) {
+    toast(error.message || "Couldn't restart.", true);
+  }
+}
+
+// ---- from wiring.js (search-boot-1005): findDuplicates ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+async function findDuplicates() {
+  const status = $("duplicate-status");
+  const box = $("duplicate-groups");
+  const threshold = Number($("duplicate-threshold").value) / 100;
+  status.classList.remove("error");
+  status.textContent = "Comparing your notes…";
+  box.replaceChildren();
+  try {
+    const body = await apiJson(`/duplicates?threshold=${threshold}`);
+    renderDuplicateGroups(body.groups);
+    status.textContent = body.groups.length
+      ? `${body.groups.length} group${body.groups.length === 1 ? "" : "s"} of similar notes.`
+      : "No duplicates at that similarity, try lowering the slider.";
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+}
+
+// ---- from phone-shell.js (search-boot-1005): saveExportSaveDir, addMemoryByHand ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+// Saved on blur/Enter, not on every keystroke, a half-typed path is not a
+// preference worth validating server-side yet. Reverts the field on a
+// rejected value rather than leaving a bad path sitting there looking saved.
+async function saveExportSaveDir() {
+  const input = $("pref-export-dir");
+  const value = input.value.trim();
+  if (value === (prefsCache?.export_save_dir || "")) return; // nothing changed
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ export_save_dir: value }),
+    });
+    input.value = prefsCache.export_save_dir;
+    toast(value ? `Exports will now be saved to ${prefsCache.export_save_dir}` : "Exports will save to the default location.");
+  } catch (error) {
+    input.value = prefsCache?.export_save_dir || "";
+    toast(error.message || "Couldn't save that folder.", true);
+  }
+}
+
+async function addMemoryByHand() {
+  const input = $("memory-new");
+  const status = $("memory-status");
+  const text = (input?.value || "").trim();
+  status.classList.add("hidden");
+  status.classList.remove("error");
+  if (!text) return;
+  try {
+    await apiJson("/memory", { method: "POST", body: JSON.stringify({ content: text }) });
+    input.value = "";
+    renderMemorySettings();
+  } catch (error) {
+    status.textContent = error.message || "Couldn't save that.";
+    status.classList.remove("hidden");
+    status.classList.add("error");
+  }
+}
+
+// ---- from wiring.js (search-boot-1005): renderDuplicateGroups ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+function renderDuplicateGroups(groups) {
+  const box = $("duplicate-groups");
+  box.replaceChildren();
+  for (const group of groups) {
+    const card = document.createElement("div");
+    card.className = "duplicate-group";
+
+    const head = document.createElement("p");
+    head.className = "muted";
+    head.textContent = `${group.entries.length} notes · ${Math.round(group.similarity * 100)}% alike`;
+    card.appendChild(head);
+
+    // Every note ticked by default: the whole point is merging the group.
+    const chosen = new Set(group.entries.map((e) => e.id));
+    for (const entry of group.entries) {
+      const label = document.createElement("label");
+      label.className = "duplicate-note";
+      const box2 = document.createElement("input");
+      box2.type = "checkbox";
+      box2.checked = true;
+      box2.addEventListener("change", () => {
+        if (box2.checked) chosen.add(entry.id);
+        else chosen.delete(entry.id);
+        merge.disabled = chosen.size < 2;
+      });
+      const text = document.createElement("span");
+      text.textContent = clipText(notePreviewText(entry.content), 160);
+      label.append(box2, text);
+      card.appendChild(label);
+    }
+
+    const row = document.createElement("div");
+    row.className = "row";
+    const merge = smallButton("ph:arrows-merge Merge these", "Combine them into one note", async () => {
+      await mergeDuplicateGroup([...chosen], card);
+    }, false);
+    const useAi = document.createElement("label");
+    useAi.className = "muted";
+    const aiBox = document.createElement("input");
+    aiBox.type = "checkbox";
+    aiBox.id = `merge-ai-${group.entries[0].id}`;
+    // Only offer the AI when it can actually do the job.
+    const aiReady = !modelStatus || modelStatus.ollama_running !== false;
+    aiBox.checked = aiReady;
+    aiBox.disabled = !aiReady;
+    useAi.append(aiBox, document.createTextNode(
+      aiReady ? " let Atlas write the merged note" : " Atlas is not running: notes will be joined"
+    ));
+    card.dataset.aiBoxId = aiBox.id;
+    row.append(merge, useAi);
+    card.appendChild(row);
+    box.appendChild(card);
+  }
+}
+
+// ---- from wiring.js (search-boot-1005): mergeDuplicateGroup ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+async function mergeDuplicateGroup(ids, card) {
+  if (ids.length < 2) return;
+  const aiBox = document.getElementById(card.dataset.aiBoxId);
+  const useAi = !!(aiBox && aiBox.checked);
+  const status = $("duplicate-status");
+
+  // Show what it will say BEFORE anything changes, merging is the one action
+  // here that can quietly lose writing, so it shouldn't be a leap of faith.
+  status.classList.remove("error");
+  status.textContent = "Working out the merged note…";
+  let preview;
+  try {
+    preview = await apiJson("/duplicates/preview", {
+      method: "POST",
+      body: JSON.stringify({ ids, use_ai: useAi }),
+    });
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+    return;
+  }
+  status.textContent = "";
+
+  const ok = (await confirmDialog(
+    `Merge ${ids.length} notes into one?\n\n` +
+      `The merged note will read:\n\n${preview.merged.slice(0, 400)}` +
+      `${preview.merged.length > 400 ? "…" : ""}\n\n` +
+      `The other ${ids.length - 1} go to the bin, so this is undoable.`
+  ));
+  if (!ok) return;
+
+  //: The kept note's words and tags as they were, for Undo (INBOX 537): the
+  //: others went to the bin, so Undo also brings them back.
+  const keeper = allEntries.find((e) => e.id === ids[0]);
+  try {
+    const result = await apiJson("/duplicates/merge", {
+      method: "POST",
+      body: JSON.stringify({ ids, use_ai: useAi }),
+    });
+    card.remove();
+    const binned = result.binned_ids || [];
+    const swap = (back) => async () => {
+      if (keeper) await api(`/entries/${result.id}`, { method: "PUT", body: JSON.stringify(back ? { content: keeper.content, tags: keeper.tags } : { content: result.content }) });
+      for (const id of binned) await api(back ? `/entries/${id}/restore` : `/entries/${id}`, { method: back ? "POST" : "DELETE" });
+      await refreshEntries([result.id, ...binned]);
+    };
+    const action = pushUndo(`Merged ${result.merged_count} notes`, swap(true), swap(false));
+    toastAction(`Merged ${result.merged_count} notes${result.used_ai ? " with Atlas" : ""}.`, "Undo", async () => {
+      settleUndoFromToast(action);
+      await swap(true)();
+    });
+    await refreshEntries([result.id, ...binned]);
+  } catch (error) {
+    status.classList.add("error");
+    status.textContent = error.message;
+  }
+}

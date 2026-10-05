@@ -393,8 +393,11 @@ function librarySorted(items) {
 // results, never remove one, which is the property that makes it safe to
 // leave on, and the reason the two filters are OR-ed rather than swapped.
 //
-// Reuses `GET /entries?semantic=true`, the same endpoint and the same
-// server-side bound (`SEMANTIC_LIST_LIMIT`) the Notes tab's own toggle uses.
+// Asks `GET /search` (the retrieval engine), the same call the Notes tab's
+// own toggle and Find anything make, so the three boxes agree on what a
+// question finds. The hits are only read as a set of note ids here, so the
+// index holding a binned or archived note (flagged) changes nothing: the
+// filter below keeps only rows whose kind is still "note".
 let librarySemanticIds = null;
 let librarySemanticQuery = "";
 
@@ -408,8 +411,8 @@ async function refreshLibrarySemantic() {
   }
   if (query === librarySemanticQuery) return; // already have this one
   try {
-    const results = await apiJson(`/entries?q=${encodeURIComponent(query)}&semantic=true`);
-    librarySemanticIds = new Set(results.map((entry) => entry.id));
+    const found = await apiJson(`/search?q=${encodeURIComponent(query)}&kind=note&limit=50`);
+    librarySemanticIds = new Set((found.hits || []).map((hit) => hit.id));
     librarySemanticQuery = query;
   } catch {
     // No embedding backend, or the search failed. Falling back to keyword-only

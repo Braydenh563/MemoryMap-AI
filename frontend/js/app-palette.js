@@ -83,6 +83,9 @@ async function openPalette() {
 }
 
 function closePalette() {
+  //: Whatever is still in the air is dropped with the window.
+  window.clearTimeout(paletteEngine.timer);
+  paletteEngine.run += 1;
   $("palette-overlay").classList.add("hidden");
   overlayReturnFocus?.focus?.();
   overlayReturnFocus = null;
@@ -106,6 +109,34 @@ function paletteText(value) {
   return typeof value === "string" ? value.toLowerCase() : "";
 }
 
+//: The engine's last answer for the palette's text (`q` is that text, lower
+//: case, trimmed), the notes and documents it found in its order, and the
+//: pending ask. One object, not four `let`s (the global-scope ratchet).
+const paletteEngine = { q: "", notes: [], docs: [], timer: null, run: 0 };
+
+//: Ask `GET /search` for what is typed, on a pause, and redraw when it
+//: answers. A reply for text that has since changed is dropped; a failed or
+//: closed-over ask leaves the in-memory rows as they were.
+function paletteAskEngine(query) {
+  window.clearTimeout(paletteEngine.timer);
+  const asked = query.trim();
+  paletteEngine.run += 1;
+  if (!asked) {
+    Object.assign(paletteEngine, { q: "", notes: [], docs: [] });
+    return;
+  }
+  const run = paletteEngine.run;
+  paletteEngine.timer = window.setTimeout(async () => {
+    const body = await apiJson(`/search?q=${encodeURIComponent(asked)}&kind=note,document&limit=20`, { silent: true }).catch(() => null);
+    if (!body || run !== paletteEngine.run || $("palette-overlay").classList.contains("hidden")) return;
+    const hits = body.hits || [];
+    paletteEngine.q = asked.toLowerCase();
+    paletteEngine.notes = hits.filter((hit) => hit.kind === "note");
+    paletteEngine.docs = hits.filter((hit) => hit.kind === "document");
+    renderPalette($("palette-input").value);
+  }, 120);
+}
+
 function paletteMatches(query) {
   const lowered = query.trim().toLowerCase();
   //: **The app's own commands get a group name too, now that something can
@@ -114,9 +145,9 @@ function paletteMatches(query) {
   //: ahead of them, an unlabelled run reads as more of "This document", which
   //: is the one thing it is not. `group` is only set where the row has not
   //: already claimed one, so the editor's stays its own.
-  //: The notes rows (palette.js `notesPaletteCommands`, INBOX 432): a
+  //: The notes rows (`notesPaletteCommands`, below, INBOX 432): a
   //: category to go to, a #tag to show, Move for the note in hand.
-  const commands = [...paletteCommands(), ...(typeof notesPaletteCommands === "function" ? notesPaletteCommands(lowered) : [])]
+  const commands = [...paletteCommands(), ...notesPaletteCommands(lowered)]
     //: UX-08: `keywords`, other words for a row ("trash", "theme").
     .filter((c) => paletteText(`${c.label} ${c.keywords || ""}`).includes(lowered))
     .map((c) => (c.group ? c : { ...c, group: "Everywhere" }));
@@ -142,11 +173,22 @@ function paletteMatches(query) {
   }
 
   // Notes: match body or title.
-  const notes = allEntries
+  //: **The engine's answer comes first** (`paletteAskEngine`): `GET /search`
+  //: ranks the whole notebook, the notes past the page the browser holds
+  //: included, by words, meaning and typo; the in-memory match below is what
+  //: shows before the answer lands and tops the group up with a title that
+  //: only part-matches (the engine reads words, a jump list reads letters).
+  const engineReady = paletteEngine.q === lowered;
+  const heldNotes = engineReady && paletteEngine.notes.length ? new Map(allEntries.map((e) => [e.id, e])) : null;
+  const engineNotes = engineReady
+    ? paletteEngine.notes.map((hit) => heldNotes?.get(hit.id) || { id: hit.id, title: hit.title, content: hit.snippet, category: "" })
+    : [];
+  const localNotes = allEntries
     .filter((e) =>
       paletteText(e.content).includes(lowered) ||
       paletteText(e.title).includes(lowered)
-    )
+    );
+  const notes = [...new Map([...engineNotes, ...localNotes].map((e) => [e.id, e])).values()]
     .slice(0, 5)
     .map((e) => ({
       group: "Notes",
@@ -166,8 +208,11 @@ function paletteMatches(query) {
   //: no answers for anything typed into it until the Library had been visited
   //: once. Found while measuring INBOX 224's own palette line, in a page that
   //: had never opened the Library.
-  const docMatches = (typeof docs === "undefined" ? [] : docs)
-    .filter((d) => paletteText(d.title).includes(lowered))
+  const localDocs = (typeof docs === "undefined" ? [] : docs).filter((d) => paletteText(d.title).includes(lowered));
+  //: The engine reads a document's words too, and finds one before the
+  //: Library's list has been opened at all.
+  const engineDocs = engineReady ? paletteEngine.docs.map((hit) => ({ id: hit.id, title: hit.title || "Untitled document" })) : [];
+  const docMatches = [...new Map([...engineDocs, ...localDocs].map((d) => [d.id, d])).values()]
     .slice(0, 3)
     .map((d) => ({
       group: "Documents",
@@ -350,6 +395,65 @@ function scrollPaletteToActive() {
 $("palette-input").addEventListener("input", () => {
   paletteIndex = 0;
   renderPalette($("palette-input").value);
+  paletteAskEngine($("palette-input").value);
 });
 $("palette-input").addEventListener("keydown", paletteKeydown);
 wireBackdropClose($("palette-overlay"), () => closePalette());
+
+// ---- from palette.js (search-boot-1005): notesPaletteCommands ----
+// Moved whole. Every use is in this file, so it is not needed before this file loads.
+
+function notesPaletteCommands(query = "") {
+  const rows = [];
+  const ids = paletteNotesInHand();
+  if (ids.length) {
+    const one = ids.length === 1 ? allEntries.find((e) => e.id === ids[0]) : null;
+    rows.push({
+      group: "This note",
+      label: `ph:folder-open Move ${one ? "note" : "notes"} to category`,
+      about: one ? `Now in ${one.category}.` : `${ids.length} selected notes.`,
+      run: paletteLater(() => chooseNoteCategory(ids, one?.category || "")),
+    });
+    rows.push({
+      group: "This note",
+      label: `ph:tag Add or remove tags on ${one ? "this note" : "these notes"}`,
+      about: one ? `${one.tags.length ? one.tags.map((t) => `#${t}`).join(" ") : "No tags yet."}` : `${ids.length} selected notes.`,
+      run: paletteLater(() => openBulkTags(ids)),
+    });
+  }
+  rows.push({
+    group: "Tags",
+    label: "ph:hash Manage tags",
+    about: "Rename, merge or remove tags across every note.",
+    run: paletteLater(() => openTagsSheet()),
+  });
+  rows.push({
+    group: "Categories",
+    label: "ph:sliders-horizontal Manage categories",
+    about: "Rename, merge, split or delete categories.",
+    run: paletteLater(() => openManageCategories()),
+  });
+  if (!query) return rows;
+  const counts = new Map();
+  for (const e of allEntries) if (!e.is_draft) counts.set(e.category, (counts.get(e.category) || 0) + 1);
+  for (const [name, n] of [...counts].sort((a, b) => a[0].localeCompare(b[0]))) {
+    rows.push({
+      group: "Categories",
+      label: `ph:folder Go to category: ${name}`,
+      about: `${n} ${n === 1 ? "note" : "notes"}`,
+      run: paletteLater(() => paletteGoToCategory(name)),
+    });
+  }
+  if (query.startsWith("#")) {
+    const typed = query.slice(1).trim();
+    const tags = [...new Set(allEntries.flatMap((e) => e.tags || []))]
+      .filter((t) => !/\s/.test(t) && t.toLowerCase().startsWith(typed))
+      .sort()
+      .slice(0, 6);
+    if (typed && !/\s/.test(typed) && !tags.some((t) => t.toLowerCase() === typed)) tags.push(typed);
+    for (const tag of tags) {
+      rows.push({ group: "Tags", label: `ph:tag Show notes tagged #${tag}`, run: paletteLater(() => filterNotesByTag(tag)) });
+    }
+  }
+  return rows;
+}

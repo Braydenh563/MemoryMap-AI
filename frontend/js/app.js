@@ -1591,20 +1591,6 @@ function makeUnlinkAccessible(span) {
   });
 }
 
-// A <select> from [value, label] pairs, with one option preselected.
-function buildSelect(options, selected) {
-  const select = document.createElement("select");
-  select.className = "small-select";
-  for (const [value, label] of options) {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = label;
-    if (value === selected) option.selected = true;
-    select.appendChild(option);
-  }
-  return select;
-}
-
 // --- asking before something irreversible (§35F) ----------------------------------
 //
 // `window.confirm` is not dependable in pywebview: a backend without it
@@ -2031,6 +2017,8 @@ const LAZY_MODULES = {
   batchSpace: ["/js/batch-space.js"],
   //: Settings, Packages: the extras, their bundles and bulk actions (INBOX 595).
   packages: ["/js/settings-packages.js"],
+  //: The panel the "m" chord opens: chord-guide.js says why it is preloaded.
+  chordGuide: ["/js/chord-guide.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2279,6 +2267,9 @@ const LAZY_ENTRY_POINTS = {
   modelBench: ["renderModelBench"],
   usageLedger: ["renderUsage", "renderCaptureCommand"],
   packages: ["renderExtras"],
+  chordGuide: ["showTabJumpHint"],
+  //: Async, and reached from a Settings pane drawn before the window's own await.
+  settingsControls: ["refreshSearxngHost"],
   settingsData: [
     "renderPrivacyRange",
     "renderPrivacyReceipt",
@@ -2413,4 +2404,4 @@ for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
 }
 //: Fetched soon after boot, not on first use: the outbox is for the moment
 //: the server is gone, when no script can be fetched (quick-note.js).
-setTimeout(() => ["quickNote", "fieldClear"].forEach((name) => ensureModule(name)), 3000);
+setTimeout(() => ["quickNote", "fieldClear", "chordGuide"].forEach((name) => ensureModule(name)), 3000);

@@ -535,7 +535,9 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("command palette", "jump anywhere", "quick actions", "jump to"),
         "body": (
             "Ctrl/Cmd+K opens the command palette: jump to any tab or "
-            "setting, search notes, or run a quick action (new note, new "
+            "setting, search notes and documents (the same search as Find "
+            "anything: it reads the words inside them, and forgives a typo), "
+            "or run a quick action (new note, new "
             "chat, back up now, toggle the theme, and more) without leaving "
             "the keyboard. It's a different box from the popup agent "
             "(Ctrl/Cmd+Shift+A): this one runs fixed commands, that one "
@@ -1520,7 +1522,8 @@ HELP_TOPICS.extend(
                 "in any order), \"a quoted phrase\", tag:work, cat:recipes, "
                 "#tag, title:, in:, before: and after: (a date such as 2026-09), "
                 "is:favourite, is:pinned, is:private, is:linked, is:untagged, "
-                "is:draft, tags:<2 (also <=, > and >=), and -word to leave a word "
+                "is:draft, tags:<2 (also <=, > and >=), has:link (also file, image or "
+                "reminder), space:work and kind:note (asked of the search engine), and -word to leave a word "
                 "out. is:review lists the filings to check (Atlas was unsure, or "
                 "left the note in Uncategorised), each with Accept, Refile and "
                 "Split; the Categories widget on the dashboard counts them. Select ticks several notes to move to a category, tag or "

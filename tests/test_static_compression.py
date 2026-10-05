@@ -65,12 +65,23 @@ def test_a_stamped_asset_is_immutable_and_gzipped(client):
 #: caps are those numbers plus 2%; the per-piece bound is the plan's 64 KB
 #: scaled by the same strip, rounded. What is measured is code now, not
 #: prose: a comment costs nothing here.
-#: 2026-10-05, after the merges: app.js was 15,132 against 15,070; the
-#: Capture box's template picker moved to a lazy note-templates.js and it
-#: measured 14,165, so the cap is that plus 2%.
+#:
+#: **Re-measured on the merged tree, 2026-10-05.** The 15,070 above was set on
+#: the frontend branch alone, while the boot split (merged the same hour) had
+#: moved seven surfaces out of app.js and registered them in its lazy table;
+#: together app.js measured 15,132 bytes. The cap is that plus 2%, the rule
+#: this comment states, and it only goes down from here.
+#:
+#: **2026-10-05, search-boot-1005.** The Settings window's handlers that only
+#: its listeners call, the "m" chord's guide, and the pickers, menus and
+#: checkers that one lazy file alone uses moved into that file: app.js
+#: 15,221 (cap was 15,435), total 323,086 (cap was 342,100),
+#: both measured by this test's client. Caps are the measure rounded up.
 APP_JS_CAP = 14_450
+#: Merged into the integration branch the same day: app.js keeps the lower
+#: 14,450 cap the template picker's move had set.
 PIECE_CAP = 32_000
-TOTAL_CAP = 342_100
+TOTAL_CAP = 323_500
 
 
 def _served_gzip_size(client, name: str) -> int:

@@ -2309,7 +2309,7 @@ button.ghost.danger {
 /* Below the width this palette fits in, the sections wrap as sections (they
    are `flex-shrink: 0`), and the foot becomes two rows rather than squeezing
    a caption box to nothing. */
-@media (max-width: 719.98px) {
+@media (max-width: 819.98px) {
   .sketch-foot {
     flex-wrap: wrap;
   }
@@ -2320,7 +2320,7 @@ button.ghost.danger {
 }
 
 /* --- Wave F: mobile / PWA responsive pass --------------------------------------- */
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   header {
     padding: 1rem 1rem 0.5rem;
   }
@@ -2794,7 +2794,7 @@ kbd {
   justify-content: space-between;
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   #note-sort {
     max-width: none;
   }
@@ -3123,7 +3123,7 @@ kbd {
 
 /* Bigger touch targets for the small action buttons on phones, a 44px
    min is the accessibility guideline for finger taps. */
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
 
   .entry-actions button,
   .entry-actions .unlink,
@@ -3609,7 +3609,7 @@ kbd {
    running off-screen: asked for directly ("compatible for small screen
    sizes like iPhones"). Drops the flyout positioning entirely and expands
    the group in place instead, indented to still read as nested. */
-@media (max-width: 719.98px) {
+@media (max-width: 819.98px) {
   .action-menu.submenu {
     position: static;
     min-width: 0;
@@ -3632,7 +3632,7 @@ html {
    specificity tie for anything loaded between here and there. */
 
 /* Inputs at 16px on touch screens so iOS doesn't zoom the page. */
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
 
   textarea,
   input,

@@ -544,7 +544,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   display: none;
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   #graph-card {
     margin: 0 0 var(--space-5);
   }
@@ -584,8 +584,8 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   grid-template-rows: minmax(0, 1fr);
 }
 
-/* Below 720px `.layout` stacks aside and main into two rows instead of one
-   row of two columns (the base rule's own `@media (max-width: 719.98px)`
+/* On a phone `.layout` stacks aside and main into two rows instead of one
+   row of two columns (the base rule's own `@media (max-width: 599.98px)`
    block), but this rule's `grid-template-rows: minmax(0, 1fr)` still names
    only one explicit row. The sidebar (row 1, the explicit `1fr` track) was
    losing almost all of it to `main`'s implicit auto row claiming its full
@@ -596,7 +596,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
    card background floating above `chat-main`'s real header, its own content
    rendered outside its box. Each row sizes to its own content when stacked,
    same as `#tab-notes` (which never set an explicit row template at all). */
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   #tab-chat:not(.hidden)>.layout {
     grid-template-rows: none;
   }
@@ -1512,7 +1512,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   display: none;
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
 
   /* Two rows of controls above a composer is most of a phone screen. They stay
      - hiding a control the user has to reach for is worse than scrolling, but
@@ -2318,7 +2318,7 @@ label.setting-check,
   font-size: 0.85rem;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 599.98px) {
   .setting-row {
     flex-direction: column;
     align-items: stretch;
@@ -2729,7 +2729,7 @@ span > .chip {
   outline-offset: 2px;
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   .scroll-top {
     right: 1rem;
     bottom: calc(var(--status-bar-h) + var(--space-3));
@@ -3609,7 +3609,7 @@ span > .chip {
    own `min-height` floor, on a 534px card. The height belongs to the desk,
    not to a rows attribute, and the boxes take the slack the way
    `.draft-columns`' own `align-items: stretch` already intends. */
-@media (min-width: 901px) {
+@media (min-width: 820px) {
   .draft-columns {
     min-height: 30rem;
   }
@@ -3617,7 +3617,7 @@ span > .chip {
 
 /* One column on narrow screens, side-by-side textareas become unusable
    well before the phone breakpoint. */
-@media (max-width: 900px) {
+@media (max-width: 819.98px) {
   .draft-columns {
     grid-template-columns: 1fr;
   }
@@ -6216,7 +6216,7 @@ button.manage-cat-count:hover {
 /* A wider reading width than a sheet of choices (34rem): the tool row holds
    a field, a sort, a toggle and New, and the footer four actions, and at
    34rem each wrapped (measured: New on a second line, "Merge into…" on two). */
-@media (min-width: 720px) {
+@media (min-width: 600px) {
   .sheet-card.manage-cat-card:not(.sheet-card-corner) {
     max-width: 40rem;
   }

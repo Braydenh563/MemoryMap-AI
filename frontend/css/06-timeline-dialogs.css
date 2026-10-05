@@ -320,7 +320,7 @@
 /* On a phone the third column has nowhere to go: the facts move under the
    title instead of squeezing it to nothing. Measured at 390: the title keeps
    246px of a 358px row rather than 96px. */
-@media (max-width: 40rem) {
+@media (max-width: 599.98px) {
   .timeline-feed .timeline-row {
     grid-template-columns: auto minmax(0, 1fr);
   }
@@ -377,7 +377,7 @@
 
 /* On a phone the strip is 10% of the width, and a 390px screen has no width to
    give to an overview. The feed's own headers are the map there. */
-@media (max-width: 40rem) {
+@media (max-width: 599.98px) {
   .timeline-scrubber {
     display: none;
   }
@@ -1585,7 +1585,7 @@
   margin-left: auto;
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
 
   /* Wrapped onto several lines the dividers stop meaning anything, they would
      separate whatever happened to land beside them rather than the groups. */

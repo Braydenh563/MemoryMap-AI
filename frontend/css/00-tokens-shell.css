@@ -1347,7 +1347,7 @@ header#top-bar h1 {
   }
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   header#top-bar h1 {
     display: none;
   }
@@ -2593,7 +2593,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
 
   /* Stacked on a phone: three columns in 390px would leave the detail four
      characters wide, which is the clipping this rule set out to fix. */
@@ -3692,7 +3692,7 @@ header#top-bar.tabs-wrapped #tab-bar {
   font-size: var(--text-sm);
 }
 
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   .library-toolbar {
     gap: var(--space-3);
   }

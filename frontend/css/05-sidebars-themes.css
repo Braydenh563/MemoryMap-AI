@@ -130,7 +130,7 @@
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 819.98px) {
   .doc-layout {
     grid-template-columns: 1fr;
   }
@@ -189,8 +189,8 @@
 }
 
 /* `#skills-sidebar` is one of the resizable/sheet sidebars now (INBOX 430),
-   driven by app.js's STACKED_LAYOUT at 819.98px, not by the block above's
-   900px (that number is `.doc-layout`'s own, untouched here): stacked, a
+   driven by app.js's STACKED_LAYOUT at 819.98px, the same width as the block
+   above (which was 900px until Phase 9's bands took it onto 820): stacked, a
    sidebar still `position: sticky` with `max-height: var(--page-sticky-h)`
    pins itself to viewport height in the middle of the page instead of just
    being the next block, undone the same shape #doc-sidebar's own reset
@@ -1877,7 +1877,7 @@ body.resizing-sidebar {
 }
 
 /* No dragging on a stacked single-column layout, there's no column to size. */
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   .sidebar-resize {
     display: none;
   }
@@ -4151,7 +4151,7 @@ button.is-on {
    content. A tab strip you can swipe is the right answer, wrapping it costs
    two rows of height on the smallest screens, where height is the scarce one.
    ============================================================================= */
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   header#top-bar {
     --header-pad-y: var(--space-2);
     --header-pad-x: var(--space-5);
@@ -4195,7 +4195,7 @@ button.is-on {
   /* Give content the screen back: 2rem of side padding is a tenth of a phone.
      One declaration, on the shell, this used to be four rules naming four
      containers (.layout, .doc-layout, #dash-grid, .dash-hero) at 0.8rem, in a
-     block that sits *after* the 720px `:root` tightening to 1rem. Same
+     block that sits *after* the phone's `:root` tightening to 1rem. Same
      breakpoint, later source, so those four got 0.8rem and every other tab got
      1rem: the desktop's per-page gutter drift, faithfully reproduced on the
      screen with the least room to absorb it. */
@@ -4548,7 +4548,7 @@ textarea.autogrow {
 /* On a phone the header wraps to two or three rows and the sidebars stack
    above the content, where sticking them would pin a full-height panel over
    the thing you're reading. */
-@media (max-width: 719.98px) {
+@media (max-width: 599.98px) {
   :root {
     --header-h: 7.5rem;
   }
@@ -6366,7 +6366,7 @@ button.ghost.doc-template-choice[aria-checked="true"] {
    The mark leaves, and it is the only thing in the header that can: it
    carries `alt=""` and `aria-hidden="true"`, so it is decoration by its own
    declaration, while every other item is a control or the workspace you are
-   in. The wordmark beside it has been hidden below 720 for the same reason
+   in. The wordmark beside it has been hidden below 1500 for the same reason
    and much longer.
 
    Measured after: 321 in 360, and 314.6 in 320 with the narrower padding

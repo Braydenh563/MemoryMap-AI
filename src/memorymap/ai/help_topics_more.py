@@ -332,7 +332,7 @@ MORE_TOPICS: list[dict] = [
             "jump to a note",
         ),
         "body": (
-            "Find anything (Ctrl+P, or Find in the status bar) searches notes, "
+            "Find anything (Ctrl+P, or the magnifying glass in the status bar) searches notes, "
             "files, documents and actions in one box as you type: Enter opens "
             "the top result, the arrows move, Esc closes. It lists the command "
             "palette's actions too, so \"dark\" finds Toggle light/dark."
@@ -792,11 +792,14 @@ MORE_TOPICS.extend(
                 "(\"note 2\" before \"note 10\"), Most used or Forgotten first; "
                 "the choice is remembered. A note's menu has Copy wiki link to "
                 "paste a [[link]] to it into another note, and Copy app link for "
-                "an address that opens it in the app. Editing a note has a title "
-                "over the text in one box; tags are chips (Enter or a comma adds "
-                "one, pressing one removes it), the category is its chip with a "
-                "menu, and the foot has Attach a link at the left and Cancel and "
-                "Save at the right. On a focused note, F2 edits it, Delete deletes it, and "
+                "an address that opens it in the app. Editing a note has the title, "
+                "a line of properties and the text in one box: the category is its "
+                "chip with a menu, tags are chips after it (Add tag: Enter or a "
+                "comma adds one, pressing one removes it), and the formatting "
+                "icons sit above the text, the rest behind More. Related notes "
+                "fold into one \"suggested links\" line until you open it. The foot "
+                "has Attach a link (pick a saved bookmark) and the word count at "
+                "the left and Cancel and Save at the right. On a focused note, F2 edits it, Delete deletes it, and "
                 "Home and End jump to the ends of the list. In a window 1280 wide "
                 "or more, the note you are reading (the one you clicked, else the "
                 "one in view as you scroll) has a Connections column beside the "
@@ -1058,7 +1061,7 @@ TOPIC_META: dict[str, dict] = {
     "privacy": {"title": "Privacy", "path": "Settings, Privacy"},
     "undo-bin": {"title": "Undo and the bin", "path": "Ctrl+Z, and the Library's Include the bin"},
     "autonomous": {"title": "Autonomous background AI", "path": "Settings, Background tasks"},
-    "guide": {"title": "Atlas, the guide", "path": "Status bar, Guide (Ctrl+Shift+H)"},
+    "guide": {"title": "Atlas, the guide", "path": "Status bar, the compass (Ctrl+Shift+H)"},
     "command-palette": {"title": "The command palette", "path": "Ctrl+K"},
     "security": {"title": "Account and security", "path": "Settings, Account & security"},
     "troubleshooting": {"title": "When something does not work", "path": "Settings, Models, then Settings, Logs", "steps": (
@@ -1084,7 +1087,7 @@ TOPIC_META: dict[str, dict] = {
     "import-export": {"title": "Import and export", "path": "Settings, Import & export"},
     "logs": {"title": "Logs and reporting a problem", "path": "Settings, Logs", "steps": (
         "Open Settings, Logs.", "Press Email it under the support bundle.", "Attach the bundle the app saved and send.")},
-    "find-anything": {"title": "Find anything", "path": "Ctrl+P, or Find in the status bar"},
+    "find-anything": {"title": "Find anything", "path": "Ctrl+P, or the magnifying glass in the status bar"},
     "background-art": {"title": "The animated background", "path": "Settings, Appearance, Animated background"},
     "themes": {"title": "Themes, colour and type", "path": "Settings, Appearance"},
     "tabs-overview": {"title": "The app at a glance", "path": "The tabs along the top"},

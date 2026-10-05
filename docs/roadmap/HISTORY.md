@@ -42122,6 +42122,30 @@ record.)
      a snapped baseline, not paint, and reads 0.95px in Segoe. Not verified:
      Windows' own rasteriser at 125% and 150% scale.
 
+616. **The owner, 2026-10-05, verbatim.** "its better but still needs a more
+     modern and professional ui/ux redesign (the note edit form)"
+     (screenshot of the 606 form: boxed title band, a heavy mixed toolbar,
+     big chips with a doubled #, a floating category select, large Related
+     rows, big Cancel and Save). Then: "the note edit form attach a link
+     button doesnt do anything" and "there is no padding around the tag
+     entries, and the formatting toolbar looks really awkward when collapsed
+     and the core concepts dropdown is completely out of place and badly
+     designed". Placed: the design-rows agent, first.
+
+618. **The owner, 2026-10-05, verbatim.** "do the top bar and bottom bar
+     need a more modern and professional ui/ux redesign or adjustments at
+     all or are they fine??" Recommendation taken: top bar polish (spaces
+     picker as a ghost control matching the tab pills, active tab without
+     extra bold, a smaller logo tile, power secondary); bottom bar declutter
+     (counts quiet, Agent/Guide/Find icon-only with tooltips, Commands the one
+     labelled door, the status mark explained, the clock optional, history
+     arrows grouped with undo/redo). Placed: the design-rows agent, after 616.
+
+620. **The owner, 2026-10-05, verbatim.** "can you also improve and
+     modernise the quick sketch a little more as well?? it is already mostly
+     fine, maybe a bit more of a gap below the top row title and close
+     button". Placed: the design-rows agent, after 618.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

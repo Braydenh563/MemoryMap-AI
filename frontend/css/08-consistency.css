@@ -10298,10 +10298,13 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
 }
 
 /* Improve writing's two actions at one height (the owner at release: the
-   filled and the ghost button drew 40 and 42px side by side). */
+   filled and the ghost button drew 40 and 42px side by side). No
+   `min-height` of its own: the small button's floor (`max(--target-min,
+   --button-min-h)`, 01-forms-settings.css) beats `height`, so under touch
+   both are 44 like every other dialog foot; an id-weight min-height here
+   held them at 32 (design-rows-1005, `improvefoot.js`). */
 :is(#improve-apply, #improve-retry) {
   height: var(--control-h);
-  min-height: var(--control-h);
   padding-block: 0;
 }
 

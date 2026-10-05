@@ -1298,7 +1298,9 @@ HELP_TOPICS.extend(
                 "the arrows keep the column, Enter goes to the cell below, and "
                 "rows pasted from a spreadsheet fill the cells. Pasting from a "
                 "web page, Word or Google Docs keeps headings, bold, italics, "
-                "lists and links; Ctrl+Shift+V pastes plain text."
+                "lists and links; Ctrl+Shift+V pastes plain text. With nothing "
+                "selected, Ctrl+C and Ctrl+X copy and cut the whole line, and "
+                "pasting that line puts it above the one you are on."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

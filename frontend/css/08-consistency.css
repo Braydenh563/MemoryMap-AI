@@ -852,6 +852,13 @@ details[open] > .about-whats-new::before,
    its accessible name and its tooltip while the glyph carries the row. */
 [data-dock-name="notes"] .dock-find {
   flex: 1 1 8rem;
+  /* Never narrower than its search floor and the Filter menu beside it: the
+     8rem basis let the zone shrink to 133px round 188px of controls, and
+     between 1100 and 1170 wide the Filter menu lay 40px under the sort
+     select ("FiNewest first"; qa1005-polish.js `dockoverlap`, 1 to 0). The
+     row now wraps there instead, as the note above says a basis this small
+     risks. */
+  min-width: min-content;
 }
 
 [data-dock-name="notes"] .dock-arrange .select-shell {

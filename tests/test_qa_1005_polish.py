@@ -64,3 +64,13 @@ def test_the_library_draws_its_view_switch_and_board_placeholders_before_data():
     load = src[src.index("async function loadLibrary()") :]
     assert load.index("renderLibraryView();") < load.index('apiJson("/library")')
     assert 'if (typeof wbLeaveFullscreen !== "function") showSkeletons($("library-boards-grid"), 4);' in src
+
+
+def test_the_notes_find_zone_is_never_narrower_than_its_controls():
+    """Its 8rem basis let the zone shrink to 133px round 188px of controls:
+    between 1100 and 1170 wide the Filter menu lay 40px under the sort select
+    (qa1005-polish.js `dockoverlap`: 1 to 0; one row still at 1184 and 1200,
+    the packaged window)."""
+    css = (CSS / "08-consistency.css").read_text(encoding="utf-8")
+    rule = _rule(css, '[data-dock-name="notes"] .dock-find')
+    assert "flex: 1 1 8rem" in rule and "min-width: min-content" in rule

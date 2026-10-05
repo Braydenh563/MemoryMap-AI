@@ -4813,7 +4813,13 @@ def _place_map_nodes(
 
     def place(nodes: list[dict], parent: WhiteboardObject | None, depth: int) -> None:
         for node in nodes:
-            reference = reference_for(node["text"]) if reference_for else None
+            #: A node built from a note already says which (the map made
+            #: from the graph's notes, `routes_map_from_notes`), and that is
+            #: not a guess from its text.
+            if node.get("note"):
+                reference = ("note", node["note"])
+            else:
+                reference = reference_for(node["text"]) if reference_for else None
             kind, ref_id = reference if reference else (MAP_TOPIC_KIND, None)
             data: dict = {"content": node["text"]}
             if ref_id is not None:

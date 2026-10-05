@@ -827,8 +827,13 @@ function skillRow(skill) {
 }
 
 async function renderSkillSettings() {
-  await loadSkills();
   const list = $("skill-list");
+  showSkeletons(list, 3, "li");
+  try {
+    await loadSkills();
+  } finally {
+    clearSkeletons(list);
+  }
   list.replaceChildren();
   for (const skill of allSkills()) list.appendChild(skillRow(skill));
   renderSkillFolderLine();
@@ -965,10 +970,12 @@ async function saveToolSwitch(check, name) {
 
 async function renderToolSettings() {
   const list = $("tool-list");
+  showSkeletons(list, 4, "li");
   const [catalog, prefs] = await Promise.all([
     apiJson("/chat/tools").catch(() => []),
     apiJson("/preferences").catch(() => ({ disabled_tools: [] })),
   ]);
+  clearSkeletons(list);
   prefsCache = prefs;
   renderToolFocus(prefs.tool_focus || "auto");
   renderSmallModelMode(prefs.small_model_mode || "auto");

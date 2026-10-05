@@ -174,7 +174,7 @@ filing by meaning use a built-in model that needs the `sentence-transformers`
 package. If it is not installed yet, the app installs it by itself the first
 time it needs it: a one-time download of several hundred MB (more on
 Windows, where it brings torch), which needs the internet and can take
-several minutes. Settings, Models, Search engine says when it is running.
+several minutes. Settings, Search and index, Search engine says when it is running.
 Offline, or rather not? Install [Ollama](https://ollama.com), run
 `ollama pull nomic-embed-text`, and pick it there instead.
 
@@ -272,7 +272,7 @@ Settings, Profile, Your look lets you shuffle yours or choose every part:
 hair, skin, clothes, headwear, eyewear, what you hold.
 
 **Sign in, or don't.** The notebook asks for its password when it opens, by
-default. On a computer only you use, Settings, Account and security can turn
+default. On a computer only you use, Settings, Account & security can turn
 that off: the app opens straight in on this computer, another device on your
 network still needs the password, and private notes stay encrypted until you
 unlock them.

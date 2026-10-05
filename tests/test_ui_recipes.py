@@ -4325,27 +4325,66 @@ def test_every_settings_pane_opens_on_its_dock() -> None:
 
 
 def test_the_note_edit_form_is_one_composition() -> None:
-    """INBOX 606, the owner: "something about the design, ui/ux of the note
-    edit form still feels off...". Measured with `noteeditform.js` at 1440,
-    before: title, strip and body as three frames; a 36px comma field and a
-    select; Save then Cancel mid-row; two boxed "Link" buttons; a lone boxed
-    "Attach a link" (28px, 1px edge) under everything. After: one
-    `.note-composer` surface; tags as chips in the search field's well; the
-    category as its chip; a foot of Attach a link (an icon, no edge) at the
-    left and Cancel then the one filled Save at the right; a quiet + per
-    related note (0 boxed buttons)."""
+    """INBOX 606, then 616, the owner: "its better but still needs a more
+    modern and professional ui/ux redesign (the note edit form)", "the attach
+    a link button doesnt do anything", "there is no padding around the tag
+    entries", the folded strip "looks really awkward" and the category
+    dropdown is "completely out of place". Measured with `noteedit616.js` at
+    1440 and 390, light and dark. Now: one `.note-composer` surface holding
+    the title, the properties line (the category chip, then the tag chips and
+    the add-tag input, no well and no '#' icon), the strip and the text; under
+    it the files and a slim foot: Attach a link and the word count at the
+    left, Cancel then the one filled Save at the right. Related is one
+    disclosure line, closed."""
     form = _function_body(app_js_text(), "renderEditForm")
     assert 'surface.className = "note-composer note-edit-surface"' in form
-    assert 'tagField.className = "search-field tag-field note-edit-tags"' in form
+    assert 'tagField.className = "tag-field note-edit-tags"' in form
+    assert "ph-hash" not in form and "search-field" not in form
     assert 'chip("", "category note-edit-category"' in form
-    assert "meta.append(tagField, categoryChip)" in form
+    assert "meta.append(categoryChip, tagField)" in form
+    assert "surface.append(titleInput, meta, toolbarEl, textarea)" in form
+    assert "li.append(surface, chipsHost, foot)" in form
+    assert "foot.append(count, row)" in form
     assert form.index('smallButton("Cancel"') < form.index("    saveButton\n  );")
-    assert "li.append(surface, chipsHost, meta, foot)" in form
     panels = (ROOT / "frontend" / "js" / "note-edit-panels.js").read_text(encoding="utf-8")
     assert panels.count('li.insertBefore(panel, li.querySelector(":scope > .note-edit-foot"))') == 2
     assert "foot.prepend(attachButton)" in panels
     rows = (ROOT / "frontend" / "js" / "note-panels.js").read_text(encoding="utf-8")
     assert 'smallButton("ph:plus", `Link this note to' in rows
+
+
+def test_the_note_edit_forms_attach_a_link_opens_the_picker() -> None:
+    """INBOX 616, the owner: "the note edit form attach a link button doesnt
+    do anything". It appended a bare select to the References panel, which is
+    hidden while the note has none, so the first press drew nothing visible;
+    a pick re-ran the panel and added a second Attach button. Now the press
+    opens the app's one-thing picker on its Bookmarks source and a pick
+    repaints the one panel (`noteeditflow.js`: refs 1, shown 1, one button)."""
+    panels = (ROOT / "frontend" / "js" / "note-edit-panels.js").read_text(encoding="utf-8")
+    picker = _function_body(panels + "\nfunction ", "openBookmarkAttachPicker")
+    assert 'pickLibraryItemDialog("Attach a link", { sources: ["link"] })' in picker
+    assert 'createElement("select")' not in picker
+    assert "openBookmarkAttachPicker(entry, refresh)" in panels
+    related = panels[panels.index("function renderRelatedWhileEditing("):panels.index("function renderNoteBookmarksWhileEditing(")]
+    assert "note-edit-related-toggle" in related and "list.hidden = true" in related
+
+
+def test_a_notes_strip_is_one_icon_row_that_never_folds() -> None:
+    """INBOX 616: the folded strip was an empty band with three icons and a
+    caret, and B, I, S were typed letters beside Phosphor icons. The note
+    strip (Capture's and the edit form's clone) is icons only, at every width,
+    and `applyDocToolbarCollapsed` leaves it out of the fold."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    strip = html[html.index('id="note-toolbar"'):]
+    strip = strip[: strip.index("</div>")]
+    assert "<strong>B</strong>" not in strip and "<em>I</em>" not in strip
+    for icon in ("ph-text-b", "ph-text-italic", "ph-text-strikethrough", "ph-code-simple"):
+        assert icon in strip
+    docs = _function_body((ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8"), "applyDocToolbarCollapsed")
+    assert 'collapsed && !bar.classList.contains("note-toolbar")' in docs
+    css = (ROOT / "frontend" / "css" / "05-sidebars-themes.css").read_text(encoding="utf-8")
+    rule = css.index(".note-toolbar .toolbar-word {")
+    assert "@media" not in css[css.rfind("}", 0, rule) : rule]
 
 
 def test_a_dialog_foot_is_one_height_with_its_filled_action_last() -> None:

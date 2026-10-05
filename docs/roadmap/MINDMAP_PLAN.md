@@ -1699,3 +1699,4 @@ Built; moved whole to HISTORY.md ("Moved from the plans, 2026-10-03", "From MIND
      (whiteboard and mind map, measured frame times); (5) companion stacking
      by perch; (6) graph default forces; (7) the two small visual ones
      (button gap, Plan/Web pill contrast) with contrast.js.
+

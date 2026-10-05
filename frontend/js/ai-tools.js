@@ -589,6 +589,7 @@ function renderFeatureModels(status) {
   const list = $("feature-models-list");
   if (!list) return;
   list.replaceChildren();
+  list.removeAttribute("aria-busy");
   for (const row of featureModelRows) {
     const line = document.createElement("div");
     line.className = "feature-model-row";

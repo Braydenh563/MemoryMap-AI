@@ -3,6 +3,16 @@
  "version": 1,
  "sets": [
   {
+   "key": "templates",
+   "name": "Templates",
+   "count": 5
+  },
+  {
+   "key": "maps",
+   "name": "Mind map templates",
+   "count": 7
+  },
+  {
    "key": "general",
    "name": "General",
    "count": 19

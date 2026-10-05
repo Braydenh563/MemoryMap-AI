@@ -973,3 +973,18 @@ catalogue, the library spec and the phased briefs these become.
   board (cards, stickies, a frame, shapes) and a seeded map, run at 1440 and
   390 in both themes, fix what it finds one surface per commit. Expect
   pre-existing findings; a session of its own. Opus, M.
+
+## Placed from INBOX, 2026-10-05 (boardmap-1005)
+
+Held by the boardmap-1005 agent; the built halves are in HISTORY.md
+("Moved from the plans, 2026-10-05 (boardmap-1005)"). Open:
+
+- INBOX 596, the rest: "some skeleton loaders are missing like on the
+  dashboard" (not placed against a surface yet: the board's Library and
+  Notes tabs draw nothing while they load), and the side-docked tool column's
+  own layout (rows of one to four controls, centred; 173px wide on a board
+  and 225px on a map, where the layout select sets the width). At phone
+  width the open sidebar is a sheet over the board and covers the side
+  dock's collapsed picker (7,554px², the same on the base).
+- INBOX 608, the rest: edge auto-scroll for a drag selection in the lists
+  (Notes, Library) where a drag selects. Boards and maps are built.

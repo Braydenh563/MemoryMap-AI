@@ -6260,6 +6260,43 @@ select {
   font-weight: 650;
 }
 
+/* **On a phone the pane's New sits on the title's row** (design-rows-1005):
+   the title, then the actions pushed to the end, then the jump links on a
+   row of their own under both. New is its plus there, the word visually
+   hidden (it still names the button) and the title saying it, so a pane
+   with links is two rows, not three (Personas 154 to 102px at 390). */
+@media (max-width: 599.98px) {
+  #settings-modal .settings-section > .dock > .dock-actions {
+    order: 2;
+    margin-inline-start: auto;
+  }
+
+  #settings-modal .settings-section > .dock > .settings-index {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .settings-pane-new {
+    width: var(--target-min);
+    padding-inline: 0;
+    justify-content: center;
+  }
+
+  .settings-pane-new > .ph-lead {
+    margin-inline-end: 0;
+  }
+
+  .settings-pane-new > .pane-new-word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 /* The strip is a row below 820 (the nav is one), so the results would sit in
    it as one more cell. They get the width of the pane instead. */
 @media (max-width: 819.98px) {

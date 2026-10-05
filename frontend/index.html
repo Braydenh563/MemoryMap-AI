@@ -1295,12 +1295,15 @@
                  than the document one on purpose: a note is a short thing, so
                  headings, tables and code blocks are left to the document
                  editor rather than crowding a three-row box. -->
-            <div class="doc-toolbar note-toolbar" id="note-toolbar" role="toolbar"
+            <div class="doc-toolbar note-toolbar is-collapsed" id="note-toolbar" role="toolbar"
               aria-label="Formatting" data-md-target="entry-content">
-              <button type="button" data-md="bold" title="Bold (Ctrl+B)"><strong>B</strong></button>
-              <button type="button" data-md="italic" title="Italic (Ctrl+I)"><em>I</em></button>
-              <button type="button" data-md="strike" title="Strikethrough"><s>S</s></button>
-              <button type="button" data-md="code" title="Inline code">&lt;/&gt;</button>
+              <!-- Icons, not typed letters (INBOX 616: "one quiet icon-only
+                   toolbar"): B, I, S and </> were glyphs in the page font
+                   beside Phosphor icons, four weights in one strip. -->
+              <button type="button" class="icon-only" data-md="bold" title="Bold (Ctrl+B)" aria-label="Bold"><i class="ph ph-text-b" aria-hidden="true"></i></button>
+              <button type="button" class="icon-only" data-md="italic" title="Italic (Ctrl+I)" aria-label="Italic"><i class="ph ph-text-italic" aria-hidden="true"></i></button>
+              <button type="button" class="icon-only" data-md="strike" title="Strikethrough" aria-label="Strikethrough"><i class="ph ph-text-strikethrough" aria-hidden="true"></i></button>
+              <button type="button" class="icon-only" data-md="code" title="Inline code" aria-label="Inline code"><i class="ph ph-code-simple" aria-hidden="true"></i></button>
               <span class="doc-toolbar-sep" aria-hidden="true"></span>
               <button type="button" class="icon-only" data-md="highlight" title="Highlight (yellow)"
                 aria-label="Highlight"><i class="ph ph-highlighter" aria-hidden="true"></i></button>
@@ -3431,7 +3434,7 @@ Link to another note with [[its first few words]]."></textarea>
           <span class="dock-chip" id="graph-selection-count" role="status">0 selected</span>
           <button id="graph-selection-tag" class="ghost small" type="button" title="Add one tag to every selected note"><i class="ph ph-tag ph-lead" aria-hidden="true"></i> Tag</button>
           <button id="graph-selection-link" class="ghost small" type="button" title="Link the selected notes to each other"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Link together</button>
-          <button id="graph-selection-map" class="ghost small" type="button" title="Make a mind map with these notes as its branches"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Mind map</button>
+          <button id="graph-selection-map" class="ghost small" type="button" title="Make a mind map of these notes, shaped by their links"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Mind map</button>
           <button id="graph-selection-clear" class="ghost small icon-only" type="button" title="Clear the selection" aria-label="Clear the selection"><i class="ph ph-x" aria-hidden="true"></i></button>
         </div>
         <div id="graph-help-panel" class="help-body hidden" role="dialog" aria-label="How to use this map">
@@ -5588,7 +5591,7 @@ Link to another note with [[its first few words]]."></textarea>
              named in it: a mind map reachable only by opening the board dialog
              and changing a control inside it is one nobody finds. -->
         <div class="dock" data-dock-name="library-boards" role="toolbar"
-          aria-label="Boards and maps controls">
+          aria-label="Boards &amp; maps controls">
           <div class="dock-identity">
             <!-- "Boards & maps", matching the sub-tab that opens it. It read
                  "Whiteboards" while the tab above it read "Boards & maps", which
@@ -6694,6 +6697,17 @@ Link to another note with [[its first few words]]."></textarea>
         <button type="button" id="wb-selbar-back" class="ghost small icon-only" title="Send backward ([)" aria-label="Send backward"><i class="ph ph-arrow-down" aria-hidden="true"></i></button>
         <button type="button" id="wb-selbar-forward" class="ghost small icon-only" title="Bring forward (])" aria-label="Bring forward"><i class="ph ph-arrow-up" aria-hidden="true"></i></button>
       </div>
+      <!-- **Several topics on a map** (INBOX 617): the map's verbs for a
+           selection of topics, in the board's arrange and order groups'
+           place (`WB_CONTEXT_CONTROLS.mapmulti`). Each press reads the whole
+           selection; the right-click menu has the same five in words. -->
+      <div class="wb-context-group hidden" data-wb-ctx="mapmulti">
+        <input type="color" id="wb-mapmulti-color" class="wb-color-picker" aria-label="Colour of these topics" title="Colour of these topics, carried down each branch">
+        <button type="button" id="wb-mapmulti-bold" class="ghost small icon-only" title="Bold, every topic picked" aria-label="Bold" aria-pressed="false"><i class="ph ph-text-b" aria-hidden="true"></i></button>
+        <button type="button" id="wb-mapmulti-task" class="ghost small icon-only" title="Make these tasks, a box to tick on each" aria-label="Tasks" aria-pressed="false"><i class="ph ph-check-square" aria-hidden="true"></i></button>
+        <button type="button" id="wb-mapmulti-fold" class="ghost small icon-only" title="Fold or open these branches" aria-label="Fold these branches" aria-pressed="false"><i class="ph ph-caret-down" aria-hidden="true"></i></button>
+        <button type="button" id="wb-mapmulti-summary" class="ghost small icon-only" title="Summarise these topics: a brace beside them with your words" aria-label="Summarise these topics"><i class="ph ph-brackets-curly" aria-hidden="true"></i></button>
+      </div>
       <div class="wb-context-group" data-wb-ctx="common">
         <button type="button" id="wb-selbar-duplicate" class="ghost small icon-only" title="Duplicate (Ctrl+D)" aria-label="Duplicate"><i class="ph ph-copy" aria-hidden="true"></i></button>
         <button type="button" id="wb-selbar-delete" class="ghost small icon-only danger" title="Delete (Del)" aria-label="Delete"><i class="ph ph-trash" aria-hidden="true"></i></button>
@@ -6783,10 +6797,25 @@ Link to another note with [[its first few words]]."></textarea>
          `escapeAndCapMenu` keeps it inside the window; every id below is the
          id the control already had, so every listener in whiteboard.js is
          untouched. Positioned by `wbUpdateSelectionBar`, which owns both. -->
-    <div id="wb-map-strip" class="wb-map-strip card glass hidden" role="toolbar" aria-label="Topic">
+    <div id="wb-map-strip" class="wb-map-strip card glass hidden" role="toolbar" aria-label="Topic" data-no-select-enhance>
       <input type="color" id="wb-map-strip-color" class="wb-color-picker" aria-label="Topic colour" title="Topic colour">
+      <!-- **The text size, on the bar, one press** (INBOX 610: "resizing the
+           text" was "unintuitive"). It was the third step behind the Text
+           door, a list inside a menu. The select stays the source of truth
+           and every listener on it is untouched; `wbMapChoiceRow` draws its
+           four options as a `.seg` beside it and hides it. M is no stored
+           size at all: see `wbSyncMapStrip`, which says why the default has
+           to stay the default. -->
+      <span class="wb-map-bar-size">
+        <select id="wb-map-text-size" class="ghost small" aria-label="Text size" title="How big this topic reads">
+          <option value="12">S</option>
+          <option value="">M</option>
+          <option value="19">L</option>
+          <option value="25">XL</option>
+        </select>
+      </span>
       <div class="wb-board-menu-wrap">
-        <button type="button" class="ghost small wb-menu-toggle" data-wb-menu-toggle title="How this topic reads: weight, size, alignment and its icon" aria-label="Text: how this topic reads" aria-haspopup="true" aria-expanded="false" aria-controls="wb-map-text-menu"><span class="wb-menu-label">Text</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
+        <button type="button" class="ghost small wb-menu-toggle" data-wb-menu-toggle title="How this topic reads: weight, alignment and its icon" aria-label="Text: how this topic reads" aria-haspopup="true" aria-expanded="false" aria-controls="wb-map-text-menu"><span class="wb-menu-label">Text</span><i class="ph ph-caret-down wb-menu-caret" aria-hidden="true"></i></button>
         <div id="wb-map-text-menu" class="wb-board-menu wb-map-strip-menu hidden" role="menu" aria-label="Text">
           <div class="wb-menu-section">
             <div class="wb-menu-row">
@@ -6795,17 +6824,6 @@ Link to another note with [[its first few words]]."></textarea>
                 <button type="button" id="wb-map-bold" class="ghost small icon-only" title="Bold" aria-label="Bold" aria-pressed="false"><i class="ph ph-text-b" aria-hidden="true"></i></button>
                 <button type="button" id="wb-map-italic" class="ghost small icon-only" title="Italic" aria-label="Italic" aria-pressed="false"><i class="ph ph-text-italic" aria-hidden="true"></i></button>
               </span>
-            </div>
-            <!-- **M is no stored size at all**: see `wbSyncMapStrip`, which
-                 says why the default has to stay the default. -->
-            <div class="wb-menu-row">
-              <span>Size</span>
-              <select id="wb-map-text-size" class="ghost small" aria-label="Text size" title="How big this topic reads">
-                <option value="12">S</option>
-                <option value="">M</option>
-                <option value="19">L</option>
-                <option value="25">XL</option>
-              </select>
             </div>
             <div class="wb-menu-row">
               <span>Alignment</span>
@@ -6867,9 +6885,9 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="wb-menu-row">
               <span>Edge bar</span>
               <select id="wb-map-spine" class="ghost small" aria-label="The bar on this topic's edge" title="The bar that carries the branch colour down this topic's edge">
-                <option value="">Solid bar</option>
-                <option value="dashed">Dashed bar</option>
-                <option value="none">No bar</option>
+                <option value="" data-short="Solid">Solid bar</option>
+                <option value="dashed" data-short="Dashed">Dashed bar</option>
+                <option value="none" data-short="None">No bar</option>
               </select>
             </div>
             <!-- **The fill**: a tint of the topic's colour across its card,
@@ -6880,8 +6898,8 @@ Link to another note with [[its first few words]]."></textarea>
               <span>Fill</span>
               <select id="wb-map-fill" class="ghost small" aria-label="Fill this topic with its colour" title="Tint this topic with its colour, on its own or with everything under it">
                 <option value="">No fill</option>
-                <option value="self">Fill this topic</option>
-                <option value="branch">Fill with its branch</option>
+                <option value="self" data-short="This topic">Fill this topic</option>
+                <option value="branch" data-short="Its branch">Fill with its branch</option>
               </select>
             </div>
           </div>
@@ -6904,17 +6922,17 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="wb-menu-row">
               <span>Thickness</span>
               <select id="wb-map-edge-width" class="ghost small" aria-label="How thick the line into this topic is" title="How thick the line into this topic is">
-                <option value="thin">Thin line</option>
-                <option value="">Line</option>
-                <option value="thick">Thick line</option>
+                <option value="thin" data-short="Thin">Thin line</option>
+                <option value="" data-short="Normal">Line</option>
+                <option value="thick" data-short="Thick">Thick line</option>
               </select>
             </div>
             <div class="wb-menu-row">
               <span>Shape</span>
               <select id="wb-map-edge-shape" class="ghost small" aria-label="The shape of the line into this topic" title="The shape of the line into this topic">
-                <option value="">Curved line</option>
-                <option value="elbow">Elbow line</option>
-                <option value="straight">Straight line</option>
+                <option value="" data-short="Curved">Curved line</option>
+                <option value="elbow" data-short="Elbow">Elbow line</option>
+                <option value="straight" data-short="Straight">Straight line</option>
               </select>
             </div>
             <div class="wb-menu-row">
@@ -7039,6 +7057,7 @@ Link to another note with [[its first few words]]."></textarea>
         <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="notes" id="wb-side-tab-notes" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="-1" title="Notes: drag one onto the board as a card" aria-label="Notes"><i class="ph ph-note-pencil" aria-hidden="true"></i></button>
         <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="layers" id="wb-side-tab-layers" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="-1" title="Layers: everything on the board, in order" aria-label="Layers"><i class="ph ph-stack" aria-hidden="true"></i></button>
         <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="pages" id="wb-side-tab-pages" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="-1" title="Pages: the frames, in presentation order" aria-label="Pages"><i class="ph ph-presentation" aria-hidden="true"></i></button>
+        <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="map" id="wb-side-tab-map" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="-1" title="This map: what it is made of, its look and its layout" aria-label="This map" hidden><i class="ph ph-tree-structure" aria-hidden="true"></i></button>
         <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="outline" id="wb-side-tab-outline" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="-1" title="Outline: the map as an indented list" aria-label="Outline" hidden><i class="ph ph-list-bullets" aria-hidden="true"></i></button>
       </div>
       <div id="wb-sidebar-panel" class="wb-sidebar-panel hidden" role="tabpanel" aria-labelledby="wb-sidebar-title">
@@ -7068,6 +7087,17 @@ Link to another note with [[its first few words]]."></textarea>
         <section class="wb-side-section" data-side-panel="pages" aria-label="Pages" hidden>
           <ol id="wb-pages-list" class="wb-pages-list" role="tree" aria-label="Pages, in presentation order" aria-describedby="wb-pages-keys"></ol>
           <p id="wb-pages-keys" class="muted wb-lib-keys">Each frame is a page. Drag a row, or Alt+Up and Alt+Down, to change the presentation's order; P presents from it.</p>
+        </section>
+        <!-- **This map** (INBOX 596): a map's own tab, in the place of the
+             board's Notes, Layers and Pages, which do not apply to a tree.
+             The facts are the stats dialog's list (`wbMapStatsList`); the
+             three rows are the Board menu's map-wide actions. -->
+        <section class="wb-side-section" data-side-panel="map" aria-label="This map" hidden>
+          <div id="wb-side-map-facts"></div>
+          <button type="button" class="wb-menu-item" id="wb-side-map-look"><i class="ph ph-palette ph-lead" aria-hidden="true"></i><span>How this map looks…</span></button>
+          <button type="button" class="wb-menu-item" id="wb-side-map-expand"><i class="ph ph-arrows-out-line-vertical ph-lead" aria-hidden="true"></i><span>Open every folded branch</span></button>
+          <button type="button" class="wb-menu-item" id="wb-side-map-tidy"><i class="ph ph-broom ph-lead" aria-hidden="true"></i><span>Lay the map out again</span></button>
+          <p class="muted wb-lib-keys">Templates to drag in are in the Library tab.</p>
         </section>
         <section class="wb-side-section" data-side-panel="outline" aria-label="Outline" hidden>
           <!-- The map as an outline (MINDMAP_PLAN decision 33): one field per
@@ -8369,6 +8399,9 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- Models -->
           <section class="settings-section" id="settings-models">
             <p id="ollama-status" class="status is-checking">Checking the models…</p>
+            <!-- The shape of what is coming while the first status is on its
+                 way (`renderSettings`: showSkeletons / clearSkeletons). -->
+            <div id="models-skeleton" class="models-skeleton"></div>
             <!-- One line, and the rest of what used to be here is in the
                  Model backend "?" below. Asked for directly: "areas with
                  excessive paragraph text… replace them with the circle
@@ -8585,8 +8618,8 @@ Link to another note with [[its first few words]]."></textarea>
                   Left on “Automatic”, this prefers a document reader
                   (GLM-OCR, DeepSeek-OCR, PaddleOCR-VL) when you have one
                   installed, then falls back to your vision model. Scanned
-                  PDFs also need the “Read scanned PDFs” extra, below in
-                  Packages.
+                  PDFs also need the “Read scanned PDFs” extra, in
+                  Settings, Packages.
                 </p>
               </div>
 
@@ -8960,7 +8993,28 @@ Link to another note with [[its first few words]]."></textarea>
 
           <!-- Personas: who the AI is when it answers -->
           <section class="settings-section hidden" id="settings-personas">
+            <div class="dock settings-pane-title" data-dock-name="settings-personas">
+              <div class="dock-identity"><h3>Personas</h3></div>
+              <div class="dock-actions">
+                <button type="button" class="ghost small settings-pane-new" data-opens="persona-name"
+                  title="Write a new persona"><i class="ph ph-plus ph-lead" aria-hidden="true"></i><span class="pane-new-word">New persona</span></button>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="personas-help" aria-controls="personas-help" aria-expanded="false"
+                  title="About personas" aria-label="About personas">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
             <p class="muted">A persona is Atlas's voice; pick the active one in the Chat tab.</p>
+            <div class="help-body hidden" id="personas-help" role="dialog" aria-label="About personas">
+              <p>
+                Each persona is a name and a set of instructions that shape
+                how Atlas talks: its tone, what it leads with, what it
+                avoids. New persona writes one; the Chat tab's persona menu
+                picks which one answers. The answer style below applies
+                whichever persona is active.
+              </p>
+            </div>
             <ul id="persona-list" class="entry-list"></ul>
             <div class="settings-group">
             <h3>Answer style</h3>
@@ -9023,6 +9077,11 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="dock settings-pane-title" data-dock-name="settings-skills">
               <div class="dock-identity"><h3>Skills</h3></div>
               <div class="dock-actions">
+                <!-- The pane's main action in its bar (design-rows-1005): opens
+                     Add your own, ends an edit, and puts the cursor in Name.
+                     A ghost: Add skill in the form is the page's filled one. -->
+                <button type="button" class="ghost small settings-pane-new" data-opens="skill-name" data-cancel="skill-cancel"
+                  title="Write a new skill"><i class="ph ph-plus ph-lead" aria-hidden="true"></i><span class="pane-new-word">New skill</span></button>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="settings-skills-help" aria-controls="settings-skills-help" aria-expanded="false"
                   title="About skills" aria-label="About skills">
@@ -9090,7 +9149,7 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="help-body hidden" id="skill-tools-help" role="dialog" aria-label="About tool choice">
                 <p>
                   Leave everything unticked to let it use whatever is
-                  switched on in Settings → Tools. Ticking a few is both
+                  switched on in Settings, Tools it can use. Ticking a few is both
                   safer and more reliable: they're the only ones offered for
                   the run, which leaves far more room in a small model's
                   context.
@@ -9178,6 +9237,8 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="dock settings-pane-title" data-dock-name="settings-templates">
               <div class="dock-identity"><h3>Templates</h3></div>
               <div class="dock-actions">
+                <button type="button" class="ghost small settings-pane-new" data-opens="template-name" data-cancel="template-cancel"
+                  title="Write a new template"><i class="ph ph-plus ph-lead" aria-hidden="true"></i><span class="pane-new-word">New template</span></button>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="templates-help" aria-controls="templates-help" aria-expanded="false"
                   title="About templates" aria-label="About templates">
@@ -10640,7 +10701,7 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="help-body hidden" id="simple-mode-help" role="dialog" aria-label="About simple mode">
                 <p>
                   Hides the Graph, Timeline and Reminders tabs, the Library's
-                  Boards and maps, What it learned and the advanced response
+                  Boards &amp; maps, What it learned and the advanced response
                   settings, until you want them. Nothing is turned off: every
                   hidden place still opens from the command palette (Ctrl+K),
                   and reminders still ring. Remembered on this device.
@@ -11311,7 +11372,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <p>
                   Turns a PDF, Word file or slide deck into notes, one per
                   chapter or slide when the file has that shape, one note
-                  otherwise. Needs the markitdown extra below.
+                  otherwise. Needs the “Import documents” extra in Settings, Packages.
                 </p>
               </div>
               <p class="status job-line" role="status" data-job-line="import"></p>
@@ -11826,7 +11887,7 @@ Link to another note with [[its first few words]]."></textarea>
                   data-help-for="logs-help" aria-controls="logs-help" aria-expanded="false"
                   title="About the log" aria-label="About the log"><i class="ph ph-question" aria-hidden="true"></i></button>
                 <div class="help-body hidden" id="logs-help" role="dialog" aria-label="About the log">
-                  <p>The app's own log, updating live. Filter the records by text, switch between a list and a terminal view, and use the three dots to narrow by which log and how serious. Support saves a zip of the log, your settings and the app's status, for a bug report.</p>
+                  <p>The app's own log, updating live. Filter the records by text, switch between a list and a terminal view, and use the three dots to narrow by which log and how serious. Support bundle saves a zip of the log, your settings and the app's status, for a bug report.</p>
                 </div>
                 <details class="doc-dock-menu dock-menu dock-more" id="logs-more-menu">
                   <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>

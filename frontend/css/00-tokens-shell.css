@@ -3621,10 +3621,28 @@ header#top-bar.tabs-wrapped #tab-bar {
   pointer-events: none;
 }
 
+/* **The counts are quiet** (INBOX 618): the number in the item's own muted
+   ink and the body weight, not a 600 in full ink. They are glanced at, not
+   read, and two bold numbers were the loudest things in the bar. */
 .status-item b {
-  color: var(--ink);
-  font-weight: 600;
+  color: inherit;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
+}
+
+/* **Agent, Guide and Find are icons at every width** (INBOX 618), as they
+   already were below 1024: Commands stays the one worded doorway. The word
+   stays in the accessibility tree (the visually-hidden recipe, never
+   `display: none`), the button's aria-label is that word, and its title
+   says what it does and its keys. */
+#status-bar :is(#status-agent, #status-guide, #status-find) > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* Something is waiting on you. Warn rather than error: a due reminder is the
@@ -3682,10 +3700,7 @@ header#top-bar.tabs-wrapped #tab-bar {
      running count keep their icon and number, and their word goes the same
      way ("open", "running"): 721 is where every control is 44px. */
   #status-reminders > b + span,
-  #status-activity > b + span,
-  #status-agent > span,
-  #status-guide > span,
-  #status-find > span {
+  #status-activity > b + span {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -3822,13 +3837,10 @@ header#top-bar.tabs-wrapped #tab-bar {
 
 /* Bold is wider, so a bold selected tab moved every tab after it with the
    selection (INBOX 464 (9): "Notes" at x=549 on Dashboard, 543 on Notes).
-   The selected label keeps the resting weight's advance and is drawn heavier
-   with a stroke, which paints and does not lay out. Reserving each label's
-   bold width instead was measured: the strip 29px wider at 1093 and the
-   header on two rows at 900, 1024 and 1200. */
-#tab-bar button.active .tab-label {
-  -webkit-text-stroke: 0.04em currentColor;
-}
+   The selected label keeps the resting weight; its fill says it is the one
+   you are on. It was also drawn heavier with a stroke, which no longer is
+   (INBOX 618: "the active tab without extra bold"): the filled pill and a
+   heavier label said the same thing twice. */
 
 /* The tabs you are not on answer the pointer (INBOX 405): full ink and the
    veil, where they used to get only `button:hover`'s 7% brightness, which on
@@ -4387,13 +4399,14 @@ summary.small.icon-button {
    (carets vs. u-turn arrows) they get a divider marking them off: these move
    you between pages, undo/redo change your notes, and two adjacent pairs of
    arrows with no seam invite exactly that confusion. */
+/* **One group with undo and redo** (INBOX 618: "history arrows grouped with
+   undo/redo"): the drawn divider went, and the two pairs are told apart by a
+   step of space and by their shapes, carets against u-turn arrows. */
 .status-nav {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  padding-right: var(--space-2);
-  margin-right: var(--space-1);
-  border-right: 1px solid var(--border);
+  margin-right: var(--space-2);
 }
 
 /* A disabled arrow stays visible rather than vanishing: a control that

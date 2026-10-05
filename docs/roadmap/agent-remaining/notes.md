@@ -98,6 +98,7 @@ work. What the reading found is below so the next session starts at the change.
   never opens Documents, and documents.js is lazy now, so the note surface it
   is measuring never mounts. The sweep needs a `switchTab('documents')` first,
   the same line `draftboxes.js` carries and explains. Not this agent's item.
+  **Closed 2026-10-05 (small-1005): passes now** (ALL PASS, 0 console errors).
 
 ## Not verified
 

@@ -2242,6 +2242,13 @@
   color: var(--error);
 }
 
+/* **Power is secondary** (INBOX 618): quieter than the bell, the theme and
+   the gear at rest, at full strength under the pointer or the keyboard. Still
+   3:1 on the bar's ground in both themes (`contrast.js`), a control's floor. */
+#top-bar #quit-btn:not(:hover, :focus-visible) {
+  opacity: 0.72;
+}
+
 /* --- one switch, everywhere a checkbox means "on or off" ---------------------
    Asked for: *"I want to ditch the radio buttons mostly application wide …
    the ui needs to match and be the same style, shape size and alignment."*
@@ -2714,6 +2721,7 @@
 #library-view-whiteboard {
   --wb-h-library: 6.5rem;
   --wb-h-tools: 4rem;
+  --wb-w-tools: 11rem;
   --wb-w-zoom: 18rem;
   /* The top bar and the zoom cluster: the two panels the library sidebar,
      the board search and the overview all clear top and bottom. */
@@ -3122,12 +3130,9 @@
    (`bottom: var(--space-3)`) would otherwise still win the cascade by
    source order alone and silently pin the "sidebar" to the bottom edge. */
 .whiteboard-floating-panel.bottom-center[data-dock="side"] {
-  /* Anchored from the top, not vertically centred, a column of ~12 tools
-     plus the stroke-width slider is tall enough that centring it pushed the
-     top edge up into the top-left board-picker panel's own 1rem-4rem strip.
-     Matches `.whiteboard-sidebar`'s own top/max-height pair below, which
-     solved the same "panel taller than the canvas" problem the same way. */
-  left: 1rem;
+  /* Where it sits (from the top, under the top bar, and how tall it may be)
+     is the later rule of the same name in 07-whiteboard-misc.css, which
+     overrode every one of the placement values this rule used to set. */
   flex-direction: column;
   border-radius: var(--radius);
   overflow-y: auto;

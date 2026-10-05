@@ -773,7 +773,7 @@ def attached_file_pdf_info(attachment_id: int, session: Session = Depends(get_se
             pages=0,
             message=(
                 "Viewing PDF pages needs a small rasteriser: install "
-                "“Read scanned PDFs” in Settings → Extras."
+                "“Read scanned PDFs” in Settings → Packages."
             ),
         )
     count = pdfpages.page_count(path)
@@ -1674,7 +1674,7 @@ def media_pdf_info(filename: str, session: Session = Depends(get_session)) -> Pd
             pages=0,
             message=(
                 "Viewing PDF pages needs a small rasteriser: install "
-                "“Read scanned PDFs” in Settings → Extras."
+                "“Read scanned PDFs” in Settings → Packages."
             ),
         )
     count = pdfpages.page_count(path)

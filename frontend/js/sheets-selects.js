@@ -2156,10 +2156,12 @@ async function renderPersonas() {
   //: the whole persona list was built, so on a busy server, or if anything in
   //: the list threw, the section showed an empty select and an empty face.
   renderDashboardPersonaSelect(personaNamesNow());
+  const list = $("persona-list");
+  showSkeletons(list, 3, "li");
   prefsCache = await apiJson("/preferences").catch(() => prefsCache);
+  clearSkeletons(list);
   const custom = (prefsCache && prefsCache.personas) || [];
   const overrides = new Map(custom.map((p) => [p.name, p]));
-  const list = $("persona-list");
   list.replaceChildren();
 
   const rows = [

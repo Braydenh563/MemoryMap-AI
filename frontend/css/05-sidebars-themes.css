@@ -2231,6 +2231,21 @@ body.resizing-sidebar {
   margin-right: auto;
 }
 
+/* Before documents.js has mounted the cluster (the markup says collapsed, so
+   the first paint is the folded bar and not a two-row strip that folds when
+   the bundle lands), the name is drawn here, in the same place and the same
+   words, and goes the moment the real one exists. */
+.doc-toolbar.is-collapsed:not(:has(.doc-toolbar-tools))::before {
+  content: "Formatting";
+  /* One line the height the mounted cluster's icon buttons give the row (2rem,
+     the touch floor under a coarse pointer), so the bar does not grow when
+     they arrive; the line-height centres the words in it. */
+  line-height: max(2rem, var(--target-min));
+  margin-right: auto;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
 /* Collapsed, the cluster is the whole strip, so it must sit at the left with
    the label rather than floating in from the right. */
 .doc-toolbar.is-collapsed .doc-toolbar-tools {
@@ -2309,38 +2324,57 @@ body.resizing-sidebar {
   color: var(--muted);
 }
 
-/* **The words go before the controls wrap** (the owner, at the 1184px desktop
-   window: "Preview" alone on a second row). Below the tablet band the note
-   strip's three worded buttons keep their icon and hide their word, the way
-   `.seg.seg-multi` does below 1200 (DESIGN.md's recipe index): hidden, not
-   dropped, and each button's `title` names it for a pointer while the word
-   itself still names it for a screen reader. */
-@media (max-width: 819.98px) {
-  .note-toolbar .toolbar-word {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0;
-  }
+/* **An icon-only strip at every width** (INBOX 616, the owner: "one quiet
+   icon-only toolbar"; before that, at the 1184px desktop window, "Preview"
+   alone on a second row, when this held below the tablet band only). The
+   note strip's three worded buttons keep their icon and hide their word, the
+   way `.seg.seg-multi` does below 1200 (DESIGN.md's recipe index): hidden,
+   not dropped, and each button's `title` names it for a pointer while the
+   word itself still names it for a screen reader. */
+.note-toolbar .toolbar-word {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
 
-  /* With the word gone the button is an icon-only control, so it takes that
-     control's square (`.doc-toolbar .icon-only`) and the icon loses the gap
-     it kept before a label that is no longer beside it. */
-  .note-toolbar button:has(> .toolbar-word) {
-    width: var(--control-h);
-    padding-inline: 0;
-  }
+/* With the word gone the button is an icon-only control, so it takes that
+   control's square (`.doc-toolbar .icon-only`) and the icon loses the gap
+   it kept before a label that is no longer beside it. */
+.note-toolbar button:has(> .toolbar-word) {
+  width: var(--control-h);
+  padding-inline: 0;
+}
 
-  .note-toolbar button > .ph-lead:has(~ .toolbar-word) {
-    margin-inline-end: 0;
-    translate: none;
-  }
+.note-toolbar button > .ph-lead:has(~ .toolbar-word) {
+  margin-inline-end: 0;
+  translate: none;
+}
+
+/* **A note's strip is one slim row, whatever the documents' mode** (INBOX
+   616: folded, it was "an empty grey band" with three icons and a caret):
+   it never folds (`applyDocToolbarCollapsed` leaves it out), what does not
+   fit is behind More, its groups are told apart by space rather than drawn
+   rules, and the fold and layout buttons are the document editor's. Only
+   once its own group (and More in it) is mounted, with the library bundle:
+   before that it wraps, rather than clip what More would hold. */
+.note-toolbar:not(.is-more-open):has(> .doc-toolbar-tools) {
+  flex-wrap: nowrap;
+}
+
+.note-toolbar .doc-toolbar-sep {
+  margin: 0 var(--space-1);
+  background: none;
+}
+
+.note-toolbar :is(.doc-toolbar-collapse, .doc-toolbar-layout) {
+  display: none;
 }
 
 /* **One chrome for the whole strip, whatever element a control happens to be.**
@@ -4604,10 +4638,13 @@ textarea.autogrow {
   padding-inline: 0.8rem;
 }
 
+/* **A smaller tile** (INBOX 618): 28px, under the bar's 44px controls
+   rather than one of them, so the mark sits beside the bar's controls
+   instead of competing with them. */
 #top-bar #brand-logo {
   flex: 0 0 auto;
-  width: var(--header-control-h);
-  height: var(--header-control-h);
+  width: 1.75rem;
+  height: 1.75rem;
 }
 
 /* The bar's icon buttons are squares of the bar's one height. */
@@ -6175,100 +6212,94 @@ button.ghost.doc-template-choice[aria-checked="true"] {
   }
 }
 
-/* **The note edit form, one composition** (INBOX 606, the owner: "something
-   about the design, ui/ux of the note edit form still feels off"). Measured
-   before (`noteeditform.js`, 1440): a title box, a strip and a body box as
-   three frames; a 36px comma field, a select and Save between them with
-   Cancel after it; two boxed "Link" buttons; a lone boxed "Attach a link"
-   under everything. Now: title, strip and body are the capture box's one
-   `.note-composer` surface; tags are chips in one field beside the category
-   chip; the foot holds Attach a link (a quiet icon) at its left and Cancel,
-   then the one filled Save, at its right. */
-.note-edit-meta,
-.note-edit-foot {
+/* **The note edit form, one composition** (INBOX 606, then 616, the owner:
+   "still needs a more modern and professional ui/ux redesign"). The
+   `.note-composer` surface holds the title as large borderless text, the
+   properties line under it, the one-row strip and the text; under the
+   surface, the files, Related folded to one line, the References, and a
+   slim foot: Attach a link and the word count at the left, Cancel then the
+   one filled Save at the right. `noteedit616.js` measures every clause. */
+.note-edit-meta {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  padding: 0 var(--space-4) var(--space-3);
+}
+
+/* The tags are items of the properties line, not a box of their own. */
+.note-edit-tags {
+  display: contents;
+}
+
+/* One chip height on the line, the category's and the tags', with room
+   inside each (the owner: "there is no padding around the tag entries"). */
+.note-edit-meta .chip {
+  height: 1.625rem;
+  min-height: 0;
+  padding-inline: var(--space-2);
+}
+
+.note-edit-meta .note-edit-tag-input {
+  flex: 1 0 6rem;
+  width: 6rem;
+  height: 1.625rem;
+  margin: 0;
+  padding: 0 var(--space-1);
+  border: 0;
+  background: none;
+  box-shadow: none;
+  font-size: var(--text-md);
+}
+
+.note-edit-foot {
+  display: flex;
   align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-3);
 }
 
-.note-edit-actions {
-  margin: 0 0 0 auto;
-}
-
-/* The word count and reading time (WORLD_CLASS_PLAN 5 item 9) sit at the
-   right of the foot with Cancel and Save, the slack before them. */
-.note-edit-foot > .note-edit-counts {
-  margin-left: auto;
+.note-edit-count {
+  margin: 0;
+  font-size: var(--text-sm);
   white-space: nowrap;
 }
 
-.note-edit-foot > .note-edit-counts + .note-edit-actions {
-  margin-left: 0;
+/* A phone's foot is Attach, Cancel and Save on one row: the count is the
+   one thing it can do without (measured at 390: with it, Save went under
+   Cancel). */
+@media (max-width: 599.98px) {
+  .note-edit-count {
+    display: none;
+  }
 }
 
-/* A narrow form wraps Cancel and Save under the counts: still at the right. */
-.note-edit-foot {
-  justify-content: flex-end;
+/* Related's one line is a quiet disclosure, not a second button. */
+.note-edit-related > button.note-edit-related-toggle {
+  border-color: transparent;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.note-edit-actions {
+  flex-wrap: nowrap;
+  margin: 0 0 0 auto;
 }
 
 .entry-list .note-composer > input.note-edit-title {
   margin: 0;
 }
 
-/* The strip says what it is by its aria-label; the word went (INBOX 606).
-   Hidden, not gone: it still holds the tools at the right, by Source. */
-.note-edit-surface .doc-toolbar-collapsed-name {
-  visibility: hidden;
-}
-
-/* The tag field is the search field's well (`.search-field`: edge, ground,
-   ring, the input's own box off) holding the chips before its input, so it
-   wraps and grows where a search field is one line. */
-.tag-field input {
-  width: 6rem;
-}
-
-.tag-field {
-  flex: 1 1 14rem;
+/* Related, opened: the notes as compact chips with their +, in one wrap. */
+.note-edit-related-list:not([hidden]) {
+  display: flex;
+  flex-basis: 100%;
   flex-wrap: wrap;
-  height: auto;
-  min-height: var(--control-h);
+  gap: var(--space-1);
 }
 
-/* The edit form's strip wraps instead of scrolling: a horizontal scrollbar
-   under a toolbar inside a card reads as a gap (reported: "a large gap at
-   the bottom of the toolbar in the section"). */
-.note-edit-toolbar {
-  flex-wrap: wrap;
-  overflow-x: visible;
-  row-gap: var(--space-1);
-}
-
-/* **And the mode does not get to take that back.** `flex-wrap` and
-   `overflow-x` above are written at (0,1,0) and
-   `.doc-toolbar[data-toolbar-mode="row"]` is (0,2,0), so in the scrolling mode
-   the clone was `nowrap` with `overflow-x: visible`: not a scroller and not a
-   wrap, but 339px of controls drawn outside the strip's own box (measured,
-   `scrollWidth` 1369 against a 1030px strip). Restated here at the mode rule's
-   own specificity, with the block padding the composer uses rather than the
-   full-page editor's: wrapping means the scrollbar that bottom padding is
-   reserved for can never appear, and that reservation was itself the reported
-   gap, 12px under the last row of buttons. */
-.note-edit-toolbar[data-toolbar-mode="row"] {
-  overflow-x: visible;
-  padding-block: var(--space-1);
-}
-
-/* One row now means one row here too (the owner at release: "the fit the
-   toolbar to one row button on the note edit form doesnt work"). The
-   `flex-wrap: wrap` this rule once restated came from the scrolling mode;
-   the row mode now folds what does not fit behind More (fitDocToolbarRow),
-   so there is no overflow left to guard against, and the wrap only made the
-   toggle do nothing. More, pressed, still wraps. */
-.note-edit-toolbar[data-toolbar-mode="row"]:not(.is-more-open) {
-  flex-wrap: nowrap;
+.note-edit-related-list .entry-related-row > * {
+  min-height: 1.625rem;
 }
 
 /* **How far along a section is, on its outline row** (DOCUMENTS_PLAN Phase 3

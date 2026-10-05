@@ -27,6 +27,8 @@ def test_the_selected_tab_does_not_change_weight():
         assert "font-weight" not in body
 
 
-def test_the_selected_label_is_drawn_heavier_without_layout():
-    bodies = _blocks(r"#tab-bar button\.active \.tab-label")
-    assert any("-webkit-text-stroke" in b for b in bodies)
+def test_the_selected_label_is_not_drawn_heavier():
+    # INBOX 618: the filled pill says which tab you are on; the stroke that
+    # also drew its label heavier went ("the active tab without extra bold").
+    for body in _blocks(r"#tab-bar button\.active \.tab-label"):
+        assert "-webkit-text-stroke" not in body

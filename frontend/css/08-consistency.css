@@ -3253,7 +3253,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   margin-inline-end: 0;
 }
 
-/* The chip turns square round its icon (iconchip.js: was 30x24, 4.5px off). */
+/* Square round its icon (iconchip.js). */
 .entry-meta.note-meta:not(.is-measuring) > .chip.is-icon {
   aspect-ratio: 1;
   min-width: 0;
@@ -4988,10 +4988,15 @@ body .chip.item-label,
    line row is unchanged, since there the title's line is the row. */
 .timeline-feed .timeline-row {
   --timeline-title-line: calc(var(--text-md) * 1.25);
+  align-content: center;
 }
 
 .timeline-feed .timeline-row-title {
   line-height: 1.25;
+}
+
+.timeline-feed .timeline-row > .timeline-row-main {
+  align-self: start;
 }
 
 .timeline-feed .timeline-row > .timeline-row-mark {
@@ -10289,10 +10294,13 @@ body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hid
 }
 
 /* Improve writing's two actions at one height (the owner at release: the
-   filled and the ghost button drew 40 and 42px side by side). */
+   filled and the ghost button drew 40 and 42px side by side). No
+   `min-height` of its own: the small button's floor (`max(--target-min,
+   --button-min-h)`, 01-forms-settings.css) beats `height`, so under touch
+   both are 44 like every other dialog foot; an id-weight min-height here
+   held them at 32 (design-rows-1005, `improvefoot.js`). */
 :is(#improve-apply, #improve-retry) {
   height: var(--control-h);
-  min-height: var(--control-h);
   padding-block: 0;
 }
 

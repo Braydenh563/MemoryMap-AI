@@ -688,6 +688,7 @@ const WB_INV_ZOOM_GRIPS = [
   ".wb-link-label-handle",
   ".wb-clone-grip",
   ".wb-map-edge-handle",
+  ".wb-map-resize-grip",
   ".wb-sketch-rotate-handle",
   ".wb-rotate-handle-stem",
 ];
@@ -3775,11 +3776,14 @@ const WB_CONTEXT_CONTROLS = {
   // sits and what it can become.
   note: { bar: ["order"], more: ["more-mindmap", "more-notes"] },
   multi: { bar: ["arrange", "order"], more: ["more-notes"] },
+  //: Several topics on a map (INBOX 617, `wbMapMultiTopics`): the map's own
+  //: verbs, never the board's arrange and order, which fight the layout.
+  mapmulti: { bar: ["mapmulti"], more: [] },
 };
 
 //: Every group and menu section the table can name, so hiding "everything
 //: else" never has to list them.
-const WB_CONTEXT_GROUPS = ["tool", "ink", "route", "caps", "stroke", "fill", "text", "arrange", "order"];
+const WB_CONTEXT_GROUPS = ["tool", "ink", "route", "caps", "stroke", "fill", "text", "arrange", "order", "mapmulti"];
 const WB_CONTEXT_MENU_SECTIONS = ["more-style", "more-card", "more-guides", "more-notes", "more-mindmap"];
 
 //: Which row of the table a selection reads. Returns null when the bar has
@@ -3909,6 +3913,18 @@ function wbFillContextBar() {
   // A multi-selection has no one fill or stroke to edit (mixed kinds), but it
   // does have arrange, which only means anything here.
   if (wbMultiSelection.size > 0) {
+    //: Only topics, on a map: the map's group, and neither Duplicate (a copy
+    //: of several topics lands as loose roots) nor the More menu, whose
+    //: format, style and guides rows are all the board's.
+    const mapTopics = wbMapMultiTopics();
+    if (mapTopics) {
+      wbApplyContextRow(WB_CONTEXT_CONTROLS.mapmulti);
+      document.getElementById("wb-selbar-duplicate")?.classList.add("hidden");
+      wbContextMoreWrap()?.classList.add("hidden");
+      wbSyncMapMulti(mapTopics);
+      delete bar.dataset.wbAnchor;
+      return null;
+    }
     wbApplyContextRow(WB_CONTEXT_CONTROLS.multi);
     // Extract notes (BACKLOG.md §62) only makes sense once the selection
     // actually includes a note card's content to extract from; a selection of
@@ -6493,16 +6509,32 @@ function wbBuildContextMenu(kind) {
   // Asked for directly. Available for every kind, a sketch reorders
   // against other sketches, a card/object against both (wbZOrderPeers'
   // own comment has the full reasoning for that split).
-  //: Several topics side by side: one summary over them (MINDMAP_PLAN 20).
-  if (wbIsMap() && wbMultiSelection.size > 1) {
-    const picked = [...wbMultiSelection].map((key) => {
-      const [k, id] = key.split(":");
-      return k === "object" ? wbFindItem("object", Number(id)) : null;
+  //: **Several topics: the map's verbs, in words** (INBOX 617), the same
+  //: five the bar's `mapmulti` group has, each a toggle over the whole
+  //: selection (`WB_MAP_MULTI_ACTIONS`). A summary only over siblings
+  //: (MINDMAP_PLAN 20).
+  const mapTopics = wbMapMultiTopics();
+  if (mapTopics) {
+    const state = wbMapMultiState(mapTopics);
+    subItem("Topics", (sub) => {
+      sub(state.bold ? "Not bold" : "Bold", "Every topic picked", () => WB_MAP_MULTI_ACTIONS.bold(mapTopics));
+      sub(state.tasks ? "Stop being tasks" : "Make these tasks", "A box to tick on each", () => WB_MAP_MULTI_ACTIONS.task(mapTopics));
+      sub("Colour these…", "Carries down each one's branch", () => {
+        const well = document.getElementById("wb-mapmulti-color");
+        try {
+          well?.showPicker();
+        } catch {
+          well?.click();
+        }
+      });
+      if (state.branches.length) {
+        sub(state.folded ? "Open these branches" : "Fold these branches", "The topics picked that have anything under them", () =>
+          WB_MAP_MULTI_ACTIONS.fold(mapTopics));
+      }
+      if (state.siblings) {
+        sub("Summarise these topics…", "A brace beside them with your words", () => WB_MAP_MULTI_ACTIONS.summary(mapTopics));
+      }
     });
-    const parent = picked[0]?.parent_id;
-    if (parent != null && picked.every((o) => o && o.parent_id === parent)) {
-      item("Summarise these topics…", "A brace beside them with your words", () => wbMapSummarise(picked));
-    }
   }
   //: Decision 15: held in place until unlocked from the board's own menu.
   //: Decision 17: one item's thread, from its menu as from its mark.
@@ -10405,6 +10437,8 @@ async function initWhiteboard() {
   crossSlot("wb-link-label", (node) => wbMapLabelEdge(node.id), (id) => wbMapCrossLinkToBranch(id));
   crossSlot("wb-link-cut", (node) => wbMapSever(node.id), (id) => wbMapCutCrossLink(id));
 
+  wbWireMapChoices();
+  wbWireMapMulti();
   //: The node edit strip (§12.1 item 2). Every handler reads the selection at
   //: the moment it fires rather than closing over a node: the strip is one set
   //: of controls that moves between nodes, so a captured node is a control
@@ -11762,6 +11796,9 @@ async function initWhiteboard() {
   if (toolsPanel && dockToggle) {
     const applyDock = (dock) => {
       toolsPanel.dataset.dock = dock;
+      //: On the view too, so the board's sidebar can stand beside a side dock
+      //: rather than over it (INBOX 596; 07-whiteboard-misc.css).
+      viewHost?.setAttribute("data-wb-dock", dock);
       dockToggle.title = dock === "bottom" ? "Dock as a sidebar" : "Dock as a bottom bar";
       // The button reads as the current state, the tooltip as the action.
       setLabel(dockToggle, dock === "bottom" ? "ph:sidebar-simple Bottom" : "ph:sidebar-simple Side");
@@ -12695,6 +12732,74 @@ async function initWhiteboard() {
     g.setLineDash([4, 3]);
     g.strokeRect(l + 0.5, top + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
   }
+  //: **A drag past the edge moves the board** (INBOX 608, the owner: "when I
+  //: drag select off the screen on the whiteboard and mind map ... it doesnt
+  //: scroll down or up or the way I am dragging"). A marquee, an item or a
+  //: branch carried to the edge of the canvas used to stop there: the board
+  //: did not move, so anything past the edge could not be reached without
+  //: letting go. Every whiteboard app pans here (Miro, FigJam, draw.io).
+  //:
+  //: A band inside each edge of the canvas; the deeper the pointer is in it
+  //: (or past it, off the canvas, which the pointer capture still reports),
+  //: the faster the board moves, up to `max` screen pixels a frame. Eased
+  //: (squared), so the first few pixels of the band creep and a pointer held
+  //: at the very edge travels. One frame loop while the pointer is in a band,
+  //: none otherwise.
+  //:
+  //: After each step the pointer is replayed where it is: the marquee is
+  //: redrawn from it, and an item drag gets a synthetic move at the same
+  //: screen point, which d3-drag measures against its container (a layer
+  //: that moved with the pan), so the item travels exactly as far as the
+  //: board did and stays under the pointer. A rotation is excluded (an
+  //: angle does not need room), and so are the pen tools and the hand.
+  const wbEdgePan = { x: 0, y: 0, buttons: 0, frame: 0, turn: false, band: 56, max: 22 };
+  window.addEventListener("pointerdown", (e) => {
+    wbEdgePan.turn = Boolean(e.target?.closest?.(".wb-rotate-handle, .wb-sketch-rotate-handle"));
+  }, true);
+  function wbEdgePanWanted() {
+    if (!(wbEdgePan.buttons & 1) || WB_BRUSH_TOOLS.has(window.currentTool) || window.currentTool === "pan") return false;
+    if (wbMarqueeEl && wbMarqueeStart && !wbMarqueeStart.pending) return true;
+    return Boolean(wbGesture && !wbGesture.cancelled && !wbEdgePan.turn);
+  }
+  //: Screen pixels a frame along one axis: positive moves the board's
+  //: content towards the far edge (so the near side comes into view).
+  function wbEdgePanSpeed(near, far, band) {
+    const depth = near > 0 ? near : far > 0 ? -far : 0;
+    if (!depth) return 0;
+    const share = Math.min(1, Math.abs(depth) / band);
+    return Math.sign(depth) * Math.max(1, Math.round(wbEdgePan.max * share * share));
+  }
+  function wbEdgePanTick() {
+    wbEdgePan.frame = 0;
+    if (!wbEdgePanWanted() || !document.body.contains(containerEl)) return;
+    const r = containerEl.getBoundingClientRect();
+    const band = Math.min(wbEdgePan.band, r.width / 5, r.height / 5);
+    const vx = wbEdgePanSpeed(r.left + band - wbEdgePan.x, wbEdgePan.x - (r.right - band), band);
+    const vy = wbEdgePanSpeed(r.top + band - wbEdgePan.y, wbEdgePan.y - (r.bottom - band), band);
+    if (!vx && !vy) return;
+    const k = d3.zoomTransform(containerEl).k || 1;
+    d3.select(containerEl).call(wbZoom.translateBy, vx / k, vy / k);
+    const at = { clientX: wbEdgePan.x, clientY: wbEdgePan.y, buttons: wbEdgePan.buttons, bubbles: true, cancelable: true, view: window };
+    if (wbMarqueeEl && wbMarqueeStart) {
+      wbMarqueeAt = getLogicalMouse(at);
+      wbDrawMarquee();
+    } else {
+      window.dispatchEvent(new MouseEvent("mousemove", at));
+    }
+    wbEdgePan.frame = requestAnimationFrame(wbEdgePanTick);
+  }
+  window.addEventListener("pointermove", (e) => {
+    if (e.pointerType === "touch") return;
+    wbEdgePan.x = e.clientX;
+    wbEdgePan.y = e.clientY;
+    wbEdgePan.buttons = e.buttons;
+    if (!wbEdgePan.frame && wbEdgePanWanted()) wbEdgePan.frame = requestAnimationFrame(wbEdgePanTick);
+  });
+  window.addEventListener("pointerup", () => {
+    wbEdgePan.buttons = 0;
+    if (wbEdgePan.frame) cancelAnimationFrame(wbEdgePan.frame);
+    wbEdgePan.frame = 0;
+  }, true);
   // Anchor points weren't discoverable until a link drag was already under
   // way: asked for directly: "when I hover over objects, their anchor
   // points should display... so I can connect them." A plain hover with a
@@ -15298,6 +15403,10 @@ async function wbSaveMultiSnapshot(rows) {
 }
 
 function wbRenderMultiSelectionHandles() {
+  //: Not round several topics on a map (INBOX 617): the layout owns where a
+  //: topic sits, so the box's eight sizes and its turn could only fight it.
+  //: Each topic keeps its own outline (`.wb-in-group`).
+  if (wbMapMultiTopics()) return;
   const entries = wbMultiSelectionEntries();
   if (entries.length < 2) return;
   const boxes = entries.map((entry) => ({ entry, box: wbEntryBox(entry) })).filter((row) => row.box);
@@ -17257,7 +17366,7 @@ function renderWbObjects(canvas) {
       if (event.button) return false;
       if (WB_BRUSH_TOOLS.has(window.currentTool) || window.currentTool === "lasso") return false;
       if (event.target.closest(
-        ".wb-resize-handle, .wb-rotate-handle, .wb-object-grip, .wb-map-size-grip"
+        ".wb-resize-handle, .wb-rotate-handle, .wb-object-grip"
         + ", .wb-map-resize-grip"
       )) return false;
       // `.wb-text-content` used to be excluded outright, which is what left a

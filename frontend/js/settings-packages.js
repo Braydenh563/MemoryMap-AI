@@ -30,8 +30,18 @@ const packagesUi = { poll: null, selected: new Set(), bulkSeen: false, body: nul
 async function renderExtras() {
   const list = $("extras-list");
   if (!list) return;
+  //: Skeleton rows until the catalogue answers (INBOX 596, the owner: "some
+  //: skeleton loaders are missing"): only into an empty list, so the poll
+  //: that redraws it while a package installs never covers its rows.
+  const embedList = $("embed-models-list");
+  showSkeletons(list, 3, "li");
+  showSkeletons(embedList, 2, "li");
   const body = await apiJson("/extras", { silent: true }).catch(() => null);
-  if (!body) return;
+  clearSkeletons(list);
+  if (!body) {
+    clearSkeletons(embedList);
+    return;
+  }
   packagesUi.body = body;
   const bulk = body.bulk || { items: [], running: false };
   if (bulk.running) packagesUi.bulkSeen = true;

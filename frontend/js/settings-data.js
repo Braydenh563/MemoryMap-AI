@@ -90,10 +90,17 @@ function renderPrivacyRange() {
 
 async function renderPrivacyReceipt() {
   const list = $("privacy-destinations");
+  const switchRows = $("privacy-switches");
+  showSkeletons(list, 2, "li");
+  showSkeletons(switchRows, 3, "li");
   let receipt;
   try {
     receipt = await apiJson("/privacy/receipt", { silent: true });
+    clearSkeletons(list);
+    clearSkeletons(switchRows);
   } catch {
+    clearSkeletons(list);
+    clearSkeletons(switchRows);
     surfaceFailed($("privacy-empty"), "the privacy record", () => renderPrivacyReceipt());
     $("privacy-empty").classList.remove("hidden");
     list.replaceChildren();
@@ -134,7 +141,9 @@ async function renderPrivacyReceipt() {
 
 async function renderBackups() {
   const list = $("backup-list");
+  showSkeletons(list, 2, "li");
   const backups = await apiJson("/backups").catch(() => []);
+  clearSkeletons(list);
   list.replaceChildren();
   for (const item of backups) {
     const li = document.createElement("li");

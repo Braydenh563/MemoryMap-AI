@@ -42,18 +42,33 @@ async function renderRelatedWhileEditing(li, entry) {
     panel.textContent = "No related notes yet.";
     return;
   }
-  const label = document.createElement("span");
-  label.textContent = "Related";
-  //: The label on a line of its own, so the notes under it start on one edge.
-  label.style.flexBasis = "100%";
-  panel.appendChild(label);
-  for (const other of related) {
-    panel.appendChild(similarNoteRow(entry, other, () => {
-      if (!panel.querySelector(".entry-related-row")) {
-        panel.textContent = "All related notes are linked.";
-      }
-    }));
-  }
+  //: **Folded into one line until asked for** (INBOX 616, the owner: Related
+  //: was "three large rows" under the text): "3 suggested links" with a caret,
+  //: and the notes as compact chips with a + each once it is opened.
+  panel.classList.add("note-edit-related");
+  const list = document.createElement("div");
+  list.className = "note-edit-related-list";
+  list.hidden = true;
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "ghost small note-edit-related-toggle";
+  toggle.setAttribute("aria-expanded", "false");
+  const say = () => {
+    const n = list.querySelectorAll(".entry-related-row").length;
+    if (!n) {
+      panel.textContent = "All related notes are linked.";
+      return;
+    }
+    setLabel(toggle, `${list.hidden ? "ph:caret-right" : "ph:caret-down"} ${n} suggested link${n === 1 ? "" : "s"}`);
+  };
+  toggle.addEventListener("click", () => {
+    list.hidden = !list.hidden;
+    toggle.setAttribute("aria-expanded", String(!list.hidden));
+    say();
+  });
+  for (const other of related) list.appendChild(similarNoteRow(entry, other, say));
+  panel.append(toggle, list);
+  say();
 }
 
 // **A note's References** (§30, directly requested: "attach a bookmark to
@@ -76,7 +91,7 @@ async function renderNoteBookmarksWhileEditing(li, entry) {
   setLabel(attachButton, "ph:link-simple-horizontal");
   attachButton.title = "Attach a link";
   attachButton.setAttribute("aria-label", "Attach a link");
-  attachButton.addEventListener("click", () => openBookmarkAttachPicker(entry, panel));
+  attachButton.addEventListener("click", () => openBookmarkAttachPicker(entry, refresh));
 
   async function refresh() {
     let attached;
@@ -147,44 +162,29 @@ async function renderNoteBookmarksWhileEditing(li, entry) {
   await refresh();
 }
 
-async function openBookmarkAttachPicker(entry, panel) {
-  let all;
+//: **The app's one-thing picker on its Bookmarks source** (INBOX 616, the
+//: owner: "the note edit form attach a link button doesnt do anything"). It
+//: put a bare select into the References panel, which is hidden while the
+//: note has no reference, so the first press drew nothing anyone could see,
+//: and a pick re-ran the whole panel, which added a second Attach button. The
+//: picker dialog (`pickLibraryItemDialog`, selection.js) is what the "/"
+//: menu's bookmark link already uses; its empty state says where links come
+//: from. `done` repaints the one panel this form already has.
+async function openBookmarkAttachPicker(entry, done) {
+  const chosen = await pickLibraryItemDialog("Attach a link", { sources: ["link"] });
+  const id = chosen?.row?.id;
+  if (id == null || editingId !== entry.id) return;
   try {
-    all = await apiJson("/bookmarks");
+    await apiJson(`/entries/${entry.id}/bookmarks`, {
+      method: "POST",
+      body: JSON.stringify({ bookmark_id: Number(id) }),
+    });
   } catch (error) {
     toast(error.message, true);
     return;
   }
-  if (!all.length) {
-    toast("No saved bookmarks yet, add one in Library → Bookmarks first.");
-    return;
-  }
-  const select = document.createElement("select");
-  select.className = "bookmark-attach-picker";
-  const placeholder = document.createElement("option");
-  placeholder.textContent = "Pick a saved link…";
-  placeholder.value = "";
-  select.appendChild(placeholder);
-  for (const bookmark of all) {
-    const option = document.createElement("option");
-    option.value = String(bookmark.id);
-    option.textContent = bookmark.title || bookmark.url;
-    select.appendChild(option);
-  }
-  select.addEventListener("change", async () => {
-    if (!select.value) return;
-    await apiJson(`/entries/${entry.id}/bookmarks`, {
-      method: "POST",
-      body: JSON.stringify({ bookmark_id: Number(select.value) }),
-    });
-    select.remove();
-    renderNoteBookmarksWhileEditing(panel.parentElement, entry);
-  });
-  panel.appendChild(select);
-  //: `focusSelect`, not `select.focus()`: the native control is out of the tab
-  //: order once `enhanceSelect` has replaced it, so the direct call focuses
-  //: nothing and this picker opened with the focus on the page body.
-  focusSelect(select);
+  toast("Link attached.");
+  done();
 }
 
 //: The note edit form, moved from notes-list.js (boot gzip): `entryItem`
@@ -240,18 +240,21 @@ function renderEditForm(li, entry) {
   //: string the save reads stays in a hidden input; each tag is a `.chip.tag`
   //: that removes itself on a press, and Enter, a comma or leaving the field
   //: makes a chip of what was typed; Backspace in an empty field takes the last.
+  //: **No well, no leading '#'** (INBOX 616: a boxed field with a '#' icon
+  //: beside chips that each say '#', and no room inside it): the chips and the
+  //: input sit on the properties line under the title, one chip height.
   const tagsInput = document.createElement("input");
   tagsInput.type = "hidden";
   tagsInput.value = draft ? draft.tags : entry.tags.join(", ");
   const tagField = document.createElement("div");
-  tagField.className = "search-field tag-field note-edit-tags";
+  tagField.className = "tag-field note-edit-tags";
   const tagEntry = document.createElement("input");
   tagEntry.type = "text";
-  tagEntry.className = "search-field-input";
-  tagEntry.placeholder = "Add a tag";
+  tagEntry.className = "note-edit-tag-input";
+  tagEntry.placeholder = "Add tag";
   tagEntry.setAttribute("aria-label", "Add a tag");
   tagEntry.autocomplete = "off";
-  tagField.append(Object.assign(document.createElement("i"), { className: "ph ph-hash search-field-icon" }), tagsInput, tagEntry);
+  tagField.append(tagsInput, tagEntry);
   const tagList = () => tagsInput.value.split(",").map((t) => t.trim().replace(/^#/, "")).filter(Boolean);
   const setTags = (tags) => {
     tagsInput.value = [...new Set(tags)].join(", ");
@@ -292,7 +295,6 @@ function renderEditForm(li, entry) {
     if (tagEntry.value.includes(",")) commitTag();
   });
   tagEntry.addEventListener("blur", commitTag);
-  tagField.addEventListener("click", (event) => { if (event.target === tagField) tagEntry.focus(); });
   if (focusTagsAfterRender === entry.id) {
     focusTagsAfterRender = null;
     // The form is not in the document yet; focus once it is.
@@ -449,31 +451,34 @@ function renderEditForm(li, entry) {
     saveButton
   );
 
-  //: One meta row, tags then the category (reported with a screenshot:
-  //: "better ui structure"), and the form's foot under everything: Cancel and
-  //: the one filled Save at the right, the panels' Attach a link at its left
-  //: (INBOX 606: Save sat mid-row between the fields and Cancel).
+  //: **The properties line**, under the title inside the surface (INBOX 616,
+  //: the owner: "the core concepts dropdown is completely out of place"): the
+  //: category chip, then the tags, then the add-tag input, one chip height,
+  //: wrapping as one line. The foot under everything: the panels' Attach a
+  //: link at its left, the word count, then Cancel and the one filled Save at
+  //: its right (INBOX 606: Save sat mid-row between the fields and Cancel).
   const meta = document.createElement("div");
   meta.className = "note-edit-meta";
   row.classList.add("note-edit-actions");
+  meta.append(categoryChip, tagField);
   //: Words and reading time while the note is open (WORLD_CLASS_PLAN 5 item
   //: 9): the count a document's head carries, for a note, at the documents'
   //: 220 words a minute; the properties block is not prose, so not counted.
-  const counts = document.createElement("span");
-  counts.className = "muted text-sm note-edit-counts";
+  const count = document.createElement("span");
+  count.className = "char-count muted note-edit-count note-edit-counts";
+  count.setAttribute("aria-live", "polite");
   const recount = () => {
-    const words = (stripFrontmatter(`${titleInput.value}\n${textarea.value}`).match(/\S+/g) || []).length;
+    const words = (stripFrontmatter(`${titleInput.value}
+${textarea.value}`).match(/\S+/g) || []).length;
     const minutes = words / 220;
     const read = !words ? "" : minutes < 1 ? " · under a min" : ` · ${Math.round(minutes)} min read`;
-    counts.textContent = `${words.toLocaleString()} word${words === 1 ? "" : "s"}${read}`;
+    count.textContent = `${words.toLocaleString()} word${words === 1 ? "" : "s"}${read}`;
   };
   recount();
   for (const field of [titleInput, textarea]) field.addEventListener("input", recount);
-  meta.append(tagField, categoryChip);
   const foot = document.createElement("div");
   foot.className = "note-edit-foot";
-  //: The counts sit at the right with Cancel and Save, the slack before them.
-  foot.append(counts, row);
+  foot.append(count, row);
   const toolbarEl = noteEditToolbar(textarea.id);
   //: Preview: reported: "there is no preview", then, once there was one,
   //: "if the formatting bar was the same, the preview button would be in
@@ -497,13 +502,13 @@ function renderEditForm(li, entry) {
   chipsHost.id = "entry-edit-attachment-chips";
   chipsHost.setAttribute("role", "group");
   chipsHost.setAttribute("aria-label", "Files in this note");
-  //: **One writing surface** (INBOX 606): the title, the strip and the text
-  //: in the capture box's own `.note-composer`, which carries the edge, the
-  //: ground and the focus ring for all three; they were three boxes.
+  //: **One writing surface** (INBOX 606): the title, the properties line, the
+  //: strip and the text in the capture box's own `.note-composer`, which
+  //: carries the edge, the ground and the focus ring for all of them.
   const surface = document.createElement("div");
   surface.className = "note-composer note-edit-surface";
-  surface.append(titleInput, toolbarEl, textarea);
-  li.append(surface, chipsHost, meta, foot);
+  surface.append(titleInput, meta, toolbarEl, textarea);
+  li.append(surface, chipsHost, foot);
   // The same line-number gutter the capture box and the documents editor
   // carry (documents.js `mountGutterFor`); it follows the one remembered
   // choice, so a person who turned numbers on in Capture sees them here too.

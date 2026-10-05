@@ -1323,3 +1323,6 @@ Moved to HISTORY.md ("Moved from the plans, 2026-10-03 (the documents pass)", DO
   Brief: re-point its reads at `docSurface()` and its Live view at
   `#doc-editor .cm-content`, drop the four retired checks, report how many of
   the 89 survive. Sonnet, M.
+
+- ~~`docRevealForSuggest` will not bring a table-cell word into view~~ Not reproduced at 1440 or 390; the account is in HISTORY.md, "Moved from the plans, 2026-10-05 (small-1005: the small open items)" (`revealcell.js`).
+- ~~`editor.js` sweep describes the retired editor~~ Re-pointed at `docSurface()`: 78 of the old 89 checks remain and pass; the account is in HISTORY.md, "Moved from the plans, 2026-10-05 (small-1005)".

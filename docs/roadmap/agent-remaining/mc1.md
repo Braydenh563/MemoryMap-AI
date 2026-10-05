@@ -5,4 +5,5 @@ Worktree agent, port 8798, data /tmp/mm-mc1. Plan: MINDMAP_PLAN §14
 
 ## Log
 - done: step 1, audit and design (§14): 92286cf.
-- done: 14a levels (wbMapLevels, presets, solid fill, centre Enter). next: 14b theme dialog levels, Redefine, topic copy/paste style (whiteboard-map.js wbMapThemeDialog ~929, whiteboard.js wbCopySelectedStyle ~3705).
+- done: 14a levels (wbMapLevels, presets, solid fill, centre Enter): 08d5829.
+- done: 14b level looks in the dialog, Redefine, topic copy/paste style. next: 14c icon-picker.js (written, not wired): LAZY_MODULES.iconPicker in app.js, css, map icon slot.

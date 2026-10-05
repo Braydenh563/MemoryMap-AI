@@ -938,17 +938,34 @@ function wbMapThemeDialog() {
   lead.textContent = "Every topic that was never given one of these follows the map.";
   body.appendChild(lead);
 
-  for (const group of WB_MAP_THEME_GROUPS) {
-    const head = document.createElement("h4");
-    head.className = "setting-subhead";
-    head.textContent = group.label;
-    body.appendChild(head);
-    for (const field of group.fields) {
-      body.appendChild(field.kind === "check"
-        ? wbMapThemeCheck(field)
-        : wbMapThemeSelect(field));
-    }
+  //: **The hierarchy, and which level the rows below set** (MINDMAP_PLAN.md
+  //: decisions 39 and 40). XMind's theme has a tab per level; here one `.seg`
+  //: of four says whose look the Text, box and line rows are writing: the
+  //: whole map's (the ten fields of decision 8) or one level's own.
+  body.appendChild(wbMapThemeSelect({ key: "hierarchy", label: "Hierarchy", kind: "select", options: [
+    ["", "Classic"], ["outline", "Outline"], ["boxed", "Boxed"], ["flat", "Flat"],
+  ] }));
+  const scope = document.createElement("div");
+  scope.className = "seg wb-map-theme-scope";
+  scope.setAttribute("role", "group");
+  scope.setAttribute("aria-label", "Whose look the rows below set");
+  const rows = document.createElement("div");
+  rows.className = "wb-map-theme-rows";
+  const show = (level) => {
+    for (const b of scope.children) b.setAttribute("aria-pressed", String(b.dataset.level === level));
+    rows.replaceChildren(...(level === "map" ? wbMapThemeMapRows() : wbMapThemeLevelRows(Number(level))));
+  };
+  for (const [level, words] of [["map", "Whole map"], ["0", "Centre"], ["1", "Main branches"], ["2", "Sub-topics"]]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ghost small";
+    b.dataset.level = level;
+    b.textContent = words;
+    b.addEventListener("click", () => show(level));
+    scope.appendChild(b);
   }
+  body.append(scope, rows);
+  show("map");
 
   const foot = document.createElement("div");
   foot.className = "row wb-map-theme-foot";
@@ -960,6 +977,92 @@ function wbMapThemeDialog() {
   foot.appendChild(reset);
   body.appendChild(foot);
   const close = wbInfoDialog("How this map looks", body);
+}
+
+//: The whole map's rows: decision 8's ten fields and the map's own two.
+function wbMapThemeMapRows() {
+  const out = [];
+  for (const group of WB_MAP_THEME_GROUPS) {
+    const head = document.createElement("h4");
+    head.className = "setting-subhead";
+    head.textContent = group.label;
+    out.push(head);
+    for (const field of group.fields) {
+      out.push(field.kind === "check" ? wbMapThemeCheck(field) : wbMapThemeSelect(field));
+    }
+  }
+  return out;
+}
+
+//: **One level's own look** (decision 40): the seven fields a level can set,
+//: each a select whose blank row is what the hierarchy draws there, so a
+//: level that says nothing is never mistaken for one that says "none".
+const WB_MAP_LEVEL_ROWS = [
+  { key: "font_size", label: "Size", number: true, options: [["12", "S"], ["14", "M"], ["17", "L"], ["22", "XL"], ["28", "XXL"]] },
+  { key: "bold", label: "Bold", bool: true },
+  { key: "italic", label: "Italic", bool: true },
+  { key: "shape", label: "Box", options: [["rounded", "Rounded"], ["pill", "Pill"], ["rect", "Box"], ["ellipse", "Ellipse"], ["none", "Plain"]] },
+  { key: "spine", label: "Edge bar", options: [["solid", "Solid bar"], ["dashed", "Dashed bar"], ["none", "No bar"]] },
+  { key: "fill", label: "Fill", options: [["solid", "Solid colour"], ["tint", "Tinted"], ["none", "No fill"]] },
+  { key: "edge_width", label: "Line into it", options: [["thin", "Thin line"], ["normal", "Line"], ["thick", "Thick line"]] },
+];
+
+const WB_MAP_LEVEL_NAMES = ["the centre", "the main branches", "the sub-topics"];
+
+function wbMapThemeLevelRows(level) {
+  const theme = wbMapTheme();
+  const preset = (WB_MAP_HIERARCHIES[theme.hierarchy] || WB_MAP_HIERARCHIES.classic)[level];
+  const presetName = { outline: "Outline", boxed: "Boxed", flat: "Flat" }[theme.hierarchy] || "Classic";
+  const own = theme.levels?.[String(level)] || {};
+  const head = document.createElement("h4");
+  head.className = "setting-subhead";
+  head.textContent = `How ${WB_MAP_LEVEL_NAMES[level]} look`;
+  const out = [head];
+  for (const field of WB_MAP_LEVEL_ROWS) {
+    //: The centre has no line into it, so nothing to thicken.
+    if (level === 0 && field.key === "edge_width") continue;
+    const options = field.bool ? [["on", "On"], ["off", "Off"]] : field.options;
+    const said = preset[field.key];
+    const shown = said === undefined ? "the app's own"
+      : field.bool ? (said ? "on" : "off")
+        : field.number ? `${said}px`
+          : (options.find(([v]) => v === String(said))?.[1] || String(said)).toLowerCase();
+    const row = document.createElement("div");
+    row.className = "wb-menu-row wb-map-theme-row";
+    const name = document.createElement("span");
+    name.textContent = field.label;
+    const select = document.createElement("select");
+    select.className = "ghost small";
+    select.setAttribute("aria-label", `${field.label}, for ${WB_MAP_LEVEL_NAMES[level]}`);
+    for (const [value, label] of [["", `As ${presetName} draws (${shown})`], ...options]) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      select.appendChild(option);
+    }
+    const value = own[field.key];
+    select.value = value === undefined ? "" : field.bool ? (value ? "on" : "off") : String(value);
+    select.addEventListener("change", () => {
+      const raw = select.value;
+      const next = raw === "" ? null : field.bool ? raw === "on" : field.number ? Number(raw) : raw;
+      wbMapSetLevelField(level, field.key, next);
+    });
+    row.append(name, select);
+    out.push(row);
+  }
+  return out;
+}
+
+//: One field of one level's look, written as the whole `levels` set (the
+//: server replaces it whole, so the Undo step that puts it back is exact).
+function wbMapSetLevelField(level, field, value) {
+  const levels = JSON.parse(JSON.stringify(wbMapTheme().levels || {}));
+  const look = { ...(levels[String(level)] || {}) };
+  if (value === null || value === undefined) delete look[field];
+  else look[field] = value;
+  if (Object.keys(look).length) levels[String(level)] = look;
+  else delete levels[String(level)];
+  return wbMapSetTheme({ levels: Object.keys(levels).length ? levels : null });
 }
 
 function wbMapThemeSelect(field) {
@@ -4286,6 +4389,9 @@ function mapPaletteCommands() {
     row("This topic", "ph:caret-down Fold or unfold the branch", () => wbMapToggleCollapse(node.id), "C");
     row("This topic", "ph:crosshair Focus on this branch", () => wbMapSetFocus(node.id));
     row("This topic", "ph:flag Markers on this topic…", () => wbMapOpenMarkers(node.id));
+    row("This topic", "ph:eyedropper Copy this topic's style", () => wbCopySelectedStyle(), "Ctrl+Alt+C");
+    row("This topic", "ph:paint-bucket Paste style onto this topic", () => wbPasteCopiedStyle(), "Ctrl+Alt+V");
+    row("This topic", "ph:stack Use this look for its level", () => wbMapUseLookForLevel(node.id));
     row("This topic", "ph:text-align-left Summarise this branch", () => wbMapSummariseBranch(node));
     row("This topic", "ph:trash Delete the topic and its branch", () => wbMapDeleteSubtree(node.id), "Delete");
   }
@@ -6943,9 +7049,70 @@ async function wbMapResetToBranch(id) {
   //: on a themed map a reset topic follows the map, and a toast that said
   //: "the branch's own look" over a topic that just took the map's would be
   //: describing the wrong thing.
+  //: Every topic has a level now (§14), so what it goes back to is that.
   toast(Object.keys(wbMapTheme()).length
-    ? "Back to following this map."
-    : "Back to the branch's own look.");
+    ? "Back to following this map and its level."
+    : "Back to its level's look and its branch's colour.");
+}
+
+//: **What Copy style carries from a topic** (MINDMAP_PLAN.md decision 42):
+//: how it is drawn, never what it is. Not the icon, the core mark, the link,
+//: the line's label or its waypoint: a pasted look that renamed a topic's
+//: icon or bent its line would be pasting content.
+const WB_MAP_PASTE_STYLE_KEYS = [
+  "color", "bold", "italic", "font_size", "align", "shape", "spine", "fill",
+  "edge_style", "edge_dashed", "edge_width", "edge_arrow",
+];
+
+//: A topic's look as a patch: every key, `null` where it says nothing, so a
+//: paste makes the target look the same rather than adding to what it had.
+function wbMapTopicStyle(node) {
+  const style = {};
+  for (const key of WB_MAP_PASTE_STYLE_KEYS) {
+    const value = node?.data?.[key];
+    style[key] = value === undefined || value === "" ? null : value;
+  }
+  return style;
+}
+
+//: **"Use this look for its level"** (decision 41, Illustrator's Redefine
+//: graphic style). The topic's own level fields go into its level's look and
+//: off the topic, so it and every topic at that level that was never told
+//: otherwise draw alike. One gesture (`WB_RECORDED`), so one Undo step.
+async function wbMapUseLookForLevel(id) {
+  const node = (wbState.objects || []).find((o) => o.id === id);
+  const level = wbMapLevelOf(node);
+  if (!node || level === undefined) return;
+  const levels = JSON.parse(JSON.stringify(wbMapTheme().levels || {}));
+  const look = { ...(levels[String(level)] || {}) };
+  const patch = {};
+  for (const field of WB_MAP_LEVEL_FIELDS) {
+    let value = node.data?.[field];
+    if (value === undefined || value === null || value === "") continue;
+    //: A topic's fill words are not a level's: its tint is `self`, and a
+    //: branch fill is a cascade, which is the branch's and not a level's.
+    if (field === "fill") {
+      if (value === "branch") continue;
+      if (value === "self") value = "tint";
+    }
+    //: Size 0 is the pin for "the app's own size", which a level says by
+    //: saying nothing.
+    if (field === "font_size" && !value) {
+      delete look.font_size;
+    } else {
+      look[field] = value;
+    }
+    patch[field] = null;
+  }
+  if (!Object.keys(patch).length) {
+    toast("This topic has no look of its own to give its level.");
+    return;
+  }
+  levels[String(level)] = look;
+  await wbMapSetTheme({ levels });
+  await wbMapSetNodeStyle(node, patch);
+  renderWhiteboardNow();
+  toast(`Every one of ${WB_MAP_LEVEL_NAMES[level]} that was never given its own look now looks like this.`);
 }
 
 //: --- the link radial (MINDMAP_PLAN.md §12.1 item 4) -------------------------

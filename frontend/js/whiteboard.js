@@ -3703,6 +3703,13 @@ function wbPickStyle(source, keys) {
 }
 
 function wbCopySelectedStyle() {
+  //: A map topic's look (MINDMAP_PLAN.md decision 42): pasted onto topics
+  //: only, refused on a shape the way a shape's is refused on a text box.
+  const topic = typeof wbSelectedMapNode === "function" ? wbSelectedMapNode() : null;
+  if (topic) {
+    wbCopiedStyle = { kind: "topic", style: wbMapTopicStyle(topic) };
+    return toast("Style copied. Select topics and press Ctrl+Alt+V.");
+  }
   const sketch = wbSelectedSketchOrNull();
   if (sketch) {
     let parsed = null;
@@ -3716,7 +3723,7 @@ function wbCopySelectedStyle() {
     wbCopiedStyle = { kind: "object", style: wbPickStyle(obj.data, WB_OBJECT_STYLE_KEYS) };
     return toast("Style copied. Select a text box and press Ctrl+Alt+V.");
   }
-  toast("Select a shape, link or text box first.");
+  toast("Select a shape, link, text box or topic first.");
 }
 
 async function wbPasteCopiedStyle() {
@@ -3734,7 +3741,14 @@ async function wbPasteCopiedStyle() {
     const list = wbState[WB_LIST_BY_KIND[entry.kind]] || [];
     const item = list.find((i) => i.id === entry.id);
     if (!item) continue;
-    if (entry.kind === "sketch" && wbCopiedStyle.kind === "sketch") {
+    if (wbCopiedStyle.kind === "topic") {
+      if (entry.kind === "object" && WB_MAP_KINDS.has(item.kind)) {
+        await wbMapSetNodeStyle(item, { ...wbCopiedStyle.style });
+        applied += 1;
+      } else {
+        skipped += 1;
+      }
+    } else if (entry.kind === "sketch" && wbCopiedStyle.kind === "sketch") {
       await wbSaveSketchProps(item, { ...wbCopiedStyle.style });
       applied += 1;
     } else if (entry.kind === "object" && wbCopiedStyle.kind === "object" && item.kind === "text") {
@@ -6411,6 +6425,20 @@ function wbBuildContextMenu(kind) {
             well?.click();
           }
         });
+    });
+
+    //: **Its look as a thing to move about** (MINDMAP_PLAN.md decisions 41
+    //: and 42): Miro's and Photoshop's copy and paste style, and
+    //: Illustrator's Redefine, which hands this topic's look to its level.
+    subItem("Look", sub => {
+      sub("Copy this topic's style", "Ctrl+Alt+C", () => wbCopySelectedStyle());
+      if (wbCopiedStyle?.kind === "topic") sub("Paste style onto this topic", "Ctrl+Alt+V", () => wbPasteCopiedStyle());
+      const level = wbMapLevelOf(mapNode);
+      if (level !== undefined) {
+        sub(`Use this look for ${WB_MAP_LEVEL_NAMES[level]}`,
+          "Every topic at this level that was never given its own look follows", () => wbMapUseLookForLevel(mapNode.id));
+      }
+      sub("How this map looks…", "The hierarchy and each level's look", () => wbMapThemeDialog());
     });
 
     subItem("Lines", sub => {
@@ -19251,7 +19279,7 @@ const WB_RECORDED = [
   "wbMapReverseCrossLink", "wbMapCrossLinkToBranch", "wbMapCutCrossLink", "wbMapReverseEdge",
   "wbMapSetLayout", "wbMapInsertBetween", "wbMapOutdent", "wbMapMoveAmongSiblings",
   "wbApplyMapTemplate", "wbMapTidy", "wbGroupSelection", "wbUngroupSelection",
-  "wbPasteCopiedStyle", "wbArrangeMindMap", "wbMindMapAddCard", "wbBucketFillSketch", "wbFitToText",
+  "wbPasteCopiedStyle", "wbMapUseLookForLevel", "wbArrangeMindMap", "wbMindMapAddCard", "wbBucketFillSketch", "wbFitToText",
 ];
 for (const name of WB_RECORDED) {
   const plain = window[name];

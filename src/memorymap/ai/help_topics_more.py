@@ -1087,7 +1087,14 @@ MORE_TOPICS.extend(
                 "with a thick line, deeper topics plain. Enter on the centre adds "
                 "a main branch. A topic's own size, shape or fill always beats "
                 "its level's: the Text and Shape menus over a selected topic set "
-                "them, and Fill offers Solid colour."
+                "them, and Fill offers Solid colour. View, How this map looks picks "
+                "the hierarchy (Classic, Outline with plain text on the lines, "
+                "Boxed, or Flat for every topic alike) and, under Centre, Main "
+                "branches or Sub-topics, that level's size, weight, box, edge bar, "
+                "fill and line. A topic's menu, Look: Copy this topic's style and "
+                "Paste style (Ctrl+Alt+C and V, onto every selected topic), and "
+                "Use this look for its level, which hands the topic's own look to "
+                "every topic at its level. Each is one Undo step."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

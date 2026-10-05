@@ -1248,10 +1248,5 @@ Moved to HISTORY.md ("Moved from the plans, 2026-10-03 (the documents pass)", DO
 
 ## Placed from INBOX, 2026-10-05 (OPEN.md triage)
 
-- **Why `docRevealForSuggest` will not bring a table-cell word into view**
-  (OPEN.md, editor-intelligence). The overlap half did not reproduce
-  (`spellwide2.js`, 0 overlap in five cases); left: a table cell's mark may
-  measure outside the scroller the reveal scrolls. Brief: in `spellwide2.js`'s
-  table case, log the mark rect against `#doc-editor .cm-scroller` before and
-  after the reveal, then scroll the cell's own row in. Opus, S.
+- ~~`docRevealForSuggest` will not bring a table-cell word into view~~ Not reproduced at 1440 or 390; the account is in HISTORY.md, "Moved from the plans, 2026-10-05 (small-1005: the small open items)" (`revealcell.js`).
 - ~~`editor.js` sweep describes the retired editor~~ Re-pointed at `docSurface()`: 78 of the old 89 checks remain and pass; the account is in HISTORY.md, "Moved from the plans, 2026-10-05 (small-1005)".

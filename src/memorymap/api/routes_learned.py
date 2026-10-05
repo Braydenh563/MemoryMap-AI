@@ -20,6 +20,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+
+from memorymap.api import paging
 from sqlalchemy.orm import Session
 
 from memorymap.ai import facts, learning
@@ -79,11 +81,14 @@ def list_corrections(
     kind: str | None = None,
     limit: int = Query(default=CORRECTIONS_PAGE_SIZE, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     session: Session = Depends(get_session),
 ) -> list[dict]:
     """One page of corrections, oldest first, optionally of one kind."""
+    offset = paging.start(cursor, offset)
     rows = learning.corrections(session, kind=kind)
     response.headers["X-Total-Count"] = str(len(rows))
+    paging.finish(response, offset, limit, len(rows))
     return [
         {
             "id": item.id,
@@ -131,11 +136,14 @@ def list_facts(
     q: str | None = None,
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     session: Session = Depends(get_session),
 ) -> dict:
     """One page of what the notebook learned."""
+    offset = paging.start(cursor, offset)
     rows, total = facts.listing(session, kind=kind, q=q, limit=limit, offset=offset)
     response.headers["X-Total-Count"] = str(total)
+    paging.finish(response, offset, limit, total)
     return {"items": [facts.as_json(row) for row in rows], "total": total}
 
 

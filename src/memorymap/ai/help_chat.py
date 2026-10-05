@@ -142,7 +142,9 @@ HELP_TOPICS: list[dict] = [
             "Skills are one-click requests shown above the chat box (e.g. "
             "\"Summarise my week\"). Built-in skills ship with the app; add your "
             "own in Settings -> Skills. A skill can use the AI's tools, so it "
-            "does the work rather than just describing it."
+            "does the work rather than just describing it. A skill can also be "
+            "a Markdown file saved in the skills folder that Settings -> Skills "
+            "names; it is listed without a restart."
         ),
         "badge": {"label": "Skills", "section": "skills"},
     },

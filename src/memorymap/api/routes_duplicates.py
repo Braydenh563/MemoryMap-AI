@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+
+from memorymap.api import paging
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -75,9 +77,11 @@ DUPLICATE_PAGE_SIZE_MAX = 500
 
 @router.get("")
 def list_duplicates(
+    response: Response,
     threshold: float = duplicates.DEFAULT_THRESHOLD,
     limit: int = Query(default=DUPLICATE_PAGE_SIZE, ge=1, le=DUPLICATE_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     session: Session = Depends(get_session),
 ) -> dict:
     """A page of the groups of notes that look like the same note.
@@ -86,6 +90,7 @@ def list_duplicates(
     opens with ("11 possible duplicates") has to be the real one, or the first
     thing this feature says is wrong.
     """
+    offset = paging.start(cursor, offset)
     threshold = min(max(threshold, 0.4), 1.0)
     # Only the first page is "a scan": the pages after it re-run the same
     # computation to slice it, and recording each would make "last scan" mean
@@ -100,6 +105,7 @@ def list_duplicates(
             )
     else:
         groups = duplicates.find_duplicates(session, threshold)
+    paging.finish(response, offset, limit, len(groups))
     return {
         "threshold": threshold,
         "groups": groups[offset : offset + limit],

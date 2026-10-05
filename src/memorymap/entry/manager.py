@@ -14,7 +14,7 @@ import re
 import threading
 from datetime import datetime, timedelta
 
-from sqlalchemy import delete, func, or_, select, text, update
+from sqlalchemy import delete, func, or_, select, text, tuple_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -299,6 +299,7 @@ def list_entries(
     limit: int | None = None,
     offset: int = 0,
     boards: str = BOARDS_INCLUDE,
+    after: tuple | None = None,
 ) -> list[Entry]:
     """Pinned first, then newest first. Deleted and archived entries stay
     hidden until the recycle bin / archive UI asks for them explicitly, 
@@ -316,11 +317,25 @@ def list_entries(
         Entry.pinned.desc(), Entry.created_at.desc(), Entry.id.desc()
     )
     query = _list_entries_filter(query, include_deleted, include_archived, boards)
+    if after is not None:
+        # A keyset page (WORLD_CLASS_PLAN B7): the rows that sort after the
+        # last one the caller saw, by the same three keys the ORDER BY uses,
+        # all descending, so "after" is "less than" as one row value. Served
+        # from `ix_entries_live`'s trailing columns, which are these three in
+        # this order and direction (measured in `tests/test_query_plans.py`).
+        query = query.where(
+            tuple_(Entry.pinned, Entry.created_at, Entry.id) < tuple_(*after)
+        )
     if offset:
         query = query.offset(offset)
     if limit is not None:
         query = query.limit(limit)
     return list(session.scalars(query))
+
+
+def list_sort_key(entry: Entry) -> tuple:
+    """What `list_entries(after=...)` takes: the row's own ORDER BY values."""
+    return (bool(entry.pinned), entry.created_at, entry.id)
 
 
 def count_entries(

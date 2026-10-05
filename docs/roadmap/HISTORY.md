@@ -40513,6 +40513,75 @@ reading pane pads `--space-6`. First line 255 to 199, light and dark; Live
 stays at 192. At 1440 the Read view's title heading is still drawn (block,
 33px). The dock's two rows stay: the Edit/Read row is the view switch the
 plan's item 6 decided on, and it fits the budget as it is.
+## Moved from the plans, 2026-10-05 (B7)
+
+### From WORLD_CLASS_PLAN.md B7: the state line it replaced
+
+**State 2026-09-24:** (b) the error shape exists, the schema is behind the unlock (`tests/test_openapi_gate.py`), and every list takes a `limit` (`tests/test_list_limits.py`). Not built: cursor pagination, ETags and `If-Match` on entries, and `/capabilities`. M.
+
+### Built 2026-10-05 (row 16)
+
+- **One paging contract** (`api/paging.py`): every route that pages by
+  `offset` (18 of them) also takes `?cursor=` and answers `X-Next-Cursor`
+  while there is more; no header means the list is finished. A header, not a
+  `next_cursor` field, because the twenty array-shaped responses are read as
+  arrays by the page and by any outside caller; `offset` is unchanged. A
+  cursor of the wrong kind for its route is a 422, never a silent first page.
+- **The notes list's cursor is a keyset** over `(pinned, created_at, id)`,
+  so a note saved between two page requests neither repeats a row nor hides
+  one (`test_a_note_saved_between_pages_does_not_repeat_a_row` fails on an
+  offset). The other lists carry an offset cursor: small, ordered by a score
+  or a merge, or read once into a dialog, where a keyset buys nothing.
+- **ETags and `If-Match` on entries**: `GET /entries/{id}` and a `PUT` answer
+  `ETag: "<content_hash>"`, the hash the editor already sends as `base_hash`;
+  a `PUT` or `DELETE` with an `If-Match` naming no current version is refused
+  with 412, `code: precondition_failed` and the current note, before anything
+  is written. `*` matches; a weak tag never does (RFC 9110).
+- **`GET /capabilities`**: what this install has, every field a look at the
+  disk or a preference and never a call to a model server: the transcriber,
+  Tesseract, the Office importer, the embedding backend, the read-aloud
+  engine, the MCP server, LAN mode, the API version and how to page and guard
+  writes. Behind the unlock.
+- Tests: `tests/test_api_contract_b7.py` (10), including a lint that every
+  route with an `offset` takes a `cursor`.
+- Not verified: no page code follows the cursor yet (the lists still page by
+  offset, which keeps working), and nothing in the page reads `/capabilities`.
+
+## Moved from the plans, 2026-10-05 (B8, H4)
+
+### From WORLD_CLASS_PLAN.md B8 and H4: the state lines they replaced
+
+**B8, state 2026-09-24:** (b) the MCP server exists (`src/memorymap/mcp_server.py`) and the registry is served over HTTP (`GET /chat/tools`, `POST /chat/tools/execute`); a user skills folder of Markdown files picked up without a restart does not. M.
+
+**H4, state 2026-09-24:** (b) the MCP server exists (`mcp_server.py`); a versioned `/api/v1` and the agent named in the event log for an external write were not found. M.
+
+### Built 2026-10-05 (row 17)
+
+- **The user skills folder** (`ai/skill_folder.py`): `<data dir>/skills/*.md`
+  is read on every skill-list request and a file is parsed again only when
+  its modification time or size moves, so a file dropped in is in Settings,
+  Skills and the chat's Skills menu (which now asks again each time it opens)
+  without a restart, and leaves when the file does. The file's name is the
+  skill's name unless front matter says otherwise; front matter carries the
+  description, `when`, `tools` and `inputs`; a `## Steps` list is the steps.
+  Every field passes `skills.normalise`, the check a typed skill passes. A
+  file that does not load, or names a skill that already exists, is listed
+  in Settings with the reason; the app never edits or deletes the file
+  (`delete_skill` refuses with "delete the file").
+- **`/api/v1`** (`api/versioning.py`): every API route at `/x` is also at
+  `/api/v1/x`, the same handler behind the same unlock (a pure ASGI layer
+  outermost, so every check sees the bare path); the page's files are not
+  under it (404), every response under it says `API-Version: 1`, and the
+  schema is `/api/v1/openapi.json`, behind the unlock.
+- **The agent named** (`events.as_agent`, `agent:<tool>@<who>`): an MCP
+  client's `clientInfo.name`, or `X-MemoryMap-Agent` on any request, files
+  every change the call makes under that name; History and the activity
+  list say "<who> (agent)" and the activity list offers to undo it, as for
+  Atlas.
+- Tests: `tests/test_local_service_h4.py` (9).
+- Not verified: the Skills menu refreshing on open was not driven in a
+  browser; no real MCP client was connected.
+
 ## INBOX resolved, 2026-10-05
 
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs

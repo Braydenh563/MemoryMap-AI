@@ -1673,7 +1673,41 @@ def catalog(config, known_tools: set[str] | None = None) -> list[dict]:
             except SkillError:
                 continue
         out.append({**skill, "builtin": False})
+    #: The user skills folder (B8): Markdown files, read on every call so a
+    #: file dropped in is runnable without a restart. Last, so a name already
+    #: taken by a built-in or a saved skill keeps it (`folder_skills`).
+    out.extend(folder_skills(config, known_tools, taken={s["name"] for s in out})[0])
     return out
+
+
+def folder_skills(
+    config, known_tools: set[str] | None = None, taken: set[str] | None = None
+) -> tuple[list[dict], list[dict]]:
+    """The skills folder's runnable skills and the files that did not load.
+
+    A file whose skill name is already taken is a problem, not a silent loss:
+    the person who wrote it needs to know why it is not in the menu.
+    """
+    from memorymap.ai import skill_folder
+
+    if taken is None:
+        taken = {s["name"] for s in builtins(known_tools)} | {
+            str(s.get("name") or "") for s in stored(config)
+        }
+    found, problems = skill_folder.scan(config, known_tools)
+    runnable = []
+    for skill in found:
+        if skill["name"] in taken:
+            problems.append(
+                {
+                    "file": skill["file"],
+                    "message": f"names “{skill['name']}”, which another skill already has",
+                }
+            )
+            continue
+        taken = taken | {skill["name"]}
+        runnable.append({**skill, "builtin": False})
+    return runnable, problems
 
 
 def find(config, name: str, known_tools: set[str] | None = None) -> dict | None:

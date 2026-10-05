@@ -8717,6 +8717,14 @@ Link to another note with [[its first few words]]."></textarea>
                 for them, and only those tools are offered while it runs.
                 Destructive steps still ask for your approval.
               </p>
+              <p>
+                A skill can also be a Markdown file in the skills folder named
+                under the list: the file's name is the skill's name, the text
+                is what it should do, and a "## Steps" list gives its steps.
+                Front matter can set the description, the tools and the
+                inputs. A file saved there is listed without a restart; edit
+                or delete it in the folder.
+              </p>
             </div>
             <!-- Two folds (DESIGN.md, the settings-fold recipe): the list open,
                  the form to write one folded until wanted; editing a skill
@@ -8725,6 +8733,7 @@ Link to another note with [[its first few words]]."></textarea>
             <details class="settings-group settings-fold" data-fold-key="skills-list" open>
             <summary><h3 class="inline-h3">Your skills</h3></summary>
             <ul id="skill-list" class="entry-list"></ul>
+            <p id="skill-folder-line" class="muted"></p>
             </details>
             <details class="settings-group settings-fold" data-fold-key="skills-add" id="skill-add-fold">
             <summary><h3 class="inline-h3">Add your own</h3></summary>

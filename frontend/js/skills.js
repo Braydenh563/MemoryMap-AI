@@ -14,12 +14,15 @@
 // user clicked; they are served from GET /skills now, alongside the user's own.
 let skillsCache = [];
 let skillLimits = { steps: 10, tools: 12, inputs: 5 };
+//: The user skills folder (B8): its path and the files there that did not load.
+let skillFolder = null;
 
 async function loadSkills() {
   const body = await apiJson("/skills").catch(() => null);
   if (!body) return skillsCache;
   skillsCache = body.skills || [];
   if (body.limits) skillLimits = body.limits;
+  skillFolder = body.folder || null;
   return skillsCache;
 }
 
@@ -27,8 +30,11 @@ function allSkills() {
   return skillsCache;
 }
 
+//: The skills saved in Settings, which are what `saveSkillList` writes back.
+//: Not the folder's: those are the person's own files, and copying one into
+//: the preferences would leave a second copy behind when the file is deleted.
 function customSkills() {
-  return skillsCache.filter((skill) => !skill.builtin);
+  return skillsCache.filter((skill) => !skill.builtin && !skill.folder);
 }
 
 // Which custom skill (by name) the editor is currently editing, if any.
@@ -359,43 +365,7 @@ async function loadChatSkills() {
   select.className = "small-select chat-skill-select";
   select.id = "chat-skill-select";
   select.setAttribute("aria-label", "Activate a skill");
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = "Activate a skill…";
-  select.appendChild(placeholder);
-
-  const groups = { builtin: [], mine: [] };
-  for (const skill of allSkills()) {
-    groups[skill.builtin ? "builtin" : "mine"].push(skill);
-  }
-  for (const [key, title] of [["mine", "Yours"], ["builtin", "Built-in"]]) {
-    if (!groups[key].length) continue;
-    const group = document.createElement("optgroup");
-    group.label = title;
-    for (const skill of groups[key]) {
-      const option = document.createElement("option");
-      option.value = skill.name;
-      // An <option> cannot contain an element, so the "this one changes your
-      // notebook" marker has to be a word. It was an emoji, and then briefly a
-      // `ph:` marker: which would have rendered as the literal text
-      // "ph:gear" in the list, since setLabel has no element to build into.
-      option.textContent = skill.name + (skill.changes ? "  (edits notes)" : "");
-      option.title = skillSummary(skill);
-      group.appendChild(option);
-    }
-    select.appendChild(group);
-  }
-
-  // Managing skills is one of the things you come to this control to do, so it
-  // is in the list rather than beside it as an unlabelled "＋". Its own group,
-  // at the bottom, so it never sits among the runnable options.
-  const manageGroup = document.createElement("optgroup");
-  manageGroup.label = "Manage";
-  const manage = document.createElement("option");
-  manage.value = SKILL_MANAGE_VALUE;
-  manage.textContent = "Add or edit skills…";
-  manageGroup.appendChild(manage);
-  select.appendChild(manageGroup);
+  fillSkillSelect(select);
 
   // Chosen, then run: rather than running on change. A dropdown that fires an
   // action the instant it changes cannot be browsed, and these actions edit
@@ -439,7 +409,64 @@ async function loadChatSkills() {
   trigger.setAttribute("aria-controls", "chat-skills-panel");
   trigger.title = "Skills: saved jobs you can run over your notes";
   setLabel(trigger, "ph:lightning Skills");
+  //: B8: a skill file dropped into the skills folder is in the list the next
+  //: time the menu opens, without a restart, so opening it asks again.
+  trigger.addEventListener("click", () => {
+    // Runs before the toggle below, so "true" here means it is closing.
+    if (trigger.getAttribute("aria-expanded") === "true") return;
+    loadSkills().then(() => fillSkillSelect(select));
+  });
+  buildSkillsPanel(box, label, select, run, trigger);
+}
 
+//: The select's options from `allSkills()`, keeping what was chosen when it is
+//: still there; run again each time the Skills menu opens (B8).
+function fillSkillSelect(select) {
+  const chosen = select.value;
+  select.replaceChildren();
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Activate a skill…";
+  select.appendChild(placeholder);
+
+  const groups = { builtin: [], mine: [] };
+  for (const skill of allSkills()) {
+    groups[skill.builtin ? "builtin" : "mine"].push(skill);
+  }
+  for (const [key, title] of [["mine", "Yours"], ["builtin", "Built-in"]]) {
+    if (!groups[key].length) continue;
+    const group = document.createElement("optgroup");
+    group.label = title;
+    for (const skill of groups[key]) {
+      const option = document.createElement("option");
+      option.value = skill.name;
+      // An <option> cannot contain an element, so the "this one changes your
+      // notebook" marker has to be a word. It was an emoji, and then briefly a
+      // `ph:` marker: which would have rendered as the literal text
+      // "ph:gear" in the list, since setLabel has no element to build into.
+      option.textContent = skill.name + (skill.changes ? "  (edits notes)" : "");
+      option.title = skillSummary(skill);
+      group.appendChild(option);
+    }
+    select.appendChild(group);
+  }
+
+  // Managing skills is one of the things you come to this control to do, so it
+  // is in the list rather than beside it as an unlabelled "＋". Its own group,
+  // at the bottom, so it never sits among the runnable options.
+  const manageGroup = document.createElement("optgroup");
+  manageGroup.label = "Manage";
+  const manage = document.createElement("option");
+  manage.value = SKILL_MANAGE_VALUE;
+  manage.textContent = "Add or edit skills…";
+  manageGroup.appendChild(manage);
+  select.appendChild(manageGroup);
+
+  if ([...select.options].some((option) => option.value === chosen)) select.value = chosen;
+}
+
+//: The Skills menu around the select: built once per `loadChatSkills`.
+function buildSkillsPanel(box, label, select, run, trigger) {
   const panel = document.createElement("div");
   panel.id = "chat-skills-panel";
   panel.className = "chat-skills-panel hidden";
@@ -760,6 +787,11 @@ function skillRow(skill) {
   //: in 08-consistency.css, shared with the personas.
   row.appendChild(chip(skill.name, "item-title"));
   if (skill.builtin) row.appendChild(chip("Built-in", "item-label"));
+  if (skill.folder) {
+    const from = chip("From the skills folder", "item-label");
+    from.title = `The file ${skill.file}; edit or delete it there`;
+    row.appendChild(from);
+  }
   if (skill.changes) row.appendChild(chip("ph:pencil-simple Changes notes", "item-fact item-writes"));
   if ((skill.steps || []).length) {
     row.appendChild(chip(`${skill.steps.length} steps`, "item-fact"));
@@ -777,7 +809,7 @@ function skillRow(skill) {
   note.className = "muted skill-blurb";
   note.textContent = skill.description || skill.prompt;
   row.appendChild(note);
-  if (!skill.builtin) {
+  if (!skill.builtin && !skill.folder) {
     const actions = document.createElement("span");
     actions.className = "entry-actions";
     actions.appendChild(
@@ -801,8 +833,26 @@ async function renderSkillSettings() {
   const list = $("skill-list");
   list.replaceChildren();
   for (const skill of allSkills()) list.appendChild(skillRow(skill));
+  renderSkillFolderLine();
   if (!$("skill-tool-list").children.length) renderSkillToolPicker([]);
   if (!$("skill-verify-tool").children.length) renderSkillVerifyPicker(null);
+}
+
+//: Where the skills folder is and which of its files did not load (B8): a file
+//: that is not in the list says why here rather than being silently absent.
+function renderSkillFolderLine() {
+  const line = $("skill-folder-line");
+  if (!line) return;
+  const folder = skillFolder || {};
+  line.textContent = folder.path
+    ? `Skills folder: ${folder.path}. A Markdown file saved there is listed here without a restart.`
+    : "";
+  for (const problem of folder.problems || []) {
+    const item = document.createElement("span");
+    item.className = "skill-folder-problem";
+    item.textContent = problem.file ? `${problem.file}: ${problem.message}.` : `${problem.message}.`;
+    line.append(document.createElement("br"), item);
+  }
 }
 
 async function addSkill() {

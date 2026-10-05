@@ -1214,6 +1214,11 @@ def _delete_skill(session: Session, args: dict) -> dict:
     if len(remaining) == len(stored):
         if any(name == shipped["name"] for shipped in skills.builtins()):
             raise ToolError(f"“{name}” is a built-in skill and can't be deleted")
+        if any(name == own["name"] for own in skills.folder_skills(config)[0]):
+            # The person's own file (B8): the app does not delete it for them.
+            raise ToolError(
+                f"“{name}” comes from a file in the skills folder; delete the file to remove it"
+            )
         raise ToolError(f"There's no saved skill called “{name}”")
     config.set_preference("skills", remaining)
     return {"name": name, "label": f"ph:lightning Deleted the “{name}” skill"}
@@ -4526,9 +4531,15 @@ def execute_tool(
     arguments: dict,
     context_tokens: int | None = None,
     model: str | None = None,
+    agent: str | None = None,
 ) -> dict:
     """Run one tool call. Errors come back as {"error": ...} so the
     agent loop can hand them to the model instead of crashing.
+
+    `agent` names an outside caller (the MCP server's client, H4); without
+    it, a call made inside a request that named one (`events.as_agent`) is
+    that agent's. Either way its writes are filed as `agent:<tool>@<who>`,
+    not as Atlas's.
 
     Only `ToolError` text is passed on, see that class. A `KeyError`, a
     `TypeError`, or a plain `ValueError` from inside a handler is something
@@ -4560,7 +4571,9 @@ def execute_tool(
         outside = _common.outside_seen()
         flag_token = outside.set([False])
         try:
-            with events.acting_as(_ai_actor(name, model)):
+            outsider = agent or events.current_agent()
+            actor = events.agent_actor(name, outsider) if outsider else _ai_actor(name, model)
+            with events.acting_as(actor):
                 result = spec.handler(session, args)
             # SEC-02: the call put a clipped or imported note's words in front
             # of the model; the agent taints the turn on this, as for a web read.

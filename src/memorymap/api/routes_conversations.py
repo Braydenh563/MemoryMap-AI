@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+
+from memorymap.api import paging
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
@@ -286,6 +288,7 @@ def list_conversations(
     q: str = "",
     limit: int = Query(default=CONVERSATIONS_PAGE_SIZE, ge=1, le=MAX_CONVERSATIONS_PAGE),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     session: Session = Depends(get_session),
 ) -> list[dict]:
     """Pinned first, then most recently used, one page at a time.
@@ -305,6 +308,7 @@ def list_conversations(
     two chats sharing an `updated_at` could otherwise swap places between two
     pages and hide one of them.
     """
+    offset = paging.start(cursor, offset)
     term = (q or "").strip()
     # Archived chats are kept, but out of the way, same shape as an
     # archived note dropping out of the Notes tab. Reachable via the
@@ -324,6 +328,7 @@ def list_conversations(
             )
         )
         response.headers["X-Total-Count"] = str(total)
+        paging.finish(response, offset, limit, total)
         return [_summary(c) for c in rows]
 
     # A cheap SQL prefilter, which over-matches (JSON keys count as text), so
@@ -343,6 +348,7 @@ def list_conversations(
     )
     matched = [c for c in candidates if conversation_matches(c, term)]
     response.headers["X-Total-Count"] = str(len(matched))
+    paging.finish(response, offset, limit, len(matched))
     return [_summary(c) for c in matched[offset : offset + limit]]
 
 

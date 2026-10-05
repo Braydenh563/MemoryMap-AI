@@ -9,6 +9,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+
+from memorymap.api import paging
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -284,6 +286,7 @@ def list_reminders(
     response: Response,
     limit: int = Query(default=REMINDERS_PAGE_SIZE, ge=1, le=REMINDERS_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     entry_id: int | None = Query(default=None, description="Only this note's reminders"),
     include_done: bool = True,
     session: Session = Depends(get_session),
@@ -301,6 +304,7 @@ def list_reminders(
     that answers a different question from the rows is worse than no total:
     the Reminders tab pages on it.
     """
+    offset = paging.start(cursor, offset)
     filters = []
     if entry_id is not None:
         filters.append(Reminder.entry_id == entry_id)
@@ -315,6 +319,7 @@ def list_reminders(
         .offset(offset)
     )
     response.headers["X-Total-Count"] = str(total)
+    paging.finish(response, offset, limit, total)
     return [_to_out(session, r) for r in rows]
 
 

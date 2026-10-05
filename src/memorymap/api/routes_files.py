@@ -22,6 +22,8 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, Response
+
+from memorymap.api import paging
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -269,6 +271,7 @@ def list_attachment_gallery(
     response: Response,
     limit: int = Query(default=GALLERY_PAGE_SIZE, ge=1, le=GALLERY_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     session: Session = Depends(get_session),
 ) -> list[AttachmentGalleryOut]:
     """A page of the note-attached files the Library's gallery may show, the
@@ -284,6 +287,7 @@ def list_attachment_gallery(
     applies before this query ever runs, the same as every other
     workspace-scoped read in this app.
     """
+    offset = paging.start(cursor, offset)
     visible = (
         select(Attachment, Entry)
         .join(Entry, Attachment.entry_id == Entry.id)
@@ -298,9 +302,9 @@ def list_attachment_gallery(
     # whatever the page, and the id breaks a tie on `created_at` so two files
     # attached in the same second cannot swap places between pages and hide a
     # row.
-    response.headers["X-Total-Count"] = str(
-        session.scalar(select(func.count()).select_from(visible.subquery())) or 0
-    )
+    total = session.scalar(select(func.count()).select_from(visible.subquery())) or 0
+    response.headers["X-Total-Count"] = str(total)
+    paging.finish(response, offset, limit, total)
     rows = session.execute(
         visible.order_by(Attachment.created_at.desc(), Attachment.id.desc())
         .limit(limit)
@@ -1095,11 +1099,13 @@ def list_exports(
     response: Response,
     limit: int = Query(EXPORTS_LIST_LIMIT, ge=1, le=500),
     offset: int = Query(0, ge=0),
+    cursor: str | None = paging.cursor_param(),
 ) -> dict:
     """The exports folder, newest first, paged like every other growing list
     (`limit`/`offset`, `X-Total-Count` for the whole). Sorted on the raw mtime
     with the name as the tie-break: two files saved within one second, which
     CI's disks manage easily, would otherwise come back in either order."""
+    offset = paging.start(cursor, offset)
     exports = _exports_dir()
     if not exports.is_dir():
         response.headers["X-Total-Count"] = "0"
@@ -1122,6 +1128,7 @@ def list_exports(
         )
     rows.sort(key=lambda row: (row[0], row[1]), reverse=True)
     response.headers["X-Total-Count"] = str(len(rows))
+    paging.finish(response, offset, limit, len(rows))
     return {"path": str(exports), "files": [row[2] for row in rows[offset : offset + limit]]}
 
 
@@ -1347,6 +1354,7 @@ def list_media(
     response: Response,
     limit: int = Query(default=MEDIA_PAGE_SIZE, ge=1, le=MEDIA_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     session: Session = Depends(get_session),
 ) -> list[MediaUploadOut]:
     """A page of the uploads `/media/upload` has produced: asked for
@@ -1360,6 +1368,7 @@ def list_media(
     the page, and the id breaks a tie on `created_at` so two uploads made in
     the same second cannot swap places between pages and hide a row.
     """
+    offset = paging.start(cursor, offset)
     total = session.scalar(select(func.count(MediaUpload.id))) or 0
     uploads = (
         session.query(MediaUpload)
@@ -1369,6 +1378,7 @@ def list_media(
         .all()
     )
     response.headers["X-Total-Count"] = str(total)
+    paging.finish(response, offset, limit, total)
     # One scan for the whole gallery rather than one per file: `usage_map`
     # walks each table once and inverts the result, so this stays a single
     # pass no matter how many uploads there are.
@@ -1437,8 +1447,10 @@ class MediaOrphansOut(BaseModel):
 # 422 instead of ever reaching these.
 @router.get("/media/orphans", response_model=MediaOrphansOut)
 def list_orphaned_media(
+    response: Response,
     limit: int = Query(default=MEDIA_PAGE_SIZE_MAX, ge=1, le=MEDIA_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     session: Session = Depends(get_session),
 ) -> MediaOrphansOut:
     """Uploads no live note, document or whiteboard image object still
@@ -1451,7 +1463,9 @@ def list_orphaned_media(
     orphan it finds, because deleting a page at a time would mean the count
     on screen and the count deleted could never agree.
     """
+    offset = paging.start(cursor, offset)
     orphans, skipped_private = media_gc.find_orphaned_media(session)
+    paging.finish(response, offset, limit, len(orphans))
     return MediaOrphansOut(
         orphans=[
             MediaUploadOut(id=u.id, url=f"/media/{u.filename}", original_name=u.original_name)

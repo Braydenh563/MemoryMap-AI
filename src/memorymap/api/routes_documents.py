@@ -16,6 +16,8 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile
 from fastapi.responses import StreamingResponse
+
+from memorymap.api import paging
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -342,6 +344,7 @@ def list_documents(
     q: str = Query(default="", max_length=200),
     limit: int = Query(default=DOCUMENTS_PAGE_SIZE, ge=1, le=DOCUMENTS_PAGE_SIZE_MAX),
     offset: int = Query(default=0, ge=0),
+    cursor: str | None = paging.cursor_param(),
     session: Session = Depends(get_session),
 ) -> list[dict]:
     """A page of documents, newest-first, optionally narrowed by `q`.
@@ -373,6 +376,7 @@ def list_documents(
     case-insensitive substring matching, not semantic search, whether
     documents get embeddings at all is a separate, larger decision.
     """
+    offset = paging.start(cursor, offset)
     # Archived documents are kept, but out of the way, reachable via the
     # Library's Shelved filter (routes_library._shelved), not this list.
     live = Document.archived_at.is_(None)
@@ -397,6 +401,7 @@ def list_documents(
     )
     rows = session.scalars(query)
     response.headers["X-Total-Count"] = str(total)
+    paging.finish(response, offset, limit, total)
     return [_summary(d) for d in rows]
 
 

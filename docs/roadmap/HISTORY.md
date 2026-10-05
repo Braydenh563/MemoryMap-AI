@@ -51,6 +51,14 @@ remaining whiteboard rows; the open rest is in
   `wbhistory.js` 14/14 at 1440 and 390, light and dark (the sweep ages the
   log in its own data dir to make three moments).
 
+- **Step 4, smart guides** (decision 34). Checked first: edge and centre
+  guides, equal spacing between two neighbours, Alt to bypass, group drags,
+  and the Arrange menu's align and distribute (`WB_COMMANDS`) all existed;
+  not rebuilt. Added: drawn shapes as targets (`wbGuideBoxes`, hidden items
+  left out) and a row's or column's spacing continued past its end
+  (`wbSpacingSeries`). `tests/test_wb_guides.py` 5; `wbguides.js` 6/6 at
+  1440 and 390, light and dark; `wbgroupguides.js` 0 findings.
+
 ## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
 
 From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN

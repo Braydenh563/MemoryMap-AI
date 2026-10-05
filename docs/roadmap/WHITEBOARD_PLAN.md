@@ -378,6 +378,12 @@ accessibility, and learnability") are why.
     listed and not shown (410). The client draws the past with the board's
     own render in the presenting mode (`.wb-presenting`) with its own bar, refuses
     writes while it is shown, and records a restore as one Undo step.
+34. **Drawn shapes are guide targets, and a row's spacing continues**
+    (`wbGuideBoxes`, `wbSpacingSeries`): a sketch with a `shape` or a closed
+    path is lined up with like a card (a freehand stroke and a connector are
+    not); with no neighbour on the far side, the gap to the nearest item
+    snaps to the gap that item keeps to the next one out. Alt still bypasses
+    every guide; align and distribute stay the Arrange menu's (they existed).
 
 ## Built, 2026-09-09: one surface per panel, and the Arrange section
 

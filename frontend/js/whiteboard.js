@@ -765,9 +765,21 @@ function wbGuideBoxes(excludeKeys) {
   for (const [kind, listName] of [["node", "nodes"], ["object", "objects"]]) {
     for (const item of wbState[listName] || []) {
       if (excludeKeys && excludeKeys.has(wbMultiKey(kind, item.id))) continue;
+      if (wbItemHidden(kind, item)) continue;
       const box = wbItemBBox(kind, item);
       if (box) boxes.push(box);
     }
+  }
+  //: **The drawn shapes too** (wb-phase2 step 4): a flowchart's boxes are
+  //: sketches, so a shape dragged among them had nothing to line up with.
+  //: A shape is a sketch with a `shape` or a closed path; a freehand stroke
+  //: and a connector are not targets (draw.io aligns to shapes, not ink).
+  for (const sketch of wbState.sketches || []) {
+    if (excludeKeys && excludeKeys.has(wbMultiKey("sketch", sketch.id))) continue;
+    const parsed = wbSketchParsedData(sketch);
+    if (!parsed || !(parsed.shape || wbShapeLabelKind(parsed)) || wbItemHidden("sketch", sketch)) continue;
+    const box = wbItemBBox("sketch", sketch);
+    if (box) boxes.push(box);
   }
   wbGuideBoxCache = { key, boxes };
   return boxes;
@@ -898,6 +910,17 @@ function wbAlignmentGuides(excludeKeys, x, y, w, h) {
         guideLines.push({ x1: dragged.right + dx, y1: midY, x2: right.minX, y2: midY, kind: "spacing" });
       }
     }
+    //: **Continue a row's spacing** (Figma and draw.io): with nothing on the
+    //: other side, the gap to the nearest item matches the gap that item
+    //: keeps to its own neighbour, so the third box of a row lands where the
+    //: first two set the rhythm.
+    if (!guideLines.some((l) => l.kind === "spacing" && l.y1 === l.y2)) {
+      const series = wbSpacingSeries(rowMates, dragged, "x");
+      if (series) {
+        dx = series.delta;
+        guideLines.push(...series.lines);
+      }
+    }
   }
   if (!bestY) {
     const colMates = others.filter((b) => b.minX < dragged.right && b.maxX > dragged.left);
@@ -913,9 +936,55 @@ function wbAlignmentGuides(excludeKeys, x, y, w, h) {
         guideLines.push({ x1: midX, y1: dragged.bottom + dy, x2: midX, y2: below.minY, kind: "spacing" });
       }
     }
+    if (!guideLines.some((l) => l.kind === "spacing" && l.x1 === l.x2)) {
+      const series = wbSpacingSeries(colMates, dragged, "y");
+      if (series) {
+        dy = series.delta;
+        guideLines.push(...series.lines);
+      }
+    }
   }
 
   return { dx, dy, guideLines };
+}
+
+//: A row (`axis` "x") or column ("y") of boxes beside the dragged one: if the
+//: gap from it to its nearest neighbour on one side is within snapping of the
+//: gap that neighbour keeps to the next one out, the move that makes the two
+//: equal and the two spacing marks. Pure (node-tested).
+function wbSpacingSeries(mates, dragged, axis) {
+  const lo = axis === "x" ? "minX" : "minY", hi = axis === "x" ? "maxX" : "maxY";
+  const dLo = axis === "x" ? dragged.left : dragged.top, dHi = axis === "x" ? dragged.right : dragged.bottom;
+  const cross = (b) => (axis === "x"
+    ? (Math.max(b.minY, dragged.top) + Math.min(b.maxY, dragged.bottom)) / 2
+    : (Math.max(b.minX, dragged.left) + Math.min(b.maxX, dragged.right)) / 2);
+  const mark = (a, b, at) => (axis === "x"
+    ? { x1: a, y1: at, x2: b, y2: at, kind: "spacing" }
+    : { x1: at, y1: a, x2: at, y2: b, kind: "spacing" });
+  let best = null;
+  for (const side of [-1, 1]) {
+    const near = side < 0
+      ? mates.filter((b) => b[hi] <= dLo + WB_ALIGN_SNAP_PX).sort((a, b) => b[hi] - a[hi])[0]
+      : mates.filter((b) => b[lo] >= dHi - WB_ALIGN_SNAP_PX).sort((a, b) => a[lo] - b[lo])[0];
+    if (!near) continue;
+    const far = side < 0
+      ? mates.filter((b) => b !== near && b[hi] <= near[lo]).sort((a, b) => b[hi] - a[hi])[0]
+      : mates.filter((b) => b !== near && b[lo] >= near[hi]).sort((a, b) => a[lo] - b[lo])[0];
+    if (!far) continue;
+    const gap = side < 0 ? near[lo] - far[hi] : far[lo] - near[hi];
+    const mine = side < 0 ? dLo - near[hi] : near[lo] - dHi;
+    if (gap < 0 || mine < 0 || Math.abs(mine - gap) > WB_ALIGN_SNAP_PX) continue;
+    const delta = side < 0 ? gap - mine : mine - gap;
+    if (best && Math.abs(delta) >= Math.abs(best.delta)) continue;
+    const at = cross(near);
+    best = {
+      delta,
+      lines: side < 0
+        ? [mark(far[hi], near[lo], at), mark(near[hi], dLo + delta, at)]
+        : [mark(dHi + delta, near[lo], at), mark(near[hi], far[lo], at)],
+    };
+  }
+  return best;
 }
 
 //: Default guide colours, one per `kind` `wbAlignmentGuides` can report: 

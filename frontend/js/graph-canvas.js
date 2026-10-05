@@ -261,6 +261,11 @@ const GC_LABEL_ZOOM = 1.4;
 //: dot in a batched path rather than as its sprite (see the node pass in
 //: `gcDraw`): its rim and glow are a pixel or less there.
 const GC_LOD_PX = 4;
+
+//: How far, in screen pixels, a press on a node has to travel before it is a
+//: drag rather than a click (INBOX 587; see the drag handlers in
+//: `gcWireInteraction`). Three is the usual slop for a mouse and a finger alike.
+const GC_DRAG_THRESHOLD_PX = 3;
 const GC_LABEL_ALL_MAX = 400;
 //: How many search hits are still few enough to be answers rather than a
 //: filter, and so are drawn even where they overlap something already there.
@@ -2628,175 +2633,211 @@ function gcWireInteraction(s = gcTab) {
         const [sx, sy] = (s.transform || d3.zoomIdentity).apply([node.x, node.y]);
         return { node, x: sx, y: sy };
       })
+      //: **A press is not a drag until it has moved** (INBOX 587, the owner:
+      //: "when I click nodes on the graph, it moves the graph slightly??").
+      //: d3-drag says `start` on the press itself, and the press used to pin
+      //: the node, freeze the map but its neighbours and tell the worker a
+      //: drag had begun, which reheats the simulation: every click on a note
+      //: set its neighbours moving and the layout drifted a little each time.
+      //: Now `start` only remembers the press; the drag begins once the
+      //: pointer is `GC_DRAG_THRESHOLD_PX` from it (`gcDragBegin`, with the
+      //: press's own event, so the node is taken from where it was), and a
+      //: press that never travels is a click, which tells the worker nothing.
       .on("start", (event) => {
-        const node = event.subject.node;
-        s.dragNode = node;
-        node._dragStartX = node.x;
-        node._dragStartY = node.y;
-        node._wasPinned = node.fx != null;
-        //: **Shift is what pins.** INBOX 96, the owner: "my original annoyance
-        //: was that I'd try to drag a node or cluster around and it would just
-        //: snap back ... but I move a node a little and then I have to unpin
-        //: it and there's got to be a better way." Both halves of that are one
-        //: rule: a plain drag places a node and lets the map settle around it,
-        //: an explicit pin holds it against the simulation for good. Read at
-        //: `start` rather than at `end` because the modifier is part of the
-        //: gesture the reader began, and a Shift pressed or released mid-drag
-        //: would otherwise change what the gesture meant halfway through.
-        node._dragShift = Boolean(event.sourceEvent && event.sourceEvent.shiftKey);
-        const [wx, wy] = (s.transform || d3.zoomIdentity).invert([event.x, event.y]);
-        node.fx = wx;
-        node.fy = wy;
-        gcPost({ type: "drag", phase: "start", id: node.id, x: wx, y: wy }, s);
-        //: **A lasso selection moves as one** (GRAPH_PLAN, "Decision changed,
-        //: 2026-09-09", its one open line: "a dragged cluster moving together
-        //: the same way"). Grabbing a note that is part of a selection of two
-        //: or more carries the rest at their offsets from it, each under the
-        //: same rule as the note in hand: a plain drag places, Shift pins, and
-        //: a note that was pinned stays pinned at its new place. A note outside
-        //: the selection drags alone, as it always has.
-        s.dragGroup =
-          s.selected.has(node.id) && s.selected.size > 1
-            ? gcSelectedNodes(s)
-                .filter((other) => other !== node && !other.isGroup)
-                .map((other) => ({
-                  node: other,
-                  dx: other.x - node.x,
-                  dy: other.y - node.y,
-                  startX: other.x,
-                  startY: other.y,
-                  wasPinned: other.fx != null,
-                }))
-            : [];
-        for (const mate of s.dragGroup) {
-          mate.node.fx = wx + mate.dx;
-          mate.node.fy = wy + mate.dy;
-          gcPost({ type: "drag", phase: "start", id: mate.node.id, x: mate.node.fx, y: mate.node.fy }, s);
-        }
-        // **Everything holds still except this note's own neighbours.**
-        //
-        // Two rules were in conflict here and both are real. The SVG renderer
-        // froze the entire map for the length of a drag, because drag-to-link
-        // asks you to aim at a note and aiming at a moving target is not a
-        // gesture: that was a direct report. But GRAPH_PLAN.md §3 asks for
-        // the opposite thing, and it is the whole point of this phase:
-        // "dragging feels physical (the neighbours follow and the rest
-        // settles)". Freezing everything makes a drag a pointer-follow with a
-        // simulation running behind it that cannot move anything.
-        //
-        // Freezing everything *except the direct neighbourhood* satisfies both:
-        // the notes attached to the one in your hand come along, which is the
-        // physicality, and every other note on the map holds the position you
-        // are aiming at, which is the gesture.
-        const following = s.adj.get(node.id) || new Set();
-        const carried = new Set(s.dragGroup.map((mate) => mate.node.id));
-        gcPost({
-          type: "freeze",
-          ids: s.nodes
-            .filter((n) => n !== node && n.fx == null && !following.has(n.id) && !carried.has(n.id))
-            .map((n) => n.id),
-        }, s);
+        event.subject.pressed = event;
       })
       .on("drag", (event) => {
-        const node = event.subject.node;
-        const [wx, wy] = (s.transform || d3.zoomIdentity).invert([event.x, event.y]);
-        node.fx = wx;
-        node.fy = wy;
-        node.x = wx;
-        node.y = wy;
-        s.quadtreeDirty = true;
-        gcPost({ type: "drag", phase: "move", id: node.id, x: wx, y: wy }, s);
-        for (const mate of s.dragGroup) {
-          mate.node.fx = mate.node.x = wx + mate.dx;
-          mate.node.fy = mate.node.y = wy + mate.dy;
-          gcPost({ type: "drag", phase: "move", id: mate.node.id, x: mate.node.fx, y: mate.node.fy }, s);
+        const pressed = event.subject.pressed;
+        if (pressed) {
+          if (Math.hypot(event.x - pressed.x, event.y - pressed.y) < GC_DRAG_THRESHOLD_PX) return;
+          event.subject.pressed = null;
+          gcDragBegin(pressed);
         }
-        //: `graphNodeUnder` aims at `graphNodesRef`, which is the tab's map.
-        //: Drag-to-link is a Graph-tab gesture; a pane drags to place only.
-        //: Never while carrying a group: dropping a selection on a note is
-        //: not "link these two", and guessing which of the carried notes was
-        //: meant would be.
-        s.dropTarget =
-          s.size === "full" && !s.dragGroup.length ? graphNodeUnder(node, { x: wx, y: wy }) : null;
-        gcRequestDraw(s);
+        gcDragMove(event);
       })
       .on("end", (event) => {
-        const node = event.subject.node;
-        s.dragNode = null;
-        const over = s.dropTarget;
-        s.dropTarget = null;
-        const movedFar =
-          Math.abs(node.x - node._dragStartX) > 2 || Math.abs(node.y - node._dragStartY) > 2;
-        //: A plain drag places the node and releases it: the worker's own
-        //: `keep: false` path clears `fx`/`fy` and lets `alphaTarget(0)`
-        //: decay, so the node settles from where it was dropped with its
-        //: neighbours rather than snapping back to where it came from. That
-        //: decay is the "better way" the report asks for, and it was already
-        //: written; what was wrong is that a moved node never reached it,
-        //: because any drag over 2px counted as a pin.
-        //:
-        //: A zero-distance drag is still a click and pins nothing, and a node
-        //: that was already pinned stays pinned at its new place: dragging a
-        //: pinned node is a reposition, not a request to release it.
-        const keep = node._dragShift || node._wasPinned;
-        gcPost({ type: "drag", phase: "end", id: node.id, keep }, s);
-        for (const mate of s.dragGroup) {
-          const mateKeeps = node._dragShift || mate.wasPinned;
-          gcPost({ type: "drag", phase: "end", id: mate.node.id, keep: mateKeeps }, s);
-          const mateMoved =
-            Math.abs(mate.node.x - mate.startX) > 2 || Math.abs(mate.node.y - mate.startY) > 2;
-          if (!mateKeeps) {
-            mate.node.fx = null;
-            mate.node.fy = null;
-          } else if (mateMoved) {
-            //: The same "only a real pin is written down" rule as the note in
-            //: hand, below.
-            mate.node.graph_pin_x = mate.node.fx;
-            mate.node.graph_pin_y = mate.node.fy;
-            apiJson(`/graph/pin/${mate.node.id}`, {
-              method: "PUT",
-              body: JSON.stringify({ x: mate.node.fx, y: mate.node.fy }),
-            }).catch(() => {});
-          }
+        if (event.subject.pressed) {
+          event.subject.pressed = null;
+          //: A click. `holdFired` is a long press that opened the node's menu
+          //: (see `gcDragEnd`).
+          if (!s.holdFired) gcClickNode(event.sourceEvent, event.subject.node, s);
+          gcRequestDraw(s);
+          return;
         }
-        s.dragGroup = [];
-        gcPost({ type: "thaw" }, s);
-        if (!keep) {
-          node.fx = null;
-          node.fy = null;
-        }
-        if (over && movedFar) {
-          linkByDrop(node, over);
-        } else if (!movedFar && !s.holdFired) {
-          //: **A hold is not a tap that took a while.** In a force layout a
-          //: click on a node *is* a zero-distance drag, and this is where it
-          //: is turned into one, so a long press that opened the node's menu
-          //: ended here as well and opened that node's panel underneath it:
-          //: measured at 390, the menu was still on screen with the panel in
-          //: front of it holding the focus. `holdFired` is set by the hold
-          //: and cleared by the next press on the canvas
-          //: (`gcWireNodeMenu`), so it says "this gesture was a hold" and
-          //: nothing about the one after it.
-          gcClickNode(event.sourceEvent, node, s);
-        } else if (!node.isGroup && keep) {
-          //: Only a real pin is written down. A placement that the simulation
-          //: is free to relax has no position worth surviving a reload, and
-          //: saving one was what made every small nudge into a pin the reader
-          //: then had to find and undo.
-          node.graph_pin_x = node.fx;
-          node.graph_pin_y = node.fy;
-          apiJson(`/graph/pin/${node.id}`, {
-            method: "PUT",
-            body: JSON.stringify({ x: node.graph_pin_x, y: node.graph_pin_y }),
-          }).catch(() => {
-            // Best-effort, exactly as on the SVG path: the placement has
-            // already taken effect in memory, so a failed save costs the
-            // reload and nothing else.
-          });
-        }
-        gcRequestDraw(s);
+        gcDragEnd(event);
       })
   );
+
+  function gcDragBegin(event) {
+    const node = event.subject.node;
+    s.dragNode = node;
+    node._dragStartX = node.x;
+    node._dragStartY = node.y;
+    node._wasPinned = node.fx != null;
+    //: **Shift is what pins.** INBOX 96, the owner: "my original annoyance
+    //: was that I'd try to drag a node or cluster around and it would just
+    //: snap back ... but I move a node a little and then I have to unpin
+    //: it and there's got to be a better way." Both halves of that are one
+    //: rule: a plain drag places a node and lets the map settle around it,
+    //: an explicit pin holds it against the simulation for good. Read at
+    //: `start` rather than at `end` because the modifier is part of the
+    //: gesture the reader began, and a Shift pressed or released mid-drag
+    //: would otherwise change what the gesture meant halfway through.
+    node._dragShift = Boolean(event.sourceEvent && event.sourceEvent.shiftKey);
+    const [wx, wy] = (s.transform || d3.zoomIdentity).invert([event.x, event.y]);
+    node.fx = wx;
+    node.fy = wy;
+    gcPost({ type: "drag", phase: "start", id: node.id, x: wx, y: wy }, s);
+    //: **A lasso selection moves as one** (GRAPH_PLAN, "Decision changed,
+    //: 2026-09-09", its one open line: "a dragged cluster moving together
+    //: the same way"). Grabbing a note that is part of a selection of two
+    //: or more carries the rest at their offsets from it, each under the
+    //: same rule as the note in hand: a plain drag places, Shift pins, and
+    //: a note that was pinned stays pinned at its new place. A note outside
+    //: the selection drags alone, as it always has.
+    s.dragGroup =
+      s.selected.has(node.id) && s.selected.size > 1
+        ? gcSelectedNodes(s)
+            .filter((other) => other !== node && !other.isGroup)
+            .map((other) => ({
+              node: other,
+              dx: other.x - node.x,
+              dy: other.y - node.y,
+              startX: other.x,
+              startY: other.y,
+              wasPinned: other.fx != null,
+            }))
+        : [];
+    for (const mate of s.dragGroup) {
+      mate.node.fx = wx + mate.dx;
+      mate.node.fy = wy + mate.dy;
+      gcPost({ type: "drag", phase: "start", id: mate.node.id, x: mate.node.fx, y: mate.node.fy }, s);
+    }
+    // **Everything holds still except this note's own neighbours.**
+    //
+    // Two rules were in conflict here and both are real. The SVG renderer
+    // froze the entire map for the length of a drag, because drag-to-link
+    // asks you to aim at a note and aiming at a moving target is not a
+    // gesture: that was a direct report. But GRAPH_PLAN.md §3 asks for
+    // the opposite thing, and it is the whole point of this phase:
+    // "dragging feels physical (the neighbours follow and the rest
+    // settles)". Freezing everything makes a drag a pointer-follow with a
+    // simulation running behind it that cannot move anything.
+    //
+    // Freezing everything *except the direct neighbourhood* satisfies both:
+    // the notes attached to the one in your hand come along, which is the
+    // physicality, and every other note on the map holds the position you
+    // are aiming at, which is the gesture.
+    const following = s.adj.get(node.id) || new Set();
+    const carried = new Set(s.dragGroup.map((mate) => mate.node.id));
+    gcPost({
+      type: "freeze",
+      ids: s.nodes
+        .filter((n) => n !== node && n.fx == null && !following.has(n.id) && !carried.has(n.id))
+        .map((n) => n.id),
+    }, s);
+  }
+
+  function gcDragMove(event) {
+    const node = event.subject.node;
+    const [wx, wy] = (s.transform || d3.zoomIdentity).invert([event.x, event.y]);
+    node.fx = wx;
+    node.fy = wy;
+    node.x = wx;
+    node.y = wy;
+    s.quadtreeDirty = true;
+    gcPost({ type: "drag", phase: "move", id: node.id, x: wx, y: wy }, s);
+    for (const mate of s.dragGroup) {
+      mate.node.fx = mate.node.x = wx + mate.dx;
+      mate.node.fy = mate.node.y = wy + mate.dy;
+      gcPost({ type: "drag", phase: "move", id: mate.node.id, x: mate.node.fx, y: mate.node.fy }, s);
+    }
+    //: `graphNodeUnder` aims at `graphNodesRef`, which is the tab's map.
+    //: Drag-to-link is a Graph-tab gesture; a pane drags to place only.
+    //: Never while carrying a group: dropping a selection on a note is
+    //: not "link these two", and guessing which of the carried notes was
+    //: meant would be.
+    s.dropTarget =
+      s.size === "full" && !s.dragGroup.length ? graphNodeUnder(node, { x: wx, y: wy }) : null;
+    gcRequestDraw(s);
+  }
+
+  function gcDragEnd(event) {
+    const node = event.subject.node;
+    s.dragNode = null;
+    const over = s.dropTarget;
+    s.dropTarget = null;
+    const movedFar =
+      Math.abs(node.x - node._dragStartX) > 2 || Math.abs(node.y - node._dragStartY) > 2;
+    //: A plain drag places the node and releases it: the worker's own
+    //: `keep: false` path clears `fx`/`fy` and lets `alphaTarget(0)`
+    //: decay, so the node settles from where it was dropped with its
+    //: neighbours rather than snapping back to where it came from. That
+    //: decay is the "better way" the report asks for, and it was already
+    //: written; what was wrong is that a moved node never reached it,
+    //: because any drag over 2px counted as a pin.
+    //:
+    //: A zero-distance drag is still a click and pins nothing, and a node
+    //: that was already pinned stays pinned at its new place: dragging a
+    //: pinned node is a reposition, not a request to release it.
+    const keep = node._dragShift || node._wasPinned;
+    gcPost({ type: "drag", phase: "end", id: node.id, keep }, s);
+    for (const mate of s.dragGroup) {
+      const mateKeeps = node._dragShift || mate.wasPinned;
+      gcPost({ type: "drag", phase: "end", id: mate.node.id, keep: mateKeeps }, s);
+      const mateMoved =
+        Math.abs(mate.node.x - mate.startX) > 2 || Math.abs(mate.node.y - mate.startY) > 2;
+      if (!mateKeeps) {
+        mate.node.fx = null;
+        mate.node.fy = null;
+      } else if (mateMoved) {
+        //: The same "only a real pin is written down" rule as the note in
+        //: hand, below.
+        mate.node.graph_pin_x = mate.node.fx;
+        mate.node.graph_pin_y = mate.node.fy;
+        apiJson(`/graph/pin/${mate.node.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ x: mate.node.fx, y: mate.node.fy }),
+        }).catch(() => {});
+      }
+    }
+    s.dragGroup = [];
+    gcPost({ type: "thaw" }, s);
+    if (!keep) {
+      node.fx = null;
+      node.fy = null;
+    }
+    if (over && movedFar) {
+      linkByDrop(node, over);
+    } else if (!movedFar && !s.holdFired) {
+      //: **A hold is not a tap that took a while.** In a force layout a
+      //: click on a node *is* a zero-distance drag, and this is where it
+      //: is turned into one, so a long press that opened the node's menu
+      //: ended here as well and opened that node's panel underneath it:
+      //: measured at 390, the menu was still on screen with the panel in
+      //: front of it holding the focus. `holdFired` is set by the hold
+      //: and cleared by the next press on the canvas
+      //: (`gcWireNodeMenu`), so it says "this gesture was a hold" and
+      //: nothing about the one after it.
+      gcClickNode(event.sourceEvent, node, s);
+    } else if (!node.isGroup && keep) {
+      //: Only a real pin is written down. A placement that the simulation
+      //: is free to relax has no position worth surviving a reload, and
+      //: saving one was what made every small nudge into a pin the reader
+      //: then had to find and undo.
+      node.graph_pin_x = node.fx;
+      node.graph_pin_y = node.fy;
+      apiJson(`/graph/pin/${node.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ x: node.graph_pin_x, y: node.graph_pin_y }),
+      }).catch(() => {
+        // Best-effort, exactly as on the SVG path: the placement has
+        // already taken effect in memory, so a failed save costs the
+        // reload and nothing else.
+      });
+    }
+    gcRequestDraw(s);
+  }
 
   s.canvas.addEventListener("pointermove", (event) => {
     if (s.panning || s.dragNode) return;

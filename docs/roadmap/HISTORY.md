@@ -40993,6 +40993,19 @@ The two cheap additions the plan's research section named (decisions 11 to
      dark, Solid 0% gap lines, Dashed 21% to 58%, the two photographs 3% to
      21% different.
 
+587. **The owner, 2026-10-05, verbatim.** "when I click nodes on the
+     graph, it moves the graph slightly??"
+     **Fixed 2026-10-05**: d3-drag's `start` fires on the press, and the
+     canvas renderer pinned the note, froze the map but its neighbours and
+     posted `drag start` there, which raises the worker's alphaTarget: a
+     click reheated the layout. The press now only remembers itself
+     (`GC_DRAG_THRESHOLD_PX`, 3); past it the drag begins as before, and a
+     press that never travels is a click that tells the worker nothing.
+     `gl1005-graphclick.js`, ten clicks on a settled map: other notes moved
+     15 to 65px before, 0 after; the view 0 both times; every click still
+     opens the note's card; an 8-step drag still carries the note.
+     `tests/test_graph_click_threshold.py`.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

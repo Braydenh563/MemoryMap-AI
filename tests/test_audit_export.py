@@ -101,8 +101,10 @@ def test_events_about_a_private_note_stay_out_after_it_is_purged(client):
     _add(action="edited", entity_type="entry", entity_id=private_id, detail="PRIVATE-TITLE", payload={"after": {"content": "PRIVATE-BODY"}})
     _add(action="edited", entity_type="entry", entity_id=public_id, detail="PUBLIC-TITLE")
     assert "PRIVATE-TITLE" not in client.get("/audit/export.csv").text  # by id, while the note exists
-    assert client.delete(f"/entries/{private_id}/purge").status_code == 200
-    assert client.delete(f"/entries/{public_id}/purge").status_code == 200
+    response = client.delete(f"/entries/{private_id}/purge")
+    assert response.status_code == 200
+    response = client.delete(f"/entries/{public_id}/purge")
+    assert response.status_code == 200
     response = client.get("/audit/export.csv")
     assert "PRIVATE-TITLE" not in response.text
     assert [r for r in _rows(response) if r["entity id"] == str(private_id)] == []

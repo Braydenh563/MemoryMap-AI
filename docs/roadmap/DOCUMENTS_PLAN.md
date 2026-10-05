@@ -1153,6 +1153,10 @@ plans, 2026-10-05").
    so a ` ```mermaid ` fence renders as code with its language label;
    BACKLOG 29c's "already renders" is corrected. A flowchart-subset parser
    (the audit's D3) is the way in if it is built, not a vendored bundle.
+4. **A hidden formatting toolbar always shows its way back** (INBOX 574,
+   2026-10-05): the dock's Formatting button while it is hidden (not on a
+   phone, which formats from the thumb bar), Ctrl+Shift+X, the ⋯ row and
+   the palette row, and one toast the first time it is hidden.
 
 ## 18. The slash menus as one system: built 2026-09-21
 

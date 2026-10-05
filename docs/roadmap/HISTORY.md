@@ -40654,3 +40654,18 @@ plan's item 6 decided on, and it fits the budget as it is.
      handles and selection marks left: 8 dots left every time before (0/5),
      0 after (5/5), light and dark.
 
+574. **Fixed 2026-10-05.** The owner, verbatim: "I think there needs to be an
+     easier way to open the formatting toolbar in the documents editor if it
+     is closed in case the user accidentally closes it and cant figure out
+     how to open it back up again". The only way back was the ⋯ menu's
+     "Always show formatting". Now, while the strip is hidden, the dock
+     carries a labelled Formatting button where the strip's toggle sat
+     (desktop; a phone formats from the bar at the thumb); Ctrl+Shift+X
+     toggles it in and out of the text (Ctrl+Shift+F was taken by Find in
+     every document); the ⋯ row reads "Show formatting toolbar" or "Hide
+     formatting toolbar"; the palette row and the shortcut sheet carry the
+     key; the first hide says "Formatting hidden. Bring it back from the
+     Formatting button or Ctrl+Shift+X." once; the help says so.
+     `scratchpad/ui-sweeps/mmdoc1005-formatback.js` 13/13 at 1440 light and
+     dark, 2/2 at 390.
+

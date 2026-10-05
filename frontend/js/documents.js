@@ -133,6 +133,7 @@ function syncDocFileType() {
   // The formatting toolbar is markdown syntax. In a .py file every button on
   // it inserts something wrong.
   $("doc-toolbar")?.classList.toggle("hidden", !type.previewable);
+  if (typeof docSyncFormatShow === "function") docSyncFormatShow();
   //: And the other way round: Format lays out code, and has nothing to say
   //: to prose, plain text or a CSV. The pair swap in one place, so a
   //: document never shows both or neither.
@@ -2367,8 +2368,8 @@ const DOC_COMMANDS = [
     run: () => setDocView(lastEditView) },
   { id: "view-read", icon: "ph:book-open", label: "Read this document", keys: "",
     run: () => setDocView("rendered") },
-  { id: "formatting", icon: "ph:text-aa", label: "Show or hide the formatting tools", keys: "",
-    run: () => docRunControl("doc-format-toggle", "The formatting strip") },
+  { id: "formatting", icon: "ph:text-aa", label: "Show or hide the formatting toolbar", keys: "Ctrl+Shift+X",
+    run: () => toggleDocToolbar() },
   { id: "focus", icon: "ph:corners-out", label: "Focus mode: only the page, the whole window", keys: "F11",
     run: () => docRunControl("doc-focus-toggle", "Focus mode") },
   { id: "typewriter", icon: "ph:arrows-in-line-horizontal", label: "Typewriter scrolling", keys: "",
@@ -12928,9 +12929,12 @@ function applyDocToolbarCollapsed(collapsed, only = null) {
   if (headerToggle && (!only || only.id === "doc-toolbar")) {
     headerToggle.setAttribute("aria-pressed", collapsed ? "false" : "true");
     headerToggle.title = collapsed
-      ? "Show the formatting tools"
-      : "Hide the formatting tools";
+      ? "Show the formatting toolbar above the editor (Ctrl+Shift+X)"
+      : "Hide the formatting toolbar (Ctrl+Shift+X)";
     headerToggle.setAttribute("aria-label", headerToggle.title);
+    const label = $("doc-format-toggle-label");
+    if (label) label.textContent = collapsed ? "Show formatting toolbar" : "Hide formatting toolbar";
+    docSyncFormatShow();
   }
   for (const bar of only ? [only] : document.querySelectorAll(".doc-toolbar")) {
     bar.classList.toggle("is-collapsed", collapsed);
@@ -12951,6 +12955,37 @@ function setDocToolbarCollapsed(collapsed) {
     /* private mode: it just won't be remembered */
   }
   applyDocToolbarCollapsed(collapsed);
+  //: **Said once, the first time it is hidden** (INBOX 574): where it went
+  //: and the two ways back, so a strip closed by accident is not lost.
+  if (collapsed) {
+    let told = false;
+    try {
+      told = localStorage.getItem(DOC_TOOLBAR_HINT_KEY) === "1";
+      localStorage.setItem(DOC_TOOLBAR_HINT_KEY, "1");
+    } catch {
+      /* private mode: said every time, which is the safe side */
+    }
+    if (!told) toast("Formatting hidden. Bring it back from the Formatting button or Ctrl+Shift+X.");
+  }
+}
+
+const DOC_TOOLBAR_HINT_KEY = "doc-toolbar-hidden-hint";
+
+//: The dock's Formatting button (INBOX 574): there while the strip is hidden
+//: on a document that has one (a code file has no markdown strip at all, so
+//: no way back to it either).
+function docSyncFormatShow() {
+  const show = $("doc-format-show");
+  if (!show) return;
+  const strip = $("doc-toolbar");
+  const stripless = !strip || strip.classList.contains("hidden");
+  show.classList.toggle("hidden", !docToolbarCollapsed() || stripless || !currentDoc);
+}
+
+function toggleDocToolbar() {
+  const collapsed = !docToolbarCollapsed();
+  setDocToolbarCollapsed(collapsed);
+  if (!collapsed) $("doc-toolbar")?.querySelector("button:not([hidden])")?.focus({ preventScroll: true });
 }
 
 //: One strip's wrap/collapse group. Split out of the loop below so a bar that
@@ -13038,6 +13073,16 @@ function mountDocToolbarControls() {
   $("doc-format-toggle")?.addEventListener("click", () =>
     setDocToolbarCollapsed(!docToolbarCollapsed())
   );
+  $("doc-format-show")?.addEventListener("click", () => toggleDocToolbar());
+  //: Ctrl+Shift+X anywhere on the Documents tab, not only inside the text
+  //: (the editor's own keymap has it too): with the strip hidden, the focus
+  //: is as likely to be on the dock as in the page.
+  document.addEventListener("keydown", (event) => {
+    if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.altKey || event.key.toLowerCase() !== "x") return;
+    if (event.defaultPrevented || $("tab-documents")?.classList.contains("hidden") || !currentDoc) return;
+    event.preventDefault();
+    toggleDocToolbar();
+  });
   // The capture box gets its gutter here, once, with the strip that toggles it.
   mountGutterFor($("entry-content"));
   for (const bar of document.querySelectorAll(".doc-toolbar")) mountDocToolbarControlsFor(bar);
@@ -18495,6 +18540,8 @@ function docCmKeymap(CM) {
     { key: "Mod-f", run: () => { toggleDocFindBar(true); return true; } },
     //: Find in every document (INBOX 404), VS Code's search across files.
     { key: "Mod-Shift-f", run: () => docFindInDocuments() },
+    //: The formatting toolbar, shown or hidden (INBOX 574).
+    { key: "Mod-Shift-x", run: () => { toggleDocToolbar(); return true; } },
   ];
 }
 

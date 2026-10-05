@@ -623,6 +623,8 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - Note boxes (Capture and editing a note) render as you type with a Source switch for the markdown, in place of a separate Preview; the switch stays visible with the formatting tools folded and is remembered.
 
 ### Added
+- Mind maps: a topic can have a due day (the Markers popover's Due row): drawn in the marker row, a day gone in red and read as was due, filterable, kept by OPML and FreeMind, and Remind me makes a reminder at 9:00 that day (MINDMAP_PLAN decision 37; `tests/test_mindmap.py`, `op5-1005.js` MODE=due).
+- Mind maps: Study the map (the board menu, or the palette) asks one branch at a time with what is under it hidden; Show draws it, Knew it or Not yet marks it, and the marks are kept for that map on this device (MINDMAP_PLAN decision 36; `tests/test_map_study.py`, `op5-1005.js` MODE=study).
 - Mind maps: export as a plain-text outline (a tab per level) and import a .txt outline; an outline file dropped on the boards page imports and opens (MINDMAP_PLAN §12.2 item 10; `tests/test_mindmap.py`, `op5-1005.js` MODE=mapio).
 
 - Chat, skill runs: "Undo the run" beside What changed puts back every note the run changed at once, after showing what will go back; each change keeps its own Undo, and a board item is named as one that can't be undone.

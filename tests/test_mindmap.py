@@ -2295,6 +2295,27 @@ def test_markers_round_trip_through_both_xml_formats_and_survive_a_look_reset(cl
     assert _styles_by_text(client, board["id"])["Pack"].get("markers") == ["star", "warning"]
 
 
+def test_a_due_date_is_a_marker_checked_kept_and_carried(client):
+    """MINDMAP_PLAN §12.2 item 4's due date (decision 37): a calendar day,
+    content like the other markers (a look reset keeps it), carried by OPML
+    and FreeMind as `_due`, never by Markdown."""
+    board = _map(client, name="Due")
+    root = _node(client, board["id"], text="Plan")
+    node = _node(client, board["id"], parent_id=root["id"], text="Book")
+    assert _set_data(client, board, node, {"due": "12 October"}).status_code == 422
+    assert _set_data(client, board, node, {"due": "2026-10-12T09:00"}).status_code == 422
+    assert _set_data(client, board, node, {"due": "2026-10-12"}).status_code == 200
+    assert _styles_by_text(client, board["id"])["Book"]["due"] == "2026-10-12"
+    for fmt in ("opml", "freemind"):
+        text = client.get(f"/whiteboard/boards/{board['id']}/export?format={fmt}").text
+        assert '_due="2026-10-12"' in text, fmt
+        back = client.post("/whiteboard/boards/import", json={"format": fmt, "content": text, "name": fmt})
+        assert _styles_by_text(client, back.json()["id"])["Book"].get("due") == "2026-10-12", fmt
+    assert "2026-10-12" not in client.get(f"/whiteboard/boards/{board['id']}/export?format=markdown").text
+    client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style")
+    assert _styles_by_text(client, board["id"])["Book"]["due"] == "2026-10-12"
+
+
 def test_a_map_exports_and_imports_as_a_plain_text_outline(client):
     """MINDMAP_PLAN §12.2 item 10: "plain-text outline" out and ".txt
     outline" in. One topic per line, a tab per level, no bullets and no

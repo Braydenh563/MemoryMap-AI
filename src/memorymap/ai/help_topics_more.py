@@ -1057,6 +1057,23 @@ MORE_TOPICS.extend(
             ),
             "badge": {"label": "Appearance", "section": "appearance"},
         },
+        {
+            "id": "mind-map-study",
+            "keywords": (
+                "study the map", "study mode", "revise", "revision", "recall",
+                "flashcards", "quiz me on my map", "test myself", "memorise",
+            ),
+            "body": (
+                "Study the map. On a mind map, the board menu's Study the map "
+                "goes full screen and asks one branch at a time: what is under "
+                "it is hidden until you press Show (or Enter), then Knew it or "
+                "Not yet marks it and moves on. Only branches with topics under "
+                "them are asked. Nothing on the map changes. Your marks are kept "
+                "for that map on this device, a branch you missed says so next "
+                "time, and the end says how many you recalled. Esc stops."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
     ]
 )
 
@@ -1154,6 +1171,7 @@ TOPIC_META: dict[str, dict] = {
     "documents-controls": {"title": "Document editor keys and controls", "path": "Library tab, Documents"},
     "documents-features": {"title": "Document editor features", "path": "Library tab, Documents"},
     "mind-map-features": {"title": "Mind map features", "path": "Library tab, Boards & maps"},
+    "mind-map-study": {"title": "Study the map", "path": "Library tab, Boards & maps, a map's board menu"},
     "callouts": {"title": "Callouts", "path": "Library tab, Documents"},
     "graph-controls": {"title": "Graph keys and controls", "path": "Graph tab"},
     "graph-display": {"title": "More graph controls", "path": "Graph tab, the gear"},
@@ -1216,7 +1234,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "margin-reader",
     )),
     ("Boards and maps", (
-        "whiteboard", "whiteboard-controls", "board-history", "board-library", "board-format", "mind-maps", "mind-map-controls", "mind-map-features",
+        "whiteboard", "whiteboard-controls", "board-history", "board-library", "board-format", "mind-maps", "mind-map-controls", "mind-map-features", "mind-map-study",
     )),
     ("Library and files", (
         "library", "library-controls", "bookmarks", "web-clipper-bookmark", "contents", "library-skills",

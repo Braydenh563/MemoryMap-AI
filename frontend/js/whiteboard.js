@@ -10857,6 +10857,7 @@ async function initWhiteboard() {
   $("wb-delete-board")?.addEventListener("click", wbDeleteCurrentBoard);
   $("wb-add-to-note")?.addEventListener("click", wbAddBoardToNote);
   $("wb-map-to-doc")?.addEventListener("click", () => wbMapWriteDocument());
+  $("wb-map-study")?.addEventListener("click", () => wbMapStartStudy());
   $("wb-copy-link")?.addEventListener("click", () => {
     const id = window.currentBoardId ?? null;
     if (id === null) return toast("The default board has no address. Make a board first.");
@@ -19092,7 +19093,7 @@ function wbPresentSteps() {
       };
     });
   }
-  return wbMapPresentSteps();
+  return wbStudy.on ? wbMapStudySteps() : wbMapPresentSteps();
 }
 
 function wbStartPresenting() {
@@ -19152,13 +19153,14 @@ function wbPresentShow(index) {
   const prev = document.getElementById("wb-present-prev");
   const next = document.getElementById("wb-present-next");
   if (prev) prev.disabled = at === 0;
-  if (next) next.disabled = at === steps.length - 1;
+  if (next) next.disabled = at === steps.length - 1;  if (wbStudy.on) wbMapStudySyncBar();
 }
 
 function wbStopPresenting() {
   if (!wbPresent) return;
   const { wasFull, camera, focus } = wbPresent;
   wbPresent = null;
+  wbMapEndStudy();
   document.getElementById("library-view-whiteboard")?.classList.remove("wb-presenting");
   document.getElementById("wb-present-bar")?.classList.add("hidden");
   if (!wasFull) toggleWhiteboardFullscreen(false);
@@ -19188,6 +19190,12 @@ window.addEventListener("keydown", (event) => {
     if (!button.disabled) button.click();
     return;
   }
+  //: Studying, Enter and Space draw the answer before they move on.
+  const asking = wbStudy.on && !document.getElementById("wb-study-show")?.classList.contains("hidden");
+  if (asking && (event.key === "Enter" || event.key === " ")) {
+    wbMapStudyShow();
+    return;
+  }
   if (event.key === "Escape") wbStopPresenting();
   else if (event.key === "Home") wbPresentShow(0);
   else if (event.key === "End") wbPresentShow(wbPresent.steps.length - 1);
@@ -19201,6 +19209,9 @@ document.addEventListener("click", (event) => {
   if (button.id === "wb-present-prev") wbPresentShow(wbPresent.at - 1);
   else if (button.id === "wb-present-next") wbPresentShow(wbPresent.at + 1);
   else if (button.id === "wb-present-end") wbStopPresenting();
+  else if (button.id === "wb-study-show") wbMapStudyShow();
+  else if (button.id === "wb-study-knew") wbMapStudyMark(true);
+  else if (button.id === "wb-study-missed") wbMapStudyMark(false);
 });
 
 //: The gestures that are one Undo step each, read off what they changed

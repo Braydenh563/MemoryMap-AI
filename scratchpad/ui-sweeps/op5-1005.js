@@ -22,7 +22,7 @@ async function openBoards(page) {
   await page.click('[data-tab="library"]');
   await page.waitForTimeout(700);
   await page.click('#library-subtabs [data-target="library-view-whiteboard"]');
-  await page.waitForTimeout(1200);
+  await page.waitForFunction(() => typeof window.initWhiteboard === "function" && typeof window.wbMapStudyQuestions === "function", null, { timeout: 30000 });
   await page.evaluate(async () => {
     const v = document.getElementById("library-view-whiteboard");
     for (const s of document.querySelectorAll('[id^="library-view-"]')) s.classList.toggle("hidden", s !== v);
@@ -257,6 +257,120 @@ async function emptylines(page) {
   for (const row of got.rows) check(`${row.id} is the recipe`, row.look === got.want, row.look === got.want ? "" : `${row.look} vs ${got.want}`);
 }
 
+//: Study the map (§12.3 item 5) on a 40-topic map: the questions alone,
+//: Enter draws the answer, the marks are kept, the map is whole after.
+async function study(page) {
+  const lines = ["# Study", "- Centre"];
+  for (let b = 1; b <= 6; b++) {
+    lines.push(`  - Branch ${b}`);
+    for (let l = 1; l <= (b <= 3 ? 6 : 5); l++) lines.push(`    - Leaf ${b}.${l}`);
+  }
+  await importMap(page, lines, "Study");
+  const drawn = () => page.evaluate(() => {
+    const ids = new Set([...document.querySelectorAll("#whiteboard-container .wb-object[data-id]")]
+      .filter((el) => el.getBoundingClientRect().width && getComputedStyle(el).display !== "none").map((el) => Number(el.dataset.id)));
+    const names = wbMapIndex().nodes.filter((n) => ids.has(n.id)).map((n) => n.data?.content || "");
+    return { total: wbMapIndex().nodes.length, names };
+  });
+  const before = await drawn();
+  await page.evaluate(() => { localStorage.removeItem(`wbStudy:${window.currentBoardId}`); document.getElementById("wb-map-study").click(); });
+  await page.waitForTimeout(900);
+  const q = await drawn();
+  const bar = () => page.evaluate(() => ({
+    count: document.getElementById("wb-present-count")?.textContent,
+    show: !document.getElementById("wb-study-show").classList.contains("hidden"),
+    knew: !document.getElementById("wb-study-knew").classList.contains("hidden"),
+  }));
+  const b1 = await bar();
+  check("40 topics; studying draws only the centre and the questions", before.total === 40 && q.names.every((n) => !/^Leaf/.test(n)) && q.names.some((n) => n === "Branch 1"), { total: before.total, drawn: q.names.length });
+  check("the step asks, and Show is offered", /What is under “Branch 1”/.test(b1.count) && b1.show && !b1.knew, b1);
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(700);
+  const a = await drawn();
+  const b2 = await bar();
+  const leaves = a.names.filter((n) => /^Leaf 1\./.test(n)).length;
+  check("Enter draws Branch 1's six leaves, no other branch's", leaves === 6 && !a.names.some((n) => /^Leaf [2-6]\./.test(n)), { leaves, drawn: a.names.length });
+  check("then the two marks are offered", !b2.show && b2.knew, b2);
+  await page.click("#wb-study-knew");
+  await page.waitForTimeout(600);
+  const b3 = await bar();
+  check("Knew it moves to the next question", /Branch 2/.test(b3.count) && b3.show, b3);
+  for (let i = 2; i <= 6; i++) {
+    await page.click("#wb-study-show");
+    await page.waitForTimeout(400);
+    await page.click(i % 2 ? "#wb-study-knew" : "#wb-study-missed");
+    await page.waitForTimeout(400);
+  }
+  const end = await page.evaluate(() => ({
+    presenting: document.getElementById("library-view-whiteboard").classList.contains("wb-presenting"),
+    marks: JSON.parse(localStorage.getItem(`wbStudy:${window.currentBoardId}`) || "{}"),
+  }));
+  const after = await drawn();
+  const lasts = Object.values(end.marks).map((m) => m.last);
+  check("the run ends, the marks are kept (3 knew, 3 not yet)", !end.presenting && lasts.length === 6 && lasts.filter((x) => x === "knew").length === 3, lasts);
+  check("and the map draws whole again", after.names.length >= q.names.length + 30 || after.names.filter((n) => /^Leaf/.test(n)).length >= 30, { drawn: after.names.length });
+}
+
+//: A due date on a topic (§12.2 item 4, decision 37): set in the Markers
+//: popover's date field, drawn in the marker row, a day gone in the error
+//: ink at 4.5:1 or better, and Remind me makes a reminder.
+async function due(page) {
+  await importMap(page, ["# Due", "- Plan", "  - Book", "  - Pack"], "Due");
+  const ink = (rgb) => {
+    const unit = /^color\(srgb/.test(rgb) ? 1 : 255;
+    const [r, g, b] = rgb.match(/[\d.]+/g).slice(0, 3).map((v) => { const c = Number(v) / unit; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const year = new Date().getFullYear();
+  for (const [label, day, past] of [["Book", `${year + 1}-03-14`, false], ["Pack", `${year - 1}-03-14`, true]]) {
+    await page.evaluate(async ({ label, day }) => {
+      const node = wbMapIndex().nodes.find((n) => n.data?.content === label);
+      wbMapOpenMarkers(node.id);
+      await new Promise((r) => setTimeout(r, 300));
+      const field = document.querySelector("#wb-map-markers input[type=date]");
+      field.value = day;
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 900));
+    }, { label, day });
+    const m = await page.evaluate((label) => {
+      const node = wbMapIndex().nodes.find((n) => n.data?.content === label);
+      const chip = document.querySelector(`.wb-object[data-id="${node.id}"] .wb-map-mark-due`);
+      let bgEl = chip;
+      let bg = "rgba(0, 0, 0, 0)";
+      while (bgEl && /rgba\(0, 0, 0, 0\)|transparent/.test(bg)) { bg = getComputedStyle(bgEl).backgroundColor; bgEl = bgEl.parentElement; }
+      if (/rgba\(0, 0, 0, 0\)|transparent/.test(bg)) bg = getComputedStyle(document.getElementById("whiteboard-container")).backgroundColor;
+      return { stored: node.data?.due, text: chip?.textContent, past: chip?.classList.contains("is-past"), color: chip ? getComputedStyle(chip).color : "", bg, row: chip?.parentElement?.getAttribute("aria-label") };
+    }, label);
+    const l1 = ink(m.color), l2 = ink(m.bg);
+    const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    check(`${label}: stored, drawn, ${past ? "gone" : "to come"}, ${ratio.toFixed(2)}:1`, m.stored && m.text && m.past === past && ratio >= 4.5 && /due/i.test(m.row || ""), m);
+  }
+  const reminded = await page.evaluate(async () => {
+    const before = (await apiJson("/reminders")).length ?? 0;
+    const pop = document.getElementById("wb-map-markers");
+    const remind = [...document.querySelectorAll("#wb-map-markers button")].find((b) => b.textContent === "Remind me");
+    if (!remind) return { had: false, made: false, pop: Boolean(pop), rows: pop ? pop.textContent.slice(0, 200) : "" };
+    remind?.click();
+    await new Promise((r) => setTimeout(r, 900));
+    const all = await apiJson("/reminders");
+    const list = Array.isArray(all) ? all : all.items || all.reminders || [];
+    return { had: Boolean(remind), made: list.some((x) => x.text === "Pack") };
+  });
+  check("Remind me on a day gone makes no reminder (it says why)", reminded.had && !reminded.made, reminded);
+  const ahead = await page.evaluate(async () => {
+    const node = wbMapIndex().nodes.find((n) => n.data?.content === "Book");
+    wbMapOpenMarkers(node.id);
+    await new Promise((r) => setTimeout(r, 400));
+    [...document.querySelectorAll("#wb-map-markers button")].find((b) => b.textContent === "Remind me")?.click();
+    await new Promise((r) => setTimeout(r, 1200));
+    const all = await apiJson("/reminders");
+    const list = Array.isArray(all) ? all : all.items || all.reminders || [];
+    const made = list.find((x) => x.text === "Book");
+    return { made: Boolean(made), due: made?.due_at };
+  });
+  check("Remind me on a day to come makes the reminder, 9:00 that day", ahead.made, ahead);
+}
+
 (async () => {
   const { browser, page } = await boot({ viewport: { width: W, height: H } });
   const errors = [];
@@ -266,6 +380,8 @@ async function emptylines(page) {
   if (MODE === "mapio") await mapio(page);
   if (MODE === "sidedock") await sidedock(page);
   if (MODE === "models") await models(page);
+  if (MODE === "study") await study(page);
+  if (MODE === "due") await due(page);
   if (MODE === "bands") { await importMap(page, ["# B", "- C", "  - D"], "Bands"); await bands(page); }
   check("no page errors", errors.length === 0, errors.slice(0, 3));
   console.log(`\n${results.filter(Boolean).length}/${results.length} passed (${MODE}, ${W}, ${process.env.THEME || "light"})`);

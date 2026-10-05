@@ -105,6 +105,19 @@
   background: var(--warn);
 }
 
+/* A due day (MINDMAP_PLAN decision 37): words in the row, so the ink, not
+   the branch colour the glyphs take (3.67:1 on the dark board); a day gone
+   in the error ink. */
+.wb-map-mark-due {
+  color: var(--ink);
+  font-size: 0.8em;
+  font-weight: 600;
+}
+
+.wb-map-mark-due.is-past {
+  color: var(--error);
+}
+
 .wb-map-mark-progress {
   /* Set per topic from its `progress` (`wbMapPaintMarkers`). */
   --progress: 0%;

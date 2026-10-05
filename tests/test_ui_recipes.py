@@ -3972,7 +3972,9 @@ def test_presenting_is_one_mode_with_one_bar() -> None:
     css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
     assert 'data-wb-fn="present" data-wb-surface="board"' in index
     assert 'data-wb-fn="present" data-wb-surface="map"' in index, "a map presents by branch (MINDMAP_PLAN 21)"
-    assert "return wbMapPresentSteps();" in wb
+    #: Studying a map (MINDMAP_PLAN decision 36) is the same mode and bar.
+    assert "return wbStudy.on ? wbMapStudySteps() : wbMapPresentSteps();" in wb
+    assert 'id="wb-study-show"' in index and "wbMapEndStudy();" in wb
     assert 'if (item.dataset.wbFn === "present") { wbStartPresenting(); return; }' in wb
     assert 'id="wb-present-count" class="wb-present-count" aria-live="polite"' in index
     assert "#library-view-whiteboard.wb-presenting .wb-topbar," in css

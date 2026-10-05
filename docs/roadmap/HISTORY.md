@@ -44126,3 +44126,151 @@ widths), against 17/24 on the base. Not verified: documents' focus mode
 between 720 and 819 (reasoned from the rules: the panels now cover the page
 there, as they did below 720).
 
+## Moved from the plans, 2026-10-05 (placed blocks found built, op5)
+
+Checked on the head 2026-10-05 (op5): MINDMAP_PLAN's 2026-09-13 block (177,
+part) is built item by item, as it says. WHITEBOARD_PLAN's evening batch:
+the Arrange menu's labelled rows are in the markup ("Distribute and size");
+the View menu's height is measured, `mapviewmenu.js` 8/8 at 1440 (433px on a
+map, 373px on a board, under the 450px ceiling); the 422 on
+`POST /whiteboard/nodes` is answered at the drop (`whiteboard.js`, "Only a
+note id may be dropped here": a toast that says what failed, no request).
+
+### From MINDMAP_PLAN.md
+
+#### Placed from INBOX, 2026-09-13
+
+177 (part). **Node styling this plan does not yet cover** (the owner, with
+Coggle captures). Built already: the radial ring's visibility, 3px branches
+with an arrowhead, the "Aa" grip's placement, topics as link-tool
+candidates. Placed here:
+
+- **Core nodes**: built. The strip's crown writes `core` on the node and the
+  shape picker gained `ellipse`. Measured, `scratchpad/ui-sweeps/mapcore.js`,
+  10/10 at 1440 light, 1440 dark and 390x844: the spine goes 4px to 6px, the
+  outline 1px to 2px and the type 400 to 600 against a plain sibling, the
+  ellipse computes a 50% radius with centred text, and the round trip through
+  `/whiteboard/boards/<id>/tree` keeps `core` (the `WhiteboardObjectData`
+  drop trap). The strip is 540px in a 1408px canvas at 1440 and wraps to
+  348x102 in 364px at 390.
+- **Per-node left edge**: built. The strip's second picker writes `spine`
+  (`dashed`, `none`, absent for solid). Measured,
+  `scratchpad/ui-sweeps/mapspine.js`, 9/9 at 1440 light, 1440 dark and
+  390x844: 4px solid to 4px dashed to a 1px hairline at the same 55% alpha
+  the other three sides carry, the label moving 3px with it; the choice beats
+  a core node's 6px bar (6px to 1px) and the node stays core; a plain topic,
+  whose box is transparent on purpose, is untouched (4px, label at the same
+  x); downward the choice is on the top edge instead. A server restart was
+  needed for the round trip to pass: the field is dropped by a stale process,
+  which is the `WhiteboardObjectData` trap wearing its other hat.
+- **Connection line styles**: built. `edge_width` (`thin`, `thick`) and
+  `edge_arrow` (`on`, `off`) join `edge_dashed` on the child, and all three
+  are in the strip's line group, which a trunk is not shown. Measured,
+  `scratchpad/ui-sweeps/mapline.js`, 13/13 at 1440 light, 1440 dark and
+  390x844: the ribbon goes 6.5 units at the parent to 11 thick and 3.6 thin
+  while its sibling stays 6.5, the stroked shapes 3px to 5.1px, a head added
+  to a ribbon takes its path from 50 to 53 points and its far end from 3.4 to
+  11.5 units, a head comes off a stroked line as `marker-end: none`, and all
+  three survive the round trip. The line group measures 0px on a trunk and
+  1/117/28/28px on a child. The strip is now 853px inside a 1408px canvas at
+  1440 and wraps to 348x150 inside 364px at 390.
+- **Resize a topic**: built, commit `3c9b874`. Measured,
+  `scratchpad/ui-sweeps/mapresize.js`: 170x44 dragged to 290x100, stored as
+  `width` 290 / `height` 100 / `sized` true, still 290x100 after a tidy.
+
+Each becomes a phase row when its phase is written; until then this list is
+the phase.
+
+### From WHITEBOARD_PLAN.md
+
+#### Placed from INBOX, 2026-09-09 (the owner's evening batch)
+
+- "can the whiteboard arrange tools be better structured??" (screenshot):
+  ten icon-only buttons under one ARRANGE heading in a ragged 2-3-3-2 grid.
+  Three labelled sub-rows (Group, Align, Distribute), three per row, each
+  with a title and an aria-label.
+- "the view dropdown is still overly short", and separately "on the
+  mindmap, the view dropdown is even more visually broken". Both are the
+  escaped-menu height, fixed on 2026-09-09 (`place()` now measures at
+  `max-height: none` and caps against the room the trigger actually has).
+  Retest both at 1440 and 820 before closing.
+- Console, 2026-09-09: `POST /whiteboard/nodes` answered 422 with
+  `entry_id: Input should be a valid integer, input: null`, and the app
+  logged "Error creating node: {}". A node created with no backing entry
+  sends null where the schema wants an int. Two halves: the schema should
+  accept a node with no entry (a plain shape is not a note), and the
+  client's error path should say what failed rather than print an empty
+  object.
+
+## Moved from the plans, 2026-10-05 (study the map, op5)
+
+MINDMAP_PLAN §12.3 item 5, as the plan had it: "**Study mode**: hide all but
+the root, reveal a branch at a time, with a "recall" prompt before revealing
+(the note's own text is the answer); progress stored per map." Built as
+decision 36: the board menu's Study the map and the palette's row; the
+presenting shell with Show, Knew it and Not yet in its bar; the questions and
+the tally in a node-tested region of whiteboard-map.js
+(`wbMapStudyQuestions`, `wbMapStudyTally`, `tests/test_map_study.py`, 4
+tests); the marks in local storage per map. Measured on the 40-topic map the
+gate asked for, `scratchpad/ui-sweeps/op5-1005.js` MODE=study, 8/8 at 1440
+and 390, light and dark: 7 of 40 topics drawn while asking, Enter draws
+Branch 1's six leaves and no other branch's, Knew it moves on, six marks kept
+(3 and 3), the map whole (40) after. The View menu stays at 433px
+(`mapviewmenu.js` 8/8; the row there took it to 474px, so it went to the
+board menu). The Guide has its own topic (`mind-map-study`). Not built: the
+note behind a topic as the answer.
+
+## Moved from the plans, 2026-10-05 (276, op5)
+
+WHITEBOARD_PLAN 276's recommendation taken (standing order 3): 820 with Large
+text and Spacious density together lets the sketch pad's bar take two rows,
+and the sweep says so (`sketchbar.js`: `twoRowsAllowed`, that one
+combination at 820 to 1023); every other combination stays one row. Measured
+2026-10-05: PASS in all 16 combinations, 820/large+spacious `rows=2` (684px
+of content in 684), the other three at 820 `rows=1`. The block as it stood:
+
+276. **The sketch pad's toolbar wraps to two rows at 820 on Large text**, and
+    has since before this session: `scratchpad/ui-sweeps/sketchbar.js` reports
+    `rows=2` at 820/large-text (content 712 of an inner 714) and at
+    820/large+spacious (688 of 690), while 820/default and 820/spacious are
+    one row. The Canvas group is the one that drops. Found while giving the
+    ink dots a finger-sized target (the same sweep), not caused by it: the
+    dots only change below 820. Recommendation: the bar is five groups and
+    Large text buys their labels about 10px each, so the cheapest honest fix
+    is the group labels, not the controls: hide `.wb-tool-section-label`
+    below 1024 the way the phone band already hides other labels, and
+    re-measure; it is worth about 60px, which is more than the 2px the wrap
+    is short by. Owner: whoever next opens the pad's bar.
+    **Re-measured 2026-10-04, and the recommendation would buy nothing.** The
+    labels sit *above* their rows (a section is a column), and every label is
+    narrower than its row at 820 on Large text (Draw 37 over 104, Shapes 52
+    over 176, Ink 22 over 153, Size 29 over 97, Canvas 51 over 176), so hiding
+    them takes height, not width. The rows alone are 706px plus four 4.5px
+    separators, 724px, in a 705px inner bar: 19px short, still `rows=2` in
+    `sketchbar.js`. The width is in the rows: the Ink dots' gaps (6 x 5px at
+    Large text) and the Size slider's fixed 3rem are the two places with
+    room. **Half done the same day**: between 600 and 1023px the dots drop
+    their gap (a dot's own 2px transparent ring keeps the discs 4px apart), and
+    820 on Large text is one row (`sketchbar.js` 2 findings to 1; 1024 and
+    1440 unchanged). **Still open: 820 on Large text with Spacious density**,
+    41px short (rows 701px plus four 6px separators in a 684px inner bar), more
+    than the slider (about 9px) and the separators (24px) could give together.
+    Recommendation: let that one combination take two rows, and say so in the
+    sweep, rather than shrink 44px targets.
+
+## Moved from the plans, 2026-10-05 (due dates, op5)
+
+MINDMAP_PLAN §12.2 item 4's "due date (a reminder can be created from it)",
+built as decision 37: `due` on the node data model (a checked day), in
+`MAP_STYLE_FIELDS`, `MAP_CONTENT_FIELDS` and both XML formats' private maps
+(`_due`); the client's marker parts, words, row and filter key, and the
+Markers popover's Due row with Clear and Remind me. Measured:
+`tests/test_mindmap.py::test_a_due_date_is_a_marker_checked_kept_and_carried`
+(a day and nothing else accepted, both XML round trips, Markdown silent, a
+look reset keeps it); `scratchpad/ui-sweeps/op5-1005.js` MODE=due, 5/5 at
+1440 and 390, light and dark: a day to come drawn in the ink (17.07:1 light,
+14.01:1 dark), a day gone in the error ink (6.98:1, 6.96:1; the branch colour
+the glyphs take read 3.67:1 on the dark board, so the words do not take it),
+Remind me on a day gone makes nothing, on a day to come one reminder at 9:00.
+Not verified: the date field's own picker on a touch keyboard.
+

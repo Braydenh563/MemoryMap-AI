@@ -482,8 +482,9 @@ Closed 2026-10-05 (op5): moved whole to HISTORY.md ("Moved from the plans,
    the count up the branch are built (decision 15; HISTORY.md, "Moved from
    the plans, 2026-10-04"); priority, progress, the flag, icon markers and
    the filter are built (decision 34; HISTORY.md, "Moved from the plans,
-   2026-10-05 (markers)"); due dates (with a reminder) and tags on a topic
-   are open.
+   2026-10-05 (markers)"); due dates with a reminder are built (decision
+   37; HISTORY.md, "Moved from the plans, 2026-10-05 (due dates, op5)");
+   tags on a topic are open.
 5. **Notes on nodes**: a node that is a notebook note shows the note's
    own text here, editable both ways. The text note behind a topic is
    built (decision 18; HISTORY.md, "Moved from the plans, 2026-10-04").
@@ -518,9 +519,9 @@ export that claims it.
 4. **Graph sync**: a map's cross-links become graph links (kind "map");
    the graph's "Mind map" selection action (Phase 4) opens here with the
    layout pre-chosen.
-5. **Study mode**: hide all but the root, reveal a branch at a time,
-   with a "recall" prompt before revealing (the note's own text is the
-   answer); progress stored per map.
+5. **Study mode**: built (decision 36; HISTORY.md, "Moved from the plans,
+   2026-10-05 (study the map, op5)"). The note behind a topic as the answer
+   is open.
 Gate: each AI action grounded (its sources listed) and faked in tests;
 the study mode measured on a 40-node map.
 
@@ -1262,6 +1263,30 @@ topic: a control that wide has nowhere to go.
    any document topic does), so it travels with the map into every export
    that keeps references. A twin kept in step both ways is the audit's idea,
    not built.
+36. **Studying a map is presenting with each branch hidden until recalled**
+   (taken 2026-10-05, §12.3 item 5, under standing order 3; op5). The board
+   menu's Study the map (maps only; the View menu is at its 450px ceiling)
+   and the palette's row start the presenting shell (decision 21's bar,
+   keys and Escape). The questions are the trunks' branches that have
+   topics under them, in Present branches' order; everything under each is
+   hidden as a view, like focus (`wbMapConcealed`), never folded or
+   written. Show (or Enter) draws the answer; Knew it or Not yet marks it
+   and moves on; the end says how many were recalled. The marks are kept
+   per map on this device (`wbStudy:<id>` in local storage: a study record
+   is the person's, not the map's), and a branch missed last time says so
+   in its step. Not built: a note behind the topic as the answer (the
+   plan's "the note's own text"), a spaced order.
+37. **A topic's due date is a day, a marker, and a reminder only when asked**
+   (taken 2026-10-05, §12.2 item 4, under standing order 3; op5).
+   `data.due` is a calendar day (`YYYY-MM-DD`, no time: a topic is due on a
+   day wherever the map is opened), content like decision 34's markers (a
+   look reset keeps it; OPML and FreeMind carry `_due`; Markdown does not).
+   Set in the Markers popover's Due row (the browser's date field, Clear),
+   drawn in the marker row as words ("14 Mar") in the ink, a day gone in the
+   error ink and read "was due"; View, Filter by marker lists "With a due
+   date". Remind me makes an ordinary reminder at 9:00 that day; a day gone
+   makes none and says why. No reminder is made by setting a date. Tags on a
+   topic stay open.
 
 ### Phases, each with the gate it is finished against
 
@@ -1431,46 +1456,8 @@ moved to HISTORY.md with §12.1 (op5).
 
 ## Placed from INBOX, 2026-09-13
 
-177 (part). **Node styling this plan does not yet cover** (the owner, with
-Coggle captures). Built already: the radial ring's visibility, 3px branches
-with an arrowhead, the "Aa" grip's placement, topics as link-tool
-candidates. Placed here:
-
-- **Core nodes**: built. The strip's crown writes `core` on the node and the
-  shape picker gained `ellipse`. Measured, `scratchpad/ui-sweeps/mapcore.js`,
-  10/10 at 1440 light, 1440 dark and 390x844: the spine goes 4px to 6px, the
-  outline 1px to 2px and the type 400 to 600 against a plain sibling, the
-  ellipse computes a 50% radius with centred text, and the round trip through
-  `/whiteboard/boards/<id>/tree` keeps `core` (the `WhiteboardObjectData`
-  drop trap). The strip is 540px in a 1408px canvas at 1440 and wraps to
-  348x102 in 364px at 390.
-- **Per-node left edge**: built. The strip's second picker writes `spine`
-  (`dashed`, `none`, absent for solid). Measured,
-  `scratchpad/ui-sweeps/mapspine.js`, 9/9 at 1440 light, 1440 dark and
-  390x844: 4px solid to 4px dashed to a 1px hairline at the same 55% alpha
-  the other three sides carry, the label moving 3px with it; the choice beats
-  a core node's 6px bar (6px to 1px) and the node stays core; a plain topic,
-  whose box is transparent on purpose, is untouched (4px, label at the same
-  x); downward the choice is on the top edge instead. A server restart was
-  needed for the round trip to pass: the field is dropped by a stale process,
-  which is the `WhiteboardObjectData` trap wearing its other hat.
-- **Connection line styles**: built. `edge_width` (`thin`, `thick`) and
-  `edge_arrow` (`on`, `off`) join `edge_dashed` on the child, and all three
-  are in the strip's line group, which a trunk is not shown. Measured,
-  `scratchpad/ui-sweeps/mapline.js`, 13/13 at 1440 light, 1440 dark and
-  390x844: the ribbon goes 6.5 units at the parent to 11 thick and 3.6 thin
-  while its sibling stays 6.5, the stroked shapes 3px to 5.1px, a head added
-  to a ribbon takes its path from 50 to 53 points and its far end from 3.4 to
-  11.5 units, a head comes off a stroked line as `marker-end: none`, and all
-  three survive the round trip. The line group measures 0px on a trunk and
-  1/117/28/28px on a child. The strip is now 853px inside a 1408px canvas at
-  1440 and wraps to 348x150 inside 364px at 390.
-- **Resize a topic**: built, commit `3c9b874`. Measured,
-  `scratchpad/ui-sweeps/mapresize.js`: 170x44 dragged to 290x100, stored as
-  `width` 290 / `height` 100 / `sized` true, still 290x100 after a tidy.
-
-Each becomes a phase row when its phase is written; until then this list is
-the phase.
+177 (part): every item built; moved whole to HISTORY.md ("Moved from the
+plans, 2026-10-05 (placed blocks found built, op5)").
 
 ## Placed from INBOX, 2026-09-21
 

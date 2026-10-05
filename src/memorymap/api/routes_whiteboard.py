@@ -380,6 +380,10 @@ class WhiteboardObjectData(BaseModel):
     markers: list[Annotated[str, StringConstraints(pattern=r"^[a-z0-9-]{1,40}$")]] | None = Field(
         default=None, max_length=6
     )
+    #: **A due date** (§12.2 item 4, decision 37): a calendar day, no time,
+    #: so a topic is due on a day wherever the map is opened. Content, like
+    #: the markers; a reminder is made from it on request, never by itself.
+    due: str | None = Field(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$")
     #: **The bar down a topic's leading edge** (MINDMAP_PLAN.md item 177:
     #: "per-node left edge: solid, dashed or none"). Two values, because the
     #: third is the absence of the field: a map drawn before this existed and
@@ -2990,6 +2994,7 @@ MAP_STYLE_FIELDS = (
     "progress",
     "flag",
     "markers",
+    "due",
 )
 
 
@@ -3668,7 +3673,7 @@ class MapClearStyleOut(BaseModel):
 #: before any of this existed.
 MAP_CONTENT_FIELDS = frozenset({
     "image", "task", "note", "boundary", "boundary_label", "summary", "summary_span",
-    "priority", "progress", "flag", "markers",
+    "priority", "progress", "flag", "markers", "due",
 })
 MAP_CLEARABLE_FIELDS = frozenset(MAP_STYLE_FIELDS) - MAP_CONTENT_FIELDS | {"color"}
 
@@ -4011,7 +4016,7 @@ _FREEMIND_PRIVATE = {
     **{f: f"_{f}" for f in ("boundary", "boundary_label", "summary", "summary_span")},
     #: Markers (decision 34): neither format has a place for them that the
     #: other reads, so all four ride as private attributes.
-    **{f: f"_{f}" for f in ("priority", "progress", "flag", "markers")},
+    **{f: f"_{f}" for f in ("priority", "progress", "flag", "markers", "due")},
 }
 #: OPML 2.0 defines `text`, `type`, `url`, `isComment`, `isBreakpoint`,
 #: `created` and `category` and nothing else, so `url` is the only native
@@ -4043,7 +4048,7 @@ _OPML_PRIVATE = {
     **{f: f"_{f}" for f in ("boundary", "boundary_label", "summary", "summary_span")},
     #: Markers (decision 34): neither format has a place for them that the
     #: other reads, so all four ride as private attributes.
-    **{f: f"_{f}" for f in ("priority", "progress", "flag", "markers")},
+    **{f: f"_{f}" for f in ("priority", "progress", "flag", "markers", "due")},
 }
 
 

@@ -6173,6 +6173,12 @@ Link to another note with [[its first few words]]."></textarea>
                 <span>A document</span>
                 <button id="wb-map-to-doc" class="ghost small" type="button" title="Write this map as a new document: its branches as headings, the rest as lists"><i class="ph ph-file-text ph-lead" aria-hidden="true"></i> Write as a document</button>
               </div>
+              <!-- Study the map (MINDMAP_PLAN decision 36): each branch hidden
+                   until recalled, full screen. Maps only. -->
+              <div class="wb-menu-row" data-wb-surface="map">
+                <span>Revise it</span>
+                <button id="wb-map-study" class="ghost small" type="button" title="Recall what is under each branch before it is shown; your marks are kept for this map on this device"><i class="ph ph-student ph-lead" aria-hidden="true"></i> Study the map</button>
+              </div>
               <div class="wb-menu-row">
                 <span>Its address</span>
                 <button id="wb-copy-link" class="ghost small" type="button" title="Copy this board's or mind map's address to open it in the app"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Copy app link</button>
@@ -6544,6 +6550,9 @@ Link to another note with [[its first few words]]."></textarea>
       <button type="button" id="wb-present-prev" class="ghost small icon-only" title="Previous frame (Left arrow)" aria-label="Previous frame"><i class="ph ph-caret-left" aria-hidden="true"></i></button>
       <span id="wb-present-count" class="wb-present-count" aria-live="polite"></span>
       <button type="button" id="wb-present-next" class="ghost small icon-only" title="Next frame (Right arrow or Space)" aria-label="Next frame"><i class="ph ph-caret-right" aria-hidden="true"></i></button>
+      <button type="button" id="wb-study-show" class="accent small hidden" title="Draw what is under this branch (Enter)">Show</button>
+      <button type="button" id="wb-study-knew" class="ghost small hidden" title="You recalled it: on to the next branch">Knew it</button>
+      <button type="button" id="wb-study-missed" class="ghost small hidden" title="Marked for next time: on to the next branch">Not yet</button>
       <button type="button" id="wb-present-end" class="ghost small icon-only" title="End the presentation (Esc)" aria-label="End the presentation"><i class="ph ph-x" aria-hidden="true"></i></button>
     </div>
 

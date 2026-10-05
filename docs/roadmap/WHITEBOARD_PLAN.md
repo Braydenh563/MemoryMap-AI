@@ -730,22 +730,8 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
 
 ## Placed from INBOX, 2026-09-09 (the owner's evening batch)
 
-- "can the whiteboard arrange tools be better structured??" (screenshot):
-  ten icon-only buttons under one ARRANGE heading in a ragged 2-3-3-2 grid.
-  Three labelled sub-rows (Group, Align, Distribute), three per row, each
-  with a title and an aria-label.
-- "the view dropdown is still overly short", and separately "on the
-  mindmap, the view dropdown is even more visually broken". Both are the
-  escaped-menu height, fixed on 2026-09-09 (`place()` now measures at
-  `max-height: none` and caps against the room the trigger actually has).
-  Retest both at 1440 and 820 before closing.
-- Console, 2026-09-09: `POST /whiteboard/nodes` answered 422 with
-  `entry_id: Input should be a valid integer, input: null`, and the app
-  logged "Error creating node: {}". A node created with no backing entry
-  sends null where the schema wants an int. Two halves: the schema should
-  accept a node with no entry (a plain shape is not a note), and the
-  client's error path should say what failed rather than print an empty
-  object.
+Built; moved whole to HISTORY.md ("Moved from the plans, 2026-10-05 (placed
+blocks found built, op5)").
 
 ## Placed from INBOX, 2026-09-21
 
@@ -817,34 +803,9 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
     open question, and assertion 2 of the acceptance test ("a right-click
     still opens whatever it opened before") changes with it.
 
-276. **The sketch pad's toolbar wraps to two rows at 820 on Large text**, and
-    has since before this session: `scratchpad/ui-sweeps/sketchbar.js` reports
-    `rows=2` at 820/large-text (content 712 of an inner 714) and at
-    820/large+spacious (688 of 690), while 820/default and 820/spacious are
-    one row. The Canvas group is the one that drops. Found while giving the
-    ink dots a finger-sized target (the same sweep), not caused by it: the
-    dots only change below 820. Recommendation: the bar is five groups and
-    Large text buys their labels about 10px each, so the cheapest honest fix
-    is the group labels, not the controls: hide `.wb-tool-section-label`
-    below 1024 the way the phone band already hides other labels, and
-    re-measure; it is worth about 60px, which is more than the 2px the wrap
-    is short by. Owner: whoever next opens the pad's bar.
-    **Re-measured 2026-10-04, and the recommendation would buy nothing.** The
-    labels sit *above* their rows (a section is a column), and every label is
-    narrower than its row at 820 on Large text (Draw 37 over 104, Shapes 52
-    over 176, Ink 22 over 153, Size 29 over 97, Canvas 51 over 176), so hiding
-    them takes height, not width. The rows alone are 706px plus four 4.5px
-    separators, 724px, in a 705px inner bar: 19px short, still `rows=2` in
-    `sketchbar.js`. The width is in the rows: the Ink dots' gaps (6 x 5px at
-    Large text) and the Size slider's fixed 3rem are the two places with
-    room. **Half done the same day**: between 600 and 1023px the dots drop
-    their gap (a dot's own 2px transparent ring keeps the discs 4px apart), and
-    820 on Large text is one row (`sketchbar.js` 2 findings to 1; 1024 and
-    1440 unchanged). **Still open: 820 on Large text with Spacious density**,
-    41px short (rows 701px plus four 6px separators in a 684px inner bar), more
-    than the slider (about 9px) and the separators (24px) could give together.
-    Recommendation: let that one combination take two rows, and say so in the
-    sweep, rather than shrink 44px targets.
+276. The sketch pad's bar at 820 on Large text with Spacious: decided and
+    closed 2026-10-05 (op5); moved to HISTORY.md ("Moved from the plans,
+    2026-10-05 (276, op5)").
 
 ## Placed from INBOX, 2026-09-23
 

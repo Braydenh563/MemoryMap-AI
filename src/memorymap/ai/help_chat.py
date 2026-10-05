@@ -1237,7 +1237,7 @@ HELP_TOPICS.extend(
                 "a note is behind it) and opens every folded branch; View, "
                 "Present branches shows it branch by branch. A topic's menu, "
                 "Content, Markers sets a priority (1 to 5), how far along it is, a "
-                "flag and up to six icons; View, Filter by marker dims every topic "
+                "flag, a due day and up to six icons; View, Filter by marker dims every topic "
                 "without the one you pick. The sidebar's Outline tab (View, "
                 "Outline) lists the map as an indented outline: type to rename, "
                 "Enter adds a topic, Tab and Shift+Tab move it in and out a level. "

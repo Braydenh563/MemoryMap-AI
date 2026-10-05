@@ -6128,7 +6128,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button type="button" class="wb-menu-item" data-wb-cmd="history"><i class="ph ph-clock-counter-clockwise ph-lead" aria-hidden="true"></i><span>History…</span></button>
               <div class="wb-menu-row">
                 <span>Export</span>
-                <button id="wb-export" class="ghost small" type="button" title="Export this board"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export…</button>
+                <button id="wb-export" data-wb-closes class="ghost small" type="button" title="Export this board"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export…</button>
               </div>
               <!-- Which kind of board this is, changeable. Reported: "when I
                    press the boards dropdown to change boards, I cant tell
@@ -6145,7 +6145,7 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
               <div class="wb-menu-row">
                 <span>Everything on it</span>
-                <button id="wb-clear-board" class="ghost small wb-panel-danger" type="button" title="Clear this board"><i class="ph ph-eraser ph-lead" aria-hidden="true"></i> Clear</button>
+                <button id="wb-clear-board" data-wb-closes class="ghost small wb-panel-danger" type="button" title="Clear this board"><i class="ph ph-eraser ph-lead" aria-hidden="true"></i> Clear</button>
               </div>
               <!-- Reported: "there's no way to delete a board while in that
                    board on the whiteboard and mindmap". Deleting one existed
@@ -6164,22 +6164,22 @@ Link to another note with [[its first few words]]."></textarea>
                    about, which is how the map chips stayed unused. -->
               <div class="wb-menu-row">
                 <span>A note</span>
-                <button id="wb-add-to-note" class="ghost small" type="button" title="Put this board in a note as an object"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Add to a note…</button>
+                <button id="wb-add-to-note" data-wb-closes class="ghost small" type="button" title="Put this board in a note as an object"><i class="ph ph-note-pencil ph-lead" aria-hidden="true"></i> Add to a note…</button>
               </div>
               <!-- A map's outline as a document (audit brief M5): headings by
                    depth, then lists, notes as paragraphs, the map's card at
                    the head. Maps only. -->
               <div class="wb-menu-row" data-wb-surface="map">
                 <span>A document</span>
-                <button id="wb-map-to-doc" class="ghost small" type="button" title="Write this map as a new document: its branches as headings, the rest as lists"><i class="ph ph-file-text ph-lead" aria-hidden="true"></i> Write as a document</button>
+                <button id="wb-map-to-doc" data-wb-closes class="ghost small" type="button" title="Write this map as a new document: its branches as headings, the rest as lists"><i class="ph ph-file-text ph-lead" aria-hidden="true"></i> Write as a document</button>
               </div>
               <div class="wb-menu-row">
                 <span>Its address</span>
-                <button id="wb-copy-link" class="ghost small" type="button" title="Copy this board's or mind map's address to open it in the app"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Copy app link</button>
+                <button id="wb-copy-link" data-wb-closes class="ghost small" type="button" title="Copy this board's or mind map's address to open it in the app"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Copy app link</button>
               </div>
               <div class="wb-menu-row">
                 <span>This board itself</span>
-                <button id="wb-delete-board" class="ghost small wb-panel-danger" type="button" title="Delete this board and everything on it"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
+                <button id="wb-delete-board" data-wb-closes class="ghost small wb-panel-danger" type="button" title="Delete this board and everything on it"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Delete</button>
               </div>
               <!-- The whole board into the library as a template (decision 25). -->
               <button type="button" class="wb-menu-item" data-wb-cmd="save-template"><i class="ph ph-squares-four ph-lead" aria-hidden="true"></i><span>Save this board as a template…</span></button>

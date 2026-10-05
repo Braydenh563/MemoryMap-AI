@@ -11695,7 +11695,11 @@ async function initWhiteboard() {
     //: owns its own listener (Rename, New board, the two map rows) used to
     //: leave the menu standing open behind the dialog it had just opened,
     //: because only the forwarding items closed it.
-    const item = e.target.closest(".wb-board-menu [data-wb-click], .wb-board-menu [data-wb-fn], .wb-board-menu [data-wb-cmd], .wb-board-menu .wb-menu-item");
+    //: `[data-wb-closes]` is the six action rows drawn as a label and a button
+    //: (Export, Clear, Add to a note, Map to document, Copy app link, Delete):
+    //: they left the menu open over the dialog or picker they opened, which at
+    //: 390 wide covered its middle (tests/test_wb_menu_rows_close.py).
+    const item = e.target.closest(".wb-board-menu [data-wb-click], .wb-board-menu [data-wb-fn], .wb-board-menu [data-wb-cmd], .wb-board-menu .wb-menu-item, .wb-board-menu [data-wb-closes]");
     if (!item) return;
     e.stopPropagation();
     closeAllWbMenus();

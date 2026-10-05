@@ -43,6 +43,37 @@ from PyInstaller.utils.hooks import collect_data_files  # noqa: E402
 
 TZDATA_FILES = collect_data_files("tzdata")
 
+# **Every module of the app, by file, not by whatever the analysis can see.**
+# PyInstaller follows `import x` statements; it does not follow
+# `importlib.import_module("x")`, and this app reaches several of its own
+# modules only that way (to keep `core/` free of import cycles, ARCH-10).
+# Measured on a build of this spec: 198 of 200 modules bundled, and one of the
+# two missing was `memorymap.ai.needle_provider`, which `ai/tool_fallback.py`
+# imports by name, so the needle extra (tool calling without Ollama) raised
+# ModuleNotFoundError on every packaged install. The searxng facades below
+# were the same bug found earlier by a support bundle. Listing the package's
+# files makes the next such module impossible to miss;
+# tests/test_frozen_packaging.py checks the list against what is imported by
+# name. `memorymap.__main__` is left out on purpose: it is the entry script,
+# and a second copy under its package name is what `routes_settings.
+# _desktop_entry` takes care never to import.
+SRC_DIR = REPO_ROOT / "src"
+
+
+def _app_modules():
+    found = []
+    for path in sorted((SRC_DIR / "memorymap").rglob("*.py")):
+        parts = list(path.relative_to(SRC_DIR).with_suffix("").parts)
+        if parts[-1] == "__main__":
+            continue
+        if parts[-1] == "__init__":
+            parts.pop()
+        found.append(".".join(parts))
+    return found
+
+
+APP_MODULES = _app_modules()
+
 a = Analysis(
     [str(ENTRY_SCRIPT)],
     pathex=[str(REPO_ROOT / "src")],
@@ -113,6 +144,7 @@ a = Analysis(
         "memorymap.search.searxng_docker",
         "memorymap.search.searxng_install",
         "memorymap.search.searxng_process",
+        *APP_MODULES,
     ],
     hookspath=[],
     hooksconfig={},

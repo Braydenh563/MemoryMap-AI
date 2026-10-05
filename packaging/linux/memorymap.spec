@@ -41,6 +41,26 @@ ALEMBIC_INI = REPO_ROOT / "alembic.ini"
 ENTRY_SCRIPT = REPO_ROOT / "src" / "memorymap" / "__main__.py"
 ICON = str(FRONTEND_DIR / "icon-512.png")
 
+# Every module of the app, by file: the same list, for the same reason, as
+# packaging/windows/memorymap.spec's APP_MODULES (an `importlib.import_module`
+# by name is invisible to the analysis; `ai/needle_provider.py` was missing).
+SRC_DIR = REPO_ROOT / "src"
+
+
+def _app_modules():
+    found = []
+    for path in sorted((SRC_DIR / "memorymap").rglob("*.py")):
+        parts = list(path.relative_to(SRC_DIR).with_suffix("").parts)
+        if parts[-1] == "__main__":
+            continue
+        if parts[-1] == "__init__":
+            parts.pop()
+        found.append(".".join(parts))
+    return found
+
+
+APP_MODULES = _app_modules()
+
 a = Analysis(
     [str(ENTRY_SCRIPT)],
     pathex=[str(REPO_ROOT / "src")],
@@ -97,6 +117,7 @@ a = Analysis(
         "memorymap.search.searxng_docker",
         "memorymap.search.searxng_install",
         "memorymap.search.searxng_process",
+        *APP_MODULES,
     ],
     hookspath=[],
     hooksconfig={},

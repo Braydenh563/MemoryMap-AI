@@ -10,6 +10,8 @@ the bundle reads in whatever encoding the person's Windows happens to use.
 
 from __future__ import annotations
 
+import ast
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,3 +28,50 @@ def test_alembic_ini_is_plain_ascii():
     raw = (ROOT / "alembic.ini").read_bytes()
     bad = [i for i, byte in enumerate(raw) if byte > 0x7F]
     assert not bad, f"alembic.ini has non-ASCII bytes at {bad[:5]}"
+
+
+SPECS = (
+    ROOT / "packaging" / "windows" / "memorymap.spec",
+    ROOT / "packaging" / "linux" / "memorymap.spec",
+)
+
+
+def _spec_app_modules(spec: Path) -> list[str]:
+    """Run the spec's own `_app_modules` (and nothing else of the spec, which
+    needs PyInstaller's globals) against this checkout."""
+    tree = ast.parse(spec.read_text(encoding="utf-8"))
+    found = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "_app_modules"]
+    assert found, f"{spec.name} has no _app_modules"
+    namespace: dict = {"SRC_DIR": ROOT / "src"}
+    exec(compile(ast.Module(body=found, type_ignores=[]), str(spec), "exec"), namespace)  # noqa: S102
+    return namespace["_app_modules"]()
+
+
+def _imported_by_name() -> set[str]:
+    """Every `importlib.import_module("memorymap...")` with a literal name."""
+    pattern = re.compile(r"""import_module\(\s*["'](memorymap(?:\.\w+)+)["']\s*\)""")
+    names: set[str] = set()
+    for path in (ROOT / "src" / "memorymap").rglob("*.py"):
+        names.update(pattern.findall(path.read_text(encoding="utf-8")))
+    return names
+
+
+def test_both_specs_bundle_every_app_module():
+    """PyInstaller does not follow `importlib.import_module("x")`. Measured on
+    a build of the Windows spec before this list: 198 of 200 modules, and
+    `memorymap.ai.needle_provider` (imported only by name, from
+    `ai/tool_fallback.py`) was one of the two missing, so the needle extra
+    raised ModuleNotFoundError on every packaged install."""
+    # `routes_settings._desktop_entry` falls back to importing the entry
+    # script by name only outside a packaged build (its docstring).
+    by_name = _imported_by_name() - {"memorymap.__main__"}
+    assert "memorymap.ai.needle_provider" in by_name
+    for spec in SPECS:
+        text = spec.read_text(encoding="utf-8")
+        assert "*APP_MODULES," in text, f"{spec.name} does not hand APP_MODULES to hiddenimports"
+        modules = set(_spec_app_modules(spec))
+        missing = sorted(by_name - modules)
+        assert not missing, f"{spec.name} misses {missing}"
+        assert "memorymap.__main__" not in modules, "the entry script must not be bundled twice"
+        assert {"memorymap", "memorymap.core.backup_bundle", "memorymap.core.ocr"} <= modules
+

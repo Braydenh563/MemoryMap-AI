@@ -2205,6 +2205,8 @@ const LAZY_MODULES = {
   updates: ["/js/update-dialogs.js"],
   //: The Ctrl/Cmd-K palette's window: app-palette.js.
   appPalette: ["/js/app-palette.js"],
+  //: A note card's menu panels: note-panels.js.
+  notePanels: ["/js/note-panels.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2433,6 +2435,8 @@ const LAZY_ENTRY_POINTS = {
   updates: ["checkForUpdate", "applyUpdateNow", "showSourceUpdatedDialog"],
   //: Gesture-opened, nothing read back (app-palette.js header).
   appPalette: ["openPalette"],
+  //: Menu items and a chip, all async, nothing read back.
+  notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",

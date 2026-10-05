@@ -299,6 +299,24 @@ class TestBatchFileRules:
         assert offenders == [], offenders
         assert 'call "!MM_SELF!" !MM_ARGS!' in after
 
+    def test_the_own_path_is_read_before_delayed_expansion_is_on(self):
+        """%~dp0 and %~f0 are expanded when the line is parsed, and with
+        delayed expansion on cmd then scans the result for "!": a folder named
+        "Notes!" lost the character, and MM_HOME, MM_SELF and the cd named a
+        folder that does not exist. Every line that reads the script's own
+        path comes before the first enabledelayedexpansion, after an explicit
+        disabledelayedexpansion."""
+        lines = [
+            line.strip().lower()
+            for line in _read(START_BAT).splitlines()
+            if not re.match(r"(?i)^\s*(rem\b|::)", line)
+        ]
+        on = next(i for i, line in enumerate(lines) if line.startswith("setlocal enabledelayedexpansion"))
+        off = next(i for i, line in enumerate(lines) if line.startswith("setlocal disabledelayedexpansion"))
+        own_path = [i for i, line in enumerate(lines) if "%~dp0" in line or "%~f0" in line]
+        assert own_path, "the script no longer reads its own path"
+        assert off < min(own_path) and max(own_path) < on, (off, own_path, on)
+
     def test_the_status_write_puts_the_redirect_first(self):
         """A value ending in a digit turns `echo !VAR!>>file` into a
         numbered stream redirect."""

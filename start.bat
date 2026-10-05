@@ -38,11 +38,15 @@ REM      >>"file" echo !VAR!, because a value ending in a digit turns
 REM      "echo !VAR!>>file" into a numbered stream redirect instead.
 REM ===================================================================
 
-setlocal enabledelayedexpansion
-
-REM Generate the ESC character to allow ANSI color codes in Windows CMD
-for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
-
+REM  The two lines that read this script's own path run FIRST, with delayed
+REM  expansion off. %~dp0 and %~f0 are expanded when the line is parsed, and
+REM  with delayed expansion on, cmd then scans the result for "!" again: a
+REM  folder called "Notes!" or "Hi!there" lost the "!" (and anything between
+REM  two of them), so MM_HOME, MM_SELF and the cd below named a folder that
+REM  does not exist. The SETLOCAL below nests inside this one; every
+REM  ENDLOCAL in the script is followed by an exit, so the extra level costs
+REM  nothing (cmd closes it when the script ends).
+setlocal disabledelayedexpansion
 cd /d "%~dp0"
 
 REM  This script's own path, captured before the argument parser below runs.
@@ -54,6 +58,11 @@ REM  exactly that way. Nothing after :parse_args may use %~f0 or %~dp0
 REM  (tests\test_launcher_scripts.py holds that line).
 set "MM_HOME=%~dp0"
 set "MM_SELF=%~f0"
+
+setlocal enabledelayedexpansion
+
+REM Generate the ESC character to allow ANSI color codes in Windows CMD
+for /F %%a in ('echo prompt $E ^| cmd') do set "ESC=%%a"
 
 REM  The arguments this run was given, captured before the parser below
 REM  starts shifting them away: SHIFT does not rewrite %*, so this is the

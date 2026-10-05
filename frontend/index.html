@@ -5904,6 +5904,9 @@ Link to another note with [[its first few words]]."></textarea>
                  (DESIGN.md, the recipe index: a heading over every group is
                  what made this menu so tall). Each group keeps its name for
                  a screen reader as `aria-label`. -->
+            <div class="wb-menu-section" role="group" aria-label="Panels">
+              <button type="button" class="wb-menu-item" data-wb-cmd="format-panel"><i class="ph ph-sliders-horizontal ph-lead" aria-hidden="true"></i><span>Format panel</span><kbd>Ctrl+Shift+P</kbd></button>
+            </div>
             <div class="wb-menu-section" role="group" aria-label="Look">
               <div class="wb-menu-row">
                 <span>Background</span>
@@ -6468,6 +6471,14 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
       <!-- Independently per end, and read from the object, never from the
            tool's own default (the plan's section 2 item 4). -->
+      <!-- A connector's line shape (Phase B): curved, straight or elbow. -->
+      <div class="wb-context-group hidden" data-wb-ctx="route">
+        <select id="wb-prop-route" aria-label="Line shape" title="Line shape: curved, straight, or elbow (right angles round the shapes)">
+          <option value="curved">Curved</option>
+          <option value="straight">Straight</option>
+          <option value="elbow">Elbow</option>
+        </select>
+      </div>
       <div class="wb-context-group hidden" data-wb-ctx="caps">
         <select id="wb-prop-startcap" aria-label="Line start style" title="Line start style">
           <option value="none">Start: none</option>
@@ -6475,6 +6486,12 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="circle">Start: circle</option>
           <option value="square">Start: square</option>
           <option value="multiline">Start: multi-line</option>
+          <option value="er-one">Start: one (ER)</option>
+          <option value="er-one-only">Start: one and only one (ER)</option>
+          <option value="er-zero-one">Start: zero or one (ER)</option>
+          <option value="er-many">Start: many (ER)</option>
+          <option value="er-one-many">Start: one or many (ER)</option>
+          <option value="er-zero-many">Start: zero or many (ER)</option>
         </select>
         <select id="wb-prop-endcap" aria-label="Line end style" title="Line end style">
           <option value="none">End: none</option>
@@ -6482,6 +6499,12 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="circle">End: circle</option>
           <option value="square">End: square</option>
           <option value="multiline">End: multi-line</option>
+          <option value="er-one">End: one (ER)</option>
+          <option value="er-one-only">End: one and only one (ER)</option>
+          <option value="er-zero-one">End: zero or one (ER)</option>
+          <option value="er-many">End: many (ER)</option>
+          <option value="er-one-many">End: one or many (ER)</option>
+          <option value="er-zero-many">End: zero or many (ER)</option>
         </select>
       </div>
       <div class="wb-context-group hidden" data-wb-ctx="stroke">
@@ -6545,6 +6568,7 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="wb-board-menu-wrap">
           <button type="button" class="ghost small icon-only wb-menu-toggle" data-wb-menu-toggle title="More, for this selection" aria-label="More, for this selection" aria-haspopup="true" aria-expanded="false" aria-controls="wb-context-menu"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
           <div id="wb-context-menu" class="wb-board-menu wb-context-menu hidden" role="menu" aria-label="More">
+            <button type="button" class="wb-menu-item" data-wb-cmd="format-panel"><i class="ph ph-sliders-horizontal ph-lead" aria-hidden="true"></i><span>Format panel</span><kbd>Ctrl+Shift+P</kbd></button>
             <div class="wb-menu-section" data-wb-ctx="more-style">
               <span class="wb-panel-group-label">Style</span>
               <div class="wb-menu-row" id="wb-copy-style-row">
@@ -6910,6 +6934,99 @@ Link to another note with [[its first few words]]."></textarea>
         </section>
         <section class="wb-side-section" data-side-panel="outline" aria-label="Outline" hidden>
           <ul id="wb-outline-tree" class="wb-outline-tree" role="tree" aria-label="Outline"></ul>
+        </section>
+      </div>
+    </aside>
+    <!-- The Format panel (WHITEBOARD_PLAN decision 19; whiteboard-format.js):
+         the long tail of a selection's look, kept off the seven-control bar,
+         in three tabs on the board's right edge. Hidden until asked for:
+         Ctrl+Shift+P, the bar's More menu, View, or the palette. -->
+    <aside id="wb-format" class="wb-format card glass hidden" aria-labelledby="wb-format-title">
+      <div class="wb-sidebar-head">
+        <h3 id="wb-format-title" class="wb-sidebar-title">Format</h3>
+        <button type="button" id="wb-format-close" class="ghost small icon-only dialog-head-btn" title="Close the format panel (Ctrl+Shift+P)" aria-label="Close the format panel"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </div>
+      <div class="tabs-line wb-format-tabs" id="wb-format-tabs" role="tablist" aria-label="Format">
+        <button type="button" role="tab" id="wb-format-tab-style" data-format-tab="style" aria-controls="wb-format-body" aria-selected="true">Style</button>
+        <button type="button" role="tab" id="wb-format-tab-text" data-format-tab="text" aria-controls="wb-format-body" aria-selected="false" tabindex="-1">Text</button>
+        <button type="button" role="tab" id="wb-format-tab-arrange" data-format-tab="arrange" aria-controls="wb-format-body" aria-selected="false" tabindex="-1">Arrange</button>
+      </div>
+      <div id="wb-format-body" class="wb-format-body" role="tabpanel" aria-labelledby="wb-format-tab-style">
+        <p id="wb-format-empty" class="muted wb-lib-keys">Select something on the board to format it.</p>
+        <p id="wb-format-none" class="muted wb-lib-keys" hidden>Nothing on this tab for what is selected.</p>
+        <section class="wb-fmt-section" data-format-panel="style" aria-label="Style">
+          <label class="wb-fmt-row" data-fmt="stroke"><span class="wb-fmt-label">Line</span><input type="color" id="wb-fmt-stroke" class="wb-color-picker" aria-label="Line colour" title="Line colour"></label>
+          <label class="wb-fmt-row" data-fmt="width"><span class="wb-fmt-label">Width</span><input type="number" id="wb-fmt-width" min="1" max="40" step="1" aria-label="Line width" title="Line width"></label>
+          <label class="wb-fmt-row" data-fmt="dash"><span class="wb-fmt-label">Pattern</span>
+            <select id="wb-fmt-dash" aria-label="Line pattern" title="Line pattern">
+              <option value="solid">Solid</option>
+              <option value="dashed">Dashed</option>
+              <option value="dotted">Dotted</option>
+            </select>
+          </label>
+          <div class="wb-fmt-row" data-fmt="fill"><span class="wb-fmt-label">Fill</span>
+            <span class="wb-fmt-buttons"><label class="wb-snap-label" title="Filled"><input type="checkbox" id="wb-fmt-fill-on" aria-label="Filled"></label><input type="color" id="wb-fmt-fill" class="wb-color-picker" aria-label="Fill colour" title="Fill colour"></span>
+          </div>
+          <label class="wb-fmt-row" data-fmt="alpha"><span class="wb-fmt-label">Opacity</span>
+            <span class="wb-fmt-buttons"><input type="range" id="wb-fmt-alpha" min="10" max="100" step="5" aria-label="Opacity" title="Opacity"><output id="wb-fmt-alpha-out" for="wb-fmt-alpha" class="wb-fmt-out">100%</output></span>
+          </label>
+          <div class="wb-fmt-row" data-fmt="shadow"><span class="wb-fmt-label">Shadow</span><span class="wb-fmt-buttons"><label class="wb-snap-label" title="A soft shadow under it"><input type="checkbox" id="wb-fmt-shadow" aria-label="Shadow"></label></span></div>
+          <label class="wb-fmt-row" data-fmt="route"><span class="wb-fmt-label">Line shape</span>
+            <select id="wb-fmt-route" aria-label="Line shape" title="Line shape">
+              <option value="curved">Curved</option>
+              <option value="straight">Straight</option>
+              <option value="elbow">Elbow</option>
+            </select>
+          </label>
+          <label class="wb-fmt-row" data-fmt="caps"><span class="wb-fmt-label">Start</span>
+            <select id="wb-fmt-startcap" aria-label="Line start" title="Line start"></select>
+          </label>
+          <label class="wb-fmt-row" data-fmt="caps"><span class="wb-fmt-label">End</span>
+            <select id="wb-fmt-endcap" aria-label="Line end" title="Line end"></select>
+          </label>
+          <label class="wb-fmt-row" data-fmt="label-t"><span class="wb-fmt-label">Label along</span>
+            <input type="range" id="wb-fmt-label-t" min="5" max="95" step="5" aria-label="Label position along the line" title="Label position along the line">
+          </label>
+          <div class="wb-fmt-row" data-fmt="style-lib"><span class="wb-fmt-label">Style</span>
+            <span class="wb-fmt-buttons">
+              <button type="button" id="wb-fmt-copy-style" class="ghost small icon-only" title="Copy this item's style (Ctrl+Alt+C)" aria-label="Copy style"><i class="ph ph-eyedropper" aria-hidden="true"></i></button>
+              <button type="button" id="wb-fmt-paste-style" class="ghost small icon-only" title="Paste the copied style (Ctrl+Alt+V)" aria-label="Paste style"><i class="ph ph-paint-bucket" aria-hidden="true"></i></button>
+              <button type="button" id="wb-fmt-save-style" class="ghost small icon-only" title="Save this style to the library" aria-label="Save this style to the library"><i class="ph ph-paint-brush" aria-hidden="true"></i></button>
+            </span>
+          </div>
+        </section>
+        <section class="wb-fmt-section" data-format-panel="text" aria-label="Text" hidden>
+          <label class="wb-fmt-row" data-fmt="text"><span class="wb-fmt-label">Size</span><input type="number" id="wb-fmt-size" min="8" max="200" step="1" aria-label="Text size" title="Text size"></label>
+          <label class="wb-fmt-row" data-fmt="text"><span class="wb-fmt-label">Colour</span><input type="color" id="wb-fmt-ink" class="wb-color-picker" aria-label="Text colour" title="Text colour"></label>
+          <div class="wb-fmt-row" data-fmt="text"><span class="wb-fmt-label">Weight</span>
+            <span class="wb-fmt-buttons">
+              <button type="button" id="wb-fmt-bold" class="ghost small icon-only" aria-pressed="false" title="Bold, the whole text" aria-label="Bold"><i class="ph ph-text-b" aria-hidden="true"></i></button>
+              <button type="button" id="wb-fmt-italic" class="ghost small icon-only" aria-pressed="false" title="Italic, the whole text" aria-label="Italic"><i class="ph ph-text-italic" aria-hidden="true"></i></button>
+            </span>
+          </div>
+          <div class="wb-fmt-row" data-fmt="text"><span class="wb-fmt-label">Align</span>
+            <span id="wb-fmt-align" class="wb-fmt-buttons" role="group" aria-label="Text alignment">
+              <button type="button" class="ghost small icon-only" data-align="left" aria-pressed="false" title="Align left" aria-label="Align left"><i class="ph ph-text-align-left" aria-hidden="true"></i></button>
+              <button type="button" class="ghost small icon-only" data-align="center" aria-pressed="false" title="Align centre" aria-label="Align centre"><i class="ph ph-text-align-center" aria-hidden="true"></i></button>
+              <button type="button" class="ghost small icon-only" data-align="right" aria-pressed="false" title="Align right" aria-label="Align right"><i class="ph ph-text-align-right" aria-hidden="true"></i></button>
+            </span>
+          </div>
+        </section>
+        <section class="wb-fmt-section" data-format-panel="arrange" aria-label="Arrange" hidden>
+          <div class="wb-fmt-grid" data-fmt="geometry">
+            <label class="wb-fmt-num"><span class="wb-fmt-label">X</span><input type="number" id="wb-fmt-x" step="1" aria-label="X, from the left" title="X, from the left"></label>
+            <label class="wb-fmt-num"><span class="wb-fmt-label">Y</span><input type="number" id="wb-fmt-y" step="1" aria-label="Y, from the top" title="Y, from the top"></label>
+            <label class="wb-fmt-num"><span class="wb-fmt-label">W</span><input type="number" id="wb-fmt-w" min="8" step="1" aria-label="Width" title="Width"></label>
+            <label class="wb-fmt-num"><span class="wb-fmt-label">H</span><input type="number" id="wb-fmt-h" min="8" step="1" aria-label="Height" title="Height"></label>
+          </div>
+          <label class="wb-fmt-row" data-fmt="angle"><span class="wb-fmt-label">Angle</span><input type="number" id="wb-fmt-angle" min="0" max="359" step="1" aria-label="Angle in degrees" title="Angle in degrees"></label>
+          <div class="wb-fmt-row" data-fmt="flip"><span class="wb-fmt-label">Flip</span>
+            <span class="wb-fmt-buttons">
+              <button type="button" id="wb-fmt-flip-h" class="ghost small icon-only" title="Flip left to right" aria-label="Flip left to right"><i class="ph ph-flip-horizontal" aria-hidden="true"></i></button>
+              <button type="button" id="wb-fmt-flip-v" class="ghost small icon-only" title="Flip top to bottom" aria-label="Flip top to bottom"><i class="ph ph-flip-vertical" aria-hidden="true"></i></button>
+            </span>
+          </div>
+          <div id="wb-format-commands" class="wb-fmt-commands"></div>
         </section>
       </div>
     </aside>

@@ -1036,6 +1036,32 @@ HELP_TOPICS.extend(
             "badge": {"label": "Library", "tab": "library"},
         },
         {
+            "id": "board-format",
+            "keywords": (
+                "format panel", "format", "exact position", "position", "x and y", "width and height",
+                "angle", "rotate by", "flip", "mirror", "opacity", "transparency", "see through", "shadow",
+                "text size in a shape", "align text", "elbow", "right angle", "orthogonal", "connector shape",
+                "line shape", "bend", "waypoint", "label position", "crow's foot", "crows foot", "er diagram",
+                "entity relationship", "clone and connect", "copy and connect", "next shape", "copy a shape",
+                "connect it to the copy", "connect the copy",
+            ),
+            "body": (
+                "Ctrl+Shift+P on a board (or Format panel in the selection's More menu, or View) opens "
+                "the Format panel on the right, with three tabs. Style: line colour, width and pattern, "
+                "fill, opacity, shadow, and for a connector its line shape (curved, straight or elbow), "
+                "its two ends and where its label sits along it. Text: the size, colour, weight and "
+                "alignment of a text box or of the words in a shape. Arrange: X, Y, width, height and "
+                "angle as numbers, flip, and the order, align, spacing, group and lock buttons. Every "
+                "change is one undo step. An elbow connector turns at right angles and goes round the "
+                "shapes it joins: drag the small ring in the middle of a run to add a bend, drag a bend to "
+                "move it, double-click it to take it out. Drag the square on a connector's label to slide "
+                "it along the line. The ends include the entity-relationship marks (one, zero or one, many, "
+                "one or many, zero or many). With one shape or text box selected, the four arrows round it "
+                "(or Alt+Shift and an arrow key) copy it that way and join the two with an elbow."
+            ),
+            "badge": {"label": "Library", "tab": "library"},
+        },
+        {
             "id": "mind-map-controls",
             "keywords": (
                 "cross-link", "cross link", "outdent", "fold", "unfold", "radial",

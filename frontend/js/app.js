@@ -2215,6 +2215,7 @@ const LAZY_MODULES = {
     "/js/whiteboard.js",
     "/js/whiteboard-commands.js",
     "/js/whiteboard-library.js",
+    "/js/whiteboard-format.js",
     "/js/library.js",
   ],
 };

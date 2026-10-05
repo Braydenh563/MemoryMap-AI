@@ -2365,6 +2365,10 @@ CANVAS_GRIPS = (
     ".wb-resize-handle",
     ".wb-link-endpoint-handle",
     ".wb-link-bend-handle",
+    ".wb-link-waypoint-handle",
+    ".wb-link-waypoint-add",
+    ".wb-link-label-handle",
+    ".wb-clone-grip",
     ".wb-map-edge-handle",
 )
 
@@ -3983,7 +3987,7 @@ def test_a_locked_load_is_not_logged_as_a_failure() -> None:
 #: second-level tab strip"; INBOX 522). The top bar's pills are the frame; a
 #: strip under it is text on the page with a 2px accent line under the chosen
 #: tab, one height, one gap, no icons.
-TABS_LINE_STRIPS = ("notes-subtabs", "library-subtabs", "doc-sidebar-tabs")
+TABS_LINE_STRIPS = ("notes-subtabs", "library-subtabs", "doc-sidebar-tabs", "wb-format-tabs")
 
 
 def test_every_second_level_strip_is_a_tabs_line() -> None:

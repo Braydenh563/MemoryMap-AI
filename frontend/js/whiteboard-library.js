@@ -824,6 +824,9 @@ function wbLibSelectionPayload({ quiet = false } = {}) {
     if (!from || !to) continue;
     const linkData = { ...data };
     for (const k of ["sourceId", "targetId", "sourceKind", "targetKind", "library_ref"]) delete linkData[k];
+    //: An elbow's bends are board points: kept from the saved box's corner,
+    //: as the items are, so a placed copy bends where the original did.
+    if (Array.isArray(linkData.points)) linkData.points = linkData.points.map((p) => ({ x: p.x - box.minX, y: p.y - box.minY }));
     links.push({ from, to, data: linkData });
   }
   if (!items.length) {

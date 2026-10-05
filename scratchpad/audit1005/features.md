@@ -263,7 +263,7 @@ Priority is for a local-first notebook whiteboard (P1 core, P2 valuable, P3 late
 | Arrow nudge and Shift | done | `wbNudgeSelection` | - |
 | Shift keeps proportions | done | `wbKeepAspect` (`:12287`) | - |
 | Resize from centre (Alt) | missing | none | P3 |
-| Numeric X, Y, W, H, angle | missing | no inputs in `index.html` | P2 (Format panel) |
+| Numeric X, Y, W, H, angle | missing | no inputs in `index.html` | P2 (Format panel) FIXED (Phase B) |
 | Flip horizontal or vertical | missing | none | P2 |
 | Skew | decided out (spec D3) | - | - |
 | Alt-drag duplicate | done | `wbFinishDrag(…, altCopy)` (`:4745`) | - |
@@ -459,7 +459,7 @@ draw.io is Apache-2.0: take the features, copy no code or stencils. The built-in
 | Export | HTML, XML, VSDX | missing | P3 |
 | View | Outline window (minimap) | done | navigator |
 | View | Zoom in, out, fit, 100% | done | - |
-| View | Format panel toggle (Ctrl+Shift+P) | missing | - |
+| View | Format panel toggle (Ctrl+Shift+P) | missing | FIXED (Phase B) |
 
 ## 6. Mind map catalogue and gap matrix
 
@@ -744,6 +744,7 @@ Map (from §12.5 and `map1.js`):
    - Elbow (orthogonal) routing with several waypoints. Line jumps are optional.
    - The flowchart and General sets from 8.3 as built-in library entries, with connection points.
    - ER caps.
+   - FIXED (Phase B): elbow routing with waypoints, ER caps, sliding labels, clone-and-connect. Line jumps not built.
    - Gate: a 12-shape flowchart drawn by keyboard, with no edge crossing a shape box.
 5. **W5, interchange.**
    - Paste text (FEAT-09).
@@ -873,7 +874,7 @@ Every brief:
   - `doc2.js` print text has no `[^`.
 - Risks: the background migration must not overwrite a board that already has settings; z-order steps must skip locked and hidden items consistently.
 
-### Phase A, Library and sidebar (L, Opus)
+### Phase A, Library and sidebar (L, Opus): BUILT 5e84253 (Layers phase 1 with it)
 
 - Goal: section 8 (all six "Yours" kinds; built-in General, Flowchart, Arrows; others in A2) and the sidebar shell with the Library tab.
 - Files:
@@ -905,7 +906,7 @@ Every brief:
   - 0 console errors at 1440, 820 and 390.
 - Risks: the Phosphor font is not exportable (vendor SVGs, with licence); payload XSS (sanitise thumbnails; text only through existing escapes); the sidebar's effect on the canvas width at 820 (measure).
 
-### Phase B, Format panel and connectors (L, Opus)
+### Phase B, Format panel and connectors (L, Opus): BUILT 2026-10-05 (the map's Format tabs are the map agent's)
 
 - Goal: section 9.2 items 1, 3, 4, 5 and 6 (command table, Format panel, palette, "?") and W4 (elbow connectors with waypoints, ER caps, hover clone-and-connect, Shift+Enter connect from the library).
 - Decision changes to record: decision 2 revised, decision 12 relaxed in the panel (9.5).

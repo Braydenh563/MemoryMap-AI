@@ -677,6 +677,10 @@ const WB_INV_ZOOM_GRIPS = [
   ".wb-sketch-resize-handle",
   ".wb-link-endpoint-handle",
   ".wb-link-bend-handle",
+  ".wb-link-waypoint-handle",
+  ".wb-link-waypoint-add",
+  ".wb-link-label-handle",
+  ".wb-clone-grip",
   ".wb-map-edge-handle",
   ".wb-sketch-rotate-handle",
   ".wb-rotate-handle-stem",
@@ -1141,6 +1145,10 @@ new MutationObserver(wbRefreshHighlighterBlend).observe(document.documentElement
 //: `label_area` (fractions of its box) or the whole box.
 const WB_FILLABLE_SHAPES = new Set(["rect", "circle", "triangle", "diamond", "custom"]);
 
+//: The Format panel's shadow (decision 19): one soft drop, the same on a
+//: shape, a line, a text box and a picture, and in the export.
+const WB_ITEM_SHADOW = "drop-shadow(0 2px 4px rgb(0 0 0 / 0.28))";
+
 //: SVG `stroke-dasharray` for each style, scaled to the actual stroke width
 //: so a thick dashed line doesn't look like a row of dots. `null` (solid)
 //: means "don't set the attribute at all", not "set it to empty".
@@ -1184,11 +1192,49 @@ function wbArrowHeadPath(tipX, tipY, approachAngle, headLen) {
 //: sketch as the one path they already know how to handle), "arrow" here
 //: is exactly `wbArrowHeadPath`'s own two-line V, kept for a single call
 //: site to switch on.
-const WB_CAP_KINDS = ["none", "arrow", "circle", "square", "multiline"];
+const WB_CAP_KINDS = ["none", "arrow", "circle", "square", "multiline", "er-one", "er-one-only", "er-zero-one", "er-many", "er-one-many", "er-zero-many"];
+
+//: The entity-relationship ends (the features audit W4): what is nearest the
+//: line's body, then what is at the tip. `null` near: one mark only.
+const WB_ER_CAPS = {
+  "er-one": [null, "one"],
+  "er-one-only": ["one", "one"],
+  "er-zero-one": ["zero", "one"],
+  "er-many": [null, "many"],
+  "er-one-many": ["one", "many"],
+  "er-zero-many": ["zero", "many"],
+};
 
 function wbCapPath(kind, tipX, tipY, approachAngle, headLen) {
   if (!kind || kind === "none") return "";
   if (kind === "arrow") return wbArrowHeadPath(tipX, tipY, approachAngle, headLen);
+  // The entity-relationship ends (the features audit W4, draw.io's ER set):
+  // a bar for "one", a ring for "zero" and the crow's foot for "many", read
+  // from the shape outward, so "zero-many" is a ring nearest the line's body
+  // and the foot at the tip. Each part is drawn back from the tip by a fixed
+  // share of the head length, so the marks keep apart at every line width.
+  if (WB_ER_CAPS[kind]) {
+    const cos = Math.cos(approachAngle), sin = Math.sin(approachAngle);
+    const perpX = -sin, perpY = cos;
+    const half = headLen * 0.45;
+    const at = (back) => ({ x: tipX - cos * back, y: tipY - sin * back });
+    const bar = (back) => {
+      const p = at(back);
+      return `M ${p.x - perpX * half} ${p.y - perpY * half} L ${p.x + perpX * half} ${p.y + perpY * half}`;
+    };
+    const ring = (back) => {
+      const r = headLen * 0.22, p = at(back + r);
+      return `M ${p.x - r} ${p.y} A ${r} ${r} 0 1 0 ${p.x + r} ${p.y} A ${r} ${r} 0 1 0 ${p.x - r} ${p.y} Z`;
+    };
+    const foot = () => {
+      const root = at(headLen * 0.7);
+      return `M ${root.x} ${root.y} L ${tipX + perpX * half} ${tipY + perpY * half} M ${root.x} ${root.y} L ${tipX - perpX * half} ${tipY - perpY * half}`;
+    };
+    const [near, far] = WB_ER_CAPS[kind];
+    const tip = far === "many" ? foot() : bar(headLen * 0.3);
+    const inner = near === "zero" ? ring(headLen * 0.85) : bar(headLen * 0.85);
+    return near ? `${inner} ${tip}` : tip;
+  }
   if (kind === "circle") {
     const r = headLen / 3;
     // Centred a radius back from the tip along the shaft, so the circle
@@ -2340,6 +2386,18 @@ function wbWithDir(pt, dir) {
   return dir ? { x: pt.x, y: pt.y, dir } : pt;
 }
 
+//: A link's resolved end for the path: the point, the side it leaves by,
+//: and for an elbow (`wbElbowRoute`) the box it must go round and whether
+//: the end floats (no fixed anchor), which an elbow settles on the facing
+//: side's middle. A fresh object every time, never the stored free point.
+function wbLinkEnd(pt, dir, box, floating) {
+  const end = { x: pt.x, y: pt.y };
+  if (dir) end.dir = dir;
+  if (box) end.box = box;
+  if (floating) end.floating = true;
+  return end;
+}
+
 function wbEllipseRayIntersection(box, towardX, towardY) {
   const cx = (box.minX + box.maxX) / 2, cy = (box.minY + box.maxY) / 2;
   const dx = towardX - cx, dy = towardY - cy;
@@ -2537,8 +2595,8 @@ function wbLinkEndpoints(sourceItem, sourceAnchor, targetItem, targetAnchor, sou
   const source = fixedSource || wbEdgePoint(sourceKind, sourceItem, (fixedTarget || targetCenter).x, (fixedTarget || targetCenter).y);
   const target = fixedTarget || wbEdgePoint(targetKind, targetItem, (fixedSource || sourceCenter).x, (fixedSource || sourceCenter).y);
   return {
-    source: wbWithDir(source, wbItemEdgeDir(sourceKind, sourceItem, source)),
-    target: wbWithDir(target, wbItemEdgeDir(targetKind, targetItem, target)),
+    source: wbLinkEnd(source, wbItemEdgeDir(sourceKind, sourceItem, source), sourceBox, !fixedSource),
+    target: wbLinkEnd(target, wbItemEdgeDir(targetKind, targetItem, target), targetBox, !fixedTarget),
   };
 }
 
@@ -2580,8 +2638,8 @@ function wbResolveLinkEndpoints(parsed) {
   // Only a card end has an edge to leave perpendicular to. A free dangling
   // point has no box, so it keeps the plain chord behaviour.
   return {
-    source: wbWithDir(source, sourceNode && wbItemEdgeDir(sourceKind, sourceNode, source)),
-    target: wbWithDir(target, targetNode && wbItemEdgeDir(targetKind, targetNode, target)),
+    source: wbLinkEnd(source, sourceNode && wbItemEdgeDir(sourceKind, sourceNode, source), sourceBox, sourceNode && !sourceFixed),
+    target: wbLinkEnd(target, targetNode && wbItemEdgeDir(targetKind, targetNode, target), targetBox, targetNode && !targetFixed),
   };
 }
 
@@ -2611,8 +2669,13 @@ function wbLinkCaps(parsed) {
 //: from that control point, so it always agrees with the drawn curve. An end
 //: with no edge (a free point, the preview) keeps the horizontal curve.
 //: `bend` (double-click to add a point): an offset from the chord's midpoint;
-//: when set, the link is one quadratic curve through it.
-function wbLinkPathD(type, sPt, tPt, caps, width, bend) {
+//: when set, the link is one quadratic curve through it. `shape`
+//: (`wbLinkShape`): an elbow, routed round its two boxes through its bends.
+function wbLinkPathD(type, sPt, tPt, caps, width, bend, shape = null) {
+  if (shape?.route === "elbow") {
+    const ends = wbElbowEnds(sPt, tPt, shape.points);
+    return wbElbowPathD(wbElbowRoute(ends.source, ends.target, sPt.box, tPt.box, shape.points), caps, width);
+  }
   if (bend && (bend.x || bend.y)) {
     const ctrl = { x: (sPt.x + tPt.x) / 2 + bend.x, y: (sPt.y + tPt.y) / 2 + bend.y };
     let d = `M ${sPt.x} ${sPt.y} Q ${ctrl.x} ${ctrl.y}, ${tPt.x} ${tPt.y}`;
@@ -2653,6 +2716,198 @@ function wbLinkPathD(type, sPt, tPt, caps, width, bend) {
   if (endCap !== "none") d += " " + wbCapPath(endCap, tPt.x, tPt.y, endAngle, headLen);
   if (startCap !== "none") d += " " + wbCapPath(startCap, sPt.x, sPt.y, startAngle, headLen);
   return d;
+}
+
+// --- Elbow connectors (WHITEBOARD_PLAN Phase B; the features audit W4) ------
+//
+// draw.io's orthogonal edge: a connector that leaves its shape straight out
+// of the side it is anchored to, turns only at right angles, and goes round
+// the two shapes it joins rather than through them. `wbElbowRoute` is the
+// pure part (tested in node, `tests/test_wb_elbow.py`): the two ends with
+// their outward direction (`wbWithDir`), the two boxes, and any waypoints the
+// person dragged in, to a polyline of axis-aligned segments.
+
+const WB_ELBOW_PAD = 24;
+
+function wbElbowSide(p) {
+  if (!p?.dir) return null;
+  return Math.abs(p.dir.x) >= Math.abs(p.dir.y) ? "h" : "v";
+}
+
+//: Whether the axis-aligned segment a-b passes through a box's inside.
+function wbElbowCrosses(a, b, box) {
+  if (!box) return false;
+  const lx = Math.min(a.x, b.x), hx = Math.max(a.x, b.x);
+  const ly = Math.min(a.y, b.y), hy = Math.max(a.y, b.y);
+  return lx < box.maxX - 1 && hx > box.minX + 1 && ly < box.maxY - 1 && hy > box.minY + 1;
+}
+
+//: One leg, from `a` heading `inDir` to `b`, arriving so that it can leave
+//: towards `outDir` (null: anything): straight when they line up, else one
+//: right-angle corner, the one that does not cut a box, does not double back
+//: and keeps going the way it was going.
+function wbElbowLeg(a, b, inDir, outDir, boxes) {
+  if (Math.abs(a.x - b.x) < 0.5 || Math.abs(a.y - b.y) < 0.5) return [];
+  const candidates = [{ x: b.x, y: a.y }, { x: a.x, y: b.y }];
+  let best = null, bestScore = Infinity;
+  for (const c of candidates) {
+    const first = { x: Math.sign(c.x - a.x), y: Math.sign(c.y - a.y) };
+    const second = { x: Math.sign(b.x - c.x), y: Math.sign(b.y - c.y) };
+    let score = 0;
+    for (const box of boxes) score += (wbElbowCrosses(a, c, box) ? 100 : 0) + (wbElbowCrosses(c, b, box) ? 100 : 0);
+    if (inDir && first.x * inDir.x + first.y * inDir.y < 0) score += 20;
+    if (outDir && second.x * outDir.x + second.y * outDir.y < 0) score += 20;
+    if (inDir && first.x * inDir.x + first.y * inDir.y > 0) score -= 1;
+    if (score < bestScore) {
+      bestScore = score;
+      best = c;
+    }
+  }
+  return [best];
+}
+
+function wbElbowRoute(s, t, sBox = null, tBox = null, points = []) {
+  const pad = WB_ELBOW_PAD;
+  const boxes = [sBox, tBox].filter(Boolean);
+  const guess = Math.abs(t.x - s.x) >= Math.abs(t.y - s.y) ? "h" : "v";
+  const sSide = wbElbowSide(s) || guess;
+  const tSide = wbElbowSide(t) || guess;
+  const sDir = sSide === "h" ? { x: Math.sign(s.dir?.x || t.x - s.x) || 1, y: 0 } : { x: 0, y: Math.sign(s.dir?.y || t.y - s.y) || 1 };
+  const tDir = tSide === "h" ? { x: Math.sign(t.dir?.x || s.x - t.x) || 1, y: 0 } : { x: 0, y: Math.sign(t.dir?.y || s.y - t.y) || 1 };
+  const s1 = { x: s.x + sDir.x * pad, y: s.y + sDir.y * pad };
+  const t1 = { x: t.x + tDir.x * pad, y: t.y + tDir.y * pad };
+  const into = { x: -tDir.x, y: -tDir.y };
+  const out = [{ x: s.x, y: s.y }, s1];
+  let cur = s1, inDir = sDir;
+  const stops = [...(points || []).map((p) => ({ x: p.x, y: p.y })), t1];
+  for (const [i, stop] of stops.entries()) {
+    const last = i === stops.length - 1;
+    let leg = wbElbowLeg(cur, stop, inDir, last ? into : null, boxes);
+    //: Two shapes facing away from each other, or one behind the other, need
+    //: two corners: out round the boxes, along, and back in.
+    if (last && !points?.length && leg.length && boxes.length && (wbElbowCrosses(cur, leg[0], sBox) || wbElbowCrosses(leg[0], stop, sBox) || wbElbowCrosses(cur, leg[0], tBox) || wbElbowCrosses(leg[0], stop, tBox))) {
+      leg = wbElbowDetour(cur, stop, sSide, sBox, tBox, pad);
+    } else if (last && !points?.length && !leg.length && sSide === tSide) {
+      leg = [];
+    }
+    if (last && !points?.length && sSide === tSide && leg.length === 1) {
+      //: Side to side (or top to bottom) facing each other: the classic
+      //: three segments, turning halfway rather than at one end.
+      if (sSide === "h") {
+        const mx = (cur.x + stop.x) / 2;
+        const mid = [{ x: mx, y: cur.y }, { x: mx, y: stop.y }];
+        if (!boxes.some((b) => wbElbowCrosses(cur, mid[0], b) || wbElbowCrosses(mid[0], mid[1], b) || wbElbowCrosses(mid[1], stop, b))) leg = mid;
+      } else {
+        const my = (cur.y + stop.y) / 2;
+        const mid = [{ x: cur.x, y: my }, { x: stop.x, y: my }];
+        if (!boxes.some((b) => wbElbowCrosses(cur, mid[0], b) || wbElbowCrosses(mid[0], mid[1], b) || wbElbowCrosses(mid[1], stop, b))) leg = mid;
+      }
+    }
+    out.push(...leg, stop);
+    const prev = out[out.length - 2];
+    inDir = { x: Math.sign(stop.x - prev.x), y: Math.sign(stop.y - prev.y) };
+    cur = stop;
+  }
+  out.push({ x: t.x, y: t.y });
+  //: Drop repeated points and the middle of three in a line.
+  const clean = [];
+  for (const p of out) {
+    const last = clean[clean.length - 1];
+    if (last && Math.abs(last.x - p.x) < 0.5 && Math.abs(last.y - p.y) < 0.5) continue;
+    const prev = clean[clean.length - 2];
+    if (prev && last && ((Math.abs(prev.x - last.x) < 0.5 && Math.abs(last.x - p.x) < 0.5) || (Math.abs(prev.y - last.y) < 0.5 && Math.abs(last.y - p.y) < 0.5))) {
+      clean[clean.length - 1] = p;
+      continue;
+    }
+    clean.push(p);
+  }
+  return clean;
+}
+
+//: Out past both boxes on the nearer side, along, and back: the route for a
+//: target behind the side its source leaves from.
+function wbElbowDetour(a, b, side, sBox, tBox, pad) {
+  if (side === "h") {
+    const top = Math.min(sBox?.minY ?? a.y, tBox?.minY ?? b.y) - pad;
+    const bottom = Math.max(sBox?.maxY ?? a.y, tBox?.maxY ?? b.y) + pad;
+    const y = Math.abs(top - a.y) + Math.abs(top - b.y) <= Math.abs(bottom - a.y) + Math.abs(bottom - b.y) ? top : bottom;
+    return [{ x: a.x, y }, { x: b.x, y }];
+  }
+  const left = Math.min(sBox?.minX ?? a.x, tBox?.minX ?? b.x) - pad;
+  const right = Math.max(sBox?.maxX ?? a.x, tBox?.maxX ?? b.x) + pad;
+  const x = Math.abs(left - a.x) + Math.abs(left - b.x) <= Math.abs(right - a.x) + Math.abs(right - b.x) ? left : right;
+  return [{ x, y: a.y }, { x, y: b.y }];
+}
+
+//: The polyline as a path, with the end caps turned to the last and first
+//: segments.
+function wbElbowPathD(pts, caps, width) {
+  let d = `M ${pts[0].x} ${pts[0].y}` + pts.slice(1).map((p) => ` L ${p.x} ${p.y}`).join("");
+  const startCap = caps?.startCap || "none", endCap = caps?.endCap || "none";
+  const headLen = (width || 3) * 4 + 6;
+  const n = pts.length;
+  if (endCap !== "none" && n > 1) d += " " + wbCapPath(endCap, pts[n - 1].x, pts[n - 1].y, Math.atan2(pts[n - 1].y - pts[n - 2].y, pts[n - 1].x - pts[n - 2].x), headLen);
+  if (startCap !== "none" && n > 1) d += " " + wbCapPath(startCap, pts[0].x, pts[0].y, Math.atan2(pts[0].y - pts[1].y, pts[0].x - pts[1].x), headLen);
+  return d;
+}
+
+//: A floating end of an elbow (no fixed anchor) sits in the middle of the
+//: side that faces the other end, the way draw.io's orthogonal edge does,
+//: rather than wherever the ray between the two centres crosses the edge:
+//: that point leaves a jog of a few pixels next to the shape, which reads as
+//: a mistake on a route that is otherwise all right angles.
+function wbElbowFloat(p, toward) {
+  if (!p?.floating || !p.box || !toward) return p;
+  const b = p.box;
+  const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
+  const hw = (b.maxX - b.minX) / 2 || 1, hh = (b.maxY - b.minY) / 2 || 1;
+  const dx = (toward.x - cx) / hw, dy = (toward.y - cy) / hh;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    const sx = Math.sign(dx) || 1;
+    return { x: cx + sx * hw, y: cy, dir: { x: sx, y: 0 }, box: b };
+  }
+  const sy = Math.sign(dy) || 1;
+  return { x: cx, y: cy + sy * hh, dir: { x: 0, y: sy }, box: b };
+}
+
+//: The two ends an elbow is drawn between, floating ends settled first; the
+//: render and the grips both read this, so a grip sits where the line starts.
+function wbElbowEnds(sPt, tPt, points) {
+  const first = points?.[0], last = points?.[points.length - 1];
+  return {
+    source: wbElbowFloat(sPt, first || (tPt.box ? { x: (tPt.box.minX + tPt.box.maxX) / 2, y: (tPt.box.minY + tPt.box.maxY) / 2 } : tPt)),
+    target: wbElbowFloat(tPt, last || (sPt.box ? { x: (sPt.box.minX + sPt.box.maxX) / 2, y: (sPt.box.minY + sPt.box.maxY) / 2 } : sPt)),
+  };
+}
+
+//: How far along a polyline the nearest point to `p` is, in board units:
+//: the order a new waypoint takes among the others.
+function wbPolylineAt(pts, p) {
+  let best = Infinity, at = 0, run = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    const u = len ? Math.max(0, Math.min(1, ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / (len * len))) : 0;
+    const dist = Math.hypot(p.x - (a.x + (b.x - a.x) * u), p.y - (a.y + (b.y - a.y) * u));
+    if (dist < best) {
+      best = dist;
+      at = run + len * u;
+    }
+    run += len;
+  }
+  return at;
+}
+
+//: A link's line shape for the context bar. An elbow is a straight link with
+//: `route: "elbow"`, so every reader that only knows the two old types (the
+//: assistant's board tools, an older build) still draws it as a link.
+function wbLinkRouteName(parsed) {
+  if (parsed?.route === "elbow") return "elbow";
+  return parsed?.type === "link-straight" ? "straight" : "curved";
+}
+
+function wbLinkShape(parsed) {
+  return parsed?.route === "elbow" ? { route: "elbow", points: Array.isArray(parsed.points) ? parsed.points : [] } : null;
 }
 
 //: A small SVG dot at each of a shape's 8 fixed anchors, shown while a link
@@ -2948,7 +3203,9 @@ function wbOwnsChord(e) {
   if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === "m") {
     return !wbIsMap();
   }
-  return (e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "g";
+  //: Ctrl+Shift+G is Ungroup here (agent mode in the app); Ctrl+Shift+P is
+  //: the Format panel here (clip a note in the app, decision 19).
+  return (e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && ["g", "p"].includes(e.key.toLowerCase());
 }
 
 async function wbFlushNudge() {
@@ -3148,7 +3405,7 @@ const WB_CONTEXT_CONTROLS = {
   tool: { bar: ["tool"], more: ["more-style"] },
   line: { bar: ["ink", "caps", "stroke", "order"], more: ["more-style"] },
   shape: { bar: ["ink", "stroke", "fill", "order"], more: ["more-style"] },
-  link: { bar: ["ink", "caps", "stroke"], more: ["more-style"] },
+  link: { bar: ["ink", "route", "caps", "stroke"], more: ["more-style"] },
   text: { bar: ["ink", "text", "order"], more: ["more-style", "more-card"] },
   image: { bar: ["order"], more: ["more-style"] },
   // A note card: its look comes from the note, so what it offers is where it
@@ -3159,7 +3416,7 @@ const WB_CONTEXT_CONTROLS = {
 
 //: Every group and menu section the table can name, so hiding "everything
 //: else" never has to list them.
-const WB_CONTEXT_GROUPS = ["tool", "ink", "caps", "stroke", "fill", "text", "arrange", "order"];
+const WB_CONTEXT_GROUPS = ["tool", "ink", "route", "caps", "stroke", "fill", "text", "arrange", "order"];
 const WB_CONTEXT_MENU_SECTIONS = ["more-style", "more-card", "more-guides", "more-notes", "more-mindmap"];
 
 //: Which row of the table a selection reads. Returns null when the bar has
@@ -3273,6 +3530,7 @@ function wbParkContextOnRail(on) {
 function wbUpdateContextBar() {
   const bar = document.getElementById("wb-context");
   if (!bar) return;
+  wbFormatSyncSoon();
   if (wbFillContextBar() === "rail") wbParkContextOnRail(true);
   else wbUpdateSelectionBar();
 }
@@ -3328,6 +3586,7 @@ function wbFillContextBar() {
     document.getElementById("wb-prop-startcap").value = caps.startCap;
     document.getElementById("wb-prop-endcap").value = caps.endCap;
     document.getElementById("wb-prop-dash").value = parsed.dash || "solid";
+    document.getElementById("wb-prop-route").value = wbLinkRouteName(parsed);
     return;
   }
 
@@ -3776,6 +4035,7 @@ function wbApplySelectionHighlight() {
   //: And the box round a sweep that caught more than one thing, which is the
   //: same affordance for the same gesture (see `wbRenderMultiSelectionHandles`).
   wbRenderMultiSelectionHandles();
+  wbRenderCloneGrips();
   wbUpdateContextBar();
   // The map dock's own buttons act on the selected topic, so they follow the
   // selection for the same reason the properties panel above does.
@@ -4041,6 +4301,43 @@ function wbMapStripClearOfHandle(node, { left, y, w, h, hostRect, gapBelow, bott
   return [left, y];
 }
 
+//: **A selected connector's box, for the bar to sit over** (found with
+//: Phase B, 2026-10-05). A link has no path of its own (`wbItemBBox` is null
+//: for it), so the bar measured nothing and hid: the connector row (its
+//: colour, width, ends, pattern and now its line shape) had never been on
+//: screen for anyone. The box round its two ends and its bends.
+function wbLinkSelectionBox(sketch) {
+  let parsed = null;
+  try {
+    parsed = JSON.parse(sketch.data);
+  } catch {
+    return null;
+  }
+  if (!String(parsed?.type || "").startsWith("link-")) return null;
+  const ends = wbResolveLinkEndpoints(parsed);
+  if (!ends) return null;
+  const pts = [ends.source, ends.target, ...(Array.isArray(parsed.points) ? parsed.points : [])];
+  return {
+    minX: Math.min(...pts.map((p) => p.x)), minY: Math.min(...pts.map((p) => p.y)),
+    maxX: Math.max(...pts.map((p) => p.x)), maxY: Math.max(...pts.map((p) => p.y)),
+  };
+}
+
+//: Where the selection bar may sit across the board's host, in its own
+//: units: inside 8px of either edge, and clear of whichever side panel is
+//: showing.
+function wbBarSideEdges(hostRect) {
+  let left = 8, right = hostRect.width - 8;
+  const side = document.getElementById("wb-sidebar");
+  if (side && side.offsetParent !== null) left = Math.max(left, side.getBoundingClientRect().right - hostRect.left + 8);
+  const format = document.getElementById("wb-format");
+  if (format && !format.classList.contains("hidden")) right = Math.min(right, format.getBoundingClientRect().left - hostRect.left - 8);
+  //: A board too narrow for both (a phone with a panel open) keeps the bar
+  //: on the board rather than squeezing it to nothing.
+  if (right - left < 160) return { left: 8, right: hostRect.width - 8 };
+  return { left, right };
+}
+
 function wbUpdateSelectionBar() {
   //: A direct placement makes a queued one redundant: it would place the bar
   //: from the same state a frame later.
@@ -4134,7 +4431,7 @@ function wbUpdateSelectionBar() {
     if (b) box = { minX: b.minX, minY: b.minY, maxX: b.minX + b.width, maxY: b.minY + b.height };
   } else {
     const item = (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
-    box = item ? wbItemBBox(sel.kind, item) : null;
+    box = item ? wbItemBBox(sel.kind, item) || (sel.kind === "sketch" ? wbLinkSelectionBox(item) : null) : null;
   }
   if (!box) {
     hideBoth();
@@ -4172,12 +4469,16 @@ function wbUpdateSelectionBar() {
   // the item covered it, reported: "I can't rotate objects because that
   // panel appears."
   const gapAbove = 44, gapBelow = 10;
-  let left = Math.max(8, Math.min(hostRect.width - w - 8, cx - w / 2));
+  //: Clear of the board's two side panels (the sidebar's rail on the left,
+  //: the Format panel on the right), which stand over the canvas: a shape
+  //: near the left edge put the bar's first controls under the rail.
+  const sideEdges = held ? held.sideEdges : wbBarSideEdges(hostRect);
+  let left = Math.max(sideEdges.left, Math.min(sideEdges.right - w, cx - w / 2));
   // Above the item; below it when the top bar would cover the bar. The floor
   // is the bar's own clearance and not the ring's: a floor raised by the room
   // the ring takes *below* the node is what sent the strip down there.
   const topBar = held ? held.topBar : document.getElementById("wb-topbar")?.getBoundingClientRect();
-  if (moving && !held) moving.origin.barMeasure = { rect, hostRect, w, h, topBar };
+  if (moving && !held) moving.origin.barMeasure = { rect, hostRect, w, h, topBar, sideEdges };
   const floor = topBar ? topBar.bottom - hostRect.top + gapBelow : 56;
   let y = top - h - gapAbove;
   if (y < floor) y = bottom + gapBelow;
@@ -5293,6 +5594,116 @@ function wbViewCentre() {
   const t = d3.zoomTransform(el);
   const o = wbCanvasOriginRect();
   return [(r.left + r.width / 2 - o.left - t.x) / t.k, (r.top + r.height / 2 - o.top - t.y) / t.k];
+}
+
+// --- Clone and connect (the features audit W4; draw.io's blue arrows) -------
+//
+// A flowchart is drawn one step at a time: this box, then the next one beside
+// it, joined. draw.io puts an arrow on each side of a hovered shape that does
+// exactly that in one click, and so does this, on the one selected shape or
+// text box: an arrow grip a little outside the middle of each side. A click
+// (or Alt+Shift+Arrow) makes a copy one gap away on that side, joins the two
+// with an elbow connector, and selects the copy, so the next press steps on.
+// One undo step. Not on a map, where Tab and Enter already add a topic.
+
+const WB_CLONE_GAP = 80;
+const WB_CLONE_DIRS = {
+  right: { x: 1, y: 0, icon: "M -4 -6 L 4 0 L -4 6 Z", words: "right" },
+  left: { x: -1, y: 0, icon: "M 4 -6 L -4 0 L 4 6 Z", words: "left" },
+  down: { x: 0, y: 1, icon: "M -6 -4 L 0 4 L 6 -4 Z", words: "below" },
+  up: { x: 0, y: -1, icon: "M -6 4 L 0 -4 L 6 4 Z", words: "above" },
+};
+//: No arrow above: that is where the rotate grip stands. Alt+Shift+Up still
+//: copies upward.
+const WB_CLONE_GRIP_DIRS = ["right", "down", "left"];
+
+//: The one selected item clone-and-connect works on, or null.
+function wbCloneSource() {
+  if (wbIsMap() || wbMultiSelection.size > 1 || !wbSelectedItem) return null;
+  const { kind, id } = wbSelectedItem;
+  const item = wbFindItem(kind, id);
+  if (!item || wbIsLocked(kind, item) || wbItemHidden(kind, item)) return null;
+  if (kind === "object" && item.kind !== "text") return null;
+  if (kind === "sketch" && !wbShapeLabelKind(wbSketchParsedData(item))) return null;
+  if (kind === "node") return null;
+  const bbox = wbItemBBox(kind, item);
+  return bbox ? { kind, id, item, bbox } : null;
+}
+
+async function wbCloneConnect(dirName) {
+  const source = wbCloneSource();
+  const dir = WB_CLONE_DIRS[dirName];
+  if (!source || !dir) {
+    toast("Select one shape or text box to copy and join.");
+    return;
+  }
+  const w = source.bbox.maxX - source.bbox.minX, h = source.bbox.maxY - source.bbox.minY;
+  const dx = dir.x * (w + WB_CLONE_GAP), dy = dir.y * (h + WB_CLONE_GAP);
+  let copy = null;
+  await wbRecordGesture(async () => {
+    const [made] = await wbCreateCopies([{ kind: source.kind, payload: WB_KIND_INFO[source.kind].payload(source.item) }], dx, dy);
+    if (!made) return;
+    copy = made;
+    const link = await apiJson("/whiteboard/sketches", {
+      method: "POST",
+      body: JSON.stringify({
+        data: JSON.stringify({
+          type: "link-straight", route: "elbow",
+          sourceId: source.id, sourceKind: source.kind === "node" ? undefined : source.kind,
+          targetId: made.id, targetKind: made.kind === "node" ? undefined : made.kind,
+          color: (source.kind === "sketch" && wbSketchParsedData(source.item)?.color) || window.currentStrokeColor || "#888888",
+          width: 2, endCap: "arrow",
+        }),
+        x: 0, y: 0, z: 1, board_id: window.currentBoardId ?? null,
+      }),
+    });
+    wbState.sketches.push(link);
+  });
+  if (!copy) return;
+  selectWbItem(copy.kind, copy.id);
+  wbScheduleRender();
+  wbAnnounce(`Copied ${dir.words} and joined. Press again to keep going.`);
+}
+
+//: The four arrow grips round the selected shape, drawn in the overlay layer
+//: like the other grips, rebuilt with the selection.
+function wbRenderCloneGrips() {
+  document.getElementById("wb-clone-grips")?.remove();
+  const source = wbCloneSource();
+  const zoomGroup = document.getElementById("wb-overlay-zoom-group");
+  if (!source || !zoomGroup || window.currentTool !== "select") return;
+  const ns = "http://www.w3.org/2000/svg";
+  const group = document.createElementNS(ns, "g");
+  group.setAttribute("id", "wb-clone-grips");
+  const { bbox } = source;
+  const cx = (bbox.minX + bbox.maxX) / 2, cy = (bbox.minY + bbox.maxY) / 2;
+  const out = 22;
+  for (const name of WB_CLONE_GRIP_DIRS) {
+    const dir = WB_CLONE_DIRS[name];
+    const x = dir.x > 0 ? bbox.maxX + out : dir.x < 0 ? bbox.minX - out : cx;
+    const y = dir.y > 0 ? bbox.maxY + out : dir.y < 0 ? bbox.minY - out : cy;
+    //: The place on an outer group and the arrow inside it, so the arrow's
+    //: stylesheet scale (one size to the hand at any zoom) does not replace
+    //: the place, which a `transform` attribute and a CSS one on one element
+    //: would.
+    const at = document.createElementNS(ns, "g");
+    at.setAttribute("transform", `translate(${x} ${y})`);
+    const grip = document.createElementNS(ns, "path");
+    grip.setAttribute("class", "wb-clone-grip");
+    grip.setAttribute("d", dir.icon);
+    grip.dataset.dir = name;
+    const title = document.createElementNS(ns, "title");
+    title.textContent = `Copy ${dir.words} and join (Alt+Shift+Arrow)`;
+    grip.append(title);
+    grip.addEventListener("pointerdown", (e) => e.stopPropagation());
+    grip.addEventListener("click", (e) => {
+      e.stopPropagation();
+      wbCloneConnect(name);
+    });
+    at.append(grip);
+    group.append(at);
+  }
+  zoomGroup.append(group);
 }
 
 //: Ctrl+D: a copy of the selection beside it, one undo step, the copies
@@ -7960,6 +8371,8 @@ function wbBuildExportSvg(scope, { transparent = false } = {}) {
       copy.setAttribute("fill", wbExportColour(look.fill) || "#1f2430");
       copy.setAttribute("font-size", look.fontSize);
       copy.setAttribute("font-family", look.fontFamily);
+      if (look.fontWeight && look.fontWeight !== "400") copy.setAttribute("font-weight", look.fontWeight);
+      if (look.fontStyle === "italic") copy.setAttribute("font-style", "italic");
       //: A connector's label is haloed in the card colour (decision 13).
       if (look.paintOrder && look.paintOrder.startsWith("stroke") && look.stroke !== "none") {
         copy.setAttribute("stroke", wbExportColour(look.stroke) || "none");
@@ -8022,7 +8435,9 @@ function wbBuildExportSvg(scope, { transparent = false } = {}) {
     if ((onlyKeys && !onlyKeys.has(wbMultiKey("object", obj.id))) || wbItemHidden("object", obj)) continue;
     //: Drawn before the sketches, above.
     if (obj.kind === "frame") continue;
-    parts.push(`<g transform="translate(${obj.x}, ${obj.y})">`);
+    const alpha = obj.data?.alpha != null && obj.data.alpha < 1 ? ` opacity="${obj.data.alpha}"` : "";
+    const shadow = obj.data?.shadow ? ` style="filter: ${WB_ITEM_SHADOW}"` : "";
+    parts.push(`<g transform="translate(${obj.x}, ${obj.y})"${alpha}${shadow}>`);
     if (obj.kind === "image" && obj.data.url) {
       // `mediaSrc`, not the bare url: rasterizing this SVG loads it through
       // a plain `<img>` (see `wbRasterizeSvg`), which never attaches
@@ -10054,6 +10469,7 @@ async function initWhiteboard() {
     wbScheduleRender();
   }
   document.getElementById("wb-prop-startcap")?.addEventListener("change", (e) => wbSetCap("startCap", e.target.value));
+  document.getElementById("wb-prop-route")?.addEventListener("change", (e) => wbSetLinkRoute(e.target.value));
   document.getElementById("wb-prop-endcap")?.addEventListener("change", (e) => wbSetCap("endCap", e.target.value));
   document.getElementById("wb-prop-bg")?.addEventListener("change", async (e) => {
     const obj = wbSelectedTextObjectOrNull();
@@ -11177,6 +11593,19 @@ async function initWhiteboard() {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "g") {
       e.preventDefault();
       wbGroupSelection();
+      return;
+    }
+    //: The Format panel (decision 19); the app's own Ctrl+Shift+P steps
+    //: aside on a board (`wbOwnsChord`).
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === "p") {
+      e.preventDefault();
+      wbRunCommand("format-panel");
+      return;
+    }
+    //: Clone and connect: Alt+Shift+Arrow copies the shape that way and joins.
+    if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && e.key.startsWith("Arrow") && wbCloneSource()) {
+      e.preventDefault();
+      wbCloneConnect({ ArrowRight: "right", ArrowLeft: "left", ArrowDown: "down", ArrowUp: "up" }[e.key]);
       return;
     }
     //: Save what is selected (or the topic's branch) to the library.
@@ -13064,9 +13493,10 @@ function wbLayoutShapeLabel(groupEl) {
     );
   }
   const lines = label.__wbLines.length;
-  label.setAttribute("x", String(area.cx));
+  const x = label.dataset.align === "left" ? area.cx - area.w / 2 : label.dataset.align === "right" ? area.cx + area.w / 2 : area.cx;
+  label.setAttribute("x", String(x));
   label.setAttribute("y", String(area.cy - ((lines - 1) * lineHeight) / 2));
-  for (const span of label.children) span.setAttribute("x", String(area.cx));
+  for (const span of label.children) span.setAttribute("x", String(x));
 }
 
 //: A move is only a translation, so a drag frame moves the label by the
@@ -13111,7 +13541,13 @@ function wbPaintShapeLabel(groupEl, parsed) {
   if (parsed?.label_area) label.dataset.area = JSON.stringify(parsed.label_area);
   else delete label.dataset.area;
   label.__wbText = text;
-  label.style.fill = wbShapeLabelInk(parsed) || "";
+  label.style.fill = parsed.label_color || wbShapeLabelInk(parsed) || "";
+  label.style.fontSize = parsed.label_size ? `${parsed.label_size}px` : "";
+  label.style.fontWeight = parsed.label_bold ? "700" : "";
+  label.style.fontStyle = parsed.label_italic ? "italic" : "";
+  const align = ["left", "right"].includes(parsed.label_align) ? parsed.label_align : "center";
+  label.dataset.align = align;
+  label.setAttribute("text-anchor", align === "left" ? "start" : align === "right" ? "end" : "middle");
   wbLayoutShapeLabel(groupEl);
 }
 
@@ -13211,7 +13647,7 @@ function wbLinkTakesLabel(sketch, parsed) {
 //: a curve's middle is where the curve is rather than the chord's.
 let wbLinkMeasurePath = null;
 
-function wbLinkMidpoint(d) {
+function wbLinkMidpoint(d, t = 0.5) {
   const shaft = String(d || "").split(/\s(?=M)/)[0];
   if (!shaft) return null;
   if (!wbLinkMeasurePath || !wbLinkMeasurePath.isConnected) {
@@ -13226,7 +13662,7 @@ function wbLinkMidpoint(d) {
   wbLinkMeasurePath.setAttribute("d", shaft);
   try {
     const length = wbLinkMeasurePath.getTotalLength();
-    const p = wbLinkMeasurePath.getPointAtLength(length / 2);
+    const p = wbLinkMeasurePath.getPointAtLength(length * t);
     return { x: p.x, y: p.y };
   } catch {
     return null;
@@ -13236,7 +13672,8 @@ function wbLinkMidpoint(d) {
 function wbLayoutLinkLabel(groupEl) {
   const label = groupEl?.querySelector?.(":scope > .wb-link-label");
   if (!label) return;
-  const p = wbLinkMidpoint(groupEl.querySelector(".sketch-path")?.getAttribute("d"));
+  const t = groupEl.dataset.labelT ? Number(groupEl.dataset.labelT) : 0.5;
+  const p = wbLinkMidpoint(groupEl.querySelector(".sketch-path")?.getAttribute("d"), Number.isFinite(t) ? t : 0.5);
   if (!p) return;
   label.setAttribute("x", String(p.x));
   label.setAttribute("y", String(p.y));
@@ -13258,6 +13695,7 @@ function wbPaintLinkLabel(groupEl, sketch, parsed) {
     groupEl.appendChild(label);
   }
   if (label.textContent !== text) label.textContent = text;
+  groupEl.dataset.labelT = String(wbLinkLabelT(parsed));
   wbLayoutLinkLabel(groupEl);
 }
 
@@ -13270,7 +13708,7 @@ function wbEditLinkLabel(sketch) {
   }
   if (!wbLinkTakesLabel(sketch, parsed)) return;
   const group = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
-  const p = wbLinkMidpoint(group?.querySelector(".sketch-path")?.getAttribute("d"));
+  const p = wbLinkMidpoint(group?.querySelector(".sketch-path")?.getAttribute("d"), wbLinkLabelT(parsed));
   if (!p) return;
   const w = 180;
   const h = 32;
@@ -13509,11 +13947,14 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
   // it every call leaves its predecessor behind on the board.
   wbClearSketchHandles();
   const group = d3.select("#wb-overlay-zoom-group").append("g").attr("class", "wb-sketch-handle-group");
+  const shape = look ? null : wbLinkShape(parsed);
+  const drawnEnds = shape ? wbElbowEnds(endpoints.source, endpoints.target, shape.points) : endpoints;
 
   // The bend handle: drag to curve the link, double-click to straighten it.
   // Sits at the control point (or the chord midpoint when there is none) so
-  // the thing you grab is the thing that moves.
-  {
+  // the thing you grab is the thing that moves. An elbow has bends instead.
+  if (shape) wbRenderElbowHandles(group, sketch, parsed, endpoints, shape);
+  else {
     const mid = { x: (endpoints.source.x + endpoints.target.x) / 2, y: (endpoints.source.y + endpoints.target.y) / 2 };
     const bendLive = { x: parsed.bend?.x || 0, y: parsed.bend?.y || 0 };
     const paths = () => [".sketch-path", ".sketch-hitbox"].map((c) => document.querySelector(`.sketch-group[data-id="${sketch.id}"] ${c}`));
@@ -13568,7 +14009,7 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
 
   for (const end of ["source", "target"]) {
     const other = end === "source" ? "target" : "source";
-    const live = { x: endpoints[end].x, y: endpoints[end].y };
+    const live = { x: drawnEnds[end].x, y: drawnEnds[end].y };
     group.append("circle")
       .attr("class", "wb-link-endpoint-handle")
       .attr("data-end", end)
@@ -13596,7 +14037,7 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
             live.y += event.dy;
             d3.select(this).attr("cx", live.x).attr("cy", live.y);
             const previewPts = end === "source" ? [live, endpoints[other]] : [endpoints[other], live];
-            const previewD = wbLinkPathD(parsed.type, previewPts[0], previewPts[1], wbLinkCaps(parsed), parsed.width, parsed.bend);
+            const previewD = wbLinkPathD(parsed.type, previewPts[0], previewPts[1], wbLinkCaps(parsed), parsed.width, parsed.bend, wbLinkShape(parsed));
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-path`)?.setAttribute("d", previewD);
             document.querySelector(`.sketch-group[data-id="${sketch.id}"] .sketch-hitbox`)?.setAttribute("d", previewD);
             wbLayoutLinkLabel(document.querySelector(`.sketch-group[data-id="${sketch.id}"]`));
@@ -13628,6 +14069,163 @@ function wbRenderLinkEndpointHandles(sketch, parsed) {
           })
       );
   }
+  if (!look) wbRenderLinkLabelGrip(group, sketch, parsed);
+}
+
+//: **An elbow's bends, as grips** (the features audit W4). Each waypoint the
+//: person placed is a filled grip: drag it to move the bend, double-click it
+//: to take it out. Between them, in the middle of every run of the drawn
+//: route, a small hollow grip adds one: drag it and the route goes through
+//: where it is let go. The waypoint is saved in board units on the link
+//: (`points`), the route between is worked out again on every render, so a
+//: moved card brings its line round with it.
+function wbRenderElbowHandles(group, sketch, parsed, endpoints, shape) {
+  const points = shape.points.map((p) => ({ x: p.x, y: p.y }));
+  const groupEl = () => document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
+  const route = () => {
+    const ends = wbElbowEnds(endpoints.source, endpoints.target, points);
+    return wbElbowRoute(ends.source, ends.target, endpoints.source.box, endpoints.target.box, points);
+  };
+  const repaint = () => {
+    const d = wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, null, { route: "elbow", points });
+    for (const c of [".sketch-path", ".sketch-hitbox"]) groupEl()?.querySelector(c)?.setAttribute("d", d);
+    wbLayoutLinkLabel(groupEl());
+  };
+  const save = async (said) => {
+    const before = WB_KIND_INFO.sketch.payload(sketch);
+    const kept = points.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) }));
+    await wbSaveSketchProps(sketch, { points: kept.length ? kept : undefined });
+    wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
+    if (said) wbAnnounce(said);
+    wbScheduleRender();
+  };
+  const follow = (p) => d3.drag()
+    .on("start", (event) => event.sourceEvent.stopPropagation())
+    .on("drag", function (event) {
+      p.x += event.dx;
+      p.y += event.dy;
+      d3.select(this).attr("cx", p.x).attr("cy", p.y);
+      repaint();
+    });
+  for (const p of points) {
+    const grip = group.append("circle")
+      .attr("class", "wb-link-waypoint-handle")
+      .attr("cx", p.x).attr("cy", p.y).attr("r", 6);
+    grip.append("title").text("Drag to move this bend · double-click to take it out");
+    grip.on("contextmenu", (event) => wbForwardGripContextMenu(event, sketch.id));
+    grip.call(follow(p).on("end", () => save())).on("dblclick", (event) => {
+      event.stopPropagation();
+      points.splice(points.indexOf(p), 1);
+      save("Bend taken out.");
+    });
+  }
+  const line = route();
+  for (let i = 0; i < line.length - 1; i++) {
+    const a = line[i], b = line[i + 1];
+    if (Math.hypot(b.x - a.x, b.y - a.y) < 36) continue;
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const grip = group.append("circle")
+      .attr("class", "wb-link-waypoint-add")
+      .attr("cx", mid.x).attr("cy", mid.y).attr("r", 4);
+    grip.append("title").text("Drag to add a bend here");
+    grip.on("contextmenu", (event) => wbForwardGripContextMenu(event, sketch.id));
+    const p = { x: mid.x, y: mid.y };
+    grip.call(
+      follow(p)
+        .on("start.add", function () {
+          const at = wbPolylineAt(line, p);
+          const index = points.filter((q) => wbPolylineAt(line, q) <= at).length;
+          points.splice(index, 0, p);
+          d3.select(this).attr("class", "wb-link-waypoint-handle").attr("r", 6);
+        })
+        .on("end", () => save("Bend added. Drag it to move it, double-click to take it out."))
+    );
+  }
+}
+
+//: **A connector's label slides along its line** (the features audit W4;
+//: draw.io keeps a label's place as a share of the edge's length). The grip
+//: sits on the label; dragging it moves the label to the nearest point of
+//: the drawn line, saved as `label_t` (0 at the start, 1 at the end), so the
+//: label keeps its place along the line when either card moves.
+function wbRenderLinkLabelGrip(group, sketch, parsed) {
+  const groupEl = document.querySelector(`.sketch-group[data-id="${sketch.id}"]`);
+  const label = groupEl?.querySelector(":scope > .wb-link-label");
+  if (!label || !wbLinkMeasurePath) return;
+  //: At the label's leading edge rather than its middle: the middle of a
+  //: connector is where an elbow's add-a-bend grip sits, and two grips on
+  //: one point leave the one underneath unreachable (measured: the press
+  //: landed on this one).
+  const place = () => {
+    let box = null;
+    try {
+      box = label.getBBox();
+    } catch {
+      box = null;
+    }
+    return box && box.width ? { x: box.x - 9, y: box.y + box.height / 2 } : null;
+  };
+  const at = place();
+  if (!at) return;
+  let t = wbLinkLabelT(parsed);
+  const grip = group.append("rect")
+    .attr("class", "wb-link-label-handle")
+    .attr("x", at.x - 5).attr("y", at.y - 5).attr("width", 10).attr("height", 10)
+    .attr("rx", 2);
+  grip.append("title").text("Drag to slide the label along the line");
+  grip.on("contextmenu", (event) => wbForwardGripContextMenu(event, sketch.id));
+  grip.call(
+    d3.drag()
+      .on("start", (event) => event.sourceEvent.stopPropagation())
+      .on("drag", function (event) {
+        const [px, py] = d3.pointer(event, this.parentNode);
+        t = wbLinkNearestT(groupEl.querySelector(".sketch-path")?.getAttribute("d"), { x: px, y: py });
+        groupEl.dataset.labelT = String(t);
+        wbLayoutLinkLabel(groupEl);
+        const now = place();
+        if (now) d3.select(this).attr("x", now.x - 5).attr("y", now.y - 5);
+      })
+      .on("end", async () => {
+        const before = WB_KIND_INFO.sketch.payload(sketch);
+        const rounded = Math.round(t * 100) / 100;
+        await wbSaveSketchProps(sketch, { label_t: Math.abs(rounded - 0.5) < 0.01 ? undefined : rounded });
+        wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
+        wbScheduleRender();
+      })
+  );
+}
+
+//: Where a label sits along its line: 0 at the start, 1 at the end, the
+//: middle when it was never moved.
+function wbLinkLabelT(parsed) {
+  const t = Number(parsed?.label_t);
+  return Number.isFinite(t) && t >= 0 && t <= 1 ? t : 0.5;
+}
+
+//: The share of the drawn line nearest a point, sampled along the line's own
+//: length so a curve is measured where it is.
+function wbLinkNearestT(d, p) {
+  const shaft = String(d || "").split(/\s(?=M)/)[0];
+  if (!shaft || !wbLinkMeasurePath) return 0.5;
+  wbLinkMeasurePath.setAttribute("d", shaft);
+  let length = 0;
+  try {
+    length = wbLinkMeasurePath.getTotalLength();
+  } catch {
+    return 0.5;
+  }
+  if (!length) return 0.5;
+  let best = Infinity, bestT = 0.5;
+  const steps = 80;
+  for (let i = 0; i <= steps; i++) {
+    const q = wbLinkMeasurePath.getPointAtLength((length * i) / steps);
+    const dist = Math.hypot(q.x - p.x, q.y - p.y);
+    if (dist < best) {
+      best = dist;
+      bestT = i / steps;
+    }
+  }
+  return Math.max(0.05, Math.min(0.95, bestT));
 }
 
 // The handles themselves: a fresh SVG group per selection, since (unlike a
@@ -14764,7 +15362,7 @@ function renderWhiteboard() {
           }
         } else {
           const endpoints = wbResolveLinkEndpoints(parsed);
-          pathData = endpoints ? wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend) : "";
+          pathData = endpoints ? wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend, wbLinkShape(parsed)) : "";
         }
       }
     } catch(e) {}
@@ -14795,6 +15393,13 @@ function renderWhiteboard() {
       // "zero-length dashes" instead of "solid", a reused element from a
       // dashed sketch must not leave a stale dasharray on a solid one.
       .attr("stroke-dasharray", dashArray);
+    //: The Format panel's opacity and shadow (decision 19), on the group so
+    //: the label goes with the shape; an attribute and an inline style, both
+    //: of which the export's clone keeps.
+    const look = shapeData || linkData;
+    d3.select(this)
+      .attr("opacity", look?.alpha != null && look.alpha < 1 ? look.alpha : null)
+      .style("filter", look?.shadow ? WB_ITEM_SHADOW : null);
     // After the path, which the label is laid out from (decision 12).
     wbPaintShapeLabel(this, shapeData);
     wbPaintLinkLabel(this, d, linkData);
@@ -16101,6 +16706,10 @@ function renderWbObjects(canvas) {
     //: stacks in document order rather than at "undefined".
     if (d.z === null || d.z === undefined) this.style.removeProperty("z-index");
     else this.style.zIndex = d.z;
+    if (!WB_MAP_KINDS.has(d.kind)) {
+      this.style.opacity = d.data?.alpha != null && d.data.alpha < 1 ? String(d.data.alpha) : "";
+      this.style.filter = d.data?.shadow ? WB_ITEM_SHADOW : "";
+    }
     if (d.kind === "image") {
       el.select("img").attr("src", mediaSrc(d.data.url) || "");
     } else if (WB_MAP_KINDS.has(d.kind)) {
@@ -16117,7 +16726,9 @@ function renderWbObjects(canvas) {
       //: README's board shot).
       textEl.style("color", d.data.color || (d.data.bg && wbCoreInkFor(d.data.bg)) || "")
         .style("font-size", d.data.font_size ? `${d.data.font_size}px` : "")
-        .style("text-align", d.data.align || "");
+        .style("text-align", d.data.align || "")
+        .style("font-weight", d.data.bold ? "700" : "")
+        .style("font-style", d.data.italic ? "italic" : "");
       if (document.activeElement !== textEl.node()) wbPaintTextContent(textEl.node(), d);
     }
   });
@@ -16305,7 +16916,7 @@ function wbUpdateLinkedSketches(nodeId, precomputed) {
     if (!look && !endpoints) continue;
     const pathData = look
       ? look.d
-      : wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend);
+      : wbLinkPathD(parsed.type, endpoints.source, endpoints.target, wbLinkCaps(parsed), parsed.width, parsed.bend, wbLinkShape(parsed));
     //: **The two paths, found once per gesture rather than once per frame**
     //: (MINDMAP_PLAN.md §13a). Three document-wide queries per link per frame
     //: is thousands of walks of the document a second on a board that mixes a

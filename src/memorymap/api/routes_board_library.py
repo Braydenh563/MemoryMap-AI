@@ -847,6 +847,13 @@ def _place_element(db: Session, board_id: int | None, payload: dict, body: Place
                 data[key] = _ink(data[key], ink)
         if isinstance(data.get("bend"), dict):
             data["bend"] = {"x": float(data["bend"].get("x", 0)) * sx, "y": float(data["bend"].get("y", 0)) * sy}
+        # An elbow's bends (Phase B) were saved from the box's corner.
+        if isinstance(data.get("points"), list):
+            data["points"] = [
+                {"x": left + float(p.get("x", 0)) * sx, "y": top + float(p.get("y", 0)) * sy}
+                for p in data["points"][:50]
+                if isinstance(p, dict)
+            ]
         data.update(sourceId=a[1], sourceKind=a[0], targetId=b[1], targetKind=b[0], library_ref=ref)
         row = WhiteboardSketch(board_id=board_id, data=json.dumps(data), x=0, y=0, z=1)
         db.add(row)

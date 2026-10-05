@@ -264,6 +264,9 @@ class WhiteboardObjectData(BaseModel):
     #: Where a placed library item came from (decision 25): `{id, version}`
     #: or `{builtin}`. Kept, never followed.
     library_ref: dict | None = None
+    #: The Format panel's opacity and shadow (WHITEBOARD_PLAN decision 19).
+    alpha: float | None = Field(default=None, ge=0.05, le=1)
+    shadow: bool | None = None
     color: str | None = Field(default=None, max_length=20)
     #: 0 is a topic's pin to the app's own size against a map's theme
     #: (`MAP_APP_DEFAULT_PINS`); 1 to 7 stay refused (`_size_or_pin`).

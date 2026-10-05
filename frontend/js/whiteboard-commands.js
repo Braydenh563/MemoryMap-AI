@@ -54,6 +54,8 @@ function wbCommandTextTarget() {
 }
 
 const wbCommandNeeds = {
+  link: () => wbCommandTextTarget()?.kind === "link",
+  clone: () => Boolean(wbCloneSource()),
   selection: () => wbCommandSelectionCount() > 0,
   two: () => wbCommandSelectionCount() >= 2,
   three: () => wbCommandSelectionCount() >= 3,
@@ -110,6 +112,11 @@ const WB_COMMANDS = [
       if (target?.kind === "shape") wbEditShapeLabel(target.sketch);
       else if (target) wbEditLinkLabel(target.sketch);
     } },
+  { id: "line-curved", group: "Item", icon: "ph:bezier-curve", label: "Line shape: curved", keys: "", surface: "board", needs: "link", run: () => wbSetLinkRoute("curved") },
+  { id: "line-straight", group: "Item", icon: "ph:line-segment", label: "Line shape: straight", keys: "", surface: "board", needs: "link", run: () => wbSetLinkRoute("straight") },
+  { id: "line-elbow", group: "Item", icon: "ph:arrow-elbow-down-right", label: "Line shape: elbow", keys: "", surface: "board", needs: "link", run: () => wbSetLinkRoute("elbow") },
+  { id: "clone-right", group: "Item", icon: "ph:arrow-right", label: "Copy to the right and join", keys: "Alt+Shift+Right", surface: "board", needs: "clone", run: () => wbCloneConnect("right") },
+  { id: "clone-down", group: "Item", icon: "ph:arrow-down", label: "Copy below and join", keys: "Alt+Shift+Down", surface: "board", needs: "clone", run: () => wbCloneConnect("down") },
   { id: "comment", group: "Item", icon: "ph:chat-teardrop-text", label: "Comment on the item", keys: "", surface: "board", needs: "comment",
     run: () => wbOpenComments(wbSelectedItem.kind, wbSelectedItem.id) },
   { id: "export-frame", group: "Item", icon: "ph:frame-corners", label: "Export this frame", keys: "", surface: "board", needs: "frame",
@@ -166,6 +173,7 @@ const WB_COMMANDS = [
   { id: "tool-connector-curved", group: "Tools", icon: "ph:bezier-curve", label: "Curved connector", keys: "Shift+C", surface: "both", run: wbTool("link-curved") },
   { id: "tool-delete", group: "Tools", icon: "ph:trash", label: "Delete tool", keys: "X", surface: "board", run: wbTool("delete") },
   // View
+  { id: "format-panel", group: "View", icon: "ph:sliders-horizontal", label: "Format panel", keys: "Ctrl+Shift+P", surface: "board", run: () => wbFormatToggle() },
   { id: "zoom-in", group: "View", icon: "ph:magnifying-glass-plus", label: "Zoom in", keys: "Ctrl+=", surface: "both", run: wbClickId("wb-zoom-in") },
   { id: "zoom-out", group: "View", icon: "ph:magnifying-glass-minus", label: "Zoom out", keys: "Ctrl+-", surface: "both", run: wbClickId("wb-zoom-out") },
   { id: "zoom-100", group: "View", icon: "ph:magnifying-glass", label: "Zoom to 100%", keys: "Ctrl+0", surface: "both", run: wbClickId("wb-zoom-actual") },
@@ -204,6 +212,8 @@ function wbRunCommand(id) {
       two: "Select two or more items first.",
       three: "Select three or more items first.",
       shape: "Select one closed shape or one connector first.",
+      link: "Select one connector first.",
+      clone: "Select one shape or text box first.",
       frame: "Select a frame first.",
       comment: "Select one item first.",
       locked: "Nothing on this board is locked.",

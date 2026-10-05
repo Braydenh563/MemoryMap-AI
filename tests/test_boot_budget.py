@@ -44,7 +44,8 @@ STYLE = re.compile(r'<link[^>]*rel="stylesheet"[^>]*href="(/[^"?]+)(?:\?[^"]*)?"
 #: After claude/notes-flow-rebuild 143b240 merged (616's form, skeletons):
 #: 589,955, with the embedding models list, the edit form's close and the
 #: Settings bar's New listener moved to their lazy files.
-BOOT_JS_CAP = 590_000
+#: And after 88227db (621, 622): 589,719.
+BOOT_JS_CAP = 589_800
 BOOT_CSS_CAP = 183_300
 
 

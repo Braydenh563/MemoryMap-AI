@@ -17868,8 +17868,18 @@ function renderWbObjects(canvas) {
       //: A topic this pass did not repaint is the size it last measured (a
       //: move is not a resize), and a culled one was not repainted either.
       if (!repainted.has(this) || this.classList.contains("wb-culled")) {
-        if (d.width && d.height) {
-          wbMapNodeSizeCache.set(d.id, { w: d.width, h: d.height });
+        //: **The height it was last measured at, not the stored one.** A state
+        //: fetched from the server hands every topic back the server's
+        //: placeholder height (120), while the element on screen is what its
+        //: text needs (44 for one line): a topic this pass did not repaint
+        //: took the 120 into the cache, and `wbMapNodeSize` then put a pan,
+        //: a ring and an edge end 38px off the box (`mapstrip.js` at 1440, 12px
+        //: at 390: the "94px" row, 2 x 47). An element measured once keeps its
+        //: own number; one never measured and not culled is read now below.
+        const known = this._wbMeasuredH;
+        if (d.width && (known || (d.height && this.classList.contains("wb-culled")))) {
+          wbMapNodeSizeCache.set(d.id, { w: d.width, h: known || d.height });
+          if (known) d.height = known;
           return;
         }
         if (this.classList.contains("wb-culled")) return;
@@ -17877,6 +17887,7 @@ function renderWbObjects(canvas) {
       const h = this.offsetHeight;
       if (!h) return;
       wbMapNodeSizeCache.set(d.id, { w: this.offsetWidth, h });
+      this._wbMeasuredH = h;
       d.height = h;
     });
   }

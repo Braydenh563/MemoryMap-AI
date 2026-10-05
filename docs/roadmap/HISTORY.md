@@ -19,6 +19,28 @@ Each row was checked against the head before anything was built.
   New note (`#tab-graph:has(.dock-fab) .graph-zoom`) closed it. `graphphone.js`
   now asserts it every run: the four buttons are hit at their centres and clear
   of `.dock-fab`.
+- **Map export depth bound** (`_export_opml`, `_export_freemind`): already built,
+  see the 2026-10-05 overnight pass above (the iterative `_export_tree`, nesting
+  clamped at `MAX_MAP_DEPTH`, 200); `tests/test_mindmap.py`'s deep-chain and ring
+  tests pass on this head (7 of 7 selected). Nothing to build.
+- **`wbMapNodeSize` and the rendered node disagree by 94px at 390x844**: reproduced,
+  and not a phone thing. `mapstrip.js`'s corner pan is derived from the size
+  `wbMapNodeSize` reports, so how far the topic lands from where it was aimed is
+  the disagreement: 12px at 390x844 (a 24px height error) and 38px at 1440 (76px;
+  the "94px" was the same drift, 2 x 47, on an earlier head). Cause: a state
+  fetched from the server returns every topic at the server's placeholder height
+  (120), the element is what its text needs (44), and a topic the render pass did
+  not repaint took the stored 120 into the size cache, so every pan, ring and
+  edge end computed from `wbMapNodeSize` sat off the box. The element now keeps
+  the height it was last measured at (`_wbMeasuredH`) and the cache takes that
+  before the stored one (`renderWbObjects`). `mapstrip.js` prints the drift and
+  fails above 4px: 0 and 0 after, 38/38 checks at 1440 and 390, light and dark
+  at 390; `maptidy.js` 5/5, `maplayouts.js` 19/19, `mapradialfit.js`,
+  `mapmidpan.js` 12/12 unchanged; `tests/test_map_render_cost.py` pins it. The
+  sweep itself had rotted and was brought back with it: `selectOption` on the
+  hidden native select needs `force`, the retired text-size grip's two checks
+  skip (the corner now carries `.wb-map-resize-grip`), and at 1440 the right
+  click for the corner ring landed on the board's sidebar rail.
 - **Nested frames at phone zoom** (measured, nothing changed): at 390x844 the
   outer title's hit area is 44x44px (k 0.21), and an inner frame drawn 40 board
   units to its right takes the share of it the two boxes overlap, 82%, 74%, 60%

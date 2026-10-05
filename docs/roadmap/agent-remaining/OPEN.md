@@ -601,9 +601,9 @@ pane's name, the errors sweep's aside clipping at 390.
   dates, floating topics and palettes, an outline pane). The nested frames'
   shared title area is measured, HISTORY.md, "OPEN.md rows closed, 2026-10-05
   (the pre-0.4.0 buildable rows, sweeps on port 8815)". [harness-wb-1004]
-- **Map render and persistence**: `wbMapNodeSize` and the rendered node
-  disagreed by 94px at 390x844 (found by `mapstrip.js`'s corner ring; not
-  reproduced since, reproduce before theorising); a map does not re-frame
+- **Map render and persistence**: (the `wbMapNodeSize` 94px row is closed,
+  HISTORY.md, "OPEN.md rows closed, 2026-10-05 (the pre-0.4.0 buildable rows,
+  sweeps on port 8815)"); a map does not re-frame
   after a tidy (a decision: frame after a tidy that pushed content off the
   canvas, or rely on Fit); tidy, copy branch and
   "open every folded branch" persist one node per request (a bulk endpoint if

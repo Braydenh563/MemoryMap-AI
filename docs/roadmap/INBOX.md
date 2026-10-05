@@ -57,13 +57,14 @@ with its owner named in the entry.
      four apps against the board and the map, then redesigns the map's core
      nodes and node icons, and writes the result into MINDMAP_PLAN and
      WHITEBOARD_PLAN with decisions, before anything is built.
-
-642. **The owner, 2026-10-05, verbatim.** "I want an emoji and icon widget
-     library which can be dragged and placed in the whiteboard and mindmap and
-     which are also available in text editors and formatting toolbars."
-     Placed: with 641. One picker (emoji plus the vendored Phosphor set, both
-     local), draggable onto boards and maps and insertable from the editors'
-     formatting toolbars.
+     **Map-node part fixed 08d5829 to 87241de (mc1).** Measured before: the
+     centre, a branch and a leaf at 13.6px, weight 400, 31px tall; after,
+     22px/700 solid pill, 17px/700 tinted, 13.6px/400 (`mc1-maplevels.js`
+     13/13); per-level looks, Redefine and copy/paste style (`mc1-maplook.js`
+     13/13); a topic's icon from 1,530 Phosphor icons or 476 emoji
+     (`mc1-iconpicker.js` 12/12). Still open, so this stays: Illustrator's
+     linked symbols, Photoshop's layer effects, Miro's reactions and the
+     whiteboard half of the research (MINDMAP_PLAN §14.4).
 
 643. **The owner, 2026-10-05, verbatim.** "Can we take anything from
      Microsoft onenote??" Placed: with 641, as a research pass over notes,

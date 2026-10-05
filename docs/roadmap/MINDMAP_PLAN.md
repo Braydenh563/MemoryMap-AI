@@ -1658,33 +1658,7 @@ Photoshop.
 
 ### 14.1 Measured before anything was designed
 
-`scratchpad/ui-sweeps/mc1-mapcore-audit.js`, a map of a centre, two branches
-and three leaves at 1440:
-
-| | Centre | Main branch | Leaf |
-| --- | --- | --- | --- |
-| Text size | 13.6px | 13.6px | 13.6px |
-| Weight | 400 | 400 | 400 |
-| Corner radius | 4.8px | 4.8px | 4.8px |
-| Height | 31px | 31px | 31px |
-| Fill | the card | the card | the card |
-
-**The centre, a main branch and a leaf are drawn identically.** Nothing in
-`wbPaintMapNode` knows a topic's depth: the only hierarchy on screen is the
-branch colour, and the root has none of its own (`--accent`). Enter on the
-centre adds a second free root, not a main branch. The theme (§13e) is one
-set of values for every topic; a person who wants a bigger centre sets it by
-hand, one topic, and every new map starts flat again.
-
-**Icons:** a topic's icon is one of 11 Phosphor glyphs in the Text menu
-(`#wb-map-strip-icon`); 1,530 ship in the vendored font. No emoji anywhere
-in a map. The board's Library has an Icons set (all 1,530, as vector paths,
-`board-library/icons.json`), shown only on a board (`wbLibFits` gives a map
-branches and templates, 0 tiles otherwise). The document editor completes 248
-`:shortcode:` emoji as you type (`DOC_EMOJI_SOURCE`); the note editor, both
-formatting toolbars and the "/" menu offer no emoji or icon at all.
-**Copy and paste style** (Ctrl+Alt+C and V) exists for shapes and text boxes
-and refuses a topic ("Select a shape, link or text box first").
+Moved to HISTORY.md ("Moved from the plans, 2026-10-05 (MINDMAP_PLAN §14, mc1)"), with the build record: the centre, a branch and a leaf drew identically (13.6px, 400, 31px).
 
 ### 14.2 What the five apps do, and what is taken
 
@@ -1778,20 +1752,20 @@ whiteboard half of 641's research (beyond stickers).
     second centre is never what was meant; a floating topic's Enter keeps
     adding a free topic beside it.
 
-### 14.4 Phases
+### 14.4 What is open
 
-- **14a** the levels: `wbMapLevels`, `data-level`, the four presets, the
-  Centre's Enter, solid fill as a topic value. Gate: the audit sweep reads
-  three different sizes and weights for centre, branch and leaf; Flat reads
-  them equal; an existing theme's size still reaches the leaves.
-- **14b** the level styles and the theme dialog's level switch, Redefine,
-  copy and paste style for topics; each one Undo step. Gate: a sweep sets a
-  level's look, a topic's own look beats it, Undo puts it back.
-- **14c** the picker module and the map's icon slot (More icons in the Text
-  menu). Gate: search, Recent, arrows and Enter measured; an emoji and an
-  icon set on a topic; boot budget unchanged.
-- **14d** stickers on the board and the map, drop onto a topic. Gate: a
-  drop measured as one object, one Undo step.
-- **14e** the editors: the toolbars, the Insert menu, the "/" row, the
-  `:ph-name:` reading. Gate: a note and a document each get an emoji and an
-  icon, the reading view draws the glyph.
+Phases 14a to 14e are built (HISTORY.md, "Moved from the plans, 2026-10-05
+(MINDMAP_PLAN §14, mc1)"). Open, from INBOX 641 and §14.2's "not taken now":
+
+- **Linked stickers** (Illustrator's symbols): edit one placed icon or emoji
+  and every copy follows. Needs a `library_ref` that is followed, which
+  decision 25 of WHITEBOARD_PLAN keeps as "kept, never followed".
+- **Topic effects** (Photoshop's layer styles): shadow and glow per topic and
+  per level; a level field each, under decision 40's rule.
+- **Reaction stamps and voting** (Miro): a count of stamps on a topic or card.
+- **The whiteboard half of 641's research**, beyond stickers.
+- The exported picture draws every topic as one box: the levels, shapes and a
+  Phosphor icon do not reach PNG or SVG (an emoji icon does, as text).
+- The document editor's `:shortcode:` completion keeps its own 248-entry table
+  (`DOC_EMOJI_SOURCE`); fold it into `ICON_EMOJI_SOURCE` when the completion
+  can wait on the picker's script.

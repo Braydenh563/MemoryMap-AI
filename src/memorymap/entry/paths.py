@@ -200,7 +200,20 @@ def _connect(session: Session, entries: list, extra_edges: list[dict] | None) ->
     index = Connections(entries)
     known = index.entries
 
-    for link in session.scalars(select(EntryLink)):
+    #: **Five columns, not ten thousand objects** (GRAPH_PLAN, the first build
+    #: after a change): the map's PageRank built every link as an `EntryLink`
+    #: instance, 0.39 s of ORM bookkeeping at 5,000 notes (cProfile), to read
+    #: the five fields below. A row answers them by the same names, and the
+    #: reason still comes through its column type (`LinkReason`), sealed or
+    #: not exactly as before.
+    links = select(
+        EntryLink.source_entry_id,
+        EntryLink.target_entry_id,
+        EntryLink.reason,
+        EntryLink.reason_confidence,
+        EntryLink.link_type,
+    )
+    for link in session.execute(links):
         if link.source_entry_id in known and link.target_entry_id in known:
             # A link's own reason, when someone gave one, is a better answer
             # to "how are these connected?" than the generic "linked to", 

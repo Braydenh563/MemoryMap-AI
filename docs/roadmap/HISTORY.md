@@ -1004,7 +1004,11 @@ The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section
   Measured on the bench notebook, alternating which shape goes first, load
   about 7: the first cold build 1,519 to 1,541 ms before, 1,197 to 1,212 ms
   after; the second 696 to 1,470 ms before, 466 to 532 ms after.
-  `tests/test_graph_encoded_off_loop.py`.
+  `tests/test_graph_encoded_off_loop.py`. Then `paths._connect` (the map's PageRank
+  and every path search) reads a link's five columns instead of building
+  10,000 `EntryLink` objects: `_connect` 0.48 to 0.14 s under cProfile, the
+  first cold build 1,197 to 1,212 ms before, 670 to 712 ms after (one run at
+  1,048 ms in a load spike). `tests/test_graph_paths.py`.
 
 - The features audit's Phase G, Summarise this branch. Built:
   `POST /whiteboard/boards/{b}/nodes/{n}/summary` (routes_map_suggest.py)

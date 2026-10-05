@@ -534,11 +534,10 @@ block. What stays here is the standing decisions and what is still open.
   were never run here (no model in the sandbox); both fall back cleanly.
 - `/graph` at 5,000 notes: the map's read is slim (`slim=1`, 1,767 KB from
   3,145; built, HISTORY.md "Moved from the plans, 2026-10-05 (op3-1005)").
-  The generic encoder is skipped (same HISTORY block). Open: the first
-  build after a change is still about 1.2 s on this sandbox, most of it
-  `_centrality` (0.86 s under cProfile: `paths.build_light` loading 10,000
-  link rows as ORM objects, then PageRank); rows as columns, as
-  `_GRAPH_COLUMNS` did for the notes, is the next step.
+  The generic encoder is skipped and the PageRank's links are read as
+  columns (same HISTORY block): the first build after a change is about
+  0.7 s on this sandbox at load 7. Open: nothing measured worth a step;
+  PageRank itself is 0.13 s.
 - The note field's picker and the query table's rollups are built
   (2026-10-05): moved to HISTORY.md ("Moved from the plans, 2026-10-05
   (GRAPH_PLAN, the last KG rows)").

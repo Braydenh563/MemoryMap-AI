@@ -144,7 +144,12 @@ Genuinely built afterwards:
 > automatic selection, not a per-turn allowlist to manage); not worth a
 > session on its own.
 >
-> **A second small gap, scoped but not built:** a tool-call chip today is a
+> **Next:** `routes_chat.py:1595` already takes `allowed_tools` on the request and
+> `agent.py:1600` takes `max_rounds`; the missing piece is one control in the Agent
+> row of `frontend/js/chat-agent.js` (a '?' popover per DESIGN.md) sending them.
+> Chat agent area, so it waits for the CHAT_PLAN agent.
+>
+> ~~**A second small gap, scoped but not built:**~~ **Built, see `frontend/js/chat-agent.js:1548` (`toolChip` is a `<details>` carrying the arguments and the result summary, saved with the turn) and `frontend/css/00-tokens-shell.css:3264`.** The text below is the original scoping. A tool-call chip was a
 > flat one-line label (`toolChip()`, app.js ~6200) — no way to see what the
 > AI actually sent the tool or what came back, purely a cosmetic upgrade
 > asked for directly ("a dropdown which shows the input tool call command
@@ -208,7 +213,7 @@ tab, and there is no archive at all.
 **Order matters — images first, since the gallery is a view over what they
 store:**
 
-1. **File uploads on notes — asked for again, directly: "I want to be able
+1. ~~**File uploads on notes**~~ **Built, see `frontend/js/attachment-actions.js`, `routes_files.py` `ATTACHMENT_SUFFIXES` and `routes_library.py`** (every sub-bullet below is struck or done). Original ask: **File uploads on notes — asked for again, directly: "I want to be able
    to upload files with notes."** Worth being precise about what's already
    there versus what isn't, since this is narrower than it sounds:
    - **Already exists:** images can be pasted or dropped into a note or
@@ -248,60 +253,23 @@ store:**
      point once the actual schema was checked, not the literal one this
      text guessed at. "What was on that whiteboard photo from March" is
      now answerable.
-2. **A bigger sketch board — asked for again: "improve sketches board, maybe
-   a whiteboard tab??"** See below; promoted out of this list into its own
-   full write-up given how much is actually being asked for.
+2. ~~**A bigger sketch board**~~ **Pointer:** built as the whiteboard (`frontend/js/whiteboard.js`, `routes_whiteboard.py`); what is left is
+   [WHITEBOARD_PLAN.md](WHITEBOARD_PLAN.md) and `scratchpad/audit1005/features.md` section 4.
 3. ~~**Archive.**~~ **Built** for notes, chats and documents (`archived_at`).
-4. **Library tab.** One place showing stored images, documents, chats and
+4. ~~**Library tab.**~~ **Built, see `frontend/js/library.js` (`LIBRARY_KINDS`) and `api/routes_library.py`.** One place showing stored images, documents, chats and
    archived items, with previews, sorting and search.
 
 ---
 
 ## 4a. A real whiteboard, not just a bigger sketch
 
-**Why, and what's actually being asked for.** The sketch pad today is one
-canvas producing one PNG, tied 1:1 to one note — closer to a Polaroid than a
-whiteboard. "Expand and improve sketches board, maybe a whiteboard tab??"
-plus the follow-up ask for it directly means something with more freedom
-than that: a canvas that isn't locked to a single note, that you can come
-back to and keep adding to, and that plausibly holds more than ink — text
-boxes, shapes, maybe pinned note cards.
-
-**Two genuinely different things live under "whiteboard," and they have very
-different costs:**
-
-- **A bigger, freestanding sketch.** Still a raster canvas producing one
-  image, same technology as today's sketch pad — the difference is it's not
-  born attached to a note (it's its own Library item, per §4 item 4 above),
-  it can be reopened and drawn on further rather than being a one-shot
-  export, and it can be arbitrarily large/pannable rather than a fixed
-  small pad. This is genuinely close to what already exists: same
-  `attachments` storage shape, same rendering approach, mostly a change in
-  *lifecycle* (persistent and reopenable, not one-and-done) rather than new
-  technology.
-- **A structured canvas** — separate movable/resizable elements (shapes,
-  text, sticky notes, embedded note cards you can drag onto it), each
-  stored as its own positioned object rather than baked into one flat
-  image. This is what tools like Excalidraw or tldraw actually are, and
-  it's a different kind of feature: an infinite-canvas scene graph with its
-  own undo model, not an extension of the sketch pad. It's also the version
-  that would let a whiteboard hold *note cards* pinned to it — which is the
-  part that would make it feel like part of this app rather than a bolted-on
-  drawing tool, since nothing else here does that.
-
-**Worth sequencing rather than picking one.** The freestanding raster
-version is a small, mostly-lifecycle change and delivers most of the
-"expand the sketch board" ask on its own. The structured version is a real
-build — a second rendering system alongside §9's graph — and is only worth
-it if the raster version turns out to not be enough. Ship the first as the
-actual whiteboard tab; treat the second as a stretch goal that depends on
-whether people actually want to move things around after drawing them,
-which is not knowable in advance.
-
-**Where it lives.** Library tab (§4) as its own item type is the better fit
-than nesting it under Notes — a whiteboard that isn't 1:1 with a note has
-nowhere natural to sit in the Notes tab, and the Library tab is already
-being built as the home for "everything that isn't a note."
+**Built.** The structured canvas this section sequenced behind a raster version is
+what shipped: cards, text boxes, shapes, images and ink on a pannable board, each its
+own positioned row (`frontend/js/whiteboard.js`, `api/routes_whiteboard.py`), living
+in the Library's Whiteboards gallery. **Pointer:** every open whiteboard question is
+[WHITEBOARD_PLAN.md](WHITEBOARD_PLAN.md) and `scratchpad/audit1005/features.md`
+section 4 (the gap matrix), section 5 (draw.io) and section 8 (the object library).
+The raster-versus-structured reasoning that stood here is in this file's git history.
 
 ---
 
@@ -331,6 +299,10 @@ own note, the way `type` and `layout` already do, against a separate table) and
 the build order (boards, then maps, then documents, each end to end), is
 SESSION_BRIEFS.md Brief 32.
 
+**Pointer, 2026-10-05:** the whiteboard half is now WHITEBOARD_PLAN "Placed from INBOX,
+2026-10-05" (557c and 558: the object library with "Yours", where a whole board saved as
+a template lives) and `scratchpad/audit1005/features.md` section 4 row C12 and section 8.
+
 ## 5. Documents
 
 Checked against the running app, not assumed:
@@ -342,17 +314,17 @@ Checked against the running app, not assumed:
 - ~~**Word-count goal**~~ **Done.** `promptDocWordGoal`/`#doc-word-goal` set a
   target, persisted per-document (`docWordGoal:<id>` in localStorage), with
   progress shown against it.
-- **AI chat bar inside the document** — partly there. `doc-ai-panel` already
+- **AI chat bar inside the document** — **Pointer:** [DOCUMENTS_PLAN.md](DOCUMENTS_PLAN.md) "Placed from INBOX, 2026-10-03 (INBOX 409)" closed the bar's design; the conversational shape (ask without proposing an edit) is `scratchpad/audit1005/features.md` section 11 Phase G. Partly there. `doc-ai-panel` already
   edits a selection or the whole document and shows the result as a proposal.
   What's missing is the *conversational* shape: ask a question about the
   document without it proposing an edit.
-- **A real document browser** — the sidebar list is not a gallery
+- ~~**A real document browser**~~ **Built, see `frontend/js/library.js:2905` (`renderLibraryDocuments`, the Library's Documents gallery).** The sidebar list is not a gallery
 - ~~**Attach documents to notes**~~ **done, both directions.** The capture
   box's *Add to document* picker, a note's own 📄 chip/menu entry, and a
   document's list of the notes it draws on all share the same two
   `document_links` routes — see HISTORY.md.
-- **Document history** — notes have `EntryRevision`; documents have no
-  equivalent table, and the AI edit overwrites on accept
+- ~~**Document history**~~ **Built, see `core/database.py:1398` (`DocumentRevision`), `#doc-history-dialog` and DOCUMENTS_PLAN Phase 5 item 2.** Notes have `EntryRevision`; documents had no
+  equivalent table, and the AI edit overwrote on accept
 
 ### Asked for this session, not yet built
 
@@ -360,7 +332,7 @@ A round of use produced four requests about documents at once, and they are
 one direction rather than four features: *"I want the documents to be more
 like using Obsidian or Notion."* Ordered by how much each one gets in the way.
 
-- **A mini AI chat bar in the document editor.** Asked for directly: *"a mini
+- **A mini AI chat bar in the document editor.** **Pointer:** same row as the first bullet of this section (DOCUMENTS_PLAN INBOX 409; features.md Phase G). Asked for directly: *"a mini
   chat bar on the documents page to request the ai to do stuff, like write
   something, edit something specific (the whole document or current selection
   etc)."* This is the biggest of the four and the closest to already existing:
@@ -381,25 +353,30 @@ like using Obsidian or Notion."* Ordered by how much each one gets in the way.
   ingests uploads, `/documents` creates, `document_links` joins — so this is
   mostly a route that does the three together, plus deciding what to do with a
   `.docx` or a PDF (probably: refuse politely rather than half-convert).
+  **Partly built, 2026-10-05:** `POST /documents/import` (`routes_documents.py:489`) extracts
+  a .docx, .pdf, .csv, .md or source file into a Document (chat attach uses it,
+  `chat-attach.js:435`), and a note's own 📄 picker links a document
+  (`document_links`). **Next:** the note editor's attach path calling `/documents/import` then
+  `POST /entries/{id}/documents` in one click (`frontend/js/attachment-actions.js`, `note-edit-panels.js`).
 - **Obsidian/Notion editing — asked for again, more emphatically: "have all
   the features as well."** Worth being explicit about what "all the
   features" would actually include, since Obsidian and Notion aren't the
   same product and "all of both" isn't a coherent target. The editor is a
   `<textarea>` with a preview beside it today. What people mean by this
   request, roughly in order of how much each is missed:
-  - `[[wiki links]]` between documents (notes already have them — the
+  - ~~`[[wiki links]]` between documents~~ **Built (DOCUMENTS_PLAN Phase 4)** (notes already have them — the
     parser is in `renderNoteText`)
-  - a `/` command menu at the cursor
-  - drag-and-drop images that land as markdown
-  - backlinks ("what links here")
-  - live-preview editing where the markup renders in place instead of in a
-    second pane — the one that would change the feel and also the one that
+  - ~~a `/` command menu at the cursor~~ **Built, see `frontend/js/editor.js` and DOCUMENTS_PLAN section 18**
+  - ~~drag-and-drop images that land as markdown~~ **Built (`![[photo.png|300]]`, `documents.js:5501`)**
+  - ~~backlinks ("what links here")~~ **Built (DOCUMENTS_PLAN Phase 4, backlinks scanned on the server)**
+  - ~~live-preview editing where the markup renders in place instead of in a
+    second pane~~ **Built (the CodeMirror 6 engine, DOCUMENTS_PLAN Phase 2 and section 17, `doclivemd.js`)** — the one that would change the feel and also the one that
     means giving up the textarea; worth doing deliberately, and last
-  - **Sub-pages.** Notion's documents nest into a tree; MemoryMap's are
+  - **Sub-pages.** **Next:** not in DOCUMENTS_PLAN and `documents` still has no `parent_id` (`core/database.py:1205`); needs a decision row there first, then an Alembic revision, `routes_documents.py` list/move routes and the sidebar tree in `documents.js`. Docs area, so it waits for the documents agent. Notion's documents nest into a tree; MemoryMap's are
     flat. Worth deciding this one early rather than late, since it's a data
     model question (`documents` would need a `parent_id`) that every other
     item in this list is easier to build on top of than to retrofit under.
-  - **Transclusion — embedding, not just linking.** `document_links` already
+  - ~~**Transclusion — embedding, not just linking.**~~ **Built (`![[Doc#^id]]`, DOCUMENTS_PLAN Phase 4 item 2, `documents.js:3212`).** `document_links` already
     connects a note to a document, and `[[wiki links]]` connect document to
     document, but both are references you click through, not content
     rendered inline. Obsidian's `![[note]]` embeds the note's actual text
@@ -407,7 +384,7 @@ like using Obsidian or Notion."* Ordered by how much each one gets in the way.
     notes/documents "two halves of a whole" framing actually true visually,
     not just at the data layer — worth building once backlinks exist, since
     an embed is close to a backlink that renders instead of just linking.
-  - **A full properties/database system is worth ruling out explicitly,
+  - ~~**A full properties/database system is worth ruling out explicitly,**~~ **Decided: out of scope, as this item recommended** (document properties exist as light metadata, DOCUMENTS_PLAN Phase 3; no second data model). **A full properties/database system is worth ruling out explicitly,
     not leaving ambiguous.** Notion's defining feature is that a page can
     carry structured properties and be queried like a database row — that's
     a different kind of thing from a markdown document with metadata, and
@@ -417,7 +394,7 @@ like using Obsidian or Notion."* Ordered by how much each one gets in the way.
     lightweight structure; documents don't obviously need a second, heavier
     system) rather than something quietly missing from an "all the
     features" list that was never going to include it.
-- **Documents on the graph and the timeline.** Asked as *"docs should also
+- ~~**Documents on the graph and the timeline.**~~ **Built, see `api/routes_graph.py:365` (`_add_document_nodes`, the Documents toggle `#graph-documents`) and `api/routes_timeline.py:102` (`KINDS` includes document; TIMELINE_PLAN Phase 4).** Asked as *"docs should also
   probably show on the graph and timeline"*. Both views are built around
   `Entry` and would need a second node/point kind. The design question is not
   technical: a document is not a note, and drawing it as one would say the
@@ -490,7 +467,7 @@ PWA (already supported via `manifest.webmanifest` + `sw.js`).
 **Plan, updated — some of this is now built, not still planned.** Hardening
 the pywebview mode: **tray — built**, see §25. **Single instance is built**
 (`__main__.py`, the owner's decision: one server per data directory). Native
-menus, graceful port fallback when 8000 is taken, and a first-run flow
+menus, ~~graceful port fallback when 8000 is taken~~ (built, `__main__.py:811` `_port_holder` picks the next free port), and a first-run flow
 specific to the packaged build are still open. **(needs owner)**: they need
 the packaged build on a real machine. The "PyInstaller one-file" half of this
 paragraph is superseded by the actual decision recorded above — **onedir**,
@@ -554,6 +531,7 @@ checked 2026-10-04 and are in HISTORY.md, "Moved from the backlog".)
   0.42, `KNN_MIN_SHARE` 0.55) with no length floor, so a very short note's
   vector can land anywhere. Whether a floor belongs there, and at what
   length, is a filing-quality judgement to measure against a real notebook.
+  **Next:** a failing test in `tests/` seeding a two-category notebook and filing "ai is cool" through `janitor._semantic_category` (`ai/janitor.py`), then a word-count floor beside `CONFIDENT_MATCH` that falls through to `lexical_filing.py`; the floor's number needs a real notebook, so measure it before choosing it.
 
 **The lesson worth keeping.** Four of these were "this control does nothing",
 and in three of the four the control was working perfectly — the write landed
@@ -607,6 +585,7 @@ audit:
   the vendored JS, since nothing currently checks either), and a fresh look
   at this section's own three easy-to-break rules (§8b's opening) to confirm
   nothing has quietly regressed since they were written down.
+  **Next:** nothing in `.github/`, `scripts/` or `tests/` runs `pip-audit` (checked 2026-10-05); the security agent owns it with `scratchpad/audit1005/security.md`. An offline test over `frontend/vendor/*/` version stamps against a pinned advisory list is the vendored-JS half.
 - **Search-specific items** now live in §13, since SearXNG went from "being
   built" to "actually running" this pass.
 
@@ -640,12 +619,13 @@ different picture:
   dimensions rather than by what a label needs — see HISTORY.md for the
   `nodeSize`/ring-by-depth fix and the three label-collision bugs it also
   found).
-- **Mind map from one note** — pick a note as the root and lay everything else
+- ~~**Mind map from one note**~~ **Built as the local map, see `api/routes_graph.py:900` (`graph_local`) and [GRAPH_PLAN.md](GRAPH_PLAN.md) "Built, Phase 4 (utility), part two: the local map".** Pick a note as the root and lay everything else
   out by hops along `entry_links`. Different from the tree above: the
   hierarchy there is filing, here it is connection.
 - **Treemap / sunburst** — area as weight, so a category with 200 notes looks
   like one. Best for "where does my writing actually go?", and the only layout
   here that answers a question about proportion.
+  **Next:** a new layout is one `layoutHierarchy`-style function in `frontend/js/graph.js` (`graphLayout()`, line 133, reads the `graph-layout` radio in `index.html:3410`), drawn by `graph-canvas.js`; no row in [GRAPH_PLAN.md](GRAPH_PLAN.md) yet, so add a decision there first. Graph area, owned by the graph agent.
 - ~~**Arc diagram**~~ **built, on the filing hierarchy rather than
   `entry_links`** (a deliberate departure from this bullet's original "links
   as arcs" framing — tree and radial already draw the *filing* hierarchy, and
@@ -654,12 +634,15 @@ different picture:
 - **Adjacency matrix** — no crossing edges at all, so it stays readable when a
   force graph has turned into wool. Worth it only once there are hundreds of
   links.
+  **Next:** a new layout is one `layoutHierarchy`-style function in `frontend/js/graph.js` (`graphLayout()`, line 133, reads the `graph-layout` radio in `index.html:3410`), drawn by `graph-canvas.js`; no row in [GRAPH_PLAN.md](GRAPH_PLAN.md) yet, so add a decision there first. Graph area, owned by the graph agent.
 - **Timeline-graph** — the graph laid out left-to-right by date, links as
   arcs. §10's Timeline tab does the axis; this would do the axis *and* the
   links, which is the one thing neither view has.
+  **Next:** a new layout is one `layoutHierarchy`-style function in `frontend/js/graph.js` (`graphLayout()`, line 133, reads the `graph-layout` radio in `index.html:3410`), drawn by `graph-canvas.js`; no row in [GRAPH_PLAN.md](GRAPH_PLAN.md) yet, so add a decision there first. Graph area, owned by the graph agent.
 - **Subway map** — orthogonal edges, categories as lines. Beautiful and
   genuinely hard: it needs edge routing, which is real work rather than a
   layout call.
+  **Next:** needs an edge-routing pass (orthogonal segments avoiding node boxes) in `graph-canvas.js`; the hardest of the layouts, do last. Graph agent's area.
 
 **Styling — the same layout, dressed differently.** These are skins over
 whichever layout is picked, not layouts of their own:
@@ -667,11 +650,13 @@ whichever layout is picked, not layouts of their own:
 - **Galaxy / starfield** — notes as stars sized by access count, links as
   faint filaments. The dashboard's "notebook constellation" widget already
   proves the aesthetic works.
+  **Next:** a skin is a colour and size rule over the existing layout (`graph-canvas.js` draw pass); reuse `renderArtWidget`'s starfield palette in `dashboard.js`. No row in [GRAPH_PLAN.md](GRAPH_PLAN.md); add a decision there first.
 - **Sea chart** — islands per category, notes as landmarks, links as shipping
   routes, unlinked notes adrift. Parchment palette pairs with it.
+  **Next:** same seam as the starfield skin above, plus a parchment token pair in `00-tokens-shell.css` (DESIGN.md recipe index first).
 - Plain force-directed stays the default; everything else is a picker.
 
-**Fit and framing.** It should size to its panel and re-fit on resize, with
+**Fit and framing. Built, see `frontend/js/graph.js` (`fitGraphToView`, the zoom strip) and `graph-canvas.js` (`graphMinimapFrame`; [GRAPH_PLAN.md](GRAPH_PLAN.md) Phase 1).** It should size to its panel and re-fit on resize, with
 zoom-to-fit, zoom controls, and a minimap for large notebooks.
 
 **Utility: checked against the code 2026-10-04.** Built: paths between two
@@ -681,6 +666,7 @@ filters, and `related_notes(id, depth)`. Not found by grep: **the AI naming a
 cluster** (cluster detection exists, a name from the model does not).
 **(needs Opus)**: a real model call and a place to show the name; GRAPH_PLAN.md
 owns the rest of this section.
+**Next:** a utility-model call per cluster (`api/routes_graph.py` near line 1187 builds each cluster's `core`), cached on the notebook fingerprint like pagerank (`routes_graph.py:60-105`), shown on the hub's plate in `graph-canvas.js`; needs a real model to judge the names, so the test uses the fake transport and a `scratchpad/llama-dev.sh` pass is the acceptance.
 
 ---
 
@@ -705,6 +691,7 @@ findable as a class, and nudging on stale ones ("this said 'tomorrow' three
 weeks ago — did it happen?"). Both are queries over `entry_dates` now that
 the data exists. **(needs Opus)**: the nudge is a surface to design; TIMELINE_PLAN.md
 owns the rest of this section.
+**Next:** the tag half is a query over `EntryDate` (`core/database.py`, read in `api/routes_timeline.py:484`) for rows whose phrase is relative and whose date is past, offered as a Library chip; the nudge is a card in `ai/resurface.py`'s feed or the Night widget (`dashboard.js` `renderNightWidget`). No TIMELINE_PLAN row; add one first.
 
 ~~**B. A Timeline tab.**~~ **built, first version — and it is a grid, on
 purpose, for what it's for.** A time axis across, one band per category or
@@ -727,12 +714,12 @@ landed on the same day). No new table — reads `entry_dates` (§10A) and the
 existing category/tag grouping; the only new state is a `localStorage`
 view preference.
 
-**Still open in B (the grid view):**
+**Still open in B (the grid view; the view has since become a feed, TIMELINE_PLAN Phases 1 to 3):**
 
-- **Events as bands.** The shape this slots into: one more `group` value, once
+- **Events as bands.** **Next:** no `events` calendar table exists (the `events` in `core/events.py` is the change log, a different thing); it needs an Alembic revision, `routes_timeline.py` `KINDS` (line 102) gaining `event`, and `add_event`/`list_events` tools (BACKLOG section 14); TIMELINE_PLAN has no row for it. The shape this slots into: one more `group` value, once
   there is an `events` table. Places and themes can be derived from what is
   already stored; events cannot.
-- **Zoom from days to years as a gesture**, rather than a bucket picker.
+- ~~**Zoom from days to years as a gesture**, rather than a bucket picker.~~ **Built as a scale choice, see `frontend/js/timeline.js` (`timelineScaleChoice`: Auto, Day, Week, Month, Year; TIMELINE_PLAN Phase 3, scrubber and scale).** A wheel or pinch gesture is not built; the picker is the deliberate shape (`timeline.js:299` records why a dropdown beats a segmented row at large zoom).
 
 **Data shape:** a new `events` table (`title`, `at`, `precision`, `kind`,
 `entry_id?`, `source`), plus `entry_dates` for resolved expressions. Both
@@ -814,7 +801,7 @@ vendors d3 and p5 locally rather than take a CDN.
   already told it to call `get_note` before quoting. Most notes are a line or
   two and are untouched; ten notes of 4,000 characters used to be 40,000 and
   now fit the budget.
-- **Verbosity steering.** Output tokens are half the latency and are not
+- ~~**Verbosity steering.**~~ **Built, see `ai/presets.py` (Quick, Normal, Detailed: `max_output_tokens`, `temperature`, `think`) and the same three presets in the Chat tab and Settings (`index.html:1712`).** Output tokens are half the latency and are not
   budgeted at all. A style hint already exists; a length hint does not.
   Asked for as a bigger idea — a **quick / normal / detailed** picker on chat
   and agent turns, where quick trims the length hint (and, on a model that
@@ -824,8 +811,8 @@ vendors d3 and p5 locally rather than take a CDN.
   prompt change, not a new capability — the pieces (a style hint, a
   per-purpose model already existing for chat/embedding/utility) are already
   there; this is a preset over them.
-- **Temperature and sampling parameters, not just length — asked for
-  directly.** "Is it a good idea to change model temperature and other
+- ~~**Temperature and sampling parameters, not just length**~~ **Built, see `ai/sampling.py` (the model's own `/api/show` parameters, then the task preset, then the user's sparse override) and `ai/presets.py`; all three sub-bullets below are covered, the per-model half by `ai/model_cards.py` and the capabilities table in Settings, Models.** Asked for
+  directly. "Is it a good idea to change model temperature and other
   parameters, as well as the amount of thinking, based off the type of
   task?" Yes, and it's the same preset idea as the bullet above, widened:
   quick/factual work (recalling a note, answering "when did I write X")
@@ -852,14 +839,14 @@ vendors d3 and p5 locally rather than take a CDN.
     gracefully on a model that doesn't support the setting instead of
     sending a parameter Ollama silently ignores or errors on, which is a
     real gap regardless of whether task-based auto-routing ever happens.
-- **Dynamically switch models by task complexity.** A related but separate
+- **Dynamically switch models by task complexity.** **Next:** the manual per-mode assignment this item says to build first exists (`openFeatureModelSheet`, `frontend/js/settings-models.js`, `ai/provider.py` per-purpose model); the automatic half is a design call for the owner (a cheap difficulty estimate is wrong sometimes) and stays open on purpose. A related but separate
   ask — "optional," and worth keeping optional: a short factual question
   routed to a small fast model and an agent job routed to a larger one,
   automatically. The honest version of this needs a cheap way to estimate
   "how hard is this turn" before picking a model, which is itself a model
   call or a heuristic that will be wrong sometimes — worth prototyping as a
   manual per-mode assignment (the bullet above) before attempting to guess.
-- **A model comparison / test-run feature — asked for directly: "test and
+- **A model comparison / test-run feature** — **Pointer:** WORLD_CLASS_PLAN I8 "The model bench" (H3, row 21; `model_bench` switch in `ai/facts.py:85`, no `ai/bench.py` yet). Asked for directly: "test and
   compare different models for use in the application so you can choose the
   best one."** This is the eval harness below, pointed at a different
   variable. The harness already needs a fixed set of representative prompts
@@ -892,14 +879,15 @@ spends its time is currently a guess.
 - **Prompt reuse.** Every agent round resends the whole message list;
   `keep_alive` is set now (`OllamaClient`, 30 minutes, checked 2026-10-04);
   prompt-prefix reuse is not verified. **(needs Opus)**: it needs a real model.
-- **Cap tool output.** Return previews by default, full text only on request.
+  **Next:** `scratchpad/llama-dev.sh serve`, then compare `prompt_eval_count` on round 2 against round 1 of one agent turn through the log line in `ai/agent.py` ("prompt composition"); the minute-rounded clock (section 11 above) is what makes a hit possible. Real model only.
+- ~~**Cap tool output.** Return previews by default, full text only on request.~~ **Built, see `ai/agent.py:339` (`TOOL_RESULT_BUDGET_CHARS`, applied at line 2558) and the 900-character note cap with its `get_note` marker (section 11, "Reversible compression").**
 - ~~**Hybrid retrieval** (semantic + keyword, reciprocal-rank fusion)~~ **done**
   — HISTORY.md's "Retrieval reads the question before searching it": both
   searches run and their rankings fuse by RRF, not either/or. Flagged stale in
   this session's backlog audit; was still marked open here.
-- **Re-ranking** with a small cross-encoder over the top-20, behind a setting.
+- **Re-ranking** with a small cross-encoder over the top-20, behind a setting. **Next:** nothing in `src/` re-ranks (checked 2026-10-05); the seam is the fused list in `search/engine.py`, a utility-model scoring call (the section 95 item 7 shape, no new dependency) behind a Settings switch with its '?', measured on `tests/eval/` before it ships. Retrieval area; real model to judge it.
 - **Batch embeddings** — the backfill embeds one note at a time.
-- **Context warning** as the window fills — the per-turn cost is already shown.
+- ~~**Context warning** as the window fills~~ **Built, see `frontend/js/chat.js:425` (the meter's tooltip warns past 80% and names Compress, with the per-stage composition).** The per-turn cost is already shown.
 ~~- **A per-chat token/context meter the user can actually see.**~~ **Built**
   (ROADMAP §88.4 item 4). Asked twice, once directly ("a better way to track
   tokens and other things") and once from the outside review ("prompt
@@ -909,7 +897,7 @@ spends its time is currently a guess.
   line's own window-fill tooltip, exactly the "~1.4k tokens this turn, 3.1k
   fixed overhead" shape asked for, per stage (system/tools/history/notes)
   rather than a single fixed-overhead number.
-- **An eval/benchmark harness tied to changes here.** Every optimisation in
+- **An eval/benchmark harness tied to changes here.** **Pointer:** WORLD_CLASS_PLAN B5 "Evals as fixtures" and I8; `tests/eval/`, `pytest -m evals` and `scratchpad/llama-dev.sh` exist (CLAUDE.md section 4). Every optimisation in
   this section so far has been measured by hand, in one session, against
   whatever the person doing it happened to type. A small fixed set of
   representative prompts (a few notes, a few questions, a skill run) that CI
@@ -1021,6 +1009,8 @@ looped on it until the round limit ran out.
 (build it with §21, which needs the same structure); a "required tools" hint
 for requests that clearly need one; and a nudge when the model answers a
 notebook question without having searched.
+
+**Checked 2026-10-05:** the plan step is built (`make_plan`, ticked steps in the timeline). **Pointer:** the other two (a required-tools hint, a nudge when a notebook question is answered without a search) are WORLD_CLASS_PLAN B5's planner and verifier ("Open: pre" conditions); harness agent's area.
 
 **Note the ordering.** None of this fixes "the AI won't make me a skill" —
 that fails because `save_skill` can only store a prompt string, so there is

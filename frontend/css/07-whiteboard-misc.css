@@ -10566,6 +10566,20 @@ input[type="file"] {
   border-left-style: dashed;
 }
 
+/* **A dash's gaps show what is behind the topic, not the topic's ground**
+   (INBOX 581, the owner: "the solid and dashed bar are exactly the same on
+   mind map nodes"). A border's gaps show the element's own background, which
+   runs under the border by default; a core topic's ground is its branch
+   colour (`.wb-map-core`), the bar's colour, so its dashed bar was a solid
+   one: measured, 0% of the lines across the bar were gaps on a core ellipse
+   or pill, Dashed or Solid. Clipped to the padding box, the gaps show the
+   board. A filled topic's tint is the same colour weaker, and is covered by
+   the same rule. Every side of the box, since the bar moves to the top on a
+   downward map and to the right on a mirrored topic. */
+.wb-map-node[data-spine="dashed"]:not([data-shape="none"]) {
+  background-clip: padding-box;
+}
+
 .wb-map-node[data-spine="none"]:not([data-shape="none"]) {
   /* Not `border-left: none`: the node's own comment says the layout, the edge
      anchors and the ring's centring all measure this box, so the bar becomes

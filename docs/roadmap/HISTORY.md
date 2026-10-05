@@ -40978,6 +40978,21 @@ The two cheap additions the plan's research section named (decisions 11 to
      (the 520 cap at 1440); at 13rem and under the sort leaves the head (it
      cut "Chats" to 9px at 170). `tests/test_ui_recipes.py` holds the shape.
 
+581. **The owner, 2026-10-05, verbatim.** "on the mindmap, the solid and
+     dashed bar are exactly the same on mind map nodes" (seen before 569's
+     fix was pushed).
+     **Fixed 2026-10-05**: verified 569 on the head (mmdoc1005-spinebar.js
+     36/36), then swept wider: `gl1005-mmbar.js` photographs the bar edge of
+     every Box (Rounded, Pill, Box, Ellipse) x free, pinned (the dashed box),
+     core and filled x tree-right, tree-down and both sides, Solid against
+     Dashed. Free, pinned and filled were already right; **core was not**:
+     a border's gaps show the element's own ground, a core topic's ground is
+     `--wb-branch`, the bar's colour, so Dashed drew solid (0% gap lines on
+     a core ellipse, pill or box, 2 of 16 core cases told apart). A dashed
+     bar now clips the ground to the padding box. After: 64/64 light and
+     dark, Solid 0% gap lines, Dashed 21% to 58%, the two photographs 3% to
+     21% different.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

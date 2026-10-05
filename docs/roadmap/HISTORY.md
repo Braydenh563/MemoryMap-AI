@@ -19,6 +19,14 @@ Each row was checked against the head before anything was built.
   New note (`#tab-graph:has(.dock-fab) .graph-zoom`) closed it. `graphphone.js`
   now asserts it every run: the four buttons are hit at their centres and clear
   of `.dock-fab`.
+- **`gate.sh --sweeps` named fifteen sweeps that do not exist** (found with the
+  `--staged` row): `requests`, `previewclash`, `wbfitanchor`, `helpstream`,
+  `writingroom`, `dashdensity`, `timelinetablewidth`, `tourtile`, `findinghover`,
+  `dochighlight`, `spinnershape`, `featuremodels`, `btnrows`, `answersupport` and
+  `listenerrounds`: the sweep cleanup (2dbd6c7) deleted the files and left the names,
+  so each was a step that could only fail. Removed from the list, and
+  `tests/test_gate_lint_set.py` now fails when a name has no file. (`--changed` and
+  `--staged` were never affected.)
 - **Board sweeps that only press the Library tab time out**: reproduced
   (`bm1005-segstate.js` and `bm1005-nodetasks.js` both died on a 15s `waitForFunction`).
   The Library reopens on its last sub-tab (mirrored to the server, so a fresh context

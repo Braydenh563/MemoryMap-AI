@@ -42118,6 +42118,11 @@ record.)
      labelled door, the status mark explained, the clock optional, history
      arrows grouped with undo/redo). Placed: the design-rows agent, after 616.
 
+620. **The owner, 2026-10-05, verbatim.** "can you also improve and
+     modernise the quick sketch a little more as well?? it is already mostly
+     fine, maybe a bit more of a gap below the top row title and close
+     button". Placed: the design-rows agent, after 618.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

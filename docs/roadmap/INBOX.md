@@ -160,11 +160,6 @@ with its owner named in the entry.
      enlarged preview atlas is still hanging, it should be slightly separate
      from the companion but still have the same life". Placed: the Atlas
      agent (with 600, 601, 612, 614, 615).
-620. **The owner, 2026-10-05, verbatim.** "can you also improve and
-     modernise the quick sketch a little more as well?? it is already mostly
-     fine, maybe a bit more of a gap below the top row title and close
-     button". Placed: the design-rows agent, after 618.
-
 621. **The owner, 2026-10-05, verbatim.** "also idk but I feel like al lot of
      these top header bars need  a better ui/ux restructuring or redesign as
      they still dont feel professional or modern and more demo/vibe coded. as

@@ -131,5 +131,9 @@ def test_the_autonomous_pass_runs_it(ai_client, monkeypatch):
         import time
 
         autonomous._working.set()
+        #: As the worker does before a pass (`autonomous._cancel.clear()`): a
+        #: stop asked for by an earlier test in the same process is not this
+        #: pass's.
+        autonomous._cancel.clear()
         autonomous._optimization_pass(time.monotonic(), run)
     assert seen == [autonomous.WORDS_REVIEW_BATCH_SIZE]

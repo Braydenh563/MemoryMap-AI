@@ -91,7 +91,7 @@ def test_the_editors_have_names():
     for field in ("persona-prompt", "template-name", "template-description", "template-body"):
         tag = html[html.index(f'id="{field}"'):]
         assert "aria-label=" in tag[: tag.index(">")], field
-    assert 'textarea.setAttribute("aria-label", "Note text")' in _read("notes-list.js")
+    assert 'textarea.setAttribute("aria-label", "Note text")' in _read("note-edit-panels.js")
 
 
 def test_find_anything_is_a_listbox_only_while_it_lists():

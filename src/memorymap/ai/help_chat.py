@@ -415,7 +415,10 @@ HELP_TOPICS: list[dict] = [
             "where you are: an open board or mind map has its own, an open "
             "document has its own, and both are kept while you switch away "
             "and back during the session; everywhere else it is the app's "
-            "(notes, tags, categories, links, reminders). Inside a text box "
+            "(notes, tags, categories, links, reminders, deleted chats, note "
+            "types, kinds of link and a note's references). A deleted space "
+            "comes back with Undo when it was empty or its contents were "
+            "moved; deleting everything in it is final. Inside a text box "
             "Ctrl+Z undoes your typing."
         ),
         "badge": {"label": "Library", "tab": "library"},

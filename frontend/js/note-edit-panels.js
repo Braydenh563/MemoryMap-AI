@@ -99,8 +99,29 @@ async function renderNoteBookmarksWhileEditing(li, entry) {
         detach.setAttribute("aria-label", `Remove reference to ${bookmark.title || bookmark.url}`);
         detach.addEventListener("click", async (e) => {
           e.stopPropagation();
-          await apiJson(`/entries/${entry.id}/bookmarks/${bookmark.id}`, { method: "DELETE" });
+          const path = `/entries/${entry.id}/bookmarks/${bookmark.id}`;
+          const gone = await apiJson(path, { method: "DELETE" }).catch((error) => {
+            toast(error.message, true);
+            return null;
+          });
+          if (!gone) return;
           refresh();
+          //: Undo puts it back where it was in the list (undo-1005): the
+          //: DELETE answers with when it was attached, the order References
+          //: are listed in. The panel repaints only while this note is open.
+          const repaint = () => { if (editingId === entry.id && panel.isConnected) refresh(); };
+          const reattach = async () => {
+            await apiJson(`/entries/${entry.id}/bookmarks`, { method: "POST", body: JSON.stringify({ bookmark_id: bookmark.id, created_at: gone.created_at }) });
+            repaint();
+          };
+          const action = pushUndo(`Removed the reference to ${bookmark.title || bookmark.url}`, reattach, async () => {
+            await apiJson(path, { method: "DELETE" });
+            repaint();
+          });
+          toastAction("Reference removed.", "Undo", async () => {
+            settleUndoFromToast(action);
+            await reattach().catch((error) => toast(error.message, true));
+          });
         });
         makeUnlinkAccessible(detach);
         bmChip.appendChild(detach);

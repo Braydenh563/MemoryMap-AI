@@ -28,6 +28,26 @@ function linkPropsParse(text) {
   return out;
 }
 
+//: A deleted kind comes back with Undo (undo-1005): the DELETE answers with
+//: the row and the links it left untyped, and `restore` makes it again under
+//: its own key (a rename kept the key) with those links typed again, unless
+//: one was given another kind since. The notes repaint for the link chips.
+function relationTypeDeleteUndo(gone) {
+  const n = gone.links_untyped || 0;
+  const remake = async () => {
+    await apiJson("/relation-types", { method: "POST", body: JSON.stringify({ ...gone.restore, restore: true }) });
+    loadEntries().catch(() => {});
+  };
+  const action = pushUndo(`Deleted the kind of link “${gone.restore.name}”`, remake, async () => {
+    await apiJson(`/relation-types/${gone.deleted}`, { method: "DELETE" });
+    loadEntries().catch(() => {});
+  });
+  toastAction(n ? `Deleted. ${n} link${n === 1 ? "" : "s"} kept, with no kind.` : "Deleted.", "Undo", async () => {
+    settleUndoFromToast(action);
+    await remake().catch((e) => toast(e.message, true));
+  });
+}
+
 async function newRelationType() {
   const name = await promptDialog("Name the kind of link, as read from the note that links (for example: Part of)", "", { confirmLabel: "Next" });
   if (!name || !name.trim()) return null;
@@ -147,9 +167,9 @@ async function openRelationTypesSheet() {
                 return null;
               });
               if (!gone) return;
-              toast(gone.links_untyped ? `Deleted. ${gone.links_untyped} link${gone.links_untyped === 1 ? "" : "s"} kept, with no kind.` : "Deleted.");
               close();
               openRelationTypesSheet();
+              relationTypeDeleteUndo(gone);
             } },
           ], `Actions for ${t.name}`));
         }

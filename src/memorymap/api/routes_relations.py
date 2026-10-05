@@ -40,6 +40,13 @@ class RelationIn(BaseModel):
     inverse: str | None = Field(default=None, max_length=60)
     directed: bool = True
     colour: str | None = Field(default=None, max_length=16)
+    #: Undo's door (undo-1005): a deleted kind made again as it was. Its key
+    #: is sent, not derived, because a rename keeps the key (`part_of` named
+    #: "Piece of"); `link_ids` are the links its delete left untyped, which
+    #: take the kind back unless they have been given another one since.
+    restore: bool = False
+    key: str | None = Field(default=None, max_length=24)
+    link_ids: list[int] = Field(default_factory=list, max_length=100_000)
 
 
 class RelationPatch(BaseModel):
@@ -70,6 +77,8 @@ def list_types(
 def create_type(body: RelationIn, session: Session = Depends(get_session)) -> dict:
     name = _clean(body.name)
     key = _key(name or "")
+    if body.restore and body.key:
+        key = _key(body.key)
     if not name or not key:
         raise HTTPException(status_code=422, detail="A kind of link needs a name.")
     known = manager.relation_types(session)
@@ -77,6 +86,13 @@ def create_type(body: RelationIn, session: Session = Depends(get_session)) -> di
         raise HTTPException(status_code=409, detail="There is already a kind of link with that name.")
     row = RelationType(key=key, name=name, inverse=_clean(body.inverse), directed=body.directed, colour=_colour(body.colour))
     session.add(row)
+    if body.restore and body.link_ids:
+        links = EntryLink.__table__  # every space's, as the delete was
+        for start in range(0, len(body.link_ids), 500):
+            chunk = body.link_ids[start:start + 500]
+            session.execute(
+                update(links).where(links.c.id.in_(chunk), links.c.link_type.is_(None)).values(link_type=key)
+            )
     session.commit()
     manager.forget_relation_types(session)
     return manager.relation_types(session)[key]
@@ -114,8 +130,20 @@ def patch_type(key: str, body: RelationPatch, session: Session = Depends(get_ses
 @router.delete("/{key}")
 def delete_type(key: str, session: Session = Depends(get_session)) -> dict:
     row = _custom(session, key)
-    untyped = session.execute(update(EntryLink).where(EntryLink.link_type == key).values(link_type=None)).rowcount
+    # Everything Undo needs to put it back exactly (undo-1005): the row and
+    # which links carried it, since after this they carry nothing.
+    #
+    # On the table, not the mapped class: a kind is the whole notebook's, and
+    # an ORM statement here took the request's space filter, so a delete made
+    # while one space was open left that kind on every other space's links.
+    links = EntryLink.__table__
+    link_ids = list(session.scalars(select(links.c.id).where(links.c.link_type == key)))
+    restore = {
+        "key": row.key, "name": row.name, "inverse": row.inverse,
+        "directed": bool(row.directed), "colour": row.colour, "link_ids": link_ids,
+    }
+    untyped = session.execute(update(links).where(links.c.link_type == key).values(link_type=None)).rowcount
     session.delete(row)
     session.commit()
     manager.forget_relation_types(session)
-    return {"deleted": key, "links_untyped": untyped or 0}
+    return {"deleted": key, "links_untyped": untyped or 0, "restore": restore}

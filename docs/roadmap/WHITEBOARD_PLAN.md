@@ -323,7 +323,9 @@ change to the open board is not on its stack (the History sheet has it).
 | A link's kind or properties | added |
 | Clear completed reminders; delete an overdue or done reminder | added (`POST /reminders` `restore`; the past-date rule refused them) |
 | Empty the bin, purge a note | none by design: confirmed, permanent |
-| Detach a bookmark from a note being edited, entity merge, delete a note type, relation type, space or conversation | none yet (open; `notes-list.js` is at its gzip piece cap) |
+| Detach a bookmark from a note being edited, delete a note type, relation type (its links typed again), conversation, or a space that was empty or whose contents moved | added (undo-1005: each DELETE answers with what it removed; `restore` on the create, `POST /spaces/restore`, `POST /conversations/restore`) |
+| Delete a space with everything in it | none by design: confirmed, its files leave the disk |
+| Entity merge | none yet (open; another agent's) |
 
 ## 5. Phases
 

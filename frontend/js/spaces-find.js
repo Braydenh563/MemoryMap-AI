@@ -660,13 +660,36 @@ function initSpaceSwitcher() {
     try {
       const moveTo = $("space-delete-fate").value;
       const query = moveTo ? `?move_to=${encodeURIComponent(moveTo)}` : "";
-      await apiJson(`/spaces/${encodeURIComponent(id)}${query}`, { method: "DELETE" });
+      const wasOpen = activeSpaceId() === id;
+      const gone = await apiJson(`/spaces/${encodeURIComponent(id)}${query}`, { method: "DELETE" });
       if (moveTo) await loadEntries();
       $("space-delete-dialog").close();
       // Standing in the space you just deleted has to move you somewhere real,
       // and reload() alone would leave the header naming a space that is gone.
       if (activeSpaceId() === id) setActiveSpace("default");
       else await loadSpaces();
+      //: Undo (undo-1005) when the delete lost nothing: an empty space, or one
+      //: whose contents moved, which go back row by row. A delete that took
+      //: the contents with it has no Undo (`restore` is null): its files are
+      //: gone from the disk, which is why the dialog asks first. Deleting the
+      //: open space reloads the page, which empties the stack, so none then.
+      let restore = wasOpen ? null : gone?.restore;
+      if (restore) {
+        const remake = async () => {
+          await apiJson("/spaces/restore", { method: "POST", body: JSON.stringify(restore) });
+          await loadSpaces();
+          if (moveTo) await loadEntries();
+        };
+        const action = pushUndo(`Deleted the space “${gone.name}”`, remake, async () => {
+          restore = (await apiJson(`/spaces/${encodeURIComponent(id)}${query}`, { method: "DELETE" })).restore || restore;
+          await loadSpaces();
+          if (moveTo) await loadEntries();
+        });
+        toastAction(`Deleted “${gone.name}”.`, "Undo", async () => {
+          settleUndoFromToast(action);
+          await remake().catch((e) => toast(e.message, true));
+        });
+      }
     } catch (err) {
       error.textContent = err.message;
     }

@@ -34,7 +34,7 @@ def test_detach_bookmark(client):
     client.post(f"/entries/{entry['id']}/bookmarks", json={"bookmark_id": bookmark["id"]})
 
     response = client.delete(f"/entries/{entry['id']}/bookmarks/{bookmark['id']}")
-    assert response.json() == {"detached": True}
+    assert response.json()["detached"] is True
     attached = client.get(f"/entries/{entry['id']}/bookmarks")
     assert attached.json() == []
 

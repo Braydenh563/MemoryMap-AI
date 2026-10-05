@@ -1634,9 +1634,10 @@ async function loadConversationList() {
     items.push(
       makeMenuItem("ph:trash Delete", "Delete this chat", async () => {
         if (!(await confirmDialog("Delete this saved chat?"))) return;
-        await apiJson(`/conversations/${conversation.id}`, { method: "DELETE" });
+        const gone = await apiJson(`/conversations/${conversation.id}`, { method: "DELETE" });
         if (chatConv.id === conversation.id) newChatConversation();
         loadConversationList();
+        chatDeleteUndo(gone);
       })
     );
     //: Six rows is past the ceiling (DESIGN.md): what you do to it, its address, and the two that put it away.

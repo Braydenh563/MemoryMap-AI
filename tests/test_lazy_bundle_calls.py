@@ -105,6 +105,9 @@ REACHED_AFTER_LOAD = {
     #: The same for the palette: `closePalette` is called (Escape, the chord's
     #: toggle, a chord that closes overlays) only while `#palette-overlay` is
     #: showing, and only `openPalette`, whose stand-in loads the bundle, shows it.
+    #: The chart under an Ask answer (section 17 row 4) is drawn only inside
+    #: the `.then` of `ensureModule("answerChart")`, and only when that said it loaded.
+    "drawAnswerChart": "answerChart, called only after ensureModule(\"answerChart\") resolved true",
     "closePalette": "appPalette, called only while the palette overlay is showing, and only openPalette shows it",
     "closeOnboarding": "onboarding, called on Escape only while the overlay is open, and only openOnboarding opens it",
     #: Capture's staged-files list asks the clear button to re-sync when it

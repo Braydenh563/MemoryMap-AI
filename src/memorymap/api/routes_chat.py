@@ -1370,7 +1370,7 @@ def _prepare(
         #: prompt below hands it to the model as ground truth rather than
         #: asking it to work the numbers out.
         "stats": (
-            {"kind": stats.kind, "text": stats.text, "facts": stats.facts}
+            {"kind": stats.kind, "text": stats.text, "facts": stats.facts, "chart": stats.chart}
             if stats is not None
             else None
         ),
@@ -1946,6 +1946,9 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             "when_phrase": prepared["when_phrase"],
             "as_of": prepared.get("as_of"),
             "as_of_revisions": prepared.get("as_of_revisions") or {},
+            #: A bar or a line for a counting or trend question
+            #: (`ai/stat_charts.py`); the page draws it under the answer.
+            "chart": (prepared["stats"] or {}).get("chart"),
             "answered_by": (
                 "needle (tools only)"
                 if tools_only and will_answer

@@ -637,7 +637,11 @@ HELP_TOPICS: list[dict] = [
             "most\". These are counted from your data rather than generated, so "
             "the numbers are exact, the answer is instant, and it works even "
             "with no AI model running at all. Private and binned notes are never "
-            "counted."
+            "counted. Ask a counting question and a chart goes under the answer "
+            "(\"how many notes per category\", \"notes per month\", \"chart my "
+            "race times\"): a bar or a line drawn from the same counted numbers, "
+            "with Data to open them as a table and Save as PNG to keep the picture. "
+            "A trend needs at least three notes with a number in them."
         ),
         "badge": {"label": "Chat", "tab": "chat"},
     },

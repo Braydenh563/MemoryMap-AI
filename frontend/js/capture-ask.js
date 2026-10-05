@@ -1871,6 +1871,14 @@ function answerFigure(entry, n, k, alts, sizes) {
 
 function placeAnswerFigures(answerEl, meta, question) {
   const targets = answerEl && !answerEl.nodeType ? [...answerEl] : answerEl ? [answerEl] : [];
+  //: A counting or trend question's chart (ai/stat_charts.py), drawn once under
+  //: the answer; answer-chart.js loads the first time one arrives.
+  if (meta?.chart && targets.length && !targets[0].querySelector(".answer-chart")) {
+    ensureModule("answerChart").then((loaded) => {
+      const figure = loaded ? drawAnswerChart(meta.chart) : null;
+      if (figure && !targets[0].querySelector(".answer-chart")) targets[0].append(figure);
+    });
+  }
   if (!targets.length || targets.some((t) => t.querySelector(".answer-figure"))) return;
   const notes = meta?.raw_results || [];
   const { picture_alts: alts, picture_sizes: sizes } = meta || {};

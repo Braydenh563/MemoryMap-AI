@@ -810,7 +810,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 8 | ~~Placed 2026-09-13~~ | ~~`/files/gallery`'s five callers onto `apiPagedList`, then its default to 200~~ built 2026-09-24 (`tests/test_gallery_paging.py`) | done | HISTORY |
 | 9 | ~~§16~~ | ~~cache `similar_pairs` for link suggestions and tensions~~ built 2026-09-24: keyed by the matrix's version; 5,000 notes 322 to 104 ms a repeat request (`tests/test_similar_pairs_cache.py`) | done | HISTORY |
 | 10 | ~~D5~~ | ~~typed properties on notes~~ built: KG4 (2026-10-04) for the properties, the types and the note head; 2026-10-05 the gate's rest, the graph colouring by note type and a type's own colour (`tests/test_note_types_graph_d5.py`); left: the Library grouping notes by type | done | HISTORY |
-| 11 | §17 | ~~review queue~~ built 2026-10-05 (`is:review`, `tests/test_review_queue_17.py`); ~~filing style, explain this note, most opened this month~~ built 2026-10-05; ~~tidy proposals~~ built 2026-10-05; charts from questions (M); `.ics` export built 2026-09-26 | S to M | §17 |
+| 11 | §17 | ~~review queue~~ built 2026-10-05 (`is:review`, `tests/test_review_queue_17.py`); ~~filing style, explain this note, most opened this month~~ built 2026-10-05; ~~tidy proposals~~ built 2026-10-05; ~~charts from questions~~ built 2026-10-05; `.ics` export built 2026-09-26 | S to M | §17 |
 | 12 | ~~D6~~ | ~~the calendar strip, the yesterday/tomorrow pair and the month popover~~ built 2026-10-04 (`timeline.js`, `note-cards.js`; HISTORY, "the consistency contract's missing lints") | done | HISTORY |
 | 13 | ~~§1, D14~~ | ~~the lints not written: surface budget, one primary per modal, meta without border or hover, a menu item's rest background, every `data-action` in the palette~~ built 2026-10-04 (`tests/test_consistency_contract.py`); left: the two ratchets (5 modals with 2 to 3 filled buttons, 13 chip rules) | done | HISTORY |
 | 14 | ~~A8~~ | ~~the '?' help on every tab's dock (Chat and Graph have it)~~ built 2026-10-04: Dashboard and Reminders were the two docks without one (`tests/test_dock_help_507.py` fails on a dock with none) | done | HISTORY |
@@ -1570,7 +1570,7 @@ and they go first in the next session's World-class section.
 | 100% offline, models local; optional web search for context | Built (models through Ollama, not bundled, by decision; web search opt-in) |
 | File attachments copied into the app's folder | Built (Files, three readings per image, PDFs read page by page) |
 | Google Drive plus Notion plus NotebookLM | Built as Library, Documents and Ask with sources |
-| AI-generated data visualisation | **Open: charts from questions** |
+| AI-generated data visualisation | ~~Open: charts from questions~~ built 2026-10-05 |
 | Last five queries; most-accessed information | Built (Ask history); **open: most-opened widget** |
 | A log of everything entered, accessed, altered, archived | Built (activity log) |
 | Manual links, or tell the AI about a link | Built |
@@ -1632,7 +1632,7 @@ note's first 600 characters read aloud, in the note's menu under Connect.
 
 **State 2026-09-24:** the seven rows: 1 review queue: built 2026-10-05
 (HISTORY.md, "Moved from the plans, 2026-10-05 (section 17)"). 2 tidy categories: built 2026-10-05 (HISTORY.md, same heading). 3 filing style:
-built 2026-10-05 (HISTORY.md, same heading). 4 charts from questions (c), M. 5 most opened: built 2026-10-05
+built 2026-10-05 (HISTORY.md, same heading). 4 charts from questions: built 2026-10-05 (HISTORY.md, same heading). 5 most opened: built 2026-10-05
 (HISTORY.md, same heading). 6 explain this note: built 2026-10-05 (HISTORY.md, same heading). 7
 calendar: built. The month view (`#reminder-calendar`) and, 2026-09-26,
 `.ics` export with its two buttons (HISTORY.md, "Moved from the plans,

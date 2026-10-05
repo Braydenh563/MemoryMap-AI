@@ -41544,6 +41544,45 @@ are probably one name, was already built.)
   the sweep answers the list with a canned one and the unit tests use directed
   vectors); whether 0.80 is the right line for a person's real categories.
 
+### From WORLD_CLASS_PLAN.md section 17, row 4: charts from questions
+
+**State 2026-09-24:** 4 charts from questions (c), M: the original vision's
+"AI-generated data visualisation" had no chart.
+
+- **Built 2026-10-05 (worldclass-1005c).** `ai/stat_charts.py`, called first by
+  `notebook_stats.answer` (so "chart my race times", which names no tag or
+  category, is not turned away by the question pre-filter), returns a
+  `StatAnswer` whose `chart` is `{kind: bar | line, title, labels, values, unit,
+  format: count | number | duration}` and whose `facts` are the same rows. No
+  model: a regex matcher and SQL, so it works with Atlas off and cannot invent a
+  value. Three shapes: a count by category or tag (a bar, up to 12, with
+  "this week / month / year" windows); a count over time ("notes per
+  day / week / month / year", a line, empty periods drawn as zero); a number in
+  the notes over time ("chart my race times", "plot my weight": the notes that
+  contain the topic words, one value from each, a time such as 24:10 read as
+  seconds and drawn as m:ss, otherwise the first number after the topic word
+  with its unit). Fewer than 3 points is not a trend and falls through to
+  ordinary retrieval; private and binned notes are nobody's statistics. The
+  existing top-tags and top-categories answers carry a bar too. `/chat/stream`'s
+  `meta` carries `chart` (None for a plain answer). The page: `answer-chart.js`
+  (lazy, `ensureModule("answerChart")`, called from `placeAnswerFigures`) draws
+  horizontal bars or a line as SVG from tokens (its stylesheet is `css/lazy-answer-chart.css`, linked by the bundle: the boot CSS was 158 bytes over its cap with the rules in it, so `lazy-*.css` is the first lazy stylesheet, stamped through `asset_stamps`), `Data` opens the table, Save as
+  PNG clones the SVG with computed paint and saves through `saveFile`. Help:
+  the Guide's notebook-questions topic.
+- Decided (recommended, not confirmed): the chart sits under the answer text in
+  Ask only (the Chat tab does not draw it yet); a bar is horizontal so category
+  names read; 3 points is the line's floor.
+- Measured: `tests/test_charts_from_questions_17.py`;
+  `scratchpad/ui-sweeps/askchart.js` 10/10 at 1440 dark, 390 dark and light, and
+  1440 light (run on a fresh data dir: it counts categories): one chart,
+  bars equal the counts, the table repeats the chart, inside the answer, nothing
+  sideways, paint resolves to rgb from tokens, Save as PNG yields a PNG of
+  10 KB (magic bytes), a four-point line, times as m:ss, the save button 32 px
+  high at 1440 and a touch target at 390, no page errors.
+- Not verified: a real model's answer sitting beside a chart; the PNG's look in
+  the desktop window (the sweep captures what `saveFile` receives); the chart in
+  the Chat tab, which does not draw it.
+
 ## Built 2026-10-05: INBOX 598, 602 and 596's skeleton part (loading states)
 
 (The INBOX entries themselves are moved by the orchestrator; this is the

@@ -214,10 +214,20 @@ def asset_stamps() -> dict[str, str]:
     """Every script a page can load after boot, mapped to its stamp: what
     `lazyAssetStamp` (frontend/js/app.js) reads for a lazy bundle or a
     worker, so a file loaded on demand is stamped by its own bytes too."""
-    return {
+    stamps = {
         f"/js/{p.name}": _stamp_for(f"/js/{p.name}")
         for p in sorted((FRONTEND_DIR / "js").glob("*.js"))
     }
+    #: A lazy stylesheet (`css/lazy-*.css`, linked by its own bundle) is held
+    #: out of index.html so the boot CSS budget does not carry a surface that
+    #: is rarely opened (`tests/test_boot_budget.py`).
+    stamps.update(
+        {
+            f"/css/{p.name}": _stamp_for(f"/css/{p.name}")
+            for p in sorted((FRONTEND_DIR / "css").glob("lazy-*.css"))
+        }
+    )
+    return stamps
 
 
 _index_cache: dict[str, object] = {}

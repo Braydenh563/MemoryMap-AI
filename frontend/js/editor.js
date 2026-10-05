@@ -1173,10 +1173,11 @@ function editorLinkMatches(needle) {
   //: can do is ask for the list and let the *next* keystroke show it. The
   //: request itself is cached for 8s inside `loadMapBoardIndex`, so a burst
   //: of typing costs one call.
-  if (!mapBoardRows().length) {
+  if (typeof mapBoardRows === "function" && !mapBoardRows().length
+      && typeof loadMapBoardIndex === "function") {
     loadMapBoardIndex();
   }
-  const boards = mapBoardRows()
+  const boards = (typeof mapBoardRows === "function" ? mapBoardRows() : [])
     .filter((b) => b.id != null)
     .filter((b) => !query || String(b.title || "").toLowerCase().includes(query))
     .slice(0, 3)

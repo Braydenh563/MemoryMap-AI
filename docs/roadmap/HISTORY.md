@@ -7,6 +7,12 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (small-1005: the small open items)
+
+Small, well-defined open items cleared in one pass; each line says how it was verified.
+
+- **BACKLOG 115 row 8, saved searches.** Built, the row still read "Next": `settings-wiring.js` (`renderSavedSearches`, `persistSavedSearches`, `saveCurrentSearch`) draws the `saved_searches` preference as chips under the Notes filter (`#saved-searches`), and `tests/test_keyword_search.py` `test_saved_searches_round_trip` pins the preference. The row now says so; `tests/test_backlog_status_rows.py` pins the row to that evidence.
+
 ## OPEN.md rows closed, 2026-10-05 (the open-rows agent)
 
 The well-defined rows of `agent-remaining/OPEN.md` taken by one agent; each line says how it was verified.

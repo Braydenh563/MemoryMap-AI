@@ -367,7 +367,14 @@ function tensionCard(tension) {
   accept.className = "accent small";
   accept.textContent = "Yes: link these as contradicting";
   accept.addEventListener("click", async () => {
-    await apiJson("/entries/tensions/accept", { method: "POST", body: ids }).catch(() => null);
+    //: Only a write that happened says so (audit 2026-10-05, FE-12): the
+    //: card used to read "Linked as contradicting." when the POST had failed.
+    try {
+      await apiJson("/entries/tensions/accept", { method: "POST", body: ids });
+    } catch (error) {
+      toast(error.message || "Couldn't link these notes.", true);
+      return;
+    }
     tensionResolve(card, "Linked as contradicting.");
   });
   const dismiss = document.createElement("button");
@@ -375,7 +382,12 @@ function tensionCard(tension) {
   dismiss.className = "ghost small";
   dismiss.textContent = "Not a contradiction";
   dismiss.addEventListener("click", async () => {
-    await apiJson("/entries/tensions/dismiss", { method: "POST", body: ids }).catch(() => null);
+    try {
+      await apiJson("/entries/tensions/dismiss", { method: "POST", body: ids });
+    } catch (error) {
+      toast(error.message || "Couldn't dismiss this pair.", true);
+      return;
+    }
     tensionResolve(card, "Dismissed: this pair won't come back.");
   });
   actions.append(accept, dismiss);

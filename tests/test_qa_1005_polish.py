@@ -52,3 +52,15 @@ def test_a_reminders_actions_are_centred_on_its_first_line():
     block = block[: block.index("\n}\n")]
     assert re.search(r"#reminder-groups li \.entry-meta \{\s*position: relative;", block)
     assert "right: 0;" in _rule(block, "  #reminder-groups li .entry-meta > .entry-actions")
+
+
+def test_the_library_draws_its_view_switch_and_board_placeholders_before_data():
+    """With `/library` and the boards' bundle held 3s, the Cards/Rows well had
+    neither pressed and Boards & maps was blank (qa1005-polish.js `library`:
+    0 and 0, then 1 pressed and 4 placeholders; dockgrammar621.js had read
+    the unpressed well as a second segment style, skeletons.js the sub-tab as
+    BLANK at 390)."""
+    src = (JS / "library.js").read_text(encoding="utf-8")
+    load = src[src.index("async function loadLibrary()") :]
+    assert load.index("renderLibraryView();") < load.index('apiJson("/library")')
+    assert 'if (typeof wbLeaveFullscreen !== "function") showSkeletons($("library-boards-grid"), 4);' in src

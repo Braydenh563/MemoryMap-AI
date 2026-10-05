@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Library: the Cards and Rows switch shows your choice the moment the tab opens, and Boards & maps shows placeholders while its editors load; before, the switch had neither pressed until the list answered and the sub-tab was blank until the boards' bundle arrived (qa-1005, qa1005-polish.js with both held 3s: 0 and 0, then 1 and 4).
 - Notes: a task line in a note card draws as a box (ticked ones muted and struck through), as the note page and documents draw it; before, the card showed the line as written, dash and brackets included (qa-1005, qa1005-polish.js).
 - Chat, Notes and Library empty states: the Ask Atlas offer is set apart by space, not by a short hairline floating in the middle of the centred welcome (qa-1005, qa1005-polish.js: 3 rules to 0).
 - Reminders: a hovered reminder's actions now cover its time whole; on a reminder linked to a note (two lines) the strip sat 11px low and the top half of the time showed above it (qa-1005, qa1005-polish.js: 6 rows to 0).

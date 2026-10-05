@@ -19909,7 +19909,7 @@ function docCmGutter(CM) {
 //: This handler writes the line with its newline, remembers that text, and
 //: pastes it as a whole line above the caret's own. One caret only: with
 //: several, or any selection, CodeMirror's own behaviour is untouched.
-let docLineClipboard = null;
+const DOC_LINE_CLIP = { text: null };
 
 function docLineClipboardRange(state) {
   const sel = state.selection;
@@ -19929,7 +19929,7 @@ function docLineClipboardEvent(event, view) {
   if (!hit || !data) return false;
   data.clearData();
   data.setData("text/plain", hit.text);
-  docLineClipboard = hit.text;
+  DOC_LINE_CLIP.text = hit.text;
   if (event.type === "cut" && !view.state.readOnly) {
     view.dispatch({ changes: { from: hit.from, to: hit.to }, scrollIntoView: true, userEvent: "delete.cut" });
   }
@@ -19939,7 +19939,7 @@ function docLineClipboardEvent(event, view) {
 function docLinePasteEvent(event, view) {
   const text = event.clipboardData?.getData("text/plain");
   const sel = view.state.selection;
-  if (!docLineClipboard || text !== docLineClipboard || sel.ranges.length !== 1 || !sel.main.empty || view.state.readOnly) return false;
+  if (!DOC_LINE_CLIP.text || text !== DOC_LINE_CLIP.text || sel.ranges.length !== 1 || !sel.main.empty || view.state.readOnly) return false;
   const line = view.state.doc.lineAt(sel.main.head);
   view.dispatch({
     changes: { from: line.from, insert: text },

@@ -593,22 +593,17 @@ function escapeMenuIfClipped(menu, opener) {
 //: next close puts it back). No exit runs under reduced motion, where the
 //: transition is 0s, and then it goes home at once as it always did.
 function restoreEscapedMenuAfterExit(menu) {
-  if (!menu._escapedHome) return;
-  const exit = menuExitMs(menu);
-  if (!exit) {
-    restoreEscapedMenu(menu);
-    return;
-  }
-  clearTimeout(menu._restoreTimer);
-  menu._restoreTimer = setTimeout(() => {
-    menu._restoreTimer = null;
-    if (menu.classList.contains("hidden")) restoreEscapedMenu(menu);
-  }, exit);
+  if (menu._escapedHome) afterMenuExit(menu, () => menu.classList.contains("hidden") && restoreEscapedMenu(menu));
 }
 
-//: How long a menu that has just been hidden stays drawn for its exit, in ms
-//: (a frame over the transition), or 0 when none runs (reduced motion, or an
-//: engine without `allow-discrete`, where `display` does not transition).
+//: After the menu's exit fade (`menuExitMs`), or now when it has none.
+function afterMenuExit(menu, fn) {
+  const exit = menuExitMs(menu);
+  clearTimeout(menu._exitTimer);
+  if (exit) menu._exitTimer = setTimeout(fn, exit);
+  else fn();
+}
+
 function menuExitMs(menu) {
   const style = getComputedStyle(menu);
   if (!style.transitionProperty.split(",").some((name) => name.trim() === "display")) return 0;
@@ -947,24 +942,12 @@ function wireEscapedActionMenu(wrap) {
       //: every menu this wires left at once. The focus still goes to the opener
       //: now; the node goes home when the fade is over, if it is still closed.
       if (held && opener.isConnected) opener.focus({ preventScroll: true });
-      const goHome = () => {
+      afterMenuExit(menu, () => {
         if (!menu.classList.contains("hidden") || menu.parentElement === homeParent || !homeParent) return;
         homeParent.insertBefore(menu, homeNext);
         menu.classList.remove("action-menu-escaped");
-        menu.style.left = "";
-        menu.style.top = "";
-        menu.style.visibility = "";
-        // The height decisions are the escape's, not the menu's own: left
-        // behind they would cap it in its home position too. The same goes for
-        // the tier the escape may have lifted it to (INBOX 239).
-        menu.style.maxHeight = "";
-        menu.style.overflowY = "";
-        menu.style.zIndex = "";
-      };
-      const exit = menuExitMs(menu);
-      clearTimeout(menu._goHomeTimer);
-      if (exit) menu._goHomeTimer = setTimeout(goHome, exit);
-      else goHome();
+        Object.assign(menu.style, { left: "", top: "", visibility: "", maxHeight: "", overflowY: "", zIndex: "" });
+      });
     }
   });
   observer.observe(menu, { attributes: true, attributeFilter: ["class"] });

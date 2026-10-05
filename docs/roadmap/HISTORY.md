@@ -483,6 +483,16 @@ The second pass over `agent-remaining/OPEN.md` on 2026-10-05, section by section
 
 ## Moved from the plans, 2026-10-05 (op3-1005)
 
+- CHAT_PLAN, OPEN.md triage. The placed lists (72, 63, 71, 45) were already
+  struck and moved by earlier passes; checked, nothing left. The question
+  hover row: hung `calc(100% + 2px)` under its bubble, a 25px row in a 13px
+  gap; it overlapped the answer below by 13px in height everywhere and in
+  width only from 640 to 820 (7, 3 and 13px at 820, 700 and 640; -28 and
+  -53px, clear, at 1024 and 1280, where the answer's width cap leaves room).
+  Now `top: calc(100% - 0.75rem)`: 2px under the bubble's last line, 1px
+  clear of the next message at 640 and 1280 (a probe through `addBubble`).
+  `tests/test_chat_transcript.py`.
+
 - GRAPH_PLAN, a slimmer node. Built: `/graph?slim=1` leaves out a note
   node's keys at their default (`_NOTE_DEFAULTS`, routes_graph.py) and a
   link's three nulls, times to the second, centrality to six figures; the

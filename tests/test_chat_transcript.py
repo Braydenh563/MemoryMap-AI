@@ -161,3 +161,14 @@ def test_a_citation_mark_takes_a_finger_sized_tap_on_a_touch_screen() -> None:
     after = block[block.index(".answer-citation-link::after") :]
     assert "height: var(--target-min)" in after, "the mark's touch box is not the touch floor's height"
     assert "position: absolute" in after, "the touch box must not take room in the line"
+
+
+def test_a_bubbles_hover_row_hangs_over_its_own_foot_not_the_next_message() -> None:
+    """CHAT_PLAN (OPEN.md triage): hung 2px under its bubble, the 25px row
+    overran the 13px between messages and lay 7 to 13px across the answer
+    under a question at 640 to 820. It now starts inside its own bubble's
+    foot padding, 2px under the last line (a probe, 640 and 1280)."""
+    rule = CSS[CSS.index(".msg-actions {\n  position: absolute;") :]
+    rule = rule[: rule.index("\n}")]
+    assert "top: calc(100% - 0.75rem);" in rule
+    assert "100% + 2px" not in rule

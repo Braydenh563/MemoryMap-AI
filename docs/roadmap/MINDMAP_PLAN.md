@@ -476,7 +476,7 @@ extended with the numbers named.
    Branch sections carry add topic, add child, add sibling, collapse,
    branch colour and focus; the layout picker and Tidy are still in the
    top bar, and the Style, Insert, Arrange, Present and Export menus are
-   not written. See `agent-remaining/mindmap.md` for the measured numbers
+   not written. See `archive/agent-remaining/mindmap.md` for the measured numbers
    and the rest of the list.
 2 to 9. **Built, 2026-09-12**: the node edit strip, the node radial, the
    link radial, the mid-line add, the text-size grip, uncollapse, drag to
@@ -593,7 +593,7 @@ radials are used is confusing and doesnt feel clean", and "I want more and
 better ways to differentiate core idea nodes in the mindmap".
 
 The audit that this is written from is in
-[`agent-remaining/mindmap.md`](agent-remaining/mindmap.md), measured by
+[`archive/agent-remaining/mindmap.md`](archive/agent-remaining/mindmap.md), measured by
 `scratchpad/ui-sweeps/mapaudit.js` on a map of twelve topics: **112 controls
 across six surfaces**, add-a-child reachable from five places, a fold from
 four, a colour from four, six actions reachable only from a ring nobody finds

@@ -1,8 +1,8 @@
 # The map's tools, its two connections and its pan (MINDMAP_PLAN section 13): what is left
 
-> Companions: [MINDMAP_PLAN.md](../MINDMAP_PLAN.md) **section 13** (the read,
-> the decisions, the phases) · [maprender.md](../archive/agent-remaining/maprender.md) (13a, the drag
-> pick-up) · [HISTORY.md](../HISTORY.md) "Moved from the plans, 2026-09-21"
+> Companions: [MINDMAP_PLAN.md](../../MINDMAP_PLAN.md) **section 13** (the read,
+> the decisions, the phases) · [maprender.md](maprender.md) (13a, the drag
+> pick-up) · [HISTORY.md](../../HISTORY.md) "Moved from the plans, 2026-09-21"
 >
 > One agent, one worktree (`worktree-agent-mapux2`), port 8794, data dir
 > `/tmp/mm-mapux2`. Every figure below was taken in a real Chromium against
@@ -124,11 +124,11 @@ branch head first (`canvasconventions.js` 20/47 there), then built.
 
 - ~~**13e's other half: a map-level default for new topics.**~~ **Built
   2026-09-21** by the next agent; the remaining list is
-  [maptheme.md](../archive/agent-remaining/maptheme.md) and the record is in HISTORY.md ("Moved from the
+  [maptheme.md](maptheme.md) and the record is in HISTORY.md ("Moved from the
   plans, 2026-09-21", "From MINDMAP_PLAN.md section 13e: the map's own look").
 
 - The rest of section 13's phases, in the plan's own order. Picked up in
-  [maptheme.md](../archive/agent-remaining/maptheme.md).
+  [maptheme.md](maptheme.md).
 
 ## Found, not fixed
 

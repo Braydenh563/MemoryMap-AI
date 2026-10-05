@@ -1,7 +1,7 @@
 # MINDMAP_PLAN section 13 and its placed items: what is left (2026-10-04)
 
-> Companions: [MINDMAP_PLAN.md](../MINDMAP_PLAN.md) section 13 and the
-> "Placed from INBOX" lists · [HISTORY.md](../HISTORY.md) "Moved from the
+> Companions: [MINDMAP_PLAN.md](../../MINDMAP_PLAN.md) section 13 and the
+> "Placed from INBOX" lists · [HISTORY.md](../../HISTORY.md) "Moved from the
 > plans, 2026-10-04 (the map's palette, font and the app's own default)"
 >
 > One agent, own worktree, port 8794, data dir `/tmp/mm-mind`. Figures were
@@ -53,4 +53,4 @@
   DejaVu Sans here).
 - The handles of the lines *out of* the selected topic against the strip.
 - A themed map's re-import still comes back as topics carrying the look, not
-  as a themed map (unchanged, see [maptheme.md](../archive/agent-remaining/maptheme.md)).
+  as a themed map (unchanged, see [maptheme.md](maptheme.md)).

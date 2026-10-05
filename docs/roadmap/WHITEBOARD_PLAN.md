@@ -864,7 +864,7 @@ plus d3 and p5 vendored; 124 `backdrop-filter` rules across the CSS.
   without asking; a convention the app breaks on purpose keeps its reason
   written next to it.
   **The whiteboard and map half is built**: the checklist, with before and
-  after for each convention, is `agent-remaining/mapux2.md` (agent M,
+  after for each convention, is `archive/agent-remaining/mapux2.md` (agent M,
   `canvasconventions.js` 54/54). Its one row left, Escape during a marquee or
   lasso, was measured 2026-09-23 and was wrong: it took the rectangle away
   and then cleared the selection as well, and the release's click cleared

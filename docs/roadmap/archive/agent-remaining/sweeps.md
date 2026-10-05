@@ -1,7 +1,7 @@
 # Sweeps: making scratchpad/ui-sweeps/ trustworthy again
 
-> Companions: [HANDOVER.md](../HANDOVER.md) · [MINDMAP_PLAN.md](../MINDMAP_PLAN.md) ·
-> [UI_MODERNISATION_PLAN.md](../UI_MODERNISATION_PLAN.md) · [TIMELINE_PLAN.md](../TIMELINE_PLAN.md)
+> Companions: [HANDOVER.md](../../HANDOVER.md) · [MINDMAP_PLAN.md](../../MINDMAP_PLAN.md) ·
+> [UI_MODERNISATION_PLAN.md](../../UI_MODERNISATION_PLAN.md) · [TIMELINE_PLAN.md](../../TIMELINE_PLAN.md)
 >
 > Written 2026-09-23, own worktree, own server (`:8803`, `/tmp/mm-agentS`).
 > `scratchpad/ui-sweeps/` holds 552 files; `all.sh` itself only runs a small

@@ -1,7 +1,7 @@
 # Mind map: what is left
 
-> Companions: [MINDMAP_PLAN.md](../MINDMAP_PLAN.md) ·
-> [HANDOVER.md](../HANDOVER.md) · [../../DESIGN.md](../../DESIGN.md)
+> Companions: [MINDMAP_PLAN.md](../../MINDMAP_PLAN.md) ·
+> [HANDOVER.md](../../HANDOVER.md) · [../../DESIGN.md](../../../DESIGN.md)
 >
 > Rewritten after the seventh run, which closed INBOX 177's four node-styling
 > requests: a topic resizes (`3c9b874`), a topic can be a core idea and an

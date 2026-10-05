@@ -204,7 +204,7 @@ being written by running agents stay beside this one.
   tall. [visual-c.md]
   *Opus: the menu's own length is a design call.*
 - **The mind map's own leftover list was re-checked item by item, 2026-09-20**
-  (`agent-remaining/mindmap.md`, "Left to do", rewritten with what a run
+  (`archive/agent-remaining/mindmap.md`, "Left to do", rewritten with what a run
   against this head finds). Four of its six items were already done, two of
   them by decisions taken after the list was written: the dock's Layout
   section exists and MINDMAP_PLAN §12.5 decided a map shows no Insert or
@@ -555,11 +555,256 @@ the head, so they carry no row of their own.
   it named is fixed (CHANGELOG, `draftreadonly.js`). [writing-desk]
   *Needs: a slow backend and a real model.*
 
-The other agent files in this folder are the ones still carrying live work or
-written to in the last two days (`backend-probe`, `mindmap`, `noteobj`,
-`notes`, `proseeditor`, `sweeps`, `tourdepth`, `wrapup-0927`, `graph-wb-0926`,
-`mapux2`, `openitems`, `sweep-1004`), plus `agent_common.md`, the rules every
-agent carries. Their rows are theirs until the work lands or is carried here.
+No per-agent file stays in this folder: the 2026-10-05 pass carried the last
+ones' rows below and archived them (`agent_common.md` and `agent_rules_1005.md`,
+the rules every agent carries, stay). A running agent writes its own
+`<name>.md` here; the next ledger pass carries what it left.
+
+## Carried from the agent files archived 2026-10-05
+
+Thirty-eight finished agent files moved to
+[`../archive/agent-remaining/`](../archive/agent-remaining/) (no agent was
+running; the finished work is in HISTORY.md). Each row below is what a file
+still held that the code, INBOX, BACKLOG and the plans do not already hold,
+checked by grep on the head the day they moved; the file named in brackets has
+the measurements. Items the plans already carry (the Atlas rows 540 to 575,
+WORLD_CLASS_PLAN's B2 and I7 rows, the web clipper's page intake,
+UI_MODERNISATION_PLAN's off-band widths, WHITEBOARD_PLAN decisions 30 to 36's
+ghosts, line jumps and carried waypoints, AGENT_SKILLS_REFORM's skill-run Undo)
+are not repeated. Found built since and dropped: the entity merge Undo, the
+note-type, space and conversation delete Undos, `autonomous.reset_state()`,
+the `settingsnav.js` skip below 640, `stripground.js` and
+`settings-skeletons.js` on the branch, the board card's expanded state (INBOX
+238), the lazy graph popup resize stand-in, the reminder chime primed on the
+first press, the OCR reading's collapse, Atlas hiding behind a modal, the
+Atlas persona text in Settings, the spelling "Boards & maps" and the About
+pane's name, the errors sweep's aside clipping at 390.
+
+### Notes, Documents and Library
+
+- **Lists have no edge auto-scroll for a drag selection** (INBOX 608's list
+  half; boards and maps are built): Notes and the Library. A drag past the top
+  or bottom of the list should scroll it. [boardmap-1005]
+  *Left: `frontend/js/notes-list.js` and `library.js` own the lists; nothing there scrolls on a drag.*
+- **Skeletons for a board's Library and Notes tabs** (INBOX 596): the tabs
+  draw nothing while they load. `skeletons.js` also reads the Library and
+  Documents views BLANK at 1440 and 390 (the held requests chain, so the list
+  is probably reached after 300 ms): measure before deciding.
+  [boardmap-1005, small-1005]
+- **Phone selection menus and the selection bar** (documents): iOS and Android
+  draw Cut, Copy and Paste above a selection, where the bar also goes; if a
+  report arrives the bar goes below the selection on `(pointer: coarse)` (one
+  line in `selectionBarShow`). Section 18's chat commands on a phone press
+  controls in the chat dock and were never measured against it.
+  [documents-1004]
+  *Needs: a phone.*
+- **Prose tools**: Harper's lint config per kind in the dictionary dialog
+  (`harper-worker.js`, `setLintConfig`; about 200 rules, all or nothing today);
+  suggestion mode's author and date (CriticMarkup `{>>comment<<}`; export
+  writes `MemoryMap` for every revision); a voice and speed picker for read
+  aloud (system voices only today). [proseeditor]
+- **A board object in a note, three unmeasured places**: at 390x780 (the card
+  measured 290x104 in a one-off probe, not a step in `noteobject.js`), in a
+  chat transcript (`renderMarkdown` draws it there; a model could write one),
+  and the inline `[[board:12|House jobs]]` chip for the id form (reasoned, only
+  the dead-reference case measured). [noteobj]
+- **Package bundles**: the Word writer has never run here (python-docx is not
+  in the sandbox venv, so `tests/test_docexport_pictures.py`'s five writer
+  tests skip: run them once in a scratch venv, then open one export in Word or
+  LibreOffice); no real pip ran (every bulk test fakes `subprocess.Popen`);
+  the bundle groupings are a recommendation (`BUNDLES`, one tuple); the phone
+  rows measured clean, not designed further. [extras-bundles]
+  *Needs: a scratch venv with the extra, then Word or LibreOffice.*
+- **The Writing Room and the table full view at phone width**: the full view's
+  X is 28x28 (under `--target-min`, the same as the bar's other buttons) and
+  its phone rules were not measured; the Writing Room's stretch was measured at
+  1440x900 light on the two `NOTE_SURFACES` boxes only, the graph's two note
+  boxes not opened. [notes]
+
+### Whiteboard, mind map and Atlas
+
+- **Board and map history**: a board's history does not survive a reload and an
+  agent's or another tab's change is not on its stack (decision 17 says the
+  event log is the long memory); redo of the board-level steps (theme,
+  numbering, layout) is not swept; `wbMapCrossLinkToBranch`,
+  `wbMapReverseCrossLink`, `wbMapCutCrossLink`, `wbMapAddReference`,
+  `wbApplyMapTemplate`, `wbArrangeMindMap`, `wbMindMapAddCard`, bucket fill and
+  fit to text are recorded through `wbRecordGesture` but not swept one by one.
+  [undo-1005]
+- **Draw.io phase 2's tail** (WHITEBOARD_PLAN 30 to 36 hold the decisions):
+  Phase G's affinity sort (Group by theme proposes named frames, one Undo) and
+  the claim check, both with faked-transport tests and
+  `agent.PROSE_BUDGET_CHARS`; the time machine's plain-words "what changed";
+  expand from my notes and summarise this branch (MINDMAP_PLAN 12.3 item 2);
+  ports are mouse and pen only (touch has no hover). Found: SQLite reuses a
+  deleted row's id (no AUTOINCREMENT on the board item tables), so one id's log
+  can hold two items; the board history starts a fresh state on each `created`
+  but any other reader of an item's log (`events.replay`) would merge them;
+  placements made before the history, a duplicated board's copies and a
+  generated map's topics have no `created` event. [wb-phase2]
+- **Frames and the map plan's rest**: nested frames whose tops are close at a
+  phone's fitted zoom share the grown title area and the inner one wins it
+  (aim at the outer title's words); MINDMAP_PLAN 12.2's rest (a boundary round
+  a lassoed set that is not one branch, priority, progress, flags and due
+  dates, floating topics and palettes, an outline pane). [harness-wb-1004]
+- **Map render and persistence**: `wbMapNodeSize` and the rendered node
+  disagreed by 94px at 390x844 (found by `mapstrip.js`'s corner ring; not
+  reproduced since, reproduce before theorising); a map does not re-frame
+  after a tidy (a decision: frame after a tidy that pushed content off the
+  canvas, or rely on Fit); `_export_opml` and `_export_freemind` build the
+  tree with a recursive `build` and nothing bounds a map's depth (a thousand
+  Tabs down one branch is a `RecursionError`, a 500); tidy, copy branch and
+  "open every folded branch" persist one node per request (a bulk endpoint if
+  any ever matters); `mapstyle.js`'s "radial slot" check reads `w: 0` on the
+  base too. [mindmap, mapux2]
+- **The Boards and maps dashboard widget's tall maps**: a 25-topic tree-right
+  map draws a 20x40 paper in the 72x40 row box. Cropping a tall map or a
+  square box is the owner's judgement. [mindmap-13e]
+  *Needs: the owner's call.*
+- **The sticky's grip in dark**: `contrast.js` (THEME=dark, a board with one
+  sticky) reports `.wb-object-grip` at 1.42:1 on the sticky's ground (3:1 is
+  the bar, WCAG 1.4.11); tint the glyph from the sticky's own colour.
+  [design-1004]
+- **Atlas motion, measured left** (the owner's rows 554 to 575 are above):
+  `atlas619-blend.js` stepped by hand shows laughing's end moving the figure
+  about 3px over three frames, base and fix alike (390 dark: the masculine
+  tilt's start 7px, the feminine wiggle's end 3.3px; not isolated, trace the
+  figure box's computed transform per stepped frame at 390); `atlas601-tail.js`
+  still reads the tail's tip still for 1.8 to 2.2s under load 15 to 21
+  (re-measure on a quiet machine); at 390 the props and viewer sweeps ran 2 to 7
+  frames a second, so the coil, the moon and the feminine sit's calm read under
+  threshold there; the masculine cloak's flare leaves the torso's taper at the
+  join by 0.1 to 0.2 drawing units. Deferred since 2026-09-27: an arm rig for
+  poses that cross in front of the body (hands on hips, clasped, to chest; the
+  arms are separate svg roots behind the body in every look), and a fuller
+  front hair mass for the feminine look (the owner at release). The Atlas guide
+  panel's '?' did not reproduce (needs the owner's case). [atlas-1005, wrapup-0927]
+
+### Settings, help and the shell
+
+- **The badge target**: `badgealign.js` measures against the x-height band
+  (INBOX 503) while the recipe's target is the capital centre (INBOX 592), so
+  it prints 1.0 to 1.8px "outliers" that are 0.5 to 1.0px from the painted ink
+  centre; `iconalign.js` prints 1.17px for the Installed badge and search chips
+  in the sandbox font (0.95px in Segoe; painted ink 0.5px). Decide the target
+  in one place and move the sweep. [iconalign-skel-1005, small-1005]
+  *Needs: a design call.*
+- **Help audit's remainder**: menus drawn on press (the chat "/" menu, a
+  message's menu, the board menus, the notes list's menus) are checked by
+  source grep only, and a sweep that presses each and lists its items would
+  close it; the JS-built popovers (`manage-cat-help`, `manage-tags-help`,
+  `inbox-help`) and the whiteboard and map help bodies were not read; the sweep
+  runs at 1440 only, so a control a narrow window moves into a menu is named for
+  the wide layout. [helpaudit-1005]
+- **Settings, Tools it can use at 390**: a tall empty gap between "Tokens per
+  step"'s description and its field (seen in a screenshot, not measured, not
+  checked against the base). [header-bars-1005]
+- **Models pane first frame**: "Checking the models…" shows as a bare line
+  until the first status answer; its lists are skeleton-ready (`status.js`)
+  but the sweep never caught the null-status frame. [iconalign-skel-1005]
+- **Chat panels not measured**: `#chat-model-panel` with a model connected
+  (`popupsart.js` cannot open it without one; use `scratchpad/llama-dev.sh`)
+  and the chat dock's select menus opened from inside the How it answers sheet
+  at 390. Status chips: WORLD_CLASS_PLAN 1.2's wording and DESIGN.md's label
+  recipe disagree (taken: the label recipe, `META_EDGED`; if the owner wants
+  statuses edgeless it is one rule, `.chip.item-label`'s border). [design-1004]
+  *Needs: the owner's call on the chips.*
+- **The tour**: a first-run notebook (no notes, no boards) was only covered by
+  forcing `TOUR_NEEDS.map` false, not by a fresh data dir walk; widths between
+  600 and 1100 (a tablet, a half-window) were not walked, and the Timeline's
+  Options and the reminders' More were measured at 390 only. [tourdepth]
+- **Tablet layouts**: the Documents dock is two rows at 1024 (its identity
+  asks for 22rem beside the actions); the arc layout of a 430-note notebook
+  framed whole is a line of dots until zoomed; the Notes sub-tabs do not fit the
+  list dock's row at 1093 (on a window 700px tall or less the strip could take
+  the identity slot as a compact seg, which changes the dock grammar: the
+  owner's or the plan's decision); the status bar folding into the top bar
+  under 680px is not built. [graph-wb-0926]
+- **Dismissed reminder notifications**: a dismissed reminder notification never
+  returns (`status.js` `notificationsDismissed`, keyed `reminder:<id>`), so a
+  reminder snoozed and overdue again stays hidden from the bell. By design of
+  INBOX 508; revisit if the owner snoozes reminders. [sweep-1004]
+- **Dashboard and Timeline**: D6's streak (the calendar strip and the day
+  before and after are built, `daystrip.js`; a streak count has no surface:
+  the dock is at its grammar and `.dock-chip-row` is held at zero uses); "Undo all" for a
+  background pass or a skill run (each change has its own Undo; an honest "all"
+  needs `tools.execute_tool` to run the undos in one transaction, or it is N
+  requests that can half fail); the graph signal needs an open note, and the
+  Notes filter uses `/search` for operators it does not know. [openitems]
+  *Needs: design steps, each its own brief.*
+- **The capture draft counts as unsaved work**, so every tab switch with a
+  draft asks "Leave without saving?" though the draft is kept and the switch
+  loses nothing: a decision, not a bug. [wrapup-0927]
+
+### Backend, architecture and tooling
+
+- **ARCH-02, the save at 5,000 notes**: `POST /entries` p50 210 ms (one line)
+  and 345 ms (400 words), not under 150; 390 to 615 ms with 384-wide vectors
+  against 61 to 96 ms at 500. The profile (`scratchpad/perf2-1005-prof.py`):
+  the lexical pass walks all 4,000 kept docs per save, `nearest` reads up to
+  4,000 postings, `janitor._knn_match` takes 52 ms over the matrix. Tried and
+  reverted: a test instead of a list and per-category counts in the corpus
+  (exact, removed the walks, not the time). Next: a smaller postings budget
+  measured with `scratchpad/filing_eval.py`, or the k nearest read from the
+  engine's matrix once per save. [arch1005, perf2-1005]
+- **The rest of the architecture audit** (`scratchpad/audit1005/arch.md`):
+  ARCH-04's client half (the cursor exists, `after` and `X-Next-Cursor`, but
+  `notes-list.js` still reads every page by offset into `allEntries`); ARCH-13
+  (response models for the busiest routes and one paging helper; the shape lint
+  is built); ARCH-16 (follow-ups are skipped while a turn streams but there is
+  no preference and no hardware probe saying "CPU only"); ARCH-22
+  (`skill_runner._run_one_step`, 425 lines, and `agent.run_agent`, 416, need a
+  state object before they split; `scratchpad/perf2-1005-longfns.py`); ARCH-10
+  (the import-cycle ratchet holds 15 and 3); ARCH-25 (the pool size, a chat
+  stream holding its connection, `restore_backup` with sessions open: read, not
+  reproduced). ARCH-09 stays as built: `file-entry` shares the one-wide model
+  lane with captions on purpose. [arch1005, perf2-1005]
+- **The frontend audit's leftovers** (`scratchpad/audit1005/frontend.md`):
+  FE-09 unused CSS (no coverage-driven deletion started); FE-10 Settings panes'
+  markup is not fetched on first open (a `<template>` is still parsed and boot
+  code reads Settings ids; a real gain moves every boot reader behind it);
+  FE-11 the 720 and 640 groups (26 + 6 and 11 queries, each needing its own
+  sweep); FE-13 the tab JS at 5,000 notes was not profiled again; FE-14 on a
+  phone the chips' overhang is 44px and a card clips it below its last row
+  (34px reached). [perf2-1005]
+- **A flaky timing test**: `tests/test_relations_kg2.py`'s 10k timing is flaky
+  under load (the typo, message-wording, thread-ratchet and list-paging tests
+  perf2-1005 and worldclass-1004 recorded as red pass on the head, 2026-10-05).
+  [perf2-1005]
+- **Retrieval and the learned loop, plan rows whose half-built parts live in
+  the scratchpad**: "most opened this month" is parked in
+  `scratchpad/wc1005b-most-opened.md` (`core/opens.py`, `GET
+  /entries/most-accessed?period=month`, hooks on `flashEntry` and
+  `openNotePage`, the Most used widget's seg, then the HISTORY block and a
+  CHANGELOG line); the "wrong" correction on an evidence card (I7's second
+  half) and I1 pass 2's kinds as derived facts (dates, duplicates, entities)
+  are WORLD_CLASS_PLAN rows. [worldclass-1005b, worldclass-1004]
+- **Smaller backend and gate rows**: a note type made through `POST
+  /note-types` before the list was read, then deleted, loses its id on Undo
+  (not reproduced, pinned by a test); `gate.sh --changed` selects most of the
+  suite on this branch; `gate.sh --staged` does not run
+  `tests/test_help_controls.py` (a help edit once put the Guide's whiteboard
+  keys entry at 1,926 against 1,920 and passed the gate) or
+  `tests/test_like_escaping.py`; `tests/test_name_mood.py`'s palette test needs
+  the palette decided; the container's shared `/tmp/pytest-of-root` grew to 11G
+  once and filled the filesystem (`rm -rf` it); the Guide's longest topics sit
+  at 1,916 of 1,920 characters and boot CSS at 183,210 of 183,300 gzipped
+  bytes, so any new rule needs dead CSS cut first.
+  [integ-1005, open-rows-1005, wb-phase2, sweeps, backend-probe, boardmap-1005]
+- **Sweeps**: `phonechrome.js`'s fresh text box overflowed 5px and the
+  Timeline's feed and table duplicated on a breakpoint-crossing re-entry
+  (found 2026-09-23, not re-run since); `touch.js` needs `timeout 300`;
+  `revealcell.js` at 390 needs the editor opened first; `errors.js` took
+  "Target crashed" at a tab switch (2026-10-05): it did not reproduce on a fresh
+  data dir, so the sweep is hardened (a browser per width,
+  `--disable-dev-shm-usage`, a crash reported as a finding) and the cause is
+  named by its signature, not measured. [sweeps, small-1005, backlog-1005b]
+- **Not verified**: Quit's 0.72 opacity contrast is computed (about 3.1:1
+  light, 5:1 dark), not read from pixels; the line numbers' baseline drop is
+  measured in the sandbox's system-ui only (Segoe UI has other metrics); the
+  Windows rasteriser at 125% and 150%; every tablet and phone number is
+  Chromium emulation; a real model for the Atlas, retrieval and skill rows.
+  [design-rows-1005, quick-gutter, iconalign-skel-1005]
 
 ## Atlas, placed from INBOX 2026-10-05
 

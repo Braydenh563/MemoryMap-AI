@@ -1789,7 +1789,7 @@ thing anywhere in the app.
   mostly already exist. **(needs Opus)**: checked 2026-10-04, `GET /storage`
   still returns only `database_bytes`; the walk, the cache and the Settings
   line with its '?' are one design.
-  **Next:** `routes_backups.py:39` `storage_location` adds `uploads_bytes`, `backups_bytes` and `media_bytes` from a cached directory walk; the per-extra footprint is the second step (`core/extras.py`).
+  **Partly built 2026-10-05** (HISTORY.md, "backlog-1005"): `GET /storage` reports `uploads_bytes`, `media_bytes` and `backups_bytes` from a cached walk (`diskspace.dir_bytes`), and Settings, About, Health has a Files on disk row. **Next:** the per-extra footprint (`core/extras.py`: bytes of each installed extra's folder, beside its Remove button).
 - **One actual "your data" page, not the pieces scattered.** **Partly built:** Settings, Privacy, "Where your data went" (`frontend/index.html:11095`, `core/egress.py`) is the receipt. **Next:** a head line stating what is stored and where, with links to Export and the wipe above once it exists. The individual
   facts already exist — where the data lives and how big it is (README),
   what's in the audit log (Settings → Activity), what export and wipe do

@@ -12,6 +12,12 @@ that answers "has this been done?" before anyone starts.
 One agent's pass over BACKLOG and the plans' open lines; each bullet says how it
 was verified. Items found already built are listed with the file that proves it.
 
+- **What the data folder weighs** (BACKLOG section 26, the first step): `GET
+  /storage` adds `uploads_bytes`, `media_bytes`, `backups_bytes` from a cached
+  walk (`diskspace.dir_bytes`: 60 s, links not followed, 200,000-entry bound);
+  Settings, About, Health has a Files on disk row. `tests/test_storage_footprint.py`
+  3/3; `scratchpad/ui-sweeps/healthfiles.js` PASS at 1440 and 390, light and
+  dark. The per-extra footprint is still open.
 - **Highlights as a queryable collection** (BACKLOG 109.4, 102 item 7, 111.2
   item 3): `has:highlight` in the search operators and a Library Highlights chip,
   one card per `==passage==` with its note, no table (`entry/highlights.py` is the

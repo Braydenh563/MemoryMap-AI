@@ -53,6 +53,12 @@ def storage_location() -> dict:
         "database": str(db_path.resolve()),
         "database_bytes": db_path.stat().st_size if db_path.exists() else 0,
         "backups_dir": str(backup.backups_dir(config.data_dir).resolve()),
+        #: What the folders beside the database weigh (a cached walk,
+        #: `diskspace.dir_bytes`): attached files, pictures and the backups
+        #: themselves, so "where did my disk go" has an answer in the app.
+        "uploads_bytes": diskspace.dir_bytes(Path(config.data_dir) / "uploads"),
+        "media_bytes": diskspace.dir_bytes(Path(config.data_dir) / "media"),
+        "backups_bytes": diskspace.dir_bytes(Path(config.data_dir) / "backups"),
         "backup_retention_count": _retention(config),
         "backup_retention_min": MIN_RETENTION,
         "backup_retention_max": MAX_RETENTION,

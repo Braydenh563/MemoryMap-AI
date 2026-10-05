@@ -119,6 +119,16 @@ REACHED_AFTER_LOAD = {
     #: dash-boards.js (INBOX 553(d)): `renderBoardsWidget` awaits
     #: `ensureModule("dashBoards")` on the line and calls only when it loaded.
     "dashRenderBoards": "dashBoards, awaited by renderBoardsWidget on the same line",
+    #: atlas-life.js: `atlasFigure` calls these in the `.then` of
+    #: `ensureModule("atlasLife")`, and only when it loaded; `atlasTailWake`
+    #: (atlas.js) reaches `atlasTailFrame` only through a tail that
+    #: `atlasTailAttach` made, which is in the same bundle.
+    "atlasTailAttach": "atlasLife, called in the .then of ensureModule('atlasLife') when it loaded",
+    "atlasRingLoops": "atlasLife, called in the .then of ensureModule('atlasLife') when it loaded",
+    "atlasPropLoops": "atlasLife, called in the .then of ensureModule('atlasLife') when it loaded",
+    "atlasRigLowerAttach": "atlasLife, called in the .then of ensureModule('atlasLife') when it loaded",
+    "atlasRigLower": "atlasLife, called by the rig only once rig.lower exists, which atlasRigLowerAttach (same bundle) makes",
+    "atlasTailFrame": "atlasLife, reached only through a tail atlasTailAttach (same bundle) made",
     #: The settingsUi bundle (settings-find.js) is awaited by `openSettingsModal`
     #: before it shows any section, and every call below runs from a section
     #: that is on screen or a search field inside the open dialog. With the

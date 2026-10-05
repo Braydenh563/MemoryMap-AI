@@ -2019,6 +2019,8 @@ const LAZY_MODULES = {
   packages: ["/js/settings-packages.js"],
   //: The panel the "m" chord opens: chord-guide.js says why it is preloaded.
   chordGuide: ["/js/chord-guide.js"],
+  //: Atlas's living tail and its rings' loops (the gzip budget): see atlas-life.js.
+  atlasLife: ["/js/atlas-life.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.

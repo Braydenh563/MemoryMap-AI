@@ -11,11 +11,9 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ATLAS = (ROOT / "frontend" / "js" / "atlas.js").read_text(encoding="utf-8")
-#: The blink clock and the arm rig, split out of atlas.js to leave the boot
-#: (atlas-motion.js, a lazy bundle); read as one with the drawing.
-ATLAS_MOTION = (ROOT / "frontend" / "js" / "atlas-motion.js").read_text(encoding="utf-8")
-ATLAS = ATLAS + "\n" + ATLAS_MOTION
+#: atlas.js and its lazy halves, atlas-motion.js (the blink clock and the arm
+#: rig) and atlas-life.js (the living tail and the rings' loops), read as one.
+ATLAS = "\n".join((ROOT / "frontend" / "js" / name).read_text(encoding="utf-8") for name in ("atlas.js", "atlas-motion.js", "atlas-life.js"))
 CSS = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
 AVATARS = (ROOT / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
 
@@ -145,8 +143,17 @@ def test_the_planets_orbit_on_the_compositor():
     # nothing its animations touch lays anything out.
     assert "ringFrame: { cx: 31, cy: 31, flat: 0.34, tilt: -11 }" in ATLAS
     assert "frag.appendChild(atlasOrbits());" in ATLAS
-    assert "atlasRing(layers.front.rig, id, ring, k, true, true)" in ATLAS
     assert "if (orbit) return;" in ATLAS
+    # INBOX 601 ("the celestial rings and planets on it which dont move"):
+    # in the layered figure the rings are boxes of their own, far half under
+    # the figure and near half over it, and their sway, the dust's turn and
+    # each planet's glow and swirl are Web Animations of transform, rotate,
+    # scale and opacity only, paused with the tail's loop.
+    assert "layers.back.svg.after(atlasRings(look, false));" in ATLAS
+    assert "layers.front.svg.after(atlasRings(look, true));" in ATLAS
+    loops = re.search(r"function atlasRingLoops\(box\) \{(.*?)\n\}", ATLAS, re.S).group(1)
+    assert set(re.findall(r"\{ (rotate|transform|scale|opacity|translate):", loops)) <= {"rotate", "transform", "scale", "opacity"}
+    assert "for (const anim of box.atlasLoops || [])" in ATLAS
     for name in ("atl-orbit", "atl-orbit-back", "atl-orbit-depth"):
         body = _keyframes(name).split("{", 1)[1]
         props = set(re.findall(r"([a-z-]+)\s*:", body))
@@ -478,7 +485,10 @@ def test_the_lie_down_and_curl_frames_are_hooks_with_the_stream_as_a_bed():
     # under the cheek and the skirt drawn up.
     assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-r { transform: rotate(-172deg); }' in CSS
     assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-l' in CSS
-    assert '#nm-buddy[data-pose="lie"] .atl-layer-lower { rotate: -42deg; }' in CSS
+    # INBOX 619 (the owner: "when sleeping etc, her lower body actually
+    # rotates halfway off her upperbody which stays mostly upright"): the
+    # lower body lies down with the torso, as one chain, not 42 degrees off it.
+    assert ".atl-layer-lower { rotate:" not in CSS
     # Variant 1 lies the other way round; the Zs and the rings stay upright.
     assert '#nm-buddy[data-pose="lie"] :is(.atl-layer-fx-1, .atl-layer-fx-2) { rotate: calc(84deg - 168deg * var(--atl-v1)); }' in CSS
     assert '#nm-buddy[data-pose="lie"] :is(.atl-layer-back, .atl-layer-front) { rotate: calc(84deg - 168deg * var(--atl-v1)); }' in CSS
@@ -491,7 +501,8 @@ def test_the_masculine_look_is_a_star_being_not_an_animatronic():
     # mittens, softer eyes and a gentle idle sway.
     masculine = _look("masculine")
     assert "legs: false," in masculine and "lowers: [" in masculine
-    assert "armWidth: [4.4, 1.8]," in masculine and "handScale: 0.9," in masculine
+    # INBOX 614 ("the masculine atlas kinda looks fat"): slimmer arms.
+    assert "armWidth: [3.8, 1.6]," in masculine and "handScale: 0.9," in masculine
     arms = re.search(r"    arm: \[(\[[^\]]+\]), (\[[^\]]+\])\],", masculine)
     assert arms, "the arm bends: two segments"
     assert '.nm-atlas[data-atlas-look="masculine"] .atl-eye { scale: 0.84; }' in CSS
@@ -911,10 +922,14 @@ def test_the_feminine_body_is_an_hourglass_that_flows_into_one_wide_tail(tmp_pat
         p0 = p1
     # The second ribbon tail (the comet tail, from the other hip) is never
     # under 2 across until its last tenth, where it thins to a fine round
-    # tip (INBOX 565), and is rooted at the hip, not the middle.
+    # tip (INBOX 565). INBOX 601 (the owner: "more integrated with the body
+    # instead of just coming out from the butt"): its root is inside the
+    # lower body, right of the middle, and it is widest where it leaves.
     assert min(got["feminineTailW"][:46]) >= 2.0
     assert 0.5 <= got["feminineTailW"][-1] <= 1.0
-    assert "tail: [[36.4, 60," in feminine and feminine.count("], [") >= 3
+    assert got["feminineTailW"][0] >= 6.5
+    assert "tail: [[33.4, 57.4," in feminine and feminine.count("], [") >= 3
+    assert "tailJoin: [" in feminine and "tailJoin: [" in _look("masculine")
     # INBOX 565: 23% longer (a fourth curve curling in), feathered
     # like the wings (their pale lines along it, their glow at its tip).
     tail = re.search(r"    tail: (\[\[.*\]\]),\n", feminine).group(1)
@@ -1159,7 +1174,7 @@ def test_the_lower_body_takes_a_pose_for_what_it_is_doing():
     # the brief names has a pose, at least two variants for each of the
     # moving and resting ones, springs that overshoot and settle for a flick
     # and ease for a curl, and reduced motion keeps the first variant.
-    table = ATLAS[ATLAS.index("const ATLAS_LOWER_STATES = {") : ATLAS.index("function atlasLowerState(")]
+    table = ATLAS[ATLAS.index("const ATLAS_LOWER_STATES = {") : ATLAS.index("const ATLAS_HAIR_STATES")]
     for state in ("idle", "walk", "sit", "lie", "gesture", "think", "happy", "sad", "startle"):
         row = re.search(rf'  {state}: \{{ ms: ([0-9]+), ease: "([^"]+)", v: (\[\[.*\]\]) \}},', table)
         assert row, state
@@ -1174,7 +1189,7 @@ def test_the_lower_body_takes_a_pose_for_what_it_is_doing():
 
     assert curve("happy")[1] > 1 and curve("startle")[1] > 1, "a bouncy flick and a snap overshoot, then settle"
     assert curve("think")[1] <= 1, "a slow curl does not"
-    rig = ATLAS[ATLAS.index("function atlasRigLower(") : ATLAS.index("function atlasRigRead(")]
+    rig = ATLAS[ATLAS.index("function atlasRigLower(") :]
     assert "const pick = live ? Math.floor(Math.random() * spec.v.length) : 0;" in rig
     assert "low.at = now + 8000 + Math.random() * 6000;" in rig
     # Each flowing part takes the state: the dress or cloak, her wisps, both
@@ -1184,7 +1199,7 @@ def test_the_lower_body_takes_a_pose_for_what_it_is_doing():
         assert f"for (const el of {part}) go(el," in rig, part
     assert 'el.style.transition = live ? `transform ${spec.ms + lag * 2}ms ${spec.ease} ${lag}ms` : "none";' in rig
     for state in ("idle", "walk", "sit", "lie", "gesture", "think", "happy", "sad", "startle"):
-        assert f"{state}: [" in ATLAS[ATLAS.index("const ATLAS_HAIR_STATES"):ATLAS.index("function atlasLowerState(")], state
+        assert f"{state}: [" in ATLAS[ATLAS.index("const ATLAS_HAIR_STATES"):ATLAS.index("function atlasRigLowerAttach(")], state
     assert ".atl-lw > .atl-lw-pose { position: absolute;" in CSS
 
 
@@ -1206,3 +1221,94 @@ def test_the_figure_head_never_pulses_and_its_loops_start_at_rest():
         for delay in re.findall(rf"animation: {name} [0-9.]+s ease-in-out (-?[0-9.]+)s", CSS):
             assert float(delay) < 0, (name, delay)
     assert ":root[data-atlas-hidden] :is(.nm-atlas, .nm-atlas *, .atl-lw, .atl-lw-breathe)" in CSS
+
+
+def test_the_lower_body_moves_with_the_torso_and_turns_about_the_join():
+    # INBOX 615 (the owner: "the atlas masculine main body and lower body are
+    # slightly misaligned") and 619 ("the lower body on the feminine atlas is
+    # also slightly misaligned"). The body's box swayed and breathed and the
+    # lower body's did not, so at the join the outlines slid apart by up to
+    # 3.4px at 2.2x (atlas615-join.js). The lower body's box sits in the
+    # body's breathing box now; what it does of its own turns about the join
+    # (y 55.5, the middle of the torso's fade into it), never sideways at the
+    # waist, and its hem's wind is a turn with no slide.
+    assert "breathe.prepend(lowerBox);" in ATLAS
+    assert ATLAS.count("lowerPivot: [31, 55.5],") == 2 and "spec.lowerPivot || [31, 55.5];" in ATLAS
+    assert ".atl-lw-lower { transform-origin: 31px 55.5px; }" in CSS
+    assert ".nm-atlas.atl-layer-lower { transform-origin: 31px 55.5px;" in CSS
+    assert "for (const el of low.boxes) go(el, `skewX(${atlasFix((skew - rot) * way * 0.4)}deg) scale(1, ${(1 + (sy - 1) * 0.5).toFixed(3)})`);" in ATLAS
+    # Its idle loops shear about the join and never turn or slide there.
+    for name in ("atl-hem-wind", "atl-skirt-idle", "atl-lower-sway", "atl-lower-sway-heavy", "atl-lower-flick"):
+        frames = _keyframes(name).split("{", 1)[1]
+        assert "skewX" in frames and not re.search(r"rotate|translate", frames), (name, frames)
+    for pose in ("sit", "float", "lean"):
+        rule = re.search(rf'#nm-buddy\[data-pose="{pose}"\] \.atl-figure \.atl-lower \{{ transform: ([^;]*); \}}', CSS).group(1)
+        assert not re.search(r"rotate|scale\(", rule), (pose, rule)
+    # The rig's pose for a state turns the lower body at most 4 degrees.
+    states = ATLAS[ATLAS.index("const ATLAS_LOWER_STATES = {"):ATLAS.index("const ATLAS_HAIR_STATES")]
+    for state in ("sit", "lie", "startle"):
+        row = re.search(rf"  {state}: \{{.*?v: \[(.*)\] \}},", states).group(1)
+        turns = [abs(float(v)) for v in re.findall(r"\[(-?[0-9.]+),", row)]
+        assert turns and max(turns) <= 4, (state, turns)
+
+
+def test_an_eye_never_shows_its_white_without_its_iris_or_its_heart():
+    # INBOX 619 (the owner: "female atlas's eyes went blank white for a sec
+    # and it looked creepy"). The heart eyes and the iris cross over (the
+    # iris at 1 - --atl-hearteye): on the companion the iris's transition
+    # named only `translate`, so its opacity cut in a frame while the heart
+    # faded over 0.48s, and eased (a wake, a doze) the iris crossed over 1.8s
+    # and the heart over 0.48s. Both now cross over on the same clock, so
+    # their sum stays whole (atlas619-eyes.js: blank 464ms before, 0 after).
+    for rule in (
+        "#nm-buddy .nm-atlas .atl-iris { transition: translate var(--motion-fast) var(--ease-out), opacity calc(var(--motion-base) * 3) var(--ease-in-out); }",
+        "transition: translate var(--motion-base) var(--ease-out), opacity calc(var(--motion-base) * 3) var(--ease-in-out); }",
+    ):
+        assert rule in CSS, rule
+    eased = re.search(r":is\(\.nm-atlas\.atl-easing, #nm-buddy\.nmb-easing \.nm-atlas\) :is\(([^)]*)\) \{\s*transition: opacity", CSS).group(1)
+    assert ".atl-iris" in eased and ".atl-heart-eye" in eased, eased
+
+
+def test_in_its_large_view_the_companion_floats_free_of_its_perch():
+    # INBOX 619 (the owner: "in the enlarged preview atlas is still hanging,
+    # it should be slightly separate from the companion but still have the
+    # same life"): visiting the view it floats, with the view's sway, and its
+    # perch's pose and legs go back with it.
+    visit = AVATARS[AVATARS.index("function nameMarkBuddyVisit("):AVATARS.index("function nameMarkBuddyHome(")]
+    home = AVATARS[AVATARS.index("function nameMarkBuddyHome("):AVATARS.index("//: **The larger faces have a life")]
+    assert "pose: nmb.pose, legs: nmb.legs" in visit
+    assert 'nmb.pose = "float";' in visit and 'buddy.dataset.pose = "float";' in visit
+    assert "atl-figure-box" not in visit.split("const sway = [];", 1)[1].split("sway.push", 1)[0]
+    assert "nmb.pose = visit.pose;" in home and "buddy.dataset.pose = visit.pose;" in home
+
+
+def test_an_act_is_eased_into_as_well_as_out_of():
+    # INBOX 619 (the owner: "it still snaps between behaviours and no
+    # behaviours"): the act's class goes on inside the hand-over, as it
+    # comes off inside one (INBOX 497).
+    assert "nameMarkBuddyBlend(buddy, () => buddy.classList.add(`nmb-act-${act}`), NMB_BLEND_IN_MS);" in AVATARS
+    assert "if (was) nameMarkBuddyBlend(buddy, () => buddy.classList.remove(`nmb-act-${was}`));" in AVATARS
+    ms = int(re.search(r"const NMB_BLEND_IN_MS = (\d+);", AVATARS).group(1))
+    assert 250 <= ms <= 500
+
+
+def test_each_prop_has_a_small_motion_of_its_own_about_its_grip():
+    # INBOX 623 (the owner: "can the atlas agent also animate the props and
+    # icons as well for various actions and behaviours??"): each prop shown
+    # loops on its own while it shows, about its grip, starting and ending at
+    # its drawn pose; Web Animations of transform properties and opacity
+    # only; cancelled (not paused, which the companion's pacer would step)
+    # when hidden or when motion is not live.
+    table = ATLAS[ATLAS.index("const ATLAS_PROP_LOOPS = ["):ATLAS.index("function atlasPropLoops(")]
+    for sel in (".nmp-lantern", ".nmp-bell", ".nmp-cable .atl-prop-zap", ".nmp-headphones .atl-prop-cup-glow", ".nmp-nightcap", ".nmp-glasses .atl-prop-lens", ".nmp-book .atl-prop-page", ".nmp-map", ".nmp-coil", ".nmp-bubble", ".atl-fx-bang"):
+        assert f'[".{sel[1:]}' in table, sel
+    for row in re.findall(r"^  \[(\".*?), \d+, [0-9.]+\],$", table, re.M):
+        frames = re.findall(r"\{ ([^}]*) \}", row)
+        assert frames[0] == frames[-1], row
+        assert set(re.findall(r"(\w+):", " ".join(frames))) <= {"rotate", "scale", "opacity"}, row
+    frame = ATLAS[ATLAS.index("function atlasPropsFrame("):]
+    assert "loop.anim.cancel();" in frame and ".pause()" not in frame.split("\n}\n", 1)[0]
+    assert "figure.atlasPropLoops = atlasPropLoops(figure);" in ATLAS
+    assert "atlasPropsFrame(box, live, tail.tick);" in ATLAS
+    # Under the system's reduced motion the bell's ring holds still too.
+    assert "#nm-buddy .nmp-bell { animation: none !important; }" in CSS

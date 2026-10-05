@@ -14448,3 +14448,73 @@ button.finder-row:hover,
 .wb-map-edge-label {
   font-family: var(--wb-map-font);
 }
+
+/* The map as an outline (MINDMAP_PLAN decision 33). In the sidebar's place
+   and shell (`.whiteboard-sidebar` above), narrower on a phone so a strip of
+   the canvas stays beside it. Each row indents by its depth; the field is a
+   quiet input until it has the focus, the selected topic's row tinted. */
+.wb-map-outline {
+  width: min(300px, calc(100% - var(--space-4)));
+}
+
+.wb-map-outline .dialog-head h3 {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.wb-outline-tree {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wb-outline-row {
+  padding-left: calc(var(--outline-depth) * var(--space-4) * 1.5);
+}
+
+/* Scoped by the tree's id: the app's input rule (a filled well, a border,
+   roomy padding) is the form-field look, and an outline is a list that is
+   typed into, so its rows read as text until one has the focus. */
+#wb-outline-tree .wb-outline-text {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-2);
+}
+
+#wb-outline-tree .wb-outline-row[aria-selected="true"] > .wb-outline-text {
+  background: var(--accent-soft);
+}
+
+#wb-outline-tree .wb-outline-row[aria-level="1"] > .wb-outline-text {
+  font-weight: 600;
+}
+
+#wb-outline-tree .wb-outline-text:focus {
+  border-color: var(--accent);
+  background: var(--card);
+  outline: none;
+}
+
+/* A finger's row: the 44px target floor on a touch screen. */
+@media (pointer: coarse) {
+  #wb-outline-tree .wb-outline-text {
+    min-height: 44px;
+  }
+}
+
+.wb-outline-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+}

@@ -6006,6 +6006,7 @@ Link to another note with [[its first few words]]."></textarea>
               <label class="wb-menu-row wb-snap-label" title="Show the context bar above the selection, and above the rail while a drawing tool is held"><span>Context bar</span><input type="checkbox" id="wb-panel-props" checked></label>
               <label class="wb-menu-row wb-snap-label" title="The board overview (Shift+N)"><span>Overview</span><input type="checkbox" id="wb-panel-overview"></label>
               <label class="wb-menu-row wb-snap-label" title="The note library"><span>Library</span><input type="checkbox" id="wb-panel-library"></label>
+              <label class="wb-menu-row wb-snap-label" data-wb-surface="map" hidden title="The map as an indented list you can edit"><span>Outline</span><input type="checkbox" id="wb-panel-outline"></label>
               <label class="wb-menu-row wb-snap-label" title="Find a card on this board (Ctrl+F)"><span>Search</span><input type="checkbox" id="wb-panel-search"></label>
               <div class="wb-menu-row">
                 <span>Toolbar</span>
@@ -6938,6 +6939,17 @@ Link to another note with [[its first few words]]."></textarea>
         <button id="wb-library-close" class="ghost small icon-only" title="Close the library" aria-label="Close the library"><i class="ph ph-x" aria-hidden="true"></i></button>
       </div>
       <ul id="wb-library-list" class="wb-library-list"></ul>
+    </aside>
+    <!-- The map as an outline (MINDMAP_PLAN decision 33): one field per
+         topic in the tree's order, edited in place and kept in step with the
+         canvas both ways. The sidebar's place and shell; maps only. -->
+    <aside class="whiteboard-sidebar wb-map-outline card glass hidden" id="wb-map-outline" aria-labelledby="wb-outline-title">
+      <div class="wb-sidebar-head dialog-head">
+        <h3 id="wb-outline-title">Outline</h3>
+        <button id="wb-outline-close" class="icon-only ghost small dialog-head-btn" type="button" title="Close the outline" aria-label="Close the outline"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </div>
+      <div id="wb-outline-tree" class="wb-outline-tree" role="tree" aria-labelledby="wb-outline-title"></div>
+      <p class="wb-outline-hint muted">Enter adds a topic, Tab and Shift+Tab move it in and out a level.</p>
     </aside>
   </div>
   </div>

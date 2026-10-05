@@ -7,6 +7,20 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (the map's outline)
+
+### From MINDMAP_PLAN.md §12.2 item 8 (decision 33), the audit's M3
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| View, Outline on a map: `#wb-map-outline` in the sidebar's place, a field per topic in tree order (`wbOutlineSync` after every render), Enter, Tab, Shift+Tab, Backspace, the arrows and Escape as an outliner's, every change through the canvas's own functions | no outline; a map was edited on the canvas only | 50 of 50 topics renamed from the outline drawn on the canvas within one frame and all 50 saved; a topic added with Enter typed in the outline; Tab under the topic above (level 3 to 4), Shift+Tab back right after it; Backspace on an empty one removes it; a canvas rename shows in its row; a board never shows the panel | `scratchpad/ui-sweeps/mmd2-1005-outline.js` 9/9 at 1440x900 light and 390x844 dark; `mmd2-1005-outlineshot.js` (rows 28px, clear of the top bar and the rail) |
+
+Help moved with it: the Guide's mind-map topic, the panel's own one-line hint,
+the palette row. Not built: the markers as outline columns (waits on §12.2
+item 4); folding in the outline (it lists every topic). Not verified: a
+screen reader on the tree (the rows are `treeitem`s holding a labelled
+field), the desktop window.
+
 ## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
 
 From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN

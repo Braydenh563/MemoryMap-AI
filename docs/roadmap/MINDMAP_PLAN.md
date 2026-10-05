@@ -541,9 +541,8 @@ the shift-drag sever).
 7. **Multiple roots and floating topics**; **auto-colour by branch** as
    the default theme with eight curated palettes. Numbering is built
    (decision 17; HISTORY.md, "Moved from the plans, 2026-10-04").
-8. **Outline view** beside the map (a two-pane split): the same tree as
-   indented text, editable, Tab and Shift+Tab re-parent, every edit
-   mirrored live.
+8. **Outline view**: built (decision 33; HISTORY.md, "Moved from the plans,
+   2026-10-05 (the map's outline)"). Its markers as columns wait on item 4.
 9. **Presentation mode**: built (decision 21; HISTORY.md, "Moved from the
    plans, 2026-10-05 (a map presented by branch)").
 10. **Export**: PNG at 2x with the theme, PDF, SVG, FreeMind .mm, OPML,
@@ -1253,6 +1252,21 @@ topic: a control that wide has nowhere to go.
    board on screen; the Library and dashboard say "links" and "drawings",
    never "sketches". After Enter names a card, a letter renames it (the
    focus is not moved to the canvas, where Tab walks items).
+33. **A map's outline is a panel of fields in the tree's order** (taken
+   2026-10-05, §12.2 item 8, the audit's M3). View, Outline (and the
+   palette's row) opens it in the board sidebar's place (`#wb-map-outline`,
+   the `.whiteboard-sidebar` shell, one of the two at a time), on maps only,
+   remembered per device. One text field per topic, indented by depth; the
+   keys are an outliner's: Enter adds a topic after this one and types it in
+   the outline (not on the canvas), Tab makes it the last child of the topic
+   above, Shift+Tab puts it right after its old parent, Backspace on an
+   empty topic with no branch removes it, the arrows walk the rows, Escape
+   hands the keys to the canvas. Every change goes through the canvas's own
+   functions (the add, `wbMapTransplant`, `wbMapOutdent`, the rename's save
+   and its FEAT-15 fold), so Undo and the tidy are the canvas's. Typing
+   draws the label on the canvas as it goes, without a render; the name is
+   saved when the row is left. The outline follows every render, rebuilt only
+   when the tree's shape changed, never taking the field being typed in.
 
 ### Phases, each with the gate it is finished against
 

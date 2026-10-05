@@ -2557,7 +2557,8 @@ async function wbMapTransplant(d, targetId, alone, { via = "drag", before = null
   //: A line drawn between two topics and a branch dragged onto one are the
   //: same move and want different words: the first connected something, the
   //: second moved it.
-  toast(via === "link"
+  //: The outline's Tab says nothing: the row moving in is the answer.
+  if (via !== "outline") toast(via === "link"
     ? `Connected to "${wbMapLabel(target)}" as a branch.`
     : alone
       ? `Moved this topic under "${wbMapLabel(target)}", its branches stayed.`
@@ -4057,6 +4058,7 @@ function mapPaletteCommands() {
   row("This map", numbered ? "ph:list-bullets Stop numbering the topics" : "ph:list-numbers Number the topics", () => wbMapSetNumbered(!numbered));
   row("This map", "ph:chart-bar What this map is made of", () => wbShowMapStats());
   row("This map", "ph:presentation Present branches", () => wbStartPresenting());
+  row("This map", wbOutlineOpen ? "ph:list-dashes Hide the outline" : "ph:list-dashes Show the map as an outline", () => wbOutlineToggle());
   row("This map", "ph:frame-corners Zoom to fit the map", () => wbZoomToFit());
   for (const [value, name] of [["tree-right", "Tree, to the right"], ["tree-left", "Tree, to the left"], ["tree-both", "Tree, both sides"], ["tree-down", "Tree, downward"], ["radial", "Radial"], ["free", "Free"]]) {
     if (value !== wbMapLayout()) row("Map layout", `ph:tree-structure Layout: ${name}`, () => wbMapSetLayout(value));
@@ -4361,6 +4363,12 @@ function wbMapNavigate(id, key) {
 //: box uses. A reference node has no text of its own: its label is the note's,
 //: and editing it here would either lie or silently rename the note.
 function wbMapEditNode(id) {
+  //: A topic the outline's Enter made is typed in the outline (decision 33).
+  if (wbOutlineAdding) {
+    wbMapTypeahead = null;
+    wbOutlineTakeNewTopic(id);
+    return;
+  }
   const node = (wbState.objects || []).find((o) => o.id === id);
   if (!node || node.kind !== "topic") wbMapTypeahead = null;
   if (!node) return;
@@ -5314,6 +5322,7 @@ function wbSyncConnectWords(isMap) {
 }
 
 function wbSyncToolSurfaces(isMap) {
+  wbOutlineAfterSurface(isMap);
   //: And the top bar's rows that only a board has (Insert, Frame; View,
   //: Present frames): a map has no frames (decisions 14 and 16).
   for (const section of document.querySelectorAll("#wb-tool-group [data-wb-surface], .wb-board-menu [data-wb-surface]")) {
@@ -7218,3 +7227,313 @@ function wbMapPresentSteps() {
   }
   return steps;
 }
+
+// --- The outline (MINDMAP_PLAN §12.2 item 8, the audit's M3) ---------------
+//
+//: **The map as an indented list, edited in place and kept in step both
+//: ways** (decision 33). A panel beside the canvas (the board sidebar's
+//: place and shell, `.whiteboard-sidebar`), one text field per topic in the
+//: tree's own order (`wbMapIndex`, siblings by `wbMapBySiblingOrder`), so
+//: the outline, the exports and the canvas agree. The keys are an outliner's
+//: (Workflowy, XMind's outliner): Enter adds a topic after this one, Tab
+//: makes it a child of the one above, Shift+Tab moves it out a level,
+//: Backspace on an empty topic removes it, the arrows move between rows, and
+//: Escape hands the keys back to the canvas. Every change goes through the
+//: canvas's own functions (the add, `wbMapTransplant`, `wbMapOutdent`, the
+//: rename's save), so Undo, the tidy and the server are the canvas's. Typing
+//: draws the topic's label on the canvas as it goes, without a render; the
+//: name is saved when the row is left.
+let wbOutlineOpen = false;
+//: Set while the outline's Enter makes a topic, so the add path opens the
+//: outline's row for typing instead of the canvas editor (`wbMapEditNode`).
+let wbOutlineAdding = false;
+const WB_OUTLINE_PREF = "wb-map-outline";
+
+function wbOutlineToggle(on = !wbOutlineOpen, { remember = true } = {}) {
+  const panel = document.getElementById("wb-map-outline");
+  if (!panel) return;
+  wbOutlineOpen = Boolean(on) && wbIsMap();
+  panel.classList.toggle("hidden", !wbOutlineOpen);
+  const sw = document.getElementById("wb-panel-outline");
+  if (sw) sw.checked = wbOutlineOpen;
+  if (remember) {
+    try {
+      localStorage.setItem(WB_OUTLINE_PREF, wbOutlineOpen ? "on" : "off");
+    } catch {
+      /* the panel still opens for this visit */
+    }
+  }
+  if (!wbOutlineOpen) return;
+  //: One panel in the sidebar's place at a time: the note library sits there.
+  document.getElementById("whiteboard-sidebar")?.classList.add("hidden");
+  wbOutlineSync(true);
+}
+
+//: A map opening, or the board switching to one that is not: the outline
+//: follows the person's last choice on a map and is never on a board.
+function wbOutlineAfterSurface(isMap) {
+  let wanted = false;
+  try {
+    wanted = isMap && localStorage.getItem(WB_OUTLINE_PREF) === "on";
+  } catch {
+    wanted = false;
+  }
+  if (wanted !== wbOutlineOpen) wbOutlineToggle(wanted, { remember: false });
+  else if (wanted) wbOutlineSync(true);
+}
+
+function wbOutlineRowsNow() {
+  const index = wbMapIndex();
+  const rows = [];
+  const walk = (node, depth) => {
+    rows.push({ node, depth });
+    for (const child of index.childrenOf.get(node.id) || []) walk(child, depth + 1);
+  };
+  for (const root of index.roots) walk(root, 1);
+  return rows;
+}
+
+function wbOutlineRowEl(node, depth) {
+  const row = document.createElement("div");
+  row.className = "wb-outline-row";
+  row.setAttribute("role", "treeitem");
+  row.setAttribute("aria-level", String(depth));
+  row.style.setProperty("--outline-depth", String(depth - 1));
+  row._node = node;
+  const field = document.createElement("input");
+  field.type = "text";
+  field.className = "wb-outline-text";
+  field.value = wbMapLabel(node);
+  field.setAttribute("aria-label", `Topic, level ${depth}`);
+  field.spellcheck = true;
+  //: A reference's name is the note or file behind it, not the map's to edit.
+  if (node.kind !== "topic") {
+    field.readOnly = true;
+    field.title = "This topic's name comes from the item it points at";
+  }
+  row.appendChild(field);
+  return row;
+}
+
+//: Called after every render of the board (`wbScheduleRender`,
+//: `renderWhiteboardNow`): rows rebuilt only when the tree's shape changed,
+//: otherwise only the names and the selection mark are brought up to date,
+//: and never the field being typed in.
+function wbOutlineSync(force = false) {
+  if (!wbOutlineOpen) return;
+  const tree = document.getElementById("wb-outline-tree");
+  if (!tree) return;
+  if (!wbIsMap()) {
+    wbOutlineToggle(false, { remember: false });
+    return;
+  }
+  const rows = wbOutlineRowsNow();
+  const shape = rows.map((r) => `${r.node.id}:${r.depth}`).join(",");
+  const focused = tree.contains(document.activeElement) ? document.activeElement : null;
+  const selected = wbSelectedItem?.kind === "object" ? wbSelectedItem.id : null;
+  if (force || shape !== tree.dataset.shape) {
+    //: The field being typed in survives a rebuild whole: its text (not yet
+    //: saved) and its selection, so a new topic adopting its real id while
+    //: "New topic" is selected does not leave the next key typed before it.
+    const focusNode = focused?.closest(".wb-outline-row")?._node || null;
+    const typing = focused
+      ? { value: focused.value, start: focused.selectionStart, end: focused.selectionEnd }
+      : null;
+    tree.replaceChildren(...rows.map((r) => wbOutlineRowEl(r.node, r.depth)));
+    tree.dataset.shape = shape;
+    if (focusNode) {
+      wbOutlineFocus(focusNode);
+      const field = wbOutlineRowOf(focusNode)?.firstChild;
+      if (field && field === document.activeElement) {
+        field.value = typing.value;
+        field.setSelectionRange(typing.start, typing.end);
+      }
+    }
+  }
+  const now = tree.contains(document.activeElement) ? document.activeElement : null;
+  for (const row of tree.children) {
+    const field = row.firstChild;
+    const label = wbMapLabel(row._node);
+    if (field !== now && field.value !== label) field.value = label;
+    row.setAttribute("aria-selected", String(row._node.id === selected));
+  }
+}
+
+function wbOutlineRowOf(node) {
+  const tree = document.getElementById("wb-outline-tree");
+  if (!tree) return null;
+  for (const row of tree.children) if (row._node === node || row._node.id === node.id) return row;
+  return null;
+}
+
+function wbOutlineFocus(node, { caret = null, select = false } = {}) {
+  const field = wbOutlineRowOf(node)?.firstChild;
+  if (!field) return;
+  field.focus({ preventScroll: true });
+  field.scrollIntoView({ block: "nearest" });
+  if (select) field.select();
+  else {
+    const at = caret == null ? field.value.length : Math.min(caret, field.value.length);
+    field.setSelectionRange(at, at);
+  }
+}
+
+//: The name on the canvas as it is typed, without a render: the label's own
+//: inline drawing, the one a rename on the canvas ends with.
+function wbOutlineMirror(node, text) {
+  const el = document.querySelector(`.wb-object[data-id="${node.id}"] .wb-map-text`);
+  if (el && el !== document.activeElement) wbMapInlineText(el, text);
+}
+
+//: The rename's save, as the canvas makes it: one Undo step for a real
+//: change, folded into the add while the topic is still new (FEAT-15).
+async function wbOutlineCommit(node, field) {
+  if (node.kind !== "topic") return;
+  const live = (wbState.objects || []).find((o) => o === node || o.id === node.id);
+  if (!live) return;
+  const edited = field.value.trim() || WB_MAP_NEW_TOPIC;
+  if (live.data.content === edited) return;
+  if (live._creating) await live._creating;
+  wbHistoryFor();
+  const top = wbUndoStack[wbUndoStack.length - 1];
+  const madeIt = (e) => e?.action === "create" && e.kind === "object" && e.id === live.id;
+  if (!(live._fresh && (madeIt(top) || (top?.action === "batch" && top.entries.some(madeIt))))) {
+    wbPushUndo({ action: "move", kind: "object", id: live.id, before: WB_KIND_INFO.object.payload(live) });
+  }
+  delete live._fresh;
+  live.data = { ...live.data, content: edited };
+  await wbSaveObject(live);
+  wbScheduleRender();
+}
+
+async function wbOutlineIndent(node, field) {
+  await wbOutlineCommit(node, field);
+  if (node._creating && !(await node._creating)) return;
+  const index = wbMapIndex();
+  const siblings = wbMapSiblingsOf(index, node);
+  const above = siblings[siblings.findIndex((s) => s.id === node.id) - 1];
+  if (!above) {
+    wbAnnounce("This topic is already the first in its branch.");
+    return;
+  }
+  const kids = index.childrenOf.get(above.id) || [];
+  const order = wbMapKeyBetween(kids[kids.length - 1] || null, null);
+  if (order != null) {
+    node.data = { ...node.data, order };
+    await wbSaveObject(node);
+  }
+  await wbMapTransplant(node, above.id, false, { via: "outline" });
+  wbOutlineSync(true);
+  wbOutlineFocus(node, { caret: field.selectionStart });
+}
+
+async function wbOutlineOutdent(node, field) {
+  await wbOutlineCommit(node, field);
+  if (node._creating && !(await node._creating)) return;
+  const index = wbMapIndex();
+  const parent = node.parent_id != null ? index.byId.get(node.parent_id) : null;
+  if (!parent) {
+    wbAnnounce("This is already a top-level topic.");
+    return;
+  }
+  //: Right after its old parent, where an outliner puts it, rather than
+  //: wherever its old key happens to sort among its new siblings.
+  const aunts = wbMapSiblingsOf(index, parent);
+  const next = aunts[aunts.findIndex((s) => s.id === parent.id) + 1] || null;
+  node.data = { ...node.data, order: wbMapKeyBetween(parent, next) };
+  await wbSaveObject(node);
+  await wbMapOutdent(node.id);
+  wbOutlineSync(true);
+  wbOutlineFocus(node, { caret: field.selectionStart });
+}
+
+async function wbOutlineAddAfter(node, field) {
+  await wbOutlineCommit(node, field);
+  wbOutlineAdding = true;
+  try {
+    await wbMapAddSibling(node.id);
+  } finally {
+    wbOutlineAdding = false;
+  }
+}
+
+//: The add path's hand-over (`wbMapEditNode`): the new row, selected so the
+//: first key replaces "New topic", as the canvas editor does.
+function wbOutlineTakeNewTopic(id) {
+  wbOutlineSync(true);
+  const node = (wbState.objects || []).find((o) => o.id === id);
+  if (node) wbOutlineFocus(node, { select: true });
+}
+
+async function wbOutlineRemoveEmpty(node) {
+  const index = wbMapIndex();
+  if ((index.childrenOf.get(node.id) || []).length || index.nodes.length <= 1) return false;
+  const rows = wbOutlineRowsNow();
+  const at = rows.findIndex((r) => r.node.id === node.id);
+  const before = rows[at - 1]?.node || rows[at + 1]?.node || null;
+  if (node._creating) await node._creating;
+  await wbMapDeleteSubtree(node.id);
+  wbOutlineSync(true);
+  if (before) {
+    selectWbItem("object", before.id);
+    wbOutlineFocus(before);
+  }
+  return true;
+}
+
+function wbOutlineStep(field, by) {
+  const rows = [...document.getElementById("wb-outline-tree").children];
+  const at = rows.indexOf(field.closest(".wb-outline-row"));
+  const to = rows[at + by];
+  if (to) wbOutlineFocus(to._node);
+}
+
+document.getElementById("wb-outline-tree")?.addEventListener("input", (event) => {
+  const row = event.target.closest(".wb-outline-row");
+  if (row && row._node.kind === "topic") wbOutlineMirror(row._node, event.target.value);
+});
+
+document.getElementById("wb-outline-tree")?.addEventListener("focusin", (event) => {
+  const row = event.target.closest(".wb-outline-row");
+  if (!row || row._node.id < 0) return;
+  if (wbSelectedItem?.kind !== "object" || wbSelectedItem.id !== row._node.id) selectWbItem("object", row._node.id);
+  for (const other of row.parentElement.children) other.setAttribute("aria-selected", String(other === row));
+});
+
+document.getElementById("wb-outline-tree")?.addEventListener("focusout", (event) => {
+  const row = event.target.closest(".wb-outline-row");
+  if (row) wbOutlineCommit(row._node, event.target);
+});
+
+document.getElementById("wb-outline-tree")?.addEventListener("keydown", (event) => {
+  const field = event.target;
+  const row = field.closest?.(".wb-outline-row");
+  if (!row || event.ctrlKey || event.metaKey || event.altKey) return;
+  const node = row._node;
+  const done = () => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  if (event.key === "Enter" && !event.shiftKey) {
+    done();
+    wbOutlineAddAfter(node, field);
+  } else if (event.key === "Tab") {
+    done();
+    if (event.shiftKey) wbOutlineOutdent(node, field);
+    else wbOutlineIndent(node, field);
+  } else if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+    done();
+    wbOutlineStep(field, event.key === "ArrowUp" ? -1 : 1);
+  } else if (event.key === "Backspace" && field.value === "" && node.kind === "topic") {
+    done();
+    wbOutlineRemoveEmpty(node);
+  } else if (event.key === "Escape") {
+    done();
+    field.value = wbMapLabel(node);
+    wbOutlineMirror(node, field.value);
+    document.getElementById("whiteboard-container")?.focus({ preventScroll: true });
+  }
+});
+
+document.getElementById("wb-outline-close")?.addEventListener("click", () => wbOutlineToggle(false));
+document.getElementById("wb-panel-outline")?.addEventListener("change", (event) => wbOutlineToggle(event.target.checked));

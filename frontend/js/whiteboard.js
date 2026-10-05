@@ -13775,6 +13775,7 @@ function wbScheduleRender() {
     renderWhiteboard();
     wbUpdateSelectionBar();
     wbSyncBoardCount();
+    wbOutlineSync();
   });
 }
 
@@ -13799,6 +13800,7 @@ function renderWhiteboardNow() {
   wbApplySearchHighlight();
   wbRenderNavigator();
   wbSyncBoardCount();
+  wbOutlineSync();
 }
 
 function renderWhiteboard() {

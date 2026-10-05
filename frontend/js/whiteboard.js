@@ -7752,6 +7752,7 @@ async function wbGenerateMapFromNotes() {
     // imported: landing back on an unchanged-looking list is how a thing that
     // worked reads as a thing that did not.
     await openWhiteboardBoard(board.id);
+    if (typeof wbMapTidyFresh === "function") await wbMapTidyFresh();
   } catch (error) {
     toast(error.message || "Couldn't create that map.", true);
   }
@@ -7909,7 +7910,8 @@ async function wbImportOutlineFile(event) {
     toast(
       `Imported “${board.title}”: ${board.object_count} node${board.object_count === 1 ? "" : "s"}.`
     );
-    openWhiteboardBoard(board.id);
+    await openWhiteboardBoard(board.id);
+    if (typeof wbMapTidyFresh === "function") await wbMapTidyFresh();
   } catch (error) {
     // The server's own message, not a generic one: it names the actual
     // refusal ("Unknown import format", a DOCTYPE in the OPML, a parse

@@ -41,7 +41,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
 
 ### High
 
-**FEAT-01. FreeMind import drops the root topic, so a single-root map does not round-trip.**
+**FEAT-01. FreeMind import drops the root topic, so a single-root map does not round-trip.** FIXED COMMIT_FEAT01
 - Evidence:
   - `fm.js` exports Root>{A>{A1}, B} as `<map><node TEXT="Root">…`.
   - Re-imported, it comes back as roots `[A>{A1}, B]` and Root is gone.
@@ -107,7 +107,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
   - Shift+Ctrl+V keeps plain text.
   - No library needed; tests in node.
 
-**FEAT-05. Imported and generated maps open in the Free layout, so keyboard adds pile up.**
+**FEAT-05. Imported and generated maps open in the Free layout, so keyboard adds pile up.** FIXED COMMIT_FEAT05
 - Evidence:
   - `import_board` passes `layout=DEFAULT_BOARD_LAYOUT` ("free") (`routes_whiteboard.py`, import route), while `createNewBoard` makes `tree-right` (`whiteboard.js:12048`).
   - `kb100.js` on an imported map: 101 topics with **240 overlapping on-screen pairs**. The same run on tree-right: **0**.

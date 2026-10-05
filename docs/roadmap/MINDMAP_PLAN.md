@@ -352,6 +352,8 @@ extended with the numbers named.
   constant, so a hand-placed node stays put until asked.
 - Everything the map shows is in the tree endpoint and the FreeMind and
   OPML exports round-trip; a feature that cannot round-trip is not built.
+  (Audit 2026-10-05 found FreeMind dropped a one-root map's centre; fixed
+  the same day, decision 22.)
 - **The last topic cannot be deleted; clearing the map is offered
   instead** (the owner asked directly: "should the user even be able to
   delete the primary core node??"). A map with no nodes is a dead end by
@@ -1177,6 +1179,22 @@ topic: a control that wide has nowhere to go.
    one. One level deep: a branch's own branches are not steps, which keeps a
    two-hundred-topic map a talk of a dozen steps. No key edits the map while
    it runs.
+22. **A FreeMind file's single root node is the central topic** (taken
+   2026-10-05, audit FEAT-01, features.md 9.5: the owner's newer words win).
+   This reverses the older code decision pinned by
+   `test_freemind_imports_with_its_root_as_the_maps_name`, which read the
+   root as the map's name and dropped it, so every `.mm` from Freeplane or
+   XMind arrived as loose trunks and a map made here lost its centre on the
+   way back. The map is named after the root unless `<map _title>` names it;
+   the trunk the export invents over a multi-root map carries `_wrapper` and
+   is taken off again. OPML, FreeMind and Markdown each round-trip a
+   101-topic map made here, every topic, edge, the centre and the name
+   (`test_a_101_topic_map_made_here_round_trips_losslessly`).
+23. **A map made from text starts in tree-right and is tidied once as it
+   opens** (taken 2026-10-05, audit FEAT-05). The import and the accepted AI
+   proposal took the board default, Free, while every other map door starts
+   in tree-right (`DEFAULT_MAP_LAYOUT`); `wbMapTidyFresh` lays it out once,
+   with no undo entry, when the import or proposal opens.
 
 ### Phases, each with the gate it is finished against
 

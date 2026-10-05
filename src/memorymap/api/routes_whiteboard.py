@@ -84,6 +84,13 @@ DEFAULT_BOARD_TYPE = "board"
 #: these is the only compatibility question, and it gets the default.
 BOARD_LAYOUTS = {"free", "tree-right", "tree-left", "tree-both", "tree-down", "radial"}
 DEFAULT_BOARD_LAYOUT = "free"
+#: **A map made from text starts laid out** (audit FEAT-05, 2026-10-05). The
+#: import and the accepted AI proposal used the board default, Free, while a
+#: map made by hand (`createNewBoard`) and the AI's `create_mindmap` start in
+#: tree-right: so the first Tab on an imported map piled new topics onto old
+#: ones, 240 overlapping pairs over 101 topics. One default for every map
+#: door.
+DEFAULT_MAP_LAYOUT = "tree-right"
 
 #: **The map's own theme** (MINDMAP_PLAN.md §13e, the owner: "the
 #: customisation features are lacking severely"). §13.4 measured the gap
@@ -3855,9 +3862,11 @@ def _export_freemind(title: str, roots: list[dict], cross_links: list[dict] | No
 
     **A `.mm` file has exactly one root.** A map here may have several, which
     is a real shape (two unrelated trunks on one board), so a multi-root map is
-    exported under one node named after the map rather than as several
-    documents or as a file only this app can read back. A single-root map is
-    written as itself, so the common case round-trips unchanged.
+    exported under one node named after the map (marked `_wrapper`, so this
+    app's import takes it off again) rather than as several documents or as a
+    file only this app can read back. A single-root map is written as itself,
+    so the common case round-trips unchanged; its name rides on `<map
+    _title>` when it differs from the central topic.
 
     `_kind`/`_ref` ride along for the same reason they do in the OPML export:
     FreeMind ignores attributes it does not know, and they are what lets a
@@ -3928,7 +3937,15 @@ def _export_freemind(title: str, roots: list[dict], cross_links: list[dict] | No
 
     under = document
     if len(roots) != 1:
-        under = ET.SubElement(document, "node", {"TEXT": title})
+        #: `_wrapper` marks the trunk this export invented, so the import
+        #: (`_parse_freemind`) takes it back off and the map's own roots come
+        #: back as roots. FreeMind ignores the attribute and draws the trunk.
+        under = ET.SubElement(document, "node", {"TEXT": title, "_wrapper": "map"})
+    elif title and title != (roots[0].get("text") or ""):
+        #: A one-root map whose name differs from its central topic keeps its
+        #: name in a private attribute on `<map>` (audit FEAT-01): the root
+        #: node is the central topic now, so it can no longer carry the name.
+        document.set("_title", title)
     _export_tree(under, roots, build)
     #: **The cross-links, in FreeMind's own element** (MINDMAP_PLAN.md §13d).
     #: `<arrowlink>` is a child of the node the link starts at and names the
@@ -4219,11 +4236,12 @@ def _parse_freemind(content: str) -> tuple[str, list[dict]]:
     """FreeMind `.mm` in, `(title, nested {text, children})` out.
 
     The format is one `<node TEXT="...">` inside another, and the document's
-    single root node *is* its title: so the root's own text names the map and
-    its children become the map's roots, which is the shape `_export_freemind`
-    writes and the shape Freeplane and Coggle export. A file with several
-    top-level nodes (not legal FreeMind, but files are files) keeps all of
-    them and takes no title from them.
+    single root node is the map's central topic, the shape Freeplane, XMind
+    and Coggle export; its text also names the map unless `<map _title>`
+    does. The one exception is the trunk `_export_freemind` writes over a
+    multi-root map, marked `_wrapper`, which is taken back off. A file with
+    several top-level nodes (not legal FreeMind, but files are files) keeps
+    all of them and takes no title from them.
 
     Text can also live in a `<richcontent>` element rather than in `TEXT`.
     That body is HTML, and rendering someone else's HTML into a node is not a
@@ -4261,12 +4279,21 @@ def _parse_freemind(content: str) -> tuple[str, list[dict]]:
         return out
 
     tops = root.findall("node")
-    if len(tops) == 1:
-        # The one legal shape: the document's root node names the map, and the
-        # map's own roots are its children.
+    named = (root.get("_title") or "").strip()
+    if len(tops) == 1 and tops[0].get("_wrapper") == "map":
+        # The trunk `_export_freemind` invented for a multi-root map: its text
+        # is the map's name and its children are the map's own roots.
         title = (tops[0].get("TEXT") or "").strip()
-        return title, walk(tops[0], 0)
-    return "", walk(root, 0)
+        return named or title, walk(tops[0], 0)
+    if len(tops) == 1:
+        # The one legal shape, and **the single root is the central topic**
+        # (audit FEAT-01, 2026-10-05; this reversed the older reading, which
+        # took it as the map's name and dropped it, so every `.mm` from
+        # Freeplane or XMind arrived as loose trunks). The map is named after
+        # it unless the file names itself.
+        title = (tops[0].get("TEXT") or "").strip()
+        return named or title, walk(root, 0)
+    return named, walk(root, 0)
 
 
 def _parse_opml(content: str) -> tuple[str, list[dict]]:
@@ -4740,7 +4767,7 @@ def _record_map_creation(
         board_id,
         detail,
         payload={
-            "after": events.board_state(name, "map", DEFAULT_BOARD_LAYOUT),
+            "after": events.board_state(name, "map", DEFAULT_MAP_LAYOUT),
             "nodes": len(created),
             **extra,
         },
@@ -4793,7 +4820,7 @@ def generate_map(body: MapGenerate, db: Session = Depends(get_session)) -> Board
 
     name = body.name.strip()[:100] or "Generated map"
     entry = Entry(content=f"# {name}", is_board=True)
-    _store_board_settings(entry, "map", DEFAULT_BOARD_LAYOUT)
+    _store_board_settings(entry, "map", DEFAULT_MAP_LAYOUT)
     db.add(entry)
     db.flush()
     created = _place_map_nodes(db, entry.id, parsed, reference_for)
@@ -4814,7 +4841,7 @@ def generate_map(body: MapGenerate, db: Session = Depends(get_session)) -> Board
         sketch_count=0,
         object_count=len(created),
         type="map",
-        layout=DEFAULT_BOARD_LAYOUT,
+        layout=DEFAULT_MAP_LAYOUT,
         **_preview_fields(db, entry.id),
     )
 
@@ -4849,7 +4876,7 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
     title, parsed = parsers[body.format](body.content)
     name = (body.name or title or "Imported map").strip()[:100] or "Imported map"
     entry = Entry(content=f"# {name}", is_board=True)
-    _store_board_settings(entry, "map", DEFAULT_BOARD_LAYOUT)
+    _store_board_settings(entry, "map", DEFAULT_MAP_LAYOUT)
     #: A numbered map's file comes back numbered (decision 17): OPML says so
     #: on its outlines, and Markdown when every topic starts with its place.
     if body.format == "markdown":
@@ -4880,6 +4907,6 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
         sketch_count=0,
         object_count=len(created),
         type="map",
-        layout=DEFAULT_BOARD_LAYOUT,
+        layout=DEFAULT_MAP_LAYOUT,
         **_preview_fields(db, entry.id),
     )

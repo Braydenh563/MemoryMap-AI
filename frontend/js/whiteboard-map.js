@@ -4718,6 +4718,18 @@ async function wbMapTidy({ onlyBranch = null, quiet = false } = {}) {
   return origin.size;
 }
 
+//: **A map that arrived from a file or a proposal is laid out once, as it
+//: opens** (audit FEAT-05, 2026-10-05). The server places an import as a
+//: ladder, one row per topic, which is readable but is not the layout the
+//: map names; the first Tab then tidied one branch against a ladder and the
+//: branches overlapped. One whole-map tidy at open, no undo entry (a tidy
+//: never records one), then the view is framed again.
+async function wbMapTidyFresh() {
+  if (!wbIsMap() || wbMapLayout() === "free") return;
+  await wbMapTidy({ quiet: true });
+  if (typeof wbFrameMapOnOpen === "function") wbFrameMapOnOpen();
+}
+
 //: Is any part of the map outside the canvas right now? Read off the rendered
 //: boxes rather than off the stored coordinates, because what matters is what
 //: is on screen at the zoom in force, which is the thing the report was about.

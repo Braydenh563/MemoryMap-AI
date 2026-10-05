@@ -1786,3 +1786,33 @@ async function addSkill() {
   stopEditingSkill();
   status.textContent = wasEditing ? `Updated “${name}”.` : `Saved “${name}”.`;
 }
+
+//: The block the editor sends, or null. Built here rather than assembled in
+//: `addSkill` so the shape has one home: the server validates it again
+//: (`skills.verify_spec`) and its complaint is what the status line shows.
+function chosenSkillVerify() {
+  const tool = $("skill-verify-tool").value;
+  if (!tool) return null;
+  const predicate = $("skill-verify-expect").value;
+  const block = {
+    tool,
+    expect: {
+      [predicate]: predicate === "unchanged" ? true : Number($("skill-verify-value").value) || 0,
+    },
+  };
+  if ($("skill-verify-untagged").checked) {
+    block.args = { untagged: true };
+    //: `count_notes` answers a filtered question in `count` and an unfiltered
+    //: one in `total`, and the verifier tries `total` first, so a filtered
+    //: block that did not name its field would read the number it is
+    //: filtering away from.
+    block.field = "count";
+  }
+  return block;
+}
+
+function chosenSkillTools() {
+  const box = $("skill-tool-list");
+  if (!box) return [];
+  return [...box.querySelectorAll("input:checked")].map((input) => input.value);
+}

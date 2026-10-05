@@ -118,7 +118,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
   - Run one tidy after import.
   - Check whether `/boards/generate` and the AI's `create_mindmap` share the default.
 
-**FEAT-06. The board's background is stored per browser, not per board. Its image counts as an orphan.**
+**FEAT-06. The board's background is stored per browser, not per board. Its image counts as an orphan.** FIXED 013375b
 - Evidence:
   - `wb-bg-color` is one global key (`whiteboard.js:8952-8976`).
   - The image is stored under `wb-bg-image-${boardId}` in localStorage (`:964-971`, `:9205`).

@@ -218,7 +218,10 @@ HELP_TOPICS: list[dict] = [
         "body": (
             "The whiteboard (Library -> Whiteboards) is a pannable canvas for "
             "freehand sketches and note cards together. Freehand sketches also "
-            "appear in the Library's Images sub-tab."
+            "appear in the Library's Images sub-tab. A board's background colour "
+            "and image are kept with the board. Board, Export saves a PNG (1x, 2x "
+            "or 3x, with a transparent background if you like), SVG or PDF named "
+            "after the board."
         ),
         "badge": {"label": "Library", "tab": "library"},
     },

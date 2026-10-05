@@ -7566,7 +7566,7 @@ function wbExportPaint(el, inkEl) {
   };
 }
 
-function wbBuildExportSvg(scope) {
+function wbBuildExportSvg(scope, { transparent = false } = {}) {
   const bounds = scope === "selection" ? wbSelectionBounds()
     : scope === "visible" ? wbVisibleBounds() : wbBoardBounds();
   const { minX, minY, width, height } = bounds || wbBoardBounds();
@@ -7577,7 +7577,9 @@ function wbBuildExportSvg(scope) {
   const parts = [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${width} ${height}" ` +
       `width="${Math.round(width)}" height="${Math.round(height)}">`,
-    `<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="${bgColor}" />`,
+    //: No ground at all for a transparent PNG (FEAT-14), so the picture
+    //: sits on whatever it is pasted onto.
+    transparent ? "" : `<rect x="${minX}" y="${minY}" width="${width}" height="${height}" fill="${bgColor}" />`,
   ];
 
   //: Frames first (decision 14): they sit under everything they hold, in the
@@ -7866,7 +7868,13 @@ async function wbInlineSvgImages(svg) {
 }
 
 async function wbRasterizeSvg(svgInput, width, height, mime) {
-  const svgString = await wbInlineSvgImages(svgInput);
+  //: The root's own size set to the canvas's, so a 2x or 3x export
+  //: (FEAT-14) is drawn at that size from the vectors rather than drawn at
+  //: 1x and stretched.
+  const svgString = (await wbInlineSvgImages(svgInput)).replace(
+    /^(<svg\b[^>]*?) width="[^"]*" height="[^"]*"/,
+    `$1 width="${Math.max(1, Math.round(width))}" height="${Math.max(1, Math.round(height))}"`
+  );
   return new Promise((resolve, reject) => {
     const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -8156,7 +8164,7 @@ async function wbImportOutlineFile(event) {
 
 async function wbExportSvg(scope) {
   const { svg } = wbBuildExportSvg(scope);
-  await saveFile(`whiteboard-${scope}.svg`, new Blob([await wbInlineSvgImages(svg)], { type: "image/svg+xml" }));
+  await saveFile(wbExportFileName(scope, "svg"), new Blob([await wbInlineSvgImages(svg)], { type: "image/svg+xml" }));
   toast("Board exported as SVG.");
 }
 
@@ -8182,6 +8190,47 @@ async function wbExportSvg(scope) {
 //: image findable by the board's name in search, and `caption_and_store` is
 //: write-once, so a vision model run later leaves it alone while the card's
 //: own Describe button (which forces) still replaces it.
+//: The board's own name, off the picker's `<kind> · <title> (N items)`.
+function wbBoardTitleForExport() {
+  return document.getElementById("wb-board-select")?.selectedOptions?.[0]
+    ?.textContent.replace(/\s*\(\d+ items?\)$/, "")
+    .replace(/^(Mind map|Board|Whiteboard) \u00b7 /, "").trim() || "";
+}
+
+//: **A file named after the board** (FEAT-14): `Launch plan.png`, or
+//: `Launch plan (selection).png`, never `whiteboard-whole.png` for every
+//: board anyone exports. Characters a file system refuses are dropped.
+function wbExportFileName(scope, extension) {
+  const title = wbBoardTitleForExport().replace(/[\\/:*?"<>|\u0000-\u001f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80)
+    || (wbIsMap() ? "Mind map" : "Whiteboard");
+  const part = scope === "selection" ? " (selection)" : scope === "visible" ? " (view)" : "";
+  return `${title}${part}.${extension}`;
+}
+
+//: The PNG's size and ground, remembered per device (FEAT-14: the export was
+//: 1x, board units as pixels, always on the board's colour).
+const WB_EXPORT_SCALES = [1, 2, 3];
+function wbExportPngPrefs() {
+  let saved = {};
+  try {
+    saved = JSON.parse(localStorage.getItem("wb-export-png") || "{}") || {};
+  } catch {
+    saved = {};
+  }
+  return {
+    scale: WB_EXPORT_SCALES.includes(saved.scale) ? saved.scale : 2,
+    transparent: saved.transparent === true,
+  };
+}
+
+function wbSetExportPngPrefs(prefs) {
+  try {
+    localStorage.setItem("wb-export-png", JSON.stringify(prefs));
+  } catch {
+    // Private mode: the choice holds for this export.
+  }
+}
+
 function wbExportDescription(scope) {
   //: The picker's label is `<kind> · <title> (N items)` (`refreshBoardList`),
   //: and both halves of that have to come off or the sentence reads "the mind
@@ -8242,9 +8291,10 @@ async function uploadToLibrary(filename, blob, description = "") {
 }
 
 async function wbExportPng(scope) {
-  const { svg, width, height } = wbBuildExportSvg(scope);
-  const blob = await wbRasterizeSvg(svg, width, height, "image/png");
-  const filename = `whiteboard-${scope}.png`;
+  const { scale, transparent } = wbExportPngPrefs();
+  const { svg, width, height } = wbBuildExportSvg(scope, { transparent });
+  const blob = await wbRasterizeSvg(svg, width * scale, height * scale, "image/png");
+  const filename = wbExportFileName(scope, "png");
   await saveFile(filename, blob);
   // Asked for directly: an exported board should show up in the Library's
   // Images gallery, not only as a file on disk that the app has no record
@@ -8270,8 +8320,9 @@ async function wbExportPng(scope) {
 //: is the missing half that turns a region of the board into a real image
 //: the gallery, the captioner and semantic search can all see.
 async function wbSaveToLibrary(scope) {
-  const { svg, width, height } = wbBuildExportSvg(scope);
-  const blob = await wbRasterizeSvg(svg, width, height, "image/png");
+  const { scale, transparent } = wbExportPngPrefs();
+  const { svg, width, height } = wbBuildExportSvg(scope, { transparent });
+  const blob = await wbRasterizeSvg(svg, width * scale, height * scale, "image/png");
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
   await uploadToLibrary(`whiteboard-${scope}-${stamp}.png`, blob, wbExportDescription(scope));
   toast("Added to your image library.");
@@ -8288,7 +8339,7 @@ async function wbExportPdf(scope) {
     return;
   }
   win.document.write(
-    `<!doctype html><html><head><title>MemoryMap whiteboard export</title><style>` +
+    `<!doctype html><html><head><title>${wbSvgEscape(wbExportFileName(scope, "pdf").replace(/\.pdf$/, ""))}</title><style>` +
       `@page { margin: 0; } html,body{margin:0;padding:0;background:#fff;}` +
       `img{display:block;width:100%;height:auto;}</style></head>` +
       `<body><img src="${url}" alt="Whiteboard export"></body></html>`
@@ -8456,6 +8507,35 @@ function wbExportBoard() {
   const scopeLabel = document.createElement("span");
   scopeLabel.className = "wb-export-label";
   scopeLabel.textContent = "How much";
+  //: The picture's size and ground (FEAT-14), shown only while the format
+  //: is a picture: an outline has neither.
+  const pngPrefs = wbExportPngPrefs();
+  const sizeLabel = document.createElement("span");
+  sizeLabel.className = "wb-export-label";
+  sizeLabel.textContent = "Size";
+  const sizeSeg = wbExportSegment(
+    "Picture size",
+    WB_EXPORT_SCALES.map((n) => ({ value: String(n), label: `${n}x`, title: n === 1 ? "One pixel per board unit" : `${n} pixels per board unit, sharper on a high-resolution screen or in print` })),
+    String(pngPrefs.scale),
+    (value) => {
+      pngPrefs.scale = Number(value);
+      wbSetExportPngPrefs(pngPrefs);
+      sync();
+    }
+  );
+  const clearRow = document.createElement("label");
+  clearRow.className = "setting-check wb-export-clear";
+  const clearBox = document.createElement("input");
+  clearBox.type = "checkbox";
+  clearBox.id = "wb-export-transparent";
+  clearBox.checked = pngPrefs.transparent;
+  clearBox.addEventListener("change", () => {
+    pngPrefs.transparent = clearBox.checked;
+    wbSetExportPngPrefs(pngPrefs);
+  });
+  const clearText = document.createElement("span");
+  clearText.textContent = "Transparent background";
+  clearRow.append(clearBox, clearText);
   const note = document.createElement("p");
   note.className = "confirm-text wb-export-note";
   const warning = document.createElement("p");
@@ -8479,6 +8559,11 @@ function wbExportBoard() {
     if (!allowed.has(scope)) scope = [...allowed][0];
     wbSyncExportSeg(formatSeg, format.value, null);
     wbSyncExportSeg(scopeSeg, scope, allowed);
+    const picture = format.value === "png" || format.value === "library";
+    sizeLabel.hidden = !picture;
+    sizeSeg.hidden = !picture;
+    clearRow.hidden = !picture;
+    if (picture) wbSyncExportSeg(sizeSeg, String(pngPrefs.scale), null);
     const chosenScope = WB_EXPORT_SCOPES.find((s) => s.value === scope);
     // Two sentences, the format's and the scope's, so the line reads the same
     // way round whichever of the two was changed last.
@@ -8531,7 +8616,7 @@ function wbExportBoard() {
   const exportBtn = smallButton("Export", "Export", go, false);
   exportBtn.id = "wb-export-go";
   row.append(smallButton("Cancel", "Cancel", close), exportBtn);
-  card.append(dialogHead("Export this board", close), formatLabel, formatSeg, scopeLabel, scopeSeg, note, warning, row);
+  card.append(dialogHead("Export this board", close), formatLabel, formatSeg, scopeLabel, scopeSeg, sizeLabel, sizeSeg, clearRow, note, warning, row);
   overlay.appendChild(card);
   wireBackdropClose(overlay, close);
   document.addEventListener("keydown", onKey, true);

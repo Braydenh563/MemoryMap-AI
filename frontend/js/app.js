@@ -2210,6 +2210,7 @@ const LAZY_MODULES = {
   modelBench: ["/js/model-bench.js"],
   webClip: ["/js/web-clip.js"],
   appImport: ["/js/app-import.js"],
+  usageLedger: ["/js/usage-ledger.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2421,6 +2422,7 @@ const LAZY_ENTRY_POINTS = {
   editConflict: ["editConflictPrompt"],
   noteHistory: ["openEntryHistory"],
   modelBench: ["renderModelBench"],
+  usageLedger: ["renderUsage", "renderCaptureCommand"],
   settingsData: [
     "renderPrivacyRange",
     "renderPrivacyReceipt",

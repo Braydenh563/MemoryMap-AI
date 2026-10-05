@@ -6556,3 +6556,10 @@ select {
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+/* Capture from anywhere (row 27): the command for this install, wrapping
+   rather than widening the group when its path is long. */
+.capture-command {
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+}

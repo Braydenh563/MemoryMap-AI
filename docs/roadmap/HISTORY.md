@@ -7,6 +7,70 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (H9, polish in use; the rest of row 25)
+
+**Built 2026-10-05 (WORLD_CLASS_PLAN rows 27 and 25).** Each H9 row, with its gate:
+
+- **The usage ledger.** `core/usage.py`: feature names (`tab:notes`, `cmd:go-to-graph`; a strict pattern, so nothing typed can ride in one) and their count, first and last day, in `usage.json` in the data folder, never sent anywhere. A file, not a table: a few hundred counters read and written whole need no migration shared with every branch. `/usage` (count, summary, clear). The page counts a tab opened and a palette command run (`usageCount`, navigation.js, batched every 30 s and on hide); the palette lists the most used commands first within each group; Settings, General, What you use shows the top five and the known features (tabs and palette commands) unused for 90 days, with Clear the counts. Measured: a command run six times came to the top of an empty palette; 70 of the palette's commands listed as unused on a new notebook. `tests/test_usage_ledger.py`.
+- **Time to first answer.** `scratchpad/ui-sweeps/inv1005-firstrun.js` from an empty data folder: choose a password, skip the welcome, type a note into Capture, ask about it. Before: the first question paid the embedding model's cold load (15 of 17 s; an empty notebook skips the launch warm-up). Now focus in Capture, Ask or chat starts the load in the background (`search_manager.warm`), under the person's typing: 11.5 s of the app's own time on a sandbox at load 20 (27 s with typing at 80 words a minute), the answer found the note. Under the plan's two minutes; the remaining wait is that cold load on this machine. The tour itself was not cut (it is skipped in one press).
+- **Simple mode.** Settings, General: Show only Dashboard, Notes, Chat and Library. `data-simple="on"` on <html>, set by theme-boot.js before first paint from this device's choice, hides the Graph, Timeline and Reminders tabs (and the phone's More sheet rows), the Library's Boards and maps, What it learned and the advanced response settings; nothing is turned off and the palette opens each. Measured: 7 tabs to 4 at 1440, the phone dock to Notes, Chat, Library and More at 390.
+- **The perf gate in CI.** `tests/test_perf_budget.py`: ten boot routes on a 300-note notebook, each with a statement budget (measured, plus two) and a generous wall-time budget; a deliberate N+1 is caught. The suite runs on every push, so this is the gate; `boottime.js` in the workflow itself is left.
+- **The axe sweep.** `all.sh` runs `axe.js` when a copy of axe-core is at `AXE_JS` and says it skipped otherwise (axe is MPL-2.0 and a dev tool; not vendored into the app). The WCAG 2.2 AA pass, every tab, sub-tab and Settings section: 0 findings at 1440 in light and in dark; at 390 one rule, aria-conditional-attr on the Timeline table's 25 rows (a row that opens carries aria-expanded, which a plain table does not allow), fixed by giving that table role=treegrid (tests/test_wcag_pass.py), then 0. The "incomplete" nodes are axe's own undecided cases (text over gradients and images), which `contrast.js` covers.
+- **Quick capture from anywhere.** `memorymap --capture` (`__main__.py`) opens `capture.html` on the copy already running: one line, Enter saves through `POST /entries`, the window closes when the browser allows it. Bound to a key in the system's own keyboard settings it is a global hotkey with no OS hook and no dependency; Settings, Keyboard shortcuts, Capture from anywhere shows this install's exact command (`GET /capture/command`) with Copy. Measured: a note captured and listed 606 ms after the window opened (gate: three seconds). On a phone, the PWA's share target already existed.
+- **Retry as a grammar, fault injection.** `FAULTS=1 errors.js` (`errors-faults.js`): every route the boot and the seven tabs call (29), one at a time answering 500, each tab read for an uncaught error or a blank surface with no `surfaceFailed` notice: 0 findings.
+- **Speculative retrieval.** `POST /search/warm` makes the question's vector (the same subject `_retrieve` will embed) on a typing pause in Ask or chat, cached on the embedding service by backend and text; a model not loaded starts loading. `tests/test_speculative_retrieval.py`: with a 200 ms embedding call, a warmed question's retrieval spends none of it after Enter. Not measured: time to first token against a real model.
+
+Also in this block, H6's two rows: **the WCAG audit** (the axe pass above, plus `inv1005-keyreach.js` for the keyboard) and **the first-run path timed to a first answer** (above).
+
+### From WORLD_CLASS_PLAN.md, H9 Polish in use (the owner's question, 2026-09-14; S to M each)
+
+Asked at the close of PR 144: what else makes the app better *in use*,
+not on a feature list. Checked against the code first (undo toasts, the
+service worker, skeletons, chunk-on-scroll lists, saved searches, the
+daily note, the first-run pass and the doctor route all exist), so each
+row below is a gap, with its gate:
+
+- **A local usage ledger.** Count every feature's use on this machine
+  only (a table, never sent anywhere), shown in Settings as "what you
+  use", and used to rank the palette and the Show menu by frequency. The
+  first notebook that tells its owner which of itself is dead weight.
+  Gate: a feature unused for ninety days is listed, and the palette's
+  top five are the five most used.
+- **Time to first answer as the onboarding number.** The first-run path
+  ends in a real question answered from a real note, timed; the tour is
+  cut to whatever gets that under two minutes on a cold laptop. Gate:
+  the number in the CHANGELOG, measured by a sweep that starts from an
+  empty data dir.
+- **Simple mode.** A Settings switch that hides the tabs and settings a
+  new person does not need (Timeline, Boards, the learned store, the
+  advanced response settings) until they are reached for; every hidden
+  thing reachable from the palette. Gate: the tab bar shows four tabs
+  on a fresh install and the docks lint still passes.
+- **Speculative retrieval.** Retrieval starts on a typing pause in Ask
+  and Chat, before Enter, so the first token arrives sooner; the model
+  is warmed on boot and kept resident. Gate: median time to first token
+  on the reference laptop, before and after, in the CHANGELOG.
+- **The perf gate in CI.** `boottime.js` and a per-action timing sweep
+  (open each tab, open a note, ask a question against the fake server)
+  run on every push with a budget per number; a regression fails the
+  build like a lint. Gate: the workflow, and one deliberate regression
+  caught before merge.
+- **Screen readers as a standing sweep.** axe-core over every tab in
+  both themes, next to `contrast.js` and `touch.js`, with the count
+  ratcheted to zero. Gate: the sweep in `all.sh`, zero serious findings.
+- **Quick capture from anywhere.** A global hotkey on the desktop build
+  that opens a one-line capture over any app, and the PWA's share target
+  on a phone on the same network. Gate: a note captured without the app
+  in front, under three seconds, in both cases.
+- **Retry as a grammar.** Every failed request shows the same inline
+  "try again" with the reason, never a toast alone; `errors.js` gains a
+  fault-injection pass (the fake server returns 500 on one route at a
+  time). Gate: zero routes whose failure leaves the surface blank.
+
+**State 2026-09-24:** (c) for the usage ledger, time to first answer, simple mode, the perf gate in CI (CI runs the Playwright tests, no timing budget), the axe sweep and the global capture hotkey. (b) for speculative retrieval (Ollama is asked to keep the model for 30 minutes; retrieval does not start on a pause) and for retry as a grammar (`surfaceFailed`/`surfaceRecovered` are the one recipe, `tests/test_ui_recipes.py`; the fault-injection pass in `errors.js` is not built).
+
+
+
 ## Moved from the plans, 2026-10-05 (row 25, the importers and the keyboard)
 
 ### From WORLD_CLASS_PLAN.md, H6 and section 5 item 7: import from another app

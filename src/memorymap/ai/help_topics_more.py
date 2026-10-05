@@ -514,6 +514,59 @@ MORE_TOPICS: list[dict] = [
         ),
         "badge": {"label": "Import from another app", "section": "data", "target": "import-app-box"},
     },
+    {
+        "id": "simple-mode",
+        "keywords": (
+            "simple mode", "fewer tabs", "hide tabs", "hide the tabs", "tabs i do not need", "too many tabs", "simpler", "beginner",
+            "where did the graph go", "where did the timeline go", "where are reminders",
+        ),
+        "body": (
+            "Settings, General, Simple mode: Show only Dashboard, Notes, Chat and "
+            "Library. It hides the Graph, Timeline and Reminders tabs, the "
+            "Library's Boards and maps, What it learned and the advanced response "
+            "settings until you want them. Nothing is turned off: every hidden "
+            "place still opens from the command palette (Ctrl+K), and reminders "
+            "still ring. It is remembered on this device; turn it off in the "
+            "same place to bring the tabs back."
+        ),
+        "badge": {"label": "Simple mode", "section": "general", "target": "simple-mode-box"},
+    },
+    {
+        "id": "usage-ledger",
+        "keywords": (
+            "what you use", "what i use", "usage", "most used", "never use", "unused features",
+            "is it tracking me", "telemetry", "analytics",
+        ),
+        "body": (
+            "Settings, General, What you use counts each tab you open and each "
+            "command you run from the palette, on this computer only, in a small "
+            "file in your data folder: names and dates, never what you typed, "
+            "and never sent anywhere (there is no telemetry). It lists your most "
+            "used tabs and commands and the ones not used in 90 days, and the "
+            "command palette lists the commands you use most first. Clear the "
+            "counts forgets every one."
+        ),
+        "badge": {"label": "What you use", "section": "general", "target": "usage-box"},
+    },
+    {
+        "id": "capture-anywhere",
+        "keywords": (
+            "capture from anywhere", "global hotkey", "global shortcut", "system shortcut",
+            "capture without opening", "note from another app", "--capture",
+        ),
+        "body": (
+            "Settings, Keyboard shortcuts, Capture from anywhere shows the command "
+            "for this install (memorymap --capture, with its full path) and a "
+            "Copy button. Give that command a key in your system's own keyboard "
+            "settings: on Windows a desktop shortcut with it as the target and a "
+            "Shortcut key, on macOS a Shortcuts action, on Linux a custom keyboard "
+            "shortcut. Pressing the key over any app opens a one-line box on the "
+            "MemoryMap that is already running; Enter saves the note, filed like "
+            "any other, and the box closes. On a phone, Share to MemoryMap does "
+            "the same."
+        ),
+        "badge": {"label": "Capture from anywhere", "section": "shortcuts", "target": "capture-anywhere-box"},
+    },
 ]
 
 #: **Every feature since 0.3.0, large and small** (INBOX 448 (1), the owner:
@@ -974,6 +1027,9 @@ TOPIC_META: dict[str, dict] = {
     "margin-reader": {"title": "The margin reader", "path": "A document's menu, While you write, Margin reader"},
     "web-clipper-bookmark": {"title": "Clip a page from your browser", "path": "Settings, Import & export, Web clipper", "target": "web-clip-box"},
     "import-apps": {"title": "Import from another app", "path": "Settings, Import & export, Import from another app", "target": "import-app-box"},
+    "simple-mode": {"title": "Simple mode", "path": "Settings, General, Simple mode", "target": "simple-mode-box"},
+    "usage-ledger": {"title": "What you use", "path": "Settings, General, What you use", "target": "usage-box"},
+    "capture-anywhere": {"title": "Capture from anywhere", "path": "Settings, Keyboard shortcuts, Capture from anywhere", "target": "capture-anywhere-box"},
     "storage": {"title": "Where your data lives", "path": "Settings, Import & export"},
     "websearch": {"title": "Web search", "path": "Settings, Web search"},
     "privacy": {"title": "Privacy", "path": "Settings, Privacy"},
@@ -1080,7 +1136,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "command-palette", "find-anything", "search", "addresses", "settings-overview",
     )),
     ("Writing notes", (
-        "capture", "quick-note", "note-outbox", "attachments", "notes-controls",
+        "capture", "quick-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
         "notes-list", "note-history", "links", "favourites", "templates",
         "write-with-atlas", "translate", "extract-notes", "voice",
     )),
@@ -1107,7 +1163,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "reminders-controls", "dashboard", "dashboard-controls", "notifications", "spaces",
     )),
     ("Look and feel", (
-        "appearance", "themes", "accessibility", "performance", "background-art",
+        "appearance", "themes", "simple-mode", "accessibility", "performance", "background-art",
         "statusbar", "companion", "atlas-look", "faces",
     )),
     ("Models and the AI", (
@@ -1115,7 +1171,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "search-index", "packages",
     )),
     ("Privacy and your data", (
-        "privacy", "security", "lock", "storage", "import-export", "import-apps", "background-tasks",
+        "privacy", "security", "lock", "storage", "import-export", "import-apps", "usage-ledger", "background-tasks",
     )),
     ("Settings and support", (
         "profile", "general-settings", "updates", "logs", "troubleshooting",

@@ -3155,8 +3155,12 @@ Link to another note with [[its first few words]]."></textarea>
              columns are a header row a screen reader can announce, the sort is
              on the header cells where a person looks for it, and `aria-sort`
              says which way. The head is sticky inside the same scrolling box
-             the feed uses. -->
-        <table id="timeline-table" class="timeline-table hidden">
+             the feed uses. `role="treegrid"` because a row opens (its
+             `aria-expanded`, timeline.js): ARIA allows that state on a row of
+             a treegrid and not of a plain table, and axe's WCAG pass at 390
+             flagged all 25 rows (2026-10-05). The header cells and `aria-sort`
+             read the same in either role. -->
+        <table id="timeline-table" class="timeline-table hidden" role="treegrid" aria-label="Timeline">
           <thead>
             <tr id="timeline-table-head">
               <th scope="col" class="timeline-col-select hidden"><span class="visually-hidden">Selected</span></th>
@@ -10131,6 +10135,36 @@ Link to another note with [[its first few words]]."></textarea>
                 <li><kbd>m</kbd> <kbd>r</kbd><span>Reminders</span></li>
               </ul>
             </details>
+            <!-- Quick capture from anywhere (WORLD_CLASS_PLAN H9, row 27): the
+                 command `memorymap --capture` (__main__.py) opens capture.html
+                 on the running app; usage-ledger.js fills the exact command
+                 for this install from GET /capture/command. -->
+            <div class="settings-group" id="capture-anywhere-box">
+              <div class="row help-head">
+                <h3>Capture from anywhere</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="capture-anywhere-help" aria-controls="capture-anywhere-help" aria-expanded="false"
+                  title="About capturing from anywhere" aria-label="About capturing from anywhere">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Give this command a key in your system's keyboard settings to capture a note over any app.</p>
+              <div class="help-body hidden" id="capture-anywhere-help" role="dialog" aria-label="About capturing from anywhere">
+                <p>
+                  Windows: a desktop shortcut with this command as its target,
+                  then its Properties, Shortcut key.
+                  macOS: Shortcuts, a Run Shell Script action, then a keyboard
+                  shortcut. Linux: your desktop's Keyboard settings, a custom
+                  shortcut. The key opens a one-line box on the MemoryMap that is
+                  already running; Enter saves the note and the box closes. On a
+                  phone, Share to MemoryMap does the same.
+                </p>
+              </div>
+              <div class="row gap">
+                <code id="capture-command" class="capture-command">memorymap --capture</code>
+                <button id="capture-command-copy" class="ghost small" type="button"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy</button>
+              </div>
+            </div>
           </section>
 
           <!-- Profile -->
@@ -10268,6 +10302,56 @@ Link to another note with [[its first few words]]."></textarea>
                 <span>Smart quotes and dashes in documents</span>
               </label>
               <p class="muted">Curly quotes as you type, and two hyphens become a dash; never inside code.</p>
+            </div>
+            <!-- Simple mode and the usage ledger (WORLD_CLASS_PLAN H9, row 27):
+                 usage-ledger.js (lazy) wires both; theme-boot.js applies
+                 simple mode before first paint. -->
+            <div class="settings-group" id="simple-mode-box">
+              <div class="row help-head">
+                <h3>Simple mode</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="simple-mode-help" aria-controls="simple-mode-help" aria-expanded="false"
+                  title="About simple mode" aria-label="About simple mode">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <label class="setting-check">
+                <input type="checkbox" id="pref-simple-mode">
+                <span>Show only Dashboard, Notes, Chat and Library</span>
+              </label>
+              <div class="help-body hidden" id="simple-mode-help" role="dialog" aria-label="About simple mode">
+                <p>
+                  Hides the Graph, Timeline and Reminders tabs, the Library's
+                  Boards and maps, What it learned and the advanced response
+                  settings, until you want them. Nothing is turned off: every
+                  hidden place still opens from the command palette (Ctrl+K),
+                  and reminders still ring. Remembered on this device.
+                </p>
+              </div>
+            </div>
+            <div class="settings-group" id="usage-box">
+              <div class="row help-head">
+                <h3>What you use</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="usage-help" aria-controls="usage-help" aria-expanded="false"
+                  title="About what you use" aria-label="About what you use">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Counted on this computer only, never sent anywhere.</p>
+              <div class="help-body hidden" id="usage-help" role="dialog" aria-label="About what you use">
+                <p>
+                  Each tab you open and each command you run from the palette is
+                  counted in a small file in your data folder: names and dates,
+                  never what you typed. The command palette lists the commands
+                  you use most first. Clear forgets every count.
+                </p>
+              </div>
+              <p id="usage-most" class="library-file-meta usage-most"></p>
+              <p id="usage-unused" class="muted text-sm"></p>
+              <div class="row gap">
+                <button id="usage-clear" class="ghost small" type="button"><i class="ph ph-eraser ph-lead" aria-hidden="true"></i> Clear the counts</button>
+              </div>
             </div>
           </section>
 

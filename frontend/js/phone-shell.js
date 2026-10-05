@@ -1378,6 +1378,9 @@ function openPhoneMoreSheet() {
       const list = document.createElement("div");
       list.className = "sheet-list";
       for (const tab of PHONE_MORE_TABS) {
+        //: Simple mode (Settings, General) hides these tabs everywhere, the
+        //: sheet included; the palette still opens them.
+        if (tab !== "dashboard" && document.documentElement.dataset.simple === "on") continue;
         //: Read off the tab button rather than written out again here: the
         //: icon and the caption are then the same two things the strip shows
         //: at every other width, and a tab renamed in the markup is renamed

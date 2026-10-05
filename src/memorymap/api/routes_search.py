@@ -16,6 +16,7 @@ this file knowing any of them exist.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from memorymap.core.deps import get_session
@@ -23,6 +24,25 @@ from memorymap.search import engine
 from memorymap.search import index as search_index
 
 router = APIRouter(prefix="/search", tags=["search"])
+
+
+class WarmBody(BaseModel):
+    q: str = Field(default="", max_length=2000)
+
+
+@router.post("/warm")
+def warm(body: WarmBody, session: Session = Depends(get_session)) -> dict:
+    """Speculative retrieval (WORLD_CLASS_PLAN H9): the Ask and chat boxes send
+    their words on a typing pause, and the question's vector is made now, so
+    Enter does not wait for the embedding model. `search_manager.warm`."""
+    from memorymap.core import deps
+    from memorymap.search import search_manager
+
+    try:
+        warmed = search_manager.warm(session, body.q.strip(), deps.get_embeddings())
+    except Exception:  # noqa: BLE001  # a warm-up that fails costs the real search nothing
+        warmed = False
+    return {"warmed": warmed}
 
 #: The most hits one call will return. A search box shows a page, not a
 #: notebook; a caller that wants more is asking for a list, which

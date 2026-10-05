@@ -57,4 +57,28 @@ for WIDTH in 1440 390; do
   fi
 done
 
+# Screen readers as a standing sweep (WORLD_CLASS_PLAN H9): axe-core over
+# every tab, sub-tab and Settings section, light and dark (axe.js). axe is
+# MPL-2.0 and a dev tool, so it is not vendored into the app: the sweep reads
+# it from AXE_JS and is skipped, saying so, when there is no copy here.
+AXE_JS="${AXE_JS:-/tmp/axe-core/package/axe.min.js}"
+echo "######## axe (WCAG 2.2 AA), light and dark" >> "$OUT"
+if [ -f "$AXE_JS" ]; then
+  if ! AXE_JS="$AXE_JS" node "$HERE/axe.js" >> "$OUT" 2>&1; then
+    echo "!! axe found something" >> "$OUT"
+  fi
+else
+  echo "skipped: no axe-core at $AXE_JS (npm pack axe-core@4, see axe.js's header)" >> "$OUT"
+fi
+
+# Keyboard reach and the fault pass (WORLD_CLASS_PLAN H6, H9).
+echo "######## keyboard reach @ 1440" >> "$OUT"
+if ! node "$HERE/inv1005-keyreach.js" >> "$OUT" 2>&1; then
+  echo "!! keyboard reach failed" >> "$OUT"
+fi
+echo "######## faults (one route at a time answers 500)" >> "$OUT"
+if ! FAULTS=1 node "$HERE/errors.js" >> "$OUT" 2>&1; then
+  echo "!! faults failed" >> "$OUT"
+fi
+
 echo "$OUT"

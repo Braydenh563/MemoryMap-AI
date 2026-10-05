@@ -794,9 +794,9 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 22 | ~~I2, H8~~ | ~~the margin reader~~ built 2026-10-05 for documents: `ai/margin.py`, `POST /editor/read`, `margin-reader.js` (`tests/test_margin_reader_spec.py`); left: the note editor, typing latency in Chromium | S | HISTORY; I2 |
 | 23 | I5, H8 | time travel: `as_of` on chat, then-and-now | M | `routes_chat.py` |
 | 24 | ~~D9~~ | ~~the web clipper~~ built 2026-10-05: `POST /links/clip-page` from the browser, the Clip to MemoryMap bookmark and `clip.html` (`tests/test_webclip_page.py`) | done | HISTORY |
-| 25 | H6, §5.7 | ~~Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete~~ built 2026-10-05 (HISTORY); a WCAG audit; multi-window; a first-run path timed to a first answer | M to L each | H6 |
+| 25 | H6, §5.7 | ~~Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete; a WCAG audit; a first-run path timed to a first answer~~ built 2026-10-05 (HISTORY); left: multi-window | M | H6 |
 | 26 | H7 | boot JS under 1 MB (1,072 KB now), first paint under 300 ms, every list over 200 rows virtualised | S each | `boottime.js` |
-| 27 | H9 | usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval | S to M each | H9 |
+| 27 | ~~H9~~ | ~~usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval~~ built 2026-10-05 (HISTORY); left: `boottime.js` in the CI workflow | S | HISTORY |
 | 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure; the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
 | 29 | §10 | F1 a `prefs` module, F5 `api.stream`/`api.upload` and the no-bare-fetch lint, F7's threads onto the pool (the ratchet is built), F10 a `readings` table, F12 a store (F4 built 2026-09-26) | S to L | §10 |
 | 30 | §5 | notes' unlinked mentions, word count and reading time; `{{clipboard}}` and a cursor mark; move to a space and export from a selection; the bin for documents and reminders | S each | §5 |
@@ -1684,7 +1684,7 @@ first note and a first question, measured by time to first answer.
    and read as intended, not that `wix build`/`ISCC.exe` actually produced
    a file with that name.
 
-**State 2026-10-05:** (b) done: one-click recovery (253), the release naming (decision 1), the four importers and keyboard-complete for every dock (HISTORY, "row 25, the importers and the keyboard"). Open: print and PDF of a document with its citations (the print stylesheet exists; citations in it were not checked), the WCAG audit, multi-window, and a first-run tour that ends in a first answer (the tour exists; the timed path does not).
+**State 2026-10-05:** (b) done: one-click recovery (253), the release naming (decision 1), the four importers, keyboard-complete for every dock, the WCAG audit and the first-run path timed to a first answer (HISTORY, "row 25, the importers and the keyboard" and "H9, polish in use; the rest of row 25"). Open: print and PDF of a document with its citations (the print stylesheet exists; citations in it were not checked) and multi-window.
 
 ### H7 The speed budget (A1 continued; S each)
 
@@ -1727,50 +1727,7 @@ keystroke-to-margin update.
 
 ### H9 Polish in use (the owner's question, 2026-09-14; S to M each)
 
-Asked at the close of PR 144: what else makes the app better *in use*,
-not on a feature list. Checked against the code first (undo toasts, the
-service worker, skeletons, chunk-on-scroll lists, saved searches, the
-daily note, the first-run pass and the doctor route all exist), so each
-row below is a gap, with its gate:
-
-- **A local usage ledger.** Count every feature's use on this machine
-  only (a table, never sent anywhere), shown in Settings as "what you
-  use", and used to rank the palette and the Show menu by frequency. The
-  first notebook that tells its owner which of itself is dead weight.
-  Gate: a feature unused for ninety days is listed, and the palette's
-  top five are the five most used.
-- **Time to first answer as the onboarding number.** The first-run path
-  ends in a real question answered from a real note, timed; the tour is
-  cut to whatever gets that under two minutes on a cold laptop. Gate:
-  the number in the CHANGELOG, measured by a sweep that starts from an
-  empty data dir.
-- **Simple mode.** A Settings switch that hides the tabs and settings a
-  new person does not need (Timeline, Boards, the learned store, the
-  advanced response settings) until they are reached for; every hidden
-  thing reachable from the palette. Gate: the tab bar shows four tabs
-  on a fresh install and the docks lint still passes.
-- **Speculative retrieval.** Retrieval starts on a typing pause in Ask
-  and Chat, before Enter, so the first token arrives sooner; the model
-  is warmed on boot and kept resident. Gate: median time to first token
-  on the reference laptop, before and after, in the CHANGELOG.
-- **The perf gate in CI.** `boottime.js` and a per-action timing sweep
-  (open each tab, open a note, ask a question against the fake server)
-  run on every push with a budget per number; a regression fails the
-  build like a lint. Gate: the workflow, and one deliberate regression
-  caught before merge.
-- **Screen readers as a standing sweep.** axe-core over every tab in
-  both themes, next to `contrast.js` and `touch.js`, with the count
-  ratcheted to zero. Gate: the sweep in `all.sh`, zero serious findings.
-- **Quick capture from anywhere.** A global hotkey on the desktop build
-  that opens a one-line capture over any app, and the PWA's share target
-  on a phone on the same network. Gate: a note captured without the app
-  in front, under three seconds, in both cases.
-- **Retry as a grammar.** Every failed request shows the same inline
-  "try again" with the reason, never a toast alone; `errors.js` gains a
-  fault-injection pass (the fake server returns 500 on one route at a
-  time). Gate: zero routes whose failure leaves the surface blank.
-
-**State 2026-09-24:** (c) for the usage ledger, time to first answer, simple mode, the perf gate in CI (CI runs the Playwright tests, no timing budget), the axe sweep and the global capture hotkey. (b) for speculative retrieval (Ollama is asked to keep the model for 30 minutes; retrieval does not start on a pause) and for retry as a grammar (`surfaceFailed`/`surfaceRecovered` are the one recipe, `tests/test_ui_recipes.py`; the fault-injection pass in `errors.js` is not built).
+Built 2026-10-05, every row: moved to HISTORY.md, "Moved from the plans, 2026-10-05 (H9, polish in use; the rest of row 25)". Left: `boottime.js` in the CI workflow itself (the budget that runs on every push is `tests/test_perf_budget.py`).
 
 ### The order, and the rule
 

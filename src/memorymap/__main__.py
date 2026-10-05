@@ -2270,6 +2270,24 @@ def _repair_install() -> None:
         print("Repaired: nothing cached to clear.")
 
 
+def _capture() -> int:
+    """`memorymap --capture`: open the one-line capture window onto the copy
+    of MemoryMap already running on this notebook (WORLD_CLASS_PLAN H9, quick
+    capture from anywhere). Bound to a key in the system's own keyboard
+    settings, it is a global capture hotkey with no hook of this app's in the
+    operating system and no new dependency: the window is a page in the
+    person's own browser, signed in with the app's own token.
+    """
+    import webbrowser
+
+    state, running = _existing_instance()
+    if state != "live":
+        print("MemoryMap is not running on this notebook. Start it, then capture again.")
+        return 1
+    webbrowser.open(f"http://{HOST}:{running.port}/capture.html", new=1)
+    return 0
+
+
 def main() -> None:
     _ensure_std_streams()
     parser = argparse.ArgumentParser(prog="memorymap", description="MemoryMap AI")
@@ -2297,6 +2315,12 @@ def main() -> None:
         "normally (what the installer's \"Repair MemoryMap AI\" shortcut runs; "
         "notes and preferences are never touched)",
     )
+    parser.add_argument(
+        "--capture",
+        action="store_true",
+        help="open a one-line capture window on the running MemoryMap and exit "
+        "(bind it to a key in your system's keyboard settings)",
+    )
     # Internal: set by _maybe_relaunch_hidden's own pythonw.exe relaunch to
     # mark "this already is the console-less process," so it doesn't try to
     # relaunch itself again. Not something a person should ever type, hence
@@ -2317,6 +2341,9 @@ def main() -> None:
     # Only the desktop window takes the bootloader splash down when it shows;
     # every other mode of a packaged build closes it here, or it would stay on
     # screen for as long as the process runs.
+    if args.capture:
+        _close_bootloader_splash()
+        raise SystemExit(_capture())
     if args.export:
         _close_bootloader_splash()
         raise SystemExit(_export_markdown(args.export))

@@ -38,6 +38,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from memorymap.ai import facts
+from memorymap.ai.fence import FENCE_RULE, fence
 from memorymap.core.database import DerivedFact, Entry
 from memorymap.core.logbuffer import safe_value
 
@@ -163,8 +164,8 @@ def _date_card(paragraph: str, now: datetime) -> dict | None:
 def _judge(provider, model: str, paragraph: str, source: str) -> tuple[str, str] | None:  # noqa: ANN001
     try:
         reply = provider.chat(model, [
-            {"role": "system", "content": JUDGE_SYSTEM},
-            {"role": "user", "content": f"First: {paragraph[:1200]}\n\nSecond: {source[:600]}"},
+            {"role": "system", "content": f"{JUDGE_SYSTEM} {FENCE_RULE}"},
+            {"role": "user", "content": f"First: {fence('paragraph', paragraph[:1200])}\n\nSecond: {fence('note', source[:600])}"},
         ])
     except Exception as exc:  # noqa: BLE001  # a model that fails leaves the local reading
         logger.info("margin: the model could not judge (%s)", safe_value(str(exc), 160))

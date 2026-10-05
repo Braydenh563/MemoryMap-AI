@@ -31,6 +31,26 @@ let paletteConversations = [];
 //: you actually move around the app.
 let paletteMedia = [];
 let paletteBoards = [];
+//: The usage ledger's counts (core/usage.py, WORLD_CLASS_PLAN H9): with
+//: nothing typed, the commands this person runs most come first.
+let paletteUsage = {};
+
+//: A command's name in the ledger (`usageFeatureName`, navigation.js).
+function paletteFeature(match) {
+  return usageFeatureName(match.label);
+}
+
+//: Every run goes through here, so a command run by click and by Enter is
+//: counted once either way. Notes, documents and the other found things are
+//: places, not features, and are not counted.
+function paletteRun(match) {
+  closePalette();
+  if (!match.entry && !["Notes", "Documents", "Reminders", "Conversations", "Files", "Boards & maps"].includes(match.group)) {
+    const name = paletteFeature(match);
+    if (name) usageCount(name);
+  }
+  match.run();
+}
 
 async function openPalette() {
   overlayReturnFocus = document.activeElement;
@@ -55,6 +75,12 @@ async function openPalette() {
   //: own: the palette searches boards by title, so a board past the first
   //: page would not be findable from here.
   apiPagedList("/whiteboard/boards", 200, { silent: true }).then(res => { paletteBoards = res || []; }).catch(() => { paletteBoards = []; });
+  apiJson("/usage/summary", { method: "POST", body: JSON.stringify({ known: [] }), silent: true })
+    .then((res) => {
+      paletteUsage = Object.fromEntries((res.features || []).map((f) => [f.name, f.count]));
+      if (!$("palette-input").value) renderPalette("");
+    })
+    .catch(() => {});
 }
 
 function closePalette() {
@@ -94,7 +120,13 @@ function paletteMatches(query) {
   const commands = [...paletteCommands(), ...(typeof notesPaletteCommands === "function" ? notesPaletteCommands(lowered) : [])]
     .filter((c) => paletteText(c.label).includes(lowered))
     .map((c) => (c.group ? c : { ...c, group: "Everywhere" }));
-  if (!lowered) return commands;
+  if (!lowered) {
+    //: Most used first, within each group, so a group's heading still
+    //: comes once; ties keep the registry's own order (a stable sort).
+    const used = (c) => paletteUsage[paletteFeature(c)] || 0;
+    const groups = [...new Set(commands.map((c) => c.group))];
+    return groups.flatMap((g) => commands.filter((c) => c.group === g).sort((a, b) => used(b) - used(a)));
+  }
 
   //: **A question typed into the palette is a question** (INBOX 224). The
   //: palette is a jump list, so "how do I turn off web search?" matches
@@ -242,10 +274,7 @@ function renderPalette(query) {
       query: needle && parts.label.toLowerCase().includes(needle) ? needle : "",
       id: `palette-row-${index}`,
     });
-    row.addEventListener("click", () => {
-      closePalette();
-      match.run();
-    });
+    row.addEventListener("click", () => paletteRun(match));
     row.addEventListener("mousemove", () => {
       if (paletteIndex === index) return;
       paletteIndex = index;
@@ -303,8 +332,7 @@ function paletteKeydown(event) {
     //: The row may focus an editor (New note), and the Enter went on into
     //: it: measured, every note started from here began with a blank line.
     event.preventDefault();
-    closePalette();
-    matches[paletteIndex].run();
+    paletteRun(matches[paletteIndex]);
   }
 }
 

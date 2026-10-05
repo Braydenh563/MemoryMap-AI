@@ -600,6 +600,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 ### Fixed
 
 - Boards and maps: dragging a selection box, an item or a branch to the edge of the canvas pans the board to follow, faster the deeper into the edge, and the item stays under the pointer (INBOX 608).
+- Graph: Mind map on the selection bar builds the map from the notes' links: the picked or most connected note in the middle, linked notes under the note they link to, the rest grouped by category, no topic left with more than eight children, and every other link kept as a cross-link, laid out on both sides. Its notice and its bell row have Open (INBOX 607).
 - Mind maps: a long branch is a smooth curve at every zoom; its two sides are drawn as a spline through more samples instead of straight pieces that showed their corners (INBOX 609).
 - Graph: the map stays framed when a panel opens or closes beside it (INBOX 613).
 - Appearance: the generative background stays off when it is switched off; the power saver, a theme change or the tour could draw it anyway (INBOX 611).

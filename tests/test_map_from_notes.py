@@ -124,6 +124,10 @@ def test_the_route_makes_the_map_and_its_cross_links(client):
     assert by_ref[hub]["parent_id"] is None
     assert by_ref[one]["parent_id"] == by_ref[hub]["id"]
     assert by_ref[loose]["parent_id"] == by_ref[hub]["id"]
+    #: Each object gets its own node's place, not its neighbour's: the root
+    #: in the middle, its children a column out on either side.
+    assert (by_ref[hub]["x"], by_ref[hub]["y"]) == (0, 0)
+    assert {abs(by_ref[i]["x"]) for i in (one, loose)} == {300}
     links = [s for s in state["sketches"] if "sourceId" in str(s["data"])]
     assert len(links) == 1, "the one link the tree could not hold is a cross-link"
 

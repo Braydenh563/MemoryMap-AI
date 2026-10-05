@@ -7,6 +7,34 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (the feature audit's documents and map fixes)
+
+From `scratchpad/audit1005/features.md`; the decisions stay in DOCUMENTS_PLAN
+section 20 and MINDMAP_PLAN decisions 22 to 31.
+
+- **FEAT-01 and FEAT-05** (`cc89dcb`): a FreeMind file's single root is the
+  central topic; OPML, FreeMind and Markdown each round-trip a 101-topic map
+  made here; imports and generated maps open in tree-right, tidied once.
+- **FEAT-03** (`7b5547e`): footnotes in Read, print/PDF and the HTML export
+  (`mdFootnotePrepare`, node-tested; `mdFootnotesFinish`).
+  `mmdoc1005-footnotes.js` PASS at 1440 light and 390 dark.
+- **FEAT-04 and FEAT-08** (`ad14b76`): rich paste as Markdown through an
+  allowlist; Mermaid fences stay code, BACKLOG 29c corrected.
+  `mmdoc1005-richpaste.js` 5/5.
+- **FEAT-09, the map half** (`595db03`): a pasted list is a branch,
+  `POST /boards/{id}/nodes/outline`, one Undo step.
+- **INBOX 553(b)** (`b36cc19`): undo histories survive a reload
+  (`undo-store.js`, IndexedDB). `mmdoc1005-undoreload.js` 4/4.
+- **INBOX 553(d)** (`d873a3f`): the dashboard draws its busiest map at its
+  own shape (`dash-boards.js`). `mmdoc1005-dashmap.js` 5/5.
+- **INBOX 569, 573, 574** (`e94190c`, `23009a4`, `ba6d28d`): a pinned
+  topic's Edge bar, the cross-link tool's dots, the formatting toolbar's way
+  back; each moved to "INBOX resolved" with its numbers.
+- **D4, first part** (`0ae2e18`): `\newpage` page breaks.
+  `mmdoc1005-pagebreak.js` 4/4.
+- **M5, first half** (`5fb59d3`): Write this map as a document.
+  `mmdoc1005-maptodoc.js` 5/5 light and dark.
+
 ## Moved from the plans, 2026-10-05 (the map's add path)
 
 Audit FEAT-02, MINDMAP_PLAN decisions 24 to 28. Tab and Enter used to wait

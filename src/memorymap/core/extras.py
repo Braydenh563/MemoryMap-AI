@@ -1512,7 +1512,12 @@ def _run_bulk() -> None:
             try:
                 _run_bulk_item(item)
             except Exception:  # noqa: BLE001  # one package's surprise is never the batch's
-                _logger.exception("Couldn't %s %s", _bulk.action, item["label"])
+                # The label is the catalogue's, but it travels through the request
+                # that started the batch, so it is logged on one line (CodeQL, log
+                # injection).
+                _logger.exception(
+                    "Couldn't %s %s", _bulk.action, str(item["label"]).replace("\r", " ").replace("\n", " ")
+                )
                 item["outcome"] = "failed"
                 item["message"] = "Couldn't finish it: see Settings → Logs for why."
             finally:

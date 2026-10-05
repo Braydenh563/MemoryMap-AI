@@ -25,7 +25,8 @@ def _bin(client):
 def test_a_deleted_document_goes_to_the_bin_and_comes_back_whole(client):
     doc = client.post("/documents", json={"title": "Thesis", "content": "# Thesis\n\nChapter one."}).json()
     client.put(f"/documents/{doc['id']}", json={"content": "# Thesis\n\nChapter one, revised."})
-    assert client.delete(f"/documents/{doc['id']}").status_code == 200
+    response = client.delete(f"/documents/{doc['id']}")
+    assert response.status_code == 200
 
     assert client.get(f"/documents/{doc['id']}").status_code == 404
     assert doc["id"] not in [d["id"] for d in client.get("/documents").json()]
@@ -33,7 +34,8 @@ def test_a_deleted_document_goes_to_the_bin_and_comes_back_whole(client):
     assert [i["id"] for i in binned] == [doc["id"]]
     assert binned[0]["title"] == "Thesis"
 
-    assert client.post(f"/documents/{doc['id']}/restore").status_code == 200
+    response = client.post(f"/documents/{doc['id']}/restore")
+    assert response.status_code == 200
     back = client.get(f"/documents/{doc['id']}").json()
     assert back["content"] == "# Thesis\n\nChapter one, revised."
     assert not [i for i in _bin(client) if i.get("subtype") == "document"]
@@ -41,23 +43,30 @@ def test_a_deleted_document_goes_to_the_bin_and_comes_back_whole(client):
 
 def test_a_binned_document_can_be_purged_and_only_a_binned_one(client):
     doc = client.post("/documents", json={"title": "Scrap", "content": "x"}).json()
-    assert client.delete(f"/documents/{doc['id']}/purge").status_code == 409
+    response = client.delete(f"/documents/{doc['id']}/purge")
+    assert response.status_code == 409
     client.delete(f"/documents/{doc['id']}")
-    assert client.delete(f"/documents/{doc['id']}/purge").status_code == 200
-    assert client.post(f"/documents/{doc['id']}/restore").status_code == 404
+    response = client.delete(f"/documents/{doc['id']}/purge")
+    assert response.status_code == 200
+    response = client.post(f"/documents/{doc['id']}/restore")
+    assert response.status_code == 404
 
 
 def test_a_deleted_reminder_goes_to_the_bin_and_comes_back(client):
     made = client.post("/reminders", json={"text": "Water the plants", "due_at": _soon()}).json()
-    assert client.delete(f"/reminders/{made['id']}").status_code == 200
+    response = client.delete(f"/reminders/{made['id']}")
+    assert response.status_code == 200
     assert made["id"] not in [r["id"] for r in client.get("/reminders").json()]
     binned = [i for i in _bin(client) if i.get("subtype") == "reminder"]
     assert [i["id"] for i in binned] == [made["id"]]
-    assert client.post(f"/reminders/{made['id']}/restore").status_code == 200
+    response = client.post(f"/reminders/{made['id']}/restore")
+    assert response.status_code == 200
     assert made["id"] in [r["id"] for r in client.get("/reminders").json()]
     client.delete(f"/reminders/{made['id']}")
-    assert client.delete(f"/reminders/{made['id']}/purge").status_code == 200
-    assert client.post(f"/reminders/{made['id']}/restore").status_code == 404
+    response = client.delete(f"/reminders/{made['id']}/purge")
+    assert response.status_code == 200
+    response = client.post(f"/reminders/{made['id']}/restore")
+    assert response.status_code == 404
 
 
 def test_empty_the_bin_takes_documents_and_reminders_too(client):
@@ -65,9 +74,11 @@ def test_empty_the_bin_takes_documents_and_reminders_too(client):
     rem = client.post("/reminders", json={"text": "Old", "due_at": _soon()}).json()
     client.delete(f"/documents/{doc['id']}")
     client.delete(f"/reminders/{rem['id']}")
-    assert client.post("/recycle-bin/empty").status_code == 200
+    response = client.post("/recycle-bin/empty")
+    assert response.status_code == 200
     assert _bin(client) == []
-    assert client.post(f"/documents/{doc['id']}/restore").status_code == 404
+    response = client.post(f"/documents/{doc['id']}/restore")
+    assert response.status_code == 404
 
 
 def test_the_bin_clears_old_documents_and_reminders_on_its_own(session):

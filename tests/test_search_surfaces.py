@@ -59,7 +59,8 @@ def test_the_engine_hit_carries_what_a_list_needs_to_place_it(ai_client):
     hits, so a hit's id and its flags are the contract."""
     keep = _note(ai_client, "buy milk and eggs on the way home")
     gone = _note(ai_client, "buy milk and bread at the shop")
-    assert ai_client.delete(f"/entries/{gone}").status_code in (200, 204)
+    response = ai_client.delete(f"/entries/{gone}")
+    assert response.status_code in (200, 204)
     hits = ai_client.get("/search", params={"q": "milk", "kind": "note"}).json()["hits"]
     flags = {hit["id"]: hit["flags"] for hit in hits}
     assert keep in flags
@@ -73,7 +74,8 @@ def test_the_engine_hit_carries_what_a_list_needs_to_place_it(ai_client):
 def test_operators_the_notes_parser_does_not_know_are_the_engines(client):
     plain = _note(client, "harbour walk with the dog")
     linked = _note(client, "harbour notes, tied to the walk")
-    assert client.post(f"/entries/{linked}/links", json={"target_id": plain}).status_code in (200, 201)
+    response = client.post(f"/entries/{linked}/links", json={"target_id": plain})
+    assert response.status_code in (200, 201)
     # `kind:` is honoured as an operator, with no `kind` parameter.
     reply = client.get("/search", params={"q": "kind:note harbour", "limit": 50}).json()
     assert {plain, linked} <= {hit["id"] for hit in reply["hits"]}

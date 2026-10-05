@@ -161,6 +161,15 @@ with its owner named in the entry.
      right-click menu and its align/distribute bar on map topics). Placed:
      the board and map agent, with 610.
 
+618. **The owner, 2026-10-05, verbatim.** "do the top bar and bottom bar
+     need a more modern and professional ui/ux redesign or adjustments at
+     all or are they fine??" Recommendation taken: top bar polish (spaces
+     picker as a ghost control matching the tab pills, active tab without
+     extra bold, a smaller logo tile, power secondary); bottom bar declutter
+     (counts quiet, Agent/Guide/Find icon-only with tooltips, Commands the one
+     labelled door, the status mark explained, the clock optional, history
+     arrows grouped with undo/redo). Placed: the design-rows agent, after 616.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 540, 554, 556, 564, 575 (Atlas motion and form) placed in

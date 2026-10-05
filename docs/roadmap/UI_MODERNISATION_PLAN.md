@@ -659,6 +659,14 @@ etc."
 Phase 5's phone work was reactive — each 390px finding fixed where it was
 found. This phase makes the breakpoints a design, stated once:
 
+(Corrected 2026-10-05, audit FE-11: built as a design but not held. The
+audit counted 58 distinct width queries, with `max-width: 600px` and
+`min-width: 600px` both matching a 600px window, and 720 the same.
+`tests/test_breakpoints.py` now fails on a width on both sides and on any
+new width outside the set below; the double matches are gone and the count
+is 48. Still open: the 720, 640 and 900 groups (26, 11 and 5 rules) move
+onto 600/820, each with a sweep at the widths it changes.)
+
 | Width | Device | What changes, app-wide |
 | --- | --- | --- |
 | ≥ 1100 | desktop, iPad landscape with a sidebar | the layout above; sidebars open |

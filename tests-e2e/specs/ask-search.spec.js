@@ -1,0 +1,69 @@
+// Finding things with no model: search by words and by meaning, Ask with
+// its numbered citations, and Chat saying plainly that it needs a model
+// rather than offering a Send that does nothing. The seeded notebook is the
+// source (global-setup.js); a model, when there is one, is covered by the
+// evals (`pytest -m evals`), never here.
+const { test, expect } = require("@playwright/test");
+const { watchErrors, openApp, openTab } = require("../helpers");
+
+async function browse(page) {
+  await openTab(page, "notes");
+  await page.click('#notes-subtabs [data-section="browse"]');
+}
+
+test("keyword search finds the seeded note by a word in its body", async ({ page }) => {
+  await openApp(page);
+  await browse(page);
+  await page.fill("#note-search", "Pendular");
+  await page.keyboard.press("Enter");
+  const list = page.locator("#entry-list");
+  await expect(list).toContainText("Lisbon to Porto on the Alfa Pendular");
+  await expect.poll(() => list.locator(":scope > li").count()).toBeLessThan(5);
+});
+
+test("meaning search answers a question that shares few words with the note", async ({ page }) => {
+  await openApp(page);
+  await browse(page);
+  // The toggle lives in the search box's own menu.
+  const toggle = page.locator("#semantic-search-toggle");
+  if (!(await toggle.isVisible())) await page.click("#notes-filter-menu > summary");
+  await toggle.check();
+  await page.fill("#note-search", "bread baking log");
+  await page.keyboard.press("Enter");
+  // With no embedding model this is keyword search with stemming (the
+  // documented fallback); either way the sourdough log is the answer.
+  await expect(page.locator("#entry-list")).toContainText("Sourdough log");
+});
+
+test("Ask with no model answers from the notes, with numbered citations that open them", async ({ page }) => {
+  const errors = watchErrors(page);
+  await openApp(page);
+  await openTab(page, "notes");
+  await page.click('#notes-subtabs [data-section="ask"]');
+  await page.fill("#question", "How long is the train from Lisbon to Porto?");
+  await page.click("#ask-btn");
+  const answer = page.locator("#ai-answer");
+  await expect(answer).toContainText("No model is running");
+  await expect(answer).toContainText("2h50");
+  // Numbered citations in the answer, and the numbered sources under it.
+  const cites = answer.locator(".answer-citation-link");
+  await expect.poll(() => cites.count()).toBeGreaterThan(1);
+  await expect(page.locator("#raw-results .chat-source-index").first()).toBeVisible();
+  // A citation opens a look at the note it stands for.
+  const first = cites.first();
+  await first.click();
+  await expect(first).toHaveAttribute("aria-expanded", "true");
+  const label = (await first.getAttribute("aria-label")).replace(/^Source \d+: /, "").slice(0, 20);
+  await expect(page.locator("[role=dialog]:visible", { hasText: label }).first()).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("Chat with no model says what it needs instead of a dead Send", async ({ page }) => {
+  await openApp(page);
+  await openTab(page, "chat");
+  const send = page.locator("#chat-send");
+  await expect(send).toBeDisabled();
+  await expect(send).toHaveAttribute("title", /Connect a model in Settings/);
+  // And the empty state points at what does work without one.
+  await expect(page.locator("#chat-messages")).toContainText("Try in Notes, Ask");
+});

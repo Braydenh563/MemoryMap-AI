@@ -2312,6 +2312,27 @@ async function showNoteInGraph(id) {
   }
 }
 
+//: **Explain this note** (WORLD_CLASS_PLAN section 17 row 6): the note's own
+//: words, where it is filed, then each link with its direction and reason,
+//: spoken. The script is built by the server without a model
+//: (`GET /entries/{id}/explain`), so it is the same with Atlas off. The voice
+//: is the app's one (`speakText`), which also stops what is already speaking.
+async function explainNoteAloud(entry) {
+  if ("speechSynthesis" in window && speechSynthesis.speaking) {
+    speechSynthesis.cancel();
+    return;
+  }
+  try {
+    const out = await apiJson(`/entries/${entry.id}/explain`);
+    speakText(out.text);
+    if ("speechSynthesis" in window) {
+      toastAction("Reading this note and its links aloud.", "Stop", () => speechSynthesis.cancel());
+    }
+  } catch (error) {
+    toast(error.message || "Couldn't read this note aloud.", true);
+  }
+}
+
 //: Start a chat about one note. Named by its title in the words a person
 //: would use, so the agent's own search tools find it, rather than pasting the
 //: whole note into the box.

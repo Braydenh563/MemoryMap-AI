@@ -1626,7 +1626,7 @@ not a widget of its own. Split is Extract notes over the whole note.
 built 2026-10-05 (HISTORY.md, same heading). 4 charts from questions (c), M. 5 most opened (b): the Most used
 widget lists the notes opened or matched most, all time
 (`/entries/most-accessed`); "this month" needs an open log, S (its picker
-line was wrong and was fixed 2026-09-24). 6 explain this note (c), S. 7
+line was wrong and was fixed 2026-09-24). 6 explain this note: built 2026-10-05 (HISTORY.md, same heading). 7
 calendar: built. The month view (`#reminder-calendar`) and, 2026-09-26,
 `.ics` export with its two buttons (HISTORY.md, "Moved from the plans,
 2026-09-26").

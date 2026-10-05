@@ -41433,6 +41433,37 @@ The two cheap additions the plan's research section named (decisions 11 to
 - Not verified: how a real small model responds to the three examples (the
   suite's transports are fake, CLAUDE.md section 4).
 
+### From WORLD_CLASS_PLAN.md section 17, row 6: explain this note
+
+**State 2026-09-24:** 6 explain this note (c), S.
+
+- **Built 2026-10-05 (worldclass-1005c).** `GET /entries/{id}/explain`
+  (`entry/explain.py`): the note's title, its first 600 characters as plain
+  speech (markdown marks, images and fences off; cut at a sentence, then
+  "The note goes on."), "It is filed under X, tagged a, b.", then "It links
+  to N notes." and a sentence per link, up to six ("It points at B, because
+  <reason>." / "C points at it, because <reason>."), "And N more.", or "It
+  is not linked to any other note yet." No model: the reasons are the ones
+  written on the links. A private note never gives its words (a locked one
+  answers "This note is private. Unlock the app to hear it."; a linked
+  private note is "a private note", reason dropped). The note's menu,
+  Connect, Explain this note (`menus.js`) calls `explainNoteAloud`
+  (`note-cards.js`), which speaks the script through the app's own
+  `speakText` and offers a Stop toast; asking again while it speaks stops it.
+  The Guide's links topic names it.
+- Decided (recommended, not confirmed): built from the links' stored reasons,
+  not a model call, so it is instant and works offline with Atlas off; the
+  row's "reads the note aloud" is the note's first 600 characters, not the
+  whole note (a long note read in full is a lecture; its own Read aloud is in
+  documents).
+- Measured: `tests/test_explain_note_17.py` 10 tests;
+  `scratchpad/ui-sweeps/explainnote.js` 8/8 at 1440 and 390, light and dark
+  (the item in the menu, the spoken text starting with the note and ending
+  with the link and its reason, a Stop toast, a second press cancelling, no
+  page errors, nothing sideways). Speech is captured in the sweep, not played.
+- Not verified: a real voice (headless Chromium has none); how the sentence
+  sounds read by a real engine.
+
 ## Built 2026-10-05: INBOX 598, 602 and 596's skeleton part (loading states)
 
 (The INBOX entries themselves are moved by the orchestrator; this is the

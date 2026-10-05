@@ -3188,6 +3188,16 @@ def _connection_cue(session: Session, other: Entry) -> dict:
     }
 
 
+@router.get("/{entry_id}/explain")
+def explain_entry(entry_id: int, session: Session = Depends(get_session)) -> dict:
+    """The script the note's Explain action speaks: its words, where it is
+    filed, and every link with its direction and reason (section 17 row 6).
+    Built without a model (`entry/explain.py`)."""
+    from memorymap.entry import explain
+
+    return explain.explain(session, _existing_entry(session, entry_id))
+
+
 @router.get("/{entry_id}/connections")
 def entry_connections(entry_id: int, session: Session = Depends(get_session)) -> dict:
     """Everything this note is joined to, in one place and grouped by kind.

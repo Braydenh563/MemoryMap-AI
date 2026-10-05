@@ -19,6 +19,18 @@ Each row was checked against the head before anything was built.
   New note (`#tab-graph:has(.dock-fab) .graph-zoom`) closed it. `graphphone.js`
   now asserts it every run: the four buttons are hit at their centres and clear
   of `.dock-fab`.
+- **`gate.sh --staged` ran the lint set twice** (over 25 minutes under load):
+  the plain `lints` step (working tree) and then `staged-lints` (a checkout of
+  the index), the same `LINTS` array both times. Under `--staged` with
+  something staged only the index run now happens; with nothing staged the
+  working tree is linted once instead, so it never runs zero lints. Measured
+  on this head (load average 3 to 7 during both): 3 m 50 s for the staged gate
+  that ran the set twice, 2 m 41 s with it run once. `tests/test_gate_staged_once.py` builds
+  a scratch repo with the real script and a stand-in interpreter and pins
+  three cases: one run, in a checkout that reads the staged file and not the
+  folder's; that run is handed the exact argument list a plain run gets; and
+  one run on the working tree when nothing is staged. Against the old script
+  its first two tests fail (two runs).
 
 ## OPEN.md rows closed, 2026-10-05 (the overnight pass on "Carried from the agent files archived 2026-10-05")
 

@@ -141,7 +141,20 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # drift on 2026-09-12 that every `--changed` gate that day had passed. One
   # second.
   tests/test_docs_site.py)
-step lints "$PY" -m pytest -q -p no:warnings "${LINTS[@]}"
+# **The lint set runs once.** Under `--staged` it runs against the index (the
+# scratch tree below) and not also against the working tree: the two used to
+# run back to back, so a staged commit paid for the lint set twice (over
+# twenty-five minutes under load, OPEN.md "Smaller backend and gate rows").
+# The staged run checks everything the working-tree run did, because it is the
+# same LINTS array over the same tracked files, and it checks what the commit
+# will contain rather than what the folder holds. With nothing staged there is
+# no index to check, so the working tree is linted instead: `--staged` never
+# runs zero lints. `tests/test_gate_staged_once.py` pins all three cases.
+if [ "$STAGED" = 1 ] && ! git -C "$ROOT" diff --cached --quiet; then
+  skipped+=("lints (--staged lints the index once, as staged-lints)")
+else
+  step lints "$PY" -m pytest -q -p no:warnings "${LINTS[@]}"
+fi
 
 # --staged: the same lint set, against the *index* rather than the working
 # tree.
@@ -180,7 +193,7 @@ staged_lints() {
 }
 if [ "$STAGED" = 1 ]; then
   if git -C "$ROOT" diff --cached --quiet; then
-    skipped+=("staged-lints (nothing staged)")
+    skipped+=("staged-lints (nothing staged; the working tree was linted above)")
   else
     step staged-lints staged_lints
   fi

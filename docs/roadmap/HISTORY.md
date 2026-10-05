@@ -7,6 +7,25 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (row 19)
+
+### From WORLD_CLASS_PLAN.md, B5 and section 9: contracts, forced JSON, the two caveat shapes
+
+| What | Before | After | Gate |
+| --- | --- | --- | --- |
+| Pre and post conditions per tool, checked in Python (`ai/tools/contracts.py`, run by `execute_tool` after `check_arguments`): sixteen write tools; a precondition refuses with one line naming what to do, a postcondition re-reads the rows and turns a claim that did not hold into an error; a checker's own fault is skipped, never the write | `link_notes` to #4 and a missing #99 linked #4 and said done; `tag_note` with nothing to change was a success; `edit_note {"category": "Heath"}` beside "Health" made a second category; nothing re-read a row after a write | refused before any write, naming #99 and "Health"; a case spelling ("health") files under the existing one; a new name is still allowed (B5's "refuses a category that does not exist" taken as "refuses a near miss": a new category is a real request, the duplicate is the harm) | `tests/test_tool_contracts.py` (12) |
+| A bug the postcondition found on its first run: `tag_note` removed tags case-sensitively, so "remove urgent" left "Urgent" while the label said it was gone | 1 of 1 left | folded, as `manager.edit_tags_on_notes` already was | `test_every_postcondition_passes_on_the_real_handlers` |
+| Grammar-forced JSON on Ollama: the forced first round (`agent._requires_a_call`) carries `format`, a schema of the call (`OllamaClient.forced_call_format`: a name out of the offered ones, an arguments object); the JSON comes back as content and the text-dialect recovery reads it as the call; an Ollama that refuses the schema gets the round again unforced | Ollama's `chat_tools_stream` took no `tool_choice`, so the forced round fell back to unforced on Ollama (a `TypeError` caught in `_round_stream`); llama.cpp had it through `tool_choice: "required"` | forced on both backends | `tests/test_provider_sockets.py` |
+| Concurrent calls at index 1, streamed interleaved over a real socket (`scratchpad/fake_openai_server.py --calls 2`: index 1 announced in index 0's first argument delta, pieces alternating) | only one call at index 0 had met a socket | both calls whole, through the client and the unstreamed path | same file |
+| Ollama's native tool-call dialect over a real socket (`scratchpad/fake_ollama_server.py`: calls as objects with `function.index`, two in one message, NDJSON) and one whole `/chat/stream` turn on it | no Ollama tool path had met a socket | both calls dispatched, both results sent back, the turn answered | same file |
+
+**Not verified.** Every shape above is written from each API's
+documentation and the llama-server captures in AGENT_SKILLS_REFORM H4; no
+real Ollama has run in this sandbox (no binary), so whether a real Ollama
+accepts the call schema in `format` beside `tools`, and whether its own
+parser or the text recovery takes the call, is reasoned. The 3B and 4B evals
+are still to run.
+
 ## Moved from the plans, 2026-10-05 (a frame as an export scope)
 
 ### From WHITEBOARD_PLAN.md, decision 14's open edges (decision 18)

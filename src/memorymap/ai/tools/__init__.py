@@ -37,7 +37,7 @@ from memorymap.search import search_manager
 # external use (tools.MAX_LIST_LIMIT, tools._require_note, ...), and an
 # explicit list is what lets ruff (and a reader) tell a real name from a
 # typo instead of flagging all ~220 uses below as "may be undefined".
-from . import _common
+from . import _common, contracts
 from ._common import (  # noqa: F401
     DEFAULT_CONTEXT_TOKENS,
     DEFAULT_LIST_LIMIT,
@@ -1310,7 +1310,10 @@ def _tag_note(session: Session, args: dict) -> dict:
         raise ToolError("Must provide at least one note_id")
 
     add_tags = args.get("add") or []
-    remove_tags = {str(r) for r in args.get("remove") or []}
+    #: Folded: a tag is one tag to the person whatever its case (as in the
+    #: manager's `edit_tags_on_notes`); "remove urgent" left "Urgent" on the
+    #: note while the label said it was gone (caught by the B5 postcondition).
+    remove_tags = {str(r).casefold() for r in args.get("remove") or []}
 
     results = []
     undos = []
@@ -1331,10 +1334,10 @@ def _tag_note(session: Session, args: dict) -> dict:
 
         undos.append(_undo_edit(session, entry))
         tags = manager.entry_tags(entry)
+        tags = [t for t in tags if t.casefold() not in remove_tags]
         for tag in add_tags:
-            if str(tag) not in tags:
+            if str(tag).casefold() not in {t.casefold() for t in tags}:
                 tags.append(str(tag))
-        tags = [t for t in tags if t not in remove_tags]
         manager.update_entry(session, entry, tags=tags)
 
         tagged.append(entry.id)
@@ -4548,6 +4551,12 @@ def execute_tool(
         # what the model sent; the text is the app's own, safe to hand back.
         logging.getLogger("memorymap.tools").warning("tool %s refused: %s", safe_value(name, 40), safe_value(problem, 200))
         return {"error": problem}
+    # WORLD_CLASS_PLAN B5: what must be true of the notebook first, checked
+    # here rather than trusted to the model (`contracts.py` says which).
+    problem = contracts.precondition(session, name, args)
+    if problem:
+        logging.getLogger("memorymap.tools").info("tool %s refused: %s", safe_value(name, 40), safe_value(problem, 200))
+        return {"error": problem}
     try:
         if context_tokens is not None:
             args["__context_tokens__"] = context_tokens
@@ -4604,6 +4613,14 @@ def execute_tool(
             exc_info=True,
         )
         return {"error": f"{name}: something went wrong running this tool. Try a different approach."}
+    # ...and what the call claimed, re-read from the rows. A label is not a
+    # change: a claim that did not hold goes back as an error, so neither the
+    # model nor the skill verifier reports it as done.
+    if isinstance(result, dict) and "error" not in result:
+        broken = contracts.postcondition(session, name, args, result)
+        if broken:
+            logging.getLogger("memorymap.tools").warning("tool %s: %s", safe_value(name, 40), safe_value(broken, 200))
+            return {"error": broken}
     manager.log_action(
         session,
         "ai_tool",

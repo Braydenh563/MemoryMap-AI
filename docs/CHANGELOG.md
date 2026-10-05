@@ -19,6 +19,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Agent mode: every change the assistant makes is checked before and after. A link to a note that does not exist, a retag that changes nothing, or a category that is a misspelling of one you have ("Heath" beside "Health") is refused with a line saying what to use instead, and the notes are read back after each change so a change that did not hold is reported as not done rather than claimed (row 19). Removing a tag now works whatever its case. With Ollama, a small model's first round on an instruction is decoded as a tool call, as it already was with llama.cpp.
 - Documents on a narrow window: the Edit/Read segment's well grows to the 44px touch height its buttons take, so they no longer hang out of its foot and sit on the row's centre line (INBOX 568).
 - Notes, Capture: the composer is one box; the note editor inside no longer draws its own border and focus ring a hair inside the composer's, and the composer's edge carries the focus (INBOX 560).
 - Boards: the gesture hints' close button is pinned at the strip's end after a divider, whole and evenly inset, instead of clipped past the edge (INBOX 562).

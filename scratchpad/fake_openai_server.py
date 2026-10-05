@@ -39,6 +39,13 @@ across several later chunks, each carrying nothing else. `_accumulate_tool_calls
 in `ai/openai_client.py` folds those back together by index, and if it did not,
 the argument JSON would arrive truncated and the call would fail to parse.
 
+**Concurrent calls (`--calls 2` or `FAKE_CALLS=2`, WORLD_CLASS_PLAN row 19).**
+Two calls in one reply, streamed the hard way: index 1's identity arrives in
+the same `tool_calls` delta as index 0's first argument piece, and from then
+on the two indices' argument pieces alternate, so a client that keyed the
+fragments by arrival order, or kept only index 0, joins one call's JSON onto
+the other's. The second call's later pieces carry no `id`, as OpenAI's do.
+
 Run it:  python3 scratchpad/fake_openai_server.py --port 8799
 Point the app at it with POST /models/provider {"provider":"openai",
 "base_url":"http://127.0.0.1:8799/v1"}.
@@ -82,6 +89,24 @@ ANSWER = (
     "I checked your notebook with the tool above and there is nothing "
     "surprising in it."
 )
+
+
+#: Calls per tool round (`--calls`, `FAKE_CALLS`); see the module docstring.
+CALLS = max(1, int(os.environ.get("FAKE_CALLS") or 1))
+
+
+def _pick_tools(tools: list[dict], count: int) -> list[tuple[str, dict]]:
+    """`count` distinct tools out of what the request offered, the preferred
+    read-only ones first."""
+    names = [((e or {}).get("function") or {}).get("name") or (e or {}).get("name") for e in tools or []]
+    names = [n for n in names if n]
+    arguments = {**ARGUMENTS, **_ENV_ARGUMENTS}
+    ordered = [n for n in (*_ENV_TOOLS, *PREFERRED_TOOLS) if n in names] + names
+    picked: list[str] = []
+    for name in ordered:
+        if name not in picked:
+            picked.append(name)
+    return [(n, arguments.get(n, {})) for n in picked[:count]]
 
 
 def _pick_tool(tools: list[dict]) -> tuple[str, dict] | None:
@@ -225,11 +250,72 @@ class Handler(BaseHTTPRequestHandler):
             time.sleep(ROUND_DELAY_MS / 1000)
         if NUDGE_DELAY_MS and _is_nudged(messages):
             time.sleep(NUDGE_DELAY_MS / 1000)
+        if CALLS > 1:
+            calls = [] if _already_called(messages) else _pick_tools(tools, CALLS)
+            if body.get("stream"):
+                self._stream_many(calls) if calls else self._stream(None)
+            else:
+                self._complete_many(calls, messages)
+            return
         call = None if _already_called(messages) else _pick_tool(tools)
         if body.get("stream"):
             self._stream(call)
         else:
             self._complete(call, messages)
+
+    def _complete_many(self, calls: list[tuple[str, dict]], messages: list[dict]) -> None:
+        if not calls:
+            self._complete(None, messages)
+            return
+        message = {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {"id": f"call_fake_{i}", "type": "function", "function": {"name": n, "arguments": json.dumps(a)}}
+                for i, (n, a) in enumerate(calls)
+            ],
+        }
+        self._json(
+            {
+                "id": "chatcmpl-fake",
+                "object": "chat.completion",
+                "created": int(time.time()),
+                "model": MODEL_ID,
+                "choices": [{"index": 0, "message": message, "finish_reason": "tool_calls"}],
+                "usage": _usage(messages, ""),
+            }
+        )
+
+    def _stream_many(self, calls: list[tuple[str, dict]]) -> None:
+        """Several calls in one streamed reply, interleaved by index."""
+        created = int(time.time())
+
+        def frame(delta: dict, finish: str | None = None) -> dict:
+            return {
+                "id": "chatcmpl-fake",
+                "object": "chat.completion.chunk",
+                "created": created,
+                "model": MODEL_ID,
+                "choices": [{"index": 0, "delta": delta, "finish_reason": finish}],
+            }
+
+        def head(i: int, name: str) -> dict:
+            return {"index": i, "id": f"call_fake_{i}", "type": "function", "function": {"name": name, "arguments": ""}}
+
+        pieces = [[json.dumps(a)[k : k + 3] for k in range(0, len(json.dumps(a)), 3)] for _n, a in calls]
+        self._sse_open()
+        self._sse_send(frame({"role": "assistant"}))
+        self._sse_send(frame({"tool_calls": [head(0, calls[0][0])]}))
+        # Index 1 announced in the same delta as index 0's first piece.
+        first = [{"index": 0, "function": {"arguments": pieces[0].pop(0)}}]
+        first.extend(head(i, name) for i, (name, _a) in enumerate(calls) if i)
+        self._sse_send(frame({"tool_calls": first}))
+        while any(pieces):
+            for i, rest in enumerate(pieces):
+                if rest:
+                    self._sse_send(frame({"tool_calls": [{"index": i, "function": {"arguments": rest.pop(0)}}]}))
+        self._sse_send(frame({}, finish="tool_calls"))
+        self._sse_close()
 
     # --- the two answer shapes ----------------------------------------------
 
@@ -326,6 +412,12 @@ class Handler(BaseHTTPRequestHandler):
         self._sse_close()
 
 
+def serve(port: int = 0, host: str = "127.0.0.1") -> ThreadingHTTPServer:
+    """A server on `port` (0 for any free one), not yet serving; a test runs
+    `serve_forever` in a thread and reads `server_address`."""
+    return ThreadingHTTPServer((host, port), Handler)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=8799)
@@ -338,12 +430,14 @@ def main() -> None:
     )
     parser.add_argument("--tool-rounds", type=int, default=1, help="tool rounds before the answer")
     parser.add_argument("--round-delay", type=int, default=0, help="ms every request waits")
+    parser.add_argument("--calls", type=int, default=0, help="tool calls per round, interleaved (FAKE_CALLS)")
     args = parser.parse_args()
-    global NUDGE_DELAY_MS, TOOL_ROUNDS, ROUND_DELAY_MS
+    global NUDGE_DELAY_MS, TOOL_ROUNDS, ROUND_DELAY_MS, CALLS
+    CALLS = max(1, args.calls) if args.calls else CALLS
     NUDGE_DELAY_MS = args.nudge_delay
     TOOL_ROUNDS = max(1, args.tool_rounds)
     ROUND_DELAY_MS = args.round_delay
-    server = ThreadingHTTPServer((args.host, args.port), Handler)
+    server = serve(args.port, args.host)
     print(f"fake OpenAI server on http://{args.host}:{args.port}/v1", flush=True)
     server.serve_forever()
 

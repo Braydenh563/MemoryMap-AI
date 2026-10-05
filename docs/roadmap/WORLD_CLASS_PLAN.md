@@ -607,7 +607,7 @@ Gate: on the eval fixtures, a 3B model completes ≥ 80% of built-in skills
 with zero invalid tool calls; every run shows plan, steps, verification and
 an undo button.
 
-**State 2026-09-24:** (b) built: the verifier and budget (Brief 13, `tests/test_harness_verifier.py`), small-model mode in `run_agent` (audit A4), learning from filing corrections (`ai/learning.py`). Open: pre and post conditions per tool checked in Python, grammar-forced JSON, and the 3B gate (evals at 80%), which is section 9's breadth. M.
+**State 2026-10-05:** (b) built: the verifier and budget (Brief 13, `tests/test_harness_verifier.py`), small-model mode in `run_agent` (audit A4), learning from filing corrections (`ai/learning.py`), and (row 19) pre and post conditions per tool (`ai/tools/contracts.py`) and the forced round decoded under a call schema on Ollama (llama.cpp already had it through `tool_choice`): HISTORY.md, "Moved from the plans, 2026-10-05 (row 19)". Open: the 3B gate (evals at 80%) and a 4B pass, which is section 9's breadth and needs a real model.
 
 ### B6 Local-first sync (L, later; design now)
 
@@ -795,7 +795,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 16 | B7 | cursor pagination, ETags and `If-Match` on entries, `/capabilities` | M | `api/` |
 | 17 | B8, H4 | a user skills folder picked up without a restart; `/api/v1`; the agent named on an external write | M | `ai/skills.py`, `mcp_server.py` |
 | 18 | B4 | typed links, a derived tensions table, rebuild determinism, the Tensions widget | M to L | `ai/tensions.py`, `ai/entities.py` |
-| 19 | B5, §9 | per-tool pre and post conditions, grammar-forced JSON, evals at 3B and 4B, concurrent tool calls, Ollama's native dialect | M | `ai/tools/`, `tests/test_skills_evals.py` |
+| 19 | B5, §9 | ~~per-tool pre and post conditions, grammar-forced JSON, concurrent tool calls, Ollama's native dialect~~ built 2026-10-05 (`ai/tools/contracts.py`, `OllamaClient.forced_call_format`, `tests/test_tool_contracts.py`, `tests/test_provider_sockets.py` over a real socket); left: evals at 3B and 4B on a real model, and a real Ollama | M | HISTORY; `tests/test_skills_evals.py` |
 | 20 | I7 | the "Learned from you" line with a filing accuracy number | S | `settings.js` |
 | 21 | I8, H3 | the model bench | M | a new `ai/bench.py` |
 | 22 | I2, H8 | the margin reader (after row 6's chunks) | M | `documents.js`, a new `/editor/read` |

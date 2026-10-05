@@ -606,30 +606,65 @@ class OllamaClient(Provider):
         except requests.RequestException:
             return False
 
-    def _tools_post(self, model: str, messages: list[dict], tools: list[dict], mode, stream: bool):
+    @staticmethod
+    def forced_call_format(tools: list[dict]) -> dict:
+        """The JSON schema a forced round is decoded under (WORLD_CLASS_PLAN
+        B5, grammar-forced JSON where the backend supports it).
+
+        Ollama has no `tool_choice`; what it has is `format`, a JSON schema it
+        turns into a decoding grammar, so the reply cannot be prose. The
+        schema is the call itself: a name out of the offered ones and an
+        arguments object. The arguments are not schema'd per tool: one
+        unsupported keyword in one tool's parameters would make Ollama refuse
+        the whole request, and `tools.check_arguments` already reads and
+        names what is wrong with them after the fact. What comes back is a
+        `{"name", "arguments"}` object in `content`, which the text-dialect
+        recovery (`extract_text_tool_calls`) reads as the call, or a
+        `tool_calls` entry when Ollama's own parser takes it first."""
+        names = [t.get("function", {}).get("name") for t in tools if isinstance(t, dict)]
+        return {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "enum": [n for n in names if n]},
+                "arguments": {"type": "object"},
+            },
+            "required": ["name", "arguments"],
+        }
+
+    def _tools_post(
+        self, model: str, messages: list[dict], tools: list[dict], mode, stream: bool, forced: bool = False
+    ):
         """One tools request, made a second time when Ollama answered 5xx
         because the model wrote a tool call it could not parse (INBOX 538: a
         tool-capable model reported as unable to call tools after one slip).
         A small model's malformed call is usually a one-off; the second try
         is a fresh sample. A second failure goes on to the caller's probe."""
         response = None
-        for attempt in (0, 1):
-            response = requests.post(
-                f"{self.base_url}/api/chat",
-                json={
-                    "model": model,
-                    "messages": self._to_ollama_messages(messages),
-                    "stream": stream,
-                    "tools": tools,
-                    "keep_alive": self.keep_alive,
-                    "options": self.runtime_options(model, mode=mode),
-                    **self.request_extras(mode, model),
-                },
-                stream=stream,
-                timeout=self.timeout,
-            )
-            if attempt == 0 and response.status_code >= 500 and UNREADABLE_CALL_PHRASE in response.text.lower():
+        fmt = self.forced_call_format(tools) if forced and tools else None
+        retried = False
+        for _attempt in (0, 1, 2):
+            payload = {
+                "model": model,
+                "messages": self._to_ollama_messages(messages),
+                "stream": stream,
+                "tools": tools,
+                "keep_alive": self.keep_alive,
+                "options": self.runtime_options(model, mode=mode),
+                **self.request_extras(mode, model),
+            }
+            if fmt is not None:
+                payload["format"] = fmt
+            response = requests.post(f"{self.base_url}/api/chat", json=payload, stream=stream, timeout=self.timeout)
+            #: An Ollama too old for a schema `format`, or one whose grammar
+            #: conversion refuses it, answers 4xx or 5xx: the round goes again
+            #: unforced, as it was before, rather than failing the turn.
+            if fmt is not None and response.status_code >= 400:
                 response.close()
+                fmt = None
+                continue
+            if not retried and response.status_code >= 500 and UNREADABLE_CALL_PHRASE in response.text.lower():
+                response.close()
+                retried = True
                 continue
             break
         return response
@@ -640,8 +675,12 @@ class OllamaClient(Provider):
         messages: list[dict],
         tools: list[dict],
         mode: str | None = None,
+        tool_choice: str | None = None,
     ) -> Iterator[dict]:
         """Streamed tool-calling turn: the agent loop's normal path.
+
+        `tool_choice="required"` decodes the round under `forced_call_format`,
+        the same forced first call the OpenAI dialect gets from the server.
 
         Same decisions as chat_tools, but the assistant's prose arrives as it's
         written instead of in one block at the end. That difference is the
@@ -662,7 +701,8 @@ class OllamaClient(Provider):
         raw_calls: list[dict] = []
         stats: dict = {}
         try:
-            with self._tools_post(model, messages, tools, mode, stream=True) as response:
+            forced = tool_choice == "required"
+            with self._tools_post(model, messages, tools, mode, stream=True, forced=forced) as response:
                 # Same capability probe as chat_tools: a model without tool
                 # support is a gap to fall back from, not an outage.
                 if response.status_code == 400 and NO_TOOLS_PHRASE in response.text.lower():

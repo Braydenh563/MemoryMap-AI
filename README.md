@@ -47,9 +47,9 @@ capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with t
 ## What it does
 
 **Capture**
-- Type, paste, dictate (local Whisper) or draw. `Alt`+`N` opens a quick note
-  over any tab. `#word` tags a note, and Markdown works inline, including
-  `[[wiki links]]` and `==highlights==`.
+- Type, paste, draw, or dictate and record meetings (transcribed on this machine
+  with Whisper). `Alt`+`N` opens a quick note over any tab. `#word` tags a note,
+  and Markdown works inline, including `[[wiki links]]` and `==highlights==`.
 - Bring notes in from a folder of Markdown files, a PDF, Word file or slide
   deck, Notion, Obsidian, Evernote or Apple Notes, or clip a web page with a
   bookmarklet. Importing the same thing twice adds only what is new.
@@ -75,6 +75,8 @@ capture a thought  ->  Atlas files it  ->  ask a question  ->  an answer, with t
 **Ask**
 - A question returns a conversational answer and the notes behind it, with a
   numbered citation after each sentence. Chat is saved and resumable.
+- Questions collects the questions your notes ask in passing, and marks one
+  answered when a later note answers it.
 - In Agent mode the assistant has 65 tools to search, link, organise and act on
   your notebook. Anything destructive asks first, as does any change or web
   request after it has read a web page or an imported note. Every step is
@@ -281,7 +283,7 @@ in Ollama and pick it in the same place.
 ## Requirements and optional extras
 
 - **To run it:** the Windows installer and the Linux tarball need nothing else.
-  From source you need Python 3.11, 3.12 or 3.13.
+  From source you need Python 3.11 or newer (CI runs 3.11 to 3.13).
 - **For the AI:** [Ollama](https://ollama.com) or any OpenAI-compatible server.
   The app is useful without one.
 - **Optional extras.** Settings, Packages installs each one from inside the

@@ -2624,9 +2624,8 @@ Open, moved whole from INBOX so the tray stays under twenty; each is worked from
     `/media/{id}/ocr-clean-loops`, which runs `cut_reading_loops` over
     whichever of `vision_ocr_text`/`ocr_text` are set and saves what
     changed; the panel repaints from the response. `tests/test_ocr_clean_loops.py`,
-    live-checked with `scratchpad/ui-sweeps/ocrcleanloops.js`.) (g) `_desktop_port()`
-    treats any MemoryMap on the port as ours, whatever its data dir: compare
-    the data dir in `/instance` first. (h) Chat replies saved before
+    live-checked with `scratchpad/ui-sweeps/ocrcleanloops.js`.) (g) `_desktop_port()` took any MemoryMap on the port for this one: built
+    (HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)", 423(g)). (h) Chat replies saved before
     2026-09-24 always show Atlas's mark (their persona was never stored).
     (i) The server-mode process takes 5 to 9s to exit after uvicorn
     finishes: find the thread that holds it. (fixed: every sync route

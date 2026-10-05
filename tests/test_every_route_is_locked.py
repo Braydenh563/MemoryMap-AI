@@ -43,6 +43,9 @@ OPEN = {
     "/auth/auto-session",
     # Liveness, deliberately: the launcher polls it before the vault exists.
     "/health",
+    # Which notebook this server serves, as a hash of its data dir, so a
+    # launch can tell its own server from another notebook's (WC 423 g).
+    "/instance",
     # A second desktop launch asking this one to bring its window forward.
     # It has no session; it carries the token from this server's own
     # `instance.lock` in the data directory instead, and a wrong or missing
@@ -156,7 +159,7 @@ def test_the_allowlist_names_only_routes_that_exist(locked_client):
     paths = {path for _method, path in _routes(locked_client.app)}
     # `/` and the static files are served by mounts rather than API routes, so
     # they are checked by reaching them rather than by name.
-    named = {entry for entry in OPEN if entry.startswith("/auth") or entry in {"/health", "/logs/client"}}
+    named = {entry for entry in OPEN if entry.startswith("/auth") or entry in {"/health", "/instance", "/logs/client"}}
     missing = sorted(entry for entry in named if entry not in paths)
     assert not missing, f"allowlisted but no longer routed: {missing}"
 

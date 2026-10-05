@@ -139,7 +139,7 @@ Rows of WORLD_CLASS_PLAN listed as open that are built on the head, each confirm
 - **13, the whiteboard's five menus never driven.** Driven: `kebab-viewport.js` opens all five at three window sizes (15 cases OK) and `wbtopbar.js` gates their keyboard and ARIA (WHITEBOARD_PLAN 43).
 - **22.1 item 1, no URLs.** Built: `router.js` (hash routes, `popstate`, reload restores the view, the window title names it).
 - **22.1 item 7, no screen-reader pass.** Built apart from a real screen reader: one `<main id="app-main">`, the axe sweep with 0 findings at 1440 in both themes. Not verified: an actual screen reader.
-- **Found NOT built, left open: 423(g)**, `_desktop_port()` treats any MemoryMap on the port as ours whatever its data dir. `instance_lock.py` is per data directory and `_port_holder` reads only `/health`'s app name (no data dir in the answer), so the compare against `/instance` the item asks for does not exist.
+- **423(g), `_desktop_port()` taking any MemoryMap for this one.** Built 2026-10-05: `GET /instance` (open, `app.py`) reports `instance_lock.data_dir_id` (sha256 of the resolved data dir, lower-cased on win32, never the path); `_port_holder` (`__main__.py`) returns "other" for a MemoryMap whose id differs, so `_desktop_port` moves to the next free port; a build with no `/instance` is still reused. `tests/test_frozen_launch.py` (same dir reused, different dir not, symlink and `..` equal, case-insensitive on win32), `tests/test_every_route_is_locked.py` (allowlist).
 
 ## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WHITEBOARD_PLAN)
 

@@ -1,0 +1,285 @@
+{
+ "format": "memorymap-library-set",
+ "version": 1,
+ "key": "maps",
+ "name": "Mind map templates",
+ "items": [
+  {
+   "key": "brainstorm",
+   "kind": "branch",
+   "name": "Brainstorm",
+   "tags": [
+    "template",
+    "ideas",
+    "questions"
+   ],
+   "template": "map",
+   "payload": {
+    "nodes": [
+     {
+      "text": "Ideas",
+      "children": [
+       {
+        "text": "First idea",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Questions",
+      "children": [
+       {
+        "text": "What do I not know yet?",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Themes",
+      "children": []
+     },
+     {
+      "text": "Next steps",
+      "children": []
+     }
+    ]
+   }
+  },
+  {
+   "key": "decision",
+   "kind": "branch",
+   "name": "Decision",
+   "tags": [
+    "template",
+    "options",
+    "choose"
+   ],
+   "template": "map",
+   "payload": {
+    "nodes": [
+     {
+      "text": "Options",
+      "children": [
+       {
+        "text": "Option A",
+        "children": []
+       },
+       {
+        "text": "Option B",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "What matters",
+      "children": [
+       {
+        "text": "Cost",
+        "children": []
+       },
+       {
+        "text": "Time",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Risks",
+      "children": []
+     },
+     {
+      "text": "What would change my mind",
+      "children": []
+     }
+    ]
+   }
+  },
+  {
+   "key": "project",
+   "kind": "branch",
+   "name": "Project",
+   "tags": [
+    "template",
+    "plan",
+    "milestones",
+    "tasks"
+   ],
+   "template": "map",
+   "payload": {
+    "nodes": [
+     {
+      "text": "Goal",
+      "children": []
+     },
+     {
+      "text": "Milestones",
+      "children": [
+       {
+        "text": "First milestone",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Tasks",
+      "children": []
+     },
+     {
+      "text": "People",
+      "children": []
+     },
+     {
+      "text": "Risks",
+      "children": []
+     }
+    ]
+   }
+  },
+  {
+   "key": "causes",
+   "kind": "branch",
+   "name": "Cause and effect",
+   "tags": [
+    "template",
+    "ishikawa",
+    "fishbone",
+    "why"
+   ],
+   "template": "map",
+   "payload": {
+    "nodes": [
+     {
+      "text": "People",
+      "children": []
+     },
+     {
+      "text": "Process",
+      "children": []
+     },
+     {
+      "text": "Tools",
+      "children": []
+     },
+     {
+      "text": "Surroundings",
+      "children": []
+     },
+     {
+      "text": "What actually happened",
+      "children": []
+     }
+    ]
+   }
+  },
+  {
+   "key": "pros-cons",
+   "kind": "branch",
+   "name": "Pros and cons",
+   "tags": [
+    "template",
+    "compare",
+    "weigh"
+   ],
+   "template": "map",
+   "payload": {
+    "nodes": [
+     {
+      "text": "Pros",
+      "children": [
+       {
+        "text": "A reason for",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Cons",
+      "children": [
+       {
+        "text": "A reason against",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "What I decided",
+      "children": []
+     }
+    ]
+   }
+  },
+  {
+   "key": "book",
+   "kind": "branch",
+   "name": "Book notes",
+   "tags": [
+    "template",
+    "reading",
+    "summary"
+   ],
+   "template": "map",
+   "payload": {
+    "nodes": [
+     {
+      "text": "The main idea",
+      "children": []
+     },
+     {
+      "text": "Key points",
+      "children": [
+       {
+        "text": "First point",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Quotes",
+      "children": []
+     },
+     {
+      "text": "What I will do with it",
+      "children": []
+     }
+    ]
+   }
+  },
+  {
+   "key": "meeting",
+   "kind": "branch",
+   "name": "Meeting",
+   "tags": [
+    "template",
+    "agenda",
+    "minutes",
+    "actions"
+   ],
+   "template": "map",
+   "payload": {
+    "nodes": [
+     {
+      "text": "Agenda",
+      "children": []
+     },
+     {
+      "text": "Decisions",
+      "children": []
+     },
+     {
+      "text": "Actions",
+      "children": [
+       {
+        "text": "Who, what, by when",
+        "children": []
+       }
+      ]
+     },
+     {
+      "text": "Open questions",
+      "children": []
+     }
+    ]
+   }
+  }
+ ]
+}

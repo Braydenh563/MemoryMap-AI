@@ -1072,10 +1072,15 @@ HELP_TOPICS.extend(
                 "export library", "favourite shapes", "recent shapes", "sidebar", "layers", "pages",
                 "page order", "presentation order", "reorder frames", "order of frames", "frame order",
                 "frames in the presentation", "locked item", "unlock",
+                "templates in the library", "drag a template", "map templates", "this map tab", "map stats",
             ),
             "body": (
                 "A board's sidebar (the Library button in its top bar, or the rail on its left edge) has "
-                "four tabs: Library, Notes, Layers and Pages, and an Outline on a mind map. Pages lists the "
+                "four tabs: Library, Notes, Layers and Pages; a mind map's has Library, This map (its "
+                "facts, its look, open every fold, lay it out again) and Outline. The Library starts with "
+                "Templates (a board's: Kanban, retrospective, flowchart, meeting notes, week plan; a map's: "
+                "Brainstorm, Decision, Project, Cause and effect, Pros and cons, Book notes, Meeting, "
+                "placed under the topic they are dropped on). Pages lists the "
                 "board's frames in presentation order: drag a row or press Alt+Up and Alt+Down to reorder, "
                 "Enter goes to the frame, P presents from it. A locked item shows a lock when the pointer "
                 "is on it; right-click it to unlock it. The Library holds "

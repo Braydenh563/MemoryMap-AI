@@ -179,6 +179,30 @@ def test_a_branch_places_under_a_topic(ai_client):
     assert sorted(o["data"]["content"] for o in made if o["parent_id"] == risks["id"]) == ["Cost", "Time"]
 
 
+def test_builtin_templates_place_on_a_board_and_under_a_topic(ai_client):
+    """INBOX 596: preset board and map templates in the Library. A board
+    template is an element (frames, stickies, shapes and their links); a map
+    template is a branch, placed under the topic it is dropped on."""
+    sets = {s["key"]: s for s in ai_client.get("/board-library").json()["sets"]}
+    assert sets["templates"]["count"] >= 5 and sets["maps"]["count"] >= 7
+    board = _board(ai_client)
+    flow = ai_client.post(f"/whiteboard/boards/{board['id']}/place", json={"builtin": "templates/flow", "x": 0, "y": 0, "ink": "#223344"})
+    assert flow.status_code == 201, flow.text
+    shapes = [json.loads(s["data"]) for s in flow.json()["sketches"]]
+    labels = {d.get("label") for d in shapes}
+    assert {"Start", "Did it work?", "End"} <= labels
+    links = [d for d in shapes if d.get("type", "").startswith("link-")]
+    assert len(links) == 5 and all(d.get("sourceId") and d.get("targetId") for d in links)
+    kanban = ai_client.post(f"/whiteboard/boards/{board['id']}/place", json={"builtin": "templates/kanban", "x": 0, "y": 0}).json()
+    assert sum(o["kind"] == "frame" for o in kanban["objects"]) == 3 and sum(o["kind"] == "text" for o in kanban["objects"]) >= 4
+    mind = _board(ai_client, name="Template map", kind="map")
+    root = ai_client.post(f"/whiteboard/boards/{mind['id']}/nodes", json={"kind": "topic", "text": "Centre"}).json()
+    out = ai_client.post(f"/whiteboard/boards/{mind['id']}/place", json={"builtin": "maps/brainstorm", "x": 0, "y": 0, "parent_id": root["id"]})
+    assert out.status_code == 201, out.text
+    made = out.json()["objects"]
+    assert sorted(o["data"]["content"] for o in made if o["parent_id"] == root["id"]) == ["Ideas", "Next steps", "Questions", "Themes"]
+
+
 def test_a_template_starts_a_board_with_its_look(ai_client):
     item = _save(ai_client, kind="template", payload={
         "board": {"type": "board", "background": {"color": "#101820"}},

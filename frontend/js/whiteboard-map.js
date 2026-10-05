@@ -892,6 +892,12 @@ function wbShowMapStats() {
     return;
   }
   const stats = wbMapStats(wbMapIndex());
+  wbInfoDialog("What this map is made of", wbMapStatsList(stats));
+}
+
+//: The facts as a list: the dialog's body, and the sidebar's This map tab
+//: (INBOX 596), one builder so the two never say different things.
+function wbMapStatsList(stats) {
   const rows = [
     ["Nodes", `${stats.nodes} (${stats.references} from the library, ${stats.topics} topics of their own)`],
     ["Depth", `${stats.depth} level${stats.depth === 1 ? "" : "s"}`],
@@ -916,7 +922,7 @@ function wbShowMapStats() {
     said.textContent = value;
     body.append(name, said);
   }
-  wbInfoDialog("What this map is made of", body);
+  return body;
 }
 
 //: A read-only dialog: a title, a block of content, one way out.

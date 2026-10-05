@@ -63,9 +63,10 @@ function wbOpenSidebar(tab = null, { toggle = false, focus = true } = {}) {
   if (!side || !panel) return;
   const state = wbSideState();
   const want = tab || state.tab || "library";
-  const isMapTab = want === "outline";
-  //: A map has no frames, so no pages.
-  if (want === "pages" && wbIsMap()) return wbOpenSidebar("library", { focus });
+  const isMapTab = want === "outline" || want === "map";
+  //: A map has no frames, so no pages, and no paint order or note cards
+  //: (INBOX 596): its order is its outline, and a note joins it as a topic.
+  if (["pages", "layers", "notes"].includes(want) && wbIsMap()) return wbOpenSidebar("library", { focus });
   const showing = !panel.classList.contains("hidden");
   if (toggle && showing && state.tab === want) {
     wbCloseSidebar();
@@ -84,7 +85,7 @@ function wbOpenSidebar(tab = null, { toggle = false, focus = true } = {}) {
   }
   for (const only of panel.querySelectorAll("[data-side-only]")) only.hidden = only.dataset.sideOnly !== want;
   const title = document.getElementById("wb-sidebar-title");
-  if (title) title.textContent = { library: "Library", notes: "Notes", layers: "Layers", pages: "Pages", outline: "Outline" }[want] || "Library";
+  if (title) title.textContent = { library: "Library", notes: "Notes", layers: "Layers", pages: "Pages", outline: "Outline", map: "This map" }[want] || "Library";
   document.getElementById("wb-add-note")?.classList.add("is-on");
   wbSaveSideState({ open: true, tab: want });
   if (want === "library") {
@@ -99,6 +100,8 @@ function wbOpenSidebar(tab = null, { toggle = false, focus = true } = {}) {
   } else if (want === "pages") {
     wbRenderPages();
     if (focus) document.querySelector("#wb-pages-list [tabindex='0']")?.focus({ preventScroll: true });
+  } else if (want === "map") {
+    wbRenderSideMap();
   } else if (want === "outline") {
     wbRenderOutline();
     if (focus) document.querySelector("#wb-outline-tree [tabindex='0']")?.focus({ preventScroll: true });
@@ -118,21 +121,34 @@ function wbCloseSidebar() {
 
 //: Which tabs a board of this kind shows: a map's library is its branches
 //: and templates, and only a map has an outline.
+//: **A map's rail is the map's** (INBOX 596, the owner: half of it "is empty
+//: when on the mind map as it isnt applicable like with layers"): This map
+//: and Outline in place of Notes, Layers and Pages.
+const WB_SIDE_TABS_BY_KIND = { map: ["library", "map", "outline"], board: ["library", "notes", "layers", "pages"] };
+
 function wbSyncSidebarKind() {
   const map = wbIsMap();
-  const outline = document.querySelector('#wb-sidebar [data-side-tab="outline"]');
-  if (outline) outline.hidden = !map;
-  const pages = document.querySelector('#wb-sidebar [data-side-tab="pages"]');
-  if (pages) pages.hidden = map;
+  const shown = WB_SIDE_TABS_BY_KIND[map ? "map" : "board"];
+  for (const tab of document.querySelectorAll("#wb-sidebar [data-side-tab]")) tab.hidden = !shown.includes(tab.dataset.sideTab);
   const state = wbSideState();
-  if ((!map && state.tab === "outline") || (map && state.tab === "pages")) wbSaveSideState({ ...state, tab: "library" });
+  if (!shown.includes(state.tab)) wbSaveSideState({ ...state, tab: "library" });
   if (!document.getElementById("wb-sidebar-panel")?.classList.contains("hidden")) {
     const tab = wbSideState().tab;
     if (tab === "library") wbRenderLibrary();
     else if (tab === "layers") wbRenderLayers();
     else if (tab === "pages") wbRenderPages();
     else if (tab === "outline") wbRenderOutline();
+    else if (tab === "map") wbRenderSideMap();
   }
+}
+
+//: **This map** (INBOX 596): what the map is made of, the stats dialog's own
+//: list, kept current while the tab is open (`wbSideRefreshSoon` redraws the
+//: open tab after a change), and the three map-wide actions beside it.
+function wbRenderSideMap() {
+  const host = document.getElementById("wb-side-map-facts");
+  if (!host || !wbIsMap()) return;
+  host.replaceChildren(wbMapStatsList(wbMapStats(wbMapIndex())));
 }
 
 // --- loading -------------------------------------------------------------------
@@ -181,6 +197,7 @@ function wbLibEntries() {
       out.push({
         ref, name: entry.name, tags: entry.tags || [], kind: entry.kind || "element", set: set.name,
         group: `set:${key}`, payload: entry.payload, favourite: Boolean(marks[`${key}/${entry.key}`]?.favourite),
+        template: entry.template || null,
       });
     }
   }
@@ -361,6 +378,8 @@ function wbLibTile(entry) {
     tile.append(star);
   }
   tile.draggable = entry.kind !== "style" && entry.kind !== "palette";
+  //: A built-in template says which kind of board it starts (INBOX 596).
+  if (entry.template) tile.dataset.libTemplate = entry.template;
   tile._entry = entry;
   return tile;
 }
@@ -432,14 +451,16 @@ function wbRenderLibrary() {
     wbLibGroup(list, "favourites", "Favourites", favourites);
     const recent = (wbLibState.lib.recent || []).map((r) => byRef.get(r.replace(/^builtin:/, "builtin:")) || (r.startsWith("builtin:icons/") ? wbLibIconEntry(r.slice(14)) : null)).filter(Boolean);
     wbLibGroup(list, "recent", "Recent", recent);
+    //: In the index's order (Templates first), not the order the files
+    //: happened to arrive in. On a map too (INBOX 596): `wbLibFits` leaves a
+    //: map the one built-in set that applies there, its templates, which are
+    //: branches; an empty set draws nothing.
+    const order = (wbLibState.lib.sets || []).map((x) => x.key);
+    const sets = [...wbLibSets].sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
+    for (const [key, set] of sets) {
+      wbLibGroup(list, `set:${key}`, set.name, all.filter((e) => e.group === `set:${key}`), { open: ["templates", "maps", "general", "flowchart"].includes(key) });
+    }
     if (!map) {
-      //: In the index's order (General first), not the order the files
-      //: happened to arrive in.
-      const order = (wbLibState.lib.sets || []).map((x) => x.key);
-      const sets = [...wbLibSets].sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
-      for (const [key, set] of sets) {
-        wbLibGroup(list, `set:${key}`, set.name, all.filter((e) => e.group === `set:${key}`), { open: key === "general" || key === "flowchart" });
-      }
       const iconsOpen = wbLibFolds.get("set:icons") === true;
       const iconEntries = iconsOpen && wbLibState.libIcons ? Object.keys(wbLibState.libIcons).slice(0, wbLibState.libIconShown).map(wbLibIconEntry).filter(Boolean) : [];
       let more = null;
@@ -530,7 +551,7 @@ function wbLibRefBody(ref) {
 //: Places an entry at `at` (board units), selects what it made, announces it
 //: and records it as one undo step. `connect`: join the item that was
 //: selected before to what was placed, on its right (Shift+Enter).
-async function wbLibPlace(entry, at = null, { connect = false } = {}) {
+async function wbLibPlace(entry, at = null, { connect = false, onto = null } = {}) {
   if (!entry) return;
   if (entry.kind === "style") return wbLibApplyStyle(entry);
   if (entry.kind === "palette") return wbLibApplyPalette(entry, entry.payload?.colours?.[0]);
@@ -546,8 +567,13 @@ async function wbLibPlace(entry, at = null, { connect = false } = {}) {
   }
   point = point || wbLibCentre();
   const body = { ...wbLibRefBody(entry.ref), x: point[0], y: point[1], ink: wbLibInk() };
+  //: A branch goes under the topic it was dropped on, else the selected
+  //: one; a map template with neither goes under the root, since a
+  //: template is the map's first branches rather than a second trunk.
   if (map && entry.kind === "branch") {
-    const topic = wbSelectedMapNode();
+    const dropped = onto != null ? wbFindItem("object", onto) : null;
+    const topic = (dropped && WB_MAP_KINDS.has(dropped.kind) ? dropped : null) || wbSelectedMapNode()
+      || (entry.template === "map" ? wbMapIndex().roots[0] : null);
     if (topic) body.parent_id = topic.id;
   }
   const boardId = window.currentBoardId ?? 0;
@@ -1193,12 +1219,34 @@ onDomReady(() => {
     e.stopPropagation();
     const t = d3.zoomTransform(canvas);
     const o = wbCanvasOriginRect();
-    wbLibPlace(wbLibState.libDragging, [(e.clientX - o.left - t.x) / t.k, (e.clientY - o.top - t.y) / t.k]);
+    const onto = Number(e.target.closest?.(".wb-object[data-id]")?.dataset.id) || null;
+    wbLibPlace(wbLibState.libDragging, [(e.clientX - o.left - t.x) / t.k, (e.clientY - o.top - t.y) / t.k], { onto });
     wbLibState.libDragging = null;
   }, true);
   document.getElementById("wb-lib-more")?.addEventListener("click", (e) => {
     const r = e.currentTarget.getBoundingClientRect();
-    openMenuAtPoint(wbLibPanelMenu(), "Library actions", r.left, r.bottom);
+    //: **Hung from the button's right edge, 4px under it**, as every ⋯
+    //: menu opens (INBOX 596: from its left edge it sat 20px left of the
+    //: button and 15px low). The pointer recipe parks its host at a point and
+    //: hangs the menu from a 1px anchor there, which lands a few pixels off
+    //: a button's corner; so set, measured and corrected by the difference
+    //: (DESIGN.md, a popup in the window's own coordinates).
+    //: It escapes to <body> on the next frame (the sidebar clips), so it is
+    //: the menu that is moved then, by its own `left` and `top`.
+    openMenuAtPoint(wbLibPanelMenu(), "Library actions", r.right, r.bottom);
+    requestAnimationFrame(() => {
+      const menu = document.querySelector("body > .action-menu-escaped:not(.hidden)");
+      if (!menu) return;
+      const got = menu.getBoundingClientRect();
+      menu.style.left = `${parseFloat(menu.style.left) + r.right - got.right}px`;
+      menu.style.top = `${parseFloat(menu.style.top) + r.bottom + 4 - got.top}px`;
+    });
+  });
+  document.getElementById("wb-side-map-look")?.addEventListener("click", () => wbMapThemeDialog());
+  document.getElementById("wb-side-map-expand")?.addEventListener("click", () => wbMapExpandAll());
+  document.getElementById("wb-side-map-tidy")?.addEventListener("click", async () => {
+    const moved = await wbMapTidy({ quiet: true });
+    toast(moved ? `Tidied ${moved} node${moved === 1 ? "" : "s"}.` : "Everything is already where this layout puts it.");
   });
   const importInput = document.getElementById("wb-lib-import");
   importInput?.addEventListener("change", () => {
@@ -1987,6 +2035,7 @@ function wbSideRefreshSoon() {
   clearTimeout(wbLibState.sideRefreshTimer);
   wbLibState.sideRefreshTimer = setTimeout(() => {
     const tab = wbSideState().tab;
+    if (tab === "map") return wbRenderSideMap();
     const list = { layers: "wb-layers-tree", pages: "wb-pages-list", outline: "wb-outline-tree" }[tab];
     const host = list && document.getElementById(list);
     if (!host || host.closest("[hidden]")) return;

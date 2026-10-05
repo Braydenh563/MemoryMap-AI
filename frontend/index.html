@@ -7032,6 +7032,7 @@ Link to another note with [[its first few words]]."></textarea>
         <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="notes" id="wb-side-tab-notes" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="-1" title="Notes: drag one onto the board as a card" aria-label="Notes"><i class="ph ph-note-pencil" aria-hidden="true"></i></button>
         <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="layers" id="wb-side-tab-layers" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="-1" title="Layers: everything on the board, in order" aria-label="Layers"><i class="ph ph-stack" aria-hidden="true"></i></button>
         <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="pages" id="wb-side-tab-pages" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="-1" title="Pages: the frames, in presentation order" aria-label="Pages"><i class="ph ph-presentation" aria-hidden="true"></i></button>
+        <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="map" id="wb-side-tab-map" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="-1" title="This map: what it is made of, its look and its layout" aria-label="This map" hidden><i class="ph ph-tree-structure" aria-hidden="true"></i></button>
         <button type="button" role="tab" class="ghost icon-only wb-side-tab" data-side-tab="outline" id="wb-side-tab-outline" aria-controls="wb-sidebar-panel" aria-selected="false" tabindex="-1" title="Outline: the map as an indented list" aria-label="Outline" hidden><i class="ph ph-list-bullets" aria-hidden="true"></i></button>
       </div>
       <div id="wb-sidebar-panel" class="wb-sidebar-panel hidden" role="tabpanel" aria-labelledby="wb-sidebar-title">
@@ -7061,6 +7062,17 @@ Link to another note with [[its first few words]]."></textarea>
         <section class="wb-side-section" data-side-panel="pages" aria-label="Pages" hidden>
           <ol id="wb-pages-list" class="wb-pages-list" role="tree" aria-label="Pages, in presentation order" aria-describedby="wb-pages-keys"></ol>
           <p id="wb-pages-keys" class="muted wb-lib-keys">Each frame is a page. Drag a row, or Alt+Up and Alt+Down, to change the presentation's order; P presents from it.</p>
+        </section>
+        <!-- **This map** (INBOX 596): a map's own tab, in the place of the
+             board's Notes, Layers and Pages, which do not apply to a tree.
+             The facts are the stats dialog's list (`wbMapStatsList`); the
+             three rows are the Board menu's map-wide actions. -->
+        <section class="wb-side-section" data-side-panel="map" aria-label="This map" hidden>
+          <div id="wb-side-map-facts"></div>
+          <button type="button" class="wb-menu-item" id="wb-side-map-look"><i class="ph ph-palette ph-lead" aria-hidden="true"></i><span>How this map looks…</span></button>
+          <button type="button" class="wb-menu-item" id="wb-side-map-expand"><i class="ph ph-arrows-out-line-vertical ph-lead" aria-hidden="true"></i><span>Open every folded branch</span></button>
+          <button type="button" class="wb-menu-item" id="wb-side-map-tidy"><i class="ph ph-broom ph-lead" aria-hidden="true"></i><span>Lay the map out again</span></button>
+          <p class="muted wb-lib-keys">Templates to drag in are in the Library tab.</p>
         </section>
         <section class="wb-side-section" data-side-panel="outline" aria-label="Outline" hidden>
           <ul id="wb-outline-tree" class="wb-outline-tree" role="tree" aria-label="Outline"></ul>

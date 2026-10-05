@@ -5170,8 +5170,7 @@ summary:not(.icon-only):not(.icon-button) {
    the ugliest available outcome. A new list that forgets to enrol gets no
    warning, no log and no failing test; it just looks broken. */
 .doc-list-tick,
-.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only),
-.reminder-item input[type="checkbox"]:not(.sr-only) {
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only) {
   appearance: none;
   -webkit-appearance: none;
   width: var(--target-min);
@@ -5204,8 +5203,7 @@ summary:not(.icon-only):not(.icon-button) {
 .library-tile-tick:hover,
 .select-check:hover,
 .doc-list-tick:hover,
-.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):hover,
-.reminder-item input[type="checkbox"]:not(.sr-only):hover {
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):hover {
   border-color: var(--accent);
 }
 
@@ -5213,8 +5211,7 @@ summary:not(.icon-only):not(.icon-button) {
 .library-tile-tick:checked,
 .select-check:checked,
 .doc-list-tick:checked,
-.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked,
-.reminder-item input[type="checkbox"]:not(.sr-only):checked {
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked {
   background: var(--accent);
   border-color: var(--accent);
 }
@@ -5225,8 +5222,7 @@ summary:not(.icon-only):not(.icon-button) {
 .library-tile-tick:checked::after,
 .select-check:checked::after,
 .doc-list-tick:checked::after,
-.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked::after,
-.reminder-item input[type="checkbox"]:not(.sr-only):checked::after {
+.entry-list:not(#tool-list) input[type="checkbox"]:not(.sr-only):checked::after {
   content: "";
   position: absolute;
   left: 50%;
@@ -11804,12 +11800,6 @@ input[type="file"] {
   }
 }
 
-@media (max-width: 599.98px) {
-  #library-sort-seg {
-    display: none;
-  }
-}
-
 /* --- the dock (UI_MODERNISATION_PLAN.md Phase 8) -----------------------------
    One recipe for the control row at the top of every tab and sub-tab. Four
    zones, always in this order, the grammar the plan states in full:
@@ -14389,6 +14379,20 @@ button.finder-row:hover,
   padding: var(--space-1);
   max-width: calc(100% - 1rem);
   max-height: none;
+}
+
+/* **Beside a side dock, not over it** (INBOX 596: the dock "clashes with
+   the side panel"). Docked at the side, the tools are a column at the left
+   edge where the sidebar stands, and the sidebar was drawn over it
+   (58,854px² at 1440, `bm1005-sidebar.js`). It moves to the column's right;
+   its foot is the board's, not one tool dock's height above it, which made
+   it 341px tall on a board and 443px on a map. Below 600 the open sidebar
+   is a sheet across the board and keeps its own placement. */
+@media (min-width: 600px) {
+  [data-wb-dock="side"] .wb-sidebar {
+    left: calc(1rem + var(--wb-w-tools));
+    bottom: var(--space-2);
+  }
 }
 
 .wb-sidebar-rail {

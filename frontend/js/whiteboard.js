@@ -11743,6 +11743,9 @@ async function initWhiteboard() {
   if (toolsPanel && dockToggle) {
     const applyDock = (dock) => {
       toolsPanel.dataset.dock = dock;
+      //: On the view too, so the board's sidebar can stand beside a side dock
+      //: rather than over it (INBOX 596; 07-whiteboard-misc.css).
+      viewHost?.setAttribute("data-wb-dock", dock);
       dockToggle.title = dock === "bottom" ? "Dock as a sidebar" : "Dock as a bottom bar";
       // The button reads as the current state, the tooltip as the action.
       setLabel(dockToggle, dock === "bottom" ? "ph:sidebar-simple Bottom" : "ph:sidebar-simple Side");

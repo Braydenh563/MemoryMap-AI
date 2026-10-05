@@ -26,6 +26,8 @@
 let docs = [];
 let currentDoc = null;   // {id, title, content, ...}
 let docDirty = false;
+//: Which `openDocument` call is the newest (see there).
+let docOpenSeq = 0;
 let docSaveTimer = null;
 
 // --- what kind of file this document is ----------------------------------------
@@ -730,6 +732,9 @@ async function loadDocuments(selectId = null) {
 }
 
 async function loadDocumentsNow(selectId) {
+  //: Whether anything asked for a document while this list loaded (a link to
+  //: `#/docs/2`, New document): then that is the one to show, not the last.
+  const opensBefore = docOpenSeq;
   // Before the list, not after: the file-type table decides how the editor
   // behaves, and openDocument below reads it. Awaited rather than fired off,
   // so the picker is never briefly empty on the first visit to this tab.
@@ -751,7 +756,7 @@ async function loadDocumentsNow(selectId) {
   docs = loaded;
   renderDocList();
   if (selectId) return openDocument(selectId);
-  if (!currentDoc && docs.length) return openDocument(docs[0].id);
+  if (!currentDoc && docs.length && docOpenSeq === opensBefore) return openDocument(docs[0].id);
   if (!docs.length) showNoDocument();
 }
 
@@ -892,6 +897,11 @@ function showNoDocument() {
 }
 
 async function openDocument(id) {
+  //: **Only the newest call opens** (tests/test_new_document_opens_new.py):
+  //: the tab's loader opening the last document and New document opening
+  //: the one it just made race, and the fetch that landed last won, leaving
+  //: a person typing into an old document they took for the new one.
+  const seq = ++docOpenSeq;
   //: The place being left is written down first, while the surface still
   //: holds that document (see `docRememberPositionNow`).
   docRememberPositionNow();
@@ -908,7 +918,7 @@ async function openDocument(id) {
     "# Start writing\n\nMarkdown works here, headings, **bold**, lists, tables, links."
   );
   const doc = await apiJson(`/documents/${id}`).catch(() => null);
-  if (!doc) return;
+  if (!doc || seq !== docOpenSeq) return;
   // ROADMAP.md item 13: "opening/closing a document" was the one remaining
   // gap in back/forward nav after chat's own conv:<id> fix. Same shape,
   // recorded here (not at each of openDocument's several call sites) so

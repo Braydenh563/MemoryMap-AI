@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Documents: Library, Create, New document on a first visit opened the last document instead of making one, so a title and text typed there went into an existing document; it now makes the document, and a link to a document (#/docs/2) is no longer replaced by the newest one as the tab finishes loading
 - Library: Ctrl+K, Open the bin on a session that had not opened the Library yet showed "Nothing of this kind yet." under a full Everything count; a cross-fade render that was overtaken by the load no longer draws its empty list over the loaded one
 - E2E: the Playwright suite drives capture and filing end to end against a real server on a seeded 75-note notebook (filed by meaning with no model, tags, title, a picked category, search, timeline, graph, Undo and Redo, Quick note, paste), and a first-run project on a fresh data dir
 - Manuscript look: muted text is a shade darker, so it reads at 4.5:1 or better on Settings' cards; 17 labels and facts in Search and index, Account, Skills and Tools were at 4.33 to 4.47:1 (qa-1005, contrast.js LOOK=manuscript: 17 to 0).

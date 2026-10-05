@@ -1925,11 +1925,15 @@ const LIBRARY_CREATE_BY_KIND = {
   },
   document: {
     label: "ph:plus New document",
-    run: () => {
-      switchTab("documents");
-      // The Documents page's own loader opens the last document otherwise,
-      // and a new one would be replaced a moment after it appeared.
-      setTimeout(() => $("doc-new").click(), 160);
+    //: The tab first, which fetches documents.js on a first visit, then the
+    //: document. A press of `#doc-new` 160 ms later used to land before that
+    //: button was bound on a first visit, so nothing was made and the last
+    //: document opened in its place (tests/test_new_document_opens_new.py).
+    //: The tab's loader still opens the last document, and `openDocument`
+    //: lets the newer open win.
+    run: async () => {
+      await switchTab("documents");
+      await createDocument();
     },
   },
   chat: {

@@ -1067,7 +1067,8 @@ HELP_TOPICS.extend(
             "body": (
                 "Document editor keys (Library, Documents; Ctrl+Shift+D starts "
                 "one). While a document is open, Ctrl+K lists every document "
-                "command and ? shows the ones with keys. Ctrl+S saves, Ctrl+B bold, "
+                "command and ? shows the ones with keys. Enter in the title starts "
+                "the body. Ctrl+S saves, Ctrl+B bold, "
                 "Ctrl+I italic, Ctrl+E inline code, Ctrl+Shift+S strike through, "
                 "Ctrl+1, Ctrl+2 and Ctrl+3 headings, Tab and Shift+Tab indent and "
                 "outdent, Ctrl+/ comments the selection, Alt+Up / Alt+Down moves a "

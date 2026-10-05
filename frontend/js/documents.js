@@ -10856,6 +10856,30 @@ $("doc-browse-all").addEventListener("click", () => {
 // delegation set up below, Escape for free from <dialog>.showModal().
 $("doc-storage-toggle").addEventListener("click", () => $("doc-storage-dialog").showModal());
 $("doc-title").addEventListener("input", () => { markDocDirty(); scheduleDocPreview(); });
+//: **Enter in the title starts the body** (audit 2026-10-05, UX-05), the way
+//: Notion, Apple Notes and Obsidian behave: "Trip plan", Enter, "Day one..."
+//: used to type on into the title and save it as one long name over an empty
+//: body. ArrowDown at the end of the title goes there too. Not mid-IME.
+$("doc-title").addEventListener("keydown", (event) => {
+  if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  const title = event.currentTarget;
+  const atEnd = title.selectionStart === title.value.length && title.selectionEnd === title.value.length;
+  if (event.key !== "Enter" && !(event.key === "ArrowDown" && atEnd)) return;
+  event.preventDefault();
+  //: Read view (a phone opens a document in it) has no body to type in, so
+  //: Enter goes back to the editing view last used, as the Edit button does.
+  if (docView === "rendered") setDocView(lastEditView || "live");
+  if (docCmView && docCmView.dom.isConnected && docCmView.dom.offsetParent !== null) {
+    docCmView.dispatch({ selection: { anchor: 0 }, scrollIntoView: true });
+    docCmView.focus();
+    return;
+  }
+  const body = $("doc-content");
+  if (body && body.offsetParent !== null) {
+    body.focus();
+    body.setSelectionRange(0, 0);
+  }
+});
 //: The dock's breadcrumb (INBOX 424 p): back to the Library's Documents list,
 //: the place a document is opened from.
 $("doc-back")?.addEventListener("click", () => {

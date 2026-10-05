@@ -95,7 +95,7 @@ Counts: High 4, Medium 9, Low 10.
   asserts no `li` text range crosses its `kbd`, and `scrollWidth <=
   clientWidth`. Effort S.
 
-**UX-04. Finder says "Nothing is indexed yet" on a full notebook; no typo tolerance in either search box.** NEW
+**UX-04. Finder says "Nothing is indexed yet" on a full notebook; no typo tolerance in either search box.** NEW FIXED ae69431
 - Evidence: Ctrl+P, "dentst": chips all 0, "Nothing matched / Nothing is
   indexed yet. Save a note and it will appear here." with 22 notes. Cause:
   `frontend/js/spaces-find.js:1207` sums `finderCounts`, which since the

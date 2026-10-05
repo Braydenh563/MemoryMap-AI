@@ -38,34 +38,14 @@ with its owner named in the entry.
      arent aligned vertically." (screenshot: the Installed badge in Settings,
      Packages).
 
-577. **The owner, 2026-10-05, verbatim.** "when loading into the app, the
-     companion or atlas's head goes large then small then large again then
-     settles on the normal size. also loading up the app is very laggy or
-     visually slow. it is visually not clean and glitchy even though it may
-     not be. can you smoothen it or do some ux shenanigans to make it
-     cleaner??" Placed: a smoothness agent (boot choreography, the
-     companion's mount) and the Atlas motion agent (the drawing at rest).
-
 578. **The owner, 2026-10-05, verbatim.** "this section in the chat sidebar
      looks awkward" (screenshot: the Chats head, a large filled New button,
      a lone wide Recent select below). Placed: the graph and sidebar agent.
-
-580. **The owner, 2026-10-05, verbatim.** "the atlas companion and app in
-     general is ever so slightly laggy. I think opening pages and between ui
-     views like tabs, pages, popups, features like the graph etc need to be
-     more smooth in transitions and cheap to hide the ugly loading glitches."
-     Placed: the smoothness agent, with 577.
 
 581. **The owner, 2026-10-05, verbatim.** "on the mindmap, the solid and
      dashed bar are exactly the same on mind map nodes" (seen on a build
      before 569's fix was pushed; to verify on the new head). Placed: the
      graph and sidebar agent.
-
-582. **The owner, 2026-10-05, verbatim.** "bro's just perched on nothing in
-     the mindmap. the companion keeps being left floating in places on
-     various pages and sub tabs and tabs" (screenshot: the companion sitting
-     in the air on a map's canvas). Placed: the smoothness agent (a perch is
-     re-checked on every view change, pan, zoom and popup; never in the air).
 
 584. **The owner, 2026-10-05, verbatim.** "no spacing between the message and
      show it link on this notification" ("Finished reading this file.Show

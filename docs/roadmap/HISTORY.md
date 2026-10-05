@@ -41238,6 +41238,50 @@ The two cheap additions the plan's research section named (decisions 11 to
      Placed: the whiteboard agent.
      Fixed 2026-10-05 by the whiteboard agent: every control on the bar's centre line (017ac3d), barline 19/19 at 1440 and 390, light and dark.
 
+577. **The owner, 2026-10-05, verbatim.** "when loading into the app, the
+     companion or atlas's head goes large then small then large again then
+     settles on the normal size. also loading up the app is very laggy or
+     visually slow. it is visually not clean and glitchy even though it may
+     not be. can you smoothen it or do some ux shenanigans to make it
+     cleaner??" Placed: a smoothness agent (boot choreography, the
+     companion's mount) and the Atlas motion agent (the drawing at rest).
+     **Fixed 2026-10-05 (514e85c).** Three causes, each measured by
+     `scratchpad/ui-sweeps/smooth1005-boot.js`: Atlas's hello nod
+     (`@keyframes atl-nod`) replaced the head's resting transform and drew it
+     at full size, a third larger, for 0.9s (head scale 0.74, 0.96, 0.74;
+     now steady, under 2% a frame); every entrance squashed or grew the
+     figure (1.06, 0.97, 1, 1.07, 0.98, 1 across; now a move and a fade);
+     and it entered under the lock screen. The boot is one curtain lifted
+     once over a drawn first tab (the splash had cut, never faded, and
+     stayed in the page); visible layout shift at boot 0.073 (sign-in off)
+     and 0.025 (after the password) to 0.
+580. **The owner, 2026-10-05, verbatim.** "the atlas companion and app in
+     general is ever so slightly laggy. I think opening pages and between ui
+     views like tabs, pages, popups, features like the graph etc need to be
+     more smooth in transitions and cheap to hide the ugly loading glitches."
+     Placed: the smoothness agent, with 577.
+     **Fixed 2026-10-05 (87cca44, b546bc7).** `smooth1005-tabs.js`: a tab
+     switch started its page at opacity 0, 3 or 4 blank frames on 13 of 14
+     switches, now 0 (from 0.4 over `--motion-base`); every popup gets one
+     way in (scrim `--motion-base`, card a step up from 0.985 over
+     `--motion-slow`); Graph, Library and Documents load their first visit
+     under one page-sized skeleton; late parts no longer push the page
+     (Library Files 0.27, Chat 0.015, Timeline 0.014 to 0.002, Settings
+     0.010 to 0.005); the companion's paced animations hold for the 400ms a
+     view takes to arrive. Not verified: a real trackpad, the desktop
+     window's own frame rate.
+582. **The owner, 2026-10-05, verbatim.** "bro's just perched on nothing in
+     the mindmap. the companion keeps being left floating in places on
+     various pages and sub tabs and tabs" (screenshot: the companion sitting
+     in the air on a map's canvas). Placed: the smoothness agent (a perch is
+     re-checked on every view change, pan, zoom and popup; never in the air).
+     **Fixed 2026-10-05 (e7d0d20).** `smooth1005-perch.js` (every tab and
+     sub-tab, a map and a board opened, panned, dropped on and zoomed,
+     popups, a resize): 9 of 29 steps left it perched on nothing on the
+     base (the mind map after a zoom, as in the screenshot; the Library's
+     AI skills on a hidden dock), 0 of 29 now. A perch is asked of the page
+     under it (`nameMarkBuddySupported`), canvas content is never one.
+
 ## OPEN.md rows closed, 2026-10-05
 
 The triage of `agent-remaining/OPEN.md` on 2026-10-05 (left1005): each row read against the head; fixed, verified, decided or placed rows moved here whole with their account (standing order 10). Rows owned by running agents (security, backend architecture, frontend performance, UX, mind map and docs, whiteboard draw.io, Atlas, the boot split) were not touched.

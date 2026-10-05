@@ -7,6 +7,15 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: MINDMAP_PLAN)
+
+Rows listed as open in MINDMAP_PLAN that are built or moot on the head, each confirmed by grep.
+
+- **12.1 item 1, the map toolbar's four dock menus** and **12.2 item 3, relationships** and **12.2 item 10, XMind import**: already closed by op5 earlier on 2026-10-05 ("Moved from the plans, 2026-10-05 (MINDMAP_PLAN §12.1 closed, op5)" and "(MINDMAP_PLAN §12.2 items 7 and 10, op5)"); re-checked here and nothing was left in the plan's text. Item 1 is superseded by decision 16 (the board's Insert and Arrange menus stay in the markup, `maptopbar.js`) and §12.5's three surfaces; relationships are 13c's cross-link; the `.xmind` reader is `_parse_xmind` in `routes_whiteboard.py` (`IMPORT_FORMATS` carries `xmind`, `tests/test_xmind_import.py`), read-only by the plan's own text, with FreeMind, OPML, Markdown and plain text out (`EXPORT_FORMATS`).
+- **12.3 item 4, graph sync.** Built: the graph draws a map as a node with an edge of kind `map` to each note on it (`_add_map_edges`, `routes_graph.py`; `tests/test_mindmap.py` reads `kind == "map"` edges), the node panel counts them ("on a mind map", `graph.js`), and the graph's "Mind map" selection action makes one from the selected notes (`graph-canvas.js`, "Mind map ... made from N notes").
+- **12.3 item 2, Summarise this branch** (the half the plan still called open). Built, 3a27c00: `POST /whiteboard/boards/{b}/nodes/{n}/summary`, `wbMapSummariseBranch`, `tests/test_map_summary.py`; the record is "Moved from the plans, 2026-10-05 (op3-1005)". Expand from my notes stays open.
+- **"Ask the owner's map size before 13a"** (Not verified). Moot: 13a is built and met its gate at 500 topics (the render pass, MINDMAP_PLAN 13a), so the question no longer decides a phase.
+
 ## Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: DOCUMENTS_PLAN)
 
 DOCUMENTS_PLAN section 13 ended "**Not decided here, and deliberately still open**: DOCX both ways, Markdown with its assets, and import of `.html`. The first needs a dependency decision this session did not have a reason to force." All three are built (Phase 7, "built 2026-09-13" in the plan; the decision on the dependency was `python-docx` as an optional extra), confirmed by grep on the head:

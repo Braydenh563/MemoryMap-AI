@@ -512,13 +512,16 @@ export that claims it.
    "Expand from my notes" fills a branch from search results,
    "Summarise this branch" writes the parent's note. (Suggest branches is in:
    WHITEBOARD_PLAN decision 36, HISTORY "wb-phase2"; a picker, not yet
-   ghosts on the canvas. The other two are open.)
+   ghosts on the canvas. Summarise this branch is built, HISTORY.md, "Moved
+   from the plans, 2026-10-05 (op3-1005)". Expand from my notes is open.)
 3. **From a question**: "Make a map of..." in chat proposes a map
    (exists, Phase 4) and now opens it in the map editor with the
    proposal as floating topics to accept or discard.
-4. **Graph sync**: a map's cross-links become graph links (kind "map");
-   the graph's "Mind map" selection action (Phase 4) opens here with the
-   layout pre-chosen.
+4. ~~**Graph sync**~~ **Built** (HISTORY.md, "Moved from the plans, 2026-10-05
+   (docs hygiene before 0.4.0: MINDMAP_PLAN)"): a map is a node in the graph
+   with an edge of kind `map` to each note on it (`_add_map_edges`,
+   `routes_graph.py`; `tests/test_mindmap.py`), and the graph's "Mind map"
+   selection action makes one.
 5. **Study mode**: built (decision 36; HISTORY.md, "Moved from the plans,
    2026-10-05 (study the map, op5)"). The note behind a topic as the answer
    is open.
@@ -754,7 +757,7 @@ So: the map is slow to open and slow to touch, and both are the same bug.
 Nothing else measured here is worth a phase until that one is fixed. **What
 is not known is the owner's own map size**, and it changes which phase
 matters: at 50 topics the stall is 67ms and nobody would write that sentence,
-at 500 it is 1.6 seconds. That question is 13.6's first row.
+at 500 it is 1.6 seconds. (The question is moot: 13a is built.)
 
 ### 13.2 The two kinds of connection
 
@@ -1424,9 +1427,9 @@ topic: a control that wide has nowhere to go.
 
 ### Not verified, and to be taken first by whoever opens this
 
-- **The owner's own map size is unknown**, and it decides whether 13a is
-  urgent or academic. At 50 topics the stall is 67ms; at 500 it is 1.6
-  seconds. **Ask before building 13a.**
+- ~~**The owner's own map size is unknown**~~ Moot: 13a is built and met its
+  gate at 500 topics (HISTORY.md, "Moved from the plans, 2026-10-05 (docs
+  hygiene before 0.4.0: MINDMAP_PLAN)").
 - **Every figure above is light mode.** Dark is unmeasured in this read.
 - The timings are one machine, one Chromium, one run each except the 500-node
   row, which was run twice (1,583.3ms and 1,616.5ms worst drag frame). They

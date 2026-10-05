@@ -167,7 +167,21 @@ def download_file(attachment_id: int, session: Session = Depends(get_session)) -
     path = deps.get_config().uploads_dir / attachment.stored_name
     if not path.is_file():
         raise HTTPException(status_code=404, detail="That file is no longer on disk.")
-    return FileResponse(path, filename=attachment.filename, media_type=attachment.mime)
+    #: **Never the type the uploader declared, unless it is a picture or a
+    #: PDF** (SEC-11, security audit 2026-10-05). `script-src 'self'` covers
+    #: every URL on this origin, and `Content-Disposition: attachment` stops a
+    #: navigation but not a `<script src="/files/1">`, which a `.js` upload
+    #: served as text/javascript would have run. The sandbox CSP and CORP
+    #: make the response inert anywhere it is not simply downloaded; a PDF
+    #: keeps the app's own policy, since Chrome's viewer will not open in a
+    #: sandboxed response and a PDF runs no script in the page anyway.
+    mime = (attachment.mime or "").split(";", 1)[0].strip().lower()
+    if not (mime.startswith("image/") or mime == "application/pdf"):
+        mime = "application/octet-stream"
+    headers = {"Cross-Origin-Resource-Policy": "same-origin"}
+    if mime != "application/pdf":
+        headers["Content-Security-Policy"] = "sandbox; default-src 'none'; img-src 'self'; style-src 'unsafe-inline'"
+    return FileResponse(path, filename=attachment.filename, media_type=mime, headers=headers)
 
 
 class AttachmentGalleryOut(BaseModel):

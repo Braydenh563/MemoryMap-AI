@@ -37,6 +37,7 @@ from memorymap.search import search_manager
 # external use (tools.MAX_LIST_LIMIT, tools._require_note, ...), and an
 # explicit list is what lets ruff (and a reader) tell a real name from a
 # typo instead of flagging all ~220 uses below as "may be undefined".
+from . import _common
 from ._common import (  # noqa: F401
     DEFAULT_CONTEXT_TOKENS,
     DEFAULT_LIST_LIMIT,
@@ -4300,7 +4301,22 @@ def confirm_label(name: str, arguments: dict) -> str:
         return f"Remove the tag “{arguments.get('name', '?')}” from every note"
     if name == "delete_skill":
         return f"Delete the saved skill “{arguments.get('name', '?')}”"
-    return f"Run {name}"
+    #: The writes and reaches-out that park once a turn has read text from
+    #: outside (SEC-02): the card says what will happen, not the tool's name.
+    if name == "edit_note":
+        return f"Change note #{arguments.get('note_id', '?')}"
+    if name == "create_note":
+        return "Make a new note"
+    if name == "save_skill":
+        return f"Save the skill “{arguments.get('name', '?')}”"
+    if name == "set_reminder":
+        return "Set a reminder"
+    if name == "read_url":
+        return f"Open {arguments.get('url', 'a web page')}"
+    if name == "web_search":
+        return f"Search the web for “{arguments.get('query', '?')}”"
+    words = name.replace("_", " ")
+    return f"{words[:1].upper()}{words[1:]}"
 
 
 def _ai_actor(name: str, model: str | None) -> str:
@@ -4541,8 +4557,17 @@ def execute_tool(
         # handler: a handler that forgot would silently file the AI's edit
         # as something the user typed, which is the one question the event
         # log exists to answer.
-        with events.acting_as(_ai_actor(name, model)):
-            result = spec.handler(session, args)
+        outside = _common.outside_seen()
+        flag_token = outside.set([False])
+        try:
+            with events.acting_as(_ai_actor(name, model)):
+                result = spec.handler(session, args)
+            # SEC-02: the call put a clipped or imported note's words in front
+            # of the model; the agent taints the turn on this, as for a web read.
+            if outside.get()[0] and isinstance(result, dict) and "error" not in result:
+                result["from_outside"] = True
+        finally:
+            outside.reset(flag_token)
     except ToolError as exc:
         # An explanation the handler wrote on purpose, safe to hand back.
         session.rollback()

@@ -74,6 +74,53 @@ def list_backups(data_dir: Path) -> list[dict]:
     return entries
 
 
+#: The full-text tables a note's words are tokenised into. Both are FTS5,
+#: and FTS5 deletes by writing a marker: the old tokens stay in the segment
+#: blobs until a merge rewrites them.
+FTS_TABLES = ("entries_fts", "search_index")
+
+
+def optimize_fts(connection) -> None:  # noqa: ANN001  # SQLAlchemy or sqlite3 connection
+    """Merge every FTS5 segment into one, which drops the tokens of deleted
+    rows for good (SEC-03, security audit 2026-10-05). Takes a SQLAlchemy
+    connection (the live database, `manager.scrub_private_leftovers`) or a
+    plain sqlite3 one (a backup copy)."""
+    run = getattr(connection, "exec_driver_sql", None) or connection.execute
+    for table in FTS_TABLES:
+        found = run(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)
+        ).fetchone()
+        if found:
+            run(f"INSERT INTO {table}({table}) VALUES('optimize')")  # noqa: S608  # a fixed name
+
+
+def strip_leftovers(target: sqlite3.Connection) -> None:
+    """Clean a fresh copy of the database before it leaves as a backup: the
+    FTS merge above, then VACUUM, which rewrites the file from live rows only,
+    so no freed page or stale cell carries a private note's old words
+    (SEC-03). For notebooks whose notes went private before the live
+    database was scrubbed on the spot; costs about one more copy."""
+    optimize_fts(target)
+    target.commit()
+    target.execute("VACUUM")
+
+
+def snapshot(db_path: Path, destination: Path) -> None:
+    """A consistent, cleaned copy of the live database at `destination`:
+    SQLite's backup API (which reads through the WAL, unlike a file copy),
+    then `strip_leftovers`."""
+    source = sqlite3.connect(db_path)
+    try:
+        target = sqlite3.connect(destination)
+        try:
+            source.backup(target)
+            strip_leftovers(target)
+        finally:
+            target.close()
+    finally:
+        source.close()
+
+
 def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Path:
     """Take one consistent snapshot and prune old ones.
 
@@ -103,15 +150,7 @@ def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS) -> Path:
     #: is never listed, restored or counted against retention.
     partial = destination.with_name(f"{destination.name}.partial")
     try:
-        source = sqlite3.connect(db_path)
-        try:
-            target = sqlite3.connect(partial)
-            try:
-                source.backup(target)
-            finally:
-                target.close()
-        finally:
-            source.close()
+        snapshot(db_path, partial)
         os.replace(partial, destination)
     except BaseException:
         for stray in (partial, Path(f"{partial}-wal"), Path(f"{partial}-shm")):

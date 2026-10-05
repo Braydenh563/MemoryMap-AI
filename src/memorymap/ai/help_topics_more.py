@@ -125,7 +125,9 @@ MORE_TOPICS: list[dict] = [
         "body": (
             "Settings, Tools it can use lists the actions Atlas may take in "
             "Agent mode; turn one off and it is never offered. Destructive "
-            "actions always ask you first. How many are offered at once: Only "
+            "actions always ask you first, and once Atlas has read a web page, "
+            "a file, or a note clipped or imported from outside, every change "
+            "and every web request asks too. How many are offered at once: Only "
             "what the message needs (the default) or Always send all of them, "
             "if Atlas ever misses a tool you asked for. Small model mode offers "
             "a small model one tool at a time (Auto decides from the model's "
@@ -413,12 +415,14 @@ MORE_TOPICS: list[dict] = [
             "Settings, Account & security. Signing in: ask for a password when "
             "the app opens (private notes and other devices always ask). Other "
             "devices: let a phone or computer on your network open the app, "
-            "always with your password. Change your password or PIN (private "
+            "always with your password; the traffic is plain http, not "
+            "encrypted, so only on a network you trust. Change your password or PIN (private "
             "notes move across). Sessions: Auto-lock when idle, from 5 minutes "
             "to 12 hours, and Lock everywhere now; the lock in the top bar "
             "locks at once. There is no reset link: run python -m memorymap "
-            "--reset-password in a terminal, which keeps ordinary notes and "
-            "loses private ones, whose key is your password."
+            "--reset-password in a terminal, which keeps ordinary notes, "
+            "loses private ones, whose key is your password, and turns other "
+            "devices off."
         ),
         "badge": {"label": "Account & security", "section": "account"},
     },

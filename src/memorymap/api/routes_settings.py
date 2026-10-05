@@ -30,7 +30,7 @@ from sqlalchemy.orm import Session
 from memorymap import __version__
 from memorymap.ai import budget as run_budget
 from memorymap.ai import librarian, presets, skills
-from memorymap.core import deps, embedmodels, events, extras, jobruns, logbuffer
+from memorymap.core import backup, deps, embedmodels, events, extras, jobruns, logbuffer, security
 from memorymap.core.database import AuditLog, Category, Entry, EntryLink, utcnow
 from memorymap.core.deps import get_session
 from memorymap.entry import importer, manager
@@ -1842,7 +1842,8 @@ def _redacted_preferences(preferences: dict) -> dict:
     withheld: dict = {}
     for key, value in sorted(preferences.items()):
         if key in DIAGNOSTIC_PREFERENCES:
-            kept[key] = value
+            # An address is kept, a password typed into it is not (SEC-12).
+            kept[key] = security.without_userinfo(value) if key.endswith("_url") and isinstance(value, str) else value
             continue
         shape = type(value).__name__
         if isinstance(value, str):
@@ -2010,7 +2011,20 @@ def export_backup(background_tasks: BackgroundTasks):
     
     with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
         if db_path.exists():
-            zf.write(db_path, "memorymap.db")
+            # A cleaned snapshot, never the live file (SEC-03): the file alone
+            # misses whatever is still in the WAL, and can carry a private
+            # note's old words in its search segments.
+            fd, snap = tempfile.mkstemp(suffix=".db", prefix="memorymap_snapshot_")
+            os.close(fd)
+            try:
+                backup.snapshot(db_path, Path(snap))
+                zf.write(snap, "memorymap.db")
+            finally:
+                for stray in (snap, f"{snap}-wal", f"{snap}-shm"):
+                    try:
+                        os.remove(stray)
+                    except OSError:
+                        pass  # never made, or already gone
         if media_dir.exists() and media_dir.is_dir():
             for root, _, files in os.walk(media_dir):
                 for f in files:
@@ -2040,12 +2054,16 @@ def export_json(session: Session = Depends(get_session)) -> Response:
             "id": e.id,
             # Exports decrypt while the app is unlocked. An export is for
             # taking your notes elsewhere, and ciphertext with no key is
-            # not your notes. (The app's own backups keep the database
-            # file as-is, so those stay encrypted.)
+            # not your notes. (The app's own backups keep private notes
+            # encrypted, and since SEC-03 carry none of their words in the
+            # search index either: `backup.strip_leftovers`.)
             "content": manager.readable_content(e),
             "category": category_names.get(e.category_id, manager.UNCATEGORISED),
             "tags": manager.entry_tags(e),
             "ai_confidence": e.ai_confidence,
+            # Said, so a note decrypted for the export is not mistaken for an
+            # ordinary one by whatever reads the file next (SEC-14).
+            "is_private": bool(e.is_private),
             "created_at": e.created_at.isoformat(),
             "updated_at": e.updated_at.isoformat(),
             # `is_deleted` is not decoration and not derivable from
@@ -2525,7 +2543,7 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
     sections = all_sections[:MAX_DOCUMENT_IMPORT_NOTES]
 
     with jobruns.job_run("import") as run:
-        ids = _create_document_notes(session, sections)
+        ids = _create_document_notes(session, sections, Path(file.filename or "document").name)
         imported = len(ids)
         run.result = f"imported {imported} note{'' if imported == 1 else 's'} from {file.filename or 'a document'}"
     manager.log_action(
@@ -2540,9 +2558,11 @@ def import_document(file: UploadFile, session: Session = Depends(get_session)) -
     }
 
 
-def _create_document_notes(session: Session, sections: list[str]) -> list[int]:
+def _create_document_notes(session: Session, sections: list[str], source_name: str = "") -> list[int]:
     """The ids of the notes made, one per section (the client's Undo bins
-    exactly these)."""
+    exactly these). Each keeps the file's name as its `source_path`, as the
+    other importers do, which is also what marks it as text from outside for
+    the agent's injection guard (SEC-02)."""
     ids: list[int] = []
     for section in sections:
         entry = manager.create_entry(
@@ -2553,6 +2573,7 @@ def _create_document_notes(session: Session, sections: list[str]) -> list[int]:
             ai_confidence=100,
         )
         entry.user_filed = True  # this file said where it came from, not the janitor
+        entry.source_path = (source_name or "document")[:500]
         session.commit()
         deps.store_quietly(session, entry)
         ids.append(entry.id)

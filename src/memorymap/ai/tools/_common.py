@@ -10,6 +10,7 @@ land somewhere with no dependency back on any of them.
 
 from __future__ import annotations
 
+import contextvars
 import logging
 from dataclasses import dataclass
 from datetime import datetime
@@ -47,7 +48,30 @@ __all__ = [
     "_since_days",
     "_refresh_embedding",
     "_keyword_context",
+    "mark_outside",
+    "outside_seen",
 ]
+
+#: **Did this tool call hand the model text from outside?** (SEC-02, audit
+#: 2026-10-05.) Set by every path that puts a clipped or imported note's
+#: words, or an imported document's, into a tool result (`_readable`, the
+#: whiteboard previews, the document reads); `execute_tool` opens a fresh
+#: flag per call and reports it as `from_outside` on the result, which the
+#: agent turns into the same taint a web search sets. A context variable,
+#: not a parameter, so the dozens of handlers that render a note through
+#: `_readable` are covered without each one remembering.
+_OUTSIDE: contextvars.ContextVar[list[bool] | None] = contextvars.ContextVar("tool_outside", default=None)
+
+
+def mark_outside() -> None:
+    flag = _OUTSIDE.get()
+    if flag is not None:
+        flag[0] = True
+
+
+def outside_seen() -> contextvars.ContextVar[list[bool] | None]:
+    """The variable itself, for `execute_tool` to open and close per call."""
+    return _OUTSIDE
 
 
 class ToolError(ValueError):
@@ -213,7 +237,10 @@ def _visible(*extra):
 
 def _readable(entry: Entry) -> str:
     """Non-private notes are stored in the clear, but go through the manager
-    anyway so this can never be the path that hands back ciphertext."""
+    anyway so this can never be the path that hands back ciphertext. Also the
+    one place a note's origin is noticed for the injection guard (SEC-02)."""
+    if manager.came_from_outside(entry):
+        mark_outside()
     return manager.readable_content(entry)
 
 

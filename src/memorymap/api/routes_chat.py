@@ -1199,6 +1199,9 @@ def _prepare(
             "category": manager.category_name_for(session, entry),
             # Marked so the prompt can say which notes the user chose.
             "attached": entry.id in attached_ids,
+            # Clipped from the web or imported (SEC-02): the agent starts the
+            # turn tainted, so writes and reaching out ask first.
+            "from_outside": manager.came_from_outside(entry),
             # …and which arrived by the graph rather than by the search. The
             # prompt renders this as a caveat, so an answer can say "you linked
             # this to the note about X" instead of implying it was a hit.

@@ -83,7 +83,15 @@ Encrypted at rest with a key wrapped by your password, and excluded
 from search, the graph and every AI tool: the model cannot reach around
 the front door. The key is derived with **scrypt** (n=2^15), a
 deliberately slow, memory-hard function, so a copy of the database file
-taken off the machine is not worth guessing at.
+taken off the machine is slow to guess at. Slow is not impossible: the
+wait between wrong passwords only guards the running app, and a copy of
+the file (or a backup) can be guessed offline as fast as a computer can
+run scrypt. A four-digit PIN falls to that in minutes; a long passphrase
+does not. If you keep private notes, use a passphrase.
+
+Making a note private also merges the search index and clears its old
+entries from the database file and its write-ahead log, and every backup
+is a cleaned copy, so none of the note's words survive in the file.
 
 ## The browser on your own machine is treated as untrusted too
 
@@ -102,8 +110,13 @@ and Ollama itself have actually been attacked. So:
   possible;
 - **sessions expire**, after 12 hours unused, and 7 days regardless, and
   expiring forgets the private-note key, not just the token;
-- **wrong passwords earn a growing wait**, so a four-character PIN
-  cannot be guessed at speed;
+- requests that name another site's domain are **refused** even on
+  `localhost`, so a page that re-points its own name at this computer
+  (DNS rebinding) gets nothing, and a request body is capped at 1 MB
+  until you are signed in;
+- **wrong passwords earn a growing wait**, everywhere a password is
+  checked (unlock, change password, re-encrypting private notes), so a
+  four-character PIN cannot be guessed at speed through the app;
 - the SearXNG instance the app runs for you is published to
   `127.0.0.1` only, never the wider network.
 
@@ -142,5 +155,9 @@ tells you which before you commit:
 - **Private notes are.** Their key is derived from the password, so
   without it nobody can decrypt them, including this command. The reset
   loses them, and it tells you how many you have first.
+
+The reset also turns off "Allow other devices on this network", and the
+app never listens beyond this computer while no password is set, so a
+reset notebook is never open to the network.
 
 No backdoor was added, on purpose.

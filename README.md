@@ -206,7 +206,8 @@ while the server is away is kept on this device, shown in the list as
 it, side by side, with each sentence linked to the note it came from. Chat
 is saved and resumable. In Agent mode the assistant has 58 tools to
 search, link, organise and act on your notebook; anything destructive
-asks first, and every step it takes is shown.
+asks first, any change or web request after it has read a web page or a
+clipped or imported note asks first too, and every step it takes is shown.
 
 **Keep it tidy.** Each note shows how sure the filing was and the tags it
 suggested, one press to keep each (with no AI they come from your own tags

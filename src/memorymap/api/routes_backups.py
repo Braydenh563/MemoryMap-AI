@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from memorymap.api import routes_auth
 from memorymap.core import backup, deps, diskspace, jobruns
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
@@ -152,7 +153,11 @@ def restore_backup(body: RestoreBody) -> dict:
         session.commit()
     finally:
         session.close()
-    return {"restored": body.name}
+    # SEC-07: the restored file has its own vault row (and maybe its own
+    # password), so every session ends and the key in memory is dropped; the
+    # app shows the lock screen and the password unwraps the restored key.
+    routes_auth.end_every_session()
+    return {"restored": body.name, "signed_out": True}
 
 
 @router.delete("/backups/{name}")

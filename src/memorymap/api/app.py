@@ -938,6 +938,9 @@ def create_app() -> FastAPI:
     app.add_middleware(security.HostCheckMiddleware)
     app.add_middleware(SpaceGuard)
     app.add_middleware(RequestPulse)
+    # Outside the Host and Origin checks, so a refused request is never read
+    # either; inside the security headers, so a 413 still carries them (SEC-06).
+    app.add_middleware(security.BodyCapMiddleware)
     app.add_middleware(
         security.SecurityHeadersMiddleware,
         # Tracks index.html rather than freezing one policy at startup, see

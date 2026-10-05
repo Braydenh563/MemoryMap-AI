@@ -40375,6 +40375,63 @@ over a v4 address against the same server. Windows is not testable here."
   not supported"), so the end-to-end test skips here and runs on CI; Windows
   is not testable here at all.
 
+## Security audit fixes, 2026-10-05 (SEC-01 to SEC-16)
+
+The audit (`scratchpad/audit1005/security.md`, head `64ddf14`) found 3 High,
+7 Medium and 7 Low; each fix below has the audit's reproduction as a test,
+written first and seen failing.
+
+- **SEC-01 (High), a reset opened the notebook to the network.**
+  `netbind.bind_host(config, has_password=...)` binds loopback without a
+  password; `--reset-password` turns `allow_lan` off and says so;
+  `HostCheckMiddleware` answers 403 to every request that arrives off
+  loopback before a password exists (setup included), however the server
+  was started. `tests/test_lan_mode.py` (the launcher tests now set the
+  password, then restart).
+- **SEC-02 (High), injection laundered through a note.**
+  `manager.came_from_outside` (a `source_url` or `source_path`) and
+  `document_came_from_outside` (its "imported" event); `_common._readable`,
+  the whiteboard previews and the document reads mark the call, and
+  `execute_tool` reports `from_outside`; a retrieved note carries it too. A
+  tainted turn parks every `WRITE_TOOLS` call as well as the outbound ones
+  (`agent._PARK_WHEN_TAINTED`); `confirm_label` names writes in words.
+  `tests/test_injection_fence.py`, seven new.
+- **SEC-03 (High), private words in the FTS segments.**
+  `manager.scrub_private_leftovers` after `set_private(True)`: FTS5
+  `optimize` on both tables with `secure_delete` on, then
+  `wal_checkpoint(TRUNCATE)`; `backup.snapshot` (backup API, `optimize`,
+  `VACUUM`) for every backup and the export zip, which also stops the zip
+  missing what was still in the WAL. `tests/test_private_scrub.py` greps
+  the live file, a backup and the zip.
+- **SEC-04, SEC-09.** Change password and Re-encrypt share the unlock
+  throttle; one `_hash_password`/`_password_matches` pair pre-hashes a
+  password over 72 bytes (no migration: no older hash can be of one);
+  passwords capped at 1,024 characters.
+- **SEC-05.** The Host check runs on every real socket, loopback included
+  (only the in-process test client, whose scope names its server, is not
+  judged); `/auth/lock` does nothing without a live token; `Origin: null` is
+  cross-site on `/auth/*`.
+- **SEC-06.** `security.BodyCapMiddleware`: 1 MB without a session (and on
+  `/auth/*`, `/logs/client`), 320 MB with one; declared lengths refused
+  unread, chunked bodies cut off as they pass.
+- **SEC-07.** A restore calls `routes_auth.end_every_session()`; the UI
+  shows the lock screen.
+- **SEC-08 (short term).** The LAN help and switch say the traffic is plain
+  http; the stale "IPv4 only" line is gone.
+- **SEC-11 to SEC-13, SEC-15, SEC-16, SEC-17 (copy).** Attachments served
+  as `application/octet-stream` unless a picture or PDF, sandboxed and
+  `Cross-Origin-Resource-Policy: same-origin`; `security.without_userinfo`
+  on the bundle and the receipt; the notebook folder 0700 on Unix; the five
+  URL sinks through `safeHref` and `source_url` http(s) only; the innerHTML
+  lint reads across lines and every HTML sink, `document.write` pinned;
+  PRIVACY.md says a PIN falls to an offline guess.
+- **The owner's "fully local" ask:** `tests/test_outbound_inventory.py`
+  pins every module that can open a connection, with where it goes and what
+  has to happen first, and boots an app that reaches nothing beyond
+  loopback.
+- **Not verified:** real-model compliance (scripted model only); a real
+  rebinding page in a browser; the pywebview window; Windows file modes.
+
 ## Moved from the plans, 2026-10-04 (design-1004)
 
 ### From WORLD_CLASS_PLAN.md 1.2: one primary per modal, meta without border or hover

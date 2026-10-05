@@ -1217,7 +1217,7 @@ function buildConnectionGroups(list, kind, data, beforeOpen = () => {}) {
   }
   function bookmarkRow(mark) {
     return row(`ph:bookmark-simple ${mark.title || mark.url}`, `Open ${mark.url}`, () =>
-      window.open(mark.url, "_blank", "noopener,noreferrer")
+      window.open(safeHref(mark.url), "_blank", "noopener,noreferrer")
     );
   }
   function fileRow(file) {

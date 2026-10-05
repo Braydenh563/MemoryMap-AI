@@ -65,18 +65,18 @@ def _setup(client) -> dict:
 
 def test_it_is_off_by_default_and_binds_loopback(app_state):
     assert netbind.lan_enabled(app_state) is False
-    assert netbind.bind_host(app_state) == "127.0.0.1"
+    assert netbind.bind_host(app_state, has_password=True) == "127.0.0.1"
 
 
 def test_only_a_literal_true_turns_it_on(app_state):
     """A hand-edited preferences file must not open the notebook by accident."""
     for value in ("yes", 1, "true", [True]):
         app_state.set_preference(netbind.LAN_PREF, value)
-        assert netbind.bind_host(app_state) == "127.0.0.1", value
+        assert netbind.bind_host(app_state, has_password=True) == "127.0.0.1", value
     app_state.set_preference(netbind.LAN_PREF, True)
     # Every interface: IPv4 and IPv6 on one socket where the machine has
     # both, IPv4 alone where it has no IPv6 (this sandbox).
-    assert netbind.bind_host(app_state) == ("::" if netbind.dual_stack() else "0.0.0.0")
+    assert netbind.bind_host(app_state, has_password=True) == ("::" if netbind.dual_stack() else "0.0.0.0")
 
 
 # --- IPv6 (WORLD_CLASS_PLAN §12, row 2) -------------------------------------------
@@ -85,9 +85,9 @@ def test_only_a_literal_true_turns_it_on(app_state):
 def test_without_dual_stack_lan_mode_binds_ipv4(app_state, monkeypatch):
     app_state.set_preference(netbind.LAN_PREF, True)
     monkeypatch.setattr(netbind, "dual_stack", lambda: False)
-    assert netbind.bind_host(app_state) == "0.0.0.0"
+    assert netbind.bind_host(app_state, has_password=True) == "0.0.0.0"
     monkeypatch.setattr(netbind, "dual_stack", lambda: True)
-    assert netbind.bind_host(app_state) == "::"
+    assert netbind.bind_host(app_state, has_password=True) == "::"
     assert netbind.is_loopback_bind("::") is False
 
 
@@ -207,10 +207,13 @@ def test_host_names_that_are_this_computer():
     assert not netbind.host_allowed("evil.example")
 
 
-def test_the_guard_runs_only_when_listening_beyond_this_computer(client):
-    """On loopback a rebinding page can reach only what the Origin check and
-    the lock already cover (and the test client's own Host is a name)."""
+def test_the_guard_judges_every_real_socket(client):
+    """The in-process test client (its scope names `testserver`, never a
+    number) is not judged; a request on a numbered address is, loopback
+    included (SEC-05)."""
+    _setup(client)
     assert client.get("/health", headers={"Host": "evil.example"}).status_code == 200
+    assert _local(client).get("/health", headers={"Host": "evil.example"}).status_code == 421
     netbind.set_current("0.0.0.0")
     refused = client.get("/health", headers={"Host": "evil.example"})
     assert refused.status_code == 421
@@ -245,7 +248,7 @@ def _through_host_check(server: tuple, host: str | None) -> tuple[int | None, bo
     return status, bool(ran)
 
 
-def test_the_guard_keys_on_the_address_the_request_arrived_at():
+def test_the_guard_keys_on_the_address_the_request_arrived_at(monkeypatch):
     """`set_current` is the launcher's word (review, 2026-09-26): a server
     started any other way on 0.0.0.0 (`uvicorn --host 0.0.0.0`, the sweeps'
     serve.sh, a container) never called it, so the guard stayed off while
@@ -255,6 +258,9 @@ def test_the_guard_keys_on_the_address_the_request_arrived_at():
     said, and one that came in on loopback never does. Off loopback a
     request with no Host at all is refused too: HTTP/1.1 requires one, so
     nothing legitimate on the network omits it."""
+    from memorymap.core import security
+
+    monkeypatch.setattr(security, "_notebook_has_password", lambda: True)
     netbind.set_current(netbind.LOOPBACK)
     lan = ("192.168.1.9", 8000)
     assert _through_host_check(lan, "evil.example") == (421, False)
@@ -263,8 +269,13 @@ def test_the_guard_keys_on_the_address_the_request_arrived_at():
     assert _through_host_check(lan, "LOCALHOST:8000") == (None, True)
     assert _through_host_check(lan, "evil.example.:8000") == (421, False)
     assert _through_host_check(lan, None) == (421, False)
-    assert _through_host_check(("127.0.0.1", 8000), "evil.example") == (None, True)
-    assert _through_host_check(("::1", 8000), "evil.example") == (None, True)
+    # On loopback too since SEC-05 (audit 2026-10-05): a rebinding page
+    # arrives on 127.0.0.1 naming its own domain. A local tool that sends no
+    # Host at all is still served.
+    assert _through_host_check(("127.0.0.1", 8000), "evil.example") == (421, False)
+    assert _through_host_check(("::1", 8000), "evil.example") == (421, False)
+    assert _through_host_check(("127.0.0.1", 8000), "localhost:8000") == (None, True)
+    assert _through_host_check(("127.0.0.1", 8000), None) == (None, True)
     # The test client's own scope names the server rather than numbering it.
     assert _through_host_check(("testserver", 80), "evil.example") == (None, True)
 
@@ -370,15 +381,26 @@ def network_address():
 
 
 def test_lan_mode_end_to_end(tmp_path, network_address):
-    proc, port, log = _start(tmp_path, {netbind.LAN_PREF: True, "web_search_enabled": True})
+    # SEC-01: with the switch on but no password yet, the launcher listens
+    # on this computer only; the password is set here, then it restarts.
+    prefs = {netbind.LAN_PREF: True, "web_search_enabled": True}
+    proc, port, log = _start(tmp_path, prefs)
+    try:
+        with pytest.raises(OSError):
+            _Http(network_address, port).call("GET", "/auth/status")
+        status, _, _ = _Http("127.0.0.1", port).call("POST", "/auth/setup", {"password": PASSWORD})
+        assert status == 200
+    finally:
+        _stop(proc)
+    proc, port, log = _start(tmp_path, prefs)
     try:
         lan = _Http(network_address, port)
         here = _Http("127.0.0.1", port)
 
         # It listens on the network address, and says so on the receipt.
         status, body, _ = lan.call("GET", "/auth/status")
-        assert status == 200 and body["setup_required"] is True
-        status, body, _ = here.call("POST", "/auth/setup", {"password": PASSWORD})
+        assert status == 200 and body["setup_required"] is False
+        status, body, _ = here.call("POST", "/auth/unlock", {"password": PASSWORD})
         assert status == 200
         owner = {"X-Auth-Token": body["token"]}
         status, receipt, _ = here.call("GET", "/privacy/receipt", headers=owner)
@@ -458,13 +480,19 @@ def test_without_the_switch_the_network_cannot_connect(tmp_path, network_address
 def test_lan_mode_answers_on_ipv6_and_ipv4_from_one_server(tmp_path):
     """The plan's own test: the real launcher with LAN mode on, reached once
     over `[::1]` and once over IPv4, the same server both times."""
+    # No password yet means loopback only (SEC-01): set one, then restart.
+    proc, port, log = _start(tmp_path, {netbind.LAN_PREF: True})
+    try:
+        assert _Http("127.0.0.1", port).call("POST", "/auth/setup", {"password": PASSWORD})[0] == 200
+    finally:
+        _stop(proc)
     proc, port, log = _start(tmp_path, {netbind.LAN_PREF: True})
     try:
         here_v6 = _Http("::1", port)
         here_v4 = _Http("127.0.0.1", port)
         status, body, _ = here_v6.call("GET", "/auth/status", host=f"[::1]:{port}")
-        assert status == 200 and body["setup_required"] is True
-        status, body, _ = here_v4.call("POST", "/auth/setup", {"password": PASSWORD})
+        assert status == 200 and body["setup_required"] is False
+        status, body, _ = here_v4.call("POST", "/auth/unlock", {"password": PASSWORD})
         assert status == 200
         owner = {"X-Auth-Token": body["token"]}
         # Both arrive on loopback: [::1] is, and 127.0.0.1 arrives as
@@ -477,4 +505,59 @@ def test_lan_mode_answers_on_ipv6_and_ipv4_from_one_server(tmp_path):
     finally:
         _stop(proc)
     assert "token=" not in log.read_text().replace("token=[redacted]", "")
+
+
+# --- SEC-01: a reset never leaves an open notebook on the network --------------------
+
+
+def _lan(client) -> TestClient:
+    """A request that arrived on a network address, as a phone's would: the
+    ASGI scope's `server` is taken from the base URL."""
+    return TestClient(client.app, base_url="http://192.168.1.9:8795", client=("192.168.1.50", 50000))
+
+
+def test_no_password_means_loopback_whatever_the_switch_says(app_state):
+    """SEC-01 (audit 2026-10-05): `--reset-password` deletes the user row and
+    the next launch bound 0.0.0.0 with nothing to ask for."""
+    app_state.set_preference(netbind.LAN_PREF, True)
+    assert netbind.bind_host(app_state, has_password=False) == "127.0.0.1"
+    assert netbind.bind_host(app_state, has_password=True) != "127.0.0.1"
+
+
+def test_reset_password_turns_lan_mode_off(app_state, monkeypatch, capsys):
+    from memorymap import __main__ as launcher
+    from memorymap.core import deps
+    from memorymap.core.database import User
+
+    with deps.get_db().session() as session:
+        session.add(User(username="owner", password_hash="x"))
+        session.commit()
+    app_state.set_preference(netbind.LAN_PREF, True)
+    monkeypatch.setattr("builtins.input", lambda prompt="": "RESET")
+    assert launcher._reset_password() == 0
+    assert netbind.lan_enabled(app_state) is False
+    assert "other devices" in capsys.readouterr().out.lower()
+
+
+def test_without_a_password_the_network_gets_nothing(client):
+    """Even on a server bound to the network some other way (uvicorn
+    --host 0.0.0.0, a container), a request that arrives off loopback before
+    a password exists is refused: no notes, no status, no claiming the
+    notebook with /auth/setup."""
+    lan = _lan(client)
+    for method, path, body in (
+        ("GET", "/entries?limit=5", None),
+        ("GET", "/auth/status", None),
+        ("POST", "/auth/setup", {"password": PASSWORD}),
+        ("GET", "/health", None),
+        ("GET", "/", None),
+    ):
+        response = lan.request(method, path, json=body)
+        assert response.status_code == 403, (path, response.status_code)
+    # This computer is still served, and once a password exists the network
+    # gets the ordinary lock screen.
+    assert _local(client).get("/auth/status").json()["setup_required"] is True
+    _setup(client)
+    assert lan.get("/auth/status").status_code == 200
+    assert lan.get("/entries?limit=5").status_code == 401
 

@@ -7,6 +7,16 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+### Security
+
+- Other devices: `--reset-password` turns "Allow other devices on this network" off, the launcher listens on this computer only while no password is set, and a request that arrives from the network before a password exists is refused (403), however the server was started; before, a reset with the switch on reopened the whole notebook to the network with no password (SEC-01, audit 2026-10-05). The help says the traffic is plain http, for networks you trust (SEC-08).
+- Agent mode: a note clipped from the web or brought in by an import, and an imported document, now count as text from outside, like a web page: once a turn has read one (by a tool, or because it was retrieved for the question), every change to the notebook (edit, create, save a skill, set a reminder, rename) and every web request waits for your confirm, and the card says what it will do; before, only destructive tools and web requests after a web search asked, so a clipped page could steer the agent into rewriting a skill or a note unasked (SEC-02, audit 2026-10-05).
+- Private notes: making a note private now merges the search index so none of its words stay in the database file or its write-ahead log, and every backup and the Export backup zip is a cleaned snapshot, which also strips words an older version left behind; before, a private note's vocabulary (a PIN, a place) was readable with strings in every backup (SEC-03, audit 2026-10-05). The Export backup zip also stops missing changes still in the write-ahead log.
+- Sign-in: a wrong current password in Change password and Re-encrypt private notes now counts against the same wait as a wrong unlock (SEC-04); a request that names another site's domain is refused on this computer too, not only from the network, so a DNS-rebinding page can no longer lock you out or close your private notes, Lock does nothing without a live session, and Origin null is refused on the sign-in routes (SEC-05); a request body is capped at 1 MB until signed in, before it is read (SEC-06); a password over 72 bytes (a long passphrase, 25 emoji) works instead of failing with an error, and one over 1,024 characters is refused (SEC-09).
+- Backups: restoring one now signs every session out and asks for the password, so the restored private notes open with the key that came with them; before, a restore across a key rotation left new private notes unreadable after the next restart (SEC-07).
+- Attachments are served as downloads unless they are pictures or PDFs, sandboxed, so an uploaded script can never run in the app (SEC-11); a user name and password typed into the model server address stay out of the support bundle and the privacy receipt (SEC-12); on Linux and macOS the notebook folder is readable by its owner only (SEC-13).
+- A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
+
 ### Changed
 
 - Documents on a narrow window: the Edit/Read segment's well grows to the 44px touch height its buttons take, so they no longer hang out of its foot and sit on the row's centre line (INBOX 568).

@@ -27,6 +27,12 @@ Four items, all done; the accounts are in HISTORY.md, "Moved from the plans,
    kept by name in `META_EDGED`. If the owner wants statuses edgeless, it is
    one rule (`.chip.item-label`'s border) and the set entry.
 
+4. **A sticky's grip in dark, 1.42:1.** `contrast.js` (THEME=dark, a board
+   holding one sticky) reports `.wb-object-grip` "⠿" `rgb(181,179,173)` on
+   the sticky's `rgb(156,151,112)`; light is clean, as is everything else in
+   both themes. Not touched here (whiteboard). It is a drag handle, so the
+   bar is 3:1 (WCAG 1.4.11): tint the glyph from the sticky's own colour.
+
 ## Not verified
 
 - A real phone: `popupsart.js` and `docphonetop.js` run Chromium's touch

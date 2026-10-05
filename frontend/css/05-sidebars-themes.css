@@ -1438,6 +1438,24 @@ button.rich-picker-row:is(:hover, :focus-visible) .rich-picker-tile {
   color: var(--muted);
 }
 
+/* A page break (DOCUMENTS_PLAN D4): a labelled dashed line on screen; the
+   print rule in 09-editor.css turns it into the break itself. */
+.md-page-break {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-5) 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+.md-page-break::before,
+.md-page-break::after {
+  content: "";
+  flex: 1;
+  border-top: 1px dashed var(--border);
+}
+
 /* Footnotes (audit FEAT-03): a raised number in the prose, the notes in a
    quiet list at the foot, each with a way back to where it was cited. */
 .md-fn-ref {

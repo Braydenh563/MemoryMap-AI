@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Documents: a page break. The / menu's Page break (written \newpage on its own line) shows as a labelled dashed line, and what follows starts on a new page when you print, save as a PDF or download the HTML.
 - Dashboard: the Boards & maps widget draws the board or map with the most on it large, at its own shape: a small map at a readable size, a tall one in a taller card up to a limit and then fitted whole, its name under it, then the next four as rows (INBOX 553(d)).
 - Documents: a hidden formatting toolbar is easy to bring back: a Formatting button sits in the document's bar while it is hidden, Ctrl+Shift+X shows or hides it, the ⋯ menu says Show formatting toolbar, and the first time you hide it a note says where it went (INBOX 574).
 - Boards and mind maps: the cross-link tool's anchor dots no longer stay on a topic after you switch back to Select; deselecting, Undo, a tab switch or closing a menu clears them (INBOX 573).

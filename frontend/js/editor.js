@@ -807,6 +807,7 @@ function editorBlockRows(context) {
   add({ id: "break-dots", group: "Structure", icon: "ph:dots-three", label: "Section break", about: "Three dots: a pause inside one topic", keys: "***", keywords: ["break", "section", "dots", "asterism", "divider", "pause"], sample: "End of one part.\n\n***\n\nStart of the next.", run: (t) => editorBlock(t, "***") });
   add({ id: "break-strong", group: "Structure", icon: "ph:equals", label: "Strong divider", about: "A heavy rule: one part ends here", keys: "___", keywords: ["divider", "rule", "thick", "strong", "heavy", "end"], sample: "Part one.\n\n___\n\nPart two.", run: (t) => editorBlock(t, "___") });
   if (inDocument) {
+    add({ id: "page-break", group: "Structure", icon: "ph:file-dashed", label: "Page break", about: "What follows starts on a new page when printed", keys: "\\newpage", keywords: ["page", "break", "new page", "print", "pdf", "pagebreak"], sample: "End of chapter one.\n\n\\newpage\n\nChapter two.", run: (t) => editorBlock(t, "\\newpage") });
     add({ id: "properties", group: "Structure", icon: "ph:tag", label: "Properties", about: "Tags, status and dates at the top of the document", keys: "---", keywords: ["properties", "frontmatter", "metadata", "tags", "yaml", "status", "aliases"], run: (t) => editorApplyNamed(t, "properties") });
   }
 

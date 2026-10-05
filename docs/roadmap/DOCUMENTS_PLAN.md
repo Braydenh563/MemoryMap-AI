@@ -1157,6 +1157,13 @@ plans, 2026-10-05").
    2026-10-05): the dock's Formatting button while it is hidden (not on a
    phone, which formats from the thumb bar), Ctrl+Shift+X, the ⋯ row and
    the palette row, and one toast the first time it is hidden.
+5. **A page break is `\newpage` on its own line** (2026-10-05, the audit's
+   D4, first part): the Pandoc and LaTeX spelling, so a document leaves
+   for any Markdown-to-PDF tool with its breaks intact. A labelled dashed
+   line on screen, the break itself in a print and in the HTML export, the
+   "/" menu's Page break in a document (not in a note, which is not
+   printed as pages). Page size, margins and page numbers (the rest of D4)
+   are open.
 
 ## 18. The slash menus as one system: built 2026-09-21
 

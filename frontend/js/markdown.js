@@ -298,6 +298,20 @@ function mdColumnsElement(columns, renderInto) {
   return box;
 }
 
+//: `\newpage`, a page break (DOCUMENTS_PLAN decision 20.5).
+const MD_PAGE_BREAK = /^[ \t]*\\newpage[ \t]*$/;
+
+function mdPageBreakElement() {
+  const el = document.createElement("div");
+  el.className = "md-page-break";
+  el.setAttribute("role", "separator");
+  el.setAttribute("aria-label", "Page break");
+  const label = document.createElement("span");
+  label.textContent = "Page break";
+  el.appendChild(label);
+  return el;
+}
+
 //: A rule of the kind `mdDividerKind` read.
 function mdRuleElement(kind) {
   const hr = document.createElement("hr");
@@ -429,12 +443,8 @@ function mdFillTocs(container) {
 }
 
 // MD-FOOTNOTE-BEGIN
-//: **Footnotes in every rendered view** (audit FEAT-03): Read, Print/PDF and
-//: the HTML export showed `[^1]` raw, so comments exported as footnotes
-//: printed as markup. Definitions are lifted out (blanked, so `data-src-line`
-//: holds), cited references become placeholders no inline rule touches, and
-//: `mdFootnotesFinish` draws both. Fenced code is left alone; an undefined
-//: reference stays as typed. Tested in node: tests/test_md_footnotes.py.
+//: Footnotes (audit FEAT-03, DOCUMENTS_PLAN decision 20.1): definitions
+//: blanked out, cited references made placeholders; tests/test_md_footnotes.py.
 const MD_FN_DEF = /^\[\^([^\]\s]{1,40})\]:[ \t]?(.*)$/;
 const MD_FN_REF = /\[\^([^\]\s]{1,40})\]/g;
 const MD_FN_FENCE = /^\s*(?:```|~~~)/;
@@ -470,14 +480,12 @@ function mdFootnotePrepare(lines) {
       return `${id}`;
     });
   });
-  //: Numbered in citing order; an uncited note is still printed, last.
   for (const id of defs.keys()) if (!order.includes(id)) order.push(id);
   return { lines: out, notes: order.map((id, k) => ({ id, n: k + 1, text: defs.get(id) })) };
 }
 // MD-FOOTNOTE-END
 
-//: Each render's anchors get their own prefix, so two rendered documents on
-//: one page never share an id.
+//: A prefix per render, so two documents on one page share no id.
 let mdFootnoteRuns = 0;
 
 function mdFootnotesFinish(container, notes) {
@@ -492,7 +500,6 @@ function mdFootnotesFinish(container, notes) {
   const cited = new Set();
   for (const node of hits) {
     const value = node.nodeValue;
-    //: Inside code a reference is text again, as typed.
     if (node.parentElement?.closest("code, pre")) {
       node.nodeValue = value.replace(marker, "[^$1]");
       continue;
@@ -536,8 +543,7 @@ function mdFootnotesFinish(container, notes) {
   }
   section.appendChild(list);
   container.appendChild(section);
-  //: An in-page jump that leaves the app's address alone (`mdFillTocs`'s
-  //: rule); in an exported file the plain `#id` still works.
+  //: Jump in place (`mdFillTocs`'s rule); an exported file uses the `#id`.
   if (container.mdFnJump) return;
   container.mdFnJump = true;
   container.addEventListener("click", (event) => {

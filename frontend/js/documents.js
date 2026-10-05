@@ -9557,6 +9557,8 @@ details.callout[open] > .callout-head::before { content: "\\25BE\\2002"; }
 .md-toc-depth-2 { padding-left: 2.4em; }
 .md-toc-depth-3 { padding-left: 3.6em; }
 .md-math-block { margin: 1.5em 0; text-align: center; overflow-x: auto; }
+.md-page-break { break-before: page; height: 0; overflow: hidden; }
+.md-page-break > span { display: none; }
 .md-footnotes {
   margin-top: 3em;
   padding-top: 1em;

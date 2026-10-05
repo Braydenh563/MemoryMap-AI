@@ -723,6 +723,17 @@ details[open] > .about-whats-new::before,
    so they sat 4px down, flush on its bottom edge. With a pointer the floor
    is the well's, not the button's; touch keeps its own floor and well. */
 @media (pointer: fine) and (min-width: 820px) {
+  /* **The segment is the floor, the well is the bar** (audit 2026-10-05,
+     FE-14). A 4px inset in a 32px well left the view toggles 28x24 and the
+     documents' Edit and Read 24 tall, under DESIGN.md's 28px floor. The
+     inset is what is left of the bar's control height once the segment has
+     its floor (2px a side in a 32px dock), never less than 2px, so the
+     highlight still clears the well's edge and the bar keeps one height. */
+  .dock .seg,
+  .dock .segmented-control {
+    padding: max(2px, calc((var(--control-h) - var(--target-min)) / 2));
+  }
+
   .dock .seg > button,
   .dock .segmented-control > button {
     min-height: 0;
@@ -2026,7 +2037,10 @@ summary > .ph-lead,
    36px, and `place-items: center` because a button that no longer stretches
    has to centre its own icon and label. */
 .doc-dock .seg {
-  --seg-pad: 0.25rem;
+  /* What the bar's control height leaves once the segment has its 28px
+     floor (audit 2026-10-05, FE-14: a fixed 0.25rem left Edit and Read 24px
+     tall once the dock's control height became 32). */
+  --seg-pad: max(2px, calc((var(--control-h) - var(--target-min)) / 2));
   padding: var(--seg-pad);
   align-items: center;
 }
@@ -2097,7 +2111,7 @@ summary > .ph-lead,
    Below 601px none of this applies and the panel is the bottom sheet it has
    always been there, which is the variant's own decision (INBOX 224: in a
    390px window the corner is the window). */
-@media (min-width: 601px) {
+@media (min-width: 600px) {
   .sheet-card.sheet-card-corner {
     border-radius: var(--radius);
     margin-inline-end: var(--space-6);
@@ -2429,7 +2443,7 @@ summary > .ph-lead,
    goes: the mark, the name, the '?' and the way out all stay, the '?' popover
    still says what Atlas is, and the empty state under it still says in full
    that it cannot read your notes or your documents. */
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   .atlas-head-line {
     display: none;
   }
@@ -9096,7 +9110,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
    title leaves the corner '?' its room, and the questions become one row
    that scrolls sideways, the pattern phone chat apps use for starters, with
    the edge fading to say there is more. */
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   .chat-empty .empty-title {
     padding-inline: calc(var(--target-min) + var(--space-1));
   }
@@ -9608,7 +9622,7 @@ input[type="file"]:active::file-selector-button {
    the time and the title slid across to the right, x 1227 against 173 on
    the row above. The time keeps its 7rem at the start in both views, the
    title a fixed track, and the detail takes the rest. */
-@media (min-width: 721px) {
+@media (min-width: 720px) {
   .library-grid .library-card.library-activity > .library-card-meta {
     order: -1;
     flex: 0 0 7rem;
@@ -10169,7 +10183,7 @@ header#top-bar:has(.ai-status-wrap:hover, .ai-status:focus-visible, .ai-status-p
   margin-right: auto;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   .ask-composer {
     position: relative;
   }

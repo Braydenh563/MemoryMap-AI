@@ -1381,7 +1381,7 @@ textarea.drag-over {
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   .agent-monitor {
     bottom: 0;
     left: 0;
@@ -7464,7 +7464,7 @@ button.connection-row {
    beside it, and the reading pane dropped to a second row under both. At 390
    the arithmetic was worse: the 1fr column collapsed to 0, so the reading had
    no width at all. Two panes, two columns. */
-@media (max-width: 1100px) {
+@media (max-width: 1099.98px) {
   .ocr-panes {
     grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem);
   }
@@ -7922,14 +7922,14 @@ button.connection-row {
 /* On a phone the page has no room to give up: the panel is the width of the
    window less its gutters, over the page, whatever the grip set on a wider
    screen (half of a 360 window is a 180px column of wrapped words). */
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
   #tab-documents.doc-focus #doc-prose-panel:not(.hidden) {
     left: var(--space-4);
     width: auto;
   }
 }
 
-@media (min-width: 721px) {
+@media (min-width: 720px) {
   #tab-documents.doc-focus:has(#doc-prose-panel:not(.hidden)) .doc-main {
     padding-right: calc(var(--doc-focus-prose-w) + var(--space-4) * 2);
   }
@@ -7994,14 +7994,14 @@ button.connection-row {
   display: none;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
   #tab-documents.doc-focus.doc-focus-sidebar .doc-sidebar {
     right: var(--space-4);
     width: auto !important;
   }
 }
 
-@media (min-width: 721px) {
+@media (min-width: 720px) {
   #tab-documents.doc-focus.doc-focus-sidebar .doc-main {
     padding-left: calc(var(--doc-focus-sidebar-w) + var(--space-4) * 2);
   }
@@ -8010,7 +8010,7 @@ button.connection-row {
 /* On a phone the floating dock is one line with no room for words: the
    toggles keep their icon, and their name is the `aria-label` and title
    they carry at every width. */
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   /* Four toggles and the way out beside the facts is 29px more than a 390
      window holds at the desktop gap (INBOX 453 (1) added the fifth), so the
      pill tightens its gaps and its leading pad here. */
@@ -8196,7 +8196,7 @@ button.connection-row {
 /* A board is a canvas; the panels over it are the only stacking that matters,
    so at narrow widths the navigator steps aside rather than covering the
    tools it is meant to help you reach. */
-@media (max-width: 720px) {
+@media (max-width: 719.98px) {
   .wb-navigator {
     display: none;
   }
@@ -11805,7 +11805,7 @@ input[type="file"] {
 
 }
 
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   #library-sort-seg {
     display: none;
   }
@@ -12137,7 +12137,7 @@ input[type="file"] {
   background: var(--card);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   /* Same trade as the link beside it: on a phone the dock's row is the
      scarce thing, and a count is the one part of the identity zone that the
      map itself already shows. */
@@ -12661,7 +12661,12 @@ header#top-bar {
   #chat-sidebar,
   #doc-sidebar,
   #skills-sidebar {
-    --sheet-rail: calc(var(--sidebar-toggle-size) + 2 * var(--sidebar-toggle-inset));
+    /* The opener is as wide as the touch floor here (44px), not the 32px
+       its token says: a rail sized from the token left 12px of a 44px
+       button off the left edge at 768 (audit 2026-10-05, FE-19, measured
+       x = -5). The rail and the content's clearance below both take the
+       wider of the two. */
+    --sheet-rail: calc(max(var(--sidebar-toggle-size), var(--target-min)) + 2 * var(--sidebar-toggle-inset));
     position: fixed;
     top: var(--header-h);
     bottom: var(--status-bar-h);
@@ -12751,7 +12756,7 @@ header#top-bar {
      `test_style_scale.py` reads any rule whose selector starts with `.layout`
      or `.doc-layout` as the page container setting its own outer gutter. */
   .sidebar-panel ~ * {
-    padding-left: calc(var(--sidebar-toggle-size) + 2 * var(--sidebar-toggle-inset));
+    padding-left: calc(max(var(--sidebar-toggle-size), var(--target-min)) + 2 * var(--sidebar-toggle-inset));
   }
 
   /* Skill logs comes after `main` in the DOM (it sits on the right at
@@ -12762,7 +12767,7 @@ header#top-bar {
      above pins every one of them to `left: 0`), so `main` still needs the
      same clearance, just stated in the other direction for this one. */
   .skills-split > .tab-main:has(+ #skills-sidebar) {
-    padding-left: calc(var(--sidebar-toggle-size) + 2 * var(--sidebar-toggle-inset));
+    padding-left: calc(max(var(--sidebar-toggle-size), var(--target-min)) + 2 * var(--sidebar-toggle-inset));
   }
 }
 
@@ -14036,7 +14041,7 @@ button.finder-row:hover,
   margin-inline: auto;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   .finder-card {
     max-height: calc(100vh - var(--space-6));
   }
@@ -14092,7 +14097,7 @@ button.finder-row:hover,
   padding: 0 var(--space-2);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   /* The hint names a chord a phone has no keyboard for. */
   .dash-find-keys {
     display: none;
@@ -14206,7 +14211,7 @@ button.finder-row:hover,
    Above 600 only: a phone has no room for a 7rem lead column, and its Full is
    already the compact layout (10-responsive.css), which is why the picker
    itself is hidden down there. */
-@media (min-width: 37.5625rem) {
+@media (min-width: 600px) {
   #tab-dashboard[data-density="compact"] .launch-group {
     flex-direction: row;
     align-items: center;
@@ -14363,7 +14368,7 @@ button.finder-row:hover,
   font-size: var(--text-sm);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 599.98px) {
   #tab-dashboard[data-density="focused"] .dash-clock {
     display: none;
   }

@@ -438,6 +438,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 
 ### Added
 
+- Reminders: Snooze 10 minutes on a reminder's menu, beside +1h and tomorrow on its row (WORLD_CLASS_PLAN D8).
 - Ctrl+Shift+V outside a text box saves what you copied as a new note, with Undo; a saved chat reopens where you left it; the AI status dot says how the last answer went (the model, its time, how much of its window it used); suggested links read as two note chips with a score bar, the reason behind Add a reason, and Link all above 70%; Settings, Account & security has Re-encrypt private notes. Settings, Packages: a package's name lines up with its Install button.
 - Documents and reminders go to the recycle bin like notes: the Library's bin lists them, Restore brings back the same document with its history, attached notes and reminders (its Undo used to make a new copy), Delete for good, Empty the bin and the auto-clear take them too. The Notes selection bar's ⋯ has Move to space (each note keeps its category's name, its files and reminders go with it, and Undo sends each back) and Export as Markdown. Editing a note shows its words and reading time. Note templates fill {{clipboard}} and {{time}} and put the caret at {{cursor}} (WORLD_CLASS_PLAN 5).
 - Remind me on a document's and a board's or map's ⋯ menu, and on the Library's note card with Link to (a note picker); a document's Library card has Show in graph. A reminder now says what it is about (a note, a document, a board or a map), and its row opens that (WORLD_CLASS_PLAN 1.3).

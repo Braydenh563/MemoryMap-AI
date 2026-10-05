@@ -291,7 +291,7 @@ toggle; the widgets dialog keeps only add/remove. Gate: recipe count on
 Dashboard ≤ 8 (audit script), all 24 widgets in the frame, 390px chrome ratio
 < 35%.
 
-**State 2026-09-24:** (b) every widget renders into one frame (`render(body)` over the `DASH_WIDGETS` table) and the layout editor exists (`dash-edit`, `moveDashWidget`); drag-to-reorder on the grid itself was not found. The recipe-count gate was not re-run. S, `dashboard.js`.
+**State 2026-10-05:** (b) every widget renders into one frame (`render(body)` over the `DASH_WIDGETS` table); drag-to-reorder on the grid itself is built (Edit layout makes each card `draggable`, `dashDragOverCard` moves it live, the drop saves the order; dashboard.js, found 2026-10-05, HISTORY.md "Moved from the plans, 2026-10-05 (nbf1005)"). Open: the recipe-count gate was not re-run. S, `dashboard.js`.
 
 **The first screen, INBOX 436 (2026-10-03):** built; the diagnosis, the target and the before and after numbers are in HISTORY.md ("Moved from the plans, 2026-10-03").
 
@@ -380,7 +380,7 @@ notes, snooze (10m, 1h, tomorrow) in the row menu, done rows strike
 through and fade, a "today" band at the top. Gate: row recipe shared
 (one class), snooze round-trips.
 
-**State 2026-09-24:** (b) snooze is built (+1h and tomorrow on the row), the list groups Overdue, Today, Upcoming and Done, and a month view exists (`#reminder-calendar`). Not checked: whether the reminder row shares the notes' row recipe (one class), and the 10m snooze. S.
+**State 2026-10-05:** built. The reminder row is the notes' row recipe (`ul.entry-list` > `li` > `.entry-meta`, measured by `nbf1005-recheck.js`), done rows strike through, and the 10 minute snooze is on the row's menu beside +1h and tomorrow on the row. Moved to HISTORY.md, "Moved from the plans, 2026-10-05 (nbf1005)".
 
 ### D9 Links and the web clipper (M, Opus)
 
@@ -810,7 +810,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 31 | ~~Placed 2026-09-09~~ | ~~1 capture into the selected space and a bulk move; 99 (b) scroll restore, (c) the AI dot's latency tooltip, (d) Paste as note; 92's row redesign; 97 RapidOCR; 79 and 22 to 23 not re-checked; 261's vault re-key (`POST /auth/rotate-vault-key`) has no UI~~ built or found built 2026-10-05 (`tests/test_placed_0909_row31.py`, `scratchpad/ui-sweeps/nbf1005-recheck.js`); 97 decided not to build (a new Python dependency) | done | HISTORY |
 | 32 | 301 | the navigation and undo audit table, then the fixes | M | every surface |
 | 33 | ~~§21~~ | ~~rows 1 and 2 on the notice recipe, row 12's "check the address" in the status line, row 13's update size in the About page~~ built 2026-10-05 (`tests/test_failure_ways_out_row33.py`) | done | HISTORY |
-| 34 | D1, D8, §13 | drag on the grid; the reminder row recipe and a 10m snooze; the minimap's NaN rects, the tab bar at 600 to 819px, a whiteboard menu sweep, the tidy layout past five nodes (all not re-checked) | S each | their plans |
+| 34 | ~~D1, D8, §13~~ | ~~drag on the grid; the reminder row recipe and a 10m snooze; the minimap's NaN rects, the tab bar at 600 to 819px, a whiteboard menu sweep, the tidy layout past five nodes (all not re-checked)~~ built or measured 2026-10-05: drag on the grid found built, the 10m snooze built, the rest measured clean (`nbf1005-recheck.js`); left with its owner: the whiteboard menu sweep (WHITEBOARD_PLAN) | done | HISTORY |
 | 35 | §2 | the offline studio (the privacy receipt, its record, API and Settings page, built 2026-09-26) | L | new |
 | 36 | B6, H5 | sync without a server | L | design first |
 | 37 | Audio | deferred until the owner says go | L | the audio section |
@@ -946,6 +946,8 @@ Each of these was found by measuring and deferred with evidence; the
   Owner: docks.md.
 - Tidy layout never measured past five nodes; a newly opened map leaves
   its root under the top bar. Owner: mindmap.md item H.
+
+**State 2026-10-05:** measured (`scratchpad/ui-sweeps/nbf1005-recheck.js`): a board's preview draws its blocks with no NaN rect and no console error (the renderer was replaced, `mapPreview` in note-cards.js); the tab bar fits at 600, 640, 700, 760 and 819px (scrollWidth equals clientWidth); the tidy layout is measured past five nodes (maplayouts.js at 12 and 200 topics, 0 overlapping pairs, HISTORY.md). Still open with their owners: the whiteboard's menus driven by a sweep (the whiteboard agent), the SVG graph flag (GRAPH_PLAN Phase 2), a new map's root under the top bar (WHITEBOARD_PLAN 7).
 
 **State 2026-09-24:** re-read against OPEN.md and the code: the
 Notes and Graph docks are at 6 controls (OPEN.md B, 2026-09-20);

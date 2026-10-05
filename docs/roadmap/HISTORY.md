@@ -40840,3 +40840,20 @@ clipboard inside the desktop window.
 
 Measured: `tests/test_failure_ways_out_row33.py`. Not verified: the update
 line against a real release (GitHub is not reachable from the sandbox).
+
+### Row 34, D1, D8 and section 13's not re-checked items
+
+- D1, drag on the grid: found built. Edit layout makes every card
+  `draggable`; `dashDragOverCard` moves the dragged card under the pointer as
+  it goes, and the drop saves the grid's order (`saveDashLayout`); the
+  widgets dialog keeps move up and down for the keyboard.
+- D8: the reminder row is the notes' row recipe (`ul.entry-list`, each row an
+  `.entry-meta`), done rows strike through; the third snooze, 10 minutes, is
+  on the row's menu ("Snooze 10 minutes"), the row keeping +1h and tomorrow.
+- Section 13, measured with `scratchpad/ui-sweeps/nbf1005-recheck.js` at
+  1440: a board's preview (six text blocks) draws six rects and no NaN
+  attribute, no console error; the tab bar at 600, 640, 700, 760 and 819px
+  has scrollWidth equal to clientWidth (490 and 466px); the tidy layout was
+  already measured past five nodes (maplayouts.js, 12 and 200 topics, 0
+  overlapping pairs). The whiteboard menu sweep is left with the whiteboard
+  agent.

@@ -1237,6 +1237,15 @@ function reminderItem(reminder, label) {
   const menuItems = [];
   const target = reminderTarget(reminder);
   if (target) menuItems.push({ label: target.label, run: target.open, group: "go" });
+  //: D8's third snooze (WORLD_CLASS_PLAN: "10m, 1h, tomorrow"): in the menu,
+  //: since the row already holds the two it is touched for most.
+  if (!reminder.done) {
+    menuItems.push({
+      label: "ph:clock-countdown Snooze 10 minutes",
+      run: () => snoozeReminderTo(reminder, new Date(Date.now() + 10 * 60 * 1000)),
+      group: "snooze",
+    });
+  }
   menuItems.push(
     { label: "ph:chat-circle Ask Atlas about this", run: () => askAtlasAboutThing("reminder", reminder.text), group: "go" },
     {

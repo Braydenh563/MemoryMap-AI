@@ -2108,7 +2108,10 @@ function renderStatusBar() {
     glyph.className = "ph ph-magic-wand";
     glyph.setAttribute("aria-hidden", "true");
     const word = document.createElement("span");
-    word.textContent = "Ask";
+    //: "Agent", the name of what it opens (audit 2026-10-05, UX-07): it said
+    //: "Ask" and opened a dialog headed "Agent", beside a Notes sub-tab and a
+    //: Chat mode both called Ask that answer differently.
+    word.textContent = "Agent";
     agent.append(glyph, word);
     //: `STATUS_META_KEY` is the whole "Ctrl K"/"⌘K" hint, not a bare
     //: modifier: appending "+Shift+A" to it produced "Ctrl K+Shift+A", which

@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Changed
 
+- Ask and the agent: the status bar's wand says Agent, the name of the dialog it opens; with no model, Chat's suggestions say they open in Notes, Ask; the first starter is "What have I saved recently?", which Ask answers from the newest notes with no model (audit 2026-10-05, UX-07).
 - Library, Create: New mind map is a row of its own (it opens the board dialog on Mind map), and New concept map says what it makes, a board of note cards whose topics are saved as notes, instead of calling itself a mind map (audit 2026-10-05, UX-06, in part).
 - Documents: Enter (or Down at the end) in the title moves to the start of the body, as other editors do, from Read view too; it used to type the first line into the title (audit 2026-10-05, UX-05).
 - Search: a one-letter typo that finds nothing is searched as the nearest word in your notes, in Find anything (Ctrl+P) and Filter notes alike, and each says "showing results for" the word; Find anything no longer tells a notebook with notes that nothing is indexed yet when a search has no hits (audit 2026-10-05, UX-04).

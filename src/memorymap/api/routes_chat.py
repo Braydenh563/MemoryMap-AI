@@ -192,7 +192,7 @@ def _fill(candidates: list[str], asked: set[str]) -> list[str]:
 
 # Shown when the chat is empty, to teach the feature (Round 1).
 STARTER_SUGGESTIONS = [
-    "What have I saved so far?",
+    "What have I saved recently?",
     "Summarise my notes.",
     "What are my most common topics?",
 ]

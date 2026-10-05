@@ -73,6 +73,21 @@ Each row below was checked against the head before anything was built.
   moveto path command" twice): already fixed; the fixture posts a path
   (`M 140 320 h 200 v 140 h -200 Z`, `shape: "rect"`), and its comment says
   why.
+- **The tour between 600 and 1100 wide** (a tablet, a half window): walked
+  with `tour.js` at 700x900, 820x1180 and 1024x768, then 390x844 and 1440x900
+  again after the fixes. Found at 700x900: the chat section planned 4 steps and
+  showed 3 (the chat sidebar is a sheet parked at x -243 from 600 to 819.98 and
+  on any coarse pointer, `#conversation-list` had nothing to point at), and the
+  status section planned 4 and showed 3 (`#status-command` is hidden in that
+  band, `10-responsive.css`). Both steps now carry the media condition that
+  matches, so they are left out of the count; all four sizes then pass every
+  check but one stale one. At all three tablet widths the no-map card was 209
+  characters against the sweep's 140: shortened to 115. The stale check was a
+  regex for the words "New mind map" in a card that says "New, then Mind map";
+  it reads the card's words now. 5,981 checks passed at the four sizes with
+  that one check failing once at each; 700x900 alone with the regex fixed:
+  1,480 checks, 0 failures, 91 of 91 steps. Not walked: a fresh data dir with
+  no notes and no boards.
 - **Sweep comments naming `agent-remaining/mindmap.md` and `mapux2.md`**:
   repointed to `archive/agent-remaining/` in the nine `scratchpad/ui-sweeps`
   files that carried them (`canvasconventions`, `dragprofile3`, `mapstrip`,

@@ -649,8 +649,7 @@ pane's name, the errors sweep's aside clipping at 390.
   statuses edgeless it is one rule, `.chip.item-label`'s border). [design-1004]
   *Needs: the owner's call on the chips.*
 - **The tour**: a first-run notebook (no notes, no boards) was only covered by
-  forcing `TOUR_NEEDS.map` false, not by a fresh data dir walk; widths between
-  600 and 1100 (a tablet, a half-window) were not walked, and the Timeline's
+  forcing `TOUR_NEEDS.map` false, not by a fresh data dir walk; the Timeline's
   Options and the reminders' More were measured at 390 only. [tourdepth]
 - **Tablet layouts**: the Documents dock is two rows at 1024 (its identity
   asks for 22rem beside the actions); the arc layout of a 430-note notebook

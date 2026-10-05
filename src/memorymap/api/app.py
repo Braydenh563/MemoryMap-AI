@@ -1240,6 +1240,20 @@ def _add_system_routes(app: FastAPI, locked: list) -> None:
             "desktop": os.getenv("MEMORYMAP_DESKTOP") == "1",
         }
 
+    @app.get("/instance", tags=["system"])
+    def instance() -> dict[str, str]:
+        """Which notebook this server is serving, for a launch deciding
+        whether a MemoryMap already on its port is *this* one (WORLD_CLASS 423
+        g). Open like `/health`: the asking process has no session. It carries
+        a hash of the resolved data directory (`instance_lock.data_dir_id`),
+        never the path."""
+        from memorymap.core import instance_lock
+
+        return {
+            "app": "MemoryMap AI",
+            "data_dir_id": instance_lock.data_dir_id(deps.get_config().data_dir),
+        }
+
     @app.post("/instance/focus", include_in_schema=False)
     def instance_focus(x_instance_token: str | None = Header(default=None)) -> dict[str, bool]:
         """A second launch asking this one to bring its window forward.

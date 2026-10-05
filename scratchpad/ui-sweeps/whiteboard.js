@@ -30,7 +30,7 @@ function ok(name, good, detail) {
 
 // Clicks through the real UI, the way mapstrip.js does: `openWhiteboardBoard`
 // called from `page.evaluate` leaves the boards landing showing and the board
-// never opens (agent-remaining/mindmap.md, "what the next run should not
+// never opens (archive/agent-remaining/mindmap.md, "what the next run should not
 // repeat").
 async function newBoard(page, name, type) {
   await page.click('[data-tab="library"]');

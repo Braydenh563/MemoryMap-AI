@@ -1099,3 +1099,25 @@ function openSelectionMenuFromKeyboard() {
   openActionMenu(menu, opener);
   clampSelectionMenu(menu);
 }
+
+//: **The first drag-selection after boot scrolls at the edge too.** The edge
+//: scroll is drag-edge.js, a lazy bundle app.js preloads three seconds after
+//: boot; a press in a list before it arrives fetches it now and leaves the
+//: pressed element here for its top level to pick up while the button is
+//: still down, with where the pointer is now, since a hand already resting at
+//: the edge sends no further move (qa-1005: the first drag scrolled 0px).
+//: One const, not a `let` plus a `typeof` probe: drag-edge.js sets `ready`
+//: at its top level, so this stops recording once it can scroll on its own.
+const EDGE_SCROLL_HELD = { press: null, ready: false };
+document.addEventListener("mousedown", (event) => {
+  if (EDGE_SCROLL_HELD.ready || event.button !== 0) return;
+  if (!event.target.closest?.("#entry-list, .library-view-section")) return;
+  EDGE_SCROLL_HELD.press = { target: event.target, x: event.clientX, y: event.clientY };
+  ensureModule("dragEdge");
+}, true);
+document.addEventListener("mousemove", (event) => {
+  if (EDGE_SCROLL_HELD.press) Object.assign(EDGE_SCROLL_HELD.press, { x: event.clientX, y: event.clientY });
+}, true);
+document.addEventListener("mouseup", () => {
+  EDGE_SCROLL_HELD.press = null;
+}, true);

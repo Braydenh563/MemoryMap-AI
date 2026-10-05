@@ -865,7 +865,9 @@ def _mark_start_step_done(window) -> None:
 
 def _port_holder(port: int) -> str:
     """Who has `port` on HOST: "free", "memorymap" (another copy of this
-    app, which answers `/health` with its name) or "other".
+    app on this launch's data directory, which answers `/health` with its
+    name and `/instance` with the folder) or "other" (anything else, a
+    MemoryMap on a different data directory included).
 
     A bind first, not a connect: on Windows a connect to a closed local port
     is retried for about two seconds before it is refused, and this runs on
@@ -896,8 +898,25 @@ def _port_holder(port: int) -> str:
         except OSError:
             return "free"
     if isinstance(body, dict) and body.get("app") == "MemoryMap AI":
-        return "memorymap"
+        return "memorymap" if _serves_this_notebook(port) else "other"
     return "other"
+
+
+def _serves_this_notebook(port: int) -> bool:
+    """Whether the MemoryMap on `port` serves *this* launch's data directory
+    (WORLD_CLASS 423 g). `/health` only carries the app's name, so a second
+    copy pointed at a different folder used to be taken for this one and the
+    window opened onto the wrong notebook. `/instance` reports a hash of the
+    resolved folder (lower-cased on Windows). A server too old to have the
+    route says nothing, and is still given the benefit of the doubt, which is
+    what every launch did before."""
+    from memorymap.core import instance_lock
+    from memorymap.core.config import resolved_data_dir
+
+    theirs = instance_lock.served_data_dir_id(port, HOST)
+    if theirs is None:
+        return True
+    return theirs == instance_lock.data_dir_id(resolved_data_dir())
 
 
 def _desktop_port() -> int:

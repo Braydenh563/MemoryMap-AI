@@ -154,6 +154,110 @@ def test_the_window_keeps_its_port_when_it_is_free_or_ours(listener, monkeypatch
     assert entry._desktop_port() == ours
 
 
+# --- which notebook the server on the port serves (WORLD_CLASS 423 g) -------
+
+
+class _Notebook(http.server.BaseHTTPRequestHandler):
+    """A MemoryMap that answers `/health` and `/instance` the way the real
+    routes do, for a data-dir id the test chooses."""
+
+    data_dir_id = ""
+
+    def do_GET(self):  # noqa: N802
+        if self.path == "/instance":
+            body = {"app": "MemoryMap AI", "data_dir_id": self.data_dir_id}
+        else:
+            body = {"status": "ok", "app": "MemoryMap AI"}
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(body).encode())
+
+    def log_message(self, *args):
+        pass
+
+
+@pytest.fixture
+def notebook_server():
+    servers = []
+
+    def start(data_dir_id: str) -> int:
+        handler = type("N", (_Notebook,), {"data_dir_id": data_dir_id})
+        server = http.server.HTTPServer(("127.0.0.1", 0), handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        servers.append(server)
+        return server.server_address[1]
+
+    yield start
+    for server in servers:
+        server.shutdown()
+        server.server_close()
+
+
+def test_instance_route_reports_the_data_dir_id(client, app_state):
+    from memorymap.core import instance_lock
+
+    response = client.get("/instance")
+    body = response.json()
+    assert response.status_code == 200
+    assert body["app"] == "MemoryMap AI"
+    assert body["data_dir_id"] == instance_lock.data_dir_id(app_state.data_dir)
+    # The id is a hash: the folder's path (it carries the user name) is not in it.
+    assert str(app_state.data_dir) not in json.dumps(body)
+
+
+def test_a_copy_on_the_same_data_dir_is_ours_and_is_reused(
+    notebook_server, monkeypatch, tmp_path
+):
+    from memorymap.core import instance_lock
+
+    notes = tmp_path / "notes"
+    notes.mkdir()
+    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(notes))
+    port = notebook_server(instance_lock.data_dir_id(notes))
+    monkeypatch.setattr(entry, "PORT", port)
+    assert entry._port_holder(port) == "memorymap"
+    assert entry._desktop_port() == port
+
+
+def test_a_copy_on_a_different_data_dir_is_not_ours(notebook_server, monkeypatch, tmp_path):
+    from memorymap.core import instance_lock
+
+    mine, theirs = tmp_path / "mine", tmp_path / "theirs"
+    mine.mkdir()
+    theirs.mkdir()
+    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(mine))
+    port = notebook_server(instance_lock.data_dir_id(theirs))
+    monkeypatch.setattr(entry, "PORT", port)
+    assert entry._port_holder(port) == "other"
+    chosen = entry._desktop_port()
+    assert chosen != port
+    assert entry._port_holder(chosen) == "free"
+
+
+def test_a_server_without_the_instance_route_keeps_the_old_benefit_of_the_doubt(
+    listener, monkeypatch, tmp_path
+):
+    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    port = listener({"status": "ok", "app": "MemoryMap AI"})
+    assert entry._port_holder(port) == "memorymap"
+
+
+def test_data_dir_ids_compare_resolved_paths_and_case_on_windows(monkeypatch, tmp_path):
+    from memorymap.core import instance_lock
+
+    real = tmp_path / "Notes"
+    real.mkdir()
+    link = tmp_path / "alias"
+    link.symlink_to(real, target_is_directory=True)
+    assert instance_lock.data_dir_id(link) == instance_lock.data_dir_id(real)
+    assert instance_lock.data_dir_id(real / ".." / "Notes") == instance_lock.data_dir_id(real)
+    upper, lower = tmp_path / "Case", tmp_path / "case"
+    assert instance_lock.data_dir_id(upper) != instance_lock.data_dir_id(lower)
+    monkeypatch.setattr(sys, "platform", "win32")
+    assert instance_lock.data_dir_id(upper) == instance_lock.data_dir_id(lower)
+
+
 # --- Restart from Settings, on the packaged exe ------------------------------
 
 

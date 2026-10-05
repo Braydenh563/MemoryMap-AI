@@ -852,6 +852,13 @@ details[open] > .about-whats-new::before,
    its accessible name and its tooltip while the glyph carries the row. */
 [data-dock-name="notes"] .dock-find {
   flex: 1 1 8rem;
+  /* Never narrower than its search floor and the Filter menu beside it: the
+     8rem basis let the zone shrink to 133px round 188px of controls, and
+     between 1100 and 1170 wide the Filter menu lay 40px under the sort
+     select ("FiNewest first"; qa1005-polish.js `dockoverlap`, 1 to 0). The
+     row now wraps there instead, as the note above says a basis this small
+     risks. */
+  min-width: min-content;
 }
 
 [data-dock-name="notes"] .dock-arrange .select-shell {
@@ -2423,6 +2430,16 @@ summary > .ph-lead,
   font-size: var(--text-sm);
 }
 
+/* In a centred empty state the rule has no paragraph edge to run along: it
+   was a 215px hairline floating between the welcome's line and the chip
+   (Chat at 1440, qa-1005), which read as a stray border. The chip is set
+   apart there by space alone. */
+:is(.chat-empty, #empty-message, #library-empty) > .help-atlas {
+  margin-top: var(--space-3);
+  padding-top: 0;
+  border-top: 0;
+}
+
 /* The citation under an answer: where it came from, not somewhere to go. */
 .help-chat-source {
   margin: var(--space-1) 0 0;
@@ -3688,6 +3705,17 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
   border: 0;
   background: transparent;
   min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* One line, cut with an ellipsis, as Ask's results already were (below): at
+   390 a note card's connection pills wrapped their words to two 12px lines
+   inside a pill one line tall (qa-1005, qa1005-polish.js `linkpills`). */
+#entry-list .link-connection > .chip.link > .ph-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #entry-list .link-connection > .menu-wrap > button {
@@ -5047,14 +5075,20 @@ body .chip.item-label,
    strip lay over the tick box too, so the box Tab had just reached sat under
    the strip its own focus called up. */
 @media (hover: hover) and (min-width: 600px) {
-  #reminder-groups li {
+  /* The strip is centred on the row's first line, the one the time is on,
+     not on the whole row: a reminder linked to a note has a second line
+     (its note chip), and centred on both the strip sat 11px low and the top
+     half of "in 18 hours" showed above it (qa-1005, 1440: the time's box
+     511 to 535, the strip's 522 to 554). */
+  #reminder-groups li .entry-meta {
     position: relative;
   }
 
   #reminder-groups li .entry-meta > .entry-actions {
     position: absolute;
     top: 50%;
-    right: var(--space-3);
+    /* The line's own end, where the time ends. */
+    right: 0;
     transform: translateY(-50%);
     padding-left: var(--space-2);
     /* Opaque, so the time under it does not show through: the row's own

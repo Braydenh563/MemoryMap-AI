@@ -9,8 +9,15 @@
 // reminders says so on the card.
 const { boot } = require('./lib.js');
 
+// `W=390 H=780 PHONE=1` runs it as a phone (default 1440x900): the card has to
+// fit its note's row, in a chat answer too, and the inline `[[board:ID|label]]`
+// chip has to open the board it names.
+const W = Number(process.env.W || 0);
+const H = Number(process.env.H || 900);
+const PHONE = process.env.PHONE === '1';
+
 (async () => {
-  const { page, browser } = await boot({});
+  const { page, browser } = await boot(W ? { viewport: { width: W, height: H }, hasTouch: PHONE, isMobile: PHONE } : {});
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 140)));
   await page.waitForTimeout(2500);
@@ -34,7 +41,7 @@ const { boot } = require('./lib.js');
     await post('/whiteboard/nodes', { entry_id: gutters.id, board_id: board.id, x: 260, y: 180 });
     await post(`/whiteboard/boards/${map.id}/nodes`, { kind: 'note', parent_id: null, text: '', ref_id: roof.id });
     const note = await post('/entries', {
-      content: `Kitchen plan\n\n![[board:${board.id}|House jobs ${tag}]]\n\n![[map:${map.id}|The house ${tag}]]\n\n![[board:987654|Old plan ${tag}]]\n\nSee [[board:987655|Older plan ${tag}]] as well.`,
+      content: `Kitchen plan\n\n![[board:${board.id}|House jobs ${tag}]]\n\n![[map:${map.id}|The house ${tag}]]\n\n![[board:987654|Old plan ${tag}]]\n\nSee [[board:987655|Older plan ${tag}]] as well, and [[board:${board.id}|House jobs ${tag}]].`,
       category: 'General',
     });
     const due = new Date(Date.now() + 86400000).toISOString().slice(0, 19);
@@ -47,7 +54,15 @@ const { boot } = require('./lib.js');
   await page.evaluate((id) => { window.__noteobjBoard = id; }, ids.board);
   await page.evaluate(() => switchTab('notes'));
   await page.evaluate(() => loadEntries());
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1500);
+  // Until every card has settled (a preview, or a tombstone), not a fixed wait:
+  // each one is filled by a request for the boards index, and on a loaded
+  // machine that took longer than three seconds, which read as cards stuck on
+  // "loading" (a sweep measuring the load, not the app).
+  await page.waitForFunction((id) => {
+    const cards = [...document.querySelectorAll(`#entry-list li[data-id="${id}"] .board-embed`)];
+    return cards.length > 0 && cards.every((c) => c.querySelector('svg') || c.classList.contains('board-embed-gone'));
+  }, ids.note, { timeout: 20000 }).catch(() => {});
 
   const card = await page.evaluate((id) => {
     const li = document.querySelector(`#entry-list li[data-id="${id}"]`);
@@ -120,6 +135,22 @@ const { boot } = require('./lib.js');
     await page.waitForTimeout(400);
   }
 
+  // The live id-form chip, the same text with a board that exists: it names
+  // the board (not its address) and opens it.
+  let liveChip = null;
+  const chips = await page.$$(`#entry-list li[data-id="${ids.note}"] .entry-content .map-chip`);
+  console.log('liveChip candidates', chips.length);
+  if (chips.length >= 1) {
+    const chip = chips[chips.length - 1];
+    const label = (await chip.textContent()).trim();
+    await chip.click();
+    await page.waitForTimeout(1800);
+    liveChip = { label, opened: await page.evaluate(() => window.currentBoardId ?? null) };
+    console.log('liveChip', JSON.stringify(liveChip), 'wanted', ids.board);
+    await page.evaluate(() => switchTab('notes'));
+    await page.waitForTimeout(1200);
+  }
+
   // The "/" menu's own doorway. The capture box lives on the Notes tab's
   // Capture sub-tab, which is `display: none` from the list, so a sweep that
   // types into it from the list types into nothing.
@@ -179,8 +210,32 @@ const { boot } = require('./lib.js');
   console.log('boardSide', JSON.stringify(boardSide));
 
   let addedToNote = null;
+  let addBlocked = null;
   if (boardSide && boardSide.h > 0) {
-    await page.click('#wb-add-to-note');
+    // A press that cannot land is a finding with the thing that covers the row
+    // named, not a thirty-second crash (at 390 it was timing out with the
+    // board's own menu "intercepting" the press).
+    try {
+      await page.click('#wb-add-to-note', { timeout: 8000 });
+    } catch {
+      addBlocked = await page.evaluate(() => {
+        const rows = [...document.querySelectorAll('#wb-add-to-note')];
+        const el = rows[0];
+        const r = el.getBoundingClientRect();
+        const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        const menu = document.getElementById('wb-board-menu');
+        const m = menu.getBoundingClientRect();
+        return {
+          rows: rows.length, row: [r.left, r.top, r.width, r.height].map(Math.round),
+          at: at && (at.id || at.className.toString().slice(0, 50) || at.tagName),
+          menu: [m.left, m.top, m.width, m.height].map(Math.round), menuHidden: menu.classList.contains('hidden'),
+          menuScroll: [menu.scrollTop, menu.scrollHeight, menu.clientHeight], vh: innerHeight, vv: window.visualViewport && Math.round(window.visualViewport.height),
+        };
+      });
+      console.log('addBlocked', JSON.stringify(addBlocked));
+    }
+  }
+  if (boardSide && boardSide.h > 0 && !addBlocked) {
     await page.waitForTimeout(1000);
     await page.fill('.entry-pick-card input', 'Kitchen plan');
     await page.waitForTimeout(600);
@@ -221,7 +276,42 @@ const { boot } = require('./lib.js');
     else if (drawn.gone || !drawn.svg) findingsDoc.push('the board object in a document: ' + JSON.stringify(drawn));
   }
 
+  // The note's card fits its row, and the same object drawn in a chat answer
+  // (`renderMarkdown` shares `mdEmbedElement`; a model could write one) fits
+  // the bubble, and its inline id-form chip opens the board it names.
+  await page.evaluate(() => switchTab('chat'));
+  await page.waitForTimeout(1200);
+  const inChat = await page.evaluate(async ({ board, tag }) => {
+    const bubble = addBubble('assistant', '');
+    const body = bubble.querySelector('.msg-body');
+    renderMarkdown(body, `Here it is.\n\n![[board:${board}|House jobs ${tag}]]`);
+    await new Promise((r) => setTimeout(r, 1500));
+    const embed = body.querySelector('.board-embed');
+    const room = body.getBoundingClientRect();
+    const e = embed && embed.getBoundingClientRect();
+    return {
+      embed: e && { w: Math.round(e.width), h: Math.round(e.height), svg: !!embed.querySelector('svg'), fits: e.left >= room.left - 1 && e.right <= room.right + 1 },
+      docOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      bodyW: Math.round(room.width),
+    };
+  }, { board: ids.board, tag });
+  console.log('inChat', JSON.stringify(inChat));
+  const phoneFit = card && card.objects.filter((o) => !o.gone).map((o) => o.w);
+  console.log('card widths', JSON.stringify(phoneFit), 'viewport', await page.evaluate(() => innerWidth));
+
   const findings = [...findingsDoc];
+  if (!inChat.embed) findings.push('the board object did not render in a chat answer');
+  else {
+    if (!inChat.embed.svg) findings.push('the board object in a chat answer drew no preview: ' + JSON.stringify(inChat.embed));
+    if (!inChat.embed.fits) findings.push('the board object overflows its chat bubble: ' + JSON.stringify(inChat.embed) + ' in ' + inChat.bodyW);
+  }
+  if (inChat.docOverflow > 0) findings.push('the chat answer made the page scroll sideways by ' + inChat.docOverflow + 'px');
+  if (!liveChip) findings.push('the inline [[board:ID|label]] for a live board drew no board chip in the note');
+  else {
+    if (/board:/.test(liveChip.label)) findings.push('the live inline board chip reads as its address: ' + liveChip.label);
+    if (liveChip.opened !== ids.board) findings.push(`the live inline board chip opened ${liveChip.opened}, wanted ${ids.board}`);
+  }
+  if (card && card.objects.some((o) => !o.gone && o.w > (W || 1e9))) findings.push('a board object in a note is wider than the window: ' + JSON.stringify(phoneFit));
   if (!card) findings.push('the note did not render');
   else {
     const live = card.objects.filter((o) => !o.gone);
@@ -252,6 +342,7 @@ const { boot } = require('./lib.js');
   if (inserted !== null && !/!\[\[(board|map):\d+\|/.test(inserted)) findings.push('the "/" command inserted: ' + inserted);
   if (!boardSide) findings.push('no "add to a note" action on the board itself (#wb-add-to-note)');
   else if (!boardSide.h) findings.push('the board\'s "add to a note" row did not open with its menu');
+  else if (addBlocked) findings.push('the board\'s "add to a note" row cannot be pressed: ' + JSON.stringify(addBlocked));
   else if (!addedToNote) findings.push('the board\'s "add to a note" reached no note');
   else if (!new RegExp(`!\\[\\[board:${ids.board}\\|`).test(addedToNote)) findings.push('the note did not gain the board object: ' + addedToNote.slice(-80));
   if (errors.length) findings.push('page errors: ' + errors.join(' | '));

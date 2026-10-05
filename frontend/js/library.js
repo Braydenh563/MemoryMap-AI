@@ -202,6 +202,12 @@ function renderLibraryView() {
 
 async function loadLibrary() {
   const grid = document.getElementById("library-grid");
+  //: The view switch shows the stored choice now, not after `/library`
+  //: answers: it reads one local key. Drawn only at the end, the dock's
+  //: Cards/Rows well sat with neither pressed for as long as the list took
+  //: (qa-1005: past 6s on a loaded machine; dockgrammar621.js read it as a
+  //: second segment style).
+  renderLibraryView();
   showSkeletons(grid);
   const body = await apiJson("/library").catch(() => null);
   clearSkeletons(grid);
@@ -277,7 +283,7 @@ function renderLibraryOverview() {
   }
   note.textContent = parts.length
     ? parts.join(" · ")
-    : "Everything you make, notes, documents, chats, files, is managed from here.";
+    : "Everything you make is managed from here: notes, documents, chats and files.";
   box.appendChild(note);
 }
 
@@ -8865,6 +8871,11 @@ onDomReady(() => {
             // Lands on the boards gallery, not straight onto a canvas, one
             // door onto the whiteboard, asked for directly, replacing the
             // old always-opens-the-last-board behaviour.
+            //: Placeholders before the boards' own bundle (about 900 KB)
+            //: arrives: until then the sub-tab was blank (qa-1005). Drawn
+            //: every time, not behind a probe for the bundle: the gallery
+            //: replaces them with its own on its first paint either way.
+            showSkeletons($("library-boards-grid"), 4);
             wbShowBoardsLanding();
           } else if (targetId === "library-view-docs") {
             renderLibraryDocuments();

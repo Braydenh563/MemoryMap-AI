@@ -1169,7 +1169,6 @@ def _run_uninstall(extra: Extra) -> None:
         _state.outcome = "failed"
         _state.step = "Couldn't run pip: see Settings → Logs for why."
     finally:
-        _state.running = False
         _state.process = None
         if _state.cancelled:
             # Terminating pip mid-download makes it exit non-zero, which the
@@ -1357,6 +1356,9 @@ def _run_install(extra: Extra, reinstall: bool = False) -> None:
         )
         if constraints_copy is not None:
             constraints_copy.unlink(missing_ok=True)
+        # Last, after the history row: a reader that waits for "not running"
+        # (the Packages poll, a test) must find the row already written.
+        _state.running = False
 
 
 def _run_download_install(extra: Extra, reinstall: bool = False) -> None:
@@ -1381,7 +1383,6 @@ def _run_download_install(extra: Extra, reinstall: bool = False) -> None:
         _state.outcome = "failed"
         _state.step = "Couldn't download it: check the connection, or see Settings → Logs for why."
     finally:
-        _state.running = False
         if _state.cancelled:
             _state.outcome = "cancelled"
             _state.step = "Stopped before it finished."
@@ -1398,6 +1399,8 @@ def _run_download_install(extra: Extra, reinstall: bool = False) -> None:
             _state.step,
             duration_ms=(time.time() - _state.started) * 1000 if _state.started else None,
         )
+        # Last, after the history row (see the pip worker above).
+        _state.running = False
 
 
 def _run_download_uninstall(extra: Extra) -> None:

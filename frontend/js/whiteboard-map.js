@@ -7636,11 +7636,9 @@ function wbMapStudyKey() {
 }
 
 function wbMapStudyLoad() {
-  try {
-    return JSON.parse(localStorage.getItem(wbMapStudyKey()) || "{}") || {};
-  } catch {
-    return {}; // storage blocked or the value unreadable: start with no marks
-  }
+  //: Through the one door to saved settings (prefs.js), which already
+  //: survives blocked storage and an unreadable value.
+  return prefs.json(wbMapStudyKey(), {}) || {};
 }
 
 function wbMapStudySave() {

@@ -411,10 +411,9 @@ are named in HISTORY.md, "OPEN.md rows closed, 2026-10-04".
 the head, so they carry no row of their own.
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": anim.md.
-- **arch.md**: the Dashboard emblem is most of an idle window's cost (5.55% of
-  one core open, 2.09% parked); INBOX 266's usability and lightweight items
-  belong to nobody. [arch]
-  *Needs: the owner's call on the emblem's frame rate (they asked for "always rotating").*
+- **arch.md**: INBOX 266's usability and lightweight items belong to nobody.
+  [arch] (The emblem's idle cost is built: HISTORY.md, "OPEN.md rows closed,
+  2026-10-05 (docs hygiene before 0.4.0)".)
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": askcite.md.
 - **backend-0926.md**: F7's thread modules
   onto `core/jobs.py` (13 left, `tests/test_flaw_class_lints.py`'s ratchet).
@@ -437,10 +436,8 @@ the head, so they carry no row of their own.
   *Needs: a phone; the flake is load, not the test.*
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05": featuremodels.md; guide.md.
 - **guideia.md**: the Guide is a modal sheet whose scrim dims the app, so
-  "Open the Reminders tab" cannot be read against the tab; the rows
-  WORLD_CLASS_PLAN 1.3 marks open (Remind me beyond notes, the Library note
-  card's Remind me and Link to). [guideia]
-  *Needs: a non-modal Guide changes `openSheet`'s focus and backdrop contract; Remind me beyond notes needs the reminder to point at other kinds first (a backend step).*
+  "Open the Reminders tab" cannot be read against the tab. [guideia]
+  *Needs: a non-modal Guide changes `openSheet`'s focus and backdrop contract.*
 - **libtl-0926.md**: the Timeline feed lays out about 39 times a second while
   scrolling (the rows' `content-visibility: auto`, INBOX 400's trade); the
   Library search keystroke was 17 to 191ms under load, not re-measured idle;
@@ -451,8 +448,7 @@ the head, so they carry no row of their own.
   *Needs: drawing-order and animation-blend changes; the rest are measurements to retake idle.*
 - **mapcull.md**: freehand and link sketches are not culled (a stroke's box is
   parsed from its path; worth it only when a board with many strokes measures
-  slow); `mappan.js`'s fixture posts a `rect` sketch with no path and the
-  browser logs "Expected moveto path command" twice. [mapcull]
+  slow). [mapcull]
   *Left: measure a many-stroke board before building.*
 - **mapread.md and maprender.md**: 13g, the haywire middle-button pan, needs
   the owner (it never reproduced headless; do not fix blind); the 50-topic
@@ -460,12 +456,10 @@ the head, so they carry no row of their own.
   gate should pass `SIZES=50`); the keyed render is invalidated by one list,
   `wbObjectPaintKey`, which a new paint input must join. [mapread, maprender]
   *Needs owner: 13g. Left: the rest are notes for whoever touches the paint.*
-- **maptheme.md**: the branch palette and font choice are map-level facts not
-  built (decision 8: `wbMapColors` and `MAP_BRANCH_PALETTE` must agree); a
-  topic cannot be pulled back to the app's own default for a themed field; the
-  theme is resolved into each node on export rather than carried; an
-  `<arrowlink>` written by FreeMind itself is untested. [maptheme]
-  *Needs: schema and export design.*
+- **maptheme.md**: the theme is resolved into each node on export rather than
+  carried; an `<arrowlink>` written by FreeMind itself is untested. [maptheme]
+  *Needs: schema and export design.* (The palette, the font and the pin back to
+  the app's default are built, MINDMAP_PLAN 13e.)
 - **mindmap2.md**: `mindmapimage.js` passes 12 of 12 at 390x844 (measured
   2026-10-04); a picture node does not resize to its picture; `mindmap3.js`
   times out at `#wb-boards-generate` (the AI half); `mindmapcurve.js` at
@@ -473,7 +467,7 @@ the head, so they carry no row of their own.
   hover reveal and the straight-line kink aim at off-screen handles: the
   probe's layout, not the app; the add-button overlap that timed it out was
   the app's and is closed, HISTORY.md). [mindmap2]
-  *Needs: lay the curve probe's map out inside 390 wide.*
+  *Needs: lay the curve probe's map out inside 390 wide. Tried 2026-10-05 (topics 110 wide at x 8, 220 and 250, `mindmapcurve.js`): the reveal check passes (the handle's top element is the svg layer, not a button) but every drag moves 0 (9 of 14), so the layout is not the only thing at 390; not kept.*
 - **ocr-reading.md**: a page joins the reading panel only once looked at or
   read (nothing reads ahead, deliberately); nothing was verified with a real
   Tesseract or a vision model. [ocr-reading]
@@ -543,15 +537,11 @@ pane's name, the errors sweep's aside clipping at 390.
 
 ### Notes, Documents and Library
 
-- **Lists have no edge auto-scroll for a drag selection** (INBOX 608's list
-  half; boards and maps are built): Notes and the Library. A drag past the top
-  or bottom of the list should scroll it. [boardmap-1005]
-  *Left: `frontend/js/notes-list.js` and `library.js` own the lists; nothing there scrolls on a drag.*
 - **Skeletons for a board's Library and Notes tabs** (INBOX 596): the tabs
-  draw nothing while they load. `skeletons.js` also reads the Library and
-  Documents views BLANK at 1440 and 390 (the held requests chain, so the list
-  is probably reached after 300 ms): measure before deciding.
+  (`whiteboard-library.js`, `wbLoadLibrary`) draw nothing while they load.
   [boardmap-1005, small-1005]
+  *Left: the whiteboard's own rail, owned by the WHITEBOARD plan's agent.*
+
 - **Phone selection menus and the selection bar** (documents): iOS and Android
   draw Cut, Copy and Paste above a selection, where the bar also goes; if a
   report arrives the bar goes below the selection on `(pointer: coarse)` (one
@@ -564,29 +554,25 @@ pane's name, the errors sweep's aside clipping at 390.
   suggestion mode's author and date (CriticMarkup `{>>comment<<}`; export
   writes `MemoryMap` for every revision); a voice and speed picker for read
   aloud (system voices only today). [proseeditor]
-- **A board object in a note, three unmeasured places**: at 390x780 (the card
-  measured 290x104 in a one-off probe, not a step in `noteobject.js`), in a
-  chat transcript (`renderMarkdown` draws it there; a model could write one),
-  and the inline `[[board:12|House jobs]]` chip for the id form (reasoned, only
-  the dead-reference case measured). [noteobj]
-- **Package bundles**: the Word writer has never run here (python-docx is not
-  in the sandbox venv, so `tests/test_docexport_pictures.py`'s five writer
-  tests skip: run them once in a scratch venv, then open one export in Word or
-  LibreOffice); no real pip ran (every bulk test fakes `subprocess.Popen`);
+  *Checked 2026-10-05: neither is built (`harper-worker.js` turns off the one rule `UseTitleCase` in `HARPER_RULES_OFF` and nothing else; `docReadAloudVoice` in `documents-prose.js` picks the first local voice for the language). Needs a design call: where the two controls live (the dictionary dialog, Settings), what is stored, and the help that moves with them.*
+- **Package bundles**: the Word writer's five tests ran once in a scratch venv
+  with python-docx 1.2.0 (2026-10-05, `tests/test_docexport_pictures.py` 13 of
+  13, none skipped; `test_docexport_bundle.py`, `test_document_import.py`,
+  `test_docview_import.py`, `test_extras_bundles.py` 57 passed), but no export
+  was opened in Word or LibreOffice; no real pip ran (every bulk test fakes `subprocess.Popen`);
   the bundle groupings are a recommendation (`BUNDLES`, one tuple); the phone
   rows measured clean, not designed further. [extras-bundles]
-  *Needs: a scratch venv with the extra, then Word or LibreOffice.*
-- **The Writing Room and the table full view at phone width**: the full view's
-  X is 28x28 (under `--target-min`, the same as the bar's other buttons) and
-  its phone rules were not measured; the Writing Room's stretch was measured at
-  1440x900 light on the two `NOTE_SURFACES` boxes only, the graph's two note
-  boxes not opened. [notes]
+  *Needs: Word or LibreOffice.*
+- **The Writing Room's stretch**: measured at 1440x900 light on the two
+  `NOTE_SURFACES` boxes only, the graph's two note boxes not opened. (The table
+  full view's X is built: 28x28 at 1440 and 44x44 at 390, each equal to
+  `--target-min`; `tablefullclose.js` asserts it.) [notes]
 
 ### Whiteboard, mind map and Atlas
 
-- **Board and map history**: a board's history does not survive a reload and an
-  agent's or another tab's change is not on its stack (decision 17 says the
-  event log is the long memory); redo of the board-level steps (theme,
+- **Board and map history**: an agent's or another tab's change is not on a
+  board's stack (decision 17 says the event log is the long memory; a board's
+  undo survives a reload since 2026-10-05, `undo-store.js`); redo of the board-level steps (theme,
   numbering, layout) is not swept; `wbMapCrossLinkToBranch`,
   `wbMapReverseCrossLink`, `wbMapCutCrossLink`, `wbMapAddReference`,
   `wbApplyMapTemplate`, `wbArrangeMindMap`, `wbMindMapAddCard`, bucket fill and
@@ -596,7 +582,7 @@ pane's name, the errors sweep's aside clipping at 390.
   Phase G's affinity sort (Group by theme proposes named frames, one Undo) and
   the claim check, both with faked-transport tests and
   `agent.PROSE_BUDGET_CHARS`; the time machine's plain-words "what changed";
-  expand from my notes and summarise this branch (MINDMAP_PLAN 12.3 item 2);
+  expand from my notes (MINDMAP_PLAN 12.3 item 2);
   ports are mouse and pen only (touch has no hover). Found: SQLite reuses a
   deleted row's id (no AUTOINCREMENT on the board item tables), so one id's log
   can hold two items; the board history starts a fresh state on each `created`
@@ -612,9 +598,7 @@ pane's name, the errors sweep's aside clipping at 390.
   disagreed by 94px at 390x844 (found by `mapstrip.js`'s corner ring; not
   reproduced since, reproduce before theorising); a map does not re-frame
   after a tidy (a decision: frame after a tidy that pushed content off the
-  canvas, or rely on Fit); `_export_opml` and `_export_freemind` build the
-  tree with a recursive `build` and nothing bounds a map's depth (a thousand
-  Tabs down one branch is a `RecursionError`, a 500); tidy, copy branch and
+  canvas, or rely on Fit); tidy, copy branch and
   "open every folded branch" persist one node per request (a bulk endpoint if
   any ever matters); `mapstyle.js`'s "radial slot" check reads `w: 0` on the
   base too. [mindmap, mapux2]
@@ -622,10 +606,6 @@ pane's name, the errors sweep's aside clipping at 390.
   map draws a 20x40 paper in the 72x40 row box. Cropping a tall map or a
   square box is the owner's judgement. [mindmap-13e]
   *Needs: the owner's call.*
-- **The sticky's grip in dark**: `contrast.js` (THEME=dark, a board with one
-  sticky) reports `.wb-object-grip` at 1.42:1 on the sticky's ground (3:1 is
-  the bar, WCAG 1.4.11); tint the glyph from the sticky's own colour.
-  [design-1004]
 - **Atlas motion, measured left** (the owner's rows 554 to 575 are above):
   `atlas619-blend.js` stepped by hand shows laughing's end moving the figure
   about 3px over three frames, base and fix alike (390 dark: the masculine
@@ -643,13 +623,6 @@ pane's name, the errors sweep's aside clipping at 390.
 
 ### Settings, help and the shell
 
-- **The badge target**: `badgealign.js` measures against the x-height band
-  (INBOX 503) while the recipe's target is the capital centre (INBOX 592), so
-  it prints 1.0 to 1.8px "outliers" that are 0.5 to 1.0px from the painted ink
-  centre; `iconalign.js` prints 1.17px for the Installed badge and search chips
-  in the sandbox font (0.95px in Segoe; painted ink 0.5px). Decide the target
-  in one place and move the sweep. [iconalign-skel-1005, small-1005]
-  *Needs: a design call.*
 - **Help audit's remainder**: menus drawn on press (the chat "/" menu, a
   message's menu, the board menus, the notes list's menus) are checked by
   source grep only, and a sweep that presses each and lists its items would
@@ -657,12 +630,6 @@ pane's name, the errors sweep's aside clipping at 390.
   `inbox-help`) and the whiteboard and map help bodies were not read; the sweep
   runs at 1440 only, so a control a narrow window moves into a menu is named for
   the wide layout. [helpaudit-1005]
-- **Settings, Tools it can use at 390**: a tall empty gap between "Tokens per
-  step"'s description and its field (seen in a screenshot, not measured, not
-  checked against the base). [header-bars-1005]
-- **Models pane first frame**: "Checking the models…" shows as a bare line
-  until the first status answer; its lists are skeleton-ready (`status.js`)
-  but the sweep never caught the null-status frame. [iconalign-skel-1005]
 - **Chat panels not measured**: `#chat-model-panel` with a model connected
   (`popupsart.js` cannot open it without one; use `scratchpad/llama-dev.sh`)
   and the chat dock's select menus opened from inside the How it answers sheet
@@ -671,8 +638,7 @@ pane's name, the errors sweep's aside clipping at 390.
   statuses edgeless it is one rule, `.chip.item-label`'s border). [design-1004]
   *Needs: the owner's call on the chips.*
 - **The tour**: a first-run notebook (no notes, no boards) was only covered by
-  forcing `TOUR_NEEDS.map` false, not by a fresh data dir walk; widths between
-  600 and 1100 (a tablet, a half-window) were not walked, and the Timeline's
+  forcing `TOUR_NEEDS.map` false, not by a fresh data dir walk; the Timeline's
   Options and the reminders' More were measured at 390 only. [tourdepth]
 - **Tablet layouts**: the Documents dock is two rows at 1024 (its identity
   asks for 22rem beside the actions); the arc layout of a 430-note notebook
@@ -728,33 +694,30 @@ pane's name, the errors sweep's aside clipping at 390.
   sweep); FE-13 the tab JS at 5,000 notes was not profiled again; FE-14 on a
   phone the chips' overhang is 44px and a card clips it below its last row
   (34px reached). [perf2-1005]
-- **A flaky timing test**: `tests/test_relations_kg2.py`'s 10k timing is flaky
-  under load (the typo, message-wording, thread-ratchet and list-paging tests
-  perf2-1005 and worldclass-1004 recorded as red pass on the head, 2026-10-05).
-  [perf2-1005]
 - **Retrieval and the learned loop, plan rows whose half-built parts live in
   the scratchpad**: "most opened this month" is parked in
   `scratchpad/wc1005b-most-opened.md` (`core/opens.py`, `GET
   /entries/most-accessed?period=month`, hooks on `flashEntry` and
   `openNotePage`, the Most used widget's seg, then the HISTORY block and a
   CHANGELOG line); the "wrong" correction on an evidence card (I7's second
+
+- **A flaky timing test**: `tests/test_relations_kg2.py`'s 10k timing is flaky
+  under load (the typo, message-wording, thread-ratchet and list-paging tests
+  perf2-1005 and worldclass-1004 recorded as red pass on the head, 2026-10-05).
+  [perf2-1005]
+- **Retrieval and the learned loop, plan rows**: the "wrong" correction on an evidence card (I7's second
   half) and I1 pass 2's kinds as derived facts (dates, duplicates, entities)
   are WORLD_CLASS_PLAN rows. [worldclass-1005b, worldclass-1004]
 - **Smaller backend and gate rows**: a note type made through `POST
   /note-types` before the list was read, then deleted, loses its id on Undo
   (not reproduced, pinned by a test); `gate.sh --changed` selects most of the
-  suite on this branch; `gate.sh --staged` does not run
-  `tests/test_help_controls.py` (a help edit once put the Guide's whiteboard
-  keys entry at 1,926 against 1,920 and passed the gate) or
-  `tests/test_like_escaping.py`; `tests/test_name_mood.py`'s palette test needs
+  suite on this branch; `tests/test_name_mood.py`'s palette test needs
   the palette decided; the container's shared `/tmp/pytest-of-root` grew to 11G
   once and filled the filesystem (`rm -rf` it); the Guide's longest topics sit
   at 1,916 of 1,920 characters and boot CSS at 183,210 of 183,300 gzipped
   bytes, so any new rule needs dead CSS cut first.
   [integ-1005, open-rows-1005, wb-phase2, sweeps, backend-probe, boardmap-1005]
-- **Sweeps**: `phonechrome.js`'s fresh text box overflowed 5px and the
-  Timeline's feed and table duplicated on a breakpoint-crossing re-entry
-  (found 2026-09-23, not re-run since); `touch.js` needs `timeout 300`;
+- **Sweeps**: `touch.js` needs `timeout 300`;
   `revealcell.js` at 390 needs the editor opened first; `errors.js` took
   "Target crashed" at a tab switch (2026-10-05): it did not reproduce on a fresh
   data dir, so the sweep is hardened (a browser per width,

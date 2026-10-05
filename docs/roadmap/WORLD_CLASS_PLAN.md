@@ -811,43 +811,24 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 7 | ~~I3, H2~~ | ~~the questions view, `GET /questions`, the Ask scope, the answered-by link~~ built 2026-10-04 (`ai/questions.py`, `routes_questions.py`, Notes, Questions; `tests/test_questions_spec.py`, 500 questions listed under 100 ms) | done | HISTORY |
 | 8 | ~~Placed 2026-09-13~~ | ~~`/files/gallery`'s five callers onto `apiPagedList`, then its default to 200~~ built 2026-09-24 (`tests/test_gallery_paging.py`) | done | HISTORY |
 | 9 | ~~§16~~ | ~~cache `similar_pairs` for link suggestions and tensions~~ built 2026-09-24: keyed by the matrix's version; 5,000 notes 322 to 104 ms a repeat request (`tests/test_similar_pairs_cache.py`) | done | HISTORY |
-| 10 | ~~D5~~ | ~~typed properties on notes (documents have them)~~ built: the properties, the table under a note's title and note types with KG4 (2026-10-04); the five built-in kinds and the graph's Note type colour 2026-10-05 (`tests/test_note_kinds_d5.py`) | done | HISTORY |
+| 10 | ~~D5~~ | ~~typed properties on notes (documents have them)~~ built: the properties, the table under a note's title and note types with KG4 (2026-10-04); the five built-in kinds and the graph's Note type colour 2026-10-05 (`tests/test_note_kinds_d5.py`); left: the Library grouping notes by type (the graph colouring and a type's own colour: `tests/test_note_types_graph_d5.py`) | done | HISTORY |
 | 11 | ~~§17~~ | ~~review queue, filing style, explain this note, most opened this month (S each); tidy proposals, charts from questions (M each); `.ics` export built 2026-09-26~~ built 2026-10-05 (`routes_vision.py`, `ask-chart.js`; `tests/test_vision_rows_row11.py`) | done | HISTORY |
-
-| 10 | ~~D5~~ | ~~typed properties on notes~~ built: KG4 (2026-10-04) for the properties, the types and the note head; 2026-10-05 the gate's rest, the graph colouring by note type and a type's own colour (`tests/test_note_types_graph_d5.py`); left: the Library grouping notes by type | done | HISTORY |
-| 11 | §17 | ~~review queue~~ built 2026-10-05 (`is:review`, `tests/test_review_queue_17.py`); filing style, explain this note, most opened this month (S each); tidy proposals, charts from questions (M each); `.ics` export built 2026-09-26 | S to M | §17 |
 | 12 | ~~D6~~ | ~~the calendar strip, the yesterday/tomorrow pair and the month popover~~ built 2026-10-04 (`timeline.js`, `note-cards.js`; HISTORY, "the consistency contract's missing lints") | done | HISTORY |
 | 13 | ~~§1, D14~~ | ~~the lints not written: surface budget, one primary per modal, meta without border or hover, a menu item's rest background, every `data-action` in the palette~~ built 2026-10-04 (`tests/test_consistency_contract.py`); left: the two ratchets (5 modals with 2 to 3 filled buttons, 13 chip rules) | done | HISTORY |
 | 14 | ~~A8~~ | ~~the '?' help on every tab's dock (Chat and Graph have it)~~ built 2026-10-04: Dashboard and Reminders were the two docks without one (`tests/test_dock_help_507.py` fails on a dock with none) | done | HISTORY |
 | 15 | ~~§1.3~~ | ~~Remind me on documents and boards (the reminder must point at other kinds first), Show in graph for a document, the Library note card's Remind me and Link to~~ built 2026-10-05 (`Reminder.document_id`, `target_kind`; `tests/test_reminder_targets_row15.py`) | done | HISTORY |
-| 16 | B7 | cursor pagination, ETags and `If-Match` on entries, `/capabilities` | M | `api/` |
-| 17 | B8, H4 | a user skills folder picked up without a restart; `/api/v1`; the agent named on an external write | M | `ai/skills.py`, `mcp_server.py` |
-| 18 | ~~B4~~ | ~~typed links, a derived tensions table, rebuild determinism, the Tensions widget~~ built 2026-10-05 (`tensions` table rebuilt from events, night facts and links, `tests/test_tensions_table_b4.py`; typed links were KG3); left: derived person and project pages, per-claim citations, "what changed about X" | done | HISTORY |
-
 | 16 | ~~B7~~ | ~~cursor pagination, ETags and `If-Match` on entries, `/capabilities`~~ built 2026-10-05 (`api/paging.py`, `routes_capabilities.py`, `tests/test_api_contract_b7.py`); left: the page's own lists following the cursor on scroll, and the page reading `/capabilities` to hide what is not installed | done | HISTORY |
 | 17 | ~~B8, H4~~ | ~~a user skills folder picked up without a restart; `/api/v1`; the agent named on an external write~~ built 2026-10-05 (`ai/skill_folder.py`, `api/versioning.py`, `events.as_agent`, `tests/test_local_service_h4.py`); left: the MCP server running the same tool tests as the in-app agent, and confirm cards for an outside agent's destructive call | done | HISTORY |
-| 18 | B4 | typed links, a derived tensions table, rebuild determinism, the Tensions widget | M to L | `ai/tensions.py`, `ai/entities.py` |
-| 19 | B5, §9 | per-tool pre and post conditions, grammar-forced JSON, evals at 3B and 4B, concurrent tool calls, Ollama's native dialect | M | `ai/tools/`, `tests/test_skills_evals.py` |
-| 20 | I7 | the "Learned from you" line with a filing accuracy number | S | `settings.js` |
-| 21 | ~~I8, H3~~ | ~~the model bench~~ built 2026-10-05: `ai/bench.py`, `/models/bench`, Settings, Models, Test my models (`tests/test_bench_spec.py`); left: a run against a real model for the 30-minute and rerun gates | done | HISTORY |
-| 22 | ~~I2, H8~~ | ~~the margin reader~~ built 2026-10-05 for documents: `ai/margin.py`, `POST /editor/read`, `margin-reader.js` (`tests/test_margin_reader_spec.py`); left: the note editor, typing latency in Chromium | S | HISTORY; I2 |
-| 23 | I5, H8 | time travel: `as_of` on chat, then-and-now | M | `routes_chat.py` |
-| 24 | ~~D9~~ | ~~the web clipper~~ built 2026-10-05: `POST /links/clip-page` from the browser, the Clip to MemoryMap bookmark and `clip.html` (`tests/test_webclip_page.py`) | done | HISTORY |
-| 25 | H6, §5.7 | ~~Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete; a WCAG audit; a first-run path timed to a first answer~~ built 2026-10-05 (HISTORY); left: multi-window | M | H6 |
-
-| 18 | B4 | typed links, a derived tensions table, rebuild determinism, the Tensions widget | M to L | `ai/tensions.py`, `ai/entities.py` |
+| 18 | ~~B4~~ | ~~typed links, a derived tensions table, rebuild determinism, the Tensions widget~~ built 2026-10-05 (`tensions` table rebuilt from events, night facts and links, `tests/test_tensions_table_b4.py`; typed links were KG3); left: derived person and project pages, per-claim citations, "what changed about X" | done | HISTORY |
 | 19 | B5, §9 | ~~per-tool pre and post conditions, grammar-forced JSON, concurrent tool calls, Ollama's native dialect~~ built 2026-10-05 (`ai/tools/contracts.py`, `OllamaClient.forced_call_format`, `tests/test_tool_contracts.py`, `tests/test_provider_sockets.py` over a real socket); left: evals at 3B and 4B on a real model, and a real Ollama | M | HISTORY; `tests/test_skills_evals.py` |
 | 20 | ~~I7~~ | ~~the "Learned from you" line with a filing accuracy number~~ built 2026-10-05 (`learning.filing_accuracy`, `GET /learned/summary`, `tests/test_learned_accuracy.py`); 24 notes, 5 moved: 67% to 92% | done | HISTORY |
-| 21 | I8, H3 | the model bench | M | a new `ai/bench.py` |
-| 22 | I2, H8 | the margin reader (after row 6's chunks) | M | `documents.js`, a new `/editor/read` |
+| 21 | ~~I8, H3~~ | ~~the model bench~~ built 2026-10-05: `ai/bench.py`, `/models/bench`, Settings, Models, Test my models (`tests/test_bench_spec.py`); left: a run against a real model for the 30-minute and rerun gates | done | HISTORY |
+| 22 | ~~I2, H8~~ | ~~the margin reader~~ built 2026-10-05 for documents: `ai/margin.py`, `POST /editor/read`, `margin-reader.js` (`tests/test_margin_reader_spec.py`); left: the note editor, typing latency in Chromium | S | HISTORY; I2 |
 | 23 | ~~I5, H8~~ | ~~time travel: `as_of` on chat, then-and-now~~ built 2026-10-05 (`ai/timetravel.py`; 200 candidates rewound in under a second); left: a model's judgement over the pairs, past texts re-embedded, cards grouped by month | done | HISTORY |
-| 24 | D9 | the web clipper | M | `routes_bookmarks.py`, `core/security.py` |
-| 25 | H6, §5.7 | Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete; a WCAG audit; multi-window; a first-run path timed to a first answer | M to L each | H6 |
-| 26 | H7 | boot JS under 1 MB (1,072 KB now), first paint under 300 ms, every list over 200 rows virtualised | S each | `boottime.js` |
+| 24 | ~~D9~~ | ~~the web clipper~~ built 2026-10-05: `POST /links/clip-page` from the browser, the Clip to MemoryMap bookmark and `clip.html` (`tests/test_webclip_page.py`) | done | HISTORY |
+| 25 | H6, §5.7 | ~~Notion, Obsidian, Evernote and Apple Notes import; keyboard-complete; a WCAG audit; a first-run path timed to a first answer~~ built 2026-10-05 (HISTORY); left: multi-window | M | H6 |
+| 26 | ~~H7~~ | ~~boot JS under 1 MB~~ built (691,724 bytes as served, `tests/test_boot_budget.py` gates it; the corrected 2026-10-05 measure, H7); every list over 200 rows measured 2026-10-05 (chunk-on-scroll, scroll p95 under 25 ms, `ui-sweeps/s2-1005.js` MODE=rows); first paint measured 2026-10-05 (`boottime.js`, fresh data dir, 1440, five cold loads, load average 10 on four cores): DOMContentLoaded median 585 ms, first contentful paint median 272 ms, dashboard panel readable (text in it, splash gone) median 974 ms (920 to 1,326); not optimised; left: the 300 ms line on the reference laptop with a quiet machine, and the 974 ms to the dashboard's text | S | `boottime.js` |
 | 27 | ~~H9~~ | ~~usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval~~ built 2026-10-05 (HISTORY); left: `boottime.js` in the CI workflow | S | HISTORY |
-| 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure; the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
-
-| 27 | H9 | usage ledger, time to first answer, simple mode, a perf budget in CI, an axe sweep, a global capture hotkey, fault injection in `errors.js`, speculative retrieval | S to M each | H9 |
 | 28 | §19 | torch still loads at launch for a notebook with notes (a preference, or ONNX); the Phosphor subset; lazy stylesheets; ~~the whole `EXPLAIN QUERY PLAN` pass; queue back-pressure~~ built 2026-10-05 (HISTORY, "Moved from the plans, 2026-10-05 (19.3, 19.5)"); the Windows frozen startup | S to M | `ai/embeddings.py`, `index.html` |
 | 29 | §10 | F1 a `prefs` module, F5 `api.stream`/`api.upload` and the no-bare-fetch lint, F7's threads onto the pool (the ratchet is built), F10 a `readings` table, F12 a store (F4 built 2026-09-26) | S to L | §10 |
 | 30 | ~~§5~~ | ~~notes' unlinked mentions, word count and reading time; `{{clipboard}}` and a cursor mark; move to a space and export from a selection; the bin for documents and reminders~~ built: unlinked mentions with KG1 (2026-10-04); the rest 2026-10-05 (`tests/test_selection_actions_row30.py`, `tests/test_bin_documents_reminders_row30.py`) | done | HISTORY |
@@ -996,9 +977,9 @@ Each of these was found by measuring and deferred with evidence; the
 - Notes (8) and Graph (9) docks are over the seven-control ceiling. Owner:
   docks.md; the fix is a second "more" group, not hiding.
 - `#wb-topbar` is 104px at 390. Owner: responsive.md.
-- The whiteboard's five menus were restyled but never driven (the board
-  would not open in the driver). Owner: consistency.md; first step is a
-  sweep that opens a board by API id, then each menu.
+- ~~The whiteboard's five menus were restyled but never driven.~~ Driven:
+  `kebab-viewport.js` opens all five at three window sizes (15 cases OK) and
+  `wbtopbar.js` gates their keyboard and ARIA (WHITEBOARD_PLAN 43; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)").
 - The SVG graph path stays behind a flag until the drag gate is met on a
   quieter machine. Owner: GRAPH_PLAN Phase 2.
 - Timeline: everything (audited, not built). Owner: Brief 5.
@@ -1281,7 +1262,7 @@ M. **Model** Opus for the prompt and fusion changes, Sonnet for the panel.
 
 **State 2026-09-24:** (b) the loop is built (`ai/learning.py`: corrections as `AuditLog` rows by decision, boosts with decay, the centroid exclusion, `open_after_ask`). Corrected 2026-10-05 (audit ARCH-08): the centroid exclusion had no caller and the corrections query could not see the re-files `update_entry` records; both are wired now (`janitor._semantic_category`, `tests/test_save_cost_flat.py`); the "Learned from you" line with a filing accuracy number is not in Settings. S.
 
-**State 2026-10-05:** (b) the loop's store is built (`ai/learning.py`: corrections as `AuditLog` rows by decision, boosts with decay, `open_after_ask`), but the filing consumer is not wired: `centroid_excluded` and `filing_evidence` have no caller (audit ARCH-08, Brief B's), and until 2026-10-05 a refile made in the app never reached them anyway (`corrections(kind="refile")` missed it, fixed in row 20). The "Learned from you" line with a filing accuracy number is in Settings (row 20): HISTORY.md, "Moved from the plans, 2026-10-05 (row 20)". Left: the gate's eval (filing accuracy with 20 synthetic corrections up 10 points) needs a real model, and "wrong" on an evidence card as a correction.
+**State 2026-10-05:** (b) the loop's store is built (`ai/learning.py`: corrections as `AuditLog` rows by decision, boosts with decay, `open_after_ask`), and its centroid consumer is wired (`learning.excluded_categories`, called by `janitor._semantic_category`; audit ARCH-08, fixed 2026-10-05, and a refile made in the app reaches it since row 20 fixed `corrections(kind="refile")`); and its evidence half is wired too (`librarian.evidence_note` in `filing_prompt`; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)", I7). The "Learned from you" line with a filing accuracy number is in Settings (row 20): HISTORY.md, "Moved from the plans, 2026-10-05 (row 20)". Left: the gate's eval (filing accuracy with 20 synthetic corrections up 10 points) needs a real model, and "wrong" on an evidence card as a correction.
 
 ### I8 The model bench: which local model is best on *your* notebook
 
@@ -2051,14 +2032,14 @@ build's startup profile on Windows, and the `EXPLAIN QUERY PLAN` pass in
       `paintFadedNotes` from dashboard.js (the route returns the same
       `_card` shape the dashboard widget already renders); the better one
       is the note detail view this app does not have, which is a plan item
-      rather than an INBOX item. **State 2026-09-24:** (c) still
-      unwired; it waits on D2's rail (row 4 of section 8's list).
+      rather than an INBOX item. **Built** (row 4's `#notes-rail`:
+      `note-panels.js` calls `GET /resurface/near/{id}`; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)").
     `POST /auth/rotate-vault-key` was on this list until the probe learned
     to read `` `/auth/${mode === "setup" ? "setup" : "unlock"}` ``; it is
     still uncalled, and re-keying the vault has no UI. Filed here rather
     than fixed: it is the one route in the app that rewrites every private
-    note, and a button for it wants its own session. **State 2026-09-24:**
-    (c) still no UI; the other 261 lines are decided (nothing to do).
+    note, and a button for it wants its own session. **Built 2026-10-05**
+    (`settings-controls.js` calls `POST /auth/rotate-vault-key`, nbf1005; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)"); the other 261 lines are decided (nothing to do).
 
 
 285 (indexless tool-call fragments) was fixed 2026-09-24 and moved to
@@ -2262,15 +2243,7 @@ mobile first, as the owner's web design class teaches. Measured with
 
 ### 22.1 Large gaps (what every professional app has)
 
-1. **No URLs.** Every view is `/`. Reload always lands on the Dashboard,
-   the browser's Back leaves the app, a note or chat cannot be linked or
-   bookmarked, and `document.title` never names the view ("(1) MemoryMap
-   AI" everywhere). navigation.js keeps its own back stack on purpose (its
-   comment explains why pushState was refused), which was the right call
-   without a router and is the wrong end state. Target: a hash router
-   (`#/notes/123`, `#/chat/45`, `#/docs/7`, `#/library/images`), the in-app
-   back and forward buttons driven by `popstate`, reload restoring the view,
-   and the title naming it ("Half marathon, week 4 - Notes"). L, Opus.
+1. ~~**No URLs.**~~ **Built:** `router.js` gives every view a hash (`#/notes/12`, `#/chat/45`, `#/docs/7`, `#/library/images`, `#/settings/appearance`), the in-app Back and Forward run on `popstate`, a reload restores the view and the window title names it (HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)").
 2. **The laptop screen is mostly chrome.** At 1093x614 the top bar (72px),
    sub-tabs (55), the list toolbar (55) and the status bar (37) take about
    36% of the height: the Notes list shows 2.3 cards and the Dashboard's
@@ -2301,13 +2274,7 @@ mobile first, as the owner's web design class teaches. Measured with
    request or a backoff poll against `/health` (HISTORY.md, "Moved from the
    plans, 2026-09-27"). Left: queuing or refusing a write with the same
    message while it is up. S, Sonnet.
-7. **No screen-reader pass, ever.** Landmarks exist (1 header, 3 main, 5
-   nav: three `main`s is itself a fault), but no session has driven the
-   app with a screen reader or checked the custom widgets' roles (the rich
-   picker's `aria-activedescendant`, the seg controls, the graph canvas).
-   Target: one `main`, an axe-core sweep in `scratchpad/ui-sweeps`, and the
-   ARIA patterns for listbox, menu and tabs checked against the APG. M,
-   Opus.
+7. ~~**No screen-reader pass, ever.**~~ **Built apart from a real screen reader:** one `<main id="app-main">` (was three), the axe-core sweep (`scratchpad/ui-sweeps/axe.js`, run by `all.sh` when axe-core is at `AXE_JS`; 0 findings at 1440 in both themes), the main landmark, separator values and editor names fixed by it (HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)"). **Not verified:** no session has driven the app with an actual screen reader.
 8. **Data safety is there but hidden.** Backups exist
    (`routes_backups.py`), revisions exist (`EntryRevision`), export exists,
    but none is on the Dashboard or in the note menu as "Version history",
@@ -2657,9 +2624,8 @@ Open, moved whole from INBOX so the tray stays under twenty; each is worked from
     `/media/{id}/ocr-clean-loops`, which runs `cut_reading_loops` over
     whichever of `vision_ocr_text`/`ocr_text` are set and saves what
     changed; the panel repaints from the response. `tests/test_ocr_clean_loops.py`,
-    live-checked with `scratchpad/ui-sweeps/ocrcleanloops.js`.) (g) `_desktop_port()`
-    treats any MemoryMap on the port as ours, whatever its data dir: compare
-    the data dir in `/instance` first. (h) Chat replies saved before
+    live-checked with `scratchpad/ui-sweeps/ocrcleanloops.js`.) (g) `_desktop_port()` took any MemoryMap on the port for this one: built
+    (HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)", 423(g)). (h) Chat replies saved before
     2026-09-24 always show Atlas's mark (their persona was never stored).
     (i) The server-mode process takes 5 to 9s to exit after uvicorn
     finishes: find the thread that holds it. (fixed: every sync route
@@ -2891,7 +2857,9 @@ Open, moved whole from INBOX so the tray stays under twenty; each is worked from
     cells or makes a table, the cell menu rides the edited row; the AI
     assistant's head and verbs redesigned; commits da89a75 to 260bb2a).
     Settings: (j) "remove the need for saving preferences in the
-    settings and just have it auto save like the rest of the settings";
+    settings and just have it auto save like the rest of the settings"
+    (fixed: preferences autosave and the Save button is hidden, `#prefs-save`
+    and `#prefs-status` in `index.html`, INBOX 426 u);
     (k) "should these text boxes be aligned to the right??" (the
     Preferences number fields; answered, no change: measured, all four
     sit on the pane's one field column at x=812, the same left edge as
@@ -2993,11 +2961,7 @@ Open, moved whole from INBOX so the tray stays under twenty; each is worked from
 
 ## Placed from INBOX, 2026-10-04 (design work for the next Opus slots)
 
-Moved whole from INBOX to keep the tray under twenty; each is a brief for
-the next free Opus agent, in this order: 485 (the Attach panel, bug guard
-already in), 496 (Contents and the slow Boards and maps load), 493 (the
-graph's look), 484 (the leader menu), 486 (callouts), 490 (follow-up
-breadcrumbs).
+Briefs 485, 496, 493, 484, 486 and 490 are all built (each carries its "Built:" line in HISTORY.md, "INBOX resolved": 485 the Attach panel `6236875`, 496 Contents and the Boards and maps load `f58c264` `e489bda`, 493 the graph's look `4af88c6` `5a3d6eb` `a506e0f`, 484 the leader menu `64fa7a5`, 486 callouts `cb7c30d`, 490 the follow-up trail `fabdcbf`; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)").
 
 507. **From the dock audit (479, `scratchpad/dock-audit-479.md`), found and
      not fixed.** Graph: fold the View menu into the gear (two ways in).
@@ -3009,11 +2973,7 @@ breadcrumbs).
 
 ## Placed from INBOX, 2026-10-05 (OPEN.md triage)
 
-- **Move a batch of notes to another space** (INBOX 38's own D2 line; the
-  chip and label that show which space a note is in are built). Brief: a
-  `POST /entries/move-space` with ids and a target (one transaction, the
-  search index rebuilt, an Undo that moves them back), and a "Move to space"
-  row in the selection bar. Opus, M.
+- ~~**Move a batch of notes to another space**~~ Built (row 30: `batch-space.js`, `POST /spaces/{id}/move-notes`, an Undo that moves them back, `tests/test_selection_actions_row30.py`; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: WORLD_CLASS_PLAN)").
 - **The Guide's corpus and the Help accordion are kept in step by hand**
   (guide; the synonym column it asked for exists, `help_chat.py`'s keyword
   table). Brief: give the accordion's thirteen `<details>` ids, convert them

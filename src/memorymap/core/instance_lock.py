@@ -161,6 +161,38 @@ def pid_alive(pid: int) -> bool:
     return True
 
 
+def data_dir_id(path: str | os.PathLike[str]) -> str:
+    """A short, stable name for one data directory, the same on both sides of
+    a `/instance` comparison.
+
+    The path is resolved first, so a symlink or a `..` cannot make one
+    notebook look like two, and lower-cased on Windows, where `C:\\Notes` and
+    `c:\\notes` are one folder. It is hashed so the open `GET /instance`
+    route tells a caller whether it is the same notebook without handing
+    anyone on the machine the folder's path (which carries the user name).
+    """
+    import hashlib
+
+    key = str(Path(path).resolve())
+    if sys.platform == "win32":
+        key = key.casefold()
+    return hashlib.sha256(key.encode("utf-8", "replace")).hexdigest()[:32]
+
+
+def served_data_dir_id(port: int, host: str = "127.0.0.1", timeout: float = 2.0) -> str | None:
+    """The data-directory id the server on `port` reports at `GET /instance`,
+    or None when it does not say (an older build without the route, or a
+    reply that is not the expected shape)."""
+    try:
+        with _opener().open(f"http://{host}:{port}/instance", timeout=timeout) as response:
+            body = json.loads(response.read(4096).decode("utf-8", "replace"))
+    except (OSError, ValueError):
+        return None
+    if isinstance(body, dict) and isinstance(body.get("data_dir_id"), str):
+        return body["data_dir_id"]
+    return None
+
+
 def _opener():
     import urllib.request
 

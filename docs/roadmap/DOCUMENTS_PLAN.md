@@ -536,6 +536,29 @@ under `tests/test_documents_*.py`, `scratchpad/ui-sweeps/editor.js`.
 
 ---
 
+## 21. The code editor against VS Code, and writing checks everywhere (INBOX 646)
+
+Placed 2026-10-05. Exists: CodeMirror 6 vendored
+(`frontend/vendor/codemirror`, `CM6`), with Lezer grammars for JS, Python,
+CSS, HTML, JSON, YAML and Markdown and legacy modes for C, C++, C#, Java,
+Kotlin, Go, Rust, Ruby, Swift, R, SQL, shell, TOML, XML, diff, Dockerfile and
+INI; Emmet (`frontend/vendor/emmet`); Harper grammar in a worker
+(`harper-worker.js`); `documents-code.js` (4,400 lines). Open, for one Opus
+agent that audits what renders first (section 1 of CLAUDE.md) and then builds:
+
+- Languages missing: Visual Basic (`vb`, `vbScript` legacy modes), p5.js (JS
+  plus p5 completions from the vendored `p5.min.js`), PHP stays out (section
+  above, the size).
+- Per-language completions and snippets: CSS property values for the property
+  under the cursor, Python, JS, Java, C#, C, C++ keywords and common forms;
+  bracket and tag auto-close, indent guides, fold, multi-cursor, go to line,
+  format selection, comment toggle, a keybindings sheet in Help.
+- Where each is used: every code surface (documents, code blocks in notes,
+  chat code, board code blocks) shares one engine and one set of options;
+  every prose surface gets the grammar check.
+- Help moves with it (standing order 13). Measure with a Playwright sweep per
+  language; no new required dependency (CLAUDE.md, the owner's offline rule).
+
 ## Built, Phase 1 (the chrome), 2026-09-09
 
 Moved to HISTORY.md ("Moved from the plans, 2026-09-09", DOCUMENTS_PLAN.md) on 2026-09-09: a plan holds open work only.
@@ -887,9 +910,9 @@ network request refused, and measures what renders: 0 network attempts, 1
 decoded inline image, the table, the disabled task boxes and the reading
 measure.
 
-**Not decided here, and deliberately still open**: DOCX both ways, Markdown
-with its assets, and import of `.html`. The first needs a dependency decision
-this session did not have a reason to force.
+**Closed 2026-10-05 (docs hygiene before 0.4.0):** DOCX both ways, Markdown
+with its assets and import of `.html` are all built (Phase 7; HISTORY.md,
+"Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: DOCUMENTS_PLAN)").
 
 ## 14. What a document daily note is: decided 2026-09-20
 

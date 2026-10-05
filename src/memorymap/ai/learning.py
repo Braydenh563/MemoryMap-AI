@@ -498,13 +498,20 @@ def excluded_categories(session: Session, text: str) -> set[str]:
     return out
 
 
-def filing_evidence(session: Session, text: str, limit: int = 5) -> list[dict]:
+def filing_evidence(
+    session: Session, text: str, limit: int = 5, exclude_entry_id: int | None = None
+) -> list[dict]:
     """What the next filing decision about `text` should see.
 
     Two kinds of row, deliberately in one list: the corrections that moved
     notes like this one, and the notes already filed that read like it. A
     prompt built from only the first has rules with no examples; from only the
     second, examples with no rules.
+
+    Read by `librarian.filing_prompt` (WORLD_CLASS_PLAN I7's evidence half).
+    A private note is never an example, since the rows end up in a prompt,
+    and `exclude_entry_id` keeps a note being re-filed from being its own
+    nearest neighbour.
     """
     from memorymap.entry import manager
 
@@ -529,7 +536,12 @@ def filing_evidence(session: Session, text: str, limit: int = 5) -> list[dict]:
 
     rows = session.scalars(
         select(Entry)
-        .where(Entry.is_deleted.is_(False), Entry.is_board.is_(False))
+        .where(
+            Entry.is_deleted.is_(False),
+            Entry.is_board.is_(False),
+            Entry.is_private.is_(False),
+            Entry.id != (exclude_entry_id or 0),
+        )
         .order_by(Entry.id.desc())
         .limit(200)
     ).all()
@@ -545,6 +557,7 @@ def filing_evidence(session: Session, text: str, limit: int = 5) -> list[dict]:
                 "kind": "neighbour",
                 "entry_id": entry.id,
                 "category": manager.category_name_for(session, entry),
+                "excerpt": " ".join(manager.readable_content(entry).split()),
             }
         )
     return out

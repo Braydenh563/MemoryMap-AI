@@ -282,37 +282,7 @@ The raster-versus-structured reasoning that stood here is in this file's git his
 
 ## 4b. Templates and base layouts (boards, maps, documents)
 
-Asked for 2026-09-13, looking at a board an agent had built to photograph for
-the README: *"add the ability to save whiteboard templates and base layouts, Im
-inspired by this example whiteboard png the agent took and it can be like canva
-templates, same with the mindmap and documents."* Deferred out of the 0.3.0 PR
-by the owner the same day: *"put the templates idea in the roadmap, not for
-this pr."*
-
-**Most of this exists and must not be rebuilt.** Notes already have templates
-(`BUILTIN_TEMPLATES` in app.js, with a "Yours" group beside a "Built-in" one,
-offered through `#entry-template`) and that grouping is the shape the request
-describes. Documents already have "new from template" with `{{date}}` and
-`{{title}}` substitution, and DOCUMENTS_PLAN Phase 5 item 5 already specifies
-the gallery. Boards can already be copied whole through
-`POST /whiteboard/boards/{board_id}/duplicate`, and `BoardOut` already carries
-`preview_items`, `preview_edges` and `preview_aspect`, which is what draws the
-board cards in the Library, so the gallery's thumbnails are solved.
-
-**Answered 2026-10-05 (WHITEBOARD_PLAN decision 25):** a board or map
-template is a board library item of kind `template` (the object library's
-"Yours"), not a mark in `board_settings`. Documents keep their own templates.
-
-So the feature is one idea: a board, map or document *marked* as a template,
-shown in a gallery with a preview, copied on use. The full brief, including the
-decision to record first (where the mark lives: `board_settings` on the board's
-own note, the way `type` and `layout` already do, against a separate table) and
-the build order (boards, then maps, then documents, each end to end), is
-SESSION_BRIEFS.md Brief 32.
-
-**Pointer, 2026-10-05:** the whiteboard half is now WHITEBOARD_PLAN "Placed from INBOX,
-2026-10-05" (557c and 558: the object library with "Yours", where a whole board saved as
-a template lives) and `scratchpad/audit1005/features.md` section 4 row C12 and section 8.
+~~Asked for 2026-09-13, deferred out of the 0.3.0 PR.~~ **Built** (WHITEBOARD_PLAN decision 25): a board or map template is a board library item of kind `template` (`routes_board_library.py`, `library_ref {id, version}`, `POST` new board from a template), shown in the object library's "Yours"; documents keep their own gallery (`DOC_TEMPLATES`, editable). The record is HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)".
 
 ## 5. Documents
 
@@ -1103,6 +1073,13 @@ now that SearXNG is a real running thing rather than a plan:
 
 ## 14. More tools worth adding
 
+Pickup notes (2026-10-05, read before building; deferred until after PR 162):
+- The six named tools are still missing. Check the registry's real count first: the README says 65, while this section said 58.
+- `execute_tool` already files writes as `ai:<tool>` through `events.acting_as` (`ai/tools/__init__.py`), so a new tool only needs a test for it.
+- Undo is a single tool call posted back to `/chat/tools/execute` (`chat-agent.js`, `changeRow`). Its arguments may carry extra keys, which `move_notes` needs in order to put each note back in its old category.
+- `move_notes` to a space can reuse `routes_spaces.py`'s `move_notes_to_space`, once that body is lifted into a shared helper. `export_notes` writes into `_exports_dir()` (`routes_files.py`).
+- There is no calendar events table: `core/events.py` is the change log, and the timeline's kinds are note, board, document and reminder. The plan for `add_event`: a `Reminder` row with a new `kind` column, which needs one migration. The plan for `list_events`: read the timeline over a date window.
+
 **Checked against the registry 2026-10-04.** Built since this list was
 written: `create_document`, `related_notes`, `find_similar_notes`,
 `notebook_overview` and `count_notes` (the stats), `save_user_preference`
@@ -1503,20 +1480,7 @@ is what makes it reach for one.
 - **Re-running a past run.** A skill is repeatable; a *run* is not yet
   something you can replay over a different set of notes. **(needs Opus)**
   **Next:** `ai/skill_runner.py` keeps the run's steps and inputs; a "Run again" on a finished run's header (`frontend/js/skills.js`) re-posts them with a changed note scope, no new table needed until the history is kept past the session.
-- **Undo the whole run**, rather than one change at a time. **Pointer:** WORLD_CLASS_PLAN B5 ("every run shows plan, steps, verification and an undo button") and `ai/skill_runner.py`'s per-change undo list, the seam for a run-level one. Gemini's
-  (grounded) suggestion was a heavier version of this worth naming
-  explicitly: a local, silent version-control snapshot before a bulk
-  operation runs, so a bad auto-tagging pass or a skill gone wrong can be
-  rolled back wholesale rather than change by change. This sits between two
-  things that already exist rather than needing to be built from nothing,
-  daily backups (§ "Where your data lives" in the README) are too coarse
-  (once a day, not once per run) and per-change Undo above is too fine (a
-  20-note bulk tag is 20 things to individually undo); a snapshot taken
-  specifically before a skill run or bulk tool call, kept for a short
-  window, is the missing middle size. Worth building as "one more backup,
-  triggered by an event instead of a timer" rather than actually reaching
-  for git: the existing backup mechanism already solves the storage
-  question, just not the timing. **(needs Opus)**
+- ~~**Undo the whole run**, rather than one change at a time.~~ **Built** (AGENT_SKILLS_REFORM: a skill run's own Undo, `undoSkillRun`, "Undo the run" in the chat's "What changed"; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)"). **Still open, (needs Opus):** the heavier version Gemini named, a silent snapshot taken before a bulk run and kept for a short window ("one more backup, triggered by an event instead of a timer", through the existing backup mechanism), the middle size between a daily backup and a per-change Undo.
 - **Reminders have no inverse tool** (links do: `unlink_notes` exists, checked
   2026-10-04), so that change is
   listed without an Undo. `delete_reminder` would fix it, at
@@ -1887,16 +1851,7 @@ them are close to being built:
 - **A VS Code extension.** **Next:** nothing is buildable until the owner states a purpose; the HTTP tool API (`GET /chat/tools`, `POST /chat/tools/execute`, WORLD_CLASS_PLAN B8) is the surface an extension would call. No stated purpose yet beyond the idea itself,
   worth asking what it would let someone do that the app's own web UI, PWA
   and desktop window don't, before scoping anything. **(needs owner)**
-- **A browser clipper.** **Pointer:** WORLD_CLASS_PLAN D9 "Links and the web clipper" and `api/routes_webclip.py` (the server half exists); the clipper agent owns the extension. Gemini's suggestion: a lightweight extension that
-  saves a page's text, link and metadata straight from the browser, rather
-  than routing through the in-app reader (§13). Distinct enough from the
-  in-built browser idea above to list separately, a clipper is passive
-  capture from wherever you're already browsing; the in-built browser is the
-  app going out and reading on the agent's behalf. Both would land in the
-  same place (a note, or the queue in §4a's file-upload work), but they're
-  answering different questions about where "capture" happens, and building
-  a browser extension is its own packaging problem on top of anything
-  MemoryMap does today. **(needs owner)**
+- ~~**A browser clipper.**~~ **Built 2026-10-05** (WORLD_CLASS_PLAN row 24, D9): `POST /links/clip-page` (`routes_webclip.py`), the "Clip to MemoryMap" bookmarklet and `frontend/clip.html` / `clip.js`, `tests/test_webclip_page.py`. A packaged browser extension is not built; the bookmarklet is the capture path (HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)").
 
 ## 29c. Whiteboard, brainstormed: not yet triaged
 
@@ -1909,15 +1864,15 @@ session that only reads ROADMAP.md's live list.
 
 **Triaged 2026-10-05:** each idea below now points at the row that owns it.
 
-- **Mermaid.js text-to-diagram, both directions.** **Pointer:** `scratchpad/audit1005/features.md` section 4 row C6 (diagram from Mermaid, FEAT-08, P2) and Phase E (interchange); the document half is Documents row D3.
-- **Frames/swimlanes.** **Pointer:** [WHITEBOARD_PLAN.md](WHITEBOARD_PLAN.md) decisions 14 and 18 (a frame is a titled region that carries what is in it; built), swimlanes are `scratchpad/audit1005/features.md` section 4 row C6 (P2).
-- **Board templates.** **Pointer:** [WHITEBOARD_PLAN.md](WHITEBOARD_PLAN.md) INBOX 557(c) and 558 and `scratchpad/audit1005/features.md` section 4 row C12 (the object library, with a whole board saved to "Yours").
-- **A layers panel.** **Pointer:** [WHITEBOARD_PLAN.md](WHITEBOARD_PLAN.md) INBOX 557(b) and `scratchpad/audit1005/features.md` section 9.3 and Phase C (named Draw.io layers are phase 2).
+- ~~**Mermaid.js text-to-diagram, both directions.**~~ **Built:** a board's Mermaid out and in (`wbBoardToMermaid`, `wbMermaidParse`, `wbMermaidLayout`, `whiteboard-interchange.js`; `tests/test_wb_interchange.py`) and the document half (`mermaidFlowParse`, `tests/test_doc_mermaid.py`); HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)".
+- ~~**Frames**~~ **built** (WHITEBOARD_PLAN decisions 14 and 18, a titled region that carries what is in it; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)"). **Swimlanes stay open** (`scratchpad/audit1005/features.md` section 4 row C6, P2; the object library has a timeline lane template only).
+- ~~**Board templates.**~~ **Built** (BACKLOG 4b; the object library's `template` kind with a whole board saved to "Yours"; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)").
+- ~~**A layers panel.**~~ **Built, phase 1:** the sidebar's Layers tab, the board as a tree in paint order (`wbRenderLayers`, `#wb-layers-tree`; WHITEBOARD_PLAN decision 27; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)"). Named layers (draw.io's) stay open as phase 2.
 - ~~**Smart alignment guides while dragging**~~ **Done, see HISTORY.md
   §58** (edge/centre/spacing, colour-coded, Alt bypass).
 - **Ink-to-text (handwriting OCR) on sketches.** **Decided out:** `scratchpad/audit1005/features.md` section 4 row C5 (no on-device ML, the no-torch rule; spec D3).
-- **Presentation/step-through mode.** **Pointer:** [WHITEBOARD_PLAN.md](WHITEBOARD_PLAN.md) decision 16 ("Presentation steps through the frames", taken 2026-10-04); the board's Present mode exists (`scratchpad/audit1005/features.md` section 4 row C5, "pen focus view").
-- **A board version history**, separate from the undo stack. **Pointer:** `scratchpad/audit1005/features.md` section 4 rows C14 to C18 (FEAT-10, P1) and Phase E ("board time machine, W2"); [WHITEBOARD_PLAN.md](WHITEBOARD_PLAN.md) "Undo coverage, audited 2026-10-05".
+- ~~**Presentation/step-through mode.**~~ **Built** (WHITEBOARD_PLAN decision 16, `wbPresentSteps` steps through the frames; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)").
+- ~~**A board version history**, separate from the undo stack.~~ **Built:** the board's time machine (`whiteboard-history.js`, `routes_board_history.py`, WHITEBOARD_PLAN decision 33; `tests/test_board_history.py`; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)").
 
 ## 29d. Whiteboard: scoped and next, not brainstormed
 
@@ -2325,13 +2280,7 @@ has been scoped; they are here so the finding is not lost with the session.
   document about X" work the way notes already do. Not obviously worth the
   index size; worth deciding rather than leaving implicit. **(needs owner)**
   **Next:** documents are not embedded (`core/database.py` has `EmbeddingRecord` and `ChunkVector` for entries only, checked 2026-10-05); the owner decides, then `search/index.py` already indexes documents for keywords and a `DocumentVector` table would follow `ChunkVector`'s shape.
-- **The document-textarea resize fix has never been seen working.** Headless
-  Chromium will not drive a native resize handle, real mouse events and
-  CDP-level ones both left the rendered height unchanged, and an isolated
-  repro showed the same. Whether that is this Chromium build or evidence the
-  root-cause theory is wrong was never chased down. One look in a headed
-  browser settles it. **(needs owner)**: a headed browser, one look.
-  **Next:** the document body is now the CodeMirror surface (DOCUMENTS_PLAN Phase 2), so first confirm a native resize handle still exists on `#doc-content` (`frontend/css/04-chat-dock-appearance.css:4027`); if not, the item is moot.
+- ~~**The document-textarea resize fix has never been seen working.**~~ **Moot:** the document body is the CodeMirror surface (DOCUMENTS_PLAN Phase 2); the textarea `#doc-content` is only the fallback when the bundle fails to load, so there is no native resize handle to verify on the path anyone uses (HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)").
 - **A naive orphaned-CSS sweep produces 33 false positives.** Classes built by
   template (`heat-${n}`, `library-${kind}`, `priority-${p}`,
   `result-reason-${r}`, `plan-step-${s}`, `outline-h${n}`, `graph-edge-${k}`)
@@ -2513,9 +2462,7 @@ writing for exactly that reason, which is the standing lesson of this file.
     called at module load. Verified live (Playwright): focus, ArrowDown
     twice, ArrowUp back, Enter opened the note for editing, all correct.
     This entry was stale, not the code.
-18. **Undo for destructive skill runs.** **Pointer:** the same item as section 21's "Undo the whole run" (WORLD_CLASS_PLAN B5). Individual tools record undo; a run
-    that made twelve changes has twelve separate undos and no "undo that
-    run".
+18. ~~**Undo for destructive skill runs.**~~ **Built**, the same item as section 21's "Undo the whole run" (`undoSkillRun`; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)").
 19. ~~**`app.js` is 22,000 lines.**~~ **Built, see CLAUDE.md section 7 ("`app.js` is 25 files") and `frontend/js/chat.js`, `documents.js`, `library.js`, `dashboard.js`, `settings.js`.** The clean first extraction is `chat.js`
     (~3,300 contiguous lines: ask, the chat tab, image attachment, the agent
     timeline, the dock disclosure), following the §88.3 pattern that already
@@ -2595,26 +2542,21 @@ regenerate, diffable, editable by hand, and portable out of this app entirely.
 
 Work, in order:
 
-1. **Render mermaid where markdown already renders.** Fenced ```mermaid blocks
-   in chat, notes and documents. Nothing renders them today (`grep mermaid
-   frontend/` is empty), so today they show as code.
+1. ~~**Render mermaid where markdown already renders.**~~ **Built for documents** (a ```mermaid flowchart fence drawn as an SVG figure in Read and Live: `mermaidFlowParse`, `docRenderMermaidIn`, `tests/test_doc_mermaid.py`; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)"). **Open:** chat and notes still show a mermaid fence as code (notes render at boot; subgraphs and other diagram types are not drawn).
 2. **A preview + edit step**, the mermaid on one side, the rendered diagram on
    the other. The document editor's Split view is the same shape and can be
    reused rather than rebuilt.
-3. **Export to whiteboard**: mermaid AST -> whiteboard cards, shapes and links.
-   The whiteboard already has all three primitives and `wbArrangeMindMap`
-   already does tree/radial layout, so this is a translation, not a new engine.
-4. **Keep the source.** The generated mermaid is stored on the board it
-   produced, so "edit the diagram" can mean either "move this card" or "change
-   the text and re-export".
+3. ~~**Export to whiteboard**: mermaid AST -> whiteboard cards, shapes and links.~~ **Built** (`wbMermaidParse`, `wbMermaidLayout` in `whiteboard-interchange.js`, with frames as subgraphs; `tests/test_wb_interchange.py`).
+4. ~~**Keep the source.**~~ **Built** (a board's SVG export keeps its Mermaid inside the file).
 
-**Pointer:** `scratchpad/audit1005/features.md` section 10 (Documents D3, the Mermaid fence rendered in Read and Live) and section 4 row C6 and Phase E (a Mermaid import and export on the board); nothing renders mermaid yet (checked 2026-10-05).
+**Pointer:** `scratchpad/audit1005/features.md` section 10 (Documents D3) and section 4 row C6 and Phase E. Documents and boards render and import Mermaid (steps 1, 3 and 4 above); the AI-writes-mermaid-then-preview flow (step 2) and chat and notes rendering are what is left.
 
 ### Related, and cheap: finish the rendering story
 
 Checked this session: chat, documents and the dashboard digest all go through
 `renderMarkdown`, but **notes deliberately do not** (see the comment at
-`app.js:3791`), and **no surface renders mermaid or highlights code**. Before
+`app.js:3791`). Documents now render a mermaid flowchart and highlight code
+(CodeMirror); chat and notes do neither. Before
 any of the above, worth settling as one pass: which surfaces render markdown,
 whether code blocks get syntax highlighting, and whether notes should join,
 because "the AI wrote a diagram and I can't see it" and "my code block is
@@ -2998,20 +2940,7 @@ item 8 above instead).
    meeting" flow (re-transcribe, resume a paused recording, see the
    original audio again) was not checked this session. Scope by asking
    what "edit" should mean here before building anything.
-4. **Whiteboard: curved lines and custom anchor points, partly built,** **Pointer:** PLAN.md W2 ("Smart connectors") and `scratchpad/audit1005/features.md` section 4 row C6 and Phase B (connectors). 
-   asked for again without checking first (caught before repeating that
-   mistake here).** A link already toggles straight vs. curved
-   (`wbLinkPathD`, a symmetric cubic bezier through the midpoint, not a
-   freeform curve), and objects already have **eight fixed** anchor points
-   (corners + edge midpoints, `WB` link code, HANDOVER §53-55, "inspiration
-   from draw.io") that a resize carries along for free. What's genuinely
-   still open: an anchor point anywhere on an object's edge, not just the
-   fixed eight, and interactively bending an existing link's curve (drag a
-   control-point handle) rather than only the automatic symmetric bezier.
-   A freeform curved *sketch* tool (not object-to-object links at all) is
-   a separate, bigger ask, the sketch pad is pure-raster today (ROADMAP's
-   own Tier 2 item 10 already names this as needing a real architecture
-   change, not a small patch).
+4. **Whiteboard: curved lines and custom anchor points.** **Bends built** (WHITEBOARD_PLAN decision 30: every connector style takes bends, a grip per bend and a double-click on the line adds one, `.wb-link-waypoint-handle`; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)"), and a shape's connection points follow its outline (`wbPortsForPath`, eight fixed anchors otherwise). **Still open:** an anchor point anywhere along an object's edge, not only at those points (`wbNearestAnchor` snaps to a discrete set). A freeform curved sketch tool is a separate, bigger ask (the sketch pad is raster).
 ~~5. **Whiteboard: bring-to-front / send-to-back for a selection.**~~
    **Built.** Turned out cheaper than it looked: every item already had a
    `z` column, unused for anything but a fixed value set at creation, and
@@ -3257,16 +3186,7 @@ sub-tab, not something this session's Links/Contents additions introduced;
 cosmetic, not chased given the session's remaining budget.
 
 **Asked about directly, logged rather than built this pass:**
-1. **Whiteboard selection/move/copy UX**: **Pointer:** `scratchpad/audit1005/features.md` section 9 (the controls redesign) and section 4 rows C2 and C3; copy and paste across boards already works in a session (`whiteboard.js:4832`, `wbClipboard` survives a board switch). "highlight and select stuff and
-   move it... copy elements and move them other places or to other
-   boards... the whiteboard controls still feel annoying to use." Not
-   scoped or built this session, needs its own live audit of what
-   `whiteboard.js`'s current select/drag code actually does before judging
-   what's missing versus just rough, and copy-between-boards specifically
-   is new surface (today's model is one board's own nodes/sketches/
-   objects; moving one to a *different* board's own table is not
-   something any existing endpoint does). A real "big feature" candidate
-   for its own session, not a quick fix.
+1. ~~**Whiteboard selection/move/copy UX**~~ **Built** ("highlight and select stuff and move it... copy elements and move them other places or to other boards... the whiteboard controls still feel annoying to use"): marquee, lasso, group resize and shift-select, the controls redesign (WHITEBOARD_PLAN Phases 1 to 4) and copy and paste across boards (`wbClipboard` survives a board switch); HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)".
 2. ~~**The AI Skills tab's step/tool lists still read as unstyled**~~ **Fixed in section 108 (`.skill-fact-list`) and section 110.2 (the step numbers).**:
    reported directly, with a screenshot: numbered steps and the tool list
    render as plain paragraphs directly on the card background, with no
@@ -3540,16 +3460,7 @@ rule exists. Do not rebuild these:
 
 Genuinely open, ranked by value-per-effort:
 
-1. **Import from other note apps** (gap 5): **Pointer:** the imports agent; section 115 row 1 is the set (Notion zip, Apple Notes HTML; Markdown and Obsidian are built). *The single biggest adoption
-   blocker in the list.* A local-first tool cannot lean on a cloud migration
-   service, so a folder of Markdown, a Notion export zip and an Obsidian
-   vault all need a real importer: front-matter → tags, `[[wiki links]]` →
-   real links, attachments copied in, and a dry-run preview before anything
-   is written. Nothing here needs a model. Start with plain Markdown; Notion
-   and Obsidian are the same importer with two front-matter dialects.
-   **Plain Markdown and an Obsidian vault are built** (`/import/directory`,
-   `/import/markdown`, `test_vault_import.py`); a Notion export zip and Apple
-   Notes HTML are not (§115 row 1). **(needs Opus)**
+1. ~~**Import from other note apps** (gap 5)~~ **Built 2026-10-05** (WORLD_CLASS_PLAN H6 and row 25; HISTORY.md, "Moved from the plans, 2026-10-05 (row 25, the importers and the keyboard)"): `POST /import/app` (`entry/app_import.py`) reads a Notion export (zip, HTML), an Obsidian vault, an Evernote `.enex` and an Apple Notes export, idempotent by source, links as `[[wiki links]]`, front-matter as tags; Markdown folders were built before (`/import/directory`, `/import/markdown`); `tests/test_app_import.py`, `tests/test_vault_import.py`. **Open, small:** attachments are not copied in (Evernote's `en-media` reads as "[attachment]"), and there is no dry-run preview before anything is written.
 2. ~~**Typed note templates with structured fields**~~ **Built as note types (GRAPH_PLAN KG4, `api/routes_properties.py`).** (Gap 3): Skills are
    reusable *prompts*; this is a different thing: a category-bound field
    schema (decisions, owners, dates) that renders as a form and stores
@@ -3691,12 +3602,7 @@ anything already built is named as such so nobody rebuilds it.
 
 ### 111.2 Features worth building, ranked by value per unit of work
 
-1. **Import from other note apps.** **Pointer:** the imports agent (section 115 row 1). Still the biggest adoption blocker: a
-   local-first tool cannot lean on a cloud migration service. A folder of
-   Markdown first (front-matter → tags, `[[wiki links]]` → real links,
-   attachments copied in, dry-run preview before anything is written);
-   Notion and Obsidian are the same importer with different front-matter
-   dialects. Needs no model at all.
+1. ~~**Import from other note apps.**~~ **Built 2026-10-05** (WORLD_CLASS_PLAN H6 and row 25; HISTORY.md, "Moved from the plans, 2026-10-05 (row 25, the importers and the keyboard)"): `POST /import/app` (`entry/app_import.py`) reads a Notion export (zip, HTML), an Obsidian vault, an Evernote `.enex` and an Apple Notes export, idempotent by source, links as `[[wiki links]]`, front-matter as tags; Markdown folders were built before (`/import/directory`, `/import/markdown`); `tests/test_app_import.py`, `tests/test_vault_import.py`. **Open, small:** attachments are not copied in (Evernote's `en-media` reads as "[attachment]"), and there is no dry-run preview before anything is written.
 2. ~~**Backlinks on the note itself.**~~ **Built, see `frontend/js/notes-list.js:3431` and `menus.js:1002` (`GET /entries/{id}/backlinks`).** The graph already knows what links *to*
    a note; the note never shows it. Cheap, and it is half of what people mean
    by a connected notebook.
@@ -3788,13 +3694,7 @@ Some of it exists (`AuditLog`, Settings → Privacy); none of it is a headline.
 
 Ranked by the gap between what it costs to build and what it would be worth.
 
-1. **Import from other note apps**, **Pointer:** the imports agent (section 115 row 1). Still, and it is still first. A local-first
-   tool cannot lean on a cloud migration service, and until this exists nobody
-   with an existing notebook can *try* the app properly. Markdown folder first
-   (front-matter → tags, `[[wiki links]]` → real links, attachments copied in, a
-   dry-run preview); Obsidian and Notion exports are the same importer with
-   different front-matter dialects. **Needs no model.** Carried from §111.2 item
-   1 unchanged because it has not been done and nothing has displaced it.
+1. ~~**Import from other note apps**~~ **Built 2026-10-05** (WORLD_CLASS_PLAN H6 and row 25; HISTORY.md, "Moved from the plans, 2026-10-05 (row 25, the importers and the keyboard)"): `POST /import/app` (`entry/app_import.py`) reads a Notion export (zip, HTML), an Obsidian vault, an Evernote `.enex` and an Apple Notes export, idempotent by source, links as `[[wiki links]]`, front-matter as tags; Markdown folders were built before (`/import/directory`, `/import/markdown`); `tests/test_app_import.py`, `tests/test_vault_import.py`. **Open, small:** attachments are not copied in (Evernote's `en-media` reads as "[attachment]"), and there is no dry-run preview before anything is written.
 2. ~~**The nightly pass, as a product surface.**~~ **Built, see `frontend/js/dashboard.js` `renderNightWidget` ("While you were away": each finding opens or dismisses), `api/routes_night.py` and WORLD_CLASS_PLAN I1.** `ai/autonomous.py` exists and
    `tensions.py` exists. What does not exist is the morning artefact: *one card*
    that says what the model did overnight, new links it proposes, contradictions
@@ -3910,20 +3810,10 @@ restated.
 
 ### 116.3 PLAN.md rows not started (by track)
 
-11. **Whiteboard**: **Pointer:** PLAN.md rows W1 to W11, re-checked row by row in `scratchpad/audit1005/features.md` section 4 (trust those states). W1 group resize, W2 smart connectors, W3 sticky notes,
-    W4 frames, W6's flip keys, W7 undo that survives reload, W8 minimap in
-    fullscreen, W9 touch/pen, W10 selection export, W11 AI on the board.
-    W5 and `[`/`]` were already built (found by grep before building).
-12. **Documents**: **Pointer:** PLAN.md rows D4 to D11, re-checked in `scratchpad/audit1005/features.md` section 7. D4 tables, D6 outline drag-to-reorder, D7 callouts/
-    footnotes/math, D8 revision UI, D9 focus mode, D11 AI edit with a diff
-    preview. D10 (templates) exists (`{{date}}`/`{{title}}` in
-    documents.js): do not rebuild.
-13. **Backend**: **Pointer:** PLAN.md rows B1 to B8 and WORLD_CLASS_PLAN section 4 (B1 event log, B2 job runtime, B7 API contract). B1 one file model, B2 the job queue, B6 migration check,
-    B7 workspace scoping as a dependency, B8 backups as a product feature.
-    B4/B5: `/entries` pagination and FTS5 for notes already exist
-    (MODERNISATION_AUDIT.md §D6); the open half is the *other* lists.
-14. **Harness**: **Pointer:** PLAN.md rows A3 to A7 and WORLD_CLASS_PLAN B5 (the harness agent). A3 memory with provenance, A4 skills as files, A5 budgets
-    and a Stop that cancels, A7 MCP in and out.
+11. **Whiteboard** (PLAN.md rows W1 to W11). ~~W1 group resize, W2 smart connectors, W3 sticky notes, W4 frames, W5, W6's flip keys, W7 undo that survives reload, W8 the minimap, W10 selection export~~ **built** (checked at head 2026-10-05: `wbMultiSelection` group resize, WHITEBOARD_PLAN decisions 14, 18 and 30, `undo-store.js`'s IndexedDB history, `wbNavigator`, `wbSelectionBounds`; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)"). **Open, not found built:** W9's palm rejection by `pointerType` (a touch pointer is ignored while a pen draws; only the touch guards exist), and W11's three named selection actions ("Summarise this frame into a note", "Turn these stickies into a mind map", "Explain the connection between A and B"; the AI board tools and "Summarise this branch" are built).
+12. ~~**Documents** (PLAN.md rows D4 to D11)~~ **Built** (checked at head 2026-10-05: tables `tests/test_doc_tables.py`, outline drag-to-reorder `docOutlineDragIndex`, callouts and footnotes in `markdown.js`, math `tests/test_doc_math.py`, the revision timeline `tests/test_document_revisions.py`, focus mode (F11) and the dim and typewriter toggles, the AI edit with per-hunk accept (`docAiHunks`, `POST /documents/{id}/ai-edit`); D10 templates exist; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)").
+13. **Backend** (PLAN.md rows B1 to B8). ~~B1 the event log (`core/events.py`), B3 errors as a contract, B8 backups as a product feature (`core/backup_bundle.py`)~~ **built.** **Open:** B2's remainder (13 thread modules not yet on `core/jobs.py`, `tests/test_flaw_class_lints.py`'s ratchet), B4/B5's other lists (`/entries` pagination and FTS5 for notes exist), B6's startup check that refuses an unknown schema version, B7's workspace scoping as an explicit dependency.
+14. **Harness** (PLAN.md rows A3 to A7). ~~A4 skills as files (`ai/skill_folder.py`, `<data dir>/skills/`), A7's expose half (`mcp_server.py`)~~ **built.** **Open, not re-checked here:** A3's per-line provenance, A5's per-turn budget with a Stop that rolls back partial tool writes, A7's consume half (needs the trust model decided).
 
 ### 116.4 Tooling
 
@@ -3940,12 +3830,12 @@ a session or less and names its gate.
 
 | # | Refinement | Gate |
 | --- | --- | --- |
-| 1 | Import from Obsidian (a vault folder), a Notion export and Apple Notes (HTML), with links and attachments kept | a round-trip test per format under `tests/` |
+| 1 | ~~Import from Obsidian (a vault folder), a Notion export and Apple Notes (HTML), with links and attachments kept~~ **Built 2026-10-05** (`POST /import/app`, `tests/test_app_import.py`; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)"); open, small: attachments are not copied in and there is no dry-run preview | a round-trip test per format under `tests/` |
 | 2 | **Pointer:** `scratchpad/audit1005/features.md` section 7 (footnotes in print FEAT-03, page setup D4). Print and PDF export of a document with its citations as footnotes | `core/docexport.py` test per format; a printed page has no clipped table |
-| 3 | Keyboard-complete: every dock action reachable without a mouse, on every tab | `scratchpad/ui-sweeps/keys.js` extended to every tab, zero unreachable |
-| 4 | WCAG AA: contrast, focus order, names on every control, the phone floor | `contrast.js`, `touch.js` and an axe pass clean in both themes |
+| 3 | ~~Keyboard-complete: every dock action reachable without a mouse, on every tab~~ **Measured 2026-10-05, nothing to fix:** `scratchpad/ui-sweeps/inv1005-keyreach.js` (140 presses, zero unreachable controls); HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)" | `scratchpad/ui-sweeps/keys.js` extended to every tab, zero unreachable |
+| 4 | ~~WCAG AA: contrast, focus order, names on every control, the phone floor~~ **Built 2026-10-05:** the axe sweep (`axe.js`, run by `all.sh` when axe-core is at `AXE_JS`), 0 findings at 1440 light and dark, one rule at 390; HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)" | `contrast.js`, `touch.js` and an axe pass clean in both themes |
 | 5 | **Next:** `__main__.py` opens one `webview.create_window` per launch; a second needs a route per document or board and the lock state shared, Windows to verify, so the owner's machine. Multi-window on the desktop: a document or a board in its own window | `__main__.py` opens a second webview on a route; state survives a reload |
-| 6 | **Next:** the tour is built (`tour.js`, `TOUR_SECTIONS`) and "Your setup" offers example notes; its last step has to focus the capture box and hand off to Ask, with the time-to-first-answer measured by a sweep. First-run tour that ends in a first note and a first question | time to first answer measured in the tour's own test, under two minutes |
+| 6 | ~~First-run tour that ends in a first note and a first question~~ **Built 2026-10-05:** `scratchpad/ui-sweeps/inv1005-firstrun.js` times it from an empty data folder (the first question no longer pays the embedding model's cold load); HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)" | time to first answer measured in the tour's own test, under two minutes |
 | 7 | **Built apart from the timing gate:** `frontend/js/skills.js:1241-1377` and `tag-manager.js:674` (the Notes selection bar), `library.js` `bulkDelete*`/`bulkMove*` (the Library's own). Bulk operations in the Library: select many, tag, move, export, delete, with undo | a 500-row selection completes in under a second, measured |
 | 8 | **Built, see `frontend/js/settings-wiring.js` (`renderSavedSearches`, `persistSavedSearches`, `saveCurrentSearch`: the `saved_searches` preference as chips under the Notes filter, `#saved-searches`) and `tests/test_keyword_search.py` (`test_saved_searches_round_trip`).** Saved searches and smart folders (a query as a sidebar entry) | `search/query.py` round-trips every saved query |
 | 9 | **Built, see `frontend/index.html:798` (`#note-template-dialog`, DOCUMENTS_PLAN and CHANGELOG 2026-09-24: built-ins editable) and `BUILTIN_TEMPLATES`.** Templates for notes, not only documents and boards | one recipe shared with the document template chooser |

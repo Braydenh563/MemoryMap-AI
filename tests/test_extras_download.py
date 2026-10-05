@@ -353,7 +353,16 @@ def test_the_install_reaches_the_task_history(client, monkeypatch, server):
     _point_at(monkeypatch, "pyodide", server, {"core.tar.bz2": _tar_bz2(PYODIDE_FILES)})
     extras.start("pyodide")
     _wait()
-    assert any("Python" in str(row) for row in taskhistory.recent())
+    # The worker lowers `running` first and writes the history row a few
+    # statements later (`_run_download_install`'s finally block), so `_wait()`
+    # returning does not mean the row exists yet: on a loaded machine the test
+    # thread wins that gap. Poll for the row, with a ceiling far above the gap.
+    deadline = time.time() + 30
+    rows = taskhistory.recent()
+    while not any("Python" in str(row) for row in rows) and time.time() < deadline:
+        time.sleep(0.02)
+        rows = taskhistory.recent()
+    assert any("Python" in str(row) for row in rows), rows
 
 
 # --- needle's platform gate -------------------------------------------------------

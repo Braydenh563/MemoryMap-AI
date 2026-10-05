@@ -53,15 +53,46 @@ def test_an_ambiguous_first_name_is_less_sure_and_a_dismissed_pair_never_returns
     assert merge_candidates(_ents(("Sam", {1}), ("Sam Lee", {1})), exclude={frozenset((1, 2))}) == []
 
 
+#: CPU seconds this machine's reference workload took when the 1.0 s budget
+#: was set (a 4-core sandbox, 2026-10-05; merge_candidates took 0.20 s there).
+REFERENCE_CPU_SECONDS = 0.11
+
+
+def _reference_seconds() -> float:
+    """A fixed pure-Python workload close to the pass's own (SequenceMatcher on
+    short names), so the budget can be read in this machine's units."""
+    from difflib import SequenceMatcher
+
+    times = []
+    for _ in range(3):
+        started = time.process_time()
+        for i in range(4000):
+            SequenceMatcher(None, f"kalomira suteva {i}", f"kalomiro sutevo {i * 7}").ratio()
+        times.append(time.process_time() - started)
+    return min(times)
+
+
 def test_merge_candidates_at_five_thousand_entities_is_quick():
+    """Under a second for 5,000 names on a machine as fast as the one the
+    budget was set on, and proportionally more on a slower one. A fixed 1.0 s
+    failed on CI runners several times slower than a laptop (1.71 s of CPU
+    time, 2026-10-05), which said nothing about the pass. CPU time, best of
+    three, so other processes do not count; the reference workload scales the
+    budget, never the other way round (a faster machine keeps 1.0 s)."""
     rng = random.Random(4)
     syll = ["ka", "lo", "mi", "ra", "su", "te", "vo", "ne", "pa", "di", "ro", "ya"]
     word = lambda: "".join(rng.choice(syll) for _ in range(rng.randint(2, 3))).title()  # noqa: E731
     surnames = [word() for _ in range(60)]
     rows = [(f"{word()} {rng.choice(surnames)}", {i}) for i in range(5000)]
-    started = time.perf_counter()
-    merge_candidates(_ents(*rows))
-    assert time.perf_counter() - started < 1.0
+    ents = _ents(*rows)
+    times = []
+    for _ in range(3):
+        started = time.process_time()
+        merge_candidates(ents)
+        times.append(time.process_time() - started)
+    took = min(times)
+    budget = 1.0 * max(1.0, _reference_seconds() / REFERENCE_CPU_SECONDS)
+    assert took < budget, (took, budget)
 
 
 def test_a_cue_in_the_sentence_or_the_reason_suggests_a_type():

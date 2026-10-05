@@ -193,7 +193,8 @@ def categorise(
             return semantic
 
     category, confidence, method = _ask_llm(
-        session, content, model_manager, ollama, on_late=on_late_llm, deadline=model_deadline
+        session, content, model_manager, ollama, on_late=on_late_llm, deadline=model_deadline,
+        exclude_entry_id=exclude_entry_id,
     )
     if method == "timeout":
         # The model is still answering and its answer will be applied when
@@ -581,6 +582,7 @@ def _ask_llm(
     ollama: OllamaClient,
     on_late=None,  # noqa: ANN001
     deadline: float | None = None,
+    exclude_entry_id: int | None = None,
 ) -> tuple[str, int, str]:
     if not ollama.is_running():
         return UNCATEGORISED, 0, "none"
@@ -595,7 +597,7 @@ def _ask_llm(
     # categories (Brief 13). Filing the same kind of note into the same wrong
     # place every week, with the user moving it every week, is the reported
     # failure this answers.
-    user_prompt = librarian.filing_prompt(session, content, existing)
+    user_prompt = librarian.filing_prompt(session, content, existing, exclude_entry_id=exclude_entry_id)
     try:
         reply = _chat_within_deadline(
             ollama,

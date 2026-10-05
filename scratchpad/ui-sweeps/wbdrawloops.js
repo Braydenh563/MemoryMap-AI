@@ -12,7 +12,7 @@
 // draw loops, whatever the machine is doing.
 //
 // Deliberately not a claim about the drag lag itself, which is still
-// unattributed (`agent-remaining/mindmap.md`).
+// unattributed (`archive/agent-remaining/mindmap.md`).
 //
 //   BASE=http://127.0.0.1:8932 SCRATCH=/tmp/mm-wb4 \
 //   PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node scratchpad/ui-sweeps/wbdrawloops.js

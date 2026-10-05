@@ -33,7 +33,7 @@ function ok(name, good, detail) {
 
 // Clicks through the real UI, the way mapstrip.js does: `openWhiteboardBoard`
 // called from `page.evaluate` leaves the boards landing showing and the board
-// never opens (agent-remaining/mindmap.md, "what the next run should not
+// never opens (archive/agent-remaining/mindmap.md, "what the next run should not
 // repeat").
 async function newBoard(page, name, type) {
   await page.click('[data-tab="library"]');
@@ -119,7 +119,7 @@ async function newBoard(page, name, type) {
 
   // Every pair that writes a file, driven through the dialog's own buttons.
   // PDF is left out on purpose: it goes through the browser's print dialog,
-  // which Playwright cannot complete (agent-remaining/mindmap.md says the same).
+  // which Playwright cannot complete (archive/agent-remaining/mindmap.md says the same).
   const pairs = [];
   for (const format of ["png", "library", "svg"]) {
     for (const scope of ["selection", "visible", "whole"]) {

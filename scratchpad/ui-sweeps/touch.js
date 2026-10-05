@@ -103,6 +103,11 @@ const SURFACES = [
   await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#lock-password', { state: 'visible', timeout: 20000 });
   await page.fill('#lock-password', PW); await page.click('#lock-submit'); await page.waitForTimeout(2500);
+  //: The opening curtain (lib.js, INBOX 577): the lock stays up, "Opening…",
+  //: while the first tab draws; read as a failed unlock, the field was
+  //: filled again as it faded and the fill timed out (qa-1005, light 390).
+  await page.waitForFunction(() => !document.documentElement.classList.contains('shell-curtain')
+    && !document.querySelector('#lock-overlay.lock-leaving'), null, { timeout: 15000, polling: 100 }).catch(() => {});
   if (await page.$('#lock-password') && await page.isVisible('#lock-password')) {
     await page.fill('#lock-password', PW); await page.click('#lock-submit'); await page.waitForTimeout(2500);
   }

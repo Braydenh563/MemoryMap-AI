@@ -28,7 +28,7 @@ function check(label, ok, detail) {
 }
 
 // Through the real UI: `openWhiteboardBoard` from `page.evaluate` leaves the
-// boards landing showing (agent-remaining/mindmap.md).
+// boards landing showing (archive/agent-remaining/mindmap.md).
 async function newBoard(page, name) {
   await page.click('[data-tab="library"]');
   await page.waitForTimeout(500);

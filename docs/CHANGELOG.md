@@ -308,6 +308,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 
+- Mind maps: the + on a map line is one Undo step that puts the branch back under its parent; Redo brings the new topic back between them; any topic taken back by Undo comes back under its parent on Redo, and a batch redoes in the right order (INBOX 537).
 Graph: a topic summary request's shared terms are capped at 200 characters each.
 Suggestions: a decision's signal names are capped at 40 characters (they are kept in the learning table for good).
 Agent: a small model's runaway bracket (thousands of [ or { in one tool argument) failed that one call as unreadable JSON; it raised RecursionError past every reader and ended the whole turn.

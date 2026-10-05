@@ -575,7 +575,23 @@ per-claim citations and "what changed about X" possible. Gate: rebuild from
 scratch on the fixture is deterministic; every derived row cites its
 source event.
 
-**State 2026-09-24:** (b) `entities`, `entity_mentions` and `derived_facts` (kinds `claim` and `question`) exist, and tensions are computed per request (`routes_entries.py`); typed links, a derived tensions table, the rebuild-from-events determinism and the Tensions widget are not built. M to L, Opus.
+**State 2026-10-05:** typed links (KG3: `LINK_TYPES` plus a person's own relation types, with inverses), the derived tensions table, its rebuild determinism and the Tensions widget are built (HISTORY, "row 18: the derived tensions table"). Left: derived person and project pages beyond KG5's entity page, per-claim citations, and "what changed about X".
+
+**Decisions made, 2026-10-05 (recommendations taken):** (1) B4's link
+vocabulary is the one KG3 built, not a second one: refers-to is a wiki-origin
+link (`origin="wiki"`), follows is `continues`, part-of is a person's own
+relation type; adding five more built-ins would split one meaning across two
+names. (2) The derived tensions table is a view: the source of a scan's
+finding and of every decision is an event (`AuditLog`, `entity_type=
+"tension"`), the night shift's findings stay in `derived_facts`, and the
+accepted state is the `contradicts` link; the table is rebuilt when any of the
+three moves, never written directly. (3) One pair, one row: the earliest
+finding names it, and a link is "accepted" whoever made it; accepted and then
+unlinked is a dismissal, so the pair is not offered again. (4) "Cites its
+source event": the scan's own event, the link's `linked` event, or for a night
+finding the later note's newest event when it was read. (5) Forgetting what
+was derived (Settings, Learned) takes the findings and decisions with the
+facts; a person's `contradicts` link stays.
 
 ### B5 The AI harness: plan, act, verify, budget, learn
 
@@ -794,7 +810,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | 15 | §1.3 | Remind me on documents and boards (the reminder must point at other kinds first), Show in graph for a document, the Library note card's Remind me and Link to | S to M | app.js, library.js, `routes_reminders.py` |
 | 16 | B7 | cursor pagination, ETags and `If-Match` on entries, `/capabilities` | M | `api/` |
 | 17 | B8, H4 | a user skills folder picked up without a restart; `/api/v1`; the agent named on an external write | M | `ai/skills.py`, `mcp_server.py` |
-| 18 | B4 | typed links, a derived tensions table, rebuild determinism, the Tensions widget | M to L | `ai/tensions.py`, `ai/entities.py` |
+| 18 | ~~B4~~ | ~~typed links, a derived tensions table, rebuild determinism, the Tensions widget~~ built 2026-10-05 (`tensions` table rebuilt from events, night facts and links, `tests/test_tensions_table_b4.py`; typed links were KG3); left: derived person and project pages, per-claim citations, "what changed about X" | done | HISTORY |
 | 19 | B5, §9 | per-tool pre and post conditions, grammar-forced JSON, evals at 3B and 4B, concurrent tool calls, Ollama's native dialect | M | `ai/tools/`, `tests/test_skills_evals.py` |
 | 20 | I7 | the "Learned from you" line with a filing accuracy number | S | `settings.js` |
 | 21 | I8, H3 | the model bench | M | a new `ai/bench.py` |

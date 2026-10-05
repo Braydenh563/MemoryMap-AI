@@ -4273,26 +4273,50 @@ async function renderOrphanNotesWidget(body) {
  * dashboard drew would be the most expensive thing on the page.
  */
 async function renderTensionsWidget(body) {
-  const [entries, graph] = await Promise.all([
+  //: WORLD_CLASS_PLAN B4: what is already known comes from the derived
+  //: tensions table (`GET /entries/tensions/known`), which no model is asked
+  //: to fill: a scan's findings, the night shift's, and the pairs linked as
+  //: contradicting. The review itself still runs only when asked.
+  const [entries, known] = await Promise.all([
     dashEntries(),
-    fetchDashGraph().catch(() => null),
+    apiJson("/entries/tensions/known?limit=3", { silent: true }).catch(() => null),
   ]);
-  // Already-accepted tensions are the one part that *is* cheap to show: they
-  // are ordinary links with a type, so the graph already carries them.
-  const accepted = ((graph && graph.edges) || []).filter((e) => e.link_type === "contradicts").length;
+  const counts = (known && known.counts) || {};
+  const pending = (known && known.tensions) || [];
+  const accepted = counts.accepted || 0;
 
   const blurb = document.createElement("p");
   blurb.className = "muted";
-  blurb.textContent = accepted
-    ? `${accepted} place${accepted === 1 ? "" : "s"} where your notes contradict each other.`
-    : "Nothing here can tell you where you changed your mind, until you look.";
+  const linked = accepted ? `${accepted} linked as contradicting` : "";
+  blurb.textContent = counts.open
+    ? [`${counts.open} disagreement${counts.open === 1 ? "" : "s"} to look at`, linked].filter(Boolean).join(", ") + "."
+    : accepted
+      ? `${accepted} place${accepted === 1 ? "" : "s"} where your notes contradict each other.`
+      : "Nothing here can tell you where you changed your mind, until you look.";
   body.appendChild(blurb);
 
-  const explain = document.createElement("p");
-  explain.className = "muted dash-tension-explain";
-  explain.textContent =
-    "Similar-notes search finds what belongs together. This reads pairs with your local model and looks for the opposite: claims that can't both be right.";
-  body.appendChild(explain);
+  if (pending.length) {
+    const list = document.createElement("ul");
+    list.className = "dash-list night-facts dash-tensions";
+    const left = { n: counts.open || pending.length };
+    const gone = () => {
+      left.n -= 1;
+      if (!list.children.length) {
+        const done = document.createElement("p");
+        done.className = "muted";
+        done.textContent = left.n > 0 ? `${left.n} more in the review.` : "All decided.";
+        list.replaceWith(done);
+      }
+    };
+    for (const tension of pending) list.appendChild(dashTensionRow(tension, gone));
+    body.appendChild(list);
+  } else {
+    const explain = document.createElement("p");
+    explain.className = "muted dash-tension-explain";
+    explain.textContent =
+      "Similar-notes search finds what belongs together. This reads pairs with your local model and looks for the opposite: claims that can't both be right.";
+    body.appendChild(explain);
+  }
 
   const open = document.createElement("button");
   open.type = "button";
@@ -4304,6 +4328,62 @@ async function renderTensionsWidget(body) {
   open.disabled = entries.length < 2;
   open.addEventListener("click", () => openSuggestionsInbox("tensions"));
   body.appendChild(open);
+}
+
+//: One known disagreement on the widget: the two notes by name, the reason,
+//: and who found it when (B4's "computed by <model> at <ts>"), with the same
+//: icon actions as the night card's rows: open either note, link them as
+//: contradicting, or dismiss.
+function dashTensionRow(tension, onGone) {
+  const li = document.createElement("li");
+  li.className = "night-fact";
+  const text = document.createElement("span");
+  text.className = "dash-list-text";
+  const title = document.createElement("span");
+  title.className = "dash-list-title night-fact-text";
+  title.textContent = `${tension.earlier_title || "Untitled note"} and ${tension.later_title || "Untitled note"}`;
+  const why = document.createElement("span");
+  why.className = "dash-list-preview night-fact-pair";
+  why.textContent = tension.explanation || "Linked as contradicting.";
+  const meta = document.createElement("span");
+  meta.className = "dash-list-preview";
+  const who = tension.model === "local" ? "Found without a model" : tension.model === "person" ? "Linked by you" : `Found by ${tension.model}`;
+  meta.textContent = [who, tension.computed_at ? dashRelativeTime(tension.computed_at) : ""].filter(Boolean).join(" · ");
+  text.append(title, why, meta);
+  const actions = document.createElement("span");
+  actions.className = "night-fact-actions";
+  const button = (icon, label, run) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ghost small icon-only";
+    b.title = label;
+    b.setAttribute("aria-label", label);
+    setLabel(b, icon);
+    b.addEventListener("click", run);
+    return b;
+  };
+  const ids = JSON.stringify({ earlier_id: tension.earlier_id, later_id: tension.later_id });
+  const decide = (path, done) => async (event) => {
+    const pressed = event.currentTarget;
+    pressed.disabled = true;
+    try {
+      await apiJson(path, { method: "POST", body: ids });
+      toast(done);
+      li.remove();
+      onGone();
+    } catch (error) {
+      pressed.disabled = false;
+      toast(error.message || "Couldn't save that.", true);
+    }
+  };
+  actions.append(
+    button("ph:arrow-square-out", "Open the earlier note", () => flashEntry(tension.earlier_id)),
+    button("ph:arrows-left-right", "Open the later note", () => flashEntry(tension.later_id)),
+    button("ph:link", "Link the two notes as contradicting", decide("/entries/tensions/accept", "Linked as contradicting")),
+    button("ph:x", "Not a contradiction", decide("/entries/tensions/dismiss", "Dismissed: this pair won't come back.")),
+  );
+  li.append(text, actions);
+  return li;
 }
 
 //: **On this day.** A notebook accumulates, and the thing that makes years of

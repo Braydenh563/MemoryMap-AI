@@ -5020,6 +5020,17 @@ button.answer-figure-open {
   gap: var(--space-1);
 }
 
+/* The Tensions widget's rows carry four actions: where the card is too
+   narrow for the names beside them (a phone, a narrow column), the actions
+   go under the words rather than squeezing them to a word a line. */
+.dash-tensions > li.night-fact {
+  flex-wrap: wrap;
+}
+
+.dash-tensions > li.night-fact > .dash-list-text {
+  flex-basis: 10rem;
+}
+
 .night-more {
   margin-top: var(--space-1);
 }

@@ -194,7 +194,7 @@ H2 evidence cards and open questions, H3 the model bench, H6 professional
 use (imports, print and PDF, keyboard-complete, WCAG audit, multi-window,
 first-run tour; 253 is its first row), H4 the API contract and extensions,
 H8 time travel and the margin reader, H5 sync. Behind them the backend
-moves B2's second half, B4, B6 to B8 and the inventions I1 to I3 and I5 to
+moves B2's second half, B4's pages and citations (its tensions table is built), B6 to B8 and the inventions I1 to I3 and I5 to
 I8, each with its spec test named in the plan.
 
 **Done-when for the next session:** sections A and B empty, each Built

@@ -633,7 +633,12 @@ HELP_TOPICS: list[dict] = [
             "over the notebook with the local model. It never edits anything: "
             "the point is to show you the pair and let you decide. Open "
             "Suggestions (the Tensions widget's Review disagreements, or the "
-            "command palette), choose Tensions and press Start the review."
+            "command palette), choose Tensions and press Start the review. "
+            "What a review or the overnight pass already found stays found: "
+            "the Tensions widget lists the pairs still to decide, each with "
+            "what it is about and which model found it when, and its buttons "
+            "open either note, link the two as contradicting, or dismiss the "
+            "pair for good. A review only reads pairs it has not read before."
         ),
         "badge": {"label": "Dashboard", "tab": "dashboard"},
     },

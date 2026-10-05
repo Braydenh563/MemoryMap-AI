@@ -1103,6 +1103,17 @@ def forget(session: Session) -> dict[str, int]:
         .filter(AuditLog.action == "correction")
         .delete(synchronize_session=False)
     )
+    # The tension events (found, accepted, dismissed) are derived findings and
+    # the decisions on them, the same two things as the facts and the
+    # corrections above; the table built from them goes with them. A
+    # `contradicts` link stays (a person's link), so the table rebuilt next
+    # lists it as accepted, and nothing else.
+    from memorymap.ai import tensions
+    from memorymap.core.database import DerivedTension
+
+    session.query(AuditLog).filter(AuditLog.entity_type == tensions.EVENT_TYPE).delete(synchronize_session=False)
+    session.query(DerivedTension).delete(synchronize_session=False)
+    tensions._built.clear()
     session.flush()
     return {"facts": facts, "corrections": corrections, "scores": scores}
 

@@ -40535,6 +40535,44 @@ plan's item 6 decided on, and it fits the budget as it is.
   square in its row (28px desktop, 44px touch), and choosing "Lisbon" fills
   the field.
 
+## Moved from the plans, 2026-10-05 (row 18: the derived tensions table)
+
+WORLD_CLASS_PLAN B4, row 18. Typed links were already KG3 (`LINK_TYPES` plus
+`relation_types`). Built here:
+
+- **The table** (`tensions`, `DerivedTension` in `core/database.py`): one row
+  per pair of notes, with its status (open, accepted, dismissed), the reason,
+  who decided it (a model, `local`, or `person`), when, its source (scan,
+  night, link) and the event it cites. A new table, so `create_all` builds it;
+  no migration.
+- **The sources** (`ai/tensions.py`, `derive`): tension events written by the
+  scan (`tension_found`, with reason, model and confidence) and by Accept and
+  Dismiss (`tension_accepted`, `tension_dismissed`), all `entity_type=
+  "tension"` so the entity index serves them; the night shift's `tension`
+  facts (a tombstone is a dismissal); the `contradicts` links. `refresh`
+  rebuilds when `sources_version` (seven indexed aggregates) moved;
+  `rebuild` runs with the space filter lifted, so a request in one space never
+  drops another space's links.
+- **The scan never asks twice**: `GET /entries/tensions` skips every pair in
+  the table and records each new finding as an event.
+  `GET /entries/tensions/known?status=` lists the table in the scan's shape
+  plus status, model, computed_at, source and event_id; a pair whose note is
+  private, binned or in another space is hidden by the join.
+- **The widget** (`renderTensionsWidget`, `dashTensionRow` in dashboard.js):
+  the open pairs by both names, the reason, "Found by <model> · <when>" (B4's
+  stamp), and the night card's four icon actions (open either note, link as
+  contradicting, dismiss); the review sheet lists what was found earlier
+  before Start the review is pressed. Actions go under the words where the
+  card is narrow.
+- Tests: `tests/test_tensions_table_b4.py` (7: each source and state, a
+  rebuild from nothing equal to the first, every row's event exists and
+  matches, accept and un-link, privacy, the scan records and never asks
+  twice, forgetting). Sweep: `scratchpad/ui-sweeps/kg1005-tensions.js` 9/9 at
+  1440 light and 390 dark (four 28px, or 44px touch, square buttons inside the
+  card; linking takes the row away and the table has it accepted).
+- Not verified: a real local model's verdicts (the scan's judge is faked, the
+  night pass ran on its no-model rule).
+
 ## INBOX resolved, 2026-10-05
 
 543. **The owner, 2026-10-05, verbatim.** "this top part of the timeline needs

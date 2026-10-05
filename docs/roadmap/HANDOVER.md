@@ -2,6 +2,8 @@
 
 > **Models and count, the owner 2026-10-05:** mainly Opus; Sonnet for well defined, labour tasks ("actually mainly use opus but just remember that sonnet is there for well defined and labour tasks"). Once the current four finish, at most three agents at once.
 >
+> **More Sonnet, the owner 2026-10-05:** "focus on finishing everything open. work faster, be thorough, be more token efficient. Ill allow more agents if they are sonnet 5.5". At most four Opus; extra agents beyond that are Sonnet. Shared rules: agent-remaining/agent_rules_1005.md.
+>
 > **Agent count, the owner 2026-10-05:** "after these agents are done drop down one or two agents so the usage isnt as close". Running agents are not replaced as they finish; at most four at once from here.
 
 ## 2026-09-08, the third night: read this block first, whoever you are

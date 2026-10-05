@@ -547,6 +547,46 @@ def retry_stand_ins() -> int:
     return len(waiting)
 
 
+def _embed_entry_in_background(entry_id: int, workspace_id: str) -> None:
+    """Embed an edited note's new text after its PUT has returned.
+
+    Its own session in the note's own space, as `_file_entry_in_background`.
+    A note deleted before this runs is left alone. An edit that lands while
+    this one embeds is folded into it (the queue's dedupe returns the running
+    job), so the text is read again after storing and embedded again if it
+    moved: the vector left behind is always the newest text's.
+    """
+    from memorymap.core.deps import impersonate_workspace
+
+    try:
+        with deps.get_db().session() as session:
+            with impersonate_workspace(session, workspace_id):
+                for _ in range(3):
+                    entry = session.get(Entry, entry_id)
+                    if entry is None or entry.is_deleted:
+                        return
+                    seen = entry.content
+                    deps.store_quietly(session, entry)
+                    session.expire_all()
+                    again = session.get(Entry, entry_id)
+                    if again is None or again.content == seen:
+                        return
+    except Exception:
+        logger.warning("couldn't embed edited entry %s", entry_id, exc_info=True)
+
+
+def _queue_embedding(entry) -> None:
+    """One embedding job per note in flight, on the model lane: a burst of
+    autosaves while the first job waits is one embed of the newest text."""
+    jobs.enqueue(
+        "embed-entry",
+        _embed_entry_in_background,
+        entry.id,
+        getattr(entry, "workspace_id", "default") or "default",
+        dedupe_key=("embed-entry", entry.id),
+    )
+
+
 def _queue_filing(entry) -> None:
     """One filing job per note in flight: the key makes a second call while
     the first is queued or running a no-op, so `filing_status` can ask again
@@ -2361,7 +2401,12 @@ def update_entry(
             )
             session.rollback()
         else:
-            deps.store_quietly(session, entry)
+            #: Off the request (audit 2026-10-05, ARCH-02 step 5): an edit
+            #: used to embed here, a model call of 200 to 400 ms on a real
+            #: embedder before the editor's save returned. The stale vector
+            #: is already gone, so until the job runs the note is found by
+            #: its words, as a note saved with the embedder off is.
+            _queue_embedding(entry)
         # Editing a note can introduce new [[links]]; resolve those too.
         try:
             manager.sync_wiki_links(session, entry)

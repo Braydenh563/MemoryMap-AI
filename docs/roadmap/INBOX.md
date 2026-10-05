@@ -139,6 +139,11 @@ with its owner named in the entry.
      map, and a mind map usability pass, as phased briefs. Each phase then
      goes to one Opus agent, its decisions entered in WHITEBOARD_PLAN and
      MINDMAP_PLAN.
+     Then (verbatim): "also the ability to save custom elements and stuff as
+     well": saved selections, custom shapes drawn on the board, saved styles
+     and palettes, sticky/card/topic presets, saved branches, and whole
+     boards as templates, all in the library's "Yours", importable and
+     exportable.
 
 525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
      dark background behind the graph labels togglable??" Next Opus: the

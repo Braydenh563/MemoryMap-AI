@@ -498,6 +498,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ### Fixed
 - Settings, Skills and Personas: the "Built-in" label on a list row is readable in light (4.27:1 before, three tints stacked under muted type); it takes the ink, as the "Installed" label already did.
+- A whiteboard or mind map in a note no longer reads "This board is no longer in your notebook" when the note is drawn a second time while the first look for the board is still on its way: the second card now waits for that look instead of treating it as an answer. Measured with a board made a second before its note was opened: the card drew as removed in every run before, and as the board in every run after (`noteobject.js`).
 - Alignment and loading: a Timeline row's kind mark, title and time sit on one line (the mark was 1.2px above the title in a one-line row), and the Settings lists that fill from a request (Packages and its embedding models, Skills, Tools, Personas, Backups, Privacy, Account) show skeleton rows while they load instead of a blank space (INBOX 542, 596).
 - Settings: Models, What it remembers, What it learned and the Logs list show placeholder rows while their first answer is on its way, instead of a bare "Checking the models…" line or an empty pane; Models paints the last known status the moment Settings opens.
 - Capture: the formatting strip is the one-row folded bar from its first paint on a phone (it drew two rows, 104px, and folded to 54px when the Library code loaded, a jump under the thumb).

@@ -684,10 +684,12 @@ function mdEmbedElement(name, depth) {
 //: synchronous because it runs inside a render pass. So an unloaded index
 //: draws the resting card, asks for the index, and fills in place. It cannot
 //: loop: `loadMapBoardIndex` de-duplicates and caches for eight seconds.
-//: The board ids a forced index refresh has already looked for and not found.
+//: The board ids a forced index refresh has been asked about: a promise while
+//: that walk is in flight, `true` once it answered without finding the board.
 //: See `fill` below: this is what keeps a dead reference from costing a
-//: request per render.
-const boardEmbedForced = new Set();
+//: request per render, and what lets a second render of the same note wait on
+//: the walk the first one started instead of calling its card a tombstone.
+const boardEmbedForced = new Map();
 
 function boardEmbedElement(ref) {
   const box = document.createElement("div");
@@ -716,12 +718,32 @@ function boardEmbedElement(ref) {
     //: A reference a forced refresh has already failed to find is not asked
     //: about again: without this, every re-render of a note holding a dead
     //: object would walk `/whiteboard/boards` from the top.
-    if (boardEmbedForced.has(ref.id) || typeof loadMapBoardIndex !== "function") {
+    if (typeof loadMapBoardIndex !== "function") {
       fill(true);
       return;
     }
-    boardEmbedForced.add(ref.id);
-    loadMapBoardIndex(true).then(() => fill(true), () => fill(true));
+    let walk = boardEmbedForced.get(ref.id);
+    if (walk === true) {
+      fill(true);
+      return;
+    }
+    //: **A walk still in flight is waited on, not read as an answer.** The
+    //: list re-renders a note a few milliseconds after drawing it (a second
+    //: `loadEntries`, a poll), and that second card used to find the id
+    //: already marked, skip the wait and write the tombstone while the
+    //: walk that would have found the board was still on the wire; the first
+    //: card, the one that was waiting, had already left the page. Measured
+    //: (`noteobject.js`): a board made a second earlier drawn as "no longer
+    //: in your notebook" in the note that holds it, every run.
+    if (!walk) {
+      walk = loadMapBoardIndex(true)
+        .catch(() => null)
+        .then(() => {
+          boardEmbedForced.set(ref.id, true);
+        });
+      boardEmbedForced.set(ref.id, walk);
+    }
+    walk.then(() => fill(true));
   };
   fill(false);
   return box;

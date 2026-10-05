@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Filing: a note of one to three words is filed by meaning only when its nearest filed note is close (0.72), so "ai is cool" no longer lands in whichever category is least far; measured with the shipped embedding model, 59 of 60 short notes that have a home still file and 3 of 20 that have none do (it was all 20). Otherwise it falls to your notebook's own words, or the model.
 - Background tasks: notes that were filed by your notebook's own words while no model was available get a second opinion once one is back (20 a tick); the ones the model files elsewhere move, and the rest are marked as the AI's, so moving one by hand teaches the filer. Never a private, binned or hand-filed note.
 - Library, Activity: an Export as CSV button saves the activity log as a spreadsheet (when, who, what, which note, and the names of the fields it changed, never their values), oldest first, and the export is itself logged; `GET /audit/export.csv`.
 - Mind maps: import an XMind file (.xmind, XMind Zen and later): Import outline… reads its first sheet with its central topic as the map's root, and each topic's notes. An XMind 8 file is refused with how to get the newer one.

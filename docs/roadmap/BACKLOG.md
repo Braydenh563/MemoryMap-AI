@@ -530,19 +530,10 @@ ten-second grep-first check as everything else in this document before
 anyone spends a session on them. (The other four of the original five were
 checked 2026-10-04 and are in HISTORY.md, "Moved from the backlog".)
 
-- **A note filed under the wrong category by a wide margin** — "I wrote 'ai
-  is cool' as a note and it was filed under Sketches". Sketches is a specific
-  category the janitor's cheap embedding-centroid path can match against
-  (§4 of `ARCHITECTURE.md`), so this smells like a centroid gone stale or too
-  few notes in the right category to out-vote it, rather than a one-off.
-  Worth checking what "Sketches" actually contains before assuming the AI is
-  at fault. **(needs Opus)**: checked 2026-10-04, no repro and no guard for
-  a three-word note: `janitor._semantic_category` files at a centroid
-  similarity of 0.60 (`CONFIDENT_MATCH`) or a kNN vote (`KNN_MIN_SIMILARITY`
-  0.42, `KNN_MIN_SHARE` 0.55) with no length floor, so a very short note's
-  vector can land anywhere. Whether a floor belongs there, and at what
-  length, is a filing-quality judgement to measure against a real notebook.
-  **Next:** a failing test in `tests/` seeding a two-category notebook and filing "ai is cool" through `janitor._semantic_category` (`ai/janitor.py`), then a word-count floor beside `CONFIDENT_MATCH` that falls through to `lexical_filing.py`; the floor's number needs a real notebook, so measure it before choosing it.
+- **A note filed under the wrong category by a wide margin** ("ai is cool" filed
+  under Sketches): **built 2026-10-05**, HISTORY.md ("backlog-1005"). A note under
+  four words files by meaning only when its nearest filed note is 0.72 close
+  (`janitor.SHORT_NOTE_MIN_NEIGHBOUR`), measured with the real embedding model.
 
 **The lesson worth keeping.** Four of these were "this control does nothing",
 and in three of the four the control was working perfectly — the write landed

@@ -12,6 +12,17 @@ that answers "has this been done?" before anyone starts.
 One agent's pass over BACKLOG and the plans' open lines; each bullet says how it
 was verified. Items found already built are listed with the file that proves it.
 
+- **A short note and the meaning-based filer** (BACKLOG section 8, "ai is cool"):
+  measured, not guessed, with the shipped embedding model (BAAI/bge-small-en-v1.5,
+  cached locally) over `filing_eval.py`'s hundred-note, ten-category notebook
+  (`scratchpad/filing_short_eval.py`). Today every one of 20 short notes that
+  belong nowhere was filed by meaning (the baseline cosine of two short texts
+  clears both the 0.60 centroid bar and the 0.42 neighbour bar); the nearest
+  filed note separates them (median 0.83 for notes with a home, 0.64 without).
+  A note under four words now needs a nearest note at 0.72: 59 of 60 short notes
+  with a home still file, 3 of 20 without one do. `tests/test_janitor_short.py`
+  5/5 (2 of them fail on the base). One embedding model measured; another
+  backend's scale differs and a short note there falls to the notebook's words.
 - **Words-filed notes get a second opinion** (BACKLOG 76, second half):
   `janitor.review_words_filed`, called from `autonomous._optimization_pass`
   (20 notes a tick, never a private, binned or hand-filed note, a note the

@@ -19,6 +19,21 @@ Each row was checked against the head before anything was built.
   New note (`#tab-graph:has(.dock-fab) .graph-zoom`) closed it. `graphphone.js`
   now asserts it every run: the four buttons are hit at their centres and clear
   of `.dock-fab`.
+- **Nested frames at phone zoom** (measured, nothing changed): at 390x844 the
+  outer title's hit area is 44x44px (k 0.21), and an inner frame drawn 40 board
+  units to its right takes the share of it the two boxes overlap, 82%, 74%, 60%
+  and 26% of the outer title's box with the inner's top 0, 20, 60 and 150 units
+  below the outer's (at 1440, where the title is 28px: 36%, 26%, 0%, 0%). A press
+  on the outer title's words (6px in from its left, 6px up from its foot) reaches
+  the outer frame at every gap, both widths, light and dark, so "aim at the
+  outer title's words" holds; which frame owns the shared grown area is a design
+  call and stays as it is (the inner is drawn later). `left1005-frametitle.js`
+  prints the four rows and asserts the words reach the outer: 9/9 at 390 and
+  1440, both themes. Found with it: that sweep's last case read 6/7 on the
+  branch before this (the inner title dragged: dx 1,070 for a 284 move) because
+  its four earlier drags carry the pair 1,136 units to the right, where the edge
+  auto-pan takes the fifth; it resets the objects and the view first now, and
+  the case passes, so it was the sweep and not the title.
 - **Writing Room and table full view at phone width**: the page did not
   overflow in either (`documentElement.scrollWidth - clientWidth` 0 at 390x844,
   430x932 and 360x640, default and Large text with Spacious; the full view's

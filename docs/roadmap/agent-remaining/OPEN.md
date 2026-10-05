@@ -596,11 +596,11 @@ pane's name, the errors sweep's aside clipping at 390.
   but any other reader of an item's log (`events.replay`) would merge them;
   placements made before the history, a duplicated board's copies and a
   generated map's topics have no `created` event. [wb-phase2]
-- **Frames and the map plan's rest**: nested frames whose tops are close at a
-  phone's fitted zoom share the grown title area and the inner one wins it
-  (aim at the outer title's words); MINDMAP_PLAN 12.2's rest (a boundary round
+- **Frames and the map plan's rest**: MINDMAP_PLAN 12.2's rest (a boundary round
   a lassoed set that is not one branch, priority, progress, flags and due
-  dates, floating topics and palettes, an outline pane). [harness-wb-1004]
+  dates, floating topics and palettes, an outline pane). The nested frames'
+  shared title area is measured, HISTORY.md, "OPEN.md rows closed, 2026-10-05
+  (the pre-0.4.0 buildable rows, sweeps on port 8815)". [harness-wb-1004]
 - **Map render and persistence**: `wbMapNodeSize` and the rendered node
   disagreed by 94px at 390x844 (found by `mapstrip.js`'s corner ring; not
   reproduced since, reproduce before theorising); a map does not re-frame

@@ -254,7 +254,7 @@ def test_the_rectangle_is_cleared_once_the_request_is_away():
     #: A FormData body with `api()`'s default JSON content type has no
     #: multipart boundary: measured against the running app as a 405 before
     #: any of the request's fields were looked at.
-    assert 'headers: { "X-Auth-Token": authToken()' in run
+    assert "headers: authHeaders()" in run
 
 
 def test_the_crop_is_taken_at_the_pages_own_resolution():

@@ -72,6 +72,10 @@ def test_a_document_a_note_is_attached_to_can_be_deleted(client, session):
 
     removed = client.delete(f"/documents/{document['id']}")
     assert removed.status_code == 200, removed.text
+    #: A delete bins (WORLD_CLASS_PLAN 5 item 10); the purge is the delete
+    #: these foreign keys used to refuse.
+    purged = client.delete(f"/documents/{document['id']}/purge")
+    assert purged.status_code == 200, purged.text
     session.expire_all()
     assert _count(session, DocumentLink) == 0
     assert client.get(f"/entries/{note['id']}").status_code == 200

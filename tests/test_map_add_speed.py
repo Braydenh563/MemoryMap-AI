@@ -28,9 +28,11 @@ def _body(source: str, signature: str) -> str:
 def test_the_add_opens_the_editor_before_the_server_answers():
     body = _body(MAP_JS, "async function wbMapAddChild(")
     # The editor opens in the add itself; the POST lives in the adoption.
-    assert "wbMapEditNode(created.id)" in body
+    assert "wbMapEditNode(created.id, { now: true })" in body
     assert "apiJson(" not in body
-    assert body.index("wbMapEditNode(created.id)") < body.index("wbMapAdoptProvisional(")
+    assert body.index("wbMapEditNode(created.id") < body.index("wbMapAdoptProvisional(")
+    #: The moves and the lines wait for the editor (FEAT-02's 100ms gate).
+    assert body.index("wbAddGate.renderHold = {") < body.index("renderWhiteboardNow()") < body.index("wbRenderRelease()")
     adopt = _body(MAP_JS, "async function wbMapAdoptProvisional(")
     assert "/nodes`" in adopt and "wbRemapUndoIds(" in adopt
 
@@ -51,7 +53,10 @@ def test_a_move_is_a_transform_not_a_repaint():
     base = re.search(r"const base = `([^`]*)`", key).group(1)
     assert "d.x" not in base and "d.y" not in base
     update = WB_JS[WB_JS.index("const key = wbObjectPaintKey(d, paintCtx);"):][:600]
-    assert "this.style.transform = place" in update
+    assert "movesLater.push([this, place])" in update
+    #: Written after the measure, so the measure restyles only what repainted.
+    tail = WB_JS[WB_JS.index("objectUpdate.each(function (d) {\n      if (!WB_MAP_KINDS.has(d.kind)) return;"):][:1600]
+    assert tail.index("this.offsetHeight") < tail.index("el.style.transform = place")
 
 
 def test_a_save_waits_for_a_provisional_topic():

@@ -13,15 +13,14 @@
 // a list right here, which meant the server could not resolve a skill the
 // user clicked; they are served from GET /skills now, alongside the user's own.
 let skillsCache = [];
-let skillLimits = { steps: 10, tools: 12, inputs: 5 };
 //: The user skills folder (B8): its path and the files there that did not load.
-const skillsState = { folder: null };
+const skillsState = { folder: null, limits: { steps: 10, tools: 12, inputs: 5 }, dismissChat: null };
 
 async function loadSkills() {
   const body = await apiJson("/skills").catch(() => null);
   if (!body) return skillsCache;
   skillsCache = body.skills || [];
-  if (body.limits) skillLimits = body.limits;
+  if (body.limits) skillsState.limits = body.limits;
   skillsState.folder = body.folder || null;
   return skillsCache;
 }
@@ -349,7 +348,6 @@ const SKILL_MANAGE_VALUE = "__manage__";
 //: build they belong to: `loadChatSkills` runs at boot and again after every
 //: skill saved in Settings, and each run left its pair behind, holding the
 //: dropdown it was built for (listenerrounds.js: +35 listeners a rebuild).
-let chatSkillsDismiss = null;
 
 async function loadChatSkills() {
   await loadSkills();
@@ -475,9 +473,9 @@ function buildSkillsPanel(box, label, select, run, trigger) {
 
   //: Every listener this build puts on something that outlives it (document,
   //: the Settings checkbox the pace pill mirrors) goes with the build.
-  chatSkillsDismiss?.abort();
-  chatSkillsDismiss = new AbortController();
-  const { signal } = chatSkillsDismiss;
+  skillsState.dismissChat?.abort();
+  skillsState.dismissChat = new AbortController();
+  const { signal } = skillsState.dismissChat;
 
   const pickRow = document.createElement("label");
   pickRow.className = "chat-skills-row";
@@ -860,44 +858,6 @@ function renderSkillFolderLine() {
   }
 }
 
-async function addSkill() {
-  const name = $("skill-name").value.trim();
-  const promptText = $("skill-prompt").value.trim();
-  const status = $("skill-status");
-  status.classList.remove("error");
-  if (!name || !promptText) {
-    status.textContent = "Both a name and a request are needed.";
-    return;
-  }
-  // Drop any skill with the new name AND (when editing) the one being edited,
-  // so saving updates in place and even a rename doesn't leave a duplicate.
-  const custom = customSkills().filter(
-    (s) => s.name !== name && s.name !== editingSkillName
-  );
-  const verify = chosenSkillVerify();
-  custom.push({
-    name,
-    prompt: promptText,
-    description: $("skill-description").value.trim(),
-    steps: textToSteps($("skill-steps").value),
-    tools: chosenSkillTools(),
-    inputs: textToInputs($("skill-inputs").value),
-    ...(verify ? { verify } : {}),
-  });
-  const wasEditing = editingSkillName;
-  try {
-    await saveSkillList(custom);
-  } catch (error) {
-    // The server validates both ways in, so this is the same message the AI
-    // would get for the same mistake, an undeclared {{placeholder}}, say.
-    status.classList.add("error");
-    status.textContent = error.message;
-    return;
-  }
-  stopEditingSkill();
-  status.textContent = wasEditing ? `Updated “${name}”.` : `Saved “${name}”.`;
-}
-
 // --- Wave O: agent-tools toggles ----------------------------------------------------
 
 // How many tool descriptions each message carries (§11a). Saved on change
@@ -946,40 +906,6 @@ function renderRunBudget(prefs) {
   const seconds = $("run-budget-seconds");
   if (tokens) tokens.value = String(prefs.run_budget_tokens ?? 20000);
   if (seconds) seconds.value = String(prefs.run_budget_seconds ?? 90);
-}
-
-async function saveRunBudget() {
-  const tokens = $("run-budget-tokens");
-  const seconds = $("run-budget-seconds");
-  const status = $("run-budget-status");
-  if (!tokens || !seconds) return;
-  //: Clamped here as well as by the server: a negative number in a number
-  //: input is one keystroke away, and the failure it causes (a budget that is
-  //: exceeded before the first round) would look like the feature being
-  //: broken rather than like a typo.
-  const body = {
-    run_budget_tokens: Math.max(0, Math.round(Number(tokens.value) || 0)),
-    run_budget_seconds: Math.max(0, Math.round(Number(seconds.value) || 0)),
-  };
-  if (status) status.textContent = "Saving…";
-  try {
-    prefsCache = await apiJson("/preferences", {
-      method: "PUT",
-      body: JSON.stringify(body),
-    });
-  } catch (error) {
-    if (status) {
-      status.classList.add("error");
-      status.textContent = error.message;
-    }
-    return;
-  }
-  if (!status) return;
-  status.classList.remove("error");
-  const parts = [];
-  parts.push(body.run_budget_tokens ? `${body.run_budget_tokens} tokens` : "no token limit");
-  parts.push(body.run_budget_seconds ? `${body.run_budget_seconds}s` : "no time limit");
-  status.textContent = `A run may spend ${parts.join(" and ")}.`;
 }
 
 //: One tool's switch, saved. A refused save puts the switch back and says why:
@@ -1203,6 +1129,25 @@ async function downloadFromApi(path, fallbackName) {
   }
 }
 
+//: The browser's own download of a Blob: the one copy of the hidden-anchor
+//: click (audit FE-16 found it written out in four files). `saveFile` is the
+//: caller to use for an export, since it also covers the desktop window,
+//: which swallows this click; this is for a file that is already in the
+//: desktop's exports folder (the Settings list) or a browser-only path.
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  // In the document, not detached: some engines ignore a click on an anchor
+  // that was never in the DOM.
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 // Save a Blob under `filename`. Resolves once the file is somewhere the user
 // can find it, and says where when that isn't the browser's own downloads.
 async function saveFile(filename, blob) {
@@ -1244,17 +1189,7 @@ async function saveFile(filename, blob) {
       return null;
     }
   }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  // In the document, not detached: some engines ignore a click on an anchor
-  // that was never in the DOM.
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  downloadBlob(blob, filename);
   //: UX-11: a download said nothing; Settings' list is the desktop's folder.
   toast(`Downloaded ${filename}, to your browser's downloads.`);
   //: The browser's own downloads shelf has the file; this is the record of
@@ -1284,17 +1219,6 @@ function pickJsonFile(inputId, apply) {
     }
   };
   input.click();
-}
-
-// Merge imported {name, prompt} items over existing ones (imports win
-// on a name clash), used by both skills and personas.
-function mergeNamedPrompts(existing, imported) {
-  const cleaned = (imported || []).filter(
-    (item) => item && typeof item.name === "string" && typeof item.prompt === "string"
-  );
-  if (!cleaned.length) return null;
-  const names = new Set(cleaned.map((item) => item.name));
-  return [...existing.filter((item) => !names.has(item.name)), ...cleaned];
 }
 
 // --- Wave M: batch operations on notes ----------------------------------------------
@@ -1468,76 +1392,20 @@ function fillBatchMore(hostId = "batch-more-host") {
         { label: "ph:star-half Remove from Favourites", run: () => batchFavourite(false), group: "mark" },
         { label: "ph:paper-plane-tilt Publish drafts", run: batchPublish, group: "state" },
         { label: "ph:archive Archive", run: batchArchive, group: "state" },
-        { label: "ph:folders Move to space", run: batchMoveToSpace, group: "send" },
-        { label: "ph:export Export selection", run: batchExport, group: "send" },
+        { label: "ph:stack Move to space…", run: batchMoveToSpace, group: "move" },
+        { label: "ph:download-simple Export as Markdown", run: batchExport, group: "move" },
       ],
       "More for the selected notes"
     )
   );
 }
 
-//: Move to space and Export selection (WORLD_CLASS_PLAN row 30): the last two
-//: things a selection could not do. One request each, the Undo of the move
-//: sends every note back to the space it came from.
-async function batchMoveToSpace() {
+//: **Export the selection** (WORLD_CLASS_PLAN 5 item 6): the Markdown zip
+//: Settings' Export writes, for these notes only.
+function batchExport() {
   const ids = batchSelection();
   if (!ids.length) return;
-  const here = activeSpaceId();
-  const targets = spacesCache.filter((space) => space.id !== here);
-  if (!targets.length) return toast("There is no other space to move them to. Make one from the space picker.", true);
-  const at = ($("batch-more-host") || $("batch-bar")).getBoundingClientRect();
-  openMenuAtPoint(
-    targets.map((space) => ({
-      label: `ph:${String(space.icon || "ph-folder").replace(/^ph-/, "")} ${space.name}`,
-      run: () => moveNotesToSpace(ids, space),
-    })),
-    "Move to space",
-    at.left,
-    at.bottom + 4
-  );
-}
-
-async function moveNotesToSpace(ids, space) {
-  const send = (list, target) =>
-    apiJson("/entries/move-space", { method: "POST", body: JSON.stringify({ ids: list, target }) });
-  let done;
-  try {
-    done = await send(ids, space.id);
-  } catch (error) {
-    toast(error.message || "Couldn't move them.", true);
-    return;
-  }
-  exitSelectMode();
-  await loadEntries();
-  const count = done.moved.length;
-  if (!count) return toast(`Already in ${space.name}.`);
-  const back = async () => {
-    const from = new Map();
-    for (const item of done.previous) from.set(item.space, [...(from.get(item.space) || []), item.id]);
-    for (const [target, list] of from) await send(list, target);
-    await loadEntries();
-  };
-  const again = async () => {
-    await send(done.moved, space.id);
-    await loadEntries();
-  };
-  const action = pushUndo(`Moved ${count} note${count === 1 ? "" : "s"} to ${space.name}`, back, again);
-  toastAction(`Moved ${count} to ${space.name}.`, "Undo", async () => {
-    settleUndoFromToast(action);
-    await back();
-    toast("Moved back.");
-  });
-}
-
-async function batchExport() {
-  const ids = batchSelection();
-  if (!ids.length) return;
-  try {
-    const response = await api("/export/markdown", { method: "POST", body: JSON.stringify({ ids }) });
-    await saveFile("memorymap-selection.zip", await response.blob());
-  } catch (error) {
-    if (!error?.isLockout) toast(error.message || "Couldn't export them.", true);
-  }
+  downloadFromApi(`/export/markdown?ids=${ids.join(",")}`, `memorymap-${ids.length}-notes.zip`);
 }
 
 async function batchDelete() {

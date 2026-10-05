@@ -596,7 +596,7 @@
         </p>
         <p>
           Operators work: <code>tag:recipes</code>, <code>kind:document</code>,
-          <code>before:2026-01</code>, <code>has:image</code>, a
+          <code>before:2026-01</code>, <code>has:image</code>, <code>has:highlight</code>, a
           <code>"quoted phrase"</code>, and <code>-word</code> to leave
           something out.
         </p>
@@ -1910,6 +1910,9 @@ Link to another note with [[its first few words]]."></textarea>
               <!-- The app's one Thinking fold goes in here, built by
                    `thinkingFoldIn` (chat-agent.js; INBOX 457). -->
               <div id="thinking-box" class="hidden"></div>
+              <!-- A chart for a counting or trend question (WORLD_CLASS_PLAN
+                   section 17 row 4), drawn by ask-chart.js. -->
+              <div id="ask-chart" class="ask-chart hidden" role="group" aria-label="Chart from your notes"></div>
               <div id="ai-answer" class="answer"></div>
               <!-- ROADMAP.md item 36: which note backs which sentence of a
                    direct Q&A answer, one badge per grounded sentence, never
@@ -2015,7 +2018,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
                 <input id="note-search" class="library-search search-field-input" type="search"
                   placeholder="Filter notes"
-                  aria-label="Filter notes. Supports tag: or #tag, cat:, title:, before:, after:, is:favourite, -exclude and quoted phrases"
+                  aria-label="Filter notes. Supports tag: or #tag, cat:, title:, before:, after:, is:favourite, has:, space:, -exclude and quoted phrases"
                   aria-describedby="search-help-hint">
               </div>
               <details class="doc-dock-menu dock-menu" id="notes-filter-menu">
@@ -2146,6 +2149,7 @@ Link to another note with [[its first few words]]."></textarea>
               <li><code>before:2026-09-01</code>, <code>after:2026-08</code>, by the day it was written</li>
               <li><code>is:favourite</code>, your starred notes (<code>is:pinned</code> still works); also <code>is:private</code>, <code>is:linked</code>, <code>is:untagged</code>, <code>is:draft</code>, and <code>is:review</code>, the filings to check (Atlas was unsure, or left it in Uncategorised), each with Accept, Refile and Split</li>
               <li><code>tags:&lt;2</code>, fewer than 2 tags (also <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code>, or a bare number for exactly that many)</li>
+              <li><code>has:link</code>, <code>has:file</code>, <code>has:image</code> or <code>has:reminder</code>, notes that carry one; <code>space:work</code>, only that space; <code>kind:note</code>, asked of the search engine</li>
               <li><code>-picnic</code>, notes that do <em>not</em> mention it</li>
               <li><code>type:meeting</code>, <code>prop:status=open</code>, <code>prop:effort&gt;2</code>, a note's properties; <code>links:[[Kiln plan]]</code>, <code>rel:supports</code>, <code>entity:"Sam Lee"</code>, its links and the people and things it names (a <code>-</code> before any leaves those out). A bar then offers the same notes as a Table or on the graph</li>
             </ul>
@@ -4426,6 +4430,8 @@ Link to another note with [[its first few words]]."></textarea>
                   title="Pick the model Atlas runs on in this document"><i class="ph ph-cube ph-lead" aria-hidden="true"></i> Model for this feature</button>
                 <button id="doc-extract" data-needs-model="Extracting notes needs the local AI" class="menu-item doc-dock-menu-item" type="button"
                   title="Turn this document, or the text you have selected, into one or more notes, auto-linked to what they relate to"><i class="ph ph-scissors ph-lead" aria-hidden="true"></i> Extract notes</button>
+                <button id="doc-map-headings" class="menu-item doc-dock-menu-item" type="button"
+                  title="Make a new mind map from this document's headings, with a topic that leads back here"><i class="ph ph-tree-structure ph-lead" aria-hidden="true"></i> Map the headings</button>
                 <button id="doc-export-md" class="menu-item doc-dock-menu-item" type="button"
                   title="Download as a .md file"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Download as .md</button>
                 <!-- **One HTML file that needs nothing else**
@@ -4454,7 +4460,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="doc-export-docx" class="menu-item doc-dock-menu-item" type="button"
                   title="Download as a Word .docx file"><i class="ph ph-file-doc ph-lead" aria-hidden="true"></i> Download as .docx</button>
                 <button id="doc-export-pdf" class="menu-item doc-dock-menu-item" type="button"
-                  title="Print or save as PDF"><i class="ph ph-file-pdf ph-lead" aria-hidden="true"></i> Print or save as PDF</button>
+                  title="Choose the page size, margins and page numbers, then print or save as PDF"><i class="ph ph-file-pdf ph-lead" aria-hidden="true"></i> Print or save as PDF</button>
                 <!-- Asked for directly: "there should be the option to have
                      the tool bar as a horizontal scroll or expanded." Expanded
                      (wrapping) is the default because it is also what stops the
@@ -5230,7 +5236,7 @@ Link to another note with [[its first few words]]."></textarea>
                 data-help-for="library-help" aria-controls="library-help" aria-expanded="false"
                 title="About the library" aria-label="About the library"><i class="ph ph-question" aria-hidden="true"></i></button>
               <div class="help-body hidden" id="library-help" role="dialog" aria-label="About the library">
-                <p>Everything you have made, in one list: notes, documents, chats, images and files. The chips below narrow it to one kind, Filter can match by meaning or include the bin, and ticking a card lets you act on several at once.</p>
+                <p>Everything you have made, in one list: notes, documents, chats, images and files. The chips below narrow it to one kind, Filter can match by meaning or include the bin, and ticking a card lets you act on several at once. The Highlights chip lists every passage you marked in a note, with the note it is in. The Activity chip is the log of what you and Atlas did, and it can be exported as a spreadsheet.</p>
               </div>
               <details class="doc-dock-menu dock-menu dock-more" id="library-more-menu">
                 <summary class="ghost small icon-only doc-dock-menu-btn" title="More" aria-label="More"><i class="ph ph-dots-three" aria-hidden="true"></i></summary>
@@ -5263,6 +5269,13 @@ Link to another note with [[its first few words]]."></textarea>
             <span class="library-contextbar-end">
               <button id="library-bin-empty" class="ghost small" type="button"
                 title="Permanently delete everything in the bin"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Empty the bin</button>
+            </span>
+          </div>
+          <div id="library-activitybar" class="library-contextbar hidden">
+            <span class="muted">Everything you and Atlas did, oldest first. Export it to hand over.</span>
+            <span class="library-contextbar-end">
+              <button id="library-activity-export" class="ghost small" type="button"
+                title="Save the activity log as a spreadsheet: who, what, when"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Export as CSV</button>
             </span>
           </div>
         </section>
@@ -5757,6 +5770,13 @@ Link to another note with [[its first few words]]."></textarea>
         <button type="button" id="wb-map-focus-more" class="ghost small icon-only" title="Show one step more" aria-label="Show one step more"><i class="ph ph-plus" aria-hidden="true"></i></button>
         <button type="button" id="wb-map-focus-clear" class="ghost small" title="Show the whole map again">Show all</button>
       </div>
+      <!-- Filter by marker (MINDMAP_PLAN decision 34): the focus bar's shell,
+           saying which marker the lit topics carry, with the way out. -->
+      <div id="wb-map-filter" class="wb-map-focus wb-map-filter card glass" role="note" aria-label="Filter by marker" hidden>
+        <i class="ph ph-funnel ph-lead" aria-hidden="true"></i>
+        <span class="wb-map-focus-name" id="wb-map-filter-label"></span>
+        <button type="button" id="wb-map-filter-clear" class="ghost small" title="Show every topic at full strength">Show all</button>
+      </div>
       <!-- **What the colours mean** (§5 item 19), drawn only when they mean
            something other than the branch they are on. -->
       <div id="wb-map-legend" class="wb-map-legend card glass" role="note" aria-label="What the colours mean" hidden></div>
@@ -6057,12 +6077,14 @@ Link to another note with [[its first few words]]."></textarea>
               <label class="wb-menu-row wb-snap-label" hidden title="Number every topic by its place in the outline: 1, 1.1, 1.2"><span>Number the branches</span><input type="checkbox" id="wb-map-numbered"></label>
               <button type="button" class="wb-menu-item" id="wb-map-theme-item" hidden><i class="ph ph-palette ph-lead" aria-hidden="true"></i><span>How this map looks</span></button>
               <button type="button" class="wb-menu-item" id="wb-map-expand-all" hidden><i class="ph ph-arrows-out-line-vertical ph-lead" aria-hidden="true"></i><span>Open every folded branch</span></button>
+              <button type="button" class="wb-menu-item" id="wb-map-filter-item" data-wb-surface="map" hidden title="Dim every topic that does not carry one marker"><i class="ph ph-funnel ph-lead" aria-hidden="true"></i><span>Filter by marker…</span></button>
               <button type="button" class="wb-menu-item" id="wb-map-stats-item" hidden><i class="ph ph-chart-bar ph-lead" aria-hidden="true"></i><span>What this map is made of</span></button>
             </div>
             <div class="wb-menu-section" role="group" aria-label="Panels">
               <label class="wb-menu-row wb-snap-label" title="Show the context bar above the selection, and above the rail while a drawing tool is held"><span>Context bar</span><input type="checkbox" id="wb-panel-props" checked></label>
               <label class="wb-menu-row wb-snap-label" title="The board overview (Shift+N)"><span>Overview</span><input type="checkbox" id="wb-panel-overview"></label>
               <label class="wb-menu-row wb-snap-label" title="The sidebar: the library, notes and layers"><span>Sidebar</span><input type="checkbox" id="wb-panel-library"></label>
+              <label class="wb-menu-row wb-snap-label" data-wb-surface="map" hidden title="The map as an indented list you can edit"><span>Outline</span><input type="checkbox" id="wb-panel-outline"></label>
               <label class="wb-menu-row wb-snap-label" title="Find a card on this board (Ctrl+F)"><span>Search</span><input type="checkbox" id="wb-panel-search"></label>
               <div class="wb-menu-row">
                 <span>Toolbar</span>
@@ -7086,7 +7108,11 @@ Link to another note with [[its first few words]]."></textarea>
           <p class="muted wb-lib-keys">Templates to drag in are in the Library tab.</p>
         </section>
         <section class="wb-side-section" data-side-panel="outline" aria-label="Outline" hidden>
-          <ul id="wb-outline-tree" class="wb-outline-tree" role="tree" aria-label="Outline"></ul>
+          <!-- The map as an outline (MINDMAP_PLAN decision 33): one field per
+               topic in the tree's order, edited in place and kept in step with
+               the canvas both ways (`wbOutlineSync`, whiteboard-map.js). -->
+          <div id="wb-outline-tree" class="wb-outline-tree" role="tree" aria-label="Outline"></div>
+          <p class="wb-outline-hint muted">Enter adds a topic, Tab and Shift+Tab move it in and out a level.</p>
         </section>
       </div>
     </aside>
@@ -8813,6 +8839,8 @@ Link to another note with [[its first few words]]."></textarea>
                scratchpad/ui-sweeps/settingsia.js. -->
           <section class="settings-section hidden" id="settings-searchindex">
             <p id="search-engine-health" class="status"></p>
+            <!-- WORLD_CLASS_PLAN section 21 rows 1 and 2: DESIGN.md's notice
+                 recipe (an icon, one line, the warn tone), not an error line. -->
             <p id="embedding-error" class="notice notice-warn hidden" role="status"></p>
             <!-- The text above already told people the fix ("switch to an
                  Ollama embedding model, download nomic-embed-text"), this
@@ -9255,10 +9283,9 @@ Link to another note with [[its first few words]]."></textarea>
             <textarea id="template-body" rows="4" maxlength="2000" aria-label="Template text"
               placeholder="Book: &#10;Author: &#10;Started: &#10;Thoughts:"></textarea>
             <p class="muted">
-              Tip: write <code>{date}</code> anywhere in the template and it's
-              replaced with today's date when the template is applied;
-              <code>{clipboard}</code> with what you have copied, and
-              <code>{cursor}</code> marks where the cursor lands.
+              Tip: <code>{date}</code> and <code>{{time}}</code> become today's
+              date and the time, <code>{{clipboard}}</code> what you copied, and
+              <code>{{cursor}}</code> is where you start typing.
             </p>
             <div class="row">
               <button id="template-add" class="small">Add template</button>
@@ -10349,6 +10376,28 @@ Link to another note with [[its first few words]]."></textarea>
                   switched off, and everything is downloaded from PyPI to
                   this machine.
                 </p>
+                <p>
+                  A bundle is the packages one kind of work needs together:
+                  its Install fetches the ones still missing, and its ...
+                  menu reinstalls or removes them all. Tick packages to act on
+                  several at once from the bar above the list. They run one
+                  after another, each says how it went, and one that fails
+                  does not stop the rest. An installed package's ... menu has
+                  Reinstall, for a feature that is switched on but not
+                  working, and Remove.
+                </p>
+              </div>
+              <h4 class="setting-subhead">Bundles</h4>
+              <ul id="extras-bundles" class="extras-list extras-bundles"></ul>
+              <h4 class="setting-subhead">Each package</h4>
+              <div id="extras-selectbar" class="row library-contextbar selectbar hidden" role="group" aria-label="Selected packages">
+                <span id="extras-selected-count" class="library-selected-count" role="status">0 selected</span>
+                <span class="library-contextbar-end">
+                  <button id="extras-bulk-install" class="ghost small" type="button"><i class="ph ph-download-simple ph-lead" aria-hidden="true"></i> Install</button>
+                  <button id="extras-bulk-reinstall" class="ghost small" type="button"><i class="ph ph-arrow-clockwise ph-lead" aria-hidden="true"></i> Reinstall</button>
+                  <button id="extras-bulk-remove" class="ghost small" type="button"><i class="ph ph-trash ph-lead" aria-hidden="true"></i> Remove</button>
+                  <button id="extras-bulk-done" class="ghost small" type="button">Done</button>
+                </span>
               </div>
               <ul id="extras-list" class="extras-list"></ul>
               <p id="extras-status" class="status" role="status"></p>
@@ -10607,7 +10656,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="settings-group">
               <h3>Bin</h3>
               <div class="row">
-                <label for="pref-bin-days" class="muted">Auto-clear binned notes after</label>
+                <label for="pref-bin-days" class="muted">Auto-clear binned notes, documents and reminders after</label>
                 <input id="pref-bin-days" type="number" min="1" max="365">
                 <span class="muted">days</span>
               </div>
@@ -10991,14 +11040,14 @@ Link to another note with [[its first few words]]."></textarea>
                 </div>
                 <button type="button" id="settings-manage-tags" class="ghost small setting-control">Manage tags</button>
               </div>
-              <!-- Section 17 row 3: how Atlas carves notes up when it files
-                   (librarian.FILING_STYLES). By topic adds nothing to the prompt. -->
-              <div class="setting-row" id="filing-style-row">
+              <!-- WORLD_CLASS_PLAN section 17 row 3: how Atlas names and picks
+                   categories. -->
+              <div class="setting-row">
                 <div class="setting-label">
-                  <span>Filing style</span>
-                  <small class="muted">How Atlas groups notes: by topic, by the project they serve, or by when they belong.</small>
+                  <label for="pref-filing-style">Filing style</label>
+                  <small class="muted">How Atlas names and picks categories for new notes.</small>
                 </div>
-                <select id="pref-filing-style" class="small-select setting-control" aria-label="Filing style">
+                <select id="pref-filing-style" class="setting-control">
                   <option value="topic">By topic</option>
                   <option value="project">By project</option>
                   <option value="time">By time</option>
@@ -11169,7 +11218,7 @@ Link to another note with [[its first few words]]."></textarea>
                    the help keeps only what the line does not say (INBOX 437
                    (4): the help repeated the line word for word). The four
                    exports are one row, wrapping on a phone. -->
-              <p class="muted">Copies to take away, binned notes included. Full backup is the one to move to another computer.</p>
+              <p class="muted">Copies to take away, binned notes included. Full backup is the one to move to another computer, and the one Restore a full backup reads.</p>
               <div class="help-body hidden" id="export-help" role="dialog" aria-label="About exports">
                 <p>
                   Full backup is a portable zip of the raw database and media
@@ -11180,7 +11229,12 @@ Link to another note with [[its first few words]]."></textarea>
                 <button id="export-json" class="ghost small">Export JSON</button>
                 <button id="export-csv" class="ghost small">Export CSV</button>
                 <button id="export-md" class="ghost small" title="A zip of .md files you can drop into Obsidian">Export Markdown</button>
-                <button id="export-backup-zip" class="small" title="A portable zip of your database and media folder">Export full backup (.zip)</button>
+                <button id="export-backup-zip" class="small" title="A portable zip of your database, media and attached files">Export full backup</button>
+              </div>
+              <div class="row settings-row-spaced">
+                <label for="export-backup-password" class="muted">Seal the full backup with a password</label>
+                <input id="export-backup-password" type="password" autocomplete="new-password" maxlength="200"
+                  placeholder="Optional, 8 or more characters" aria-label="Password to seal the full backup with">
               </div>
               <!-- Desktop only (shown/hidden by desktopShell() in JS): a graph
                    PNG, a chat export, and the like all land in data_dir/exports
@@ -11253,6 +11307,37 @@ Link to another note with [[its first few words]]."></textarea>
               <p id="duplicate-status" class="status" role="status"></p>
               <p class="status job-line" role="status" data-job-line="duplicate-scan"></p>
               <div id="duplicate-groups"></div>
+            </div>
+
+            <div class="settings-group">
+              <div class="row help-head">
+                <h3>Restore a full backup</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="restore-bundle-help" aria-controls="restore-bundle-help" aria-expanded="false"
+                  title="About restoring a full backup" aria-label="About restoring a full backup">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted">Replaces this notebook with the one in a full backup file, a .zip or a sealed .mmenc.</p>
+              <div class="help-body hidden" id="restore-bundle-help" role="dialog" aria-label="About restoring a full backup">
+                <p>
+                  Choose a file made by Export full backup. A sealed file asks
+                  for the password it was saved with; a wrong one changes
+                  nothing. Your current notebook is snapshotted first (it is in
+                  the backups list), then replaced, and attached files are put
+                  back over the ones here without deleting any. You are signed
+                  out afterwards: unlock with the password of the restored
+                  notebook.
+                </p>
+              </div>
+              <div class="row">
+                <input id="restore-bundle-file" aria-label="Choose a full backup to restore" title="Choose a full backup to restore" type="file" accept=".zip,.mmenc" class="hidden">
+                <button id="restore-bundle" class="ghost small" type="button"><i class="ph ph-file-arrow-up ph-lead" aria-hidden="true"></i> Restore from a file</button>
+                <label for="restore-bundle-password" class="muted">Password, if sealed</label>
+                <input id="restore-bundle-password" type="password" autocomplete="off" maxlength="200"
+                  aria-label="Password the backup was sealed with">
+              </div>
+              <p id="restore-bundle-status" class="status" role="status"></p>
             </div>
 
             <div class="settings-group">
@@ -11619,31 +11704,30 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
             </div>
 
+            <!-- WORLD_CLASS_PLAN, Placed 2026-09-09 (261): the vault re-key had
+                 a route (`POST /auth/rotate-vault-key`) and no way to press it. -->
             <div class="settings-group">
               <div class="row help-head">
                 <h3>Re-encrypt private notes</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="rekey-help" aria-controls="rekey-help" aria-expanded="false"
-                  title="What re-encrypting does" aria-label="What re-encrypting does">
+                  title="When to re-encrypt" aria-label="When to re-encrypt">
                   <i class="ph ph-question" aria-hidden="true"></i>
                 </button>
               </div>
-              <p class="muted">Moves every private note onto a new encryption key.</p>
-              <div class="help-body hidden" id="rekey-help" role="dialog" aria-label="What re-encrypting does">
+              <p class="muted">A new key for every private note, so an old backup or copy can't open today's.</p>
+              <div class="help-body hidden" id="rekey-help" role="dialog" aria-label="When to re-encrypt">
                 <p>
-                  Changing your password keeps the key that encrypts your private
-                  notes, so a backup made before the change still opens them.
-                  Re-encrypting makes a new key and moves every private note
-                  onto it, so an old backup or a copied database file stops
-                  opening today's notes. Every other session is signed out, and
-                  nothing is changed unless every note checks out.
+                  Changing your password keeps the key that encrypts private
+                  notes and only re-locks it. If a backup or a copy of the
+                  notebook may have reached someone, re-encrypting gives every
+                  private note a new key, so what they have no longer opens
+                  them. It is all or nothing: a note that fails leaves every
+                  note as it was.
                 </p>
               </div>
-              <label class="stacked-label" for="account-rekey-password">Current password</label>
-              <input id="account-rekey-password" type="password" autocomplete="current-password"
-                placeholder="Your current password or PIN">
               <div class="row">
-                <button id="account-rekey" class="ghost small" type="button">Re-encrypt</button>
+                <button id="account-rekey" class="ghost" type="button">Re-encrypt private notes</button>
                 <span id="account-rekey-status" class="status" role="status"></span>
               </div>
             </div>
@@ -12036,6 +12120,13 @@ Link to another note with [[its first few words]]."></textarea>
                   <small class="muted">Size on disk, and where this notebook's data lives.</small>
                 </div>
                 <span class="setting-control muted" id="health-db-size">, </span>
+              </div>
+              <div class="setting-row">
+                <div class="setting-label">
+                  <span>Files on disk</span>
+                  <small class="muted">What attached files, pictures and backups weigh beside the database.</small>
+                </div>
+                <span class="setting-control muted" id="health-files-size">, </span>
               </div>
               <div class="setting-row">
                 <div class="setting-label">
@@ -12941,7 +13032,6 @@ Link to another note with [[its first few words]]."></textarea>
   </div>
 
   <!-- D3 v7 + p5.js, both vendored locally, the offline rule: no CDNs, ever -->
-  <script src="/vendor/d3.v7.min.js"></script>
   <!-- Graph, documents, whiteboard and library are NOT loaded here any more
        (WORLD_CLASS_PLAN "Audit, 2026-09-13 night", row A1). Measured on the
        head before the change: 13 blocking scripts and 1,699 KB of compressed

@@ -32,7 +32,9 @@ import pytest
 from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
-AV = (ROOT / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
+#: avatars.js and its lazy half, companion-menu.js (the menu and the enlarged
+#: view), read as one.
+AV = "\n".join((ROOT / "frontend" / "js" / name).read_text(encoding="utf-8") for name in ("avatars.js", "companion-menu.js"))
 APP = app_js_text()
 SETTINGS = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
 HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")

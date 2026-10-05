@@ -13,7 +13,7 @@ def test_the_editors_send_the_hash_they_started_from_and_ask_on_a_conflict():
 
     root = Path(__file__).resolve().parents[1] / "frontend"
     docs = (root / "js" / "documents.js").read_text(encoding="utf-8")
-    notes = (root / "js" / "notes-list.js").read_text(encoding="utf-8")
+    notes = (root / "js" / "note-edit-panels.js").read_text(encoding="utf-8")
     app = app_js_text()  # the whole boot code, not app.js alone (CLAUDE.md)
     assert "base_hash: currentDoc.content_hash" in docs
     assert "let base = entry.content_hash;" in notes and "base_hash: base" in notes

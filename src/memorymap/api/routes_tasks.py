@@ -232,7 +232,24 @@ def collect() -> list[dict]:
     # need a background thread belongs in one list, and the status bar and the
     # Tasks panel then show it without learning anything new.
     pip = extras.current()
-    if pip.running:
+    bulk = extras.bulk_status()
+    if bulk["running"]:
+        #: A bulk action (INBOX 595) is one row, not one per package: its
+        #: label is the whole job, its detail the package in hand, and its
+        #: fraction is real here, packages done of packages asked.
+        now = next((item for item in bulk["items"] if item["outcome"] == "running"), None)
+        step = f"{now['label']}: {pip.step}" if now and pip.running else "Between packages…"
+        tasks.append(
+            {
+                "kind": "extra",
+                "name": bulk["bundle"] or "bulk",
+                "label": extras.bulk_label(bulk["action"], bulk["total"]),
+                "detail": f"{bulk['done'] + 1 if now else bulk['done']} of {bulk['total']}. {step}",
+                "progress": bulk["done"] / bulk["total"] if bulk["total"] else None,
+                "log": list(pip.log),
+            }
+        )
+    elif pip.running:
         tasks.append(
             {
                 "kind": "extra",

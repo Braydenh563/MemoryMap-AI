@@ -532,11 +532,10 @@ block. What stays here is the standing decisions and what is still open.
 
 - A real local model's `name|kind` entity extraction and a topic's sentence
   were never run here (no model in the sandbox); both fall back cleanly.
-- `/graph` at 5,000 notes is still 0.7 to 1.0 s warm and 3 MB (decision
-  2026-10-05, "one PageRank, the map's"): the next step is a cache of the
-  encoded payload keyed by what moves it (the fingerprint plus pins, access
-  counts, attachments, board members and the vault's state), or a slimmer
-  node (the label and the numbers, the rest on demand).
+- `/graph` at 5,000 notes: the encoded payload is cached (HISTORY, "the
+  graph's payload cache"), so a visit with nothing changed is 149 ms; the
+  first visit after any change still builds 3 MB in 0.7 to 1.0 s. Open: a
+  slimmer node (the label and the numbers, the rest on demand).
 - The note field's picker and the query table's rollups are built
   (2026-10-05): moved to HISTORY.md ("Moved from the plans, 2026-10-05
   (GRAPH_PLAN, the last KG rows)").

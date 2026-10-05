@@ -140,6 +140,8 @@ def test_deleting_a_document_takes_its_history_with_it(client):
     assert client.get(f"/documents/{doc['id']}/revisions").json(), "a revision exists"
     deleted = client.delete(f"/documents/{doc['id']}")
     assert deleted.status_code == 200
+    #: The bin keeps the history until the document is purged (5 item 10).
+    assert client.delete(f"/documents/{doc['id']}/purge").status_code == 200
     with routes_documents.deps.get_db().session() as session:
         left = (
             session.query(DocumentRevision)

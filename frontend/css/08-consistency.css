@@ -1528,7 +1528,7 @@ summary > .ph-lead,
   /* The Writing Room is a two-column layout, so at 1024 each column is about
      340px and four controls cannot fit on one line at any distribution of that
      space. The row is not the problem; the column count is. There is already a
-     `max-width: 900px` collapse in 04-chat-dock-appearance.css and this raises
+     `max-width: 819.98px` collapse in 04-chat-dock-appearance.css and this raises
      the point it happens, rather than adding a second, competing rule. */
   .draft-columns {
     grid-template-columns: 1fr;
@@ -3187,7 +3187,9 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 .entry-meta.note-meta:not(.is-measuring) > :is(.when, .refs, .reminders, .review, .untagged, .untagged-ai, .source-path, .tag:not(.hashtag, .suggested-tag)) {
   flex-shrink: 5;
   min-width: 2.5em;
-  overflow: hidden;
+  /* Clipped across, open above and below: `hidden` clipped the chip's own
+     hit-target overhang (`.chip-interactive::after`, audit FE-14) too. */
+  overflow: clip visible;
 }
 
 /* The category gives way last, and keeps a word of itself. Its factor is
@@ -5368,8 +5370,6 @@ body .chip.item-label,
   place-items: center;
   flex: none;
   align-self: center;
-  width: 1rem;
-  height: 1rem;
   margin-inline-start: var(--space-1);
   border-radius: var(--radius-pill);
   font-size: 0.85em;
@@ -6477,7 +6477,6 @@ body .chip.item-label,
 #nm-buddy .nm-figure {
   transform-origin: 50% 100%;
   rotate: calc(var(--nmb-lean-pose) + var(--atl-lean-dir) * 3.5deg);
-  transition: transform var(--motion-slow) var(--ease-out), rotate calc(var(--motion-slow) * 1.8) var(--ease-in-out);
 }
 #nm-buddy[data-pose="lean"][data-side="left"] .nm-figure { --nmb-lean-pose: 8deg; }
 #nm-buddy[data-pose="lean"][data-side="right"] .nm-figure { --nmb-lean-pose: -8deg; }
@@ -6592,9 +6591,6 @@ body .chip.item-label,
 /* A three-quarter turn (`data-turn`, while it walks, glances or turns):
    the face slides towards that side and the body narrows a touch, which
    is how a flat mascot turns. */
-#nm-buddy .nm-char .nm-buddy-head {
-  transition: translate var(--motion-slow) var(--ease-out), rotate var(--motion-slow) var(--ease-out);
-}
 #nm-buddy[data-turn="l"] .nm-char .nm-buddy-head { translate: -3.5px 0; }
 #nm-buddy[data-turn="r"] .nm-char .nm-buddy-head { translate: 3.5px 0; }
 #nm-buddy[data-turn] .nm-figure { transform: scaleX(0.95); }
@@ -9850,7 +9846,7 @@ input[type="file"]:active::file-selector-button {
    the time and the title slid across to the right, x 1227 against 173 on
    the row above. The time keeps its 7rem at the start in both views, the
    title a fixed track, and the detail takes the rest. */
-@media (min-width: 720px) {
+@media (min-width: 600px) {
   .library-grid .library-card.library-activity > .library-card-meta {
     order: -1;
     flex: 0 0 7rem;

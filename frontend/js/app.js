@@ -1271,45 +1271,13 @@ function startApp() {
   // *before* this asks: otherwise the tour opens, the flag arrives a moment
   // later, and the person is welcomed to an app they have used for a month.
   looksReady.then(maybeShowOnboarding);
-  looksReady.then(maybeShowConsoleViewIntro);
+  //: The desktop's one-time console question lives in onboarding.js; the
+  //: bundle is fetched only while the question is still unanswered.
+  looksReady.then(() => prefsCache && !prefsCache.console_view_intro_seen && maybeShowConsoleViewIntro());
   //: What the opening curtain waits for (`curtainShell`): the look and the
   //: first tab drawn.
   return Promise.all([looksReady, tabReady]);
 }
-// First-run "Dev view or User view?" prompt for the desktop app, gated on its
-// own preference (console_view_intro_seen). Two fixed bugs: it fired on a
-// stale-token startApp() before sign-in (prefsCache null), so it now needs
-// prefsCache; and it POSTed /system/console-mode, which restarts the process
-// and signed people out mid-login, so it is one PUT of both preferences,
-// taking effect next launch.
-async function maybeShowConsoleViewIntro() {
-  if (!(await desktopShell())) return;
-  if (!prefsCache || prefsCache.console_view_intro_seen) return;
-  const wantsDevView = await confirmDialog(
-    "Keep a console window open when MemoryMap AI starts?\n\n" +
-      "Dev view shows a terminal window alongside the app, useful for " +
-      "logs and troubleshooting. User view runs quietly in the background " +
-      "with no console window at all, just this app window and a system " +
-      "tray icon. Either way, you can switch any time from Settings or " +
-      "the tray icon's own menu.\n\nTakes effect next launch.",
-    { confirmLabel: "Dev view", cancelLabel: "User view", danger: false }
-  );
-  try {
-    prefsCache = await apiJson("/preferences", {
-      method: "PUT",
-      body: JSON.stringify({
-        show_console_on_startup: wantsDevView,
-        console_view_intro_seen: true,
-      }),
-    });
-    toast(
-      `${wantsDevView ? "Dev" : "User"} view: starting from next launch.`
-    );
-  } catch (error) {
-    toast(error.message || "Couldn't save your console view choice.", true);
-  }
-}
-
 // The browser is the only thing that knows where the user actually is. The
 // server may be running in UTC, a container, a NAS, a machine whose clock was
 // never set: and every relative time the AI computes ("in 10 minutes",
@@ -1415,134 +1383,6 @@ async function loadTemplates() {
   //: (`openNoteTemplateDialog`), so there is nothing to pre-build here: a
   //: template saved in Settings is in the next opening without a redraw.
 }
-
-// --- the Capture box's template picker (INBOX 410) ---------------------------
-//
-// **Choosing is not making**, for notes as for documents. The owner decided it
-// on 2026-09-24: the Capture box's templates get the confirm step the
-// documents' New from a template has (`openDocTemplateDialog` in documents.js).
-// The picker was a native `<select>` whose `change` filled the box the moment
-// a name was touched, so arrowing down the list to read the names wrote the
-// note once per name, and a template picked by mistake asked "replace what
-// you've written?" before you had seen what it was. Now it is DESIGN.md's
-// recipe for a dialog of choices that each make something: radio rows (yours
-// first, then the built-in ones), the chosen row's text beside them, and one
-// filled button, Use this template, that fills the box. Enter on the list and a
-// double click also make it; the first row is chosen on open so one Enter still
-// works. This file, not documents.js, because the Capture box is always loaded
-// and the documents bundle is not.
-let noteTemplateChoice = null;
-let noteTemplateMade = false;
-
-//: The text a template puts in the Capture box. One function for the preview
-//: and the fill, so the preview cannot show something the button would not
-//: write (the recipe's rule, `docTemplateFill`'s for documents).
-function noteTemplateFill(template) {
-  return String(template?.content || "").replace("{date}", new Date().toLocaleDateString());
-}
-
-//: Yours first, then the built-in ones, as the old dropdown's groups were:
-//: one recognisable shape for "your stuff first, then what shipped".
-function noteTemplateRows() {
-  const { builtin, custom } = templateCatalogue();
-  return [...custom, ...builtin];
-}
-
-function chooseNoteTemplate(template, { focus = false } = {}) {
-  if (!template) return;
-  noteTemplateChoice = template;
-  for (const row of document.querySelectorAll("#note-template-list .doc-template-choice")) {
-    const on = row.dataset.template === template.name;
-    row.setAttribute("aria-checked", String(on));
-    //: The radio pattern's roving tab stop, as in the documents' dialog.
-    row.tabIndex = on ? 0 : -1;
-    if (on && focus) row.focus();
-  }
-  showNoteTemplatePreview(template);
-}
-
-//: The chosen template's text as it will land in the box, inert and hidden
-//: from a screen reader (each row already says what it is). A note is plain
-//: text in the box, so the preview is the text itself, wrapped as it would be.
-function showNoteTemplatePreview(template) {
-  const pane = $("note-template-preview");
-  if (!pane || !template) return;
-  const page = document.createElement("div");
-  page.className = "doc-template-page note-template-page";
-  const text = document.createElement("p");
-  text.className = "note-template-text";
-  text.textContent = noteTemplateFill(template);
-  page.appendChild(text);
-  pane.replaceChildren(page);
-}
-
-async function useNoteTemplate() {
-  //: A double click is a click and then a dblclick, and Enter can follow
-  //: either: one fill per opening, whichever way it was confirmed.
-  if (noteTemplateMade || !noteTemplateChoice) return;
-  noteTemplateMade = true;
-  $("note-template-dialog")?.close();
-  //: The asking and the filling are `fillNoteBox` (notes-list.js, a file with room).
-  await fillNoteBox($("entry-content"), noteTemplateChoice);
-}
-
-function noteTemplateListKeys(event) {
-  const rows = [...event.currentTarget.querySelectorAll(".doc-template-choice")];
-  if (!rows.length) return;
-  const index = rows.findIndex((row) => row.getAttribute("aria-checked") === "true");
-  const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
-  let next = null;
-  if (step) next = rows[(index + step + rows.length) % rows.length];
-  else if (event.key === "Home") next = rows[0];
-  else if (event.key === "End") next = rows[rows.length - 1];
-  const find = (row) => noteTemplateRows().find((t) => t.name === row.dataset.template);
-  if (next) {
-    event.preventDefault();
-    chooseNoteTemplate(find(next), { focus: true });
-  } else if (event.key === "Enter") {
-    //: Enter on a focused row would fire its click, which only chooses; on
-    //: this list Enter is the confirmation, as it is on a form.
-    event.preventDefault();
-    useNoteTemplate();
-  }
-}
-
-function openNoteTemplateDialog() {
-  const dialog = $("note-template-dialog");
-  const list = $("note-template-list");
-  if (!dialog || !list) return;
-  noteTemplateMade = false;
-  const templates = noteTemplateRows();
-  list.replaceChildren();
-  for (const template of templates) {
-    const li = document.createElement("li");
-    li.setAttribute("role", "presentation");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "ghost doc-template-choice";
-    button.setAttribute("role", "radio");
-    button.setAttribute("aria-checked", "false");
-    button.dataset.template = template.name;
-    const name = document.createElement("strong");
-    name.textContent = template.name;
-    //: The row's one line: the template's own description when it has one,
-    //: else which group it is in, so a row never repeats its preview.
-    const hint = document.createElement("span");
-    hint.className = "muted text-sm";
-    hint.textContent = template.description || (template.builtin ? (template.overridden ? "Built-in, edited" : "Built-in") : "Yours");
-    const check = document.createElement("i");
-    check.className = "ph ph-check doc-template-check";
-    check.setAttribute("aria-hidden", "true");
-    button.append(name, hint, check);
-    button.addEventListener("click", () => chooseNoteTemplate(template));
-    button.addEventListener("dblclick", useNoteTemplate);
-    li.appendChild(button);
-    list.appendChild(li);
-  }
-  dialog.showModal();
-  chooseNoteTemplate(templates[0], { focus: true });
-}
-
 
 // --- rendering ---------------------------------------------------------------
 
@@ -1751,20 +1591,6 @@ function makeUnlinkAccessible(span) {
   });
 }
 
-// A <select> from [value, label] pairs, with one option preselected.
-function buildSelect(options, selected) {
-  const select = document.createElement("select");
-  select.className = "small-select";
-  for (const [value, label] of options) {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = label;
-    if (value === selected) option.selected = true;
-    select.appendChild(option);
-  }
-  return select;
-}
-
 // --- asking before something irreversible (§35F) ----------------------------------
 //
 // `window.confirm` is not dependable in pywebview: a backend without it
@@ -1875,58 +1701,6 @@ function confirmDialog(message, options = {}) {
     // Cancel takes focus, not the dangerous one: a stray Enter or Space
     // arriving with the dialog must not be the thing that deletes the notes.
     cancel.focus();
-  });
-}
-
-// `confirmDialog`'s other missing sibling: show a whole piece of text with
-// no decision to make, just a way to close it. Asked for directly: "longer
-// logs get truncated with no way to expand or collapse and view the whole
-// log", the Library's Activity cards show a clipped preview (server-side,
-// `ACTIVITY_DETAIL_CHARS`) so the grid stays scannable, and this is what a
-// click on one opens instead of doing nothing.
-function showDetailDialog(title, text) {
-  return new Promise((resolve) => {
-    const overlay = document.createElement("div");
-    overlay.className = "modal-overlay confirm-overlay";
-    overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-modal", "true");
-    overlay.setAttribute("aria-label", title);
-
-    const card = document.createElement("div");
-    card.className = "card modal-card confirm-card detail-dialog-card";
-    const heading = document.createElement("h3");
-    heading.textContent = title;
-    const body = document.createElement("p");
-    body.className = "confirm-text detail-dialog-text";
-    body.textContent = text;
-    const row = document.createElement("div");
-    row.className = "row confirm-actions";
-
-    let settled = false;
-    const close = () => {
-      if (settled) return;
-      settled = true;
-      document.removeEventListener("keydown", onKey, true);
-      overlay.remove();
-      returnFocus?.focus?.();
-      resolve();
-    };
-    const onKey = (event) => {
-      if (event.key === "Escape" || event.key === "Enter") {
-        event.stopPropagation();
-        close();
-      }
-    };
-
-    const returnFocus = document.activeElement;
-    const ok = smallButton("Close", "Close", close, false);
-    row.append(ok);
-    card.append(heading, body, row);
-    overlay.appendChild(card);
-    wireBackdropClose(overlay, () => close());
-    document.addEventListener("keydown", onKey, true);
-    document.body.appendChild(overlay);
-    ok.focus();
   });
 }
 
@@ -2178,7 +1952,10 @@ function smallButton(label, title, onClick, ghost = true) {
 //: document order: a dynamic script defaults to async, and library.js running
 //: before documents.js would be a different program.
 const LAZY_MODULES = {
-  graph: ["/js/graph.js", "/js/graph-canvas.js"],
+  //: d3 (90 KB gzipped) comes with the two surfaces that use it, not at boot
+  //: (audit FE-07); `ensureModule` fetches a file once whichever bundle names
+  //: it first.
+  graph: ["/vendor/d3.v7.min.js", "/js/graph.js", "/js/graph-canvas.js"],
   //: The image viewer (2026-09-27, the boot-script gzip budget): see
   //: lightbox-view.js's header.
   lightbox: ["/js/lightbox-view.js"],
@@ -2189,7 +1966,7 @@ const LAZY_MODULES = {
   //: The menus a note card's category and tag chips open: see chip-menus.js.
   chipMenus: ["/js/chip-menus.js"],
   noteHistory: ["/js/note-history.js"],
-  askHistory: ["/js/ask-history.js"],
+  askHistory: ["/js/ask-history.js", "/js/ask-chart.js"],
   settingsData: ["/js/settings-data.js"],
   settingsUi: ["/js/settings-find.js", "/js/settings-models.js"],
   tagSuggest: ["/js/tag-suggest.js"],
@@ -2223,10 +2000,29 @@ const LAZY_MODULES = {
   webClip: ["/js/web-clip.js"],
   appImport: ["/js/app-import.js"],
   usageLedger: ["/js/usage-ledger.js"],
+  //: The Library tab's list without the editors (audit FE-03(c)): one click
+  //: on Library fetched both editors, d3 and the whiteboard, about 900 KB
+  //: gzipped, to draw a list. `library` below still holds library.js, so
+  //: a document or a board brings the whole surface; `lazyScript` fetches
+  //: library.js once whichever asks first.
+  libraryList: ["/css/library-lazy.css", "/js/library.js"],
+  //: The Capture box's template picker (note-templates.js's header).
+  noteTemplates: ["/js/note-templates.js"],
+  //: Atlas's blink and arm rig (atlas-motion.js's header): the drawing is
+  //: boot's, the motion arrives with the first figure that mounts.
+  atlasMotion: ["/js/atlas-motion.js"],
+  //: Atlas the Guide as a chat (help-chat.js's header), on first ask.
+  helpChat: ["/js/help-chat.js"],
+  //: A selection's Move to space (batch-space.js's header).
+  batchSpace: ["/js/batch-space.js"],
+  //: Settings, Packages: the extras, their bundles and bulk actions (INBOX 595).
+  packages: ["/js/settings-packages.js"],
+  //: The panel the "m" chord opens: chord-guide.js says why it is preloaded.
+  chordGuide: ["/js/chord-guide.js"],
   //: Atlas's living tail and its rings' loops (the gzip budget): see atlas-life.js.
   atlasLife: ["/js/atlas-life.js"],
-  //: The bar or line under a counting answer (section 17 row 4): see answer-chart.js.
-  chart: ["/js/answer-chart.js"],
+  //: The companion's menu and a face's enlarged view (companion-menu.js's header).
+  companionMenu: ["/js/companion-menu.js"],
   //: The order the `<script>` tags had, kept: every cross-file call between
   //: these three is inside a function rather than at parse time, so it is not
   //: load-bearing, but it is the order the three files' own headers describe.
@@ -2238,6 +2034,10 @@ const LAZY_MODULES = {
   //: whiteboard-map.js (the mind map layer, split out of whiteboard.js the
   //: same day) goes before whiteboard.js on the same terms.
   library: [
+    //: d3 before whiteboard.js, whose top level calls `d3.zoom()`.
+    "/vendor/d3.v7.min.js",
+    //: The styles only this bundle's surfaces draw, out of the boot budget.
+    "/css/library-lazy.css",
     //: First: the stored undo histories both editors read (undo-store.js).
     "/js/undo-store.js",
     "/js/documents-code.js",
@@ -2264,7 +2064,7 @@ function whenScriptsLoaded() {
   return new Promise((resolve) => document.addEventListener("DOMContentLoaded", resolve, { once: true }));
 }
 
-const TAB_MODULES = { graph: "graph", library: "library", documents: "library" };
+const TAB_MODULES = { graph: "graph", library: "libraryList", documents: "library" };
 
 const lazyModuleLoads = new Map();
 
@@ -2315,24 +2115,36 @@ function onDomReady(fn) {
   else queueMicrotask(fn);
 }
 
+//: One fetch per file, whichever bundle asks first: d3 is in two. An
+//: `async = false` script runs in insertion order with every other one, so a
+//: bundle reusing a file still in flight still runs after it.
+const lazyFileLoads = new Map();
+function lazyScript(file) {
+  if (!lazyFileLoads.has(file)) {
+    lazyFileLoads.set(
+      file,
+      new Promise((resolve) => {
+        //: A bundle's own stylesheet is a `<link>` (library-lazy.css's header).
+        const css = file.endsWith(".css");
+        const el = document.createElement(css ? "link" : "script");
+        if (css) el.rel = "stylesheet";
+        else el.async = false; // document order, not network order
+        el[css ? "href" : "src"] = file + lazyAssetStamp(file);
+        el.onload = () => resolve(true);
+        el.onerror = () => resolve(false);
+        document.head.appendChild(el);
+      })
+    );
+  }
+  return lazyFileLoads.get(file);
+}
+
 function ensureModule(name) {
   const files = LAZY_MODULES[name];
   if (!files) return Promise.resolve(false);
   const pending = lazyModuleLoads.get(name);
   if (pending) return pending;
-  const loaded = Promise.all(
-    files.map(
-      (file) =>
-        new Promise((resolve) => {
-          const script = document.createElement("script");
-          script.async = false; // document order, not network order
-          script.src = file + lazyAssetStamp(file);
-          script.onload = () => resolve(true);
-          script.onerror = () => resolve(false);
-          document.head.appendChild(script);
-        })
-    )
-  ).then((results) => results.every(Boolean));
+  const loaded = Promise.all(files.map(lazyScript)).then((results) => results.every(Boolean));
   lazyModuleLoads.set(name, loaded);
   return loaded;
 }
@@ -2458,6 +2270,10 @@ const LAZY_ENTRY_POINTS = {
   noteHistory: ["openEntryHistory"],
   modelBench: ["renderModelBench"],
   usageLedger: ["renderUsage", "renderCaptureCommand"],
+  packages: ["renderExtras"],
+  chordGuide: ["showTabJumpHint"],
+  //: Async, and reached from a Settings pane drawn before the window's own await.
+  settingsControls: ["refreshSearxngHost"],
   settingsData: [
     "renderPrivacyRange",
     "renderPrivacyReceipt",
@@ -2469,13 +2285,20 @@ const LAZY_ENTRY_POINTS = {
     "importDocument",
   ],
   tagSuggest: ["openTagSuggest"],
+  //: Each called for its effect when a figure mounts or moves; nothing reads a result.
+  atlasMotion: ["atlasBlinkStart", "atlasRigAttach", "atlasRigWake"],
+  companionMenu: ["nameMarkBuddyMenu", "openNameMarkViewer"],
+  //: Opened, asked or drawn for their effect; `openHelpChat`'s close is read by no caller.
+  helpChat: ["openHelpChat", "askAtlas", "renderAtlasStarters"],
+  batchSpace: ["batchMoveToSpace"],
   //: 2026-10-05, the next six: async or unread, reached by a gesture.
   reveal: ["revealFeature"],
-  onboarding: ["openOnboarding"],
+  onboarding: ["openOnboarding", "maybeShowConsoleViewIntro"],
   updates: ["checkForUpdate", "applyUpdateNow", "showSourceUpdatedDialog", "askUpdateChoiceOnce"],
   appPalette: ["openPalette"],
-  notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing"],
+  notePanels: ["toggleRelated", "toggleReferences", "toggleFaded", "toggleNoteReminders", "renderRelatedWhileEditing", "renderNoteBookmarksWhileEditing", "renderEditForm"],
   attachTo: ["renderAttachToBoard", "renderAttachToDocument"],
+  noteTemplates: ["openNoteTemplateDialog", "useNoteTemplate"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",
@@ -2528,14 +2351,11 @@ const LAZY_ENTRY_POINTS = {
   library: [
     "applyDocGutter",
     "applyMarkdown",
-    "closeBinnedReader",
     "closeDocAiPanel",
     "createConceptMap",
     "createDocument",
     "createNewBoard",
     "expandNoteIntoDocument",
-    "flashLibraryItem",
-    "focusLibraryFile",
     "initDocSidebarTabs",
     "loadDocuments",
     "markDocDirty",
@@ -2555,6 +2375,17 @@ const LAZY_ENTRY_POINTS = {
     "wireMarkdownToolbar",
     "wireMdFormatShortcuts",
     "openWhiteboardBoard",
+    "deleteDocumentWithUndo",
+    "jumpToDocLine",
+    "renderLibraryBoardsGallery",
+  ],
+  //: The Library's own list (audit FE-03(c)): library.js alone. A call from
+  //: it into a document or a board is one of `library`'s stand-ins above,
+  //: which fetches the editors on first use.
+  libraryList: [
+    "closeBinnedReader",
+    "flashLibraryItem",
+    "focusLibraryFile",
   ],
 };
 
@@ -2578,4 +2409,4 @@ for (const [module, names] of Object.entries(LAZY_ENTRY_POINTS)) {
 }
 //: Fetched soon after boot, not on first use: the outbox is for the moment
 //: the server is gone, when no script can be fetched (quick-note.js).
-setTimeout(() => ["quickNote", "fieldClear"].forEach((name) => ensureModule(name)), 3000);
+setTimeout(() => ["quickNote", "fieldClear", "chordGuide", "notePanels"].forEach((name) => ensureModule(name)), 3000);

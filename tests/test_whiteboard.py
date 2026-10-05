@@ -455,6 +455,11 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "alpha": None,
         "shadow": None,
         "library_ref": None,
+        # And with a topic's markers (MINDMAP_PLAN decision 34).
+        "priority": None,
+        "progress": None,
+        "flag": None,
+        "markers": None,
     }
 
     moved = board_client.put(

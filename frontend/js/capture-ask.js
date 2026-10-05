@@ -308,6 +308,46 @@ function renderCaptureDocumentAdder() {
   slot.replaceChildren(adder);
 }
 
+//: **Template variables** (WORLD_CLASS_PLAN 5 item 4). `{date}` was the one
+//: a note template had; `{{date}}` and `{{time}}` read the same way (one or
+//: two braces), `{{clipboard}}` is what is on the clipboard when the template
+//: is used, and `{{cursor}}` is where the caret lands. The preview shows the
+//: clipboard as a placeholder rather than reading it before anything is chosen.
+const NOTE_TEMPLATE_CURSOR = "{{cursor}}";
+
+function noteTemplateText(raw, clipboard = "[clipboard]") {
+  const now = new Date();
+  return String(raw || "")
+    .replace(/\{\{?date\}\}?/g, now.toLocaleDateString())
+    .replace(/\{\{?time\}\}?/g, now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))
+    .replaceAll("{{clipboard}}", clipboard);
+}
+
+//: The text and the caret for Use this template: the clipboard read only
+//: when the template asks for it, an unreadable one (refused, empty, no
+//: permission) filled as nothing and said once.
+async function noteTemplateForUse(template) {
+  const raw = String(template?.content || "");
+  let clipboard = "";
+  if (raw.includes("{{clipboard}}")) {
+    try {
+      clipboard = (await navigator.clipboard.readText()) || "";
+    } catch {
+      toast("Couldn't read the clipboard, so that part of the template is empty.", true);
+    }
+  }
+  const full = noteTemplateText(raw, clipboard);
+  const caret = full.indexOf(NOTE_TEMPLATE_CURSOR);
+  return { text: full.replaceAll(NOTE_TEMPLATE_CURSOR, ""), caret };
+}
+
+//: The rich editor mounted over `box`, or null: `noteSurfaceFor` lives in
+//: the documents bundle, which may not have arrived, and its answer is
+//: read, so it cannot be a stand-in. The one guard for every caller.
+function noteSurfaceIfAny(box) {
+  return typeof noteSurfaceFor === "function" ? noteSurfaceFor(box) : null;
+}
+
 function openDocumentFromNote(documentId) {
   switchTab("documents");
   // The tab's own loader races us otherwise, and opens the last document.
@@ -336,7 +376,7 @@ function withTitle(content, title) {
 //: The editor view when one is mounted, the textarea otherwise.
 function focusCaptureBox() {
   const box = $("entry-content");
-  const surface = typeof noteSurfaceFor === "function" ? noteSurfaceFor(box) : null;
+  const surface = noteSurfaceIfAny(box);
   if (surface) surface.focus();
   else box?.focus();
 }
@@ -735,29 +775,8 @@ function scrollEditingEntryIntoView(id) {
   if (rect.top < 0) window.scrollBy(0, rect.top - 8);
 }
 
-//: **Count an open the page made without reading** (section 17, row 5, the
-//: dashboard's "this month"). The Notes list holds every note, so a card
-//: flashed from a search result, the graph or a link, and a note's own page,
-//: never GET the note and the server never hears of them. One count per note
-//: per half minute, so a jump that repeats (a rerender, a double press) is one
-//: open. Best effort and quiet: a missed count is not worth a toast.
-const noteOpenSeen = new Map();
-async function noteOpened(id) {
-  const now = Date.now();
-  if (!Number.isFinite(id) || now - (noteOpenSeen.get(id) || 0) < 30000) return;
-  noteOpenSeen.set(id, now);
-  try {
-    await api(`/entries/${id}/opened`, { method: "POST", silent: true });
-  } catch (error) {
-    // Not worth a message: the note opened either way, and a missed count is
-    // one open fewer in a month's list.
-    noteOpenSeen.delete(id);
-  }
-}
-
 function flashEntry(id) {
   lastOpenedEntryId = id;
-  noteOpened(id);
   switchTab("notes");
   // The Notes tab is split into sub-tabs, and the note list lives in "browse".
   // Without this the card is found and scrolled to while its whole section is
@@ -1871,14 +1890,6 @@ function answerFigure(entry, n, k, alts, sizes) {
 
 function placeAnswerFigures(answerEl, meta, question) {
   const targets = answerEl && !answerEl.nodeType ? [...answerEl] : answerEl ? [answerEl] : [];
-  //: A counting or trend question's chart (ai/stat_charts.py), drawn once under
-  //: the answer; answer-chart.js loads the first time one arrives.
-  if (meta?.chart && targets.length && !targets[0].querySelector(".answer-chart")) {
-    ensureModule("chart").then((loaded) => {
-      const figure = loaded ? drawAnswerChart(meta.chart) : null;
-      if (figure && !targets[0].querySelector(".answer-chart")) targets[0].append(figure);
-    });
-  }
   if (!targets.length || targets.some((t) => t.querySelector(".answer-figure"))) return;
   const notes = meta?.raw_results || [];
   const { picture_alts: alts, picture_sizes: sizes } = meta || {};
@@ -2737,6 +2748,17 @@ async function askQuestion(preset) {
   const thinkingText = thinkingBox.querySelector(".thinking");
   renderAskedQuestion(question);
   answerBox.textContent = "";
+  //: A counting or trend question gets its chart beside the answer
+  //: (WORLD_CLASS_PLAN section 17 row 4): asked in parallel, from the
+  //: records, so it lands whether or not the model answers.
+  const chartHost = $("ask-chart");
+  if (chartHost) {
+    chartHost.replaceChildren();
+    chartHost.classList.add("hidden");
+    ensureModule("askHistory")
+      .then(() => renderAskChart(question, chartHost, () => lastQuestion === question))
+      .catch(() => {});
+  }
   //: After the reset, not before it: the progress line lives inside the
   //: answer box now, so creating it first would only have it wiped.
   const progress = askStatusBusy(

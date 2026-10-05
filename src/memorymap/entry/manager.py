@@ -32,6 +32,7 @@ from memorymap.core.database import (
     DocumentLink,
     EntryBookmark,
     EntryDate,
+    EntryOpen,
     EntryLink,
     EntryProperty,
     EntryRevision,
@@ -1115,6 +1116,8 @@ def _hard_delete(session: Session, entries: list[Entry], uploads_dir: Path | Non
     session.execute(delete(NoteScore).where(NoteScore.entry_id.in_(ids)))
     # KG4: a note's property index is about the note.
     session.execute(delete(EntryProperty).where(EntryProperty.entry_id.in_(ids)))
+    # Section 17 row 5: the day-by-day open counts are about the note.
+    session.execute(delete(EntryOpen).where(EntryOpen.entry_id.in_(ids)))
     # An eighth, added with the derived facts table (I9): what the app
     # worked out about a note is about the note, so it goes when the note
     # does. Keeping it would also leave the "what the notebook learned"

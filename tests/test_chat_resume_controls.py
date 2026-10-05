@@ -67,9 +67,10 @@ def test_the_popup_agent_writes_its_thinking_as_it_arrives() -> None:
 
 
 def test_the_guide_reads_a_stream_and_can_fall_back() -> None:
+    #: The Guide's chat moved from settings.js to help-chat.js (a lazy bundle).
     settings = (
         __import__("pathlib").Path(__file__).resolve().parent.parent
-        / "frontend" / "js" / "settings.js"
+        / "frontend" / "js" / "help-chat.js"
     ).read_text(encoding="utf-8")
     assert "async function helpChatStreamTurn({ pending, signal, body })" in settings
     assert 'api.stream("/help/ask/stream"' in settings

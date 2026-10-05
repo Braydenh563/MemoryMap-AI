@@ -24,8 +24,9 @@ function assistantEmblemShot(size) {
   const key = `${size}|${accent}`;
   let shot = assistantEmblemShots.get(key);
   if (!shot) {
-    shot = ensureP5().then((ready) => {
-      if (!ready) return null;
+    //: After the page's scripts have run, as when this waited for p5: the
+    //: copy below reads settings.js (`appearancePref`), which loads later.
+    shot = whenScriptsLoaded().then(() => {
       const scratch = document.createElement("div");
       scratch.className = "assistant-emblem-scratch";
       document.body.appendChild(scratch);

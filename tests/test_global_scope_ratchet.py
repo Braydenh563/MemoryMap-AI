@@ -21,12 +21,17 @@ from memorymap.api.asset_strip import strip_js
 JS = Path(__file__).resolve().parents[1] / "frontend" / "js"
 
 #: 2026-10-05 (comments excluded; worker files included, they are few).
-#: Set on the frontend branch alone (371 and 706), then measured on the merged
-#: tree the same day, 2026-10-05: six branches written in parallel added lazy
-#: bundles and their guards without knowing this ratchet existed. These are
-#: that tree's exact counts; they only go down (the perf2 follow-up owns it).
-GUARDS_CAP = 371
-TOP_LEVEL_LETS_CAP = 718
+#: The same day, after six branches merged, 387 guards and 718 lets: 19
+#: guards in documents.js on boot files' own functions (always defined by
+#: the time a lazy bundle runs) came out, and twelve lets became fields of
+#: one const per file (the palette, onboarding, the notes rail, the template
+#: picker, the finder) or plain consts (`timelineZoom`, `notePanel`).
+#: The integration branch after search-boot-1005 merged, 2026-10-05: 288
+#: guards (63 same-bundle ones in boot files dropped to bring boot JS under its
+#: cap) and 705 lets.
+#: And after the Atlas merge: the companion's own toast and prefs guards gone.
+GUARDS_CAP = 279
+TOP_LEVEL_LETS_CAP = 704
 
 
 def _code() -> dict[str, str]:

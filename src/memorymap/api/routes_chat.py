@@ -56,7 +56,7 @@ from memorymap.ai.grounding import (
 )
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.api.schemas import EntryOut
-from memorymap.core import deps, docview, model_gate, opens
+from memorymap.core import deps, docview, model_gate
 from memorymap.core.database import (
     LIKE_ESCAPE,
     Attachment,
@@ -1346,12 +1346,6 @@ def _prepare(
         entry.access_count += 1
     manager.log_action(session, "queried", surface, detail=question)
     session.commit()
-    #: And in this month's opens (section 17, row 5), the half a count cannot
-    #: say: when. Ids only; best effort, like the count it sits beside.
-    try:
-        opens.record_many(config.data_dir, [entry.id for entry in entries])
-    except OSError as exc:
-        logging.getLogger("memorymap.chat").warning("Could not count the matches: %s", type(exc).__name__)
     logging.getLogger("memorymap.chat").info(
         "chat: %d note(s) via %s search for %r",
         len(entries),
@@ -1370,7 +1364,7 @@ def _prepare(
         #: prompt below hands it to the model as ground truth rather than
         #: asking it to work the numbers out.
         "stats": (
-            {"kind": stats.kind, "text": stats.text, "facts": stats.facts, "chart": stats.chart}
+            {"kind": stats.kind, "text": stats.text, "facts": stats.facts}
             if stats is not None
             else None
         ),
@@ -1881,6 +1875,103 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         }
 
 
+def _agent_events(req: _StreamRequest, prepared: dict, tools_provider) -> Iterator[dict]:  # noqa: ANN001
+    """The event stream of a skill run or an agent turn for this request.
+
+    Lifted from `_stream_lines` with no behaviour change (audit 2026-10-05,
+    ARCH-22: it was 334 lines)."""
+    shared = {
+        "style": prepared["style"],
+        "profile": prepared["profile"],
+        "history": req.history,
+        "persona_prompt": req.persona_prompt,
+    }
+    if req.skill:
+        # A skill runs step by step, the runner emits the plan, ticks
+        # each step, and ends with what changed. Its first event has
+        # the same meaning as the agent's, so the fallback below is
+        # unchanged.
+        agent_events = skill_runner.run_skill(
+            req.session,
+            req.skill["skill"],
+            req.body.skill_inputs or {},
+            prepared["notes"],
+            req.model_manager,
+            req.ollama,
+            start_at=req.body.skill_from_step,
+            only_step=req.body.skill_only_step,
+            step_text=req.body.skill_step_text,
+            manual=req.body.skill_manual,
+            manual_note=req.body.skill_manual_note,
+            small_model=_small_model_mode(),
+            # The run's own budget (Brief 13), read from the user's
+            # settings here rather than inside the runner so that the
+            # runner stays testable without app state and so a caller
+            # with its own budget (an eval, a background job) can pass
+            # one instead.
+            #: The step count goes with it: the token allowance is per
+            #: step, and a nine-step skill held to one step's worth is how
+            #: a correct run came to stop after three of them.
+            budget=run_budget.from_settings(
+                deps.get_config(),
+                steps=len(req.skill["skill"].get("steps") or []) or 1,
+            ),
+            **shared,
+        )
+    else:
+        agent_events = agent.run_agent(
+            req.session,
+            req.question,
+            prepared["notes"],
+            req.model_manager,
+            tools_provider,
+            mode=req.mode,
+            allowed_tools=req.allowed_tools,
+            images=req.images,
+            image_context=req.image_context,
+            **shared,
+        )
+    return agent_events
+
+
+def _first_agent_event(req: _StreamRequest, agent_events: Iterator[dict]) -> dict | None:
+    """The stream's first event, or an answer saying what went wrong if the
+    run failed before it could yield one. Lifted from `_stream_lines` (ARCH-22)."""
+    # Everything `agent.run_agent`/`skill_runner.run_skill` themselves
+    # expect to go wrong (OllamaError, ToolsUnsupportedError) is
+    # already caught inside them and turned into a real event, this
+    # is the outer boundary, for whatever isn't. Reported directly: a
+    # skill run that "failed before even completing the first step
+    # ... no answer and no tool call", an exception here had nothing
+    # catching it, so it killed the generator and the stream just
+    # ended with nothing rendered, no error, the plan card (if any)
+    # never even reaching the page. Silence was the bug, not the
+    # underlying failure, which is why this doesn't try to guess
+    # which failure it was, it says what actually happened and stays
+    # on stage instead of vanishing.
+    try:
+        first = next(agent_events, None)
+    except Exception as exc:  # noqa: BLE001  # the outer boundary
+        logging.getLogger("memorymap.chat").exception(
+            "%s: unhandled error before the first event: %s",
+            "skill run" if req.skill else "agent turn",
+            exc,
+        )
+        first = {
+            "type": "answer",
+            # CodeQL #419, the same finding as #296 one branch over: this
+            # arm was written before `safe_value` existed and kept `exc`'s
+            # own str(), which can carry a file path or a connection
+            # detail out to the browser. The sanitiser the mid-stream arm
+            # below already trusts.
+            "delta": (
+                "Something went wrong before it could start: "
+                f"{safe_value(exc)}"
+            ),
+        }
+    return first
+
+
 def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     def event(payload: dict) -> str:
         return json.dumps(payload) + "\n"
@@ -1946,9 +2037,6 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             "when_phrase": prepared["when_phrase"],
             "as_of": prepared.get("as_of"),
             "as_of_revisions": prepared.get("as_of_revisions") or {},
-            #: A bar or a line for a counting or trend question
-            #: (`ai/stat_charts.py`); the page draws it under the answer.
-            "chart": (prepared["stats"] or {}).get("chart"),
             "answered_by": (
                 "needle (tools only)"
                 if tools_only and will_answer
@@ -1963,89 +2051,8 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     # Small talk never goes near the agent: "hey" is not a request to do
     # anything, and handing it a toolbox invites it to invent an errand.
     if (ollama_running or tools_only) and req.use_tools and intent.needs_retrieval(prepared["intent"]):
-        shared = {
-            "style": prepared["style"],
-            "profile": prepared["profile"],
-            "history": req.history,
-            "persona_prompt": req.persona_prompt,
-        }
-        if req.skill:
-            # A skill runs step by step, the runner emits the plan, ticks
-            # each step, and ends with what changed. Its first event has
-            # the same meaning as the agent's, so the fallback below is
-            # unchanged.
-            agent_events = skill_runner.run_skill(
-                req.session,
-                req.skill["skill"],
-                req.body.skill_inputs or {},
-                prepared["notes"],
-                req.model_manager,
-                req.ollama,
-                start_at=req.body.skill_from_step,
-                only_step=req.body.skill_only_step,
-                step_text=req.body.skill_step_text,
-                manual=req.body.skill_manual,
-                manual_note=req.body.skill_manual_note,
-                small_model=_small_model_mode(),
-                # The run's own budget (Brief 13), read from the user's
-                # settings here rather than inside the runner so that the
-                # runner stays testable without app state and so a caller
-                # with its own budget (an eval, a background job) can pass
-                # one instead.
-                #: The step count goes with it: the token allowance is per
-                #: step, and a nine-step skill held to one step's worth is how
-                #: a correct run came to stop after three of them.
-                budget=run_budget.from_settings(
-                    deps.get_config(),
-                    steps=len(req.skill["skill"].get("steps") or []) or 1,
-                ),
-                **shared,
-            )
-        else:
-            agent_events = agent.run_agent(
-                req.session,
-                req.question,
-                prepared["notes"],
-                req.model_manager,
-                tools_provider,
-                mode=req.mode,
-                allowed_tools=req.allowed_tools,
-                images=req.images,
-                image_context=req.image_context,
-                **shared,
-            )
-        # Everything `agent.run_agent`/`skill_runner.run_skill` themselves
-        # expect to go wrong (OllamaError, ToolsUnsupportedError) is
-        # already caught inside them and turned into a real event, this
-        # is the outer boundary, for whatever isn't. Reported directly: a
-        # skill run that "failed before even completing the first step
-        # ... no answer and no tool call", an exception here had nothing
-        # catching it, so it killed the generator and the stream just
-        # ended with nothing rendered, no error, the plan card (if any)
-        # never even reaching the page. Silence was the bug, not the
-        # underlying failure, which is why this doesn't try to guess
-        # which failure it was, it says what actually happened and stays
-        # on stage instead of vanishing.
-        try:
-            first = next(agent_events, None)
-        except Exception as exc:  # noqa: BLE001  # the outer boundary
-            logging.getLogger("memorymap.chat").exception(
-                "%s: unhandled error before the first event: %s",
-                "skill run" if req.skill else "agent turn",
-                exc,
-            )
-            first = {
-                "type": "answer",
-                # CodeQL #419, the same finding as #296 one branch over: this
-                # arm was written before `safe_value` existed and kept `exc`'s
-                # own str(), which can carry a file path or a connection
-                # detail out to the browser. The sanitiser the mid-stream arm
-                # below already trusts.
-                "delta": (
-                    "Something went wrong before it could start: "
-                    f"{safe_value(exc)}"
-                ),
-            }
+        agent_events = _agent_events(req, prepared, tools_provider)
+        first = _first_agent_event(req, agent_events)
         if first is None or first.get("type") == "unsupported":
             # The active model can't do tool calls, plain Q&A, never
             # a hard dependency. INBOX 272 part 1: this used to be a silent

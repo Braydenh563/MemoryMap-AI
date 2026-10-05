@@ -36,7 +36,7 @@
 // and the menu filters rather than offering something that would no-op.
 const EDITOR_SURFACES = {
   "entry-content": "note",
-  //: The note *edit* form (notes-list.js's `renderEditForm`), which had none of this
+  //: The note *edit* form (note-edit-panels.js's `renderEditForm`), which had none of this
   //: until now: the one editing surface in the app with no "/" menu, no
   //: toolbar and no selection bar. One id, because `editingId` allows exactly
   //: one open edit form at a time.
@@ -348,38 +348,6 @@ function editorFuzzyRank(rows, query) {
 }
 // EDITOR-BLOCKS-END
 
-//: **The menu that changes a callout from where it is drawn** (INBOX 421 b).
-//: One list for both places a rendered callout offers it (the icon in the
-//: Live view, the block bar in the Read view), so the two cannot offer
-//: different kinds. `apply(kind, fold)` writes the change; the rows are the
-//: app's own menu rows (`kebabMenu` groups), with the current kind and fold
-//: marked by a check glyph rather than by colour alone.
-function calloutMenuItems(current, fold, apply) {
-  const items = [];
-  for (const [kind, meta] of Object.entries(CALLOUT_KINDS)) {
-    items.push({
-      group: "Kind",
-      label: `${kind === current ? "ph:check" : meta.icon} ${meta.label}`,
-      title: meta.about,
-      run: () => apply(kind, fold),
-    });
-  }
-  const folds = [
-    ["", "ph:rows", "Always open"],
-    ["-", "ph:caret-right", "Folded until clicked"],
-    ["+", "ph:caret-down", "Foldable, starts open"],
-  ];
-  for (const [flag, icon, label] of folds) {
-    items.push({
-      group: "Folding",
-      label: `${flag === fold ? "ph:check" : icon} ${label}`,
-      title: label,
-      run: () => apply(current, flag),
-    });
-  }
-  return items;
-}
-
 // ---------------------------------------------------------------------------
 // Inserting text into an arbitrary textarea
 //
@@ -414,7 +382,7 @@ function editorNotifyHost(textarea) {
   //: silently stopped growing. Found by driving the capture box
   //: (`scratchpad/ui-sweeps/cm-notes.js`), not by reading: the surface wears
   //: enough of a textarea's names that the call site reads as correct.
-  if (typeof autoGrow === "function" && textarea.classList.contains("autogrow")) {
+  if (textarea.classList.contains("autogrow")) {
     autoGrow(textarea.el);
   }
 }
@@ -929,7 +897,6 @@ function editorCommands(context) {
   // before ours" ordering loadTemplates() already uses for the dropdown.
   const custom = (typeof prefsCache !== "undefined" && prefsCache?.custom_templates) || [];
   const builtin = typeof BUILTIN_TEMPLATES !== "undefined" ? BUILTIN_TEMPLATES : [];
-  const today = new Date().toLocaleDateString();
   for (const template of [...custom, ...builtin]) {
     if (!template?.name || !template?.content) continue;
     commands.push({
@@ -939,13 +906,18 @@ function editorCommands(context) {
       label: `${template.name}`,
       about: "Insert this template",
       keywords: ["template", template.name],
-      sample: template.content.replace("{date}", today).split("\n").slice(0, 8).join("\n"),
-      run: (textarea) =>
-        editorApplyAction(textarea, {
-          // Same {date} substitution applyTemplate() does, so a template
-          // behaves identically whichever way it was reached.
-          insert: template.content.replace("{date}", today),
-        }),
+      sample: noteTemplateText(template.content).replaceAll(NOTE_TEMPLATE_CURSOR, "").split("\n").slice(0, 8).join("\n"),
+      //: The variables the Capture box's picker fills (`noteTemplateForUse`,
+      //: WORLD_CLASS_PLAN 5 item 4), so a template behaves the same whichever
+      //: way it was reached; the caret lands on its `{{cursor}}`. The range is
+      //: read before the clipboard is, which can take a moment.
+      run: async (textarea) => {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const filled = await noteTemplateForUse(template);
+        const at = filled.caret >= 0 ? filled.caret : filled.text.length;
+        editorSplice(textarea, start, end, filled.text, { from: at, to: at });
+      },
     });
   }
 
@@ -1330,7 +1302,7 @@ function editorRenderPreview(item) {
   if (pane.dataset.for === item.id) return;
   pane.dataset.for = item.id || "";
   let sample = item.entry ? richPickerLines(item.entry.content) : null;
-  if (!sample && item.sample && typeof renderMarkdown === "function") {
+  if (!sample && item.sample) {
     sample = document.createElement("div");
     renderMarkdown(sample, item.sample);
   }
@@ -2071,7 +2043,7 @@ function editorChoiceDialog(message, choices) {
 async function offerToCreateWikiTarget(name) {
   //: A board reference keeps its bar (it is read just below); any other link
   //: offers to create the note its target names, not `Target|Shown`.
-  const wanted = String((typeof wikiLinkTarget === "function" ? wikiLinkTarget(name) : name) || "").trim();
+  const wanted = String(wikiLinkTarget(name) || "").trim();
   if (!wanted) return;
 
   //: **A board reference is not a name that can be created** (INBOX 309).
@@ -2080,7 +2052,7 @@ async function offerToCreateWikiTarget(name) {
   //: create "a note beginning board:12|House jobs" would make a note nobody
   //: wants and still leave the link dead, which is the dead end this
   //: function exists to remove, not a new one.
-  const ref = typeof boardEmbedRef === "function" ? boardEmbedRef(wanted) : null;
+  const ref = boardEmbedRef(wanted);
   if (ref) {
     toast(`\u201c${ref.title || "That board"}\u201d is no longer in your notebook.`);
     return;
@@ -2179,56 +2151,12 @@ const CODE_KEYWORDS = {
 //: word `if` inside a comment is not re-coloured as something else.
 const codeScanners = new Map();
 
-function codeScanner(family) {
-  if (codeScanners.has(family)) return codeScanners.get(family);
-  const lineComment =
-    family === "hash" ? "#[^\\n]*" : family === "sql" ? "--[^\\n]*" : "\\/\\/[^\\n]*";
-  const parts = [];
-  if (family === "markup") parts.push("(?<comment><!--[\\s\\S]*?-->)");
-  else parts.push(`(?<comment>\\/\\*[\\s\\S]*?\\*\\/|${lineComment})`);
-  parts.push('(?<string>"(?:[^"\\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\\n]|\\\\.)*\'|`(?:[^`\\\\]|\\\\.)*`)');
-  parts.push("(?<number>\\b\\d[\\d_]*(?:\\.\\d+)?(?:[eE][+-]?\\d+)?\\b)");
-  const words = (CODE_KEYWORDS[family] || CODE_KEYWORDS.generic).trim().split(/\s+/);
-  if (words.length && words[0]) parts.push(`(?<keyword>\\b(?:${words.join("|")})\\b)`);
-  const scanner = new RegExp(parts.join("|"), "g");
-  codeScanners.set(family, scanner);
-  return scanner;
-}
-
 //: Which family a filename is in. Extension only: content sniffing guesses
 //: wrong on short files and there is nothing to gain: a file this app can
 //: view arrived with a suffix it recognised (`docview.CODE_SUFFIXES`).
 function codeFamilyFor(filename) {
   const suffix = /\.([a-z0-9]+)$/i.exec(String(filename || ""));
   return CODE_LANGUAGES[(suffix?.[1] || "").toLowerCase()] || "generic";
-}
-
-//: Fills `target` with the highlighted source. Text nodes and `<span>`s
-//: built with `textContent`, never `innerHTML`, a file's own text is exactly
-//: the untrusted input a markup-assembling highlighter turns into an
-//: injection, and this app's CSP would not save a same-origin one.
-function highlightCodeInto(target, text, filename) {
-  const scanner = codeScanner(codeFamilyFor(filename));
-  scanner.lastIndex = 0;
-  const source = String(text ?? "");
-  let at = 0;
-  let match;
-  while ((match = scanner.exec(source)) !== null) {
-    //: A zero-length match would loop forever. None of the patterns above can
-    //: produce one, and this costs nothing to be certain of.
-    if (match.index === scanner.lastIndex) {
-      scanner.lastIndex++;
-      continue;
-    }
-    if (match.index > at) target.appendChild(document.createTextNode(source.slice(at, match.index)));
-    const kind = Object.keys(match.groups).find((name) => match.groups[name] !== undefined);
-    const span = document.createElement("span");
-    span.className = `tok-${kind}`;
-    span.textContent = match[0];
-    target.appendChild(span);
-    at = match.index + match[0].length;
-  }
-  if (at < source.length) target.appendChild(document.createTextNode(source.slice(at)));
 }
 
 // ---------------------------------------------------------------------------

@@ -252,7 +252,7 @@ function agentOpenSubject() {
   //: which entry ids are boards, and a board row carries its own `type`, so a
   //: map is named a map and a board a board.
   const asBoard = (id) => {
-    const board = typeof mapBoardById === "function" ? mapBoardById(id) : null;
+    const board = mapBoardById(id);
     if (!board) return null;
     const kind = (board.type || "map") === "map" ? "map" : "board";
     return { kind, id, label: board.title || `${kind} ${id}` };
@@ -326,7 +326,7 @@ function syncAgentOpenNoteToggle() {
   //: working: it would look fixed. Asked for once per opening (the flag is
   //: cleared by `toggleAgentPalette`), and the repaint is what puts the right
   //: word on the label when the answer arrives.
-  if (!agentBoardIndexAsked && typeof loadMapBoardIndex === "function") {
+  if (!agentBoardIndexAsked) {
     agentBoardIndexAsked = true;
     loadMapBoardIndex().then(() => syncAgentOpenNoteToggle()).catch(() => {});
   }
@@ -736,7 +736,7 @@ function cmdNoteName(entry) {
     .map((line) => line.trim())
     .find((line) => line.length > 0);
   if (!first) return "";
-  const clean = (typeof notePreviewText === "function" ? notePreviewText(first) : first)
+  const clean = notePreviewText(first)
     .replace(/\s+/g, " ")
     .trim();
   if (!clean) return "";
@@ -1351,61 +1351,6 @@ $("command-palette-intro")?.addEventListener("click", (e) => {
 //: sheet that opens and focuses its first row there took that Enter's
 //: keypress as a press on it (measured: the Move sheet closed unseen).
 const paletteLater = (fn) => () => setTimeout(fn);
-
-function notesPaletteCommands(query = "") {
-  const rows = [];
-  const ids = paletteNotesInHand();
-  if (ids.length) {
-    const one = ids.length === 1 ? allEntries.find((e) => e.id === ids[0]) : null;
-    rows.push({
-      group: "This note",
-      label: `ph:folder-open Move ${one ? "note" : "notes"} to category`,
-      about: one ? `Now in ${one.category}.` : `${ids.length} selected notes.`,
-      run: paletteLater(() => chooseNoteCategory(ids, one?.category || "")),
-    });
-    rows.push({
-      group: "This note",
-      label: `ph:tag Add or remove tags on ${one ? "this note" : "these notes"}`,
-      about: one ? `${one.tags.length ? one.tags.map((t) => `#${t}`).join(" ") : "No tags yet."}` : `${ids.length} selected notes.`,
-      run: paletteLater(() => openBulkTags(ids)),
-    });
-  }
-  rows.push({
-    group: "Tags",
-    label: "ph:hash Manage tags",
-    about: "Rename, merge or remove tags across every note.",
-    run: paletteLater(() => openTagsSheet()),
-  });
-  rows.push({
-    group: "Categories",
-    label: "ph:sliders-horizontal Manage categories",
-    about: "Rename, merge, split or delete categories.",
-    run: paletteLater(() => openManageCategories()),
-  });
-  if (!query) return rows;
-  const counts = new Map();
-  for (const e of allEntries) if (!e.is_draft) counts.set(e.category, (counts.get(e.category) || 0) + 1);
-  for (const [name, n] of [...counts].sort((a, b) => a[0].localeCompare(b[0]))) {
-    rows.push({
-      group: "Categories",
-      label: `ph:folder Go to category: ${name}`,
-      about: `${n} ${n === 1 ? "note" : "notes"}`,
-      run: paletteLater(() => paletteGoToCategory(name)),
-    });
-  }
-  if (query.startsWith("#")) {
-    const typed = query.slice(1).trim();
-    const tags = [...new Set(allEntries.flatMap((e) => e.tags || []))]
-      .filter((t) => !/\s/.test(t) && t.toLowerCase().startsWith(typed))
-      .sort()
-      .slice(0, 6);
-    if (typed && !/\s/.test(typed) && !tags.some((t) => t.toLowerCase() === typed)) tags.push(typed);
-    for (const tag of tags) {
-      rows.push({ group: "Tags", label: `ph:tag Show notes tagged #${tag}`, run: paletteLater(() => filterNotesByTag(tag)) });
-    }
-  }
-  return rows;
-}
 
 //: The note the palette was opened over: the phone's note page, the inline
 //: edit, the batch selection, or the row that had the focus.

@@ -134,6 +134,114 @@ def _similar_pairs(
                 yield (j, i, score) if j < i else (i, j, score)
 
 
+#: The dense scan's budget, in multiply-adds (`n * n * vocabulary / 2`), and
+#: how many of them cost what one candidate check in `_similar_pairs` costs.
+#: Measured on the audit's 5,000-note notebook (305 distinct words, 144 a
+#: note, load 12): the prefix filter checked about 8 million candidates and
+#: took 160 s, because when every word is common no prefix is rare; the
+#: dense scan's 3.8 billion multiply-adds took 1.2 s. On a real notebook's
+#: long tail of rare words the prefix filter checks a few thousand and wins.
+DENSE_MAX_WORK = 2e10
+DENSE_PER_CANDIDATE = 500
+#: Rows of the dense product per block: 512 x 5,000 float32 is 10 MB.
+DENSE_BLOCK = 512
+
+
+def _prefix_work(prepared: list[tuple[str, frozenset[str]]], threshold: float) -> tuple[int, int]:
+    """(candidate checks the prefix filter would make at most, vocabulary size).
+
+    The upper bound `_similar_pairs` would read: every probe word's whole
+    posting list. Cheap beside either scan (one count and one partial sort per
+    note), and what decides which of the two runs.
+    """
+    import heapq
+
+    document_frequency = Counter(word for _norm, words in prepared for word in words)
+    work = 0
+    for _norm, words in prepared:
+        size = len(words)
+        probe = max(size - math.ceil(threshold * size - 1e-9) + 1, 0)
+        if probe:
+            work += sum(heapq.nsmallest(probe, (document_frequency[word] for word in words)))
+    return work, len(document_frequency)
+
+
+def _similar_pairs_dense(
+    prepared: list[tuple[str, frozenset[str]]], threshold: float
+) -> Iterator[tuple[int, int, float]]:
+    """Exactly `_similar_pairs`'s pairs, by one matrix product per block.
+
+    Each note is a row of 0s and 1s over the notebook's words; a block of rows
+    times the earlier rows' transpose is every pair's shared-word count at
+    once (float32 is exact far past any note's length). The score is the
+    same division `_similar_pairs` makes, in float64, so a pair at the
+    threshold lands on the same side. Same text is a star from the first copy,
+    as there, including texts with no words at all.
+    """
+    import numpy as np
+
+    vocabulary: dict[str, int] = {}
+    for _norm, words in prepared:
+        for word in words:
+            vocabulary.setdefault(word, len(vocabulary))
+    n = len(prepared)
+    first_with_text: dict[str, int] = {}
+    for i, (norm, _words) in enumerate(prepared):
+        if norm in first_with_text:
+            yield first_with_text[norm], i, 1.0
+        else:
+            first_with_text[norm] = i
+    if not vocabulary or n < 2:
+        return
+    matrix = np.zeros((n, len(vocabulary)), dtype=np.float32)
+    for i, (_norm, words) in enumerate(prepared):
+        if words:
+            matrix[i, [vocabulary[word] for word in words]] = 1.0
+    sizes = [len(words) for _norm, words in prepared]
+    sizes32 = np.array(sizes, dtype=np.float32)
+    norms = [norm for norm, _words in prepared]
+    for start in range(1, n, DENSE_BLOCK):
+        stop = min(n, start + DENSE_BLOCK)
+        shared = matrix[start:stop] @ matrix[:stop].T
+        union = sizes32[start:stop, None] + sizes32[None, :stop] - shared
+        #: A loose test in float32 over the block (counts are whole numbers,
+        #: so half a word of slack loses no pair), then the exact score in
+        #: Python for the few that pass: the division `_similar_pairs` makes.
+        near = shared >= threshold * union - 0.5
+        near[:, :start] &= union[:, :start] > 0
+        near[:, start:stop] &= np.tri(stop - start, k=-1, dtype=bool) & (union[:, start:stop] > 0)
+        for row, j in np.argwhere(near):
+            i = start + int(row)
+            j = int(j)
+            if norms[i] == norms[j]:
+                continue  # yielded above, from the first copy only
+            common = int(shared[row, j])
+            score = common / (sizes[i] + sizes[j] - common) if common else 0.0
+            if score >= threshold:
+                yield j, i, score
+
+
+def _scan(prepared: list[tuple[str, frozenset[str]]], threshold: float) -> Iterator[tuple[int, int, float]]:
+    """The prefix filter, or the dense product when every word is common.
+
+    ARCH-11 (audit 2026-10-05): `/duplicates` took 86 s on a notebook whose
+    5,000 notes shared a vocabulary of a few hundred words, the case where the
+    prefix filter compares nearly every pair one at a time in Python.
+    """
+    work, words = _prefix_work(prepared, threshold)
+    dense = len(prepared) ** 2 * words / 2
+    if dense <= DENSE_MAX_WORK and dense < work * DENSE_PER_CANDIDATE:
+        return _similar_pairs_dense(prepared, threshold)
+    return _similar_pairs(prepared, threshold)
+
+
+#: How much of each note a duplicate group carries. The screen shows a
+#: 160-character preview (`renderDuplicateGroups`), and the merge reads the
+#: notes by id; the whole text of up to 500 groups was 8.2 MB in one response
+#: on the audit's notebook (ARCH-11).
+GROUP_TEXT_CHARS = 1000
+
+
 def find_duplicates(
     session: Session, threshold: float = DEFAULT_THRESHOLD
 ) -> list[dict]:
@@ -166,7 +274,7 @@ def find_duplicates(
 
     prepared = [_prepare(entry.content) for entry in entries]
     best: dict[tuple[int, int], float] = {}
-    for i, j, score in _similar_pairs(prepared, threshold):
+    for i, j, score in _scan(prepared, threshold):
         best[(entries[i].id, entries[j].id)] = score
         parent[root(entries[i].id)] = root(entries[j].id)
 
@@ -191,7 +299,7 @@ def find_duplicates(
                 "entries": [
                     {
                         "id": m.id,
-                        "content": m.content,
+                        "content": (m.content or "")[:GROUP_TEXT_CHARS],
                         "created_at": m.created_at.isoformat(),
                         "tags": m.tags,
                     }

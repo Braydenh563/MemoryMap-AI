@@ -6,6 +6,7 @@ the grid (every card was three stops and the grid grows as it scrolls), and
 the All view's sort was the one Library sort not kept across a reload.
 """
 
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -60,7 +61,8 @@ def test_the_all_view_sort_is_remembered_like_the_other_library_sorts():
 def test_the_archive_and_drafts_empty_states_are_sentences_without_a_false_offer():
     # Measured on every chip at zero: "No archived yet." with a Create beside
     # it, offering to make something that would not appear there.
-    assert '"archived", "shelved"].includes(libraryKind)' in LIBRARY
+    #: Highlights (BACKLOG 109.4) is a collection of what you marked, no Create either.
+    assert re.search(r'"archived", "shelved"(, "\w+")*\]\.includes\(libraryKind\)', LIBRARY)
     says = LIBRARY[LIBRARY.index("const LIBRARY_EMPTY_SAYS = {") :][:400]
     assert 'shelved: "Nothing archived yet."' in says
     assert "LIBRARY_EMPTY_SAYS[libraryKind]" in LIBRARY

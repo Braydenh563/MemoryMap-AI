@@ -79,10 +79,57 @@ function followBottom(element) {
       //:, see `syncChatJumpLatest`. Guarded by id rather than wired at the
       //: chat's own call site because `followBottom` is what owns the flag,
       //: and a second listener would have to duplicate the same maths.
-      if (element.id === "chat-messages") syncChatJumpLatest();
+      if (element.id === "chat-messages") {
+        syncChatJumpLatest();
+        noteChatPosition(element, distance <= SCROLL_STICK_SLACK);
+      }
     },
     { passive: true }
   );
+}
+
+//: **A saved chat reopens where you left it** (WORLD_CLASS_PLAN, Placed
+//: 2026-09-09 item 99 (b); documents have had it since `docRestorePosition`).
+//: A long thread read halfway reopened at its end. Per conversation, in this
+//: browser only (how a person reads, not a fact about the chat), the forty
+//: most recent; a thread left at its end stores nothing and opens at its end.
+const CHAT_POSITIONS_KEY = "chat-positions";
+let chatPositionTimer = 0;
+
+function chatPositions() {
+  //: A plain object or `{}`, whatever is stored (`prefs.json`).
+  return prefs.json(CHAT_POSITIONS_KEY, {});
+}
+
+function noteChatPosition(element, atEnd) {
+  const id = typeof chatConv !== "undefined" && chatConv && chatConv.id;
+  if (!id || (typeof chatStreaming !== "undefined" && chatStreaming)) return;
+  clearTimeout(chatPositionTimer);
+  chatPositionTimer = setTimeout(() => {
+    const map = chatPositions();
+    if (atEnd) delete map[id];
+    else map[id] = { top: Math.round(element.scrollTop), at: Date.now() };
+    const keys = Object.keys(map).sort((a, b) => map[b].at - map[a].at);
+    for (const stale of keys.slice(40)) delete map[stale];
+    try {
+      localStorage.setItem(CHAT_POSITIONS_KEY, JSON.stringify(map));
+    } catch {
+      // Storage full or refused: the thread opens at its end, as before.
+    }
+  }, 250);
+}
+
+//: Called where a saved conversation finishes drawing: back to the place it
+//: was left, or to its end when there is none.
+function restoreChatPosition(id) {
+  const saved = chatPositions()[id];
+  const pane = $("chat-messages");
+  if (!saved || !pane) return chatScrollToEnd();
+  requestAnimationFrame(() => {
+    pane.dataset.stuck = "0";
+    pane.scrollTop = Math.min(saved.top, pane.scrollHeight);
+    syncChatJumpLatest();
+  });
 }
 
 // Scroll to the bottom, unless the reader has scrolled away from it.
@@ -450,7 +497,11 @@ function thinkingFoldIn(host) {
 // So steps are appended as the events arrive. Consecutive deltas of the same
 // kind extend the current step; a different kind starts a new one, which is
 // what produces the thinking → tool → tool → answer chain the user follows.
-function agentTimeline(holder) {
+//: `options.afterAnswerPaint` runs after every live paint of a prose step: a
+//: paint rebuilds the step from raw markdown, so the citation numbers placed
+//: while the answer streams (`grounding_live`, INBOX 320) have to be written
+//: again each time, as the Ask tab's own renderer does.
+function agentTimeline(holder, options = {}) {
   let current = null; // the step still being written into
   const answerSteps = []; // every prose step, in order
   const thinkingSteps = [];
@@ -555,7 +606,7 @@ function agentTimeline(holder) {
       el,
       body: el,
       raw: "",
-      render: liveMarkdownRenderer(el),
+      render: liveMarkdownRenderer(el, options.afterAnswerPaint || null),
     };
     answerSteps.push(current);
     return current;
@@ -1114,8 +1165,11 @@ function addAssistantBubble(persona = null) {
   $("chat-messages").appendChild(bubble);
   paintPersonaAvatar(avatar, writer, 20); // now attached, so p5 can measure and draw
   chatScrollToEnd();
-  const timeline = agentTimeline(stepsHolder);
-  return { bubble, stepsHolder, recordsHolder, groundingHolder, timeline };
+  //: Late-bound: the stream that owns this bubble sets `afterAnswerPaint`
+  //: once it has the turn's grounding rows to place (`sendChatMessage`).
+  const paintHooks = { afterAnswerPaint: null };
+  const timeline = agentTimeline(stepsHolder, { afterAnswerPaint: () => paintHooks.afterAnswerPaint?.() });
+  return { bubble, stepsHolder, recordsHolder, groundingHolder, timeline, paintHooks };
 }
 
 // One "the AI did something" chip in a bubble (Wave G).

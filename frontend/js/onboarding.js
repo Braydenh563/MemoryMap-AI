@@ -56,25 +56,24 @@ const ONBOARDING_SLIDES = [
   // to the tour, and Settings, help and guide offers them separately.
 ];
 
-let onboardingIndex = 0;
+const onboardingRun = { index: 0, diagnosticsToken: 0 };
 // A stale diagnostics fetch (the user clicked Next or Skip before it
 // resolved) must never overwrite whichever slide is showing by the time it
 // lands: this is what tells a resolved probe whether it still applies.
-let onboardingDiagnosticsToken = 0;
 
 // §27's first-run diagnostics: Ollama reachability and where the notebook
 // actually lives, both already computed for other UI (the AI-status pill,
 // Settings → Data) and just not surfaced before a first capture could fail
 // silently into Uncategorised.
 async function loadOnboardingDiagnostics(forSlide) {
-  const token = ++onboardingDiagnosticsToken;
+  const token = ++onboardingRun.diagnosticsToken;
   const [models, storage, notebook] = await Promise.all([
     apiJson("/models/status").catch(() => null),
     apiJson("/storage").catch(() => null),
     apiJson("/entries/count").catch(() => null),
   ]);
-  if (token !== onboardingDiagnosticsToken) return; // superseded by a later slide
-  if (onboardingIndex !== forSlide) return; // the user moved on already
+  if (token !== onboardingRun.diagnosticsToken) return; // superseded by a later slide
+  if (onboardingRun.index !== forSlide) return; // the user moved on already
   if ($("onboarding-overlay").classList.contains("hidden")) return; // or closed it
 
   const lines = [];
@@ -191,14 +190,14 @@ function renderOnboardingActions(models, notebook) {
 }
 
 function renderOnboardingSlide() {
-  const slide = ONBOARDING_SLIDES[onboardingIndex];
+  const slide = ONBOARDING_SLIDES[onboardingRun.index];
   setLabel($("onboarding-icon"), slide.icon);
   //: **Atlas says hello on the first card** (the owner: "atlas should also
   //: be in the welcome tour as well to greet new users"). Its own face,
   //: pleased and always moving, with one line in its own voice; the later
   //: cards keep the app's logo, so a new person meets both.
   const atlas = $("onboarding-atlas");
-  const greet = onboardingIndex === 0 && typeof atlasMark === "function";
+  const greet = onboardingRun.index === 0 && typeof atlasMark === "function";
   atlas.classList.toggle("hidden", !greet);
   $("onboarding-emblem").classList.toggle("hidden", greet);
   //: One mark per card (INBOX 472).
@@ -215,7 +214,7 @@ function renderOnboardingSlide() {
   $("onboarding-title").textContent = slide.title;
   if (slide.dynamic) {
     setLabel($("onboarding-text"), "ph:spin Checking Ollama and where your notebook lives…");
-    loadOnboardingDiagnostics(onboardingIndex);
+    loadOnboardingDiagnostics(onboardingRun.index);
   } else {
     $("onboarding-text").textContent = slide.text;
   }
@@ -223,11 +222,11 @@ function renderOnboardingSlide() {
   dots.replaceChildren();
   ONBOARDING_SLIDES.forEach((_, i) => {
     const dot = document.createElement("span");
-    dot.className = "onboarding-dot" + (i === onboardingIndex ? " active" : "");
+    dot.className = "onboarding-dot" + (i === onboardingRun.index ? " active" : "");
     dots.appendChild(dot);
   });
-  $("onboarding-back").classList.toggle("hidden", onboardingIndex === 0);
-  const last = onboardingIndex === ONBOARDING_SLIDES.length - 1;
+  $("onboarding-back").classList.toggle("hidden", onboardingRun.index === 0);
+  const last = onboardingRun.index === ONBOARDING_SLIDES.length - 1;
   // "Start the tour", not "Get started": the last press of the welcome now
   // opens the tour's first section rather than dropping somebody on the
   // Dashboard with nothing said about where anything is. The word has to say
@@ -249,7 +248,7 @@ function renderOnboardingSlide() {
 }
 
 function openOnboarding() {
-  onboardingIndex = 0;
+  onboardingRun.index = 0;
   overlayReturnFocus = document.activeElement;
   renderOnboardingSlide();
   $("onboarding-overlay").classList.remove("hidden");
@@ -272,7 +271,7 @@ function closeOnboarding() {
 }
 
 function onboardingNext() {
-  if (onboardingIndex >= ONBOARDING_SLIDES.length - 1) {
+  if (onboardingRun.index >= ONBOARDING_SLIDES.length - 1) {
     closeOnboarding();
     // The hand-off: the welcome says what this is, the tour says where things
     // are, and the last press of the one starts the other. Guarded because
@@ -285,16 +284,52 @@ function onboardingNext() {
     }
     return;
   }
-  onboardingIndex += 1;
+  onboardingRun.index += 1;
   renderOnboardingSlide();
 }
 
 function onboardingBack() {
-  if (onboardingIndex === 0) return;
-  onboardingIndex -= 1;
+  if (onboardingRun.index === 0) return;
+  onboardingRun.index -= 1;
   renderOnboardingSlide();
 }
 
 $("onboarding-next").addEventListener("click", onboardingNext);
 $("onboarding-back").addEventListener("click", onboardingBack);
 $("onboarding-skip").addEventListener("click", closeOnboarding);
+
+// Moved from app.js (its gzip cap); `startApp` loads this bundle for it
+// only while the question is unanswered.
+// First-run "Dev view or User view?" prompt for the desktop app, gated on its
+// own preference (console_view_intro_seen). Two fixed bugs: it fired on a
+// stale-token startApp() before sign-in (prefsCache null), so it now needs
+// prefsCache; and it POSTed /system/console-mode, which restarts the process
+// and signed people out mid-login, so it is one PUT of both preferences,
+// taking effect next launch.
+async function maybeShowConsoleViewIntro() {
+  if (!(await desktopShell())) return;
+  if (!prefsCache || prefsCache.console_view_intro_seen) return;
+  const wantsDevView = await confirmDialog(
+    "Keep a console window open when MemoryMap AI starts?\n\n" +
+      "Dev view shows a terminal window alongside the app, useful for " +
+      "logs and troubleshooting. User view runs quietly in the background " +
+      "with no console window at all, just this app window and a system " +
+      "tray icon. Either way, you can switch any time from Settings or " +
+      "the tray icon's own menu.\n\nTakes effect next launch.",
+    { confirmLabel: "Dev view", cancelLabel: "User view", danger: false }
+  );
+  try {
+    prefsCache = await apiJson("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({
+        show_console_on_startup: wantsDevView,
+        console_view_intro_seen: true,
+      }),
+    });
+    toast(
+      `${wantsDevView ? "Dev" : "User"} view: starting from next launch.`
+    );
+  } catch (error) {
+    toast(error.message || "Couldn't save your console view choice.", true);
+  }
+}

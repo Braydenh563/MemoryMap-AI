@@ -156,6 +156,10 @@ const LIBRARY_KINDS = [
   // and its count below is computed the same way rather than read from the
   // server's per-kind counts, which only exist for real kinds.
   { key: "meeting", icon: "ph:video-camera", label: "Meetings" },
+  //: The passages you marked with ==highlight==, each with its note
+  //: (BACKLOG 109.4). Not a kind of thing you made: like Activity it is out
+  //: of "Everything" (a passage is a part of a note that is already listed).
+  { key: "highlight", icon: "ph:highlighter", label: "Highlights" },
   // "archived" is the bin's own internal kind (see routes_library.py's
   // _archive()), this app's real archive uses "shelved" specifically so
   // the two are never confused at the code level, even though the words
@@ -175,29 +179,6 @@ const LIBRARY_KINDS = [
 let librarySelection = new Set();
 
 const LIBRARY_VIEW_KEY = "libraryView";
-
-//: "Remind me" on a document, a board or a Library note (WORLD_CLASS_PLAN row
-//: 15, the "act on this" vocabulary every object's menu speaks). One small
-//: dialog, the app's own: the words, and when as a segment of the three times
-//: people pick most; the Reminders tab edits anything else. A board is a note,
-//: so it is `entryId`; a document is `documentId`.
-async function remindAboutThing({ entryId = null, documentId = null, title = "" }) {
-  const shown = String(title || "").trim();
-  const answer = await promptDialog("Remind me about this:", `Follow up: ${shown.length > 40 ? shown.slice(0, 39) + "…" : shown}`, {
-    confirmLabel: "Set reminder",
-    segment: {
-      label: "When",
-      value: "tomorrow",
-      options: [
-        { value: "1h", label: "In an hour" },
-        { value: "tomorrow", label: "Tomorrow, 9am" },
-        { value: "nextweek", label: "Next week" },
-      ],
-    },
-  });
-  if (!answer || !answer.text) return false;
-  return addReminder(answer.text.trim(), presetDate(answer.choice), entryId, { documentId });
-}
 
 function libraryView() {
   return prefs.get(LIBRARY_VIEW_KEY, null) === "list" ? "list" : "grid";
@@ -312,7 +293,7 @@ function renderLibraryFilters() {
     const count =
       kind.key === "all"
         ? Object.entries(libraryCounts).reduce(
-            (sum, [key, n]) => sum + (key === "activity" || key === "draft" ? 0 : n),
+            (sum, [key, n]) => sum + (key === "activity" || key === "draft" || key === "highlight" ? 0 : n),
             0,
           )
         : kind.key === "meeting"
@@ -412,8 +393,11 @@ function librarySorted(items) {
 // results, never remove one, which is the property that makes it safe to
 // leave on, and the reason the two filters are OR-ed rather than swapped.
 //
-// Reuses `GET /entries?semantic=true`, the same endpoint and the same
-// server-side bound (`SEMANTIC_LIST_LIMIT`) the Notes tab's own toggle uses.
+// Asks `GET /search` (the retrieval engine), the same call the Notes tab's
+// own toggle and Find anything make, so the three boxes agree on what a
+// question finds. The hits are only read as a set of note ids here, so the
+// index holding a binned or archived note (flagged) changes nothing: the
+// filter below keeps only rows whose kind is still "note".
 let librarySemanticIds = null;
 let librarySemanticQuery = "";
 
@@ -427,8 +411,8 @@ async function refreshLibrarySemantic() {
   }
   if (query === librarySemanticQuery) return; // already have this one
   try {
-    const results = await apiJson(`/entries?q=${encodeURIComponent(query)}&semantic=true`);
-    librarySemanticIds = new Set(results.map((entry) => entry.id));
+    const found = await apiJson(`/search?q=${encodeURIComponent(query)}&kind=note&limit=50`);
+    librarySemanticIds = new Set((found.hits || []).map((hit) => hit.id));
     librarySemanticQuery = query;
   } catch {
     // No embedding backend, or the search failed. Falling back to keyword-only
@@ -525,7 +509,7 @@ function renderLibrary(options) {
     // unfinished by definition, and a draft appearing as a first-class card
     // here was reported and fixed once already (see _notes() in
     // routes_library.py). The Drafts chip is how you ask for them.
-    items = items.filter((i) => i.kind !== "activity" && i.kind !== "draft");
+    items = items.filter((i) => i.kind !== "activity" && i.kind !== "draft" && i.kind !== "highlight");
     if (!$("library-show-binned")?.checked) {
       items = items.filter((i) => i.kind !== "archived");
     }
@@ -645,13 +629,13 @@ function renderLibrary(options) {
     //: state now carries the create action beside it, the same one the dock's
     //: Create button runs for this kind, so the next step is one press from
     //: the sentence that suggests it rather than a hunt for the dock.
-    const madeAnything = libraryItems.some((i) => i.kind !== "activity");
+    const madeAnything = libraryItems.some((i) => i.kind !== "activity" && i.kind !== "highlight");
     const createBtn = $("library-empty-create");
     const dockCreate = $("library-new-doc");
     //: Not on the archive either (libtl-0926): nothing is made archived, a
     //: thing is archived from its own menu, and a Create beside "Nothing
     //: archived" offered to make something that would not appear here.
-    const offerCreate = !query && !items.length && !["activity", "archived", "shelved"].includes(libraryKind);
+    const offerCreate = !query && !items.length && !["activity", "archived", "shelved", "highlight"].includes(libraryKind);
     if (createBtn) {
       createBtn.classList.toggle("hidden", !offerCreate || !dockCreate);
       if (offerCreate && dockCreate) {
@@ -724,7 +708,7 @@ function renderLibrary(options) {
 // which is not a name a link can be trusted to find.
 function libraryCopyActions(kind, title, id) {
   const name = String(title || "").replace(/^#{1,6}\s+/, "").trim();
-  if (!name || kind === "activity" || kind === "tag") return [];
+  if (!name || kind === "activity" || kind === "tag" || kind === "highlight") return [];
   const out = [
     makeMenuItem("ph:copy Copy title", "Copy the name to the clipboard", () => copyToClipboard(name)),
   ];
@@ -830,8 +814,10 @@ function libraryActions(item) {
       makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this document", () =>
         askAtlasAboutThing("document", item.title)
       ),
+      //: The rest of the "act on this" vocabulary (WORLD_CLASS_PLAN 1.3,
+      //: row 15): a reminder can point at a document.
       makeMenuItem("ph:alarm Remind me", "Set a reminder about this document", () =>
-        remindAboutThing({ documentId: item.id, title: item.title })
+        remindAbout({ title: item.title, documentId: item.id })
       ),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
         await apiJson(`/documents/${item.id}/archive`, { method: "PUT" }).catch((e) =>
@@ -855,23 +841,20 @@ function libraryActions(item) {
     ];
   }
   if (item.kind === "archived") {
+    const bin = binRoutes(item);
     return [
-      makeMenuItem("ph:arrow-u-up-left Restore", "Put this note back in your notebook", async () => {
-        await apiJson(`/entries/${item.id}/restore`, { method: "POST" }).catch((e) =>
-          toast(e.message, true)
-        );
+      makeMenuItem("ph:arrow-u-up-left Restore", `Put this ${bin.noun} back`, async () => {
+        await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
         toast("Restored.");
         reload();
-        loadEntries();
+        bin.reload();
       }),
       // The bin's other half. Without it the Library can show you a binned
       // note and take you back to the old panel to get rid of it, which is the
       // two-places problem the move was for.
-      makeMenuItem("ph:trash Delete for good", "Permanently delete this note", async () => {
-        if (!(await confirmDialog("Delete this note permanently?\n\nThis cannot be undone."))) return;
-        await apiJson(`/entries/${item.id}/purge`, { method: "DELETE" }).catch((e) =>
-          toast(e.message, true)
-        );
+      makeMenuItem("ph:trash Delete for good", `Permanently delete this ${bin.noun}`, async () => {
+        if (!(await confirmDialog(`Delete this ${bin.noun} permanently?\n\nThis cannot be undone.`))) return;
+        await apiJson(bin.purge, { method: "DELETE" }).catch((e) => toast(e.message, true));
         reload();
       }),
     ];
@@ -909,15 +892,13 @@ function libraryActions(item) {
       makeMenuItem("ph:chat-circle Ask Atlas about this", "Start a chat about this note", () =>
         askAtlasAboutThing("note", item.title)
       ),
+      //: The two rows the Notes card's menu has and this twin did not
+      //: (WORLD_CLASS_PLAN 1.3, row 15). Link to is a picker here: the Notes
+      //: list's two-click link mode needs both notes on one screen.
       makeMenuItem("ph:alarm Remind me", "Set a reminder about this note", () =>
-        remindAboutThing({ entryId: item.id, title: item.title })
+        remindAbout({ title: item.title, entryId: item.id })
       ),
-      //: The Notes card's own two-step link: this note is the first end, and
-      //: the Notes list says which note to click next (Esc cancels).
-      makeMenuItem("ph:link Link to another", "Link this note to another, picked in the Notes list", () => {
-        beginOrCompleteLink(allEntries.find((e) => e.id === item.id) || { id: item.id });
-        switchTab("notes");
-      }),
+      makeMenuItem("ph:link Link to…", "Connect this note to another one", () => linkNoteFromLibrary(item)),
       // BACKLOG.md §95 item D.14: "Full export exists. There is no way to
       // hand one note to someone." Same route shape and menu placement as
       // the Document kind's own "Download .md" a few lines up.
@@ -993,6 +974,8 @@ function libraryActions(item) {
   // An activity row is a record of something that already happened. There is
   // nothing to do to it, so it gets no menu at all rather than an empty one.
   if (item.kind === "activity") return [];
+  // A passage is part of its note: opening the card is the one thing to do.
+  if (item.kind === "highlight") return [];
   if (item.kind === "file") {
     return [
       // `window.open` never attaches the `X-Auth-Token` header a plain
@@ -1027,6 +1010,38 @@ function libraryActions(item) {
   return [];
 }
 
+//: **The bin holds three kinds** (WORLD_CLASS_PLAN 5 item 10): notes (with
+//: boards and maps), documents and reminders, told apart by `subtype`
+//: (`routes_library._archive`). Each has its own restore and purge route.
+function binRoutes(item) {
+  if (item.subtype === "document") {
+    return { noun: "document", restore: `/documents/${item.id}/restore`, purge: `/documents/${item.id}/purge`, reload: () => {} };
+  }
+  if (item.subtype === "reminder") {
+    return { noun: "reminder", restore: `/reminders/${item.id}/restore`, purge: `/reminders/${item.id}/purge`, reload: () => loadReminders() };
+  }
+  return { noun: "note", restore: `/entries/${item.id}/restore`, purge: `/entries/${item.id}/purge`, reload: () => refreshEntries([item.id]) };
+}
+
+//: Link a Library note to another, chosen from a picker. The same route the
+//: Notes list's Link mode completes on (`POST /entries/{id}/links`).
+async function linkNoteFromLibrary(item) {
+  const other = await pickEntryDialog("Link to which note?");
+  if (!other) return;
+  if (other.id === item.id) {
+    toast("A note can't be linked to itself.", true);
+    return;
+  }
+  try {
+    await apiJson(`/entries/${item.id}/links`, { method: "POST", body: JSON.stringify({ target_id: other.id }) });
+  } catch (error) {
+    toast(error.message, true);
+    return;
+  }
+  toast("Linked.");
+  loadEntries();
+}
+
 // The two strips that only appear when they have something to say.
 function renderLibraryContextBars() {
   // The bin's own controls, where the bin now is. "Empty now" used to live in
@@ -1048,6 +1063,8 @@ function renderLibraryContextBars() {
         "(change that in Preferences) before they clear.";
     $("library-bin-empty").disabled = !count;
   }
+  // The audit trail's one action, on its own screen (BACKLOG 115 row 11).
+  $("library-activitybar").classList.toggle("hidden", libraryKind !== "activity");
 
   const bar = $("library-selectbar");
   const chosen = [...librarySelection];
@@ -1288,7 +1305,7 @@ function libraryCard(item) {
   // Tick to select. Only for the kinds a bulk action can actually do something
   // to: an activity row is a record of the past and a tag is not a file, so
   // offering either a checkbox would be offering a Delete that does nothing.
-  if (item.kind !== "activity" && item.kind !== "tag") {
+  if (item.kind !== "activity" && item.kind !== "tag" && item.kind !== "highlight") {
     const tick = document.createElement("input");
     tick.type = "checkbox";
     tick.className = "library-card-tick";
@@ -1498,6 +1515,9 @@ function openLibraryItem(item) {
       box.value = `tag:${item.title}`;
       box.dispatchEvent(new Event("input", { bubbles: true }));
     }
+  } else if (item.kind === "highlight") {
+    // The note the passage is in; the passage is read in place there.
+    flashEntry(item.entry_id);
   } else if (item.kind === "activity" && item.entry_id) {
     // The note the entry in the log is about, when it still exists.
     flashEntry(item.entry_id);
@@ -1515,8 +1535,21 @@ function openLibraryItem(item) {
     // Restore and permanent delete are both on this card's own ⋯ menu, and
     // reading the note in full is the one thing a card cannot do, so that is
     // all this opens. It used to send the user to #bin-panel, which is the
-    // only reason that panel outlived the Library's Bin chip.
-    openBinnedNote(item.id);
+    // only reason that panel outlived the Library's Bin chip. A binned
+    // document or reminder has nothing to read that its card does not show,
+    // so opening one offers to bring it back (WORLD_CLASS_PLAN 5 item 10).
+    if (item.subtype === "document" || item.subtype === "reminder") {
+      const bin = binRoutes(item);
+      confirmDialog(`“${item.title}” is in the bin. Restore it?`, { confirmLabel: "Restore" }).then(async (yes) => {
+        if (!yes) return;
+        await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
+        loadLibrary();
+        bin.reload();
+        if (item.subtype === "document") openDocumentFromNote(item.id);
+      });
+    } else {
+      openBinnedNote(item.id);
+    }
   }
 }
 
@@ -1758,6 +1791,17 @@ $("library-bin-empty").addEventListener("click", async () => {
   loadEntries();
 });
 
+// The activity log as a file. A download needs the auth header, so the bytes
+// are fetched and handed to saveFile, the way every other export is.
+$("library-activity-export").addEventListener("click", async () => {
+  try {
+    const response = await api("/audit/export.csv");
+    await saveFile("memorymap-activity.csv", await response.blob());
+  } catch (e) {
+    toast(e.message, true);
+  }
+});
+
 // --- bulk actions -------------------------------------------------------------
 // The reason the Library is a management screen rather than a nicer list:
 // doing one thing to nine things. Every one of these confirms with a *count*,
@@ -1784,17 +1828,18 @@ $("library-bulk-restore").addEventListener("click", async () => {
   let restored = 0;
   for (const item of chosen) {
     try {
-      await apiJson(`/entries/${item.id}/restore`, { method: "POST" });
+      await apiJson(binRoutes(item).restore, { method: "POST" });
       restored++;
     } catch {
       // counted below
     }
   }
-  if (restored) toast(`Restored ${restored} note${restored === 1 ? "" : "s"}.`);
+  if (restored) toast(`Restored ${restored} item${restored === 1 ? "" : "s"}.`);
   const failed = chosen.length - restored;
-  if (failed) toast(`${failed} note${failed === 1 ? "" : "s"} couldn't be restored.`, true);
+  if (failed) toast(`${failed} item${failed === 1 ? "" : "s"} couldn't be restored.`, true);
   loadLibrary();
   loadEntries();
+  loadReminders();
 });
 $("library-bulk-delete").addEventListener("click", async () => {
   const chosen = librarySelectedItems();
@@ -1807,7 +1852,7 @@ $("library-bulk-delete").addEventListener("click", async () => {
     `Delete ${chosen.length} item${chosen.length === 1 ? "" : "s"}?\n\n` +
       (permanent
         ? `${permanent} of them ${permanent === 1 ? "is" : "are"} already in the bin and will be destroyed permanently.`
-        : "Notes go to the bin; documents and chats are deleted for good.")
+        : "Notes and documents go to the bin; chats are deleted for good.")
   );
   if (!ok) return;
   // Same fix as library-bulk-restore just above: a per-item failure used to
@@ -1817,7 +1862,7 @@ $("library-bulk-delete").addEventListener("click", async () => {
   for (const item of chosen) {
     const route =
       item.kind === "archived"
-        ? [`/entries/${item.id}/purge`, "DELETE"]
+        ? [binRoutes(item).purge, "DELETE"]
         : item.kind === "note"
           ? [`/entries/${item.id}`, "DELETE"]
           : item.kind === "document"
@@ -2972,7 +3017,7 @@ async function importLibraryDocuments(files) {
     try {
       const document_ = await apiJson("/documents/import", {
         method: "POST",
-        headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
+        headers: authHeaders(),
         body: form,
       });
       made.push(document_);
@@ -3205,9 +3250,6 @@ async function renderLibraryDocuments() {
             0
           );
         }),
-        makeMenuItem("ph:alarm Remind me", "Set a reminder about this document", () =>
-          remindAboutThing({ documentId: doc.id, title: doc.title || "" })
-        ),
         makeMenuItem("ph:pencil-simple Rename", "Rename this document", async () => {
           const next = await promptDialog("Rename this document:", doc.title || "");
           if (!next) return;
@@ -4576,7 +4618,7 @@ async function ocrRunRegion(mode) {
     //: in its own comment).
     const answer = await apiJson(`${base}/region-read`, {
       method: "POST",
-      headers: { "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
+      headers: authHeaders(),
       body: form,
     });
     ocrShowRegionResult({
@@ -10885,3 +10927,56 @@ onDomReady(() => {
   $("contents-expand")?.addEventListener("click", () => contentsSetAll(true));
   $("contents-collapse")?.addEventListener("click", () => contentsSetAll(false));
 });
+
+// Moved from app.js (its gzip cap): the Library's Activity cards are its one caller.
+// `confirmDialog`'s other missing sibling: show a whole piece of text with
+// no decision to make, just a way to close it. Asked for directly: "longer
+// logs get truncated with no way to expand or collapse and view the whole
+// log", the Library's Activity cards show a clipped preview (server-side,
+// `ACTIVITY_DETAIL_CHARS`) so the grid stays scannable, and this is what a
+// click on one opens instead of doing nothing.
+function showDetailDialog(title, text) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay confirm-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", title);
+
+    const card = document.createElement("div");
+    card.className = "card modal-card confirm-card detail-dialog-card";
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    const body = document.createElement("p");
+    body.className = "confirm-text detail-dialog-text";
+    body.textContent = text;
+    const row = document.createElement("div");
+    row.className = "row confirm-actions";
+
+    let settled = false;
+    const close = () => {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener("keydown", onKey, true);
+      overlay.remove();
+      returnFocus?.focus?.();
+      resolve();
+    };
+    const onKey = (event) => {
+      if (event.key === "Escape" || event.key === "Enter") {
+        event.stopPropagation();
+        close();
+      }
+    };
+
+    const returnFocus = document.activeElement;
+    const ok = smallButton("Close", "Close", close, false);
+    row.append(ok);
+    card.append(heading, body, row);
+    overlay.appendChild(card);
+    wireBackdropClose(overlay, () => close());
+    document.addEventListener("keydown", onKey, true);
+    document.body.appendChild(overlay);
+    ok.focus();
+  });
+}

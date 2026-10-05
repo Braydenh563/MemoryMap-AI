@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from memorymap.api import routes_entries
 from memorymap.api.schemas import EntryOut, EntryUpdate
 from memorymap.core.database import NOTE_FIELD_KINDS, NoteType
+from memorymap.core import deps
 from memorymap.core.deps import get_session
 from memorymap.entry import manager
 from memorymap.entry import properties as note_properties
@@ -135,6 +136,7 @@ def list_note_types(
     limit: int = Query(default=500, ge=1, le=500),
     session: Session = Depends(get_session),
 ) -> list[dict]:
+    note_properties.ensure_builtin_types(session, deps.get_config())
     rows = [_type_row(r) for r in session.scalars(select(NoteType).order_by(NoteType.name))]
     response.headers["X-Total-Count"] = str(len(rows))
     return rows[:limit]

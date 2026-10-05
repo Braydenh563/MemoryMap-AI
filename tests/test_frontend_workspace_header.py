@@ -105,7 +105,7 @@ def test_every_scoped_raw_fetch_still_carries_the_workspace_header():
     offenders = [
         endpoint
         for endpoint, block in blocks.items()
-        if "X-Workspace-ID" not in block and not block.startswith(("api.upload(", "api.stream("))
+        if "X-Workspace-ID" not in block and "authHeaders()" not in block and not block.startswith(("api.upload(", "api.stream("))
     ]
     app = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
     door = app[app.index("async function api(path") :]

@@ -365,18 +365,7 @@ being written by running agents stay beside this one.
   `localhost.` as a bug). `_own_names()` calls `gethostname` per request
   off loopback, one syscall.
   *Left: intended behaviour, noted so a 421 on `localhost.` is not read as a bug.*
-- **The other search surfaces still do their own thing.** `file:
-  frontend/js/notes-list.js`, `id: search-one-surface`. The Notes list filters
-  client-side with `parseNoteQuery` (which knows `tag:`, `category:`, `in:`,
-  `title:`, `is:`, `before:`, `after:`, phrases, and sends `type:`, `prop:`,
-  `links:`, `rel:` and `entity:` to the server as a live query, `liveQuery`),
-  but not `kind:`, `has:` or `space:`; the Library filters its own arrays, and
-  `/entries?semantic=true` is a second ranking path. Next step: make the Notes
-  filter call `GET /search` when the query carries an operator the client
-  parser does not know, and render the returned order; then the Library, then
-  the command palette. One surface per commit, each with a sweep.
-  [brief11-retrieval-engine.md]
-  *Needs: one surface per commit, each with a sweep.*
+- ~~The other search surfaces still do their own thing~~ Closed. The account is in HISTORY.md, "OPEN.md rows closed, 2026-10-05 (the open-ledger pass)".
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": No FTS index rebuild job; A bulk write can leave the index stale; The vector matrix forgets by zeroing a row; has: only knows file.
 - **The graph signal needs an open note, and the Notes list rarely has one.**
   `file: frontend/js/app.js`, `id: search-open-note`. The list passes `entry_id`

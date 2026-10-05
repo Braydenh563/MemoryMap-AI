@@ -1103,13 +1103,11 @@
 .skill-card-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
 }
 
 .skill-card-title {
   margin: 0;
   font-weight: 600;
-  font-size: var(--text-md);
 }
 
 /* Which kind of skill this is. "Yours" rather than "Custom": the distinction
@@ -1198,7 +1196,6 @@
   flex-direction: row;
   flex-wrap: wrap;
   gap: var(--space-2);
-  padding: var(--space-2) 0 0;
   background: none;
   border: none;
 }
@@ -1231,11 +1228,7 @@
   align-self: flex-start;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--chip-bg);
   font-size: var(--text-xs);
-  color: var(--muted);
 }
 
 /* Background workers: this page's own copy of three Settings preferences,
@@ -1265,7 +1258,6 @@
   flex-wrap: wrap;
   gap: var(--space-3);
   margin-top: var(--space-2);
-  padding-left: var(--space-4);
 }
 
 /* Both margins were for a search box that sat on its own between two cards.
@@ -2783,24 +2775,14 @@ body.scroll-top-visible .skills-split > .tab-main {
   cursor: grabbing;
 }
 
-/* Closer to the bottom edge, as asked: the palette was floating a whole
-   1rem + panel padding clear of it and reading as unanchored. */
-.whiteboard-floating-panel.bottom-center {
-  bottom: var(--space-3);
-}
 
-.wb-sidebar-head {
-  flex: 0 0 auto;
-}
 
 .wb-sidebar-head h3 {
   margin: 0;
 }
 
 #wb-add-note.is-on {
-  background: var(--accent-surface);
   border-color: var(--accent);
-  color: var(--on-accent);
 }
 
 /* The "add a preference by hand" row above the list. Measured live during a
@@ -2869,6 +2851,35 @@ body.scroll-top-visible .skills-split > .tab-main {
      which supplies the hairline, the tab metrics and the 2px line. */
   padding-left: 0;
   gap: var(--space-1);
+}
+
+/* **A narrow sidebar puts the strip under the toggle, not beside it**
+   (audit 2026-10-05, FE-19; DOCUMENTS_PLAN, decisions). "Documents" and
+   "Outline" need 182px and the toggle's lane 46px more; the sidebar is 192px
+   at 1024 (and whatever a person drags it to), so "Outline" ran 7px under the
+   toggle. Below a 14rem content box (a 256px sidebar: at 1440 it is 260 and
+   "Outline" ends 12px short of the toggle) the strip gives up the pull-up
+   and the lane and starts one toggle-height down, full width: a row of
+   height spent only where the width is not there, rather than a wider
+   sidebar taking the editor's room or shortened labels. The sidebar's width
+   is set by its grid track (`applySidebarWidth`), so naming it a container
+   changes no layout. The query is a component's width, not the window's, so
+   it is not one of the breakpoints `tests/test_breakpoints.py` holds. */
+#doc-sidebar {
+  container: doc-sidebar / inline-size;
+}
+
+@container doc-sidebar (width < 14rem) {
+  .doc-sidebar-tabs {
+    margin-top: calc(var(--sidebar-toggle-inset) + var(--sidebar-toggle-size) + var(--space-2) - var(--space-6));
+    padding-right: 0;
+  }
+
+  /* At 192px even the whole width is 160px against the two tabs' 182: the
+     tabs-line's --space-5 of side room drops to --space-2 here only. */
+  .doc-sidebar-tabs > [role="tab"] {
+    padding-inline: var(--space-2);
+  }
 }
 
 /* **The strip is square, the paint on it is not.** Reported as "square tab
@@ -3120,7 +3131,6 @@ body.scroll-top-visible .skills-split > .tab-main {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-inline-start: var(--space-1);
 }
 
 .space-switcher-caret {
@@ -3139,7 +3149,7 @@ body.scroll-top-visible .skills-split > .tab-main {
 
 /* Below the wordmark breakpoint the icon alone carries it, the switcher is
    the first thing that should give up width to the tabs, not the last. */
-@media (max-width: 900px) {
+@media (max-width: 819.98px) {
   .space-switcher-name {
     display: none;
   }
@@ -3245,7 +3255,6 @@ body.scroll-top-visible .skills-split > .tab-main {
 .space-menu-divider {
   height: 1px;
   margin: var(--space-2) var(--space-1);
-  background: var(--border);
 }
 
 /* --- space dialogs ----------------------------------------------------------- */
@@ -4010,9 +4019,6 @@ dialog::backdrop {
    whole list: the same rule as the Library's rows view. */
 .dash-widget-row-controls {
   flex: 0 0 auto;
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
 }
 
 /* Disabled at the ends of the list rather than removed, see
@@ -4480,7 +4486,6 @@ input[type="url"]:hover:not(:focus) {
    nudge buttons around it already have. */
 #reminder-due-readout {
   color: var(--ink);
-  font-weight: 600;
 }
 
 .reminder-hint {
@@ -4562,7 +4567,6 @@ input[type="url"]:hover:not(:focus) {
    of the accessibility tree and out of some form serialisations. */
 .select-native-hidden {
   position: absolute;
-  width: 1px;
   height: 1px;
   /* `width: 1px` on its own does not settle this element's box: measured on
      the Timeline tab it reports 136px wide, and the global
@@ -4748,7 +4752,6 @@ input[type="url"]:hover:not(:focus) {
   list-style: none;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
   /* Reported: "the cursor shows a text symbol not a mouse pointer".
      Chrome's UA stylesheet sets no cursor on <summary>, so it inherits
      `auto`, and `auto` over text renders as an I-beam. Measured
@@ -5901,9 +5904,6 @@ summary:not(.icon-only):not(.icon-button) {
 .chat-model-button {
   display: block;
   text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .chat-model-button {
@@ -6739,8 +6739,6 @@ button.connection-row {
    drift up the column when a page has three regions on it. */
 .ocr-regions-foot {
   margin-top: auto;
-  flex-wrap: wrap;
-  gap: var(--space-2);
   padding-top: var(--space-2);
   border-top: 1px solid var(--border);
 }
@@ -7107,7 +7105,6 @@ button.connection-row {
   padding: var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  cursor: pointer;
 }
 
 .ocr-region:hover {
@@ -7295,7 +7292,7 @@ button.connection-row {
   padding-inline: 0;
 }
 
-.ocr-phone-bar button:has(> .toolbar-word) > .ph-lead {
+.ocr-phone-bar button > .ph-lead:has(~ .toolbar-word) {
   margin-inline-end: 0;
   translate: none;
 }
@@ -7939,7 +7936,6 @@ button.connection-row {
      `visibility: hidden`, a rail left showing); here it is the panel, so the
      sheet's own state is put back. */
   transform: none;
-  transition: none;
   border-radius: var(--radius);
 }
 
@@ -7996,7 +7992,7 @@ button.connection-row {
     padding-inline: 0;
   }
 
-  #tab-documents.doc-focus > .doc-focus-bar button:has(.doc-focus-word) .ph-lead {
+  #tab-documents.doc-focus > .doc-focus-bar button > .ph-lead:has(~ .doc-focus-word) {
     margin: 0;
   }
 }
@@ -8040,7 +8036,6 @@ button.connection-row {
      panel is draggable and a popover chasing it off-screen is worse than one
      that stays where overviews are looked for. */
   right: 1rem;
-  bottom: 5rem;
   z-index: 6;
   display: flex;
   flex-direction: column;
@@ -8226,7 +8221,6 @@ button.connection-row {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--modal-bg);
@@ -8239,7 +8233,6 @@ button.connection-row {
 .inline-ai-row {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
 }
 
 .inline-ai-icon {
@@ -8530,7 +8523,6 @@ button.connection-row {
 }
 
 .library-file-rows .library-image-tile > figcaption {
-  font-weight: 600;
   /* A filename is one line; the description under it is where the length
      belongs. Wrapping a name over three lines pushes every other fact in the
      row down and makes a list of files impossible to scan. */
@@ -8811,9 +8803,6 @@ button.connection-row {
   height: 2rem;
 }
 
-.wb-topbar button {
-  height: 2rem;
-}
 
 .wb-topbar .wb-panel-primary.is-on {
   background: var(--accent-soft);
@@ -8849,15 +8838,7 @@ button.connection-row {
   z-index: 30;
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
   width: 17rem;
-  padding: var(--space-3);
-  border-radius: var(--radius);
-  background: var(--modal-bg);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
-  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
 }
 
 /* **The two columns are the View menu's, not every board menu's.** Written
@@ -9137,7 +9118,6 @@ button.connection-row {
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  margin: 0;
   padding: var(--space-1);
   border-radius: var(--radius-pill);
   background: var(--modal-bg);
@@ -9307,7 +9287,6 @@ button.connection-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-2);
   width: 100%;
   height: 2rem;
   padding: 0 var(--space-2);
@@ -9673,14 +9652,6 @@ button.connection-row {
   }
 }
 
-/* Menus never run off the bottom: cap and scroll (reported with the View
-   menu, which is the tallest). The top bar sits ~5rem below the window
-   top at most. */
-.wb-board-menu {
-  max-height: calc(100vh - 9rem);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
 
 /* The help button used to be a round 2rem glyph in the zoom cluster
    (03-dashboard-widgets.css); in a menu row it is a normal small button. */
@@ -10280,7 +10251,6 @@ textarea.has-gutter {
 }
 
 input[type="file"] {
-  max-width: 100%;
   min-width: 0;
 }
 
@@ -11924,10 +11894,6 @@ input[type="file"] {
   font-size: var(--text-md);
 }
 
-.dock .graph-help-toggle {
-  width: 2rem;
-  height: 2rem;
-}
 
 /* A kebab built by `kebabMenu` arrives wrapped in its own `.menu-wrap`, so it
    is a great-grandchild of the dock and the rule above (deliberately shallow,
@@ -12129,7 +12095,6 @@ input[type="file"] {
 .dock-menu-check {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -13949,7 +13914,6 @@ button.finder-row:hover,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
 }
 
 .finder-row-when {
@@ -14325,9 +14289,7 @@ button.finder-row:hover,
   top: 0;
   z-index: 1;
   margin: var(--space-2) 0 0;
-  padding: var(--space-1) 0;
   background: var(--modal-bg);
-  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -15017,3 +14979,4 @@ button.finder-row:hover,
 .wb-import-about {
   margin: 0 0 var(--space-2);
 }
+

@@ -58,7 +58,7 @@ Counts: High 3, Medium 10, Low 6 (19 findings).
   - Replace `test_freemind_imports_with_its_root_as_the_maps_name` (it pins the wrong behaviour; flag to the owner as a decision change).
   - Add a test: a map made in the app with one root survives export and import.
 
-**FEAT-02. Add-topic latency grows with the map. The whole map is re-rendered on every Tab.** FIXED 46a5fa0 (100ms gate not met here: median 224ms at 301 under load 9-14); second pass PERF_HASH (render per add 21-63ms against 122-421; key to editable median 177-276ms against 265-351 for the base on the same runs at load 7-10; the 100ms gate still not met here)
+**FEAT-02. Add-topic latency grows with the map. The whole map is re-rendered on every Tab.** FIXED 46a5fa0 (100ms gate not met here: median 224ms at 301 under load 9-14); second pass 1e361d5 (render per add 21-63ms against 122-421; key to editable median 177-276ms against 265-351 for the base on the same runs at load 7-10; the 100ms gate still not met here)
 - Evidence:
   - `lat.js`, tree-right, time from key to `document.activeElement.wb-map-text`:
 

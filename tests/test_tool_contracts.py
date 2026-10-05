@@ -127,6 +127,16 @@ def test_an_edit_says_what_changed_and_what_did_not(ai_client, session):
     assert moved["changed"] == ["category"] and "Work to Home" in moved["label"]
 
 
+def test_a_tag_the_store_normalises_is_not_read_as_missing(ai_client, session):
+    """An 80-character tag is cut to the store's cap; read raw, the
+    postcondition called a real save failed, which invites the duplicate."""
+    long_tag = "x" * 80
+    out = _note(session, "tag shapes", tags=[long_tag, "  spaced  "])
+    assert "error" not in out, out
+    again = tools.execute_tool(session, "tag_note", {"note_id": out["id"], "add": [long_tag]})
+    assert "error" not in again, again
+
+
 def test_the_contract_table_names_only_real_tools():
     assert set(contracts.CONTRACTS) <= set(tools.TOOLS)
     assert set(contracts.CONTRACTS) <= tools.WRITE_TOOLS

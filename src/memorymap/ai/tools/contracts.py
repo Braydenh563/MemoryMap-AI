@@ -41,6 +41,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.core.database import Category, Entry, EntryLink, Reminder
 from memorymap.entry import manager
+from memorymap.entry.tagnames import normalise_tags
 
 _log = logging.getLogger("memorymap.tools")
 
@@ -182,11 +183,22 @@ def _post_note_written(session: Session, args: dict, result: dict) -> str | None
     if category and _fold(manager.category_name_for(session, entry)) != _fold(category):
         return f"note #{entry.id} is not filed under “{category}”"
     if args.get("tags") is not None:
+        #: Compared as stored: a tag is normalised on the way in (trimmed,
+        #: cut to its length cap), and a raw 80-character tag read as
+        #: "missing" made a real save look failed, the one way a postcondition
+        #: can cause the duplicate it exists to prevent.
         held = {_fold(t) for t in manager.entry_tags(entry)}
-        missing = [t for t in args["tags"] if _fold(t) and _fold(t) not in held]
+        missing = [t for t in _wanted_tags(args["tags"]) if _fold(t) not in held]
         if missing:
             return f"note #{entry.id} is missing the tag {missing[0]}"
     return None
+
+
+def _wanted_tags(raw) -> list[str]:
+    """The tags a call asked for, as the store will hold them."""
+    if isinstance(raw, str):
+        raw = [raw]
+    return normalise_tags([str(t) for t in raw or []])
 
 
 def _post_tags(session: Session, args: dict, result: dict) -> str | None:
@@ -196,8 +208,8 @@ def _post_tags(session: Session, args: dict, result: dict) -> str | None:
         if entry is None:
             continue
         held = {_fold(t) for t in manager.entry_tags(entry)}
-        removed = {_fold(t) for t in args.get("remove") or []}
-        added = {_fold(t) for t in args.get("add") or []}
+        removed = {_fold(t) for t in _wanted_tags(args.get("remove"))}
+        added = {_fold(t) for t in _wanted_tags(args.get("add"))}
         missing = sorted(added - held)
         if missing:
             return f"note #{note_id} does not carry the tag {missing[0]}"

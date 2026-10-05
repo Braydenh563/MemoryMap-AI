@@ -3175,28 +3175,47 @@ function gcWireSelectionDock(s = gcTab) {
     renderGraph();
   });
   on("graph-selection-map", async () => {
-    const nodes = gcSelectedNodes(s);
+    //: Notes only: a lens can put tags, categories and boards on the graph
+    //: as nodes of their own, and none of those is a note a map can hold.
+    const nodes = gcSelectedNodes(s).filter((node) => Number.isInteger(node.id));
     if (!nodes.length) return;
     const name = (await promptDialog("Name the mind map", "", { confirmLabel: "Create map" })).trim();
     if (!name) return;
-    // "map" is the board type a mind map carries (BOARD_TYPES in
-    // routes_whiteboard.py); "tree-right" is the layout a fresh map gets.
-    const board = await apiJson("/whiteboard/boards", {
+    //: **Built from the graph, not listed under one topic** (INBOX 607, the
+    //: owner: "surely there's a better and more dynamic way it can build the
+    //: map based off the connections and links"). The links between the
+    //: chosen notes go too, as the graph draws them, and the server builds
+    //: the tree they describe: the picked or most connected note in the
+    //: middle, linked notes under the note they link to, the rest by
+    //: category, every link the tree cannot hold kept as a cross-link
+    //: (`routes_map_from_notes.py`). It was one root with every note in a
+    //: single column under it, and the links thrown away.
+    const ids = new Set(nodes.map((node) => node.id));
+    const edges = [];
+    for (const id of ids) {
+      for (const other of s.adj.get(id) || []) if (ids.has(other) && id < other) edges.push([id, other]);
+    }
+    const picked = [graphFocusModeId, graphPaneShownId].find((id) => ids.has(id)) ?? null;
+    const board = await apiJson("/whiteboard/maps/from-notes", {
       method: "POST",
-      body: JSON.stringify({ name, type: "map", layout: "tree-right" }),
+      body: JSON.stringify({ name, note_ids: [...ids], edges, root_id: picked }),
     }).catch(() => null);
     if (!board?.id) {
       toast("Could not create the map.");
       return;
     }
-    const root = await apiJson(`/whiteboard/boards/${board.id}/nodes`, { method: "POST", body: JSON.stringify({ kind: "topic", text: name }) }).catch(() => null);
-    for (const node of nodes) {
-      await apiJson(`/whiteboard/boards/${board.id}/nodes`, {
-        method: "POST",
-        body: JSON.stringify({ kind: "note", ref_id: node.id, parent_id: root?.id ?? null, text: node.preview || "" }),
-      }).catch(() => null);
-    }
-    toast(`Mind map “${name}” made from ${nodes.length} note${nodes.length === 1 ? "" : "s"}. It is in Library, Boards.`);
+    //: **The way to it, on the notice and in the bell** (INBOX 607: "the
+    //: notification included no link to it"). Open lays the map out against
+    //: its topics' real sizes as it opens, the step an import takes too.
+    toastAction(
+      `Mind map \u201c${name}\u201d made from ${ids.size} note${ids.size === 1 ? "" : "s"}.`,
+      "Open",
+      async () => {
+        await openWhiteboardBoard(board.id);
+        await wbMapTidyFresh();
+      },
+      { go: { open: "board", id: board.id } },
+    );
   });
 }
 

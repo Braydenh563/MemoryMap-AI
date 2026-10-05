@@ -266,6 +266,119 @@ def frames():
     return {"key": "frames", "name": "Frames", "items": items}
 
 
+# --- Templates: a whole starting layout, dragged in from the Library -----------
+#
+# INBOX 596 (the owner: "can you add preset whiteboard and mind map templates
+# that are draggable from the library??"). A board template is an element like
+# any other (a click places it in the middle of the view, a drag where it is
+# dropped), only larger and with words already in it; a map template is a
+# branch, placed under the topic it is dropped on, or the selected topic, or
+# the root. `template` says which kind of board the Library shows it on.
+
+def _sticky(key, words, x, y, bg="#fff4a3", edge="#e8d56a"):
+    return {"key": key, "kind": "object", "type": "text",
+            "data": {"content": words, "bg": bg, "border_color": edge, "color": "#2a2a1f", "font_size": 16},
+            "x": x, "y": y, "w": 200, "h": 120, "z": 1}
+
+
+def _text(key, words, x, y, w=280, h=48):
+    return {"key": key, "kind": "object", "type": "text", "data": {"content": words}, "x": x, "y": y, "w": w, "h": h, "z": 1}
+
+
+def _box(key, d, x, y, label, **kw):
+    item = shape_item(d, 0, 0, key=key, **kw)
+    item["data"]["label"] = label
+    item["data"]["d"] = _moved(item["data"]["d"], x, y)
+    return item
+
+
+def _moved(d, dx, dy):
+    """A path from the build helpers, moved by (dx, dy): every number pair in
+    an M, L or A command's end point. Only the commands those helpers write."""
+    out, tokens, i = [], d.split(), 0
+    while i < len(tokens):
+        cmd = tokens[i]
+        out.append(cmd)
+        i += 1
+        if cmd in ("M", "L"):
+            out += [_n(float(tokens[i]) + dx), _n(float(tokens[i + 1]) + dy)]
+            i += 2
+        elif cmd == "A":
+            out += tokens[i:i + 5] + [_n(float(tokens[i + 5]) + dx), _n(float(tokens[i + 6]) + dy)]
+            i += 7
+    return " ".join(out)
+
+
+def templates():
+    kanban, kw, kh = _frames(["To do", "Doing", "Done"], 3, 320, 520)
+    kanban += [_sticky("s0", "First task", 60, 80), _sticky("s1", "Second task", 60, 230),
+               _sticky("s2", "In progress", 420, 80, "#cfe8ff", "#94bfe8"), _sticky("s3", "Finished", 780, 80, "#d6f5c9", "#9dd18a")]
+    retro, rw, rh = _frames(["Went well", "To improve", "Ideas", "Actions"], 4, 300, 440)
+    for i, (bg, edge) in enumerate([("#d6f5c9", "#9dd18a"), ("#ffd1dc", "#e8a3b4"), ("#fff4a3", "#e8d56a"), ("#cfe8ff", "#94bfe8")]):
+        retro.append(_sticky(f"s{i}", "Add a note", 50 + i * 340, 80, bg, edge))
+    term = path("M", 40, 0, "L", 120, 0, "A", 40, 40, 0, 0, 1, 120, 80, "L", 40, 80, "A", 40, 40, 0, 0, 1, 40, 0, "Z")
+    step = poly([(0, 0), (160, 0), (160, 80), (0, 80)])
+    diamond = poly([(80, 0), (160, 50), (80, 100), (0, 50)])
+    flow = [
+        _box("start", term, 0, 0, "Start", label_area={"x": 0.15, "y": 0, "w": 0.7, "h": 1}),
+        _box("step", step, 0, 160, "Do the first step"),
+        _box("ask", diamond, 0, 320, "Did it work?", label_area={"x": 0.22, "y": 0.25, "w": 0.56, "h": 0.5}),
+        _box("fix", step, 280, 330, "Try again"),
+        _box("end", term, 0, 500, "End", label_area={"x": 0.15, "y": 0, "w": 0.7, "h": 1}),
+    ]
+    arrow = {"type": "link-straight", "color": "ink", "width": 2, "endCap": "arrow"}
+    flow_links = [{"from": a, "to": b, "data": dict(arrow)} for a, b in
+                  [("start", "step"), ("step", "ask"), ("ask", "fix"), ("ask", "end"), ("fix", "step")]]
+    meeting = [
+        {"key": "f0", "kind": "object", "type": "frame", "data": {"content": "Meeting"}, "x": 0, "y": 0, "w": 960, "h": 460, "z": -1},
+        _text("t0", "## Agenda", 40, 40), _text("t1", "## Notes", 340, 40), _text("t2", "## Actions", 640, 40),
+        _sticky("s0", "First item", 40, 110), _sticky("s1", "What was said", 340, 110, "#cfe8ff", "#94bfe8"),
+        _sticky("s2", "Who does what, by when", 640, 110, "#d6f5c9", "#9dd18a"),
+    ]
+    week, ww, wh = _frames(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], 5, 220, 380)
+    items = [
+        element("kanban", "Kanban with cards", ["template", "tasks", "to do", "doing", "done"], kanban, kw, kh),
+        element("retro", "Retrospective", ["template", "retro", "review", "went well"], retro, rw, rh),
+        element("flow", "Flowchart, a loop", ["template", "flowchart", "process", "decision"], flow, 440, 580, links=flow_links),
+        element("meeting", "Meeting notes", ["template", "meeting", "agenda", "actions"], meeting, 960, 460),
+        element("week", "Week plan", ["template", "week", "plan", "schedule"], week, ww, wh),
+    ]
+    for item in items:
+        item["template"] = "board"
+    return {"key": "templates", "name": "Templates", "items": items}
+
+
+def _branch(key, name, tags, nodes):
+    def walk(node):
+        text, children = node if isinstance(node, tuple) else (node, [])
+        return {"text": text, "children": [walk(c) for c in children]}
+
+    return {"key": key, "kind": "branch", "name": name, "tags": ["template", *tags], "template": "map",
+            "payload": {"nodes": [walk(n) for n in nodes]}}
+
+
+def map_templates():
+    """The four the empty map offers (`WB_MAP_TEMPLATES`, whiteboard-map.js),
+    with the same words, and three more."""
+    items = [
+        _branch("brainstorm", "Brainstorm", ["ideas", "questions"], [
+            ("Ideas", ["First idea"]), ("Questions", ["What do I not know yet?"]), "Themes", "Next steps"]),
+        _branch("decision", "Decision", ["options", "choose"], [
+            ("Options", ["Option A", "Option B"]), ("What matters", ["Cost", "Time"]), "Risks", "What would change my mind"]),
+        _branch("project", "Project", ["plan", "milestones", "tasks"], [
+            "Goal", ("Milestones", ["First milestone"]), "Tasks", "People", "Risks"]),
+        _branch("causes", "Cause and effect", ["ishikawa", "fishbone", "why"], [
+            "People", "Process", "Tools", "Surroundings", "What actually happened"]),
+        _branch("pros-cons", "Pros and cons", ["compare", "weigh"], [
+            ("Pros", ["A reason for"]), ("Cons", ["A reason against"]), "What I decided"]),
+        _branch("book", "Book notes", ["reading", "summary"], [
+            "The main idea", ("Key points", ["First point"]), "Quotes", "What I will do with it"]),
+        _branch("meeting", "Meeting", ["agenda", "minutes", "actions"], [
+            "Agenda", "Decisions", ("Actions", ["Who, what, by when"]), "Open questions"]),
+    ]
+    return {"key": "maps", "name": "Mind map templates", "items": items}
+
+
 # --- Phosphor glyphs as paths ----------------------------------------------------
 
 class _Font:
@@ -484,7 +597,7 @@ def icons():
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    sets = [general(), flowchart(), arrows(), frames()]
+    sets = [templates(), map_templates(), general(), flowchart(), arrows(), frames()]
     index = []
     for s in sets:
         (OUT / f"{s['key']}.json").write_text(json.dumps({"format": "memorymap-library-set", "version": 1, **s}, indent=1) + "\n", encoding="utf-8")

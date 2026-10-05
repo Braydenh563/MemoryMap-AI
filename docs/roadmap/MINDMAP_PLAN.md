@@ -562,7 +562,9 @@ export that claims it.
 2. **Grow with the AI**: on any node, "Suggest branches" proposes five
    children from the notebook (grounded, with the source note on each),
    "Expand from my notes" fills a branch from search results,
-   "Summarise this branch" writes the parent's note.
+   "Summarise this branch" writes the parent's note. (Suggest branches is in:
+   WHITEBOARD_PLAN decision 36, HISTORY "wb-phase2"; a picker, not yet
+   ghosts on the canvas. The other two are open.)
 3. **From a question**: "Make a map of..." in chat proposes a map
    (exists, Phase 4) and now opens it in the map editor with the
    proposal as floating topics to accept or discard.
@@ -1633,3 +1635,4 @@ Built; moved whole to HISTORY.md ("Moved from the plans, 2026-10-03", "From MIND
      (whiteboard and mind map, measured frame times); (5) companion stacking
      by perch; (6) graph default forces; (7) the two small visual ones
      (button gap, Plan/Web pill contrast) with contrast.js.
+

@@ -45,6 +45,131 @@ Small, well-defined open items cleared in one pass; each line says how it was ve
 - **Capture's formatting strip changed height when the Library bundle landed.** Built: at 390 the strip drew expanded (two rows, 104px) and folded to the 54px collapsed bar when documents.js mounted the fold, the name and the tools group (More, layout, line numbers, the chevron); the collapsed shape is the default, so it is now the markup's (`is-collapsed` on `#note-toolbar`), `foldNoteToolbarForFirstPaint` (notes-list.js, boot) undoes it for a saved expanded choice, and the name is drawn by a `::before` at the cluster's own height (2rem, the touch floor under a coarse pointer) until the real one mounts. `scratchpad/ui-sweeps/capturestrip.js` (the bundle's scripts held 4s, then the box pressed): one row at every sample before and after, a constant 54px at 390 and 42px at 1440 (before: 2 rows, 104px, then 54px). Not as briefed (a reserved More slot): measured, the More button is only shown by the one-row mode, which is not the default, so the shift was the fold. The CSS-styles art block (`.bg-mesh-field`, `.bg-bubble`, `@keyframes bg-drift-x/y, bg-rise, bg-wobble` and their `.bg-art-layer` rules, 2.6 KB) was removed to keep the boot CSS under its cap: nothing sets those classes since bg-art.js drew every style on the canvas. `tests/test_capture_strip_first_paint.py` (3).
 - **DOCUMENTS_PLAN's table-cell reveal row** (`docRevealForSuggest` would not bring a cell's word into view). Not reproduced: `scratchpad/ui-sweeps/revealcell.js` seeds 70 paragraphs and a table whose cells hold "seperate" and "definately", presses each word's row in the findings panel from the top, and reads the mark's box inside a drawn `.cm-md-td` against the scroller's box (whole box inside) and the floating menu against the word (no overlap): 9 of 9 in Live at 1440 and at 390, 7 of 7 in Source at 1440.
 
+## Moved from the plans, 2026-10-05 (boardmap-1005)
+
+The board and map agent's queue: INBOX 596, 607 to 610 and 617, placed in
+MINDMAP_PLAN and WHITEBOARD_PLAN; the open remainders of 596 and 608 stay in
+WHITEBOARD_PLAN's "Placed from INBOX, 2026-10-05 (boardmap-1005)".
+
+- **609, smooth long branches** (`95e8127`): a branch's two sides are a
+  spline through more samples. `tests/test_map_ribbon_smooth.py`,
+  `bm1005-curve.js`.
+- **608, edge auto-pan on boards and maps** (`64ab644`): a marquee, an item
+  or a branch dragged to the canvas edge pans the board, faster deeper in.
+- **607, the map from the graph** (`3f4aa42`, `e1c598d`):
+  `POST /whiteboard/maps/from-notes` builds the tree from the notes' links
+  (the picked or most connected note in the middle, linked notes under the
+  note they link to, the rest by category, at most eight children a topic,
+  other links as cross-links, both sides); Open on the notice and the bell
+  row. `tests/test_map_from_notes.py`; `bm1005-mapfromgraph.js`: 37 nodes,
+  widest 8 (was 33 in one column), 22 left and 14 right, 0 overlaps.
+- **610, a topic's controls** (`4ed1b3c`): the text size on the topic's bar;
+  every select in its Text, Shape and Branch line doors drawn as a
+  `.seg[role=group]` (`wbMapChoiceRow`); one resize grip on the bottom right
+  corner (Shift scales the text), 24px at every zoom. `tests/
+  test_map_node_controls.py`; `bm1005-nodetasks.js`: 8 of 11 tasks over two
+  presses on the base, 11 of 11 in at most two after, at 1440 and 390, light
+  and dark.
+- **617, several topics picked** (`98e319e`): no group box, the bar's
+  `mapmulti` group (colour, bold, tasks, fold, summarise), the same in the
+  right-click menu, one undo step (`wbMapStyleMany`).
+  `tests/test_map_multi_select.py`; `bm1005-mapmulti.js` 10/10 in all four.
+- **596, the board's sidebar** (`b454b7b`): beside a side dock rather than over it
+  (`[data-wb-dock="side"]`), one height on a board and a map, the Library's
+  menu hung from its button's right edge, a map's rail Library, This map and
+  Outline (`WB_SIDE_TABS_BY_KIND`, `wbRenderSideMap`), and built-in
+  Templates (five board, seven map; `scripts/build_board_library.py`).
+  `tests/test_board_sidebar_596.py`, `tests/test_board_library.py`;
+  `bm1005-sidebar.js`: on the base 58,854px² of overlap, 341 against 443px,
+  the menu 20px left and 15px low, 0 templates; after, 0, 703 and 703, 0 and
+  4px, 5 and 7 templates placed by a drag (a press at 390).
+
+## Moved from the plans, 2026-10-05 (wb-phase2: draw.io phase 2)
+
+From WHITEBOARD_PLAN (decisions 30 on) and the features audit's
+remaining whiteboard rows; the open rest is in
+`docs/roadmap/agent-remaining/wb-phase2.md`.
+
+- **Step 1, bends on straight and curved connectors, and line jumps**
+  (decisions 30, 31). `points` drives every style (`wbLinkShape`,
+  `wbCurveThroughSegs`, `wbCurvePathD`); one grip set,
+  `wbRenderWaypointHandles`; floating ends aim at the nearest waypoint;
+  `wbLineJumpsD` hops over lines painted under (read off the sorted
+  selection: d3's `sort` returns a new one). Found and fixed on the way: a
+  click or double-click on an add ring saved one or two bends at the ring
+  (elbows too), and a bend's double-click never took it out (a save on the
+  first click re-rendered the grip). `tests/test_wb_waypoints.py` 14;
+  `wbwaypoints.js` 20/20 at 1440 and 390, light and dark; `wb1005-elbow.js`
+  18/18, `wb1005-format.js` 17/17, `wblinklabel.js` 12/12 (two checks
+  updated: the bend is `points`, and the right-click point avoids the bar,
+  which covered it on the base too).
+
+- **Step 2, Mermaid subgraphs as frames** (decision 32).
+  `wbMermaidParse` reads `subgraph` and `end` (three title forms, nesting);
+  `wbMermaidLayout` lays each subgraph out as a block in its parent's rows
+  and returns `frames`; `wbImportMermaid` makes them innermost first under
+  everything (`wbFrameZ`); `wbBoardToMermaid` takes `frameOf`
+  (`wbMermaidFrameOf`) and writes subgraphs. `tests/test_wb_interchange.py`
+  10 (5 new); `wbmermaidframes.js` 11/11 at 1440 and 390, light and dark;
+  `wb1005-interchange.js` 8/8. The brief's other half, FreeMind keeping its
+  root, was already built (FEAT-01, `cc89dcb`,
+  `test_freemind_imports_its_single_root_as_the_central_topic`): not rebuilt.
+
+- **Step 3, W2, the board time machine** (decision 33). Server
+  `routes_board_history.py` (`GET /whiteboard/history`,
+  `GET /whiteboard/history/{event}`, `POST .../restore`); library placements
+  record per-item `created` events (`test_board_library.py`'s one-event test
+  rewritten to say so). Client `whiteboard-history.js` (lazy, Library
+  bundle): the slider bar on the present bar's recipe, the past drawn by the
+  board's render, writes refused (`wbHistGuard`), a restore recorded as one
+  Undo step. Found on the way: SQLite reuses a deleted row's id (no
+  AUTOINCREMENT), so one item id's log can hold two items; a `created`
+  starts a fresh state. `tests/test_board_history.py` 10;
+  `wbhistory.js` 14/14 at 1440 and 390, light and dark (the sweep ages the
+  log in its own data dir to make three moments).
+
+- **Step 4, smart guides** (decision 34). Checked first: edge and centre
+  guides, equal spacing between two neighbours, Alt to bypass, group drags,
+  and the Arrange menu's align and distribute (`WB_COMMANDS`) all existed;
+  not rebuilt. Added: drawn shapes as targets (`wbGuideBoxes`, hidden items
+  left out) and a row's or column's spacing continued past its end
+  (`wbSpacingSeries`). `tests/test_wb_guides.py` 5; `wbguides.js` 6/6 at
+  1440 and 390, light and dark; `wbgroupguides.js` 0 findings.
+
+- **Step 5, connection points and waypoint consistency** (decision 35).
+  Checked first: eight fixed anchors and their hover hints with a link
+  tool existed (bbox fractions, so off a diamond's or an ellipse's outline);
+  waypoints on every style came with step 1. Added: `wbPortsForPath` (a
+  polygon's corners and side middles, a curve's compass points, cached per
+  path), `wbAnchorPoint` read from the fraction, ports on hover with Select
+  and a drag from one to connect (initWhiteboard's "Connection points with
+  Select"), and `wbCarryWaypoints` in `wbFinishDrag`.
+  `tests/test_wb_ports.py` 7; `wbports.js` 9/9 and `wbwaypoints.js` 22/22
+  at 1440 and 390, light and dark.
+
+- **Step 6, FEAT-13 first part: Branches from my notes** (decision 36).
+  `routes_map_suggest.py` (`POST .../nodes/{id}/suggest`, writes nothing;
+  `POST .../nodes/{id}/branches`, one transaction, a created event each);
+  `wbMapSuggestBranches` (whiteboard-map.js) on the picker dialog with the
+  Attach picker's rows, from the topic menu's Add group and the command
+  table (`suggest-branches`). `tests/test_map_suggest.py` 6 (fake transport:
+  the prompt's parse, both fallbacks, no invented note); `mapsuggest.js` 8/8
+  at 1440 and 390, light and dark (no model on the sweep's server, so the
+  notebook fallback). Open: ghosts on the canvas, Expand from my notes,
+  Summarise this branch, the affinity sort, the claim check.
+
+- **Found by the regression sweeps after steps 5 and 6.** A press on a
+  port with Select released a click on the container, which cleared the
+  selection it had just made (`wblock.js` 6/17 on step 5, 17/17 after the
+  release's click is swallowed for that task); and the search engine joins
+  the nearest notes by meaning to every keyword search, so a topic was
+  offered notes that shared nothing with it: a note found by meaning alone
+  now needs a cosine of 0.5 (`MIN_MEANING`).
+  And on a data dir other sweeps had used, a new board's first moment
+  counted "4 added, 2 removed" for two shapes: a reused id's log held another
+  board's item, so each event is now placed by the board its payload names
+  (`_board_events`; `test_a_reused_id_brings_no_other_boards_history`).
+
 ## OPEN.md rows closed, 2026-10-05 (the open-rows agent)
 
 The well-defined rows of `agent-remaining/OPEN.md` taken by one agent; each line says how it was verified.
@@ -42142,6 +42267,12 @@ record.)
      button; a separate boxed "Attach a link" button.) Placed: the Settings
      and popups design agent's queue (599), as the same recipe pass.
      Fixed 2026-10-05: the note edit form is one composition: one writing surface, tag chips, a category chip, a foot of Attach a link, Cancel and Save; boxed buttons 3 to 0, 554 to 507px tall at 390 (noteeditflow.js 6/6).
+
+617. **The owner, 2026-10-05, verbatim.** "on the mind map when selecting a
+     group of nodes, it defaults to the whiteboard selection and popup menus
+     and right click menus etc" (screenshots: the board's group box, its
+     right-click menu and its align/distribute bar on map topics). Placed:
+     the board and map agent, with 610.
 
 542. **The owner, 2026-10-05, verbatim.** "some of the badge icons and text
      arent aligned vertically." (screenshot: the Installed badge in Settings,

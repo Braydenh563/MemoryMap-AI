@@ -1114,6 +1114,7 @@ TOPIC_META: dict[str, dict] = {
     "code-files": {"title": "Code documents", "path": "Library tab, Documents"},
     "mind-maps": {"title": "Mind maps", "path": "Library tab, Boards & maps"},
     "whiteboard-controls": {"title": "Whiteboard keys and controls", "path": "Library tab, Boards & maps"},
+    "board-history": {"title": "A board's history, and putting it back", "path": "A board, Board, History…"},
     "board-library": {"title": "The board's library, layers and templates", "path": "A board, the Library button in its top bar"},
     "board-format": {"title": "The board's Format panel and connectors", "path": "A board, Ctrl+Shift+P or the selection's More menu"},
     "mind-map-controls": {"title": "Mind map keys and controls", "path": "Library tab, Boards & maps"},
@@ -1182,7 +1183,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "margin-reader",
     )),
     ("Boards and maps", (
-        "whiteboard", "whiteboard-controls", "board-library", "board-format", "mind-maps", "mind-map-controls", "mind-map-features",
+        "whiteboard", "whiteboard-controls", "board-history", "board-library", "board-format", "mind-maps", "mind-map-controls", "mind-map-features",
     )),
     ("Library and files", (
         "library", "library-controls", "bookmarks", "web-clipper-bookmark", "contents", "library-skills",

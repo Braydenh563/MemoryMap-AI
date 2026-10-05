@@ -69,6 +69,11 @@ const TABS = [
       }).catch(() => 0);
       await page.evaluate((i) => openWhiteboardBoard(i), id).catch((e) => errs.push('open board: ' + e.message.slice(0, 80)));
       await page.waitForTimeout(2200);
+      // A fresh text box in its editing state: it read 203>198 here once (its
+      // grips, not its content: see `drawnPast`), and nothing else puts one
+      // on the board, so the check below would never see it.
+      await page.evaluate(() => wbCreateTextBox(120, 200)).catch((e) => errs.push('text box: ' + e.message.slice(0, 80)));
+      await page.waitForTimeout(500);
     } else {
       await page.evaluate((t) => switchTab(t), tab);
       await page.waitForTimeout(1500);

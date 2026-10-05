@@ -24,6 +24,7 @@ below). Versioning is `0.x` while the app stabilises.
 - A note's source address must be a web address, and every link the audit found opened without the link check (a note's source chip, a chat source card, the palette's sources, a link card, a bookmark row) now goes through it (SEC-15).
 
 ### Changed
+- Atlas: lying down and curled up, the whole figure turns as one; the lower body and her waist wisps no longer turn 16 to 42 degrees off the torso, which stayed nearly upright while the lower body lay half off it (INBOX 619).
 - Atlas: the torso and the lower body meet as one silhouette (INBOX 615, and 619 for her). The lower body moves inside the body's own sway and breath, and its own swing (the hem's wind, the walk, a pose's lean) is a shear about the join rather than a turn, so the waist stays under the torso while the hem moves; his cloak is a little narrower at the waist.
 - Atlas: its eyes never go blank. Changing to or from the heart eyes, the iris and the heart now cross over on one clock, on the companion and in its wake and doze; before, the companion's iris cut out at once while the heart faded in, leaving a white eye for up to half a second (INBOX 619).
 - Atlas, his look: a slimmer, athletic young-adult build to match hers (19 to 21): defined shoulders tapering in a V to a narrow waist (shoulders, waist and hips 17, 9.5 and 9.8 across where they were 18.6, 15.1 at the belly and 10), slimmer arms, and a cloak and tail that taper with it (INBOX 614).

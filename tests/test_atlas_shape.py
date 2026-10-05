@@ -485,7 +485,10 @@ def test_the_lie_down_and_curl_frames_are_hooks_with_the_stream_as_a_bed():
     # under the cheek and the skirt drawn up.
     assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="masculine"] .nmb-arm-r { transform: rotate(-172deg); }' in CSS
     assert '#nm-buddy[data-pose="lie"] .atl-figure[data-atlas-look="feminine"] .nmb-arm-l' in CSS
-    assert '#nm-buddy[data-pose="lie"] .atl-layer-lower { rotate: -42deg; }' in CSS
+    # INBOX 619 (the owner: "when sleeping etc, her lower body actually
+    # rotates halfway off her upperbody which stays mostly upright"): the
+    # lower body lies down with the torso, as one chain, not 42 degrees off it.
+    assert ".atl-layer-lower { rotate:" not in CSS
     # Variant 1 lies the other way round; the Zs and the rings stay upright.
     assert '#nm-buddy[data-pose="lie"] :is(.atl-layer-fx-1, .atl-layer-fx-2) { rotate: calc(84deg - 168deg * var(--atl-v1)); }' in CSS
     assert '#nm-buddy[data-pose="lie"] :is(.atl-layer-back, .atl-layer-front) { rotate: calc(84deg - 168deg * var(--atl-v1)); }' in CSS

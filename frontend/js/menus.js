@@ -74,7 +74,7 @@ function closeActionMenus() {
     //: can continue from.
     const held = menu.contains(document.activeElement);
     menu.classList.add("hidden");
-    restoreEscapedMenu(menu);
+    restoreEscapedMenuAfterExit(menu);
     // `menu._escapedOpener` (set by wireEscapedActionMenu) wins when
     // present: a menu reparented to <body> has no useful `.parentElement`
     // to search: `document.body.querySelector` would find the *first*
@@ -583,6 +583,39 @@ function escapeMenuIfClipped(menu, opener) {
   placeEscapedMenu(menu, opener);
 }
 
+//: **A menu reparented to the body leaves after its exit, not before it**
+//: (perfpolish). `.action-menu.hidden` fades out over --motion-fast
+//: (10-responsive.css), but moving a node in the DOM cancels a transition, so
+//: an escaped menu (every kebab on a phone, and any menu a scroller clips)
+//: went home at once and vanished with no exit. It now goes home when the exit
+//: is over. A menu opened again inside that window is not hidden any more and
+//: is left where it is (an open escaped menu lives in the body anyway; the
+//: next close puts it back). No exit runs under reduced motion, where the
+//: transition is 0s, and then it goes home at once as it always did.
+function restoreEscapedMenuAfterExit(menu) {
+  if (!menu._escapedHome) return;
+  const exit = menuExitMs(menu);
+  if (!exit) {
+    restoreEscapedMenu(menu);
+    return;
+  }
+  clearTimeout(menu._restoreTimer);
+  menu._restoreTimer = setTimeout(() => {
+    menu._restoreTimer = null;
+    if (menu.classList.contains("hidden")) restoreEscapedMenu(menu);
+  }, exit);
+}
+
+//: How long a menu that has just been hidden stays drawn for its exit, in ms
+//: (a frame over the transition), or 0 when none runs (reduced motion, or an
+//: engine without `allow-discrete`, where `display` does not transition).
+function menuExitMs(menu) {
+  const style = getComputedStyle(menu);
+  if (!style.transitionProperty.split(",").some((name) => name.trim() === "display")) return 0;
+  const seconds = Math.max(0, ...style.transitionDuration.split(",").map(parseFloat).filter(Number.isFinite));
+  return seconds ? Math.round(seconds * 1000) + 40 : 0;
+}
+
 function restoreEscapedMenu(menu) {
   const home = menu._escapedHome;
   if (!home) return;
@@ -909,18 +942,29 @@ function wireEscapedActionMenu(wrap) {
       //: nothing) would drop it to `body` on this move; the opener is where it
       //: belongs. Measured on every select: Escape left the focus on `body`.
       const held = menu.contains(document.activeElement);
-      homeParent.insertBefore(menu, homeNext);
+      //: **After the exit, not before it** (perfpolish; `restoreEscapedMenuAfterExit`
+      //: says why): moving the node home cancels the fade `.hidden` starts, so
+      //: every menu this wires left at once. The focus still goes to the opener
+      //: now; the node goes home when the fade is over, if it is still closed.
       if (held && opener.isConnected) opener.focus({ preventScroll: true });
-      menu.classList.remove("action-menu-escaped");
-      menu.style.left = "";
-      menu.style.top = "";
-      menu.style.visibility = "";
-      // The height decisions are the escape's, not the menu's own: left
-      // behind they would cap it in its home position too. The same goes for
-      // the tier the escape may have lifted it to (INBOX 239).
-      menu.style.maxHeight = "";
-      menu.style.overflowY = "";
-      menu.style.zIndex = "";
+      const goHome = () => {
+        if (!menu.classList.contains("hidden") || menu.parentElement === homeParent || !homeParent) return;
+        homeParent.insertBefore(menu, homeNext);
+        menu.classList.remove("action-menu-escaped");
+        menu.style.left = "";
+        menu.style.top = "";
+        menu.style.visibility = "";
+        // The height decisions are the escape's, not the menu's own: left
+        // behind they would cap it in its home position too. The same goes for
+        // the tier the escape may have lifted it to (INBOX 239).
+        menu.style.maxHeight = "";
+        menu.style.overflowY = "";
+        menu.style.zIndex = "";
+      };
+      const exit = menuExitMs(menu);
+      clearTimeout(menu._goHomeTimer);
+      if (exit) menu._goHomeTimer = setTimeout(goHome, exit);
+      else goHome();
     }
   });
   observer.observe(menu, { attributes: true, attributeFilter: ["class"] });

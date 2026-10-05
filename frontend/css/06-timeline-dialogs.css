@@ -4002,8 +4002,16 @@ aside[data-resizable="1"] {
   }
 }
 
-/* On a phone the arrows take the row's two ends and the month the middle. */
+/* On a phone the arrows take the row's two ends and the month the middle. And
+   the strip's own spacing steps down a token (the head to the days, the strip
+   to the list): the list began at y=340 of 844, 2.4px past the first-screen
+   rule (40%, `phonechrome.js`), and 4.8px less puts it at 335. */
 @media (max-width: 599.98px) {
+  .timeline-daystrip {
+    gap: var(--space-2) var(--space-5);
+    margin-bottom: var(--space-2);
+  }
+
   .timeline-daystrip-head {
     flex: 1 1 100%;
     justify-content: space-between;

@@ -9,7 +9,7 @@
 // (filled, ghost, icon, seg, select, input, menu). A `.seg`, a
 // `.select-shell` and a `details` menu count once, as docks.js counts them.
 // Writes $SCRATCH/bars-<width>-<theme>.json and one strip screenshot per bar.
-const { boot } = require('./lib.js');
+const { boot, openBoardsTab, waitForBoardOpen } = require('./lib.js');
 const W = Number(process.env.WIDTH || 1440);
 const THEME = process.env.THEME || 'light';
 const BOARD = Number(process.env.BOARD || 76), MAP = Number(process.env.MAP || 77);
@@ -110,8 +110,9 @@ const BOARD = Number(process.env.BOARD || 76), MAP = Number(process.env.MAP || 7
   // Board and map.
   for (const [name, id] of [['board', BOARD], ['map', MAP]]) {
     await tab('library');
+    await openBoardsTab(page);
     await page.evaluate((id) => openWhiteboardBoard(id), id).catch(() => {});
-    await page.waitForTimeout(2200);
+    await waitForBoardOpen(page).catch(() => {});
     await inv(name, ['#wb-topbar', '#wb-tools-panel', '#whiteboard-container .card.glass:not(.hidden)', '#whiteboard-container [role=toolbar]', TB + '.dock', TB + '[role=tablist]']);
   }
   await page.evaluate(() => document.getElementById('wb-back-to-boards')?.click());

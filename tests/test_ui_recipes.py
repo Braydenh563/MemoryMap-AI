@@ -4056,13 +4056,52 @@ def test_a_comment_thread_is_one_popover_reached_three_ways() -> None:
 def test_the_sketch_pads_ink_dots_close_up_in_the_tablet_band() -> None:
     """INBOX 276: the pad's bar wrapped at 820 on Large text, 19px short, and
     the width was in the rows (the group labels sit above them and are all
-    narrower). Between 600 and 1023px the dots drop their gap; their own
-    transparent ring keeps them apart. `scratchpad/ui-sweeps/sketchbar.js`
-    is the measurement; this keeps the rule from being lost in a merge."""
+    narrower). From 820 to 1023px the dots drop their gap; their own
+    transparent ring keeps them apart. Below 820 they are 2rem with a target a
+    gap wider than the disc, so the gap must stay (the band used to start at
+    600 and 6 pairs of targets overlapped at 700 on Large text with Spacious).
+    `scratchpad/ui-sweeps/sketchbar.js` is the measurement; this keeps the
+    rule from being lost in a merge."""
     css = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
-    at = css.index("@media (min-width: 600px) and (max-width: 1023px) {")
+    assert "@media (min-width: 600px) and (max-width: 1023px) {\n  /* The long-hand" not in css
+    at = css.index("@media (min-width: 820px) and (max-width: 1023px) {")
     block = css[at : css.index("\n}", at)]
     assert ".sketch-toolbar .wb-tool-section-row.sketch-colors" in block and "column-gap: 0;" in block
+
+
+def test_the_writing_rooms_selects_get_their_own_line_on_a_phone() -> None:
+    """OPEN.md, "Writing Room at phone width": one nowrap row held what to
+    write, tone, length and Use notes, so each select was 62px wide at 390 with
+    its value cut to 16px. Below 600 the row wraps and the first select takes
+    the line; `scratchpad/ui-sweeps/phonecapture.js` measures the three values
+    (89, 65 and 59px shown of what they need)."""
+    css = (ROOT / "frontend" / "css" / "04-chat-dock-appearance.css").read_text(encoding="utf-8")
+    at = css.index("@media (max-width: 599.98px) {\n  .draft-controls.draft-desk-controls {")
+    block = css[at : css.index("\n}\n", at)]
+    assert "flex-wrap: wrap;" in block
+    assert ".draft-desk-controls > .select-shell:first-child" in block and "flex-basis: 100%;" in block
+
+
+def test_a_menu_fades_out_through_the_one_class_every_close_path_sets() -> None:
+    """OPEN.md, perfpolish: menus left instantly though they entered with a
+    reveal. Every close path (the opener again, Escape, a press outside,
+    `closeActionMenus`) is `.hidden`, so the exit is CSS: opacity and a
+    discrete `display` transition, no press taken while it goes. A menu moved
+    to the body goes home after the fade, in both places that move one home
+    (`closeActionMenus` and `wireEscapedActionMenu`'s observer), because moving
+    a node cancels a transition. `scratchpad/ui-sweeps/kebabfirst.js` samples
+    the frames: 4 part way, gone by about 150ms, on all eight kebab and select
+    close paths."""
+    css = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    at = css.index("  .action-menu {\n    transition:")
+    block = css[at : css.index("\n  /* Flipped upward", at)]
+    assert "opacity var(--motion-fast) var(--ease-out)" in block
+    assert "display var(--motion-fast) linear allow-discrete" in block
+    assert ".action-menu.hidden {\n    opacity: 0;\n    pointer-events: none;" in block
+    menus = (ROOT / "frontend" / "js" / "menus.js").read_text(encoding="utf-8")
+    assert "restoreEscapedMenuAfterExit(menu);" in menus[menus.index("function closeActionMenus()") :][:900]
+    assert "const exit = menuExitMs(menu);" in menus, "the escape observer must wait for the exit too"
+    assert "function menuExitMs(menu)" in menus
 
 
 def test_a_locked_load_is_not_logged_as_a_failure() -> None:
@@ -4514,3 +4553,15 @@ def test_the_autonomous_override_names_what_it_falls_back_to():
     body = _function_body(js, "renderAutonomousModelPicker")
     assert "Same as utility model (currently ${fallback})" in body
     assert "status.utility_model || status.chat_model" in body
+
+
+def test_the_ocr_toolbars_segment_track_grows_round_its_touch_buttons() -> None:
+    """OPEN.md, "the OCR workspace head": `.ocr-head .seg` is `height:
+    var(--control-h)`, and below 600 the segments lift to `--target-min`, so
+    the 32px page-size track sat 12px short of its 44px buttons and the
+    buttons 6px below their neighbours (`wbtopbar.js` with `ONLY=ocr`). The
+    track grows round them on the same band."""
+    css = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    at = css.index("  .sheet-card-page .ocr-toolbar .seg-compact {\n")
+    block = css[at : css.index("}", at)]
+    assert "height: auto;" in block and "min-height: var(--target-min);" in block

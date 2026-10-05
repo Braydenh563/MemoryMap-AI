@@ -61,6 +61,25 @@ const { boot } = require('./lib.js');
     console.log(`library first open: waiting ${wait.sk} skeletons (${wait.h}px, busy ${wait.busy}), then ${after.tiles} tiles, ${after.sk} skeletons left, busy ${after.busy} ${wait.sk && wait.busy === 'true' && after.tiles && !after.sk && after.busy === null ? 'PASS' : 'FAIL'}`);
     await page.evaluate(() => wbCloseSidebar());
   }
+  // (7b) the Notes tab's first open, the notebook's first page held back 1.5s
+  // (OPEN.md: "the rail's Library and Notes tabs have no skeletons": both are
+  // built, INBOX 596; the Library half is (7), this is the Notes half, which
+  // was read and never measured). A board opened straight from a link at boot
+  // meets the tab before the notebook has loaded, so the sweep puts it back
+  // in that state (`entriesEverLoaded` false) and holds `/entries`.
+  {
+    await page.evaluate(async (id) => { await openWhiteboardBoard(id); wbCloseSidebar(); }, made.board);
+    await page.evaluate(() => { entriesEverLoaded = false; });
+    await page.route('**/entries?*', async (route) => { await new Promise((r) => setTimeout(r, 1500)); await route.continue(); });
+    await page.evaluate(() => wbOpenSidebar('notes', { focus: false }));
+    await page.waitForTimeout(300);
+    const wait = await page.evaluate(() => { const l = document.getElementById('wb-library-list'); return { sk: l.querySelectorAll(':scope > .skeleton').length, busy: l.getAttribute('aria-busy'), h: Math.round(l.querySelector('.skeleton')?.getBoundingClientRect().height || 0), shown: l.getClientRects().length > 0 }; });
+    await page.waitForTimeout(3000);
+    const after = await page.evaluate(() => { const l = document.getElementById('wb-library-list'); return { sk: l.querySelectorAll('.skeleton').length, items: l.querySelectorAll('.wb-library-item').length, busy: l.getAttribute('aria-busy') }; });
+    await page.unroute('**/entries?*');
+    console.log(`notes first open: waiting ${wait.sk} skeletons (${wait.h}px, busy ${wait.busy}), then ${after.items} notes, ${after.sk} skeletons left, busy ${after.busy} ${wait.sk && wait.shown && wait.h > 0 && after.sk === 0 && after.items > 0 ? 'PASS' : 'FAIL'}`);
+    await page.evaluate(() => wbCloseSidebar());
+  }
   const dock = process.env.DOCK || 'bottom';
   await page.evaluate((dock) => {
     const panel = document.getElementById('wb-tools-panel');

@@ -569,7 +569,9 @@ async function newBoard(page, name, type) {
   // the way a person opens it.
   await page.click('#wb-map-strip [aria-controls="wb-map-line-menu"]');
   await page.waitForTimeout(400);
-  await page.selectOption("#wb-map-edge-shape", "elbow");
+  // The native select is the enhanced picker's hidden twin now; set it the way
+  // its listener hears it (force skips the visibility wait on the hidden one).
+  await page.selectOption("#wb-map-edge-shape", "elbow", { force: true });
   await page.waitForTimeout(1100);
   await page.click('#wb-map-strip [aria-controls="wb-map-line-menu"]');
   await page.waitForTimeout(250);
@@ -717,6 +719,12 @@ async function newBoard(page, name, type) {
     return { atRest, shown, before, live, stored: obj?.data?.font_size,
       cursor: getComputedStyle(grip).cursor };
   }, kidId);
+  // The text-size grip (`.wb-map-size-grip`) is gone: the corner now carries
+  // the resize grip (`.wb-map-resize-grip`, whiteboard-map.js), which resizes
+  // the box and scales the text only with Shift. Both checks below are about
+  // the retired control, so they run only where it still exists.
+  if (!gripped) console.log("SKIP  the text-size grip checks: no .wb-map-size-grip in the app (replaced by .wb-map-resize-grip)");
+  else {
   check("the corner grip is quiet until the node is, and says it drags",
     gripped && gripped.atRest === "0" && gripped.shown === "1"
       && gripped.cursor === "ns-resize",
@@ -725,10 +733,12 @@ async function newBoard(page, name, type) {
     gripped && parseFloat(gripped.live) > parseFloat(gripped.before)
       && gripped.stored === Math.round(parseFloat(gripped.live)),
     JSON.stringify({ before: gripped?.before, live: gripped?.live, stored: gripped?.stored }));
+  }
 
   const clamped = await page.evaluate(async (id) => {
     const node = document.querySelector(`.wb-object[data-id="${id}"]`);
     const grip = node.querySelector(".wb-map-size-grip");
+    if (!grip) return { high: "0px", low: "99px", missing: true };
     const r = grip.getBoundingClientRect();
     const send = (type, y) => grip.dispatchEvent(new PointerEvent(type, {
       bubbles: true, cancelable: true, pointerId: 1, pointerType: "mouse",
@@ -893,13 +903,19 @@ async function newBoard(page, name, type) {
     // and both have to give. (The bar floats over the canvas, which is why
     // the ring's own bound is the canvas minus the bands across it.)
     const bar = document.getElementById("wb-topbar").getBoundingClientRect();
-    const want = { x: hostRect.left + 40, y: bar.bottom + 20 };
+    //: Clear of the board's sidebar rail where there is one (1440): the right
+    //: click aimed at a centre 40px in landed on the rail, not on the topic,
+    //: and the ring never opened.
+    const side = document.getElementById("wb-sidebar");
+    const sideRight = side && side.checkVisibility() ? side.getBoundingClientRect().right : hostRect.left;
+    const want = { x: Math.max(hostRect.left + 40, sideRight + 40), y: bar.bottom + 20 };
     // Solve for the pan that puts this node's centre there:
     // screen = rect.left + k * world + tx.
     const tx = want.x - rect.left - t.k * (node.x + size.w / 2);
     const ty = want.y - rect.top - t.k * (node.y + size.h / 2);
     d3.select(container).call(wbZoom.transform, d3.zoomIdentity.translate(tx, ty).scale(t.k));
-    return { id: node.id, want };
+    const live = document.querySelector(`.wb-object[data-id="${node.id}"]`);
+    return { id: node.id, want, size, stored: [node.width, node.height], live: live ? [live.offsetWidth, live.offsetHeight] : null };
   });
   // The pan's own transforms are written in a `requestAnimationFrame`
   // (`handleWbZoom`, panlag.js), so the node's new rect is not there in the
@@ -925,6 +941,12 @@ async function newBoard(page, name, type) {
     return { drift: [Math.round(dx), Math.round(dy)] };
   }, cornered);
   await page.waitForTimeout(500);
+  //: The 94px row (OPEN.md: `wbMapNodeSize` and the rendered node disagreed by
+  //: 94px at 390x844, once, not reproduced): the first pan is derived from the
+  //: reported size, so how far the node landed from where it was aimed IS the
+  //: disagreement. Printed every run and held to 4px.
+  console.log("corner pan drift (first pan, px):", JSON.stringify(at.drift), "reported size", JSON.stringify(cornered.size), "stored", JSON.stringify(cornered.stored), "rendered", JSON.stringify(cornered.live));
+  check("wbMapNodeSize agrees with the rendered box: the first pan lands within 4px", Math.abs(at.drift[0]) <= 4 && Math.abs(at.drift[1]) <= 4, JSON.stringify(at.drift));
   Object.assign(at, await page.evaluate((id) => {
     const box = document.querySelector(`.wb-object[data-id="${id}"]`).getBoundingClientRect();
     return { x: Math.round(box.left + box.width / 2), y: Math.round(box.top + box.height / 2) };

@@ -105,6 +105,27 @@ async function touch(cdp, type, points) {
   console.log('graph at ' + WIDTH + '    ', JSON.stringify(shape));
   check(shape.overflow <= 0, `the page scrolls ${shape.overflow}px sideways at ${WIDTH}`);
 
+  // Every zoom-strip button (Full screen last) must be what a finger hits at
+  // its centre, and clear of the floating New note. OPEN.md carried "the
+  // graph's #graph-fullscreen under a button.small at 390" from deadbtn.js;
+  // it no longer reproduces (INBOX 430 lifted the strip), and this keeps it.
+  const zoomHit = await page.evaluate(() => {
+    const fab = document.querySelector('#tab-graph .dock-fab');
+    const f = fab && fab.checkVisibility() ? fab.getBoundingClientRect() : null;
+    return [...document.querySelectorAll('#graph-zoom button')].map((b) => {
+      const r = b.getBoundingClientRect();
+      const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      const clash = f && !(r.right <= f.left || r.left >= f.right || r.bottom <= f.top || r.top >= f.bottom);
+      return { id: b.id, hit: !!t && (t === b || b.contains(t)), by: t && (t.id || t.className), clash: !!clash };
+    });
+  });
+  console.log('zoom strip       ', JSON.stringify(zoomHit.map((z) => [z.id, z.hit, z.clash])));
+  check(zoomHit.length === 4, `the zoom strip has ${zoomHit.length} buttons, not 4`);
+  for (const z of zoomHit) {
+    check(z.hit, `#${z.id} is under ${z.by} at ${WIDTH}`);
+    check(!z.clash, `#${z.id} overlaps the New note button at ${WIDTH}`);
+  }
+
   // A point on the canvas that really has a node under it, and one that
   // really has none: `elementFromPoint` decides whether the dock or the
   // options panel is over the map there (graphtouch.js's own trap).

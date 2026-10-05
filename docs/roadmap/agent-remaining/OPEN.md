@@ -82,9 +82,10 @@ two decisions only the owner can take are INBOX 427.
   scroller runs under the status bar (each ends at or above its top, at 1440
   and 390), and the three were controls half scrolled out of their own box,
   whose centre the point test found the bar under; the sweep now checks the
-  centre against each scrolling ancestor first, 0 findings at 1440. At 390
-  one is left, the graph's `#graph-fullscreen` under a `button.small` (the
-  graph agent's). [ui-426]
+  centre against each scrolling ancestor first, 0 findings at 1440 and at 390
+  (the graph's `#graph-fullscreen` case is closed, HISTORY.md, "OPEN.md rows
+  closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)").
+  [ui-426]
   *Needs: a surface-by-surface design pass.*
 - **The README's OCR shot is the 0.3.2 capture, in dark**: `seed-ocr.js`
   needs a Tesseract binary this sandbox does not have, so it was not retaken
@@ -316,13 +317,7 @@ being written by running agents stay beside this one.
 ## Settings and help
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": INBOX 235, the Settings Help page and the Models order; INBOX 237, the built-in Librarian persona is Atlas; "Advanced response settings" sits 20.8px right of its siblings; `#settings-tools`'s intro; scratchpad/ui-sweeps/help-popovers.js is not built; "Not one of the seven tabs carries a `data-help-for` popover"; The learning loop's Settings section (I9's frontend) is not built.
-- **The OCR workspace head could not be measured.** `.ocr-toolbar` only exists
-  once a file is open in the OCR workspace and the seeded notebook has no path
-  to one without a real scan; `05-sidebars-themes.css:1269` names it beside
-  `.doc-toolbar` and `.library-head` as having had the same fault.
-  `wbtopbar.js` already has a probe pointed at it; the missing piece is a way
-  to get a scanned file into the sweep's notebook. [consistency.md]
-  *Needs: a scanned file in the sweep's notebook.*
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)": The OCR workspace head could not be measured.
 
 ## Backend
 
@@ -477,10 +472,9 @@ the head, so they carry no row of their own.
   order to drag; grey-scale text in composited scrollers on a 1x ClearType
   display was not seen. [pass2]
   *Needs: a Windows display; the rest is CodeMirror's own cost.*
-- **perfpolish.md**: menus leave instantly though they enter with a 160ms
-  reveal (an exit needs every close path to wait); the document gutter writes
-  a height and reads a layout per gutter. [perfpolish]
-  *Needs: every close path (`closeActionMenus`, Escape, outside click) at once.*
+- **perfpolish.md**: the document gutter writes a height and reads a layout
+  per gutter. The menu exit is closed, HISTORY.md, "OPEN.md rows closed,
+  2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)". [perfpolish]
 - **uipolish-0924.md**: the surface-by-surface pass (its item D) is already a
   row above. Triaged: `deadbtn.js`'s findings for Chat's `#chat-export` and
   `#chat-delete` are visually-hidden, `aria-hidden` proxies the ⋯ rows click
@@ -494,9 +488,9 @@ the head, so they carry no row of their own.
   belongs). INBOX 47's counting question no longer decides anything: the
   Notes and Library docks measure 6 controls each (`docks.js`). [wbtopbar]
   *Needs: the whiteboard agent (a sweep for `#wb-context-menu`).*
-- **whiteboard-tail.md**: INBOX 276, the sketch pad's toolbar wraps to two rows
-  at 820 on Large text; the AI half of the map needs a model. [whiteboard-tail]
-  *Needs: the entry's recommendation is the group labels, not the controls.*
+- **whiteboard-tail.md**: the AI half of the map needs a model. INBOX 276 (the
+  sketch pad's toolbar at 820) is closed, HISTORY.md, "OPEN.md rows closed,
+  2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)". [whiteboard-tail]
 - **world-class-rows-1-2-9.md**: two decisions taken differently from Brief 15
   (S1 is a cookie, S3 confines to home and the data folder) that the owner may
   want to confirm; the export-folder preference accepts any writable absolute
@@ -542,6 +536,7 @@ pane's name, the errors sweep's aside clipping at 390.
   [boardmap-1005, small-1005]
   *Left: the whiteboard's own rail, owned by the WHITEBOARD plan's agent.*
 
+- Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)": Skeletons for a board's Library and Notes tabs (INBOX 596).
 - **Phone selection menus and the selection bar** (documents): iOS and Android
   draw Cut, Copy and Paste above a selection, where the bar also goes; if a
   report arrives the bar goes below the selection on `(pointer: coarse)` (one
@@ -566,7 +561,9 @@ pane's name, the errors sweep's aside clipping at 390.
 - **The Writing Room's stretch**: measured at 1440x900 light on the two
   `NOTE_SURFACES` boxes only, the graph's two note boxes not opened. (The table
   full view's X is built: 28x28 at 1440 and 44x44 at 390, each equal to
-  `--target-min`; `tablefullclose.js` asserts it.) [notes]
+  `--target-min`; `tablefullclose.js` asserts it. Its phone width and the Writing
+  Room's are closed, HISTORY.md, "OPEN.md rows closed, 2026-10-05 (the pre-0.4.0
+  buildable rows, sweeps on port 8815)".) [notes]
 
 ### Whiteboard, mind map and Atlas
 
@@ -589,14 +586,14 @@ pane's name, the errors sweep's aside clipping at 390.
   but any other reader of an item's log (`events.replay`) would merge them;
   placements made before the history, a duplicated board's copies and a
   generated map's topics have no `created` event. [wb-phase2]
-- **Frames and the map plan's rest**: nested frames whose tops are close at a
-  phone's fitted zoom share the grown title area and the inner one wins it
-  (aim at the outer title's words); MINDMAP_PLAN 12.2's rest (a boundary round
+- **Frames and the map plan's rest**: MINDMAP_PLAN 12.2's rest (a boundary round
   a lassoed set that is not one branch, priority, progress, flags and due
-  dates, floating topics and palettes, an outline pane). [harness-wb-1004]
-- **Map render and persistence**: `wbMapNodeSize` and the rendered node
-  disagreed by 94px at 390x844 (found by `mapstrip.js`'s corner ring; not
-  reproduced since, reproduce before theorising); a map does not re-frame
+  dates, floating topics and palettes, an outline pane). The nested frames'
+  shared title area is measured, HISTORY.md, "OPEN.md rows closed, 2026-10-05
+  (the pre-0.4.0 buildable rows, sweeps on port 8815)". [harness-wb-1004]
+- **Map render and persistence**: (the `wbMapNodeSize` 94px row is closed,
+  HISTORY.md, "OPEN.md rows closed, 2026-10-05 (the pre-0.4.0 buildable rows,
+  sweeps on port 8815)"); a map does not re-frame
   after a tidy (a decision: frame after a tidy that pushed content off the
   canvas, or rely on Fit); tidy, copy branch and
   "open every folded branch" persist one node per request (a bulk endpoint if
@@ -637,16 +634,19 @@ pane's name, the errors sweep's aside clipping at 390.
   recipe disagree (taken: the label recipe, `META_EDGED`; if the owner wants
   statuses edgeless it is one rule, `.chip.item-label`'s border). [design-1004]
   *Needs: the owner's call on the chips.*
-- **The tour**: a first-run notebook (no notes, no boards) was only covered by
-  forcing `TOUR_NEEDS.map` false, not by a fresh data dir walk; the Timeline's
-  Options and the reminders' More were measured at 390 only. [tourdepth]
+- **The tour**: the Timeline's Options and the reminders' More were measured at
+  390 only. (The fresh data dir walk and widths 600 to 1100 are done, HISTORY.md,
+  "OPEN.md rows closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port
+  8815)".) [tourdepth]
 - **Tablet layouts**: the Documents dock is two rows at 1024 (its identity
   asks for 22rem beside the actions); the arc layout of a 430-note notebook
   framed whole is a line of dots until zoomed; the Notes sub-tabs do not fit the
   list dock's row at 1093 (on a window 700px tall or less the strip could take
   the identity slot as a compact seg, which changes the dock grammar: the
-  owner's or the plan's decision); the status bar folding into the top bar
-  under 680px is not built. [graph-wb-0926]
+  owner's or the plan's decision). The status bar's fold into the top bar under
+  680px is not built, and measured it overlaps nothing, HISTORY.md, "OPEN.md rows
+  closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)".
+  [graph-wb-0926]
 - **Dismissed reminder notifications**: a dismissed reminder notification never
   returns (`status.js` `notificationsDismissed`, keyed `reminder:<id>`), so a
   reminder snoozed and overdue again stays hidden from the bell. By design of

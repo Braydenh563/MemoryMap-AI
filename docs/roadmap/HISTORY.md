@@ -7,6 +7,219 @@ Split out of `ROADMAP.md`. Kept, not deleted, for one reason: **three sessions
 have independently rebuilt something that already existed.** This is the file
 that answers "has this been done?" before anyone starts.
 
+## OPEN.md rows closed, 2026-10-05 (the pre-0.4.0 buildable rows, sweeps on port 8815)
+
+Each row was checked against the head before anything was built.
+
+- **The graph's `#graph-fullscreen` under a `button.small` at 390** (`deadbtn.js`,
+  ui-426): no longer reproduces. `deadbtn.js` at W=390 on a 21-note seeded
+  notebook, 0 findings on all seven tabs; at 390x844, 390x700, 360x640 and
+  430x932 every one of the four zoom-strip buttons is what `elementFromPoint`
+  returns at its centre (44x44 each). INBOX 430's lift of the strip above the
+  New note (`#tab-graph:has(.dock-fab) .graph-zoom`) closed it. `graphphone.js`
+  now asserts it every run: the four buttons are hit at their centres and clear
+  of `.dock-fab`.
+- **The tour on a fresh data dir, and at widths 600 to 1100**: run, and it had a
+  fault between 641 and 819. `tour.js` at 700x900 failed twice ("the count's total
+  never changes and is the cards shown", 5 planned, 2 shown) because the Settings
+  steps said the section strip shows from 640.02px and the picker (`.settings-jump`)
+  at 640 and below, while the CSS hides the strip and shows the picker below 820
+  (measured: strip hidden and picker 300x44 at 700, strip 212x32 from 820). So from
+  641 to 819 three strip steps were planned and not shown, and the picker step was
+  left out. The four `media` values in `tour.js` are 820 now (`(min-width: 820px)`
+  for Appearance, Models and Help, `(max-width: 819.98px)` for "Every section").
+  After: `tour.js` (FULL=0, nothing else running) 87 of 87 steps at 600x900, 640x900,
+  700x900 and 760x1000, 95 of 95 at 820x1180 and 1024x768, 99 of 99 at 1100x800, all
+  checks passed. A fresh data dir (a server on an empty directory: no notes, boards
+  or maps) at 1440x900, 390x844 and 700x900: 245 of 245 steps; the notebook-shaped
+  cards drop and the counts follow (Library 4 of 5 with no card to open a menu on,
+  Maps one card that says there is no map, at 390 the status section 0 of 4 because
+  the phone bar is folded away). One caveat found on the way: another sweep that
+  makes a board or a note while a tour walk runs fails "the tours made nothing", so
+  the walks were run alone. `tests/test_tour_follow.py` pins the 820.
+- **`gate.sh --sweeps` named fifteen sweeps that do not exist** (found with the
+  `--staged` row): `requests`, `previewclash`, `wbfitanchor`, `helpstream`,
+  `writingroom`, `dashdensity`, `timelinetablewidth`, `tourtile`, `findinghover`,
+  `dochighlight`, `spinnershape`, `featuremodels`, `btnrows`, `answersupport` and
+  `listenerrounds`: the sweep cleanup (2dbd6c7) deleted the files and left the names,
+  so each was a step that could only fail. Removed from the list, and
+  `tests/test_gate_lint_set.py` now fails when a name has no file. (`--changed` and
+  `--staged` were never affected.)
+- **Board sweeps that only press the Library tab time out**: reproduced
+  (`bm1005-segstate.js` and `bm1005-nodetasks.js` both died on a 15s `waitForFunction`).
+  The Library reopens on its last sub-tab (mirrored to the server, so a fresh context
+  inherits another sweep's), the board code is a lazy bundle the Boards sub-tab fetches,
+  and those two also waited for `wbFormatSyncSoon`, which the board no longer loads at
+  open. `lib.js` gains `openBoardsTab(page, fns)` (presses the Library, then presses
+  Boards & maps again inside the wait until it is the active sub-tab and the named
+  functions exist, so a restore that undoes an early press cannot strand it) and
+  `waitForBoardOpen(page)` (the top bar and the canvas laid out and their objects drawn,
+  in place of a 1.2 to 2.5s sleep). Applied to the seven sweeps that reached a board
+  from a bare Library press or a fixed sleep: `bm1005-segstate.js`,
+  `bm1005-nodetasks.js`, `wbcardeditor.js`, `wbtouchpan.js`, `libtab.js`,
+  `phonechrome.js` (its board step) and `barinv479.js`. Run: segstate and the
+  touch probe pass (the touch probe also made its board with `title`, which the route
+  answers 422 to; it sends `name`), the card editor and phonechrome pass, `libtab.js`
+  runs through (its "board" case finds no board listed, as it did). The fifty-odd
+  sweeps that already press the sub-tab keep their own sleeps; they are not wrong, only
+  slower, and `openBoardsTab` is what a new one should call.
+- **Skeletons for the whiteboard rail's Library and Notes tabs (INBOX 596)**: already
+  built, and both halves are now measured (the Notes half had only been read, "the boot
+  loads the notebook before a board can open"). `wbLoadLibrary` draws 6 skeletons into an
+  empty list, `renderWbLibrary` draws 5 before the notebook's first page and re-renders
+  when it lands. `bm1005-sidebar.js` check (7) holds the library index back 1.5s, and
+  the new (7b) puts the board back in the unloaded state (`entriesEverLoaded` false) and
+  holds `/entries`: at 300ms 6 and 5 skeletons, 51px each, `aria-busy`; after, 51 tiles
+  and 264 notes with 0 skeletons left, at 1440 and 390, light and dark, 0 page errors.
+  `tests/test_board_sidebar_596.py` is the source pin. Nothing to add.
+- **The OCR workspace head could not be measured**: it can, and it had the fault.
+  `wbtopbar.js` seeds the scan itself now (a page of text drawn in a second browser
+  context, uploaded as the app uploads, opened with `openOcrWorkspace`; the head
+  opens without Tesseract, its engine line saying it cannot read yet) and measures
+  `.ocr-toolbar` at 1440 and as a phone at 390: 6 controls, one centre line (spread
+  0px), 32px each at 1440 (bar 1340x36). At 390 the zoom track was 32px tall around
+  44px segments: `.ocr-head .seg` is `height: var(--control-h)`, and the touch rule
+  that lifts the segments to `--target-min` (`.sheet-card-page .ocr-toolbar
+  .seg-compact > button`) left the track alone, so the buttons stood 12px past it
+  and 6px below the zoom-out and zoom-in beside them (the `.doc-toolbar` and
+  `.library-head` fault, in the third head). The track grows round them below 600
+  (`height: auto; min-height: var(--target-min)`): 44 across the row, 0 findings at
+  1440 and 390, light and dark. The toolbar scrolls sideways at 390 (scrollWidth 740
+  in 358), by design. `ONLY=ocr` runs just this part of the sweep.
+- **The status bar folds into the top bar under 680 (WORLD_CLASS_PLAN, "the laptop
+  screen is mostly chrome")**: measured, no overlap, nothing built. The fold would be
+  a design change to the shell (the bar is its own band above 600 and folds away
+  below it already, to 0px with its transient items in the header), so it is a
+  design call; what the plan's overlap worry asks is whether the bar sits over the
+  page, and it does not. At 1093x614, 1024x600, 820x600, 700x700, 681x800, 679x800,
+  640x700, 600x700 and 599x800, on dashboard, notes, chat, library, timeline and
+  reminders, the page's bottom edge is the bar's top edge to the pixel (562/562 at
+  1093x614 with touch, 648/648 at 700x700 and 640x700, 786/786 at 390x844 where the
+  tab dock stands on a 0px bar), the chrome at 1093x614 being the 59px top bar plus
+  the 37px status bar (96px, 16%). `phonechrome.js` now prints and asserts that line
+  for every tab at the width it is given (`WIDTH`/`HEIGHT`), so a fold, or a bar that
+  starts to cover the page, shows as a number. (The scroller boxes that read past the
+  bar in a first probe were `.dash-body` rows clipped by their own page.)
+- **`phonechrome.js` at 390: Timeline content at y=340 against a 338 limit, and the
+  transient status bar 0px tall**: two different faults, both reproduced
+  (`phonechrome.js` at 390x844: "content starts at y=340, below 338" and "the bar came
+  back 0px tall"). The Timeline's was real: its dock is 114px, the calendar strip
+  128px and the gaps 9.6px each, so the list began 2.4px past the first-screen rule
+  (40%). The strip's two spacings step down a token on a phone (the head to the days
+  `--space-3` to `--space-2`, the strip to the list `--space-4` to `--space-2`):
+  336 now, 4.8px less, nothing else moved (`daystrip.js` all ok at 1440 and 390;
+  `phonechrome.js` 0 findings, light and dark). The 0px was the sweep's: it
+  un-hid `#status-activity` to make the bar "come back", and the phone bar shows
+  only a running job, offline and power saver (INBOX 430 folded the agent's runs
+  and the activity into More, `10-responsive.css`, "one bar at the foot of a
+  phone"), so it correctly stayed at 0px. The probe now shows each of the three
+  (52px, standing on the tab bar, no pressable control under 44px: the offline and
+  power saver chips are `role="status"` labels, 21px, and are not counted as
+  controls) and asserts the activity alone leaves the bar at 0.
+- **The menu exit animation (perfpolish)**: built. Every way a menu closes is
+  `.hidden`, so the exit is CSS, in the block that already holds the reveal
+  (`10-responsive.css`): `.action-menu` transitions opacity and `display`
+  (`allow-discrete`, as `.wb-resize-handle` already does) over `--motion-fast`,
+  and `.action-menu.hidden` is `opacity: 0; pointer-events: none`, so no close
+  path changed. Moving a node cancels a transition, so the two places that take
+  an escaped menu home on close now wait for the fade (`restoreEscapedMenuAfterExit`
+  from `closeActionMenus`, and `wireEscapedActionMenu`'s observer, both through
+  `menuExitMs`: 0 under reduced motion, where it goes home at once as before).
+  `kebabfirst.js` samples every frame of a note card's kebab and an enhanced
+  select, each closed four ways (the opener, Escape, a press outside,
+  `closeActionMenus()`): before, 0 frames part way and display none by 7 to 27ms
+  on all four kebab paths; after, 4 frames part way on all eight (kebab and
+  select, which is escaped), none takes a press, gone by 138 to 195ms. Dark
+  passes too. 390: only `closeActionMenus` is asserted, because a kebab there is a
+  phone action sheet (`openKebabSheet`, `openSheet`). Found, not fixed: those
+  sheets have no exit at all (they leave instantly on Escape and a press
+  outside), a surface of its own. `tests/test_ui_recipes.py` pins the CSS and
+  both restore paths.
+- **Map export depth bound** (`_export_opml`, `_export_freemind`): already built,
+  see the 2026-10-05 overnight pass above (the iterative `_export_tree`, nesting
+  clamped at `MAX_MAP_DEPTH`, 200); `tests/test_mindmap.py`'s deep-chain and ring
+  tests pass on this head (7 of 7 selected). Nothing to build.
+- **`wbMapNodeSize` and the rendered node disagree by 94px at 390x844**: reproduced,
+  and not a phone thing. `mapstrip.js`'s corner pan is derived from the size
+  `wbMapNodeSize` reports, so how far the topic lands from where it was aimed is
+  the disagreement: 12px at 390x844 (a 24px height error) and 38px at 1440 (76px;
+  the "94px" was the same drift, 2 x 47, on an earlier head). Cause: a state
+  fetched from the server returns every topic at the server's placeholder height
+  (120), the element is what its text needs (44), and a topic the render pass did
+  not repaint took the stored 120 into the size cache, so every pan, ring and
+  edge end computed from `wbMapNodeSize` sat off the box. The element now keeps
+  the height it was last measured at (`_wbMeasuredH`) and the cache takes that
+  before the stored one (`renderWbObjects`). `mapstrip.js` prints the drift and
+  fails above 4px: 0 and 0 after, 38/38 checks at 1440 and 390, light and dark
+  at 390; `maptidy.js` 5/5, `maplayouts.js` 19/19, `mapradialfit.js`,
+  `mapmidpan.js` 12/12 unchanged; `tests/test_map_render_cost.py` pins it. The
+  sweep itself had rotted and was brought back with it: `selectOption` on the
+  hidden native select needs `force`, the retired text-size grip's two checks
+  skip (the corner now carries `.wb-map-resize-grip`), and at 1440 the right
+  click for the corner ring landed on the board's sidebar rail.
+- **Nested frames at phone zoom** (measured, nothing changed): at 390x844 the
+  outer title's hit area is 44x44px (k 0.21), and an inner frame drawn 40 board
+  units to its right takes the share of it the two boxes overlap, 82%, 74%, 60%
+  and 26% of the outer title's box with the inner's top 0, 20, 60 and 150 units
+  below the outer's (at 1440, where the title is 28px: 36%, 26%, 0%, 0%). A press
+  on the outer title's words (6px in from its left, 6px up from its foot) reaches
+  the outer frame at every gap, both widths, light and dark, so "aim at the
+  outer title's words" holds; which frame owns the shared grown area is a design
+  call and stays as it is (the inner is drawn later). `left1005-frametitle.js`
+  prints the four rows and asserts the words reach the outer: 9/9 at 390 and
+  1440, both themes. Found with it: that sweep's last case read 6/7 on the
+  branch before this (the inner title dragged: dx 1,070 for a 284 move) because
+  its four earlier drags carry the pair 1,136 units to the right, where the edge
+  auto-pan takes the fifth; it resets the objects and the view first now, and
+  the case passes, so it was the sweep and not the title.
+- **Writing Room and table full view at phone width**: the page did not
+  overflow in either (`documentElement.scrollWidth - clientWidth` 0 at 390x844,
+  430x932 and 360x640, default and Large text with Spacious; the full view's
+  panel 16..374 of 390 wide with a 14-column table, no sideways page scroll).
+  What was wrong was inside the Writing Room: its one nowrap row held three
+  selects and Use notes, so what to write, tone and length were 62px wide each
+  with the value cut to 16px (89, 65 and 59px needed). Below 600 the row wraps
+  and what to write takes its own line: 89, 65 and 59 of 89, 65 and 59 px
+  shown. `phonecapture.js` now measures the three values and the page overflow
+  at 390; `tablefullclose.js` asserts the full view stays in the window and the
+  page does not scroll sideways at the width it runs at (1440 and 390).
+  Found, not fixed: at 360 with Large text and Spacious the whole shell is 368
+  wide (the header controls and five tab buttons of 74px), 8px of sideways page
+  scroll on every tab, not the Writing Room's.
+- **Spacious density takes two rows (INBOX 276, the 820px setting)**: decided
+  at 820 only, and the sweep said "820 to 1023". `sketchbar.js` now measures 1440,
+  1100, 1024, 1000, 900, 820, 819, 700, 640 and 390, four settings each: the one
+  allowance is 820 with Large text and Spacious (two rows; 900 and 1000 are one
+  row at that setting, 764 and 818 of 764 and 818px). Something else did remain:
+  the tablet band's "dots drop their gap" rule started at 600, not 820, so below
+  820 (where the dots are 2rem with a target a gap wider than the disc) the gap
+  was 0 and 6 pairs of ink-dot targets overlapped at 700 on Large text with
+  Spacious (a press meant for one dot lands on its neighbour). The rule now
+  starts at 820: 0 overlaps at 600, 640, 700, 760, 819 on all four settings, and
+  820 is unchanged. Between 600 and 819 the bar wraps to two or three rows (the
+  dots grew for a finger, recorded with that change); the sweep caps it at three.
+  `tests/test_ui_recipes.py` pins the 820 start.
+- **The sticky's grip and the other small contrast rows**: measured, nothing
+  failed. `contrast.js` now reads a board and a map the way a person opens them
+  (Library, Boards & maps, a card), each open and with every item selected (11
+  `.wb-object-grip` on screen on the board, 0 on the map, which draws none), and
+  each board sidebar tab (a board: Library, Notes, Layers, Pages; a map: Library,
+  This map, Outline). 1440x900 and 390x844, light and dark: every surface "ok"
+  (board 37 and 25 text elements, map 19 and 10; sidebar tabs 28 to 117), no
+  finding. The grip itself is `wbgripink.js`'s: 7.96:1 in dark, above.
+- **`gate.sh --staged` ran the lint set twice** (over 25 minutes under load):
+  the plain `lints` step (working tree) and then `staged-lints` (a checkout of
+  the index), the same `LINTS` array both times. Under `--staged` with
+  something staged only the index run now happens; with nothing staged the
+  working tree is linted once instead, so it never runs zero lints. Measured
+  on this head (load average 3 to 7 during both): 3 m 50 s for the staged gate
+  that ran the set twice, 2 m 41 s with it run once. `tests/test_gate_staged_once.py` builds
+  a scratch repo with the real script and a stand-in interpreter and pins
+  three cases: one run, in a checkout that reads the staged file and not the
+  folder's; that run is handed the exact argument list a plain run gets; and
+  one run on the working tree when nothing is staged. Against the old script
+  its first two tests fail (two runs).
+
 ## OPEN.md rows closed, 2026-10-05 (the overnight pass on "Carried from the agent files archived 2026-10-05")
 
 Each row below was checked against the head before anything was built.

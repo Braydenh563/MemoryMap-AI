@@ -74,6 +74,13 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # default for the same reason the check itself is: this is opt-in, not
     # opt-out, the first time.
     "auto_update_enabled": False,
+    # **Ask once** (the owner, 2026-10-05, WORLD_CLASS_PLAN 12, "Decisions
+    # made"): has the person answered "check for updates automatically?" yet,
+    # in the terminal (start.sh) or in the app. Until it is True the launchers
+    # leave the checkout alone and nothing about updating touches the
+    # network; the answer sets the two switches above and this, once. Turning
+    # either switch in Settings is an answer too (`update_preferences`).
+    "update_choice_made": False,
     # "stable" (tagged GitHub releases) or "main" (asked for directly: track
     # the main branch and update on every push to it). "main" is accepted as
     # a real, storable choice, the Settings toggle isn't fake, but
@@ -294,19 +301,11 @@ class ConfigManager:
         # touched the setting themselves.
         source_install = not getattr(sys, "frozen", False)
         prefs["update_channel"] = "main" if source_install else "stable"
-        # **The same default, for the same install, for the switch beside it**
-        # (INBOX 221). The launchers now read `auto_update_enabled` and do
-        # nothing at all when it is off, which is what the owner asked for and
-        # what the switch has always claimed. That makes the *default* load-
-        # bearing in a way it was not: leaving it False for a source checkout
-        # would silently stop `git pull` on every clone in existence, which is
-        # a behaviour change nobody asked for and would read as the launcher
-        # breaking. So a source checkout defaults to on, which is exactly what
-        # it has always done, and the switch is now what turns it off. A
-        # packaged Windows install keeps the default off for the reason
-        # written against `auto_update_enabled` itself: downloading and
-        # running an installer unasked is a different size of consequence.
-        prefs["auto_update_enabled"] = source_install
+        # `auto_update_enabled` used to default on for a source checkout
+        # (INBOX 221), so the launchers pulled on every launch of a clone
+        # nobody had asked. The owner's decision of 2026-10-05, "Ask once":
+        # off for every install until the person answers, which
+        # `update_choice_made` records (routes_update.record_update_choice).
         if self.preferences_path.exists():
             try:
                 prefs.update(json.loads(self.preferences_path.read_text()))

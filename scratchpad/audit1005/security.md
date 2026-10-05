@@ -43,7 +43,7 @@ Counts: Critical 0, High 3, Medium 7, Low 7.
   - `require_unlock` refuses non-loopback callers when no password is set.
   - Test: extend `tests/test_lan_mode.py` with "reset then start, LAN address gets 401 or no connection".
 
-**SEC-02: The injection guard (INBOX 430) is bypassed by laundering through a note, and writes are never gated** (KNOWN in part: INBOX 430; the bypass is NEW)
+**SEC-02: The injection guard (INBOX 430) is bypassed by laundering through a note, and writes are never gated** (KNOWN in part: INBOX 430; the bypass is NEW) FIXED 9b45913
 - Evidence:
   - `agent.py:1238`: `_OUTSIDE_TOOLS = {read_url, web_search, read_file, search_files}`. `get_note`, `search_notes`, the turn's retrieved notes and `get_document` never set `state.outside`, even for a note made by the web clipper (`routes_webclip.py:40`, `source_url` set) or a markdown or document import.
   - `agent.py:2272` parks only destructive tools, plus outbound tools once tainted. `edit_note`, `create_note`, `save_skill`, `rename_tag`, `rename_category`, `set_reminder` and `link_notes` run with no confirm even after a web read.
@@ -157,7 +157,7 @@ Counts: Critical 0, High 3, Medium 7, Low 7.
 - Impact: silent, permanent loss of any private note written between the restore and the next restart.
 - Fix (S): after a restore, `vault.close()`, clear `_active_tokens` and `_media_tickets`, and return 401 so the UI re-unlocks. Test: the sequence above, then assert the post-restore private note decrypts after a fresh unlock.
 
-**SEC-08: LAN mode is plaintext HTTP and the UI never says so** (NEW)
+**SEC-08: LAN mode is plaintext HTTP and the UI never says so** (NEW) FIXED 0d2e7b9
 - Evidence:
   - The launcher binds plain uvicorn on 0.0.0.0, with no TLS anywhere in `__main__.py` or `netbind.py`.
   - `_cookie_secure` (`routes_auth.py:151`) is False for LAN hosts.
@@ -180,7 +180,7 @@ Counts: Critical 0, High 3, Medium 7, Low 7.
   - Truncating silently would be worse.
 - Fix (S): pre-hash, `bcrypt(base64(sha256(password)))`, with a migration flag on the user row (verify old hashes the old way), or refuse past 72 bytes with a 422 sentence. Test both paths.
 
-**SEC-10: A folder import killed mid-way leaves a silent partial, and re-running it duplicates** (NEW)
+**SEC-10: A folder import killed mid-way leaves a silent partial, and re-running it duplicates** (NEW) FIXED ba45681
 - Repro:
   ```
   3000 .md files in <data>/vault; api POST /import/directory -d '{"path":".../vault"}'; kill -9 the server at ~2 s
@@ -218,7 +218,7 @@ Counts: Critical 0, High 3, Medium 7, Low 7.
 - Measured: `memorymap.db`, `-wal`, `backups/*.db` and `uploads/*` are `0644` and the data dir is `0755`. `preferences.json` is `0600` only because `atomic_io` uses `mkstemp`.
 - Fix (S): `os.umask(0o077)` in the launcher, or `chmod 0700` on the data dir at `ConfigManager.__init__`.
 
-**SEC-14: Private-note text survives in derived plaintext elsewhere** (NEW, code read)
+**SEC-14: Private-note text survives in derived plaintext elsewhere** (NEW, code read) FIXED 0350edb
 - `set_private` does not touch `ask_turns.answer` (`routes_ask_history.py:108` returns `turn.answer` and filters only the chips) or conversation messages that quoted the note before it went private.
 - `GET /export/json` (`routes_settings.py:2023`) writes decrypted content with no `is_private` field, so a re-import makes private notes public.
 - Not verified with a model (no ask turn could be produced without one).
@@ -240,7 +240,7 @@ Counts: Critical 0, High 3, Medium 7, Low 7.
 - `outerHTML`, `insertAdjacentHTML` and `document.write` (`whiteboard.js:8060`) are not scanned at all.
 - Fix (S): make the regex `re.S` across lines, add the other sinks, and convert `chat-agent.js:1631` to DOM nodes.
 
-**SEC-17: A stolen DB or backup is offline-guessable against a 4-character floor** (KNOWN in spirit, `routes_auth.py:282` "PIN territory")
+**SEC-17: A stolen DB or backup is offline-guessable against a 4-character floor** (KNOWN in spirit, `routes_auth.py:282` "PIN territory") FIXED 6c2272b
 - The bcrypt hash and the scrypt-wrapped DEK (n=2^15) are both in the file. A 4-digit PIN falls in minutes offline, which bounds what "private notes are encrypted" means.
 - Fix (S): say so where private notes are explained, and raise the floor (or warn) for notebooks that have private notes.
 

@@ -940,15 +940,32 @@ and the switch in Settings, Account and security. IPv6 built 2026-10-04
 (HISTORY.md, "row 2: LAN mode over IPv6"). Nothing is left of Brief 15.
 
 **Security audit, 2026-10-05:** SEC-01 to SEC-09, SEC-11 to SEC-13, SEC-15
-and SEC-16 fixed (HISTORY.md, "Security audit fixes, 2026-10-05"). Open:
-SEC-08's real fix (a self-signed certificate at first LAN start, with a
-fingerprint for the phone to compare); SEC-10 (a folder import killed
-mid-way duplicates on re-run: dedupe on source path and content hash,
-rollback per failed file, a task-history row at start); SEC-14 (ask-history
-answers and chat messages that quoted a note before it went private stay
-plain; `/export/json` now says `is_private`); SEC-17's floor (warn or raise
-the minimum when a notebook has private notes); SEC-02's last step
-(`read_url` parks for a URL not in the question or this turn's results).
+and SEC-16 fixed (HISTORY.md, "Security audit fixes, 2026-10-05"); SEC-08's
+real fix, LAN mode over HTTPS with a certificate made on this computer, the
+same day, and SEC-10, a folder import safe to run again, and SEC-14, answers that quoted a note
+redacted when it goes private (HISTORY.md, "Security audit, second pass").
+SEC-17, a floor of 8 for new passwords and a warning above it, the same
+day, and SEC-02's last step (a tainted turn opens without a card only a
+page its search returned or a site the person named). Nothing from the
+audit is open.
+
+**Decisions made** (the owner, 2026-10-05; do not remake):
+
+1. **Auto-update: "Ask once".** The first launch asks once, in the terminal
+   (start.sh, when there is a terminal to answer in) or in the app, whether
+   to check for updates automatically, and remembers the answer
+   (`update_choice_made`). Until it is answered nothing about updating
+   touches the network: the launchers neither pull nor reach the remote, the
+   doctor included. Settings, About keeps the switches and a "Check for
+   updates" button, which checks once whatever the switch says. The packaged
+   app asks in the app; there, yes means "tell me", and installing stays
+   behind its own switch.
+2. **LAN HTTPS: "Yes, self-signed HTTPS".** On the first LAN start the app
+   makes a self-signed certificate with `cryptography` (no network), kept in
+   the data folder at 0600, and serves HTTPS on the network; loopback stays
+   HTTP. Settings, LAN shows the certificate's fingerprint, so a phone user
+   can check the one-time warning, with "Regenerate certificate". The help
+   says the traffic is encrypted and explains the warning.
 
 ## 13. Open bugs and gaps from the merged agent reports (with owners)
 

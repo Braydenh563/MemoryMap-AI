@@ -2841,6 +2841,107 @@ def rekey_private_extras(session: Session, old_key: bytes, new_key: bytes) -> No
             )
 
 
+#: What a stored answer says once a note it quoted has been made private
+#: (SEC-14, audit 2026-10-05).
+PRIVATE_ANSWER_REDACTED = (
+    "This answer quoted a note that is now private, so its words were removed. "
+    "Ask again to get an answer from what is still readable."
+)
+
+#: This many words of the note in a row, found in an answer, count as a
+#: quote: long enough that ordinary phrasing does not trip it, short enough
+#: that a clause lifted out of a longer sentence does.
+_QUOTE_WORDS = 6
+
+
+def _word_runs(text: str) -> set[tuple[str, ...]]:
+    words = re.findall(r"\w+", (text or "").lower())
+    return {tuple(words[i : i + _QUOTE_WORDS]) for i in range(len(words) - _QUOTE_WORDS + 1)}
+
+
+def _quotes(text: str, runs: set[tuple[str, ...]]) -> bool:
+    return bool(runs) and not runs.isdisjoint(_word_runs(text))
+
+
+def _ids_in(value) -> set[int]:  # noqa: ANN001
+    """Every note id a stored answer's bookkeeping names: plain ids, and the
+    `id` / `note_id` of each dict (raw results, grounding marks)."""
+    found: set[int] = set()
+    for item in value or []:
+        if isinstance(item, int) and not isinstance(item, bool):
+            found.add(item)
+        elif isinstance(item, dict):
+            for key in ("id", "note_id", "entry_id"):
+                if isinstance(item.get(key), int):
+                    found.add(item[key])
+    return found
+
+
+def _json_list(text: str | None) -> list:
+    try:
+        value = json.loads(text or "[]")
+    except (TypeError, ValueError):
+        return []
+    return value if isinstance(value, list) else []
+
+
+def _redact_answers_quoting(session: Session, entry_id: int, plaintext: str) -> int:
+    """SEC-14: no stored answer goes on quoting a note that is now private.
+
+    An Ask turn or a saved chat reply is redacted when it named the note
+    (its results, its marks, its attached notes) or repeats one of the
+    note's sentences verbatim, however it got there (an agent's tool step, a
+    paraphrase that kept a line). The question, the person's own words,
+    stays; the answer, its thinking, its steps and its sources go, and the
+    reply says why. Returns how many answers were redacted.
+    """
+    from memorymap.core.database import AskTurn, Conversation
+
+    fragments = _word_runs(plaintext)
+    redacted = 0
+    for turn in session.scalars(select(AskTurn)):
+        named = entry_id in _ids_in(_json_list(turn.raw_result_ids)) | _ids_in(
+            _json_list(turn.connected_ids)
+        ) | _ids_in(_json_list(turn.grounding))
+        if not named and not _quotes(" ".join((turn.answer or "", turn.grounding or "", turn.match_info or "")), fragments):
+            continue
+        if turn.answer == PRIVATE_ANSWER_REDACTED:
+            continue
+        turn.answer = PRIVATE_ANSWER_REDACTED
+        turn.grounding = "[]"
+        turn.match_info = "{}"
+        turn.raw_result_ids = json.dumps([i for i in _json_list(turn.raw_result_ids) if i != entry_id])
+        turn.connected_ids = json.dumps([i for i in _json_list(turn.connected_ids) if i != entry_id])
+        redacted += 1
+    for conversation in session.scalars(select(Conversation)):
+        messages = _json_list(conversation.messages)
+        changed = False
+        asked_with_it = False
+        for message in messages:
+            if not isinstance(message, dict):
+                continue
+            if message.get("role") == "user":
+                asked_with_it = entry_id in _ids_in(message.get("note_ids"))
+                continue
+            if message.get("role") != "assistant" or message.get("redacted"):
+                continue
+            named = asked_with_it or entry_id in (
+                _ids_in(message.get("raw_results"))
+                | _ids_in(message.get("connected_ids"))
+                | _ids_in(message.get("sentence_grounding"))
+            )
+            if not named and not _quotes(json.dumps(message, ensure_ascii=False), fragments):
+                continue
+            keep = {k: message[k] for k in ("role", "persona", "elapsed_ms", "tokens") if k in message}
+            message.clear()
+            message.update(keep, content=PRIVATE_ANSWER_REDACTED, redacted=True)
+            changed = True
+            redacted += 1
+        if changed:
+            conversation.messages = json.dumps(messages)
+    return redacted
+
+
 @events.writes("entry", "edited")
 def set_private(session: Session, entry: Entry, private: bool) -> bool:
     """Encrypt or decrypt one note in place. False if the vault is locked.
@@ -2861,6 +2962,8 @@ def set_private(session: Session, entry: Entry, private: bool) -> bool:
         # on this path; `scrub_private_leftovers` finishes the job after commit.
         session.connection().exec_driver_sql("PRAGMA secure_delete=ON")
         if not crypto.is_encrypted(entry.content):
+            # Before the text is sealed: the redaction looks for its sentences.
+            _redact_answers_quoting(session, entry.id, entry.content)
             entry.content = crypto.encrypt(key, entry.content)
         entry.is_private = True
         session.execute(delete(EmbeddingRecord).where(EmbeddingRecord.entry_id == entry.id))

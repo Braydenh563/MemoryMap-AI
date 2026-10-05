@@ -40509,6 +40509,90 @@ written first and seen failing.
 - **Not verified:** real-model compliance (scripted model only); a real
   rebinding page in a browser; the pywebview window; Windows file modes.
 
+## Security audit, second pass, 2026-10-05 (the owner's two decisions, SEC-08 to SEC-17)
+
+The owner's two decisions of 2026-10-05 (WORLD_CLASS_PLAN 12, "Decisions
+made") and the audit's leftovers, each with its test written first.
+
+- **Auto-update asks once.** `update_choice_made` (core/config.py) is
+  false until the person answers; `auto_update_enabled` is off by default
+  for every install. start.sh's `mm_update_plan` says `ask` until then and
+  neither pulls nor reaches the remote (the doctor too); `mm_ask_update_choice`
+  asks in a terminal (60 s, Enter is no) and exports `MM_UPDATE_CHOICE`,
+  which `routes_update.apply_launcher_choice` keeps at startup. start.bat
+  reads the same four plans in `:read_update_plan` and leaves the question
+  to the app (its console may sit behind the splash). The app asks through
+  `askUpdateChoiceOnce` (update-dialogs.js, `POST /update/choice`); in the
+  packaged app yes means "tell me", installing keeps its own switch. The
+  Settings button is "Check for updates" and checks once with the switch
+  off (`/update/check?manual=1`). Tests: `tests/test_update_ask_once.py`,
+  `TestUpdatesAskOnce` in `tests/test_launcher_scripts.py` (a scratch copy,
+  a recording `git`, a pty), `tests/test_launcher_update_settings.py`.
+- **SEC-08, LAN over HTTPS.** `core/lancert.py` makes an EC P-256,
+  825-day, serverAuth certificate with `cryptography`, its SAN the host
+  name, `.local`, localhost and every LAN address, in `<data>/lan-tls/`
+  (folder 0700, files 0600), once, reused, renewed 30 days before expiry or
+  when unreadable. `__main__._serve_with_lan` serves the network over TLS on
+  `netbind.lan_port` (8443 beside 8000, `MEMORYMAP_LAN_PORT`) beside plain
+  http on 127.0.0.1, one app, one loop, the second listener leaving signals
+  to the first; the fingerprint is printed at start. Settings, Other devices
+  shows the fingerprint (`GET /auth/lan-access` `certificate`) and
+  Regenerate certificate (`POST /auth/lan-certificate`), which reloads the
+  live TLS context, no restart. Tests: `tests/test_lan_tls.py`, and
+  `tests/test_lan_mode.py`'s end-to-end test now verifies the handshake
+  against the notebook's own certificate by IP (the SAN), a Secure cookie,
+  and plain http refused from the network.
+
+- **SEC-10, a folder import is safe to run again.**
+  `routes_settings._already_imported` maps every live note's `source_path`
+  to the SHA-256 of its text (or to "private", matched on the path alone, so
+  an import never makes a readable copy of a private note); a file already
+  in is counted as "already in" on the activity line and the job's result.
+  A failed file rolls the session back, so one bad flush no longer refuses
+  every later file (`create_entry` commits each note, so nothing before it
+  is lost). The task-history row at start and "The app closed before this
+  finished." after a kill were already there (`jobruns.job_run`,
+  `mark_interrupted`). `tests/test_import_idempotent.py`: twice adds
+  nothing, an interrupted import finishes, a changed file comes in, a
+  private note is not duplicated, one failure does not stop the rest.
+
+- **SEC-14, answers that quoted a note before it went private.**
+  `manager._redact_answers_quoting`, called by `set_private(True)` before the
+  text is sealed: an `AskTurn` whose results, connections or grounding name
+  the note, or whose answer repeats a run of six of its words, gets
+  `PRIVATE_ANSWER_REDACTED` and loses its grounding and match details; a
+  saved chat reply that cited it (its raw results, connections, sentence
+  marks, or a note attached to the question before it) or repeats a run of
+  its words anywhere in the message (steps, tools, thinking) is replaced
+  by `{content: PRIVATE_ANSWER_REDACTED, redacted: true}`. The question
+  stays. With SEC-03's scrub after the commit, none of the words stay in the
+  file. `tests/test_private_answer_scrub.py`.
+
+- **SEC-17, a floor for new passwords.** `routes_auth.NEW_PASSWORD_MIN_CHARS`
+  (8) at setup and change password, said in a 400 sentence;
+  `password_warning` flags a common choice, one or two characters repeated, a
+  run along the alphabet, the digits or a keyboard row, and a short password
+  of one kind of character, and setup and change return it as `warning`
+  (the lock screen toasts it, Settings says it on the status line). Unlock
+  keeps its old floor, so a password set before this still opens the
+  notebook. The lock screen's own check is 8 for setup and 4 for unlock;
+  the setup note and the placeholder say 8. Also: the boot's update step
+  now runs after the templates load `prefsCache`, which it read as null
+  beside them, so neither the ask-once question nor the opted-in startup
+  check ever ran (measured in Chromium before and after;
+  `scratchpad/ui-sweeps/sec2-1005-sweep.js`). `tests/test_password_floor.py`.
+
+- **SEC-02's last step, which pages a tainted turn may open.** In a turn
+  that has read outside text, `read_url` still parks unless
+  `agent._cleared_page` clears it: its page key (host lowercased, no scheme,
+  fragment or trailing slash, the query kept) is one a `web_search` returned
+  this turn (`_TurnState.result_pages`, from every `url`/`link`/`href` in
+  the result), or its host, `www.` aside, is one the person named in the
+  question (`_hosts_named`, `named_hosts`). A query string or a longer path
+  added to a result, and a host that only ends like the named one, still
+  park. Untainted turns are unchanged. `tests/test_injection_fence.py`, four
+  new.
+
 ## Moved from the plans, 2026-10-04 (design-1004)
 
 ### From WORLD_CLASS_PLAN.md 1.2: one primary per modal, meta without border or hover

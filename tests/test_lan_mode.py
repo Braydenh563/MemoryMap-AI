@@ -21,6 +21,7 @@ import http.client
 import json
 import os
 import socket
+import ssl
 import subprocess
 import sys
 import time
@@ -128,9 +129,10 @@ def test_ipv6_addresses_are_listed_bracketed_and_never_link_local(monkeypatch, a
     monkeypatch.setattr(netbind, "lan_addresses", lambda include_v6=None: ["192.168.1.9", "2001:db8::5"])
     app_state.set_preference(netbind.LAN_PREF, True)
     netbind.set_current("::")
+    # LAN mode is HTTPS on its own port (8443 beside 8000; core/lancert.py).
     assert netbind.describe(app_state, 8000)["addresses"] == [
-        "http://192.168.1.9:8000",
-        "http://[2001:db8::5]:8000",
+        "https://192.168.1.9:8443",
+        "https://[2001:db8::5]:8443",
     ]
 
 
@@ -303,6 +305,8 @@ def _free_port() -> int:
 
 
 def _start(tmp_path: Path, preferences: dict) -> tuple[subprocess.Popen, int, Path]:
+    """The real launcher. The HTTPS port other devices use is `port + 1000`,
+    pinned through `MEMORYMAP_LAN_PORT` (see `_lan_port`)."""
     data = tmp_path / "data"
     data.mkdir(parents=True, exist_ok=True)
     (data / "preferences.json").write_text(json.dumps(preferences))
@@ -313,6 +317,7 @@ def _start(tmp_path: Path, preferences: dict) -> tuple[subprocess.Popen, int, Pa
         "PYTHONPATH": str(ROOT / "src"),
         "MEMORYMAP_DATA_DIR": str(data),
         "MEMORYMAP_PORT": str(port),
+        "MEMORYMAP_LAN_PORT": str(_lan_port(port)),
     }
     proc = subprocess.Popen(  # noqa: S603  # our own launcher, fixed argv
         [sys.executable, "-m", "memorymap"],
@@ -346,14 +351,29 @@ def _stop(proc: subprocess.Popen) -> None:
         proc.wait(timeout=5)
 
 
-class _Http:
-    """http.client, never a proxy: the point is which socket the server sees."""
+def _lan_port(port: int) -> int:
+    """`_free_port` hands out ports below 61000 on Linux, so this fits."""
+    return port + 1000 if port + 1000 < 65536 else port - 1000
 
-    def __init__(self, address: str, port: int) -> None:
-        self.address, self.port = address, port
+
+class _Http:
+    """http.client, never a proxy: the point is which socket the server sees.
+
+    With `cafile`, HTTPS verified against the notebook's own certificate and
+    nothing else: the address has to be in its names (the SAN), or the
+    handshake fails, which is the test of the names."""
+
+    def __init__(self, address: str, port: int, cafile: Path | None = None) -> None:
+        self.address, self.port, self.cafile = address, port, cafile
+
+    def _connection(self):
+        if self.cafile is None:
+            return http.client.HTTPConnection(self.address, self.port, timeout=30)
+        context = ssl.create_default_context(cafile=str(self.cafile))
+        return http.client.HTTPSConnection(self.address, self.port, timeout=30, context=context)
 
     def call(self, method: str, path: str, body=None, headers=None, host=None):
-        conn = http.client.HTTPConnection(self.address, self.port, timeout=30)
+        conn = self._connection()
         try:
             sent = {"Host": host or f"{self.address}:{self.port}", **(headers or {})}
             payload = None
@@ -394,8 +414,17 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
         _stop(proc)
     proc, port, log = _start(tmp_path, prefs)
     try:
-        lan = _Http(network_address, port)
+        cert = tmp_path / "data" / "lan-tls" / "cert.pem"
+        lan = _Http(network_address, _lan_port(port), cafile=cert)
         here = _Http("127.0.0.1", port)
+
+        # The network gets HTTPS only (the owner, 2026-10-05; SEC-08): the
+        # plain http port answers on this computer alone, and the HTTPS one
+        # refuses a plain request.
+        with pytest.raises(OSError):
+            _Http(network_address, port).call("GET", "/health")
+        with pytest.raises((OSError, http.client.HTTPException)):
+            _Http(network_address, _lan_port(port)).call("GET", "/health")
 
         # It listens on the network address, and says so on the receipt.
         status, body, _ = lan.call("GET", "/auth/status")
@@ -405,7 +434,9 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
         owner = {"X-Auth-Token": body["token"]}
         status, receipt, _ = here.call("GET", "/privacy/receipt", headers=owner)
         assert receipt["listening"]["other_devices"] is True
-        assert any(network_address in url for url in receipt["listening"]["addresses"])
+        assert f"https://{network_address}:{_lan_port(port)}" in receipt["listening"]["addresses"]
+        status, state, _ = here.call("GET", "/auth/lan-access", headers=owner)
+        assert state["certificate"]["fingerprint"] in log.read_text()
 
         # A device on the network is never let in without the password, even
         # with sign-in off for this computer.
@@ -419,15 +450,14 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
         assert here.call("POST", "/auth/auto-session")[0] == 200
         assert lan.call("GET", "/entries")[0] == 401
 
-        # The media cookie, not the session token, opens pictures; on plain
-        # http to a network address it cannot be Secure (the browser would
-        # drop it), and it is HttpOnly and SameSite=Strict.
+        # The media cookie, not the session token, opens pictures; over
+        # HTTPS it is Secure, as well as HttpOnly and SameSite=Strict.
         status, body, headers = lan.call("POST", "/auth/unlock", {"password": PASSWORD})
         assert status == 200
         phone = body["token"]
         cookies = [value for name, value in headers if name.lower() == "set-cookie"]
         assert cookies and all("httponly" in c.lower() and "samesite=strict" in c.lower() for c in cookies)
-        assert not any("secure" in c.lower() for c in cookies)
+        assert all("; secure" in c.lower() for c in cookies)
         ticket = cookies[0].split(";", 1)[0]
         assert lan.call("GET", f"/media/nothing.png?token={phone}")[0] == 401
         assert lan.call("GET", "/media/nothing.png", headers={"Cookie": ticket})[0] == 404
@@ -450,7 +480,7 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
         assert not [d for d in receipt["destinations"] if d["host"] == "10.0.0.1"]
 
         # DNS rebinding: a name that is not this computer is refused.
-        assert lan.call("GET", "/health", host=f"evil.example:{port}")[0] == 421
+        assert lan.call("GET", "/health", host=f"evil.example:{_lan_port(port)}")[0] == 421
         assert lan.call("GET", "/health")[0] == 200
 
         # Wrong guesses from the network do not lock out this computer.
@@ -488,17 +518,21 @@ def test_lan_mode_answers_on_ipv6_and_ipv4_from_one_server(tmp_path):
         _stop(proc)
     proc, port, log = _start(tmp_path, {netbind.LAN_PREF: True})
     try:
-        here_v6 = _Http("::1", port)
-        here_v4 = _Http("127.0.0.1", port)
-        status, body, _ = here_v6.call("GET", "/auth/status", host=f"[::1]:{port}")
+        # The dual-stack socket is the HTTPS one (loopback http is 127.0.0.1).
+        cert = tmp_path / "data" / "lan-tls" / "cert.pem"
+        here_v6 = _Http("::1", _lan_port(port), cafile=cert)
+        here_v4 = _Http("127.0.0.1", _lan_port(port), cafile=cert)
+        status, body, _ = here_v6.call("GET", "/auth/status", host=f"[::1]:{_lan_port(port)}")
         assert status == 200 and body["setup_required"] is False
         status, body, _ = here_v4.call("POST", "/auth/unlock", {"password": PASSWORD})
         assert status == 200
         owner = {"X-Auth-Token": body["token"]}
         # Both arrive on loopback: [::1] is, and 127.0.0.1 arrives as
         # ::ffff:127.0.0.1, which the guard reads as loopback too.
-        assert here_v6.call("POST", "/auth/auto-session", host=f"[::1]:{port}")[0] in (200, 403)
-        status, receipt, _ = here_v6.call("GET", "/privacy/receipt", headers=owner, host=f"[::1]:{port}")
+        assert here_v6.call("POST", "/auth/auto-session", host=f"[::1]:{_lan_port(port)}")[0] in (200, 403)
+        status, receipt, _ = here_v6.call(
+            "GET", "/privacy/receipt", headers=owner, host=f"[::1]:{_lan_port(port)}"
+        )
         assert status == 200
         assert receipt["listening"]["other_devices"] is True
         assert receipt["listening"]["host"] == "::"

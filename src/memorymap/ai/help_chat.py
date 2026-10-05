@@ -891,9 +891,12 @@ HELP_TOPICS.extend(
             "body": (
                 "Settings, About says which version you have and checks for a newer "
                 "one; the Windows app can download and install it for you. Choose "
-                "Stable (releases only) or Main. A copy started with start.sh or "
-                "start.bat updates itself when it starts, following the same "
-                "setting, and turning automatic updates off stops it."
+                "Stable (releases only) or Main. The first start asks once whether "
+                "to check for updates automatically, and nothing is checked until "
+                "you answer. A copy started with start.sh or start.bat then "
+                "updates itself when it starts, following the same setting, and "
+                "turning automatic updates off stops it. The Check for updates "
+                "button checks once, whatever the switch says."
             ),
             "badge": {"label": "About", "section": "about"},
         },

@@ -4120,7 +4120,7 @@ function mapPaletteCommands() {
     if (value !== wbMapLayout()) row("Map layout", `ph:tree-structure Layout: ${name}`, () => wbMapSetLayout(value));
   }
   row("This map", "ph:file-text Write this map as a document", () => wbMapWriteDocument());
-  for (const [format, name] of [["markdown", "Markdown outline"], ["opml", "OPML"], ["freemind", "FreeMind (.mm)"]]) {
+  for (const [format, name] of [["markdown", "Markdown outline"], ["opml", "OPML"], ["freemind", "FreeMind (.mm)"], ["text", "plain text"]]) {
     row("Export the map", `ph:export Export as ${name}`, () => wbExportMapText(format));
   }
   return rows;

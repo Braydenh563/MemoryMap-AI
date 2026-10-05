@@ -3904,6 +3904,17 @@ def _export_markdown(title: str, roots: list[dict], numbered: bool = False) -> s
     return "\n".join(lines) + "\n"
 
 
+def _export_text(roots: list[dict]) -> str:
+    """The plain-text outline (§12.2 item 10): one topic per line, a tab per
+    level, nothing else. No title line, because a plain outline has no word
+    for one and a first line would come back as a topic: the file's name is
+    the map's, and the import is sent it. No bullets, numbers, boxes or
+    notes: this is the format for pasting into something that knows nothing
+    about lists, and `_outline_from_paste` reads it back."""
+    lines = [f"{chr(9) * depth}{node['text'] or '(untitled)'}" for depth, node in _outline_rows(roots)]
+    return "\n".join(lines) + "\n"
+
+
 #: **A note is an indented paragraph under its bullet** (MINDMAP_PLAN.md
 #: decision 18): a blank line, the note at the bullet's content column, a
 #: blank line. Every Markdown reader draws that as a paragraph inside the
@@ -4254,6 +4265,7 @@ EXPORT_FORMATS = {
     "markdown": ("text/markdown", "md"),
     "opml": ("text/x-opml", "opml"),
     "freemind": ("application/x-freemind", "mm"),
+    "text": ("text/plain", "txt"),
 }
 
 
@@ -4310,6 +4322,8 @@ def export_board(board_id: int, format: str = "markdown", db: Session = Depends(
     numbered = _board_numbered(entry)
     if format == "markdown":
         text = _export_markdown(title, roots, numbered)
+    elif format == "text":
+        text = _export_text(roots)
     elif format == "opml":
         links = _cross_links(db, board_id, {node["id"] for _, node in _outline_rows(roots)})
         text = _export_opml(title, roots, links, numbered)
@@ -4354,7 +4368,7 @@ class MapImport(BaseModel):
 #: the exports above; FreeMind `.mm` is the format Coggle, Freeplane, XMind and
 #: MindMeister all write, which is what section 4's list meant by "an existing
 #: map can come in".
-IMPORT_FORMATS = ("markdown", "opml", "freemind", "xmind")
+IMPORT_FORMATS = ("markdown", "opml", "freemind", "xmind", "text")
 
 
 def _parse_xml_document(content: str, label: str):
@@ -5250,8 +5264,14 @@ def import_board(body: MapImport, db: Session = Depends(get_session)) -> BoardOu
         "freemind": _parse_freemind,
         "markdown": _parse_markdown_outline,
         "xmind": _parse_xmind,
+        #: A plain indented outline (§12.2 item 10) is what a paste is, so it
+        #: is read the way a paste is read (decision 29), and a single top
+        #: line names the map when the client sent no name.
+        "text": lambda content: _parse_markdown_outline(_outline_from_paste(content)),
     }
     title, parsed = parsers[body.format](body.content)
+    if body.format == "text" and len(parsed) == 1:
+        title = parsed[0]["text"]
     name = (body.name or title or "Imported map").strip()[:100] or "Imported map"
     entry = Entry(content=f"# {name}", is_board=True)
     _store_board_settings(entry, "map", DEFAULT_MAP_LAYOUT)

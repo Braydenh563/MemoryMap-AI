@@ -9268,6 +9268,7 @@ async function wbExportMapText(format) {
     markdown: { suffix: "md", said: "a Markdown outline" },
     opml: { suffix: "opml", said: "OPML" },
     freemind: { suffix: "mm", said: "a FreeMind map" },
+    text: { suffix: "txt", said: "a plain-text outline" },
   };
   const chosen = formats[format] || formats.markdown;
   await saveFile(`${safe}.${chosen.suffix}`, blob);
@@ -9463,7 +9464,9 @@ async function wbImportOutlineFile(event) {
       ? "freemind"
       : /\.(opml|xml)$/i.test(file.name)
         ? "opml"
-        : "markdown";
+        : /\.txt$/i.test(file.name)
+          ? "text"
+          : "markdown";
   let content = "";
   try {
     //: An XMind file is a zip: it travels as base64 and the server unpacks
@@ -9487,7 +9490,11 @@ async function wbImportOutlineFile(event) {
   try {
     const board = await apiJson("/whiteboard/boards/import", {
       method: "POST",
-      body: JSON.stringify({ format, content }),
+      //: A plain-text outline has no title line (§12.2 item 10): the
+      //: file's name is the map's, as the export wrote it.
+      body: JSON.stringify(format === "text"
+        ? { format, content, name: file.name.replace(/\.txt$/i, "").slice(0, 100) || undefined }
+        : { format, content }),
     });
     // The gallery is refreshed *and* the new map is opened, because an import
     // is a thing you then want to look at, landing back on an unchanged-
@@ -9770,6 +9777,11 @@ const WB_EXPORT_FORMATS = [
     value: "freemind", label: "FreeMind", scopes: ["whole"], map: true, drawsCards: false,
     note: "For FreeMind and Freeplane.",
     run: () => wbExportMapText("freemind"),
+  },
+  {
+    value: "text", label: "Plain text", scopes: ["whole"], map: true, drawsCards: false,
+    note: "One topic per line, a tab per level, for anything that reads plain text.",
+    run: () => wbExportMapText("text"),
   },
 ];
 
@@ -18331,6 +18343,27 @@ onDomReady(() => {
     $("wb-import-map-file")?.click();
   });
   $("wb-import-map-file")?.addEventListener("change", wbImportOutlineFile);
+  //: **Import by drop** (MINDMAP_PLAN §12.2 item 10): an outline file let go
+  //: anywhere on the boards landing imports as the Import button's picker
+  //: would. Only a drag that carries a file is taken, so a card dragged
+  //: inside the gallery keeps its own handling.
+  const landing = $("wb-boards-landing");
+  const carriesFile = (e) => [...(e.dataTransfer?.items || [])].some((i) => i.kind === "file");
+  landing?.addEventListener("dragover", (e) => {
+    if (!carriesFile(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  });
+  landing?.addEventListener("drop", (e) => {
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    e.preventDefault();
+    if (!/\.(opml|xml|mm|xmind|md|markdown|txt)$/i.test(file.name)) {
+      toast("Drop an outline to import it: OPML, FreeMind, XMind, Markdown or plain text.", true);
+      return;
+    }
+    wbImportOutlineFile({ target: { files: [file], value: "" } });
+  });
   $("wb-back-to-boards")?.addEventListener("click", wbShowBoardsLanding);
   $("library-boards-search")?.addEventListener("input", redrawLibraryBoardsGallery);
   // The Reload button beside "+ New board", now named after what it reloads.

@@ -43962,3 +43962,37 @@ the shift-drag sever).
   empty to its left and right. Whether a row thumbnail may crop a tall map to
   the box (breaking that rule) or the box goes square is a judgement for the
   owner, not a measurement.
+
+## Moved from the plans, 2026-10-05 (MINDMAP_PLAN §12.2 items 7 and 10, op5)
+
+The plan's text: "7. **Multiple roots and floating topics**; **auto-colour by
+branch** as the default theme with eight curated palettes." and "10.
+**Export**: PNG at 2x with the theme, PDF, SVG, FreeMind .mm, OPML, Markdown
+outline, plain-text outline; **import** by drop of .mm, .opml, .txt outline
+or Markdown, and from XMind's .xmind (its content.json) read-only."
+
+- **Multiple roots and floating topics** were built (`wbMapAddRootAt`, a
+  double-click or the canvas menu's "Add a topic here"; `wbMapSever`).
+- **Eight palettes**: four added to `MAP_BRANCH_PALETTES` (Bold: Set1 less its
+  yellow; Paired less its pale green; Bright: Observable10; Earth: the dark
+  ends of BrBG, PRGn and PiYG), each colour at least 1.6:1 on white.
+  `tests/test_map_theme_palette.py` pins eight, the picker's names against
+  the server's, and the contrast.
+- **Plain-text outline out** (`format=text`, `_export_text`): one topic per
+  line, a tab per level, no title, bullets, numbers, boxes or notes; the
+  export dialog's "Plain text" and the palette's "Export as plain text".
+- **.txt in** (`format: "text"`): read the way a paste is (decision 29), the
+  file's name sent as the map's name, a single top line naming it otherwise.
+- **Import by drop**: an outline file let go on the boards landing
+  (`#wb-boards-landing`) imports as the Import picker does.
+- PNG at 2x, PDF, SVG, FreeMind, OPML, Markdown and XMind were already built.
+
+Measured: `tests/test_mindmap.py` (the 101-topic map round-trips through
+text; a hand-written outline with spaces, a numbered line and a bullet);
+`scratchpad/ui-sweeps/op5-1005.js` MODE=mapio 8/8 at 1440 and 390, light and
+dark (eight palettes in the look dialog, Plain text in the export dialog
+inside the window, the palette row, the tabbed round trip, a dropped .txt
+imported and opened; the drop fails on the base, which has no handler).
+Not verified: a real file dragged from a desktop file manager (the sweep
+dispatches the DragEvent).
+

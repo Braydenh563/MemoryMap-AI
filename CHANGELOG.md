@@ -619,6 +619,7 @@ Privacy: making a note private now encrypts the history it already had (its firs
 - Note boxes (Capture and editing a note) render as you type with a Source switch for the markdown, in place of a separate Preview; the switch stays visible with the formatting tools folded and is remembered.
 
 ### Added
+- Mind maps: export as a plain-text outline (a tab per level) and import a .txt outline; an outline file dropped on the boards page imports and opens (MINDMAP_PLAN §12.2 item 10; `tests/test_mindmap.py`, `op5-1005.js` MODE=mapio).
 
 - Chat, skill runs: "Undo the run" beside What changed puts back every note the run changed at once, after showing what will go back; each change keeps its own Undo, and a board item is named as one that can't be undone.
 - Settings, Packages: "Read images without Tesseract (RapidOCR)", a second local reader for pictures and scanned pages with nothing else to install. It reads when Tesseract isn't ready; Tesseract stays the reader whenever it is. The Vision bundle installs both, and the OCR workspace names whichever one read.

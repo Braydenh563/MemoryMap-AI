@@ -490,18 +490,13 @@ Closed 2026-10-05 (op5): moved whole to HISTORY.md ("Moved from the plans,
 6. **Comments** (MindMeister): a thread per node, count marker. Built for
    topics and board items alike (WHITEBOARD_PLAN decision 17; HISTORY.md,
    "Moved from the plans, 2026-10-04 (comments)").
-7. **Multiple roots and floating topics** (built: `wbMapAddRootAt`, `wbMapSever`);
-   **auto-colour by branch** as
-   the default theme with eight curated palettes. Numbering is built
-   (decision 17; HISTORY.md, "Moved from the plans, 2026-10-04").
+7. **Multiple roots, floating topics, eight palettes**: built (HISTORY.md,
+   "Moved from the plans, 2026-10-05 (MINDMAP_PLAN §12.2 items 7 and 10, op5)").
 8. **Outline view**: built (decision 33; HISTORY.md, "Moved from the plans,
    2026-10-05 (the map's outline)"). Its markers as columns wait on item 4.
 9. **Presentation mode**: built (decision 21; HISTORY.md, "Moved from the
    plans, 2026-10-05 (a map presented by branch)").
-10. **Export**: PNG at 2x with the theme, PDF, SVG, FreeMind .mm, OPML,
-    Markdown outline, plain-text outline; **import** by drop of .mm,
-    .opml, .txt outline or Markdown, and from XMind's .xmind (its
-    content.json) read-only.
+10. **Export and import**: built (the same HISTORY.md record).
 Gate: mindmap3.js extended with one check per feature; the 201-node map
 keeps 60 fps pan (measured with the frame probe); round-trip of every
 export that claims it.

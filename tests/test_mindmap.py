@@ -2293,3 +2293,42 @@ def test_markers_round_trip_through_both_xml_formats_and_survive_a_look_reset(cl
     assert "star" not in markdown and "priority" not in markdown.lower()
     client.post(f"/whiteboard/boards/{board['id']}/nodes/clear-style")
     assert _styles_by_text(client, board["id"])["Pack"].get("markers") == ["star", "warning"]
+
+
+def test_a_map_exports_and_imports_as_a_plain_text_outline(client):
+    """MINDMAP_PLAN §12.2 item 10: "plain-text outline" out and ".txt
+    outline" in. One topic per line, a tab per level, no bullets and no
+    title line (a plain outline has no word for one: the file's name is the
+    map's, and the client sends it back as `name`). The 101-topic map comes
+    back whole."""
+    board = _big_map(client, name="Plain")
+    first = _structure(client.get(f"/whiteboard/boards/{board['id']}/tree").json()["roots"])
+    exported = client.get(f"/whiteboard/boards/{board['id']}/export?format=text")
+    assert exported.status_code == 200, exported.text
+    assert exported.headers["content-type"].startswith("text/plain")
+    assert ".txt" in exported.headers["content-disposition"]
+    lines = exported.text.splitlines()
+    assert lines[0] == "Centre" and lines[1] == "\tBranch 0" and lines[2] == "\t\tLeaf 0.0"
+    assert not any(line.lstrip().startswith(("-", "#")) for line in lines)
+    back = client.post(
+        "/whiteboard/boards/import",
+        json={"format": "text", "content": exported.text, "name": "Plain"},
+    )
+    assert back.status_code == 201, back.text
+    assert back.json()["title"] == "Plain" and back.json()["object_count"] == 101
+    second = _structure(client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()["roots"])
+    assert second == first
+
+
+def test_a_hand_written_text_outline_imports_by_indentation(client):
+    """A .txt from anywhere: spaces or tabs, a numbered line, a bullet left
+    in; with no name sent, a single top line names the map."""
+    text = "Trip\n  1. Book\n    flights\n  - Pack\n"
+    back = client.post("/whiteboard/boards/import", json={"format": "text", "content": text})
+    assert back.status_code == 201, back.text
+    assert back.json()["title"] == "Trip"
+    tree = _structure(client.get(f"/whiteboard/boards/{back.json()['id']}/tree").json()["roots"])
+    assert tree == [{"text": "Trip", "children": [
+        {"text": "Book", "children": [{"text": "flights", "children": []}]},
+        {"text": "Pack", "children": []},
+    ]}]

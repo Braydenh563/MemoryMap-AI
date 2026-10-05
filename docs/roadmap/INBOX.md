@@ -133,6 +133,27 @@ with its owner named in the entry.
      and go back on it, it is empty for a second then loads :(" Placed: with
      598 (loading states), next agent slot.
 
+606. **The owner, 2026-10-05, verbatim.** "something about the design,
+     ui/ux of the note edit form still feels off..." (screenshot: the edit
+     form: a full-width Title field; a "Formatting" label row with three
+     icons and a boxed Source toggle; the body with a line number; one row
+     of a long tags field, a "Core Concepts" select, a filled Save changes
+     and Cancel; a Related row of "≈ title" texts each with a boxed Link
+     button; a separate boxed "Attach a link" button.) Placed: the Settings
+     and popups design agent's queue (599), as the same recipe pass.
+607. **The owner, 2026-10-05, verbatim.** "I made a mind map from the graph
+     but the notification included no link to it" (toast: "Mind map "test"
+     made from 33 notes. It is in Library, Boards." with no action) and "this
+     is how it made the map, surely there's a better and more dynamic way it
+     can build the map based off the connections and links and relevancy
+     etc??" (screenshot: one root with 33 children in a single column).
+     Placed: next agent slot (Opus): an Open action on the toast and the
+     bell row; the map built from the graph's structure: clusters
+     (categories or link communities) as branches, linked notes as children
+     of the note they link to, a central note (most connected or the one
+     picked) as the root, a balanced radial/tree layout, cross-links for
+     links that do not fit the tree.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 540, 554, 556, 564, 575 (Atlas motion and form) placed in

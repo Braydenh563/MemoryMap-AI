@@ -98,6 +98,15 @@ with its owner named in the entry.
      Placed: the next whiteboard agent, after the integration merges the
      whiteboard phase 2 branch (same files).
 
+598. **The owner, 2026-10-05, verbatim.** "the loading screen on features
+     like the graph tab and library is a blank screen with a horizontal line
+     in the middle which if it lasts as long as it did for me right after the
+     update (its faster now), then it might have people thinking it is
+     broken so needs a better loading screen and to be cleaner." With 596's
+     "some skeleton loaders are missing like on the dashboard". Placed: the
+     next agent slot (page skeletons for Graph, Library, Documents, the
+     dashboard's widgets; a named, moving loading state).
+
 ## Placed (last 20, newest first)
 
 - 2026-10-05: 540, 554, 556, 564, 575 (Atlas motion and form) placed in

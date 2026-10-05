@@ -63,6 +63,11 @@ with its owner named in the entry.
      well to be consistent, moderna and professional." (screenshot: the mind
      map's "Point a new node at..." picker).
 
+549. **The owner, 2026-10-05, verbatim.** "can you also better redesign and
+     restructure the document editor suggestions panel?? for both docks"
+     (`#doc-prose-panel`, opened from the toolbar's Suggestions button and
+     the focus dock's). Placed: the design agent after 548.
+
 525. **The owner, 2026-10-04 (from 522, verbatim).** "also cna we make the
      dark background behind the graph labels togglable??" Next Opus: the
      label plate switch in the graph's gear (Obsidian-parity brief).
